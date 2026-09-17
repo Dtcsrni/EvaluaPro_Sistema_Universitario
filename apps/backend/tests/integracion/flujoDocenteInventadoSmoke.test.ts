@@ -13,13 +13,13 @@
 
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
-import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
-import { Periodo } from '../../src/modulos/modulo_alumnos/modeloPeriodo';
-import { Alumno } from '../../src/modulos/modulo_alumnos/modeloAlumno';
-import { evaluarAutoCalificableOmr } from '../../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
+import { Periodo } from '../../src/modulos/modulo_alumnos/modeloPeriodo.js';
+import { Alumno } from '../../src/modulos/modulo_alumnos/modeloAlumno.js';
+import { evaluarAutoCalificableOmr } from '../../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('Flujo Docente Integral Completo (Materia y Alumnos Inventados)', () => {
   const app = crearApp();

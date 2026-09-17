@@ -3,10 +3,13 @@
  *
  * Responsabilidad: Pruebas unitarias de navegación por pestañas y guías rápidas en Diseño de Exámenes (SPEC-034).
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SeccionPlantillas } from '../src/apps/app_docente/SeccionPlantillas';
+import {
+  existeTituloPlantillaDuplicadoPorPeriodo,
+  SeccionPlantillas
+} from '../src/apps/app_docente/SeccionPlantillas';
 import { PlantillasListado } from '../src/apps/app_docente/features/plantillas/components/PlantillasListado';
 import type { PreviewPdfUrls } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
 import type { PermisosUI, Plantilla, PreviewPlantilla } from '../src/apps/app_docente/tipos';
@@ -69,14 +72,27 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     sessionStorage.removeItem('evaluapro.plantillas.tab-activa');
   });
 
+  it('acota la validación de títulos a la materia seleccionada', () => {
+    const plantillas = [
+      { _id: 'pla-uno', titulo: 'Segundo Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-uno' },
+      { _id: 'pla-dos', titulo: 'Segundo Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-dos' }
+    ] as Plantilla[];
+
+    expect(existeTituloPlantillaDuplicadoPorPeriodo(plantillas, '  segundo   parcial ', 'per-uno')).toBe(true);
+    expect(existeTituloPlantillaDuplicadoPorPeriodo(plantillas, '  segundo   parcial ', 'per-tres')).toBe(false);
+    expect(existeTituloPlantillaDuplicadoPorPeriodo(plantillas, 'Segundo Parcial', 'per-dos', 'pla-dos')).toBe(false);
+  });
+
   it('renderiza encabezado principal y pestañas operativas', () => {
     render(<HarnessPlantillas />);
     expect(screen.getByRole('heading', { level: 2, name: /Diseño de Exámenes/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Diseñar Exámenes/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Historial de Lotes/i })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: /Tamaño de fuente/i })).toHaveValue('1');
-    expect(screen.getByRole('combobox', { name: /Espaciado de línea/i })).toHaveValue('1.1');
+    expect(screen.queryByRole('combobox', { name: /Tamaño de fuente/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /Espaciado de línea/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Tipografía e interlineado')).toBeInTheDocument();
+    expect(screen.getByText('Gestionados por el motor')).toBeInTheDocument();
     expect(screen.getByText('Selecciona una materia para comenzar')).toBeInTheDocument();
   });
 
@@ -186,7 +202,12 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     const inputTitulo = screen.getByLabelText(/Titulo/i) as HTMLInputElement;
     expect(inputTitulo.value).toBe('Parcial Algebra');
 
-    expect(screen.getByRole('button', { name: /Guardar cambios/i })).toBeInTheDocument();
+    const editorInline = screen.getByTestId('plantillas-editor-inline');
+    expect(editorInline.previousElementSibling).toHaveTextContent('Parcial Algebra');
+    expect(document.querySelector('.plantillas-item--editando')).toHaveTextContent('Parcial Algebra');
+
+    expect(screen.getByRole('button', { name: /Actualizar plantilla/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Previsualizar PDF/i })).toHaveLength(2);
     expect(screen.getByRole('button', { name: /^Cancelar$/i })).toBeInTheDocument();
 
     // Cancelar edición
@@ -208,8 +229,39 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByText('Seleccionados: 1')).toBeInTheDocument();
   });
 
-  it('abre el panel al pulsar Previsualizar y delega la carga al toggle del preview', () => {
-    const togglePreviewPlantilla = vi.fn(async () => {});
+  it('identifica la materia en el selector de generación además del id de la plantilla', () => {
+    render(
+      <HarnessPlantillas
+        plantillas={[
+          { _id: 'pla-1', titulo: 'Segundo Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+
+    expect(screen.getByRole('option', { name: 'Periodo 1 · Segundo Parcial (ID: pla-1)' })).toBeInTheDocument();
+  });
+
+  it('cambia a Actualizar PDF cuando se modifica la configuración de una plantilla', () => {
+    render(
+      <HarnessPlantillas
+        plantillas={[
+          { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/i }));
+    fireEvent.change(screen.getByLabelText('Cantidad de páginas'), { target: { value: '3' } });
+
+    const editorInline = screen.getByTestId('plantillas-editor-inline');
+    expect(within(editorInline).getByRole('button', { name: /^Actualizar PDF$/i })).toBeInTheDocument();
+    expect(within(editorInline).queryByRole('button', { name: /^Previsualizar PDF$/i })).not.toBeInTheDocument();
+  });
+
+  it('carga únicamente la previsualización PDF al pulsar Previsualizar PDF', () => {
+    const cargarPreviewPdfPlantilla = vi.fn(async () => {});
 
     render(
       <PlantillasListado
@@ -221,18 +273,14 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
           { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] } as Plantilla
         ]}
         periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
-        previewPorPlantillaId={{}}
-        plantillaPreviewId={null}
         previewPdfUrlPorPlantillaId={{}}
-        cargandoPreviewPlantillaId={null}
         puedePrevisualizarPlantillas={true}
         cargandoPreviewPdfPlantillaId={null}
-        cargarPreviewPdfPlantilla={async () => {}}
+        cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
         cerrarPreviewPdfPlantilla={() => {}}
         abrirPdfFullscreen={() => {}}
         pdfFullscreenUrl={null}
         cerrarPdfFullscreen={() => {}}
-        togglePreviewPlantilla={togglePreviewPlantilla}
         iniciarEdicion={() => {}}
         puedeGestionarPlantillas={true}
         archivandoPlantillaId={null}
@@ -242,12 +290,12 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Previsualizar$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Previsualizar PDF$/i }));
 
-    expect(togglePreviewPlantilla).toHaveBeenCalledWith('pla-1');
+    expect(cargarPreviewPdfPlantilla).toHaveBeenCalledWith('pla-1', 'booklet');
   });
 
-  it('renderiza las paginas rasterizadas del PDF dentro del boceto', () => {
+  it('renderiza únicamente las páginas rasterizadas del PDF', () => {
     render(
       <PlantillasListado
         totalPlantillasTodas={1}
@@ -258,27 +306,13 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
           { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] } as Plantilla
         ]}
         periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
-        previewPorPlantillaId={{
-          'pla-1': {
-            paginas: [
-              {
-                numero: 1,
-                preguntasDel: 1,
-                preguntasAl: 1,
-                elementos: [],
-                preguntas: [{ numero: 1, id: 'q-1', tieneImagen: false, enunciadoCorto: 'Pregunta de prueba' }]
-              }
-            ]
-          }
-        }}
-        plantillaPreviewId="pla-1"
         previewPdfUrlPorPlantillaId={{
           'pla-1': {
             booklet: 'blob://pdf-preview',
-            bookletPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }]
+            bookletPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }],
+            bookletPagesTotal: 4
           }
         }}
-        cargandoPreviewPlantillaId={null}
         puedePrevisualizarPlantillas={true}
         cargandoPreviewPdfPlantillaId={null}
         cargarPreviewPdfPlantilla={async () => {}}
@@ -286,7 +320,6 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
         abrirPdfFullscreen={() => {}}
         pdfFullscreenUrl={null}
         cerrarPdfFullscreen={() => {}}
-        togglePreviewPlantilla={async () => {}}
         iniciarEdicion={() => {}}
         puedeGestionarPlantillas={true}
         archivandoPlantillaId={null}
@@ -298,6 +331,47 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
 
     const pagina = screen.getByAltText('Página 1 de la previsualización del examen');
     expect(pagina).toHaveAttribute('src', 'data:image/png;base64,AAAA');
-    expect(screen.getAllByText('Página 1').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryAllByText('Página 1')).toHaveLength(0);
+    expect(screen.getByText('PDF real: 4 páginas')).toBeInTheDocument();
+    expect(screen.getByText('Configuradas: 2 · el contenido requiere 4')).toBeInTheDocument();
+  });
+
+  it('muestra el PDF debajo del editor cuando la tarjeta está minimizada', () => {
+    render(
+      <PlantillasListado
+        totalPlantillasTodas={1}
+        totalPlantillas={1}
+        filtroPlantillas=""
+        setFiltroPlantillas={() => {}}
+        plantillasFiltradas={[
+          { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] } as Plantilla
+        ]}
+        periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
+        plantillaEditandoId="pla-1"
+        editorInline={<div>Editor de prueba</div>}
+        previewPdfUrlPorPlantillaId={{
+          'pla-1': {
+            booklet: 'blob://pdf-preview',
+            bookletPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }]
+          }
+        }}
+        puedePrevisualizarPlantillas={true}
+        cargandoPreviewPdfPlantillaId={null}
+        cargarPreviewPdfPlantilla={async () => {}}
+        cerrarPreviewPdfPlantilla={() => {}}
+        abrirPdfFullscreen={() => {}}
+        pdfFullscreenUrl={null}
+        cerrarPdfFullscreen={() => {}}
+        iniciarEdicion={() => {}}
+        puedeGestionarPlantillas={true}
+        archivandoPlantillaId={null}
+        archivarPlantilla={async () => {}}
+        puedeArchivarPlantillas={true}
+        formatearFechaHora={() => '-'}
+      />
+    );
+
+    expect(screen.getByTestId('plantillas-preview-inline')).toBeInTheDocument();
+    expect(within(screen.getByTestId('plantillas-preview-inline')).getByAltText('Página 1 de la previsualización del examen')).toBeInTheDocument();
   });
 });

@@ -8,10 +8,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   ErrorOperacional,
   procesarErrorZod
-} from '../src/compartido/robustez/manejadorErrores';
-import { ErrorCategoria } from '../src/compartido/robustez/tiposRobustez';
-import { conRetry, normalizarError } from '../src/compartido/robustez/soporteRetry';
-import { CircuitBreaker, obtenerCircuitBreaker } from '../src/compartido/robustez/circuitBreaker';
+} from '../src/compartido/robustez/manejadorErrores.js';
+import { ErrorCategoria } from '../src/compartido/robustez/tiposRobustez.js';
+import { conRetry, normalizarError } from '../src/compartido/robustez/soporteRetry.js';
+import { CircuitBreaker, obtenerCircuitBreaker } from '../src/compartido/robustez/circuitBreaker.js';
 import { z } from 'zod';
 
 describe('Robustez Endpoints V2 - Ola 3 Fase 2', () => {
@@ -332,7 +332,7 @@ describe('Robustez Endpoints V2 - Ola 3 Fase 2', () => {
       );
 
       const { esquemaAnalizarOmrV2 } = await import(
-        '../src/compartido/validaciones/validacionesV2'
+        '../src/compartido/validaciones/validacionesV2.js'
       );
 
       const resultado = esquemaAnalizarOmrV2.safeParse({
@@ -344,7 +344,7 @@ describe('Robustez Endpoints V2 - Ola 3 Fase 2', () => {
 
     it('rechaza base64 muy pequeno', async () => {
       const { esquemaAnalizarOmrV2 } = await import(
-        '../src/compartido/validaciones/validacionesV2'
+        '../src/compartido/validaciones/validacionesV2.js'
       );
 
       const resultado = esquemaAnalizarOmrV2.safeParse({
@@ -355,7 +355,7 @@ describe('Robustez Endpoints V2 - Ola 3 Fase 2', () => {
     });
 
     it('valida folio con formato correcto', async () => {
-      const { esquemaFolio } = await import('../src/compartido/validaciones/validacionesV2');
+      const { esquemaFolio } = await import('../src/compartido/validaciones/validacionesV2.js');
 
       const resultadoValido = esquemaFolio.safeParse('EXA-2026-001');
       expect(resultadoValido.success).toBe(true);
@@ -366,7 +366,7 @@ describe('Robustez Endpoints V2 - Ola 3 Fase 2', () => {
 
     it('valida límites de lote', async () => {
       const { esquemaAnalizarOmrLoteV2 } = await import(
-        '../src/compartido/validaciones/validacionesV2'
+        '../src/compartido/validaciones/validacionesV2.js'
       );
 
       const base64 = Buffer.from('x'.repeat(10000)).toString('base64');

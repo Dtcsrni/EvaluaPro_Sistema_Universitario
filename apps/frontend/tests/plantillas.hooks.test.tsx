@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { usePlantillasGeneradosActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions';
 import { usePlantillasOmrActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions';
 import { usePlantillasPreviewActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
+import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 
 describe('hooks de plantillas', () => {
   it('usePlantillasGeneradosActions avisa cuando no hay permiso para descargar lote', async () => {
@@ -127,5 +128,35 @@ describe('hooks de plantillas', () => {
     });
 
     expect(avisarSinPermiso).toHaveBeenCalled();
+  });
+
+  it('carga el detalle de assessment desde la ruta de exámenes generados', async () => {
+    const obtener = vi.spyOn(clienteApi, 'obtener').mockResolvedValue({ assessment: {}, jobs: [] } as never);
+    const setCargandoAssessmentId = vi.fn();
+    const setAssessmentDetalle = vi.fn();
+    const setMensajeGeneracion = vi.fn();
+    const { result } = renderHook(() =>
+      usePlantillasOmrActions({
+        avisarSinPermiso: vi.fn(),
+        puedeDescargarExamenes: true,
+        puedeAnalizarOmr: true,
+        setCargandoAssessmentId,
+        setAssessmentDetalle,
+        setProcesandoOmr: vi.fn(),
+        setJobOmr: vi.fn(),
+        setMensajeGeneracion
+      })
+    );
+
+    await act(async () => {
+      await result.current.cargarAssessmentDetalle('ass id/1');
+    });
+
+    expect(obtener).toHaveBeenCalledWith('/examenes/generados/ass%20id%2F1');
+    expect(setCargandoAssessmentId).toHaveBeenNthCalledWith(1, 'ass id/1');
+    expect(setAssessmentDetalle).toHaveBeenCalledWith({ assessment: {}, jobs: [] });
+    expect(setCargandoAssessmentId).toHaveBeenLastCalledWith(null);
+    expect(setMensajeGeneracion).not.toHaveBeenCalled();
+    obtener.mockRestore();
   });
 });

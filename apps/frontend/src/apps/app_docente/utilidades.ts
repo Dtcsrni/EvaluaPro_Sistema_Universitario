@@ -25,6 +25,23 @@ const VISTAS_VALIDAS = new Set([
 
 export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\-_.()#&/]*$/u;
 
+/** Iniciales consistentes con las que se imprimen en los exámenes masivos. */
+export function obtenerInicialesAlumno(nombreCompleto?: string): string {
+  const particulas = new Set(['a', 'da', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'y']);
+  const palabras = String(nombreCompleto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase()
+    .match(/[a-z0-9]+/g) ?? [];
+  const significativas = palabras.filter((palabra) => !particulas.has(palabra));
+  const iniciales = (significativas.length > 0 ? significativas : palabras)
+    .map((palabra) => palabra.charAt(0))
+    .join('')
+    .toUpperCase();
+  if (iniciales.length <= 6) return iniciales;
+  return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
+}
+
 export function obtenerVistaInicial(): string {
   if (typeof window === 'undefined') return 'periodos';
   const params = new URLSearchParams(window.location.search);
@@ -266,33 +283,6 @@ export function mensajeDeError(error: unknown, fallback: string) {
 
 export function esMensajeError(texto: string): boolean {
   return tipoMensajeInline(texto) === 'error';
-}
-
-export function obtenerDominiosCorreoPermitidosFrontend(): string[] {
-  return String(import.meta.env.VITE_DOMINIOS_CORREO_PERMITIDOS || '')
-    .split(',')
-    .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
-    .filter(Boolean);
-}
-
-function obtenerDominioCorreo(correo: string): string | null {
-  const valor = String(correo || '').trim().toLowerCase();
-  const at = valor.lastIndexOf('@');
-  if (at < 0) return null;
-  const dominio = valor.slice(at + 1).trim();
-  return dominio ? dominio : null;
-}
-
-export function esCorreoDeDominioPermitidoFrontend(correo: string, dominiosPermitidos: string[]): boolean {
-  const lista = Array.isArray(dominiosPermitidos) ? dominiosPermitidos : [];
-  if (lista.length === 0) return true;
-  const dominio = obtenerDominioCorreo(correo);
-  if (!dominio) return false;
-  return lista.includes(dominio);
-}
-
-export function textoDominiosPermitidos(dominios: string[]): string {
-  return dominios.map((d) => `@${d}`).join(', ');
 }
 
 const LARGO_ID_MATERIA = 8;

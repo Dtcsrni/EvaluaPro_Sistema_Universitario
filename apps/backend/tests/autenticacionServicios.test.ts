@@ -6,8 +6,8 @@
  */
 // Pruebas de servicios de autenticacion.
 import { describe, expect, it } from 'vitest';
-import { crearHash, compararContrasena } from '../src/modulos/modulo_autenticacion/servicioHash';
-import { crearTokenDocente, verificarTokenDocente } from '../src/modulos/modulo_autenticacion/servicioTokens';
+import { crearHash, compararContrasena } from '../src/modulos/modulo_autenticacion/servicioHash.js';
+import { crearTokenDocente, verificarTokenDocente } from '../src/modulos/modulo_autenticacion/servicioTokens.js';
 
 describe('servicioHash', () => {
   it('genera hash y valida contrasenas', async () => {

@@ -2,7 +2,7 @@
  * Rutas de analiticas y banderas.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import {
   crearBandera,
   exportarCsv,
@@ -13,10 +13,10 @@ import {
   exportarListaAcademicaFirma,
   listarBanderas,
   registrarEventosUso
-} from './controladorAnaliticas';
-import { esquemaCrearBandera, esquemaExportarCsv } from './validacionesAnaliticas';
-import { esquemaRegistrarEventosUso } from './validacionesEventosUso';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+} from './controladorAnaliticas.js';
+import { esquemaCrearBandera, esquemaExportarCsv } from './validacionesAnaliticas.js';
+import { esquemaRegistrarEventosUso } from './validacionesEventosUso.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
 const router = Router();
 

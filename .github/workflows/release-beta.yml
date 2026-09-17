@@ -88,7 +88,7 @@ jobs:
             node scripts/release/validate-beta-promotion.mjs --head-sha="$BETA_HEAD_SHA_INPUT" --base-ref="$BETA_BASE_REF_INPUT" --reason="$BETA_REASON_INPUT" --report-dir="$report_dir" || true
           fi
 
-          version_guess="${BETA_VERSION_INPUT:-$(node -e "const p=require('./package.json'); process.stdout.write(String(p.version || ''))")}"
+          version_guess="${BETA_VERSION_INPUT:-$(node --input-type=module -e "import packageJson from './package.json' with { type: 'json' }; process.stdout.write(String(packageJson.version || ''))")}"
           base_version="${version_guess%%-*}"
           decision_file="$(find "$report_dir" -name decision.json | sort | tail -n 1)"
           if [ -z "$decision_file" ] || [ ! -f "$decision_file" ]; then
@@ -96,8 +96,8 @@ jobs:
             exit 1
           fi
 
-          node - "$decision_file" <<'NODE'
-          const fs = require('fs');
+          node --input-type=module - "$decision_file" <<'NODE'
+          import fs from 'node:fs';
           const file = process.argv[2];
           const data = JSON.parse(fs.readFileSync(file, 'utf8'));
           const out = process.env.GITHUB_OUTPUT;

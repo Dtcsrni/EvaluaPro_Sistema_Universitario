@@ -5,7 +5,7 @@
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
 import { createHash } from 'node:crypto';
-import type { ManifiestoIntegridadLista } from './tiposListaAcademica';
+import type { ManifiestoIntegridadLista } from './tiposListaAcademica.js';
 
 function hashSha256(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');

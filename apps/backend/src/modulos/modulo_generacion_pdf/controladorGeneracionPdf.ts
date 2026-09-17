@@ -9,26 +9,26 @@
  * - Serializa respuestas HTTP sin modificar contratos públicos existentes.
  */
 import type { Response } from 'express';
-import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import {
   archivarPlantillaUseCase,
   actualizarPlantillaUseCase,
   crearPlantillaUseCase,
   eliminarPlantillaUseCase,
   listarPlantillasUseCase
-} from './application/usecases/gestionPlantillas';
+} from './application/usecases/gestionPlantillas.js';
 import {
   descargarPdfLoteUseCase,
   generarExamenesLoteUseCase,
   generarExamenUseCase,
   obtenerProgresoGeneracionLoteUseCase
-} from './application/usecases/generacionPlantillas';
+} from './application/usecases/generacionPlantillas.js';
 import {
   previsualizarPlantillaPdfUseCase,
   previsualizarPlantillaPdfVisualUseCase,
   previsualizarPlantillaUseCase
-} from './application/usecases/previsualizacionPlantillas';
+} from './application/usecases/previsualizacionPlantillas.js';
 
 export async function listarPlantillas(req: SolicitudDocente, res: Response) {
   const payload = await listarPlantillasUseCase({

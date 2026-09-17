@@ -4,7 +4,7 @@
  * Responsabilidad: Verifica el aislamiento de base SQLite temporal usada por pruebas.
  */
 import { describe, expect, it } from 'vitest';
-import { resolverNombreDbTest } from './testDbPath';
+import { resolverNombreDbTest } from './testDbPath.js';
 
 describe('utils/mongo test database isolation', () => {
   it('usa un nombre distinto para procesos Vitest distintos con el mismo worker id', () => {

@@ -1,9 +1,10 @@
 {
   "name": "portal-alumno-cloud",
   "description": "API del portal alumno (solo lectura) para consulta de información y resultados; diseñada para despliegue cloud o local.",
-  "version": "1.1.4",
+  "version": "1.1.6",
   "license": "AGPL-3.0-or-later",
   "private": true,
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario"
@@ -19,8 +20,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit --project tsconfig.json --pretty false",
+    "build": "node scripts/clean-dist.mjs && prisma generate && tsc --project tsconfig.json && node scripts/copy-prisma-generated.mjs",
+    "typecheck": "prisma generate && tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

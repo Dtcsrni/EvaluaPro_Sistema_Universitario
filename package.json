@@ -1,7 +1,7 @@
 {
   "name": "evaluapro",
   "description": "Plataforma para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR), operación docente local nativa y dashboard.",
-  "version": "1.1.4",
+  "version": "1.1.6",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
     "email": "armsystechno@gmail.com"
@@ -69,10 +69,10 @@
     "test:portal:ci": "node scripts/retry.mjs --name portal --attempts 3 --delay-ms 750 --command \"npm -C apps/portal_alumno_cloud run test\"",
     "test:frontend": "npm -C apps/frontend run test",
     "test:frontend:ci": "node scripts/retry.mjs --name frontend --attempts 5 --delay-ms 900 --command \"npm -C apps/frontend run test -- --pool=forks --reporter=verbose\" --fallback-command \"npm -C apps/frontend run test -- --pool=threads --reporter=verbose\"",
-    "test:gui:responsive:e2e:docente": "playwright test -c tests/gui-responsive/playwright.config.cjs",
+    "test:gui:responsive:e2e:docente": "playwright test -c tests/gui-responsive/playwright.config.mjs",
     "test:smoke:live": "node scripts/testing/smoke-live-docente.mjs",
-    "test:gui:responsive:e2e:alumno": "playwright test -c tests/gui-responsive/playwright.alumno.config.cjs",
-    "test:gui:responsive:e2e:admin": "playwright test -c tests/gui-responsive/playwright.admin.config.cjs",
+    "test:gui:responsive:e2e:alumno": "playwright test -c tests/gui-responsive/playwright.alumno.config.mjs",
+    "test:gui:responsive:e2e:admin": "playwright test -c tests/gui-responsive/playwright.admin.config.mjs",
     "test:gui:responsive:e2e": "npm-run-all -s test:gui:responsive:e2e:docente test:gui:responsive:e2e:alumno test:gui:responsive:e2e:admin",
     "test:gui:responsive:e2e:ci": "npm-run-all -s test:gui:responsive:e2e:docente test:gui:responsive:e2e:alumno test:gui:responsive:e2e:admin",
     "gui:screen-matrix": "node scripts/testing/generate-gui-screen-matrix.mjs --write",
@@ -178,10 +178,13 @@
     "pipeline:contract:check": "node scripts/pipeline-contract-check.mjs",
     "ci:policy:audit": "npm-run-all -s pipeline:contract:check test:ruleset:policy test:release:policy test:security:policy test:sdd:policy test:ia:traceability test:ia:handoff test:ai:caveman sdd:audit",
     "ci:policy:audit:remote": "npm-run-all -s ci:policy:audit \"ruleset:check -- --repo=Dtcsrni/EvaluaPro_Sistema_Universitario\"",
-    "test:ci": "npm run lint && npm run typecheck && npm run build && npm run docs:generate && npm run docs:check && npm run diagramas:check && npm run diagramas:render:check && npm run diagramas:consistencia:check && npm run routes:check && npm run test:backend:ci && npm run test:portal:ci && npm run test:frontend:ci && npm run test:client:proyectos:ci && npm run test:coverage:exclusions:debt && npm run test:compliance:policy",
+    "test:ci": "npm run lint && npm run guard:wcag -- --skip-lint && npm run typecheck && npm run build && npm run docs:generate && npm run docs:check && npm run diagramas:check && npm run diagramas:render:check && npm run diagramas:consistencia:check && npm run routes:check && npm run test:backend:ci && npm run test:portal:ci && npm run test:frontend:ci && npm run test:client:proyectos:ci && npm run test:coverage:exclusions:debt && npm run test:compliance:policy",
     "build": "npm run --workspaces --if-present build",
     "build:frontend:alumno": "npm -C apps/frontend run build:alumno",
     "build:frontend:docente": "npm -C apps/frontend run build:docente",
+    "verify:docente:bundle": "node scripts/verify-docente-bundle.mjs",
+    "guard:wcag": "node scripts/wcag-guard.mjs",
+    "test:wcag:policy": "node --test scripts/tests/wcag-guard.contract.test.mjs scripts/tests/ui-contrast-audit.mjs",
     "lint": "npm run --workspaces --if-present lint",
     "verify:prod": "npm run test:backend:ci && npm run test:frontend:ci && npm run build",
     "start:prod": "npm run verify:prod && npm run stack:prod",
@@ -238,14 +241,14 @@
     "@types/supertest": "^7.2.0",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9.39.1",
     "jsdom": "^28.1.0",
     "npm-run-all": "^4.1.5",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   },
   "optionalDependencies": {
     "gcp-metadata": "^7.0.1"

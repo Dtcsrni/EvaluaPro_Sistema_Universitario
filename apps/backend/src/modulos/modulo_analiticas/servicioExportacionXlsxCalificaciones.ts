@@ -2,8 +2,14 @@
  * Exportacion XLSX de calificaciones con formato 1:1 de plantilla productiva.
  */
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
-import { Workbook, type Worksheet } from 'exceljs';
+import ExcelJS from 'exceljs';
+
+const { Workbook } = ExcelJS;
+type Worksheet = ExcelJS.Worksheet;
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 type AlumnoFila = {
   _id: unknown;

@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SeccionPeriodos } from '../src/apps/app_docente/SeccionPeriodos';
 import type { Periodo, PermisosUI } from '../src/apps/app_docente/tipos';
@@ -99,6 +99,30 @@ describe('SeccionPeriodos edición', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Abrir grupo E512606A/i }));
     expect(onAbrirGrupo).toHaveBeenCalledWith('per-grupo', 'E512606A');
+  });
+
+  it('muestra los alumnos asociados dentro de la tarjeta de materia', () => {
+    render(
+      <SeccionPeriodos
+        periodos={[{ _id: 'per-1', nombre: 'Lógica de Programación', grupos: ['3A'] }]}
+        alumnos={[
+          { _id: 'alu-1', matricula: 'A1', nombreCompleto: 'Ana Pérez', periodoId: 'per-1', grupo: '3A' },
+          { _id: 'alu-2', matricula: 'A2', nombreCompleto: 'Luis Gómez', periodoId: 'per-1', grupo: '3A' }
+        ]}
+        onRefrescar={vi.fn()}
+        onVerArchivadas={vi.fn()}
+        permisos={permisos}
+        puedeEliminarMateriaDev={false}
+        enviarConPermiso={vi.fn(async () => ({}))}
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    const tarjeta = screen.getByRole('button', { name: /Abrir grupo 3A de Lógica de Programación/i });
+    expect(within(tarjeta).getByText('Alumnos')).toBeInTheDocument();
+    expect(tarjeta).toHaveTextContent('2');
+    expect(tarjeta).toHaveTextContent('Ana Pérez');
+    expect(tarjeta).toHaveTextContent('Luis Gómez');
   });
 
   it('calcula y muestra chips de avance para diversos estados de periodo', () => {

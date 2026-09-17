@@ -54,7 +54,6 @@ test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8',
   assert.match(bundleWxs, /SourceFile="\$\(var\.MsiSourcePath\)"/i);
   assert.doesNotMatch(bundleWxs, /WixStandardBootstrapperApplication/i);
   assert.doesNotMatch(bundleWxs, /<BootstrapperApplicationRef/i);
-  assert.match(productWxs, /<Icon Id="EvaluaProIconHub" SourceFile=".*installer-canonical\.ico"/i);
-  assert.match(productWxs, /<Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub"/i);
+  assert.match(productWxs, /<Icon Id="EvaluaProIconHub\.ico" SourceFile=".*installer-canonical\.ico"/i);
+  assert.match(productWxs, /<Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub\.ico"/i);
 });
-

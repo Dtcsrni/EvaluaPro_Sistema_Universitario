@@ -9,12 +9,7 @@ import { emitToast } from '../../../../../ui/toast/toastBus';
 import { esMensajeError, etiquetaMateria, idCortoMateria } from '../../../utilidades';
 import type { Periodo, Plantilla } from '../../../tipos';
 import type { Dispatch, SetStateAction } from 'react';
-import {
-  calcularEstimacionDensidadPlantilla,
-  MIN_FONT_SCALE_LEGIBLE,
-  textoEstimacionDensidadPlantilla
-} from '../hooks/estimadorDensidadPlantilla';
-import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
+import { calcularEstimacionDensidadPlantilla } from '../hooks/estimadorDensidadPlantilla';
 
 type TemaDisponible = { tema: string; total: number };
 
@@ -38,15 +33,15 @@ export function PlantillasFormulario({
   logoIzquierda,
   logoDerecha,
   seleccionarLogo,
-  fontScale,
-  setFontScale,
-  lineSpacing,
-  setLineSpacing,
   creando,
   puedeCrear,
   crear,
   guardandoPlantilla,
+  previsualizarPdf,
+  previsualizandoPdf,
   guardarEdicion,
+  actualizarPdf,
+  edicionPlantillaModificada,
   cancelarEdicion,
   mensaje
 }: {
@@ -69,15 +64,15 @@ export function PlantillasFormulario({
   logoIzquierda: string;
   logoDerecha: string;
   seleccionarLogo: (lado: 'izquierda' | 'derecha', archivo: File | undefined) => void;
-  fontScale: number;
-  setFontScale: (value: number) => void;
-  lineSpacing: number;
-  setLineSpacing: (value: number) => void;
   creando: boolean;
   puedeCrear: boolean;
   crear: () => void;
   guardandoPlantilla: boolean;
-  guardarEdicion: () => Promise<void>;
+  previsualizarPdf: () => Promise<void>;
+  previsualizandoPdf: boolean;
+  guardarEdicion: () => Promise<boolean>;
+  actualizarPdf: () => Promise<void>;
+  edicionPlantillaModificada: boolean;
   cancelarEdicion: () => void;
   mensaje: string;
 }) {
@@ -88,8 +83,8 @@ export function PlantillasFormulario({
     totalReactivos: totalReactivosEstimados,
     paginasConfiguradas: numeroPaginas,
     temasSeleccionados: temasSeleccionados.length,
-    fontScale,
-    lineSpacing
+    fontScale: 1,
+    lineSpacing: 1.1
   });
   const maxReactivos = Math.min(200, Math.max(1, totalDisponiblePorTemas));
   const reactivosSugeridos = totalDisponiblePorTemas > 0
@@ -111,12 +106,15 @@ export function PlantillasFormulario({
   };
 
   return (
-    <section className="alumnos-form alumnos-form--glass alumnos-form--panoramico plantillas-form--panoramico anim-form-card">
+    <section
+      className="alumnos-form alumnos-form--glass alumnos-form--panoramico plantillas-form--panoramico anim-form-card"
+      aria-label="Formulario de plantilla"
+    >
       <div className="alumnos-form__header">
         <div className="banco-section-title__wrap">
           <span className="banco-section-pill">
             <span className="banco-section-pill__dot" aria-hidden="true" />
-            <span>{modoEdicion ? 'Modo Edición' : 'Maquetación OMR'}</span>
+            <span>{modoEdicion ? 'Modo Edición' : 'Constructor de examen'}</span>
           </span>
           <h3 className="alumnos-form__title">
             {modoEdicion ? 'Edición de plantilla' : 'Diseño de plantilla'}
@@ -124,9 +122,6 @@ export function PlantillasFormulario({
           <p className="alumnos-form__subtitle">
             Configura la estructura del examen por materia y temas antes de pasar a previsualización o generación.
           </p>
-        </div>
-        <div className="plantillas-panel__meta" aria-label="Contrato OMR activo">
-          <span className="version-env-badge">{OMR_CANONICAL_DISPLAY_LABEL}</span>
         </div>
       </div>
 
@@ -258,16 +253,16 @@ export function PlantillasFormulario({
           <div className="plantillas-formato-box__heading">
             <div>
               <span className="plantillas-formato-box__eyebrow">Formato de impresión</span>
-              <h4 className="plantillas-temas__title">Legibilidad y densidad</h4>
-              <p className="nota">Ajusta la lectura sin perder el orden de preguntas ni la precisión OMR.</p>
+              <h4 className="plantillas-temas__title">Ajuste de página</h4>
+              <p className="nota">Define el objetivo; el PDF real valida si el contenido cabe sin tocar la cabecera ni el OMR.</p>
             </div>
             <span className="plantillas-formato-box__badge">
-              {textoEstimacionDensidadPlantilla(estimacionDensidad)}
+              {`Autoajuste · hasta ${numeroPaginas} ${numeroPaginas === 1 ? 'página' : 'páginas'}`}
             </span>
           </div>
           <div className="plantillas-formato-box__controls">
             <label className="campo plantillas-formato-control">
-              <span className="campo__label-row"><span>Páginas configuradas</span><b>{numeroPaginas}</b></span>
+              <span className="campo__label-row"><span>Páginas objetivo</span><b>{numeroPaginas}</b></span>
               <input
                 type="number"
                 min={1}
@@ -281,7 +276,7 @@ export function PlantillasFormulario({
                 disabled={bloqueoEdicion}
                 aria-label="Cantidad de páginas"
               />
-              <span className="ayuda">Define cuántas páginas debe ocupar aproximadamente el cuadernillo.</span>
+              <span className="ayuda">Cantidad máxima objetivo para el cuadernillo.</span>
             </label>
             <div className="campo plantillas-formato-control" aria-label="Cantidad de preguntas">
               <span className="campo__label-row"><span>Preguntas del examen</span><b>{reactivosConfigurados}</b></span>
@@ -304,35 +299,15 @@ export function PlantillasFormulario({
               </div>
               <span className="ayuda">{totalDisponiblePorTemas > 0 ? `Agrega o quita reactivos. Disponibles: ${totalDisponiblePorTemas}. Sugerido: ${reactivosSugeridos}.` : 'Selecciona al menos un tema para habilitar este control.'}</span>
             </div>
-            <label className="campo plantillas-formato-control">
-              <span className="campo__label-row"><span>Tamaño de fuente</span><b>{Math.round(fontScale * 100)}%</b></span>
-              <select
-                value={fontScale}
-                onChange={(event) => setFontScale(Number(event.target.value))}
-                disabled={bloqueoEdicion}
-                aria-label="Tamaño de fuente"
-              >
-                <option value={String(MIN_FONT_SCALE_LEGIBLE)}>Compacta legible (90%)</option>
-                <option value="1">Normal (100%)</option>
-                <option value="1.1">Grande (110%)</option>
-                <option value="1.2">Muy grande (120%)</option>
-              </select>
-              <span className="ayuda">Se aplica al encabezado, preguntas y opciones.</span>
-            </label>
-            <label className="campo plantillas-formato-control">
-              <span className="campo__label-row"><span>Espaciado de línea</span><b>{lineSpacing.toFixed(1)}×</b></span>
-              <select
-                value={lineSpacing}
-                onChange={(event) => setLineSpacing(Number(event.target.value))}
-                disabled={bloqueoEdicion}
-                aria-label="Espaciado de línea"
-              >
-                <option value="1">Compacto (1.0×)</option>
-                <option value="1.1">Equilibrado (1.1×)</option>
-                <option value="1.2">Amplio (1.2×)</option>
-              </select>
-              <span className="ayuda">El motor revalida cada bloque antes de dibujarlo.</span>
-            </label>
+            <div className="campo plantillas-formato-control plantillas-formato-control--wide" role="status" aria-label="Ajuste automático activo">
+              <span className="campo__label-row"><span>Ajuste de lectura</span><b>Automático</b></span>
+              <span className="plantillas-auto-status">El motor selecciona automáticamente la combinación más legible para completar el objetivo.</span>
+              <span className="ayuda">La cabecera, el QR, los logos y la geometría OMR permanecen fijos. Si no cabe, no elimina preguntas: muestra la advertencia real.</span>
+            </div>
+            <div className="campo plantillas-formato-control plantillas-formato-control--wide plantillas-formato-control--protected" role="note">
+              <span className="campo__label-row"><span>Tipografía e interlineado</span><b>Gestionados por el motor</b></span>
+              <span className="ayuda">No son editables manualmente; se ajustan dentro de límites legibles solo cuando hace falta espacio.</span>
+            </div>
           </div>
           <div className="plantillas-formato-box__footer">
             <span>Estimación orientativa según reactivos, temas, páginas y densidad; el PDF se vuelve a validar al renderizar.</span>
@@ -369,7 +344,19 @@ export function PlantillasFormulario({
                   disabled={!titulo.trim() || !periodoId || temasSeleccionados.length === 0 || bloqueoEdicion}
                   onClick={() => void guardarEdicion()}
                 >
-                  {guardandoPlantilla ? 'Guardando…' : 'Guardar cambios'}
+                  {guardandoPlantilla ? 'Actualizando…' : 'Actualizar plantilla'}
+                </Boton>
+                <Boton
+                  type="button"
+                  variante="secundario"
+                  cargando={previsualizandoPdf}
+                  disabled={!plantillaEditando || bloqueoEdicion}
+                  onClick={() => void (edicionPlantillaModificada ? actualizarPdf() : previsualizarPdf())}
+                  data-tooltip={edicionPlantillaModificada
+                    ? 'Guarda la nueva configuración y genera la previsualización del PDF real.'
+                    : 'Genera la previsualización del PDF real de la última configuración guardada.'}
+                >
+                  {edicionPlantillaModificada ? 'Actualizar PDF' : 'Previsualizar PDF'}
                 </Boton>
                 <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
                   Cancelar

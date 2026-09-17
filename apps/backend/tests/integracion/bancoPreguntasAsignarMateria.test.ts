@@ -7,8 +7,8 @@
 // La app ya no soporta preguntas "sin materia" (legacy).
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('banco preguntas - legacy sin materia', () => {
   const app = crearApp();

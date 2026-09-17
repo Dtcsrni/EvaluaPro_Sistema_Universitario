@@ -5,10 +5,10 @@ import request from 'supertest';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { registrarDocente } from './_flujoDocenteHelper';
+import { crearApp } from '../../src/app.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { registrarDocente } from './_flujoDocenteHelper.js';
 
 async function crearXlsxCalificaciones() {
   const workbook = new ExcelJS.Workbook();

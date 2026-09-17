@@ -21,7 +21,7 @@ import {
   validarMargenMinimo,
   validarTransicionEstadoSuscripcionPorCobranza,
   verificarTokenLicencia
-} from '../src/modulos/modulo_comercial_core/servicioComercialCore';
+} from '../src/modulos/modulo_comercial_core/servicioComercialCore.js';
 
 describe('comercial core', () => {
   it('calcula margen bruto correctamente', () => {

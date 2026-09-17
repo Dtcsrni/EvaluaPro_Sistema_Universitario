@@ -9,7 +9,7 @@ import {
   calcularExamenCorte,
   calcularPoliticaLisc,
   redondearFinalInstitucional
-} from '../src/modulos/modulo_evaluaciones/servicioPoliticasCalificacion';
+} from '../src/modulos/modulo_evaluaciones/servicioPoliticasCalificacion.js';
 
 describe('politica LISC', () => {
   it('calcula examen de corte con 60/40 teorico-practico', () => {

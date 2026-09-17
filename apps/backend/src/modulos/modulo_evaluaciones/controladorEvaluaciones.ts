@@ -5,19 +5,19 @@
  * Limites: Evitar mover logica de negocio profunda a controlador.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import {
   CODIGOS_POLITICA,
   type CodigoPoliticaCalificacion
-} from './modeloPoliticaCalificacion';
+} from './modeloPoliticaCalificacion.js';
 import {
   calcularExamenCorte,
   calcularPoliticaLisc,
   promedioPonderado,
   redondearFinalInstitucional
-} from './servicioPoliticasCalificacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
+} from './servicioPoliticasCalificacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 const POLITICAS_BASE: Array<{
   codigo: CodigoPoliticaCalificacion;
@@ -304,7 +304,7 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
     const pesoContinua = Number(config.pesosGlobales?.continua ?? 0.5);
     finalDecimal = Number((calculo.bloqueContinuaDecimal * pesoContinua).toFixed(4));
     // Importamos redondearFinalInstitucional para asegurar consistencia
-    const { redondearFinalInstitucional } = await import('./servicioPoliticasCalificacion');
+    const { redondearFinalInstitucional } = await import('./servicioPoliticasCalificacion.js');
     finalRedondeada = redondearFinalInstitucional(finalDecimal);
   }
 

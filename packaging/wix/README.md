@@ -67,10 +67,14 @@ Artefactos tecnicos esperados:
 - Publica BA `.NET 8`, compila MSI + bundle Burn (`-SkipStabilityChecks -IncludeBundle`) y publica artefactos.
 
 ## Notas
-- El acceso directo **Prod** ejecuta:
+- El acceso directo principal **EvaluaPro** de `docente-local` ejecuta directamente:
+  - `EvaluaPro.exe` (host nativo WPF/WebView2 con icono embebido)
+- El acceso directo principal de flavors con bandeja conserva:
   - `launcher-tray-hidden.vbs prod 4519`
 - El acceso directo **Dev** ejecuta:
   - `launcher-tray-hidden.vbs dev 4519`
+- `config/shortcuts-manifest.json` es la fuente única de nombres, iconos y launchers.
+- `scripts/create-shortcuts.ps1` es el único escritor de `.lnk`; después de guardar valida destino, dependencias e icono y deja `logs/shortcut-reconciliation.json`.
 - Instalacion/actualizacion:
   - genera automaticamente accesos directos de menu inicio.
   - por defecto tambien genera accesos directos en escritorio (`InstallDesktopShortcuts=1`).

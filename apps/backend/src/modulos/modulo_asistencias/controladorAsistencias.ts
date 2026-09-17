@@ -2,13 +2,13 @@
  * Controlador de Asistencias.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import type {
   ResumenAsistenciaAlumno,
   ResultadoDerechoExamen
-} from './tiposAsistencias';
+} from './tiposAsistencias.js';
 
 // ─── SESIONES ─────────────────────────────────────────────────────────────────
 

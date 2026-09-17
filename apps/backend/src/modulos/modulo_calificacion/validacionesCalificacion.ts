@@ -2,7 +2,7 @@
  * Validaciones de calificacion.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 const esquemaScorePorOpcion = z
   .object({

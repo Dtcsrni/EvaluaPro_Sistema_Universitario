@@ -51,6 +51,22 @@ type ProgresoLoteGeneracion = {
 type TabPlantillas = 'diseno' | 'generacion' | 'historial';
 const PLANTILLAS_TAB_STORAGE_KEY = 'evaluapro.plantillas.tab-activa';
 
+export function existeTituloPlantillaDuplicadoPorPeriodo(
+  plantillas: Plantilla[],
+  tituloCandidato: string,
+  periodoId: string,
+  excluirId?: string
+): boolean {
+  const candidato = String(tituloCandidato || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  if (!candidato) return false;
+  const periodoCandidato = String(periodoId || '').trim();
+  return (Array.isArray(plantillas) ? plantillas : []).some((plantilla) => {
+    if (excluirId && plantilla._id === excluirId) return false;
+    if (String(plantilla.periodoId || '').trim() !== periodoCandidato) return false;
+    return String(plantilla.titulo || '').trim().replace(/\s+/g, ' ').toLowerCase() === candidato;
+  });
+}
+
 function leerTabPlantillasInicial(): TabPlantillas {
   if (typeof window === 'undefined') return 'diseno';
   try {
@@ -115,15 +131,12 @@ export function SeccionPlantillas({
   const TECNICO_VERSIONES_DEFAULT = 1;
   const TECNICO_FAMILIA_OMR_DEFAULT = 'S50_5A_ID5_VR6';
   const TECNICO_PREFILL_DEFAULT = 'none' as const;
-  const TECNICO_MODO_VERSION_DEFAULT = 'single' as const;
 
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
   const [periodoId, setPeriodoId] = useState('');
   const [numeroPaginas, setNumeroPaginas] = useState(2);
   const [reactivosObjetivo, setReactivosObjetivo] = useState(20);
-  const [fontScale, setFontScale] = useState(1);
-  const [lineSpacing, setLineSpacing] = useState(1.1);
   const [logoIzquierda, setLogoIzquierda] = useState(preferenciasPdf?.logos?.izquierdaPath ?? '');
   const [logoDerecha, setLogoDerecha] = useState(preferenciasPdf?.logos?.derechaPath ?? '');
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
@@ -175,6 +188,10 @@ export function SeccionPlantillas({
     }
   }, [tabActiva]);
 
+  useEffect(() => {
+    setMensaje('');
+  }, [periodoId]);
+
   // Estado solo de presentación para vista ampliada del preview PDF.
   const [pdfFullscreen, setPdfFullscreen] = useState<{ url: string; pages: PreviewPdfPage[] } | null>(null);
   const pdfFullscreenUrl = pdfFullscreen?.url ?? null;
@@ -200,6 +217,37 @@ export function SeccionPlantillas({
     if (!plantillaEditandoId) return null;
     return (Array.isArray(plantillas) ? plantillas : []).find((p) => p._id === plantillaEditandoId) ?? null;
   }, [plantillas, plantillaEditandoId]);
+
+  const edicionPlantillaModificada = useMemo(() => {
+    if (!modoEdicion || !plantillaEditando) return false;
+    const temasActuales = Array.isArray(temasSeleccionados) ? temasSeleccionados : [];
+    const temasOriginales = Array.isArray(plantillaEditando.temas) ? plantillaEditando.temas : [];
+    const mismoContenido = temasActuales.length === temasOriginales.length &&
+      temasActuales.every((tema, indice) => tema === temasOriginales[indice]);
+    const paginasOriginales = Number(plantillaEditando.numeroPaginas ?? plantillaEditando.bookletConfig?.targetPages ?? 1);
+    const reactivosOriginales = Number(plantillaEditando.reactivosObjetivo ?? 20);
+    const logoIzquierdaOriginal = String(plantillaEditando.bookletConfig?.logos?.izquierdaPath ?? '');
+    const logoDerechaOriginal = String(plantillaEditando.bookletConfig?.logos?.derechaPath ?? '');
+    return titulo.trim() !== String(plantillaEditando.titulo || '').trim() ||
+      tipo !== plantillaEditando.tipo ||
+      periodoId !== String(plantillaEditando.periodoId || '') ||
+      numeroPaginas !== paginasOriginales ||
+      reactivosObjetivo !== reactivosOriginales ||
+      !mismoContenido ||
+      logoIzquierda !== logoIzquierdaOriginal ||
+      logoDerecha !== logoDerechaOriginal;
+  }, [
+    logoDerecha,
+    logoIzquierda,
+    modoEdicion,
+    numeroPaginas,
+    periodoId,
+    plantillaEditando,
+    reactivosObjetivo,
+    temasSeleccionados,
+    tipo,
+    titulo
+  ]);
 
   // Índice local para resolver alumno por id sin búsquedas O(n) repetidas al renderizar listados.
   const alumnosPorId = useMemo(() => {
@@ -391,7 +439,7 @@ export function SeccionPlantillas({
       setMensajeGeneracion
     ]
   );
-  const { togglePreviewPlantilla, cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
+  const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
     usePlantillasPreviewActions({
       puedePrevisualizarPlantillas,
       avisarSinPermiso,
@@ -404,6 +452,10 @@ export function SeccionPlantillas({
       setPreviewPdfUrlPorPlantillaId,
       setCargandoPreviewPdfPlantillaId
     });
+  async function previsualizarPdfEdicion() {
+    if (!plantillaEditandoId) return;
+    await cargarPreviewPdfPlantilla(plantillaEditandoId, 'booklet');
+  }
   const { cargarAssessmentDetalle, descargarArtifact, crearJobOmr, resolverHojaOmr, finalizarJobOmr } = usePlantillasOmrActions({
     avisarSinPermiso,
     puedeDescargarExamenes,
@@ -485,15 +537,8 @@ export function SeccionPlantillas({
       reactivosObjetivo > 0
   );
   const puedeGenerar = Boolean(plantillaId) && puedeGenerarExamenes;
-  const normalizarTituloPlantillaUi = (valor: string) => String(valor || '').trim().replace(/\s+/g, ' ').toLowerCase();
   const existeTituloPlantillaDuplicado = (tituloCandidato: string, excluirId?: string) => {
-    const candidato = normalizarTituloPlantillaUi(tituloCandidato);
-    if (!candidato) return false;
-    const lista = Array.isArray(plantillas) ? plantillas : [];
-    return lista.some((p) => {
-      if (excluirId && p._id === excluirId) return false;
-      return normalizarTituloPlantillaUi(String(p.titulo || '')) === candidato;
-    });
+    return existeTituloPlantillaDuplicadoPorPeriodo(plantillas, tituloCandidato, periodoId, excluirId);
   };
 
   // Búsqueda local por título/id/temas (case-insensitive) para UX reactiva.
@@ -552,8 +597,6 @@ export function SeccionPlantillas({
     setPeriodoId(String(plantilla.periodoId || ''));
     setNumeroPaginas(Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 1));
     setReactivosObjetivo(Number(plantilla.reactivosObjetivo ?? 20));
-    setFontScale(Number(plantilla.bookletConfig?.fontScale ?? 1));
-    setLineSpacing(Number(plantilla.bookletConfig?.lineSpacing ?? 1.1));
     setLogoIzquierda(String(plantilla.bookletConfig?.logos?.izquierdaPath ?? preferenciasPdf?.logos?.izquierdaPath ?? ''));
     setLogoDerecha(String(plantilla.bookletConfig?.logos?.derechaPath ?? preferenciasPdf?.logos?.derechaPath ?? ''));
     setTemasSeleccionados(Array.isArray(plantilla.temas) ? plantilla.temas : []);
@@ -569,8 +612,6 @@ export function SeccionPlantillas({
     setPeriodoId('');
     setNumeroPaginas(2);
     setReactivosObjetivo(20);
-    setFontScale(1);
-    setLineSpacing(1.1);
     setLogoIzquierda(preferenciasPdf?.logos?.izquierdaPath ?? '');
     setLogoDerecha(preferenciasPdf?.logos?.derechaPath ?? '');
     setTemasSeleccionados([]);
@@ -589,13 +630,13 @@ export function SeccionPlantillas({
     emitToast({ level: 'info', title: 'Sección', message: `Mostrando ${etiquetas[tab]}`, durationMs: 1800 });
   }
 
-  async function guardarEdicion() {
-    if (!plantillaEditandoId || guardandoPlantilla) return;
+  async function guardarEdicion(): Promise<boolean> {
+    if (!plantillaEditandoId || guardandoPlantilla) return false;
     try {
       const inicio = Date.now();
       if (!puedeGestionarPlantillas) {
         avisarSinPermiso('No tienes permiso para editar plantillas.');
-        return;
+        return false;
       }
       setGuardandoPlantilla(true);
       setMensaje('');
@@ -604,7 +645,7 @@ export function SeccionPlantillas({
         const msgDup = 'Ya existe una plantilla activa con ese nombre.';
         setMensaje(msgDup);
         emitToast({ level: 'warn', title: 'Plantillas', message: msgDup, durationMs: 4200 });
-        return;
+        return false;
       }
 
       const payload: Record<string, unknown> = {
@@ -616,7 +657,8 @@ export function SeccionPlantillas({
         answerKeyMode: 'digital',
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
-          densityMode: 'balanced',
+          densityMode: 'compact',
+          autoFitPages: true,
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
@@ -624,8 +666,8 @@ export function SeccionPlantillas({
             izquierdaPath: logoIzquierda || undefined,
             derechaPath: logoDerecha || undefined
           },
-          fontScale,
-          lineSpacing,
+          fontScale: 1,
+          lineSpacing: 1.1,
           separateCoverPage: false
         },
         configuracionPdf: { margenMm: 8, layout: 'parcial' },
@@ -634,7 +676,6 @@ export function SeccionPlantillas({
           prefillMode: TECNICO_PREFILL_DEFAULT,
           identityMode: 'qr_plus_bubbled_id',
           allowBlankGenericSheets: true,
-          versionMode: TECNICO_MODO_VERSION_DEFAULT,
           ignoreUnusedTrailingQuestions: true,
           captureMode: 'pdf_and_mobile'
         },
@@ -660,6 +701,7 @@ export function SeccionPlantillas({
       registrarAccionDocente('actualizar_plantilla', true, Date.now() - inicio);
       cancelarEdicion();
       onRefrescar();
+      return true;
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar la plantilla');
       setMensaje(msg);
@@ -671,9 +713,17 @@ export function SeccionPlantillas({
         action: accionToastSesionParaError(error, 'docente')
       });
       registrarAccionDocente('actualizar_plantilla', false);
+      return false;
     } finally {
       setGuardandoPlantilla(false);
     }
+  }
+
+  async function actualizarPdfEdicion() {
+    const id = plantillaEditandoId;
+    if (!id) return;
+    const actualizado = await guardarEdicion();
+    if (actualizado) await cargarPreviewPdfPlantilla(id, 'booklet');
   }
 
   async function archivarPlantilla(plantilla: Plantilla) {
@@ -751,7 +801,8 @@ export function SeccionPlantillas({
         answerKeyMode: 'digital',
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
-          densityMode: 'balanced',
+          densityMode: 'compact',
+          autoFitPages: true,
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
@@ -759,8 +810,8 @@ export function SeccionPlantillas({
             izquierdaPath: logoIzquierda || undefined,
             derechaPath: logoDerecha || undefined
           },
-          fontScale,
-          lineSpacing,
+          fontScale: 1,
+          lineSpacing: 1.1,
           separateCoverPage: false
         },
         configuracionPdf: { margenMm: 8, layout: 'parcial' },
@@ -769,7 +820,6 @@ export function SeccionPlantillas({
           prefillMode: TECNICO_PREFILL_DEFAULT,
           identityMode: 'qr_plus_bubbled_id',
           allowBlankGenericSheets: true,
-          versionMode: TECNICO_MODO_VERSION_DEFAULT,
           ignoreUnusedTrailingQuestions: true,
           captureMode: 'pdf_and_mobile'
         }
@@ -819,12 +869,8 @@ export function SeccionPlantillas({
         advertencias?: string[];
       }>(
         'examenes:generar',
-        `/assessments/templates/${encodeURIComponent(plantillaId)}/generate`,
-        {
-          prefillMode: TECNICO_PREFILL_DEFAULT,
-          versionCount: TECNICO_VERSIONES_DEFAULT,
-          sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT
-        },
+        '/examenes/generados',
+        { plantillaId },
         'No tienes permiso para generar examenes.'
       );
       const ex =
@@ -903,9 +949,11 @@ export function SeccionPlantillas({
     });
 
     let sondeoActivo = true;
+    let sondeoEnCurso = false;
     const consultarProgreso = async (loteId: string) => {
       const lote = String(loteId || '').trim();
-      if (!lote || !sondeoActivo) return;
+      if (!lote || !sondeoActivo || sondeoEnCurso) return;
+      sondeoEnCurso = true;
       try {
         const progreso = await clienteApi.obtener<ProgresoLoteGeneracion>(
           `/examenes/generados/lote/${encodeURIComponent(lote)}/progreso?plantillaId=${encodeURIComponent(plantillaId)}`
@@ -923,13 +971,14 @@ export function SeccionPlantillas({
         }));
       } catch {
         // no-op: el sondeo puede arrancar antes de que exista el primer examen del lote.
+      } finally {
+        sondeoEnCurso = false;
       }
     };
 
     const timerSondeo = globalThis.setInterval(() => {
       void consultarProgreso(loteCliente);
-    }, 1200);
-    void consultarProgreso(loteCliente);
+    }, 5000);
 
     try {
       const inicio = Date.now();
@@ -954,7 +1003,7 @@ export function SeccionPlantillas({
         },
         'No tienes permiso para generar examenes.',
         {
-        timeoutMs: 120_000
+          timeoutMs: 900_000
         }
       );
       const totalAlumnos = Number(payload?.totalAlumnos ?? 0);
@@ -1003,6 +1052,41 @@ export function SeccionPlantillas({
     plantillaId,
     puedeGenerarExamenes,
   ]);
+
+  const formularioPlantilla = (
+    <PlantillasFormulario
+      modoEdicion={modoEdicion}
+      plantillaEditando={plantillaEditando}
+      titulo={titulo}
+      setTitulo={setTitulo}
+      periodoId={periodoId}
+      setPeriodoId={setPeriodoId}
+      periodos={periodos}
+      bloqueoEdicion={bloqueoEdicion}
+      temasDisponibles={temasDisponibles}
+      temasSeleccionados={temasSeleccionados}
+      setTemasSeleccionados={setTemasSeleccionados}
+      totalDisponiblePorTemas={totalDisponiblePorTemas}
+      numeroPaginas={numeroPaginas}
+      setNumeroPaginas={setNumeroPaginas}
+      reactivosObjetivo={reactivosObjetivo}
+      setReactivosObjetivo={setReactivosObjetivo}
+      logoIzquierda={logoIzquierda}
+      logoDerecha={logoDerecha}
+      seleccionarLogo={seleccionarLogo}
+      creando={creando}
+      puedeCrear={puedeCrear}
+      crear={crear}
+      guardandoPlantilla={guardandoPlantilla}
+      previsualizarPdf={previsualizarPdfEdicion}
+      previsualizandoPdf={cargandoPreviewPdfPlantillaId === plantillaEditandoId && Boolean(plantillaEditandoId)}
+      guardarEdicion={guardarEdicion}
+      actualizarPdf={actualizarPdfEdicion}
+      edicionPlantillaModificada={edicionPlantillaModificada}
+      cancelarEdicion={cancelarEdicion}
+      mensaje={mensaje}
+    />
+  );
 
   return (
     <div className="panel plantillas-shell">
@@ -1165,38 +1249,7 @@ export function SeccionPlantillas({
             </ol>
           </section>
 
-          <PlantillasFormulario
-            modoEdicion={modoEdicion}
-            plantillaEditando={plantillaEditando}
-            titulo={titulo}
-            setTitulo={setTitulo}
-            periodoId={periodoId}
-            setPeriodoId={setPeriodoId}
-            periodos={periodos}
-            bloqueoEdicion={bloqueoEdicion}
-            temasDisponibles={temasDisponibles}
-            temasSeleccionados={temasSeleccionados}
-            setTemasSeleccionados={setTemasSeleccionados}
-            totalDisponiblePorTemas={totalDisponiblePorTemas}
-            numeroPaginas={numeroPaginas}
-            setNumeroPaginas={setNumeroPaginas}
-            reactivosObjetivo={reactivosObjetivo}
-            setReactivosObjetivo={setReactivosObjetivo}
-            logoIzquierda={logoIzquierda}
-            logoDerecha={logoDerecha}
-            seleccionarLogo={seleccionarLogo}
-            fontScale={fontScale}
-            setFontScale={setFontScale}
-            lineSpacing={lineSpacing}
-            setLineSpacing={setLineSpacing}
-            creando={creando}
-            puedeCrear={puedeCrear}
-            crear={crear}
-            guardandoPlantilla={guardandoPlantilla}
-            guardarEdicion={guardarEdicion}
-            cancelarEdicion={cancelarEdicion}
-            mensaje={mensaje}
-          />
+          {!modoEdicion && formularioPlantilla}
 
           <PlantillasListado
             totalPlantillasTodas={totalPlantillasTodas}
@@ -1205,10 +1258,9 @@ export function SeccionPlantillas({
             setFiltroPlantillas={setFiltroPlantillas}
             plantillasFiltradas={plantillasFiltradas}
             periodos={periodos}
-            previewPorPlantillaId={previewPorPlantillaId}
-            plantillaPreviewId={plantillaPreviewId}
+            plantillaEditandoId={plantillaEditandoId}
+            editorInline={modoEdicion ? formularioPlantilla : null}
             previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
-            cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
             puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
             cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
             cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
@@ -1217,7 +1269,6 @@ export function SeccionPlantillas({
             pdfFullscreenUrl={pdfFullscreenUrl}
             pdfFullscreenPages={pdfFullscreenPages}
             cerrarPdfFullscreen={cerrarPdfFullscreen}
-            togglePreviewPlantilla={togglePreviewPlantilla}
             iniciarEdicion={iniciarEdicion}
             puedeGestionarPlantillas={puedeGestionarPlantillas}
             archivandoPlantillaId={archivandoPlantillaId}
@@ -1243,6 +1294,7 @@ export function SeccionPlantillas({
             onGenerarExamen={generarExamen}
             generandoLote={generandoLote}
             plantillaSeleccionada={plantillaSeleccionada}
+            periodos={periodos}
             puedeGenerarExamenes={puedeGenerarExamenes}
             onGenerarExamenesLote={generarExamenesLote}
             mensajeGeneracion={mensajeGeneracion}

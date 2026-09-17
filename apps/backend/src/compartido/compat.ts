@@ -11,7 +11,7 @@
  * Responsabilidad: Capa de compatibilidad Mongoose -> Prisma compartida.
  * Permite usar métodos como find, findOne, create, etc. sobre Prisma Client.
  */
-import { prisma } from '../infraestructura/baseDatos/sqlite';
+import { prisma } from '../infraestructura/baseDatos/sqlite.js';
 
 export function convertQuery(query: any) {
   if (!query) return {};

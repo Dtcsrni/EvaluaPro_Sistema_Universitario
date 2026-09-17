@@ -6,11 +6,11 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { crearApp } from '../../src/app';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
-import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
+import { crearApp } from '../../src/app.js';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 
 describe('roles y permisos', () => {
   const app = crearApp();

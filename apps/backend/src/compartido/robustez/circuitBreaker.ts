@@ -8,8 +8,8 @@ import {
   EstadoCircuitBreaker,
   MetricasRobustez,
   ErrorCategoria
-} from './tiposRobustez';
-import { ErrorOperacional } from './manejadorErrores';
+} from './tiposRobustez.js';
+import { ErrorOperacional } from './manejadorErrores.js';
 
 const CONFIGURACION_DEFECTO: ConfiguracionCircuitBreaker = {
   umbralErrores: 5,

@@ -6,12 +6,12 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
-import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
-import { Alumno } from '../../src/modulos/modulo_alumnos/modeloAlumno';
-import { Periodo } from '../../src/modulos/modulo_alumnos/modeloPeriodo';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
+import { Alumno } from '../../src/modulos/modulo_alumnos/modeloAlumno.js';
+import { Periodo } from '../../src/modulos/modulo_alumnos/modeloPeriodo.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('módulo evaluaciones (LISC)', () => {
   const app = crearApp();
@@ -334,7 +334,7 @@ describe('módulo evaluaciones (LISC)', () => {
 
   describe('política de cuarentena OMR (SPEC-OMR-CUARENTENA-RETENCION)', () => {
     it('clasifica capturas OMR inestables en cuarentena y prohíbe autocalificación', async () => {
-      const { evaluarAutoCalificableOmr } = await import('../../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr');
+      const { evaluarAutoCalificableOmr } = await import('../../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
 
       // REQ-001: Baja confianza (0.25 <= 0.30) fuerza hardStop y autocalificableOmr = false
       const bajaConfianza = evaluarAutoCalificableOmr({

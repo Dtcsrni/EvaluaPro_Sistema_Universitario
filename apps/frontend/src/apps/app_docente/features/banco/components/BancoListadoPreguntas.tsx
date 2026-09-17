@@ -7,6 +7,7 @@
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { idCortoMateria, obtenerVersionPregunta, preguntaTieneCodigo } from '../../../utilidades';
 import type { Pregunta } from '../../../tipos';
+import { textoPlanoRico } from './RichTextEditor';
 import { useMemo, useState } from 'react';
 
 export function BancoListadoPreguntas({
@@ -43,7 +44,7 @@ export function BancoListadoPreguntas({
     const tema = filtroTema.trim().toLowerCase();
     return preguntasMateria.filter((pregunta) => {
       const version = obtenerVersionPregunta(pregunta);
-      const enunciado = String(version?.enunciado ?? '').toLowerCase();
+      const enunciado = textoPlanoRico(String(version?.enunciado ?? '')).toLowerCase();
       const temaActual = String(pregunta.tema ?? '').toLowerCase();
       const porTexto = !texto || enunciado.includes(texto);
       const porTema = !tema || temaActual === tema;
@@ -144,7 +145,7 @@ export function BancoListadoPreguntas({
                 <div className="item-glass banco-listado__item anim-card-hover">
                   <div className="item-row">
                     <div className="banco-item-main">
-                      <div className="item-title banco-item-enunciado">{version?.enunciado ?? 'Pregunta'}</div>
+                      <div className="item-title banco-item-enunciado">{textoPlanoRico(String(version?.enunciado ?? 'Pregunta'))}</div>
                       <div className="item-meta banco-item-meta">
                         <span className="banco-tag-id">ID: {idCortoMateria(pregunta._id)}</span>
                         <span className="banco-tag-tema">Tema: {pregunta.tema ? pregunta.tema : '-'}</span>

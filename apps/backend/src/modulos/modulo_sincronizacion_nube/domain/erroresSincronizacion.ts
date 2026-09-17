@@ -1,7 +1,7 @@
 /**
  * Errores normalizados de sincronizacion nube.
  */
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
 
 export function createErrorServidorNoConfigurado(codigo: 'SYNC_SERVIDOR_NO_CONFIG' | 'PORTAL_NO_CONFIG') {
   return new ErrorAplicacion(

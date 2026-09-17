@@ -14,8 +14,10 @@ export interface EncabezadoExamen {
   materia?: string;
   docente?: string;
   instrucciones?: string;
-  alumno?: { nombre?: string; grupo?: string };
+  alumno?: { nombre?: string; grupo?: string; iniciales?: string };
   mostrarInstrucciones?: boolean;
+  /** La identidad se muestra por defecto cuando existe `encabezado`; puede omitirse explícitamente. */
+  mostrarMarcaInstitucional?: boolean;
   logos?: { izquierdaPath?: string; derechaPath?: string };
 }
 
@@ -30,6 +32,11 @@ export interface ParametrosGeneracionPdf {
   margenMm?: number;
   templateVersion?: TemplateVersion;
   bookletConfig?: {
+    densityMode?: 'balanced' | 'compact' | 'relaxed';
+    /** Ajusta el cuerpo del examen para intentar encajar en totalPaginas. */
+    autoFitPages?: boolean;
+    /** Permite al autoajuste ampliar la tipografía cuando aún hay capacidad. */
+    autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
     logos?: { izquierdaPath?: string; derechaPath?: string };
@@ -51,6 +58,9 @@ export interface MapaVariante {
 
 export interface ResultadoGeneracionPdf {
   pdfBytes: Buffer;
+  /** Valores efectivos que eligió el autoajuste, si estuvo activo. */
+  fontScaleAplicada?: number;
+  lineSpacingAplicado?: number;
   layoutEngine?: 'pdf-lib-canonical';
   layoutTemplateVersion?: number;
   paginas: Array<{
@@ -58,6 +68,8 @@ export interface ResultadoGeneracionPdf {
     qrTexto: string;
     preguntasDel: number;
     preguntasAl: number;
+    /** Identifica un reverso añadido para completar el par dúplex. */
+    tipoPagina?: 'examen' | 'reverso-vacio';
   }>;
   metricasPaginas: Array<{
     numero: number;
@@ -75,6 +87,7 @@ export interface ResultadoGeneracionPdf {
     imagenesIntentadas: number;
     imagenesRenderizadas: number;
     imagenesFallidas: number;
+    logosOmitidos: string[];
   };
   renderDiagnostics?: {
     preguntasCalculadas: number;
@@ -95,6 +108,12 @@ export interface MapaOmr {
   markerSpec?: MarkerSpecOmr;
   blockSpec?: BlockSpecOmr;
   engineHints?: EngineHintsOmr;
+  /** Secuencia física para impresión dúplex por borde largo. */
+  impresion?: {
+    modo: 'duplex';
+    volteo: 'borde-largo';
+    paginasPorHoja: 2;
+  };
   perfilLayout: PerfilLayoutImpresion;
   perfil: PerfilPlantillaOmr;
   paginas: PaginaOmr[];
@@ -111,9 +130,11 @@ export interface BlockSpecOmr {
   preguntasPorBloque: number;
   opcionesPorPregunta: number;
   bubbleDiameterMm: number;
-  /** Paso real entre centros de burbuja en la fila horizontal canónica. */
+  /** Orientación física del bloque de respuestas canónico. */
+  orientation?: 'vertical' | 'horizontal';
+  /** Campo legado; no representa la separación de opciones en v4 vertical. */
   bubblePitchXmm: number;
-  /** Separación vertical de referencia para perfiles apilados; no se usa en v4. */
+  /** Paso real entre centros de burbuja apilados verticalmente. */
   bubblePitchYmm: number;
   labelToBubbleMm: number;
   bubbleStrokePt: number;
@@ -138,6 +159,8 @@ export interface PerfilLayoutImpresion {
   usarEtiquetaOmrSolida: boolean;
 }
 
+export type ModoDensidadBooklet = 'balanced' | 'compact' | 'relaxed';
+
 export interface PerfilPlantillaOmr {
   qrSize: number;
   qrPadding: number;
@@ -147,6 +170,10 @@ export interface PerfilPlantillaOmr {
   marcaCuadradoQuietZone: number;
   burbujaRadio: number;
   burbujaPasoY: number;
+  /** Paso horizontal opcional para el perfil denso de una sola fila. */
+  burbujaPasoX?: number;
+  /** Disposición de las burbujas; el perfil robusto usa vertical. */
+  orientacion?: 'vertical' | 'horizontal';
   cajaOmrAncho: number;
   fiducialSize: number;
   fiducialMargin?: number;
@@ -159,16 +186,30 @@ export interface PerfilPlantillaOmr {
 
 export interface PaginaOmr {
   numeroPagina: number;
+  /** Defensa para mapas históricos: un reverso vacío no contiene QR, fiduciales ni paneles OMR. */
+  tipoPagina?: 'examen' | 'reverso-vacio';
+  /** Página lógica dentro de la hoja física dúplex. */
+  duplex?: {
+    hoja: number;
+    lado: 'frente' | 'reverso';
+    indiceEnHoja: 1 | 2;
+  };
+  /** Identidad de contrato persistida también en cada página aislada. */
+  templateVersion?: TemplateVersion;
   markerSpec?: MarkerSpecOmr;
   engineHints?: EngineHintsOmr;
-  qr: {
+  qr?: {
     texto: string;
     x: number;
     y: number;
     size: number;
     padding: number;
+    /** Quiet zone y numero de modulos del simbolo QR. */
+    marginModules?: number;
+    /** Numero de modulos de la matriz QR, sin quiet zone. */
+    matrixModules?: number;
   };
-  marcasPagina: {
+  marcasPagina?: {
     tipo: 'lineas' | 'cuadrados';
     size: number;
     quietZone: number;
@@ -190,9 +231,17 @@ export interface PaginaOmr {
     }>;
     imageRenderStatus?: 'ok' | 'error';
     imagen?: { x: number; y: number; width: number; height: number };
+    imagenDisposicion?: 'lateral' | 'inferior';
     bboxPregunta?: { x: number; y: number; width: number; height: number };
     cajaOmr?: { x: number; y: number; width: number; height: number };
-    perfilOmr?: { radio: number; pasoY: number; pasoX?: number; cajaAncho: number };
+    perfilOmr?: {
+      radio: number;
+      pasoY: number;
+      pasoX?: number;
+      cajaAncho: number;
+      orientacion?: 'vertical' | 'horizontal';
+      etiquetaBordeInferiorGap?: number;
+    };
     fiduciales?: {
       leftTop: { x: number; y: number };
       leftBottom: { x: number; y: number };
@@ -217,9 +266,12 @@ export interface PaginaOmr {
     contentStartY?: number;
     contentEndY?: number;
     headerSlots?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    headerIconBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     contentShell?: { x: number; y: number; width: number; height: number };
     footerShell?: { x: number; y: number; width: number; height: number };
     questionBlockBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    questionBackgroundBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    questionPromptBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     omrPanelBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     collisionBoxes?: Array<{ pagina: number; a: string; b: string }>;
   };

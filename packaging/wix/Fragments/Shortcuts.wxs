@@ -7,10 +7,14 @@
           Id="SC.DesktopProd"
           Name="EvaluaPro"
           Description="Plataforma docente local: banco, exámenes, recepción y calificación"
+          <?if $(var.FlavorId) = docente-local ?>
+          Target="[INSTALLFOLDER]EvaluaPro.exe"
+          <?else?>
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
+          <?endif?>
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconProd" />
+          Icon="EvaluaProIconProd.ico" />
         <RemoveFolder Id="RF.DesktopProd" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="DesktopProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -23,7 +27,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; open-hub 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconHub" />
+          Icon="EvaluaProIconHub.ico" />
         <RemoveFolder Id="RF.DesktopHub" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="DesktopHub" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -37,7 +41,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; dev 4519"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconDev" />
+          Icon="EvaluaProIconDev.ico" />
         <RemoveFolder Id="RF.DesktopDev" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="DesktopDev" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -48,10 +52,14 @@
           Id="SC.MenuProd"
           Name="EvaluaPro"
           Description="Plataforma docente local: banco, exámenes, recepción y calificación"
+          <?if $(var.FlavorId) = docente-local ?>
+          Target="[INSTALLFOLDER]EvaluaPro.exe"
+          <?else?>
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
+          <?endif?>
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconProd" />
+          Icon="EvaluaProIconProd.ico" />
         <RemoveFolder Id="RF.MenuProdFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -64,7 +72,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; open-hub 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconHub" />
+          Icon="EvaluaProIconHub.ico" />
         <RemoveFolder Id="RF.MenuHubFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuHub" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -78,7 +86,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; dev 4519"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconDev" />
+          Icon="EvaluaProIconDev.ico" />
         <RemoveFolder Id="RF.MenuDevFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuDev" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -91,7 +99,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; open-dashboard 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconOpen" />
+          Icon="EvaluaProIconOpen.ico" />
         <RemoveFolder Id="RF.MenuOpenDashboardFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuOpenDashboard" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -104,7 +112,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; restart-stack 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconRestart" />
+          Icon="EvaluaProIconRestart.ico" />
         <RemoveFolder Id="RF.MenuRestartStackFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuRestartStack" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -117,7 +125,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; stop-all 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconStop" />
+          Icon="EvaluaProIconStop.ico" />
         <RemoveFolder Id="RF.MenuStopAllFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuStopAll" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -130,7 +138,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; uninstall 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconStop" />
+          Icon="EvaluaProIconStop.ico" />
         <RemoveFolder Id="RF.MenuUninstallFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuUninstall" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -143,7 +151,7 @@
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; repair 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="EvaluaProIconRepair" />
+          Icon="EvaluaProIconRepair.ico" />
         <RemoveFolder Id="RF.MenuRepairFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuRepair" Type="integer" Value="1" KeyPath="yes" />
       </Component>

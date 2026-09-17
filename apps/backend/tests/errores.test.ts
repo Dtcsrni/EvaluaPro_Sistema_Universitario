@@ -8,8 +8,8 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
-import { manejadorErrores } from '../src/compartido/errores/manejadorErrores';
+import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion.js';
+import { manejadorErrores } from '../src/compartido/errores/manejadorErrores.js';
 
 describe('manejadorErrores', () => {
   const app = express();

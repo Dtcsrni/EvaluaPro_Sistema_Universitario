@@ -7,8 +7,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import mongoose from 'mongoose';
-import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr';
-import { ExamenGenerado } from '../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
+import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
+import { ExamenGenerado } from '../src/modulos/modulo_generacion_pdf/modeloExamenGenerado.js';
 
 type EntradaImagen = { archivo: string; pagina: number };
 

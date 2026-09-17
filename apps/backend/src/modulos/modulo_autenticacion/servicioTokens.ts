@@ -6,7 +6,7 @@
  * - Por defecto (secret string) jsonwebtoken usa HS256.
  */
 import jwt from 'jsonwebtoken';
-import { configuracion } from '../../configuracion';
+import { configuracion } from '../../configuracion.js';
 
 export type TokenDocentePayload = {
   docenteId: string;

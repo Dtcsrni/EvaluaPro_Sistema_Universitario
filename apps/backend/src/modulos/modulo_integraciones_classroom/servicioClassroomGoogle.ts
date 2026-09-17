@@ -6,10 +6,10 @@
  */
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { cifrarTexto, descifrarTexto } from '../../compartido/seguridad/cifrado';
-import { configuracion } from '../../configuracion';
-import { IntegracionClassroom } from './modeloIntegracionClassroom';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { cifrarTexto, descifrarTexto } from '../../compartido/seguridad/cifrado.js';
+import { configuracion } from '../../configuracion.js';
+import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
 
 const CLASSROOM_SCOPES = [
   'openid',

@@ -120,6 +120,7 @@ function Get-EvaluaproCleanupPaths {
     (Join-Path ([Environment]::GetFolderPath('Programs')) 'EvaluaPro'),
     (Join-Path ([Environment]::GetFolderPath('Desktop')) 'EvaluaPro - Hub.lnk'),
     (Join-Path ([Environment]::GetFolderPath('Desktop')) 'EvaluaPro - Prod.lnk'),
+    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'EvaluaPro.lnk'),
     'C:\Users\Public\Desktop\EvaluaPro - Dev.lnk',
     'C:\Users\Public\Desktop\EvaluaPro - Prod.lnk'
   )) {

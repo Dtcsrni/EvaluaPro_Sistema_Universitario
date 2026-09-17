@@ -2,11 +2,11 @@
  * Rutas de alumnos.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { actualizarAlumno, crearAlumno, eliminarAlumnoDev, listarAlumnos } from './controladorAlumnos';
-import { esquemaActualizarAlumno, esquemaCrearAlumno } from './validacionesAlumnos';
-import { esquemaBodyVacioOpcional } from './validacionesPeriodos';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { actualizarAlumno, crearAlumno, eliminarAlumnoDev, listarAlumnos } from './controladorAlumnos.js';
+import { esquemaActualizarAlumno, esquemaCrearAlumno } from './validacionesAlumnos.js';
+import { esquemaBodyVacioOpcional } from './validacionesPeriodos.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
 const router = Router();
 

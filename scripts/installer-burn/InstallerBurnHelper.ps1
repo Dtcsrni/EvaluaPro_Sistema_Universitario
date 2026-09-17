@@ -294,8 +294,16 @@ function Write-InstallerRuntimeEnv {
   $flavorId = [string](Get-RequestConfigValue -Request $Request -Name 'flavorId' -DefaultValue 'docente-local')
   $localAppData = [string]$env:LOCALAPPDATA
   if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
+  $targetFullPath = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
+  $qaRootPrefix = (Join-Path $localAppData 'EvaluaPro-QA-Isolated-').TrimEnd('\')
+  $programDataRoot = [string]$env:ProgramData
+  if ([string]::IsNullOrWhiteSpace($programDataRoot)) { $programDataRoot = 'C:\ProgramData' }
   $localDataRoot = if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local') {
-    [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
+    if ($targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+      $targetFullPath
+    } else {
+      Join-Path $programDataRoot 'EvaluaPro'
+    }
   } else {
     Join-Path $localAppData 'EvaluaPro'
   }
@@ -303,9 +311,6 @@ function Write-InstallerRuntimeEnv {
   if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
   $localDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
   $requestedDatabaseUrl = [string](Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue $localDatabaseUrl)
-  if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local' -and ($requestedDatabaseUrl -match 'ProgramData/EvaluaPro/data/evaluapro\.db|ProgramData\\EvaluaPro\\data\\evaluapro\.db')) {
-    $requestedDatabaseUrl = $localDatabaseUrl
-  }
   Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL' -Value $requestedDatabaseUrl
   Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value $requestedDatabaseUrl
   Set-InstallerEnvValue -Map $envMap -Key 'NODE_ENV' -Value (Get-RequestConfigValue -Request $Request -Name 'nodeEnv' -DefaultValue 'production')
@@ -318,9 +323,9 @@ function Write-InstallerRuntimeEnv {
   Write-InstallerEnvMap -Path $envPath -Map $envMap
   $writtenEnv = Read-InstallerEnvMap -Path $envPath
   if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local') {
-    $expectedLocalUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
-    if ([string]$writtenEnv['DATABASE_URL'] -ne $expectedLocalUrl -or [string]$writtenEnv['BACKEND_DATABASE_URL'] -ne $expectedLocalUrl) {
-      throw "La configuracion SQLite docente no persistio la ruta efectiva: esperada=$expectedLocalUrl"
+    $expectedDatabaseUrl = $requestedDatabaseUrl
+    if ([string]$writtenEnv['DATABASE_URL'] -ne $expectedDatabaseUrl -or [string]$writtenEnv['BACKEND_DATABASE_URL'] -ne $expectedDatabaseUrl) {
+      throw "La configuracion SQLite docente no persistio la ruta efectiva: esperada=$expectedDatabaseUrl"
     }
   }
 }
@@ -514,7 +519,7 @@ function Invoke-PostInstall {
     Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
   }
   # La configuración operativa puede regenerar .env con defaults globales;
-  # reaplicar el contrato docente garantiza que SQLite quede en LOCALAPPDATA.
+  # reaplicar el contrato docente conserva la ruta SQLite efectiva del request.
   Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
   $envPath = Assert-InstallerRuntimeEnv -TargetDir $targetDir
   $runtimeEnv = Read-InstallerEnvMap -Path $envPath
@@ -522,21 +527,24 @@ function Invoke-PostInstall {
   if ($effectiveFlavor.Trim().ToLowerInvariant() -eq 'docente-local') {
     $localAppData = [string]$env:LOCALAPPDATA
     if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
-    $defaultDataRoot = Join-Path $localAppData 'EvaluaPro'
     $qaRootPrefix = (Join-Path $localAppData 'EvaluaPro-QA-Isolated-').TrimEnd('\')
+    $programDataRoot = [string]$env:ProgramData
+    if ([string]::IsNullOrWhiteSpace($programDataRoot)) { $programDataRoot = 'C:\ProgramData' }
     $targetFullPath = [IO.Path]::GetFullPath($targetDir).TrimEnd('\')
     $localDataRoot = if ($targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
       $targetFullPath
     } else {
-      $defaultDataRoot
+      Join-Path $programDataRoot 'EvaluaPro'
     }
     $localDataDir = Join-Path $localDataRoot 'data'
     if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
-    $localDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
-    Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $localDatabaseUrl
-    Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $localDatabaseUrl
+    $defaultDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
+    $effectiveDatabaseUrl = [string]$runtimeEnv['DATABASE_URL']
+    if ([string]::IsNullOrWhiteSpace($effectiveDatabaseUrl)) { $effectiveDatabaseUrl = $defaultDatabaseUrl }
+    Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $effectiveDatabaseUrl
+    Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $effectiveDatabaseUrl
     Write-InstallerEnvMap -Path $envPath -Map $runtimeEnv
-    Write-Host "Ruta SQLite docente: $localDatabaseUrl"
+    Write-Host "Ruta SQLite docente: $effectiveDatabaseUrl"
   }
   $runtimeEnv = Read-InstallerEnvMap -Path $envPath
   if ($runtimeEnv.Contains('DATABASE_URL')) {
@@ -547,14 +555,16 @@ function Invoke-PostInstall {
     $env:DATABASE_URL = [string]$runtimeEnv['DATABASE_URL']
   }
 
-  # Última barrera: la configuración operativa puede conservar un valor legado
-  # en ProgramData. Antes de arrancar Node, docente-local debe apuntar siempre
-  # a la base bajo la raíz local efectiva ya calculada arriba.
+  # Última barrera: conserva la ruta efectiva ya validada; no cambia una base
+  # existente durante un update ni la mueve implícitamente entre raíces.
   if ($effectiveFlavor.Trim().ToLowerInvariant() -eq 'docente-local') {
-    $finalDatabaseUrl = 'file:' + ((Join-Path $localDataDir 'evaluapro.db') -replace '\\', '/')
     $runtimeEnv = Read-InstallerEnvMap -Path $envPath
-    Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $finalDatabaseUrl
-    Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $finalDatabaseUrl
+    $finalDatabaseUrl = [string]$runtimeEnv['DATABASE_URL']
+    if ([string]::IsNullOrWhiteSpace($finalDatabaseUrl)) {
+      $finalDatabaseUrl = 'file:' + ((Join-Path $programDataRoot 'EvaluaPro\data\evaluapro.db') -replace '\\', '/')
+      Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $finalDatabaseUrl
+      Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $finalDatabaseUrl
+    }
     Write-InstallerEnvMap -Path $envPath -Map $runtimeEnv
     $env:DATABASE_URL = $finalDatabaseUrl
     $env:BACKEND_DATABASE_URL = $finalDatabaseUrl
@@ -726,6 +736,7 @@ function Invoke-PostInstall {
   }
   & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $shortcutScript `
     -OutputDir 'accesos-directos' -Force `
+    -SyncRepoOutput $true `
     -Port 4519
   if ($LASTEXITCODE -ne 0) {
     throw "No se pudieron crear accesos directos/manifiesto de instalación (exit=$LASTEXITCODE)."

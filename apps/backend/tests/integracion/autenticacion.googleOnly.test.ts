@@ -6,9 +6,9 @@
  */
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
-import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 vi.mock('../../src/modulos/modulo_autenticacion/servicioGoogle', () => ({
   verificarCredencialGoogle: vi.fn(async () => ({
@@ -22,7 +22,7 @@ async function crearAppGoogleOnly() {
   vi.resetModules();
   process.env.REQUIRE_GOOGLE_OAUTH = '1';
   process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client-id-test';
-  const mod = await import('../../src/app');
+  const mod = await import('../../src/app.js');
   return mod.crearApp();
 }
 
@@ -66,7 +66,7 @@ describe('autenticacion google-only', () => {
     expect(registro.body?.error?.codigo).toBe('GOOGLE_OAUTH_REQUIRED');
   });
 
-  it('autovincula por correo institucional en el primer login Google', async () => {
+  it('autovincula por correo verificado en el primer login Google', async () => {
     const app = await crearAppGoogleOnly();
     const docente = await Docente.create({
       nombreCompleto: 'Docente Existente',

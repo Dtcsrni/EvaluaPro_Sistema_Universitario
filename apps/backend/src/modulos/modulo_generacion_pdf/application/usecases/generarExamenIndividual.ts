@@ -9,16 +9,76 @@
 import type {
   ParametrosGeneracionPdf,
   ResultadoGeneracionPdf
-} from '../../shared/tiposPdf';
-import { ExamenPdf } from '../../domain/examenPdf';
-import { obtenerPerfilPlantilla } from '../../domain/layoutExamen';
-import { resolverPerfilLayout } from '../../infra/configuracionLayoutEnv';
-import { PdfKitRenderer } from '../../infra/pdfKitRenderer';
+} from '../../shared/tiposPdf.js';
+import { ExamenPdf } from '../../domain/examenPdf.js';
+import { obtenerPerfilPlantilla } from '../../domain/layoutExamen.js';
+import { resolverPerfilLayout } from '../../infra/configuracionLayoutEnv.js';
+import { PdfKitRenderer } from '../../infra/pdfKitRenderer.js';
 import {
   resolverTemplateVersionCanonica,
   normalizarMapaVarianteCanonica,
   normalizarPreguntasCanonicas
-} from '../../domain/templateCanonico';
+} from '../../domain/templateCanonico.js';
+
+type PistaAutoFit = { escala: number; espaciado: number };
+
+// El autoajuste se ejecuta repetidamente al previsualizar la misma plantilla.
+// La clave incluye los datos que afectan al layout, por lo que una pregunta,
+// encabezado o configuración diferente no reutiliza una pista vieja.
+const pistasAutoFit = new Map<string, PistaAutoFit>();
+const MAX_PISTAS_AUTOFIT = 32;
+
+function construirClaveAutoFit(params: ParametrosGeneracionPdf, templateVersion: number) {
+  return JSON.stringify({
+    titulo: params.titulo,
+    tipoExamen: params.tipoExamen,
+    totalPaginas: params.totalPaginas,
+    margenMm: params.margenMm,
+    templateVersion,
+    preguntas: params.preguntas,
+    mapaVariante: params.mapaVariante,
+    bookletConfig: params.bookletConfig,
+    encabezado: params.encabezado
+  });
+}
+
+function priorizarPista(valores: number[], pista: number | undefined) {
+  if (!Number.isFinite(pista) || !valores.includes(pista as number)) return valores;
+  return [pista as number, ...valores.filter((valor) => valor !== pista)];
+}
+
+function construirCombinacionesAutoFit(
+  escalas: number[],
+  espaciados: number[]
+) {
+  const combinaciones: PistaAutoFit[] = [];
+  const agregada = new Set<string>();
+  const agregar = (escala: number, espaciado: number) => {
+    const clave = `${escala}:${espaciado}`;
+    if (agregada.has(clave)) return;
+    agregada.add(clave);
+    combinaciones.push({ escala, espaciado });
+  };
+
+  // La prioridad editorial es el tamaño de letra; el interlineado se ajusta
+  // automáticamente al mínimo seguro. Probar la matriz completa repetía el
+  // render del PDF y hacía lenta la preview sin aumentar el tamaño elegido.
+  const espaciadoMinimo = espaciados[espaciados.length - 1] ?? 0.75;
+  for (const escala of escalas) {
+    agregar(escala, espaciadoMinimo);
+  }
+  return combinaciones;
+}
+
+function guardarPistaAutoFit(clave: string, pista: PistaAutoFit) {
+  pistasAutoFit.delete(clave);
+  pistasAutoFit.set(clave, pista);
+  while (pistasAutoFit.size > MAX_PISTAS_AUTOFIT) {
+    const primera = pistasAutoFit.keys().next().value;
+    if (typeof primera !== 'string') break;
+    pistasAutoFit.delete(primera);
+  }
+}
 
 /**
  * Genera un PDF de examen individual.
@@ -38,7 +98,10 @@ export async function generarExamenIndividual(
     ? Math.max(4.5, Number(params.margenMm))
     : 8;
 
-  const examen = new ExamenPdf(
+  const perfilOmr = obtenerPerfilPlantilla(templateVersion);
+  const perfilLayout = resolverPerfilLayout();
+  const renderer = new PdfKitRenderer(perfilOmr, perfilLayout);
+  const construirExamen = (fontScale: number, lineSpacing: number) => new ExamenPdf(
     params.titulo?.trim() || 'Examen',
     params.folio?.trim() || 'SIN-FOLIO',
     params.examId?.trim(),
@@ -49,14 +112,76 @@ export async function generarExamenIndividual(
       margenMm,
       templateVersion,
       totalPaginas,
-      fontScale: params.bookletConfig?.fontScale,
-      lineSpacing: params.bookletConfig?.lineSpacing,
+      densityMode: params.bookletConfig?.densityMode,
+      fontScale,
+      lineSpacing,
       logos: params.bookletConfig?.logos
     },
     params.encabezado
   );
 
-  const perfilOmr = obtenerPerfilPlantilla(templateVersion);
-  const perfilLayout = resolverPerfilLayout();
-  return new PdfKitRenderer(perfilOmr, perfilLayout).generarPdf(examen);
+  const fontScaleBase = Math.min(1.3, Math.max(0.75, Number(params.bookletConfig?.fontScale ?? 1) || 1));
+  const lineSpacingBase = Math.min(1.6, Math.max(0.75, Number(params.bookletConfig?.lineSpacing ?? 1.1) || 1.1));
+  const renderizar = async (fontScale: number, lineSpacing: number) => {
+    const resultado = await renderer.generarPdf(construirExamen(fontScale, lineSpacing));
+    return {
+      ...resultado,
+      fontScaleAplicada: fontScale,
+      lineSpacingAplicado: lineSpacing
+    };
+  };
+
+  if (params.bookletConfig?.autoFitPages !== true) {
+    return renderizar(fontScaleBase, lineSpacingBase);
+  }
+
+  const claveAutoFit = construirClaveAutoFit(params, templateVersion);
+  const pista = pistasAutoFit.get(claveAutoFit);
+
+  // El modo editorial puede solicitar que el autoajuste use también el aire
+  // disponible para ampliar el texto. Las configuraciones manuales conservan
+  // su límite superior histórico; la cabecera y el OMR siguen protegidos.
+  const autoFitTypography = params.bookletConfig?.autoFitTypography === true;
+  const escalasMaximas = autoFitTypography
+    ? [1.3, 1.25, 1.2, 1.15, 1.1, 1.05, fontScaleBase]
+    : [fontScaleBase];
+  const limiteEscala = autoFitTypography ? 1.3 : fontScaleBase;
+  const escalasBase = autoFitTypography
+    ? [...new Set([...escalasMaximas, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
+        .filter((value) => value >= 0.75 && value <= limiteEscala)
+        .sort((a, b) => b - a)
+    : [fontScaleBase];
+  const espaciadosBase = [...new Set([lineSpacingBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
+    .filter((value) => value >= 0.75 && value <= lineSpacingBase)
+    .sort((a, b) => b - a);
+  // Una pista antigua puede corresponder a una escala menor que la óptima;
+  // solo se reutiliza el interlineado si la pista conserva la escala máxima
+  // actualmente disponible. Nunca se salta una escala tipográfica superior.
+  const pistaEscalaMaxima = pista?.escala === escalasBase[0] ? pista : undefined;
+  const escalas = escalasBase;
+  const espaciados = priorizarPista(espaciadosBase, pistaEscalaMaxima?.espaciado);
+  const combinaciones = construirCombinacionesAutoFit(escalas, espaciados);
+
+  let ultimoResultado: ResultadoGeneracionPdf | undefined;
+  let ultimoError: unknown;
+  for (const combinacion of combinaciones) {
+    try {
+      const resultado = await renderizar(combinacion.escala, combinacion.espaciado);
+      ultimoResultado = resultado;
+      if (resultado.preguntasRestantes === 0 && resultado.paginas.length <= totalPaginas) {
+        guardarPistaAutoFit(claveAutoFit, combinacion);
+        return resultado;
+      }
+    } catch (error) {
+      if (!autoFitTypography) throw error;
+      ultimoError = error;
+    }
+  }
+
+  // Nunca se recortan preguntas ni se fuerza una geometría insegura: si el
+  // contenido no cabe, se conserva el mejor intento para que la UI muestre la
+  // advertencia real del motor y sugiera aumentar páginas o editar contenido.
+  if (ultimoResultado) return ultimoResultado;
+  if (ultimoError) throw ultimoError;
+  return renderizar(fontScaleBase, lineSpacingBase);
 }

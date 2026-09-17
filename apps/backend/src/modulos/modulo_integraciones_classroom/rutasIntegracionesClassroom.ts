@@ -5,15 +5,15 @@
  * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 import {
   ejecutarPullClassroom,
   iniciarOauthClassroom,
   listarMapeosClassroom,
   mapearClassroomEvidencia
-} from './controladorIntegracionesClassroom';
-import { esquemaMapearClassroom, esquemaPullClassroom } from './validacionesClassroom';
+} from './controladorIntegracionesClassroom.js';
+import { esquemaMapearClassroom, esquemaPullClassroom } from './validacionesClassroom.js';
 
 const router = Router();
 

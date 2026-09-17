@@ -36,11 +36,15 @@ function toTestArgs(batch) {
   const filters = [];
   for (const arg of args.slice(2)) {
     if (String(arg).startsWith('--coverage')) continue;
+    if (String(arg).startsWith('--pool=')) continue;
     if (String(arg).startsWith('--reporter=')) continue;
     if (String(arg).startsWith('--outputFile.')) continue;
     filters.push(arg);
   }
-  return ['run', ...filters, '--pool=forks', '--reporter=default'];
+  const pool = filters.some((filter) => String(filter).includes('sincronizacion.dos-equipos.e2e.test.ts'))
+    ? '--pool=threads'
+    : '--pool=forks';
+  return ['run', ...filters, pool, '--reporter=default'];
 }
 
 function runVitest(args, name) {

@@ -2,15 +2,15 @@
  * Punto de entrada del backend docente.
  * Inicializa configuracion, base de datos y servidor HTTP.
  */
-import { crearApp } from './app';
-import { configuracion } from './configuracion';
-import { conectarSqlite } from './infraestructura/baseDatos/sqlite';
-import { logError, log } from './infraestructura/logging/logger';
-import { seedAdminDocente } from './modulos/modulo_autenticacion/seedAdmin';
-import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv } from './modulos/modulo_escaneo_omr/infra/omrCvEngine';
+import { crearApp } from './app.js';
+import { configuracion } from './configuracion.js';
+import { conectarSqlite } from './infraestructura/baseDatos/sqlite.js';
+import { logError, log } from './infraestructura/logging/logger.js';
+import { seedAdminDocente } from './modulos/modulo_autenticacion/seedAdmin.js';
+import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv } from './modulos/modulo_escaneo_omr/infra/omrCvEngine.js';
 
-import { iniciarSchedulerCobranzaAutomatica } from './modulos/modulo_comercial_core/schedulerCobranza';
-import { iniciarSchedulerRetencionExamenes } from './modulos/modulo_generacion_pdf/schedulerRetencionExamenes';
+import { iniciarSchedulerCobranzaAutomatica } from './modulos/modulo_comercial_core/schedulerCobranza.js';
+import { iniciarSchedulerRetencionExamenes } from './modulos/modulo_generacion_pdf/schedulerRetencionExamenes.js';
 
 async function iniciar() {
   await conectarSqlite();

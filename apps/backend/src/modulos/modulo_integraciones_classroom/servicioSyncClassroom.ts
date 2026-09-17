@@ -4,20 +4,20 @@
  * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { Alumno } from '../modulo_alumnos/modeloAlumno';
-import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion';
-import { IntegracionClassroom } from './modeloIntegracionClassroom';
-import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia';
-import { MapeoClassroomAlumnoCurso } from './modeloMapeoClassroomAlumnoCurso';
-import { BitacoraSyncClassroom } from './modeloBitacoraSyncClassroom';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { Alumno } from '../modulo_alumnos/modeloAlumno.js';
+import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion.js';
+import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
+import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia.js';
+import { MapeoClassroomAlumnoCurso } from './modeloMapeoClassroomAlumnoCurso.js';
+import { BitacoraSyncClassroom } from './modeloBitacoraSyncClassroom.js';
 import {
   classroomGet,
   listarActividadesClassroom,
   listarCursosClassroom,
   obtenerTokenAccesoClassroom
-} from './servicioClassroomGoogle';
+} from './servicioClassroomGoogle.js';
 
 function numeroSeguro(valor: unknown): number {
   const n = Number(valor);

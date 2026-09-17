@@ -1,11 +1,11 @@
 /**
  * Repositorios de infraestructura para sincronizacion nube.
  */
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { prisma } from '../../../infraestructura/baseDatos/sqlite';
-import { Sincronizacion } from '../modeloSincronizacion';
-import { normalizarCorreo, parsearFechaIso } from '../sincronizacionInterna';
-import type { SyncAuditRepo, SyncClock, SyncDataRepo } from '../shared/tiposSync';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite.js';
+import { Sincronizacion } from '../modeloSincronizacion.js';
+import { normalizarCorreo, parsearFechaIso } from '../sincronizacionInterna.js';
+import type { SyncAuditRepo, SyncClock, SyncDataRepo } from '../shared/tiposSync.js';
 
 export const syncClock: SyncClock = {
   now: () => new Date()

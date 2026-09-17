@@ -6,7 +6,7 @@
  */
 // Pruebas del generador CSV.
 import { describe, expect, it } from 'vitest';
-import { generarCsv } from '../src/modulos/modulo_analiticas/servicioExportacionCsv';
+import { generarCsv } from '../src/modulos/modulo_analiticas/servicioExportacionCsv.js';
 
 describe('generarCsv', () => {
   it('escapa comas, comillas y saltos de linea', () => {

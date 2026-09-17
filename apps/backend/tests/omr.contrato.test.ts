@@ -5,7 +5,7 @@
  */
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { analizarOmr, leerQrDesdeImagen } from '../src/modulos/modulo_escaneo_omr/servicioOmr';
+import { analizarOmr, leerQrDesdeImagen } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
 type MapaOmr = Parameters<typeof analizarOmr>[1];
 
 async function crearImagenBlancaBase64(width = 612, height = 792) {

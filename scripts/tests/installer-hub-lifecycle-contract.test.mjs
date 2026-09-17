@@ -10,6 +10,7 @@ import path from 'node:path';
 const root = process.cwd();
 const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
 const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
+const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
 const hubWindow = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
 const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
 const msiBuild = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
@@ -89,6 +90,14 @@ test('dashboard mantiene TLS, argumentos y timers bajo contratos seguros', () =>
   assert.doesNotMatch(dashboard, /rejectUnauthorized\s*:\s*false/);
   assert.doesNotMatch(dashboard, /function quoteCmdArg/);
   assert.match(dashboard, /runProcessCapture\(installerPath, \['\/quiet', '\/norestart'\]/);
+  assert.match(dashboard, /EVALUAPRO_BURN_INSTALLDIR:\s*root/);
+  assert.match(dashboard, /EVALUAPRO_FLAVOR_ID:\s*String\(updateConfig\.flavorId/);
+  assert.match(dashboard, /runProcessCapture\(installerPath, \['\/quiet', '\/norestart'\], 10 \* 60_000, \{\s*env: installerEnv\s*\}\)/);
+  assert.match(dashboard, /legacyProfilePath/);
+  assert.match(dashboard, /stableProfilePath/);
+  assert.match(dashboard, /cpSync\(legacyProfilePath, stableProfilePath/);
+  assert.match(appHost, /ResolveWebView2UserDataFolder\(\)/);
+  assert.match(appHost, /EvaluaPro-UserData[\\/\\"]+,?\s*"webview2-profile"/);
   assert.match(dashboard, /runProcessCapture\(resolved\.path, args, 30_000\)/);
   assert.match(dashboard, /continuityTimer = setInterval\([\s\S]*?DASHBOARD_TIMER_TICK_MS\)/);
   assert.match(dashboard, /lifecycleSupervisorTimer = setInterval\([\s\S]*?DASHBOARD_TIMER_TICK_MS\)/);
@@ -144,8 +153,15 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
   assert.match(msiBuild, /npmCommand prune --omit=dev --ignore-scripts/);
   assert.match(msiBuild, /foreach \(\$prunePath in \$prunePaths\)/);
   assert.match(msiBuild, /node_modules\/\.prisma\/client\/libquery_engine-\*\.so\.node/);
-  assert.match(msiBuild, /node_modules\/pdfjs-dist/);
+  assert.match(msiBuild, /pdf-parse/);
+  assert.match(msiBuild, /pdfjs-dist/);
   assert.match(msiBuild, /Payload preconstruido reutilizado y podado/);
+});
+
+test('el payload docente conserva los módulos PDF requeridos en runtime', () => {
+  assert.match(msiBuild, /foreach \(\$requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist'\)\)/);
+  assert.match(msiBuild, /Falta dependencia de runtime requerida por el backend/);
+  assert.doesNotMatch(msiBuild, /Join-Path \$backendTarget 'node_modules\/pdfjs-dist'/);
 });
 
 test('la ETA del Hub se deriva del avance real, se suaviza y declara verificación', () => {

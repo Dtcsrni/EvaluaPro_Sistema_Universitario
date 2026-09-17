@@ -1,11 +1,6 @@
 {
   "version": "1",
-  "gate": "global-grade",
-  "command": "npm -C apps/backend run test -- --reporter=verbose tests/calificacion.global.reglas.test.ts tests/integracion/calificacionGlobalContratoE2E.test.ts",
-  "ok": true,
-  "exitCode": 0,
-  "signal": null,
-  "startedAt": "2026-08-27T01:18:22.927Z",
-  "finishedAt": "2026-08-27T01:18:28.603Z",
-  "durationMs": 5676
+  "ejecutadoEn": "2026-09-12T13:46:05.376Z",
+  "estado": "ok",
+  "totalMuestras": 3440
 }

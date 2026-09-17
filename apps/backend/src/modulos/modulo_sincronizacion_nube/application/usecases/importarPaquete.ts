@@ -4,10 +4,10 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { DefaultPaqueteProcessor, validarBackupMetaImportacion, validarTamanoPaqueteBase64 } from '../../domain/paqueteSincronizacion';
-import { normalizarCorreo, obtenerId } from '../../sincronizacionInterna';
-import { Sincronizacion } from '../../modeloSincronizacion';
-import { syncClock } from '../../infra/repositoriosSync';
+import { DefaultPaqueteProcessor, validarBackupMetaImportacion, validarTamanoPaqueteBase64 } from '../../domain/paqueteSincronizacion.js';
+import { normalizarCorreo, obtenerId } from '../../sincronizacionInterna.js';
+import { Sincronizacion } from '../../modeloSincronizacion.js';
+import { syncClock } from '../../infra/repositoriosSync.js';
 
 const processor = new DefaultPaqueteProcessor();
 

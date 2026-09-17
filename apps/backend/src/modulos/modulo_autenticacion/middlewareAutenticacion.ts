@@ -2,10 +2,10 @@
  * Middleware para requerir sesion docente via JWT.
  */
 import type { NextFunction, Request, Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { normalizarRoles } from '../../infraestructura/seguridad/rbac';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { verificarTokenDocente } from './servicioTokens';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { normalizarRoles } from '../../infraestructura/seguridad/rbac.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { verificarTokenDocente } from './servicioTokens.js';
 
 export type SolicitudDocente = Request & { docenteId?: string; docenteRoles?: string[] };
 

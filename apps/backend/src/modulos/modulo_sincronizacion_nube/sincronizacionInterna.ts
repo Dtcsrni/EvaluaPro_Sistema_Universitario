@@ -6,8 +6,8 @@
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'crypto';
 import { gzipSync } from 'zlib';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
 
 export const MAX_BASE64_CHARS = 60_000_000; // ~45MB binario aprox
 const RESPALDO_CIFRADO_FORMATO = 'evaluapro-sync-encrypted';

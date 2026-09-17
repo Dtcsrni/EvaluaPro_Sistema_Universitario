@@ -110,6 +110,9 @@ export function calcularHashFirma(jwtSecret: string, payload: {
 // ─── Carga de logos por defecto ─────────────────────────────────────────────
 import fsSync from 'node:fs';
 import pathMod from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = pathMod.dirname(fileURLToPath(import.meta.url));
 
 const __dirname_assets = pathMod.resolve(
   __dirname,

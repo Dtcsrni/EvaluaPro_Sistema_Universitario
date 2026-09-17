@@ -3,8 +3,8 @@
  *
  * Responsabilidad: Crear el docente administrador por defecto si no existe en SQLite.
  */
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { crearHash } from './servicioHash';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { crearHash } from './servicioHash.js';
 
 function shouldSeed(): boolean {
   const env = String(process.env.NODE_ENV || 'production').toLowerCase();

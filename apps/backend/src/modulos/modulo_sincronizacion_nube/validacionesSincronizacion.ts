@@ -7,7 +7,7 @@
  *   filtros en queries (ver `controladorSincronizacion.ts`).
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 export const esquemaPublicarResultados = z.object({
   periodoId: esquemaObjectId

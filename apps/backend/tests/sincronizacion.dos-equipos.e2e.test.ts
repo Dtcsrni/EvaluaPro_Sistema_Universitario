@@ -18,10 +18,12 @@ const password = 'DosEquipos-Password-123!';
 const equipoA = 'equipo-a-e2e-123456';
 const equipoB = 'equipo-b-e2e-123456';
 
-const rutaSqlite = pathToFileURL(path.resolve(process.cwd(), 'src/infraestructura/baseDatos/sqlite.ts')).href;
-const rutaHash = pathToFileURL(path.resolve(process.cwd(), 'src/modulos/modulo_autenticacion/servicioHash.ts')).href;
-const rutaSync = pathToFileURL(path.resolve(process.cwd(), 'src/modulos/modulo_sincronizacion_nube/domain/leaseSincronizacion.ts')).href;
-
+const rutaBackend = (rutaRelativa: string) => pathToFileURL(path.resolve(process.cwd(), rutaRelativa)).href;
+const usaDist = await fs.access(path.resolve(process.cwd(), 'dist/infraestructura/baseDatos/sqlite.js')).then(() => true, () => false);
+const rutaModulo = (modulo: string) => rutaBackend(`${usaDist ? 'dist' : 'src'}/${modulo}${usaDist ? '.js' : '.ts'}`);
+const rutaSqlite = rutaModulo('infraestructura/baseDatos/sqlite');
+const rutaHash = rutaModulo('modulos/modulo_autenticacion/servicioHash');
+const rutaSync = rutaModulo('modulos/modulo_sincronizacion_nube/domain/leaseSincronizacion');
 const worker = `
 const { prisma, conectarSqlite, desconectarSqlite } = await import(${JSON.stringify(rutaSqlite)});
 const { crearHash } = await import(${JSON.stringify(rutaHash)});
@@ -69,9 +71,13 @@ try {
 }
 `;
 
+const argumentosWorker = usaDist
+  ? ['--max-old-space-size=512', '--input-type=module', '--eval', worker]
+  : ['--max-old-space-size=512', '--import', 'tsx', '--input-type=module', '--eval', worker];
+
 function ejecutarWorker(params: { db: string; equipoId?: string; leaseId?: string; op: 'preparar' | 'publicar' | 'importar' | 'competir' | 'liberar'; semilla?: boolean }) {
   return new Promise<Record<string, any>>((resolve, reject) => {
-    const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '--eval', worker], {
+    const child = spawn(process.execPath, argumentosWorker, {
       cwd: process.cwd(),
       env: {
         ...process.env,

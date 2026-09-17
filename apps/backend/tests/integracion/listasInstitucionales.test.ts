@@ -3,19 +3,14 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import request from 'supertest';
 import ExcelJS from 'exceljs';
+import { PDFParse } from 'pdf-parse';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { registrarDocente } from './_flujoDocenteHelper';
-
-const require = createRequire(import.meta.url);
-const { PDFParse } = require('pdf-parse') as {
-  PDFParse: new (options: { data: Buffer }) => { getText: () => Promise<{ text: string }>; destroy: () => Promise<void> };
-};
+import { crearApp } from '../../src/app.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { registrarDocente } from './_flujoDocenteHelper.js';
 
 async function extraerTextoPdf(buffer: Buffer) {
   const parser = new PDFParse({ data: buffer });

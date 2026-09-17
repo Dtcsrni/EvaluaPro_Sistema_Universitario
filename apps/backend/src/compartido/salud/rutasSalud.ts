@@ -2,18 +2,18 @@
  * Endpoint de salud para monitoreo de API y base de datos.
  */
 import { Router } from 'express';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import QRCode from 'qrcode';
-import type { RespuestaLiveness, RespuestaReadiness, RespuestaSalud } from '../tipos/observabilidad';
-import { exportarMetricasPrometheus } from '../observabilidad/metrics';
+import type { RespuestaLiveness, RespuestaReadiness, RespuestaSalud } from '../tipos/observabilidad.js';
+import { exportarMetricasPrometheus } from '../observabilidad/metrics.js';
 import {
   OMR_CANONICAL_CONTRACT_ID,
   OMR_CANONICAL_DISPLAY_LABEL,
   TEMPLATE_VERSION_CANONICA
-} from '../../modulos/modulo_generacion_pdf/domain/templateCanonico';
+} from '../../modulos/modulo_generacion_pdf/domain/templateCanonico.js';
 
 const router = Router();
 type TecnologiaVersion = { id: string; label: string; logoUrl: string; website: string };

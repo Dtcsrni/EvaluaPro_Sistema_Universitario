@@ -6,12 +6,12 @@
  */
 import { Router } from 'express';
 import { z } from 'zod';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import {
   obtenerDetallesFirmaEncuadrePublico,
   descargarPdfEncuadrePublico,
   firmarEncuadrePublico
-} from './controladorEncuadre';
+} from './controladorEncuadre.js';
 
 const router = Router();
 const esquemaVacio = z.object({}).strict();

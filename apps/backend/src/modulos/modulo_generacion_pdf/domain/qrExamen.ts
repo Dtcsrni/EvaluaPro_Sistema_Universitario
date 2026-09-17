@@ -5,8 +5,8 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { configuracion } from '../../../configuracion';
-import type { MapaVariante, PreguntaBase, TemplateVersion } from '../shared/tiposPdf';
+import { configuracion } from '../../../configuracion.js';
+import type { MapaVariante, PreguntaBase, TemplateVersion } from '../shared/tiposPdf.js';
 
 type QrPayloadPagina = {
   folio: string;
@@ -32,6 +32,8 @@ export type ResumenQrExamen = {
   preguntaHasta?: number;
   variantHash?: string;
   answerKeyHash?: string;
+  /** Clave visible de la página, para reconstrucción local si falta el manifiesto. */
+  pageAnswerKey?: string;
   payloadSignature?: string;
   payloadSignatureMode?: 'hmac-v1' | 'unsupported' | 'none';
   payloadSignatureValid?: boolean;
@@ -108,19 +110,16 @@ export function construirFirmaClave(preguntas: PreguntaBase[] | undefined, mapaV
   return hashCorto(clave.join('|'));
 }
 
-function construirReferenciasPregunta(questionIdsPagina: string[] | undefined) {
+function construirClaveVisiblePagina(
+  preguntas: PreguntaBase[] | undefined,
+  mapaVariante: MapaVariante | undefined,
+  questionIdsPagina: string[] | undefined
+) {
   const ids = Array.isArray(questionIdsPagina) ? questionIdsPagina : [];
-  return ids.map((idPregunta) => hashCorto(String(idPregunta), 6));
-}
-
-function construirOrdenesOpcionesPagina(mapaVariante: MapaVariante | undefined, questionIdsPagina: string[] | undefined) {
-  const ids = Array.isArray(questionIdsPagina) ? questionIdsPagina : [];
-  return ids.map((idPregunta) => {
-    const ordenOpciones = Array.isArray(mapaVariante?.ordenOpcionesPorPregunta?.[idPregunta])
-      ? mapaVariante!.ordenOpcionesPorPregunta![idPregunta]!
-      : [0, 1, 2, 3, 4];
-    return ordenOpciones.map((indice) => String(Math.max(0, Number(indice) || 0))).join('');
-  });
+  const porId = new Map((Array.isArray(preguntas) ? preguntas : []).map((pregunta) => [pregunta.id, pregunta]));
+  return ids
+    .map((idPregunta) => resolverLetraCorrecta(porId.get(idPregunta), mapaVariante?.ordenOpcionesPorPregunta?.[idPregunta]))
+    .join('');
 }
 
 export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
@@ -130,8 +129,7 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
   const examId = normalizarToken(payload.examId);
   const variantHash = construirFirmaVariante(payload.mapaVariante);
   const answerKeyHash = construirFirmaClave(payload.preguntas, payload.mapaVariante);
-  const questionRefs = construirReferenciasPregunta(payload.questionIdsPagina);
-  const optionOrders = construirOrdenesOpcionesPagina(payload.mapaVariante, payload.questionIdsPagina);
+  const pageAnswerKey = construirClaveVisiblePagina(payload.preguntas, payload.mapaVariante, payload.questionIdsPagina);
   const keyId = normalizarToken(configuracion.omrQrHmacKeyId).slice(0, 20);
   const totalPreguntas = Math.max(0, Number(payload.totalPreguntas) || 0);
   const preguntaDesde = Math.max(0, Number(payload.preguntaDesde) || 0);
@@ -146,8 +144,7 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
     preguntaHasta >= preguntaDesde && preguntaHasta > 0 ? `QH:${preguntaHasta}` : '',
     variantHash ? `VH:${variantHash}` : '',
     answerKeyHash ? `AK:${answerKeyHash}` : '',
-    questionRefs.length > 0 ? `QV:${questionRefs.join('.')}` : '',
-    optionOrders.length > 0 ? `OV:${optionOrders.join('.')}` : ''
+    pageAnswerKey ? `K:${pageAnswerKey}` : ''
   ].filter(Boolean);
 
   const firmaPayload = `H1${hmacCorto(segmentos.join(':'), 24, keyId)}`;
@@ -225,6 +222,7 @@ export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null
     Number.isFinite(preguntaHasta) && preguntaHasta > 0 ? `QH:${preguntaHasta}` : '',
     campos.get('VH') ? `VH:${campos.get('VH')}` : '',
     campos.get('AK') ? `AK:${campos.get('AK')}` : '',
+    campos.get('K') ? `K:${campos.get('K')}` : '',
     campos.get('QV') ? `QV:${campos.get('QV')}` : '',
     campos.get('OV') ? `OV:${campos.get('OV')}` : ''
   ].filter(Boolean).join(':');
@@ -240,6 +238,7 @@ export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null
     preguntaHasta: Number.isFinite(preguntaHasta) && preguntaHasta > 0 ? preguntaHasta : undefined,
     variantHash: campos.get('VH') || undefined,
     answerKeyHash: campos.get('AK') || undefined,
+    pageAnswerKey: /^[A-E]{1,26}$/i.test(String(campos.get('K') ?? '')) ? campos.get('K')!.toUpperCase() : undefined,
     payloadSignature: firmaPayload.payloadSignature,
     payloadSignatureMode: firmaPayload.payloadSignatureMode,
     payloadSignatureValid: firmaPayload.payloadSignatureValid,

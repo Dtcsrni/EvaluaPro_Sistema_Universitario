@@ -6,8 +6,8 @@
  */
 import type { NextFunction, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
-import { log } from '../../infraestructura/logging/logger';
-import { registrarRequestHttp } from './metrics';
+import { log } from '../../infraestructura/logging/logger.js';
+import { registrarRequestHttp } from './metrics.js';
 
 function obtenerIdSolicitud(req: Request): string {
   const cabecera = req.header('x-request-id');

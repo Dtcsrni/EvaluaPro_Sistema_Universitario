@@ -4,8 +4,8 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { configuracion } from '../../configuracion';
-import { log, logError } from '../logging/logger';
+import { configuracion } from '../../configuracion.js';
+import { log, logError } from '../logging/logger.js';
 
 type PayloadNotificacionWebhook = {
   canal: 'email' | 'whatsapp' | 'crm';

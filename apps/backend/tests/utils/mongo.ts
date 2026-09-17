@@ -6,9 +6,12 @@
  */
 import { execSync } from 'node:child_process';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import os from 'node:os';
-import { resolverNombreDbTest } from './testDbPath';
+import { resolverNombreDbTest } from './testDbPath.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const dbFile = resolverNombreDbTest();
 const dataDir = String(process.env.EVALUAPRO_TEST_DATA_DIR || '').trim()
@@ -21,7 +24,7 @@ const dbUrl = `file:${dbPath.replace(/\\/g, '/')}`;
 process.env.DATABASE_URL = dbUrl;
 process.env.BACKEND_DATABASE_URL = dbUrl;
 
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 
 export async function conectarMongoTest() {
   process.env.DATABASE_URL = dbUrl;

@@ -5,9 +5,9 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
-import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
-import { validarBackupMetaImportacion } from '../src/modulos/modulo_sincronizacion_nube/domain/paqueteSincronizacion';
-import { cifrarRespaldo, descifrarRespaldo } from '../src/modulos/modulo_sincronizacion_nube/sincronizacionInterna';
+import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion.js';
+import { validarBackupMetaImportacion } from '../src/modulos/modulo_sincronizacion_nube/domain/paqueteSincronizacion.js';
+import { cifrarRespaldo, descifrarRespaldo } from '../src/modulos/modulo_sincronizacion_nube/sincronizacionInterna.js';
 
 describe('validarBackupMetaImportacion', () => {
   it('permite payload sin backupMeta por compatibilidad', () => {

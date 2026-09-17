@@ -6,21 +6,21 @@
  */
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { enviarCorreo, enviarNotificacionWebhook } from '../../infraestructura/correo/servicioCorreo';
-import { AuditoriaComercial } from './modeloAuditoriaComercial';
-import { Campana } from './modeloCampana';
-import { Cobranza } from './modeloCobranza';
-import { ConsentimientoComercial } from './modeloConsentimientoComercial';
-import { Cupon } from './modeloCupon';
-import { EventoComercial } from './modeloEventoComercial';
-import { Licencia } from './modeloLicencia';
-import { PlanComercial } from './modeloPlanComercial';
-import { PlantillaNotificacion } from './modeloPlantillaNotificacion';
-import { Suscripcion } from './modeloSuscripcion';
-import { Tenant } from './modeloTenant';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { enviarCorreo, enviarNotificacionWebhook } from '../../infraestructura/correo/servicioCorreo.js';
+import { AuditoriaComercial } from './modeloAuditoriaComercial.js';
+import { Campana } from './modeloCampana.js';
+import { Cobranza } from './modeloCobranza.js';
+import { ConsentimientoComercial } from './modeloConsentimientoComercial.js';
+import { Cupon } from './modeloCupon.js';
+import { EventoComercial } from './modeloEventoComercial.js';
+import { Licencia } from './modeloLicencia.js';
+import { PlanComercial } from './modeloPlanComercial.js';
+import { PlantillaNotificacion } from './modeloPlantillaNotificacion.js';
+import { Suscripcion } from './modeloSuscripcion.js';
+import { Tenant } from './modeloTenant.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 const MARGEN_MINIMO = 0.6;
 const LICENCIA_ISSUER = 'evaluapro.licencias';

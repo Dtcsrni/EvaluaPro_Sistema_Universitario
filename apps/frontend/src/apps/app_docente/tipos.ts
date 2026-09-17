@@ -72,6 +72,7 @@ export type Plantilla = {
   bookletConfig?: {
     targetPages?: number;
     densityMode?: 'balanced' | 'compact' | 'relaxed';
+    autoFitPages?: boolean;
     allowImages?: boolean;
     imageBudgetPolicy?: 'strict' | 'balanced';
     headerStyle?: 'institutional' | 'compact';
@@ -86,12 +87,9 @@ export type Plantilla = {
     prefillMode?: 'none' | 'roster' | 'per-student';
     identityMode?: 'qr_plus_bubbled_id';
     allowBlankGenericSheets?: boolean;
-    versionMode?: 'single' | 'multi_version';
     ignoreUnusedTrailingQuestions?: boolean;
     captureMode?: 'pdf_and_mobile';
   };
-  // Legacy (deprecado): puede existir en plantillas antiguas.
-  totalReactivos?: number;
   periodoId?: string;
   preguntasIds?: string[];
   temas?: string[];

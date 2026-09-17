@@ -55,4 +55,5 @@ No editar a mano: los cambios se pisan al regenerar.
 - [TAGGING_POLICY.md](TAGGING_POLICY.md) — Política de tags y releases
 - [UX_QUALITY_CRITERIA.md](UX_QUALITY_CRITERIA.md) — Criterios UX de Calidad (Gate Verificable)
 - [VERSIONADO.md](VERSIONADO.md) — Versionado
+- [WCAG_UI_POLICY.md](WCAG_UI_POLICY.md) — Política de accesibilidad WCAG de EvaluaPro
 - [AUTO_ENV.md](AUTO_ENV.md) — Variables de entorno (auto-generado)

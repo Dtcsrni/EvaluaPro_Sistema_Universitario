@@ -6,8 +6,8 @@
  */
 import type { NextFunction, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
-import { log } from '../logging/logger';
-import { registrarRequestHttp } from './metrics';
+import { log } from '../logging/logger.js';
+import { registrarRequestHttp } from './metrics.js';
 
 function obtenerRuta(req: Request): string {
   const base = String(req.baseUrl || '');

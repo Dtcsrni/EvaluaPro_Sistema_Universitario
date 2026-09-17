@@ -22,6 +22,9 @@ Ruta: `scripts/icons`.
 ## Reglas de mantenimiento
 - Mantener cambios pequeños y trazables con pruebas/validación asociada.
 - Actualizar documentación relacionada cuando cambie el comportamiento observable.
+- Este módulo solo genera activos `.ico`/PNG. No crea, modifica ni elimina accesos `.lnk`.
+- La fuente única de verdad de accesos es `../../config/shortcuts-manifest.json` y el único escritor es `../create-shortcuts.ps1`.
+- La reparación se ejecuta con `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Force`; el script falla cerrado si falta el host nativo o alguna dependencia.
 - Regenerar el icono canónico del instalador cuando cambie branding:
   - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/icons/generate-installer-canonical-icon.ps1`
 - Regenerar el hero oficial del instalador cuando falte o cambie el branding:

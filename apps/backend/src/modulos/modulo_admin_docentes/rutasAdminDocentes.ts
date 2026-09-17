@@ -2,10 +2,10 @@
  * Rutas admin para gestion de docentes.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
-import { actualizarDocenteAdmin, listarDocentes } from './controladorAdminDocentes';
-import { esquemaActualizarDocenteAdmin } from './validacionesAdminDocentes';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { actualizarDocenteAdmin, listarDocentes } from './controladorAdminDocentes.js';
+import { esquemaActualizarDocenteAdmin } from './validacionesAdminDocentes.js';
 
 const router = Router();
 

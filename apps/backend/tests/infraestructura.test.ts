@@ -8,8 +8,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { guardarPdfExamen } from '../src/infraestructura/archivos/almacenLocal';
-import { enviarCorreo } from '../src/infraestructura/correo/servicioCorreo';
+import { guardarPdfExamen } from '../src/infraestructura/archivos/almacenLocal.js';
+import { enviarCorreo } from '../src/infraestructura/correo/servicioCorreo.js';
 
 describe('almacenLocal', () => {
   it('guarda PDFs y devuelve la ruta', async () => {

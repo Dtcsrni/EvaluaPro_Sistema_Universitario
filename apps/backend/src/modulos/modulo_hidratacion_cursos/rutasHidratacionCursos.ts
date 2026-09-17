@@ -6,10 +6,10 @@
  */
 import { Router } from 'express';
 import multer from 'multer';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
-import { importarHidratacion, previsualizarHidratacion } from './controladorHidratacionCursos';
-import { esquemaHidratacionMultipart } from './validacionesHidratacionCursos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { importarHidratacion, previsualizarHidratacion } from './controladorHidratacionCursos.js';
+import { esquemaHidratacionMultipart } from './validacionesHidratacionCursos.js';
 
 const router = Router();
 

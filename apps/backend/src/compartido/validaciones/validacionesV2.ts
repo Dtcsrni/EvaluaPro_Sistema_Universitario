@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { configuracion } from '../../configuracion';
+import { configuracion } from '../../configuracion.js';
 
 // ============= ESQUEMAS BASE REUTILIZABLES =============
 

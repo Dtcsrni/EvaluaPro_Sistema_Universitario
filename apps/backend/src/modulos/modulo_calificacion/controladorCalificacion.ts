@@ -10,14 +10,14 @@ import type { Response } from 'express';
 import { createHash } from 'node:crypto';
 import { gzip, gunzipSync } from 'node:zlib';
 import { promisify } from 'node:util';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen';
-import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/politicaAutoCalificacionOmr';
-import { leerCapturasOmrParaPortal } from '../modulo_sincronizacion_nube/infra/omrCapturas';
-import { calcularCalificacion } from './servicioCalificacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen.js';
+import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
+import { leerCapturasOmrParaPortal } from '../modulo_sincronizacion_nube/infra/omrCapturas.js';
+import { calcularCalificacion } from './servicioCalificacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 const comprimirGzip = promisify(gzip);
 

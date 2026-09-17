@@ -229,7 +229,11 @@ export function buscarMejorOffsetPregunta(args: {
   estado: EstadoImagenOmr;
   centros: CentroOpcion[];
   alignRange: number;
+  alignRangeX?: number;
+  alignRangeY?: number;
   maxCenterDriftRatio?: number;
+  maxCenterDriftRatioX?: number;
+  maxCenterDriftRatioY?: number;
   minSafeRange?: number;
   evaluarAlineacionOffset: (
     gray: Uint8ClampedArray,
@@ -242,21 +246,37 @@ export function buscarMejorOffsetPregunta(args: {
     params: ParametrosBurbujaCore
   ) => number;
 }) {
-  const { estado, centros, alignRange, maxCenterDriftRatio = 0.3, minSafeRange = 4, evaluarAlineacionOffset } = args;
+  const {
+    estado,
+    centros,
+    alignRange,
+    alignRangeX = alignRange,
+    alignRangeY = alignRange,
+    maxCenterDriftRatio = 0.3,
+    maxCenterDriftRatioX = maxCenterDriftRatio,
+    maxCenterDriftRatioY = maxCenterDriftRatio,
+    minSafeRange = 4,
+    evaluarAlineacionOffset
+  } = args;
   const { gray, integral, width, height, paramsBurbuja } = estado;
   const distanciaMinCentros = calcularDistanciaMinimaCentros(centros);
-  const rangoBase = Math.max(alignRange, Math.round(paramsBurbuja.ringOuter * 1.2));
-  const rangoSeguro = Number.isFinite(distanciaMinCentros)
-    ? Math.max(minSafeRange, Math.round(distanciaMinCentros * maxCenterDriftRatio))
-    : rangoBase;
-  const rango = Math.min(rangoBase, rangoSeguro);
+  const rangoBaseX = Math.max(alignRangeX, Math.round(paramsBurbuja.ringOuter * 1.2));
+  const rangoBaseY = Math.max(alignRangeY, Math.round(paramsBurbuja.ringOuter * 1.2));
+  const rangoSeguroX = Number.isFinite(distanciaMinCentros)
+    ? Math.max(minSafeRange, Math.round(distanciaMinCentros * maxCenterDriftRatioX))
+    : rangoBaseX;
+  const rangoSeguroY = Number.isFinite(distanciaMinCentros)
+    ? Math.max(minSafeRange, Math.round(distanciaMinCentros * maxCenterDriftRatioY))
+    : rangoBaseY;
+  const rangoX = Math.min(rangoBaseX, rangoSeguroX);
+  const rangoY = Math.min(rangoBaseY, rangoSeguroY);
   const paso = Math.max(1, Math.round(paramsBurbuja.radio / 4));
 
   let mejorDx = 0;
   let mejorDy = 0;
   let mejorAlineacion = -Infinity;
-  for (let dy = -rango; dy <= rango; dy += paso) {
-    for (let dx = -rango; dx <= rango; dx += paso) {
+  for (let dy = -rangoY; dy <= rangoY; dy += paso) {
+    for (let dx = -rangoX; dx <= rangoX; dx += paso) {
       const alineacion = evaluarAlineacionOffset(gray, integral, width, height, centros, dx, dy, paramsBurbuja);
       if (alineacion > mejorAlineacion) {
         mejorAlineacion = alineacion;
@@ -436,7 +456,12 @@ export function calcularMetricasPregunta(args: {
   const scoreSobreBaseline = top1 - baselineScore;
   const topGapConAlternativa = top1 - Math.max(validacionAlternativas.maxScoreAlternativa, 0);
 
-  const dobleMarcada =
+  // A baja resolución una marca sólida puede proyectar contraste en la
+  // burbuja vecina. No debe convertirse en doble marca si el núcleo está
+  // prácticamente lleno y la segunda señal es claramente menor; una doble
+  // marca real conserva dos señales comparables y no entra en este guard.
+  const topEsMarcaSolida = top1 >= 0.78 && (rasgosTop?.ratioCore ?? 0) >= 0.72 && topRatio <= 0.58;
+  const dobleMarcada = !topEsMarcaSolida && (
     (secondTieneMarca &&
       segundoScore >= Math.max(umbrales.strongScore * 1.02, umbralMarcaScoreAlternativa) &&
       ratio >= Math.max(umbrales.secondRatio, 0.84) &&
@@ -447,7 +472,8 @@ export function calcularMetricasPregunta(args: {
       topRatio >= Math.max(ambiguityRatio, 0.9) &&
       topZScore >= minTopZScore * 0.88 &&
       secondTieneMarca) ||
-    (hTop >= minHybridConfidence * 0.95 && hSecond >= minHybridConfidence * 0.92 && topRatio >= 0.9);
+    (hTop >= minHybridConfidence * 0.95 && hSecond >= minHybridConfidence * 0.92 && topRatio >= 0.9)
+  );
   const suficienteBase = mejorScore >= umbralScore && delta >= umbrales.deltaMin && topZScore >= minTopZScore;
   const suficienteRelativa =
     scoreSobreBaseline >= Math.max(umbrales.deltaMin * 2.4, 0.085) &&

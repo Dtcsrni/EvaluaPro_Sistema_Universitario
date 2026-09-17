@@ -26,7 +26,7 @@ describe('servicio correo', () => {
     process.env.NOTIFICACIONES_WEBHOOK_URL = '';
     process.env.NOTIFICACIONES_WEBHOOK_TOKEN = '';
 
-    const mod = await import('../src/infraestructura/correo/servicioCorreo');
+    const mod = await import('../src/infraestructura/correo/servicioCorreo.js');
     const ok = await mod.enviarCorreo('docente@cuh.mx', 'Prueba', 'Hola');
     expect(ok).toBe(false);
   });
@@ -45,7 +45,7 @@ describe('servicio correo', () => {
       })
     );
 
-    const mod = await import('../src/infraestructura/correo/servicioCorreo');
+    const mod = await import('../src/infraestructura/correo/servicioCorreo.js');
     const ok = await mod.enviarCorreo('docente@cuh.mx', 'Prueba', 'Hola');
     expect(ok).toBe(true);
   });

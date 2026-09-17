@@ -4,16 +4,16 @@
  * Mantiene contrato de rutas y delega toda la logica de negocio a use cases.
  */
 import type { Request, Response } from 'express';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { listarSincronizacionesUseCase } from './application/usecases/listarSincronizaciones';
-import { generarCodigoAccesoUseCase } from './application/usecases/generarCodigoAcceso';
-import { publicarResultadosUseCase } from './application/usecases/publicarResultados';
-import { exportarPaqueteUseCase } from './application/usecases/exportarPaquete';
-import { importarPaqueteUseCase } from './application/usecases/importarPaquete';
-import { enviarPaqueteServidorUseCase } from './application/usecases/enviarPaqueteServidor';
-import { traerPaquetesServidorUseCase } from './application/usecases/traerPaquetesServidor';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { exportarInstantaneaLocal as crearInstantaneaLocal, importarInstantaneaLocal as aplicarInstantaneaLocal, type MetodoDesbloqueoInstantanea } from './domain/instantaneaLocal';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { listarSincronizacionesUseCase } from './application/usecases/listarSincronizaciones.js';
+import { generarCodigoAccesoUseCase } from './application/usecases/generarCodigoAcceso.js';
+import { publicarResultadosUseCase } from './application/usecases/publicarResultados.js';
+import { exportarPaqueteUseCase } from './application/usecases/exportarPaquete.js';
+import { importarPaqueteUseCase } from './application/usecases/importarPaquete.js';
+import { enviarPaqueteServidorUseCase } from './application/usecases/enviarPaqueteServidor.js';
+import { traerPaquetesServidorUseCase } from './application/usecases/traerPaquetesServidor.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { exportarInstantaneaLocal as crearInstantaneaLocal, importarInstantaneaLocal as aplicarInstantaneaLocal, type MetodoDesbloqueoInstantanea } from './domain/instantaneaLocal.js';
 import {
   adquirirLease,
   descargarInstantaneaNube,
@@ -22,8 +22,8 @@ import {
   obtenerEstadoLease,
   publicarInstantaneaNube,
   renovarLease
-} from './domain/leaseSincronizacion';
-import { configurarDirectorioSincronizacion, obtenerConfiguracionSincronizacion } from './domain/preferenciasSincronizacion';
+} from './domain/leaseSincronizacion.js';
+import { configurarDirectorioSincronizacion, obtenerConfiguracionSincronizacion } from './domain/preferenciasSincronizacion.js';
 
 export async function listarSincronizaciones(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);

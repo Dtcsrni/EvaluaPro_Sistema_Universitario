@@ -6,17 +6,17 @@
  * - Telemetria (`registrarEventosUso`) es best-effort: no debe romper la UX.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { generarCsv } from './servicioExportacionCsv';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { construirListaAcademica } from './servicioListaAcademica';
-import { COLUMNAS_LISTA_ACADEMICA, ListaAcademicaFila } from './tiposListaAcademica';
-import { generarDocxListaAcademica } from './servicioExportacionDocx';
-import { generarXlsxCalificacionesProduccion } from './servicioExportacionXlsxCalificaciones';
-import { construirManifiestoIntegridadLista, serializarManifiestoEstable } from './servicioFirmaIntegridad';
-import { registrarExportacionLista } from '../../compartido/observabilidad/metrics';
-import { log } from '../../infraestructura/logging/logger';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { generarCsv } from './servicioExportacionCsv.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { construirListaAcademica } from './servicioListaAcademica.js';
+import { COLUMNAS_LISTA_ACADEMICA, ListaAcademicaFila } from './tiposListaAcademica.js';
+import { generarDocxListaAcademica } from './servicioExportacionDocx.js';
+import { generarXlsxCalificacionesProduccion } from './servicioExportacionXlsxCalificaciones.js';
+import { construirManifiestoIntegridadLista, serializarManifiestoEstable } from './servicioFirmaIntegridad.js';
+import { registrarExportacionLista } from '../../compartido/observabilidad/metrics.js';
+import { log } from '../../infraestructura/logging/logger.js';
 
 /**
  * Registra eventos de uso asociados al docente.

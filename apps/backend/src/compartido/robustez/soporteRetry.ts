@@ -8,8 +8,8 @@ import {
   ErrorRobusto,
   ErrorCategoria,
   ResultadoOperacion
-} from './tiposRobustez';
-import { ErrorOperacional } from './manejadorErrores';
+} from './tiposRobustez.js';
+import { ErrorOperacional } from './manejadorErrores.js';
 
 declare global {
   interface Error {

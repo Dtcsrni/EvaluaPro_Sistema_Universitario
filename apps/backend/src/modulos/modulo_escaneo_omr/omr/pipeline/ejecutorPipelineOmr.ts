@@ -4,14 +4,14 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import type { ResultadoOmr } from '../../servicioOmrCv';
-import { registrarOmrEtapa, registrarOmrPipeline } from '../../../../compartido/observabilidad/metrics';
-import { ejecutarEtapaCalidad } from '../calidad/etapaCalidad';
-import { ejecutarEtapaDebug } from '../debug/etapaDebug';
-import { ejecutarEtapaDeteccion } from '../deteccion/etapaDeteccion';
-import { ejecutarEtapaQr } from '../qr/etapaQr';
-import { ejecutarEtapaScoring } from '../scoring/etapaScoring';
-import type { ContextoPipelineOmr, EtapaOmr, ResultadoPipelineOmr } from '../types';
+import type { ResultadoOmr } from '../../servicioOmrCv.js';
+import { registrarOmrEtapa, registrarOmrPipeline } from '../../../../compartido/observabilidad/metrics.js';
+import { ejecutarEtapaCalidad } from '../calidad/etapaCalidad.js';
+import { ejecutarEtapaDebug } from '../debug/etapaDebug.js';
+import { ejecutarEtapaDeteccion } from '../deteccion/etapaDeteccion.js';
+import { ejecutarEtapaQr } from '../qr/etapaQr.js';
+import { ejecutarEtapaScoring } from '../scoring/etapaScoring.js';
+import type { ContextoPipelineOmr, EtapaOmr, ResultadoPipelineOmr } from '../types.js';
 
 type EjecutorEtapa = (contexto: ContextoPipelineOmr) => Promise<ContextoPipelineOmr>;
 

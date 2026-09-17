@@ -6,7 +6,7 @@
  */
 // Pruebas de variantes y ordenes aleatorios.
 import { describe, expect, it } from 'vitest';
-import { generarVariante } from '../src/modulos/modulo_generacion_pdf/servicioVariantes';
+import { generarVariante } from '../src/modulos/modulo_generacion_pdf/servicioVariantes.js';
 
 describe('generarVariante', () => {
   it('crea ordenes con los mismos ids y opciones', () => {

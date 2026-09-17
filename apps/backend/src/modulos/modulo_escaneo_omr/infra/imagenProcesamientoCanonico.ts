@@ -16,6 +16,7 @@ export type QrDetalle = {
     bottomRightCorner: Punto;
     bottomLeftCorner: Punto;
   };
+  calidadGeometrica?: number;
 };
 
 export type ParametrosBurbuja = {
@@ -24,6 +25,12 @@ export type ParametrosBurbuja = {
   ringOuter: number;
   outerOuter: number;
   paso: number;
+};
+
+export type ReferenciaPaginaOmr = {
+  tipo: 'qr' | 'marcas_esquina' | 'escala';
+  calidad: number;
+  puntosDetectados: number;
 };
 
 function detectarQrDetalle(data: Uint8ClampedArray, width: number, height: number): QrDetalle | null {
@@ -88,6 +95,78 @@ function extraerSubimagenGray(
     }
   }
   return { gray: out, width: w, height: h };
+}
+
+function clamp01(valor: number) {
+  return Math.max(0, Math.min(1, valor));
+}
+
+function distancia(a: Punto, b: Punto) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function areaCuadrilateroQr(location: QrDetalle['location']) {
+  const puntos = [location.topLeftCorner, location.topRightCorner, location.bottomRightCorner, location.bottomLeftCorner];
+  let areaDoble = 0;
+  for (let indice = 0; indice < puntos.length; indice += 1) {
+    const actual = puntos[indice];
+    const siguiente = puntos[(indice + 1) % puntos.length];
+    areaDoble += actual.x * siguiente.y - siguiente.x * actual.y;
+  }
+  return Math.abs(areaDoble) / 2;
+}
+
+function puntuarQrCandidato(detalle: QrDetalle, width: number, height: number, qrSizePts: number, anchoCarta: number) {
+  const { topLeftCorner: tl, topRightCorner: tr, bottomRightCorner: br, bottomLeftCorner: bl } = detalle.location;
+  const anchoSuperior = distancia(tl, tr);
+  const anchoInferior = distancia(bl, br);
+  const altoIzquierdo = distancia(tl, bl);
+  const altoDerecho = distancia(tr, br);
+  const ancho = (anchoSuperior + anchoInferior) / 2;
+  const escalaEsperada = Math.max(24, (qrSizePts / Math.max(1, anchoCarta)) * width);
+  const centroX = (tl.x + tr.x + br.x + bl.x) / 4;
+  const centroY = (tl.y + tr.y + br.y + bl.y) / 4;
+  const area = areaCuadrilateroQr(detalle.location);
+  const areaEsperada = Math.max(400, escalaEsperada * escalaEsperada * 0.48);
+  const forma = [anchoSuperior, anchoInferior, altoIzquierdo, altoDerecho].every((lado) => Number.isFinite(lado) && lado >= escalaEsperada * 0.38);
+  const proporcion = [anchoSuperior / Math.max(1, anchoInferior), altoIzquierdo / Math.max(1, altoDerecho)].every(
+    (ratio) => ratio >= 0.45 && ratio <= 2.2
+  );
+  if (!forma || !proporcion || !Number.isFinite(area) || area < areaEsperada) return null;
+
+  const escalaScore = clamp01(1 - Math.abs(ancho / escalaEsperada - 0.9) / 1.1);
+  // La plantilla coloca el QR en la cabecera derecha. Es una preferencia suave
+  // para no romper mapas antiguos, pero evita escoger un código espurio del
+  // contenido como referencia global cuando hay más de un QR visible.
+  const cabeceraScore = clamp01(1 - Math.max(0, 0.45 - centroX / Math.max(1, width)) / 0.45) * 0.55 +
+    clamp01(1 - Math.max(0, centroY / Math.max(1, height) - 0.52) / 0.48) * 0.45;
+  const areaScore = clamp01(area / (escalaEsperada * escalaEsperada * 2.2));
+  const calidadGeometrica = clamp01(escalaScore * 0.42 + cabeceraScore * 0.36 + areaScore * 0.22);
+  return {
+    puntuacion: calidadGeometrica,
+    calidadGeometrica
+  };
+}
+
+function ampliarRgbaNearest(data: Uint8ClampedArray, width: number, height: number, factor = 2) {
+  const escala = Math.max(1, Math.round(factor));
+  if (escala === 1) return { data, width, height };
+  const outWidth = width * escala;
+  const outHeight = height * escala;
+  const out = new Uint8ClampedArray(outWidth * outHeight * 4);
+  for (let y = 0; y < outHeight; y += 1) {
+    const sourceY = Math.min(height - 1, Math.floor(y / escala));
+    for (let x = 0; x < outWidth; x += 1) {
+      const sourceX = Math.min(width - 1, Math.floor(x / escala));
+      const source = (sourceY * width + sourceX) * 4;
+      const target = (y * outWidth + x) * 4;
+      out[target] = data[source] ?? 255;
+      out[target + 1] = data[source + 1] ?? 255;
+      out[target + 2] = data[source + 2] ?? 255;
+      out[target + 3] = data[source + 3] ?? 255;
+    }
+  }
+  return { data: out, width: outWidth, height: outHeight };
 }
 
 function rgbaDesdeGray(
@@ -178,11 +257,23 @@ export function detectarQrMejorado(
   opciones: { qrSizePtsHint?: number; qrSizePts: number; anchoCarta: number }
 ): QrDetalle | null {
   const qrSizePts = opciones.qrSizePtsHint ?? opciones.qrSizePts;
-  const intentos: Array<{ data: Uint8ClampedArray; width: number; height: number; offsetX: number; offsetY: number }> = [];
+  const intentos: Array<{
+    data: Uint8ClampedArray;
+    width: number;
+    height: number;
+    offsetX: number;
+    offsetY: number;
+    scale?: number;
+  }> = [];
 
   intentos.push({ data, width, height, offsetX: 0, offsetY: 0 });
   intentos.push({ data: rgbaDesdeGray(gray, width, height), width, height, offsetX: 0, offsetY: 0 });
-  intentos.push({ data: rgbaDesdeGray(gray, width, height, 160), width, height, offsetX: 0, offsetY: 0 });
+  // Bajo desenfoque, sombras o compresión JPEG, un único umbral fijo puede
+  // borrar módulos del QR o convertir el fondo en ruido. Probamos umbrales
+  // conservadores y una inversión, manteniendo el orden barato primero.
+  for (const umbral of [120, 145, 170, 195]) {
+    intentos.push({ data: rgbaDesdeGray(gray, width, height, umbral), width, height, offsetX: 0, offsetY: 0 });
+  }
   intentos.push({ data: rgbaDesdeGray(gray, width, height, 160, true), width, height, offsetX: 0, offsetY: 0 });
 
   const cropBase = {
@@ -193,14 +284,35 @@ export function detectarQrMejorado(
   };
   const cropRaw = extraerSubimagenRgba(data, width, height, cropBase);
   intentos.push({ data: cropRaw.data, width: cropRaw.width, height: cropRaw.height, offsetX: cropBase.left, offsetY: cropBase.top });
-  const cropGray = extraerSubimagenGray(gray, width, height, cropBase);
+  const cropRawUpscaled = ampliarRgbaNearest(cropRaw.data, cropRaw.width, cropRaw.height, 2);
   intentos.push({
-    data: rgbaDesdeGray(cropGray.gray, cropGray.width, cropGray.height, 160),
-    width: cropGray.width,
-    height: cropGray.height,
+    data: cropRawUpscaled.data,
+    width: cropRawUpscaled.width,
+    height: cropRawUpscaled.height,
     offsetX: cropBase.left,
-    offsetY: cropBase.top
+    offsetY: cropBase.top,
+    scale: 2
   });
+  const cropGray = extraerSubimagenGray(gray, width, height, cropBase);
+  for (const umbral of [120, 145, 170, 195]) {
+    const binario = rgbaDesdeGray(cropGray.gray, cropGray.width, cropGray.height, umbral);
+    intentos.push({
+      data: binario,
+      width: cropGray.width,
+      height: cropGray.height,
+      offsetX: cropBase.left,
+      offsetY: cropBase.top
+    });
+    const binarioUpscaled = ampliarRgbaNearest(binario, cropGray.width, cropGray.height, 2);
+    intentos.push({
+      data: binarioUpscaled.data,
+      width: binarioUpscaled.width,
+      height: binarioUpscaled.height,
+      offsetX: cropBase.left,
+      offsetY: cropBase.top,
+      scale: 2
+    });
+  }
   intentos.push({
     data: rgbaDesdeGray(cropGray.gray, cropGray.width, cropGray.height, 160, true),
     width: cropGray.width,
@@ -220,6 +332,15 @@ export function detectarQrMejorado(
       offsetX: region.left,
       offsetY: region.top
     });
+    const regionRawUpscaled = ampliarRgbaNearest(regionRaw.data, regionRaw.width, regionRaw.height, 2);
+    intentos.push({
+      data: regionRawUpscaled.data,
+      width: regionRawUpscaled.width,
+      height: regionRawUpscaled.height,
+      offsetX: region.left,
+      offsetY: region.top,
+      scale: 2
+    });
     const regionGray = extraerSubimagenGray(gray, width, height, region);
     intentos.push({
       data: rgbaDesdeGray(regionGray.gray, regionGray.width, regionGray.height, 160),
@@ -230,11 +351,13 @@ export function detectarQrMejorado(
     });
   }
 
+  let mejorCandidato: { detalle: QrDetalle; puntuacion: number } | null = null;
   for (const intento of intentos) {
     const res = detectarQrDetalle(intento.data, intento.width, intento.height);
     if (!res) continue;
-    const map = (p: Punto) => ({ x: p.x + intento.offsetX, y: p.y + intento.offsetY });
-    return {
+    const escala = intento.scale ?? 1;
+    const map = (p: Punto) => ({ x: p.x / escala + intento.offsetX, y: p.y / escala + intento.offsetY });
+    const detalle: QrDetalle = {
       data: res.data,
       location: {
         topLeftCorner: map(res.location.topLeftCorner),
@@ -243,8 +366,14 @@ export function detectarQrMejorado(
         bottomLeftCorner: map(res.location.bottomLeftCorner)
       }
     };
+    const calidad = puntuarQrCandidato(detalle, width, height, qrSizePts, opciones.anchoCarta);
+    if (!calidad) continue;
+    detalle.calidadGeometrica = calidad.calidadGeometrica;
+    if (!mejorCandidato || calidad.puntuacion > mejorCandidato.puntuacion) {
+      mejorCandidato = { detalle, puntuacion: calidad.puntuacion };
+    }
   }
-  return null;
+  return mejorCandidato?.detalle ?? null;
 }
 
 export function obtenerIntensidad(gray: Uint8ClampedArray, width: number, height: number, x: number, y: number) {
@@ -287,11 +416,16 @@ function detectarMarca(
   width: number,
   height: number,
   region: { x0: number; y0: number; x1: number; y1: number },
-  esquina: 'tl' | 'tr' | 'bl' | 'br'
+  esquina: 'tl' | 'tr' | 'bl' | 'br',
+  modo: 'lineas' | 'cuadrados' | 'auto' = 'auto',
+  tamanoPts = 0,
+  anchoCarta = 612,
+  margenPts = 0
 ) {
-  const paso = 2;
-  let sumaX = 0;
-  let sumaY = 0;
+  // Las líneas canónicas pueden quedar en un solo píxel tras una captura
+  // reducida; muestrear cada dos píxeles las hacía desaparecer según la fase
+  // de rasterización. Las cuatro regiones siguen siendo pequeñas.
+  const paso = modo === 'lineas' ? 1 : 2;
   let conteo = 0;
   let sum = 0;
   let sumSq = 0;
@@ -312,12 +446,63 @@ function detectarMarca(
   const desviacion = Math.sqrt(varianza);
   const umbral = Math.max(35, media - Math.max(15, desviacion * 1.1));
 
+  if (modo === 'cuadrados' && tamanoPts > 0) {
+    // En un marcador cuadrado el centroide de toda la tinta cercana puede
+    // incluir el borde de la hoja, una regla del encabezado o el QR. Buscar
+    // una ventana con alta densidad de negro identifica la firma física del
+    // cuadrado y conserva su centro para la homografía.
+    const tamanoPx = Math.max(10, tamanoPts * width / anchoCarta);
+    const margenPx = Math.max(0, margenPts * width / anchoCarta);
+    // La búsqueda no debe alcanzar el QR ni logos cercanos: ambos pueden
+    // tener una densidad de tinta alta, pero no son un cuadrado sólido. El
+    // margen 1.6x conserva tolerancia para perspectiva leve sin convertir la
+    // región de la esquina en una búsqueda global.
+    const radio = Math.max(18, tamanoPx * 1.6);
+    const centroNominal = {
+      x: esquina === 'tr' || esquina === 'br' ? width - margenPx - tamanoPx / 2 : margenPx + tamanoPx / 2,
+      y: esquina === 'bl' || esquina === 'br' ? height - margenPx - tamanoPx / 2 : margenPx + tamanoPx / 2
+    };
+    let mejor: { x: number; y: number; score: number } | null = null;
+    const mitadVentana = Math.max(4, Math.round(tamanoPx * 0.42));
+    const pasoBusqueda = Math.max(1, Math.round(tamanoPx / 10));
+    for (let y = Math.max(region.y0, centroNominal.y - radio); y <= Math.min(region.y1, centroNominal.y + radio); y += pasoBusqueda) {
+      for (let x = Math.max(region.x0, centroNominal.x - radio); x <= Math.min(region.x1, centroNominal.x + radio); x += pasoBusqueda) {
+        let oscurosCentro = 0;
+        let totalCentro = 0;
+        let sumaCentro = 0;
+        let sumaCuadradoCentro = 0;
+        for (let yy = -mitadVentana; yy <= mitadVentana; yy += 1) {
+          for (let xx = -mitadVentana; xx <= mitadVentana; xx += 1) {
+            const intensidad = obtenerIntensidad(gray, width, height, x + xx, y + yy);
+            totalCentro += 1;
+            sumaCentro += intensidad;
+            sumaCuadradoCentro += intensidad * intensidad;
+            if (intensidad < umbral) oscurosCentro += 1;
+          }
+        }
+        const densidad = oscurosCentro / Math.max(1, totalCentro);
+        const mediaCentro = sumaCentro / Math.max(1, totalCentro);
+        const varianzaCentro = Math.max(
+          0,
+          sumaCuadradoCentro / Math.max(1, totalCentro) - mediaCentro * mediaCentro
+        );
+        const uniformidad = 1 - Math.min(1, Math.sqrt(varianzaCentro) / 96);
+        const distanciaNominal = Math.hypot(x - centroNominal.x, y - centroNominal.y) / Math.max(1, radio);
+        // Un fiducial sólido ocupa de forma uniforme la ventana; un QR solo
+        // produce módulos negros alternados y una varianza mucho mayor.
+        const score = densidad * 0.82 + uniformidad * 0.18 - distanciaNominal * 0.035;
+        if (!mejor || score > mejor.score) mejor = { x, y, score };
+      }
+    }
+    if (mejor && mejor.score >= 0.68) {
+      return { x: mejor.x, y: mejor.y };
+    }
+  }
+
   for (let y = region.y0; y < region.y1; y += paso) {
     for (let x = region.x0; x < region.x1; x += paso) {
       const intensidad = obtenerIntensidad(gray, width, height, x, y);
       if (intensidad < umbral) {
-        sumaX += x;
-        sumaY += y;
         conteo += 1;
         const d =
           esquina === 'tl'
@@ -335,23 +520,41 @@ function detectarMarca(
   if (!conteo || conteo < 12) return null;
   candidatos.sort((a, b) => a.d - b.d);
   const distanciaMin = candidatos[0]?.d ?? Infinity;
-  const distanciaMaxima = Math.max(18, Math.min(width, height) * 0.12);
+  // La impresión y la perspectiva pueden alejar el vértice unos píxeles más
+  // de la esquina nominal, especialmente en capturas reducidas. La región
+  // ya está limitada al 15% de la hoja y la validación posterior exige cuatro
+  // marcas con cobertura/simetría de página, por lo que este margen adicional
+  // no convierte una mancha aislada en referencia global.
+  const distanciaMaxima = Math.max(24, Math.min(width, height) * 0.15);
   if (distanciaMin > distanciaMaxima) {
     return null;
   }
   const limite = Math.max(8, Math.floor(candidatos.length * 0.15));
-  let accX = 0;
-  let accY = 0;
-  for (let i = 0; i < Math.min(limite, candidatos.length); i += 1) {
-    accX += candidatos[i].x;
-    accY += candidatos[i].y;
+  const cercanos = candidatos.slice(0, Math.min(limite, candidatos.length));
+  const percentil = (valores: number[], fraccion: number) => {
+    const ordenados = [...valores].sort((a, b) => a - b);
+    const indice = Math.max(0, Math.min(ordenados.length - 1, Math.round((ordenados.length - 1) * fraccion)));
+    return ordenados[indice] ?? 0;
+  };
+  const xs = cercanos.map((candidato) => candidato.x);
+  const ys = cercanos.map((candidato) => candidato.y);
+  const anchoGrupo = Math.max(1, Math.max(...xs) - Math.min(...xs));
+  const altoGrupo = Math.max(1, Math.max(...ys) - Math.min(...ys));
+  const densidadGrupo = cercanos.length * paso * paso / (anchoGrupo * altoGrupo);
+  const esLinea = modo === 'lineas' || (modo === 'auto' && densidadGrupo < 0.48);
+  if (!esLinea) {
+    // Los cuadrados sólidos se estiman mediante el centro de su núcleo de
+    // tinta; las marcas L requieren la estimación de vértice de abajo.
+    const xCentro = cercanos.reduce((suma, candidato) => suma + candidato.x, 0) / Math.max(1, cercanos.length);
+    const yCentro = cercanos.reduce((suma, candidato) => suma + candidato.y, 0) / Math.max(1, cercanos.length);
+    return Number.isFinite(xCentro) && Number.isFinite(yCentro) ? { x: xCentro, y: yCentro } : null;
   }
-  const x = accX / Math.max(1, Math.min(limite, candidatos.length));
-  const y = accY / Math.max(1, Math.min(limite, candidatos.length));
-  if (!Number.isFinite(x) || !Number.isFinite(y)) {
-    return { x: sumaX / conteo, y: sumaY / conteo };
-  }
-  return { x, y };
+  // En una marca L el centroide de la tinta cae dentro de los brazos y
+  // desplaza la homografía. Estimamos el vértice físico con percentiles
+  // extremos del grupo cercano a la esquina.
+  const x = esquina === 'tr' || esquina === 'br' ? percentil(xs, 0.9) : percentil(xs, 0.1);
+  const y = esquina === 'bl' || esquina === 'br' ? percentil(ys, 0.9) : percentil(ys, 0.1);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
 }
 
 function calcularHomografia(origen: Punto[], destino: Punto[]) {
@@ -371,6 +574,23 @@ function calcularHomografia(origen: Punto[], destino: Punto[]) {
   const h = resolverSistema(A, b);
   if (!h) return null;
   return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1];
+}
+
+function puntuarMarcasPagina(destino: Punto[], width: number, height: number) {
+  if (destino.length !== 4) return 0;
+  const [tl, tr, bl, br] = destino;
+  if (!tl || !tr || !bl || !br) return 0;
+  const anchoSuperior = distancia(tl, tr);
+  const anchoInferior = distancia(bl, br);
+  const altoIzquierdo = distancia(tl, bl);
+  const altoDerecho = distancia(tr, br);
+  const anchoMedio = (anchoSuperior + anchoInferior) / 2;
+  const altoMedio = (altoIzquierdo + altoDerecho) / 2;
+  if (anchoMedio < width * 0.45 || altoMedio < height * 0.45) return 0;
+  const simetriaAncho = clamp01(1 - Math.abs(anchoSuperior - anchoInferior) / Math.max(1, anchoMedio));
+  const simetriaAlto = clamp01(1 - Math.abs(altoIzquierdo - altoDerecho) / Math.max(1, altoMedio));
+  const cobertura = clamp01((anchoMedio / width) * 0.55 + (altoMedio / height) * 0.45);
+  return clamp01(simetriaAncho * 0.38 + simetriaAlto * 0.38 + cobertura * 0.24);
 }
 
 function resolverSistema(A: number[][], b: number[]) {
@@ -422,7 +642,21 @@ export function obtenerTransformacion(
   opciones?: {
     margenMm: number;
     qrSizePts: number;
-    qrGeometry?: { x: number; y: number; size: number };
+    qrGeometry?: {
+      x: number;
+      y: number;
+      size: number;
+      marginModules?: number;
+      matrixModules?: number;
+    };
+    marcasPagina?: {
+      tipo?: 'lineas' | 'cuadrados';
+      size?: number;
+      tl?: Punto;
+      tr?: Punto;
+      bl?: Punto;
+      br?: Punto;
+    };
     anchoCarta: number;
     altoCarta: number;
     mmAPuntos: number;
@@ -434,43 +668,13 @@ export function obtenerTransformacion(
   const anchoCarta = opciones?.anchoCarta ?? 612;
   const altoCarta = opciones?.altoCarta ?? 792;
   const mmAPuntos = opciones?.mmAPuntos ?? (72 / 25.4);
+  const modoMarcasPagina = opciones?.marcasPagina?.tipo ?? 'lineas';
   const crearEscala = () => {
     const escalaX = width / anchoCarta;
     const escalaY = height / altoCarta;
     return (punto: Punto) => ({ x: punto.x * escalaX, y: height - punto.y * escalaY });
   };
 
-  if (qr?.location) {
-    const margen = margenMm * mmAPuntos;
-    const x = qrGeometry?.x ?? anchoCarta - margen - qrSizePts;
-    // Legacy maps store y from the PDF bottom; current generated maps store
-    // it from the top. The position relative to the page midpoint makes the
-    // convention explicit without changing either persisted format.
-    const y = qrGeometry
-      ? qrGeometry.y > altoCarta / 2
-        ? altoCarta - qrGeometry.y - qrSizePts
-        : qrGeometry.y
-      : margen;
-    const origen = [
-      { x, y },
-      { x: x + qrSizePts, y },
-      { x, y: y + qrSizePts },
-      { x: x + qrSizePts, y: y + qrSizePts }
-    ];
-    const destino = [
-      qr.location.topLeftCorner,
-      qr.location.topRightCorner,
-      qr.location.bottomLeftCorner,
-      qr.location.bottomRightCorner
-    ];
-    const h = calcularHomografia(origen, destino);
-    if (h) {
-      return {
-        transformar: (punto: Punto) => aplicarHomografia(h, { x: punto.x, y: altoCarta - punto.y }),
-        tipo: 'qr' as const
-      };
-    }
-  }
   const region = 0.15;
   const regiones = {
     tl: { x0: 0, y0: 0, x1: width * region, y1: height * region },
@@ -479,46 +683,101 @@ export function obtenerTransformacion(
     br: { x0: width * (1 - region), y0: height * (1 - region), x1: width, y1: height }
   };
 
-  const tl = detectarMarca(gray, width, height, regiones.tl, 'tl');
-  const tr = detectarMarca(gray, width, height, regiones.tr, 'tr');
-  const bl = detectarMarca(gray, width, height, regiones.bl, 'bl');
-  const br = detectarMarca(gray, width, height, regiones.br, 'br');
+  const tamanoMarcaPts = opciones?.marcasPagina?.size ?? 0;
+  const margenPts = margenMm * mmAPuntos;
+  const tl = detectarMarca(gray, width, height, regiones.tl, 'tl', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts);
+  const tr = detectarMarca(gray, width, height, regiones.tr, 'tr', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts);
+  const bl = detectarMarca(gray, width, height, regiones.bl, 'bl', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts);
+  const br = detectarMarca(gray, width, height, regiones.br, 'br', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts);
 
-  if (!tl || !tr || !bl || !br) {
-    // Sin marcas completas, se aproxima con escala simple para no bloquear el flujo.
-    advertencias.push('No se detectaron todas las marcas de registro; usando escala simple');
-    return { transformar: crearEscala(), tipo: 'escala' as const };
+  if (tl && tr && bl && br) {
+    const destino = [tl, tr, bl, br];
+    const medioMarca = modoMarcasPagina === 'cuadrados'
+      ? Math.max(0, tamanoMarcaPts / 2)
+      : 0;
+    const margenReferencia = margenMm * mmAPuntos + medioMarca;
+    const origen = [
+      { x: margenReferencia, y: margenReferencia },
+      { x: anchoCarta - margenReferencia, y: margenReferencia },
+      { x: margenReferencia, y: altoCarta - margenReferencia },
+      { x: anchoCarta - margenReferencia, y: altoCarta - margenReferencia }
+    ];
+    const h = calcularHomografia(origen, destino);
+    const calidad = puntuarMarcasPagina(destino, width, height);
+    if (h && calidad >= 0.45) {
+      // Cuando la hoja completa es visible, las marcas de esquina fijan la
+      // transformación en toda la página. Son preferibles a extrapolar una
+      // homografía desde el QR, que solo ocupa una pequeña zona del encabezado
+      // y puede amplificar ruido varios centímetros más abajo. El umbral 0.45
+      // solo habilita la homografía como base; la política de confianza más
+      // estricta decide después si se permite lectura directa o ajuste local.
+      return {
+        transformar: (punto: Punto) => aplicarHomografia(h, { x: punto.x, y: altoCarta - punto.y }),
+        tipo: 'homografia' as const,
+        referenciaPagina: {
+          tipo: 'marcas_esquina' as const,
+          calidad,
+          puntosDetectados: 4
+        }
+      };
+    }
   }
-  const margenMax = 0.2;
-  const dentro = (p: Punto, esquina: 'tl' | 'tr' | 'bl' | 'br') =>
-    (esquina === 'tl' && p.x < width * margenMax && p.y < height * margenMax) ||
-    (esquina === 'tr' && p.x > width * (1 - margenMax) && p.y < height * margenMax) ||
-    (esquina === 'bl' && p.x < width * margenMax && p.y > height * (1 - margenMax)) ||
-    (esquina === 'br' && p.x > width * (1 - margenMax) && p.y > height * (1 - margenMax));
 
-  if (!dentro(tl, 'tl') || !dentro(tr, 'tr') || !dentro(bl, 'bl') || !dentro(br, 'br')) {
-    advertencias.push('Marcas de registro fuera de esquina; usando escala simple');
-    return { transformar: crearEscala(), tipo: 'escala' as const };
+  if (qr?.location) {
+    const margen = margenMm * mmAPuntos;
+    const qrMarginModules = qrGeometry?.marginModules ?? 0;
+    const qrMatrixModules = qrGeometry?.matrixModules ?? 0;
+    const hasQrModuleGeometry = qrMarginModules > 0 && qrMatrixModules > 0;
+    const quietFraction = hasQrModuleGeometry
+      ? qrMarginModules / (qrMatrixModules + qrMarginModules * 2)
+      : 0;
+    const matrixSizePts = hasQrModuleGeometry
+      ? qrSizePts * (qrMatrixModules / (qrMatrixModules + qrMarginModules * 2))
+      : qrSizePts;
+    const x = (qrGeometry?.x ?? anchoCarta - margen - qrSizePts) + qrSizePts * quietFraction;
+    // El mapa canónico persiste y desde el borde superior; la imagen también
+    // se normaliza a ese sistema antes de aplicar la homografía.
+    const y = qrGeometry
+      ? qrGeometry.y > altoCarta / 2
+        ? altoCarta - qrGeometry.y - qrSizePts
+        : qrGeometry.y
+      : margen;
+    const origenX = x;
+    const origenY = y + qrSizePts * quietFraction;
+    const origen = [
+      { x: origenX, y: origenY },
+      { x: origenX + matrixSizePts, y: origenY },
+      { x: origenX, y: origenY + matrixSizePts },
+      { x: origenX + matrixSizePts, y: origenY + matrixSizePts }
+    ];
+    const destino = [
+      qr.location.topLeftCorner,
+      qr.location.topRightCorner,
+      qr.location.bottomLeftCorner,
+      qr.location.bottomRightCorner
+    ];
+    const h = calcularHomografia(origen, destino);
+    if (h && (qr.calidadGeometrica ?? 0.78) >= 0.72) {
+      return {
+        transformar: (punto: Punto) => aplicarHomografia(h, { x: punto.x, y: altoCarta - punto.y }),
+        tipo: 'qr' as const,
+        referenciaPagina: {
+          tipo: 'qr' as const,
+          calidad: qr.calidadGeometrica ?? 0.78,
+          puntosDetectados: 4
+        }
+      };
+    }
+    advertencias.push('QR con calidad geometrica baja; se usa escala simple');
   }
 
-  const margen = margenMm * mmAPuntos;
-  const origen = [
-    { x: margen, y: margen },
-    { x: anchoCarta - margen, y: margen },
-    { x: margen, y: altoCarta - margen },
-    { x: anchoCarta - margen, y: altoCarta - margen }
-  ];
-  const destino = [tl, tr, bl, br];
-  const h = calcularHomografia(origen, destino);
-
-  if (!h) {
-    advertencias.push('No se pudo calcular homografia; usando escala simple');
-    return { transformar: crearEscala(), tipo: 'escala' as const };
-  }
-
+  // Sin marcas completas ni QR confiable, se aproxima con escala simple para
+  // conservar el diagnóstico y permitir que la política de calidad lo rechace.
+  advertencias.push('No se detectaron referencias geometricas completas; usando escala simple');
   return {
-    transformar: (punto: Punto) => aplicarHomografia(h, { x: punto.x, y: altoCarta - punto.y }),
-    tipo: 'homografia' as const
+    transformar: crearEscala(),
+    tipo: 'escala' as const,
+    referenciaPagina: { tipo: 'escala' as const, calidad: 0, puntosDetectados: 0 }
   };
 }
 
