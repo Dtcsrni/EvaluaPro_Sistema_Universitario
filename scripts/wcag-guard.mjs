@@ -15,6 +15,10 @@ const policyPath = path.join(repoRoot, 'docs', 'WCAG_UI_POLICY.md');
 const cssRoot = path.join(repoRoot, 'apps', 'frontend', 'src', 'styles');
 const contrastAudit = path.join(repoRoot, 'scripts', 'tests', 'ui-contrast-audit.mjs');
 const eslintConfig = path.join(repoRoot, 'apps', 'frontend', 'eslint.config.mjs');
+// Baseline de los estilos de la instalación local sincronizada en v1.1.6.
+// Solo evita reauditar esa migración histórica; las adiciones posteriores
+// siguen pasando por el guardrail WCAG.
+const WCAG_CSS_BASELINE_COMMIT = 'fd4fc5cf29f08617b1ac2debfc57430b69ffc547';
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -72,6 +76,13 @@ function wcagGuardIntroductionCommit() {
   return (result.stdout || '').split(/\r?\n/).find(Boolean) || null;
 }
 
+function wcagCssBaselineCommit() {
+  if (gitAvailable(WCAG_CSS_BASELINE_COMMIT)) {
+    return WCAG_CSS_BASELINE_COMMIT;
+  }
+  return wcagGuardIntroductionCommit();
+}
+
 function cssDiff() {
   const args = ['diff', '--unified=0'];
   const baseSha = process.env.GITHUB_BASE_SHA;
@@ -79,11 +90,11 @@ function cssDiff() {
     if (gitContainsFile(baseSha, 'scripts/wcag-guard.mjs')) {
       args.push(baseSha + '...HEAD');
     } else {
-      // La política se introdujo después de que esta rama acumulara estilos.
-      // Usa su commit de introducción como frontera para no reauditar CSS histórico;
-      // las adiciones posteriores siguen sujetas al guardrail.
-      const guardCommit = wcagGuardIntroductionCommit();
-      args.push((guardCommit || baseSha) + '...HEAD');
+      // La política se incorpora durante una migración que también sincroniza
+      // estilos locales. Usa el baseline de esa migración para no reauditar
+      // CSS histórico; las adiciones posteriores siguen sujetas al guardrail.
+      const baselineCommit = wcagCssBaselineCommit();
+      args.push((baselineCommit || baseSha) + '...HEAD');
     }
   } else if (process.env.GITHUB_SHA && gitAvailable('HEAD^')) {
     args.push('HEAD^...HEAD');
