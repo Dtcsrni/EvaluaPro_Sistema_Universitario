@@ -68,15 +68,6 @@ function gitContainsFile(ref, relativePath) {
   return result.status === 0;
 }
 
-function gitIsAncestor(olderRef, newerRef) {
-  const result = spawnSync('git', ['merge-base', '--is-ancestor', olderRef, newerRef], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    stdio: ['ignore', 'ignore', 'ignore'],
-  });
-  return result.status === 0;
-}
-
 function wcagGuardIntroductionCommit() {
   const result = spawnSync('git', ['log', '--all', '--reverse', '--format=%H', '--', 'scripts/wcag-guard.mjs'], {
     cwd: repoRoot,
@@ -98,9 +89,11 @@ function cssDiff() {
   const baseSha = process.env.GITHUB_BASE_SHA;
   if (baseSha && gitAvailable(baseSha)) {
     const baselineCommit = wcagCssBaselineCommit();
-    if (baselineCommit && !gitIsAncestor(baselineCommit, baseSha)) {
-      // La base todavía no contiene la sincronización local auditada como
-      // snapshot de migración; no reauditar ese historial CSS.
+    if (baselineCommit) {
+      // El snapshot de v1.1.6 es la frontera estable de esta migración. La
+      // historia previa puede venir de otra rama, así que no se decide por
+      // ascendencia respecto de GITHUB_BASE_SHA; solo se audita CSS posterior
+      // al snapshot y se conserva el fallback para ramas sin ese commit.
       args.push(baselineCommit + '...HEAD');
     } else if (gitContainsFile(baseSha, 'scripts/wcag-guard.mjs')) {
       args.push(baseSha + '...HEAD');
