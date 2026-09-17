@@ -97,9 +97,9 @@ function cssDiff() {
   const baseSha = process.env.GITHUB_BASE_SHA;
   if (baseSha && gitAvailable(baseSha)) {
     const baselineCommit = wcagCssBaselineCommit();
-    if (baselineCommit && gitIsAncestor(baseSha, baselineCommit)) {
-      // La base todavía es anterior a la sincronización local que se auditó
-      // como snapshot de migración; no reauditar ese historial CSS.
+    if (baselineCommit && !gitIsAncestor(baselineCommit, baseSha)) {
+      // La base todavía no contiene la sincronización local auditada como
+      // snapshot de migración; no reauditar ese historial CSS.
       args.push(baselineCommit + '...HEAD');
     } else if (gitContainsFile(baseSha, 'scripts/wcag-guard.mjs')) {
       args.push(baseSha + '...HEAD');
