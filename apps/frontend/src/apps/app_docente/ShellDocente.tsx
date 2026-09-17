@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 import { Icono } from '../../ui/iconos';
 import { TemaBoton } from '../../tema/TemaBoton';
 import { Boton } from '../../ui/ux/componentes/Boton';
-import { abrirVentanaVersion, obtenerVersionApp } from '../../ui/version/versionInfo';
+import { abrirVentanaVersion, OMR_CANONICAL_DISPLAY_LABEL, obtenerVersionApp } from '../../ui/version/versionInfo';
 import type { Docente } from './tipos';
 
 export function ShellDocente({
@@ -74,6 +74,9 @@ export function ShellDocente({
           >
             v{version}
           </button>
+          <span className="version-env-badge chip-omr-contract" title="Contrato único de generación y lectura OMR activo">
+            {OMR_CANONICAL_DISPLAY_LABEL}
+          </span>
           <TemaBoton />
           {docente && (
             <Boton

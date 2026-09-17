@@ -294,8 +294,6 @@ describe('pdf OMR canónico', () => {
   it('conserva marcas y QR distinguibles al rasterizar a 150 y 300 DPI', async () => {
     const resultado = await generarPdfExamen(crearParametros(16));
     const paginasMapa = resultado.mapaOmr.paginas;
-    const escalaPtPorMm = 72 / 25.4;
-
     for (const dpi of [150, 300]) {
       const raster = await rasterizarPdfParaPreview(resultado.pdfBytes, { dpi });
       expect(raster.paginasTotales).toBe(paginasMapa.length);
@@ -308,6 +306,7 @@ describe('pdf OMR canónico', () => {
         const imagen = Buffer.from(paginaRaster.dataUrl.split(',', 2)[1] ?? '', 'base64');
         const escala = dpi / 72;
         const pixeles = await sharp(imagen).greyscale().raw().toBuffer({ resolveWithObject: true });
+        const altoPaginaPt = paginaRaster.height / escala;
         const contarTinta = (
           xPt: number,
           yPtDesdeAbajo: number,
@@ -316,9 +315,9 @@ describe('pdf OMR canónico', () => {
           umbral = 80
         ) => {
           const left = Math.max(0, Math.floor(xPt * escala));
-          const top = Math.max(0, Math.floor((792 - yPtDesdeAbajo - altoPt) * escala));
+          const top = Math.max(0, Math.floor((altoPaginaPt - yPtDesdeAbajo - altoPt) * escala));
           const right = Math.min(pixeles.info.width, Math.ceil((xPt + anchoPt) * escala));
-          const bottom = Math.min(pixeles.info.height, Math.ceil((792 - yPtDesdeAbajo) * escala));
+          const bottom = Math.min(pixeles.info.height, Math.ceil((altoPaginaPt - yPtDesdeAbajo) * escala));
           let tinta = 0;
           for (let y = top; y < bottom; y += 1) {
             for (let x = left; x < right; x += 1) {
@@ -335,17 +334,24 @@ describe('pdf OMR canónico', () => {
           expect(paginaMapa.marcasPagina).toBeUndefined();
           continue;
         }
-        const tamMarcaPt = Number(paginaMapa?.marcasPagina?.size ?? 0);
-        const margenPt = 10 * escalaPtPorMm;
+        const marcasPagina = paginaMapa?.marcasPagina;
+        expect(marcasPagina, `marcas de registro ausentes a ${dpi} DPI`).toBeTruthy();
+        if (!marcasPagina) continue;
+        const tamMarcaPt = Number(marcasPagina.size);
         const margenTintaPt = 4;
-        const zonasMarca = [
-          [margenPt - margenTintaPt, 792 - margenPt - tamMarcaPt + margenTintaPt, tamMarcaPt + 8, tamMarcaPt + 8],
-          [612 - margenPt - tamMarcaPt - margenTintaPt, 792 - margenPt - tamMarcaPt + margenTintaPt, tamMarcaPt + 8, tamMarcaPt + 8],
-          [margenPt - margenTintaPt, margenPt - margenTintaPt, tamMarcaPt + 8, tamMarcaPt + 8],
-          [612 - margenPt - tamMarcaPt - margenTintaPt, margenPt - margenTintaPt, tamMarcaPt + 8, tamMarcaPt + 8]
-        ];
-        for (const zona of zonasMarca) {
-          expect(contarTinta(...zona), `fiducial sin tinta a ${dpi} DPI`).toBeGreaterThan(12);
+        const zonasMarca = (['tl', 'tr', 'bl', 'br'] as const).map((esquina) => {
+          const punto = marcasPagina[esquina];
+          const esDerecha = esquina.endsWith('r');
+          const esSuperior = esquina.startsWith('t');
+          const x = esDerecha ? punto.x - tamMarcaPt : punto.x;
+          const y = esSuperior ? punto.y - tamMarcaPt : punto.y;
+          return [x - margenTintaPt, y - margenTintaPt, tamMarcaPt + 8, tamMarcaPt + 8] as const;
+        });
+        for (const [indiceMarca, zona] of zonasMarca.entries()) {
+          expect(
+            contarTinta(...zona),
+            `marca ${['tl', 'tr', 'bl', 'br'][indiceMarca]} sin tinta a ${dpi} DPI`
+          ).toBeGreaterThan(12);
         }
 
         for (const pregunta of paginasMapa[indice]?.preguntas ?? []) {
