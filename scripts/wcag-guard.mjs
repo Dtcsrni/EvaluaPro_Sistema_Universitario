@@ -16,9 +16,10 @@ const cssRoot = path.join(repoRoot, 'apps', 'frontend', 'src', 'styles');
 const contrastAudit = path.join(repoRoot, 'scripts', 'tests', 'ui-contrast-audit.mjs');
 const eslintConfig = path.join(repoRoot, 'apps', 'frontend', 'eslint.config.mjs');
 // Baseline de los estilos de la instalación local sincronizada en v1.1.6.
-// Solo evita reauditar esa migración histórica; las adiciones posteriores
-// siguen pasando por el guardrail WCAG.
-const WCAG_CSS_BASELINE_COMMIT = 'fd4fc5cf29f08617b1ac2debfc57430b69ffc547';
+// Este commit contiene también la migración CSS que introdujo el guardrail;
+// solo evita reauditar ese historial y deja las adiciones posteriores bajo
+// revisión WCAG.
+const WCAG_CSS_BASELINE_COMMIT = '53e0590244c55e4ff7f9104c6ea4dd1c5c2a2e12';
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
