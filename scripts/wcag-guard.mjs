@@ -67,6 +67,15 @@ function gitContainsFile(ref, relativePath) {
   return result.status === 0;
 }
 
+function gitIsAncestor(olderRef, newerRef) {
+  const result = spawnSync('git', ['merge-base', '--is-ancestor', olderRef, newerRef], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'ignore', 'ignore'],
+  });
+  return result.status === 0;
+}
+
 function wcagGuardIntroductionCommit() {
   const result = spawnSync('git', ['log', '--all', '--reverse', '--format=%H', '--', 'scripts/wcag-guard.mjs'], {
     cwd: repoRoot,
@@ -87,13 +96,17 @@ function cssDiff() {
   const args = ['diff', '--unified=0'];
   const baseSha = process.env.GITHUB_BASE_SHA;
   if (baseSha && gitAvailable(baseSha)) {
-    if (gitContainsFile(baseSha, 'scripts/wcag-guard.mjs')) {
+    const baselineCommit = wcagCssBaselineCommit();
+    if (baselineCommit && gitIsAncestor(baseSha, baselineCommit)) {
+      // La base todavía es anterior a la sincronización local que se auditó
+      // como snapshot de migración; no reauditar ese historial CSS.
+      args.push(baselineCommit + '...HEAD');
+    } else if (gitContainsFile(baseSha, 'scripts/wcag-guard.mjs')) {
       args.push(baseSha + '...HEAD');
     } else {
       // La política se incorpora durante una migración que también sincroniza
       // estilos locales. Usa el baseline de esa migración para no reauditar
       // CSS histórico; las adiciones posteriores siguen sujetas al guardrail.
-      const baselineCommit = wcagCssBaselineCommit();
       args.push((baselineCommit || baseSha) + '...HEAD');
     }
   } else if (process.env.GITHUB_SHA && gitAvailable('HEAD^')) {
