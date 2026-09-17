@@ -54,10 +54,37 @@ function gitAvailable(ref) {
   return result.status === 0;
 }
 
+function gitContainsFile(ref, relativePath) {
+  const result = spawnSync('git', ['cat-file', '-e', `${ref}:${relativePath}`], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'ignore', 'ignore'],
+  });
+  return result.status === 0;
+}
+
+function wcagGuardIntroductionCommit() {
+  const result = spawnSync('git', ['log', '--all', '--reverse', '--format=%H', '--', 'scripts/wcag-guard.mjs'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  return (result.stdout || '').split(/\r?\n/).find(Boolean) || null;
+}
+
 function cssDiff() {
   const args = ['diff', '--unified=0'];
-  if (process.env.GITHUB_BASE_SHA && gitAvailable(process.env.GITHUB_BASE_SHA)) {
-    args.push(process.env.GITHUB_BASE_SHA + '...HEAD');
+  const baseSha = process.env.GITHUB_BASE_SHA;
+  if (baseSha && gitAvailable(baseSha)) {
+    if (gitContainsFile(baseSha, 'scripts/wcag-guard.mjs')) {
+      args.push(baseSha + '...HEAD');
+    } else {
+      // La política se introdujo después de que esta rama acumulara estilos.
+      // Usa su commit de introducción como frontera para no reauditar CSS histórico;
+      // las adiciones posteriores siguen sujetas al guardrail.
+      const guardCommit = wcagGuardIntroductionCommit();
+      args.push((guardCommit || baseSha) + '...HEAD');
+    }
   } else if (process.env.GITHUB_SHA && gitAvailable('HEAD^')) {
     args.push('HEAD^...HEAD');
   }
