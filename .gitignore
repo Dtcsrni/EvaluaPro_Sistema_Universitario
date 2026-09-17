@@ -94,3 +94,6 @@ packaging/wix/BurnBootstrapperApp/obj/
 packaging/app-host/bin/
 packaging/app-host/obj/
 packaging/app-host/publish/
+
+# Accesos directos Windows: contienen rutas absolutas de la máquina local.
+accesos-directos/*.lnk

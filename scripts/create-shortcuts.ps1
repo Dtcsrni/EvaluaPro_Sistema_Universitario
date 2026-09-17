@@ -353,7 +353,13 @@ function New-ShortcutLink([string]$dirPath, $shortcutDef) {
   $lnk.Arguments = $shortcutDef.Arguments
   $lnk.WorkingDirectory = $root
   $lnk.Description = $shortcutDef.Description
-  $lnk.IconLocation = "$($iconPathForLnk[$shortcutDef.IconKey]),0"
+  # Windows Start/Recomendaciones resuelve de forma más estable el icono del
+  # acceso principal desde el host nativo que desde un .ico externo.
+  $shortcutIconPath = $iconPathForLnk[$shortcutDef.IconKey]
+  if ($shortcutDef.Name -eq 'EvaluaPro' -and $isNativeHostAvailable) {
+    $shortcutIconPath = $nativeAppHostExe
+  }
+  $lnk.IconLocation = "$shortcutIconPath,0"
   $lnk.Save()
 }
 

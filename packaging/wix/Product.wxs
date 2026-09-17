@@ -71,14 +71,15 @@
       <Directory Id="ApplicationProgramsFolder" Name="EvaluaPro" />
     </StandardDirectory>
 
-    <Icon Id="EvaluaProIconProd" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-prod.ico" />
-    <Icon Id="EvaluaProIconHub" SourceFile="$(var.SourceRoot)/scripts/icons/installer-canonical.ico" />
-    <Icon Id="EvaluaProIconDev" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-dev.ico" />
-    <Icon Id="EvaluaProIconOpen" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-open.ico" />
-    <Icon Id="EvaluaProIconRestart" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-restart.ico" />
-    <Icon Id="EvaluaProIconStop" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-stop.ico" />
-    <Icon Id="EvaluaProIconRepair" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-repair.ico" />
-    <Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub" />
+    <!-- WiX/Windows requiere que el Id del Icon conserve la extensión del recurso. -->
+    <Icon Id="EvaluaProIconProd.ico" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-prod.ico" />
+    <Icon Id="EvaluaProIconHub.ico" SourceFile="$(var.SourceRoot)/scripts/icons/installer-canonical.ico" />
+    <Icon Id="EvaluaProIconDev.ico" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-dev.ico" />
+    <Icon Id="EvaluaProIconOpen.ico" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-open.ico" />
+    <Icon Id="EvaluaProIconRestart.ico" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-restart.ico" />
+    <Icon Id="EvaluaProIconStop.ico" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-stop.ico" />
+    <Icon Id="EvaluaProIconRepair.ico" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-repair.ico" />
+    <Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub.ico" />
     <Property Id="ARPCONTACT" Value="I.S.C. Erick Renato Vega Ceron" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />

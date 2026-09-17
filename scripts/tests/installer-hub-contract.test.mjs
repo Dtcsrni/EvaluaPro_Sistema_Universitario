@@ -2352,6 +2352,34 @@ test('SPEC-050: create-shortcuts prioriza EvaluaPro.exe como destino directo par
   assert.match(script, /Target\s*=\s*if \(\$isNativeHostAvailable\) \{ \$nativeAppHostExe \} else \{ \$targetWscript \}/);
 });
 
+test('SPEC-050: post-install regenera tambien los shortcuts locales y el build no empaqueta .lnk absolutos', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const trackedLinks = execFileSync('git', ['ls-files', '-z', '--', 'accesos-directos/*.lnk'], { cwd: root, encoding: 'utf8' });
+
+  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput \$true/);
+  assert.match(buildMsi, /\$relativePath -match '\^accesos-directos\/\[\^\/\]\+\\\.lnk\$'/);
+  assert.equal(trackedLinks, '', 'Los accesos .lnk generados no deben versionarse.');
+});
+
+test('SPEC-050: shortcut principal usa el icono embebido del host nativo', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+
+  assert.match(script, /\$shortcutDef\.Name -eq 'EvaluaPro' -and \$isNativeHostAvailable/);
+  assert.match(script, /\$shortcutIconPath = \$nativeAppHostExe/);
+  assert.match(script, /\$lnk\.IconLocation = "\$shortcutIconPath,0"/);
+});
+
+test('SPEC-050: WiX conserva la extension de los iconos y publica ARPPRODUCTICON', () => {
+  const product = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
+  const shortcuts = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'Shortcuts.wxs'), 'utf8');
+
+  assert.match(product, /<Icon Id="EvaluaProIconHub\.ico"/);
+  assert.match(product, /<Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub\.ico"\s*\/>/);
+  assert.doesNotMatch(shortcuts, /Icon="EvaluaProIcon(?:Prod|Hub|Dev|Open|Restart|Stop|Repair)"/);
+  assert.match(shortcuts, /Icon="EvaluaProIconProd\.ico"/);
+});
+
 test('SPEC-050: bootstrapper hub y build-msi integran lanzamiento y empaquetado de EvaluaPro.exe', () => {
   const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');

@@ -150,6 +150,13 @@ function New-InstallerBuildStagingRoot {
       continue
     }
 
+    # Los .lnk son artefactos generados y contienen rutas absolutas de la
+    # máquina que los creó. El helper post-install los regenera dentro de la
+    # instalación, por lo que nunca deben viajar en el payload.
+    if ($relativePath -match '^accesos-directos/[^/]+\.lnk$') {
+      continue
+    }
+
     # El flavor docente ejecuta artefactos compilados. No propagar al staging
     # código fuente, pruebas, reportes ni datos de prueba que WiX no debe cosechar.
     if ($relativePath -match '^apps/[^/]+/(src|tests|reports)/' -or
