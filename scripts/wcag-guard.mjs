@@ -104,7 +104,8 @@ function cssDiff() {
       args.push((baselineCommit || baseSha) + '...HEAD');
     }
   } else if (process.env.GITHUB_SHA && gitAvailable('HEAD^')) {
-    args.push('HEAD^...HEAD');
+    const baselineCommit = wcagCssBaselineCommit();
+    args.push(baselineCommit ? baselineCommit + '...HEAD' : 'HEAD^...HEAD');
   }
   args.push('--', 'apps/frontend/src/styles');
   const result = spawnSync('git', args, {
