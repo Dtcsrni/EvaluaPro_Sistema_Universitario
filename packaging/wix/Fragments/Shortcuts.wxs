@@ -7,8 +7,12 @@
           Id="SC.DesktopProd"
           Name="EvaluaPro"
           Description="Plataforma docente local: banco, exámenes, recepción y calificación"
+          <?if $(var.FlavorId) = docente-local ?>
+          Target="[INSTALLFOLDER]EvaluaPro.exe"
+          <?else?>
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
+          <?endif?>
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconProd.ico" />
         <RemoveFolder Id="RF.DesktopProd" On="uninstall" />
@@ -48,8 +52,12 @@
           Id="SC.MenuProd"
           Name="EvaluaPro"
           Description="Plataforma docente local: banco, exámenes, recepción y calificación"
+          <?if $(var.FlavorId) = docente-local ?>
+          Target="[INSTALLFOLDER]EvaluaPro.exe"
+          <?else?>
           Target="[System64Folder]wscript.exe"
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
+          <?endif?>
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconProd.ico" />
         <RemoveFolder Id="RF.MenuProdFolder" On="uninstall" />

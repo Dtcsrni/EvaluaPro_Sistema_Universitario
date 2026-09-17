@@ -1860,12 +1860,15 @@ function isShortcutsMissing() {
     'Start Menu',
     'Programs'
   );
-  const desktopProd = path.join(desktop, 'EvaluaPro - Prod.lnk');
+  const desktopProd = path.join(desktop, 'EvaluaPro.lnk');
+  const desktopHub = path.join(desktop, 'EvaluaPro - Hub.lnk');
   const desktopDev = path.join(desktop, 'EvaluaPro - Dev.lnk');
-  const startProd = path.join(startMenu, 'EvaluaPro - Prod.lnk');
+  const startProd = path.join(startMenu, 'EvaluaPro.lnk');
+  const startHub = path.join(startMenu, 'EvaluaPro - Hub.lnk');
   const startDev = path.join(startMenu, 'EvaluaPro - Dev.lnk');
-  const hasDesktop = fs.existsSync(desktopProd) && fs.existsSync(desktopDev);
-  const hasStartMenu = fs.existsSync(startProd) && fs.existsSync(startDev);
+  const requireDev = String(updateConfig.flavorId || '').toLowerCase() !== 'docente-local';
+  const hasDesktop = fs.existsSync(desktopProd) && fs.existsSync(desktopHub) && (!requireDev || fs.existsSync(desktopDev));
+  const hasStartMenu = fs.existsSync(startProd) && fs.existsSync(startHub) && (!requireDev || fs.existsSync(startDev));
   return !(hasDesktop || hasStartMenu);
 }
 
@@ -2550,7 +2553,8 @@ function resolveShortcutState(manifest) {
     const targetMismatch = entry.expectedTargetPath && normalizeShortcutValue(entry.targetPath) !== normalizeShortcutValue(entry.expectedTargetPath);
     const argumentsMismatch = entry.expectedArguments && normalizeShortcutValue(entry.arguments) !== normalizeShortcutValue(entry.expectedArguments);
     const iconMismatch = entry.expectedIconLocation && normalizeIconLocation(entry.iconLocation) !== normalizeIconLocation(entry.expectedIconLocation);
-    return targetMismatch || argumentsMismatch || iconMismatch;
+    const validationMismatch = entry.valid === false || entry.targetExists === false || entry.dependencyExists === false || entry.iconExists === false;
+    return targetMismatch || argumentsMismatch || iconMismatch || validationMismatch;
   }).map((entry) => ({
     path: String(entry.path || ''),
     expectedTargetPath: String(entry.expectedTargetPath || ''),
