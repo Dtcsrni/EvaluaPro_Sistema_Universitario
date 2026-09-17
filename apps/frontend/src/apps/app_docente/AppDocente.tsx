@@ -298,8 +298,13 @@ export function AppDocente() {
   // Mientras se consulta el contrato de capacidades, conserva visible Google
   // si el build trae Client ID. Ocultarlo durante esa ventana provocaba que la
   // pantalla pareciera no soportarlo al arrancar la instalación local.
-  const oauthGoogleDisponible =
-    googleFrontendConfigurado && (capacidadesIntegraciones === null || Boolean(capacidadesIntegraciones.oauthGoogleBackend));
+  // La visibilidad del proveedor no debe depender de una respuesta de backend:
+  // si el runtime perdió GOOGLE_OAUTH_CLIENT_ID, el usuario debe ver Google y
+  // recibir un diagnóstico accionable, no una regresión silenciosa del botón.
+  const oauthGoogleDisponible = googleFrontendConfigurado;
+  const oauthGoogleBackendDisponible = capacidadesIntegraciones === null
+    ? undefined
+    : Boolean(capacidadesIntegraciones.oauthGoogleBackend);
   const classroomDisponible = Boolean(capacidadesIntegraciones?.classroomBackend);
   const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
   const snapshotGoogleDisponible = Boolean(capacidadesIntegraciones?.snapshotGoogleDisponible);
@@ -412,6 +417,7 @@ export function AppDocente() {
     return (
       <SeccionAutenticacion
         oauthGoogleDisponible={oauthGoogleDisponible}
+        oauthGoogleBackendDisponible={oauthGoogleBackendDisponible}
         smtpDisponible={smtpDisponible}
         requireGoogleOAuth={requireGoogleOAuth}
         passwordLoginAllowed={passwordLoginAllowed}

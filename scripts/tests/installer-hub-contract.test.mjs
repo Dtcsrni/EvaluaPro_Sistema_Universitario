@@ -2391,6 +2391,15 @@ test('SPEC-050: una copia de staging no puede sobrescribir accesos de la instala
   assert.match(script, /shortcuts-manifest\.json/);
 });
 
+test('SPEC-050: una caída de configuración OAuth no puede ocultar silenciosamente el acceso Google', () => {
+  const appDocente = fs.readFileSync(path.join(root, 'apps', 'frontend', 'src', 'apps', 'app_docente', 'AppDocente.tsx'), 'utf8');
+  const auth = fs.readFileSync(path.join(root, 'apps', 'frontend', 'src', 'apps', 'app_docente', 'SeccionAutenticacion.tsx'), 'utf8');
+  assert.match(appDocente, /const oauthGoogleDisponible = googleFrontendConfigurado/);
+  assert.match(appDocente, /oauthGoogleBackendDisponible/);
+  assert.match(auth, /googleBackendNoDisponible/);
+  assert.match(auth, /role="status"/);
+});
+
 test('SPEC-050: cada acceso declarado tiene launcher e icono canónicos', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'config', 'shortcuts-manifest.json'), 'utf8'));
   const allowedLaunchers = new Set(['native', 'tray', 'operation']);

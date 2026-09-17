@@ -89,6 +89,20 @@ describe('SeccionAutenticacion', () => {
     expect(googleLogin).toHaveAttribute('data-google-text', 'signin_with');
   });
 
+  it('no oculta Google si el backend pierde su configuración y conserva un diagnóstico visible', () => {
+    render(
+      <SeccionAutenticacion
+        onIngresar={() => {}}
+        oauthGoogleDisponible
+        oauthGoogleBackendDisponible={false}
+      />
+    );
+
+    expect(screen.getByTestId('mock-google-login')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/no reporta su configuración OAuth/i);
+    expect(screen.getByLabelText('Correo')).toBeInTheDocument();
+  });
+
   it('ingresa con correo/contrasena y notifica token', async () => {
     const user = userEvent.setup();
     const onIngresar = vi.fn();

@@ -59,6 +59,7 @@ function GoogleLoginConRespaldo({
 export function SeccionAutenticacion({
   onIngresar,
   oauthGoogleDisponible,
+  oauthGoogleBackendDisponible,
   requireGoogleOAuth,
   passwordLoginAllowed,
   primerUso,
@@ -66,6 +67,7 @@ export function SeccionAutenticacion({
 }: {
   onIngresar: (token: string, persistente?: boolean) => void;
   oauthGoogleDisponible?: boolean;
+  oauthGoogleBackendDisponible?: boolean;
   smtpDisponible?: boolean;
   requireGoogleOAuth?: boolean;
   passwordLoginAllowed?: boolean;
@@ -121,14 +123,15 @@ export function SeccionAutenticacion({
   }
 
   const googleDisponible = typeof oauthGoogleDisponible === 'boolean' ? oauthGoogleDisponible : hayGoogleConfigurado();
+  const googleBackendNoDisponible = googleDisponible && oauthGoogleBackendDisponible === false;
   const esDev = import.meta.env.DEV;
   const googleOnly = Boolean(requireGoogleOAuth);
   const passwordDisponible = Boolean(passwordLoginAllowed !== false && !googleOnly);
   const mostrarFormulario = googleOnly
     ? modo === 'registrar' && Boolean(credentialRegistroGoogle)
     : modo === 'ingresar'
-      ? (!googleDisponible || mostrarFormularioIngresar)
-      : (!googleDisponible || mostrarFormularioRegistrar || Boolean(credentialRegistroGoogle));
+      ? (googleBackendNoDisponible || !googleDisponible || mostrarFormularioIngresar)
+      : (googleBackendNoDisponible || !googleDisponible || mostrarFormularioRegistrar || Boolean(credentialRegistroGoogle));
 
   const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend();
   const politicaDominiosTexto = dominiosPermitidos.length > 0 ? textoDominiosPermitidos(dominiosPermitidos) : '';
@@ -694,6 +697,11 @@ export function SeccionAutenticacion({
                 }}
                 onFallback={informarGoogleNoDisponible}
               />
+              {googleBackendNoDisponible && (
+                <p className="nota nota--mt" role="status">
+                  Google está visible, pero el servicio local no reporta su configuración OAuth. Revisa el archivo de configuración instalado y reinicia EvaluaPro.
+                </p>
+              )}
               {dominiosPermitidos.length > 0 && (
                 <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
               )}
