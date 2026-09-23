@@ -424,15 +424,15 @@ test.describe('Journey docente integral visual', () => {
     await publicar.getByRole('combobox', { name: 'Materia', exact: true }).selectOption(fixture.periodoId);
     await page.screenshot({ path: path.join(outputDir, '48_publicacion_publicar.png'), fullPage: true });
 
-    const publicarResponse = page.waitForResponse((response) => response.url().includes('/sincronizaciones/publicar') && response.request().method() === 'POST');
-    await publicar.getByRole('button', { name: 'Publicar', exact: true }).click();
-    expect((await publicarResponse).status()).toBeLessThan(400);
-
     const codigoResponse = page.waitForResponse((response) => response.url().includes('/sincronizaciones/codigo-acceso') && response.request().method() === 'POST');
     await publicar.getByRole('button', { name: 'Generar codigo', exact: true }).click();
     expect((await codigoResponse).status()).toBeLessThan(400);
     await expect(publicar).toContainText('Código generado:', { timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '49_publicacion_codigo_generado.png'), fullPage: true });
+
+    const publicarResponse = page.waitForResponse((response) => response.url().includes('/sincronizaciones/publicar') && response.request().method() === 'POST');
+    await publicar.getByRole('button', { name: 'Publicar', exact: true }).click();
+    expect((await publicarResponse).status()).toBeLessThan(400);
 
     const codigoTexto = await publicar.getByText(/Código generado:/i).textContent();
     const codigoAcceso = codigoTexto?.split('Código generado:')[1]?.trim()?.split(' ')[0];

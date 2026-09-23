@@ -43,7 +43,7 @@ export default defineConfig({
         E2E_DOCENTE_WEB_DIST: e2eDocenteWebDist,
         E2E_LOGS_DIR: e2eLogsRoot,
         E2E_SCREENSHOT_DIR: e2eScreenshotRoot,
-        E2E_DISABLE_PORTAL: '1',
+        E2E_DISABLE_PORTAL: process.env.E2E_DISABLE_PORTAL || '1',
         E2E_SKIP_BACKEND_BUILD: process.env.E2E_SKIP_BACKEND_BUILD || '0',
         PUERTO_API: String(docenteApiPort),
         PUERTO_WEB: String(docenteWebPort),
@@ -60,7 +60,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         NODE_ENV: 'test',
-        VITE_PORTAL_BASE_URL: `http://127.0.0.1:${docenteApiPort}/api/portal`,
+        VITE_PORTAL_BASE_URL: 'http://127.0.0.1:8080/api/portal',
         E2E_PORTAL_DATABASE_PATH: e2ePortalDatabasePath,
         E2E_FRONTEND_BUILD_ROOT: path.join(scratchRoot, 'dist-alumno'),
         E2E_SCREENSHOT_DIR: e2eScreenshotRoot
