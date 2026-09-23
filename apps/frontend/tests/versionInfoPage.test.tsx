@@ -29,21 +29,31 @@ describe('VersionInfoPage', () => {
         ],
         developer: { nombre: 'I.S.C. Erick Renato Vega Ceron', rol: 'Desarrollo' },
         system: { node: 'v24.0.0', generatedAt: new Date().toISOString() },
-        changelog: '# Changelog'
+        changelog: '# Changelog\n\n## [1.0.0] - 2026-09-22\n\n### Added\n- Nuevo panel de novedades'
       })
     } as Response);
 
     render(<VersionInfoPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Repositorio del desarrollador')).toBeInTheDocument();
+      expect(screen.getByText('Versión y novedades')).toBeInTheDocument();
     });
 
-    const repo = screen.getByRole('link', { name: 'Repositorio del desarrollador' });
+    const repo = screen.getByRole('link', { name: /Ver repositorio/i });
     expect(repo).toHaveAttribute('href', 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario');
-    expect(screen.getByText(/evaluapro v1\.0\.0b/i)).toBeInTheDocument();
-    expect(screen.getByText(/Base técnica: 1\.0\.0/i)).toBeInTheDocument();
-    expect(screen.getByText('React')).toBeInTheDocument();
-    expect(screen.getByText('TypeScript')).toBeInTheDocument();
+    expect(screen.getByText('1.0.0b')).toBeInTheDocument();
+    expect(screen.getByText(/Versión técnica 1\.0\.0/i)).toBeInTheDocument();
+    expect(screen.getByText('React 19.2.4')).toBeInTheDocument();
+    expect(screen.getByText('TypeScript 5.9.3')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Licencias' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'AGPL-3.0-or-later' })).toHaveAttribute(
+      'href',
+      'https://www.gnu.org/licenses/agpl.html'
+    );
+    expect(screen.getByText((_, element) => element?.tagName === 'P'
+      && element.textContent?.includes('licencia ISC') === true)).toBeInTheDocument();
+    expect(screen.getByText('Consultar el aviso completo de Lucide')).toBeInTheDocument();
+    expect(screen.getByText(/THE SOFTWARE IS PROVIDED "AS IS"/)).toBeInTheDocument();
+    expect(screen.getByText('Nuevo panel de novedades')).toBeInTheDocument();
   });
 });

@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { cargarVariablesEnvDesdeArchivo } from './runtime-env.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const logsDir = path.join(root, 'logs');
+const logsDir = path.resolve(process.env.E2E_LOGS_DIR || path.join(root, 'logs'));
 fs.mkdirSync(logsDir, { recursive: true });
 
 function loadRuntimeEnv() {
@@ -74,7 +74,9 @@ function prepareE2EDatabase() {
   const prismaEntry = path.join(root, 'node_modules', 'prisma', 'build', 'index.js');
   fs.mkdirSync(path.dirname(databasePath), { recursive: true });
   for (const suffix of ['', '-wal', '-shm']) {
-    try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch {}
+    try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch {
+      // La base temporal puede no existir o estar sin WAL/SHM.
+    }
   }
   process.env.DATABASE_URL = databaseUrl;
   process.env.BACKEND_DATABASE_URL = databaseUrl;
@@ -137,13 +139,16 @@ function prepareE2EDatabase() {
 
 function prepareE2EPortalDatabase() {
   if (process.env.EVALUAPRO_E2E_BUILD !== '1') return Promise.resolve();
-  const databasePath = path.resolve(path.join(root, 'test-results', 'docente-cycle', 'portal.db'));
+  const configuredPath = String(process.env.E2E_PORTAL_DATABASE_PATH || '').trim();
+  const databasePath = path.resolve(configuredPath || path.join(root, 'test-results', 'docente-cycle', 'portal.db'));
   const databaseUrl = `file:${databasePath.replace(/\\/g, '/')}`;
   const schemaPath = path.join(root, 'apps', 'portal_alumno_cloud', 'prisma', 'schema.prisma');
   const prismaEntry = path.join(root, 'node_modules', 'prisma', 'build', 'index.js');
   fs.mkdirSync(path.dirname(databasePath), { recursive: true });
   for (const suffix of ['', '-wal', '-shm']) {
-    try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch {}
+    try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch {
+      // La base temporal puede no existir o estar sin WAL/SHM.
+    }
   }
   process.env.PORTAL_DATABASE_URL = databaseUrl;
   env.PORTAL_DATABASE_URL = databaseUrl;
@@ -206,7 +211,7 @@ function buildE2EFrontend() {
     ? [path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')]
     : [];
   const destino = 'docente';
-  const outputDir = 'dist-e2e-docente';
+  const outputDir = String(process.env.E2E_DOCENTE_WEB_DIST || 'dist-e2e-docente').trim() || 'dist-e2e-docente';
   return new Promise((resolve, reject) => {
     const build = spawn(npmCommand, [...npmArgsPrefix, '-C', path.join(root, 'apps', 'frontend'), 'run', 'build', '--', '--outDir', outputDir], {
       cwd: root,
@@ -214,7 +219,7 @@ function buildE2EFrontend() {
         ...process.env,
         VITE_APP_DESTINO: destino,
         VITE_DISABLE_PWA: '1',
-        VITE_API_BASE_URL: 'http://127.0.0.1:4000/api'
+        VITE_API_BASE_URL: `http://127.0.0.1:${env.PUERTO_API}/api`
       },
       stdio: 'inherit',
       windowsHide: true,
@@ -224,6 +229,31 @@ function buildE2EFrontend() {
     build.once('exit', (code, signal) => {
       if (signal || code !== 0) {
         reject(new Error(`build E2E docente falló (code=${code ?? 'null'} signal=${signal ?? 'none'})`));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function buildE2EBackend() {
+  if (process.env.EVALUAPRO_E2E_BUILD !== '1' || process.env.E2E_SKIP_BACKEND_BUILD === '1') return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const build = spawn(process.execPath, [
+      path.join(root, 'node_modules', 'typescript', 'bin', 'tsc'),
+      '--project',
+      path.join(root, 'apps', 'backend', 'tsconfig.json')
+    ], {
+      cwd: root,
+      env: { ...process.env },
+      stdio: 'inherit',
+      windowsHide: true,
+      shell: false
+    });
+    build.once('error', reject);
+    build.once('exit', (code, signal) => {
+      if (signal || code !== 0) {
+        reject(new Error(`build E2E backend falló (code=${code ?? 'null'} signal=${signal ?? 'none'})`));
         return;
       }
       resolve();
@@ -278,7 +308,9 @@ function stopAll(exitCode = 0) {
       } else {
         proc.kill('SIGTERM');
       }
-    } catch {}
+    } catch {
+      // La parada continúa aunque taskkill o la señal del hijo fallen.
+    }
   }
   setTimeout(() => process.exit(exitCode), 700).unref();
 }
@@ -335,9 +367,10 @@ process.on('SIGTERM', () => stopAll(0));
 async function main() {
   await prepareE2EDatabase();
   await prepareE2EPortalDatabase();
+  await buildE2EBackend();
   await buildE2EFrontend();
   if (process.env.EVALUAPRO_E2E_BUILD === '1') {
-    process.env.DOCENTE_WEB_DIST = 'apps/frontend/dist-e2e-docente';
+    process.env.DOCENTE_WEB_DIST = process.env.E2E_DOCENTE_WEB_DIST || 'apps/frontend/dist-e2e-docente';
     env.DOCENTE_WEB_DIST = process.env.DOCENTE_WEB_DIST;
     env.PUERTO_PORTAL = '8080';
     env.PORTAL_API_KEY = 'e2e-local-portal-key';
@@ -354,7 +387,7 @@ async function main() {
     ? await canLaunchHttpService('api', `http://127.0.0.1:${apiPort}/api/salud`, apiPort)
     : true;
   if (launchApi) launch('api', [path.join('apps', 'backend', 'dist', 'index.js')]);
-  if (process.env.EVALUAPRO_E2E_BUILD === '1') {
+  if (process.env.EVALUAPRO_E2E_BUILD === '1' && process.env.E2E_DISABLE_PORTAL !== '1') {
     launch('portal', [path.join('node_modules', 'tsx', 'dist', 'cli.mjs'), path.join('apps', 'portal_alumno_cloud', 'src', 'index.ts')]);
   }
   const launchWeb = reuseExistingServices

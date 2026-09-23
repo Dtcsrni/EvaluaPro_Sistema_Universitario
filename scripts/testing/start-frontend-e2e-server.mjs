@@ -20,6 +20,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,10 +40,14 @@ const safeDestino = destino.replace(/[^a-z0-9_-]/gi, '-');
 // Cada servidor E2E necesita una salida propia: Vite no debe compartir ni
 // sobrescribir estáticos entre builds concurrentes de docente/alumno/admin.
 const outDir = `dist-e2e-${safeDestino}-${process.pid}-${Date.now()}`;
-const outPath = path.join(frontendDir, outDir);
+const buildRoot = String(process.env.E2E_FRONTEND_BUILD_ROOT || '').trim();
+const outPath = buildRoot ? path.join(path.resolve(buildRoot), outDir) : path.join(frontendDir, outDir);
 let activeProcess = null;
 
-const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const npmCommand = process.platform === 'win32' ? process.execPath : 'npm';
+const npmPrefix = process.platform === 'win32'
+  ? [path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')]
+  : [];
 const env = {
   ...process.env,
   VITE_APP_DESTINO: destino,
@@ -69,9 +74,11 @@ process.once('SIGTERM', () => {
   process.exit(143);
 });
 
-const build = spawn(`${npmCmd} -C "${frontendDir}" run build -- --outDir ${outDir}`, {
+const npmArgs = ['-C', frontendDir];
+
+const build = spawn(npmCommand, [...npmPrefix, ...npmArgs, 'run', 'build', '--', '--outDir', outPath], {
   stdio: 'inherit',
-  shell: true,
+  shell: false,
   env
 });
 activeProcess = build;
@@ -85,9 +92,9 @@ build.on('exit', (code, signal) => {
     process.exit(code ?? 1);
   }
 
-  const child = spawn(`${npmCmd} -C "${frontendDir}" run preview -- --host 127.0.0.1 --port ${port} --outDir ${outDir}`, {
+  const child = spawn(npmCommand, [...npmPrefix, ...npmArgs, 'run', 'preview', '--', '--host', '127.0.0.1', '--port', port, '--outDir', outPath], {
     stdio: 'inherit',
-    shell: true,
+    shell: false,
     env
   });
   activeProcess = child;

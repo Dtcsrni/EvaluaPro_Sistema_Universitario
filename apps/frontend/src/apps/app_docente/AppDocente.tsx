@@ -633,6 +633,7 @@ export function AppDocente() {
           <SeccionAsistencias
             periodos={periodos}
             alumnos={alumnos}
+            puedeGestionar={permisosUI.asistencias.gestionar}
           />
         </div>
       )}

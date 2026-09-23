@@ -8,13 +8,15 @@ import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const docenteApiPort = process.env.E2E_DOCENTE_API_PORT || '4000';
+
 test.describe('Journey docente integral visual', () => {
   test.setTimeout(240_000);
 
   async function crearFixtureAcademico(page: import('@playwright/test').Page, request: import('@playwright/test').APIRequestContext) {
     const token = await page.evaluate(() => localStorage.getItem('tokenDocente'));
     if (!token) throw new Error('No hay token docente en el contexto visual');
-    const base = 'http://127.0.0.1:4000/api';
+    const base = `http://127.0.0.1:${docenteApiPort}/api`;
     const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
     
     const periodosResp = await request.get(`${base}/periodos?activo=1`, { headers: { Authorization: `Bearer ${token}` } });
@@ -48,9 +50,126 @@ test.describe('Journey docente integral visual', () => {
     return { periodoId: String(periodo._id), alumnoId: String(alumno._id), alumnoMatricula: String(alumno.matricula) };
   }
 
+  test('persiste y reabre el pase de lista entre navegador, API y resumen', async ({ page, request }) => {
+    const sufijo = String(Date.now()) + '-' + String(Math.floor(Math.random() * 1000));
+    const nombreMateria = 'Materia E2E Asistencias ' + sufijo;
+    const matricula = 'CUH' + String(Math.floor(100000000 + Math.random() * 899999999));
+    const nombreAlumno = 'Alumno Asistencia ' + sufijo;
+    const temaAsistencia = 'Pase persistencia E2E ' + sufijo;
+    const apiBase = 'http://127.0.0.1:' + docenteApiPort + '/api';
+
+    await page.goto('/acceso');
+    await page.getByRole('button', { name: 'Registrar', exact: true }).dispatchEvent('click');
+    const registrarCorreo = page.getByRole('button', { name: /Registrar con correo/i });
+    if (await registrarCorreo.isVisible().catch(() => false)) await registrarCorreo.click();
+    await page.fill('input[placeholder="Ej. Juan Carlos"]', 'Docente');
+    await page.getByLabel('Apellidos', { exact: true }).fill('Asistencias');
+    await page.fill('input[type="email"]', 'asistencia_' + sufijo + '@evaluapro.local');
+    await page.fill('input[type="password"]', 'P@ssword123');
+    await page.getByRole('button', { name: /Crear cuenta/i }).click({ noWaitAfter: true });
+    await expect(page.getByRole('button', { name: 'Banco', exact: true })).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole('button', { name: 'Materias', exact: true }).click();
+    const mostrarFormularioMateria = page.getByRole('button', { name: /Mostrar formulario/i });
+    if (await mostrarFormularioMateria.isVisible().catch(() => false)) await mostrarFormularioMateria.click();
+    await expect(page.getByRole('button', { name: 'Crear materia', exact: true })).toBeVisible({ timeout: 15_000 });
+    await page.locator('label:has-text("Nombre de la materia") >> input').fill(nombreMateria);
+    await page.locator('label:has-text("Fecha inicio") >> input').fill('2026-01-01');
+    await page.locator('label:has-text("Fecha fin") >> input').fill('2026-12-31');
+    await page.locator('label:has-text("Grupos") >> input').fill('Grupo A');
+    await page.getByRole('button', { name: 'Crear materia', exact: true }).click();
+    await expect(page.getByRole('button', { name: /Abrir grupo Grupo A de Materia E2e Asistencias/i })).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole('button', { name: 'Alumnos', exact: true }).click();
+    await page.locator('label:has-text("Matricula") >> input').fill(matricula);
+    await page.locator('label:has-text("Nombres") >> input').fill(nombreAlumno);
+    await page.locator('label:has-text("Apellidos") >> input').fill('E2E');
+    await page.locator('label:has-text("Materia") >> select').first().selectOption({ index: 1 });
+    await page.locator('label:has-text("Grupo") >> input').fill('Grupo A');
+    await page.getByRole('button', { name: /Crear alumno/i }).click();
+    await expect(page.getByText(nombreAlumno, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
+
+    const token = await page.evaluate(() => localStorage.getItem('tokenDocente'));
+    if (!token) throw new Error('No hay token docente en el contexto E2E');
+    const auth = { Authorization: 'Bearer ' + token };
+    const [periodosResponse, alumnosResponse] = await Promise.all([
+      request.get(apiBase + '/periodos?activo=1', { headers: auth }),
+      request.get(apiBase + '/alumnos', { headers: auth })
+    ]);
+    expect(periodosResponse.status()).toBe(200);
+    expect(alumnosResponse.status()).toBe(200);
+    const cuerpoPeriodos = await periodosResponse.json();
+    const cuerpoAlumnos = await alumnosResponse.json();
+    const periodo = (cuerpoPeriodos.periodos ?? cuerpoPeriodos.materias ?? []).find((item: any) => item.nombre?.toLocaleLowerCase('es-MX') === nombreMateria.toLocaleLowerCase('es-MX'));
+    const alumno = (cuerpoAlumnos.alumnos ?? []).find((item: any) => item.matricula === matricula);
+    expect(periodo?._id).toBeTruthy();
+    expect(alumno?._id).toBeTruthy();
+    const nombreCompletoAlumno = String(alumno.nombreCompleto);
+
+    await page.getByRole('button', { name: 'Asistencias', exact: true }).click();
+    await page.getByLabel('Materia o Periodo Académico').selectOption(periodo._id);
+    await page.getByLabel('Filtrar por Grupo').selectOption('Grupo A');
+    await page.getByPlaceholder(/Unidad 2: Modelado dimensional/).fill(temaAsistencia);
+
+    const crearSesionResponse = page.waitForResponse((response) =>
+      response.url().includes('/asistencias/sesiones') && response.request().method() === 'POST'
+    );
+    await page.getByRole('button', { name: 'Crear e Iniciar Pase de Lista', exact: true }).click();
+    const sesionResponse = await crearSesionResponse;
+    expect(sesionResponse.status()).toBe(201);
+    const { sesion } = await sesionResponse.json();
+    expect(sesion?._id).toBeTruthy();
+    expect(sesion?.periodoId).toBe(periodo._id);
+    expect(sesion?.grupo).toBe('Grupo A');
+
+    const marcarFalta = page.getByRole('button', { name: 'Marcar a ' + nombreCompletoAlumno + ' como Falta', exact: true });
+    await expect(marcarFalta).toBeVisible();
+    await marcarFalta.click();
+    await expect(marcarFalta).toHaveAttribute('aria-pressed', 'true');
+
+    const guardarAsistenciaResponse = page.waitForResponse((response) =>
+      response.url().includes('/asistencias/sesiones/' + sesion._id + '/registros') && response.request().method() === 'POST'
+    );
+    await page.getByRole('button', { name: 'Guardar lista', exact: true }).click();
+    const guardado = await guardarAsistenciaResponse;
+    expect(guardado.status()).toBeLessThan(300);
+    await expect(page.getByRole('button', { name: 'Resumen General', exact: true })).toHaveClass(/activo/);
+
+    const resumenAlumno = page.getByRole('row').filter({ hasText: nombreCompletoAlumno });
+    await expect(resumenAlumno.locator('td').nth(2)).toHaveText('Grupo A');
+    await expect(resumenAlumno.locator('td').nth(4)).toHaveText('1');
+    await expect(resumenAlumno).toContainText('0%');
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Banco', exact: true })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Asistencias', exact: true }).click();
+    await page.getByLabel('Materia o Periodo Académico').selectOption(periodo._id);
+    const sesionGuardada = page.getByRole('button', { name: new RegExp(temaAsistencia) });
+    await expect(sesionGuardada).toBeVisible({ timeout: 20_000 });
+    await sesionGuardada.click();
+    const faltaReabierta = page.getByRole('button', { name: 'Marcar a ' + nombreCompletoAlumno + ' como Falta', exact: true });
+    await expect(faltaReabierta).toHaveAttribute('aria-pressed', 'true');
+
+    const registrosPersistidos = await request.get(apiBase + '/asistencias/sesiones/' + sesion._id + '/registros', {
+      headers: auth
+    });
+    expect(registrosPersistidos.status()).toBe(200);
+    const cuerpoPersistido = await registrosPersistidos.json();
+    expect(cuerpoPersistido.registros).toHaveLength(1);
+    expect(cuerpoPersistido.registros).toEqual(expect.arrayContaining([
+      expect.objectContaining({ alumnoId: alumno._id, estado: 'F', periodoId: periodo._id, grupo: 'Grupo A' })
+    ]));
+
+    await page.getByRole('button', { name: 'Resumen General', exact: true }).click();
+    const resumenTrasReapertura = page.getByRole('row').filter({ hasText: nombreCompletoAlumno });
+    await expect(resumenTrasReapertura.locator('td').nth(2)).toHaveText('Grupo A');
+    await expect(resumenTrasReapertura.locator('td').nth(4)).toHaveText('1');
+    await expect(resumenTrasReapertura).toContainText('0%');
+  });
+
   test('recorre diseño, generación, entrega, evaluación, calificación y publicación', async ({ page, request }) => {
     const sufijo = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const outputDir = path.join(process.cwd(), 'docs', 'assets', 'ui');
+    const outputDir = process.env.E2E_SCREENSHOT_DIR || path.join(process.cwd(), 'docs', 'assets', 'ui');
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
     // Paso 1: Acceso / Login
@@ -149,7 +268,7 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '25_plantilla_formulario.png'), fullPage: true });
 
     await formularioPlantilla.getByRole('button', { name: 'Crear plantilla', exact: true }).click();
-    await expect(formularioPlantilla.getByRole('status')).toContainText('Plantilla creada', { timeout: 20_000 });
+    await expect(formularioPlantilla.getByText('Plantilla creada', { exact: true })).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '26_plantilla_creada_exito.png'), fullPage: true });
 
     await page.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }).click();

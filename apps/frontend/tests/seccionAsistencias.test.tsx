@@ -159,9 +159,7 @@ describe('SeccionAsistencias (Resiliencia)', () => {
     const btnTodosPresentes = await screen.findByRole('button', { name: /Todos Presentes/i });
     fireEvent.click(btnTodosPresentes);
 
-    // Ciclar estado alumno con click
-    const rowAlumno = screen.getByText('Alumno 1').closest('.asistencias-alumno-row');
-    if (rowAlumno) fireEvent.click(rowAlumno);
+    fireEvent.click(screen.getByRole('button', { name: /Marcar a Alumno 1 como Falta/i }));
 
     const btnGuardarLista = screen.getByRole('button', { name: /Guardar lista/i });
     fireEvent.click(btnGuardarLista);
@@ -172,6 +170,60 @@ describe('SeccionAsistencias (Resiliencia)', () => {
         expect.anything()
       );
     });
+  });
+
+  it('crea la lista solo para el grupo elegido y permite marcar Justificada directamente', async () => {
+    vi.mocked(clienteApi.obtener).mockResolvedValue({ resumen: [], sesiones: [], reglas: [] });
+    vi.mocked(clienteApi.enviar).mockResolvedValueOnce({
+      sesion: { _id: 'ses-2', fecha: '2026-09-22T12:00:00.000Z', grupo: 'B' }
+    }).mockResolvedValueOnce({ total: 1 });
+
+    render(
+      <SeccionAsistencias
+        periodos={[{ _id: 'per-1', nombre: 'Periodo 1', activo: true, grupos: ['A', 'B'] }]}
+        alumnos={[
+          { _id: 'alu-a', nombreCompleto: 'Alumno Grupo A', matricula: 'A1', periodoId: 'per-1', grupo: 'A' },
+          { _id: 'alu-b', nombreCompleto: 'Alumno Grupo B', matricula: 'B1', periodoId: 'per-1', grupo: 'B' },
+          { _id: 'alu-otro-periodo', nombreCompleto: 'Alumno Otro Periodo', matricula: 'C1', periodoId: 'per-2', grupo: 'B' }
+        ]}
+        puedeGestionar
+      />
+    );
+
+    fireEvent.change(screen.getAllByRole('combobox')[0]!, { target: { value: 'per-1' } });
+    fireEvent.change(screen.getAllByRole('combobox')[2]!, { target: { value: 'B' } });
+    fireEvent.click(await screen.findByRole('button', { name: /Crear e iniciar/i }));
+
+    expect(await screen.findByText('Alumno Grupo B')).toBeInTheDocument();
+    expect(screen.queryByText('Alumno Grupo A')).not.toBeInTheDocument();
+    expect(screen.queryByText('Alumno Otro Periodo')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Marcar a Alumno Grupo B como Justificada/i }));
+    const motivo = screen.getByRole('textbox', { name: 'Motivo de justificación para Alumno Grupo B' });
+    expect(motivo).toHaveAttribute('maxLength', '300');
+    fireEvent.change(motivo, { target: { value: 'Cita médica' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar lista/i }));
+
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenLastCalledWith(
+      '/asistencias/sesiones/ses-2/registros',
+      { registros: [{ alumnoId: 'alu-b', estado: 'J', justificacion: 'Cita médica' }] }
+    ));
+  });
+
+  it('mantiene en solo lectura los controles de gestión', async () => {
+    vi.mocked(clienteApi.obtener).mockResolvedValue({ resumen: [], sesiones: [], reglas: [] });
+    render(
+      <SeccionAsistencias
+        periodos={[{ _id: 'per-1', nombre: 'Periodo 1', activo: true, grupos: ['A'] }]}
+        alumnos={[{ _id: 'alu-1', nombreCompleto: 'Alumno 1', matricula: 'A1', periodoId: 'per-1', grupo: 'A' }]}
+      />
+    );
+    fireEvent.change(screen.getAllByRole('combobox')[0]!, { target: { value: 'per-1' } });
+    expect(await screen.findByText(/Tienes acceso de solo lectura/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Crear e iniciar/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /Reglas/i }));
+    expect(screen.getByRole('button', { name: /Guardar regla/i })).toBeDisabled();
+    expect(screen.getByRole('spinbutton', { name: /Máximo de faltas/i })).toBeDisabled();
   });
 });
 

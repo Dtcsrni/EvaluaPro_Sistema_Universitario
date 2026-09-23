@@ -33,6 +33,35 @@ Para cada elemento nuevo o modificado se deben revisar todos los estados que exi
 - **Responsive y movimiento:** sin pérdida de contenido a 320/360 px, zoom de texto al
   200 %, reflow, `prefers-reduced-motion` y sin información transmitida solo por animación.
 
+## Política de iconografía para todas las páginas
+
+Cada página nueva o modificada debe revisar dónde un icono ayuda a reconocer y recorrer la
+interfaz: navegación, acciones, categorías, estados, indicadores, ayudas y estados vacíos.
+Cuando aporte comprensión o rapidez visual, se debe incluir de forma consistente con el
+sistema de iconos vectoriales de EvaluaPro; no se exige decorar elementos donde el icono
+añada ruido o repita información.
+
+El catálogo compartido debe tener variedad suficiente para representar con precisión los
+dominios académicos, navegación, acciones, estados, fechas, archivos, datos y permisos. Se
+prefieren símbolos semánticamente distintos a reutilizar un icono genérico para conceptos
+que no comparten significado.
+
+- Reutilizar `apps/frontend/src/ui/iconos.tsx` para los símbolos propios y consultar
+  `docs/GUIA_ICONOGRAFIA.md` para los más de 1,600 iconos del catálogo Lucide. Preferir
+  importaciones nombradas y el adaptador `IconoLucide` para conservar tree-shaking y
+  accesibilidad.
+- Acompañar los iconos con texto visible cuando la acción o estado no sea universal. Un
+  icono no sustituye el nombre completo de un estado; abreviaturas como P/F/R/J son apoyo.
+- Los controles solo con icono requieren nombre accesible y, cuando corresponda, tooltip.
+  Los iconos decorativos se ocultan a tecnologías de asistencia; los informativos tienen
+  alternativa textual y nunca transmiten significado solo por color.
+- Mantener tamaño, alineación, trazo y significado coherentes entre páginas. Evitar emoji,
+  caracteres Unicode y glifos de fuentes como sustitutos de iconos funcionales.
+- Al incorporar una fuente nueva, verificar su licencia en el repositorio oficial, conservar
+  el texto completo de licencia y registrar la procedencia. Importar solo los iconos que
+  usa cada pantalla para conservar la carga bajo demanda y el tree-shaking.
+- Revisar contraste, foco, tamaño táctil, responsive y ambos temas según esta política.
+
 ## Reglas específicas para glass
 
 1. Los colores de texto y controles se consumen desde tokens semánticos; no se agregan

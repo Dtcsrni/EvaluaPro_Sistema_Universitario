@@ -9067,3 +9067,184 @@ li.empty-state-card {
     justify-content: flex-start;
   }
 }
+
+/* Controles directos del pase: cada estado es una acción independiente y accesible. */
+.asistencias-alumno-row {
+  cursor: default;
+}
+
+.asistencias-alumno-row:hover {
+  transform: none;
+}
+
+.asistencias-estado-controls {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.asistencias-estado-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.asistencias-estado-control[aria-pressed="true"] {
+  border-width: 2px;
+  border-color: var(--app-accent, var(--primario));
+  background: var(--surface-2);
+}
+
+.asistencias-estado-control:focus-visible {
+  outline: 3px solid var(--anillo);
+  outline-offset: 2px;
+}
+
+.asistencias-estado-control:disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .asistencias-alumno-row {
+    flex-wrap: wrap;
+  }
+
+  .asistencias-estado-controls {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+
+  .asistencias-alumno-input-justificacion {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .asistencias-alumno-row {
+    display: grid;
+    grid-template-columns: 1.5rem 2.5rem minmax(0, 1fr);
+    gap: 0.65rem;
+  }
+
+  .asistencias-alumno-info {
+    min-width: 0;
+  }
+
+  .asistencias-alumno-matricula {
+    white-space: nowrap;
+  }
+
+  .asistencias-estado-controls,
+  .asistencias-alumno-input-justificacion {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .asistencias-estado-controls {
+    justify-content: flex-start;
+  }
+}
+
+/* Changelog de la ventana de versión: búsqueda, releases plegables y lectura clara. */
+/* WCAG AA: contrastes y estados de foco verificados por guard:wcag. */
+.version-changelog-container { gap: 0.9rem; margin-top: 0.8rem; }
+.version-changelog-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; }
+.version-changelog-search { display: flex; align-items: center; gap: 0.6rem; min-height: 46px; padding: 0 0.8rem; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 12px; background: rgba(4, 10, 22, 0.48); color: #9fb2cc; }
+.version-changelog-search:focus-within { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.13); }
+.version-changelog-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #e7efff; font: inherit; }
+.version-changelog-search input::placeholder { color: #8ea0b9; }
+.version-changelog-count { color: #aebed5; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+.version-timeline { gap: 0.65rem; }
+.version-timeline__release { gap: 0; padding: 0; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 14px; background: rgba(7, 14, 29, 0.66); }
+.version-timeline__release.is-featured { border-color: rgba(56, 189, 248, 0.38); background: linear-gradient(140deg, rgba(14, 32, 55, 0.92), rgba(9, 18, 36, 0.92)); }
+.version-timeline__summary { display: grid; grid-template-columns: 42px minmax(0, 1fr) 20px; align-items: center; gap: 0.8rem; min-height: 76px; padding: 0.9rem 1rem; cursor: pointer; list-style: none; }
+.version-timeline__summary::-webkit-details-marker { display: none; }
+.version-timeline__summary-icon { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid rgba(56, 189, 248, 0.27); border-radius: 12px; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; }
+.version-timeline__summary-main { display: grid; gap: 0.3rem; min-width: 0; }
+.version-timeline__summary-topline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem; }
+.version-timeline__tag-version { color: #e8f4ff; font-size: 1rem; }
+.version-timeline__tag-status { padding: 0.18rem 0.5rem; border-color: rgba(167, 139, 250, 0.34); background: rgba(139, 92, 246, 0.12); color: #c4b5fd; }
+.version-timeline__summary-meta { display: flex; flex-wrap: wrap; gap: 0.9rem; color: #9fb0c9; font-size: 0.78rem; }
+.version-timeline__summary-meta span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.version-timeline__chevron { color: #9fb2cc; transition: transform 160ms ease; }
+.version-timeline__release[open] > .version-timeline__summary { border-bottom: 1px solid rgba(148, 163, 184, 0.16); }
+.version-timeline__release[open] > .version-timeline__summary .version-timeline__chevron { transform: rotate(180deg); }
+.version-timeline__summary:focus-visible { outline: 3px solid #7dd3fc; outline-offset: -3px; }
+.version-timeline__content { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr)); gap: 0.7rem; padding: 0.85rem; }
+.version-timeline__cat-block { gap: 0.6rem; min-width: 0; padding: 0.85rem; border-color: rgba(148, 163, 184, 0.16); background: rgba(255, 255, 255, 0.025); }
+.version-timeline__cat-title { display: flex; align-items: center; gap: 0.45rem; color: #9fe9ff; font-size: 0.88rem; }
+.version-timeline__list { gap: 0.6rem; }
+.version-timeline__item { gap: 0.6rem; font-size: 0.85rem; line-height: 1.55; overflow-wrap: anywhere; }
+.version-timeline__bullet { width: 7px; height: 7px; margin-top: 0.48rem; border: 0; background: #38bdf8; }
+.version-changelog-empty { display: flex; align-items: center; gap: 0.75rem; padding: 1.1rem; border: 1px dashed rgba(148, 163, 184, 0.3); border-radius: 12px; color: #aebed5; }
+.version-changelog-empty p { margin: 0; }
+/* WCAG AA: el texto secundario y el separador mantienen contraste verificable. */
+.version-changelog-source { border-top: 1px solid rgba(148, 163, 184, 0.17); padding-top: 0.75rem; }
+.version-changelog-source summary { display: flex; align-items: center; gap: 0.45rem; width: fit-content; color: #aebed5; font-size: 0.82rem; font-weight: 600; cursor: pointer; list-style: none; }
+.version-changelog-source summary::-webkit-details-marker { display: none; }
+.version-changelog-source__chevron { margin-left: 0.2rem; transition: transform 160ms ease; }
+.version-changelog-source[open] .version-changelog-source__chevron { transform: rotate(180deg); }
+.version-changelog { max-height: 22rem; min-height: 0; margin-top: 0.65rem; font-size: 0.78rem; }
+.version-license-inventory { margin-top: 0.95rem; border-top: 1px solid rgba(148, 163, 184, 0.17); padding-top: 0.75rem; }
+.version-license-inventory summary { display: flex; align-items: center; gap: 0.45rem; width: fit-content; color: #aebed5; font-size: 0.84rem; font-weight: 700; cursor: pointer; }
+.version-license-inventory__hint { margin: 0.7rem 0 0; color: #9fb0c9; font-size: 0.8rem; line-height: 1.5; }
+.version-license-inventory__heading { margin: 1rem 0 0; color: #d7e2f1; font-size: 0.86rem; }
+.version-license-inventory__list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 0.45rem 0.65rem; margin: 0.75rem 0 0; padding: 0; list-style: none; }
+.version-license-inventory__list li { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; min-width: 0; padding: 0.55rem 0.65rem; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 9px; background: rgba(255, 255, 255, 0.025); color: #d7e2f1; font-size: 0.78rem; line-height: 1.35; }
+.version-license-inventory__list li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.version-license-inventory__badge { flex: 0 0 auto; padding: 0.2rem 0.45rem; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 999px; color: #9fe9ff; font-size: 0.7rem; font-weight: 700; text-align: right; }
+/* WCAG AA: contrastes de texto, foco y superficies verificados por guard:wcag. */
+:root:not([data-theme="dark"]) .version-changelog-search { border-color: #cbd5e1; background: #f8fafc; color: #52637d; }
+:root:not([data-theme="dark"]) .version-changelog-search input { color: #17243b; }
+:root:not([data-theme="dark"]) .version-changelog-search input::placeholder { color: #64748b; }
+:root:not([data-theme="dark"]) .version-changelog-count,
+:root:not([data-theme="dark"]) .version-timeline__summary-meta,
+:root:not([data-theme="dark"]) .version-changelog-source summary { color: #52637d; }
+:root:not([data-theme="dark"]) .version-timeline__release { border-color: #dbe5f1; background: #fff; }
+:root:not([data-theme="dark"]) .version-timeline__release.is-featured { border-color: #7dd3fc; background: linear-gradient(145deg, #f0f9ff, #fff); }
+:root:not([data-theme="dark"]) .version-timeline__tag-version { color: #17243b; }
+:root:not([data-theme="dark"]) .version-timeline__tag-status { color: #6d28d9; }
+:root:not([data-theme="dark"]) .version-timeline__cat-block { border-color: #e2e8f0; background: #f8fafc; }
+:root:not([data-theme="dark"]) .version-timeline__cat-title { color: #075985; }
+:root:not([data-theme="dark"]) .version-timeline__item { color: #334155; }
+:root:not([data-theme="dark"]) .version-changelog-empty { border-color: #cbd5e1; color: #52637d; }
+:root:not([data-theme="dark"]) .version-changelog-source { border-color: #dbe5f1; }
+:root:not([data-theme="dark"]) .version-license-inventory { border-color: #dbe5f1; }
+:root:not([data-theme="dark"]) .version-license-inventory summary { color: #334155; }
+:root:not([data-theme="dark"]) .version-license-inventory__hint { color: #52637d; }
+:root:not([data-theme="dark"]) .version-license-inventory__heading { color: #17243b; }
+:root:not([data-theme="dark"]) .version-license-inventory__list li { border-color: #e2e8f0; background: #f8fafc; color: #334155; }
+:root:not([data-theme="dark"]) .version-license-inventory__badge { border-color: #7dd3fc; color: #075985; }
+@media (max-width: 600px) {
+  .version-changelog-toolbar { grid-template-columns: 1fr; }
+  .version-changelog-count { padding: 0 0.15rem; }
+  .version-timeline__summary { grid-template-columns: 36px minmax(0, 1fr) 18px; gap: 0.65rem; min-height: 68px; padding: 0.75rem; }
+  .version-timeline__summary-icon { width: 36px; height: 36px; }
+  .version-timeline__content { grid-template-columns: 1fr; padding: 0.65rem; }
+  .version-timeline__cat-block { padding: 0.75rem; }
+  .version-license-inventory__list { grid-template-columns: 1fr; }
+  .version-license-inventory__list li { align-items: flex-start; flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .version-timeline__chevron, .version-changelog-source__chevron { transition: none; }
+}

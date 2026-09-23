@@ -35,6 +35,7 @@
   "dependencies": {
     "@react-oauth/google": "^0.13.4",
     "jsqr": "^1.4.0",
+    "lucide-react": "^1.47.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tesseract.js": "^5.1.1"

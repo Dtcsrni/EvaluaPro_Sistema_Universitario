@@ -5,6 +5,30 @@
  * Limites: Preservar accesibilidad y contratos de props existentes.
  */
 import { useEffect, useMemo, useState } from 'react';
+import rootPackage from '../../../../../package.json';
+import frontendPackage from '../../../package.json';
+import backendPackage from '../../../../backend/package.json';
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  CircleCheck,
+  CirclePlus,
+  Clock3,
+  Code2,
+  Database,
+  FileText,
+  GitBranch,
+  IconoLucide,
+  Monitor,
+  PackageCheck,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Wrench
+} from '../iconosCatalogo';
+import lucideLicenseText from './legal/lucide-react.LICENSE.txt?raw';
+import { formatearFechaChangelog, parsearChangelog, type EntradaChangelog } from './changelog';
 import {
   obtenerVersionApp,
   obtenerVersionTecnicaApp,
@@ -33,6 +57,12 @@ type VersionInfoPayload = {
 
 type TecnologiaVersion = { id?: string; label?: string; logoUrl?: string; website?: string };
 
+type ManifestPackage = {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  engines?: Record<string, string>;
+};
+
 type VersionViewModel = {
   version: string;
   technicalVersion: string;
@@ -54,25 +84,83 @@ type VersionViewModel = {
   oldVersionsOperational: boolean;
 };
 
+const CHANGELOG_DEFAULT = `# Changelog
+
+## [${obtenerVersionApp()}] - 2026-09-22
+
+### Added
+- Centro de versión con historial de cambios filtrable y lectura por versión.
+- Catálogo Lucide integrado con iconos accesibles y avisos de licencia.
+
+### Fixed
+- Pase de lista con nombres completos, estados visibles y validaciones de pertenencia.
+
+### Verification
+- Build docente, lint, pruebas focalizadas y contraste WCAG AA verificados localmente.
+`;
+
+function versionDeclarada(manifest: ManifestPackage, nombre: string) {
+  const declaracion = manifest.dependencies?.[nombre] || manifest.devDependencies?.[nombre] || '';
+  return declaracion.replace(/^[~^<>=\s]+/, '').split(/\s|\|\|/)[0] || 'sin versión';
+}
+
+function versionesDeclaradas(manifest: ManifestPackage, nombres: string[]) {
+  return nombres.map((nombre) => versionDeclarada(manifest, nombre)).join(' / ');
+}
+
+const FRONTEND_PACKAGE = frontendPackage as ManifestPackage;
+const BACKEND_PACKAGE = backendPackage as ManifestPackage;
+const ROOT_PACKAGE = rootPackage as ManifestPackage;
+const VERSION_NODE_REQUERIDA = ROOT_PACKAGE.engines?.node || '>=24';
+const VERSIONES_TECNOLOGIAS = {
+  react: versionDeclarada(FRONTEND_PACKAGE, 'react'),
+  typescript: versionDeclarada(FRONTEND_PACKAGE, 'typescript'),
+  vite: versionDeclarada(FRONTEND_PACKAGE, 'vite'),
+  prisma: versionDeclarada(BACKEND_PACKAGE, '@prisma/client')
+};
+
 const TECNOLOGIAS_DEFAULT: TecnologiaVersion[] = [
-  { id: 'react', label: 'React 19', website: 'https://react.dev' },
-  { id: 'typescript', label: 'TypeScript 5.9', website: 'https://www.typescriptlang.org' },
-  { id: 'vite', label: 'Vite 8', website: 'https://vite.dev' },
-  { id: 'nodejs', label: 'Node.js 24 LTS', website: 'https://nodejs.org' },
+  { id: 'react', label: `React ${VERSIONES_TECNOLOGIAS.react}`, website: 'https://react.dev' },
+  { id: 'typescript', label: `TypeScript ${VERSIONES_TECNOLOGIAS.typescript}`, website: 'https://www.typescriptlang.org' },
+  { id: 'vite', label: `Vite ${VERSIONES_TECNOLOGIAS.vite}`, website: 'https://vite.dev' },
+  { id: 'nodejs', label: `Node.js ${VERSION_NODE_REQUERIDA}`, website: 'https://nodejs.org' },
   { id: 'sqlite', label: 'SQLite 3 Local', website: 'https://www.sqlite.org' },
-  { id: 'prisma', label: 'Prisma ORM', website: 'https://www.prisma.io' },
+  { id: 'prisma', label: `Prisma ORM ${VERSIONES_TECNOLOGIAS.prisma}`, website: 'https://www.prisma.io' },
   { id: 'omr', label: 'Motor OMR Óptico', website: 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario' },
-  { id: 'crypto', label: 'Criptografía AES-256', website: 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario' }
+  { id: 'crypto', label: 'Cifrado AES-256-GCM', website: 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario' }
 ];
 
-const CHANGELOG_DEFAULT = `# EvaluaPro Suite Universitaria - v${obtenerVersionApp()} (Estable)
+const ETIQUETAS_TECNOLOGIAS = {
+  react: `React ${VERSIONES_TECNOLOGIAS.react}`,
+  typescript: `TypeScript ${VERSIONES_TECNOLOGIAS.typescript}`,
+  vite: `Vite ${VERSIONES_TECNOLOGIAS.vite}`,
+  prisma: `Prisma ORM ${VERSIONES_TECNOLOGIAS.prisma}`,
+  nodejs: `Node.js ${VERSION_NODE_REQUERIDA}`
+} as const;
 
-### Novedades y Optimizaciones
-- UI/UX Docente: Rediseño completo con arquitectura visual panorámica, iconos SVG de alta definición y Bento Workspace de 2 filas.
-- Calificación Automatizada OMR: Procesamiento óptico local de hojas de respuestas con reconocimiento QR de alta precisión.
-- Base de Datos Local Segura: Almacenamiento 100% privado en SQLite 3 local gestionado con Prisma ORM.
-- Criptografía Integrada: Respaldo y sincronización protegidos con cifrado de nivel bancario AES-256-GCM.
-`;
+const LICENCIAS_DIRECTAS = [
+  { paquete: '@react-oauth/google', version: versionDeclarada(FRONTEND_PACKAGE, '@react-oauth/google'), licencia: 'MIT' },
+  { paquete: 'jsqr', version: versionDeclarada(FRONTEND_PACKAGE, 'jsqr'), licencia: 'Apache-2.0' },
+  { paquete: 'lucide-react', version: versionDeclarada(FRONTEND_PACKAGE, 'lucide-react'), licencia: 'ISC + MIT para iconos derivados de Feather' },
+  { paquete: 'react / react-dom', version: versionesDeclaradas(FRONTEND_PACKAGE, ['react', 'react-dom']), licencia: 'MIT' },
+  { paquete: 'typescript', version: versionDeclarada(FRONTEND_PACKAGE, 'typescript'), licencia: 'Apache-2.0 · herramienta de compilación' },
+  { paquete: 'vite', version: versionDeclarada(FRONTEND_PACKAGE, 'vite'), licencia: 'MIT · herramienta de compilación' },
+  { paquete: 'tesseract.js / tesseract.js-core', version: versionDeclarada(FRONTEND_PACKAGE, 'tesseract.js'), licencia: 'Apache-2.0' },
+  { paquete: '@pdf-lib/fontkit', version: versionDeclarada(BACKEND_PACKAGE, '@pdf-lib/fontkit'), licencia: 'MIT' },
+  { paquete: '@prisma/client / prisma', version: versionesDeclaradas(BACKEND_PACKAGE, ['@prisma/client', 'prisma']), licencia: 'Apache-2.0' },
+  { paquete: 'bcryptjs', version: versionDeclarada(BACKEND_PACKAGE, 'bcryptjs'), licencia: 'BSD-3-Clause' },
+  { paquete: 'cors, decimal.js, docx, exceljs, express', version: versionesDeclaradas(BACKEND_PACKAGE, ['cors', 'decimal.js', 'docx', 'exceljs', 'express']), licencia: 'MIT' },
+  { paquete: 'express-rate-limit, helmet, jsonwebtoken, multer, pdf-lib, qrcode, zod', version: versionesDeclaradas(BACKEND_PACKAGE, ['express-rate-limit', 'helmet', 'jsonwebtoken', 'multer', 'pdf-lib', 'qrcode', 'zod']), licencia: 'MIT' },
+  { paquete: 'dotenv', version: versionDeclarada(BACKEND_PACKAGE, 'dotenv'), licencia: 'BSD-2-Clause' },
+  { paquete: 'google-auth-library, pdf-parse, playwright, sharp', version: versionesDeclaradas(BACKEND_PACKAGE, ['google-auth-library', 'pdf-parse', 'playwright', 'sharp']), licencia: 'Apache-2.0' }
+];
+
+const LICENCIAS_PLATAFORMA = [
+  { elemento: 'Node.js', version: `${VERSION_NODE_REQUERIDA} · versión exacta reportada por el runtime`, licencia: 'MIT + avisos de componentes incluidos' },
+  { elemento: 'SQLite local', version: '3 · versión del motor no expuesta por el endpoint', licencia: 'Public Domain' },
+  { elemento: 'Motor OMR de EvaluaPro', version: OMR_CANONICAL_CONTRACT_ID, licencia: 'AGPL-3.0-or-later' },
+  { elemento: 'AES-256-GCM', version: 'algoritmo criptográfico', licencia: 'Sin licencia de componente' }
+];
 
 function renderIconoTecnologia(id: string) {
   switch (id.toLowerCase()) {
@@ -158,7 +246,7 @@ function comoTexto(valor: unknown, fallback: string) {
 
 function viewModelSistema(data: VersionInfoPayload | null) {
   return {
-    node: comoTexto(data?.system?.node, 'v24.18.0'),
+    node: comoTexto(data?.system?.node, `Node.js ${VERSION_NODE_REQUERIDA}`),
     platform: comoTexto(data?.system?.platform, 'win32'),
     arch: comoTexto(data?.system?.arch, 'x64'),
     hostname: comoTexto(data?.system?.hostname, 'Localhost'),
@@ -193,9 +281,14 @@ function resolverAplicacion(data: VersionInfoPayload | null, fallbackVersion: st
 }
 
 function resolverContenido(data: VersionInfoPayload | null) {
+  const technologies = Array.isArray(data?.technologies) ? data.technologies : TECNOLOGIAS_DEFAULT;
   return {
     changelog: comoTexto(data?.changelog, '').trim() || CHANGELOG_DEFAULT,
-    technologies: Array.isArray(data?.technologies) ? data.technologies : TECNOLOGIAS_DEFAULT
+    technologies: technologies.map((technology) => {
+      const id = String(technology?.id || '').toLowerCase() as keyof typeof ETIQUETAS_TECNOLOGIAS;
+      const label = ETIQUETAS_TECNOLOGIAS[id];
+      return label ? { ...technology, label } : technology;
+    })
   };
 }
 
@@ -267,59 +360,6 @@ function buildViewModel(data: VersionInfoPayload | null, fallbackVersion: string
   };
 }
 
-const RELEASES_NOTAS = [
-  {
-    version: `v${obtenerVersionApp()}`,
-    etiqueta: 'Versión Actual · Estable',
-    fecha: 'Agosto 2026',
-    tipo: 'major',
-    destacados: [
-      {
-        categoria: '🎨 UI/UX Panorámica',
-        color: '#38bdf8',
-        items: [
-          'Rediseño panorámico de la suite docente con aprovechamiento del 100% del ancho de pantalla.',
-          'Formulario de registro de materias en 2 filas limpias, eliminando solapamientos en cualquier resolución.',
-          'Cabeceras enriquecidas con Mini-KPIs en tiempo real (Materias, Grupos y Por Cerrar) y orbe temático de 54px.',
-          'Modernización de la sección de Materias Archivadas con Bento Glassmorphism y tarjetas métricas.'
-        ]
-      },
-      {
-        categoria: '📷 Motor OMR Óptico',
-        color: '#f43f5e',
-        items: [
-          'Calificación asistida de hojas de respuestas mediante reconocimiento óptico local.',
-          'Lectura y vinculación automática con códigos QR institucionales.'
-        ]
-      },
-      {
-        categoria: '🗄️ Persistencia & Seguridad',
-        color: '#10b981',
-        items: [
-          'Migración completa a SQLite 3 Local gestionado con Prisma ORM (100% privado y offline-first).',
-          'Cifrado simétrico AES-256-GCM para respaldo seguro y exportación de paquetes.'
-        ]
-      }
-    ]
-  },
-  {
-    version: 'v1.1.0',
-    etiqueta: 'Lanzamiento Inicial',
-    fecha: 'Julio 2026',
-    tipo: 'minor',
-    destacados: [
-      {
-        categoria: '👥 Gestión Académica',
-        color: '#a78bfa',
-        items: [
-          'Módulos para administración de alumnos, pase de asistencia institucional y cálculo ponderado.',
-          'Diseñador de plantillas de examen y banco reactivo de preguntas.'
-        ]
-      }
-    ]
-  }
-];
-
 function resolverEtiquetaEntorno(rawEnv?: string): string {
   const limpio = String(rawEnv || '').toLowerCase().trim();
   if (limpio === 'production' || limpio === 'prod') {
@@ -335,58 +375,159 @@ function resolverEtiquetaEntorno(rawEnv?: string): string {
 }
 
 function VersionChangelogVisual({ rawChangelog }: { rawChangelog: string }) {
-  const [modoRaw, setModoRaw] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [mostrarOriginal, setMostrarOriginal] = useState(false);
+  const versiones = useMemo(() => parsearChangelog(rawChangelog), [rawChangelog]);
+  const termino = busqueda.trim().toLocaleLowerCase('es-MX');
+  const versionesFiltradas = versiones.filter((version) => {
+    if (!termino) return true;
+    const contenido = [version.version, version.fecha, ...version.grupos.flatMap((grupo) => [
+      grupo.titulo,
+      ...grupo.cambios
+    ])].join(' ').toLocaleLowerCase('es-MX');
+    return contenido.includes(termino);
+  });
+  const totalCambios = versiones.reduce((total, version) => (
+    total + version.grupos.reduce((suma, grupo) => suma + grupo.cambios.length, 0)
+  ), 0);
 
   return (
     <div className="version-changelog-container">
       <div className="version-changelog-toolbar">
-        <span className="version-changelog-desc">Historial y notas de las versiones publicadas:</span>
-        <button
-          type="button"
-          className="boton-toggle-raw"
-          onClick={() => setModoRaw((prev) => !prev)}
-          data-tooltip="Alternar entre formato visual y log markdown crudo"
-        >
-          {modoRaw ? '✨ Ver Formato Diseñado' : '📄 Ver Markdown Raw'}
-        </button>
+        <label className="version-changelog-search" htmlFor="version-changelog-search">
+          <IconoLucide icon={Search} size={17} />
+          <input
+            id="version-changelog-search"
+            type="search"
+            aria-label="Buscar en el historial"
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+            placeholder="Buscar por versión o tema"
+          />
+        </label>
+        <span className="version-changelog-count" aria-live="polite">
+          {versionesFiltradas.length} {versionesFiltradas.length === 1 ? 'versión' : 'versiones'} · {totalCambios} cambios
+        </span>
       </div>
 
-      {modoRaw ? (
-        <pre className="version-changelog">{rawChangelog || 'Sin changelog disponible.'}</pre>
-      ) : (
+      {versionesFiltradas.length ? (
         <div className="version-timeline">
-          {RELEASES_NOTAS.map((rel) => (
-            <article key={rel.version} className="version-timeline__release">
-              <header className="version-timeline__head">
-                <div className="version-timeline__badge-group">
-                  <span className="version-timeline__tag-version">{rel.version}</span>
-                  <span className="version-timeline__tag-status">{rel.etiqueta}</span>
-                </div>
-                <span className="version-timeline__date">📅 {rel.fecha}</span>
-              </header>
-
-              <div className="version-timeline__blocks">
-                {rel.destacados.map((bloque) => (
-                  <div key={bloque.categoria} className="version-timeline__cat-block">
-                    <h4 className="version-timeline__cat-title" style={{ color: bloque.color }}>
-                      {bloque.categoria}
-                    </h4>
-                    <ul className="version-timeline__list">
-                      {bloque.items.map((item, i) => (
-                        <li key={i} className="version-timeline__item">
-                          <span className="version-timeline__bullet" style={{ borderColor: bloque.color }} aria-hidden="true" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </article>
+          {versionesFiltradas.map((version, indice) => (
+            <VersionRelease key={`${version.version}-${version.fecha}-${indice}`} release={version} expanded={indice === 0 || Boolean(termino)} />
           ))}
         </div>
+      ) : (
+        <div className="version-changelog-empty" role="status">
+          <IconoLucide icon={FileText} size={22} />
+          <p>{versiones.length ? 'No hay cambios que coincidan con la búsqueda.' : 'No hay notas de versión disponibles en este momento.'}</p>
+        </div>
+      )}
+
+      {rawChangelog && (
+        <details
+          className="version-changelog-source"
+          open={mostrarOriginal}
+          onToggle={(event) => setMostrarOriginal(event.currentTarget.open)}
+        >
+          <summary>
+            <IconoLucide icon={Code2} size={16} /> Ver texto original del changelog
+            <IconoLucide icon={ChevronDown} size={16} className="version-changelog-source__chevron" />
+          </summary>
+          <pre className="version-changelog">{rawChangelog}</pre>
+        </details>
       )}
     </div>
+  );
+}
+
+function VersionLicenseInventory() {
+  return (
+    <details className="version-license-inventory">
+      <summary><IconoLucide icon={PackageCheck} size={16} /> Ver inventario de dependencias directas</summary>
+      <p className="version-license-inventory__hint">
+        Inventario comprobado contra los manifiestos y lockfiles del producto. Las dependencias transitivas mantienen sus avisos en los paquetes distribuidos y en los lockfiles.
+      </p>
+      <ul className="version-license-inventory__list">
+        {LICENCIAS_DIRECTAS.map((item) => (
+          <li key={item.paquete}>
+            <span><strong>{item.paquete}</strong> · {item.version}</span>
+            <span className="version-license-inventory__badge">{item.licencia}</span>
+          </li>
+        ))}
+      </ul>
+      <h3 className="version-license-inventory__heading">Plataforma y código del producto</h3>
+      <ul className="version-license-inventory__list">
+        {LICENCIAS_PLATAFORMA.map((item) => (
+          <li key={item.elemento}>
+            <span><strong>{item.elemento}</strong> · {item.version}</span>
+            <span className="version-license-inventory__badge">{item.licencia}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function iconoCategoria(titulo: string) {
+  const categoria = titulo.toLocaleLowerCase('es-MX');
+  if (categoria.includes('novedad') || categoria.includes('added') || categoria.includes('document')) return CirclePlus;
+  if (categoria.includes('correcci') || categoria.includes('fixed')) return Wrench;
+  if (categoria.includes('seguridad') || categoria.includes('security')) return ShieldCheck;
+  if (categoria.includes('verificaci') || categoria.includes('verification') || categoria.includes('qa')) return CheckCircle2;
+  if (categoria.includes('mejora') || categoria.includes('changed')) return Sparkles;
+  if (categoria.includes('nota')) return FileText;
+  return CircleCheck;
+}
+
+function etiquetaVersion(version: string) {
+  if (version.toLocaleLowerCase('es-MX') === 'unreleased') return 'En preparación';
+  return version.toLocaleLowerCase('es-MX').startsWith('v') ? version : `v${version}`;
+}
+
+function VersionRelease({ release, expanded }: { release: EntradaChangelog; expanded: boolean }) {
+  const total = release.grupos.reduce((suma, grupo) => suma + grupo.cambios.length, 0);
+  const enPreparacion = release.version.toLocaleLowerCase('es-MX') === 'unreleased';
+
+  return (
+    <details className={`version-timeline__release${expanded ? ' is-featured' : ''}`} open={expanded}>
+      <summary className="version-timeline__summary">
+        <span className="version-timeline__summary-icon" aria-hidden="true">
+          <IconoLucide icon={enPreparacion ? Sparkles : PackageCheck} size={19} />
+        </span>
+        <span className="version-timeline__summary-main">
+          <span className="version-timeline__summary-topline">
+            <strong className="version-timeline__tag-version">{etiquetaVersion(release.version)}</strong>
+            {enPreparacion && <span className="version-timeline__tag-status">Próximo lanzamiento</span>}
+          </span>
+          <span className="version-timeline__summary-meta">
+            {release.fecha && <span><IconoLucide icon={CalendarDays} size={14} /> {formatearFechaChangelog(release.fecha)}</span>}
+            <span><IconoLucide icon={FileText} size={14} /> {total} {total === 1 ? 'cambio' : 'cambios'}</span>
+          </span>
+        </span>
+        <IconoLucide icon={ChevronDown} size={18} className="version-timeline__chevron" />
+      </summary>
+
+      <div className="version-timeline__content">
+        {release.grupos.map((grupo, indice) => {
+          const IconoCategoria = iconoCategoria(grupo.titulo);
+          return (
+            <section className="version-timeline__cat-block" key={`${grupo.titulo}-${indice}`}>
+              <h3 className="version-timeline__cat-title">
+                <IconoLucide icon={IconoCategoria} size={17} /> {grupo.titulo}
+              </h3>
+              <ul className="version-timeline__list">
+                {grupo.cambios.map((cambio, cambioIndice) => (
+                  <li className="version-timeline__item" key={`${cambio.slice(0, 32)}-${cambioIndice}`}>
+                    <span className="version-timeline__bullet" aria-hidden="true" />
+                    <span>{cambio}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    </details>
   );
 }
 
@@ -422,84 +563,116 @@ export function VersionInfoPage() {
   const etiquetaEntorno = resolverEtiquetaEntorno(vm.env);
 
   return (
-    <main className="version-page">
-      <section className="version-hero">
-        <p className="version-eyebrow">EvaluaPro · {portal === 'alumno' ? 'Portal Alumno' : 'Portal Docente'}</p>
-        <h1>Version Center</h1>
-        <div className="version-badges-row">
-          <span className="version-sub">
-            <span className="version-pulse" /> {vm.nombre} v{vm.version}
-          </span>
-          <span className="version-sub version-sub--tech">
-            Base técnica: {vm.technicalVersion}
-          </span>
+    <div className="version-page">
+      <header className="version-hero">
+        <div className="version-hero__copy">
+          <p className="version-eyebrow">EvaluaPro · {portal === 'alumno' ? 'Portal Alumno' : 'Portal Docente'}</p>
+          <h1>Versión y novedades</h1>
+          <p className="version-hero__intro">Consulta qué incluye esta instalación, revisa cambios y encuentra los detalles técnicos cuando los necesites.</p>
           <a className="version-repo-link" href={vm.repositoryUrl} target="_blank" rel="noreferrer noopener">
-            Repositorio del desarrollador
+            <IconoLucide icon={GitBranch} size={17} /> Ver repositorio
           </a>
         </div>
+        <div className="version-hero__installed" aria-label={`Versión instalada ${vm.version}`}>
+          <span className="version-hero__installed-label"><IconoLucide icon={CircleCheck} size={16} /> Versión instalada</span>
+          <strong>{vm.version}</strong>
+          <span className="version-hero__technical"><IconoLucide icon={Code2} size={15} /> Versión técnica {vm.technicalVersion}</span>
+        </div>
+      </header>
+
+      <nav className="version-nav" aria-label="Secciones de información de versión">
+        <a href="#version-updates"><IconoLucide icon={Sparkles} size={17} /> Novedades</a>
+        <a href="#version-details"><IconoLucide icon={Monitor} size={17} /> Instalación</a>
+        <a href="#version-technologies"><IconoLucide icon={Database} size={17} /> Tecnologías</a>
+        <a href="#version-licenses"><IconoLucide icon={FileText} size={17} /> Licencias</a>
+      </nav>
+
+      <section className="version-card version-card-wide version-updates" id="version-updates" aria-labelledby="version-updates-title">
+        <div className="version-section-heading">
+          <div>
+            <p className="version-section-kicker"><IconoLucide icon={Sparkles} size={15} /> CAMBIOS PUBLICADOS</p>
+            <h2 id="version-updates-title">Novedades e historial</h2>
+            <p>Explora cada versión y filtra por funcionalidad, módulo o palabra clave.</p>
+          </div>
+          <span className="version-current-chip"><IconoLucide icon={CheckCircle2} size={16} /> Instalada: {vm.version}</span>
+        </div>
+        <VersionChangelogVisual rawChangelog={vm.changelog} />
       </section>
 
-      <section className="version-grid">
+      <section className="version-grid" id="version-details" aria-label="Detalles de la instalación">
         <article className="version-card">
-          <h2>Sistema & Ejecución</h2>
+          <h2><IconoLucide icon={Monitor} size={18} /> Sistema e instalación</h2>
           <div className="version-info-rows">
             <div className="version-info-row">
-              <span className="version-info-label">Entorno:</span>
+              <span className="version-info-label">Entorno</span>
               <span className="version-env-badge">{etiquetaEntorno}</span>
             </div>
             <div className="version-info-row">
-              <span className="version-info-label">Arquitectura:</span>
-              <span className="version-info-val">Suite de Escritorio Autónomo (Offline-First)</span>
+              <span className="version-info-label">Arquitectura</span>
+              <span className="version-info-val">Aplicación local, preparada para trabajar sin conexión</span>
             </div>
             <div className="version-info-row">
-              <span className="version-info-label">Runtime:</span>
-              <span className="version-info-val">{vm.node} ({vm.platform} / {vm.arch})</span>
+              <span className="version-info-label">Runtime</span>
+              <span className="version-info-val">{vm.node} · {vm.platform} · {vm.arch}</span>
             </div>
             <div className="version-info-row">
-              <span className="version-info-label">Host de Trabajo:</span>
-              <span className="version-info-val">{vm.hostname} (127.0.0.1)</span>
+              <span className="version-info-label">Equipo</span>
+              <span className="version-info-val">{vm.hostname}</span>
             </div>
             <div className="version-info-row">
-              <span className="version-info-label">Contrato OMR:</span>
+              <span className="version-info-label">Motor OMR</span>
               <span className="version-env-badge" title={vm.omrContractId}>{vm.omrDisplayLabel}</span>
             </div>
           </div>
         </article>
 
         <article className="version-card">
-          <h2>Desarrollador & Créditos</h2>
+          <h2><IconoLucide icon={Clock3} size={18} /> Información de compilación</h2>
           <div className="version-info-rows">
             <div className="version-info-row">
-              <span className="version-info-label">Autor / Ingeniero:</span>
-              <span className="version-info-val"><strong>{vm.developer}</strong></span>
+              <span className="version-info-label">Desarrollo</span>
+              <span className="version-info-val"><strong>{vm.developer}</strong> · {vm.rol}</span>
             </div>
             <div className="version-info-row">
-              <span className="version-info-label">Rol:</span>
-              <span className="version-info-val">{vm.rol}</span>
+              <span className="version-info-label">Última consulta</span>
+              <span className="version-info-val">{new Date(vm.generatedAt).toLocaleString('es-MX')}</span>
             </div>
             <div className="version-info-row">
-              <span className="version-info-label">Compilación:</span>
-              <span className="version-info-val">{new Date(vm.generatedAt).toLocaleString()}</span>
-            </div>
-            <div className="version-info-row">
-              <span className="version-info-label">Licencia:</span>
-              <span className="version-info-val">Uso Académico e Institucional Universitario</span>
+              <span className="version-info-label">Dirección local</span>
+              <span className="version-info-val"><IconoLucide icon={Database} size={15} /> 127.0.0.1</span>
             </div>
           </div>
         </article>
       </section>
 
-      <section className="version-card version-card-wide">
-        <h2>Tecnologías utilizadas</h2>
+      <section className="version-card version-card-wide" id="version-technologies" aria-labelledby="version-technologies-title">
+        <div className="version-section-heading version-section-heading--compact">
+          <div>
+            <p className="version-section-kicker"><IconoLucide icon={Code2} size={15} /> COMPONENTES</p>
+            <h2 id="version-technologies-title">Tecnologías utilizadas</h2>
+          </div>
+          <span className="version-tech-count">{vm.technologies.length} componentes</span>
+        </div>
         <div className="version-tech-grid">
           <VersionTechList technologies={vm.technologies} />
         </div>
       </section>
 
-      <section className="version-card version-card-wide">
-        <h2>Notas de la Versión y Novedades</h2>
-        <VersionChangelogVisual rawChangelog={vm.changelog} />
+      <section className="version-card version-card-wide version-licenses" id="version-licenses" aria-labelledby="version-licenses-title">
+        <div className="version-section-heading version-section-heading--compact">
+          <div>
+            <p className="version-section-kicker"><IconoLucide icon={FileText} size={15} /> AVISOS DE DISTRIBUCIÓN</p>
+            <h2 id="version-licenses-title">Licencias</h2>
+          </div>
+        </div>
+        <p><strong>EvaluaPro:</strong> núcleo abierto bajo <a href="https://www.gnu.org/licenses/agpl.html" target="_blank" rel="noreferrer noopener">AGPL-3.0-or-later</a>.</p>
+        <p><strong>Lucide React {versionDeclarada(FRONTEND_PACKAGE, 'lucide-react')}:</strong> licencia ISC. Los iconos derivados de Feather incluyen aviso MIT.</p>
+        <VersionLicenseInventory />
+        <details className="version-license-details">
+          <summary>Consultar el aviso completo de Lucide</summary>
+          <pre>{lucideLicenseText}</pre>
+        </details>
       </section>
-    </main>
+    </div>
   );
 }

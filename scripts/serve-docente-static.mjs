@@ -24,8 +24,8 @@ import { assertDocenteBundle } from './docente-bundle-guard.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const configuredDist = String(process.env.DOCENTE_WEB_DIST || '').trim();
-const publicRoot = configuredDist === 'apps/frontend/dist-e2e-docente'
-  ? path.resolve(root, 'apps', 'frontend', 'dist-e2e-docente')
+const publicRoot = configuredDist
+  ? (path.isAbsolute(configuredDist) ? configuredDist : path.resolve(root, configuredDist))
   : path.resolve(root, 'apps', 'frontend', 'dist-docente');
 const bundleGuard = assertDocenteBundle({ distRoot: publicRoot });
 process.stdout.write(`[docente-static] bundle validado: ${bundleGuard.contract}\n`);
@@ -87,7 +87,7 @@ function safePath(urlPath) {
   }
 
   const fallbackPath = path.resolve(publicRoot, 'index.html');
-  if (fs.existsSync(fallbackPath)) return fallbackPath;
+  if (fs.existsSync(fallbackPath)) return fallback || fallbackPath;
   return null;
 }
 
