@@ -10,8 +10,8 @@ import {
   calcularCalificacionExacta,
   calcularCalificacionGlobal,
   calcularCalificacionParcial
-} from '../src/compartido/utilidades/calculoCalificacion';
-import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacion';
+} from '../src/compartido/utilidades/calculoCalificacion.js';
+import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacion.js';
 
 describe('calculoCalificacion', () => {
   it('respeta bono maximo y sin redondeo', () => {

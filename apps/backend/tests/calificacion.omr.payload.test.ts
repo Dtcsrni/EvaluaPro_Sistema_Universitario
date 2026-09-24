@@ -7,10 +7,10 @@
 import { createHmac } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../src/app';
-import { configuracion } from '../src/configuracion';
-import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo';
+import { crearApp } from '../src/app.js';
+import { configuracion } from '../src/configuracion.js';
+import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
 
 function refirmarQr(textoQr: string) {
   const limpio = String(textoQr ?? '').trim();

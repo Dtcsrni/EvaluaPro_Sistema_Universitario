@@ -2,7 +2,7 @@
  * Rutas de generacion de examenes (plantillas y PDF).
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import {
   actualizarPlantilla,
   archivarPlantilla,
@@ -16,7 +16,7 @@ import {
   previsualizarPlantilla,
   previsualizarPlantillaPdf,
   previsualizarPlantillaPdfVisual
-} from './controladorGeneracionPdf';
+} from './controladorGeneracionPdf.js';
 import {
   esquemaActualizarPlantilla,
   esquemaBodyVacioOpcional,
@@ -25,16 +25,17 @@ import {
   esquemaGenerarExamenesLote,
   esquemaPurgarExamenesGenerados,
   esquemaRegenerarExamenGenerado
-} from './validacionesExamenes';
+} from './validacionesExamenes.js';
 import {
   archivarExamenGenerado,
   descargarPdf,
   listarExamenesGenerados,
+  obtenerExamenGeneradoPorId,
   obtenerExamenPorFolio,
   purgarExamenesGenerados,
   regenerarPdfExamen
-} from './controladorListadoGenerados';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+} from './controladorListadoGenerados.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.get('/plantillas/:id/previsualizar/pdf', requerirPermiso('plantillas:prev
 router.get('/plantillas/:id/previsualizar/pdf/visual', requerirPermiso('plantillas:previsualizar'), previsualizarPlantillaPdfVisual);
 router.get('/generados', requerirPermiso('examenes:leer'), listarExamenesGenerados);
 router.get('/generados/folio/:folio', requerirPermiso('examenes:leer'), obtenerExamenPorFolio);
+router.get('/generados/:id', requerirPermiso('examenes:leer'), obtenerExamenGeneradoPorId);
 router.get('/generados/:id/pdf', requerirPermiso('examenes:descargar'), descargarPdf);
 router.get('/generados/lote/:loteId/pdf', requerirPermiso('examenes:descargar'), descargarPdfLote);
 router.get('/generados/lote/:loteId/progreso', requerirPermiso('examenes:leer'), obtenerProgresoGeneracionLote);

@@ -4,12 +4,12 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { DefaultPaqueteProcessor, resolverDesdeSincronizacion, validarTamanoPaqueteBase64 } from '../../domain/paqueteSincronizacion';
-import { normalizarErrorServidorSincronizacion } from '../../domain/erroresSincronizacion';
-import { crearClientePortal } from '../../infra/portalSyncClient';
-import { MongoSyncAuditRepo, syncClock } from '../../infra/repositoriosSync';
-import { obtenerId } from '../../sincronizacionInterna';
-import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
+import { DefaultPaqueteProcessor, resolverDesdeSincronizacion, validarTamanoPaqueteBase64 } from '../../domain/paqueteSincronizacion.js';
+import { normalizarErrorServidorSincronizacion } from '../../domain/erroresSincronizacion.js';
+import { crearClientePortal } from '../../infra/portalSyncClient.js';
+import { MongoSyncAuditRepo, syncClock } from '../../infra/repositoriosSync.js';
+import { obtenerId } from '../../sincronizacionInterna.js';
+import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
 
 const processor = new DefaultPaqueteProcessor();
 const auditRepo = new MongoSyncAuditRepo();

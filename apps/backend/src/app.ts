@@ -10,14 +10,14 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { configuracion } from './configuracion';
-import { crearRouterApi } from './rutas';
-import { manejadorErrores } from './compartido/errores/manejadorErrores';
-import { middlewareIdSolicitud, middlewareRegistroSolicitud } from './compartido/observabilidad/middlewareObservabilidad';
+import { configuracion } from './configuracion.js';
+import { crearRouterApi } from './rutas.js';
+import { manejadorErrores } from './compartido/errores/manejadorErrores.js';
+import { middlewareIdSolicitud, middlewareRegistroSolicitud } from './compartido/observabilidad/middlewareObservabilidad.js';
 import {
   middlewareManejadorErroresRobusto,
   middlewareContextoRobustez
-} from './compartido/robustez/manejadorErrores';
+} from './compartido/robustez/manejadorErrores.js';
 
 function mapearIdsAUnderscore(obj: unknown): unknown {
   if (obj === null || typeof obj !== 'object') {

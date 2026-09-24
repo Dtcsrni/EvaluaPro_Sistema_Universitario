@@ -26,3 +26,15 @@ test('carga valores del .env cuando el proceso solo heredó variables vacías', 
   assert.equal(target.GOOGLE_OAUTH_CLIENT_ID, 'login-from-file');
   assert.equal(target.GOOGLE_CLASSROOM_CLIENT_ID, 'classroom-from-parent');
 });
+
+test('permite que el launcher nativo priorice las URLs SQLite del .env instalado', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-runtime-env-'));
+  const envPath = path.join(tempRoot, '.env');
+  fs.writeFileSync(envPath, 'DATABASE_URL=file:C:/Users/evega/AppData/Local/EvaluaPro/data/evaluapro.db\n', 'utf8');
+
+  const target = { DATABASE_URL: 'file:./data/evaluapro.db' };
+
+  cargarVariablesEnvDesdeArchivo(envPath, target, { overrideKeys: ['DATABASE_URL'] });
+
+  assert.equal(target.DATABASE_URL, 'file:C:/Users/evega/AppData/Local/EvaluaPro/data/evaluapro.db');
+});

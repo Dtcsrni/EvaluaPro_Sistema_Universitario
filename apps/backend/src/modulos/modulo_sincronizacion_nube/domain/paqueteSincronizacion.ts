@@ -3,18 +3,18 @@
  */
 import { promises as fs } from 'fs';
 import { gunzipSync, gzipSync } from 'zlib';
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { guardarPdfExamen } from '../../../infraestructura/archivos/almacenLocal';
-import { prisma } from '../../../infraestructura/baseDatos/sqlite';
-import { Alumno } from '../../modulo_alumnos/modeloAlumno';
-import { Periodo } from '../../modulo_alumnos/modeloPeriodo';
-import { BanderaRevision } from '../../modulo_analiticas/modeloBanderaRevision';
-import { BancoPregunta } from '../../modulo_banco_preguntas/modeloBancoPregunta';
-import { Calificacion } from '../../modulo_calificacion/modeloCalificacion';
-import { ExamenGenerado } from '../../modulo_generacion_pdf/modeloExamenGenerado';
-import { ExamenPlantilla } from '../../modulo_generacion_pdf/modeloExamenPlantilla';
-import { Entrega } from '../../modulo_vinculacion_entrega/modeloEntrega';
-import { Sincronizacion } from '../modeloSincronizacion';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { guardarPdfExamen } from '../../../infraestructura/archivos/almacenLocal.js';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite.js';
+import { Alumno } from '../../modulo_alumnos/modeloAlumno.js';
+import { Periodo } from '../../modulo_alumnos/modeloPeriodo.js';
+import { BanderaRevision } from '../../modulo_analiticas/modeloBanderaRevision.js';
+import { BancoPregunta } from '../../modulo_banco_preguntas/modeloBancoPregunta.js';
+import { Calificacion } from '../../modulo_calificacion/modeloCalificacion.js';
+import { ExamenGenerado } from '../../modulo_generacion_pdf/modeloExamenGenerado.js';
+import { ExamenPlantilla } from '../../modulo_generacion_pdf/modeloExamenPlantilla.js';
+import { Entrega } from '../../modulo_vinculacion_entrega/modeloEntrega.js';
+import { Sincronizacion } from '../modeloSincronizacion.js';
 import {
   MAX_BASE64_CHARS,
   normalizarCorreo,
@@ -28,8 +28,8 @@ import {
   upsertLwwPorUpdatedAt,
   type ModelLike,
   type PaqueteSincronizacionV2
-} from '../sincronizacionInterna';
-import type { PaqueteAssembler, PaqueteProcessor, ResultadoImportacionPaquete } from '../shared/tiposSync';
+} from '../sincronizacionInterna.js';
+import type { PaqueteAssembler, PaqueteProcessor, ResultadoImportacionPaquete } from '../shared/tiposSync.js';
 
 const MAX_PDFS = 120;
 const MAX_TOTAL_COMPRESSED_BYTES = 25 * 1024 * 1024;

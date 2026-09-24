@@ -8,15 +8,17 @@ import type {
   EncabezadoExamen,
   MapaVariante,
   PreguntaBase,
+  ModoDensidadBooklet,
   TemplateVersion,
   TipoExamen
-} from '../shared/tiposPdf';
-import { construirTextoQrExamenPagina } from './qrExamen';
+} from '../shared/tiposPdf.js';
+import { construirTextoQrExamenPagina } from './qrExamen.js';
 
 export interface LayoutExamenConfig {
   margenMm: number;
   templateVersion: TemplateVersion;
   totalPaginas: number;
+  densityMode?: ModoDensidadBooklet;
   fontScale?: number;
   lineSpacing?: number;
   logos?: { izquierdaPath?: string; derechaPath?: string };
@@ -60,7 +62,7 @@ export class ExamenPdf {
   /**
    * Genera el texto QR para una pagina especifica.
    */
-  generarTextoQrPagina(numeroPagina: number): string {
+  generarTextoQrPagina(numeroPagina: number, questionIdsPagina?: string[]): string {
     return construirTextoQrExamenPagina({
       folio: this.folioNormalizado,
       numeroPagina,
@@ -69,7 +71,7 @@ export class ExamenPdf {
       totalPreguntas: this.totalPreguntas,
       mapaVariante: this.mapaVariante,
       preguntas: this.preguntas,
-      questionIdsPagina: this.mapaVariante.ordenPreguntas
+      questionIdsPagina: questionIdsPagina ?? this.mapaVariante.ordenPreguntas
     });
   }
 }

@@ -10,7 +10,7 @@ import {
   generarPdfEncuadreBase,
   registrarFirmaPdf,
   calcularHashFirma
-} from '../src/modulos/modulo_evaluaciones/servicioEncuadrePdf';
+} from '../src/modulos/modulo_evaluaciones/servicioEncuadrePdf.js';
 
 describe('servicioEncuadrePdf', () => {
   const mockParams = {

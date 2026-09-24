@@ -6,9 +6,9 @@
  */
 import type { Response } from 'express';
 import { randomUUID } from 'node:crypto';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import {
   AuditoriaComercial,
   Campana,
@@ -31,8 +31,8 @@ import {
   validarMargenMinimo,
   validarYAplicarCupon,
   ejecutarCicloCobranzaAutomatica
-} from './servicioComercialCore';
-import { PlantillaNotificacion } from './modeloPlantillaNotificacion';
+} from './servicioComercialCore.js';
+import { PlantillaNotificacion } from './modeloPlantillaNotificacion.js';
 
 function obtenerIp(req: SolicitudDocente): string {
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0]?.trim();

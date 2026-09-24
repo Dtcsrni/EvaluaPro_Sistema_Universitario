@@ -5,7 +5,7 @@
  * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
  */
 import { Router } from 'express';
-import { callbackOauthClassroom } from './controladorIntegracionesClassroom';
+import { callbackOauthClassroom } from './controladorIntegracionesClassroom.js';
 
 const router = Router();
 

@@ -7,6 +7,7 @@
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { Icono } from '../../../../../ui/iconos';
 import { GuiaBancoVisual } from '../../../GuiaBancoVisual';
+import { RichTextEditor, textoPlanoRico } from './RichTextEditor';
 import type { Periodo, TemaBancoFormState } from './types';
 import type { Dispatch, SetStateAction } from 'react';
 
@@ -132,18 +133,18 @@ export function BancoFormularioPregunta({
                 {letra}
               </div>
               <div className="banco-opcion-card__input-wrap">
-                <input
+                <RichTextEditor
                   id={inputId}
                   value={opcion.texto}
-                  onChange={(event) => {
+                  onChange={(value) => {
                     const copia = [...opcionesActuales];
-                    copia[idx] = { ...copia[idx], texto: event.target.value };
+                    copia[idx] = { ...copia[idx], texto: value };
                     setOpcionesActuales(copia);
                   }}
-                  aria-label={`Texto opcion ${letra}`}
+                  ariaLabel={`Texto opcion ${letra}`}
                   disabled={bloqueoEdicion}
                   placeholder={`Texto opcion ${letra}`}
-                  className="banco-opcion-input"
+                  minHeight={54}
                 />
               </div>
               <label htmlFor={`banco-radio-${radioName}-${idx}`} className={`banco-opcion-pill ${esCorrecta ? 'banco-opcion-pill--active' : ''}`}>
@@ -357,19 +358,17 @@ export function BancoFormularioPregunta({
               </svg>
               Enunciado
             </label>
-            <span className="banco-char-counter">{enunciado.trim().length} caracteres</span>
+            <span className="banco-char-counter">{textoPlanoRico(enunciado).length} caracteres · formato enriquecido</span>
           </div>
-          <div className="auth-input-box auth-input-box--textarea auth-input-box--animated">
-            <textarea
+          <RichTextEditor
               id="banco-textarea-enunciado"
               value={enunciado}
-              onChange={(event) => setEnunciado(event.target.value)}
+              onChange={setEnunciado}
               disabled={bloqueoEdicion}
               placeholder="Redacta una pregunta clara y directa."
-              rows={3}
-              className="banco-textarea-enunciado"
-            />
-          </div>
+              ariaLabel="Enunciado de la pregunta"
+              minHeight={104}
+          />
         </div>
 
         {/* Imagen de Apoyo Opcional */}
@@ -464,15 +463,15 @@ export function BancoFormularioPregunta({
 
           <div className="campo">
             <label className="campo__label-text" htmlFor="banco-textarea-edit-enunciado">Enunciado</label>
-            <div className="auth-input-box auth-input-box--textarea auth-input-box--animated">
-              <textarea
+            <RichTextEditor
                 id="banco-textarea-edit-enunciado"
                 value={editEnunciado}
-                onChange={(event) => setEditEnunciado(event.target.value)}
+                onChange={setEditEnunciado}
                 disabled={bloqueoEdicion}
-                rows={3}
-              />
-            </div>
+                placeholder="Edita el enunciado de la pregunta."
+                ariaLabel="Enunciado de la pregunta en edición"
+                minHeight={104}
+            />
           </div>
 
           <div className="campo banco-imagen-box">

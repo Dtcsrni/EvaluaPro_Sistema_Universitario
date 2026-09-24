@@ -463,10 +463,6 @@ export function VersionInfoPage() {
               <span className="version-info-label">Contrato OMR:</span>
               <span className="version-env-badge" title={vm.omrContractId}>{vm.omrDisplayLabel}</span>
             </div>
-            <div className="version-info-row">
-              <span className="version-info-label">Versiones antiguas:</span>
-              <span className="version-info-val">{vm.oldVersionsOperational ? 'Operativas' : `Rechazadas · solo v${vm.omrTemplateVersion}`}</span>
-            </div>
           </div>
         </article>
 

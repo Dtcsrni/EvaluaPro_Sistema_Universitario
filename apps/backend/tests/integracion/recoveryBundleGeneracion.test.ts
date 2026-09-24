@@ -6,13 +6,13 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
-import { ExamenPlantilla } from '../../src/modulos/modulo_generacion_pdf/modeloExamenPlantilla';
-import { ExamenRecoveryBundle } from '../../src/modulos/modulo_generacion_pdf/modeloExamenRecoveryBundle';
-import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen';
-import { verificarRecoveryBundle, verificarRecoveryManifest } from '../../src/modulos/modulo_generacion_pdf/domain/recoveryManifest';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado.js';
+import { ExamenPlantilla } from '../../src/modulos/modulo_generacion_pdf/modeloExamenPlantilla.js';
+import { ExamenRecoveryBundle } from '../../src/modulos/modulo_generacion_pdf/modeloExamenRecoveryBundle.js';
+import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
+import { verificarRecoveryBundle, verificarRecoveryManifest } from '../../src/modulos/modulo_generacion_pdf/domain/recoveryManifest.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('generación PDF: recovery manifest y bundle', () => {
   const app = crearApp();
@@ -106,6 +106,11 @@ describe('generación PDF: recovery manifest y bundle', () => {
         preguntasIds
       })
       .expect(201);
+
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantilla.body.plantilla._id}/previsualizar/pdf`)
+      .set(auth)
+      .expect(200);
 
     return { auth, periodoId, plantillaId: String(plantilla.body.plantilla._id) };
   }

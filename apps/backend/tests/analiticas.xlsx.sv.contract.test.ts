@@ -6,7 +6,7 @@
  */
 import { Workbook, type CellFormulaValue } from 'exceljs';
 import { describe, expect, it } from 'vitest';
-import { generarXlsxCalificacionesProduccion } from '../src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones';
+import { generarXlsxCalificacionesProduccion } from '../src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones.js';
 
 async function cargarHojaLibro(buffer: Buffer) {
   const workbook = new Workbook();

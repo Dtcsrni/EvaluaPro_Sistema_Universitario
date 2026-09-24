@@ -10,17 +10,17 @@
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { configuracion } from '../../../configuracion';
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { prisma } from '../../../infraestructura/baseDatos/sqlite';
-import { obtenerConfiguracionSincronizacion } from './preferenciasSincronizacion';
+import { configuracion } from '../../../configuracion.js';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite.js';
+import { obtenerConfiguracionSincronizacion } from './preferenciasSincronizacion.js';
 import {
   exportarInstantaneaLocal,
   importarInstantaneaLocal,
   MAX_INSTANTANEA_LOCAL_BYTES,
   type MetodoDesbloqueoInstantanea,
   type ResultadoInstantaneaLocal
-} from './instantaneaLocal';
+} from './instantaneaLocal.js';
 
 const VERSION_LEASE = 1 as const;
 const NOMBRE_LEASE = '.evaluapro.lease.json';

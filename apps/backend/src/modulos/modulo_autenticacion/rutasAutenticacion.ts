@@ -3,8 +3,8 @@
  */
 import { Router, type RequestHandler } from 'express';
 import rateLimit from 'express-rate-limit';
-import { configuracion } from '../../configuracion';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
+import { configuracion } from '../../configuracion.js';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import {
 	definirContrasenaDocente,
 	actualizarPreferenciasPdfDocente,
@@ -20,8 +20,8 @@ import {
 	registrarDocente,
 	registrarDocenteGoogle,
 	salirDocente
-} from './controladorAutenticacion';
-import { requerirDocente } from './middlewareAutenticacion';
+} from './controladorAutenticacion.js';
+import { requerirDocente } from './middlewareAutenticacion.js';
 import {
 	esquemaBodyVacioOpcional,
 	esquemaActualizarPreferenciasPdf,
@@ -33,8 +33,8 @@ import {
 	esquemaRestablecerContrasena,
 	esquemaRegistrarDocente,
 	esquemaRegistrarDocenteGoogle
-} from './validacionesAutenticacion';
-import { requerirPermiso } from './middlewarePermisos';
+} from './validacionesAutenticacion.js';
+import { requerirPermiso } from './middlewarePermisos.js';
 
 const router = Router();
 

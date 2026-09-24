@@ -7,8 +7,8 @@
  */
 import ExcelJS from 'exceljs';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 
 export type FormatoListaInstitucional = 'xlsx' | 'pdf';
 

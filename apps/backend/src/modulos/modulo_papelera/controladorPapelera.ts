@@ -2,10 +2,10 @@
  * Controlador de papelera (borrado suave).
  */
 import type { Response } from 'express';
-import { configuracion } from '../../configuracion';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
+import { configuracion } from '../../configuracion.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 function validarAdminDev() {
   if (String(configuracion.entorno).toLowerCase() !== 'development') {

@@ -15,6 +15,7 @@ export function createDefaultUpdateState(currentVersion = '0.0.0') {
     channel: 'stable',
     currentVersion: String(currentVersion || '0.0.0'),
     availableVersion: '',
+    releaseAssessment: 'unknown',
     releaseUrl: '',
     notes: '',
     diffSummary: null,
@@ -188,16 +189,22 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
       return { release, version, parsed };
     })
     .filter((entry) => entry.parsed)
-    .filter((entry) => compareSemver(entry.version, currentVersion) > 0)
     .filter((entry) => includePrerelease || !Boolean(entry.release?.prerelease))
     .filter((entry) => (channel ? shouldIncludeReleaseByChannel(channel, entry) : true))
     .sort((a, b) => compareSemver(b.version, a.version));
 
   if (candidates.length === 0) {
-    return { found: false, error: '', candidate: null };
+    return { found: false, error: '', assessment: 'no-compatible-release', candidate: null };
   }
 
   const top = candidates[0];
+  const versionComparison = compareSemver(top.version, currentVersion);
+  if (versionComparison === 0) {
+    return { found: false, error: '', assessment: 'current', candidate: top };
+  }
+  if (versionComparison < 0) {
+    return { found: false, error: '', assessment: 'local-ahead-of-official', candidate: top };
+  }
   const assets = Array.isArray(top.release?.assets) ? top.release.assets : [];
   const manifestAsset = assets.find((item) => String(item?.name || '') === 'EvaluaPro-release-manifest.json') || null;
   let manifestFlavor = null;
@@ -219,6 +226,7 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
     return {
       found: false,
       error: `Release ${top.version} no incluye asset requerido ${effectiveAssetName}.`,
+      assessment: 'release-invalid',
       candidate: top
     };
   }
@@ -229,6 +237,7 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
   return {
     found: true,
     error: '',
+    assessment: 'update-available',
     candidate: {
       version: top.version,
       releaseUrl: String(top.release?.html_url || ''),
@@ -328,6 +337,7 @@ export function createUpdateManager(opts = {}) {
     setState({
       state: 'checking',
       currentVersion,
+      releaseAssessment: 'unknown',
       lastError: ''
     });
 
@@ -360,7 +370,7 @@ export function createUpdateManager(opts = {}) {
       });
 
       if (!pick.found && pick.error) {
-        setState({ state: 'error', lastError: pick.error });
+        setState({ state: 'error', releaseAssessment: pick.assessment || 'release-invalid', lastError: pick.error });
         return getStatus();
       }
 
@@ -371,6 +381,7 @@ export function createUpdateManager(opts = {}) {
           releaseUrl: '',
           notes: '',
           diffSummary: null,
+          releaseAssessment: pick.assessment || 'no-compatible-release',
           lastError: ''
         });
         return getStatus();
@@ -392,6 +403,7 @@ export function createUpdateManager(opts = {}) {
         releaseUrl: String(candidate.releaseUrl || ''),
         notes: String(candidate.notes || ''),
         diffSummary,
+        releaseAssessment: 'update-available',
         lastError: '',
         download: { ...state.download, percent: 0, bytesReceived: 0, bytesTotal: 0, filePath: '', sha256Ok: null },
         _assetUrl: String(candidate.installerUrl || ''),
@@ -400,7 +412,7 @@ export function createUpdateManager(opts = {}) {
       });
       return getStatus();
     } catch (error) {
-      setState({ state: 'error', lastError: String(error?.message || error || 'No se pudo consultar releases.') });
+      setState({ state: 'error', releaseAssessment: 'release-invalid', lastError: String(error?.message || error || 'No se pudo consultar releases.') });
       return getStatus();
     }
   }
@@ -497,6 +509,21 @@ export function createUpdateManager(opts = {}) {
       return getStatus();
     }
 
+    const currentVersion = String(getCurrentVersion() || state.currentVersion || '0.0.0');
+    const availableVersion = String(state.availableVersion || '');
+    const versionComparison = compareSemver(availableVersion, currentVersion);
+    if (versionComparison <= 0) {
+      setState({
+        state: 'error',
+        currentVersion,
+        releaseAssessment: versionComparison === 0 ? 'current' : 'local-ahead-of-official',
+        lastError: versionComparison === 0
+          ? 'El instalador descargado corresponde a la versión actual; no se ejecutará.'
+          : 'La versión oficial es menor que la instalación local; se bloquea el downgrade.'
+      });
+      return getStatus();
+    }
+
     setState({ state: 'applying', lastError: '' });
     const runPreflight = typeof opts.preflightSync === 'function' ? opts.preflightSync : async () => ({ ok: true, details: [] });
     const stopTasks = typeof opts.stopTasks === 'function' ? opts.stopTasks : async () => ({ ok: true, runningBefore: [] });
@@ -536,6 +563,7 @@ export function createUpdateManager(opts = {}) {
       setState({
         state: 'idle',
         currentVersion: nextVersion,
+        releaseAssessment: 'current',
         availableVersion: '',
         releaseUrl: '',
         notes: '',
@@ -563,6 +591,7 @@ export function createUpdateManager(opts = {}) {
   function setAvailableForTest(params) {
     setState({
       state: 'available',
+      releaseAssessment: 'update-available',
       availableVersion: String(params?.version || ''),
       _assetUrl: String(params?.assetUrl || ''),
       _shaUrl: String(params?.shaUrl || ''),

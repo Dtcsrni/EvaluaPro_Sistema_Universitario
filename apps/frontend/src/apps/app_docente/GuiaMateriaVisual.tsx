@@ -36,9 +36,10 @@ export function GuiaMateriaVisual() {
           type="button"
           onClick={toggleGuia}
           icono={<Icono nombre="info" />}
+          aria-label="Ver guía rápida de configuración"
           data-tooltip="Ver explicación visual de los 3 pasos para configurar una materia"
         >
-          Ver guía rápida de configuración
+          Ayuda rápida
         </Boton>
       </div>
     );

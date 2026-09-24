@@ -2,7 +2,7 @@
  * Validaciones de examenes (plantillas y generados).
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 const normalizarTexto = (valor: string) => valor.trim().replace(/\s+/g, ' ');
 const esquemaTitulo = z.string().trim().min(3).max(120).transform(normalizarTexto);
@@ -18,6 +18,7 @@ const esquemaBookletConfig = z
   .object({
     targetPages: z.number().int().positive().max(50).optional(),
     densityMode: z.enum(['balanced', 'compact', 'relaxed']).optional(),
+    autoFitPages: z.boolean().optional(),
     allowImages: z.boolean().optional(),
     imageBudgetPolicy: z.enum(['strict', 'balanced']).optional(),
     headerStyle: z.enum(['institutional', 'compact']).optional(),
@@ -34,7 +35,6 @@ const esquemaOmrConfig = z
     prefillMode: z.enum(['none', 'roster', 'per-student']).optional(),
     identityMode: z.enum(['qr_plus_bubbled_id']).optional(),
     allowBlankGenericSheets: z.boolean().optional(),
-    versionMode: z.enum(['single', 'multi_version']).optional(),
     ignoreUnusedTrailingQuestions: z.boolean().optional(),
     captureMode: z.enum(['pdf_and_mobile']).optional()
   })

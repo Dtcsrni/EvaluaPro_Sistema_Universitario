@@ -8,8 +8,8 @@
  * Nota: el formato del envelope de error es parte del contrato publico del API.
  */
 import type { NextFunction, Request, Response } from 'express';
-import { ErrorAplicacion } from './errorAplicacion';
-import { logError } from '../../infraestructura/logging/logger';
+import { ErrorAplicacion } from './errorAplicacion.js';
+import { logError } from '../../infraestructura/logging/logger.js';
 
 function obtenerNombreError(error: unknown): unknown {
   return typeof error === 'object' && error ? (error as { name?: unknown }).name : undefined;

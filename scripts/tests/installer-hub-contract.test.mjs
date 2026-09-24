@@ -329,7 +329,8 @@ test('tag guard espera la ventana completa y conserva la tag si el release se re
 test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(helper, /EvaluaPro-QA-Isolated-/);
-  assert.match(helper, /defaultDataRoot/);
+  assert.match(helper, /programDataRoot/);
+  assert.match(helper, /Join-Path \$programDataRoot 'EvaluaPro'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix/);
   assert.match(helper, /localDataDir = Join-Path \$localDataRoot 'data'/);
 });
@@ -1431,14 +1432,20 @@ test('launcher broker unifica shortcuts, hub y splash state', () => {
   assert.match(broker, /failed/);
   assert.match(trayHidden, /launcher-broker\.ps1/);
   assert.match(trayHidden, /runId/);
-  assert.match(shortcuts, /EvaluaPro - Hub/);
-  assert.match(shortcuts, /EvaluaPro - Desinstalar/);
-  assert.match(shortcuts, /open-hub/);
-  assert.match(shortcuts, /uninstall \$Port auto/);
+  const shortcutManifest = JSON.parse(fs.readFileSync(path.join(root, 'config', 'shortcuts-manifest.json'), 'utf8'));
+  const shortcutNames = shortcutManifest.shortcuts.map((entry) => entry.name);
+  assert.equal(shortcutNames.includes('EvaluaPro - Hub'), true);
+  assert.equal(shortcutNames.includes('EvaluaPro - Desinstalar'), true);
+  assert.equal(shortcutManifest.shortcuts.some((entry) => entry.operation === 'open-hub'), true);
+  assert.equal(shortcutManifest.shortcuts.some((entry) => entry.operation === 'uninstall'), true);
   assert.match(broker, /Iniciando desinstalacion guiada/);
-  assert.match(shortcuts, /installer-canonical\.ico/);
+  assert.match(shortcuts, /shortcuts-manifest\.json/);
   assert.match(shortcuts, /Resolve-InstalledShortcutIconPath/);
   assert.match(shortcuts, /Remove-LegacyShortcutIcons/);
+  assert.match(shortcuts, /shortcut-reconciliation\.json/);
+  assert.match(manifestScript, /targetExists/);
+  assert.match(manifestScript, /dependencyExists/);
+  assert.match(manifestScript, /iconExists/);
   assert.doesNotMatch(shortcuts, /Save-IcoFromPngImages/);
   assert.doesNotMatch(shortcuts, /New-MultiSizeIcon/);
   assert.match(dashboard, /resolveInstallerHubExecutablePath/);
@@ -2344,11 +2351,95 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /backendProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
 });
 
-test('SPEC-050: create-shortcuts prioriza EvaluaPro.exe como destino directo para EvaluaPro.lnk', () => {
+test('SPEC-050: create-shortcuts usa el manifiesto y falla cerrado sin host nativo', () => {
   const script = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'config', 'shortcuts-manifest.json'), 'utf8'));
   assert.match(script, /\$nativeAppHostExe\s*=\s*Join-Path \$root 'EvaluaPro\.exe'/);
   assert.match(script, /\$isNativeHostAvailable/);
-  assert.match(script, /Target\s*=\s*if \(\$isNativeHostAvailable\) \{ \$nativeAppHostExe \} else \{ \$targetWscript \}/);
+  assert.match(script, /shortcuts-manifest\.json/);
+  assert.match(script, /AllowLegacyLauncherFallback/);
+  assert.match(script, /Payload incompleto: no existe EvaluaPro\.exe/);
+  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.shortcuts.some((entry) => entry.name === 'EvaluaPro' && entry.launcher === 'native'), true);
+});
+
+test('SPEC-050: MSI docente-local no deja el acceso principal dependiendo de un VBS', () => {
+  const shortcuts = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'Shortcuts.wxs'), 'utf8');
+  const desktopProd = shortcuts.match(/<Component Id="CMP\.ShortcutDesktopProd"[\s\S]*?<\/Component>/)?.[0] || '';
+  const menuProd = shortcuts.match(/<Component Id="CMP\.ShortcutMenuProd"[\s\S]*?<\/Component>/)?.[0] || '';
+
+  for (const component of [desktopProd, menuProd]) {
+    assert.match(component, /\$\(var\.FlavorId\) = docente-local/);
+    const docenteBranch = component.match(/<\?if \$\(var\.FlavorId\) = docente-local \?>[\s\S]*?<\?else\?>/)?.[0] || '';
+    assert.match(docenteBranch, /Target="\[INSTALLFOLDER\]EvaluaPro\.exe"/);
+    assert.doesNotMatch(docenteBranch, /launcher-tray-hidden\.vbs/);
+  }
+});
+
+test('SPEC-050: el generador de iconos no puede crear shortcuts', () => {
+  const generator = fs.readFileSync(path.join(root, 'scripts', 'icons', 'generate-all-icons.mjs'), 'utf8');
+  assert.doesNotMatch(generator, /CreateShortcut|WScript\.Shell|\.lnk/i);
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(packageJson.scripts['icons:generate'], 'node scripts/icons/generate-all-icons.mjs');
+});
+
+test('SPEC-050: una copia de staging no puede sobrescribir accesos de la instalación canónica', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+  assert.match(script, /AppData\\\\Local\\\\Packages/);
+  assert.match(script, /LocalCache\\\\Local\\\\EvaluaPro/);
+  assert.match(script, /reconciliación desde una copia de staging/);
+  assert.match(script, /shortcuts-manifest\.json/);
+});
+
+test('SPEC-050: una caída de configuración OAuth no puede ocultar silenciosamente el acceso Google', () => {
+  const appDocente = fs.readFileSync(path.join(root, 'apps', 'frontend', 'src', 'apps', 'app_docente', 'AppDocente.tsx'), 'utf8');
+  const auth = fs.readFileSync(path.join(root, 'apps', 'frontend', 'src', 'apps', 'app_docente', 'SeccionAutenticacion.tsx'), 'utf8');
+  assert.match(appDocente, /const oauthGoogleDisponible = googleFrontendConfigurado/);
+  assert.match(appDocente, /oauthGoogleBackendDisponible/);
+  assert.match(auth, /googleBackendNoDisponible/);
+  assert.match(auth, /role="status"/);
+});
+
+test('SPEC-050: cada acceso declarado tiene launcher e icono canónicos', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'config', 'shortcuts-manifest.json'), 'utf8'));
+  const allowedLaunchers = new Set(['native', 'tray', 'operation']);
+  const names = new Set();
+  for (const shortcut of manifest.shortcuts) {
+    assert.equal(allowedLaunchers.has(shortcut.launcher), true, shortcut.name);
+    assert.equal(typeof shortcut.icon, 'string');
+    assert.equal(fs.existsSync(path.join(root, manifest.iconRoot, shortcut.icon)), true, shortcut.icon);
+    if (!names.has(shortcut.name)) names.add(shortcut.name);
+  }
+  assert.equal(names.has('EvaluaPro'), true);
+  assert.equal(names.has('EvaluaPro - Hub'), true);
+});
+
+test('SPEC-050: post-install regenera tambien los shortcuts locales y el build no empaqueta .lnk absolutos', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const trackedLinks = execFileSync('git', ['ls-files', '-z', '--', 'accesos-directos/*.lnk'], { cwd: root, encoding: 'utf8' });
+
+  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput \$true/);
+  assert.match(buildMsi, /\$relativePath -match '\^accesos-directos\/\[\^\/\]\+\\\.lnk\$'/);
+  assert.equal(trackedLinks, '', 'Los accesos .lnk generados no deben versionarse.');
+});
+
+test('SPEC-050: shortcut principal usa el icono embebido del host nativo', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+
+  assert.match(script, /\$shortcutDef\.Name -eq 'EvaluaPro' -and \$isNativeHostAvailable/);
+  assert.match(script, /\$shortcutIconPath = \$nativeAppHostExe/);
+  assert.match(script, /\$lnk\.IconLocation = "\$shortcutIconPath,0"/);
+});
+
+test('SPEC-050: WiX conserva la extension de los iconos y publica ARPPRODUCTICON', () => {
+  const product = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
+  const shortcuts = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'Shortcuts.wxs'), 'utf8');
+
+  assert.match(product, /<Icon Id="EvaluaProIconHub\.ico"/);
+  assert.match(product, /<Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub\.ico"\s*\/>/);
+  assert.doesNotMatch(shortcuts, /Icon="EvaluaProIcon(?:Prod|Hub|Dev|Open|Restart|Stop|Repair)"/);
+  assert.match(shortcuts, /Icon="EvaluaProIconProd\.ico"/);
 });
 
 test('SPEC-050: bootstrapper hub y build-msi integran lanzamiento y empaquetado de EvaluaPro.exe', () => {

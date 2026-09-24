@@ -1572,10 +1572,11 @@ async function collectHealth() {
   return services;
 }
 
-function runProcessCapture(command, args = [], timeoutMs = 20_000) {
+function runProcessCapture(command, args = [], timeoutMs = 20_000, spawnOptions = {}) {
   const result = spawn(command, args, {
     cwd: root,
-    windowsHide: true
+    windowsHide: true,
+    ...spawnOptions
   });
   return new Promise((resolve) => {
     let stdout = '';
@@ -1746,7 +1747,24 @@ async function runInstallerForUpdate(filePath) {
   }
   const installerPath = String(filePath || '').trim();
   if (!installerPath) return { ok: false, error: 'No se encontró el instalador descargado.' };
-  const result = await runProcessCapture(installerPath, ['/quiet', '/norestart'], 10 * 60_000);
+  const legacyProfilePath = path.join(root, 'webview2-profile');
+  const stableProfilePath = path.join(path.dirname(root), 'EvaluaPro-UserData', 'webview2-profile');
+  try {
+    if (fs.existsSync(legacyProfilePath) && !fs.existsSync(stableProfilePath)) {
+      fs.mkdirSync(path.dirname(stableProfilePath), { recursive: true });
+      fs.cpSync(legacyProfilePath, stableProfilePath, { recursive: true, force: false, errorOnExist: false });
+    }
+  } catch (error) {
+    return { ok: false, error: `No se pudo preservar la sesión WebView2: ${error?.message || 'error de copia'}` };
+  }
+  const installerEnv = {
+    ...process.env,
+    EVALUAPRO_BURN_INSTALLDIR: root,
+    EVALUAPRO_FLAVOR_ID: String(updateConfig.flavorId || 'docente-local').trim().toLowerCase()
+  };
+  const result = await runProcessCapture(installerPath, ['/quiet', '/norestart'], 10 * 60_000, {
+    env: installerEnv
+  });
   if (!result.ok) {
     return { ok: false, error: `Instalador falló (code=${result.code})` };
   }
@@ -1842,12 +1860,15 @@ function isShortcutsMissing() {
     'Start Menu',
     'Programs'
   );
-  const desktopProd = path.join(desktop, 'EvaluaPro - Prod.lnk');
+  const desktopProd = path.join(desktop, 'EvaluaPro.lnk');
+  const desktopHub = path.join(desktop, 'EvaluaPro - Hub.lnk');
   const desktopDev = path.join(desktop, 'EvaluaPro - Dev.lnk');
-  const startProd = path.join(startMenu, 'EvaluaPro - Prod.lnk');
+  const startProd = path.join(startMenu, 'EvaluaPro.lnk');
+  const startHub = path.join(startMenu, 'EvaluaPro - Hub.lnk');
   const startDev = path.join(startMenu, 'EvaluaPro - Dev.lnk');
-  const hasDesktop = fs.existsSync(desktopProd) && fs.existsSync(desktopDev);
-  const hasStartMenu = fs.existsSync(startProd) && fs.existsSync(startDev);
+  const requireDev = String(updateConfig.flavorId || '').toLowerCase() !== 'docente-local';
+  const hasDesktop = fs.existsSync(desktopProd) && fs.existsSync(desktopHub) && (!requireDev || fs.existsSync(desktopDev));
+  const hasStartMenu = fs.existsSync(startProd) && fs.existsSync(startHub) && (!requireDev || fs.existsSync(startDev));
   return !(hasDesktop || hasStartMenu);
 }
 
@@ -2532,7 +2553,8 @@ function resolveShortcutState(manifest) {
     const targetMismatch = entry.expectedTargetPath && normalizeShortcutValue(entry.targetPath) !== normalizeShortcutValue(entry.expectedTargetPath);
     const argumentsMismatch = entry.expectedArguments && normalizeShortcutValue(entry.arguments) !== normalizeShortcutValue(entry.expectedArguments);
     const iconMismatch = entry.expectedIconLocation && normalizeIconLocation(entry.iconLocation) !== normalizeIconLocation(entry.expectedIconLocation);
-    return targetMismatch || argumentsMismatch || iconMismatch;
+    const validationMismatch = entry.valid === false || entry.targetExists === false || entry.dependencyExists === false || entry.iconExists === false;
+    return targetMismatch || argumentsMismatch || iconMismatch || validationMismatch;
   }).map((entry) => ({
     path: String(entry.path || ''),
     expectedTargetPath: String(entry.expectedTargetPath || ''),

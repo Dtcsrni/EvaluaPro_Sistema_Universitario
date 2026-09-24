@@ -5,9 +5,9 @@
  * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { activarLicenciaPublica, heartbeatLicenciaPublica, webhookMercadoPago } from './controladorComercialPublico';
-import { esquemaActivarLicencia, esquemaHeartbeatLicencia, esquemaWebhookMercadoPago } from './validacionesComercialCore';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { activarLicenciaPublica, heartbeatLicenciaPublica, webhookMercadoPago } from './controladorComercialPublico.js';
+import { esquemaActivarLicencia, esquemaHeartbeatLicencia, esquemaWebhookMercadoPago } from './validacionesComercialCore.js';
 
 const router = Router();
 

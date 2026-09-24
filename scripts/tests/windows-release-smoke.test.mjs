@@ -9,7 +9,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
+import net from 'node:net';
 import { execFileSync, spawn } from 'node:child_process';
+import { Buffer } from 'node:buffer';
+import process from 'node:process';
+import {
+  assertBrokerSuccess,
+  assertSmokeRuntimeAvailable,
+  assertSmokeEnvironmentAvailable,
+  cleanupOwnedDashboard,
+  createOwnedDashboardIdentity,
+  isActiveSmokeEnabled
+} from '../testing/windows-release-smoke-ownership.mjs';
 
 const root = process.cwd();
 const brokerPath = path.join(root, 'scripts', 'launcher-broker.ps1');
@@ -141,7 +152,9 @@ async function sleep(ms) {
 
 async function terminateChild(child, timeoutMs = 5_000) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
-  try { child.kill('SIGTERM'); } catch {}
+  try { child.kill('SIGTERM'); } catch {
+    // El proceso pudo terminar entre la comprobación y el envío de señal.
+  }
   const exited = await Promise.race([
     new Promise((resolve) => child.once('exit', () => resolve(true))),
     sleep(timeoutMs).then(() => false)
@@ -153,7 +166,9 @@ async function terminateChild(child, timeoutMs = 5_000) {
         stdio: 'ignore',
         timeout: 10_000
       });
-    } catch {}
+    } catch {
+      // El estado de salida se confirma observando el proceso hijo a continuación.
+    }
     await Promise.race([
       new Promise((resolve) => child.once('exit', () => resolve(true))),
       sleep(2_000).then(() => false)
@@ -173,13 +188,63 @@ async function httpJson(url, timeoutMs = 8_000) {
 }
 
 function readLockPort() {
+  return Number(readDashboardLock()?.port || 0);
+}
+
+function readDashboardLock() {
   try {
-    const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-    const p = Number(lock?.port || 0);
-    return Number.isFinite(p) && p > 0 ? p : 0;
+    return JSON.parse(fs.readFileSync(lockPath, 'utf8'));
   } catch {
-    return 0;
+    return null;
   }
+}
+
+function probeTcpPort(port, timeoutMs = 700) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port });
+    const finish = (listening) => {
+      socket.destroy();
+      resolve(listening);
+    };
+    socket.setTimeout(timeoutMs, () => finish(false));
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+  });
+}
+
+function readProcessIdentity(pid) {
+  const safePid = Number(pid);
+  if (!Number.isInteger(safePid) || safePid <= 0) return {};
+  const command = `$p = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=${safePid}" -ErrorAction SilentlyContinue; if ($p) { [pscustomobject]@{ pid=[int]$p.ProcessId; creationDate=[string]$p.CreationDate; commandLine=[string]$p.CommandLine } | ConvertTo-Json -Compress }`;
+  const result = runPowerShell(['-Command', command], { timeout: 10_000 });
+  return result.status === 0 ? parseJsonOutput(result.stdout) : {};
+}
+
+async function waitForOwnedProcessExit(owner, maxMs) {
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(owner.pid, 0);
+    } catch (error) {
+      if (error?.code === 'ESRCH') return true;
+      if (error?.code !== 'EPERM') throw error;
+    }
+    await sleep(250);
+  }
+  return false;
+}
+
+async function requestDashboardShutdown(port) {
+  const response = await fetch(`http://127.0.0.1:${port}/api/shutdown`, { method: 'POST', signal: AbortSignal.timeout(5_000) });
+  assert.equal(response.status, 202, `El dashboard de smoke no aceptó cierre en puerto ${port}.`);
+}
+
+function killOwnedProcessTree(pid) {
+  execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
+    encoding: 'utf8',
+    stdio: 'ignore',
+    timeout: 10_000
+  });
 }
 
 function readBootstrapPort(bootstrap) {
@@ -207,22 +272,12 @@ async function pingStatus(port, timeoutMs = 1_500) {
 
     req.on('error', () => resolve(false));
     req.on('timeout', () => {
-      try { req.destroy(); } catch {}
+      try { req.destroy(); } catch {
+        // El socket pudo cerrarse ya al dispararse el timeout.
+      }
       resolve(false);
     });
   });
-}
-
-async function waitForHttpPort(port, maxMs = 60_000) {
-  const started = Date.now();
-  while (Date.now() - started < maxMs) {
-    if (await pingStatus(port, 1_200)) {
-      return port;
-    }
-    await sleep(400);
-  }
-
-  return 0;
 }
 
 async function waitForAnyHttpPort(ports, maxMs = 60_000) {
@@ -328,11 +383,34 @@ test('smoke GUI no destructivo valida el bundle Burn publico empaquetado', { tim
   assert.equal(child.exitCode !== null || child.signalCode !== null, true);
 });
 
-test('smoke activo valida broker, manifest, shortcuts y control plane sin depender del legado', { timeout: 480_000 }, async () => {
-  if (process.platform !== 'win32' || !shell) {
-    test.skip();
+test('smoke activo valida broker, manifest, shortcuts y control plane sin depender del legado', { timeout: 480_000 }, async (t) => {
+  if (!isActiveSmokeEnabled(process.env)) {
+    test.skip('Requiere opt-in explícito; inicia procesos de la aplicación en modo prod.');
     return;
   }
+  assertSmokeRuntimeAvailable({ platform: process.platform, shell });
+
+  const fallbackPorts = Array.from({ length: 20 }, (_, index) => 4519 + index);
+  const previousLock = readDashboardLock();
+  await assertSmokeEnvironmentAvailable({
+    ports: fallbackPorts,
+    probePort: probeTcpPort,
+    lock: previousLock,
+    isProcessAlive: async (pid) => Number(readProcessIdentity(pid)?.pid) === pid
+  });
+
+  let ownedDashboard = null;
+  t.after(async () => {
+    if (!ownedDashboard) return;
+    await cleanupOwnedDashboard(ownedDashboard, {
+      readProcess: readProcessIdentity,
+      readLock: readDashboardLock,
+      requestShutdown: requestDashboardShutdown,
+      waitForExit: waitForOwnedProcessExit,
+      killExactProcess: killOwnedProcessTree
+    });
+    assert.equal(await probeTcpPort(ownedDashboard.port), false, `El puerto propio ${ownedDashboard.port} quedó activo después del smoke.`);
+  });
 
   const verifyRes = runPowerShell([
     '-File', brokerPath,
@@ -341,10 +419,7 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
     '-Port', '4519',
     '-NoOpen'
   ], { timeout: 120_000 });
-  if (verifyRes.status !== 0) {
-    test.skip();
-    return;
-  }
+  assertBrokerSuccess(verifyRes, 'verify-installation');
 
   const openRunId = `release-smoke-${Date.now()}`;
   const openRes = runPowerShell([
@@ -355,10 +430,17 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
     '-RunId', openRunId,
     '-NoOpen'
   ], { timeout: 300_000 });
-  if (openRes.status !== 0) {
-    test.skip();
-    return;
-  }
+
+  const currentLock = readDashboardLock();
+  const processInfo = readProcessIdentity(currentLock?.pid);
+  ownedDashboard = createOwnedDashboardIdentity({
+    lock: currentLock,
+    previousLock,
+    processInfo,
+    ports: fallbackPorts,
+    installRoot: root
+  });
+  assertBrokerSuccess(openRes, 'open-dashboard');
 
   const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
   assert.equal(bootstrap.desiredMode, 'prod');
@@ -369,7 +451,6 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
 
   const bootstrapPort = readBootstrapPort(bootstrap);
   const lockPort = readLockPort();
-  const fallbackPorts = Array.from({ length: 20 }, (_, index) => 4519 + index);
   const responsivePort = await waitForAnyHttpPort([bootstrapPort, lockPort, ...fallbackPorts], 90_000);
   assert.ok(responsivePort > 0);
 

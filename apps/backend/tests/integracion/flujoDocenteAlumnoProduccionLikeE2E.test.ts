@@ -10,13 +10,13 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 import {
   cerrarMongoTest as cerrarMongoPortalTest,
   conectarMongoTest as conectarMongoPortalTest,
   limpiarMongoTest as limpiarMongoPortalTest
-} from '../../../portal_alumno_cloud/tests/utils/mongo';
-import { prepararEscenarioFlujo } from './_flujoDocenteHelper';
+} from '../../../portal_alumno_cloud/tests/utils/mongo.js';
+import { prepararEscenarioFlujo } from './_flujoDocenteHelper.js';
 
 type AppFactory = () => import('express').Express;
 
@@ -43,7 +43,7 @@ describe('flujo docente->portal->alumno (prod-like)', () => {
     await conectarMongoPortalTest();
     process.env.PORTAL_API_KEY = 'TEST_PORTAL_KEY';
     vi.resetModules();
-    ({ crearApp: crearAppPortal } = await import('../../../portal_alumno_cloud/src/app'));
+    ({ crearApp: crearAppPortal } = await import('../../../portal_alumno_cloud/src/app.js'));
     portalApp = crearAppPortal();
     portalServer = await new Promise((resolve) => {
       const server = portalApp.listen(0, '127.0.0.1', () => resolve(server));
@@ -54,7 +54,7 @@ describe('flujo docente->portal->alumno (prod-like)', () => {
     process.env.PORTAL_ALUMNO_URL = portalUrl;
     process.env.PORTAL_ALUMNO_API_KEY = 'TEST_PORTAL_KEY';
     vi.resetModules();
-    ({ crearApp: crearAppBackend } = await import('../../src/app'));
+    ({ crearApp: crearAppBackend } = await import('../../src/app.js'));
     backendApp = crearAppBackend();
   });
 

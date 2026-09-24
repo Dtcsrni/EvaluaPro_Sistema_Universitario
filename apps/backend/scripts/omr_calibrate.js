@@ -5,10 +5,13 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 /* eslint-disable no-console */
-const fs = require('node:fs/promises');
-const path = require('node:path');
-const sharp = require('sharp');
-const jsQR = require('jsqr');
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
+import jsQR from 'jsqr';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const BASE_API = process.env.API_BASE || 'http://localhost:4000/api';
 const EMAIL = process.env.EMAIL;

@@ -4,25 +4,25 @@
  * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
-import { permisosParaRoles } from '../../infraestructura/seguridad/rbac';
-import { generarPdfExamen } from '../modulo_generacion_pdf/servicioGeneracionPdf';
-import { normalizarTituloPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
+import { permisosParaRoles } from '../../infraestructura/seguridad/rbac.js';
+import { generarPdfExamen } from '../modulo_generacion_pdf/servicioGeneracionPdf.js';
+import { normalizarTituloPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla.js';
 import {
   extraerResumenQrExamen
-} from '../modulo_generacion_pdf/domain/qrExamen';
+} from '../modulo_generacion_pdf/domain/qrExamen.js';
 import {
   verificarRecoveryBundle,
   verificarRecoveryManifest,
   type RecoveryBundle,
   type RecoveryManifest,
   type RecoveryQuestionSnapshot
-} from '../modulo_generacion_pdf/domain/recoveryManifest';
-import type { PreguntaBase, MapaVariante } from '../modulo_generacion_pdf/servicioVariantes';
-import type { TemplateVersion } from '../modulo_generacion_pdf/shared/tiposPdf';
+} from '../modulo_generacion_pdf/domain/recoveryManifest.js';
+import type { PreguntaBase, MapaVariante } from '../modulo_generacion_pdf/servicioVariantes.js';
+import type { TemplateVersion } from '../modulo_generacion_pdf/shared/tiposPdf.js';
 
 type AccessContext = {
   actorDocenteId: string;
@@ -513,12 +513,10 @@ async function ensureTemplate(params: {
       answerKeyMode: 'digital',
       temas: JSON.stringify([]),
       bookletConfig: JSON.stringify({
-        sheetFamilyCode: `TV${params.manifest.templateVersion}`,
-        versionMode: 'single'
+        sheetFamilyCode: `TV${params.manifest.templateVersion}`
       }),
       omrConfig: JSON.stringify({
-        sheetFamilyCode: `TV${params.manifest.templateVersion}`,
-        versionMode: 'single'
+        sheetFamilyCode: `TV${params.manifest.templateVersion}`
       }),
       configuracionPdf: JSON.stringify({})
     }

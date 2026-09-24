@@ -4,21 +4,18 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   combinarRespuestasOmrPaginas,
   construirClaveCorrectaExamen,
   consolidarResultadoOmrExamen,
-  esCorreoDeDominioPermitidoFrontend,
   etiquetaMateria,
   idCortoMateria,
   normalizarResultadoOmr,
-  obtenerDominiosCorreoPermitidosFrontend,
   obtenerVersionPregunta,
   obtenerVistaInicial,
   patronNombreMateria,
   preguntaTieneCodigo,
-  textoDominiosPermitidos
 } from '../src/apps/app_docente/utilidades';
 
 const preguntaBase = {
@@ -233,14 +230,7 @@ describe('utilidades app docente', () => {
     expect(normal.templateVersionDetectada).toBe(4);
   });
 
-  it('dominios de correo, etiquetas e ids', () => {
-    vi.stubEnv('VITE_DOMINIOS_CORREO_PERMITIDOS', '@uni.mx, facultad.edu ');
-    expect(obtenerDominiosCorreoPermitidosFrontend()).toEqual(['uni.mx', 'facultad.edu']);
-    expect(esCorreoDeDominioPermitidoFrontend('a@uni.mx', ['uni.mx'])).toBe(true);
-    expect(esCorreoDeDominioPermitidoFrontend('a@otro.mx', ['uni.mx'])).toBe(false);
-    expect(esCorreoDeDominioPermitidoFrontend('sin-arroba', ['uni.mx'])).toBe(false);
-    expect(textoDominiosPermitidos(['uni.mx', 'facultad.edu'])).toBe('@uni.mx, @facultad.edu');
-
+  it('etiquetas e ids', () => {
     expect(idCortoMateria('1234567890', 4)).toBe('7890');
     expect(idCortoMateria('abc', 8)).toBe('abc');
     expect(idCortoMateria('')).toBe('-');

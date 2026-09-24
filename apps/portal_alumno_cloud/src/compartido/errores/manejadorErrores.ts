@@ -5,7 +5,7 @@
  * Limites: Cambios impactan trazabilidad y contratos de error globales.
  */
 import type { NextFunction, Request, Response } from 'express';
-import { logError } from '../../infraestructura/logging/logger';
+import { logError } from '../../infraestructura/logging/logger.js';
 
 /**
  * Middleware de manejo de errores (portal alumno).

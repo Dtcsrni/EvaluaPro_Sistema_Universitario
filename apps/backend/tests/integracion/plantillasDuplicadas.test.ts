@@ -6,8 +6,8 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('plantillas duplicadas', () => {
   const app = crearApp();
@@ -32,12 +32,12 @@ describe('plantillas duplicadas', () => {
     return respuesta.body.token as string;
   }
 
-  async function crearPeriodo(token: string) {
+  async function crearPeriodo(token: string, nombre: string) {
     const periodoResp = await request(app)
       .post('/api/periodos')
       .set({ Authorization: `Bearer ${token}` })
       .send({
-        nombre: 'Logica de Programacion',
+        nombre,
         fechaInicio: '2026-02-01',
         fechaFin: '2026-07-01',
         grupos: ['25']
@@ -82,7 +82,7 @@ describe('plantillas duplicadas', () => {
 
   it('rechaza crear plantilla duplicada por nombre (case/espacios-insensitive)', async () => {
     const token = await registrar('dup-plantilla@local.test');
-    const periodoId = await crearPeriodo(token);
+    const periodoId = await crearPeriodo(token, 'Logica de Programacion');
     const preguntaId = await crearPregunta(token, periodoId, 'base');
 
     await crearPlantilla(token, periodoId, 'Primer Parcial', [preguntaId]);
@@ -104,7 +104,7 @@ describe('plantillas duplicadas', () => {
 
   it('rechaza actualizar plantilla si el nuevo titulo ya existe', async () => {
     const token = await registrar('dup-plantilla-update@local.test');
-    const periodoId = await crearPeriodo(token);
+    const periodoId = await crearPeriodo(token, 'Logica de Programacion');
     const preguntaA = await crearPregunta(token, periodoId, 'A');
     const preguntaB = await crearPregunta(token, periodoId, 'B');
 
@@ -118,6 +118,19 @@ describe('plantillas duplicadas', () => {
       .expect(409);
 
     expect(resp.body.error?.codigo ?? resp.body.codigo).toBe('PLANTILLA_DUPLICADA');
+  });
+
+  it('permite el mismo titulo activo en materias distintas', async () => {
+    const token = await registrar('same-title-different-subject@local.test');
+    const periodoUnoId = await crearPeriodo(token, 'Logica de Programacion');
+    const periodoDosId = await crearPeriodo(token, 'Inteligencia de Negocios');
+    const preguntaUnoId = await crearPregunta(token, periodoUnoId, 'materia-uno');
+    const preguntaDosId = await crearPregunta(token, periodoDosId, 'materia-dos');
+
+    await crearPlantilla(token, periodoUnoId, 'Segundo Parcial', [preguntaUnoId]);
+    const plantillaDosId = await crearPlantilla(token, periodoDosId, 'Segundo Parcial', [preguntaDosId]);
+
+    expect(plantillaDosId).toBeTruthy();
   });
 });
 

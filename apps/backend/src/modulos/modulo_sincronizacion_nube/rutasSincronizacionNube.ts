@@ -6,7 +6,7 @@
  * - Por lo tanto, todas las operaciones aqui requieren JWT de docente.
  */
 import express, { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import {
 	enviarPaqueteServidor,
 	exportarPaquete,
@@ -26,7 +26,7 @@ import {
 	listarSincronizaciones,
 	publicarResultados,
 	traerPaquetesServidor
-} from './controladorSincronizacion';
+} from './controladorSincronizacion.js';
 import {
 	esquemaEnviarPaqueteServidor,
 	esquemaExportarInstantaneaLocal,
@@ -40,8 +40,8 @@ import {
 	esquemaImportarPaquete,
 	esquemaPublicarResultados,
 	esquemaTraerPaquetesServidor
-} from './validacionesSincronizacion';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+} from './validacionesSincronizacion.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
 const router = Router();
 

@@ -2,7 +2,7 @@
  * Validaciones de banco de preguntas.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 const esquemaOpcion = z
   .object({

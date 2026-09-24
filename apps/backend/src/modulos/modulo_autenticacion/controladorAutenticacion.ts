@@ -4,20 +4,22 @@
 import type { Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo';
-import { configuracion } from '../../configuracion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { crearHash, compararContrasena } from './servicioHash';
-import { crearTokenDocente } from './servicioTokens';
-import { obtenerDocenteId, type SolicitudDocente } from './middlewareAutenticacion';
-import { cerrarSesionDocente, emitirSesionDocente, refrescarSesionDocente, revocarSesionesDocente } from './servicioSesiones';
-import { verificarCredencialGoogle } from './servicioGoogle';
-import { permisosComoLista, normalizarRoles } from '../../infraestructura/seguridad/rbac';
-import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo';
-import { aTituloPropio } from '../../compartido/utilidades/texto';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { crearHash, compararContrasena } from './servicioHash.js';
+import { crearTokenDocente } from './servicioTokens.js';
+import { obtenerDocenteId, type SolicitudDocente } from './middlewareAutenticacion.js';
+import { cerrarSesionDocente, emitirSesionDocente, refrescarSesionDocente, revocarSesionesDocente } from './servicioSesiones.js';
+import { verificarCredencialGoogle } from './servicioGoogle.js';
+import { permisosComoLista, normalizarRoles } from '../../infraestructura/seguridad/rbac.js';
+import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo.js';
+import { aTituloPropio } from '../../compartido/utilidades/texto.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function rolesParaToken(roles: unknown): string[] {
   const normalizados = normalizarRoles(roles);
@@ -180,18 +182,6 @@ export async function registrarDocente(req: Request, res: Response) {
   const { nombres, apellidos, nombreCompleto, correo, contrasena } = req.body;
   const correoFinal = String(correo || '').toLowerCase();
 
-  if (
-    Array.isArray(configuracion.dominiosCorreoPermitidos) &&
-    configuracion.dominiosCorreoPermitidos.length > 0 &&
-    !esCorreoDeDominioPermitido(correoFinal, configuracion.dominiosCorreoPermitidos)
-  ) {
-    throw new ErrorAplicacion(
-      'DOMINIO_CORREO_NO_PERMITIDO',
-      'Correo no permitido por politicas. Usa tu correo institucional.',
-      403
-    );
-  }
-
   const existente = await prisma.docente.findUnique({ where: { correo: correoFinal } });
   if (existente) {
     throw new ErrorAplicacion('DOCENTE_EXISTE', 'El correo ya esta registrado', 409);
@@ -286,18 +276,6 @@ export async function ingresarDocente(req: Request, res: Response) {
   assertPasswordAuthDisponible();
   const { correo, contrasena } = req.body;
   const correoFinal = String(correo || '').toLowerCase();
-
-  if (
-    Array.isArray(configuracion.dominiosCorreoPermitidos) &&
-    configuracion.dominiosCorreoPermitidos.length > 0 &&
-    !esCorreoDeDominioPermitido(correoFinal, configuracion.dominiosCorreoPermitidos)
-  ) {
-    throw new ErrorAplicacion(
-      'DOMINIO_CORREO_NO_PERMITIDO',
-      'Correo no permitido por politicas. Usa tu correo institucional.',
-      403
-    );
-  }
 
   const docente = await prisma.docente.findUnique({ where: { correo: correoFinal } });
   if (!docente) {

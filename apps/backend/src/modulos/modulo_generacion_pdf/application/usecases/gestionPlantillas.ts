@@ -4,16 +4,16 @@
  * Responsabilidad: concentrar reglas de CRUD de plantillas sin depender de
  * Express, preservando validaciones multi-tenant y consistencia de dominio.
  */
-import { prisma } from '../../../../infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
-import { guardarEnPapelera } from '../../../../modulos/modulo_papelera/servicioPapelera';
+import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
+import { guardarEnPapelera } from '../../../../modulos/modulo_papelera/servicioPapelera.js';
 import {
   asegurarPlantillaActiva,
   normalizarTemas,
   obtenerPlantillaDocente,
   validarPeriodoDocenteActivo,
   validarTituloPlantillaDisponible
-} from '../../shared/controladorGeneracionPdfShared';
+} from '../../shared/controladorGeneracionPdfShared.js';
 
 function parseJsonSafe<T>(val: unknown): T | null {
   if (typeof val === 'string') {
@@ -98,11 +98,12 @@ export async function crearPlantillaUseCase(params: {
   }
 
   const temas = normalizarTemas(params.body.temas);
-  await validarTituloPlantillaDisponible({ docenteId: docId, titulo });
+  await validarTituloPlantillaDisponible({ docenteId: docId, titulo, periodoId: periodoId ?? null });
 
   const bookletConfig = {
     targetPages: Number((params.body.bookletConfig as any)?.targetPages ?? params.body.numeroPaginas ?? 2) || 2,
-    densityMode: String((params.body.bookletConfig as any)?.densityMode ?? 'balanced'),
+    densityMode: String((params.body.bookletConfig as any)?.densityMode ?? 'compact'),
+    autoFitPages: (params.body.bookletConfig as any)?.autoFitPages === true,
     allowImages: (params.body.bookletConfig as any)?.allowImages !== false,
     imageBudgetPolicy: String((params.body.bookletConfig as any)?.imageBudgetPolicy ?? 'balanced'),
     headerStyle: String((params.body.bookletConfig as any)?.headerStyle ?? 'institutional'),
@@ -121,7 +122,6 @@ export async function crearPlantillaUseCase(params: {
     prefillMode: String((params.body.omrConfig as any)?.prefillMode ?? 'none'),
     identityMode: 'qr_plus_bubbled_id',
     allowBlankGenericSheets: (params.body.omrConfig as any)?.allowBlankGenericSheets !== false,
-    versionMode: String((params.body.omrConfig as any)?.versionMode ?? 'single'),
     ignoreUnusedTrailingQuestions: (params.body.omrConfig as any)?.ignoreUnusedTrailingQuestions !== false,
     captureMode: 'pdf_and_mobile'
   };
@@ -216,6 +216,7 @@ export async function actualizarPlantillaUseCase(params: {
   await validarTituloPlantillaDisponible({
     docenteId: docId,
     titulo: merged.titulo,
+    periodoId: merged.periodoId ?? null,
     excluirPlantillaId: params.plantillaId
   });
 
@@ -223,6 +224,13 @@ export async function actualizarPlantillaUseCase(params: {
     .trim()
     .replace(/\s+/g, ' ')
     .toLowerCase();
+
+  // Cualquier cambio editorial invalida el ajuste automático persistido; la
+  // siguiente previsualización deberá volver a validarlo antes de producción.
+  const bookletConfigActualizado = {
+    ...((merged.bookletConfig ?? {}) as Record<string, unknown>)
+  };
+  delete bookletConfigActualizado.resolvedLayout;
 
   const data: any = {
     tipo: String(merged.tipo),
@@ -233,7 +241,7 @@ export async function actualizarPlantillaUseCase(params: {
     reactivosObjetivo: Number(merged.reactivosObjetivo) || 20,
     defaultVersionCount: Number(merged.defaultVersionCount) || 1,
     answerKeyMode: String(merged.answerKeyMode),
-    bookletConfig: JSON.stringify(merged.bookletConfig),
+    bookletConfig: JSON.stringify(bookletConfigActualizado),
     omrConfig: JSON.stringify(merged.omrConfig),
     configuracionPdf: JSON.stringify(merged.configuracionPdf),
     temas: JSON.stringify(temasMerged)

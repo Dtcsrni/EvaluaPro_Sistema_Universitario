@@ -13,13 +13,14 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaMateriaVisual } from './GuiaMateriaVisual';
 import { registrarAccionDocente } from './telemetriaDocente';
-import type { EnviarConPermiso, Periodo, PermisosUI } from './tipos';
+import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { clienteApi } from './clienteApiDocente';
 import { obtenerTokenDocente } from '../../servicios_api/clienteApi';
 import { esMensajeError, etiquetaMateria, idCortoMateria, mensajeDeError, patronNombreMateria } from './utilidades';
 
 export function SeccionPeriodos({
   periodos,
+  alumnos = [],
   onRefrescar,
   onVerArchivadas,
   onAbrirGrupo,
@@ -29,6 +30,7 @@ export function SeccionPeriodos({
   avisarSinPermiso
 }: {
   periodos: Periodo[];
+  alumnos?: Alumno[];
   onRefrescar: () => void;
   onVerArchivadas: () => void;
   onAbrirGrupo?: (periodoId: string, grupo?: string) => void;
@@ -49,6 +51,21 @@ export function SeccionPeriodos({
   const [accionesAbiertasId, setAccionesAbiertasId] = useState<string | null>(null);
   const [registroMateriaAbierto, setRegistroMateriaAbierto] = useState(false);
   const [guardandoEdicionId, setGuardandoEdicionId] = useState<string | null>(null);
+
+  const alumnosPorPeriodo = useMemo(() => {
+    const mapa = new Map<string, Alumno[]>();
+    for (const alumno of Array.isArray(alumnos) ? alumnos : []) {
+      const periodoId = String(alumno.periodoId || '').trim();
+      if (!periodoId) continue;
+      const lista = mapa.get(periodoId) ?? [];
+      lista.push(alumno);
+      mapa.set(periodoId, lista);
+    }
+    for (const lista of mapa.values()) {
+      lista.sort((a, b) => String(a.nombreCompleto || '').localeCompare(String(b.nombreCompleto || ''), 'es'));
+    }
+    return mapa;
+  }, [alumnos]);
   const [edicionNombre, setEdicionNombre] = useState('');
   const [edicionFechaInicio, setEdicionFechaInicio] = useState('');
   const [edicionFechaFin, setEdicionFechaFin] = useState('');
@@ -474,6 +491,10 @@ export function SeccionPeriodos({
     }
   }
 
+  function abrirRegistroMateria() {
+    setRegistroMateriaAbierto(true);
+  }
+
   return (
     <div className="panel materias-panel anim-fade-in">
       {/* Cabecera Principal con Mini-KPIs integrados */}
@@ -503,7 +524,18 @@ export function SeccionPeriodos({
           </div>
         </div>
 
-        <div className="materias-header-kpis" aria-live="polite">
+        <div className="materias-header-actions">
+          <Boton
+            type="button"
+            className="materias-header-primary"
+            icono={<Icono nombre="nuevo" />}
+            onClick={abrirRegistroMateria}
+            data-tooltip="Abrir el formulario para registrar una materia"
+          >
+            Registrar materia
+          </Boton>
+
+          <div className="materias-header-kpis" aria-live="polite">
           <div className="materia-mini-kpi materia-mini-kpi--active anim-kpi-hover" data-tooltip="Total de materias o cursos activos registrados">
             <span className="materia-mini-kpi__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -552,6 +584,7 @@ export function SeccionPeriodos({
           >
             Archivadas
           </Boton>
+          </div>
         </div>
       </div>
 
@@ -714,6 +747,7 @@ export function SeccionPeriodos({
           <ul className="lista lista-items materias-lista">
             {periodos.map((periodo) => {
               const progreso = calcularProgresoPeriodo(periodo.fechaInicio, periodo.fechaFin);
+              const alumnosMateria = alumnosPorPeriodo.get(periodo._id) ?? [];
               return (
                 <li key={periodo._id} className="anim-slide-up">
                   <article
@@ -797,6 +831,16 @@ export function SeccionPeriodos({
                                   <span className={`chip chip--sm chip--${progreso.estado} anim-badge-in`}>
                                     {progreso.etiquetaEstado}
                                   </span>
+                                  <div
+                                    className="materia-progress-bar"
+                                    role="progressbar"
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-valuenow={progreso.porcentaje}
+                                    aria-label={`Avance de ${etiquetaMateria(periodo)}: ${progreso.porcentaje}%`}
+                                  >
+                                    <span style={{ width: `${progreso.porcentaje}%` }} />
+                                  </div>
                                 </div>
                               </div>
                               <div className="materia-progress-ring" title={`Avance académico: ${progreso.porcentaje}% (${progreso.etiquetaEstado})`}>
@@ -829,6 +873,28 @@ export function SeccionPeriodos({
                                   {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
                                 </span>
                               </span>
+                            </div>
+                            <div className="materia-card-alumnos" aria-label={`Alumnos de ${etiquetaMateria(periodo)}`}>
+                              <div className="materia-card-alumnos__header">
+                                <span className="materia-meta-lbl">Alumnos</span>
+                                <strong>{alumnosMateria.length}</strong>
+                              </div>
+                              {alumnosMateria.length > 0 ? (
+                                <div className="materia-card-alumnos__list">
+                                  {alumnosMateria.map((alumno) => (
+                                    <span
+                                      key={alumno._id}
+                                      className="materia-alumno-chip"
+                                      title={`${alumno.nombreCompleto}${alumno.grupo ? ` · Grupo ${alumno.grupo}` : ''}`}
+                                    >
+                                      <span className="materia-alumno-chip__name">{alumno.nombreCompleto}</span>
+                                      {alumno.grupo && <span className="materia-alumno-chip__group">{alumno.grupo}</span>}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="materia-card-alumnos__empty">Sin alumnos registrados</span>
+                              )}
                             </div>
                             <span className="materia-card-primary-action" aria-hidden="true">
                               <span className="materia-card-primary-action__copy">

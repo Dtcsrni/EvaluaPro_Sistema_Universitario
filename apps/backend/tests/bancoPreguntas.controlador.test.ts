@@ -82,7 +82,7 @@ vi.mock('../src/infraestructura/baseDatos/sqlite', () => ({
   }
 }));
 
-import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
+import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion.js';
 import {
   actualizarPregunta,
   actualizarTemaBanco,
@@ -95,7 +95,7 @@ import {
   listarTemasBanco,
   moverPreguntasTemaBanco,
   quitarTemaBanco
-} from '../src/modulos/modulo_banco_preguntas/controladorBancoPreguntas';
+} from '../src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.js';
 
 function crearRespuesta() {
   return {

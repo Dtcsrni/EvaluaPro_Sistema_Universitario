@@ -14,6 +14,10 @@ on:
       - "vitest.base.ts"
       - "scripts/retry.mjs"
       - "scripts/testing/**"
+      - "scripts/wcag-guard.mjs"
+      - "scripts/tests/ui-contrast-audit.mjs"
+      - "scripts/tests/wcag-guard.contract.test.mjs"
+      - "docs/WCAG_UI_POLICY.md"
       - ".github/workflows/ci-frontend.yml"
   pull_request:
     paths:
@@ -68,6 +72,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Preparar snapshot WCAG v1.1.6
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin 53e0590244c55e4ff7f9104c6ea4dd1c5c2a2e12
+
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
@@ -85,6 +93,9 @@ jobs:
 
       - name: Etapa lint frontend
         run: npm -C apps/frontend run lint
+
+      - name: Guardrail WCAG
+        run: npm run guard:wcag -- --skip-lint
 
       - name: Etapa typecheck frontend
         run: npm -C apps/frontend run typecheck

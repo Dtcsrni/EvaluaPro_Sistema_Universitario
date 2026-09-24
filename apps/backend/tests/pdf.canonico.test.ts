@@ -5,14 +5,14 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
-import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen';
-import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf';
+import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
+import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
 
 describe('pdf OMR canónico', () => {
   it('genera el contrato OMR canónico enriquecido', async () => {
     const resultado = await generarPdfExamen({
-      titulo: 'Compat TV4',
-      folio: 'TV4-COMPAT-001',
+      titulo: 'OMR canónico',
+      folio: 'OMR-CANON-001',
       preguntas: [
         {
           id: 'p1',

@@ -7,18 +7,19 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { prisma } from '../../../infraestructura/baseDatos/sqlite';
-import { barajar } from '../../../compartido/utilidades/aleatoriedad';
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../../configuracion';
-import { normalizarParaNombreArchivo } from '../../../compartido/utilidades/texto';
-import { construirFirmaVisualPdf } from '../infra/pdfVisualBaseline';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite.js';
+import { barajar } from '../../../compartido/utilidades/aleatoriedad.js';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../../configuracion.js';
+import { normalizarParaNombreArchivo } from '../../../compartido/utilidades/texto.js';
+import { construirFirmaVisualPdf } from '../infra/pdfVisualBaseline.js';
 import {
   construirMapaVarianteUsadaCanonica,
   extraerPreguntasUsadasMapaOmr,
   normalizarPreguntasCanonicas
-} from '../domain/templateCanonico';
-import { normalizarTituloPlantilla } from '../modeloExamenPlantilla';
+} from '../domain/templateCanonico.js';
+import { normalizarTituloPlantilla } from '../modeloExamenPlantilla.js';
+import { normalizarEnunciadoBanco } from '../../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
 
 export type MapaVariante = {
   ordenPreguntas: string[];
@@ -101,7 +102,7 @@ function formatearPreguntaPrisma(raw: any) {
     updatedAt: raw.updatedAt,
     versiones: (raw.versiones || []).map((v: any) => ({
       numeroVersion: v.numeroVersion,
-      enunciado: v.enunciado,
+      enunciado: normalizarEnunciadoBanco(v.enunciado),
       imagenUrl: v.imagenUrl ?? undefined,
       opciones: (v.opciones || []).map((o: any) => ({
         texto: o.texto,
@@ -188,11 +189,33 @@ export function resolverTemplateVersionOmr(params: { docenteId: unknown; periodo
   return 4;
 }
 
+/**
+ * Construye un identificador breve y legible para imprimir en cada examen.
+ * Se omiten partículas habituales de nombres hispanos para no desperdiciar
+ * espacio (p. ej. "de la"), conservando como máximo seis iniciales.
+ */
+export function construirInicialesAlumno(nombreCompleto: unknown): string {
+  const particulas = new Set(['a', 'da', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'y']);
+  const palabras = String(nombreCompleto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase()
+    .match(/[a-z0-9]+/g) ?? [];
+  const significativas = palabras.filter((palabra) => !particulas.has(palabra));
+  const iniciales = (significativas.length > 0 ? significativas : palabras)
+    .map((palabra) => palabra.charAt(0))
+    .join('')
+    .toUpperCase();
+  if (iniciales.length <= 6) return iniciales;
+  return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
+}
+
 export function construirEncabezadoPdf(params: {
   periodo: unknown;
   docenteDb: unknown;
   instrucciones: unknown;
   incluirPrefijosDocente?: boolean;
+  alumno?: { nombreCompleto?: unknown; grupo?: unknown };
 }) {
   const periodo = params.periodo as { nombre?: unknown } | null | undefined;
   const docente = params.docenteDb as
@@ -217,6 +240,13 @@ export function construirEncabezadoPdf(params: {
     instrucciones: String(params.instrucciones ?? ''),
     institucion: String(docente?.preferenciasPdf?.institucion ?? '').trim() || undefined,
     lema: String(docente?.preferenciasPdf?.lema ?? '').trim() || undefined,
+    alumno: params.alumno
+      ? {
+          nombre: String(params.alumno.nombreCompleto ?? '').trim() || undefined,
+          grupo: String(params.alumno.grupo ?? '').trim() || undefined,
+          iniciales: construirInicialesAlumno(params.alumno.nombreCompleto)
+        }
+      : undefined,
     logos: {
       izquierdaPath: String(docente?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() || undefined,
       derechaPath: String(docente?.preferenciasPdf?.logos?.derechaPath ?? '').trim() || undefined
@@ -227,6 +257,7 @@ export function construirEncabezadoPdf(params: {
 export async function validarTituloPlantillaDisponible(params: {
   docenteId: unknown;
   titulo: unknown;
+  periodoId?: unknown;
   excluirPlantillaId?: string;
 }) {
   const titulo = String(params.titulo ?? '').trim();
@@ -242,6 +273,9 @@ export async function validarTituloPlantillaDisponible(params: {
       { titulo: { equals: titulo } }
     ]
   };
+  if (params.periodoId !== undefined) {
+    where.periodoId = params.periodoId === null ? null : String(params.periodoId).trim() || null;
+  }
   if (params.excluirPlantillaId) {
     where.id = { not: params.excluirPlantillaId };
   }
@@ -290,7 +324,7 @@ export function clavePreviewPlantilla(params: {
   layoutFingerprint?: string;
 }) {
   const base = [
-    'v3-a050929d-baseline',
+    'v4-auto-fit-body-fixed-header',
     String(params.plantillaId || ''),
     String(params.plantillaUpdatedAt || ''),
     String(params.numeroPaginas || 0),
@@ -303,11 +337,16 @@ export function clavePreviewPlantilla(params: {
 }
 
 export function construirFingerprintPreguntasPreview(preguntasDb: BancoPreguntaLean[]): string {
-  const partes = preguntasDb.map((pregunta) => {
+  // El fingerprint describe el conjunto y sus versiones, no el orden de una
+  // consulta concreta: preview puede ordenar por recencia y producción por
+  // los IDs de la plantilla.
+  const partes = [...preguntasDb]
+    .sort((a, b) => String(a.id ?? '').localeCompare(String(b.id ?? '')))
+    .map((pregunta) => {
     const version = Number(pregunta.versionActual ?? 0);
     const updatedAt = String(pregunta.updatedAt ?? '');
     return `${String(pregunta.id ?? '')}:${version}:${updatedAt}`;
-  });
+    });
   return hash32(partes.join('|')).toString(16);
 }
 
@@ -324,7 +363,10 @@ export function construirFingerprintLayoutPreview(): string {
     'EXAMEN_LAYOUT_USAR_ETIQUETA_OMR_SOLIDA'
   ];
   const base = [
-    'pdf-lib-canonical',
+    // Versionar explícitamente el contrato de composición. Así un PDF
+    // cacheado antes de un cambio geométrico (por ejemplo, el pie fuera de
+    // página) nunca se reutiliza como si fuera una preview actual.
+    'pdf-lib-canonical-layout-20260915-safe-footer',
     construirFirmaVisualPdf(),
     ...variables.map((nombre) => `${nombre}=${String(process.env[nombre] ?? '').trim()}`)
   ].join('|');

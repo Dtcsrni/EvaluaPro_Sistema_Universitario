@@ -13,7 +13,7 @@ import {
   buildCaptureSources,
   deriveCaptureId,
   parseOrganizationSnapshot
-} from '../src/modulos/modulo_escaneo_omr/porFolioDataset';
+} from '../src/modulos/modulo_escaneo_omr/porFolioDataset.js';
 
 describe('porFolioDataset', () => {
   it('deriva captureId estable por folio, pagina y recaptura', () => {

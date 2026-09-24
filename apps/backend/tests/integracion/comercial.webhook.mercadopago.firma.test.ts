@@ -7,8 +7,8 @@
 import crypto from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
+import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 
 function construirFirmaMpOficial(params: {
   secret: string;
@@ -22,7 +22,7 @@ function construirFirmaMpOficial(params: {
 }
 
 describe('integracion webhook Mercado Pago - firma estricta', () => {
-  let app: ReturnType<(typeof import('../../src/app'))['crearApp']>;
+  let app: ReturnType<(typeof import('../../src/app.js'))['crearApp']>;
 
   beforeAll(async () => {
     await conectarMongoTest();
@@ -31,7 +31,7 @@ describe('integracion webhook Mercado Pago - firma estricta', () => {
     process.env.MERCADOPAGO_WEBHOOK_MAX_EDAD_SEGUNDOS = '600';
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'test-token';
     vi.resetModules();
-    const modApp = await import('../../src/app');
+    const modApp = await import('../../src/app.js');
     app = modApp.crearApp();
   });
 

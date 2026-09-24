@@ -7,8 +7,8 @@
 import crypto from 'crypto';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 
 export type ArchivoHidratacion = {
   originalname: string;

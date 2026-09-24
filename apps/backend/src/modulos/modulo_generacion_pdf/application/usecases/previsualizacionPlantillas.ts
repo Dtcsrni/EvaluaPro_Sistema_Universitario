@@ -6,11 +6,12 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
-import { generarPdfExamen } from '../../servicioGeneracionPdf';
-import { generarVariante } from '../../servicioVariantes';
-import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla';
-import { obtenerPlantillaDocente } from '../../shared/controladorGeneracionPdfShared';
+import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
+import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
+import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
+import { generarVariante } from '../../servicioVariantes.js';
+import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
+import { obtenerPlantillaDocente } from '../../shared/controladorGeneracionPdfShared.js';
 import {
   clavePreviewPlantilla,
   claveTemaPreview,
@@ -31,9 +32,114 @@ import {
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
   resolverTemplateVersionOmr
-} from '../../shared/controladorGeneracionPdfShared';
-import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico';
-import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../infra/rasterizadorPdfPreview';
+} from '../../shared/controladorGeneracionPdfShared.js';
+import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico.js';
+import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../infra/rasterizadorPdfPreview.js';
+
+const PREVIEW_MEMORIA_TTL_MS = 10 * 60 * 1000;
+const MAX_PREVIEWS_MEMORIA = 8;
+
+type PreviewPdfMemoria = {
+  buffer: Buffer;
+  fileName: string;
+  expiraEn: number;
+};
+
+type PreviewVisualMemoria = {
+  expiraEn: number;
+  payload: {
+    fileName: string;
+    pdfBase64: string;
+    paginas: PaginaPdfPreviewVisual[];
+    paginasTotales: number;
+    paginasOmitidas: number;
+  };
+};
+
+const previewsPdfMemoria = new Map<string, PreviewPdfMemoria>();
+const previewsVisualesMemoria = new Map<string, PreviewVisualMemoria>();
+
+type LayoutValidadoPlantilla = {
+  version?: number;
+  fontScale?: number;
+  lineSpacing?: number;
+  preguntasFingerprint?: string;
+  layoutFingerprint?: string;
+  numeroPaginas?: number;
+  totalPreguntas?: number;
+  temas?: string[];
+};
+
+function resolverLayoutValidadoPlantilla(params: {
+  plantilla: { bookletConfig?: unknown };
+  preguntasFingerprint: string;
+  layoutFingerprint: string;
+  numeroPaginas: number;
+  totalPreguntas: number;
+  temas: string[];
+}) {
+  const config = (params.plantilla.bookletConfig ?? {}) as Record<string, unknown>;
+  const layout = config.resolvedLayout as LayoutValidadoPlantilla | undefined;
+  if (!layout || layout.version !== 1) return undefined;
+  if (layout.preguntasFingerprint !== params.preguntasFingerprint) return undefined;
+  if (layout.layoutFingerprint !== params.layoutFingerprint) return undefined;
+  if (Number(layout.numeroPaginas) !== params.numeroPaginas) return undefined;
+  if (Number(layout.totalPreguntas) !== params.totalPreguntas) return undefined;
+  if (JSON.stringify(layout.temas ?? []) !== JSON.stringify(params.temas)) return undefined;
+  const fontScale = Number(layout.fontScale);
+  const lineSpacing = Number(layout.lineSpacing);
+  if (!Number.isFinite(fontScale) || !Number.isFinite(lineSpacing)) return undefined;
+  return { fontScale, lineSpacing };
+}
+
+async function guardarLayoutValidadoPlantilla(params: {
+  plantillaId: string;
+  bookletConfig: unknown;
+  fontScale?: number;
+  lineSpacing?: number;
+  preguntasFingerprint: string;
+  layoutFingerprint: string;
+  numeroPaginas: number;
+  totalPreguntas: number;
+  temas: string[];
+}) {
+  const fontScale = Number(params.fontScale);
+  const lineSpacing = Number(params.lineSpacing);
+  if (!Number.isFinite(fontScale) || !Number.isFinite(lineSpacing)) return;
+  const base = (params.bookletConfig ?? {}) as Record<string, unknown>;
+  await prisma.examenPlantilla.update({
+    where: { id: params.plantillaId },
+    data: {
+      bookletConfig: JSON.stringify({
+        ...base,
+        autoFitPages: false,
+        autoFitTypography: false,
+        fontScale,
+        lineSpacing,
+        resolvedLayout: {
+          version: 1,
+          fontScale,
+          lineSpacing,
+          preguntasFingerprint: params.preguntasFingerprint,
+          layoutFingerprint: params.layoutFingerprint,
+          numeroPaginas: params.numeroPaginas,
+          totalPreguntas: params.totalPreguntas,
+          temas: params.temas
+        }
+      })
+    }
+  });
+}
+
+function guardarPreviewMemoria<T>(mapa: Map<string, T>, clave: string, valor: T) {
+  mapa.delete(clave);
+  mapa.set(clave, valor);
+  while (mapa.size > MAX_PREVIEWS_MEMORIA) {
+    const primera = mapa.keys().next().value;
+    if (typeof primera !== 'string') break;
+    mapa.delete(primera);
+  }
+}
 
 function construirPaginasSketch(params: {
   paginas: Array<{ numero: number; preguntasDel?: number; preguntasAl?: number }>;
@@ -84,6 +190,23 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
+  const preguntasFingerprint = construirFingerprintPreguntasPreview(preguntasDb);
+  const layoutFingerprint = construirFingerprintLayoutPreview();
+  const layoutValidado = resolverLayoutValidadoPlantilla({
+    plantilla: plantilla as { bookletConfig?: unknown },
+    preguntasFingerprint,
+    layoutFingerprint,
+    numeroPaginas,
+    totalPreguntas: preguntasBase.length,
+    temas
+  });
+  const bookletConfig = {
+    ...(plantilla.bookletConfig ?? {}),
+    autoFitPages: layoutValidado ? false : true,
+    autoFitTypography: layoutValidado ? false : true,
+    fontScale: layoutValidado?.fontScale ?? 1,
+    lineSpacing: layoutValidado?.lineSpacing ?? 1.1
+  };
   const seed = hash32(String(plantilla._id));
   const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, seed);
   const mapaVarianteDet = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}`);
@@ -107,7 +230,8 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
     periodo,
     docenteDb,
     temas,
-    templateVersionOmr
+    templateVersionOmr,
+    bookletConfig
   };
 }
 
@@ -152,7 +276,7 @@ export async function previsualizarPlantillaUseCase(params: {
     totalPaginas: contexto.numeroPaginas,
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
-    bookletConfig: contexto.plantilla.bookletConfig,
+    bookletConfig: contexto.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,
@@ -160,6 +284,20 @@ export async function previsualizarPlantillaUseCase(params: {
       incluirPrefijosDocente: true
     })
   });
+
+  if (previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
+    await guardarLayoutValidadoPlantilla({
+      plantillaId: String(contexto.plantilla._id),
+      bookletConfig: contexto.plantilla.bookletConfig,
+      fontScale: previewResultado.fontScaleAplicada,
+      lineSpacing: previewResultado.lineSpacingAplicado,
+      preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
+      layoutFingerprint: construirFingerprintLayoutPreview(),
+      numeroPaginas: contexto.numeroPaginas,
+      totalPreguntas: contexto.preguntasBase.length,
+      temas: contexto.temas
+    });
+  }
 
   const { paginas, metricasPaginas, mapaOmr, preguntasRestantes } = previewResultado;
   const porId = new Map<string, (typeof contexto.preguntasCandidatas)[number]>();
@@ -170,7 +308,8 @@ export async function previsualizarPlantillaUseCase(params: {
 
   const totalDisponibles = contexto.preguntasDb.length;
   const totalUsados = extraerPreguntasUsadasMapaOmr(mapaOmr as never).size;
-  const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((item) => item.numero === contexto.numeroPaginas);
+  const metricasPaginasSeguras = Array.isArray(metricasPaginas) ? metricasPaginas : [];
+  const ultima = metricasPaginasSeguras[metricasPaginasSeguras.length - 1];
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const umbralVacioResidual = 0.05;
   const consumioTodas = totalUsados >= totalDisponibles;
@@ -183,8 +322,12 @@ export async function previsualizarPlantillaUseCase(params: {
       ).toFixed(0)}% vacia.`
     );
   }
-  if (paginas.length < contexto.numeroPaginas) {
-    advertencias.push(`Se generaron ${paginas.length} de ${contexto.numeroPaginas} pagina(s) por falta de preguntas.`);
+  if (paginas.length !== contexto.numeroPaginas) {
+    if (paginas.length > contexto.numeroPaginas) {
+      advertencias.push(`El contenido requiere ${paginas.length} pagina(s); la configuración indica ${contexto.numeroPaginas}.`);
+    } else {
+      advertencias.push(`Se generaron ${paginas.length} de ${contexto.numeroPaginas} pagina(s) por falta de preguntas.`);
+    }
   }
   if ((preguntasRestantes ?? 0) > 0) {
     advertencias.push(
@@ -238,19 +381,28 @@ export async function previsualizarPlantillaPdfUseCase(params: {
   });
   const archivoPreview = path.join(dirPreview, fileName);
 
-  if (!esDev) {
-    try {
-      const stat = await fs.stat(archivoPreview);
-      const expiraEn = stat.mtimeMs + 10 * 60 * 1000;
-      if (Date.now() < expiraEn) {
-        return {
-          buffer: await fs.readFile(archivoPreview),
-          fileName
-        };
-      }
-    } catch {
-      // Se regenera.
+  if (!params.forzarRegeneracion) {
+    const memoria = previewsPdfMemoria.get(fileName);
+    if (memoria && Date.now() < memoria.expiraEn) {
+      return { buffer: Buffer.from(memoria.buffer), fileName: memoria.fileName };
     }
+    if (memoria) previewsPdfMemoria.delete(fileName);
+  }
+
+  try {
+    const stat = await fs.stat(archivoPreview);
+    const expiraEn = stat.mtimeMs + PREVIEW_MEMORIA_TTL_MS;
+    if (!params.forzarRegeneracion && Date.now() < expiraEn) {
+      const buffer = await fs.readFile(archivoPreview);
+      guardarPreviewMemoria(previewsPdfMemoria, fileName, {
+        buffer,
+        fileName,
+        expiraEn
+      });
+      return { buffer, fileName };
+    }
+  } catch {
+    // Se regenera.
   }
 
   const previewResultado = await generarPdfExamen({
@@ -262,7 +414,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     totalPaginas: contexto.numeroPaginas,
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
-    bookletConfig: contexto.plantilla.bookletConfig,
+    bookletConfig: contexto.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,
@@ -271,8 +423,28 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     })
   });
 
+  if (previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
+    await guardarLayoutValidadoPlantilla({
+      plantillaId: String(contexto.plantilla._id),
+      bookletConfig: contexto.plantilla.bookletConfig,
+      fontScale: previewResultado.fontScaleAplicada,
+      lineSpacing: previewResultado.lineSpacingAplicado,
+      preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
+      layoutFingerprint: construirFingerprintLayoutPreview(),
+      numeroPaginas: contexto.numeroPaginas,
+      totalPreguntas: contexto.preguntasBase.length,
+      temas: contexto.temas
+    });
+  }
+
   const buffer = Buffer.from(previewResultado.pdfBytes);
-  if (!esDev) {
+  previewsVisualesMemoria.delete(fileName);
+  guardarPreviewMemoria(previewsPdfMemoria, fileName, {
+    buffer,
+    fileName,
+    expiraEn: Date.now() + PREVIEW_MEMORIA_TTL_MS
+  });
+  if (!params.forzarRegeneracion) {
     try {
       await fs.mkdir(dirPreview, { recursive: true });
       await fs.writeFile(archivoPreview, buffer);
@@ -296,10 +468,20 @@ export async function previsualizarPlantillaPdfVisualUseCase(params: {
   paginasOmitidas: number;
 }> {
   const pdf = await previsualizarPlantillaPdfUseCase(params);
+  if (!params.forzarRegeneracion) {
+    const memoria = previewsVisualesMemoria.get(pdf.fileName);
+    if (memoria && Date.now() < memoria.expiraEn) return memoria.payload;
+    if (memoria) previewsVisualesMemoria.delete(pdf.fileName);
+  }
   const visual = await rasterizarPdfParaPreview(pdf.buffer);
-  return {
+  const payload = {
     fileName: pdf.fileName,
     pdfBase64: pdf.buffer.toString('base64'),
     ...visual
   };
+  guardarPreviewMemoria(previewsVisualesMemoria, pdf.fileName, {
+    expiraEn: Date.now() + PREVIEW_MEMORIA_TTL_MS,
+    payload
+  });
+  return payload;
 }

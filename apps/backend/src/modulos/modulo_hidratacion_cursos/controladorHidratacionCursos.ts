@@ -2,13 +2,13 @@
  * Controlador HTTP para hidratacion de cursos iniciados.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import {
   importarHidratacionCurso,
   previsualizarHidratacionCurso,
   type ArchivoHidratacion
-} from './servicioHidratacionCursos';
+} from './servicioHidratacionCursos.js';
 
 function obtenerPeriodoId(req: SolicitudDocente) {
   const periodoId = String(req.body?.periodoId ?? '').trim();

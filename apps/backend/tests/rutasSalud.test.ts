@@ -8,8 +8,8 @@ import express from 'express';
 import os from 'node:os';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { prisma } from '../src/infraestructura/baseDatos/sqlite';
-import rutasSalud, { obtenerVersionInfo } from '../src/compartido/salud/rutasSalud';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
+import rutasSalud, { obtenerVersionInfo } from '../src/compartido/salud/rutasSalud.js';
 
 function crearApp() {
   const app = express();

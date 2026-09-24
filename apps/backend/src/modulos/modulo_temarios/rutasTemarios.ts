@@ -6,8 +6,8 @@
  */
 import { Router } from 'express';
 import multer from 'multer';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 import {
   listarTemarios,
   crearTemarioManual,
@@ -15,13 +15,13 @@ import {
   obtenerNodosTemario,
   actualizarEstadoNodo,
   eliminarTemario
-} from './controladorTemarios';
+} from './controladorTemarios.js';
 import {
   esquemaCrearTemarioManual,
   esquemaCrearTemarioPdf,
   esquemaActualizarEstadoNodo,
   esquemaBodyVacioOpcional
-} from './validacionesTemarios';
+} from './validacionesTemarios.js';
 
 const router = Router();
 

@@ -6,7 +6,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { evaluateProfile, type EvalProfileSummary } from './omr-eval-profile';
+import { evaluateProfile, type EvalProfileSummary } from './omr-eval-profile.js';
 
 type Summary = {
   profile: string;

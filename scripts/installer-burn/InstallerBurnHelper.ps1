@@ -294,8 +294,16 @@ function Write-InstallerRuntimeEnv {
   $flavorId = [string](Get-RequestConfigValue -Request $Request -Name 'flavorId' -DefaultValue 'docente-local')
   $localAppData = [string]$env:LOCALAPPDATA
   if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
+  $targetFullPath = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
+  $qaRootPrefix = (Join-Path $localAppData 'EvaluaPro-QA-Isolated-').TrimEnd('\')
+  $programDataRoot = [string]$env:ProgramData
+  if ([string]::IsNullOrWhiteSpace($programDataRoot)) { $programDataRoot = 'C:\ProgramData' }
   $localDataRoot = if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local') {
-    [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
+    if ($targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+      $targetFullPath
+    } else {
+      Join-Path $programDataRoot 'EvaluaPro'
+    }
   } else {
     Join-Path $localAppData 'EvaluaPro'
   }
@@ -303,9 +311,6 @@ function Write-InstallerRuntimeEnv {
   if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
   $localDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
   $requestedDatabaseUrl = [string](Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue $localDatabaseUrl)
-  if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local' -and ($requestedDatabaseUrl -match 'ProgramData/EvaluaPro/data/evaluapro\.db|ProgramData\\EvaluaPro\\data\\evaluapro\.db')) {
-    $requestedDatabaseUrl = $localDatabaseUrl
-  }
   Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL' -Value $requestedDatabaseUrl
   Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value $requestedDatabaseUrl
   Set-InstallerEnvValue -Map $envMap -Key 'NODE_ENV' -Value (Get-RequestConfigValue -Request $Request -Name 'nodeEnv' -DefaultValue 'production')
@@ -318,9 +323,9 @@ function Write-InstallerRuntimeEnv {
   Write-InstallerEnvMap -Path $envPath -Map $envMap
   $writtenEnv = Read-InstallerEnvMap -Path $envPath
   if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local') {
-    $expectedLocalUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
-    if ([string]$writtenEnv['DATABASE_URL'] -ne $expectedLocalUrl -or [string]$writtenEnv['BACKEND_DATABASE_URL'] -ne $expectedLocalUrl) {
-      throw "La configuracion SQLite docente no persistio la ruta efectiva: esperada=$expectedLocalUrl"
+    $expectedDatabaseUrl = $requestedDatabaseUrl
+    if ([string]$writtenEnv['DATABASE_URL'] -ne $expectedDatabaseUrl -or [string]$writtenEnv['BACKEND_DATABASE_URL'] -ne $expectedDatabaseUrl) {
+      throw "La configuracion SQLite docente no persistio la ruta efectiva: esperada=$expectedDatabaseUrl"
     }
   }
 }
@@ -389,7 +394,119 @@ function Ensure-InstallerRuntimeContract {
   Write-InstallerRuntimeEnv -TargetDir $TargetDir -Request $Request
 }
 
+function Get-InstalledInstanceInventory {
+  param(
+    [Parameter(Mandatory = $true)][string]$TargetDir,
+    [string]$RequestedFlavorId = 'docente-local'
+  )
+
+  # Solo inventario de lectura: esta función nunca invoca uninstall ni elimina
+  # rutas. La limpieza de remanentes requiere una acción explícita posterior.
+  $localAppData = [string]$env:LOCALAPPDATA
+  if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
+  $programFiles = [string]$env:ProgramFiles
+  if ([string]::IsNullOrWhiteSpace($programFiles)) { $programFiles = 'C:\Program Files' }
+  $programData = [string]$env:ProgramData
+  if ([string]::IsNullOrWhiteSpace($programData)) { $programData = 'C:\ProgramData' }
+
+  $candidateRoots = @(
+    $TargetDir,
+    (Join-Path $localAppData 'EvaluaPro'),
+    (Join-Path $programFiles 'EvaluaPro')
+  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object {
+    try { [IO.Path]::GetFullPath($_).TrimEnd('\') } catch { $null }
+  } | Where-Object { $_ } | Select-Object -Unique
+
+  $instances = @()
+  $seenDataOnlyRoots = @{}
+  $targetFullPath = try { [IO.Path]::GetFullPath($TargetDir).TrimEnd('\') } catch { $TargetDir.TrimEnd('\') }
+  $knownLocalRoot = try { [IO.Path]::GetFullPath((Join-Path $localAppData 'EvaluaPro')).TrimEnd('\') } catch { Join-Path $localAppData 'EvaluaPro' }
+  $knownProgramFilesRoot = try { [IO.Path]::GetFullPath((Join-Path $programFiles 'EvaluaPro')).TrimEnd('\') } catch { Join-Path $programFiles 'EvaluaPro' }
+  foreach ($root in $candidateRoots) {
+    $manifestPath = Join-Path $root 'logs\installation.manifest.json'
+    $packagePath = Join-Path $root 'package.json'
+    $envPath = Join-Path $root '.env'
+    $payloadPresent = (Test-Path -LiteralPath (Join-Path $root 'runtime\node\node.exe')) -or
+      (Test-Path -LiteralPath (Join-Path $root 'apps\backend\dist\index.js')) -or
+      (Test-Path -LiteralPath (Join-Path $root 'scripts\start-docente-native.mjs'))
+    $manifestPresent = Test-Path -LiteralPath $manifestPath
+    $dataRoot = Join-Path $programData 'EvaluaPro\data'
+    if ($root.StartsWith((Join-Path $localAppData 'EvaluaPro'), [StringComparison]::OrdinalIgnoreCase)) {
+      $dataRoot = Join-Path $localAppData 'EvaluaPro\data'
+    }
+    $dataPresent = Test-Path -LiteralPath $dataRoot
+    $isKnownDefaultRoot = $root.Equals($knownLocalRoot, [StringComparison]::OrdinalIgnoreCase) -or
+      $root.Equals($knownProgramFilesRoot, [StringComparison]::OrdinalIgnoreCase)
+    if ($root.Equals($targetFullPath, [StringComparison]::OrdinalIgnoreCase) -and
+      -not $isKnownDefaultRoot -and -not $manifestPresent -and -not $payloadPresent -and -not (Test-Path -LiteralPath $envPath)) {
+      $dataPresent = $false
+    }
+    if ($dataPresent -and -not $manifestPresent -and -not $payloadPresent) {
+      if ($seenDataOnlyRoots.ContainsKey($dataRoot)) { continue }
+      $seenDataOnlyRoots[$dataRoot] = $true
+    }
+    $packageVersion = ''
+    if (Test-Path -LiteralPath $packagePath) {
+      try {
+        $package = Get-Content -LiteralPath $packagePath -Raw -Encoding utf8 | ConvertFrom-Json
+        $packageVersion = [string]$package.version
+      } catch {}
+    }
+    $manifestVersion = ''
+    if ($manifestPresent) {
+      try {
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json
+        if ($manifest.version) { $manifestVersion = [string]$manifest.version }
+        elseif ($manifest.appVersion) { $manifestVersion = [string]$manifest.appVersion }
+        elseif ($manifest.packageVersion) { $manifestVersion = [string]$manifest.packageVersion }
+      } catch {}
+    }
+    $flavorId = ''
+    if (Test-Path -LiteralPath $envPath) {
+      try { $flavorId = [string]((Read-InstallerEnvMap -Path $envPath)['EVALUAPRO_FLAVOR']) } catch {}
+    }
+    if (-not $manifestPresent -and -not $payloadPresent -and -not $dataPresent) { continue }
+
+    $state = 'repairable'
+    if ($dataPresent -and -not $manifestPresent -and -not $payloadPresent) { $state = 'orphaned' }
+    elseif (-not $manifestPresent -or -not $payloadPresent) { $state = 'legacy' }
+    $flavorConflict = -not [string]::IsNullOrWhiteSpace($flavorId) -and
+      -not [string]::IsNullOrWhiteSpace($RequestedFlavorId) -and
+      -not $flavorId.Equals($RequestedFlavorId, [StringComparison]::OrdinalIgnoreCase)
+    if ($flavorConflict) { $state = 'conflict' }
+
+    $instances += [ordered]@{
+      installDir = $root
+      dataDir = $dataRoot
+      flavorId = if ($flavorId) { $flavorId } else { 'unknown' }
+      version = if ($packageVersion) { $packageVersion } else { $manifestVersion }
+      manifestPresent = $manifestPresent
+      payloadPresent = $payloadPresent
+      dataPresent = $dataPresent
+      state = $state
+      readOnlyInventory = $true
+      preserveDataByDefault = $true
+      cleanupRequiresExplicitConfirmation = $true
+    }
+  }
+
+  $conflict = @($instances | Where-Object { $_.state -eq 'conflict' }).Count -gt 0
+  $recommendedMode = if ($conflict) { 'repair' } elseif (@($instances).Count -gt 0) { 'repair' } else { 'install' }
+  return [ordered]@{
+    requestedFlavorId = $RequestedFlavorId
+    instances = @($instances)
+    state = if ($conflict) { 'conflict' } elseif (@($instances | Where-Object { $_.state -eq 'orphaned' }).Count -gt 0) { 'orphaned' } elseif (@($instances).Count -gt 0) { 'repairable' } else { 'unknown' }
+    recommendedMode = $recommendedMode
+    preserveDataByDefault = $true
+    cleanupRequiresExplicitConfirmation = $true
+  }
+}
+
 function Detect-Prerequisites {
+  $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
+  $requestedFlavorId = [string](Get-RequestValue -Request $requestJson -Names @('flavorId', 'FlavorId') -DefaultValue 'docente-local')
+  $targetDir = Get-TargetInstallDir -Request $requestJson
+  $instanceInventory = Get-InstalledInstanceInventory -TargetDir $targetDir -RequestedFlavorId $requestedFlavorId
   # Verificar WebView2 (Microsoft Edge nativo)
   $edgeInstalled = $false
   $edgeVersion = "No detectado"
@@ -445,7 +562,11 @@ function Detect-Prerequisites {
     }
   )
 
-  $ready = $edgeInstalled -and ($PSVersionTable.PSVersion.Major -ge 5)
+  $ready = $edgeInstalled -and ($PSVersionTable.PSVersion.Major -ge 5) -and $instanceInventory.state -ne 'conflict'
+  $issues = @()
+  if ($instanceInventory.state -eq 'conflict') {
+    $issues += 'Existe una instancia de otro flavor o con raíces/puertos en conflicto; requiere reparación o limpieza explícita.'
+  }
 
   Write-Response @{
     ok = $true
@@ -455,6 +576,9 @@ function Detect-Prerequisites {
     data = @{
       prerequisites = $prereqs
       ready = $ready
+      installation = if (@($instanceInventory.instances).Count -gt 0) { $instanceInventory.instances[0] } else { @{ Installed = $false; InstallLocation = $targetDir } }
+      lifecycle = $instanceInventory
+      system = @{ issues = $issues }
     }
   }
 }
@@ -514,7 +638,7 @@ function Invoke-PostInstall {
     Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
   }
   # La configuración operativa puede regenerar .env con defaults globales;
-  # reaplicar el contrato docente garantiza que SQLite quede en LOCALAPPDATA.
+  # reaplicar el contrato docente conserva la ruta SQLite efectiva del request.
   Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
   $envPath = Assert-InstallerRuntimeEnv -TargetDir $targetDir
   $runtimeEnv = Read-InstallerEnvMap -Path $envPath
@@ -522,21 +646,24 @@ function Invoke-PostInstall {
   if ($effectiveFlavor.Trim().ToLowerInvariant() -eq 'docente-local') {
     $localAppData = [string]$env:LOCALAPPDATA
     if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
-    $defaultDataRoot = Join-Path $localAppData 'EvaluaPro'
     $qaRootPrefix = (Join-Path $localAppData 'EvaluaPro-QA-Isolated-').TrimEnd('\')
+    $programDataRoot = [string]$env:ProgramData
+    if ([string]::IsNullOrWhiteSpace($programDataRoot)) { $programDataRoot = 'C:\ProgramData' }
     $targetFullPath = [IO.Path]::GetFullPath($targetDir).TrimEnd('\')
     $localDataRoot = if ($targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
       $targetFullPath
     } else {
-      $defaultDataRoot
+      Join-Path $programDataRoot 'EvaluaPro'
     }
     $localDataDir = Join-Path $localDataRoot 'data'
     if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
-    $localDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
-    Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $localDatabaseUrl
-    Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $localDatabaseUrl
+    $defaultDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
+    $effectiveDatabaseUrl = [string]$runtimeEnv['DATABASE_URL']
+    if ([string]::IsNullOrWhiteSpace($effectiveDatabaseUrl)) { $effectiveDatabaseUrl = $defaultDatabaseUrl }
+    Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $effectiveDatabaseUrl
+    Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $effectiveDatabaseUrl
     Write-InstallerEnvMap -Path $envPath -Map $runtimeEnv
-    Write-Host "Ruta SQLite docente: $localDatabaseUrl"
+    Write-Host "Ruta SQLite docente: $effectiveDatabaseUrl"
   }
   $runtimeEnv = Read-InstallerEnvMap -Path $envPath
   if ($runtimeEnv.Contains('DATABASE_URL')) {
@@ -547,14 +674,16 @@ function Invoke-PostInstall {
     $env:DATABASE_URL = [string]$runtimeEnv['DATABASE_URL']
   }
 
-  # Última barrera: la configuración operativa puede conservar un valor legado
-  # en ProgramData. Antes de arrancar Node, docente-local debe apuntar siempre
-  # a la base bajo la raíz local efectiva ya calculada arriba.
+  # Última barrera: conserva la ruta efectiva ya validada; no cambia una base
+  # existente durante un update ni la mueve implícitamente entre raíces.
   if ($effectiveFlavor.Trim().ToLowerInvariant() -eq 'docente-local') {
-    $finalDatabaseUrl = 'file:' + ((Join-Path $localDataDir 'evaluapro.db') -replace '\\', '/')
     $runtimeEnv = Read-InstallerEnvMap -Path $envPath
-    Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $finalDatabaseUrl
-    Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $finalDatabaseUrl
+    $finalDatabaseUrl = [string]$runtimeEnv['DATABASE_URL']
+    if ([string]::IsNullOrWhiteSpace($finalDatabaseUrl)) {
+      $finalDatabaseUrl = 'file:' + ((Join-Path $programDataRoot 'EvaluaPro\data\evaluapro.db') -replace '\\', '/')
+      Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $finalDatabaseUrl
+      Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $finalDatabaseUrl
+    }
     Write-InstallerEnvMap -Path $envPath -Map $runtimeEnv
     $env:DATABASE_URL = $finalDatabaseUrl
     $env:BACKEND_DATABASE_URL = $finalDatabaseUrl
@@ -675,7 +804,7 @@ function Invoke-PostInstall {
       $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
       [IO.File]::WriteAllText($schemaForPush, $schemaText, $utf8NoBom)
       $env:DATABASE_URL = $effectiveDatabaseUrl
-      & $nodeExe $prismaCli db push --skip-generate --schema $schemaForPush
+      & $nodeExe $prismaCli db push --schema $schemaForPush
       if ($LASTEXITCODE -ne 0) {
         throw "No se pudo preparar la base SQLite local con Prisma (exit=$LASTEXITCODE)."
       }
@@ -726,6 +855,7 @@ function Invoke-PostInstall {
   }
   & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $shortcutScript `
     -OutputDir 'accesos-directos' -Force `
+    -SyncRepoOutput $true `
     -Port 4519
   if ($LASTEXITCODE -ne 0) {
     throw "No se pudieron crear accesos directos/manifiesto de instalación (exit=$LASTEXITCODE)."
@@ -759,6 +889,47 @@ function Invoke-PostInstall {
   }
 }
 
+function Get-EvaluaProOwnedNodeProcessIds {
+  param([Parameter(Mandatory = $true)][string]$TargetDir)
+
+  $targetRoot = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
+  $processes = @()
+  try {
+    $processes = @(Get-CimInstance -ClassName Win32_Process -Filter "Name = 'node.exe'" -ErrorAction Stop)
+  } catch {
+    Write-Host "No se pudo enumerar node.exe para el inventario de ownership: $($_.Exception.Message)"
+    return @()
+  }
+
+  $owned = @()
+  foreach ($process in $processes) {
+    $commandLine = [string]$process.CommandLine
+    $executablePath = [string]$process.ExecutablePath
+    $commandOwned = $commandLine.IndexOf($targetRoot, [StringComparison]::OrdinalIgnoreCase) -ge 0
+    $runtimeOwned = $executablePath.StartsWith((Join-Path $targetRoot 'runtime\node'), [StringComparison]::OrdinalIgnoreCase)
+    if (($commandOwned -or $runtimeOwned) -and $process.ProcessId) {
+      $owned += [int]$process.ProcessId
+    }
+  }
+  return @($owned | Select-Object -Unique)
+}
+
+function Stop-EvaluaProOwnedNodeProcesses {
+  param([Parameter(Mandatory = $true)][string]$TargetDir)
+
+  $ownedIds = @(Get-EvaluaProOwnedNodeProcessIds -TargetDir $TargetDir)
+  foreach ($processId in $ownedIds) {
+    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+  }
+  if ($ownedIds.Count -gt 0) { Start-Sleep -Seconds 2 }
+  $remainingIds = @((Get-EvaluaProOwnedNodeProcessIds -TargetDir $TargetDir) | Where-Object { $ownedIds -contains $_ })
+  return [ordered]@{
+    requested = $ownedIds
+    remaining = $remainingIds
+    ok = $remainingIds.Count -eq 0
+  }
+}
+
 function Invoke-Update {
   Write-Host "Iniciando actualizacion de EvaluaPro..."
   
@@ -768,9 +939,12 @@ function Invoke-Update {
   $vbsPath = Join-Path $targetDir "evaluapro-launcher.vbs"
   $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir -Request $requestJson
 
-  # Detener Node.js
-  Stop-Process -Name "node" -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Seconds 2
+  # Detener únicamente node.exe cuyo command line o runtime pertenece a esta
+  # instalación; nunca detener Node de otra aplicación del usuario.
+  $processStop = Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir
+  if (-not $processStop.ok) {
+    throw "No se pudieron detener todos los procesos Node propiedad de EvaluaPro: $($processStop.remaining -join ', ')"
+  }
 
   Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip
 
@@ -782,6 +956,7 @@ function Invoke-Update {
     phase = "helper_update"
     exitCode = 0
     message = "Actualizacion Nativa exitosa."
+    data = @{ ownedNodeProcesses = $processStop.requested }
   }
 }
 
@@ -798,9 +973,11 @@ function Invoke-Uninstall {
     }
   }
 
-  Write-Host "Deteniendo servicios y tareas..."
-  Stop-Process -Name "node" -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Seconds 2
+  Write-Host "Deteniendo servicios y tareas de la instancia..."
+  $processStop = Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir
+  if (-not $processStop.ok) {
+    throw "No se pudieron detener todos los procesos Node propiedad de EvaluaPro: $($processStop.remaining -join ', ')"
+  }
   
   Unregister-ScheduledTask -TaskName "EvaluaProNativeBackground" -Confirm:$false -ErrorAction SilentlyContinue
   Unregister-ScheduledTask -TaskName "EvaluaProCommercialLicenseHeartbeat" -Confirm:$false -ErrorAction SilentlyContinue
@@ -849,6 +1026,7 @@ function Invoke-Uninstall {
     phase = "helper_uninstall"
     exitCode = 0
     message = "Desinstalacion Nativa exitosa."
+    data = @{ ownedNodeProcesses = $processStop.requested; dataPreservedByDefault = -not $exportData }
   }
 }
 

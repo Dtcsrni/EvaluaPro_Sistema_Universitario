@@ -2,14 +2,14 @@
  * Rutas de vinculacion de entregas.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { deshacerEntregaPorFolio, vincularEntrega, vincularEntregaPorFolio } from './controladorVinculacionEntrega';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { deshacerEntregaPorFolio, vincularEntrega, vincularEntregaPorFolio } from './controladorVinculacionEntrega.js';
 import {
   esquemaDeshacerEntregaPorFolio,
   esquemaVincularEntrega,
   esquemaVincularEntregaPorFolio
-} from './validacionesVinculacion';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+} from './validacionesVinculacion.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
 const router = Router();
 

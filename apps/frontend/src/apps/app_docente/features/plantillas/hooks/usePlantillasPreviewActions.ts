@@ -15,7 +15,14 @@ import type { Dispatch, SetStateAction } from 'react';
 
 export type PreviewPdfPage = { numero: number; width: number; height: number; dataUrl: string };
 type PreviewPdfKind = 'booklet' | 'omrSheet';
-export type PreviewPdfUrls = { booklet?: string; omrSheet?: string; bookletPages?: PreviewPdfPage[]; omrSheetPages?: PreviewPdfPage[] };
+export type PreviewPdfUrls = {
+  booklet?: string;
+  omrSheet?: string;
+  bookletPages?: PreviewPdfPage[];
+  omrSheetPages?: PreviewPdfPage[];
+  bookletPagesTotal?: number;
+  omrSheetPagesTotal?: number;
+};
 
 type Params = {
   puedePrevisualizarPlantillas: boolean;
@@ -103,8 +110,11 @@ export function usePlantillasPreviewActions({
       }
 
       const intentar = async (t: string) =>
-        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual?refresh=${Date.now()}`, {
+        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual`, {
           credentials: 'include',
+          // La caché válida vive en el backend y está versionada por layout;
+          // el navegador no debe conservar un Blob de una preview anterior.
+          cache: 'no-store',
           headers: { Authorization: `Bearer ${t}` }
         });
 
@@ -121,17 +131,30 @@ export function usePlantillasPreviewActions({
         const payload = (await resp.json()) as {
           pdfBase64?: string;
           paginas?: PreviewPdfPage[];
+          paginasTotales?: number;
         };
         if (!payload.pdfBase64 || !Array.isArray(payload.paginas) || payload.paginas.length === 0) {
           throw new Error('La previsualización visual no contiene páginas renderizadas.');
         }
+        const paginas = payload.paginas;
         const bytes = Uint8Array.from(atob(payload.pdfBase64), (caracter) => caracter.charCodeAt(0));
         const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
         const pagesKey = kind === 'booklet' ? 'bookletPages' : 'omrSheetPages';
+        const pagesTotalKey = kind === 'booklet' ? 'bookletPagesTotal' : 'omrSheetPagesTotal';
         setPreviewPdfUrlPorPlantillaId((prev) => {
           const anterior = prev[id]?.[kind];
           if (typeof anterior === 'string') URL.revokeObjectURL(anterior);
-          return { ...prev, [id]: { ...prev[id], [kind]: url, [pagesKey]: payload.paginas } };
+          return {
+            ...prev,
+            [id]: {
+              ...prev[id],
+              [kind]: url,
+              [pagesKey]: paginas,
+              [pagesTotalKey]: Number.isFinite(Number(payload.paginasTotales))
+                ? Number(payload.paginasTotales)
+                : paginas.length
+            }
+          };
         });
         emitToast({ level: 'ok', title: 'Previsualización PDF', message: 'PDF actualizado', durationMs: 2200 });
       } catch (error) {

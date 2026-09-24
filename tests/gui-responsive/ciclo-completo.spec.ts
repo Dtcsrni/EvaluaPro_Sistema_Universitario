@@ -25,7 +25,7 @@ test.describe('Ciclo de uso directo completo', () => {
     }
     const randomSuffix = Math.floor(Math.random() * 100000);
     await page.fill('input[placeholder="Ej. Juan Carlos"]', 'Maestro');
-    await page.fill('input[placeholder="Ej. Perez Lopez"]', 'Prueba');
+    await page.getByLabel('Apellidos', { exact: true }).fill('Prueba');
     await page.fill('input[type="email"]', `maestro_${randomSuffix}@evaluapro.local`);
     await page.fill('input[type="password"]', 'P@ssword123');
     await page.getByRole('button', { name: /Crear cuenta/i }).click({ noWaitAfter: true });
@@ -35,9 +35,14 @@ test.describe('Ciclo de uso directo completo', () => {
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'docs/assets/ui/01_dashboard.png', fullPage: true });
     
-    // Wait for the Dashboard
+    // Wait for the Dashboard. The onboarding keeps the creation form collapsed
+    // until the explicit CTA is invoked.
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('text="Crear materia"').first()).toBeVisible({ timeout: 15000 });
+    const mostrarFormulario = page.getByRole('button', { name: /Mostrar formulario/i });
+    if (await mostrarFormulario.isVisible().catch(() => false)) {
+      await mostrarFormulario.click();
+    }
+    await expect(page.getByRole('button', { name: 'Crear materia', exact: true })).toBeVisible({ timeout: 15000 });
 
     // 3. "Carga materias"
     // Click inside modal to close any datepicker
@@ -74,7 +79,7 @@ test.describe('Ciclo de uso directo completo', () => {
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'docs/assets/ui/04_crear_alumno.png' });
 
-    await page.click('button:has-text("Crear alumno")');
+    await page.getByRole('button', { name: /Crear alumno/i }).click();
 
     // Check if the student appears
     await expect(page.getByText('Juan').first()).toBeVisible({ timeout: 10000 });

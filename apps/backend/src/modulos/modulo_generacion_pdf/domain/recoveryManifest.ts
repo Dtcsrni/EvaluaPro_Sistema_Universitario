@@ -5,9 +5,10 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { configuracion } from '../../../configuracion';
-import type { MapaOmr, MapaVariante, PreguntaBase, TemplateVersion } from '../shared/tiposPdf';
-import { extraerResumenQrExamen } from './qrExamen';
+import { configuracion } from '../../../configuracion.js';
+import type { MapaOmr, MapaVariante, PreguntaBase, TemplateVersion } from '../shared/tiposPdf.js';
+import { extraerResumenQrExamen } from './qrExamen.js';
+import { OMR_CANONICAL_CONTRACT_ID } from './templateCanonico.js';
 
 type Identificador = string | undefined;
 
@@ -21,6 +22,37 @@ export type RecoveryQuestionSnapshot = {
   enunciado: string;
   opcionesBase: Array<{ index: number; texto: string; esCorrecta: boolean }>;
   opcionesVisibles: Array<{ letra: string; originalIndex: number; texto: string; esCorrecta: boolean }>;
+};
+
+export type RecoveryAnswerKeySnapshot = {
+  schema: 'omr-answer-key-v1';
+  entries: Array<{
+    questionId: string;
+    questionRef: string;
+    pageNumber: number;
+    visibleNumber: number;
+    correctLetterVisible: string;
+    correctOriginalIndex: number | null;
+  }>;
+  hash: string;
+};
+
+export type RecoveryTraceability = {
+  schema: 'omr-recovery-trace-v1';
+  contractId: typeof OMR_CANONICAL_CONTRACT_ID;
+  templateVersion: TemplateVersion;
+  renderer: {
+    engine: 'pdf-lib-canonical';
+    layoutVersion: number;
+  };
+  mapaOmrHash: string;
+  questionSnapshotHash: string;
+  sourcePdfSha256?: string;
+  reconstruction: {
+    mode: 'snapshot-plus-versioned-renderer';
+    ready: true;
+    requiredArtifacts: Array<'source-pdf' | 'omr-map' | 'question-snapshot' | 'variant-map'>;
+  };
 };
 
 export type RecoveryManifest = {
@@ -41,6 +73,9 @@ export type RecoveryManifest = {
   answerKeyHash?: string;
   qrKeyId?: string;
   questionBankHash: string;
+  answerKeySnapshot: RecoveryAnswerKeySnapshot;
+  traceability: RecoveryTraceability;
+  mapaOmrSnapshot: MapaOmr;
   pages: Array<{
     numeroPagina: number;
     qrTexto: string;
@@ -81,6 +116,7 @@ export type RecoveryBundle = {
     manifestHash: string;
     variantHash?: string;
     answerKeyHash?: string;
+    answerKeySnapshotHash: string;
     totalPreguntas: number;
     totalPaginas: number;
   }>;
@@ -101,6 +137,8 @@ type BuildRecoveryManifestInput = {
   mapaVariante: MapaVariante;
   mapaOmr: MapaOmr;
   paginas: Array<{ numero: number; qrTexto: string; preguntasDel?: number; preguntasAl?: number }>;
+  pdfBytes?: Uint8Array;
+  layoutVersion?: number;
 };
 
 const RECOVERY_SIGNATURE_PREFIX = 'R1';
@@ -130,6 +168,10 @@ function stableStringify(value: unknown): string {
 
 function hashHex(value: string, length = 24) {
   return createHash('sha256').update(value).digest('hex').slice(0, length).toUpperCase();
+}
+
+function hashBytes(value: Uint8Array) {
+  return createHash('sha256').update(value).digest('hex').toUpperCase();
 }
 
 function signPayload(payload: unknown, keyId = configuracion.omrRecoveryKeyId) {
@@ -224,13 +266,24 @@ export function construirRecoveryManifest(input: BuildRecoveryManifestInput): Re
     const questionIds = Array.isArray(pageOmr?.preguntas)
       ? pageOmr!.preguntas.map((question) => String(question?.idPregunta ?? '').trim()).filter(Boolean)
       : [];
+    const questionRefs = Array.isArray(qr?.questionRefs) && qr!.questionRefs.length > 0
+      ? qr!.questionRefs
+      : questionIds.map((questionId) => buildQuestionRef(questionId));
+    const optionOrders = Array.isArray(qr?.optionOrders) && qr!.optionOrders.length > 0
+      ? qr!.optionOrders
+      : questionIds.map((questionId) => {
+          const order = Array.isArray(input.mapaVariante?.ordenOpcionesPorPregunta?.[questionId])
+            ? input.mapaVariante.ordenOpcionesPorPregunta[questionId]!
+            : [0, 1, 2, 3, 4];
+          return order.map((index) => Math.max(0, Number(index) || 0)).join('');
+        });
     return {
       numeroPagina: Math.max(1, Number(page?.numero) || 1),
       qrTexto: String(page?.qrTexto ?? ''),
       preguntaDesde: Number.isFinite(Number(page?.preguntasDel)) && Number(page?.preguntasDel) > 0 ? Number(page?.preguntasDel) : undefined,
       preguntaHasta: Number.isFinite(Number(page?.preguntasAl)) && Number(page?.preguntasAl) > 0 ? Number(page?.preguntasAl) : undefined,
-      questionRefs: Array.isArray(qr?.questionRefs) ? qr!.questionRefs : [],
-      optionOrders: Array.isArray(qr?.optionOrders) ? qr!.optionOrders : [],
+      questionRefs,
+      optionOrders,
       questionIds
     };
   });
@@ -245,6 +298,39 @@ export function construirRecoveryManifest(input: BuildRecoveryManifestInput): Re
     ),
     24
   );
+  const mapaOmrSnapshot = input.mapaOmr;
+  const mapaOmrHash = hashHex(stableStringify(mapaOmrSnapshot), 64);
+  const questionSnapshotHash = hashHex(stableStringify(questions), 64);
+  const answerKeyEntries = questions.map((question) => ({
+    questionId: question.questionId,
+    questionRef: question.questionRef,
+    pageNumber: question.pageNumber,
+    visibleNumber: question.visibleNumber,
+    correctLetterVisible: question.correctLetterVisible,
+    correctOriginalIndex: question.opcionesVisibles.find((option) => option.esCorrecta)?.originalIndex ?? null
+  }));
+  const answerKeySnapshot: RecoveryAnswerKeySnapshot = {
+    schema: 'omr-answer-key-v1',
+    entries: answerKeyEntries,
+    hash: hashHex(stableStringify(answerKeyEntries), 64)
+  };
+  const traceability: RecoveryTraceability = {
+    schema: 'omr-recovery-trace-v1',
+    contractId: OMR_CANONICAL_CONTRACT_ID,
+    templateVersion: input.templateVersion,
+    renderer: {
+      engine: 'pdf-lib-canonical',
+      layoutVersion: Math.max(1, Number(input.layoutVersion ?? 4) || 4)
+    },
+    mapaOmrHash,
+    questionSnapshotHash,
+    sourcePdfSha256: input.pdfBytes ? hashBytes(input.pdfBytes) : undefined,
+    reconstruction: {
+      mode: 'snapshot-plus-versioned-renderer',
+      ready: true,
+      requiredArtifacts: ['source-pdf', 'omr-map', 'question-snapshot', 'variant-map']
+    }
+  };
 
   const unsignedPayload = {
     version: 1 as const,
@@ -263,6 +349,9 @@ export function construirRecoveryManifest(input: BuildRecoveryManifestInput): Re
     answerKeyHash: firstQr?.answerKeyHash,
     qrKeyId: firstQr?.keyId,
     questionBankHash,
+    answerKeySnapshot,
+    traceability,
+    mapaOmrSnapshot,
     pages: pageSummaries,
     questions
   };
@@ -293,14 +382,50 @@ export function verificarRecoveryManifest(manifest: RecoveryManifest) {
     answerKeyHash: manifest.answerKeyHash,
     qrKeyId: manifest.qrKeyId,
     questionBankHash: manifest.questionBankHash,
+    answerKeySnapshot: manifest.answerKeySnapshot,
+    traceability: manifest.traceability,
+    mapaOmrSnapshot: manifest.mapaOmrSnapshot,
     pages: manifest.pages,
     questions: manifest.questions
   };
+  const traceability = manifest.traceability;
+  const traceabilityConsistente =
+    traceability?.schema === 'omr-recovery-trace-v1' &&
+    traceability.contractId === OMR_CANONICAL_CONTRACT_ID &&
+    traceability.templateVersion === manifest.templateVersion &&
+    traceability.mapaOmrHash === hashHex(stableStringify(manifest.mapaOmrSnapshot), 64) &&
+    traceability.questionSnapshotHash === hashHex(stableStringify(manifest.questions), 64) &&
+    traceability.questionSnapshotHash.length === 64 &&
+    manifest.answerKeySnapshot?.schema === 'omr-answer-key-v1' &&
+    manifest.answerKeySnapshot.hash === hashHex(stableStringify(manifest.answerKeySnapshot.entries), 64) &&
+    manifest.answerKeySnapshot.entries.length === manifest.questions.length &&
+    (traceability.sourcePdfSha256 === undefined || /^[A-F0-9]{64}$/.test(traceability.sourcePdfSha256));
   if (!resolverSecretoRecoveryPorKeyId(manifest.keyId)) {
     return false;
   }
   const signed = signPayload(unsignedPayload, manifest.keyId);
-  return compareToken(signed.signature, manifest.signature) && compareToken(signed.digest, manifest.manifestHash);
+  return traceabilityConsistente && compareToken(signed.signature, manifest.signature) && compareToken(signed.digest, manifest.manifestHash);
+}
+
+/**
+ * Reconstruye la clave visible a partir del manifiesto verificado.
+ * Devuelve null si el manifiesto o su snapshot de clave no son confiables.
+ */
+export function reconstruirClaveDesdeRecoveryManifest(
+  manifest: RecoveryManifest
+): Array<{
+  numeroPregunta: number;
+  preguntaId: string;
+  preguntaRef: string;
+  correcta: string | null;
+}> | null {
+  if (!verificarRecoveryManifest(manifest)) return null;
+  return manifest.answerKeySnapshot.entries.map((entry) => ({
+    numeroPregunta: entry.visibleNumber,
+    preguntaId: entry.questionId,
+    preguntaRef: entry.questionRef,
+    correcta: /^[A-E]$/.test(entry.correctLetterVisible) ? entry.correctLetterVisible : null
+  }));
 }
 
 export function construirRecoveryBundle(params: {
@@ -369,6 +494,7 @@ export function construirRecoveryBundle(params: {
         manifestHash: manifest.manifestHash,
         variantHash: manifest.variantHash,
         answerKeyHash: manifest.answerKeyHash,
+        answerKeySnapshotHash: manifest.answerKeySnapshot.hash,
         totalPreguntas: manifest.totalPreguntas,
         totalPaginas: manifest.totalPaginas
       }))

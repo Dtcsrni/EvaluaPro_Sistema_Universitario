@@ -9,10 +9,10 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { configuracion } from './configuracion';
-import rutasPortal from './rutas';
-import { manejadorErroresPortal } from './compartido/errores/manejadorErrores';
-import { middlewareIdSolicitud, middlewareRegistroSolicitud } from './infraestructura/observabilidad/middlewareObservabilidad';
+import { configuracion } from './configuracion.js';
+import rutasPortal from './rutas.js';
+import { manejadorErroresPortal } from './compartido/errores/manejadorErrores.js';
+import { middlewareIdSolicitud, middlewareRegistroSolicitud } from './infraestructura/observabilidad/middlewareObservabilidad.js';
 
 export function crearApp() {
   const app = express();

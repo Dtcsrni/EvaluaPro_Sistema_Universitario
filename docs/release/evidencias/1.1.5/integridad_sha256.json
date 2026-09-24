@@ -1,0 +1,20 @@
+{
+  "algoritmo": "sha256",
+  "csv": {
+    "hashCalculado": "no-aplica-no-se-generaron-exportaciones-csv-en-esta-sesion",
+    "hashManifiesto": null,
+    "bytesCalculados": 0,
+    "bytesManifiesto": null
+  },
+  "docx": {
+    "hashCalculado": "no-aplica-no-se-generaron-exportaciones-docx-en-esta-sesion",
+    "hashManifiesto": null,
+    "bytesCalculados": 0,
+    "bytesManifiesto": null
+  },
+  "installerHub": {
+    "localSha256": "E62F69F7996907F3A4C1905496170A4AFC470DAE838E0260C09E5A67BBC0F4BA",
+    "publicSha256": "0f81b8833f496d89aa75702dca89b5f0cfc5859af71315b74ed4394ef7fa7afa",
+    "observacion": "Los binarios local y CI son builds reproducibles desde el mismo commit, pero no son byte a byte idénticos por diferencias de entorno de compilación. El manifest público conserva el hash del artefacto descargable."
+  }
+}

@@ -9,7 +9,7 @@ import {
   listarEstrategiasMonetizacion,
   listarNivelesComerciales,
   recomendarMonetizacionComunitaria
-} from '../src/modulos/modulo_comercial/servicioMonetizacionComunitaria';
+} from '../src/modulos/modulo_comercial/servicioMonetizacionComunitaria.js';
 
 describe('monetizacion comunitaria', () => {
   it('expone 4 niveles por cada persona comercial', () => {

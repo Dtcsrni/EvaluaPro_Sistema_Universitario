@@ -6,8 +6,10 @@
  */
 import fs from 'node:fs';
 
-export function cargarVariablesEnvDesdeArchivo(envPath, target = process.env) {
+export function cargarVariablesEnvDesdeArchivo(envPath, target = process.env, options = {}) {
   if (!fs.existsSync(envPath)) return target;
+
+  const overrideKeys = new Set(options.overrideKeys || []);
 
   for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
     const trimmed = line.trim();
@@ -17,7 +19,9 @@ export function cargarVariablesEnvDesdeArchivo(envPath, target = process.env) {
 
     const key = trimmed.slice(0, separator).trim();
     const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, '');
-    if (key && (target[key] === undefined || String(target[key]).trim() === '')) target[key] = value;
+    if (key && (overrideKeys.has(key) || target[key] === undefined || String(target[key]).trim() === '')) {
+      target[key] = value;
+    }
   }
 
   return target;

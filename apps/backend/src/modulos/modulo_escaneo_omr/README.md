@@ -39,13 +39,10 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 - Si el backend CV no está disponible, el backend falla en arranque (smoke test bloqueante).
 - `OMR_CV_ENGINE_ENABLED` solo se respeta en `NODE_ENV=test` para pruebas internas controladas.
 - En runtime normal (dev/prod), el motor CV permanece forzado a activo.
-- El scoring principal puede usar imagen preprocesada, pero el rescate `panel_darkness_v1` debe ejecutarse sobre la foto original para no degradar detección de paneles derechos.
+- El scoring principal puede usar imagen preprocesada y conserva un segundo pase controlado sobre la misma captura cuando la calidad lo requiere.
 - Verificación local:
   - `npm -C apps/backend run omr:cv:smoke`
   - `npm -C apps/backend run omr:eval:synthetic`
-  - `npm -C apps/backend run omr:build:pilot-real`
-  - `npm -C apps/backend run omr:validate:pilot-real`
-  - `npm -C apps/backend run omr:diagnose:pilot-real`
 
 ## Gate de release
 - Gate sintético principal: `omr:eval:synthetic` (guardrail de regresión controlada).
@@ -59,7 +56,7 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 
 ## Troubleshooting rápido
 - `falsePositiveRate` alto:
-  - revisar prioridad de rescate `panel_darkness_v1` sobre falsos positivos geométricos.
+  - revisar la calidad de referencia global y los falsos positivos geométricos.
   - revisar `OMR_RESPUESTA_CONF_MIN`, `OMR_SCORE_MIN`, `OMR_DELTA_MIN`.
 - `autoGradeTrustRate` bajo:
   - revisar si `blank` / `double` correctos están contando como resolución válida.
@@ -68,6 +65,8 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
   - revisar `estadoAnalisis`/policy de autocalificación y cobertura de preguntas resueltas por página.
 - `fuera_roi` o errores geométricos:
   - revisar `OMR_ALIGN_RANGE`, `OMR_VERT_RANGE`, rescate de fiduciales y perfil de geometría.
+- `OMR_GEOMETRY_TRUST_MIN` controla el umbral mínimo de confianza geométrica para permitir autocalificación.
+  - Por defecto es `0.72`, acotado entre `0.65` y `0.90`; por debajo se conserva el diagnóstico, pero la página requiere revisión humana.
 
 ## Recuperacion operativa
 - Los examenes nuevos persisten:

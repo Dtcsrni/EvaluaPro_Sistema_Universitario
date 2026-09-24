@@ -6,7 +6,7 @@
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { emitToast } from '../../../../../ui/toast/toastBus';
 import { useState } from 'react';
-import type { Alumno, Plantilla } from '../../../tipos';
+import type { Alumno, Periodo, Plantilla } from '../../../tipos';
 import { esMensajeError, idCortoMateria } from '../../../utilidades';
 import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
@@ -23,6 +23,7 @@ export function PlantillasConsolaGeneracion({
   plantillaId,
   setPlantillaId,
   plantillas,
+  periodos,
   alumnos,
   generando,
   puedeGenerar,
@@ -40,6 +41,7 @@ export function PlantillasConsolaGeneracion({
   plantillaId: string;
   setPlantillaId: (value: string) => void;
   plantillas: Plantilla[];
+  periodos: Periodo[];
   alumnos: Alumno[];
   generando: boolean;
   puedeGenerar: boolean;
@@ -56,6 +58,7 @@ export function PlantillasConsolaGeneracion({
 }) {
   const [modoGeneracion, setModoGeneracion] = useState<'lote' | 'individual'>('lote');
   const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
+  const listaPeriodos = Array.isArray(periodos) ? periodos : [];
   const listaAlumnos = Array.isArray(alumnos) ? alumnos : [];
 
   const alumnosMateria = plantillaSeleccionada
@@ -70,6 +73,16 @@ export function PlantillasConsolaGeneracion({
       : generandoLote
         ? 'Generando paquete masivo…'
         : `Generar paquete de exámenes (${alumnosMateria.length} alumnos)`;
+  const progresoVisible = progresoLoteGeneracion ?? (generandoLote
+    ? {
+        loteId: 'en curso',
+        totalEsperado: alumnosMateria.length,
+        generados: 0,
+        porcentaje: 0,
+        completado: false,
+        estado: 'iniciando' as const
+      }
+    : null);
 
   return (
     <section className="alumnos-form alumnos-form--glass alumnos-form--panoramico anim-form-card" aria-label="Consola de Producción OMR">
@@ -110,7 +123,7 @@ export function PlantillasConsolaGeneracion({
                 <option value="">Selecciona una plantilla de examen</option>
                 {listaPlantillas.map((p) => (
                   <option key={p._id} value={p._id}>
-                    {p.titulo} (ID: {idCortoMateria(p._id)})
+                    {listaPeriodos.find((periodo) => periodo._id === p.periodoId)?.nombre ?? 'Materia no identificada'} · {p.titulo} (ID: {idCortoMateria(p._id)})
                   </option>
                 ))}
               </select>
@@ -161,16 +174,17 @@ export function PlantillasConsolaGeneracion({
         </div>
 
         {/* Barra de Progreso si está en curso */}
-        {progresoLoteGeneracion && !progresoLoteGeneracion.completado && (
+        {progresoVisible && (!progresoVisible.completado || generandoLote) && (
           <div className="progreso-lote-card anim-fade-in mt-15">
             <div className="progreso-lote-card__header">
               <span>⚡ Generando paquete masivo en el servidor...</span>
-              <span><b>{progresoLoteGeneracion.generados}</b> / {progresoLoteGeneracion.totalEsperado} ({progresoLoteGeneracion.porcentaje}%)</span>
+              <span><b>{progresoVisible.generados}</b> / {progresoVisible.totalEsperado} ({progresoVisible.porcentaje}%)</span>
             </div>
             <div className="progreso-lote-card__track">
               <div
                 className="progreso-lote-card__bar"
-                data-pct={progresoLoteGeneracion.porcentaje}
+                data-pct={progresoVisible.porcentaje}
+                style={{ width: `${Math.max(0, Math.min(100, progresoVisible.porcentaje))}%` }}
               />
             </div>
           </div>

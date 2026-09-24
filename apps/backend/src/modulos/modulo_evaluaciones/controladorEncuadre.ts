@@ -5,17 +5,17 @@
  * Limites: Delegar la lógica compleja de PDFs a servicioEncuadrePdf y base de datos a Prisma.
  */
 import type { Response, Request } from 'express';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import {
   generarPdfEncuadreBase,
   registrarFirmaPdf,
   calcularHashFirma
-} from './servicioEncuadrePdf';
-import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo';
-import { configuracion } from '../../configuracion';
+} from './servicioEncuadrePdf.js';
+import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo.js';
+import { configuracion } from '../../configuracion.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';

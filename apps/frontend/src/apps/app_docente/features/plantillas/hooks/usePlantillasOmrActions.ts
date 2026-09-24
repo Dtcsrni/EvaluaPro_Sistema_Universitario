@@ -75,7 +75,7 @@ export function usePlantillasOmrActions({
     async (assessmentId: string) => {
       try {
         setCargandoAssessmentId(assessmentId);
-        const payload = await clienteApi.obtener<GeneratedAssessmentDetalle>(`/assessments/generated/${encodeURIComponent(assessmentId)}`);
+        const payload = await clienteApi.obtener<GeneratedAssessmentDetalle>(`/examenes/generados/${encodeURIComponent(assessmentId)}`);
         setAssessmentDetalle(payload);
       } catch (error) {
         const msg = mensajeDeError(error, `No se pudo cargar el detalle ${OMR_CANONICAL_DISPLAY_LABEL}`);

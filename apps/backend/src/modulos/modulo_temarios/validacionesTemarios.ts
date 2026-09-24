@@ -2,7 +2,7 @@
  * Validaciones Zod del módulo de temarios.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 export const esquemaCrearTemarioManual = z
   .object({

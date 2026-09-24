@@ -271,98 +271,10 @@ async function main() {
   await generateIco(hubPngBuf, path.join(root, 'scripts', 'icons', 'dashboard-hub.ico'));
   await generateIco(hubPngBuf, path.join(root, 'scripts', 'icons', 'dashboard-hub-app.ico'));
 
-  // 3. Sincronizar con la instalación local si existe
-  const localAppDataIcons = path.join(process.env.LOCALAPPDATA || '', 'EvaluaPro', 'scripts', 'icons');
-  if (fs.existsSync(localAppDataIcons)) {
-    console.log(`3. Sincronizando íconos con instalación local: ${localAppDataIcons}`);
-    for (const file of fs.readdirSync(path.join(root, 'scripts', 'icons')).filter(f => f.endsWith('.ico'))) {
-      fs.copyFileSync(path.join(root, 'scripts', 'icons', file), path.join(localAppDataIcons, file));
-    }
-  }
-
-  // 4. Limpiar accesos directos redundantes y actualizar los 2 únicos accesos oficiales
-  const installFolder = path.join(process.env.LOCALAPPDATA || '', 'EvaluaPro');
-  const targetWscript = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'wscript.exe');
-
-  const updateScript = `
-$sh = New-Object -ComObject WScript.Shell
-$desktop = "$([Environment]::GetFolderPath('Desktop'))"
-$userProfileDesktop = if ($env:USERPROFILE) { Join-Path $env:USERPROFILE "Desktop" } else { $null }
-$startMenuBase = if ($env:APPDATA) { Join-Path $env:APPDATA "Microsoft\\Windows\\Start Menu\\Programs" } else { $null }
-$startMenuDir = if ($startMenuBase) { Join-Path $startMenuBase "EvaluaPro" } else { $null }
-
-$dirsToClean = @($desktop, $userProfileDesktop, $startMenuBase, $startMenuDir) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
-
-# Eliminar accesos directos redundantes
-$redundantNames = @('EvaluaPro - Prod', 'EvaluaPro - Dev', 'EvaluaPro - Abrir Dashboard', 'EvaluaPro - Reiniciar Stack', 'EvaluaPro - Detener Todo', 'EvaluaPro - Desinstalar', 'EvaluaPro - Reparar Entorno', 'Sistema Evaluacion - *')
-foreach ($dir in $dirsToClean) {
-  foreach ($pattern in $redundantNames) {
-    Get-ChildItem -Path $dir -Filter ($pattern + '.lnk') -ErrorAction SilentlyContinue | ForEach-Object {
-      try {
-        Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
-        Write-Host "Eliminado acceso redundante: $($_.FullName)"
-      } catch {}
-    }
-  }
-}
-
-# Crear/actualizar exclusivamente los 2 accesos oficiales en Desktop y Start Menu
-$officialShortcuts = @(
-  @{
-    Name = 'EvaluaPro.lnk'
-    Desc = 'EvaluaPro · Plataforma para evaluación universitaria'
-    Icon = '${path.join(root, 'scripts', 'icons', 'dashboard-prod.ico').replace(/\\/g, '\\\\')}'
-    Args = '//nologo "${path.join(root, 'scripts', 'launcher-tray-hidden.vbs').replace(/\\/g, '\\\\')}" prod 4519'
-    WorkingDir = '${root.replace(/\\/g, '\\\\')}'
-  },
-  @{
-    Name = 'EvaluaPro - Hub.lnk'
-    Desc = 'EvaluaPro Hub · Asistente local para instalar, verificar, reparar y operar'
-    Icon = '${path.join(root, 'scripts', 'icons', 'installer-canonical.ico').replace(/\\/g, '\\\\')}'
-    Args = '//nologo "${path.join(root, 'scripts', 'shortcut-op-hidden.vbs').replace(/\\/g, '\\\\')}" open-hub 4519 auto'
-    WorkingDir = '${root.replace(/\\/g, '\\\\')}'
-  }
-)
-
-$targetLocations = @($desktop)
-if ($startMenuDir) {
-  if (-not (Test-Path $startMenuDir)) { New-Item -ItemType Directory -Path $startMenuDir -Force | Out-Null }
-  $targetLocations += $startMenuDir
-}
-
-foreach ($loc in $targetLocations) {
-  foreach ($sc in $officialShortcuts) {
-    $lnkPath = Join-Path $loc $sc.Name
-    $lnk = $sh.CreateShortcut($lnkPath)
-    $lnk.TargetPath = '${targetWscript.replace(/\\/g, '\\\\')}'
-    $lnk.Arguments = $sc.Args
-    $lnk.WorkingDirectory = $sc.WorkingDir
-    $lnk.Description = $sc.Desc
-    $lnk.IconLocation = "$($sc.Icon),0"
-    $lnk.Save()
-    Write-Host "[OK] Acceso directo oficial actualizado: $lnkPath"
-  }
-}
-
-# Notificar al Shell de Windows para refrescar la cache de iconos inmediatamente
-if (Get-Command ie4uinit.exe -ErrorAction SilentlyContinue) {
-  try { & ie4uinit.exe -show } catch {}
-}
-`;
-
-  const tempPs1 = path.join(root, 'temp-refresh-shortcuts.ps1');
-  fs.writeFileSync(tempPs1, updateScript, 'utf8');
-  const { execSync } = await import('node:child_process');
-  try {
-    execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${tempPs1}"`, { stdio: 'inherit' });
-  } catch {}
-  try { fs.unlinkSync(tempPs1); } catch {}
-
-  console.log('✓ Generación de íconos transparentes y normalización de accesos directos completada con éxito.');
+  console.log('✓ Activos de iconos generados. La creación y reparación de accesos directos pertenece exclusivamente a scripts/create-shortcuts.ps1.');
 }
 
 main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

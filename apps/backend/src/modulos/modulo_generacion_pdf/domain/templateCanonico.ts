@@ -4,13 +4,13 @@
  * Responsabilidad: normalizar el único formato de examen operativo.
  * Límites: no contiene adaptadores ni rutas de compatibilidad histórica.
  */
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
 import type {
   MapaVariante,
   PreguntaBase,
   ResultadoGeneracionPdf,
   TemplateVersion
-} from '../shared/tiposPdf';
+} from '../shared/tiposPdf.js';
 
 export const TEMPLATE_VERSION_CANONICA: TemplateVersion = 4;
 export const TEMPLATE_VERSION_DEFAULT: TemplateVersion = TEMPLATE_VERSION_CANONICA;

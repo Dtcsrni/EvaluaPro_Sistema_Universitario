@@ -2,10 +2,10 @@
  * Middleware de permisos basado en roles (RBAC).
  */
 import type { NextFunction, Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import type { SolicitudDocente } from './middlewareAutenticacion';
-import type { Permiso } from '../../infraestructura/seguridad/rbac';
-import { permisosParaRoles } from '../../infraestructura/seguridad/rbac';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import type { SolicitudDocente } from './middlewareAutenticacion.js';
+import type { Permiso } from '../../infraestructura/seguridad/rbac.js';
+import { permisosParaRoles } from '../../infraestructura/seguridad/rbac.js';
 
 export function requerirPermiso(...permisos: Permiso[]) {
   return (req: SolicitudDocente, _res: Response, next: NextFunction) => {

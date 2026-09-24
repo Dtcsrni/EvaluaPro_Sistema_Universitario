@@ -34,8 +34,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..', '..');
 const backendDir = path.join(rootDir, 'apps', 'backend');
-const reportsDir = path.join(backendDir, '.vitest-reports', 'backend-coverage-batches');
-const logsDir = path.join(backendDir, '.vitest-reports', 'backend-coverage-logs');
+const reportsRootDir = path.join(backendDir, '.vitest-reports');
+const reportsDir = path.join(
+  reportsRootDir,
+  process.env.BACKEND_COVERAGE_REPORTS_DIR || `backend-coverage-batches-run-${process.pid}-${Date.now()}`
+);
+const logsDir = path.join(reportsRootDir, 'backend-coverage-logs');
 const vitestEntry = path.join(rootDir, 'node_modules', 'vitest', 'vitest.mjs');
 const batchAttempts = 3;
 const batchConcurrency = 2;
@@ -80,7 +84,7 @@ const integrationFilesNZ = [
   'tests/integracion/flujoExamen.test.ts',
   'tests/integracion/hidratacionCursos.test.ts',
   'tests/integracion/listaAcademicaContratos.test.ts',
-  'tests/integracion/omrV1Workflow.test.ts',
+  'tests/integracion/omrJobsWorkflow.test.ts',
   'tests/integracion/pdfImpresionContrato.test.ts',
   'tests/integracion/periodosBorradoDuplicados.test.ts',
   'tests/integracion/plantillasCrudYPreview.test.ts',
@@ -115,7 +119,7 @@ function buildRootCoverageBatches() {
   let index = 0;
   while (index < files.length) {
     const current = files[index];
-    const chunkSize = current.includes('/omr.') ? 1 : 4;
+    const chunkSize = current.includes('/omr.') || current.includes('sincronizacion.dos-equipos.e2e.test.ts') ? 1 : 4;
     const name = `backend-root-${String(batches.length + 1).padStart(2, '0')}`;
     batches.push({ name, args: batchArgs(name, files.slice(index, index + chunkSize)) });
     index += chunkSize;
@@ -124,11 +128,15 @@ function buildRootCoverageBatches() {
 }
 
 function batchArgs(name, filters) {
+  const pool = filters.some((filter) => String(filter).includes('sincronizacion.dos-equipos.e2e.test.ts'))
+    ? '--pool=threads'
+    : '--pool=forks';
   return [
     'vitest',
     'run',
     '--coverage',
     ...filters,
+    pool,
     '--reporter=default',
     '--reporter=blob',
     `--outputFile.blob=${path.join('.vitest-reports', 'backend-coverage-batches', `${name}.blob.json`)}`,
@@ -142,7 +150,7 @@ function chunkFiles(namePrefix, files, size = integrationChunkSize) {
 
   for (let index = 0; index < files.length;) {
     const current = files[index];
-    const isolated = /flujoDocente(Global|Parcial)E2E|omrV1Workflow|qrEscaneoOmr|pdfImpresionContrato|recoveryBundleGeneracion|recuperacionExamenes/.test(current);
+    const isolated = /flujoDocente(Global|Parcial)E2E|qrEscaneoOmr|pdfImpresionContrato|recoveryBundleGeneracion|recuperacionExamenes/.test(current);
     const chunkSize = isolated ? 1 : size;
     const chunk = files.slice(index, index + chunkSize);
     const suffix = String(batches.length + 1).padStart(2, '0');

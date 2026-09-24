@@ -7,7 +7,7 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
-import { crearApp } from '../src/app';
+import { crearApp } from '../src/app.js';
 
 async function main() {
   process.env.NODE_ENV = 'test';
