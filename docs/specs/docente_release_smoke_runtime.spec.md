@@ -1,11 +1,11 @@
 ---
 id: SPEC-DOCENTE-RELEASE-SMOKE
 titulo: Release smoke del flavor docente nativo
-version: 1.0.0
-fecha: 2026-07-14
+version: 1.1.0
+fecha: 2026-09-24
 autor: Codex
 modulo: installer_hub_docente
-estado: implemented
+estado: approved
 ---
 
 ## Contexto
@@ -56,6 +56,7 @@ a la ventana completa, no solo a la pantalla inicial.
 | REQ-008 | Tipografía, marca y superficies accesibles | `docs/DESIGN.md`, `apps/frontend/src/styles.css` | Implementado; pendiente de validación visual |
 | REQ-009 | Intro, carrusel y aceptación auditable | `packaging/wix/BurnBootstrapperApp/MainWindow.xaml`, `MainWindow.xaml.cs` | En implementación |
 | REQ-016 | Legibilidad de textos y estados dinámicos | `scripts/tests/installer-hub-contract.test.mjs`, `MainWindow.xaml.cs` | Implementado |
+| REQ-031 | Smoke activo explícito, no interferente y con cleanup del proceso propio | `scripts/tests/windows-release-smoke.test.mjs`, `scripts/tests/windows-release-smoke-ownership.test.mjs`, `.github/workflows/release-beta.yml` | En implementación; pruebas unitarias locales pasan, smoke de Windows pendiente |
 
 ### REQ-017 - Arranque nativo compatible con Node 24 en Windows
 
@@ -244,3 +245,33 @@ accesible para usuarios finales del flavor `docente-local`.
 2. **Acceso al Dashboard**: En `docente-local`, la apertura del Dashboard UI queda restringida a modo depuración activo (`EVALUAPRO_DEBUG=1` o `-Debug`) Y autenticación administrativa (`step-up` o licencia comercial/administrativa activa).
 3. **Redirección automática**: Si se solicita `open-dashboard` en `docente-local` sin credenciales de depuración/administrativas activas, el broker redirigirá automáticamente a la Web Docente nativa (`http://127.0.0.1:4173`).
 
+### REQ-031 - Aislamiento y cleanup del smoke activo de Windows
+
+El smoke activo de Windows solo se ejecuta con `EVALUAPRO_RUN_LOCAL_RELEASE_SMOKE=1`;
+el workflow de release debe establecer esa variable explícitamente. Si el entorno
+de pruebas tiene un listener o una instancia previa en los puertos reservados, el
+smoke debe fallar antes de invocar el broker; no debe omitir el gate ni adoptar,
+detener o reemplazar servicios ajenos. Un código no-cero del broker también es
+fallo de la prueba, no condición para `skip`.
+
+Antes de iniciar el dashboard, el smoke registra la identidad del proceso/lock
+existente. Tras el arranque, debe verificar y conservar el PID y puerto exactos
+de la instancia que inició, junto con evidencia suficiente para confirmar que el
+PID aún corresponde al ejecutable/launcher de esta instalación. Un `after` debe
+solicitar el cierre por ese puerto y verificar la terminación de ese mismo PID;
+un cierre forzado solo se permite si la identidad sigue coincidiendo. Si no puede
+demostrarse propiedad, la prueba falla y no termina ningún proceso.
+
+**Criterios de aceptación:**
+
+1. El workflow `release-beta.yml` activa el smoke de forma explícita y conserva
+   el fallo como fallo del job.
+2. Un entorno ocupado falla antes de modificar el broker, archivos de estado o
+   procesos existentes.
+3. Un broker que devuelve código no-cero falla la prueba; no se convierte en
+   `skip`.
+4. El cleanup puede terminar únicamente el PID registrado por la ejecución y
+   solo si la identidad de proceso/puerto todavía coincide.
+5. Las pruebas unitarias del harness cubren gate opt-in, entorno ocupado,
+   ownership válido/ajeno y cleanup en éxito y error. El smoke completo permanece
+   pendiente hasta ejecutarse en un runner Windows dedicado.

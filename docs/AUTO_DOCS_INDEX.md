@@ -20,9 +20,11 @@ No editar a mano: los cambios se pisan al regenerar.
 - [FLUJO_EXAMEN.md](FLUJO_EXAMEN.md) — Flujo de examen
 - [FORMATO_PDF.md](FORMATO_PDF.md) — Formato PDF y OMR
 - [GUIA_FORMULARIOS.md](GUIA_FORMULARIOS.md) — Guía para llenar formularios (UI)
+- [GUIA_ICONOGRAFIA.md](GUIA_ICONOGRAFIA.md) — Catálogo de iconos
 - [IA_SKILLS_MCP_POLICY.md](IA_SKILLS_MCP_POLICY.md) — Politica de Skills y MCP para EvaluaPro
 - [IA_TRAZABILIDAD_AGENTES.md](IA_TRAZABILIDAD_AGENTES.md) — Trazabilidad IA del Proyecto
 - [INSTALLER_HUB.md](INSTALLER_HUB.md) — Installer Hub (Windows)
+- [INSTANCE_LIFECYCLE.md](INSTANCE_LIFECYCLE.md) — Ciclo de vida de instancias EvaluaPro
 - [INVENTARIO_CODIGO_EXHAUSTIVO.md](INVENTARIO_CODIGO_EXHAUSTIVO.md) — Inventario Exhaustivo de Codigo
 - [INVENTARIO_PROYECTO.md](INVENTARIO_PROYECTO.md) — Inventario Tecnico del Proyecto
 - [MANUAL_USUARIO_DOCENTE.md](MANUAL_USUARIO_DOCENTE.md) — Manual de Usuario | EvaluaPro (Flavor Docente)

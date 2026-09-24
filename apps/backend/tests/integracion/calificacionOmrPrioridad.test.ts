@@ -65,21 +65,47 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
       .expect(201);
     const alumnoId = alumnoResp.body.alumno._id as string;
 
-    const preguntaResp = await request(app)
-      .post('/api/banco-preguntas')
+    const temaResp = await request(app)
+      .post('/api/banco-preguntas/temas')
       .set(auth)
-      .send({
-        periodoId,
-        enunciado: 'Pregunta unica',
-        opciones: [
-          { texto: 'Opcion A', esCorrecta: true },
-          { texto: 'Opcion B', esCorrecta: false },
-          { texto: 'Opcion C', esCorrecta: false },
-          { texto: 'Opcion D', esCorrecta: false },
-          { texto: 'Opcion E', esCorrecta: false }
-        ]
-      })
+      .send({ periodoId, nombre: 'Tema OMR prioridad' })
       .expect(201);
+    const temaId = temaResp.body.tema._id as string;
+    const loteReactivos = {
+      contract: 'evaluapro.reactivos.batch',
+      schemaVersion: 1,
+      batchId: 'calificacion-omr-prioridad',
+      target: { periodoId, temaIds: [temaId] },
+      source: { kind: 'manual', generator: 'integracion-backend', generatedAt: new Date().toISOString() },
+      items: Array.from({ length: 5 }, (_, indice) => ({
+        externalKey: `omr-prioridad-${indice + 1}`,
+        itemId: null,
+        expectedVersion: null,
+        format: 'omr.mcq5',
+        stem: { format: 'richtext', value: `Pregunta ${indice + 1}` },
+        options: ['A', 'B', 'C', 'D', 'E'].map((key, index) => ({ key, value: `Opcion ${key}`, isCorrect: index === 0 })),
+        metadata: { difficultyHypothesis: 'medium' },
+        provenance: { origin: 'authored', confidence: 1, notes: 'fixture de prioridad OMR' }
+      }))
+    };
+    const previewReactivos = await request(app)
+      .post('/api/banco-preguntas/importaciones/preview')
+      .set(auth)
+      .send(loteReactivos)
+      .expect(200);
+    const confirmacionReactivos = await request(app)
+      .post(`/api/banco-preguntas/importaciones/${previewReactivos.body.importId}/confirmar`)
+      .set(auth)
+      .send({ planHash: previewReactivos.body.planHash, payload: loteReactivos })
+      .expect(200);
+    const reactivoId = String(confirmacionReactivos.body.reactivoIds[0]);
+    await request(app).post(`/api/banco-preguntas/reactivos/${reactivoId}/revisar`).set(auth).send({}).expect(200);
+    const publicacionReactivo = await request(app)
+      .post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`)
+      .set(auth)
+      .send({})
+      .expect(200);
+    const preguntaId = publicacionReactivo.body.legacyPreguntaId as string;
 
     const plantillaResp = await request(app)
       .post('/api/examenes/plantillas')
@@ -89,9 +115,14 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
         tipo: 'parcial',
         titulo: 'Parcial 1',
         numeroPaginas: 1,
-        preguntasIds: [preguntaResp.body.pregunta._id]
+        preguntasIds: [preguntaId]
       })
       .expect(201);
+
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaResp.body.plantilla._id}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
 
     const examenResp = await request(app)
       .post('/api/examenes/generados')

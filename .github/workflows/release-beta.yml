@@ -182,6 +182,7 @@ jobs:
 
       - name: Etapa windows-release-smoke Installer Hub
         env:
+          EVALUAPRO_RUN_LOCAL_RELEASE_SMOKE: '1'
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'

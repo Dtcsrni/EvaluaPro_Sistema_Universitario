@@ -1743,10 +1743,13 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     : payload.Remediation.RestartReason)
                 : payload.System?.Issues?.Count > 0
                     ? string.Join(" | ", payload.System.Issues)
+                    : payload.Lifecycle is not null && string.Equals(payload.Lifecycle.State, "conflict", StringComparison.OrdinalIgnoreCase)
+                        ? "Existe una instancia en conflicto; la reparación o limpieza requiere una decisión explícita."
                     : isGenuinelyInstalled
                         ? "EvaluaPro ya está instalado. El asistente se iniciará en modo de gestión."
                         : (payload.Runtime?.Reason ?? "Equipo listo para continuar."),
             Ready = payload.Ready,
+            LifecycleState = payload.Lifecycle?.State ?? "unknown",
             AssetName = payload.Flavor?.InstallerHubExeName ?? "EvaluaPro-InstallerHub-docente-local.exe",
             Prerequisites = payload.Prerequisites ?? [],
             AvailableFlavors = LoadFlavorItems()
@@ -2669,6 +2672,7 @@ public sealed class DetectionPayload
     public RuntimePayload? Runtime { get; set; }
     public IReadOnlyList<PrerequisitePayload>? Prerequisites { get; set; }
     public RemediationPayload? Remediation { get; set; }
+    public LifecyclePayload? Lifecycle { get; set; }
 }
 
 public sealed class FlavorPayload
@@ -2714,6 +2718,27 @@ public sealed class RemediationPayload
     public string Phase { get; set; } = string.Empty;
 }
 
+public sealed class LifecyclePayload
+{
+    public string State { get; set; } = "unknown";
+    public string RecommendedMode { get; set; } = "install";
+    public bool PreserveDataByDefault { get; set; } = true;
+    public bool CleanupRequiresExplicitConfirmation { get; set; } = true;
+    public IReadOnlyList<LifecycleInstancePayload>? Instances { get; set; }
+}
+
+public sealed class LifecycleInstancePayload
+{
+    public string InstallDir { get; set; } = string.Empty;
+    public string DataDir { get; set; } = string.Empty;
+    public string FlavorId { get; set; } = "unknown";
+    public string Version { get; set; } = string.Empty;
+    public string State { get; set; } = "unknown";
+    public bool ReadOnlyInventory { get; set; } = true;
+    public bool PreserveDataByDefault { get; set; } = true;
+    public bool CleanupRequiresExplicitConfirmation { get; set; } = true;
+}
+
 public sealed class ResumeState
 {
     public DateTime CreatedAtUtc { get; set; }
@@ -2736,6 +2761,7 @@ public sealed class WindowDetectionModel
     public string Mode { get; set; } = "install";
     public bool IsInstalled { get; set; }
     public string Summary { get; set; } = string.Empty;
+    public string LifecycleState { get; set; } = "unknown";
     public bool Ready { get; set; }
     public string AssetName { get; set; } = string.Empty;
     public IReadOnlyList<PrerequisitePayload> Prerequisites { get; set; } = [];

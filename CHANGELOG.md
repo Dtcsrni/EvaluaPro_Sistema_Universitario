@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased] - 2026-09-03
 
 ### Added
+- **Dataset OMR externo y ciclo de vida de instancias (`SPEC-067`):** preparador lossless fuera del payload del Hub con etiquetas JSONL, hashes, procedencia, ZIP verificado y extracción conservadora de EXIF; el Installer Hub ahora inventaría estados de instalación, bloquea conflictos de flavor/raíces, preserva datos y no permite downgrades automáticos.
 - **Purga de legado OMR/PDF:** se retiraron OMR V1, TV3, renderer HTML/fallback anterior,
   adaptadores V9/V10, datasets TV3 y utilidades temporales heredadas; el flujo activo conserva
   exclusivamente el contrato canónico TV4 y sus evidencias sintéticas/piloto.
