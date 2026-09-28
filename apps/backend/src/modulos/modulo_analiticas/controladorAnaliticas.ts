@@ -17,6 +17,10 @@ import { generarXlsxCalificacionesProduccion } from './servicioExportacionXlsxCa
 import { construirManifiestoIntegridadLista, serializarManifiestoEstable } from './servicioFirmaIntegridad.js';
 import { registrarExportacionLista } from '../../compartido/observabilidad/metrics.js';
 import { log } from '../../infraestructura/logging/logger.js';
+import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion.js';
+import { MapeoClassroomEvidencia } from '../modulo_integraciones_classroom/modeloMapeoClassroomEvidencia.js';
+import { actualizarFaltanteManualClassroom } from '../modulo_integraciones_classroom/servicioSyncClassroom.js';
+import { calcularComponentesFisicosParcial2, proyectarPromedioTareasParcial2 } from './servicioPromedioTareasParcial2.js';
 
 /**
  * Registra eventos de uso asociados al docente.
@@ -149,7 +153,9 @@ export async function exportarCsvCalificaciones(req: SolicitudDocente, res: Resp
     where: { periodo: { id: periodoId, docenteId } }
   });
   const calificaciones = await prisma.calificacion.findMany({
-    where: { docenteId, periodoId }
+    where: { docenteId, periodoId },
+    orderBy: { createdAt: 'asc' },
+    include: { examenGenerado: { include: { plantilla: true } } }
   });
   const banderas = await prisma.banderaRevision.findMany({
     where: { docenteId }
@@ -165,18 +171,21 @@ export async function exportarCsvCalificaciones(req: SolicitudDocente, res: Resp
   });
 
   const filas = alumnos.map((alumno) => {
-    const calificacion = calificaciones.find((item) => String(item.alumnoId) === String(alumno.id));
-    const parcial = calificacion?.calificacionParcialTexto ?? '';
-    const global = calificacion?.calificacionGlobalTexto ?? '';
-    const final = global || parcial || calificacion?.calificacionExamenFinalTexto || '';
+    const fila = construirListaAcademica(
+      [{ _id: alumno.id, matricula: alumno.matricula, nombreCompleto: alumno.nombreCompleto, grupo: alumno.grupo }],
+      calificaciones
+        .filter((item) => String(item.alumnoId) === String(alumno.id))
+        .map((item) => ({ ...item, plantillaTitulo: item.examenGenerado?.plantilla?.titulo })),
+      banderas
+    )[0];
     return {
       matricula: alumno.matricula,
       nombre: alumno.nombreCompleto,
       grupo: alumno.grupo ?? '',
-      parcial1: calificacion?.tipoExamen === 'parcial' ? parcial : '',
-      parcial2: '',
-      global: calificacion?.tipoExamen === 'global' ? global : '',
-      final,
+      parcial1: fila?.parcial1 ?? '',
+      parcial2: fila?.parcial2 ?? '',
+      global: fila?.global ?? '',
+      final: fila?.final ?? '',
       banderas: (banderasPorAlumno.get(String(alumno.id)) ?? []).join(';')
     };
   });
@@ -209,22 +218,36 @@ export async function exportarXlsxCalificaciones(req: SolicitudDocente, res: Res
     prisma.docente.findUnique({ where: { id: docenteId } }),
     prisma.periodo.findFirst({ where: { id: periodoId, docenteId } }),
     prisma.alumno.findMany({ where: { periodo: { id: periodoId, docenteId } } }),
-    prisma.calificacion.findMany({ where: { docenteId, periodoId } })
+    prisma.calificacion.findMany({
+      where: { docenteId, periodoId },
+      include: { examenGenerado: { include: { plantilla: true } } }
+    })
   ]);
 
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
   }
 
+  const listaFisica = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
   const mappedAlumnos = alumnos.map((a) => ({ ...a, _id: a.id }));
-  const mappedCalificaciones = calificaciones.map((c) => ({ ...c, _id: c.id, tipoExamen: c.tipoExamen as 'parcial' | 'global' }));
+  const mappedCalificaciones = calificaciones.map((c) => ({
+    ...c,
+    _id: c.id,
+    tipoExamen: c.tipoExamen as 'parcial' | 'global',
+    plantillaTitulo: c.examenGenerado?.plantilla?.titulo
+  }));
 
   const xlsx = await generarXlsxCalificacionesProduccion({
     docenteNombre: String(docente?.nombreCompleto || ''),
     nombrePeriodo: String(periodo.nombre || ''),
     cicloLectivo: cicloLectivo(periodo.fechaInicio, periodo.fechaFin),
     alumnos: mappedAlumnos,
-    calificaciones: mappedCalificaciones as any
+    calificaciones: mappedCalificaciones as any,
+    calificacionesFisicasParcial2: Object.fromEntries(listaFisica.map((fila) => [String(fila.alumnoId), {
+      tareasEjerciciosParcial2: fila.tareasEjerciciosParcial2,
+      practicaParcial2: fila.practicaParcial2,
+      calificacionExamenConBonoParcial2: fila.calificacionExamenConBonoParcial2
+    }]))
   });
 
   res.setHeader(
@@ -235,26 +258,152 @@ export async function exportarXlsxCalificaciones(req: SolicitudDocente, res: Res
   res.send(xlsx);
 }
 
-async function obtenerListaAcademicaPorPeriodo(docenteId: string, periodoId: string) {
+export async function obtenerListaAcademicaPorPeriodo(docenteId: string, periodoId: string) {
   const alumnos = await prisma.alumno.findMany({
     where: { periodo: { id: periodoId, docenteId } }
   });
   const calificaciones = await prisma.calificacion.findMany({
-    where: { docenteId, periodoId }
+    where: { docenteId, periodoId },
+    include: { examenGenerado: { include: { plantilla: true } } }
   });
   const banderas = await prisma.banderaRevision.findMany({
     where: { docenteId }
   });
 
   const mappedAlumnos = alumnos.map((a) => ({ ...a, _id: a.id }));
-  const mappedCalificaciones = calificaciones.map((c) => ({ ...c, _id: c.id }));
+  const mappedCalificaciones = calificaciones.map((c) => ({
+    ...c,
+    _id: c.id,
+    plantillaTitulo: c.examenGenerado?.plantilla?.titulo
+  }));
   const mappedBanderas = banderas.map((b) => ({
     ...b,
     _id: b.id,
     tipo: b.motivo // Map motivo -> tipo
   }));
 
-  return construirListaAcademica(mappedAlumnos, mappedCalificaciones, mappedBanderas);
+  const filas = construirListaAcademica(mappedAlumnos, mappedCalificaciones, mappedBanderas);
+  const proyecciones = await obtenerProyeccionTareasParcial2(docenteId, periodoId, alumnos.map((a) => String(a.id)));
+  const capturas = await prisma.calificacionManualLista.findMany({ where: { docenteId, periodoId } });
+  const capturasPorAlumno = new Map(capturas.map((captura) => [captura.alumnoId, captura]));
+  return filas.map((fila) => {
+    const proyeccion = proyecciones.get(String(fila.alumnoId));
+    const captura = capturasPorAlumno.get(String(fila.alumnoId));
+    const practica = captura?.practicaDecimal ?? null;
+    const examen = captura?.examenDecimal ?? null;
+    const componentes = calcularComponentesFisicosParcial2({
+      tareasEjerciciosParcial2: proyeccion?.tareasEjerciciosParcial2 ?? '',
+      practicaParcial2: practica,
+      examenManualParcial2: examen,
+      bonoGuiaEstudio: captura?.bonoGuiaEstudio ?? false
+    });
+    return {
+      ...fila,
+      tareasEjerciciosParcial2: proyeccion?.tareasEjerciciosParcial2 ?? '',
+      puntosObtenidosParcial2: proyeccion?.puntosObtenidosParcial2 ?? null,
+      puntosPosiblesParcial2: proyeccion?.puntosPosiblesParcial2 ?? null,
+      actividadesCalificadasParcial2: proyeccion?.actividadesCalificadasParcial2 ?? 0,
+      nombresActividadesParcial2: proyeccion?.nombresActividadesParcial2 ?? [],
+      actividadesParcial2: proyeccion?.actividadesParcial2 ?? [],
+      practicaParcial2: practica === null ? '' : String(practica),
+      examenManualParcial2: examen === null ? '' : String(examen),
+      bonoGuiaEstudioParcial2: captura?.bonoGuiaEstudio ?? false,
+      ...componentes
+    };
+  });
+}
+
+async function obtenerProyeccionTareasParcial2(docenteId: string, periodoId: string, alumnoIds: string[]) {
+  if (!alumnoIds.length) return new Map();
+  const mapeos = await MapeoClassroomEvidencia.find({ docenteId, periodoId, alumnoId: 'todos', corte: 2, activo: { $ne: false } }).lean();
+  const actividades = mapeos.map((mapeo: any) => ({
+    courseId: String(mapeo.courseId ?? ''),
+    courseWorkId: String(mapeo.courseWorkId ?? ''),
+    titulo: String(mapeo.tituloEvidencia ?? ''),
+    incluirEnPromedio: mapeo.incluirEnPromedio !== false,
+    puntosPosibles: Number.isFinite(Number(mapeo.puntosPosibles)) ? Number(mapeo.puntosPosibles) : null,
+    fechaLimite: typeof mapeo.fechaLimiteClassroom === 'string' ? mapeo.fechaLimiteClassroom : null
+  }));
+  if (!actividades.length) return proyectarPromedioTareasParcial2(alumnoIds, [], []);
+  const [evidencias, faltantes] = await Promise.all([
+    EvidenciaEvaluacion.find({
+      docenteId,
+      periodoId,
+      alumnoId: { $in: alumnoIds },
+      fuente: 'classroom'
+    }).lean(),
+    prisma.mapeoClassroomEvidencia.findMany({
+      where: { docenteId, periodoId, alumnoId: { in: alumnoIds }, estado: 'faltante_confirmado' }
+    })
+  ]);
+  return proyectarPromedioTareasParcial2(
+    alumnoIds,
+    actividades,
+    evidencias as any,
+    faltantes.map((faltante) => ({
+      alumnoId: faltante.alumnoId,
+      courseId: faltante.courseId,
+      courseWorkId: faltante.courseWorkId
+    }))
+  );
+}
+
+export async function consultarListaAcademica(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const periodoId = String(req.query.periodoId || '').trim();
+  validarPeriodoId(periodoId);
+  const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
+  res.json({ filas });
+}
+
+export async function guardarCalificacionesManualesParcial2(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const alumnoId = String(req.params.alumnoId || '').trim();
+  const periodoId = String(req.body.periodoId || '').trim();
+  const alumno = await prisma.alumno.findFirst({
+    where: { id: alumnoId, periodoId, periodo: { docenteId } },
+    select: { id: true }
+  });
+  if (!alumno) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece a esta materia.', 404);
+
+  const practicaDecimal = req.body.practicaDecimal === null ? null : Number(req.body.practicaDecimal);
+  const examenDecimal = req.body.examenDecimal === null ? null : Number(req.body.examenDecimal);
+  const bonoGuiaEstudio = Boolean(req.body.bonoGuiaEstudio) && examenDecimal !== null;
+  const captura = await prisma.calificacionManualLista.upsert({
+    where: { docenteId_periodoId_alumnoId: { docenteId, periodoId, alumnoId } },
+    update: { practicaDecimal, examenDecimal, bonoGuiaEstudio, actualizadoPor: docenteId },
+    create: { docenteId, periodoId, alumnoId, practicaDecimal, examenDecimal, bonoGuiaEstudio, actualizadoPor: docenteId }
+  });
+
+  res.json({ captura: {
+    practicaDecimal: captura.practicaDecimal,
+    examenDecimal: captura.examenDecimal,
+    bonoGuiaEstudio: captura.bonoGuiaEstudio,
+    actualizadoEn: captura.updatedAt
+  } });
+}
+
+export async function actualizarFaltanteManualParcial2(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const alumnoId = String(req.params.alumnoId || '').trim();
+  const periodoId = String(req.body.periodoId || '').trim();
+  const alumno = await prisma.alumno.findFirst({
+    where: { id: alumnoId, periodoId, periodo: { docenteId } },
+    select: { id: true }
+  });
+  if (!alumno) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece a esta materia.', 404);
+
+  const resultado = await actualizarFaltanteManualClassroom({
+    docenteId,
+    periodoId,
+    alumnoId,
+    courseId: String(req.body.courseId),
+    courseWorkId: String(req.body.courseWorkId),
+    faltante: req.body.faltante === true
+  });
+  const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
+  const fila = filas.find((actual) => String(actual.alumnoId) === alumnoId);
+  res.json({ ...resultado, ...(fila ? { fila } : {}) });
 }
 
 function validarPeriodoId(periodoId: string) {

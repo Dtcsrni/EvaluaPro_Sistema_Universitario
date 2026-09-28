@@ -445,7 +445,8 @@ export async function mapearClassroomEvidencia(req: SolicitudDocente, res: Respo
     docenteId,
     periodoId,
     courseId: actividad.courseId,
-    courseWorkId: actividad.courseWorkId
+    courseWorkId: actividad.courseWorkId,
+    alumnoId: 'todos'
   }).lean();
 
   res.status(201).json({ mapeo, deprecado: true });
@@ -524,4 +525,21 @@ export async function importarAlumnosClassroomController(req: SolicitudDocente, 
     alumnos: Array.isArray(alumnos) ? alumnos : []
   });
   res.status(200).json(resultado);
+}
+
+export async function actualizarInclusionPromedioClassroom(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const { periodoId, courseId, courseWorkId, incluirEnPromedio } = req.body as {
+    periodoId: string;
+    courseId: string;
+    courseWorkId: string;
+    incluirEnPromedio: boolean;
+  };
+  const filtro = { docenteId, periodoId, courseId, courseWorkId, alumnoId: 'todos', corte: 2, activo: { $ne: false } };
+  const existente = await MapeoClassroomEvidencia.findOne(filtro).lean();
+  if (!existente) {
+    throw new ErrorAplicacion('CLASSROOM_MAPEO_NO_ENCONTRADO', 'Primero sincroniza y vincula esta actividad al segundo parcial.', 404);
+  }
+  await MapeoClassroomEvidencia.findOneAndUpdate(filtro, { $set: { incluirEnPromedio } });
+  res.json({ courseId, courseWorkId, incluirEnPromedio });
 }

@@ -46,6 +46,7 @@ type ClassroomActividad = {
     ponderacion?: number;
     corte?: number;
     activo?: boolean;
+    incluirEnPromedio?: boolean;
   } | null;
 };
 
@@ -75,6 +76,7 @@ type ActividadEditable = {
   ponderacion: string;
   corte: string;
   activo: boolean;
+  incluirEnPromedio: boolean;
 };
 
 type ClassroomPreviewResultado = {
@@ -268,7 +270,8 @@ export function SeccionClassroom({
               descripcionEvidencia: actividad.mapeo?.descripcionEvidencia ?? actividad.description ?? '',
               ponderacion: String(actividad.mapeo?.ponderacion ?? 1),
               corte: actividad.mapeo?.corte ? String(actividad.mapeo.corte) : '1',
-              activo: actividad.mapeo?.activo !== false
+              activo: actividad.mapeo?.activo !== false,
+              incluirEnPromedio: actividad.mapeo?.incluirEnPromedio !== false
             }
           ])
         )
@@ -432,9 +435,40 @@ export function SeccionClassroom({
         descripcionEvidencia: editable?.descripcionEvidencia || actividad.description || undefined,
         ponderacion: Number(editable?.ponderacion || 1),
         corte: Number(editable?.corte || 1),
-        activo: editable?.activo !== false
+        activo: editable?.activo !== false,
+        incluirEnPromedio: editable?.incluirEnPromedio !== false
       };
     });
+  }
+
+  async function cambiarInclusionPromedio(actividad: ClassroomActividad, incluirEnPromedio: boolean) {
+    if (!periodoId || !courseIdSeleccionado || !actividad.mapeo) return;
+    const valorAnterior = actividad.mapeo.incluirEnPromedio !== false;
+    setEdicionActividades((prev) => ({
+      ...prev,
+      [actividad.id]: { ...prev[actividad.id], incluirEnPromedio }
+    }));
+    try {
+      await clienteApi.actualizar('/integraciones/classroom/promedio-tareas', {
+        periodoId,
+        courseId: courseIdSeleccionado,
+        courseWorkId: actividad.id,
+        incluirEnPromedio
+      });
+      setActividades((prev) => prev.map((item) => item.id === actividad.id
+        ? { ...item, mapeo: { ...item.mapeo, incluirEnPromedio } }
+        : item));
+      emitToast({ level: 'ok', title: 'Promedio actualizado', message: incluirEnPromedio
+        ? `“${actividad.title}” se incluirá en Tareas y Ejercicios 2do Parcial.`
+        : `“${actividad.title}” se excluyó de Tareas y Ejercicios 2do Parcial.` });
+    } catch (error) {
+      setEdicionActividades((prev) => ({
+        ...prev,
+        [actividad.id]: { ...prev[actividad.id], incluirEnPromedio: valorAnterior }
+      }));
+      const msg = mensajeDeError(error, 'No se pudo actualizar la selección del promedio.');
+      emitToast({ level: 'error', title: 'Error', message: msg });
+    }
   }
 
   async function crearMateriaDesdeCurso() {
@@ -1162,6 +1196,7 @@ export function SeccionClassroom({
                 <Icono nombre="evaluaciones" /> Tareas de Classroom ({actividades.length})
               </h3>
               <p className="nota">Selecciona las actividades que deseas sincronizar para la evaluación continua.</p>
+              <p className="nota">Por defecto, todas las actividades activas vinculadas al segundo parcial forman el promedio de “Tareas y Ejercicios 2do Parcial”; puedes excluir actividades después de sincronizarlas.</p>
             </div>
           </div>
 
@@ -1182,7 +1217,8 @@ export function SeccionClassroom({
                 descripcionEvidencia: actividad.description || '',
                 ponderacion: '1',
                 corte: '1',
-                activo: true
+                activo: true,
+                incluirEnPromedio: true
               };
               const seleccionada = actividadIdsSeleccionados.includes(actividad.id);
 
@@ -1225,6 +1261,19 @@ export function SeccionClassroom({
                       </select>
                     </label>
                   </div>
+                  {editable.corte === '2' && actividad.mapeo && (
+                    <label className="checkbox-ui classroom-act-promedio">
+                      <input
+                        type="checkbox"
+                        checked={editable.incluirEnPromedio}
+                        disabled={!editable.activo}
+                        aria-label={`Incluir ${actividad.title} en Tareas y Ejercicios 2do Parcial`}
+                        onChange={(event) => void cambiarInclusionPromedio(actividad, event.target.checked)}
+                      />
+                      <span className="checkbox-ui__box" aria-hidden="true" />
+                      <span>Incluir en el promedio de Tareas y Ejercicios 2do Parcial</span>
+                    </label>
+                  )}
                   <div className="classroom-act-pond">
                     <label className="campo">
                       <span>Ponderación</span>

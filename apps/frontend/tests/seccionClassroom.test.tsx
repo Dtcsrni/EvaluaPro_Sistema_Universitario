@@ -178,6 +178,54 @@ describe('SeccionClassroom', () => {
     });
   });
 
+  it('permite guardar por separado la inclusión de una actividad de segundo parcial en su promedio', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation((ruta) => {
+      if (ruta === '/evaluaciones/v2/classroom/estado') {
+        return Promise.resolve({ estado: { conectado: true } });
+      }
+      if (ruta === '/evaluaciones/v2/classroom/cursos') {
+        return Promise.resolve({ cursos: [{ id: 'curso-101', name: 'Inteligencia de Negocios' }] });
+      }
+      if (ruta.includes('/classroom/cursos/curso-101/actividades')) {
+        return Promise.resolve({ actividades: [{
+          id: 'cw-1',
+          title: 'Guía de estudio',
+          maxPoints: 10,
+          mapeo: { corte: 2, activo: true, incluirEnPromedio: false }
+        }] });
+      }
+      if (ruta.includes('/classroom/cursos/curso-101/alumnos')) {
+        return Promise.resolve({ alumnosLocales: [], alumnosClassroom: [] });
+      }
+      return Promise.resolve({});
+    });
+    vi.mocked(clienteApi.actualizar).mockResolvedValueOnce({ ok: true });
+
+    render(
+      <SeccionClassroom
+        periodos={periodosMock}
+        puedeClassroomConectar={true}
+        puedeClassroomPull={true}
+        classroomDisponible={true}
+      />
+    );
+
+    const selector = await screen.findByRole('checkbox', {
+      name: 'Incluir Guía de estudio en Tareas y Ejercicios 2do Parcial'
+    });
+    expect(selector).not.toBeChecked();
+    fireEvent.click(selector);
+
+    await waitFor(() => {
+      expect(clienteApi.actualizar).toHaveBeenCalledWith('/integraciones/classroom/promedio-tareas', {
+        periodoId: 'per-1',
+        courseId: 'curso-101',
+        courseWorkId: 'cw-1',
+        incluirEnPromedio: true
+      });
+    });
+  });
+
   it('conserva la materia local seleccionada al elegir otro curso de Google', async () => {
     const cursos = [
       { id: 'curso-bi', name: 'Inteligencia de Negocios' },

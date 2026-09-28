@@ -27,7 +27,7 @@ export async function generarDocxListaAcademica(columnas: string[], filas: Lista
   const filasTabla = filas.map(
     (fila) =>
       new TableRow({
-        children: columnas.map((columna) => celdaDato(fila[columna as keyof ListaAcademicaFila] ?? ''))
+        children: columnas.map((columna) => celdaDato(String(fila[columna as keyof ListaAcademicaFila] ?? '')))
       })
   );
 

@@ -2286,6 +2286,250 @@
     linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 97%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 74%, rgba(165, 122, 42, 0.1));
 }
 
+.calificaciones-consulta {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.calificaciones-consulta__summary,
+.calificaciones-consulta__toolbar,
+.calificaciones-consulta__filters,
+.calificaciones-consulta__detail-grid,
+.calificaciones-consulta__detail-head,
+.calificaciones-consulta__detail-score {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.calificaciones-consulta__summary {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  color: var(--ui-text-secondary);
+  font-size: 0.86rem;
+}
+
+.calificaciones-consulta__toolbar {
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.calificaciones-consulta__toolbar > .campo {
+  flex: 1 1 12rem;
+  min-width: min(100%, 12rem);
+}
+
+.calificaciones-consulta__filters {
+  flex: 1 1 18rem;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.calificaciones-consulta__filters .boton.is-active,
+.calificaciones-consulta__filters .boton[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--ui-accent-primary) 64%, var(--ui-glass-border));
+  background: color-mix(in srgb, var(--ui-accent-primary) 18%, var(--ui-glass-surface-strong));
+}
+
+.calificaciones-consulta__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ui-glass-border);
+  border-radius: var(--radius-md);
+}
+
+.calificaciones-consulta__table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+}
+
+.calificaciones-consulta__table th,
+.calificaciones-consulta__table td {
+  padding: 0.75rem 0.8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-glass-border) 72%, transparent);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.calificaciones-consulta__table thead th {
+  color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.calificaciones-consulta__student,
+.calificaciones-consulta__matricula {
+  display: block;
+}
+
+.calificaciones-consulta__student {
+  color: var(--ui-text-primary);
+  font-weight: 700;
+}
+
+.calificaciones-consulta__matricula {
+  margin-top: 0.2rem;
+  color: var(--ui-text-muted);
+  font-size: 0.8rem;
+}
+
+.calificaciones-consulta__final {
+  color: var(--ui-accent-primary);
+  font-weight: 800;
+}
+
+.calificaciones-consulta__status {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-text-muted) 12%, var(--ui-glass-surface));
+  color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.calificaciones-consulta__status.is-complete {
+  background: color-mix(in srgb, var(--ui-accent-success) 18%, var(--ui-glass-surface));
+  color: var(--ui-accent-success);
+}
+
+.calificaciones-consulta__status.is-pending {
+  background: color-mix(in srgb, var(--ui-accent-warning) 18%, var(--ui-glass-surface));
+  color: var(--ui-accent-warning);
+}
+
+.calificaciones-consulta__detail {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--ui-accent-primary) 42%, var(--ui-glass-border));
+  border-radius: var(--radius-md);
+  background: var(--ui-glass-surface-strong);
+}
+
+.calificaciones-consulta__detail-head {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.calificaciones-consulta__detail-head h4,
+.calificaciones-consulta__detail-head p {
+  margin: 0.2rem 0 0;
+}
+
+.calificaciones-consulta__detail-head p,
+.calificaciones-consulta__detail-grid dt {
+  color: var(--ui-text-muted);
+}
+
+.calificaciones-consulta__close {
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  border: 1px solid var(--ui-glass-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ui-text-primary);
+  cursor: pointer;
+}
+
+.calificaciones-consulta__detail-score {
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ui-accent-primary) 12%, var(--ui-glass-surface));
+}
+
+.calificaciones-consulta__detail-score strong {
+  color: var(--ui-accent-primary);
+  font-size: 1.5rem;
+}
+
+.calificaciones-consulta__manual-capture {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--ui-glass-border);
+  border-radius: var(--radius-md);
+}
+
+.calificaciones-consulta__manual-capture legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+}
+
+.calificaciones-consulta__manual-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.calificaciones-consulta__bonus {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.calificaciones-consulta__activity {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--ui-glass-border);
+}
+
+.calificaciones-consulta__activity > div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.calificaciones-consulta__activity .calificaciones-consulta__bonus {
+  flex: 0 0 auto;
+}
+
+.calificaciones-consulta__detail-grid {
+  flex-wrap: wrap;
+  align-items: stretch;
+  margin: 0;
+}
+
+.calificaciones-consulta__detail-grid > div {
+  flex: 1 1 8rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--ui-glass-border);
+  border-radius: var(--radius-sm);
+}
+
+.calificaciones-consulta__detail-grid dt {
+  font-size: 0.8rem;
+}
+
+.calificaciones-consulta__detail-grid dd {
+  margin: 0.25rem 0 0;
+  color: var(--ui-text-primary);
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .calificaciones-consulta__summary {
+    justify-content: flex-start;
+  }
+
+  .calificaciones-consulta__table {
+    min-width: 1180px;
+  }
+
+  .calificaciones-consulta__activity {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .calif-omr-panel .resultado,
 .calif-grade-card {
   padding: 1rem;

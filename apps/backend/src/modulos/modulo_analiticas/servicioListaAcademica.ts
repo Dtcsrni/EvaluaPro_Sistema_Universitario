@@ -18,10 +18,49 @@ type AlumnoFila = {
 type CalificacionFila = {
   alumnoId: unknown;
   tipoExamen?: unknown;
+  plantillaTitulo?: unknown;
   calificacionParcialTexto?: unknown;
   calificacionGlobalTexto?: unknown;
   calificacionExamenFinalTexto?: unknown;
+  createdAt?: unknown;
 };
+
+export type CorteExamen = 'parcial1' | 'parcial2' | 'global';
+
+function normalizarParaCorte(valor: unknown): string {
+  return limpiarTexto(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * El tipo persistido solo distingue parcial/global; el título de la plantilla
+ * permite separar de forma determinista Parcial 1 y Parcial 2.
+ */
+export function resolverCorteExamen(tipoExamen: unknown, plantillaTitulo?: unknown): CorteExamen | null {
+  const tipo = normalizarParaCorte(tipoExamen);
+  const titulo = normalizarParaCorte(plantillaTitulo);
+  const texto = `${titulo} ${tipo}`.trim();
+
+  if (texto.includes('global') || texto.includes('final') || tipo === 'global') return 'global';
+  if (
+    /(?:parcial|p)\s*(?:2|ii)\b/.test(texto) ||
+    /\b(?:segundo|segunda|dos)\s+parcial\b/.test(texto) ||
+    /\b2(?:do|da|ndo|nda)\s+parcial\b/.test(texto)
+  ) {
+    return 'parcial2';
+  }
+  if (
+    /(?:parcial|p)\s*(?:1|i)\b/.test(texto) ||
+    /\b(?:primer|primero|primera|uno)\s+parcial\b/.test(texto) ||
+    /\b1(?:er|ro|ra)\s+parcial\b/.test(texto)
+  ) {
+    return 'parcial1';
+  }
+  return null;
+}
 
 type BanderaFila = {
   alumnoId: unknown;
@@ -81,32 +120,65 @@ export function construirListaAcademica(
     banderasPorAlumno.set(alumnoId, lista);
   }
 
-  const calificacionesPorAlumno = new Map<string, CalificacionFila>();
+  const calificacionesPorAlumno = new Map<string, CalificacionFila[]>();
   for (const calificacion of calificaciones) {
     const alumnoId = limpiarTexto(calificacion.alumnoId);
     if (!alumnoId) continue;
-    calificacionesPorAlumno.set(alumnoId, calificacion);
+    const lista = calificacionesPorAlumno.get(alumnoId) ?? [];
+    lista.push(calificacion);
+    calificacionesPorAlumno.set(alumnoId, lista);
   }
 
   return alumnos.map((alumno) => {
     const alumnoId = limpiarTexto(alumno._id);
-    const calificacion = calificacionesPorAlumno.get(alumnoId);
-    const tipoExamen = limpiarTexto(calificacion?.tipoExamen);
-    const parcial = limpiarTexto(calificacion?.calificacionParcialTexto);
-    const global = limpiarTexto(calificacion?.calificacionGlobalTexto);
-    const final = global || parcial || limpiarTexto(calificacion?.calificacionExamenFinalTexto);
+    const calificacionesAlumno = (calificacionesPorAlumno.get(alumnoId) ?? []).slice().sort((a, b) => {
+      const fechaA = new Date(String(a.createdAt ?? '')).getTime();
+      const fechaB = new Date(String(b.createdAt ?? '')).getTime();
+      if (Number.isFinite(fechaA) && Number.isFinite(fechaB) && fechaA !== fechaB) return fechaA - fechaB;
+      return 0;
+    });
+    const parciales = calificacionesAlumno.filter((item) => {
+      const corte = resolverCorteExamen(item.tipoExamen, item.plantillaTitulo);
+      return corte === 'parcial1' || corte === 'parcial2' || (corte === null && normalizarParaCorte(item.tipoExamen) === 'parcial');
+    });
+    const parcial1Registro = parciales.find((item) => resolverCorteExamen(item.tipoExamen, item.plantillaTitulo) === 'parcial1')
+      ?? parciales.find((item) => resolverCorteExamen(item.tipoExamen, item.plantillaTitulo) === null);
+    const parcial2Registro = parciales.find((item) => resolverCorteExamen(item.tipoExamen, item.plantillaTitulo) === 'parcial2')
+      ?? parciales.find((item) => item !== parcial1Registro && resolverCorteExamen(item.tipoExamen, item.plantillaTitulo) === null);
+    const globales = calificacionesAlumno.filter((item) => resolverCorteExamen(item.tipoExamen, item.plantillaTitulo) === 'global');
+    const globalRegistro = globales[globales.length - 1];
+    const parcial1 = limpiarTexto(parcial1Registro?.calificacionParcialTexto);
+    const parcial2 = limpiarTexto(parcial2Registro?.calificacionParcialTexto);
+    const global = limpiarTexto(globalRegistro?.calificacionGlobalTexto);
+    const finalesPersistidos = calificacionesAlumno.map((item) => limpiarTexto(item.calificacionExamenFinalTexto)).filter(Boolean);
+    const finalPersistido = finalesPersistidos[finalesPersistidos.length - 1] ?? '';
+    const final = global || parcial2 || parcial1 || finalPersistido;
     const banderasAlumno = (banderasPorAlumno.get(alumnoId) ?? []).join(';');
     const nombre = obtenerPartesNombre(alumno);
 
     return {
+      alumnoId,
       matricula: limpiarTexto(alumno.matricula),
       apellidoPaterno: nombre.apellidoPaterno,
       apellidoMaterno: nombre.apellidoMaterno,
       nombre: nombre.nombre,
       grupo: limpiarTexto(alumno.grupo),
-      parcial1: tipoExamen === 'parcial' ? parcial : '',
-      parcial2: '',
-      global: tipoExamen === 'global' ? global : '',
+      parcial1,
+      parcial2,
+      resultadoAutomaticoParcial2: limpiarTexto(parcial2Registro?.calificacionExamenFinalTexto),
+      tareasEjerciciosParcial2: '',
+      puntosObtenidosParcial2: null,
+      puntosPosiblesParcial2: null,
+      actividadesCalificadasParcial2: 0,
+      nombresActividadesParcial2: [],
+      actividadesParcial2: [],
+      practicaParcial2: '',
+      examenManualParcial2: '',
+      bonoGuiaEstudioParcial2: false,
+      calificacionExamenConBonoParcial2: '',
+      evaluacionContinuaParcial2: '',
+      calificacionSegundoParcialFisica: '',
+      global,
       final,
       observaciones: banderasAlumno,
       conformidadAlumno: ''

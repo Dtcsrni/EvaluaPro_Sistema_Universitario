@@ -15,6 +15,7 @@ import { clienteApi } from './clienteApiDocente';
 import { registrarAccionDocente } from './telemetriaDocente';
 import { SeccionEscaneo } from './SeccionEscaneo';
 import { SeccionCalificar } from './SeccionCalificar';
+import { ConsultaCalificaciones } from './ConsultaCalificaciones';
 import { GuiaCalificacionesVisual } from './GuiaCalificacionesVisual';
 import type {
   Alumno,
@@ -179,6 +180,7 @@ export function SeccionCalificaciones({
   const [examenesCalificadosPersistidos, setExamenesCalificadosPersistidos] = useState<ExamenEntregado[]>([]);
   const [examenesPorId, setExamenesPorId] = useState<Map<string, ExamenEntregado>>(new Map());
   const [periodoReporteId, setPeriodoReporteId] = useState('');
+  const [periodoConsultaId, setPeriodoConsultaId] = useState('');
   const [reporteDescargando, setReporteDescargando] = useState<'csv' | 'xlsx' | null>(null);
   const [mensajeReporte, setMensajeReporte] = useState('');
 
@@ -191,6 +193,16 @@ export function SeccionCalificaciones({
       setPeriodoReporteId('');
     }
   }, [periodoReporteId, periodos]);
+
+  useEffect(() => {
+    if (!periodoConsultaId && periodos.length > 0) {
+      setPeriodoConsultaId(String(periodos[0]?._id ?? '').trim());
+      return;
+    }
+    if (periodoConsultaId && !periodos.some((periodo) => String(periodo?._id ?? '').trim() === periodoConsultaId)) {
+      setPeriodoConsultaId('');
+    }
+  }, [periodoConsultaId, periodos]);
 
   const descargarReporteCalificaciones = useCallback(
     async (formato: 'csv' | 'xlsx') => {
@@ -403,6 +415,15 @@ export function SeccionCalificaciones({
     setExamenManualId('');
     setManualMensaje('');
     setManualContexto(null);
+  }
+
+  function abrirRevisionDesdeConsulta(valor: string) {
+    const alumnoIdConsulta = String(valor ?? '').trim();
+    if (!alumnoIdConsulta) return;
+    seleccionarAlumnoManual(alumnoIdConsulta);
+    window.requestAnimationFrame(() => {
+      document.getElementById('calificaciones-manual-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   function etiquetarTipoExamen(tipo?: string | null) {
@@ -1007,6 +1028,14 @@ export function SeccionCalificaciones({
       {/* 2. Bento Visual Guide */}
       <GuiaCalificacionesVisual />
 
+      <ConsultaCalificaciones
+        periodos={periodos}
+        periodoId={periodoConsultaId}
+        actualizacion={marcaActualizacionCalificados}
+        onPeriodoChange={setPeriodoConsultaId}
+        onSeleccionarAlumno={abrirRevisionDesdeConsulta}
+      />
+
       {/* Bento Action Deck: Exportación & Escrutinio */}
       <div className="calif-action-deck anim-fade-in">
         <div className="calif-deck-card calif-deck-card--reports">
@@ -1335,7 +1364,7 @@ export function SeccionCalificaciones({
             )}
           </section>
 
-          <section className="panel calificaciones-manual-panel anim-fade-in">
+          <section id="calificaciones-manual-panel" className="panel calificaciones-manual-panel anim-fade-in">
             <div className="banco-section-title">
               <div className="banco-section-title__wrap">
                 <span className="banco-section-pill">

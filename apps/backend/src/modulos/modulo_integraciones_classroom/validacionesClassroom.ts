@@ -66,7 +66,8 @@ export const esquemaActividadClassroomSeleccionada = z
     descripcionEvidencia: z.string().trim().max(600).optional(),
     ponderacion: z.number().min(0).max(100).optional(),
     corte: z.number().int().min(1).max(3).optional(),
-    activo: z.boolean().optional()
+    activo: z.boolean().optional(),
+    incluirEnPromedio: z.boolean().optional()
   })
   .strict();
 
@@ -96,5 +97,14 @@ export const esquemaImportarAlumnosClassroom = z
       )
       .min(1)
       .max(500)
+  })
+  .strict();
+
+export const esquemaInclusionPromedioClassroom = z
+  .object({
+    periodoId: esquemaObjectId,
+    courseId: z.string().trim().min(1).max(128),
+    courseWorkId: z.string().trim().min(1).max(128),
+    incluirEnPromedio: z.boolean()
   })
   .strict();

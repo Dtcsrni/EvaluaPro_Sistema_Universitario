@@ -429,6 +429,23 @@ model Calificacion {
   @@map("calificaciones")
 }
 
+/// Captura docente separada del resultado OMR para el libro físico del segundo parcial.
+model CalificacionManualLista {
+  id                 String   @id @default(uuid())
+  docenteId          String
+  periodoId          String
+  alumnoId           String
+  practicaDecimal    Float?
+  examenDecimal      Float?
+  bonoGuiaEstudio    Boolean  @default(false)
+  actualizadoPor     String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([docenteId, periodoId, alumnoId])
+  @@map("calificaciones_manuales_lista")
+}
+
 model SolicitudRevisionAlumno {
   id                       String          @id @default(uuid())
   externoId                String?         @unique

@@ -5,7 +5,9 @@
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { createHash } from 'node:crypto';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { obtenerFechaLimiteClassroom } from '../modulo_analiticas/servicioPromedioTareasParcial2.js';
 import { Alumno } from '../modulo_alumnos/modeloAlumno.js';
 import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion.js';
 import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
@@ -57,7 +59,14 @@ function normalizarActividadSeleccionada(actividad: ActividadClassroomSelecciona
     ...(normalizarTexto(actividad.descripcionEvidencia) ? { descripcionEvidencia: normalizarTexto(actividad.descripcionEvidencia) } : {}),
     ...(Number.isFinite(Number(actividad.ponderacion)) ? { ponderacion: Number(actividad.ponderacion) } : {}),
     ...(Number.isFinite(Number(actividad.corte)) ? { corte: Number(actividad.corte) } : {}),
-    ...(typeof actividad.activo === 'boolean' ? { activo: actividad.activo } : {})
+    ...(typeof actividad.activo === 'boolean' ? { activo: actividad.activo } : {}),
+    ...(typeof actividad.incluirEnPromedio === 'boolean' ? { incluirEnPromedio: actividad.incluirEnPromedio } : {}),
+    ...(actividad.puntosPosibles === null || Number.isFinite(Number(actividad.puntosPosibles))
+      ? { puntosPosibles: actividad.puntosPosibles === null ? null : Number(actividad.puntosPosibles) }
+      : {}),
+    ...(actividad.fechaLimiteClassroom === null || typeof actividad.fechaLimiteClassroom === 'string'
+      ? { fechaLimiteClassroom: actividad.fechaLimiteClassroom }
+      : {})
   };
 }
 
@@ -86,6 +95,9 @@ export type ActividadClassroomSeleccionada = {
   ponderacion?: number;
   corte?: number;
   activo?: boolean;
+  incluirEnPromedio?: boolean;
+  puntosPosibles?: number | null;
+  fechaLimiteClassroom?: string | null;
 };
 
 type EstudianteClassroom = {
@@ -284,7 +296,8 @@ async function guardarMetadataActividad(
       docenteId,
       periodoId,
       courseId: actividadNormalizada.courseId,
-      courseWorkId: actividadNormalizada.courseWorkId
+      courseWorkId: actividadNormalizada.courseWorkId,
+      alumnoId: 'todos'
     },
     {
       $set: {
@@ -292,11 +305,21 @@ async function guardarMetadataActividad(
         periodoId,
         courseId: actividadNormalizada.courseId,
         courseWorkId: actividadNormalizada.courseWorkId,
+        alumnoId: 'todos',
         tituloEvidencia: actividadNormalizada.tituloEvidencia || undefined,
         descripcionEvidencia: actividadNormalizada.descripcionEvidencia || undefined,
         ponderacion: Number.isFinite(Number(actividadNormalizada.ponderacion)) ? Number(actividadNormalizada.ponderacion) : 1,
         corte: Number.isFinite(Number(actividadNormalizada.corte)) ? Number(actividadNormalizada.corte) : undefined,
         activo: actividadNormalizada.activo === false ? false : true,
+        ...(typeof actividadNormalizada.incluirEnPromedio === 'boolean'
+          ? { incluirEnPromedio: actividadNormalizada.incluirEnPromedio }
+          : {}),
+        ...(actividadNormalizada.puntosPosibles !== undefined
+          ? { puntosPosibles: actividadNormalizada.puntosPosibles }
+          : {}),
+        ...(actividadNormalizada.fechaLimiteClassroom !== undefined
+          ? { fechaLimiteClassroom: actividadNormalizada.fechaLimiteClassroom }
+          : {}),
         ...(opciones?.asignacionesAlumnos ? { asignacionesAlumnos: opciones.asignacionesAlumnos } : {})
       }
     },
@@ -370,7 +393,7 @@ export async function listarActividadesPorCurso(docenteId: string, courseId: str
   const [courseWork, mapeos] = await Promise.all([
     listarActividadesClassroom(accessToken, courseId),
     periodoId
-      ? MapeoClassroomEvidencia.find({ docenteId, periodoId, courseId }).lean()
+      ? MapeoClassroomEvidencia.find({ docenteId, periodoId, courseId, alumnoId: 'todos' }).lean()
       : Promise.resolve([])
   ]);
   const mapeosPorActividad = new Map(
@@ -394,11 +417,131 @@ export async function listarActividadesPorCurso(docenteId: string, courseId: str
             descripcionEvidencia: normalizarTexto(mapeo.descripcionEvidencia) || undefined,
             ponderacion: numeroSeguro(mapeo.ponderacion) || 1,
             corte: Number.isFinite(Number(mapeo.corte)) ? Number(mapeo.corte) : undefined,
-            activo: mapeo.activo !== false
+            activo: mapeo.activo !== false,
+            incluirEnPromedio: mapeo.incluirEnPromedio !== false,
+            puntosPosibles: Number.isFinite(Number(mapeo.puntosPosibles)) ? Number(mapeo.puntosPosibles) : null,
+            fechaLimiteClassroom: typeof mapeo.fechaLimiteClassroom === 'string' ? mapeo.fechaLimiteClassroom : null
           }
         : null
     };
   });
+}
+
+export async function actualizarFaltanteManualClassroom(params: {
+  docenteId: string;
+  periodoId: string;
+  alumnoId: string;
+  courseId: string;
+  courseWorkId: string;
+  faltante: boolean;
+}) {
+  const id = `faltante-${createHash('sha256')
+    .update([params.docenteId, params.periodoId, params.alumnoId, params.courseId, params.courseWorkId].join('\u0000'))
+    .digest('hex')}`;
+  const wherePropio = {
+    id,
+    docenteId: params.docenteId,
+    periodoId: params.periodoId,
+    alumnoId: params.alumnoId,
+    courseId: params.courseId,
+    courseWorkId: params.courseWorkId
+  };
+
+  if (!params.faltante) {
+    await prisma.mapeoClassroomEvidencia.deleteMany({ where: wherePropio });
+    return { faltante: false, fechaLimite: null };
+  }
+
+  const mapeo = await MapeoClassroomEvidencia.findOne({
+    docenteId: params.docenteId,
+    periodoId: params.periodoId,
+    courseId: params.courseId,
+    courseWorkId: params.courseWorkId,
+    alumnoId: 'todos',
+    corte: 2
+  }).lean();
+  if (!mapeo || mapeo.activo === false || mapeo.incluirEnPromedio === false) {
+    throw new ErrorAplicacion('CLASSROOM_ACTIVIDAD_NO_ELEGIBLE', 'La actividad no está incluida en el promedio de tareas del segundo parcial.', 409);
+  }
+
+  const asignacion = await MapeoClassroomAlumnoCurso.findOne({
+    docenteId: params.docenteId,
+    periodoId: params.periodoId,
+    alumnoId: params.alumnoId,
+    courseId: params.courseId
+  }).lean();
+  const classroomUserId = normalizarTexto(asignacion?.classroomUserId);
+  if (!classroomUserId) {
+    throw new ErrorAplicacion('CLASSROOM_ALUMNO_NO_VINCULADO', 'Vincula este alumno con su cuenta de Classroom antes de marcar la falta.', 409);
+  }
+
+  const accessToken = await obtenerTokenAccesoClassroom(params.docenteId);
+  const courseWork = await classroomGet(
+    accessToken,
+    `courses/${encodeURIComponent(params.courseId)}/courseWork/${encodeURIComponent(params.courseWorkId)}`
+  );
+  const fechaLimite = obtenerFechaLimiteClassroom(courseWork);
+  if (!fechaLimite || fechaLimite.getTime() > Date.now()) {
+    throw new ErrorAplicacion('CLASSROOM_ACTIVIDAD_NO_VENCIDA', 'Solo puedes marcar como faltante una actividad con fecha de entrega vencida.', 409);
+  }
+  const puntosPosibles = Number(courseWork.maxPoints);
+  if (!Number.isFinite(puntosPosibles) || puntosPosibles <= 0) {
+    throw new ErrorAplicacion('CLASSROOM_PUNTOS_INVALIDOS', 'La actividad no tiene puntos posibles positivos y no puede afectar el promedio.', 409);
+  }
+
+  let pageToken: string | undefined;
+  let submission: Record<string, unknown> | undefined;
+  do {
+    const pagina = await classroomGet(
+      accessToken,
+      `courses/${encodeURIComponent(params.courseId)}/courseWork/${encodeURIComponent(params.courseWorkId)}/studentSubmissions`,
+      { pageSize: 500, ...(pageToken ? { pageToken } : {}) }
+    );
+    const submissions = Array.isArray(pagina.studentSubmissions)
+      ? pagina.studentSubmissions as Array<Record<string, unknown>>
+      : [];
+    submission = submissions.find((item) => normalizarTexto(item.userId) === classroomUserId);
+    pageToken = normalizarTexto(pagina.nextPageToken) || undefined;
+  } while (!submission && pageToken);
+
+  if (!submission) {
+    throw new ErrorAplicacion('CLASSROOM_ENTREGA_NO_ENCONTRADA', 'Classroom no reporta esta actividad para el alumno; no se marcó como faltante.', 409);
+  }
+  if (typeof submission.assignedGrade === 'number' && Number.isFinite(submission.assignedGrade)) {
+    throw new ErrorAplicacion('CLASSROOM_ENTREGA_YA_CALIFICADA', 'La actividad ya tiene una calificación publicada en Classroom; no se marcó como faltante.', 409);
+  }
+
+  const marcadoEn = new Date();
+  const metadata = JSON.stringify({
+    tipo: 'faltante_confirmado_docente',
+    actualizadoPor: params.docenteId,
+    marcadoEn: marcadoEn.toISOString(),
+    fechaLimiteClassroom: fechaLimite.toISOString()
+  });
+  await prisma.mapeoClassroomEvidencia.upsert({
+    where: { id },
+    update: { estado: 'faltante_confirmado', metadata, updatedAt: marcadoEn },
+    create: {
+      ...wherePropio,
+      estado: 'faltante_confirmado',
+      metadata,
+      createdAt: marcadoEn,
+      updatedAt: marcadoEn
+    }
+  });
+
+  await MapeoClassroomEvidencia.findOneAndUpdate(
+    {
+      docenteId: params.docenteId,
+      periodoId: params.periodoId,
+      courseId: params.courseId,
+      courseWorkId: params.courseWorkId,
+      alumnoId: 'todos'
+    },
+    { $set: { puntosPosibles, fechaLimiteClassroom: fechaLimite.toISOString() } }
+  );
+
+  return { faltante: true, fechaLimite: fechaLimite.toISOString() };
 }
 
 export async function obtenerAlumnosCursoClassroom(docenteId: string, periodoId: string, courseId: string) {
@@ -568,6 +711,13 @@ export async function sincronizarImportacionClassroom(params: {
         `courses/${encodeURIComponent(actividad.courseId)}/courseWork/${encodeURIComponent(actividad.courseWorkId)}`
       );
 
+      await guardarMetadataActividad(params.docenteId, params.periodoId, {
+        ...actividad,
+        tituloEvidencia: normalizarTexto(courseWorkPayload.title) || actividad.tituloEvidencia,
+        puntosPosibles: Number.isFinite(Number(courseWorkPayload.maxPoints)) ? Number(courseWorkPayload.maxPoints) : null,
+        fechaLimiteClassroom: obtenerFechaLimiteClassroom(courseWorkPayload)?.toISOString() ?? null
+      });
+
       resultadoActividad.courseName = normalizarTexto(coursePayload.name) || undefined;
       resultadoActividad.courseWorkTitle = normalizarTexto(courseWorkPayload.title) || undefined;
 
@@ -575,7 +725,8 @@ export async function sincronizarImportacionClassroom(params: {
         docenteId: params.docenteId,
         periodoId: params.periodoId,
         courseId: actividad.courseId,
-        courseWorkId: actividad.courseWorkId
+        courseWorkId: actividad.courseWorkId,
+        alumnoId: 'todos'
       }).lean();
       const asignacionesLegacy = Array.isArray(mapeoLegacyDoc?.asignacionesAlumnos) ? mapeoLegacyDoc.asignacionesAlumnos : [];
       const mapeoLegacy = new Map<string, string>(

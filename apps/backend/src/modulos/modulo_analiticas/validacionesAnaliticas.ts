@@ -26,3 +26,26 @@ export const esquemaExportarCsv = z
     filas: z.array(esquemaFilaCsv).max(5000)
   })
   .strict();
+
+export const esquemaGuardarCalificacionesManualesParcial2 = z
+  .object({
+    periodoId: z.string().trim().min(1).max(128),
+    practicaDecimal: z.number().min(0).max(10).nullable(),
+    examenDecimal: z.number().min(0).max(5).nullable(),
+    bonoGuiaEstudio: z.boolean()
+  })
+  .strict()
+  .superRefine((datos, contexto) => {
+    if (datos.bonoGuiaEstudio && datos.examenDecimal === null) {
+      contexto.addIssue({ code: z.ZodIssueCode.custom, path: ['bonoGuiaEstudio'], message: 'El bono requiere una calificación manual de examen.' });
+    }
+  });
+
+export const esquemaActualizarFaltanteManualParcial2 = z
+  .object({
+    periodoId: esquemaObjectId,
+    courseId: z.string().trim().min(1).max(128),
+    courseWorkId: z.string().trim().min(1).max(128),
+    faltante: z.boolean()
+  })
+  .strict();

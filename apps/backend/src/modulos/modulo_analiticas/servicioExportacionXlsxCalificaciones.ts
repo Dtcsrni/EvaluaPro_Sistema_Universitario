@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import ExcelJS from 'exceljs';
+import { resolverCorteExamen } from './servicioListaAcademica.js';
 
 const { Workbook } = ExcelJS;
 type Worksheet = ExcelJS.Worksheet;
@@ -21,6 +22,7 @@ type AlumnoFila = {
 type CalificacionFila = {
   alumnoId: unknown;
   tipoExamen?: 'parcial' | 'global';
+  plantillaTitulo?: string;
   calificacionExamenFinalTexto?: string;
   evaluacionContinuaTexto?: string;
   proyectoTexto?: string;
@@ -29,12 +31,19 @@ type CalificacionFila = {
   createdAt?: Date | string;
 };
 
+type CapturaFisicaParcial2 = {
+  tareasEjerciciosParcial2: string;
+  practicaParcial2: string;
+  calificacionExamenConBonoParcial2: string;
+};
+
 type OpcionesLibro = {
   docenteNombre: string;
   nombrePeriodo: string;
   cicloLectivo: string;
   alumnos: AlumnoFila[];
   calificaciones: CalificacionFila[];
+  calificacionesFisicasParcial2?: Record<string, CapturaFisicaParcial2>;
 };
 
 const NOMBRE_PLANTILLA = 'LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx';
@@ -81,12 +90,16 @@ function porAlumno(calificaciones: CalificacionFila[], alumnoId: string) {
     .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime());
 
   const parciales = registros.filter((r) => r.tipoExamen === 'parcial');
-  const globales = registros.filter((r) => r.tipoExamen === 'global');
+  const parcial1 = parciales.find((r) => resolverCorteExamen(r.tipoExamen, r.plantillaTitulo) === 'parcial1')
+    ?? parciales.find((r) => resolverCorteExamen(r.tipoExamen, r.plantillaTitulo) === null);
+  const parcial2 = parciales.find((r) => resolverCorteExamen(r.tipoExamen, r.plantillaTitulo) === 'parcial2')
+    ?? parciales.find((r) => r !== parcial1 && resolverCorteExamen(r.tipoExamen, r.plantillaTitulo) === null);
+  const globales = registros.filter((r) => resolverCorteExamen(r.tipoExamen, r.plantillaTitulo) === 'global');
 
   return {
-    parcial1: parciales[0],
-    parcial2: parciales[1],
-    global: globales[0]
+    parcial1,
+    parcial2,
+    global: globales[globales.length - 1]
   };
 }
 
@@ -123,9 +136,10 @@ export async function generarXlsxCalificacionesProduccion(opts: OpcionesLibro): 
     const p1Exam = numeroSeguro(grupo.parcial1?.calificacionExamenFinalTexto);
     const p1Total = numeroSeguro(grupo.parcial1?.calificacionParcialTexto);
 
-    const p2Eval = numeroSeguro(grupo.parcial2?.evaluacionContinuaTexto);
-    const p2Exam = numeroSeguro(grupo.parcial2?.calificacionExamenFinalTexto);
-    const p2Total = numeroSeguro(grupo.parcial2?.calificacionParcialTexto);
+    const capturaFisica = opts.calificacionesFisicasParcial2?.[String(alumno._id)];
+    const tareasParcial2 = numeroSeguro(capturaFisica?.tareasEjerciciosParcial2);
+    const practicaParcial2 = numeroSeguro(capturaFisica?.practicaParcial2);
+    const examenManualParcial2 = numeroSeguro(capturaFisica?.calificacionExamenConBonoParcial2);
 
     const gExam = numeroSeguro(grupo.global?.calificacionExamenFinalTexto);
     const gProyecto = numeroSeguro(grupo.global?.proyectoTexto);
@@ -145,13 +159,12 @@ export async function generarXlsxCalificacionesProduccion(opts: OpcionesLibro): 
       setFormula(ws, `AN${fila}`, `AL${fila}+AM${fila}`);
     }
 
-    setNumeroOBlanco(ws, `AQ${fila}`, p2Eval);
-    setNumeroOBlanco(ws, `AR${fila}`, p2Exam);
-    if (typeof p2Total === 'number') {
-      setNumeroOBlanco(ws, `AS${fila}`, p2Total);
-    } else {
-      setFormula(ws, `AS${fila}`, `AQ${fila}+AR${fila}`);
-    }
+    setNumeroOBlanco(ws, `AO${fila}`, tareasParcial2);
+    // La práctica y el examen impreso son captura manual; no se sustituyen por OMR.
+    setNumeroOBlanco(ws, `AP${fila}`, practicaParcial2);
+    setFormula(ws, `AQ${fila}`, `IF(COUNT(AO${fila}:AP${fila})<2,"",(AO${fila}*0.6+AP${fila}*0.4)/2)`);
+    setNumeroOBlanco(ws, `AR${fila}`, examenManualParcial2);
+    setFormula(ws, `AS${fila}`, `IF(COUNT(AQ${fila}:AR${fila})<2,"",AQ${fila}+AR${fila})`);
 
     setNumeroOBlanco(ws, `AT${fila}`, gExam);
     setNumeroOBlanco(ws, `AU${fila}`, gProyecto);

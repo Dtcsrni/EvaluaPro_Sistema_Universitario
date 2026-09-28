@@ -1,10 +1,11 @@
 # Contrato XLSX de Produccion (Calificaciones)
 
-## Fuente de verdad usada
-- Archivo: `Sistemas_Visuales_Enero-Febrero-2026.xlsx`
-- Hoja contractual: `LIBRO DE CALIFICACIONES`
-- Tabla Excel: `Calificaciones`
-- Rango base de tabla detectado: `C10:AY14`
+## Plantillas físicas verificadas
+- `lista_Inteligencia_de_Negocios_23A.xlsx`
+- `lista(3).xlsx` (Desarrollo de Aplicaciones Web)
+- Hoja contractual de ambas: `LIBRO DE CALIFICACIONES`
+- Encabezados comparados con la plantilla de salida sanitizada: `C10:BA10`; los
+  nombres y posiciones de las columnas coinciden en ambas listas.
 
 ## Estructura del libro
 1. Cabecera institucional con merges/estilos predefinidos en filas 1-9.
@@ -31,9 +32,9 @@
 - `AT`: `Exámen Global` (0..5)
 - `AU`: `Evaluación Continua 3er Parcial (Proyecto)` (0..5)
 - `AV`: `Calificación Tercer Parcial` (0..10)
-- `AW`: `Porcentaje 3er Parcial`
+- `AW`: `Calificación Tercer Parcial ` (encabezado duplicado en el original)
 - `AX`: `Porcentaje 1er y Segundo Parcial`
-- `AY`: `Porcentaje 1er y Segundo Parcial (ponderado)`
+- `AY`: `Porcentaje 1er y Segundo Parcial ` (encabezado duplicado en el original)
 - `AZ`: `Calificación Final`
 - `BA`: `Calificación Final (Base 10)`
 
@@ -49,25 +50,41 @@
 - `AZ = AW + AY`
 - `BA = AZ * 0.1`
 
+## Regla operativa acordada para segundo parcial
+
+La fórmula histórica anterior describe el formato recibido. Para esta integración,
+el docente confirmó que “Tareas y Ejercicios 2do Parcial” debe ser el promedio
+ponderado por puntos en escala 0–10: `10 × Σ puntos obtenidos / Σ puntos posibles`.
+Por omisión entran todas las actividades activas mapeadas al segundo parcial; el
+docente puede excluir actividades individualmente. Esta preferencia no detiene la
+sincronización ni elimina evidencias.
+El promedio de “Evaluación Continua 2do Parcial” es
+`(0.60 × AO + 0.40 × AP) / 2`, con ambas capturas completas. Esta regla y los
+campos manuales indicados en el mapeo aplicado rigen la proyección de esta versión.
+
 ## Mapeo a MongoDB actual
 Colecciones:
 - `alumnos`: nombre, matrícula, correo
 - `calificaciones`: valores por examen parcial/global
 
-Mapeo actual implementado para salida XLSX:
+Mapeo aplicado para salida XLSX:
 - `AL <- evaluacionContinuaTexto (parcial 1)`
 - `AM <- calificacionExamenFinalTexto (parcial 1)`
 - `AN <- calificacionParcialTexto (parcial 1)` o `AL+AM`
-- `AQ <- evaluacionContinuaTexto (parcial 2)`
-- `AR <- calificacionExamenFinalTexto (parcial 2)`
-- `AS <- calificacionParcialTexto (parcial 2)` o `AQ+AR`
+- `AO <- 10 × suma(puntos Classroom obtenidos) / suma(puntos posibles)` para actividades activas asignadas explícitamente al corte 2 e incluidas en la selección docente; por omisión se incluyen todas. Solo calificaciones publicadas participan. Ceros publicados cuentan; borradores, pendientes, sin mapeo o sin máximo positivo se excluyen.
+- `AP <- captura manual de Practica 2do Parcial (0..10)`
+- `AQ <- (AO*0.6 + AP*0.4)/2` cuando ambos componentes existen; en otro caso queda visualmente vacío.
+- `AR <- captura manual de Exámen 2do Parcial (0..5), más 0.25 únicamente si el docente marca el bono de guía de estudio; máximo 5.25.
+- `AS <- AQ+AR` solo cuando ambos componentes existen; en otro caso queda visualmente vacío.
 - `AT <- calificacionExamenFinalTexto (global)`
 - `AU <- proyectoTexto (global)`
 - `AV <- calificacionGlobalTexto (global)` o `AT+AU`
 - `AW..BA` se recalculan con fórmula contractual.
 
 Nota importante:
-- Los campos de tareas/prácticas (`AJ`, `AK`, `AO`, `AP`) no existen hoy como datos persistidos explícitos en Mongo; por eso se preserva el layout 1:1 y se priorizan calificaciones consolidadas (`AL..AV`) provenientes de datos reales productivos.
+- La nota OMR del examen de segundo parcial se expone como resultado automático independiente y nunca se copia a `AR`; la captura física manual del docente es la única fuente de `AR`.
+- Una entrega sin nota publicada no se presume como cero aunque su fecha haya pasado; solo se incluye cero cuando Classroom trae `assignedGrade = 0`.
+- `AQ` y `AS` usan fórmulas protegidas contra componentes incompletos para no presentar un cero artificial como calificación.
 
 ## Endpoint contractual
 - `GET /api/analiticas/calificaciones-xlsx?periodoId=<id>`
