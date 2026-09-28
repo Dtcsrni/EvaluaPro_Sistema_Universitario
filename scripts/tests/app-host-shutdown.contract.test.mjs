@@ -34,7 +34,19 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /PostAsync\(/);
   assert.match(hostSource, /\/api\/shutdown/);
   assert.match(hostSource, /e\.Cancel = true/);
-  assert.match(hostSource, /Kill\(entireProcessTree: true\)/);
+  assert.match(hostSource, /dashboardProcess\.Kill\(entireProcessTree: true\)/);
+  assert.match(hostSource, /if \(dashboardProcess == null\)[\s\S]*?return;/);
+});
+
+test('el host adopta servicios sanos antes del retorno temprano y solo si coinciden con la instalación', () => {
+  assert.match(hostSource, /await TryAdoptDashboardAsync\(dashboardPort\);[\s\S]*?if \(await ProbePortAsync\(webHealthUrl\) && await ProbePortAsync\(apiHealthUrl\)\)/);
+  assert.match(hostSource, /lockRoot\.TryGetProperty\("pid"/);
+  assert.match(hostSource, /lockPort != dashboardPort/);
+  assert.match(hostSource, /PathsEqual\(rootElement\.GetString\(\) \?\? string\.Empty, appRoot\)/);
+  assert.match(hostSource, /statusPort != dashboardPort/);
+  assert.match(hostSource, /dashboardProcess = process/);
+  assert.match(hostSource, /dashboardProcess = Process\.Start\(psi\)/);
+  assert.match(hostSource, /if \(dashboardProcess != null\) return true;[\s\S]*?se rechaza reutilizar servicios independientes[\s\S]*?return false;/);
 });
 
 test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente', () => {
@@ -47,6 +59,18 @@ test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente',
   assert.match(appSource, /ShowWindow\(handle, SwRestore\)/);
   assert.match(appSource, /SetForegroundWindow\(handle\)/);
   assert.match(appSource, /ReleaseDesktopSingleton\(\)/);
+});
+
+test('el singleton recupera únicamente un App Host huérfano y reintenta la adquisición', () => {
+  assert.match(appSource, /OrphanedInstanceMinimumAge = TimeSpan\.FromSeconds\(30\)/);
+  assert.match(appSource, /if \(attempt == 0 && TryRecoverOrphanedInstance\(\)\)[\s\S]*?continue;/);
+  assert.match(appSource, /existingProcess\.SessionId != currentProcess\.SessionId/);
+  assert.match(appSource, /PathsEqual\(TryGetExecutablePath\(existingProcess\), currentPath\)/);
+  assert.match(appSource, /existingProcess\.MainWindowHandle != IntPtr\.Zero/);
+  assert.match(appSource, /age < OrphanedInstanceMinimumAge/);
+  assert.match(appSource, /existingProcess\.Kill\(entireProcessTree: true\)/);
+  assert.match(appSource, /existingProcess\.WaitForExit\(3_000\)/);
+  assert.match(appSource, /LogDiagnostic\("DesktopSingleton",/);
 });
 
 test('la ventana nativa inicia grande, centrada y redimensionable para cubrir el acceso completo', () => {
