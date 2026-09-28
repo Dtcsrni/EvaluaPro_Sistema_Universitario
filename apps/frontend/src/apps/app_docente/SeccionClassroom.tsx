@@ -6,7 +6,7 @@
  *
  * Sin estilos inline: Todos los estilos provienen de screens.css y components.css.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clienteApi } from './clienteApiDocente';
 import type { Periodo } from './tipos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -133,6 +133,9 @@ export function SeccionClassroom({
   const [desconectando, setDesconectando] = useState(false);
   const [ejecutando, setEjecutando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const cursosRequestId = useRef(0);
+  const actividadesRequestId = useRef(0);
+  const rosterRequestId = useRef(0);
 
   // Auto-seleccionar primer periodo si cambia la lista
   useEffect(() => {
@@ -140,27 +143,6 @@ export function SeccionClassroom({
       setPeriodoId(periodos[0]._id);
     }
   }, [periodos, periodoId]);
-
-  // Auto-seleccionar primer curso cuando se carguen
-  useEffect(() => {
-    if (cursos.length > 0 && !courseIdSeleccionado) {
-      setCourseIdSeleccionado(cursos[0].id);
-    }
-  }, [cursos, courseIdSeleccionado]);
-
-  // Auto-emparejar periodoId si el nombre coincide con el curso seleccionado
-  useEffect(() => {
-    if (!courseIdSeleccionado || periodos.length === 0) return;
-    const curso = cursos.find((c: ClassroomCurso) => c.id === courseIdSeleccionado);
-    if (!curso) return;
-    const nombreNorm = normalizarBusqueda(curso.name);
-    const coincidencia = periodos.find(
-      (p: Periodo) => normalizarBusqueda(p.nombre) === nombreNorm || nombreNorm.includes(normalizarBusqueda(p.nombre))
-    );
-    if (coincidencia && periodoId !== coincidencia._id) {
-      setPeriodoId(coincidencia._id);
-    }
-  }, [courseIdSeleccionado, cursos, periodos, periodoId]);
 
   const actividadesSeleccionadas = useMemo(
     () => actividades.filter((actividad) => actividadIdsSeleccionados.includes(actividad.id)),
@@ -193,6 +175,7 @@ export function SeccionClassroom({
 
   const cargarCursos = useCallback(async (silencioso = false) => {
     if (!puedeClassroomPull || !classroomDisponible) return;
+    const requestId = ++cursosRequestId.current;
     setCargandoCursos(true);
     try {
       setMensaje('');
@@ -203,10 +186,11 @@ export function SeccionClassroom({
       const lista = Array.isArray(respuesta.cursos)
         ? respuesta.cursos.filter((c) => !c.courseState || c.courseState.toUpperCase() === 'ACTIVE')
         : [];
+      if (requestId !== cursosRequestId.current) return;
       setCursos(lista);
-      if (lista.length === 1 && !courseIdSeleccionado) {
-        setCourseIdSeleccionado(lista[0].id);
-      }
+      setCourseIdSeleccionado((actual) =>
+        lista.some((curso) => curso.id === actual) ? actual : lista.length === 1 ? lista[0].id : ''
+      );
       if (!silencioso) {
         emitToast({
           level: 'ok',
@@ -215,13 +199,16 @@ export function SeccionClassroom({
         });
       }
     } catch (error) {
+      if (requestId !== cursosRequestId.current) return;
+      setCursos([]);
+      setCourseIdSeleccionado('');
       const msg = mensajeDeError(error, 'No se pudieron cargar los cursos de Classroom.');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'Error de carga', message: msg });
     } finally {
-      setCargandoCursos(false);
+      if (requestId === cursosRequestId.current) setCargandoCursos(false);
     }
-  }, [classroomDisponible, courseIdSeleccionado, puedeClassroomPull]);
+  }, [classroomDisponible, puedeClassroomPull]);
 
   const cargarEstado = useCallback(async (silencioso = false) => {
     if (!puedeClassroomPull) return;
@@ -243,6 +230,11 @@ export function SeccionClassroom({
       }
       if (respuesta.estado?.conectado) {
         void cargarCursos(true);
+      } else {
+        cursosRequestId.current += 1;
+        setCargandoCursos(false);
+        setCursos([]);
+        setCourseIdSeleccionado('');
       }
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo cargar el estado de Classroom.');
@@ -255,12 +247,14 @@ export function SeccionClassroom({
 
   const cargarActividades = useCallback(async (courseId: string, currentPeriodoId?: string) => {
     if (!courseId) return;
+    const requestId = ++actividadesRequestId.current;
     setCargandoActividades(true);
     try {
       const queryPeriodo = currentPeriodoId ? `?periodoId=${encodeURIComponent(currentPeriodoId)}` : '';
       const respuesta = await clienteApi.obtener<{ actividades: ClassroomActividad[] }>(
         `/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/actividades${queryPeriodo}`
       );
+      if (requestId !== actividadesRequestId.current) return;
       const lista = Array.isArray(respuesta.actividades) ? respuesta.actividades : [];
       setActividades(lista);
       setEdicionActividades(
@@ -280,16 +274,18 @@ export function SeccionClassroom({
         )
       );
     } catch (error) {
+      if (requestId !== actividadesRequestId.current) return;
       const msg = mensajeDeError(error, 'No se pudieron cargar las actividades de Classroom.');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'Error', message: msg });
     } finally {
-      setCargandoActividades(false);
+      if (requestId === actividadesRequestId.current) setCargandoActividades(false);
     }
   }, []);
 
   const cargarRoster = useCallback(async (courseId: string, currentPeriodoId?: string) => {
     if (!courseId) return;
+    const requestId = ++rosterRequestId.current;
     setCargandoRoster(true);
     try {
       const queryPeriodo = currentPeriodoId ? `?periodoId=${encodeURIComponent(currentPeriodoId)}` : '';
@@ -297,6 +293,7 @@ export function SeccionClassroom({
         alumnosLocales: ClassroomAlumnoLocal[];
         alumnosClassroom: ClassroomAlumnoCurso[];
       }>(`/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/alumnos${queryPeriodo}`);
+      if (requestId !== rosterRequestId.current) return;
       const locales = Array.isArray(respuesta.alumnosLocales) ? respuesta.alumnosLocales : [];
       const classroom = Array.isArray(respuesta.alumnosClassroom) ? respuesta.alumnosClassroom : [];
       setAlumnosLocales(locales);
@@ -327,11 +324,12 @@ export function SeccionClassroom({
         });
       }
     } catch (error) {
+      if (requestId !== rosterRequestId.current) return;
       const msg = mensajeDeError(error, 'No se pudo cargar el mapeo de alumnos Classroom.');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'Error', message: msg });
     } finally {
-      setCargandoRoster(false);
+      if (requestId === rosterRequestId.current) setCargandoRoster(false);
     }
   }, []);
 
@@ -341,23 +339,27 @@ export function SeccionClassroom({
     void cargarEstado(true);
   }, [cargarEstado, classroomDisponible, puedeClassroomPull]);
 
-  // Carga inicial de cursos cuando esté conectado
+  // Invalida cursos visibles cuando la cuenta deja de estar disponible.
   useEffect(() => {
-    if (!classroomDisponible || !estado?.conectado) {
-      setCursos([]);
-      return;
-    }
-    void cargarCursos(true);
-  }, [cargarCursos, classroomDisponible, estado?.conectado]);
+    if (classroomDisponible && estado?.conectado) return;
+    cursosRequestId.current += 1;
+    setCargandoCursos(false);
+    setCursos([]);
+    setCourseIdSeleccionado('');
+  }, [classroomDisponible, estado?.conectado]);
 
   // Cargar roster y actividades al cambiar curso o periodo
   useEffect(() => {
+    actividadesRequestId.current += 1;
+    rosterRequestId.current += 1;
     setPreview(null);
     setActividadIdsSeleccionados([]);
     setActividades([]);
     setAlumnosLocales([]);
     setAlumnosClassroom([]);
     setBusquedaAlumnos('');
+    setCargandoActividades(false);
+    setCargandoRoster(false);
     if (!courseIdSeleccionado || !estado?.conectado) return;
     void cargarActividades(courseIdSeleccionado, periodoId);
     void cargarRoster(courseIdSeleccionado, periodoId);
@@ -370,7 +372,6 @@ export function SeccionClassroom({
       if (String(data.status || '') === 'ok') {
         emitToast({ level: 'ok', title: 'Classroom', message: String(data.message || 'Cuenta conectada con éxito') });
         void cargarEstado(true);
-        void cargarCursos(true);
       } else {
         emitToast({ level: 'error', title: 'Classroom', message: String(data.message || 'No se pudo conectar') });
       }
@@ -950,7 +951,7 @@ export function SeccionClassroom({
               <select
                 value={courseIdSeleccionado}
                 onChange={(e) => setCourseIdSeleccionado(e.target.value)}
-                disabled={cargandoCursos}
+                disabled={!estado?.conectado || cursos.length === 0}
               >
                 <option value="">
                   {cargandoCursos
