@@ -84,5 +84,18 @@ describe('alumnos (edicion)', () => {
     expect(listado.body.alumnos.length).toBe(1);
     expect(listado.body.alumnos[0]._id).toBe(alumnoId);
     expect(listado.body.alumnos[0].grupo).toBe('B');
+
+    const detalle = await request(app)
+      .get(`/api/alumnos/${alumnoId}`)
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
+    expect(detalle.body.alumno._id).toBe(alumnoId);
+    expect(detalle.body.alumno.grupo).toBe('B');
+
+    const otroDocente = await registrar('docente-ajeno@local.test');
+    await request(app)
+      .get(`/api/alumnos/${alumnoId}`)
+      .set({ Authorization: `Bearer ${otroDocente}` })
+      .expect(404);
   });
 });

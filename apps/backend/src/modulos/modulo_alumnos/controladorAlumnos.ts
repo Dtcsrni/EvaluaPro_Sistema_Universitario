@@ -36,6 +36,17 @@ export async function listarAlumnos(req: SolicitudDocente, res: Response) {
   res.json({ alumnos });
 }
 
+/** Obtiene un alumno solo cuando pertenece a un periodo del docente autenticado. */
+export async function obtenerAlumno(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const alumnoId = String(req.params.alumnoId ?? '').trim();
+  const alumno = await prisma.alumno.findFirst({
+    where: { id: alumnoId, periodo: { docenteId } }
+  });
+  if (!alumno) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'Alumno no encontrado', 404);
+  res.json({ alumno });
+}
+
 /**
  * Crea un alumno asociado al docente autenticado.
  */

@@ -16,7 +16,8 @@ import {
   actualizarPlantillaUseCase,
   crearPlantillaUseCase,
   eliminarPlantillaUseCase,
-  listarPlantillasUseCase
+  listarPlantillasUseCase,
+  obtenerPlantillaUseCase
 } from './application/usecases/gestionPlantillas.js';
 import {
   descargarPdfLoteUseCase,
@@ -36,6 +37,14 @@ export async function listarPlantillas(req: SolicitudDocente, res: Response) {
     periodoId: req.query.periodoId,
     archivado: req.query.archivado,
     limite: req.query.limite
+  });
+  res.json(payload);
+}
+
+export async function obtenerPlantilla(req: SolicitudDocente, res: Response) {
+  const payload = await obtenerPlantillaUseCase({
+    docenteId: obtenerDocenteId(req),
+    plantillaId: String(req.params.id || '').trim()
   });
   res.json(payload);
 }

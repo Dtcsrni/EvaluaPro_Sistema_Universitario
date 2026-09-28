@@ -4,7 +4,9 @@
  * Mantiene contrato de rutas y delega toda la logica de negocio a use cases.
  */
 import type { Request, Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { listarSincronizacionesUseCase } from './application/usecases/listarSincronizaciones.js';
 import { generarCodigoAccesoUseCase } from './application/usecases/generarCodigoAcceso.js';
 import { publicarResultadosUseCase } from './application/usecases/publicarResultados.js';
@@ -13,6 +15,7 @@ import { importarPaqueteUseCase } from './application/usecases/importarPaquete.j
 import { enviarPaqueteServidorUseCase } from './application/usecases/enviarPaqueteServidor.js';
 import { traerPaquetesServidorUseCase } from './application/usecases/traerPaquetesServidor.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { esquemaListarCodigosAcceso } from './validacionesSincronizacion.js';
 import { exportarInstantaneaLocal as crearInstantaneaLocal, importarInstantaneaLocal as aplicarInstantaneaLocal, type MetodoDesbloqueoInstantanea } from './domain/instantaneaLocal.js';
 import {
   adquirirLease,
@@ -24,6 +27,108 @@ import {
   renovarLease
 } from './domain/leaseSincronizacion.js';
 import { configurarDirectorioSincronizacion, obtenerConfiguracionSincronizacion } from './domain/preferenciasSincronizacion.js';
+
+const seleccionCodigoAccesoPublico = {
+  id: true,
+  docenteId: true,
+  periodoId: true,
+  expiraEn: true,
+  usado: true,
+  createdAt: true,
+  updatedAt: true
+} satisfies Prisma.CodigoAccesoSelect;
+
+function decodificarCursorCodigoAcceso(valor: string | undefined) {
+  if (!valor) return undefined;
+  try {
+    const cursor = JSON.parse(Buffer.from(valor, 'base64url').toString('utf8')) as { id?: unknown; createdAt?: unknown };
+    const id = String(cursor.id ?? '').trim();
+    const createdAt = new Date(String(cursor.createdAt ?? ''));
+    if (!id || id.length > 200 || !Number.isFinite(createdAt.getTime())) throw new Error('cursor inválido');
+    return { id, createdAt };
+  } catch {
+    throw new ErrorAplicacion('CODIGO_ACCESO_CURSOR_INVALIDO', 'El cursor de códigos de acceso no es válido', 400);
+  }
+}
+
+function dondeEstadoCodigoAcceso(estado: 'vigente' | 'expirado' | 'usado' | undefined, ahora: Date): Prisma.CodigoAccesoWhereInput {
+  if (estado === 'vigente') return { usado: false, expiraEn: { gt: ahora } };
+  if (estado === 'expirado') return { usado: false, expiraEn: { lte: ahora } };
+  if (estado === 'usado') return { usado: true };
+  return {};
+}
+
+export async function listarCodigosAcceso(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const query = esquemaListarCodigosAcceso.parse(res.locals.validatedQuery ?? req.query);
+  const cursor = decodificarCursorCodigoAcceso(query.cursor);
+  const ahora = new Date();
+  const where: Prisma.CodigoAccesoWhereInput = {
+    docenteId,
+    ...(query.periodoId ? { periodoId: query.periodoId } : {}),
+    ...dondeEstadoCodigoAcceso(query.estado, ahora),
+    ...(cursor ? {
+      OR: [
+        { createdAt: { lt: cursor.createdAt } },
+        { createdAt: cursor.createdAt, id: { lt: cursor.id } }
+      ]
+    } : {})
+  };
+  const resultados = await prisma.codigoAcceso.findMany({
+    where,
+    select: seleccionCodigoAccesoPublico,
+    take: query.limite + 1,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+  });
+  const hayMas = resultados.length > query.limite;
+  const codigosAcceso = resultados.slice(0, query.limite);
+  const ultimo = hayMas ? codigosAcceso[codigosAcceso.length - 1] : undefined;
+  const nextCursor = ultimo
+    ? Buffer.from(JSON.stringify({ id: ultimo.id, createdAt: ultimo.createdAt.toISOString() }), 'utf8').toString('base64url')
+    : null;
+  res.json({ codigosAcceso, nextCursor });
+}
+
+export async function obtenerCodigoAcceso(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const codigoAcceso = await prisma.codigoAcceso.findFirst({
+    where: { id: String(req.params.codigoAccesoId ?? '').trim(), docenteId },
+    select: seleccionCodigoAccesoPublico
+  });
+  if (!codigoAcceso) throw new ErrorAplicacion('CODIGO_ACCESO_NO_ENCONTRADO', 'Código de acceso no encontrado', 404);
+  res.json({ codigoAcceso });
+}
+
+export async function expirarCodigoAcceso(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const id = String(req.params.codigoAccesoId ?? '').trim();
+  const ahora = new Date();
+  const resultado = await prisma.$transaction(async (tx) => {
+    const codigo = await tx.codigoAcceso.findFirst({ where: { id, docenteId } });
+    if (!codigo) throw new ErrorAplicacion('CODIGO_ACCESO_NO_ENCONTRADO', 'Código de acceso no encontrado', 404);
+    if (codigo.usado || codigo.expiraEn <= ahora) {
+      return { actualizado: false, estado: codigo.usado ? 'usado' : 'expirado', expiraEn: codigo.expiraEn };
+    }
+    const cambio = await tx.codigoAcceso.updateMany({
+      where: { id, docenteId, usado: false, expiraEn: { gt: ahora } },
+      data: { expiraEn: ahora }
+    });
+    if (cambio.count !== 1) throw new ErrorAplicacion('CODIGO_ACCESO_CONFLICTO', 'El código cambió durante la expiración; vuelve a leerlo', 409);
+    await tx.eventoCumplimiento.create({
+      data: {
+        docenteId,
+        tipo: 'codigo_acceso_expirado',
+        accion: 'expirar',
+        descripcion: 'El docente expiró un código de acceso mediante la API.',
+        severidad: 'info',
+        metadata: JSON.stringify({ codigoAccesoId: id, periodoId: codigo.periodoId }),
+        detalles: JSON.stringify({ expiraEnAnterior: codigo.expiraEn.toISOString(), expiraEnNueva: ahora.toISOString() })
+      }
+    });
+    return { actualizado: true, estado: 'expirado', expiraEn: ahora };
+  });
+  res.json(resultado);
+}
 
 export async function listarSincronizaciones(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);

@@ -8,9 +8,88 @@
  * - Se registra una `Entrega` como bitacora de la operacion.
  */
 import type { Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { esquemaListarEntregas } from './validacionesVinculacion.js';
+
+function decodificarCursorEntrega(valor: string | undefined) {
+  if (!valor) return undefined;
+  try {
+    const cursor = JSON.parse(Buffer.from(valor, 'base64url').toString('utf8')) as { id?: unknown; createdAt?: unknown };
+    const id = String(cursor.id ?? '').trim();
+    const createdAt = new Date(String(cursor.createdAt ?? ''));
+    if (!id || id.length > 200 || !Number.isFinite(createdAt.getTime())) throw new Error('cursor inválido');
+    return { id, createdAt };
+  } catch {
+    throw new ErrorAplicacion('ENTREGA_CURSOR_INVALIDO', 'El cursor de entregas no es válido', 400);
+  }
+}
+
+const seleccionEntregaPublica = {
+  id: true,
+  examenGeneradoId: true,
+  alumnoId: true,
+  docenteId: true,
+  estado: true,
+  fechaEntrega: true,
+  acordeonEntregado: true,
+  bonoAcordeon: true,
+  motivoDeshacer: true,
+  createdAt: true,
+  updatedAt: true,
+  alumno: { select: { id: true, nombreCompleto: true, matricula: true } },
+  examenGenerado: { select: { id: true, folio: true, estado: true, periodoId: true, plantillaId: true, loteId: true, generadoEn: true } }
+} satisfies Prisma.EntregaSelect;
+
+export async function listarEntregas(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const query = esquemaListarEntregas.parse(res.locals.validatedQuery ?? req.query);
+  const cursor = decodificarCursorEntrega(query.cursor);
+  const examenGenerado: Prisma.ExamenGeneradoScalarRelationFilter = {
+    is: {
+      ...(query.periodoId ? { periodoId: query.periodoId } : {}),
+      ...(query.loteId ? { loteId: query.loteId } : {})
+    }
+  };
+  const where: Prisma.EntregaWhereInput = {
+    docenteId,
+    ...(query.examenGeneradoId ? { examenGeneradoId: query.examenGeneradoId } : {}),
+    ...(query.alumnoId ? { alumnoId: query.alumnoId } : {}),
+    ...(query.estado ? { estado: query.estado } : {}),
+    ...(query.periodoId || query.loteId ? { examenGenerado } : {}),
+    ...(cursor ? {
+      OR: [
+        { createdAt: { lt: cursor.createdAt } },
+        { createdAt: cursor.createdAt, id: { lt: cursor.id } }
+      ]
+    } : {})
+  };
+  const resultados = await prisma.entrega.findMany({
+    where,
+    select: seleccionEntregaPublica,
+    take: query.limite + 1,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+  });
+  const hayMas = resultados.length > query.limite;
+  const entregas = resultados.slice(0, query.limite);
+  const ultimo = hayMas ? entregas[entregas.length - 1] : undefined;
+  const nextCursor = ultimo
+    ? Buffer.from(JSON.stringify({ id: ultimo.id, createdAt: ultimo.createdAt.toISOString() }), 'utf8').toString('base64url')
+    : null;
+  res.json({ entregas, nextCursor });
+}
+
+export async function obtenerEntrega(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const entrega = await prisma.entrega.findFirst({
+    where: { id: String(req.params.entregaId ?? '').trim(), docenteId },
+    select: seleccionEntregaPublica
+  });
+  if (!entrega) throw new ErrorAplicacion('ENTREGA_NO_ENCONTRADA', 'Entrega no encontrada', 404);
+  res.json({ entrega });
+}
 
 /**
  * Vincula un examen por id.

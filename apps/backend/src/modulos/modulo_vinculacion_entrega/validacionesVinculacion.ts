@@ -2,6 +2,16 @@
  * Validaciones de vinculacion de entregas.
  */
 import { z } from 'zod';
+
+export const esquemaListarEntregas = z.object({
+  examenGeneradoId: z.string().trim().min(1).max(200).optional(),
+  alumnoId: z.string().trim().min(1).max(200).optional(),
+  periodoId: z.string().trim().min(1).max(200).optional(),
+  loteId: z.string().trim().min(1).max(100).optional(),
+  estado: z.enum(['pendiente', 'entregado']).optional(),
+  limite: z.coerce.number().int().min(1).max(100).default(25),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
 import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 export const esquemaVincularEntrega = z.object({

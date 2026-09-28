@@ -3,9 +3,10 @@
  */
 import { Router } from 'express';
 import { analizarImagen, prevalidarLoteCapturas } from './controladorEscaneoOmr.js';
-import { crearJobOmr, finalizarJobOmr, resolverHojaOmr } from './controladorJobsOmr.js';
+import { crearJobOmr, finalizarJobOmr, listarJobsOmr, obtenerJobOmr, resolverHojaOmr } from './controladorJobsOmr.js';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
-import { esquemaAnalizarOmr, esquemaCrearJobOmr, esquemaPrevalidarLoteOmr, esquemaResolverJobOmr } from './validacionesOmr.js';
+import { validarQueryRobusto } from '../../compartido/robustez/utilitariosControlador.js';
+import { esquemaAnalizarOmr, esquemaCrearJobOmr, esquemaListarJobsOmr, esquemaPrevalidarLoteOmr, esquemaResolverJobOmr } from './validacionesOmr.js';
 import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/validacionesExamenes.js';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
@@ -19,6 +20,8 @@ router.post(
   prevalidarLoteCapturas
 );
 router.post('/jobs', requerirPermiso('omr:analizar'), validarCuerpo(esquemaCrearJobOmr, { strict: true }), crearJobOmr);
+router.get('/jobs', requerirPermiso('omr:analizar'), validarQueryRobusto(esquemaListarJobsOmr), listarJobsOmr);
+router.get('/jobs/:jobId', requerirPermiso('omr:analizar'), obtenerJobOmr);
 router.post(
   '/jobs/:jobId/exceptions/:sheetSerial/resolve',
   requerirPermiso('omr:analizar'),

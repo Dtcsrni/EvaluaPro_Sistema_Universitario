@@ -25,6 +25,18 @@ const catalogPath = path.join(root, 'scripts/api/CRUD_CATALOG.md');
 const spec = JSON.parse(await readFile(openapiPath, 'utf8'));
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 spec.info.version = packageJson.version;
+spec.components ??= {};
+spec.components.schemas ??= {};
+spec.components.schemas.CodigoAccesoPublico = {
+  type: 'object',
+  required: ['id', 'docenteId', 'periodoId', 'expiraEn', 'usado', 'createdAt', 'updatedAt'],
+  properties: {
+    id: { type: 'string' }, docenteId: { type: 'string' }, periodoId: { type: 'string' },
+    expiraEn: { type: 'string', format: 'date-time' }, usado: { type: 'boolean' },
+    createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }
+  },
+  additionalProperties: false
+};
 const responseJson = { description: 'Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.', content: { 'application/json': { schema: { type: 'object', additionalProperties: true } } } };
 const responseError = { description: 'Error HTTP con envelope de aplicación, código y mensaje.', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } };
 const safeId = (method, route) => `${method}_${route}`.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -59,6 +71,12 @@ const queryParametersByValidator = {
     { name: 'limite', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 25 } },
     { name: 'cursor', in: 'query', required: false, schema: { type: 'string', minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' } }
   ],
+  esquemaListarJobsOmr: [
+    { name: 'generatedAssessmentId', in: 'query', required: false, schema: { type: 'string', minLength: 1, maxLength: 200 } },
+    { name: 'status', in: 'query', required: false, schema: { type: 'string', minLength: 1, maxLength: 32 } },
+    { name: 'limite', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+    { name: 'cursor', in: 'query', required: false, schema: { type: 'string', minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' } }
+  ],
   esquemaListarEvidenciasEvaluacion: [
     { name: 'periodoId', in: 'query', required: false, schema: { type: 'string' } },
     { name: 'alumnoId', in: 'query', required: false, schema: { type: 'string' } },
@@ -82,6 +100,7 @@ const tagFor = (prefix) => {
 
 let routeCount = 0;
 const missingSources = [];
+const registeredOperations = new Set();
 for (const mount of mounts) {
   const sourcePath = path.join(root, mount.file);
   let source;
@@ -92,6 +111,7 @@ for (const mount of mounts) {
     const relative = declaration[3];
     const fullRoute = mount.prefix === '/' ? relative : `${mount.prefix === '/' ? '' : mount.prefix}${relative === '/' ? '' : relative.startsWith('/') ? relative : `/${relative}`}`;
     const fullPath = toOpenApiPath(fullRoute || '/');
+    registeredOperations.add(`${fullPath} ${method}`);
     const item = spec.paths[fullPath] ?? (spec.paths[fullPath] = {});
     const nextRoute = source.indexOf('router.', declaration.index + declaration[0].length);
     const definition = source.slice(declaration.index, nextRoute === -1 ? undefined : nextRoute);
@@ -280,6 +300,105 @@ for (const mount of mounts) {
         }
       };
     }
+    if (fullPath === '/omr/jobs' && method === 'get') {
+      rutaDeclarada.responses = {
+        ...(rutaDeclarada.responses ?? {}),
+        '200': {
+          description: 'Página de jobs OMR del docente, con filtros por evaluación/estado y cursor estable.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['jobs', 'nextCursor'],
+                properties: {
+                  jobs: { type: 'array', items: { type: 'object', additionalProperties: true } },
+                  nextCursor: { type: ['string', 'null'], maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' }
+                },
+                additionalProperties: false
+              }
+            }
+          }
+        }
+      };
+    }
+    if (fullPath === '/entregas' && method === 'get') {
+      rutaDeclarada.responses = {
+        ...(rutaDeclarada.responses ?? {}),
+        '200': {
+          description: 'Página de entregas del docente, con filtros y cursor estable.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['entregas', 'nextCursor'],
+                properties: {
+                  entregas: { type: 'array', items: { type: 'object', additionalProperties: true } },
+                  nextCursor: { type: ['string', 'null'], maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' }
+                },
+                additionalProperties: false
+              }
+            }
+          }
+        }
+      };
+    }
+    if (fullPath === '/entregas/{entregaId}' && method === 'get') {
+      rutaDeclarada.responses = {
+        ...(rutaDeclarada.responses ?? {}),
+        '200': {
+          description: 'Entrega del docente con resumen seguro de alumno y examen asociado.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['entrega'],
+                properties: { entrega: { type: 'object', additionalProperties: true } },
+                additionalProperties: false
+              }
+            }
+          }
+        }
+      };
+    }
+    if (fullPath === '/sincronizaciones/codigo-acceso' && method === 'get') {
+      rutaDeclarada.responses = {
+        ...(rutaDeclarada.responses ?? {}),
+        '200': {
+          description: 'Página de códigos de acceso propios; los secretos nunca se incluyen.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['codigosAcceso', 'nextCursor'],
+                properties: {
+                  codigosAcceso: { type: 'array', items: { $ref: '#/components/schemas/CodigoAccesoPublico' } },
+                  nextCursor: { type: ['string', 'null'], maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' }
+                },
+                additionalProperties: false
+              }
+            }
+          }
+        }
+      };
+    }
+    if (fullPath === '/sincronizaciones/codigo-acceso/{codigoAccesoId}' && method === 'get') {
+      rutaDeclarada.responses = {
+        ...(rutaDeclarada.responses ?? {}),
+        '200': {
+          description: 'Metadatos del código de acceso propio; el secreto no se devuelve.',
+          content: { 'application/json': { schema: { type: 'object', required: ['codigoAcceso'], properties: { codigoAcceso: { $ref: '#/components/schemas/CodigoAccesoPublico' } }, additionalProperties: false } } }
+        }
+      };
+    }
+    if (fullPath === '/sincronizaciones/codigo-acceso/{codigoAccesoId}/expirar' && method === 'post') {
+      rutaDeclarada.responses = {
+        ...(rutaDeclarada.responses ?? {}),
+        '200': {
+          description: 'Expiración idempotente; la transición y su evento de auditoría se escriben juntas.',
+          content: { 'application/json': { schema: { type: 'object', required: ['actualizado', 'estado', 'expiraEn'], properties: { actualizado: { type: 'boolean' }, estado: { type: 'string', enum: ['expirado', 'usado'] }, expiraEn: { type: 'string', format: 'date-time' } }, additionalProperties: false } } }
+        }
+      };
+    }
     if (fullPath === '/evaluaciones/evidencias' && method === 'get') {
       rutaDeclarada.responses = {
         ...(rutaDeclarada.responses ?? {}),
@@ -361,8 +480,24 @@ for (const mount of mounts) {
 }
 
 if (missingSources.length) throw new Error(`No se encontraron routers montados: ${[...new Set(missingSources)].join(', ')}`);
-const document = `${JSON.stringify(spec, null, 2)}\n`;
 const methodLabels = { get: 'GET', post: 'POST', put: 'PUT', patch: 'PATCH', delete: 'DELETE', head: 'HEAD', options: 'OPTIONS' };
+const pendingOperations = [];
+for (const [route, pathItem] of Object.entries(spec.paths)) {
+  for (const [method, operation] of Object.entries(pathItem)) {
+    if (!methodLabels[method] || !operation['x-evaluapro-router']) continue;
+    if (registeredOperations.has(`${route} ${method}`)) {
+      delete operation['x-evaluapro-status'];
+      delete operation['x-evaluapro-available'];
+      delete operation.deprecated;
+      continue;
+    }
+    operation['x-evaluapro-status'] = 'pending-router';
+    operation['x-evaluapro-available'] = false;
+    operation.deprecated = true;
+    pendingOperations.push({ route, method });
+  }
+}
+const document = `${JSON.stringify(spec, null, 2)}\n`;
 const catalogRows = [];
 for (const [route, pathItem] of Object.entries(spec.paths)) {
   const operations = Object.entries(pathItem).filter(([method]) => methodLabels[method]);
@@ -370,32 +505,34 @@ for (const [route, pathItem] of Object.entries(spec.paths)) {
   const operation = operations[0][1];
   const permissions = [...new Set(operations.flatMap(([, value]) => value['x-evaluapro-permissions'] ?? []))];
   const validators = [...new Set(operations.flatMap(([, value]) => value['x-evaluapro-validators'] ?? []))];
+  const hasPending = operations.some(([, value]) => value['x-evaluapro-status'] === 'pending-router');
   catalogRows.push({
     tag: operation.tags?.[0] ?? 'API',
     route,
     methods: operations.map(([method]) => methodLabels[method]).join(', '),
     auth: operations.some(([, value]) => value.security?.some((security) => security.bearerAuth)) ? 'Bearer' : 'Público',
     permissions: permissions.join(', ') || '—',
-    validators: validators.join(', ') || '—'
+    validators: validators.join(', ') || '—',
+    status: hasPending ? 'Parcial; revisar operaciones' : 'Disponible'
   });
 }
 catalogRows.sort((a, b) => a.tag.localeCompare(b.tag, 'es') || a.route.localeCompare(b.route, 'es'));
 const catalog = [
   '# Catálogo de rutas y operaciones API',
   '',
-  `Generado desde los routers backend. ${catalogRows.length} rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.`,
+  `Generado desde los routers backend. ${routeCount} declaraciones montadas y ${pendingOperations.length} operaciones OpenAPI pendientes de router; las operaciones CRUD/acciones aparecen marcadas cuando aún no se pueden invocar. No usar operaciones con estado \`pending-router\`.`,
   '',
   'Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.',
   '',
-  '| Módulo | Ruta | Métodos | Sesión | Permisos | Validador de cuerpo |',
-  '| --- | --- | --- | --- | --- | --- |',
-  ...catalogRows.map((row) => `| ${row.tag} | \`${row.route}\` | ${row.methods} | ${row.auth} | ${row.permissions} | ${row.validators} |`),
+  '| Módulo | Ruta | Métodos | Estado | Sesión | Permisos | Validador de cuerpo |',
+  '| --- | --- | --- | --- | --- | --- | --- |',
+  ...catalogRows.map((row) => `| ${row.tag} | \`${row.route}\` | ${row.methods} | ${row.status} | ${row.auth} | ${row.permissions} | ${row.validators} |`),
   ''
 ].join('\n');
 if (process.argv.includes('--write')) {
   await writeFile(openapiPath, document, 'utf8');
   await writeFile(catalogPath, catalog, 'utf8');
-  console.log(`OpenAPI actualizado: ${routeCount} declaraciones inspeccionadas.`);
+  console.log(`OpenAPI actualizado: ${routeCount} declaraciones montadas; ${pendingOperations.length} operaciones pendientes de router.`);
 } else {
   const current = await readFile(openapiPath, 'utf8');
   const currentCatalog = await readFile(catalogPath, 'utf8').catch(() => '');
@@ -403,6 +540,6 @@ if (process.argv.includes('--write')) {
     console.error('openapi.json o CRUD_CATALOG.md están desactualizados respecto a routers y permisos. Ejecuta npm run api:openapi:write y revisa el diff.');
     process.exitCode = 1;
   } else {
-    console.log(`OpenAPI sincronizado: ${Object.keys(spec.paths).length} rutas; ${routeCount} declaraciones inspeccionadas.`);
+    console.log(`OpenAPI sincronizado: ${routeCount} declaraciones montadas; ${pendingOperations.length} operaciones pendientes de router.`);
   }
 }

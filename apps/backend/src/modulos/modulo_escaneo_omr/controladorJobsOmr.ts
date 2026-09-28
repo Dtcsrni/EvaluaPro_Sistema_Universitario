@@ -6,11 +6,13 @@
  * `/omr/analizar`, evitando dos motores con reglas distintas.
  */
 import type { Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { rasterizarPdfParaPreview } from '../modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
 import { analizarImagen } from './controladorEscaneoOmr.js';
+import { esquemaListarJobsOmr } from './validacionesOmr.js';
 
 type CapturaOmr = { nombreArchivo?: string; imagenBase64: string };
 type TipoFuenteOmr = 'image_batch' | 'camera_capture' | 'pdf';
@@ -210,6 +212,55 @@ async function obtenerJob(docenteId: string, jobId: string) {
   const job = await prisma.omrScanJob.findFirst({ where: { id: jobId, docenteId } });
   if (!job) throw new ErrorAplicacion('OMR_JOB_NO_ENCONTRADO', 'Job OMR no encontrado', 404);
   return job;
+}
+
+function decodificarCursorOmr(valor: string | undefined) {
+  if (!valor) return undefined;
+  try {
+    const cursor = JSON.parse(Buffer.from(valor, 'base64url').toString('utf8')) as { id?: unknown; createdAt?: unknown };
+    const id = String(cursor.id ?? '').trim();
+    const createdAt = new Date(String(cursor.createdAt ?? ''));
+    if (!id || id.length > 200 || !Number.isFinite(createdAt.getTime())) throw new Error('cursor inválido');
+    return { id, createdAt };
+  } catch {
+    throw new ErrorAplicacion('OMR_CURSOR_INVALIDO', 'El cursor de jobs OMR no es válido', 400);
+  }
+}
+
+export async function listarJobsOmr(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const query = esquemaListarJobsOmr.parse(res.locals.validatedQuery ?? req.query);
+  const cursor = decodificarCursorOmr(query.cursor);
+  const where: Prisma.OmrScanJobWhereInput = {
+    docenteId,
+    ...(query.status ? { estado: query.status } : {}),
+    ...(query.generatedAssessmentId
+      ? { metadata: { contains: `"assessmentId":"${query.generatedAssessmentId}"` } }
+      : {}),
+    ...(cursor ? {
+      OR: [
+        { createdAt: { lt: cursor.createdAt } },
+        { createdAt: cursor.createdAt, id: { lt: cursor.id } }
+      ]
+    } : {})
+  };
+  const resultados = await prisma.omrScanJob.findMany({
+    where,
+    take: query.limite + 1,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+  });
+  const hayMas = resultados.length > query.limite;
+  const jobs = resultados.slice(0, query.limite);
+  const ultimo = hayMas ? jobs[jobs.length - 1] : undefined;
+  const nextCursor = ultimo
+    ? Buffer.from(JSON.stringify({ id: ultimo.id, createdAt: ultimo.createdAt.toISOString() }), 'utf8').toString('base64url')
+    : null;
+  res.json({ jobs: jobs.map(toPublicJob), nextCursor });
+}
+
+export async function obtenerJobOmr(req: SolicitudDocente, res: Response) {
+  const job = await obtenerJob(obtenerDocenteId(req), String(req.params.jobId ?? '').trim());
+  res.json({ job: toPublicJob(job) });
 }
 
 export async function crearJobOmr(req: SolicitudDocente, res: Response) {

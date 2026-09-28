@@ -109,6 +109,13 @@ describe('plantillas CRUD + previsualizacion', () => {
       .expect(201);
     const plantillaId = plantillaResp.body.plantilla._id as string;
 
+    const detallePlantilla = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}`)
+      .set(auth)
+      .expect(200);
+    expect(detallePlantilla.body.plantilla.id).toBe(plantillaId);
+    expect(detallePlantilla.body.plantilla.preguntasIds).toEqual(preguntasIds);
+
     const editResp = await request(app)
       .post(`/api/examenes/plantillas/${plantillaId}`)
       .set(auth)

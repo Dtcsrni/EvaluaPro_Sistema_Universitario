@@ -56,3 +56,10 @@ export const esquemaResolverJobOmr = z
     overrides: z.record(z.string(), z.unknown()).optional()
   })
   .strict();
+
+export const esquemaListarJobsOmr = z.object({
+  generatedAssessmentId: z.string().trim().min(1).max(200).optional(),
+  status: z.string().trim().min(1).max(32).optional(),
+  limite: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();

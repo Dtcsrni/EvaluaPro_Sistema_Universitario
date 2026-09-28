@@ -108,6 +108,20 @@ describe('workflow OMR por jobs', () => {
     const sheetSerial = creado.body.job.pages[0].sheetSerial as string;
     const jobId = creado.body.job.jobId as string;
 
+    const detalleJob = await request(app)
+      .get(`/api/omr/jobs/${jobId}`)
+      .set(auth)
+      .expect(200);
+    expect(detalleJob.body.job.jobId).toBe(jobId);
+    expect(detalleJob.body.job.pages).toHaveLength(1);
+
+    const paginaJobs = await request(app)
+      .get(`/api/omr/jobs?generatedAssessmentId=${encodeURIComponent(escenario.examenId)}&limite=1`)
+      .set(auth)
+      .expect(200);
+    expect(paginaJobs.body.jobs.map((job: { jobId: string }) => job.jobId)).toContain(jobId);
+    expect(paginaJobs.body.nextCursor).toBeNull();
+
     const resuelto = await request(app)
       .post(`/api/omr/jobs/${jobId}/exceptions/${encodeURIComponent(sheetSerial)}/resolve`)
       .set(auth)
@@ -137,6 +151,10 @@ describe('workflow OMR por jobs', () => {
       .post(`/api/omr/jobs/${jobId}/finalize`)
       .set({ Authorization: `Bearer ${segundoToken}` })
       .send({})
+      .expect(404);
+    await request(app)
+      .get(`/api/omr/jobs/${jobId}`)
+      .set({ Authorization: `Bearer ${segundoToken}` })
       .expect(404);
   }, 60_000);
 

@@ -5,17 +5,36 @@ import path from 'node:path';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spec = JSON.parse(await readFile(path.join(root, 'scripts/api/openapi.json'), 'utf8'));
+const lifecycleInventory = await readFile(path.join(root, 'scripts/api/RESOURCE_LIFECYCLE.md'), 'utf8');
 const errors = [];
 const methods = new Set(['get', 'post', 'put', 'patch', 'delete', 'head', 'options']);
 if (spec.openapi !== '3.1.0') errors.push('OpenAPI debe declarar 3.1.0');
 if (Object.keys(spec.paths ?? {}).length < 150) errors.push('El catálogo no incluye el conjunto completo de routers API');
 
 let operations = 0;
+let mountedOperations = 0;
+let pendingOperations = 0;
 const operationIds = new Set();
 for (const [route, item] of Object.entries(spec.paths ?? {})) {
   for (const [method, operation] of Object.entries(item)) {
     if (!methods.has(method)) continue;
     operations += 1;
+    if (operation['x-evaluapro-router']) {
+      if (operation['x-evaluapro-status'] === 'pending-router') {
+        pendingOperations += 1;
+        if (operation['x-evaluapro-available'] !== false || operation.deprecated !== true) {
+          errors.push(`${method.toUpperCase()} ${route}: una operación pendiente debe estar no disponible y deprecated`);
+        }
+        if (!lifecycleInventory.includes('`' + method.toUpperCase() + ' ' + route + '`')) {
+          errors.push(`${method.toUpperCase()} ${route}: operación pendiente sin entrada en RESOURCE_LIFECYCLE.md`);
+        }
+      } else {
+        mountedOperations += 1;
+        if (operation['x-evaluapro-available'] === false || operation.deprecated === true) {
+          errors.push(`${method.toUpperCase()} ${route}: operación montada conserva estado pendiente/deprecated`);
+        }
+      }
+    }
     if (!operation.operationId) errors.push(`${method.toUpperCase()} ${route}: falta operationId`);
     else if (operationIds.has(operation.operationId)) errors.push(`operationId duplicado: ${operation.operationId}`);
     else operationIds.add(operation.operationId);
@@ -37,12 +56,73 @@ for (const [route, method, operationId] of [
   ['/banco-preguntas/importaciones/preview', 'post', 'previewReactiveImport'],
   ['/banco-preguntas/importaciones/{importId}/confirmar', 'post', 'confirmReactiveImport'],
   ['/examenes/generados/lote', 'post', 'generateExamBatch'],
+  ['/omr/jobs', 'get', 'get_omr_jobs'],
   ['/omr/jobs/{jobId}', 'get', 'getOmrJob'],
   ['/omr/jobs/{jobId}/exceptions/{sheetSerial}/resolve', 'post', 'resolveOmrSheet'],
   ['/calificaciones/calificar', 'post', 'gradeExam'],
   ['/analiticas/lista-academica', 'get', 'getAcademicList']
 ]) {
   if (spec.paths?.[route]?.[method]?.operationId !== operationId) errors.push(`Falta operación crítica ${method.toUpperCase()} ${route}`);
+}
+
+const omrJobsList = spec.paths?.['/omr/jobs']?.get;
+const omrJobsQueryNames = new Set((omrJobsList?.parameters ?? []).filter((parameter) => parameter.in === 'query').map((parameter) => parameter.name));
+for (const name of ['generatedAssessmentId', 'status', 'limite', 'cursor']) {
+  if (!omrJobsQueryNames.has(name)) errors.push(`GET /omr/jobs: falta filtro ${name}`);
+}
+const omrJobsResponse = omrJobsList?.responses?.['200']?.content?.['application/json']?.schema;
+if (!omrJobsList?.security?.some((security) => security.bearerAuth)
+  || !omrJobsList?.['x-evaluapro-permissions']?.includes('omr:analizar')
+  || omrJobsResponse?.properties?.jobs?.type !== 'array'
+  || !omrJobsResponse?.required?.includes('nextCursor')) {
+  errors.push('GET /omr/jobs: debe paginar jobs del docente con permiso omr:analizar');
+}
+const omrJobDetail = spec.paths?.['/omr/jobs/{jobId}']?.get;
+if (!omrJobDetail?.security?.some((security) => security.bearerAuth)
+  || !omrJobDetail?.['x-evaluapro-permissions']?.includes('omr:analizar')) {
+  errors.push('GET /omr/jobs/{jobId}: requiere bearer y permiso omr:analizar');
+}
+const entregasList = spec.paths?.['/entregas']?.get;
+const entregasQueryNames = new Set((entregasList?.parameters ?? []).filter((parameter) => parameter.in === 'query').map((parameter) => parameter.name));
+for (const name of ['examenGeneradoId', 'alumnoId', 'periodoId', 'loteId', 'estado', 'limite', 'cursor']) {
+  if (!entregasQueryNames.has(name)) errors.push(`GET /entregas: falta filtro ${name}`);
+}
+const entregasResponse = entregasList?.responses?.['200']?.content?.['application/json']?.schema;
+if (entregasList?.['x-evaluapro-status'] === 'pending-router'
+  || !entregasList?.security?.some((security) => security.bearerAuth)
+  || !entregasList?.['x-evaluapro-permissions']?.includes('entregas:gestionar')
+  || entregasResponse?.properties?.entregas?.type !== 'array'
+  || !entregasResponse?.required?.includes('nextCursor')) {
+  errors.push('GET /entregas: debe paginar entregas propias con permiso entregas:gestionar');
+}
+const entregaDetail = spec.paths?.['/entregas/{entregaId}']?.get;
+if (entregaDetail?.['x-evaluapro-status'] === 'pending-router'
+  || !entregaDetail?.security?.some((security) => security.bearerAuth)
+  || !entregaDetail?.['x-evaluapro-permissions']?.includes('entregas:gestionar')) {
+  errors.push('GET /entregas/{entregaId}: requiere ruta montada, bearer y permiso entregas:gestionar');
+}
+const codigosAccesoList = spec.paths?.['/sincronizaciones/codigo-acceso']?.get;
+const codigosAccesoQueryNames = new Set((codigosAccesoList?.parameters ?? []).filter((parameter) => parameter.in === 'query').map((parameter) => parameter.name));
+for (const name of ['periodoId', 'estado', 'limite', 'cursor']) {
+  if (!codigosAccesoQueryNames.has(name)) errors.push(`GET /sincronizaciones/codigo-acceso: falta filtro ${name}`);
+}
+const codigoAccesoPublico = spec.components?.schemas?.CodigoAccesoPublico;
+if (codigosAccesoList?.['x-evaluapro-status'] === 'pending-router'
+  || !codigosAccesoList?.security?.some((security) => security.bearerAuth)
+  || !codigosAccesoList?.['x-evaluapro-permissions']?.includes('calificaciones:publicar')
+  || !codigosAccesoList?.responses?.['200']?.content?.['application/json']?.schema?.properties?.codigosAcceso?.items?.$ref?.endsWith('/CodigoAccesoPublico')
+  || Object.hasOwn(codigoAccesoPublico?.properties ?? {}, 'codigo')) {
+  errors.push('GET /sincronizaciones/codigo-acceso: lectura paginada propia sin exponer el secreto');
+}
+const codigoAccesoDetail = spec.paths?.['/sincronizaciones/codigo-acceso/{codigoAccesoId}']?.get;
+const codigoAccesoExpire = spec.paths?.['/sincronizaciones/codigo-acceso/{codigoAccesoId}/expirar']?.post;
+if (codigoAccesoDetail?.['x-evaluapro-status'] === 'pending-router'
+  || !codigoAccesoDetail?.security?.some((security) => security.bearerAuth)
+  || codigoAccesoDetail?.responses?.['200']?.content?.['application/json']?.schema?.properties?.codigoAcceso?.$ref !== '#/components/schemas/CodigoAccesoPublico'
+  || codigoAccesoExpire?.['x-evaluapro-status'] === 'pending-router'
+  || !codigoAccesoExpire?.security?.some((security) => security.bearerAuth)
+  || codigoAccesoExpire?.responses?.['200']?.content?.['application/json']?.schema?.properties?.estado?.enum?.join(',') !== 'expirado,usado') {
+  errors.push('Código de acceso: detalle seguro y expiración del docente deben estar montados/documentados');
 }
 
 const reactivosList = spec.paths?.['/banco-preguntas/reactivos']?.get;
@@ -129,5 +209,5 @@ if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join('\n'));
   process.exitCode = 1;
 } else {
-  console.log(`OpenAPI ${spec.openapi}: ${Object.keys(spec.paths).length} rutas, ${operations} operaciones; IDs y parámetros consistentes.`);
+  console.log(`OpenAPI ${spec.openapi}: ${Object.keys(spec.paths).length} rutas, ${operations} operaciones (${mountedOperations} montadas, ${pendingOperations} pendientes inventariadas); IDs, parámetros y estados consistentes.`);
 }

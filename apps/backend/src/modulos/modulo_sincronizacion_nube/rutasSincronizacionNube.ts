@@ -7,6 +7,7 @@
  */
 import express, { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { validarQueryRobusto } from '../../compartido/robustez/utilitariosControlador.js';
 import {
 	enviarPaqueteServidor,
 	exportarPaquete,
@@ -25,7 +26,10 @@ import {
 	obtenerConfiguracionCarpetaSincronizacion,
 	listarSincronizaciones,
 	publicarResultados,
-	traerPaquetesServidor
+	traerPaquetesServidor,
+	listarCodigosAcceso,
+	obtenerCodigoAcceso,
+	expirarCodigoAcceso
 } from './controladorSincronizacion.js';
 import {
 	esquemaEnviarPaqueteServidor,
@@ -36,6 +40,7 @@ import {
 	esquemaConfigurarCarpetaSincronizacion,
 	esquemaExportarPaquete,
 	esquemaGenerarCodigoAcceso,
+	esquemaListarCodigosAcceso,
 	esquemaImportarInstantaneaLocal,
 	esquemaImportarPaquete,
 	esquemaPublicarResultados,
@@ -46,6 +51,9 @@ import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 const router = Router();
 
 router.get('/', requerirPermiso('sincronizacion:listar'), listarSincronizaciones);
+router.get('/codigo-acceso', requerirPermiso('calificaciones:publicar'), validarQueryRobusto(esquemaListarCodigosAcceso), listarCodigosAcceso);
+router.get('/codigo-acceso/:codigoAccesoId', requerirPermiso('calificaciones:publicar'), obtenerCodigoAcceso);
+router.post('/codigo-acceso/:codigoAccesoId/expirar', requerirPermiso('calificaciones:publicar'), expirarCodigoAcceso);
 router.post('/publicar', requerirPermiso('calificaciones:publicar'), validarCuerpo(esquemaPublicarResultados, { strict: true }), publicarResultados);
 router.post('/codigo-acceso', requerirPermiso('calificaciones:publicar'), validarCuerpo(esquemaGenerarCodigoAcceso, { strict: true }), generarCodigoAcceso);
 

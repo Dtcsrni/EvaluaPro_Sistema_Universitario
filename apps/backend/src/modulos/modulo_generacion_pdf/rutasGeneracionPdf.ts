@@ -13,6 +13,7 @@ import {
   obtenerProgresoGeneracionLote,
   descargarPdfLote,
   listarPlantillas,
+  obtenerPlantilla,
   previsualizarPlantilla,
   previsualizarPlantillaPdf,
   previsualizarPlantillaPdfVisual
@@ -40,6 +41,7 @@ import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 const router = Router();
 
 router.get('/plantillas', requerirPermiso('plantillas:leer'), listarPlantillas);
+router.get('/plantillas/:id', requerirPermiso('plantillas:leer'), obtenerPlantilla);
 router.post('/plantillas', requerirPermiso('plantillas:gestionar'), validarCuerpo(esquemaCrearPlantilla, { strict: true }), crearPlantilla);
 router.post('/plantillas/:id', requerirPermiso('plantillas:gestionar'), validarCuerpo(esquemaActualizarPlantilla, { strict: true }), actualizarPlantilla);
 router.post(

@@ -85,6 +85,10 @@ export async function listarPlantillasUseCase(params: {
   return { plantillas };
 }
 
+export async function obtenerPlantillaUseCase(params: { docenteId: unknown; plantillaId: string }) {
+  return { plantilla: await obtenerPlantillaDocente(params.docenteId, params.plantillaId) };
+}
+
 export async function crearPlantillaUseCase(params: {
   docenteId: unknown;
   body: Record<string, unknown>;

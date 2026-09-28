@@ -216,7 +216,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts",
         "x-evaluapro-permissions": [
           "banco:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/importaciones/preview": {
@@ -261,7 +264,10 @@
         ],
         "x-evaluapro-upload-fields": [
           "archivo"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/importaciones/{importId}/confirmar": {
@@ -309,7 +315,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaConfirmarReactivos"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/reactivos/{reactivoId}/revisar": {
@@ -352,7 +361,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaBodyVacioOpcional"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/reactivos/{reactivoId}/publicar": {
@@ -395,7 +407,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaBodyVacioOpcional"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/examenes/plantillas": {
@@ -949,12 +964,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Página de jobs OMR del docente, con filtros por evaluación/estado y cursor estable.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "jobs",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 256,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -993,6 +1029,53 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
           "omr:analizar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaListarJobsOmr"
+        ],
+        "parameters": [
+          {
+            "name": "generatedAssessmentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          }
         ]
       }
     },
@@ -1476,7 +1559,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts",
         "x-evaluapro-permissions": [
           "analiticas:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/salud": {
@@ -3548,7 +3634,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts",
         "x-evaluapro-permissions": [
           "banco:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/importaciones": {
@@ -3610,7 +3699,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts",
         "x-evaluapro-permissions": [
           "banco:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/importaciones/{importId}": {
@@ -3682,7 +3774,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts",
         "x-evaluapro-permissions": [
           "banco:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/reactivos/{reactivoId}/retirar": {
@@ -3769,7 +3864,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaBodyVacioOpcional"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/reactivos/{reactivoId}/versiones": {
@@ -3842,7 +3940,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts",
         "x-evaluapro-permissions": [
           "banco:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/reactivos/{reactivoId}/calibracion": {
@@ -3915,7 +4016,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts",
         "x-evaluapro-permissions": [
           "banco:calibracion:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       },
       "post": {
         "tags": [
@@ -4000,7 +4104,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaRegistrarCalibracionReactivo"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/temas/{temaId}/actualizar": {
@@ -6724,7 +6831,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaGuardarCalificacionLista"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/sincronizaciones": {
@@ -7004,12 +7114,32 @@
         ],
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Página de códigos de acceso propios; los secretos nunca se incluyen.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "codigosAcceso",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "codigosAcceso": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CodigoAccesoPublico"
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 256,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -15962,7 +16092,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts",
         "x-evaluapro-permissions": [
           "banco:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/reactivos/{reactivoId}": {
@@ -16061,7 +16194,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts",
         "x-evaluapro-permissions": [
           "banco:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/omr/ingestas": {
@@ -16161,7 +16297,10 @@
         ],
         "x-evaluapro-upload-fields": [
           "archivos"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/omr/ingestas/{jobId}": {
@@ -16233,7 +16372,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
           "omr:analizar"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/omr/ingestas/{jobId}/paquetes/{packageId}": {
@@ -16313,7 +16455,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
           "omr:analizar"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/omr/ingestas/{jobId}/manifiesto": {
@@ -16385,7 +16530,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
           "omr:analizar"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/omr/ingestas/{jobId}/paginas/{pageIndex}/resolver": {
@@ -16479,7 +16627,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaResolverPaginaIngestaOmr"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/omr/ingestas/{jobId}/originales/{fileId}": {
@@ -16559,7 +16710,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
           "omr:analizar"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/omr/ingestas/por-clave/{clientRequestId}": {
@@ -16631,7 +16785,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
           "omr:analizar"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/alumnos/{alumnoId}": {
@@ -16793,12 +16950,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Página de entregas del docente, con filtros y cursor estable.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "entregas",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "entregas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 256,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -16938,12 +17116,21 @@
         ],
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Entrega del docente con resumen seguro de alumno y examen asociado.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "entrega"
+                  ],
+                  "properties": {
+                    "entrega": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -17010,12 +17197,20 @@
         ],
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Metadatos del código de acceso propio; el secreto no se devuelve.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "codigoAcceso"
+                  ],
+                  "properties": {
+                    "codigoAcceso": {
+                      "$ref": "#/components/schemas/CodigoAccesoPublico"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -17093,12 +17288,33 @@
         },
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Expiración idempotente; la transición y su evento de auditoría se escriben juntas.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "actualizado",
+                    "estado",
+                    "expiraEn"
+                  ],
+                  "properties": {
+                    "actualizado": {
+                      "type": "boolean"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "expirado",
+                        "usado"
+                      ]
+                    },
+                    "expiraEn": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -17294,7 +17510,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaListarLotesExamenes"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/evaluaciones/politicas/{codigo}": {
@@ -17606,7 +17825,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
         "x-evaluapro-permissions": [
           "evaluaciones:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       },
       "put": {
         "tags": [
@@ -17690,7 +17912,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaActualizarEvidencia"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/evaluaciones/evidencias/{evidenciaId}/archivar": {
@@ -17776,7 +18001,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaArchivarEvidencia"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/evaluaciones/evidencias/{evidenciaId}/restaurar": {
@@ -17862,7 +18090,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaRestaurarEvidencia"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/temarios/{temarioId}": {
@@ -17934,7 +18165,10 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_temarios/rutasTemarios.ts",
         "x-evaluapro-permissions": [
           "temarios:leer"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       },
       "put": {
         "tags": [
@@ -18018,7 +18252,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaActualizarTemario"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/temarios/{temarioId}/auditoria": {
@@ -18093,7 +18330,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaListarAuditoriaTemario"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/examenes/generados/lote/{loteId}/auditoria": {
@@ -18168,7 +18408,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaListarAuditoriaLotePdf"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/examenes/generados/lote/{loteId}/archivar": {
@@ -18254,7 +18497,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaCambiarEstadoLotePdf"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/examenes/generados/lote/{loteId}/restaurar": {
@@ -18340,7 +18586,10 @@
         ],
         "x-evaluapro-validators": [
           "esquemaCambiarEstadoLotePdf"
-        ]
+        ],
+        "x-evaluapro-status": "pending-router",
+        "x-evaluapro-available": false,
+        "deprecated": true
       }
     },
     "/banco-preguntas/temas/{temaId}/auditoria": {
@@ -18886,6 +19135,45 @@
             ]
           }
         }
+      },
+      "CodigoAccesoPublico": {
+        "type": "object",
+        "required": [
+          "id",
+          "docenteId",
+          "periodoId",
+          "expiraEn",
+          "usado",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "docenteId": {
+            "type": "string"
+          },
+          "periodoId": {
+            "type": "string"
+          },
+          "expiraEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "usado": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
       }
     }
   }
