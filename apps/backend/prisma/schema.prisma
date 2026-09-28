@@ -36,6 +36,7 @@ model Docente {
   recuperacionesManif  ExamenRecoveryManifest[]
   papeleraItems        PapeleraItem[]
   politicasCalificacion PoliticaCalificacion[]
+  auditoriaPoliticasCalificacion PoliticaCalificacionAuditoria[]
   solicitudesRevision  SolicitudRevisionAlumno[]
   sesiones             SesionDocente[]
   recuperacionesContrasena RecuperacionContrasenaDocente[]
@@ -384,12 +385,38 @@ model PoliticaCalificacion {
   id            String   @id @default(uuid())
   docenteId     String
   docente       Docente  @relation(fields: [docenteId], references: [id])
+  codigo        String?
+  familia       String?
+  version       Int      @default(1)
+  descripcion   String?
+  activa        Boolean  @default(true)
   nombre        String
   configuracion String   // JSON string
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  @@unique([docenteId, codigo, version])
+  @@index([docenteId, codigo, version, activa])
   @@map("politicas_calificacion")
+}
+
+model PoliticaCalificacionAuditoria {
+  id              String   @id @default(uuid())
+  docenteId       String
+  docente         Docente  @relation(fields: [docenteId], references: [id], onDelete: Restrict)
+  codigo          String
+  version         Int
+  accion          String
+  motivo          String?
+  clientRequestId String
+  requestHash     String
+  antes           String?
+  despues         String
+  createdAt       DateTime @default(now())
+
+  @@unique([docenteId, clientRequestId])
+  @@index([docenteId, codigo, createdAt, id])
+  @@map("auditoria_politicas_calificacion")
 }
 
 model Calificacion {

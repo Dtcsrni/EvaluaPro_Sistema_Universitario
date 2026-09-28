@@ -31,6 +31,20 @@ describe('politica LISC', () => {
     expect(resultado.finalRedondeada).toBe(9);
   });
 
+  it('aplica pesos versionados de política a cada bloque de evaluación', () => {
+    const resultado = calcularPoliticaLisc({
+      continuaPorCorte: { c1: 8, c2: 9, c3: 10 },
+      examenesPorCorte: { parcial1: 7, parcial2: 8, global: 9 },
+      pesosContinua: { c1: 0.6, c2: 0.2, c3: 0.2 },
+      pesosGlobales: { continua: 0.8, examenes: 0.2 },
+      pesosExamenes: { parcial1: 0.5, parcial2: 0.25, global: 0.25 }
+    });
+
+    expect(resultado.bloqueContinuaDecimal).toBe(8.6);
+    expect(resultado.bloqueExamenesDecimal).toBe(7.75);
+    expect(resultado.finalDecimal).toBe(8.43);
+  });
+
   it('redondea solo final con regla institucional (<6 floor, >=6 half-up)', () => {
     expect(redondearFinalInstitucional(0)).toBe(0);
     expect(redondearFinalInstitucional(5.9)).toBe(5);

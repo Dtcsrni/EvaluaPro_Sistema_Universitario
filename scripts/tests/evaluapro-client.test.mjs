@@ -738,7 +738,10 @@ test('cliente exige confirmación e idempotencia para mutaciones de políticas y
   const clientRequestId = '66f4b0a7-c845-43ee-a39c-5803b5e6c513';
   const client = new EvaluaproClient({ baseUrl: 'http://localhost', fetchImpl: async (url, init = {}) => {
     calls.push({ url: new URL(url), init });
-    return new Response(JSON.stringify({ politica: { codigo: 'POLICY_DOCENTE', version: 1 }, evidencia: { id: clientRequestId } }), {
+    const body = new URL(url).pathname.endsWith('/auditoria')
+      ? { eventos: [{ id: 'audit-1' }], nextCursor: null }
+      : { politica: { codigo: 'POLICY_DOCENTE', version: 1 }, evidencia: { id: clientRequestId } };
+    return new Response(JSON.stringify(body), {
       status: 201, headers: { 'content-type': 'application/json' }
     });
   } });
@@ -753,6 +756,18 @@ test('cliente exige confirmación e idempotencia para mutaciones de políticas y
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].url.pathname, '/api/evaluaciones/politicas');
   await assert.rejects(client.archivarPoliticaCalificacion('POLICY_DOCENTE'), /confirmarEliminacion/);
+  await assert.rejects(client.archivarPoliticaCalificacion('POLICY_DOCENTE', { confirmarEliminacion: true, motivo: 'Duplicada' }), /clientRequestId/);
+  await assert.rejects(client.archivarPoliticaCalificacion('POLICY_DOCENTE', { confirmarEliminacion: true, clientRequestId, motivo: '' }), /motivo/);
+  const archived = await client.archivarPoliticaCalificacion('POLICY_DOCENTE', {
+    clientRequestId, motivo: 'Política sustituida', confirmarEliminacion: true
+  });
+  assert.equal(archived.codigo, 'POLICY_DOCENTE');
+  assert.equal(calls.at(-1).url.pathname, '/api/evaluaciones/politicas/POLICY_DOCENTE');
+  assert.equal(calls.at(-1).init.method, 'DELETE');
+  assert.equal(JSON.parse(calls.at(-1).init.body).clientRequestId, clientRequestId);
+  const audit = await client.listarAuditoriaPoliticaCalificacion('POLICY_DOCENTE', { limite: 10 });
+  assert.equal(audit.eventos[0].id, 'audit-1');
+  assert.equal(calls.at(-1).url.pathname, '/api/evaluaciones/politicas/POLICY_DOCENTE/auditoria');
   await assert.rejects(client.crearEvidenciaEvaluacion({ periodoId: 'p', alumnoId: 'a', titulo: 'Evidencia' }), /confirmarEscritura/);
   await assert.rejects(client.crearEvidenciaEvaluacion({ periodoId: 'p', alumnoId: 'a', titulo: 'Evidencia' }, { confirmarEscritura: true }), /clientRequestId/);
   await assert.rejects(client.actualizarEvidenciaEvaluacion('e-1', { expectedUpdatedAt: '2026-01-01', motivoCambio: 'Corrección' }), /confirmarEscritura/);
@@ -760,5 +775,5 @@ test('cliente exige confirmación e idempotencia para mutaciones de políticas y
   await assert.rejects(client.restaurarEvidenciaEvaluacion('e-1', { motivo: 'Validada' }), /confirmarEscritura/);
   const evidence = await client.crearEvidenciaEvaluacion({ clientRequestId, periodoId: 'p', alumnoId: 'a', titulo: 'Evidencia' }, { confirmarEscritura: true });
   assert.equal(evidence.id, clientRequestId);
-  assert.equal(calls[1].url.pathname, '/api/evaluaciones/evidencias');
+  assert.equal(calls.find((call) => call.url.pathname === '/api/evaluaciones/evidencias').url.pathname, '/api/evaluaciones/evidencias');
 });

@@ -17531,6 +17531,9 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
         "x-evaluapro-permissions": [
           "evaluaciones:gestionar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaArchivarPolitica"
         ]
       }
     },
@@ -18412,6 +18415,78 @@
         ],
         "x-evaluapro-validators": [
           "esquemaListarAuditoriaTemaBanco"
+        ]
+      }
+    },
+    "/evaluaciones/politicas/{codigo}/auditoria": {
+      "get": {
+        "tags": [
+          "Evaluaciones"
+        ],
+        "operationId": "get_evaluaciones_politicas_codigo_auditoria",
+        "summary": "GET /evaluaciones/politicas/{codigo}/auditoria",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-permissions": [
+          "evaluaciones:leer"
         ]
       }
     }

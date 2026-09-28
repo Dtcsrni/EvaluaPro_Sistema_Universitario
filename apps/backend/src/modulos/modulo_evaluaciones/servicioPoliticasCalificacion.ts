@@ -74,6 +74,7 @@ export function redondearFinalInstitucional(finalDecimal: number): number {
 export function calcularPoliticaLisc(params: {
   continuaPorCorte: VectorCortes;
   examenesPorCorte: VectorExamenes;
+  pesosContinua?: VectorCortes;
   pesosGlobales?: { continua?: number; examenes?: number };
   pesosExamenes?: { parcial1?: number; parcial2?: number; global?: number };
 }): ResultadoPoliticaLisc {
@@ -95,12 +96,15 @@ export function calcularPoliticaLisc(params: {
   const pesoParcial1 = new Decimal(Number(params.pesosExamenes?.parcial1 ?? 0.2));
   const pesoParcial2 = new Decimal(Number(params.pesosExamenes?.parcial2 ?? 0.2));
   const pesoGlobal = new Decimal(Number(params.pesosExamenes?.global ?? 0.6));
+  const pesoContinuaC1 = new Decimal(Number(params.pesosContinua?.c1 ?? 0.2));
+  const pesoContinuaC2 = new Decimal(Number(params.pesosContinua?.c2 ?? 0.2));
+  const pesoContinuaC3 = new Decimal(Number(params.pesosContinua?.c3 ?? 0.6));
 
   const bloqueContinuaDecimal = clamp0a10(
     new Decimal(continuaPorCorte.c1)
-      .mul(0.2)
-      .add(new Decimal(continuaPorCorte.c2).mul(0.2))
-      .add(new Decimal(continuaPorCorte.c3).mul(0.6))
+      .mul(pesoContinuaC1)
+      .add(new Decimal(continuaPorCorte.c2).mul(pesoContinuaC2))
+      .add(new Decimal(continuaPorCorte.c3).mul(pesoContinuaC3))
       .toNumber()
   );
 

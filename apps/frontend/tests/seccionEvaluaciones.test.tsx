@@ -115,6 +115,40 @@ describe('SeccionEvaluaciones', () => {
     });
   });
 
+  it('muestra y aplica en la GUI la versión dinámica que recibió de la API', async () => {
+    vi.mocked(clienteApi.obtener).mockResolvedValue({
+      politicas: [
+        { codigo: 'POLICY_DOCENTE_LISC', version: 3, nombre: 'LISC docente', familia: 'lisc_encuadre', editable: true }
+      ],
+      configuracion: { politicaCodigo: 'POLICY_DOCENTE_LISC', politicaVersion: 3 }
+    });
+    vi.mocked(clienteApi.enviar).mockResolvedValueOnce({});
+
+    render(
+      <SeccionEvaluaciones
+        periodos={periodosMock}
+        alumnos={alumnosMock}
+        puedeGestionar={true}
+        puedeClassroomConectar={false}
+        puedeClassroomPull={false}
+        classroomDisponible={false}
+      />
+    );
+
+    const selectPolitica = screen.getByLabelText(/^política$/i);
+    await waitFor(() => expect(selectPolitica).toHaveValue('POLICY_DOCENTE_LISC'));
+    expect(screen.getByRole('option', { name: 'LISC docente' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /guardar política/i }));
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith('/evaluaciones/v2/politica', {
+        periodoId: 'per-1',
+        politicaCodigo: 'POLICY_DOCENTE_LISC',
+        politicaVersion: 3
+      });
+    });
+  });
+
   it('permite cambiar a la pestaña de evidencias, guardar y capturar error', async () => {
     vi.mocked(clienteApi.obtener).mockResolvedValue({ politicas: [] });
     vi.mocked(clienteApi.enviar).mockResolvedValueOnce({});

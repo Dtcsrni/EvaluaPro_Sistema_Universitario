@@ -815,9 +815,31 @@ export class EvaluaproClient {
     return (await this.request(`/evaluaciones/politicas${query}`)).data;
   }
 
-  async obtenerPoliticaCalificacion(codigo, version = 1) {
-    const query = new URLSearchParams({ version: String(version) });
-    return (await this.request(`/evaluaciones/politicas/${encodeURIComponent(codigo)}?${query}`)).data.politica;
+  async obtenerPoliticaCalificacion(codigo, version) {
+    const query = new URLSearchParams();
+    if (version !== undefined && version !== null) query.set('version', String(version));
+    const suffix = query.size ? `?${query}` : '';
+    return (await this.request(`/evaluaciones/politicas/${encodeURIComponent(codigo)}${suffix}`)).data.politica;
+  }
+
+  async listarAuditoriaPoliticaCalificacion(codigo, { limite = 50, cursor } = {}) {
+    const query = new URLSearchParams({ limite: String(limite) });
+    if (cursor) query.set('cursor', cursor);
+    return (await this.request(`/evaluaciones/politicas/${encodeURIComponent(codigo)}/auditoria?${query}`)).data;
+  }
+
+  async listarTodaAuditoriaPoliticaCalificacion(codigo, { limite = 50 } = {}) {
+    const eventos = [];
+    const cursoresUsados = new Set();
+    let cursor;
+    do {
+      const pagina = await this.listarAuditoriaPoliticaCalificacion(codigo, { limite, ...(cursor ? { cursor } : {}) });
+      eventos.push(...(Array.isArray(pagina.eventos) ? pagina.eventos : []));
+      cursor = pagina.nextCursor || undefined;
+      if (cursor && cursoresUsados.has(cursor)) throw new Error('La paginación de auditoría de políticas repitió un cursor');
+      if (cursor) cursoresUsados.add(cursor);
+    } while (cursor);
+    return eventos;
   }
 
   async crearPoliticaCalificacion(payload, { confirmarEscritura = false } = {}) {
@@ -839,10 +861,14 @@ export class EvaluaproClient {
     })).data.politica;
   }
 
-  async archivarPoliticaCalificacion(codigo, { confirmarEliminacion = false } = {}) {
+  async archivarPoliticaCalificacion(codigo, { clientRequestId, motivo, confirmarEliminacion = false } = {}) {
     if (!confirmarEliminacion) throw new Error('Archivar una política requiere confirmarEliminacion: true');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(clientRequestId ?? ''))) {
+      throw new TypeError('clientRequestId UUID es obligatorio para recuperar reintentos de archivo de política');
+    }
+    if (!motivo) throw new TypeError('motivo es obligatorio para auditar el archivo de política');
     return (await this.request(`/evaluaciones/politicas/${encodeURIComponent(codigo)}`, {
-      method: 'DELETE', confirmarEliminacion
+      method: 'DELETE', body: { clientRequestId, motivo }, confirmarEliminacion
     })).data.politica;
   }
 

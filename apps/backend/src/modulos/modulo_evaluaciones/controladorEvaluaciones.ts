@@ -18,6 +18,14 @@ import {
   redondearFinalInstitucional
 } from './servicioPoliticasCalificacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import {
+  archivarPoliticaDocente,
+  crearPoliticaDocente,
+  listarAuditoriaPolitica,
+  listarPoliticasDocente,
+  obtenerPoliticaDocente,
+  versionarPoliticaDocente
+} from './servicioCrudPoliticasCalificacion.js';
 
 const POLITICAS_BASE: Array<{
   codigo: CodigoPoliticaCalificacion;
@@ -279,7 +287,8 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
     continuaPorCorte,
     examenesPorCorte,
     pesosGlobales: (config.pesosGlobales ?? {}) as { continua?: number; examenes?: number },
-    pesosExamenes: (config.pesosExamenes ?? {}) as { parcial1?: number; parcial2?: number; global?: number }
+    pesosExamenes: (config.pesosExamenes ?? {}) as { parcial1?: number; parcial2?: number; global?: number },
+    pesosContinua: ((config.pesosGlobales as Record<string, unknown> | undefined)?.continuaPorCorte ?? {}) as { c1?: number; c2?: number; c3?: number }
   });
 
   // Regla de Asistencia CUH: 4 o más faltas pierde derecho a examen
@@ -319,7 +328,7 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
     docenteId,
     periodoId,
     alumnoId,
-    politicaCodigo: 'POLICY_LISC_ENCUADRE_2026',
+    politicaCodigo: String(config.politicaCodigo ?? 'POLICY_LISC_ENCUADRE_2026'),
     politicaVersion: numeroSeguro(config.politicaVersion) || 1,
     continuaPorCorte: calculo.continuaPorCorte,
     examenesPorCorte: examenesPorCorteFinal,
@@ -332,16 +341,18 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
     sinDerecho,
     faltas: faltasCount,
     auditoria: {
-      politicaCodigo: 'POLICY_LISC_ENCUADRE_2026',
+      politicaCodigo: String(config.politicaCodigo ?? 'POLICY_LISC_ENCUADRE_2026'),
       politicaVersion: numeroSeguro(config.politicaVersion) || 1,
+      politicaId: ((config.reglasCierre ?? {}) as Record<string, unknown>).politicaId ?? null,
       reglas: config.reglasCierre ?? {},
       pesosGlobales: config.pesosGlobales ?? {},
       pesosExamenes: config.pesosExamenes ?? {},
+      pesosContinuaPorCorte: (config.pesosGlobales as Record<string, unknown> | undefined)?.continuaPorCorte ?? { c1: 0.2, c2: 0.2, c3: 0.6 },
       formulas: {
         examenCorte: '0.6*teorico + 0.4*promedio(practicas)',
-        bloqueExamenes: '0.2*parcial1 + 0.2*parcial2 + 0.6*global',
-        bloqueContinua: '0.2*c1 + 0.2*c2 + 0.6*c3',
-        final: '0.5*bloqueContinua + 0.5*bloqueExamenes',
+        bloqueExamenes: 'pesosExamenes.parcial1*parcial1 + pesosExamenes.parcial2*parcial2 + pesosExamenes.global*global',
+        bloqueContinua: 'pesosContinuaPorCorte.c1*c1 + pesosContinuaPorCorte.c2*c2 + pesosContinuaPorCorte.c3*c3',
+        final: 'pesosGlobales.continua*bloqueContinua + pesosGlobales.examenes*bloqueExamenes',
         redondeoFinal: 'si <6 floor, si >=6 round half-up'
       }
     },
@@ -382,10 +393,11 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
 }
 
 async function calcularResumenSv(docenteId: string, periodoId: string, alumnoId: string) {
-  const calificaciones = await prisma.calificacion.findMany({
-    where: { docenteId, periodoId, alumnoId },
-    orderBy: { createdAt: 'asc' }
-  });
+  const [configRaw, calificaciones] = await Promise.all([
+    prisma.configuracionPeriodoEvaluacion.findUnique({ where: { docenteId_periodoId: { docenteId, periodoId } } }),
+    prisma.calificacion.findMany({ where: { docenteId, periodoId, alumnoId }, orderBy: { createdAt: 'asc' } })
+  ]);
+  const config = mapearConfiguracionPrismaALean(configRaw);
   const parciales = calificaciones.filter((item) => item.tipoExamen === 'parcial');
   const global = calificaciones.find((item) => item.tipoExamen === 'global');
 
@@ -393,7 +405,9 @@ async function calcularResumenSv(docenteId: string, periodoId: string, alumnoId:
   const parcial2 = numeroSeguro(parciales[1]?.calificacionParcialTexto);
   const globalNota = numeroSeguro(global?.calificacionGlobalTexto);
 
-  const bloqueExamenesDecimal = round4(globalNota * 0.6 + ((parcial1 + parcial2) / 2) * 0.4);
+  const pesoGlobal = numeroSeguro(config?.pesosExamenes?.pesoGlobal ?? 0.6);
+  const pesoParciales = numeroSeguro(config?.pesosExamenes?.pesoParciales ?? 0.4);
+  const bloqueExamenesDecimal = round4(globalNota * pesoGlobal + ((parcial1 + parcial2) / 2) * pesoParciales);
   const finalDecimal = round4(bloqueExamenesDecimal);
   const finalRedondeada = redondearFinalInstitucional(finalDecimal);
 
@@ -401,8 +415,8 @@ async function calcularResumenSv(docenteId: string, periodoId: string, alumnoId:
     docenteId,
     periodoId,
     alumnoId,
-    politicaCodigo: 'POLICY_SV_EXCEL_2026',
-    politicaVersion: 1,
+    politicaCodigo: String(config?.politicaCodigo ?? 'POLICY_SV_EXCEL_2026'),
+    politicaVersion: numeroSeguro(config?.politicaVersion) || 1,
     continuaPorCorte: {
       c1: numeroSeguro(parciales[0]?.evaluacionContinuaTexto),
       c2: numeroSeguro(parciales[1]?.evaluacionContinuaTexto),
@@ -420,7 +434,11 @@ async function calcularResumenSv(docenteId: string, periodoId: string, alumnoId:
     estado: 'completo',
     faltantes: [] as string[],
     auditoria: {
-      fuente: 'sv_excel_legacy'
+      fuente: 'sv_excel_legacy',
+      politicaCodigo: String(config?.politicaCodigo ?? 'POLICY_SV_EXCEL_2026'),
+      politicaVersion: numeroSeguro(config?.politicaVersion) || 1,
+      politicaId: ((config?.reglasCierre ?? {}) as Record<string, unknown>).politicaId ?? null,
+      pesosExamenes: { pesoGlobal, pesoParciales }
     },
     calculadoEn: new Date()
   };
@@ -458,8 +476,43 @@ async function calcularResumenSv(docenteId: string, periodoId: string, alumnoId:
   return resumen;
 }
 
-export async function listarPoliticasCalificacion(_req: SolicitudDocente, res: Response) {
-  res.json({ politicas: POLITICAS_BASE });
+export async function listarPoliticasCalificacion(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const incluirArchivadas = String(req.query.incluirArchivadas ?? '') === 'true';
+  const incluirVersiones = String(req.query.incluirVersiones ?? '') === 'true';
+  const propias = await listarPoliticasDocente(docenteId, { incluirArchivadas, incluirVersiones });
+  res.json({ politicas: [...POLITICAS_BASE.map((politica) => ({ ...politica, editable: false })), ...propias.map((politica) => ({ ...politica, editable: true }))] });
+}
+
+export async function obtenerPoliticaCalificacion(req: SolicitudDocente, res: Response) {
+  const codigo = String(req.params.codigo ?? '').trim();
+  const versionQuery = req.query.version === undefined ? undefined : Number(req.query.version);
+  if (versionQuery !== undefined && (!Number.isInteger(versionQuery) || versionQuery < 1)) {
+    throw new ErrorAplicacion('DATOS_INVALIDOS', 'version debe ser un entero positivo', 400);
+  }
+  const base = POLITICAS_BASE.find((politica) => politica.codigo === codigo);
+  if (base) {
+    if (versionQuery !== undefined && versionQuery !== base.version) throw new ErrorAplicacion('POLITICA_NO_ENCONTRADA', 'Política no encontrada', 404);
+    res.json({ politica: { ...base, editable: false } });
+    return;
+  }
+  const politica = await obtenerPoliticaDocente(obtenerDocenteId(req), codigo, versionQuery);
+  res.json({ politica: { ...politica, editable: true } });
+}
+
+export async function listarAuditoriaPoliticaCalificacion(req: SolicitudDocente, res: Response) {
+  const codigo = String(req.params.codigo ?? '').trim();
+  const limiteQuery = req.query.limite === undefined ? undefined : Number(req.query.limite);
+  if (limiteQuery !== undefined && (!Number.isInteger(limiteQuery) || limiteQuery < 1 || limiteQuery > 100)) {
+    throw new ErrorAplicacion('DATOS_INVALIDOS', 'limite debe ser un entero entre 1 y 100', 400);
+  }
+  const docenteId = obtenerDocenteId(req);
+  if (!POLITICAS_BASE.some((politica) => politica.codigo === codigo)) await obtenerPoliticaDocente(docenteId, codigo);
+  const pagina = await listarAuditoriaPolitica(docenteId, codigo, {
+    limite: limiteQuery,
+    cursor: typeof req.query.cursor === 'string' ? req.query.cursor : undefined
+  });
+  res.json(pagina);
 }
 
 export async function obtenerContextoEvaluacionesV2(req: SolicitudDocente, res: Response) {
@@ -478,15 +531,39 @@ export async function obtenerContextoEvaluacionesV2(req: SolicitudDocente, res: 
     : null;
 
   const configuracion = mapearConfiguracionPrismaALean(configRaw);
+  const propias = await listarPoliticasDocente(docenteId);
 
   res.json({
-    politicas: POLITICAS_BASE,
+    politicas: [...POLITICAS_BASE.map((politica) => ({ ...politica, editable: false })), ...propias.map((politica) => ({ ...politica, editable: true }))],
     configuracion: configuracion ?? null
   });
 }
 
-export async function crearPoliticaCalificacion(_req: SolicitudDocente, res: Response) {
-  res.sendStatus(501);
+export async function crearPoliticaCalificacion(req: SolicitudDocente, res: Response) {
+  const payload = req.body as Parameters<typeof crearPoliticaDocente>[1];
+  if (CODIGOS_POLITICA.includes(payload.codigo as CodigoPoliticaCalificacion)) {
+    throw new ErrorAplicacion('POLITICA_RESERVADA', 'El código corresponde a una política predefinida', 409);
+  }
+  const politica = await crearPoliticaDocente(obtenerDocenteId(req), payload);
+  res.status(201).json({ politica: { ...politica, editable: true } });
+}
+
+export async function versionarPoliticaCalificacion(req: SolicitudDocente, res: Response) {
+  const codigo = String(req.params.codigo ?? '').trim();
+  if (CODIGOS_POLITICA.includes(codigo as CodigoPoliticaCalificacion)) {
+    throw new ErrorAplicacion('POLITICA_RESERVADA', 'Las políticas predefinidas son inmutables', 409);
+  }
+  const politica = await versionarPoliticaDocente(obtenerDocenteId(req), codigo, req.body as Parameters<typeof versionarPoliticaDocente>[2]);
+  res.json({ politica: { ...politica, editable: true } });
+}
+
+export async function archivarPoliticaCalificacion(req: SolicitudDocente, res: Response) {
+  const codigo = String(req.params.codigo ?? '').trim();
+  if (CODIGOS_POLITICA.includes(codigo as CodigoPoliticaCalificacion)) {
+    throw new ErrorAplicacion('POLITICA_RESERVADA', 'Las políticas predefinidas no se pueden archivar', 409);
+  }
+  const politica = await archivarPoliticaDocente(obtenerDocenteId(req), codigo, req.body as Parameters<typeof archivarPoliticaDocente>[2]);
+  res.json({ politica: { ...politica, editable: true } });
 }
 
 export async function obtenerConfiguracionPeriodo(req: SolicitudDocente, res: Response) {
@@ -517,9 +594,25 @@ export async function guardarConfiguracionPeriodo(req: SolicitudDocente, res: Re
   }
 
   const politicaCodigo = String(payload.politicaCodigo ?? '').trim();
-  if (!CODIGOS_POLITICA.includes(politicaCodigo as CodigoPoliticaCalificacion)) {
-    throw new ErrorAplicacion('DATOS_INVALIDOS', 'politicaCodigo invalido', 400);
+  const politicaBase = POLITICAS_BASE.find((item) => item.codigo === politicaCodigo);
+  const versionSolicitada = payload.politicaVersion === undefined ? undefined : numeroSeguro(payload.politicaVersion);
+  let politicaVersion = 1;
+  let politicaDocente: Awaited<ReturnType<typeof obtenerPoliticaDocente>> | null = null;
+  if (politicaBase) {
+    if (versionSolicitada !== undefined && versionSolicitada !== politicaBase.version) {
+      throw new ErrorAplicacion('POLITICA_VERSION_INVALIDA', 'La versión predefinida solicitada no existe', 400);
+    }
+  } else {
+    politicaDocente = await obtenerPoliticaDocente(docenteId, politicaCodigo, versionSolicitada);
+    const vigente = versionSolicitada === undefined ? politicaDocente : await obtenerPoliticaDocente(docenteId, politicaCodigo);
+    if (!politicaDocente.activa || politicaDocente.version !== vigente.version) {
+      throw new ErrorAplicacion('POLITICA_VERSION_INACTIVA', 'El periodo solo puede seleccionar la versión activa más reciente', 409);
+    }
+    politicaVersion = politicaDocente.version;
   }
+
+  const parametrosPolitica = politicaDocente?.parametros ?? {};
+  const familiaPolitica = politicaDocente?.familia ?? (politicaCodigo === 'POLICY_LISC_ENCUADRE_2026' ? 'lisc_encuadre' : 'sv_excel_contract');
 
   const cortesPayload = Array.isArray(payload.cortes) ? payload.cortes : [];
   const cortesNormalizados = cortesPayload.map((item) => {
@@ -536,22 +629,31 @@ export async function guardarConfiguracionPeriodo(req: SolicitudDocente, res: Re
 
   const defaultCortes = configDefaultLisc(docenteId, periodoId).cortes;
 
+  const pesosGlobalesBase = familiaPolitica === 'lisc_encuadre'
+    ? (politicaDocente ? parametrosPolitica.pesosGlobales ?? { continua: 0.5, examenes: 0.5 } : payload.pesosGlobales ?? { continua: 0.5, examenes: 0.5 })
+    : { continua: 0.5, examenes: 0.5 };
+  const pesosGlobales = familiaPolitica === 'lisc_encuadre' && politicaDocente
+    ? { ...(pesosGlobalesBase as Record<string, unknown>), continuaPorCorte: parametrosPolitica.pesosContinua ?? { c1: 0.2, c2: 0.2, c3: 0.6 } }
+    : pesosGlobalesBase;
+  const pesosExamenes = familiaPolitica === 'lisc_encuadre'
+    ? (politicaDocente ? parametrosPolitica.pesosExamenes ?? { parcial1: 0.2, parcial2: 0.2, global: 0.6 } : payload.pesosExamenes ?? { parcial1: 0.2, parcial2: 0.2, global: 0.6 })
+    : (politicaDocente ? { pesoGlobal: parametrosPolitica.pesoGlobal ?? 0.6, pesoParciales: parametrosPolitica.pesoParciales ?? 0.4 } : { pesoGlobal: 0.6, pesoParciales: 0.4 });
+  const reglasCierreBase = familiaPolitica === 'lisc_encuadre' && politicaDocente
+    ? parametrosPolitica.reglasCierre ?? payload.reglasCierre ?? { requiereTeorico: true, requierePractica: true, requiereContinuaMinima: false, continuaMinima: 0 }
+    : payload.reglasCierre ?? { requiereTeorico: true, requierePractica: true, requiereContinuaMinima: false, continuaMinima: 0 };
+  const reglasCierre = politicaDocente
+    ? { ...(reglasCierreBase as Record<string, unknown>), politicaId: politicaDocente.id }
+    : reglasCierreBase;
+
   const update = {
     docenteId,
     periodoId,
     politicaCodigo,
-    politicaVersion: numeroSeguro(payload.politicaVersion) || 1,
+    politicaVersion,
     cortes: JSON.stringify(cortesNormalizados.length > 0 ? cortesNormalizados : defaultCortes),
-    pesosGlobales: JSON.stringify(payload.pesosGlobales ?? { continua: 0.5, examenes: 0.5 }),
-    pesosExamenes: JSON.stringify(payload.pesosExamenes ?? { parcial1: 0.2, parcial2: 0.2, global: 0.6 }),
-    reglasCierre: JSON.stringify(
-      payload.reglasCierre ?? {
-        requiereTeorico: true,
-        requierePractica: true,
-        requiereContinuaMinima: false,
-        continuaMinima: 0
-      }
-    ),
+    pesosGlobales: JSON.stringify(pesosGlobales),
+    pesosExamenes: JSON.stringify(pesosExamenes),
+    reglasCierre: JSON.stringify(reglasCierre),
     activo: payload.activo === false ? false : true
   };
 
@@ -705,8 +807,14 @@ export async function obtenerResumenEvaluacionAlumno(req: SolicitudDocente, res:
   });
   const config = mapearConfiguracionPrismaALean(configRaw);
   const politica = String(config?.politicaCodigo ?? 'POLICY_SV_EXCEL_2026');
+  let familia = politica === 'POLICY_LISC_ENCUADRE_2026' ? 'lisc_encuadre' : politica === 'POLICY_SV_EXCEL_2026' ? 'sv_excel_contract' : '';
+  if (!familia) {
+    const version = numeroSeguro(config?.politicaVersion) || 1;
+    const definicion = await obtenerPoliticaDocente(docenteId, politica, version);
+    familia = definicion.familia;
+  }
 
-  const resumen = politica === 'POLICY_LISC_ENCUADRE_2026'
+  const resumen = familia === 'lisc_encuadre'
     ? await calcularResumenLisc(docenteId, periodoId, alumnoId)
     : await calcularResumenSv(docenteId, periodoId, alumnoId);
 

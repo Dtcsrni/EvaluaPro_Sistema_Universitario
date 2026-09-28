@@ -14,21 +14,77 @@ const esquemaFecha = z
   .or(z.string().trim().date())
   .transform((value) => new Date(value).toISOString());
 
+const esquemaPesoNormalizado = z.number().finite().min(0).max(1);
+const esquemaPesosGlobales = z.object({ continua: esquemaPesoNormalizado, examenes: esquemaPesoNormalizado }).strict();
+const esquemaPesosExamenes = z.object({
+  parcial1: esquemaPesoNormalizado,
+  parcial2: esquemaPesoNormalizado,
+  global: esquemaPesoNormalizado
+}).strict();
+const esquemaPesosContinua = z.object({ c1: esquemaPesoNormalizado, c2: esquemaPesoNormalizado, c3: esquemaPesoNormalizado }).strict();
+const esquemaParametrosLisc = z.object({
+  pesosGlobales: esquemaPesosGlobales.optional(),
+  pesosExamenes: esquemaPesosExamenes.optional(),
+  pesosContinua: esquemaPesosContinua.optional(),
+  reglasCierre: z.object({
+    requiereTeorico: z.boolean().optional(),
+    requierePractica: z.boolean().optional(),
+    requiereContinuaMinima: z.boolean().optional(),
+    continuaMinima: z.number().min(0).max(10).optional()
+  }).strict().optional()
+}).strict();
+const esquemaParametrosSv = z.object({
+  pesoParciales: esquemaPesoNormalizado.optional(),
+  pesoGlobal: esquemaPesoNormalizado.optional()
+}).strict();
+
+function validarSumaPesos(pesos: Record<string, number>, ctx: z.RefinementCtx, prefijo: string) {
+  const suma = Object.values(pesos).reduce((total, peso) => total + peso, 0);
+  if (Math.abs(suma - 1) > 1e-9) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: [prefijo], message: 'Los pesos deben sumar 1.' });
+  }
+}
+
 export const esquemaCrearPolitica = z
   .object({
-    codigo: z.enum(['POLICY_SV_EXCEL_2026', 'POLICY_LISC_ENCUADRE_2026']),
-    version: z.number().int().min(1),
+    codigo: z.string().trim().regex(/^POLICY_[A-Z0-9_]{3,60}$/),
+    familia: z.enum(['lisc_encuadre', 'sv_excel_contract']),
     nombre: z.string().trim().min(3).max(120),
     descripcion: z.string().trim().max(400).optional(),
-    activa: z.boolean().optional(),
-    parametros: z.record(z.string(), z.unknown()).optional()
+    clientRequestId: z.string().uuid(),
+    parametros: z.union([esquemaParametrosLisc, esquemaParametrosSv]).optional()
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    const parametros = (data.parametros ?? {}) as z.infer<typeof esquemaParametrosLisc> & z.infer<typeof esquemaParametrosSv>;
+    if (data.familia === 'lisc_encuadre') {
+      if ('pesoGlobal' in parametros || 'pesoParciales' in parametros) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['parametros'], message: 'Parámetros incompatibles con lisc_encuadre.' });
+        return;
+      }
+      if (parametros.pesosGlobales) validarSumaPesos(parametros.pesosGlobales, ctx, 'parametros.pesosGlobales');
+      if (parametros.pesosExamenes) validarSumaPesos(parametros.pesosExamenes, ctx, 'parametros.pesosExamenes');
+      if (parametros.pesosContinua) validarSumaPesos(parametros.pesosContinua, ctx, 'parametros.pesosContinua');
+      return;
+    }
+    if ('pesosGlobales' in parametros || 'pesosExamenes' in parametros || 'pesosContinua' in parametros || 'reglasCierre' in parametros) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['parametros'], message: 'Parámetros incompatibles con sv_excel_contract.' });
+      return;
+    }
+    if (parametros.pesoGlobal !== undefined || parametros.pesoParciales !== undefined) {
+      validarSumaPesos({ global: parametros.pesoGlobal ?? 0.6, parciales: parametros.pesoParciales ?? 0.4 }, ctx, 'parametros');
+    }
+  });
+
+export const esquemaArchivarPolitica = z.object({
+  clientRequestId: z.string().uuid(),
+  motivo: z.string().trim().min(3).max(400)
+}).strict();
 
 export const esquemaConfigurarPeriodo = z
   .object({
     periodoId: esquemaObjectId,
-    politicaCodigo: z.enum(['POLICY_SV_EXCEL_2026', 'POLICY_LISC_ENCUADRE_2026']),
+    politicaCodigo: z.string().trim().regex(/^POLICY_[A-Z0-9_]{3,60}$/),
     politicaVersion: z.number().int().min(1).optional(),
     cortes: z
       .array(

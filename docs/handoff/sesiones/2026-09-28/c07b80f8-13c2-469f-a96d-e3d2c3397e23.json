@@ -1,0 +1,43 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "c07b80f8-13c2-469f-a96d-e3d2c3397e23",
+  "parentSessionId": "01a0e7b8-1d7e-78f3-9fcb-e249b0babadf",
+  "status": "final",
+  "generatedAt": "2026-09-28T17:17:34Z",
+  "validationProfile": "quick",
+  "agent": { "name": "unknown", "version": "unknown", "provider": "unknown", "kind": "codex", "channel": "unknown" },
+  "request": { "summary": "Completar un ciclo API docente versionado y auditable de políticas de evaluación en checkout aislado." },
+  "objective": "Implementar CRUD lógico de políticas por docente, fijar versiones en periodos y aplicar parámetros permitidos a cálculos, manteniendo correspondencia de lectura/selección en GUI.",
+  "scope": ["SPEC-070: políticas de evaluación", "API, SDK, OpenAPI y catálogo", "Migración SQLite y auditoría append-only", "Selector GUI para políticas dinámicas"],
+  "constraints": ["No modificar ni escribir en el checkout canónico compartido.", "No usar db push --accept-data-loss ni escribir notas/listas de alumnos.", "No declarar validación de runtime Prisma o GUI cuando las dependencias la bloqueen."],
+  "actions": [
+    { "type": "implementation", "summary": "CRUD API de políticas con versionado inmutable, idempotencia, auditoría paginada y parámetros de cálculo tipados.", "timestamp": "2026-09-28T17:17:34Z", "status": "ok" },
+    { "type": "validation", "summary": "Pruebas focales API/servicio, fórmulas, SDK, migración SQLite, lint, contrato y typecheck frontend.", "timestamp": "2026-09-28T17:17:34Z", "status": "ok" },
+    { "type": "validation", "summary": "Typecheck Prisma, validación de schema Prisma, prueba GUI y auditoría SDD/global bloqueadas por dependencias o especificaciones preexistentes.", "timestamp": "2026-09-28T17:17:34Z", "status": "falla" }
+  ],
+  "files": {
+    "read": ["AGENTS.md", "docs/POLITICA_SDD.md", "docs/IA_TRAZABILIDAD_AGENTES.md", "apps/backend/src/modulos/modulo_evaluaciones/controladorEvaluaciones.ts", "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts", "apps/backend/prisma/schema.prisma", "scripts/api/CRUD_CATALOG.md"],
+    "changed": ["AGENTS.md", "apps/backend/prisma/schema.prisma", "apps/backend/src/infraestructura/baseDatos/sqlite.ts", "apps/backend/src/modulos/modulo_evaluaciones/controladorEvaluaciones.ts", "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts", "apps/backend/src/modulos/modulo_evaluaciones/servicioCrudPoliticasCalificacion.ts", "apps/backend/src/modulos/modulo_evaluaciones/servicioPoliticasCalificacion.ts", "apps/backend/src/modulos/modulo_evaluaciones/validacionesEvaluaciones.ts", "apps/backend/tests/evaluaciones.politicaLisc.test.ts", "apps/backend/tests/evaluaciones.politicas.api.test.ts", "apps/frontend/src/apps/app_docente/SeccionEvaluaciones.tsx", "apps/frontend/tests/seccionEvaluaciones.test.tsx", "docs/specs/SPEC-070_politicas_evaluacion_api.spec.md", "docs/handoff/sesiones/2026-09-28/c07b80f8-13c2-469f-a96d-e3d2c3397e23.json", "docs/handoff/sesiones/2026-09-28/c07b80f8-13c2-469f-a96d-e3d2c3397e23.md", "scripts/api/CRUD_CATALOG.md", "scripts/api/README.md", "scripts/api/evaluapro-client.mjs", "scripts/api/openapi.json", "scripts/migrate-politicas-calificacion-auditoria-sqlite.mjs", "scripts/tests/evaluapro-client.test.mjs", "scripts/tests/migrate-politicas-calificacion-auditoria-sqlite.test.mjs"],
+    "artifacts": []
+  },
+  "commands": [
+    { "name": "policy API/formula tests", "command": "npm -C apps/backend test -- tests/evaluaciones.politicas.api.test.ts tests/evaluaciones.politicaLisc.test.ts", "status": "ok", "exitCode": 0, "durationMs": 1160, "resultSummary": "9/9 pruebas; rutas/controller/RBAC con persistencia simulada y fórmulas." },
+    { "name": "policy SQLite migration", "command": "node --test scripts/tests/migrate-politicas-calificacion-auditoria-sqlite.test.mjs", "status": "ok", "exitCode": 0, "durationMs": 505, "resultSummary": "1/1; migración aditiva, backup, idempotencia e inmutabilidad audit." },
+      { "name": "API SDK", "command": "node --test scripts/tests/evaluapro-client.test.mjs", "status": "ok", "exitCode": 0, "durationMs": 630, "resultSummary": "32/32 pruebas." },
+      { "name": "traceability tests", "command": "npm run test:ia:traceability", "status": "ok", "exitCode": 0, "durationMs": 150, "resultSummary": "7/7 pruebas." },
+      { "name": "handoff tests", "command": "npm run test:ia:handoff", "status": "ok", "exitCode": 0, "durationMs": 152, "resultSummary": "11/11 pruebas." },
+    { "name": "focused lint", "command": "npm exec -- eslint <archivos API y GUI modificados>", "status": "ok", "exitCode": 0, "durationMs": 3050, "resultSummary": "Sin errores en archivos del alcance." },
+    { "name": "frontend typecheck", "command": "npm -C apps/frontend run typecheck", "status": "ok", "exitCode": 0, "durationMs": 8020, "resultSummary": "TypeScript frontend pasó." },
+    { "name": "API contract", "command": "npm run api:contract:check", "status": "ok", "exitCode": 0, "durationMs": 1070, "resultSummary": "OpenAPI 3.1.0: 233 rutas, 268 operaciones." },
+    { "name": "backend tsc without Prisma generate", "command": "npm exec -- tsc --noEmit --project tsconfig.json --pretty false", "status": "falla", "exitCode": 1, "durationMs": 9120, "resultSummary": "Prisma Client 7.10 incompatible con configuración 6.19 en sqlite.ts e instantaneaLocal.ts; primera ejecución también detectó y corrigió un error de tipo en el cambio propio." },
+    { "name": "GUI policy tests", "command": "npm -C apps/frontend test -- tests/seccionEvaluaciones.test.tsx", "status": "falla", "exitCode": 1, "durationMs": 2650, "resultSummary": "Vitest no arranca porque falta @vitejs/plugin-react en el node_modules enlazado." },
+    { "name": "SDD audit", "command": "npm run sdd:audit", "status": "falla", "exitCode": 1, "durationMs": 2130, "resultSummary": "SPEC-070 nueva pasa; specs 036 y 042 existentes refieren archivos de test ausentes en esta rama." },
+    { "name": "Prisma schema validate", "command": "npm exec -- prisma validate --schema prisma/schema.prisma", "status": "falla", "exitCode": 1, "durationMs": 15640, "resultSummary": "CLI 7.10 rechaza datasource.url legacy; el proyecto declara Prisma 6.19. No valida el modelo modificado." }
+  ],
+  "decisions": ["Versiones previas se conservan; PUT crea versión nueva y DELETE archiva mediante versión inactiva.", "Solo familias LISC y SV con pesos tipados normalizados; no se permiten fórmulas ejecutables.", "Auditoría tiene clave idempotente, hash, antes/después, consulta paginada y triggers SQLite que impiden UPDATE/DELETE.", "La GUI carga políticas propias desde el mismo contexto API y guarda código/versión seleccionados."],
+  "assumptions": ["La persistencia de la aplicación se provisiona con el schema Prisma declarado antes de ejecutar la migración aditiva de auditoría."],
+  "risks": ["La integración contra SQLite/Prisma real y el typecheck backend completo requieren dependencias alineadas a Prisma 6.19.", "La prueba visual GUI no pudo arrancar por la dependencia faltante; frontend typecheck sí pasó.", "La auditoría CRUD global de SPEC-070 y la validación GUI instalada permanecen pendientes.", "ci:policy:audit sigue bloqueada por specs existentes con pruebas no presentes en esta rama."],
+  "nextStep": "Alinear node_modules al lockfile del clon sin usar el enlace a dependencias canónicas; después ejecutar integración real SQLite, GUI focal, sdd:audit y política CI antes de decidir push/release.",
+  "completion": { "isComplete": false, "pendingFields": ["integración Prisma 6.19", "prueba GUI ejecutable", "auditoría CRUD global SPEC-070"] },
+  "repo": { "rootDir": "C:/Users/evega/Documents/ChatGPT/Evaluapro/api-topic-closeout", "branch": "codex/api-topic-audit", "commit": "135ea7c2", "workingTreeStatus": "dirty: solo cambios de esta fase API de políticas" }
+}

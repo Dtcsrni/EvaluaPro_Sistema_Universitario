@@ -15,9 +15,11 @@ import type { Alumno, Periodo } from './tipos';
 type TabEvaluaciones = 'politica' | 'evidencias' | 'examenes' | 'resumen';
 
 type Politica = {
-  codigo: 'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026';
+  codigo: string;
   version: number;
   nombre: string;
+  familia?: 'lisc_encuadre' | 'sv_excel_contract';
+  activa?: boolean;
 };
 
 type ResumenEvaluacion = {
@@ -54,9 +56,7 @@ export function SeccionEvaluaciones(params: {
   const [periodoId, setPeriodoId] = useState<string>('');
   const [alumnoId, setAlumnoId] = useState<string>('');
   const [politicas, setPoliticas] = useState<Politica[]>([]);
-  const [politicaCodigo, setPoliticaCodigo] = useState<'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026'>(
-    'POLICY_LISC_ENCUADRE_2026'
-  );
+  const [politicaCodigo, setPoliticaCodigo] = useState<string>('POLICY_LISC_ENCUADRE_2026');
   const [politicaVersion, setPoliticaVersion] = useState<number>(1);
   const [resumen, setResumen] = useState<ResumenEvaluacion | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -80,7 +80,7 @@ export function SeccionEvaluaciones(params: {
     if (!periodoId) return;
     const respuesta = await clienteApi.obtener<{
       politicas?: Politica[];
-      configuracion?: { politicaCodigo?: 'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026'; politicaVersion?: number } | null;
+      configuracion?: { politicaCodigo?: string; politicaVersion?: number } | null;
     }>(`/evaluaciones/v2/contexto?periodoId=${encodeURIComponent(periodoId)}`);
 
     setPoliticas(Array.isArray(respuesta.politicas) ? respuesta.politicas : []);
@@ -303,7 +303,7 @@ export function SeccionEvaluaciones(params: {
             Política
             <select
               value={politicaCodigo}
-              onChange={(event) => setPoliticaCodigo(event.target.value as 'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026')}
+              onChange={(event) => setPoliticaCodigo(event.target.value)}
             >
               {listaPoliticas.map((politica) => (
                 <option key={`${politica.codigo}-${politica.version}`} value={politica.codigo}>
