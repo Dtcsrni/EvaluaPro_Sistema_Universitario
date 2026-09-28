@@ -142,6 +142,7 @@ function obtenerCapacidadesOauthClassroom() {
 
   return {
     oauthGoogleBackend,
+    ...(oauthGoogleBackend ? { googleOauthClientId: String(configuracion.googleOauthClientId).trim() } : {}),
     snapshotGoogleDisponible,
     classroomBackend,
     smtpBackend,

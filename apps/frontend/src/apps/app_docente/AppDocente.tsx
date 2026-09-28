@@ -50,7 +50,7 @@ const SeccionAsistencias = lazy(() => import('./SeccionAsistencias').then(({ Sec
 const SeccionTemarios = lazy(() => import('./SeccionTemarios').then(({ SeccionTemarios: modulo }) => ({ default: modulo })));
 const SeccionPlantillas = lazy(() => import('./SeccionPlantillas').then(({ SeccionPlantillas: modulo }) => ({ default: modulo })));
 const SeccionSincronizacion = lazy(() => import('./SeccionSincronizacion').then(({ SeccionSincronizacion: modulo }) => ({ default: modulo })));
-export function AppDocente() {
+export function AppDocente({ googleClientId }: { googleClientId?: string } = {}) {
   const montadoRef = useRef(true);
   const [docente, setDocente] = useState<Docente | null>(null);
   const [estadoLease, setEstadoLease] = useState<EstadoLeaseUI | null>(null);
@@ -294,7 +294,7 @@ export function AppDocente() {
     return () => window.clearInterval(intervalo);
   }, [estadoLease?.configurado, estadoLease?.modo, estadoLease?.lease?.propio, estadoLease?.lease?.leaseId, estadoLease?.ttlMs, equipoIdSincronizacion]);
 
-  const googleFrontendConfigurado = Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  const googleFrontendConfigurado = Boolean(String(googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
   // Mientras se consulta el contrato de capacidades, conserva visible Google
   // si el build trae Client ID. Ocultarlo durante esa ventana provocaba que la
   // pantalla pareciera no soportarlo al arrancar la instalación local.

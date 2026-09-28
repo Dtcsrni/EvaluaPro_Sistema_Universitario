@@ -52,6 +52,7 @@ describe('autenticacion google-only', () => {
       requireGoogleOAuth: true,
       passwordLoginAllowed: false,
       oauthGoogleBackend: true,
+      googleOauthClientId: 'google-client-id-test',
       snapshotGoogleDisponible: true
     });
 

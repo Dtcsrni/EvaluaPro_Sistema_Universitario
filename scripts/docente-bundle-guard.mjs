@@ -45,6 +45,15 @@ export function assertDocenteBundle({ distRoot }) {
     throw new Error(`Bundle docente incompleto: faltan assets: ${missing.join(', ')}`);
   }
 
+  const assetsRoot = path.join(root, 'assets');
+  const jsFiles = fs.readdirSync(assetsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.js'))
+    .map((entry) => path.join(assetsRoot, entry.name));
+  const js = jsFiles.map((filePath) => fs.readFileSync(filePath, 'utf8')).join('\n');
+  if (!js.includes('googleOauthClientId') || !js.includes('capacidades-integraciones')) {
+    throw new Error('Bundle docente sin bootstrap OAuth runtime: falta cargar el Client ID público desde capacidades-integraciones.');
+  }
+
   const cssFiles = references
     .filter((reference) => reference.toLowerCase().endsWith('.css'))
     .map((reference) => path.resolve(root, reference.slice(1)));
@@ -59,5 +68,5 @@ export function assertDocenteBundle({ distRoot }) {
     );
   }
 
-  return Object.freeze({ root, indexPath, references, cssFiles, contract: DOCENTE_UI_CONTRACT });
+  return Object.freeze({ root, indexPath, references, cssFiles, contract: DOCENTE_UI_CONTRACT, googleRuntimeBootstrap: true });
 }
