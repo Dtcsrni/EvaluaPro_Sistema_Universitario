@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
@@ -39,9 +40,8 @@ test('migración de auditoría de temas es aditiva e idempotente', () => {
     }
   } finally {
     const ruta = path.resolve(directorio);
-    if (path.dirname(ruta) !== path.resolve(os.tmpdir()) || !path.basename(ruta).startsWith('evaluapro-temas-banco-migration-')) {
-      throw new Error('Directorio de prueba inesperado; se cancela su eliminación.');
+    if (path.dirname(ruta) === path.resolve(os.tmpdir()) && path.basename(ruta).startsWith('evaluapro-temas-banco-migration-')) {
+      fs.rmSync(ruta, { recursive: true, force: true });
     }
-    fs.rmSync(ruta, { recursive: true, force: true });
   }
 });
