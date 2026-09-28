@@ -134,3 +134,15 @@ actividades seleccionadas de Classroom; “Practica 2do Parcial” es captura ma
 | REQ-010/013 | Selección de actividades de Classroom | `apps/frontend/tests/seccionClassroom.test.tsx` | Implementado |
 | REQ-011/014 | Confirmar faltante vencido | `apps/frontend/tests/consultaCalificaciones.test.tsx` | Implementado |
 | REQ-012 | Formato, encabezados y fórmulas de las columnas físicas | `apps/backend/tests/analiticas.xlsx.sv.contract.test.ts` | Implementado |
+| REQ-004/006/009/012 | Journey UI: consulta por alumno, captura física separada de OMR, exportaciones y publicación/consulta en portal | `tests/gui-responsive/journey-docente-integral.spec.ts` | Validado |
+
+### Evidencia y límite del journey visual
+
+El journey corrió con Chromium, backend/portal locales y SQLite temporal, en puertos
+aislados. Validó captura manual de `Practica 2do Parcial`, `Exámen 2do Parcial` y
+bono de guía `+0.25`, persistencia de la lista, descargas CSV/XLSX, backup,
+publicación y consulta del alumno. La hoja OMR sintética del flujo se rechazó y la
+calificación del examen se guardó en modo manual: esta corrida no acredita precisión
+de lectura óptica ni sincronización real con Google Classroom. El contrato de
+prioridad y separación de OMR se cubre además con
+`apps/backend/tests/integracion/calificacionOmrPrioridad.test.ts`.

@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const docenteApiPort = process.env.E2E_DOCENTE_API_PORT || '4000';
+const alumnoWebPort = process.env.E2E_ALUMNO_WEB_PORT || '4174';
 
 test.describe('Journey docente integral visual', () => {
   test.setTimeout(240_000);
@@ -316,18 +317,17 @@ test.describe('Journey docente integral visual', () => {
     await expect(page.getByRole('heading', { name: 'Job OMR', exact: true })).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '32_omr_job_finalizado.png'), fullPage: true });
 
-    const examen = await page.evaluate(async (plantillaTitulo) => {
+    const examen = await page.evaluate(async ({ plantillaTitulo, apiBase }) => {
       const token = localStorage.getItem('tokenDocente');
-      const base = 'http://127.0.0.1:4000/api';
-      const respuesta = await fetch(`${base}/examenes/plantillas`, { headers: { Authorization: `Bearer ${token}` } });
+      const respuesta = await fetch(`${apiBase}/examenes/plantillas`, { headers: { Authorization: `Bearer ${token}` } });
       const plantillas = await respuesta.json();
       const plantilla = (plantillas.plantillas ?? []).find((item: any) => item.titulo === plantillaTitulo);
-      const generados = await fetch(`${base}/examenes/generados?plantillaId=${encodeURIComponent(plantilla._id)}&limite=10`, { headers: { Authorization: `Bearer ${token}` } });
+      const generados = await fetch(`${apiBase}/examenes/generados?plantillaId=${encodeURIComponent(plantilla._id)}&limite=10`, { headers: { Authorization: `Bearer ${token}` } });
       const cuerpo = await generados.json();
       const item = cuerpo.examenes?.[0];
       if (!item?.folio || !item?._id) throw new Error('No se encontró el examen generado para el journey');
       return { examenId: String(item._id), folio: String(item.folio) };
-    }, `Plantilla E2E Integral ${sufijo}`);
+    }, { plantillaTitulo: `Plantilla E2E Integral ${sufijo}`, apiBase: `http://127.0.0.1:${docenteApiPort}/api` });
 
     // Paso 7: Entrega
     await page.getByRole('button', { name: 'Entrega', exact: true }).click();
@@ -366,6 +366,8 @@ test.describe('Journey docente integral visual', () => {
 
     // Paso 9: Calificaciones
     await page.getByRole('button', { name: 'Calificaciones', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Calificaciones', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('.calificaciones-consulta')).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '39_calificaciones_seccion.png'), fullPage: true });
 
     const panelManual = page.locator('.calificaciones-manual-panel');
@@ -382,6 +384,33 @@ test.describe('Journey docente integral visual', () => {
     expect((await calificarResponse).status()).toBeLessThan(400);
     await expect(page.getByLabel('Panel de calificación').getByText('Calificacion guardada', { exact: true })).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '41_calificaciones_guardada_exito.png'), fullPage: true });
+
+    // Paso 9b: Consulta operativa de lista y acceso a revisión del alumno.
+    const consulta = page.locator('.calificaciones-consulta');
+    await expect(consulta).toContainText(fixture.alumnoMatricula, { timeout: 20_000 });
+    const filaConsulta = consulta.locator('tbody tr').filter({ hasText: fixture.alumnoMatricula });
+    await expect(filaConsulta.getByText('Calificada', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await filaConsulta.getByRole('button', { name: /Ver detalle de/i }).click();
+    const encabezadoResultadoOmr = consulta.getByRole('columnheader', { name: 'Resultado automático de examen 2do parcial (OMR)', exact: true });
+    const detalleResultadoOmr = consulta.locator('dt').getByText('Resultado automático de examen 2do parcial (OMR)', { exact: true });
+    await expect(encabezadoResultadoOmr).toBeVisible();
+    await expect(detalleResultadoOmr).toBeVisible();
+    await consulta.getByLabel('Practica 2do Parcial (0–10)').fill('8');
+    await consulta.getByLabel('Exámen 2do Parcial (0–5 antes del bono)').fill('4.5');
+    await consulta.getByLabel('Bono de guía de estudio (+0.25)').check();
+    const guardarCapturaFisica = page.waitForResponse((response) =>
+      response.url().includes(`/analiticas/lista-academica/${fixture.alumnoId}/parcial2`) && response.request().method() === 'PUT'
+    );
+    await consulta.getByRole('button', { name: 'Guardar captura manual', exact: true }).click();
+    expect((await guardarCapturaFisica).status()).toBe(200);
+    await expect(consulta.getByText(/incluye bono \+0\.25/)).toBeVisible();
+    await expect(encabezadoResultadoOmr).toBeVisible();
+    await expect(detalleResultadoOmr).toBeVisible();
+    await page.screenshot({ path: path.join(outputDir, '41a_lista_fisica_captura_manual.png'), fullPage: true });
+    await expect(consulta.getByRole('button', { name: 'Abrir revisión manual' })).toBeVisible();
+    await consulta.getByRole('button', { name: 'Abrir revisión manual' }).click();
+    await expect(panelManual.getByLabel('Alumno')).toHaveValue(fixture.alumnoId);
+    await page.screenshot({ path: path.join(outputDir, '41b_calificaciones_consulta_alumno.png'), fullPage: true });
 
     // Paso 10: Reportes
     const reportes = page.locator('.calif-deck-card--reports');
@@ -439,7 +468,8 @@ test.describe('Journey docente integral visual', () => {
     if (!codigoAcceso) throw new Error(`No se pudo extraer el código de acceso visible: ${codigoTexto ?? ''}`);
 
     // Paso 13: Portal Alumno
-    await page.goto('http://127.0.0.1:4174/acceso');
+    await page.goto(`http://127.0.0.1:${alumnoWebPort}/acceso`);
+    await expect(page.getByLabel('Codigo de acceso')).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '50_portal_alumno_acceso.png'), fullPage: true });
 
     await page.getByLabel('Codigo de acceso').fill(codigoAcceso);
