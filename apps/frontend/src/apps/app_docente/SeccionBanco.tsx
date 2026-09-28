@@ -76,6 +76,15 @@ export function SeccionBanco({
   const [cargandoTemas, setCargandoTemas] = useState(false);
   const [temaNuevo, setTemaNuevo] = useState('');
   const [creandoTema, setCreandoTema] = useState(false);
+  const requestIdsMutacionTemaRef = useRef(new Map<string, string>());
+
+  function obtenerClientRequestIdTema(clave: string): string {
+    const actual = requestIdsMutacionTemaRef.current.get(clave);
+    if (actual) return actual;
+    const nuevo = crypto.randomUUID();
+    requestIdsMutacionTemaRef.current.set(clave, nuevo);
+    return nuevo;
+  }
   const [temaEditandoId, setTemaEditandoId] = useState<string | null>(null);
   const [temaEditandoNombre, setTemaEditandoNombre] = useState('');
   const [guardandoTema, setGuardandoTema] = useState(false);
@@ -445,7 +454,11 @@ export function SeccionBanco({
     try {
       setCreandoTema(true);
       setMensaje('');
-      await enviarConPermiso('banco:gestionar', '/banco-preguntas/temas', { periodoId, nombre }, 'No tienes permiso para crear temas.');
+      const claveSolicitud = `crear:${periodoId}:${normalizarNombreTema(nombre).toLowerCase()}`;
+      await enviarConPermiso('banco:gestionar', '/banco-preguntas/temas', {
+        periodoId, nombre, clientRequestId: obtenerClientRequestIdTema(claveSolicitud)
+      }, 'No tienes permiso para crear temas.');
+      requestIdsMutacionTemaRef.current.delete(claveSolicitud);
       setTemaNuevo('');
       await refrescarTemas();
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema creado', durationMs: 1800 });
@@ -479,12 +492,14 @@ export function SeccionBanco({
     try {
       setGuardandoTema(true);
       setMensaje('');
+      const claveSolicitud = `actualizar:${temaEditandoId}:${normalizarNombreTema(nombre).toLowerCase()}`;
       await enviarConPermiso(
         'banco:gestionar',
         `/banco-preguntas/temas/${temaEditandoId}/actualizar`,
-        { nombre },
+        { nombre, clientRequestId: obtenerClientRequestIdTema(claveSolicitud) },
         'No tienes permiso para editar temas.'
       );
+      requestIdsMutacionTemaRef.current.delete(claveSolicitud);
       cancelarEdicionTema();
       await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar()), Promise.resolve().then(() => onRefrescarPlantillas())]);
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema actualizado', durationMs: 1800 });
@@ -513,12 +528,14 @@ export function SeccionBanco({
     try {
       setArchivandoTemaId(item._id);
       setMensaje('');
+      const claveSolicitud = `archivar:${item._id}`;
       await enviarConPermiso(
         'banco:archivar',
         `/banco-preguntas/temas/${item._id}/archivar`,
-        {},
+        { clientRequestId: obtenerClientRequestIdTema(claveSolicitud) },
         'No tienes permiso para archivar temas.'
       );
+      requestIdsMutacionTemaRef.current.delete(claveSolicitud);
       if (tema.trim().toLowerCase() === item.nombre.trim().toLowerCase()) setTema('');
       if (editTema.trim().toLowerCase() === item.nombre.trim().toLowerCase()) setEditTema('');
       await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar()), Promise.resolve().then(() => onRefrescarPlantillas())]);

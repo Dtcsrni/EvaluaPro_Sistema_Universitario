@@ -3,6 +3,7 @@
  */
 import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { validarQueryRobusto } from '../../compartido/robustez/utilitariosControlador.js';
 import {
 	actualizarTemaBanco,
 	actualizarPregunta,
@@ -11,6 +12,8 @@ import {
 	eliminarPregunta,
 	crearTemaBanco,
 	crearPregunta,
+	obtenerTemaBanco,
+	listarAuditoriaTemaBanco,
 	moverPreguntasTemaBanco,
 	quitarTemaBanco,
 	listarTemasBanco,
@@ -22,6 +25,8 @@ import {
 	esquemaBodyVacioOpcional,
 	esquemaCrearTemaBanco,
 	esquemaCrearPregunta,
+	esquemaArchivarTemaBanco,
+	esquemaListarAuditoriaTemaBanco,
 	esquemaMoverPreguntasTemaBanco,
 	esquemaQuitarTemaBanco
 } from './validacionesBancoPreguntas.js';
@@ -32,6 +37,7 @@ const router = Router();
 router.get('/', requerirPermiso('banco:leer'), listarBancoPreguntas);
 
 router.get('/temas', requerirPermiso('banco:leer'), listarTemasBanco);
+router.get('/temas/:temaId', requerirPermiso('banco:leer'), obtenerTemaBanco);
 router.post('/temas', requerirPermiso('banco:gestionar'), validarCuerpo(esquemaCrearTemaBanco, { strict: true }), crearTemaBanco);
 router.post(
 	'/temas/:temaId/actualizar',
@@ -42,8 +48,14 @@ router.post(
 router.post(
 	'/temas/:temaId/archivar',
 	requerirPermiso('banco:archivar'),
-	validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
+	validarCuerpo(esquemaArchivarTemaBanco, { strict: true }),
 	archivarTemaBanco
+);
+router.get(
+	'/temas/:temaId/auditoria',
+	requerirPermiso('banco:leer'),
+	validarQueryRobusto(esquemaListarAuditoriaTemaBanco),
+	listarAuditoriaTemaBanco
 );
 
 router.post('/', requerirPermiso('banco:gestionar'), validarCuerpo(esquemaCrearPregunta, { strict: true }), crearPregunta);

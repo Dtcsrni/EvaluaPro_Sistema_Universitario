@@ -75,15 +75,26 @@ export const esquemaActualizarPregunta = z
 export const esquemaCrearTemaBanco = z
   .object({
     periodoId: esquemaObjectId,
-    nombre: z.string().min(1)
+    nombre: z.string().min(1),
+    clientRequestId: z.string().uuid().optional()
   })
   .strict();
 
 export const esquemaActualizarTemaBanco = z
   .object({
-    nombre: z.string().min(1)
+    nombre: z.string().min(1),
+    clientRequestId: z.string().uuid().optional()
   })
   .strict();
+
+export const esquemaArchivarTemaBanco = z.object({
+  clientRequestId: z.string().uuid().optional()
+}).strict();
+
+export const esquemaListarAuditoriaTemaBanco = z.object({
+  limite: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
 
 export const esquemaMoverPreguntasTemaBanco = z
   .object({

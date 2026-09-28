@@ -572,6 +572,23 @@ model TemaBanco {
   @@map("banco_temas")
 }
 
+model TemaBancoAuditoria {
+  id              String   @id @default(uuid())
+  docenteId       String
+  periodoId       String
+  temaId          String
+  accion          String
+  clientRequestId String
+  requestHash     String
+  antes           String?
+  despues         String
+  createdAt       DateTime @default(now())
+
+  @@unique([docenteId, clientRequestId])
+  @@index([docenteId, temaId, createdAt])
+  @@map("auditoria_temas_banco")
+}
+
 model EscaneoOmrArchivado {
   id                       String   @id @default(uuid())
   docenteId                String

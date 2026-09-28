@@ -4,6 +4,7 @@
  * Responsabilidad: Singleton del cliente de Prisma para conexion local a SQLite.
  */
 import { PrismaClient } from '@prisma/client';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 // Asegurar que el directorio data/ existe para guardar evaluapro.db
@@ -32,6 +33,22 @@ export const prisma = new PrismaClient({
 export async function conectarSqlite(): Promise<void> {
   await prisma.$connect();
   await asegurarEsquemaSqlite();
+  ejecutarMigracionTemasBancoAuditoria();
+}
+
+function ejecutarMigracionTemasBancoAuditoria(): void {
+  const url = process.env.BACKEND_DATABASE_URL || process.env.DATABASE_URL ||
+    `file:${path.resolve(dataDir, 'evaluapro.db').replace(/\\/g, '/')}`;
+  if (!url.startsWith('file:')) return;
+  const valor = url.slice('file:'.length).split('?')[0];
+  if (!valor || valor === ':memory:') return;
+  const databasePath = path.resolve(valor);
+  const candidatos = [
+    path.resolve(process.cwd(), 'scripts', 'migrate-temas-banco-auditoria-sqlite.mjs'),
+    path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-temas-banco-auditoria-sqlite.mjs')
+  ];
+  const script = candidatos.find((candidate) => fs.existsSync(candidate));
+  if (script) execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
 }
 
 async function asegurarEsquemaSqlite(): Promise<void> {

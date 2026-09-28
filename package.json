@@ -34,6 +34,8 @@
     "node": ">=24"
   },
   "scripts": {
+    "api:openapi:write": "node scripts/api/generate-openapi.mjs --write",
+    "api:contract:check": "node scripts/api/generate-openapi.mjs --check && node scripts/api/check-openapi-contract.mjs",
     "dev": "node scripts/detect-host-ip.mjs && npm-run-all --parallel dev:backend dev:frontend:wait",
     "dev:backend": "node scripts/start-tray.mjs --mode dev --port 4519 && node scripts/detect-host-ip.mjs && docker compose --profile dev up --build mongo_local api_docente_local",
     "dev:frontend": "npm -C apps/frontend run dev",
