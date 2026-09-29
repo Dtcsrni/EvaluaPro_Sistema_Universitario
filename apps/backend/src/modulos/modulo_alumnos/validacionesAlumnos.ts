@@ -179,3 +179,11 @@ export const esquemaActualizarAlumno = z
       correo: correoFinal
     };
   });
+
+export const esquemaReinscribirGrupoArchivado = z
+  .object({
+    periodoOrigenId: esquemaObjectId,
+    periodoDestinoId: esquemaObjectId,
+    grupo: z.string().trim().min(1).max(40)
+  })
+  .strict();

@@ -942,7 +942,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             _ => LaunchAction.Install
         };
 
-        engineHandle.Plan(action);
+        engineHandle.Plan(action, BundleScope.Default);
     }
 
     private async Task SimulateUiQaProductActionAsync()
