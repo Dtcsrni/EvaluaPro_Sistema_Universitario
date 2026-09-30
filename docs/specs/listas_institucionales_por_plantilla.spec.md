@@ -1,11 +1,11 @@
 ---
 id: SPEC-LISTAS-INSTITUCIONALES-PLANTILLA
 titulo: Listas institucionales por plantilla
-version: 1.1.0
-fecha: 2026-06-29
+version: 1.2.0
+fecha: 2026-09-24
 autor: Codex / Agente IA
 modulo: modulo_listas_institucionales
-estado: implemented
+estado: approved
 ---
 
 # SPEC-LISTAS-INSTITUCIONALES-PLANTILLA: Listas institucionales por plantilla
@@ -23,6 +23,7 @@ Permitir que el docente genere listas institucionales a partir de datos ya hidra
 - REQ-005: La salida PDF debe ser imprimible y contener los textos institucionales clave.
 - REQ-006: La hidratacion debe importar alumnos y calificaciones historicas de los XLSX mayo-junio reales, incluidas columnas de cierre `AL:BA`.
 - REQ-007: La UI docente debe permitir descargar XLSX/PDF desde materias activas sin exponer rutas locales ni secretos.
+- REQ-008: XLSX y PDF deben incluir a todos los alumnos activos, conservando el formato físico mediante páginas adicionales, sin duplicados ni omisiones.
 
 ## Criterios de Aceptación
 
@@ -33,6 +34,7 @@ Permitir que el docente genere listas institucionales a partir de datos ya hidra
 - AC-005 (REQ-005): El PDF generado tiene bytes no vacios y texto clave extraible.
 - AC-006 (REQ-006): Electronica mayo-junio detecta 9 alumnos y calificaciones historicas; Administracion de la Calidad mayo-junio detecta 1 alumno y calificaciones historicas.
 - AC-007 (REQ-007): La UI docente muestra descargas XLSX/PDF y llama los endpoints sin exponer rutas locales ni secretos.
+- AC-008 (REQ-008): Con 17 alumnos se generan tres hojas XLSX (8, 8, 1) y dos páginas PDF (16, 1), con cada matrícula exactamente una vez.
 
 ## Matriz de Trazabilidad
 
@@ -45,3 +47,4 @@ Permitir que el docente genere listas institucionales a partir de datos ya hidra
 | REQ-005 | PDF institucional imprimible | apps/backend/tests/integracion/listasInstitucionales.test.ts | Completado |
 | REQ-006 | Hidratacion real mayo-junio con calificaciones historicas | apps/backend/tests/integracion/hidratacionCursos.test.ts | Completado |
 | REQ-007 | Descarga docente XLSX/PDF desde UI | apps/frontend/tests/seccionPeriodos.listasInstitucionales.test.tsx | Completado |
+| REQ-008 | Paginación sin pérdida de alumnos | apps/backend/tests/integracion/listasInstitucionales.test.ts | Pendiente de validación |

@@ -9,6 +9,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { crearPreguntasPublicadas } from './_reactivosHelper.js';
 
 describe('aislamiento por docente', () => {
   const preguntasPorEscenario = 20;
@@ -57,26 +58,13 @@ describe('aislamiento por docente', () => {
   }
 
   async function crearPreguntas(token: string, periodoId: string) {
-    const preguntasIds: string[] = [];
-    for (let i = 0; i < preguntasPorEscenario; i += 1) {
-      const preguntaResp = await request(app)
-        .post('/api/banco-preguntas')
-        .set({ Authorization: `Bearer ${token}` })
-        .send({
-          periodoId,
-          enunciado: `Pregunta ${i + 1}`,
-          opciones: [
-            { texto: 'A', esCorrecta: true },
-            { texto: 'B', esCorrecta: false },
-            { texto: 'C', esCorrecta: false },
-            { texto: 'D', esCorrecta: false },
-            { texto: 'E', esCorrecta: false }
-          ]
-        })
-        .expect(201);
-      preguntasIds.push(preguntaResp.body.pregunta._id as string);
-    }
-    return preguntasIds;
+    return crearPreguntasPublicadas({
+      app,
+      auth: { Authorization: `Bearer ${token}` },
+      periodoId,
+      externalPrefix: 'aislamiento-docente',
+      preguntas: Array.from({ length: preguntasPorEscenario }, (_, index) => `Pregunta ${index + 1}`)
+    });
   }
 
   async function crearPlantilla(token: string, periodoId: string, preguntasIds: string[]) {
@@ -87,10 +75,14 @@ describe('aislamiento por docente', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Plantilla A',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaResp.body.plantilla._id}/previsualizar/pdf/visual`)
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
     return plantillaResp.body.plantilla._id as string;
   }
 
@@ -241,25 +233,7 @@ describe('aislamiento por docente', () => {
       .expect(201);
     const periodoId = periodoResp.body.periodo._id as string;
 
-    const preguntasIds: string[] = [];
-    for (let i = 0; i < preguntasPorEscenario; i += 1) {
-      const preguntaResp = await request(app)
-        .post('/api/banco-preguntas')
-        .set({ Authorization: `Bearer ${tokenA}` })
-        .send({
-          periodoId,
-          enunciado: `Pregunta A-${i + 1}`,
-          opciones: [
-            { texto: 'A', esCorrecta: true },
-            { texto: 'B', esCorrecta: false },
-            { texto: 'C', esCorrecta: false },
-            { texto: 'D', esCorrecta: false },
-            { texto: 'E', esCorrecta: false }
-          ]
-        })
-        .expect(201);
-      preguntasIds.push(preguntaResp.body.pregunta._id as string);
-    }
+    const preguntasIds = await crearPreguntas(tokenA, periodoId);
 
     const plantillaResp = await request(app)
       .post('/api/examenes/plantillas')
@@ -268,11 +242,16 @@ describe('aislamiento por docente', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Plantilla A',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
     const plantillaId = plantillaResp.body.plantilla._id as string;
+
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set({ Authorization: `Bearer ${tokenA}` })
+      .expect(200);
 
     const examenResp = await request(app)
       .post('/api/examenes/generados')

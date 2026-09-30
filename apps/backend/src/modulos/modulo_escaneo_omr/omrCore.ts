@@ -32,6 +32,16 @@ export type EstadoImagenOmr = {
   height: number;
   escalaX: number;
   paramsBurbuja: ParametrosBurbujaCore;
+  /** Imagen auxiliar de mayor resolución para micro-ROI pendientes. */
+  micro?: {
+    gray: Uint8ClampedArray;
+    rgba?: Uint8ClampedArray;
+    integral: Uint32Array;
+    width: number;
+    height: number;
+    scale: number;
+    paramsBurbuja: ParametrosBurbujaCore;
+  };
 };
 
 export type MetricasPregunta = {
@@ -102,6 +112,11 @@ type RasgosBurbuja = {
   centerMean: number;
   ringMean: number;
   outerMean: number;
+  /**
+   * Compacidad de la tinta dentro de la burbuja. Es opcional para conservar
+   * compatibilidad con detectores y fixtures que aún no la calculan.
+   */
+  shapeCompactness?: number;
 };
 
 function calcularRangoLocalBusqueda(
@@ -361,6 +376,19 @@ export function calcularMetricasPregunta(args: {
   const rasgosTop = top ? rasgosPorLetra.get(top.letra) ?? null : null;
   const rasgosSecond = second ? rasgosPorLetra.get(second.letra) ?? null : null;
 
+  // Una señal secundaria con núcleo parcial pero forma muy dispersa suele ser
+  // texto, borde o compresión JPEG. No debe invalidar una marca dominante por
+  // sí sola. Cuando el detector antiguo no entrega compacidad se conserva el
+  // comportamiento previo; los mapas reales actuales sí la proporcionan.
+  const tieneFormaAlternativaNoEspuria = (
+    rasgos: RasgosBurbuja | null | undefined,
+    ratioCore: number,
+    fillDelta: number
+  ) => {
+    const compacidad = rasgos?.shapeCompactness;
+    return compacidad == null || compacidad >= 0.25 || (ratioCore >= 0.4 && fillDelta >= 0.12);
+  };
+
   const minFillDelta = umbrales.minFillDelta ?? 0.08;
   const minCenterGap = umbrales.minCenterGap ?? 10;
   const minHybridConfidence = umbrales.minHybridConfidence ?? 0.35;
@@ -411,10 +439,11 @@ export function calcularMetricasPregunta(args: {
       const fillDelta = rasgos?.fillDelta ?? 0;
       const contraste = rasgos?.contraste ?? 0;
       const confHibrida = confianzaHibrida(rasgos ?? null);
-      const hayMarca =
+      const hayMarcaBase =
         (item.score >= umbralMarcaScoreAlternativa && (ratioCore >= umbralMarcaRatioCoreAlternativa || confHibrida >= umbralMarcaHibridaAlternativa)) ||
         (ratioCore >= umbralMarcaRatioCoreAlternativa && fillDelta >= umbralMarcaFillDeltaAlternativa) ||
         confHibrida >= umbralMarcaHibridaAlternativa;
+      const hayMarca = hayMarcaBase && tieneFormaAlternativaNoEspuria(rasgos, ratioCore, fillDelta);
       const razon = hayMarca
         ? `Marca potencial (score=${item.score.toFixed(3)}, core=${ratioCore.toFixed(3)}, fill=${fillDelta.toFixed(3)})`
         : `Sin marca (score=${item.score.toFixed(3)}, core=${ratioCore.toFixed(3)}, fill=${fillDelta.toFixed(3)})`;
@@ -472,7 +501,8 @@ export function calcularMetricasPregunta(args: {
       topRatio >= Math.max(ambiguityRatio, 0.9) &&
       topZScore >= minTopZScore * 0.88 &&
       secondTieneMarca) ||
-    (hTop >= minHybridConfidence * 0.95 && hSecond >= minHybridConfidence * 0.92 && topRatio >= 0.9)
+    (hTop >= minHybridConfidence * 0.95 && hSecond >= minHybridConfidence * 0.92 && topRatio >= 0.9 &&
+      tieneFormaAlternativaNoEspuria(rasgosSecond, rasgosSecond?.ratioCore ?? 0, rasgosSecond?.fillDelta ?? 0))
   );
   const suficienteBase = mejorScore >= umbralScore && delta >= umbrales.deltaMin && topZScore >= minTopZScore;
   const suficienteRelativa =

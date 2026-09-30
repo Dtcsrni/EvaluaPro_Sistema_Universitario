@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const nativeLauncher = fs.readFileSync(path.join(root, 'scripts', 'start-docente-native.mjs'), 'utf8');
+const runtimeEnv = fs.readFileSync(path.join(root, 'scripts', 'runtime-env.mjs'), 'utf8');
 const staticServer = fs.readFileSync(path.join(root, 'scripts', 'serve-docente-static.mjs'), 'utf8');
 const bundleGuard = fs.readFileSync(path.join(root, 'scripts', 'docente-bundle-guard.mjs'), 'utf8');
+const cicloPlaywright = fs.readFileSync(path.join(root, 'tests', 'gui-responsive', 'playwright.ciclo.config.mjs'), 'utf8');
 
 test('el arranque nativo evita duplicar API o web cuando el puerto ya está ocupado', () => {
   assert.match(nativeLauncher, /probeHttpEndpoint/);
@@ -18,10 +20,28 @@ test('el arranque nativo evita duplicar API o web cuando el puerto ya está ocup
   assert.match(nativeLauncher, /se mantiene el supervisor activo/);
 });
 
+test('el launcher nativo recarga configuración Classroom del .env frente a un supervisor obsoleto', () => {
+  assert.match(nativeLauncher, /overrideKeys:\s*obtenerClavesEnvAutoritativas\(/);
+  assert.match(runtimeEnv, /'CLASSROOM_ENABLED'/);
+  assert.match(runtimeEnv, /'GOOGLE_CLASSROOM_CLIENT_ID'/);
+  assert.match(runtimeEnv, /'GOOGLE_CLASSROOM_CLIENT_SECRET'/);
+  assert.match(runtimeEnv, /'GOOGLE_CLASSROOM_REDIRECT_URI'/);
+  assert.match(runtimeEnv, /'CLASSROOM_TOKEN_CIPHER_KEY'/);
+  assert.match(runtimeEnv, /nodeEnv[\s\S]*production[\s\S]*flavor[\s\S]*docente-local/);
+});
+
 test('el servidor estático registra EADDRINUSE sin dejar un error no controlado', () => {
   assert.match(staticServer, /server\.on\('error'/);
   assert.match(staticServer, /no se pudo iniciar/);
   assert.doesNotMatch(staticServer, /server\.listen\([^\n]+\);\s*\n\s*function stop/);
+});
+
+test('el journey docente-alumno inicia el portal y apunta al puerto correcto', () => {
+  assert.match(cicloPlaywright, /const portalApiPort = Number\(process\.env\.E2E_PORTAL_API_PORT \|\| 8080\)/);
+  assert.match(cicloPlaywright, /E2E_DISABLE_PORTAL: process\.env\.E2E_DISABLE_PORTAL \|\| '0'/);
+  assert.match(cicloPlaywright, /VITE_PORTAL_BASE_URL: `http:\/\/127\.0\.0\.1:\$\{portalApiPort\}\/api\/portal`/);
+  assert.match(nativeLauncher, /const portalApiPort = String\(process\.env\.E2E_PORTAL_API_PORT \|\| '8080'\)/);
+  assert.match(nativeLauncher, /env\.PORTAL_ALUMNO_URL = `http:\/\/127\.0\.0\.1:\$\{portalApiPort\}`/);
 });
 
 test('servidor docente bloquea bundles viejos o incompletos antes de escuchar', () => {

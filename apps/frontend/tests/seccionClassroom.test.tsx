@@ -1,180 +1,97 @@
-/**
- * seccionClassroom.test
- *
- * Responsabilidad: Modulo interno del sistema.
- * Limites: Mantener contrato y comportamiento observable del modulo.
- */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SeccionClassroom } from '../src/apps/app_docente/SeccionClassroom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SeccionClassroom } from '../src/apps/app_docente/SeccionClassroomSync';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
-import { emitToast } from '../src/ui/toast/toastBus';
-import type { Periodo } from '../src/apps/app_docente/tipos';
 
 vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
-  clienteApi: {
-    obtener: vi.fn(),
-    enviar: vi.fn(),
-    actualizar: vi.fn(),
-    baseApi: 'http://localhost:4000/api'
-  }
+  clienteApi: { obtener: vi.fn(), enviar: vi.fn(), actualizar: vi.fn(), baseApi: 'http://localhost:4000/api' }
 }));
+const confirmarMock = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+vi.mock('../src/ui/feedback/ConfirmDialogProvider', () => ({ useConfirmDialog: () => confirmarMock }));
 
-vi.mock('../src/ui/toast/toastBus', () => ({
-  emitToast: vi.fn()
-}));
+function renderSeccion(props?: Partial<React.ComponentProps<typeof SeccionClassroom>>) {
+  return render(<SeccionClassroom
+    puedeClassroomConectar
+    puedeClassroomPull
+    puedeConsultarCalificaciones
+    classroomDisponible
+    onAbrirCalificaciones={vi.fn()}
+    {...props}
+  />);
+}
 
-vi.mock('../src/ui/feedback/ConfirmDialogProvider', () => ({
-  useConfirmDialog: () => vi.fn().mockResolvedValue(true)
-}));
-
-const periodosMock: Periodo[] = [
-  { _id: 'per-1', nombre: 'Ingeniería de Software', activo: true },
-  { _id: 'per-2', nombre: 'Bases de Datos', activo: true }
-];
-
-describe('SeccionClassroom', () => {
+describe('SeccionClassroom: conexión y estado', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(clienteApi.obtener).mockResolvedValue({ cursos: [], estado: { conectado: false } });
+    confirmarMock.mockResolvedValue(true);
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (ruta === '/evaluaciones/v2/classroom/estado') return { estado: { conectado: true, correoGoogle: 'docente@example.test' } };
+      if (ruta === '/evaluaciones/v2/classroom/oauth/iniciar') return { url: 'https://accounts.google.com/authorize' };
+      return {};
+    });
+    vi.mocked(clienteApi.enviar).mockResolvedValue({ estado: { conectado: false } });
   });
 
-  it('renderiza la sección y carga el estado de Classroom', async () => {
-    vi.mocked(clienteApi.obtener).mockResolvedValueOnce({
-      estado: {
-        conectado: true,
-        correoGoogle: 'docente@cuh.mx',
-        googleUserId: 'g-123',
-        ultimaSincronizacionEn: '2026-08-26T00:00:00.000Z'
-      }
-    });
+  it('limita esta sección a la conexión y dirige la revisión de datos a Calificaciones', async () => {
+    const onAbrirCalificaciones = vi.fn();
+    renderSeccion({ onAbrirCalificaciones });
 
-    render(
-      <SeccionClassroom
-        periodos={periodosMock}
-        puedeClassroomConectar={true}
-        puedeClassroomPull={true}
-        classroomDisponible={true}
-      />
-    );
-
-    expect(screen.getByRole('heading', { name: /classroom/i })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(clienteApi.obtener).toHaveBeenCalledWith('/evaluaciones/v2/classroom/estado');
-    });
+    expect(screen.getByRole('heading', { name: 'Google Classroom' })).toBeInTheDocument();
+    expect(await screen.findByText('docente@example.test')).toBeInTheDocument();
+    expect(screen.getByText(/No crea copias de las actividades ni modifica entregas o calificaciones/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar en Calificaciones' }));
+    expect(onAbrirCalificaciones).toHaveBeenCalledOnce();
+    expect(clienteApi.obtener).toHaveBeenCalledWith('/evaluaciones/v2/classroom/estado');
+    expect(clienteApi.obtener).not.toHaveBeenCalledWith('/evaluaciones/v2/classroom/cursos');
+    expect(clienteApi.obtener).not.toHaveBeenCalledWith(expect.stringContaining('/importaciones/historial'));
+    expect(clienteApi.enviar).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /Sincronizar calificaciones asignadas/i })).not.toBeInTheDocument();
   });
 
-  it('permite iniciar el flujo de conexión OAuth', async () => {
-    vi.mocked(clienteApi.obtener).mockImplementation((ruta) => {
-      if (ruta === '/evaluaciones/v2/classroom/estado') {
-        return Promise.resolve({
-          estado: { conectado: false }
-        });
-      }
-      if (ruta === '/evaluaciones/v2/classroom/oauth/iniciar') {
-        return Promise.resolve({
-          url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=123'
-        });
-      }
-      return Promise.resolve({});
+  it('inicia OAuth cuando está desconectada y permite volver a consultar el estado', async () => {
+    let conectado = false;
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (ruta === '/evaluaciones/v2/classroom/estado') return { estado: { conectado } };
+      if (ruta === '/evaluaciones/v2/classroom/oauth/iniciar') return { url: 'https://accounts.google.com/authorize' };
+      return {};
     });
+    const abrir = vi.spyOn(window, 'open').mockImplementation(() => null);
+    renderSeccion();
 
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-
-    render(
-      <SeccionClassroom
-        periodos={periodosMock}
-        puedeClassroomConectar={true}
-        puedeClassroomPull={true}
-        classroomDisponible={true}
-      />
-    );
-
-    const botonConectar = screen.getByRole('button', { name: /conectar google/i });
-    fireEvent.click(botonConectar);
-
-    await waitFor(() => {
-      expect(clienteApi.obtener).toHaveBeenCalledWith('/evaluaciones/v2/classroom/oauth/iniciar');
-      expect(openSpy).toHaveBeenCalled();
-    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Conectar Google Classroom' }));
+    await waitFor(() => expect(abrir).toHaveBeenCalledWith('https://accounts.google.com/authorize', '_blank', 'noopener,noreferrer'));
+    conectado = true;
+    fireEvent(window, new Event('focus'));
+    expect(await screen.findByText('Cuenta conectada')).toBeInTheDocument();
+    expect(clienteApi.obtener).not.toHaveBeenCalledWith('/evaluaciones/v2/classroom/cursos');
   });
 
-  it('permite desconectar la cuenta de Google', async () => {
-    vi.mocked(clienteApi.obtener).mockResolvedValueOnce({
-      estado: {
-        conectado: true,
-        correoGoogle: 'docente@cuh.mx'
-      }
-    });
-    vi.mocked(clienteApi.enviar).mockResolvedValueOnce({ ok: true });
+  it('confirma y desconecta la cuenta, sin alterar cursos ni calificaciones', async () => {
+    renderSeccion();
+    fireEvent.click(await screen.findByRole('button', { name: 'Desconectar' }));
 
-    render(
-      <SeccionClassroom
-        periodos={periodosMock}
-        puedeClassroomConectar={true}
-        puedeClassroomPull={true}
-        classroomDisponible={true}
-      />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /desconectar/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /desconectar/i }));
-
-    await waitFor(() => {
-      expect(clienteApi.enviar).toHaveBeenCalledWith('/evaluaciones/v2/classroom/oauth/desconectar', {});
-      expect(emitToast).toHaveBeenCalledWith(
-        expect.objectContaining({ level: 'ok', title: 'Classroom', message: 'Cuenta Classroom desconectada' })
-      );
-    });
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledWith('/evaluaciones/v2/classroom/oauth/desconectar', {}));
+    expect(confirmarMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Desconectar Google Classroom' }));
+    expect(clienteApi.obtener).not.toHaveBeenCalledWith('/evaluaciones/v2/classroom/cursos');
+    expect(clienteApi.enviar).toHaveBeenCalledTimes(1);
   });
 
-  it('carga y renderiza estudiantes de Classroom incluso sin materia local seleccionada', async () => {
-    vi.mocked(clienteApi.obtener).mockImplementation((ruta) => {
-      if (ruta === '/evaluaciones/v2/classroom/estado') {
-        return Promise.resolve({
-          estado: { conectado: true, correoGoogle: 'erick.vega@cuh.mx' }
-        });
-      }
-      if (ruta === '/evaluaciones/v2/classroom/cursos') {
-        return Promise.resolve({
-          cursos: [{ id: 'curso-101', name: 'Inteligencia de Negocios', section: 'ISC' }]
-        });
-      }
-      if (ruta.includes('/classroom/cursos/curso-101/alumnos')) {
-        return Promise.resolve({
-          alumnosLocales: [],
-          alumnosClassroom: [
-            {
-              classroomUserId: 'usr-1',
-              fullName: 'Juan Pérez López',
-              emailAddress: 'cuh512410168@cuh.mx'
-            },
-            {
-              classroomUserId: 'usr-2',
-              fullName: 'María González',
-              emailAddress: 'cuh512410199@cuh.mx'
-            }
-          ]
-        });
-      }
-      return Promise.resolve({});
-    });
+  it('explica permisos y disponibilidad cuando no puede consultar Classroom', async () => {
+    renderSeccion({ classroomDisponible: false, puedeClassroomPull: false, puedeClassroomConectar: false, puedeConsultarCalificaciones: false });
+    expect(await screen.findByText(/no está disponible en este entorno/)).toBeInTheDocument();
+    expect(screen.getByText('Estado de conexión no disponible')).toBeInTheDocument();
+    expect(screen.getByText(/no tiene permiso para consultar el módulo de Calificaciones/)).toBeInTheDocument();
+    expect(clienteApi.obtener).not.toHaveBeenCalled();
+  });
 
-    render(
-      <SeccionClassroom
-        periodos={[]}
-        puedeClassroomConectar={true}
-        puedeClassroomPull={true}
-        classroomDisponible={true}
-      />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText(/Juan Pérez López/i)).toBeInTheDocument();
-      expect(screen.getByText(/María González/i)).toBeInTheDocument();
+  it('no reporta como deshabilitada una integración mientras espera las capacidades del backend', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (ruta === '/evaluaciones/v2/classroom/estado') return { estado: { conectado: false } };
+      return {};
     });
+    renderSeccion({ classroomDisponible: undefined });
+    expect(screen.getByText(/Consultando disponibilidad de Google Classroom/)).toBeInTheDocument();
+    expect(screen.queryByText(/no está disponible en este entorno/)).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Conectar Google Classroom' })).toBeDisabled();
   });
 });

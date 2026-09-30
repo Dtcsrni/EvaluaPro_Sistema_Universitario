@@ -8,12 +8,17 @@ import { conectarSqlite } from './infraestructura/baseDatos/sqlite.js';
 import { logError, log } from './infraestructura/logging/logger.js';
 import { seedAdminDocente } from './modulos/modulo_autenticacion/seedAdmin.js';
 import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv } from './modulos/modulo_escaneo_omr/infra/omrCvEngine.js';
+import { recuperarIngestasPdfOmrInterrumpidas } from './modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.js';
 
 import { iniciarSchedulerCobranzaAutomatica } from './modulos/modulo_comercial_core/schedulerCobranza.js';
 import { iniciarSchedulerRetencionExamenes } from './modulos/modulo_generacion_pdf/schedulerRetencionExamenes.js';
 
 async function iniciar() {
   await conectarSqlite();
+  const ingestasRecuperadas = await recuperarIngestasPdfOmrInterrumpidas();
+  if (ingestasRecuperadas > 0) {
+    log('warn', 'Se recuperaron ingestas OMR interrumpidas', { cantidad: ingestasRecuperadas });
+  }
   await seedAdminDocente();
   
   const smokeCv = await ejecutarSmokeTestOmrCv();

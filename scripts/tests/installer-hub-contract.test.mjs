@@ -155,7 +155,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   const stableGateWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
 
   assert.match(workflow, /actions\/setup-dotnet@v4/);
-  assert.match(workflow, /dotnet-version:\s*8\.0\.x/);
+  assert.match(workflow, /dotnet-version:\s*10\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
   assert.match(workflow, /name: Etapa signing gate \(opcional\)\s+if: github\.event_name != 'pull_request'/);
@@ -439,7 +439,7 @@ test('bootstrap SQLite docente usa Node nativo y esquema SQL empaquetado', () =>
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(bootstrap, /node:sqlite/);
   assert.match(bootstrap, /DatabaseSync/);
-  assert.match(build, /migrate diff --from-empty --to-schema-datamodel/);
+  assert.match(build, /migrate diff --from-empty --to-schema/);
   assert.match(build, /schema\.sql/);
   assert.match(helper, /prepare-docente-sqlite\.mjs/);
   assert.match(helper, /Esquema SQLite local preparado con Node nativo/);
@@ -1338,7 +1338,7 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /Invoke-EvaluaProOperationalConfiguration/);
   assert.match(helper, /function Assert-InstallerRuntimeEnv/);
   assert.match(helper, /Contrato runtime incompleto en \.env/);
-  assert.match(helper, /db push --skip-generate/);
+  assert.match(helper, /db push --schema/);
   assert.match(helper, /Payload docente incompleto: no existe Prisma CLI o schema/);
   assert.match(helper, /LOCALAPPDATA/);
   assert.match(helper, /docente-local/);
@@ -2153,13 +2153,25 @@ test('launcher nativo no deja un override vacio ocultar el .env instalado', () =
 });
 
 test('payload nativo incluye las dependencias directas del launcher docente', () => {
-  const buildNative = fs.readFileSync(path.join(root, 'scripts', 'build-native-dist.ps1'), 'utf8');
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   const burn = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const archiveContract = buildMsi.match(/function New-DocentePayloadArchive[\s\S]*?\$required\s*=\s*@\(([\s\S]*?)\n\s*\)/)?.[1] || '';
 
-  assert.match(buildNative, /scripts\/runtime-env\.mjs/);
+  assert.equal(packageJson.scripts['build:native'], 'npm run msi:build -- -Flavor docente-local');
+  assert.equal(fs.existsSync(path.join(root, 'scripts', 'build-native-dist.ps1')), false);
   assert.match(buildMsi, /runtime-env\.mjs/);
   assert.match(burn, /scripts\\runtime-env\.mjs/);
+  assert.match(buildMsi, /Join-Path \$RootPath 'runtime\/node\/node\.exe'/);
+  for (const requiredPath of [
+    'apps/backend/dist/index.js',
+    'apps/backend/dist/prisma/schema.sql',
+    'runtime/node/node.exe',
+    'scripts/start-docente-native.mjs',
+    'scripts/runtime-env.mjs'
+  ]) {
+    assert.ok(archiveContract.includes("'" + requiredPath + "'"), "El ZIP debe validar " + requiredPath + " antes de crearse.");
+  }
 });
 
 test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
@@ -2348,7 +2360,7 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /EnsureBackendRunningAsync/);
   assert.match(cs, /EnsureCoreWebView2Async/);
   assert.match(cs, /http:\/\/127\.0\.0\.1:4173\//);
-  assert.match(cs, /backendProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
+  assert.match(cs, /dashboardProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
 });
 
 test('SPEC-050: create-shortcuts usa el manifiesto y falla cerrado sin host nativo', () => {

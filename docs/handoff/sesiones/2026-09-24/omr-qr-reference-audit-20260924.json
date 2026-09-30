@@ -1,0 +1,150 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-qr-reference-audit-20260924",
+  "status": "final",
+  "generatedAt": "2026-09-24T06:53:42.675Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Mejorar QR OMR y comparar siempre fotografías con las referencias PDF preimpresión."
+  },
+  "objective": "Auditar legibilidad QR histórica y reforzar la validación automatizada de QR en la plantilla nueva, manteniendo identidad exacta y evitando mapeos inseguros.",
+  "scope": [
+    "Auditoría QR rasterizada de los dos PDF originales y dataset fotográfico",
+    "Regresión de rasterización 300 DPI para PDF de 25 reactivos",
+    "Diagnóstico separado de QR ausente, payload distinto y coincidencia exacta",
+    "Continuidad de mejora de microcomponentes OMR"
+  ],
+  "constraints": [
+    "La clave y etiquetas se usan solo para evaluar, nunca durante detección.",
+    "No escribir calificaciones ni registros de alumnos.",
+    "No cambiar letras ya emitidas ni introducir marcas en hojas vacías.",
+    "No afirmar 100% con abstenciones, discrepancias o QR no detectados."
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "El informe preimpresión separa detección del payload, igualdad exacta y páginas sin lectura; se añadió prueba de los tres estados. Prueba PDF ahora rasteriza y decodifica las dos páginas compactas de 25 reactivos.",
+      "timestamp": "2026-09-24T06:53:42.674Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Auditoría a 300 DPI: PDF Diseño y Desarrollo 0/8 QR detectados; Inteligencia de Negocios 0/24; fotos 0/38. Ningún payload detectado distinto; todos quedaron ausentes. La plantilla compacta actual de 25 reactivos pasa 2/2 páginas en prueba PDF rasterizada; control de 7 reactivos 1/1.",
+      "timestamp": "2026-09-24T06:53:42.674Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "OMR dataset: 38 procesadas, 1 sin identidad, 499/499 estados, 471 letras, 1 ambigua, 27 sin marca, 470/471 acuerdo visual condicionado. Solo 058868F3 P2 Q19 se resolvió a E; exámenes vacíos 10/10 y 15/15 intactos.",
+      "timestamp": "2026-09-24T06:53:42.674Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "26 pruebas OMR/PDF/QR aprobadas, ESLint focal y tsc directo aprobados; sdd:audit, traceability y handoff aprobados. No se probó impresión física.",
+      "timestamp": "2026-09-24T06:53:42.674Z",
+      "status": "ok"
+    },
+    {
+      "type": "documentation",
+      "summary": "SPEC-062 REQ-015 y REQ-017 actualizados con evidencia y límites.",
+      "timestamp": "2026-09-24T06:53:42.674Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "apps/backend/scripts/omr-qr-preprint-check.ts",
+      "apps/backend/tests/omr.qr.preimpresion.test.ts",
+      "apps/backend/tests/pdf.canonico.test.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/scripts/omr-qr-preprint-check.ts",
+      "apps/backend/tests/omr.estado-respuesta.test.ts",
+      "apps/backend/tests/omr.qr.preimpresion.test.ts",
+      "apps/backend/tests/pdf.canonico.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "artifacts": [
+      "C:/Users/evega/AppData/Local/Temp/omr-q19-high-contrast-20260924.json",
+      "C:/Users/evega/AppData/Local/Temp/omr-full-high-contrast-rescue-20260924.json"
+    ]
+  },
+  "commands": [
+    {
+      "name": "qr_omr_tests",
+      "command": "vitest run tests/omr.qr.preimpresion.test.ts tests/pdf.canonico.test.ts tests/omr.estado-respuesta.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 4340,
+      "resultSummary": "3 archivos, 26 pruebas aprobadas; incluye raster 300 DPI exacto en plantilla compacta.",
+      "timestamp": "2026-09-24T06:53:42.674Z"
+    },
+    {
+      "name": "eslint_focal",
+      "command": "npx eslint [archivos OMR/QR/PDF] --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3651,
+      "resultSummary": "Sin errores.",
+      "timestamp": "2026-09-24T06:53:42.674Z"
+    },
+    {
+      "name": "tsc_directo",
+      "command": "tsc --noEmit --project apps/backend/tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 10000,
+      "resultSummary": "TypeScript sin errores.",
+      "timestamp": "2026-09-24T06:53:42.674Z"
+    },
+    {
+      "name": "qr_preimpresion",
+      "command": "node --import tsx scripts/omr-qr-preprint-check.ts [2 PDF originales] --benchmark-report [reporte OMR] --dpi 300",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 67200,
+      "resultSummary": "0/32 PDF históricos y 0/38 fotos: QR no detectados. Control template de 25 preguntas pasa 2/2 en prueba automatizada.",
+      "timestamp": "2026-09-24T06:53:42.674Z"
+    }
+  ],
+  "decisions": [
+    "No aceptar identidad si el payload QR no se detecta y valida; el mapeo de benchmark solo sirve para evaluación.",
+    "Mantener reducción compacta de payload firmado para plantillas nuevas y verificar raster antes de imprimir.",
+    "Claves y etiquetas se usan solo post hoc para OMR."
+  ],
+  "assumptions": [
+    "La plantilla nueva a 300 DPI no sustituye una prueba de impresión y captura física.",
+    "La fuente visual de etiquetas no equivale a verdad terreno independiente."
+  ],
+  "risks": [
+    "El QR de fotos históricas no se recupera: 0/38; una foto tampoco tiene identidad resuelta.",
+    "Los PDF fuente originales fallan la auditoría 0/32; no reimprimirlos.",
+    "Persiste una discrepancia de etiqueta revisada visualmente; acuerdo OMR condicionado 470/471, no 100%.",
+    "Plantilla compacta probada solo por raster digital, no en papel/cámara."
+  ],
+  "nextStep": "Generar nuevos lotes con plantilla compacta; imprimir y capturar una muestra física representativa, comparar QR exacto pre/postimpresión y desarrollar una ruta segura para las referencias históricas si hace falta recuperar su identidad.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/omr-letter-color-template",
+    "commit": "3337afd8",
+    "workingTreeStatus": "M .github/workflows/autogen-docs.yml\n M .github/workflows/ci-backend.yml\n M .github/workflows/ci-docs.yml\n M .github/workflows/ci-frontend.yml\n M .github/workflows/ci-installer-windows.yml\n M .github/workflows/ci-policy-audit.yml\n M .github/workflows/ci-portal.yml\n M .github/workflows/ci.yml\n M .github/workflows/pages-marketing.yml\n M .github/workflows/release-beta.yml\n M .github/workflows/release-stable-gate.yml\n M .github/workflows/security-codeql.yml\n M apps/backend/package-lock.json\n M apps/backend/package.json\n M apps/backend/prisma/schema.prisma\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/scripts/omr-sweep-geometria.ts\n M apps/backend/src/compartido/robustez/soporteRetry.ts\n M apps/backend/src/infraestructura/baseDatos/sqlite.ts\n M apps/backend/src/infraestructura/seguridad/rbac.ts\n M apps/backend/src/modulos/modulo_analiticas/controladorAnaliticas.ts\n M apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts\n M apps/backend/src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones.ts\n M apps/backend/src/modulos/modulo_analiticas/servicioListaAcademica.ts\n M apps/backend/src/modulos/modulo_analiticas/tiposListaAcademica.ts\n M apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts\n M apps/backend/src/modulos/modulo_autenticacion/middlewareAutenticacion.ts\n M apps/backend/src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts\n M apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts\n M apps/backend/src/modulos/modulo_banco_preguntas/validacionesBancoPreguntas.ts\n M apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts\n M apps/backend/src/modulos/modulo_calificacion/validacionesCalificacion.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/README.md\n M apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCv.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/omrCore.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/porFolioDataset.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/domain/layoutExamen.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts\n M apps/backend/src/modulos/modulo_hidratacion_cursos/controladorHidratacionCursos.ts\n M apps/backend/src/modulos/modulo_hidratacion_cursos/rutasHidratacionCursos.ts\n M apps/backend/src/modulos/modulo_hidratacion_cursos/servicioHidratacionCursos.ts\n M apps/backend/src/modulos/modulo_hidratacion_cursos/validacionesHidratacionCursos.ts\n M apps/backend/src/modulos/modulo_sincronizacion_nube/domain/instantaneaLocal.ts\n M apps/backend/src/modulos/modulo_sincronizacion_nube/domain/paqueteSincronizacion.ts\n M apps/backend/src/modulos/modulo_sincronizacion_nube/infra/omrCapturas.ts\n M apps/backend/src/modulos/modulo_sincronizacion_nube/sincronizacionInterna.ts\n M apps/backend/tests/bancoPreguntas.controlador.test.ts\n M apps/backend/tests/integracion/asistencia.reglas.test.ts\n M apps/backend/tests/integracion/hidratacionCursos.test.ts\n M apps/backend/tests/integracion/listaAcademicaContratos.test.ts\n M apps/backend/tests/integracion/omrJobsWorkflow.test.ts\n M apps/backend/tests/integracion/plantillasCrudYPreview.test.ts\n M apps/backend/tests/integracion/rolesPermisos.test.ts\n M apps/backend/tests/omr.core.decision.test.ts\n M apps/backend/tests/omr.geometry.reference.test.ts\n M apps/backend/tests/omr.test.ts\n M apps/backend/tests/pdf.canonico.test.ts\n M apps/backend/tests/pdf.layout.visual.guard.test.ts\n M apps/backend/tests/pdf.paridad.test.ts\n M apps/backend/tests/qr.examen.test.ts\n M apps/backend/tests/sincronizacion.test.ts\n M apps/backend/tests/utils/mongo.ts\n M apps/frontend/package-lock.json\n M apps/frontend/package.json\n M apps/frontend/src/apps/app_docente/AppDocente.tsx\n M apps/frontend/src/apps/app_docente/SeccionAsistencias.tsx\n M apps/frontend/src/apps/app_docente/SeccionBanco.tsx\n M apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx\n M apps/frontend/src/apps/app_docente/SeccionCalificar.tsx\n M apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx\n M apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx\n M apps/frontend/src/apps/app_docente/SeccionRegistroEntrega.tsx\n M apps/frontend/src/apps/app_docente/features/banco/components/BancoFormularioPregunta.tsx\n M apps/frontend/src/apps/app_docente/features/banco/components/BancoListadoPreguntas.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions.ts\n M apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts\n M apps/frontend/src/apps/app_docente/hooks/useRecordatorioPaseLista.ts\n M apps/frontend/src/apps/app_docente/tipos.ts\n M apps/frontend/src/apps/app_docente/utilidades.ts\n M apps/frontend/src/styles.css\n M apps/frontend/src/styles/cards.css\n M apps/frontend/src/styles/screens.css\n M apps/frontend/src/tipos/tesseract-js.d.ts\n M apps/frontend/src/ui/iconos.tsx\n M apps/frontend/src/ui/version/VersionInfoPage.tsx\n M apps/frontend/tests/appDocente.previewConsolidado.test.tsx\n M apps/frontend/tests/banco.refactor.test.tsx\n M apps/frontend/tests/escaneo.refactor.test.tsx\n M apps/frontend/tests/gui.responsive.contract.test.tsx\n M apps/frontend/tests/plantillas.hooks.test.tsx\n M apps/frontend/tests/plantillas.refactor.test.tsx\n M apps/frontend/tests/seccionAsistencias.test.tsx\n M apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx\n M apps/frontend/tests/seccionPaqueteSincronizacion.test.tsx\n M apps/frontend/tests/utilidades.appDocente.test.ts\n M apps/frontend/tests/versionInfo.helpers.test.tsx\n M apps/frontend/tests/versionInfoPage.test.tsx\n M apps/frontend/vite.config.ts\n M apps/portal_alumno_cloud/package-lock.json\n M apps/portal_alumno_cloud/package.json\n M apps/portal_alumno_cloud/prisma/schema.prisma\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/browser.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/client.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/commonInputTypes.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/enums.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/class.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/prismaNamespace.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/prismaNamespaceBrowser.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/AgendaAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/AvisoAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/CodigoAcceso.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/EventoUsoAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/HistorialAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/MateriaAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/PaqueteSyncDocente.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/PerfilAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/ResultadoAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/SesionAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/SolicitudRevision.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/sqlite.ts\n M apps/portal_alumno_cloud/tests/utils/mongo.ts\n M config/version-catalog.json\n M docs/AUTO_DOCS_INDEX.md\n M docs/AUTO_ENV.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/WCAG_UI_POLICY.md\n M docs/specs/SPEC-036_autenticacion_guardrails.spec.md\n M docs/specs/SPEC-039_asistencias_seguimiento.spec.md\n M docs/specs/SPEC-042_diseno_produccion_examenes_omr.spec.md\n M docs/specs/SPEC-054_identidad_visual_frontend_completa.spec.md\n M package-lock.json\n M package.json\n M packaging/app-host/MainWindow.xaml.cs\n M packaging/wix/BurnBootstrapperApp/EvaluaPro.BurnBootstrapperApp.csproj\n M packaging/wix/README.md\n M scripts/build-msi.ps1\n D scripts/build-native-dist.ps1\n M scripts/installer-burn/InstallerBurnHelper.ps1\n M scripts/perf-collect-business.ts\n M scripts/serve-docente-static.mjs\n M scripts/start-docente-native.mjs\n M scripts/testing/start-frontend-e2e-server.mjs\n M scripts/tests/app-host-shutdown.contract.test.mjs\n M scripts/tests/ci-workflow-contract.test.mjs\n M scripts/tests/installer-hub-contract.test.mjs\n M scripts/tests/seed-docente-dummy.mjs\n M scripts/tests/wix-version-policy.test.mjs\n M tests/gui-responsive/ciclo-completo.spec.ts\n M tests/gui-responsive/journey-docente-integral.spec.ts\n M tests/gui-responsive/playwright.ciclo.config.mjs\n?? apps/backend/prisma.config.mjs\n?? apps/backend/scripts/omr-eval-real-dataset.mjs\n?? apps/backend/scripts/omr-qr-preprint-check.ts\n?? apps/backend/src/modulos/modulo_banco_preguntas/controladorReactivos.ts\n?? apps/backend/src/modulos/modulo_banco_preguntas/reactivosContrato.ts\n?? apps/backend/src/modulos/modulo_banco_preguntas/reactivosXlsx.ts\n?? apps/backend/src/modulos/modulo_banco_preguntas/servicioCalibracionReactivos.ts\n?? apps/backend/src/modulos/modulo_banco_preguntas/servicioReactivos.ts\n?? apps/backend/src/modulos/modulo_escaneo_omr/omr/decision/\n?? apps/backend/tests/calificacion.omr.estado.test.ts\n?? apps/backend/tests/integracion/reactivosIngesta.test.ts\n?? apps/backend/tests/listaAcademicaResumen.test.ts\n?? apps/backend/tests/omr.consenso.robusto.test.ts\n?? apps/backend/tests/omr.estado-respuesta.test.ts\n?? apps/backend/tests/omr.qr.preimpresion.test.ts\n?? apps/backend/tests/reactivosCalibracion.test.ts\n?? apps/backend/tests/reactivosContrato.test.ts\n?? apps/frontend/src/apps/app_docente/ConsultaCalificaciones.tsx\n?? apps/frontend/src/apps/app_docente/SolicitudesRevisionPanel.tsx\n?? apps/frontend/src/apps/app_docente/features/banco/components/BancoImportacionReactivos.tsx\n?? apps/frontend/src/apps/app_docente/fechaLocal.ts\n?? apps/frontend/src/apps/app_docente/ocrTexto.ts\n?? apps/frontend/src/ui/IconoLucide.tsx\n?? apps/frontend/src/ui/iconosCatalogo.ts\n?? apps/frontend/src/ui/version/changelog.ts\n?? apps/frontend/src/ui/version/legal/\n?? apps/frontend/tests/bancoImportacionReactivos.test.tsx\n?? apps/frontend/tests/changelog.test.ts\n?? apps/frontend/tests/fechaLocal.test.ts\n?? apps/frontend/tests/ocrTexto.test.ts\n?? apps/frontend/tests/permisosBanco.hooks.test.tsx\n?? apps/frontend/tests/seccionCalificaciones.resumen.test.tsx\n?? apps/portal_alumno_cloud/prisma.config.mjs\n?? docs/GUIA_ICONOGRAFIA.md\n?? docs/contracts/\n?? docs/handoff/sesiones/2026-09-23/\n?? docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md\n?? docs/specs/SPEC-060_omr_consenso_captura_real.spec.md\n?? docs/specs/SPEC-061_banco_reactivos_ia_versionado.spec.md\n?? docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md\n?? docs/specs/SPEC-063_omr_orientacion_y_inclinacion_pagina.spec.md\n?? docs/specs/SPEC-064_actualizacion_dependencias_toolchains.spec.md\n?? docs/specs/SPEC-065_ciclo_vida_servicios_app_host.spec.md\n?? global.json\n?? output/qa/omr-plantilla-sync-20260923.layout.json\n?? output/qa/omr-plantilla-sync-20260923.pdf\n?? scripts/migrate-reactivos-backfill.mjs\n?? scripts/migrate-reactivos-sqlite.mjs\n?? scripts/tests/dependency-toolchain-policy.test.mjs\n?? scripts/tests/migrate-reactivos-backfill.test.mjs\n?? scripts/tests/migrate-reactivos-sqlite.test.mjs\n?? storage/omr_debug/058868F3/\n?? storage/omr_debug/1458887E/\n?? storage/omr_debug/5AFC1D79/\n?? storage/omr_debug/780DC77D/\n?? storage/omr_debug/DCA5097F/\n?? storage/omr_debug/E2FAFF07/\n?? storage/omr_debug/EE26CF1C/\n?? tests/gui-responsive/banco-reactivos.spec.ts"
+  },
+  "parentSessionId": "omr-rescate-alto-contraste-20260924"
+}

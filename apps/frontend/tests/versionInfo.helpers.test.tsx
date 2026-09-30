@@ -61,8 +61,8 @@ describe('version info helpers', () => {
     render(<VersionInfoPage />);
 
     expect(await screen.findByText(/EvaluaPro · Portal Alumno/i)).toBeInTheDocument();
-    expect(await screen.findByText(/evaluapro v1\.0\.0/i)).toBeInTheDocument();
-    expect(screen.getByText(/Base técnica: 1\.0\.0/i)).toBeInTheDocument();
+    expect(await screen.findByText('1.0.0')).toBeInTheDocument();
+    expect(screen.getByText(/Versión técnica 1\.0\.0/i)).toBeInTheDocument();
     expect(await screen.findByText('Sin tecnologías registradas.')).toBeInTheDocument();
   });
 });

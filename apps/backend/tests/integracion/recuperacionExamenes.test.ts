@@ -13,6 +13,7 @@ import {
   verificarArtifactsRecuperacion
 } from '../../src/modulos/modulo_recuperacion_examenes/servicioRecuperacionExamenes.js';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { crearPreguntasPublicadas } from './_reactivosHelper.js';
 
 describe('recuperacion de examenes', () => {
   const app = crearApp();
@@ -69,25 +70,13 @@ describe('recuperacion de examenes', () => {
       })
       .expect(201);
 
-    const preguntasIds: string[] = [];
-    for (let i = 0; i < 5; i += 1) {
-      const pregunta = await request(app)
-        .post('/api/banco-preguntas')
-        .set(auth)
-        .send({
-          periodoId,
-          enunciado: `Pregunta recovery service ${i + 1}`,
-          opciones: [
-            { texto: 'A', esCorrecta: i % 5 === 0 },
-            { texto: 'B', esCorrecta: i % 5 === 1 },
-            { texto: 'C', esCorrecta: i % 5 === 2 },
-            { texto: 'D', esCorrecta: i % 5 === 3 },
-            { texto: 'E', esCorrecta: i % 5 === 4 }
-          ]
-        })
-        .expect(201);
-      preguntasIds.push(String(pregunta.body.pregunta._id));
-    }
+    const preguntasIds = await crearPreguntasPublicadas({
+      app,
+      auth,
+      periodoId,
+      externalPrefix: 'recovery-service',
+      preguntas: Array.from({ length: 5 }, (_, index) => `Pregunta recovery service ${index + 1}`)
+    });
 
     const plantilla = await request(app)
       .post('/api/examenes/plantillas')

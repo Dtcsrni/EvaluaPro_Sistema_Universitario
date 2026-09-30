@@ -1,0 +1,721 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-cv-qr-template-20260929",
+  "status": "draft",
+  "generatedAt": "2026-09-29T13:34:18Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "agente-ia",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Procesar todos los lotes CamScanner, globales y parciales recientes, y datasets fotográficos PDF/imagen para mejorar OMR, QR y plantilla."
+  },
+  "objective": "Iterar con todos los datasets fotográficos etiquetados disponibles y los globales/Parciales recientes para mejorar el motor OMR, QR y la plantilla; cerrar solo con exactitud, eficiencia y verificación física suficientes.",
+  "scope": [
+    "39 capturas de teléfono (38 contenidos únicos, 32 páginas, 424 reactivos únicos), incluyendo el lote parcial reciente.",
+    "48 escaneos Global48 (360 posiciones); el benchmark no tiene etiquetas de respuesta vinculadas.",
+    "4 PDF CamScanner rasterizados en 16 páginas; sin etiquetas de respuesta.",
+    "8 etiquetas manuales de forma X/trazo cruzado enlazadas a la página 3 del conjunto Global48."
+  ],
+  "constraints": [
+    "Preservar cambios preexistentes del árbol de trabajo.",
+    "No incluir identidades ni folios en la traza.",
+    "No escribir calificaciones ni ejecutar publicación o impresión física.",
+    "Etiquetas existentes no son una verdad terreno independiente."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de omr_focus",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de backend_typecheck",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de frontend_ci",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de coverage_ci",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de tdd_enforcement",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de backend_ci",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de portal_ci",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de traceability_tests",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de handoff_tests",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de ci_policy_audit",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de sdd_audit",
+      "timestamp": "2026-09-29T18:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay OMR de todas las capturas fotográficas etiquetadas (39/39)",
+      "timestamp": "2026-09-29T09:04:08.01Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay completo Global48 como control de estados/QR (48/48, sin etiquetas de respuesta)",
+      "timestamp": "2026-09-29T09:04:08.01Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay completo de 16 páginas CamScanner (sin etiquetas de respuesta)",
+      "timestamp": "2026-09-29T09:04:08.01Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Cotejo de 8 etiquetas manuales X/trazo cruzado en la página 3",
+      "timestamp": "2026-09-29T09:04:08.01Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Consulta de criterio de adjudicación para X repasada dentro de una burbuja",
+      "timestamp": "2026-09-29T09:04:08.01Z",
+      "status": "pending"
+    },
+    {
+      "type": "validation",
+      "summary": "Repetición idéntica del replay de 39 capturas para validar tiempo y RSS",
+      "timestamp": "2026-09-29T09:34:51.431Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay fotográfico con la regla experimental (39/39)",
+      "timestamp": "2026-09-29T11:33:23.706Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay fotográfico tras retirar la regla experimental (39/39)",
+      "timestamp": "2026-09-29T12:03:22.202Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Comparación de respuestas, estados, scores y QR entre variante y repetición restaurada",
+      "timestamp": "2026-09-29T12:03:22.202Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Prueba focal de estado OMR posterior a la retirada",
+      "timestamp": "2026-09-29T11:38:59Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Typecheck backend posterior a la retirada",
+      "timestamp": "2026-09-29T11:39:10Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Comparación de vectores scoreDetails completos entre los replays actual y previo",
+      "timestamp": "2026-09-29T12:12:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Prueba de huella geométrica OMR y protección de identificadores/payload",
+      "timestamp": "2026-09-29T12:46:52Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Smoke del evaluador con una captura y verificación del hash",
+      "timestamp": "2026-09-29T12:46:52Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay completo de 39 fotos con huellas de mapa y código",
+      "timestamp": "2026-09-29T12:44:49.754Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Comparación exacta del replay fingerprinted con el replay restaurado previo",
+      "timestamp": "2026-09-29T12:46:52Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Smoke con la nueva huella SHA-256 del módulo de geometría",
+      "timestamp": "2026-09-29T12:52:53Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Barrido QR geométrico en cuatro tamaños sobre tres capturas previamente sin QR",
+      "timestamp": "2026-09-29T13:07:33Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Regeneración controlada de AUTO_ENV y verificación documental posterior",
+      "timestamp": "2026-09-29T13:15:04Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Comparación offline OpenCV sobre fotos, Global48 y CamScanner",
+      "timestamp": "2026-09-29T13:27:46Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Auditoría SHA-256 confirma presencia de las 38 capturas únicas del corpus fotográfico",
+      "timestamp": "2026-09-29T13:32:32Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Comparación de formatos QR legacy del corpus y payload TV4 corto actual",
+      "timestamp": "2026-09-29T13:32:32Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Pruebas QR y rasterización PDF focalizadas",
+      "timestamp": "2026-09-29T13:32:32Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Rasterización de página completa y QR corto TV4 en PDF sintético",
+      "timestamp": "2026-09-29T13:34:18Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/omr/decision/consensoRespuesta.ts",
+      "apps/backend/tests/omr.consenso.robusto.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "output/qa/omr-mark-shapes-20260928/manifest.json",
+      "apps/backend/scripts/omr-eval-real-dataset.mjs",
+      "apps/backend/scripts/diagnosticos/omr-qr-opencv-benchmark.py"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/tests/omr.consenso.robusto.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "CHANGELOG.md",
+      "reports/perf/latest.json",
+      "docs/handoff/sesiones/2026-09-29/omr-cv-qr-template-20260929.json",
+      "docs/handoff/sesiones/2026-09-29/omr-cv-qr-template-20260929.md",
+      "apps/backend/scripts/omr-eval-real-dataset.mjs",
+      "apps/backend/scripts/omr-map-geometry-fingerprint.mjs",
+      "apps/backend/scripts/tests/omr-map-geometry-fingerprint.test.mjs",
+      "apps/backend/scripts/diagnosticos/omr-qr-opencv-benchmark.py"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-09-29/omr-cv-qr-template-20260929.json",
+      "docs/handoff/sesiones/2026-09-29/omr-cv-qr-template-20260929.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "omr_focus",
+      "command": "npm run test -- --run tests/omr.consenso.robusto.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "45 pruebas OMR focalizadas pasaron.",
+      "timestamp": "2026-09-29T09:05:45.62Z"
+    },
+    {
+      "name": "backend_typecheck",
+      "command": "npm run typecheck --workspace apps/backend",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Prisma Client se generó y el typecheck backend terminó con exitCode=0.",
+      "timestamp": "2026-09-29T09:05:45.62Z"
+    },
+    {
+      "name": "frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "69 archivos y 304 pruebas pasaron.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "falla",
+      "exitCode": 124,
+      "durationMs": 0,
+      "resultSummary": "backend-root-25 excedió 480 s dos veces; se detuvo el tercer intento.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "tdd_enforcement",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Deuda de exclusiones: patrón inexistente en recoveryBundleGeneracion.test.ts.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Reintentó 3 veces; E2E CSV espera cabecera antigua y falla con columnas actuales de global.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "11 archivos y 32 pruebas pasaron.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "4 presupuestos verificados; variables locales efímeras de configuración.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "pipeline_contract",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "19 de 19 contratos pasaron.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "npm run docs:check terminó con [docs] ok en esta actualización.",
+      "timestamp": "2026-09-29T09:05:45.62Z"
+    },
+    {
+      "name": "traceability_tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "7 de 7 pasaron.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "handoff_tests",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "11 de 11 pasaron.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "ci_policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Se detuvo en toolchain policy: aprobación mejor-sqlite3 ausente y lock backend no incluye @tesseract.js-data/spa.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Error no-useless-assignment en controladorIngestaPdfOmr.ts:250, archivo ajeno a este cambio.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Auditoría SDD pasó.",
+      "timestamp": "2026-09-29T18:00:00Z"
+    },
+    {
+      "name": "omr_photo_corefill_39",
+      "command": "benchmark completo de capturas fotográficas con core-fill, scoreDetails y concurrencia 2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1472416,
+      "resultSummary": "39/39 procesadas; 443/487 respuestas observadas determinadas y concordantes frente a 338/487 en la referencia; 356/397 respuestas únicas concordantes frente a 283/397; 2 páginas vacías y 1 doble permanecen; QR 2/39 exactos, 0 payloads erróneos; duración 24.5 min, RSS pico 2209 MiB.",
+      "timestamp": "2026-09-29T09:04:08.01Z"
+    },
+    {
+      "name": "omr_global48_corefill_48",
+      "command": "benchmark completo Global48 con core-fill y concurrencia 2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 896123,
+      "resultSummary": "48/48 procesadas; 295 respondidas frente a 283; 63 ambiguas frente a 74; 25 dobles/tachadas frente a 27; no se agregaron dobles nuevas; QR 32/48 directos y 34/48 exactos tras rescates, 0 payloads erróneos; sin etiquetas de respuesta.",
+      "timestamp": "2026-09-29T09:04:08.01Z"
+    },
+    {
+      "name": "omr_camscanner_corefill_16",
+      "command": "benchmark completo de cuatro PDF CamScanner rasterizados con core-fill y concurrencia 2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 525398,
+      "resultSummary": "16/16 procesadas; 49 respondidas frente a 47; 46 ambiguas frente a 48; 2 inválidas frente a 2; QR 0/16 exactos y 0 payloads erróneos; sin etiquetas de respuesta.",
+      "timestamp": "2026-09-29T09:04:08.01Z"
+    },
+    {
+      "name": "omr_manual_shapes_page3",
+      "command": "cotejo de etiquetas manuales de formas contra la página 3 procesada de Global48",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "8/8 preguntas mapeadas. De 6 X, 3 coinciden con la opción observada y 3 permanecen dobles; 0 X se leen como otra opción. De 2 trazos cruzados, uno se emite y otro se abstiene; la intención de la muestra emitida está pendiente de adjudicación.",
+      "timestamp": "2026-09-29T09:04:08.01Z"
+    },
+    {
+      "name": "omr_photo_corefill_repeat_39",
+      "command": "repetición exacta del benchmark fotográfico con concurrencia 2, scoreDetails y las mismas 39 capturas",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1449391,
+      "resultSummary": "39/39 procesadas; resultados idénticos a la corrida anterior (0 diferencias de respuesta, estado, score y QR); 24.16 min, RSS pico 1580 MiB. La primera corrida midió 2,209 MiB; este pico no se reprodujo. La referencia midió 1,598 MiB/25.18 min.",
+      "timestamp": "2026-09-29T09:34:51.431Z"
+    },
+    {
+      "name": "omr_photo_experiment_39",
+      "command": "node --import tsx apps/backend/scripts/omr-eval-real-dataset.mjs (concurrencia 2; mapa runtime fixture)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1470224,
+      "resultSummary": "39/39 procesadas; 376/487 respuestas emitidas concordantes con etiquetas heredadas; 311/397 concordancias únicas; 111 ambiguas; QR 2/39 exactos, 0 payloads erróneos; 24:30 min, RSS pico 1,616 MiB.",
+      "timestamp": "2026-09-29T11:33:23.706Z"
+    },
+    {
+      "name": "omr_photo_after_revert_39",
+      "command": "node --import tsx apps/backend/scripts/omr-eval-real-dataset.mjs (concurrencia 2; mismos hints runtime fixture)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1437214,
+      "resultSummary": "39/39 procesadas; idéntica a la corrida experimental en respuestas, estados, score details y QR; 376/487 respuestas emitidas concordantes con etiquetas heredadas; 311/397 concordancias únicas; QR 2/39 exactos; 23:57 min, RSS pico 1,570 MiB; 0 errores.",
+      "timestamp": "2026-09-29T12:03:22.202Z"
+    },
+    {
+      "name": "omr_estado_reversion",
+      "command": "npm -C apps/backend run test -- --run tests/omr.estado-respuesta.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "19/19 pruebas focales pasaron; Vite mostró avisos de configuración nativa no soportada.",
+      "timestamp": "2026-09-29T11:38:59Z"
+    },
+    {
+      "name": "backend_typecheck_after_revert",
+      "command": "npm run typecheck --workspace apps/backend",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Prisma Client v7.10.0 generado y TypeScript terminó correctamente.",
+      "timestamp": "2026-09-29T11:39:10Z"
+    },
+    {
+      "name": "docs_check_after_trace",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "[docs] ok.",
+      "timestamp": "2026-09-29T12:04:00Z"
+    },
+    {
+      "name": "traceability_tests_after_trace",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "7/7 pruebas pasaron.",
+      "timestamp": "2026-09-29T12:04:00Z"
+    },
+    {
+      "name": "handoff_tests_after_trace",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "11/11 pruebas pasaron.",
+      "timestamp": "2026-09-29T12:04:00Z"
+    },
+    {
+      "name": "omr_score_vector_comparison",
+      "command": "comparación agregada de los reportes JSON OMR de 39 capturas",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Variante y repetición restaurada: 0 diferencias en scores completos, respuesta, estado y QR. Frente al reporte anterior, 25 filas tienen vectores scoreDetails distintos y concentran 67 cambios de respuesta.",
+      "timestamp": "2026-09-29T12:12:00Z"
+    },
+    {
+      "name": "omr_map_fingerprint_test",
+      "command": "node --test apps/backend/scripts/tests/omr-map-geometry-fingerprint.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 92,
+      "resultSummary": "2/2 pruebas pasaron: hash estable excluye ids/payload QR y cambia al mover geometría OMR/QR.",
+      "timestamp": "2026-09-29T12:46:52Z"
+    },
+    {
+      "name": "omr_photo_fingerprinted_39",
+      "command": "node --import tsx apps/backend/scripts/omr-eval-real-dataset.mjs (concurrencia 2; scoreDetails y hints runtime fixture)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1640284,
+      "resultSummary": "39/39, 376/487 emitidas concordantes con etiquetas heredadas, 311/397 concordancias únicas; QR 2/39, sin rescates y sin payload erróneo; 0 errores; 27:20 min y RSS pico 2,169 MiB. 39 mapas hasheados, 32 hashes únicos; huella OMR de 27 archivos y del evaluador incluida.",
+      "timestamp": "2026-09-29T12:44:49.754Z"
+    },
+    {
+      "name": "omr_fingerprinted_repeat_compare",
+      "command": "comparación agregada entre reportes JSON OMR de 39 capturas",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "39 filas: 0 diferencias de respuesta, estado, score y metadata geométrica frente a la repetición restaurada previa; clave y observaciones coinciden 39/39.",
+      "timestamp": "2026-09-29T12:46:52Z"
+    },
+    {
+      "name": "omr_fingerprint_metadata_smoke",
+      "command": "node --import tsx apps/backend/scripts/omr-eval-real-dataset.mjs (una captura, concurrencia 1)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "1/1 procesada; mapGeometrySha256, omrSourceSha256 y geometryFingerprintModuleSha256 válidos. El QR de esa captura no se leyó; el smoke valida la instrumentación, no la calidad QR.",
+      "timestamp": "2026-09-29T12:52:53Z"
+    },
+    {
+      "name": "omr_qr_rectification_output_size_sweep",
+      "command": "Ejecuciones separadas del evaluador real con OMR_EVAL_QR_GEOMETRY_OUTPUT_SIZE en 256, 512, 640 y 768 px (tres capturas, concurrencia 2)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 534711,
+      "resultSummary": "Cada tamaño dio 0/3 payloads exactos, 0 detecciones directas, 0 rescates geométricos, 0 rescates rotacionales, 0 payloads erróneos y 0 errores. Duración por tamaño: 136152/134068/133510/130981 ms; RSS pico: 1281/1248/1257/1293 MiB. No justifica cambiar el default 384 ni promocionar esta variante.",
+      "timestamp": "2026-09-29T13:07:33Z"
+    },
+    {
+      "name": "omr_qr_output_size_parameter_tests",
+      "command": "npm -C apps/backend run test -- --run tests/omr.geometry.reference.test.ts; npm run typecheck --workspace apps/backend; node --check apps/backend/scripts/omr-eval-real-dataset.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Suite geométrica 30/30; typecheck backend y node --check terminaron con exitCode=0. Incluye cobertura sintética para 256/384/512/640/768 px; no demuestra mejora fotográfica.",
+      "timestamp": "2026-09-29T13:07:33Z"
+    },
+    {
+      "name": "omr_research_handoff_docs_check",
+      "command": "npm run docs:generate; npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2526,
+      "resultSummary": "La primera comprobación detectó AUTO_ENV desactualizado tras incorporar el parámetro de evaluación; docs:generate actualizó AUTO_ENV y la segunda comprobación terminó con [docs] ok.",
+      "timestamp": "2026-09-29T13:15:04Z"
+    },
+    {
+      "name": "omr_opencv_qr_full_dataset_benchmark",
+      "command": "python apps/backend/scripts/diagnosticos/omr-qr-opencv-benchmark.py --report photos39=<reporte> --report global48=<reporte> --report camscanner16=<reporte>",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 86966,
+      "resultSummary": "OpenCV 4.11.0, página completa/ROI/CLAHE/umbrales/reescalado/eps: fotos 38/39 archivos presentes, 0 QR exactos; 1 archivo fuente ya no estaba en la ruta. Global48 48/48: unión 19/48 frente a 34/48 del motor actual, 0 rescates exclusivos, 0 payloads erróneos. CamScanner 16/16: 0 exactos. Tiempo total 86.97 s; benchmark solo offline, ROI aproximado.",
+      "timestamp": "2026-09-29T13:27:46Z"
+    },
+    {
+      "name": "omr_photo_unique_input_audit",
+      "command": "Comparación SHA-256 de archivos presentes con el conteo uniqueByteContents del reporte completo de 39 capturas",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "39 filas reportadas, 38 archivos actuales, 1 ruta ausente; 38 bytes distintos actualmente, igual al uniqueByteContents=38 del reporte. La fila ausente era una copia duplicada; las 38 imágenes únicas siguen disponibles.",
+      "timestamp": "2026-09-29T13:27:46Z"
+    },
+    {
+      "name": "qr_payload_current_vs_legacy_audit",
+      "command": "Cotejo de longitud agregada de payloads esperados y del constructor QR TV4 compacto",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Los reportes de fotos/global/CamScanner esperan payloads legacy de 145–156 caracteres. ExamenPdf TV4 compacto construye identidad de página más HMAC de 12 bytes en Base64URL; los corpora reales no ejercitan la densidad del QR corto actual.",
+      "timestamp": "2026-09-29T13:27:46Z"
+    },
+    {
+      "name": "qr_template_targeted_tests",
+      "command": "npm -C apps/backend run test -- --run tests/qr.examen.test.ts tests/pdf.canonico.test.ts -t \"QR|qr\"",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 8680,
+      "resultSummary": "El archivo qr.examen.test.ts pasó 5 pruebas; tests/pdf.canonico.test.ts fue omitido completamente por el patrón. La prueba de rasterización PDF se ejecutó después con un filtro específico y está registrada aparte.",
+      "timestamp": "2026-09-29T13:27:46Z"
+    },
+    {
+      "name": "omr_opencv_benchmark_python_syntax",
+      "command": "python -c compile(script)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 195,
+      "resultSummary": "Compilación sintáctica Python: ok.",
+      "timestamp": "2026-09-29T13:27:46Z"
+    },
+    {
+      "name": "qr_template_pdf_raster_roundtrip",
+      "command": "npm -C apps/backend run test -- --run tests/pdf.canonico.test.ts -t \"genera el contrato OMR canónico enriquecido|usa un payload compacto H\"",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11180,
+      "resultSummary": "2 pruebas pasaron y 6 se filtraron. Una valida rasterización de una página TV4; la prueba de plantilla compacta genera 25 preguntas en 2 páginas y decodifica cada QR exacto después de rasterizar a 1600 px, blur 0.3 y JPEG calidad 72. Prueba sintética, no captura física.",
+      "timestamp": "2026-09-29T13:34:18Z"
+    }
+  ],
+  "decisions": [
+    "Habilitar recuperación de candidata parcial solo con confianza >=0.72 y compacidad >=0.35 y permiso de estado/origen.",
+    "Mantener abstención para doble marca/tachadura.",
+    "Interpretar los replays contra etiquetas almacenadas como concordancia y no como exactitud independiente.",
+    "La ruta core-fill queda acotada por núcleo, margen, score competidor, compacidad, centro, contraste y rechazo de marcas invalidantes; las etiquetas fotográficas heredadas se reportan como concordancia condicionada.",
+    "La lectura QR por foto sigue sin mejora: conservar identidad exacta y rescates separados, sin inferir legibilidad a partir de los objetos PDF.",
+    "Mantener en revisión el caso de X/tachadura hasta adjudicar si una X repasada en una sola burbuja representa respuesta válida.",
+    "No declarar eficiencia estable: una corrida tuvo más RSS pico pese a tardar 0.7 min menos; repetir medición en condiciones comparables.",
+    "El pico de 2,209 MiB observado en un replay no es reproducible en una repetición idéntica (1,580 MiB); no atribuirlo al cambio OMR sin nuevas mediciones.",
+    "Retirar la regla experimental de abstención parcial: su ejecución y la repetición después de retirarla tuvieron cero diferencias agregadas y por reactivo, sin beneficio medible.",
+    "No atribuir la diferencia de 67 respuestas frente al benchmark anterior: coinciden los vectores de clave y etiquetas observadas en 39/39 filas, pero no se guardaron los mapas geométricos completos; dos filas difieren en metadatos geométricos.",
+    "Frente al replay anterior cambian 67 respuestas y sus scores en las mismas 25 capturas; no se guardaron los mapas geométricos, hash de base de datos ni huella de código. No se asigna causa.",
+    "Se incorpora huella SHA-256 del mapa geométrico OMR por página y huella de los archivos fuente del módulo y del evaluador para que futuras iteraciones prueben equivalencia de mapas/código sin guardar IDs ni payload QR.",
+    "En las 67 diferencias frente al replay antiguo, 64 letras previas aún son el máximo score actual; la señal es parcial y débil, pero las etiquetas heredadas impiden calibrar o emitirlas como verdad independiente.",
+    "Huella del replay completo: módulo OMR 27 archivos SHA-256 aa5afa7f9588004596af7d2219b1868284ad767144027511d916e18a1a8e0e0b; evaluador SHA-256 9a74d8a1fec97313c6e8b07159e302e03766c29f917c49c0158b0fdfa3346823; módulo de huella SHA-256 3a72089e2f1d955e7b593d38981ea489ffaabd79eab1ff55e1b8a514dc4327c9 (calculado después del replay, sin cambios al archivo).",
+    "Barrido de rectificación QR a 256/512/640/768 px sobre las mismas tres capturas que fallaban con 384: 0/3 exactos en cada tamaño. Mantener 384 en producción y continuar el diagnóstico de geometría/rasterización.",
+    "Las 39 filas fotográficas representan 38 contenidos únicos y los 38 siguen disponibles; el archivo ausente es una copia duplicada, no pérdida de cobertura única.",
+    "Los tres corpora QR representan payloads históricos largos (145–156 caracteres); el constructor compacto TV4 actual emite identidad de página más HMAC de 12 bytes. Se requiere una impresión/captura nueva para validar la densidad actual."
+  ],
+  "assumptions": [
+    "Ninguna etiqueta almacenada se considera adjudicación independiente salvo inspección visual de los 8 recortes manuales.",
+    "Global48 y los PDF CamScanner carecen de etiquetas de respuesta enlazadas en estos reportes; sus resultados solo miden cobertura, estados y QR.",
+    "Las ocho etiquetas manuales son observaciones visuales no adjudicadas; no se tratan como verdad terreno independiente."
+  ],
+  "risks": [
+    "Un replay fotográfico previo mostró 443/443 letras emitidas concordantes con etiquetas observadas y 356/397 respuestas únicas; la procedencia heredada impide presentarlo como exactitud independiente. Un replay posterior emitió 376/487 y 311/397, pero faltan mapas geométricos completos para atribuir la diferencia.",
+    "Global48 suma 12 respuestas y elimina 11 ambigüedades, pero carece de etiquetas de respuesta para confirmar si las nuevas determinaciones son correctas.",
+    "QR exacto: 2/39 fotos móviles, 34/48 Global48 tras rescates y 0/16 páginas CamScanner; ningún payload incorrecto observado.",
+    "En ocho ejemplos manuales de formas, tres de seis X coinciden con la opción visual y tres quedan dobles; un trazo cruzado produce respuesta automática y requiere adjudicación.",
+    "El pico RSS de 2,209 MiB ocurrió una vez; una repetición idéntica registró 1,580 MiB frente a 1,598 MiB de referencia y tardó 24.16 min frente a 25.18 min. La primera medición atípica no se reprodujo.",
+    "No hay evidencia de impresión física y captura fotográfica de una plantilla nueva.",
+    "El árbol ya tenía cientos de cambios preexistentes; no se hizo commit ni se revirtieron archivos ajenos.",
+    "Comparación fotográfica: la variante experimental y la repetición tras retirarla son idénticas. Frente al benchmark anterior cambian 67 respuestas y sus vectores de score en las mismas 25 capturas; solo dos filas cambian geometryMode, y faltan transformaciones completas, hash de base de datos y huella del código. La causa no está aislada.",
+    "El replay fingerprinted repite exactamente respuestas, estados y scores respecto a la corrida restaurada, pero el tiempo subió a 27:20 y el RSS a 2,169 MiB frente a 23:57/1,570 MiB. Eficiencia de recursos no reproducible en dos corridas.",
+    "El barrido 256/512/640/768 no mejoró QR en tres capturas. La muestra focal no prueba generalización a todos los mapas ni dispositivos y no respalda cambiar el default.",
+    "La versión configurada es 1.1.6, sin docs/release/evidencias/1.1.6 ni manifiesto de instaladores con artefactos en dist/installer. El checkout está sucio; la política estable exige evidencia versionada, QA ligado a HEAD y fuentes limpias, artefactos firmados multi-flavor, racha CI y evidencia Classroom/flujo humano. No hay base para etiquetar o publicar ahora.",
+    "Una fila de las 39 está ausente en la ruta actual, pero las 38 imágenes presentes suman los 38 contenidos únicos del reporte; no se perdió cobertura de contenido.",
+    "El benchmark offline OpenCV no añadió rescates exactos: 0 en 38 fotos disponibles, 0 frente al motor actual en Global48 y 0 en 16 CamScanner. La ROI usada fue aproximada, así que este resultado evalúa esa variante concreta, no todos los detectores posibles."
+  ],
+  "nextStep": "Mantener sin cambios de producción el default QR 384 y los decodificadores jsQR/ZXing: OpenCV no añadió rescates en el benchmark de los tres corpora. Diagnosticar integridad física y error geométrico en una plantilla TV4 recién impresa/fotografiada; los datasets disponibles contienen payloads QR legacy y no validan directamente la densidad del QR corto actual. Adjudicar independientemente las marcas OMR antes de calibrar y repetir los replays completos y mediciones de eficiencia tras una mejora candidata.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "adjudicar el ejemplo manual X/trazo cruzado",
+      "mejorar y validar QR en fotografías CamScanner",
+      "capturar hojas TV4 recién impresas",
+      "obtener adjudicación independiente para las etiquetas de respuesta",
+      "comparar mapas geométricos completos entre replays y explicar la variación de cobertura"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/omr-letter-color-template",
+    "commit": "894840df",
+    "workingTreeStatus": "árbol compartido con cientos de cambios preexistentes; cambios ajenos preservados; sin commit"
+  }
+}

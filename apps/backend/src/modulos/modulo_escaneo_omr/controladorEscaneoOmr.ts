@@ -16,6 +16,7 @@ import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion
 import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { analizarOmr, leerQrDesdeImagen } from './servicioOmr.js';
+import { OMR_ENGINE_RELEASE } from './omr/engineRelease.js';
 
 function parseJsonSafe<T>(val: unknown): T | null {
   if (typeof val === 'string') {
@@ -113,6 +114,7 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
         confianzaPromedioPagina: 1,
         ratioAmbiguas: 0,
         engineVersion: 'omr-cv',
+        engineRelease: OMR_ENGINE_RELEASE,
         geomQuality: 1,
         photoQuality: 1,
         decisionPolicy: 'blank_reverse_v1'

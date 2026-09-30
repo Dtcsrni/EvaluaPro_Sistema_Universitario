@@ -9,6 +9,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { contarCambiosFuente, crearQaManifest } from '../testing/generar-qa-manifest.mjs';
 import { evaluateStablePromotion } from '../release/validate-stable-promotion.mjs';
 
 function mkTempDir(prefix) {
@@ -73,10 +75,15 @@ function writeQaEvidence(baseDir, overrides = {}) {
     const rel = `reports/qa/latest/${gate}.json`;
     const abs = path.join(baseDir, rel);
     fs.writeFileSync(abs, `${JSON.stringify({ version: '1', gate, ok: true }, null, 2)}\n`);
-    artefactos.push({ archivo: rel, existe: true, bytes: 64 });
+    const stat = fs.statSync(abs);
+    artefactos.push({ archivo: rel, existe: true, bytes: stat.size, actualizadoEn: stat.mtime.toISOString() });
   }
   const manifest = {
     version: '1',
+    generadoEn: new Date().toISOString(),
+    commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    workingTreeClean: true,
+    dirtyPathCount: 0,
     artefactos,
     resumen: { total: gates.length, presentes: gates.length, faltantes: 0, estado: 'ok' },
     ...overrides
@@ -85,6 +92,28 @@ function writeQaEvidence(baseDir, overrides = {}) {
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   return manifestPath;
 }
+
+test('el manifiesto QA conserva commit candidato y fecha de generación', () => {
+  const generadoEn = '2026-09-25T00:00:00.000Z';
+  const commit = 'a'.repeat(40);
+  const { payload, faltantes } = crearQaManifest([
+    { archivo: 'reports/qa/latest/global-grade.json', existe: true, bytes: 42, actualizadoEn: generadoEn },
+    { archivo: 'reports/qa/latest/pdf-print.json', existe: false }
+  ], commit, generadoEn, { workingTreeClean: true, dirtyPathCount: 0 });
+
+  assert.equal(payload.commit, commit);
+  assert.equal(payload.generadoEn, generadoEn);
+  assert.equal(payload.workingTreeClean, true);
+  assert.equal(payload.dirtyPathCount, 0);
+  assert.deepEqual(faltantes, ['reports/qa/latest/pdf-print.json']);
+  assert.deepEqual(payload.resumen, { total: 2, presentes: 1, faltantes: 1, estado: 'missing-artifacts' });
+  assert.equal(contarCambiosFuente([
+    'apps/backend/src/index.ts',
+    'reports/qa/latest/global-grade.json',
+    'output/qa/generated.pdf',
+    'storage/omr_debug/folio/image.jpg'
+  ]), 1);
+});
 
 function writeInstallerManifest(baseDir, overrides = {}) {
   const version = overrides.version || '1.0.0';
@@ -480,3 +509,152 @@ test('stable promotion valida presencia y estructura del gate de release', () =>
   assert.equal(result.ok, true);
 });
 
+test('stable promotion rechaza un manifiesto QA cuyo commit difiere del candidato', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-qa-commit-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-qa-commit-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-commit-mismatch-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const manifest = JSON.parse(fs.readFileSync(qaManifestPath, 'utf8'));
+  manifest.commit = '0'.repeat(40);
+  fs.writeFileSync(qaManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    requiredStreak: 10,
+    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+  const check = result.checks.find((item) => item.id === 'automated-qa-evidence');
+  assert.equal(check?.ok, false);
+  assert.match(check?.detail || '', /commit QA no corresponde/i);
+});
+
+test('stable promotion rechaza QA ejecutado con cambios de fuente sin commit', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-qa-dirty-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-qa-dirty-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-dirty-tree-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const manifest = JSON.parse(fs.readFileSync(qaManifestPath, 'utf8'));
+  manifest.workingTreeClean = false;
+  manifest.dirtyPathCount = 2;
+  fs.writeFileSync(qaManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    requiredStreak: 10,
+    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+  const check = result.checks.find((item) => item.id === 'automated-qa-evidence');
+  assert.equal(check?.ok, false);
+  assert.match(check?.detail || '', /árbol de trabajo sucio/i);
+});
+
+test('stable promotion rechaza artefactos QA con más de 24 horas', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-qa-stale-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-qa-stale-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-stale-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const manifest = JSON.parse(fs.readFileSync(qaManifestPath, 'utf8'));
+  const staleAt = new Date(Date.now() - (25 * 60 * 60 * 1000));
+  const artifact = manifest.artefactos[0];
+  const artifactPath = path.resolve(path.dirname(qaManifestPath), '..', '..', '..', artifact.archivo);
+  fs.utimesSync(artifactPath, staleAt, staleAt);
+  artifact.actualizadoEn = staleAt.toISOString();
+  artifact.bytes = fs.statSync(artifactPath).size;
+  fs.writeFileSync(qaManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    requiredStreak: 10,
+    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+  const check = result.checks.find((item) => item.id === 'automated-qa-evidence');
+  assert.equal(check?.ok, false);
+  assert.match(check?.detail || '', /obsoleto|24 horas/i);
+});
+
+test('stable promotion rechaza manifiesto QA generado hace más de 24 horas', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-qa-manifest-stale-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-qa-manifest-stale-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-manifest-stale-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const manifest = JSON.parse(fs.readFileSync(qaManifestPath, 'utf8'));
+  manifest.generadoEn = new Date(Date.now() - (25 * 60 * 60 * 1000)).toISOString();
+  fs.writeFileSync(qaManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    requiredStreak: 10,
+    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+  const check = result.checks.find((item) => item.id === 'automated-qa-evidence');
+  assert.equal(check?.ok, false);
+  assert.match(check?.detail || '', /manifest QA obsoleto/i);
+});
+
+test('stable promotion rechaza tamaño QA distinto al archivo real', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-qa-size-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-qa-size-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-size-mismatch-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const manifest = JSON.parse(fs.readFileSync(qaManifestPath, 'utf8'));
+  manifest.artefactos[0].bytes += 1;
+  fs.writeFileSync(qaManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    requiredStreak: 10,
+    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+  const check = result.checks.find((item) => item.id === 'automated-qa-evidence');
+  assert.equal(check?.ok, false);
+  assert.match(check?.detail || '', /tamaño inconsistente/i);
+});
+
+test('stable promotion rechaza fecha QA que no coincide con el archivo real', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-qa-mtime-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-qa-mtime-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-mtime-mismatch-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const manifest = JSON.parse(fs.readFileSync(qaManifestPath, 'utf8'));
+  manifest.artefactos[0].actualizadoEn = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  fs.writeFileSync(qaManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    requiredStreak: 10,
+    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+  const check = result.checks.find((item) => item.id === 'automated-qa-evidence');
+  assert.equal(check?.ok, false);
+  assert.match(check?.detail || '', /fecha inconsistente/i);
+});

@@ -57,15 +57,19 @@ export function promedioPonderado(valores: Array<{ valor: number; peso?: number 
   return acumulado / sumaPesos;
 }
 
-export function calcularExamenCorte(teoricoDecimal: number, practicas: number[]): number {
+export function calcularExamenCorte(
+  teoricoDecimal: number,
+  practicas: number[],
+  pesos: { teorico?: number; practicas?: number } = {}
+): number {
   const teorico = clamp0a10(teoricoDecimal);
   const practico = clamp0a10(promedioSimple(practicas));
-  return teorico.mul(0.6).add(practico.mul(0.4)).toDecimalPlaces(4).toNumber();
+  return teorico.mul(pesos.teorico ?? 0.6).add(practico.mul(pesos.practicas ?? 0.4)).toDecimalPlaces(4).toNumber();
 }
 
-export function redondearFinalInstitucional(finalDecimal: number): number {
+export function redondearFinalInstitucional(finalDecimal: number, umbralAprobacion = 6): number {
   const valor = clamp0a10(finalDecimal);
-  if (valor.lessThan(6)) {
+  if (valor.lessThan(umbralAprobacion)) {
     return valor.floor().toNumber();
   }
   return valor.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
@@ -76,6 +80,8 @@ export function calcularPoliticaLisc(params: {
   examenesPorCorte: VectorExamenes;
   pesosGlobales?: { continua?: number; examenes?: number };
   pesosExamenes?: { parcial1?: number; parcial2?: number; global?: number };
+  pesosContinuaCortes?: { c1?: number; c2?: number; c3?: number };
+  umbralAprobacion?: number;
 }): ResultadoPoliticaLisc {
   const continuaPorCorte: Required<VectorCortes> = {
     c1: clamp0a10(params.continuaPorCorte.c1 ?? 0).toNumber(),
@@ -95,12 +101,15 @@ export function calcularPoliticaLisc(params: {
   const pesoParcial1 = new Decimal(Number(params.pesosExamenes?.parcial1 ?? 0.2));
   const pesoParcial2 = new Decimal(Number(params.pesosExamenes?.parcial2 ?? 0.2));
   const pesoGlobal = new Decimal(Number(params.pesosExamenes?.global ?? 0.6));
+  const pesoContinuaC1 = new Decimal(Number(params.pesosContinuaCortes?.c1 ?? 0.2));
+  const pesoContinuaC2 = new Decimal(Number(params.pesosContinuaCortes?.c2 ?? 0.2));
+  const pesoContinuaC3 = new Decimal(Number(params.pesosContinuaCortes?.c3 ?? 0.6));
 
   const bloqueContinuaDecimal = clamp0a10(
     new Decimal(continuaPorCorte.c1)
-      .mul(0.2)
-      .add(new Decimal(continuaPorCorte.c2).mul(0.2))
-      .add(new Decimal(continuaPorCorte.c3).mul(0.6))
+      .mul(pesoContinuaC1)
+      .add(new Decimal(continuaPorCorte.c2).mul(pesoContinuaC2))
+      .add(new Decimal(continuaPorCorte.c3).mul(pesoContinuaC3))
       .toNumber()
   );
 
@@ -116,7 +125,7 @@ export function calcularPoliticaLisc(params: {
     bloqueContinuaDecimal.mul(pesoContinua).add(bloqueExamenesDecimal.mul(pesoExamenes)).toNumber()
   );
 
-  const finalRedondeada = redondearFinalInstitucional(finalDecimal.toNumber());
+  const finalRedondeada = redondearFinalInstitucional(finalDecimal.toNumber(), params.umbralAprobacion ?? 6);
 
   return {
     continuaPorCorte,

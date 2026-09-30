@@ -1,0 +1,43 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-09-23T06-43-43.081Z",
+  "status": "final",
+  "generatedAt": "2026-09-23T06:43:43.081Z",
+  "validationProfile": "quick",
+  "agent": { "name": "Codex", "version": "unknown", "provider": "OpenAI", "kind": "coding-agent", "channel": "desktop" },
+  "request": { "summary": "Detectar también marcas pequeñas e irregulares cuando parezcan intencionales y no simples rayones." },
+  "objective": "Añadir criterio conservador de rescate de marcas irregulares y verificarlo con el dataset fotográfico sin usar la clave para decidir respuestas.",
+  "scope": ["Motor OMR de alta resolución", "Pruebas de decisión", "SPEC-062", "Benchmark focalizado de 12 fotografías"],
+  "constraints": ["No usar la clave como fallback de detección.", "Preservar dobles, tachaduras y marcas débiles para revisión.", "No ampliar pasadas CV si no muestran beneficio medido."],
+  "actions": [
+    { "type": "implementation", "summary": "Añadido criterio estricto de alta resolución para marca irregular localizada; no se amplió el disparador de pasada.", "timestamp": "2026-09-23T06:43:43.081Z", "status": "ok" },
+    { "type": "validation", "summary": "Pruebas OMR focalizadas 44/44; lint modificado y TypeScript directo aprobados.", "timestamp": "2026-09-23T06:43:43.081Z", "status": "ok" },
+    { "type": "validation", "summary": "Benchmark de 12 fotos: estados completos y concordancia observada 143/143; cero transiciones netas contra base.", "timestamp": "2026-09-23T06:43:43.081Z", "status": "ok" },
+    { "type": "validation", "summary": "La spec SPEC-062 pasa; auditoría global falla por rutas combinadas en SPEC-063.", "timestamp": "2026-09-23T06:43:43.081Z", "status": "falla" },
+    { "type": "validation", "summary": "Lint global falla en import no usado preexistente; typecheck estándar bloqueado por EPERM en Prisma; generador de handoff ejecutado correctamente.", "timestamp": "2026-09-23T06:43:43.081Z", "status": "falla" }
+  ],
+  "files": {
+    "read": ["AGENTS.md", "docs/POLITICA_SDD.md", "docs/handoff/trace.schema.json", "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md", "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts", "apps/backend/tests/omr.consenso.robusto.test.ts", "apps/backend/scripts/omr-eval-real-dataset.mjs"],
+    "changed": ["apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts", "apps/backend/tests/omr.consenso.robusto.test.ts", "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md", "docs/handoff/sesiones/2026-09-23/sesion-2026-09-23T06-43-43.081Z.json", "docs/handoff/sesiones/2026-09-23/sesion-2026-09-23T06-43-43.081Z.md"],
+    "artifacts": ["C:/Users/evega/AppData/Local/Temp/omr-irregular-localized-12-20260923.json"]
+  },
+  "commands": [
+    { "name": "focused-tests", "command": "npm test -- --run tests/omr.consenso.robusto.test.ts tests/omr.estado-respuesta.test.ts", "status": "ok", "exitCode": 0, "durationMs": 1160, "resultSummary": "2 archivos y 44 pruebas aprobados." },
+    { "name": "focused-lint", "command": "npx eslint src/modulos/modulo_escaneo_omr/servicioOmrCv.ts tests/omr.consenso.robusto.test.ts --max-warnings=0", "status": "ok", "exitCode": 0, "durationMs": 3000, "resultSummary": "Sin errores ni advertencias en los dos archivos modificados." },
+    { "name": "typescript-direct", "command": "npx tsc --noEmit --project tsconfig.json --pretty false", "status": "ok", "exitCode": 0, "durationMs": 8400, "resultSummary": "TypeScript sin generación Prisma aprobó." },
+    { "name": "real-photo-benchmark", "command": "node --import tsx apps/backend/scripts/omr-eval-real-dataset.mjs (12 fotos)", "status": "ok", "exitCode": 0, "durationMs": 430408, "resultSummary": "12/12 fotos, 161/161 estados, 143/143 respuestas emitidas concordantes, cero errores y cero transiciones netas frente a la base." },
+    { "name": "ia-traceability", "command": "npm run test:ia:traceability", "status": "ok", "exitCode": 0, "durationMs": 114, "resultSummary": "7 pruebas aprobadas." },
+    { "name": "ia-handoff-tests", "command": "npm run test:ia:handoff", "status": "ok", "exitCode": 0, "durationMs": 116, "resultSummary": "11 pruebas aprobadas." },
+    { "name": "changed-files-check", "command": "git diff --check", "status": "ok", "exitCode": 0, "durationMs": 629, "resultSummary": "Sin errores de whitespace." },
+    { "name": "backend-lint-full", "command": "npm run lint -- --no-fix", "status": "falla", "exitCode": 1, "durationMs": 6803, "resultSummary": "Falla en tests/integracion/plantillasCrudYPreview.test.ts por import prisma sin uso." },
+    { "name": "backend-typecheck-script", "command": "npm run typecheck", "status": "falla", "exitCode": 1, "durationMs": 10008, "resultSummary": "prisma generate falló con EPERM al reemplazar node_modules/.prisma/client/index.js; tsc directo aprobó." },
+    { "name": "sdd-audit", "command": "npm run sdd:audit", "status": "falla", "exitCode": 1, "durationMs": 738, "resultSummary": "SPEC-062 valida; la auditoría global falla por rutas de tests concatenadas en SPEC-063." },
+    { "name": "handoff-generator", "command": "npm run ia:handoff:quick", "status": "ok", "exitCode": 0, "durationMs": 2416, "resultSummary": "Generó este JSON y su Markdown asociado." }
+  ],
+  "decisions": ["No ampliar la activación de la pasada CV: el benchmark no produjo ganancia neta y supondría mayor latencia.", "El rescate irregular exige confianza >= 0.85, margen, contraste, centro y compacidad; rechaza dobles y tachaduras.", "Intentos no concluyentes siguen como ambiguos, no se ocultan como sin_marca."],
+  "assumptions": ["Las etiquetas observadas provienen de la referencia visual existente, no de una anotación independiente ciega."],
+  "risks": ["La regla nueva no incrementó cobertura en las 12 fotos; aún no demuestra mejora de detección real.", "Continúan fallos de validación ajenos al cambio en lint global, prisma generate y SPEC-063."],
+  "nextStep": "Validar contra anotaciones visuales independientes de marcas intencionales pequeñas e irregulares antes de relajar umbrales.",
+  "completion": { "isComplete": true, "pendingFields": [] },
+  "repo": { "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro", "branch": "feat/omr-letter-color-template", "commit": "3337afd8" }
+}

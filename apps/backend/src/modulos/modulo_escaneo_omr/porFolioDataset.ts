@@ -537,7 +537,7 @@ function resolvePanelTruth(scores: BubbleMarkScore[], profile = DEFAULT_POR_FOLI
   const dominantGap = round6((first?.score ?? 0) - (second?.score ?? 0));
   const dominantRatio = (second?.score ?? 0) / Math.max(0.0001, first?.score ?? 0.0001);
   const selectedOptions = first ? [first.option] : [];
-  let markType: MarkTypePorFolio = 'blank';
+  let markType: MarkTypePorFolio;
   let option: OpcionOmr | null = null;
 
   if ((first?.score ?? 0) < profile.markScoreMin) {

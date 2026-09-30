@@ -16,10 +16,11 @@ namespace EvaluaPro.AppHost;
 public partial class MainWindow : Window
 {
     private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
-    private Process? backendProcess;
+    private Process? dashboardProcess;
     private bool isStopping;
     private string appRoot = string.Empty;
     private const int DashboardPortFallback = 4519;
+    private static readonly TimeSpan ServiceStartupTimeout = TimeSpan.FromSeconds(60);
     public MainWindow()
     {
         InitializeComponent();
@@ -239,18 +240,27 @@ public partial class MainWindow : Window
         var dashboardPort = ReadDashboardPort();
         WriteStartupDiagnostic($"Validando servicios: root='{appRoot}', dashboardPort={dashboardPort}.");
 
+        // La ventana puede abrirse mientras el dashboard y la API ya responden
+        // (por ejemplo, tras un cierre anormal anterior). Adoptar únicamente
+        // el dashboard cuya identidad coincide con esta instalación permite
+        // cerrar su árbol al salir sin tocar procesos ajenos.
+        await TryAdoptDashboardAsync(dashboardPort);
+
         // La ventana solo se considera lista cuando web y API responden. Una
         // página estática viva no garantiza que las operaciones funcionen.
         if (await ProbePortAsync(webHealthUrl) && await ProbePortAsync(apiHealthUrl))
         {
-            return true;
+            if (dashboardProcess != null) return true;
+
+            WriteStartupDiagnostic("Web/API responden, pero no se pudo identificar un dashboard propio; se rechaza reutilizar servicios independientes.");
+            return false;
         }
 
         // Si el dashboard ya existe, pídele reconciliar su supervisor en vez
         // de abrir otra instancia. Esto recupera una API caída conservando
         // singleton y evitando colisiones de puertos.
         var dashboardUrl = $"http://127.0.0.1:{dashboardPort}";
-        if (await ProbePortAsync(dashboardUrl))
+        if (dashboardProcess != null && await ProbePortAsync(dashboardUrl))
         {
             await RequestDashboardReconcileAsync(dashboardUrl);
         }
@@ -259,8 +269,9 @@ public partial class MainWindow : Window
             StartDashboard();
         }
 
-        // Esperar hasta 25 segundos a que web y API estén activas.
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        // El primer arranque puede ejecutar el smoke OMR y levantar SQLite;
+        // mantener un límite finito evita falsos negativos sin esperar indefinidamente.
+        var cts = new CancellationTokenSource(ServiceStartupTimeout);
         while (!cts.IsCancellationRequested)
         {
             if (await ProbePortAsync(webHealthUrl) && await ProbePortAsync(apiHealthUrl))
@@ -302,11 +313,11 @@ public partial class MainWindow : Window
                 };
                 psi.EnvironmentVariables["NODE_ENV"] = "production";
                 psi.EnvironmentVariables["EVALUAPRO_FLAVOR"] = "docente-local";
-                backendProcess = Process.Start(psi);
+                dashboardProcess = Process.Start(psi);
             }
             else if (File.Exists(brokerScript))
             {
-                backendProcess = Process.Start(new ProcessStartInfo
+                dashboardProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
                     Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{brokerScript}\" -Action open-dashboard -Mode prod -Port 4519 -NoOpen",
@@ -321,6 +332,49 @@ public partial class MainWindow : Window
         {
             WriteStartupDiagnostic($"Error al iniciar dashboard: {ex.Message}");
             Debug.WriteLine($"Error al iniciar backend: {ex.Message}");
+        }
+    }
+
+    private async Task TryAdoptDashboardAsync(int dashboardPort)
+    {
+        try
+        {
+            var lockPath = Path.Combine(appRoot, "logs", "dashboard.lock.json");
+            if (!File.Exists(lockPath)) return;
+
+            using var lockDocument = JsonDocument.Parse(File.ReadAllText(lockPath));
+            var lockRoot = lockDocument.RootElement;
+            if (!lockRoot.TryGetProperty("pid", out var pidElement) ||
+                !pidElement.TryGetInt32(out var pid) || pid <= 0 ||
+                !lockRoot.TryGetProperty("port", out var portElement) ||
+                !portElement.TryGetInt32(out var lockPort) || lockPort != dashboardPort)
+            {
+                return;
+            }
+
+            using var response = await HttpClient.GetAsync($"http://127.0.0.1:{dashboardPort}/api/status");
+            if (!response.IsSuccessStatusCode) return;
+
+            using var statusDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var status = statusDocument.RootElement;
+            if (!status.TryGetProperty("root", out var rootElement) ||
+                rootElement.ValueKind != JsonValueKind.String ||
+                !PathsEqual(rootElement.GetString() ?? string.Empty, appRoot) ||
+                !status.TryGetProperty("port", out var statusPortElement) ||
+                !statusPortElement.TryGetInt32(out var statusPort) || statusPort != dashboardPort)
+            {
+                return;
+            }
+
+            var process = Process.GetProcessById(pid);
+            if (process.HasExited) return;
+
+            dashboardProcess = process;
+            WriteStartupDiagnostic($"Se adoptó el dashboard de esta instalación (PID {pid}) para controlar su ciclo de vida.");
+        }
+        catch (Exception ex)
+        {
+            WriteStartupDiagnostic($"No se pudo validar/adoptar el dashboard existente: {ex.Message}");
         }
     }
 
@@ -443,6 +497,12 @@ public partial class MainWindow : Window
 
     private async Task ShutdownServicesAsync()
     {
+        if (dashboardProcess == null)
+        {
+            WriteStartupDiagnostic("No se detienen servicios: esta ventana no inició ni pudo identificar el dashboard de la instalación.");
+            return;
+        }
+
         var dashboardPort = ReadDashboardPort();
 
         try
@@ -463,9 +523,12 @@ public partial class MainWindow : Window
 
         try
         {
-            if (backendProcess != null && !backendProcess.HasExited)
+            if (!dashboardProcess.HasExited)
             {
-                backendProcess.Kill(entireProcessTree: true);
+                // La petición anterior es un cierre ordenado; el kill del árbol
+                // es el respaldo determinista contra hijos que sobrevivan.
+                dashboardProcess.Kill(entireProcessTree: true);
+                await Task.Run(() => dashboardProcess.WaitForExit(3_000));
             }
         }
         catch

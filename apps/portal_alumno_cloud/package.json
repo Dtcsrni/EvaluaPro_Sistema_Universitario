@@ -1,7 +1,7 @@
 {
   "name": "portal-alumno-cloud",
   "description": "API del portal alumno (solo lectura) para consulta de información y resultados; diseñada para despliegue cloud o local.",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
@@ -20,28 +20,29 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "node scripts/clean-dist.mjs && prisma generate && tsc --project tsconfig.json && node scripts/copy-prisma-generated.mjs",
-    "typecheck": "prisma generate && tsc --noEmit --project tsconfig.json --pretty false",
+    "build": "node scripts/clean-dist.mjs && prisma generate --config prisma.config.mjs && tsc --project tsconfig.json && node scripts/copy-prisma-generated.mjs",
+    "typecheck": "prisma generate --config prisma.config.mjs && tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --max-warnings=0"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-better-sqlite3": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "cors": "^2.8.6",
-    "dotenv": "^17.3.1",
+    "dotenv": "^18.0.3",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2",
-    "helmet": "^8.1.0"
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.4",
-    "@eslint/js": "^9.39.3",
+    "@eslint/eslintrc": "^3.3.7",
+    "@eslint/js": "^10.0.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/node": "^25.3.3",
-    "prisma": "^6.19.3",
-    "typescript": "^5.9.3"
+    "@types/node": "^24.13.6",
+    "prisma": "^7.10.0",
+    "typescript": "^6.0.3"
   }
 }

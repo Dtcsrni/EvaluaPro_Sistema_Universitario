@@ -16,16 +16,20 @@ export function BancoListadoPreguntas({
   bloqueoEdicion,
   archivandoPreguntaId,
   puedeArchivar,
+  puedeRetirar,
   iniciarEdicion,
-  archivarPregunta
+  archivarPregunta,
+  verVersiones
 }: {
   periodoId: string;
   preguntasMateria: Pregunta[];
   bloqueoEdicion: boolean;
   archivandoPreguntaId: string | null;
   puedeArchivar: boolean;
+  puedeRetirar: boolean;
   iniciarEdicion: (pregunta: Pregunta) => void;
   archivarPregunta: (preguntaId: string) => Promise<void>;
+  verVersiones: (pregunta: Pregunta) => Promise<void>;
 }) {
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroTema, setFiltroTema] = useState('');
@@ -157,21 +161,37 @@ export function BancoListadoPreguntas({
                       </div>
                     </div>
                     <div className="item-actions revision-pills-wrap">
-                      <Boton
-                        variante="secundario"
-                        type="button"
-                        onClick={() => iniciarEdicion(pregunta)}
-                        disabled={bloqueoEdicion}
-                      >
-                        Editar
-                      </Boton>
+                      {pregunta.reactivoId ? (
+                        <Boton
+                          variante="secundario"
+                          type="button"
+                          onClick={() => iniciarEdicion(pregunta)}
+                          disabled={bloqueoEdicion}
+                        >
+                          Editar
+                        </Boton>
+                      ) : (
+                        <Boton
+                          variante="secundario"
+                          type="button"
+                          disabled
+                          title="Este registro heredado requiere resolución canónica antes de editarse."
+                        >
+                          Pendiente de migración
+                        </Boton>
+                      )}
+                      {pregunta.reactivoId && (
+                        <Boton variante="secundario" type="button" onClick={() => void verVersiones(pregunta)} disabled={bloqueoEdicion}>
+                          Versiones
+                        </Boton>
+                      )}
                       <Boton
                         type="button"
                         cargando={archivandoPreguntaId === pregunta._id}
                         onClick={() => void archivarPregunta(pregunta._id)}
-                        disabled={!puedeArchivar}
+                        disabled={pregunta.reactivoId ? !puedeRetirar : !puedeArchivar}
                       >
-                        Eliminar
+                        {pregunta.reactivoId ? 'Retirar' : 'Eliminar'}
                       </Boton>
                     </div>
                   </div>

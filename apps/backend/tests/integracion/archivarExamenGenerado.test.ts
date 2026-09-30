@@ -37,6 +37,70 @@ describe('archivar examen generado', () => {
     return respuesta.body.token as string;
   }
 
+  async function crearPreguntasCanonicas(auth: { Authorization: string }, periodoId: string) {
+    const temaResp = await request(app)
+      .post('/api/banco-preguntas/temas')
+      .set(auth)
+      .send({ periodoId, nombre: 'Archivado' })
+      .expect(201);
+    const temaId = String(temaResp.body.tema._id);
+    const sufijo = Date.now();
+    const lote = {
+      contract: 'evaluapro.reactivos.batch',
+      schemaVersion: 1,
+      batchId: `archivar-examen-${sufijo}`,
+      target: { periodoId, temaIds: [temaId] },
+      source: {
+        kind: 'ai_generated',
+        generator: 'EvaluaPro',
+        generatorModel: 'vitest',
+        generatedAt: '2026-09-24T00:00:00Z',
+        sourceDocumentSha256: null
+      },
+      items: Array.from({ length: preguntasPorEscenario }, (_, index) => ({
+        externalKey: `archivar-examen-${sufijo}-${index + 1}`,
+        itemId: null,
+        expectedVersion: null,
+        format: 'omr.mcq5',
+        stem: { format: 'richtext', value: `Pregunta ${index + 1}` },
+        options: ['A', 'B', 'C', 'D', 'E'].map((key, optionIndex) => ({
+          key,
+          value: `Opcion ${key}`,
+          isCorrect: optionIndex === 0
+        })),
+        metadata: { difficultyHypothesis: 'medium' },
+        provenance: { origin: 'generated', confidence: 1, notes: 'fixture de archivado' }
+      }))
+    };
+
+    const preview = await request(app)
+      .post('/api/banco-preguntas/importaciones/preview')
+      .set(auth)
+      .send(lote)
+      .expect(200);
+    const confirmado = await request(app)
+      .post(`/api/banco-preguntas/importaciones/${preview.body.importId}/confirmar`)
+      .set(auth)
+      .send({ planHash: preview.body.planHash, payload: lote })
+      .expect(200);
+
+    const preguntasIds: string[] = [];
+    for (const reactivoId of confirmado.body.reactivoIds as string[]) {
+      await request(app)
+        .post(`/api/banco-preguntas/reactivos/${reactivoId}/revisar`)
+        .set(auth)
+        .send({})
+        .expect(200);
+      const publicado = await request(app)
+        .post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`)
+        .set(auth)
+        .send({})
+        .expect(200);
+      preguntasIds.push(String(publicado.body.legacyPreguntaId));
+    }
+    return preguntasIds;
+  }
+
   it('permite archivar un examen en estado generado', async () => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };
@@ -53,25 +117,7 @@ describe('archivar examen generado', () => {
       .expect(201);
     const periodoId = periodoResp.body.periodo._id as string;
 
-    const preguntasIds: string[] = [];
-    for (let i = 0; i < preguntasPorEscenario; i += 1) {
-      const preguntaResp = await request(app)
-        .post('/api/banco-preguntas')
-        .set(auth)
-        .send({
-          periodoId,
-          enunciado: `Pregunta ${i + 1}`,
-          opciones: [
-            { texto: 'Opcion A', esCorrecta: true },
-            { texto: 'Opcion B', esCorrecta: false },
-            { texto: 'Opcion C', esCorrecta: false },
-            { texto: 'Opcion D', esCorrecta: false },
-            { texto: 'Opcion E', esCorrecta: false }
-          ]
-        })
-        .expect(201);
-      preguntasIds.push(preguntaResp.body.pregunta._id as string);
-    }
+    const preguntasIds = await crearPreguntasCanonicas(auth, periodoId);
 
     const plantillaResp = await request(app)
       .post('/api/examenes/plantillas')
@@ -80,11 +126,15 @@ describe('archivar examen generado', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Parcial 1',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
     const plantillaId = plantillaResp.body.plantilla._id as string;
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
 
     const examenResp = await request(app)
       .post('/api/examenes/generados')
@@ -143,25 +193,7 @@ describe('archivar examen generado', () => {
       .expect(201);
     const alumnoId = alumnoResp.body.alumno._id as string;
 
-    const preguntasIds: string[] = [];
-    for (let i = 0; i < preguntasPorEscenario; i += 1) {
-      const preguntaResp = await request(app)
-        .post('/api/banco-preguntas')
-        .set(auth)
-        .send({
-          periodoId,
-          enunciado: `Pregunta ${i + 1}`,
-          opciones: [
-            { texto: 'Opcion A', esCorrecta: true },
-            { texto: 'Opcion B', esCorrecta: false },
-            { texto: 'Opcion C', esCorrecta: false },
-            { texto: 'Opcion D', esCorrecta: false },
-            { texto: 'Opcion E', esCorrecta: false }
-          ]
-        })
-        .expect(201);
-      preguntasIds.push(preguntaResp.body.pregunta._id as string);
-    }
+    const preguntasIds = await crearPreguntasCanonicas(auth, periodoId);
 
     const plantillaResp = await request(app)
       .post('/api/examenes/plantillas')
@@ -170,11 +202,15 @@ describe('archivar examen generado', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Parcial 1',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
     const plantillaId = plantillaResp.body.plantilla._id as string;
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
 
     const examenResp = await request(app)
       .post('/api/examenes/generados')

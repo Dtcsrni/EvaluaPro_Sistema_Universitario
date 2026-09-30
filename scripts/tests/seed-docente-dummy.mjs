@@ -27,7 +27,9 @@ async function cleanupLocalFallback() {
   process.env.DATABASE_URL = `file:${sqlitePath.replace(/\\/g, '/')}`;
   process.env.BACKEND_DATABASE_URL = process.env.DATABASE_URL;
   const { PrismaClient } = await import('@prisma/client');
-  const prisma = new PrismaClient();
+  const { PrismaBetterSqlite3 } = await import('@prisma/adapter-better-sqlite3');
+  const databaseUrl = process.env.BACKEND_DATABASE_URL || process.env.DATABASE_URL || 'file:./data/evaluapro.db';
+  const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: databaseUrl }) });
   try {
     const docentes = await prisma.docente.findMany({
       where: { correo },

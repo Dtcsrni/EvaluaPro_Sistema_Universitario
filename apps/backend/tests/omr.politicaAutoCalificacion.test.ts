@@ -33,5 +33,6 @@ describe('politicaAutoCalificacionOmr', () => {
     expect(resultado.hardStop).toBe(false);
     expect(resultado.autoCalificableOmr).toBe(true);
   });
+
 });
 

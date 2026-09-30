@@ -14,6 +14,12 @@ test('AppHost no declara lista la ventana si solo responde el servidor web', () 
   assert.match(source, /api\/lifecycle\/reconcile/);
 });
 
+test('AppHost tolera arranque frío acotado y conserva el diagnóstico de timeout', () => {
+  assert.match(source, /ServiceStartupTimeout\s*=\s*TimeSpan\.FromSeconds\(60\)/);
+  assert.match(source, /new CancellationTokenSource\(ServiceStartupTimeout\)/);
+  assert.match(source, /Timeout esperando web\/API locales/);
+});
+
 test('AppHost prioriza la instalación canónica y reconcilia accesos antes del arranque', () => {
   assert.match(source, /ResolveCanonicalInstallRoot\(\)/);
   assert.match(source, /Se ignoró una copia no canónica/);

@@ -3,25 +3,25 @@
   "technologies": [
     {
       "id": "react",
-      "label": "React 19",
+      "label": "React",
       "logoUrl": "/favicon-docente.svg",
       "website": "https://react.dev"
     },
     {
       "id": "typescript",
-      "label": "TypeScript 5.9",
+      "label": "TypeScript",
       "logoUrl": "/favicon-docente.svg",
       "website": "https://www.typescriptlang.org"
     },
     {
       "id": "vite",
-      "label": "Vite 8",
+      "label": "Vite",
       "logoUrl": "/favicon-docente.svg",
       "website": "https://vite.dev"
     },
     {
       "id": "nodejs",
-      "label": "Node.js 24 LTS",
+      "label": "Node.js",
       "logoUrl": "/favicon-docente.svg",
       "website": "https://nodejs.org"
     },
@@ -45,7 +45,7 @@
     },
     {
       "id": "crypto",
-      "label": "Criptografía AES-256",
+      "label": "Cifrado AES-256-GCM",
       "logoUrl": "/favicon-docente.svg",
       "website": "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario"
     }

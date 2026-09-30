@@ -39,6 +39,7 @@ router.post(
 router.post(
   '/importar',
   requerirPermiso('evaluaciones:gestionar'),
+  requerirPermiso('banco:ingestar'),
   upload.array('archivos', 8),
   validarCuerpo(esquemaHidratacionMultipart, { strict: true }),
   importarHidratacion

@@ -35,6 +35,13 @@ const REQUIRED_QA_ARTIFACTS = [
   'ux-visual',
   'clean-architecture'
 ];
+const QA_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const QA_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+function currentGitCommit() {
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' });
+  return result.status === 0 ? (result.stdout || '').trim() : '';
+}
 
 function getArg(name, fallback = '') {
   const prefix = `--${name}=`;
@@ -70,9 +77,29 @@ function validateAutomatedQaEvidence(qaManifestPath) {
   const resumen = manifest?.resumen || {};
   const estado = String(resumen?.estado || '').trim().toLowerCase();
   const faltantes = Number(resumen?.faltantes ?? NaN);
+  const generadoMs = Date.parse(manifest?.generadoEn);
+  const now = Date.now();
+  const candidateCommit = currentGitCommit();
+  const manifestRoot = path.resolve(path.dirname(manifestPath), '..', '..', '..');
 
   if (estado !== 'ok' || faltantes !== 0) {
     throw new Error(`Manifest QA no esta en verde: estado=${estado || 'invalido'} faltantes=${Number.isNaN(faltantes) ? 'invalido' : faltantes}`);
+  }
+  if (!Number.isFinite(generadoMs)) {
+    throw new Error('Manifest QA inválido: generadoEn ausente o no interpretable');
+  }
+  if (generadoMs > now + QA_CLOCK_SKEW_MS) {
+    throw new Error('Manifest QA inválido: generadoEn está en el futuro');
+  }
+  if (now - generadoMs > QA_MAX_AGE_MS) {
+    throw new Error('Manifest QA obsoleto: generadoEn supera 24 horas');
+  }
+  if (!candidateCommit || manifest.commit !== candidateCommit) {
+    throw new Error(`Commit QA no corresponde al candidato: QA=${manifest.commit || 'ausente'}, candidato=${candidateCommit || 'no disponible'}`);
+  }
+  if (manifest.workingTreeClean !== true || manifest.dirtyPathCount !== 0) {
+    const dirtyPathCount = Number.isInteger(manifest.dirtyPathCount) ? manifest.dirtyPathCount : 'desconocido';
+    throw new Error(`QA generado con árbol de trabajo sucio: cambios de fuente=${dirtyPathCount}`);
   }
 
   const missing = REQUIRED_QA_ARTIFACTS.filter((artifactId) => {
@@ -85,13 +112,42 @@ function validateAutomatedQaEvidence(qaManifestPath) {
     throw new Error(`Manifest QA incompleto: ${missing.join(', ')}`);
   }
 
+  for (const artifact of artifacts) {
+    const artifactPath = String(artifact?.archivo || '').trim();
+    if (!artifactPath) continue;
+    const absoluteArtifactPath = path.resolve(manifestRoot, artifactPath);
+    const relativeArtifactPath = path.relative(manifestRoot, absoluteArtifactPath);
+    if (relativeArtifactPath === '..' || relativeArtifactPath.startsWith(`..${path.sep}`) || path.isAbsolute(relativeArtifactPath)) {
+      throw new Error(`Artefacto QA fuera del repositorio: ${artifactPath}`);
+    }
+    let stat;
+    try {
+      stat = fs.statSync(absoluteArtifactPath);
+    } catch {
+      throw new Error(`Artefacto QA ausente: ${artifactPath}`);
+    }
+    const actualizadoMs = Date.parse(artifact.actualizadoEn);
+    if (!Number.isFinite(Number(artifact.bytes)) || Number(artifact.bytes) !== stat.size) {
+      throw new Error(`Artefacto QA con tamaño inconsistente: ${artifactPath}`);
+    }
+    if (!Number.isFinite(actualizadoMs) || Math.abs(actualizadoMs - stat.mtimeMs) > 2000) {
+      throw new Error(`Artefacto QA con fecha inconsistente: ${artifactPath}`);
+    }
+    if (actualizadoMs > now + QA_CLOCK_SKEW_MS || actualizadoMs > generadoMs + QA_CLOCK_SKEW_MS) {
+      throw new Error(`Artefacto QA con fecha futura: ${artifactPath}`);
+    }
+    if (now - actualizadoMs > QA_MAX_AGE_MS) {
+      throw new Error(`Artefacto QA obsoleto (más de 24 horas): ${artifactPath}`);
+    }
+  }
+
   const failing = [];
   for (const artifact of artifacts) {
     const artifactPath = String(artifact?.archivo || '').trim();
     if (!artifactPath) continue;
     const artifactName = path.basename(artifactPath, '.json');
     if (!REQUIRED_QA_ARTIFACTS.includes(artifactName)) continue;
-    const absoluteArtifactPath = path.resolve(process.cwd(), artifactPath);
+    const absoluteArtifactPath = path.resolve(manifestRoot, artifactPath);
     const payload = JSON.parse(readJsonFile(absoluteArtifactPath));
     if (Object.prototype.hasOwnProperty.call(payload, 'ok') && payload.ok !== true) {
       failing.push(artifactName);

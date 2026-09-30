@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clienteApi } from '../clienteApiDocente';
 import type { Docente, Periodo } from '../tipos';
+import { fechaLocalISO } from '../fechaLocal';
 
 type Params = {
   docente: Docente | null;
@@ -23,7 +24,7 @@ export function useRecordatorioPaseLista({ docente, permisosUI, periodos }: Para
       setRecordatorioPaseLista(false);
       return;
     }
-    const hoyStr = new Date().toISOString().slice(0, 10);
+    const hoyStr = fechaLocalISO();
     clienteApi
       .obtener<{ sesiones: Array<{ fecha: string }> }>(`/asistencias/sesiones?periodoId=${periodos[0]._id}`)
       .then((data) => {

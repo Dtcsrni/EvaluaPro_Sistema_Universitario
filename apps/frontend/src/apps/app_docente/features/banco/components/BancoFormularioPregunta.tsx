@@ -34,6 +34,8 @@ export function BancoFormularioPregunta({
   cargarImagenArchivo,
   tema,
   setTema,
+  temaId,
+  setTemaId,
   temasBanco,
   cargandoTemas,
   preguntasTemaActualCantidad,
@@ -73,6 +75,8 @@ export function BancoFormularioPregunta({
   cargarImagenArchivo: (file: File | null, setter: (value: string) => void) => void;
   tema: string;
   setTema: (value: string) => void;
+  temaId: string;
+  setTemaId: (value: string) => void;
   temasBanco: TemaBancoFormState[];
   cargandoTemas: boolean;
   preguntasTemaActualCantidad: number;
@@ -277,10 +281,10 @@ export function BancoFormularioPregunta({
           <div className="banco-section-title__wrap">
             <span className="banco-section-pill">
               <span className="banco-section-pill__dot" aria-hidden="true" />
-              <span>Redacción Editorial</span>
+              <span>Captura canónica</span>
             </span>
             <h3>Nueva pregunta</h3>
-            <p className="nota">Selecciona materia, tema y redacta el reactivo con sus cinco opciones.</p>
+            <p className="nota">Captura un reactivo OMR. Se valida, versiona y publica por el mismo flujo seguro que una importación IA.</p>
           </div>
         </div>
 
@@ -325,13 +329,17 @@ export function BancoFormularioPregunta({
               <select
                 id="banco-select-tema"
                 aria-label="Tema"
-                value={tema}
-                onChange={(event) => setTema(event.target.value)}
+                value={temaId}
+                onChange={(event) => {
+                  const nuevoTema = temasBanco.find((item) => item._id === event.target.value);
+                  setTemaId(event.target.value);
+                  setTema(nuevoTema?.nombre ?? '');
+                }}
                 disabled={bloqueoEdicion}
               >
                 <option value="">Selecciona</option>
                 {temasBanco.map((t) => (
-                  <option key={t._id} value={t.nombre}>
+                  <option key={t._id} value={t._id}>
                     {t.nombre}
                   </option>
                 ))}
@@ -436,7 +444,7 @@ export function BancoFormularioPregunta({
             disabled={!puedeGuardar || bloqueoEdicion}
             onClick={() => void guardar()}
           >
-            {guardando ? 'Guardando…' : 'Guardar'}
+            {guardando ? 'Validando…' : 'Validar y guardar borrador'}
           </Boton>
         </div>
 

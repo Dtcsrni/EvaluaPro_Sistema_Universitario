@@ -11,6 +11,7 @@ import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
 import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
 import { generarVariante } from '../../servicioVariantes.js';
 import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
+import { resolverOmrTemplateId } from '../../domain/templateCanonico.js';
 import { obtenerPlantillaDocente } from '../../shared/controladorGeneracionPdfShared.js';
 import {
   clavePreviewPlantilla,
@@ -28,6 +29,7 @@ import {
   obtenerConteoTemasMateria,
   obtenerDirectorioPreview,
   ordenarPreguntasDeterminista,
+  construirBlueprintPlantilla,
   resolverDocentePdf,
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
@@ -102,6 +104,7 @@ async function guardarLayoutValidadoPlantilla(params: {
   numeroPaginas: number;
   totalPreguntas: number;
   temas: string[];
+  blueprint?: unknown;
 }) {
   const fontScale = Number(params.fontScale);
   const lineSpacing = Number(params.lineSpacing);
@@ -125,7 +128,8 @@ async function guardarLayoutValidadoPlantilla(params: {
           numeroPaginas: params.numeroPaginas,
           totalPreguntas: params.totalPreguntas,
           temas: params.temas
-        }
+        },
+        ...(params.blueprint ? { blueprint: params.blueprint, blueprintStatus: 'ready', blueprintVersion: 2 } : {})
       })
     }
   });
@@ -191,7 +195,8 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const preguntasFingerprint = construirFingerprintPreguntasPreview(preguntasDb);
-  const layoutFingerprint = construirFingerprintLayoutPreview();
+  const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
+  const layoutFingerprint = `${construirFingerprintLayoutPreview()}|${omrTemplateId}`;
   const layoutValidado = resolverLayoutValidadoPlantilla({
     plantilla: plantilla as { bookletConfig?: unknown },
     preguntasFingerprint,
@@ -231,6 +236,8 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
     docenteDb,
     temas,
     templateVersionOmr,
+    omrTemplateId,
+    layoutFingerprint,
     bookletConfig
   };
 }
@@ -270,12 +277,14 @@ export async function previsualizarPlantillaUseCase(params: {
   const previewResultado = await generarPdfExamen({
     titulo: String(contexto.plantilla.titulo ?? ''),
     folio: 'PREVIEW',
+    examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
     preguntas: contexto.preguntasCandidatas,
     mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
     tipoExamen: contexto.plantilla.tipo as 'parcial' | 'global',
     totalPaginas: contexto.numeroPaginas,
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
+    omrTemplateId: contexto.omrTemplateId,
     bookletConfig: contexto.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
@@ -292,10 +301,11 @@ export async function previsualizarPlantillaUseCase(params: {
       fontScale: previewResultado.fontScaleAplicada,
       lineSpacing: previewResultado.lineSpacingAplicado,
       preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
-      layoutFingerprint: construirFingerprintLayoutPreview(),
+      layoutFingerprint: contexto.layoutFingerprint,
       numeroPaginas: contexto.numeroPaginas,
       totalPreguntas: contexto.preguntasBase.length,
-      temas: contexto.temas
+      temas: contexto.temas,
+      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb)
     });
   }
 
@@ -371,7 +381,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     totalPreguntas: contexto.preguntasBase.length,
     temas: contexto.temas,
     preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
-    layoutFingerprint: construirFingerprintLayoutPreview()
+    layoutFingerprint: contexto.layoutFingerprint
   });
   const dirPreview = obtenerDirectorioPreview();
   const fileName = construirNombrePdfPreviewPlantilla({
@@ -408,12 +418,14 @@ export async function previsualizarPlantillaPdfUseCase(params: {
   const previewResultado = await generarPdfExamen({
     titulo: String(contexto.plantilla.titulo ?? ''),
     folio: 'PREVIEW',
+    examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
     preguntas: contexto.preguntasCandidatas,
     mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
     tipoExamen: contexto.plantilla.tipo as 'parcial' | 'global',
     totalPaginas: contexto.numeroPaginas,
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
+    omrTemplateId: contexto.omrTemplateId,
     bookletConfig: contexto.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
@@ -430,10 +442,11 @@ export async function previsualizarPlantillaPdfUseCase(params: {
       fontScale: previewResultado.fontScaleAplicada,
       lineSpacing: previewResultado.lineSpacingAplicado,
       preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
-      layoutFingerprint: construirFingerprintLayoutPreview(),
+      layoutFingerprint: contexto.layoutFingerprint,
       numeroPaginas: contexto.numeroPaginas,
       totalPreguntas: contexto.preguntasBase.length,
-      temas: contexto.temas
+      temas: contexto.temas,
+      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb)
     });
   }
 

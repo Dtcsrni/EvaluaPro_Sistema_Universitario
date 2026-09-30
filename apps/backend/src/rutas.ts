@@ -37,6 +37,7 @@ import rutasHidratacionCursos from './modulos/modulo_hidratacion_cursos/rutasHid
 import rutasListasInstitucionales from './modulos/modulo_listas_institucionales/rutasListasInstitucionales.js';
 import { exportarMetricasPrometheus } from './compartido/observabilidad/metrics.js';
 import { requerirLeaseEscritura } from './modulos/modulo_sincronizacion_nube/middlewareLeaseSincronizacion.js';
+import { obtenerPreflight } from './compartido/preflight/controladorPreflight.js';
 
 export function crearRouterApi() {
   const router = Router();
@@ -64,6 +65,7 @@ export function crearRouterApi() {
   router.use('/integraciones/classroom', rutasIntegracionesClassroomPublicas);
   router.use('/comercial-publico', rutasComercialPublico);
   router.use('/evaluaciones-publicas', rutasEvaluacionesPublicas);
+  router.get('/preflight', requerirDocente, obtenerPreflight);
 
   // A partir de aqui: todas las rutas requieren sesion de docente.
   router.use(requerirDocente);

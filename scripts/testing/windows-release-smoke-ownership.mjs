@@ -49,9 +49,14 @@ function validateReservedPort(port, ports, reportedPort) {
   }
 }
 
-function validateLock(lock, startedAt) {
-  if (lock?.mode !== 'prod' || !startedAt) {
+function validateLock(lock, startedAt, requestedAt) {
+  const lockTimestamp = Date.parse(startedAt);
+  const requestTimestamp = Date.parse(requestedAt);
+  if (lock?.mode !== 'prod' || !Number.isFinite(lockTimestamp) || !Number.isFinite(requestTimestamp)) {
     throw new Error('El lock no acredita modo prod ni hora de arranque para la instancia del smoke.');
+  }
+  if (lockTimestamp < requestTimestamp) {
+    throw new Error('El lock corresponde a una instancia anterior a la solicitud de arranque del smoke.');
   }
 }
 
@@ -67,7 +72,7 @@ function validateCommandLine(pid, normalizedCommand, normalizedRoot) {
   }
 }
 
-export function createOwnedDashboardIdentity({ lock, previousLock, processInfo, ports, installRoot }) {
+export function createOwnedDashboardIdentity({ lock, previousLock, processInfo, ports, installRoot, requestedAt }) {
   const pid = Number(lock?.pid || 0);
   const port = Number(lock?.port || 0);
   const previousPid = Number(previousLock?.pid || 0);
@@ -79,7 +84,7 @@ export function createOwnedDashboardIdentity({ lock, previousLock, processInfo, 
 
   validateNewPid(pid, previousPid);
   validateReservedPort(port, ports, lock?.port);
-  validateLock(lock, startedAt);
+  validateLock(lock, startedAt, requestedAt);
   validateProcess(pid, processInfo, createdAt);
   validateCommandLine(pid, normalizedCommand, normalizedRoot);
 
@@ -87,6 +92,7 @@ export function createOwnedDashboardIdentity({ lock, previousLock, processInfo, 
     pid,
     port,
     startedAt,
+    requestedAt,
     process: Object.freeze({ pid, creationDate: createdAt, commandLine })
   });
 }

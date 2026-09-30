@@ -14,6 +14,7 @@ vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
   clienteApi: {
     obtener: vi.fn(),
     enviar: vi.fn(),
+    actualizar: vi.fn(),
     eliminar: vi.fn()
   }
 }));
@@ -115,6 +116,69 @@ describe('SeccionEvaluaciones', () => {
     });
   });
 
+  it('permite crear una política dinámica desde la GUI', async () => {
+    vi.mocked(clienteApi.obtener).mockResolvedValue({ politicas: [] });
+    vi.mocked(clienteApi.enviar).mockResolvedValue({});
+    render(
+      <SeccionEvaluaciones
+        periodos={periodosMock}
+        alumnos={alumnosMock}
+        puedeGestionar={true}
+        puedeClassroomConectar={false}
+        puedeClassroomPull={false}
+        classroomDisponible={false}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /guardar nueva versión/i }));
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledWith('/evaluaciones/politicas', expect.objectContaining({
+      codigo: 'POLICY_PERSONALIZADA',
+      familia: 'lisc_encuadre',
+      nombre: 'Política personalizada',
+      parametros: expect.objectContaining({ pesosGlobales: { continua: 0.5, examenes: 0.5 } }),
+      clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i)
+    })));
+  });
+
+  it('permite editar y archivar una evidencia manual con motivo desde la GUI', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).startsWith('/evaluaciones/evidencias?')) return {
+        evidencias: [{
+          id: 'evidencia-1', titulo: 'Práctica', calificacionDecimal: 7, ponderacion: 1, corte: 1,
+          fuente: 'manual', updatedAt: '2026-04-01T12:00:00.000Z'
+        }],
+        nextCursor: null
+      } as never;
+      return { politicas: [] } as never;
+    });
+    vi.mocked(clienteApi.actualizar).mockResolvedValue({});
+    vi.mocked(clienteApi.enviar).mockResolvedValue({});
+    render(
+      <SeccionEvaluaciones
+        periodos={periodosMock}
+        alumnos={alumnosMock}
+        puedeGestionar={true}
+        puedeClassroomConectar={false}
+        puedeClassroomPull={false}
+        classroomDisponible={false}
+      />
+    );
+    fireEvent.change(screen.getByLabelText(/alumno/i), { target: { value: 'alu-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /evidencias/i }));
+    await screen.findByText('Práctica');
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText(/motivo del cambio/i), { target: { value: 'Corrección revisada' } });
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios auditados/i }));
+    await waitFor(() => expect(clienteApi.actualizar).toHaveBeenCalledWith('/evaluaciones/evidencias/evidencia-1', expect.objectContaining({
+      expectedUpdatedAt: '2026-04-01T12:00:00.000Z',
+      motivoCambio: 'Corrección revisada',
+      confirmarEscritura: true
+    })));
+    fireEvent.click(screen.getByRole('button', { name: 'Archivar' }));
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledWith('/evaluaciones/evidencias/evidencia-1/archivar', {
+      motivo: 'Corrección revisada', confirmarEscritura: true
+    }));
+  });
+
   it('permite cambiar a la pestaña de evidencias, guardar y capturar error', async () => {
     vi.mocked(clienteApi.obtener).mockResolvedValue({ politicas: [] });
     vi.mocked(clienteApi.enviar).mockResolvedValueOnce({});
@@ -212,6 +276,45 @@ describe('SeccionEvaluaciones', () => {
       expect(emitToast).toHaveBeenCalledWith(
         expect.objectContaining({ level: 'error', title: 'Evaluaciones' })
       );
+    });
+  });
+
+  it('busca y vincula el folio fuente al guardar el Global', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (url: string) => {
+      if (url.startsWith('/examenes/generados?')) {
+        return { examenes: [{ id: 'exam-global-1', periodoId: 'per-1', alumnoId: null, folio: 'GLB-001', estado: 'generado' }] };
+      }
+      return { politicas: [] };
+    });
+    vi.mocked(clienteApi.enviar).mockResolvedValue({});
+
+    render(
+      <SeccionEvaluaciones
+        periodos={periodosMock}
+        alumnos={alumnosMock}
+        puedeGestionar={true}
+        puedeClassroomConectar={false}
+        puedeClassroomPull={false}
+        classroomDisponible={false}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/alumno/i), { target: { value: 'alu-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /exámenes/i }));
+    fireEvent.change(screen.getByLabelText(/corte examen/i), { target: { value: 'global' } });
+    fireEvent.change(screen.getByLabelText(/folio del examen global fuente/i), { target: { value: 'GLB-001' } });
+    fireEvent.click(screen.getByRole('button', { name: /buscar examen fuente/i }));
+
+    await waitFor(() => expect(screen.getByText('Vinculado: GLB-001')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /guardar examen/i }));
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith('/evaluaciones/v2/examenes/componentes', expect.objectContaining({
+        periodoId: 'per-1',
+        alumnoId: 'alu-1',
+        corte: 'global',
+        examenGeneradoId: 'exam-global-1'
+      }));
     });
   });
 

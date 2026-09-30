@@ -16,7 +16,8 @@ import {
   actualizarPlantillaUseCase,
   crearPlantillaUseCase,
   eliminarPlantillaUseCase,
-  listarPlantillasUseCase
+  listarPlantillasUseCase,
+  obtenerPlantillaUseCase
 } from './application/usecases/gestionPlantillas.js';
 import {
   descargarPdfLoteUseCase,
@@ -29,6 +30,8 @@ import {
   previsualizarPlantillaPdfVisualUseCase,
   previsualizarPlantillaUseCase
 } from './application/usecases/previsualizacionPlantillas.js';
+import { cambiarEstadoLotePdfUseCase, listarAuditoriaLotePdfUseCase } from './application/usecases/cicloVidaLotes.js';
+import { esquemaListarAuditoriaLotePdf } from './validacionesExamenes.js';
 
 export async function listarPlantillas(req: SolicitudDocente, res: Response) {
   const payload = await listarPlantillasUseCase({
@@ -37,6 +40,11 @@ export async function listarPlantillas(req: SolicitudDocente, res: Response) {
     archivado: req.query.archivado,
     limite: req.query.limite
   });
+  res.json(payload);
+}
+
+export async function obtenerPlantilla(req: SolicitudDocente, res: Response) {
+  const payload = await obtenerPlantillaUseCase({ docenteId: obtenerDocenteId(req), plantillaId: String(req.params.id ?? '').trim() });
   res.json(payload);
 }
 
@@ -102,9 +110,11 @@ export async function previsualizarPlantillaPdfVisual(req: SolicitudDocente, res
 }
 
 export async function generarExamen(req: SolicitudDocente, res: Response) {
+  const body = req.body as { plantillaId?: unknown; clientRequestId?: unknown };
   const payload = await generarExamenUseCase({
     docenteId: obtenerDocenteId(req),
-    plantillaId: String((req.body as { plantillaId?: unknown }).plantillaId ?? '').trim()
+    plantillaId: String(body.plantillaId ?? '').trim(),
+    clientRequestId: typeof body.clientRequestId === 'string' ? body.clientRequestId : undefined
   });
   res.status(201).json(payload);
 }
@@ -140,5 +150,28 @@ export async function descargarPdfLote(req: SolicitudDocente, res: Response) {
   });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${payload.fileName}"`);
+  res.setHeader('X-EvaluaPro-PDF-SHA256', payload.pdfSha256);
+  res.setHeader('X-EvaluaPro-PDF-Pages', String(payload.totalPaginas));
   res.send(payload.buffer);
+}
+
+export async function cambiarEstadoLotePdf(req: SolicitudDocente, res: Response) {
+  const payload = await cambiarEstadoLotePdfUseCase({
+    docenteId: obtenerDocenteId(req),
+    loteId: String(req.params.loteId ?? '').trim(),
+    clientRequestId: String((req.body as { clientRequestId?: unknown })?.clientRequestId ?? ''),
+    archivado: String(req.path ?? '').endsWith('/archivar')
+  });
+  res.json(payload);
+}
+
+export async function listarAuditoriaLotePdf(req: SolicitudDocente, res: Response) {
+  const query = esquemaListarAuditoriaLotePdf.parse(res.locals.validatedQuery ?? req.query);
+  const payload = await listarAuditoriaLotePdfUseCase({
+    docenteId: obtenerDocenteId(req),
+    loteId: String(req.params.loteId ?? '').trim(),
+    limite: query.limite,
+    cursor: query.cursor
+  });
+  res.json(payload);
 }

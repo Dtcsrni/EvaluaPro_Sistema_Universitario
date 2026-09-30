@@ -9,6 +9,7 @@ import { useState } from 'react';
 import type { Alumno, Periodo, Plantilla } from '../../../tipos';
 import { esMensajeError, idCortoMateria } from '../../../utilidades';
 import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
+import { leerLotePendiente } from '../loteGeneracionSesion';
 
 type ProgresoLoteGeneracion = {
   loteId: string;
@@ -16,7 +17,7 @@ type ProgresoLoteGeneracion = {
   generados: number;
   porcentaje: number;
   completado: boolean;
-  estado: 'iniciando' | 'generando' | 'completado';
+  estado: 'iniciando' | 'generando' | 'completado' | 'fallido' | 'archivado';
 };
 
 export function PlantillasConsolaGeneracion({
@@ -64,6 +65,8 @@ export function PlantillasConsolaGeneracion({
   const alumnosMateria = plantillaSeleccionada
     ? listaAlumnos.filter((a) => a.periodoId === plantillaSeleccionada.periodoId)
     : listaAlumnos;
+  const lotePendienteId = plantillaId ? leerLotePendiente(plantillaId) : null;
+  const hayLoteReanudable = !generandoLote && Boolean(lotePendienteId || progresoLoteGeneracion?.estado === 'fallido');
 
   const textoBotonGenerar =
     modoGeneracion === 'individual'
@@ -72,8 +75,19 @@ export function PlantillasConsolaGeneracion({
         : 'Generar examen individual de muestra'
       : generandoLote
         ? 'Generando paquete masivo…'
+        : hayLoteReanudable
+          ? 'Reintentar paquete incompleto'
         : `Generar paquete de exámenes (${alumnosMateria.length} alumnos)`;
-  const progresoVisible = progresoLoteGeneracion ?? (generandoLote
+  const progresoVisible = progresoLoteGeneracion ?? (lotePendienteId && !generandoLote
+    ? {
+        loteId: lotePendienteId,
+        totalEsperado: alumnosMateria.length,
+        generados: 0,
+        porcentaje: 0,
+        completado: false,
+        estado: 'fallido' as const
+      }
+    : generandoLote
     ? {
         loteId: 'en curso',
         totalEsperado: alumnosMateria.length,
@@ -177,16 +191,19 @@ export function PlantillasConsolaGeneracion({
         {progresoVisible && (!progresoVisible.completado || generandoLote) && (
           <div className="progreso-lote-card anim-fade-in mt-15">
             <div className="progreso-lote-card__header">
-              <span>⚡ Generando paquete masivo en el servidor...</span>
+              <span>
+                {progresoVisible.estado === 'fallido'
+                  ? '⚠️ Lote incompleto. Reintentará con el mismo ID y conservará los PDFs individuales válidos.'
+                  : '⚡ Generando paquete masivo en el servidor...'}
+              </span>
               <span><b>{progresoVisible.generados}</b> / {progresoVisible.totalEsperado} ({progresoVisible.porcentaje}%)</span>
             </div>
-            <div className="progreso-lote-card__track">
-              <div
-                className="progreso-lote-card__bar"
-                data-pct={progresoVisible.porcentaje}
-                style={{ width: `${Math.max(0, Math.min(100, progresoVisible.porcentaje))}%` }}
-              />
-            </div>
+            <progress
+              className="progreso-lote-card__progress"
+              max={100}
+              value={Math.max(0, Math.min(100, progresoVisible.porcentaje))}
+              aria-label={`Progreso de generación: ${progresoVisible.porcentaje}%`}
+            />
           </div>
         )}
 

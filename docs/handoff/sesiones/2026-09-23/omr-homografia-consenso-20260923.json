@@ -1,0 +1,121 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-homografia-consenso-20260923",
+  "status": "final",
+  "generatedAt": "2026-09-24T00:10:38Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding-agent",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Continuar mejorando el motor OMR con el dataset fotográfico real y reducir revisión manual sin usar claves o etiquetas al decidir respuestas."
+  },
+  "objective": "Evaluar rescate aditivo mediante evidencia independiente de escala y homografía en páginas con fiduciales fuertes, preservando el comportamiento previo.",
+  "scope": [
+    "Pasada homográfica fija de alta resolución como evidencia secundaria, solo sin QR, si la ruta OMR existente eligió escala y hay al menos cuatro fiduciales de esquina de calidad >= 0.90.",
+    "Consenso estricto únicamente para reactivos que permanecían sin letra.",
+    "Pruebas de regresión, SPEC-062 y evaluación integral de 38 fotos."
+  ],
+  "constraints": [
+    "La detección no consulta clave ni etiqueta visual.",
+    "Las claves y etiquetas se comparan después para medir concordancia.",
+    "No modificar calificaciones ni registros persistidos.",
+    "Conservar respuestas ya determinadas por la ruta OMR original y no rescatar marcas en exámenes vacíos.",
+    "No presentar resultados del conjunto como exactitud poblacional o certificación de 100%."
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Agregada pasada homográfica fija de alta resolución solo como evidencia secundaria a la pasada existente; rescate exige acuerdo de opción, criterios de alta resolución y competidor homográfico débil.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "38 fotos procesadas, 1 omitida, 0 errores; 464/472 observables determinadas, 463/464 concordantes; 3 respuestas recuperadas sin cambios de opciones previas.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "499/499 estados, 28 blancos, 1 inválida, 2 páginas vacías intactas; páginas observables completamente correctas 30/36 frente a 29/36; costo +4.37% con geometría selectiva.",
+      "status": "ok"
+    },
+    {
+      "type": "documentation",
+      "summary": "REQ-021 y evidencia integral registrados en SPEC-062; handoff creado.",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/tests/omr.consenso.robusto.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "docs/handoff/sesiones/2026-09-23/omr-homografia-consenso-20260923.md",
+      "docs/handoff/sesiones/2026-09-23/omr-homografia-consenso-20260923.json"
+    ],
+    "artifacts": [
+      "C:/Users/evega/AppData/Local/Temp/omr-full-homography-scale-gated-20260923.json",
+      "C:/Users/evega/AppData/Local/Temp/omr-dominance-all-competitors-20260923.json"
+    ]
+  },
+  "commands": [
+    {
+      "name": "omr_tests",
+      "command": "npm -C apps/backend run test -- tests/omr.estado-respuesta.test.ts tests/omr.consenso.robusto.test.ts tests/omr.cv.engine.test.ts tests/omr.core.decision.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "4 archivos, 60 pruebas aprobadas."
+    },
+    {
+      "name": "backend_typecheck",
+      "command": "npx tsc --noEmit --project apps/backend/tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "TypeScript sin errores."
+    },
+    {
+      "name": "scoped_eslint",
+      "command": "npx eslint apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts apps/backend/tests/omr.consenso.robusto.test.ts --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "Sin errores ni advertencias."
+    },
+    {
+      "name": "omr_full_dataset",
+      "command": "npx tsx scripts/omr-eval-real-dataset.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "38 procesadas, 1 omitida; 464/472 observables determinadas, 463/464 concordantes; estados 499/499; 28 blancos; 1 inválida; 2 vacías intactas; QR 0/38; errores 0."
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "Todas las especificaciones cumplen la política después de actualizar SPEC-062."
+    },
+    {
+      "name": "policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "Políticas de repo, trazabilidad/handoff, SDD y contratos del pipeline aprobados."
+    }
+  ],
+  "openRisks": [
+    "QR fotográficos 0/38; depende del mapeo local de contingencia.",
+    "Desacuerdo visual D6930C3E P2 Q18 (motor E, etiqueta visual D, clave E) no adjudicado con la clave.",
+    "8 de 472 respuestas etiquetadas observables sin letra automática.",
+    "Resultado condicionado al dataset; no certifica 100% ni generalización.",
+    "Costo incremental medido de 4.37%; medir en lotes futuros."
+  ],
+  "nextStep": "Investigar pendientes y desacuerdo con adjudicación visual independiente; mejorar QR con comparación contra PDF preimpresión; validar en lote similar independiente.",
+  "semanticCompleteness": {
+    "isComplete": true,
+    "note": "REQ-021 validado para este lote; el objetivo global de 100% para este dataset y similares sigue activo."
+  }
+}

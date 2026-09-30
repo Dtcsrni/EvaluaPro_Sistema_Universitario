@@ -12,6 +12,7 @@ public partial class App : System.Windows.Application
 {
     private const string DesktopSingletonMutexName = @"Local\EvaluaProDesktopSingleton";
     private const int SwRestore = 9;
+    private static readonly TimeSpan OrphanedInstanceMinimumAge = TimeSpan.FromSeconds(30);
     private static Mutex? desktopSingletonMutex;
     private static bool ownsDesktopSingleton;
 
@@ -42,27 +43,144 @@ public partial class App : System.Windows.Application
 
     private static bool TryAcquireDesktopSingleton()
     {
-        try
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            desktopSingletonMutex = new Mutex(
-                initiallyOwned: false,
-                name: DesktopSingletonMutexName,
-                createdNew: out _);
             try
             {
-                ownsDesktopSingleton = desktopSingletonMutex.WaitOne(0);
-                return ownsDesktopSingleton;
+                desktopSingletonMutex = new Mutex(
+                    initiallyOwned: false,
+                    name: DesktopSingletonMutexName,
+                    createdNew: out _);
+                try
+                {
+                    ownsDesktopSingleton = desktopSingletonMutex.WaitOne(0);
+                    if (ownsDesktopSingleton) return true;
+                }
+                catch (AbandonedMutexException)
+                {
+                    ownsDesktopSingleton = true;
+                    return true;
+                }
+
+                // A crashed or hung App Host can retain the singleton while
+                // exposing no window. Recover only the exact executable and
+                // session after a startup grace period, then retry ownership.
+                if (attempt == 0 && TryRecoverOrphanedInstance())
+                {
+                    DisposeUnownedSingleton();
+                    Thread.Sleep(250);
+                    continue;
+                }
+
+                return false;
             }
-            catch (AbandonedMutexException)
+            catch (Exception ex)
             {
-                ownsDesktopSingleton = true;
-                return true;
+                LogException("DesktopSingleton.Acquire", ex);
+                DisposeUnownedSingleton();
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryRecoverOrphanedInstance()
+    {
+        var currentProcess = Process.GetCurrentProcess();
+        var currentPath = TryGetExecutablePath(currentProcess);
+
+        try
+        {
+            foreach (var existingProcess in Process.GetProcessesByName("EvaluaPro"))
+            {
+                using (existingProcess)
+                {
+                    if (existingProcess.Id == currentProcess.Id ||
+                        existingProcess.SessionId != currentProcess.SessionId ||
+                        !PathsEqual(TryGetExecutablePath(existingProcess), currentPath))
+                    {
+                        continue;
+                    }
+
+                    existingProcess.Refresh();
+                    if (existingProcess.MainWindowHandle != IntPtr.Zero)
+                    {
+                        return false;
+                    }
+
+                    var age = DateTime.UtcNow - existingProcess.StartTime.ToUniversalTime();
+                    if (age < OrphanedInstanceMinimumAge)
+                    {
+                        LogDiagnostic("DesktopSingleton", $"Instancia sin ventana aún está dentro de la gracia de arranque ({age.TotalSeconds:F0}s).");
+                        return false;
+                    }
+
+                    LogDiagnostic("DesktopSingleton", $"Recuperando instancia huérfana PID {existingProcess.Id} sin ventana tras {age.TotalSeconds:F0}s.");
+                    existingProcess.Kill(entireProcessTree: true);
+                    if (!existingProcess.WaitForExit(3_000))
+                    {
+                        LogDiagnostic("DesktopSingleton", $"No terminó la instancia huérfana PID {existingProcess.Id} dentro del límite.");
+                        return false;
+                    }
+
+                    return true;
+                }
             }
         }
         catch (Exception ex)
         {
-            LogException("DesktopSingleton", ex);
+            LogException("DesktopSingleton.Recover", ex);
+        }
+
+        return false;
+    }
+
+    private static string? TryGetExecutablePath(Process process)
+    {
+        try
+        {
+            return process.MainModule?.FileName;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool PathsEqual(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right)) return false;
+
+        try
+        {
+            return string.Equals(
+                Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar),
+                Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
             return false;
+        }
+    }
+
+    private static void DisposeUnownedSingleton()
+    {
+        try
+        {
+            if (desktopSingletonMutex is not null && !ownsDesktopSingleton)
+            {
+                desktopSingletonMutex.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogException("DesktopSingleton.Dispose", ex);
+        }
+        finally
+        {
+            if (!ownsDesktopSingleton) desktopSingletonMutex = null;
         }
     }
 
@@ -71,20 +189,30 @@ public partial class App : System.Windows.Application
         try
         {
             var currentProcessId = Environment.ProcessId;
+            var currentProcess = Process.GetCurrentProcess();
+            var currentPath = TryGetExecutablePath(currentProcess);
+            var currentSessionId = currentProcess.SessionId;
             for (var attempt = 0; attempt < 12; attempt++)
             {
-                using var existingProcess = Process.GetProcessesByName("EvaluaPro")
-                    .FirstOrDefault(process => process.Id != currentProcessId);
-
-                if (existingProcess is not null)
+                foreach (var existingProcess in Process.GetProcessesByName("EvaluaPro"))
                 {
-                    existingProcess.Refresh();
-                    var handle = existingProcess.MainWindowHandle;
-                    if (handle != IntPtr.Zero)
+                    using (existingProcess)
                     {
-                        ShowWindow(handle, SwRestore);
-                        SetForegroundWindow(handle);
-                        return;
+                        if (existingProcess.Id == currentProcessId ||
+                            existingProcess.SessionId != currentSessionId ||
+                            !PathsEqual(TryGetExecutablePath(existingProcess), currentPath))
+                        {
+                            continue;
+                        }
+
+                        existingProcess.Refresh();
+                        var handle = existingProcess.MainWindowHandle;
+                        if (handle != IntPtr.Zero)
+                        {
+                            ShowWindow(handle, SwRestore);
+                            SetForegroundWindow(handle);
+                            return;
+                        }
                     }
                 }
 
@@ -135,11 +263,16 @@ public partial class App : System.Windows.Application
 
     private static void LogException(string source, Exception? ex)
     {
+        LogDiagnostic(source, ex?.ToString() ?? "Unknown error");
+    }
+
+    private static void LogDiagnostic(string source, string message)
+    {
         try
         {
             var logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro", "logs", "app-host-error.log");
             Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
-            File.AppendAllText(logPath, $"[{DateTime.UtcNow:u}] [{source}] {ex}\n");
+            File.AppendAllText(logPath, $"[{DateTime.UtcNow:u}] [{source}] {message}{Environment.NewLine}");
         }
         catch { }
     }

@@ -328,7 +328,7 @@ function Add-DocenteNativeCompiledPayload {
     New-Item -ItemType Directory -Path (Split-Path $embeddedNodeTarget -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $embeddedNodeSource -Destination $embeddedNodeTarget -Force
     Write-Host "[msi] Node.js embebido docente incluido: $embeddedNodeSource"
-    foreach ($nativeScript in @('start-docente-native.mjs', 'launcher-dashboard.mjs', 'runtime-env.mjs')) {
+    foreach ($nativeScript in @('start-docente-native.mjs', 'launcher-dashboard.mjs', 'runtime-env.mjs', 'migrate-examen-lote-artefactos-pdf-sqlite.mjs')) {
       $nativeScriptSource = Join-Path $RootPath (Join-Path 'scripts' $nativeScript)
       if (-not (Test-Path $nativeScriptSource)) { throw "Falta script nativo requerido: $nativeScriptSource" }
       Copy-Item -LiteralPath $nativeScriptSource -Destination (Join-Path $StagingRoot (Join-Path 'scripts' $nativeScript)) -Force
@@ -362,6 +362,7 @@ function Add-DocenteNativeCompiledPayload {
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/src/modulos/modulo_analiticas/plantillas/LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx') -Destination (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package.json') -Destination $backendTarget -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package-lock.json') -Destination $backendTarget -Force
+    Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/prisma.config.mjs') -Destination $backendTarget -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/prisma') -Destination $backendTarget -Recurse -Force
     $prebuiltNodeModules = Join-Path $RootPath 'dist-native/backend/node_modules'
     $reusePrebuiltDependencies = Test-Path -LiteralPath (Join-Path $prebuiltNodeModules '@prisma/client')
@@ -383,14 +384,14 @@ function Add-DocenteNativeCompiledPayload {
         [IO.File]::WriteAllText($stagedSchemaPath, $stagedSchema, (New-Object System.Text.UTF8Encoding($false)))
         Write-Host '[msi] Schema docente reducido a engine native (Windows); se omite engine Linux no utilizado.'
       }
-      & $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') generate --schema $stagedSchemaPath
+      & $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') generate --config (Join-Path $backendTarget 'prisma.config.mjs') --schema $stagedSchemaPath
       if ($LASTEXITCODE -ne 0) { throw "Falló generación del cliente Prisma nativo (exit=$LASTEXITCODE)." }
       $previousErrorActionPreference = $ErrorActionPreference
       $ErrorActionPreference = 'Continue'
       $env:PRISMA_HIDE_UPDATE_MESSAGE = '1'
       $env:CHECKPOINT_DISABLE = '1'
       try {
-        $schemaSqlOutput = @(& $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') migrate diff --from-empty --to-schema-datamodel $stagedSchemaPath --script 2>&1 | ForEach-Object { [string]$_ })
+        $schemaSqlOutput = @(& $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') migrate diff --from-empty --to-schema $stagedSchemaPath --config (Join-Path $backendTarget 'prisma.config.mjs') --script 2>&1 | ForEach-Object { [string]$_ })
       } finally {
         $ErrorActionPreference = $previousErrorActionPreference
       }
@@ -450,7 +451,7 @@ function Add-DocenteNativeCompiledPayload {
       # pdf-parse importa pdfjs-dist en tiempo de ejecución. Mantener ambos
       # módulos en el payload evita que la API falle al arrancar después de
       # instalar el bundle docente-local.
-      foreach ($requiredRuntimeModule in @('pdf-parse', 'pdfjs-dist')) {
+      foreach ($requiredRuntimeModule in @('pdf-parse', 'pdfjs-dist', 'tesseract.js', '@tesseract.js-data/spa')) {
         $requiredRuntimeModulePath = Join-Path $backendTarget ("node_modules/{0}" -f $requiredRuntimeModule)
         if (-not (Test-Path -LiteralPath $requiredRuntimeModulePath)) {
           throw "Falta dependencia de runtime requerida por el backend: $requiredRuntimeModulePath"
@@ -499,8 +500,10 @@ function New-DocentePayloadArchive {
 
   $required = @(
     'apps/backend/dist/index.js',
+    'apps/backend/dist/prisma/schema.sql',
     'runtime/node/node.exe',
-    'scripts/start-docente-native.mjs'
+    'scripts/start-docente-native.mjs',
+    'scripts/runtime-env.mjs'
   )
   foreach ($relativePath in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $StagingRoot $relativePath))) {
@@ -882,13 +885,13 @@ function Resolve-BalExtensionDll {
   }
 
   $balDllCandidates = @(
-    (Join-Path $RootPath ".wix\extensions\WixToolset.Bal.wixext\$($WixVersion.ToString())\wixext6\WixToolset.BootstrapperApplications.wixext.dll"),
-    (Join-Path $RootPath ".wix\extensions\WixToolset.Bal.wixext\$($WixVersion.ToString())\wixext6\WixToolset.Bal.wixext.dll")
+    (Join-Path $RootPath ".wix\extensions\WixToolset.Bal.wixext\$($WixVersion.ToString())\wixext7\WixToolset.BootstrapperApplications.wixext.dll"),
+    (Join-Path $RootPath ".wix\extensions\WixToolset.Bal.wixext\$($WixVersion.ToString())\wixext7\WixToolset.Bal.wixext.dll")
   )
 
   $balDll = $balDllCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
   if (-not $balDll) {
-    throw "No se pudo resolver extensión BAL de WiX 6. Esperado paquete $balPackageRef en .wix/extensions."
+    throw "No se pudo resolver extensión BAL de WiX 7. Esperado paquete $balPackageRef en .wix/extensions."
   }
 
   return $balDll
@@ -1270,10 +1273,10 @@ if ($wixCmd) {
   $wixExe = $wixCmd.Source
 } else {
   $wixCandidates = @(
-    "$env:ProgramFiles\WiX Toolset v6.0\bin\wix.exe",
-    "${env:ProgramFiles(x86)}\WiX Toolset v6.0\bin\wix.exe",
-    "$env:ProgramFiles\WiX Toolset v6.0\bin\wix.cmd",
-    "${env:ProgramFiles(x86)}\WiX Toolset v6.0\bin\wix.cmd"
+    "$env:ProgramFiles\WiX Toolset v7.0\bin\wix.exe",
+    "${env:ProgramFiles(x86)}\WiX Toolset v7.0\bin\wix.exe",
+    "$env:ProgramFiles\WiX Toolset v7.0\bin\wix.cmd",
+    "${env:ProgramFiles(x86)}\WiX Toolset v7.0\bin\wix.cmd"
   ) | Where-Object { $_ -and (Test-Path $_) }
 
   $wixCandidateList = @($wixCandidates)
@@ -1283,7 +1286,7 @@ if ($wixCmd) {
 }
 
 if (-not $wixExe) {
-  throw "No se encontró CLI de WiX (wix.exe). Instala WiX Toolset v6.0.x estable y agrega 'wix' al PATH."
+  throw "No se encontró CLI de WiX (wix.exe). Instala WiX Toolset v7.0.x estable y agrega 'wix' al PATH."
 }
 
 $wixVersionStdOut = Join-Path $env:TEMP ("evaluapro-wix-version-{0}.out.log" -f [Guid]::NewGuid().ToString('N'))
@@ -1307,7 +1310,7 @@ try {
   if (Test-Path -LiteralPath $wixVersionStdErr) { Remove-Item -LiteralPath $wixVersionStdErr -Force -ErrorAction SilentlyContinue }
 }
 if (-not $wixVersionRaw) {
-  throw "No se pudo leer la versión de WiX. Verifica instalación de WiX Toolset v6.0.x estable."
+  throw "No se pudo leer la versión de WiX. Verifica instalación de WiX Toolset v7.0.x estable."
 }
 
 $wixVersionText = [string]$wixVersionRaw
@@ -1317,13 +1320,12 @@ if (-not $wixVersionMatch.Success) {
 }
 
 $wixVersion = [Version]$wixVersionMatch.Value
-if ($wixVersion.Major -lt 6) {
-  throw "WiX detectado: $wixVersion. Se requiere WiX Toolset v6.0.x estable."
+if ($wixVersion.Major -ne 7 -or $wixVersion.Minor -ne 0) {
+  throw "WiX detectado: $wixVersion. Se requiere WiX Toolset v7.0.x estable."
 }
 
-if (($wixVersion.Major -eq 6) -and ($wixVersion.Minor -gt 0)) {
-  throw "WiX detectado: $wixVersion. Este pipeline está fijado a WiX 6.0.x para estabilidad del Burn icon handling."
-}
+$eulaProc = Start-Process -FilePath $wixExe -ArgumentList @('eula', 'accept', 'wix7') -Wait -NoNewWindow -PassThru
+if ([int]$eulaProc.ExitCode -ne 0) { throw "No se pudo registrar aceptación autorizada de la EULA wix7 (exit=$($eulaProc.ExitCode))." }
 
 if (-not (Test-Path $out)) {
   New-Item -ItemType Directory -Path $out | Out-Null

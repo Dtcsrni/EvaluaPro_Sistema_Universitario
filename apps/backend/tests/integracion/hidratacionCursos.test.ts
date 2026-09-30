@@ -150,7 +150,8 @@ describe('Integración: Hidratación de cursos iniciados', () => {
     expect(importarResp.body.resumen.alumnosCreados).toBe(2);
     expect(importarResp.body.resumen.evidenciasHistoricasCreadas).toBe(4);
     expect(importarResp.body.resumen.evidenciasDocumentalesCreadas).toBe(2);
-    expect(importarResp.body.resumen.bancoPreguntasCreadas).toBe(2);
+    expect(importarResp.body.resumen.bancoPreguntasCreadas).toBe(0);
+    expect(importarResp.body.resumen.bancoPreguntasEnCuarentena).toBe(2);
 
     await request(app)
       .post('/api/hidratacion-cursos/importar')
@@ -168,31 +169,33 @@ describe('Integración: Hidratación de cursos iniciados', () => {
     const evidenciasDocx = await prisma.evidenciaEvaluacion.findMany({
       where: { periodoId, fuente: 'importacion_docx' }
     });
-    const preguntas = await prisma.bancoPregunta.findMany({
-      where: { periodoId },
-      include: { versiones: { include: { opciones: true } } }
+    const preguntas = await prisma.bancoPregunta.findMany({ where: { periodoId } });
+    const reactivosCanonicos = await prisma.reactivo.findMany({ where: { docenteId: (await prisma.periodo.findUnique({ where: { id: periodoId } }))?.docenteId } });
+    const importacionesCuarentena = await prisma.reactivoImportacion.findMany({
+      where: { estado: 'quarantined' },
+      include: { filas: true }
     });
 
     expect(alumnos).toHaveLength(2);
     expect(evidenciasHistoricas).toHaveLength(4);
     expect(evidenciasDocx).toHaveLength(2);
-    expect(preguntas).toHaveLength(2);
-    const preguntaPrimerParcial = preguntas.find((pregunta) => pregunta.tema === 'Examen Primer Parcial');
-    const preguntaSegundoParcial = preguntas.find((pregunta) => pregunta.tema === 'Examen Segundo Parcial');
-    expect(preguntaPrimerParcial?.versiones[0]?.enunciado).toContain('sistema digital');
-    expect(preguntaPrimerParcial?.versiones[0]?.opciones).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ texto: 'Discreto', esCorrecta: true }),
-        expect.objectContaining({ texto: 'Continuo', esCorrecta: false })
-      ])
-    );
-    expect(preguntaSegundoParcial?.versiones[0]?.enunciado).toContain('compuerta OR');
-    expect(preguntaSegundoParcial?.versiones[0]?.opciones).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ texto: 'OR', esCorrecta: true }),
-        expect.objectContaining({ texto: 'AND', esCorrecta: false })
-      ])
-    );
+    expect(preguntas).toHaveLength(0);
+    expect(reactivosCanonicos).toHaveLength(0);
+    expect(importacionesCuarentena).toHaveLength(2);
+    expect(importacionesCuarentena.every((item) => item.schemaVersion === 0 && item.filas.length === 1)).toBe(true);
+    const motivosCuarentena = importacionesCuarentena.flatMap((item) => item.filas.flatMap((fila) => {
+      const detalle = JSON.parse(String(fila.detalleJson)) as { reasons?: string[] };
+      return detalle.reasons ?? [];
+    }));
+    expect(motivosCuarentena).toContain('OPCIONES_DEBEN_SER_A_E');
+    for (const importacion of importacionesCuarentena) {
+      await request(app)
+        .post(`/api/banco-preguntas/importaciones/${importacion.id}/confirmar`)
+        .set(auth)
+        .send({ planHash: importacion.planHash })
+        .expect(409);
+    }
+    expect(await prisma.reactivoImportacion.count({ where: { estado: 'quarantined' } })).toBe(2);
   });
 
   it('clasifica un examen global DOCX con reactivos como global externo', async () => {
@@ -217,6 +220,8 @@ describe('Integración: Hidratación de cursos iniciados', () => {
       .expect(201);
 
     expect(importarResp.body.resumen.evidenciasDocumentalesCreadas).toBe(1);
+    expect(importarResp.body.resumen.bancoPreguntasCreadas).toBe(0);
+    expect(importarResp.body.resumen.bancoPreguntasEnCuarentena).toBe(2);
 
     const evidenciasDocx = await prisma.evidenciaEvaluacion.findMany({
       where: { periodoId, fuente: 'importacion_docx' }
@@ -224,5 +229,57 @@ describe('Integración: Hidratación de cursos iniciados', () => {
     expect(evidenciasDocx).toHaveLength(1);
     expect(evidenciasDocx[0]?.corte).toBe(3);
     expect(JSON.parse(String(evidenciasDocx[0]?.metadata ?? '{}')).tipoDocumento).toBe('global_externo');
+    expect(await prisma.bancoPregunta.count({ where: { periodoId } })).toBe(0);
+    expect(await prisma.reactivo.count()).toBe(0);
+    expect(await prisma.reactivoImportacion.count({ where: { estado: 'quarantined' } })).toBe(1);
+  });
+
+  it('envía DOCX OMR válido al pipeline canónico cuando recibe temaId y es idempotente', async () => {
+    await request(app)
+      .post('/api/banco-preguntas/temas')
+      .set(auth)
+      .send({ periodoId, nombre: 'Segundo Parcial' })
+      .expect(201);
+    const tema = await prisma.temaBanco.findFirst({ where: { periodoId, clave: 'segundo parcial', activo: true } });
+    expect(tema).toBeTruthy();
+
+    const docx = await crearDocxParcial({
+      titulo: 'Examen Segundo Parcial de Prueba',
+      enunciado: '¿Cuál opción identifica el valor binario verdadero?',
+      opciones: 'A) Cero B) Indefinido C) Alta impedancia D) Uno E) Ninguna',
+      correcta: 'D'
+    });
+    const preview = await request(app)
+      .post('/api/hidratacion-cursos/preview')
+      .set(auth)
+      .field('periodoId', periodoId)
+      .field('temaId', String(tema?.id))
+      .attach('archivos', docx, 'Examen_Segundo_Parcial.docx')
+      .expect(200);
+    expect(preview.body.temaId).toBe(tema?.id);
+
+    const importar = async () => request(app)
+      .post('/api/hidratacion-cursos/importar')
+      .set(auth)
+      .field('periodoId', periodoId)
+      .field('temaId', String(tema?.id))
+      .attach('archivos', docx, 'Examen_Segundo_Parcial.docx')
+      .expect(201);
+
+    const primera = await importar();
+    expect(primera.body.resumen.bancoPreguntasCreadas).toBe(1);
+    expect(primera.body.resumen.bancoPreguntasEnCuarentena).toBe(0);
+    const reactivos = await prisma.reactivo.findMany({ include: { versiones: { include: { opciones: true } }, asignaciones: true } });
+    expect(reactivos).toHaveLength(1);
+    expect(reactivos[0]?.estado).toBe('draft');
+    expect(reactivos[0]?.asignaciones).toMatchObject([{ periodoId, temaId: tema?.id }]);
+    expect(reactivos[0]?.versiones[0]?.opciones).toHaveLength(5);
+    expect(reactivos[0]?.versiones[0]?.opciones.filter((opcion) => opcion.esCorrecta).map((opcion) => opcion.clave)).toEqual(['D']);
+    expect(await prisma.bancoPregunta.count({ where: { periodoId } })).toBe(0);
+
+    const segunda = await importar();
+    expect(segunda.body.resumen.bancoPreguntasCreadas).toBe(0);
+    expect(await prisma.reactivo.count()).toBe(1);
+    expect(await prisma.reactivoVersion.count()).toBe(1);
   });
 });

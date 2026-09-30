@@ -37,7 +37,7 @@ import {
   type PerfilPlantillaOmr,
   type ResultadoGeneracionPdf
 } from '../shared/tiposPdf.js';
-import { PERFIL_OMR_CANONICO } from '../domain/layoutExamen.js';
+import { PERFIL_OMR_CANONICO, PERFIL_OMR_INLINE_EXAM } from '../domain/layoutExamen.js';
 import { TEMPLATE_VERSION_CANONICA } from '../domain/templateCanonico.js';
 import { PDF_VISUAL_BASELINE_RGB } from './pdfVisualBaseline.js';
 import {
@@ -115,13 +115,14 @@ const PERFIL_OMR_CANONICO_RENDER: PerfilPlantillaRender = {
   // Las quiet zones ya forman parte del panel; no añadir un halo blanco
   // exterior que agrande el rectángulo visible sin aportar señal OMR.
   omrPanelPadding: 0,
-  fiducialMargin: 0.9,
-  fiducialQuietZone: PERFIL_OMR_CANONICO.fiducialQuietZone ?? 0.5 * MM_A_PUNTOS,
+  fiducialMargin: 1,
+  fiducialQuietZone: PERFIL_OMR_CANONICO.fiducialQuietZone ?? 0.6 * MM_A_PUNTOS,
   bubbleStrokePt: 1,
 };
 
 const FUENTE_ECOFONT_ARCHIVO = 'ecofont_vera_sans_regular.ttf';
 const FUENTE_ECOFONT_FAMILIA = 'Ecofont Vera Sans';
+const QR_STAPLE_CLEARANCE_MM = 11;
 
 function mmAPuntos(mm: number) {
   return mm * MM_A_PUNTOS;
@@ -938,7 +939,10 @@ function resolverPerfilRender(
   if (templateVersion !== TEMPLATE_VERSION_CANONICA) {
     throw new Error(`Template version ${String(templateVersion)} no compatible para renderer OMR canónico`);
   }
-  const base = PERFIL_OMR_CANONICO_RENDER;
+  const esInline = perfilBase.ubicacion === 'junto-a-opcion';
+  const base = esInline
+    ? { ...PERFIL_OMR_CANONICO_RENDER, ...PERFIL_OMR_INLINE_EXAM }
+    : PERFIL_OMR_CANONICO_RENDER;
   return {
     ...base,
     version: TEMPLATE_VERSION_CANONICA,
@@ -948,15 +952,17 @@ function resolverPerfilRender(
     marcasEsquina: perfilBase.marcasEsquina,
     marcaCuadradoSize: perfilBase.marcaCuadradoSize,
     marcaCuadradoQuietZone: perfilBase.marcaCuadradoQuietZone,
+    fiducialOrientacion: perfilBase.fiducialOrientacion ?? base.fiducialOrientacion,
     // La geometría OMR no depende de un modo de densidad ni de un fallback:
     // la plantilla canónica v4 siempre imprime cinco burbujas horizontales.
-    // El diámetro de 6 mm y el paso de 25 pt mantienen señal útil y agregan
+    // El diámetro de 6.4 mm y el paso de 26 pt refuerzan la señal y agregan
     // separación para blur, sombra, compresión y expansión de tinta en papel.
-    burbujaRadio: (6 * MM_A_PUNTOS) / 2,
-    burbujaPasoY: 0,
-    burbujaPasoX: 25,
-    orientacion: 'horizontal',
-    cajaOmrAncho: 137,
+    burbujaRadio: esInline ? PERFIL_OMR_INLINE_EXAM.burbujaRadio : (6.4 * MM_A_PUNTOS) / 2,
+    burbujaPasoY: esInline ? PERFIL_OMR_INLINE_EXAM.burbujaPasoY : 0,
+    burbujaPasoX: esInline ? 0 : 26,
+    orientacion: esInline ? 'vertical' : 'horizontal',
+    ubicacion: esInline ? 'junto-a-opcion' : 'panel-separado',
+    cajaOmrAncho: 147,
     fiducialSize: perfilBase.fiducialSize,
     fiducialMargin: perfilBase.fiducialMargin ?? base.fiducialMargin,
     fiducialQuietZone: perfilBase.fiducialQuietZone ?? base.fiducialQuietZone,
@@ -989,6 +995,14 @@ function agregarMarcasRegistro(page: PDFPage, margen: number, perfil: PerfilPlan
       const yMax = Math.min(ALTO_CARTA, y + tam + quiet);
       page.drawRectangle({ x: xMin, y: yMin, width: xMax - xMin, height: yMax - yMin, color: rgb(1, 1, 1) });
       page.drawRectangle({ x, y, width: tam, height: tam, color: rgb(0, 0, 0) });
+      if (perfil.fiducialOrientacion?.tipo === 'centro_vacio' && esquina.x === margen && esquina.y === ALTO_CARTA - margen) {
+        page.drawCircle({
+          x: x + tam / 2,
+          y: y + tam / 2,
+          size: perfil.fiducialOrientacion.radio,
+          color: rgb(1, 1, 1)
+        });
+      }
       continue;
     }
 
@@ -1042,23 +1056,46 @@ function dibujarFiducialOmr(page: PDFPage, x: number, y: number, size: number, q
   });
 }
 
-async function agregarQr(pdfDoc: PDFDocument, page: PDFPage, qrTexto: string, margen: number, perfil: PerfilPlantillaRender) {
+type NivelCorreccionQr = 'L' | 'M' | 'Q' | 'H';
+
+const crearSimboloQr = (qrTexto: string, errorCorrectionLevel: NivelCorreccionQr) => (QRCode as unknown as {
+    create: (texto: string, opciones: { errorCorrectionLevel: NivelCorreccionQr }) => { modules: { size: number; data: Uint8Array } };
+  }).create(qrTexto, { errorCorrectionLevel });
+
+export function resolverNivelCorreccionQr(qrTexto: string): NivelCorreccionQr {
+  const simboloH = crearSimboloQr(qrTexto, 'H');
+  // H es la política preferida. Si la carga futura crece y fuerza una matriz
+  // densa, se baja solo la redundancia necesaria para conservar al menos
+  // 49 módulos: en fotografía móvil el aumento de tamaño por módulo es más
+  // valioso que mantener H en un símbolo que ya no se puede muestrear bien.
+  if (simboloH.modules.size <= 49) return 'H';
+  for (const errorCorrectionLevel of ['Q', 'M', 'L'] as const) {
+    const simbolo = crearSimboloQr(qrTexto, errorCorrectionLevel);
+    if (simbolo.modules.size <= 49) return errorCorrectionLevel;
+  }
+  return 'H';
+}
+
+function crearSimboloQrResiliente(qrTexto: string) {
+  const errorCorrectionLevel = resolverNivelCorreccionQr(qrTexto);
+  return {
+    simbolo: crearSimboloQr(qrTexto, errorCorrectionLevel),
+    errorCorrectionLevel
+  };
+}
+
+async function agregarQr(
+  pdfDoc: PDFDocument,
+  page: PDFPage,
+  qrTexto: string,
+  margen: number,
+  perfil: PerfilPlantillaRender,
+  dibujar = true
+) {
   // jsQR devuelve las esquinas de la matriz, no las de la imagen completa con
   // quiet zone. Persistimos ambas dimensiones para que el detector pueda
   // reconstruir la referencia fisica exacta del simbolo.
-  const qrSymbol = (QRCode as unknown as {
-    create: (texto: string, opciones: { errorCorrectionLevel: 'H' }) => { modules: { size: number } };
-  }).create(qrTexto, { errorCorrectionLevel: 'H' });
-  const qrDataUrl = await QRCode.toDataURL(qrTexto, {
-    margin: perfil.qrMarginModulos,
-    scale: perfil.qrRasterScale,
-    errorCorrectionLevel: 'H',
-    color: { dark: '#000000', light: '#FFFFFF' }
-  });
-
-  const base64 = qrDataUrl.replace(/^data:image\/png;base64,/, '');
-  const qrBytes = Uint8Array.from(Buffer.from(base64, 'base64'));
-  const qrImage = await pdfDoc.embedPng(qrBytes);
+  const { simbolo: qrSymbol, errorCorrectionLevel } = crearSimboloQrResiliente(qrTexto);
 
   const qrSize = perfil.qrSize;
   const padding = perfil.qrPadding;
@@ -1072,20 +1109,34 @@ async function agregarQr(pdfDoc: PDFDocument, page: PDFPage, qrTexto: string, ma
   // La caja exterior completa, incluido su quiet zone, queda dentro de la
   // cabecera y alineada con el borde imprimible. Antes el calculo usaba solo
   // el bitmap y dejaba el marco del QR fuera del encabezado.
-  // El QR no puede compartir la quiet zone del fiducial superior derecho.
-  // La separación se calcula con la geometría real del marcador, no con un
-  // píxel visual aproximado que puede desaparecer al imprimir o fotografiar.
-  const separacionMarcadorQr = perfil.marcaCuadradoSize + perfil.marcaCuadradoQuietZone + 4;
-  // La tarjeta queda pegada al borde interior de la cabecera. La separación
-  // con el fiducial superior derecho se conserva en el eje vertical: el QR
-  // comienza debajo de la reserva del marcador, por lo que no se necesita
-  // sacrificar una franja lateral completa.
+  // Desplazar la tarjeta a la izquierda de la quiet zone del fiducial superior
+  // derecho permite alinear su borde superior con el margen imprimible y
+  // recuperar la altura que antes se perdía manteniendo una separación vertical.
+  const qrHorizontalInset = perfil.marcaCuadradoSize + perfil.marcaCuadradoQuietZone + mmAPuntos(QR_STAPLE_CLEARANCE_MM);
   const bordeDerechoReserva = ANCHO_CARTA - margen - 4;
-  const bordeSuperiorReserva = ALTO_CARTA - margen - separacionMarcadorQr;
-  const cardX = bordeDerechoReserva - cardW;
+  const bordeSuperiorReserva = ALTO_CARTA - margen;
+  const cardX = bordeDerechoReserva - qrHorizontalInset - cardW;
   const cardY = bordeSuperiorReserva - cardH;
   const x = cardX + padding;
   const y = cardY + captionHeight + padding;
+  const matrixModules = qrSymbol.modules.size;
+  const marginModules = Math.max(0, Math.round(perfil.qrMarginModulos));
+
+  if (!dibujar) {
+    return {
+      qrSize,
+      x,
+      y,
+      padding,
+      errorCorrectionLevel,
+      marginModules: perfil.qrMarginModulos,
+      matrixModules,
+      cardX,
+      cardY,
+      cardW,
+      cardH
+    };
+  }
 
   page.drawRectangle({
     x: cardX,
@@ -1097,18 +1148,49 @@ async function agregarQr(pdfDoc: PDFDocument, page: PDFPage, qrTexto: string, ma
     borderColor: rgb(0.75, 0.79, 0.84)
   });
 
-  page.drawImage(qrImage, {
+  // Dibujar el simbolo como modulos vectoriales evita que un PNG de alta
+  // resolucion sea remuestreado al tamaño fisico del PDF. Ese remuestreo
+  // introduce bordes grises y modulos de ancho fraccionario: el PNG original
+  // se decodifica, pero la pagina rasterizada por impresora/camara puede no.
+  // Se conserva la misma geometria persistida: `x`/`y` son la esquina de la
+  // imagen completa, incluida la quiet zone, y `qrSize` es su tamaño total.
+  const totalModules = matrixModules + marginModules * 2;
+  const moduleSize = qrSize / Math.max(1, totalModules);
+  page.drawRectangle({
     x,
     y,
     width: qrSize,
-    height: qrSize
+    height: qrSize,
+    color: rgb(1, 1, 1)
   });
+  const moduleData = qrSymbol.modules.data;
+  for (let row = 0; row < matrixModules; row += 1) {
+    let runStart = -1;
+    for (let column = 0; column <= matrixModules; column += 1) {
+      const oscuro = column < matrixModules && moduleData[row * matrixModules + column] === 1;
+      if (oscuro && runStart < 0) runStart = column;
+      if ((!oscuro || column === matrixModules) && runStart >= 0) {
+        page.drawRectangle({
+          x: x + (marginModules + runStart) * moduleSize,
+          // La matriz QR enumera filas desde arriba; PDF enumera `y` desde
+          // abajo. Invertir solo el eje vertical conserva la orientacion del
+          // simbolo y deja los patrones de busqueda en sus tres esquinas.
+          y: y + (marginModules + (matrixModules - 1 - row)) * moduleSize,
+          width: (column - runStart) * moduleSize,
+          height: moduleSize,
+          color: rgb(0, 0, 0)
+        });
+        runStart = -1;
+      }
+    }
+  }
 
   return {
     qrSize,
     x,
     y,
     padding,
+    errorCorrectionLevel,
     marginModules: perfil.qrMarginModulos,
     matrixModules: qrSymbol.modules.size,
     cardX,
@@ -1362,22 +1444,6 @@ function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: Re
   }
 }
 
-function dibujarDegradadoEncabezado(page: PDFPage, rect: RectBox) {
-  const bandas = 14;
-  const altoBanda = rect.height / bandas;
-  for (let indice = 0; indice < bandas; indice += 1) {
-    const t = indice / Math.max(1, bandas - 1);
-    page.drawRectangle({
-      x: rect.x,
-      y: rect.y + indice * altoBanda,
-      width: rect.width,
-      height: altoBanda + 0.5,
-      color: rgb(0.93 - t * 0.06, 0.98 - t * 0.04, 1),
-      opacity: 0.2
-    });
-  }
-}
-
 function dibujarPatronBloqueCaptura(
   page: PDFPage,
   rect: RectBox,
@@ -1418,14 +1484,15 @@ function dibujarPatronPunteadoReactivo(
   rect: RectBox,
   color: ReturnType<typeof rgb>
 ) {
-  // Conserva la textura editorial, pero con una trama mas abierta y ligera.
-  // El color base permanece debajo para no perder la estética de tarjeta.
+  // Conserva la textura editorial con menos marcas vectoriales por área.
+  // El paso de 18.375 pt reduce ~36 % los puntos frente a 14.7 pt sin cambiar
+  // su radio, tono ni opacidad; la jerarquía y la geometría funcional permanecen.
   const inset = 2.8;
   const xMin = rect.x + inset;
   const xMax = rect.x + rect.width - inset;
   const yMin = rect.y + inset;
   const yMax = rect.y + rect.height - inset;
-  const paso = 9.8;
+  const paso = 18.375;
   for (let fila = 0, y = yMin; y <= yMax; fila += 1, y += paso) {
     const desplazamiento = fila % 2 === 0 ? 0 : paso / 2;
     for (let x = xMin + desplazamiento; x <= xMax; x += paso) {
@@ -1738,6 +1805,8 @@ export class PdfKitRenderer {
       throw new Error(`Template version ${String(templateVersion)} no compatible para renderer OMR canónico`);
     }
     const perfilOmr = resolverPerfilRender(templateVersion, this.perfilOmr);
+    const omrEnLinea = perfilOmr.ubicacion === 'junto-a-opcion';
+    const omrRadio = perfilOmr.burbujaRadio;
     const margenMm = examen.layout.margenMm;
     const margen = mmAPuntos(margenMm);
     const paginasObjetivo = Number.isFinite(examen.layout.totalPaginas)
@@ -1750,7 +1819,7 @@ export class PdfKitRenderer {
     const colorAcento = rgb(...PDF_VISUAL_BASELINE_RGB.accent);
     const colorAcentoSuave = rgb(...PDF_VISUAL_BASELINE_RGB.accentSoft);
     const colorSeccion = rgb(...PDF_VISUAL_BASELINE_RGB.section);
-    const colorFondoPagina = rgb(0.95, 0.98, 1);
+  const colorFondoPagina = rgb(1, 1, 1);
     const colorTinta = rgb(...PDF_VISUAL_BASELINE_RGB.primary);
     // El área de lectura permanece blanca: los colores decorativos se quedan
     // fuera del ROI para que la conversión a escala de grises no fabrique tinta.
@@ -1798,6 +1867,11 @@ export class PdfKitRenderer {
     // cambios de paginación no alteren sus campos OMR.
     const fontScale = Math.min(1.3, Math.max(0.75, Number(examen.layout.fontScale ?? 1) || 1));
     const lineSpacing = Math.min(1.6, Math.max(0.75, Number(examen.layout.lineSpacing ?? 1) || 1));
+    const perfilCompactoAltaDensidad = examen.layout.densityMode === 'compact'
+      && examen.totalPreguntas >= 36
+      && perfilOmr.orientacion === 'horizontal';
+    const perfilCompactoCapacidad43 = perfilCompactoAltaDensidad && examen.totalPreguntas >= 38;
+    const priorizarCapacidadPorCara = perfilCompactoCapacidad43;
     const fontScaleCabecera = 1;
     const lineSpacingCabecera = 1;
     // La retícula 3+2 libera suficiente ancho para conservar una tipografía
@@ -1824,54 +1898,65 @@ export class PdfKitRenderer {
       (perfilOmr.orientacion === 'horizontal' ? 8.6 : 10.8) * fontScale,
       sizeCodigoBloque * 1.18
     ) * lineSpacing;
-    // Separacion corta pero visible: el ritmo lo aporta la linea divisoria y
-    // el bloque numerado, no un hueco vertical que robe reactivos legibles.
-    const separacionPregunta = perfilOmr.orientacion === 'horizontal'
-      // La separación subpunto anterior ahorraba espacio, pero a tamaño real
-      // hacía que el separador quedara visualmente pegado a la última línea de
-      // respuestas y al siguiente enunciado. Los bancos extensos necesitan un
-      // poco más de aire; los bancos cortos conservan su contrato de una sola
-      // página sin perder la separación mínima entre glifos y divisores.
-      ? (examen.totalPreguntas > 20 ? 4 : 2) * lineSpacing
-      : 1.2 * lineSpacing;
+    // El espacio entre reactivos depende de la cantidad de texto del enunciado
+    // y sus respuestas. La regla visible y el bloque numerado conservan la
+    // separación mínima de 2 pt; los reactivos más densos reciben más aire.
+    const contarCaracteresPregunta = (pregunta: ExamenPdf['preguntas'][number]) =>
+      Array.from([
+        pregunta.enunciado,
+        ...pregunta.opciones.map((opcion) => compactarOpcionBancoParaPdf(opcion.texto))
+      ].join(' ').replace(/\s+/g, ' ').trim()).length;
+    const obtenerSeparacionPregunta = (pregunta: ExamenPdf['preguntas'][number]) => {
+      const caracteres = contarCaracteresPregunta(pregunta);
+      const separacionBase = caracteres <= 80
+        ? (perfilCompactoAltaDensidad ? 0.45 : 2)
+        : caracteres <= 240 ? 3 : 4;
+      return perfilCompactoAltaDensidad && caracteres <= 80
+        ? Math.max(0.45, separacionBase * lineSpacing)
+        : separacionBase * lineSpacing;
+    };
     // Separación tipográfica visible entre la regla punteada del enunciado y
     // el inicio de las respuestas. La reserva se comparte con el planificador
     // para que el aire visible no cause desbordes ni páginas adicionales.
-    const separacionEnunciadoOpciones = 2.5;
+    const separacionEnunciadoOpciones = omrEnLinea ? omrRadio + sizeOpcion + 2 : 2;
     // El fondo del reactivo se extiende una línea por encima de su caja
     // tipográfica. Un margen inferior corto conserva la separación imprimible
     // y entrega el resto del hueco directamente al área de reactivos.
-    const separacionCabeceraContenido = Math.max(9, lineaPregunta - 1);
+    const separacionCabeceraContenido = perfilCompactoAltaDensidad
+      ? Math.max(4.5, lineaPregunta - 7.8)
+      : Math.max(9, lineaPregunta - 3.5);
     // Holgura compartida por el planificador y el renderer entre tarjetas de
     // opciones. Mantener un unico valor evita que el plan reserve menos alto
     // del que finalmente consume una opcion de varias lineas.
     // La retícula 3+2 conserva solo una holgura subpunto entre filas. La altura
     // de cada fila mantiene una reserva tipográfica mínima independiente para
     // que el ahorro no acerque los glifos al separador ni al fondo siguiente.
-    const separacionTarjetaOpcion = perfilOmr.orientacion === 'horizontal' ? 0.25 : 3;
+    const separacionTarjetaOpcion = omrEnLinea ? 0 : perfilOmr.orientacion === 'horizontal' ? 0.25 : 3;
     const rellenoVerticalOpcion = 2;
     const alturaMinimaFilaOpcion = sizeOpcion + 3;
     const omrTotalLetras = 5;
-    const omrRadio = perfilOmr.burbujaRadio;
     const omrPasoY = perfilOmr.burbujaPasoY;
     const omrEsquemaHorizontal = perfilOmr.orientacion === 'horizontal';
     const omrPasoX = perfilOmr.burbujaPasoX ?? 0;
     const omrMargenHorizontal = 4.5;
     const omrEtiquetaGap = 4;
-    // El panel horizontal conserva el diámetro OMR canónico, pero reduce el
-    // aire que no aporta señal: la cabecera/fiduciales siguen separados y las
-    // etiquetas quedan dentro de la reserva inferior. La caja numérica reducida
-    // deja una holgura visual de 1.6 pt antes del primer círculo, sin aumentar
-    // la altura del panel ni cambiar el centro o el paso de las burbujas.
-    const omrMargenSuperior = omrEsquemaHorizontal ? 8.6 : 9;
+    // El panel horizontal conserva el diámetro OMR canónico y concentra la
+    // reserva vertical solo para la capacidad extrema (38+ reactivos). El
+    // círculo conserva 2.4 pt libres arriba y la etiqueta 1.8 pt abajo; las
+    // burbujas no cambian de tamaño, paso ni centro relativo.
+    const omrMargenSuperior = omrEsquemaHorizontal
+      ? (perfilCompactoCapacidad43 ? 2.4 : perfilCompactoAltaDensidad ? 4.8 : 7.8)
+      : 9;
     // La etiqueta de cada burbuja conserva una zona blanca propia; la reserva
     // se coordina con el desplazamiento real de las letras bajo los círculos.
-    const omrSeparacionEtiquetaBorde = omrEsquemaHorizontal ? 2.4 : 0;
+    const omrSeparacionEtiquetaBorde = omrEsquemaHorizontal
+      ? (perfilCompactoCapacidad43 ? 1.8 : 2.4)
+      : 0;
     // La reserva inferior debe ser mayor que el desplazamiento de la etiqueta:
     // si ambos valores coinciden, la caja tipográfica termina exactamente sobre
     // el borde del panel y el raster puede mostrar la letra tocando la línea.
-    // La reserva adicional de 2.4 pt (~0.85 mm) mantiene la separación visible
-    // sin alterar el diámetro, paso ni la posición de las burbujas.
+    // La reserva adicional mantiene la separación visible sin alterar el
+    // diámetro, paso ni la posición de las burbujas.
     const omrMargenInferior = omrEsquemaHorizontal ? 4.8 + omrSeparacionEtiquetaBorde : 1.5;
     // Separación positiva, subpunto y visible a 300 DPI, entre paneles OMR
     // consecutivos. El valor evita contactos sin desperdiciar la reserva
@@ -1880,7 +1965,7 @@ export class PdfKitRenderer {
     // El perfil compacto coloca las cinco opciones en una fila controlada.
     // Cada círculo mantiene separación física de su vecino y el panel queda
     // aislado del texto para que el ROI sea inequívoco en una fotografía.
-    const anchoColRespuesta = perfilOmr.cajaOmrAncho;
+    const anchoColRespuesta = omrEnLinea ? 0 : perfilOmr.cajaOmrAncho;
     const fiducialSizeMinimo = perfilOmr.fiducialSize;
     const fiducialMarginMinimo = Math.max(1.2, perfilOmr.fiducialMargin);
     const fiducialQuietZoneMinima = perfilOmr.fiducialQuietZone;
@@ -1888,12 +1973,12 @@ export class PdfKitRenderer {
       2 * (fiducialSizeMinimo / 2 + fiducialQuietZoneMinima) + fiducialMarginMinimo;
     const anchoOmrMinimoSeguro =
       (omrTotalLetras - 1) * omrPasoX + 2 * (omrRadio + separacionBurbujaQuietZoneMinima);
-    if (!Number.isFinite(anchoColRespuesta) || anchoColRespuesta < anchoOmrMinimoSeguro) {
+    if (!omrEnLinea && (!Number.isFinite(anchoColRespuesta) || anchoColRespuesta < anchoOmrMinimoSeguro)) {
       throw new Error(`Perfil OMR canónico inválido: ancho de caja ${String(anchoColRespuesta)}pt`);
     }
     // Reservar solo la separación estrictamente necesaria libera 2 pt de
     // ancho para el texto sin acercarlo al panel OMR ni cambiar su geometría.
-    const gutterRespuesta = 6;
+    const gutterRespuesta = omrEnLinea ? 0 : 6;
     // El panel y su halo blanco deben quedar dentro del borde imprimible.
     // Alinearlo con la reserva derecha del QR recupera espacio para el texto
     // sin apoyarlo en el borde físico: se conservan 4 pt (~1.4 mm) además
@@ -1945,11 +2030,15 @@ export class PdfKitRenderer {
     // La cabecera central tiene un ancho finito entre los dos logos y el QR.
     // Estimar las lineas antes de crear las paginas permite hacerla mas alta
     // solo para contenido largo, sin penalizar la densidad de examenes normales.
-    const qrRectXEstimado = ANCHO_CARTA - margen - 4 - perfilOmr.qrSize - perfilOmr.qrPadding * 2;
-    const separacionMarcadorQrEstimado = perfilOmr.marcaCuadradoSize + perfilOmr.marcaCuadradoQuietZone + 4;
-    // Ampliar la reserva lateral aprovecha el aire de la cabecera sin tocar
-    // la columna QR ni el bloque de captura inferior.
-    const logoSlotSize = 76;
+    const qrHorizontalInsetEstimado = perfilOmr.marcaCuadradoSize + perfilOmr.marcaCuadradoQuietZone + mmAPuntos(QR_STAPLE_CLEARANCE_MM);
+    const qrRectXEstimado = ANCHO_CARTA - margen - 4
+      - perfilOmr.qrSize - perfilOmr.qrPadding * 2 - qrHorizontalInsetEstimado;
+    const separacionQrBordeSuperior = 0;
+    // Los logotipos de 64 pt conservan tamaño físico suficiente para impresión
+    // y liberan altura útil en la primera página. Si la identidad institucional
+    // está desactivada, no reservar sus slots: el título y los campos aprovechan
+    // esa banda y tampoco se dibujan los logos por accidente.
+    const logoSlotSize = mostrarMarcaInstitucional ? 64 : 0;
     const logoDerechoXEstimado = qrRectXEstimado - 6 - logoSlotSize - 4;
     const xTextoHeaderEstimado = margen + logoSlotSize + 23;
     const anchoHeaderCentralEstimado = Math.max(200, logoDerechoXEstimado - 4 - 5 - xTextoHeaderEstimado);
@@ -1981,9 +2070,16 @@ export class PdfKitRenderer {
     // cabeceras excepcionales, evitando tanto el recorte contra el QR como
     // reservar espacio vertical innecesario en exámenes normales.
     const tamIndicacionesEstimado = Math.max(7.5, 6.4 * fontScaleCabecera);
+    const xCajaEstimado = margen + 4;
+    const xIndicacionesEstimado = xCajaEstimado + 14 + 14;
+    const limiteZonaCalificacionEstimado = Math.max(xCajaEstimado + 8, qrRectXEstimado - 6);
+    const xDerechaIndicacionesEstimada = Math.min(qrRectXEstimado - 12, limiteZonaCalificacionEstimado - 6);
     const anchoIndicacionesEstimado = Math.max(
-      120,
-      xDerechaTexto - (margen + 14) - fuenteBold.widthOfTextAtSize('Indicaciones:', tamIndicacionesEstimado) - 5
+      50,
+      xDerechaIndicacionesEstimada
+        - xIndicacionesEstimado
+        - fuenteBold.widthOfTextAtSize('Indicaciones:', tamIndicacionesEstimado)
+        - 9
     );
     const lineasIndicacionesEstimadas = mostrarInstrucciones
       ? partirEnLineas({
@@ -2008,7 +2104,8 @@ export class PdfKitRenderer {
     // del marco al validar el layout.
     // Incluye el descenso de la regla inferior y su grosor, no solo las
     // alturas tipográficas de las dos etiquetas.
-    const altoZonaCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera) + 21;
+    const altoZonaCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera)
+      + (perfilCompactoAltaDensidad ? 7.5 : 21);
     // Reducir la reserva base recupera espacio para el primer reactivo sin
     // tocar logos, QR ni la geometría OMR. La rama larga conserva holgura
     // adicional y ambas quedan protegidas por las aserciones de colisión.
@@ -2022,10 +2119,10 @@ export class PdfKitRenderer {
           ? (lineasIndicacionesEstimadas + 2) * 12 + espacioEjemplosIndicaciones
           : 0
       ),
-      // La tarjeta QR se posiciona con una reserva simétrica respecto al
-      // fiducial superior derecho. La cabecera debe absorber esa reserva para
-      // que el QR quede completamente dentro, aun con el logo ampliado.
-      altoQrTarjetaEstimado + separacionMarcadorQrEstimado + altoZonaCalificacionEstimado
+      // El QR queda horizontalmente a la izquierda de la quiet zone del
+      // fiducial superior derecho; solo conserva 4 pt de margen al borde.
+      // La reserva inferior permanece para las dos filas de calificación.
+      altoQrTarjetaEstimado + separacionQrBordeSuperior + altoZonaCalificacionEstimado
     );
     const logoIzqSrc = String(examen.layout.logos?.izquierdaPath ?? '').trim()
       || String(examen.encabezado?.logos?.izquierdaPath ?? '').trim()
@@ -2066,15 +2163,11 @@ export class PdfKitRenderer {
     }
 
     const GRID_STEP = this.perfilLayout.gridStepPt;
-    // Redondear al punto de retícula más cercano evita que `floor` acumule
-    // hasta un paso completo por reactivo y robe espacio útil de la página.
-    // La planificación y el render comparten esta misma operación para que
-    // el último reactivo previsto coincida con el que realmente se dibuja.
+    // Alinear el inicio de página basta para mantener el layout estable. No
+    // se vuelve a cuantizar cada reactivo: el redondeo por bloque acumulaba
+    // hasta un paso de retícula por reactivo y expulsaba contenido que sí cabe.
     const snapToGrid = (y: number) => Math.round(y / GRID_STEP) * GRID_STEP;
-    // El cursor de render nunca puede avanzar hacia arriba por un redondeo:
-    // `Math.min` conserva exactamente la regla aplicada al final de cada
-    // reactivo y evita que el planificador reserve una fila que luego no cabe.
-    const ajustarCursorRender = (y: number) => Math.min(y, snapToGrid(y));
+    const ajustarCursorRender = (y: number) => y;
 
     const markerSpec: MarkerSpecOmr = {
       family: 'solid_square_4pt_v1',
@@ -2106,7 +2199,7 @@ export class PdfKitRenderer {
       forceSimpleScale: false,
       // La escala global queda como respaldo explícito si la captura no aporta
       // una geometría confiable; no debe ser la ruta nominal de la plantilla.
-      useMapCoordinatesStrict: false
+      useMapCoordinatesStrict: omrEnLinea
     };
 
     const paginasMeta: ResultadoGeneracionPdf['paginas'] = [];
@@ -2131,6 +2224,7 @@ export class PdfKitRenderer {
     // El tope defensivo evita bucles infinitos si un reactivo es imposible de
     // acomodar con la tipografia minima legible.
     const maxPaginasSeguras = Math.max(paginasObjetivo, totalPreguntas + 1);
+    let zonaEngrapadoFisica: RectBox | undefined;
     while (numeroPagina <= maxPaginasSeguras && indicePregunta < totalPreguntas) {
       const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
       // El fondo teñido ocupa toda la hoja para eliminar zonas blancas
@@ -2158,8 +2252,26 @@ export class PdfKitRenderer {
       const questionPromptBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
       const omrPanelBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
       const collisionBoxes: Array<{ pagina: number; a: string; b: string }> = [];
-      let rectIndicaciones: RectBox | undefined;
-      let rectContinuacion: RectBox | undefined;
+    let rectIndicaciones: RectBox | undefined;
+    let stapleZone: RectBox | undefined;
+    let stapleKeepOutZone: RectBox | undefined;
+    let stapleLabelZone: (RectBox & { rotation?: 90 | 270 }) | undefined;
+
+    if (zonaEngrapadoFisica) {
+      const margenSeguridadGrapa = mmAPuntos(3);
+      stapleKeepOutZone = {
+        ...zonaEngrapadoFisica,
+        x: numeroPagina % 2 === 0
+          ? ANCHO_CARTA - zonaEngrapadoFisica.x - zonaEngrapadoFisica.width
+          : zonaEngrapadoFisica.x
+      };
+      stapleKeepOutZone = {
+        x: stapleKeepOutZone.x - margenSeguridadGrapa,
+        y: stapleKeepOutZone.y - margenSeguridadGrapa,
+        width: stapleKeepOutZone.width + margenSeguridadGrapa * 2,
+        height: stapleKeepOutZone.height + margenSeguridadGrapa * 2
+      };
+    }
 
       const yTop = ALTO_CARTA - margen;
       const yTopContinuacionSeguro = yTop
@@ -2181,12 +2293,6 @@ export class PdfKitRenderer {
         width: Math.max(1, wCaja - 2),
         height: Math.max(1, (esPrimera ? yCaja - 1.2 : yTop - 1.2) - (margen + 1))
       };
-      page.drawRectangle({
-        ...rectCuerpoAhorro,
-        color: rgb(1, 1, 1),
-        opacity: 0.34,
-        borderWidth: 0
-      });
       dibujarOrnamentoPunteadoCuerpo(page, rectCuerpoAhorro, colorAcento);
 
       // El texto se dibuja desde la linea base hacia arriba; dejar solo 8 pt
@@ -2207,10 +2313,6 @@ export class PdfKitRenderer {
           color: this.perfilLayout.usarRellenosDecorativos ? colorAcentoSuave : rgb(1, 1, 1)
         });
 
-        dibujarDegradadoEncabezado(
-          page,
-          { x: xCaja + 1, y: yCaja + 1, width: wCaja - 2, height: altoEncabezado - 2 }
-        );
         dibujarPatronPunteadoEncabezado(
           page,
           { x: xCaja + 1, y: yCaja + 1, width: wCaja - 2, height: altoEncabezado - 2 },
@@ -2241,22 +2343,14 @@ export class PdfKitRenderer {
         // conserva el mismo fondo cromático de toda la cabecera. El blanco
         // semitransparente anterior ocultaba el patrón y dejaba una isla
         // blanca visible debajo de las indicaciones.
-        page.drawRectangle({
-          x: xCaja + 1,
-          y: yCaja + 7,
-          width: wCaja - 2,
-          height: 42,
-          color: colorSeccion,
-          opacity: 0.58
-        });
-        page.drawRectangle({
-          x: xCaja + 1,
-          y: yCaja + 7,
-          width: 3.5,
-          height: 42,
-          color: colorAcento,
-          opacity: 0.88
-        });
+        dibujarLineaPunteada(
+          page,
+          { x: xCaja + 2, y: yCaja + 8 },
+          { x: xCaja + 2, y: yCaja + 48 },
+          colorAcento,
+          0.65,
+          0.55
+        );
         // Acento interior: separa visualmente la identidad institucional del
         // contenido sin reducir el area util del encabezado.
         if (this.perfilLayout.usarRellenosDecorativos) {
@@ -2287,7 +2381,8 @@ export class PdfKitRenderer {
         page,
         qrTextoPagina,
         margen,
-        perfilOmr
+        perfilOmr,
+        false
       );
       const { x: xQr, y: yQr, padding: qrPadding, qrSize, cardX, cardY, cardW, cardH } = qrInfo;
       let usarZonaCalificacion = false;
@@ -2297,7 +2392,7 @@ export class PdfKitRenderer {
       const xLimiteZonaCalificacion = Math.max(xCaja + 8, cardX - 6);
       // La sección compacta requiere solo dos filas bajo el QR. El umbral
       // reducido conserva ese bloque aun cuando la cabecera se comprime.
-      if (esPrimera && cardY - yCaja - 2 >= 23) {
+      if (esPrimera && cardY - yCaja - 2 >= (perfilCompactoAltaDensidad ? 12 : 23)) {
         // El espacio libre bajo la tarjeta QR se convierte en zona de
         // calificación. Cubrir el patrón complejo anterior evita que el
         // mandala se confunda con texto; encima solo se dibuja una retícula
@@ -2312,8 +2407,7 @@ export class PdfKitRenderer {
         usarZonaCalificacion = true;
         page.drawRectangle({
           ...zonaCalificacion,
-          color: colorSeccion,
-          opacity: 0.72,
+          color: rgb(1, 1, 1),
           borderWidth: 0.65,
           borderColor: colorLinea
         });
@@ -2336,6 +2430,7 @@ export class PdfKitRenderer {
         tipo: perfilOmr.marcasEsquina,
         size: perfilOmr.marcaCuadradoSize,
         quietZone: perfilOmr.marcaCuadradoQuietZone,
+        orientacion: perfilOmr.fiducialOrientacion,
         // La coordenada persistida es el vértice exterior del marcador. Tanto
         // las líneas como los cuadrados abren hacia el interior de la hoja.
         tl: { x: margen, y: ALTO_CARTA - margen },
@@ -2351,10 +2446,9 @@ export class PdfKitRenderer {
       // recupera espacio útil sin alterar la reserva física del QR.
       const limiteContenidoContinuacion = Number.POSITIVE_INFINITY;
 
-      // El pie anterior usaba coordenadas negativas (`margen - n`): el texto
-      // quedaba fuera de la hoja y el visor lo mostraba cortado. Mantener una
-      // sola leyenda centrada conserva la identificación de preview/folio,
-      // evita las esquinas OMR y queda dentro del margen imprimible.
+      // Dos copias independientes de la referencia permiten un fallback OCR
+      // redundante. Ambas quedan en el pie, separadas de las esquinas con
+      // fiduciales y de la reserva física de grapa en el borde superior.
       const pieTexto = `${folioQr} · Pagina ${numeroPagina}`;
       const pieSize = 7;
       // El borde inferior se dibuja en `margen + 3.5`; colocar la línea base
@@ -2362,10 +2456,15 @@ export class PdfKitRenderer {
       // al rasterizar o imprimir a tamaño carta.
       const pieY = margen + 9;
       const pieWidth = fuenteBold.widthOfTextAtSize(pieTexto, pieSize);
-      const pieX = Math.max(0, (ANCHO_CARTA - pieWidth) / 2);
-      const pieRect: RectBox = { x: pieX, y: Math.max(0, pieY - 1), width: pieWidth, height: pieSize + 2 };
-      assertRectDentroPagina(pieRect, `pie de pagina ${numeroPagina}`);
-      page.drawText(pieTexto, { x: pieX, y: pieY, size: pieSize, font: fuenteBold, color: colorGris });
+      const posicionesPie = [ANCHO_CARTA * 0.1, ANCHO_CARTA * 0.52];
+      if (pieWidth > ANCHO_CARTA * 0.38) {
+        throw new Error(`Layout invalido: la referencia de pagina ${numeroPagina} no cabe en las dos zonas OCR del pie`);
+      }
+      for (const [indice, pieX] of posicionesPie.entries()) {
+        const pieRect: RectBox = { x: pieX, y: Math.max(0, pieY - 1), width: pieWidth, height: pieSize + 2 };
+        assertRectDentroPagina(pieRect, `referencia OCR ${indice + 1} de pagina ${numeroPagina}`);
+        page.drawText(pieTexto, { x: pieX, y: pieY, size: pieSize, font: fuenteBold, color: colorGris });
+      }
 
       if (esPrimera) {
         const headerLeft = xCaja + 8;
@@ -2406,25 +2505,26 @@ export class PdfKitRenderer {
           partirEnLineas({ texto, maxWidth: maxWidthEnc, font, size });
 
         let escala = 1;
-        let yNombre = innerBottom + 24;
-        let yGrupo = innerBottom + 8;
-        let metaLineas: string[] = [];
-        let instiLineas: string[] = [];
-        let titLineas: string[] = [];
-        let lemLineas: string[] = [];
-        let sizeInst = 13.2 * fontScaleCabecera;
-        let sizeTit = sizeTitulo;
-        let sizeLem = 9 * fontScaleCabecera;
-        let sizeMetaEsc = sizeMeta;
-        let sizeCampo = 9.8 * fontScaleCabecera;
-        let metaLineGap: number = PLANTILLA_PX.metaLine;
-        let yInsti = innerTop - sizeInst;
-        let yTitulo = yInsti;
-        let yLema = yTitulo;
-        let yMeta = yLema;
-        let yMetaUltima = yMeta;
+        let yNombre: number;
+        let yGrupo: number;
+        let metaLineas: string[];
+        let instiLineas: string[];
+        let titLineas: string[];
+        let lemLineas: string[];
+        let sizeInst: number;
+        let sizeTit: number;
+        let sizeLem: number;
+        let sizeMetaEsc: number;
+        let sizeCampo: number;
+        let metaLineGap: number;
+        let yInsti: number;
+        let yTitulo: number;
+        let yLema: number;
+        let yMeta: number;
+        let yMetaUltima: number;
 
-        for (let i = 0; i < 8; i += 1) {
+        let iteracionesAjuste = 0;
+        do {
           sizeInst = 13.6 * fontScaleCabecera * escala;
           sizeTit = sizeTitulo * escala;
           sizeLem = 9.2 * fontScaleCabecera * escala;
@@ -2486,7 +2586,8 @@ export class PdfKitRenderer {
              break;
            }
            escala = Math.max(0.78, escala - 0.06);
-         }
+           iteracionesAjuste += 1;
+         } while (iteracionesAjuste < 8);
 
          // Anclar la fila de captura a la banda inferior de la cabecera deja
          // libre la zona institucional superior. La reserva usa el número
@@ -2524,7 +2625,11 @@ export class PdfKitRenderer {
         const fieldBandTopBase = Math.min(panelCentralBottom - 1, logoY - 7);
         const etiquetaNombre = 'Nombre del alumno:';
         const etiquetaGrupo = 'Grupo:';
+        const nombreAlumno = String(examen.encabezado?.alumno?.nombre ?? '').trim();
+        const primerNombreAlumno = String(examen.encabezado?.alumno?.primerNombre ?? nombreAlumno.split(/\s+/)[0] ?? '').trim();
         const inicialesAlumno = String(examen.encabezado?.alumno?.iniciales ?? '').trim();
+        const inicialesRestantesAlumno = inicialesAlumno.slice(1);
+        const identidadAlumno = [primerNombreAlumno, inicialesRestantesAlumno].filter(Boolean).join('_');
         const anchoEtiquetaNombre = fuenteBold.widthOfTextAtSize(etiquetaNombre, sizeCampo);
         const anchoEtiquetaGrupo = fuenteBold.widthOfTextAtSize(etiquetaGrupo, sizeCampo);
         const iconoCapturaX = xDatosLeft;
@@ -2641,9 +2746,9 @@ export class PdfKitRenderer {
               color: colorGris
             });
           }
-          headerTextBlocks.push({
-            id: `meta-${indice + 1}`,
-            x: xMeta,
+            headerTextBlocks.push({
+              id: linea.startsWith('Docente:') ? 'meta-docente' : `meta-${indice + 1}`,
+              x: xMeta,
             y: yLinea,
             width: fuenteMeta.widthOfTextAtSize(linea, sizeMetaEsc),
             height: sizeMetaEsc + 1
@@ -2673,25 +2778,30 @@ export class PdfKitRenderer {
           height: 0.8
         });
 
-        if (inicialesAlumno) {
-          const etiquetaIniciales = `Iniciales: ${inicialesAlumno}`;
-          const sizeIniciales = Math.max(5.8, 6.2 * fontScaleCabecera);
-          const anchoIniciales = fuenteBold.widthOfTextAtSize(etiquetaIniciales, sizeIniciales);
-          const xIniciales = Math.max(xLineaNombre + 4, xLineaNombreFin - anchoIniciales);
-          const yIniciales = yNombre + 2.5;
-          page.drawText(etiquetaIniciales, {
-            x: xIniciales,
-            y: yIniciales,
-            size: sizeIniciales,
-            font: fuenteBold,
+        if (identidadAlumno) {
+          const sizeIdentidad = Math.max(5.8, 6.2 * fontScaleCabecera * escala);
+          const anchoIdentidad = fuenteItalica.widthOfTextAtSize(identidadAlumno, sizeIdentidad);
+          const xIdentidad = xDatosRight - anchoIdentidad;
+          // La identificacion ocupa la franja superior derecha, por encima
+          // del renglon manuscrito y fuera de su ancho; el guard de colisiones
+          // valida que tampoco invada docente, metadatos ni el QR.
+          const yIdentidad = yNombre + sizeCampo + 2.5;
+          if (xIdentidad < xDatosLeft || yIdentidad <= yNombre + sizeCampo + 1) {
+            throw new Error('Layout invalido: no hay espacio para la identidad corta fuera del campo manuscrito');
+          }
+          page.drawText(identidadAlumno, {
+            x: xIdentidad,
+            y: yIdentidad,
+            size: sizeIdentidad,
+            font: fuenteItalica,
             color: colorAcento
           });
           headerTextBlocks.push({
-            id: 'alumno-iniciales',
-            x: xIniciales,
-            y: yIniciales,
-            width: anchoIniciales,
-            height: sizeIniciales + 1
+            id: 'alumno-identidad',
+            x: xIdentidad,
+            y: yIdentidad,
+            width: anchoIdentidad,
+            height: sizeIdentidad + 1
           });
         }
 
@@ -2729,6 +2839,9 @@ export class PdfKitRenderer {
             });
           }
         }
+        if (esPrimera && docente && !headerTextBlocks.some((bloque) => bloque.id === 'meta-docente')) {
+          throw new Error('Layout invalido: el nombre del docente no aparece en la cabecera');
+        }
 
         // La zona bajo el QR concentra el conteo de reactivos y la
         // calificación. Mantenerlos aquí elimina una fila saturada a la
@@ -2752,12 +2865,15 @@ export class PdfKitRenderer {
         const anchoConteoReactivos = fuente.widthOfTextAtSize(textoConteoReactivos, sizeCampoAux);
         const xConteoReactivos = Math.min(xZonaCalificacionFin - anchoConteoReactivos, xLineaReactivos + 23);
         const xLineaReactivosFin = xConteoReactivos - 3;
-        const etiquetaCalificacion = 'Calificación (0-5):';
+        const etiquetaCalificacion = perfilCompactoAltaDensidad ? 'Calif. (0-5):' : 'Calificación (0-5):';
         const anchoEtiquetaCalificacion = fuenteBold.widthOfTextAtSize(etiquetaCalificacion, sizeCampoAux);
         // La regla continúa a la derecha de la etiqueta, como un campo de
         // captura convencional; antes quedaba debajo del texto y parecía
         // tacharlo al rasterizar la cabecera.
-        const xLineaCalificacion = xZonaCalificacion + anchoEtiquetaCalificacion + 3;
+        const xEtiquetaCalificacion = perfilCompactoAltaDensidad
+          ? xConteoReactivos + anchoConteoReactivos + 6
+          : xZonaCalificacion;
+        const xLineaCalificacion = xEtiquetaCalificacion + anchoEtiquetaCalificacion + 3;
         const xLineaCalificacionFin = xZonaCalificacionFin;
         if (
           xLineaReactivosFin <= xLineaReactivos
@@ -2768,7 +2884,7 @@ export class PdfKitRenderer {
         }
         page.drawText(etiquetaReactivos, {
           x: xZonaCalificacion,
-          y: yReactivosZonaCalificacion,
+          y: perfilCompactoAltaDensidad ? yCalificacionZona : yReactivosZonaCalificacion,
           size: sizeCampoAux,
           font: fuenteBold,
           color: colorPrimario
@@ -2776,26 +2892,26 @@ export class PdfKitRenderer {
         headerTextBlocks.push({
           id: 'reactivos-etiqueta',
           x: xZonaCalificacion,
-          y: yReactivosZonaCalificacion,
+          y: perfilCompactoAltaDensidad ? yCalificacionZona : yReactivosZonaCalificacion,
           width: anchoEtiquetaReactivos,
           height: sizeCampoAux + 1
         });
         page.drawLine({
-          start: { x: xLineaReactivos, y: yReactivosZonaCalificacion - 2.8 },
-          end: { x: xLineaReactivosFin, y: yReactivosZonaCalificacion - 2.8 },
+          start: { x: xLineaReactivos, y: (perfilCompactoAltaDensidad ? yCalificacionZona : yReactivosZonaCalificacion) - 2.8 },
+          end: { x: xLineaReactivosFin, y: (perfilCompactoAltaDensidad ? yCalificacionZona : yReactivosZonaCalificacion) - 2.8 },
           color: colorLinea,
           thickness: 0.8
         });
         headerFieldBoxes.push({
           id: 'reactivos-linea',
           x: xLineaReactivos,
-          y: yReactivosZonaCalificacion - 3.2,
+          y: (perfilCompactoAltaDensidad ? yCalificacionZona : yReactivosZonaCalificacion) - 3.2,
           width: Math.max(0, xLineaReactivosFin - xLineaReactivos),
           height: 0.8
         });
         page.drawText(textoConteoReactivos, {
           x: xConteoReactivos,
-          y: yReactivosZonaCalificacion,
+          y: perfilCompactoAltaDensidad ? yCalificacionZona : yReactivosZonaCalificacion,
           size: sizeCampoAux,
           font: fuente,
           color: colorGris
@@ -2803,12 +2919,12 @@ export class PdfKitRenderer {
         headerTextBlocks.push({
           id: 'conteo-reactivos',
           x: xConteoReactivos,
-          y: yReactivosZonaCalificacion,
+          y: perfilCompactoAltaDensidad ? yCalificacionZona : yReactivosZonaCalificacion,
           width: anchoConteoReactivos,
           height: sizeCampoAux + 1
         });
         page.drawText(etiquetaCalificacion, {
-          x: xZonaCalificacion,
+          x: xEtiquetaCalificacion,
           y: yCalificacionZona,
           size: sizeCampoAux,
           font: fuenteBold,
@@ -2816,7 +2932,7 @@ export class PdfKitRenderer {
         });
         headerTextBlocks.push({
           id: 'calificacion-etiqueta',
-          x: xZonaCalificacion,
+          x: xEtiquetaCalificacion,
           y: yCalificacionZona,
           width: anchoEtiquetaCalificacion,
           height: sizeCampoAux + 1
@@ -2989,11 +3105,13 @@ export class PdfKitRenderer {
         if (rectInterseca(logoIzqSlot, rectQr) || rectInterseca(logoDerSlot, rectQr)) {
           throw new Error('Layout invalido: un slot de logo invade la reserva del QR');
         }
-        headerSlotBoxes.push(
-          { id: 'logo-izquierdo', ...logoIzqSlot },
-          { id: 'logo-derecho', ...logoDerSlot }
-        );
-        if (logoIzquierda) {
+        if (logoSlotSize > 0) {
+          headerSlotBoxes.push(
+            { id: 'logo-izquierdo', ...logoIzqSlot },
+            { id: 'logo-derecho', ...logoDerSlot }
+          );
+        }
+        if (logoSlotSize > 0 && logoIzquierda) {
           const escala = Math.min(1, logoSlotWidth / Math.max(1, logoIzquierda.width), logoSlotHeight / Math.max(1, logoIzquierda.height));
           const w = logoIzquierda.width * escala;
           const h = logoIzquierda.height * escala;
@@ -3002,7 +3120,7 @@ export class PdfKitRenderer {
           page.drawImage(logoIzquierda.image, { x: xLogo, y: yLogo, width: w, height: h });
         }
 
-        if (logoDerecha) {
+        if (logoSlotSize > 0 && logoDerecha) {
           const escala = Math.min(1, logoDerechoSlotWidth / Math.max(1, logoDerecha.width), logoSlotHeight / Math.max(1, logoDerecha.height));
           const w = logoDerecha.width * escala;
           const h = logoDerecha.height * escala;
@@ -3015,7 +3133,10 @@ export class PdfKitRenderer {
           }
         }
 
-        yFinHeaderPrimera = Math.min(yCaja - separacionCabeceraContenido, yGrupo - 10);
+        // La caja del grupo conserva un respiro claro; 8.5 pt dejan cerca de
+        // 3 mm antes del primer reactivo y recuperan altura útil sin mover los
+        // campos, el QR ni las marcas de registro.
+        yFinHeaderPrimera = Math.min(yCaja - separacionCabeceraContenido, yGrupo - 8.5);
       }
 
       // La reserva del QR y la metadata son zonas independientes: cualquier
@@ -3057,22 +3178,6 @@ export class PdfKitRenderer {
         for (const textBlock of headerTextBlocks) {
           if (rectInterseca(icon, textBlock)) {
             collisionBoxes.push({ pagina: numeroPagina, a: icon.id, b: textBlock.id });
-          }
-        }
-      }
-      if (rectContinuacion) {
-        assertRectDentroPagina(rectContinuacion, 'banda de continuacion');
-        for (let i = 0; i < continuationTextBlocks.length; i += 1) {
-          const bloque = continuationTextBlocks[i];
-          assertRectContenida(bloque, rectContinuacion, `texto ${bloque.id} de la continuacion`);
-          if (rectInterseca(bloque, rectQr)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: bloque.id, b: 'qr' });
-          }
-          for (let j = i + 1; j < continuationTextBlocks.length; j += 1) {
-            const otro = continuationTextBlocks[j];
-            if (rectInterseca(bloque, otro)) {
-              collisionBoxes.push({ pagina: numeroPagina, a: bloque.id, b: otro.id });
-            }
           }
         }
       }
@@ -3137,6 +3242,36 @@ export class PdfKitRenderer {
         const totalOpciones = ordenOpciones.length;
         const anchoOpcionesTotal = Math.max(80, limiteDerecho - xTextoPregunta);
         const prefixWidth = fuenteBold.widthOfTextAtSize('E) ', sizeOpcion) + 3;
+        if (omrEnLinea) {
+          const anchoLinea = Math.max(30, anchoOpcionesTotal - (omrRadio * 2 + mmAPuntos(3)) - prefixWidth);
+          const filas = ordenOpciones.map((indiceOpcion) => {
+            const lineas = envolverTextoMixto({
+              texto: compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto),
+              maxWidth: anchoLinea,
+              fuente,
+              fuenteBold,
+              fuenteItalica,
+              fuenteMono,
+              sizeTexto: sizeOpcion,
+              sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
+              sizeCodigoBloque,
+              lineHeightTexto: lineaOpcion,
+              lineHeightCodigo: lineaCodigoBloque
+            });
+            const altoTexto = lineas.reduce((total, linea) => total + linea.lineHeight, 0);
+            const alto = Math.max(10.5 * MM_A_PUNTOS, omrRadio * 2, altoTexto + rellenoVerticalOpcion);
+            return { indiceOpcion, letra: String.fromCharCode(65 + ordenOpciones.indexOf(indiceOpcion)), lineas, alto };
+          });
+          return {
+            columnas: 1,
+            porColumna: filas.length,
+            gutterCols: 0,
+            colWidth: anchoOpcionesTotal,
+            alturas: filas.map((fila) => fila.alto),
+            alturaGrid: filas.reduce((total, fila) => total + fila.alto, 0),
+            inlineRows: filas
+          };
+        }
         if (omrEsquemaHorizontal && totalOpciones === 5) {
           const indicePrincipal = ordenOpciones.reduce((mejor, indiceOpcion) => {
             const actual = compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto).length;
@@ -3210,9 +3345,51 @@ export class PdfKitRenderer {
             };
           }
         }
-        // Cinco opciones se presentan en tres columnas (3+2). Cada opción
-        // conserva su propia tarjeta, con altura compartida por fila para que
-        // los fondos queden alineados incluso cuando una respuesta se envuelve.
+        // Si las cinco respuestas caben en una linea por celda, usar una
+        // fila reduce la altura del reactivo sin bajar la tipografia. La
+        // reticula 3+2 se conserva como fallback ante cualquier wrap o ancho
+        // insuficiente, y el mismo layout alimenta el plan y el render.
+        if (omrEsquemaHorizontal && totalOpciones === 5) {
+          const columnasCompactas = 5;
+          const gutterCompacto = 5;
+          const anchoColumnaCompacta =
+            (anchoOpcionesTotal - gutterCompacto * (columnasCompactas - 1)) / columnasCompactas;
+          const anchoTextoCompacto = anchoColumnaCompacta - prefixWidth;
+          if (anchoTextoCompacto >= 50) {
+            const lineasCompactas = ordenOpciones.map((indiceOpcion) => envolverTextoMixto({
+              texto: compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto),
+              maxWidth: anchoTextoCompacto,
+              fuente,
+              fuenteBold,
+              fuenteItalica,
+              fuenteMono,
+              sizeTexto: sizeOpcion,
+              sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
+              sizeCodigoBloque,
+              lineHeightTexto: lineaOpcion,
+              lineHeightCodigo: lineaCodigoBloque
+            }));
+            if (lineasCompactas.every((lineas) => lineas.length === 1)) {
+              const altoFilaCompacta = Math.max(
+                alturaMinimaFilaOpcion,
+                ...lineasCompactas.map((lineas) =>
+                  lineas.reduce((total, linea) => total + linea.lineHeight, 0) + rellenoVerticalOpcion
+                )
+              );
+              return {
+                columnas: columnasCompactas,
+                porColumna: 1,
+                gutterCols: gutterCompacto,
+                colWidth: anchoColumnaCompacta,
+                alturas: lineasCompactas.map(() => altoFilaCompacta + separacionTarjetaOpcion),
+                alturaGrid: altoFilaCompacta + separacionTarjetaOpcion
+              };
+            }
+          }
+        }
+
+        // Las respuestas que no caben en cinco celdas de una linea conservan
+        // la reticula 3+2 ya validada para el perfil horizontal.
         const candidatos = totalOpciones >= 5
           ? (omrEsquemaHorizontal ? [3] : [2])
           : [1, 2];
@@ -3320,7 +3497,9 @@ export class PdfKitRenderer {
         // columna más alta subestima el bloque cuando una opción vecina se
         // envuelve a más líneas y deja que el plan difiera del dibujo real.
         const altoOpciones = layoutOpciones.alturaGrid;
-        const altoOmrMin = omrEsquemaHorizontal
+        const altoOmrMin = omrEnLinea
+          ? 0
+          : omrEsquemaHorizontal
           // En el esquema horizontal el panel OMR se coloca en la misma
           // banda vertical que la pregunta. Reservar además `omrHeaderGap`
           // y el margen de seguridad del flujo duplicaba parte de esa banda
@@ -3331,16 +3510,17 @@ export class PdfKitRenderer {
         // columna derecha, debajo del QR. Medirlo como una segunda fila bajo
         // las opciones inflaba artificialmente la altura y dejaba páginas
         // finales subutilizadas.
-        if (omrEsquemaHorizontal) {
-          // El panel OMR comparte la banda vertical del reactivo; no se suma a
-          // la línea del enunciado como si estuviera debajo de las opciones.
-          // La fórmula anterior reservaba `lineasEnunciado + max(opciones,
-          // panel)`, sobreestimando cada reactivo compacto y provocando páginas
-          // adicionales aun cuando el texto y el panel cabían en la misma
-          // banda. La reserva correcta es el máximo entre la altura completa
-          // del contenido y la altura mínima del panel.
+        const separacionReactivo = obtenerSeparacionPregunta(pregunta) + (examen.totalPreguntas > 20 ? 0 : 1);
+        if (omrEnLinea) {
           alto += altoOpciones;
-          alto = Math.max(alto, altoOmrMin);
+        } else if (omrEsquemaHorizontal) {
+          // Texto/opciones y panel OMR usan columnas distintas: cada pista
+          // reserva su propio interlineado y el reactivo ocupa la mayor.
+          // Sumar el separador del texto al alto del panel sobrerreserva cada
+          // reactivo corto, aunque el panel ya conserva su paso mínimo real.
+          const altoFlujoTexto = alto + altoOpciones + separacionEnunciadoOpciones + separacionReactivo;
+          const altoFlujoOmr = altoOmrMin + separacionPanelOmr;
+          return Math.max(altoFlujoTexto, altoFlujoOmr);
         } else {
           // En el perfil vertical el panel sí queda debajo de las opciones;
           // conservar la suma evita que las cinco burbujas salgan de la hoja.
@@ -3361,8 +3541,7 @@ export class PdfKitRenderer {
         // dibujar el bloque. El planificador no agrega una holgura ficticia:
         // el separador real y las comprobaciones geométricas del renderer son
         // la guarda contra colisiones y permiten aprovechar toda la altura.
-        alto += separacionEnunciadoOpciones + separacionPregunta + (examen.totalPreguntas > 20 ? 0 : 1);
-        return alto;
+        return alto + separacionEnunciadoOpciones + separacionReactivo;
       };
 
       if (esPrimera && indicacionesPendientes) {
@@ -3416,13 +3595,14 @@ export class PdfKitRenderer {
         });
         rectIndicaciones = { x: xInd, y: yTopInd - hCaja, width: wInd, height: hCaja };
 
-        page.drawRectangle({
-          x: xInd,
-          y: yTopInd - 4,
-          width: wInd,
-          height: 4,
-          color: colorPrimario
-        });
+        dibujarLineaPunteada(
+          page,
+          { x: xInd + 1, y: yTopInd - 2 },
+          { x: xInd + wInd - 1, y: yTopInd - 2 },
+          colorPrimario,
+          0.65,
+          0.62
+        );
 
         page.drawLine({
           start: { x: xInd + 8, y: yTopInd - 21 },
@@ -3472,7 +3652,23 @@ export class PdfKitRenderer {
       // par dúplex. La capacidad física decide el corte; `totalPaginas` no
       // puede forzar un reparto equilibrado que expulse reactivos a una hoja
       // adicional. Si las dos caras no bastan, el bucle abre otra página real.
-      const topePaginaActual = maxPreguntasPorPagina;
+      // En continuaciones, el primer panel OMR queda debajo del QR, no a la
+      // altura del primer enunciado. Limitar por la altura del texto solamente
+      // podía planear más paneles de los que caben en esa columna; el ajuste
+      // final hacia arriba terminaba solapando los dos últimos paneles.
+      const altoPanelOmrMin = omrEsquemaHorizontal
+        ? Math.max(22, omrRadio * 2 + omrMargenSuperior + omrMargenInferior)
+        : 0;
+      const rellenoPanelOmr = Math.max(0, perfilOmr.omrPanelPadding);
+      const pasoPanelOmrMin = altoPanelOmrMin + separacionPanelOmr + rellenoPanelOmr * 2;
+      const fondoPrimerPanelContinuacion = rectQr.y - 8 - omrRadio * 2 - omrMargenSuperior - omrMargenInferior;
+      const capacidadPanelContinuacion = omrEsquemaHorizontal
+        ? Math.max(1, Math.floor((fondoPrimerPanelContinuacion - alturaDisponibleMin) / pasoPanelOmrMin) + 1)
+        : maxPreguntasPorPagina;
+      const topePaginaActual = Math.min(
+        maxPreguntasPorPagina,
+        !esPrimera ? capacidadPanelContinuacion : maxPreguntasPorPagina
+      );
       // La separación funcional ya está contenida en `separacionPregunta` y
       // en la línea divisoria. No se redistribuye el sobrante de la página:
       // hacerlo producía huecos grandes entre reactivos, especialmente cuando
@@ -3499,7 +3695,6 @@ export class PdfKitRenderer {
           preguntaPlan,
           limiteDerechoPlan
         );
-        if (process.env.DEBUG_PDF_BALANCE === '1') console.error(`[pdf-plan] pagina=${numeroPagina} idx=${indicePregunta + planPagina.length + 1} y=${yPlanPagina.toFixed(2)} h=${alturaPlan.toFixed(2)} safe=${alturaDisponibleMin.toFixed(2)}`);
         if (yPlanPagina - alturaPlan < alturaDisponibleMin) break;
         planPagina.push({ indice: indicePregunta + planPagina.length, altura: alturaPlan });
         // El renderer vuelve a ajustar cada cursor a la retícula de impresión;
@@ -3510,36 +3705,46 @@ export class PdfKitRenderer {
       while (planPagina.length > 0) {
         const simulacion = recalcularPlanPagina();
         if (simulacion.yRender >= alturaDisponibleMin) {
-          yPlanPagina = simulacion.yBase;
           break;
         }
         planPagina.pop();
       }
-      if (planPagina.length === 0) yPlanPagina = cursorY;
-      if (process.env.DEBUG_PDF_BALANCE === '1') {
-        console.error(`[pdf-plan-final] pagina=${numeroPagina} n=${planPagina.length} yBase=${yPlanPagina.toFixed(2)} yRender=${recalcularPlanPagina().yRender.toFixed(2)}`);
-      }
       // Si el corte natural deja una partición muy desigual, probar colas
-      // crecientes del plan actual. Esto también se aplica al salto de la
-      // primera página: la primera pregunta de la siguiente cara tiene una
-      // reserva lateral para el QR y debe validarse con esa geometría real.
-      if (planPagina.length > 2 && (!esPrimera || numeroPagina < paginasObjetivo)) {
+      // crecientes del plan actual y minimizar el espacio vertical libre. En
+      // compactos de 38+ reactivos se omite: llenar cada cara hasta su
+      // capacidad física evita expulsar contenido a una página adicional.
+      const restantesSinRebalance = preguntasOrdenadas.length - (indicePregunta + planPagina.length);
+      const conteosYaEquilibrados = Math.abs(planPagina.length - restantesSinRebalance) <= 1;
+      if (
+        planPagina.length > 2
+        && numeroPagina < paginasObjetivo
+        && !conteosYaEquilibrados
+        && !priorizarCapacidadPorCara
+      ) {
         const restantesTrasPlan = preguntasOrdenadas.length - (indicePregunta + planPagina.length);
         if (restantesTrasPlan > 0 && restantesTrasPlan <= Math.max(minPreguntasPorPagina, planPagina.length)) {
           const yInicioNuevaContinuacion = snapToGrid(
             omrEsquemaHorizontal
               ? Math.min(yTopContinuacionSeguro, limiteContenidoContinuacion)
               : Math.min(yTop - 8, limiteContenidoContinuacion)
-           );
+          );
           const maxReactivosParaMover = Math.min(planPagina.length - 2, 5);
           let movimientoElegido = 0;
-          // No mover nada ya es una solución válida. Solo se redistribuye si
-          // la nueva partición mejora realmente el equilibrio; antes se movía
-          // un reactivo siempre que cupiera en la hoja siguiente, incluso
-          // cuando convertía un reparto 4/4 en 3/5.
-          let mejorDiferencia = Math.abs(planPagina.length - restantesTrasPlan);
-          for (let reactivosAMover = 1; reactivosAMover <= maxReactivosParaMover; reactivosAMover += 1) {
+          let mejorDiferenciaEspacioLibre = Number.POSITIVE_INFINITY;
+          const capacidadPaginaActual = Math.max(0, cursorY - alturaDisponibleMin);
+          const capacidadPaginaSiguiente = Math.max(0, yInicioNuevaContinuacion - alturaDisponibleMin);
+          for (let reactivosAMover = 0; reactivosAMover <= maxReactivosParaMover; reactivosAMover += 1) {
+            const reactivosRestantesPaginaActual = planPagina.length - reactivosAMover;
+            const alturaPaginaActual = planPagina
+              .slice(0, reactivosRestantesPaginaActual)
+              .reduce((total, item) => total + item.altura, 0);
+            if (alturaPaginaActual > capacidadPaginaActual) continue;
+
             const totalNuevaPagina = reactivosAMover + restantesTrasPlan;
+            // Aplicar el mismo tope de paneles OMR que usará la página de
+            // continuación. Medir solo el texto podía mover reactivos a una
+            // franja que no existe debajo del QR y abrir una hoja extra.
+            if (totalNuevaPagina > capacidadPanelContinuacion) continue;
             let yNuevaPagina = yInicioNuevaContinuacion;
             let cabenEnNuevaPagina = true;
             for (let offset = 0; offset < totalNuevaPagina; offset += 1) {
@@ -3558,17 +3763,17 @@ export class PdfKitRenderer {
               yNuevaPagina -= alturaPlan;
             }
             if (cabenEnNuevaPagina) {
-              const paginaActualTrasMovimiento = planPagina.length - reactivosAMover;
-              const diferencia = Math.abs(paginaActualTrasMovimiento - totalNuevaPagina);
-              if (diferencia < mejorDiferencia) {
-                mejorDiferencia = diferencia;
+              const espacioLibreActual = capacidadPaginaActual - alturaPaginaActual;
+              const espacioLibreSiguiente = capacidadPaginaSiguiente - (yInicioNuevaContinuacion - yNuevaPagina);
+              const diferenciaEspacioLibre = Math.abs(espacioLibreActual - espacioLibreSiguiente);
+              if (diferenciaEspacioLibre < mejorDiferenciaEspacioLibre - 0.01) {
+                mejorDiferenciaEspacioLibre = diferenciaEspacioLibre;
                 movimientoElegido = reactivosAMover;
               }
             }
           }
           if (movimientoElegido > 0) {
             for (let indice = 0; indice < movimientoElegido; indice += 1) planPagina.pop();
-            yPlanPagina = recalcularPlanPagina().yBase;
           }
         }
       }
@@ -3580,7 +3785,6 @@ export class PdfKitRenderer {
       // bloques al limite. No se reutiliza como espacio dibujable: hacerlo
       // puede provocar una hoja adicional en bancos que parecen cortos pero
       // tienen opciones de dos lineas.
-      const separacionExtraPagina = 0;
       while (indicePregunta < preguntasOrdenadas.length && cursorY > alturaDisponibleMin) {
         if (mapaPagina.length >= planPagina.length) break;
         const pregunta = preguntasOrdenadas[indicePregunta];
@@ -3597,9 +3801,6 @@ export class PdfKitRenderer {
           pregunta,
           limiteDerechoPregunta
         );
-        if (process.env.DEBUG_PDF_BALANCE === '1') {
-          console.error(`[pdf-render] pagina=${numeroPagina} pregunta=${numero} y=${cursorY.toFixed(2)} h=${alturaNecesaria.toFixed(2)} safe=${alturaDisponibleMin.toFixed(2)} continuacion=${esPrimeraPreguntaContinuacion}`);
-        }
         if (cursorY - alturaNecesaria < alturaDisponibleMin) break;
 
         if (!preguntasDel) preguntasDel = numero;
@@ -3615,7 +3816,7 @@ export class PdfKitRenderer {
         const reservaSuperiorFondo = Math.max(2, lineaPregunta + 2.5);
         const altoFondoPregunta = Math.max(
           1,
-          alturaNecesaria - separacionPregunta - (examen.totalPreguntas > 20 ? 0 : 1)
+          alturaNecesaria - obtenerSeparacionPregunta(pregunta) - (examen.totalPreguntas > 20 ? 0 : 1)
         );
         const fondoPregunta = {
           x: xTextoPregunta - 4,
@@ -3633,14 +3834,14 @@ export class PdfKitRenderer {
           thickness: 0.65,
           opacity: 0.42
         });
-        page.drawRectangle({
-          x: fondoPregunta.x,
-          y: fondoPregunta.y,
-          width: 2.2,
-          height: fondoPregunta.height,
-          color: estiloPregunta.acento,
-          opacity: 0.88
-        });
+        dibujarLineaPunteada(
+          page,
+          { x: fondoPregunta.x + 1.1, y: fondoPregunta.y },
+          { x: fondoPregunta.x + 1.1, y: fondoPregunta.y + fondoPregunta.height },
+          estiloPregunta.acento,
+          0.7,
+          0.55
+        );
         const textoNumero = String(numero);
         const wNum = anchoInsigniaPregunta;
         const xNum = xNumeroPregunta;
@@ -3772,22 +3973,19 @@ export class PdfKitRenderer {
           width: Math.max(30, anchoOpcionesTotal + 2.5),
           height: layoutOpciones.alturaGrid + 2.2
         };
-        page.drawRectangle({
-          ...fondoRespuestas,
-          color: rgb(1, 1, 1),
-          opacity: 0.28,
-          borderWidth: 0
-        });
-        // Contraste ligero para reconocer la zona de respuestas sin crear una
-        // trama densa bajo los glifos. El panel OMR queda fuera de esta caja y
-        // conserva su superficie limpia para el detector.
-        dibujarPatronPunteadoReactivo(page, fondoRespuestas, estiloPregunta.acento);
+        if (!omrEnLinea) {
+          page.drawRectangle({
+            ...fondoRespuestas,
+            color: rgb(1, 1, 1),
+            opacity: 0.28,
+            borderWidth: 0
+          });
+          dibujarPatronPunteadoReactivo(page, fondoRespuestas, estiloPregunta.acento);
+        }
 
-        const opcionesOmr: Array<{ letra: string; x: number; y: number }> = [];
-        let yFinOpciones = yInicioOpciones;
+        const opcionesOmr: Array<{ letra: string; x: number; y: number; radio?: number }> = [];
 
         const opcionesCompactas = 'compacto' in layoutOpciones && layoutOpciones.compacto === true;
-        const opcionesAnchas = 'opcionPrincipal' in layoutOpciones;
         const dibujarEtiquetaInciso = (etiqueta: string, x: number, y: number) => {
           const estiloEtiqueta = {
             size: Math.min(sizeOpcion, 8.2),
@@ -3813,7 +4011,6 @@ export class PdfKitRenderer {
           const lineasFlujo: LineaSegmentos[] = 'lineasFlujo' in layoutOpciones
             ? (layoutOpciones as { lineasFlujo: LineaSegmentos[] }).lineasFlujo
             : [];
-          const altoFlujo = lineasFlujo.reduce((total: number, linea: LineaSegmentos) => total + linea.lineHeight, 0) + rellenoVerticalOpcion;
           dibujarLineasMixtas({
             page,
             lineas: lineasFlujo,
@@ -3822,10 +4019,24 @@ export class PdfKitRenderer {
             colorTexto: colorTinta,
             registrarRuns: (run) => textRunsPregunta.push(run)
           });
-          yFinOpciones = yInicioOpciones - altoFlujo - separacionTarjetaOpcion;
-        } else if (opcionesAnchas) {
-          const principal = layoutOpciones.opcionPrincipal;
-          const restantes = layoutOpciones.opcionesRestantes;
+        } else if ('opcionPrincipal' in layoutOpciones) {
+          const layoutEspecial = layoutOpciones as typeof layoutOpciones & {
+            opcionPrincipal: {
+              indiceOpcion: number;
+              letra: string;
+              lineas: LineaSegmentos[];
+              alto: number;
+            };
+            opcionesRestantes: Array<{
+              indiceOpcion: number;
+              letra: string;
+              indice: number;
+              lineas: LineaSegmentos[];
+              alto: number;
+            }>;
+          };
+          const principal = layoutEspecial.opcionPrincipal;
+          const restantes = layoutEspecial.opcionesRestantes;
           const dibujarTarjetaAncha = (
             xCol: number,
             yLocal: number,
@@ -3866,7 +4077,6 @@ export class PdfKitRenderer {
               item.alto
             );
           }
-          yFinOpciones = yFilaRestantes - layoutOpciones.alturas[0]! - separacionTarjetaOpcion;
         } else {
         const itemsCols = Array.from({ length: columnas }, () => [] as Array<{ indiceOpcion: number; letra: string }>);
         ordenOpciones.forEach((indiceOpcion, indice) => {
@@ -3882,7 +4092,7 @@ export class PdfKitRenderer {
           const textoLimpio = sanitizarTextoPdf(textoOpcion);
           const lineasOpcion = envolverTextoMixto({
             texto: textoLimpio,
-            maxWidth: Math.max(30, colWidth - prefixWidth),
+            maxWidth: Math.max(30, colWidth - prefixWidth - (omrEnLinea ? omrRadio * 2 + mmAPuntos(3) : 0)),
             fuente,
             fuenteBold,
             fuenteItalica: fuenteItalica,
@@ -3909,7 +4119,11 @@ export class PdfKitRenderer {
             }
           }
           const altoTextoOpcion = lineasOpcion.reduce((acc, linea) => acc + linea.lineHeight, 0);
-          const altoFilaOpcion = Math.max(alturaMinimaFilaOpcion, altoTextoOpcion + rellenoVerticalOpcion);
+          const altoFilaOpcion = Math.max(
+            alturaMinimaFilaOpcion,
+            altoTextoOpcion + rellenoVerticalOpcion,
+            omrEnLinea ? Math.max(omrRadio * 2, 10.5 * MM_A_PUNTOS) : 0
+          );
           return { item, lineasOpcion, altoFilaOpcion };
         }));
         const alturasFilas = Array.from({ length: porColumna }, (_valor, indiceFila) => Math.max(
@@ -3929,11 +4143,31 @@ export class PdfKitRenderer {
           const yTexto = yLocal - Math.max(0, (altoFilaCompartida - altoFilaOpcion) / 2);
           // El fondo alternado ya fue dibujado para todo el reactivo; no se
           // generan tarjetas independientes para cada respuesta.
-          dibujarEtiquetaInciso(`${item.letra})`, xCol, yTexto);
+          const xInciso = xCol + (omrEnLinea ? omrRadio * 2 + mmAPuntos(3) : 0);
+          if (omrEnLinea) {
+            const xBurbuja = xCol + omrRadio;
+            const yBurbuja = yTexto + sizeOpcion * 0.42;
+            const cajaBurbuja: RectBox = {
+              x: xBurbuja - omrRadio,
+              y: yBurbuja - omrRadio,
+              width: omrRadio * 2,
+              height: omrRadio * 2
+            };
+            assertRectDentroPagina(cajaBurbuja, `burbuja inline ${item.letra} de pregunta ${pregunta.id}`);
+            page.drawCircle({
+              x: xBurbuja,
+              y: yBurbuja,
+              size: omrRadio,
+              borderWidth: perfilOmr.bubbleStrokePt ?? perfilOmr.burbujaStroke,
+              borderColor: rgb(0, 0, 0)
+            });
+            opcionesOmr.push({ letra: item.letra, x: xBurbuja, y: yBurbuja, radio: omrRadio });
+          }
+          dibujarEtiquetaInciso(`${item.letra})`, xInciso, yTexto);
           const yFinal = dibujarLineasMixtas({
             page,
             lineas: lineasOpcion,
-            x: xCol + prefixWidth,
+            x: xInciso + prefixWidth,
             y: yTexto,
             colorTexto: colorTinta,
             registrarRuns: (run) => textRunsPregunta.push(run)
@@ -3963,9 +4197,22 @@ export class PdfKitRenderer {
           }
           yFilaGrid -= altoFilaCompartida + separacionTarjetaOpcion;
         }
-        yFinOpciones = yFilaGrid;
         }
         const letras = letrasOmr;
+        let cajaOmrPregunta: RectBox;
+        let etiquetaBordeInferiorGapOmr: number | undefined;
+        let fiducialesOmrPregunta: NonNullable<PaginaOmr['preguntas'][number]['fiduciales']> | undefined;
+        if (omrEnLinea) {
+          if (opcionesOmr.length !== letras.length) {
+            throw new Error(`Layout invalido: faltan burbujas inline para la pregunta ${numero}`);
+          }
+          const left = Math.min(...opcionesOmr.map((item) => item.x - omrRadio));
+          const right = Math.max(...opcionesOmr.map((item) => item.x + omrRadio));
+          const bottom = Math.min(...opcionesOmr.map((item) => item.y - omrRadio));
+          const top = Math.max(...opcionesOmr.map((item) => item.y + omrRadio));
+          cajaOmrPregunta = { x: left, y: bottom, width: right - left, height: top - bottom };
+          assertRectDentroPagina(cajaOmrPregunta, `caja de burbujas inline de la pregunta ${numero}`);
+        } else {
         // En una continuación, el primer reactivo usa el ancho izquierdo para
         // no invadir el QR. Su panel OMR, sin embargo, cabe en la columna
         // derecha justo debajo del QR. Colocarlo allí evita añadir una altura
@@ -4013,6 +4260,7 @@ export class PdfKitRenderer {
           width: anchoColRespuesta,
           height: hCaja
         };
+        cajaOmrPregunta = panelRect;
         const panelOuterRect: RectBox = {
           x: xPanel - panelPad,
           y: bottom - panelPad,
@@ -4050,21 +4298,33 @@ export class PdfKitRenderer {
           );
         }
 
-        const hTag = perfilOmr.omrTagHeight;
+        const hTag = perfilCompactoAltaDensidad ? 0 : perfilOmr.omrTagHeight;
         const wTag = perfilOmr.omrTagWidth;
         // El fiducial superior izquierdo ocupa la esquina del panel. Separar
         // la etiqueta del borde evita que el cuadrado se lea como un símbolo
         // pegado al número del reactivo al rasterizar a baja resolución.
-        const xTag = xPanel + 10;
+        // El fiducial reforzado necesita una reserva horizontal mayor; mover
+        // la insignia unos puntos evita invadir su quiet zone sin acercarla
+        // al borde derecho del panel.
+        const xTag = xPanel + 13;
         // El borde superior del panel es una reserva real: colocar aquí la
         // insignia deja la holgura completa de la banda antes de la burbuja,
         // incluso si sus proyecciones horizontales coinciden.
         const yTag = omrEsquemaHorizontal ? top - hTag : yPrimeraBurbuja + omrRadio + 3;
-        const cajaNumeroOmr: RectBox = { x: xTag, y: yTag, width: wTag, height: hTag };
+        const cajaNumeroOmr: RectBox = {
+          x: xTag,
+          y: yTag,
+          width: perfilCompactoAltaDensidad ? 0 : wTag,
+          height: hTag
+        };
         assertRectContenida(cajaNumeroOmr, panelRect, `insignia numerica OMR de la pregunta ${numero}`);
         // No se dibuja una franja de color dentro del panel: en una captura
         // móvil podría contaminar la referencia de blanco del detector.
-        if (this.perfilLayout.usarEtiquetaOmrSolida) {
+        if (perfilCompactoAltaDensidad) {
+          // El número ya está impreso y alineado en el carril de pregunta. La
+          // repetición dentro del panel es redundante y se omite solo en la
+          // plantilla compacta de 36+ reactivos para liberar altura OMR.
+        } else if (this.perfilLayout.usarEtiquetaOmrSolida) {
           page.drawRectangle({ x: xTag, y: yTag, width: wTag, height: hTag, color: colorPrimario, opacity: 0.9 });
           for (const punto of [
             { x: xTag + 2.1, y: yTag + 2.1 },
@@ -4119,6 +4379,7 @@ export class PdfKitRenderer {
         // aumentar la caja OMR: el panel debe seguir siendo compacto y la
         // etiqueta debe conservar una reserva visible al rasterizar.
         const etiquetaOmrOffsetVertical = omrEsquemaHorizontal ? 4.8 : 8.5;
+        etiquetaBordeInferiorGapOmr = omrMargenInferior - etiquetaOmrOffsetVertical;
         const xBurbujaBase = omrEsquemaHorizontal
           ? xPanel + (anchoColRespuesta - (letras.length - 1) * omrPasoX) / 2
           : xPanel + Math.max(
@@ -4253,21 +4514,22 @@ export class PdfKitRenderer {
           const detalle = collisionBoxes.map((colision) => `${colision.a}<->${colision.b}`).join(', ');
           throw new Error(`Layout invalido: colisiones en la pregunta ${numero} de la pagina ${numeroPagina}: ${detalle}`);
         }
-
-        // En el perfil compacto el panel OMR ocupa una banda vertical real
-        // aunque viva en la columna derecha. El cursor debe respetar su borde
-        // inferior para que dos cuadros consecutivos nunca se solapen; el
-        // planificador reserva esta misma altura mediante `altoOmrMin`.
-        // La excepción vertical del primer reactivo de continuación mantiene
-        // su anclaje independiente bajo el QR, tal como exige ese layout.
-        cursorY = omrEsquemaHorizontal
-          ? yFinOpciones
-          : Math.min(yFinOpciones, bottom - 2);
-        const hayOtraPreguntaPlaneada = mapaPagina.length < planPagina.length;
-        cursorY -= separacionPregunta + (hayOtraPreguntaPlaneada ? separacionExtraPagina : 0);
-        // La retícula nunca debe redondear hacia arriba sobre el panel OMR
-        // anterior: en ese caso el siguiente bloque podría invadirlo.
-        cursorY = Math.min(cursorY, snapToGrid(cursorY));
+        fiducialesOmrPregunta = {
+          leftTop: { x: xFid, y: yFidTop },
+          leftBottom: { x: xFid, y: yFidBottom },
+          rightTop: { x: xFidRight, y: yFidTop },
+          rightBottom: { x: xFidRight, y: yFidBottom }
+        };
+        }
+        // El planificador reserva el máximo entre el flujo de texto y el panel
+        // OMR. Reusar la altura planificada mantiene ambos carriles en la
+        // misma retícula y evita que la altura menor del texto acumule deriva.
+        const separacionPreguntaActual = obtenerSeparacionPregunta(pregunta) + (examen.totalPreguntas > 20 ? 0 : 1);
+        const alturaPlanificadaActual = planPagina[mapaPagina.length]?.altura;
+        if (!Number.isFinite(alturaPlanificadaActual) || alturaPlanificadaActual <= 0) {
+          throw new Error(`Layout invalido: falta altura planificada para el reactivo ${numero}`);
+        }
+        cursorY = yPreguntaTop - alturaPlanificadaActual;
         page.drawLine({
           // La regla queda debajo de la siguiente línea base; con una
           // separación compacta no debe atravesar los ascendentes del próximo
@@ -4277,7 +4539,7 @@ export class PdfKitRenderer {
           color: estiloPregunta.acento,
           thickness: 0.55
         });
-        const yFinPregunta = cursorY + separacionPregunta;
+        const yFinPregunta = cursorY + separacionPreguntaActual;
 
         indicePregunta += 1;
         const bboxPregunta = {
@@ -4300,21 +4562,17 @@ export class PdfKitRenderer {
             ? (layoutImagen?.lateral ? 'lateral' : 'inferior')
             : undefined,
           imageRenderStatus: estadoImagenPregunta.get(pregunta.id),
-          cajaOmr: panelRect,
+          cajaOmr: cajaOmrPregunta,
           perfilOmr: {
             radio: omrRadio,
             pasoY: omrPasoY,
             pasoX: omrPasoX || pasoBurbujaX,
-            cajaAncho: anchoColRespuesta,
+            cajaAncho: cajaOmrPregunta.width,
             orientacion: perfilOmr.orientacion,
-            etiquetaBordeInferiorGap: omrMargenInferior - etiquetaOmrOffsetVertical
+            etiquetaBordeInferiorGap: etiquetaBordeInferiorGapOmr,
+            ubicacion: omrEnLinea ? 'junto-a-opcion' : 'panel-separado'
           },
-          fiduciales: {
-            leftTop: { x: xFid, y: yFidTop },
-            leftBottom: { x: xFid, y: yFidBottom },
-            rightTop: { x: xFidRight, y: yFidTop },
-            rightBottom: { x: xFidRight, y: yFidBottom }
-          }
+          fiduciales: fiducialesOmrPregunta
         });
       }
 
@@ -4324,6 +4582,47 @@ export class PdfKitRenderer {
             `pero el renderer dibujo ${mapaPagina.length}`
         );
       }
+      const violacionesTipograficasPagina = lineHeightViolations.filter((violacion) => violacion.pagina === numeroPagina);
+      if (violacionesTipograficasPagina.length > 0) {
+        throw new Error(`Layout invalido: el reactivo no conserva la altura tipografica minima en la pagina ${numeroPagina}`);
+      }
+
+      const alturasPlanificadasRenderizadas = mapaPagina.map((preguntaRenderizada, indice) => {
+        const preguntaPlanificada = planPagina[indice];
+        const preguntaBasePlanificada = preguntaPlanificada
+          ? preguntasOrdenadas[preguntaPlanificada.indice]
+          : undefined;
+        const alturaPlanificada = preguntaPlanificada?.altura ?? 0;
+        const alturaRenderizada = preguntaRenderizada.bboxPregunta?.height ?? 0;
+        if (
+          !Number.isFinite(alturaPlanificada)
+          || alturaPlanificada <= 0
+          || !Number.isFinite(alturaRenderizada)
+          || alturaRenderizada <= 0
+          || alturaRenderizada > alturaPlanificada + GRID_STEP + 0.05
+        ) {
+          throw new Error(
+            `Layout invalido: el reactivo ${preguntaRenderizada.numeroPregunta} de la pagina ${numeroPagina} ` +
+              `excede su reserva previa (${alturaRenderizada.toFixed(2)} pt dibujados, ` +
+              `${alturaPlanificada.toFixed(2)} pt planeados)`
+          );
+        }
+        if ((preguntaRenderizada.bboxPregunta?.y ?? 0) < alturaDisponibleMin - 0.01) {
+          throw new Error(
+            `Layout invalido: el reactivo ${preguntaRenderizada.numeroPregunta} invade el margen inferior seguro ` +
+              `de la pagina ${numeroPagina}`
+          );
+        }
+        return {
+          questionId: preguntaRenderizada.idPregunta,
+          plannedHeightPt: Number(alturaPlanificada.toFixed(3)),
+          renderedHeightPt: Number(alturaRenderizada.toFixed(3)),
+          contentCharacters: preguntaBasePlanificada ? contarCaracteresPregunta(preguntaBasePlanificada) : 0,
+          interQuestionGapPt: preguntaBasePlanificada
+            ? Number(obtenerSeparacionPregunta(preguntaBasePlanificada).toFixed(3))
+            : 0
+        };
+      });
 
       if (mapaPagina.length === 0 && indicePregunta < totalPreguntas) {
         throw new Error(
@@ -4338,10 +4637,8 @@ export class PdfKitRenderer {
       // Se redibuja sobre la reserva ya calculada para conservar el layout.
       const questionIdsPagina = mapaPagina.map((pregunta) => pregunta.idPregunta);
       const qrTextoPaginaFinal = examen.generarTextoQrPagina(numeroPagina, questionIdsPagina);
-      if (qrTextoPaginaFinal !== qrTextoPagina) {
-        qrTextoPagina = qrTextoPaginaFinal;
-        qrInfo = await agregarQr(pdfDoc, page, qrTextoPagina, margen, perfilOmr);
-      }
+      qrTextoPagina = qrTextoPaginaFinal;
+      qrInfo = await agregarQr(pdfDoc, page, qrTextoPagina, margen, perfilOmr);
 
       // Dibujar la leyenda después de la actualización final del QR. En una
       // página densa el QR se regenera con sus preguntas reales; hacerlo antes
@@ -4361,7 +4658,10 @@ export class PdfKitRenderer {
         const xLeyendaQr = rectQr.x + Math.max(2, (anchoReservaQr - anchoLeyendaQr) / 2);
         page.drawRectangle({
           x: cardX + 1,
-          y: cardY + cardH - qrPadding - Math.min(7, Math.max(1, qrPadding - 0.8)),
+          // La franja superior de la tarjeta es la quiet zone exterior. La
+          // posicion anterior restaba la altura de la leyenda y cubria los
+          // modulos superiores del QR al rasterizar la pagina.
+          y: cardY + cardH - qrPadding,
           width: Math.max(1, cardW - 2),
           height: Math.min(7, Math.max(1, qrPadding - 0.8)),
           color: rgb(0.96, 0.98, 1),
@@ -4374,6 +4674,153 @@ export class PdfKitRenderer {
           font: fuenteBold,
           color: colorPrimario
         });
+      }
+
+      // Una sola grapa sostiene el paquete. La reserva y la corona quedan
+      // verticales, paralelas al borde izquierdo; la etiqueta también se
+      // compone en vertical y se separa de la línea para conservar legibilidad.
+      if (esPrimera) {
+        const stapleWidth = mmAPuntos(8);
+        const stapleHeight = mmAPuntos(20);
+        const slotLogoIzquierdo = headerSlotBoxes.find((slot) => slot.id === 'logo-izquierdo');
+        const stapleXPreferido = mmAPuntos(4.5);
+        const stapleXMinimo = mmAPuntos(4.5);
+        // Mantener la guía en el margen izquierdo; desplazarla solo lo
+        // necesario para conservar 1 mm de separación del slot institucional.
+        const stapleXMaximo = slotLogoIzquierdo
+          ? slotLogoIzquierdo.x - stapleWidth
+          : stapleXPreferido;
+        if (stapleXMaximo < stapleXMinimo) {
+          throw new Error('Layout invalido: no hay espacio imprimible seguro para la grapa');
+        }
+        const stapleX = Math.min(stapleXPreferido, stapleXMaximo);
+        stapleZone = {
+          x: stapleX,
+          // Baja 2 mm respecto al límite previo para mantener separación
+          // verificable de la quiet zone del fiducial superior izquierdo.
+          y: ALTO_CARTA - mmAPuntos(42),
+          width: stapleWidth,
+          height: stapleHeight
+        };
+        zonaEngrapadoFisica = stapleZone;
+        stapleKeepOutZone = stapleZone;
+        assertRectDentroPagina(stapleZone, 'zona de engrapado');
+        const quietFiducialSuperiorIzquierdo: RectBox = {
+          x: Math.max(0, margen - perfilOmr.marcaCuadradoQuietZone),
+          y: Math.max(0, ALTO_CARTA - margen - perfilOmr.marcaCuadradoSize - perfilOmr.marcaCuadradoQuietZone),
+          width: perfilOmr.marcaCuadradoSize + perfilOmr.marcaCuadradoQuietZone * 2,
+          height: perfilOmr.marcaCuadradoSize + perfilOmr.marcaCuadradoQuietZone * 2
+        };
+        const margenSeguridadFiducial = mmAPuntos(2);
+        const rectQrExpandido: RectBox = {
+          x: rectQr.x - mmAPuntos(1),
+          y: rectQr.y - mmAPuntos(1),
+          width: rectQr.width + mmAPuntos(2),
+          height: rectQr.height + mmAPuntos(2)
+        };
+        const bloquesNoGrapables = [
+          ...headerSlotBoxes,
+          ...headerTextBlocks,
+          ...headerIconBoxes,
+          ...headerFieldBoxes,
+          ...questionBlockBoxes,
+          ...questionPromptBoxes,
+          ...omrPanelBoxes
+        ];
+        const fiducialInvadido = stapleKeepOutZone.y + stapleKeepOutZone.height > quietFiducialSuperiorIzquierdo.y - margenSeguridadFiducial
+          || rectInterseca(stapleKeepOutZone, quietFiducialSuperiorIzquierdo);
+        const qrInvadido = rectInterseca(stapleKeepOutZone, rectQrExpandido);
+        const contenidoInvadido = bloquesNoGrapables.filter((caja) => rectInterseca(stapleKeepOutZone!, caja)).map(({ id }) => id);
+        if (fiducialInvadido || qrInvadido || contenidoInvadido.length > 0) {
+          throw new Error(`Layout invalido: reserva de engrapado invade fiducial=${fiducialInvadido}, qr=${qrInvadido}, contenido=${contenidoInvadido.join(',')}`);
+        }
+        // Calado blanco sin cobertura de tinta: evita que el marco y el
+        // ornamento preexistentes atraviesen la marca de engrapado.
+        page.drawRectangle({ ...stapleZone, color: rgb(1, 1, 1) });
+        const pasoPuntosGrapa = 4.2;
+        const puntoIzquierdo = stapleZone.x + 1;
+        const puntoDerecho = stapleZone.x + stapleZone.width - 1;
+        for (let y = stapleZone.y + 2; y <= stapleZone.y + stapleZone.height - 2; y += pasoPuntosGrapa) {
+          page.drawCircle({ x: puntoIzquierdo, y, size: 0.28, color: colorAcento, opacity: 0.12 });
+          page.drawCircle({ x: puntoDerecho, y, size: 0.28, color: colorAcento, opacity: 0.12 });
+        }
+        for (let x = stapleZone.x + 2; x <= stapleZone.x + stapleZone.width - 2; x += pasoPuntosGrapa) {
+          page.drawCircle({ x, y: stapleZone.y + 1, size: 0.28, color: colorAcento, opacity: 0.12 });
+          page.drawCircle({ x, y: stapleZone.y + stapleZone.height - 1, size: 0.28, color: colorAcento, opacity: 0.12 });
+        }
+        const centroGrapa = {
+          x: stapleZone.x + stapleZone.width / 2,
+          y: stapleZone.y + stapleZone.height / 2
+        };
+        const mediaCorona = mmAPuntos(6.4);
+        const extensionPata = mmAPuntos(3);
+        for (const signo of [-1, 1] as const) {
+          const extremo = { x: centroGrapa.x, y: centroGrapa.y + signo * mediaCorona };
+          page.drawLine({
+            start: extremo,
+            end: { x: extremo.x + extensionPata, y: extremo.y },
+            color: colorPrimario,
+            thickness: 0.5
+          });
+        }
+        page.drawLine({
+          start: { x: centroGrapa.x, y: centroGrapa.y - mediaCorona },
+          end: { x: centroGrapa.x, y: centroGrapa.y + mediaCorona },
+          color: colorPrimario,
+          thickness: 0.5
+        });
+        const etiquetaGrapa = 'GRAPA';
+        const etiquetaGrapaSize = 4.2;
+        const etiquetaGrapaWidth = fuente.widthOfTextAtSize(etiquetaGrapa, etiquetaGrapaSize);
+        const etiquetaGrapaFontHeight = fuenteBold.heightAtSize(etiquetaGrapaSize);
+        const etiquetaGrapaX = stapleZone.x + mmAPuntos(1.2);
+        const etiquetaGrapaY = stapleZone.y + (stapleZone.height - etiquetaGrapaWidth) / 2;
+        stapleLabelZone = {
+          x: etiquetaGrapaX,
+          y: etiquetaGrapaY,
+          width: etiquetaGrapaFontHeight,
+          height: etiquetaGrapaWidth,
+          rotation: 270
+        };
+        page.drawText(etiquetaGrapa, {
+          x: etiquetaGrapaX,
+          y: etiquetaGrapaY + etiquetaGrapaWidth,
+          size: etiquetaGrapaSize,
+          font: fuenteBold,
+          color: colorPrimario,
+          rotate: degrees(270)
+        });
+      }
+
+      if (stapleKeepOutZone) {
+        if (!esPrimera) {
+          const cajasContenidoEnReserva = [
+            { id: 'qr', ...rectQr },
+            ...headerSlotBoxes,
+            ...headerTextBlocks,
+            ...headerIconBoxes,
+            ...headerFieldBoxes,
+            ...questionPromptBoxes,
+            ...omrPanelBoxes,
+            ...continuationTextBlocks
+          ];
+          const colisionesReserva = cajasContenidoEnReserva
+            .filter((caja) => rectInterseca(stapleKeepOutZone!, caja))
+            .map(({ id }) => id);
+          if (colisionesReserva.length > 0) {
+            throw new Error(`Layout invalido: la reserva de engrapado invade ${colisionesReserva.join(', ')} en la pagina ${numeroPagina}`);
+          }
+          page.drawRectangle({ ...stapleKeepOutZone, color: rgb(1, 1, 1) });
+        }
+        for (const pregunta of mapaPagina) {
+          for (const opcion of pregunta.opciones) {
+            const puntoX = Math.max(stapleKeepOutZone.x, Math.min(opcion.x, stapleKeepOutZone.x + stapleKeepOutZone.width));
+            const puntoY = Math.max(stapleKeepOutZone.y, Math.min(opcion.y, stapleKeepOutZone.y + stapleKeepOutZone.height));
+            if (Math.hypot(opcion.x - puntoX, opcion.y - puntoY) < perfilOmr.burbujaRadio) {
+              throw new Error(`Layout invalido: una burbuja OMR invade la reserva fisica de engrapado en la pagina ${numeroPagina}`);
+            }
+          }
+        }
       }
 
       const alturaUtil = Math.max(1, cursorYInicio - alturaDisponibleMin);
@@ -4404,6 +4851,7 @@ export class PdfKitRenderer {
           indiceEnHoja: numeroPagina % 2 === 1 ? 1 : 2
         },
         templateVersion: perfilOmr.version,
+        templateId: perfilOmr.templateId,
         markerSpec,
         engineHints,
         qr: {
@@ -4412,6 +4860,7 @@ export class PdfKitRenderer {
           y: yQr,
           size: qrSize,
           padding: qrPadding,
+          errorCorrectionLevel: qrInfo.errorCorrectionLevel,
           marginModules: qrInfo.marginModules,
           matrixModules: qrInfo.matrixModules
         },
@@ -4420,7 +4869,9 @@ export class PdfKitRenderer {
         layoutDebug: {
           layoutTemplateVersion: TEMPLATE_VERSION_CANONICA,
           header: { x: rectHeader.x, y: rectHeader.y, width: rectHeader.width, height: rectHeader.height },
-          continuationBand: rectContinuacion,
+          bindingZone: stapleZone,
+          bindingKeepOutZone: stapleKeepOutZone,
+          bindingLabel: stapleLabelZone,
           continuationTextBlocks,
           qr: { x: rectQr.x, y: rectQr.y, width: rectQr.width, height: rectQr.height },
           instructions: rectIndicaciones,
@@ -4428,6 +4879,7 @@ export class PdfKitRenderer {
           headerIconBoxes,
           headerTextBlocks,
           headerFieldBoxes,
+          plannedQuestionHeights: alturasPlanificadasRenderizadas,
           lineHeightViolations: lineHeightViolations
             .filter((v) => v.pagina === numeroPagina)
             .map((v) => ({ preguntaId: v.preguntaId, lineHeight: v.lineHeight, min: v.min })),
@@ -4475,13 +4927,18 @@ export class PdfKitRenderer {
       mapaOmr: {
         margenMm,
         templateVersion: perfilOmr.version,
+        templateId: perfilOmr.templateId,
         markerSpec,
         blockSpec,
         engineHints,
         impresion: {
           modo: 'duplex',
           volteo: 'borde-largo',
-          paginasPorHoja: 2
+          paginasPorHoja: 2,
+          toleranciaRegistroMm: (() => {
+            const valor = Number.parseFloat(process.env.EXAMEN_OMR_TOLERANCIA_REGISTRO_DUPLEX_MM ?? '3');
+            return Number.isFinite(valor) ? Math.min(10, Math.max(0, valor)) : 3;
+          })()
         },
         perfilLayout: {
           gridStepPt: this.perfilLayout.gridStepPt,
@@ -4515,5 +4972,3 @@ export class PdfKitRenderer {
     };
   }
 }
-
-

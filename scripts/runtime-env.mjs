@@ -6,6 +6,21 @@
  */
 import fs from 'node:fs';
 
+const CLAVES_CLASSROOM_RUNTIME = [
+  'CLASSROOM_ENABLED',
+  'GOOGLE_CLASSROOM_CLIENT_ID',
+  'GOOGLE_CLASSROOM_CLIENT_SECRET',
+  'GOOGLE_CLASSROOM_REDIRECT_URI',
+  'CLASSROOM_TOKEN_CIPHER_KEY'
+];
+
+export function obtenerClavesEnvAutoritativas({ nodeEnv, flavor } = {}) {
+  if (String(nodeEnv || '').trim() !== 'production' || String(flavor || '').trim().toLowerCase() !== 'docente-local') {
+    return [];
+  }
+  return ['DATABASE_URL', 'BACKEND_DATABASE_URL', ...CLAVES_CLASSROOM_RUNTIME];
+}
+
 export function cargarVariablesEnvDesdeArchivo(envPath, target = process.env, options = {}) {
   if (!fs.existsSync(envPath)) return target;
 

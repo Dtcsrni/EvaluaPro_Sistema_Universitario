@@ -73,7 +73,7 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
     )
   );
   const preguntasDb = preguntasIds.length ? await BancoPregunta.find({ _id: { $in: preguntasIds } }).lean() : [];
-  const codigo = await CodigoAcceso.findOne({ docenteId, periodoId, usado: false }).lean();
+  const codigo = await CodigoAcceso.findOne({ docenteId, periodoId, usado: false, expiraEn: { gt: syncClock.now() } }).lean();
 
   const examenesPayload: Array<Record<string, unknown>> = [];
   for (const examen of examenes) {

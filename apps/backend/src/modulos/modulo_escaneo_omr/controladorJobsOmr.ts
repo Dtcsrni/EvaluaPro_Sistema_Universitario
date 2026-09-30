@@ -6,11 +6,14 @@
  * `/omr/analizar`, evitando dos motores con reglas distintas.
  */
 import type { Response } from 'express';
+import { createHash } from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { rasterizarPdfParaPreview } from '../modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
 import { analizarImagen } from './controladorEscaneoOmr.js';
+import { esquemaListarJobsOmr } from './validacionesOmr.js';
+import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './omr/decision/respuestaRevision.js';
 
 type CapturaOmr = { nombreArchivo?: string; imagenBase64: string };
 type TipoFuenteOmr = 'image_batch' | 'camera_capture' | 'pdf';
@@ -28,7 +31,7 @@ type PaginaJob = {
   manualReviewRequired: boolean;
   identityResult?: { studentId?: string | null; studentName?: string | null };
   versionResult?: { versionCode?: string | null };
-  responses: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
+  responses: RespuestaRevisionOmr[];
   exceptions: Array<{ code: string; severity: 'info' | 'warning' | 'blocking'; message: string; recommendedAction?: string }>;
   resultado?: {
     estadoAnalisis: string;
@@ -39,6 +42,8 @@ type PaginaJob = {
 
 type JobMetadata = {
   version: 1;
+  clientRequestId?: string;
+  requestHash?: string;
   assessmentId: string;
   folio: string;
   sourceType: TipoFuenteOmr;
@@ -59,6 +64,20 @@ function parseJsonSafe<T>(value: unknown, fallback: T): T {
 
 function quitarPrefijoDataUrl(value: string) {
   return String(value || '').replace(/^data:[^;]+;base64,/i, '').replace(/\s+/g, '');
+}
+
+function hashSolicitudJobOmr(body: { generatedAssessmentId: string; sourceType: TipoFuenteOmr; capturas: CapturaOmr[] }) {
+  const hash = createHash('sha256');
+  const agregar = (value: string) => {
+    hash.update(`${Buffer.byteLength(value, 'utf8')}:`).update(value);
+  };
+  agregar(body.generatedAssessmentId);
+  agregar(body.sourceType);
+  for (const captura of body.capturas) {
+    agregar(captura.nombreArchivo ?? '');
+    agregar(captura.imagenBase64);
+  }
+  return hash.digest('hex');
 }
 
 function esPdf(captura: CapturaOmr, sourceType: TipoFuenteOmr) {
@@ -117,27 +136,29 @@ function ejecutarAnalisisInterno(params: {
   });
 }
 
-function convertirResultadoAPagina(folio: string, pageIndex: number, payload: any, sourceFileName?: string): PaginaJob {
+function convertirResultadoAPagina(
+  folio: string,
+  pageIndex: number,
+  payload: any,
+  sourceFileName?: string,
+  forzarRevisionManual = false
+): PaginaJob {
   const resultado = payload?.resultado ?? {};
   const estado = String(resultado.estadoAnalisis ?? 'requiere_revision');
   const scanStatus: PaginaJob['scanStatus'] = estado === 'ok' ? 'accepted' : estado === 'rechazado_calidad' ? 'rejected' : 'needs_review';
   const motivos = Array.isArray(resultado.motivosRevision) ? resultado.motivosRevision.map((item: unknown) => String(item)).filter(Boolean) : [];
   const respuestas = Array.isArray(resultado.respuestasDetectadas)
-    ? resultado.respuestasDetectadas.map((item: any) => ({
-        numeroPregunta: Number(item.numeroPregunta),
-        opcion: typeof item.opcion === 'string' ? item.opcion : null,
-        confianza: Number(item.confianza ?? 0)
-      }))
+    ? resultado.respuestasDetectadas.map(proyectarRespuestaParaRevisionOmr)
     : [];
   const confidence = Number(resultado.confianzaPromedioPagina ?? 0);
-  return {
+  const pagina: PaginaJob = {
     sheetSerial: `${folio}-P${pageIndex}`,
     pageIndex,
     ...(sourceFileName ? { sourceFileName } : {}),
     scanStatus,
     confidence: Number.isFinite(confidence) ? confidence : 0,
-    autoGradable: scanStatus === 'accepted',
-    manualReviewRequired: scanStatus !== 'accepted',
+    autoGradable: !forzarRevisionManual && scanStatus === 'accepted',
+    manualReviewRequired: forzarRevisionManual || scanStatus !== 'accepted',
     identityResult: { studentId: payload?.alumnoId ?? null },
     versionResult: { versionCode: null },
     responses: respuestas,
@@ -153,6 +174,16 @@ function convertirResultadoAPagina(folio: string, pageIndex: number, payload: an
       ratioAmbiguas: Number(resultado.ratioAmbiguas ?? 1)
     }
   };
+  if (forzarRevisionManual && scanStatus === 'accepted') {
+    pagina.scanStatus = 'needs_review';
+    pagina.exceptions.push({
+      code: 'OMR_TEMPLATE_EXPERIMENTAL',
+      severity: 'warning',
+      message: 'La plantilla OMR integrada es experimental y requiere revisión humana completa.',
+      recommendedAction: 'Confirmar identidad y cada respuesta contra la captura original.'
+    });
+  }
+  return pagina;
 }
 
 function toPublicJob(job: { id: string; estado: string; totalHojas: number; procesadas: number; metadata: string | null }) {
@@ -165,7 +196,10 @@ function toPublicJob(job: { id: string; estado: string; totalHojas: number; proc
     errors: [],
     reviewResolutions: []
   });
-  const pages = Array.isArray(metadata.pages) ? metadata.pages : [];
+  const pages = Array.isArray(metadata.pages) ? metadata.pages.map((page) => ({
+    ...page,
+    responses: Array.isArray(page.responses) ? page.responses.map(proyectarRespuestaParaRevisionOmr) : []
+  })) : [];
   const accepted = pages.filter((page) => page.scanStatus === 'accepted').length;
   const needsReview = pages.filter((page) => page.scanStatus === 'needs_review').length;
   const rejected = pages.filter((page) => page.scanStatus === 'rejected').length;
@@ -212,9 +246,74 @@ async function obtenerJob(docenteId: string, jobId: string) {
   return job;
 }
 
+export async function listarJobsOmr(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const filtros = esquemaListarJobsOmr.safeParse(req.query);
+  if (!filtros.success) throw new ErrorAplicacion('OMR_QUERY_INVALIDA', 'Los filtros de jobs OMR no cumplen el contrato', 400, filtros.error.flatten());
+  let cursor: { id: string; createdAt: Date } | undefined;
+  if (filtros.data.cursor) {
+    try {
+      const decoded = JSON.parse(Buffer.from(filtros.data.cursor, 'base64url').toString('utf8')) as { id?: unknown; createdAt?: unknown };
+      const createdAt = new Date(String(decoded.createdAt ?? ''));
+      if (typeof decoded.id !== 'string' || !decoded.id || !Number.isFinite(createdAt.getTime())) throw new Error('invalid cursor');
+      cursor = { id: decoded.id, createdAt };
+    } catch {
+      throw new ErrorAplicacion('OMR_CURSOR_INVALIDO', 'El cursor de jobs OMR no es válido', 400);
+    }
+  }
+  const where: Record<string, unknown> = {
+    docenteId,
+    ...(filtros.data.status ? { estado: filtros.data.status } : {}),
+    ...(filtros.data.generatedAssessmentId ? { metadata: { contains: `"assessmentId":"${filtros.data.generatedAssessmentId}"` } } : {}),
+    ...(cursor ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] } : {})
+  };
+  const jobs = await prisma.omrScanJob.findMany({ where, take: filtros.data.limite + 1, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+  const hasNext = jobs.length > filtros.data.limite;
+  const visibles = jobs.slice(0, filtros.data.limite).map((job) => {
+    const metadata = parseJsonSafe<JobMetadata>(job.metadata, { version: 1, assessmentId: '', folio: '', sourceType: 'image_batch', pages: [], errors: [], reviewResolutions: [] });
+    const pages = Array.isArray(metadata.pages) ? metadata.pages : [];
+    return {
+      jobId: job.id, workflow: metadata.sourceType ? 'scan' : 'pdf_ingesta', assessmentId: metadata.assessmentId,
+      folio: metadata.folio, sourceType: metadata.sourceType ?? 'pdf', status: job.estado,
+      pagesTotal: job.totalHojas, pagesProcessed: job.procesadas,
+      summary: {
+        accepted: pages.filter((page) => page.scanStatus === 'accepted').length,
+        needsReview: pages.filter((page) => page.scanStatus === 'needs_review').length,
+        rejected: pages.filter((page) => page.scanStatus === 'rejected').length
+      },
+      createdAt: job.createdAt.toISOString(), updatedAt: job.updatedAt.toISOString()
+    };
+  });
+  const last = hasNext ? jobs[filtros.data.limite - 1] : undefined;
+  const nextCursor = last ? Buffer.from(JSON.stringify({ id: last.id, createdAt: last.createdAt.toISOString() }), 'utf8').toString('base64url') : null;
+  res.json({ jobs: visibles, nextCursor });
+}
+
+export async function obtenerJobOmr(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const job = await obtenerJob(docenteId, String(req.params.jobId || '').trim());
+  res.json({ job: toPublicJob(job) });
+}
+
 export async function crearJobOmr(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const body = req.body as { generatedAssessmentId: string; sourceType: TipoFuenteOmr; capturas: CapturaOmr[] };
+  const body = req.body as { generatedAssessmentId: string; sourceType: TipoFuenteOmr; capturas: CapturaOmr[]; clientRequestId?: string };
+  const clientRequestId = String(body.clientRequestId || '').trim();
+  const requestHash = hashSolicitudJobOmr(body);
+  const recuperarReintento = async () => {
+    if (!clientRequestId) return false;
+    const existente = await prisma.omrScanJob.findFirst({ where: { id: clientRequestId, docenteId } });
+    if (!existente) return false;
+    const metadataExistente = parseJsonSafe<JobMetadata>(existente.metadata, {
+      version: 1, assessmentId: '', folio: '', sourceType: body.sourceType, pages: [], errors: [], reviewResolutions: []
+    });
+    if (metadataExistente.requestHash !== requestHash) {
+      throw new ErrorAplicacion('OMR_IDEMPOTENCY_CONFLICT', 'clientRequestId ya fue usado con otra solicitud OMR', 409);
+    }
+    res.status(200).json({ job: toPublicJob(existente) });
+    return true;
+  };
+  if (await recuperarReintento()) return;
   const examen = await prisma.examenGenerado.findFirst({ where: { id: body.generatedAssessmentId, docenteId } });
   if (!examen) throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen generado no encontrado', 404);
   const mapaOmr = parseJsonSafe<any>(examen.mapaOmr, null);
@@ -222,15 +321,33 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El examen no corresponde al contrato OMR canónico', 422);
   }
 
-  const job = await prisma.omrScanJob.create({
-    data: {
-      docenteId,
-      periodoId: examen.periodoId,
-      plantillaId: examen.plantillaId,
-      estado: 'processing',
-      metadata: JSON.stringify({ version: 1, assessmentId: examen.id, folio: examen.folio, sourceType: body.sourceType, pages: [], errors: [], reviewResolutions: [] } satisfies JobMetadata)
-    }
-  });
+  let job: NonNullable<Awaited<ReturnType<typeof prisma.omrScanJob.findFirst>>>;
+  try {
+    job = await prisma.omrScanJob.create({
+      data: {
+        ...(clientRequestId ? { id: clientRequestId } : {}),
+        docenteId,
+        periodoId: examen.periodoId,
+        plantillaId: examen.plantillaId,
+        estado: 'processing',
+        metadata: JSON.stringify({
+          version: 1,
+          clientRequestId: clientRequestId || undefined,
+          requestHash: clientRequestId ? requestHash : undefined,
+          assessmentId: examen.id,
+          folio: examen.folio,
+          sourceType: body.sourceType,
+          pages: [],
+          errors: [],
+          reviewResolutions: []
+        } satisfies JobMetadata)
+      }
+    });
+  } catch (error) {
+    // El ID primario impide que dos solicitudes concurrentes creen dos jobs.
+    if (clientRequestId && await recuperarReintento()) return;
+    throw error;
+  }
 
   const paginasEntrada = await expandirCapturas(body.capturas, body.sourceType);
   const paginas: PaginaJob[] = [];
@@ -290,7 +407,13 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
     }
     try {
       const payload = await ejecutarAnalisisInterno({ docenteId, folio: examen.folio, numeroPagina: entrada.pageIndex, imagenBase64: entrada.imagenBase64 ?? '' });
-      paginas.push(convertirResultadoAPagina(examen.folio, entrada.pageIndex, payload, entrada.nombreArchivo));
+      paginas.push(convertirResultadoAPagina(
+        examen.folio,
+        entrada.pageIndex,
+        payload,
+        entrada.nombreArchivo,
+        mapaOmr?.templateId === 'omr-inline-exam-v1'
+      ));
     } catch (error) {
       errors.push({
         pageIndex: entrada.pageIndex,
@@ -312,7 +435,7 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
     await prisma.omrScanJob.update({ where: { id: job.id }, data: { procesadas: paginas.length } });
   }
 
-  const metadata: JobMetadata = { version: 1, assessmentId: examen.id, folio: examen.folio, sourceType: body.sourceType, pages: paginas, errors, reviewResolutions: [] };
+  const metadata: JobMetadata = { version: 1, clientRequestId: clientRequestId || undefined, requestHash: clientRequestId ? requestHash : undefined, assessmentId: examen.id, folio: examen.folio, sourceType: body.sourceType, pages: paginas, errors, reviewResolutions: [] };
   const actualizado = await prisma.omrScanJob.update({
     where: { id: job.id },
     data: { estado: errors.length === paginas.length ? 'failed' : 'completed', procesadas: paginas.length, completadoEn: new Date(), metadata: JSON.stringify(metadata) }
@@ -333,7 +456,17 @@ export async function resolverHojaOmr(req: SolicitudDocente, res: Response) {
   }
   const identity = String(body.finalIdentity?.studentId ?? '').trim();
   if (body.finalIdentity) pagina.identityResult = { ...(pagina.identityResult ?? {}), ...(identity ? { studentId: identity } : {}) };
-  if (Array.isArray(body.finalResponses)) pagina.responses = body.finalResponses.map((item) => ({ numeroPregunta: item.numeroPregunta, opcion: item.opcion }));
+  if (Array.isArray(body.finalResponses)) {
+    pagina.responses = body.finalResponses.map((item) => {
+      const detectada = pagina.responses.find((respuesta) => respuesta.numeroPregunta === item.numeroPregunta);
+      return {
+        ...(detectada ?? proyectarRespuestaParaRevisionOmr({ numeroPregunta: item.numeroPregunta, opcion: null })),
+        opcion: item.opcion,
+        opcionDetectada: detectada?.opcionDetectada ?? detectada?.opcion ?? null,
+        estadoRespuesta: 'manual_review'
+      };
+    });
+  }
   if (body.overrides && typeof body.overrides.versionCode === 'string') pagina.versionResult = { versionCode: body.overrides.versionCode.trim().toUpperCase() || null };
   pagina.scanStatus = 'accepted';
   pagina.manualReviewRequired = false;

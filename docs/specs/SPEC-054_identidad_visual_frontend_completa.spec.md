@@ -1,8 +1,8 @@
 ---
 id: SPEC-054
 titulo: Evolucion integral de identidad visual, UX/UI y rendimiento del frontend
-version: 1.3.0
-fecha: 2026-09-02
+version: 1.4.0
+fecha: 2026-09-22
 autor: EvaluaPro Team
 modulo: frontend_experiencia_completa
 estado: approved
@@ -79,6 +79,10 @@ la acción primaria.
 - REQ-013: En anchos de escritorio amplio el encabezado docente debe mantener sus
   acciones principales en una sola fila; en anchos menores debe replegarse de forma
   determinista sin overflow horizontal ni pérdida de contexto.
+- REQ-014: Cada página nueva o modificada debe evaluar e incorporar iconos vectoriales
+  del catálogo compartido donde mejoren reconocimiento y lectura. Los estados y acciones
+  no universales conservan texto visible y nombre accesible; las fuentes externas deben
+  tener licencia verificada y su aviso completo preservado.
 
 ## Oleadas de implementación
 
@@ -102,6 +106,8 @@ la acción primaria.
 - En 1366 px o más, las acciones del encabezado docente permanecen en una sola fila;
   en 390 px el encabezado y la navegación siguen siendo legibles y accionables.
 - `prefers-reduced-motion`, foco, labels y mensajes de error tienen cobertura automática.
+- Navegación, acciones, categorías, estados y ayudas usan iconografía consistente cuando
+  aporta comprensión, con texto y alternativa accesible según corresponda.
 - La carga diferida se comprueba en el bundle y en una medición de navegación real.
 - Se ejecutan los gates frontend aplicables y se documentan fallos preexistentes separados.
 
@@ -116,6 +122,7 @@ la acción primaria.
 | REQ-011 | `scripts/tests/frontend-performance.contract.test.mjs` y scripts de `apps/frontend/package.json` | Implementado en oleada 1 |
 | REQ-012 | `apps/frontend/src/ui/iconos.tsx`, `apps/frontend/src/apps/app_docente/ShellDocente.tsx`, `scripts/tests/ui-cards.contract.test.mjs` | Implementado en oleada 2 |
 | REQ-013 | `apps/frontend/src/styles/cards.css`, `tests/gui-responsive/responsive-docente.spec.ts` y capturas `reports/qa/latest/gui-docente-*.png` | Implementado en oleada 3 |
+| REQ-014 | `docs/WCAG_UI_POLICY.md`, `apps/frontend/src/ui/iconos.tsx`, `apps/frontend/tests/ux.visual.test.tsx` | En aplicación incremental por pantalla |
 
 ## Fuera de alcance
 

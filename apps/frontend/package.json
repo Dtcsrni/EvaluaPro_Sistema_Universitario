@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "description": "UI React 18 (Vite + TailwindCSS + Bento Elevation) para portal docente/alumno: autenticación, gestión de evaluaciones, diseño de exámenes y flujos de calificación OMR.",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
@@ -33,27 +33,28 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" vite.config.ts --max-warnings=0"
   },
   "dependencies": {
-    "@react-oauth/google": "^0.13.4",
+    "@react-oauth/google": "^0.13.5",
     "jsqr": "^1.4.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tesseract.js": "^5.1.1"
+    "lucide-react": "^1.47.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.4",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
-    "eslint": "^9.39.1",
+    "@eslint/eslintrc": "^3.3.7",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^9.39.3",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "jsdom": "^28.1.0",
-    "typescript": "^5.9.3",
-    "vite": "^8.0.16",
-    "vite-plugin-mkcert": "^1.17.10"
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^30.1.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.0",
+    "vite-plugin-mkcert": "^2.1.0"
   }
 }

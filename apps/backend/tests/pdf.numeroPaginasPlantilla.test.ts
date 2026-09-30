@@ -17,5 +17,7 @@ describe('resolverNumeroPaginasPlantilla', () => {
   it('retorna 1 cuando no hay datos válidos', () => {
     expect(resolverNumeroPaginasPlantilla({})).toBe(1);
     expect(resolverNumeroPaginasPlantilla({ numeroPaginas: 'x' })).toBe(1);
+    expect(resolverNumeroPaginasPlantilla(null)).toBe(1);
+    expect(resolverNumeroPaginasPlantilla(undefined)).toBe(1);
   });
 });

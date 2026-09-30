@@ -73,7 +73,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -92,7 +92,9 @@ jobs:
             pkg-config
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Preparar runtime CV nativo (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp

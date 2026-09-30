@@ -8,6 +8,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { crearPreguntasPublicadas } from './_reactivosHelper.js';
 
 describe('regenerar examen generado', () => {
   const preguntasPorEscenario = 20;
@@ -53,25 +54,13 @@ describe('regenerar examen generado', () => {
       .expect(201);
     const periodoId = periodoResp.body.periodo._id as string;
 
-    const preguntasIds: string[] = [];
-    for (let i = 0; i < preguntasPorEscenario; i += 1) {
-      const preguntaResp = await request(app)
-        .post('/api/banco-preguntas')
-        .set(auth)
-        .send({
-          periodoId,
-          enunciado: `Pregunta ${i + 1}`,
-          opciones: [
-            { texto: 'Opcion A', esCorrecta: true },
-            { texto: 'Opcion B', esCorrecta: false },
-            { texto: 'Opcion C', esCorrecta: false },
-            { texto: 'Opcion D', esCorrecta: false },
-            { texto: 'Opcion E', esCorrecta: false }
-          ]
-        })
-        .expect(201);
-      preguntasIds.push(preguntaResp.body.pregunta._id as string);
-    }
+    const preguntasIds = await crearPreguntasPublicadas({
+      app,
+      auth,
+      periodoId,
+      externalPrefix: 'regenerar-examen',
+      preguntas: Array.from({ length: preguntasPorEscenario }, (_, index) => `Pregunta ${index + 1}`)
+    });
 
     const plantillaResp = await request(app)
       .post('/api/examenes/plantillas')
@@ -80,11 +69,16 @@ describe('regenerar examen generado', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Parcial 1',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
     const plantillaId = plantillaResp.body.plantilla._id as string;
+
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
 
     const examenResp = await request(app)
       .post('/api/examenes/generados')

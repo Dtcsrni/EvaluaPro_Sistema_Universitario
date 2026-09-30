@@ -14,7 +14,11 @@ export const PERMISOS = [
   'periodos:eliminar_dev',
   'banco:leer',
   'banco:gestionar',
+  'banco:ingestar',
+  'banco:revisar',
+  'banco:publicar',
   'banco:archivar',
+  'banco:calibracion:leer',
   'plantillas:leer',
   'plantillas:gestionar',
   'plantillas:archivar',
@@ -93,7 +97,11 @@ const PERMISOS_DOCENTE: Permiso[] = [
   'periodos:archivar',
   'banco:leer',
   'banco:gestionar',
+  'banco:ingestar',
+  'banco:revisar',
+  'banco:publicar',
   'banco:archivar',
+  'banco:calibracion:leer',
   'plantillas:leer',
   'plantillas:gestionar',
   'plantillas:archivar',
@@ -137,7 +145,11 @@ const PERMISOS_COORDINADOR: Permiso[] = [
   'periodos:archivar',
   'banco:leer',
   'banco:gestionar',
+  'banco:ingestar',
+  'banco:revisar',
+  'banco:publicar',
   'banco:archivar',
+  'banco:calibracion:leer',
   'plantillas:leer',
   'plantillas:gestionar',
   'plantillas:archivar',
@@ -265,6 +277,13 @@ export function permisosParaRoles(roles: unknown): Set<Permiso> {
   rolesNormalizados.forEach((rol) => {
     PERMISOS_POR_ROL[rol].forEach((permiso) => permisos.add(permiso));
   });
+  // Compatibilidad temporal: integraciones/roles que solo conocen el permiso
+  // histórico de gestión conservan acceso al flujo que ahora tiene scopes finos.
+  if (permisos.has('banco:gestionar')) {
+    permisos.add('banco:ingestar');
+    permisos.add('banco:revisar');
+    permisos.add('banco:publicar');
+  }
   return permisos;
 }
 

@@ -45,6 +45,8 @@ describe('SeccionPaqueteSincronizacion', () => {
   });
 
   it('permite exportar un paquete de sincronización', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:sync-backup');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     const mockExportar = vi.fn().mockResolvedValue({
       paqueteBase64: 'e30=',
       checksumSha256: 'abc123sha256hash',

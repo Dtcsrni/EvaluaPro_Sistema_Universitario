@@ -1,0 +1,190 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "0e3334b7-a327-42df-8953-1742174512b0",
+  "status": "final",
+  "generatedAt": "2026-09-30T09:30:28.000Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Completar la descarga de reportes de calificaciones desde el SDK API."
+  },
+  "objective": "Alinear las descargas de reportes por API con las opciones CSV/XLSX disponibles en la GUI.",
+  "scope": [
+    "Helpers SDK para exportaciones CSV y XLSX",
+    "Validación local de periodo explícito",
+    "Documentación y trazabilidad de SPEC-059"
+  ],
+  "constraints": [
+    "No escribir calificaciones ni listas institucionales.",
+    "Preservar los cambios preexistentes del checkout."
+  ],
+  "actions": [
+    {
+      "type": "code-change",
+      "summary": "Se agregaron helpers binarios autenticados para CSV y XLSX.",
+      "timestamp": "2026-09-30T09:30:28.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "regression-test",
+      "summary": "El SDK valida periodo, bearer, rutas y bytes devueltos.",
+      "timestamp": "2026-09-30T09:30:28.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Lint, typecheck, SDD, trazabilidad y contrato API aprobaron.",
+      "timestamp": "2026-09-30T09:30:28.000Z",
+      "status": "ok"
+    },
+    {
+      "timestamp": "2026-09-30T09:30:28.000Z",
+      "type": "integration-validation",
+      "summary": "Las rutas reales de exportación pasan sus pruebas de integración autenticadas.",
+      "status": "ok"
+    },
+    {
+      "timestamp": "2026-09-30T09:30:28.000Z",
+      "type": "integration-validation",
+      "summary": "El SDK descargó ambos formatos desde el backend HTTP real de pruebas con sesión autenticada y base aislada.",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/api/README.md",
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md"
+    ],
+    "changed": [
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/tests/evaluapro-client.test.mjs",
+      "scripts/api/README.md",
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md",
+      "apps/backend/tests/integracion/apiSdkExportaciones.test.ts"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "sdk-client-tests",
+      "command": "node --test scripts/tests/evaluapro-client.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "39 pruebas aprobadas.",
+      "timestamp": "2026-09-30T09:30:28.000Z"
+    },
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Lint de los workspaces aprobó.",
+      "timestamp": "2026-09-30T09:30:28.000Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Typecheck de los workspaces aprobó.",
+      "timestamp": "2026-09-30T09:30:28.000Z"
+    },
+    {
+      "name": "sdd-audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Todas las especificaciones cumplen la política.",
+      "timestamp": "2026-09-30T09:30:28.000Z"
+    },
+    {
+      "name": "traceability-tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "7 pruebas aprobadas.",
+      "timestamp": "2026-09-30T09:30:28.000Z"
+    },
+    {
+      "name": "api-contract",
+      "command": "npm run api:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "239 rutas, 274 operaciones y 71/71 modelos revisados.",
+      "timestamp": "2026-09-30T09:30:28.000Z"
+    },
+    {
+      "name": "backend-export-integration",
+      "command": "npm run test --workspace backend -- tests/integracion/flujoExamen.test.ts tests/integracion/aislamientoDocente.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 37520,
+      "resultSummary": "6 pruebas aprobadas: exportación CSV/XLSX y aislamiento de datos."
+    },
+    {
+      "name": "integration-sdk-export-initial",
+      "command": "npm run test --workspace backend -- tests/integracion/apiSdkExportaciones.test.ts",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 6232,
+      "resultSummary": "El fixture de alumno recibió HTTP 400 por formato inválido de matrícula; se corrigió el dato de prueba."
+    },
+    {
+      "name": "integration-sdk-export",
+      "command": "npm run test --workspace backend -- tests/integracion/apiSdkExportaciones.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 6232,
+      "resultSummary": "1 prueba aprobada mediante servidor HTTP en loopback, token de prueba y base aislada; CSV y XLSX conservaron bytes."
+    },
+    {
+      "name": "backend-lint",
+      "command": "npm run lint --workspace backend",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11200,
+      "resultSummary": "Lint backend aprobado."
+    },
+    {
+      "name": "backend-typecheck",
+      "command": "npm run typecheck --workspace backend",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11700,
+      "resultSummary": "Typecheck backend aprobado."
+    }
+  ],
+  "decisions": [
+    "Las exportaciones son consultas de solo lectura y requieren periodo explícito.",
+    "El SDK entrega Buffer para conservar los bytes originales."
+  ],
+  "assumptions": [],
+  "risks": [
+    "No se modificaron ni reconciliaron calificaciones reales en esta iteración."
+  ],
+  "nextStep": "Continuar verificando paridad de los flujos de calificación y consulta mediante GUI y API sin alterar datos reales.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "unknown",
+    "commit": "unknown",
+    "workingTreeStatus": ""
+  }
+}

@@ -224,10 +224,27 @@ describe('utilidades app docente', () => {
     expect(normal.respuestasDetectadas[0]).toEqual({
       numeroPregunta: 1,
       opcion: null,
-      confianza: 0
+      confianza: 0,
+      estadoRespuesta: 'sin_marca'
     });
     expect(normal.estadoAnalisis).toBe('requiere_revision');
     expect(normal.templateVersionDetectada).toBe(4);
+  });
+
+  it('conserva el estado OMR y sus flags al consolidar respuestas', () => {
+    const normal = normalizarResultadoOmr({
+      respuestasDetectadas: [
+        { numeroPregunta: 1, opcion: null, confianza: 0, estadoRespuesta: 'ambigua', flags: ['parcial_detectada'] },
+        { numeroPregunta: 2, opcion: null, confianza: 0, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }
+      ],
+      estadoAnalisis: 'requiere_revision',
+      calidadPagina: 0.8
+    });
+
+    expect(normal.respuestasDetectadas).toEqual([
+      { numeroPregunta: 1, opcion: null, confianza: 0, estadoRespuesta: 'ambigua', flags: ['parcial_detectada'] },
+      { numeroPregunta: 2, opcion: null, confianza: 0, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }
+    ]);
   });
 
   it('etiquetas e ids', () => {

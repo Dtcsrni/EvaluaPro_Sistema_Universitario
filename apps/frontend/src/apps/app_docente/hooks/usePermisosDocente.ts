@@ -15,6 +15,7 @@ function valorVerdadero(value: unknown): boolean {
 
 const NIVELES_PAGO = new Set(['pro', 'premium', 'enterprise', 'business', 'institucional', 'paid']);
 const ESTADOS_PAGO = ['active', 'activo', 'activa', 'paid', 'vigente', 'trialing'];
+const PERMISOS_GESTION_BANCO_COMPATIBLES = new Set(['banco:ingestar', 'banco:revisar', 'banco:publicar']);
 
 function itemTieneBanderaPago(item: Record<string, unknown>): boolean {
   return (
@@ -59,7 +60,10 @@ export function usePermisosDocente(docente: Docente | null) {
   const esDev = import.meta.env.DEV;
   const esAdmin = Boolean(docente?.roles?.includes('admin'));
   const permisosDocente = useMemo(() => new Set(docente?.permisos ?? []), [docente?.permisos]);
-  const puede = useCallback((permiso: string) => permisosDocente.has(permiso), [permisosDocente]);
+  const puede = useCallback((permiso: string) => {
+    if (permisosDocente.has(permiso)) return true;
+    return PERMISOS_GESTION_BANCO_COMPATIBLES.has(permiso) && permisosDocente.has('banco:gestionar');
+  }, [permisosDocente]);
   const permisoRecuperacion =
     puede('omr:rehidratar_lotes') ||
     puede('omr:rehidratar_lote') ||
@@ -82,7 +86,8 @@ export function usePermisosDocente(docente: Docente | null) {
       banco: {
         leer: puede('banco:leer'),
         gestionar: puede('banco:gestionar'),
-        archivar: puede('banco:archivar')
+        archivar: puede('banco:archivar'),
+        publicar: puede('banco:publicar')
       },
       plantillas: {
         leer: puede('plantillas:leer'),

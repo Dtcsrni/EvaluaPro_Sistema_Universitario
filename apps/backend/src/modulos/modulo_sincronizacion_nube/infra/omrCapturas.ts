@@ -15,7 +15,7 @@ export async function leerCapturasOmrParaPortal(folio: string): Promise<Array<{
   const folioSeguro = String(folio || '').trim().toUpperCase();
   if (!folioSeguro) return [];
   const dir = path.resolve(process.cwd(), 'storage', 'omr_scans', folioSeguro);
-  let archivos: string[] = [];
+  let archivos: string[];
   try {
     archivos = await fs.readdir(dir);
   } catch {

@@ -127,7 +127,7 @@ async function runProfile(profile: Profile, dataset: string, mode: 'omr'): Promi
     });
     return summary;
   } catch (error) {
-    throw new Error(`Perfil ${profile.name} falló: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Perfil ${profile.name} falló: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
   } finally {
     const keys = ['OMR_ALIGN_RANGE', 'OMR_VERT_RANGE', 'OMR_LOCAL_SEARCH_RATIO', 'OMR_OFFSET_X', 'OMR_OFFSET_Y'] as const;
     for (const key of keys) {

@@ -39,7 +39,7 @@ export function resolverPerfilLayout(): PerfilLayoutImpresion {
   const headerOtherMm = leerNumeroEnvSeguro('EXAMEN_LAYOUT_HEADER_OTHER_MM', 3.5, 0, 20);
   const bottomSafeMm = leerNumeroEnvSeguro('EXAMEN_LAYOUT_BOTTOM_SAFE_MM', 4.5, 3, 16);
 
-  const usarRellenosDecorativos = leerBooleanEnv('EXAMEN_LAYOUT_USAR_RELLENOS_DECORATIVOS', true);
+  const usarRellenosDecorativos = leerBooleanEnv('EXAMEN_LAYOUT_USAR_RELLENOS_DECORATIVOS', false);
   // La insignia numérica no debe competir con los fiduciales ni parecer una
   // marca al reducir la hoja fotografiada. Se conserva legible como contorno.
   const usarEtiquetaOmrSolida = leerBooleanEnv('EXAMEN_LAYOUT_USAR_ETIQUETA_OMR_SOLIDA', false);

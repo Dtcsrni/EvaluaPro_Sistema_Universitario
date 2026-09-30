@@ -66,7 +66,10 @@ export const esquemaActividadClassroomSeleccionada = z
     descripcionEvidencia: z.string().trim().max(600).optional(),
     ponderacion: z.number().min(0).max(100).optional(),
     corte: z.number().int().min(1).max(3).optional(),
-    activo: z.boolean().optional()
+    destinoColumna: z.enum(['Tareas y Ejercicios 2do Parcial', 'Practica 2do Parcial', 'Excluir']).nullable().optional(),
+    activo: z.boolean().optional(),
+    incluirEnPromedio: z.boolean().optional(),
+    faltantesConfirmados: z.array(z.string().trim().min(1).max(128)).max(500).optional()
   })
   .strict();
 

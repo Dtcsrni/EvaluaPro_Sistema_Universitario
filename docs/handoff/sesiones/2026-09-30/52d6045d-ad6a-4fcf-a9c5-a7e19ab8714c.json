@@ -1,0 +1,100 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "52d6045d-ad6a-4fcf-a9c5-a7e19ab8714c",
+  "parentSessionId": "d07cbbda-4d61-4713-a90f-2811a7067a39",
+  "status": "final",
+  "generatedAt": "2026-09-30T08:54:21.3794889+00:00",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Restaurar la exportación XLSX en EvaluaPro y cotejarla con los libros vigentes sin modificar notas."
+  },
+  "objective": "Verificar que la consulta, captura y exportación de calificaciones funcionen desde la GUI y la API, documentando las discrepancias que requieren decisión docente.",
+  "scope": [
+    "Consulta de calificaciones GUI/API",
+    "Vista previa y captura manual de Global y bono",
+    "Exportación XLSX BI",
+    "Cotejo de listas institucionales de BI y DDAW"
+  ],
+  "constraints": [
+    "No escribir ni sustituir notas mientras la fuente de P1/P2 no esté determinada.",
+    "No sobrescribir libros OneDrive.",
+    "Preservar el resto del árbol de trabajo modificado."
+  ],
+  "actions": [
+    {
+      "type": "diagnostico-runtime",
+      "summary": "La descarga XLSX autenticada devolvió HTTP 500; el registro local identificó la plantilla sanitizada ausente del bundle del backend.",
+      "timestamp": "2026-09-30T08:54:21.3794889+00:00",
+      "status": "ok"
+    },
+    {
+      "type": "restauracion-asset",
+      "summary": "Copiada al runtime activo la plantilla del repositorio; el SHA-256 de origen y destino coincidió.",
+      "timestamp": "2026-09-30T08:54:21.3794889+00:00",
+      "status": "ok"
+    },
+    {
+      "type": "verificacion-gui",
+      "summary": "El reintento desde Calificaciones mostró descarga exitosa y creó un XLSX de BI con 12 filas de datos, columnas y fórmulas; fullCalcOnLoad está habilitado.",
+      "timestamp": "2026-09-30T08:54:21.3794889+00:00",
+      "status": "ok"
+    },
+    {
+      "type": "cotejo-listas",
+      "summary": "Global coincide en las 16 filas y el bono coincide en BI; P1/P2 difieren en las 16. No se hizo ninguna escritura.",
+      "timestamp": "2026-09-30T08:54:21.3794889+00:00",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "apps/backend/src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones.ts",
+      "apps/backend/src/modulos/modulo_analiticas/plantillas/LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx",
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md",
+      "OneDrive: listas BI y DDAW"
+    ],
+    "changed": [
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md",
+      "runtime local: plantilla XLSX sanitizada"
+    ],
+    "artifacts": [
+      "descarga local calificaciones-f4b027a1-ab74-43a6-94a8-38d9978dd0bb.xlsx"
+    ]
+  },
+  "commands": [
+    {
+      "name": "runtime-asset-sync",
+      "status": "ok",
+      "command": "Copiar plantilla XLSX sanitizada al runtime local y verificar igualdad SHA-256",
+      "timestamp": "2026-09-30T08:54:21.3794889+00:00",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "142576 bytes; hashes iguales."
+    }
+  ],
+  "decisions": [
+    "No reconciliar P1/P2 hasta que se confirme la fuente autorizada.",
+    "La exportación lee la lista de EvaluaPro y no modifica el libro fuente OneDrive.",
+    "La exportación recalcula fórmulas al abrir; los valores cacheados no están presentes en el archivo recién descargado."
+  ],
+  "assumptions": [],
+  "risks": [
+    "La diferencia de P1/P2 puede alterar la nota final si se escoge una fuente sin validar.",
+    "No se abrió el archivo en Excel para ejecutar el recálculo nativo."
+  ],
+  "nextStep": "Con la fuente confirmada, reconciliar solo las celdas P1/P2 que correspondan y verificar de nuevo las 16 filas GUI/API/XLSX.",
+  "completion": {
+    "pendingFields": [
+      "Decisión docente sobre autoridad de P1/P2.",
+      "Reconciliación GUI/API/listas y recálculo nativo de los XLSX vigentes."
+    ],
+    "isComplete": false
+  }
+}

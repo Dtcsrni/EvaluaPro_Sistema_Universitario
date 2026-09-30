@@ -8,6 +8,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { crearPreguntasPublicadas } from './_reactivosHelper.js';
 
 describe('plantillas duplicadas', () => {
   const app = crearApp();
@@ -46,25 +47,6 @@ describe('plantillas duplicadas', () => {
     return periodoResp.body.periodo._id as string;
   }
 
-  async function crearPregunta(token: string, periodoId: string, sufijo: string) {
-    const preguntaResp = await request(app)
-      .post('/api/banco-preguntas')
-      .set({ Authorization: `Bearer ${token}` })
-      .send({
-        periodoId,
-        enunciado: `Pregunta ${sufijo}`,
-        opciones: [
-          { texto: 'A', esCorrecta: true },
-          { texto: 'B', esCorrecta: false },
-          { texto: 'C', esCorrecta: false },
-          { texto: 'D', esCorrecta: false },
-          { texto: 'E', esCorrecta: false }
-        ]
-      })
-      .expect(201);
-    return preguntaResp.body.pregunta._id as string;
-  }
-
   async function crearPlantilla(token: string, periodoId: string, titulo: string, preguntasIds: string[]) {
     const resp = await request(app)
       .post('/api/examenes/plantillas')
@@ -83,7 +65,13 @@ describe('plantillas duplicadas', () => {
   it('rechaza crear plantilla duplicada por nombre (case/espacios-insensitive)', async () => {
     const token = await registrar('dup-plantilla@local.test');
     const periodoId = await crearPeriodo(token, 'Logica de Programacion');
-    const preguntaId = await crearPregunta(token, periodoId, 'base');
+    const [preguntaId] = await crearPreguntasPublicadas({
+      app,
+      auth: { Authorization: `Bearer ${token}` },
+      periodoId,
+      externalPrefix: 'plantilla-duplicada',
+      preguntas: ['Pregunta base']
+    });
 
     await crearPlantilla(token, periodoId, 'Primer Parcial', [preguntaId]);
 
@@ -105,8 +93,13 @@ describe('plantillas duplicadas', () => {
   it('rechaza actualizar plantilla si el nuevo titulo ya existe', async () => {
     const token = await registrar('dup-plantilla-update@local.test');
     const periodoId = await crearPeriodo(token, 'Logica de Programacion');
-    const preguntaA = await crearPregunta(token, periodoId, 'A');
-    const preguntaB = await crearPregunta(token, periodoId, 'B');
+    const [preguntaA, preguntaB] = await crearPreguntasPublicadas({
+      app,
+      auth: { Authorization: `Bearer ${token}` },
+      periodoId,
+      externalPrefix: 'plantilla-duplicada-update',
+      preguntas: ['Pregunta A', 'Pregunta B']
+    });
 
     await crearPlantilla(token, periodoId, 'Primer Parcial', [preguntaA]);
     const plantillaDosId = await crearPlantilla(token, periodoId, 'Segundo Parcial', [preguntaB]);
@@ -124,8 +117,20 @@ describe('plantillas duplicadas', () => {
     const token = await registrar('same-title-different-subject@local.test');
     const periodoUnoId = await crearPeriodo(token, 'Logica de Programacion');
     const periodoDosId = await crearPeriodo(token, 'Inteligencia de Negocios');
-    const preguntaUnoId = await crearPregunta(token, periodoUnoId, 'materia-uno');
-    const preguntaDosId = await crearPregunta(token, periodoDosId, 'materia-dos');
+    const [preguntaUnoId] = await crearPreguntasPublicadas({
+      app,
+      auth: { Authorization: `Bearer ${token}` },
+      periodoId: periodoUnoId,
+      externalPrefix: 'plantilla-materia-uno',
+      preguntas: ['Pregunta materia uno']
+    });
+    const [preguntaDosId] = await crearPreguntasPublicadas({
+      app,
+      auth: { Authorization: `Bearer ${token}` },
+      periodoId: periodoDosId,
+      externalPrefix: 'plantilla-materia-dos',
+      preguntas: ['Pregunta materia dos']
+    });
 
     await crearPlantilla(token, periodoUnoId, 'Segundo Parcial', [preguntaUnoId]);
     const plantillaDosId = await crearPlantilla(token, periodoDosId, 'Segundo Parcial', [preguntaDosId]);

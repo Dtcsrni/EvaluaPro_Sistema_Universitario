@@ -99,7 +99,10 @@ export function SeccionEntrega({
   const [periodoId, setPeriodoId] = useState('');
   const [filtro, setFiltro] = useState('');
   const [examenes, setExamenes] = useState<ExamenGeneradoEntrega[]>([]);
+  const [siguienteCursorExamenes, setSiguienteCursorExamenes] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  const versionConsultaExamenesRef = useRef(0);
+  const cargandoPaginaSiguienteRef = useRef(false);
   const [mensaje, setMensaje] = useState('');
   const [deshaciendoFolio, setDeshaciendoFolio] = useState<string | null>(null);
   const puedeGestionar = permisos.entregas.gestionar;
@@ -147,28 +150,65 @@ export function SeccionEntrega({
   }, []);
 
   const cargarExamenes = useCallback(async () => {
+    const versionConsulta = ++versionConsultaExamenesRef.current;
     if (!periodoId) {
       setExamenes([]);
+      setSiguienteCursorExamenes(null);
+      setCargando(false);
       return;
     }
     if (!puedeLeer && !puedeGestionar) {
       setExamenes([]);
+      setSiguienteCursorExamenes(null);
+      setCargando(false);
       return;
     }
     try {
       setCargando(true);
       setMensaje('');
-      const payload = await clienteApi.obtener<{ examenes: ExamenGeneradoEntrega[] }>(
-        `/examenes/generados?periodoId=${encodeURIComponent(periodoId)}`
+      const query = new URLSearchParams({ periodoId, limite: '100' });
+      const payload = await clienteApi.obtener<{ examenes: ExamenGeneradoEntrega[]; nextCursor?: string | null }>(
+        `/examenes/generados?${query}`
       );
+      if (versionConsulta !== versionConsultaExamenesRef.current) return;
       setExamenes(Array.isArray(payload.examenes) ? payload.examenes : []);
+      setSiguienteCursorExamenes(payload.nextCursor || null);
     } catch (error) {
+      if (versionConsulta !== versionConsultaExamenesRef.current) return;
       const msg = mensajeDeError(error, 'No se pudo cargar el listado de examenes');
       setMensaje(msg);
     } finally {
-      setCargando(false);
+      if (versionConsulta === versionConsultaExamenesRef.current) setCargando(false);
     }
   }, [periodoId, puedeLeer, puedeGestionar]);
+
+  const cargarMasExamenes = useCallback(async () => {
+    if (!periodoId || !siguienteCursorExamenes || cargandoPaginaSiguienteRef.current || cargando) return;
+    cargandoPaginaSiguienteRef.current = true;
+    const versionConsulta = versionConsultaExamenesRef.current;
+    try {
+      setCargando(true);
+      setMensaje('');
+      const query = new URLSearchParams({ periodoId, limite: '100', cursor: siguienteCursorExamenes });
+      const payload = await clienteApi.obtener<{ examenes: ExamenGeneradoEntrega[]; nextCursor?: string | null }>(
+        `/examenes/generados?${query}`
+      );
+      if (versionConsulta !== versionConsultaExamenesRef.current) return;
+      setExamenes((actuales) => {
+        const porId = new Map(actuales.map((examen) => [examen._id, examen]));
+        for (const examen of Array.isArray(payload.examenes) ? payload.examenes : []) porId.set(examen._id, examen);
+        return Array.from(porId.values());
+      });
+      setSiguienteCursorExamenes(payload.nextCursor || null);
+    } catch (error) {
+      if (versionConsulta === versionConsultaExamenesRef.current) {
+        setMensaje(mensajeDeError(error, 'No se pudieron cargar más exámenes'));
+      }
+    } finally {
+      cargandoPaginaSiguienteRef.current = false;
+      if (versionConsulta === versionConsultaExamenesRef.current) setCargando(false);
+    }
+  }, [periodoId, siguienteCursorExamenes, cargando]);
 
   useEffect(() => {
     void cargarExamenes();
@@ -485,6 +525,13 @@ export function SeccionEntrega({
             </ul>
           </div>
         </div>
+        {siguienteCursorExamenes && (
+          <div className="entregas-listado__paginacion">
+            <Boton type="button" variante="secundario" disabled={cargando} onClick={() => void cargarMasExamenes()}>
+              {cargando ? <><Spinner /> Cargando…</> : 'Cargar más exámenes'}
+            </Boton>
+          </div>
+        )}
       </div>
     </>
   );

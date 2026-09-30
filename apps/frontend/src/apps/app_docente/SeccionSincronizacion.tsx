@@ -13,7 +13,7 @@ import { SeccionPaqueteSincronizacion } from './SeccionPaqueteSincronizacion';
 import { SeccionInstantaneaLocal, type MetodoInstantaneaLocal } from './SeccionInstantaneaLocal';
 import { SeccionLeaseSincronizacion, type EstadoLeaseUI } from './SeccionLeaseSincronizacion';
 import { SeccionSincronizacionEquipos } from './SeccionSincronizacionEquipos';
-import { SeccionPublicar } from './SeccionPublicar';
+import { SeccionPublicar, type CodigoAccesoMetadata } from './SeccionPublicar';
 import type { Periodo, Plantilla, Pregunta, Alumno, RegistroSincronizacion, RespuestaSyncPull, RespuestaSyncPush } from './tipos';
 import { useEstadoSincronizacion } from './hooks/useEstadoSincronizacion';
 import { formatearFechaSincronizacion, normalizarEstadoSincronizacion } from './sincronizacionUtils';
@@ -28,6 +28,8 @@ export function SeccionSincronizacion({
   docenteCorreo,
   onPublicar,
   onCodigo,
+  onListarCodigos,
+  onExpirarCodigo,
   onExportarPaquete,
   onImportarPaquete,
   onExportarLocal,
@@ -50,7 +52,9 @@ export function SeccionSincronizacion({
   ultimaActualizacionDatos: number | null;
   docenteCorreo?: string;
   onPublicar: (periodoId: string) => Promise<unknown>;
-  onCodigo: (periodoId: string) => Promise<{ codigo?: string; expiraEn?: string }>;
+  onCodigo: (periodoId: string) => Promise<{ codigoAccesoId?: string; codigo?: string; expiraEn?: string }>;
+  onListarCodigos?: (periodoId: string) => Promise<{ codigosAcceso: CodigoAccesoMetadata[] }>;
+  onExpirarCodigo?: (codigoAccesoId: string) => Promise<{ expirado: boolean; codigoAccesoId: string }>;
   onExportarPaquete: (payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean }) => Promise<{
     paqueteBase64: string;
     checksumSha256: string;
@@ -287,6 +291,8 @@ export function SeccionSincronizacion({
         periodos={periodosSeguros}
         onPublicar={onPublicar}
         onCodigo={onCodigo}
+        onListarCodigos={onListarCodigos}
+        onExpirarCodigo={onExpirarCodigo}
       />
 
       <SeccionPaqueteSincronizacion

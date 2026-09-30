@@ -85,6 +85,14 @@ export async function listarPlantillasUseCase(params: {
   return { plantillas };
 }
 
+export async function obtenerPlantillaUseCase(params: { docenteId: unknown; plantillaId: string }) {
+  const docenteId = String(params.docenteId);
+  const raw = await prisma.examenPlantilla.findFirst({ where: { id: params.plantillaId, docenteId } });
+  if (!raw) throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+  const junction = await prisma.preguntaPlantilla.findMany({ where: { plantillaId: raw.id }, orderBy: { orden: 'asc' } });
+  return { plantilla: formatearPlantillaPrisma(raw, junction.map((item) => item.preguntaId)) };
+}
+
 export async function crearPlantillaUseCase(params: {
   docenteId: unknown;
   body: Record<string, unknown>;
@@ -117,6 +125,7 @@ export async function crearPlantillaUseCase(params: {
   };
 
   const omrConfig = {
+    examTemplateId: String((params.body.omrConfig as any)?.examTemplateId ?? 'omr-canonical-v4'),
     sheetFamilyCode: String((params.body.omrConfig as any)?.sheetFamilyCode ?? 'S50_5A_ID5_VR6'),
     sheetRevisionId: (params.body.omrConfig as any)?.sheetRevisionId,
     prefillMode: String((params.body.omrConfig as any)?.prefillMode ?? 'none'),

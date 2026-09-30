@@ -16,6 +16,7 @@ import { resolverPerfilLayout } from '../../infra/configuracionLayoutEnv.js';
 import { PdfKitRenderer } from '../../infra/pdfKitRenderer.js';
 import {
   resolverTemplateVersionCanonica,
+  resolverOmrTemplateId,
   normalizarMapaVarianteCanonica,
   normalizarPreguntasCanonicas
 } from '../../domain/templateCanonico.js';
@@ -89,6 +90,7 @@ export async function generarExamenIndividual(
   params: ParametrosGeneracionPdf
 ): Promise<ResultadoGeneracionPdf> {
   const templateVersion = resolverTemplateVersionCanonica(params.templateVersion);
+  const templateId = resolverOmrTemplateId(params.omrTemplateId);
   const preguntas = normalizarPreguntasCanonicas(params.preguntas);
   const mapaVariante = normalizarMapaVarianteCanonica(preguntas, params.mapaVariante);
   const totalPaginas = Number.isFinite(params.totalPaginas)
@@ -98,7 +100,7 @@ export async function generarExamenIndividual(
     ? Math.max(4.5, Number(params.margenMm))
     : 8;
 
-  const perfilOmr = obtenerPerfilPlantilla(templateVersion);
+  const perfilOmr = obtenerPerfilPlantilla(templateVersion, templateId);
   const perfilLayout = resolverPerfilLayout();
   const renderer = new PdfKitRenderer(perfilOmr, perfilLayout);
   const construirExamen = (fontScale: number, lineSpacing: number) => new ExamenPdf(
@@ -111,6 +113,7 @@ export async function generarExamenIndividual(
     {
       margenMm,
       templateVersion,
+      templateId,
       totalPaginas,
       densityMode: params.bookletConfig?.densityMode,
       fontScale,

@@ -1,11 +1,11 @@
 ---
 id: SPEC-FLUJO-DOCENTE-ALUMNO-INTEGRAL
 titulo: Journey integral docente-alumno y cobertura funcional
-version: 1.0.0
-fecha: 2026-07-16
+version: 1.2.0
+fecha: 2026-09-29
 autor: Codex / Agente IA
 modulo: flujo_integral_docente_alumno
-estado: implemented
+estado: approved
 ---
 
 # SPEC-FLUJO-DOCENTE-ALUMNO-INTEGRAL: Journey integral docente-alumno y cobertura funcional
@@ -156,6 +156,16 @@ en México, instituciones públicas/privadas y docentes independientes.
   Si el usuario solicita respaldo al desinstalar, se debe crear un paquete
   comprimido en la ubicación prevista, incluyendo la base académica y datos
   operativos del directorio efectivo antes de retirar los binarios.
+- **REQ-034:** Los fixtures de calificación y consulta de listas deben crear
+  reactivos mediante el contrato vigente de preview, confirmación, revisión y
+  publicación, no mediante la ruta retirada de escritura directa.
+- **REQ-035:** Al archivar una materia, sus alumnos quedan inactivos y conservan
+  su grupo en el historial. Desde una materia activa, el docente puede elegir
+  una materia archivada y uno de sus grupos para reinscribir al alumnado de ese
+  grupo en la materia destino. La operación conserva intactos los registros
+  archivados, crea inscripciones activas vinculadas al destino, evita duplicar
+  matrículas ya presentes y reporta cuántos alumnos se reinscribieron o ya
+  estaban inscritos. Solo se permite entre materias del mismo docente.
 
 ## Requisitos no funcionales
 
@@ -181,6 +191,8 @@ en México, instituciones públicas/privadas y docentes independientes.
   embebido, SQLite local y navegador soportado por la matriz E2E.
 
 ## Criterios de Aceptación
+
+- AC-034 (REQ-034): Los escenarios sintéticos de calificación crean reactivos mediante vista previa, confirmación, revisión y publicación del contrato actual, sin llamar la ruta HTTP 410 de escritura legada.
 
 - **AC-001:** Existe una matriz ejecutable que relaciona cada paso con módulo, ruta,
   componente, prueba, evidencia y estado `implemented|partial|missing`.
@@ -311,6 +323,13 @@ en México, instituciones públicas/privadas y docentes independientes.
   producción y desarrollo, eliminar vulnerabilidades altas/críticas conocidas y
   documentar explícitamente cualquier excepción causada por una dependencia
   transitiva sin actualización compatible.
+- **AC-038:** En Alumnos, al elegir una materia activa y una materia archivada,
+  el selector muestra los grupos archivados con alumnos disponibles. Al confirmar
+  un grupo, la aplicación reinscribe en una sola operación a sus alumnos en el
+  destino, conserva su matrícula, nombre y grupo, muestra altas y duplicados, y
+  mantiene sin cambios la materia y las inscripciones archivadas de origen.
+  Repetir la acción no crea duplicados; un origen activo, destino archivado o
+  materia de otro docente se rechaza.
 
 ## Matriz de Trazabilidad
 
@@ -332,6 +351,8 @@ en México, instituciones públicas/privadas y docentes independientes.
 | REQ-014 | Publicación y sincronización de resultados | `apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts` | Implementado |
 | REQ-015 | Integración del portal alumno cloud | `apps/portal_alumno_cloud/tests/integracion/portal.test.ts` | Implementado |
 | REQ-016 | Respaldo cifrado y metadatos de sincronización | `apps/backend/tests/sincronizacion.backupMeta.test.ts` | Implementado |
+| REQ-034 | Fixture de calificación compatible con banco canónico | `apps/backend/tests/integracion/listaAcademicaContratos.test.ts` | Pendiente de validación |
+| REQ-035 | Reinscribir alumnos archivados por materia y grupo sin duplicar inscripciones | `apps/backend/tests/integracion/reinscripcionGrupoArchivado.test.ts`, `apps/frontend/tests/seccionAlumnos.reinscripcion.test.tsx`, `tests/gui-responsive/responsive-docente.spec.ts` | Implementado; integración backend, componente y E2E visual aprobados |
 
 ## Riesgos y decisiones pendientes
 

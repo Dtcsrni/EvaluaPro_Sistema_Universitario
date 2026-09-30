@@ -40,7 +40,7 @@ describe('flujo docente e2e (parcial)', () => {
       .set(escenario.auth)
       .expect(200);
     expect(csvResp.text).toContain(
-      'matricula,apellidoPaterno,apellidoMaterno,nombre,grupo,parcial1,parcial2,global,final,observaciones,conformidadAlumno'
+      'matricula,apellidoPaterno,apellidoMaterno,nombre,grupo,parcial1,parcial2,tareasYEjercicios2doParcial,practica2doParcial,evaluacionContinua2doParcial,examen2doParcial,examen2doParcialAutomatico,calificacionSegundoParcial,examenGlobalComponente,examenGlobalLista,continuaTercerParcialLista,calificacionTercerParcial,bonoExtracurricular,global,final,observaciones,conformidadAlumno'
     );
 
     const docxResp = await request(app)

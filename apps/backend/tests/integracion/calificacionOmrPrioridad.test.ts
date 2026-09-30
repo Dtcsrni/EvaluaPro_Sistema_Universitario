@@ -36,7 +36,9 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
     return respuesta.body.token as string;
   }
 
-  it('ignora aciertos manuales cuando existen respuestasDetectadas', async () => {
+  it.each(['sin_marca', 'doble_marca'] as const)(
+    'ignora aciertos manuales y conserva el estado %s cuando la opción es nula',
+    async (estadoRespuesta) => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };
 
@@ -151,7 +153,13 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
         totalReactivos: 1,
         bonoSolicitado: 0,
         evaluacionContinua: 0,
-        respuestasDetectadas: [{ numeroPregunta: 1, opcion: null, confianza: 0.92 }],
+        respuestasDetectadas: [{
+          numeroPregunta: 1,
+          opcion: null,
+          confianza: estadoRespuesta === 'sin_marca' ? 0.92 : 0.55,
+          estadoRespuesta,
+          ...(estadoRespuesta === 'doble_marca' ? { flags: ['doble_marca' as const] } : {})
+        }],
         omrAnalisis: {
           estadoAnalisis: 'ok',
           calidadPagina: 0.95,
@@ -171,6 +179,14 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
     expect(calificacionResp.body.calificacion.aciertos).toBe(0);
     expect(calificacionResp.body.calificacion.totalReactivos).toBe(1);
     expect(calificacionResp.body.calificacion.calificacionExamenFinalTexto).toBe('0');
-  });
+    expect(calificacionResp.body.calificacion.respuestasDetectadas).toEqual([
+      expect.objectContaining({
+        opcion: null,
+        estadoRespuesta,
+        ...(estadoRespuesta === 'doble_marca' ? { flags: ['doble_marca'] } : {})
+      })
+    ]);
+    }
+  );
 });
 

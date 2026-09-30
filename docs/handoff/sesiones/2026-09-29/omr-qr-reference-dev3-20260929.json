@@ -1,0 +1,114 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-qr-reference-dev3-20260929",
+  "status": "draft",
+  "generatedAt": "2026-09-30T00:36:17Z",
+  "validationProfile": "focused",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "agente-ia",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Continuar el ciclo evolutivo OMR/QR y mantener su versión independiente de EvaluaPro y de la plantilla."
+  },
+  "objective": "Mejorar el motor OMR/QR y la plantilla con evidencia de todos los corpora y lotes disponibles hasta lograr estabilidad de producción; liberar cada mejora significativa como versión propia antes de continuar la siguiente iteración.",
+  "scope": [
+    "Optimización del cotejo geométrico de QR de referencia PDF bajo SPEC-071 AC-025; 414 páginas de Globales y Parciales enlazadas a mapas persistidos.",
+    "Versionado independiente del motor: evaluapro-omr-qr@1.0.0-dev.3.",
+    "Pruebas unitarias, integración local sin efectos laterales, microbenchmark sintético y cotejo real de 414 páginas."
+  ],
+  "constraints": [
+    "Preservar el árbol compartido y cambios preexistentes; no stage, commit, checkout ni revertir archivos.",
+    "No modificar notas, crear jobs de producción ni alterar datos productivos.",
+    "No promover a estable sin etiquetas adjudicadas y evidencia física reproducible de OMR, QR y plantilla.",
+    "No modificar jobs ni calificaciones; el cotejo offline usa consulta SQLite en modo solo lectura."
+  ],
+  "actions": [
+    { "type": "implementation", "summary": "Precompilación de candidatos QR una vez por PDF y cotejo de matrices empaquetadas en palabras de 32 bits", "timestamp": "2026-09-29T23:40:00Z", "status": "ok" },
+    { "type": "implementation", "summary": "Raster de referencia a 144 dpi y bloques de 8, seleccionado tras evaluar 414 páginas completas", "timestamp": "2026-09-30T00:20:00Z", "status": "ok" },
+    { "type": "implementation", "summary": "Versión independiente OMR/QR avanzada a 1.0.0-dev.3; sin cambio de versión de app o plantilla", "timestamp": "2026-09-29T23:41:00Z", "status": "ok" },
+    { "type": "validation", "summary": "Benchmark sintético: 100 candidatos por 8 páginas, equivalencia exacta, mejora mediana de 9.46x", "timestamp": "2026-09-29T23:47:00Z", "status": "ok" },
+    { "type": "validation", "summary": "10 PDF únicos Global/Parcial enlazados con mapas persistidos: 414/414 páginas asociadas unívocamente al payload esperado dentro de 3.5 % en 200 dpi y 144 dpi; cero ambigüedades u omisiones; 2 duplicados", "timestamp": "2026-09-30T00:27:00Z", "status": "ok" },
+    { "type": "validation", "summary": "Suite OMR base y nueva prueba de cotejo QR: 15/15", "timestamp": "2026-09-29T23:47:00Z", "status": "ok" },
+    { "type": "validation", "summary": "Integración local de coincidencia exacta, rechazo de PDF ajeno/incompleto y no mutación de jobs/calificaciones: 1/1", "timestamp": "2026-09-29T23:48:00Z", "status": "ok" },
+    { "type": "validation", "summary": "QR preimpreso 12/12, typecheck, ESLint focalizado, política de versión 7/7 y SDD audit", "timestamp": "2026-09-29T23:49:00Z", "status": "ok" }
+  ],
+  "files": {
+    "read": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/qrReferenciaPdf.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/tests/integracion/omrJobsWorkflow.test.ts",
+      "docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/qrReferenciaPdf.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/omr/engineRelease.ts",
+      "apps/backend/tests/omr.qrReferenciaPdf.test.ts",
+      "apps/backend/tests/omr.test.ts",
+      "apps/backend/scripts/omr-qr-reference-benchmark.ts",
+      "apps/backend/scripts/omr-qr-reference-corpus-eval.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md",
+      "docs/qa/omr-qr-reference-dev3-2026-09-29.md"
+    ],
+    "artifacts": [
+      "docs/qa/omr-qr-reference-dev3-2026-09-29.md",
+      "docs/handoff/sesiones/2026-09-29/omr-qr-reference-dev3-20260929.json",
+      "docs/handoff/sesiones/2026-09-29/omr-qr-reference-dev3-20260929.md",
+      "docs/handoff/sesiones/2026-09-29/omr-qr-reference-dev3-20260929.handoff.json"
+    ]
+  },
+  "commands": [
+    { "name": "qr_reference_benchmark", "command": "npx tsx scripts/omr-qr-reference-benchmark.ts --candidates=100 --pages=8 --repetitions=5", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Mediana lineal 209.05 ms; empaquetada 22.09 ms; speedup 9.46; coincidencia idéntica. Escenario sintético, no métrica de precisión de producción.", "timestamp": "2026-09-29T23:47:00Z" },
+    { "name": "qr_pdf_corpus_144_dpi_block_4", "command": "npx tsx scripts/omr-qr-reference-corpus-eval.ts --dpi=144 --block-size=4 --suffixes=4950C35F,1021B22D,27588278,3638A1DB,48658CF0,6A21047E,7F17E0DA,DBACAC11,EC426C08,729BB368", "status": "ok", "exitCode": 0, "durationMs": 487665, "resultSummary": "10 PDF únicos; 414/414 páginas con asociación unívoca al payload esperado dentro de 3.5 %; cero ambiguos, omitidos o inesperados; 2 duplicados.", "timestamp": "2026-09-30T00:18:00Z" },
+    { "name": "qr_pdf_corpus_144_dpi_block_8", "command": "npx tsx scripts/omr-qr-reference-corpus-eval.ts --dpi=144 --block-size=8 --suffixes=4950C35F,1021B22D,27588278,3638A1DB,48658CF0,6A21047E,7F17E0DA,DBACAC11,EC426C08,729BB368", "status": "ok", "exitCode": 0, "durationMs": 445539, "resultSummary": "Asociación unívoca 414/414 igual; 42.126 s (8.6 %) menos que con bloque 4.", "timestamp": "2026-09-30T00:27:00Z" },
+    { "name": "qr_pdf_corpus_200_dpi_block_4", "command": "npx tsx scripts/omr-qr-reference-corpus-eval.ts --dpi=200 --block-size=4 --suffixes=4950C35F,1021B22D,27588278,3638A1DB,48658CF0,6A21047E,7F17E0DA,DBACAC11,EC426C08,729BB368", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Asociación unívoca al payload esperado en 414/414 páginas dentro del margen; no se guardó la duración.", "timestamp": "2026-09-29T23:58:33Z" },
+    { "name": "omr_qr_tests", "command": "npx vitest run tests/omr.test.ts tests/omr.qrReferenciaPdf.test.ts", "status": "ok", "exitCode": 0, "durationMs": 47780, "resultSummary": "2 archivos, 15 pruebas aprobadas.", "timestamp": "2026-09-29T23:47:00Z" },
+    { "name": "qr_print_tests", "command": "npx vitest run tests/omr.qr.preimpresion.test.ts", "status": "ok", "exitCode": 0, "durationMs": 1350, "resultSummary": "12 pruebas aprobadas.", "timestamp": "2026-09-29T23:48:54Z" },
+    { "name": "qr_reference_integration", "command": "npx vitest run tests/integracion/omrJobsWorkflow.test.ts -t \"localiza por QR el lote exacto\"", "status": "ok", "exitCode": 0, "durationMs": 19820, "resultSummary": "Con 144 dpi/bloques 8: prueba aprobada; lote ajeno/incompleto rechazados y jobs/calificaciones no mutados.", "timestamp": "2026-09-30T00:29:35Z" },
+    { "name": "backend_typecheck", "command": "npx tsc --noEmit --project tsconfig.json --pretty false", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "TypeScript backend sin errores.", "timestamp": "2026-09-29T23:49:00Z" },
+    { "name": "focused_lint", "command": "npx eslint src/modulos/modulo_escaneo_omr/infra/qrReferenciaPdf.ts src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts src/modulos/modulo_escaneo_omr/omr/engineRelease.ts tests/omr.qrReferenciaPdf.test.ts tests/omr.test.ts scripts/omr-qr-reference-benchmark.ts --max-warnings=0", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "ESLint focalizado sin advertencias.", "timestamp": "2026-09-29T23:49:00Z" },
+    { "name": "version_policy", "command": "npm run test:omr:version-policy", "status": "ok", "exitCode": 0, "durationMs": 122, "resultSummary": "7/7 pruebas aprobadas; motor SemVer separado de app y plantilla.", "timestamp": "2026-09-29T23:49:00Z" },
+    { "name": "sdd_audit", "command": "npm run sdd:audit", "status": "ok", "exitCode": 0, "durationMs": 794, "resultSummary": "Todas las especificaciones cumplen la política.", "timestamp": "2026-09-29T23:48:54Z" }
+  ],
+  "decisions": [
+    "Mantener 3.5 % de diferencia máxima, geometría persistida y coincidencia única; el cambio es de rendimiento, no relaja criterios QR.",
+    "Empaquetar las matrices esperadas y muestras en words de 32 bits para aplicar distancia Hamming por XOR/popcount.",
+    "Mantener 1.0.0-dev.3 como desarrollo; cotejo PDF completo no acredita estabilidad fotográfica de OMR/QR ni plantilla física.",
+    "Prevalidación offline con SQLite de solo lectura; integración local prueba firma y ausencia de mutaciones."
+  ],
+  "assumptions": [
+    "Las 100 candidatas del benchmark sintético comparten geometría y tamaño de matriz; el resultado caracteriza ese caso acotado.",
+    "El cotejo matricial offline usa exactamente los payloads y geometrías persistidos, pero no invoca el HMAC del endpoint productivo."
+  ],
+  "risks": [
+    "El evaluador matricial no valida HMAC por sí mismo; la ruta productiva sí lo hace y la integración local cubre esa validación con PDFs de prueba.",
+    "El CamScanner de 48 páginas carece de lote/mapa de referencia asociado para esta operación; su evaluación fotográfica queda pendiente.",
+    "No se revalidó el endpoint en GUI/instalación; el fallo anterior del runtime local sigue sin resolución comprobada.",
+    "El corpus OMR completo no se reejecutó en esta iteración QR; precisión OMR y plantilla física permanecen pendientes.",
+    "Los archivos cambiados estaban sin seguimiento y el repositorio ya tenía muchos cambios compartidos; no se stagearon ni alteraron cambios ajenos."
+  ],
+  "nextStep": "Verificar GUI/API de prevalidación en la instalación local; después evaluar OMR sobre los datasets fotográficos etiquetados y adjudicar marcas ambiguas.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "verificar la GUI/API instalada con la build actual",
+      "evaluar el CamScanner de 48 páginas con sus etiquetas/mapas correspondientes, si están disponibles",
+      "verificar el endpoint GUI/API en la instalación local con la build actual",
+      "reproducir evaluación OMR completa con huellas fijas y verdad terreno adjudicada",
+      "adjudicar manualmente marcas X y trazos cruzados",
+      "imprimir y capturar físicamente la plantilla TV4 con condiciones controladas",
+      "repetir evaluación OMR/QR/plantilla y cumplir criterios de estabilidad antes de crear una release estable"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/omr-letter-color-template",
+    "commit": "bd7860cb",
+    "workingTreeStatus": "árbol compartido con cambios preexistentes; se preservó; sin stage ni commit"
+  }
+}

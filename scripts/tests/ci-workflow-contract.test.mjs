@@ -31,12 +31,12 @@ test('ext_perf_arquitectura prepara sharp antes de perf:check', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const block = extractJobBlock(workflow, 'ext_perf_arquitectura');
 
-  assert.match(block, /run:\s*npm ci --foreground-scripts/);
+  assert.match(block, /run:\s*\|[\s\S]{0,120}npm ci --foreground-scripts/);
   assert.match(block, /Preparar runtime sharp \(linux-x64\)/);
   assert.match(block, /npm install --no-save --include=optional --os=linux --cpu=x64 sharp/);
   assert.match(block, /run:\s*npm run perf:check/);
 
-  const setupIndex = block.indexOf('run: npm ci --foreground-scripts');
+  const setupIndex = block.indexOf('npm ci --foreground-scripts');
   const sharpIndex = block.indexOf('npm install --no-save --include=optional --os=linux --cpu=x64 sharp');
   const perfIndex = block.indexOf('run: npm run perf:check');
 
@@ -154,8 +154,8 @@ test('jobs extended generan Prisma antes de importar backend', () => {
 
   for (const [jobKey, firstBackendCommand] of cases) {
     const block = extractJobBlock(workflow, jobKey);
-    const setupIndex = block.indexOf('run: npm ci --foreground-scripts');
-    const prismaIndex = block.indexOf('npx prisma generate --schema=apps/backend/prisma/schema.prisma');
+    const setupIndex = block.indexOf('npm ci --foreground-scripts');
+    const prismaIndex = block.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
     const commandIndex = block.indexOf(firstBackendCommand);
 
     assert.ok(setupIndex >= 0, `${jobKey}: faltante npm ci`);
@@ -193,6 +193,17 @@ test('release stable gate expone GH_TOKEN para gh cli', () => {
 
   assert.match(workflow, /GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}/);
   assert.match(workflow, /validate-stable-promotion\.mjs/);
+});
+
+test('qa:full genera el manifiesto despues de todos los reportes que incluye', () => {
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  const qaFull = String(packageJson.scripts?.['qa:full'] ?? '');
+  const architectureIndex = qaFull.indexOf('qa:clean-architecture:check');
+  const manifestIndex = qaFull.indexOf('test:qa:manifest');
+
+  assert.ok(architectureIndex >= 0, 'qa:full debe ejecutar clean architecture');
+  assert.ok(manifestIndex > architectureIndex, 'qa:full debe generar manifest despues de clean architecture');
+  assert.equal(manifestIndex, qaFull.lastIndexOf('test:qa:manifest'), 'qa:full debe finalizar con el manifiesto actualizado');
 });
 
 test('release stable gate materializa manifest del instalador antes de validar', () => {

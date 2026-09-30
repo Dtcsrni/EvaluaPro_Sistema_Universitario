@@ -81,46 +81,24 @@ function leerPoliticaOmr(envDir: string) {
   return { version, contractId, displayLabel };
 }
 
-function sincronizarPublicoSinReemplazo(publicDir: string, outDir: string) {
-  if (!fs.existsSync(publicDir)) return;
-
-  const recorrer = (directorio: string): string[] => fs.readdirSync(directorio, { withFileTypes: true }).flatMap((entrada) => {
-    const absoluto = path.join(directorio, entrada.name);
-    if (entrada.isDirectory()) return recorrer(absoluto);
-    return entrada.isFile() ? [absoluto] : [];
-  });
-
-  for (const origen of recorrer(publicDir)) {
-    const relativo = path.relative(publicDir, origen);
-    const destino = path.join(outDir, relativo);
-    fs.mkdirSync(path.dirname(destino), { recursive: true });
-
-    if (!fs.existsSync(destino)) {
-      fs.copyFileSync(origen, destino);
-      continue;
-    }
-
-    const contenidoOrigen = fs.readFileSync(origen);
-    const contenidoDestino = fs.readFileSync(destino);
-    if (Buffer.compare(contenidoOrigen, contenidoDestino) === 0) continue;
-
-    throw new Error(
-      `El estático público ${relativo} cambió mientras la salida estaba en uso. ` +
-      'Cierra el host que sirve EvaluaPro y vuelve a ejecutar el build.'
-    );
-  }
-}
-
 function pluginPublicoWindowsSeguro(): Plugin {
-  let outDir = '';
+  const publicDir = path.resolve(__dirname, 'public');
   return {
     name: 'evaluapro-public-assets-windows-safe',
     apply: 'build',
-    configResolved(config) {
-      outDir = path.resolve(config.root, config.build.outDir);
-    },
-    writeBundle() {
-      sincronizarPublicoSinReemplazo(path.resolve(__dirname, 'public'), outDir);
+    generateBundle() {
+      if (!fs.existsSync(publicDir)) return;
+
+      const recorrer = (directorio: string): string[] => fs.readdirSync(directorio, { withFileTypes: true }).flatMap((entrada) => {
+        const absoluto = path.join(directorio, entrada.name);
+        if (entrada.isDirectory()) return recorrer(absoluto);
+        return entrada.isFile() ? [absoluto] : [];
+      });
+
+      for (const origen of recorrer(publicDir)) {
+        const fileName = path.relative(publicDir, origen).split(path.sep).join('/');
+        this.emitFile({ type: 'asset', fileName, source: fs.readFileSync(origen) });
+      }
     }
   };
 }
@@ -196,6 +174,9 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              if (id.includes('tesseract.js')) {
+                return 'vendor-ocr';
+              }
               if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
                 return 'vendor-react';
               }

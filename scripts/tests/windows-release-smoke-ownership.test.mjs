@@ -19,6 +19,7 @@ const processInfo = {
   commandLine: `${root.replaceAll('/', '\\')}\\runtime\\node\\node.exe ${root.replaceAll('/', '\\')}\\scripts\\launcher-dashboard.mjs --mode prod`
 };
 const lock = { pid: 1250, port: 4522, mode: 'prod', startedAt: '2026-09-24T12:00:00Z' };
+const requestedAt = '2026-09-24T11:59:59Z';
 const ports = Array.from({ length: 20 }, (_, index) => 4519 + index);
 
 test('el smoke exige éxito del broker y conserva el diagnóstico de error', () => {
@@ -73,7 +74,8 @@ test('la identidad propia exige PID nuevo, puerto reservado y command line del c
     previousLock: { pid: 77 },
     processInfo,
     ports,
-    installRoot: root
+    installRoot: root,
+    requestedAt
   });
   assert.equal(owner.pid, 1250);
   assert.equal(owner.port, 4522);
@@ -94,14 +96,26 @@ test('la identidad propia exige PID nuevo, puerto reservado y command line del c
       previousLock: null,
       processInfo: { ...processInfo, commandLine: 'C:\\other\\launcher-dashboard.mjs' },
       ports,
-      installRoot: root
+      installRoot: root,
+      requestedAt
     }),
     /no corresponde/
+  );
+  assert.throws(
+    () => createOwnedDashboardIdentity({
+      lock: { ...lock, startedAt: '2026-09-24T11:59:58Z' },
+      previousLock: null,
+      processInfo,
+      ports,
+      installRoot: root,
+      requestedAt
+    }),
+    /instancia anterior/
   );
 });
 
 test('cleanup cierra solo la identidad registrada; un PID sustituido no se toca', async () => {
-  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root });
+  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root, requestedAt });
   let shutdownCalls = 0;
   let killCalls = 0;
   await assert.rejects(
@@ -119,7 +133,7 @@ test('cleanup cierra solo la identidad registrada; un PID sustituido no se toca'
 });
 
 test('cleanup usa shutdown del PID propio y no fuerza al terminar normalmente', async () => {
-  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root });
+  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root, requestedAt });
   const calls = [];
   await cleanupOwnedDashboard(owner, {
     readProcess: async () => processInfo,
@@ -132,7 +146,7 @@ test('cleanup usa shutdown del PID propio y no fuerza al terminar normalmente', 
 });
 
 test('cleanup no manda shutdown si el lock cambió de PID o puerto', async () => {
-  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root });
+  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root, requestedAt });
   let shutdownCalls = 0;
   let killCalls = 0;
   await assert.rejects(
@@ -150,7 +164,7 @@ test('cleanup no manda shutdown si el lock cambió de PID o puerto', async () =>
 });
 
 test('cleanup deja intacto el servicio cuando el PID registrado ya terminó', async () => {
-  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root });
+  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root, requestedAt });
   let shutdownCalls = 0;
   let killCalls = 0;
   const result = await cleanupOwnedDashboard(owner, {
@@ -166,7 +180,7 @@ test('cleanup deja intacto el servicio cuando el PID registrado ya terminó', as
 });
 
 test('cleanup solo fuerza terminación después de revalidar exactamente el PID propio', async () => {
-  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root });
+  const owner = createOwnedDashboardIdentity({ lock, previousLock: null, processInfo, ports, installRoot: root, requestedAt });
   let readCount = 0;
   let waitCount = 0;
   const calls = [];

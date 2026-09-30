@@ -97,7 +97,8 @@ describe('sincronizacion nube', () => {
     await generarCodigoAcceso(req, res);
 
     expect(res.status).toHaveBeenCalledWith(201);
-    const payload = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0] as { codigo: string };
+    const payload = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0] as { codigoAccesoId: string; codigo: string };
+    expect(payload.codigoAccesoId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(payload.codigo).toHaveLength(8);
 
     const registro = await prisma.codigoAcceso.findUnique({
@@ -174,6 +175,32 @@ describe('sincronizacion nube', () => {
       }
     });
 
+    const temaBanco = await prisma.temaBanco.create({ data: {
+      id: 'tema-sync-reactivos-1', docenteId, periodoId, nombre: 'Segundo Parcial', clave: 'segundo-parcial'
+    } });
+    const reactivo = await prisma.reactivo.create({ data: {
+      id: 'reactivo-sync-1', docenteId, externalKey: 'sync-reactivo-1', estado: 'published', versionActual: 1
+    } });
+    const reactivoVersion = await prisma.reactivoVersion.create({ data: {
+      id: 'reactivo-version-sync-1', reactivoId: reactivo.id, numeroVersion: 1, enunciado: '¿Qué dato se analiza?',
+      contentHash: 'a'.repeat(64), metadataJson: '{"difficultyHypothesis":"medium"}', procedenciaJson: '{"origin":"authored"}',
+      opciones: { create: ['A', 'B', 'C', 'D', 'E'].map((clave, index) => ({ id: `reactivo-opcion-sync-${clave}`, clave, texto: `Opción ${clave}`, esCorrecta: index === 0 })) }
+    } });
+    await prisma.reactivoAsignacion.create({ data: { id: 'reactivo-asignacion-sync-1', reactivoId: reactivo.id, periodoId, temaId: temaBanco.id } });
+    await prisma.reactivoCalibracion.create({ data: {
+      id: 'reactivo-calibracion-sync-1', reactivoId: reactivo.id, reactivoVersionId: reactivoVersion.id,
+      cohorteKey: 'cohorte-sync', respuestasValidas: 30, aciertos: 18, proporcionCorrecta: 0.6,
+      estadoEvidencia: 'calibrado', distractoresJson: '{"B":8}', intervaloJson: '{}'
+    } });
+    await prisma.reactivoAsset.create({ data: {
+      id: 'reactivo-asset-sync-1', docenteId, sha256: 'b'.repeat(64), mediaType: 'image/png', nombre: 'figura.png', ruta: 'assets/figura.png'
+    } });
+    await prisma.reactivoImportacion.create({ data: {
+      id: 'reactivo-importacion-sync-1', docenteId, batchId: 'batch-sync-1', inputSha256: 'c'.repeat(64),
+      planHash: 'd'.repeat(64), payloadJson: '{}', planJson: '{}', estado: 'confirmed',
+      filas: { create: { id: 'reactivo-importacion-fila-sync-1', linea: 1, externalKey: reactivo.externalKey, operacion: 'create', estado: 'applied', contentHash: reactivoVersion.contentHash, reactivoId: reactivo.id } }
+    } });
+
     const pregunta = await prisma.bancoPregunta.create({
       data: {
         id: 'preg-1',
@@ -242,6 +269,12 @@ describe('sincronizacion nube', () => {
     expect(payload.conteos.alumnos).toBe(1);
     expect(payload.conteos.bancoPreguntas).toBe(1);
     expect(payload.conteos.plantillas).toBe(1);
+    expect(payload.conteos.reactivos).toBe(1);
+    expect(payload.conteos.reactivoVersiones).toBe(1);
+    expect(payload.conteos.reactivoAsignaciones).toBe(1);
+    expect(payload.conteos.reactivoImportaciones).toBe(1);
+    expect(payload.conteos.reactivoCalibraciones).toBe(1);
+    expect(payload.conteos.reactivoAssets).toBe(1);
 
     // Limpiar base de datos para simular ambiente vacío
     await prisma.preguntaPlantilla.deleteMany();
@@ -249,6 +282,15 @@ describe('sincronizacion nube', () => {
     await prisma.opcionPregunta.deleteMany();
     await prisma.versionPregunta.deleteMany();
     await prisma.bancoPregunta.deleteMany();
+    await prisma.reactivoCalibracion.deleteMany();
+    await prisma.reactivoImportacionFila.deleteMany();
+    await prisma.reactivoImportacion.deleteMany();
+    await prisma.reactivoAsset.deleteMany();
+    await prisma.reactivoAsignacion.deleteMany();
+    await prisma.reactivoOpcion.deleteMany();
+    await prisma.reactivoVersion.deleteMany();
+    await prisma.reactivo.deleteMany();
+    await prisma.temaBanco.deleteMany();
     await prisma.alumno.deleteMany();
     await prisma.periodo.deleteMany();
 
@@ -264,6 +306,15 @@ describe('sincronizacion nube', () => {
     expect(await prisma.alumno.count({ where: { periodo: { docenteId } } })).toBe(1);
     expect(await prisma.bancoPregunta.count({ where: { docenteId } })).toBe(1);
     expect(await prisma.examenPlantilla.count({ where: { docenteId } })).toBe(1);
+    expect(await prisma.temaBanco.count({ where: { docenteId } })).toBe(1);
+    expect(await prisma.reactivo.count({ where: { docenteId } })).toBe(1);
+    expect(await prisma.reactivoVersion.count({ where: { reactivoId: reactivo.id } })).toBe(1);
+    expect(await prisma.reactivoOpcion.count({ where: { reactivoVersionId: reactivoVersion.id } })).toBe(5);
+    expect(await prisma.reactivoAsignacion.count({ where: { reactivoId: reactivo.id } })).toBe(1);
+    expect(await prisma.reactivoImportacion.count({ where: { docenteId } })).toBe(1);
+    expect(await prisma.reactivoImportacionFila.count({ where: { reactivoId: reactivo.id } })).toBe(1);
+    expect(await prisma.reactivoCalibracion.count({ where: { reactivoId: reactivo.id } })).toBe(1);
+    expect(await prisma.reactivoAsset.count({ where: { docenteId } })).toBe(1);
 
     // Idempotencia: reimportar no duplica ni rompe.
     await importarPaquete(reqImport, crearRespuesta());

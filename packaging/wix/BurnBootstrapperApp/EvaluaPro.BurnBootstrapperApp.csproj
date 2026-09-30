@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="WixToolset.BootstrapperApplicationApi" Version="6.0.2" />
+    <PackageReference Include="WixToolset.BootstrapperApplicationApi" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>

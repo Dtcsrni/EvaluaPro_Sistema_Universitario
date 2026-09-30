@@ -9,6 +9,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionPublicar } from '../src/apps/app_docente/SeccionPublicar';
 import { emitToast } from '../src/ui/toast/toastBus';
 import type { Periodo } from '../src/apps/app_docente/tipos';
+import { ConfirmDialogProvider } from '../src/ui/feedback/ConfirmDialogProvider';
 
 vi.mock('../src/ui/toast/toastBus', () => ({
   emitToast: vi.fn()
@@ -122,4 +123,37 @@ describe('SeccionPublicar', () => {
       expect.objectContaining({ level: 'error', title: 'No se pudo publicar' })
     );
   });
+});
+
+
+it('expira un código local solo después de confirmación y conserva aviso de sincronización', async () => {
+  const codigo = { id: 'code-1', periodoId: 'per-1', expiraEn: '2026-12-31T00:00:00.000Z', usado: false };
+  const mockListar = vi.fn()
+    .mockResolvedValueOnce({ codigosAcceso: [{ ...codigo, estado: 'vigente' }] })
+    .mockResolvedValueOnce({ codigosAcceso: [{ ...codigo, estado: 'expirado' }] });
+  const mockExpirar = vi.fn().mockResolvedValue({ codigoAccesoId: 'code-1', expirado: true });
+  render(
+    <ConfirmDialogProvider>
+      <SeccionPublicar
+        periodos={[{ _id: 'per-1', nombre: 'Física Cuántica', activo: true }]}
+        onPublicar={vi.fn().mockResolvedValue({})}
+        onCodigo={vi.fn().mockResolvedValue({ codigoAccesoId: 'code-1', codigo: 'ABC123', expiraEn: '2026-12-31T00:00:00.000Z' })}
+        onListarCodigos={mockListar}
+        onExpirarCodigo={mockExpirar}
+      />
+    </ConfirmDialogProvider>
+  );
+  fireEvent.change(screen.getByLabelText(/^Materia$/i), { target: { value: 'per-1' } });
+  fireEvent.click(screen.getByRole('button', { name: /Consultar códigos/i }));
+  expect(await screen.findByText('vigente')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Expirar localmente/i }));
+  expect(await screen.findByRole('alertdialog')).toHaveTextContent(/publicar los resultados por separado/i);
+  fireEvent.click(screen.getByRole('button', { name: /^Cancelar$/i }));
+  expect(mockExpirar).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: /Expirar localmente/i }));
+  fireEvent.click(await screen.findByRole('button', { name: /^Expirar código$/i }));
+  await waitFor(() => expect(mockExpirar).toHaveBeenCalledWith('code-1'));
+  expect(await screen.findByText(/publica los resultados para sincronizar/i)).toBeInTheDocument();
+  expect(await screen.findByText('expirado')).toBeInTheDocument();
+  expect(mockListar).toHaveBeenCalledTimes(2);
 });

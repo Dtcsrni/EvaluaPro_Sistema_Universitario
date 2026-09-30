@@ -3,7 +3,7 @@
  */
 import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
-import { actualizarAlumno, crearAlumno, eliminarAlumnoDev, listarAlumnos, reinscribirGrupoArchivado } from './controladorAlumnos.js';
+import { actualizarAlumno, crearAlumno, eliminarAlumnoDev, listarAlumnos, obtenerAlumno, reinscribirGrupoArchivado } from './controladorAlumnos.js';
 import { esquemaActualizarAlumno, esquemaCrearAlumno, esquemaReinscribirGrupoArchivado } from './validacionesAlumnos.js';
 import { esquemaBodyVacioOpcional } from './validacionesPeriodos.js';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
@@ -12,6 +12,7 @@ const router = Router();
 
 router.get('/', requerirPermiso('alumnos:leer'), listarAlumnos);
 router.post('/reinscribir-grupo-archivado', requerirPermiso('alumnos:gestionar'), validarCuerpo(esquemaReinscribirGrupoArchivado, { strict: true }), reinscribirGrupoArchivado);
+router.get('/:alumnoId', requerirPermiso('alumnos:leer'), obtenerAlumno);
 router.post('/', requerirPermiso('alumnos:gestionar'), validarCuerpo(esquemaCrearAlumno, { strict: true }), crearAlumno);
 router.post(
   '/:alumnoId/actualizar',

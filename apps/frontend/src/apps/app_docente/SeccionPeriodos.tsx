@@ -831,16 +831,12 @@ export function SeccionPeriodos({
                                   <span className={`chip chip--sm chip--${progreso.estado} anim-badge-in`}>
                                     {progreso.etiquetaEstado}
                                   </span>
-                                  <div
+                                  <progress
                                     className="materia-progress-bar"
-                                    role="progressbar"
-                                    aria-valuemin={0}
-                                    aria-valuemax={100}
-                                    aria-valuenow={progreso.porcentaje}
+                                    max={100}
+                                    value={progreso.porcentaje}
                                     aria-label={`Avance de ${etiquetaMateria(periodo)}: ${progreso.porcentaje}%`}
-                                  >
-                                    <span style={{ width: `${progreso.porcentaje}%` }} />
-                                  </div>
+                                  />
                                 </div>
                               </div>
                               <div className="materia-progress-ring" title={`Avance académico: ${progreso.porcentaje}% (${progreso.etiquetaEstado})`}>

@@ -32,7 +32,7 @@ describe('Integración: Asistencias, Reglas y Excepciones', () => {
         nombre: 'Periodo Asistencia 2026',
         fechaInicio: '2026-01-01',
         fechaFin: '2026-06-01',
-        grupos: ['A']
+        grupos: ['A', 'B']
       })
       .expect(201);
     periodoId = periodoResp.body.periodo._id;
@@ -184,5 +184,40 @@ describe('Integración: Asistencias, Reglas y Excepciones', () => {
         motivo: 'Falta justificada pero no permitida'
       })
       .expect(403);
+  });
+
+  it('rechaza de forma atómica alumnos fuera del grupo de la sesión', async () => {
+    const alumnoBResp = await request(app)
+      .post('/api/alumnos')
+      .set(auth)
+      .send({
+        periodoId,
+        matricula: 'CUH512410171',
+        nombreCompleto: 'Ana Grupo B',
+        correo: 'ana.grupo-b@prueba.test',
+        grupo: 'B'
+      })
+      .expect(201);
+
+    const sesion = await request(app)
+      .post('/api/asistencias/sesiones')
+      .set(auth)
+      .send({ periodoId, fecha: '2026-03-01T12:00:00.000Z', grupo: 'A' })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/asistencias/sesiones/${sesion.body.sesion._id}/registros`)
+      .set(auth)
+      .send({ registros: [
+        { alumnoId, estado: 'F' },
+        { alumnoId: alumnoBResp.body.alumno._id, estado: 'F' }
+      ] })
+      .expect(400);
+
+    const lista = await request(app)
+      .get(`/api/asistencias/sesiones/${sesion.body.sesion._id}/registros`)
+      .set(auth)
+      .expect(200);
+    expect(lista.body.registros).toHaveLength(0);
   });
 });

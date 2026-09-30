@@ -1,0 +1,138 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "01a0aec6-c99b-7b22-8520-0f45d784ea9a-qr-fold-clearance-r1",
+  "status": "draft",
+  "generatedAt": "2026-09-27T20:26:37Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Continuar la evolución de plantilla OMR/QR y aprovechar el espacio sin perder capacidad ni fiabilidad."
+  },
+  "objective": "Reducir la susceptibilidad del QR de futuras plantillas a pliegues de borde, conservando capacidad, coordenadas de referencia y lectura OMR/QR.",
+  "scope": [
+    "Aumentar 6 mm el despeje horizontal de la tarjeta QR del borde derecho",
+    "Sincronizar la estimación de espacio para continuaciones",
+    "Añadir guardia geométrica y actualizar SPEC-062"
+  ],
+  "constraints": [
+    "No alterar marcas ni etiquetas del dataset histórico",
+    "No modificar el motor OMR ni la base de calificaciones",
+    "No afirmar mejora fotográfica sin rebenchmark ni impresión física",
+    "Preservar otros cambios concurrentes del checkout"
+  ],
+  "actions": [
+    {
+      "type": "diagnostico",
+      "summary": "La inspección de scan-02 mostró un pliegue cruzando el QR; scan-20 sirvió como contraste visual legible. La guardia pre-cambio midió 68.63 pt de despeje frente al mínimo de 85.04 pt.",
+      "timestamp": "2026-09-27T20:26:37Z",
+      "status": "ok"
+    },
+    {
+      "type": "mejora",
+      "summary": "El renderer y su estimador de continuidad usan ahora un inset de 11 mm en vez de 5 mm; la prueba exige al menos 30 mm entre tarjeta QR y borde de página.",
+      "timestamp": "2026-09-27T20:26:37Z",
+      "status": "ok"
+    },
+    {
+      "type": "validacion",
+      "summary": "Pasaron 31 pruebas de layout, 16 pruebas QR/preimpresión, ESLint focal y tsc --noEmit; el caso probado de 35 reactivos en dos páginas conserva la lectura QR rasterizada.",
+      "timestamp": "2026-09-27T20:26:37Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/POLITICA_SDD.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts",
+      "apps/backend/tests/pdf.layout.visual.guard.test.ts",
+      "C:\\Users\\evega\\AppData\\Local\\Temp\\evaluapro-omr-global48-r2-20260927.json"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts",
+      "apps/backend/tests/pdf.layout.visual.guard.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "artifacts": [
+      "C:\\Users\\evega\\AppData\\Local\\Temp\\evaluapro-omr-global48-r2-20260927.json"
+    ]
+  },
+  "commands": [
+    {
+      "name": "qr_clearance_prechange",
+      "command": "npx vitest run tests/pdf.layout.visual.guard.test.ts -t \"valida no solapes\"",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 3430,
+      "resultSummary": "Regresión RED intencional: 68.63 pt medidos frente a 85.04 pt requeridos."
+    },
+    {
+      "name": "pdf_layout_visual_guard",
+      "command": "npx vitest run tests/pdf.layout.visual.guard.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 20260,
+      "resultSummary": "1 archivo y 31/31 pruebas aprobadas; incluye layout, capacidad de 35 en dos páginas, QR rasterizado y guardas geométricas."
+    },
+    {
+      "name": "qr_contract_and_preprint",
+      "command": "npx vitest run tests/qr.examen.test.ts tests/omr.qr.preimpresion.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1030,
+      "resultSummary": "2 archivos y 16/16 pruebas aprobadas."
+    },
+    {
+      "name": "eslint_focal",
+      "command": "npx eslint src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts tests/pdf.layout.visual.guard.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3170,
+      "resultSummary": "Sin errores ni advertencias focales."
+    },
+    {
+      "name": "typescript_no_emit",
+      "command": "npx tsc --noEmit --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 9360,
+      "resultSummary": "TypeScript backend sin errores."
+    }
+  ],
+  "decisions": [
+    "Mover la tarjeta 6 mm al interior, en lugar de aumentar el tamaño o nivel de densidad del QR.",
+    "Actualizar la estimación de ancho de continuación en conjunto con la posición real para evitar colisión textual.",
+    "La prueba sintética no se presenta como mejora ya medida en el dataset fotográfico ni como prueba física."
+  ],
+  "assumptions": [
+    "El pliegue fotografiado es un modo plausible de oclusión de esquina; se requiere un nuevo dataset impreso para medir si el margen adicional reduce fallos."
+  ],
+  "risks": [
+    "El QR se desplaza hacia el texto del encabezado/continuación; las pruebas geométricas, visuales y rasterizadas pasan, pero no hay validación de impresora/cámara física.",
+    "Las 15 páginas sin lectura en el benchmark Global r2 siguen sin resolverse; su PDF impreso no cambia con esta mejora.",
+    "El fallback OCR de pie de página queda pendiente de autorización para empaquetar motor y modelo español offline."
+  ],
+  "nextStep": "Generar e imprimir un lote de control con la plantilla actualizada, fotografiarlo con pliegue exterior moderado y plano, medir lectura QR contra los PDF de referencia; continuar detector OCR del pie tras resolver la autorización de empaquetado.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "rebenchmark fotográfico posterior a impresión de la plantilla actualizada",
+      "validación física de QR y OMR bajo curvatura y duplex real",
+      "decisión de autorización para OCR offline en backend"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/omr-letter-color-template",
+    "commit": "894840df",
+    "workingTreeStatus": "checkout con cambios concurrentes; no se revirtieron ni tocaron fuera del alcance declarado"
+  }
+}

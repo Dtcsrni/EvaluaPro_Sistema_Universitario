@@ -13,11 +13,40 @@ import { clienteApi } from '../../../clienteApiDocente';
 import { mensajeDeError } from '../../../utilidades';
 import type { EnviarConPermiso } from '../../../tipos';
 
+async function validarHashDescargaPdf(blob: Blob, hashEsperado: string | null) {
+  if (!hashEsperado || !globalThis.crypto?.subtle) return;
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  const hashReal = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  if (hashReal.toLowerCase() !== hashEsperado.trim().toLowerCase()) {
+    throw new Error('La integridad del PDF descargado no coincide con la del servidor. Vuelve a descargar el lote.');
+  }
+}
+
+function liberarUrlDescargaPosteriormente(url: string) {
+  globalThis.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function solicitarPdfLote(url: string, token: string) {
+  const intentar = (authToken: string) => fetch(`${clienteApi.baseApi}${url}`, {
+    credentials: 'include',
+    headers: { Authorization: `Bearer ${authToken}` }
+  });
+  let respuesta = await intentar(token);
+  if (respuesta.status === 401) {
+    const tokenRenovado = await clienteApi.intentarRefrescarToken();
+    if (tokenRenovado) respuesta = await intentar(tokenRenovado);
+  }
+  if (respuesta.status === 401) throw new Error('La sesión docente expiró. Inicia sesión nuevamente para descargar el paquete.');
+  return respuesta;
+}
 export type ExamenGeneradoResumen = {
   _id: string;
   folio: string;
   loteId?: string;
   plantillaId: string;
+  periodoId?: string;
+  origenGeneracion?: string;
+  archivadoEn?: string | null;
   alumnoId?: string | null;
   estado?: string;
   generadoEn?: string;
@@ -204,12 +233,10 @@ export function usePlantillasGeneradosActions({
       return;
     }
     try {
-      const resp = await fetch(`${clienteApi.baseApi}${lotePdfUrl}`, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const resp = await solicitarPdfLote(lotePdfUrl, token);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const blob = await resp.blob();
+      await validarHashDescargaPdf(blob, resp.headers.get('X-EvaluaPro-PDF-SHA256'));
       const cd = resp.headers.get('Content-Disposition') || '';
       const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
       const nombreDesdeHeader = match
@@ -222,7 +249,7 @@ export function usePlantillasGeneradosActions({
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      liberarUrlDescargaPosteriormente(url);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo descargar el PDF de lote');
       setMensajeGeneracion(msg);
@@ -250,12 +277,10 @@ export function usePlantillasGeneradosActions({
         return;
       }
       try {
-        const resp = await fetch(`${clienteApi.baseApi}/examenes/generados/lote/${encodeURIComponent(lote)}/pdf`, {
-          credentials: 'include',
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const resp = await solicitarPdfLote(`/examenes/generados/lote/${encodeURIComponent(lote)}/pdf`, token);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const blob = await resp.blob();
+        await validarHashDescargaPdf(blob, resp.headers.get('X-EvaluaPro-PDF-SHA256'));
         const cd = resp.headers.get('Content-Disposition') || '';
         const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
         const nombreDesdeHeader = match
@@ -268,7 +293,7 @@ export function usePlantillasGeneradosActions({
         document.body.appendChild(a);
         a.click();
         a.remove();
-        URL.revokeObjectURL(url);
+        liberarUrlDescargaPosteriormente(url);
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo descargar el PDF del paquete');
         setMensajeGeneracion(msg);

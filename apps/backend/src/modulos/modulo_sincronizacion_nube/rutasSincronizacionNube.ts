@@ -7,11 +7,15 @@
  */
 import express, { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { validarQueryRobusto } from '../../compartido/robustez/utilitariosControlador.js';
 import {
 	enviarPaqueteServidor,
 	exportarPaquete,
 	exportarInstantaneaLocal,
 	generarCodigoAcceso,
+	listarCodigosAcceso,
+	expirarCodigoAcceso,
+	obtenerCodigoAcceso,
 	importarPaquete,
 	importarInstantaneaLocal,
 	adquirirLeaseSincronizacion,
@@ -36,17 +40,22 @@ import {
 	esquemaConfigurarCarpetaSincronizacion,
 	esquemaExportarPaquete,
 	esquemaGenerarCodigoAcceso,
+	esquemaListarCodigosAcceso,
 	esquemaImportarInstantaneaLocal,
 	esquemaImportarPaquete,
 	esquemaPublicarResultados,
 	esquemaTraerPaquetesServidor
 } from './validacionesSincronizacion.js';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/validacionesExamenes.js';
 
 const router = Router();
 
 router.get('/', requerirPermiso('sincronizacion:listar'), listarSincronizaciones);
 router.post('/publicar', requerirPermiso('calificaciones:publicar'), validarCuerpo(esquemaPublicarResultados, { strict: true }), publicarResultados);
+router.get('/codigo-acceso', requerirPermiso('calificaciones:publicar'), validarQueryRobusto(esquemaListarCodigosAcceso), listarCodigosAcceso);
+router.get('/codigo-acceso/:codigoAccesoId', requerirPermiso('calificaciones:publicar'), obtenerCodigoAcceso);
+router.post('/codigo-acceso/:codigoAccesoId/expirar', requerirPermiso('calificaciones:publicar'), validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), expirarCodigoAcceso);
 router.post('/codigo-acceso', requerirPermiso('calificaciones:publicar'), validarCuerpo(esquemaGenerarCodigoAcceso, { strict: true }), generarCodigoAcceso);
 
 // Sincronizacion entre computadoras (paquete export/import)

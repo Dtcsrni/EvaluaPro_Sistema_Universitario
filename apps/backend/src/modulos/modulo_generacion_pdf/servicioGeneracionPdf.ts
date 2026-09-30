@@ -5,11 +5,12 @@
  */
 import { generarExamenIndividual } from './application/usecases/generarExamenIndividual.js';
 import type { MapaVariante, PreguntaBase } from './servicioVariantes.js';
-import type { TemplateVersion } from './shared/tiposPdf.js';
+import type { OmrTemplateId, TemplateVersion } from './shared/tiposPdf.js';
 import {
   resolverTemplateVersionCanonica,
   TEMPLATE_VERSION_DEFAULT
 } from './domain/templateCanonico.js';
+import { validarSeparacionDuplexOmr } from './domain/duplexOmrGuard.js';
 
 /**
  * Fachada que delega al caso de uso modular.
@@ -25,7 +26,8 @@ export async function generarPdfExamen({
   margenMm = 8,
   encabezado,
   bookletConfig,
-  templateVersion = TEMPLATE_VERSION_DEFAULT
+  templateVersion = TEMPLATE_VERSION_DEFAULT,
+  omrTemplateId
 }: {
   titulo: string;
   folio: string;
@@ -36,6 +38,7 @@ export async function generarPdfExamen({
   totalPaginas: number;
   margenMm?: number;
   templateVersion?: TemplateVersion;
+  omrTemplateId?: OmrTemplateId;
   bookletConfig?: {
     densityMode?: 'balanced' | 'compact' | 'relaxed';
     autoFitPages?: boolean;
@@ -67,7 +70,9 @@ export async function generarPdfExamen({
     margenMm,
     bookletConfig,
     encabezado,
-    templateVersion: resolverTemplateVersionCanonica(templateVersion)
+    templateVersion: resolverTemplateVersionCanonica(templateVersion),
+    omrTemplateId
   });
+  validarSeparacionDuplexOmr(resultado.mapaOmr);
   return resultado;
 }
