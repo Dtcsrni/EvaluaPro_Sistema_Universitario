@@ -2,10 +2,19 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
-## [Unreleased] - 2026-09-30
+## [1.2.2] - 2026-09-30
 
 ### Added
 - **Portadas de materias (`SPEC-073`):** API autenticada y GUI para cargar JPG/JPEG, PNG o WebP con límite de 20 MiB/20 MP, normalización WebP, persistencia SQLite separada, vista previa, reintento y fallback genérico.
+
+### Fixed
+- La sincronización parcial de Classroom ahora comunica los errores por actividad y los conteos reales sin presentar la ejecución como éxito completo.
+- La captura manual de calificaciones requiere un UUID idempotente, reutiliza la clave en reintentos de resultado incierto y evita duplicar auditorías o versiones.
+
+### Verification
+- Suites focales de portadas: API 5/5, GUI 3/3; calificaciones manuales: API 15/15, GUI 8/8; Classroom: GUI 9/9, API 5/5.
+- Typecheck, lint focal, OpenAPI/API contracts, WCAG y los builds de los cambios integrados pasaron en ramas aisladas.
+- Los gates remotos globales no quedaron verdes: falló un test OMR preexistente (`omr.consenso.robusto.test.ts`, 1/58); `Installer Windows (MSI + Bundle)` seguía ejecutándose al preparar la release. La firma de artefactos no está incluida.
 
 ## [1.2.1] - 2026-09-30
 
