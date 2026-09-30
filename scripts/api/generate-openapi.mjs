@@ -85,6 +85,10 @@ const responseOmrPagePreview = {
   description: 'Imagen PNG de la página del PDF original asociada al índice de la ingesta; respuesta sin caché y protegida por docente.',
   content: { 'image/png': { schema: { type: 'string', format: 'binary' } } }
 };
+const responsePeriodoPortada = {
+  description: 'Imagen WebP privada de la materia, normalizada y sin metadatos.',
+  content: { 'image/webp': { schema: { type: 'string', format: 'binary' } } }
+};
 const responseOmrReferencePreview = {
   description: 'Imagen PNG de la página equivalente del PDF de referencia, validada por QR firmado y examen/página del lote; sin caché y protegida por docente.',
   content: { 'image/png': { schema: { type: 'string', format: 'binary' } } }
@@ -256,6 +260,22 @@ for (const mount of mounts) {
     if (fullPath === '/omr/ingestas/{jobId}/paginas/{pageIndex}/reference-preview' && method === 'get') {
       rutaDeclarada.responses = { ...(rutaDeclarada.responses ?? {}), '200': responseOmrReferencePreview };
       rutaDeclarada.parameters = mergeParameters(rutaDeclarada.parameters ?? [], omrReferencePreviewParameters);
+    }
+    if (fullPath === '/periodos/{periodoId}/portada') {
+      if (method === 'get') rutaDeclarada.responses = { ...(rutaDeclarada.responses ?? {}), '200': responsePeriodoPortada };
+      if (method === 'put') {
+        rutaDeclarada.requestBody = {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object', required: ['archivo'], additionalProperties: false,
+                properties: { archivo: { type: 'string', format: 'binary', description: 'JPG/JPEG, PNG o WebP; máximo 20 MiB y 20 MP.' } }
+              }
+            }
+          }
+        };
+      }
     }
     if (fullPath === '/omr/jobs' && method === 'post') {
       rutaDeclarada.responses = { ...(rutaDeclarada.responses ?? {}), '200': responseOmrJob, '201': responseOmrJob };
@@ -508,6 +528,22 @@ for (const mount of mounts) {
     if (fullPath === '/omr/ingestas/{jobId}/paginas/{pageIndex}/reference-preview' && method === 'get') {
       operation.responses['200'] = responseOmrReferencePreview;
       operation.parameters = mergeParameters(operation.parameters ?? [], omrReferencePreviewParameters);
+    }
+    if (fullPath === '/periodos/{periodoId}/portada') {
+      if (method === 'get') operation.responses['200'] = responsePeriodoPortada;
+      if (method === 'put') {
+        operation.requestBody = {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object', required: ['archivo'], additionalProperties: false,
+                properties: { archivo: { type: 'string', format: 'binary', description: 'JPG/JPEG, PNG o WebP; máximo 20 MiB y 20 MP.' } }
+              }
+            }
+          }
+        };
+      }
     }
     item[method] = operation;
     routeCount += 1;

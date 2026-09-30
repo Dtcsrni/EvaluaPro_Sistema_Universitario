@@ -2,6 +2,11 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [Unreleased] - 2026-09-30
+
+### Added
+- **Portadas de materias (`SPEC-073`):** API autenticada y GUI para cargar JPG/JPEG, PNG o WebP con límite de 20 MiB/20 MP, normalización WebP, persistencia SQLite separada, vista previa, reintento y fallback genérico.
+
 ## [1.2.1] - 2026-09-30
 
 ### Fixed

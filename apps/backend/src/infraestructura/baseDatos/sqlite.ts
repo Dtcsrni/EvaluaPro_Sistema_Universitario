@@ -204,6 +204,22 @@ async function asegurarEsquemaSqlite(): Promise<void> {
         }
       }
     }
+    // Additive migration for existing SQLite installations. The cover stays
+    // in a child table, so ordinary period queries never load its bytes.
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "periodo_portadas" (
+        "periodoId" TEXT NOT NULL PRIMARY KEY,
+        "contenido" BLOB NOT NULL,
+        "mimeType" TEXT NOT NULL,
+        "sizeBytes" INTEGER NOT NULL,
+        "width" INTEGER NOT NULL,
+        "height" INTEGER NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL,
+        CONSTRAINT "periodo_portadas_periodoId_fkey"
+          FOREIGN KEY ("periodoId") REFERENCES "periodos" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      );
+    `);
   } catch (error) {
     // Si la conexion es en memoria de tests o no permite aplicar el esquema,
     // conserva el diagnóstico para que el arranque pueda reportarlo.

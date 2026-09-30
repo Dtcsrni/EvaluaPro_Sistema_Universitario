@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 239 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 240 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -180,6 +180,7 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Periodos | `/periodos/{periodoId}/actualizar` | POST | Bearer | periodos:gestionar | esquemaActualizarPeriodo |
 | Periodos | `/periodos/{periodoId}/archivar` | POST | Bearer | periodos:archivar | esquemaBodyVacioOpcional |
 | Periodos | `/periodos/{periodoId}/eliminar` | POST | Bearer | periodos:eliminar_dev | esquemaBodyVacioOpcional |
+| Periodos | `/periodos/{periodoId}/portada` | GET, PUT, DELETE | Bearer | periodos:leer, periodos:gestionar | esquemaBodyVacioOpcional |
 | Reactivos | `/banco-preguntas` | GET, POST | Bearer | banco:leer, banco:gestionar | esquemaCrearPregunta |
 | Reactivos | `/banco-preguntas/{preguntaId}/actualizar` | POST | Bearer | banco:gestionar | esquemaActualizarPregunta |
 | Reactivos | `/banco-preguntas/{preguntaId}/archivar` | POST | Bearer | banco:archivar | esquemaBodyVacioOpcional |

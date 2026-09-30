@@ -49,6 +49,7 @@ export type Periodo = {
   fechaFin?: string;
   grupos?: string[];
   activo?: boolean;
+  tienePortada?: boolean;
   createdAt?: string;
   archivadoEn?: string;
   resumenArchivado?: {
