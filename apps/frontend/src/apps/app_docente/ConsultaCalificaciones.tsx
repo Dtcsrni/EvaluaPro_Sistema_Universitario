@@ -140,6 +140,7 @@ export function ConsultaCalificaciones({
   const [vistaPreviaBono, setVistaPreviaBono] = useState<VistaPreviaBono | null>(null);
   const [procesandoBono, setProcesandoBono] = useState(false);
   const detalleRef = useRef<HTMLElement>(null);
+  const solicitudesCalificacionPendientes = useRef(new Map<string, string>());
   const solicitudBonoPendiente = useRef<{ clave: string; clientRequestId: string } | null>(null);
   const periodoSeleccionado = periodos.find((periodo) => String(periodo._id) === periodoId);
 
@@ -202,6 +203,12 @@ export function ConsultaCalificaciones({
     const versionInicial = esPractica
       ? filaSeleccionada.practica2doParcialVersion
       : esGlobal ? filaSeleccionada.examenGlobalListaVersion : filaSeleccionada.examen2doParcialVersion;
+    const claveSolicitud = [periodoId, filaSeleccionada.alumnoId, componente, valor, versionInicial ?? 'nueva'].join('|');
+    let clientRequestId = solicitudesCalificacionPendientes.current.get(claveSolicitud);
+    if (!clientRequestId) {
+      clientRequestId = crypto.randomUUID();
+      solicitudesCalificacionPendientes.current.set(claveSolicitud, clientRequestId);
+    }
     const actualizarDesdeApi = async () => {
       const respuesta = await clienteApi.obtener<{ filas?: FilaConsultaCalificacion[] }>(`/analiticas/lista-academica?periodoId=${encodeURIComponent(periodoId)}`);
       const actualizadas = Array.isArray(respuesta?.filas) ? respuesta.filas : [];
@@ -216,10 +223,19 @@ export function ConsultaCalificaciones({
         alumnoId: filaSeleccionada.alumnoId,
         componente,
         calificacion: valor,
-        clientRequestId: crypto.randomUUID(),
+        clientRequestId,
         ...(versionInicial !== null ? { version: versionInicial } : {})
       });
-      await actualizarDesdeApi();
+      const filaActualizada = await actualizarDesdeApi();
+      const calificacionActual = esPractica
+        ? filaActualizada?.practica2doParcial
+        : esGlobal ? filaActualizada?.examenGlobalLista : filaActualizada?.examen2doParcial;
+      const versionActual = esPractica
+        ? filaActualizada?.practica2doParcialVersion
+        : esGlobal ? filaActualizada?.examenGlobalListaVersion : filaActualizada?.examen2doParcialVersion;
+      if (calificacionActual !== undefined && numeroNota(calificacionActual) === valor && (versionActual ?? 0) > (versionInicial ?? 0)) {
+        solicitudesCalificacionPendientes.current.delete(claveSolicitud);
+      }
     } catch (razon) {
       try {
         const filaActualizada = await actualizarDesdeApi();
@@ -229,7 +245,10 @@ export function ConsultaCalificaciones({
         const versionActual = esPractica
           ? filaActualizada?.practica2doParcialVersion
           : esGlobal ? filaActualizada?.examenGlobalListaVersion : filaActualizada?.examen2doParcialVersion;
-        if (calificacionActual !== undefined && numeroNota(calificacionActual) === valor && (versionActual ?? 0) > (versionInicial ?? 0)) return;
+        if (calificacionActual !== undefined && numeroNota(calificacionActual) === valor && (versionActual ?? 0) > (versionInicial ?? 0)) {
+          solicitudesCalificacionPendientes.current.delete(claveSolicitud);
+          return;
+        }
       } catch {
         // Se muestra el error original si no fue posible reconciliar la escritura por API.
       }
