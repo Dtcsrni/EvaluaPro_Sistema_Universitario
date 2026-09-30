@@ -16,7 +16,9 @@ jobs:
   tag_release_guard:
     name: Validar tag con release asociado
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # El instalador Windows puede tardar mas de 10 minutos antes de crear el release.
+    # La ventana del guard debe cubrir ese flujo y permitir recuperacion sin borrar la tag.
+    timeout-minutes: 30
 
     steps:
       - name: Esperar release para el tag
@@ -28,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          max_attempts=20
+          max_attempts=40
           sleep_seconds=30
 
           if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-((alpha|beta|rc)\.[0-9]+))?$ ]]; then
@@ -47,6 +49,6 @@ jobs:
             sleep "$sleep_seconds"
           done
 
-          echo "No se encontro release para $TAG_NAME. Eliminando tag remoto para evitar tag huerfano."
-          gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG_NAME"
+          echo "No se encontro release para $TAG_NAME dentro de la ventana de espera." >&2
+          echo "La tag se conserva para permitir reintento y diagnostico." >&2
           exit 1
