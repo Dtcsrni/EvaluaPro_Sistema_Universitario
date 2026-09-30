@@ -185,6 +185,36 @@ describe('ClassroomEnCalificaciones', () => {
     expect(screen.getByText(/1 actividades .* 0 nuevas · 1 actualizadas/)).toBeInTheDocument();
   });
 
+  it('advierte cuando la API termina parcialmente la sincronización', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [actividadClassroom], nextCursor: null };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
+      if (String(ruta).includes('/alumnos?')) return { alumnosClassroom: [] };
+      if (String(ruta).includes('/actividades?')) return { actividades: [{ id: 'work-1', title: 'Actividad Classroom', state: 'PUBLISHED', maxPoints: 100 }] };
+      return {};
+    });
+    vi.mocked(clienteApi.enviar)
+      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, actividades: [{
+        courseId: 'course-1', courseWorkId: 'work-1', courseWorkTitle: 'Actividad Classroom', submissions: []
+      }], promediosEvaluacionContinuaTercerParcial: [{
+        alumnoId: 'alumno-1', alumnoNombre: 'Ana Pérez', puntosObtenidos: 90, puntosPosibles: 100,
+        promedioSobre10: 9, continuaSobre5: 4.5, actividadesCalificadas: 1, actividadesFaltantesConfirmadas: 0
+      }] })
+      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, importadas: 1, actualizadas: 0,
+        errores: [{ courseId: 'course-1', courseWorkId: 'work-1', mensaje: 'Error al sincronizar actividad' }]
+      });
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+    fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
+    fireEvent.change(await screen.findByLabelText('Parcial destino'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Previsualizar evaluación continua' }));
+    await screen.findByRole('table', { name: 'Proyección de evaluación continua del tercer parcial desde Classroom' });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar y sincronizar selección' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sincronización finalizada con errores. Nuevas: 1; actualizadas: 0; actividades con error: 1. Evidencias releídas.');
+    expect(screen.getByText('Error al sincronizar actividad')).toBeInTheDocument();
+    expect(screen.queryByText('Sincronización completada. Nuevas: 0; actualizadas: 0. Evidencias releídas.')).not.toBeInTheDocument();
+  });
+
   it('no convierte metadata con destino externo o protocolo inseguro en enlaces', async () => {
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
       if (String(ruta).includes('/evaluaciones/evidencias')) return {
