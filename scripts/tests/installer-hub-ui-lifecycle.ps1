@@ -35,6 +35,10 @@ using System.Runtime.InteropServices;
 public static class EvaluaProQaNativeWindow {
   [DllImport("user32.dll", SetLastError=true)]
   public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
+  [DllImport("user32.dll", SetLastError=true)]
+  public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll", SetLastError=true)]
+  public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
 }
 '@
 
@@ -344,7 +348,23 @@ function Capture-Window {
   $bitmap = New-Object System.Drawing.Bitmap($w, $h)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   try {
-    $graphics.CopyFromScreen($x, $y, 0, 0, $bitmap.Size)
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
+    $capturedByWindow = $false
+    if ($handle -ne [IntPtr]::Zero) {
+      [EvaluaProQaNativeWindow]::SetForegroundWindow($handle) | Out-Null
+      Start-Sleep -Milliseconds 150
+      $hdc = $graphics.GetHdc()
+      try {
+        // PrintWindow evita capturar otra aplicación cuando el Hub aún no es
+        // la ventana activa del escritorio (fallo observado en splash).
+        $capturedByWindow = [EvaluaProQaNativeWindow]::PrintWindow($handle, $hdc, 2)
+      } finally {
+        $graphics.ReleaseHdc($hdc)
+      }
+    }
+    if (-not $capturedByWindow) {
+      $graphics.CopyFromScreen($x, $y, 0, 0, $bitmap.Size)
+    }
     $path = Join-Path $ReportDir ("{0}.png" -f $Name)
     $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $script:screenshots.Add($path) | Out-Null
@@ -424,6 +444,7 @@ try {
 
   $window = Find-Window -TimeoutSec 45
   if (-not $window) { throw 'No aparecio la ventana EvaluaPro Installer Hub.' }
+  Start-Sleep -Milliseconds 500
   Capture-Window -Window $window -Name '01-splash' | Out-Null
 
   Start-Sleep -Seconds ([math]::Min(18, [math]::Max(8, $DetectionTimeoutSec / 4)))

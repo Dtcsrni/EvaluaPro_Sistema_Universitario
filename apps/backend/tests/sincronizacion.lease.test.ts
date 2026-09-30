@@ -13,11 +13,11 @@ process.env.BACKEND_DATABASE_URL = process.env.DATABASE_URL;
 process.env.EVALUAPRO_SYNC_CLOUD_DIR = nube;
 
 const [{ prisma, conectarSqlite, desconectarSqlite }, { crearHash }, modulo] = await Promise.all([
-  import('../src/infraestructura/baseDatos/sqlite'),
-  import('../src/modulos/modulo_autenticacion/servicioHash'),
-  import('../src/modulos/modulo_sincronizacion_nube/domain/leaseSincronizacion')
+  import('../src/infraestructura/baseDatos/sqlite.js'),
+  import('../src/modulos/modulo_autenticacion/servicioHash.js'),
+  import('../src/modulos/modulo_sincronizacion_nube/domain/leaseSincronizacion.js')
 ]);
-const preferencias = await import('../src/modulos/modulo_sincronizacion_nube/domain/preferenciasSincronizacion');
+const preferencias = await import('../src/modulos/modulo_sincronizacion_nube/domain/preferenciasSincronizacion.js');
 
 const docenteId = 'lease-docente-1';
 const password = 'Lease-Password-123!';

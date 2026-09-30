@@ -2,10 +2,10 @@
  * Rutas de papelera (dev/admin).
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
-import { listarPapelera, restaurarPapelera } from './controladorPapelera';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { listarPapelera, restaurarPapelera } from './controladorPapelera.js';
 
 const router = Router();
 

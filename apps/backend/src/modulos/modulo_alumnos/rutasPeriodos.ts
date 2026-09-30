@@ -2,10 +2,10 @@
  * Rutas de periodos.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { actualizarPeriodo, archivarPeriodo, crearPeriodo, eliminarPeriodoDev, listarPeriodos } from './controladorPeriodos';
-import { esquemaActualizarPeriodo, esquemaBodyVacioOpcional, esquemaCrearPeriodo } from './validacionesPeriodos';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { actualizarPeriodo, archivarPeriodo, crearPeriodo, eliminarPeriodoDev, listarPeriodos } from './controladorPeriodos.js';
+import { esquemaActualizarPeriodo, esquemaBodyVacioOpcional, esquemaCrearPeriodo } from './validacionesPeriodos.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
 const router = Router();
 

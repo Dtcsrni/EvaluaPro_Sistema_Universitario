@@ -53,11 +53,19 @@ function Resolve-ShortcutTargetPaths {
   $desktop = if ($env:EVALUAPRO_DESKTOP_PATH) { [string]$env:EVALUAPRO_DESKTOP_PATH } else { [Environment]::GetFolderPath('Desktop') }
   $startMenuBase = if ($env:EVALUAPRO_STARTMENU_PATH) { [string]$env:EVALUAPRO_STARTMENU_PATH } elseif ($env:APPDATA) { Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\EvaluaPro' } else { '' }
   $targets = [ordered]@{
-    prodDesktop = if ($desktop) { Join-Path $desktop 'EvaluaPro - Prod.lnk' } else { '' }
+    prodDesktop = if ($desktop) { Join-Path $desktop 'EvaluaPro.lnk' } else { '' }
     hubDesktop = if ($desktop) { Join-Path $desktop 'EvaluaPro - Hub.lnk' } else { '' }
-    prodStart = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro - Prod.lnk' } else { '' }
+    prodStart = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro.lnk' } else { '' }
     hubStart = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro - Hub.lnk' } else { '' }
     uninstallStart = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro - Desinstalar.lnk' } else { '' }
+  }
+
+  if (-not $env:EVALUAPRO_DESKTOP_PATH -and $env:OneDrive) {
+    $oneDriveDesktop = Join-Path $env:OneDrive 'Desktop'
+    if ($oneDriveDesktop -and $oneDriveDesktop -ne $desktop) {
+      $targets['prodOneDriveDesktop'] = Join-Path $oneDriveDesktop 'EvaluaPro.lnk'
+      $targets['hubOneDriveDesktop'] = Join-Path $oneDriveDesktop 'EvaluaPro - Hub.lnk'
+    }
   }
 
   if ($includeDevShortcut) {
@@ -115,20 +123,29 @@ function Get-ShortcutDefinition {
   $trayHiddenVbs = Join-Path $root 'scripts\launcher-tray-hidden.vbs'
   $shortcutOpHiddenVbs = Join-Path $root 'scripts\shortcut-op-hidden.vbs'
   switch ($Name) {
+    'EvaluaPro' {
+      $nativeHostPath = Join-Path $root 'EvaluaPro.exe'
+      if ((Resolve-FlavorId) -eq 'docente-local' -and (Test-Path -LiteralPath $nativeHostPath)) {
+        return [ordered]@{
+          name = $Name
+          targetPath = $nativeHostPath
+          arguments = ''
+          iconLocation = $nativeHostPath
+        }
+      }
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$trayHiddenVbs`" prod 4519"
+        iconLocation = Resolve-ShortcutIconPath 'dashboard-prod.ico'
+      }
+    }
     'EvaluaPro - Dev' {
       return [ordered]@{
         name = $Name
         targetPath = $wscriptPath
         arguments = "//nologo `"$trayHiddenVbs`" dev 4519"
         iconLocation = Resolve-ShortcutIconPath 'dashboard-dev.ico'
-      }
-    }
-    'EvaluaPro - Prod' {
-      return [ordered]@{
-        name = $Name
-        targetPath = $wscriptPath
-        arguments = "//nologo `"$trayHiddenVbs`" prod 4519"
-        iconLocation = Resolve-ShortcutIconPath 'dashboard-prod.ico'
       }
     }
     'EvaluaPro - Hub' {
@@ -218,6 +235,18 @@ function Read-ShortcutLinkMetadata {
   return $metadata
 }
 
+function Get-ShortcutScriptDependency([string]$arguments) {
+  if ([string]::IsNullOrWhiteSpace($arguments)) { return '' }
+  $match = [Regex]::Match($arguments, '"([^"]+\.(?:vbs|ps1))"', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+  if ($match.Success) { return $match.Groups[1].Value }
+  return ''
+}
+
+function Get-ShortcutIconPath([string]$iconLocation) {
+  if ([string]::IsNullOrWhiteSpace($iconLocation)) { return '' }
+  return ([string]$iconLocation -replace ',\s*-?\d+\s*$', '').Trim().Trim('"')
+}
+
 function New-ShortcutManifestEntry {
   param(
     [string]$Name,
@@ -227,6 +256,12 @@ function New-ShortcutManifestEntry {
 
   $definition = Get-ShortcutDefinition -Name $Name
   $actual = Read-ShortcutLinkMetadata -Path $Path
+  $dependencyPath = Get-ShortcutScriptDependency -arguments ([string]$actual.arguments)
+  $iconPath = Get-ShortcutIconPath -iconLocation ([string]$actual.iconLocation)
+  $targetExists = [bool]($actual.readOk -and (Test-Path -LiteralPath $actual.targetPath))
+  $dependencyExists = [bool](-not $dependencyPath -or (Test-Path -LiteralPath $dependencyPath))
+  $iconExists = [bool]($actual.readOk -and (Test-Path -LiteralPath $iconPath))
+  $valid = [bool]((Test-Path -LiteralPath $Path) -and $actual.readOk -and $targetExists -and $dependencyExists -and $iconExists)
   return [ordered]@{
     name = $Name
     path = $Path
@@ -239,6 +274,12 @@ function New-ShortcutManifestEntry {
     arguments = [string]$actual.arguments
     workingDirectory = [string]$actual.workingDirectory
     iconLocation = [string]$actual.iconLocation
+    targetExists = $targetExists
+    dependencyPath = $dependencyPath
+    dependencyExists = $dependencyExists
+    iconPath = $iconPath
+    iconExists = $iconExists
+    valid = $valid
     description = [string]$actual.description
     readOk = [bool]$actual.readOk
     readError = [string]$actual.error
@@ -330,15 +371,20 @@ try {
   }
 } catch {}
 
+$flavorId = Resolve-FlavorId
 $criticalFiles = @(
   'scripts\launcher-broker.ps1',
   'scripts\launcher-tray.ps1',
   'scripts\launcher-tray-hidden.vbs',
   'scripts\create-shortcuts.ps1',
+  'config\shortcuts-manifest.json',
   'scripts\shortcut-op-hidden.vbs',
   'scripts\launcher-dashboard.mjs',
   'scripts\dashboard.html'
 )
+if ($flavorId -eq 'docente-local') {
+  $criticalFiles += 'EvaluaPro.exe'
+}
 
 $critical = @()
 foreach ($relative in $criticalFiles) {
@@ -363,7 +409,6 @@ if ($null -ne $stepUpConfig -and $null -ne $stepUpConfig.payload -and $null -ne 
 $shortcutPaths = Resolve-ShortcutTargetPaths
 $embeddedNodePath = Get-EmbeddedNodePath -baseDir $root
 $embeddedNodeVersion = Get-EmbeddedNodeVersion -baseDir $root
-$flavorId = Resolve-FlavorId
 $requiresDockerRuntime = ($flavorId -ne 'docente-local')
 $wslDistro = Get-WslPreferredDistro
 $wslNodeVersion = if ($requiresDockerRuntime) { Get-WslNodeVersion -distro $wslDistro } else { '' }
@@ -421,12 +466,22 @@ $payload = [ordered]@{
 }
 
 $shortcutDefinitions = @(
-  @{ Name = 'EvaluaPro - Prod'; Key = 'prodDesktop' },
+  @{ Name = 'EvaluaPro'; Key = 'prodDesktop' },
   @{ Name = 'EvaluaPro - Hub'; Key = 'hubDesktop' },
-  @{ Name = 'EvaluaPro - Prod'; Key = 'prodStart' },
-  @{ Name = 'EvaluaPro - Hub'; Key = 'hubStart' },
-  @{ Name = 'EvaluaPro - Desinstalar'; Key = 'uninstallStart' }
+  @{ Name = 'EvaluaPro'; Key = 'prodStart' },
+  @{ Name = 'EvaluaPro - Hub'; Key = 'hubStart' }
 )
+
+if ($flavorId -ne 'docente-local') {
+  $shortcutDefinitions += @{ Name = 'EvaluaPro - Desinstalar'; Key = 'uninstallStart' }
+}
+
+if ($shortcutPaths.Keys -contains 'prodOneDriveDesktop') {
+  $shortcutDefinitions += @(
+    @{ Name = 'EvaluaPro'; Key = 'prodOneDriveDesktop' },
+    @{ Name = 'EvaluaPro - Hub'; Key = 'hubOneDriveDesktop' }
+  )
+}
 
 if (($shortcutPaths.Keys -contains 'devDesktop') -or ($shortcutPaths.Keys -contains 'devStart')) {
   $shortcutDefinitions += @(

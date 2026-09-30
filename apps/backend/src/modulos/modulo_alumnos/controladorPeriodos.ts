@@ -2,13 +2,13 @@
  * Controlador de periodos.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { aTituloPropio, normalizarEspacios } from '../../compartido/utilidades/texto';
-import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { aTituloPropio, normalizarEspacios } from '../../compartido/utilidades/texto.js';
+import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera.js';
 
 export function normalizarNombrePeriodo(nombre: string): string {
   return normalizarEspacios(nombre).toLowerCase();

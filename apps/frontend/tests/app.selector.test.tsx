@@ -4,7 +4,7 @@
  * Cubre el selector de shell principal por destino y el wrapping opcional
  * de Google OAuth para evitar regresiones de cobertura difusa en App.tsx.
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -28,7 +28,7 @@ vi.mock('../src/apps/app_admin_negocio/AppAdminNegocio', () => ({
 }));
 
 vi.mock('../src/apps/app_docente/AppDocente', () => ({
-  AppDocente: () => <div>App Docente Mock</div>
+  AppDocente: ({ googleClientId }: { googleClientId?: string }) => <div data-testid="app-docente-mock" data-google-client-id={googleClientId}>App Docente Mock</div>
 }));
 
 vi.mock('../src/ui/version/VersionInfoPage', () => ({
@@ -52,6 +52,7 @@ describe('App selector', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     window.history.replaceState({}, '', '/');
   });
 
@@ -78,6 +79,27 @@ describe('App selector', () => {
     expect(screen.getByTestId('google-provider')).toHaveAttribute('data-client-id', 'google-client-id');
     expect(document.querySelector('main[data-app-destino="admin_negocio"]')).toHaveClass('page--admin_negocio');
     expect(document.title).toBe('Panel de Negocio - EvaluaPro');
+  });
+
+  it('obtiene el Client ID público del backend si el bundle docente no lo incluye', async () => {
+    vi.stubEnv('VITE_APP_DESTINO', 'docente');
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ capacidadesIntegraciones: { googleOauthClientId: 'runtime-google-client-id' } })
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByText('App Docente Mock')).toBeInTheDocument();
+    const provider = screen.getByTestId('google-provider');
+    await waitFor(() => expect(provider).toHaveAttribute('data-client-id', 'runtime-google-client-id'));
+    expect(screen.getByTestId('app-docente-mock')).toHaveAttribute('data-google-client-id', 'runtime-google-client-id');
+    expect(fetchMock).toHaveBeenCalledWith('/api/autenticacion/capacidades-integraciones', expect.objectContaining({
+      cache: 'no-store',
+      credentials: 'include'
+    }));
   });
 
   it('muestra version info sin tooltip cuando la ruta hash apunta a esa vista', async () => {

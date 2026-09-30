@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "gate": "omr-canonical-pilot-real",
+  "datasetManifest": "omr_samples_tv4_pilot_real/manifest.json",
+  "datasetManifestPath": "C:\\Users\\evega\\Documents\\EvaluaPro\\omr_samples_tv4_pilot_real\\manifest.json",
+  "command": "npm -C apps/backend run omr:validate:pilot-real",
+  "ok": true,
+  "status": "not_applicable",
+  "validated": false,
+  "reason": "dataset_vacio",
+  "captureCount": 0,
+  "startedAt": "2026-09-12T13:47:57.304Z",
+  "finishedAt": "2026-09-12T13:47:57.304Z",
+  "durationMs": 0
+}

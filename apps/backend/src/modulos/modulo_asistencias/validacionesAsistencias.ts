@@ -2,7 +2,7 @@
  * Validaciones Zod del módulo de asistencias.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 // ─── Sesión ─────────────────────────────────────────────────────────────────
 export const esquemaCrearSesion = z

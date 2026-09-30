@@ -4,8 +4,8 @@
  * Prefijo montado en: /asistencias
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 import {
   crearSesion,
   listarSesiones,
@@ -20,14 +20,14 @@ import {
   crearExcepcion,
   eliminarExcepcion,
   listarExcepciones
-} from './controladorAsistencias';
+} from './controladorAsistencias.js';
 import {
   esquemaCrearSesion,
   esquemaGuardarRegistros,
   esquemaCrearRegla,
   esquemaCrearExcepcion,
   esquemaBodyVacioOpcional
-} from './validacionesAsistencias';
+} from './validacionesAsistencias.js';
 
 const router = Router();
 

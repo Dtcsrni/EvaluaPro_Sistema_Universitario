@@ -5,17 +5,16 @@
  * generados por el docente en un unico archivo cifrado y autenticado.
  * Limites: no incluye .env, logs, cache WebView2, binarios ni datos del portal.
  */
-import { PrismaClient } from '@prisma/client';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { gzipSync, gunzipSync } from 'node:zlib';
-import { configuracion } from '../../../configuracion';
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { prisma, conectarSqlite, desconectarSqlite } from '../../../infraestructura/baseDatos/sqlite';
-import { compararContrasena } from '../../modulo_autenticacion/servicioHash';
-import { verificarCredencialGoogle } from '../../modulo_autenticacion/servicioGoogle';
+import { configuracion } from '../../../configuracion.js';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { prisma, conectarSqlite, desconectarSqlite, crearClientePrismaSqlite } from '../../../infraestructura/baseDatos/sqlite.js';
+import { compararContrasena } from '../../modulo_autenticacion/servicioHash.js';
+import { verificarCredencialGoogle } from '../../modulo_autenticacion/servicioGoogle.js';
 
 export const INSTANTANEA_LOCAL_FORMATO = 'evaluapro-local-snapshot';
 export const INSTANTANEA_LOCAL_VERSION = 1;
@@ -336,7 +335,7 @@ async function abrirInstantanea(archivo: Buffer, contexto: ContextoDocente, meto
 }
 
 async function validarIntegridadSqlite(ruta: string, docenteIdEsperado: string, correoEsperado: string) {
-  const cliente = new PrismaClient({ datasources: { db: { url: `file:${ruta.replace(/\\/g, '/')}` } } });
+  const cliente = crearClientePrismaSqlite(`file:${ruta.replace(/\\/g, '/')}`);
   try {
     const resultado = await cliente.$queryRawUnsafe<Array<{ integrity_check: string }>>('PRAGMA integrity_check');
     if (String(resultado?.[0]?.integrity_check || '').toLowerCase() !== 'ok') throw new ErrorAplicacion('SYNC_SQLITE_INVALIDO', 'La base SQLite no pasó la comprobación de integridad', 400);

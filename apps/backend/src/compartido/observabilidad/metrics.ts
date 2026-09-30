@@ -4,7 +4,7 @@
  * Responsabilidad: Punto comun de metricas/logs/correlacion para operacion.
  * Limites: Evitar romper nombres de metricas o formato de log en produccion.
  */
-import { exportarEstadosCircuitBreaker } from '../robustez/circuitBreaker';
+import { exportarEstadosCircuitBreaker } from '../robustez/circuitBreaker.js';
 
 const inicioDelProceso = Date.now();
 

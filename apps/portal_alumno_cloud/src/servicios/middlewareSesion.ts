@@ -7,8 +7,8 @@
  * reducir impacto si la base de datos se filtra.
  */
 import type { NextFunction, Request, Response } from 'express';
-import { SesionAlumno } from '../modelos/modeloSesionAlumno';
-import { hashToken } from './servicioSesion';
+import { SesionAlumno } from '../modelos/modeloSesionAlumno.js';
+import { hashToken } from './servicioSesion.js';
 
 export type SolicitudAlumno = Request & { alumnoId?: string; periodoId?: string };
 

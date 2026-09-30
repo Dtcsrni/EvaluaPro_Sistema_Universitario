@@ -31,6 +31,7 @@ const SKIP_DIRS = new Set([
   'build',
   'coverage',
   'logs',
+  'tmp',
   'accesos-directos',
   'diagramas',
   '.turbo',

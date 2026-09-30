@@ -5,7 +5,7 @@
  * Limites: No relajar reglas sin actualizar tests y contratos de API.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 const esquemaFecha = z
   .string()
@@ -14,21 +14,90 @@ const esquemaFecha = z
   .or(z.string().trim().date())
   .transform((value) => new Date(value).toISOString());
 
+export const esquemaListarEvidenciasEvaluacion = z.object({
+  periodoId: esquemaObjectId.optional(),
+  alumnoId: esquemaObjectId.optional(),
+  incluirArchivadas: z.enum(['true', 'false']).optional().transform((value) => value === 'true'),
+  limite: z.coerce.number().int().min(1).max(400).default(120),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
+const grupoPesosGlobales = z.object({ continua: z.number().min(0).max(1), examenes: z.number().min(0).max(1) }).strict();
+const grupoPesosExamenes = z.object({ parcial1: z.number().min(0).max(1), parcial2: z.number().min(0).max(1), global: z.number().min(0).max(1) }).strict();
+const grupoPesosContinua = z.object({ c1: z.number().min(0).max(1), c2: z.number().min(0).max(1), c3: z.number().min(0).max(1) }).strict();
+const grupoPesosComponentes = z.object({ teorico: z.number().min(0).max(1), practicas: z.number().min(0).max(1) }).strict();
+const parametrosLisc = z.object({
+  pesosGlobales: grupoPesosGlobales.optional(),
+  pesosExamenes: grupoPesosExamenes.optional(),
+  pesosContinuaCortes: grupoPesosContinua.optional(),
+  pesosComponentesExamen: grupoPesosComponentes.optional(),
+  umbralAprobacion: z.number().min(0).max(10).optional()
+}).strict();
+const parametrosSv = z.object({
+  pesosExamen: z.object({ global: z.number().min(0).max(1), parciales: z.number().min(0).max(1) }).strict().optional()
+}).strict();
+
 export const esquemaCrearPolitica = z
   .object({
-    codigo: z.enum(['POLICY_SV_EXCEL_2026', 'POLICY_LISC_ENCUADRE_2026']),
-    version: z.number().int().min(1),
+    codigo: z.string().trim().regex(/^POLICY_[A-Z][A-Z0-9_]{2,72}$/),
+    familia: z.enum(['sv_excel_contract', 'lisc_encuadre']),
     nombre: z.string().trim().min(3).max(120),
     descripcion: z.string().trim().max(400).optional(),
-    activa: z.boolean().optional(),
-    parametros: z.record(z.string(), z.unknown()).optional()
+    parametros: z.union([parametrosLisc, parametrosSv]).optional(),
+    clientRequestId: z.string().uuid().optional()
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    const esLisc = data.familia === 'lisc_encuadre';
+    const parametrosEsSv = Boolean(data.parametros && 'pesosExamen' in data.parametros);
+    if (data.parametros && esLisc === parametrosEsSv) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['parametros'], message: 'Los parámetros no corresponden a la familia de cálculo.' });
+      return;
+    }
+    const parametrosLiscRecibidos = data.parametros as z.infer<typeof parametrosLisc> | undefined;
+    const parametrosSvRecibidos = data.parametros as z.infer<typeof parametrosSv> | undefined;
+    const grupos: Array<Record<string, number> | undefined> = esLisc
+      ? [parametrosLiscRecibidos?.pesosGlobales, parametrosLiscRecibidos?.pesosExamenes, parametrosLiscRecibidos?.pesosContinuaCortes, parametrosLiscRecibidos?.pesosComponentesExamen]
+      : [parametrosSvRecibidos?.pesosExamen];
+    for (const grupo of grupos) {
+      if (!grupo) continue;
+      const suma = Object.values(grupo).reduce((total: number, peso) => total + Number(peso), 0);
+      if (Math.abs(suma - 1) > 0.000001) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['parametros'], message: 'Cada grupo de pesos debe sumar 1.' });
+        return;
+      }
+    }
+  });
+
+export const esquemaActualizarEvidencia = z.object({
+  periodoId: esquemaObjectId,
+  alumnoId: esquemaObjectId,
+  titulo: z.string().trim().min(3).max(180),
+  descripcion: z.string().trim().max(600).optional(),
+  calificacionDecimal: z.number().min(0).max(10),
+  ponderacion: z.number().min(0).max(10).optional(),
+  fechaEvidencia: esquemaFecha.optional(),
+  corte: z.number().int().min(1).max(3).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  expectedUpdatedAt: esquemaFecha,
+  motivoCambio: z.string().trim().min(3).max(400),
+  confirmarEscritura: z.literal(true)
+}).strict();
+
+export const esquemaArchivarEvidencia = z.object({
+  motivo: z.string().trim().min(3).max(400),
+  confirmarEscritura: z.literal(true)
+}).strict();
+
+export const esquemaRestaurarEvidencia = z.object({
+  motivo: z.string().trim().min(3).max(400),
+  confirmarEscritura: z.literal(true)
+}).strict();
 
 export const esquemaConfigurarPeriodo = z
   .object({
     periodoId: esquemaObjectId,
-    politicaCodigo: z.enum(['POLICY_SV_EXCEL_2026', 'POLICY_LISC_ENCUADRE_2026']),
+    politicaCodigo: z.string().trim().regex(/^POLICY_[A-Z][A-Z0-9_]{2,72}$/),
     politicaVersion: z.number().int().min(1).optional(),
     cortes: z
       .array(
@@ -71,10 +140,22 @@ export const esquemaConfigurarPeriodo = z
       .optional(),
     activo: z.boolean().optional()
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    const pesos = [data.pesosGlobales, data.pesosExamenes];
+    for (const grupo of pesos) {
+      if (!grupo) continue;
+      const suma = Object.values(grupo).reduce((total, peso) => total + peso, 0);
+      if (Math.abs(suma - 1) > 0.000001) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pesosGlobales'], message: 'Cada grupo de pesos debe sumar 1.' });
+        return;
+      }
+    }
+  });
 
 export const esquemaCrearEvidencia = z
   .object({
+    clientRequestId: z.string().uuid().optional(),
     periodoId: esquemaObjectId,
     alumnoId: esquemaObjectId,
     titulo: z.string().trim().min(3).max(180),

@@ -1,0 +1,65 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "01a0e31e-97a8-77c1-b565-1e7e004f1a8e-phase4",
+  "parentSessionId": "01a0e31e-97a8-77c1-b565-1e7e004f1a8e-phase3",
+  "status": "draft",
+  "generatedAt": "2026-09-28T20:49:07Z",
+  "validationProfile": "focused",
+  "agent": { "name": "Codex", "version": "unknown", "provider": "OpenAI", "kind": "unknown", "channel": "unknown" },
+  "request": {
+    "summary": "Continuar la integración GUI/API de calificaciones y bonus para listas académicas, con prioridad Global/C3→P2→P1 y continua antes que examen."
+  },
+  "objective": "Hacer revisable por GUI y API el registro de un solo bono extracurricular, preservar fórmulas/topes y mantener el alcance mayor API-first abierto.",
+  "scope": [
+    "SPEC-070 y SPEC-059",
+    "Servicio, preview, escritura idempotente y proyección de lista académica",
+    "Consulta GUI y SDK API",
+    "Exportación XLSX de una columna con fórmulas"
+  ],
+  "constraints": [
+    "No escribir calificaciones en listas reales ni publicar a Classroom.",
+    "Previsualización de solo lectura; escritura con confirmación, versión, auditoría e idempotencia.",
+    "Preservar cambios concurrentes preexistentes en el checkout."
+  ],
+  "actions": [
+    { "type": "implementation", "summary": "Servicio de distribución del bono y reglas confirmadas", "timestamp": "2026-09-28T20:49:07Z", "status": "ok" },
+    { "type": "implementation", "summary": "Preview y escritura versionada por GUI/API; retry UI conserva clientRequestId", "timestamp": "2026-09-28T20:49:07Z", "status": "ok" },
+    { "type": "implementation", "summary": "XLSX añade una columna BB, fórmulas de cascada y recálculo al abrir", "timestamp": "2026-09-28T20:49:07Z", "status": "ok" },
+    { "type": "validation", "summary": "backend focused tests: 17/17", "timestamp": "2026-09-28T20:49:07Z", "status": "ok" },
+    { "type": "validation", "summary": "frontend ConsultaCalificaciones tests: 5/5", "timestamp": "2026-09-28T20:49:07Z", "status": "ok" },
+    { "type": "validation", "summary": "API client tests: 34/34", "timestamp": "2026-09-28T20:49:07Z", "status": "ok" },
+    { "type": "validation", "summary": "backend/frontend typecheck, focused lint, WCAG guard, API contract and SDD audit", "timestamp": "2026-09-28T20:49:07Z", "status": "ok" },
+    { "type": "validation", "summary": "Scoped git diff check with cr-at-eol configuration", "timestamp": "2026-09-28T20:49:07Z", "status": "ok" }
+  ],
+  "changedFiles": [
+    "apps/backend/src/modulos/modulo_analiticas/servicioBonoExtracurricular.ts",
+    "apps/backend/src/modulos/modulo_analiticas/servicioListaAcademica.ts",
+    "apps/backend/src/modulos/modulo_analiticas/controladorAnaliticas.ts",
+    "apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts",
+    "apps/backend/src/modulos/modulo_analiticas/validacionesAnaliticas.ts",
+    "apps/backend/src/modulos/modulo_analiticas/tiposListaAcademica.ts",
+    "apps/backend/src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones.ts",
+    "apps/backend/tests/bonoExtracurricular.test.ts",
+    "apps/backend/tests/integracion/listaAcademicaContratos.test.ts",
+    "apps/backend/tests/analiticas.xlsx.sv.contract.test.ts",
+    "apps/frontend/src/apps/app_docente/ConsultaCalificaciones.tsx",
+    "apps/frontend/tests/seccionCalificaciones.resumen.test.tsx",
+    "scripts/api/evaluapro-client.mjs",
+    "scripts/tests/evaluapro-client.test.mjs",
+    "scripts/api/openapi.json",
+    "scripts/api/CRUD_CATALOG.md",
+    "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md",
+    "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md"
+  ],
+  "decisions": [
+    "Global/C3 recibe primero, luego P2 y P1; dentro de cada parcial evaluación continua antecede al examen.",
+    "Una final ponderada base de 10 exime el bono; los parciales no superan 10.",
+    "SPEC-070/SPEC-059 ya contienen esta cobertura, por lo que no se crea una spec transversal nueva."
+  ],
+  "risks": [
+    "Falta validar en la GUI instalada y revisar la salida con las listas institucionales vigentes.",
+    "La auditoría de integración end-to-end Global/Classroom/lista real permanece abierta."
+  ],
+  "nextStep": "Revisar las listas institucionales autorizadas sin guardar cambios; verificar en la app instalada la vista previa, recarga y exportación; continuar brechas restantes GUI/API de SPEC-070.",
+  "isComplete": false
+}

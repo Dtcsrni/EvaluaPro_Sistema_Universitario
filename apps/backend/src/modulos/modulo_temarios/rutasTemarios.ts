@@ -6,22 +6,28 @@
  */
 import { Router } from 'express';
 import multer from 'multer';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { validarQueryRobusto } from '../../compartido/robustez/utilitariosControlador.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 import {
   listarTemarios,
   crearTemarioManual,
   crearTemarioDesdePdf,
+  obtenerTemario,
+  actualizarTemario,
+  listarAuditoriaTemario,
   obtenerNodosTemario,
   actualizarEstadoNodo,
   eliminarTemario
-} from './controladorTemarios';
+} from './controladorTemarios.js';
 import {
   esquemaCrearTemarioManual,
   esquemaCrearTemarioPdf,
-  esquemaActualizarEstadoNodo,
-  esquemaBodyVacioOpcional
-} from './validacionesTemarios';
+  esquemaActualizarTemario,
+  esquemaEliminarTemario,
+  esquemaListarAuditoriaTemario,
+  esquemaActualizarEstadoNodo
+} from './validacionesTemarios.js';
 
 const router = Router();
 
@@ -56,10 +62,24 @@ router.post(
   crearTemarioDesdePdf
 );
 
+router.get('/:temarioId', requerirPermiso('temarios:leer'), obtenerTemario);
+router.put(
+  '/:temarioId',
+  requerirPermiso('temarios:gestionar'),
+  validarCuerpo(esquemaActualizarTemario, { strict: true }),
+  actualizarTemario
+);
+router.get(
+  '/:temarioId/auditoria',
+  requerirPermiso('temarios:leer'),
+  validarQueryRobusto(esquemaListarAuditoriaTemario),
+  listarAuditoriaTemario
+);
+
 router.post(
   '/:temarioId/eliminar',
   requerirPermiso('temarios:gestionar'),
-  validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
+  validarCuerpo(esquemaEliminarTemario, { strict: true }),
   eliminarTemario
 );
 

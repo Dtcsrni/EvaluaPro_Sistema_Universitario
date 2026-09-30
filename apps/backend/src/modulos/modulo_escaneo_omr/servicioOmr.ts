@@ -4,8 +4,8 @@
  * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
-import { ejecutarPipelineOmr } from './omr/pipeline/ejecutorPipelineOmr';
-import { analizarOmr as analizarOmrCv, leerQrDesdeImagen as leerQrDesdeImagenCv, type ResultadoOmr } from './servicioOmrCv';
+import { ejecutarPipelineOmr } from './omr/pipeline/ejecutorPipelineOmr.js';
+import { analizarOmr as analizarOmrCv, leerQrDesdeImagen as leerQrDesdeImagenCv, type ResultadoOmr } from './servicioOmrCv.js';
 
 type ParametrosAnalizarOmr = Parameters<typeof analizarOmrCv>;
 type MapaPaginaOmr = ParametrosAnalizarOmr[1];

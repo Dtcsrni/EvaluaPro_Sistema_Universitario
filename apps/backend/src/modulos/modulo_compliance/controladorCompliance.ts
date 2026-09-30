@@ -2,11 +2,11 @@
  * Controlador de cumplimiento y privacidad (ARCO/retencion/auditoria).
  */
 import type { Response } from 'express';
-import { configuracion } from '../../configuracion';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import type { ComplianceStatus, DsrStatus } from './shared/tiposCompliance';
+import { configuracion } from '../../configuracion.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import type { ComplianceStatus, DsrStatus } from './shared/tiposCompliance.js';
 
 function toObjectIdOrThrow(id: string): string {
   if (!id || typeof id !== 'string') {

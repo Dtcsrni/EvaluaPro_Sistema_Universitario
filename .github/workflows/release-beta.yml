@@ -55,7 +55,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -63,13 +63,15 @@ jobs:
             apps/frontend/package-lock.json
             apps/portal_alumno_cloud/package-lock.json
 
-      - name: Configurar .NET SDK 8
+      - name: Configurar .NET SDK 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Instalar dependencias
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Evaluar alcance beta
         id: beta
@@ -88,7 +90,7 @@ jobs:
             node scripts/release/validate-beta-promotion.mjs --head-sha="$BETA_HEAD_SHA_INPUT" --base-ref="$BETA_BASE_REF_INPUT" --reason="$BETA_REASON_INPUT" --report-dir="$report_dir" || true
           fi
 
-          version_guess="${BETA_VERSION_INPUT:-$(node -e "const p=require('./package.json'); process.stdout.write(String(p.version || ''))")}"
+          version_guess="${BETA_VERSION_INPUT:-$(node --input-type=module -e "import packageJson from './package.json' with { type: 'json' }; process.stdout.write(String(packageJson.version || ''))")}"
           base_version="${version_guess%%-*}"
           decision_file="$(find "$report_dir" -name decision.json | sort | tail -n 1)"
           if [ -z "$decision_file" ] || [ ! -f "$decision_file" ]; then
@@ -96,8 +98,8 @@ jobs:
             exit 1
           fi
 
-          node - "$decision_file" <<'NODE'
-          const fs = require('fs');
+          node --input-type=module - "$decision_file" <<'NODE'
+          import fs from 'node:fs';
           const file = process.argv[2];
           const data = JSON.parse(fs.readFileSync(file, 'utf8'));
           const out = process.env.GITHUB_OUTPUT;
@@ -137,7 +139,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -145,18 +147,21 @@ jobs:
             apps/frontend/package-lock.json
             apps/portal_alumno_cloud/package-lock.json
 
-      - name: Configurar .NET SDK 8
+      - name: Configurar .NET SDK 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Instalar dependencias
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
-      - name: Instalar WiX CLI estable (v6.0.2)
+      - name: Instalar WiX CLI estable (v7.0.0)
         shell: powershell
         run: |
-          dotnet tool install --global wix --version 6.0.2
+          dotnet tool install --global wix --version 7.0.0
+          wix eula accept wix7
 
       - name: Registrar WiX en PATH y Validar Versión
         shell: powershell
@@ -171,7 +176,7 @@ jobs:
             throw "No se encontro wix.exe en la carpeta de herramientas .NET global ($dotnetToolsDir)"
           }
           $wixVersion = (& $wixPath --version | Select-Object -First 1)
-          if ($wixVersion -notmatch '^6\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
+          if ($wixVersion -notmatch '^7\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 7.0.x." }
           Write-Host "WiX version detectada: $wixVersion"
 
       - name: Etapa policy-check WiX
@@ -182,6 +187,7 @@ jobs:
 
       - name: Etapa windows-release-smoke Installer Hub
         env:
+          EVALUAPRO_RUN_LOCAL_RELEASE_SMOKE: '1'
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'

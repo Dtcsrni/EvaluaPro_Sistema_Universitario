@@ -7,8 +7,9 @@
 // Pruebas de periodos: deduplicacion y archivado.
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { crearPreguntasPublicadas } from './_reactivosHelper.js';
 
 describe('periodos (materias)', () => {
   const preguntasPorEscenario = 20;
@@ -56,25 +57,6 @@ describe('periodos (materias)', () => {
     return alumnoResp.body.alumno._id as string;
   }
 
-  async function crearPregunta(token: string, periodoId: string, enunciado: string) {
-    const preguntaResp = await request(app)
-      .post('/api/banco-preguntas')
-      .set({ Authorization: `Bearer ${token}` })
-      .send({
-        periodoId,
-        enunciado,
-        opciones: [
-          { texto: 'A', esCorrecta: true },
-          { texto: 'B', esCorrecta: false },
-          { texto: 'C', esCorrecta: false },
-          { texto: 'D', esCorrecta: false },
-          { texto: 'E', esCorrecta: false }
-        ]
-      })
-      .expect(201);
-    return preguntaResp.body.pregunta._id as string;
-  }
-
   async function crearPlantilla(token: string, periodoId: string, preguntasIds: string[]) {
     const plantillaResp = await request(app)
       .post('/api/examenes/plantillas')
@@ -83,7 +65,7 @@ describe('periodos (materias)', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Plantilla A',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
@@ -94,8 +76,10 @@ describe('periodos (materias)', () => {
     const examenResp = await request(app)
       .post('/api/examenes/generados')
       .set({ Authorization: `Bearer ${token}` })
-      .send({ plantillaId })
-      .expect(201);
+      .send({ plantillaId });
+    if (examenResp.status !== 201) {
+      throw new Error(`Generación de examen falló: HTTP ${examenResp.status}, detalle ${JSON.stringify(examenResp.body)}`);
+    }
     return examenResp.body.examenGenerado._id as string;
   }
 
@@ -123,12 +107,19 @@ describe('periodos (materias)', () => {
     const periodoId = await crearPeriodo(token, 'Materia A');
     await crearAlumno(token, periodoId);
 
-    const preguntasIds: string[] = [];
-    for (let i = 0; i < preguntasPorEscenario; i += 1) {
-      preguntasIds.push(await crearPregunta(token, periodoId, `Pregunta ${i + 1}`));
-    }
+    const preguntasIds = await crearPreguntasPublicadas({
+      app,
+      auth: { Authorization: `Bearer ${token}` },
+      periodoId,
+      externalPrefix: 'archivar-materia',
+      preguntas: Array.from({ length: preguntasPorEscenario }, (_, index) => `Pregunta ${index + 1}`)
+    });
 
     const plantillaId = await crearPlantilla(token, periodoId, preguntasIds);
+    await request(app)
+      .get(`/api/examenes/plantillas/${encodeURIComponent(plantillaId)}/previsualizar/pdf/visual`)
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
     await generarExamen(token, plantillaId);
 
     const archivar = await request(app)
@@ -200,7 +191,13 @@ describe('periodos (materias)', () => {
 
     const periodoId = await crearPeriodo(token, 'Materia Archivable');
     await crearAlumno(token, periodoId);
-    await crearPregunta(token, periodoId, 'Pregunta A');
+    await crearPreguntasPublicadas({
+      app,
+      auth: { Authorization: `Bearer ${token}` },
+      periodoId,
+      externalPrefix: 'archivar-resumen',
+      preguntas: ['Pregunta A']
+    });
 
     const archivar = await request(app)
       .post(`/api/periodos/${periodoId}/archivar`)

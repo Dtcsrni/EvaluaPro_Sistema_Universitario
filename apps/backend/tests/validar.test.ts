@@ -9,8 +9,8 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { manejadorErrores } from '../src/compartido/errores/manejadorErrores';
-import { validarCuerpo } from '../src/compartido/validaciones/validar';
+import { manejadorErrores } from '../src/compartido/errores/manejadorErrores.js';
+import { validarCuerpo } from '../src/compartido/validaciones/validar.js';
 
 describe('validarCuerpo', () => {
   const app = express();

@@ -2,13 +2,13 @@
  * Controlador de listas institucionales por plantilla.
  */
 import type { Response } from 'express';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import {
   generarListaInstitucionalPdf,
   generarListaInstitucionalXlsx,
   listarPlantillasInstitucionales,
   type FormatoListaInstitucional
-} from './servicioListasInstitucionales';
+} from './servicioListasInstitucionales.js';
 
 export function listarPlantillas(_req: SolicitudDocente, res: Response) {
   res.json({ plantillas: listarPlantillasInstitucionales() });

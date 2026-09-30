@@ -7,9 +7,9 @@
 import { createHash } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { prepararEscenarioFlujo } from './_flujoDocenteHelper';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { prepararEscenarioFlujo } from './_flujoDocenteHelper.js';
 
 function parsearBinario(res: NodeJS.ReadableStream & { setEncoding: (encoding: string) => void }, cb: (error: Error | null, body?: Buffer) => void) {
   const chunks: Buffer[] = [];
@@ -40,7 +40,7 @@ describe('flujo docente e2e (global)', () => {
       .set(escenario.auth)
       .expect(200);
     expect(csvResp.text).toContain(
-      'matricula,apellidoPaterno,apellidoMaterno,nombre,grupo,parcial1,parcial2,global,final,observaciones,conformidadAlumno'
+      'matricula,apellidoPaterno,apellidoMaterno,nombre,grupo,parcial1,parcial2,tareasYEjercicios2doParcial,practica2doParcial,evaluacionContinua2doParcial,examen2doParcial,examen2doParcialAutomatico,calificacionSegundoParcial,examenGlobalComponente,examenGlobalLista,continuaTercerParcialLista,calificacionTercerParcial,bonoExtracurricular,global,final,observaciones,conformidadAlumno'
     );
     expect(csvResp.text).toContain(',global,');
 

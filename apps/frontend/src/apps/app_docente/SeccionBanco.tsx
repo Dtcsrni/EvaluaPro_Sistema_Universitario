@@ -25,7 +25,40 @@ import {
 import { BancoFormularioPregunta } from './features/banco/components/BancoFormularioPregunta';
 import { BancoGestionTemas } from './features/banco/components/BancoGestionTemas';
 import { BancoListadoPreguntas } from './features/banco/components/BancoListadoPreguntas';
+import { BancoImportacionReactivos } from './features/banco/components/BancoImportacionReactivos';
 import { estimarAltoPregunta, sugerirPreguntasARecortar } from './features/banco/hooks/estimadoresBanco';
+
+type ManualReactivoPreview = {
+  importId: string;
+  planHash: string;
+  summary: { create: number; noOp: number; newVersion: number; conflict: number; error: number };
+};
+
+type ManualReactivoConfirm = {
+  draftReactivoIds?: string[];
+  reactivoIds?: string[];
+};
+
+type VersionHistorialReactivo = {
+  id: string;
+  numeroVersion: number;
+  enunciado: string;
+  opciones: Array<{ clave: string; texto: string; esCorrecta: boolean }>;
+  metadataJson: string;
+  contentHash: string;
+  createdAt: string;
+};
+
+type HistorialReactivo = {
+  reactivo: { id: string; externalKey: string; versionActual: number; estado: string };
+  versiones: VersionHistorialReactivo[];
+};
+
+function nuevaClaveManual() {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return `manual-${uuid ?? `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`}`;
+}
+
 export function SeccionBanco({
   preguntas,
   periodos,
@@ -49,6 +82,7 @@ export function SeccionBanco({
   const [enunciado, setEnunciado] = useState('');
   const [imagenUrl, setImagenUrl] = useState('');
   const [tema, setTema] = useState('');
+  const [temaId, setTemaId] = useState('');
   const [opciones, setOpciones] = useState([
     { texto: '', esCorrecta: true },
     { texto: '', esCorrecta: false },
@@ -70,7 +104,17 @@ export function SeccionBanco({
     { texto: '', esCorrecta: false }
   ]);
   const [editando, setEditando] = useState(false);
+  const [reactivosManualesPendientes, setReactivosManualesPendientes] = useState<string[]>([]);
+  const [reactivosManualesRevision, setReactivosManualesRevision] = useState<string[]>([]);
+  const [transicionManual, setTransicionManual] = useState(false);
   const [archivandoPreguntaId, setArchivandoPreguntaId] = useState<string | null>(null);
+  const [cargandoHistorialReactivo, setCargandoHistorialReactivo] = useState(false);
+  const [historialReactivo, setHistorialReactivo] = useState<HistorialReactivo | null>(null);
+  const [versionBase, setVersionBase] = useState<number | null>(null);
+  const [versionComparada, setVersionComparada] = useState<number | null>(null);
+  const claveManualRef = useRef(nuevaClaveManual());
+  const fechaManualRef = useRef(new Date().toISOString());
+  const requestIdsMutacionTemaRef = useRef(new Map<string, string>());
 
   const [temasBanco, setTemasBanco] = useState<TemaBanco[]>([]);
   const [cargandoTemas, setCargandoTemas] = useState(false);
@@ -86,6 +130,14 @@ export function SeccionBanco({
   const puedeGestionar = permisos.banco.gestionar;
   const puedeArchivar = permisos.banco.archivar;
   const bloqueoEdicion = !puedeGestionar;
+
+  function obtenerClientRequestIdTema(clave: string): string {
+    const actual = requestIdsMutacionTemaRef.current.get(clave);
+    if (actual) return actual;
+    const nuevo = crypto.randomUUID();
+    requestIdsMutacionTemaRef.current.set(clave, nuevo);
+    return nuevo;
+  }
 
   const [ajusteTemaId, setAjusteTemaId] = useState<string | null>(null);
   const [ajustePaginasObjetivo, setAjustePaginasObjetivo] = useState<number>(1);
@@ -107,6 +159,7 @@ export function SeccionBanco({
 
   useEffect(() => {
     setTema('');
+    setTemaId('');
   }, [periodoId, puedeLeer]);
 
   const refrescarTemas = useCallback(async () => {
@@ -350,14 +403,15 @@ export function SeccionBanco({
       if (cmp < 0) return acc;
       return String(item._id).localeCompare(String(acc._id)) > 0 ? item : acc;
     }, null as TemaBanco | null);
-    return masReciente?.nombre ?? '';
+    return masReciente ?? null;
   }, [temasBanco]);
 
   useEffect(() => {
     if (!periodoId) return;
     if (tema.trim()) return;
-    if (!temaPorDefecto.trim()) return;
-    setTema(temaPorDefecto);
+    if (!temaPorDefecto) return;
+    setTema(temaPorDefecto.nombre);
+    setTemaId(temaPorDefecto._id);
   }, [periodoId, tema, temaPorDefecto]);
 
   const puedeGuardar = Boolean(
@@ -365,7 +419,7 @@ export function SeccionBanco({
       enunciado.trim() &&
       tema.trim() &&
       opciones.every((opcion) => opcion.texto.trim()) &&
-      opciones.some((opcion) => opcion.esCorrecta)
+      opciones.filter((opcion) => opcion.esCorrecta).length === 1
   );
 
   const puedeGuardarEdicion = Boolean(
@@ -445,7 +499,11 @@ export function SeccionBanco({
     try {
       setCreandoTema(true);
       setMensaje('');
-      await enviarConPermiso('banco:gestionar', '/banco-preguntas/temas', { periodoId, nombre }, 'No tienes permiso para crear temas.');
+      const claveSolicitud = `crear:${periodoId}:${normalizarNombreTema(nombre).toLowerCase()}`;
+      await enviarConPermiso('banco:gestionar', '/banco-preguntas/temas', {
+        periodoId, nombre, clientRequestId: obtenerClientRequestIdTema(claveSolicitud)
+      }, 'No tienes permiso para crear temas.');
+      requestIdsMutacionTemaRef.current.delete(claveSolicitud);
       setTemaNuevo('');
       await refrescarTemas();
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema creado', durationMs: 1800 });
@@ -479,12 +537,14 @@ export function SeccionBanco({
     try {
       setGuardandoTema(true);
       setMensaje('');
+      const claveSolicitud = `actualizar:${temaEditandoId}:${normalizarNombreTema(nombre).toLowerCase()}`;
       await enviarConPermiso(
         'banco:gestionar',
         `/banco-preguntas/temas/${temaEditandoId}/actualizar`,
-        { nombre },
+        { nombre, clientRequestId: obtenerClientRequestIdTema(claveSolicitud) },
         'No tienes permiso para editar temas.'
       );
+      requestIdsMutacionTemaRef.current.delete(claveSolicitud);
       cancelarEdicionTema();
       await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar()), Promise.resolve().then(() => onRefrescarPlantillas())]);
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema actualizado', durationMs: 1800 });
@@ -513,13 +573,18 @@ export function SeccionBanco({
     try {
       setArchivandoTemaId(item._id);
       setMensaje('');
+      const claveSolicitud = `archivar:${item._id}`;
       await enviarConPermiso(
         'banco:archivar',
         `/banco-preguntas/temas/${item._id}/archivar`,
-        {},
+        { clientRequestId: obtenerClientRequestIdTema(claveSolicitud) },
         'No tienes permiso para archivar temas.'
       );
-      if (tema.trim().toLowerCase() === item.nombre.trim().toLowerCase()) setTema('');
+      requestIdsMutacionTemaRef.current.delete(claveSolicitud);
+      if (temaId === item._id) {
+        setTema('');
+        setTemaId('');
+      }
       if (editTema.trim().toLowerCase() === item.nombre.trim().toLowerCase()) setEditTema('');
       await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar()), Promise.resolve().then(() => onRefrescarPlantillas())]);
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema archivado', durationMs: 1800 });
@@ -546,6 +611,22 @@ export function SeccionBanco({
     ]);
   }
 
+  async function verVersiones(pregunta: Pregunta) {
+    if (!pregunta.reactivoId) return;
+    try {
+      setCargandoHistorialReactivo(true);
+      const historial = await clienteApi.obtener<HistorialReactivo>(`/banco-preguntas/reactivos/${encodeURIComponent(pregunta.reactivoId)}/versiones`);
+      const versiones = [...historial.versiones].sort((a, b) => a.numeroVersion - b.numeroVersion);
+      setHistorialReactivo({ ...historial, versiones });
+      setVersionBase(versiones.at(-2)?.numeroVersion ?? versiones.at(-1)?.numeroVersion ?? null);
+      setVersionComparada(versiones.at(-1)?.numeroVersion ?? null);
+    } catch (error) {
+      emitToast({ level: 'error', title: 'Historial no disponible', message: mensajeDeError(error, 'No se pudieron cargar las versiones.'), durationMs: 4500 });
+    } finally {
+      setCargandoHistorialReactivo(false);
+    }
+  }
+
   async function guardar() {
     try {
       const inicio = Date.now();
@@ -555,20 +636,60 @@ export function SeccionBanco({
       }
       setGuardando(true);
       setMensaje('');
-      await enviarConPermiso(
-        'banco:gestionar',
-        '/banco-preguntas',
-        {
-          periodoId,
-          enunciado: enunciado.trim(),
-          imagenUrl: imagenUrl.trim() ? imagenUrl.trim() : undefined,
-          tema: tema.trim(),
-          opciones: opciones.map((item) => ({ ...item, texto: item.texto.trim() }))
+      const temaCanonico = temasBanco.find((item) => item._id === temaId);
+      if (!temaCanonico) {
+        throw new Error('Selecciona un tema activo y canónico antes de guardar el reactivo.');
+      }
+
+      const batch = {
+        contract: 'evaluapro.reactivos.batch' as const,
+        schemaVersion: 1 as const,
+        batchId: `${claveManualRef.current}-batch`,
+        target: { periodoId, temaIds: [temaCanonico._id] },
+        source: {
+          kind: 'manual' as const,
+          generator: 'captura_manual_docente',
+          generatedAt: fechaManualRef.current,
+          sourceDocumentSha256: null
         },
-        'No tienes permiso para crear preguntas.'
-      );
-      setMensaje('Pregunta guardada');
-      emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta guardada', durationMs: 2200 });
+        items: [{
+          externalKey: claveManualRef.current,
+          itemId: null,
+          expectedVersion: null,
+          format: 'omr.mcq5' as const,
+          stem: { format: 'richtext' as const, value: enunciado.trim() },
+          options: opciones.map((item, index) => ({
+            key: ['A', 'B', 'C', 'D', 'E'][index] as 'A' | 'B' | 'C' | 'D' | 'E',
+            value: item.texto.trim(),
+            isCorrect: item.esCorrecta
+          })),
+          metadata: imagenUrl.trim() ? { imageDataUrl: imagenUrl.trim() } : {},
+          provenance: { origin: 'authored' as const, confidence: 1, notes: 'Captura manual del docente.' }
+        }]
+      };
+
+      const preview = await enviarConPermiso(
+        'banco:ingestar',
+        '/banco-preguntas/importaciones/preview',
+        batch,
+        'No tienes permiso para importar reactivos.'
+      ) as unknown as ManualReactivoPreview;
+      if (!preview?.importId || !preview.planHash) throw new Error('El servidor no devolvió un preview válido.');
+      if (preview.summary.conflict > 0 || preview.summary.error > 0) {
+        throw new Error('El reactivo entra en conflicto con otro contenido. Revisa el tema o el enunciado.');
+      }
+
+      const confirmado = await enviarConPermiso(
+        'banco:ingestar',
+        `/banco-preguntas/importaciones/${encodeURIComponent(preview.importId)}/confirmar`,
+        { planHash: preview.planHash, payload: batch },
+        'No tienes permiso para confirmar reactivos.'
+      ) as unknown as ManualReactivoConfirm;
+      const reactivoIds = confirmado.draftReactivoIds ?? [];
+
+      setReactivosManualesPendientes((actuales) => [...new Set([...actuales, ...reactivoIds])]);
+      setMensaje(reactivoIds.length > 0 ? 'Reactivo validado y guardado como borrador. Envíalo a revisión antes de publicarlo.' : 'Reactivo sin cambios: el contenido ya existía.');
+      emitToast({ level: 'ok', title: 'Banco', message: reactivoIds.length > 0 ? 'Borrador guardado; falta revisión' : 'Reactivo sin cambios', durationMs: 2200 });
       registrarAccionDocente('crear_pregunta', true, Date.now() - inicio);
       setEnunciado('');
       setImagenUrl('');
@@ -580,6 +701,8 @@ export function SeccionBanco({
         { texto: '', esCorrecta: false },
         { texto: '', esCorrecta: false }
       ]);
+      claveManualRef.current = nuevaClaveManual();
+      fechaManualRef.current = new Date().toISOString();
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo guardar');
@@ -607,19 +730,62 @@ export function SeccionBanco({
       }
       setEditando(true);
       setMensaje('');
-      await enviarConPermiso(
-        'banco:gestionar',
-        `/banco-preguntas/${editandoId}/actualizar`,
-        {
-          enunciado: editEnunciado.trim(),
-          imagenUrl: editImagenUrl.trim() ? editImagenUrl.trim() : null,
-          tema: editTema.trim(),
-          opciones: editOpciones.map((o) => ({ ...o, texto: o.texto.trim() }))
-        },
-        'No tienes permiso para editar preguntas.'
-      );
-      setMensaje('Pregunta actualizada');
-      emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta actualizada', durationMs: 2200 });
+      const preguntaActual = preguntas.find((item) => item._id === editandoId);
+      const temaCanonico = temasBanco.find((item) => item.nombre.trim().toLocaleLowerCase() === editTema.trim().toLocaleLowerCase());
+      if (preguntaActual?.reactivoId) {
+        if (!preguntaActual.periodoId || !temaCanonico) throw new Error('Selecciona un tema activo y canónico para guardar la nueva versión.');
+        const historial = await clienteApi.obtener<{
+          reactivo: { externalKey: string; versionActual: number };
+          versiones: Array<{ numeroVersion: number; metadataJson?: string }>;
+        }>(`/banco-preguntas/reactivos/${encodeURIComponent(preguntaActual.reactivoId)}/versiones`);
+        const versionActual = historial.versiones.find((item) => item.numeroVersion === historial.reactivo.versionActual);
+        let metadata: Record<string, unknown> = {};
+        try { metadata = JSON.parse(versionActual?.metadataJson ?? '{}') as Record<string, unknown>; } catch { metadata = {}; }
+        delete metadata.imageAssetSha256;
+        if (editImagenUrl.trim()) metadata.imageDataUrl = editImagenUrl.trim();
+        else delete metadata.imageDataUrl;
+        const batch = {
+          contract: 'evaluapro.reactivos.batch' as const,
+          schemaVersion: 1 as const,
+          batchId: `manual-edicion-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
+          target: { periodoId: preguntaActual.periodoId, temaIds: [temaCanonico._id] },
+          source: { kind: 'manual' as const, generator: 'edicion_manual_docente', generatedAt: new Date().toISOString(), sourceDocumentSha256: null },
+          items: [{
+            externalKey: historial.reactivo.externalKey,
+            itemId: preguntaActual.reactivoId,
+            expectedVersion: historial.reactivo.versionActual,
+            format: 'omr.mcq5' as const,
+            stem: { format: 'richtext' as const, value: editEnunciado.trim() },
+            options: editOpciones.map((item, index) => ({
+              key: ['A', 'B', 'C', 'D', 'E'][index] as 'A' | 'B' | 'C' | 'D' | 'E',
+              value: item.texto.trim(),
+              isCorrect: item.esCorrecta
+            })),
+            metadata,
+            provenance: { origin: 'authored' as const, confidence: 1, notes: 'Nueva versión editada por el docente.' }
+          }]
+        };
+        const preview = await enviarConPermiso('banco:ingestar', '/banco-preguntas/importaciones/preview', batch, 'No tienes permiso para crear versiones de reactivos.') as unknown as ManualReactivoPreview;
+        if (!preview?.importId || !preview.planHash || preview.summary.conflict > 0 || preview.summary.error > 0) {
+          throw new Error('La versión editada tiene un conflicto. Actualiza la vista y vuelve a intentarlo.');
+        }
+        const confirmado = await enviarConPermiso('banco:ingestar', `/banco-preguntas/importaciones/${encodeURIComponent(preview.importId)}/confirmar`, { planHash: preview.planHash, payload: batch }, 'No tienes permiso para confirmar la versión.') as unknown as ManualReactivoConfirm;
+        setReactivosManualesPendientes((actuales) => [...new Set([...actuales, ...(confirmado.draftReactivoIds ?? [])])]);
+      } else {
+        await enviarConPermiso(
+          'banco:gestionar',
+          `/banco-preguntas/${editandoId}/actualizar`,
+          {
+            enunciado: editEnunciado.trim(),
+            imagenUrl: editImagenUrl.trim() ? editImagenUrl.trim() : null,
+            tema: editTema.trim(),
+            opciones: editOpciones.map((o) => ({ ...o, texto: o.texto.trim() }))
+          },
+          'No tienes permiso para editar preguntas.'
+        );
+      }
+      setMensaje('Nueva versión guardada como borrador; requiere revisión antes de publicarse.');
+      emitToast({ level: 'ok', title: 'Banco', message: 'Nueva versión en borrador', durationMs: 2200 });
       registrarAccionDocente('actualizar_pregunta', true, Date.now() - inicio);
       cancelarEdicion();
       onRefrescar();
@@ -639,31 +805,74 @@ export function SeccionBanco({
     }
   }
 
+  async function cambiarEstadoManual(estado: 'revisar' | 'publicar') {
+    const fuente = estado === 'revisar' ? reactivosManualesPendientes : reactivosManualesRevision;
+    if (fuente.length === 0 || transicionManual) return;
+    const permiso = estado === 'revisar' ? 'banco:revisar' : 'banco:publicar';
+    try {
+      setTransicionManual(true);
+      const fallidos: string[] = [];
+      for (const reactivoId of fuente) {
+        try {
+          await enviarConPermiso(permiso, `/banco-preguntas/reactivos/${encodeURIComponent(reactivoId)}/${estado}`, {}, `No tienes permiso para ${estado} reactivos.`);
+        } catch {
+          fallidos.push(reactivoId);
+        }
+      }
+      const exitosos = fuente.filter((id) => !fallidos.includes(id));
+      if (estado === 'revisar') {
+        setReactivosManualesPendientes(fallidos);
+        setReactivosManualesRevision((actuales) => [...new Set([...actuales, ...exitosos])]);
+      } else {
+        setReactivosManualesRevision(fallidos);
+      }
+      setMensaje(fallidos.length > 0
+        ? `${fallidos.length} reactivo(s) no pudieron cambiar de estado; puedes reintentar.`
+        : estado === 'revisar' ? 'Reactivos enviados a revisión.' : 'Reactivos revisados y publicados.');
+      onRefrescar();
+    } finally {
+      setTransicionManual(false);
+    }
+  }
+
   async function archivarPregunta(preguntaId: string) {
-    if (!puedeArchivar) {
-      avisarSinPermiso('No tienes permiso para eliminar preguntas.');
+    const pregunta = preguntas.find((item) => item._id === preguntaId);
+    const retirarCanonico = Boolean(pregunta?.reactivoId);
+    if (retirarCanonico ? !permisos.banco.publicar : !puedeArchivar) {
+      avisarSinPermiso(retirarCanonico ? 'No tienes permiso para retirar reactivos.' : 'No tienes permiso para eliminar preguntas.');
       return;
     }
     const ok = await confirm({
-      title: 'Eliminar pregunta',
-      message: 'La pregunta se eliminará de forma permanente.',
-      details: ['También se quitará de plantillas que la referencien.'],
-      confirmLabel: 'Sí, eliminar pregunta',
-      tone: 'danger'
+      title: retirarCanonico ? 'Retirar reactivo' : 'Eliminar pregunta',
+      message: retirarCanonico
+        ? 'El reactivo dejará de estar disponible para nuevos exámenes; su historial y los exámenes ya generados se conservarán.'
+        : 'La pregunta se eliminará de forma permanente.',
+      details: retirarCanonico ? ['No se borrarán sus versiones ni su identidad histórica.'] : ['También se quitará de plantillas que la referencien.'],
+      confirmLabel: retirarCanonico ? 'Sí, retirar reactivo' : 'Sí, eliminar pregunta',
+      tone: retirarCanonico ? 'warning' : 'danger'
     });
     if (!ok) return;
     try {
       const inicio = Date.now();
       setArchivandoPreguntaId(preguntaId);
       setMensaje('');
-      await enviarConPermiso(
-        'banco:archivar',
-        `/banco-preguntas/${preguntaId}/eliminar`,
-        {},
-        'No tienes permiso para eliminar preguntas.'
-      );
-      setMensaje('Pregunta eliminada');
-      emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta eliminada', durationMs: 2200 });
+      if (retirarCanonico && pregunta?.reactivoId) {
+        await enviarConPermiso(
+          'banco:publicar',
+          `/banco-preguntas/reactivos/${encodeURIComponent(pregunta.reactivoId)}/retirar`,
+          {},
+          'No tienes permiso para retirar reactivos.'
+        );
+      } else {
+        await enviarConPermiso(
+          'banco:archivar',
+          `/banco-preguntas/${preguntaId}/eliminar`,
+          {},
+          'No tienes permiso para eliminar preguntas.'
+        );
+      }
+      setMensaje(retirarCanonico ? 'Reactivo retirado; se conservaron sus versiones históricas.' : 'Pregunta eliminada');
+      emitToast({ level: 'ok', title: 'Banco', message: retirarCanonico ? 'Reactivo retirado' : 'Pregunta eliminada', durationMs: 2200 });
       registrarAccionDocente('eliminar_pregunta', true, Date.now() - inicio);
       if (editandoId === preguntaId) cancelarEdicion();
       onRefrescar();
@@ -697,6 +906,8 @@ export function SeccionBanco({
         cargarImagenArchivo={cargarImagenArchivo}
         tema={tema}
         setTema={setTema}
+        temaId={temaId}
+        setTemaId={setTemaId}
         temasBanco={temasBanco}
         cargandoTemas={cargandoTemas}
         preguntasTemaActualCantidad={preguntasTemaActual.length}
@@ -724,6 +935,30 @@ export function SeccionBanco({
         editando={editando}
         guardarEdicion={guardarEdicion}
         cancelarEdicion={cancelarEdicion}
+      />
+
+      {(reactivosManualesPendientes.length > 0 || reactivosManualesRevision.length > 0) && (
+        <section className="banco-reactivos-import__queue" aria-label="Flujo de revisión manual" aria-live="polite">
+          <div>
+            <p className="banco-reactivos-import__eyebrow">Flujo manual</p>
+            <h3>Revisión y publicación</h3>
+            <p>{reactivosManualesPendientes.length + reactivosManualesRevision.length} reactivo(s) aún no están publicados.</p>
+          </div>
+          <div className="banco-reactivos-import__queue-actions">
+            {reactivosManualesPendientes.length > 0 && <button type="button" className="button button-primary" disabled={transicionManual} onClick={() => void cambiarEstadoManual('revisar')}>Enviar a revisión ({reactivosManualesPendientes.length})</button>}
+            {reactivosManualesRevision.length > 0 && <button type="button" className="button button-primary" disabled={transicionManual} onClick={() => void cambiarEstadoManual('publicar')}>Publicar revisados ({reactivosManualesRevision.length})</button>}
+          </div>
+        </section>
+      )}
+
+      <BancoImportacionReactivos
+        periodoId={periodoId}
+        temas={temasBanco}
+        puedeGestionar={puedeGestionar}
+        onRefrescar={() => {
+          onRefrescar();
+          void refrescarTemas();
+        }}
       />
 
       <div className="banco-panel__split">
@@ -784,10 +1019,66 @@ export function SeccionBanco({
           bloqueoEdicion={bloqueoEdicion}
           archivandoPreguntaId={archivandoPreguntaId}
           puedeArchivar={puedeArchivar}
+          puedeRetirar={Boolean(permisos.banco.publicar)}
           iniciarEdicion={iniciarEdicion}
           archivarPregunta={archivarPregunta}
+          verVersiones={verVersiones}
         />
       </div>
+
+      {cargandoHistorialReactivo && <p className="banco-history-loading" role="status">Cargando versiones del reactivo…</p>}
+      {historialReactivo && (
+        <section className="banco-versiones-comparador" aria-labelledby="banco-versiones-title">
+          <div className="banco-versiones-comparador__head">
+            <div>
+              <p className="banco-section-pill"><span className="banco-section-pill__dot" aria-hidden="true" />Historial inmutable</p>
+              <h3 id="banco-versiones-title">Comparar versiones</h3>
+              <p>{historialReactivo.reactivo.externalKey} · estado {historialReactivo.reactivo.estado} · versión actual {historialReactivo.reactivo.versionActual}</p>
+            </div>
+            <button type="button" className="button button-secondary" onClick={() => setHistorialReactivo(null)}>Cerrar historial</button>
+          </div>
+          <div className="banco-versiones-comparador__selects">
+            <label>Versión anterior
+              <select aria-label="Versión anterior" value={versionBase ?? ''} onChange={(event) => setVersionBase(Number(event.target.value))}>
+                {historialReactivo.versiones.map((version) => <option key={version.id} value={version.numeroVersion}>v{version.numeroVersion}</option>)}
+              </select>
+            </label>
+            <label>Comparar con
+              <select aria-label="Comparar con" value={versionComparada ?? ''} onChange={(event) => setVersionComparada(Number(event.target.value))}>
+                {historialReactivo.versiones.map((version) => <option key={version.id} value={version.numeroVersion}>v{version.numeroVersion}</option>)}
+              </select>
+            </label>
+          </div>
+          {(() => {
+            const izquierda = historialReactivo.versiones.find((version) => version.numeroVersion === versionBase);
+            const derecha = historialReactivo.versiones.find((version) => version.numeroVersion === versionComparada);
+            if (!izquierda || !derecha) return <p>Selecciona dos versiones disponibles.</p>;
+            const filaOpciones = ['A', 'B', 'C', 'D', 'E'].map((clave) => ({
+              clave,
+              antes: izquierda.opciones.find((opcion) => opcion.clave === clave),
+              despues: derecha.opciones.find((opcion) => opcion.clave === clave)
+            }));
+            return (
+              <div className="banco-versiones-comparador__tabla-wrap">
+                <table>
+                  <thead><tr><th scope="col">Contenido</th><th scope="col">v{izquierda.numeroVersion}</th><th scope="col">v{derecha.numeroVersion}</th></tr></thead>
+                  <tbody>
+                    <tr><th scope="row">Enunciado</th><td>{izquierda.enunciado}</td><td>{derecha.enunciado}</td></tr>
+                    {filaOpciones.map((fila) => (
+                      <tr key={fila.clave}>
+                        <th scope="row">Opción {fila.clave}</th>
+                        <td>{fila.antes?.texto ?? '—'}{fila.antes?.esCorrecta ? ' · correcta' : ''}</td>
+                        <td>{fila.despues?.texto ?? '—'}{fila.despues?.esCorrecta ? ' · correcta' : ''}</td>
+                      </tr>
+                    ))}
+                    <tr><th scope="row">Hash de contenido</th><td><code>{izquierda.contentHash.slice(0, 16)}…</code></td><td><code>{derecha.contentHash.slice(0, 16)}…</code></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </section>
+      )}
     </div>
   );
 }

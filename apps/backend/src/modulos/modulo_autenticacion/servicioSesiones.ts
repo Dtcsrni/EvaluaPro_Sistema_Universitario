@@ -5,9 +5,9 @@
  */
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 const COOKIE_REFRESH_DOCENTE = 'refreshDocente';
 

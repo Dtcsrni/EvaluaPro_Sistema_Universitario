@@ -44,12 +44,12 @@ vi.mock('../src/infraestructura/baseDatos/sqlite', () => ({
   }
 }));
 
-import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
+import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion.js';
 import {
   deshacerEntregaPorFolio,
   vincularEntrega,
   vincularEntregaPorFolio
-} from '../src/modulos/modulo_vinculacion_entrega/controladorVinculacionEntrega';
+} from '../src/modulos/modulo_vinculacion_entrega/controladorVinculacionEntrega.js';
 
 function crearRespuesta() {
   return {

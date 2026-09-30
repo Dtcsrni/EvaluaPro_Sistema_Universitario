@@ -6,7 +6,7 @@
  */
 // Pruebas de utilidades de aleatoriedad.
 import { describe, expect, it } from 'vitest';
-import { barajar } from '../src/compartido/utilidades/aleatoriedad';
+import { barajar } from '../src/compartido/utilidades/aleatoriedad.js';
 
 describe('barajar', () => {
   it('mantiene los mismos elementos sin mutar el arreglo original', () => {

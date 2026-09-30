@@ -1,6 +1,6 @@
 # Ecofont Vera Sans
 
-`ecofont_vera_sans_regular.ttf` es la variante regular gratuita de Ecofont Vera Sans para impresión. Se incrusta únicamente en el texto normal del renderer PDF legacy; encabezados, énfasis y código conservan sus variantes tipográficas para no perder jerarquía ni legibilidad.
+`ecofont_vera_sans_regular.ttf` es la variante regular gratuita de Ecofont Vera Sans para impresión. El generador de exámenes PDF la incrusta como única familia para encabezados, campos, indicaciones, reactivos, opciones, fórmulas, código y etiquetas OMR. El énfasis enriquecido conserva tamaño, color y subrayado sin introducir otra familia tipográfica.
 
 Procedencia del archivo: <https://static.wfonts.com/data/2015/09/13/ecofont-vera-sans/ecofont_vera_sans_regular.ttf>
 

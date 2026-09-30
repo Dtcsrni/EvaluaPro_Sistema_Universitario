@@ -7,14 +7,16 @@
 import { createHmac } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../src/app';
-import { configuracion } from '../src/configuracion';
-import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo';
+import { crearApp } from '../src/app.js';
+import { configuracion } from '../src/configuracion.js';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
+import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
 
 function refirmarQr(textoQr: string) {
   const limpio = String(textoQr ?? '').trim();
-  const sinFirma = limpio.replace(/:SG:[A-Z0-9]+$/i, '');
+  const firmaCorta = /:S:[A-Z0-9_-]{16}$/i.test(limpio);
+  const sinFirma = limpio.replace(/:(?:SG:[A-Z0-9]+|S:[A-Z0-9_-]{16})$/i, '');
   const qrResumen = extraerResumenQrExamen(limpio);
   const keyId = String(qrResumen?.keyId ?? '').trim();
   const secreto =
@@ -23,12 +25,75 @@ function refirmarQr(textoQr: string) {
         configuracion.omrQrHmacSecrets[keyId.toLowerCase()] ??
         configuracion.omrQrHmacSecrets[keyId.toUpperCase()]
       : null) ?? configuracion.omrQrHmacSecret;
-  const firma = `H1${createHmac('sha256', secreto)
-    .update(sinFirma)
-    .digest('hex')
-    .slice(0, 24)
-    .toUpperCase()}`;
+  const hmac = createHmac('sha256', secreto).update(sinFirma).digest();
+  if (firmaCorta) return `${sinFirma}:S:${hmac.subarray(0, 12).toString('base64url')}`;
+  const firma = `H1${hmac.toString('hex').slice(0, 24).toUpperCase()}`;
   return `${sinFirma}:SG:${firma}`;
+}
+
+async function crearPreguntaCanonica(
+  app: ReturnType<typeof crearApp>,
+  auth: { Authorization: string },
+  periodoId: string
+) {
+  const tema = await request(app)
+    .post('/api/banco-preguntas/temas')
+    .set(auth)
+    .send({ periodoId, nombre: 'Payload OMR' })
+    .expect(201);
+  const temaId = String(tema.body.tema._id);
+  const lote = {
+    contract: 'evaluapro.reactivos.batch',
+    schemaVersion: 1,
+    batchId: `omr-payload-${Date.now()}`,
+    target: { periodoId, temaIds: [temaId] },
+    source: {
+      kind: 'ai_generated',
+      generator: 'EvaluaPro',
+      generatorModel: 'vitest',
+      generatedAt: '2026-09-24T00:00:00Z',
+      sourceDocumentSha256: null
+    },
+    items: [{
+      externalKey: `omr-payload-${Date.now()}`,
+      itemId: null,
+      expectedVersion: null,
+      format: 'omr.mcq5',
+      stem: { format: 'richtext', value: 'Pregunta payload' },
+      options: ['A', 'B', 'C', 'D', 'E'].map((key, index) => ({
+        key,
+        value: key,
+        isCorrect: index === 0
+      })),
+      metadata: { difficultyHypothesis: 'medium' },
+      provenance: { origin: 'generated', confidence: 1, notes: 'fixture OMR payload' }
+    }]
+  };
+
+  const preview = await request(app)
+    .post('/api/banco-preguntas/importaciones/preview')
+    .set(auth)
+    .send(lote)
+    .expect(200);
+  const confirmado = await request(app)
+    .post(`/api/banco-preguntas/importaciones/${preview.body.importId}/confirmar`)
+    .set(auth)
+    .send({ planHash: preview.body.planHash, payload: lote })
+    .expect(200);
+  const reactivoId = String(confirmado.body.reactivoIds[0]);
+
+  await request(app)
+    .post(`/api/banco-preguntas/reactivos/${reactivoId}/revisar`)
+    .set(auth)
+    .send({})
+    .expect(200);
+  const publicado = await request(app)
+    .post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`)
+    .set(auth)
+    .send({})
+    .expect(200);
+
+  return String(publicado.body.legacyPreguntaId);
 }
 
 async function crearEscenarioBase(app: ReturnType<typeof crearApp>) {
@@ -67,21 +132,7 @@ async function crearEscenarioBase(app: ReturnType<typeof crearApp>) {
     })
     .expect(201);
 
-  const pregunta = await request(app)
-    .post('/api/banco-preguntas')
-    .set(auth)
-    .send({
-      periodoId,
-      enunciado: 'Pregunta payload',
-      opciones: [
-        { texto: 'A', esCorrecta: true },
-        { texto: 'B', esCorrecta: false },
-        { texto: 'C', esCorrecta: false },
-        { texto: 'D', esCorrecta: false },
-        { texto: 'E', esCorrecta: false }
-      ]
-    })
-    .expect(201);
+  const preguntaId = await crearPreguntaCanonica(app, auth, periodoId);
 
   const plantilla = await request(app)
     .post('/api/examenes/plantillas')
@@ -91,14 +142,19 @@ async function crearEscenarioBase(app: ReturnType<typeof crearApp>) {
       tipo: 'parcial',
       titulo: 'Plantilla payload',
       numeroPaginas: 1,
-      preguntasIds: [pregunta.body.pregunta._id]
+      preguntasIds: [preguntaId]
     })
     .expect(201);
+  const plantillaId = String(plantilla.body.plantilla._id);
+  await request(app)
+    .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+    .set(auth)
+    .expect(200);
 
   const examen = await request(app)
     .post('/api/examenes/generados')
     .set(auth)
-    .send({ plantillaId: plantilla.body.plantilla._id })
+    .send({ plantillaId })
     .expect(201);
 
   await request(app)
@@ -281,9 +337,9 @@ describe('calificación OMR payload estricto', () => {
     expect(respuesta.body.error.codigo).toBe('VALIDACION');
   });
 
-  it('rechaza qrTexto con variante distinta a la del examen generado', async () => {
+  it('rechaza un QR corto firmado cuya página no existe en el manifiesto local', async () => {
     const base = await crearEscenarioBase(app);
-    const qrMutado = refirmarQr(String(base.qrTexto).replace(/:VH:[A-Z0-9]+:/, ':VH:AAAAAAAAAAAA:'));
+    const qrMutado = refirmarQr(String(base.qrTexto).replace(':P1:', ':P2:'));
 
     const respuesta = await request(app)
       .post('/api/calificaciones/calificar')
@@ -309,12 +365,46 @@ describe('calificación OMR payload estricto', () => {
       })
       .expect(409);
 
-    expect(respuesta.body.error.codigo).toBe('OMR_QR_VARIANTE_NO_COINCIDE');
+    expect(respuesta.body.error.codigo).toBe('OMR_QR_NO_COINCIDE_MANIFIESTO');
   });
 
-  it('rechaza qrTexto con clave correcta distinta a la del examen generado', async () => {
+  it('rechaza QR corto cuando el examen no conserva páginas/manifiesto locales', async () => {
     const base = await crearEscenarioBase(app);
-    const qrMutado = refirmarQr(String(base.qrTexto).replace(/:AK:[A-Z0-9]+:/, ':AK:BBBBBBBBBBBB:'));
+    await prisma.examenGenerado.update({
+      where: { id: base.examenGeneradoId },
+      data: { paginas: '[]' }
+    });
+
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({
+        examenGeneradoId: base.examenGeneradoId,
+        folio: base.folio,
+        alumnoId: base.alumnoId,
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+        omrAnalisis: {
+          estadoAnalisis: 'ok',
+          calidadPagina: 0.98,
+          confianzaPromedioPagina: 0.97,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: base.templateVersion,
+          engineVersion: 'omr-cv',
+          geomQuality: 0.96,
+          photoQuality: 0.96,
+          decisionPolicy: 'conservadora_v1',
+          motivosRevision: [],
+          qrTexto: base.qrTexto
+        }
+      })
+      .expect(409);
+
+    expect(respuesta.body.error.codigo).toBe('OMR_QR_MANIFIESTO_REQUERIDO');
+  });
+
+  it('rechaza un QR corto cuya identidad no coincide byte a byte con el manifiesto', async () => {
+    const base = await crearEscenarioBase(app);
+    const qrMutado = String(base.qrTexto).replace('EXAMEN:', 'examen:');
 
     const respuesta = await request(app)
       .post('/api/calificaciones/calificar')
@@ -340,7 +430,7 @@ describe('calificación OMR payload estricto', () => {
       })
       .expect(409);
 
-    expect(respuesta.body.error.codigo).toBe('OMR_QR_CLAVE_NO_COINCIDE');
+    expect(respuesta.body.error.codigo).toBe('OMR_QR_NO_COINCIDE_MANIFIESTO');
   });
 
   it('rechaza qrTexto con firma invalida aunque el resto del payload parezca consistente', async () => {
@@ -365,7 +455,7 @@ describe('calificación OMR payload estricto', () => {
           photoQuality: 0.96,
           decisionPolicy: 'conservadora_v1',
           motivosRevision: [],
-          qrTexto: String(base.qrTexto).replace(/:SG:[A-Z0-9]+$/i, ':SG:H1AAAAAAAAAAAAAAAAAAAAAAAA')
+          qrTexto: String(base.qrTexto).replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA')
         }
       })
       .expect(409);
@@ -373,7 +463,7 @@ describe('calificación OMR payload estricto', () => {
     expect(respuesta.body.error.codigo).toBe('OMR_QR_FIRMA_INVALIDA');
   });
 
-  it('acepta calificación cuando qrTexto enriquecido coincide con la variante y la clave', async () => {
+  it('acepta calificación cuando el QR corto coincide exactamente con el manifiesto local', async () => {
     const base = await crearEscenarioBase(app);
 
     const respuesta = await request(app)
@@ -400,8 +490,9 @@ describe('calificación OMR payload estricto', () => {
       })
       .expect(201);
 
-    expect(respuesta.body.calificacion?.omrAuditoria?.variantHash).toBeTruthy();
-    expect(respuesta.body.calificacion?.omrAuditoria?.answerKeyHash).toBeTruthy();
+    expect(respuesta.body.calificacion?.omrAuditoria?.qrValidationMode).toBe('manifest-exact');
+    expect(respuesta.body.calificacion?.omrAuditoria?.variantHash).toBeNull();
+    expect(respuesta.body.calificacion?.omrAuditoria?.answerKeyHash).toBeNull();
   });
 });
 

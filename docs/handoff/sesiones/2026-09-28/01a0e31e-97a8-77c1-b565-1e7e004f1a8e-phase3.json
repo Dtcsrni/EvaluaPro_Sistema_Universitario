@@ -1,0 +1,418 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "01a0e31e-97a8-77c1-b565-1e7e004f1a8e-phase3",
+  "status": "draft",
+  "generatedAt": "2026-09-28T07:42:49Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Mejorar la API de EvaluaPro para automatización completa API-first con CRUD por recurso y correspondencia GUI."
+  },
+  "objective": "Completar la implementación API-first de los ciclos de vida de recursos docentes, con API, GUI, contratos, permisos, auditoría y pruebas coherentes.",
+  "scope": [
+    "SPEC-070 y catálogo CRUD",
+    "Políticas/evidencias de evaluación",
+    "Temarios: edición segura, auditoría y paridad PDF multipart",
+    "Auditoría global de todos los modelos y flujos docentes"
+  ],
+  "constraints": [
+    "Preservar trabajos concurrentes en PDF/OMR y docs/AUTO_ENV.md.",
+    "No escribir notas ni publicar calificaciones/Classroom.",
+    "Conservar aislamiento docente, versionado, historial e idempotencia."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de backend_temarios_integration",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de temario_migration",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de api_client_tests",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de temario_gui_tests",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de backend_typecheck",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de frontend_typecheck",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de focused_lint",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de wcag_guard",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de api_contract",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de sdd_audit",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de traceability_tests",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de handoff_tests",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de workspace_lint",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-09-28T06:42:54.532Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "AGENTS.md",
+      "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "scripts/api/RESOURCE_LIFECYCLE.md",
+      "scripts/api/README.md",
+      "scripts/api/openapi.json",
+      "scripts/api/CRUD_CATALOG.md",
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/tests/evaluapro-client.test.mjs",
+      "apps/backend/prisma/schema.prisma",
+      "apps/backend/src/infraestructura/baseDatos/sqlite.ts",
+      "apps/backend/src/modulos/modulo_temarios/controladorTemarios.ts",
+      "apps/backend/src/modulos/modulo_temarios/rutasTemarios.ts",
+      "apps/backend/src/modulos/modulo_temarios/validacionesTemarios.ts",
+      "apps/backend/tests/integracion/temario.pdf.test.ts",
+      "apps/frontend/src/apps/app_docente/SeccionTemarios.tsx",
+      "apps/frontend/tests/seccionTemarios.test.tsx",
+      "scripts/migrate-temarios-auditoria-sqlite.mjs",
+      "scripts/tests/migrate-temarios-auditoria-sqlite.test.mjs",
+      "apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/cicloVidaLotes.ts",
+      "apps/backend/tests/integracion/examenesLotesApi.test.ts",
+      "apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasHistorialLotes.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx",
+      "apps/frontend/tests/plantillasHistorialLotes.archivo.test.tsx",
+      "scripts/migrate-examen-lotes-ciclo-vida-sqlite.mjs",
+      "scripts/tests/migrate-examen-lotes-ciclo-vida-sqlite.test.mjs"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-09-28/01a0e31e-97a8-77c1-b565-1e7e004f1a8e-phase3.json",
+      "docs/handoff/sesiones/2026-09-28/01a0e31e-97a8-77c1-b565-1e7e004f1a8e-phase3.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "backend_temarios_integration",
+      "command": "npm --prefix apps/backend test -- tests/integracion/temario.pdf.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 10900,
+      "resultSummary": "6/6 pruebas; CRUD, protección de historial, concurrencia, auditoría y baja.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "temario_migration",
+      "command": "node --test scripts/tests/migrate-temarios-auditoria-sqlite.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 166,
+      "resultSummary": "1/1; migración aditiva e idempotente, tabla de auditoría y backup.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "api_client_tests",
+      "command": "node --test scripts/tests/evaluapro-client.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 280,
+      "resultSummary": "31/31 pruebas; cubre guardas de mutación de temarios/asistencia/plantillas/exámenes/OMR, consulta por folio, descarga PDF y regeneración.",
+      "timestamp": "2026-09-28T07:42:49Z"
+    },
+    {
+      "name": "client_sdk_lint",
+      "command": "eslint scripts/api/evaluapro-client.mjs scripts/tests/evaluapro-client.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2350,
+      "resultSummary": "Lint focalizado sin errores.",
+      "timestamp": "2026-09-28T07:42:49Z"
+    },
+    {
+      "name": "scoped_diff_check",
+      "command": "git -c core.whitespace=cr-at-eol diff --check -- scripts/api/evaluapro-client.mjs scripts/tests/evaluapro-client.test.mjs scripts/api/README.md scripts/api/RESOURCE_LIFECYCLE.md AGENTS.md docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 270,
+      "resultSummary": "Sin errores de whitespace en los archivos alcanzados por los cambios.",
+      "timestamp": "2026-09-28T07:42:49Z"
+    },
+    {
+      "name": "temario_gui_tests",
+      "command": "npm --prefix apps/frontend test -- tests/seccionTemarios.test.tsx",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2200,
+      "resultSummary": "7/7 pruebas, carga PDF multipart, edición y baja confirmada.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "backend_typecheck",
+      "command": "npm --prefix apps/backend run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 12000,
+      "resultSummary": "Prisma Client v7.10.0 generado y TypeScript sin errores.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "frontend_typecheck",
+      "command": "npm --prefix apps/frontend run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 8600,
+      "resultSummary": "TypeScript sin errores.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "focused_lint",
+      "command": "eslint cambios backend/frontend temarios",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Lint focalizado sin errores.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "wcag_guard",
+      "command": "npm run guard:wcag -- --skip-lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1142,
+      "resultSummary": "20/20 pares de contraste; política, semántica y diff CSS pasan.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "api_contract",
+      "command": "npm run api:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1008,
+      "resultSummary": "OpenAPI 3.1.0 sincronizado: 228 rutas, 263 operaciones.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 3997,
+      "resultSummary": "Pipeline contract pasa; test:toolchain:policy falla porque apps/backend/package-lock.json no incluye @tesseract.js-data/spa declarado en el workspace; cambio concurrente, no se modificó.",
+      "timestamp": "2026-09-28T07:42:49Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 950,
+      "resultSummary": "Todas las especificaciones válidas; SPEC-070 approved con 43 pruebas vinculadas.",
+      "timestamp": "2026-09-28T07:39:33Z"
+    },
+    {
+      "name": "traceability_tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1455,
+      "resultSummary": "7/7 pruebas.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "handoff_tests",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 988,
+      "resultSummary": "11/11 pruebas, incluyendo la traza de fase actualizada.",
+      "timestamp": "2026-09-28T07:39:33Z"
+    },
+    {
+      "name": "workspace_lint",
+      "command": "npm run lint",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Cuatro no-useless-escape en apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts:252, trabajo concurrente.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "docs/AUTO_ENV.md desactualizado; archivo concurrente no regenerado.",
+      "timestamp": "2026-09-28T06:42:54.532Z"
+    },
+    {
+      "durationMs": 8000,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "exam_lot_lifecycle_integration",
+      "command": "npm -C apps/backend test -- tests/integracion/examenesLotesApi.test.ts",
+      "exitCode": 0,
+      "resultSummary": "2/2 pruebas; paginación, archivo/restauración, idempotencia, auditoría y preservación de entrega/calificación/OMR."
+    },
+    {
+      "durationMs": 950,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "exam_lot_migration",
+      "command": "node --test scripts/tests/migrate-examen-lotes-ciclo-vida-sqlite.test.mjs",
+      "exitCode": 0,
+      "resultSummary": "1/1; migración aditiva, auditable e idempotente."
+    },
+    {
+      "durationMs": 500,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "api_sdk_tests",
+      "command": "node --test scripts/tests/evaluapro-client.test.mjs",
+      "exitCode": 0,
+      "resultSummary": "32/32; wrapper para archivo/restauración y auditoría de lotes."
+    },
+    {
+      "durationMs": 3700,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "frontend_lifecycle_tests",
+      "command": "npm -C apps/frontend test -- tests/plantillasHistorialLotes.archivo.test.tsx tests/plantillas.refactor.test.tsx",
+      "exitCode": 0,
+      "resultSummary": "15/15; representación de archivados, restauración y paginación GUI."
+    },
+    {
+      "durationMs": 10000,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "frontend_typecheck",
+      "command": "npm -C apps/frontend run typecheck",
+      "exitCode": 0,
+      "resultSummary": "TypeScript sin errores."
+    },
+    {
+      "durationMs": 12000,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "backend_typecheck",
+      "command": "npm -C apps/backend run typecheck",
+      "exitCode": 0,
+      "resultSummary": "Prisma Client generado y TypeScript sin errores."
+    },
+    {
+      "durationMs": 7500,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "frontend_focused_lint",
+      "command": "eslint apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasHistorialLotes.tsx apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx apps/frontend/tests/plantillasHistorialLotes.archivo.test.tsx --max-warnings=0",
+      "exitCode": 0,
+      "resultSummary": "Lint focalizado sin errores."
+    },
+    {
+      "durationMs": 700,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "api_contract",
+      "command": "npm run api:contract:check",
+      "exitCode": 0,
+      "resultSummary": "231 rutas/266 operaciones; 70/70 modelos Prisma clasificados."
+    },
+    {
+      "durationMs": 2400,
+      "timestamp": "2026-09-28T08:24:31Z",
+      "status": "ok",
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "exitCode": 0,
+      "resultSummary": "SPEC-068 y SPEC-070 válidas; 45 referencias de prueba en SPEC-070."
+    }
+  ],
+  "decisions": [
+    "Políticas dinámicas por docente aplican cálculos por versión inmutable.",
+    "Evidencias manuales se auditan; Classroom conserva su sincronización especializada.",
+    "Temarios ocupados no se reemplazan: editar requiere versión y motivo; preservar nodos con historial.",
+    "Baja de temario requiere confirmación/versión/motivo y solo permite nodos vacíos; evento append-only sobrevive al borrado.",
+    "Archivo/restauración del PDF consolidado implementado por lote: transaccional, idempotente, auditable y con validación SHA-256/PDF; conserva referencias de entrega, calificación y OMR.",
+    "La GUI presenta archivados paginados y restaura usando el mismo API; conserva el UUID por reintento de resultado incierto."
+  ],
+  "assumptions": [
+    "API y GUI comparten servicios y persistencia local."
+  ],
+  "risks": [
+    "La auditoría CRUD global por modelo sigue pendiente.",
+    "ci:policy:audit falla por desincronización concurrente del lock de apps/backend para @tesseract.js-data/spa; no se alteró esa dependencia.",
+    "El lint global falla por cuatro no-useless-escape en controladorJobsOmr.ts, archivo concurrente OMR.",
+    "docs:check falla por docs/AUTO_ENV.md modificado/desactualizado; no se regeneró.",
+    "No se verificó GUI instalada ni despliegue remoto."
+  ],
+  "nextStep": "Continuar la auditoría por fases de SPEC-070: cerrar primero los ciclos de autoría/reactivos y bancos, luego entregas/OMR y evaluación/publicación, verificando CRUD especializado y paridad GUI/API por recurso; mantener pendiente la validación de runtime GUI instalada.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "auditoria_crud_global",
+      "validacion_gui_runtime"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/omr-letter-color-template",
+    "commit": "894840df",
+    "workingTreeStatus": "Hay cambios concurrentes fuera del alcance; changedFiles limita la atribución de esta fase."
+  }
+}

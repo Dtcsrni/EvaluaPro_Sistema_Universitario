@@ -113,11 +113,16 @@ function Invoke-PostInstallVerification {
 
     $requiredFiles = @(
       (Join-Path $effectiveDir 'package.json'),
+      (Join-Path $effectiveDir 'config\shortcuts-manifest.json'),
       (Join-Path $effectiveDir 'scripts\\launcher-broker.ps1'),
       (Join-Path $effectiveDir 'scripts\\launcher-tray-hidden.vbs'),
       (Join-Path $effectiveDir 'scripts\\launcher-dashboard-hidden.vbs'),
+      (Join-Path $effectiveDir 'logs\\shortcut-reconciliation.json'),
       (Join-Path $effectiveDir 'logs\\installation.manifest.json')
     )
+    if ([string]$Flavor.flavorId -eq 'docente-local') {
+      $requiredFiles += (Join-Path $effectiveDir 'EvaluaPro.exe')
+    }
 
     foreach ($file in $requiredFiles) {
       if (-not (Test-Path $file)) {
@@ -129,7 +134,7 @@ function Invoke-PostInstallVerification {
     $startMenuRoot = if ($env:EVALUAPRO_STARTMENU_PATH) { [string]$env:EVALUAPRO_STARTMENU_PATH } elseif ($env:APPDATA) { Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\EvaluaPro' } else { '' }
     $includeDevShortcut = ([string]$Flavor.flavorId).Trim().ToLowerInvariant() -ne 'docente-local'
     $shortcutTargets = @(
-      (Join-Path $desktopRoot 'EvaluaPro - Prod.lnk'),
+      (Join-Path $desktopRoot 'EvaluaPro.lnk'),
       (Join-Path $desktopRoot 'EvaluaPro - Hub.lnk')
     )
     if ($includeDevShortcut) {
@@ -137,18 +142,32 @@ function Invoke-PostInstallVerification {
     }
     if ($startMenuRoot) {
       $shortcutTargets += @(
-        (Join-Path $startMenuRoot 'EvaluaPro - Prod.lnk'),
-        (Join-Path $startMenuRoot 'EvaluaPro - Hub.lnk'),
-        (Join-Path $startMenuRoot 'EvaluaPro - Desinstalar.lnk')
+        (Join-Path $startMenuRoot 'EvaluaPro.lnk'),
+        (Join-Path $startMenuRoot 'EvaluaPro - Hub.lnk')
       )
       if ($includeDevShortcut) {
-        $shortcutTargets += (Join-Path $startMenuRoot 'EvaluaPro - Dev.lnk')
+        $shortcutTargets += @(
+          (Join-Path $startMenuRoot 'EvaluaPro - Dev.lnk'),
+          (Join-Path $startMenuRoot 'EvaluaPro - Desinstalar.lnk')
+        )
       }
     }
     foreach ($shortcut in $shortcutTargets) {
       if (-not (Test-Path -LiteralPath $shortcut)) {
         $issues += "Falta acceso directo esperado: $shortcut"
       }
+    }
+
+    $shortcutReportPath = Join-Path $effectiveDir 'logs\shortcut-reconciliation.json'
+    try {
+      if (Test-Path -LiteralPath $shortcutReportPath) {
+        $shortcutReport = Get-Content -LiteralPath $shortcutReportPath -Raw -Encoding utf8 | ConvertFrom-Json
+        if ([string]$shortcutReport.state -ne 'ok') {
+          $issues += 'La reconciliación de accesos directos reporta errores.'
+        }
+      }
+    } catch {
+      $issues += "No se pudo leer la reconciliación de accesos directos: $($_.Exception.Message)"
     }
 
     $envPath = Join-Path $effectiveDir '.env'

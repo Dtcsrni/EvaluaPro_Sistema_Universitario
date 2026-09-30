@@ -7,8 +7,8 @@
  */
 import ExcelJS from 'exceljs';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 
 export type FormatoListaInstitucional = 'xlsx' | 'pdf';
 
@@ -169,13 +169,12 @@ function dibujarBloqueFechas(ws: ExcelJS.Worksheet, colInicio: number, colFin: n
   }
 }
 
-function llenarAlumnos(ws: ExcelJS.Worksheet, alumnos: AlumnoLista[]) {
-  const maxAlumnos = 8;
-  for (let i = 0; i < Math.min(alumnos.length, maxAlumnos); i += 1) {
+function llenarAlumnos(ws: ExcelJS.Worksheet, alumnos: AlumnoLista[], indiceInicial: number) {
+  for (let i = 0; i < alumnos.length; i += 1) {
     const row = 6 + i * 2;
     const alumno = alumnos[i];
     mergeSeguro(ws, `A${row}:A${row + 1}`);
-    aplicarCelda(ws, `A${row}`, i + 1, { bold: true });
+    aplicarCelda(ws, `A${row}`, indiceInicial + i + 1, { bold: true });
     aplicarCelda(ws, `B${row}`, alumno.nombreCompleto, {
       bold: true,
       align: { horizontal: 'left', vertical: 'middle', wrapText: true }
@@ -190,7 +189,8 @@ function construirWorkbookCuh(params: { materia: string; grupo: string; alumnos:
   const wb = new ExcelJS.Workbook();
   wb.creator = 'EvaluaPro';
   wb.created = new Date();
-  const ws = wb.addWorksheet('CONTROL DE ASISTENCIAS');
+  for (let inicio = 0; inicio < Math.max(params.alumnos.length, 1); inicio += 8) {
+  const ws = wb.addWorksheet(inicio === 0 ? 'CONTROL DE ASISTENCIAS' : `ASISTENCIAS ${Math.floor(inicio / 8) + 1}`);
   configurarPagina(ws);
 
   mergeSeguro(ws, 'A1:AZ1');
@@ -209,7 +209,7 @@ function construirWorkbookCuh(params: { materia: string; grupo: string; alumnos:
   dibujarBloqueFechas(ws, 3, 19);
   dibujarBloqueFechas(ws, 20, 37);
   dibujarBloqueFechas(ws, 38, 52);
-  llenarAlumnos(ws, params.alumnos);
+  llenarAlumnos(ws, params.alumnos.slice(inicio, inicio + 8), inicio);
 
   mergeSeguro(ws, 'A22:AZ22');
   aplicarCelda(ws, 'A22', 'Nota: La presente lista es definitiva y por ningún motivo podrán agregarse más alumnos.', {
@@ -224,6 +224,7 @@ function construirWorkbookCuh(params: { materia: string; grupo: string; alumnos:
   aplicarCelda(ws, 'AI30', 'NOMBRE Y FIRMA DE QUIEN RECIBE', { bold: true, size: 9 });
   ws.getCell('AZ32').value = '2023ISCMT24';
   ws.getCell('AZ32').font = { name: 'Arial', size: 6 };
+  }
   return wb;
 }
 
@@ -243,10 +244,12 @@ export async function generarListaInstitucionalPdf(params: { docenteId: string; 
   obtenerPlantilla(params.templateId);
   const { periodo, alumnos } = await obtenerDatosPeriodo(params.docenteId, params.periodoId);
   const doc = await PDFDocument.create();
-  const page = doc.addPage([792, 612]);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const black = rgb(0, 0, 0);
+
+  for (let inicio = 0; inicio < Math.max(alumnos.length, 1); inicio += 16) {
+  const page = doc.addPage([792, 612]);
 
   page.drawText('Centro Universitario Hidalguense A.C.', { x: 245, y: 575, size: 16, font: bold, color: black });
   page.drawText('CONTROL DE ASISTENCIAS', { x: 315, y: 555, size: 11, font: bold, color: black });
@@ -272,11 +275,11 @@ export async function generarListaInstitucionalPdf(params: { docenteId: string; 
     page.drawText('FECHAS', { x: bloque.x + bloque.w / 2 - 15, y: top - 12, size: 7, font: bold });
   }
 
-  alumnos.slice(0, 16).forEach((alumno, index) => {
+  alumnos.slice(inicio, inicio + 16).forEach((alumno, index) => {
     const y = top - rowH * (index + 2);
     page.drawRectangle({ x: left, y, width: colNo, height: rowH, borderColor: black, borderWidth: 0.7 });
     page.drawRectangle({ x: left + colNo, y, width: colAlumno, height: rowH, borderColor: black, borderWidth: 0.7 });
-    page.drawText(String(index + 1), { x: left + 9, y: y + 6, size: 7, font });
+    page.drawText(String(inicio + index + 1), { x: left + 9, y: y + 6, size: 7, font });
     page.drawText(alumno.nombreCompleto.slice(0, 38), { x: left + colNo + 4, y: y + 9, size: 6.5, font: bold });
     page.drawText(alumno.matricula.slice(0, 26), { x: left + colNo + 4, y: y + 2, size: 6, font });
     for (const bloque of bloques) {
@@ -296,6 +299,7 @@ export async function generarListaInstitucionalPdf(params: { docenteId: string; 
   page.drawText('NOMBRE Y FIRMA DEL CATEDRATICO', { x: 92, y: 45, size: 8, font: bold });
   page.drawText('NOMBRE Y FIRMA DEL COORDINADOR', { x: 325, y: 45, size: 8, font: bold });
   page.drawText('NOMBRE Y FIRMA DE QUIEN RECIBE', { x: 580, y: 45, size: 8, font: bold });
+  }
 
   return Buffer.from(await doc.save());
 }

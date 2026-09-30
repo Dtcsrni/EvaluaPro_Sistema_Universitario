@@ -1,7 +1,7 @@
 /**
  * Genera variantes aleatorias de preguntas y opciones.
  */
-import { barajar } from '../../compartido/utilidades/aleatoriedad';
+import { barajar } from '../../compartido/utilidades/aleatoriedad.js';
 
 export type OpcionPregunta = {
   texto: string;

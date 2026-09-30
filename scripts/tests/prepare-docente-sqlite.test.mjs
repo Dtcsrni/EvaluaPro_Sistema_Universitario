@@ -21,9 +21,9 @@ test('prepare-docente-sqlite conserva una base existente y crea objetos faltante
   ].join('\n'));
   try {
     await execFileAsync(process.execPath, [path.join(root, 'scripts', 'prepare-docente-sqlite.mjs'), '--database', database, '--schema-sql', schema]);
-    await execFileAsync(process.execPath, ['-e', `const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(${JSON.stringify(database)});d.exec("INSERT INTO docentes(id,correo) VALUES ('d1','docente@example.test')");d.close();`]);
+    await execFileAsync(process.execPath, ['--input-type=module', '-e', `import { DatabaseSync } from 'node:sqlite';const d=new DatabaseSync(${JSON.stringify(database)});d.exec("INSERT INTO docentes(id,correo) VALUES ('d1','docente@example.test')");d.close();`]);
     await execFileAsync(process.execPath, [path.join(root, 'scripts', 'prepare-docente-sqlite.mjs'), '--database', database, '--schema-sql', schema]);
-    const check = await execFileAsync(process.execPath, ['-e', `const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(${JSON.stringify(database)});console.log(d.prepare("SELECT count(*) AS c FROM docentes").get().c);d.close();`]);
+    const check = await execFileAsync(process.execPath, ['--input-type=module', '-e', `import { DatabaseSync } from 'node:sqlite';const d=new DatabaseSync(${JSON.stringify(database)});console.log(d.prepare("SELECT count(*) AS c FROM docentes").get().c);d.close();`]);
     assert.equal(check.stdout.trim(), '1');
   } finally {
     await fs.rm(temp, { recursive: true, force: true });

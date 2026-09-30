@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "generatedAt": "2026-09-08T00:00:00-06:00",
+  "generatedAt": "2026-09-09T00:00:00-06:00",
   "generatedBy": "scripts/testing/generate-gui-screen-matrix.mjs",
   "designSources": [
     "docs/DESIGN.md",
@@ -148,6 +148,23 @@
       "expected": "Explica por qué cerrar está bloqueado mientras una transacción protege el sistema."
     }
   ],
+  "viewportProfiles": {
+    "desktop": {
+      "width": 1920,
+      "height": 1080,
+      "priority": "primary"
+    },
+    "tablet": {
+      "width": 1024,
+      "height": 768,
+      "priority": "regression"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "priority": "regression"
+    }
+  },
   "screens": [
     {
       "id": "docente:login",

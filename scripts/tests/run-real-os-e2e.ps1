@@ -28,7 +28,7 @@ Write-Host "4. Dando click en el acceso directo (Simulado: Ejecutar la aplicaci�
 # The desktop shortcut points to the app URL or the tray app.
 # By hitting the app via Playwright, we simulate the browser opening the shortcut.
 Write-Host "5. Ejecutando la suite de Playwright para registrar, cargar materias y alumnos..."
-$pwProcess = Start-Process -FilePath "npx.cmd" -ArgumentList "playwright", "test", "tests/gui-responsive/ciclo-completo.spec.ts", "--config=tests/gui-responsive/playwright.ciclo.config.cjs" -NoNewWindow -Wait -PassThru
+$pwProcess = Start-Process -FilePath "npx.cmd" -ArgumentList "playwright", "test", "tests/gui-responsive/ciclo-completo.spec.ts", "--config=tests/gui-responsive/playwright.ciclo.config.mjs" -NoNewWindow -Wait -PassThru
 
 if ($pwProcess.ExitCode -eq 0) {
     Write-Host "¡Ciclo de uso directo completo validado con ÉXITO!" -ForegroundColor Green

@@ -11,13 +11,15 @@ import path from 'node:path';
 
 const root = process.cwd();
 
-test('build-msi exige WiX 6+ estable y docs no referencian v4', () => {
+test('build-msi exige WiX 7.0 estable con EULA wix7 y docs no referencian v4', () => {
   const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   const wixReadme = fs.readFileSync(path.join(root, 'packaging', 'wix', 'README.md'), 'utf8');
   const deployDoc = fs.readFileSync(path.join(root, 'docs', 'DESPLIEGUE.md'), 'utf8');
 
-  assert.match(buildScript, /WiX Toolset v6\.0\.x/i);
-  assert.match(buildScript, /major.+6|6\.0\.x/i);
+  assert.match(buildScript, /WiX Toolset v7\.0\.x/i);
+  assert.match(buildScript, /Major -ne 7/);
+  assert.match(buildScript, /eula', 'accept', 'wix7/);
+  assert.match(buildScript, /wixext7/);
 
   assert.doesNotMatch(wixReadme, /WiX Toolset v4/i);
   assert.doesNotMatch(deployDoc, /WiX Toolset v4/i);
@@ -26,13 +28,13 @@ test('build-msi exige WiX 6+ estable y docs no referencian v4', () => {
 test('build-msi detecta wix.exe en rutas estandar de Windows sin depender del PATH', () => {
   const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
 
-  assert.match(buildScript, /ProgramFiles.*WiX Toolset v6\.0\\bin\\wix\.exe/i);
+  assert.match(buildScript, /ProgramFiles.*WiX Toolset v7\.0\\bin\\wix\.exe/i);
   assert.match(buildScript, /ProgramFiles\(x86\)/i);
   assert.match(buildScript, /Get-Command wix/i);
   assert.match(buildScript, /Invoke-WixBuildProcess -WixExecutable \$wixExe -Arguments \$productArgs/i);
 });
 
-test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8', () => {
+test('bundle usa BA personalizada Burn y build-msi publica bootstrapper compatible con .NET 8', () => {
   const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   const bundleWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Bundle.wxs'), 'utf8');
   const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
@@ -43,6 +45,7 @@ test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8',
   assert.match(buildScript, /Publish-BurnBootstrapperApp -DotNetExecutable \$dotnetExe/i);
   assert.match(buildScript, /WixToolset\.Bal\.wixext/i);
   assert.match(buildScript, /WixToolset\.BootstrapperApplications\.wixext\.dll/i);
+  assert.match(bootstrapperProject, /<PackageReference Include="WixToolset\.BootstrapperApplicationApi" Version="7\.0\.0"/i);
   assert.match(bootstrapperProject, /<ApplicationIcon>.*(dashboard-hub-app|installer-logo-contrast)\.ico<\/ApplicationIcon>/i);
   assert.match(buildScript, /Assert-CanonicalInstallerIcon/i);
   assert.match(buildScript, /16,\s*24,\s*32,\s*48,\s*64,\s*128,\s*256/i);
@@ -54,7 +57,6 @@ test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8',
   assert.match(bundleWxs, /SourceFile="\$\(var\.MsiSourcePath\)"/i);
   assert.doesNotMatch(bundleWxs, /WixStandardBootstrapperApplication/i);
   assert.doesNotMatch(bundleWxs, /<BootstrapperApplicationRef/i);
-  assert.match(productWxs, /<Icon Id="EvaluaProIconHub" SourceFile=".*installer-canonical\.ico"/i);
-  assert.match(productWxs, /<Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub"/i);
+  assert.match(productWxs, /<Icon Id="EvaluaProIconHub\.ico" SourceFile=".*installer-canonical\.ico"/i);
+  assert.match(productWxs, /<Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub\.ico"/i);
 });
-

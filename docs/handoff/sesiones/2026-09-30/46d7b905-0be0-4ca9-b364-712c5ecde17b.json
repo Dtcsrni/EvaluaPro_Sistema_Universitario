@@ -1,0 +1,104 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "46d7b905-0be0-4ca9-b364-712c5ecde17b",
+  "status": "draft",
+  "generatedAt": "2026-09-30T09:23:37.745Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Verificar en Edge que la exportación XLSX de la lista desde EvaluaPro queda guardada y conserva su estructura."
+  },
+  "objective": "Cerrar la verificación física del flujo de exportación iniciado en la GUI y documentar estructura/formulas sin exponer datos de alumnos.",
+  "scope": [
+    "Descarga de XLSX desde Calificaciones",
+    "Validación estructural y fórmulas del archivo exportado"
+  ],
+  "constraints": [
+    "No editar notas ni el libro institucional.",
+    "No registrar nombres, matrículas ni calificaciones en la traza."
+  ],
+  "actions": [
+    {
+      "timestamp": "2026-09-30T09:23:37.745Z",
+      "type": "live-gui",
+      "summary": "Edge abrió la sesión existente de EvaluaPro y la sección Actas y exportación.",
+      "status": "ok"
+    },
+    {
+      "timestamp": "2026-09-30T09:23:37.745Z",
+      "type": "download",
+      "summary": "La GUI solicitó el XLSX; el archivo físico apareció en la carpeta Descargas estándar.",
+      "status": "ok"
+    },
+    {
+      "timestamp": "2026-09-30T09:23:37.745Z",
+      "type": "artifact-check",
+      "summary": "Inspección estructural de solo lectura: 4 filas de alumnos, una columna BB de bono, 28 fórmulas y recálculo al abrir.",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md",
+      "D:\\Downloads\\calificaciones-deb41ae4-8e5a-4563-88e7-5844ad5dd246.xlsx"
+    ],
+    "changed": [
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md"
+    ],
+    "artifacts": [
+      "XLSX de calificaciones generado desde la GUI y guardado en Descargas; SHA-256 8167fbd7636c4c84bcb54f806cf9b402aec092a48e9be896189d130d6955321b"
+    ]
+  },
+  "commands": [
+    {
+      "durationMs": 1100,
+      "name": "xlsx-structure",
+      "command": "openpyxl: inspect worksheets, row count, bonus header, formulas and fullCalcOnLoad",
+      "resultSummary": "4 filas, 1 encabezado BB, 28 fórmulas, 0 celdas calculadas en caché, fullCalcOnLoad=true.",
+      "status": "ok",
+      "exitCode": 0
+    },
+    {
+      "durationMs": 20000,
+      "name": "browser-download-event",
+      "command": "Playwright waitForEvent(download) before clicking Descargar XLSX in Edge",
+      "resultSummary": "El evento no se entregó antes del timeout; una verificación independiente confirmó el archivo físico y su contenido.",
+      "status": "falla",
+      "exitCode": 1
+    },
+    {
+      "name": "sdd-audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 851,
+      "resultSummary": "Todas las especificaciones cumplen la política."
+    },
+    {
+      "name": "traceability-tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 826,
+      "resultSummary": "7 pruebas aprobadas."
+    }
+  ],
+  "decisions": [
+    "El mensaje de la GUI es “descarga solicitada”; la prueba física de Edge confirma el archivo guardado.",
+    "No se guardaron valores calculados en caché; se solicita el recálculo al abrir en Excel."
+  ],
+  "assumptions": [
+    "La hoja de calificaciones contiene 4 filas de alumnos porque el periodo seleccionado es DDAW; el conteo usa celdas no vacías sin leer sus valores personales."
+  ],
+  "risks": [
+    "No se verificó el recálculo final en Microsoft Excel; el archivo marca fullCalcOnLoad=true.",
+    "La fuente de P1/P2 permanece en conflicto y fuera de la mutación de este ciclo."
+  ],
+  "nextStep": "Validar la descarga en Excel si se necesita confirmar los valores calculados y continuar la revisión de paridad de listas sin sobrescribir P1/P2 hasta decidir la fuente."
+}

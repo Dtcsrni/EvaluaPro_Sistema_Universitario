@@ -16,10 +16,11 @@ namespace EvaluaPro.AppHost;
 public partial class MainWindow : Window
 {
     private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
-    private Process? backendProcess;
+    private Process? dashboardProcess;
     private bool isStopping;
     private string appRoot = string.Empty;
     private const int DashboardPortFallback = 4519;
+    private static readonly TimeSpan ServiceStartupTimeout = TimeSpan.FromSeconds(60);
     public MainWindow()
     {
         InitializeComponent();
@@ -51,13 +52,15 @@ public partial class MainWindow : Window
         SplashStatusTextBlock.Text = "Iniciando servicios locales...";
 
         ResolveAppRoot();
+        await ReconcileShortcutsAsync();
 
         try
         {
             var isReady = await EnsureBackendRunningAsync();
             if (!isReady)
             {
-                ShowError("No se pudo iniciar la plataforma local. Revisa los logs de instalación.");
+                WriteStartupDiagnostic("El servicio local no alcanzó salud web/API dentro del tiempo límite.");
+                ShowError("No se pudo iniciar la plataforma local. Revisa logs/app-host.log y vuelve a intentar.");
                 return;
             }
 
@@ -67,10 +70,7 @@ public partial class MainWindow : Window
             {
                 AllowSingleSignOnUsingOSPrimaryAccount = true
             };
-            var userDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "EvaluaPro",
-                "webview2-profile");
+            var userDataFolder = ResolveWebView2UserDataFolder();
             
             var webViewEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataFolder, envOptions);
             await AppWebView.EnsureCoreWebView2Async(webViewEnvironment);
@@ -87,6 +87,15 @@ public partial class MainWindow : Window
         {
             ShowError($"Error al inicializar la ventana: {ex.Message}");
         }
+    }
+
+    private static string ResolveWebView2UserDataFolder()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var stableProfile = Path.Combine(localAppData, "EvaluaPro-UserData", "webview2-profile");
+        if (Directory.Exists(stableProfile)) return stableProfile;
+
+        return Path.Combine(localAppData, "EvaluaPro", "webview2-profile");
     }
 
     private void AppWebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
@@ -109,6 +118,14 @@ public partial class MainWindow : Window
     private void ResolveAppRoot()
     {
         var baseDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        var canonicalRoot = ResolveCanonicalInstallRoot();
+        if (!string.IsNullOrWhiteSpace(canonicalRoot) && !PathsEqual(baseDir, canonicalRoot))
+        {
+            appRoot = canonicalRoot;
+            WriteStartupDiagnostic($"Se ignoró una copia no canónica: base='{baseDir}', canónica='{appRoot}'.");
+            return;
+        }
+
         var candidates = new[]
         {
             baseDir,
@@ -129,6 +146,91 @@ public partial class MainWindow : Window
         }
 
         appRoot = baseDir;
+        WriteStartupDiagnostic($"No se encontró un payload completo; se usará baseDir='{appRoot}'.");
+    }
+
+    private static string? ResolveCanonicalInstallRoot()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData)) return null;
+
+        var candidate = Path.Combine(localAppData, "EvaluaPro");
+        return HasNativePayload(candidate) ? candidate : null;
+    }
+
+    private static bool HasNativePayload(string root)
+    {
+        return File.Exists(Path.Combine(root, "scripts", "start-docente-native.mjs")) &&
+               File.Exists(Path.Combine(root, "scripts", "launcher-dashboard.mjs"));
+    }
+
+    private static bool PathsEqual(string left, string right)
+    {
+        return string.Equals(
+            Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar),
+            Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task ReconcileShortcutsAsync()
+    {
+        var shortcutScript = Path.Combine(appRoot, "scripts", "create-shortcuts.ps1");
+        if (!File.Exists(shortcutScript))
+        {
+            WriteStartupDiagnostic($"No existe el reconciliador de accesos: '{shortcutScript}'.");
+            return;
+        }
+
+        try
+        {
+            var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
+            if (!File.Exists(powershell)) powershell = "powershell.exe";
+
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = powershell,
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{shortcutScript}\" -Force -Port {DashboardPortFallback}",
+                WorkingDirectory = appRoot,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+
+            if (process is null)
+            {
+                WriteStartupDiagnostic("No se pudo crear el proceso de reconciliación de accesos.");
+                return;
+            }
+
+            await Task.Run(() => process.WaitForExit(10_000));
+            if (!process.HasExited)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                WriteStartupDiagnostic("La reconciliación de accesos excedió 10 segundos.");
+                return;
+            }
+
+            WriteStartupDiagnostic($"Reconciliación de accesos finalizada con código {process.ExitCode}.");
+        }
+        catch (Exception ex)
+        {
+            WriteStartupDiagnostic($"Falló la reconciliación de accesos: {ex.Message}");
+        }
+    }
+
+    private void WriteStartupDiagnostic(string message)
+    {
+        try
+        {
+            var logDir = Path.Combine(appRoot, "logs");
+            Directory.CreateDirectory(logDir);
+            var logPath = Path.Combine(logDir, "app-host.log");
+            File.AppendAllText(logPath, $"[{DateTimeOffset.Now:O}] {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            Debug.WriteLine(message);
+        }
     }
 
     private async Task<bool> EnsureBackendRunningAsync()
@@ -136,19 +238,29 @@ public partial class MainWindow : Window
         const string webHealthUrl = "http://127.0.0.1:4173/";
         const string apiHealthUrl = "http://127.0.0.1:4000/api/salud";
         var dashboardPort = ReadDashboardPort();
+        WriteStartupDiagnostic($"Validando servicios: root='{appRoot}', dashboardPort={dashboardPort}.");
+
+        // La ventana puede abrirse mientras el dashboard y la API ya responden
+        // (por ejemplo, tras un cierre anormal anterior). Adoptar únicamente
+        // el dashboard cuya identidad coincide con esta instalación permite
+        // cerrar su árbol al salir sin tocar procesos ajenos.
+        await TryAdoptDashboardAsync(dashboardPort);
 
         // La ventana solo se considera lista cuando web y API responden. Una
         // página estática viva no garantiza que las operaciones funcionen.
         if (await ProbePortAsync(webHealthUrl) && await ProbePortAsync(apiHealthUrl))
         {
-            return true;
+            if (dashboardProcess != null) return true;
+
+            WriteStartupDiagnostic("Web/API responden, pero no se pudo identificar un dashboard propio; se rechaza reutilizar servicios independientes.");
+            return false;
         }
 
         // Si el dashboard ya existe, pídele reconciliar su supervisor en vez
         // de abrir otra instancia. Esto recupera una API caída conservando
         // singleton y evitando colisiones de puertos.
         var dashboardUrl = $"http://127.0.0.1:{dashboardPort}";
-        if (await ProbePortAsync(dashboardUrl))
+        if (dashboardProcess != null && await ProbePortAsync(dashboardUrl))
         {
             await RequestDashboardReconcileAsync(dashboardUrl);
         }
@@ -157,8 +269,9 @@ public partial class MainWindow : Window
             StartDashboard();
         }
 
-        // Esperar hasta 25 segundos a que web y API estén activas.
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        // El primer arranque puede ejecutar el smoke OMR y levantar SQLite;
+        // mantener un límite finito evita falsos negativos sin esperar indefinidamente.
+        var cts = new CancellationTokenSource(ServiceStartupTimeout);
         while (!cts.IsCancellationRequested)
         {
             if (await ProbePortAsync(webHealthUrl) && await ProbePortAsync(apiHealthUrl))
@@ -168,6 +281,7 @@ public partial class MainWindow : Window
             await Task.Delay(300);
         }
 
+        WriteStartupDiagnostic("Timeout esperando web/API locales.");
         return false;
     }
 
@@ -182,6 +296,7 @@ public partial class MainWindow : Window
 
         var dashboardScript = Path.Combine(appRoot, "scripts", "launcher-dashboard.mjs");
         var brokerScript = Path.Combine(appRoot, "scripts", "launcher-broker.ps1");
+        WriteStartupDiagnostic($"Iniciando dashboard: node='{nodeExe}', script='{dashboardScript}', cwd='{appRoot}'.");
 
         try
         {
@@ -198,11 +313,11 @@ public partial class MainWindow : Window
                 };
                 psi.EnvironmentVariables["NODE_ENV"] = "production";
                 psi.EnvironmentVariables["EVALUAPRO_FLAVOR"] = "docente-local";
-                backendProcess = Process.Start(psi);
+                dashboardProcess = Process.Start(psi);
             }
             else if (File.Exists(brokerScript))
             {
-                backendProcess = Process.Start(new ProcessStartInfo
+                dashboardProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
                     Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{brokerScript}\" -Action open-dashboard -Mode prod -Port 4519 -NoOpen",
@@ -215,7 +330,51 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            WriteStartupDiagnostic($"Error al iniciar dashboard: {ex.Message}");
             Debug.WriteLine($"Error al iniciar backend: {ex.Message}");
+        }
+    }
+
+    private async Task TryAdoptDashboardAsync(int dashboardPort)
+    {
+        try
+        {
+            var lockPath = Path.Combine(appRoot, "logs", "dashboard.lock.json");
+            if (!File.Exists(lockPath)) return;
+
+            using var lockDocument = JsonDocument.Parse(File.ReadAllText(lockPath));
+            var lockRoot = lockDocument.RootElement;
+            if (!lockRoot.TryGetProperty("pid", out var pidElement) ||
+                !pidElement.TryGetInt32(out var pid) || pid <= 0 ||
+                !lockRoot.TryGetProperty("port", out var portElement) ||
+                !portElement.TryGetInt32(out var lockPort) || lockPort != dashboardPort)
+            {
+                return;
+            }
+
+            using var response = await HttpClient.GetAsync($"http://127.0.0.1:{dashboardPort}/api/status");
+            if (!response.IsSuccessStatusCode) return;
+
+            using var statusDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var status = statusDocument.RootElement;
+            if (!status.TryGetProperty("root", out var rootElement) ||
+                rootElement.ValueKind != JsonValueKind.String ||
+                !PathsEqual(rootElement.GetString() ?? string.Empty, appRoot) ||
+                !status.TryGetProperty("port", out var statusPortElement) ||
+                !statusPortElement.TryGetInt32(out var statusPort) || statusPort != dashboardPort)
+            {
+                return;
+            }
+
+            var process = Process.GetProcessById(pid);
+            if (process.HasExited) return;
+
+            dashboardProcess = process;
+            WriteStartupDiagnostic($"Se adoptó el dashboard de esta instalación (PID {pid}) para controlar su ciclo de vida.");
+        }
+        catch (Exception ex)
+        {
+            WriteStartupDiagnostic($"No se pudo validar/adoptar el dashboard existente: {ex.Message}");
         }
     }
 
@@ -338,6 +497,12 @@ public partial class MainWindow : Window
 
     private async Task ShutdownServicesAsync()
     {
+        if (dashboardProcess == null)
+        {
+            WriteStartupDiagnostic("No se detienen servicios: esta ventana no inició ni pudo identificar el dashboard de la instalación.");
+            return;
+        }
+
         var dashboardPort = ReadDashboardPort();
 
         try
@@ -358,9 +523,12 @@ public partial class MainWindow : Window
 
         try
         {
-            if (backendProcess != null && !backendProcess.HasExited)
+            if (!dashboardProcess.HasExited)
             {
-                backendProcess.Kill(entireProcessTree: true);
+                // La petición anterior es un cierre ordenado; el kill del árbol
+                // es el respaldo determinista contra hijos que sobrevivan.
+                dashboardProcess.Kill(entireProcessTree: true);
+                await Task.Run(() => dashboardProcess.WaitForExit(3_000));
             }
         }
         catch

@@ -18,8 +18,8 @@ vi.mock('../../src/modulos/modulo_autenticacion/servicioGoogle', () => {
   };
 });
 
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('autenticacion (sesiones)', () => {
   const app = crearApp();
@@ -59,6 +59,24 @@ describe('autenticacion (sesiones)', () => {
       .expect(200);
 
     expect(refresco.body.token).toBeTruthy();
+  });
+
+  it('acepta registro y login con un correo fuera de cualquier dominio institucional', async () => {
+    await request(app)
+      .post('/api/autenticacion/registrar')
+      .send({
+        nombreCompleto: 'Docente Externo',
+        correo: 'docente@externo.test',
+        contrasena: 'Secreto123!'
+      })
+      .expect(201);
+
+    const login = await request(app)
+      .post('/api/autenticacion/ingresar')
+      .send({ correo: 'docente@externo.test', contrasena: 'Secreto123!' })
+      .expect(200);
+
+    expect(login.body.token).toBeTruthy();
   });
 
   it('permite ingresar con Google para un docente existente', async () => {

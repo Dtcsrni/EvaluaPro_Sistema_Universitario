@@ -6,12 +6,12 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr';
+import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
 import type {
   CaptureManifestPorFolio,
   GroundTruthRowPorFolio,
   MapaOmrPaginaPorFolio
-} from '../src/modulos/modulo_escaneo_omr/porFolioDataset';
+} from '../src/modulos/modulo_escaneo_omr/porFolioDataset.js';
 
 type ManifestDataset = {
   datasetType: string;

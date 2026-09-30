@@ -2,15 +2,15 @@
  * Rutas de cumplimiento y privacidad.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 import {
   crearSolicitudDsr,
   listarAuditoriaCompliance,
   obtenerEstadoCompliance,
   purgarCompliance
-} from './controladorCompliance';
-import { esquemaCrearDsr, esquemaPurgeCompliance } from './validacionesCompliance';
+} from './controladorCompliance.js';
+import { esquemaCrearDsr, esquemaPurgeCompliance } from './validacionesCompliance.js';
 
 const router = Router();
 

@@ -19,6 +19,8 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const outPath = path.resolve(process.cwd(), 'reports/qa/latest/manifest.json');
 
@@ -71,6 +73,54 @@ const artefactosVisuales = [
 
 const artefactos = [...artefactosBase, ...artefactosVisuales];
 
+export function crearQaManifest(
+  items,
+  commit,
+  generadoEn = new Date().toISOString(),
+  sourceTree = { workingTreeClean: false, dirtyPathCount: null }
+) {
+  const faltantes = items.filter((item) => !item.existe).map((item) => item.archivo);
+  return {
+    faltantes,
+    payload: {
+      version: '1',
+      generadoEn,
+      commit,
+      workingTreeClean: sourceTree.workingTreeClean === true,
+      dirtyPathCount: sourceTree.dirtyPathCount,
+      artefactos: items,
+      resumen: {
+        total: items.length,
+        presentes: items.length - faltantes.length,
+        faltantes: faltantes.length,
+        estado: faltantes.length === 0 ? 'ok' : 'missing-artifacts'
+      }
+    }
+  };
+}
+
+export function contarCambiosFuente(paths) {
+  return paths.filter((filePath) => {
+    const normalized = String(filePath).replace(/\\/g, '/').replace(/^\.\//, '');
+    return !/(^|\/)reports\/qa\/latest\//.test(normalized)
+      && !/(^|\/)output\/qa\//.test(normalized)
+      && !/(^|\/)storage\/omr_debug\//.test(normalized);
+  }).length;
+}
+
+function inspectSourceTree() {
+  const tracked = spawnSync('git', ['diff', '--name-only', '-z', 'HEAD', '--'], { encoding: 'utf8' });
+  const untracked = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' });
+  if (tracked.status !== 0 || untracked.status !== 0) {
+    return { workingTreeClean: false, dirtyPathCount: null };
+  }
+  const changedPaths = [tracked.stdout || '', untracked.stdout || '']
+    .flatMap((output) => output.split('\0'))
+    .filter(Boolean);
+  const dirtyPathCount = contarCambiosFuente(changedPaths);
+  return { workingTreeClean: dirtyPathCount === 0, dirtyPathCount };
+}
+
 async function getInfo(file) {
   const abs = path.resolve(process.cwd(), file);
   try {
@@ -90,22 +140,15 @@ async function getInfo(file) {
 }
 
 async function main() {
+  const revision = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' });
+  const commit = revision.status === 0 ? (revision.stdout || '').trim() : null;
+  const sourceTree = inspectSourceTree();
   const items = [];
   for (const file of artefactos) {
     items.push(await getInfo(file));
   }
-  const faltantes = items.filter((item) => !item.existe).map((item) => item.archivo);
-  const payload = {
-    version: '1',
-    generadoEn: new Date().toISOString(),
-    artefactos: items,
-    resumen: {
-      total: items.length,
-      presentes: items.length - faltantes.length,
-      faltantes: faltantes.length,
-      estado: faltantes.length === 0 ? 'ok' : 'missing-artifacts'
-    }
-  };
+  const generadoEn = new Date().toISOString();
+  const { payload, faltantes } = crearQaManifest(items, commit, generadoEn, sourceTree);
   await fs.mkdir(path.dirname(outPath), { recursive: true });
   await fs.writeFile(outPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   if (faltantes.length > 0) {
@@ -116,7 +159,9 @@ async function main() {
   process.stdout.write(`[qa-manifest] OK -> ${outPath}\n`);
 }
 
-main().catch((error) => {
-  process.stderr.write(`[qa-manifest] ERROR: ${String(error?.message || error)}\n`);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    process.stderr.write(`[qa-manifest] ERROR: ${String(error?.message || error)}\n`);
+    process.exit(1);
+  });
+}

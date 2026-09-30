@@ -5,7 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { ErrorAplicacion } from '../errores/errorAplicacion';
+import { ErrorAplicacion } from '../errores/errorAplicacion.js';
 
 const IV_BYTES = 12;
 const TAG_BYTES = 16;

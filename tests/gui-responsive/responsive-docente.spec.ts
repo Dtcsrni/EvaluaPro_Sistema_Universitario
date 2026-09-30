@@ -18,7 +18,7 @@ type TabCase = {
 };
 
 const viewports: ViewportCase[] = [
-  { name: 'desktop-lg', width: 1366, height: 900 },
+  { name: 'desktop-lg', width: 1920, height: 1080 },
   { name: 'tablet', width: 1024, height: 768 },
   { name: 'tablet-sm', width: 768, height: 1024 },
   { name: 'mobile', width: 390, height: 844 }
@@ -299,4 +299,80 @@ test.describe('GUI responsive e2e · docente', () => {
       }
     });
   }
+
+  test('reinscribe visualmente un grupo archivado en una materia activa', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.addInitScript(() => localStorage.setItem('tokenDocente', 'token-reinscripcion-e2e'));
+    await page.route('**/api/autenticacion/perfil', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ docente: {
+          _id: 'docente-reinscripcion-e2e', nombre: 'Docente E2E', correo: 'e2e@evaluapro.local',
+          permisos: ['periodos:leer', 'alumnos:leer', 'alumnos:gestionar'], roles: ['docente']
+        } })
+      });
+    });
+    await page.route('**/api/periodos**', async (route) => {
+      const archived = new URL(route.request().url()).searchParams.get('activo') === '0';
+      const periodos = archived
+        ? [{ _id: 'materia-archivada-e2e', nombre: 'Materia anterior E2E', activo: false, grupos: ['3A'] }]
+        : [{ _id: 'materia-nueva-e2e', nombre: 'Materia nueva E2E', activo: true, grupos: [] }];
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ periodos }) });
+    });
+    await page.route('**/api/alumnos**', async (route) => {
+      if (route.request().method() === 'POST' && route.request().url().includes('/reinscribir-grupo-archivado')) {
+        expect(route.request().postDataJSON()).toEqual({
+          periodoOrigenId: 'materia-archivada-e2e', periodoDestinoId: 'materia-nueva-e2e', grupo: '3A'
+        });
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true, grupo: '3A', totalSeleccionados: 2, reinscritos: 2, yaInscritos: 0 })
+        });
+        return;
+      }
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ alumnos: [
+            { _id: 'alumno-1-e2e', periodoId: 'materia-archivada-e2e', matricula: 'CUH111111111', nombreCompleto: 'Ana Ejemplo', nombres: 'Ana', apellidos: 'Ejemplo', correo: 'ana@cuh.mx', grupo: '3A', activo: false },
+            { _id: 'alumno-2-e2e', periodoId: 'materia-archivada-e2e', matricula: 'CUH222222222', nombreCompleto: 'Luis Ejemplo', nombres: 'Luis', apellidos: 'Ejemplo', correo: 'luis@cuh.mx', grupo: '3A', activo: false }
+          ] })
+        });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
+    });
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const nav = page.getByRole('navigation', { name: /Secciones del portal docente/i });
+    await expect(nav).toBeVisible({ timeout: 15_000 });
+    await nav.getByRole('button', { name: 'Alumnos', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Reinscribir grupo de una materia archivada' })).toBeVisible();
+    await assertNoHorizontalOverflow(page, 'Reinscripción docente desktop');
+    await assertInteractiveControlsAreUsable(page, 'Reinscripción docente desktop');
+
+    const evidencia = 'test-results/reinscripcion-grupo-archivado-e2e.png';
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(100);
+    await page.screenshot({ path: evidencia, fullPage: true, animations: 'disabled' });
+    await page.getByLabel('Grupo archivado').selectOption('["materia-archivada-e2e","3a"]');
+    await page.getByLabel('Materia activa de destino').selectOption('materia-nueva-e2e');
+    await page.getByRole('button', { name: 'Reinscribir grupo', exact: true }).click();
+    const confirmacion = page.getByRole('alertdialog');
+    await expect(confirmacion).toBeVisible();
+    await page.mouse.move(0, 0);
+    await page.screenshot({ path: 'test-results/reinscripcion-grupo-confirmacion-e2e.png', fullPage: true, animations: 'disabled' });
+    await confirmacion.getByRole('button', { name: 'Reinscribir grupo', exact: true }).click();
+    await expect(page.getByRole('main').getByText(/^Grupo reinscrito: 2 alumnos nuevos/)).toBeVisible();
+    await assertNoHorizontalOverflow(page, 'Reinscripción confirmada desktop');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('heading', { name: 'Reinscribir grupo de una materia archivada' })).toBeVisible();
+    await assertNoHorizontalOverflow(page, 'Reinscripción docente mobile');
+    await assertInteractiveControlsAreUsable(page, 'Reinscripción docente mobile');
+    await page.mouse.move(0, 0);
+    await page.screenshot({ path: 'test-results/reinscripcion-grupo-archivado-mobile-e2e.png', fullPage: true, animations: 'disabled' });
+  });
 });

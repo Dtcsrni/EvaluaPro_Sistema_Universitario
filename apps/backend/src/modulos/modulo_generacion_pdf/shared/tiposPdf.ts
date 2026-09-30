@@ -6,6 +6,10 @@
 
 /** La plataforma genera y procesa una única plantilla OMR canónica. */
 export type TemplateVersion = 4;
+/** Identidad semántica de plantilla, versionada aparte de la app y del motor OMR. */
+export type OmrTemplateId = 'omr-canonical-v4' | 'omr-inline-exam-v1';
+export const OMR_TEMPLATE_ID_CANONICAL: OmrTemplateId = 'omr-canonical-v4';
+export const OMR_TEMPLATE_ID_INLINE_EXAM: OmrTemplateId = 'omr-inline-exam-v1';
 export type TipoExamen = 'parcial' | 'global';
 
 export interface EncabezadoExamen {
@@ -14,8 +18,10 @@ export interface EncabezadoExamen {
   materia?: string;
   docente?: string;
   instrucciones?: string;
-  alumno?: { nombre?: string; grupo?: string };
+  alumno?: { nombre?: string; primerNombre?: string; grupo?: string; iniciales?: string };
   mostrarInstrucciones?: boolean;
+  /** La identidad se muestra por defecto cuando existe `encabezado`; puede omitirse explícitamente. */
+  mostrarMarcaInstitucional?: boolean;
   logos?: { izquierdaPath?: string; derechaPath?: string };
 }
 
@@ -29,7 +35,14 @@ export interface ParametrosGeneracionPdf {
   totalPaginas: number;
   margenMm?: number;
   templateVersion?: TemplateVersion;
+  /** Selección explícita de geometría OMR; por omisión conserva TV4. */
+  omrTemplateId?: OmrTemplateId;
   bookletConfig?: {
+    densityMode?: 'balanced' | 'compact' | 'relaxed';
+    /** Ajusta el cuerpo del examen para intentar encajar en totalPaginas. */
+    autoFitPages?: boolean;
+    /** Permite al autoajuste ampliar la tipografía cuando aún hay capacidad. */
+    autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
     logos?: { izquierdaPath?: string; derechaPath?: string };
@@ -51,6 +64,9 @@ export interface MapaVariante {
 
 export interface ResultadoGeneracionPdf {
   pdfBytes: Buffer;
+  /** Valores efectivos que eligió el autoajuste, si estuvo activo. */
+  fontScaleAplicada?: number;
+  lineSpacingAplicado?: number;
   layoutEngine?: 'pdf-lib-canonical';
   layoutTemplateVersion?: number;
   paginas: Array<{
@@ -58,6 +74,8 @@ export interface ResultadoGeneracionPdf {
     qrTexto: string;
     preguntasDel: number;
     preguntasAl: number;
+    /** Identifica un reverso añadido para completar el par dúplex. */
+    tipoPagina?: 'examen' | 'reverso-vacio';
   }>;
   metricasPaginas: Array<{
     numero: number;
@@ -75,6 +93,7 @@ export interface ResultadoGeneracionPdf {
     imagenesIntentadas: number;
     imagenesRenderizadas: number;
     imagenesFallidas: number;
+    logosOmitidos: string[];
   };
   renderDiagnostics?: {
     preguntasCalculadas: number;
@@ -92,9 +111,17 @@ export interface ResultadoGeneracionPdf {
 export interface MapaOmr {
   margenMm: number;
   templateVersion: TemplateVersion;
+  templateId?: OmrTemplateId;
   markerSpec?: MarkerSpecOmr;
   blockSpec?: BlockSpecOmr;
   engineHints?: EngineHintsOmr;
+  /** Secuencia física para impresión dúplex por borde largo. */
+  impresion?: {
+    modo: 'duplex';
+    volteo: 'borde-largo' | 'borde-corto';
+    paginasPorHoja: 2;
+    toleranciaRegistroMm?: number;
+  };
   perfilLayout: PerfilLayoutImpresion;
   perfil: PerfilPlantillaOmr;
   paginas: PaginaOmr[];
@@ -111,9 +138,11 @@ export interface BlockSpecOmr {
   preguntasPorBloque: number;
   opcionesPorPregunta: number;
   bubbleDiameterMm: number;
-  /** Paso real entre centros de burbuja en la fila horizontal canónica. */
+  /** Orientación física del bloque de respuestas canónico. */
+  orientation?: 'vertical' | 'horizontal';
+  /** Campo legado; no representa la separación de opciones en v4 vertical. */
   bubblePitchXmm: number;
-  /** Separación vertical de referencia para perfiles apilados; no se usa en v4. */
+  /** Paso real entre centros de burbuja apilados verticalmente. */
   bubblePitchYmm: number;
   labelToBubbleMm: number;
   bubbleStrokePt: number;
@@ -138,15 +167,24 @@ export interface PerfilLayoutImpresion {
   usarEtiquetaOmrSolida: boolean;
 }
 
+export type ModoDensidadBooklet = 'balanced' | 'compact' | 'relaxed';
+
 export interface PerfilPlantillaOmr {
+  templateId?: OmrTemplateId;
+  ubicacion?: 'panel-separado' | 'junto-a-opcion';
   qrSize: number;
   qrPadding: number;
   qrMarginModulos: number;
   marcasEsquina: 'lineas' | 'cuadrados';
   marcaCuadradoSize: number;
   marcaCuadradoQuietZone: number;
+  fiducialOrientacion?: { esquina: 'tl'; tipo: 'centro_vacio'; radio: number };
   burbujaRadio: number;
   burbujaPasoY: number;
+  /** Paso horizontal opcional para el perfil denso de una sola fila. */
+  burbujaPasoX?: number;
+  /** Disposición de las burbujas; el perfil robusto usa vertical. */
+  orientacion?: 'vertical' | 'horizontal';
   cajaOmrAncho: number;
   fiducialSize: number;
   fiducialMargin?: number;
@@ -159,19 +197,37 @@ export interface PerfilPlantillaOmr {
 
 export interface PaginaOmr {
   numeroPagina: number;
+  /** Defensa para mapas históricos: un reverso vacío no contiene QR, fiduciales ni paneles OMR. */
+  tipoPagina?: 'examen' | 'reverso-vacio';
+  /** Página lógica dentro de la hoja física dúplex. */
+  duplex?: {
+    hoja: number;
+    lado: 'frente' | 'reverso';
+    indiceEnHoja: 1 | 2;
+  };
+  /** Identidad de contrato persistida también en cada página aislada. */
+  templateVersion?: TemplateVersion;
+  templateId?: OmrTemplateId;
   markerSpec?: MarkerSpecOmr;
   engineHints?: EngineHintsOmr;
-  qr: {
+  qr?: {
     texto: string;
     x: number;
     y: number;
     size: number;
     padding: number;
+    /** Nivel de correccion realmente renderizado; H es el valor preferido. */
+    errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H';
+    /** Quiet zone y numero de modulos del simbolo QR. */
+    marginModules?: number;
+    /** Numero de modulos de la matriz QR, sin quiet zone. */
+    matrixModules?: number;
   };
-  marcasPagina: {
+  marcasPagina?: {
     tipo: 'lineas' | 'cuadrados';
     size: number;
     quietZone: number;
+    orientacion?: { esquina: 'tl'; tipo: 'centro_vacio'; radio: number };
     tl: { x: number; y: number };
     tr: { x: number; y: number };
     bl: { x: number; y: number };
@@ -180,7 +236,7 @@ export interface PaginaOmr {
   preguntas: Array<{
     numeroPregunta: number;
     idPregunta: string;
-    opciones: Array<{ letra: string; x: number; y: number }>;
+    opciones: Array<{ letra: string; x: number; y: number; radio?: number }>;
     textRuns?: Array<{
       tipo: 'texto' | 'codigo';
       fuente: string;
@@ -190,9 +246,18 @@ export interface PaginaOmr {
     }>;
     imageRenderStatus?: 'ok' | 'error';
     imagen?: { x: number; y: number; width: number; height: number };
+    imagenDisposicion?: 'lateral' | 'inferior';
     bboxPregunta?: { x: number; y: number; width: number; height: number };
     cajaOmr?: { x: number; y: number; width: number; height: number };
-    perfilOmr?: { radio: number; pasoY: number; pasoX?: number; cajaAncho: number };
+    perfilOmr?: {
+      radio: number;
+      pasoY: number;
+      pasoX?: number;
+      cajaAncho: number;
+      orientacion?: 'vertical' | 'horizontal';
+      ubicacion?: 'panel-separado' | 'junto-a-opcion';
+      etiquetaBordeInferiorGap?: number;
+    };
     fiduciales?: {
       leftTop: { x: number; y: number };
       leftBottom: { x: number; y: number };
@@ -207,19 +272,35 @@ export interface PaginaOmr {
     layoutTemplateVersion?: number;
     pageShell?: { x: number; y: number; width: number; height: number };
     header?: { x: number; y: number; width: number; height: number };
+    /** Reserva física de grapado y guía visible solo en la primera página del paquete. */
+    bindingZone?: { x: number; y: number; width: number; height: number };
+    /** Zona sin burbujas OMR; en páginas pares refleja horizontalmente el reverso dúplex. */
+    bindingKeepOutZone?: { x: number; y: number; width: number; height: number };
+    /** Etiqueta GRAPA posicionada dentro de la reserva de grapado. */
+    bindingLabel?: { x: number; y: number; width: number; height: number; rotation?: 90 | 270 };
     continuationBand?: { x: number; y: number; width: number; height: number };
     continuationTextBlocks?: Array<{ x: number; y: number; width: number; height: number; id: string }>;
     qr?: { x: number; y: number; width: number; height: number };
     instructions?: { x: number; y: number; width: number; height: number };
     headerTextBlocks?: Array<{ x: number; y: number; width: number; height: number; id: string }>;
     headerFieldBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    plannedQuestionHeights?: Array<{
+      questionId: string;
+      plannedHeightPt: number;
+      renderedHeightPt: number;
+      contentCharacters?: number;
+      interQuestionGapPt?: number;
+    }>;
     lineHeightViolations?: Array<{ preguntaId: string; lineHeight: number; min: number }>;
     contentStartY?: number;
     contentEndY?: number;
     headerSlots?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    headerIconBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     contentShell?: { x: number; y: number; width: number; height: number };
     footerShell?: { x: number; y: number; width: number; height: number };
     questionBlockBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    questionBackgroundBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    questionPromptBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     omrPanelBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     collisionBoxes?: Array<{ pagina: number; a: string; b: string }>;
   };

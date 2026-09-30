@@ -1,0 +1,78 @@
+{
+  "width": 1200,
+  "height": 1553,
+  "transformacion": "homografia",
+  "advertencias": [
+    "No se detecto QR en la imagen",
+    "Se usa la geometria persistida sin ajuste local por pregunta",
+    "Se eligio transformacion por escala por mayor coherencia de marcas"
+  ],
+  "preguntas": [
+    {
+      "numeroPregunta": 1,
+      "mejorOpcion": "B",
+      "mejorScore": 0.370579429643551,
+      "segundoScore": 0.33029795784246974,
+      "delta": 0.04028147180108127,
+      "dobleMarcada": true,
+      "suficiente": false,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.26565636013564864,
+      "scoreStd": 0.09323325530113036,
+      "scoreThreshold": 0.3204775142527133,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 392.156862745098,
+          "y": 1160.828282828283,
+          "score": 0.33029795784246974,
+          "estadoMarca": "marcada",
+          "markConfidence": 0.7219779114337612,
+          "fillRatioCore": 0.6153846153846154,
+          "fillRatioRing": 0.6666666666666666
+        },
+        {
+          "letra": "B",
+          "x": 431.37254901960785,
+          "y": 1160.828282828283,
+          "score": 0.370579429643551,
+          "estadoMarca": "marcada",
+          "markConfidence": 0.8648957257138447,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.9473684210526315
+        },
+        {
+          "letra": "C",
+          "x": 470.5882352941176,
+          "y": 1160.828282828283,
+          "score": 0.313080948406515,
+          "estadoMarca": "marcada",
+          "markConfidence": 0.7077495183487839,
+          "fillRatioCore": 0.6923076923076923,
+          "fillRatioRing": 0.6140350877192983
+        },
+        {
+          "letra": "D",
+          "x": 509.8039215686274,
+          "y": 1160.828282828283,
+          "score": 0.19240057978051484,
+          "estadoMarca": "marcada",
+          "markConfidence": 0.46174620994806137,
+          "fillRatioCore": 0.6153846153846154,
+          "fillRatioRing": 0.6491228070175439
+        },
+        {
+          "letra": "E",
+          "x": 549.0196078431372,
+          "y": 1160.828282828283,
+          "score": 0.12192288500519288,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.2941917744407182,
+          "fillRatioCore": 0.6153846153846154,
+          "fillRatioRing": 0.8070175438596491
+        }
+      ]
+    }
+  ]
+}

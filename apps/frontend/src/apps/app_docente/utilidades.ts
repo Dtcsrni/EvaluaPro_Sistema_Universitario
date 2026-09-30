@@ -7,7 +7,43 @@
 import { mensajeUsuarioDeErrorConSugerencia } from '../../servicios_api/clienteComun';
 import { obtenerSessionId } from '../../ui/ux/sesion';
 import { tipoMensajeInline } from './mensajeInline';
-import type { ExamenGeneradoClave, Pregunta, ResultadoOmr, RevisionPaginaOmr } from './tipos';
+import type {
+  EstadoRespuestaOmr,
+  ExamenGeneradoClave,
+  FlagRespuestaOmr,
+  Pregunta,
+  RespuestaDetectadaOmr,
+  ResultadoOmr,
+  RevisionPaginaOmr
+} from './tipos';
+
+const ESTADOS_RESPUESTA_OMR = new Set<EstadoRespuestaOmr>([
+  'respondida',
+  'sin_marca',
+  'ambigua',
+  'doble_marca',
+  'tachada'
+]);
+const FLAGS_RESPUESTA_OMR = new Set<FlagRespuestaOmr>([
+  'doble_marca',
+  'bajo_contraste',
+  'fuera_roi',
+  'parcial_detectada',
+  'tachada_detectada'
+]);
+
+function resolverEstadoRespuestaOmr(
+  opcion: string | null,
+  estado: unknown,
+  flags: FlagRespuestaOmr[]
+): EstadoRespuestaOmr {
+  if (ESTADOS_RESPUESTA_OMR.has(estado as EstadoRespuestaOmr)) return estado as EstadoRespuestaOmr;
+  if (flags.includes('tachada_detectada')) return 'tachada';
+  if (flags.includes('doble_marca')) return 'doble_marca';
+  if (opcion) return 'respondida';
+  if (flags.length > 0) return 'ambigua';
+  return 'sin_marca';
+}
 
 const VISTAS_VALIDAS = new Set([
   'periodos',
@@ -24,6 +60,23 @@ const VISTAS_VALIDAS = new Set([
 ]);
 
 export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\-_.()#&/]*$/u;
+
+/** Iniciales consistentes con las que se imprimen en los exámenes masivos. */
+export function obtenerInicialesAlumno(nombreCompleto?: string): string {
+  const particulas = new Set(['a', 'da', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'y']);
+  const palabras = String(nombreCompleto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase()
+    .match(/[a-z0-9]+/g) ?? [];
+  const significativas = palabras.filter((palabra) => !particulas.has(palabra));
+  const iniciales = (significativas.length > 0 ? significativas : palabras)
+    .map((palabra) => palabra.charAt(0))
+    .join('')
+    .toUpperCase();
+  if (iniciales.length <= 6) return iniciales;
+  return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
+}
 
 export function obtenerVistaInicial(): string {
   if (typeof window === 'undefined') return 'periodos';
@@ -149,8 +202,8 @@ export function construirClaveCorrectaExamen(
 
 export function combinarRespuestasOmrPaginas(
   paginas: RevisionPaginaOmr[]
-): Array<{ numeroPregunta: number; opcion: string | null; confianza: number }> {
-  const porPregunta = new Map<number, { numeroPregunta: number; opcion: string | null; confianza: number }>();
+): RespuestaDetectadaOmr[] {
+  const porPregunta = new Map<number, RespuestaDetectadaOmr>();
   const paginasOrdenadas = [...paginas].sort((a, b) => a.numeroPagina - b.numeroPagina);
   for (const pagina of paginasOrdenadas) {
     const respuestasPagina = Array.isArray(pagina.respuestas) ? pagina.respuestas : [];
@@ -159,7 +212,9 @@ export function combinarRespuestasOmrPaginas(
       porPregunta.set(Number(respuesta.numeroPregunta), {
         numeroPregunta: Number(respuesta.numeroPregunta),
         opcion: typeof respuesta?.opcion === 'string' && respuesta.opcion ? respuesta.opcion : null,
-        confianza: Number.isFinite(Number(respuesta?.confianza)) ? Number(respuesta.confianza) : 0
+        confianza: Number.isFinite(Number(respuesta?.confianza)) ? Number(respuesta.confianza) : 0,
+        ...(respuesta.estadoRespuesta ? { estadoRespuesta: respuesta.estadoRespuesta } : {}),
+        ...(Array.isArray(respuesta.flags) ? { flags: respuesta.flags } : {})
       });
     }
   }
@@ -196,9 +251,20 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
   const ratioAmbiguas = promedio(paginas.map((pagina) => Number(pagina.resultado.ratioAmbiguas || 0)));
   const templateVersionDetectada = 4;
   const qrTextos = paginas.map((pagina) => pagina.resultado.qrTexto).filter((valor): valor is string => typeof valor === 'string' && valor.length > 0);
+  const respuestasConEstado = respuestasDetectadas.map((respuesta) => ({
+    ...respuesta,
+    estadoRespuesta: respuesta.estadoRespuesta ?? (respuesta.opcion ? 'respondida' : 'sin_marca')
+  }));
+  const reactivosRespondidos = respuestasConEstado.filter((respuesta) => respuesta.estadoRespuesta === 'respondida').length;
+  const reactivosSinMarca = respuestasConEstado.filter((respuesta) => respuesta.estadoRespuesta === 'sin_marca').length;
+  const reactivosAmbiguos = respuestasConEstado.filter((respuesta) => respuesta.estadoRespuesta === 'ambigua').length;
+  const reactivosInvalidos = respuestasConEstado.filter((respuesta) =>
+    respuesta.estadoRespuesta === 'doble_marca' || respuesta.estadoRespuesta === 'tachada'
+  ).length;
+  const examenVacio = respuestasConEstado.length > 0 && reactivosSinMarca === respuestasConEstado.length;
 
   return {
-    respuestasDetectadas,
+    respuestasDetectadas: respuestasConEstado,
     advertencias,
     qrTexto: qrTextos[0],
     calidadPagina,
@@ -206,7 +272,23 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
     motivosRevision,
     templateVersionDetectada,
     confianzaPromedioPagina,
-    ratioAmbiguas
+    ratioAmbiguas,
+    resumenRespuestas: {
+      totalReactivos: respuestasConEstado.length,
+      reactivosRespondidos,
+      reactivosSinMarca,
+      reactivosAmbiguos,
+      reactivosInvalidos,
+      examenVacio,
+      examenVacioProbable: false,
+      estadoExamen: examenVacio
+        ? 'vacio_confirmado'
+        : reactivosAmbiguos > 0 || reactivosInvalidos > 0
+          ? 'requiere_revision'
+          : reactivosRespondidos > 0
+            ? 'con_respuestas'
+            : 'requiere_revision'
+    }
   };
 }
 
@@ -221,10 +303,16 @@ function normalizarEstadoAnalisis(estado: unknown): ResultadoOmr['estadoAnalisis
 }
 
 export function normalizarRespuestasDetectadas(
-  respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }> | undefined
-): Array<{ numeroPregunta: number; opcion: string | null; confianza: number }> {
+  respuestas: Array<{
+    numeroPregunta: number;
+    opcion: string | null;
+    confianza?: number;
+    estadoRespuesta?: EstadoRespuestaOmr;
+    flags?: FlagRespuestaOmr[];
+  }> | undefined
+): RespuestaDetectadaOmr[] {
   if (!Array.isArray(respuestas)) return [];
-  const normalizadas = new Map<number, { numeroPregunta: number; opcion: string | null; confianza: number }>();
+  const normalizadas = new Map<number, RespuestaDetectadaOmr>();
   for (const item of respuestas) {
     const numeroPregunta = Number(item?.numeroPregunta);
     if (!Number.isInteger(numeroPregunta) || numeroPregunta <= 0) continue;
@@ -232,10 +320,16 @@ export function normalizarRespuestasDetectadas(
     const opcion = opcionCruda.length === 1 && ['A', 'B', 'C', 'D', 'E'].includes(opcionCruda) ? opcionCruda : null;
     const confianzaRaw = Number(item?.confianza);
     const confianza = (Number.isFinite(confianzaRaw) && confianzaRaw >= 0 && confianzaRaw <= 1) ? confianzaRaw : 0;
+    const flags = Array.isArray(item.flags)
+      ? item.flags.filter((flag): flag is FlagRespuestaOmr => FLAGS_RESPUESTA_OMR.has(flag))
+      : [];
+    const estadoRespuesta = resolverEstadoRespuestaOmr(opcion, item.estadoRespuesta, flags);
     normalizadas.set(numeroPregunta, {
       numeroPregunta,
       opcion,
-      confianza
+      confianza,
+      estadoRespuesta,
+      ...(flags.length > 0 ? { flags } : {})
     });
   }
   return [...normalizadas.values()].sort((a, b) => a.numeroPregunta - b.numeroPregunta);
@@ -252,7 +346,8 @@ export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | u
     motivosRevision: Array.isArray(entrada?.motivosRevision) ? entrada.motivosRevision : [],
     templateVersionDetectada: normalizarTemplateVersionOmrDetectada(entrada?.templateVersionDetectada),
     confianzaPromedioPagina: numeroSeguro(entrada?.confianzaPromedioPagina),
-    ratioAmbiguas: numeroSeguro(entrada?.ratioAmbiguas)
+    ratioAmbiguas: numeroSeguro(entrada?.ratioAmbiguas),
+    resumenRespuestas: entrada?.resumenRespuestas
   };
 }
 
@@ -266,33 +361,6 @@ export function mensajeDeError(error: unknown, fallback: string) {
 
 export function esMensajeError(texto: string): boolean {
   return tipoMensajeInline(texto) === 'error';
-}
-
-export function obtenerDominiosCorreoPermitidosFrontend(): string[] {
-  return String(import.meta.env.VITE_DOMINIOS_CORREO_PERMITIDOS || '')
-    .split(',')
-    .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
-    .filter(Boolean);
-}
-
-function obtenerDominioCorreo(correo: string): string | null {
-  const valor = String(correo || '').trim().toLowerCase();
-  const at = valor.lastIndexOf('@');
-  if (at < 0) return null;
-  const dominio = valor.slice(at + 1).trim();
-  return dominio ? dominio : null;
-}
-
-export function esCorreoDeDominioPermitidoFrontend(correo: string, dominiosPermitidos: string[]): boolean {
-  const lista = Array.isArray(dominiosPermitidos) ? dominiosPermitidos : [];
-  if (lista.length === 0) return true;
-  const dominio = obtenerDominioCorreo(correo);
-  if (!dominio) return false;
-  return lista.includes(dominio);
-}
-
-export function textoDominiosPermitidos(dominios: string[]): string {
-  return dominios.map((d) => `@${d}`).join(', ');
 }
 
 const LARGO_ID_MATERIA = 8;

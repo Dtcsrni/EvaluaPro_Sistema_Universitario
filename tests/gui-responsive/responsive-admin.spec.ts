@@ -13,7 +13,7 @@ type ViewportCase = {
 };
 
 const viewports: ViewportCase[] = [
-  { name: 'desktop-lg', width: 1366, height: 900 },
+  { name: 'desktop-lg', width: 1920, height: 1080 },
   { name: 'tablet', width: 1024, height: 768 },
   { name: 'mobile', width: 390, height: 844 }
 ];

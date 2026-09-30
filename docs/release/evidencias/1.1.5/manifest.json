@@ -1,0 +1,49 @@
+{
+  "version": "1.1.5",
+  "displayVersion": "1.1.5",
+  "commit": "157229e09e341c69a2fd897cfcc0c6096a0ebda3",
+  "ciConsecutivoVerde": 15,
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.1.5/windows-release-smoke.md"
+  },
+  "gateHumanoProduccion": {
+    "version": "1.1.5",
+    "displayVersion": "1.1.5",
+    "ejecutadoEn": "2026-09-15T15:03:25.4194725Z",
+    "entorno": "local-plus-ci",
+    "docenteIdHash": "no-aplica-validacion-local",
+    "periodoId": "no-aplica-validacion-local",
+    "ventana": {
+      "startedAt": "2026-09-15T14:00:00Z",
+      "endedAt": "2026-09-15T15:03:25.4194725Z"
+    },
+    "operador": {
+      "nombre": "codex",
+      "observaciones": "Se validaron localmente la aplicación docente, el backend, el bundle Installer Hub y los contratos automatizados. No se ejecutó un flujo humano contra producción externa."
+    },
+    "resultado": "fallo",
+    "duracionMs": 3795419,
+    "pasos": [
+      { "id": "frontend_focus", "nombre": "Pruebas focalizadas frontend de plantillas", "resultado": "ok", "fuente": "vitest", "detalle": "2 aprobadas" },
+      { "id": "frontend_lint", "nombre": "Lint frontend", "resultado": "ok", "fuente": "eslint", "detalle": "npm --prefix apps/frontend run lint" },
+      { "id": "frontend_bundle", "nombre": "Build y guard del bundle docente", "resultado": "ok", "fuente": "vite", "detalle": "npm --prefix apps/frontend run build:docente" },
+      { "id": "backend_regression", "nombre": "Regresión backend de plantillas y preview", "resultado": "ok", "fuente": "vitest", "detalle": "4 pruebas aprobadas" },
+      { "id": "installer_contract", "nombre": "Contrato Installer Hub", "resultado": "ok", "fuente": "node", "detalle": "100 tests; 82 aprobados, 18 omitidos, 0 fallos" },
+      { "id": "release_policy", "nombre": "Política de release", "resultado": "ok", "fuente": "node", "detalle": "31 pruebas aprobadas" },
+      { "id": "local_http", "nombre": "Salud HTTP local", "resultado": "ok", "fuente": "powershell", "detalle": "frontend 200 y API 200" },
+      { "id": "local_sync", "nombre": "Sincronización de instalación local", "resultado": "ok", "fuente": "publish:docente:experimental", "detalle": "bundle docente y backend sincronizados" },
+      { "id": "local_installer", "nombre": "Build local Installer Hub docente", "resultado": "ok", "fuente": "build-msi.ps1", "detalle": "versión 1.1.5 y guard del instalador aprobados" },
+      { "id": "ci_installer", "nombre": "CI Installer Windows", "resultado": "ok", "fuente": "github-actions", "detalle": "run 184 sobre 157229e, conclusión success" },
+      { "id": "public_manifest", "nombre": "Manifest público de release", "resultado": "ok", "fuente": "github-release", "detalle": "version=1.1.5, channel=stable, commit=157229e" },
+      { "id": "prod_flow", "nombre": "Flujo humano docente productivo", "resultado": "fallo", "fuente": "manual", "detalle": "No ejecutado contra producción externa en esta sesión" }
+    ]
+  },
+  "artefactos": {
+    "timeline": "docs/release/evidencias/1.1.5/timeline.md",
+    "metricas": "docs/release/evidencias/1.1.5/metrics_snapshot.txt",
+    "integridad": "docs/release/evidencias/1.1.5/integridad_sha256.json",
+    "releaseNotes": "docs/release/evidencias/1.1.5/RELEASE_NOTES.md",
+    "qaManifest": "reports/qa/latest/manifest.json",
+    "installerManifest": "dist/installer/EvaluaPro-release-manifest.json"
+  }
+}

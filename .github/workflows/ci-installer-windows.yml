@@ -29,7 +29,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -37,18 +37,21 @@ jobs:
             apps/frontend/package-lock.json
             apps/portal_alumno_cloud/package-lock.json
 
-      - name: Configurar .NET SDK 8
+      - name: Configurar .NET SDK 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
-      - name: Instalar WiX CLI estable (v6.0.2)
+      - name: Instalar WiX CLI estable (v7.0.0)
         shell: powershell
         run: |
-          dotnet tool install --global wix --version 6.0.2
+          dotnet tool install --global wix --version 7.0.0
+          wix eula accept wix7
 
       - name: Registrar WiX en PATH y Validar Versión
         shell: powershell
@@ -63,7 +66,7 @@ jobs:
             throw "No se encontro wix.exe en la carpeta de herramientas .NET global ($dotnetToolsDir)"
           }
           $wixVersion = (& $wixPath --version | Select-Object -First 1)
-          if ($wixVersion -notmatch '^6\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
+          if ($wixVersion -notmatch '^7\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 7.0.x." }
           Write-Host "WiX version detectada: $wixVersion"
 
       - name: Etapa policy-check WiX
@@ -196,4 +199,18 @@ jobs:
         with:
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           make_latest: false
+          overwrite_files: true
           files: ${{ steps.stable_release_assets.outputs.files }}
+
+      - name: Retirar release estable anterior v1.1.5
+        if: github.ref == 'refs/tags/v1.1.6'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v1.1.5 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release delete v1.1.5 --repo "${GITHUB_REPOSITORY}" --yes
+          else
+            echo 'El release v1.1.5 ya no existe; no hay nada que retirar.'
+          fi

@@ -2,9 +2,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { configuracion } from '../../../configuracion';
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { prisma } from '../../../infraestructura/baseDatos/sqlite';
+import { configuracion } from '../../../configuracion.js';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite.js';
 
 const VERSION_PREFERENCIAS = 1 as const;
 const NOMBRE_PREFERENCIAS = 'sincronizacion-preferencias.json';

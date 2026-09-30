@@ -9,6 +9,8 @@
  * Estrategia: regex de detección de número jerárquico al inicio de línea.
  */
 
+import { PDFParse } from 'pdf-parse';
+
 export type NodoTemarioParseado = {
   numero: string;
   nivel: number;
@@ -88,35 +90,11 @@ export function parsearTextoTemario(texto: string): NodoTemarioParseado[] {
  * Retorna texto plano o lanza error si no puede parsear.
  */
 export async function extraerTextoPdf(buffer: Buffer): Promise<string> {
-  // pdf-parse es CJS; usamos require para evitar problemas de interop ESM/CJS
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParseMod = require('pdf-parse') as {
-    PDFParse?: new (options: { data: Buffer }) => {
-      getText: () => Promise<{ text?: string }>;
-      destroy: () => Promise<void>;
-    };
-    default?: (buf: Buffer) => Promise<{ text?: string }>;
-  } | ((buf: Buffer) => Promise<{ text?: string }>);
-
-  if (typeof pdfParseMod === 'function') {
-    const data = await pdfParseMod(buffer);
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const data = await parser.getText();
     return data.text ?? '';
+  } finally {
+    await parser.destroy();
   }
-
-  if (typeof pdfParseMod.default === 'function') {
-    const data = await pdfParseMod.default(buffer);
-    return data.text ?? '';
-  }
-
-  if (typeof pdfParseMod.PDFParse === 'function') {
-    const parser = new pdfParseMod.PDFParse({ data: buffer });
-    try {
-      const data = await parser.getText();
-      return data.text ?? '';
-    } finally {
-      await parser.destroy();
-    }
-  }
-
-  throw new Error('pdf-parse no disponible');
 }

@@ -1,0 +1,177 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-09-27T23-19-38.855Z",
+  "status": "draft",
+  "generatedAt": "2026-09-27T23:19:38.855Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Usar OCR del pie cuando un QR no identifica la página, incluso si el QR fue decodificado pero el backend advierte un mismatch."
+  },
+  "objective": "Activar de forma segura el fallback de folio+página en el flujo OMR cuando el QR no es utilizable, sin eludir la validación de firma.",
+  "scope": [
+    "Frontend docente: reconocer que una advertencia de mismatch invalida la identidad QR y ejecutar el OCR ya existente del pie.",
+    "Añadir regresiones focales y actualizar REQ-035 en SPEC-062."
+  ],
+  "constraints": [
+    "No escribir ni publicar calificaciones.",
+    "No convertir OCR en payload QR firmado.",
+    "Un QR con firma inválida debe seguir rechazado por backend.",
+    "No ejecutar benchmark fotográfico de 48 páginas sin confirmar el alcance."
+  ],
+  "actions": [
+    {
+      "type": "change",
+      "summary": "Un texto QR acompañado por advertencia de mismatch ahora activa el fallback OCR; el mensaje indica que la identidad se recuperó del pie.",
+      "timestamp": "2026-09-27T23:19:38.855Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Frontend OCR y flujo de escaneo focales: 25/25; typecheck, ESLint, build docente, guard de bundle y WCAG 20/20 aprobados.",
+      "timestamp": "2026-09-27T23:19:38.855Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Integración QR backend: 3/3; incluye rechazo de firma de integridad inválida.",
+      "timestamp": "2026-09-27T23:19:38.855Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Auditoría SDD global falla por test ausente declarado por SPEC-070; docs:check falla por AUTO_ENV.md desactualizado.",
+      "timestamp": "2026-09-27T23:19:38.855Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "apps/frontend/src/apps/app_docente/ocrTexto.ts",
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/tests/ocrTexto.test.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts",
+      "apps/backend/tests/integracion/qrEscaneoOmr.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "changed": [
+      "apps/frontend/src/apps/app_docente/ocrTexto.ts",
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/tests/ocrTexto.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-09-27/sesion-2026-09-27T23-19-38.855Z.json",
+      "docs/handoff/sesiones/2026-09-27/sesion-2026-09-27T23-19-38.855Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "test_frontend_ocr",
+      "command": "npm test -- tests/ocrTexto.test.ts tests/escaneo.refactor.test.tsx",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2250,
+      "resultSummary": "2 archivos; 25/25 pruebas aprobadas.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    },
+    {
+      "name": "typecheck_frontend",
+      "command": "npm run typecheck (apps/frontend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 8720,
+      "resultSummary": "TypeScript finalizó sin errores.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    },
+    {
+      "name": "lint_focal",
+      "command": "npx eslint src/apps/app_docente/ocrTexto.ts src/apps/app_docente/SeccionEscaneo.tsx tests/ocrTexto.test.ts --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "ESLint focal finalizó sin salida de error; duración no registrada.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    },
+    {
+      "name": "test_backend_qr_integration",
+      "command": "npm test -- tests/integracion/qrEscaneoOmr.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 72770,
+      "resultSummary": "3/3 pruebas; pasó la protección de firma inválida.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    },
+    {
+      "name": "build_docente",
+      "command": "npm run build:docente (apps/frontend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 13000,
+      "resultSummary": "Build de 2013 módulos, guard de bundle aprobado y WCAG 20/20; quedaron archivos de bundles obsoletos bloqueados para limpieza posterior.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 764,
+      "resultSummary": "Deuda ajena: SPEC-070 referencia apps/backend/tests/integracion/codigosAccesoApi.test.ts, archivo ausente; SPEC-062 pasó.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check (invocado por el generador de handoff quick)",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 13653,
+      "resultSummary": "docs/AUTO_ENV.md está desactualizado; no se regeneró para evitar modificar artefactos ajenos al alcance.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    },
+    {
+      "name": "ci_policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 2670,
+      "resultSummary": "Falla preexistente en test:toolchain:policy: apps/backend/package-lock.json no declara @zxing/library ^0.23.0, aunque apps/backend/package.json sí.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    },
+    {
+      "name": "diff_check",
+      "command": "git -c core.whitespace=cr-at-eol diff --check -- <4 archivos del cambio>",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 181,
+      "resultSummary": "Sin errores de whitespace; Git avisa conversión LF/CRLF en SeccionEscaneo.tsx.",
+      "timestamp": "2026-09-27T23:19:38.855Z"
+    }
+  ],
+  "decisions": [
+    "QR con texto y advertencia de mismatch no identifica la página y habilita el OCR del pie.",
+    "QR con firma inválida permanece fail-closed; no se permite eludir esa protección con OCR.",
+    "La precisión OCR en fotos reales y disponibilidad offline siguen sin verificar."
+  ],
+  "assumptions": [],
+  "risks": [
+    "No se midió aún OCR sobre las fotos reales del dataset.",
+    "Tesseract worker, WASM y modelos siguen dependiendo de las rutas configuradas por el proveedor; modo offline no comprobado.",
+    "Benchmark global de 48 páginas permanece pendiente de selección explícita del usuario."
+  ],
+  "nextStep": "Ejecutar una prueba OCR sobre las capturas reales seleccionadas, y después revalidar QR/OMR en el dataset autorizado sin guardar calificaciones.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "Prueba OCR en fotos reales",
+      "Benchmark QR/OMR del dataset completo"
+    ]
+  }
+}

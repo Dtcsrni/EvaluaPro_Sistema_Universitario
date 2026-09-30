@@ -1,0 +1,133 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-capacidad-36-guardas-20260927-r1",
+  "status": "final",
+  "generatedAt": "2026-09-27T21:54:48Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Continuar maximizando capacidad de plantilla sin degradar detección OMR ni QR."
+  },
+  "objective": "Validar el límite físico de 35 reactivos en dos páginas y proteger las guardas de OMR/QR al excederlo.",
+  "scope": [
+    "Paginación de 35 y 36 reactivos breves",
+    "Separación de etiquetas y bordes OMR",
+    "Decodificación QR rasterizada por página"
+  ],
+  "constraints": [
+    "Conservar diámetro y paso de burbujas",
+    "Conservar separación etiqueta-borde OMR superior a 2.39 pt",
+    "No inferir rendimiento fotográfico ni impresión física desde PDFs sintéticos",
+    "Preservar cambios concurrentes no relacionados"
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Regresión focal de capacidad 35/36: 2 pruebas aprobadas; 35 en 2 páginas y 36 en 3 con todas las páginas QR legibles.",
+      "timestamp": "2026-09-27T21:53:06Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Pruebas QR de examen y preimpresión: 16/16 aprobadas.",
+      "timestamp": "2026-09-27T21:53:06Z",
+      "status": "ok"
+    },
+    {
+      "type": "decision",
+      "summary": "Se descartó la compresión experimental 18+18 porque incumplía la guarda de separación etiqueta-borde OMR.",
+      "timestamp": "2026-09-27T21:53:06Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "ESLint focal y pruebas de trazabilidad/handoff pasan; sdd:audit falla por una ruta de test ausente declarada en SPEC-070, ajena a OMR.",
+      "timestamp": "2026-09-27T21:54:48Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts",
+      "apps/backend/tests/pdf.layout.visual.guard.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "changed": [
+      "apps/backend/tests/pdf.layout.visual.guard.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "docs/handoff/sesiones/2026-09-27/omr-capacidad-36-guardas-20260927-r1.json",
+      "docs/handoff/sesiones/2026-09-27/omr-capacidad-36-guardas-20260927-r1.md"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "pdf-capacity-35-36",
+      "command": "npx vitest run tests/pdf.layout.visual.guard.test.ts -t \"capacidad validada de 35|capacidad física combinada para 35\" --reporter=dot",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 25860,
+      "resultSummary": "2 pruebas focales pasaron; la generación de 36 continúa a una tercera página con guardas OMR/QR intactas."
+    },
+    {
+      "name": "qr-preprint",
+      "command": "npx vitest run tests/omr.qr.preimpresion.test.ts tests/qr.examen.test.ts --reporter=dot",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1250,
+      "resultSummary": "16 pruebas QR y preimpresión pasaron."
+    },
+    {
+      "name": "eslint-layout-test",
+      "command": "npx eslint tests/pdf.layout.visual.guard.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3307,
+      "resultSummary": "ESLint focal del archivo de regresión pasó."
+    },
+    {
+      "name": "traceability-tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 760,
+      "resultSummary": "7 pruebas de trazabilidad pasaron."
+    },
+    {
+      "name": "handoff-tests",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 770,
+      "resultSummary": "11 pruebas de handoff pasaron."
+    },
+    {
+      "name": "sdd-audit",
+      "command": "npm run sdd:audit",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 700,
+      "resultSummary": "SPEC-070 declara apps/backend/tests/integracion/codigosAccesoApi.test.ts, inexistente; SPEC-062 aparece válida."
+    }
+  ],
+  "decisions": [
+    "El máximo demostrado de reactivos breves con tipografía y geometría OMR actuales es 35 en dos páginas (17+18).",
+    "No bajar la holgura de etiqueta OMR para forzar un reactivo adicional por página.",
+    "Los casos QR de la prueba de capacidad comparan payload exacto después de rasterización JPEG degradada."
+  ],
+  "assumptions": [
+    "La capacidad medida aplica al control sintético de enunciados y opciones cortos, no a cualquier banco de reactivos."
+  ],
+  "risks": [
+    "La auditoría SDD global sigue bloqueada por una ruta de prueba inexistente en SPEC-070.",
+    "No se ejecutó benchmark de fotos reales ni prueba de impresión física para este cambio de cobertura.",
+    "Queda pendiente explorar redistribución de contenido/cabecera sin cambiar diámetro OMR ni proximidad de etiquetas."
+  ],
+  "nextStep": "Evaluar rediseño de composición que recupere altura fuera del panel OMR y medirlo con controles de alineación texto-respuesta, fiduciales, QR y pruebas de impresión simulada."
+}

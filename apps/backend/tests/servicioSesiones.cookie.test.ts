@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { debeUsarCookieRefreshSecure } from '../src/modulos/modulo_autenticacion/servicioSesiones';
+import { debeUsarCookieRefreshSecure } from '../src/modulos/modulo_autenticacion/servicioSesiones.js';
 
 describe('politica de cookie de refresh', () => {
   it('permite recuperar la sesion en docente-local servido por HTTP', () => {

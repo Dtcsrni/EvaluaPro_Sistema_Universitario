@@ -6,8 +6,8 @@
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'crypto';
 import { gzipSync } from 'zlib';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
 
 export const MAX_BASE64_CHARS = 60_000_000; // ~45MB binario aprox
 const RESPALDO_CIFRADO_FORMATO = 'evaluapro-sync-encrypted';
@@ -15,7 +15,7 @@ const RESPALDO_CIFRADO_VERSION = 1;
 const RESPALDO_CIFRADO_ALGORITMO = 'aes-256-gcm';
 
 export type PaqueteSincronizacionV2 = {
-  schemaVersion: 2;
+  schemaVersion: 2 | 3;
   exportadoEn: string;
   docenteId: string;
   docenteCorreo?: string;
@@ -31,6 +31,14 @@ export type PaqueteSincronizacionV2 = {
   calificaciones: unknown[];
   banderas: unknown[];
   pdfs: Array<{ examenGeneradoId: string; pdfComprimidoBase64: string; pdfSha256?: string }>;
+  temasBanco?: Array<Record<string, unknown>>;
+  reactivos?: Array<Record<string, unknown>>;
+  reactivoVersiones?: Array<Record<string, unknown>>;
+  reactivoAsignaciones?: Array<Record<string, unknown>>;
+  reactivoImportaciones?: Array<Record<string, unknown>>;
+  reactivoImportacionFilas?: Array<Record<string, unknown>>;
+  reactivoCalibraciones?: Array<Record<string, unknown>>;
+  reactivoAssets?: Array<Record<string, unknown>>;
 };
 
 type RegistroPlano = Record<string, unknown>;

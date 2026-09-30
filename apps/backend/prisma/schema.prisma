@@ -1,6 +1,5 @@
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -11,39 +10,43 @@ generator client {
 // ─── AUTENTICACIÓN Y DOCENTE ──────────────────────────────────────────────────
 
 model Docente {
-  id                   String                @id @default(uuid())
-  nombres              String?
-  apellidos            String?
-  nombreCompleto       String
-  correo               String                @unique
-  hashContrasena       String?
-  googleSub            String?
-  roles                String                @default("[]") // JSON array de roles
-  activo               Boolean               @default(true)
-  ultimoAcceso         DateTime?
-  preferenciasPdf      String?               // JSON string (institucion, lema, logos)
-  periodos             Periodo[]
-  asistenciaReglas     AsistenciaRegla[]
-  asistenciaSesiones   AsistenciaSesion[]
-  asistenciaExcepcion  AsistenciaExcepcion[]
-  bancoPreguntas       BancoPregunta[]
-  examenesPlantilla    ExamenPlantilla[]
-  examenesGenerados    ExamenGenerado[]
-  calificaciones       Calificacion[]
-  banderasRevision     BanderaRevision[]
-  eventosUso           EventoUso[]
-  recuperacionesBundle ExamenRecoveryBundle[]
-  recuperacionesManif  ExamenRecoveryManifest[]
-  papeleraItems        PapeleraItem[]
-  politicasCalificacion PoliticaCalificacion[]
-  solicitudesRevision  SolicitudRevisionAlumno[]
-  sesiones             SesionDocente[]
+  id                       String                          @id @default(uuid())
+  nombres                  String?
+  apellidos                String?
+  nombreCompleto           String
+  correo                   String                          @unique
+  hashContrasena           String?
+  googleSub                String?
+  roles                    String                          @default("[]") // JSON array de roles
+  activo                   Boolean                         @default(true)
+  ultimoAcceso             DateTime?
+  preferenciasPdf          String? // JSON string (institucion, lema, logos)
+  periodos                 Periodo[]
+  asistenciaReglas         AsistenciaRegla[]
+  asistenciaSesiones       AsistenciaSesion[]
+  asistenciaExcepcion      AsistenciaExcepcion[]
+  bancoPreguntas           BancoPregunta[]
+  examenesPlantilla        ExamenPlantilla[]
+  examenesGenerados        ExamenGenerado[]
+  calificaciones           Calificacion[]
+  calificacionesLista      CalificacionListaManual[]
+  mutacionesCalificacionLista CalificacionListaMutacion[]
+  banderasRevision         BanderaRevision[]
+  eventosUso               EventoUso[]
+  recuperacionesBundle     ExamenRecoveryBundle[]
+  recuperacionesManif      ExamenRecoveryManifest[]
+  artefactosLotePdf         ExamenLoteArtefactoPdf[]
+  eventosLotePdf            ExamenLoteArtefactoPdfAuditoria[]
+  papeleraItems            PapeleraItem[]
+  politicasCalificacion    PoliticaCalificacion[]
+  solicitudesRevision      SolicitudRevisionAlumno[]
+  sesiones                 SesionDocente[]
   recuperacionesContrasena RecuperacionContrasenaDocente[]
-  entregas             Entrega[]
-  codigosAcceso        CodigoAcceso[]
-  bancoTemas           TemaBanco[]
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  entregas                 Entrega[]
+  codigosAcceso            CodigoAcceso[]
+  bancoTemas               TemaBanco[]
+  createdAt                DateTime                        @default(now())
+  updatedAt                DateTime                        @updatedAt
 
   @@map("docentes")
 }
@@ -77,78 +80,80 @@ model RecuperacionContrasenaDocente {
 }
 
 model Periodo {
-  id                   String                @id @default(uuid())
-  docenteId            String
-  docente              Docente               @relation(fields: [docenteId], references: [id], onDelete: Cascade)
-  nombre               String
-  nombreNormalizado    String
-  fechaInicio          DateTime
-  fechaFin             DateTime
-  grupos               String                // JSON array de grupos
-  activo               Boolean               @default(true)
-  archivadoEn          DateTime?
-  resumenArchivado     String?               // JSON string
-  alumnos              Alumno[]
-  asistenciaReglas     AsistenciaRegla[]
-  asistenciaSesiones   AsistenciaSesion[]
-  asistenciaExcepcion  AsistenciaExcepcion[]
-  temarios             Temario[]
-  bancoPreguntas       BancoPregunta[]
-  examenesPlantilla    ExamenPlantilla[]
-  examenesGenerados    ExamenGenerado[]
-  calificaciones       Calificacion[]
-  codigosAcceso        CodigoAcceso[]
-  bancoTemas           TemaBanco[]
-  solicitudesRevision  SolicitudRevisionAlumno[]
-  encuadre             EncuadreAcademico?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  id                  String                    @id @default(uuid())
+  docenteId           String
+  docente             Docente                   @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  nombre              String
+  nombreNormalizado   String
+  fechaInicio         DateTime
+  fechaFin            DateTime
+  grupos              String // JSON array de grupos
+  activo              Boolean                   @default(true)
+  archivadoEn         DateTime?
+  resumenArchivado    String? // JSON string
+  alumnos             Alumno[]
+  asistenciaReglas    AsistenciaRegla[]
+  asistenciaSesiones  AsistenciaSesion[]
+  asistenciaExcepcion AsistenciaExcepcion[]
+  temarios            Temario[]
+  bancoPreguntas      BancoPregunta[]
+  examenesPlantilla   ExamenPlantilla[]
+  examenesGenerados   ExamenGenerado[]
+  calificaciones      Calificacion[]
+  calificacionesLista CalificacionListaManual[]
+  codigosAcceso       CodigoAcceso[]
+  bancoTemas          TemaBanco[]
+  solicitudesRevision SolicitudRevisionAlumno[]
+  encuadre            EncuadreAcademico?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   @@unique([docenteId, nombreNormalizado])
   @@map("periodos")
 }
 
 model Alumno {
-  id                   String                @id @default(uuid())
-  periodoId            String
-  periodo              Periodo               @relation(fields: [periodoId], references: [id], onDelete: Cascade)
-  matricula            String
-  nombres              String?
-  apellidos            String?
-  nombreCompleto       String
-  correo               String
-  grupo                String?
-  activo               Boolean               @default(true)
-  registrosAsistencia  AsistenciaRegistro[]
-  asistenciaExcepcion  AsistenciaExcepcion?
-  examenesGenerados    ExamenGenerado[]
-  calificaciones       Calificacion[]
-  banderasRevision     BanderaRevision[]
-  solicitudesRevision  SolicitudRevisionAlumno[]
-  entregas             Entrega[]
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  id                  String                    @id @default(uuid())
+  periodoId           String
+  periodo             Periodo                   @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  matricula           String
+  nombres             String?
+  apellidos           String?
+  nombreCompleto      String
+  correo              String
+  grupo               String?
+  activo              Boolean                   @default(true)
+  registrosAsistencia AsistenciaRegistro[]
+  asistenciaExcepcion AsistenciaExcepcion?
+  examenesGenerados   ExamenGenerado[]
+  calificaciones      Calificacion[]
+  calificacionesLista CalificacionListaManual[]
+  banderasRevision    BanderaRevision[]
+  solicitudesRevision SolicitudRevisionAlumno[]
+  entregas            Entrega[]
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   @@unique([periodoId, matricula])
   @@map("alumnos")
 }
 
 model AsistenciaRegla {
-  id                    String   @id @default(uuid())
-  docenteId             String
-  docente               Docente  @relation(fields: [docenteId], references: [id])
-  periodoId             String
-  periodo               Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
-  grupo                 String?
-  maxFaltas             Int      @default(4)
-  accion                String   @default("bloquear_examen")
-  excepcionPermitida    Boolean  @default(true)
+  id                     String   @id @default(uuid())
+  docenteId              String
+  docente                Docente  @relation(fields: [docenteId], references: [id])
+  periodoId              String
+  periodo                Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  grupo                  String?
+  maxFaltas              Int      @default(4)
+  accion                 String   @default("bloquear_examen")
+  excepcionPermitida     Boolean  @default(true)
   /// Si es true, los retardos se convierten en faltas equivalentes según retardosEquivalenFalta
-  contarRetardos        Boolean  @default(false)
+  contarRetardos         Boolean  @default(false)
   /// Cuántos retardos equivalen a 1 falta (sólo aplica cuando contarRetardos=true)
-  retardosEquivalenFalta Int     @default(3)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  retardosEquivalenFalta Int      @default(3)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   @@map("asistencia_reglas")
 }
@@ -217,6 +222,7 @@ model Temario {
   textoOriginal    String?
   totalNodos       Int           @default(0)
   porcentajeAvance Int           @default(0)
+  auditoriaCambios String?
   nodos            TemarioNodo[]
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -225,9 +231,9 @@ model Temario {
 }
 
 model TemarioNodo {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   temarioId          String
-  temario            Temario  @relation(fields: [temarioId], references: [id], onDelete: Cascade)
+  temario            Temario   @relation(fields: [temarioId], references: [id], onDelete: Cascade)
   numero             String
   nivel              Int
   titulo             String
@@ -235,41 +241,56 @@ model TemarioNodo {
   sesionAsistenciaId String?
   notas              String?
   cubiertaEn         DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@map("temario_nodos")
 }
 
+model AuditoriaTemario {
+  id        String   @id @default(uuid())
+  temarioId String
+  docenteId String
+  periodoId String
+  accion    String
+  motivo    String
+  antes     String?
+  despues   String?
+  createdAt DateTime @default(now())
+
+  @@index([docenteId, temarioId, createdAt])
+  @@map("auditoria_temarios")
+}
+
 model BancoPregunta {
-  id             String            @id @default(uuid())
+  id             String              @id @default(uuid())
   docenteId      String
-  docente        Docente           @relation(fields: [docenteId], references: [id])
+  docente        Docente             @relation(fields: [docenteId], references: [id])
   periodoId      String
-  periodo        Periodo           @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  periodo        Periodo             @relation(fields: [periodoId], references: [id], onDelete: Cascade)
   tema           String?
-  activo         Boolean           @default(true)
+  activo         Boolean             @default(true)
   archivadoEn    DateTime?
-  recoverySource String?           // JSON string
-  versionActual  Int               @default(1)
+  recoverySource String? // JSON string
+  versionActual  Int                 @default(1)
   versiones      VersionPregunta[]
   plantillas     PreguntaPlantilla[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@map("banco_preguntas")
 }
 
 model VersionPregunta {
-  id            String          @id @default(uuid())
+  id            String           @id @default(uuid())
   preguntaId    String
-  pregunta      BancoPregunta   @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  pregunta      BancoPregunta    @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
   numeroVersion Int
   enunciado     String
   imagenUrl     String?
   opciones      OpcionPregunta[]
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@unique([preguntaId, numeroVersion])
   @@map("version_preguntas")
@@ -285,6 +306,155 @@ model OpcionPregunta {
   updatedAt         DateTime        @updatedAt
 
   @@map("opcion_preguntas")
+}
+
+// ─── REACTIVOS CANÓNICOS E INGESTA IA ───────────────────────────────────────
+// Estas tablas son deliberadamente aditivas y usan IDs escalares para permitir
+// migrar instalaciones SQLite existentes sin reescribir el banco legado.
+
+model Reactivo {
+  id               String                @id @default(uuid())
+  docenteId        String
+  externalKey      String
+  estado           String                @default("draft")
+  versionActual    Int                   @default(1)
+  legacyPreguntaId String?
+  archivadoEn      DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  versiones        ReactivoVersion[]
+  asignaciones     ReactivoAsignacion[]
+  calibraciones    ReactivoCalibracion[]
+
+  @@unique([docenteId, externalKey])
+  @@index([docenteId, estado])
+  @@map("reactivos")
+}
+
+model ReactivoVersion {
+  id              String                @id @default(uuid())
+  reactivoId      String
+  numeroVersion   Int
+  formato         String                @default("omr.mcq5")
+  enunciado       String
+  metadataJson    String                @default("{}")
+  procedenciaJson String                @default("{}")
+  contentHash     String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  reactivo        Reactivo              @relation(fields: [reactivoId], references: [id], onDelete: Cascade)
+  opciones        ReactivoOpcion[]
+  calibraciones   ReactivoCalibracion[]
+
+  @@unique([reactivoId, numeroVersion])
+  @@unique([reactivoId, contentHash])
+  @@index([contentHash])
+  @@map("reactivo_versiones")
+}
+
+model ReactivoOpcion {
+  id                String          @id @default(uuid())
+  reactivoVersionId String
+  clave             String
+  texto             String
+  esCorrecta        Boolean
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  reactivoVersion   ReactivoVersion @relation(fields: [reactivoVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([reactivoVersionId, clave])
+  @@map("reactivo_opciones")
+}
+
+model ReactivoAsignacion {
+  id         String   @id @default(uuid())
+  reactivoId String
+  periodoId  String
+  temaId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  reactivo   Reactivo @relation(fields: [reactivoId], references: [id], onDelete: Cascade)
+
+  @@unique([reactivoId, periodoId, temaId])
+  @@index([periodoId, temaId])
+  @@map("reactivo_asignaciones")
+}
+
+model ReactivoImportacion {
+  id            String                    @id @default(uuid())
+  docenteId     String
+  batchId       String
+  schemaVersion Int                       @default(1)
+  inputSha256   String
+  planHash      String
+  payloadJson   String
+  planJson      String
+  estado        String                    @default("preview")
+  confirmadoEn  DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  filas         ReactivoImportacionFila[]
+
+  @@unique([docenteId, inputSha256])
+  @@index([docenteId, createdAt])
+  @@map("reactivo_importaciones")
+}
+
+model ReactivoImportacionFila {
+  id            String              @id @default(uuid())
+  importacionId String
+  linea         Int
+  externalKey   String
+  operacion     String
+  estado        String
+  contentHash   String?
+  reactivoId    String?
+  detalleJson   String              @default("{}")
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  importacion   ReactivoImportacion @relation(fields: [importacionId], references: [id], onDelete: Cascade)
+
+  @@unique([importacionId, linea])
+  @@index([reactivoId])
+  @@map("reactivo_importacion_filas")
+}
+
+model ReactivoAsset {
+  id           String   @id @default(uuid())
+  docenteId    String
+  sha256       String
+  mediaType    String
+  nombre       String?
+  ruta         String?
+  metadataJson String   @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([docenteId, sha256])
+  @@map("reactivo_assets")
+}
+
+model ReactivoCalibracion {
+  id                 String          @id @default(uuid())
+  reactivoId         String
+  reactivoVersionId  String
+  cohorteKey         String
+  respuestasValidas  Int             @default(0)
+  aciertos           Int             @default(0)
+  proporcionCorrecta Float?
+  puntoBiserial      Float?
+  distractoresJson   String          @default("{}")
+  estadoEvidencia    String          @default("sin_evidencia")
+  intervaloJson      String          @default("{}")
+  calculadoEn        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  reactivo           Reactivo        @relation(fields: [reactivoId], references: [id], onDelete: Cascade)
+  reactivoVersion    ReactivoVersion @relation(fields: [reactivoVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([reactivoVersionId, cohorteKey])
+  @@index([reactivoId, estadoEvidencia])
+  @@map("reactivo_calibraciones")
 }
 
 model ExamenPlantilla {
@@ -303,9 +473,9 @@ model ExamenPlantilla {
   answerKeyMode       String              @default("digital")
   temas               String              @default("[]") // JSON string array
   archivadoEn         DateTime?
-  bookletConfig       String              // JSON string
-  omrConfig           String              // JSON string
-  configuracionPdf    String              // JSON string
+  bookletConfig       String // JSON string
+  omrConfig           String // JSON string
+  configuracionPdf    String // JSON string
   preguntas           PreguntaPlantilla[]
   examenesGenerados   ExamenGenerado[]
   createdAt           DateTime            @default(now())
@@ -341,29 +511,29 @@ model ExamenGenerado {
   folio                    String                    @unique
   estado                   String                    @default("generado")
   entregadoEn              DateTime?
-  mapaVariante             String                    // JSON string
-  mapaOmr                  String?                   // JSON string
+  mapaVariante             String // JSON string
+  mapaOmr                  String? // JSON string
   paginas                  String                    @default("[]") // JSON string
   rutaPdf                  String?
-  bookletArtifact          String?                   // JSON string
-  omrSheetArtifact         String?                   // JSON string
+  bookletArtifact          String? // JSON string
+  omrSheetArtifact         String? // JSON string
   studentPacketArtifacts   String                    @default("[]") // JSON string array
-  studentPacketZipArtifact String?                   // JSON string
-  manifestArtifact         String?                   // JSON string
-  answerKeyArtifact        String?                   // JSON string
+  studentPacketZipArtifact String? // JSON string
+  manifestArtifact         String? // JSON string
+  answerKeyArtifact        String? // JSON string
   recoveryKeyId            String?
   recoveryManifestHash     String?
-  recoveryManifest         String?                   // JSON string
+  recoveryManifest         String? // JSON string
   recoveryBundleId         String?
   recoveryBundleHash       String?
-  reconstructedFrom        String?                   // JSON string
-  questionMap              String?                   // JSON string
-  answerKeySet             String?                   // JSON string
+  reconstructedFrom        String? // JSON string
+  questionMap              String? // JSON string
+  answerKeySet             String? // JSON string
   versionSet               String                    @default("[]") // JSON string array
   sheetInstances           String                    @default("[]") // JSON string array
   generationSeed           String?
   previewFingerprint       String?
-  statisticsSummary        String?                   // JSON string
+  statisticsSummary        String? // JSON string
   omrRuntimeVersion        Int?
   retentionStatus          String                    @default("active")
   artifactsPurgedAt        DateTime?
@@ -385,7 +555,7 @@ model PoliticaCalificacion {
   docenteId     String
   docente       Docente  @relation(fields: [docenteId], references: [id])
   nombre        String
-  configuracion String   // JSON string
+  configuracion String // JSON string
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -405,7 +575,7 @@ model Calificacion {
   tipoExamen                   String
   totalReactivos               Int
   aciertos                     Int
-  fraccion                     String         // JSON string
+  fraccion                     String // JSON string
   calificacionExamenTexto      String
   bonoTexto                    String
   calificacionExamenFinalTexto String
@@ -414,11 +584,11 @@ model Calificacion {
   calificacionParcialTexto     String?
   calificacionGlobalTexto      String?
   retroalimentacion            String?
-  respuestasDetectadas         String?        // JSON string
-  omrAuditoria                 String?        // JSON string
+  respuestasDetectadas         String? // JSON string
+  omrAuditoria                 String? // JSON string
   politicaId                   String?
   versionPolitica              Int?
-  componentesExamen            String?        // JSON string
+  componentesExamen            String? // JSON string
   bloqueContinuaDecimal        Float?
   bloqueExamenesDecimal        Float?
   finalDecimal                 Float?
@@ -427,6 +597,41 @@ model Calificacion {
   updatedAt                    DateTime       @updatedAt
 
   @@map("calificaciones")
+}
+
+model CalificacionListaManual {
+  id          String   @id @default(uuid())
+  docenteId   String
+  docente     Docente  @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  periodoId   String
+  periodo     Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  alumnoId    String
+  alumno      Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  componente  String
+  calificacion Float
+  version     Int      @default(1)
+  auditoria   String   @default("[]") // JSON array, capped by the application
+  capturadoPor String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([docenteId, periodoId, alumnoId, componente])
+  @@index([docenteId, periodoId])
+  @@map("calificaciones_lista_manual")
+}
+
+model CalificacionListaMutacion {
+  id              String   @id @default(uuid())
+  docenteId       String
+  docente         Docente  @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  clientRequestId String
+  payloadHash     String
+  calificacionId  String
+  createdAt       DateTime @default(now())
+
+  @@unique([docenteId, clientRequestId])
+  @@index([docenteId, calificacionId])
+  @@map("calificaciones_lista_manual_mutaciones")
 }
 
 model SolicitudRevisionAlumno {
@@ -479,7 +684,7 @@ model EventoUso {
   docenteId String
   docente   Docente  @relation(fields: [docenteId], references: [id])
   accion    String
-  meta      String?  // JSON string
+  meta      String? // JSON string
   createdAt DateTime @default(now())
 
   @@map("eventos_uso")
@@ -491,10 +696,48 @@ model ExamenRecoveryBundle {
   docente    Docente  @relation(fields: [docenteId], references: [id])
   bundleHash String   @unique
   nombre     String
-  metadata   String?  // JSON string
+  metadata   String? // JSON string
   createdAt  DateTime @default(now())
 
   @@map("examen_recovery_bundles")
+}
+
+model ExamenLoteArtefactoPdf {
+  id            String   @id @default(uuid())
+  docenteId     String
+  docente       Docente  @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  loteId        String
+  plantillaId   String
+  archivoNombre String
+  sha256        String
+  totalPaginas  Int
+  totalExamenes Int
+  archivadoEn   DateTime?
+  archivadoPor  String?
+  eventos       ExamenLoteArtefactoPdfAuditoria[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([docenteId, loteId])
+  @@index([plantillaId])
+  @@map("examen_lote_artefactos_pdf")
+}
+
+model ExamenLoteArtefactoPdfAuditoria {
+  id                 String                @id @default(uuid())
+  docenteId          String
+  docente            Docente               @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  artefactoId        String
+  artefacto          ExamenLoteArtefactoPdf @relation(fields: [artefactoId], references: [id], onDelete: Cascade)
+  loteId             String
+  accion             String
+  clientRequestId    String
+  archivadoResultante Boolean
+  createdAt          DateTime              @default(now())
+
+  @@unique([docenteId, clientRequestId])
+  @@index([docenteId, loteId, createdAt])
+  @@map("examen_lote_artefactos_pdf_auditoria")
 }
 
 model ExamenRecoveryManifest {
@@ -503,7 +746,7 @@ model ExamenRecoveryManifest {
   docente      Docente  @relation(fields: [docenteId], references: [id])
   manifestHash String   @unique
   nombre       String
-  metadata     String?  // JSON string
+  metadata     String? // JSON string
   createdAt    DateTime @default(now())
 
   @@map("examen_recovery_manifests")
@@ -515,7 +758,7 @@ model PapeleraItem {
   docente   Docente  @relation(fields: [docenteId], references: [id])
   tipo      String
   itemId    String
-  datosJson String   // JSON string
+  datosJson String // JSON string
   createdAt DateTime @default(now())
 
   @@map("papelera_items")
@@ -572,6 +815,23 @@ model TemaBanco {
   @@map("banco_temas")
 }
 
+model TemaBancoAuditoria {
+  id              String   @id @default(uuid())
+  docenteId       String
+  periodoId       String
+  temaId          String
+  accion          String
+  clientRequestId String
+  requestHash     String
+  antes           String?
+  despues         String
+  createdAt       DateTime @default(now())
+
+  @@unique([docenteId, clientRequestId])
+  @@index([docenteId, temaId, createdAt])
+  @@map("auditoria_temas_banco")
+}
+
 model EscaneoOmrArchivado {
   id                       String   @id @default(uuid())
   docenteId                String
@@ -617,7 +877,7 @@ model ReconstruccionExamen {
   reconstructedQuestionBankIds String   @default("[]") // JSON string array
   reconstructedExamIds         String   @default("[]") // JSON string array
   conflicts                    String   @default("[]") // JSON string
-  metadata                     String?  // JSON string
+  metadata                     String? // JSON string
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 
@@ -656,11 +916,16 @@ model EvidenciaEvaluacion {
   corte               Int?
   fuente              String   @default("manual")
   estadoCaptura       String   @default("calificada")
-  classroomData       String?  // JSON string
-  metadata            String?  // JSON string
+  classroomData       String? // JSON string
+  metadata            String? // JSON string
+  archivadaEn         DateTime?
+  archivadaPorDocenteId String?
+  motivoArchivo       String?
+  auditoriaCambios    String? // JSON array append-only de cambios manuales
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  @@index([docenteId, archivadaEn, fechaEvidencia])
   @@map("evidencias_evaluacion")
 }
 
@@ -676,7 +941,7 @@ model ComponenteExamen {
   examenCorteDecimal      Float
   origen                  String   @default("manual")
   examenGeneradoId        String?
-  metadata                String?  // JSON string
+  metadata                String? // JSON string
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -699,7 +964,7 @@ model ResumenEvaluacionAlumno {
   finalRedondeada       Float    @default(0)
   estado                String   @default("incompleto")
   faltantes             String   @default("[]") // JSON array
-  auditoria             String?  // JSON string
+  auditoria             String? // JSON string
   calculadoEn           DateTime @default(now())
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -714,10 +979,10 @@ model EventoCumplimiento {
   alumnoId    String?
   tipo        String?
   descripcion String?
-  metadata    String?  // JSON string
+  metadata    String? // JSON string
   accion      String?
   severidad   String?  @default("info")
-  detalles    String?  // JSON string
+  detalles    String? // JSON string
   createdAt   DateTime @default(now())
 
   @@map("eventos_cumplimiento")
@@ -733,7 +998,7 @@ model SolicitudDsr {
   estado         String?   @default("pendiente")
   resolvidaEn    DateTime?
   respuesta      String?
-  metadata       String?   // JSON string
+  metadata       String? // JSON string
   titularRef     String?
   scope          String?
   status         String?   @default("pendiente")
@@ -754,7 +1019,7 @@ model IntegracionClassroom {
   refreshToken  String?
   tokenExpiraEn DateTime?
   activo        Boolean   @default(true)
-  metadata      String?   // JSON string
+  metadata      String? // JSON string
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -768,8 +1033,8 @@ model BitacoraSyncClassroom {
   courseId  String?
   tipo      String
   estado    String   @default("ok")
-  resumen   String?  // JSON string
-  errores   String?  // JSON string array
+  resumen   String? // JSON string
+  errores   String? // JSON string array
   createdAt DateTime @default(now())
 
   @@map("bitacora_sync_classroom")
@@ -783,7 +1048,7 @@ model MapeoClassroomAlumnoCurso {
   courseId        String
   classroomUserId String?
   classroomEmail  String?
-  metadata        String?  // JSON string
+  metadata        String? // JSON string
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -801,7 +1066,7 @@ model MapeoClassroomEvidencia {
   submissionId String?
   evidenciaId  String?
   estado       String   @default("pendiente")
-  metadata     String?  // JSON string
+  metadata     String? // JSON string
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -814,7 +1079,7 @@ model OmrSheetFamily {
   periodoId     String?
   plantillaId   String?
   nombre        String
-  configuracion String   // JSON string
+  configuracion String // JSON string
   activo        Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -827,7 +1092,7 @@ model OmrSheetRevision {
   docenteId     String
   familiaId     String
   revision      Int      @default(1)
-  configuracion String   // JSON string
+  configuracion String // JSON string
   motivo        String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -844,7 +1109,7 @@ model OmrScanJob {
   totalHojas   Int       @default(0)
   procesadas   Int       @default(0)
   errores      String    @default("[]") // JSON array
-  metadata     String?   // JSON string
+  metadata     String? // JSON string
   iniciadoEn   DateTime?
   completadoEn DateTime?
   createdAt    DateTime  @default(now())
@@ -858,7 +1123,7 @@ model Sincronizacion {
   docenteId      String
   tipo           String
   estado         String    @default("pendiente")
-  metadata       String?   // JSON string
+  metadata       String? // JSON string
   sincronizadoEn DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -869,8 +1134,8 @@ model Sincronizacion {
 // ─── MODELOS COMERCIAL CORE Y TENANCY ─────────────────────────────────────────
 
 model Tenant {
-  id                String          @id @default(uuid())
-  tenantId          String          @unique
+  id                String   @id @default(uuid())
+  tenantId          String   @unique
   nombre            String
   tipoTenant        String
   modalidad         String
@@ -878,17 +1143,17 @@ model Tenant {
   pais              String
   moneda            String
   ownerDocenteId    String
-  contacto          String?         // JSON string
-  configAislamiento String          // JSON string
-  tags              String          @default("[]") // JSON array
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  contacto          String? // JSON string
+  configAislamiento String // JSON string
+  tags              String   @default("[]") // JSON array
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@map("tenants")
 }
 
 model Suscripcion {
-  id                   String          @id @default(uuid())
+  id                   String    @id @default(uuid())
   tenantId             String
   planId               String
   ciclo                String
@@ -897,17 +1162,17 @@ model Suscripcion {
   precioAplicado       Float
   tokenPreaprobacion   String?
   siguienteVencimiento DateTime?
-  trial                String?         // JSON string
+  trial                String? // JSON string
   fechaRenovacion      DateTime?
-  descuentoAplicado    Float           @default(0)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  descuentoAplicado    Float     @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@map("suscripciones")
 }
 
 model Cobranza {
-  id                String          @id @default(uuid())
+  id                String    @id @default(uuid())
   tenantId          String
   suscripcionId     String
   monto             Float
@@ -916,12 +1181,12 @@ model Cobranza {
   estado            String
   fechaPago         DateTime?
   metodoPago        String?
-  notificadoWebhook Boolean         @default(false)
+  notificadoWebhook Boolean   @default(false)
   referenciaExterna String?
-  webhookEventId    String?         @unique
-  metadata          String?         // JSON string
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  webhookEventId    String?   @unique
+  metadata          String? // JSON string
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@map("cobranzas")
 }
@@ -940,7 +1205,7 @@ model Licencia {
   tokenLicencia            String    @unique
   tokenLicenciaHash        String    @unique
   codigoActivacion         String    @unique
-    graciaOfflineDias        Int       @default(90)
+  graciaOfflineDias        Int       @default(90)
   estado                   String    @default("generada")
   activadaEn               DateTime?
   ultimoHeartbeatEn        DateTime?
@@ -951,7 +1216,7 @@ model Licencia {
   intentosFallidos         Int       @default(0)
   puntajeAnomalia          Int       @default(0)
   revocadaRazon            String?
-  metaDispositivo          String?   // JSON string
+  metaDispositivo          String? // JSON string
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
@@ -959,16 +1224,16 @@ model Licencia {
 }
 
 model Cupon {
-  id              String          @id @default(uuid())
-  codigo          String          @unique
+  id              String    @id @default(uuid())
+  codigo          String    @unique
   descuentoPct    Float
   planId          String?
   fechaExpiracion DateTime?
-  usosActuales    Int             @default(0)
-  usosMaximos     Int             @default(100)
-  activo          Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  usosActuales    Int       @default(0)
+  usosMaximos     Int       @default(100)
+  activo          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@map("cupones")
 }
@@ -991,7 +1256,7 @@ model Campana {
 model ConsentimientoComercial {
   id          String   @id @default(uuid())
   tenantId    String
-  finalidades String   // JSON string
+  finalidades String // JSON string
   ip          String?
   userAgent   String?
   createdAt   DateTime @default(now())
@@ -1003,7 +1268,7 @@ model EventoComercial {
   id        String   @id @default(uuid())
   tenantId  String
   tipo      String
-  payload   String?  // JSON string
+  payload   String? // JSON string
   createdAt DateTime @default(now())
 
   @@map("eventos_comerciales")
@@ -1018,7 +1283,7 @@ model AuditoriaComercial {
   recursoId      String?
   origen         String   @default("panel_admin_negocio")
   ip             String?
-  diff           String?  // JSON string
+  diff           String? // JSON string
   createdAt      DateTime @default(now())
 
   @@map("auditorias_comerciales")
@@ -1031,7 +1296,7 @@ model PlanComercial {
   precioMensual        Float
   precioAnual          Float
   moneda               String   @default("MXN")
-  limites              String   // JSON string
+  limites              String // JSON string
   activo               Boolean  @default(true)
   lineaPersona         String
   nivel                Int
@@ -1059,40 +1324,40 @@ model PlantillaNotificacion {
 }
 
 model EncuadreAcademico {
-  id              String         @id @default(uuid())
-  periodoId       String         @unique
-  periodo         Periodo        @relation(fields: [periodoId], references: [id], onDelete: Cascade)
-  docenteId       String
-  carrera         String         // Ej: "Ingeniería en Sistemas Computacionales"
-  asignatura      String         // Ej: "Diseño Digital"
-  cicloLectivo    String         // Ej: "Abril-Mayo 2026"
-  horasDocente    Int            @default(50)
-  creditos        Float          @default(6.25)
-  ponderaciones   String         // JSON: pesos de actividades, exámenes escritos, prácticas y global
-  rutaPdf         String?        // Ruta al PDF del encuadre firmado/en proceso
-  firmas          FirmaEncuadre[]
-  estado          String         @default("pendiente_firmas") // "pendiente_firmas", "completado"
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id            String          @id @default(uuid())
+  periodoId     String          @unique
+  periodo       Periodo         @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  docenteId     String
+  carrera       String // Ej: "Ingeniería en Sistemas Computacionales"
+  asignatura    String // Ej: "Diseño Digital"
+  cicloLectivo  String // Ej: "Abril-Mayo 2026"
+  horasDocente  Int             @default(50)
+  creditos      Float           @default(6.25)
+  ponderaciones String // JSON: pesos de actividades, exámenes escritos, prácticas y global
+  rutaPdf       String? // Ruta al PDF del encuadre firmado/en proceso
+  firmas        FirmaEncuadre[]
+  estado        String          @default("pendiente_firmas") // "pendiente_firmas", "completado"
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   @@map("encuadres_academicos")
 }
 
 model FirmaEncuadre {
-  id              String            @id @default(uuid())
-  encuadreId      String
-  encuadre        EncuadreAcademico @relation(fields: [encuadreId], references: [id], onDelete: Cascade)
-  rol             String            // "docente" | "alumno"
-  usuarioId       String            // docenteId o alumnoId
-  nombreFirmante  String
-  correo          String
-  tokenFirma      String            @unique // Token único enviado por correo
-  firmado         Boolean           @default(false)
-  firmadoEn       DateTime?
-  direccionIp     String?
-  hashIntegridad  String?           // Hash criptográfico SHA256 que vincula el PDF, el firmante y la fecha
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id             String            @id @default(uuid())
+  encuadreId     String
+  encuadre       EncuadreAcademico @relation(fields: [encuadreId], references: [id], onDelete: Cascade)
+  rol            String // "docente" | "alumno"
+  usuarioId      String // docenteId o alumnoId
+  nombreFirmante String
+  correo         String
+  tokenFirma     String            @unique // Token único enviado por correo
+  firmado        Boolean           @default(false)
+  firmadoEn      DateTime?
+  direccionIp    String?
+  hashIntegridad String? // Hash criptográfico SHA256 que vincula el PDF, el firmante y la fecha
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@unique([encuadreId, usuarioId])
   @@map("firmas_encuadre")

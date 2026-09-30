@@ -8,13 +8,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll } from 'vitest';
-import { resolverNombreDbTest } from './utils/testDbPath';
+import { resolverNombreDbTest } from './utils/testDbPath.js';
 
 const dbFile = resolverNombreDbTest();
 const configuredDataDir = String(process.env.EVALUAPRO_TEST_DATA_DIR || '').trim();
 const dataDir = configuredDataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-backend-setup-'));
 const resolvedDataDir = path.resolve(dataDir);
 process.env.EVALUAPRO_TEST_DATA_DIR = dataDir;
+if (!configuredDataDir) process.env.EVALUAPRO_TEST_DATA_DIR_MANAGED = resolvedDataDir;
 process.env.EVALUAPRO_ARCHIVOS_DIR = path.join(dataDir, 'examenes');
 process.env.EVALUAPRO_ENCUADRES_DIR = path.join(dataDir, 'encuadres');
 const dbPath = path.resolve(dataDir, dbFile);
@@ -26,7 +27,7 @@ async function limpiarDataTest() {
   // mantiene abierta SQLite. Desconectar primero evita residuos temporales.
   if (!configuredDataDir) {
     try {
-      const { prisma } = await import('../src/infraestructura/baseDatos/sqlite');
+      const { prisma } = await import('../src/infraestructura/baseDatos/sqlite.js');
       await prisma.$disconnect();
     } catch {
       // Algunos tests no cargan Prisma; la limpieza del directorio continúa.
@@ -45,7 +46,7 @@ process.on('exit', () => {
   }
 });
 
-import { instalarTestHardening } from '../../../test-utils/vitestStrict';
+import { instalarTestHardening } from '../../../test-utils/vitestStrict.js';
 
 // Setup comun para pruebas del backend.
 process.env.NODE_ENV = 'test';
@@ -54,9 +55,6 @@ process.env.NODE_ENV = 'test';
 // Subimos el limite para evitar falsos negativos por rate limiting.
 process.env.RATE_LIMIT_LIMIT = '100000';
 process.env.EVALUAPRO_LOG_SILENT = '1';
-
-// En pruebas se permiten correos de cualquier dominio.
-process.env.DOMINIOS_CORREO_PERMITIDOS = '';
 
 instalarTestHardening({
   // Node 24 emite este warning transitorio desde dependencias de terceros

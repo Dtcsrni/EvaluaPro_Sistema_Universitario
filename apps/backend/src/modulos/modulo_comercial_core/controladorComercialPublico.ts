@@ -5,8 +5,8 @@
  * Limites: Evitar mover logica de negocio profunda a controlador.
  */
 import type { Request, Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
 import {
   Licencia,
   Suscripcion,
@@ -22,7 +22,7 @@ import {
   validarFirmaWebhookMercadoPago,
   validarTransicionEstadoSuscripcionPorCobranza,
   verificarTokenLicencia
-} from './servicioComercialCore';
+} from './servicioComercialCore.js';
 
 const LIMITE_ANOMALIA_BLOQUEO = 3;
 

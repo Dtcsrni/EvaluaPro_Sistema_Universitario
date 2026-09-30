@@ -7,13 +7,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr';
-import { evaluarAutoCalificableOmr } from '../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr';
+import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
+import { evaluarAutoCalificableOmr } from '../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
 import type {
   CaptureManifestPorFolio,
   GroundTruthRowPorFolio,
   MapaOmrPaginaPorFolio
-} from '../src/modulos/modulo_escaneo_omr/porFolioDataset';
+} from '../src/modulos/modulo_escaneo_omr/porFolioDataset.js';
 
 type EstadoAnalisisOmr = 'ok' | 'rechazado_calidad' | 'requiere_revision';
 
@@ -33,6 +33,8 @@ type ManifestDataset = {
   groundTruthRef: string;
   capturas: CaptureManifestPorFolio[];
 };
+
+type PilotValidationStatus = 'passed' | 'failed' | 'not_applicable';
 
 type Args = {
   dataset: string;
@@ -120,7 +122,57 @@ export async function runTv4PilotRealValidation(args: {
   const failureReportPath = path.resolve(process.cwd(), args.failureReportPath);
   const manifest = await readJsonFile<ManifestDataset>(path.join(datasetRoot, 'manifest.json'));
   if (!Array.isArray(manifest.capturas) || manifest.capturas.length === 0) {
-    throw new Error('El dataset piloto real TV4 no contiene capturas. Ejecuta primero el armado del piloto real.');
+    const runId = `omr-tv4-pilot-real-${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    const reason = 'El dataset piloto real TV4 no contiene capturas; la validación física queda not_applicable.';
+    const report = {
+      runId,
+      timestamp,
+      datasetRoot,
+      datasetType: manifest.datasetType,
+      status: 'not_applicable' as PilotValidationStatus,
+      reason,
+      thresholds: manifest.thresholds,
+      metrics: {
+        precision: null,
+        falsePositiveRate: null,
+        invalidDetectionRate: null,
+        pagePassRate: null,
+        autoGradeTrustRate: null,
+        autoCoverageRate: null,
+        capturePassRate: null,
+        totalCaptures: 0,
+        totalPreguntasEvaluadas: 0
+      },
+      checks: {
+        precision: false,
+        falsePositiveRate: false,
+        invalidDetectionRate: false,
+        pagePassRate: false,
+        autoGradeTrustRate: false,
+        autoCoverageRate: false
+      },
+      ok: false,
+      perCapture: []
+    };
+    const failures = {
+      runId,
+      timestamp,
+      datasetRoot,
+      status: 'not_applicable' as PilotValidationStatus,
+      reason,
+      topCauses: [{ causa: 'capture_count_zero', total: 1 }],
+      topCaptures: [],
+      byEstadoAnalisis: { ok: 0, requiere_revision: 0, rechazado_calidad: 0 },
+      byFolio: {},
+      byPagina: {},
+      byTipoError: {}
+    };
+    await fs.mkdir(path.dirname(reportPath), { recursive: true });
+    await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+    await fs.mkdir(path.dirname(failureReportPath), { recursive: true });
+    await fs.writeFile(failureReportPath, `${JSON.stringify(failures, null, 2)}\n`, 'utf8');
+    return { report, failures };
   }
   const truthRows = await readGroundTruth(path.join(datasetRoot, manifest.groundTruthRef));
   const truthByCapture = groupTruth(truthRows);
@@ -298,6 +350,7 @@ export async function runTv4PilotRealValidation(args: {
     timestamp: new Date().toISOString(),
     datasetRoot,
     datasetType: manifest.datasetType,
+    status: (ok ? 'passed' : 'failed') as PilotValidationStatus,
     thresholds: manifest.thresholds,
     metrics: {
       precision: round6(precision),

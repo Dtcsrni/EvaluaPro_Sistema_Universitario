@@ -1,10 +1,10 @@
 /**
  * Punto de entrada del portal alumno cloud.
  */
-import { crearApp } from './app';
-import { configuracion } from './configuracion';
-import { conectarSqlite } from './infraestructura/baseDatos/sqlite';
-import { log, logError } from './infraestructura/logging/logger';
+import { crearApp } from './app.js';
+import { configuracion } from './configuracion.js';
+import { conectarSqlite } from './infraestructura/baseDatos/sqlite.js';
+import { log, logError } from './infraestructura/logging/logger.js';
 
 async function iniciar() {
   await conectarSqlite();

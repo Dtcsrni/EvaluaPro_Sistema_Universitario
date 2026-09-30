@@ -2,9 +2,9 @@
  * Controlador de administracion de docentes (solo admin).
  */
 import type { Request, Response } from 'express';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { normalizarRoles, permisosComoLista } from '../../infraestructura/seguridad/rbac';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { normalizarRoles, permisosComoLista } from '../../infraestructura/seguridad/rbac.js';
 
 export async function listarDocentes(req: Request, res: Response) {
   const q = String(req.query.q ?? '').trim();

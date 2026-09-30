@@ -1,0 +1,128 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "89899ee5-b3a1-413d-8ad3-4463e9f9cb47",
+  "status": "draft",
+  "generatedAt": "2026-09-30T09:01:20.771Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Continuar la verificación de paridad GUI/API para calificaciones, Classroom y listas de BI y DDAW."
+  },
+  "objective": "Aumentar la evidencia de que consulta, captura, previsualización, guardado y exportación de calificaciones usan contratos compatibles en GUI y API.",
+  "scope": [
+    "Consulta y captura de calificaciones manuales",
+    "Evaluación continua desde Classroom",
+    "Vista previa y guardado del bono",
+    "Consulta y exportación XLSX de listas"
+  ],
+  "constraints": [
+    "No modificar los libros institucionales ni las calificaciones mientras P1/P2 discrepen entre fuentes.",
+    "Conservar los cambios preexistentes del checkout.",
+    "No incluir materias fuera del flujo solicitado."
+  ],
+  "actions": [
+    {
+      "timestamp": "2026-09-30T09:01:20.771Z",
+      "summary": "Revisado el checkout canónico, spec de calificaciones y contratos API/GUI.",
+      "type": "repository-inspection",
+      "status": "ok"
+    },
+    {
+      "timestamp": "2026-09-30T09:01:20.771Z",
+      "summary": "Backend local respondió HTTP 200 en /api/salud/ready; GUI autenticada mostró confirmación de exportación XLSX.",
+      "type": "runtime-check",
+      "status": "ok"
+    },
+    {
+      "timestamp": "2026-09-30T09:01:20.771Z",
+      "summary": "Pruebas focalizadas backend, frontend y SDK completadas sin fallos.",
+      "type": "tests",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "README.md",
+      "docs/README.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/IA_SKILLS_MCP_POLICY.md",
+      "docs/POLITICA_ECONOMIA_TOKENS_CODEX.md",
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md",
+      "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts",
+      "apps/backend/src/modulos/modulo_analiticas/controladorAnaliticas.ts"
+    ],
+    "changed": [],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "resultSummary": "3 archivos, 20 pruebas aprobadas.",
+      "name": "backend-grades-focused",
+      "status": "ok",
+      "durationMs": 51570,
+      "exitCode": 0,
+      "command": "npm test -- --run tests/integracion/listaAcademicaContratos.test.ts tests/bonoExtracurricular.test.ts tests/analiticas.xlsx.sv.contract.test.ts"
+    },
+    {
+      "resultSummary": "3 archivos, 12 pruebas aprobadas.",
+      "name": "frontend-grades-focused",
+      "status": "ok",
+      "durationMs": 24290,
+      "exitCode": 0,
+      "command": "npm test -- --run tests/seccionCalificaciones.resumen.test.tsx tests/seccionCalificaciones.manualSelector.test.tsx tests/classroomEnCalificaciones.mapeoCortes.test.tsx"
+    },
+    {
+      "resultSummary": "38 pruebas aprobadas.",
+      "name": "sdk-tests",
+      "status": "ok",
+      "durationMs": 158,
+      "exitCode": 0,
+      "command": "node --test scripts/tests/evaluapro-client.test.mjs"
+    },
+    {
+      "resultSummary": "HTTP 200.",
+      "name": "local-api-ready",
+      "status": "ok",
+      "durationMs": 0,
+      "exitCode": 0,
+      "command": "GET http://127.0.0.1:4000/api/salud/ready"
+    },
+    {
+      "name": "traceability-tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 891,
+      "resultSummary": "7 pruebas aprobadas."
+    },
+    {
+      "name": "trace-document-validation",
+      "command": "validateTraceDocument(session.json)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Documento de traza válido."
+    }
+  ],
+  "decisions": [
+    "No escribir ni reconciliar P1/P2: las fuentes vigentes difieren y no se definió cuál prevalece.",
+    "La GUI y la API ya exponen los flujos focales; su paridad se valida con rutas compartidas, pruebas de contrato e interfaz."
+  ],
+  "assumptions": [
+    "La discrepancia de P1/P2 requiere decisión de autoridad de datos; no se presupone prioridad por fecha ni formato."
+  ],
+  "risks": [
+    "La exportación mostró confirmación en la GUI, pero no se observó un nuevo archivo en la carpeta estándar de descargas durante esta iteración.",
+    "La vista de salud y las pruebas focales no sustituyen la validación integral de cada flujo productivo."
+  ],
+  "nextStep": "Solicitar la fuente de autoridad para P1/P2; después reconciliar solo con la opción acordada y leer de vuelta por GUI y API."
+}

@@ -5,7 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
-import { evaluarAutoCalificableOmr } from '../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr';
+import { evaluarAutoCalificableOmr } from '../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
 
 describe('politicaAutoCalificacionOmr', () => {
   it('no autocalifica cuando hay hard-stop por ambiguedad extrema', () => {
@@ -33,5 +33,6 @@ describe('politicaAutoCalificacionOmr', () => {
     expect(resultado.hardStop).toBe(false);
     expect(resultado.autoCalificableOmr).toBe(true);
   });
+
 });
 

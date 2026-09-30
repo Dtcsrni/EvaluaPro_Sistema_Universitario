@@ -13,7 +13,7 @@ Responsable: `I.S.C. Erick Renato Vega Ceron`.
 - `../../docs/DESIGN.md`: contrato UI/UX del Installer Hub.
 
 ## Requisitos
-- WiX Toolset v6.0.x estable (`wix` en PATH).
+- WiX Toolset v7.0.x estable (`wix` en PATH) y EULA `wix7` aceptada explícitamente (`wix eula accept wix7`).
 - Node.js 24+ para tareas de build/empaquetado en host.
 - Runtime Docker compatible para Windows:
   - WSL2 + Docker Engine (default).
@@ -21,7 +21,7 @@ Responsable: `I.S.C. Erick Renato Vega Ceron`.
 - Para `docente-local` instalado:
   - Windows usa runtime Node embebido privado del producto.
   - `WSL2` debe quedar con `Docker Engine + Node 24`.
-- Para compilar bundle, el script resuelve automaticamente la extension BA de WiX 6 (`WixToolset.Bal.wixext` / `WixToolset.BootstrapperApplications.wixext.dll`).
+- Para compilar bundle, el script resuelve automaticamente la extension BA de WiX 7 (`WixToolset.Bal.wixext` / `WixToolset.BootstrapperApplications.wixext.dll`).
 
 ## Build
 
@@ -67,10 +67,14 @@ Artefactos tecnicos esperados:
 - Publica BA `.NET 8`, compila MSI + bundle Burn (`-SkipStabilityChecks -IncludeBundle`) y publica artefactos.
 
 ## Notas
-- El acceso directo **Prod** ejecuta:
+- El acceso directo principal **EvaluaPro** de `docente-local` ejecuta directamente:
+  - `EvaluaPro.exe` (host nativo WPF/WebView2 con icono embebido)
+- El acceso directo principal de flavors con bandeja conserva:
   - `launcher-tray-hidden.vbs prod 4519`
 - El acceso directo **Dev** ejecuta:
   - `launcher-tray-hidden.vbs dev 4519`
+- `config/shortcuts-manifest.json` es la fuente única de nombres, iconos y launchers.
+- `scripts/create-shortcuts.ps1` es el único escritor de `.lnk`; después de guardar valida destino, dependencias e icono y deja `logs/shortcut-reconciliation.json`.
 - Instalacion/actualizacion:
   - genera automaticamente accesos directos de menu inicio.
   - por defecto tambien genera accesos directos en escritorio (`InstallDesktopShortcuts=1`).

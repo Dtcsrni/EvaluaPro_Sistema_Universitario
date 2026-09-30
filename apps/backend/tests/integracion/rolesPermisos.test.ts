@@ -6,11 +6,12 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { crearApp } from '../../src/app';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
-import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
+import { crearApp } from '../../src/app.js';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
+import { PERMISOS_POR_ROL, permisosParaRoles } from '../../src/infraestructura/seguridad/rbac.js';
 
 describe('roles y permisos', () => {
   const app = crearApp();
@@ -73,6 +74,43 @@ describe('roles y permisos', () => {
 
     const respuesta = await request(app).get('/api/admin/docentes').set(authAdmin).expect(200);
     expect(respuesta.body?.docentes?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
+  it('separa ingesta, revisión y publicación con compatibilidad para banco:gestionar', async () => {
+    const docente = permisosParaRoles(['docente']);
+    const lector = permisosParaRoles(['lector']);
+    for (const permiso of ['banco:ingestar', 'banco:revisar', 'banco:publicar'] as const) {
+      expect(docente.has(permiso)).toBe(true);
+      expect(lector.has(permiso)).toBe(false);
+    }
+
+    const permisosDocenteOriginales = PERMISOS_POR_ROL.docente;
+    PERMISOS_POR_ROL.docente = permisosDocenteOriginales.filter((permiso) => !['banco:ingestar', 'banco:revisar', 'banco:publicar'].includes(permiso));
+    try {
+      const migradosDesdePermisoLegado = permisosParaRoles(['docente']);
+      for (const permiso of ['banco:ingestar', 'banco:revisar', 'banco:publicar'] as const) {
+        expect(migradosDesdePermisoLegado.has(permiso)).toBe(true);
+      }
+    } finally {
+      PERMISOS_POR_ROL.docente = permisosDocenteOriginales;
+    }
+
+    const docenteLegacy = await crearDocenteConRoles('banco-ingesta@local.test', ['docente']);
+    const lectorSolo = await crearDocenteConRoles('banco-solo-lectura@local.test', ['lector']);
+    await request(app).post('/api/banco-preguntas/importaciones/preview').set(authPara(docenteLegacy, ['docente'])).send({}).expect(400);
+    await request(app).post('/api/banco-preguntas/importaciones/preview').set(authPara(lectorSolo, ['lector'])).send({}).expect(403);
+
+    const permisosDocente = PERMISOS_POR_ROL.docente;
+    PERMISOS_POR_ROL.docente = permisosDocente.filter((permiso) => permiso !== 'banco:ingestar' && permiso !== 'banco:gestionar');
+    try {
+      await request(app)
+        .post('/api/hidratacion-cursos/importar')
+        .set(authPara(docenteLegacy, ['docente']))
+        .send({})
+        .expect(403);
+    } finally {
+      PERMISOS_POR_ROL.docente = permisosDocente;
+    }
   });
 
   it('bloquea access token vigente cuando el docente queda inactivo', async () => {

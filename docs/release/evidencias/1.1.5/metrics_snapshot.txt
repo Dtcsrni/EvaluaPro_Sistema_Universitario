@@ -1,0 +1,15 @@
+version=1.1.5
+commit=157229e09e341c69a2fd897cfcc0c6096a0ebda3
+ci_streak=15/10
+frontend_focused_tests=2_passed
+backend_template_regression=4_passed
+frontend_lint=ok
+frontend_docente_build=ok
+installer_hub_contract=82_passed_18_skipped_0_failed
+release_policy=31_passed_0_failed
+local_frontend_http=200
+local_api_http=200
+ci_installer_windows=success
+public_manifest_commit=157229e09e341c69a2fd897cfcc0c6096a0ebda3
+prod_flow_external=pendiente
+

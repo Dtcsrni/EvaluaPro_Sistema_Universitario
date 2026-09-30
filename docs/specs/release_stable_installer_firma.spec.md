@@ -1,11 +1,11 @@
 ---
 id: SPEC-RELEASE-STABLE-INSTALLER-FIRMA
 titulo: Gate estable exige instaladores firmados
-version: 1.0.0
-fecha: 2026-06-27
+version: 1.2.0
+fecha: 2026-09-25
 autor: Codex / Agente IA
 modulo: release
-estado: implemented
+estado: approved
 ---
 
 # SPEC-RELEASE-STABLE-INSTALLER-FIRMA: Gate estable exige instaladores firmados
@@ -27,6 +27,8 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **REQ-011:** Los procesos WiX del build deben tener timeout interno y limpiar procesos hijos para evitar builds colgados que dejen artefactos parciales.
 - **REQ-012:** `release:validate:stable` debe fallar si `docs/release/evidencias/<version>/manifest.json` no corresponde a la version objetivo.
 - **REQ-013:** El Installer Hub WPF no debe exponer configuracion avanzada legacy ni campos tecnicos de Mongo/puertos/CORS/licencia en la UI de usuario final; el flujo `docente-local` debe usar defaults internos verificables.
+- **REQ-014:** El manifiesto QA debe registrar el commit candidato y la fecha de generación. `release:validate:stable` debe rechazar un commit distinto al `HEAD` evaluado, un manifiesto de más de 24 horas y cualquier artefacto requerido ausente, con tamaño/fecha que no correspondan al archivo, con fecha inválida/futura o con más de 24 horas de antigüedad.
+- **REQ-015:** El manifiesto QA debe registrar si el árbol de fuentes estaba limpio al terminar `qa:full`; se excluyen únicamente los reportes QA y salidas de dataset/depuración generadas por las pruebas. `release:validate:stable` debe rechazar evidencia creada con cambios de fuente pendientes o sin commit.
 
 ## Criterios de Aceptación
 - **AC-001 (REQ-001):** Un manifest completo con flavors requeridos y artefactos firmados permite aprobar el check de instalador.
@@ -42,6 +44,8 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-011 (REQ-011):** `Invoke-WixBuildProcess` respeta `EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS` y falla con mensaje accionable si WiX excede el tiempo permitido.
 - **AC-012 (REQ-012):** Una ejecucion con `--version=1.1.1` y evidencia `manifest.json` de `1.0.0` produce `No-Go` en `release-evidence`.
 - **AC-013 (REQ-013):** El contrato del Hub falla si aparecen `AdvancedConfigExpander`, `Configuración avanzada`, `Mongo URI`, `MongoDB` o controles XAML legacy de configuracion avanzada.
+- **AC-014 (REQ-014):** Pruebas antirregresión demuestran No-Go para manifiesto/artefacto QA obsoleto, commit distinto, tamaño o fecha manipulados; un manifiesto fresco con metadatos concordantes y commit actual conserva Go.
+- **AC-015 (REQ-015):** La prueba demuestra No-Go ante cambios de fuente pendientes y confirma que las rutas de salida QA/dataset no invalidan un árbol de fuentes limpio.
 
 ## Matriz de Trazabilidad
 
@@ -60,3 +64,5 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 | REQ-011 | WiX no puede quedar colgado indefinidamente | scripts/tests/installer-hub-contract.test.mjs | Completado |
 | REQ-012 | Evidencia release debe coincidir con version objetivo | scripts/tests/release-stable-promotion.test.mjs | Completado |
 | REQ-013 | Hub no expone configuracion avanzada legacy | scripts/tests/installer-hub-contract.test.mjs | Completado |
+| REQ-014 | QA fresco, íntegro y ligado al commit candidato | scripts/tests/release-stable-promotion.test.mjs | En desarrollo |
+| REQ-015 | QA solo desde árbol de fuentes limpio | scripts/tests/release-stable-promotion.test.mjs | En desarrollo |

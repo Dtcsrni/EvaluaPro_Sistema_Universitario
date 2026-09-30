@@ -6,21 +6,24 @@
  * - `descargarPdf` solo sirve PDFs cuyo path proviene del propio documento del examen.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { Buffer } from 'node:buffer';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { promises as fs } from 'fs';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { generarPdfExamen } from './servicioGeneracionPdf';
-import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
-import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
-import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
-import { TEMPLATE_VERSION_CANONICA } from './domain/templateCanonico';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { normalizarEnunciadoBanco } from '../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
+import { generarPdfExamen } from './servicioGeneracionPdf.js';
+import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
+import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto.js';
+import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla.js';
+import { TEMPLATE_VERSION_CANONICA } from './domain/templateCanonico.js';
+import { esquemaListarExamenesGenerados, esquemaListarLotesExamenes } from './validacionesExamenes.js';
 import {
   asegurarExamenDescargable,
   construirMetadataRetencion,
   ejecutarPurgeExamenesGenerados
-} from './servicioRetencionExamenes';
+} from './servicioRetencionExamenes.js';
 
 type BancoPreguntaLean = {
   _id: unknown;
@@ -107,7 +110,7 @@ function formatearPreguntaPrisma(raw: any) {
     updatedAt: raw.updatedAt,
     versiones: (raw.versiones || []).map((v: any) => ({
       numeroVersion: v.numeroVersion,
-      enunciado: v.enunciado,
+      enunciado: normalizarEnunciadoBanco(v.enunciado),
       imagenUrl: v.imagenUrl ?? undefined,
       opciones: (v.opciones || []).map((o: any) => ({
         texto: o.texto,
@@ -154,21 +157,67 @@ function construirNombrePdfExamen(parametros: {
  */
 export async function listarExamenesGenerados(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const where: any = { docenteId };
-  if (req.query.periodoId) where.periodoId = String(req.query.periodoId).trim();
-  if (req.query.alumnoId) where.alumnoId = String(req.query.alumnoId).trim();
-  if (req.query.plantillaId) where.plantillaId = String(req.query.plantillaId).trim();
-  if (req.query.folio) where.folio = String(req.query.folio).trim().toUpperCase();
-  const queryArchivado = String(req.query.archivado ?? '').trim().toLowerCase();
+  const filtros = esquemaListarExamenesGenerados.parse(res.locals.validatedQuery ?? req.query);
+  const queryArchivado = filtros.archivado;
   const filtrarArchivadas = queryArchivado === '1' || queryArchivado === 'true' || queryArchivado === 'si' || queryArchivado === 's';
-  where.archivadoEn = filtrarArchivadas ? { not: null } : null;
-
-  const limite = Number(req.query.limite ?? 0);
-  const rawExamenes = await prisma.examenGenerado.findMany({
+  const where: any = {
+    docenteId,
+    ...(filtros.periodoId ? { periodoId: filtros.periodoId } : {}),
+    ...(filtros.alumnoId ? { alumnoId: filtros.alumnoId } : {}),
+    ...(filtros.plantillaId ? { plantillaId: filtros.plantillaId } : {}),
+    ...(filtros.folio ? { folio: filtros.folio.toUpperCase() } : {}),
+    archivadoEn: filtrarArchivadas ? { not: null } : null
+  };
+  let cursor: { id: string; generadoEn: Date } | undefined;
+  if (filtros.cursor) {
+    try {
+      const decoded = JSON.parse(Buffer.from(filtros.cursor, 'base64url').toString('utf8')) as { id?: unknown; generadoEn?: unknown };
+      const generadoEn = new Date(String(decoded.generadoEn ?? ''));
+      if (typeof decoded.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(decoded.id) || !Number.isFinite(generadoEn.getTime())) {
+        throw new Error('invalid cursor');
+      }
+      cursor = { id: decoded.id, generadoEn };
+    } catch {
+      throw new ErrorAplicacion('EXAMEN_GENERADO_CURSOR_INVALIDO', 'El cursor de exámenes generados no es válido', 400);
+    }
+  }
+  if (cursor) {
+    where.OR = [
+      { generadoEn: { lt: cursor.generadoEn } },
+      { generadoEn: cursor.generadoEn, id: { lt: cursor.id } }
+    ];
+  }
+  const filas = await prisma.examenGenerado.findMany({
     where,
-    take: limite > 0 ? limite : undefined,
-    orderBy: [{ generadoEn: 'desc' }, { id: 'desc' }]
+    take: filtros.limite + 1,
+    orderBy: [{ generadoEn: 'desc' }, { id: 'desc' }],
+    select: {
+      id: true,
+      periodoId: true,
+      plantillaId: true,
+      alumnoId: true,
+      loteId: true,
+      origenGeneracion: true,
+      folio: true,
+      estado: true,
+      entregadoEn: true,
+      generadoEn: true,
+      descargadoEn: true,
+      archivadoEn: true,
+      paginas: true,
+      rutaPdf: true,
+      bookletArtifact: true,
+      omrSheetArtifact: true,
+      studentPacketArtifacts: true,
+      studentPacketZipArtifact: true,
+      manifestArtifact: true,
+      answerKeyArtifact: true,
+      retentionStatus: true,
+      artifactsPurgedAt: true
+    }
   });
+  const hayMas = filas.length > filtros.limite;
+  const rawExamenes = filas.slice(0, filtros.limite);
 
   const examenesIds = rawExamenes.map((e) => e.id);
   const entregas = examenesIds.length
@@ -195,17 +244,82 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
   }
 
   const examenesConEntrega = rawExamenes.map((raw) => {
-    const formatted = formatearExamenGeneradoPrisma(raw) as any;
     const entrega = entregaPorExamenId.get(raw.id);
     return {
-      ...formatted,
-      ...construirMetadataRetencion(formatted),
+      _id: raw.id,
+      id: raw.id,
+      periodoId: raw.periodoId,
+      plantillaId: raw.plantillaId,
+      alumnoId: raw.alumnoId,
+      loteId: raw.loteId,
+      origenGeneracion: raw.origenGeneracion,
+      folio: raw.folio,
+      estado: raw.estado,
+      entregadoEn: raw.entregadoEn,
+      generadoEn: raw.generadoEn,
+      descargadoEn: raw.descargadoEn,
+      archivadoEn: raw.archivadoEn,
+      paginas: parseJsonSafe(raw.paginas) ?? [],
+      ...construirMetadataRetencion(raw),
       acordeonEntregado: Boolean(entrega?.acordeonEntregado),
       bonoAcordeon: Number(entrega?.bonoAcordeon ?? 0)
     };
   });
 
-  res.json({ examenes: examenesConEntrega });
+  const ultimo = hayMas ? rawExamenes[rawExamenes.length - 1] : undefined;
+  const nextCursor = ultimo
+    ? Buffer.from(JSON.stringify({ id: ultimo.id, generadoEn: ultimo.generadoEn.toISOString() }), 'utf8').toString('base64url')
+    : null;
+  res.json({ examenes: examenesConEntrega, nextCursor });
+}
+
+/** Lista los paquetes de examen consolidados del docente; los lotes parciales se consultan por su ID estable. */
+export async function listarLotesExamenesGenerados(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const filtros = esquemaListarLotesExamenes.parse(res.locals.validatedQuery ?? req.query);
+  const incluirArchivados = ['1', 'true', 'si', 's'].includes(filtros.archivado);
+  let cursor: { id: string; updatedAt: Date } | undefined;
+  if (filtros.cursor) {
+    try {
+      const decoded = JSON.parse(Buffer.from(filtros.cursor, 'base64url').toString('utf8')) as { id?: unknown; updatedAt?: unknown };
+      const updatedAt = new Date(String(decoded.updatedAt ?? ''));
+      if (typeof decoded.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(decoded.id) || !Number.isFinite(updatedAt.getTime())) throw new Error('invalid cursor');
+      cursor = { id: decoded.id, updatedAt };
+    } catch {
+      throw new ErrorAplicacion('LOTE_CURSOR_INVALIDO', 'El cursor de lotes no es válido', 400);
+    }
+  }
+
+  const filas = await prisma.examenLoteArtefactoPdf.findMany({
+    where: {
+      docenteId,
+      ...(filtros.plantillaId ? { plantillaId: filtros.plantillaId } : {}),
+      archivadoEn: incluirArchivados ? { not: null } : null,
+      ...(cursor ? { OR: [{ updatedAt: { lt: cursor.updatedAt } }, { updatedAt: cursor.updatedAt, id: { lt: cursor.id } }] } : {})
+    },
+    take: filtros.limite + 1,
+    orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    select: { id: true, loteId: true, plantillaId: true, sha256: true, totalPaginas: true, totalExamenes: true, archivadoEn: true, createdAt: true, updatedAt: true }
+  });
+  const hayMas = filas.length > filtros.limite;
+  const lotes = filas.slice(0, filtros.limite).map((lote) => ({
+    loteId: lote.loteId,
+    plantillaId: lote.plantillaId,
+    sha256: lote.sha256,
+    totalPaginas: lote.totalPaginas,
+    totalExamenes: lote.totalExamenes,
+    archivado: Boolean(lote.archivadoEn),
+    archivadoEn: lote.archivadoEn?.toISOString() ?? null,
+    pdfUrl: `/examenes/generados/lote/${encodeURIComponent(lote.loteId)}/pdf`,
+    progresoUrl: `/examenes/generados/lote/${encodeURIComponent(lote.loteId)}/progreso`,
+    createdAt: lote.createdAt.toISOString(),
+    updatedAt: lote.updatedAt.toISOString()
+  }));
+  const ultimo = hayMas ? filas[filtros.limite - 1] : undefined;
+  const nextCursor = ultimo
+    ? Buffer.from(JSON.stringify({ id: ultimo.id, updatedAt: ultimo.updatedAt.toISOString() }), 'utf8').toString('base64url')
+    : null;
+  res.json({ lotes, nextCursor });
 }
 
 /**
@@ -222,6 +336,49 @@ export async function obtenerExamenPorFolio(req: SolicitudDocente, res: Response
   }
   const formatted = formatearExamenGeneradoPrisma(raw);
   res.json({ examen: { ...formatted, ...construirMetadataRetencion(formatted) } });
+}
+
+/**
+ * Obtiene el detalle consumido por el workflow OMR moderno.
+ * La respuesta conserva el examen generado existente y expone solo URLs
+ * respaldadas por rutas reales del API.
+ */
+export async function obtenerExamenGeneradoPorId(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const examenId = String(req.params.id || '').trim();
+  const raw = await prisma.examenGenerado.findFirst({ where: { id: examenId, docenteId } });
+  if (!raw) throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
+
+  const formatted = formatearExamenGeneradoPrisma(raw) as any;
+  const versionSet = Array.isArray(formatted.versionSet)
+    ? formatted.versionSet.map((item: any) => ({
+        versionCode: String(item?.versionCode ?? item?.codigo ?? 'A'),
+        questionCount: Number(item?.questionCount ?? item?.preguntas ?? 0)
+      }))
+    : [];
+  const sheetInstances = Array.isArray(formatted.sheetInstances) ? formatted.sheetInstances : [];
+  const rawSummary = formatted.statisticsSummary && typeof formatted.statisticsSummary === 'object' ? formatted.statisticsSummary : {};
+
+  res.json({
+    assessment: {
+      _id: formatted._id,
+      folio: formatted.folio,
+      generationSeed: String(formatted.generationSeed ?? ''),
+      previewFingerprint: String(formatted.previewFingerprint ?? ''),
+      bookletPdfUrl: `/examenes/generados/${encodeURIComponent(formatted._id)}/pdf`,
+      omrSheetPdfUrl: `/examenes/generados/${encodeURIComponent(formatted._id)}/pdf`,
+      versionSet,
+      statisticsSummary: {
+        sheetCount: Number(rawSummary.sheetCount ?? sheetInstances.length),
+        studentPacketCount: Number(rawSummary.studentPacketCount ?? (Array.isArray(formatted.studentPacketArtifacts) ? formatted.studentPacketArtifacts.length : 0)),
+        versionCount: Number(rawSummary.versionCount ?? versionSet.length)
+      }
+    },
+    sheetInstances,
+    statisticsSummary: rawSummary,
+    versionSet,
+    studentPacketArtifacts: Array.isArray(formatted.studentPacketArtifacts) ? formatted.studentPacketArtifacts : []
+  });
 }
 
 /**
@@ -382,9 +539,22 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
       : Promise.resolve(null),
     prisma.docente.findUnique({ where: { id: docenteId } })
   ]);
+  if (!String(docenteDb?.nombreCompleto ?? '').trim()) {
+    throw new ErrorAplicacion(
+      'DOCENTE_SIN_NOMBRE',
+      'No se puede regenerar el PDF sin el nombre del docente autenticado.',
+      409
+    );
+  }
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantillaRaw as any);
   const templateVersion = TEMPLATE_VERSION_CANONICA;
+  const bookletConfig = {
+    ...(parseJsonSafe<any>(plantillaRaw.bookletConfig) ?? {}),
+    autoFitPages: true,
+    fontScale: 1,
+    lineSpacing: 1.1
+  };
 
   const generarConPaginas = (paginasObjetivo: number) =>
     generarPdfExamen({
@@ -396,7 +566,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
       totalPaginas: paginasObjetivo,
       margenMm: parseJsonSafe<any>(plantillaRaw.configuracionPdf)?.margenMm ?? 8,
       templateVersion,
-      bookletConfig: parseJsonSafe<any>(plantillaRaw.bookletConfig) ?? {},
+      bookletConfig,
       encabezado: {
         materia: String(periodo?.nombre ?? ''),
         docente: String(docenteDb?.nombreCompleto ?? ''),

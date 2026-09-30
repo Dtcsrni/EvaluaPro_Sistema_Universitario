@@ -14,6 +14,8 @@ vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
   clienteApi: {
     obtener: vi.fn(),
     enviar: vi.fn(),
+    actualizar: vi.fn(),
+    enviarFormData: vi.fn(),
     eliminar: vi.fn()
   }
 }));
@@ -62,7 +64,7 @@ describe('SeccionTemarios', () => {
         ]
       });
 
-    vi.mocked(clienteApi.enviar).mockResolvedValueOnce({
+    vi.mocked(clienteApi.enviarFormData).mockResolvedValueOnce({
       temario: {
         _id: 'tem-2',
         nombre: 'Física',
@@ -161,15 +163,73 @@ describe('SeccionTemarios', () => {
     fireEvent.click(btnSubir);
 
     await waitFor(() => {
-      expect(clienteApi.enviar).toHaveBeenCalledWith('/temarios/pdf', expect.objectContaining({
-        periodoId: 'per-1'
-      }));
+      expect(clienteApi.enviarFormData).toHaveBeenCalledWith('/temarios/desde-pdf', expect.any(FormData));
+    });
+  });
+
+  it('permite editar un temario conservando su versión leída y deja motivo de cambio', async () => {
+    const updatedAt = '2026-09-28T05:00:00.000Z';
+    vi.mocked(clienteApi.obtener)
+      .mockResolvedValueOnce({ temarios: [{ _id: 'tem-1', nombre: 'Biología', totalNodos: 1, porcentajeAvance: 0, createdAt: updatedAt, updatedAt }] })
+      .mockResolvedValueOnce({
+        temario: { _id: 'tem-1', nombre: 'Biología', textoOriginal: '1 Célula', totalNodos: 1, porcentajeAvance: 0, updatedAt },
+        nodos: [{ _id: 'n-1', numero: '1', nivel: 1, titulo: 'Célula', estado: 'pendiente' }]
+      })
+      .mockResolvedValueOnce({ temarios: [] })
+      .mockResolvedValueOnce({
+        temario: { _id: 'tem-1', nombre: 'Biología celular', textoOriginal: '1 Célula revisada', totalNodos: 1, porcentajeAvance: 0, updatedAt: '2026-09-28T05:05:00.000Z' },
+        nodos: [{ _id: 'n-1', numero: '1', nivel: 1, titulo: 'Célula revisada', estado: 'pendiente' }]
+      });
+    vi.mocked(clienteApi.actualizar).mockResolvedValueOnce({
+      temario: { _id: 'tem-1', nombre: 'Biología celular', textoOriginal: '1 Célula revisada', totalNodos: 1, porcentajeAvance: 0, updatedAt: '2026-09-28T05:05:00.000Z' },
+      nodos: [{ _id: 'n-1', numero: '1', nivel: 1, titulo: 'Célula revisada', estado: 'pendiente' }]
+    });
+
+    render(<SeccionTemarios periodos={[{ _id: 'per-1', nombre: '2026-A', activo: true }]} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'per-1' } });
+    fireEvent.click(await screen.findByText('Biología'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar temario' }));
+    fireEvent.change(screen.getByPlaceholderText('Nombre del temario'), { target: { value: 'Biología celular' } });
+    fireEvent.change(screen.getByPlaceholderText(/1 Introducción/i), { target: { value: '1 Célula revisada' } });
+    fireEvent.change(screen.getByLabelText('Motivo del cambio'), { target: { value: 'Precisión curricular' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => {
+      expect(clienteApi.actualizar).toHaveBeenCalledWith('/temarios/tem-1', {
+        nombre: 'Biología celular', texto: '1 Célula revisada', expectedUpdatedAt: updatedAt, motivoCambio: 'Precisión curricular'
+      });
+    });
+  });
+
+  it('solicita confirmación y motivo antes de eliminar un temario sin historial', async () => {
+    const updatedAt = '2026-09-28T05:00:00.000Z';
+    vi.mocked(clienteApi.obtener)
+      .mockResolvedValueOnce({ temarios: [{ _id: 'tem-1', nombre: 'Borrador', totalNodos: 1, porcentajeAvance: 0, createdAt: updatedAt, updatedAt }] })
+      .mockResolvedValueOnce({
+        temario: { _id: 'tem-1', nombre: 'Borrador', textoOriginal: '1 Unidad', totalNodos: 1, porcentajeAvance: 0, updatedAt },
+        nodos: [{ _id: 'n-1', numero: '1', nivel: 1, titulo: 'Unidad', estado: 'pendiente' }]
+      });
+    vi.mocked(clienteApi.enviar).mockResolvedValueOnce({ ok: true });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.spyOn(window, 'prompt').mockReturnValue('Borrador duplicado');
+
+    render(<SeccionTemarios periodos={[{ _id: 'per-1', nombre: '2026-A', activo: true }]} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'per-1' } });
+    fireEvent.click(await screen.findByText('Borrador'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar temario' }));
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith('/temarios/tem-1/eliminar', {
+        confirmarEliminacion: true,
+        expectedUpdatedAt: updatedAt,
+        motivoCambio: 'Borrador duplicado'
+      });
     });
   });
 
   it('rechaza archivos que no sean PDF y maneja errores del servidor', async () => {
     vi.mocked(clienteApi.obtener).mockResolvedValueOnce({ temarios: [] });
-    vi.mocked(clienteApi.enviar).mockRejectedValueOnce(new Error('PDF corrupto'));
+    vi.mocked(clienteApi.enviarFormData).mockRejectedValueOnce(new Error('PDF corrupto'));
 
     render(<SeccionTemarios periodos={[{ _id: 'per-1', nombre: '2026-A', activo: true }]} />);
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'per-1' } });

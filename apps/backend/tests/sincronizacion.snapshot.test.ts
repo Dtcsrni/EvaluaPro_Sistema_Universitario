@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
+import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion.js';
 
 const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-snapshot-test-'));
 const db = path.join(raiz, 'evaluapro.db');
@@ -11,9 +11,9 @@ process.env.DATABASE_URL = `file:${db.replace(/\\/g, '/')}`;
 process.env.BACKEND_DATABASE_URL = process.env.DATABASE_URL;
 
 const [{ prisma, conectarSqlite, desconectarSqlite }, { crearHash }, modulo] = await Promise.all([
-  import('../src/infraestructura/baseDatos/sqlite'),
-  import('../src/modulos/modulo_autenticacion/servicioHash'),
-  import('../src/modulos/modulo_sincronizacion_nube/domain/instantaneaLocal')
+  import('../src/infraestructura/baseDatos/sqlite.js'),
+  import('../src/modulos/modulo_autenticacion/servicioHash.js'),
+  import('../src/modulos/modulo_sincronizacion_nube/domain/instantaneaLocal.js')
 ]);
 
 const docenteId = 'snapshot-docente-1';

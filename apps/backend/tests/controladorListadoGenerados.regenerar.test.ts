@@ -60,8 +60,8 @@ vi.mock('../src/modulos/modulo_generacion_pdf/domain/resolverNumeroPaginasPlanti
   resolverNumeroPaginasPlantilla: mockResolverNumeroPaginasPlantilla
 }));
 
-import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
-import { regenerarPdfExamen } from '../src/modulos/modulo_generacion_pdf/controladorListadoGenerados';
+import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion.js';
+import { regenerarPdfExamen } from '../src/modulos/modulo_generacion_pdf/controladorListadoGenerados.js';
 
 describe('controladorListadoGenerados.regenerarPdfExamen', () => {
   beforeEach(() => {

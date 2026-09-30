@@ -6,8 +6,8 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('calificacion OMR prioriza respuestas detectadas', () => {
   const app = crearApp();
@@ -36,7 +36,9 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
     return respuesta.body.token as string;
   }
 
-  it('ignora aciertos manuales cuando existen respuestasDetectadas', async () => {
+  it.each(['sin_marca', 'doble_marca'] as const)(
+    'ignora aciertos manuales y conserva el estado %s cuando la opción es nula',
+    async (estadoRespuesta) => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };
 
@@ -65,21 +67,47 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
       .expect(201);
     const alumnoId = alumnoResp.body.alumno._id as string;
 
-    const preguntaResp = await request(app)
-      .post('/api/banco-preguntas')
+    const temaResp = await request(app)
+      .post('/api/banco-preguntas/temas')
       .set(auth)
-      .send({
-        periodoId,
-        enunciado: 'Pregunta unica',
-        opciones: [
-          { texto: 'Opcion A', esCorrecta: true },
-          { texto: 'Opcion B', esCorrecta: false },
-          { texto: 'Opcion C', esCorrecta: false },
-          { texto: 'Opcion D', esCorrecta: false },
-          { texto: 'Opcion E', esCorrecta: false }
-        ]
-      })
+      .send({ periodoId, nombre: 'Tema OMR prioridad' })
       .expect(201);
+    const temaId = temaResp.body.tema._id as string;
+    const loteReactivos = {
+      contract: 'evaluapro.reactivos.batch',
+      schemaVersion: 1,
+      batchId: 'calificacion-omr-prioridad',
+      target: { periodoId, temaIds: [temaId] },
+      source: { kind: 'manual', generator: 'integracion-backend', generatedAt: new Date().toISOString() },
+      items: Array.from({ length: 5 }, (_, indice) => ({
+        externalKey: `omr-prioridad-${indice + 1}`,
+        itemId: null,
+        expectedVersion: null,
+        format: 'omr.mcq5',
+        stem: { format: 'richtext', value: `Pregunta ${indice + 1}` },
+        options: ['A', 'B', 'C', 'D', 'E'].map((key, index) => ({ key, value: `Opcion ${key}`, isCorrect: index === 0 })),
+        metadata: { difficultyHypothesis: 'medium' },
+        provenance: { origin: 'authored', confidence: 1, notes: 'fixture de prioridad OMR' }
+      }))
+    };
+    const previewReactivos = await request(app)
+      .post('/api/banco-preguntas/importaciones/preview')
+      .set(auth)
+      .send(loteReactivos)
+      .expect(200);
+    const confirmacionReactivos = await request(app)
+      .post(`/api/banco-preguntas/importaciones/${previewReactivos.body.importId}/confirmar`)
+      .set(auth)
+      .send({ planHash: previewReactivos.body.planHash, payload: loteReactivos })
+      .expect(200);
+    const reactivoId = String(confirmacionReactivos.body.reactivoIds[0]);
+    await request(app).post(`/api/banco-preguntas/reactivos/${reactivoId}/revisar`).set(auth).send({}).expect(200);
+    const publicacionReactivo = await request(app)
+      .post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`)
+      .set(auth)
+      .send({})
+      .expect(200);
+    const preguntaId = publicacionReactivo.body.legacyPreguntaId as string;
 
     const plantillaResp = await request(app)
       .post('/api/examenes/plantillas')
@@ -89,9 +117,14 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
         tipo: 'parcial',
         titulo: 'Parcial 1',
         numeroPaginas: 1,
-        preguntasIds: [preguntaResp.body.pregunta._id]
+        preguntasIds: [preguntaId]
       })
       .expect(201);
+
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaResp.body.plantilla._id}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
 
     const examenResp = await request(app)
       .post('/api/examenes/generados')
@@ -120,7 +153,13 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
         totalReactivos: 1,
         bonoSolicitado: 0,
         evaluacionContinua: 0,
-        respuestasDetectadas: [{ numeroPregunta: 1, opcion: null, confianza: 0.92 }],
+        respuestasDetectadas: [{
+          numeroPregunta: 1,
+          opcion: null,
+          confianza: estadoRespuesta === 'sin_marca' ? 0.92 : 0.55,
+          estadoRespuesta,
+          ...(estadoRespuesta === 'doble_marca' ? { flags: ['doble_marca' as const] } : {})
+        }],
         omrAnalisis: {
           estadoAnalisis: 'ok',
           calidadPagina: 0.95,
@@ -140,6 +179,14 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
     expect(calificacionResp.body.calificacion.aciertos).toBe(0);
     expect(calificacionResp.body.calificacion.totalReactivos).toBe(1);
     expect(calificacionResp.body.calificacion.calificacionExamenFinalTexto).toBe('0');
-  });
+    expect(calificacionResp.body.calificacion.respuestasDetectadas).toEqual([
+      expect.objectContaining({
+        opcion: null,
+        estadoRespuesta,
+        ...(estadoRespuesta === 'doble_marca' ? { flags: ['doble_marca'] } : {})
+      })
+    ]);
+    }
+  );
 });
 

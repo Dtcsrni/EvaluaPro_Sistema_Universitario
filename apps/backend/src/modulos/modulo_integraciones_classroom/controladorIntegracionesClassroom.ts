@@ -6,15 +6,15 @@
  */
 import type { Request, Response } from 'express';
 import { URL } from 'node:url';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { IntegracionClassroom } from './modeloIntegracionClassroom';
-import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
+import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia.js';
 import {
   completarOauthClassroom,
   construirUrlOauthClassroom,
   desconectarOauthClassroom
-} from './servicioClassroomGoogle';
+} from './servicioClassroomGoogle.js';
 import {
   actualizarMapeoAlumnosCurso,
   importarAlumnosClassroomAEvaluaPro,
@@ -25,7 +25,7 @@ import {
   obtenerAlumnosCursoClassroom,
   obtenerEstadoClassroom,
   sincronizarImportacionClassroom
-} from './servicioSyncClassroom';
+} from './servicioSyncClassroom.js';
 
 function normalizarTexto(valor: unknown): string {
   return String(valor || '').trim();
@@ -372,7 +372,9 @@ export async function previewImportacionClassroom(req: SolicitudDocente, res: Re
       descripcionEvidencia?: string;
       ponderacion?: number;
       corte?: number;
+      destinoColumna?: 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir' | null;
       activo?: boolean;
+      faltantesConfirmados?: string[];
     }>,
     limiteSubmissions: payload.limiteSubmissions,
     persistir: false
@@ -393,7 +395,9 @@ export async function ejecutarImportacionClassroom(req: SolicitudDocente, res: R
       descripcionEvidencia?: string;
       ponderacion?: number;
       corte?: number;
+      destinoColumna?: 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir' | null;
       activo?: boolean;
+      faltantesConfirmados?: string[];
     }>,
     limiteSubmissions: payload.limiteSubmissions,
     persistir: true
@@ -495,6 +499,12 @@ export async function ejecutarPullClassroom(req: SolicitudDocente, res: Response
       descripcionEvidencia: normalizarTexto(mapeo.descripcionEvidencia) || undefined,
       ponderacion: Number(mapeo.ponderacion ?? 1),
       corte: Number.isFinite(Number(mapeo.corte)) ? Number(mapeo.corte) : undefined,
+      destinoColumna:
+        mapeo.destinoColumna === 'Tareas y Ejercicios 2do Parcial' ||
+        mapeo.destinoColumna === 'Practica 2do Parcial' ||
+        mapeo.destinoColumna === 'Excluir'
+          ? mapeo.destinoColumna
+          : undefined,
       activo: mapeo.activo !== false
     })),
     limiteSubmissions,

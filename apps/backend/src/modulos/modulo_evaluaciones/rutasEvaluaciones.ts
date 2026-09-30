@@ -5,9 +5,10 @@
  * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
-import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { validarQueryRobusto } from '../../compartido/robustez/utilitariosControlador.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos.js';
 import {
   actualizarMapeoAlumnosCursoController,
   importarAlumnosClassroomController,
@@ -21,39 +22,49 @@ import {
   obtenerAlumnosCursoClassroomController,
   obtenerEstadoClassroomController,
   previewImportacionClassroom
-} from '../modulo_integraciones_classroom/controladorIntegracionesClassroom';
+} from '../modulo_integraciones_classroom/controladorIntegracionesClassroom.js';
 import {
   crearEvidenciaEvaluacion,
   crearPoliticaCalificacion,
+  actualizarEvidenciaEvaluacion,
+  archivarEvidenciaEvaluacion,
   guardarComponenteExamenV2,
   guardarConfiguracionPeriodo,
   guardarEvidenciaEvaluacionesV2,
   guardarPoliticaEvaluacionesV2,
   listarEvidenciasEvaluacion,
   listarPoliticasCalificacion,
+  obtenerPoliticaCalificacion,
+  archivarPoliticaCalificacion,
+  obtenerEvidenciaEvaluacion,
+  restaurarEvidenciaEvaluacion,
   obtenerContextoEvaluacionesV2,
   obtenerConfiguracionPeriodo,
   obtenerResumenEvaluacionAlumno,
   obtenerResumenEvaluacionesV2,
   upsertComponenteExamen
-} from './controladorEvaluaciones';
+} from './controladorEvaluaciones.js';
 import {
   esquemaComponenteExamen,
   esquemaConfigurarPeriodo,
   esquemaCrearEvidencia,
   esquemaCrearPolitica,
-  esquemaInicializarEncuadre
-} from './validacionesEvaluaciones';
+  esquemaActualizarEvidencia,
+  esquemaArchivarEvidencia,
+  esquemaRestaurarEvidencia,
+  esquemaInicializarEncuadre,
+  esquemaListarEvidenciasEvaluacion
+} from './validacionesEvaluaciones.js';
 import {
   esquemaActualizarMapeoAlumnosCurso,
   esquemaImportarAlumnosClassroom,
   esquemaEjecutarImportacionClassroom,
   esquemaPreviewImportacionClassroom
-} from '../modulo_integraciones_classroom/validacionesClassroom';
+} from '../modulo_integraciones_classroom/validacionesClassroom.js';
 import {
   inicializarEncuadre,
   obtenerEstadoEncuadre
-} from './controladorEncuadre';
+} from './controladorEncuadre.js';
 
 const router = Router();
 
@@ -64,6 +75,14 @@ router.post(
   validarCuerpo(esquemaCrearPolitica, { strict: true }),
   crearPoliticaCalificacion
 );
+router.get('/politicas/:codigo', requerirPermiso('evaluaciones:leer'), obtenerPoliticaCalificacion);
+router.put(
+  '/politicas/:codigo',
+  requerirPermiso('evaluaciones:gestionar'),
+  validarCuerpo(esquemaCrearPolitica, { strict: true }),
+  crearPoliticaCalificacion
+);
+router.delete('/politicas/:codigo', requerirPermiso('evaluaciones:gestionar'), archivarPoliticaCalificacion);
 router.get('/configuracion-periodo', requerirPermiso('evaluaciones:leer'), obtenerConfiguracionPeriodo);
 router.post(
   '/configuracion-periodo',
@@ -71,7 +90,26 @@ router.post(
   validarCuerpo(esquemaConfigurarPeriodo, { strict: true }),
   guardarConfiguracionPeriodo
 );
-router.get('/evidencias', requerirPermiso('evaluaciones:leer'), listarEvidenciasEvaluacion);
+router.get('/evidencias', requerirPermiso('evaluaciones:leer'), validarQueryRobusto(esquemaListarEvidenciasEvaluacion), listarEvidenciasEvaluacion);
+router.get('/evidencias/:evidenciaId', requerirPermiso('evaluaciones:leer'), obtenerEvidenciaEvaluacion);
+router.put(
+  '/evidencias/:evidenciaId',
+  requerirPermiso('evaluaciones:gestionar'),
+  validarCuerpo(esquemaActualizarEvidencia, { strict: true }),
+  actualizarEvidenciaEvaluacion
+);
+router.post(
+  '/evidencias/:evidenciaId/archivar',
+  requerirPermiso('evaluaciones:gestionar'),
+  validarCuerpo(esquemaArchivarEvidencia, { strict: true }),
+  archivarEvidenciaEvaluacion
+);
+router.post(
+  '/evidencias/:evidenciaId/restaurar',
+  requerirPermiso('evaluaciones:gestionar'),
+  validarCuerpo(esquemaRestaurarEvidencia, { strict: true }),
+  restaurarEvidenciaEvaluacion
+);
 router.post(
   '/evidencias',
   requerirPermiso('evaluaciones:gestionar'),

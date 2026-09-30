@@ -7,7 +7,7 @@
 // Pruebas del endpoint de salud.
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { crearApp } from '../src/app';
+import { crearApp } from '../src/app.js';
 
 describe('salud', () => {
   it('responde con estado ok y metadata de DB', async () => {

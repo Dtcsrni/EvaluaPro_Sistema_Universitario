@@ -10,9 +10,9 @@ import path from 'node:path';
 import { PDFDocument } from 'pdf-lib';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { prepararEscenarioFlujo } from './_flujoDocenteHelper';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { prepararEscenarioFlujo } from './_flujoDocenteHelper.js';
 
 const TOLERANCIA_PUNTOS = 0.5;
 const CARTA_ANCHO = 612;
@@ -24,12 +24,12 @@ async function obtenerExamenGenerado(app: ReturnType<typeof crearApp>, folio: st
     .set(auth)
     .expect(200);
   return examenResp.body.examen as {
-    mapaOmr?: { paginas?: Array<{ qr?: { texto?: string } }>; perfilLayout?: { gridStepPt?: number; bottomSafePt?: number; headerHeightFirst?: number } };
+    mapaOmr?: { paginas?: Array<{ tipoPagina?: 'examen' | 'reverso-vacio'; qr?: { texto?: string } }>; perfilLayout?: { gridStepPt?: number; bottomSafePt?: number; headerHeightFirst?: number } };
   };
 }
 
 function validarContratoMapaOmr(examen: {
-  mapaOmr?: { paginas?: Array<{ qr?: { texto?: string } }>; perfilLayout?: { gridStepPt?: number; bottomSafePt?: number; headerHeightFirst?: number } };
+  mapaOmr?: { paginas?: Array<{ tipoPagina?: 'examen' | 'reverso-vacio'; qr?: { texto?: string } }>; perfilLayout?: { gridStepPt?: number; bottomSafePt?: number; headerHeightFirst?: number } };
 }, folio: string) {
   const mapaOmr = examen.mapaOmr;
   expect(mapaOmr).toBeTruthy();
@@ -43,7 +43,11 @@ function validarContratoMapaOmr(examen: {
   expect(Number(perfilLayout.bottomSafePt || 0)).toBeGreaterThanOrEqual(8);
   expect(Number(perfilLayout.headerHeightFirst || 0)).toBeGreaterThan(20);
   for (const pagina of paginas) {
-    expect(String(pagina?.qr?.texto ?? '')).toContain(folio);
+    if (pagina.tipoPagina === 'reverso-vacio') {
+      expect(pagina.qr).toBeUndefined();
+    } else {
+      expect(String(pagina?.qr?.texto ?? '')).toContain(folio);
+    }
   }
 }
 

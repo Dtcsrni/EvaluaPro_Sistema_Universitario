@@ -4,9 +4,9 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { DefaultPaqueteAssembler, resolverDesdeSincronizacion } from '../../domain/paqueteSincronizacion';
-import { MongoSyncDataRepo, syncClock } from '../../infra/repositoriosSync';
-import { Sincronizacion } from '../../modeloSincronizacion';
+import { DefaultPaqueteAssembler, resolverDesdeSincronizacion } from '../../domain/paqueteSincronizacion.js';
+import { MongoSyncDataRepo, syncClock } from '../../infra/repositoriosSync.js';
+import { Sincronizacion } from '../../modeloSincronizacion.js';
 
 const assembler = new DefaultPaqueteAssembler();
 const dataRepo = new MongoSyncDataRepo();

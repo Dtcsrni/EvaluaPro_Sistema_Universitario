@@ -3,10 +3,10 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { registrarDocente } from './_flujoDocenteHelper';
-import { parsearTextoTemario } from '../../src/modulos/modulo_temarios/servicioParserTemario';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { registrarDocente } from './_flujoDocenteHelper.js';
+import { parsearTextoTemario } from '../../src/modulos/modulo_temarios/servicioParserTemario.js';
 
 describe('Integración: Temarios y Parser de PDF', () => {
   const app = crearApp();
@@ -67,6 +67,128 @@ describe('Integración: Temarios y Parser de PDF', () => {
   });
 
   describe('API: Endpoints de Temario', () => {
+    it('edita el temario con concurrencia optimista y conserva el avance de nodos', async () => {
+      const creado = await request(app)
+        .post('/api/temarios/manual')
+        .set(auth)
+        .send({ periodoId, nombre: 'Programa', texto: '1 Unidad inicial\n1.1 Tema conservado\n1.2 Tema removible' })
+        .expect(201);
+      const temarioId = creado.body.temario.id ?? creado.body.temario._id;
+      const detalleInicial = await request(app).get(`/api/temarios/${temarioId}`).set(auth).expect(200);
+      const nodoInicial = detalleInicial.body.nodos.find((nodo: { numero: string }) => nodo.numero === '1.1');
+      const nodoId = nodoInicial.id ?? nodoInicial._id;
+      await request(app)
+        .post(`/api/temarios/nodos/${nodoId}/estado`)
+        .set(auth)
+        .send({ estado: 'cubierto', notas: 'Avance preservado' })
+        .expect(200);
+
+      const detalle = await request(app).get(`/api/temarios/${temarioId}`).set(auth).expect(200);
+      const actualizado = await request(app)
+        .put(`/api/temarios/${temarioId}`)
+        .set(auth)
+        .send({
+          nombre: 'Programa actualizado',
+          texto: '1 Unidad inicial revisada\n1.1 Tema conservado actualizado\n1.3 Tema nuevo',
+          expectedUpdatedAt: detalle.body.temario.updatedAt,
+          motivoCambio: 'Corrección del programa docente'
+        })
+        .expect(200);
+
+      expect(actualizado.body.temario.nombre).toBe('Programa actualizado');
+      expect(actualizado.body.temario.porcentajeAvance).toBe(33);
+      expect(actualizado.body.nodos.find((nodo: { numero: string }) => nodo.numero === '1.1')).toMatchObject({
+        id: nodoId,
+        titulo: 'Tema conservado actualizado',
+        estado: 'cubierto',
+        notas: 'Avance preservado'
+      });
+      expect(actualizado.body.nodos.map((nodo: { numero: string }) => nodo.numero)).toEqual(['1', '1.1', '1.3']);
+      expect(JSON.parse(actualizado.body.temario.auditoriaCambios)).toHaveLength(1);
+      expect(JSON.parse(actualizado.body.temario.auditoriaCambios)[0]).toMatchObject({
+        actorDocenteId: expect.any(String),
+        motivo: 'Corrección del programa docente'
+      });
+
+      const segundaActualizacion = await request(app)
+        .put(`/api/temarios/${temarioId}`)
+        .set(auth)
+        .send({
+          nombre: 'Programa actualizado',
+          texto: '1 Unidad inicial revisada\n1.1 Tema conservado actualizado\n1.3 Tema nuevo',
+          expectedUpdatedAt: actualizado.body.temario.updatedAt,
+          motivoCambio: 'Confirmar nombres oficiales'
+        })
+        .expect(200);
+      const auditoriaPagina1 = await request(app)
+        .get(`/api/temarios/${temarioId}/auditoria?limite=1`)
+        .set(auth)
+        .expect(200);
+      expect(auditoriaPagina1.body.eventos).toHaveLength(1);
+      expect(auditoriaPagina1.body.nextCursor).toBeTruthy();
+      const auditoriaPagina2 = await request(app)
+        .get(`/api/temarios/${temarioId}/auditoria?limite=1&cursor=${encodeURIComponent(auditoriaPagina1.body.nextCursor)}`)
+        .set(auth)
+        .expect(200);
+      expect(auditoriaPagina2.body.eventos).toHaveLength(1);
+      expect(new Set([...auditoriaPagina1.body.eventos, ...auditoriaPagina2.body.eventos].map((evento) => evento.motivo))).toEqual(
+        new Set(['Corrección del programa docente', 'Confirmar nombres oficiales'])
+      );
+      expect(segundaActualizacion.body.temario.auditoriaCambios).toContain('Confirmar nombres oficiales');
+
+      const otroToken = await registrarDocente(app, 'docente-temarios-ajeno@prueba.test');
+      const authAjeno = { Authorization: `Bearer ${otroToken}` };
+      await request(app).get(`/api/temarios/${temarioId}`).set(authAjeno).expect(404);
+      await request(app).get(`/api/temarios/${temarioId}/auditoria`).set(authAjeno).expect(404);
+
+      await request(app)
+        .put(`/api/temarios/${temarioId}`)
+        .set(auth)
+        .send({
+          nombre: 'Escritura obsoleta',
+          texto: '1 Unidad',
+          expectedUpdatedAt: detalle.body.temario.updatedAt,
+          motivoCambio: 'Debe dar conflicto'
+        })
+        .expect(409);
+
+      await request(app)
+        .post('/api/temarios/manual')
+        .set(auth)
+        .send({ periodoId, nombre: 'No reemplazar', texto: '1 Otra unidad' })
+        .expect(409);
+      const final = await request(app).get(`/api/temarios/${temarioId}`).set(auth).expect(200);
+      expect(final.body.temario.nombre).toBe('Programa actualizado');
+    });
+
+    it('rechaza quitar un nodo que ya conserva notas o avance', async () => {
+      const creado = await request(app)
+        .post('/api/temarios/manual')
+        .set(auth)
+        .send({ periodoId, nombre: 'Programa', texto: '1 Unidad\n1.1 Tema con notas' })
+        .expect(201);
+      const temarioId = creado.body.temario.id ?? creado.body.temario._id;
+      const detalle = await request(app).get(`/api/temarios/${temarioId}`).set(auth).expect(200);
+      const nodo = detalle.body.nodos.find((item: { numero: string }) => item.numero === '1.1');
+      const nodoId = nodo.id ?? nodo._id;
+      await request(app)
+        .post(`/api/temarios/nodos/${nodoId}/estado`)
+        .set(auth)
+        .send({ estado: 'pendiente', notas: 'No borrar este registro' })
+        .expect(200);
+      const despues = await request(app).get(`/api/temarios/${temarioId}`).set(auth).expect(200);
+      await request(app)
+        .put(`/api/temarios/${temarioId}`)
+        .set(auth)
+        .send({
+          nombre: 'Programa',
+          texto: '1 Unidad',
+          expectedUpdatedAt: despues.body.temario.updatedAt,
+          motivoCambio: 'Actualizar temas'
+        })
+        .expect(409);
+    });
+
     it('debe crear un temario manualmente, listar nodos, actualizar estado y calcular avance', async () => {
       const textoTemario = `
         1 Primer Parcial
@@ -123,17 +245,50 @@ describe('Integración: Temarios y Parser de PDF', () => {
       // Avance: 1 de 3 cubierto = 33%
       expect(updateResp.body.porcentajeAvance).toBe(33);
 
-      // 5. Eliminar el temario
+      // 5. La eliminación explícita protege el avance asociado.
+      const detalleAntesDeEliminar = await request(app)
+        .get(`/api/temarios/${temarioId}`)
+        .set(auth)
+        .expect(200);
       await request(app)
         .post(`/api/temarios/${temarioId}/eliminar`)
         .set(auth)
-        .expect(200);
+        .send({
+          confirmarEliminacion: true,
+          expectedUpdatedAt: detalleAntesDeEliminar.body.temario.updatedAt,
+          motivoCambio: 'Prueba de protección de historial'
+        })
+        .expect(409);
 
-      // 6. Verificar que ya no existe
+      // 6. El registro y los nodos con historial permanecen.
       await request(app)
         .get(`/api/temarios/${temarioId}/nodos`)
         .set(auth)
-        .expect(404);
+        .expect(200);
+    });
+
+    it('elimina solo un temario sin historial con confirmación y conserva evento auditable', async () => {
+      const creado = await request(app)
+        .post('/api/temarios/manual')
+        .set(auth)
+        .send({ periodoId, nombre: 'Borrador', texto: '1 Unidad temporal' })
+        .expect(201);
+      const temarioId = creado.body.temario.id ?? creado.body.temario._id;
+      const detalle = await request(app).get(`/api/temarios/${temarioId}`).set(auth).expect(200);
+
+      await request(app)
+        .post(`/api/temarios/${temarioId}/eliminar`)
+        .set(auth)
+        .send({
+          confirmarEliminacion: true,
+          expectedUpdatedAt: detalle.body.temario.updatedAt,
+          motivoCambio: 'Borrador duplicado'
+        })
+        .expect(200);
+      await request(app).get(`/api/temarios/${temarioId}`).set(auth).expect(404);
+      const auditoria = await request(app).get(`/api/temarios/${temarioId}/auditoria`).set(auth).expect(200);
+      expect(auditoria.body.eventos).toHaveLength(1);
+      expect(auditoria.body.eventos[0]).toMatchObject({ accion: 'eliminado', motivo: 'Borrador duplicado' });
     });
 
     it('debe fallar al intentar parsear un PDF sin texto válido', async () => {

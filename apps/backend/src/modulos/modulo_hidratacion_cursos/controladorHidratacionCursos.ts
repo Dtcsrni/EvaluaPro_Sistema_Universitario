@@ -2,13 +2,13 @@
  * Controlador HTTP para hidratacion de cursos iniciados.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import {
   importarHidratacionCurso,
   previsualizarHidratacionCurso,
   type ArchivoHidratacion
-} from './servicioHidratacionCursos';
+} from './servicioHidratacionCursos.js';
 
 function obtenerPeriodoId(req: SolicitudDocente) {
   const periodoId = String(req.body?.periodoId ?? '').trim();
@@ -32,7 +32,8 @@ export async function previsualizarHidratacion(req: SolicitudDocente, res: Respo
   const docenteId = obtenerDocenteId(req);
   const periodoId = obtenerPeriodoId(req);
   const archivos = obtenerArchivos(req);
-  const preview = await previsualizarHidratacionCurso({ docenteId, periodoId, archivos });
+  const temaId = String(req.body?.temaId ?? '').trim() || undefined;
+  const preview = await previsualizarHidratacionCurso({ docenteId, periodoId, temaId, archivos });
   res.json(preview);
 }
 
@@ -40,6 +41,7 @@ export async function importarHidratacion(req: SolicitudDocente, res: Response) 
   const docenteId = obtenerDocenteId(req);
   const periodoId = obtenerPeriodoId(req);
   const archivos = obtenerArchivos(req);
-  const resultado = await importarHidratacionCurso({ docenteId, periodoId, archivos });
+  const temaId = String(req.body?.temaId ?? '').trim() || undefined;
+  const resultado = await importarHidratacionCurso({ docenteId, periodoId, temaId, archivos });
   res.status(201).json(resultado);
 }

@@ -70,6 +70,45 @@ function directorioStaging(outDir) {
   return path.join(os.tmpdir(), 'evaluapro-builds', `${nombre}-${Date.now()}-${process.pid}`);
 }
 
+function entradasRecursivas(root) {
+  const entradas = new Set();
+  const recorrer = (directorio, relativo = '') => {
+    for (const entrada of fs.readdirSync(directorio, { withFileTypes: true })) {
+      const rutaRelativa = path.join(relativo, entrada.name);
+      entradas.add(rutaRelativa);
+      if (entrada.isDirectory() && !entrada.isSymbolicLink()) {
+        recorrer(path.join(directorio, entrada.name), rutaRelativa);
+      }
+    }
+  };
+  recorrer(root);
+  return entradas;
+}
+
+function limpiarEntradasObsoletas(staging, destino) {
+  const entradasVigentes = entradasRecursivas(staging);
+  const entradasDestino = [...entradasRecursivas(destino)]
+    .filter((entrada) => !entradasVigentes.has(entrada))
+    .sort((a, b) => b.length - a.length);
+  const bloqueadas = [];
+
+  for (const entrada of entradasDestino) {
+    try {
+      fs.rmSync(path.join(destino, entrada), { recursive: true, force: true });
+    } catch (error) {
+      bloqueadas.push({ entrada, mensaje: error?.message || String(error) });
+    }
+  }
+
+  if (entradasDestino.length > 0) {
+    const eliminadas = entradasDestino.length - bloqueadas.length;
+    process.stdout.write(`[frontend-build] entradas obsoletas eliminadas: ${eliminadas}\n`);
+  }
+  if (bloqueadas.length > 0) {
+    process.stderr.write(`[frontend-build] entradas obsoletas bloqueadas; se reintentará en la siguiente promoción: ${bloqueadas.map(({ entrada }) => entrada).join(', ')}\n`);
+  }
+}
+
 function promoverStaging(staging, destino) {
   fs.mkdirSync(destino, { recursive: true });
   // Copiar el contenido, en vez de sustituir el directorio servido, evita
@@ -85,6 +124,8 @@ function promoverStaging(staging, destino) {
       staging,
       destino,
       '/E',
+      '/IS',
+      '/IT',
       '/COPY:DAT',
       '/DCOPY:DAT',
       '/R:2',
@@ -97,6 +138,7 @@ function promoverStaging(staging, destino) {
     if (copia.error || (copia.status ?? 16) > 7) throw error;
     process.stdout.write('[frontend-build] staging promovido con robocopy\n');
   }
+  limpiarEntradasObsoletas(staging, destino);
   process.stdout.write(`[frontend-build] staging promovido a: ${destino}\n`);
 }
 

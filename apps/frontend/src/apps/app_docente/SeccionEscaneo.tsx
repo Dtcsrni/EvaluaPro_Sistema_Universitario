@@ -1,13 +1,22 @@
 /** Seccion de escaneo OMR y revision manual (orquestacion UI). */
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { accionToastSesionParaError, ErrorRemoto } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { registrarAccionDocente } from './telemetriaDocente';
+import {
+  analizarOmrConFallbackPie,
+  calcularRecortesPieOmr,
+  cargarModuloTesseract,
+  leerTextosConOcrDetallado,
+  qrIdentificaPagina,
+  resolverReferenciaPieOmr,
+  type ReferenciaPieOmr
+} from './ocrTexto';
 import type {
   Alumno,
   PreviewCalificacion,
@@ -21,6 +30,63 @@ import { evaluarCalidadCaptura, type CalidadCaptura } from './QrAccesoMovil';
 export { QrAccesoMovil } from './QrAccesoMovil';
 
 const UMBRAL_AUTO_CONFIABLE_UI = 0.82;
+const UMBRAL_OCR_PIE = 75;
+
+async function leerReferenciaPieDeImagen(imagenBase64: string): Promise<ReferenciaPieOmr | null> {
+  if (typeof window === 'undefined' || !imagenBase64.startsWith('data:image/')) return null;
+  try {
+    const imagen = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const elemento = new Image();
+      elemento.onload = () => resolve(elemento);
+      elemento.onerror = () => reject(new Error('No se pudo cargar la captura para OCR'));
+      elemento.src = imagenBase64;
+    });
+    const ancho = Number(imagen.naturalWidth || imagen.width);
+    const alto = Number(imagen.naturalHeight || imagen.height);
+    if (ancho < 160 || alto < 240) return null;
+
+    // El pie cambia de borde cuando una captura queda apaisada. Buscar solo
+    // franjas periféricas excluye fiduciales, respuestas y el contenido central.
+    const recortes = calcularRecortesPieOmr(ancho, alto);
+    if (recortes.length === 0) return null;
+    const escala = 2;
+    const imagenesRecortadas: string[] = [];
+    for (const recorte of recortes) {
+      const x = Math.floor(ancho * recorte.left);
+      const y = Math.floor(alto * recorte.top);
+      const anchoRecorte = Math.max(1, Math.floor(ancho * recorte.width));
+      const altoRecorte = Math.max(1, Math.floor(alto * recorte.height));
+      const girado = recorte.rotacionGrados === 90 || recorte.rotacionGrados === 270;
+      const canvas = document.createElement('canvas');
+      canvas.width = (girado ? altoRecorte : anchoRecorte) * escala;
+      canvas.height = (girado ? anchoRecorte : altoRecorte) * escala;
+      const contexto = canvas.getContext('2d');
+      if (!contexto) return null;
+      contexto.fillStyle = '#fff';
+      contexto.fillRect(0, 0, canvas.width, canvas.height);
+      contexto.translate(canvas.width / 2, canvas.height / 2);
+      contexto.rotate(recorte.rotacionGrados * Math.PI / 180);
+      contexto.drawImage(
+        imagen,
+        x,
+        y,
+        anchoRecorte,
+        altoRecorte,
+        -anchoRecorte * escala / 2,
+        -altoRecorte * escala / 2,
+        anchoRecorte * escala,
+        altoRecorte * escala
+      );
+      imagenesRecortadas.push(canvas.toDataURL('image/png'));
+    }
+
+    const modulo = await cargarModuloTesseract();
+    const lecturas = await leerTextosConOcrDetallado(imagenesRecortadas, modulo.createWorker);
+    return resolverReferenciaPieOmr(lecturas, UMBRAL_OCR_PIE);
+  } catch {
+    return null;
+  }
+}
 
 export function SeccionEscaneo({
   alumnos,
@@ -82,7 +148,11 @@ export function SeccionEscaneo({
   const [mensaje, setMensaje] = useState('');
   const [analizando, setAnalizando] = useState(false);
   const [bloqueoManual, setBloqueoManual] = useState(false);
+  const [fuenteIdentificacion, setFuenteIdentificacion] = useState<'qr' | 'ocr' | null>(null);
   const [procesandoLote, setProcesandoLote] = useState(false);
+  const [zoomImagen, setZoomImagen] = useState(1);
+  const claseZoomImagen = `omr-review-card__image--zoom-${Math.round(zoomImagen * 100)}`;
+  const [soloPendientes, setSoloPendientes] = useState(false);
   const [lote, setLote] = useState<
     Array<{
       id: string;
@@ -125,6 +195,14 @@ export function SeccionEscaneo({
     return Number.isFinite(pagina) && pagina > 0 ? pagina : null;
   }, [resultado?.qrTexto]);
   const advertenciasResultado = Array.isArray(resultado?.advertencias) ? resultado.advertencias : [];
+  const rescateExperimentalAplicado = advertenciasResultado.some((advertencia) =>
+    advertencia.startsWith('Rescate OMR aceptado por consenso independiente entre escala y homografia')
+    || /^P\d+:\s*(?:rescate|refinamiento local)/i.test(advertencia)
+  );
+  const qrSinValidar = advertenciasResultado.some((advertencia) =>
+    advertencia.startsWith('No se detecto QR en la imagen')
+    || advertencia.startsWith('El QR no coincide con el examen esperado')
+  );
   const revisionesOrdenadas = useMemo(
     () => [...revisionesSeguras].sort((a, b) => b.actualizadoEn - a.actualizadoEn),
     [revisionesSeguras]
@@ -166,6 +244,10 @@ export function SeccionEscaneo({
     if (!examen) return null;
     return examen.paginas.find((pagina) => Number(pagina.numeroPagina) === Number(paginaActiva)) ?? null;
   }, [examenIdActivo, paginaActiva, revisionesSeguras]);
+
+  useEffect(() => {
+    setZoomImagen(1);
+  }, [examenIdActivo, paginaActiva]);
   const hayCambiosPendientesPagina = useMemo(() => {
     if (!paginaRevisionActiva) return false;
     const firma = (respuestas: Array<{ numeroPregunta: number; opcion: string | null }>) =>
@@ -311,12 +393,23 @@ export function SeccionEscaneo({
         const opcion = typeof detectada?.opcion === 'string' && detectada.opcion ? detectada.opcion : null;
         const correcta = claveCorrectaRevision[numeroPregunta] ?? null;
         const esDudosa = !opcion || confianza < 0.75;
-        const esCorrecta = Boolean(correcta && opcion && opcion === correcta);
-        return { numeroPregunta, opcion, confianza, correcta, esDudosa, esCorrecta };
+        const tieneClave = Boolean(correcta);
+        const esCorrecta = Boolean(tieneClave && opcion && opcion === correcta);
+        const requiereAtencion = !tieneClave || !opcion || confianza < 0.75 || !esCorrecta;
+        return { numeroPregunta, opcion, confianza, correcta, tieneClave, esDudosa, esCorrecta, requiereAtencion };
       }),
     [claveCorrectaRevision, ordenRevisionPagina, respuestasPaginaPorNumero]
   );
-  const preguntasMostradas = filasRevision;
+  const resumenRevision = useMemo(
+    () => ({
+      total: filasRevision.length,
+      pendientes: filasRevision.filter((fila) => fila.requiereAtencion).length,
+      conClave: filasRevision.filter((fila) => fila.tieneClave).length,
+      sinClave: filasRevision.filter((fila) => !fila.tieneClave).length
+    }),
+    [filasRevision]
+  );
+  const preguntasMostradas = soloPendientes ? filasRevision.filter((fila) => fila.requiereAtencion) : filasRevision;
   const resumenCalificacionDinamica = useMemo(() => {
     if (!ordenRevisionExamen.length) {
       return { total: 0, aciertos: 0, contestadas: 0, notaSobre5: 0 };
@@ -390,9 +483,34 @@ export function SeccionEscaneo({
     return comprimida.length > maxChars ? dataUrl : comprimida;
   }
 
+  const analizarConFallbackDePie = useCallback(async (
+    folioManual: string,
+    paginaManualValor: number,
+    imagen: string,
+    contexto?: { nombreArchivo?: string }
+  ): Promise<{ respuesta: ResultadoAnalisisOmr; referenciaPie: ReferenciaPieOmr | null }> => {
+    const resultado = await analizarOmrConFallbackPie({
+      folioManual: folioManual,
+      paginaManual: paginaManualValor,
+      analizar: (folio, pagina) => onAnalizar(folio, pagina, imagen, contexto),
+      leerPie: () => leerReferenciaPieDeImagen(imagen),
+      tieneQr: (respuesta) => qrIdentificaPagina(
+        respuesta.resultado.qrTexto,
+        respuesta.resultado.advertencias
+      ),
+      puedeUsarFallback: (error) =>
+        error instanceof ErrorRemoto && ['EXAMEN_NO_ENCONTRADO', 'PAGINA_NO_VALIDA'].includes(
+          String(error.detalle.codigo ?? '').toUpperCase()
+        )
+    });
+    return { respuesta: resultado.resultado, referenciaPie: resultado.referenciaPie };
+  }, [onAnalizar]);
+
   async function cargarArchivo(event: ChangeEvent<HTMLInputElement>) {
     const archivo = event.target.files?.[0];
     if (!archivo) return;
+    setBloqueoManual(false);
+    setFuenteIdentificacion(null);
     onConfirmarRevisionOmr(false);
     const base64 = await leerArchivoBase64(archivo);
     setImagenBase64(base64);
@@ -449,14 +567,21 @@ export function SeccionEscaneo({
       }
       setAnalizando(true);
       setMensaje('');
-      const respuesta = await onAnalizar(folio.trim(), paginaManual > 0 ? paginaManual : 0, imagenBase64);
+      const { respuesta, referenciaPie } = await analizarConFallbackDePie(
+        folio,
+        paginaManual,
+        imagenBase64
+      );
       onConfirmarRevisionOmr(false);
-      if (respuesta.resultado.qrTexto) {
+      if (respuesta.resultado.qrTexto || referenciaPie) {
         setBloqueoManual(true);
-        setFolio(respuesta.folio);
-        setNumeroPagina(respuesta.numeroPagina);
+        setFuenteIdentificacion(referenciaPie ? 'ocr' : 'qr');
+        setFolio(referenciaPie?.folio ?? respuesta.folio);
+        setNumeroPagina(referenciaPie?.numeroPagina ?? respuesta.numeroPagina);
       }
-      setMensaje('Analisis completado');
+      setMensaje(referenciaPie
+        ? `El QR no validó la identidad; folio ${referenciaPie.folio} y página ${referenciaPie.numeroPagina} recuperados del pie por OCR. Verifica la hoja antes de confirmar.`
+        : 'Analisis completado');
       emitToast({ level: 'ok', title: 'Escaneo', message: 'Analisis completado', durationMs: 2200 });
       registrarAccionDocente('analizar_omr', true, Date.now() - inicio);
     } catch (error) {
@@ -492,11 +617,20 @@ export function SeccionEscaneo({
       try {
         const folioEnvio = folio.trim();
         const paginaEnvio = paginaManual > 0 ? paginaManual : 0;
-        const respuesta = await onAnalizar(folioEnvio, paginaEnvio, item.imagenBase64, { nombreArchivo: item.nombre });
+        const { respuesta, referenciaPie } = await analizarConFallbackDePie(
+          folioEnvio,
+          paginaEnvio,
+          item.imagenBase64,
+          { nombreArchivo: item.nombre }
+        );
         if (respuesta.resultado.estadoAnalisis !== 'ok') {
           const motivo = respuesta.resultado.motivosRevision?.[0] || `Estado ${respuesta.resultado.estadoAnalisis}`;
           setLote((prev) =>
-            prev.map((i) => (i.id === item.id ? { ...i, estado: 'error', mensaje: `Requiere revisión manual: ${motivo}` } : i))
+            prev.map((i) => (i.id === item.id ? {
+              ...i,
+              estado: 'error',
+              mensaje: `${referenciaPie ? `Identidad recuperada por OCR (${referenciaPie.folio}, página ${referenciaPie.numeroPagina}). ` : ''}Requiere revisión manual: ${motivo}`
+            } : i))
           );
           continue;
         }
@@ -515,6 +649,9 @@ export function SeccionEscaneo({
                   folio: respuesta.folio,
                   numeroPagina: respuesta.numeroPagina,
                   alumnoId: respuesta.alumnoId ?? null,
+                  mensaje: referenciaPie
+                    ? `Identidad recuperada por OCR del pie (${referenciaPie.folio}, página ${referenciaPie.numeroPagina}); verifica el original.`
+                    : '',
                   preview: preview.preview
                 }
               : i
@@ -526,7 +663,7 @@ export function SeccionEscaneo({
       }
     }
     setProcesandoLote(false);
-  }, [avisarSinPermiso, folio, lote, onAnalizar, onPrevisualizar, paginaManual, procesandoLote, puedeAnalizar, puedeCalificar]);
+  }, [analizarConFallbackDePie, avisarSinPermiso, folio, lote, onPrevisualizar, paginaManual, procesandoLote, puedeAnalizar, puedeCalificar]);
 
   useEffect(() => {
     if (!autoAnalisisLotePendienteRef.current) return;
@@ -590,7 +727,9 @@ export function SeccionEscaneo({
           </div>
           {bloqueoManual && (
             <InlineMensaje tipo="info">
-              QR detectado: se bloqueó el folio/página para evitar errores.
+              {fuenteIdentificacion === 'ocr'
+                ? 'QR no legible: folio/página recuperados por OCR del pie. Verifica la identidad en el original.'
+                : 'QR detectado: se bloqueó el folio/página para evitar errores.'}
               <button type="button" className="link" onClick={() => setBloqueoManual(false)}>
                 Editar manualmente
               </button>
@@ -869,18 +1008,52 @@ export function SeccionEscaneo({
             <span>Contestadas: {resumenCalificacionDinamica.contestadas}</span>
             <span>Calificación final: {resumenCalificacionDinamica.notaSobre5.toFixed(2)} / 5.00</span>
           </div>
-          <div className="omr-review-grid">
-            <div className="item-glass omr-review-card omr-review-card--imagen">
-              <h4>Imagen del examen</h4>
-              <div className="omr-review-card__image-wrap">
+          <div className="omr-review-toolbar" aria-label="Herramientas de revisión visual">
+            <div className="omr-review-toolbar__summary">
+              <span className="omr-review-toolbar__eyebrow">Comparación visual</span>
+              <strong>{resumenRevision.pendientes} pregunta(s) requieren atención</strong>
+              <span className="item-sub">
+                {resumenRevision.conClave} con clave oficial · {resumenRevision.sinClave} sin clave
+              </span>
+            </div>
+            <label className="omr-review-filter">
+              <input type="checkbox" checked={soloPendientes} onChange={(event) => setSoloPendientes(event.target.checked)} />
+              <span>Mostrar solo pendientes</span>
+            </label>
+          </div>
+          <div className="omr-review-grid omr-review-grid--visual">
+            <section className="item-glass omr-review-card omr-review-card--imagen" aria-labelledby="omr-imagen-title">
+              <div className="omr-review-card__heading">
+                <div>
+                  <span className="omr-review-card__eyebrow">Documento escaneado</span>
+                  <h4 id="omr-imagen-title">Imagen del examen</h4>
+                </div>
+                <div className="omr-image-controls" role="group" aria-label="Controles de imagen">
+                  <button type="button" className="omr-image-control" onClick={() => setZoomImagen((actual) => Math.max(0.75, Number((actual - 0.25).toFixed(2))))} aria-label="Alejar imagen" title="Alejar">
+                    −
+                  </button>
+                  <output className="omr-image-zoom" aria-live="polite">{Math.round(zoomImagen * 100)}%</output>
+                  <button type="button" className="omr-image-control" onClick={() => setZoomImagen((actual) => Math.min(2.5, Number((actual + 0.25).toFixed(2))))} aria-label="Acercar imagen" title="Acercar">
+                    +
+                  </button>
+                  <button type="button" className="omr-image-reset" onClick={() => setZoomImagen(1)}>
+                    Restablecer
+                  </button>
+                </div>
+              </div>
+              <div className="omr-review-card__image-wrap omr-review-card__image-viewport">
                 {paginaRevisionActiva?.imagenBase64 ? (
                   <img
-                    className="preview omr-review-card__image"
+                    className={`preview omr-review-card__image omr-review-card__image--zoomable ${claseZoomImagen}`}
                     src={paginaRevisionActiva.imagenBase64}
                     alt={`Examen ${examenIdActivo ?? ''} página ${paginaActiva ?? ''}`}
                   />
                 ) : imagenBase64 ? (
-                  <img className="preview omr-review-card__image" src={imagenBase64} alt="Imagen cargada para analisis OMR" />
+                  <img
+                    className={`preview omr-review-card__image omr-review-card__image--zoomable ${claseZoomImagen}`}
+                    src={imagenBase64}
+                    alt="Imagen cargada para análisis OMR"
+                  />
                 ) : (
                   <InlineMensaje tipo="info">
                     {paginaRevisionActiva
@@ -889,89 +1062,104 @@ export function SeccionEscaneo({
                   </InlineMensaje>
                 )}
               </div>
-            </div>
-            <div className="item-glass omr-review-card omr-review-card--panel omr-review-card--respuestas">
-              <h4>Respuesta del alumno (editable)</h4>
+              <p className="omr-review-card__hint">Usa el zoom para leer marcas o anotaciones sin perder la referencia del folio.</p>
+            </section>
+            <section className="item-glass omr-review-card omr-review-card--panel omr-review-card--comparador" aria-labelledby="omr-comparador-title">
+              <div className="omr-review-card__heading">
+                <div>
+                  <span className="omr-review-card__eyebrow">Clave oficial por pregunta</span>
+                  <h4 id="omr-comparador-title">Alumno vs. clave</h4>
+                </div>
+                <span className="badge">{preguntasMostradas.length}/{resumenRevision.total}</span>
+              </div>
               {preguntasMostradas.length === 0 ? (
-                <InlineMensaje tipo="info">Aún no hay respuestas para revisar.</InlineMensaje>
+                <InlineMensaje tipo="info">
+                  {soloPendientes && resumenRevision.total > 0 ? 'No hay pendientes en esta página.' : 'Aún no hay respuestas para revisar.'}
+                </InlineMensaje>
               ) : (
-                <ul className="lista omr-respuesta-lista">
-                  {preguntasMostradas.map((fila) => {
-                    const confianzaPct = Math.round(fila.confianza * 100);
-                    const claseConfianza = fila.confianza >= 0.75 ? 'ok' : fila.confianza >= 0.5 ? 'warning' : 'error';
-                    return (
-                      <li key={`det-${fila.numeroPregunta}`} className={`omr-respuesta-item${fila.esDudosa ? ' es-dudosa' : ''}`}>
-                        <div className="omr-respuesta-item__meta">
-                          <span className="item-title">Pregunta {fila.numeroPregunta}</span>
-                          <span className={`badge ${claseConfianza}`}>Confianza {confianzaPct}%</span>
-                        </div>
-                        <div className="omr-respuesta-item__controls">
-                          <span className={`badge ${fila.esCorrecta ? 'ok' : fila.opcion ? 'error' : 'warning'}`}>
-                            Detectada: {fila.opcion ?? '-'}
-                          </span>
-                          <span className={`badge ${fila.confianza >= UMBRAL_AUTO_CONFIABLE_UI ? 'ok' : fila.opcion ? 'warning' : 'error'}`}>
-                            {fila.opcion ? (fila.confianza >= UMBRAL_AUTO_CONFIABLE_UI ? 'Auto: alta' : 'Auto: media') : 'Auto: ninguna'}
-                          </span>
-                          <select
-                            aria-label={`Respuesta alumno pregunta ${fila.numeroPregunta}`}
-                            value={fila.opcion ?? ''}
-                            onChange={(event) => {
-                              onActualizarPregunta(fila.numeroPregunta, event.target.value || null);
-                              onConfirmarRevisionOmr(false);
-                            }}
-                            onKeyDown={(event) => {
-                              const key = event.key.toUpperCase();
-                              if (['A', 'B', 'C', 'D', 'E'].includes(key)) {
-                                event.preventDefault();
-                                onActualizarPregunta(fila.numeroPregunta, key);
+                <div className="omr-answer-table" role="table" aria-label="Comparación de respuestas y clave">
+                  <div className="omr-answer-table__head" role="row">
+                    <span role="columnheader">Pregunta</span>
+                    <span role="columnheader">Alumno</span>
+                    <span role="columnheader">Clave</span>
+                    <span role="columnheader">Estado</span>
+                  </div>
+                  <ol className="omr-respuesta-lista" role="rowgroup">
+                    {preguntasMostradas.map((fila) => {
+                      const confianzaPct = Math.round(fila.confianza * 100);
+                      const claseConfianza = fila.confianza >= 0.75 ? 'ok' : fila.confianza >= 0.5 ? 'warning' : 'error';
+                      const estado = !fila.tieneClave ? 'sin-clave' : fila.esCorrecta ? 'ok' : fila.opcion ? 'error' : 'warning';
+                      const estadoTexto = !fila.tieneClave ? 'Sin clave' : fila.esCorrecta ? 'Correcta' : fila.opcion ? 'Incorrecta' : 'Sin respuesta';
+                      return (
+                        <li key={`det-${fila.numeroPregunta}`} className={`omr-answer-row omr-answer-row--${estado}${fila.esDudosa ? ' es-dudosa' : ''}`} role="row">
+                          <div className="omr-answer-row__question" role="cell">
+                            <strong>Pregunta {fila.numeroPregunta}</strong>
+                            <span className={`badge ${claseConfianza}`}>{confianzaPct}% confianza</span>
+                          </div>
+                          <div className="omr-answer-row__choice" role="cell">
+                            <span className="omr-answer-row__label">Detectada</span>
+                            <select
+                              aria-label={`Respuesta alumno pregunta ${fila.numeroPregunta}`}
+                              value={fila.opcion ?? ''}
+                              onChange={(event) => {
+                                onActualizarPregunta(fila.numeroPregunta, event.target.value || null);
                                 onConfirmarRevisionOmr(false);
-                              } else if (key === 'DELETE' || key === 'BACKSPACE' || key === '0' || key === '-') {
-                                event.preventDefault();
-                                onActualizarPregunta(fila.numeroPregunta, null);
-                                onConfirmarRevisionOmr(false);
-                              }
-                            }}
-                          >
-                            <option value="">-</option>
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                          </select>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                              }}
+                              onKeyDown={(event) => {
+                                const key = event.key.toUpperCase();
+                                if (['A', 'B', 'C', 'D', 'E'].includes(key)) {
+                                  event.preventDefault();
+                                  onActualizarPregunta(fila.numeroPregunta, key);
+                                  onConfirmarRevisionOmr(false);
+                                } else if (key === 'DELETE' || key === 'BACKSPACE' || key === '0' || key === '-') {
+                                  event.preventDefault();
+                                  onActualizarPregunta(fila.numeroPregunta, null);
+                                  onConfirmarRevisionOmr(false);
+                                }
+                              }}
+                            >
+                              <option value="">Sin respuesta</option>
+                              <option value="A">A</option>
+                              <option value="B">B</option>
+                              <option value="C">C</option>
+                              <option value="D">D</option>
+                              <option value="E">E</option>
+                            </select>
+                          </div>
+                          <div className="omr-answer-row__choice omr-answer-row__key" role="cell">
+                            <span className="omr-answer-row__label">Clave oficial</span>
+                            <strong>{fila.correcta ?? 'Sin clave'}</strong>
+                          </div>
+                          <div className="omr-answer-row__status" role="cell">
+                            <span className={`badge ${estado}`}>{estadoTexto}</span>
+                            <span className="omr-answer-row__auto">
+                              {fila.opcion ? (fila.confianza >= UMBRAL_AUTO_CONFIABLE_UI ? 'Lectura alta' : 'Revisar lectura') : 'Captura vacía'}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
               )}
-            </div>
-            <div className="item-glass omr-review-card omr-review-card--panel omr-review-card--clave">
-              <h4>Clave correcta (orden oficial)</h4>
-              {ordenRevisionPagina.length === 0 ? (
-                <InlineMensaje tipo="info">No hay clave disponible para este examen.</InlineMensaje>
-              ) : (
-                <ul className="lista omr-clave-lista">
-                  {ordenRevisionPagina.map((numeroPregunta) => {
-                    const correcta = claveCorrectaRevision[numeroPregunta] ?? '-';
-                    const detectada = respuestasPaginaPorNumero.get(numeroPregunta)?.opcion ?? null;
-                    const coincide = Boolean(correcta && detectada && correcta === detectada);
-                    return (
-                      <li key={`key-${numeroPregunta}`}>
-                        <span className="item-title">P{numeroPregunta}</span>
-                        <span className="badge">{correcta}</span>
-                        <span className={`badge ${coincide ? 'ok' : detectada ? 'error' : 'warning'}`}>
-                          {detectada ? (coincide ? 'Coincide' : 'No coincide') : 'Sin respuesta'}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+            </section>
           </div>
           {advertenciasResultado.length > 0 && (
             <div className="alerta">
+              {rescateExperimentalAplicado || qrSinValidar ? (
+                <div className="omr-experimental-note" role="note">
+                  <span className="omr-experimental-note__badge">Experimental</span>
+                  <span>
+                    {rescateExperimentalAplicado
+                      ? 'Se aplicó una heurística de rescate OMR; su validación se limita al dataset disponible. '
+                      : ''}
+                    {qrSinValidar
+                      ? 'El QR no validó la identidad de la hoja: corrobora folio y página en el documento original. '
+                      : ''}
+                    Compara las marcas con la imagen antes de confirmar o guardar la calificación.
+                  </span>
+                </div>
+              ) : null}
               {advertenciasResultado.map((mensajeItem, idx) => (
                 <p key={idx}>{mensajeItem}</p>
               ))}

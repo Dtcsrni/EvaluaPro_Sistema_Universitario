@@ -1,10 +1,9 @@
 /**
- * SeccionClassroom
+ * Implementación Classroom heredada (no montada por la navegación actual).
  *
- * Responsabilidad: Vista principal para integración, vinculación y sincronización
- * directa con Google Classroom (OAuth2, mapeo de roster y actividades por corte).
+ * Responsabilidad: Mantener compatibilidad para consumidores anteriores durante la migración.
  *
- * Sin estilos inline: Todos los estilos provienen de screens.css y components.css.
+ * La interfaz activa se implementa en SeccionClassroomSync y la consulta docente vive en Calificaciones.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { clienteApi } from './clienteApiDocente';
@@ -45,6 +44,7 @@ type ClassroomActividad = {
     descripcionEvidencia?: string;
     ponderacion?: number;
     corte?: number;
+    destinoColumna?: 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir' | null;
     activo?: boolean;
   } | null;
 };
@@ -74,16 +74,42 @@ type ActividadEditable = {
   descripcionEvidencia: string;
   ponderacion: string;
   corte: string;
+  destinoColumna: '' | 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir';
   activo: boolean;
 };
 
 type ClassroomPreviewResultado = {
-  dryRun: boolean;
+  tipo: 'preview' | 'ejecucion';
   totalActividades: number;
   submissionsProcesadas: number;
   importadas: number;
   actualizadas: number;
   omitidas: number;
+  acumuladoTareasSegundoParcial?: Array<{
+    alumnoId: string;
+    alumnoNombre: string;
+    puntosObtenidos: number;
+    puntosPosibles: number;
+    promedio: number;
+    actividadesCalificadas: number;
+    actividadesFaltantesConfirmadas: number;
+  }>;
+  actividades?: Array<{
+    courseWorkId: string;
+    courseWorkTitle?: string;
+    corte?: number;
+    destinoColumna?: string | null;
+    submissions: Array<{
+      submissionId: string;
+      alumnoId?: string | null;
+      alumnoNombre?: string | null;
+      estadoClassroom?: string;
+      vencida: boolean;
+      puedeConfirmarFaltante: boolean;
+      faltanteExplicito: boolean;
+      fechaVencimiento?: string;
+    }>;
+  }>;
   errores: Array<{
     courseWorkId?: string;
     userId?: string;
@@ -95,7 +121,7 @@ function normalizarBusqueda(valor: unknown): string {
   return String(valor ?? '').trim().toLowerCase();
 }
 
-export function SeccionClassroom({
+export function SeccionClassroomLegacy({
   periodos,
   puedeClassroomConectar,
   puedeClassroomPull,
@@ -119,6 +145,7 @@ export function SeccionClassroom({
   const [alumnosClassroom, setAlumnosClassroom] = useState<ClassroomAlumnoCurso[]>([]);
   const [mapeoEditable, setMapeoEditable] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ClassroomPreviewResultado | null>(null);
+  const [faltantesConfirmados, setFaltantesConfirmados] = useState<Record<string, string[]> | null>(null);
   const [busquedaAlumnos, setBusquedaAlumnos] = useState('');
   const [cargandoEstado, setCargandoEstado] = useState(false);
   const [cargandoCursos, setCargandoCursos] = useState(false);
@@ -271,9 +298,10 @@ export function SeccionClassroom({
               courseId,
               courseWorkId: actividad.id,
               tituloEvidencia: actividad.mapeo?.tituloEvidencia ?? actividad.title ?? '',
-              descripcionEvidencia: actividad.mapeo?.descripcionEvidencia ?? actividad.description ?? '',
+              descripcionEvidencia: actividad.mapeo?.descripcionEvidencia ?? '',
               ponderacion: String(actividad.mapeo?.ponderacion ?? 1),
               corte: actividad.mapeo?.corte ? String(actividad.mapeo.corte) : '1',
+              destinoColumna: actividad.mapeo?.destinoColumna ?? '',
               activo: actividad.mapeo?.activo !== false
             }
           ])
@@ -353,6 +381,7 @@ export function SeccionClassroom({
   // Cargar roster y actividades al cambiar curso o periodo
   useEffect(() => {
     setPreview(null);
+    setFaltantesConfirmados(null);
     setActividadIdsSeleccionados([]);
     setActividades([]);
     setAlumnosLocales([]);
@@ -421,17 +450,19 @@ export function SeccionClassroom({
     );
   }
 
-  function payloadActividadesSeleccionadas() {
+  function payloadActividadesSeleccionadas(confirmaciones = faltantesConfirmados) {
     return actividadesSeleccionadas.map((actividad) => {
       const editable = edicionActividades[actividad.id];
       return {
         courseId: courseIdSeleccionado,
         courseWorkId: actividad.id,
         tituloEvidencia: editable?.tituloEvidencia || actividad.title,
-        descripcionEvidencia: editable?.descripcionEvidencia || actividad.description || undefined,
+        descripcionEvidencia: editable?.descripcionEvidencia || undefined,
         ponderacion: Number(editable?.ponderacion || 1),
         corte: Number(editable?.corte || 1),
-        activo: editable?.activo !== false
+        destinoColumna: editable?.destinoColumna || null,
+        activo: editable?.activo !== false,
+        ...(confirmaciones !== null ? { faltantesConfirmados: confirmaciones?.[actividad.id] ?? [] } : {})
       };
     });
   }
@@ -716,7 +747,7 @@ export function SeccionClassroom({
     }
   }
 
-  async function previsualizarImportacion() {
+  async function previsualizarImportacion(confirmaciones = faltantesConfirmados) {
     if (!periodoId || !courseIdSeleccionado) {
       emitToast({ level: 'warn', title: 'Importación', message: 'Selecciona la materia en EvaluaPro antes de previsualizar.' });
       return;
@@ -732,10 +763,16 @@ export function SeccionClassroom({
         '/evaluaciones/v2/classroom/importaciones/preview',
         {
           periodoId,
-          actividades: payloadActividadesSeleccionadas()
+          actividades: payloadActividadesSeleccionadas(confirmaciones)
         }
       );
       setPreview(resultado);
+      if (confirmaciones === null && resultado.actividades) {
+        setFaltantesConfirmados(Object.fromEntries(resultado.actividades.map((actividad) => [
+          actividad.courseWorkId,
+          actividad.submissions.filter((submission) => submission.faltanteExplicito).map((submission) => submission.submissionId)
+        ])));
+      }
       emitToast({
         level: 'ok',
         title: 'Previsualización lista',
@@ -781,6 +818,16 @@ export function SeccionClassroom({
     } finally {
       setEjecutando(false);
     }
+  }
+
+  function cambiarConfirmacionFaltante(courseWorkId: string, submissionId: string, confirmado: boolean) {
+    const siguiente = { ...(faltantesConfirmados ?? {}) };
+    const ids = new Set(siguiente[courseWorkId] ?? []);
+    if (confirmado) ids.add(submissionId);
+    else ids.delete(submissionId);
+    siguiente[courseWorkId] = [...ids];
+    setFaltantesConfirmados(siguiente);
+    void previsualizarImportacion(siguiente);
   }
 
   return (
@@ -1178,9 +1225,10 @@ export function SeccionClassroom({
                 courseId: courseIdSeleccionado,
                 courseWorkId: actividad.id,
                 tituloEvidencia: actividad.title,
-                descripcionEvidencia: actividad.description || '',
+                descripcionEvidencia: actividad.mapeo?.descripcionEvidencia || '',
                 ponderacion: '1',
                 corte: '1',
+                destinoColumna: actividad.mapeo?.destinoColumna ?? '',
                 activo: true
               };
               const seleccionada = actividadIdsSeleccionados.includes(actividad.id);
@@ -1223,10 +1271,30 @@ export function SeccionClassroom({
                         <option value="3">Corte 3</option>
                       </select>
                     </label>
+                    <label className="campo">
+                      <span>Columna de la lista física</span>
+                      <select
+                        value={editable.destinoColumna}
+                        onChange={(e) =>
+                          setEdicionActividades((prev) => ({
+                            ...prev,
+                            [actividad.id]: {
+                              ...editable,
+                              destinoColumna: e.target.value as ActividadEditable['destinoColumna']
+                            }
+                          }))
+                        }
+                      >
+                        <option value="">Sin asignar</option>
+                        <option value="Tareas y Ejercicios 2do Parcial">Tareas y Ejercicios 2do Parcial</option>
+                        <option value="Practica 2do Parcial">Practica 2do Parcial</option>
+                        <option value="Excluir">Excluir del promedio acumulado</option>
+                      </select>
+                    </label>
                   </div>
                   <div className="classroom-act-pond">
                     <label className="campo">
-                      <span>Ponderación</span>
+                      <span>Ponderación (no afecta el promedio por puntos)</span>
                       <input
                         type="number"
                         min="1"
@@ -1239,6 +1307,7 @@ export function SeccionClassroom({
                           }))
                         }
                       />
+                      <small>El promedio de Tareas y Ejercicios usa los puntos máximos definidos en Classroom.</small>
                     </label>
                   </div>
                 </div>
@@ -1277,10 +1346,10 @@ export function SeccionClassroom({
 
           {/* Resultado de Previsualización / Sincronización */}
           {preview && (
-            <div className="cuenta-toggle-card anim-fade-in cuenta-subpanel--mt">
+            <div className="cuenta-toggle-card classroom-sync-results anim-fade-in cuenta-subpanel--mt">
               <div className="cuenta-toggle-info">
                 <div className="cuenta-toggle-title">
-                  {preview.dryRun ? '📊 Previsualización de Importación' : '✅ Sincronización Completada'}
+                  {preview.tipo === 'preview' ? '📊 Previsualización de Importación' : '✅ Sincronización Completada'}
                 </div>
                 <div className="cuenta-toggle-desc">
                   Tareas procesadas: <b>{preview.totalActividades}</b> · Calificaciones detectadas: <b>{preview.submissionsProcesadas}</b> · Importadas:{' '}
@@ -1288,6 +1357,86 @@ export function SeccionClassroom({
                   <b>{preview.omitidas}</b>
                 </div>
               </div>
+              {(preview.errores ?? []).length > 0 && (
+                <InlineMensaje tipo="warning">
+                  No se aplicaron todas las decisiones: {(preview.errores ?? []).map((error) => error.mensaje).join(' · ')}
+                </InlineMensaje>
+              )}
+              <section aria-labelledby="classroom-faltantes-heading" className="cuenta-subpanel--mt">
+                <h4 id="classroom-faltantes-heading">Faltantes vencidos · confirmación docente</h4>
+                <p className="nota">
+                  Solo aparecen entregas sin calificación, con vencimiento UTC pasado y asignadas a “Tareas y Ejercicios 2do Parcial” en Corte 2.
+                  Al confirmar, cuentan como cero en el promedio de EvaluaPro; no se escribe una calificación en Classroom.
+                </p>
+                {(preview.actividades ?? []).flatMap((actividad) => actividad.submissions
+                  .filter((submission) => submission.puedeConfirmarFaltante && submission.alumnoId)
+                  .map((submission) => {
+                    const checked = faltantesConfirmados?.[actividad.courseWorkId]?.includes(submission.submissionId)
+                      ?? submission.faltanteExplicito;
+                    return (
+                      <label key={`${actividad.courseWorkId}:${submission.submissionId}`} className="checkbox-ui">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={ejecutando}
+                          aria-label={`Confirmar faltante vencido: ${submission.alumnoNombre || 'alumno'} — ${actividad.courseWorkTitle || actividad.courseWorkId}`}
+                          onChange={(event) => cambiarConfirmacionFaltante(
+                            actividad.courseWorkId,
+                            submission.submissionId,
+                            event.currentTarget.checked
+                          )}
+                        />
+                        <span className="checkbox-ui__box" aria-hidden="true" />
+                        <span>
+                          {submission.alumnoNombre || 'Alumno sin nombre'} · {actividad.courseWorkTitle || 'Actividad Classroom'}
+                          {submission.fechaVencimiento && ` · venció ${new Date(submission.fechaVencimiento).toLocaleString('es-MX', { timeZone: 'UTC' })} UTC`}
+                        </span>
+                      </label>
+                    );
+                  }))}
+                {(preview.actividades ?? []).every((actividad) => !actividad.submissions.some((submission) => submission.puedeConfirmarFaltante && submission.alumnoId)) && (
+                  <InlineMensaje tipo="info">No hay entregas vencidas sin calificación que cumplan los criterios para confirmación.</InlineMensaje>
+                )}
+              </section>
+              <section aria-labelledby="classroom-acumulado-tareas-heading" className="cuenta-subpanel--mt">
+                  <h4 id="classroom-acumulado-tareas-heading">Promedio acumulado al Corte 2</h4>
+                  <p className="nota">
+                    Solo usa actividades seleccionadas y asignadas a “Tareas y Ejercicios 2do Parcial”. Las tareas sin calificar
+                    se excluyen; un cero solo entra tras confirmación docente explícita del faltante vencido. El bono de +0.25 se captura
+                    manualmente en el examen impreso y no se suma aquí.
+                  </p>
+                  {(preview.acumuladoTareasSegundoParcial ?? []).length === 0 ? (
+                    <InlineMensaje tipo="info">No hay calificaciones que cumplan estos criterios en la vista previa.</InlineMensaje>
+                  ) : (
+                    <div className="calificaciones-consulta__table-wrap">
+                      <table className="calificaciones-consulta__table">
+                        <caption className="sr-only">Promedio acumulado por alumno para Tareas y Ejercicios 2do Parcial</caption>
+                        <thead>
+                          <tr>
+                            <th scope="col">Alumno</th>
+                            <th scope="col">Puntos obtenidos</th>
+                            <th scope="col">Puntos posibles</th>
+                            <th scope="col">Actividades calificadas</th>
+                            <th scope="col">Faltantes confirmados</th>
+                            <th scope="col">Promedio acumulado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {preview.acumuladoTareasSegundoParcial?.map((fila) => (
+                            <tr key={fila.alumnoId}>
+                              <th scope="row" data-label="Alumno">{fila.alumnoNombre}</th>
+                              <td data-label="Puntos obtenidos">{fila.puntosObtenidos.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
+                              <td data-label="Puntos posibles">{fila.puntosPosibles.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
+                              <td data-label="Actividades calificadas">{fila.actividadesCalificadas}</td>
+                              <td data-label="Faltantes confirmados">{fila.actividadesFaltantesConfirmadas}</td>
+                              <td data-label="Promedio acumulado">{fila.promedio.toFixed(2)} / 10</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+              </section>
             </div>
           )}
         </div>

@@ -13,9 +13,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clienteApi } from './clienteApiDocente';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
+import { Check, CircleCheck, CircleX, Clock3, FileCheck2, type LucideIcon, IconoLucide } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { GuiaAsistenciasVisual } from './GuiaAsistenciasVisual';
 import type { Alumno, Periodo } from './tipos';
+import { fechaLocalISO } from './fechaLocal';
 
 // ─── Tipos locales ────────────────────────────────────────────────────────────
 type SesionAsistencia = {
@@ -63,6 +65,12 @@ type TabActivo = 'resumen' | 'pase_lista' | 'reglas';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const ESTADO_LABEL: Record<string, string> = { P: 'Presente', F: 'Falta', R: 'Retardo', J: 'Justificada' };
+const ESTADO_ICONO: Record<'P' | 'F' | 'R' | 'J', LucideIcon> = {
+  P: CircleCheck,
+  F: CircleX,
+  R: Clock3,
+  J: FileCheck2
+};
 
 function formatFecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -85,7 +93,7 @@ type Props = {
   puedeGestionar?: boolean;
 };
 
-export function SeccionAsistencias({ periodos, alumnos }: Props) {
+export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }: Props) {
   const [tab, setTab] = useState<TabActivo>('resumen');
   const [periodoId, setPeriodoId] = useState('');
   const [grupo, setGrupo] = useState('');
@@ -100,7 +108,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
   const [guardando, setGuardando] = useState(false);
 
   // Formulario nueva sesión
-  const [nuevaSesionFecha, setNuevaSesionFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [nuevaSesionFecha, setNuevaSesionFecha] = useState(() => fechaLocalISO());
   const [nuevaSesionGrupo, setNuevasSesionGrupo] = useState('');
   const [nuevaSesionTema, setNuevaSesionTema] = useState('');
 
@@ -141,11 +149,19 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
     return periodoSeleccionado?.grupos ?? [];
   }, [periodoSeleccionado]);
 
-  // Alumnos del grupo seleccionado
+  // El periodo es parte de la identidad de la lista aunque dos materias compartan grupo.
+  const alumnosPeriodo = useMemo(
+    () => alumnos.filter((a) => a.periodoId === periodoId && a.activo !== false),
+    [alumnos, periodoId]
+  );
   const alumnosGrupo = useMemo(() => {
-    if (!grupo) return alumnos.filter((a) => a.activo !== false);
-    return alumnos.filter((a) => a.grupo === grupo && a.activo !== false);
-  }, [alumnos, grupo]);
+    if (!grupo) return alumnosPeriodo;
+    return alumnosPeriodo.filter((a) => a.grupo === grupo);
+  }, [alumnosPeriodo, grupo]);
+  const alumnosSesion = useMemo(() => {
+    if (!sesionActual) return [];
+    return alumnosPeriodo.filter((a) => a.grupo === sesionActual.grupo);
+  }, [alumnosPeriodo, sesionActual]);
 
   // KPIs de Asistencia
   const kpis = useMemo(() => {
@@ -217,6 +233,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
 
   // ─── Crear sesión ────────────────────────────────────────────────────────────
   async function crearSesion() {
+    if (!puedeGestionar) return;
     const g = nuevaSesionGrupo || grupo;
     if (!periodoId || !g) {
       emitToast({ level: 'warn', title: 'Datos incompletos', message: 'Selecciona periodo y grupo.' });
@@ -233,7 +250,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
       setSesionActual(data.sesion);
       // Inicializar registros con todos presentes
       const init: Record<string, RegistroLocal> = {};
-      alumnosGrupo.forEach((al) => {
+      alumnosPeriodo.filter((al) => al.grupo === g).forEach((al) => {
         init[al._id] = { alumnoId: al._id, estado: 'P' };
       });
       setRegistros(init);
@@ -244,25 +261,24 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
     }
   }
 
-  // ─── Cambiar estado individual ───────────────────────────────────────────────
-  function ciclarEstado(alumnoId: string) {
-    const CICLO: Array<'P' | 'F' | 'R' | 'J'> = ['P', 'F', 'R', 'J'];
-    setRegistros((prev) => {
-      const actual = prev[alumnoId]?.estado ?? 'P';
-      const siguiente = CICLO[(CICLO.indexOf(actual) + 1) % CICLO.length]!;
-      return { ...prev, [alumnoId]: { alumnoId, estado: siguiente } };
-    });
+  // Cada estado tiene una acción explícita; el motivo se conserva al corregir la selección.
+  function establecerEstado(alumnoId: string, estado: RegistroLocal['estado']) {
+    if (!puedeGestionar) return;
+    setRegistros((prev) => ({
+      ...prev,
+      [alumnoId]: { ...prev[alumnoId], alumnoId, estado }
+    }));
   }
 
   // ─── Guardar pase de lista ───────────────────────────────────────────────────
   async function guardarPaseLista() {
-    if (!sesionActual) return;
+    if (!puedeGestionar || !sesionActual) return;
     setGuardando(true);
     try {
       await clienteApi.enviar(`/asistencias/sesiones/${sesionActual._id}/registros`, {
-        registros: Object.values(registros)
+        registros: alumnosSesion.map((al) => registros[al._id] ?? { alumnoId: al._id, estado: 'P' })
       });
-      emitToast({ level: 'ok', title: 'Lista guardada', message: `${Object.keys(registros).length} registros guardados.` });
+      emitToast({ level: 'ok', title: 'Lista guardada', message: `${alumnosSesion.length} registros guardados.` });
       void cargarResumen();
       setTab('resumen');
     } catch {
@@ -279,9 +295,10 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
       const data = await clienteApi.obtener<{ registros: Array<{ alumnoId: string; estado: 'P' | 'F' | 'R' | 'J'; justificacion?: string }> }>(
         `/asistencias/sesiones/${sesion._id}/registros`
       );
+      const roster = alumnos.filter((al) => al.periodoId === periodoId && al.grupo === sesion.grupo && al.activo !== false);
       const init: Record<string, RegistroLocal> = {};
-      alumnosGrupo.forEach((al) => { init[al._id] = { alumnoId: al._id, estado: 'P' }; });
-      data.registros.forEach((r) => { init[r.alumnoId] = r; });
+      roster.forEach((al) => { init[al._id] = { alumnoId: al._id, estado: 'P' }; });
+      data.registros.forEach((r) => { if (init[r.alumnoId]) init[r.alumnoId] = r; });
       setRegistros(init);
       setTab('pase_lista');
     } catch {
@@ -291,7 +308,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
 
   // ─── Crear/actualizar regla ─────────────────────────────────────────────────
   async function guardarRegla() {
-    if (!periodoId) return;
+    if (!puedeGestionar || !periodoId) return;
     try {
       await clienteApi.enviar('/asistencias/reglas', {
         periodoId,
@@ -311,6 +328,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
 
   // ─── Autorizar excepción ────────────────────────────────────────────────────
   async function autorizarExcepcion(alumnoId: string, nombreCompleto: string) {
+    if (!puedeGestionar) return;
     const motivo = window.prompt(`Motivo de excepción para ${nombreCompleto}:`);
     if (motivo === null) return;
     try {
@@ -631,6 +649,8 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                       <Boton
                         type="button"
                         onClick={() => void crearSesion()}
+                        disabled={!puedeGestionar}
+                        aria-describedby={!puedeGestionar ? 'asistencias-solo-lectura' : undefined}
                         className="asistencias-btn-primario boton--crear-sesion"
                         icono={
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -644,6 +664,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                     </div>
                   </div>
                 </div>
+                {!puedeGestionar && <p id="asistencias-solo-lectura" className="nota" role="status">Tienes acceso de solo lectura a asistencias.</p>}
               </div>
 
               {/* Barra de Búsqueda y Filtros de Asistencia */}
@@ -784,6 +805,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                                   variante="secundario"
                                   type="button"
                                   onClick={() => void autorizarExcepcion(al.alumnoId, al.nombreCompleto)}
+                                  disabled={!puedeGestionar}
                                   className="asistencias-btn-autorizar anim-fade-in"
                                   icono={<span aria-hidden="true">🛡️</span>}
                                 >
@@ -880,7 +902,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                         type="button"
                         onClick={() => {
                           const all: Record<string, RegistroLocal> = {};
-                          alumnosGrupo.forEach((a) => { all[a._id] = { alumnoId: a._id, estado: 'P' }; });
+                          alumnosSesion.forEach((a) => { all[a._id] = { alumnoId: a._id, estado: 'P' }; });
                           setRegistros(all);
                           emitToast({ level: 'info', title: 'Pase rápido', message: 'Todos marcados como Presentes' });
                         }}
@@ -897,7 +919,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                         type="button"
                         onClick={() => void guardarPaseLista()}
                         cargando={guardando}
-                        disabled={guardando}
+                        disabled={!puedeGestionar || guardando}
                         className="asistencias-btn-primario boton--guardar-lista pulse-glow"
                         icono={
                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -922,27 +944,18 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                         </span>
                       ))}
                     </div>
-                    <span className="nota asistencias-legend-hint">💡 Haz clic en la fila de un estudiante para ciclar su estado (P ➔ F ➔ R ➔ J)</span>
+                    <span className="nota asistencias-legend-hint">Selecciona cada estado por su nombre; la letra es solo una referencia breve.</span>
                   </div>
 
                   {/* Lista interactiva Fast-Check */}
                   <div className="asistencias-fastcheck-grid">
-                    {alumnosGrupo.map((al, idx) => {
+                    {alumnosSesion.map((al, idx) => {
                       const reg = registros[al._id] ?? { alumnoId: al._id, estado: 'P' as const };
                       const iniciales = obtenerIniciales(al.nombreCompleto);
                       return (
                         <div
                           key={al._id}
-                          role="button"
-                          tabIndex={0}
                           className={`asistencias-alumno-row anim-slide-up ${reg.estado === 'F' ? 'falta' : reg.estado === 'R' ? 'retardo' : reg.estado === 'J' ? 'justificada' : 'presente'}`}
-                          onClick={() => ciclarEstado(al._id)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              ciclarEstado(al._id);
-                            }
-                          }}
                         >
                           <span className="asistencias-alumno-num">{idx + 1}</span>
 
@@ -955,23 +968,37 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                             <span className="font-code nota asistencias-alumno-matricula">{al.matricula}</span>
                           </div>
 
-                          <span
-                            className={`asistencias-alumno-badge asistencias-badge-dot-${reg.estado.toLowerCase()} state-badge-pulse`}
-                            key={reg.estado}
-                          >
-                            {reg.estado} · {ESTADO_LABEL[reg.estado]}
-                          </span>
+                          <div className="asistencias-estado-controls" role="group" aria-label={`Estado de asistencia para ${al.nombreCompleto}`}>
+                            {(['P', 'F', 'R', 'J'] as const).map((estado) => (
+                              <button
+                                key={estado}
+                                type="button"
+                                className="asistencias-estado-control"
+                                aria-label={`Marcar a ${al.nombreCompleto} como ${ESTADO_LABEL[estado]}`}
+                                aria-pressed={reg.estado === estado}
+                                disabled={!puedeGestionar}
+                                onClick={() => establecerEstado(al._id, estado)}
+                              >
+                                <IconoLucide icon={ESTADO_ICONO[estado]} size={16} />
+                                {reg.estado === estado && <IconoLucide icon={Check} size={13} />}
+                                <span>{ESTADO_LABEL[estado]}</span>
+                              </button>
+                            ))}
+                          </div>
 
                           {reg.estado === 'J' && (
                             <input
                               type="text"
+                              aria-label={`Motivo de justificación para ${al.nombreCompleto}`}
                               placeholder="Motivo de justificación…"
+                              maxLength={300}
                               value={reg.justificacion ?? ''}
                               onChange={(e) => {
                                 e.stopPropagation();
                                 setRegistros((prev) => ({ ...prev, [al._id]: { ...reg, justificacion: e.target.value } }));
                               }}
                               onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
                               className="asistencias-input asistencias-alumno-input-justificacion anim-fade-in"
                             />
                           )}
@@ -993,6 +1020,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                   <p className="asistencias-sub-desc">Establece el número máximo de faltas permitidas antes de bloquear el derecho a examen.</p>
                 </div>
 
+                {!puedeGestionar && <p className="nota" role="status">La configuración está disponible en modo de solo lectura.</p>}
                 <div className="asistencias-config-grid">
                   <label className="asistencias-form-col">
                     <span className="asistencias-field-lbl">Máximo de faltas permitidas</span>
@@ -1003,6 +1031,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                         max={99}
                         value={nuevaReglaMax}
                         onChange={(e) => setNuevaReglaMax(Number(e.target.value))}
+                        disabled={!puedeGestionar}
                         className="asistencias-input asistencias-input-num-sm"
                       />
                     </div>
@@ -1014,6 +1043,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                       <select
                         value={nuevaReglaAccion}
                         onChange={(e) => setNuevaReglaAccion(e.target.value as 'bloquear_examen' | 'advertir')}
+                        disabled={!puedeGestionar}
                         className="asistencias-select"
                       >
                         <option value="bloquear_examen">🚫 Bloquear examen (requiere autorización docente)</option>
@@ -1026,6 +1056,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                     <Boton
                       type="button"
                       onClick={() => void guardarRegla()}
+                      disabled={!puedeGestionar}
                       className="asistencias-btn-primario boton--guardar-regla"
                       icono={
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -1047,6 +1078,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                       type="checkbox"
                       checked={nuevaReglaContarRetardos}
                       onChange={(e) => setNuevaReglaContarRetardos(e.target.checked)}
+                      disabled={!puedeGestionar}
                     />
                     <span>Contar retardos como faltas equivalentes</span>
                     <span className="nota">(desactivado por defecto)</span>
@@ -1062,6 +1094,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                           max={10}
                           value={nuevaReglaRetardosEquivalen}
                           onChange={(e) => setNuevaReglaRetardosEquivalen(Number(e.target.value))}
+                          disabled={!puedeGestionar}
                           className="asistencias-input asistencias-input-num-xs"
                         />
                         <span className="nota">

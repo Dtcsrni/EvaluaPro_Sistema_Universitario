@@ -5,20 +5,20 @@
  * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 import {
   listarBundles,
   reconstruirBundle,
   reconstruirManifest,
   verificarRecuperacion
-} from './controladorRecuperacionExamenes';
+} from './controladorRecuperacionExamenes.js';
 import {
   esquemaBodyVacioOpcional,
   esquemaReconstruirBundle,
   esquemaReconstruirManifest,
   esquemaVerificarRecuperacion
-} from './validacionesRecuperacionExamenes';
+} from './validacionesRecuperacionExamenes.js';
 
 const router = Router();
 

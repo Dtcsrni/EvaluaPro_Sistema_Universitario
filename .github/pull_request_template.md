@@ -21,6 +21,15 @@
 
 ---
 
+## Accesibilidad WCAG (Obligatoria para UI)
+- [ ] `npm run guard:wcag` (política, contraste claro/oscuro y diff CSS aprobados)
+- [ ] `npm -C apps/frontend run lint` (`jsx-a11y` sin errores)
+- [ ] Revisé teclado, foco visible, estados y responsive de la ruta modificada.
+- [ ] Verifiqué la pantalla en tema claro y oscuro; la evidencia manual está adjunta o enlazada.
+- [ ] Si se agregó color CSS crudo, el bloque tiene comentario `WCAG AA` y par verificable.
+
+---
+
 ## Batería de Gates Ejecutados
 - [ ] `npm run lint` (0 errores, 0 advertencias)
 - [ ] `npm run typecheck` (TypeScript estricto aprobado)

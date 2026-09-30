@@ -14,7 +14,7 @@
     {
       "id": "backend-pdf",
       "file": "apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts",
-      "pattern": "reporta progreso de lote en estados iniciando, generando y completado",
+      "pattern": "reporta progreso de lote en estados iniciando, generando, fallido y completado",
       "owner": "@backend-pdf",
       "dueDate": "2026-03-31",
       "status": "resolved",

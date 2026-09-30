@@ -11,7 +11,7 @@ import {
   type EstadoImagenOmr,
   type EvaluarConOffsetResultado,
   type ParametrosBurbujaCore
-} from '../src/modulos/modulo_escaneo_omr/omrCore';
+} from '../src/modulos/modulo_escaneo_omr/omrCore.js';
 
 type RasgoMock = {
   score: number;
@@ -29,6 +29,7 @@ type RasgoMock = {
   centerMean: number;
   ringMean: number;
   outerMean: number;
+  shapeCompactness?: number;
 };
 
 function crearEstado(): EstadoImagenOmr {
@@ -212,6 +213,70 @@ describe('omrCore decision', () => {
 
     expect(metricas.mejorOpcion).toBe('D');
     expect(metricas.validacionAlternativas.alternativasConMarca).toBeLessThanOrEqual(1);
+    expect(metricas.dobleMarcada).toBe(false);
+  });
+
+  it('ignora una alternativa secundaria dispersa sin anillo y conserva la dominante', () => {
+    const estado = crearEstado();
+    const centros = crearCentros();
+    const resultado = crearResultado([
+      { letra: 'E', score: 0.2026 },
+      { letra: 'B', score: 0.1771 },
+      { letra: 'D', score: 0.0702 },
+      { letra: 'C', score: 0.069 },
+      { letra: 'A', score: 0.0794 }
+    ]);
+    const vacia = (score: number, ratioCore: number, fillDelta: number, shapeCompactness: number): RasgoMock => ({
+      score,
+      ratio: score,
+      ratioCore,
+      ratioMid: ratioCore,
+      ratioRing: 0.07,
+      ringOnlyPenalty: 0.01,
+      radialMassRatio: 0.4,
+      anisotropy: 2.5,
+      centroidOffsetRatio: 0.16,
+      contraste: 0.07,
+      ringContrast: 0.02,
+      fillDelta,
+      centerMean: 220,
+      ringMean: 238,
+      outerMean: 237,
+      shapeCompactness
+    });
+    const detectar = detectarDesdeMapa({
+      A: vacia(0.0794, 0.095, 0.042, 0.26),
+      // Núcleo suficiente para parecer tinta, pero forma dispersa y sin anillo.
+      // Es el patrón observado en la alternativa espuria de DCA5097F/P2 Q21.
+      B: vacia(0.1771, 0.2857, 0.0991, 0.186),
+      C: vacia(0.069, 0.1905, 0.0586, 0.09),
+      D: vacia(0.0702, 0.2381, 0.0583, 0.087),
+      E: { ...vacia(0.2026, 0.381, 0.0756, 0.372), contraste: 0.073, radialMassRatio: 0.579 }
+    });
+
+    const metricas = calcularMetricasPregunta({
+      estado,
+      centros,
+      resultado,
+      mejorDx: 0,
+      mejorDy: 0,
+      umbrales: {
+        scoreMin: 0.05,
+        scoreStd: 0.6,
+        strongScore: 0.06,
+        secondRatio: 0.75,
+        deltaMin: 0.012,
+        minTopZScore: 0.8,
+        ambiguityRatio: 0.99,
+        minFillDelta: 0.08,
+        minCenterGap: 10,
+        minHybridConfidence: 0.35
+      },
+      detectarOpcion: detectar
+    });
+
+    expect(metricas.mejorOpcion).toBe('E');
+    expect(metricas.validacionAlternativas.diagnostico.find((item) => item.letra === 'B')?.sinMarca).toBe(true);
     expect(metricas.dobleMarcada).toBe(false);
   });
 });

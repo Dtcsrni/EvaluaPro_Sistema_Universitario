@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import type { ContextoPipelineOmr } from '../types';
+import type { ContextoPipelineOmr } from '../types.js';
 
 export async function ejecutarEtapaCalidad(contexto: ContextoPipelineOmr) {
   // La calidad de pagina ya se calcula dentro del motor OMR actual.

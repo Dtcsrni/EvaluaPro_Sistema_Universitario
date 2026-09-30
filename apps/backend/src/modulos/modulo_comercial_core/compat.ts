@@ -4,4 +4,4 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-export * from '../../compartido/compat';
+export * from '../../compartido/compat.js';

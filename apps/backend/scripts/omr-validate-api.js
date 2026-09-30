@@ -5,9 +5,9 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 /* eslint-disable no-console */
-const fs = require('node:fs/promises');
-const path = require('node:path');
-const sharp = require('sharp');
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import sharp from 'sharp';
 
 const BASE_API = process.env.API_BASE || 'http://localhost:4000/api';
 const EMAIL = process.env.EMAIL;

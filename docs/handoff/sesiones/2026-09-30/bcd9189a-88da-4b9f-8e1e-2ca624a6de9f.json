@@ -1,0 +1,126 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "bcd9189a-88da-4b9f-8e1e-2ca624a6de9f",
+  "status": "final",
+  "generatedAt": "2026-09-30T09:47:16.000Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Alinear las validaciones del SDK de calificaciones con el contrato GUI/API."
+  },
+  "objective": "Evitar que el SDK envíe periodos vacíos, etiquetas de componentes no admitidas, notas sobre sus máximos o versiones inválidas.",
+  "scope": [
+    "Consulta de lista por periodo",
+    "Captura de componentes manuales",
+    "Vista previa del bono extracurricular"
+  ],
+  "constraints": [
+    "No escribir calificaciones reales.",
+    "Usar el checkout canónico y preservar cambios preexistentes."
+  ],
+  "actions": [
+    {
+      "type": "code-change",
+      "summary": "Se añadieron validaciones locales para periodo, alumno, etiqueta, escala, versión y bono.",
+      "timestamp": "2026-09-30T09:47:16.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "regression-test",
+      "summary": "Se añadieron casos límite que confirman cero llamadas con datos inválidos.",
+      "timestamp": "2026-09-30T09:47:16.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "La suite SDK, auditoría SDD y trazabilidad aprobaron.",
+      "timestamp": "2026-09-30T09:47:16.000Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "apps/backend/src/modulos/modulo_analiticas/validacionesAnaliticas.ts",
+      "scripts/api/evaluapro-client.mjs"
+    ],
+    "changed": [
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/tests/evaluapro-client.test.mjs",
+      "scripts/api/README.md",
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "sdk-client-tests",
+      "command": "node --test scripts/tests/evaluapro-client.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 145,
+      "resultSummary": "39 pruebas aprobadas; incluye etiquetas, topes y rechazo previo a la solicitud.",
+      "timestamp": "2026-09-30T09:47:16.000Z"
+    },
+    {
+      "name": "sdd-audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 900,
+      "resultSummary": "Todas las especificaciones cumplen la política.",
+      "timestamp": "2026-09-30T09:47:16.000Z"
+    },
+    {
+      "name": "traceability-tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 850,
+      "resultSummary": "7 pruebas aprobadas.",
+      "timestamp": "2026-09-30T09:47:16.000Z"
+    },
+    {
+      "name": "backend-lint",
+      "command": "npm run lint --workspace backend",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11000,
+      "resultSummary": "Lint backend aprobado tras agregar la integración de descargas.",
+      "timestamp": "2026-09-30T09:47:16.000Z"
+    },
+    {
+      "name": "backend-typecheck",
+      "command": "npm run typecheck --workspace backend",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 12000,
+      "resultSummary": "Typecheck backend aprobado tras agregar la integración de descargas.",
+      "timestamp": "2026-09-30T09:47:16.000Z"
+    }
+  ],
+  "decisions": [
+    "El SDK refleja las etiquetas y límites exactos aceptados por el validador backend."
+  ],
+  "assumptions": [],
+  "risks": [
+    "No se modificaron datos reales; la validación de escrituras del SDK sigue dependiendo además del RBAC y del validador backend."
+  ],
+  "nextStep": "Continuar verificando la paridad de consulta y sincronización de actividades Classroom entre GUI y API.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "unknown",
+    "commit": "unknown",
+    "workingTreeStatus": ""
+  }
+}

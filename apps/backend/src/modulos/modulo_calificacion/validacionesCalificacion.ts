@@ -2,7 +2,7 @@
  * Validaciones de calificacion.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 const esquemaScorePorOpcion = z
   .object({
@@ -23,7 +23,8 @@ const esquemaRespuestaDetectada = z
     opcion: z.enum(['A', 'B', 'C', 'D', 'E']).nullable(),
     confianza: z.number().min(0).max(1).optional(),
     scoresPorOpcion: z.array(esquemaScorePorOpcion).max(5).optional(),
-    flags: z.array(z.enum(['doble_marca', 'bajo_contraste', 'fuera_roi'])).max(3).optional()
+    flags: z.array(z.enum(['doble_marca', 'bajo_contraste', 'fuera_roi', 'parcial_detectada', 'tachada_detectada'])).max(5).optional(),
+    estadoRespuesta: z.enum(['respondida', 'sin_marca', 'ambigua', 'doble_marca', 'tachada']).optional()
   })
   .strict();
 
@@ -43,7 +44,17 @@ const esquemaAnalisisOmr = z
     geomQuality: z.number().min(0).max(1).optional(),
     photoQuality: z.number().min(0).max(1).optional(),
     decisionPolicy: z.string().trim().min(3).max(80).optional(),
-    qrTexto: z.string().trim().min(8).max(600).optional()
+    qrTexto: z.string().trim().min(8).max(600).optional(),
+    resumenRespuestas: z.object({
+      totalReactivos: z.number().int().min(0),
+      reactivosRespondidos: z.number().int().min(0),
+      reactivosSinMarca: z.number().int().min(0),
+      reactivosAmbiguos: z.number().int().min(0),
+      reactivosInvalidos: z.number().int().min(0),
+      examenVacio: z.boolean(),
+      examenVacioProbable: z.boolean(),
+      estadoExamen: z.enum(['vacio_confirmado', 'vacio_probable', 'con_respuestas', 'requiere_revision'])
+    }).optional()
   })
   .strict();
 
@@ -59,6 +70,7 @@ const esquemaPaginaOmrCalificacion = z
 export const esquemaCalificarExamen = z
   .object({
     examenGeneradoId: esquemaObjectId,
+    clientRequestId: z.string().uuid().optional(),
     folio: z.string().trim().min(4).max(60).optional(),
     alumnoId: esquemaObjectId.optional(),
     aciertos: z.number().int().min(0).optional(),
@@ -113,6 +125,26 @@ export const esquemaCalificarExamen = z
         message: `omrAnalisis incompleto: faltan campos requeridos (${faltantes.join(', ')})`,
         path: ['omrAnalisis']
       });
+    }
+
+    for (const [indice, respuesta] of respuestas.entries()) {
+      const estado = respuesta.estadoRespuesta;
+      if (!estado) continue;
+      const tieneOpcion = respuesta.opcion !== null;
+      if (estado === 'respondida' && !tieneOpcion) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Una respuesta respondida debe contener una opción detectada',
+          path: ['respuestasDetectadas', indice, 'estadoRespuesta']
+        });
+      }
+      if (estado !== 'respondida' && tieneOpcion) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Una respuesta no calificable no puede conservar una opción detectada',
+          path: ['respuestasDetectadas', indice, 'opcion']
+        });
+      }
     }
 
   });

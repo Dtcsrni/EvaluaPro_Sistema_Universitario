@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": 1,
+  "iconRoot": "scripts/icons",
+  "shortcuts": [
+    {
+      "name": "EvaluaPro",
+      "description": "EvaluaPro · Plataforma para evaluación universitaria",
+      "icon": "dashboard-prod.ico",
+      "launcher": "native",
+      "desktop": true,
+      "startMenu": true,
+      "flavors": ["docente-local"]
+    },
+    {
+      "name": "EvaluaPro",
+      "description": "EvaluaPro · Plataforma para evaluación universitaria",
+      "icon": "dashboard-prod.ico",
+      "launcher": "tray",
+      "mode": "prod",
+      "desktop": true,
+      "startMenu": true,
+      "excludeFlavors": ["docente-local"]
+    },
+    {
+      "name": "EvaluaPro - Hub",
+      "description": "EvaluaPro Hub · Asistente local para instalar, verificar, reparar y operar",
+      "icon": "installer-canonical.ico",
+      "launcher": "operation",
+      "operation": "open-hub",
+      "desktop": true,
+      "startMenu": true
+    },
+    {
+      "name": "EvaluaPro - Dev",
+      "description": "Bandeja (tray) modo desarrollo - arranque estricto de stack + portal",
+      "icon": "dashboard-dev.ico",
+      "launcher": "tray",
+      "mode": "dev",
+      "desktop": false,
+      "startMenu": true,
+      "excludeFlavors": ["docente-local"]
+    },
+    {
+      "name": "EvaluaPro - Abrir Dashboard",
+      "description": "Abre dashboard local y asegura backend de control",
+      "icon": "dashboard-open.ico",
+      "launcher": "operation",
+      "operation": "open-dashboard",
+      "desktop": false,
+      "startMenu": true
+    },
+    {
+      "name": "EvaluaPro - Reiniciar Stack",
+      "description": "Reinicia stack y valida salud de servicios clave",
+      "icon": "dashboard-restart.ico",
+      "launcher": "operation",
+      "operation": "restart-stack",
+      "desktop": false,
+      "startMenu": true
+    },
+    {
+      "name": "EvaluaPro - Detener Todo",
+      "description": "Solicita detener procesos activos del stack local",
+      "icon": "dashboard-stop.ico",
+      "launcher": "operation",
+      "operation": "stop-all",
+      "desktop": false,
+      "startMenu": true
+    },
+    {
+      "name": "EvaluaPro - Desinstalar",
+      "description": "Inicia la desinstalación guiada de EvaluaPro",
+      "icon": "dashboard-stop.ico",
+      "launcher": "operation",
+      "operation": "uninstall",
+      "desktop": false,
+      "startMenu": true
+    },
+    {
+      "name": "EvaluaPro - Reparar Entorno",
+      "description": "Ejecuta reparación automática y validación de salud",
+      "icon": "dashboard-repair.ico",
+      "launcher": "operation",
+      "operation": "repair",
+      "desktop": false,
+      "startMenu": true
+    }
+  ],
+  "legacyShortcutNames": [
+    "EvaluaPro - Prod",
+    "Sistema Evaluacion - Prod",
+    "Sistema EvaluaPro - Prod"
+  ]
+}

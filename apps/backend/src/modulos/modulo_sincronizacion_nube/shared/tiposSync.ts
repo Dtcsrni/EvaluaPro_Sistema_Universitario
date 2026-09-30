@@ -1,7 +1,7 @@
 /**
  * Tipos internos del modulo de sincronizacion nube.
  */
-import type { PaqueteSincronizacionV2 } from '../sincronizacionInterna';
+import type { PaqueteSincronizacionV2 } from '../sincronizacionInterna.js';
 
 export type ContextoSyncDocente = {
   docenteId: string;

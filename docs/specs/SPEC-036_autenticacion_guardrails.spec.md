@@ -12,14 +12,14 @@ estado: implemented
 El acceso seguro a la plataforma requiere soportar tanto credenciales institucionales (correo y contraseña) como inicio de sesión con cuenta de Google (OAuth 2.0). Ante fallos de configuración de origen en Google Cloud (`origin_mismatch`) o falta de conexión con el backend de Google, el sistema debe guiar proactivamente al usuario con diagnósticos claros y fallback seguro a credenciales locales.
 
 ## Requisitos Funcionales
-- **REQ-001 (Inicio de Sesión Híbrido)**: El módulo debe permitir autenticarse con correo y contraseña o mediante botón oficial de Google OAuth 2.0.
-- **REQ-002 (Validación de Dominios Permitidos)**: En cuentas de Google, el sistema debe validar que el correo pertenezca a los dominios universitarios autorizados antes de conceder acceso.
+- **REQ-001 (Inicio de Sesión Híbrido)**: El módulo debe permitir autenticarse con correo y contraseña o mediante botón oficial de Google OAuth 2.0. El Client ID público de Google puede cargarse desde el endpoint público de capacidades en runtime para que instalaciones compiladas sin `VITE_GOOGLE_CLIENT_ID` mantengan disponible el acceso.
+- **REQ-002 (Correo sin restricción institucional)**: El sistema no debe imponer una allowlist de dominios en autenticación por contraseña, Google ni registro; solo debe validar que el correo tenga formato válido.
 - **REQ-003 (Alerta Proactiva de Orígenes OAuth)**: Cuando Google OAuth falle por discrepancia de origen (`origin_mismatch`), el sistema debe renderizar una tarjeta de ayuda detallada con el origen exacto detectado en el navegador (`window.location.origin`), enlace directo a la consola de Google Cloud y botón para iniciar con credenciales locales.
 - **REQ-004 (Primer Uso y Registro de Licencia)**: En instalaciones nuevas, el sistema debe exigir el registro del docente administrador y la validación de la clave de licencia institucional.
 
 ## Criterios de Aceptación
 1. Login exitoso con correo y contraseña almacena el token JWT de forma persistente.
-2. Login con Google procesa nombres compuestos y valida dominios institucionales.
+2. Login con Google procesa nombres compuestos y acepta cualquier correo verificado con formato válido.
 3. Ante error 400 origin_mismatch, se muestra la tarjeta de diagnóstico con los pasos de solución.
 4. El modo Google-only se activa cuando el backend así lo requiere.
 
@@ -28,6 +28,8 @@ El acceso seguro a la plataforma requiere soportar tanto credenciales institucio
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001 | Autenticación por formulario y validación de campos | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |
-| REQ-002 | Validación de dominio de correo en Google OAuth | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |
+| REQ-001A | Carga runtime del Client ID Google y guardia de bundle | `apps/frontend/tests/app.selector.test.tsx`, `scripts/tests/docente-bundle-guard.test.mjs` | Completado |
+| REQ-002A | Login Google sin allowlist de dominio en backend | `apps/backend/tests/integracion/autenticacionSesion.test.ts` | Completado |
+| REQ-002B | Login Google sin allowlist de dominio en frontend | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |
 | REQ-003 | Diagnóstico de Google OAuth y modo Google-only | `apps/frontend/tests/seccionAutenticacion.googleOnly.test.tsx` | Completado |
 | REQ-004 | Registro inicial y edición de clave de licencia | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |

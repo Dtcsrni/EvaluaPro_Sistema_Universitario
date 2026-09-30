@@ -1,0 +1,117 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-qr-preprint-regression-20260923",
+  "parentSessionId": "omr-qr-real-dataset-20260923",
+  "status": "final",
+  "generatedAt": "2026-09-23T20:30:47Z",
+  "validationProfile": "focused",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding-agent",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Continuar la validación QR del dataset fotográfico contra los PDF previos a impresión y proteger el generador futuro."
+  },
+  "objective": "Verificar los QR de referencias y fotos, y agregar una regresión portable que compruebe la salida PDF real del generador contra el payload esperado.",
+  "scope": [
+    "Auditoría independiente de los dos PDF fuente y un PDF TV4 generado.",
+    "Regresión canónica del PDF mediante rasterización PDF.js y decodificación exacta.",
+    "Actualización de SPEC-062 y traza de esta sesión."
+  ],
+  "constraints": [
+    "No cambiar reglas OMR productivas ni asignar identidad desde similitud no calibrada.",
+    "No modificar PDFs fuente ni agregar dependencias.",
+    "Preservar cambios preexistentes del checkout compartido."
+  ],
+  "actions": [
+    { "type": "validation", "summary": "PDF real renderizado y QR cotejado con manifiesto", "status": "ok" },
+    { "type": "validation", "summary": "Auditoría Poppler/jsQR de PDF fuente y dataset", "status": "falla" },
+    { "type": "validation", "summary": "Pruebas PDF canónico y QR preimpresión", "status": "ok" },
+    { "type": "validation", "summary": "Typecheck de backend", "status": "ok" },
+    { "type": "validation", "summary": "Auditoría SDD", "status": "ok" }
+  ],
+  "files": {
+    "read": [
+      "apps/backend/scripts/omr-qr-preprint-check.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts",
+      "apps/backend/tests/omr.qr.preimpresion.test.ts",
+      "apps/backend/tests/pdf.canonico.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "changed": [
+      "apps/backend/tests/pdf.canonico.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "docs/handoff/sesiones/2026-09-23/omr-qr-preprint-regression-20260923.md",
+      "docs/handoff/sesiones/2026-09-23/omr-qr-preprint-regression-20260923.json"
+    ],
+    "artifacts": [
+      "D:/Downloads/evaluapro_paquete_examenes_materia-Diseno_y_Desarrollo_de_Aplicaciones_plantilla-Segundo_Parcial_total-4_lote-4950C35F.pdf",
+      "D:/Downloads/evaluapro_paquete_examenes_materia-Inteligencia_de_Negocios_plantilla-Segundo_Parcial_total-12_lote-729BB368.pdf",
+      "C:/Users/evega/AppData/Local/Temp/omr-component-guard-full-20260923.json",
+      "output/qa/omr-plantilla-sync-20260923.pdf"
+    ]
+  },
+  "commands": [
+    {
+      "name": "focused_pdf_qr_tests",
+      "command": "npm -C apps/backend run test -- tests/pdf.canonico.test.ts tests/omr.qr.preimpresion.test.ts --run",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 4015,
+      "resultSummary": "2 archivos; 10 pruebas aprobadas.",
+      "timestamp": "2026-09-23T20:30:34Z"
+    },
+    {
+      "name": "backend_typecheck",
+      "command": "npm -C apps/backend run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "Prisma Client generado; TypeScript sin errores.",
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "Todas las especificaciones cumplen política SDD."
+    },
+    {
+      "name": "qr_preprint_reference_audit",
+      "command": "node --experimental-strip-types scripts/omr-qr-preprint-check.ts --pdf <PDF DDA> --pdf <PDF IN> --pdf ../../output/qa/omr-plantilla-sync-20260923.pdf --benchmark-report <omr-component-guard-full-20260923.json> --expected-manifest ../../output/qa/omr-plantilla-sync-20260923.layout.json --dpi 300",
+      "status": "falla",
+      "exitCode": 1,
+      "resultSummary": "PDFs fuente 0/8 y 0/24; PDF generado 1/1; fotos 0/38 con QR exacto. El gate rechazó correctamente la impresión de los PDF fuente y el dataset QR."
+    },
+    {
+      "name": "scoped_diff_check",
+      "command": "git diff --check -- docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md apps/backend/tests/pdf.canonico.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 227,
+      "resultSummary": "Sin errores de whitespace en los archivos revisados.",
+      "timestamp": "2026-09-23T20:30:00Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "falla",
+      "exitCode": 1,
+      "resultSummary": "2/18 contratos de workflow fallan sobre cambios preexistentes en .github/workflows/ci.yml: expectativa de npm ci y detección de npm ci faltante. No se modificaron workflows ajenos al alcance QR."
+    }
+  ],
+  "decisions": [
+    "La falla QR de los PDF fuente es estructural: dos objetos QR distintos ocupan exactamente la misma caja física.",
+    "El renderer TV4 actual dibuja un solo QR final; la rasterización generada coincide exactamente con el payload del manifiesto.",
+    "No modificar el decoder para adivinar identidad en fotos históricas; no hay evidencia calibrada para hacerlo con seguridad."
+  ],
+  "assumptions": [
+    "Las referencias PDF adjuntas corresponden a los lotes fotografiados; el reporte OMR disponible asigna el mapa por contingencia cuando QR no es legible."
+  ],
+  "risksOpen": [
+    "Los QR históricos siguen sin lectura en 32 páginas PDF y 38 fotos.",
+    "La meta global de cobertura OMR 100% no se alcanza con esta sesión; se protege la generación de plantillas futuras y el gate preimpresión."
+  ]
+}

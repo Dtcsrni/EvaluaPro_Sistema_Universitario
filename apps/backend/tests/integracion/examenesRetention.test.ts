@@ -10,9 +10,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('retención de exámenes generados', () => {
   const app = crearApp();
@@ -49,6 +49,70 @@ describe('retención de exámenes generados', () => {
     return respuesta.body.token as string;
   }
 
+  async function crearPreguntasCanonicas(auth: { Authorization: string }, periodoId: string) {
+    const temaResp = await request(app)
+      .post('/api/banco-preguntas/temas')
+      .set(auth)
+      .send({ periodoId, nombre: 'Retencion' })
+      .expect(201);
+    const temaId = String(temaResp.body.tema._id);
+    const sufijo = Date.now();
+    const lote = {
+      contract: 'evaluapro.reactivos.batch',
+      schemaVersion: 1,
+      batchId: `retencion-${sufijo}`,
+      target: { periodoId, temaIds: [temaId] },
+      source: {
+        kind: 'ai_generated',
+        generator: 'EvaluaPro',
+        generatorModel: 'vitest',
+        generatedAt: '2026-09-24T00:00:00Z',
+        sourceDocumentSha256: null
+      },
+      items: Array.from({ length: 8 }, (_, index) => ({
+        externalKey: `retencion-${sufijo}-${index + 1}`,
+        itemId: null,
+        expectedVersion: null,
+        format: 'omr.mcq5',
+        stem: { format: 'richtext', value: `Pregunta retencion ${index + 1}` },
+        options: ['A', 'B', 'C', 'D', 'E'].map((key, optionIndex) => ({
+          key,
+          value: key,
+          isCorrect: optionIndex === 0
+        })),
+        metadata: { difficultyHypothesis: 'medium' },
+        provenance: { origin: 'generated', confidence: 1, notes: 'fixture de retencion' }
+      }))
+    };
+
+    const preview = await request(app)
+      .post('/api/banco-preguntas/importaciones/preview')
+      .set(auth)
+      .send(lote)
+      .expect(200);
+    const confirmado = await request(app)
+      .post(`/api/banco-preguntas/importaciones/${preview.body.importId}/confirmar`)
+      .set(auth)
+      .send({ planHash: preview.body.planHash, payload: lote })
+      .expect(200);
+
+    const preguntasIds: string[] = [];
+    for (const reactivoId of confirmado.body.reactivoIds as string[]) {
+      await request(app)
+        .post(`/api/banco-preguntas/reactivos/${reactivoId}/revisar`)
+        .set(auth)
+        .send({})
+        .expect(200);
+      const publicado = await request(app)
+        .post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`)
+        .set(auth)
+        .send({})
+        .expect(200);
+      preguntasIds.push(String(publicado.body.legacyPreguntaId));
+    }
+    return preguntasIds;
+  }
+
   async function crearEscenario(auth: { Authorization: string }) {
     const periodoResp = await request(app)
       .post('/api/periodos')
@@ -62,25 +126,7 @@ describe('retención de exámenes generados', () => {
       .expect(201);
     const periodoId = periodoResp.body.periodo._id as string;
 
-    const preguntasIds: string[] = [];
-    for (let i = 0; i < 8; i += 1) {
-      const preguntaResp = await request(app)
-        .post('/api/banco-preguntas')
-        .set(auth)
-        .send({
-          periodoId,
-          enunciado: `Pregunta retencion ${i + 1}`,
-          opciones: [
-            { texto: 'A', esCorrecta: true },
-            { texto: 'B', esCorrecta: false },
-            { texto: 'C', esCorrecta: false },
-            { texto: 'D', esCorrecta: false },
-            { texto: 'E', esCorrecta: false }
-          ]
-        })
-        .expect(201);
-      preguntasIds.push(preguntaResp.body.pregunta._id as string);
-    }
+    const preguntasIds = await crearPreguntasCanonicas(auth, periodoId);
 
     const plantillaResp = await request(app)
       .post('/api/examenes/plantillas')
@@ -93,6 +139,11 @@ describe('retención de exámenes generados', () => {
         preguntasIds
       })
       .expect(201);
+
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaResp.body.plantilla._id}/previsualizar/pdf`)
+      .set(auth)
+      .expect(200);
 
     const examenResp = await request(app)
       .post('/api/examenes/generados')
@@ -200,6 +251,18 @@ describe('retención de exámenes generados', () => {
     expect(lote.body?.loteId).toBe(loteId);
     expect(Array.isArray(lote.body?.examenesGenerados)).toBe(true);
     expect(lote.body?.examenesGenerados).toHaveLength(2);
+
+    // Simula respuesta perdida: repetir el mismo loteId debe recuperar/reanudar
+    // esos exámenes y no crear filas nuevas.
+    const reintentoLote = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId: base.plantillaId, loteId })
+      .expect(201);
+    expect(reintentoLote.body?.loteId).toBe(loteId);
+    expect(reintentoLote.body?.examenesGenerados.map((item: { _id: string }) => item._id).sort())
+      .toEqual(lote.body.examenesGenerados.map((item: { _id: string }) => item._id).sort());
+    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(2);
 
     const descargaAntes = await descargarPdfLote(auth, loteId);
     expect(descargaAntes.status).toBe(200);

@@ -11,7 +11,7 @@ import {
   POR_FOLIO_CANONICAL_TEMPLATE_TITLE,
   POR_FOLIO_CANONICAL_TOPIC_NAME,
   buildPorFolioCanonicalSeed
-} from '../src/modulos/modulo_banco_preguntas/porFolioCanonicalSeed';
+} from '../src/modulos/modulo_banco_preguntas/porFolioCanonicalSeed.js';
 
 describe('porFolioCanonicalSeed', () => {
   it('construye tema, banco y plantilla consistentes para seed', () => {

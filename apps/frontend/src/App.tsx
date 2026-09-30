@@ -1,10 +1,12 @@
 /**
  * Selector de app docente o alumno segun variable de entorno.
  */
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { TemaProvider } from './tema/TemaProvider';
 import { TooltipLayer } from './ui/ux/tooltip/TooltipLayer';
+
+const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
 
 const AppAlumno = lazy(() => import('./apps/app_alumno/AppAlumno').then(({ AppAlumno: modulo }) => ({ default: modulo })));
 const AppAdminNegocio = lazy(() => import('./apps/app_admin_negocio/AppAdminNegocio').then(({ AppAdminNegocio: modulo }) => ({ default: modulo })));
@@ -55,11 +57,41 @@ function establecerFavicon(href: string) {
 
 function App() {
   const destino = import.meta.env.VITE_APP_DESTINO || 'docente';
-  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const googleClientIdCompilado = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const [googleClientId, setGoogleClientId] = useState(googleClientIdCompilado);
   const esVersionInfo = typeof window !== 'undefined' && String(window.location.hash || '').startsWith('#/version-info');
   const hash = typeof window !== 'undefined' ? window.location.hash : '';
   const esFirmaEncuadre = hash.startsWith('#/firmar-encuadre/');
   const tokenFirma = esFirmaEncuadre ? hash.replace('#/firmar-encuadre/', '') : '';
+
+  useEffect(() => {
+    if (destino !== 'docente') return;
+    let activo = true;
+    const cargarClientIdGoogle = async () => {
+      try {
+        const respuesta = await fetch(`${apiBaseUrl}/autenticacion/capacidades-integraciones`, {
+          credentials: 'include',
+          cache: 'no-store'
+        });
+        if (!respuesta.ok) return;
+        const payload = await respuesta.json() as {
+          capacidadesIntegraciones?: { googleOauthClientId?: string };
+        };
+        const clientId = String(payload?.capacidadesIntegraciones?.googleOauthClientId || '').trim();
+        if (activo && clientId) setGoogleClientId(clientId);
+      } catch {
+        // La instalación local puede iniciar antes que su API; online/reintento recuperan la configuración.
+      }
+    };
+    const reintento = window.setInterval(() => void cargarClientIdGoogle(), 15_000);
+    window.addEventListener('online', cargarClientIdGoogle);
+    void cargarClientIdGoogle();
+    return () => {
+      activo = false;
+      window.clearInterval(reintento);
+      window.removeEventListener('online', cargarClientIdGoogle);
+    };
+  }, [destino]);
 
   useEffect(() => {
     const esAlumno = destino === 'alumno';
@@ -153,8 +185,12 @@ function App() {
     ? <VersionInfoPage />
     : esFirmaEncuadre
       ? <PaginaFirmaEncuadre token={tokenFirma} />
-      : (destino === 'alumno' ? <AppAlumno /> : destino === 'admin_negocio' ? <AppAdminNegocio /> : <AppDocente />);
-  const contenidoProtegido = googleClientId && destino !== 'alumno' ? <GoogleOAuthProvider clientId={googleClientId}>{contenido}</GoogleOAuthProvider> : contenido;
+      : (destino === 'alumno' ? <AppAlumno /> : destino === 'admin_negocio' ? <AppAdminNegocio /> : <AppDocente googleClientId={googleClientId} />);
+  const contenidoProtegido = destino === 'docente'
+    ? <GoogleOAuthProvider clientId={googleClientId}>{contenido}</GoogleOAuthProvider>
+    : (googleClientId && destino !== 'alumno'
+      ? <GoogleOAuthProvider clientId={googleClientId}>{contenido}</GoogleOAuthProvider>
+      : contenido);
 
   return (
     <TemaProvider>

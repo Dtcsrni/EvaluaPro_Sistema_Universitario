@@ -43,8 +43,15 @@ const checks = [
   { id: 'light-muted-on-card', foreground: '#475569', background: '#ffffff', minimum: 4.5 },
   { id: 'dark-primary-button', foreground: '#ffffff', background: '#0b6fa8', minimum: 4.5 },
   { id: 'dark-secondary-button', foreground: '#f8fbff', background: '#234869', minimum: 4.5 },
+  { id: 'dark-materias-count', foreground: '#122326', background: '#75b4ba', minimum: 4.5 },
+  { id: 'dark-step-number', foreground: '#d9e8f5', background: '#075e91', minimum: 4.5 },
+  { id: 'dark-step-arrow', foreground: '#d9e8f5', background: '#102a46', minimum: 4.5 },
+  { id: 'dark-stepper-disabled', foreground: '#c8d8eb', background: '#334e68', minimum: 4.5 },
   { id: 'light-primary-button', foreground: '#ffffff', background: '#0b6fa8', minimum: 4.5 },
   { id: 'light-secondary-button', foreground: '#102033', background: '#f4f8fb', minimum: 4.5 },
+  { id: 'light-step-arrow', foreground: '#334155', background: '#f1f5f9', minimum: 4.5 },
+  { id: 'light-navigation', foreground: '#16303a', background: '#ffffff', minimum: 4.5 },
+  { id: 'light-navigation-active', foreground: '#ffffff', background: '#0b6fa8', minimum: 4.5 },
 ];
 
 assert.match(css, /--muted:\s*#c8d8eb/);
@@ -56,6 +63,12 @@ assert.match(foundationsCss, /--ui-text-primary:\s*#f8fbff/);
 assert.match(foundationsCss, /--ui-button-primary-bg:\s*#0b6fa8/);
 assert.match(css, /--ui-card-blur:\s*var\(--ui-glass-blur\)/);
 assert.match(css, /background:\s*linear-gradient\(112deg/);
+assert.match(css, /materia-card-alumnos__header strong[\s\S]*color:\s*#122326\s*!important[\s\S]*background:\s*#75b4ba\s*!important/);
+assert.match(css, /empty-step__num[\s\S]*color:\s*#f8fbff\s*!important[\s\S]*background:\s*#075e91\s*!important/);
+assert.match(css, /empty-step__arrow[\s\S]*color:\s*#d9e8f5\s*!important/);
+assert.match(css, /plantillas-stepper__button:disabled[\s\S]*color:\s*#c8d8eb\s*!important[\s\S]*background:\s*#334e68\s*!important[\s\S]*opacity:\s*1\s*!important/);
+assert.match(css, /:root:not\(\[data-theme="dark"\]\) \.tabs \.tab[\s\S]*color:\s*#16303a\s*!important/);
+assert.match(css, /tabs \.tab\.activa[\s\S]*color:\s*#ffffff\s*!important[\s\S]*background:\s*#0b6fa8\s*!important/);
 
 const results = checks.map((check) => ({
   ...check,

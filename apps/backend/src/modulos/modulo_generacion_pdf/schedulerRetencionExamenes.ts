@@ -4,9 +4,9 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { configuracion } from '../../configuracion';
-import { log, logError } from '../../infraestructura/logging/logger';
-import { ejecutarPurgeExamenesGenerados } from './servicioRetencionExamenes';
+import { configuracion } from '../../configuracion.js';
+import { log, logError } from '../../infraestructura/logging/logger.js';
+import { ejecutarPurgeExamenesGenerados } from './servicioRetencionExamenes.js';
 
 let timer: NodeJS.Timeout | null = null;
 let enEjecucion = false;

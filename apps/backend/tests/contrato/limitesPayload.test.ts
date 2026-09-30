@@ -6,9 +6,9 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
-import { tokenDocentePrueba } from '../utils/token';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { tokenDocentePrueba } from '../utils/token.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('contrato: limites de payload', () => {
   beforeAll(async () => {
@@ -32,7 +32,7 @@ describe('contrato: limites de payload', () => {
     process.env.LIMITE_JSON = '1kb';
 
     vi.resetModules();
-    const { crearApp } = await import('../../src/app');
+    const { crearApp } = await import('../../src/app.js');
     const app = crearApp();
 
     const grande = 'x'.repeat(10_000);
@@ -54,7 +54,7 @@ describe('contrato: limites de payload', () => {
     process.env.OMR_IMAGEN_BASE64_MAX_CHARS = '1000';
 
     vi.resetModules();
-    const { crearApp } = await import('../../src/app');
+    const { crearApp } = await import('../../src/app.js');
     const app = crearApp();
 
     const respuesta = await request(app)

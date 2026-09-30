@@ -12,7 +12,7 @@
  * Responsabilidad: Capa de compatibilidad Mongoose -> Prisma para el portal.
  * Permite usar métodos como find, findOne, create, etc. sobre Prisma Client.
  */
-import { prisma } from './sqlite';
+import { prisma } from './sqlite.js';
 
 export function convertQuery(query: any) {
   if (!query) return {};

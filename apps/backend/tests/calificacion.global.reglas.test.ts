@@ -7,7 +7,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacion';
+import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacion.js';
 
 function numeroSeguro(texto: unknown) {
   const n = Number(String(texto ?? '0'));

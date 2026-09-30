@@ -2,20 +2,20 @@
  * Rutas de calificaciones.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import {
   calificarExamen,
   listarSolicitudesRevision,
   obtenerCalificacionPorExamen,
   resolverSolicitudRevision,
   sincronizarSolicitudesRevision
-} from './controladorCalificacion';
+} from './controladorCalificacion.js';
 import {
   esquemaCalificarExamen,
   esquemaResolverSolicitudRevision,
   esquemaSincronizarSolicitudesRevision
-} from './validacionesCalificacion';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+} from './validacionesCalificacion.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
 const router = Router();
 

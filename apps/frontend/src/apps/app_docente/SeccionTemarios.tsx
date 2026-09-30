@@ -25,6 +25,8 @@ type Temario = {
   totalNodos: number;
   porcentajeAvance: number;
   createdAt: string;
+  updatedAt: string;
+  textoOriginal?: string | null;
 };
 
 type TemaNode = {
@@ -68,6 +70,8 @@ export function SeccionTemarios({ periodos }: Props) {
   // Formulario carga manual
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [textoManual, setTextoManual] = useState('');
+  const [motivoCambio, setMotivoCambio] = useState('');
+  const [editandoTemario, setEditandoTemario] = useState(false);
 
   // PDF drag & drop
   const [archivoNombre, setArchivoNombre] = useState('');
@@ -117,9 +121,10 @@ export function SeccionTemarios({ periodos }: Props) {
     setTemarioActual(t);
     setCargando(true);
     try {
-      const data = await clienteApi.obtener<{ nodos: TemaNode[] }>(
+      const data = await clienteApi.obtener<{ temario?: Temario; nodos: TemaNode[] }>(
         `/temarios/${t._id}/nodos`
       );
+      if (data.temario) setTemarioActual({ ...t, ...data.temario });
       setNodos(data.nodos ?? []);
       setTab('arbol');
     } catch {
@@ -147,15 +152,13 @@ export function SeccionTemarios({ periodos }: Props) {
     }
     setCargando(true);
     try {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((res, rej) => {
-        reader.onload = () => res((reader.result as string).split(',')[1] ?? '');
-        reader.onerror = rej;
-        reader.readAsDataURL(archivoPdf);
-      });
-      const data = await clienteApi.enviar<{ temario: Temario; totalNodos: number }>(
-        '/temarios/pdf',
-        { periodoId, nombre: nombreNuevo, archivoBase64: base64 }
+      const formData = new FormData();
+      formData.set('periodoId', periodoId);
+      formData.set('nombre', nombreNuevo);
+      formData.set('archivo', archivoPdf, archivoPdf.name);
+      const data = await clienteApi.enviarFormData<{ temario: Temario; totalNodos: number }>(
+        '/temarios/desde-pdf',
+        formData
       );
       emitToast({ level: 'ok', title: 'Temario procesado', message: `${data.totalNodos} temas extraídos.` });
       setArchivoPdf(null);
@@ -173,12 +176,29 @@ export function SeccionTemarios({ periodos }: Props) {
 
   // ─── Carga manual ────────────────────────────────────────────────────────────
   async function cargarManual() {
-    if (!textoManual.trim() || !periodoId || !nombreNuevo) {
+    if (!textoManual.trim() || !nombreNuevo || (!editandoTemario && !periodoId)) {
       emitToast({ level: 'warn', title: 'Datos incompletos', message: 'Completa nombre y texto.' });
       return;
     }
     setCargando(true);
     try {
+      if (editandoTemario && temarioActual) {
+        const data = await clienteApi.actualizar<{ temario: Temario; nodos: TemaNode[] }>(
+          `/temarios/${encodeURIComponent(temarioActual._id)}`,
+          {
+            nombre: nombreNuevo,
+            texto: textoManual,
+            expectedUpdatedAt: temarioActual.updatedAt,
+            motivoCambio
+          }
+        );
+        emitToast({ level: 'ok', title: 'Temario actualizado', message: `${data.nodos.length} temas; se conservó el avance coincidente.` });
+        setEditandoTemario(false);
+        setMotivoCambio('');
+        await cargarTemarios();
+        await abrirTemario({ ...temarioActual, ...data.temario, _id: temarioActual._id });
+        return;
+      }
       const data = await clienteApi.enviar<{ temario: Temario; totalNodos: number }>(
         '/temarios/manual',
         { periodoId, nombre: nombreNuevo, texto: textoManual }
@@ -191,6 +211,45 @@ export function SeccionTemarios({ periodos }: Props) {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Error al cargar el temario.';
       emitToast({ level: 'error', title: 'Error', message: msg });
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  function prepararEdicionTemario() {
+    if (!temarioActual) return;
+    setEditandoTemario(true);
+    setNombreNuevo(temarioActual.nombre);
+    setTextoManual(String(temarioActual.textoOriginal ?? nodos.map((nodo) => `${nodo.numero} ${nodo.titulo}`).join('\n')));
+    setMotivoCambio('');
+    setTab('cargar');
+  }
+
+  async function eliminarTemarioActual() {
+    if (!temarioActual || !window.confirm('¿Eliminar este temario? Solo se permite si no tiene avance ni notas vinculadas.')) return;
+    const motivo = window.prompt('Indica el motivo de eliminación:');
+    if (!motivo?.trim()) {
+      emitToast({ level: 'warn', title: 'Motivo requerido', message: 'No se eliminó el temario.' });
+      return;
+    }
+    if (!temarioActual.updatedAt) {
+      emitToast({ level: 'error', title: 'Versión no disponible', message: 'Vuelve a abrir el temario antes de eliminarlo.' });
+      return;
+    }
+    setCargando(true);
+    try {
+      await clienteApi.enviar(`/temarios/${encodeURIComponent(temarioActual._id)}/eliminar`, {
+        confirmarEliminacion: true,
+        expectedUpdatedAt: temarioActual.updatedAt,
+        motivoCambio: motivo.trim()
+      });
+      setTemarios((actuales) => actuales.filter((temario) => temario._id !== temarioActual._id));
+      setTemarioActual(null);
+      setNodos([]);
+      setTab('lista');
+      emitToast({ level: 'ok', title: 'Temario eliminado', message: 'La acción quedó registrada en la auditoría.' });
+    } catch (e: unknown) {
+      emitToast({ level: 'error', title: 'No se pudo eliminar', message: e instanceof Error ? e.message : 'Error al eliminar el temario.' });
     } finally {
       setCargando(false);
     }
@@ -509,6 +568,7 @@ export function SeccionTemarios({ periodos }: Props) {
           {tab === 'cargar' && (
             <div className="temarios-cargar-grid anim-fade-in">
               {/* Drag & drop PDF */}
+              {!editandoTemario && (
               <div className="panel temarios-panel-card anim-card-hover">
                 <div className="asistencias-card-head">
                   <h3 className="asistencias-sub-title"><Icono nombre="pdf" /> Extracción Automática desde PDF</h3>
@@ -579,13 +639,14 @@ export function SeccionTemarios({ periodos }: Props) {
                   </Boton>
                 </div>
               </div>
+              )}
 
               {/* Manual */}
               <div className="panel temarios-panel-card anim-card-hover">
                 <div className="asistencias-card-head">
-                  <h3 className="asistencias-sub-title">✍️ Carga Manual Jerárquica</h3>
+                  <h3 className="asistencias-sub-title">✍️ {editandoTemario ? 'Editar temario' : 'Carga Manual Jerárquica'}</h3>
                   <p className="asistencias-sub-desc">
-                    Escribe tu temario usando numeración estándar: <code>1 Tema principal</code>, <code>1.1 Subtema</code>, <code>1.1.1 Detalle</code>.
+                    {editandoTemario ? 'Los nodos coincidentes conservan su estado y notas. No se pueden quitar nodos con avance, notas o asistencia vinculada.' : <>Escribe tu temario usando numeración estándar: <code>1 Tema principal</code>, <code>1.1 Subtema</code>, <code>1.1.1 Detalle</code>.</>}
                   </p>
                 </div>
 
@@ -607,10 +668,24 @@ export function SeccionTemarios({ periodos }: Props) {
                   className="asistencias-input font-code temarios-textarea"
                 />
 
+                {editandoTemario && (
+                  <label className="asistencias-label-field temarios-input-full">
+                    <span className="asistencias-field-lbl">Motivo del cambio</span>
+                    <input
+                      type="text"
+                      value={motivoCambio}
+                      onChange={(e) => setMotivoCambio(e.target.value)}
+                      maxLength={500}
+                      required
+                      className="asistencias-input"
+                    />
+                  </label>
+                )}
+
                 <Boton
                   type="button"
                   onClick={() => void cargarManual()}
-                  disabled={cargando}
+                  disabled={cargando || (editandoTemario && !motivoCambio.trim())}
                   cargando={cargando}
                   className="asistencias-btn-primario temarios-btn-margin-top pulse-glow"
                   icono={
@@ -619,7 +694,7 @@ export function SeccionTemarios({ periodos }: Props) {
                     </svg>
                   }
                 >
-                  {cargando ? 'Cargando…' : 'Crear temario'}
+                  {cargando ? 'Guardando…' : editandoTemario ? 'Guardar cambios' : 'Crear temario'}
                 </Boton>
               </div>
             </div>
@@ -638,6 +713,12 @@ export function SeccionTemarios({ periodos }: Props) {
                     </span>
                     <h3>{temarioActual.nombre}</h3>
                   </div>
+                  <Boton type="button" variante="secundario" onClick={prepararEdicionTemario}>
+                    Editar temario
+                  </Boton>
+                  <Boton type="button" variante="secundario" onClick={() => void eliminarTemarioActual()} disabled={cargando}>
+                    Eliminar temario
+                  </Boton>
                   <span className={`temario-tree-badge ${temarioActual.porcentajeAvance === 100 ? 'temarios-progress-val-success' : 'temarios-progress-val-accent'}`}>
                     {temarioActual.porcentajeAvance}% completado
                   </span>

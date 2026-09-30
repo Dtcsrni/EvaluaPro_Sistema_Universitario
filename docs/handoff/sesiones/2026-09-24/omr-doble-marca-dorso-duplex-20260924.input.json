@@ -1,0 +1,79 @@
+{
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "agent",
+    "channel": "Codex desktop"
+  },
+  "parentSessionId": "omr-rescate-alto-contraste-20260924",
+  "request": {
+    "summary": "Distinguir dobles marcas OMR de transparencia/residuo borrado por color y contraste, integrarlo al motor y analizar solapamiento dúplex de burbujas."
+  },
+  "objective": "Integrar una recuperación conservadora cuando el contraste local y la oscuridad central identifican una única marca dominante; mantener dobles cromática o fotométricamente comparables en revisión, y documentar las condiciones geométricas de impresión a doble cara.",
+  "scope": [
+    "Regla OMR y regresiones focalizadas en el checkout canónico.",
+    "Actualización de REQ-020 y trazabilidad SDD.",
+    "Auditoría geométrica de las páginas impresas frente a las transformaciones dúplex evaluadas; sin rediseño de plantilla."
+  ],
+  "constraints": [
+    "No usar la clave de respuestas para resolver marcas.",
+    "No cambiar otras respuestas emitidas ni relajar dobles/tachaduras comparables.",
+    "Preservar cambios concurrentes preexistentes del checkout.",
+    "No afirmar validación sobre la captura completa cuando el runner de imagen no pudo iniciarse."
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Añadida dominancia de contraste/oscuridad con márgenes entre opciones; núcleos sin contraste dejan de bastar como segunda marca. Competidores cromáticos o con evidencia local comparable bloquean el rescate.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "29 pruebas OMR en 3 archivos, ESLint focal y TypeScript con Prisma regenerado pasan. sdd:audit y 7 pruebas de trazabilidad más 11 de handoff pasan.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "El reprocesamiento directo de la página CamScanner falló antes de iniciar por uv_os_get_passwd ENOMEM; la regresión unitaria usa las métricas registradas de la captura. El benchmark integral posterior al cambio queda pendiente.",
+      "status": "falla"
+    },
+    {
+      "type": "analysis",
+      "summary": "En el mapa impreso, dúplex borde largo separa los OMR; la transformación equivalente a volteo por borde corto mantiene o provoca solapamientos. Se recomienda hacer cumplir el perfil dúplex y añadir una guarda geométrica por transformación y tolerancia de registro.",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/tests/omr.estado-respuesta.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "C:/ProgramData/EvaluaPro/data/evaluapro.db",
+      "C:/Users/evega/Documents/ChatGPT/Evaluapro/output/dataset_capturados_omr"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/tests/omr.estado-respuesta.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "artifacts": [
+      "C:/Users/evega/Documents/ChatGPT/Evaluapro/tmp/pdfs/capturados_omr/scan-65E2471B-2.png",
+      "C:/Users/evega/Documents/ChatGPT/Evaluapro/tmp/pdfs/capturados_omr/crop-65E2471B-p2-q10.png"
+    ]
+  },
+  "decisions": [
+    "No se autoselecciona una opción si una segunda candidata tiene contraste local y oscuridad central comparables.",
+    "El mapa actual está configurado para impresión dúplex por borde largo; no se rediseñó la plantilla porque el usuario pidió análisis, no implementación del rediseño.",
+    "La regla necesita benchmark integral antes de afirmar mejora general."
+  ],
+  "assumptions": [
+    "Las métricas etiquetadas de la captura son evidencia diagnóstica del caso, no validación independiente de exactitud."
+  ],
+  "risks": [
+    "Runner de imagen actual no inicia en el entorno por uv_os_get_passwd ENOMEM.",
+    "No se conoce si la impresora del usuario aplica realmente volteo por borde largo al imprimir el lote.",
+    "No se corrió el benchmark fotográfico integral posterior al cambio."
+  ],
+  "nextStep": "Confirmar el modo de volteo físico de la impresora; decidir si se exige borde largo con preflight geométrico o si se rediseñan las zonas OMR para soportar ambos modos, y después ejecutar el benchmark integral del motor."
+}

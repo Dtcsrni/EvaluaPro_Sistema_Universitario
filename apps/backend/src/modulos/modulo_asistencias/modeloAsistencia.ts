@@ -3,7 +3,7 @@
  *
  * Responsabilidad: Definiciones de modelos compatibles con Prisma/SQLite.
  */
-import { buildCompatModel } from '../../compartido/compat';
+import { buildCompatModel } from '../../compartido/compat.js';
 
 export const SesionAsistencia = buildCompatModel('asistenciaSesion', {});
 export const RegistroAsistencia = buildCompatModel('asistenciaRegistro', {});

@@ -7,6 +7,7 @@
 import { estimarPaginasParaPreguntas } from '../../../SeccionBanco.helpers';
 import type { Pregunta } from '../../../tipos';
 import { obtenerVersionPregunta } from '../../../utilidades';
+import { textoPlanoRico } from '../components/RichTextEditor';
 
 export function estimarAltoPregunta(pregunta: Pregunta): number {
   const mmAPuntos = (mm: number) => mm * (72 / 25.4);
@@ -63,7 +64,7 @@ export function estimarAltoPregunta(pregunta: Pregunta): number {
 
   const version = obtenerVersionPregunta(pregunta);
   const tieneImagen = Boolean(String(version?.imagenUrl ?? '').trim());
-  const lineasEnunciado = estimarLineasPorAncho(String(version?.enunciado ?? ''), anchoTextoPregunta, sizePregunta);
+  const lineasEnunciado = estimarLineasPorAncho(textoPlanoRico(String(version?.enunciado ?? '')), anchoTextoPregunta, sizePregunta);
   let altoNecesario = lineasEnunciado * lineaPregunta;
   if (tieneImagen) altoNecesario += 43;
 

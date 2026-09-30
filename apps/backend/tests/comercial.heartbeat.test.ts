@@ -51,7 +51,7 @@ describe('heartbeatLicenciaPublica', () => {
   });
 
   it('actualiza heartbeat y calcula horas transcurridas y límite offline', async () => {
-    const { heartbeatLicenciaPublica } = await import('../src/modulos/modulo_comercial_core/controladorComercialPublico');
+    const { heartbeatLicenciaPublica } = await import('../src/modulos/modulo_comercial_core/controladorComercialPublico.js');
     const res = { json: vi.fn() };
     await heartbeatLicenciaPublica({
       body: {

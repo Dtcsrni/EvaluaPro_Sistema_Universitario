@@ -2,7 +2,7 @@
 
 Esta guía describe **cómo llenar cada formulario** del sistema (plataforma docente y portal alumno), qué significa cada campo y qué validaciones aplica.
 
-> Nota: algunos comportamientos (como políticas de correo institucional) dependen de variables de entorno. Si tu institución impone dominios permitidos, verás mensajes de validación cuando el correo no cumpla.
+> Nota: el sistema acepta correos de cualquier dominio con formato válido. La cuenta debe seguir siendo verificable y única para el flujo de autenticación utilizado.
 
 ---
 
@@ -29,8 +29,7 @@ Pantalla: **Acceso docente**.
 
 #### Ingresar
 Campos:
-- **Correo** (requerido): correo del docente.
-  - Si hay política de dominios, debe ser institucional (por ejemplo `@universidad.edu`).
+- **Correo** (requerido): correo válido del docente, sin restricción de dominio.
 - **Contraseña** (requerido): contraseña actual.
 
 Cómo llenarlo:
@@ -39,12 +38,11 @@ Cómo llenarlo:
 3) Presiona **Ingresar**.
 
 Errores comunes:
-- **Correo no permitido**: usa el dominio institucional admitido.
 - **Correo o contraseña incorrectos**: revisa que el correo sea el mismo con el que te registraste.
 
 #### Ingresar con Google (si está habilitado)
 - Usa el botón de Google.
-- Si hay política de dominios, solo funcionará para correos permitidos.
+- Google acepta cualquier correo verificado; no existe una allowlist institucional.
 
 #### Registrar
 Campos:
@@ -144,7 +142,7 @@ Campos:
 - **Nombres** (requerido)
 - **Apellidos** (requerido)
 - **Correo** (opcional)
-  - Si hay política de dominios permitidos, debe ser institucional.
+  - El correo puede pertenecer a cualquier dominio; debe conservar formato válido.
 - **Grupo** (opcional): grupo/sección (ej. `3A`).
 - **Materia** (requerido): materia a la que pertenece.
 

@@ -1,11 +1,11 @@
 ---
 id: SPEC-E2E-PLAYWRIGHT-MATRIX
 titulo: Matriz Exhaustiva de Pruebas Funcionales y de Calidad UX/UI con Playwright
-version: 1.1.1
-fecha: 2026-08-20
+version: 1.1.3
+fecha: 2026-09-24
 autor: Codex / Antigravity AI
 modulo: modulo_qa_e2e
-estado: implemented
+estado: approved
 ---
 
 # SPEC-E2E-PLAYWRIGHT-MATRIX: Matriz Exhaustiva de Pruebas Funcionales y de Calidad UX/UI con Playwright
@@ -26,11 +26,14 @@ EvaluaPro requiere una validación exhaustiva automatizada de extremo a extremo 
 - REQ-010 (Alumno - Acceso y Consulta): Ingreso con código o matrícula y consulta de desglose de reactivos.
 - REQ-011 (Admin - Monitoreo): Consulta de métricas institucionales y estado de servicios.
 - REQ-012 (Calidad UX/UI): Cero desbordamiento horizontal en resoluciones Desktop (1366x900), Tablet (1024x768, 768x1024) y Móvil (390x844), controles con targets táctiles mínimos y soporte para `prefers-reduced-motion`.
+- REQ-013 (Aislamiento E2E): Cuando el portal está deshabilitado, el arranque no crea ni migra su base; cuando un journey integrado lo necesita, debe arrancar el portal sobre una base aislada, y el cliente alumno debe apuntar al puerto de ese servicio.
+- REQ-014 (Fixture vigente): El journey de exámenes prepara reactivos mediante el contrato de importación actual, comprueba cada respuesta HTTP y no usa rutas de escritura legadas retiradas.
 
 ## Criterios de Aceptación
 - Todas las suites de Playwright (docente, alumno, admin, ciclo y journey) ejecutan y pasan al 100% en verde.
 - No se presentan errores en consola JS ni bloqueos de interfaz durante los flujos.
 - Los snapshots y reportes de calidad UX/UI quedan actualizados en `reports/qa/latest/`.
+- Los journeys que no usan portal pueden deshabilitarlo; el journey docente-alumno integrado inicia portal y frontend alumno, y completa publicación, acceso y consulta.
 
 ## Matriz de Trazabilidad
 
@@ -48,3 +51,5 @@ EvaluaPro requiere una validación exhaustiva automatizada de extremo a extremo 
 | REQ-010 | Alumno - Acceso y consulta | `tests/gui-responsive/responsive-alumno.spec.ts` | Implementado |
 | REQ-011 | Admin - Monitoreo de negocio | `tests/gui-responsive/responsive-admin.spec.ts` | Implementado |
 | REQ-012 | Calidad UX/UI y auditoría responsive | `apps/frontend/tests/gui.responsive.audit.test.ts` | Implementado |
+| REQ-013 | Arranque con o sin portal según el journey y URL del portal alumno | `tests/gui-responsive/playwright.ciclo.config.mjs` | Validado en Edge local; CI pendiente |
+| REQ-014 | Fixture de reactivos mediante preview y confirmación | `tests/gui-responsive/journey-docente-integral.spec.ts` | Validado en Edge local; CI pendiente |

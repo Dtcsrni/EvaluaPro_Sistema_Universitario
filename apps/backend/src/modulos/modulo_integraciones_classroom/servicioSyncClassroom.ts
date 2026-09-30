@@ -4,20 +4,21 @@
  * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { Alumno } from '../modulo_alumnos/modeloAlumno';
-import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion';
-import { IntegracionClassroom } from './modeloIntegracionClassroom';
-import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia';
-import { MapeoClassroomAlumnoCurso } from './modeloMapeoClassroomAlumnoCurso';
-import { BitacoraSyncClassroom } from './modeloBitacoraSyncClassroom';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { Alumno } from '../modulo_alumnos/modeloAlumno.js';
+import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion.js';
+import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
+import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia.js';
+import { MapeoClassroomAlumnoCurso } from './modeloMapeoClassroomAlumnoCurso.js';
+import { BitacoraSyncClassroom } from './modeloBitacoraSyncClassroom.js';
+import { calcularAcumuladoTareasPonderadoPorPuntos } from './calculoAcumuladoTareas.js';
 import {
   classroomGet,
   listarActividadesClassroom,
   listarCursosClassroom,
   obtenerTokenAccesoClassroom
-} from './servicioClassroomGoogle';
+} from './servicioClassroomGoogle.js';
 
 function numeroSeguro(valor: unknown): number {
   const n = Number(valor);
@@ -45,6 +46,47 @@ function fechaSegura(valor: unknown): Date | null {
   return Number.isFinite(fecha.getTime()) ? fecha : null;
 }
 
+function fechaLimiteUtc(courseWork: Record<string, unknown>): Date | null {
+  const dueDate = (courseWork.dueDate || {}) as Record<string, unknown>;
+  const dueTime = (courseWork.dueTime || {}) as Record<string, unknown>;
+  const year = Number(dueDate.year);
+  const month = Number(dueDate.month);
+  const day = Number(dueDate.day);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  // Classroom expresa dueDate/dueTime como fecha/hora UTC; sin hora no inferimos un vencimiento.
+  if (dueTime.hours === undefined || dueTime.minutes === undefined) return null;
+  const hours = Number(dueTime.hours);
+  const minutes = Number(dueTime.minutes);
+  const seconds = Number(dueTime.seconds ?? 0);
+  const millis = Math.floor(Number(dueTime.nanos ?? 0) / 1_000_000);
+  if (![hours, minutes, seconds, millis].every(Number.isInteger)) return null;
+  const timestamp = Date.UTC(year, month - 1, day, hours, minutes, seconds, millis);
+  const fecha = new Date(timestamp);
+  if (
+    fecha.getUTCFullYear() !== year || fecha.getUTCMonth() !== month - 1 || fecha.getUTCDate() !== day ||
+    hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59 || millis < 0 || millis > 999
+  ) return null;
+  return fecha;
+}
+
+function leerMetadata(valor: unknown): Record<string, unknown> {
+  if (valor && typeof valor === 'object' && !Array.isArray(valor)) return valor as Record<string, unknown>;
+  if (typeof valor !== 'string' || !valor.trim()) return {};
+  try {
+    const parsed: unknown = JSON.parse(valor);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function numeroOpcional(valor: unknown): number | null {
+  if (typeof valor === 'number' && Number.isFinite(valor)) return valor;
+  if (typeof valor !== 'string' || !valor.trim()) return null;
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : null;
+}
+
 function tituloDefaultEvidencia(courseWork: Record<string, unknown>, mapeo: ActividadClassroomSeleccionada) {
   return normalizarTexto(mapeo.tituloEvidencia) || normalizarTexto(courseWork.title) || `Evidencia Classroom ${mapeo.courseWorkId}`;
 }
@@ -57,19 +99,20 @@ function normalizarActividadSeleccionada(actividad: ActividadClassroomSelecciona
     ...(normalizarTexto(actividad.descripcionEvidencia) ? { descripcionEvidencia: normalizarTexto(actividad.descripcionEvidencia) } : {}),
     ...(Number.isFinite(Number(actividad.ponderacion)) ? { ponderacion: Number(actividad.ponderacion) } : {}),
     ...(Number.isFinite(Number(actividad.corte)) ? { corte: Number(actividad.corte) } : {}),
-    ...(typeof actividad.activo === 'boolean' ? { activo: actividad.activo } : {})
+    ...(actividad.destinoColumna !== undefined ? { destinoColumna: actividad.destinoColumna } : {}),
+    ...(typeof actividad.activo === 'boolean' ? { activo: actividad.activo } : {}),
+    ...(Array.isArray(actividad.faltantesConfirmados)
+      ? { faltantesConfirmados: [...new Set(actividad.faltantesConfirmados.map(normalizarTexto).filter(Boolean))] }
+      : {})
   };
 }
 
 function calcularCalificacionDecimal(params: {
   assignedGrade?: unknown;
-  draftGrade?: unknown;
   maxPoints?: unknown;
 }) {
-  const gradeRaw = Number.isFinite(Number(params.assignedGrade))
-    ? Number(params.assignedGrade)
-    : Number(params.draftGrade);
-  if (!Number.isFinite(gradeRaw)) return null;
+  const gradeRaw = numeroOpcional(params.assignedGrade);
+  if (gradeRaw === null) return null;
 
   const maxPoints = numeroSeguro(params.maxPoints);
   if (maxPoints > 0) {
@@ -85,7 +128,9 @@ export type ActividadClassroomSeleccionada = {
   descripcionEvidencia?: string;
   ponderacion?: number;
   corte?: number;
+  destinoColumna?: 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir' | null;
   activo?: boolean;
+  faltantesConfirmados?: string[];
 };
 
 type EstudianteClassroom = {
@@ -128,6 +173,13 @@ type PreviewSubmission = {
   wouldCreate: boolean;
   wouldUpdate: boolean;
   calificacionDecimal?: number;
+  puntosObtenidos?: number;
+  puntosPosibles?: number;
+  vencida: boolean;
+  puedeConfirmarFaltante: boolean;
+  faltanteExplicito: boolean;
+  estadoClassroom?: string;
+  fechaVencimiento?: string;
 };
 
 type ResultadoActividad = {
@@ -136,6 +188,8 @@ type ResultadoActividad = {
   courseWorkId: string;
   courseWorkTitle?: string;
   tituloEvidencia?: string;
+  corte?: number;
+  destinoColumna?: 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir' | null;
   submissionsProcesadas: number;
   matched: number;
   unmatched: number;
@@ -165,6 +219,25 @@ type ResultadoSync = {
   actualizadas: number;
   omitidas: number;
   actividades: ResultadoActividad[];
+  promediosEvaluacionContinuaTercerParcial: Array<{
+    alumnoId: string;
+    alumnoNombre: string;
+    puntosObtenidos: number;
+    puntosPosibles: number;
+    promedioSobre10: number;
+    continuaSobre5: number;
+    actividadesCalificadas: number;
+    actividadesFaltantesConfirmadas: number;
+  }>;
+  acumuladoTareasSegundoParcial: Array<{
+    alumnoId: string;
+    alumnoNombre: string;
+    puntosObtenidos: number;
+    puntosPosibles: number;
+    promedio: number;
+    actividadesCalificadas: number;
+    actividadesFaltantesConfirmadas: number;
+  }>;
   errores: Array<{ courseId: string; courseWorkId: string; mensaje: string }>;
 };
 
@@ -197,7 +270,15 @@ async function obtenerEstudiantesCurso(
 }
 
 async function obtenerAlumnosLocales(periodoId: string, docenteId: string): Promise<AlumnoLocal[]> {
-  const alumnos = await Alumno.find({ docenteId, periodoId, activo: { $ne: false } })
+  const periodo = await prisma.periodo.findFirst({
+    where: { id: periodoId, docenteId },
+    select: { activo: true }
+  });
+  const alumnos = await Alumno.find({
+    docenteId,
+    periodoId,
+    ...(periodo?.activo === false ? {} : { activo: { $ne: false } })
+  })
     .select({ _id: 1, nombreCompleto: 1, matricula: 1, correo: 1 })
     .sort({ nombreCompleto: 1 })
     .lean();
@@ -296,6 +377,7 @@ async function guardarMetadataActividad(
         descripcionEvidencia: actividadNormalizada.descripcionEvidencia || undefined,
         ponderacion: Number.isFinite(Number(actividadNormalizada.ponderacion)) ? Number(actividadNormalizada.ponderacion) : 1,
         corte: Number.isFinite(Number(actividadNormalizada.corte)) ? Number(actividadNormalizada.corte) : undefined,
+        ...(actividadNormalizada.destinoColumna !== undefined ? { destinoColumna: actividadNormalizada.destinoColumna } : {}),
         activo: actividadNormalizada.activo === false ? false : true,
         ...(opciones?.asignacionesAlumnos ? { asignacionesAlumnos: opciones.asignacionesAlumnos } : {})
       }
@@ -304,7 +386,9 @@ async function guardarMetadataActividad(
   );
 }
 
-function sumarResultados(resultados: ResultadoActividad[]): Omit<ResultadoSync, 'tipo' | 'periodoId' | 'actividades' | 'errores'> {
+function sumarResultados(
+  resultados: ResultadoActividad[]
+): Omit<ResultadoSync, 'tipo' | 'periodoId' | 'actividades' | 'promediosEvaluacionContinuaTercerParcial' | 'acumuladoTareasSegundoParcial' | 'errores'> {
   return resultados.reduce(
     (acc, item) => ({
       totalActividades: acc.totalActividades + 1,
@@ -394,6 +478,12 @@ export async function listarActividadesPorCurso(docenteId: string, courseId: str
             descripcionEvidencia: normalizarTexto(mapeo.descripcionEvidencia) || undefined,
             ponderacion: numeroSeguro(mapeo.ponderacion) || 1,
             corte: Number.isFinite(Number(mapeo.corte)) ? Number(mapeo.corte) : undefined,
+            destinoColumna:
+              mapeo.destinoColumna === 'Tareas y Ejercicios 2do Parcial' ||
+              mapeo.destinoColumna === 'Practica 2do Parcial' ||
+              mapeo.destinoColumna === 'Excluir'
+                ? mapeo.destinoColumna
+                : undefined,
             activo: mapeo.activo !== false
           }
         : null
@@ -526,6 +616,8 @@ export async function sincronizarImportacionClassroom(params: {
       courseId: actividad.courseId,
       courseWorkId: actividad.courseWorkId,
       tituloEvidencia: actividad.tituloEvidencia,
+      corte: actividad.corte,
+      destinoColumna: actividad.destinoColumna,
       submissionsProcesadas: 0,
       matched: 0,
       unmatched: 0,
@@ -570,6 +662,8 @@ export async function sincronizarImportacionClassroom(params: {
 
       resultadoActividad.courseName = normalizarTexto(coursePayload.name) || undefined;
       resultadoActividad.courseWorkTitle = normalizarTexto(courseWorkPayload.title) || undefined;
+      const fechaVencimiento = fechaLimiteUtc(courseWorkPayload);
+      const vencida = fechaVencimiento !== null && fechaVencimiento.getTime() < Date.now();
 
       const mapeoLegacyDoc = await MapeoClassroomEvidencia.findOne({
         docenteId: params.docenteId,
@@ -619,7 +713,6 @@ export async function sincronizarImportacionClassroom(params: {
 
           const calificacionCalculada = calcularCalificacionDecimal({
             assignedGrade: submission.assignedGrade,
-            draftGrade: submission.draftGrade,
             maxPoints: courseWorkPayload.maxPoints
           });
 
@@ -629,15 +722,43 @@ export async function sincronizarImportacionClassroom(params: {
             'classroom.courseWorkId': actividad.courseWorkId,
             'classroom.submissionId': submissionId
           })
-            .select({ _id: 1, estadoCaptura: 1, calificacionDecimal: 1 })
+            .select({ _id: 1, metadata: 1 })
             .lean();
 
-          const estadoCaptura =
-            calificacionCalculada !== null || Number.isFinite(Number(existente?.calificacionDecimal)) ? 'calificada' : 'pendiente';
-          const calificacionFinal =
-            calificacionCalculada !== null ? calificacionCalculada : Number.isFinite(Number(existente?.calificacionDecimal))
-              ? Number(existente?.calificacionDecimal)
-              : undefined;
+          const metadataExistente = leerMetadata(existente?.metadata);
+          const faltantePersistido = Boolean(metadataExistente.faltanteClassroomConfirmado);
+          const faltanteSolicitado = actividad.faltantesConfirmados?.includes(submissionId) === true;
+          const tieneCalificacionClassroom = calificacionCalculada !== null;
+          const estadoClassroom = normalizarTexto(submission.state);
+          const candidatoFaltante = Boolean(
+            vencida &&
+            (numeroOpcional(courseWorkPayload.maxPoints) ?? 0) > 0 &&
+            !tieneCalificacionClassroom &&
+            Boolean(resolucionAlumno.alumnoId) &&
+            ['NEW', 'CREATED'].includes(estadoClassroom)
+          );
+          const puedeConfirmarFaltante = Boolean(
+            candidatoFaltante &&
+            ((resultadoActividad.destinoColumna === 'Tareas y Ejercicios 2do Parcial' && resultadoActividad.corte === 2) ||
+              (resultadoActividad.corte === 3 && resultadoActividad.destinoColumna !== 'Excluir'))
+          );
+          if (faltanteSolicitado && !puedeConfirmarFaltante) {
+            const mensaje = `No se puede confirmar como faltante la entrega ${submissionId}: debe estar vencida, pendiente y asignada a evaluación continua de Corte 2 o Corte 3.`;
+            resultadoActividad.errors.push({ mensaje });
+            errores.push({ courseId: actividad.courseId, courseWorkId: actividad.courseWorkId, mensaje });
+          }
+          const faltanteExplicito = puedeConfirmarFaltante &&
+            (Array.isArray(actividad.faltantesConfirmados) ? faltanteSolicitado : faltantePersistido);
+          // No persistir entregas pendientes comunes; sí conservar una falta
+          // seleccionada explícitamente por el docente para que la lista pueda
+          // contarla como cero en continua.
+          if (params.persistir && calificacionCalculada === null && !existente?._id && !faltanteExplicito) {
+            resultadoActividad.pending += 1;
+            resultadoActividad.omitidas += 1;
+            continue;
+          }
+          const estadoCaptura = calificacionCalculada !== null ? 'calificada' : 'pendiente';
+          const calificacionFinal = calificacionCalculada ?? undefined;
           const wouldCreate = !existente?._id;
           const wouldUpdate = Boolean(existente?._id);
 
@@ -655,7 +776,20 @@ export async function sincronizarImportacionClassroom(params: {
             pending: estadoCaptura === 'pendiente',
             wouldCreate,
             wouldUpdate,
-            ...(typeof calificacionFinal === 'number' ? { calificacionDecimal: calificacionFinal } : {})
+            ...(typeof calificacionFinal === 'number' ? { calificacionDecimal: calificacionFinal } : {}),
+            ...(calificacionCalculada !== null && (numeroOpcional(courseWorkPayload.maxPoints) ?? 0) > 0
+              ? {
+                  puntosObtenidos: numeroOpcional(submission.assignedGrade) ?? undefined,
+                  puntosPosibles: numeroOpcional(courseWorkPayload.maxPoints) ?? undefined
+                }
+              : (numeroOpcional(courseWorkPayload.maxPoints) ?? 0) > 0
+                ? { puntosPosibles: numeroOpcional(courseWorkPayload.maxPoints) ?? undefined }
+                : {}),
+            vencida,
+            puedeConfirmarFaltante,
+            faltanteExplicito,
+            ...(estadoClassroom ? { estadoClassroom } : {}),
+            ...(fechaVencimiento ? { fechaVencimiento: fechaVencimiento.toISOString() } : {})
           };
           resultadoActividad.submissions.push(submissionPreview);
 
@@ -687,6 +821,48 @@ export async function sincronizarImportacionClassroom(params: {
             fechaSegura(courseWorkPayload.creationTime) ??
             new Date();
 
+          const metadataActualizada = { ...metadataExistente };
+          const historialFaltante = Array.isArray(metadataExistente.auditoriaFaltanteClassroom)
+            ? [...metadataExistente.auditoriaFaltanteClassroom as Array<Record<string, unknown>>]
+            : [];
+          const horaAuditoria = new Date().toISOString();
+          if (
+            tieneCalificacionClassroom ||
+            (faltantePersistido && !candidatoFaltante) ||
+            (puedeConfirmarFaltante && Array.isArray(actividad.faltantesConfirmados) && !faltanteSolicitado)
+          ) {
+            delete metadataActualizada.faltanteClassroomConfirmado;
+            if (faltantePersistido) {
+              historialFaltante.push({
+                accion: tieneCalificacionClassroom ? 'invalidado_por_calificacion' : 'invalidado_por_cambio_de_estado',
+                realizadoPor: params.docenteId,
+                realizadoEn: horaAuditoria
+              });
+            }
+          } else if (faltanteExplicito) {
+            const confirmacionAnterior = metadataExistente.faltanteClassroomConfirmado;
+            metadataActualizada.faltanteClassroomConfirmado = {
+              confirmadoPor: faltanteSolicitado ? params.docenteId : (confirmacionAnterior as Record<string, unknown>).confirmadoPor,
+              confirmadoEn: faltanteSolicitado && !faltantePersistido
+                ? horaAuditoria
+                : (confirmacionAnterior as Record<string, unknown>).confirmadoEn
+            };
+          }
+          if (
+            puedeConfirmarFaltante && Array.isArray(actividad.faltantesConfirmados) &&
+            faltanteSolicitado !== faltantePersistido
+          ) {
+            historialFaltante.push({
+              accion: faltanteSolicitado ? 'confirmado_por_docente' : 'retirado_por_docente',
+              realizadoPor: params.docenteId,
+              realizadoEn: horaAuditoria
+            });
+          }
+          if (historialFaltante.length > 0) {
+            metadataActualizada.auditoriaFaltanteClassroom = historialFaltante.slice(-50);
+          }
+          const alternateLink = normalizarTexto(courseWorkPayload.alternateLink);
+          if (alternateLink) metadataActualizada.alternateLink = alternateLink;
           const evidenciaPayload: Record<string, unknown> = {
             docenteId: params.docenteId,
             periodoId: params.periodoId,
@@ -699,6 +875,7 @@ export async function sincronizarImportacionClassroom(params: {
             corte: Number.isFinite(Number(actividad.corte)) ? Number(actividad.corte) : undefined,
             fuente: 'classroom',
             estadoCaptura,
+            metadata: metadataActualizada,
             classroom: {
               courseId: actividad.courseId,
               courseWorkId: actividad.courseWorkId,
@@ -707,15 +884,13 @@ export async function sincronizarImportacionClassroom(params: {
               pulledAt: new Date(),
               submissionState: normalizarTexto(submission.state) || undefined,
               assignedGrade: Number.isFinite(Number(submission.assignedGrade)) ? Number(submission.assignedGrade) : undefined,
-              draftGrade: Number.isFinite(Number(submission.draftGrade)) ? Number(submission.draftGrade) : undefined,
               maxPoints: Number.isFinite(Number(courseWorkPayload.maxPoints)) ? Number(courseWorkPayload.maxPoints) : undefined,
+              dueDate: courseWorkPayload.dueDate,
+              dueTime: courseWorkPayload.dueTime,
               updateTime: fechaSegura(submission.updateTime) || fechaSegura(courseWorkPayload.updateTime) || undefined,
               courseName: normalizarTexto(coursePayload.name) || undefined,
               courseWorkTitle: normalizarTexto(courseWorkPayload.title) || undefined
             },
-            metadata: {
-              alternateLink: normalizarTexto(courseWorkPayload.alternateLink) || undefined
-            }
           };
           if (typeof calificacionFinal === 'number') {
             evidenciaPayload.calificacionDecimal = calificacionFinal;
@@ -770,11 +945,94 @@ export async function sincronizarImportacionClassroom(params: {
   }
 
   const resumen = sumarResultados(resultados);
+  const puntosPorAlumno = new Map<
+    string,
+    { alumnoNombre: string; porActividad: Map<string, { puntosObtenidos: number; puntosPosibles: number; faltante: boolean }> }
+  >();
+  for (const actividad of resultados) {
+    if (actividad.destinoColumna !== 'Tareas y Ejercicios 2do Parcial' || actividad.corte !== 2) continue;
+    for (const submission of actividad.submissions) {
+      if (!submission.alumnoId || submission.puntosPosibles === undefined ||
+          (submission.puntosObtenidos === undefined && !submission.faltanteExplicito)) continue;
+      const acumulado = puntosPorAlumno.get(submission.alumnoId) ?? {
+        alumnoNombre: normalizarTexto(submission.alumnoNombre) || 'Alumno sin nombre',
+        porActividad: new Map<string, { puntosObtenidos: number; puntosPosibles: number; faltante: boolean }>()
+      };
+      acumulado.porActividad.set(`${actividad.courseId}:${actividad.courseWorkId}`, {
+        puntosObtenidos: submission.puntosObtenidos ?? 0,
+        puntosPosibles: submission.puntosPosibles,
+        faltante: submission.faltanteExplicito
+      });
+      puntosPorAlumno.set(submission.alumnoId, acumulado);
+    }
+  }
+  const acumuladoTareasSegundoParcial = [...puntosPorAlumno.entries()]
+    .map(([alumnoId, acumulado]) => {
+      const actividadesAlumno = [...acumulado.porActividad.values()];
+      const promedio = calcularAcumuladoTareasPonderadoPorPuntos(
+        actividadesAlumno.map((actividad) => ({ ...actividad, calificada: !actividad.faltante, faltanteExplicito: actividad.faltante, vencida: actividad.faltante }))
+      );
+      if (promedio === null) return null;
+      return {
+        alumnoId,
+        alumnoNombre: acumulado.alumnoNombre,
+        puntosObtenidos: Number(actividadesAlumno.reduce((suma, actividad) => suma + actividad.puntosObtenidos, 0).toFixed(4)),
+        puntosPosibles: Number(actividadesAlumno.reduce((suma, actividad) => suma + actividad.puntosPosibles, 0).toFixed(4)),
+        promedio,
+        actividadesCalificadas: actividadesAlumno.filter((actividad) => !actividad.faltante).length,
+        actividadesFaltantesConfirmadas: actividadesAlumno.filter((actividad) => actividad.faltante).length
+      };
+    })
+    .filter((fila): fila is NonNullable<typeof fila> => fila !== null)
+    .sort((a, b) => a.alumnoNombre.localeCompare(b.alumnoNombre, 'es'));
+  const puntosC3PorAlumno = new Map<
+    string,
+    { alumnoNombre: string; porActividad: Map<string, { puntosObtenidos: number; puntosPosibles: number; faltante: boolean }> }
+  >();
+  for (const actividad of resultados) {
+    if (actividad.corte !== 3 || actividad.destinoColumna === 'Excluir') continue;
+    for (const submission of actividad.submissions) {
+      if (!submission.alumnoId || submission.puntosPosibles === undefined ||
+          (submission.puntosObtenidos === undefined && !submission.faltanteExplicito)) continue;
+      const acumulado = puntosC3PorAlumno.get(submission.alumnoId) ?? {
+        alumnoNombre: normalizarTexto(submission.alumnoNombre) || 'Alumno sin nombre',
+        porActividad: new Map<string, { puntosObtenidos: number; puntosPosibles: number; faltante: boolean }>()
+      };
+      acumulado.porActividad.set(`${actividad.courseId}:${actividad.courseWorkId}`, {
+        puntosObtenidos: submission.puntosObtenidos ?? 0,
+        puntosPosibles: submission.puntosPosibles,
+        faltante: submission.faltanteExplicito
+      });
+      puntosC3PorAlumno.set(submission.alumnoId, acumulado);
+    }
+  }
+  const promediosEvaluacionContinuaTercerParcial = [...puntosC3PorAlumno.entries()]
+    .map(([alumnoId, acumulado]) => {
+      const actividadesAlumno = [...acumulado.porActividad.values()];
+      const promedioSobre10 = calcularAcumuladoTareasPonderadoPorPuntos(
+        actividadesAlumno.map((actividad) => ({ ...actividad, calificada: !actividad.faltante, faltanteExplicito: actividad.faltante, vencida: actividad.faltante }))
+      );
+      if (promedioSobre10 === null) return null;
+      return {
+        alumnoId,
+        alumnoNombre: acumulado.alumnoNombre,
+        puntosObtenidos: Number(actividadesAlumno.reduce((suma, actividad) => suma + actividad.puntosObtenidos, 0).toFixed(4)),
+        puntosPosibles: Number(actividadesAlumno.reduce((suma, actividad) => suma + actividad.puntosPosibles, 0).toFixed(4)),
+        promedioSobre10,
+        continuaSobre5: round4(promedioSobre10 / 2),
+        actividadesCalificadas: actividadesAlumno.filter((actividad) => !actividad.faltante).length,
+        actividadesFaltantesConfirmadas: actividadesAlumno.filter((actividad) => actividad.faltante).length
+      };
+    })
+    .filter((fila): fila is NonNullable<typeof fila> => fila !== null)
+    .sort((a, b) => a.alumnoNombre.localeCompare(b.alumnoNombre, 'es'));
   const payload: ResultadoSync = {
     tipo: params.persistir ? 'ejecucion' : 'preview',
     periodoId: params.periodoId,
     ...resumen,
     actividades: resultados,
+    promediosEvaluacionContinuaTercerParcial,
+    acumuladoTareasSegundoParcial,
     errores
   };
 
@@ -795,7 +1053,8 @@ export async function sincronizarImportacionClassroom(params: {
       wouldUpdate: payload.wouldUpdate,
       importadas: payload.importadas,
       actualizadas: payload.actualizadas,
-      omitidas: payload.omitidas
+      omitidas: payload.omitidas,
+      acumuladoTareasSegundoParcial: payload.acumuladoTareasSegundoParcial
     },
     actividades: payload.actividades,
     errores: payload.errores,

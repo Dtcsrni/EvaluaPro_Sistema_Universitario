@@ -7,8 +7,8 @@
 // Pruebas de edicion de alumnos.
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('alumnos (edicion)', () => {
   const app = crearApp();
@@ -59,6 +59,14 @@ describe('alumnos (edicion)', () => {
       .expect(201);
 
     const alumnoId = alumnoResp.body.alumno._id as string;
+
+    const detalle = await request(app)
+      .get(`/api/alumnos/${alumnoId}`)
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
+    expect(detalle.body.alumno._id).toBe(alumnoId);
+    const tokenAjeno = await registrar('docente-ajeno@local.test');
+    await request(app).get(`/api/alumnos/${alumnoId}`).set({ Authorization: `Bearer ${tokenAjeno}` }).expect(404);
 
     const actualizado = await request(app)
       .post(`/api/alumnos/${alumnoId}/actualizar`)

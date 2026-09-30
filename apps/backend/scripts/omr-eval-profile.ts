@@ -9,9 +9,9 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import mongoose from 'mongoose';
 import sharp from 'sharp';
-import { analizarOmr as analizarOmrCv, leerQrDesdeImagen } from '../src/modulos/modulo_escaneo_omr/servicioOmr';
-import { ExamenGenerado } from '../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
-import { BancoPregunta } from '../src/modulos/modulo_banco_preguntas/modeloBancoPregunta';
+import { analizarOmr as analizarOmrCv, leerQrDesdeImagen } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
+import { ExamenGenerado } from '../src/modulos/modulo_generacion_pdf/modeloExamenGenerado.js';
+import { BancoPregunta } from '../src/modulos/modulo_banco_preguntas/modeloBancoPregunta.js';
 
 type BundleExamen = {
   paginasByNum: Map<number, unknown>;

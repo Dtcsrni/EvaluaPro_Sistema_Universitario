@@ -150,3 +150,38 @@ Detalle.
   assert.strictEqual(result.ok, false);
   assert.ok(result.errors.some((err) => err.includes('no existe: "apps/backend/tests/nonexistent.test.ts"')));
 });
+
+test('validateSpecContent - resuelve varios tests declarados con coma o punto y coma', () => {
+  const first = 'scripts/tests/sdd-audit.test.mjs';
+  const second = 'scripts/tests/release-stable-promotion.test.mjs';
+  const content = `---
+id: SPEC-102
+titulo: Spec con varias pruebas
+version: 1.0.0
+fecha: 2026-09-25
+autor: Test Runner
+modulo: devops
+estado: approved
+---
+
+## Contexto
+Detalle.
+
+## Requisitos Funcionales
+- REQ-001
+
+## Criterios de Aceptación
+- AC-001
+
+## Matriz de Trazabilidad
+
+| ID | Desc | Archivo de Test Vinculado | Estado |
+| --- | --- | --- | --- |
+| REQ-001 | Coma | \`${first}\`, \`${second}\` | Completado |
+| REQ-002 | Punto y coma | \`${first}\`; \`${second}\` | Completado |
+`;
+
+  const result = validateSpecContent('test.spec.md', content);
+  assert.equal(result.ok, true);
+  assert.deepStrictEqual(result.testPaths, [first, second]);
+});

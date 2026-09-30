@@ -6,6 +6,7 @@ param(
   [bool]$SyncStartMenu = $true,
   [bool]$IncludeOpsShortcuts = $true,
   [Nullable[bool]]$IncludeDevShortcut = $null,
+  [switch]$AllowLegacyLauncherFallback,
   [switch]$SkipManifestUpdate,
   [ValidateRange(1, 65535)]
   [int]$Port = 4519,
@@ -16,20 +17,35 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$canonicalRoot = if ($env:LOCALAPPDATA) {
+  [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'EvaluaPro')).TrimEnd('\')
+} else { $null }
+$normalizedRoot = [System.IO.Path]::GetFullPath($root).TrimEnd('\')
+$isPackageStagingCopy = $normalizedRoot -match '\\AppData\\Local\\Packages\\[^\\]+\\LocalCache\\Local\\EvaluaPro$'
+if ($isPackageStagingCopy -and $canonicalRoot -and
+    -not [string]::Equals($normalizedRoot, $canonicalRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+    (Test-Path -LiteralPath (Join-Path $canonicalRoot 'config\shortcuts-manifest.json'))) {
+  throw "Se rechazó la reconciliación desde una copia de staging de Codex. Use la instalación canónica: $canonicalRoot"
+}
+
+$shortcutManifestPath = Join-Path $root 'config\shortcuts-manifest.json'
+if (-not (Test-Path -LiteralPath $shortcutManifestPath)) {
+  throw "No se encontró el manifiesto canónico de accesos directos: $shortcutManifestPath"
+}
+$shortcutManifest = Get-Content -LiteralPath $shortcutManifestPath -Raw -Encoding utf8 | ConvertFrom-Json
+$manifestIconRoot = [string]$shortcutManifest.iconRoot
+if ([string]::IsNullOrWhiteSpace($manifestIconRoot)) {
+  throw "El manifiesto canónico no define iconRoot: $shortcutManifestPath"
+}
+$iconDir = Join-Path $root ($manifestIconRoot -replace '/', '\')
 $targetWscript = Join-Path $env:WINDIR "System32\wscript.exe"
 if (-not (Test-Path -LiteralPath $targetWscript)) {
   $targetWscript = 'wscript.exe'
 }
 
-$iconDir = Join-Path $root "scripts\icons"
 $outputPath = if ([System.IO.Path]::IsPathRooted($OutputDir)) { $OutputDir } else { Join-Path $root $OutputDir }
 $trayHiddenVbs = Join-Path $root 'scripts\launcher-tray-hidden.vbs'
 $shortcutOpHiddenVbs = Join-Path $root 'scripts\shortcut-op-hidden.vbs'
-foreach ($requiredFile in @($trayHiddenVbs, $shortcutOpHiddenVbs)) {
-  if (-not (Test-Path -LiteralPath $requiredFile)) {
-    throw "No se encontró archivo requerido para accesos directos: $requiredFile"
-  }
-}
 
 $desktopPathCandidates = New-Object System.Collections.Generic.List[string]
 $overrideDesktopPath = [string]$env:EVALUAPRO_DESKTOP_PATH
@@ -105,16 +121,9 @@ function Resolve-IncludeDevShortcut {
 
 $includeDevShortcutEffective = Resolve-IncludeDevShortcut -Requested $IncludeDevShortcut
 
-$iconSpecs = @(
-  @{ Key = 'dev'; File = 'dashboard-dev.ico' },
-  @{ Key = 'prod'; File = 'dashboard-prod.ico' },
-  @{ Key = 'hub'; File = 'installer-canonical.ico' },
-  @{ Key = 'open'; File = 'dashboard-open.ico' },
-  @{ Key = 'restart'; File = 'dashboard-restart.ico' },
-  @{ Key = 'stop'; File = 'dashboard-stop.ico' },
-  @{ Key = 'uninstall'; File = 'dashboard-stop.ico' },
-  @{ Key = 'repair'; File = 'dashboard-repair.ico' }
-)
+$iconSpecs = @($shortcutManifest.shortcuts | ForEach-Object {
+  [pscustomobject]@{ Key = [string]$_.name; File = [string]$_.icon }
+} | Sort-Object File -Unique)
 
 function Resolve-InstalledShortcutIconPath {
   param([string]$IconFileName)
@@ -124,14 +133,7 @@ function Resolve-InstalledShortcutIconPath {
     return $installCandidate
   }
 
-  if ($localIconDir) {
-    $legacyCandidate = Join-Path $localIconDir $IconFileName
-    if (Test-Path -LiteralPath $legacyCandidate) {
-      return $legacyCandidate
-    }
-  }
-
-  throw "No se encontró ícono requerido para shortcut: $IconFileName"
+  throw "No se encontró ícono canónico requerido para shortcut: $installCandidate"
 }
 
 function Remove-LegacyShortcutIcons {
@@ -163,7 +165,7 @@ if ($Force) {
 
 $iconPathForLnk = @{}
 foreach ($spec in $iconSpecs) {
-  $iconPathForLnk[$spec.Key] = Resolve-InstalledShortcutIconPath -IconFileName ([string]$spec.File)
+  $iconPathForLnk[[string]$spec.File] = Resolve-InstalledShortcutIconPath -IconFileName ([string]$spec.File)
 }
 
 $nativeAppHostExe = Join-Path $root 'EvaluaPro.exe'
@@ -174,81 +176,68 @@ if (-not (Test-Path -LiteralPath $nativeAppHostExe)) {
   }
 }
 $isNativeHostAvailable = (Test-Path -LiteralPath $nativeAppHostExe)
+if (-not $isNativeHostAvailable -and -not $AllowLegacyLauncherFallback) {
+  throw "Payload incompleto: no existe EvaluaPro.exe en $root. No se creará un acceso principal que dependa de un script externo."
+}
 
-$shortcuts = @(
-  @{
-    Name = 'EvaluaPro'
-    Description = 'EvaluaPro · Plataforma para evaluación universitaria'
-    IconKey = 'prod'
-    Desktop = $true
-    StartMenu = $true
-    Target = if ($isNativeHostAvailable) { $nativeAppHostExe } else { $targetWscript }
-    Arguments = if ($isNativeHostAvailable) { '' } else { "//nologo `"$trayHiddenVbs`" prod $Port" }
-  },
-  @{
-    Name = 'EvaluaPro - Hub'
-    Description = 'EvaluaPro Hub · Asistente local para instalar, verificar, reparar y operar'
-    IconKey = 'hub'
-    Desktop = $true
-    StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$shortcutOpHiddenVbs`" open-hub $Port auto"
-  },
-  @{
-    Name = 'EvaluaPro - Dev'
-    Description = 'Bandeja (tray) modo desarrollo - arranque estricto de stack + portal'
-    IconKey = 'dev'
-    Desktop = $false
-    StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$trayHiddenVbs`" dev $Port"
-  },
-  @{
-    Name = 'EvaluaPro - Abrir Dashboard'
-    Description = 'Abre dashboard local y asegura backend de control'
-    IconKey = 'open'
-    Desktop = $false
-    StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$shortcutOpHiddenVbs`" open-dashboard $Port auto"
-  },
-  @{
-    Name = 'EvaluaPro - Reiniciar Stack'
-    Description = 'Reinicia stack y valida salud de servicios clave'
-    IconKey = 'restart'
-    Desktop = $false
-    StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$shortcutOpHiddenVbs`" restart-stack $Port auto"
-  },
-  @{
-    Name = 'EvaluaPro - Detener Todo'
-    Description = 'Solicita detener procesos activos del stack local'
-    IconKey = 'stop'
-    Desktop = $false
-    StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$shortcutOpHiddenVbs`" stop-all $Port auto"
-  },
-  @{
-    Name = 'EvaluaPro - Desinstalar'
-    Description = 'Inicia la desinstalación guiada de EvaluaPro'
-    IconKey = 'uninstall'
-    Desktop = $false
-    StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$shortcutOpHiddenVbs`" uninstall $Port auto"
-  },
-  @{
-    Name = 'EvaluaPro - Reparar Entorno'
-    Description = 'Ejecuta reparación automática y validación de salud'
-    IconKey = 'repair'
-    Desktop = $false
-    StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$shortcutOpHiddenVbs`" repair $Port auto"
+function Test-ManifestFlavorMatch($definition, [string]$flavorId) {
+  $flavors = @()
+  $excluded = @()
+  if ($definition.PSObject.Properties.Name -contains 'flavors') {
+    $flavors = @($definition.flavors | ForEach-Object { [string]$_ })
   }
-)
+  if ($definition.PSObject.Properties.Name -contains 'excludeFlavors') {
+    $excluded = @($definition.excludeFlavors | ForEach-Object { [string]$_ })
+  }
+  if ($excluded -contains $flavorId) { return $false }
+  return $flavors.Count -eq 0 -or $flavors -contains '*' -or $flavors -contains $flavorId
+}
+
+function New-ShortcutDefinition($definition, [string]$flavorId) {
+  if (-not (Test-ManifestFlavorMatch -definition $definition -flavorId $flavorId)) { return $null }
+  $launcher = [string]$definition.launcher
+  $target = $null
+  $arguments = ''
+  switch ($launcher) {
+    'native' {
+      if ($isNativeHostAvailable) {
+        $target = $nativeAppHostExe
+      } elseif ($AllowLegacyLauncherFallback) {
+        if (-not (Test-Path -LiteralPath $trayHiddenVbs)) { throw "No se encontró launcher requerido: $trayHiddenVbs" }
+        $target = $targetWscript
+        $arguments = "//nologo `"$trayHiddenVbs`" prod $Port"
+      } else {
+        return $null
+      }
+    }
+    'tray' {
+      $target = $targetWscript
+      if (-not (Test-Path -LiteralPath $trayHiddenVbs)) { throw "No se encontró launcher requerido: $trayHiddenVbs" }
+      $arguments = "//nologo `"$trayHiddenVbs`" $([string]$definition.mode) $Port"
+    }
+    'operation' {
+      $target = $targetWscript
+      if (-not (Test-Path -LiteralPath $shortcutOpHiddenVbs)) { throw "No se encontró launcher requerido: $shortcutOpHiddenVbs" }
+      $arguments = "//nologo `"$shortcutOpHiddenVbs`" $([string]$definition.operation) $Port auto"
+    }
+    default { throw "Launcher no soportado en manifiesto: $launcher" }
+  }
+
+  return @{
+    Name = [string]$definition.name
+    Description = [string]$definition.description
+    IconFile = [string]$definition.icon
+    Desktop = [bool]$definition.desktop
+    StartMenu = [bool]$definition.startMenu
+    Target = $target
+    Arguments = $arguments
+  }
+}
+
+$detectedFlavorId = (Resolve-FlavorId).Trim().ToLowerInvariant()
+$shortcuts = @($shortcutManifest.shortcuts | ForEach-Object {
+  New-ShortcutDefinition -definition $_ -flavorId $detectedFlavorId
+} | Where-Object { $null -ne $_ })
 
 if (-not $IncludeOpsShortcuts) {
   $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro', 'EvaluaPro - Hub') }
@@ -258,19 +247,7 @@ if (-not $includeDevShortcutEffective) {
   $shortcuts = $shortcuts | Where-Object { $_.Name -ne 'EvaluaPro - Dev' }
 }
 
-$detectedFlavorId = ''
-if ($env:EVALUAPRO_FLAVOR) {
-  $detectedFlavorId = [string]$env:EVALUAPRO_FLAVOR
-} else {
-  $updateConfigPath = Join-Path $root 'config\update-config.json'
-  if (Test-Path -LiteralPath $updateConfigPath) {
-    try {
-      $cfg = Get-Content -LiteralPath $updateConfigPath -Raw -Encoding utf8 | ConvertFrom-Json
-      $detectedFlavorId = [string]$cfg.flavorId
-    } catch {}
-  }
-}
-$isDocenteFlavor = ($detectedFlavorId.Trim().ToLowerInvariant() -eq 'docente-local')
+$isDocenteFlavor = ($detectedFlavorId -eq 'docente-local')
 if ($isDocenteFlavor -and $env:EVALUAPRO_DEBUG -ne '1') {
   # REQ-030: En flavor docente-local, los accesos del menú y escritorio solo deben contener
   # la aplicación 'EvaluaPro' y el asistente 'EvaluaPro - Hub'.
@@ -278,16 +255,9 @@ if ($isDocenteFlavor -and $env:EVALUAPRO_DEBUG -ne '1') {
 }
 
 $allManagedShortcutNames = @(
-  'EvaluaPro',
-  'EvaluaPro - Prod',
-  'EvaluaPro - Dev',
-  'EvaluaPro - Hub',
-  'EvaluaPro - Abrir Dashboard',
-  'EvaluaPro - Reiniciar Stack',
-  'EvaluaPro - Detener Todo',
-  'EvaluaPro - Desinstalar',
-  'EvaluaPro - Reparar Entorno'
-)
+  @($shortcutManifest.shortcuts | ForEach-Object { [string]$_.name }),
+  @($shortcutManifest.legacyShortcutNames | ForEach-Object { [string]$_ })
+) | Where-Object { $_ } | Sort-Object -Unique
 
 $selectedShortcutNames = @($shortcuts | ForEach-Object { [string]$_.Name })
 
@@ -353,7 +323,16 @@ function New-ShortcutLink([string]$dirPath, $shortcutDef) {
   $lnk.Arguments = $shortcutDef.Arguments
   $lnk.WorkingDirectory = $root
   $lnk.Description = $shortcutDef.Description
-  $lnk.IconLocation = "$($iconPathForLnk[$shortcutDef.IconKey]),0"
+  # Windows Start/Recomendaciones resuelve de forma más estable el icono del
+  # acceso principal desde el host nativo que desde un .ico externo.
+  $shortcutIconPath = $iconPathForLnk[[string]$shortcutDef.IconFile]
+  if (-not $shortcutIconPath) {
+    throw "No se resolvió icono canónico para $($shortcutDef.Name): $($shortcutDef.IconFile)"
+  }
+  if ($shortcutDef.Name -eq 'EvaluaPro' -and $isNativeHostAvailable) {
+    $shortcutIconPath = $nativeAppHostExe
+  }
+  $lnk.IconLocation = "$shortcutIconPath,0"
   $lnk.Save()
 }
 
@@ -376,10 +355,102 @@ foreach ($dest in $destinations) {
   }
 }
 
+function Get-ShortcutIconPath([string]$iconLocation) {
+  if ([string]::IsNullOrWhiteSpace($iconLocation)) { return '' }
+  return ([string]$iconLocation -replace ',\s*-?\d+\s*$', '').Trim().Trim('"')
+}
+
+function Get-ShortcutScriptDependency([string]$arguments) {
+  if ([string]::IsNullOrWhiteSpace($arguments)) { return '' }
+  $match = [Regex]::Match($arguments, '"([^"]+\.(?:vbs|ps1))"', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+  if ($match.Success) { return $match.Groups[1].Value }
+  return ''
+}
+
+$reconciliationEntries = @()
+$reconciliationErrors = @()
+foreach ($dest in $destinations) {
+  foreach ($shortcutDef in $shortcuts) {
+    if (-not (Test-ShortcutShouldBeCreated -shortcut $shortcutDef -destination $dest)) { continue }
+
+    $lnkPath = Join-Path $dest.Path ($shortcutDef.Name + '.lnk')
+    $entryErrors = @()
+    $targetPath = ''
+    $arguments = ''
+    $iconLocation = ''
+    $readOk = $false
+    try {
+      if (-not (Test-Path -LiteralPath $lnkPath)) {
+        $entryErrors += "No existe el acceso: $lnkPath"
+      } else {
+        $shortcut = $wsh.CreateShortcut($lnkPath)
+        $targetPath = [string]$shortcut.TargetPath
+        $arguments = [string]$shortcut.Arguments
+        $iconLocation = [string]$shortcut.IconLocation
+        $readOk = $true
+        if (-not (Test-Path -LiteralPath $targetPath)) {
+          $entryErrors += "El destino no existe: $targetPath"
+        }
+        $dependency = Get-ShortcutScriptDependency -arguments $arguments
+        if ($dependency -and -not (Test-Path -LiteralPath $dependency)) {
+          $entryErrors += "La dependencia del launcher no existe: $dependency"
+        }
+        $iconPath = Get-ShortcutIconPath -iconLocation $iconLocation
+        if (-not (Test-Path -LiteralPath $iconPath)) {
+          $entryErrors += "El icono no existe: $iconPath"
+        }
+        if (([string]$shortcutDef.Target).Trim() -ne $targetPath.Trim()) {
+          $entryErrors += "Destino inesperado; esperado '$($shortcutDef.Target)', actual '$targetPath'"
+        }
+      }
+    } catch {
+      $entryErrors += "No se pudo leer el acceso: $($_.Exception.Message)"
+    }
+
+    $entry = [ordered]@{
+      destination = [string]$dest.Name
+      path = $lnkPath
+      name = [string]$shortcutDef.Name
+      expectedTarget = [string]$shortcutDef.Target
+      actualTarget = $targetPath
+      arguments = $arguments
+      iconLocation = $iconLocation
+      readOk = $readOk
+      valid = ($entryErrors.Count -eq 0)
+      errors = @($entryErrors)
+    }
+    $reconciliationEntries += $entry
+    if ($entryErrors.Count -gt 0) {
+      $reconciliationErrors += $entryErrors
+    }
+  }
+}
+
+$reportDir = Join-Path $root 'logs'
+if (-not (Test-Path -LiteralPath $reportDir)) {
+  New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
+}
+$reconciliationReport = [ordered]@{
+  schemaVersion = 1
+  generatedAt = (Get-Date).ToString('o')
+  root = $root
+  flavorId = $detectedFlavorId
+  manifest = $shortcutManifestPath
+  state = if ($reconciliationErrors.Count -eq 0) { 'ok' } else { 'error' }
+  entries = @($reconciliationEntries)
+  errors = @($reconciliationErrors)
+}
+$reconciliationPath = Join-Path $reportDir 'shortcut-reconciliation.json'
+$reconciliationReport | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $reconciliationPath -Encoding utf8
+if ($reconciliationErrors.Count -gt 0) {
+  throw "La reconciliación de accesos directos falló. Consulta $reconciliationPath"
+}
+
 Write-Host "Accesos directos regenerados:"
 foreach ($dest in $destinations) {
   Write-Host " - $($dest.Name): $($dest.Path)"
 }
+Write-Host " - Validación: OK ($reconciliationPath)"
 
 if (-not $SkipManifestUpdate) {
   $manifestScript = Join-Path $root 'scripts\generate-installation-manifest.ps1'

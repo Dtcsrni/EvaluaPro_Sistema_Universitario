@@ -1,0 +1,668 @@
+# Handoff IA - Sesion
+
+- traceSchemaVersion: 1.0.0
+- sessionId: omr-template-density-staple-2026-09-25
+- parentSessionId: -
+- status: final
+- generatedAt: 2026-09-25T13:28:46.742Z
+- validationProfile: quick
+
+## Agente
+- name: Codex GPT-6
+- version: GPT-6
+- provider: OpenAI
+- kind: coding-agent
+- channel: Codex desktop
+
+## Solicitud
+- Mejorar el aprovechamiento del espacio libre entre reactivos sin reducir legibilidad, conservar la mejora de grapas y verificar la generación de PDF OMR con la plantilla actualizada; no generar un examen de materia.
+
+## Objetivo
+- Implementar la fila única adaptativa para cinco opciones cortas con fallback 3+2 y verificar un PDF OMR de control, manteniendo la generación existente y la reserva de grapa.
+
+## Alcance
+- Ajuste de distribución de opciones en renderer PDF OMR
+- Pruebas PDF, QR y grapas
+- Generación y revisión visual de control sintético de 25 reactivos
+- Actualización de SPEC-062 y trazabilidad
+
+## Restricciones
+- No crear examen de materia
+- No imprimir, instalar ni publicar
+- Conservar tipografías y geometría OMR; fallback 3+2 cuando el texto no cabe
+- Proteger la reserva de grapa vertical 24/6 de 8 x 20 mm
+
+## Acciones
+- [ok] implementacion: Cinco opciones cortas se colocan en un renglón a tipografía actual; contenido que no cabe conserva fallback 3+2. (2026-09-25T13:28:46.742Z)
+- [ok] pdf_control: PDF sintético de 25 reactivos: dos páginas (11/14), con zona de grapa despejada en la primera página. (2026-09-25T13:28:46.742Z)
+- [ok] verificacion: Revisión rasterizada; QR exacto 2/2, cero colisiones, pruebas focalizadas 15/15. (2026-09-25T13:28:46.742Z)
+
+## Archivos leidos
+- Sin lecturas registradas.
+
+## Archivos cambiados
+- .github/workflows/autogen-docs.yml
+- .github/workflows/ci-backend.yml
+- .github/workflows/ci-docs.yml
+- .github/workflows/ci-frontend.yml
+- .github/workflows/ci-installer-windows.yml
+- .github/workflows/ci-policy-audit.yml
+- .github/workflows/ci-portal.yml
+- .github/workflows/ci.yml
+- .github/workflows/pages-marketing.yml
+- .github/workflows/release-beta.yml
+- .github/workflows/release-stable-gate.yml
+- .github/workflows/security-codeql.yml
+- apps/backend/package-lock.json
+- apps/backend/package.json
+- apps/backend/prisma/schema.prisma
+- apps/backend/reports/qa/latest/global-grade.json
+- apps/backend/scripts/omr-sweep-geometria.ts
+- apps/backend/src/compartido/robustez/soporteRetry.ts
+- apps/backend/src/infraestructura/baseDatos/sqlite.ts
+- apps/backend/src/infraestructura/seguridad/rbac.ts
+- apps/backend/src/modulos/modulo_analiticas/controladorAnaliticas.ts
+- apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts
+- apps/backend/src/modulos/modulo_analiticas/servicioExportacionDocx.ts
+- apps/backend/src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones.ts
+- apps/backend/src/modulos/modulo_analiticas/servicioListaAcademica.ts
+- apps/backend/src/modulos/modulo_analiticas/tiposListaAcademica.ts
+- apps/backend/src/modulos/modulo_analiticas/validacionesAnaliticas.ts
+- apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts
+- apps/backend/src/modulos/modulo_autenticacion/middlewareAutenticacion.ts
+- apps/backend/src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts
+- apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts
+- apps/backend/src/modulos/modulo_banco_preguntas/validacionesBancoPreguntas.ts
+- apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts
+- apps/backend/src/modulos/modulo_calificacion/validacionesCalificacion.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/README.md
+- apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCv.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/omrCore.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/porFolioDataset.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/domain/layoutExamen.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/domain/recoveryManifest.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/infra/configuracionLayoutEnv.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts
+- apps/backend/src/modulos/modulo_hidratacion_cursos/controladorHidratacionCursos.ts
+- apps/backend/src/modulos/modulo_hidratacion_cursos/rutasHidratacionCursos.ts
+- apps/backend/src/modulos/modulo_hidratacion_cursos/servicioHidratacionCursos.ts
+- apps/backend/src/modulos/modulo_hidratacion_cursos/validacionesHidratacionCursos.ts
+- apps/backend/src/modulos/modulo_integraciones_classroom/controladorIntegracionesClassroom.ts
+- apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts
+- apps/backend/src/modulos/modulo_integraciones_classroom/validacionesClassroom.ts
+- apps/backend/src/modulos/modulo_listas_institucionales/servicioListasInstitucionales.ts
+- apps/backend/src/modulos/modulo_sincronizacion_nube/domain/instantaneaLocal.ts
+- apps/backend/src/modulos/modulo_sincronizacion_nube/domain/paqueteSincronizacion.ts
+- apps/backend/src/modulos/modulo_sincronizacion_nube/infra/omrCapturas.ts
+- apps/backend/src/modulos/modulo_sincronizacion_nube/sincronizacionInterna.ts
+- apps/backend/tests/analiticas.xlsx.sv.contract.test.ts
+- apps/backend/tests/bancoPreguntas.controlador.test.ts
+- apps/backend/tests/calificacion.omr.payload.test.ts
+- apps/backend/tests/integracion/_flujoDocenteHelper.ts
+- apps/backend/tests/integracion/archivarExamenGenerado.test.ts
+- apps/backend/tests/integracion/asistencia.reglas.test.ts
+- apps/backend/tests/integracion/classroom.v2.test.ts
+- apps/backend/tests/integracion/examenesRetention.test.ts
+- apps/backend/tests/integracion/flujoExamen.test.ts
+- apps/backend/tests/integracion/hidratacionCursos.test.ts
+- apps/backend/tests/integracion/listaAcademicaContratos.test.ts
+- apps/backend/tests/integracion/listasInstitucionales.test.ts
+- apps/backend/tests/integracion/omrJobsWorkflow.test.ts
+- apps/backend/tests/integracion/plantillasCrudYPreview.test.ts
+- apps/backend/tests/integracion/qrEscaneoOmr.test.ts
+- apps/backend/tests/integracion/rolesPermisos.test.ts
+- apps/backend/tests/omr.core.decision.test.ts
+- apps/backend/tests/omr.geometry.reference.test.ts
+- apps/backend/tests/omr.test.ts
+- apps/backend/tests/pdf.canonico.test.ts
+- apps/backend/tests/pdf.layout.visual.guard.test.ts
+- apps/backend/tests/pdf.paridad.test.ts
+- apps/backend/tests/qr.examen.test.ts
+- apps/backend/tests/recovery.manifest.test.ts
+- apps/backend/tests/setup.ts
+- apps/backend/tests/sincronizacion.test.ts
+- apps/backend/tests/utils/mongo.ts
+- apps/frontend/package-lock.json
+- apps/frontend/package.json
+- apps/frontend/src/apps/app_docente/AppDocente.tsx
+- apps/frontend/src/apps/app_docente/SeccionAsistencias.tsx
+- apps/frontend/src/apps/app_docente/SeccionBanco.tsx
+- apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx
+- apps/frontend/src/apps/app_docente/SeccionCalificar.tsx
+- apps/frontend/src/apps/app_docente/SeccionClassroom.tsx
+- apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx
+- apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx
+- apps/frontend/src/apps/app_docente/SeccionRegistroEntrega.tsx
+- apps/frontend/src/apps/app_docente/features/banco/components/BancoFormularioPregunta.tsx
+- apps/frontend/src/apps/app_docente/features/banco/components/BancoListadoPreguntas.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions.ts
+- apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts
+- apps/frontend/src/apps/app_docente/hooks/useRecordatorioPaseLista.ts
+- apps/frontend/src/apps/app_docente/tipos.ts
+- apps/frontend/src/apps/app_docente/utilidades.ts
+- apps/frontend/src/styles.css
+- apps/frontend/src/styles/cards.css
+- apps/frontend/src/styles/screens.css
+- apps/frontend/src/tipos/tesseract-js.d.ts
+- apps/frontend/src/ui/iconos.tsx
+- apps/frontend/src/ui/version/VersionInfoPage.tsx
+- apps/frontend/tests/appDocente.previewConsolidado.test.tsx
+- apps/frontend/tests/banco.refactor.test.tsx
+- apps/frontend/tests/escaneo.refactor.test.tsx
+- apps/frontend/tests/gui.responsive.contract.test.tsx
+- apps/frontend/tests/plantillas.hooks.test.tsx
+- apps/frontend/tests/plantillas.refactor.test.tsx
+- apps/frontend/tests/seccionAsistencias.test.tsx
+- apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx
+- apps/frontend/tests/seccionCalificar.test.tsx
+- apps/frontend/tests/seccionClassroom.test.tsx
+- apps/frontend/tests/seccionPaqueteSincronizacion.test.tsx
+- apps/frontend/tests/utilidades.appDocente.test.ts
+- apps/frontend/tests/versionInfo.helpers.test.tsx
+- apps/frontend/tests/versionInfoPage.test.tsx
+- apps/frontend/vite.config.ts
+- apps/portal_alumno_cloud/package-lock.json
+- apps/portal_alumno_cloud/package.json
+- apps/portal_alumno_cloud/prisma/schema.prisma
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/browser.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/client.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/commonInputTypes.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/enums.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/class.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/prismaNamespace.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/prismaNamespaceBrowser.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/AgendaAlumno.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/AvisoAlumno.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/CodigoAcceso.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/EventoUsoAlumno.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/HistorialAlumno.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/MateriaAlumno.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/PaqueteSyncDocente.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/PerfilAlumno.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/ResultadoAlumno.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/SesionAlumno.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/SolicitudRevision.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/sqlite.ts
+- apps/portal_alumno_cloud/tests/utils/mongo.ts
+- config/version-catalog.json
+- docs/INVENTARIO_CODIGO_EXHAUSTIVO.md
+- docs/VERSIONADO.md
+- docs/WCAG_UI_POLICY.md
+- docs/specs/SPEC-036_autenticacion_guardrails.spec.md
+- docs/specs/SPEC-039_asistencias_seguimiento.spec.md
+- docs/specs/SPEC-042_diseno_produccion_examenes_omr.spec.md
+- docs/specs/SPEC-046_google_classroom_sync.spec.md
+- docs/specs/SPEC-053_guardrails_google_oauth_runtime.spec.md
+- docs/specs/SPEC-054_identidad_visual_frontend_completa.spec.md
+- docs/specs/e2e_playwright_screen_functional_matrix.spec.md
+- docs/specs/flujo_docente_alumno_integral.spec.md
+- docs/specs/listas_institucionales_por_plantilla.spec.md
+- docs/specs/release_stable_installer_firma.spec.md
+- package-lock.json
+- package.json
+- packaging/app-host/App.xaml.cs
+- packaging/app-host/MainWindow.xaml.cs
+- packaging/wix/BurnBootstrapperApp/EvaluaPro.BurnBootstrapperApp.csproj
+- packaging/wix/README.md
+- reports/qa/latest/clean-architecture.json
+- reports/qa/latest/dataset-prodlike.json
+- reports/qa/latest/e2e-docente-alumno.json
+- reports/qa/latest/evaluaciones-e2e.json
+- reports/qa/latest/evaluaciones-policy.json
+- reports/qa/latest/global-grade.json
+- reports/qa/latest/manifest.json
+- reports/qa/latest/pdf-print.json
+- reports/qa/latest/ux-visual.json
+- scripts/build-msi.ps1
+- scripts/build-native-dist.ps1
+- scripts/perf-collect-business.ts
+- scripts/release/validate-stable-promotion.mjs
+- scripts/runtime-env.mjs
+- scripts/sdd-audit.mjs
+- scripts/serve-docente-static.mjs
+- scripts/start-docente-native.mjs
+- scripts/testing/generar-qa-manifest.mjs
+- scripts/testing/run-backend-test-batches.mjs
+- scripts/testing/start-frontend-e2e-server.mjs
+- scripts/testing/windows-release-smoke-ownership.mjs
+- scripts/tests/app-host-health.contract.test.mjs
+- scripts/tests/app-host-shutdown.contract.test.mjs
+- scripts/tests/backend-test-batches.test.mjs
+- scripts/tests/ci-workflow-contract.test.mjs
+- scripts/tests/installer-hub-contract.test.mjs
+- scripts/tests/native-startup.contract.test.mjs
+- scripts/tests/omr-version-policy.test.mjs
+- scripts/tests/release-stable-promotion.test.mjs
+- scripts/tests/runtime-env.test.mjs
+- scripts/tests/sdd-audit.test.mjs
+- scripts/tests/seed-docente-dummy.mjs
+- scripts/tests/windows-release-smoke-ownership.test.mjs
+- scripts/tests/windows-release-smoke.test.mjs
+- scripts/tests/wix-version-policy.test.mjs
+- tests/gui-responsive/ciclo-completo.spec.ts
+- tests/gui-responsive/journey-docente-integral.spec.ts
+- tests/gui-responsive/playwright.ciclo.config.mjs
+- apps/backend/prisma.config.mjs
+- apps/backend/scripts/omr-eval-real-dataset.mjs
+- apps/backend/scripts/omr-qr-preprint-check.ts
+- apps/backend/src/modulos/modulo_analiticas/servicioListaFisicaParcial2.ts
+- apps/backend/src/modulos/modulo_banco_preguntas/controladorReactivos.ts
+- apps/backend/src/modulos/modulo_banco_preguntas/reactivosContrato.ts
+- apps/backend/src/modulos/modulo_banco_preguntas/reactivosXlsx.ts
+- apps/backend/src/modulos/modulo_banco_preguntas/servicioCalibracionReactivos.ts
+- apps/backend/src/modulos/modulo_banco_preguntas/servicioReactivos.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/infra/metricasDatasetOmr.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/omr/decision/
+- apps/backend/src/modulos/modulo_generacion_pdf/domain/duplexOmrGuard.ts
+- apps/backend/src/modulos/modulo_integraciones_classroom/calculoAcumuladoTareas.ts
+- apps/backend/tests/calculoAcumuladoTareas.test.ts
+- apps/backend/tests/calificacion.omr.estado.test.ts
+- apps/backend/tests/integracion/reactivosIngesta.test.ts
+- apps/backend/tests/listaAcademicaResumen.test.ts
+- apps/backend/tests/listaFisicaParcial2.persistencia.test.ts
+- apps/backend/tests/listaFisicaParcial2.test.ts
+- apps/backend/tests/listaFisicaParcial2.validaciones.test.ts
+- apps/backend/tests/omr.consenso.robusto.test.ts
+- apps/backend/tests/omr.dataset-grain.test.ts
+- apps/backend/tests/omr.estado-respuesta.test.ts
+- apps/backend/tests/omr.qr.preimpresion.test.ts
+- apps/backend/tests/pdf.ink-sparing-staple.test.ts
+- apps/backend/tests/reactivosCalibracion.test.ts
+- apps/backend/tests/reactivosContrato.test.ts
+- apps/frontend/src/apps/app_docente/ConsultaCalificaciones.tsx
+- apps/frontend/src/apps/app_docente/SolicitudesRevisionPanel.tsx
+- apps/frontend/src/apps/app_docente/features/banco/components/BancoImportacionReactivos.tsx
+- apps/frontend/src/apps/app_docente/fechaLocal.ts
+- apps/frontend/src/apps/app_docente/ocrTexto.ts
+- apps/frontend/src/ui/IconoLucide.tsx
+- apps/frontend/src/ui/iconosCatalogo.ts
+- apps/frontend/src/ui/version/changelog.ts
+- apps/frontend/src/ui/version/legal/
+- apps/frontend/tests/bancoImportacionReactivos.test.tsx
+- apps/frontend/tests/changelog.test.ts
+- apps/frontend/tests/fechaLocal.test.ts
+- apps/frontend/tests/ocrTexto.test.ts
+- apps/frontend/tests/permisosBanco.hooks.test.tsx
+- apps/frontend/tests/seccionCalificaciones.resumen.test.tsx
+- apps/portal_alumno_cloud/prisma.config.mjs
+- docs/GUIA_ICONOGRAFIA.md
+- docs/contracts/
+- docs/handoff/sesiones/2026-09-23/
+- docs/handoff/sesiones/2026-09-24/
+- docs/handoff/sesiones/2026-09-25/
+- docs/qa/
+- docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md
+- docs/specs/SPEC-060_omr_consenso_captura_real.spec.md
+- docs/specs/SPEC-061_banco_reactivos_ia_versionado.spec.md
+- docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md
+- docs/specs/SPEC-063_omr_orientacion_y_inclinacion_pagina.spec.md
+- docs/specs/SPEC-064_actualizacion_dependencias_toolchains.spec.md
+- docs/specs/SPEC-065_ciclo_vida_servicios_app_host.spec.md
+- docs/specs/SPEC-066_sqlite_test_isolation.spec.md
+- global.json
+- output/qa/EvaluaPro-omr-camera-dataset-camscanner-20260924.zip
+- output/qa/EvaluaPro-omr-camera-dataset-camscanner-20260924.zip.sha256
+- output/qa/omr-camera-camscanner-20260924/
+- output/qa/omr-plantilla-sync-20260923.layout.json
+- output/qa/omr-plantilla-sync-20260923.pdf
+- scripts/migrate-calificaciones-lista-manual-sqlite.mjs
+- scripts/migrate-reactivos-backfill.mjs
+- scripts/migrate-reactivos-sqlite.mjs
+- scripts/tests/dependency-toolchain-policy.test.mjs
+- scripts/tests/migrate-calificaciones-lista-manual-sqlite.test.mjs
+- scripts/tests/migrate-reactivos-backfill.test.mjs
+- scripts/tests/migrate-reactivos-sqlite.test.mjs
+- storage/omr_debug/058868F3/
+- storage/omr_debug/1458887E/
+- storage/omr_debug/5AFC1D79/
+- storage/omr_debug/780DC77D/
+- storage/omr_debug/DCA5097F/
+- storage/omr_debug/E2FAFF07/
+- storage/omr_debug/EE26CF1C/
+- tests/gui-responsive/banco-reactivos.spec.ts
+
+## Validacion ejecutada
+- pdf_omr_control: `NODE_ENV=test node tsx generate-omr-control.ts` -> ok (exitCode=0, duracionMs=0)
+  resultado: 25 reactivos; 2 páginas; margen 8 mm; fonts 10.4/8.8 pt; burbuja 6.4 mm/paso 9.17 mm.
+- pdf_qr_visual_audit: `PDFParse + sharp + omr-qr-preprint-check` -> ok (exitCode=0, duracionMs=0)
+  resultado: Raster 1530x1980 por página; QR exacto 2/2; cero colisiones; lectura visual confirma separación.
+- pdf_focused_tests: `npm run test --workspace=backend -- tests/pdf.canonico.test.ts tests/pdf.ink-sparing-staple.test.ts tests/omr.qr.preimpresion.test.ts` -> ok (exitCode=0, duracionMs=0)
+  resultado: 3 archivos, 15 pruebas aprobadas.
+- eslint_focused: `npx eslint apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts apps/backend/tests/pdf.canonico.test.ts --max-warnings=0` -> ok (exitCode=0, duracionMs=0)
+  resultado: Sin errores.
+- typecheck_backend: `npx tsc --noEmit --project tsconfig.json --pretty false` -> ok (exitCode=0, duracionMs=0)
+  resultado: Sin errores.
+- sdd_audit: `npm run sdd:audit` -> ok (exitCode=0, duracionMs=0)
+  resultado: Auditoría de especificaciones exitosa; SPEC-062 aprobado y enlaza 12 pruebas.
+- policy_audit: `npm run ci:policy:audit` -> ok (exitCode=0, duracionMs=0)
+  resultado: Contrato de pipeline, políticas y auditoría SDD exitosos.
+
+## Decisiones
+- Conservar tamaño tipográfico de 10.4 pt para enunciados y 8.8 pt para opciones.
+- Mantener 6.4 mm de diámetro y 9.17 mm de paso de burbuja.
+- La muestra es solo un control sintético para generación PDF OMR.
+
+## Supuestos
+- Las opciones cortas simuladas representan el caso de densidad compacta; textos más largos siguen el fallback existente.
+
+## Riesgos abiertos
+- No se realizó impresión física ni validación de una impresora concreta.
+- Los cambios permanecen en un checkout con otros cambios concurrentes; no se instalaron ni publicaron.
+
+## Estado del arbol
+```txt
+M .github/workflows/autogen-docs.yml
+ M .github/workflows/ci-backend.yml
+ M .github/workflows/ci-docs.yml
+ M .github/workflows/ci-frontend.yml
+ M .github/workflows/ci-installer-windows.yml
+ M .github/workflows/ci-policy-audit.yml
+ M .github/workflows/ci-portal.yml
+ M .github/workflows/ci.yml
+ M .github/workflows/pages-marketing.yml
+ M .github/workflows/release-beta.yml
+ M .github/workflows/release-stable-gate.yml
+ M .github/workflows/security-codeql.yml
+ M apps/backend/package-lock.json
+ M apps/backend/package.json
+ M apps/backend/prisma/schema.prisma
+ M apps/backend/reports/qa/latest/global-grade.json
+ M apps/backend/scripts/omr-sweep-geometria.ts
+ M apps/backend/src/compartido/robustez/soporteRetry.ts
+ M apps/backend/src/infraestructura/baseDatos/sqlite.ts
+ M apps/backend/src/infraestructura/seguridad/rbac.ts
+ M apps/backend/src/modulos/modulo_analiticas/controladorAnaliticas.ts
+ M apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts
+ M apps/backend/src/modulos/modulo_analiticas/servicioExportacionDocx.ts
+ M apps/backend/src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones.ts
+ M apps/backend/src/modulos/modulo_analiticas/servicioListaAcademica.ts
+ M apps/backend/src/modulos/modulo_analiticas/tiposListaAcademica.ts
+ M apps/backend/src/modulos/modulo_analiticas/validacionesAnaliticas.ts
+ M apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts
+ M apps/backend/src/modulos/modulo_autenticacion/middlewareAutenticacion.ts
+ M apps/backend/src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts
+ M apps/backend/src/modulos/modulo_banco_preguntas/rutasBancoPreguntas.ts
+ M apps/backend/src/modulos/modulo_banco_preguntas/validacionesBancoPreguntas.ts
+ M apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts
+ M apps/backend/src/modulos/modulo_calificacion/validacionesCalificacion.ts
+ M apps/backend/src/modulos/modulo_escaneo_omr/README.md
+ M apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts
+ M apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts
+ M apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCv.ts
+ M apps/backend/src/modulos/modulo_escaneo_omr/omrCore.ts
+ M apps/backend/src/modulos/modulo_escaneo_omr/porFolioDataset.ts
+ M apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/domain/layoutExamen.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/domain/recoveryManifest.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/infra/configuracionLayoutEnv.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts
+ M apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts
+ M apps/backend/src/modulos/modulo_hidratacion_cursos/controladorHidratacionCursos.ts
+ M apps/backend/src/modulos/modulo_hidratacion_cursos/rutasHidratacionCursos.ts
+ M apps/backend/src/modulos/modulo_hidratacion_cursos/servicioHidratacionCursos.ts
+ M apps/backend/src/modulos/modulo_hidratacion_cursos/validacionesHidratacionCursos.ts
+ M apps/backend/src/modulos/modulo_integraciones_classroom/controladorIntegracionesClassroom.ts
+ M apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts
+ M apps/backend/src/modulos/modulo_integraciones_classroom/validacionesClassroom.ts
+ M apps/backend/src/modulos/modulo_listas_institucionales/servicioListasInstitucionales.ts
+ M apps/backend/src/modulos/modulo_sincronizacion_nube/domain/instantaneaLocal.ts
+ M apps/backend/src/modulos/modulo_sincronizacion_nube/domain/paqueteSincronizacion.ts
+ M apps/backend/src/modulos/modulo_sincronizacion_nube/infra/omrCapturas.ts
+ M apps/backend/src/modulos/modulo_sincronizacion_nube/sincronizacionInterna.ts
+ M apps/backend/tests/analiticas.xlsx.sv.contract.test.ts
+ M apps/backend/tests/bancoPreguntas.controlador.test.ts
+ M apps/backend/tests/calificacion.omr.payload.test.ts
+ M apps/backend/tests/integracion/_flujoDocenteHelper.ts
+ M apps/backend/tests/integracion/archivarExamenGenerado.test.ts
+ M apps/backend/tests/integracion/asistencia.reglas.test.ts
+ M apps/backend/tests/integracion/classroom.v2.test.ts
+ M apps/backend/tests/integracion/examenesRetention.test.ts
+ M apps/backend/tests/integracion/flujoExamen.test.ts
+ M apps/backend/tests/integracion/hidratacionCursos.test.ts
+ M apps/backend/tests/integracion/listaAcademicaContratos.test.ts
+ M apps/backend/tests/integracion/listasInstitucionales.test.ts
+ M apps/backend/tests/integracion/omrJobsWorkflow.test.ts
+ M apps/backend/tests/integracion/plantillasCrudYPreview.test.ts
+ M apps/backend/tests/integracion/qrEscaneoOmr.test.ts
+ M apps/backend/tests/integracion/rolesPermisos.test.ts
+ M apps/backend/tests/omr.core.decision.test.ts
+ M apps/backend/tests/omr.geometry.reference.test.ts
+ M apps/backend/tests/omr.test.ts
+ M apps/backend/tests/pdf.canonico.test.ts
+ M apps/backend/tests/pdf.layout.visual.guard.test.ts
+ M apps/backend/tests/pdf.paridad.test.ts
+ M apps/backend/tests/qr.examen.test.ts
+ M apps/backend/tests/recovery.manifest.test.ts
+ M apps/backend/tests/setup.ts
+ M apps/backend/tests/sincronizacion.test.ts
+ M apps/backend/tests/utils/mongo.ts
+ M apps/frontend/package-lock.json
+ M apps/frontend/package.json
+ M apps/frontend/src/apps/app_docente/AppDocente.tsx
+ M apps/frontend/src/apps/app_docente/SeccionAsistencias.tsx
+ M apps/frontend/src/apps/app_docente/SeccionBanco.tsx
+ M apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx
+ M apps/frontend/src/apps/app_docente/SeccionCalificar.tsx
+ M apps/frontend/src/apps/app_docente/SeccionClassroom.tsx
+ M apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx
+ M apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx
+ M apps/frontend/src/apps/app_docente/SeccionRegistroEntrega.tsx
+ M apps/frontend/src/apps/app_docente/features/banco/components/BancoFormularioPregunta.tsx
+ M apps/frontend/src/apps/app_docente/features/banco/components/BancoListadoPreguntas.tsx
+ M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx
+ M apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions.ts
+ M apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts
+ M apps/frontend/src/apps/app_docente/hooks/useRecordatorioPaseLista.ts
+ M apps/frontend/src/apps/app_docente/tipos.ts
+ M apps/frontend/src/apps/app_docente/utilidades.ts
+ M apps/frontend/src/styles.css
+ M apps/frontend/src/styles/cards.css
+ M apps/frontend/src/styles/screens.css
+ M apps/frontend/src/tipos/tesseract-js.d.ts
+ M apps/frontend/src/ui/iconos.tsx
+ M apps/frontend/src/ui/version/VersionInfoPage.tsx
+ M apps/frontend/tests/appDocente.previewConsolidado.test.tsx
+ M apps/frontend/tests/banco.refactor.test.tsx
+ M apps/frontend/tests/escaneo.refactor.test.tsx
+ M apps/frontend/tests/gui.responsive.contract.test.tsx
+ M apps/frontend/tests/plantillas.hooks.test.tsx
+ M apps/frontend/tests/plantillas.refactor.test.tsx
+ M apps/frontend/tests/seccionAsistencias.test.tsx
+ M apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx
+ M apps/frontend/tests/seccionCalificar.test.tsx
+ M apps/frontend/tests/seccionClassroom.test.tsx
+ M apps/frontend/tests/seccionPaqueteSincronizacion.test.tsx
+ M apps/frontend/tests/utilidades.appDocente.test.ts
+ M apps/frontend/tests/versionInfo.helpers.test.tsx
+ M apps/frontend/tests/versionInfoPage.test.tsx
+ M apps/frontend/vite.config.ts
+ M apps/portal_alumno_cloud/package-lock.json
+ M apps/portal_alumno_cloud/package.json
+ M apps/portal_alumno_cloud/prisma/schema.prisma
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/browser.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/client.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/commonInputTypes.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/enums.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/class.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/prismaNamespace.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/prismaNamespaceBrowser.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/AgendaAlumno.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/AvisoAlumno.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/CodigoAcceso.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/EventoUsoAlumno.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/HistorialAlumno.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/MateriaAlumno.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/PaqueteSyncDocente.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/PerfilAlumno.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/ResultadoAlumno.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/SesionAlumno.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/SolicitudRevision.ts
+ M apps/portal_alumno_cloud/src/infraestructura/baseDatos/sqlite.ts
+ M apps/portal_alumno_cloud/tests/utils/mongo.ts
+ M config/version-catalog.json
+ M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md
+ M docs/VERSIONADO.md
+ M docs/WCAG_UI_POLICY.md
+ M docs/specs/SPEC-036_autenticacion_guardrails.spec.md
+ M docs/specs/SPEC-039_asistencias_seguimiento.spec.md
+ M docs/specs/SPEC-042_diseno_produccion_examenes_omr.spec.md
+ M docs/specs/SPEC-046_google_classroom_sync.spec.md
+ M docs/specs/SPEC-053_guardrails_google_oauth_runtime.spec.md
+ M docs/specs/SPEC-054_identidad_visual_frontend_completa.spec.md
+ M docs/specs/e2e_playwright_screen_functional_matrix.spec.md
+ M docs/specs/flujo_docente_alumno_integral.spec.md
+ M docs/specs/listas_institucionales_por_plantilla.spec.md
+ M docs/specs/release_stable_installer_firma.spec.md
+ M package-lock.json
+ M package.json
+ M packaging/app-host/App.xaml.cs
+ M packaging/app-host/MainWindow.xaml.cs
+ M packaging/wix/BurnBootstrapperApp/EvaluaPro.BurnBootstrapperApp.csproj
+ M packaging/wix/README.md
+ M reports/qa/latest/clean-architecture.json
+ M reports/qa/latest/dataset-prodlike.json
+ M reports/qa/latest/e2e-docente-alumno.json
+ M reports/qa/latest/evaluaciones-e2e.json
+ M reports/qa/latest/evaluaciones-policy.json
+ M reports/qa/latest/global-grade.json
+ M reports/qa/latest/manifest.json
+ M reports/qa/latest/pdf-print.json
+ M reports/qa/latest/ux-visual.json
+ M scripts/build-msi.ps1
+ D scripts/build-native-dist.ps1
+ M scripts/perf-collect-business.ts
+ M scripts/release/validate-stable-promotion.mjs
+ M scripts/runtime-env.mjs
+ M scripts/sdd-audit.mjs
+ M scripts/serve-docente-static.mjs
+ M scripts/start-docente-native.mjs
+ M scripts/testing/generar-qa-manifest.mjs
+ M scripts/testing/run-backend-test-batches.mjs
+ M scripts/testing/start-frontend-e2e-server.mjs
+ M scripts/testing/windows-release-smoke-ownership.mjs
+ M scripts/tests/app-host-health.contract.test.mjs
+ M scripts/tests/app-host-shutdown.contract.test.mjs
+ M scripts/tests/backend-test-batches.test.mjs
+ M scripts/tests/ci-workflow-contract.test.mjs
+ M scripts/tests/installer-hub-contract.test.mjs
+ M scripts/tests/native-startup.contract.test.mjs
+ M scripts/tests/omr-version-policy.test.mjs
+ M scripts/tests/release-stable-promotion.test.mjs
+ M scripts/tests/runtime-env.test.mjs
+ M scripts/tests/sdd-audit.test.mjs
+ M scripts/tests/seed-docente-dummy.mjs
+ M scripts/tests/windows-release-smoke-ownership.test.mjs
+ M scripts/tests/windows-release-smoke.test.mjs
+ M scripts/tests/wix-version-policy.test.mjs
+ M tests/gui-responsive/ciclo-completo.spec.ts
+ M tests/gui-responsive/journey-docente-integral.spec.ts
+ M tests/gui-responsive/playwright.ciclo.config.mjs
+?? apps/backend/prisma.config.mjs
+?? apps/backend/scripts/omr-eval-real-dataset.mjs
+?? apps/backend/scripts/omr-qr-preprint-check.ts
+?? apps/backend/src/modulos/modulo_analiticas/servicioListaFisicaParcial2.ts
+?? apps/backend/src/modulos/modulo_banco_preguntas/controladorReactivos.ts
+?? apps/backend/src/modulos/modulo_banco_preguntas/reactivosContrato.ts
+?? apps/backend/src/modulos/modulo_banco_preguntas/reactivosXlsx.ts
+?? apps/backend/src/modulos/modulo_banco_preguntas/servicioCalibracionReactivos.ts
+?? apps/backend/src/modulos/modulo_banco_preguntas/servicioReactivos.ts
+?? apps/backend/src/modulos/modulo_escaneo_omr/infra/metricasDatasetOmr.ts
+?? apps/backend/src/modulos/modulo_escaneo_omr/omr/decision/
+?? apps/backend/src/modulos/modulo_generacion_pdf/domain/duplexOmrGuard.ts
+?? apps/backend/src/modulos/modulo_integraciones_classroom/calculoAcumuladoTareas.ts
+?? apps/backend/tests/calculoAcumuladoTareas.test.ts
+?? apps/backend/tests/calificacion.omr.estado.test.ts
+?? apps/backend/tests/integracion/reactivosIngesta.test.ts
+?? apps/backend/tests/listaAcademicaResumen.test.ts
+?? apps/backend/tests/listaFisicaParcial2.persistencia.test.ts
+?? apps/backend/tests/listaFisicaParcial2.test.ts
+?? apps/backend/tests/listaFisicaParcial2.validaciones.test.ts
+?? apps/backend/tests/omr.consenso.robusto.test.ts
+?? apps/backend/tests/omr.dataset-grain.test.ts
+?? apps/backend/tests/omr.estado-respuesta.test.ts
+?? apps/backend/tests/omr.qr.preimpresion.test.ts
+?? apps/backend/tests/pdf.ink-sparing-staple.test.ts
+?? apps/backend/tests/reactivosCalibracion.test.ts
+?? apps/backend/tests/reactivosContrato.test.ts
+?? apps/frontend/src/apps/app_docente/ConsultaCalificaciones.tsx
+?? apps/frontend/src/apps/app_docente/SolicitudesRevisionPanel.tsx
+?? apps/frontend/src/apps/app_docente/features/banco/components/BancoImportacionReactivos.tsx
+?? apps/frontend/src/apps/app_docente/fechaLocal.ts
+?? apps/frontend/src/apps/app_docente/ocrTexto.ts
+?? apps/frontend/src/ui/IconoLucide.tsx
+?? apps/frontend/src/ui/iconosCatalogo.ts
+?? apps/frontend/src/ui/version/changelog.ts
+?? apps/frontend/src/ui/version/legal/
+?? apps/frontend/tests/bancoImportacionReactivos.test.tsx
+?? apps/frontend/tests/changelog.test.ts
+?? apps/frontend/tests/fechaLocal.test.ts
+?? apps/frontend/tests/ocrTexto.test.ts
+?? apps/frontend/tests/permisosBanco.hooks.test.tsx
+?? apps/frontend/tests/seccionCalificaciones.resumen.test.tsx
+?? apps/portal_alumno_cloud/prisma.config.mjs
+?? docs/GUIA_ICONOGRAFIA.md
+?? docs/contracts/
+?? docs/handoff/sesiones/2026-09-23/
+?? docs/handoff/sesiones/2026-09-24/
+?? docs/handoff/sesiones/2026-09-25/
+?? docs/qa/
+?? docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md
+?? docs/specs/SPEC-060_omr_consenso_captura_real.spec.md
+?? docs/specs/SPEC-061_banco_reactivos_ia_versionado.spec.md
+?? docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md
+?? docs/specs/SPEC-063_omr_orientacion_y_inclinacion_pagina.spec.md
+?? docs/specs/SPEC-064_actualizacion_dependencias_toolchains.spec.md
+?? docs/specs/SPEC-065_ciclo_vida_servicios_app_host.spec.md
+?? docs/specs/SPEC-066_sqlite_test_isolation.spec.md
+?? global.json
+?? output/qa/EvaluaPro-omr-camera-dataset-camscanner-20260924.zip
+?? output/qa/EvaluaPro-omr-camera-dataset-camscanner-20260924.zip.sha256
+?? output/qa/omr-camera-camscanner-20260924/
+?? output/qa/omr-plantilla-sync-20260923.layout.json
+?? output/qa/omr-plantilla-sync-20260923.pdf
+?? scripts/migrate-calificaciones-lista-manual-sqlite.mjs
+?? scripts/migrate-reactivos-backfill.mjs
+?? scripts/migrate-reactivos-sqlite.mjs
+?? scripts/tests/dependency-toolchain-policy.test.mjs
+?? scripts/tests/migrate-calificaciones-lista-manual-sqlite.test.mjs
+?? scripts/tests/migrate-reactivos-backfill.test.mjs
+?? scripts/tests/migrate-reactivos-sqlite.test.mjs
+?? storage/omr_debug/058868F3/
+?? storage/omr_debug/1458887E/
+?? storage/omr_debug/5AFC1D79/
+?? storage/omr_debug/780DC77D/
+?? storage/omr_debug/DCA5097F/
+?? storage/omr_debug/E2FAFF07/
+?? storage/omr_debug/EE26CF1C/
+?? tests/gui-responsive/banco-reactivos.spec.ts
+```
+
+## Siguiente paso recomendado
+- La verificación local queda completa. Para uso operativo, incluir la versión revisada en el siguiente release estable y validar una impresión física si el flujo lo requiere.
+
+## Artefactos generados
+- docs/handoff/sesiones/2026-09-25/omr-template-density-staple-2026-09-25.json
+- docs/handoff/sesiones/2026-09-25/omr-template-density-staple-2026-09-25.md
+
+## Completitud semantica
+- isComplete: true
+- Sin pendientes semanticos.

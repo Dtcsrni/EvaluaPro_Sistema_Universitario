@@ -5,8 +5,8 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
-import { enviarPaqueteServidorUseCase } from '../src/modulos/modulo_sincronizacion_nube/application/usecases/enviarPaqueteServidor';
-import { traerPaquetesServidorUseCase } from '../src/modulos/modulo_sincronizacion_nube/application/usecases/traerPaquetesServidor';
+import { enviarPaqueteServidorUseCase } from '../src/modulos/modulo_sincronizacion_nube/application/usecases/enviarPaqueteServidor.js';
+import { traerPaquetesServidorUseCase } from '../src/modulos/modulo_sincronizacion_nube/application/usecases/traerPaquetesServidor.js';
 
 describe('sincronizacion usecases cobertura minima', () => {
   it('expone usecases de push/pull como funciones', () => {

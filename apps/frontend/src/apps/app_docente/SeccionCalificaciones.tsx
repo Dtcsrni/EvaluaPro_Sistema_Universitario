@@ -16,6 +16,9 @@ import { registrarAccionDocente } from './telemetriaDocente';
 import { SeccionEscaneo } from './SeccionEscaneo';
 import { SeccionCalificar } from './SeccionCalificar';
 import { GuiaCalificacionesVisual } from './GuiaCalificacionesVisual';
+import { ConsultaCalificaciones, type ResumenConsultaCalificaciones } from './ConsultaCalificaciones';
+import { SolicitudesRevisionPanel } from './SolicitudesRevisionPanel';
+import { ClassroomEnCalificaciones } from './ClassroomEnCalificaciones';
 import type {
   Alumno,
   ExamenGeneradoClave,
@@ -24,6 +27,7 @@ import type {
   Plantilla,
   Pregunta,
   PreviewCalificacion,
+  RespuestaDetectadaOmr,
   ResultadoAnalisisOmr,
   ResultadoOmr,
   RevisionExamenOmr,
@@ -37,8 +41,12 @@ import {
   normalizarTemplateVersionOmrDetectada
 } from './utilidades';
 
+type VistaCalificaciones = 'resultados' | 'actas' | 'operacion' | 'classroom';
+const RETRASO_LIBERACION_URL_DESCARGA_MS = 1000;
+
 export function SeccionCalificaciones({
   periodos = [],
+  periodosArchivados = [],
   alumnos = [],
   onAnalizar,
   onPrevisualizar,
@@ -69,10 +77,12 @@ export function SeccionCalificaciones({
   onResolverSolicitudRevision = async () => ({}),
   onLimpiarColaEscaneos = () => {},
   onCargarRevisionHistoricaCalificada,
+  onAbrirLotesPdfOmr,
   permisos,
   avisarSinPermiso
 }: {
   periodos?: Periodo[];
+  periodosArchivados?: Periodo[];
   alumnos: Alumno[];
   onAnalizar: (
     folio: string,
@@ -83,7 +93,13 @@ export function SeccionCalificaciones({
   onPrevisualizar: (payload: {
     examenGeneradoId: string;
     alumnoId?: string | null;
-    respuestasDetectadas?: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
+    respuestasDetectadas?: Array<{
+      numeroPregunta: number;
+      opcion: string | null;
+      confianza?: number;
+      estadoRespuesta?: RespuestaDetectadaOmr['estadoRespuesta'];
+      flags?: RespuestaDetectadaOmr['flags'];
+    }>;
   }) => Promise<{ preview: PreviewCalificacion }>;
   resultado: ResultadoOmr | null;
   onActualizar: (respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>) => void;
@@ -104,8 +120,8 @@ export function SeccionCalificaciones({
   alumnoId: string | null;
   marcaActualizacionCalificados?: number;
   resultadoParaCalificar: ResultadoOmr | null;
-  respuestasParaCalificar: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
-  respuestasCombinadasRevision?: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
+  respuestasParaCalificar: RespuestaDetectadaOmr[];
+  respuestasCombinadasRevision?: RespuestaDetectadaOmr[];
   onCalificar: (payload: {
     examenGeneradoId: string;
     alumnoId?: string | null;
@@ -115,7 +131,7 @@ export function SeccionCalificaciones({
     evaluacionContinua?: number;
     proyecto?: number;
     retroalimentacion?: string;
-    respuestasDetectadas?: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
+    respuestasDetectadas?: RespuestaDetectadaOmr[];
     omrAnalisis?: {
       estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
       calidadPagina: number;
@@ -125,6 +141,16 @@ export function SeccionCalificaciones({
       motivosRevision: string[];
       revisionConfirmada: boolean;
       qrTexto?: string;
+      resumenRespuestas?: {
+        totalReactivos: number;
+        reactivosRespondidos: number;
+        reactivosSinMarca: number;
+        reactivosAmbiguos: number;
+        reactivosInvalidos: number;
+        examenVacio: boolean;
+        examenVacioProbable: boolean;
+        estadoExamen: 'vacio_confirmado' | 'vacio_probable' | 'con_respuestas' | 'requiere_revision';
+      };
     };
   }) => Promise<unknown>;
   solicitudesRevision?: SolicitudRevisionAlumno[];
@@ -147,6 +173,7 @@ export function SeccionCalificaciones({
     ordenPreguntas: number[];
     resultado: ResultadoOmr;
   }) => void;
+  onAbrirLotesPdfOmr?: () => void;
   permisos: PermisosUI;
   avisarSinPermiso: (mensaje: string) => void;
 }) {
@@ -179,18 +206,24 @@ export function SeccionCalificaciones({
   const [examenesCalificadosPersistidos, setExamenesCalificadosPersistidos] = useState<ExamenEntregado[]>([]);
   const [examenesPorId, setExamenesPorId] = useState<Map<string, ExamenEntregado>>(new Map());
   const [periodoReporteId, setPeriodoReporteId] = useState('');
+  const [vistaCalificaciones, setVistaCalificaciones] = useState<VistaCalificaciones>('resultados');
+  const [resumenConsulta, setResumenConsulta] = useState<ResumenConsultaCalificaciones>({ total: 0, calificados: 0, pendientes: 0 });
   const [reporteDescargando, setReporteDescargando] = useState<'csv' | 'xlsx' | null>(null);
   const [mensajeReporte, setMensajeReporte] = useState('');
+  const periodosConsulta = useMemo(() => {
+    const idsActivos = new Set(periodos.map((periodo) => String(periodo._id ?? '').trim()));
+    return [...periodos, ...periodosArchivados.filter((periodo) => !idsActivos.has(String(periodo._id ?? '').trim()))];
+  }, [periodos, periodosArchivados]);
 
   useEffect(() => {
-    if (!periodoReporteId && periodos.length > 0) {
-      setPeriodoReporteId(String(periodos[0]?._id ?? '').trim());
+    if (!periodoReporteId && periodosConsulta.length > 0) {
+      setPeriodoReporteId(String(periodosConsulta[0]?._id ?? '').trim());
       return;
     }
-    if (periodoReporteId && !periodos.some((periodo) => String(periodo?._id ?? '').trim() === periodoReporteId)) {
+    if (periodoReporteId && !periodosConsulta.some((periodo) => String(periodo?._id ?? '').trim() === periodoReporteId)) {
       setPeriodoReporteId('');
     }
-  }, [periodoReporteId, periodos]);
+  }, [periodoReporteId, periodosConsulta]);
 
   const descargarReporteCalificaciones = useCallback(
     async (formato: 'csv' | 'xlsx') => {
@@ -219,11 +252,17 @@ export function SeccionCalificaciones({
         const enlace = document.createElement('a');
         enlace.href = url;
         enlace.download = `calificaciones-${periodoId}.${tipo}`;
-        document.body.appendChild(enlace);
-        enlace.click();
-        enlace.remove();
-        URL.revokeObjectURL(url);
-        setMensajeReporte(`Reporte ${formato.toUpperCase()} descargado.`);
+        try {
+          document.body.appendChild(enlace);
+          enlace.click();
+        } catch (error) {
+          URL.revokeObjectURL(url);
+          throw error;
+        } finally {
+          enlace.remove();
+        }
+        window.setTimeout(() => URL.revokeObjectURL(url), RETRASO_LIBERACION_URL_DESCARGA_MS);
+        setMensajeReporte(`Descarga ${formato.toUpperCase()} solicitada en el navegador.`);
         registrarAccionDocente(`descargar_reporte_calificaciones_${formato}`, true);
       } catch (error) {
         const mensaje = mensajeDeError(error, `No se pudo descargar el reporte ${formato.toUpperCase()}`);
@@ -405,10 +444,14 @@ export function SeccionCalificaciones({
     setManualContexto(null);
   }
 
-  function etiquetarTipoExamen(tipo?: string | null) {
+  function etiquetarTipoExamen(tipo?: string | null, titulo?: string | null) {
     const valor = String(tipo ?? '').trim().toLowerCase();
-    if (valor === 'parcial') return 'Parcial 1';
-    if (valor === 'global') return 'Global final';
+    const etiqueta = String(titulo ?? '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const texto = `${etiqueta} ${valor}`.trim();
+    if (texto.includes('global') || texto.includes('final') || valor === 'global') return 'Global final';
+    if (/(?:parcial|p)\s*(?:2|ii)\b/.test(texto) || /\b(?:segundo|segunda|dos)\s+parcial\b/.test(texto) || /\b2(?:do|da|ndo|nda)\s+parcial\b/.test(texto)) return 'Parcial 2';
+    if (/(?:parcial|p)\s*(?:1|i)\b/.test(texto) || /\b(?:primer|primero|primera|uno)\s+parcial\b/.test(texto) || /\b1(?:er|ro|ra)\s+parcial\b/.test(texto)) return 'Parcial 1';
+    if (valor === 'parcial') return 'Parcial';
     return '';
   }
 
@@ -423,8 +466,8 @@ export function SeccionCalificaciones({
     }
     const plantilla = plantillasPorId.get(String(examenManualSeleccionado.plantillaId ?? '').trim());
     const tipo =
-      etiquetarTipoExamen(String(examenManualSeleccionado.tipoExamen ?? '').trim()) ||
-      etiquetarTipoExamen(String(plantilla?.tipo ?? '').trim()) ||
+      etiquetarTipoExamen(String(examenManualSeleccionado.tipoExamen ?? '').trim(), plantilla?.titulo) ||
+      etiquetarTipoExamen(String(plantilla?.tipo ?? '').trim(), plantilla?.titulo) ||
       '-';
     const plantillaTitulo =
       String(examenManualSeleccionado.plantillaTitulo ?? '').trim() ||
@@ -467,7 +510,7 @@ export function SeccionCalificaciones({
   const tipoExamenActivoEtiqueta = useMemo(() => {
     const tipo = String(examenActivoMeta?.tipoExamen ?? '').trim();
     const plantilla = plantillasPorId.get(String(examenActivoMeta?.plantillaId ?? '').trim());
-    return etiquetarTipoExamen(tipo) || etiquetarTipoExamen(String(plantilla?.tipo ?? '').trim()) || null;
+    return etiquetarTipoExamen(tipo, plantilla?.titulo) || etiquetarTipoExamen(String(plantilla?.tipo ?? '').trim(), plantilla?.titulo) || null;
   }, [examenActivoMeta, plantillasPorId]);
   const examenActivoEtiqueta = useMemo(() => {
     const folio = String(examenActivoMeta?.folio ?? '').trim();
@@ -688,8 +731,14 @@ export function SeccionCalificaciones({
         alumnoId: String(examenDetalle.alumnoId ?? examenSeleccionado.alumnoId ?? alumnoManualId),
         folio: String(examenDetalle.folio ?? examenSeleccionado.folio),
         tipoExamenEtiqueta:
-          etiquetarTipoExamen(String(examenSeleccionado.tipoExamen ?? '').trim()) ||
-          etiquetarTipoExamen(String(plantillasPorId.get(String(examenSeleccionado.plantillaId ?? '').trim())?.tipo ?? '').trim()) ||
+          etiquetarTipoExamen(
+            String(examenSeleccionado.tipoExamen ?? '').trim(),
+            String(examenSeleccionado.plantillaTitulo ?? '').trim() || plantillasPorId.get(String(examenSeleccionado.plantillaId ?? '').trim())?.titulo
+          ) ||
+          etiquetarTipoExamen(
+            String(plantillasPorId.get(String(examenSeleccionado.plantillaId ?? '').trim())?.tipo ?? '').trim(),
+            plantillasPorId.get(String(examenSeleccionado.plantillaId ?? '').trim())?.titulo
+          ) ||
           undefined,
         plantillaTitulo:
           String(examenSeleccionado.plantillaTitulo ?? '').trim() ||
@@ -735,7 +784,13 @@ export function SeccionCalificaciones({
         ),
         clienteApi.obtener<{
           calificacion?: {
-            respuestasDetectadas?: Array<{ numeroPregunta?: number; opcion?: string | null; confianza?: number }>;
+            respuestasDetectadas?: Array<{
+              numeroPregunta?: number;
+              opcion?: string | null;
+              confianza?: number;
+              estadoRespuesta?: RespuestaDetectadaOmr['estadoRespuesta'];
+              flags?: RespuestaDetectadaOmr['flags'];
+            }>;
             aciertos?: number;
             totalReactivos?: number;
             calificacionExamenFinalTexto?: string;
@@ -762,7 +817,9 @@ export function SeccionCalificaciones({
             .map((item) => ({
               numeroPregunta: Number(item?.numeroPregunta),
               opcion: String(item?.opcion ?? '').trim().toUpperCase() || null,
-              confianza: Number.isFinite(Number(item?.confianza)) ? Number(item?.confianza) : 0
+              confianza: Number.isFinite(Number(item?.confianza)) ? Number(item?.confianza) : 0,
+              ...(item?.estadoRespuesta ? { estadoRespuesta: item.estadoRespuesta } : {}),
+              ...(Array.isArray(item?.flags) ? { flags: item.flags } : {})
             }))
             .filter((item) => Number.isFinite(item.numeroPregunta) && item.numeroPregunta > 0)
         : [];
@@ -782,7 +839,9 @@ export function SeccionCalificaciones({
         return {
           numeroPregunta: Number(numeroPregunta),
           opcion: detectada?.opcion ?? null,
-          confianza: Number.isFinite(Number(detectada?.confianza)) ? Number(detectada?.confianza) : 0
+          confianza: Number.isFinite(Number(detectada?.confianza)) ? Number(detectada?.confianza) : 0,
+          ...(detectada?.estadoRespuesta ? { estadoRespuesta: detectada.estadoRespuesta } : {}),
+          ...(Array.isArray(detectada?.flags) ? { flags: detectada.flags } : {})
         };
       });
       const paginasExamen = Array.isArray((examenDetalle as { paginas?: unknown }).paginas)
@@ -844,8 +903,14 @@ export function SeccionCalificaciones({
         alumnoId: String(examenDetalle.alumnoId ?? examenPersistido.alumnoId ?? ''),
         folio: String(examenDetalle.folio ?? examenPersistido.folio),
         tipoExamenEtiqueta:
-          etiquetarTipoExamen(String(examenPersistido.tipoExamen ?? '').trim()) ||
-          etiquetarTipoExamen(String(plantillasPorId.get(String(examenPersistido.plantillaId ?? '').trim())?.tipo ?? '').trim()) ||
+          etiquetarTipoExamen(
+            String(examenPersistido.tipoExamen ?? '').trim(),
+            String(examenPersistido.plantillaTitulo ?? '').trim() || plantillasPorId.get(String(examenPersistido.plantillaId ?? '').trim())?.titulo
+          ) ||
+          etiquetarTipoExamen(
+            String(plantillasPorId.get(String(examenPersistido.plantillaId ?? '').trim())?.tipo ?? '').trim(),
+            plantillasPorId.get(String(examenPersistido.plantillaId ?? '').trim())?.titulo
+          ) ||
           undefined,
         plantillaTitulo:
           String(examenPersistido.plantillaTitulo ?? '').trim() ||
@@ -951,7 +1016,7 @@ export function SeccionCalificaciones({
 
   return (
     <>
-      {/* 1. Bento Hero Header */}
+      {/* Encabezado: resultados primero; la operación queda separada. */}
       <div className="banco-panel__head calif-panel__head anim-fade-in">
         <div className="banco-panel__lead">
           <div className="banco-panel__icon-orb calif-panel__icon-orb anim-icon-pulse" aria-hidden="true">
@@ -961,54 +1026,102 @@ export function SeccionCalificaciones({
             <div className="banco-panel__meta-row">
               <span className="banco-status-pill calif-status-pill">
                 <span className="banco-pulse-dot" aria-hidden="true" />
-                <span>Mesa de Calificación y Escrutinio OMR</span>
+                <span>Resultados académicos</span>
               </span>
-              <span className="banco-counter-tag">{revisionesSeguras.length} exámenes</span>
+              <span className="banco-counter-tag">{alumnos.length} alumnos</span>
             </div>
             <h2 className="banco-panel__title eyebrow"><Icono nombre="calificar" /> Calificaciones</h2>
-            <p className="nota">Escanea por página, revisa por examen y guarda solo cuando la revisión esté confirmada.</p>
+            <p className="nota">Consulta, revisa y publica el resultado de cada alumno desde un solo lugar.</p>
           </div>
         </div>
 
         {/* Mini-KPIs */}
         <div className="banco-header-kpis" aria-live="polite">
-          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Exámenes en flujo de escaneo">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Alumnos registrados en las materias disponibles">
             <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="pdf" /></span>
-            <span className="banco-mini-kpi__num">{revisionesSeguras.length}</span>
-            <span className="banco-mini-kpi__lbl">En flujo</span>
+            <span className="banco-mini-kpi__num">{alumnos.length}</span>
+            <span className="banco-mini-kpi__lbl">Alumnos</span>
           </div>
 
-          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Páginas totales analizadas">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="escaneo" /></span>
-            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{totalPaginas}</span>
-            <span className="banco-mini-kpi__lbl">Procesadas</span>
+          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip={vistaCalificaciones === 'resultados' ? 'Alumnos con una calificación registrada en la materia seleccionada' : 'Exámenes con calificación OMR confirmada'}>
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre={vistaCalificaciones === 'resultados' ? 'ok' : 'escaneo'} /></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{vistaCalificaciones === 'resultados' ? resumenConsulta.calificados : examenesListos}</span>
+            <span className="banco-mini-kpi__lbl">{vistaCalificaciones === 'resultados' ? 'Calificados' : 'Confirmados'}</span>
           </div>
 
-          <div className="banco-mini-kpi banco-mini-kpi--sintema anim-kpi-hover" data-tooltip="Páginas con revisión pendiente">
+          <div className="banco-mini-kpi banco-mini-kpi--sintema anim-kpi-hover" data-tooltip={vistaCalificaciones === 'resultados' ? 'Alumnos sin calificación registrada en la materia seleccionada' : 'Páginas que necesitan revisión OMR'}>
             <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="alerta" /></span>
-            <span className="banco-mini-kpi__num banco-mini-kpi__num--amber">{paginasPendientes}</span>
-            <span className="banco-mini-kpi__lbl">Pendientes</span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--amber">{vistaCalificaciones === 'resultados' ? resumenConsulta.pendientes : paginasPendientes}</span>
+            <span className="banco-mini-kpi__lbl">{vistaCalificaciones === 'resultados' ? 'Pendientes' : 'Revisión OMR'}</span>
           </div>
 
-          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Exámenes con calificación confirmada">
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Solicitudes de aclaración de alumnos">
             <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="ok" /></span>
-            <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{examenesListos}</span>
-            <span className="banco-mini-kpi__lbl">Calificados</span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{resumenSolicitudes.total}</span>
+            <span className="banco-mini-kpi__lbl">Aclaraciones</span>
           </div>
 
-          <div className="banco-mini-kpi banco-mini-kpi--reactivos anim-kpi-hover" data-tooltip="Solicitudes de revisión enviadas por alumnos">
+          <div className="banco-mini-kpi banco-mini-kpi--reactivos anim-kpi-hover" data-tooltip="Páginas procesadas por el motor OMR">
             <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="info" /></span>
-            <span className="banco-mini-kpi__num">{resumenSolicitudes.total}</span>
-            <span className="banco-mini-kpi__lbl">Solicitudes</span>
+            <span className="banco-mini-kpi__num">{totalPaginas}</span>
+            <span className="banco-mini-kpi__lbl">Páginas procesadas</span>
           </div>
         </div>
       </div>
 
-      {/* 2. Bento Visual Guide */}
-      <GuiaCalificacionesVisual />
+      <nav className="calificaciones-workspace-nav" aria-label="Espacios de calificaciones">
+        <button type="button" className={vistaCalificaciones === 'resultados' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'resultados'} onClick={() => setVistaCalificaciones('resultados')}>
+          <span className="calificaciones-workspace-nav__index">01</span>
+          <span><strong>Resultados</strong><small>Consulta por alumno</small></span>
+        </button>
+        <button type="button" className={vistaCalificaciones === 'actas' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'actas'} onClick={() => setVistaCalificaciones('actas')}>
+          <span className="calificaciones-workspace-nav__index">02</span>
+          <span><strong>Actas y exportación</strong><small>Prepara el resultado oficial</small></span>
+        </button>
+        <button type="button" className={vistaCalificaciones === 'operacion' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'operacion'} onClick={() => setVistaCalificaciones('operacion')}>
+          <span className="calificaciones-workspace-nav__index">03</span>
+          <span><strong>Revisión y captura</strong><small>OMR, manual y aclaraciones</small></span>
+        </button>
+        <button type="button" className={vistaCalificaciones === 'classroom' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'classroom'} onClick={() => setVistaCalificaciones('classroom')}>
+          <span className="calificaciones-workspace-nav__index">04</span>
+          <span><strong>Classroom</strong><small>Vínculos · cortes · consulta</small></span>
+        </button>
+      </nav>
 
-      {/* Bento Action Deck: Exportación & Escrutinio */}
-      <div className="calif-action-deck anim-fade-in">
+      {vistaCalificaciones === 'resultados' && (
+        <ConsultaCalificaciones
+          periodos={periodosConsulta}
+          periodoId={periodoReporteId}
+          onPeriodoChange={setPeriodoReporteId}
+          onResumenChange={setResumenConsulta}
+          onSeleccionarAlumno={(alumnoSeleccionadoId) => {
+            if (!alumnoSeleccionadoId) return;
+            seleccionarAlumnoManual(alumnoSeleccionadoId);
+            setVistaCalificaciones('operacion');
+            window.requestAnimationFrame(() => {
+              document.getElementById('calificacion-detalle-manual')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }}
+        />
+      )}
+
+      {vistaCalificaciones === 'classroom' && (
+        <ClassroomEnCalificaciones
+          periodoId={periodoReporteId}
+          periodos={periodosConsulta}
+          onPeriodoChange={setPeriodoReporteId}
+          alumnos={alumnos}
+          permisos={permisos}
+        />
+      )}
+
+      {vistaCalificaciones === 'actas' && <div className="calificaciones-workspace-view anim-fade-in">
+        <div className="calificaciones-view-heading">
+          <span className="calificaciones-kicker">Resultado oficial</span>
+          <h3>Actas y exportación</h3>
+          <p className="nota">Descarga o prepara el resultado cuando la revisión académica esté completa.</p>
+        </div>
+        <div className="calif-action-deck anim-fade-in">
         <div className="calif-deck-card calif-deck-card--reports">
           <div className="calif-deck-card__header">
             <span className="banco-section-pill">
@@ -1022,9 +1135,9 @@ export function SeccionCalificaciones({
               <span>Materia del reporte</span>
               <select value={periodoReporteId} onChange={(event) => setPeriodoReporteId(event.target.value)}>
                 <option value="">Selecciona materia...</option>
-                {periodos.map((periodo) => (
+                {periodosConsulta.map((periodo) => (
                   <option key={periodo._id} value={periodo._id}>
-                    {etiquetaMateria(periodo)}
+                    {etiquetaMateria(periodo)}{periodo.activo === false ? ' (Archivada)' : ''}
                   </option>
                 ))}
               </select>
@@ -1055,6 +1168,22 @@ export function SeccionCalificaciones({
           {mensajeReporte && <InlineMensaje tipo={esMensajeError(mensajeReporte) ? 'error' : 'info'}>{mensajeReporte}</InlineMensaje>}
         </div>
 
+        </div>
+      </div>}
+
+      {vistaCalificaciones === 'operacion' && <div className="calificaciones-workspace-view anim-fade-in">
+        <div className="calificaciones-view-heading">
+          <span className="calificaciones-kicker">Procesamiento y control</span>
+          <h3>Revisión y captura</h3>
+          <p className="nota">Procesa exámenes, resuelve casos dudosos y atiende calificaciones manuales.</p>
+          {onAbrirLotesPdfOmr && permisos.plantillas.leer && permisos.omr.analizar && (
+            <Boton type="button" variante="secundario" onClick={onAbrirLotesPdfOmr}>
+              Procesar PDFs de un lote generado
+            </Boton>
+          )}
+        </div>
+        <GuiaCalificacionesVisual />
+        <div className="calif-action-deck anim-fade-in">
         <div className="calif-deck-card calif-deck-card--history">
           <div className="calif-deck-card__header">
             <span className="banco-section-pill banco-section-pill--amber">
@@ -1117,7 +1246,7 @@ export function SeccionCalificaciones({
             </div>
           </div>
         </div>
-      </div>
+        </div>
       <div className="calificaciones-layout" data-calificaciones-layout="true">
         <div className="calificaciones-layout__main">
           <SeccionEscaneo
@@ -1335,7 +1464,7 @@ export function SeccionCalificaciones({
             )}
           </section>
 
-          <section className="panel calificaciones-manual-panel anim-fade-in">
+          <section id="calificacion-detalle-manual" className="panel calificaciones-manual-panel anim-fade-in">
             <div className="banco-section-title">
               <div className="banco-section-title__wrap">
                 <span className="banco-section-pill">
@@ -1388,7 +1517,14 @@ export function SeccionCalificaciones({
                   <option key={examen._id} value={examen._id}>
                     {[
                       examen.folio,
-                      etiquetarTipoExamen(examen.tipoExamen) || etiquetarTipoExamen(plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.tipo),
+                      etiquetarTipoExamen(
+                        examen.tipoExamen,
+                        String(examen.plantillaTitulo ?? '').trim() || plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo
+                      ) ||
+                        etiquetarTipoExamen(
+                          plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.tipo,
+                          plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo
+                        ),
                       String(examen.plantillaTitulo ?? '').trim() || String(plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo ?? '').trim(),
                       String(examen.estado ?? 'entregado')
                     ]
@@ -1472,121 +1608,25 @@ export function SeccionCalificaciones({
           {!mostrarSeccionCalificar ? (
             <InlineMensaje tipo="info">Confirma la revisión OMR en la mesa superior para habilitar la calificación.</InlineMensaje>
           ) : null}
-          <section className="panel calificaciones-revision-panel anim-fade-in">
-            <div className="banco-section-title">
-              <div className="banco-section-title__wrap">
-                <span className="banco-section-pill banco-section-pill--amber">
-                  <span className="banco-section-pill__dot" aria-hidden="true" />
-                  <span>Buzón de Aclaraciones</span>
-                </span>
-                <h3 className="entregas-title-heading">
-                  <Icono nombre="info" /> Solicitudes de revisión del alumno
-                </h3>
-                <p className="nota">Atiende solicitudes de aclaración enviadas por los alumnos desde su portal.</p>
-              </div>
-              <div className="banco-section-side-meta">
-                <span className="banco-counter-tag banco-counter-tag--amber">Pendientes: {resumenSolicitudes.pendientes}</span>
-                <span className="banco-counter-tag banco-counter-tag--emerald">Atendidas: {resumenSolicitudes.atendidas}</span>
-                <span className="banco-counter-tag">Rechazadas: {resumenSolicitudes.rechazadas}</span>
-              </div>
-            </div>
-            <div className="item-actions calificaciones-revision-panel__toolbar">
-              <button
-                type="button"
-                className="boton secundario"
-                disabled={cargandoSolicitudes || resolviendoSolicitudId.length > 0}
-                onClick={() => {
-                  if (!puedeCalificar) {
-                    avisarSinPermiso('No tienes permiso para revisar solicitudes.');
-                    return;
-                  }
-                  void sincronizarSolicitudesRevision();
-                }}
-              >
-                <Icono nombre="recargar" /> {cargandoSolicitudes ? 'Sincronizando...' : 'Sincronizar solicitudes'}
-              </button>
-            </div>
-            <label className="campo">
-              Buscar solicitud
-              <input
-                value={filtroSolicitudes}
-                onChange={(event) => setFiltroSolicitudes(event.target.value)}
-                placeholder="Folio, estado, pregunta o comentario"
-                disabled={solicitudesSeguras.length === 0}
-              />
-            </label>
-            {mensajeRevision && (
-              <InlineMensaje tipo={esMensajeError(mensajeRevision) ? 'error' : 'info'}>{mensajeRevision}</InlineMensaje>
-            )}
-            {solicitudesSeguras.length === 0 && <InlineMensaje tipo="info">Sin solicitudes pendientes de revisión.</InlineMensaje>}
-            {solicitudesSeguras.length > 0 && solicitudesFiltradas.length === 0 && (
-              <InlineMensaje tipo="info">No hay solicitudes que coincidan con el filtro.</InlineMensaje>
-            )}
-            <ul className="lista lista-items">
-              {solicitudesFiltradas.map((solicitud) => (
-                <li key={solicitud._id ?? solicitud.externoId}>
-                  <div className="item-glass">
-                    <div className="item-row">
-                      <div>
-                        <div className="item-title">
-                          Folio {solicitud.folio} · Pregunta {solicitud.numeroPregunta}
-                        </div>
-                        <div className="item-meta">
-                          <span className={`badge ${solicitud.estado === 'pendiente' ? 'warning' : solicitud.estado === 'atendida' ? 'ok' : 'error'}`}>
-                            {solicitud.estado}
-                          </span>
-                          {solicitud.comentario && <span>Comentario: {solicitud.comentario}</span>}
-                          {solicitud.conformidadAlumno && <span>Alumno en conformidad</span>}
-                          {solicitud.firmaDocente && <span>Firma: {solicitud.firmaDocente}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <textarea
-                      className="calificaciones-revision-panel__respuesta"
-                      rows={2}
-                      placeholder="Respuesta obligatoria para el alumno (mínimo 8 caracteres)"
-                      value={respuestaPorSolicitudId[solicitud.externoId] ?? ''}
-                      onChange={(event) =>
-                        setRespuestaPorSolicitudId((prev) => ({ ...prev, [solicitud.externoId]: event.target.value }))
-                      }
-                    />
-                    <div className="item-actions calificaciones-revision-panel__actions">
-                      <button
-                        className="boton secundario"
-                        type="button"
-                        disabled={
-                          !solicitud._id ||
-                          String(respuestaPorSolicitudId[solicitud.externoId] ?? '').trim().length < 8 ||
-                          resolviendoSolicitudId.length > 0
-                        }
-                        onClick={() => {
-                          void resolverSolicitud(solicitud, 'atendida');
-                        }}
-                      >
-                        <Icono nombre="ok" /> {resolviendoSolicitudId === solicitud._id ? 'Procesando...' : 'Marcar atendida'}
-                      </button>
-                      <button
-                        className="boton secundario"
-                        type="button"
-                        disabled={
-                          !solicitud._id ||
-                          String(respuestaPorSolicitudId[solicitud.externoId] ?? '').trim().length < 8 ||
-                          resolviendoSolicitudId.length > 0
-                        }
-                        onClick={() => {
-                          void resolverSolicitud(solicitud, 'rechazada');
-                        }}
-                      >
-                        <Icono nombre="salir" /> {resolviendoSolicitudId === solicitud._id ? 'Procesando...' : 'Rechazar'}
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <SolicitudesRevisionPanel
+            solicitudes={solicitudesSeguras}
+            solicitudesFiltradas={solicitudesFiltradas}
+            resumen={resumenSolicitudes}
+            cargando={cargandoSolicitudes}
+            resolviendoSolicitudId={resolviendoSolicitudId}
+            mensaje={mensajeRevision}
+            filtro={filtroSolicitudes}
+            respuestaPorSolicitudId={respuestaPorSolicitudId}
+            puedeCalificar={puedeCalificar}
+            onCambiarFiltro={setFiltroSolicitudes}
+            onCambiarRespuesta={setRespuestaPorSolicitudId}
+            onSincronizar={sincronizarSolicitudesRevision}
+            onResolver={resolverSolicitud}
+            avisarSinPermiso={avisarSinPermiso}
+          />
         </aside>
       </div>
+      </div>}
     </>
   );
 }

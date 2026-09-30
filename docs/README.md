@@ -12,6 +12,7 @@ Centro neurálgico de arquitectura, especificaciones de desarrollo guiadas por c
 - [Arquitectura Integral del Sistema](ARQUITECTURA.md) — Visión general de módulos y diseño por capas.
 - [Arquitectura C4 y Diagramas](ARQUITECTURA_C4.md) — Modelos Context, Container, Component y Code en Mermaid.
 - [Sistema de Diseño Visual](DESIGN.md) — Especificación de Bento Elevation, Glassmorphism y accesibilidad.
+- [Política WCAG UI](WCAG_UI_POLICY.md) — Guardrail obligatorio por elemento, estado y tema.
 - [Criterios de Calidad UX](UX_QUALITY_CRITERIA.md) — Estándares contractuales de interfaz y tiempos de respuesta.
 
 ### 2. Especificaciones de Desarrollo (Spec-Driven Development - SDD)
@@ -25,6 +26,7 @@ El repositorio opera bajo la política estricta de SDD documentada en [`docs/POL
 - **Banco de Reactivos:** [`SPEC-041: Taxonomía y Banco de Preguntas`](specs/SPEC-041_banco_preguntas_taxonomia.spec.md)
 - **Producción OMR & Forense:** [`SPEC-042: Producción de Exámenes`](specs/SPEC-042_diseno_produccion_examenes_omr.spec.md), [`SPEC-044: Motor de Calificación OMR`](specs/SPEC-044_calificaciones_motor_omr.spec.md), [`SPEC-045: Rehidratación Forense`](specs/SPEC-045_rehidratacion_forense.spec.md)
 - **Integraciones:** [`SPEC-046: Google Classroom Sync`](specs/SPEC-046_google_classroom_sync.spec.md), [`SPEC-047: Portal Alumno Cloud`](specs/SPEC-047_portal_alumno_cloud.spec.md), [`SPEC-048: Sincronización Offline-Cloud`](specs/SPEC-048_sincronizacion_offline_cloud.spec.md)
+- **Accesibilidad:** [`SPEC-058: Guardrail WCAG 2.2 AA`](specs/SPEC-058_wcag_accesibilidad_guardrail.spec.md)
 
 ### 3. Instalación, Despliegue y Operación
 - [Guía de Installer Hub](INSTALLER_HUB.md) — Empaquetado WiX Toolset v5 Burn con Bootstrapper WPF .NET 8.

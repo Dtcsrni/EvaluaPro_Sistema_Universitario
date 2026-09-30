@@ -5,8 +5,8 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import mongoose from 'mongoose';
-import { Docente } from '../src/modulos/modulo_autenticacion/modeloDocente';
-import { crearHash } from '../src/modulos/modulo_autenticacion/servicioHash';
+import { Docente } from '../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { crearHash } from '../src/modulos/modulo_autenticacion/servicioHash.js';
 
 type Opciones = {
   correo: string;

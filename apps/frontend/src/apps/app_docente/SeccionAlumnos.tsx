@@ -16,12 +16,10 @@ import { registrarAccionDocente } from './telemetriaDocente';
 import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { clienteApi } from './clienteApiDocente';
 import {
-  esCorreoDeDominioPermitidoFrontend,
   esMensajeError,
   etiquetaMateria,
   mensajeDeError,
-  obtenerDominiosCorreoPermitidosFrontend,
-  textoDominiosPermitidos
+  obtenerInicialesAlumno
 } from './utilidades';
 
 export function SeccionAlumnos({
@@ -63,6 +61,8 @@ export function SeccionAlumnos({
   const [filtroAlumno, setFiltroAlumno] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const [resumenAsistencias, setResumenAsistencias] = useState<any[]>([]);
+  const [grupoArchivadoSeleccionado, setGrupoArchivadoSeleccionado] = useState('');
+  const [reinscribiendoGrupo, setReinscribiendoGrupo] = useState(false);
 
   const formularioRef = useRef<HTMLElement>(null);
   const matriculaInputRef = useRef<HTMLInputElement>(null);
@@ -98,9 +98,7 @@ export function SeccionAlumnos({
     return /^CUH\d+$/i.test(matriculaNormalizada) || /^[\w\-.]{3,30}$/.test(matriculaNormalizada);
   }, [matricula, matriculaNormalizada]);
 
-  const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend();
-  const politicaDominiosTexto = dominiosPermitidos.length > 0 ? textoDominiosPermitidos(dominiosPermitidos) : '';
-  const correoValido = !correo.trim() || esCorreoDeDominioPermitidoFrontend(correo, dominiosPermitidos);
+  const dominioCorreoPredeterminado = 'cuh.mx';
 
   function claseBadgeGrupo(grupoAlumno: string): string {
     const clave = String(grupoAlumno || '').trim().toUpperCase();
@@ -110,12 +108,6 @@ export function SeccionAlumnos({
       hash = (hash * 31 + clave.charCodeAt(i)) >>> 0;
     }
     return `badge-grupo--${hash % 8}`;
-  }
-
-  function obtenerIniciales(nombre?: string, apellido?: string): string {
-    const n = String(nombre || '').trim().charAt(0);
-    const a = String(apellido || '').trim().charAt(0);
-    return (n + a).toUpperCase() || 'AL';
   }
 
   useEffect(() => {
@@ -130,19 +122,16 @@ export function SeccionAlumnos({
   }, [destinoInicial]);
 
   useEffect(() => {
-    const lista = Array.isArray(alumnos) ? alumnos : [];
-    if (lista.length === 0) {
-      if (!periodoIdNuevo && Array.isArray(periodosActivos) && periodosActivos.length > 0) {
-        setPeriodoIdNuevo(periodosActivos[0]._id);
-      }
-      return;
-    }
+    const activos = Array.isArray(periodosActivos) ? periodosActivos : [];
+    if (activos.length === 0) return;
+    const idsActivos = new Set(activos.map((periodo) => periodo._id));
+    const lista = (Array.isArray(alumnos) ? alumnos : []).filter((alumno) => idsActivos.has(String(alumno.periodoId || '')));
     const ultimo = [...lista].sort((a, b) => {
       const porFecha = String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
       if (porFecha !== 0) return porFecha;
       return String(b._id).localeCompare(String(a._id));
     })[0];
-    const periodoIdReciente = String(ultimo?.periodoId || '').trim();
+    const periodoIdReciente = String(ultimo?.periodoId || activos[0]._id).trim();
     const grupoReciente = String(ultimo?.grupo || '').trim();
     if (!ultimoPeriodoIdUsado && periodoIdReciente) {
       setUltimoPeriodoIdUsado(periodoIdReciente);
@@ -154,18 +143,79 @@ export function SeccionAlumnos({
     }
   }, [alumnos, grupo, ultimoGrupoUsado, ultimoPeriodoIdUsado, periodoIdNuevo, periodosActivos]);
 
+  const gruposArchivados = useMemo(() => {
+    const periodosPorId = new Map((periodosTodos || []).filter((periodo) => periodo.activo === false).map((periodo) => [periodo._id, periodo]));
+    const grupos = new Map<string, { periodoId: string; grupo: string; cantidad: number; materia: string }>();
+    for (const alumno of Array.isArray(alumnos) ? alumnos : []) {
+      const periodoId = String(alumno.periodoId || '');
+      const periodo = periodosPorId.get(periodoId);
+      const nombreGrupo = String(alumno.grupo || '').trim().replace(/\s+/g, ' ');
+      if (!periodo || alumno.activo !== false || !nombreGrupo) continue;
+      const clave = JSON.stringify([periodoId, nombreGrupo.toLocaleLowerCase('es')]);
+      const existente = grupos.get(clave);
+      if (existente) existente.cantidad += 1;
+      else grupos.set(clave, { periodoId, grupo: nombreGrupo, cantidad: 1, materia: etiquetaMateria(periodo) });
+    }
+    return Array.from(grupos, ([clave, valor]) => ({ clave, ...valor })).sort((a, b) =>
+      a.materia.localeCompare(b.materia, 'es') || a.grupo.localeCompare(b.grupo, 'es')
+    );
+  }, [alumnos, periodosTodos]);
+
+  async function reinscribirGrupo() {
+    if (!puedeGestionar) {
+      avisarSinPermiso('No tienes permiso para reinscribir alumnos.');
+      return;
+    }
+    const origenSeleccionado = gruposArchivados.find((item) => item.clave === grupoArchivadoSeleccionado);
+    if (!origenSeleccionado || !periodoIdNuevo || editandoId) return;
+    const destino = periodosActivos.find((periodo) => periodo._id === periodoIdNuevo);
+    const confirmado = await confirm({
+      title: 'Reinscribir grupo en otra materia',
+      message: `Se copiarán los alumnos del grupo ${origenSeleccionado.grupo} de ${origenSeleccionado.materia} a ${destino ? etiquetaMateria(destino) : 'la materia seleccionada'}.`,
+      details: ['La materia archivada y su historial se conservarán.', 'Los alumnos que ya estén inscritos en la materia destino no se duplicarán.'],
+      confirmLabel: 'Reinscribir grupo',
+      tone: 'warning'
+    });
+    if (!confirmado) return;
+
+    try {
+      setReinscribiendoGrupo(true);
+      setMensaje('');
+      const resultado = await enviarConPermiso<{ reinscritos?: number; yaInscritos?: number }>(
+        'alumnos:gestionar',
+        '/alumnos/reinscribir-grupo-archivado',
+        { periodoOrigenId: origenSeleccionado.periodoId, periodoDestinoId: periodoIdNuevo, grupo: origenSeleccionado.grupo },
+        'No tienes permiso para reinscribir alumnos.'
+      );
+      const nuevos = Number(resultado?.reinscritos || 0);
+      const existentes = Number(resultado?.yaInscritos || 0);
+      const texto = `Grupo reinscrito: ${nuevos} ${nuevos === 1 ? 'alumno nuevo' : 'alumnos nuevos'}; ${existentes} ya ${existentes === 1 ? 'estaba inscrito' : 'estaban inscritos'}.`;
+      setMensaje(texto);
+      emitToast({ level: 'ok', title: 'Alumnos', message: texto, durationMs: 3500 });
+      registrarAccionDocente('reinscribir_grupo_archivado', true);
+      setPeriodoIdLista(periodoIdNuevo);
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo reinscribir el grupo');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo reinscribir', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      registrarAccionDocente('reinscribir_grupo_archivado', false);
+    } finally {
+      setReinscribiendoGrupo(false);
+    }
+  }
+
   const puedeCrear = Boolean(
     matricula.trim() &&
       matriculaValida &&
       nombres.trim() &&
       apellidos.trim() &&
       periodoIdNuevo &&
-      correoValido &&
       !editandoId
   );
 
   const puedeGuardarEdicion = Boolean(
-    editandoId && matricula.trim() && matriculaValida && nombres.trim() && apellidos.trim() && periodoIdNuevo && correoValido
+    editandoId && matricula.trim() && matriculaValida && nombres.trim() && apellidos.trim() && periodoIdNuevo
   );
 
   const alumnosDeMateria = useMemo(() => {
@@ -471,6 +521,40 @@ export function SeccionAlumnos({
       {/* Guía Rápida Bento Interactiva */}
       <GuiaAlumnosVisual />
 
+      {gruposArchivados.length > 0 && (
+        <section className="alumnos-form alumnos-form--glass" aria-labelledby="alumnos-reinscripcion-titulo">
+          <div className="alumnos-form__header">
+            <h3 className="alumnos-form__title" id="alumnos-reinscripcion-titulo">Reinscribir grupo de una materia archivada</h3>
+            <p className="alumnos-form__subtitle">Elige un grupo anterior y una materia activa. Se conserva el historial de origen.</p>
+          </div>
+          <div className="alumnos-filtros alumnos-filtros--glass">
+            <label className="campo campo--materia-select">
+              <span>Grupo archivado</span>
+              <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+                <select value={grupoArchivadoSeleccionado} onChange={(event) => setGrupoArchivadoSeleccionado(event.target.value)} disabled={bloqueoEdicion || reinscribiendoGrupo}>
+                  <option value="">Selecciona grupo y materia de origen</option>
+                  {gruposArchivados.map((item) => (
+                    <option key={item.clave} value={item.clave}>{item.grupo} · {item.materia} · {item.cantidad} alumnos</option>
+                  ))}
+                </select>
+              </div>
+            </label>
+            <label className="campo campo--materia-select">
+              <span>Materia activa de destino</span>
+              <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+                <select value={periodoIdNuevo} onChange={(event) => setPeriodoIdNuevo(event.target.value)} disabled={bloqueoEdicion || reinscribiendoGrupo || periodosActivos.length === 0}>
+                  <option value="">Selecciona materia activa</option>
+                  {periodosActivos.map((periodo) => <option key={periodo._id} value={periodo._id}>{etiquetaMateria(periodo)}</option>)}
+                </select>
+              </div>
+            </label>
+            <Boton type="button" variante="primario" icono={<Icono nombre="nuevo" />} cargando={reinscribiendoGrupo} disabled={bloqueoEdicion || reinscribiendoGrupo || !grupoArchivadoSeleccionado || !periodoIdNuevo || Boolean(editandoId)} onClick={reinscribirGrupo}>
+              {reinscribiendoGrupo ? 'Reinscribiendo…' : 'Reinscribir grupo'}
+            </Boton>
+          </div>
+        </section>
+      )}
+
       {editandoId && (
         <InlineMensaje tipo="info">
           ✏️ Editando alumno. Modifica los campos y pulsa &quot;Guardar cambios&quot;.
@@ -509,7 +593,7 @@ export function SeccionAlumnos({
                     setMatricula(valor);
                     if (correoAuto) {
                       const m = normalizarMatricula(valor);
-                      setCorreo(m ? `${m}@cuh.mx` : '');
+                      setCorreo(m ? `${m}@${dominioCorreoPredeterminado}` : '');
                     }
                   }}
                   disabled={bloqueoEdicion}
@@ -548,7 +632,7 @@ export function SeccionAlumnos({
           {/* Fila 2: Contacto y Asignación Académica */}
           <div className="alumnos-form__row alumnos-form__row--bottom">
             <label className="campo campo--correo">
-              <span>Correo institucional</span>
+              <span>Correo</span>
               <div className="auth-input-box auth-input-box--mail auth-input-box--animated">
                 <input
                   value={correo}
@@ -557,14 +641,11 @@ export function SeccionAlumnos({
                     setCorreo(event.target.value);
                   }}
                   disabled={bloqueoEdicion}
-                  placeholder="alumno@cuh.mx"
+                  placeholder={`alumno@${dominioCorreoPredeterminado}`}
                 />
               </div>
               {correoAuto && matriculaNormalizada && (
-                <span className="ayuda">Sugerido automáticamente: {matriculaNormalizada}@cuh.mx</span>
-              )}
-              {dominiosPermitidos.length > 0 && !correoAuto && (
-                <span className="ayuda">Opcional. Dominio permitido: {politicaDominiosTexto}</span>
+                <span className="ayuda">Sugerido automáticamente: {matriculaNormalizada}@{dominioCorreoPredeterminado}</span>
               )}
             </label>
 
@@ -610,9 +691,6 @@ export function SeccionAlumnos({
 
         {matricula.trim() && !matriculaValida && (
           <InlineMensaje tipo="error">Matricula invalida. Usa el formato CUH#########.</InlineMensaje>
-        )}
-        {dominiosPermitidos.length > 0 && correo.trim() && !correoValido && (
-          <InlineMensaje tipo="error">Correo no permitido por politicas. Usa un correo institucional.</InlineMensaje>
         )}
 
         <div className="alumnos-form__footer">
@@ -826,7 +904,7 @@ export function SeccionAlumnos({
             alumnosFiltrados.map((alumno) => {
               const faltas = resumenAsistencias.find((r) => r.alumnoId === alumno._id)?.faltas ?? 0;
               const sinDerecho = faltas >= 4;
-              const iniciales = obtenerIniciales(alumno.nombres, alumno.apellidos);
+              const iniciales = obtenerInicialesAlumno(alumno.nombreCompleto);
 
               return (
                 <li

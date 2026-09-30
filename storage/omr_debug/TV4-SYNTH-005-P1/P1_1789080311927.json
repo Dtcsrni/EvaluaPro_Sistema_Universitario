@@ -1,0 +1,672 @@
+{
+  "folio": "TV4-SYNTH-005-P1",
+  "numeroPagina": 1,
+  "width": 1200,
+  "height": 1549,
+  "transformacion": "homografia",
+  "advertencias": [
+    "Se usa la geometria persistida sin ajuste local por pregunta"
+  ],
+  "preguntas": [
+    {
+      "numeroPregunta": 1,
+      "mejorOpcion": "A",
+      "mejorScore": 0.9662762407092291,
+      "segundoScore": 0,
+      "delta": 0.9662762407092291,
+      "dobleMarcada": false,
+      "suficiente": true,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.19325524814184583,
+      "scoreStd": 0.38651049628369155,
+      "scoreThreshold": 0.42052341995665643,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 924.8108692295815,
+          "y": 368.6036805750414,
+          "score": 0.9662762407092291,
+          "estadoMarca": "marcada",
+          "markConfidence": 1,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.36363636363636365
+        },
+        {
+          "letra": "B",
+          "x": 966.9677319746795,
+          "y": 368.6036805750414,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "C",
+          "x": 1009.1245947197775,
+          "y": 368.6036805750414,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "D",
+          "x": 1051.2814574648755,
+          "y": 368.6036805750414,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "E",
+          "x": 1093.4383202099737,
+          "y": 368.6036805750414,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.18181818181818182
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 2,
+      "mejorOpcion": "B",
+      "mejorScore": 1,
+      "segundoScore": 0,
+      "delta": 1,
+      "dobleMarcada": false,
+      "suficiente": true,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.2,
+      "scoreStd": 0.4000000000000001,
+      "scoreThreshold": 0.43520000000000003,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 924.8108692295815,
+          "y": 462.7232675447383,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.36363636363636365
+        },
+        {
+          "letra": "B",
+          "x": 966.9677319746795,
+          "y": 462.7232675447383,
+          "score": 1,
+          "estadoMarca": "marcada",
+          "markConfidence": 1,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "C",
+          "x": 1009.1245947197775,
+          "y": 462.7232675447383,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "D",
+          "x": 1051.2814574648755,
+          "y": 462.7232675447383,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "E",
+          "x": 1093.4383202099737,
+          "y": 462.7232675447383,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.22727272727272727
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 3,
+      "mejorOpcion": "C",
+      "mejorScore": 1,
+      "segundoScore": 0,
+      "delta": 1,
+      "dobleMarcada": false,
+      "suficiente": true,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.2,
+      "scoreStd": 0.4000000000000001,
+      "scoreThreshold": 0.43520000000000003,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 924.8108692295815,
+          "y": 557.1004593867809,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.36363636363636365
+        },
+        {
+          "letra": "B",
+          "x": 966.9677319746795,
+          "y": 557.1004593867809,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.3181818181818182
+        },
+        {
+          "letra": "C",
+          "x": 1009.1245947197775,
+          "y": 557.1004593867809,
+          "score": 1,
+          "estadoMarca": "marcada",
+          "markConfidence": 1,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.18181818181818182
+        },
+        {
+          "letra": "D",
+          "x": 1051.2814574648755,
+          "y": 557.1004593867809,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "E",
+          "x": 1093.4383202099737,
+          "y": 557.1004593867809,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.22727272727272727
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 4,
+      "mejorOpcion": "D",
+      "mejorScore": 1,
+      "segundoScore": 0,
+      "delta": 1,
+      "dobleMarcada": false,
+      "suficiente": true,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.2,
+      "scoreStd": 0.4,
+      "scoreThreshold": 0.43520000000000003,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 924.8108692295815,
+          "y": 651.2200463564778,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.4090909090909091
+        },
+        {
+          "letra": "B",
+          "x": 966.9677319746795,
+          "y": 651.2200463564778,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "C",
+          "x": 1009.1245947197775,
+          "y": 651.2200463564778,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "D",
+          "x": 1051.2814574648755,
+          "y": 651.2200463564778,
+          "score": 1,
+          "estadoMarca": "marcada",
+          "markConfidence": 1,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "E",
+          "x": 1093.4383202099737,
+          "y": 651.2200463564778,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.22727272727272727
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 5,
+      "mejorOpcion": "B",
+      "mejorScore": 0.19883778127266527,
+      "segundoScore": 0.14664735512406996,
+      "delta": 0.052190426148595315,
+      "dobleMarcada": false,
+      "suficiente": false,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.11226631050734304,
+      "scoreStd": 0.05289434772427741,
+      "scoreThreshold": 0.14336818696921816,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 888.4116884039179,
+          "y": 731.1845344243405,
+          "score": 0.14664735512406996,
+          "estadoMarca": "marcada",
+          "markConfidence": 0.25736649003588363,
+          "fillRatioCore": 0.3076923076923077,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "B",
+          "x": 927.6057618407066,
+          "y": 731.9181703888632,
+          "score": 0.19883778127266527,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.337776621925953,
+          "fillRatioCore": 0.38461538461538464,
+          "fillRatioRing": 0.4090909090909091
+        },
+        {
+          "letra": "C",
+          "x": 966.706104958979,
+          "y": 732.65005190618,
+          "score": 0.08853510915796878,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.1906785439098491,
+          "fillRatioCore": 0.3076923076923077,
+          "fillRatioRing": 0.18181818181818182
+        },
+        {
+          "letra": "D",
+          "x": 1005.713053582989,
+          "y": 733.3801852622602,
+          "score": 0.06706317882993557,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.1824968144453091,
+          "fillRatioCore": 0.3076923076923077,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "E",
+          "x": 1044.6269419346145,
+          "y": 734.1085767130803,
+          "score": 0.060248128152075545,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.1456930712630357,
+          "fillRatioCore": 0.23076923076923078,
+          "fillRatioRing": 0.13636363636363635
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 6,
+      "mejorOpcion": "A",
+      "mejorScore": 0.9553447933884298,
+      "segundoScore": 0,
+      "delta": 0.9553447933884298,
+      "dobleMarcada": false,
+      "suficiente": true,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.19106895867768597,
+      "scoreStd": 0.382137917355372,
+      "scoreThreshold": 0.41576605408264466,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 924.8108692295815,
+          "y": 839.7168251682173,
+          "score": 0.9553447933884298,
+          "estadoMarca": "marcada",
+          "markConfidence": 1,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "B",
+          "x": 966.9677319746795,
+          "y": 839.7168251682173,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.3181818181818182
+        },
+        {
+          "letra": "C",
+          "x": 1009.1245947197775,
+          "y": 839.7168251682173,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.3181818181818182
+        },
+        {
+          "letra": "D",
+          "x": 1051.2814574648755,
+          "y": 839.7168251682173,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.36363636363636365
+        },
+        {
+          "letra": "E",
+          "x": 1093.4383202099737,
+          "y": 839.7168251682173,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.36363636363636365
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 7,
+      "mejorOpcion": "B",
+      "mejorScore": 0.961265826446281,
+      "segundoScore": 0,
+      "delta": 0.961265826446281,
+      "dobleMarcada": false,
+      "suficiente": true,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.1922531652892562,
+      "scoreStd": 0.3845063305785124,
+      "scoreThreshold": 0.4183428876694215,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 924.8108692295815,
+          "y": 934.0940170102599,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.2727272727272727
+        },
+        {
+          "letra": "B",
+          "x": 966.9677319746795,
+          "y": 934.0940170102599,
+          "score": 0.961265826446281,
+          "estadoMarca": "marcada",
+          "markConfidence": 1,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.18181818181818182
+        },
+        {
+          "letra": "C",
+          "x": 1009.1245947197775,
+          "y": 934.0940170102599,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.2727272727272727
+        },
+        {
+          "letra": "D",
+          "x": 1051.2814574648755,
+          "y": 934.0940170102599,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.2727272727272727
+        },
+        {
+          "letra": "E",
+          "x": 1093.4383202099737,
+          "y": 934.0940170102599,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.2727272727272727
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 8,
+      "mejorOpcion": "C",
+      "mejorScore": 0.9105785293443135,
+      "segundoScore": 0.06496621329638952,
+      "delta": 0.845612316047924,
+      "dobleMarcada": false,
+      "suficiente": true,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.1951089485281406,
+      "scoreStd": 0.35861856003116777,
+      "scoreThreshold": 0.4059766618264672,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 932.2560786542912,
+          "y": 1023.1791222194162,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0.07692307692307693,
+          "fillRatioRing": 0.36363636363636365
+        },
+        {
+          "letra": "B",
+          "x": 972.1159782849662,
+          "y": 1023.5796666739872,
+          "score": 0.06496621329638952,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.06731605656584047,
+          "fillRatioCore": 0.07692307692307693,
+          "fillRatioRing": 0.18181818181818182
+        },
+        {
+          "letra": "C",
+          "x": 1011.8788247997874,
+          "y": 1023.979235860489,
+          "score": 0.9105785293443135,
+          "estadoMarca": "marcada",
+          "markConfidence": 1,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.2727272727272727
+        },
+        {
+          "letra": "D",
+          "x": 1051.544972233286,
+          "y": 1024.3778333365465,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "E",
+          "x": 1091.1147729001336,
+          "y": 1024.7754626425017,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.5454545454545454
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 9,
+      "mejorOpcion": "D",
+      "mejorScore": 0.975987520661157,
+      "segundoScore": 0,
+      "delta": 0.975987520661157,
+      "dobleMarcada": false,
+      "suficiente": true,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.19519750413223141,
+      "scoreStd": 0.39039500826446283,
+      "scoreThreshold": 0.42474976899173555,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 924.8108692295815,
+          "y": 1122.5907958219993,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.3181818181818182
+        },
+        {
+          "letra": "B",
+          "x": 966.9677319746795,
+          "y": 1122.5907958219993,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "C",
+          "x": 1009.1245947197775,
+          "y": 1122.5907958219993,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "D",
+          "x": 1051.2814574648755,
+          "y": 1122.5907958219993,
+          "score": 0.975987520661157,
+          "estadoMarca": "marcada",
+          "markConfidence": 1,
+          "fillRatioCore": 1,
+          "fillRatioRing": 0.13636363636363635
+        },
+        {
+          "letra": "E",
+          "x": 1093.4383202099737,
+          "y": 1122.5907958219993,
+          "score": 0,
+          "estadoMarca": "no_marcada",
+          "markConfidence": 0,
+          "fillRatioCore": 0,
+          "fillRatioRing": 0.18181818181818182
+        }
+      ]
+    },
+    {
+      "numeroPregunta": 10,
+      "mejorOpcion": "B",
+      "mejorScore": 0.07007447193843416,
+      "segundoScore": 0.05714512002604594,
+      "delta": 0.012929351912388226,
+      "dobleMarcada": false,
+      "suficiente": false,
+      "dx": 0,
+      "dy": 0,
+      "scoreMean": 0.02546260324158208,
+      "scoreStd": 0.03141427786577219,
+      "scoreThreshold": 0.048,
+      "centros": [
+        {
+          "letra": "A",
+          "x": 914.6508149857792,
+          "y": 1200.488237764757,
+          "score": 0.05714512002604594,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.09579255956244748,
+          "fillRatioCore": 0.3076923076923077,
+          "fillRatioRing": 0.45454545454545453
+        },
+        {
+          "letra": "B",
+          "x": 955.0146486486519,
+          "y": 1200.6653154447495,
+          "score": 0.07007447193843416,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.12947009956368655,
+          "fillRatioCore": 0.23076923076923078,
+          "fillRatioRing": 0.09090909090909091
+        },
+        {
+          "letra": "C",
+          "x": 995.2789975911523,
+          "y": 1200.8419566814734,
+          "score": 0.0000934242434303233,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.02993872417992644,
+          "fillRatioCore": 0.23076923076923078,
+          "fillRatioRing": 0.18181818181818182
+        },
+        {
+          "letra": "D",
+          "x": 1035.4442291604903,
+          "y": 1201.0181630864956,
+          "score": 0,
+          "estadoMarca": "parcial",
+          "markConfidence": 0.04255591360772928,
+          "fillRatioCore": 0.3076923076923077,
+          "fillRatioRing": 0.22727272727272727
+        },
+        {
+          "letra": "E",
+          "x": 1075.5107088975267,
+          "y": 1201.1939362634578,
+          "score": 0,
+          "estadoMarca": "parcial",
+          "markConfidence": 0,
+          "fillRatioCore": 0.15384615384615385,
+          "fillRatioRing": 0.3181818181818182
+        }
+      ]
+    }
+  ]
+}

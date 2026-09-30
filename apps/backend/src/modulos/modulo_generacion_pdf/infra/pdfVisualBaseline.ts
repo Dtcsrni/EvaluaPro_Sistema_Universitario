@@ -10,7 +10,7 @@ export const PDF_VISUAL_BASELINE = {
   lineHex: '#2e3d54',
   accentHex: '#0d75b3',
   accentSoftHex: '#edf7ff',
-  sectionHex: '#f7faff',
+  sectionHex: '#eaf5fb',
   whiteHex: '#ffffff',
   blackHex: '#000000'
 } as const;
@@ -21,7 +21,7 @@ export const PDF_VISUAL_BASELINE_RGB = {
   line: [0.18, 0.24, 0.33],
   accent: [0.05, 0.46, 0.7],
   accentSoft: [0.93, 0.97, 1],
-  section: [0.97, 0.98, 1]
+  section: [0.92, 0.96, 0.985]
 } as const;
 
 export function construirFirmaVisualPdf(): string {

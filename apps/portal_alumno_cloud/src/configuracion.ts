@@ -1,7 +1,7 @@
 /**
  * Configuracion del portal alumno cloud.
  */
-import { cargarDotenvRaizSiAplica, parsearListaCsv, parsearNumeroSeguro } from './compartido/configuracion/env';
+import { cargarDotenvRaizSiAplica, parsearListaCsv, parsearNumeroSeguro } from './compartido/configuracion/env.js';
 
 const entorno = process.env.NODE_ENV ?? 'development';
 cargarDotenvRaizSiAplica(entorno);

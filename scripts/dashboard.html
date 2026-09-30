@@ -3879,7 +3879,7 @@
             </div>
             <div class="toolbar toolbar-spaced toolbar-right" aria-label="Acciones de actualización">
               <button class="ghost-btn" id="update-check" type="button">Buscar actualización</button>
-              <button class="ghost-btn" id="update-download-btn" type="button">Descargar</button>
+              <button class="ghost-btn" id="update-download-btn" type="button">Actualizar</button>
               <button class="ghost-btn" id="update-cancel-btn" type="button">Cancelar descarga</button>
               <button class="ok" id="update-apply-btn" type="button">Aplicar actualización</button>
             </div>
@@ -5170,6 +5170,43 @@
       }
     }
 
+    function abrirFlujoActualizacion() {
+      establecerPestana('status');
+
+      const updateGrid = $('update-grid');
+      if (updateGrid && typeof updateGrid.scrollIntoView === 'function') {
+        updateGrid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    async function iniciarFlujoActualizacion() {
+      abrirFlujoActualizacion();
+      const updateState = String(state.update?.state || '').toLowerCase();
+      const botonAplicar = $('update-apply-btn');
+      if (updateState === 'ready' && botonAplicar && !botonAplicar.disabled) {
+        botonAplicar.focus({ preventScroll: true });
+        return;
+      }
+
+      if (updateState === 'available') {
+        // Reconsultar antes de descargar evita instalar una release que quedó
+        // obsoleta mientras el usuario tenía abierto el aviso.
+        await ejecutarAccionUpdate('/api/update/check');
+        const latestState = String(state.update?.state || '').toLowerCase();
+        const botonActualizar = $('update-download-btn');
+        if (latestState === 'available' && botonActualizar && !botonActualizar.disabled) {
+          botonActualizar.focus({ preventScroll: true });
+          await ejecutarAccionUpdate('/api/update/download', {
+            successText: 'Descarga de la actualización finalizada. Confirma "Aplicar actualización" para instalarla.'
+          });
+          return;
+        }
+      }
+
+      const botonCheck = $('update-check');
+      if (botonCheck) botonCheck.focus({ preventScroll: true });
+    }
+
     function notificarUpdateDisponible(payload, options = {}) {
       const estado = payload && typeof payload === 'object' ? payload : {};
       const source = String(options.source || 'auto');
@@ -5182,7 +5219,9 @@
       mostrarToast(`Nueva actualización detectada: v${version}.`, 'info', {
         id: `update-available-${version}`,
         title: source === 'manual' ? 'Actualización encontrada' : 'Actualización disponible',
-        duration: 4200
+        actionLabel: 'Actualizar',
+        onAction: iniciarFlujoActualizacion,
+        duration: 9000
       });
     }
 
@@ -7738,9 +7777,7 @@
 
     const botonDescargarUpdate = $('update-download-btn');
     if (botonDescargarUpdate) {
-      botonDescargarUpdate.addEventListener('click', () => ejecutarAccionUpdate('/api/update/download', {
-        successText: 'Descarga finalizada.'
-      }));
+      botonDescargarUpdate.addEventListener('click', () => iniciarFlujoActualizacion());
     }
 
     const botonCancelarUpdate = $('update-cancel-btn');

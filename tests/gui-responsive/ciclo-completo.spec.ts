@@ -4,11 +4,14 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
+import path from 'node:path';
 import { test, expect } from '@playwright/test';
 
 test.describe('Ciclo de uso directo completo', () => {
   // Use a longer timeout for E2E flows
   test.setTimeout(90000);
+  const screenshotDir = process.env.E2E_SCREENSHOT_DIR || 'docs/assets/ui';
+  const screenshotPath = (name: string) => path.join(screenshotDir, name);
 
   test('docente registra cuenta, crea ciclo, materia, inscribe alumno', async ({ page }) => {
     // 1. "Da click en el vinculo de acceso directo, ejecuta la aplicacion"
@@ -25,7 +28,7 @@ test.describe('Ciclo de uso directo completo', () => {
     }
     const randomSuffix = Math.floor(Math.random() * 100000);
     await page.fill('input[placeholder="Ej. Juan Carlos"]', 'Maestro');
-    await page.fill('input[placeholder="Ej. Perez Lopez"]', 'Prueba');
+    await page.getByLabel('Apellidos', { exact: true }).fill('Prueba');
     await page.fill('input[type="email"]', `maestro_${randomSuffix}@evaluapro.local`);
     await page.fill('input[type="password"]', 'P@ssword123');
     await page.getByRole('button', { name: /Crear cuenta/i }).click({ noWaitAfter: true });
@@ -33,11 +36,16 @@ test.describe('Ciclo de uso directo completo', () => {
 
     // Screenshot 1: Dashboard / Home
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'docs/assets/ui/01_dashboard.png', fullPage: true });
+    await page.screenshot({ path: screenshotPath('01_dashboard.png'), fullPage: true });
     
-    // Wait for the Dashboard
+    // Wait for the Dashboard. The onboarding keeps the creation form collapsed
+    // until the explicit CTA is invoked.
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('text="Crear materia"').first()).toBeVisible({ timeout: 15000 });
+    const mostrarFormulario = page.getByRole('button', { name: /Mostrar formulario/i });
+    if (await mostrarFormulario.isVisible().catch(() => false)) {
+      await mostrarFormulario.click();
+    }
+    await expect(page.getByRole('button', { name: 'Crear materia', exact: true })).toBeVisible({ timeout: 15000 });
 
     // 3. "Carga materias"
     // Click inside modal to close any datepicker
@@ -48,7 +56,7 @@ test.describe('Ciclo de uso directo completo', () => {
     await page.locator('label:has-text("Grupos") >> input').fill('Grupo A');
     // Screenshot 2: Formulario de creación de materia
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'docs/assets/ui/02_crear_materia.png' });
+    await page.screenshot({ path: screenshotPath('02_crear_materia.png') });
 
     await page.click('button:has-text("Crear materia")');
 
@@ -56,7 +64,7 @@ test.describe('Ciclo de uso directo completo', () => {
     await expect(page.getByText(`Matemáticas Discretas ${randomSuffix}`).first()).toBeVisible({ timeout: 15000 });
 
     // Screenshot 3: Lista de materias
-    await page.screenshot({ path: 'docs/assets/ui/03_lista_materias.png', fullPage: true });
+    await page.screenshot({ path: screenshotPath('03_lista_materias.png'), fullPage: true });
 
     // 4. "Carga alumnos"
     await page.waitForLoadState('networkidle');
@@ -72,15 +80,15 @@ test.describe('Ciclo de uso directo completo', () => {
 
     // Screenshot 4: Formulario de creación de alumno
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'docs/assets/ui/04_crear_alumno.png' });
+    await page.screenshot({ path: screenshotPath('04_crear_alumno.png') });
 
-    await page.click('button:has-text("Crear alumno")');
+    await page.getByRole('button', { name: /Crear alumno/i }).click();
 
     // Check if the student appears
     await expect(page.getByText('Juan').first()).toBeVisible({ timeout: 10000 });
 
     // Screenshot 5: Lista de alumnos y éxito
-    await page.screenshot({ path: 'docs/assets/ui/05_lista_alumnos.png', fullPage: true });
+    await page.screenshot({ path: screenshotPath('05_lista_alumnos.png'), fullPage: true });
 
     // 5. Success
     console.log("Ciclo completo ejecutado con éxito.");

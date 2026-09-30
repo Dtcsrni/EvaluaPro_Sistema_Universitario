@@ -85,7 +85,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -94,7 +94,9 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Resolver mapa de suites afectadas
         run: npm run test:ci:affected:resolve > reports.affected-ci.json
@@ -152,7 +154,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -161,7 +163,9 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Preparar runtime sharp (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
@@ -238,10 +242,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Preparar snapshot WCAG v1.1.6
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin 53e0590244c55e4ff7f9104c6ea4dd1c5c2a2e12
+
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -250,11 +258,16 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
 
       - name: Etapa lint frontend
         run: npm -C apps/frontend run lint
+
+      - name: Guardrail WCAG
+        run: npm run guard:wcag -- --skip-lint
 
       - name: Etapa typecheck frontend
         run: npm -C apps/frontend run typecheck
@@ -304,7 +317,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -313,7 +326,9 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Etapa security-scan
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -407,7 +422,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -416,10 +431,12 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Preparar Prisma backend
-        run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
+        run: npx prisma generate --config=apps/backend/prisma.config.mjs
 
       - name: Preparar runtime sharp (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
@@ -488,7 +505,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -497,10 +514,12 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Preparar Prisma backend
-        run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
+        run: npx prisma generate --config=apps/backend/prisma.config.mjs
 
       - name: Preparar runtime sharp (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
@@ -552,7 +571,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -561,10 +580,12 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Preparar Prisma backend
-        run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
+        run: npx prisma generate --config=apps/backend/prisma.config.mjs
 
       - name: Preparar runtime sharp (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp

@@ -6,7 +6,7 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
 
 describe('rate limit', () => {
   beforeAll(async () => {
@@ -27,7 +27,7 @@ describe('rate limit', () => {
     process.env.RATE_LIMIT_WINDOW_MS = '60000';
 
     vi.resetModules();
-    const { crearApp } = await import('../src/app');
+    const { crearApp } = await import('../src/app.js');
     const app = crearApp();
 
     await limpiarMongoTest();

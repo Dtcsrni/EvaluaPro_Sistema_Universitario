@@ -7,6 +7,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { AppAdminNegocio } from '../src/apps/app_admin_negocio/AppAdminNegocio';
 import { AppAlumno } from '../src/apps/app_alumno/AppAlumno';
@@ -29,7 +30,8 @@ const permisos: PermisosUI = {
 };
 
 describe('GUI responsive contract', () => {
-  it('calificaciones conserva contenedores responsive críticos', () => {
+  it('calificaciones conserva contenedores responsive críticos', async () => {
+    const user = userEvent.setup();
     render(
       <TemaProvider>
         <SeccionCalificaciones
@@ -58,6 +60,7 @@ describe('GUI responsive contract', () => {
       </TemaProvider>
     );
 
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
     const layout = document.querySelector('[data-calificaciones-layout="true"]');
     expect(layout).not.toBeNull();
 
@@ -101,5 +104,23 @@ describe('GUI responsive contract', () => {
     expect(css).toContain('@media (max-width: 760px)');
     expect(css).toContain('.opciones-grid');
     expect(css).toContain('.calificaciones-layout');
+  });
+
+  it('plantillas evita cortar tabs en mobile y permite que sus etiquetas envuelvan', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*720px\)[\s\S]*?\.plantillas-shell \.plantillas-tabs-bar\s*\{[\s\S]*?flex-wrap:\s*wrap;[\s\S]*?overflow:\s*visible;/
+    );
+    expect(css).toMatch(
+      /\.plantillas-shell \.plantillas-tab-btn\s*\{[\s\S]*?overflow-wrap:\s*anywhere;/
+    );
+    expect(css).toMatch(
+      /\.banco-panel__lead\s*\{[\s\S]*?align-items:\s*flex-start;[\s\S]*?gap:\s*0\.75rem;/
+    );
+    expect(css).toMatch(
+      /\.banco-panel__title\s*\{[\s\S]*?overflow-wrap:\s*anywhere;/
+    );
   });
 });

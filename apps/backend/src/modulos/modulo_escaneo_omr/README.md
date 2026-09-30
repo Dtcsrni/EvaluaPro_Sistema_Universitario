@@ -39,13 +39,23 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 - Si el backend CV no está disponible, el backend falla en arranque (smoke test bloqueante).
 - `OMR_CV_ENGINE_ENABLED` solo se respeta en `NODE_ENV=test` para pruebas internas controladas.
 - En runtime normal (dev/prod), el motor CV permanece forzado a activo.
-- El scoring principal puede usar imagen preprocesada, pero el rescate `panel_darkness_v1` debe ejecutarse sobre la foto original para no degradar detección de paneles derechos.
+- El scoring principal puede usar imagen preprocesada y conserva un segundo pase controlado sobre la misma captura cuando la calidad lo requiere o quedan reactivos sin letra; la fusión es monotónica y nunca sacrifica cobertura válida de la pasada base.
+- La fusion de pasadas usa `conservadora_v2`: normaliza por reactivo el vector
+  de cinco opciones con mediana/MAD, incorpora evidencia de nucleo y forma,
+  rescata una marca fuerte frente a un blanco solo con evidencia separable y
+  se abstiene ante conflictos cercanos. No consulta la clave de respuestas.
+- La decision conserva como invalidantes una doble marca o tachadura en
+  cualquiera de las pasadas; esos reactivos quedan sin letra calificable.
+- Cada reactivo expone `estadoRespuesta`: `respondida`, `sin_marca`,
+  `ambigua`, `doble_marca` o `tachada`. La ausencia de marca no se cuenta como
+  ambigüedad.
+- Cada página expone `resumenRespuestas`. `vacio_confirmado` exige que todos
+  los reactivos estén sin marca y que la calidad/geometría sean suficientes;
+  `vacio_probable` identifica una hoja dominada por señales débiles y siempre
+  conserva `requiere_revision` para evitar calificaciones falsas.
 - Verificación local:
   - `npm -C apps/backend run omr:cv:smoke`
   - `npm -C apps/backend run omr:eval:synthetic`
-  - `npm -C apps/backend run omr:build:pilot-real`
-  - `npm -C apps/backend run omr:validate:pilot-real`
-  - `npm -C apps/backend run omr:diagnose:pilot-real`
 
 ## Gate de release
 - Gate sintético principal: `omr:eval:synthetic` (guardrail de regresión controlada).
@@ -59,7 +69,7 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 
 ## Troubleshooting rápido
 - `falsePositiveRate` alto:
-  - revisar prioridad de rescate `panel_darkness_v1` sobre falsos positivos geométricos.
+  - revisar la calidad de referencia global y los falsos positivos geométricos.
   - revisar `OMR_RESPUESTA_CONF_MIN`, `OMR_SCORE_MIN`, `OMR_DELTA_MIN`.
 - `autoGradeTrustRate` bajo:
   - revisar si `blank` / `double` correctos están contando como resolución válida.
@@ -68,6 +78,20 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
   - revisar `estadoAnalisis`/policy de autocalificación y cobertura de preguntas resueltas por página.
 - `fuera_roi` o errores geométricos:
   - revisar `OMR_ALIGN_RANGE`, `OMR_VERT_RANGE`, rescate de fiduciales y perfil de geometría.
+- `OMR_GEOMETRY_TRUST_MIN` controla el umbral mínimo de confianza geométrica para permitir autocalificación.
+  - Por defecto es `0.72`, acotado entre `0.65` y `0.90`; por debajo se conserva el diagnóstico, pero la página requiere revisión humana.
+
+## Decision v2 y evidencia real
+
+- `apps/backend/src/modulos/modulo_escaneo_omr/omr/decision/consensoRespuesta.ts`
+  contiene la fusion calibrada por reactivo de las pasadas normal y de rescate.
+- La evidencia sintetica valida invariantes del algoritmo; no sustituye una
+  validacion etiquetada de fotos de celular. Las capturas reales compartidas
+  deben conservar su trazabilidad, folio, pagina y revision independiente.
+- Una respuesta rescatada por una sola pasada queda marcada con
+  `bajo_contraste`; una discrepancia no separable queda en abstencion para
+  revision, evitando que una mejora de recall se convierta en una calificacion
+  silenciosamente incorrecta.
 
 ## Recuperacion operativa
 - Los examenes nuevos persisten:

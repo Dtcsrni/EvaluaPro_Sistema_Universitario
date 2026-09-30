@@ -5,10 +5,10 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { z, type ZodIssue } from 'zod';
-import { ErrorOperacional } from '../../compartido/robustez/manejadorErrores';
-import { ErrorCategoria } from '../../compartido/robustez/tiposRobustez';
-import { conRetry } from '../../compartido/robustez/soporteRetry';
-import { obtenerCircuitBreaker } from '../../compartido/robustez/circuitBreaker';
+import { ErrorOperacional } from '../../compartido/robustez/manejadorErrores.js';
+import { ErrorCategoria } from '../../compartido/robustez/tiposRobustez.js';
+import { conRetry } from '../../compartido/robustez/soporteRetry.js';
+import { obtenerCircuitBreaker } from '../../compartido/robustez/circuitBreaker.js';
 
 /**
  * Wrapper para controladores que añade:
@@ -107,7 +107,7 @@ export function validarQueryRobusto(schema: z.ZodTypeAny) {
         );
       }
 
-      req.query = resultado.data as Request['query'];
+      res.locals.validatedQuery = resultado.data;
       next();
     } catch (err) {
       next(err);

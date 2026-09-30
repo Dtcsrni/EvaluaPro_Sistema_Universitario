@@ -1,0 +1,133 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "qr-footer-ocr-fallback-20260927-r1",
+  "status": "draft",
+  "generatedAt": "2026-09-27T21:05:55Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Usar OCR del pie impreso como fallback de identidad cuando no se pueda leer el QR de una página OMR."
+  },
+  "objective": "Implementar fallback acotado QR→OCR de pie para recuperar folio y página sin simular un QR firmado ni asignar páginas cuando la identidad resulte ambigua.",
+  "scope": [
+    "Recortar la franja central inferior y reutilizar Tesseract.js existente en frontend",
+    "Parsear folio/página inequívocos, exigir confianza OCR de al menos 75/100 y reconciliar datos manuales",
+    "Cubrir abstención y prioridad QR con pruebas unitarias",
+    "Mantener la regresión OMR de marca X honesta respecto a la abstención por orientación no demostrada"
+  ],
+  "constraints": [
+    "No agregar dependencias",
+    "No convertir texto OCR en payload QR ni alterar firmas",
+    "El backend sigue resolviendo el folio y página contra el examen y mapa existentes",
+    "Preservar cambios concurrentes ajenos del checkout"
+  ],
+  "actions": [
+    {
+      "type": "mejora",
+      "summary": "Agregada extracción conservadora del folio y página del pie; QR conserva prioridad y el fallback solicita revisión explícita en UI.",
+      "timestamp": "2026-09-27T21:05:55Z",
+      "status": "ok"
+    },
+    {
+      "type": "pruebas",
+      "summary": "Pruebas cubren prioridad QR, fallback por error de identidad, conflicto manual, ausencia de texto y rechazo de página por defecto; prueba OMR conserva evidencia de X marcada, pero se abstiene sin orientación verificada.",
+      "timestamp": "2026-09-27T21:05:55Z",
+      "status": "ok"
+    },
+    {
+      "type": "validacion",
+      "summary": "Pruebas frontend focales 18/18, typecheck y ESLint focal aprobados; OMR X focal 1/1 aprobado con abstención esperada por fixture sin orientación verificable.",
+      "timestamp": "2026-09-27T21:05:55Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts",
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/src/apps/app_docente/ocrTexto.ts"
+    ],
+    "changed": [
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/src/apps/app_docente/ocrTexto.ts",
+      "apps/frontend/tests/ocrTexto.test.ts",
+      "apps/backend/tests/omr.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "frontend_ocr_and_scan_tests",
+      "command": "npx vitest run tests/ocrTexto.test.ts tests/escaneo.refactor.test.tsx --reporter=dot",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2250,
+      "resultSummary": "2 test files passed; 18/18 tests passed.",
+      "timestamp": "2026-09-27T21:04:50Z"
+    },
+    {
+      "name": "frontend_typecheck",
+      "command": "npx tsc --noEmit --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3208,
+      "resultSummary": "TypeScript frontend check completed without errors.",
+      "timestamp": "2026-09-27T21:04:50Z"
+    },
+    {
+      "name": "frontend_focused_eslint",
+      "command": "npx eslint src/apps/app_docente/SeccionEscaneo.tsx src/apps/app_docente/ocrTexto.ts tests/ocrTexto.test.ts --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 5125,
+      "resultSummary": "No lint errors or warnings in the changed frontend files.",
+      "timestamp": "2026-09-27T21:04:50Z"
+    },
+    {
+      "name": "omr_x_evidence_test",
+      "command": "npx vitest run tests/omr.test.ts -t \"retiene evidencia de una X\" --reporter=dot",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 9160,
+      "resultSummary": "The X is retained as marked evidence and the answer remains ambiguous because this synthetic fixture does not establish page orientation; no production threshold was relaxed.",
+      "timestamp": "2026-09-27T21:04:51Z"
+    }
+  ],
+  "decisions": [
+    "Attempt QR first. OCR only runs when the API fails identity/page resolution or succeeds without QR while folio/page input is incomplete.",
+    "Use Tesseract.js already declared in frontend; crop the centered lower 60% width strip, upscale 2x, require confidence >=75 and one unique folio/page pair.",
+    "Reject disagreement with any manually supplied identity and reject default-page success when QR is absent and the footer cannot be read.",
+    "Keep the X mark as a detected score while honoring the existing page-orientation abstention; the current fixture does not justify auto-selection."
+  ],
+  "assumptions": [
+    "The printed footer format remains '<folio> · Pagina <n>' and the folio identifies an exam in the docente-scoped backend.",
+    "OCR confidence 75/100 is provisional and requires calibration against the real photo set."
+  ],
+  "risks": [
+    "No real-photo OCR benchmark has been run; rotated pages, CamScanner degradation, and false matches to another valid folio remain unmeasured.",
+    "Tesseract language-data availability in offline desktop installs was not verified; OCR failure safely falls back to manual identity entry.",
+    "The X test is not evidence of automatic selection on a fully oriented page; it verifies marked evidence plus correct abstention under unknown orientation.",
+    "Full backend, coverage, release, physical-print, and photo-dataset suites were not run."
+  ],
+  "nextStep": "Calibrate OCR footer recognition on QR-missed real captures and create a synthetic full-page case with verifiably detected orientation before expecting an X to become a selected answer.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "Real-photo QR-missed footer OCR benchmark",
+      "Offline language-data packaging verification",
+      "Full-page oriented X fixture and OMR detector regression"
+    ]
+  }
+}

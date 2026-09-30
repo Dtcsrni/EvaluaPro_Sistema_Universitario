@@ -212,6 +212,9 @@ function checarBackend() {
   for (const archivo of rutas) {
     const txt = leerTexto(archivo);
     const calls = extraerLlamadasRouter(txt, metodos);
+    const validaIngestaOmrDespuesDeMulter =
+      archivo.endsWith(path.join('modulo_escaneo_omr', 'rutasEscaneoOmr.ts'))
+      && /function\s+validarIngestaPdf\([\s\S]*?validarCuerpo\(esquemaCrearIngestaPdfOmr,\s*\{\s*strict:\s*true\s*\}\)/.test(txt);
     for (const call of calls) {
       if (STRICT_PATHS) {
         const m = call.match(/^router\.(post|put|patch)\(\s*(['"`])([^'"`]+)\2/);
@@ -225,8 +228,9 @@ function checarBackend() {
         }
       }
 
-      const tieneValidar = call.includes('validarCuerpo(');
-      const tieneStrict = call.includes('strict: true');
+      const usaValidacionMultipartDiferida = validaIngestaOmrDespuesDeMulter && call.includes('validarIngestaPdf');
+      const tieneValidar = call.includes('validarCuerpo(') || usaValidacionMultipartDiferida;
+      const tieneStrict = call.includes('strict: true') || usaValidacionMultipartDiferida;
       const usaMiddlewareDelegado = /\.\.\.\s*middlewares[A-Za-z0-9_]+\./.test(call);
       if (usaMiddlewareDelegado) {
         continue;

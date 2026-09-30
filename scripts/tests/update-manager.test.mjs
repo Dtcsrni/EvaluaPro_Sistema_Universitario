@@ -29,6 +29,17 @@ test('selectLatestRelease detecta error por asset faltante', () => {
   assert.match(String(pick.error || ''), /no incluye asset requerido/i);
 });
 
+test('selectLatestRelease reporta local-ahead-of-official y nunca propone downgrade', () => {
+  const pick = selectLatestRelease([{
+    tag_name: 'v1.1.1',
+    prerelease: false,
+    assets: [{ name: 'EvaluaPro-InstallerHub-docente-local.exe', browser_download_url: 'http://example/installer.exe' }]
+  }], '1.1.6', { channel: 'stable', includePrerelease: false });
+
+  assert.equal(pick.found, false);
+  assert.equal(pick.assessment, 'local-ahead-of-official');
+});
+
 test('selectLatestRelease resuelve asset versionado por flavor cuando falta nombre legacy', () => {
   const pick = selectLatestRelease([{
     tag_name: 'v1.1.0',
@@ -224,3 +235,21 @@ test('apply bloquea instalación si falla preflight', async () => {
   assert.match(String(status.lastError || ''), /push/i);
 });
 
+test('apply bloquea un instalador menor que la versión local antes de detener procesos', async () => {
+  const calls = [];
+  const manager = createUpdateManager({
+    getCurrentVersion: () => '1.1.6',
+    fetchImpl: async () => new Response(Buffer.from('X'), { status: 200 }),
+    downloadRoot: fs.mkdtempSync(path.join(os.tmpdir(), 'ep-update-')),
+    stopTasks: async () => { calls.push('stop'); return { ok: true }; },
+    runInstaller: async () => { calls.push('install'); return { ok: true }; }
+  });
+
+  manager.setAvailableForTest({ version: '1.1.1', assetUrl: 'data:application/octet-stream;base64,WA==' });
+  await manager.download();
+  const status = await manager.apply();
+
+  assert.equal(status.state, 'error');
+  assert.equal(status.releaseAssessment, 'local-ahead-of-official');
+  assert.deepEqual(calls, []);
+});

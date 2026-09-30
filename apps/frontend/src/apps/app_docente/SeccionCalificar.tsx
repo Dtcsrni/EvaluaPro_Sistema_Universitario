@@ -43,6 +43,7 @@ import type {
   RespuestaSyncPush,
   ResultadoAnalisisOmr,
   ResultadoOmr,
+  RespuestaDetectadaOmr,
   RevisionExamenOmr,
   RevisionPaginaOmr
 } from './tipos';
@@ -83,7 +84,7 @@ export function SeccionCalificar({
   alumnoNombre?: string | null;
   resultadoOmr: ResultadoOmr | null;
   revisionOmrConfirmada: boolean;
-  respuestasDetectadas: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
+  respuestasDetectadas: RespuestaDetectadaOmr[];
   claveCorrectaPorNumero: Record<number, string>;
   ordenPreguntasClave: number[];
   contextoManual?: string | null;
@@ -101,7 +102,7 @@ export function SeccionCalificar({
     totalReactivos?: number;
     bonoSolicitado?: number;
     retroalimentacion?: string;
-    respuestasDetectadas?: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
+    respuestasDetectadas?: RespuestaDetectadaOmr[];
     omrAnalisis?: {
       estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
       calidadPagina: number;
@@ -111,6 +112,16 @@ export function SeccionCalificar({
       motivosRevision: string[];
       revisionConfirmada: boolean;
       qrTexto?: string;
+      resumenRespuestas?: {
+        totalReactivos: number;
+        reactivosRespondidos: number;
+        reactivosSinMarca: number;
+        reactivosAmbiguos: number;
+        reactivosInvalidos: number;
+        examenVacio: boolean;
+        examenVacioProbable: boolean;
+        estadoExamen: 'vacio_confirmado' | 'vacio_probable' | 'con_respuestas' | 'requiere_revision';
+      };
     };
   }) => Promise<unknown>;
   puedeCalificar: boolean;
@@ -121,7 +132,6 @@ export function SeccionCalificar({
     return limpio.length > 0 ? limpio : null;
   };
   const [bonusActivo, setBonusActivo] = useState(false);
-  const [bono, setBono] = useState(0);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
 
@@ -156,7 +166,9 @@ export function SeccionCalificar({
         .map((item) => ({
           numeroPregunta: Number(item.numeroPregunta),
           opcion: normalizarOpcion(typeof item?.opcion === 'string' ? item.opcion : null),
-          confianza: Number.isFinite(Number(item?.confianza)) ? Number(item?.confianza) : 0
+          confianza: Number.isFinite(Number(item?.confianza)) ? Number(item?.confianza) : 0,
+          ...(item.estadoRespuesta ? { estadoRespuesta: item.estadoRespuesta } : {}),
+          ...(Array.isArray(item.flags) ? { flags: item.flags } : {})
         }))
         .sort((a, b) => a.numeroPregunta - b.numeroPregunta),
     [respuestasSeguras]
@@ -193,13 +205,12 @@ export function SeccionCalificar({
   useEffect(() => {
     if (!bonusBloqueadoPorMaximo) return;
     if (bonusActivo) setBonusActivo(false);
-    if (bono !== 0) setBono(0);
-  }, [bonusActivo, bono, bonusBloqueadoPorMaximo]);
+  }, [bonusActivo, bonusBloqueadoPorMaximo]);
   const notaFinalSobre5 = useMemo(() => {
-    const bonusAplicado = bonusActivo && !bonusBloqueadoPorMaximo ? Math.max(0, Math.min(0.5, Number(bono))) : 0;
+    const bonusAplicado = bonusActivo && !bonusBloqueadoPorMaximo ? 0.25 : 0;
     const final = Math.min(5, resumenDinamico.notaExamenSobre5 + bonusAplicado);
     return Number(final.toFixed(2));
-  }, [bonusActivo, bono, bonusBloqueadoPorMaximo, resumenDinamico.notaExamenSobre5]);
+  }, [bonusActivo, bonusBloqueadoPorMaximo, resumenDinamico.notaExamenSobre5]);
   const aciertosMostrados = soloLectura && resumenPersistido ? Number(resumenPersistido.aciertos || 0) : resumenDinamico.aciertos;
   const totalMostrado = soloLectura && resumenPersistido ? Number(resumenPersistido.totalReactivos || 0) : resumenDinamico.total;
   const notaFinalMostrada = soloLectura && resumenPersistido
@@ -269,7 +280,7 @@ export function SeccionCalificar({
         alumnoId,
         aciertos: resumenDinamico.aciertos,
         totalReactivos: resumenDinamico.total,
-        bonoSolicitado: bonusActivo ? bono : 0,
+        bonoSolicitado: bonusActivo ? 0.25 : 0,
         ...(resultadoOmr ? { respuestasDetectadas: respuestasTrabajo } : {}),
         omrAnalisis: resultadoOmr
           ? {
@@ -280,7 +291,8 @@ export function SeccionCalificar({
               templateVersionDetectada: resultadoOmr.templateVersionDetectada,
               motivosRevision: Array.isArray(resultadoOmr.motivosRevision) ? resultadoOmr.motivosRevision : [],
               revisionConfirmada: revisionOmrConfirmada,
-              qrTexto: typeof resultadoOmr.qrTexto === 'string' ? resultadoOmr.qrTexto : undefined
+              qrTexto: typeof resultadoOmr.qrTexto === 'string' ? resultadoOmr.qrTexto : undefined,
+              resumenRespuestas: resultadoOmr.resumenRespuestas
             }
           : undefined
       });
@@ -337,6 +349,20 @@ export function SeccionCalificar({
           <span>Ambiguas {(resultadoOmr.ratioAmbiguas * 100).toFixed(1)}%</span>
         </div>
       )}
+      {resultadoOmr?.resumenRespuestas?.examenVacio ? (
+        <InlineMensaje tipo="warning">
+          Examen vacío confirmado: no se detectaron respuestas marcadas en {resultadoOmr.resumenRespuestas.totalReactivos} reactivos.
+        </InlineMensaje>
+      ) : null}
+      {resultadoOmr?.resumenRespuestas && !resultadoOmr.resumenRespuestas.examenVacio && (
+        resultadoOmr.resumenRespuestas.reactivosSinMarca > 0 ||
+        resultadoOmr.resumenRespuestas.reactivosAmbiguos > 0 ||
+        resultadoOmr.resumenRespuestas.reactivosInvalidos > 0
+      ) ? (
+        <InlineMensaje tipo="warning">
+          Revisión sugerida: {resultadoOmr.resumenRespuestas.reactivosSinMarca} sin marca, {resultadoOmr.resumenRespuestas.reactivosAmbiguos} ambiguos y {resultadoOmr.resumenRespuestas.reactivosInvalidos} inválidos.
+        </InlineMensaje>
+      ) : null}
       <InlineMensaje tipo="info">La calificación se calcula automáticamente a partir de resultados OMR confirmados.</InlineMensaje>
       {bloqueoPorSoloLectura ? (
         <InlineMensaje tipo="info">Examen calificado cargado en modo solo lectura.</InlineMensaje>
@@ -356,28 +382,14 @@ export function SeccionCalificar({
       )}
       <div className="calif-grade-grid">
         <label className="campo">
-          <span>Bonus</span>
+          <span>Bono por guía de estudio (+0.25)</span>
           <input
             type="checkbox"
             checked={bonusActivo}
             onChange={(event) => {
-              const activo = event.target.checked;
-              setBonusActivo(activo);
-              if (!activo) setBono(0);
+              setBonusActivo(event.target.checked);
             }}
             disabled={bloqueoCalificar || bloqueoPorSoloLectura || bonusBloqueadoPorMaximo}
-          />
-        </label>
-        <label className="campo">
-          Bono (max 0.5)
-          <input
-            type="number"
-            step="0.1"
-            min={0}
-            max={0.5}
-            value={bono}
-            onChange={(event) => setBono(Math.max(0, Math.min(0.5, Number(event.target.value))))}
-            disabled={bloqueoCalificar || !bonusActivo || bloqueoPorSoloLectura || bonusBloqueadoPorMaximo}
           />
         </label>
       </div>

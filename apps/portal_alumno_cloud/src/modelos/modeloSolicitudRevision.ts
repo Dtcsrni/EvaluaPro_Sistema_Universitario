@@ -5,6 +5,6 @@
  * - Persistir el estado visible para alumno.
  * - Sincronizar con el backend docente por lotes.
  */
-import { buildCompatModel } from '../infraestructura/baseDatos/compat';
+import { buildCompatModel } from '../infraestructura/baseDatos/compat.js';
 
 export const SolicitudRevision = buildCompatModel('solicitudRevision', {});

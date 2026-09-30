@@ -1,6 +1,6 @@
 /** Seccion de plantillas y generacion de examenes (orquestacion UI + handlers). */
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
@@ -13,7 +13,11 @@ import { PlantillasConsolaGeneracion } from './features/plantillas/components/Pl
 import { PlantillasHistorialLotes } from './features/plantillas/components/PlantillasHistorialLotes';
 import { PlantillasFormulario } from './features/plantillas/components/PlantillasFormulario';
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
-import { PlantillasOmrWorkflow } from './features/plantillas/components/PlantillasOmrWorkflow';
+import { PlantillasOmrWorkflow, type ArchivoOmrLote, type TrabajoOmrResumen } from './features/plantillas/components/PlantillasOmrWorkflow';
+import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabajoOmr';
+import { cargarTodasLasPaginasArchivadas } from './features/plantillas/archivoOmr';
+import { guardarTabPlantillas, PLANTILLAS_TAB_STORAGE_KEY, type TabPlantillas } from './features/plantillas/tabPlantillasState';
+import { guardarLotePendiente, leerLotePendiente, validarResumenLoteGenerado } from './features/plantillas/loteGeneracionSesion';
 import {
   usePlantillasGeneradosActions,
   type ExamenGeneradoResumen
@@ -45,11 +49,33 @@ type ProgresoLoteGeneracion = {
   generados: number;
   porcentaje: number;
   completado: boolean;
-  estado: 'iniciando' | 'generando' | 'completado';
+  estado: 'iniciando' | 'generando' | 'completado' | 'fallido' | 'archivado';
 };
 
-type TabPlantillas = 'diseno' | 'generacion' | 'historial';
-const PLANTILLAS_TAB_STORAGE_KEY = 'evaluapro.plantillas.tab-activa';
+type LotePdfArchivadoResumen = {
+  loteId: string;
+  plantillaId: string;
+  totalExamenes: number;
+  totalPaginas: number;
+  archivado: true;
+  archivadoEn: string;
+};
+
+export function existeTituloPlantillaDuplicadoPorPeriodo(
+  plantillas: Plantilla[],
+  tituloCandidato: string,
+  periodoId: string,
+  excluirId?: string
+): boolean {
+  const candidato = String(tituloCandidato || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  if (!candidato) return false;
+  const periodoCandidato = String(periodoId || '').trim();
+  return (Array.isArray(plantillas) ? plantillas : []).some((plantilla) => {
+    if (excluirId && plantilla._id === excluirId) return false;
+    if (String(plantilla.periodoId || '').trim() !== periodoCandidato) return false;
+    return String(plantilla.titulo || '').trim().replace(/\s+/g, ' ').toLowerCase() === candidato;
+  });
+}
 
 function leerTabPlantillasInicial(): TabPlantillas {
   if (typeof window === 'undefined') return 'diseno';
@@ -115,18 +141,16 @@ export function SeccionPlantillas({
   const TECNICO_VERSIONES_DEFAULT = 1;
   const TECNICO_FAMILIA_OMR_DEFAULT = 'S50_5A_ID5_VR6';
   const TECNICO_PREFILL_DEFAULT = 'none' as const;
-  const TECNICO_MODO_VERSION_DEFAULT = 'single' as const;
 
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
   const [periodoId, setPeriodoId] = useState('');
   const [numeroPaginas, setNumeroPaginas] = useState(2);
   const [reactivosObjetivo, setReactivosObjetivo] = useState(20);
-  const [fontScale, setFontScale] = useState(1);
-  const [lineSpacing, setLineSpacing] = useState(1.1);
   const [logoIzquierda, setLogoIzquierda] = useState(preferenciasPdf?.logos?.izquierdaPath ?? '');
   const [logoDerecha, setLogoDerecha] = useState(preferenciasPdf?.logos?.derechaPath ?? '');
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
+  const [examTemplateId, setExamTemplateId] = useState<'omr-canonical-v4' | 'omr-inline-exam-v1'>('omr-canonical-v4');
   const [mensaje, setMensaje] = useState('');
   const [plantillaId, setPlantillaId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
@@ -134,10 +158,28 @@ export function SeccionPlantillas({
   // ultimoGenerado
   const [, setUltimoGenerado] = useState<ExamenGeneradoResumen | null>(null);
   const [assessmentDetalle, setAssessmentDetalle] = useState<GeneratedAssessmentDetalle | null>(null);
+  const [examenesArchivadosOmr, setExamenesArchivadosOmr] = useState<ExamenGeneradoResumen[]>([]);
+  const [periodosArchivadosOmr, setPeriodosArchivadosOmr] = useState<Periodo[]>([]);
+  const [cargandoLotesArchivadosOmr, setCargandoLotesArchivadosOmr] = useState(false);
+  const [archivoOmrCargado, setArchivoOmrCargado] = useState(false);
+  const [errorArchivoOmr, setErrorArchivoOmr] = useState('');
   const [cargandoAssessmentId, setCargandoAssessmentId] = useState<string | null>(null);
   const [procesandoOmr, setProcesandoOmr] = useState(false);
   const [jobOmr, setJobOmr] = useState<OmrJobDetalle | null>(null);
+  const [trabajosOmr, setTrabajosOmr] = useState<TrabajoOmrResumen[]>([]);
+  const [cursorTrabajosOmr, setCursorTrabajosOmr] = useState<string | null>(null);
+  const [cargandoTrabajosOmr, setCargandoTrabajosOmr] = useState(false);
+  const [historialTrabajosOmrCargado, setHistorialTrabajosOmrCargado] = useState(false);
+  const [errorTrabajosOmr, setErrorTrabajosOmr] = useState('');
+  const setJobOmrYResumen = useCallback((job: OmrJobDetalle | null) => {
+    setJobOmr(job);
+    if (job) setTrabajosOmr((trabajos) => sincronizarResumenTrabajoOmr(trabajos, job));
+  }, []);
   const [examenesGenerados, setExamenesGenerados] = useState<ExamenGeneradoResumen[]>([]);
+  const [lotesArchivados, setLotesArchivados] = useState<LotePdfArchivadoResumen[]>([]);
+  const [cursorLotesArchivados, setCursorLotesArchivados] = useState<string | null>(null);
+  const [cargandoLotesArchivados, setCargandoLotesArchivados] = useState(false);
+  const [restaurandoLoteId, setRestaurandoLoteId] = useState<string | null>(null);
   const [cargandoExamenesGenerados, setCargandoExamenesGenerados] = useState(false);
   const [descargandoExamenId, setDescargandoExamenId] = useState<string | null>(null);
   const [regenerandoExamenId, setRegenerandoExamenId] = useState<string | null>(null);
@@ -145,6 +187,7 @@ export function SeccionPlantillas({
   const [descargandoLoteId, setDescargandoLoteId] = useState<string | null>(null);
   const [regenerandoLoteId, setRegenerandoLoteId] = useState<string | null>(null);
   const [eliminandoLoteId, setEliminandoLoteId] = useState<string | null>(null);
+  const requestIdsCicloLote = useRef(new Map<string, string>());
   const [progresoLoteGeneracion, setProgresoLoteGeneracion] = useState<ProgresoLoteGeneracion | null>(null);
   const [creando, setCreando] = useState(false);
   const [generando, setGenerando] = useState(false);
@@ -169,11 +212,15 @@ export function SeccionPlantillas({
 
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(PLANTILLAS_TAB_STORAGE_KEY, tabActiva);
+      guardarTabPlantillas(tabActiva);
     } catch {
       // La navegación sigue funcionando aunque el almacenamiento no esté disponible.
     }
   }, [tabActiva]);
+
+  useEffect(() => {
+    setMensaje('');
+  }, [periodoId]);
 
   // Estado solo de presentación para vista ampliada del preview PDF.
   const [pdfFullscreen, setPdfFullscreen] = useState<{ url: string; pages: PreviewPdfPage[] } | null>(null);
@@ -201,6 +248,39 @@ export function SeccionPlantillas({
     return (Array.isArray(plantillas) ? plantillas : []).find((p) => p._id === plantillaEditandoId) ?? null;
   }, [plantillas, plantillaEditandoId]);
 
+  const edicionPlantillaModificada = useMemo(() => {
+    if (!modoEdicion || !plantillaEditando) return false;
+    const temasActuales = Array.isArray(temasSeleccionados) ? temasSeleccionados : [];
+    const temasOriginales = Array.isArray(plantillaEditando.temas) ? plantillaEditando.temas : [];
+    const mismoContenido = temasActuales.length === temasOriginales.length &&
+      temasActuales.every((tema, indice) => tema === temasOriginales[indice]);
+    const paginasOriginales = Number(plantillaEditando.numeroPaginas ?? plantillaEditando.bookletConfig?.targetPages ?? 1);
+    const reactivosOriginales = Number(plantillaEditando.reactivosObjetivo ?? 20);
+    const logoIzquierdaOriginal = String(plantillaEditando.bookletConfig?.logos?.izquierdaPath ?? '');
+    const logoDerechaOriginal = String(plantillaEditando.bookletConfig?.logos?.derechaPath ?? '');
+    return titulo.trim() !== String(plantillaEditando.titulo || '').trim() ||
+      tipo !== plantillaEditando.tipo ||
+      periodoId !== String(plantillaEditando.periodoId || '') ||
+      numeroPaginas !== paginasOriginales ||
+      reactivosObjetivo !== reactivosOriginales ||
+      !mismoContenido ||
+      logoIzquierda !== logoIzquierdaOriginal ||
+      logoDerecha !== logoDerechaOriginal ||
+      examTemplateId !== String(plantillaEditando.omrConfig?.examTemplateId ?? 'omr-canonical-v4');
+  }, [
+    examTemplateId,
+    logoDerecha,
+    logoIzquierda,
+    modoEdicion,
+    numeroPaginas,
+    periodoId,
+    plantillaEditando,
+    reactivosObjetivo,
+    temasSeleccionados,
+    tipo,
+    titulo
+  ]);
+
   // Índice local para resolver alumno por id sin búsquedas O(n) repetidas al renderizar listados.
   const alumnosPorId = useMemo(() => {
     const mapa = new Map<string, Alumno>();
@@ -222,25 +302,181 @@ export function SeccionPlantillas({
   const cargarExamenesGenerados = useCallback(async () => {
     if (!plantillaId) {
       setExamenesGenerados([]);
+      setLotesArchivados([]);
+      setCursorLotesArchivados(null);
       return;
     }
     if (!puedeLeerExamenes) {
       setExamenesGenerados([]);
+      setLotesArchivados([]);
+      setCursorLotesArchivados(null);
       return;
     }
-    try {
-      setCargandoExamenesGenerados(true);
-      const payload = await clienteApi.obtener<{ examenes: ExamenGeneradoResumen[] }>(
-        `/examenes/generados?plantillaId=${encodeURIComponent(plantillaId)}&limite=50`
-      );
-      setExamenesGenerados(Array.isArray(payload.examenes) ? payload.examenes : []);
-    } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo cargar el listado de examenes generados');
-      setMensajeGeneracion(msg);
-    } finally {
-      setCargandoExamenesGenerados(false);
+    setCargandoExamenesGenerados(true);
+    setCargandoLotesArchivados(true);
+    setCursorLotesArchivados(null);
+    const [examenesResult, lotesResult] = await Promise.allSettled([
+        clienteApi.obtener<{ examenes: ExamenGeneradoResumen[] }>(
+          `/examenes/generados?plantillaId=${encodeURIComponent(plantillaId)}&limite=50`
+        ),
+        clienteApi.obtener<{ lotes: LotePdfArchivadoResumen[]; nextCursor?: string | null }>(
+          `/examenes/generados/lotes?plantillaId=${encodeURIComponent(plantillaId)}&archivado=true&limite=100`
+        )
+    ]);
+    if (examenesResult.status === 'fulfilled') {
+      setExamenesGenerados(Array.isArray(examenesResult.value.examenes) ? examenesResult.value.examenes : []);
+    } else {
+      setMensajeGeneracion(mensajeDeError(examenesResult.reason, 'No se pudo cargar el historial de exámenes'));
     }
+    if (lotesResult.status === 'fulfilled') {
+      setLotesArchivados(Array.isArray(lotesResult.value.lotes) ? lotesResult.value.lotes : []);
+      setCursorLotesArchivados(lotesResult.value.nextCursor ?? null);
+    } else {
+      setLotesArchivados([]);
+      setMensajeGeneracion(mensajeDeError(lotesResult.reason, 'No se pudo cargar el archivo de paquetes'));
+    }
+    setCargandoExamenesGenerados(false);
+    setCargandoLotesArchivados(false);
   }, [plantillaId, puedeLeerExamenes]);
+
+  const cargarArchivoOmr = useCallback(async () => {
+    if (!puedeLeerExamenes) return;
+    setCargandoLotesArchivadosOmr(true);
+    setErrorArchivoOmr('');
+    try {
+      const periodosArchivados = await clienteApi.obtener<{ periodos: Periodo[] }>('/periodos?activo=false');
+      setPeriodosArchivadosOmr(Array.isArray(periodosArchivados.periodos) ? periodosArchivados.periodos : []);
+      const acumulados = await cargarTodasLasPaginasArchivadas<ExamenGeneradoResumen>(async (cursor) => {
+        const query = new URLSearchParams({ archivado: 'true', limite: '200' });
+        if (cursor) query.set('cursor', cursor);
+        return clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(
+          `/examenes/generados?${query.toString()}`
+        );
+      });
+      setExamenesArchivadosOmr(acumulados.filter((examen) => Boolean(examen.loteId) && examen.origenGeneracion === 'lote'));
+      setArchivoOmrCargado(true);
+    } catch (error) {
+      setExamenesArchivadosOmr([]);
+      setErrorArchivoOmr(mensajeDeError(error, 'No se pudieron cargar los lotes archivados para OMR'));
+      setArchivoOmrCargado(true);
+    } finally {
+      setCargandoLotesArchivadosOmr(false);
+    }
+  }, [puedeLeerExamenes]);
+
+  const reintentarCargaArchivoOmr = useCallback(() => {
+    if (cargandoLotesArchivadosOmr || !puedeLeerExamenes) return;
+    setArchivoOmrCargado(false);
+    void cargarArchivoOmr();
+  }, [cargarArchivoOmr, cargandoLotesArchivadosOmr, puedeLeerExamenes]);
+
+  const lotesArchivadosOmr = useMemo<ArchivoOmrLote[]>(() => {
+    const agrupados = new Map<string, { assessmentId: string; periodoId: string; cantidad: number }>();
+    for (const examen of examenesArchivadosOmr) {
+      const loteId = String(examen.loteId ?? '').trim();
+      if (!loteId) continue;
+      const lote = agrupados.get(loteId);
+      if (lote) lote.cantidad += 1;
+      else agrupados.set(loteId, {
+        assessmentId: examen._id,
+        periodoId: String(examen.periodoId ?? ''),
+        cantidad: 1
+      });
+    }
+    return Array.from(agrupados.entries()).map(([loteId, lote]) => {
+      const periodo = [...periodos, ...periodosArchivadosOmr].find((item) => item._id === lote.periodoId);
+      return {
+        assessmentId: lote.assessmentId,
+        loteId,
+        etiqueta: `${periodo?.nombre ?? 'Materia archivada'} · Lote ${loteId}`,
+        cantidad: lote.cantidad
+      };
+    }).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
+  }, [examenesArchivadosOmr, periodos, periodosArchivadosOmr]);
+
+  useEffect(() => {
+    if (tabActiva === 'historial' && !assessmentDetalle && !archivoOmrCargado && !cargandoLotesArchivadosOmr) {
+      void cargarArchivoOmr();
+    }
+  }, [tabActiva, assessmentDetalle, archivoOmrCargado, cargandoLotesArchivadosOmr, cargarArchivoOmr]);
+
+  const cargarTrabajosOmr = useCallback(async (cursor?: string | null, agregar = false) => {
+    if (!puedeAnalizarOmr || cargandoTrabajosOmr) return;
+    setCargandoTrabajosOmr(true);
+    setErrorTrabajosOmr('');
+    try {
+      const query = new URLSearchParams({ limite: '20' });
+      if (cursor) query.set('cursor', cursor);
+      const pagina = await clienteApi.obtener<{ jobs?: TrabajoOmrResumen[]; nextCursor?: string | null }>(`/omr/jobs?${query}`);
+      setTrabajosOmr((actuales) => {
+        const combinados = agregar ? [...actuales, ...(pagina.jobs ?? [])] : (pagina.jobs ?? []);
+        return Array.from(new Map(combinados.map((trabajo) => [trabajo.jobId, trabajo])).values());
+      });
+      setCursorTrabajosOmr(pagina.nextCursor || null);
+    } catch (error) {
+      setErrorTrabajosOmr(mensajeDeError(error, 'No se pudo cargar el historial de trabajos OMR.'));
+    } finally {
+      setHistorialTrabajosOmrCargado(true);
+      setCargandoTrabajosOmr(false);
+    }
+  }, [cargandoTrabajosOmr, puedeAnalizarOmr]);
+
+  useEffect(() => {
+    if (tabActiva === 'historial' && puedeAnalizarOmr && !historialTrabajosOmrCargado && !cargandoTrabajosOmr) {
+      void cargarTrabajosOmr();
+    }
+  }, [tabActiva, puedeAnalizarOmr, historialTrabajosOmrCargado, cargandoTrabajosOmr, cargarTrabajosOmr]);
+
+  const abrirTrabajoOmr = useCallback(async (trabajo: TrabajoOmrResumen) => {
+    if (!puedeAnalizarOmr) return;
+    setCargandoAssessmentId(trabajo.assessmentId);
+    setMensajeGeneracion('');
+    try {
+      const assessment = await clienteApi.obtener<GeneratedAssessmentDetalle>(`/examenes/generados/${encodeURIComponent(trabajo.assessmentId)}`);
+      let trabajoDetalle: OmrJobDetalle;
+      if (trabajo.workflow === 'pdf_ingesta') {
+        const detalle = await clienteApi.obtener<{ job: OmrJobDetalle; candidateExams?: OmrJobDetalle['candidateExams'] }>(`/omr/ingestas/${encodeURIComponent(trabajo.jobId)}`);
+        trabajoDetalle = { ...detalle.job, candidateExams: detalle.candidateExams ?? [] };
+      } else {
+        const detalle = await clienteApi.obtener<{ job: OmrJobDetalle }>(`/omr/jobs/${encodeURIComponent(trabajo.jobId)}`);
+        trabajoDetalle = detalle.job;
+      }
+      setAssessmentDetalle(assessment);
+      setJobOmrYResumen(trabajoDetalle);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo reabrir el trabajo OMR.');
+      setMensajeGeneracion(msg);
+      emitToast({ level: 'error', title: 'Historial OMR', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+    } finally {
+      setCargandoAssessmentId(null);
+    }
+  }, [puedeAnalizarOmr, setJobOmrYResumen]);
+
+  const cargarMasLotesArchivados = useCallback(async () => {
+    if (!plantillaId || !cursorLotesArchivados || cargandoLotesArchivados) return;
+    setCargandoLotesArchivados(true);
+    try {
+      const query = new URLSearchParams({
+        plantillaId,
+        archivado: 'true',
+        limite: '100',
+        cursor: cursorLotesArchivados
+      });
+      const payload = await clienteApi.obtener<{ lotes: LotePdfArchivadoResumen[]; nextCursor?: string | null }>(
+        `/examenes/generados/lotes?${query.toString()}`
+      );
+      setLotesArchivados((actuales) => {
+        const porId = new Map(actuales.map((lote) => [lote.loteId, lote]));
+        for (const lote of payload.lotes ?? []) porId.set(lote.loteId, lote);
+        return Array.from(porId.values());
+      });
+      setCursorLotesArchivados(payload.nextCursor ?? null);
+    } catch (error) {
+      setMensajeGeneracion(mensajeDeError(error, 'No se pudo cargar más paquetes archivados'));
+    } finally {
+      setCargandoLotesArchivados(false);
+    }
+  }, [cargandoLotesArchivados, cursorLotesArchivados, plantillaId]);
 
   useEffect(() => {
     setUltimoGenerado(null);
@@ -357,14 +593,17 @@ export function SeccionPlantillas({
       try {
         setEliminandoLoteId(lote);
         setMensajeGeneracion('');
-        for (const examen of lista) {
-          await enviarConPermiso(
-            'examenes:archivar',
-            `/examenes/generados/${encodeURIComponent(examen._id)}/archivar`,
-            {},
-            'No tienes permiso para eliminar examenes.'
-          );
-        }
+        await enviarConPermiso(
+          'examenes:archivar',
+          `/examenes/generados/lote/${encodeURIComponent(lote)}/archivar`,
+          { clientRequestId: requestIdsCicloLote.current.get(`archivar:${lote}`) ?? (() => {
+            const id = crypto.randomUUID();
+            requestIdsCicloLote.current.set(`archivar:${lote}`, id);
+            return id;
+          })() },
+          'No tienes permiso para archivar este lote.'
+        );
+        requestIdsCicloLote.current.delete(`archivar:${lote}`);
         emitToast({ level: 'ok', title: 'Paquete', message: `Paquete ${lote} eliminado`, durationMs: 2200 });
         await cargarExamenesGenerados();
       } catch (error) {
@@ -391,7 +630,54 @@ export function SeccionPlantillas({
       setMensajeGeneracion
     ]
   );
-  const { togglePreviewPlantilla, cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
+  const restaurarPaquete = useCallback(
+    async (loteId: string) => {
+      const lote = String(loteId || '').trim();
+      if (!lote || restaurandoLoteId === lote) return;
+      if (!puedeArchivarExamenes) {
+        avisarSinPermiso('No tienes permiso para restaurar lotes archivados.');
+        return;
+      }
+      const ok = await confirm({
+        title: 'Restaurar paquete',
+        message: `El paquete ${lote} volverá al historial activo.`,
+        details: ['Se comprobará el hash y la integridad del PDF antes de restaurarlo.'],
+        confirmLabel: 'Sí, restaurar paquete',
+        tone: 'warning'
+      });
+      if (!ok) return;
+      try {
+        setRestaurandoLoteId(lote);
+        await enviarConPermiso(
+          'examenes:archivar',
+          `/examenes/generados/lote/${encodeURIComponent(lote)}/restaurar`,
+          { clientRequestId: requestIdsCicloLote.current.get(`restaurar:${lote}`) ?? (() => {
+            const id = crypto.randomUUID();
+            requestIdsCicloLote.current.set(`restaurar:${lote}`, id);
+            return id;
+          })() },
+          'No tienes permiso para restaurar lotes archivados.'
+        );
+        requestIdsCicloLote.current.delete(`restaurar:${lote}`);
+        emitToast({ level: 'ok', title: 'Paquete', message: `Paquete ${lote} restaurado`, durationMs: 2200 });
+        await cargarExamenesGenerados();
+      } catch (error) {
+        const msg = mensajeDeError(error, 'No se pudo restaurar el paquete');
+        setMensajeGeneracion(msg);
+        emitToast({
+          level: 'error',
+          title: 'No se pudo restaurar',
+          message: msg,
+          durationMs: 5200,
+          action: accionToastSesionParaError(error, 'docente')
+        });
+      } finally {
+        setRestaurandoLoteId(null);
+      }
+    },
+    [avisarSinPermiso, cargarExamenesGenerados, confirm, enviarConPermiso, puedeArchivarExamenes, restaurandoLoteId, setMensajeGeneracion]
+  );
+  const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
     usePlantillasPreviewActions({
       puedePrevisualizarPlantillas,
       avisarSinPermiso,
@@ -404,16 +690,24 @@ export function SeccionPlantillas({
       setPreviewPdfUrlPorPlantillaId,
       setCargandoPreviewPdfPlantillaId
     });
-  const { cargarAssessmentDetalle, descargarArtifact, crearJobOmr, resolverHojaOmr, finalizarJobOmr } = usePlantillasOmrActions({
+  async function previsualizarPdfEdicion() {
+    if (!plantillaEditandoId) return;
+    await cargarPreviewPdfPlantilla(plantillaEditandoId, 'booklet');
+  }
+  const { cargarAssessmentDetalle, descargarArtifact, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, resolverHojaOmr, finalizarJobOmr } = usePlantillasOmrActions({
     avisarSinPermiso,
     puedeDescargarExamenes,
     puedeAnalizarOmr,
     setCargandoAssessmentId,
     setAssessmentDetalle,
     setProcesandoOmr,
-    setJobOmr,
+    setJobOmr: setJobOmrYResumen,
     setMensajeGeneracion
   });
+
+  const seleccionarLoteArchivadoOmr = useCallback(async (assessmentId: string) => {
+    await cargarAssessmentDetalle(assessmentId);
+  }, [cargarAssessmentDetalle]);
 
   // Catálogo de preguntas filtrado por materia/periodo activo en el formulario.
   const preguntasDisponibles = useMemo(() => {
@@ -485,15 +779,8 @@ export function SeccionPlantillas({
       reactivosObjetivo > 0
   );
   const puedeGenerar = Boolean(plantillaId) && puedeGenerarExamenes;
-  const normalizarTituloPlantillaUi = (valor: string) => String(valor || '').trim().replace(/\s+/g, ' ').toLowerCase();
   const existeTituloPlantillaDuplicado = (tituloCandidato: string, excluirId?: string) => {
-    const candidato = normalizarTituloPlantillaUi(tituloCandidato);
-    if (!candidato) return false;
-    const lista = Array.isArray(plantillas) ? plantillas : [];
-    return lista.some((p) => {
-      if (excluirId && p._id === excluirId) return false;
-      return normalizarTituloPlantillaUi(String(p.titulo || '')) === candidato;
-    });
+    return existeTituloPlantillaDuplicadoPorPeriodo(plantillas, tituloCandidato, periodoId, excluirId);
   };
 
   // Búsqueda local por título/id/temas (case-insensitive) para UX reactiva.
@@ -552,11 +839,10 @@ export function SeccionPlantillas({
     setPeriodoId(String(plantilla.periodoId || ''));
     setNumeroPaginas(Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 1));
     setReactivosObjetivo(Number(plantilla.reactivosObjetivo ?? 20));
-    setFontScale(Number(plantilla.bookletConfig?.fontScale ?? 1));
-    setLineSpacing(Number(plantilla.bookletConfig?.lineSpacing ?? 1.1));
     setLogoIzquierda(String(plantilla.bookletConfig?.logos?.izquierdaPath ?? preferenciasPdf?.logos?.izquierdaPath ?? ''));
     setLogoDerecha(String(plantilla.bookletConfig?.logos?.derechaPath ?? preferenciasPdf?.logos?.derechaPath ?? ''));
     setTemasSeleccionados(Array.isArray(plantilla.temas) ? plantilla.temas : []);
+    setExamTemplateId(plantilla.omrConfig?.examTemplateId ?? 'omr-canonical-v4');
     setMensaje('');
     emitToast({ level: 'info', title: 'Plantillas', message: `Editando “${String(plantilla.titulo || '').trim()}”`, durationMs: 2200 });
   }
@@ -569,11 +855,10 @@ export function SeccionPlantillas({
     setPeriodoId('');
     setNumeroPaginas(2);
     setReactivosObjetivo(20);
-    setFontScale(1);
-    setLineSpacing(1.1);
     setLogoIzquierda(preferenciasPdf?.logos?.izquierdaPath ?? '');
     setLogoDerecha(preferenciasPdf?.logos?.derechaPath ?? '');
     setTemasSeleccionados([]);
+    setExamTemplateId('omr-canonical-v4');
     setMensaje('');
     emitToast({ level: 'info', title: 'Plantillas', message: 'Edición cancelada', durationMs: 1800 });
   }
@@ -589,13 +874,13 @@ export function SeccionPlantillas({
     emitToast({ level: 'info', title: 'Sección', message: `Mostrando ${etiquetas[tab]}`, durationMs: 1800 });
   }
 
-  async function guardarEdicion() {
-    if (!plantillaEditandoId || guardandoPlantilla) return;
+  async function guardarEdicion(): Promise<boolean> {
+    if (!plantillaEditandoId || guardandoPlantilla) return false;
     try {
       const inicio = Date.now();
       if (!puedeGestionarPlantillas) {
         avisarSinPermiso('No tienes permiso para editar plantillas.');
-        return;
+        return false;
       }
       setGuardandoPlantilla(true);
       setMensaje('');
@@ -604,7 +889,7 @@ export function SeccionPlantillas({
         const msgDup = 'Ya existe una plantilla activa con ese nombre.';
         setMensaje(msgDup);
         emitToast({ level: 'warn', title: 'Plantillas', message: msgDup, durationMs: 4200 });
-        return;
+        return false;
       }
 
       const payload: Record<string, unknown> = {
@@ -616,7 +901,8 @@ export function SeccionPlantillas({
         answerKeyMode: 'digital',
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
-          densityMode: 'balanced',
+          densityMode: 'compact',
+          autoFitPages: true,
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
@@ -624,17 +910,17 @@ export function SeccionPlantillas({
             izquierdaPath: logoIzquierda || undefined,
             derechaPath: logoDerecha || undefined
           },
-          fontScale,
-          lineSpacing,
+          fontScale: 1,
+          lineSpacing: 1.1,
           separateCoverPage: false
         },
         configuracionPdf: { margenMm: 8, layout: 'parcial' },
         omrConfig: {
+          examTemplateId,
           sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT,
           prefillMode: TECNICO_PREFILL_DEFAULT,
           identityMode: 'qr_plus_bubbled_id',
           allowBlankGenericSheets: true,
-          versionMode: TECNICO_MODO_VERSION_DEFAULT,
           ignoreUnusedTrailingQuestions: true,
           captureMode: 'pdf_and_mobile'
         },
@@ -660,6 +946,7 @@ export function SeccionPlantillas({
       registrarAccionDocente('actualizar_plantilla', true, Date.now() - inicio);
       cancelarEdicion();
       onRefrescar();
+      return true;
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar la plantilla');
       setMensaje(msg);
@@ -671,9 +958,17 @@ export function SeccionPlantillas({
         action: accionToastSesionParaError(error, 'docente')
       });
       registrarAccionDocente('actualizar_plantilla', false);
+      return false;
     } finally {
       setGuardandoPlantilla(false);
     }
+  }
+
+  async function actualizarPdfEdicion() {
+    const id = plantillaEditandoId;
+    if (!id) return;
+    const actualizado = await guardarEdicion();
+    if (actualizado) await cargarPreviewPdfPlantilla(id, 'booklet');
   }
 
   async function archivarPlantilla(plantilla: Plantilla) {
@@ -751,7 +1046,8 @@ export function SeccionPlantillas({
         answerKeyMode: 'digital',
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
-          densityMode: 'balanced',
+          densityMode: 'compact',
+          autoFitPages: true,
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
@@ -759,17 +1055,17 @@ export function SeccionPlantillas({
             izquierdaPath: logoIzquierda || undefined,
             derechaPath: logoDerecha || undefined
           },
-          fontScale,
-          lineSpacing,
+          fontScale: 1,
+          lineSpacing: 1.1,
           separateCoverPage: false
         },
         configuracionPdf: { margenMm: 8, layout: 'parcial' },
         omrConfig: {
+          examTemplateId,
           sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT,
           prefillMode: TECNICO_PREFILL_DEFAULT,
           identityMode: 'qr_plus_bubbled_id',
           allowBlankGenericSheets: true,
-          versionMode: TECNICO_MODO_VERSION_DEFAULT,
           ignoreUnusedTrailingQuestions: true,
           captureMode: 'pdf_and_mobile'
         }
@@ -819,12 +1115,8 @@ export function SeccionPlantillas({
         advertencias?: string[];
       }>(
         'examenes:generar',
-        `/assessments/templates/${encodeURIComponent(plantillaId)}/generate`,
-        {
-          prefillMode: TECNICO_PREFILL_DEFAULT,
-          versionCount: TECNICO_VERSIONES_DEFAULT,
-          sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT
-        },
+        '/examenes/generados',
+        { plantillaId },
         'No tienes permiso para generar examenes.'
       );
       const ex =
@@ -871,18 +1163,24 @@ export function SeccionPlantillas({
   ]);
 
   const generarExamenesLote = useCallback(async () => {
+    const lotePendiente = leerLotePendiente(plantillaId) ??
+      (progresoLoteGeneracion && progresoLoteGeneracion.estado === 'fallido' ? progresoLoteGeneracion.loteId : null);
     const ok = await confirm({
-      title: 'Generar paquete masivo',
-      message: 'Se generarán exámenes para todos los alumnos activos de la materia seleccionada.',
+      title: lotePendiente ? 'Reanudar paquete incompleto' : 'Generar paquete masivo',
+      message: lotePendiente
+        ? 'Se reanudará el mismo lote, conservando los exámenes ya generados y verificados.'
+        : 'Se generarán exámenes para todos los alumnos activos de la materia seleccionada.',
       details: ['Asegúrate de que plantilla, alumnos y banco estén listos antes de continuar.'],
-      confirmLabel: 'Sí, generar paquete',
+      confirmLabel: lotePendiente ? 'Sí, reanudar lote' : 'Sí, generar paquete',
       tone: 'default'
     });
     if (!ok) return;
-    const loteCliente =
+    const loteCliente = lotePendiente ?? (
       typeof globalThis.crypto?.randomUUID === 'function'
         ? globalThis.crypto.randomUUID().split('-')[0].toUpperCase()
-        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
+        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase()
+    );
+    guardarLotePendiente(plantillaId, loteCliente);
 
     const totalEsperadoInicial = Array.isArray(alumnos)
       ? alumnos.filter(
@@ -899,13 +1197,15 @@ export function SeccionPlantillas({
       generados: 0,
       porcentaje: 0,
       completado: false,
-      estado: 'iniciando'
+      estado: lotePendiente ? 'generando' : 'iniciando'
     });
 
     let sondeoActivo = true;
+    let sondeoEnCurso = false;
     const consultarProgreso = async (loteId: string) => {
       const lote = String(loteId || '').trim();
-      if (!lote || !sondeoActivo) return;
+      if (!lote || !sondeoActivo || sondeoEnCurso) return;
+      sondeoEnCurso = true;
       try {
         const progreso = await clienteApi.obtener<ProgresoLoteGeneracion>(
           `/examenes/generados/lote/${encodeURIComponent(lote)}/progreso?plantillaId=${encodeURIComponent(plantillaId)}`
@@ -923,13 +1223,14 @@ export function SeccionPlantillas({
         }));
       } catch {
         // no-op: el sondeo puede arrancar antes de que exista el primer examen del lote.
+      } finally {
+        sondeoEnCurso = false;
       }
     };
 
     const timerSondeo = globalThis.setInterval(() => {
       void consultarProgreso(loteCliente);
-    }, 1200);
-    void consultarProgreso(loteCliente);
+    }, 5000);
 
     try {
       const inicio = Date.now();
@@ -942,6 +1243,9 @@ export function SeccionPlantillas({
       const payload = await enviarConPermiso<{
         loteId?: string;
         totalAlumnos?: number;
+        totalPaginas?: number;
+        paginasPorExamen?: number;
+        pdfSha256?: string;
         examenesGenerados?: Array<{ _id: string; folio: string; generadoEn?: string }>;
         lotePdfUrl?: string;
       }>(
@@ -954,13 +1258,17 @@ export function SeccionPlantillas({
         },
         'No tienes permiso para generar examenes.',
         {
-        timeoutMs: 120_000
+          timeoutMs: 900_000
         }
       );
       const totalAlumnos = Number(payload?.totalAlumnos ?? 0);
       const totalGenerados = Array.isArray(payload?.examenesGenerados) ? payload.examenesGenerados.length : 0;
       const loteUrl = String(payload?.lotePdfUrl ?? '').trim();
       const loteRespuesta = String(payload?.loteId ?? loteCliente).trim() || loteCliente;
+      if (loteRespuesta.toUpperCase() !== loteCliente.toUpperCase()) {
+        throw new Error('El servidor respondió con otro identificador de lote. No se marcará como listo.');
+      }
+      validarResumenLoteGenerado(payload ?? {}, totalAlumnos, Number(plantillaSeleccionada?.numeroPaginas ?? 0));
       await consultarProgreso(loteRespuesta);
       setProgresoLoteGeneracion({
         loteId: loteRespuesta,
@@ -971,6 +1279,7 @@ export function SeccionPlantillas({
         estado: 'completado'
       });
       setLotePdfUrl(loteUrl || null);
+      guardarLotePendiente(plantillaId, null);
       setMensajeGeneracion(
         `Generación de paquete lista. Alumnos: ${totalAlumnos}. Exámenes generados: ${totalGenerados}.`
       );
@@ -978,6 +1287,7 @@ export function SeccionPlantillas({
       registrarAccionDocente('generar_examenes_lote', true, Date.now() - inicio);
       await cargarExamenesGenerados();
     } catch (error) {
+      setProgresoLoteGeneracion((anterior) => anterior ? { ...anterior, completado: false, estado: 'fallido' } : null);
       const msg = mensajeDeError(error, 'No se pudo generar en lote');
       setMensajeGeneracion(msg);
       emitToast({
@@ -1002,7 +1312,45 @@ export function SeccionPlantillas({
     plantillaSeleccionada,
     plantillaId,
     puedeGenerarExamenes,
+    progresoLoteGeneracion,
   ]);
+
+  const formularioPlantilla = (
+    <PlantillasFormulario
+      modoEdicion={modoEdicion}
+      plantillaEditando={plantillaEditando}
+      examTemplateId={examTemplateId}
+      setExamTemplateId={setExamTemplateId}
+      titulo={titulo}
+      setTitulo={setTitulo}
+      periodoId={periodoId}
+      setPeriodoId={setPeriodoId}
+      periodos={periodos}
+      bloqueoEdicion={bloqueoEdicion}
+      temasDisponibles={temasDisponibles}
+      temasSeleccionados={temasSeleccionados}
+      setTemasSeleccionados={setTemasSeleccionados}
+      totalDisponiblePorTemas={totalDisponiblePorTemas}
+      numeroPaginas={numeroPaginas}
+      setNumeroPaginas={setNumeroPaginas}
+      reactivosObjetivo={reactivosObjetivo}
+      setReactivosObjetivo={setReactivosObjetivo}
+      logoIzquierda={logoIzquierda}
+      logoDerecha={logoDerecha}
+      seleccionarLogo={seleccionarLogo}
+      creando={creando}
+      puedeCrear={puedeCrear}
+      crear={crear}
+      guardandoPlantilla={guardandoPlantilla}
+      previsualizarPdf={previsualizarPdfEdicion}
+      previsualizandoPdf={cargandoPreviewPdfPlantillaId === plantillaEditandoId && Boolean(plantillaEditandoId)}
+      guardarEdicion={guardarEdicion}
+      actualizarPdf={actualizarPdfEdicion}
+      edicionPlantillaModificada={edicionPlantillaModificada}
+      cancelarEdicion={cancelarEdicion}
+      mensaje={mensaje}
+    />
+  );
 
   return (
     <div className="panel plantillas-shell">
@@ -1165,38 +1513,7 @@ export function SeccionPlantillas({
             </ol>
           </section>
 
-          <PlantillasFormulario
-            modoEdicion={modoEdicion}
-            plantillaEditando={plantillaEditando}
-            titulo={titulo}
-            setTitulo={setTitulo}
-            periodoId={periodoId}
-            setPeriodoId={setPeriodoId}
-            periodos={periodos}
-            bloqueoEdicion={bloqueoEdicion}
-            temasDisponibles={temasDisponibles}
-            temasSeleccionados={temasSeleccionados}
-            setTemasSeleccionados={setTemasSeleccionados}
-            totalDisponiblePorTemas={totalDisponiblePorTemas}
-            numeroPaginas={numeroPaginas}
-            setNumeroPaginas={setNumeroPaginas}
-            reactivosObjetivo={reactivosObjetivo}
-            setReactivosObjetivo={setReactivosObjetivo}
-            logoIzquierda={logoIzquierda}
-            logoDerecha={logoDerecha}
-            seleccionarLogo={seleccionarLogo}
-            fontScale={fontScale}
-            setFontScale={setFontScale}
-            lineSpacing={lineSpacing}
-            setLineSpacing={setLineSpacing}
-            creando={creando}
-            puedeCrear={puedeCrear}
-            crear={crear}
-            guardandoPlantilla={guardandoPlantilla}
-            guardarEdicion={guardarEdicion}
-            cancelarEdicion={cancelarEdicion}
-            mensaje={mensaje}
-          />
+          {!modoEdicion && formularioPlantilla}
 
           <PlantillasListado
             totalPlantillasTodas={totalPlantillasTodas}
@@ -1205,10 +1522,9 @@ export function SeccionPlantillas({
             setFiltroPlantillas={setFiltroPlantillas}
             plantillasFiltradas={plantillasFiltradas}
             periodos={periodos}
-            previewPorPlantillaId={previewPorPlantillaId}
-            plantillaPreviewId={plantillaPreviewId}
+            plantillaEditandoId={plantillaEditandoId}
+            editorInline={modoEdicion ? formularioPlantilla : null}
             previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
-            cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
             puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
             cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
             cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
@@ -1217,7 +1533,6 @@ export function SeccionPlantillas({
             pdfFullscreenUrl={pdfFullscreenUrl}
             pdfFullscreenPages={pdfFullscreenPages}
             cerrarPdfFullscreen={cerrarPdfFullscreen}
-            togglePreviewPlantilla={togglePreviewPlantilla}
             iniciarEdicion={iniciarEdicion}
             puedeGestionarPlantillas={puedeGestionarPlantillas}
             archivandoPlantillaId={archivandoPlantillaId}
@@ -1243,6 +1558,7 @@ export function SeccionPlantillas({
             onGenerarExamen={generarExamen}
             generandoLote={generandoLote}
             plantillaSeleccionada={plantillaSeleccionada}
+            periodos={periodos}
             puedeGenerarExamenes={puedeGenerarExamenes}
             onGenerarExamenesLote={generarExamenesLote}
             mensajeGeneracion={mensajeGeneracion}
@@ -1279,15 +1595,39 @@ export function SeccionPlantillas({
             onDescargarPaquete={descargarPaquete}
             onRegenerarPaquete={regenerarPaquete}
             onEliminarPaquete={eliminarPaquete}
+            lotesArchivados={lotesArchivados}
+            cantidadLotesOmrArchivados={lotesArchivadosOmr.length}
+            cargandoLotesArchivados={cargandoLotesArchivados}
+            hayMasLotesArchivados={Boolean(cursorLotesArchivados)}
+            onCargarMasLotesArchivados={cargarMasLotesArchivados}
+            restaurandoLoteId={restaurandoLoteId}
+            onRestaurarPaquete={restaurarPaquete}
           />
 
           <PlantillasOmrWorkflow
             assessmentDetalle={assessmentDetalle}
+            trabajosOmr={trabajosOmr}
+            cargandoTrabajosOmr={cargandoTrabajosOmr}
+            errorTrabajosOmr={errorTrabajosOmr}
+            hayMasTrabajosOmr={Boolean(cursorTrabajosOmr)}
+            onReintentarTrabajosOmr={() => void cargarTrabajosOmr()}
+            onCargarMasTrabajosOmr={() => void cargarTrabajosOmr(cursorTrabajosOmr, true)}
+            onAbrirTrabajoOmr={abrirTrabajoOmr}
+            lotesArchivadosOmr={lotesArchivadosOmr}
+            cargandoLotesArchivadosOmr={cargandoLotesArchivadosOmr}
+            errorCargaLotesArchivadosOmr={errorArchivoOmr}
+            puedeLeerLotesArchivadosOmr={puedeLeerExamenes}
+            onReintentarCargaLotesArchivadosOmr={reintentarCargaArchivoOmr}
+            onSeleccionarLoteArchivado={seleccionarLoteArchivadoOmr}
+            prevalidarReferenciaOmr={prevalidarReferenciaOmr}
             jobOmr={jobOmr}
             cargandoAssessmentId={cargandoAssessmentId}
             procesandoOmr={procesandoOmr}
             descargarArtifact={descargarArtifact}
+            obtenerPreviewPaginaOmr={obtenerPreviewPaginaOmr}
+            obtenerPreviewReferenciaOmr={obtenerPreviewReferenciaOmr}
             crearJobOmr={crearJobOmr}
+            onReintentarIngestaPdf={reintentarIngestaPdfOmr}
             resolverHojaOmr={resolverHojaOmr}
             finalizarJobOmr={finalizarJobOmr}
           />

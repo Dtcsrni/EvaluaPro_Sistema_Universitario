@@ -11,25 +11,28 @@
  * - La telemetria se maneja best-effort (no debe interrumpir la UX).
  */
 import { Router, type Request, type Response } from 'express';
-import { prisma } from './infraestructura/baseDatos/sqlite';
+import { prisma } from './infraestructura/baseDatos/sqlite.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { gunzipSync } from 'zlib';
-import { configuracion } from './configuracion';
-import { CodigoAcceso } from './modelos/modeloCodigoAcceso';
-import { AgendaAlumno } from './modelos/modeloAgendaAlumno';
-import { AvisoAlumno } from './modelos/modeloAvisoAlumno';
-import { EventoUsoAlumno } from './modelos/modeloEventoUsoAlumno';
-import { HistorialAlumno } from './modelos/modeloHistorialAlumno';
-import { MateriaAlumno } from './modelos/modeloMateriaAlumno';
-import { PaqueteSyncDocente } from './modelos/modeloPaqueteSyncDocente';
-import { PerfilAlumno } from './modelos/modeloPerfilAlumno';
-import { ResultadoAlumno } from './modelos/modeloResultadoAlumno';
-import { SolicitudRevision } from './modelos/modeloSolicitudRevision';
-import { SesionAlumno } from './modelos/modeloSesionAlumno';
-import { generarTokenSesion } from './servicios/servicioSesion';
-import { requerirSesionAlumno, type SolicitudAlumno } from './servicios/middlewareSesion';
-import { exportarMetricasPrometheus } from './infraestructura/observabilidad/metrics';
+import { configuracion } from './configuracion.js';
+import { CodigoAcceso } from './modelos/modeloCodigoAcceso.js';
+import { AgendaAlumno } from './modelos/modeloAgendaAlumno.js';
+import { AvisoAlumno } from './modelos/modeloAvisoAlumno.js';
+import { EventoUsoAlumno } from './modelos/modeloEventoUsoAlumno.js';
+import { HistorialAlumno } from './modelos/modeloHistorialAlumno.js';
+import { MateriaAlumno } from './modelos/modeloMateriaAlumno.js';
+import { PaqueteSyncDocente } from './modelos/modeloPaqueteSyncDocente.js';
+import { PerfilAlumno } from './modelos/modeloPerfilAlumno.js';
+import { ResultadoAlumno } from './modelos/modeloResultadoAlumno.js';
+import { SolicitudRevision } from './modelos/modeloSolicitudRevision.js';
+import { SesionAlumno } from './modelos/modeloSesionAlumno.js';
+import { generarTokenSesion } from './servicios/servicioSesion.js';
+import { requerirSesionAlumno, type SolicitudAlumno } from './servicios/middlewareSesion.js';
+import { exportarMetricasPrometheus } from './infraestructura/observabilidad/metrics.js';
 
 const router = Router();
 

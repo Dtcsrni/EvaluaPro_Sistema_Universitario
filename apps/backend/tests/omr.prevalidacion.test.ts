@@ -6,8 +6,8 @@
  */
 import type { Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
-import { prevalidarLoteCapturas } from '../src/modulos/modulo_escaneo_omr/controladorEscaneoOmr';
-import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion';
+import { prevalidarLoteCapturas } from '../src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.js';
+import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
 
 function crearRespuesta() {
   return {

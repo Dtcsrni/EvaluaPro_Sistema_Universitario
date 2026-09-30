@@ -6,8 +6,11 @@
  */
 import dotenv from 'dotenv';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import fs from 'node:fs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export function cargarDotenvRaizSiAplica(entorno: string) {
   if (entorno === 'production' || entorno === 'test') return;

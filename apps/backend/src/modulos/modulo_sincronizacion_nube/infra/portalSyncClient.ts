@@ -1,10 +1,10 @@
 /**
  * Cliente HTTP para sincronizacion con portal.
  */
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../../configuracion';
-import { createErrorServidorNoConfigurado, normalizarErrorServidorSincronizacion } from '../domain/erroresSincronizacion';
-import type { PortalSyncTransport } from '../shared/tiposSync';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../../configuracion.js';
+import { createErrorServidorNoConfigurado, normalizarErrorServidorSincronizacion } from '../domain/erroresSincronizacion.js';
+import type { PortalSyncTransport } from '../shared/tiposSync.js';
 
 export class PortalSyncClient implements PortalSyncTransport {
   constructor(private readonly baseUrl: string, private readonly apiKey: string) {}

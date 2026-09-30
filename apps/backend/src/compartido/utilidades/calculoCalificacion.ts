@@ -1,7 +1,7 @@
 /**
  * Calculo exacto de calificaciones sin redondeos.
  */
-import Decimal from 'decimal.js';
+import { Decimal } from 'decimal.js';
 
 export type ResultadoCalificacion = {
   numerador: string;

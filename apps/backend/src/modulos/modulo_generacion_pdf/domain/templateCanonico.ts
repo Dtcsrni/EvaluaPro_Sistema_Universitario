@@ -4,18 +4,26 @@
  * Responsabilidad: normalizar el único formato de examen operativo.
  * Límites: no contiene adaptadores ni rutas de compatibilidad histórica.
  */
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
 import type {
   MapaVariante,
+  OmrTemplateId,
   PreguntaBase,
   ResultadoGeneracionPdf,
   TemplateVersion
-} from '../shared/tiposPdf';
+} from '../shared/tiposPdf.js';
 
 export const TEMPLATE_VERSION_CANONICA: TemplateVersion = 4;
 export const TEMPLATE_VERSION_DEFAULT: TemplateVersion = TEMPLATE_VERSION_CANONICA;
 export const OMR_CANONICAL_CONTRACT_ID = 'omr-canonical-v4';
 export const OMR_CANONICAL_DISPLAY_LABEL = 'OMR canónico · v4';
+export const TEMPLATE_ID_OMR_INLINE_EXAM = 'omr-inline-exam-v1' as const;
+
+export function resolverOmrTemplateId(templateId?: OmrTemplateId): OmrTemplateId {
+  if (templateId === undefined || templateId === null) return 'omr-canonical-v4';
+  if (templateId === 'omr-canonical-v4' || templateId === TEMPLATE_ID_OMR_INLINE_EXAM) return templateId;
+  throw new ErrorAplicacion('OMR_TEMPLATE_ID_INVALIDO', `Template ID ${String(templateId)} no compatible`, 422);
+}
 
 const OPCIONES_OMR_CANONICAS = 5;
 type Opcion = { texto: string; esCorrecta: boolean };

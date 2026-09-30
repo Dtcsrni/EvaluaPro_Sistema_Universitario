@@ -42,6 +42,11 @@ function assertContains(sourceKey, pattern, reason) {
 
 const defaultStates = ['ready', 'loading', 'empty', 'active', 'error', 'warning', 'degraded', 'restart-required', 'success'];
 const defaultViewports = ['desktop', 'tablet', 'mobile'];
+const viewportProfiles = {
+  desktop: { width: 1920, height: 1080, priority: 'primary' },
+  tablet: { width: 1024, height: 768, priority: 'regression' },
+  mobile: { width: 390, height: 844, priority: 'regression' }
+};
 
 const lifecycleScenarios = [
   { id: 'install-first-run', operation: 'install', state: 'ready', expected: 'Muestra bienvenida, términos/privacidad, prerequisitos y acción Instalar habilitada solo cuando corresponde.' },
@@ -277,6 +282,7 @@ const matrix = {
     visualEvidenceManifestRequired: true
   },
   lifecycleScenarios,
+  viewportProfiles,
   screens
 };
 
@@ -307,7 +313,7 @@ function markdownFor(matrixValue) {
       `- Simplicidad: ${item.uxReview.simplicity}`,
       `- Feedback: ${item.uxReview.feedback}`,
       `- Estados: ${item.states.join(', ')}`,
-      `- Viewports: ${item.viewports.join(', ')}`,
+      `- Viewports: desktop ${viewportProfiles.desktop.width}x${viewportProfiles.desktop.height} (primario), tablet ${viewportProfiles.tablet.width}x${viewportProfiles.tablet.height}, mobile ${viewportProfiles.mobile.width}x${viewportProfiles.mobile.height}`,
       `- Evidencia: \`${item.evidence.command}\``,
       ...item.evidence.artifacts.map((artifact) => `- Artefacto: \`${artifact}\``),
       '- [ ] Desktop sin overflow/solape',

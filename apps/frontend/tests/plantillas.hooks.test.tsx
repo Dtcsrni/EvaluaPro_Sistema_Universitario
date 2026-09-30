@@ -9,8 +9,78 @@ import { describe, expect, it, vi } from 'vitest';
 import { usePlantillasGeneradosActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions';
 import { usePlantillasOmrActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions';
 import { usePlantillasPreviewActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
+import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 
 describe('hooks de plantillas', () => {
+  it('verifica el hash del PDF de lote y difiere la liberación del Object URL', async () => {
+    localStorage.setItem('tokenDocente', 'token-test');
+    const bytes = new Blob(['%PDF-1.4 paquete QA']);
+    const digest = await crypto.subtle.digest('SHA-256', await bytes.arrayBuffer());
+    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: async () => bytes,
+      headers: { get: (name: string) => name === 'X-EvaluaPro-PDF-SHA256' ? hash : null }
+    } as Response);
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:lote-qa');
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const { result } = renderHook(() => usePlantillasGeneradosActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeRegenerarExamenes: false,
+      puedeArchivarExamenes: false,
+      descargandoExamenId: null,
+      regenerandoExamenId: null,
+      archivandoExamenId: null,
+      setDescargandoExamenId: vi.fn(),
+      setRegenerandoExamenId: vi.fn(),
+      setArchivandoExamenId: vi.fn(),
+      setMensajeGeneracion: vi.fn(),
+      cargarExamenesGenerados: async () => {},
+      enviarConPermiso: async () => ({}),
+      lotePdfUrl: null
+    }));
+
+    await act(async () => result.current.descargarPdfLotePorId('LOT-QA'));
+    expect(createObjectUrl).toHaveBeenCalledWith(bytes);
+    expect(revokeObjectUrl).not.toHaveBeenCalled();
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
+  });
+
+  it('rechaza un PDF de lote cuyo hash no coincide antes de iniciar la descarga', async () => {
+    localStorage.setItem('tokenDocente', 'token-test');
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: async () => new Blob(['%PDF-1.4 alterado']),
+      headers: { get: () => '0'.repeat(64) }
+    } as Response);
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:no-debe-crearse');
+    const setMensajeGeneracion = vi.fn();
+    const { result } = renderHook(() => usePlantillasGeneradosActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeRegenerarExamenes: false,
+      puedeArchivarExamenes: false,
+      descargandoExamenId: null,
+      regenerandoExamenId: null,
+      archivandoExamenId: null,
+      setDescargandoExamenId: vi.fn(),
+      setRegenerandoExamenId: vi.fn(),
+      setArchivandoExamenId: vi.fn(),
+      setMensajeGeneracion,
+      cargarExamenesGenerados: async () => {},
+      enviarConPermiso: async () => ({}),
+      lotePdfUrl: null
+    }));
+
+    await act(async () => result.current.descargarPdfLotePorId('LOT-QA'));
+    expect(createObjectUrl).not.toHaveBeenCalled();
+    expect(setMensajeGeneracion).toHaveBeenCalledWith(expect.stringContaining('integridad'));
+  });
+
   it('usePlantillasGeneradosActions avisa cuando no hay permiso para descargar lote', async () => {
     const avisarSinPermiso = vi.fn();
     const { result } = renderHook(() =>
@@ -100,7 +170,8 @@ describe('hooks de plantillas', () => {
     expect(actualizador({})).toEqual({
       'pla-1': {
         omrSheet: 'blob:preview-actualizado',
-        omrSheetPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }]
+        omrSheetPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }],
+        omrSheetPagesTotal: 1
       }
     });
   });
@@ -127,5 +198,35 @@ describe('hooks de plantillas', () => {
     });
 
     expect(avisarSinPermiso).toHaveBeenCalled();
+  });
+
+  it('carga el detalle de assessment desde la ruta de exámenes generados', async () => {
+    const obtener = vi.spyOn(clienteApi, 'obtener').mockResolvedValue({ assessment: {}, jobs: [] } as never);
+    const setCargandoAssessmentId = vi.fn();
+    const setAssessmentDetalle = vi.fn();
+    const setMensajeGeneracion = vi.fn();
+    const { result } = renderHook(() =>
+      usePlantillasOmrActions({
+        avisarSinPermiso: vi.fn(),
+        puedeDescargarExamenes: true,
+        puedeAnalizarOmr: true,
+        setCargandoAssessmentId,
+        setAssessmentDetalle,
+        setProcesandoOmr: vi.fn(),
+        setJobOmr: vi.fn(),
+        setMensajeGeneracion
+      })
+    );
+
+    await act(async () => {
+      await result.current.cargarAssessmentDetalle('ass id/1');
+    });
+
+    expect(obtener).toHaveBeenCalledWith('/examenes/generados/ass%20id%2F1');
+    expect(setCargandoAssessmentId).toHaveBeenNthCalledWith(1, 'ass id/1');
+    expect(setAssessmentDetalle).toHaveBeenCalledWith({ assessment: {}, jobs: [] });
+    expect(setCargandoAssessmentId).toHaveBeenLastCalledWith(null);
+    expect(setMensajeGeneracion).not.toHaveBeenCalled();
+    obtener.mockRestore();
   });
 });
