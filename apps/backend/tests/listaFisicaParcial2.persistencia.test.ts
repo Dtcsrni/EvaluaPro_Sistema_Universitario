@@ -37,7 +37,10 @@ describe('persistencia de componentes manuales de la lista física', () => {
   afterAll(async () => { await cerrarMongoTest(); });
 
   it('crea, actualiza con versionado, audita y rechaza una escritura obsoleta o ajena', async () => {
-    const payload = { periodoId, alumnoId, componente: 'Practica 2do Parcial', calificacion: 8.5 };
+    const payload = {
+      periodoId, alumnoId, componente: 'Practica 2do Parcial', calificacion: 8.5,
+      clientRequestId: '1a7c1d6e-e9c5-4c51-a38d-3cc247e5f1b0'
+    };
     const creada = respuestaMock();
     await guardarCalificacionLista(solicitud(payload), creada);
     expect(creada.status).toHaveBeenCalledWith(201);
@@ -47,7 +50,10 @@ describe('persistencia de componentes manuales de la lista física', () => {
     expect(registro.version).toBe(1);
 
     const actualizada = respuestaMock();
-    await guardarCalificacionLista(solicitud({ ...payload, calificacion: 9, version: 1 }), actualizada);
+    await guardarCalificacionLista(solicitud({
+      ...payload, calificacion: 9, version: 1,
+      clientRequestId: '4efb3439-7bb7-4482-8553-9c2c90fb6a70'
+    }), actualizada);
     expect(actualizada.status).toHaveBeenCalledWith(200);
     const despues = await prisma.calificacionListaManual.findUniqueOrThrow({ where: { id: registro.id } });
     expect(despues).toMatchObject({ calificacion: 9, version: 2 });
@@ -55,9 +61,15 @@ describe('persistencia de componentes manuales de la lista física', () => {
       { anterior: null, nueva: 8.5 }, { anterior: 8.5, nueva: 9 }
     ] });
 
-    await expect(guardarCalificacionLista(solicitud({ ...payload, calificacion: 7, version: 1 }), respuestaMock()))
+    await expect(guardarCalificacionLista(solicitud({
+      ...payload, calificacion: 7, version: 1,
+      clientRequestId: '71621251-6f4e-4e48-bd59-f618970b384d'
+    }), respuestaMock()))
       .rejects.toMatchObject({ estadoHttp: 409, codigo: 'CONFLICTO_VERSION' });
-    await expect(guardarCalificacionLista(solicitud({ ...payload, version: 2 }, otroDocenteId), respuestaMock()))
+    await expect(guardarCalificacionLista(solicitud({
+      ...payload, version: 2,
+      clientRequestId: '38405f58-4a07-49b4-83d2-cc49ba40b5cc'
+    }, otroDocenteId), respuestaMock()))
       .rejects.toMatchObject({ estadoHttp: 404 });
   });
 
@@ -88,7 +100,10 @@ describe('persistencia de componentes manuales de la lista física', () => {
   });
 
   it('recupera un reintento de edición aun cuando la versión enviada ya es obsoleta', async () => {
-    const base = { periodoId, alumnoId, componente: 'Practica 2do Parcial' };
+    const base = {
+      periodoId, alumnoId, componente: 'Practica 2do Parcial',
+      clientRequestId: 'df0e109e-42bd-46d1-a064-ea7e18ce5261'
+    };
     await guardarCalificacionLista(solicitud({ ...base, calificacion: 8 }), respuestaMock());
     const payload = {
       ...base, calificacion: 9, version: 1,

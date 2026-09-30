@@ -211,6 +211,43 @@ describe('ConsultaCalificaciones', () => {
     expect(screen.queryByText('respuesta perdida')).not.toBeInTheDocument();
   });
 
+  it('reutiliza clientRequestId si la respuesta y la lectura de recuperación quedan inciertas', async () => {
+    let consultas = 0;
+    obtenerMock.mockImplementation(async () => {
+      consultas += 1;
+      if (consultas === 2 || consultas === 3) throw new Error('lectura temporalmente no disponible');
+      const guardada = consultas >= 4;
+      return { filas: [{
+        alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+        parcial1: '8', parcial2: '9.876', global: '10', final: '10', observaciones: '', tareasYEjercicios2doParcial: '8.5',
+        tareasPuntosObtenidos: '170', tareasPuntosPosibles: '200', practica2doParcial: guardada ? '7.5' : '',
+        practica2doParcialVersion: guardada ? 1 : null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+        examen2doParcialAutomatico: '4.75', examen2doParcialVersion: null, calificacionSegundoParcial: ''
+      }] };
+    });
+    enviarMock.mockRejectedValueOnce(new Error('respuesta incierta')).mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    render(<ConsultaCalificaciones
+      periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]}
+      periodoId="periodo-1"
+      onPeriodoChange={vi.fn()}
+      onSeleccionarAlumno={vi.fn()}
+    />);
+    await screen.findByText('Pérez López Ana');
+    await user.click(screen.getByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }), '7.5');
+    const guardar = screen.getByRole('button', { name: 'Guardar práctica' });
+    await user.click(guardar);
+    await screen.findByText('respuesta incierta');
+    await user.click(guardar);
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledTimes(2));
+    const escrituras = enviarMock.mock.calls.filter(([ruta]) => ruta === '/analiticas/lista-academica/calificaciones');
+    expect(escrituras).toHaveLength(2);
+    expect(escrituras[0][1].clientRequestId).toBe(escrituras[1][1].clientRequestId);
+    await waitFor(() => expect(obtenerMock).toHaveBeenCalledTimes(4));
+    expect(screen.queryByText('respuesta incierta')).not.toBeInTheDocument();
+  });
+
   it('previsualiza el bono y solo lo guarda tras confirmación explícita', async () => {
     const preview = {
       alumnoId: 'alumno-1', bonoSolicitado: '0.5', bonoAplicado: '0.5',
