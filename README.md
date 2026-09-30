@@ -4,7 +4,7 @@
 
 ### Plataforma Universitaria de Evaluación, Calificación OMR y Analítica Académica
 
-[![Versión](https://img.shields.io/badge/version-v1.1.1_estable-blue?style=for-the-badge&logo=semver)](docs/VERSIONADO.md)
+[![Versión](https://img.shields.io/badge/version-v1.2.1-blue?style=for-the-badge&logo=semver)](docs/VERSIONADO.md)
 [![Licencia](https://img.shields.io/badge/license-AGPL--3.0--or--later-emerald?style=for-the-badge)](LICENSE)
 [![Arquitectura](https://img.shields.io/badge/arquitectura-Offline--First_Native_SQLite-purple?style=for-the-badge)](docs/ARQUITECTURA_C4.md)
 [![Sitio Oficial](https://img.shields.io/badge/portal_web-GitHub_Pages-cyan?style=for-the-badge)](https://dtcsrni.github.io/EvaluaPro_Sistema_Universitario/)
