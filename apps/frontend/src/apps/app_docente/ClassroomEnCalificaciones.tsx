@@ -379,9 +379,12 @@ export function ClassroomEnCalificaciones({
       setPreview((actual) => actual ? { ...actual, ...respuesta } : respuesta);
       setMapeoEjecutado(true);
       const evidenciasReleidas = await cargarEvidencias();
-      const resumen = `Sincronización completada. Nuevas: ${respuesta.importadas ?? 0}; actualizadas: ${respuesta.actualizadas ?? 0}.`;
+      const actividadesConError = respuesta.errores?.length ?? 0;
+      const resumen = actividadesConError > 0
+        ? `Sincronización finalizada con errores. Nuevas: ${respuesta.importadas ?? 0}; actualizadas: ${respuesta.actualizadas ?? 0}; actividades con error: ${actividadesConError}.`
+        : `Sincronización completada. Nuevas: ${respuesta.importadas ?? 0}; actualizadas: ${respuesta.actualizadas ?? 0}.`;
       setMensaje(evidenciasReleidas ? `${resumen} Evidencias releídas.` : `${resumen} No se pudieron releer las evidencias; revisa la consulta antes de continuar.`);
-      setMensajeEsError(!evidenciasReleidas);
+      setMensajeEsError(!evidenciasReleidas || actividadesConError > 0);
     } catch (error) {
       setMensaje(error instanceof Error ? error.message : 'No se pudo actualizar la evaluación continua.');
       setMensajeEsError(true);
