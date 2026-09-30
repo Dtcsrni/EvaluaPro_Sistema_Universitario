@@ -19250,6 +19250,256 @@
           }
         ]
       }
+    },
+    "/periodos/{periodoId}/portada": {
+      "get": {
+        "tags": [
+          "Periodos"
+        ],
+        "operationId": "get_periodos_periodoId_portada",
+        "summary": "GET /periodos/{periodoId}/portada",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "periodoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Imagen WebP privada de la materia, normalizada y sin metadatos.",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_alumnos/rutasPeriodos.ts",
+        "x-evaluapro-permissions": [
+          "periodos:leer"
+        ]
+      },
+      "put": {
+        "tags": [
+          "Periodos"
+        ],
+        "operationId": "put_periodos_periodoId_portada",
+        "summary": "PUT /periodos/{periodoId}/portada",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "periodoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "archivo"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "archivo": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPG/JPEG, PNG o WebP; máximo 20 MiB y 20 MP."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_alumnos/rutasPeriodos.ts",
+        "x-evaluapro-permissions": [
+          "periodos:gestionar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaBodyVacioOpcional"
+        ],
+        "x-evaluapro-upload-fields": [
+          "archivo"
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Periodos"
+        ],
+        "operationId": "delete_periodos_periodoId_portada",
+        "summary": "DELETE /periodos/{periodoId}/portada",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "periodoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_alumnos/rutasPeriodos.ts",
+        "x-evaluapro-permissions": [
+          "periodos:gestionar"
+        ]
+      }
     }
   },
   "components": {

@@ -142,6 +142,7 @@ export async function limpiarMongoTest() {
       'asistencia_registros',
       'asistencia_sesiones',
       'asistencia_reglas',
+      'periodo_portadas',
       'alumnos',
       'periodos',
       'sesiones_docente',
