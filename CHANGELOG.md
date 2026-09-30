@@ -2,6 +2,21 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [1.2.1] - 2026-09-30
+
+### Fixed
+- El editor de reactivos vuelve a limpiar recursivamente los descendientes antes de desenvolver etiquetas HTML no permitidas; añade regresiones para elementos y atributos activos anidados.
+- Los identificadores de sesión usan `crypto.randomUUID()` o `crypto.getRandomValues()` cuando están disponibles; el fallback no criptográfico queda limitado a una secuencia local sin uso de autorización.
+
+### Security
+- El lockfile actualiza `brace-expansion` a 1.1.21/2.1.7 e `ip-address` a 10.7.2; `uuid` de ExcelJS queda fijado a 11.1.1 mediante override compatible con `require('uuid').v4()`.
+- El audit del árbol completo permanece con 4 hallazgos altos en Prisma/`@prisma/config`/`mysql2`, cuya remediación automática propone migrar Prisma 7 a 6.19.3. No se aplica ese downgrade porque el backend usa Prisma 7 y `@prisma/adapter-better-sqlite3` 7; se requiere migración y validación de compatibilidad aparte.
+
+### Verification
+- `npm run build`: backend, frontend y portal compilan.
+- `npm -C apps/frontend test -- tests/richTextEditor.test.ts tests/sesion.test.ts`: 6/6; `npm -C apps/backend test -- tests/reactivosContrato.test.ts tests/analiticas.xlsx.sv.contract.test.ts`: 14/14; `npm run test:update`: 12/12; `npm run sdd:audit`: correcto.
+- `npm audit`: quedan 4 hallazgos altos en Prisma 7 y sus dependencias de configuración; la corrección automática exige cambiar a Prisma 6. No se ejecutaron los demás gates globales de release.
+
 ## [Unreleased] - 2026-09-29
 
 ### Added
