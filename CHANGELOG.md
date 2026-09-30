@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [1.2.1] - 2026-09-30
 
 ### Fixed
+- El lockfile autónomo del backend usado por el staging del instalador fija también `exceljs/uuid` en 11.1.1; antes el bundle aislado resolvía `uuid@8.3.2` aunque el lock raíz ya estaba corregido.
 - El editor de reactivos vuelve a limpiar recursivamente los descendientes antes de desenvolver etiquetas HTML no permitidas; añade regresiones para elementos y atributos activos anidados.
 - Los identificadores de sesión usan `crypto.randomUUID()` o `crypto.getRandomValues()` cuando están disponibles; el fallback no criptográfico queda limitado a una secuencia local sin uso de autorización.
 
