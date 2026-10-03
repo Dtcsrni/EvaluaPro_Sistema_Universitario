@@ -101,6 +101,7 @@ test('el workflow de release bloquea la publicación si falla la E2E completa de
   assert.match(installerWorkflow, /-SeedDummyData/);
   assert.match(installerWorkflow, /Publicar evidencia de la E2E completa/);
   assert.match(installerWorkflow, /if: always\(\)/);
+  assert.match(installerWorkflow, /EvaluaPro-QA-Isolated-installer-hub-e2e/);
   assert.ok(installerWorkflow.indexOf('E2E completa sobre el bundle docente que se publicará') < installerWorkflow.indexOf('Publicar artefactos instalador'));
 });
 

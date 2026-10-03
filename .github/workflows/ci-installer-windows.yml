@@ -143,7 +143,7 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 `
             -RootPath "$env:GITHUB_WORKSPACE" `
             -ReportDir $reportDir `
-            -InstallDir "$env:LOCALAPPDATA\EvaluaPro" `
+            -InstallDir (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-installer-hub-e2e') `
             -Port 4519 `
             -IUnderstandThisMutatesPc `
             -SeedDummyData

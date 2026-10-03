@@ -22,6 +22,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - REQ-006: El pipeline Windows ejecuta install, repair, dashboard, verificación de actualización y uninstall con el bundle que se publicará; conserva el reporte E2E y bloquea la publicación ante cualquier falla.
 - REQ-007: La expansión del payload nativo evita una segunda copia completa del árbol y usa el extractor ZIP nativo de Windows cuando está disponible, conservando validación y staging temporal.
 - REQ-008: El runner E2E captura stdout/stderr del ciclo de datos dummy y limita su duración, para que un error de fixture quede en el reporte y no se pierda por el manejo de procesos nativos de PowerShell.
+- REQ-009: El workflow E2E instala bajo un directorio `EvaluaPro-QA-Isolated-*` en LOCALAPPDATA, para que los datos locales de QA queden dentro del árbol que se elimina y limpia la E2E.
 
 ## Criterios de Aceptación
 - Fallos en post-install no dejan archivos huerfanos.
@@ -32,6 +33,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - El release de Windows no publica el bundle hasta que el ciclo E2E completo del artefacto final termina correctamente.
 - La extracción valida los archivos requeridos antes de mover el staging al destino y no copia de nuevo el árbol completo de dependencias.
 - El ciclo dummy termina en 180 segundos como máximo y conserva stdout/stderr por separado, incluido el caso de fallo.
+- El bundle E2E configura SQLite dentro del directorio aislado del runner, nunca en la base compartida de `ProgramData`.
 
 ## Matriz de Trazabilidad
 
@@ -45,3 +47,4 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 | REQ-006 | E2E completa obligatoria del bundle de release y conservación de evidencia | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
 | REQ-007 | Extracción ZIP rápida con publicación desde staging sin duplicar escrituras | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
 | REQ-008 | Ciclo dummy con timeout y stdout/stderr capturados en el artefacto E2E | `scripts/tests/installer-hub-contract.test.mjs` | En validación |
+| REQ-009 | Workflow E2E usa instalación y SQLite confinados bajo LOCALAPPDATA | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
