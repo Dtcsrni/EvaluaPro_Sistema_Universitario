@@ -21,6 +21,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - REQ-005: El post-install docente usa exclusivamente el runtime Node incluido en el payload, valida que sea Node.js 24.x y falla con diagnóstico inmediato si falta o no es válido. No descarga runtimes durante la instalación.
 - REQ-006: El pipeline Windows ejecuta install, repair, dashboard, verificación de actualización y uninstall con el bundle que se publicará; conserva el reporte E2E y bloquea la publicación ante cualquier falla.
 - REQ-007: La expansión del payload nativo evita una segunda copia completa del árbol y usa el extractor ZIP nativo de Windows cuando está disponible, conservando validación y staging temporal.
+- REQ-008: El runner E2E captura stdout/stderr del ciclo de datos dummy y limita su duración, para que un error de fixture quede en el reporte y no se pierda por el manejo de procesos nativos de PowerShell.
 
 ## Criterios de Aceptación
 - Fallos en post-install no dejan archivos huerfanos.
@@ -30,6 +31,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - La instalación docente no requiere acceso a nodejs.org; un paquete sin `runtime/node/node.exe` se rechaza con un error explícito.
 - El release de Windows no publica el bundle hasta que el ciclo E2E completo del artefacto final termina correctamente.
 - La extracción valida los archivos requeridos antes de mover el staging al destino y no copia de nuevo el árbol completo de dependencias.
+- El ciclo dummy termina en 180 segundos como máximo y conserva stdout/stderr por separado, incluido el caso de fallo.
 
 ## Matriz de Trazabilidad
 
@@ -42,3 +44,4 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 | REQ-005 | Runtime Node autocontenido y validado sin descarga de red | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
 | REQ-006 | E2E completa obligatoria del bundle de release y conservación de evidencia | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
 | REQ-007 | Extracción ZIP rápida con publicación desde staging sin duplicar escrituras | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
+| REQ-008 | Ciclo dummy con timeout y stdout/stderr capturados en el artefacto E2E | `scripts/tests/installer-hub-contract.test.mjs` | En validación |

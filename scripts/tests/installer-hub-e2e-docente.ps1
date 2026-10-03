@@ -1274,8 +1274,23 @@ function Invoke-DummyDataCycle {
   $env:E2E_DOCENTE_BASE_URL = $apiBase
   $env:E2E_DOCENTE_SQLITE_PATH = Join-Path $installedRoot 'data\evaluapro.db'
   try {
-    $output = (& node (Join-Path $root 'scripts/tests/seed-docente-dummy.mjs') 2>&1 | Out-String)
-    $exitCode = $LASTEXITCODE
+    $seedScript = Join-Path $root 'scripts/tests/seed-docente-dummy.mjs'
+    $stdoutPath = Join-Path $ReportDir 'dummy-data-cycle.stdout.log'
+    $stderrPath = Join-Path $ReportDir 'dummy-data-cycle.stderr.log'
+    $seedProcess = Start-Process -FilePath 'node.exe' -ArgumentList @("`"$seedScript`"") -WorkingDirectory $root -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+    if (-not $seedProcess.WaitForExit(180000)) {
+      try { Stop-Process -Id $seedProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+      $exitCode = -1
+    } else {
+      $seedProcess.WaitForExit()
+      try { $seedProcess.Refresh() } catch {}
+      $exitCode = if ($null -ne $seedProcess.ExitCode) { [int]$seedProcess.ExitCode } else { -1 }
+    }
+    $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
+    $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { '' }
+    $output = "stdout:`n$stdout`nstderr:`n$stderr"
+    Copy-ArtifactIfExists -Path $stdoutPath | Out-Null
+    Copy-ArtifactIfExists -Path $stderrPath | Out-Null
     Export-JsonArtifact -Name 'dummy-data-cycle.json' -Data ([pscustomobject]@{
         exitCode = $exitCode
         apiBase = $apiBase
