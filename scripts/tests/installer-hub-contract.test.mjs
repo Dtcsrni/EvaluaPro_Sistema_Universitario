@@ -2429,9 +2429,11 @@ test('SPEC-050: cada acceso declarado tiene launcher e icono canónicos', () => 
 test('SPEC-050: post-install regenera tambien los shortcuts locales y el build no empaqueta .lnk absolutos', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
   const trackedLinks = execFileSync('git', ['ls-files', '-z', '--', 'accesos-directos/*.lnk'], { cwd: root, encoding: 'utf8' });
 
-  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput \$true/);
+  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput `\s+-Port 4519/);
+  assert.match(shortcuts, /\[switch\]\$SyncRepoOutput/);
   assert.match(buildMsi, /\$relativePath -match '\^accesos-directos\/\[\^\/\]\+\\\.lnk\$'/);
   assert.equal(trackedLinks, '', 'Los accesos .lnk generados no deben versionarse.');
 });

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EvaluaPro API docente",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "description": "Contrato de las operaciones clave para automatizar autoría de reactivos, generación de exámenes, procesamiento OMR, calificación y consulta académica. Las operaciones usan los mismos servicios y persistencia que la GUI."
   },
   "servers": [

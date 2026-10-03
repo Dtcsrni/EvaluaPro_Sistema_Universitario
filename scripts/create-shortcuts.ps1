@@ -1,7 +1,7 @@
 # Creates Windows shortcuts (.lnk) for EvaluaPro.
 param(
   [string]$OutputDir = "accesos-directos",
-  [bool]$SyncRepoOutput = $false,
+  [switch]$SyncRepoOutput,
   [bool]$SyncDesktop = $true,
   [bool]$SyncStartMenu = $true,
   [bool]$IncludeOpsShortcuts = $true,

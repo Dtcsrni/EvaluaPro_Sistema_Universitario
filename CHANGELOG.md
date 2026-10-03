@@ -2,6 +2,14 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [1.2.3] - 2026-10-03
+
+### Fixed
+- El post-install pasa `SyncRepoOutput` como bandera PowerShell (`[switch]`) en vez de serializar un booleano a texto entre procesos; evita que falle la creación de accesos/manifiesto y que se revierta la instalación.
+
+### Verification
+- Contrato focal de post-install y accesos directos: 1/1.
+
 ## [1.2.2] - 2026-09-30
 
 ### Added
