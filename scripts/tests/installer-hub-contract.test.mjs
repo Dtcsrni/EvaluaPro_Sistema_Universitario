@@ -2432,10 +2432,26 @@ test('SPEC-050: post-install regenera tambien los shortcuts locales y el build n
   const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
   const trackedLinks = execFileSync('git', ['ls-files', '-z', '--', 'accesos-directos/*.lnk'], { cwd: root, encoding: 'utf8' });
 
-  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput `\s+-Port 4519/);
+  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput -SkipManifestUpdate `\s+-Port 4519/);
   assert.match(shortcuts, /\[switch\]\$SyncRepoOutput/);
   assert.match(buildMsi, /\$relativePath -match '\^accesos-directos\/\[\^\/\]\+\\\.lnk\$'/);
   assert.equal(trackedLinks, '', 'Los accesos .lnk generados no deben versionarse.');
+});
+
+test('SPEC-INSTALLER-ROLLBACK-CLEANUP: un fallo de shortcuts conserva la instalación funcional y el updater', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const verifier = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PostInstallVerifier.psm1'), 'utf8');
+
+  assert.match(helper, /-SyncRepoOutput -SkipManifestUpdate/);
+  assert.match(helper, /shortcutWarnings\.Add\(/);
+  assert.match(helper, /state = 'degraded'/);
+  assert.match(helper, /generate-installation-manifest\.ps1/);
+  assert.match(helper, /Instalacion funcional; accesos directos degradados/);
+  assert.match(helper, /degraded = \(-not \$backgroundTaskRegistered\) -or \(\$shortcutWarnings\.Count -gt 0\)/);
+  assert.match(helper, /warnings = @\(@\(\$licenseWarning, \$backgroundTaskWarning\)/);
+  assert.match(verifier, /Falta acceso directo opcional/);
+  assert.match(verifier, /warnings = @\(\$warnings\)/);
+  assert.doesNotMatch(verifier, /\$issues \+= "Falta acceso directo esperado/);
 });
 
 test('SPEC-050: shortcut principal usa el icono embebido del host nativo', () => {

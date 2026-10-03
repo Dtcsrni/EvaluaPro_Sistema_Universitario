@@ -153,6 +153,15 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
   assert.match(msiBuild, /npmCommand prune --omit=dev --ignore-scripts/);
   assert.match(msiBuild, /foreach \(\$prunePath in \$prunePaths\)/);
   assert.match(msiBuild, /node_modules\/\.prisma\/client\/libquery_engine-\*\.so\.node/);
+  assert.match(msiBuild, /node_modules\/\@prisma\/studio-core/);
+  assert.match(msiBuild, /node_modules\/\@electric-sql/);
+  assert.match(msiBuild, /node_modules\/better-sqlite3\/deps/);
+  assert.match(msiBuild, /query_compiler_small_bg\\\.sqlite/);
+  assert.match(msiBuild, /apps\/backend\/eng\.traineddata/);
+  assert.match(msiBuild, /apps\/backend\/spa\.traineddata/);
+  assert.match(msiBuild, /4\.0\.0_best_int\/spa\.traineddata\.gz/);
+  assert.match(msiBuild, /better_sqlite3\.node/);
+  assert.match(msiBuild, /Runtime Prisma\/SQLite validado con consulta en memoria/);
   assert.match(msiBuild, /pdf-parse/);
   assert.match(msiBuild, /pdfjs-dist/);
   assert.match(msiBuild, /Payload preconstruido reutilizado y podado/);
