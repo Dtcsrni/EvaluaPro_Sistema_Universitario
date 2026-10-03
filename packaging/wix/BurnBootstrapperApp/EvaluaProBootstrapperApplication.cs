@@ -1413,6 +1413,17 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 Log("warn", $"El proceso del helper {mode} no confirmó salida tras la cancelación: {waitException.Message}");
             }
 
+            var capturedStdout = SnapshotHelperLines(stdoutLines);
+            var capturedStderr = SnapshotHelperLines(stderrLines);
+            if (!string.IsNullOrWhiteSpace(capturedStdout))
+            {
+                Log("info", $"[helper:{mode}:stdout-at-timeout] {TrimForLog(capturedStdout)}");
+            }
+            if (!string.IsNullOrWhiteSpace(capturedStderr))
+            {
+                Log("warn", $"[helper:{mode}:stderr-at-timeout] {TrimForLog(capturedStderr)}");
+            }
+
             throw new TimeoutException($"Helper {mode} excedió su timeout de {GetHelperTimeout(mode).TotalSeconds:0}s. request={requestPath} response={responsePath}");
         }
         var stdout = string.Join(Environment.NewLine, stdoutLines);
@@ -1492,6 +1503,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
                 if (TryParseHelperProgress(args.Data, out var progressEvent))
                 {
+                    Log("info", $"[helper:{mode}:progress] {progressEvent.Percent}% {TrimForLog(progressEvent.Status, 240)}");
                     onProgress?.Invoke(progressEvent);
                     return;
                 }
@@ -1663,6 +1675,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         return normalized[..max] + "...(truncated)";
+    }
+
+    private static string SnapshotHelperLines(List<string> lines)
+    {
+        lock (lines)
+        {
+            return string.Join(Environment.NewLine, lines.TakeLast(12));
+        }
     }
 
     private static bool TryParseHelperProgress(string rawLine, out HelperProgressEvent progressEvent)

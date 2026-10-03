@@ -126,6 +126,38 @@ jobs:
           EVALUAPRO_SIGN_TIMESTAMP_URL: ${{ secrets.EVALUAPRO_SIGN_TIMESTAMP_URL }}
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-installer-artifacts.ps1
 
+      - name: Instalar Chromium para la E2E docente completa
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        run: npx playwright install chromium
+
+      - name: E2E completa sobre el bundle docente que se publicará
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        shell: powershell
+        env:
+          EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
+          EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
+        run: |
+          $reportDir = "reports/qa/installer-hub-e2e-docente/ci-${{ github.run_id }}"
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 `
+            -RootPath "$env:GITHUB_WORKSPACE" `
+            -ReportDir $reportDir `
+            -InstallDir "$env:LOCALAPPDATA\EvaluaPro" `
+            -Port 4519 `
+            -IUnderstandThisMutatesPc `
+            -SeedDummyData
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publicar evidencia de la E2E completa
+        if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v6
+        with:
+          name: installer-hub-e2e-${{ github.run_id }}
+          path: reports/qa/installer-hub-e2e-docente/ci-${{ github.run_id }}/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Verificar artefactos
         if: github.event_name == 'pull_request'
         shell: powershell

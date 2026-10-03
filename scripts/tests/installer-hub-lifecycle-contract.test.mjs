@@ -14,6 +14,7 @@ const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWi
 const hubWindow = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
 const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
 const msiBuild = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+const installerWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
 const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
 const matrix = JSON.parse(fs.readFileSync(path.join(root, 'reports', 'qa', 'latest', 'gui-screen-matrix.json'), 'utf8'));
 
@@ -68,6 +69,29 @@ test('helper PowerShell tiene timeout por operación y cancela su árbol', () =>
   assert.match(bootstrapper, /Kill\(entireProcessTree: true\)/);
   assert.match(bootstrapper, /request=\{requestPath\} response=\{responsePath\}/);
   assert.match(runner, /\[int\]\$TimeoutMinutes = 10/);
+});
+
+test('post-install informa etapas, conserva salida al vencer timeout y no depende de descargar Node', () => {
+  assert.match(helper, /function Write-HelperProgress/);
+  assert.match(helper, /EVALUAPRO_PROGRESS:/);
+  assert.match(helper, /Expandiendo y validando el payload nativo/);
+  assert.match(helper, /Base de datos SQLite preparada/);
+  assert.match(helper, /Manifiesto de actualización validado/);
+  assert.match(helper, /runtime Node autocontenido/);
+  assert.match(helper, /Runtime Node docente inválido/);
+  assert.doesNotMatch(helper, /Invoke-WebRequest\s+-Uri\s+\$nodeUrl/);
+  assert.match(bootstrapper, /stdout-at-timeout/);
+  assert.match(bootstrapper, /stderr-at-timeout/);
+  assert.match(bootstrapper, /\[helper:\{mode\}:progress\]/);
+});
+
+test('el workflow de release bloquea la publicación si falla la E2E completa del bundle', () => {
+  assert.match(installerWorkflow, /E2E completa sobre el bundle docente que se publicará/);
+  assert.match(installerWorkflow, /scripts\/tests\/installer-hub-e2e-docente\.ps1/);
+  assert.match(installerWorkflow, /-SeedDummyData/);
+  assert.match(installerWorkflow, /Publicar evidencia de la E2E completa/);
+  assert.match(installerWorkflow, /if: always\(\)/);
+  assert.ok(installerWorkflow.indexOf('E2E completa sobre el bundle docente que se publicará') < installerWorkflow.indexOf('Publicar artefactos instalador'));
 });
 
 test('runtime nativo tolera arranque lento sin reinicio prematuro', () => {
