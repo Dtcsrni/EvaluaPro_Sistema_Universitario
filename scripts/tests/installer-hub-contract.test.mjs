@@ -345,6 +345,9 @@ test('runner dummy usa API docente y no confunde puerto web del dashboard', () =
   assert.match(runner, /Start-Process -FilePath 'node\.exe'.*RedirectStandardOutput \$stdoutPath -RedirectStandardError \$stderrPath/);
   assert.match(runner, /dummy-data-cycle\.stderr\.log/);
   assert.match(runner, /WaitForExit\(180000\)/);
+  assert.match(runner, /\$seedResult\.verificado -eq \$true/);
+  assert.match(runner, /\$cleanup -contains 'alumnos-local:3'/);
+  assert.match(runner, /\$cleanup -contains 'cuenta:local-db'/);
 });
 
 test('fallback dummy queda confinado a SQLite bajo LOCALAPPDATA', () => {

@@ -1278,16 +1278,37 @@ function Invoke-DummyDataCycle {
     $stdoutPath = Join-Path $ReportDir 'dummy-data-cycle.stdout.log'
     $stderrPath = Join-Path $ReportDir 'dummy-data-cycle.stderr.log'
     $seedProcess = Start-Process -FilePath 'node.exe' -ArgumentList @("`"$seedScript`"") -WorkingDirectory $root -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
-    if (-not $seedProcess.WaitForExit(180000)) {
+    $seedWaitCompleted = $seedProcess.WaitForExit(180000)
+    if (-not $seedWaitCompleted) {
       try { Stop-Process -Id $seedProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
       $exitCode = -1
     } else {
       $seedProcess.WaitForExit()
       try { $seedProcess.Refresh() } catch {}
-      $exitCode = if ($null -ne $seedProcess.ExitCode) { [int]$seedProcess.ExitCode } else { -1 }
+      $exitCode = if ($null -ne $seedProcess.ExitCode) { [int]$seedProcess.ExitCode } else { $null }
     }
     $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
     $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { '' }
+    $seedResult = $null
+    try { $seedResult = $stdout | ConvertFrom-Json -ErrorAction Stop } catch {}
+    if ($null -eq $exitCode) {
+      $structuredSuccess = $false
+      if ($null -ne $seedResult) {
+        $cleanup = @($seedResult.cleanup)
+        $cleanupErrors = @($seedResult.cleanupErrors)
+        $structuredSuccess = $seedWaitCompleted -and
+          $seedResult.cuentaCreada -eq $true -and
+          $seedResult.verificado -eq $true -and
+          @($seedResult.materias).Count -eq 3 -and
+          @($seedResult.alumnos).Count -eq 3 -and
+          $cleanupErrors.Count -eq 0 -and
+          $cleanup -contains 'alumnos-local:3' -and
+          $cleanup -contains 'materias-local:3' -and
+          $cleanup -contains 'cuenta:local-db'
+      }
+      $exitCode = if ($structuredSuccess) { 0 } else { -1 }
+      if ($structuredSuccess) { Write-E2ELog 'WARNING: ExitCode nulo en el ciclo dummy; se acepta el reporte estructurado completo y limpio.' }
+    }
     $output = "stdout:`n$stdout`nstderr:`n$stderr"
     Copy-ArtifactIfExists -Path $stdoutPath | Out-Null
     Copy-ArtifactIfExists -Path $stderrPath | Out-Null
