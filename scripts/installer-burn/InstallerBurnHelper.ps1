@@ -799,9 +799,11 @@ function Invoke-PostInstall {
   if (-not (Test-Path $nodeExe)) {
     throw "Payload docente incompleto: falta el runtime Node autocontenido ($nodeExe). Se requiere reconstruir el instalador con runtime/node/node.exe."
   }
-  $nodeVersion = (& $nodeExe --version 2>&1 | Select-Object -First 1).ToString().Trim()
-  if ($LASTEXITCODE -ne 0 -or $nodeVersion -notmatch '^v24\.') {
-    throw "Runtime Node docente inválido: se esperaba Node.js 24.x y se detectó '$nodeVersion'."
+  $nodeVersionOutput = @(& $nodeExe --version 2>&1)
+  $nodeExitCode = $LASTEXITCODE
+  $nodeVersion = if ($nodeVersionOutput.Count -gt 0) { [string]$nodeVersionOutput[0].ToString().Trim() } else { '' }
+  if ($nodeExitCode -ne 0 -or $nodeVersion -notmatch '^v24\.') {
+    throw "Runtime Node docente inválido: se esperaba Node.js 24.x y se detectó '$nodeVersion' (exit=$nodeExitCode)."
   }
   Write-HelperProgress -Percent 63 -Status "Runtime Node $nodeVersion validado."
 

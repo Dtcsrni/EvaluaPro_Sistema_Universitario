@@ -79,6 +79,8 @@ test('post-install informa etapas, conserva salida al vencer timeout y no depend
   assert.match(helper, /Manifiesto de actualización validado/);
   assert.match(helper, /runtime Node autocontenido/);
   assert.match(helper, /Runtime Node docente inválido/);
+  assert.match(helper, /\$nodeVersionOutput = @\(& \$nodeExe --version 2>&1\)\s+\$nodeExitCode = \$LASTEXITCODE/);
+  assert.doesNotMatch(helper, /& \$nodeExe --version 2>&1 \| Select-Object -First 1/);
   assert.doesNotMatch(helper, /Invoke-WebRequest\s+-Uri\s+\$nodeUrl/);
   assert.match(bootstrapper, /stdout-at-timeout/);
   assert.match(bootstrapper, /stderr-at-timeout/);
