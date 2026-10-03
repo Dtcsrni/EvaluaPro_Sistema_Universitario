@@ -2,6 +2,11 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [Unreleased] - 2026-10-03
+
+### Fixed
+- Los fallos al regenerar accesos directos quedan degradados con diagnóstico; el manifiesto crítico para el updater se genera de forma independiente y sigue siendo bloqueante si no puede escribirse.
+
 ## [1.2.3] - 2026-10-03
 
 ### Fixed

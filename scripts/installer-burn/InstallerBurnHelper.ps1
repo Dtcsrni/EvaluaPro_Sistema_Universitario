@@ -847,22 +847,71 @@ function Invoke-PostInstall {
   # usuario abre la aplicación inmediatamente después de instalar.
   Write-Host 'Dashboard nativo preparado; se iniciará bajo demanda por el broker.'
 
-  # Registrar accesos directos y manifiesto después de que payload/config/runtime
-  # estén completos. El verificador y el broker consumen este manifiesto.
+  # Los accesos directos mejoran el primer uso, pero no son requisito para que
+  # la aplicación instalada funcione ni para que el updater la detecte.
+  # Ejecutamos la reconciliación como paso degradable para que un error de
+  # PowerShell/COM en el perfil del usuario no desinstale un MSI válido.
+  $shortcutWarnings = New-Object System.Collections.Generic.List[string]
   $shortcutScript = Join-Path $targetDir 'scripts\create-shortcuts.ps1'
   if (-not (Test-Path -LiteralPath $shortcutScript)) {
-    throw "Payload incompleto: no existe create-shortcuts.ps1 en $targetDir."
+    $shortcutWarnings.Add("No existe create-shortcuts.ps1 en $targetDir; se conserva el acceso creado por MSI.") | Out-Null
+  } else {
+    & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $shortcutScript `
+      -OutputDir 'accesos-directos' -Force `
+      -SyncRepoOutput -SkipManifestUpdate `
+      -Port 4519
+    $shortcutExitCode = $LASTEXITCODE
+    if ($shortcutExitCode -ne 0) {
+      $shortcutWarnings.Add("La reconciliación de accesos directos terminó con exit=$shortcutExitCode.") | Out-Null
+    }
   }
-  & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $shortcutScript `
-    -OutputDir 'accesos-directos' -Force `
-    -SyncRepoOutput `
-    -Port 4519
-  if ($LASTEXITCODE -ne 0) {
-    throw "No se pudieron crear accesos directos/manifiesto de instalación (exit=$LASTEXITCODE)."
+
+  $shortcutReportPath = Join-Path $targetDir 'logs\shortcut-reconciliation.json'
+  if (Test-Path -LiteralPath $shortcutReportPath) {
+    try {
+      $shortcutReport = Get-Content -LiteralPath $shortcutReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      if ([string]$shortcutReport.state -ne 'ok') {
+        $shortcutWarnings.Add('La reconciliación de accesos directos reportó errores; el acceso puede abrirse desde el menú de inicio de Windows.') | Out-Null
+      }
+    } catch {
+      $shortcutWarnings.Add("No se pudo leer shortcut-reconciliation.json: $($_.Exception.Message)") | Out-Null
+    }
+  } else {
+    $shortcutWarnings.Add('No se generó shortcut-reconciliation.json; se conserva el acceso creado por MSI.') | Out-Null
+    try {
+      $fallbackShortcutReport = [ordered]@{
+        schemaVersion = 1
+        generatedAt = (Get-Date).ToString('o')
+        root = $targetDir
+        flavorId = $effectiveFlavor
+        state = 'degraded'
+        entries = @()
+        errors = @($shortcutWarnings.ToArray())
+      }
+      $fallbackShortcutReport | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $shortcutReportPath -Encoding UTF8
+    } catch {
+      $shortcutWarnings.Add("No se pudo guardar el diagnóstico de accesos directos: $($_.Exception.Message)") | Out-Null
+    }
   }
+
+  foreach ($shortcutWarning in ($shortcutWarnings | Select-Object -Unique)) {
+    Write-Warning $shortcutWarning
+  }
+
+  # El manifiesto habilita dashboard/updater y es crítico. Debe poder generarse
+  # independientemente de los accesos directos, incluso cuando su reconciliación
+  # quedó degradada.
   $installationManifest = Join-Path $targetDir 'logs\installation.manifest.json'
+  $manifestScript = Join-Path $targetDir 'scripts\generate-installation-manifest.ps1'
+  if (-not (Test-Path -LiteralPath $manifestScript)) {
+    throw "No existe el generador crítico del manifiesto de instalación: $manifestScript"
+  }
+  & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $manifestScript -InstallDir $targetDir -Port 4519
+  if ($LASTEXITCODE -ne 0) {
+    throw "No se pudo generar el manifiesto de instalación requerido para actualización (exit=$LASTEXITCODE)."
+  }
   if (-not (Test-Path -LiteralPath $installationManifest)) {
-    throw "No se generó el manifiesto de instalación: $installationManifest"
+    throw "No se generó el manifiesto de instalación requerido para actualización: $installationManifest"
   }
 
   # Validacion rapida
@@ -872,9 +921,9 @@ function Invoke-PostInstall {
     ok = $true
     phase = "helper_postinstall"
     exitCode = 0
-    message = if ($backgroundTaskRegistered) { "Instalacion Nativa exitosa." } else { "Instalacion Nativa exitosa; broker bajo demanda." }
-    degraded = -not $backgroundTaskRegistered
-      warning = if ($licenseWarning) { $licenseWarning } else { $backgroundTaskWarning }
+    message = if ($shortcutWarnings.Count -gt 0) { "Instalacion funcional; accesos directos degradados. Abre EvaluaPro.exe desde la carpeta de instalación." } elseif ($backgroundTaskRegistered) { "Instalacion Nativa exitosa." } else { "Instalacion Nativa exitosa; broker bajo demanda." }
+    degraded = (-not $backgroundTaskRegistered) -or ($shortcutWarnings.Count -gt 0)
+      warnings = @(@($licenseWarning, $backgroundTaskWarning) + @($shortcutWarnings.ToArray()) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
       license = $licenseState
     data = @{
       envPath = $envPath
