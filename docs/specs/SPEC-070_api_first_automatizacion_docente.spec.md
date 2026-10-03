@@ -1,8 +1,8 @@
 ---
 id: SPEC-070
 titulo: Operación docente automatizable por API con correspondencia en GUI
-version: 1.23.7
-fecha: 2026-09-30
+version: 1.23.9
+fecha: 2026-10-03
 autor: Codex / EvaluaPro Team
 modulo: api_docente_automatizacion
 estado: approved
@@ -240,6 +240,12 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   de Global/C3, P2 y P1; el preview no muta. El guardado es versionado con
   `clientRequestId` e idempotencia. No se publicarán
   notas a Classroom como parte de este flujo.
+- **REQ-033:** La generación por lote admite el tipo fijo `extraordinario` con
+  una lista explícita de alumnos activos del periodo de la plantilla. Los exámenes
+  conservan el tipo y vínculo por alumno en historial y resultado. Su calificación
+  se persiste separada y no alimenta componentes ni agregados de parcial/global.
+  Reintentos con el mismo lote deben coincidir en tipo y cohorte; una selección
+  distinta requiere un `loteId` nuevo.
 - **REQ-019:** Las entregas deben poder listarse y consultarse por ID desde API,
   con filtros por examen, alumno, periodo, lote y estado, paginación acotada y
   cursor estable. Cada respuesta debe limitarse al docente autenticado y omitir
@@ -410,6 +416,11 @@ pm run api:contract:check`.
   conserva el estado de revisión al guardar. Una doble marca solo puede calificarse
   como opción única si la evidencia ya fue resuelta explícitamente antes de
   calificar; de otro modo sigue sin opción y cuenta incorrecta.
+- **AC-032:** La API rechaza el tipo extraordinario sin una lista no vacía de
+  alumnos únicos, inactivos o fuera del periodo de la plantilla, sin crear
+  exámenes. Una solicitud válida genera exactamente un examen extraordinario por
+  alumno elegido; el reintento idempotente valida la misma cohorte. La calificación
+  conserva la nota extraordinaria y no escribe campos ni agregados ordinarios.
 - **AC-017:** La API permite listar entregas con filtros y cursor, consultar
   una entrega propia por ID, rechazar IDs ajenos como 404 y rechazar cursores o
   parámetros inválidos. La respuesta no expone el correo del alumno; las
@@ -444,6 +455,7 @@ implica que ya satisfagan todos los criterios nuevos.
 | REQ-023 / AC-021 | Lista paginada de paquetes consolidados y correspondencia con historial GUI | `apps/backend/tests/integracion/examenesLotesApi.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/check-openapi-contract.mjs` | Validado en foco; auditoría CRUD general pendiente |
 | REQ-027 / AC-025 | Inmutabilidad del lote y recuperación con el mismo ID | `apps/backend/tests/integracion/examenesRetention.test.ts`; `apps/backend/tests/integracion/examenesLotesApi.test.ts` | Implementado; incompatibilidad cubierta por el contrato de recuperación |
 | REQ-030 / AC-028 | Archivo/restauración atómica, idempotente y auditable del artefacto PDF con paridad GUI | `apps/backend/tests/integracion/examenesLotesApi.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `apps/frontend/tests/plantillasHistorialLotes.archivo.test.tsx`; `scripts/tests/migrate-examen-lotes-ciclo-vida-sqlite.test.mjs` | Backend/SDK/migración y representación GUI/paginación validados en foco |
+| REQ-033 / AC-032 | Generación y calificación aparte de extraordinarios asignados a alumnos seleccionados | `apps/backend/tests/integracion/flujoExamen.test.ts`; `apps/backend/tests/examenExtraordinario.rules.test.ts`; `apps/frontend/tests/plantillas.refactor.test.tsx`; `scripts/tests/migrate-examen-tipo-examen-sqlite.test.mjs` | Implementado; validación focal |
 | REQ-031 / AC-029 | CRUD transaccional, idempotente y auditable de temas del banco con paridad GUI | `apps/backend/tests/integracion/temasBancoLifecycle.test.ts`; `apps/backend/tests/bancoPreguntas.controlador.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-temas-banco-auditoria-sqlite.test.mjs`; `apps/frontend/tests/bancoGestionTemas.test.tsx` | Backend/SDK/migración/controlador validados; typecheck API/GUI validado; GUI mantiene clave de reintento |
 | REQ-028 / AC-026 | CRUD seguro de temarios, auditoría y carga PDF multipart en paridad con GUI | `apps/backend/tests/integracion/temario.pdf.test.ts`; `apps/frontend/tests/seccionTemarios.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-temarios-auditoria-sqlite.test.mjs` | Implementado; validación focalizada pendiente de cierre final |
 | REQ-029 / AC-027 | Todos los modelos Prisma clasificados en la matriz de ciclos de vida | `scripts/tests/api-resource-lifecycle.test.mjs`; `scripts/api/check-resource-lifecycle.mjs` | Implementado; guard integrado a `api:contract:check` |

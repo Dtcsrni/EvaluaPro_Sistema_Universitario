@@ -244,7 +244,7 @@ async function cargarDatosListaAcademica(docenteId: string, periodoId: string, b
   const mappedCalificaciones = calificaciones.map((calificacion) => ({
     ...calificacion,
     _id: calificacion.id,
-    tipoExamen: calificacion.tipoExamen as 'parcial' | 'global',
+    tipoExamen: calificacion.tipoExamen as 'parcial' | 'global' | 'extraordinario',
     plantillaTitulo: calificacion.examenGenerado?.plantilla?.titulo
   }));
   const mappedBanderas = banderas.map((bandera) => ({ ...bandera, _id: bandera.id, tipo: bandera.motivo }));

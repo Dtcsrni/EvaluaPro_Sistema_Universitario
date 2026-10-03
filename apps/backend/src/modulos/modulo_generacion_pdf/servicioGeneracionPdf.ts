@@ -5,7 +5,7 @@
  */
 import { generarExamenIndividual } from './application/usecases/generarExamenIndividual.js';
 import type { MapaVariante, PreguntaBase } from './servicioVariantes.js';
-import type { OmrTemplateId, TemplateVersion } from './shared/tiposPdf.js';
+import type { OmrTemplateId, TemplateVersion, TipoExamen } from './shared/tiposPdf.js';
 import {
   resolverTemplateVersionCanonica,
   TEMPLATE_VERSION_DEFAULT
@@ -34,7 +34,7 @@ export async function generarPdfExamen({
   examId?: string;
   preguntas: PreguntaBase[];
   mapaVariante: MapaVariante;
-  tipoExamen: 'parcial' | 'global';
+  tipoExamen: TipoExamen;
   totalPaginas: number;
   margenMm?: number;
   templateVersion?: TemplateVersion;

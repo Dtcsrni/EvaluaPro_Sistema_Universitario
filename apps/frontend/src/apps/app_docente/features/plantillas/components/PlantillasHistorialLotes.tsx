@@ -15,6 +15,7 @@ type ExamenGeneradoResumen = {
   loteId?: string;
   plantillaId: string;
   alumnoId?: string | null;
+  tipoExamen?: string | null;
   estado?: string;
   generadoEn?: string;
   descargadoEn?: string;
@@ -241,6 +242,7 @@ export function PlantillasHistorialLotes({
                             <div className="item-title">Folio: {ex.folio}</div>
                             <div className="item-meta">
                               <span className="badge badge-meta">Alumno: {alumno ? `${alumno.nombres} ${alumno.apellidos}` : 'Muestra individual'}</span>
+                              {ex.tipoExamen === 'extraordinario' && <span className="badge badge-meta">Tipo: Extraordinario</span>}
                               <span className="badge badge-meta">ID: {idCortoMateria(ex._id)}</span>
                               <span className="badge badge-meta">Generado: {formatearFechaHora(ex.generadoEn)}</span>
                             </div>
