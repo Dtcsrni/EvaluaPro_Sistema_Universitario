@@ -691,6 +691,11 @@ function Invoke-PostInstall {
     if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
     $defaultDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
     $effectiveDatabaseUrl = [string]$runtimeEnv['DATABASE_URL']
+    if ($targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+      # Una configuración operativa puede traer el default compartido de ProgramData;
+      # en QA la URL efectiva debe seguir la raíz aislada donde se prepara SQLite.
+      $effectiveDatabaseUrl = $defaultDatabaseUrl
+    }
     if ([string]::IsNullOrWhiteSpace($effectiveDatabaseUrl)) { $effectiveDatabaseUrl = $defaultDatabaseUrl }
     Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $effectiveDatabaseUrl
     Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $effectiveDatabaseUrl

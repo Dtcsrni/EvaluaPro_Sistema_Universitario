@@ -333,6 +333,7 @@ test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   assert.match(helper, /Join-Path \$programDataRoot 'EvaluaPro'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix/);
   assert.match(helper, /localDataDir = Join-Path \$localDataRoot 'data'/);
+  assert.match(helper, /StartsWith\(\$qaRootPrefix,[\s\S]*?\$effectiveDatabaseUrl = \$defaultDatabaseUrl/);
 });
 
 test('runner dummy usa API docente y no confunde puerto web del dashboard', () => {
