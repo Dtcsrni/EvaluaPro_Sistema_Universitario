@@ -48,6 +48,7 @@ export type ExamenGeneradoResumen = {
   origenGeneracion?: string;
   archivadoEn?: string | null;
   alumnoId?: string | null;
+  tipoExamen?: string | null;
   estado?: string;
   generadoEn?: string;
   descargadoEn?: string;

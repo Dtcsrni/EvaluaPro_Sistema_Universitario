@@ -519,6 +519,8 @@ model ExamenGenerado {
   periodo                  Periodo?                  @relation(fields: [periodoId], references: [id])
   plantillaId              String
   plantilla                ExamenPlantilla           @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+  tipoExamen               String?
+  cohorteLoteHash           String?
   alumnoId                 String?
   alumno                   Alumno?                   @relation(fields: [alumnoId], references: [id])
   loteId                   String?

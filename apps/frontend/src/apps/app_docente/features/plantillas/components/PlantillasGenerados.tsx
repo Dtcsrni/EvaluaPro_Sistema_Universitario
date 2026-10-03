@@ -18,6 +18,7 @@ type ExamenGeneradoResumen = {
   loteId?: string;
   plantillaId: string;
   alumnoId?: string | null;
+  tipoExamen?: string | null;
   estado?: string;
   generadoEn?: string;
   descargadoEn?: string;
@@ -436,6 +437,7 @@ export function PlantillasGenerados({
                           <div className="item-title">Folio: {ex.folio}</div>
                           <div className="item-meta">
                             <span>Alumno: {nombreAlumno}</span>
+                            {ex.tipoExamen === 'extraordinario' && <span>Tipo: Extraordinario</span>}
                             <span>Generado: {formatearFechaHora(ex.generadoEn)}</span>
                             {ex.descargadoEn && <span>Descargado: {formatearFechaHora(ex.descargadoEn)}</span>}
                           </div>

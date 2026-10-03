@@ -4,6 +4,15 @@ function clavePorPlantilla(plantillaId: string) {
   return `${CLAVE_LOTE_PENDIENTE}:${String(plantillaId).trim()}`;
 }
 
+export function crearClaveLoteGeneracion(
+  plantillaId: string,
+  tipoExamen?: 'extraordinario',
+  alumnoIds: string[] = []
+) {
+  if (tipoExamen !== 'extraordinario') return plantillaId;
+  return `${plantillaId}:extraordinario:${[...alumnoIds].sort().join(',')}`;
+}
+
 export function leerLotePendiente(plantillaId: string, almacenamiento?: Storage): string | null {
   try {
     return (almacenamiento ?? window.localStorage).getItem(clavePorPlantilla(plantillaId))?.trim() || null;

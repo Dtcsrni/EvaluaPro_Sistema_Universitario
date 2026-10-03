@@ -4,7 +4,7 @@
  * Responsabilidad: encapsular la generación individual y masiva de exámenes,
  * así como las consultas operativas de lotes, sin acoplar la lógica a HTTP.
  */
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import fs from 'node:fs/promises';
 import { PDFDocument } from 'pdf-lib';
 import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
@@ -180,7 +180,7 @@ async function generarExamenUseCaseInterno(params: {
     examId: examenGeneradoId,
     preguntas: preguntasCandidatas,
     mapaVariante,
-    tipoExamen: plantilla.tipo as 'parcial' | 'global',
+    tipoExamen: plantilla.tipo as import('../../shared/tiposPdf.js').TipoExamen,
     totalPaginas: numeroPaginas,
     margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: templateVersionOmr,
@@ -268,6 +268,7 @@ async function generarExamenUseCaseInterno(params: {
       docenteId: docId,
       periodoId: plantilla.periodoId ? String(plantilla.periodoId) : null,
       plantillaId: String(plantilla.id),
+      tipoExamen: String(plantilla.tipo),
       loteId,
       origenGeneracion: 'individual',
       folio,
@@ -332,6 +333,8 @@ export async function generarExamenesLoteUseCase(params: {
   plantillaId: string;
   confirmarMasivo?: boolean;
   loteId?: string;
+  tipoExamen?: 'extraordinario';
+  alumnoIds?: string[];
 }) {
   const docenteId = String(params.docenteId);
   const loteSolicitado = normalizarLoteId(params.loteId);
@@ -352,6 +355,8 @@ async function generarExamenesLoteUseCaseInterno(params: {
   plantillaId: string;
   confirmarMasivo?: boolean;
   loteId?: string;
+  tipoExamen?: 'extraordinario';
+  alumnoIds?: string[];
 }) {
   const docId = String(params.docenteId);
   const plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
@@ -360,6 +365,16 @@ async function generarExamenesLoteUseCaseInterno(params: {
   }
   if (!plantilla.periodoId) {
     throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla requiere materia (periodoId) para generar en lote', 400);
+  }
+  const tipoExamen = params.tipoExamen ?? String(plantilla.tipo);
+  if (!['parcial', 'global', 'extraordinario'].includes(tipoExamen)) {
+    throw new ErrorAplicacion('TIPO_EXAMEN_INVALIDO', 'El tipo de examen no está admitido.', 400);
+  }
+  if (tipoExamen === 'extraordinario' && (!Array.isArray(params.alumnoIds) || params.alumnoIds.length === 0)) {
+    throw new ErrorAplicacion('ALUMNOS_REQUERIDOS', 'Selecciona al menos un alumno para generar el extraordinario.', 400);
+  }
+  if (tipoExamen !== 'extraordinario' && params.alumnoIds) {
+    throw new ErrorAplicacion('SELECCION_ALUMNOS_NO_ADMITIDA', 'La selección individual de alumnos solo está disponible para extraordinarios.', 400);
   }
 
   const loteIdNormalizado = normalizarLoteId(params.loteId);
@@ -374,9 +389,24 @@ async function generarExamenesLoteUseCaseInterno(params: {
 
   const periodo = await resolverPeriodoPlantillaActivo(plantilla as { periodoId?: unknown });
   const docenteDb = await resolverDocentePdf(docId);
-  const alumnos = await prisma.alumno.findMany({
+  const alumnosActivos = await prisma.alumno.findMany({
     where: { periodoId: String(plantilla.periodoId), activo: true }
   });
+  const idsExtraordinario = tipoExamen === 'extraordinario' ? new Set(params.alumnoIds ?? []) : null;
+  let alumnos = alumnosActivos;
+  if (idsExtraordinario) {
+    const alumnosActivosPorId = new Map(alumnosActivos.map((alumno) => [String(alumno.id), alumno]));
+    if (idsExtraordinario.size !== (params.alumnoIds ?? []).length) {
+      throw new ErrorAplicacion('ALUMNOS_DUPLICADOS', 'La selección contiene alumnos duplicados.', 400);
+    }
+    if ([...idsExtraordinario].some((alumnoId) => !alumnosActivosPorId.has(alumnoId))) {
+      throw new ErrorAplicacion('ALUMNOS_NO_VALIDOS', 'Todos los alumnos seleccionados deben estar activos en la materia de la plantilla.', 400);
+    }
+    alumnos = (params.alumnoIds ?? []).map((alumnoId) => alumnosActivosPorId.get(alumnoId)!);
+  }
+  const cohorteLoteHash = tipoExamen === 'extraordinario'
+    ? createHash('sha256').update([...(params.alumnoIds ?? [])].sort().join('\n')).digest('hex')
+    : null;
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
   const esTest = esEntornoTest();
 
@@ -468,10 +498,18 @@ async function generarExamenesLoteUseCaseInterno(params: {
 
   for (const examenPrevio of examenesPrevios) {
     const alumnoId = String(examenPrevio.alumnoId ?? '');
-    if (!alumnoId || !alumnosIdsActivos.has(alumnoId) || examenPrevio.plantillaId !== String(plantilla.id)) {
+    const tipoExamenPrevio = String(examenPrevio.tipoExamen ?? plantilla.tipo);
+    if (
+      !alumnoId ||
+      !alumnosIdsActivos.has(alumnoId) ||
+      examenPrevio.plantillaId !== String(plantilla.id) ||
+      (idsExtraordinario && !idsExtraordinario.has(alumnoId)) ||
+      tipoExamenPrevio !== tipoExamen ||
+      (tipoExamen === 'extraordinario' && examenPrevio.cohorteLoteHash !== cohorteLoteHash)
+    ) {
       throw new ErrorAplicacion(
         'LOTE_REANUDACION_INCOMPATIBLE',
-        'El lote previo no coincide con la plantilla o la lista actual de alumnos; no se mezclaron ni regeneraron sus exámenes.',
+        'El lote previo no coincide con la plantilla, el tipo o la lista de alumnos; no se mezclaron ni regeneraron sus exámenes.',
         409,
         { loteId, examenId: examenPrevio.id }
       );
@@ -561,7 +599,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
           examId: examenGeneradoId,
           preguntas: preguntasCandidatas,
           mapaVariante,
-          tipoExamen: plantilla.tipo as 'parcial' | 'global',
+          tipoExamen: tipoExamen as import('../../shared/tiposPdf.js').TipoExamen,
           totalPaginas: numeroPaginas,
           margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
           templateVersion: templateVersionOmr,
@@ -655,6 +693,8 @@ async function generarExamenesLoteUseCaseInterno(params: {
                 docenteId: docId,
                 periodoId: plantilla.periodoId ? String(plantilla.periodoId) : null,
                 plantillaId: String(plantilla.id),
+                tipoExamen,
+                cohorteLoteHash,
                 alumnoId: String(alumno.id),
                 loteId,
                 origenGeneracion: 'lote',
