@@ -85,6 +85,14 @@ test('post-install informa etapas, conserva salida al vencer timeout y no depend
   assert.match(bootstrapper, /\[helper:\{mode\}:progress\]/);
 });
 
+test('payload nativo usa extracción rápida y publica desde staging sin copiar el árbol completo', () => {
+  assert.match(helper, /Get-Command -Name 'tar\.exe' -CommandType Application/);
+  assert.match(helper, /& \$tar\.Source -xf \$PayloadZip -C \$payloadStage/);
+  assert.match(helper, /\[System\.IO\.Compression\.ZipFile\]::ExtractToDirectory\(\$PayloadZip, \$payloadStage\)/);
+  assert.match(helper, /Move-Item -LiteralPath \$entry\.FullName -Destination \$destination -Force/);
+  assert.doesNotMatch(helper, /Copy-Item -LiteralPath \$entry\.FullName -Destination \$destination -Recurse -Force/);
+});
+
 test('el workflow de release bloquea la publicación si falla la E2E completa del bundle', () => {
   assert.match(installerWorkflow, /E2E completa sobre el bundle docente que se publicará/);
   assert.match(installerWorkflow, /scripts\/tests\/installer-hub-e2e-docente\.ps1/);

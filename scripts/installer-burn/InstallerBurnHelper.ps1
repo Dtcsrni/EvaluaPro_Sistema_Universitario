@@ -140,7 +140,21 @@ function Expand-NativePayload {
   $payloadStage = Join-Path $TargetDir ('.payload-stage-' + [Guid]::NewGuid().ToString('N'))
   try {
     New-Item -ItemType Directory -Path $payloadStage -Force | Out-Null
-    Expand-Archive -LiteralPath $PayloadZip -DestinationPath $payloadStage -Force
+    $tar = Get-Command -Name 'tar.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($tar) {
+      Write-HelperProgress -Percent 34 -Status 'Extrayendo archivos del payload nativo.'
+      $extractOutput = @(& $tar.Source -xf $PayloadZip -C $payloadStage 2>&1)
+      $extractExitCode = $LASTEXITCODE
+      if ($extractExitCode -ne 0) {
+        $extractDetail = (@($extractOutput | Select-Object -Last 8) -join ' ').Trim()
+        throw "No se pudo extraer el payload nativo con tar.exe (exit=$extractExitCode). $extractDetail"
+      }
+    } else {
+      Write-HelperProgress -Percent 34 -Status 'Extrayendo archivos del payload nativo.'
+      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      [System.IO.Compression.ZipFile]::ExtractToDirectory($PayloadZip, $payloadStage)
+    }
+    Write-HelperProgress -Percent 52 -Status 'Validando los archivos esenciales del payload.'
     foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\start-docente-native.mjs', 'scripts\runtime-env.mjs')) {
       if (-not (Test-Path -LiteralPath (Join-Path $payloadStage $relativePath))) {
         throw "Payload nativo incompleto: falta $relativePath"
@@ -153,7 +167,9 @@ function Expand-NativePayload {
       if (Test-Path -LiteralPath $destination) {
         Remove-Item -LiteralPath $destination -Recurse -Force
       }
-      Copy-Item -LiteralPath $entry.FullName -Destination $destination -Recurse -Force
+      # El staging comparte volumen con el destino; mover evita una segunda
+      # escritura completa del árbol de dependencias.
+      Move-Item -LiteralPath $entry.FullName -Destination $destination -Force
     }
     Write-Host 'Payload nativo validado y expandido en la raíz de instalación.'
   } finally {

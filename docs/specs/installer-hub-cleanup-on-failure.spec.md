@@ -20,6 +20,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - REQ-004: El helper informa en el log de Burn las etapas del post-install; al vencer el timeout, registra las últimas líneas disponibles de stdout y stderr antes del rollback.
 - REQ-005: El post-install docente usa exclusivamente el runtime Node incluido en el payload, valida que sea Node.js 24.x y falla con diagnóstico inmediato si falta o no es válido. No descarga runtimes durante la instalación.
 - REQ-006: El pipeline Windows ejecuta install, repair, dashboard, verificación de actualización y uninstall con el bundle que se publicará; conserva el reporte E2E y bloquea la publicación ante cualquier falla.
+- REQ-007: La expansión del payload nativo evita una segunda copia completa del árbol y usa el extractor ZIP nativo de Windows cuando está disponible, conservando validación y staging temporal.
 
 ## Criterios de Aceptación
 - Fallos en post-install no dejan archivos huerfanos.
@@ -28,6 +29,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - Cada etapa crítica del post-install queda identificable en el log aunque una etapa posterior quede bloqueada.
 - La instalación docente no requiere acceso a nodejs.org; un paquete sin `runtime/node/node.exe` se rechaza con un error explícito.
 - El release de Windows no publica el bundle hasta que el ciclo E2E completo del artefacto final termina correctamente.
+- La extracción valida los archivos requeridos antes de mover el staging al destino y no copia de nuevo el árbol completo de dependencias.
 
 ## Matriz de Trazabilidad
 
@@ -39,3 +41,4 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 | REQ-004 | Trazas por etapa y salida retenida ante timeout | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
 | REQ-005 | Runtime Node autocontenido y validado sin descarga de red | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
 | REQ-006 | E2E completa obligatoria del bundle de release y conservación de evidencia | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
+| REQ-007 | Extracción ZIP rápida con publicación desde staging sin duplicar escrituras | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
