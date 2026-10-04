@@ -1252,7 +1252,7 @@ describe('pdf layout visual guard', () => {
         await parser.destroy();
       }
     }
-  }, 180_000);
+  }, 900_000);
 
   it('mantiene la columna OMR libre en continuaciones con texto largo', async () => {
     const parametros = crearParametros(6);

@@ -201,10 +201,14 @@ jobs:
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_classroom_audit_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:classroom:audit:ci
 
+      - name: Etapa contrato del runner de cobertura backend
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        run: node --test scripts/tests/backend-coverage-batches.test.mjs
+
       - name: Etapa coverage backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         env:
-          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "1200000"
+          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "1800000"
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa coverage portal

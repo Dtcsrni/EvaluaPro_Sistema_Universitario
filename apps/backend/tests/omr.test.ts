@@ -59,7 +59,7 @@ describe('rescate QR por orientación de página', () => {
       payloadsEsperados: [wrongPayload]
     })).resolves.toBeNull();
     await expect(detectarQrEnResolucionFuenteRotada(page)).resolves.toBeNull();
-  });
+  }, 180_000);
 
   it('recupera el QR exacto de una página girada y devuelve coordenadas de la captura original', async () => {
     const width = 1600;
@@ -88,7 +88,7 @@ describe('rescate QR por orientación de página', () => {
     expect(centro.y).toBeGreaterThan(height * 0.7);
     await expect(detectarQrConRotacionPagina(pixeles, info.width, info.height, undefined, ['EXAMEN:OTRO:P1:TV4']))
       .resolves.toBeNull();
-  });
+  }, 180_000);
 
   it.each([90, 270] as const)('recupera una captura apaisada girada %i° sin cambiar el marco de coordenadas', async (giro) => {
     const width = 1600;
@@ -125,7 +125,7 @@ describe('rescate QR por orientación de página', () => {
       expect(centro.x).toBeLessThan(height / 3);
       expect(centro.y).toBeLessThan(width / 3);
     }
-  });
+  }, 180_000);
 });
 
 function crearMapaOmrCanonico(

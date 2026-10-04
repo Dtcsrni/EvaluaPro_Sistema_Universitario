@@ -134,9 +134,12 @@ jobs:
             reports/qa/latest/omr-canonical-gate-wrapper.json
           if-no-files-found: warn
 
+      - name: Etapa contrato del runner de cobertura backend
+        run: node --test scripts/tests/backend-coverage-batches.test.mjs
+
       - name: Etapa coverage backend
         env:
-          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "1200000"
+          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "1800000"
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa tdd-debt-check

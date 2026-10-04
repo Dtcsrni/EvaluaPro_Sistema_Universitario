@@ -69,6 +69,8 @@ const batchConcurrency = resolveBatchConcurrency(process.env.BACKEND_COVERAGE_BA
 // y permiten identificar el caso lento sin perder ninguna prueba.
 const integrationChunkSize = 4;
 const batchTimeoutMs = Number(process.env.BACKEND_COVERAGE_BATCH_TIMEOUT_MS || 8 * 60 * 1000);
+const failureExcerptLineLimit = 50;
+const failureExcerptLineLengthLimit = 1200;
 
 const zeroThresholdArgs = [
   '--coverage.thresholds.lines=0',
@@ -164,6 +166,11 @@ function batchArgs(name, filters) {
     ...zeroThresholdArgs,
     `--coverage.reportsDirectory=${path.join('coverage', 'backend-coverage-batches', name)}`
   ];
+}
+
+function formatFailureExcerpt(log, lineLimit = failureExcerptLineLimit, lineLengthLimit = failureExcerptLineLengthLimit) {
+  const lines = String(log).split(/\r?\n/).filter((line) => line.trim().length > 0);
+  return lines.slice(-lineLimit).map((line) => line.slice(0, lineLengthLimit)).join('\n');
 }
 
 function chunkFiles(namePrefix, files, size = integrationChunkSize) {
@@ -271,6 +278,18 @@ async function cleanBatchArtifacts(name) {
   });
 }
 
+async function emitFailureExcerpt(batchName, attempt) {
+  const attemptLabel = `${batchName} ${attempt}/${batchAttempts}`;
+  const logPath = path.join(logsDir, `${attemptLabel.replace(/[^a-z0-9_-]+/gi, '_')}.log`);
+  try {
+    const log = await fs.readFile(logPath, 'utf8');
+    const excerpt = formatFailureExcerpt(log);
+    if (excerpt) process.stderr.write(`[backend-coverage] salida de ${attemptLabel} (ultimas ${failureExcerptLineLimit} lineas):\n${excerpt}\n`);
+  } catch (error) {
+    process.stderr.write(`[backend-coverage] no se pudo leer el log de ${attemptLabel}: ${String(error?.message || error)}\n`);
+  }
+}
+
 async function runBatch(batch) {
   for (let attempt = 1; attempt <= batchAttempts; attempt += 1) {
     await cleanBatchArtifacts(batch.name);
@@ -282,6 +301,7 @@ async function runBatch(batch) {
       continue;
     }
 
+    await emitFailureExcerpt(batch.name, attempt);
     return code;
   }
 
@@ -354,7 +374,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildCoveragePlan, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
+export { buildCoveragePlan, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
