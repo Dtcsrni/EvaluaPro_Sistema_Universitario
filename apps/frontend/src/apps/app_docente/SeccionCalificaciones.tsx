@@ -446,6 +446,7 @@ export function SeccionCalificaciones({
 
   function etiquetarTipoExamen(tipo?: string | null, titulo?: string | null) {
     const valor = String(tipo ?? '').trim().toLowerCase();
+    if (valor === 'extraordinario') return 'Extraordinario';
     const etiqueta = String(titulo ?? '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const texto = `${etiqueta} ${valor}`.trim();
     if (texto.includes('global') || texto.includes('final') || valor === 'global') return 'Global final';

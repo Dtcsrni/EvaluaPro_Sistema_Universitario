@@ -58,6 +58,7 @@ function normalizarParaCorte(valor: unknown): string {
 export function resolverCorteExamen(tipoExamen: unknown, plantillaTitulo?: unknown): CorteExamen | null {
   const tipo = normalizarParaCorte(tipoExamen);
   const titulo = normalizarParaCorte(plantillaTitulo);
+  if (tipo === 'extraordinario') return null;
   const texto = `${titulo} ${tipo}`.trim();
 
   if (texto.includes('global') || texto.includes('final')) return 'global';
