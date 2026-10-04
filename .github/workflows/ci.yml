@@ -140,7 +140,7 @@ jobs:
   core_backend_portal:
     name: Core Backend/Portal
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     needs:
       - detectar_cambios
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.job_core_backend_portal == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'

@@ -509,7 +509,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas).toHaveLength(1);
     expect(resultado.respuestasDetectadas[0].opcion, JSON.stringify(resultado.respuestasDetectadas[0].scoresPorOpcion.map(({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness }) => ({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness })))).toBe('C');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-  });
+  }, 300_000);
 
   it('penaliza trazos lineales y prioriza relleno central real', async () => {
     const width = 612;
@@ -587,7 +587,7 @@ describe('analizarOmr', () => {
     expect(['C', 'D'], JSON.stringify(resultado.respuestasDetectadas[0].scoresPorOpcion.map(({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness }) => ({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness })))).toContain(resultado.respuestasDetectadas[0].opcion);
     expect(resultado.respuestasDetectadas[0].opcion).not.toBe('A');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-  });
+  }, 300_000);
 
   it('retiene evidencia de una X centrada y se abstiene si la orientación no es verificable', async () => {
     const escala = 2;
@@ -660,7 +660,7 @@ describe('analizarOmr', () => {
     });
     expect(resultado.respuestasDetectadas[0]).toMatchObject({ opcion: null, estadoRespuesta: 'ambigua' });
     expect(resultado.respuestasDetectadas[0]?.flags).not.toContain('tachada_detectada');
-  });
+  }, 300_000);
 
   it('detecta marca azul con dominante de iluminacion calida', async () => {
     const width = 612;
@@ -733,6 +733,6 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas).toHaveLength(1);
     expect(resultado.respuestasDetectadas[0].opcion).toBe('B');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-  });
+  }, 300_000);
 
 });

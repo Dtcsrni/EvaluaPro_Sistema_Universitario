@@ -459,6 +459,13 @@ test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
   assert.match(runner, /Wait-InstalledPayload/);
 });
 
+test('runner E2E PowerShell conserva UTF-8 en Windows PowerShell 5.1', () => {
+  const runnerPath = path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1');
+  const runnerBytes = fs.readFileSync(runnerPath);
+  assert.deepEqual(runnerBytes.subarray(0, 3), Buffer.from([0xef, 0xbb, 0xbf]));
+  assert.match(runnerBytes.toString('utf8'), /Instalar \/ Actualizar versión/);
+});
+
 test('E2E docente exige elevación solo para el destino per-machine real', () => {
   const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
   assert.match(runner, /targetMachineEntries/);

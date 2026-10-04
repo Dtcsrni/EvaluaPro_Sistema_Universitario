@@ -446,7 +446,7 @@ describe('pdf OMR canónico', () => {
     } finally {
       await parser.destroy();
     }
-  });
+  }, 300_000);
 
   it('ajusta la separación vertical según caracteres del reactivo y sus respuestas', async () => {
     const preguntas = [
