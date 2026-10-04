@@ -175,6 +175,40 @@ describe('ConsultaCalificaciones', () => {
     }));
   });
 
+  it('conserva otro borrador manual mientras refresca la fila después de guardar', async () => {
+    const fila = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '8', parcial2: '9.876', global: '10', final: '10', observaciones: '',
+      practica2doParcial: '', practica2doParcialVersion: null, examen2doParcial: '', examen2doParcialVersion: null,
+      examenGlobalLista: '4', examenGlobalListaVersion: 2, tareasYEjercicios2doParcial: '8.5',
+      tareasPuntosObtenidos: '170', tareasPuntosPosibles: '200', examen2doParcialAutomatico: '4.75',
+      evaluacionContinua2doParcial: '', calificacionSegundoParcial: ''
+    };
+    obtenerMock
+      .mockResolvedValueOnce({ filas: [fila] })
+      .mockResolvedValueOnce({ filas: [{ ...fila, practica2doParcial: '7.5', practica2doParcialVersion: 1 }] });
+    const user = userEvent.setup();
+    render(
+      <ConsultaCalificaciones
+        periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]}
+        periodoId="periodo-1"
+        onPeriodoChange={vi.fn()}
+        onSeleccionarAlumno={vi.fn()}
+      />
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.clear(screen.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' }), '5.25');
+    await user.type(screen.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }), '7.5');
+    await user.click(screen.getByRole('button', { name: 'Guardar práctica' }));
+
+    await waitFor(() => expect(screen.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' })).toHaveValue(5.25));
+    await user.click(screen.getByRole('button', { name: 'Guardar examen' }));
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledTimes(2));
+    expect(enviarMock.mock.calls[1][1]).toEqual(expect.objectContaining({ componente: 'Exámen 2do Parcial', calificacion: 5.25 }));
+  });
+
   it('reconcilia la lista si se pierde la respuesta después de guardar', async () => {
     let consultas = 0;
     obtenerMock.mockImplementation(async () => {

@@ -140,8 +140,11 @@ export function ConsultaCalificaciones({
   const [vistaPreviaBono, setVistaPreviaBono] = useState<VistaPreviaBono | null>(null);
   const [procesandoBono, setProcesandoBono] = useState(false);
   const detalleRef = useRef<HTMLElement>(null);
+  const filaSeleccionadaRef = useRef<FilaConsultaCalificacion | null>(null);
   const solicitudesCalificacionPendientes = useRef(new Map<string, string>());
   const solicitudBonoPendiente = useRef<{ clave: string; clientRequestId: string } | null>(null);
+  filaSeleccionadaRef.current = filaSeleccionada;
+  const alumnoSeleccionadoId = filaSeleccionada?.alumnoId;
   const periodoSeleccionado = periodos.find((periodo) => String(periodo._id) === periodoId);
 
   useEffect(() => {
@@ -178,13 +181,14 @@ export function ConsultaCalificaciones({
   }, [periodoId]);
 
   useEffect(() => {
-    if (!filaSeleccionada) return;
-    setBorradores({ practica: filaSeleccionada.practica2doParcial ?? '', examen: filaSeleccionada.examen2doParcial ?? '', global: filaSeleccionada.examenGlobalLista ?? '' });
-    setBorradorBono(filaSeleccionada.bonoExtracurricularSolicitado || '');
+    const fila = filaSeleccionadaRef.current;
+    if (!fila || fila.alumnoId !== alumnoSeleccionadoId) return;
+    setBorradores({ practica: fila.practica2doParcial ?? '', examen: fila.examen2doParcial ?? '', global: fila.examenGlobalLista ?? '' });
+    setBorradorBono(fila.bonoExtracurricularSolicitado || '');
     setVistaPreviaBono(null);
     setErrorGuardado('');
     detalleRef.current?.focus();
-  }, [filaSeleccionada]);
+  }, [alumnoSeleccionadoId, periodoId]);
 
   async function guardarComponente(componente: 'Practica 2do Parcial' | 'Exámen 2do Parcial' | 'Exámen Global') {
     if (!filaSeleccionada || !periodoId) return;
