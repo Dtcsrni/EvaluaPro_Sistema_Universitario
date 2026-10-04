@@ -266,6 +266,66 @@ test('release stable gate materializa manifest del instalador antes de validar',
   assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
 });
 
+test('release stable gate genera QA fresco ligado al SHA candidato antes de validar', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const installIndex = workflow.indexOf('npm ci --foreground-scripts');
+  const prismaIndex = workflow.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
+  const playwrightIndex = workflow.indexOf('npx playwright install --with-deps chromium');
+  const matrixIndex = workflow.indexOf('npm run gui:screen-matrix');
+  const restoreIndex = workflow.indexOf('git restore -- docs/release/manual/gui-screen-matrix.md');
+  const responsiveIndex = workflow.indexOf('npm run test:gui:responsive:e2e:ci');
+  const qaIndex = workflow.indexOf('npm run qa:full');
+  const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
+
+  assert.ok(installIndex >= 0, 'release stable gate debe instalar dependencias');
+  assert.ok(prismaIndex > installIndex, 'Prisma debe generarse despues de instalar dependencias');
+  assert.ok(playwrightIndex > prismaIndex, 'Playwright debe instalarse despues de generar Prisma');
+  assert.ok(matrixIndex > playwrightIndex, 'la matriz GUI debe generarse despues de instalar Chromium');
+  assert.ok(restoreIndex > matrixIndex, 'el markdown generado debe restaurarse antes de medir limpieza');
+  assert.ok(responsiveIndex > restoreIndex, 'E2E responsive debe generar capturas antes del manifiesto');
+  assert.ok(qaIndex > responsiveIndex, 'QA completa debe generar manifiesto tras las capturas');
+  assert.ok(validateIndex > qaIndex, 'el gate debe validar despues de generar QA del SHA actual');
+  assert.match(workflow, /reports\/qa\/latest/);
+});
+
+test('CI frontend activa el mismo conjunto de guardas WCAG para push y pull request', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
+  const pushPaths = workflow.match(/  push:[\s\S]*?    paths:\n([\s\S]*?)  pull_request:/)?.[1] || '';
+  const pullRequestPaths = workflow.match(/  pull_request:\n    paths:\n([\s\S]*?)  workflow_dispatch:/)?.[1] || '';
+  const frontendMap = JSON.parse(fs.readFileSync(path.join(root, 'ci', 'affected-test-map.json'), 'utf8')).groups.frontend.paths;
+  const guards = [
+    'scripts/wcag-guard.mjs',
+    'scripts/tests/ui-contrast-audit.mjs',
+    'scripts/tests/wcag-guard.contract.test.mjs',
+    'docs/WCAG_UI_POLICY.md'
+  ];
+
+  for (const guard of guards) {
+    assert.ok(pushPaths.includes(guard), `push debe incluir ${guard}`);
+    assert.ok(pullRequestPaths.includes(guard), `pull_request debe incluir ${guard}`);
+    assert.ok(frontendMap.includes(guard), `el mapa affected CI debe asignar ${guard} al frontend`);
+  }
+});
+
+test('guardas de release esperan al menos el timeout combinado del build y la publicación', () => {
+  const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const tagGuard = fs.readFileSync(path.join(workflowDir, 'tag-release-guard.yml'), 'utf8');
+  const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const installerMinutes = Number(installer.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const publishMinutes = Number(installer.match(/publish_installer_release:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const releaseWindowMinutes = installerMinutes + publishMinutes;
+  const tagTimeoutMinutes = Number(tagGuard.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+  const tagAttempts = Number(tagGuard.match(/max_attempts=(\d+)/)?.[1]);
+  const tagSleepSeconds = Number(tagGuard.match(/sleep_seconds=(\d+)/)?.[1]);
+  const stableTimeoutMinutes = Number(stableGate.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+  const stableAttempts = Number(stableGate.match(/for attempt in \{1\.\.(\d+)\}/)?.[1]);
+
+  assert.ok(tagAttempts * tagSleepSeconds / 60 >= releaseWindowMinutes, 'tag guard debe cubrir build MSI y publicacion');
+  assert.ok(tagTimeoutMinutes >= tagAttempts * tagSleepSeconds / 60 + 10, 'timeout del tag guard debe cubrir la ventana y margen');
+  assert.ok(stableAttempts * tagSleepSeconds / 60 >= releaseWindowMinutes, 'gate estable debe cubrir build MSI y publicacion');
+  assert.ok(stableTimeoutMinutes >= releaseWindowMinutes + 90, 'gate estable debe dejar margen para QA completa');
+});
+
 test('release stable gate es el unico que promueve Latest despues de validar', () => {
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const stableGateWorkflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');

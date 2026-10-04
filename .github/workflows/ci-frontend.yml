@@ -29,6 +29,10 @@ on:
       - "vitest.base.ts"
       - "scripts/retry.mjs"
       - "scripts/testing/**"
+      - "scripts/wcag-guard.mjs"
+      - "scripts/tests/ui-contrast-audit.mjs"
+      - "scripts/tests/wcag-guard.contract.test.mjs"
+      - "docs/WCAG_UI_POLICY.md"
       - ".github/workflows/ci-frontend.yml"
   workflow_dispatch:
 

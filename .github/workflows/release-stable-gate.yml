@@ -26,7 +26,7 @@ jobs:
   stable_gate:
     name: Stable Promotion Gate
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 240
     if: |
       github.event_name == 'workflow_dispatch' ||
       (startsWith(github.ref, 'refs/tags/v') &&
@@ -54,6 +54,19 @@ jobs:
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
 
+      - name: Preparar cliente Prisma para QA candidato
+        run: npx prisma generate --config=apps/backend/prisma.config.mjs
+
+      - name: Preparar evidencias visuales para manifiesto QA
+        run: |
+          npx playwright install --with-deps chromium
+          npm run gui:screen-matrix
+          git restore -- docs/release/manual/gui-screen-matrix.md
+          npm run test:gui:responsive:e2e:ci
+
+      - name: Generar evidencia QA completa del SHA etiquetado
+        run: npm run qa:full
+
       - name: Resolver version objetivo
         id: resolve_version
         shell: bash
@@ -73,7 +86,7 @@ jobs:
         run: |
           mkdir -p dist/installer
           TAG="v${{ steps.resolve_version.outputs.target }}"
-          for attempt in {1..40}; do
+          for attempt in {1..170}; do
             if gh release download "$TAG" \
               --repo "${{ github.repository }}" \
               --pattern "EvaluaPro-release-manifest.json" \
@@ -82,7 +95,7 @@ jobs:
               test -s "dist/installer/EvaluaPro-release-manifest.json"
               exit 0
             fi
-            echo "Manifest de instalador no disponible aun para $TAG (intento $attempt/40)."
+            echo "Manifest de instalador no disponible aun para $TAG (intento $attempt/170)."
             sleep 30
           done
           echo "No se pudo descargar EvaluaPro-release-manifest.json para $TAG." >&2
@@ -110,5 +123,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: stable-gate-decision-${{ steps.resolve_version.outputs.target }}
-          path: reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
+          path: |
+            reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
+            reports/qa/latest/
           if-no-files-found: warn
