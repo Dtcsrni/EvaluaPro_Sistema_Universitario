@@ -55,6 +55,7 @@ function GoogleLoginConRespaldo({
 
 export function SeccionAutenticacion({
   onIngresar,
+  onReintentarGoogle,
   oauthGoogleDisponible,
   oauthGoogleBackendDisponible,
   requireGoogleOAuth,
@@ -63,6 +64,7 @@ export function SeccionAutenticacion({
   modoInicial
 }: {
   onIngresar: (token: string, persistente?: boolean) => void;
+  onReintentarGoogle?: () => Promise<boolean>;
   oauthGoogleDisponible?: boolean;
   oauthGoogleBackendDisponible?: boolean;
   smtpDisponible?: boolean;
@@ -93,6 +95,8 @@ export function SeccionAutenticacion({
   const [mostrarFormularioRegistrar, setMostrarFormularioRegistrar] = useState(false);
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [mantenerSesion, setMantenerSesion] = useState(true);
+  const [reintentandoGoogle, setReintentandoGoogle] = useState(false);
+  const [diagnosticoGoogle, setDiagnosticoGoogle] = useState('');
 
   function calcularFortalezaPassword(pwd: string) {
     if (!pwd) return { nivel: 0, texto: '', color: '#94a3b8' };
@@ -117,6 +121,21 @@ export function SeccionAutenticacion({
     const msg = 'El acceso de Google no pudo cargarse. Verifica tu conexión e inténtalo nuevamente.';
     setMensaje(msg);
     emitToast({ level: 'error', title: 'Google no disponible', message: msg, durationMs: 5200 });
+  }
+
+  async function reintentarAccesoGoogle() {
+    setReintentandoGoogle(true);
+    setDiagnosticoGoogle('');
+    try {
+      const recuperado = await onReintentarGoogle?.();
+      if (!recuperado) {
+        setDiagnosticoGoogle('Google todavía no está disponible. Verifica que el backend tenga configurado su Client ID e inténtalo de nuevo.');
+      }
+    } catch {
+      setDiagnosticoGoogle('No se pudo consultar la configuración de Google. Verifica la conexión con el backend e inténtalo de nuevo.');
+    } finally {
+      setReintentandoGoogle(false);
+    }
   }
 
   const googleDisponible = typeof oauthGoogleDisponible === 'boolean' ? oauthGoogleDisponible : hayGoogleConfigurado();
@@ -603,6 +622,24 @@ export function SeccionAutenticacion({
             <InlineMensaje tipo="info">
               Inicio de sesión con Google deshabilitado en este entorno.
             </InlineMensaje>
+          )}
+
+          {!googleDisponible && modo === 'ingresar' && (
+            <div className="auth-google-wrapper">
+              <div className="auth-google-control">
+                <button
+                  type="button"
+                  className="auth-google-fallback"
+                  onClick={() => void reintentarAccesoGoogle()}
+                  disabled={reintentandoGoogle}
+                  aria-busy={reintentandoGoogle}
+                >
+                  <span className="auth-google-fallback__mark" aria-hidden="true">G</span>
+                  {reintentandoGoogle ? 'Conectando con Google…' : 'Reintentar acceso con Google'}
+                </button>
+              </div>
+              {diagnosticoGoogle && <InlineMensaje tipo="error">{diagnosticoGoogle}</InlineMensaje>}
+            </div>
           )}
 
           {googleDisponible && modo === 'ingresar' && (

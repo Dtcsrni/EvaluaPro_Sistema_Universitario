@@ -1,0 +1,149 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-04T20-08-01.813Z",
+  "status": "final",
+  "generatedAt": "2026-10-04T20:17:12.000Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Evitar que desaparezca el acceso de Google en el login docente."
+  },
+  "objective": "Mantener visible el acceso de Google cuando no llega el Client ID y permitir reintentar la carga en runtime.",
+  "scope": [
+    "apps/frontend/src/App.tsx",
+    "apps/frontend/src/apps/app_docente/AppDocente.tsx",
+    "apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx",
+    "apps/frontend/tests/seccionAutenticacion.test.tsx",
+    "docs/specs/SPEC-036_autenticacion_guardrails.spec.md"
+  ],
+  "constraints": [
+    "No leer ni modificar credenciales, bases de producción o instalación local.",
+    "Mantener los finales CRLF existentes de App.tsx."
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Se añadió un botón de reintento visible y una consulta inmediata de capacidades OAuth desde el shell docente.",
+      "timestamp": "2026-10-04T20:17:12.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Pruebas focalizadas, build docente, auditoría SDD, revisión visual y diff check pasaron; OAuth real queda pendiente por backend ausente en preview.",
+      "timestamp": "2026-10-04T20:17:12.000Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/WCAG_UI_POLICY.md",
+      "apps/frontend/src/App.tsx",
+      "apps/frontend/src/apps/app_docente/AppDocente.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx",
+      "apps/frontend/tests/seccionAutenticacion.test.tsx",
+      "docs/specs/SPEC-036_autenticacion_guardrails.spec.md"
+    ],
+    "changed": [
+      "apps/frontend/src/App.tsx",
+      "apps/frontend/src/apps/app_docente/AppDocente.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx",
+      "apps/frontend/tests/seccionAutenticacion.test.tsx",
+      "docs/specs/SPEC-036_autenticacion_guardrails.spec.md"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "frontend_oauth_tests",
+      "command": "npm -C apps/frontend run test -- --pool=forks tests/seccionAutenticacion.test.tsx tests/app.selector.test.tsx",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 18720,
+      "resultSummary": "2 archivos y 31 pruebas pasaron.",
+      "timestamp": "2026-10-04T20:17:12.000Z"
+    },
+    {
+      "name": "build_docente",
+      "command": "npm -C apps/frontend run build:docente",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 36000,
+      "resultSummary": "TypeScript, build, guard de bundle, ESLint y WCAG 20/20 pasaron.",
+      "timestamp": "2026-10-04T20:17:12.000Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3800,
+      "resultSummary": "Todas las especificaciones pasaron la auditoría.",
+      "timestamp": "2026-10-04T20:17:12.000Z"
+    },
+    {
+      "name": "diff_check",
+      "command": "git -c core.whitespace=cr-at-eol diff 7c0b431c8155f18a054abf2c40dd745873d62658..HEAD --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 50,
+      "resultSummary": "Diff del commit limpio; CRLF reconocido como fin de línea.",
+      "timestamp": "2026-10-04T20:17:12.000Z"
+    },
+    {
+      "name": "visual_preview",
+      "command": "Preview local del bundle docente v1.2.3 y recorrido del control Google",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3000,
+      "resultSummary": "El botón y diagnóstico aparecen; el backend del preview aislado no estaba disponible, por lo que OAuth real no se probó.",
+      "timestamp": "2026-10-04T20:17:12.000Z"
+    },
+    {
+      "name": "pipeline_contract",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 817,
+      "resultSummary": "Contrato de pipeline pasó.",
+      "timestamp": "2026-10-04T20:17:12.000Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1598,
+      "resultSummary": "Documentación pasó.",
+      "timestamp": "2026-10-04T20:17:12.000Z"
+    }
+  ],
+  "decisions": [
+    "El preview confirmó la causa visible: sin ID compilado ni backend disponible se ocultaba Google.",
+    "Se conserva CRLF; el check del clon reconoce CRLF con core.whitespace=cr-at-eol.",
+    "El cambio se basa en main 7c0b431c y no sincroniza la instalación."
+  ],
+  "assumptions": [],
+  "risks": [
+    "El flujo OAuth de Google no pudo completarse porque el backend no estaba disponible en el preview local."
+  ],
+  "nextStep": "Revisar e integrar el PR; verificar el flujo OAuth real en un entorno con backend configurado.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\Evaluapro-oauth-main-fix",
+    "branch": "fix/google-oauth-visible-retry",
+    "commit": "5bf1353b",
+    "workingTreeStatus": "?? docs/handoff/sesiones/2026-10-04/"
+  }
+}

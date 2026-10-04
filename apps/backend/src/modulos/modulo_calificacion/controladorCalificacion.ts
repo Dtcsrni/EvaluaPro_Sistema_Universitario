@@ -107,7 +107,7 @@ function normalizarParaHash(value: unknown): unknown {
 }
 
 function uuidIdempotenciaCalificacion(docenteId: string, clientRequestId: string) {
-  const hex = createHash('sha256').update(`${docenteId}\n${clientRequestId}`, 'utf8').digest('hex').slice(0, 32).split('');
+  const hex = createHash('sha256').update(`${docenteId}\r\n${clientRequestId}`, 'utf8').digest('hex').slice(0, 32).split('');
   hex[12] = '5';
   hex[16] = ((Number.parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16);
   return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`;
@@ -596,6 +596,11 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
   if (!plantilla) {
     throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
   }
+  const tipoExamenCalificado = String(examen.tipoExamen ?? plantilla.tipo);
+  if (!['parcial', 'global', 'extraordinario'].includes(tipoExamenCalificado)) {
+    throw new ErrorAplicacion('TIPO_EXAMEN_INVALIDO', 'El tipo de examen no está admitido para calificación.', 400);
+  }
+  const esExtraordinario = tipoExamenCalificado === 'extraordinario';
 
   const alumnoFinal = alumnoId ?? examen.alumnoId;
   if (!alumnoFinal && !soloPreview) {
@@ -776,7 +781,7 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     bonoSolicitadoTotal,
     evaluacionContinua ?? 0,
     proyecto ?? 0,
-    plantilla.tipo as 'parcial' | 'global'
+    tipoExamenCalificado as 'parcial' | 'global' | 'extraordinario'
   );
 
   if (soloPreview) {
@@ -809,7 +814,7 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
       periodoId: examen.periodoId || null,
       examenGeneradoId,
       alumnoId: alumnoFinal,
-      tipoExamen: plantilla.tipo,
+      tipoExamen: tipoExamenCalificado,
       totalReactivos: totalFinal,
       aciertos: aciertosAjustados,
       fraccion: JSON.stringify({
@@ -855,20 +860,17 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
             ...(clientRequestId && requestHash ? { apiIdempotency: { clientRequestId, requestHash } } : {})
           })
         : null,
-      politicaId: politicaId ? String(politicaId) : null,
-      versionPolitica: versionPolitica ? Number(versionPolitica) : null,
-      componentesExamen: componentesExamen ? JSON.stringify(componentesExamen) : null,
-      bloqueContinuaDecimal:
-        typeof bloqueContinuaDecimal === 'number' && Number.isFinite(bloqueContinuaDecimal)
+      politicaId: !esExtraordinario && politicaId ? String(politicaId) : null,
+      versionPolitica: !esExtraordinario && versionPolitica ? Number(versionPolitica) : null,
+      componentesExamen: !esExtraordinario && componentesExamen ? JSON.stringify(componentesExamen) : null,
+      bloqueContinuaDecimal: !esExtraordinario && typeof bloqueContinuaDecimal === 'number' && Number.isFinite(bloqueContinuaDecimal)
           ? bloqueContinuaDecimal
           : null,
-      bloqueExamenesDecimal:
-        typeof bloqueExamenesDecimal === 'number' && Number.isFinite(bloqueExamenesDecimal)
+      bloqueExamenesDecimal: !esExtraordinario && typeof bloqueExamenesDecimal === 'number' && Number.isFinite(bloqueExamenesDecimal)
           ? bloqueExamenesDecimal
           : null,
-      finalDecimal: typeof finalDecimal === 'number' && Number.isFinite(finalDecimal) ? finalDecimal : null,
-      finalRedondeada:
-        typeof finalRedondeada === 'number' && Number.isFinite(finalRedondeada) ? finalRedondeada : null
+      finalDecimal: !esExtraordinario && typeof finalDecimal === 'number' && Number.isFinite(finalDecimal) ? finalDecimal : null,
+      finalRedondeada: !esExtraordinario && typeof finalRedondeada === 'number' && Number.isFinite(finalRedondeada) ? finalRedondeada : null
     }
     });
   } catch (error) {

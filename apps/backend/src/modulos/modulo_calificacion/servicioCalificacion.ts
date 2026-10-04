@@ -13,7 +13,7 @@ export function calcularCalificacion(
   bonoSolicitado = 0,
   evaluacionContinua = 0,
   proyecto = 0,
-  tipoExamen: 'parcial' | 'global' = 'parcial'
+  tipoExamen: 'parcial' | 'global' | 'extraordinario' = 'parcial'
 ) {
   const base = calcularCalificacionExacta(aciertos, totalReactivos, bonoSolicitado);
   const parcial = calcularCalificacionParcial(base.calificacionFinalTexto, evaluacionContinua);

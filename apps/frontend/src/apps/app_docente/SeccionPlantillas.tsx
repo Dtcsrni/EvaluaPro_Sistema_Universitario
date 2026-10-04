@@ -17,7 +17,7 @@ import { PlantillasOmrWorkflow, type ArchivoOmrLote, type TrabajoOmrResumen } fr
 import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabajoOmr';
 import { cargarTodasLasPaginasArchivadas } from './features/plantillas/archivoOmr';
 import { guardarTabPlantillas, PLANTILLAS_TAB_STORAGE_KEY, type TabPlantillas } from './features/plantillas/tabPlantillasState';
-import { guardarLotePendiente, leerLotePendiente, validarResumenLoteGenerado } from './features/plantillas/loteGeneracionSesion';
+import { crearClaveLoteGeneracion, guardarLotePendiente, leerLotePendiente, validarResumenLoteGenerado } from './features/plantillas/loteGeneracionSesion';
 import {
   usePlantillasGeneradosActions,
   type ExamenGeneradoResumen
@@ -45,6 +45,7 @@ import { idCortoMateria, mensajeDeError } from './utilidades';
 
 type ProgresoLoteGeneracion = {
   loteId: string;
+  claveRecuperacion?: string;
   totalEsperado: number;
   generados: number;
   porcentaje: number;
@@ -1162,16 +1163,42 @@ export function SeccionPlantillas({
     puedeGenerarExamenes
   ]);
 
-  const generarExamenesLote = useCallback(async () => {
-    const lotePendiente = leerLotePendiente(plantillaId) ??
-      (progresoLoteGeneracion && progresoLoteGeneracion.estado === 'fallido' ? progresoLoteGeneracion.loteId : null);
+  const generarExamenesLote = useCallback(async (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[] }) => {
+    const tipoExamen = opciones?.tipoExamen;
+    const alumnosSolicitados = opciones?.alumnoIds ?? [];
+    const alumnoIds = tipoExamen === 'extraordinario' ? [...new Set(alumnosSolicitados)].sort() : undefined;
+    if (tipoExamen === 'extraordinario' && (!alumnoIds?.length || alumnoIds.length !== alumnosSolicitados.length)) {
+      setMensajeGeneracion('Selecciona uno o más alumnos distintos para generar el extraordinario.');
+      return;
+    }
+    const claveRecuperacion = crearClaveLoteGeneracion(plantillaId, tipoExamen, alumnoIds);
+    const lotePendiente = leerLotePendiente(claveRecuperacion) ??
+      (progresoLoteGeneracion?.estado === 'fallido' && progresoLoteGeneracion.claveRecuperacion === claveRecuperacion
+        ? progresoLoteGeneracion.loteId
+        : null);
+    const cantidadAlumnos = tipoExamen === 'extraordinario'
+      ? alumnoIds?.length ?? 0
+      : Array.isArray(alumnos)
+        ? alumnos.filter(
+            (alumno) =>
+              (alumno as unknown as { activo?: unknown })?.activo !== false &&
+              String((alumno as unknown as { periodoId?: unknown })?.periodoId ?? '') ===
+                String((plantillaSeleccionada as unknown as { periodoId?: unknown })?.periodoId ?? '')
+          ).length
+        : 0;
     const ok = await confirm({
-      title: lotePendiente ? 'Reanudar paquete incompleto' : 'Generar paquete masivo',
+      title: lotePendiente
+        ? tipoExamen === 'extraordinario' ? 'Reanudar extraordinarios' : 'Reanudar paquete incompleto'
+        : tipoExamen === 'extraordinario' ? 'Generar exámenes extraordinarios' : 'Generar paquete masivo',
       message: lotePendiente
         ? 'Se reanudará el mismo lote, conservando los exámenes ya generados y verificados.'
-        : 'Se generarán exámenes para todos los alumnos activos de la materia seleccionada.',
+        : tipoExamen === 'extraordinario'
+          ? `Se generarán exámenes extraordinarios únicamente para los ${cantidadAlumnos} alumnos seleccionados. Sus calificaciones quedarán separadas de parciales y globales.`
+          : 'Se generarán exámenes para todos los alumnos activos de la materia seleccionada.',
       details: ['Asegúrate de que plantilla, alumnos y banco estén listos antes de continuar.'],
-      confirmLabel: lotePendiente ? 'Sí, reanudar lote' : 'Sí, generar paquete',
+      confirmLabel: lotePendiente
+        ? 'Sí, reanudar lote'
+        : tipoExamen === 'extraordinario' ? 'Sí, generar extraordinarios' : 'Sí, generar paquete',
       tone: 'default'
     });
     if (!ok) return;
@@ -1180,9 +1207,11 @@ export function SeccionPlantillas({
         ? globalThis.crypto.randomUUID().split('-')[0].toUpperCase()
         : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase()
     );
-    guardarLotePendiente(plantillaId, loteCliente);
+    guardarLotePendiente(claveRecuperacion, loteCliente);
 
-    const totalEsperadoInicial = Array.isArray(alumnos)
+    const totalEsperadoInicial = tipoExamen === 'extraordinario'
+      ? cantidadAlumnos
+      : Array.isArray(alumnos)
       ? alumnos.filter(
           (alumno) =>
             (alumno as unknown as { activo?: unknown })?.activo !== false &&
@@ -1193,6 +1222,7 @@ export function SeccionPlantillas({
 
     setProgresoLoteGeneracion({
       loteId: loteCliente,
+      claveRecuperacion,
       totalEsperado: totalEsperadoInicial,
       generados: 0,
       porcentaje: 0,
@@ -1213,6 +1243,7 @@ export function SeccionPlantillas({
         if (!sondeoActivo) return;
         setProgresoLoteGeneracion((anterior) => ({
           loteId: String(progreso?.loteId || lote),
+          claveRecuperacion: anterior?.claveRecuperacion ?? claveRecuperacion,
           totalEsperado: Number(progreso?.totalEsperado ?? anterior?.totalEsperado ?? totalEsperadoInicial ?? 0),
           generados: Number(progreso?.generados ?? 0),
           porcentaje: Number(progreso?.porcentaje ?? 0),
@@ -1254,7 +1285,8 @@ export function SeccionPlantillas({
         {
           plantillaId,
           confirmarMasivo: true,
-          loteId: loteCliente
+          loteId: loteCliente,
+          ...(tipoExamen === 'extraordinario' ? { tipoExamen, alumnoIds } : {})
         },
         'No tienes permiso para generar examenes.',
         {
@@ -1279,7 +1311,7 @@ export function SeccionPlantillas({
         estado: 'completado'
       });
       setLotePdfUrl(loteUrl || null);
-      guardarLotePendiente(plantillaId, null);
+      guardarLotePendiente(claveRecuperacion, null);
       setMensajeGeneracion(
         `Generación de paquete lista. Alumnos: ${totalAlumnos}. Exámenes generados: ${totalGenerados}.`
       );
@@ -1313,6 +1345,7 @@ export function SeccionPlantillas({
     plantillaId,
     puedeGenerarExamenes,
     progresoLoteGeneracion,
+    setMensajeGeneracion,
   ]);
 
   const formularioPlantilla = (

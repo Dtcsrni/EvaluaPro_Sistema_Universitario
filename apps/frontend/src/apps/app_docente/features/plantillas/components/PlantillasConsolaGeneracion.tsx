@@ -5,11 +5,11 @@
  */
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { emitToast } from '../../../../../ui/toast/toastBus';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Alumno, Periodo, Plantilla } from '../../../tipos';
 import { esMensajeError, idCortoMateria } from '../../../utilidades';
 import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
-import { leerLotePendiente } from '../loteGeneracionSesion';
+import { crearClaveLoteGeneracion, leerLotePendiente } from '../loteGeneracionSesion';
 
 type ProgresoLoteGeneracion = {
   loteId: string;
@@ -18,6 +18,7 @@ type ProgresoLoteGeneracion = {
   porcentaje: number;
   completado: boolean;
   estado: 'iniciando' | 'generando' | 'completado' | 'fallido' | 'archivado';
+  claveRecuperacion?: string;
 };
 
 export function PlantillasConsolaGeneracion({
@@ -50,7 +51,7 @@ export function PlantillasConsolaGeneracion({
   generandoLote: boolean;
   plantillaSeleccionada: Plantilla | null;
   puedeGenerarExamenes: boolean;
-  onGenerarExamenesLote: () => Promise<void>;
+  onGenerarExamenesLote: (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[] }) => Promise<void>;
   mensajeGeneracion: string;
   lotePdfUrl: string | null;
   descargarPdfLote: () => Promise<void>;
@@ -58,18 +59,46 @@ export function PlantillasConsolaGeneracion({
   onIrAHistorial?: () => void;
 }) {
   const [modoGeneracion, setModoGeneracion] = useState<'lote' | 'individual'>('lote');
+  const [tipoExamen, setTipoExamen] = useState<'ordinario' | 'extraordinario'>('ordinario');
+  const [alumnoIdsExtraordinario, setAlumnoIdsExtraordinario] = useState<string[]>([]);
   const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
   const listaPeriodos = Array.isArray(periodos) ? periodos : [];
   const listaAlumnos = Array.isArray(alumnos) ? alumnos : [];
 
   const alumnosMateria = plantillaSeleccionada
-    ? listaAlumnos.filter((a) => a.periodoId === plantillaSeleccionada.periodoId)
+    ? listaAlumnos.filter((a) => a.periodoId === plantillaSeleccionada.periodoId && (a as Alumno & { activo?: boolean }).activo !== false)
     : listaAlumnos;
-  const lotePendienteId = plantillaId ? leerLotePendiente(plantillaId) : null;
-  const hayLoteReanudable = !generandoLote && Boolean(lotePendienteId || progresoLoteGeneracion?.estado === 'fallido');
+  const alumnosMateriaPorId = useMemo(() => new Map(alumnosMateria.map((alumno) => [alumno._id, alumno])), [alumnosMateria]);
+  const alumnosExtraordinariosSeleccionados = alumnoIdsExtraordinario.filter((alumnoId) => alumnosMateriaPorId.has(alumnoId));
+  const esExtraordinario = tipoExamen === 'extraordinario';
+  const claveRecuperacionLote = crearClaveLoteGeneracion(
+    plantillaId,
+    esExtraordinario ? 'extraordinario' : undefined,
+    alumnosExtraordinariosSeleccionados
+  );
+  const lotePendienteId = plantillaId ? leerLotePendiente(claveRecuperacionLote) : null;
+  const hayLoteReanudable = !generandoLote && Boolean(
+    lotePendienteId ||
+    (progresoLoteGeneracion?.estado === 'fallido' && progresoLoteGeneracion.claveRecuperacion === claveRecuperacionLote)
+  );
+
+  useEffect(() => {
+    setAlumnoIdsExtraordinario([]);
+    setModoGeneracion('lote');
+  }, [plantillaId]);
+
+  useEffect(() => {
+    if (esExtraordinario && modoGeneracion !== 'lote') setModoGeneracion('lote');
+  }, [esExtraordinario, modoGeneracion]);
 
   const textoBotonGenerar =
-    modoGeneracion === 'individual'
+    esExtraordinario
+      ? generandoLote
+        ? 'Generando extraordinarios…'
+        : hayLoteReanudable
+          ? 'Reintentar generación extraordinaria'
+          : `Generar extraordinarios (${alumnosExtraordinariosSeleccionados.length} alumnos)`
+      : modoGeneracion === 'individual'
       ? generando
         ? 'Generando examen…'
         : 'Generar examen individual de muestra'
@@ -78,10 +107,13 @@ export function PlantillasConsolaGeneracion({
         : hayLoteReanudable
           ? 'Reintentar paquete incompleto'
         : `Generar paquete de exámenes (${alumnosMateria.length} alumnos)`;
-  const progresoVisible = progresoLoteGeneracion ?? (lotePendienteId && !generandoLote
+  const progresoEnAlcance = progresoLoteGeneracion?.claveRecuperacion === claveRecuperacionLote
+    ? progresoLoteGeneracion
+    : null;
+  const progresoVisible = progresoEnAlcance ?? (lotePendienteId && !generandoLote
     ? {
         loteId: lotePendienteId,
-        totalEsperado: alumnosMateria.length,
+        totalEsperado: esExtraordinario ? alumnosExtraordinariosSeleccionados.length : alumnosMateria.length,
         generados: 0,
         porcentaje: 0,
         completado: false,
@@ -90,7 +122,7 @@ export function PlantillasConsolaGeneracion({
     : generandoLote
     ? {
         loteId: 'en curso',
-        totalEsperado: alumnosMateria.length,
+        totalEsperado: esExtraordinario ? alumnosExtraordinariosSeleccionados.length : alumnosMateria.length,
         generados: 0,
         porcentaje: 0,
         completado: false,
@@ -180,7 +212,77 @@ export function PlantillasConsolaGeneracion({
             </button>
           </div>
 
-          {modoGeneracion === 'lote' && (
+          <label className="campo">
+            <span className="campo__label-row"><span>Tipo de examen</span></span>
+            <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+              <select
+                aria-label="Tipo de examen"
+                value={tipoExamen}
+                onChange={(event) => setTipoExamen(event.target.value === 'extraordinario' ? 'extraordinario' : 'ordinario')}
+                disabled={!puedeGenerarExamenes || !plantillaSeleccionada}
+              >
+                <option value="ordinario">Ordinario · {plantillaSeleccionada?.tipo === 'global' ? 'Global' : 'Parcial'}</option>
+                <option value="extraordinario">Extraordinario</option>
+              </select>
+            </div>
+          </label>
+
+          {esExtraordinario ? (
+            <fieldset className="plantillas-seleccion-alumnos" aria-describedby="plantillas-extraordinario-ayuda">
+              <legend>Alumnos que presentarán el extraordinario</legend>
+              <p id="plantillas-extraordinario-ayuda" className="ayuda">
+                Elige únicamente a los alumnos destinatarios. La calificación se conservará aparte de sus parciales y globales.
+              </p>
+              {alumnosMateria.length === 0 ? (
+                <p role="status">No hay alumnos activos en la materia seleccionada.</p>
+              ) : (
+                <>
+                  <div className="acciones">
+                    <button
+                      type="button"
+                      className="boton boton--secundario"
+                      onClick={() => setAlumnoIdsExtraordinario(alumnosMateria.map((alumno) => alumno._id))}
+                    >
+                      Seleccionar todos ({alumnosMateria.length})
+                    </button>
+                    <button
+                      type="button"
+                      className="boton boton--secundario"
+                      onClick={() => setAlumnoIdsExtraordinario([])}
+                      disabled={alumnosExtraordinariosSeleccionados.length === 0}
+                    >
+                      Limpiar selección
+                    </button>
+                  </div>
+                  <ul className="lista lista-items">
+                    {alumnosMateria.map((alumno) => {
+                      const nombre = alumno.nombreCompleto || `${alumno.nombres} ${alumno.apellidos}`.trim();
+                      return (
+                        <li key={alumno._id}>
+                          <label className="campo-checkbox" htmlFor={`extraordinario-${alumno._id}`}>
+                            <input
+                              id={`extraordinario-${alumno._id}`}
+                              type="checkbox"
+                              checked={alumnoIdsExtraordinario.includes(alumno._id)}
+                              onChange={(event) => setAlumnoIdsExtraordinario((actuales) =>
+                                event.target.checked
+                                  ? [...new Set([...actuales, alumno._id])]
+                                  : actuales.filter((id) => id !== alumno._id)
+                              )}
+                            />
+                            <span>{nombre || 'Alumno sin nombre'}{alumno.matricula ? ` · ${alumno.matricula}` : ''}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p role="status">Seleccionados: {alumnosExtraordinariosSeleccionados.length}</p>
+                </>
+              )}
+            </fieldset>
+          ) : null}
+
+          {!esExtraordinario && modoGeneracion === 'lote' && (
             <div className="ayuda mt-10">
               💡 Se generará un examen con código QR personalizado y folio único para cada uno de los <b>{alumnosMateria.length} alumnos</b> inscritos en esta materia.
             </div>
@@ -210,7 +312,7 @@ export function PlantillasConsolaGeneracion({
         {/* Acciones de Generación */}
         <div className="alumnos-form__footer mt-20">
           <div className="acciones alumnos-form__actions">
-            {modoGeneracion === 'individual' ? (
+            {!esExtraordinario && modoGeneracion === 'individual' ? (
               <Boton
                 type="button"
                 variante="primario"
@@ -225,8 +327,11 @@ export function PlantillasConsolaGeneracion({
                 type="button"
                 variante="primario"
                 cargando={generandoLote}
-                disabled={!puedeGenerarExamenes || !plantillaId || alumnosMateria.length === 0}
-                onClick={onGenerarExamenesLote}
+                disabled={!puedeGenerarExamenes || !plantillaId || (esExtraordinario ? alumnosExtraordinariosSeleccionados.length === 0 : alumnosMateria.length === 0)}
+                onClick={() => onGenerarExamenesLote(esExtraordinario ? {
+                  tipoExamen: 'extraordinario',
+                  alumnoIds: alumnosExtraordinariosSeleccionados
+                } : undefined)}
               >
                 {textoBotonGenerar}
               </Boton>
