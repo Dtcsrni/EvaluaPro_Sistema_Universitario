@@ -682,6 +682,7 @@ function Wait-InstallerStableState {
   param(
     [System.Windows.Automation.AutomationElement]$Window,
     [string]$Mode,
+    [datetime]$OperationStartedAt,
     [int]$TimeoutMinutes = 10
   )
   $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
@@ -696,30 +697,20 @@ function Wait-InstallerStableState {
     if ($cleanTextForErrorCheck -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
-    if ($text -match '(?i)(estado completado|post-install completado|todas las etapas terminaron correctamente|operaci[oó]n finalizada correctamente)') {
-      return [pscustomobject]@{ ok = $true; text = $text }
-    }
-    if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final complet|finalizaci[oó]n de instalaci[oó]n.*ok|instalaci[oó]n.*ok|finalizado correctamente)') {
-      return [pscustomobject]@{ ok = $true; text = $text }
-    }
-    # Detectar cierre limpio del Hub como señal de éxito cuando ya no hay ventana
+    # El texto del Hub incluye estados "ok" de etapas previas, por ejemplo
+    # "Planificación de instalación · ok". Solo la respuesta del helper prueba
+    # que terminó la operación seleccionada.
     $hubGone = $false
     try { $hubGone = $Window.Current.IsOffscreen } catch { $hubGone = $true }
     if ($hubGone) {
-      $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
+      $helper = Get-LatestInstallerHelperState -Mode $Mode -MinLastWriteTime $OperationStartedAt
       if ($helper -and $helper.ok) {
-        return [pscustomobject]@{ ok = $true; text = "Post-install helper OK (hub cerrado)`n$text" }
+        return [pscustomobject]@{ ok = $true; text = "Installer helper OK (hub cerrado)`n$text" }
       }
     }
-    $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
+    $helper = Get-LatestInstallerHelperState -Mode $Mode -MinLastWriteTime $OperationStartedAt
     if ($helper -and $helper.ok) {
-      return [pscustomobject]@{ ok = $true; text = "Post-install helper OK`n$text" }
-    }
-    if ($Mode -eq 'repair' -and $text -match '(?i)(reparaci[oó]n completada|qued[oó] reparado|operaci[oó]n finalizada|post-install completado)') {
-      return [pscustomobject]@{ ok = $true; text = $text }
-    }
-    if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece|operaci[oó]n finalizada|post-install completado)') {
-      return [pscustomobject]@{ ok = $true; text = $text }
+      return [pscustomobject]@{ ok = $true; text = "Installer helper OK`n$text" }
     }
     $checkForRealError = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
     $checkForRealError = $checkForRealError -replace '(?i)recuperaci[oó]n ante fallos', 'recuperacion_ante_fallos'
@@ -730,14 +721,19 @@ function Wait-InstallerStableState {
   return [pscustomobject]@{ ok = $false; text = $lastText; timeout = $true }
 }
 
-function Get-LatestPostInstallHelperState {
-  param([datetime]$MinLastWriteTime)
+function Get-LatestInstallerHelperState {
+  param(
+    [ValidateSet('install', 'repair', 'uninstall')]
+    [string]$Mode,
+    [datetime]$MinLastWriteTime
+  )
   $programDataLogs = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
   $searchPaths = @($logsDir, $ReportDir)
   if (Test-Path -LiteralPath $programDataLogs) {
     $searchPaths += $programDataLogs
   }
-  $candidates = @(Get-ChildItem -Path $searchPaths -Filter 'post-install-*.response.json' -Recurse -ErrorAction SilentlyContinue |
+  $responsePrefix = if ($Mode -eq 'uninstall') { 'uninstall' } else { 'post-install' }
+  $candidates = @(Get-ChildItem -Path $searchPaths -Filter ($responsePrefix + '-*.response.json') -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -ge $MinLastWriteTime } |
     Sort-Object LastWriteTime -Descending)
   foreach ($candidate in $candidates) {
@@ -862,6 +858,7 @@ function Invoke-InstallerHubMode {
   Add-Result -Area $Mode -Item 'start-button' -Ok $startButton.Current.IsEnabled -Detail "name=$($startButton.Current.Name)"
   if (-not $startButton.Current.IsEnabled) { throw "StartButton no habilitado mode=$Mode" }
 
+  $operationStartedAt = Get-Date
   Invoke-Control -Element $startButton
   Start-Sleep -Seconds 2
   Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-1040x760" -f $Mode) | Out-Null
@@ -869,7 +866,7 @@ function Invoke-InstallerHubMode {
   Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
   Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
-  $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 25
+  $state = Wait-InstallerStableState -Window $window -Mode $Mode -OperationStartedAt $operationStartedAt -TimeoutMinutes 25
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null

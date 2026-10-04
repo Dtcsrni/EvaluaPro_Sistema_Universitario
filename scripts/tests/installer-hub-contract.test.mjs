@@ -2214,14 +2214,28 @@ test('runner E2E tolera estados finales sin propiedad timeout', () => {
   assert.match(runner, /stateTimedOut/);
 });
 
-test('runner E2E acepta post-install helper JSON como estado estable', () => {
+test('runner E2E espera la respuesta exitosa del helper antes de declarar estado estable', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
-  assert.match(runner, /function Get-LatestPostInstallHelperState/);
+  assert.match(runner, /function Get-LatestInstallerHelperState/);
   assert.match(runner, /MinLastWriteTime/);
   assert.match(runner, /LastWriteTime -ge \$MinLastWriteTime/);
-  assert.match(runner, /post-install-\*\.response\.json/);
-  assert.match(runner, /Post-install helper OK/);
+  assert.match(runner, /\$responsePrefix = if \(\$Mode -eq 'uninstall'\) \{ 'uninstall' \} else \{ 'post-install' \}/);
+  assert.match(runner, /\$responsePrefix \+ '-\*\.response\.json'/);
+  assert.match(runner, /Get-LatestInstallerHelperState -Mode \$Mode/);
+  assert.match(runner, /Installer helper OK/);
+});
+
+test('runner E2E no confunde una etapa previa con "ok" con la finalización', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  const start = runner.indexOf('function Wait-InstallerStableState');
+  const end = runner.indexOf('function Get-LatestInstallerHelperState', start);
+  assert.ok(start >= 0 && end > start, 'debe localizar el contrato de espera estable');
+  const stableWait = runner.slice(start, end);
+
+  assert.doesNotMatch(stableWait, /instalaci[oó]n\.\*ok/i);
+  assert.doesNotMatch(stableWait, /instalaci[oó]n completada/i);
+  assert.match(stableWait, /Get-LatestInstallerHelperState -Mode \$Mode -MinLastWriteTime \$OperationStartedAt/);
 });
 
 test('runner E2E ejecuta broker instalado preservando rutas con espacios', () => {
