@@ -439,7 +439,7 @@ function validarPayloadCalificacionOmr(params: {
   if (respuestas.length > 0 && templateVersionOmr !== 4) {
     throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'Solo la plantilla OMR canónica puede guardar calificación automática', 422);
   }
-  if (respuestas.length > 0 && templateIdOmr === 'omr-inline-exam-v1') {
+  if (respuestas.length > 0 && templateIdOmr === 'omr-inline-exam-v1' && !analisisOmr?.revisionConfirmada) {
     throw new ErrorAplicacion('OMR_REQUIERE_REVISION_MANUAL', 'La plantilla OMR integrada sigue en evaluación y no admite calificación automática', 422);
   }
   if (respuestas.length > 0 && totalPreguntasEsperadas <= 0) {
@@ -668,7 +668,16 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
   const respuestas = Array.isArray(respuestasDetectadas) ? (respuestasDetectadas as RespuestaDetectada[]) : [];
   const respuestasPorNumero = new Map(respuestas.map((item) => [item.numeroPregunta, item.opcion]));
 
-  const analisisOmr = omrAnalisis as AnalisisOmrCalificacion | undefined;
+  const templateIdOmr = String(parseJsonSafe<any>(examen.mapaOmr)?.templateId ?? '');
+  const analisisOmrEntrada = omrAnalisis as AnalisisOmrCalificacion | undefined;
+  const analisisOmr = templateIdOmr === 'omr-inline-exam-v1' && analisisOmrEntrada?.revisionConfirmada
+    ? {
+        ...analisisOmrEntrada,
+        usuarioRevisor: docenteId,
+        revisionTimestamp: new Date().toISOString(),
+        motivoRevisionManual: analisisOmrEntrada.motivoRevisionManual ?? 'Revisión manual confirmada por el docente autenticado'
+      }
+    : analisisOmrEntrada;
   const paginasOmrEntrada = Array.isArray(paginasOmr) ? (paginasOmr as PaginaOmrCalificacionEntrada[]) : [];
   const revisionConfirmada = Boolean(analisisOmr?.revisionConfirmada);
   const calidadPagina = Number(analisisOmr?.calidadPagina ?? 1);
@@ -681,7 +690,7 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     folioPayload: String(folio ?? ''),
     folioExamen: String(examen.folio ?? ''),
     templateVersionOmr: Number(parseJsonSafe<any>(examen.mapaOmr)?.templateVersion ?? 0),
-    templateIdOmr: String(parseJsonSafe<any>(examen.mapaOmr)?.templateId ?? ''),
+    templateIdOmr,
     totalPreguntasEsperadas,
     respuestas,
     analisisOmr,
@@ -693,13 +702,14 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
       ? extraerResumenQrExamen(String(analisisOmr.qrTexto ?? '').trim())
       : null);
   const coberturaDeteccion = totalPreguntasEsperadas > 0 ? respuestas.length / totalPreguntasEsperadas : 0;
-  const { autoCalificableOmr } = evaluarAutoCalificableOmr({
+  const { autoCalificableOmr: cumpleUmbralAutomatico } = evaluarAutoCalificableOmr({
     estadoAnalisis: analisisOmr?.estadoAnalisis,
     calidadPagina,
     confianzaPromedioPagina,
     ratioAmbiguas,
     coberturaDeteccion
   });
+  const autoCalificableOmr = templateIdOmr !== 'omr-inline-exam-v1' && cumpleUmbralAutomatico;
 
   if (respuestas.length > 0 && !autoCalificableOmr && !revisionConfirmada) {
     throw new ErrorAplicacion(
