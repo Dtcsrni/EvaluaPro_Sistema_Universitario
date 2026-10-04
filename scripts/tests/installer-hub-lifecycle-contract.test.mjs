@@ -14,6 +14,7 @@ const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWi
 const hubWindow = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
 const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
 const msiBuild = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+const installerWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
 const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
 const matrix = JSON.parse(fs.readFileSync(path.join(root, 'reports', 'qa', 'latest', 'gui-screen-matrix.json'), 'utf8'));
 
@@ -70,6 +71,40 @@ test('helper PowerShell tiene timeout por operación y cancela su árbol', () =>
   assert.match(runner, /\[int\]\$TimeoutMinutes = 10/);
 });
 
+test('post-install informa etapas, conserva salida al vencer timeout y no depende de descargar Node', () => {
+  assert.match(helper, /function Write-HelperProgress/);
+  assert.match(helper, /EVALUAPRO_PROGRESS:/);
+  assert.match(helper, /Expandiendo y validando el payload nativo/);
+  assert.match(helper, /Base de datos SQLite preparada/);
+  assert.match(helper, /Manifiesto de actualización validado/);
+  assert.match(helper, /runtime Node autocontenido/);
+  assert.match(helper, /Runtime Node docente inválido/);
+  assert.match(helper, /\$nodeVersionOutput = @\(& \$nodeExe --version 2>&1\)\s+\$nodeExitCode = \$LASTEXITCODE/);
+  assert.doesNotMatch(helper, /& \$nodeExe --version 2>&1 \| Select-Object -First 1/);
+  assert.doesNotMatch(helper, /Invoke-WebRequest\s+-Uri\s+\$nodeUrl/);
+  assert.match(bootstrapper, /stdout-at-timeout/);
+  assert.match(bootstrapper, /stderr-at-timeout/);
+  assert.match(bootstrapper, /\[helper:\{mode\}:progress\]/);
+});
+
+test('payload nativo usa extracción rápida y publica desde staging sin copiar el árbol completo', () => {
+  assert.match(helper, /Get-Command -Name 'tar\.exe' -CommandType Application/);
+  assert.match(helper, /& \$tar\.Source -xf \$PayloadZip -C \$payloadStage/);
+  assert.match(helper, /\[System\.IO\.Compression\.ZipFile\]::ExtractToDirectory\(\$PayloadZip, \$payloadStage\)/);
+  assert.match(helper, /Move-Item -LiteralPath \$entry\.FullName -Destination \$destination -Force/);
+  assert.doesNotMatch(helper, /Copy-Item -LiteralPath \$entry\.FullName -Destination \$destination -Recurse -Force/);
+});
+
+test('el workflow de release bloquea la publicación si falla la E2E completa del bundle', () => {
+  assert.match(installerWorkflow, /E2E completa sobre el bundle docente que se publicará/);
+  assert.match(installerWorkflow, /scripts\/tests\/installer-hub-e2e-docente\.ps1/);
+  assert.match(installerWorkflow, /-SeedDummyData/);
+  assert.match(installerWorkflow, /Publicar evidencia de la E2E completa/);
+  assert.match(installerWorkflow, /if: always\(\)/);
+  assert.match(installerWorkflow, /EvaluaPro-QA-Isolated-installer-hub-e2e/);
+  assert.ok(installerWorkflow.indexOf('E2E completa sobre el bundle docente que se publicará') < installerWorkflow.indexOf('Publicar artefactos instalador'));
+});
+
 test('runtime nativo tolera arranque lento sin reinicio prematuro', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   assert.match(dashboard, /waitForLifecycleHealth\(\s*desiredMode,\s*flavorPolicy\.requireLocalPortal,\s*flavorPolicy\.requireDockerRuntime,\s*90_000\s*\)/);
@@ -116,6 +151,18 @@ test('runner serializa Windows Installer y no mata el Hub durante una transacci�
   assert.match(runner, /ParentProcessId -ne 1604/);
 });
 
+test('runner selecciona opciones del combo solo con SelectionItemPattern', () => {
+  assert.match(runner, /Find-ByName -RootElement \$Combo -Name \$ItemName[\s\S]*?SelectionItemPattern/);
+  assert.match(runner, /\$selectionPattern\.Select\(\)/);
+  assert.match(runner, /'uninstall' \{ 'Desinstalar \(con respaldo\)' \}/);
+  assert.match(runner, /'repair' \{ 'Reparar componentes' \}/);
+  assert.match(runner, /No se pudo seleccionar la opcion/);
+  assert.match(runner, /SendKeys\]::SendWait\('\{ENTER\}'\)/);
+  assert.match(runner, /Modo no aplicado: solicitado=\$\{Mode\} accion=/);
+  assert.match(runner, /Add-Result -Area \$Mode -Item 'mode-selection' -Ok \$true -Detail "action=\$expectedAction"/);
+  assert.doesNotMatch(runner, /Invoke-Control -Element \$item/);
+});
+
 test('runner limita broker y mata solo su árbol al vencer timeout', () => {
   assert.match(runner, /\$TimeoutSec = 60/);
   assert.match(runner, /WaitForExit\(\$TimeoutSec \* 1000\)/);
@@ -153,13 +200,22 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
   assert.match(msiBuild, /npmCommand prune --omit=dev --ignore-scripts/);
   assert.match(msiBuild, /foreach \(\$prunePath in \$prunePaths\)/);
   assert.match(msiBuild, /node_modules\/\.prisma\/client\/libquery_engine-\*\.so\.node/);
+  assert.match(msiBuild, /node_modules\/\@prisma\/studio-core/);
+  assert.match(msiBuild, /node_modules\/\@electric-sql/);
+  assert.match(msiBuild, /node_modules\/better-sqlite3\/deps/);
+  assert.match(msiBuild, /query_compiler_small_bg\\\.sqlite/);
+  assert.match(msiBuild, /apps\/backend\/eng\.traineddata/);
+  assert.match(msiBuild, /apps\/backend\/spa\.traineddata/);
+  assert.match(msiBuild, /4\.0\.0_best_int\/spa\.traineddata\.gz/);
+  assert.match(msiBuild, /better_sqlite3\.node/);
+  assert.match(msiBuild, /Runtime Prisma\/SQLite validado con consulta en memoria/);
   assert.match(msiBuild, /pdf-parse/);
   assert.match(msiBuild, /pdfjs-dist/);
   assert.match(msiBuild, /Payload preconstruido reutilizado y podado/);
 });
 
 test('el payload docente conserva los módulos PDF requeridos en runtime', () => {
-  assert.match(msiBuild, /foreach \(\$requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist'\)\)/);
+  assert.match(msiBuild, /foreach \(\$requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist', 'tesseract\.js', '@tesseract\.js-data\/spa'\)\)/);
   assert.match(msiBuild, /Falta dependencia de runtime requerida por el backend/);
   assert.doesNotMatch(msiBuild, /Join-Path \$backendTarget 'node_modules\/pdfjs-dist'/);
 });

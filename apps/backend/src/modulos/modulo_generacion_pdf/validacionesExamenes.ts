@@ -8,6 +8,32 @@ const normalizarTexto = (valor: string) => valor.trim().replace(/\s+/g, ' ');
 const esquemaTitulo = z.string().trim().min(3).max(120).transform(normalizarTexto);
 const esquemaInstrucciones = z.string().trim().max(2000).transform(normalizarTexto);
 const esquemaTema = z.string().trim().min(1).max(80).transform(normalizarTexto);
+export const esquemaListarExamenesGenerados = z.object({
+  periodoId: esquemaObjectId.optional(),
+  alumnoId: esquemaObjectId.optional(),
+  plantillaId: esquemaObjectId.optional(),
+  folio: z.string().trim().min(1).max(100).optional(),
+  archivado: z.enum(['1', 'true', 'si', 's', '0', 'false', 'no', 'n']).default('false'),
+  limite: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
+export const esquemaListarLotesExamenes = z.object({
+  plantillaId: esquemaObjectId.optional(),
+  archivado: z.enum(['1', 'true', 'si', 's', '0', 'false', 'no', 'n']).default('false'),
+  limite: z.coerce.number().int().min(1).max(100).default(25),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
+export const esquemaCambiarEstadoLotePdf = z.object({
+  clientRequestId: z.string().uuid()
+}).strict();
+
+export const esquemaListarAuditoriaLotePdf = z.object({
+  limite: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
 const esquemaLogosBooklet = z
   .object({
     izquierdaPath: z.string().trim().max(4_000_000).optional(),
@@ -30,6 +56,7 @@ const esquemaBookletConfig = z
   .strict();
 const esquemaOmrConfig = z
   .object({
+    examTemplateId: z.enum(['omr-canonical-v4', 'omr-inline-exam-v1']).optional(),
     sheetFamilyCode: z.enum(['S20_5A_BASIC', 'S50_5A_ID5_VR6', 'S100_5A_ID9_VR6_2P', 'CUSTOM_SCHEMA_V1']).optional(),
     sheetRevisionId: z.string().trim().max(120).optional(),
     prefillMode: z.enum(['none', 'roster', 'per-student']).optional(),
@@ -127,8 +154,9 @@ export const esquemaCrearPlantilla = z
   });
 
 export const esquemaGenerarExamen = z.object({
-  plantillaId: esquemaObjectId
-});
+  plantillaId: esquemaObjectId,
+  clientRequestId: z.string().uuid().optional()
+}).strict();
 
 /**
  * Lote masivo para una plantilla ya validada.

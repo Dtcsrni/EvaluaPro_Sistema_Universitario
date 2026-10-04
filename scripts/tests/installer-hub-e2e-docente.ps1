@@ -1,4 +1,4 @@
-# installer-hub-e2e-docente.ps1
+﻿# installer-hub-e2e-docente.ps1
 #
 # Responsabilidad: Modulo interno del sistema.
 # Limites: Mantener contrato y comportamiento observable del modulo.
@@ -564,7 +564,13 @@ function Select-ComboItem {
   if (-not (Expand-Control -Element $Combo)) { throw "Combo no expandible: $($Combo.Current.AutomationId)" }
   Start-Sleep -Milliseconds 400
   $item = Find-ByName -RootElement $Combo -Name $ItemName -TimeoutSec 2
-  if (-not $item) { $item = Find-ByName -RootElement ([System.Windows.Automation.AutomationElement]::RootElement) -Name $ItemName -TimeoutSec 3 }
+  $selectionPattern = $null
+  if ($item -and -not $item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$selectionPattern)) { $item = $null }
+  if (-not $item) {
+    $item = Find-ByName -RootElement ([System.Windows.Automation.AutomationElement]::RootElement) -Name $ItemName -TimeoutSec 3
+    $selectionPattern = $null
+    if ($item -and -not $item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$selectionPattern)) { $item = $null }
+  }
   if (-not $item) {
     try {
       $Combo.SetFocus()
@@ -586,12 +592,8 @@ function Select-ComboItem {
       return
     } catch {}
   }
-  $pattern = $null
-  if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) {
-    $pattern.Select()
-  } else {
-    Invoke-Control -Element $item
-  }
+  if (-not $item) { throw "No se pudo seleccionar la opcion '$ItemName' del combo $($Combo.Current.AutomationId)." }
+  $selectionPattern.Select()
   Start-Sleep -Milliseconds 700
 }
 
@@ -680,6 +682,7 @@ function Wait-InstallerStableState {
   param(
     [System.Windows.Automation.AutomationElement]$Window,
     [string]$Mode,
+    [datetime]$OperationStartedAt,
     [int]$TimeoutMinutes = 10
   )
   $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
@@ -694,30 +697,20 @@ function Wait-InstallerStableState {
     if ($cleanTextForErrorCheck -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
-    if ($text -match '(?i)(estado completado|post-install completado|todas las etapas terminaron correctamente|operaci[oó]n finalizada correctamente)') {
-      return [pscustomobject]@{ ok = $true; text = $text }
-    }
-    if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final complet|finalizaci[oó]n de instalaci[oó]n.*ok|instalaci[oó]n.*ok|finalizado correctamente)') {
-      return [pscustomobject]@{ ok = $true; text = $text }
-    }
-    # Detectar cierre limpio del Hub como señal de éxito cuando ya no hay ventana
+    # El texto del Hub incluye estados "ok" de etapas previas, por ejemplo
+    # "Planificación de instalación · ok". Solo la respuesta del helper prueba
+    # que terminó la operación seleccionada.
     $hubGone = $false
     try { $hubGone = $Window.Current.IsOffscreen } catch { $hubGone = $true }
     if ($hubGone) {
-      $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
+      $helper = Get-LatestInstallerHelperState -Mode $Mode -MinLastWriteTime $OperationStartedAt
       if ($helper -and $helper.ok) {
-        return [pscustomobject]@{ ok = $true; text = "Post-install helper OK (hub cerrado)`n$text" }
+        return [pscustomobject]@{ ok = $true; text = "Installer helper OK (hub cerrado)`n$text" }
       }
     }
-    $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
+    $helper = Get-LatestInstallerHelperState -Mode $Mode -MinLastWriteTime $OperationStartedAt
     if ($helper -and $helper.ok) {
-      return [pscustomobject]@{ ok = $true; text = "Post-install helper OK`n$text" }
-    }
-    if ($Mode -eq 'repair' -and $text -match '(?i)(reparaci[oó]n completada|qued[oó] reparado|operaci[oó]n finalizada|post-install completado)') {
-      return [pscustomobject]@{ ok = $true; text = $text }
-    }
-    if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece|operaci[oó]n finalizada|post-install completado)') {
-      return [pscustomobject]@{ ok = $true; text = $text }
+      return [pscustomobject]@{ ok = $true; text = "Installer helper OK`n$text" }
     }
     $checkForRealError = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
     $checkForRealError = $checkForRealError -replace '(?i)recuperaci[oó]n ante fallos', 'recuperacion_ante_fallos'
@@ -728,14 +721,19 @@ function Wait-InstallerStableState {
   return [pscustomobject]@{ ok = $false; text = $lastText; timeout = $true }
 }
 
-function Get-LatestPostInstallHelperState {
-  param([datetime]$MinLastWriteTime)
+function Get-LatestInstallerHelperState {
+  param(
+    [ValidateSet('install', 'repair', 'uninstall')]
+    [string]$Mode,
+    [datetime]$MinLastWriteTime
+  )
   $programDataLogs = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
   $searchPaths = @($logsDir, $ReportDir)
   if (Test-Path -LiteralPath $programDataLogs) {
     $searchPaths += $programDataLogs
   }
-  $candidates = @(Get-ChildItem -Path $searchPaths -Filter 'post-install-*.response.json' -Recurse -ErrorAction SilentlyContinue |
+  $responsePrefix = if ($Mode -eq 'uninstall') { 'uninstall' } else { 'post-install' }
+  $candidates = @(Get-ChildItem -Path $searchPaths -Filter ($responsePrefix + '-*.response.json') -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -ge $MinLastWriteTime } |
     Sort-Object LastWriteTime -Descending)
   foreach ($candidate in $candidates) {
@@ -796,9 +794,9 @@ function Invoke-InstallerHubMode {
   $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
   if ($modeCombo) {
     $label = switch ($Mode) {
-      'install' { 'Instalar' }
-      'repair' { 'Reparar' }
-      'uninstall' { 'Desinstalar' }
+      'install' { 'Instalar / Actualizar versión' }
+      'repair' { 'Reparar componentes' }
+      'uninstall' { 'Desinstalar (con respaldo)' }
     }
     Select-ComboItem -Combo $modeCombo -ItemName $label
   }
@@ -847,9 +845,20 @@ function Invoke-InstallerHubMode {
   Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) | Out-Null
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 15
   if (-not $startButton) { throw "No se encontro StartButton mode=$Mode" }
+  $expectedAction = switch ($Mode) {
+    'install' { 'Instalar' }
+    'repair' { 'Reparar' }
+    'uninstall' { 'Desinstalar' }
+  }
+  if ($startButton.Current.Name -ne $expectedAction) {
+    Add-Result -Area $Mode -Item 'mode-selection' -Ok $false -Detail "expected=$expectedAction actual=$($startButton.Current.Name)"
+    throw "Modo no aplicado: solicitado=${Mode} accion=$($startButton.Current.Name); se detiene antes de ejecutar."
+  }
+  Add-Result -Area $Mode -Item 'mode-selection' -Ok $true -Detail "action=$expectedAction"
   Add-Result -Area $Mode -Item 'start-button' -Ok $startButton.Current.IsEnabled -Detail "name=$($startButton.Current.Name)"
   if (-not $startButton.Current.IsEnabled) { throw "StartButton no habilitado mode=$Mode" }
 
+  $operationStartedAt = Get-Date
   Invoke-Control -Element $startButton
   Start-Sleep -Seconds 2
   Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-1040x760" -f $Mode) | Out-Null
@@ -857,7 +866,7 @@ function Invoke-InstallerHubMode {
   Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
   Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
-  $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 25
+  $state = Wait-InstallerStableState -Window $window -Mode $Mode -OperationStartedAt $operationStartedAt -TimeoutMinutes 25
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
@@ -1274,8 +1283,44 @@ function Invoke-DummyDataCycle {
   $env:E2E_DOCENTE_BASE_URL = $apiBase
   $env:E2E_DOCENTE_SQLITE_PATH = Join-Path $installedRoot 'data\evaluapro.db'
   try {
-    $output = (& node (Join-Path $root 'scripts/tests/seed-docente-dummy.mjs') 2>&1 | Out-String)
-    $exitCode = $LASTEXITCODE
+    $seedScript = Join-Path $root 'scripts/tests/seed-docente-dummy.mjs'
+    $stdoutPath = Join-Path $ReportDir 'dummy-data-cycle.stdout.log'
+    $stderrPath = Join-Path $ReportDir 'dummy-data-cycle.stderr.log'
+    $seedProcess = Start-Process -FilePath 'node.exe' -ArgumentList @("`"$seedScript`"") -WorkingDirectory $root -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+    $seedWaitCompleted = $seedProcess.WaitForExit(180000)
+    if (-not $seedWaitCompleted) {
+      try { Stop-Process -Id $seedProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+      $exitCode = -1
+    } else {
+      $seedProcess.WaitForExit()
+      try { $seedProcess.Refresh() } catch {}
+      $exitCode = if ($null -ne $seedProcess.ExitCode) { [int]$seedProcess.ExitCode } else { $null }
+    }
+    $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
+    $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { '' }
+    $seedResult = $null
+    try { $seedResult = $stdout | ConvertFrom-Json -ErrorAction Stop } catch {}
+    if ($null -eq $exitCode) {
+      $structuredSuccess = $false
+      if ($null -ne $seedResult) {
+        $cleanup = @($seedResult.cleanup)
+        $cleanupErrors = @($seedResult.cleanupErrors)
+        $structuredSuccess = $seedWaitCompleted -and
+          $seedResult.cuentaCreada -eq $true -and
+          $seedResult.verificado -eq $true -and
+          @($seedResult.materias).Count -eq 3 -and
+          @($seedResult.alumnos).Count -eq 3 -and
+          $cleanupErrors.Count -eq 0 -and
+          $cleanup -contains 'alumnos-local:3' -and
+          $cleanup -contains 'materias-local:3' -and
+          $cleanup -contains 'cuenta:local-db'
+      }
+      $exitCode = if ($structuredSuccess) { 0 } else { -1 }
+      if ($structuredSuccess) { Write-E2ELog 'WARNING: ExitCode nulo en el ciclo dummy; se acepta el reporte estructurado completo y limpio.' }
+    }
+    $output = "stdout:`n$stdout`nstderr:`n$stderr"
+    Copy-ArtifactIfExists -Path $stdoutPath | Out-Null
+    Copy-ArtifactIfExists -Path $stderrPath | Out-Null
     Export-JsonArtifact -Name 'dummy-data-cycle.json' -Data ([pscustomobject]@{
         exitCode = $exitCode
         apiBase = $apiBase

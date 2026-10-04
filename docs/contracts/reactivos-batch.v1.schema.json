@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evaluapro.local/contracts/reactivos-batch.v1.schema.json",
+  "title": "EvaluaPro Reactivos Batch v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "schemaVersion", "batchId", "target", "source", "items"],
+  "properties": {
+    "contract": { "const": "evaluapro.reactivos.batch" },
+    "schemaVersion": { "const": 1 },
+    "batchId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9._:-]+$" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["periodoId", "temaIds"],
+      "properties": {
+        "periodoId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "temaIds": { "type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 128 } }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "generator", "generatedAt"],
+      "properties": {
+        "kind": { "enum": ["ai_generated", "manual", "imported"] },
+        "generator": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "generatorModel": { "type": "string", "maxLength": 128 },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "sourceDocumentSha256": { "type": ["string", "null"], "pattern": "^[a-fA-F0-9]{64}$" }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["externalKey", "itemId", "expectedVersion", "format", "stem", "options", "metadata", "provenance"],
+        "properties": {
+          "externalKey": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9._:-]+$" },
+          "itemId": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+          "expectedVersion": { "type": ["integer", "null"], "minimum": 1 },
+          "format": { "const": "omr.mcq5" },
+          "stem": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["format", "value"],
+            "properties": {
+              "format": { "const": "richtext" },
+              "value": { "type": "string", "minLength": 1, "maxLength": 20000, "pattern": "^(?!.*(?:https?:\\/\\/|javascript:)).*$" }
+            }
+          },
+          "options": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "prefixItems": [
+              { "$ref": "#/$defs/optionA" },
+              { "$ref": "#/$defs/optionB" },
+              { "$ref": "#/$defs/optionC" },
+              { "$ref": "#/$defs/optionD" },
+              { "$ref": "#/$defs/optionE" }
+            ],
+            "items": false,
+            "contains": { "type": "object", "properties": { "isCorrect": { "const": true } } },
+            "minContains": 1,
+            "maxContains": 1
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "difficultyHypothesis": { "enum": ["easy", "medium", "hard"] },
+              "cognitiveLevel": { "enum": ["remember", "understand", "apply", "analyze", "evaluate", "create"] },
+              "competencies": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
+              "tags": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
+              "imageDataUrl": { "type": "string", "maxLength": 2000000, "pattern": "^data:image\\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$" }
+            }
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["origin", "confidence", "notes"],
+            "properties": {
+              "origin": { "enum": ["generated", "authored", "imported"] },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+              "notes": { "type": "string", "maxLength": 2000, "pattern": "^(?!.*(?:https?:\\/\\/|javascript:)).*$" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "optionBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "value", "isCorrect"],
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string", "minLength": 1, "maxLength": 10000, "pattern": "^(?!.*(?:https?:\\/\\/|javascript:)).*$" },
+        "isCorrect": { "type": "boolean" }
+      }
+    },
+    "optionA": { "allOf": [{ "$ref": "#/$defs/optionBase" }, { "properties": { "key": { "const": "A" } } }] },
+    "optionB": { "allOf": [{ "$ref": "#/$defs/optionBase" }, { "properties": { "key": { "const": "B" } } }] },
+    "optionC": { "allOf": [{ "$ref": "#/$defs/optionBase" }, { "properties": { "key": { "const": "C" } } }] },
+    "optionD": { "allOf": [{ "$ref": "#/$defs/optionBase" }, { "properties": { "key": { "const": "D" } } }] },
+    "optionE": { "allOf": [{ "$ref": "#/$defs/optionBase" }, { "properties": { "key": { "const": "E" } } }] }
+  }
+}

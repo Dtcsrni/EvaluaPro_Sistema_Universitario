@@ -1,0 +1,106 @@
+{
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "agent",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Sincronizar los hilos de OMR, listas/calificaciones y sincronización para cerrar una versión estable del flujo docente."
+  },
+  "objective": "Integrar y comprobar las mejoras actuales en el checkout canónico, clasificar lo experimental y conservar un No-Go hasta demostrar todos los gates de release.",
+  "scope": [
+    "Corregir las métricas del dataset OMR para contar capturas, contenidos, páginas y reactivos en granos separados.",
+    "Señalar en la UI los rescates OMR experimentales y los QR no verificados.",
+    "Revalidar de forma focalizada OMR, listas/calificaciones y App Host/sincronización local.",
+    "Inspeccionar gates, versionado, QA vigente y actividad de hilos paralelos."
+  ],
+  "constraints": [
+    "Usar C:/Users/evega/Documents/EvaluaPro como checkout canónico; preservar los cambios concurrentes.",
+    "No escribir calificaciones ni usar bases reales, cursos reales o credenciales de Google.",
+    "No ejecutar gates globales ni benchmark largo sin autorización explícita y sin que termine el hilo activo.",
+    "No afirmar exactitud poblacional a partir de etiquetas visuales no auditadas independientemente."
+  ],
+  "decisions": [
+    "El grano de evaluación fotográfica es folio/página/reactivo; recapturas no inflan el denominador.",
+    "Separar concordancia detector-etiqueta del acierto del alumno contra la clave.",
+    "Mantener heurísticas de rescate y fallback QR como experimentales con revisión docente.",
+    "No promover la versión mientras sigan activos hilos, manifiesto QA obsoleto y gates sin evidencia actual."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Revalidación focal actual: 9/9 pruebas UI OMR pasan; cobertura de SeccionEscaneo.tsx: 60% sentencias, 61.78% líneas, 57.53% ramas y 65.04% funciones. Backend OMR: 79/79 pruebas focales pasan; metricasDatasetOmr.ts: 96.39% sentencias, 98% líneas, 86.31% ramas y 94.73% funciones.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Se añadió aserción UI para las clases CSS omr-experimental-note y omr-experimental-note__badge; npm run guard:wcag -- --skip-lint pasó 20/20 pares, y contraste directo del aviso: 8.36:1 claro, 13.09:1 oscuro, badge 7.79:1 en ambos temas. docs:check y sdd:audit pasan.",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Se incorporó el agregador OMR por contenido, folio/página y reactivo únicos; la UI marca rescates heurísticos y QR no verificado como experimentales; SPEC-062 quedó en 1.14.0 y se actualizó con la clasificación de alcance y cobertura focal vigente.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Suite focal OMR/QR/PDF: 105 pruebas en 7 archivos; revisión UI OMR: 9/9; backend y frontend tsc directos, ESLint focalizado, WCAG 20/20 y sdd:audit pasan.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "App Host contracts 6/6 y sincronización entre equipos con SQLite temporal 15/15; no representa nube/OneDrive física ni cuenta Google real.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Runner OMR real ejecutado con una foto: 1 archivo, 1 página, 11 reactivos, 11/11 estados, 11/11 concordantes con etiquetas existentes, 0 conflictos y 0 errores; QR no detectado. Reporte solo en Temp, sin escrituras de calificaciones.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Trazabilidad IA/handoff 7/7 y 11/11; pipeline-contract y docs-check pasan después de regenerar documentación autogenerada.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Cobertura focal real con Vitest/V8: metricasDatasetOmr.ts 98% líneas, 86.31% ramas, 94.73% funciones (8/8 tests); SeccionEscaneo.tsx 61.78% líneas, 57.53% ramas, 65.04% funciones (9/9 tests). No es cobertura global ni exhaustiva del componente.",
+      "status": "ok"
+    },
+    {
+      "type": "documentation",
+      "summary": "SPEC-062 clasifica validado asistido vs. heurísticas/QR experimentales y registra el cierre del alcance candidato; docs:check y sdd:audit pasan después del cambio.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Reejecución actual de omr-qr-preprint-check a 300 DPI: QR exacto 32/32 páginas PDF (8/8 Diseño y Desarrollo, 24/24 Inteligencia de Negocios). Fotos: 2/39 capturas exactas, ambas C5051CA1/P2; 1/32 páginas únicas. El proceso retorna exit 1 correctamente porque datasetQrCompleto=false; el 0/32 de la traza anterior es histórico de otra corrida/configuración.",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "npm run test:release:policy: 31/31 pasan. No verifica CI remoto, release real ni gates integrales.",
+      "status": "ok"
+    },
+    {
+      "type": "documentation",
+      "summary": "Se reconciliaron docs/VERSIONADO.md y docs/RELEASE_STATUS.md con el checkout 1.1.6-14-g3337afd8-dirty, tag local v1.1.6, vista pública que lista v1.1.1 Latest y límite de GitHub CLI sin autenticar. docs:check y git diff --check pasan.",
+      "status": "ok"
+    }
+  ],
+  "assumptions": [
+    "Las pruebas de sincronización usan SQLite temporal y datos sintéticos según sus fixtures actuales.",
+    "El último reporte fotográfico existente fue generado después de la modificación actual del motor CV; esta sesión recalculó sus métricas sin reejecutar el detector."
+  ],
+  "risks": [
+    "El hilo de listas/calificaciones concluyó sus pruebas locales, pero no validó Classroom real, el libro físico ni el bundle instalado; el checkout compartido conserva cambios de múltiples áreas.",
+    "No se verificó Classroom real, conciliación con libro físico, sincronización física OneDrive ni bundle instalado.",
+    "El QR fotográfico exacto se observa solo en 1 de 32 páginas únicas; hay una discrepancia OMR-etiqueta.",
+    "No se ejecutaron cobertura global, tests CI completos, benchmark fotográfico completo ni release gate actual; el componente de revisión tiene 61.78% de cobertura de líneas focalizada.",
+    "El checkout tiene 238 rutas sucias; `gh api` no pudo verificar Actions/tags remotos por falta de autenticación CLI. No se solicitó ni mostró ninguna credencial.",
+    "Las fotos solo se incluyen en snapshot 1:1 si residen bajo examenes; una raíz externa no está integrada al snapshot genérico."
+  ],
+  "nextStep": "Ejecutar gates globales y benchmark completo únicamente tras autorización expresa; obtener comprobación autenticada de streak/tags remotos, validar Classroom real y bundle instalado, y definir alcance de sincronización de fotos antes de reevaluar Go/No-Go."
+}

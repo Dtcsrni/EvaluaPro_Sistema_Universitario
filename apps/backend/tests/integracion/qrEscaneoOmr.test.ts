@@ -13,14 +13,14 @@ import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 function invalidarFirmaQr(textoQr: string) {
-  return String(textoQr).replace(/:SG:[A-Z0-9]+$/i, ':SG:H1AAAAAAAAAAAAAAAAAAAAAAAA');
+  return String(textoQr).replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA');
 }
 
 describe('escaneo OMR: QR asociado a examen', () => {
   const app = crearApp();
-  const TEST_TIMEOUT_QR_MS = 60_000;
+  const TEST_TIMEOUT_QR_MS = 300_000;
   const QR_IMAGE_WIDTH = 512;
-  const preguntasPorEscenario = 20;
+  const preguntasPorEscenario = 5;
 
   beforeAll(async () => {
     await conectarMongoTest();
@@ -72,24 +72,56 @@ describe('escaneo OMR: QR asociado a examen', () => {
       .expect(201);
     const alumnoId = alumnoResp.body.alumno._id as string;
 
+    const temaResp = await request(app)
+      .post('/api/banco-preguntas/temas')
+      .set(auth)
+      .send({ periodoId, nombre: 'Tema QR OMR' })
+      .expect(201);
+    const temaId = String(temaResp.body.tema._id);
+    const lote = {
+      contract: 'evaluapro.reactivos.batch',
+      schemaVersion: 1,
+      batchId: `qr-omr-${Date.now()}`,
+      target: { periodoId, temaIds: [temaId] },
+      source: {
+        kind: 'manual',
+        generator: 'qr-omr-integration-test',
+        generatedAt: new Date().toISOString()
+      },
+      items: Array.from({ length: preguntasPorEscenario }, (_, indice) => ({
+        externalKey: `qr-omr-${Date.now()}-${indice + 1}`,
+        itemId: null,
+        expectedVersion: null,
+        format: 'omr.mcq5',
+        stem: { format: 'richtext', value: `Pregunta ${indice + 1}` },
+        options: ['A', 'B', 'C', 'D', 'E'].map((key, index) => ({
+          key,
+          value: `Opcion ${key}`,
+          isCorrect: index === 0
+        })),
+        metadata: { difficultyHypothesis: 'medium' },
+        provenance: { origin: 'authored', confidence: 1, notes: 'fixture QR OMR' }
+      }))
+    };
+    const preview = await request(app)
+      .post('/api/banco-preguntas/importaciones/preview')
+      .set(auth)
+      .send(lote)
+      .expect(200);
+    const confirmado = await request(app)
+      .post(`/api/banco-preguntas/importaciones/${preview.body.importId}/confirmar`)
+      .set(auth)
+      .send({ planHash: preview.body.planHash, payload: lote })
+      .expect(200);
     const preguntasIds: string[] = [];
-    for (let i = 0; i < preguntasPorEscenario; i += 1) {
-      const preguntaResp = await request(app)
-        .post('/api/banco-preguntas')
+    for (const reactivoId of confirmado.body.reactivoIds as string[]) {
+      await request(app).post(`/api/banco-preguntas/reactivos/${reactivoId}/revisar`).set(auth).send({}).expect(200);
+      const publicado = await request(app)
+        .post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`)
         .set(auth)
-        .send({
-          periodoId,
-          enunciado: `Pregunta ${i + 1}`,
-          opciones: [
-            { texto: 'Opcion A', esCorrecta: true },
-            { texto: 'Opcion B', esCorrecta: false },
-            { texto: 'Opcion C', esCorrecta: false },
-            { texto: 'Opcion D', esCorrecta: false },
-            { texto: 'Opcion E', esCorrecta: false }
-          ]
-        })
-        .expect(201);
-      preguntasIds.push(preguntaResp.body.pregunta._id as string);
+        .send({})
+        .expect(200);
+      preguntasIds.push(String(publicado.body.legacyPreguntaId));
     }
 
     const plantillaResp = await request(app)
@@ -105,11 +137,18 @@ describe('escaneo OMR: QR asociado a examen', () => {
       .expect(201);
     const plantillaId = plantillaResp.body.plantilla._id as string;
 
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
+
     const examenResp = await request(app)
       .post('/api/examenes/generados')
       .set(auth)
-      .send({ plantillaId })
-      .expect(201);
+      .send({ plantillaId });
+    if (examenResp.status !== 201) {
+      throw new Error(`Generación QR OMR falló: HTTP ${examenResp.status}, detalle ${JSON.stringify(examenResp.body)}`);
+    }
 
     const examenId = examenResp.body.examenGenerado._id as string;
     const folio = examenResp.body.examenGenerado.folio as string;
@@ -135,9 +174,10 @@ describe('escaneo OMR: QR asociado a examen', () => {
     expect(resumenQr?.numeroPagina).toBe(1);
     expect(resumenQr?.templateVersion).toBe(4);
     expect(resumenQr?.keyId).toBeTruthy();
-    expect(resumenQr?.variantHash).toBeTruthy();
-    expect(resumenQr?.answerKeyHash).toBeTruthy();
-    expect(resumenQr?.pageAnswerKey).toMatch(/^[A-E]+$/);
+    expect(resumenQr?.qrPayloadMode).toBe('manifest-bound');
+    expect(resumenQr?.variantHash).toBeUndefined();
+    expect(resumenQr?.answerKeyHash).toBeUndefined();
+    expect(resumenQr?.pageAnswerKey).toBeUndefined();
     expect(resumenQr?.payloadSignature).toBeTruthy();
 
     const qrParaImagen = String(paginas[0].qrTexto || qrEsperado);

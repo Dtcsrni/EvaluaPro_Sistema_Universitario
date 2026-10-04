@@ -1,0 +1,282 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-reference-runtime-validation-20260929",
+  "parentSessionId": "2026-09-29-google-login-bonus-omr",
+  "status": "draft",
+  "generatedAt": "2026-09-29T23:49:48.823Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Continuar hasta cotejar el PDF generado en la GUI y API sin crear jobs ni escribir calificaciones."
+  },
+  "objective": "Corregir y validar por GUI/API la prevalidación del PDF de referencia DDAW antes de procesar capturas.",
+  "scope": [
+    "SPEC-071: carga multipart y cotejo QR de referencia",
+    "Rasterización PDF multipágina en el runtime local",
+    "GUI/API OMR para referencia del lote DDAW"
+  ],
+  "constraints": [
+    "No crear jobs ni escribir calificaciones durante prevalidación.",
+    "Preservar la base de datos y respaldar artefactos de runtime antes de sustituirlos.",
+    "Continuar desde checkout canónico con cambios preexistentes preservados."
+  ],
+  "actions": [
+    {
+      "timestamp": "2026-09-29T23:36:25.648Z",
+      "status": "ok",
+      "type": "fix",
+      "summary": "Poppler puede zero-pad los números de página. El rasterizador ahora resuelve las salidas por número lógico con prefijo temporal único; la prueba verifica el contenido de rangos 1–4 y 21–24."
+    },
+    {
+      "timestamp": "2026-09-29T23:36:25.648Z",
+      "status": "ok",
+      "type": "deployment",
+      "summary": "Con respaldo, se instaló rasterizadorPdfPreview.js compilado en el runtime local y se reinició prod mediante el dashboard autorizado. SHA-256 de fuente y destino coincidió."
+    },
+    {
+      "timestamp": "2026-09-29T23:36:25.648Z",
+      "status": "ok",
+      "type": "verification",
+      "summary": "La GUI usó la API de prevalidación y seleccionó el lote DDAW DE6B2F6D, 4 exámenes. El historial UI continuó sin trabajos OMR; no se escribieron calificaciones."
+    },
+    {
+      "timestamp": "2026-09-29T23:36:25.648Z",
+      "status": "ok",
+      "type": "verification",
+      "summary": "API ready reportó estado ok con SQLite conectada; build, lint, typecheck, SDD, contrato API e integración focalizada pasaron."
+    },
+    {
+      "timestamp": "2026-09-29T23:42:52.133Z",
+      "status": "pending",
+      "summary": "Se localizó el PDF global BI de 48 páginas y los 21 lotes archivados están visibles en Edge, pero el puente de navegador disponible no ofrece interacción con el selector nativo de archivos ni setFiles; el PDF no se cargó.",
+      "type": "investigation"
+    },
+    {
+      "type": "verification",
+      "summary": "Suites focalizadas actuales: frontend 16/16, backend 17/17, SDK API 38/38. El bundle instalado de Calificaciones tiene SHA-256 igual al bundle compilado del checkout y contiene Global/bono preview+confirm; los módulos de API instalados comparan hash igual al build del checkout.",
+      "status": "ok",
+      "timestamp": "2026-09-29T23:49:48.823Z"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md",
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.ts",
+      "apps/backend/tests/pdf.paridad.test.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "OneDrive course folder PDF metadata for the BI global reference"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.ts",
+      "apps/backend/tests/pdf.paridad.test.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/qrReferenciaPdf.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+      "apps/backend/tests/integracion/omrJobsWorkflow.test.ts",
+      "docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md",
+      "CHANGELOG.md"
+    ],
+    "artifacts": [
+      "runtime backup: backups/runtime-patches/pdf-raster-padding-20260929-173500/rasterizadorPdfPreview.js.before",
+      "runtime backup: backups/runtime-patches/omr-qr-matrix-20260929-171603/"
+    ]
+  },
+  "commands": [
+    {
+      "status": "ok",
+      "resultSummary": "1 passed; valida contenido raster en páginas 1–4 y 21–24.",
+      "exitCode": 0,
+      "name": "PDF raster regression",
+      "durationMs": 3000,
+      "command": "npm test -- tests/pdf.paridad.test.ts -t \"rangos posteriores a la pagina 20\" (apps/backend)"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "Archivos OMR y rasterizador afectados sin errores.",
+      "exitCode": 0,
+      "name": "ESLint focalizado",
+      "durationMs": 5000,
+      "command": "npx eslint ... --max-warnings=0 (apps/backend)"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "Prisma Client generado y TypeScript validado.",
+      "exitCode": 0,
+      "name": "Backend typecheck",
+      "durationMs": 10000,
+      "command": "npm run typecheck (apps/backend)"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "1 passed, 11 skipped.",
+      "exitCode": 0,
+      "name": "OMR API integration",
+      "durationMs": 13000,
+      "command": "npm test -- tests/integracion/omrJobsWorkflow.test.ts -t \"localiza por QR\" (apps/backend)"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "Backend, frontend y portal sin errores.",
+      "exitCode": 0,
+      "name": "Root lint",
+      "durationMs": 15000,
+      "command": "npm run lint"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "238 rutas; 273 operaciones; resource lifecycle 71/71.",
+      "exitCode": 0,
+      "name": "API contract",
+      "durationMs": 2000,
+      "command": "npm run api:contract:check"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "Todas las specs cumplen la política.",
+      "exitCode": 0,
+      "name": "SDD audit",
+      "durationMs": 2000,
+      "command": "npm run sdd:audit"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "Backend, frontend y portal compilados.",
+      "exitCode": 0,
+      "name": "Root build",
+      "durationMs": 35000,
+      "command": "npm run build"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "estado ok; SQLite conectada.",
+      "exitCode": 0,
+      "name": "Local API health",
+      "durationMs": 3000,
+      "command": "GET http://127.0.0.1:4000/api/salud/ready"
+    },
+    {
+      "status": "ok",
+      "resultSummary": "El PDF fue cotejado y la GUI seleccionó el lote único DDAW DE6B2F6D con 4 exámenes.",
+      "exitCode": 0,
+      "name": "GUI reference prevalidation",
+      "durationMs": 30000,
+      "command": "EvaluaPro → Diseño de Exámenes → Historial de Lotes → Cotejar y localizar lote"
+    },
+    {
+      "name": "PDF parity suite",
+      "durationMs": 13000,
+      "command": "npm test -- tests/pdf.paridad.test.ts (apps/backend)",
+      "status": "ok",
+      "resultSummary": "14 passed.",
+      "exitCode": 0
+    },
+    {
+      "name": "Trace JSON validation",
+      "durationMs": 1000,
+      "command": "validateTraceDocument() sobre la traza de sesión",
+      "status": "ok",
+      "resultSummary": "La traza cumple el schema.",
+      "exitCode": 0
+    },
+    {
+      "name": "Repository diff check",
+      "durationMs": 1000,
+      "command": "git diff --check",
+      "status": "falla",
+      "resultSummary": "La revisión total reporta trailing whitespace en numerosos archivos del checkout sucio/generados. No se modificaron archivos fuera del alcance; el diff-check de los archivos editados focales no reporta errores.",
+      "exitCode": 1
+    },
+    {
+      "name": "BI PDF metadata",
+      "durationMs": 2200,
+      "command": "pdf-lib: PDFDocument.load(Examen_Global_Inteligencia_de_Negocios.pdf)",
+      "status": "ok",
+      "resultSummary": "48 páginas.",
+      "exitCode": 0
+    },
+    {
+      "exitCode": 0,
+      "name": "Grade/Classroom GUI suites",
+      "command": "npx vitest run tests/seccionCalificaciones.resumen.test.tsx tests/seccionEvaluaciones.test.tsx tests/classroomEnCalificaciones.mapeoCortes.test.tsx (apps/frontend)",
+      "resultSummary": "3 archivos, 16 pruebas aprobadas.",
+      "durationMs": 21000,
+      "status": "ok"
+    },
+    {
+      "exitCode": 0,
+      "name": "Grade/Classroom backend suites",
+      "command": "npm test -- tests/integracion/classroom.v2.test.ts tests/integracion/listaAcademicaContratos.test.ts tests/bonoExtracurricular.test.ts (apps/backend)",
+      "resultSummary": "3 archivos, 17 pruebas aprobadas.",
+      "durationMs": 34000,
+      "status": "ok"
+    },
+    {
+      "exitCode": 0,
+      "name": "API SDK suite",
+      "command": "node --test scripts/tests/evaluapro-client.test.mjs",
+      "resultSummary": "38 pruebas aprobadas, incluyendo Global manual, Classroom, bono, lista, PDF OMR y prevalidación de referencia.",
+      "durationMs": 150,
+      "status": "ok"
+    },
+    {
+      "exitCode": 0,
+      "name": "Installed GUI/API bundle parity",
+      "command": "Comparar SHA-256 de assets instalados y build local",
+      "resultSummary": "Bundle SeccionCalificaciones y 5 módulos backend instalados coinciden con el build local.",
+      "durationMs": 1000,
+      "status": "ok"
+    },
+    {
+      "timestamp": "2026-09-30T00:10:33.000Z",
+      "status": "ok",
+      "type": "implementation",
+      "summary": "REQ-006 ahora categoriza paquetes por curso, materia, parcial, docente, alumno y grupo. Las correcciones manuales generan un artefacto nuevo dentro del mismo árbol y sustituyen el anterior tras actualizar metadata."
+    },
+    {
+      "timestamp": "2026-09-30T00:10:33.000Z",
+      "status": "ok",
+      "type": "verification",
+      "summary": "Build raíz aprobado, typecheck backend aprobado, ESLint y diff-check focalizados limpios; las dos pruebas de integración API enfocadas pasan con diez casos omitidos."
+    },
+    {
+      "timestamp": "2026-09-30T00:10:33.000Z",
+      "status": "ok",
+      "type": "deployment",
+      "summary": "El runtime tenía un qrReferenciaPdf.js antiguo sin prepararQrsEsperados. Se respaldó y sincronizó junto con controladorIngestaPdfOmr.js; SHA-256 instalado coincide con el build. Dashboard reinició prod; API ready reportó SQLite conectada y web 4173 devolvió HTTP 200."
+    },
+    {
+      "timestamp": "2026-09-30T00:10:33.000Z",
+      "status": "pending",
+      "type": "verification",
+      "summary": "GUI instalada carga, pero el intento con credenciales prellenadas respondió correo o contraseña incorrectos. No se reintentó; falta verificar GUI autenticada."
+    }
+  ],
+  "decisions": [
+    "Comparar por matriz QR firmada esperada en geometría persistida; no invocar el lector OMR completo para localizar referencia.",
+    "Resolver nombres de raster por número extraído para tolerar padding numérico de Poppler.",
+    "No crear jobs, ingresar escaneos ni modificar calificaciones en esta etapa."
+  ],
+  "assumptions": [],
+  "risks": [
+    "El cotejo de referencia del lote BI no se ejecutó: la app permite abrir el selector, pero la herramienta disponible no puede seleccionar el PDF local.",
+    "La carga/procesamiento/revisión de capturas y la escritura de calificaciones no forman parte de esta verificación."
+  ],
+  "nextStep": "Restablecer acceso a la GUI instalada; después seleccionar Examen_Global_Inteligencia_de_Negocios.pdf en Edge para completar el cotejo QR de referencia BI en GUI/API.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "Cotejo BI real de 48 páginas contra el lote de referencia en EvaluaPro",
+      "Verificación autenticada de la GUI instalada tras recuperar credenciales válidas",
+      "Resto de operaciones GUI/API del objetivo global"
+    ]
+  }
+}

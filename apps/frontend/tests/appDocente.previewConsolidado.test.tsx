@@ -177,8 +177,8 @@ describe('AppDocente - preview consolidado', () => {
 
     expect(payload.soloPreview).toBe(true);
     expect(payload.respuestasDetectadas).toEqual([
-      { numeroPregunta: 1, opcion: 'A', confianza: 0.9 },
-      { numeroPregunta: 2, opcion: 'B', confianza: 0.9 }
+      { numeroPregunta: 1, opcion: 'A', confianza: 0.9, estadoRespuesta: 'respondida' },
+      { numeroPregunta: 2, opcion: 'B', confianza: 0.9, estadoRespuesta: 'respondida' }
     ]);
   });
 });

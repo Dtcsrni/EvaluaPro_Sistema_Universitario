@@ -5,14 +5,12 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 declare module 'tesseract.js' {
-  export type RecognizeResult = {
-    data?: {
-      text?: string;
-    };
+  export type Worker = {
+    recognize(image: string | Blob | HTMLCanvasElement | HTMLImageElement): Promise<{
+      data?: { text?: string };
+    }>;
+    terminate(): Promise<unknown>;
   };
 
-  export function recognize(
-    image: string | Blob | HTMLCanvasElement | HTMLImageElement,
-    languages?: string
-  ): Promise<RecognizeResult>;
+  export function createWorker(languages?: string): Promise<Worker>;
 }

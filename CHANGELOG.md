@@ -2,10 +2,58 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
-## [Unreleased] - 2026-09-03
+## [Unreleased] - 2026-10-03
+
+### Fixed
+- Los fallos al regenerar accesos directos quedan degradados con diagnóstico; el manifiesto crítico para el updater se genera de forma independiente y sigue siendo bloqueante si no puede escribirse.
+
+## [1.2.3] - 2026-10-03
+
+### Fixed
+- El post-install pasa `SyncRepoOutput` como bandera PowerShell (`[switch]`) en vez de serializar un booleano a texto entre procesos; evita que falle la creación de accesos/manifiesto y que se revierta la instalación.
+
+### Verification
+- Contrato focal de post-install y accesos directos: 1/1.
+
+## [1.2.2] - 2026-09-30
 
 ### Added
+- **Portadas de materias (`SPEC-073`):** API autenticada y GUI para cargar JPG/JPEG, PNG o WebP con límite de 20 MiB/20 MP, normalización WebP, persistencia SQLite separada, vista previa, reintento y fallback genérico.
+
+### Fixed
+- La sincronización parcial de Classroom ahora comunica los errores por actividad y los conteos reales sin presentar la ejecución como éxito completo.
+- La captura manual de calificaciones requiere un UUID idempotente, reutiliza la clave en reintentos de resultado incierto y evita duplicar auditorías o versiones.
+
+### Verification
+- Suites focales de portadas: API 5/5, GUI 3/3; calificaciones manuales: API 15/15, GUI 8/8; Classroom: GUI 9/9, API 5/5.
+- Typecheck, lint focal, OpenAPI/API contracts, WCAG y los builds de los cambios integrados pasaron en ramas aisladas.
+- Los gates remotos globales no quedaron verdes: falló un test OMR preexistente (`omr.consenso.robusto.test.ts`, 1/58); `Installer Windows (MSI + Bundle)` seguía ejecutándose al preparar la release. La firma de artefactos no está incluida.
+
+## [1.2.1] - 2026-09-30
+
+### Fixed
+- El lockfile autónomo del backend usado por el staging del instalador fija también `exceljs/uuid` en 11.1.1; antes el bundle aislado resolvía `uuid@8.3.2` aunque el lock raíz ya estaba corregido.
+- El editor de reactivos vuelve a limpiar recursivamente los descendientes antes de desenvolver etiquetas HTML no permitidas; añade regresiones para elementos y atributos activos anidados.
+- Los identificadores de sesión usan `crypto.randomUUID()` o `crypto.getRandomValues()` cuando están disponibles; el fallback no criptográfico queda limitado a una secuencia local sin uso de autorización.
+
+### Security
+- El lockfile actualiza `brace-expansion` a 1.1.21/2.1.7 e `ip-address` a 10.7.2; `uuid` de ExcelJS queda fijado a 11.1.1 mediante override compatible con `require('uuid').v4()`.
+- El audit del árbol completo permanece con 4 hallazgos altos en Prisma/`@prisma/config`/`mysql2`, cuya remediación automática propone migrar Prisma 7 a 6.19.3. No se aplica ese downgrade porque el backend usa Prisma 7 y `@prisma/adapter-better-sqlite3` 7; se requiere migración y validación de compatibilidad aparte.
+
+### Verification
+- `npm run build`: backend, frontend y portal compilan.
+- `npm -C apps/frontend test -- tests/richTextEditor.test.ts tests/sesion.test.ts`: 6/6; `npm -C apps/backend test -- tests/reactivosContrato.test.ts tests/analiticas.xlsx.sv.contract.test.ts`: 14/14; `npm run test:update`: 12/12; `npm run sdd:audit`: correcto.
+- `npm audit`: quedan 4 hallazgos altos en Prisma 7 y sus dependencias de configuración; la corrección automática exige cambiar a Prisma 6. No se ejecutaron los demás gates globales de release.
+
+## [Unreleased] - 2026-09-29
+
+### Added
+- **Preflight autenticado del API (`SPEC-070`):** `GET /api/preflight` resume versión/protocolo, sesión, permisos efectivos, disponibilidad de periodos y estados locales de Classroom/lease sin exponer tokens, datos personales ni rutas. El SDK `preflight()` consulta este estado; la conectividad remota de Classroom queda explícitamente como no verificada.
+- **Autenticación Google del cliente API (`SPEC-070` v1.23.6):** `loginGoogle(credential)` usa la ruta existente para convertir la credencial interactiva de Google Identity Services en sesión bearer, valida entradas localmente y mantiene credencial/token solo en memoria.
+- **Reintento idempotente de ingestas OMR (`SPEC-071`):** la GUI y API pueden reprocesar un job fallido desde originales y referencia con hashes verificados, descartando derivados anteriores y sin duplicar paquetes ni escribir calificaciones.
+- **Flujo integral de examen y skills repo-local:** se añadieron rutas especializadas para convertir evidencia de curso en blueprint, revisar reactivos OMR por tema con respuestas y distractores verificables, y generar/recuperar lotes con controles de impresión. La importación multitema ahora exige `temaId` por fila, muestra la asignación en preview, conserva XLSX histórico de un tema y versiona las reasignaciones.
 - **Dataset OMR externo y ciclo de vida de instancias (`SPEC-067`):** preparador lossless fuera del payload del Hub con etiquetas JSONL, hashes, procedencia, ZIP verificado y extracción conservadora de EXIF; el Installer Hub ahora inventaría estados de instalación, bloquea conflictos de flavor/raíces, preserva datos y no permite downgrades automáticos.
+- **Abstención OMR calibrada (`SPEC-062 REQ-039`):** añade una ruta estrecha para núcleo fotométrico aislado junto con el filtro previo de confianza/compacidad y la abstención de tachaduras. El replay de 39 capturas eleva las respuestas únicas concordantes con etiquetas observadas de 283/397 a 356/397, sin discrepancias emitidas en las 487 observaciones; Global48 suma 12 determinaciones sin nuevas dobles marcas. Estas etiquetas no son adjudicación independiente. El QR fotográfico no mejora. Una repetición idéntica tuvo 0 diferencias en respuestas, scores y QR, tardó 24.16 min y registró 1,580 MiB RSS frente a 25.18 min/1,598 MiB en la referencia; el pico de 2,209 MiB de la primera repetición no se reprodujo.
 - **Purga de legado OMR/PDF:** se retiraron OMR V1, TV3, renderer HTML/fallback anterior,
   adaptadores V9/V10, datasets TV3 y utilidades temporales heredadas; el flujo activo conserva
   exclusivamente el contrato canónico TV4 y sus evidencias sintéticas/piloto.
@@ -14,6 +62,12 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - **Trabajo coordinado entre equipos (`SPEC-048` v3.0.0):** lease temporal por docente/equipo, renovación automática, modo solo lectura para equipos sin control, snapshots versionados en carpeta sincronizada y acciones `Publicar y liberar` / `Traer última instantánea`. La SQLite permanece local.
 
 ### Fixed
+- **Prevalidación de referencia OMR con múltiples lotes (`SPEC-071` v1.2.13):** el límite multipart de campos ahora permite los IDs JSON de hasta 100 candidatos definidos por contrato; antes el middleware rechazaba con HTTP 400 listas de lotes mayores a 200 bytes.
+- **Cotejo de QR de referencia generado (`SPEC-071` v1.2.14):** la prevalidación compara la matriz impresa con los QR firmados esperados en la geometría OMR persistida, evitando el lector genérico de páginas que agotaba el runtime y no decodificaba el PDF de referencia.
+- **Nombres de página Poppler (`SPEC-071` v1.2.15):** el preview PDF resuelve archivos rasterizados aunque Poppler complete el número de página con ceros, evitando el fallback que entregaba hojas blancas al cotejo QR.
+- **Contrato de lista Global/C3 (`SPEC-059`):** se precisa que `global` conserva el total del tercer parcial para compatibilidad; la nota de examen fuente permanece separada. La integración Classroom ahora verifica ese contrato junto con continua y total C3.
+- **Referencia de ingesta OMR por lote (`SPEC-071`):** cuando falta el registro del artefacto PDF, la ingesta reutiliza la descarga canónica del lote para recuperar y validar el paquete consolidado completo; evita comparar todas las hojas contra el PDF individual del primer alumno y mantiene el flujo sin escritura de calificaciones.
+- **Paquetes OMR por categorías académicas (`SPEC-071` v1.2.17):** el backend guarda cada examen en carpetas de curso, materia, parcial, docente, alumno y grupo; las correcciones manuales regeneran el PDF en el mismo árbol con nombre acotado y sin colisión.
 - **Parser de temarios PDF:** `pdf-parse@2.4.5` ahora se consume mediante su API `PDFParse` instalada, conservando compatibilidad con exports callable y liberando el parser aunque falle la extracción.
 - **Empaquetado docente-local:** se eliminan únicamente engines Prisma de Linux, caché y `pdfjs-dist` redundante; se conservan Node, Prisma Windows, Sharp, canvas y el runtime PDF funcional.
 - **Cabecera y composición PDF/OMR:** se reorganizó la primera página en franja institucional de alto contraste, bloque central de título/metadatos y banda inferior independiente para alumno/grupo; además, las continuaciones usan la franja superior izquierda para el primer reactivo, colocan su panel OMR bajo las opciones y distribuyen el sobrante vertical entre reactivos, evitando huecos por la reserva del QR. La cabecera conserva separación al aumentar `fontScale` y las líneas de captura no atraviesan el bloque de metadatos (`SPEC-042` v1.6.0).
@@ -22,6 +76,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - **Suite visual en Windows**: se eliminó la escritura duplicada del reporte desde el worker Vitest; el reporte oficial queda a cargo de `run-gate-with-report.mjs`, evitando `EPERM` al ejecutar la suite completa.
 - **Build frontend en Windows con host activo**: `vite-build-safe.mjs` detecta el puerto web y compila en staging temporal; además, TypeScript dejó de depender de `tsbuildinfo` incremental bloqueable y los reportes QA usan fallback temporal cuando el entorno protege `reports/qa/latest`.
 - **Producción PDF/OMR de plantillas**: se corrigió la distribución por página para aprovechar el espacio disponible y mantener entre 10 y 15 preguntas por página cuando el contenido lo permite, con medición y dibujo usando la misma configuración tipográfica.
+- **Densidad PDF/OMR (`SPEC-042`)**: el cursor ya no acumula redondeo por reactivo; el rebalanceo valida la capacidad real de paneles en continuación y evita hojas extra. La plantilla compacta valida 35 reactivos breves en dos páginas (17/18) y abre la tercera al llegar a 36, con guardas OMR/dúplex y QR bajo degradación móvil.
 - **Legibilidad y composición**: se añadieron controles de tamaño de fuente y espaciado de línea, cabecera institucional con logos configurables, separación segura de indicaciones y paneles OMR horizontales con identificador y cinco respuestas legibles.
 - **Vista previa**: se reforzó la validación geométrica para evitar solapamientos entre cabecera, indicaciones, reactivos, imágenes, QR y paneles OMR.
 

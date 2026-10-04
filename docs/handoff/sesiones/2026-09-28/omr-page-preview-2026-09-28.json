@@ -1,0 +1,113 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-page-preview-2026-09-28",
+  "parentSessionId": "omr-x-real-samples-2026-09-28",
+  "status": "draft",
+  "generatedAt": "2026-09-28T23:14:41Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding-agent",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Continuar hasta que los flujos de examen, Classroom, bono, listas y OMR sean utilizables por GUI y API; mostrar evidencia visual de páginas OMR dudosas."
+  },
+  "objective": "Hacer inspeccionable por GUI y API la página PDF original durante la revisión OMR, sin mutar calificaciones, y verificar la nueva ruta.",
+  "scope": [
+    "SPEC-071 REQ-012 y AC-010",
+    "GET OMR de PNG por página de origen autenticada",
+    "Vista de página en PlantillasOmrWorkflow y wrapper API",
+    "Matriz de paridad de SPEC-070"
+  ],
+  "constraints": [
+    "No modificar ni publicar calificaciones.",
+    "Conservar el PDF original y verificar su hash antes de rasterizar.",
+    "El endpoint debe limitarse al docente propietario y responder sin caché.",
+    "La interfaz empaquetada en producción no se reemplazó; el checkout contiene 293 archivos modificados/untracked y requiere auditoría antes de promoverlo."
+  ],
+  "actions": [
+    { "type": "implementation", "summary": "Añadido endpoint docente para previsualizar como PNG una página de origen de ingesta PDF OMR.", "timestamp": "2026-09-28T23:14:41Z", "status": "ok" },
+    { "type": "implementation", "summary": "Añadido botón de revisión visual que carga y presenta la página original con texto alternativo en GUI.", "timestamp": "2026-09-28T23:14:41Z", "status": "ok" },
+    { "type": "implementation", "summary": "Ampliados OpenAPI, catálogo, cliente SDK, pruebas y SPEC-070/SPEC-071.", "timestamp": "2026-09-28T23:14:41Z", "status": "ok" },
+    { "type": "validation", "summary": "Integración completa OMR repetida en serie: 6/6 pruebas pasan; la prueba de vista previa y aislamiento docente también pasa aislada tras ampliar aserciones.", "timestamp": "2026-09-28T23:14:41Z", "status": "ok" },
+    { "type": "validation", "summary": "API contract, typechecks, lint, guard WCAG, build del bundle docente y sdd:audit pasan.", "timestamp": "2026-09-28T23:14:41Z", "status": "ok" },
+    { "type": "validation", "summary": "Una corrida inicial concurrente tuvo 1 falla no reproducida en la prueba OCR del pie; el caso aislado y la suite serial completa pasaron.", "timestamp": "2026-09-28T23:14:41Z", "status": "falla" },
+    { "type": "validation", "summary": "La inspección GUI confirmó que el servidor empaquetado activo aún sirve un bundle anterior; no se promovió ni reinició el runtime de producción.", "timestamp": "2026-09-28T23:14:41Z", "status": "ok" }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts",
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/api/generate-openapi.mjs"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+      "apps/backend/tests/integracion/omrJobsWorkflow.test.ts",
+      "apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts",
+      "apps/frontend/src/styles/screens.css",
+      "apps/frontend/tests/plantillasOmrWorkflow.test.tsx",
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/api/generate-openapi.mjs",
+      "scripts/api/check-openapi-contract.mjs",
+      "scripts/api/openapi.json",
+      "scripts/api/CRUD_CATALOG.md",
+      "scripts/tests/evaluapro-client.test.mjs",
+      "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md"
+    ],
+    "artifacts": [
+      "apps/frontend/dist-docente"
+    ]
+  },
+  "commands": [
+    { "name": "frontend_component_test", "command": "npm -C apps/frontend run test -- --run tests/plantillasOmrWorkflow.test.tsx", "status": "ok", "exitCode": 0, "durationMs": 2676, "resultSummary": "1 archivo, 3 pruebas aprobadas." },
+    { "name": "api_client_test", "command": "node --test scripts/tests/evaluapro-client.test.mjs", "status": "ok", "exitCode": 0, "durationMs": 587, "resultSummary": "34 pruebas aprobadas; wrapper PNG verificado como binario." },
+    { "name": "backend_omr_integration", "command": "npm -C apps/backend run test -- --run tests/integracion/omrJobsWorkflow.test.ts", "status": "ok", "exitCode": 0, "durationMs": 144130, "resultSummary": "6/6 pruebas aprobadas en ejecución serial." },
+    { "name": "openapi_contract", "command": "npm run api:contract:check", "status": "ok", "exitCode": 0, "durationMs": 941, "resultSummary": "234 rutas, 269 operaciones; resource lifecycle 71/71." },
+    { "name": "sdd_audit", "command": "npm run sdd:audit", "status": "ok", "exitCode": 0, "durationMs": 886, "resultSummary": "Auditoría exitosa; SPEC-071 conserva estado approved." },
+    { "name": "docente_build", "command": "npm -C apps/frontend run build:docente", "status": "ok", "exitCode": 0, "durationMs": 13809, "resultSummary": "Build y docente-bundle-guard aprobados." },
+    { "name": "git_diff_check_crlf_aware", "command": "git -c core.whitespace=cr-at-eol diff --check -- apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts apps/backend/tests/integracion/omrJobsWorkflow.test.ts apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx apps/frontend/tests/plantillasOmrWorkflow.test.tsx apps/frontend/src/styles/screens.css scripts/api/evaluapro-client.mjs scripts/api/generate-openapi.mjs scripts/api/check-openapi-contract.mjs scripts/tests/evaluapro-client.test.mjs docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md scripts/api/openapi.json scripts/api/CRUD_CATALOG.md", "status": "ok", "exitCode": 0, "durationMs": 256, "resultSummary": "Sin errores de whitespace al tratar CRLF según los archivos Windows." }
+  ],
+  "decisions": [
+    "Usar el lector raster PDF existente y devolver solo la página necesaria como PNG, evitando transferir al navegador el PDF completo.",
+    "Restringir el endpoint al docente dueño del job, verificar SHA-256 del original y marcar respuesta private/no-store.",
+    "La confirmación y resolución continúan siendo manuales; la vista previa no cambia la hoja ni las calificaciones.",
+    "No actualizar el runtime empaquetado porque corresponde a una instalación con base de producción y el checkout presenta 293 archivos modificados o untracked que requieren separación y auditoría antes de promoción."
+  ],
+  "assumptions": [
+    "El docente dispone del permiso omr:analizar para consultar la vista previa; el endpoint aplica ese mismo permiso existente."
+  ],
+  "risks": [
+    "La aplicación empaquetada activa y su backend no contienen todavía esta nueva ruta; el build de workspace no equivale a despliegue instalado.",
+    "No se ejecutó lote CamScanner ni se comparó la página previsualizada contra el PDF generado real de producción.",
+    "La falla OCR de la corrida concurrente no se reprodujo aislada ni en la integración serial completa, pero debe mantenerse observada."
+  ],
+  "nextStep": "Seguir cerrando las brechas explícitas de SPEC-070/SPEC-071 con evidencia GUI/API; después separar el candidato de los cambios ajenos antes de proponer sincronizarlo con el runtime empaquetado.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "Comparación visual lado a lado contra el PDF generado de referencia.",
+      "Matriz completa de paridad GUI/API para todos los flujos trabajados.",
+      "Validación productiva de libros y ejecución del lote OMR real.",
+      "Promoción segura del candidato a la aplicación empaquetada y reinicio verificado."
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/omr-letter-color-template",
+    "commit": "894840dff0b50aa2e3ac7d27d0338f418ee61cf7",
+    "workingTreeStatus": "293 tracked modified files in current working tree, plus untracked files; preserve unrelated work and do not promote without scope audit."
+  }
+}

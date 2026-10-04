@@ -1,0 +1,74 @@
+{
+  "protocol": "evaluapro.handoff",
+  "protocolVersion": "1.0",
+  "messageId": "omr-qr-reference-dev3-20260929",
+  "task": {
+    "taskId": "omr-cv-qr-template",
+    "contextId": "omr-cv-qr-template-20260929",
+    "state": "working",
+    "objective": "Continuar mejorando OMR, QR y plantilla con datasets etiquetados y lotes recientes; promover una release estable independiente solo después de evidencia de producción reproducible.",
+    "acceptanceCriteria": [
+      "El comparador QR conserva coincidencia exacta, rechazo de ambigüedad y margen de 3.5 %.",
+      "El motor OMR/QR mantiene SemVer y canal independientes de EvaluaPro y TV4.",
+      "La versión permanece en desarrollo hasta validar todos los corpora relevantes y capturar hojas impresas con verdad terreno adjudicada."
+    ]
+  },
+  "sender": {
+    "provider": "OpenAI",
+    "agent": "Codex",
+    "model": "unknown",
+    "runtime": "desktop"
+  },
+  "context": {
+    "summary": "Se implementó evaluapro-omr-qr@1.0.0-dev.3: matrices preparadas una vez por PDF, comparación empaquetada y raster a 144 dpi en bloques de 8. El cotejo real de 10 PDF únicos asoció 414/414 páginas unívocamente al payload esperado dentro del margen de 3.5 %, cero ambiguas o faltantes. El benchmark sintético midió 9.46x con equivalencia de resultado.",
+    "decisions": [
+      "Mantener margen de diferencia 3.5 %, geometría persistida, firma del payload y aceptación de coincidencia única.",
+      "Adoptar 144 dpi/bloques de 8: el corpus completo mantuvo 414/414 coincidencias y fue 8.6 % más rápido que 144 dpi/bloques de 4.",
+      "Versionar el motor por separado del producto y de la plantilla; dev.3 no es estable.",
+      "No afirmar que los PDFs recientes de Descargas fueron verificados contra mapas reales: faltan las asociaciones canónicas en esta iteración."
+    ],
+    "constraints": [
+      "Preservar el árbol compartido; sin stage, commit ni reversión de cambios preexistentes.",
+      "No modificar datos productivos, jobs o calificaciones.",
+      "No desplegar a la instalación local en esta iteración."
+    ],
+    "assumptions": [
+      "El microbenchmark sintético caracteriza solo el cotejo de referencias con geometría compartida; no predice exactitud de cámara o fotografía.",
+      "La evaluación matricial real compara contra los payloads y geometrías persistidos, pero no invoca HMAC; el test de integración local verifica la validación de firma del endpoint."
+    ],
+    "risks": [
+      "El CamScanner de 48 páginas carece de lote/mapa de referencia para este cotejo; su evaluación fotográfica queda pendiente.",
+      "La GUI/API instalada no fue revalidada después del fallo de runtime informado antes de este cambio.",
+      "La precisión OMR de corpus completo, adjudicación de etiquetas y validación física TV4 siguen pendientes."
+    ],
+    "nextStep": "Verificar la GUI/API instalada con la build actual; luego volver a evaluar el OMR sobre todas las fotos etiquetadas y adjudicar muestras ambiguas."
+  },
+  "artifacts": [
+    {
+      "id": "dev3-qa-report",
+      "path": "docs/qa/omr-qr-reference-dev3-2026-09-29.md",
+      "mediaType": "text/markdown",
+      "bytes": 5891,
+      "trust": "trusted_local",
+      "sha256": "790f88db030f4cca54600990b297af881a6d4ee31a26e591aeba44c5826b6069"
+    },
+    {
+      "id": "dev3-session-trace",
+      "path": "docs/handoff/sesiones/2026-09-29/omr-qr-reference-dev3-20260929.json",
+      "mediaType": "application/json",
+      "bytes": 11001,
+      "trust": "trusted_local",
+      "sha256": "6d4110af64dec1cf406c73fca5cfbd4706280ab05d071a49a9cbaac5f59e6985"
+    }
+  ],
+  "provenance": {
+    "generatedAt": "2026-09-30T00:36:17Z",
+    "traceSessionId": "omr-qr-reference-dev3-20260929",
+    "parentSessionId": "omr-cv-qr-template-20260929"
+  },
+  "security": {
+    "trust": "untrusted",
+    "executionPolicy": "no-auto-exec",
+    "redactionsApplied": []
+  }
+}

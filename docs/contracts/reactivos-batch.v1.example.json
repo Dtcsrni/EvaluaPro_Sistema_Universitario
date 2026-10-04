@@ -1,0 +1,43 @@
+{
+  "contract": "evaluapro.reactivos.batch",
+  "schemaVersion": 1,
+  "batchId": "ia-bi-segundo-parcial-001",
+  "target": {
+    "periodoId": "REEMPLAZAR_CON_ID_CANONICO",
+    "temaIds": ["REEMPLAZAR_CON_TEMA_ID_CANONICO"]
+  },
+  "source": {
+    "kind": "ai_generated",
+    "generator": "ChatGPT",
+    "generatorModel": "REEMPLAZAR",
+    "generatedAt": "2026-09-19T18:00:00Z",
+    "sourceDocumentSha256": null
+  },
+  "items": [
+    {
+      "externalKey": "bi-sp-001",
+      "itemId": null,
+      "expectedVersion": null,
+      "format": "omr.mcq5",
+      "stem": { "format": "richtext", "value": "¿Qué caracteriza mejor a una organización con cultura del dato?" },
+      "options": [
+        { "key": "A", "value": "Ejemplo de respuesta correcta", "isCorrect": true },
+        { "key": "B", "value": "Distractor", "isCorrect": false },
+        { "key": "C", "value": "Distractor", "isCorrect": false },
+        { "key": "D", "value": "Distractor", "isCorrect": false },
+        { "key": "E", "value": "Distractor", "isCorrect": false }
+      ],
+      "metadata": {
+        "difficultyHypothesis": "medium",
+        "cognitiveLevel": "understand",
+        "competencies": ["data-driven-decision-making"],
+        "tags": ["cultura-del-dato"]
+      },
+      "provenance": {
+        "origin": "generated",
+        "confidence": 0.92,
+        "notes": "Generado a partir del material del segundo parcial. Revisar antes de publicar."
+      }
+    }
+  ]
+}

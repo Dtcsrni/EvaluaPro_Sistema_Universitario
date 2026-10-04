@@ -110,7 +110,7 @@ export function usePlantillasPreviewActions({
       }
 
       const intentar = async (t: string) =>
-        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual`, {
+        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual?refresh=${Date.now()}`, {
           credentials: 'include',
           // La caché válida vive en el backend y está versionada por layout;
           // el navegador no debe conservar un Blob de una preview anterior.

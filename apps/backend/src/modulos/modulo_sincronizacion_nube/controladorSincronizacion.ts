@@ -4,6 +4,10 @@
  * Mantiene contrato de rutas y delega toda la logica de negocio a use cases.
  */
 import type { Request, Response } from 'express';
+import { Buffer } from 'node:buffer';
+import type { Prisma } from '@prisma/client';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { esquemaListarCodigosAcceso } from './validacionesSincronizacion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { listarSincronizacionesUseCase } from './application/usecases/listarSincronizaciones.js';
 import { generarCodigoAccesoUseCase } from './application/usecases/generarCodigoAcceso.js';
@@ -34,8 +38,10 @@ export async function listarSincronizaciones(req: SolicitudDocente, res: Respons
 
 export async function generarCodigoAcceso(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const periodoId = String((req.body as { periodoId?: unknown })?.periodoId ?? '').trim();
-  const payload = await generarCodigoAccesoUseCase({ docenteId, periodoId });
+  const body = req.body as { periodoId?: unknown; clientRequestId?: unknown };
+  const periodoId = String(body?.periodoId ?? '').trim();
+  const clientRequestId = typeof body?.clientRequestId === 'string' ? body.clientRequestId : undefined;
+  const payload = await generarCodigoAccesoUseCase({ docenteId, periodoId, clientRequestId });
   res.status(201).json(payload);
 }
 
@@ -207,4 +213,95 @@ export async function importarInstantaneaNubeControlada(req: SolicitudDocente, r
     credencial: typeof body.credencial === 'string' ? body.credencial : undefined,
     dryRun: body.dryRun === true
   }));
+}
+
+
+/** Lista metadatos de códigos propios sin devolver el secreto de acceso. */
+export async function listarCodigosAcceso(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const filtros = esquemaListarCodigosAcceso.safeParse(res.locals.validatedQuery ?? req.query);
+  if (!filtros.success) {
+    throw new ErrorAplicacion('CODIGOS_ACCESO_QUERY_INVALIDA', 'Los filtros de códigos de acceso no cumplen el contrato', 400, filtros.error.flatten());
+  }
+
+  const ahora = new Date();
+  let cursor: { id: string; createdAt: Date } | undefined;
+  if (filtros.data.cursor) {
+    try {
+      const decoded = JSON.parse(Buffer.from(filtros.data.cursor, 'base64url').toString('utf8')) as { id?: unknown; createdAt?: unknown };
+      const createdAt = new Date(String(decoded.createdAt ?? ''));
+      if (typeof decoded.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(decoded.id) || !Number.isFinite(createdAt.getTime())) {
+        throw new Error('invalid cursor');
+      }
+      cursor = { id: decoded.id, createdAt };
+    } catch {
+      throw new ErrorAplicacion('CODIGO_ACCESO_CURSOR_INVALIDO', 'El cursor de códigos de acceso no es válido', 400);
+    }
+  }
+
+  const estado = filtros.data.estado;
+  const where: Prisma.CodigoAccesoWhereInput = {
+    docenteId,
+    periodo: { is: { docenteId } },
+    ...(filtros.data.periodoId ? { periodoId: filtros.data.periodoId } : {}),
+    ...(estado === 'vigente' ? { usado: false, expiraEn: { gt: ahora } } : {}),
+    ...(estado === 'expirado' ? { usado: false, expiraEn: { lte: ahora } } : {}),
+    ...(estado === 'usado' ? { usado: true } : {}),
+    ...(cursor ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] } : {})
+  };
+  const filas = await prisma.codigoAcceso.findMany({
+    where,
+    take: filtros.data.limite + 1,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: {
+      id: true, docenteId: true, periodoId: true, expiraEn: true, usado: true, createdAt: true, updatedAt: true,
+      periodo: { select: { id: true, nombre: true } }
+    }
+  });
+  const hayMas = filas.length > filtros.data.limite;
+  const codigosAcceso = filas.slice(0, filtros.data.limite).map((codigo) => ({
+    ...codigo,
+    estado: codigo.usado ? 'usado' : codigo.expiraEn > ahora ? 'vigente' : 'expirado'
+  }));
+  const ultimo = hayMas ? codigosAcceso[codigosAcceso.length - 1] : undefined;
+  const nextCursor = ultimo
+    ? Buffer.from(JSON.stringify({ id: ultimo.id, createdAt: ultimo.createdAt.toISOString() }), 'utf8').toString('base64url')
+    : null;
+  res.json({ codigosAcceso, nextCursor });
+}
+
+/** Consulta un código por ID bajo el dueño del periodo; nunca devuelve el secreto. */
+export async function obtenerCodigoAcceso(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const codigoAccesoId = String(req.params.codigoAccesoId ?? '').trim();
+  const codigo = await prisma.codigoAcceso.findFirst({
+    where: { id: codigoAccesoId, docenteId, periodo: { is: { docenteId } } },
+    select: {
+      id: true, docenteId: true, periodoId: true, expiraEn: true, usado: true, createdAt: true, updatedAt: true,
+      periodo: { select: { id: true, nombre: true } }
+    }
+  });
+  if (!codigo) throw new ErrorAplicacion('CODIGO_ACCESO_NO_ENCONTRADO', 'Código de acceso no encontrado', 404);
+  const ahora = new Date();
+  res.json({ codigoAcceso: { ...codigo, estado: codigo.usado ? 'usado' : codigo.expiraEn > ahora ? 'vigente' : 'expirado' } });
+}
+
+
+/** Expira un código local; la copia del portal requiere publicación separada. */
+export async function expirarCodigoAcceso(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const codigoAccesoId = String(req.params.codigoAccesoId ?? '').trim();
+  const ahora = new Date();
+  const resultado = await prisma.codigoAcceso.updateMany({
+    where: { id: codigoAccesoId, docenteId, periodo: { is: { docenteId } }, usado: false, expiraEn: { gt: ahora } },
+    data: { expiraEn: ahora }
+  });
+  if (resultado.count === 0) {
+    const codigo = await prisma.codigoAcceso.findFirst({
+      where: { id: codigoAccesoId, docenteId, periodo: { is: { docenteId } } },
+      select: { id: true, usado: true, expiraEn: true }
+    });
+    if (!codigo) throw new ErrorAplicacion('CODIGO_ACCESO_NO_ENCONTRADO', 'Código de acceso no encontrado', 404);
+  }
+  res.json({ codigoAccesoId, expirado: resultado.count > 0 });
 }

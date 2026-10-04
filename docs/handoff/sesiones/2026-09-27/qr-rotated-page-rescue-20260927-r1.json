@@ -1,0 +1,215 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "qr-rotated-page-rescue-20260927-r1",
+  "parentSessionId": "qr-footer-ocr-fallback-20260927-r1",
+  "status": "draft",
+  "generatedAt": "2026-09-27T23:04:57Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Mejorar la detección de QR en páginas capturadas con orientación invertida sin afectar el análisis OMR."
+  },
+  "objective": "Añadir un rescate QR final y acotado para orientación de página y validar que no modifica la geometría ni respuestas procesadas por OMR.",
+  "scope": [
+    "Rotar una copia de trabajo de la imagen y escanear hasta dos ROI cercanas a la cabecera esperada",
+    "Rechazar payloads distintos al esperado en el flujo OMR",
+    "Devolver ubicación en el marco de la captura y separar explícitamente origen rotado",
+    "Añadir regresiones sintéticas y probar una captura QR-fallida del dataset"
+  ],
+  "constraints": [
+    "No mutar el raster original utilizado por OMR",
+    "No aceptar payload QR ajeno ni convertir texto OCR en QR",
+    "No escribir ni publicar calificaciones",
+    "Preservar cambios concurrentes del checkout"
+  ],
+  "actions": [
+    {
+      "type": "mejora",
+      "summary": "Añadido el rescate rotacional de QR al final de la cadena, con ROI de cabecera y desplazamiento acotado por recorte de cámara; el resultado rotado no se entrega como referencia geométrica a OMR.",
+      "timestamp": "2026-09-27T22:50:55Z",
+      "status": "ok"
+    },
+    {
+      "type": "pruebas",
+      "summary": "Tres pruebas sintéticas verifican giro 90/180/270, coordenadas devueltas y rechazo de payload ajeno.",
+      "timestamp": "2026-09-27T22:50:55Z",
+      "status": "ok"
+    },
+    {
+      "type": "validacion",
+      "summary": "49 pruebas backend OMR/QR focales, TypeScript y ESLint pasaron; scan-16 recuperó el payload esperado por rotación. SDD audit continúa fallando por referencia de test inexistente en SPEC-070, ajena a este cambio.",
+      "timestamp": "2026-09-27T22:50:55Z",
+      "status": "ok"
+    },
+    {
+      "type": "mejora",
+      "summary": "El benchmark ahora separa QR rotacional de lectura directa y rescate geométrico; añade métricas exactas por página y una regresión para evitar inflar la cobertura directa.",
+      "timestamp": "2026-09-27T23:02:59Z",
+      "status": "ok"
+    },
+    {
+      "type": "validacion",
+      "summary": "Prueba de integridad por grano 12/12, sintaxis del runner, TypeScript, ESLint y diff-check aprobados. scan-12 y scan-06 siguen sin lectura; el cambio real recupera 1 de 3 ejemplos focales probados.",
+      "timestamp": "2026-09-27T23:02:59Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "README.md",
+      "docs/README.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/POLITICA_ECONOMIA_TOKENS_CODEX.md",
+      "docs/IA_SKILLS_MCP_POLICY.md",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts",
+      "apps/backend/tests/omr.test.ts",
+      "apps/backend/scripts/omr-eval-real-dataset.mjs",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/metricasDatasetOmr.ts",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-global48-r2-20260927.json",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-global48-20260927-r1/scan-12.png",
+      "D:/Downloads/evaluapro_paquete_examenes_materia-Inteligencia_de_Negocios_plantilla-Examen_Global_total-12_lote-27588278.pdf"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts",
+      "apps/backend/tests/omr.test.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "apps/backend/scripts/omr-eval-real-dataset.mjs",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/metricasDatasetOmr.ts",
+      "apps/backend/tests/omr.dataset-grain.test.ts",
+      "docs/handoff/sesiones/2026-09-27/qr-rotated-page-rescue-20260927-r1.json",
+      "docs/handoff/sesiones/2026-09-27/qr-rotated-page-rescue-20260927-r1.md"
+    ],
+    "artifacts": [
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-ref-scan12-p28.png"
+    ]
+  },
+  "commands": [
+    {
+      "name": "backend_omr_qr_focused_tests",
+      "command": "npm test -- tests/omr.test.ts tests/omr.geometry.reference.test.ts tests/omr.qr.preimpresion.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 68440,
+      "resultSummary": "3 test files passed; 49/49 tests passed."
+    },
+    {
+      "name": "real_photo_qr_smoke",
+      "command": "node --import tsx --input-type=module <inline reader for Temp/evaluapro-omr-global48-20260927-r1/scan-16.png>",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 7048,
+      "resultSummary": "The reader returned exactExpected=true against the saved PDF/manifest payload for folio 035BC62C page 4 with source rotacion_pagina; baseline direct QR was null. No grades were written."
+    },
+    {
+      "name": "rotated_qr_negative_case_smokes",
+      "command": "node --import tsx --input-type=module <inline QR reader on scan-12.png and scan-06.png>",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 14246,
+      "resultSummary": "scan-12 expected AECC7723 P4 and scan-06 expected 21CD759C P2 both remained unreadable; scan-12 is visibly displaced/degraded versus clean PDF page 28, while scan-06 shows physical fold/occlusion."
+    },
+    {
+      "name": "reference_pdf_scan12_page28",
+      "command": "pdfinfo <global-reference.pdf>; pdftoppm -f 28 -l 28 -singlefile -png -r 180 <global-reference.pdf> <Temp/evaluapro-ref-scan12-p28>",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2090,
+      "resultSummary": "Reference PDF has 48 letter-size pages; page 28 visually confirms the clean QR, folio AECC7723 and page 4 corresponding to scan-12."
+    },
+    {
+      "name": "benchmark_script_syntax",
+      "command": "node --check apps/backend/scripts/omr-eval-real-dataset.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 194,
+      "resultSummary": "The updated real-dataset benchmark script parses successfully."
+    },
+    {
+      "name": "dataset_metric_regressions",
+      "command": "npm test -- tests/omr.dataset-grain.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2861,
+      "resultSummary": "1 test file passed; 12/12 tests passed, including direct-vs-rotation metric separation."
+    },
+    {
+      "name": "backend_typescript",
+      "command": "npx tsc --noEmit --project tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11124,
+      "resultSummary": "TypeScript check passed without emitting files."
+    },
+    {
+      "name": "backend_focused_eslint",
+      "command": "npx eslint src/modulos/modulo_escaneo_omr/servicioOmrCv.ts src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts tests/omr.test.ts --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3928,
+      "resultSummary": "No lint errors or warnings in the changed TypeScript files."
+    },
+    {
+      "name": "targeted_diff_check",
+      "command": "git -c core.whitespace=cr-at-eol diff --check -- <four changed implementation/spec paths>",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 210,
+      "resultSummary": "No whitespace errors; Git emitted a line-ending conversion warning for the existing CRLF TypeScript file."
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 889,
+      "resultSummary": "SPEC-070 references missing apps/backend/tests/integracion/codigosAccesoApi.test.ts; all other specs including SPEC-062 passed. This is unrelated to the QR change."
+    },
+    {
+      "name": "ia_traceability_tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 962,
+      "resultSummary": "7/7 traceability contract tests passed; the session JSON independently validated with validateTraceDocument."
+    }
+  ],
+  "decisions": [
+    "Use only 90/270-degree attempts for landscape frames and 180 degrees for portrait frames; normal identity paths still run first.",
+    "Rotate once per orientation candidate, then inspect at most two focused header ROIs rather than reprocessing the full page through the multi-pass decoder.",
+    "Require exact expected payload in OMR analysis; store the recovered text/source but set qrDetalle to null so rotated coordinates cannot govern OMR.",
+    "Benchmark rows classify rotacion_pagina separately from direct_image, and report rotated exact matches separately from geometric rescue.",
+    "Do not claim dataset-wide QR/OMR accuracy from one real-photo smoke; defer the 48-page benchmark until explicitly authorized for this change."
+  ],
+  "assumptions": [
+    "The generated template keeps its QR in the upper-right header after canonical page orientation.",
+    "The real scan-16 benchmark row and PDF reference still correspond to the current image bytes; the payload was compared exactly during this smoke."
+  ],
+  "risks": [
+    "The full 48-page benchmark was not repeated, so total QR uplift, latency cost over the complete dataset, and OMR output equivalence remain unmeasured.",
+    "Only scan-16 of the three targeted photo examples was recovered; scan-12 QR remains unreadable and scan-06 is physically occluded.",
+    "Synthetic tests and one real page do not establish generalization to all rotations, crops, folds, or camera models.",
+    "No physical print/scan or stable release validation was performed.",
+    "Repository-wide SDD audit remains blocked by the pre-existing SPEC-070 test-path mismatch."
+  ],
+  "nextStep": "Request authorization for the bounded full 48-page no-grade benchmark; compare direct QR, orientation-rescue QR, per-page latency and OMR response vectors against the saved baseline, then tune ROI offsets only if evidence justifies it.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "Full 48-page QR/OMR comparison and latency delta",
+      "Independent page-level OMR response invariance evidence",
+      "Resolve unrelated SPEC-070 test-path mismatch in its owning scope",
+      "Physical printing/scan validation"
+    ]
+  }
+}

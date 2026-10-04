@@ -1,8 +1,8 @@
 ---
 id: SPEC-053
 titulo: Guardrails de configuracion y runtime para Google OAuth y Classroom
-version: 1.0.0
-fecha: 2026-09-01
+version: 1.1.0
+fecha: 2026-09-25
 autor: EvaluaPro Team
 modulo: autenticacion, integraciones_classroom, instalador_burn
 estado: implemented
@@ -28,6 +28,7 @@ Impedir que una instalacion o reparacion degrade silenciosamente Google OAuth o 
 - **REQ-008:** `GOOGLE_CLASSROOM_CLIENT_ID` nunca debe derivarse de `GOOGLE_OAUTH_CLIENT_ID`; si Classroom esta deshabilitado, sus rutas no deben crear clientes OAuth aunque existan credenciales residuales.
 - **REQ-009:** Cuando Google OAuth es obligatorio, `VITE_GOOGLE_CLIENT_ID` debe coincidir con `GOOGLE_OAUTH_CLIENT_ID` para evitar que frontend y backend acepten audiencias distintas.
 - **REQ-010:** El launcher instalado debe cargar los valores no vacios del `.env` aunque el proceso padre herede variables vacias.
+- **REQ-011:** En producción `docente-local`, el `.env` instalado prevalece para la configuración Classroom incluso si el supervisor de escritorio persistente hereda valores no vacíos obsoletos; la carga no debe borrar ni reautorizar la sesión OAuth persistida.
 
 ## Criterios de Aceptación
 
@@ -39,6 +40,7 @@ Impedir que una instalacion o reparacion degrade silenciosamente Google OAuth o 
 6. La evidencia distingue pruebas con mocks de validacion externa real de Google.
 7. Una configuracion con client ID de login solamente no habilita ni inicializa Classroom.
 8. Un build con client IDs frontend/backend distintos falla de forma determinista.
+9. Tras editar el `.env` mientras el supervisor sigue abierto, un nuevo runtime API toma el último bloque de configuración Classroom instalado, incluida la llave de cifrado, y conserva la sesión OAuth persistida sin solicitar consentimiento de nuevo.
 
 ## Matriz de Trazabilidad
 
@@ -51,6 +53,7 @@ Impedir que una instalacion o reparacion degrade silenciosamente Google OAuth o 
 | REQ-008 | `apps/backend/src/configuracion.ts`, `servicioClassroomGoogle.test.ts` y `configuracion.produccion.test.ts` |
 | REQ-009 | `apps/frontend/vite.config.ts` y `apps/frontend/tests/vite.config.test.ts` |
 | REQ-010 | `scripts/runtime-env.mjs`, `scripts/start-docente-native.mjs` y `scripts/tests/runtime-env.test.mjs` |
+| REQ-011 | `scripts/tests/runtime-env.test.mjs` y `scripts/tests/native-startup.contract.test.mjs` |
 
 ## Riesgos y limites
 

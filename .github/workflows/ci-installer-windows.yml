@@ -9,16 +9,18 @@ on:
 
 concurrency:
   group: ci-installer-windows-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   installer_windows:
     name: Installer Windows (MSI + Bundle)
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
 
     steps:
       - name: Descargar código
@@ -29,7 +31,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -37,18 +39,21 @@ jobs:
             apps/frontend/package-lock.json
             apps/portal_alumno_cloud/package-lock.json
 
-      - name: Configurar .NET SDK 8
+      - name: Configurar .NET SDK 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
-      - name: Instalar WiX CLI estable (v6.0.2)
+      - name: Instalar WiX CLI estable (v7.0.0)
         shell: powershell
         run: |
-          dotnet tool install --global wix --version 6.0.2
+          dotnet tool install --global wix --version 7.0.0
+          wix eula accept wix7
 
       - name: Registrar WiX en PATH y Validar Versión
         shell: powershell
@@ -63,7 +68,7 @@ jobs:
             throw "No se encontro wix.exe en la carpeta de herramientas .NET global ($dotnetToolsDir)"
           }
           $wixVersion = (& $wixPath --version | Select-Object -First 1)
-          if ($wixVersion -notmatch '^6\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
+          if ($wixVersion -notmatch '^7\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 7.0.x." }
           Write-Host "WiX version detectada: $wixVersion"
 
       - name: Etapa policy-check WiX
@@ -123,6 +128,38 @@ jobs:
           EVALUAPRO_SIGN_TIMESTAMP_URL: ${{ secrets.EVALUAPRO_SIGN_TIMESTAMP_URL }}
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-installer-artifacts.ps1
 
+      - name: Instalar Chromium para la E2E docente completa
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        run: npx playwright install chromium
+
+      - name: E2E completa sobre el bundle docente que se publicará
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        shell: powershell
+        env:
+          EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
+          EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
+        run: |
+          $reportDir = "reports/qa/installer-hub-e2e-docente/ci-${{ github.run_id }}"
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 `
+            -RootPath "$env:GITHUB_WORKSPACE" `
+            -ReportDir $reportDir `
+            -InstallDir (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-installer-hub-e2e') `
+            -Port 4519 `
+            -IUnderstandThisMutatesPc `
+            -SeedDummyData
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publicar evidencia de la E2E completa
+        if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v6
+        with:
+          name: installer-hub-e2e-${{ github.run_id }}
+          path: reports/qa/installer-hub-e2e-docente/ci-${{ github.run_id }}/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Verificar artefactos
         if: github.event_name == 'pull_request'
         shell: powershell
@@ -172,32 +209,47 @@ jobs:
           path: |
             dist/installer/_internal/**
 
-      - name: Publicar release assets (tags v*)
-        if: startsWith(github.ref, 'refs/tags/v')
-        id: stable_release_assets
+  publish_installer_release:
+    name: Publicar release del instalador
+    needs: installer_windows
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Descargar artefactos del build validado
+        uses: actions/download-artifact@v6
+        with:
+          name: installer-windows
+          path: dist/installer
+
+      - name: Verificar assets de publicación
         shell: bash
         run: |
           set -euo pipefail
-          files=(
-            dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe
-            dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
-            "dist/installer/EvaluaPro-release-manifest.json"
-            "dist/installer/antivirus-scan-report.txt"
-          )
-          {
-            echo 'files<<EOF'
-            printf '%s\n' "${files[@]}"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
+          shopt -s nullglob
+          installers=(dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe)
+          if (( ${#installers[@]} != 1 )); then
+            echo "Se esperaba exactamente un bundle docente-local; encontrados: ${#installers[@]}" >&2
+            exit 1
+          fi
+          test -f "${installers[0]}.sha256"
+          test -f dist/installer/EvaluaPro-release-manifest.json
+          test -f dist/installer/antivirus-scan-report.txt
 
       - name: Publicar release assets (tags v*)
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           make_latest: false
           overwrite_files: true
-          files: ${{ steps.stable_release_assets.outputs.files }}
+          files: |
+            dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe
+            dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
+            dist/installer/EvaluaPro-release-manifest.json
+            dist/installer/antivirus-scan-report.txt
 
       - name: Retirar release estable anterior v1.1.5
         if: github.ref == 'refs/tags/v1.1.6'

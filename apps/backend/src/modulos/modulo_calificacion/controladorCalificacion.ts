@@ -13,7 +13,7 @@ import { promisify } from 'node:util';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../configuracion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
-import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen.js';
+import { extraerResumenQrExamen, type ResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen.js';
 import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
 import { leerCapturasOmrParaPortal } from '../modulo_sincronizacion_nube/infra/omrCapturas.js';
 import { calcularCalificacion } from './servicioCalificacion.js';
@@ -35,7 +35,8 @@ type RespuestaDetectada = {
     shapeCompactness: number;
     markConfidence: number;
   }>;
-  flags?: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi'>;
+  flags?: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi' | 'parcial_detectada' | 'tachada_detectada'>;
+  estadoRespuesta?: 'respondida' | 'sin_marca' | 'ambigua' | 'doble_marca' | 'tachada';
 };
 
 type AnalisisOmrCalificacion = {
@@ -54,6 +55,16 @@ type AnalisisOmrCalificacion = {
   photoQuality?: number;
   decisionPolicy?: string;
   qrTexto?: string;
+  resumenRespuestas?: {
+    totalReactivos: number;
+    reactivosRespondidos: number;
+    reactivosSinMarca: number;
+    reactivosAmbiguos: number;
+    reactivosInvalidos: number;
+    examenVacio: boolean;
+    examenVacioProbable: boolean;
+    estadoExamen: 'vacio_confirmado' | 'vacio_probable' | 'con_respuestas' | 'requiere_revision';
+  };
 };
 
 type PaginaOmrCalificacionEntrada = {
@@ -87,6 +98,19 @@ function parseJsonSafe<T>(val: unknown): T | null {
     }
   }
   return val as T;
+}
+
+function normalizarParaHash(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizarParaHash);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, normalizarParaHash(item)]));
+}
+
+function uuidIdempotenciaCalificacion(docenteId: string, clientRequestId: string) {
+  const hex = createHash('sha256').update(`${docenteId}\n${clientRequestId}`, 'utf8').digest('hex').slice(0, 32).split('');
+  hex[12] = '5';
+  hex[16] = ((Number.parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`;
 }
 
 function formatearExamenGeneradoPrisma(raw: any) {
@@ -237,9 +261,10 @@ function validarResumenQrContraExamen(params: {
   qrTexto: string;
   folioExamen: string;
   templateVersionOmr: number;
+  templateIdOmr?: string;
   paginasQrEsperadas: string[];
-}) {
-  const { qrTexto, folioExamen, templateVersionOmr, paginasQrEsperadas } = params;
+}): ResumenQrExamen {
+  const { qrTexto, folioExamen, templateVersionOmr, templateIdOmr, paginasQrEsperadas } = params;
   const resumenQr = extraerResumenQrExamen(qrTexto);
   if (!resumenQr) {
     throw new ErrorAplicacion(
@@ -279,6 +304,13 @@ function validarResumenQrContraExamen(params: {
       }
     );
   }
+  const templateIdEsperado = templateIdOmr ?? 'omr-canonical-v4';
+  if (resumenQr.templateId !== templateIdEsperado) {
+    throw new ErrorAplicacion('OMR_QR_TEMPLATE_NO_COINCIDE', 'El ID de plantilla del QR no coincide con el mapa OMR del examen', 409, {
+      templateIdQr: resumenQr.templateId,
+      templateIdExamen: templateIdEsperado
+    });
+  }
 
   const resumenesEsperados = paginasQrEsperadas
     .map((texto) => extraerResumenQrExamen(texto))
@@ -286,10 +318,39 @@ function validarResumenQrContraExamen(params: {
       (
         resumen
       ): resumen is NonNullable<ReturnType<typeof extraerResumenQrExamen>> =>
-        Boolean(resumen?.variantHash) && Boolean(resumen?.answerKeyHash) && resumen?.payloadSignatureValid !== false
+        Boolean(resumen) && resumen!.payloadSignatureValid !== false
     );
   if (resumenesEsperados.length === 0) {
+    if (resumenQr.qrPayloadMode === 'manifest-bound') {
+      throw new ErrorAplicacion(
+        'OMR_QR_MANIFIESTO_REQUERIDO',
+        'El QR corto requiere el QR esperado del mapa/manifiesto local para validar variante y clave',
+        409
+      );
+    }
     return resumenQr;
+  }
+
+  const paginasCandidatas = resumenesEsperados.filter((item) => item.numeroPagina === resumenQr.numeroPagina);
+  if (resumenQr.qrPayloadMode === 'manifest-bound') {
+    const esperado = paginasCandidatas.find((item) => item.raw === resumenQr.raw);
+    if (!esperado || resumenQr.payloadSignatureValid !== true) {
+      throw new ErrorAplicacion(
+        'OMR_QR_NO_COINCIDE_MANIFIESTO',
+        'El QR corto no coincide exactamente con la página esperada del mapa/manifiesto local',
+        409,
+        { numeroPaginaQr: resumenQr.numeroPagina }
+      );
+    }
+    return {
+      ...resumenQr,
+      keyId: esperado.keyId,
+      variantHash: esperado.variantHash,
+      answerKeyHash: esperado.answerKeyHash,
+      pageAnswerKey: esperado.pageAnswerKey,
+      examId: esperado.examId,
+      validatedAgainstManifest: true
+    };
   }
 
   if (!resumenQr.variantHash || !resumenQr.answerKeyHash) {
@@ -300,10 +361,7 @@ function validarResumenQrContraExamen(params: {
     );
   }
 
-  const candidatos =
-    resumenesEsperados.filter((item) => item.numeroPagina === resumenQr.numeroPagina).length > 0
-      ? resumenesEsperados.filter((item) => item.numeroPagina === resumenQr.numeroPagina)
-      : resumenesEsperados;
+  const candidatos = paginasCandidatas.length > 0 ? paginasCandidatas : resumenesEsperados;
 
   const coincideVariante = candidatos.some((item) => item.variantHash === resumenQr.variantHash);
   if (!coincideVariante) {
@@ -352,15 +410,17 @@ function validarPayloadCalificacionOmr(params: {
   folioPayload?: string;
   folioExamen: string;
   templateVersionOmr: number;
+  templateIdOmr?: string;
   totalPreguntasEsperadas: number;
   respuestas: RespuestaDetectada[];
   analisisOmr?: AnalisisOmrCalificacion;
   paginasQrEsperadas?: string[];
-}) {
+}): ResumenQrExamen | undefined {
   const {
     folioPayload,
     folioExamen,
     templateVersionOmr,
+    templateIdOmr,
     totalPreguntasEsperadas,
     respuestas,
     analisisOmr,
@@ -378,6 +438,9 @@ function validarPayloadCalificacionOmr(params: {
 
   if (respuestas.length > 0 && templateVersionOmr !== 4) {
     throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'Solo la plantilla OMR canónica puede guardar calificación automática', 422);
+  }
+  if (respuestas.length > 0 && templateIdOmr === 'omr-inline-exam-v1') {
+    throw new ErrorAplicacion('OMR_REQUIERE_REVISION_MANUAL', 'La plantilla OMR integrada sigue en evaluación y no admite calificación automática', 422);
   }
   if (respuestas.length > 0 && totalPreguntasEsperadas <= 0) {
     throw new ErrorAplicacion(
@@ -431,7 +494,7 @@ function validarPayloadCalificacionOmr(params: {
   if (respuestas.length > 0 && !analisisOmr) {
     throw new ErrorAplicacion('OMR_ANALISIS_REQUERIDO', 'Se requiere omrAnalisis cuando se envían respuestasDetectadas', 422);
   }
-  if (!analisisOmr) return;
+  if (!analisisOmr) return undefined;
   if (analisisOmr.templateVersionDetectada !== undefined && analisisOmr.templateVersionDetectada !== 4) {
     throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El análisis OMR recibido no corresponde a la plantilla canónica', 422);
   }
@@ -448,22 +511,28 @@ function validarPayloadCalificacionOmr(params: {
     }
   }
 
-  if (respuestas.length > 0 && paginasQrEsperadas.length > 0) {
+  if (respuestas.length > 0) {
     const qrTexto = String(analisisOmr.qrTexto ?? '').trim();
-    if (!qrTexto) {
+    const resumenQrEntrada = extraerResumenQrExamen(qrTexto);
+    const requiereCotejoQr = paginasQrEsperadas.length > 0 || resumenQrEntrada?.qrPayloadMode === 'manifest-bound';
+    if (requiereCotejoQr && !qrTexto) {
       throw new ErrorAplicacion(
         'OMR_QR_ANALISIS_REQUERIDO',
         'Se requiere el qrTexto analizado para validar variante y clave del examen',
         422
       );
     }
-    validarResumenQrContraExamen({
-      qrTexto,
-      folioExamen,
-      templateVersionOmr,
-      paginasQrEsperadas
-    });
+    if (requiereCotejoQr) {
+      return validarResumenQrContraExamen({
+        qrTexto,
+        folioExamen,
+        templateVersionOmr,
+        templateIdOmr,
+        paginasQrEsperadas
+      });
+    }
   }
+  return undefined;
 }
 
 function private_isInvalidConf(conf: any) {
@@ -497,6 +566,10 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     finalRedondeada
   } = req.body;
   const docenteId = obtenerDocenteId(req);
+  const clientRequestId = String(req.body?.clientRequestId ?? '').trim();
+  const requestHash = clientRequestId
+    ? createHash('sha256').update(JSON.stringify(normalizarParaHash(req.body)), 'utf8').digest('hex')
+    : undefined;
 
   const rawExamen = await prisma.examenGenerado.findUnique({ where: { id: examenGeneradoId } });
   if (!rawExamen) {
@@ -504,6 +577,18 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
   }
   if (String(rawExamen.docenteId) !== String(docenteId)) {
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a este examen', 403);
+  }
+  const calificacionId = clientRequestId ? uuidIdempotenciaCalificacion(docenteId, clientRequestId) : undefined;
+  if (calificacionId && requestHash) {
+    const existente = await prisma.calificacion.findUnique({ where: { id: calificacionId } });
+    if (existente) {
+      const auditoria = parseJsonSafe<{ apiIdempotency?: { requestHash?: string } }>(existente.omrAuditoria);
+      if (existente.docenteId !== docenteId || auditoria?.apiIdempotency?.requestHash !== requestHash) {
+        throw new ErrorAplicacion('CALIFICACION_IDEMPOTENCY_CONFLICT', 'clientRequestId ya fue usado con otra calificación', 409);
+      }
+      res.status(200).json({ calificacion: formatearCalificacionPrisma(existente) });
+      return;
+    }
   }
   const examen = formatearExamenGeneradoPrisma(rawExamen) as any;
 
@@ -592,20 +677,21 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
   const totalPreguntasEsperadas = Array.isArray(ordenPreguntas) ? ordenPreguntas.length : 0;
   const paginasQrEsperadas = resolverPaginasQrEsperadas(examen);
 
-  validarPayloadCalificacionOmr({
+  const qrResumenValidado = validarPayloadCalificacionOmr({
     folioPayload: String(folio ?? ''),
     folioExamen: String(examen.folio ?? ''),
     templateVersionOmr: Number(parseJsonSafe<any>(examen.mapaOmr)?.templateVersion ?? 0),
+    templateIdOmr: String(parseJsonSafe<any>(examen.mapaOmr)?.templateId ?? ''),
     totalPreguntasEsperadas,
     respuestas,
     analisisOmr,
     paginasQrEsperadas
   });
 
-  const qrResumenAnalisis =
-    analisisOmr && String(analisisOmr.qrTexto ?? '').trim()
+  const qrResumenAnalisis = qrResumenValidado ??
+    (analisisOmr && String(analisisOmr.qrTexto ?? '').trim()
       ? extraerResumenQrExamen(String(analisisOmr.qrTexto ?? '').trim())
-      : null;
+      : null);
   const coberturaDeteccion = totalPreguntasEsperadas > 0 ? respuestas.length / totalPreguntasEsperadas : 0;
   const { autoCalificableOmr } = evaluarAutoCalificableOmr({
     estadoAnalisis: analisisOmr?.estadoAnalisis,
@@ -704,24 +790,11 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     return;
   }
 
-  await archivarPaginasOmrEnCalificacion({
-    paginasOmr: paginasOmrEntrada,
-    docenteId,
-    examen: {
-      id: rawExamen.id,
-      alumnoId: rawExamen.alumnoId,
-      periodoId: rawExamen.periodoId,
-      plantillaId: rawExamen.plantillaId
-    },
-    folio: String(rawExamen.folio ?? '').trim().toUpperCase(),
-    estadoAnalisisDefault: analisisOmr?.estadoAnalisis,
-    templateVersionDetectadaDefault: analisisOmr?.templateVersionDetectada,
-    engineVersionDefault: analisisOmr?.engineVersion,
-    motivosRevisionDefault: analisisOmr?.motivosRevision
-  });
-
-  const rawCalificacion = await prisma.calificacion.create({
+  let rawCalificacion;
+  try {
+    rawCalificacion = await prisma.calificacion.create({
     data: {
+      ...(calificacionId ? { id: calificacionId } : {}),
       docenteId,
       periodoId: examen.periodoId || null,
       examenGeneradoId,
@@ -742,8 +815,9 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
       calificacionGlobalTexto: resultado.calificacionGlobalTexto,
       retroalimentacion: retroalimentacion ? String(retroalimentacion) : null,
       respuestasDetectadas: JSON.stringify(respuestasDetectadas || []),
-      omrAuditoria: analisisOmr
+      omrAuditoria: analisisOmr || (clientRequestId && requestHash)
         ? JSON.stringify({
+            ...(analisisOmr ? {
             estadoAnalisis: analisisOmr.estadoAnalisis,
             calidadPagina,
             confianzaPromedioPagina,
@@ -758,13 +832,17 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
             photoQuality: analisisOmr.photoQuality ?? null,
             decisionPolicy: analisisOmr.decisionPolicy ?? null,
             qrTexto: analisisOmr.qrTexto ?? null,
+            qrValidationMode: qrResumenValidado?.validatedAgainstManifest ? 'manifest-exact' : null,
             variantHash: qrResumenAnalisis?.variantHash ?? null,
             answerKeyHash: qrResumenAnalisis?.answerKeyHash ?? null,
             motivosRevision: analisisOmr.motivosRevision ?? [],
             autoCalificableOmr,
+            resumenRespuestas: analisisOmr.resumenRespuestas ?? null,
             contestadasTotal,
             contestadasCorrectas,
             precisionSobreContestadas: contestadasTotal > 0 ? contestadasCorrectas / contestadasTotal : null
+            } : {}),
+            ...(clientRequestId && requestHash ? { apiIdempotency: { clientRequestId, requestHash } } : {})
           })
         : null,
       politicaId: politicaId ? String(politicaId) : null,
@@ -782,6 +860,33 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
       finalRedondeada:
         typeof finalRedondeada === 'number' && Number.isFinite(finalRedondeada) ? finalRedondeada : null
     }
+    });
+  } catch (error) {
+    if (calificacionId && requestHash) {
+      const ganadora = await prisma.calificacion.findUnique({ where: { id: calificacionId } });
+      const auditoria = parseJsonSafe<{ apiIdempotency?: { requestHash?: string } }>(ganadora?.omrAuditoria);
+      if (ganadora?.docenteId === docenteId && auditoria?.apiIdempotency?.requestHash === requestHash) {
+        res.status(200).json({ calificacion: formatearCalificacionPrisma(ganadora) });
+        return;
+      }
+    }
+    throw error;
+  }
+
+  await archivarPaginasOmrEnCalificacion({
+    paginasOmr: paginasOmrEntrada,
+    docenteId,
+    examen: {
+      id: rawExamen.id,
+      alumnoId: rawExamen.alumnoId,
+      periodoId: rawExamen.periodoId,
+      plantillaId: rawExamen.plantillaId
+    },
+    folio: String(rawExamen.folio ?? '').trim().toUpperCase(),
+    estadoAnalisisDefault: analisisOmr?.estadoAnalisis,
+    templateVersionDetectadaDefault: analisisOmr?.templateVersionDetectada,
+    engineVersionDefault: analisisOmr?.engineVersion,
+    motivosRevisionDefault: analisisOmr?.motivosRevision
   });
 
   await prisma.examenGenerado.update({

@@ -1,0 +1,161 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "01a0e31e-97a8-77c1-b565-1e7e004f1a8e",
+  "status": "draft",
+  "generatedAt": "2026-09-27T15:15:08.868Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding-agent",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Mejorar la API de EvaluaPro para automatización docente sin navegador, con correspondencia GUI y CRUD completo por recurso; incluir el modo API-first en instrucciones de agentes."
+  },
+  "objective": "Completar por fases el contrato, cliente y operaciones API-first de EvaluaPro; preservar el ciclo de vida y los datos compartidos con la GUI.",
+  "scope": [
+    "SPEC-070: automatización docente por API",
+    "OpenAPI y catálogo de todas las rutas montadas",
+    "Cliente API sin dependencias de producción",
+    "Flujos de reactivos, exámenes, lotes, OMR, calificaciones, Classroom y CRUD por recurso",
+    "Instrucciones AGENTS.md para uso API-first y paridad GUI"
+  ],
+  "constraints": [
+    "No inventar rutas CRUD; preservar permisos RBAC, lease, confirmaciones y contratos de dominio.",
+    "No usar datos reales ni escribir/publicar calificaciones, sincronizar Classroom, imprimir o instalar.",
+    "SPEC-071 y varios cambios OMR son trabajo concurrente; SPEC-071 aparece actualmente approved y se conserva sin modificar.",
+    "docs/AUTO_ENV.md ya tenía cambios locales; no se regeneró ni modificó en esta fase.",
+    "Validación local y aislada; ninguna verificación de GUI instalada o despliegue remoto."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de api_contract_check",
+      "timestamp": "2026-09-27T15:15:08.868Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-09-27T15:15:08.868Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de sdd_audit",
+      "timestamp": "2026-09-27T15:15:08.868Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de ia_traceability_tests",
+      "timestamp": "2026-09-27T15:15:08.868Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de ia_handoff_tests",
+      "timestamp": "2026-09-27T15:15:08.868Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md",
+      "apps/backend/prisma/schema.prisma",
+      "scripts/api/openapi.json",
+      "scripts/api/CRUD_CATALOG.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/handoff/trace.schema.json"
+    ],
+    "changed": [
+      "AGENTS.md",
+      "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "scripts/api/",
+      "scripts/tests/evaluapro-client.test.mjs",
+      "package.json",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts",
+      "apps/backend/tests/integracion/omrJobsWorkflow.test.ts"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-09-27/01a0e31e-97a8-77c1-b565-1e7e004f1a8e.json",
+      "docs/handoff/sesiones/2026-09-27/01a0e31e-97a8-77c1-b565-1e7e004f1a8e.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "api_contract_check",
+      "command": "npm run api:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 908,
+      "resultSummary": "OpenAPI sincronizado: 206 rutas, 234 declaraciones; 206 rutas y 234 operaciones consistentes.",
+      "timestamp": "2026-09-27T15:15:08.868Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 2222,
+      "resultSummary": "Falló porque docs/AUTO_ENV.md aparece desactualizado; dicho archivo tenía cambios locales y no se regeneró.",
+      "timestamp": "2026-09-27T15:15:08.868Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1356,
+      "resultSummary": "Auditoría exitosa; SPEC-070 approved y SPEC-071 approved.",
+      "timestamp": "2026-09-27T15:15:08.868Z"
+    },
+    {
+      "name": "ia_traceability_tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1297,
+      "resultSummary": "7/7 pruebas pasaron.",
+      "timestamp": "2026-09-27T15:15:08.868Z"
+    },
+    {
+      "name": "ia_handoff_tests",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1201,
+      "resultSummary": "11/11 pruebas pasaron.",
+      "timestamp": "2026-09-27T15:15:08.868Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [
+    "La fase actual documenta e instrumenta operaciones ya expuestas; la cobertura CRUD por modelo requiere auditoría semántica y trabajo incremental adicional."
+  ],
+  "risks": [
+    "No se ha comprobado que todos los modelos Prisma tengan cobertura CRUD API completa ni correspondencia GUI.",
+    "La ingesta binaria de PDF mixto y clasificación multipaquete OMR sigue pendiente conforme al alcance de SPEC-071.",
+    "No se verificó GUI local instalada ni equivalencia visual de lectura API.",
+    "docs:check sigue bloqueado por docs/AUTO_ENV.md desactualizado, archivo con cambios locales preexistentes."
+  ],
+  "nextStep": "Auditar modelo por modelo el CRUD y ciclo especializado contra routers, servicios y GUI; priorizar brechas aprobadas sin alterar cambios concurrentes y completar después los flujos PDF/OMR multipaquete.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "decisions"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:/Users/evega/Documents/EvaluaPro",
+    "branch": "feat/omr-letter-color-template",
+    "commit": "894840df",
+    "workingTreeStatus": "Árbol con cambios concurrentes previos; solo se atribuyen a esta fase los archivos enumerados en files.changed."
+  }
+}

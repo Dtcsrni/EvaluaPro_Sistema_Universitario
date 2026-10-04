@@ -19,6 +19,30 @@ export const esquemaCrearTemarioPdf = z
   })
   .strict();
 
+export const esquemaActualizarTemario = z
+  .object({
+    nombre: z.string().trim().min(1).max(200),
+    texto: z.string().min(1),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+    motivoCambio: z.string().trim().min(1).max(500)
+  })
+  .strict();
+
+export const esquemaEliminarTemario = z
+  .object({
+    confirmarEliminacion: z.literal(true),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+    motivoCambio: z.string().trim().min(1).max(500)
+  })
+  .strict();
+
+export const esquemaListarAuditoriaTemario = z
+  .object({
+    limite: z.coerce.number().int().min(1).max(200).default(50),
+    cursor: z.string().max(512).optional()
+  })
+  .strict();
+
 export const esquemaActualizarEstadoNodo = z
   .object({
     estado: z.enum(['pendiente', 'en_progreso', 'cubierto']),

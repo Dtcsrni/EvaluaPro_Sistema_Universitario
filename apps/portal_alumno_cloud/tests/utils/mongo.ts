@@ -12,6 +12,9 @@ import os from 'node:os';
 const workerId = process.env.VITEST_WORKER_ID || '1';
 const dbFile = `portal_test_${workerId}.db`;
 const dataDir = path.resolve(String(process.env.PORTAL_TEST_DATA_DIR || '').trim() || fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-portal-test-')));
+const managedDataDir = path.resolve(dataDir);
+const testOwnsDataDir = path.dirname(managedDataDir) === path.resolve(os.tmpdir())
+  && ['evaluapro-portal-setup-', 'evaluapro-portal-test-'].some((prefix) => path.basename(managedDataDir).startsWith(prefix));
 process.env.PORTAL_TEST_DATA_DIR = dataDir;
 const dbPath = path.resolve(dataDir, dbFile);
 
@@ -22,6 +25,7 @@ process.env.PORTAL_DATABASE_URL = `file:${dbPath}`;
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
 
 export async function conectarMongoTest() {
+  if (!testOwnsDataDir) throw new Error('La base de pruebas del portal debe estar en un directorio temporal exclusivo del proceso.');
   process.env.DATABASE_URL = `file:${dbPath}`;
   process.env.PORTAL_DATABASE_URL = `file:${dbPath}`;
 
@@ -46,7 +50,7 @@ export async function conectarMongoTest() {
     schemaPath = path.resolve(process.cwd(), 'prisma', 'schema.prisma');
   }
 
-  const cmd = `"${prismaBin}" db push --schema="${schemaPath}" --skip-generate --accept-data-loss`;
+  const cmd = `"${prismaBin}" db push --schema="${schemaPath}" --config="${path.resolve(__dirname, '..', '..', 'prisma.config.mjs')}"`;
   
   try {
     execSync(cmd, {
@@ -63,6 +67,7 @@ export async function conectarMongoTest() {
 }
 
 export async function limpiarMongoTest() {
+  if (!testOwnsDataDir) throw new Error('No se limpiará una base de datos del portal fuera del directorio temporal propio.');
   await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
   try {
     const existingTables = await prisma.$queryRawUnsafe<{ name: string }[]>(
@@ -98,7 +103,7 @@ export async function limpiarMongoTest() {
 export async function cerrarMongoTest() {
   await prisma.$disconnect();
   // Limpieza del archivo de base de datos del test
-  if (fs.existsSync(dbPath)) {
+  if (testOwnsDataDir && fs.existsSync(dbPath)) {
     try {
       fs.unlinkSync(dbPath);
     } catch {

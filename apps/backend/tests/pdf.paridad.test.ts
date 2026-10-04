@@ -4,10 +4,11 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 import { PDFParse } from 'pdf-parse';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
+import { detectarQrRgba } from '../scripts/omr-qr-preprint-check.js';
 import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
 import { rasterizarPdfParaPreview } from '../src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
 import { mapearPreguntasBase } from '../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
@@ -94,7 +95,7 @@ describe('pdf OMR canónico', () => {
     expect(resultado.pdfBytes.byteLength).toBeGreaterThan(10_000);
     expect(resultado.mapaOmr.templateVersion).toBe(4);
     expect(resultado.mapaOmr.markerSpec?.family).toBe('solid_square_4pt_v1');
-    expect(resultado.mapaOmr.markerSpec?.sizeMm).toBeCloseTo(2, 2);
+    expect(resultado.mapaOmr.markerSpec?.sizeMm).toBeCloseTo(2.3, 2);
     expect(resultado.mapaOmr.paginas[0]?.markerSpec?.family).toBe('solid_square_4pt_v1');
     expect(resultado.mapaOmr.paginas[0]?.templateVersion).toBe(4);
     expect(resultado.mapaOmr.paginas[0]?.engineHints?.forceSimpleScale).toBe(false);
@@ -104,7 +105,8 @@ describe('pdf OMR canónico', () => {
     expect(resultado.mapaOmr.impresion).toEqual({
       modo: 'duplex',
       volteo: 'borde-largo',
-      paginasPorHoja: 2
+      paginasPorHoja: 2,
+      toleranciaRegistroMm: 3
     });
     expect(Array.isArray(resultado.mapaOmr.paginas)).toBe(true);
     expect(resultado.mapaOmr.paginas.length).toBeGreaterThan(0);
@@ -132,11 +134,12 @@ describe('pdf OMR canónico', () => {
 
     expect(resultado.mapaOmr.paginas.map((pagina) => pagina.duplex)).toEqual([
       { hoja: 1, lado: 'frente', indiceEnHoja: 1 },
-      { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
-      { hoja: 2, lado: 'frente', indiceEnHoja: 1 }
+      { hoja: 1, lado: 'reverso', indiceEnHoja: 2 }
     ]);
-    expect(resultado.paginas).toHaveLength(3);
-    expect(resultado.mapaOmr.paginas).toHaveLength(3);
+    expect(resultado.paginas).toHaveLength(2);
+    expect(resultado.mapaOmr.paginas).toHaveLength(2);
+    expect(resultado.mapaOmr.paginas.reduce((total, pagina) => total + pagina.preguntas.length, 0)).toBe(30);
+    expect(resultado.preguntasRestantes).toBe(0);
     expect(resultado.mapaOmr.paginas.every((pagina) => pagina.tipoPagina !== 'reverso-vacio')).toBe(true);
   });
 
@@ -222,7 +225,8 @@ describe('pdf OMR canónico', () => {
     });
 
     const texto = await new PDFParse({ data: new Uint8Array(resultado.pdfBytes) }).getText();
-    expect(texto.text).toContain('Centro Universitario Hidalguense');
+    // El PDF puede extraer por separado las líneas envueltas y los trazos de negrita.
+    expect(texto.text).toMatch(/Centro Universitario[\s\S]*Hidalguense/);
     expect(texto.text).toContain('Sapientia est nostra fortis');
     expect(texto.text).toContain('Materia: Diseño y Desarrollo de Aplicaciones Web');
     expect(texto.text).toContain('Docente: Erick Renato Vega Cerón');
@@ -247,12 +251,12 @@ describe('pdf OMR canónico', () => {
     expect(resultado.mapaOmr.blockSpec).toMatchObject({
       opcionesPorPregunta: 5,
       orientation: 'horizontal',
-      bubbleDiameterMm: 6,
-      bubblePitchXmm: 8.82
+      bubbleDiameterMm: 6.4,
+      bubblePitchXmm: 9.17
     });
     expect(resultado.mapaOmr.perfil).toMatchObject({
-      burbujaPasoX: 25,
-      cajaOmrAncho: 137,
+      burbujaPasoX: 26,
+      cajaOmrAncho: 147,
       orientacion: 'horizontal'
     });
     expect(resultado.mapaOmr.perfilLayout?.usarEtiquetaOmrSolida).toBe(false);
@@ -291,6 +295,45 @@ describe('pdf OMR canónico', () => {
     expect(texto.text).not.toContain('26. Manejo de errores');
   });
 
+  it('rasteriza rangos posteriores a la pagina 20 sin cambiar su indice original', async () => {
+    const documento = await PDFDocument.create();
+    const coordenadasMarcador: Array<{ x: number; y: number }> = [];
+    for (let indice = 0; indice < 24; indice += 1) {
+      const pagina = documento.addPage([612, 792]);
+      const x = 20 + indice * 15;
+      const y = 40;
+      coordenadasMarcador.push({ x: x + 4, y: y + 4 });
+      pagina.drawRectangle({ x, y, width: 8, height: 8, color: rgb(0, 0, 0) });
+    }
+    const pdf = Buffer.from(await documento.save());
+
+    for (const desdePagina of [1, 21]) {
+      const resultado = await rasterizarPdfParaPreview(pdf, { desdePagina, cantidadPaginas: 4, dpi: 144 });
+      expect(resultado.paginasTotales).toBe(24);
+      expect(resultado.paginas.map((pagina) => pagina.numero)).toEqual([
+        desdePagina,
+        desdePagina + 1,
+        desdePagina + 2,
+        desdePagina + 3
+      ]);
+      expect(resultado.paginas).toHaveLength(4);
+
+      for (const paginaRaster of resultado.paginas) {
+        const imagen = Buffer.from(paginaRaster.dataUrl.split(',', 2)[1] ?? '', 'base64');
+        const { data, info } = await sharp(imagen).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+        const indiceEsperado = paginaRaster.numero - 1;
+        for (let indice = desdePagina - 1; indice < desdePagina + 3; indice += 1) {
+          const marcador = coordenadasMarcador[indice];
+          if (!marcador) throw new Error(`Falta el marcador de la pagina ${indice + 1}.`);
+          const x = Math.round(marcador.x * 2);
+          const y = Math.round((792 - marcador.y) * 2);
+          const offset = (y * info.width + x) * info.channels;
+          const esNegro = (data[offset] ?? 255) < 20 && (data[offset + 1] ?? 255) < 20 && (data[offset + 2] ?? 255) < 20;
+          expect(esNegro, `marcador de página ${indice + 1} en raster ${paginaRaster.numero}`).toBe(indice === indiceEsperado);
+        }
+      }
+    }
+  });
   it('conserva marcas y QR distinguibles al rasterizar a 150 y 300 DPI', async () => {
     const resultado = await generarPdfExamen(crearParametros(16));
     const paginasMapa = resultado.mapaOmr.paginas;
@@ -305,6 +348,27 @@ describe('pdf OMR canónico', () => {
 
         const imagen = Buffer.from(paginaRaster.dataUrl.split(',', 2)[1] ?? '', 'base64');
         const escala = dpi / 72;
+        const paginaMapa = paginasMapa[indice];
+        if (dpi === 300 && paginaMapa?.tipoPagina !== 'reverso-vacio') {
+          const qr = paginaMapa?.qr;
+          expect(qr?.texto, `payload QR ausente en pagina ${indice + 1}`).toBeTruthy();
+          if (qr?.texto && qr.x !== undefined && qr.y !== undefined && qr.size !== undefined) {
+            const paddingPx = Math.ceil(2 * escala);
+            const left = Math.max(0, Math.floor(qr.x * escala) - paddingPx);
+            const top = Math.max(0, Math.floor((792 - qr.y - qr.size) * escala) - paddingPx);
+            const right = Math.min(paginaRaster.width, Math.ceil((qr.x + qr.size) * escala) + paddingPx);
+            const bottom = Math.min(paginaRaster.height, Math.ceil((792 - qr.y) * escala) + paddingPx);
+            const qrCrop = await sharp(imagen)
+              .extract({ left, top, width: right - left, height: bottom - top })
+              .ensureAlpha()
+              .raw()
+              .toBuffer({ resolveWithObject: true });
+            expect(
+              detectarQrRgba(qrCrop.data, qrCrop.info.width, qrCrop.info.height),
+              `QR rasterizado no coincide exactamente en pagina ${indice + 1}`
+            ).toBe(qr.texto);
+          }
+        }
         const pixeles = await sharp(imagen).greyscale().raw().toBuffer({ resolveWithObject: true });
         const altoPaginaPt = paginaRaster.height / escala;
         const contarTinta = (
@@ -327,7 +391,6 @@ describe('pdf OMR canónico', () => {
           return tinta;
         };
 
-        const paginaMapa = paginasMapa[indice];
         if (paginaMapa?.tipoPagina === 'reverso-vacio') {
           expect(paginaMapa.preguntas).toHaveLength(0);
           expect(paginaMapa.qr).toBeUndefined();

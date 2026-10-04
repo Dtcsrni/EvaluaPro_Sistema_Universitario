@@ -6,7 +6,7 @@ Accesos directos (Windows) para abrir **Sistema EvaluaPro (EP)** en modo dev/pro
 - Los `.lnk` se generan localmente con rutas absolutas a la instalación activa; no se versionan ni se empaquetan desde Git.
 - Los wrappers validan modo/acción/puerto (lista permitida + rango 1..65535) antes de invocar PowerShell.
 - Regeneración recomendada (incluye instalación local, Desktop + Menú Inicio):
-  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -OutputDir accesos-directos -SyncRepoOutput $true -Force`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -OutputDir accesos-directos -SyncRepoOutput -Force`
 - Accesos incluidos por defecto:
   - `EvaluaPro - Dev`
   - `EvaluaPro - Prod`

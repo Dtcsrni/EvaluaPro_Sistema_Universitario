@@ -21,6 +21,15 @@ type ExamenGeneradoResumen = {
   paginas?: Array<{ numero: number; qrTexto?: string; preguntasDel?: number; preguntasAl?: number }>;
 };
 
+type LoteArchivadoResumen = {
+  loteId: string;
+  plantillaId: string;
+  totalExamenes: number;
+  totalPaginas: number;
+  archivado: true;
+  archivadoEn: string;
+};
+
 export function PlantillasHistorialLotes({
   cargandoExamenesGenerados,
   examenesGenerados,
@@ -40,7 +49,14 @@ export function PlantillasHistorialLotes({
   eliminandoLoteId,
   onDescargarPaquete,
   onRegenerarPaquete,
-  onEliminarPaquete
+  onEliminarPaquete,
+  lotesArchivados,
+  cantidadLotesOmrArchivados,
+  cargandoLotesArchivados,
+  hayMasLotesArchivados,
+  onCargarMasLotesArchivados,
+  restaurandoLoteId,
+  onRestaurarPaquete
 }: {
   cargandoExamenesGenerados: boolean;
   examenesGenerados: ExamenGeneradoResumen[];
@@ -61,8 +77,16 @@ export function PlantillasHistorialLotes({
   onDescargarPaquete: (loteId: string) => Promise<void>;
   onRegenerarPaquete: (loteId: string, items: ExamenGeneradoResumen[]) => Promise<void>;
   onEliminarPaquete: (loteId: string, items: ExamenGeneradoResumen[]) => Promise<void>;
+  lotesArchivados: LoteArchivadoResumen[];
+  cantidadLotesOmrArchivados: number;
+  cargandoLotesArchivados: boolean;
+  hayMasLotesArchivados: boolean;
+  onCargarMasLotesArchivados: () => Promise<void>;
+  restaurandoLoteId: string | null;
+  onRestaurarPaquete: (loteId: string) => Promise<void>;
 }) {
   const listaExamenesGenerados = Array.isArray(examenesGenerados) ? examenesGenerados : [];
+  const listaLotesArchivados = Array.isArray(lotesArchivados) ? lotesArchivados : [];
   const examenesPorLote = new Map<string, ExamenGeneradoResumen[]>();
   const examenesIndividuales: ExamenGeneradoResumen[] = [];
 
@@ -118,7 +142,7 @@ export function PlantillasHistorialLotes({
         <div className="ayuda anim-fade-in">
           <Spinner /> Cargando historial de exámenes generados…
         </div>
-      ) : paquetes.length === 0 && examenesIndividuales.length === 0 ? (
+      ) : paquetes.length === 0 && examenesIndividuales.length === 0 && listaLotesArchivados.length === 0 && cantidadLotesOmrArchivados === 0 ? (
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon anim-icon-pulse">
             📦
@@ -138,6 +162,12 @@ export function PlantillasHistorialLotes({
               <span className="empty-step__num">3</span> Descarga el paquete PDF / ZIP
             </div>
           </div>
+        </div>
+      ) : paquetes.length === 0 && examenesIndividuales.length === 0 && listaLotesArchivados.length === 0 ? (
+        <div className="empty-state-card anim-fade-in">
+          <div className="empty-state-card__icon" aria-hidden="true">📦</div>
+          <h4>No hay paquetes activos</h4>
+          <p>Hay {cantidadLotesOmrArchivados} lotes archivados disponibles en el panel OMR inferior. Puedes procesar sus capturas sin restaurarlos.</p>
         </div>
       ) : (
         <div className="plantillas-historial-wrap">
@@ -253,6 +283,60 @@ export function PlantillasHistorialLotes({
                   );
                 })}
               </ul>
+            </div>
+          )}
+
+          {(listaLotesArchivados.length > 0 || cargandoLotesArchivados) && (
+            <div className="mt-20">
+              <h4 className="mb-10">Paquetes archivados ({listaLotesArchivados.length})</h4>
+              {cargandoLotesArchivados ? (
+                <div className="ayuda"><Spinner /> Cargando paquetes archivados…</div>
+              ) : (
+                <ul className="lista lista-items plantillas-lista">
+                  {listaLotesArchivados.map((lote) => (
+                    <li key={lote.loteId} className="anim-slide-up">
+                      <div className="item-glass plantillas-item anim-card-hover">
+                        <div className="item-row">
+                          <div className="flex-1">
+                            <div className="item-title">Paquete archivado: {lote.loteId}</div>
+                            <div className="item-meta">
+                              <span className="badge badge-meta">Exámenes: {lote.totalExamenes}</span>
+                              <span className="badge badge-meta">Páginas: {lote.totalPaginas}</span>
+                              <span className="badge badge-meta">Archivado: {formatearFechaHora(lote.archivadoEn)}</span>
+                            </div>
+                          </div>
+                          <div className="plantillas-item__actions">
+                            <Boton
+                              type="button"
+                              variante="secundario"
+                              tamano="sm"
+                              cargando={restaurandoLoteId === lote.loteId}
+                              disabled={!puedeArchivarExamenes}
+                              onClick={() => void onRestaurarPaquete(lote.loteId)}
+                            >
+                              Restaurar paquete
+                            </Boton>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {hayMasLotesArchivados && (
+                <div className="mt-10">
+                  <Boton
+                    type="button"
+                    variante="secundario"
+                    tamano="sm"
+                    cargando={cargandoLotesArchivados}
+                    disabled={cargandoLotesArchivados}
+                    onClick={() => void onCargarMasLotesArchivados()}
+                  >
+                    Cargar más paquetes archivados
+                  </Boton>
+                </div>
+              )}
             </div>
           )}
         </div>

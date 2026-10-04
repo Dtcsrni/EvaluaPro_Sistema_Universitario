@@ -42,9 +42,9 @@ export async function conRetry<T>(
   const config = { ...CONFIGURACION_RETRY_DEFECTO, ...configRetry };
   const tiempoInicio = Date.now();
   let ultimoError: ErrorRobusto | undefined;
-  let intento = 0;
+  let intento = 1;
 
-  for (intento = 1; intento <= config.maxIntentos; intento++) {
+  for (; intento <= config.maxIntentos; intento++) {
     try {
       const datos = await operacion();
       return {

@@ -6,6 +6,8 @@
  * - Telemetria (`registrarEventosUso`) es best-effort: no debe romper la UX.
  */
 import type { Response } from 'express';
+import type { Prisma } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { generarCsv } from './servicioExportacionCsv.js';
@@ -149,7 +151,9 @@ export async function exportarCsvCalificaciones(req: SolicitudDocente, res: Resp
     where: { periodo: { id: periodoId, docenteId } }
   });
   const calificaciones = await prisma.calificacion.findMany({
-    where: { docenteId, periodoId }
+    where: { docenteId, periodoId },
+    orderBy: { createdAt: 'asc' },
+    include: { examenGenerado: { include: { plantilla: true } } }
   });
   const banderas = await prisma.banderaRevision.findMany({
     where: { docenteId }
@@ -165,18 +169,31 @@ export async function exportarCsvCalificaciones(req: SolicitudDocente, res: Resp
   });
 
   const filas = alumnos.map((alumno) => {
-    const calificacion = calificaciones.find((item) => String(item.alumnoId) === String(alumno.id));
-    const parcial = calificacion?.calificacionParcialTexto ?? '';
-    const global = calificacion?.calificacionGlobalTexto ?? '';
-    const final = global || parcial || calificacion?.calificacionExamenFinalTexto || '';
+    const fila = construirListaAcademica(
+      [
+        {
+          _id: alumno.id,
+          matricula: alumno.matricula,
+          nombreCompleto: alumno.nombreCompleto,
+          grupo: alumno.grupo
+        }
+      ],
+      calificaciones
+        .filter((item) => String(item.alumnoId) === String(alumno.id))
+        .map((item) => ({
+          ...item,
+          plantillaTitulo: item.examenGenerado?.plantilla?.titulo
+        })),
+      banderas
+    )[0];
     return {
       matricula: alumno.matricula,
       nombre: alumno.nombreCompleto,
       grupo: alumno.grupo ?? '',
-      parcial1: calificacion?.tipoExamen === 'parcial' ? parcial : '',
-      parcial2: '',
-      global: calificacion?.tipoExamen === 'global' ? global : '',
-      final,
+      parcial1: fila?.parcial1 ?? '',
+      parcial2: fila?.parcial2 ?? '',
+      global: fila?.global ?? '',
+      final: fila?.final ?? '',
       banderas: (banderasPorAlumno.get(String(alumno.id)) ?? []).join(';')
     };
   });
@@ -198,6 +215,61 @@ function cicloLectivo(fechaInicio?: Date, fechaFin?: Date): string {
   return `${mesInicio}-${mesFin} ${anio}`;
 }
 
+function leerRegistroJson(valor: unknown): Record<string, unknown> {
+  if (valor && typeof valor === 'object' && !Array.isArray(valor)) return valor as Record<string, unknown>;
+  if (typeof valor !== 'string' || !valor.trim()) return {};
+  try {
+    const parsed = JSON.parse(valor);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+async function cargarDatosListaAcademica(docenteId: string, periodoId: string, bonoExtracurricularPorAlumno?: ReadonlyMap<string, number>) {
+  const [alumnos, calificaciones, banderas, evidencias, mapeos, calificacionesManuales, componentesExamen] = await Promise.all([
+    prisma.alumno.findMany({ where: { periodo: { id: periodoId, docenteId } } }),
+    prisma.calificacion.findMany({
+      where: { docenteId, periodoId },
+      include: { examenGenerado: { include: { plantilla: true } } }
+    }),
+    prisma.banderaRevision.findMany({ where: { docenteId } }),
+    prisma.evidenciaEvaluacion.findMany({ where: { docenteId, periodoId, fuente: 'classroom' } }),
+    prisma.mapeoClassroomEvidencia.findMany({ where: { docenteId, periodoId } }),
+    prisma.calificacionListaManual.findMany({ where: { docenteId, periodoId } }),
+    prisma.componenteExamen.findMany({ where: { docenteId, periodoId, corte: 'global' } })
+  ]);
+
+  const mappedAlumnos = alumnos.map((alumno) => ({ ...alumno, _id: alumno.id }));
+  const mappedCalificaciones = calificaciones.map((calificacion) => ({
+    ...calificacion,
+    _id: calificacion.id,
+    tipoExamen: calificacion.tipoExamen as 'parcial' | 'global',
+    plantillaTitulo: calificacion.examenGenerado?.plantilla?.titulo
+  }));
+  const mappedBanderas = banderas.map((bandera) => ({ ...bandera, _id: bandera.id, tipo: bandera.motivo }));
+  const mappedMapeos = mapeos.map((mapeo) => {
+    const metadata = leerRegistroJson(mapeo.metadata);
+    return {
+      courseId: mapeo.courseId,
+      courseWorkId: mapeo.courseWorkId,
+      corte: metadata.corte,
+      destinoColumna: metadata.destinoColumna,
+      activo: metadata.activo,
+      metadata
+    };
+  });
+  const filas = construirListaAcademica(mappedAlumnos, mappedCalificaciones, mappedBanderas, {
+    evidencias,
+    mapeosClassroom: mappedMapeos,
+    calificacionesManuales,
+    componentesExamen,
+    bonoExtracurricularPorAlumno
+  });
+
+  return { alumnos: mappedAlumnos, calificaciones: mappedCalificaciones, filas };
+}
+
 export async function exportarXlsxCalificaciones(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const periodoId = String(req.query.periodoId || '').trim();
@@ -205,26 +277,24 @@ export async function exportarXlsxCalificaciones(req: SolicitudDocente, res: Res
     throw new ErrorAplicacion('DATOS_INVALIDOS', 'periodoId requerido', 400);
   }
 
-  const [docente, periodo, alumnos, calificaciones] = await Promise.all([
+  const [docente, periodo] = await Promise.all([
     prisma.docente.findUnique({ where: { id: docenteId } }),
-    prisma.periodo.findFirst({ where: { id: periodoId, docenteId } }),
-    prisma.alumno.findMany({ where: { periodo: { id: periodoId, docenteId } } }),
-    prisma.calificacion.findMany({ where: { docenteId, periodoId } })
+    prisma.periodo.findFirst({ where: { id: periodoId, docenteId } })
   ]);
 
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
   }
 
-  const mappedAlumnos = alumnos.map((a) => ({ ...a, _id: a.id }));
-  const mappedCalificaciones = calificaciones.map((c) => ({ ...c, _id: c.id, tipoExamen: c.tipoExamen as 'parcial' | 'global' }));
+  const datosLista = await cargarDatosListaAcademica(docenteId, periodoId);
 
   const xlsx = await generarXlsxCalificacionesProduccion({
     docenteNombre: String(docente?.nombreCompleto || ''),
     nombrePeriodo: String(periodo.nombre || ''),
     cicloLectivo: cicloLectivo(periodo.fechaInicio, periodo.fechaFin),
-    alumnos: mappedAlumnos,
-    calificaciones: mappedCalificaciones as any
+    alumnos: datosLista.alumnos,
+    calificaciones: datosLista.calificaciones as any,
+    listaAcademica: datosLista.filas
   });
 
   res.setHeader(
@@ -235,26 +305,126 @@ export async function exportarXlsxCalificaciones(req: SolicitudDocente, res: Res
   res.send(xlsx);
 }
 
-async function obtenerListaAcademicaPorPeriodo(docenteId: string, periodoId: string) {
-  const alumnos = await prisma.alumno.findMany({
-    where: { periodo: { id: periodoId, docenteId } }
-  });
-  const calificaciones = await prisma.calificacion.findMany({
-    where: { docenteId, periodoId }
-  });
-  const banderas = await prisma.banderaRevision.findMany({
-    where: { docenteId }
-  });
+export async function obtenerListaAcademicaPorPeriodo(docenteId: string, periodoId: string, bonoExtracurricularPorAlumno?: ReadonlyMap<string, number>) {
+  return (await cargarDatosListaAcademica(docenteId, periodoId, bonoExtracurricularPorAlumno)).filas;
+}
 
-  const mappedAlumnos = alumnos.map((a) => ({ ...a, _id: a.id }));
-  const mappedCalificaciones = calificaciones.map((c) => ({ ...c, _id: c.id }));
-  const mappedBanderas = banderas.map((b) => ({
-    ...b,
-    _id: b.id,
-    tipo: b.motivo // Map motivo -> tipo
-  }));
+export async function consultarListaAcademica(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const periodoId = String(req.query.periodoId || '').trim();
+  validarPeriodoId(periodoId);
 
-  return construirListaAcademica(mappedAlumnos, mappedCalificaciones, mappedBanderas);
+  const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
+  res.json({ filas });
+}
+
+export async function previsualizarBonoExtracurricular(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const { periodoId, alumnoId, bono } = req.body as { periodoId: string; alumnoId: string; bono: number };
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, docenteId }, select: { id: true } });
+  if (!periodo) throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
+  const override = new Map([[alumnoId, bono]]);
+  const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId, override);
+  const fila = filas.find((item) => item.alumnoId === alumnoId);
+  if (!fila) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece al periodo seleccionado', 404);
+  res.json({
+    preview: {
+      alumnoId,
+      bonoSolicitado: fila.bonoExtracurricularSolicitado,
+      bonoAplicado: fila.bonoExtracurricular,
+      bonoDistribucion: fila.bonoDistribucion,
+      parcial1: fila.parcial1,
+      parcial2: fila.parcial2,
+      parcial3: fila.calificacionTercerParcial,
+      calificacionFinalCurso: fila.calificacionFinalCurso,
+      escalaMaxima: 10,
+      regla: 'continua-primero; global-c3, p2, p1',
+      requiereConfirmacion: true
+    }
+  });
+}
+
+export async function guardarCalificacionLista(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const { periodoId, alumnoId, componente, calificacion, version, clientRequestId } = req.body as {
+    periodoId: string; alumnoId: string; componente: string; calificacion: number; version?: number; clientRequestId: string;
+  };
+  const payloadHash = createHash('sha256')
+    .update(JSON.stringify({ periodoId, alumnoId, componente, calificacion, version: version ?? null }))
+    .digest('hex');
+
+  const reproducir = async (tx: Prisma.TransactionClient | typeof prisma) => {
+    const mutacion = await tx.calificacionListaMutacion.findUnique({
+      where: { docenteId_clientRequestId: { docenteId, clientRequestId: clientRequestId! } }
+    });
+    if (!mutacion) return null;
+    if (mutacion.payloadHash !== payloadHash) {
+      throw new ErrorAplicacion('CLAVE_IDEMPOTENCIA_REUTILIZADA', 'clientRequestId ya fue usado con otro payload.', 409);
+    }
+    const calificacionPersistida = await tx.calificacionListaManual.findFirst({
+      where: { id: mutacion.calificacionId, docenteId }
+    });
+    if (!calificacionPersistida) {
+      throw new ErrorAplicacion('RESULTADO_IDEMPOTENTE_NO_DISPONIBLE', 'La calificación original ya no existe; consulta la lista antes de continuar.', 409);
+    }
+    return calificacionPersistida;
+  };
+
+  try {
+    const resultado = await prisma.$transaction(async (tx) => {
+      const repetida = await reproducir(tx);
+      if (repetida) return { calificacion: repetida, repetida: true, creada: false };
+
+      const periodo = await tx.periodo.findFirst({ where: { id: periodoId, docenteId }, select: { id: true } });
+      if (!periodo) throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
+      const alumno = await tx.alumno.findFirst({ where: { id: alumnoId, periodoId }, select: { id: true } });
+      if (!alumno) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece al periodo seleccionado', 404);
+
+      const clave = { docenteId_periodoId_alumnoId_componente: { docenteId, periodoId, alumnoId, componente } };
+      const existente = await tx.calificacionListaManual.findUnique({ where: clave });
+      if ((existente && version !== existente.version) || (!existente && version !== undefined)) {
+        throw new ErrorAplicacion('CONFLICTO_VERSION', 'La calificación cambió desde que se abrió. Recarga la lista antes de editar.', 409);
+      }
+
+      const evento = {
+        en: new Date().toISOString(), usuarioId: docenteId,
+        anterior: existente?.calificacion ?? null, nueva: calificacion,
+        clientRequestId, payloadHash
+      };
+      const auditoriaAnterior = leerRegistroJson(existente?.auditoria);
+      const eventosPrevios = Array.isArray(auditoriaAnterior.eventos) ? auditoriaAnterior.eventos : [];
+      const auditoria = JSON.stringify({ eventos: [...eventosPrevios, evento].slice(-50) });
+      let guardado;
+      if (!existente) {
+        guardado = await tx.calificacionListaManual.create({ data: { docenteId, periodoId, alumnoId, componente, calificacion, capturadoPor: docenteId, version: 1, auditoria } });
+      } else {
+        const actualizado = await tx.calificacionListaManual.updateMany({
+          where: { id: existente.id, docenteId, version: existente.version },
+          data: { calificacion, version: { increment: 1 }, auditoria, capturadoPor: docenteId }
+        });
+        if (actualizado.count !== 1) throw new ErrorAplicacion('CONFLICTO_VERSION', 'La calificación cambió en otra sesión. Recarga la lista antes de editar.', 409);
+        guardado = await tx.calificacionListaManual.findUniqueOrThrow({ where: { id: existente.id } });
+      }
+      await tx.calificacionListaMutacion.create({ data: {
+        docenteId, clientRequestId, payloadHash, calificacionId: guardado.id
+      } });
+      return { calificacion: guardado, repetida: false, creada: !existente };
+    });
+    res.status(resultado.repetida ? 200 : resultado.creada ? 201 : 200).json({
+      calificacion: resultado.calificacion,
+      ...(resultado.repetida ? { repetida: true } : {})
+    });
+  } catch (error) {
+    if ((error as { code?: string })?.code === 'P2002') {
+      const repetida = await reproducir(prisma);
+      if (repetida) {
+        res.status(200).json({ calificacion: repetida, repetida: true });
+        return;
+      }
+      throw new ErrorAplicacion('CONFLICTO_VERSION', 'La calificación fue capturada en otra sesión. Recarga la lista.', 409);
+    }
+    throw error;
+  }
 }
 
 function validarPeriodoId(periodoId: string) {

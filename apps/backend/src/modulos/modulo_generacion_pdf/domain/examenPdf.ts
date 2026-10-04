@@ -7,6 +7,7 @@
 import type {
   EncabezadoExamen,
   MapaVariante,
+  OmrTemplateId,
   PreguntaBase,
   ModoDensidadBooklet,
   TemplateVersion,
@@ -17,6 +18,7 @@ import { construirTextoQrExamenPagina } from './qrExamen.js';
 export interface LayoutExamenConfig {
   margenMm: number;
   templateVersion: TemplateVersion;
+  templateId?: OmrTemplateId;
   totalPaginas: number;
   densityMode?: ModoDensidadBooklet;
   fontScale?: number;
@@ -67,6 +69,8 @@ export class ExamenPdf {
       folio: this.folioNormalizado,
       numeroPagina,
       templateVersion: this.layout.templateVersion,
+      templateId: this.layout.templateId,
+      compacto: true,
       examId: this.examIdNormalizado || undefined,
       totalPreguntas: this.totalPreguntas,
       mapaVariante: this.mapaVariante,

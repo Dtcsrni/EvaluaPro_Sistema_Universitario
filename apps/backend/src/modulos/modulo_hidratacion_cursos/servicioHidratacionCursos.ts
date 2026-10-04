@@ -9,6 +9,8 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { confirmarReactivos, previsualizarReactivos, registrarCuarentenaReactivos } from '../modulo_banco_preguntas/servicioReactivos.js';
+import { validarReactivosBatch } from '../modulo_banco_preguntas/reactivosContrato.js';
 
 export type ArchivoHidratacion = {
   originalname: string;
@@ -79,6 +81,7 @@ type ReactivoImportable = {
 
 export type PreviewHidratacion = {
   periodoId: string;
+  temaId: string | null;
   archivos: PreviewArchivoHidratacion[];
   planImportacion: {
     alumnosDetectados: number;
@@ -100,6 +103,7 @@ type ResultadoImportacion = {
     evidenciasDocumentalesOmitidas: number;
     bancoPreguntasCreadas: number;
     bancoPreguntasOmitidas: number;
+    bancoPreguntasEnCuarentena: number;
     conflictos: number;
   };
   archivos: PreviewArchivoHidratacion[];
@@ -436,6 +440,7 @@ function esDocx(archivo: ArchivoHidratacion) {
 export async function previsualizarHidratacionCurso(params: {
   periodoId: string;
   docenteId?: string;
+  temaId?: string;
   archivos: ArchivoHidratacion[];
 }): Promise<PreviewHidratacion> {
   if (!params.periodoId) {
@@ -446,6 +451,7 @@ export async function previsualizarHidratacionCurso(params: {
   }
   if (params.docenteId) {
     await validarPeriodoDocente(params.periodoId, params.docenteId);
+    if (params.temaId) await validarTemaDocente(params.temaId, params.periodoId, params.docenteId);
   }
 
   const previews: PreviewArchivoHidratacion[] = [];
@@ -467,6 +473,7 @@ export async function previsualizarHidratacionCurso(params: {
 
   return {
     periodoId: params.periodoId,
+    temaId: params.temaId ?? null,
     archivos: previews,
     planImportacion: {
       alumnosDetectados,
@@ -476,7 +483,8 @@ export async function previsualizarHidratacionCurso(params: {
         'Previsualizar mapeo de columnas y documentos.',
         'Confirmar importacion docente.',
         'Crear o actualizar alumnos por matricula.',
-        'Registrar evidencias historicas y documentales con hash de origen.'
+        'Registrar evidencias historicas y documentales con hash de origen.',
+        'Los reactivos DOCX requieren temaId canónico y cinco opciones A–E con clave única; de lo contrario quedan en cuarentena.'
       ],
       requiereConfirmacionDocente: true
     }
@@ -488,6 +496,11 @@ async function validarPeriodoDocente(periodoId: string, docenteId: string) {
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
   }
+}
+
+async function validarTemaDocente(temaId: string, periodoId: string, docenteId: string) {
+  const tema = await prisma.temaBanco.findFirst({ where: { id: temaId, periodoId, docenteId, activo: true }, select: { id: true } });
+  if (!tema) throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'temaId no existe, está archivado o no pertenece a la materia', 404);
 }
 
 function corteDesdeTitulo(titulo: string): number | null {
@@ -600,6 +613,7 @@ async function importarAlumnosDesdePreview(params: {
 async function importarDocx(params: {
   docenteId: string;
   periodoId: string;
+  temaId?: string;
   preview: PreviewDocx;
   archivo: ArchivoHidratacion;
 }) {
@@ -673,96 +687,122 @@ async function importarDocx(params: {
   }
 
   const banco = await importarBancoPreguntasDesdeDocx(params);
-  return { creada: evidenciaCreada, bancoPreguntasCreadas: banco.creadas, bancoPreguntasOmitidas: banco.omitidas };
+  return {
+    creada: evidenciaCreada,
+    bancoPreguntasCreadas: banco.creadas,
+    bancoPreguntasOmitidas: banco.omitidas,
+    bancoPreguntasEnCuarentena: banco.cuarentena
+  };
 }
 
 async function importarBancoPreguntasDesdeDocx(params: {
   docenteId: string;
   periodoId: string;
+  temaId?: string;
   preview: PreviewDocx;
   archivo: ArchivoHidratacion;
 }) {
   if (params.preview.tipo !== 'parcial_externo' && params.preview.tipo !== 'global_externo') {
-    return { creadas: 0, omitidas: 0 };
+    return { creadas: 0, omitidas: 0, cuarentena: 0 };
   }
 
   const texto = await extraerTextoDocx(params.archivo.buffer);
   const reactivos = extraerReactivosDocx(texto);
-  let creadas = 0;
-  let omitidas = 0;
-  const corte = corteDesdeTitulo(params.preview.tituloSugerido);
-  const tema =
-    params.preview.tipo === 'global_externo'
-      ? 'Examen Global'
-      : corte === 2
-        ? 'Examen Segundo Parcial'
-        : 'Examen Primer Parcial';
-  const existentes = await prisma.bancoPregunta.findMany({
-    where: {
-      docenteId: params.docenteId,
-      periodoId: params.periodoId,
-      activo: true
+  if (reactivos.length === 0) return { creadas: 0, omitidas: 0, cuarentena: 0 };
+
+  const quarantineRows: Array<{ linea: number; externalKey: string; detalle: Record<string, unknown> }> = reactivos.slice(0, 500).map((reactivo, index) => {
+    const claves = reactivo.opciones.map((opcion) => opcion.letra).sort();
+    const correctas = reactivo.opciones.filter((opcion) => opcion.esCorrecta).length;
+    const motivos: string[] = [];
+    if (!params.temaId) motivos.push('TEMA_CANONICO_REQUERIDO');
+    if (claves.join(',') !== 'A,B,C,D,E') motivos.push('OPCIONES_DEBEN_SER_A_E');
+    if (correctas !== 1) motivos.push('RESPUESTA_CORRECTA_AMBIGUA');
+    if (new Set(reactivo.opciones.map((opcion) => normalizarTexto(opcion.texto))).size !== reactivo.opciones.length) {
+      motivos.push('OPCIONES_DUPLICADAS');
     }
+    return {
+      linea: index + 1,
+      externalKey: `docx-${params.preview.sha256.slice(0, 16)}-r${index + 1}`,
+      detalle: {
+        sourceQuestionNumber: reactivo.numero,
+        stem: reactivo.enunciado,
+        options: reactivo.opciones.map((opcion) => ({ key: opcion.letra, value: opcion.texto, isCorrect: opcion.esCorrecta })),
+        reasons: motivos
+      }
+    };
   });
-
-  for (const reactivo of reactivos) {
-    const yaExiste = existentes.some((pregunta) => {
-      try {
-        const meta = JSON.parse(String(pregunta.recoverySource ?? '{}')) as Record<string, unknown>;
-        return meta['archivoOrigenHash'] === params.preview.sha256 && meta['numeroReactivo'] === reactivo.numero;
-      } catch {
-        return false;
-      }
+  if (reactivos.length > 500) {
+    quarantineRows.push({
+      linea: 501,
+      externalKey: `docx-${params.preview.sha256.slice(0, 16)}-overflow`,
+      detalle: { reasons: ['LIMITE_DE_REACTIVOS_EXCEDIDO'], omittedQuestionCount: reactivos.length - 500 }
     });
-    if (yaExiste) {
-      omitidas += 1;
-      continue;
-    }
-
-    const pregunta = await prisma.bancoPregunta.create({
-      data: {
-        docenteId: params.docenteId,
-        periodoId: params.periodoId,
-        tema,
-        versionActual: 1,
-        activo: true,
-        recoverySource: JSON.stringify({
-          origen: 'hidratacion_docx',
-          archivoOrigenHash: params.preview.sha256,
-          archivo: params.preview.archivo,
-          tipoDocumento: params.preview.tipo,
-          numeroReactivo: reactivo.numero
-        })
-      }
-    });
-    existentes.push(pregunta);
-    const version = await prisma.versionPregunta.create({
-      data: {
-        preguntaId: pregunta.id,
-        numeroVersion: 1,
-        enunciado: reactivo.enunciado
-      }
-    });
-    await prisma.opcionPregunta.createMany({
-      data: reactivo.opciones.map((opcion) => ({
-        versionPreguntaId: version.id,
-        texto: opcion.texto,
-        esCorrecta: opcion.esCorrecta
-      }))
-    });
-    creadas += 1;
   }
 
-  return { creadas, omitidas };
+  if (quarantineRows.some((row) => (row.detalle.reasons as string[]).length > 0)) {
+    const cuarentena = await registrarCuarentenaReactivos({
+      docenteId: params.docenteId,
+      periodoId: params.periodoId,
+      inputSha256: params.preview.sha256,
+      batchId: `docx-${params.preview.sha256.slice(0, 24)}`,
+      nombreArchivo: params.preview.archivo,
+      tipoDocumento: params.preview.tipo,
+      rows: quarantineRows
+    });
+    return { creadas: 0, omitidas: cuarentena.existente ? cuarentena.quarantined : 0, cuarentena: cuarentena.quarantined };
+  }
+
+  const temaId = params.temaId;
+  if (!temaId) throw new ErrorAplicacion('TEMA_CANONICO_REQUERIDO', 'Selecciona un tema canónico para importar reactivos DOCX', 400);
+  const topicSuffix = hashSha256(Buffer.from(temaId)).slice(0, 8);
+  const batchId = `docx-${params.preview.sha256.slice(0, 12)}-${topicSuffix}`;
+  const batch = validarReactivosBatch({
+    contract: 'evaluapro.reactivos.batch',
+    schemaVersion: 1,
+    batchId,
+    target: { periodoId: params.periodoId, temaIds: [temaId] },
+    source: {
+      kind: 'imported',
+      generator: 'EvaluaPro DOCX adapter',
+      generatedAt: new Date().toISOString(),
+      sourceDocumentSha256: params.preview.sha256
+    },
+    items: reactivos.map((reactivo, index) => ({
+      externalKey: `docx-${params.preview.sha256.slice(0, 12)}-${topicSuffix}-r${index + 1}`,
+      itemId: null,
+      expectedVersion: null,
+      format: 'omr.mcq5',
+      stem: { format: 'richtext', value: reactivo.enunciado },
+      options: reactivo.opciones
+        .slice()
+        .sort((a, b) => a.letra.localeCompare(b.letra))
+        .map((opcion) => ({ key: opcion.letra, value: opcion.texto, isCorrect: opcion.esCorrecta })),
+      metadata: { tags: ['importacion-docx'] },
+      provenance: {
+        origin: 'imported',
+        confidence: 0.5,
+        notes: `Extraído de ${params.preview.archivo}; revisar contenido antes de publicar.`
+      }
+    }))
+  });
+  const preview = await previsualizarReactivos({ docenteId: params.docenteId, batch });
+  const confirmado = await confirmarReactivos({ docenteId: params.docenteId, importId: preview.importId, planHash: preview.planHash, batch });
+  return {
+    creadas: confirmado.draftReactivoIds.length,
+    omitidas: preview.summary.noOp,
+    cuarentena: 0
+  };
 }
 
 export async function importarHidratacionCurso(params: {
   docenteId: string;
   periodoId: string;
+  temaId?: string;
   archivos: ArchivoHidratacion[];
 }): Promise<ResultadoImportacion> {
   await validarPeriodoDocente(params.periodoId, params.docenteId);
-  const preview = await previsualizarHidratacionCurso({ periodoId: params.periodoId, archivos: params.archivos });
+  if (params.temaId) await validarTemaDocente(params.temaId, params.periodoId, params.docenteId);
+  const preview = await previsualizarHidratacionCurso({ periodoId: params.periodoId, docenteId: params.docenteId, temaId: params.temaId, archivos: params.archivos });
   const resumen: ResultadoImportacion['resumen'] = {
     alumnosCreados: 0,
     alumnosActualizados: 0,
@@ -772,6 +812,7 @@ export async function importarHidratacionCurso(params: {
     evidenciasDocumentalesOmitidas: 0,
     bancoPreguntasCreadas: 0,
     bancoPreguntasOmitidas: 0,
+    bancoPreguntasEnCuarentena: 0,
     conflictos: 0
   };
 
@@ -798,6 +839,7 @@ export async function importarHidratacionCurso(params: {
       const resultado = await importarDocx({
         docenteId: params.docenteId,
         periodoId: params.periodoId,
+        temaId: params.temaId,
         preview: archivoPreview,
         archivo: archivoOriginal
       });
@@ -805,6 +847,7 @@ export async function importarHidratacionCurso(params: {
       else resumen.evidenciasDocumentalesOmitidas += 1;
       resumen.bancoPreguntasCreadas += resultado.bancoPreguntasCreadas;
       resumen.bancoPreguntasOmitidas += resultado.bancoPreguntasOmitidas;
+      resumen.bancoPreguntasEnCuarentena += resultado.bancoPreguntasEnCuarentena;
     }
   }
 

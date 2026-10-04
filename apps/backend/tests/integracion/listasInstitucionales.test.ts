@@ -180,4 +180,45 @@ describe('Integracion: listas institucionales por plantilla', () => {
     expect(textoPdf).toContain('Centro Universitario Hidalguense A.C.');
     expect(textoPdf).toContain('CONTROL DE ASISTENCIAS');
   });
+
+  it('incluye los 17 alumnos exactamente una vez en hojas XLSX y páginas PDF', async () => {
+    const matriculas = Array.from({ length: 17 }, (_, i) => `CUH-PAG-${String(i + 1).padStart(3, '0')}`);
+    await prisma.alumno.createMany({
+      data: matriculas.map((matricula, i) => ({
+        periodoId,
+        matricula,
+        nombreCompleto: `ALUMNO PAGINADO ${String(i + 1).padStart(3, '0')}`,
+        correo: `paginado-${i + 1}@prueba.test`,
+        grupo: '23',
+        activo: true
+      }))
+    });
+
+    const base = `/api/listas-institucionales/generar?periodoId=${periodoId}&templateId=asistencia_cuh_control`;
+    const xlsx = await request(app).get(`${base}&formato=xlsx`).set(auth).buffer(true).parse(parsearBinario).expect(200);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(xlsx.body);
+    expect(wb.worksheets).toHaveLength(3);
+    const matriculasXlsx = wb.worksheets.flatMap((ws) =>
+      Array.from({ length: 8 }, (_, i) => String(ws.getCell(`B${7 + i * 2}`).value ?? '')).filter(Boolean)
+    );
+    expect(matriculasXlsx).toEqual(matriculas);
+    expect(wb.worksheets.map((ws) => ws.getCell('A22').value)).toEqual([
+      expect.stringContaining('La presente lista'),
+      expect.stringContaining('La presente lista'),
+      expect.stringContaining('La presente lista')
+    ]);
+
+    const pdf = await request(app).get(`${base}&formato=pdf`).set(auth).buffer(true).parse(parsearBinario).expect(200);
+    const parser = new PDFParse({ data: pdf.body });
+    try {
+      const parsed = await parser.getText();
+      expect(parsed.total).toBe(2);
+      for (const matricula of matriculas) {
+        expect(parsed.text.split(matricula).length - 1).toBe(1);
+      }
+    } finally {
+      await parser.destroy();
+    }
+  });
 });

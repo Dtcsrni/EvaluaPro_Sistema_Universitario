@@ -14,6 +14,8 @@ const execFileAsync = promisify(execFile);
 
 export type OpcionesRasterizadoPdf = {
   dpi?: number;
+  desdePagina?: number;
+  cantidadPaginas?: number;
 };
 
 export type PaginaPdfPreviewVisual = {
@@ -29,21 +31,27 @@ export async function rasterizarPdfParaPreview(buffer: Buffer, opciones: Opcione
   paginasOmitidas: number;
 }> {
   const dpi = Number.isFinite(opciones.dpi) ? Math.max(72, Math.min(600, Math.round(opciones.dpi as number))) : PREVIEW_DPI_DEFAULT;
-  const paginasTotales = Math.max(1, (await PDFDocument.load(buffer)).getPageCount());
-  const paginasARenderizar = Math.min(paginasTotales, MAX_PREVIEW_PAGES);
+  const pdf = await PDFDocument.load(buffer);
+  const paginasTotales = pdf.getPageCount();
+  const desdePagina = Math.max(1, Math.floor(Number(opciones.desdePagina) || 1));
+  const cantidadSolicitada = Number.isFinite(opciones.cantidadPaginas)
+    ? Math.max(0, Math.floor(opciones.cantidadPaginas as number))
+    : MAX_PREVIEW_PAGES;
+  const paginasARenderizar = Math.min(MAX_PREVIEW_PAGES, cantidadSolicitada, Math.max(0, paginasTotales - desdePagina + 1));
+  if (paginasARenderizar === 0) return { paginas: [], paginasTotales, paginasOmitidas: paginasTotales };
 
   try {
-    return await rasterizarConPoppler(buffer, paginasTotales, paginasARenderizar, dpi);
+    return await rasterizarConPoppler(buffer, paginasTotales, desdePagina, paginasARenderizar, dpi);
   } catch {
     try {
-      return await rasterizarConSharp(buffer, paginasTotales, paginasARenderizar, dpi);
+      return await rasterizarConSharp(buffer, paginasTotales, desdePagina, paginasARenderizar, dpi);
     } catch {
-      return rasterizarConChromium(buffer, paginasTotales, paginasARenderizar, dpi);
+      return rasterizarConChromium(buffer, paginasTotales, desdePagina, paginasARenderizar, dpi);
     }
   }
 }
 
-async function rasterizarConPoppler(buffer: Buffer, paginasTotales: number, paginasARenderizar: number, dpi: number) {
+async function rasterizarConPoppler(buffer: Buffer, paginasTotales: number, desdePagina: number, paginasARenderizar: number, dpi: number) {
   const candidatos = [process.env.EVALUAPRO_PDF_RASTERIZER, process.env.PDF_RASTERIZER_EXECUTABLE, 'pdftoppm', 'pdftocairo']
     .map((item) => String(item ?? '').trim())
     .filter(Boolean);
@@ -56,17 +64,27 @@ async function rasterizarConPoppler(buffer: Buffer, paginasTotales: number, pagi
     for (const ejecutable of candidatos) {
       try {
         const paginas: PaginaPdfPreviewVisual[] = [];
-        const prefijoSalida = path.join(dirTemporal, 'pagina');
+        const prefijoSalida = path.join(dirTemporal, `pagina-${randomUUID()}`);
         await execFileAsync(
           ejecutable,
-          ['-png', '-r', String(dpi), '-f', '1', '-l', String(paginasARenderizar), rutaPdf, prefijoSalida],
+          ['-png', '-r', String(dpi), '-f', String(desdePagina), '-l', String(desdePagina + paginasARenderizar - 1), rutaPdf, prefijoSalida],
           { windowsHide: true, maxBuffer: 1024 * 1024 }
         );
+        const archivosGenerados = await fs.readdir(dirTemporal);
+        const prefijoNombre = path.basename(prefijoSalida);
+        const archivosPorNumero = new Map<number, string>();
+        for (const archivo of archivosGenerados) {
+          const coincidencia = archivo.match(new RegExp(`^${prefijoNombre}-(\\d+)\\.png$`));
+          if (coincidencia) archivosPorNumero.set(Number(coincidencia[1]), path.join(dirTemporal, archivo));
+        }
         for (let indice = 0; indice < paginasARenderizar; indice += 1) {
-          const imagen = await fs.readFile(`${prefijoSalida}-${indice + 1}.png`);
+          const numeroPagina = desdePagina + indice;
+          const rutaPagina = archivosPorNumero.get(numeroPagina);
+          if (!rutaPagina) throw new Error(`Poppler no produjo el raster de la página ${numeroPagina}.`);
+          const imagen = await fs.readFile(rutaPagina);
           const metadata = await sharp(imagen).metadata();
           paginas.push({
-            numero: indice + 1,
+            numero: desdePagina + indice,
             width: Number(metadata.width ?? 0),
             height: Number(metadata.height ?? 0),
             dataUrl: `data:image/png;base64,${imagen.toString('base64')}`
@@ -87,18 +105,18 @@ async function rasterizarConPoppler(buffer: Buffer, paginasTotales: number, pagi
   }
 }
 
-async function rasterizarConSharp(buffer: Buffer, paginasTotales: number, paginasARenderizar: number, dpi: number) {
+async function rasterizarConSharp(buffer: Buffer, paginasTotales: number, desdePagina: number, paginasARenderizar: number, dpi: number) {
   const paginas: PaginaPdfPreviewVisual[] = [];
   for (let indice = 0; indice < paginasARenderizar; indice += 1) {
     const renderizada = await sharp(buffer, {
       density: dpi,
-      page: indice,
+      page: desdePagina + indice - 1,
       pages: 1
     })
       .png({ compressionLevel: 6 })
       .toBuffer({ resolveWithObject: true });
     paginas.push({
-      numero: indice + 1,
+      numero: desdePagina + indice,
       width: renderizada.info.width,
       height: renderizada.info.height,
       dataUrl: `data:image/png;base64,${renderizada.data.toString('base64')}`
@@ -134,7 +152,7 @@ async function resolverEjecutableChromium() {
   return undefined;
 }
 
-async function rasterizarConChromium(buffer: Buffer, paginasTotales: number, paginasARenderizar: number, dpi: number) {
+async function rasterizarConChromium(buffer: Buffer, paginasTotales: number, desdePagina: number, paginasARenderizar: number, dpi: number) {
   const { chromium } = await import('playwright');
   const ejecutable = await resolverEjecutableChromium();
   const dirTemporal = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-pdf-preview-'));
@@ -146,17 +164,18 @@ async function rasterizarConChromium(buffer: Buffer, paginasTotales: number, pag
     const page = await browser.newPage();
     const paginas: PaginaPdfPreviewVisual[] = [];
     for (let indice = 0; indice < paginasARenderizar; indice += 1) {
-      const pdfPage = documento.getPages()[indice];
+      const numeroPagina = desdePagina + indice;
+      const pdfPage = documento.getPages()[numeroPagina - 1];
       const width = Math.max(900, Math.round((pdfPage.getWidth() * dpi) / 72));
       const height = Math.max(1200, Math.round((pdfPage.getHeight() * dpi) / 72));
       await page.setViewportSize({ width, height });
       await page.setContent(
-        `<!doctype html><html><body style="margin:0;background:#fff"><embed id="pdf" src="${pathToFileURL(rutaPdf).href}#toolbar=0&navpanes=0&scrollbar=0&page=${indice + 1}" type="application/pdf" width="${width}" height="${height}"></body></html>`,
+        `<!doctype html><html><body style="margin:0;background:#fff"><embed id="pdf" src="${pathToFileURL(rutaPdf).href}#toolbar=0&navpanes=0&scrollbar=0&page=${numeroPagina}" type="application/pdf" width="${width}" height="${height}"></body></html>`,
         { waitUntil: 'load' }
       );
       const imagen = await page.locator('#pdf').screenshot({ type: 'png' });
       paginas.push({
-        numero: indice + 1,
+        numero: desdePagina + indice,
         width,
         height,
         dataUrl: `data:image/png;base64,${imagen.toString('base64')}`

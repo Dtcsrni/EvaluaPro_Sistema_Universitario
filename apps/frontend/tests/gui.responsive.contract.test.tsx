@@ -7,6 +7,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { AppAdminNegocio } from '../src/apps/app_admin_negocio/AppAdminNegocio';
 import { AppAlumno } from '../src/apps/app_alumno/AppAlumno';
@@ -29,7 +30,8 @@ const permisos: PermisosUI = {
 };
 
 describe('GUI responsive contract', () => {
-  it('calificaciones conserva contenedores responsive críticos', () => {
+  it('calificaciones conserva contenedores responsive críticos', async () => {
+    const user = userEvent.setup();
     render(
       <TemaProvider>
         <SeccionCalificaciones
@@ -58,6 +60,7 @@ describe('GUI responsive contract', () => {
       </TemaProvider>
     );
 
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
     const layout = document.querySelector('[data-calificaciones-layout="true"]');
     expect(layout).not.toBeNull();
 

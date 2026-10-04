@@ -1,0 +1,151 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-ocr-lazy-bundle-20260927-r1",
+  "status": "draft",
+  "generatedAt": "2026-09-27T21:28:31Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Continuar mejoras evolutivas de plantilla y detección OMR/QR, haciendo ejecutable y ligero el fallback OCR del pie."
+  },
+  "objective": "Corregir la carga runtime de Tesseract.js, evitar su inclusión en el chunk general y mostrar procedencia OCR con claridad, preservando el cierre ante ambigüedad.",
+  "scope": [
+    "Resolver Tesseract.js mediante import diferido estático compatible con Vite",
+    "Aislar Tesseract en un chunk bajo demanda",
+    "Actualizar la UI para distinguir QR de identidad recuperada por OCR",
+    "Validar focalmente sin modificar calificaciones ni ejecutar benchmark fotográfico"
+  ],
+  "constraints": [
+    "No agregar paquetes npm ni descargar modelos OCR",
+    "No escribir calificaciones ni publicar",
+    "Mantener worker, WASM y disponibilidad de modelos como pendiente explícito",
+    "Preservar cambios concurrentes del checkout"
+  ],
+  "actions": [
+    {
+      "type": "mejora",
+      "summary": "Eliminado import bare con @vite-ignore en los dos consumidores OCR; Vite genera vendor-ocr dinámico. La UI etiqueta la identidad OCR separada de QR validado.",
+      "timestamp": "2026-09-27T21:24:46Z",
+      "status": "ok"
+    },
+    {
+      "type": "documentacion",
+      "summary": "SPEC-062 actualizada a 1.24.11 con requisitos de bundling y límites de recursos offline; se registra la evidencia del build temporal.",
+      "timestamp": "2026-09-27T21:24:46Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "apps/frontend/src/apps/app_docente/ocrTexto.ts",
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionRegistroEntrega.tsx",
+      "apps/frontend/vite.config.ts",
+      "node_modules/tesseract.js/src/worker-script/index.js",
+      "node_modules/tesseract.js/src/worker/browser/defaultOptions.js",
+      "node_modules/tesseract.js/docs/api.md",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-global48-r2-20260927.json"
+    ],
+    "changed": [
+      "apps/frontend/src/apps/app_docente/ocrTexto.ts",
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionRegistroEntrega.tsx",
+      "apps/frontend/tests/ocrTexto.test.ts",
+      "apps/frontend/vite.config.ts",
+      "docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md",
+      "docs/handoff/sesiones/2026-09-27/omr-ocr-lazy-bundle-20260927-r1.json",
+      "docs/handoff/sesiones/2026-09-27/omr-ocr-lazy-bundle-20260927-r1.md"
+    ],
+    "artifacts": [
+      "C:/Users/evega/AppData/Local/Temp/EvaluaPro-ocr-build-20260927-v3"
+    ]
+  },
+  "commands": [
+    {
+      "name": "frontend_focused_tests",
+      "command": "npx vitest run tests/ocrTexto.test.ts tests/escaneo.refactor.test.tsx --reporter=dot",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3378,
+      "resultSummary": "2 test files passed; 19/19 tests passed.",
+      "timestamp": "2026-09-27T21:27:45Z"
+    },
+    {
+      "name": "frontend_typecheck",
+      "command": "npx tsc --noEmit --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2136,
+      "resultSummary": "TypeScript check passed.",
+      "timestamp": "2026-09-27T21:27:48Z"
+    },
+    {
+      "name": "frontend_focused_eslint",
+      "command": "npx eslint src/apps/app_docente/SeccionEscaneo.tsx src/apps/app_docente/SeccionRegistroEntrega.tsx src/apps/app_docente/ocrTexto.ts tests/ocrTexto.test.ts vite.config.ts --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3624,
+      "resultSummary": "No lint errors or warnings.",
+      "timestamp": "2026-09-27T21:27:51Z"
+    },
+    {
+      "name": "frontend_build_temp",
+      "command": "npx vite build --outDir C:/Users/evega/AppData/Local/Temp/EvaluaPro-ocr-build-20260927-v3",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 577,
+      "resultSummary": "Build passed; vendor-ocr chunk is 10.64 kB (5.00 kB gzip) and SeccionEscaneo imports it dynamically.",
+      "timestamp": "2026-09-27T21:23:49Z"
+    },
+    {
+      "name": "traceability_suite",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 81,
+      "resultSummary": "7/7 repository traceability tests passed.",
+      "timestamp": "2026-09-27T21:28:31Z"
+    },
+    {
+      "name": "new_trace_schema_validation",
+      "command": "node --input-type=module -e \"import fs from 'node:fs'; import { validateTraceDocument } from './scripts/ia-traceability.mjs'; const p='docs/handoff/sesiones/2026-09-27/omr-ocr-lazy-bundle-20260927-r1.json'; validateTraceDocument(JSON.parse(fs.readFileSync(p,'utf8'))); console.log('new trace valid')\"",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 59,
+      "resultSummary": "New JSON trace accepted by validateTraceDocument.",
+      "timestamp": "2026-09-27T21:28:31Z"
+    }
+  ],
+  "decisions": [
+    "Use import('tesseract.js') in a shared async loader so the bundler resolves the package; isolate tesseract.js modules into vendor-ocr.",
+    "Do not claim offline OCR: worker and language/core assets still use package defaults/caches, and traineddata is not present in the repository node_modules.",
+    "Do not rerun the 48-photo backend benchmark as evidence for frontend OCR; its current baseline has no key or observed labels and does not execute Tesseract OCR."
+  ],
+  "assumptions": [
+    "Existing Tesseract.js dependency remains the selected OCR engine pending real-photo calibration.",
+    "The QR/footer confidence threshold of 75/100 remains provisional."
+  ],
+  "risks": [
+    "No real-photo OCR run: the model may require network on first use; failure is caught and requests manual identity.",
+    "Full local packaging of worker, WASM and language data may add tens of MB; no user approval to vendor these assets has been obtained.",
+    "The last full OMR report is 48 pages, 31/48 exact direct QR, one additional geometry rescue, 15 QR misses, 255/360 determined responses and no independent key/observed answer labels; it is not an accuracy claim."
+  ],
+  "nextStep": "Request approval for an offline resource packaging option and calibrate OCR footer recovery against QR-missed real photos; rerun full OMR photo coverage only after detector changes and use independent labels before claiming answer accuracy.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "offline worker/core/language-resource decision and packaging verification",
+      "real photo OCR benchmark with QR-missed pages and expected PDF folio/page",
+      "independent response ground truth for OMR correctness",
+      "full quality and release gates"
+    ]
+  }
+}

@@ -16,6 +16,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbFile = resolverNombreDbTest();
 const dataDir = String(process.env.EVALUAPRO_TEST_DATA_DIR || '').trim()
   || fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-backend-test-'));
+const resolvedDataDir = path.resolve(dataDir);
+const managedDataDir = String(process.env.EVALUAPRO_TEST_DATA_DIR_MANAGED || '').trim();
+const testOwnsDataDir = managedDataDir === resolvedDataDir
+  && path.dirname(resolvedDataDir) === path.resolve(os.tmpdir())
+  && path.basename(resolvedDataDir).startsWith('evaluapro-backend-setup-');
 process.env.EVALUAPRO_TEST_DATA_DIR = dataDir;
 const dbPath = path.resolve(dataDir, dbFile);
 const dbUrl = `file:${dbPath.replace(/\\/g, '/')}`;
@@ -27,6 +32,7 @@ process.env.BACKEND_DATABASE_URL = dbUrl;
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 
 export async function conectarMongoTest() {
+  if (!testOwnsDataDir) throw new Error('La base de pruebas debe estar en un directorio temporal exclusivo del proceso.');
   process.env.DATABASE_URL = dbUrl;
   process.env.BACKEND_DATABASE_URL = dbUrl;
 
@@ -51,7 +57,7 @@ export async function conectarMongoTest() {
     schemaPath = path.resolve(process.cwd(), 'prisma', 'schema.prisma');
   }
 
-  const cmd = `"${prismaBin}" db push --schema="${schemaPath}" --skip-generate --accept-data-loss`;
+  const cmd = `"${prismaBin}" db push --schema="${schemaPath}"`;
   
   try {
     execSync(cmd, {
@@ -67,6 +73,7 @@ export async function conectarMongoTest() {
 }
 
 export async function limpiarMongoTest() {
+  if (!testOwnsDataDir) throw new Error('No se limpiará un directorio de datos externo.');
   await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
   try {
     const existingTables = await prisma.$queryRawUnsafe<{ name: string }[]>(
@@ -75,6 +82,14 @@ export async function limpiarMongoTest() {
     const existingNames = new Set(existingTables.map((t) => t.name.toLowerCase()));
 
     const tables = [
+      'reactivo_importacion_filas',
+      'reactivo_importaciones',
+      'reactivo_calibraciones',
+      'reactivo_assets',
+      'reactivo_asignaciones',
+      'reactivo_opciones',
+      'reactivo_versiones',
+      'reactivos',
       'tenants',
       'suscripciones',
       'cobranzas',
@@ -99,6 +114,7 @@ export async function limpiarMongoTest() {
       'resumenes_evaluacion_alumno',
       'componentes_examen',
       'evidencias_evaluacion',
+      'calificaciones_lista_manual',
       'configuraciones_periodo_evaluacion',
       'reconstrucciones_examenes',
       'escaneos_omr_archivados',
@@ -108,6 +124,7 @@ export async function limpiarMongoTest() {
       'papelera_items',
       'examen_recovery_manifests',
       'examen_recovery_bundles',
+      'examen_lote_artefactos_pdf',
       'eventos_uso',
       'banderas_revision',
       'solicitudes_revision',
@@ -125,6 +142,7 @@ export async function limpiarMongoTest() {
       'asistencia_registros',
       'asistencia_sesiones',
       'asistencia_reglas',
+      'periodo_portadas',
       'alumnos',
       'periodos',
       'sesiones_docente',
@@ -146,5 +164,7 @@ export async function limpiarMongoTest() {
 export async function cerrarMongoTest() {
   await prisma.$disconnect();
   // Borrar la base y su carpeta temporal para no contaminar data/ del runtime.
-  try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* higiene best-effort */ }
+  if (testOwnsDataDir) {
+    try { fs.rmSync(resolvedDataDir, { recursive: true, force: true }); } catch { /* higiene best-effort */ }
+  }
 }

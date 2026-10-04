@@ -3,6 +3,7 @@
  */
 import { z } from 'zod';
 import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
+import { esquemaReactivosBatch } from './reactivosContrato.js';
 
 const esquemaOpcion = z
   .object({
@@ -75,15 +76,26 @@ export const esquemaActualizarPregunta = z
 export const esquemaCrearTemaBanco = z
   .object({
     periodoId: esquemaObjectId,
-    nombre: z.string().min(1)
+    nombre: z.string().min(1),
+    clientRequestId: z.string().uuid().optional()
   })
   .strict();
 
 export const esquemaActualizarTemaBanco = z
   .object({
-    nombre: z.string().min(1)
+    nombre: z.string().min(1),
+    clientRequestId: z.string().uuid().optional()
   })
   .strict();
+
+export const esquemaArchivarTemaBanco = z.object({
+  clientRequestId: z.string().uuid().optional()
+}).strict();
+
+export const esquemaListarAuditoriaTemaBanco = z.object({
+  limite: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
 
 export const esquemaMoverPreguntasTemaBanco = z
   .object({
@@ -101,3 +113,38 @@ export const esquemaQuitarTemaBanco = z
   .strict();
 
 export const esquemaBodyVacioOpcional = z.object({}).strict().optional();
+
+export const esquemaPreviewImportacionReactivos = z.union([
+  esquemaReactivosBatch,
+  z.object({ payload: esquemaReactivosBatch }).strict(),
+  z.object({}).strict()
+]);
+
+export const esquemaConfirmarReactivos = z
+  .object({
+    planHash: z.string().regex(/^[a-fA-F0-9]{64}$/),
+    payload: esquemaReactivosBatch.optional()
+  })
+  .strict();
+
+export const esquemaRegistrarCalibracionReactivo = z
+  .object({
+    reactivoVersionId: z.string().trim().min(1).max(128),
+    cohorteKey: z.string().trim().min(1).max(128),
+    calificacionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(500)
+      .refine((ids) => new Set(ids).size === ids.length, 'calificacionIds no debe contener duplicados')
+  })
+  .strict();
+
+export const esquemaListarReactivos = z.object({
+  periodoId: z.string().uuid().optional(),
+  temaId: z.string().uuid().optional(),
+  estado: z.enum(['draft', 'review', 'published', 'retired']).optional(),
+  limite: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
+export const esquemaListarImportacionesReactivos = z.object({
+  limite: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().uuid().optional()
+}).strict();

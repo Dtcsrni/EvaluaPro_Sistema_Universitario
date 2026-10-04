@@ -50,7 +50,7 @@ describe('SeccionCalificar', () => {
     expect(screen.getByRole('button', { name: /Guardar calificación/i })).toBeDisabled();
   });
 
-  it('calcula aciertos y calificación sobre 5.00 y permite aplicar bono', async () => {
+  it('calcula aciertos sobre 5.00 y aplica exactamente +0.25 por guía al seleccionarlo', async () => {
     const mockCalificar = vi.fn().mockResolvedValue({});
 
     const respuestas = [
@@ -89,14 +89,10 @@ describe('SeccionCalificar', () => {
     expect(screen.getByText(/Aciertos: 4\/5/i)).toBeInTheDocument();
     expect(screen.getByText(/Calificación final: 4.00 \/ 5.00/i)).toBeInTheDocument();
 
-    // Activar checkbox de bonus
-    const checkboxBonus = screen.getByRole('checkbox', { name: /Bonus/i });
+    const checkboxBonus = screen.getByRole('checkbox', { name: /Bono por guía de estudio \(\+0\.25\)/i });
     fireEvent.click(checkboxBonus);
 
-    const inputBono = screen.getByRole('spinbutton', { name: /Bono \(max 0.5\)/i });
-    fireEvent.change(inputBono, { target: { value: '0.4' } });
-
-    expect(screen.getByText(/Calificación final: 4.40 \/ 5.00/i)).toBeInTheDocument();
+    expect(screen.getByText(/Calificación final: 4.25 \/ 5.00/i)).toBeInTheDocument();
 
     const botonGuardar = screen.getByRole('button', { name: /Guardar calificación/i });
     expect(botonGuardar).not.toBeDisabled();
@@ -110,7 +106,7 @@ describe('SeccionCalificar', () => {
           alumnoId: 'alu-202',
           aciertos: 4,
           totalReactivos: 5,
-          bonoSolicitado: 0.4
+          bonoSolicitado: 0.25
         })
       );
     });
@@ -118,6 +114,60 @@ describe('SeccionCalificar', () => {
     expect(emitToast).toHaveBeenCalledWith(
       expect.objectContaining({ level: 'ok', title: 'Calificacion' })
     );
+  });
+
+  it('cuenta blancos y dobles marcas no resueltas como incorrectas y conserva sus estados al guardar', async () => {
+    const mockCalificar = vi.fn().mockResolvedValue({});
+    const respuestas = [
+      { numeroPregunta: 1, opcion: 'A', confianza: 0.95, estadoRespuesta: 'respondida' as const },
+      { numeroPregunta: 2, opcion: null, confianza: 0.92, estadoRespuesta: 'sin_marca' as const },
+      {
+        numeroPregunta: 3,
+        opcion: null,
+        confianza: 0.55,
+        estadoRespuesta: 'doble_marca' as const,
+        flags: ['doble_marca' as const]
+      }
+    ];
+
+    render(
+      <SeccionCalificar
+        examenId="ex-omr-review"
+        alumnoId="alu-omr-review"
+        resultadoOmr={omrResultadoMock}
+        revisionOmrConfirmada={true}
+        respuestasDetectadas={respuestas}
+        claveCorrectaPorNumero={{ 1: 'A', 2: 'B', 3: 'C' }}
+        ordenPreguntasClave={[1, 2, 3]}
+        onCalificar={mockCalificar}
+        puedeCalificar={true}
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Aciertos: 1\/3/i)).toBeInTheDocument();
+    expect(screen.getByText(/Calificación final: 1\.67 \/ 5\.00/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Guardar calificación/i }));
+
+    await waitFor(() => {
+      expect(mockCalificar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          aciertos: 1,
+          totalReactivos: 3,
+          respuestasDetectadas: [
+            expect.objectContaining({ numeroPregunta: 1, opcion: 'A', estadoRespuesta: 'respondida' }),
+            expect.objectContaining({ numeroPregunta: 2, opcion: null, estadoRespuesta: 'sin_marca' }),
+            expect.objectContaining({
+              numeroPregunta: 3,
+              opcion: null,
+              estadoRespuesta: 'doble_marca',
+              flags: ['doble_marca']
+            })
+          ]
+        })
+      );
+    });
   });
 
   it('renderiza en modo solo lectura para exámenes ya calificados', () => {

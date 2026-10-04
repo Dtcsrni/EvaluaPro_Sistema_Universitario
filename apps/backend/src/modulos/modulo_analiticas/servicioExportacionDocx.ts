@@ -13,7 +13,7 @@ function celdaEncabezado(texto: string) {
   });
 }
 
-function celdaDato(texto: string) {
+function celdaDato(texto: unknown) {
   return new TableCell({
     children: [new Paragraph(String(texto ?? ''))]
   });

@@ -24,6 +24,9 @@ export async function crearSesion(req: SolicitudDocente, res: Response) {
     modo?: 'manual' | 'qr_automatico';
   };
 
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, docenteId } });
+  if (!periodo) throw new ErrorAplicacion('NO_ENCONTRADO', 'Materia no encontrada', 404);
+
   const sesion = await prisma.asistenciaSesion.create({
     data: {
       docenteId,
@@ -82,6 +85,21 @@ export async function guardarRegistros(req: SolicitudDocente, res: Response) {
     where: { id: sesionId, docenteId }
   });
   if (!sesion) throw new ErrorAplicacion('NO_ENCONTRADO', 'Sesión no encontrada', 404);
+
+  const alumnoIds = registros.map((r) => r.alumnoId);
+  const idsUnicos = [...new Set(alumnoIds)];
+  const alumnosSesion = await prisma.alumno.findMany({
+    where: {
+      id: { in: idsUnicos },
+      periodoId: sesion.periodoId,
+      grupo: sesion.grupo,
+      periodo: { docenteId }
+    },
+    select: { id: true }
+  });
+  if (idsUnicos.length !== alumnoIds.length || alumnosSesion.length !== idsUnicos.length) {
+    throw new ErrorAplicacion('ALUMNO_FUERA_DE_SESION', 'Todos los alumnos deben pertenecer al periodo y grupo de la sesión', 400);
+  }
 
   await prisma.$transaction(
     registros.map((r) =>

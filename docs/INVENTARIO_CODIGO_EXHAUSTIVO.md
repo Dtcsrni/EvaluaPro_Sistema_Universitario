@@ -683,7 +683,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/assert-installer-hub-bundle.ps1
 - scripts/auto-merge-when-ready.mjs
 - scripts/build-msi.ps1
-- scripts/build-native-dist.ps1
 - scripts/ci/set-e2e-qa-secret.ps1
 - scripts/classroom-doctor.mjs
 - scripts/clean-architecture-check.mjs

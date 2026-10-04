@@ -30,7 +30,7 @@ type ProgresoLoteGeneracion = {
   generados: number;
   porcentaje: number;
   completado: boolean;
-  estado: 'iniciando' | 'generando' | 'completado';
+  estado: 'iniciando' | 'generando' | 'completado' | 'fallido';
 };
 
 export function PlantillasGenerados({

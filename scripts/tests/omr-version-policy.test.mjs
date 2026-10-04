@@ -14,6 +14,7 @@ function leerJson(relativo) {
 }
 
 const policy = leerJson('config/omr-version-policy.json');
+const engineRelease = leer('apps/backend/src/modulos/modulo_escaneo_omr/omr/engineRelease.ts');
 const backendTemplate = leer('apps/backend/src/modulos/modulo_generacion_pdf/domain/templateCanonico.ts');
 const backendTypes = leer('apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts');
 const frontendVersion = leer('apps/frontend/src/ui/version/versionInfo.ts');
@@ -34,6 +35,17 @@ test('la política declara una única identidad OMR canónica', () => {
   assert.equal(policy.rejectionRule, 'fail-closed');
 });
 
+test('el motor OMR/QR tiene release SemVer independiente de app y plantilla', () => {
+  assert.match(engineRelease, /id:\s*'evaluapro-omr-qr'/);
+  assert.match(engineRelease, /version:\s*'\d+\.\d+\.\d+-dev\.\d+'/);
+  assert.match(engineRelease, /channel:\s*'development'/);
+  assert.match(engineRelease, /export const OMR_ENGINE_RELEASE/);
+  assert.match(leer('apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts'), /engineRelease:\s*OMR_ENGINE_RELEASE/);
+  assert.match(leer('apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts'), /engineRelease:\s*OMR_ENGINE_RELEASE/);
+  assert.match(leer('apps/backend/scripts/omr-eval-real-dataset.mjs'), /engineRelease:\s*OMR_ENGINE_RELEASE/);
+  assert.doesNotMatch(engineRelease, /package\.json|TEMPLATE_VERSION|TV4/);
+});
+
 test('backend y frontend usan la misma versión y etiqueta declaradas', () => {
   assert.match(backendTemplate, /TEMPLATE_VERSION_CANONICA:\s*TemplateVersion\s*=\s*4/);
   assert.match(backendTemplate, /OMR_CANONICAL_CONTRACT_ID\s*=\s*'omr-canonical-v4'/);
@@ -42,7 +54,8 @@ test('backend y frontend usan la misma versión y etiqueta declaradas', () => {
   assert.match(frontendVersion, /VITE_OMR_CANONICAL_VERSION/);
   assert.match(frontendVersion, /omr-canonical-v4/);
   assert.match(frontendVersion, /OMR canónico · v4/);
-  assert.match(versionPage, /Contrato OMR:/);
+  assert.match(versionPage, /(?:Contrato|Motor) OMR:?/);
+  assert.match(versionPage, /vm\.omrDisplayLabel/);
   assert.doesNotMatch(versionPage, /Versiones antiguas:/);
 });
 

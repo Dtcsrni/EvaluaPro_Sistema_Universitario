@@ -92,6 +92,7 @@ describe('escaneo refactor comportamiento', () => {
                   motivosRevision: []
                 },
                 respuestas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.9 }],
+                imagenBase64: 'data:image/png;base64,AA==',
                 actualizadoEn: Date.now()
               },
               {
@@ -126,6 +127,11 @@ describe('escaneo refactor comportamiento', () => {
         avisarSinPermiso={() => {}}
       />
     );
+
+    const imagen = screen.getByRole('img', { name: 'Examen ex-1 página 1' });
+    await user.click(screen.getByRole('button', { name: 'Acercar imagen' }));
+    expect(screen.getByText('125%')).toBeInTheDocument();
+    expect(imagen).toHaveClass('omr-review-card__image--zoom-125');
 
     await user.click(screen.getByRole('button', { name: /Página siguiente/i }));
 
@@ -366,6 +372,62 @@ describe('escaneo refactor comportamiento', () => {
     expect(onActualizarPregunta).toHaveBeenCalledWith(1, null);
   });
 
+  it('alinea alumno y clave, permite enfocar pendientes y controlar el zoom de la imagen', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <SeccionEscaneo
+        alumnos={[]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ aciertos: 0, totalReactivos: 0 })}
+        resultado={{
+          estadoAnalisis: 'requiere_revision' as const,
+          calidadPagina: 0.95,
+          confianzaPromedioPagina: 0.9,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: 2 as const,
+          qrTexto: 'FOL-1:P1',
+          respuestasDetectadas: [
+            { numeroPregunta: 1, opcion: 'A' as const, confianza: 0.95 },
+            { numeroPregunta: 2, opcion: 'B' as const, confianza: 0.95 }
+          ],
+          advertencias: [],
+          motivosRevision: []
+        }}
+        onActualizar={() => {}}
+        onActualizarPregunta={() => {}}
+        respuestasPaginaEditable={[
+          { numeroPregunta: 1, opcion: 'A' as const, confianza: 0.95 },
+          { numeroPregunta: 2, opcion: 'B' as const, confianza: 0.95 }
+        ]}
+        respuestasCombinadas={[]}
+        claveCorrectaPorNumero={{ 1: 'A' }}
+        ordenPreguntasClave={[1, 2]}
+        revisionOmrConfirmada={false}
+        onConfirmarRevisionOmr={() => {}}
+        revisionesOmr={[]}
+        examenIdActivo={null}
+        paginaActiva={1}
+        onSeleccionarRevision={() => {}}
+        puedeAnalizar
+        puedeCalificar
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: 'Imagen del examen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Alumno vs. clave' })).toBeInTheDocument();
+    expect(screen.getAllByText('Sin clave')).toHaveLength(2);
+    expect(screen.getByText('Correcta')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Acercar imagen' }));
+    expect(screen.getByText('125%')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mostrar solo pendientes' }));
+    expect(screen.queryByLabelText('Respuesta alumno pregunta 1')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Respuesta alumno pregunta 2')).toBeInTheDocument();
+  });
+
   it('renderiza advertencias del análisis y permite confirmar la revisión', () => {
     const onConfirmarRevisionOmr = vi.fn();
 
@@ -399,10 +461,53 @@ describe('escaneo refactor comportamiento', () => {
     );
 
     expect(screen.getByText('Iluminación irregular detectada')).toBeInTheDocument();
+    expect(screen.queryByText('Experimental')).not.toBeInTheDocument();
 
     const btnConfirmar = screen.getByRole('button', { name: /Confirmar revisión/i });
     fireEvent.click(btnConfirmar);
     expect(onConfirmarRevisionOmr).toHaveBeenCalledWith(true);
+  });
+
+  it('señala rescates experimentales y QR sin validar antes de guardar', () => {
+    render(
+      <SeccionEscaneo
+        alumnos={[]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ aciertos: 0, totalReactivos: 0 })}
+        resultado={{
+          estadoAnalisis: 'requiere_revision' as const,
+          calidadPagina: 0.9,
+          confianzaPromedioPagina: 0.85,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: 4 as const,
+          qrTexto: 'FOL-1:P1',
+          respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' as const, confianza: 0.9 }],
+          advertencias: [
+            'P1: rescate por búsqueda local acotada',
+            'El QR no coincide con el examen esperado'
+          ],
+          motivosRevision: []
+        }}
+        onActualizar={() => {}}
+        onActualizarPregunta={() => {}}
+        onConfirmarRevisionOmr={() => {}}
+        respuestasPaginaEditable={[{ numeroPregunta: 1, opcion: 'A' as const, confianza: 0.9 }]}
+        claveCorrectaPorNumero={{ 1: 'A' }}
+        ordenPreguntasClave={[1]}
+        revisionesOmr={[]}
+        puedeAnalizar
+        puedeCalificar
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    const etiquetaExperimental = screen.getByText('Experimental');
+    expect(etiquetaExperimental).toHaveClass('omr-experimental-note__badge');
+    expect(etiquetaExperimental.closest('[role="note"]')).toHaveClass('omr-experimental-note');
+    expect(screen.getByText(/heurística de rescate OMR/)).toBeInTheDocument();
+    expect(screen.getByText(/corrobora folio y página/)).toBeInTheDocument();
+    expect(screen.getByText(/validación se limita al dataset disponible/)).toBeInTheDocument();
+    expect(screen.getByText(/Compara las marcas con la imagen antes de confirmar/)).toBeInTheDocument();
   });
 });
 

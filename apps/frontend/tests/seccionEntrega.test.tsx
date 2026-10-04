@@ -137,4 +137,34 @@ describe('SeccionEntrega', () => {
     expect(screen.getByText(/FOL-002/i)).toBeInTheDocument();
     expect(screen.queryByText(/FOL-001/i)).not.toBeInTheDocument();
   });
+
+  it('permite cargar la página siguiente de exámenes de la materia', async () => {
+    vi.mocked(clienteApi.obtener)
+      .mockResolvedValueOnce({
+        examenes: [{ _id: 'ex-3', folio: 'FOL-003', alumnoId: null, periodoId: 'per-1', plantillaId: 'plan-1', estado: 'generado' }],
+        nextCursor: 'cursor-next'
+      })
+      .mockResolvedValueOnce({
+        examenes: [{ _id: 'ex-4', folio: 'FOL-004', alumnoId: null, periodoId: 'per-1', plantillaId: 'plan-1', estado: 'generado' }],
+        nextCursor: null
+      });
+
+    render(
+      <SeccionEntrega
+        alumnos={alumnosMock}
+        plantillas={plantillasMock}
+        periodos={periodosMock}
+        onVincular={vi.fn()}
+        permisos={permisosCompletos}
+        avisarSinPermiso={vi.fn()}
+        enviarConPermiso={vi.fn()}
+      />
+    );
+
+    await screen.findByText(/FOL-003/i);
+    fireEvent.click(screen.getByRole('button', { name: /cargar más exámenes/i }));
+    await screen.findByText(/FOL-004/i);
+    const rutaSegundaPagina = vi.mocked(clienteApi.obtener).mock.calls[1]?.[0];
+    expect(rutaSegundaPagina).toContain('cursor=cursor-next');
+  });
 });

@@ -18,7 +18,7 @@ export async function requerirDocente(req: SolicitudDocente, _res: Response, nex
     return;
   }
 
-  let docenteId = '';
+  let docenteId: string;
   try {
     docenteId = verificarTokenDocente(token).docenteId;
   } catch {

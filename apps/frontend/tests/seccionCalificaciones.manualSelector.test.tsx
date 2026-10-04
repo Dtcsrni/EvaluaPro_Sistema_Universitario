@@ -54,7 +54,7 @@ describe('SeccionCalificaciones manual selector', () => {
     obtenerMock.mockImplementation(async (ruta: string) => {
       if (ruta === '/examenes/plantillas') {
         return {
-          plantillas: [{ _id: 'pla-1', titulo: 'Plantilla Algebra', tipo: 'parcial', numeroPaginas: 1 }]
+          plantillas: [{ _id: 'pla-1', titulo: 'Primer Parcial · Plantilla Algebra', tipo: 'parcial', numeroPaginas: 1 }]
         };
       }
       if (ruta.startsWith('/examenes/generados?alumnoId=')) {
@@ -67,7 +67,7 @@ describe('SeccionCalificaciones manual selector', () => {
               estado: 'entregado',
               plantillaId: 'pla-1',
               tipoExamen: 'parcial',
-              plantillaTitulo: 'Plantilla Algebra',
+              plantillaTitulo: 'Primer Parcial · Plantilla Algebra',
               entregadoEn: '2026-02-16T00:00:00.000Z'
             }
           ]
@@ -113,6 +113,7 @@ describe('SeccionCalificaciones manual selector', () => {
 
   it('muestra tipo en selector y en encabezado al activar modo manual', async () => {
     const user = userEvent.setup();
+    const abrirLotesPdfOmr = vi.fn();
 
     render(
       <SeccionCalificaciones
@@ -136,16 +137,18 @@ describe('SeccionCalificaciones manual selector', () => {
         respuestasParaCalificar={[]}
         onCalificar={async () => ({})}
         permisos={permisos}
+        onAbrirLotesPdfOmr={abrirLotesPdfOmr}
         avisarSinPermiso={() => {}}
       />
     );
 
     await waitFor(() => expect(obtenerMock).toHaveBeenCalledWith('/examenes/plantillas'));
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
 
     await user.selectOptions(screen.getByLabelText('Alumno'), 'alu-1');
 
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /FOL-1 · Parcial 1 · Plantilla Algebra · entregado/i })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /FOL-1 · Parcial 1 · Primer Parcial · Plantilla Algebra · entregado/i })).toBeInTheDocument();
     });
 
     await user.selectOptions(screen.getByLabelText('Examen entregado'), 'ex-1');
@@ -155,11 +158,16 @@ describe('SeccionCalificaciones manual selector', () => {
       expect(screen.getByRole('heading', { name: /Calificar examen · Parcial 1/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Modo manual activo · Folio FOL-1 · Tipo Parcial 1 · Plantilla Plantilla Algebra/i)).toBeInTheDocument();
+    expect(screen.getByText(/Modo manual activo · Folio FOL-1 · Tipo Parcial 1 · Plantilla Primer Parcial · Plantilla Algebra/i)).toBeInTheDocument();
     expect((clienteApi as { obtener: unknown }).obtener).toBeDefined();
+
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
+    await user.click(screen.getByRole('button', { name: 'Procesar PDFs de un lote generado' }));
+    expect(abrirLotesPdfOmr).toHaveBeenCalledOnce();
   });
 
   it('evita bucle de reintentos cuando /calificaciones/examen responde 404', async () => {
+    const user = userEvent.setup();
     obtenerMock.mockReset();
     obtenerMock.mockImplementation(async (ruta: string) => {
       if (ruta === '/examenes/plantillas') {
@@ -247,6 +255,7 @@ describe('SeccionCalificaciones manual selector', () => {
       />
     );
 
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
     await waitFor(() => {
       const llamadas = obtenerMock.mock.calls.filter((args) => String(args[0]) === '/calificaciones/examen/ex-cal-1');
       expect(llamadas.length).toBe(1);
@@ -260,6 +269,7 @@ describe('SeccionCalificaciones manual selector', () => {
   });
 
   it('rehidrata la revisión histórica por páginas al seleccionar examen calificado', async () => {
+    const user = userEvent.setup();
     const onCargarRevisionHistoricaCalificada = vi.fn();
     obtenerMock.mockReset();
     obtenerMock.mockImplementation(async (ruta: string) => {
@@ -416,6 +426,7 @@ describe('SeccionCalificaciones manual selector', () => {
       />
     );
 
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
     await waitFor(() => {
       expect(onCargarRevisionHistoricaCalificada).toHaveBeenCalledTimes(1);
     });
@@ -439,7 +450,8 @@ describe('SeccionCalificaciones manual selector', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: async () => new Blob(['csv']) });
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const clickDescarga = vi.spyOn(HTMLAnchorElement.prototype, 'click');
 
     render(
       <SeccionCalificaciones
@@ -468,14 +480,31 @@ describe('SeccionCalificaciones manual selector', () => {
       />
     );
 
+    await user.click(screen.getByRole('button', { name: /Actas y exportación/i }));
     await waitFor(() => expect(screen.getByRole('button', { name: /Descargar CSV/i })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: /Descargar CSV/i }));
 
-    await waitFor(() => expect(screen.getByText(/Reporte CSV descargado/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Descarga CSV solicitada en el navegador/i)).toBeInTheDocument());
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/analiticas/calificaciones-csv?periodoId=per-1',
       expect.objectContaining({ headers: { Authorization: 'Bearer token-test' } })
     );
+    expect(clickDescarga).toHaveBeenCalledTimes(1);
+    expect((clickDescarga.mock.contexts[0] as HTMLAnchorElement).download).toBe('calificaciones-per-1.csv');
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:test'), { timeout: 2000 });
+
+    await user.click(screen.getByRole('button', { name: /Descargar XLSX/i }));
+    await waitFor(() => expect(screen.getByText(/Descarga XLSX solicitada en el navegador/i)).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/analiticas/calificaciones-xlsx?periodoId=per-1',
+      expect.objectContaining({ headers: { Authorization: 'Bearer token-test' } })
+    );
+    expect(clickDescarga).toHaveBeenCalledTimes(2);
+    expect((clickDescarga.mock.contexts[1] as HTMLAnchorElement).download).toBe('calificaciones-per-1.xlsx');
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledTimes(2), { timeout: 2000 });
 
     localStorage.removeItem('tokenDocente');
     await user.click(screen.getByRole('button', { name: /Descargar CSV/i }));

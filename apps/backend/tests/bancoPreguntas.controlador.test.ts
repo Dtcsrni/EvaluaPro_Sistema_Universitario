@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockObtenerDocenteId,
   mockBancoFindMany,
+  mockReactivoFindMany,
   mockBancoFindUnique,
   mockBancoFindFirst,
   mockBancoCreate,
@@ -24,10 +25,14 @@ const {
   mockOpcionCreateMany,
   mockPeriodoFindFirst,
   mockPlantillaFindMany,
-  mockPlantillaUpdate
+  mockPlantillaUpdate,
+  mockTemaAuditoriaFindUnique,
+  mockTemaAuditoriaCreate,
+  mockTransaction
 } = vi.hoisted(() => ({
   mockObtenerDocenteId: vi.fn(),
   mockBancoFindMany: vi.fn(),
+  mockReactivoFindMany: vi.fn(),
   mockBancoFindUnique: vi.fn(),
   mockBancoFindFirst: vi.fn(),
   mockBancoCreate: vi.fn(),
@@ -42,7 +47,10 @@ const {
   mockOpcionCreateMany: vi.fn(),
   mockPeriodoFindFirst: vi.fn(),
   mockPlantillaFindMany: vi.fn(),
-  mockPlantillaUpdate: vi.fn()
+  mockPlantillaUpdate: vi.fn(),
+  mockTemaAuditoriaFindUnique: vi.fn(),
+  mockTemaAuditoriaCreate: vi.fn(),
+  mockTransaction: vi.fn()
 }));
 
 vi.mock('../src/modulos/modulo_autenticacion/middlewareAutenticacion', () => ({
@@ -51,6 +59,10 @@ vi.mock('../src/modulos/modulo_autenticacion/middlewareAutenticacion', () => ({
 
 vi.mock('../src/infraestructura/baseDatos/sqlite', () => ({
   prisma: {
+    $transaction: mockTransaction,
+    reactivo: {
+      findMany: mockReactivoFindMany
+    },
     bancoPregunta: {
       findMany: mockBancoFindMany,
       findUnique: mockBancoFindUnique,
@@ -78,6 +90,10 @@ vi.mock('../src/infraestructura/baseDatos/sqlite', () => ({
     examenPlantilla: {
       findMany: mockPlantillaFindMany,
       update: mockPlantillaUpdate
+    },
+    temaBancoAuditoria: {
+      findUnique: mockTemaAuditoriaFindUnique,
+      create: mockTemaAuditoriaCreate
     }
   }
 }));
@@ -138,6 +154,7 @@ describe('controladorBancoPreguntas', () => {
     vi.clearAllMocks();
     mockObtenerDocenteId.mockReturnValue('docente-1');
     mockPeriodoFindFirst.mockResolvedValue({ id: 'periodo-1', nombre: 'Materia 1' });
+    mockReactivoFindMany.mockResolvedValue([]);
     mockTemaFindFirst.mockResolvedValue({ id: 'tema-1', nombre: 'Tema Base', clave: 'tema base', activo: true });
     mockTemaFindMany.mockResolvedValue([{ id: 'tema-1', nombre: 'Tema Base' }]);
     mockBancoFindMany.mockResolvedValue([]);
@@ -145,6 +162,15 @@ describe('controladorBancoPreguntas', () => {
     mockBancoUpdateMany.mockResolvedValue({ count: 2 });
     mockPlantillaUpdate.mockResolvedValue({ count: 1 });
     mockTemaCreate.mockResolvedValue({ id: 'tema-1', nombre: 'Tema Base' });
+    mockTemaAuditoriaFindUnique.mockResolvedValue(null);
+    mockTemaAuditoriaCreate.mockResolvedValue({ id: 'evento-1' });
+    mockTransaction.mockImplementation((operation) => operation({
+      temaBanco: { findFirst: mockTemaFindFirst, create: mockTemaCreate, update: mockTemaUpdate },
+      temaBancoAuditoria: { findUnique: mockTemaAuditoriaFindUnique, create: mockTemaAuditoriaCreate },
+      periodo: { findFirst: mockPeriodoFindFirst },
+      bancoPregunta: { updateMany: mockBancoUpdateMany },
+      examenPlantilla: { findMany: mockPlantillaFindMany, update: mockPlantillaUpdate }
+    }));
   });
 
   it('lista preguntas activas por docente con limite', async () => {
@@ -440,6 +466,7 @@ describe('controladorBancoPreguntas', () => {
       where: { id: 'tema-1' },
       data: {
         activo: true,
+        archivadoEn: null,
         nombre: 'Tema Base',
         clave: 'tema base'
       }
@@ -474,7 +501,8 @@ describe('controladorBancoPreguntas', () => {
       data: {
         nombre: 'Tema Nuevo',
         clave: 'tema nuevo',
-        activo: true
+        activo: true,
+        archivadoEn: null
       }
     });
     expect(mockBancoUpdateMany).toHaveBeenCalledWith({
@@ -486,6 +514,8 @@ describe('controladorBancoPreguntas', () => {
       data: { temas: '["Tema Nuevo"]' }
     });
     expect(res.json).toHaveBeenCalledWith({
+      clientRequestId: expect.any(String),
+      repetida: false,
       tema: expect.objectContaining({
         nombre: 'Tema Nuevo'
       })
@@ -575,6 +605,8 @@ describe('controladorBancoPreguntas', () => {
       data: { temas: '[]' }
     });
     expect(res.json).toHaveBeenCalledWith({
+      clientRequestId: expect.any(String),
+      repetida: false,
       tema: expect.objectContaining({
         activo: false
       })

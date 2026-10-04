@@ -98,16 +98,14 @@ export function validateSpecContent(filename, content) {
       if (parts.length >= 4) {
         const potentialTest = parts[3]; // Tercera columna de datos en la tabla (ej. | ID | Desc | Test | Estado |)
         if (potentialTest && potentialTest !== 'Archivo de Test Vinculado' && !potentialTest.startsWith('---')) {
-          const cleanedPath = potentialTest.replace(/`/g, '').trim();
-          if (
-            cleanedPath.endsWith('.ts') ||
-            cleanedPath.endsWith('.tsx') ||
-            cleanedPath.endsWith('.js') ||
-            cleanedPath.endsWith('.jsx') ||
-            cleanedPath.endsWith('.mjs') ||
-            cleanedPath.endsWith('.cjs')
-          ) {
-            testPathsFound.push(cleanedPath);
+          const candidates = potentialTest
+            .replace(/`/g, '')
+            .split(/\s*(?:,|;)\s*|\s+\+\s+/)
+            .map((candidate) => candidate.trim());
+          for (const candidate of candidates) {
+            if (/\.(?:tsx?|jsx?|mjs|cjs)$/.test(candidate)) {
+              testPathsFound.push(candidate);
+            }
           }
         }
       }
@@ -125,7 +123,7 @@ export function validateSpecContent(filename, content) {
     ok: errors.length === 0,
     errors,
     metadata,
-    testPaths: testPathsFound
+    testPaths: [...new Set(testPathsFound)]
   };
 }
 

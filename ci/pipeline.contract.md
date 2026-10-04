@@ -195,6 +195,11 @@ Policy:
 - `~/.npm`
 - Optional build caches (`*.tsbuildinfo`, test cache) without mutating source
 
+## CI/CD security and publication integrity
+- Read-only workflows must declare workflow-level `permissions: contents: read`; write permission is granted only to the individual workflow/job that publishes a release, package, or generated source.
+- Workflows that mutate external release/package state must not cancel an in-progress publication. CI validation may cancel stale runs for the same source branch; installer tag builds must serialize instead.
+- A versioned package publication must validate that the pushed tag (without the `v` prefix) equals the root `package.json` version before building or pushing mutable version tags.
+
 ## Artifacts
 - Build outputs per workspace
 - Test reports

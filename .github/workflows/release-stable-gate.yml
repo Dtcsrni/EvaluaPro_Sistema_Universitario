@@ -17,7 +17,7 @@ on:
 
 concurrency:
   group: release-stable-gate-${{ github.workflow }}-${{ inputs.version || github.ref_name || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -41,7 +41,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -50,7 +50,9 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Instalar dependencias
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Resolver version objetivo
         id: resolve_version

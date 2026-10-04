@@ -7,7 +7,7 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { configuracion } from '../../../configuracion.js';
 import type { MapaOmr, MapaVariante, PreguntaBase, TemplateVersion } from '../shared/tiposPdf.js';
-import { extraerResumenQrExamen } from './qrExamen.js';
+import { construirFirmaClave, construirFirmaVariante, extraerResumenQrExamen } from './qrExamen.js';
 import { OMR_CANONICAL_CONTRACT_ID } from './templateCanonico.js';
 
 type Identificador = string | undefined;
@@ -345,8 +345,8 @@ export function construirRecoveryManifest(input: BuildRecoveryManifestInput): Re
     templateVersion: input.templateVersion,
     totalPreguntas: questions.length,
     totalPaginas: pageSummaries.length,
-    variantHash: firstQr?.variantHash,
-    answerKeyHash: firstQr?.answerKeyHash,
+    variantHash: firstQr?.variantHash ?? construirFirmaVariante(input.mapaVariante),
+    answerKeyHash: firstQr?.answerKeyHash ?? construirFirmaClave(input.preguntas, input.mapaVariante),
     qrKeyId: firstQr?.keyId,
     questionBankHash,
     answerKeySnapshot,

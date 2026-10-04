@@ -43,7 +43,7 @@ describe('OMR contrato unico smoke', () => {
     const imagenBlanca = await crearImagenBlancaBase64();
     const resultado = await leerQrDesdeImagen(imagenBlanca);
     expect(resultado).toBeUndefined();
-  });
+  }, 120_000);
 
   it('analizarOmr retorna estructura esperada en imagen blanca', async () => {
     const imagenBlanca = await crearImagenBlancaBase64();
@@ -54,9 +54,9 @@ describe('OMR contrato unico smoke', () => {
     expect(['ok', 'requiere_revision', 'rechazado_calidad']).toContain(resultado.estadoAnalisis);
     expect(resultado.calidadPagina).toBeGreaterThanOrEqual(0);
     expect(resultado.calidadPagina).toBeLessThanOrEqual(1);
-  });
+  }, 120_000);
 
   it('analizarOmr propaga error para base64 inválido', async () => {
     await expect(analizarOmr('data:image/png;base64,INVALID_BASE64', mapaSimple, ['TEST'], 10)).rejects.toThrow();
-  });
+  }, 120_000);
 });

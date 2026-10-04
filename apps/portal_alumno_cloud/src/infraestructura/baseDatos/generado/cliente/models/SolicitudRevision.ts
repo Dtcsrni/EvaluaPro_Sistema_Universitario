@@ -8,7 +8,7 @@
  *
  * 🟢 You can import this file directly.
  */
-import type * as runtime from "@prisma/client/runtime/library"
+import type * as runtime from "@prisma/client/runtime/client"
 import type * as $Enums from "../enums.js"
 import type * as Prisma from "../internal/prismaNamespace.js"
 
@@ -304,7 +304,7 @@ export type SolicitudRevisionGroupByOutputType = {
   _max: SolicitudRevisionMaxAggregateOutputType | null
 }
 
-type GetSolicitudRevisionGroupByPayload<T extends SolicitudRevisionGroupByArgs> = Prisma.PrismaPromise<
+export type GetSolicitudRevisionGroupByPayload<T extends SolicitudRevisionGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<SolicitudRevisionGroupByOutputType, T['by']> &
       {
@@ -1458,6 +1458,11 @@ export type SolicitudRevisionFindManyArgs<ExtArgs extends runtime.Types.Extensio
    * Skip the first `n` SolicitudRevisions.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of SolicitudRevisions.
+   */
   distinct?: Prisma.SolicitudRevisionScalarFieldEnum | Prisma.SolicitudRevisionScalarFieldEnum[]
 }
 

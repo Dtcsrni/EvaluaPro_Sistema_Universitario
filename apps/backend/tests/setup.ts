@@ -15,6 +15,7 @@ const configuredDataDir = String(process.env.EVALUAPRO_TEST_DATA_DIR || '').trim
 const dataDir = configuredDataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-backend-setup-'));
 const resolvedDataDir = path.resolve(dataDir);
 process.env.EVALUAPRO_TEST_DATA_DIR = dataDir;
+if (!configuredDataDir) process.env.EVALUAPRO_TEST_DATA_DIR_MANAGED = resolvedDataDir;
 process.env.EVALUAPRO_ARCHIVOS_DIR = path.join(dataDir, 'examenes');
 process.env.EVALUAPRO_ENCUADRES_DIR = path.join(dataDir, 'encuadres');
 const dbPath = path.resolve(dataDir, dbFile);

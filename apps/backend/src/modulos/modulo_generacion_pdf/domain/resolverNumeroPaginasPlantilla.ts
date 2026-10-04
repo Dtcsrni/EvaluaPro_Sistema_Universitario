@@ -8,7 +8,7 @@ type PlantillaParaPaginacion = {
   numeroPaginas?: unknown;
 };
 
-export function resolverNumeroPaginasPlantilla(plantilla: PlantillaParaPaginacion): number {
+export function resolverNumeroPaginasPlantilla(plantilla: PlantillaParaPaginacion | null | undefined): number {
   const numeroPaginas = Number(plantilla?.numeroPaginas);
   if (Number.isFinite(numeroPaginas) && numeroPaginas >= 1) {
     return Math.floor(numeroPaginas);

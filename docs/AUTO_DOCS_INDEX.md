@@ -3,6 +3,7 @@
 Este archivo se genera con `npm run docs:generate`.
 No editar a mano: los cambios se pisan al regenerar.
 
+- [API_PERIODOS_PORTADA.md](API_PERIODOS_PORTADA.md) — API de portada de materia
 - [ARQUITECTURA.md](ARQUITECTURA.md) — Arquitectura
 - [ARQUITECTURA_C4.md](ARQUITECTURA_C4.md) — Arquitectura C4
 - [CICLO_DESARROLLO.md](CICLO_DESARROLLO.md) — Ciclo de desarrollo

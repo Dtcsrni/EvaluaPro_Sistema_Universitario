@@ -143,10 +143,6 @@ try {
         if (-not (Test-Path -LiteralPath (Join-Path $buildMirror 'index.html') -PathType Leaf)) {
             throw "El build experimental no contiene index.html: $buildMirror"
         }
-        if (-not (Test-Path -LiteralPath $installedPrimary -PathType Container)) {
-            New-Item -ItemType Directory -Path $installedPrimary -Force | Out-Null
-        }
-        Copy-TreeExact $buildMirror $installedPrimary
     } else {
         Assert-Directory $installedPrimary 'Instalación local experimental'
         if (-not (Test-Path -LiteralPath (Join-Path $installedPrimary 'index.html') -PathType Leaf)) {
@@ -154,7 +150,6 @@ try {
         }
     }
 
-    $operationalSource = $installedPrimary
     if ($Mode -ne 'verify') {
         if (-not $SkipBackup) {
             $backupPath = Join-Path $local ('backups\experimental-mirrors-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -171,6 +166,17 @@ try {
                 }
             }
         }
+    }
+
+    if ($Mode -eq 'publish') {
+        if (-not (Test-Path -LiteralPath $installedPrimary -PathType Container)) {
+            New-Item -ItemType Directory -Path $installedPrimary -Force | Out-Null
+        }
+        Copy-TreeExact $buildMirror $installedPrimary
+    }
+
+    $operationalSource = $installedPrimary
+    if ($Mode -ne 'verify') {
 
         # La autoridad operativa local se replica al build y al espejo alterno.
         Copy-TreeExact $operationalSource $buildMirror

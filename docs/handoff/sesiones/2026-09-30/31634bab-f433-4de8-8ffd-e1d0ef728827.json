@@ -1,0 +1,198 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "31634bab-f433-4de8-8ffd-e1d0ef728827",
+  "status": "draft",
+  "generatedAt": "2026-09-30T09:16:47.849Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Corregir y verificar la entrega de exportaciones de listas de calificaciones entre GUI y API."
+  },
+  "objective": "Mantener los flujos de calificaciones accesibles desde GUI/API y evitar que la interfaz anuncie una descarga como guardada antes de que el navegador la procese.",
+  "scope": [
+    "Exportación CSV/XLSX de listas",
+    "Contratos de calificaciones y Classroom",
+    "Verificación GUI/API"
+  ],
+  "constraints": [
+    "No sobrescribir calificaciones ni libros institucionales mientras P1/P2 discrepen entre fuentes.",
+    "Preservar cambios ajenos en el checkout compartido."
+  ],
+  "actions": [
+    {
+      "timestamp": "2026-09-30T09:16:47.849Z",
+      "status": "ok",
+      "summary": "La prueba confirmó revocación inmediata de la URL temporal en la implementación anterior.",
+      "type": "regression"
+    },
+    {
+      "timestamp": "2026-09-30T09:16:47.849Z",
+      "status": "ok",
+      "summary": "Se retrasa la liberación de la URL, se usa mensaje de descarga solicitada y se extiende el test a CSV/XLSX.",
+      "type": "implementation"
+    },
+    {
+      "timestamp": "2026-09-30T09:16:47.849Z",
+      "status": "ok",
+      "summary": "Build docente validado; 44 archivos sincronizados con hashes idénticos al runtime y bundle guard aprobado.",
+      "type": "runtime-sync"
+    },
+    {
+      "timestamp": "2026-09-30T09:16:47.849Z",
+      "status": "ok",
+      "summary": "GUI actualizada cargada; la acción XLSX mostró “Descarga XLSX solicitada en el navegador”.",
+      "type": "live-gui"
+    },
+    {
+      "timestamp": "2026-09-30T09:16:47.849Z",
+      "status": "ok",
+      "summary": "Suite frontend completa, backend focal, SDK, lint, typecheck, WCAG, contrato API, SDD y trazabilidad aprobados.",
+      "type": "validation"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/POLITICA_SDD.md",
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md",
+      "apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx",
+      "apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx",
+      "apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts",
+      "apps/backend/src/modulos/modulo_analiticas/controladorAnaliticas.ts",
+      "scripts/serve-docente-static.mjs",
+      "scripts/verify-docente-bundle.mjs"
+    ],
+    "changed": [
+      "apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx",
+      "apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx",
+      "docs/specs/SPEC-059_consulta_calificaciones_por_alumno.spec.md"
+    ],
+    "artifacts": [
+      "C:\\Users\\evega\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\EvaluaPro\\apps\\frontend\\dist-docente",
+      "C:\\Users\\evega\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\EvaluaPro\\backups\\calificaciones-download-url-fix-20260930\\apps\\frontend\\dist-docente"
+    ]
+  },
+  "commands": [
+    {
+      "status": "falla",
+      "durationMs": 2400,
+      "command": "npm test -- --run tests/seccionCalificaciones.manualSelector.test.tsx",
+      "name": "regression-before-fix",
+      "resultSummary": "Prueba falló como se esperaba: URL revocada inmediatamente tras el clic.",
+      "exitCode": 1
+    },
+    {
+      "status": "ok",
+      "durationMs": 5040,
+      "command": "npm test -- --run tests/seccionCalificaciones.manualSelector.test.tsx",
+      "name": "frontend-focused",
+      "resultSummary": "4 pruebas aprobadas; CSV y XLSX conservan URL hasta liberar y validan mensaje y nombre.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 23000,
+      "command": "npm run lint",
+      "name": "frontend-lint",
+      "resultSummary": "Lint frontend aprobado.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 8834,
+      "command": "npm run typecheck",
+      "name": "frontend-typecheck",
+      "resultSummary": "Typecheck frontend aprobado.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 23000,
+      "command": "npm run guard:wcag",
+      "name": "wcag-guard",
+      "resultSummary": "20/20 pares de contraste; guard aprobado.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 1165,
+      "command": "npm run api:contract:check",
+      "name": "api-contract",
+      "resultSummary": "239 rutas, 274 operaciones; 71/71 modelos con ciclo.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 51570,
+      "command": "npm test -- --run tests/integracion/listaAcademicaContratos.test.ts tests/bonoExtracurricular.test.ts tests/analiticas.xlsx.sv.contract.test.ts",
+      "name": "backend-focused",
+      "resultSummary": "20 pruebas aprobadas.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 158,
+      "command": "node --test scripts/tests/evaluapro-client.test.mjs",
+      "name": "sdk-client",
+      "resultSummary": "38 pruebas aprobadas.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 19920,
+      "command": "npm run test:frontend:ci",
+      "name": "frontend-ci",
+      "resultSummary": "72 archivos, 324 pruebas aprobadas.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 20000,
+      "command": "npm run build:docente",
+      "name": "build-docente",
+      "resultSummary": "Build, bundle guard y WCAG aprobados.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 970,
+      "command": "npm run sdd:audit",
+      "name": "sdd-audit",
+      "resultSummary": "Todas las specs cumplen estructura y rutas de pruebas.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 918,
+      "command": "npm run test:ia:traceability",
+      "name": "traceability",
+      "resultSummary": "7 pruebas aprobadas.",
+      "exitCode": 0
+    },
+    {
+      "status": "ok",
+      "durationMs": 0,
+      "command": "GET http://127.0.0.1:4000/api/salud/ready",
+      "name": "api-health",
+      "resultSummary": "HTTP 200.",
+      "exitCode": 0
+    }
+  ],
+  "decisions": [
+    "La interfaz anuncia que la descarga fue solicitada; no puede certificar que el navegador la haya guardado.",
+    "P1/P2 mantienen discrepancia entre EvaluaPro y libros institucionales; no se sobrescribió ninguna fuente."
+  ],
+  "assumptions": [
+    "La URL temporal permanece válida 1000 ms para permitir que el navegador inicie su consumo."
+  ],
+  "risks": [
+    "La GUI mostró la solicitud y el API devolvió el reporte al manejador, pero este navegador integrado no dejó un archivo nuevo observable en la carpeta estándar de descargas."
+  ],
+  "nextStep": "Continuar cerrando paridad API/GUI y, antes de reconciliar P1/P2, recibir la fuente de autoridad elegida."
+}

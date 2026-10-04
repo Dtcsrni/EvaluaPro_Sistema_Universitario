@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { accionToastSesionParaError, mensajeUsuarioDeErrorConSugerencia } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
+import { cargarModuloTesseract, leerTextoConOcr } from './ocrTexto';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { QrAccesoMovil } from './SeccionEscaneo';
@@ -78,10 +79,6 @@ export function SeccionRegistroEntrega({
   const bloqueoEdicion = !puedeGestionar;
   const inputCarpetaRef = useRef<HTMLInputElement | null>(null);
   const ocrModuloRef = useRef<unknown>(null);
-  type OcrResult = { data?: { text?: string } };
-  type OcrModule = {
-    recognize?: (image: string, languages?: string) => Promise<OcrResult>;
-  };
 
   function prepararAudio() {
     if (typeof window === 'undefined') return;
@@ -236,16 +233,11 @@ export function SeccionRegistroEntrega({
       cropCtx.drawImage(canvas, 0, topY, ancho, cropH, 0, 0, ancho, cropH);
 
       const dataUrl = cropCanvas.toDataURL('image/png');
-      const specifier = 'tesseract.js';
       const modulo =
-        (ocrModuloRef.current as OcrModule | null) ?? (await import(/* @vite-ignore */ specifier));
+        (ocrModuloRef.current as typeof import('tesseract.js') | null) ?? (await cargarModuloTesseract());
       ocrModuloRef.current = modulo;
-      const recognize = modulo.recognize;
-      if (typeof recognize !== 'function') return '';
-
-      const resultado = await recognize(dataUrl, 'spa+eng');
-      const text = String(resultado?.data?.text ?? '').trim();
-      return text;
+      if (typeof modulo.createWorker !== 'function') return '';
+      return await leerTextoConOcr(dataUrl, modulo.createWorker);
     } catch {
       return '';
     }

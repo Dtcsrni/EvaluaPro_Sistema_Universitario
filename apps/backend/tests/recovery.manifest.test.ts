@@ -154,6 +154,8 @@ describe('recovery manifests', () => {
 
     expect(manifest.keyId).toBeTruthy();
     expect(manifest.qrKeyId).toBeTruthy();
+    expect(manifest.variantHash).toMatch(/^[A-Z0-9]{12}$/);
+    expect(manifest.answerKeyHash).toMatch(/^[A-Z0-9]{12}$/);
     expect(manifest.manifestHash).toMatch(/^[A-Z0-9]{32}$/);
     expect(manifest.traceability.schema).toBe('omr-recovery-trace-v1');
     expect(manifest.traceability.mapaOmrHash).toMatch(/^[A-Z0-9]{64}$/);

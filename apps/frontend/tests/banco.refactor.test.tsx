@@ -45,7 +45,7 @@ describe('banco refactor comportamiento', () => {
     );
 
     expect(screen.getByRole('heading', { name: /Banco de preguntas/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Guardar$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Validar y guardar borrador$/i })).toBeDisabled();
   });
 
   it('permite interactuar con el formulario y escribir opciones cuando tiene permisos completos', () => {
@@ -150,7 +150,18 @@ describe('banco refactor comportamiento', () => {
   });
 
   it('conserva el tema seleccionado al guardar una pregunta para facilitar la captura consecutiva', async () => {
-    const mockEnviar = vi.fn().mockResolvedValue({});
+    const mockEnviar = vi.fn()
+      .mockResolvedValueOnce({
+        importId: 'imp-manual',
+        planHash: 'plan-manual',
+        summary: { create: 1, noOp: 0, newVersion: 0, conflict: 0, error: 0 }
+      })
+      .mockResolvedValueOnce({
+        draftReactivoIds: ['reactivo-manual'],
+        reactivoIds: ['reactivo-manual']
+      })
+      .mockResolvedValueOnce({ reactivo: { id: 'reactivo-manual', estado: 'review' } })
+      .mockResolvedValueOnce({ reactivo: { id: 'reactivo-manual', estado: 'published' } });
     vi.spyOn(clienteApi, 'obtener').mockResolvedValue({
       temas: [{ _id: 't-1', nombre: 'Cookies y sesiones', materiaId: 'per-1' }]
     });
@@ -177,8 +188,8 @@ describe('banco refactor comportamiento', () => {
 
     const selectTema = container.querySelector('#banco-select-tema') as HTMLSelectElement;
     expect(selectTema).toBeInTheDocument();
-    fireEvent.change(selectTema, { target: { value: 'Cookies y sesiones' } });
-    expect(selectTema).toHaveValue('Cookies y sesiones');
+    fireEvent.change(selectTema, { target: { value: 't-1' } });
+    expect(selectTema).toHaveValue('t-1');
 
     const inputEnunciado = screen.getByPlaceholderText(/Redacta una pregunta clara y directa/i);
     fireEvent.change(inputEnunciado, { target: { value: '¿Qué cabecera HTTP envía una cookie?' } });
@@ -190,24 +201,54 @@ describe('banco refactor comportamiento', () => {
     fireEvent.change(opcionInputs[3]!, { target: { value: 'Accept' } });
     fireEvent.change(opcionInputs[4]!, { target: { value: 'Host' } });
 
-    const btnGuardar = screen.getByRole('button', { name: /^Guardar$/i });
+    const btnGuardar = screen.getByRole('button', { name: /^Validar y guardar borrador$/i });
     fireEvent.click(btnGuardar);
 
-    expect(mockEnviar).toHaveBeenCalledWith(
-      'banco:gestionar',
-      '/banco-preguntas',
+    expect(mockEnviar).toHaveBeenNthCalledWith(
+      1,
+      'banco:ingestar',
+      '/banco-preguntas/importaciones/preview',
       expect.objectContaining({
-        periodoId: 'per-1',
-        tema: 'Cookies y sesiones',
-        enunciado: '¿Qué cabecera HTTP envía una cookie?'
+        target: { periodoId: 'per-1', temaIds: ['t-1'] },
+        items: [
+          expect.objectContaining({
+            externalKey: expect.stringMatching(/^manual-/),
+            stem: {
+              format: 'richtext',
+              value: '¿Qué cabecera HTTP envía una cookie?'
+            },
+            options: expect.arrayContaining([
+              { key: 'A', value: 'Set-Cookie', isCorrect: true },
+              { key: 'B', value: 'Cookie-Header', isCorrect: false },
+              { key: 'C', value: 'Authorization', isCorrect: false },
+              { key: 'D', value: 'Accept', isCorrect: false },
+              { key: 'E', value: 'Host', isCorrect: false }
+            ])
+          })
+        ]
       }),
       expect.any(String)
     );
+    await waitFor(() => expect(mockEnviar).toHaveBeenCalledTimes(2));
+    expect(mockEnviar).toHaveBeenNthCalledWith(
+      2,
+      'banco:ingestar',
+      '/banco-preguntas/importaciones/imp-manual/confirmar',
+      expect.objectContaining({ planHash: 'plan-manual', payload: expect.objectContaining({ batchId: expect.stringContaining('manual-') }) }),
+      expect.any(String)
+    );
+    expect(await screen.findByRole('button', { name: 'Enviar a revisión (1)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar a revisión (1)' }));
+    await waitFor(() => expect(mockEnviar).toHaveBeenCalledTimes(3));
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar revisados (1)' }));
+    await waitFor(() => expect(mockEnviar).toHaveBeenCalledTimes(4));
+    expect(mockEnviar).toHaveBeenNthCalledWith(3, 'banco:revisar', '/banco-preguntas/reactivos/reactivo-manual/revisar', {}, expect.any(String));
+    expect(mockEnviar).toHaveBeenNthCalledWith(4, 'banco:publicar', '/banco-preguntas/reactivos/reactivo-manual/publicar', {}, expect.any(String));
 
     // El enunciado se limpia tras guardar para la siguiente pregunta pero el tema permanece seleccionado
     await waitFor(() => {
       expect(inputEnunciado).toHaveValue('');
     });
-    expect(selectTema).toHaveValue('Cookies y sesiones');
+    expect(selectTema).toHaveValue('t-1');
   });
 });

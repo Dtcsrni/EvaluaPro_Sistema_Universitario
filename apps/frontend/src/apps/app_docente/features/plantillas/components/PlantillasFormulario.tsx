@@ -16,6 +16,8 @@ type TemaDisponible = { tema: string; total: number };
 export function PlantillasFormulario({
   modoEdicion,
   plantillaEditando,
+  examTemplateId,
+  setExamTemplateId,
   titulo,
   setTitulo,
   periodoId,
@@ -47,6 +49,8 @@ export function PlantillasFormulario({
 }: {
   modoEdicion: boolean;
   plantillaEditando: Plantilla | null;
+  examTemplateId: 'omr-canonical-v4' | 'omr-inline-exam-v1';
+  setExamTemplateId: (value: 'omr-canonical-v4' | 'omr-inline-exam-v1') => void;
   titulo: string;
   setTitulo: (value: string) => void;
   periodoId: string;
@@ -308,10 +312,27 @@ export function PlantillasFormulario({
               <span className="campo__label-row"><span>Tipografía e interlineado</span><b>Gestionados por el motor</b></span>
               <span className="ayuda">No son editables manualmente; se ajustan dentro de límites legibles solo cuando hace falta espacio.</span>
             </div>
+            <label className="campo plantillas-formato-control plantillas-formato-control--wide">
+              <span className="campo__label-row"><span>Plantilla de respuesta OMR</span><b>{examTemplateId === 'omr-inline-exam-v1' ? 'Experimental' : 'TV4'}</b></span>
+              <select
+                value={examTemplateId}
+                onChange={(event) => setExamTemplateId(event.target.value as typeof examTemplateId)}
+                disabled={bloqueoEdicion}
+                aria-label="Plantilla OMR del examen"
+              >
+                <option value="omr-canonical-v4">Canónica TV4 · panel de respuestas en el examen</option>
+                <option value="omr-inline-exam-v1">Experimental · burbuja junto a cada opción</option>
+              </select>
+              <span className="ayuda" role={examTemplateId === 'omr-inline-exam-v1' ? 'alert' : undefined}>
+                {examTemplateId === 'omr-inline-exam-v1'
+                  ? 'Cada opción A–E lleva su burbuja en el mismo bloque. Requiere revisión manual completa; la calificación automática está bloqueada mientras se evalúa.'
+                  : 'Conserva la geometría OMR vigente de TV4.'}
+              </span>
+            </label>
           </div>
           <div className="plantillas-formato-box__footer">
             <span>Estimación orientativa según reactivos, temas, páginas y densidad; el PDF se vuelve a validar al renderizar.</span>
-            <span className="plantillas-formato-box__omr">✓ Panel OMR reservado</span>
+            <span className="plantillas-formato-box__omr">✓ {examTemplateId === 'omr-inline-exam-v1' ? 'Burbujas junto a cada opción' : 'Panel OMR reservado'}</span>
           </div>
           <div className="plantillas-formato-box__logos" aria-label="Imágenes del encabezado">
             <div>

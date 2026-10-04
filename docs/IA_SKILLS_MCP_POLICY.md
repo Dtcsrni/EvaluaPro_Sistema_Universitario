@@ -56,6 +56,17 @@ Usar solo cuando el alcance lo pida:
 - Caveman:
   - `npm run ai:caveman:status -- --json`
 
+## Skills repo-local para generación de exámenes
+
+`AGENTS.md` enruta el trabajo de exámenes a estas skills versionadas bajo `.agents/skills/`:
+
+- `evaluapro-exam-workflow`: coordina etapas y gates de punta a punta.
+- `evaluapro-topic-blueprint`: deriva temas y ponderación desde evidencia del curso.
+- `evaluapro-reactivo-review`: crea/revisa reactivos automáticos con clave, distractores, procedencia y tema único.
+- `evaluapro-exam-batch-qa`: congela blueprint, genera/recupera lote y comprueba PDF, descarga y límites de impresión.
+
+La skill de flujo completo selecciona solo las etapas necesarias; no carga todas por defecto. Cada una respeta EvaluaPro como fuente de verdad y no autoriza mutaciones externas adicionales.
+
 ## Checklist retomable
 - `[x]` Serena/Caveman integrados en repo y global.
 - `[x]` Politica skills/MCP versionada.

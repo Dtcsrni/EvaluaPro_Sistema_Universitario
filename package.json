@@ -1,7 +1,7 @@
 {
   "name": "evaluapro",
   "description": "Plataforma para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR), operación docente local nativa y dashboard.",
-  "version": "1.1.6",
+  "version": "1.2.3",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
     "email": "armsystechno@gmail.com"
@@ -31,8 +31,10 @@
     "apps/portal_alumno_cloud"
   ],
   "engines": {
-    "node": ">=24"
+    "node": ">=24.15.0",
+    "npm": ">=12.1.0"
   },
+  "packageManager": "npm@12.1.0",
   "scripts": {
     "dev": "node scripts/detect-host-ip.mjs && npm-run-all --parallel dev:backend dev:frontend:wait",
     "dev:backend": "node scripts/start-tray.mjs --mode dev --port 4519 && node scripts/detect-host-ip.mjs && docker compose --profile dev up --build mongo_local api_docente_local",
@@ -66,6 +68,7 @@
     "test": "npm -C apps/backend run test",
     "test:backend": "npm -C apps/backend run test",
     "test:backend:ci": "node scripts/testing/run-backend-test-batches.mjs",
+    "benchmark:backend:concurrency": "node scripts/testing/benchmark-backend-concurrency.mjs",
     "test:portal": "npm -C apps/portal_alumno_cloud run test",
     "test:portal:ci": "node scripts/retry.mjs --name portal --attempts 3 --delay-ms 750 --command \"npm -C apps/portal_alumno_cloud run test\"",
     "test:frontend": "npm -C apps/frontend run test",
@@ -121,7 +124,7 @@
     "test:dataset-prodlike:ci": "node scripts/testing/export-anon-fixture.mjs && node scripts/testing/validate-anon-fixture.mjs && node scripts/testing/import-anon-fixture.mjs",
     "test:qa:manifest": "node scripts/testing/generar-qa-manifest.mjs",
     "qa:evidence:quick": "npm-run-all -s test:dataset-prodlike:ci test:e2e:docente-alumno:ci test:global-grade:ci test:evaluaciones:policy:ci test:evaluaciones:e2e:ci test:pdf-print:ci test:ux-visual:ci test:qa:manifest",
-    "qa:full": "npm-run-all -s test:dataset-prodlike:ci test:e2e:docente-alumno:ci test:global-grade:ci test:evaluaciones:policy:ci test:evaluaciones:e2e:ci test:pdf-print:ci test:ux-visual:ci test:qa:manifest qa:clean-architecture:check",
+    "qa:full": "npm-run-all -s test:dataset-prodlike:ci test:e2e:docente-alumno:ci test:global-grade:ci test:evaluaciones:policy:ci test:evaluaciones:e2e:ci test:pdf-print:ci test:ux-visual:ci qa:clean-architecture:check test:qa:manifest",
     "test:coverage:ci": "npm -C apps/backend run test:coverage && node scripts/retry.mjs --name portal-coverage --attempts 3 --delay-ms 1000 --command \"npm -C apps/portal_alumno_cloud run test:coverage\" && node scripts/retry.mjs --name frontend-coverage --attempts 3 --delay-ms 1000 --command \"npm run test:frontend:coverage:min\"",
     "docs:generate": "node scripts/docs.mjs --write",
     "docs:check": "node scripts/docs.mjs --check",
@@ -137,6 +140,8 @@
     "diagramas:consistencia:check": "node scripts/diagramas-consistencia.mjs --check",
     "docs:sync": "npm run diagramas:generate && npm run diagramas:render && npm run docs:generate && npm run docs:commercial:sync",
     "routes:check": "node scripts/routes-check.mjs",
+    "api:openapi:write": "node scripts/api/generate-openapi.mjs --write",
+    "api:contract:check": "node scripts/api/generate-openapi.mjs --check && node scripts/api/check-openapi-contract.mjs && node scripts/api/check-resource-lifecycle.mjs",
     "security:env:check": "node scripts/security-env-check.mjs",
     "security:audit": "npm audit --omit=dev --audit-level=critical",
     "docs:carpetas:generate": "node scripts/generar-readmes-carpetas.mjs",
@@ -177,7 +182,8 @@
     "ruleset:check": "node scripts/devops/check-ruleset-main.mjs",
     "ruleset:apply": "node scripts/devops/apply-ruleset-main.mjs",
     "pipeline:contract:check": "node scripts/pipeline-contract-check.mjs",
-    "ci:policy:audit": "npm-run-all -s pipeline:contract:check test:ruleset:policy test:release:policy test:security:policy test:sdd:policy test:ia:traceability test:ia:handoff test:ai:caveman sdd:audit",
+    "test:toolchain:policy": "node --test scripts/tests/dependency-toolchain-policy.test.mjs",
+    "ci:policy:audit": "npm-run-all -s pipeline:contract:check test:toolchain:policy test:ruleset:policy test:release:policy test:security:policy test:sdd:policy test:ia:traceability test:ia:handoff test:ai:caveman sdd:audit",
     "ci:policy:audit:remote": "npm-run-all -s ci:policy:audit \"ruleset:check -- --repo=Dtcsrni/EvaluaPro_Sistema_Universitario\"",
     "test:ci": "npm run lint && npm run guard:wcag -- --skip-lint && npm run typecheck && npm run build && npm run docs:generate && npm run docs:check && npm run diagramas:check && npm run diagramas:render:check && npm run diagramas:consistencia:check && npm run routes:check && npm run test:backend:ci && npm run test:portal:ci && npm run test:frontend:ci && npm run test:client:proyectos:ci && npm run test:coverage:exclusions:debt && npm run test:compliance:policy",
     "build": "npm run --workspaces --if-present build",
@@ -191,7 +197,7 @@
     "start:prod": "npm run verify:prod && npm run stack:prod",
     "start": "npm run start:prod",
     "start:portal": "npm -C apps/portal_alumno_cloud run start",
-    "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native-dist.ps1",
+    "build:native": "npm run msi:build -- -Flavor docente-local",
     "publish:docente:experimental": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-docente-experimental-mirrors.ps1 -Mode publish",
     "mirror:docente:experimental": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-docente-experimental-mirrors.ps1 -Mode mirror",
     "verify:docente:experimental": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-docente-experimental-mirrors.ps1 -Mode verify",
@@ -232,31 +238,31 @@
     "workspace:hygiene:strict": "node scripts/workspace-hygiene.mjs --strict"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.4",
+    "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^9.39.3",
-    "@mermaid-js/mermaid-cli": "^11.12.0",
-    "@playwright/test": "^1.58.2",
+    "@mermaid-js/mermaid-cli": "^11.17.0",
+    "@playwright/test": "^1.63.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/node": "^25.3.3",
-    "@types/supertest": "^7.2.0",
-    "@typescript-eslint/eslint-plugin": "^8.56.1",
-    "@typescript-eslint/parser": "^8.56.1",
-    "@vitest/coverage-v8": "^4.1.11",
-    "eslint": "^9.39.1",
-    "jsdom": "^28.1.0",
+    "@types/node": "^24.13.6",
+    "@types/supertest": "^7.2.1",
+    "@typescript-eslint/eslint-plugin": "^8.70.1",
+    "@typescript-eslint/parser": "^8.70.1",
+    "@vitest/coverage-v8": "^5.0.1",
+    "eslint": "^9.39.3",
+    "jsdom": "^30.1.1",
     "npm-run-all": "^4.1.5",
-    "supertest": "^7.2.2",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "supertest": "^7.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.1"
   },
   "optionalDependencies": {
-    "gcp-metadata": "^7.0.1"
+    "gcp-metadata": "^9.0.4"
   },
   "overrides": {
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "rollup": "^4.59.0",
     "ajv": "^6.14.0",
     "minimatch": "^3.1.4",
@@ -265,6 +271,17 @@
     },
     "mongodb": {
       "gcp-metadata": "7.0.1"
+    },
+    "exceljs": {
+      "uuid": "^11.1.1"
     }
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.28.1": true,
+    "prisma@7.10.0": true,
+    "puppeteer@25.3.0": false,
+    "tesseract.js@7.0.0": false,
+    "better-sqlite3@12.11.1": true
   }
 }

@@ -155,7 +155,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   const stableGateWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
 
   assert.match(workflow, /actions\/setup-dotnet@v4/);
-  assert.match(workflow, /dotnet-version:\s*8\.0\.x/);
+  assert.match(workflow, /dotnet-version:\s*10\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
   assert.match(workflow, /name: Etapa signing gate \(opcional\)\s+if: github\.event_name != 'pull_request'/);
@@ -164,9 +164,13 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
-  assert.match(workflow, /Publicar release assets \(tags v\*\)/);
-  assert.match(workflow, /steps\.stable_release_assets\.outputs\.files/);
+  assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*installer_windows/);
+  assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@v6/);
+  assert.match(workflow, /name: Publicar release assets \(tags v\*\)[\s\S]*?softprops\/action-gh-release@v2/);
   assert.match(workflow, /make_latest:\s*false/);
+  assert.match(workflow, /permissions:\s*\n\s*contents:\s*read/);
+  assert.match(workflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
+  assert.doesNotMatch(workflow, /stable_release_assets/);
   assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.match(stableGateWorkflow, /gh release edit "v\$\{\{ steps\.resolve_version\.outputs\.target \}\}".*--latest/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
@@ -333,6 +337,7 @@ test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   assert.match(helper, /Join-Path \$programDataRoot 'EvaluaPro'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix/);
   assert.match(helper, /localDataDir = Join-Path \$localDataRoot 'data'/);
+  assert.match(helper, /StartsWith\(\$qaRootPrefix,[\s\S]*?\$effectiveDatabaseUrl = \$defaultDatabaseUrl/);
 });
 
 test('runner dummy usa API docente y no confunde puerto web del dashboard', () => {
@@ -341,6 +346,12 @@ test('runner dummy usa API docente y no confunde puerto web del dashboard', () =
   assert.match(runner, /http:\/\/127\.0\.0\.1:4000\/api/);
   assert.match(runner, /Dashboard port sirve UI\/control/);
   assert.match(runner, /E2E_DOCENTE_SQLITE_PATH/);
+  assert.match(runner, /Start-Process -FilePath 'node\.exe'.*RedirectStandardOutput \$stdoutPath -RedirectStandardError \$stderrPath/);
+  assert.match(runner, /dummy-data-cycle\.stderr\.log/);
+  assert.match(runner, /WaitForExit\(180000\)/);
+  assert.match(runner, /\$seedResult\.verificado -eq \$true/);
+  assert.match(runner, /\$cleanup -contains 'alumnos-local:3'/);
+  assert.match(runner, /\$cleanup -contains 'cuenta:local-db'/);
 });
 
 test('fallback dummy queda confinado a SQLite bajo LOCALAPPDATA', () => {
@@ -439,10 +450,25 @@ test('bootstrap SQLite docente usa Node nativo y esquema SQL empaquetado', () =>
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(bootstrap, /node:sqlite/);
   assert.match(bootstrap, /DatabaseSync/);
-  assert.match(build, /migrate diff --from-empty --to-schema-datamodel/);
+  assert.match(build, /migrate diff --from-empty --to-schema/);
   assert.match(build, /schema\.sql/);
   assert.match(helper, /prepare-docente-sqlite\.mjs/);
   assert.match(helper, /Esquema SQLite local preparado con Node nativo/);
+});
+
+test('reparación detiene procesos Node propios antes de reemplazar el payload', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const start = helper.indexOf('function Invoke-PostInstall');
+  const end = helper.indexOf('function Get-EvaluaProOwnedNodeProcessIds', start);
+  assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install y reparación');
+  const postInstall = helper.slice(start, end);
+  const repairGuard = postInstall.indexOf("if ($Mode -eq 'repair')");
+  const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', repairGuard);
+  const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', repairGuard);
+
+  assert.ok(repairGuard >= 0 && stopProcesses > repairGuard, 'repair debe detener los procesos de la instalación');
+  assert.ok(expandPayload > stopProcesses, 'repair debe detenerlos antes de reemplazar archivos');
+  assert.match(postInstall, /No se pudieron detener todos los procesos Node de esta instalaci[oó]n antes de reparar/);
 });
 
 test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
@@ -450,6 +476,13 @@ test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
   assert.match(runner, /apps\\backend\\dist\\index\.js/);
   assert.match(runner, /apps\\frontend\\dist-docente\\index\.html/);
   assert.match(runner, /Wait-InstalledPayload/);
+});
+
+test('runner E2E PowerShell conserva UTF-8 en Windows PowerShell 5.1', () => {
+  const runnerPath = path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1');
+  const runnerBytes = fs.readFileSync(runnerPath);
+  assert.deepEqual(runnerBytes.subarray(0, 3), Buffer.from([0xef, 0xbb, 0xbf]));
+  assert.match(runnerBytes.toString('utf8'), /Instalar \/ Actualizar versión/);
 });
 
 test('E2E docente exige elevación solo para el destino per-machine real', () => {
@@ -1338,7 +1371,7 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /Invoke-EvaluaProOperationalConfiguration/);
   assert.match(helper, /function Assert-InstallerRuntimeEnv/);
   assert.match(helper, /Contrato runtime incompleto en \.env/);
-  assert.match(helper, /db push --skip-generate/);
+  assert.match(helper, /db push --schema/);
   assert.match(helper, /Payload docente incompleto: no existe Prisma CLI o schema/);
   assert.match(helper, /LOCALAPPDATA/);
   assert.match(helper, /docente-local/);
@@ -2153,13 +2186,25 @@ test('launcher nativo no deja un override vacio ocultar el .env instalado', () =
 });
 
 test('payload nativo incluye las dependencias directas del launcher docente', () => {
-  const buildNative = fs.readFileSync(path.join(root, 'scripts', 'build-native-dist.ps1'), 'utf8');
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   const burn = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const archiveContract = buildMsi.match(/function New-DocentePayloadArchive[\s\S]*?\$required\s*=\s*@\(([\s\S]*?)\n\s*\)/)?.[1] || '';
 
-  assert.match(buildNative, /scripts\/runtime-env\.mjs/);
+  assert.equal(packageJson.scripts['build:native'], 'npm run msi:build -- -Flavor docente-local');
+  assert.equal(fs.existsSync(path.join(root, 'scripts', 'build-native-dist.ps1')), false);
   assert.match(buildMsi, /runtime-env\.mjs/);
   assert.match(burn, /scripts\\runtime-env\.mjs/);
+  assert.match(buildMsi, /Join-Path \$RootPath 'runtime\/node\/node\.exe'/);
+  for (const requiredPath of [
+    'apps/backend/dist/index.js',
+    'apps/backend/dist/prisma/schema.sql',
+    'runtime/node/node.exe',
+    'scripts/start-docente-native.mjs',
+    'scripts/runtime-env.mjs'
+  ]) {
+    assert.ok(archiveContract.includes("'" + requiredPath + "'"), "El ZIP debe validar " + requiredPath + " antes de crearse.");
+  }
 });
 
 test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
@@ -2188,14 +2233,28 @@ test('runner E2E tolera estados finales sin propiedad timeout', () => {
   assert.match(runner, /stateTimedOut/);
 });
 
-test('runner E2E acepta post-install helper JSON como estado estable', () => {
+test('runner E2E espera la respuesta exitosa del helper antes de declarar estado estable', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
-  assert.match(runner, /function Get-LatestPostInstallHelperState/);
+  assert.match(runner, /function Get-LatestInstallerHelperState/);
   assert.match(runner, /MinLastWriteTime/);
   assert.match(runner, /LastWriteTime -ge \$MinLastWriteTime/);
-  assert.match(runner, /post-install-\*\.response\.json/);
-  assert.match(runner, /Post-install helper OK/);
+  assert.match(runner, /\$responsePrefix = if \(\$Mode -eq 'uninstall'\) \{ 'uninstall' \} else \{ 'post-install' \}/);
+  assert.match(runner, /\$responsePrefix \+ '-\*\.response\.json'/);
+  assert.match(runner, /Get-LatestInstallerHelperState -Mode \$Mode/);
+  assert.match(runner, /Installer helper OK/);
+});
+
+test('runner E2E no confunde una etapa previa con "ok" con la finalización', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  const start = runner.indexOf('function Wait-InstallerStableState');
+  const end = runner.indexOf('function Get-LatestInstallerHelperState', start);
+  assert.ok(start >= 0 && end > start, 'debe localizar el contrato de espera estable');
+  const stableWait = runner.slice(start, end);
+
+  assert.doesNotMatch(stableWait, /instalaci[oó]n\.\*ok/i);
+  assert.doesNotMatch(stableWait, /instalaci[oó]n completada/i);
+  assert.match(stableWait, /Get-LatestInstallerHelperState -Mode \$Mode -MinLastWriteTime \$OperationStartedAt/);
 });
 
 test('runner E2E ejecuta broker instalado preservando rutas con espacios', () => {
@@ -2348,7 +2407,7 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /EnsureBackendRunningAsync/);
   assert.match(cs, /EnsureCoreWebView2Async/);
   assert.match(cs, /http:\/\/127\.0\.0\.1:4173\//);
-  assert.match(cs, /backendProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
+  assert.match(cs, /dashboardProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
 });
 
 test('SPEC-050: create-shortcuts usa el manifiesto y falla cerrado sin host nativo', () => {
@@ -2417,11 +2476,29 @@ test('SPEC-050: cada acceso declarado tiene launcher e icono canónicos', () => 
 test('SPEC-050: post-install regenera tambien los shortcuts locales y el build no empaqueta .lnk absolutos', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
   const trackedLinks = execFileSync('git', ['ls-files', '-z', '--', 'accesos-directos/*.lnk'], { cwd: root, encoding: 'utf8' });
 
-  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput \$true/);
+  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput -SkipManifestUpdate `\s+-Port 4519/);
+  assert.match(shortcuts, /\[switch\]\$SyncRepoOutput/);
   assert.match(buildMsi, /\$relativePath -match '\^accesos-directos\/\[\^\/\]\+\\\.lnk\$'/);
   assert.equal(trackedLinks, '', 'Los accesos .lnk generados no deben versionarse.');
+});
+
+test('SPEC-INSTALLER-ROLLBACK-CLEANUP: un fallo de shortcuts conserva la instalación funcional y el updater', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const verifier = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PostInstallVerifier.psm1'), 'utf8');
+
+  assert.match(helper, /-SyncRepoOutput -SkipManifestUpdate/);
+  assert.match(helper, /shortcutWarnings\.Add\(/);
+  assert.match(helper, /state = 'degraded'/);
+  assert.match(helper, /generate-installation-manifest\.ps1/);
+  assert.match(helper, /Instalacion funcional; accesos directos degradados/);
+  assert.match(helper, /degraded = \(-not \$backgroundTaskRegistered\) -or \(\$shortcutWarnings\.Count -gt 0\)/);
+  assert.match(helper, /warnings = @\(@\(\$licenseWarning, \$backgroundTaskWarning\)/);
+  assert.match(verifier, /Falta acceso directo opcional/);
+  assert.match(verifier, /warnings = @\(\$warnings\)/);
+  assert.doesNotMatch(verifier, /\$issues \+= "Falta acceso directo esperado/);
 });
 
 test('SPEC-050: shortcut principal usa el icono embebido del host nativo', () => {

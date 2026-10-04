@@ -26,6 +26,7 @@
 import { spawn } from 'node:child_process';
 import { closeSync, openSync, readdirSync } from 'node:fs';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -42,12 +43,34 @@ const reportsDir = path.join(
 const logsDir = path.join(reportsRootDir, 'backend-coverage-logs');
 const vitestEntry = path.join(rootDir, 'node_modules', 'vitest', 'vitest.mjs');
 const batchAttempts = 3;
-const batchConcurrency = 2;
+const defaultBatchConcurrency = getDefaultBatchConcurrency({
+  totalMemoryBytes: os.totalmem(),
+  logicalCpus: os.availableParallelism?.() ?? os.cpus().length
+});
+const maximumBatchConcurrency = 4;
+function getDefaultBatchConcurrency({ totalMemoryBytes, logicalCpus }) {
+  const minimumMemoryBytes = 12 * 1024 ** 3;
+  return Number.isFinite(totalMemoryBytes) && totalMemoryBytes >= minimumMemoryBytes
+    && Number.isInteger(logicalCpus) && logicalCpus >= 4
+    ? 3
+    : 2;
+}
+function resolveBatchConcurrency(value, fallback = defaultBatchConcurrency) {
+  if (value == null || String(value).trim() === '') return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximumBatchConcurrency) {
+    throw new RangeError(`BACKEND_COVERAGE_BATCH_CONCURRENCY debe ser un entero entre 1 y ${maximumBatchConcurrency}`);
+  }
+  return parsed;
+}
+const batchConcurrency = resolveBatchConcurrency(process.env.BACKEND_COVERAGE_BATCH_CONCURRENCY);
 // Los E2E de flujo docente/OMR instrumentan mucho código y no deben compartir
 // memoria con otros escenarios. Los lotes pequeños hacen el gate reproducible
 // y permiten identificar el caso lento sin perder ninguna prueba.
 const integrationChunkSize = 4;
 const batchTimeoutMs = Number(process.env.BACKEND_COVERAGE_BATCH_TIMEOUT_MS || 8 * 60 * 1000);
+const failureExcerptLineLimit = 50;
+const failureExcerptLineLengthLimit = 1200;
 
 const zeroThresholdArgs = [
   '--coverage.thresholds.lines=0',
@@ -143,6 +166,11 @@ function batchArgs(name, filters) {
     ...zeroThresholdArgs,
     `--coverage.reportsDirectory=${path.join('coverage', 'backend-coverage-batches', name)}`
   ];
+}
+
+function formatFailureExcerpt(log, lineLimit = failureExcerptLineLimit, lineLengthLimit = failureExcerptLineLengthLimit) {
+  const lines = String(log).split(/\r?\n/).filter((line) => line.trim().length > 0);
+  return lines.slice(-lineLimit).map((line) => line.slice(0, lineLengthLimit)).join('\n');
 }
 
 function chunkFiles(namePrefix, files, size = integrationChunkSize) {
@@ -250,6 +278,18 @@ async function cleanBatchArtifacts(name) {
   });
 }
 
+async function emitFailureExcerpt(batchName, attempt) {
+  const attemptLabel = `${batchName} ${attempt}/${batchAttempts}`;
+  const logPath = path.join(logsDir, `${attemptLabel.replace(/[^a-z0-9_-]+/gi, '_')}.log`);
+  try {
+    const log = await fs.readFile(logPath, 'utf8');
+    const excerpt = formatFailureExcerpt(log);
+    if (excerpt) process.stderr.write(`[backend-coverage] salida de ${attemptLabel} (ultimas ${failureExcerptLineLimit} lineas):\n${excerpt}\n`);
+  } catch (error) {
+    process.stderr.write(`[backend-coverage] no se pudo leer el log de ${attemptLabel}: ${String(error?.message || error)}\n`);
+  }
+}
+
 async function runBatch(batch) {
   for (let attempt = 1; attempt <= batchAttempts; attempt += 1) {
     await cleanBatchArtifacts(batch.name);
@@ -261,28 +301,80 @@ async function runBatch(batch) {
       continue;
     }
 
+    await emitFailureExcerpt(batch.name, attempt);
     return code;
   }
 
   return 1;
 }
 
+async function runBatches(batches, concurrency, executeBatch = runBatch) {
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > maximumBatchConcurrency) {
+    throw new RangeError(`concurrency debe ser un entero entre 1 y ${maximumBatchConcurrency}`);
+  }
+  let nextIndex = 0;
+  let failureCode = 0;
+  const results = new Array(batches.length);
+  const worker = async () => {
+    while (failureCode === 0) {
+      const index = nextIndex++;
+      const batch = batches[index];
+      if (!batch) return;
+      const startedAt = Date.now();
+      const code = await executeBatch(batch);
+      results[index] = { name: batch.name, exitCode: code, durationMs: Date.now() - startedAt };
+      if (code !== 0) failureCode = code;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, batches.length) }, () => worker()));
+  return { exitCode: failureCode, results: results.filter(Boolean) };
+}
+
 async function main() {
   const plan = buildCoveragePlan();
+  const startedAt = new Date().toISOString();
+  const startedAtMs = Date.now();
   await prepareRun();
-
-  for (let index = 0; index < plan.batches.length; index += batchConcurrency) {
-    const wave = plan.batches.slice(index, index + batchConcurrency);
-    const results = await Promise.all(wave.map((batch) => runBatch(batch)));
-    const failed = results.find((code) => code !== 0);
-    if (failed !== undefined) process.exit(failed);
+  process.stdout.write(`[backend-coverage] concurrencia=${batchConcurrency}; lotes=${plan.batches.length}\n`);
+  const batches = await runBatches(plan.batches, batchConcurrency);
+  if (batches.exitCode !== 0) {
+    const failedBatch = batches.results.find(({ exitCode }) => exitCode !== 0);
+    await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAtMs,
+      concurrency: batchConcurrency,
+      resources: {
+        logicalCpus: os.availableParallelism?.() ?? os.cpus().length,
+        totalMemoryBytes: os.totalmem()
+      },
+      results: batches.results,
+      failed: true,
+      failureStage: 'batch',
+      failedBatch: failedBatch?.name ?? null,
+      failureExitCode: failedBatch?.exitCode ?? null
+    }, null, 2));
+    process.exit(batches.exitCode);
   }
-
   const mergeCode = await runVitest(plan.merge.args, plan.merge.name);
+  await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    durationMs: Date.now() - startedAtMs,
+    concurrency: batchConcurrency,
+    resources: {
+      logicalCpus: os.availableParallelism?.() ?? os.cpus().length,
+      totalMemoryBytes: os.totalmem()
+    },
+    results: batches.results,
+    mergeExitCode: mergeCode,
+    failed: mergeCode !== 0,
+    failureStage: mergeCode === 0 ? null : 'merge'
+  }, null, 2));
   process.exit(mergeCode);
 }
 
-export { buildCoveragePlan };
+export { buildCoveragePlan, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {

@@ -17,6 +17,7 @@ import { useOmrWorkflowState } from './hooks/useOmrWorkflowState';
 import { useRecursosAcademicosDocente } from './hooks/useRecursosAcademicosDocente';
 import { usePlantillasPreviewState } from './hooks/usePlantillasPreviewState';
 import { registrarAccionDocente } from './telemetriaDocente';
+import { guardarTabPlantillas } from './features/plantillas/tabPlantillasState';
 import type {
   Alumno,
   Docente,
@@ -45,12 +46,12 @@ const SeccionEntrega = lazy(() => import('./SeccionEntregaInterna').then(({ Secc
 const SeccionCalificaciones = lazy(() => import('./SeccionCalificaciones').then(({ SeccionCalificaciones: modulo }) => ({ default: modulo })));
 const SeccionRehidratacionLotes = lazy(() => import('./SeccionRehidratacionLotes').then(({ SeccionRehidratacionLotes: modulo }) => ({ default: modulo })));
 const SeccionEvaluaciones = lazy(() => import('./SeccionEvaluaciones').then(({ SeccionEvaluaciones: modulo }) => ({ default: modulo })));
-const SeccionClassroom = lazy(() => import('./SeccionClassroom').then(({ SeccionClassroom: modulo }) => ({ default: modulo })));
+const SeccionClassroom = lazy(() => import('./SeccionClassroomSync').then(({ SeccionClassroom: modulo }) => ({ default: modulo })));
 const SeccionAsistencias = lazy(() => import('./SeccionAsistencias').then(({ SeccionAsistencias: modulo }) => ({ default: modulo })));
 const SeccionTemarios = lazy(() => import('./SeccionTemarios').then(({ SeccionTemarios: modulo }) => ({ default: modulo })));
 const SeccionPlantillas = lazy(() => import('./SeccionPlantillas').then(({ SeccionPlantillas: modulo }) => ({ default: modulo })));
 const SeccionSincronizacion = lazy(() => import('./SeccionSincronizacion').then(({ SeccionSincronizacion: modulo }) => ({ default: modulo })));
-export function AppDocente() {
+export function AppDocente({ googleClientId }: { googleClientId?: string } = {}) {
   const montadoRef = useRef(true);
   const [docente, setDocente] = useState<Docente | null>(null);
   const [estadoLease, setEstadoLease] = useState<EstadoLeaseUI | null>(null);
@@ -294,7 +295,7 @@ export function AppDocente() {
     return () => window.clearInterval(intervalo);
   }, [estadoLease?.configurado, estadoLease?.modo, estadoLease?.lease?.propio, estadoLease?.lease?.leaseId, estadoLease?.ttlMs, equipoIdSincronizacion]);
 
-  const googleFrontendConfigurado = Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  const googleFrontendConfigurado = Boolean(String(googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
   // Mientras se consulta el contrato de capacidades, conserva visible Google
   // si el build trae Client ID. Ocultarlo durante esa ventana provocaba que la
   // pantalla pareciera no soportarlo al arrancar la instalación local.
@@ -305,7 +306,12 @@ export function AppDocente() {
   const oauthGoogleBackendDisponible = capacidadesIntegraciones === null
     ? undefined
     : Boolean(capacidadesIntegraciones.oauthGoogleBackend);
-  const classroomDisponible = Boolean(capacidadesIntegraciones?.classroomBackend);
+  // `undefined` means the backend capability contract has not resolved yet.
+  // Keep actions gated, but let the Classroom section distinguish loading from
+  // a confirmed unavailable integration.
+  const classroomDisponible = capacidadesIntegraciones === null
+    ? undefined
+    : Boolean(capacidadesIntegraciones.classroomBackend);
   const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
   const snapshotGoogleDisponible = Boolean(capacidadesIntegraciones?.snapshotGoogleDisponible);
   const requireGoogleOAuth = Boolean(capacidadesIntegraciones?.requireGoogleOAuth);
@@ -472,7 +478,7 @@ export function AppDocente() {
               entrega: 'Control de entrega de exámenes impresos',
               calificaciones: 'Escaneo óptico OMR de alta velocidad y notas',
               evaluaciones: 'Criterios y rúbricas de evaluación continua',
-              classroom: 'Sincronización de cursos, alumnos y tareas de Google Classroom',
+              classroom: 'Conexión de Google Classroom; consulta de datos en Calificaciones',
               sincronizacion: 'Sincronización y respaldo local / nube',
               cuenta: 'Perfil docente, licencia y preferencias'
             };
@@ -633,6 +639,7 @@ export function AppDocente() {
           <SeccionAsistencias
             periodos={periodos}
             alumnos={alumnos}
+            puedeGestionar={permisosUI.asistencias.gestionar}
           />
         </div>
       )}
@@ -703,9 +710,18 @@ export function AppDocente() {
         <div className="anim-fade-in">
           <SeccionCalificaciones
           periodos={periodos}
+          periodosArchivados={periodosArchivados}
           alumnos={alumnos}
           permisos={permisosUI}
           avisarSinPermiso={avisarSinPermiso}
+          onAbrirLotesPdfOmr={() => {
+            if (!permisosUI.plantillas.leer || !permisosUI.omr.analizar) {
+              avisarSinPermiso('No tienes permiso para procesar lotes PDF OMR.');
+              return;
+            }
+            guardarTabPlantillas('historial');
+            setVista('plantillas');
+          }}
           onAnalizar={async (folio, numeroPagina, imagenBase64, contexto) => {
             if (!permisosUI.omr.analizar) {
               avisarSinPermiso('No tienes permiso para analizar OMR.');
@@ -928,6 +944,16 @@ export function AppDocente() {
                 motivosRevision?: string[];
                 revisionConfirmada?: boolean;
                 qrTexto?: string;
+                resumenRespuestas?: {
+                  totalReactivos: number;
+                  reactivosRespondidos: number;
+                  reactivosSinMarca: number;
+                  reactivosAmbiguos: number;
+                  reactivosInvalidos: number;
+                  examenVacio: boolean;
+                  examenVacioProbable: boolean;
+                  estadoExamen: 'vacio_confirmado' | 'vacio_probable' | 'con_respuestas' | 'requiere_revision';
+                };
               };
               paginasOmr?: Array<{ numeroPagina: number; imagenBase64: string }>;
             } = {
@@ -965,7 +991,8 @@ export function AppDocente() {
                   qrTexto:
                     typeof payload.omrAnalisis.qrTexto === 'string' && payload.omrAnalisis.qrTexto.trim().length > 0
                       ? payload.omrAnalisis.qrTexto.trim()
-                      : undefined
+                      : undefined,
+                  resumenRespuestas: payload.omrAnalisis.resumenRespuestas
                 };
               }
             }
@@ -1025,10 +1052,11 @@ export function AppDocente() {
       {vista === 'classroom' && (
         <div className="anim-fade-in">
           <SeccionClassroom
-            periodos={periodos}
             puedeClassroomConectar={permisosUI.classroom.conectar}
             puedeClassroomPull={permisosUI.classroom.pull}
+            puedeConsultarCalificaciones={itemsVista.some((item) => item.id === 'calificaciones')}
             classroomDisponible={classroomDisponible}
+            onAbrirCalificaciones={() => setVista('calificaciones')}
           />
         </div>
       )}
@@ -1054,7 +1082,18 @@ export function AppDocente() {
               avisarSinPermiso('No tienes permiso para generar codigos.');
               return Promise.reject(new Error('SIN_PERMISO'));
             }
-            return clienteApi.enviar<{ codigo?: string; expiraEn?: string }>('/sincronizaciones/codigo-acceso', { periodoId });
+            return clienteApi.enviar<{ codigoAccesoId: string; codigo: string; expiraEn: string }>('/sincronizaciones/codigo-acceso', { periodoId });
+          }}
+          onListarCodigos={(periodoId) => {
+            const query = new URLSearchParams({ periodoId });
+            return clienteApi.obtener<{ codigosAcceso: Array<{ id: string; periodoId: string; expiraEn: string; usado: boolean; estado: 'vigente' | 'expirado' | 'usado'; periodo?: { id: string; nombre: string } }> }>(`/sincronizaciones/codigo-acceso?${query}`);
+          }}
+          onExpirarCodigo={(codigoAccesoId) => {
+            if (!permisosUI.publicar.publicar) {
+              avisarSinPermiso('No tienes permiso para expirar códigos de acceso.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.enviar<{ codigoAccesoId: string; expirado: boolean }>(`/sincronizaciones/codigo-acceso/${encodeURIComponent(codigoAccesoId)}/expirar`, {});
           }}
           onExportarPaquete={(payload) => {
             if (!permisosUI.sincronizacion.exportar) {

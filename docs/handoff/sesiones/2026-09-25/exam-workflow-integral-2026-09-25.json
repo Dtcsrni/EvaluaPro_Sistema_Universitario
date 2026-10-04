@@ -1,0 +1,334 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "exam-workflow-integral-2026-09-25",
+  "status": "final",
+  "generatedAt": "2026-09-25T18:26:19.816Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "GPT-5",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Mejorar integralmente el flujo de generación de exámenes y desarrollar skills especializadas de EvaluaPro."
+  },
+  "objective": "Endurecer el flujo desde evidencia de curso y temas hasta reactivos versionados, lotes recuperables y validación para impresión, con regresiones y skills reutilizables.",
+  "scope": [
+    "Contrato e importación de reactivos con tema único por fila.",
+    "Revisión y tests para importación multitema y reasignación versionada.",
+    "Skills repo-local para evidencia, reactivos y QA de lote.",
+    "Validación de recuperación, PDF, impresión y Edge sintético."
+  ],
+  "constraints": [
+    "Generación exclusivamente por EvaluaPro.",
+    "No modificar el lote real impreso, base de producción ni runtime instalado.",
+    "Conservar cambios de terceros del árbol compartido."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de backend_reactivos",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de frontend_reactivos_y_lote",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pdf_recovery_migrations",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de backend_typecheck",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de frontend_typecheck",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de frontend_wcag_lint",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de sdd_audit",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de traceability",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de handoff_policy",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de ci_policy_audit",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de edge_pdf_fixture",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de edge_exam_workflow_e2e",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de git_diff_check",
+      "timestamp": "2026-09-25T18:26:19.816Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "README.md",
+      "docs/README.md",
+      "docs/IA_SKILLS_MCP_POLICY.md",
+      "docs/specs/SPEC-061_banco_reactivos_ia_versionado.spec.md",
+      "docs/specs/SPEC-068_generacion_lotes_pdf_integridad.spec.md",
+      "docs/contracts/reactivos-xlsx.v1.md",
+      "scripts/ia-handoff.mjs",
+      "scripts/ia-traceability.mjs"
+    ],
+    "changed": [
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "docs/IA_SKILLS_MCP_POLICY.md",
+      "docs/specs/SPEC-061_banco_reactivos_ia_versionado.spec.md",
+      "docs/specs/SPEC-068_generacion_lotes_pdf_integridad.spec.md",
+      "docs/contracts/reactivos-xlsx.v1.md",
+      "docs/AUTO_ENV.md",
+      ".agents/skills/evaluapro-exam-workflow/SKILL.md",
+      ".agents/skills/evaluapro-topic-blueprint/SKILL.md",
+      ".agents/skills/evaluapro-topic-blueprint/references/coverage-review.md",
+      ".agents/skills/evaluapro-reactivo-review/SKILL.md",
+      ".agents/skills/evaluapro-exam-batch-qa/SKILL.md",
+      "apps/backend/src/modulos/modulo_banco_preguntas/reactivosContrato.ts",
+      "apps/backend/src/modulos/modulo_banco_preguntas/servicioReactivos.ts",
+      "apps/backend/src/modulos/modulo_banco_preguntas/reactivosXlsx.ts",
+      "apps/backend/tests/reactivosContrato.test.ts",
+      "apps/backend/tests/integracion/reactivosIngesta.test.ts",
+      "apps/frontend/src/apps/app_docente/features/banco/components/BancoImportacionReactivos.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx",
+      "apps/frontend/tests/bancoImportacionReactivos.test.tsx",
+      "tests/gui-responsive/banco-reactivos.spec.ts",
+      "tests/gui-responsive/plantillas-pdf-edge.spec.ts"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-09-25/exam-workflow-integral-2026-09-25.json",
+      "docs/handoff/sesiones/2026-09-25/exam-workflow-integral-2026-09-25.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "backend_reactivos",
+      "command": "npm -C apps/backend test -- tests/reactivosContrato.test.ts tests/integracion/reactivosIngesta.test.ts --reporter=dot",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "2 archivos; 19 pruebas aprobadas.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "frontend_reactivos_y_lote",
+      "command": "npm -C apps/frontend test -- tests/bancoImportacionReactivos.test.tsx tests/plantillas.loteSesion.test.ts tests/plantillas.hooks.test.tsx tests/plantillas.refactor.test.tsx --reporter=dot",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "4 archivos; 29 pruebas aprobadas.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "pdf_recovery_migrations",
+      "command": "npm -C apps/backend test -- tests/pdf.lote.integridad.test.ts tests/pdf.ink-sparing-staple.test.ts tests/integracion/recoveryBundleGeneracion.test.ts tests/integracion/plantillasCrudYPreview.test.ts tests/reactivosContrato.test.ts tests/integracion/reactivosIngesta.test.ts --reporter=dot; node --test scripts/tests/migrate-reactivos-sqlite.test.mjs scripts/tests/migrate-reactivos-backfill.test.mjs scripts/tests/migrate-examen-lote-artefactos-pdf-sqlite.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "6 archivos backend; 32 pruebas; 3 pruebas de migración aprobadas.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "backend_typecheck",
+      "command": "npx tsc --noEmit --project apps/backend/tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "TypeScript backend sin errores.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "frontend_typecheck",
+      "command": "npm -C apps/frontend run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Typecheck frontend aprobado.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "frontend_wcag_lint",
+      "command": "npm run guard:wcag",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "20/20 pares de contraste y lint frontend aprobados.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Auditoría SDD aprobada, incluidas SPEC-061 y SPEC-068.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "pipeline_contract",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "19 contratos aprobados.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "traceability",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "7 pruebas aprobadas.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "handoff_policy",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "11 pruebas aprobadas.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "ci_policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Auditoría de políticas aprobada.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "edge_pdf_fixture",
+      "command": "npx playwright test -c tests/gui-responsive/playwright.pdf-edge.config.mjs tests/gui-responsive/plantillas-pdf-edge.spec.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Prueba con PDF sintético en Edge headless aprobada; no es el PDF real impreso.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "edge_exam_workflow_e2e",
+      "command": "E2E_BROWSER_CHANNEL=msedge npx playwright test -c tests/gui-responsive/playwright.ciclo.config.mjs tests/gui-responsive/banco-reactivos.spec.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "E2E en Edge aprobado con puertos y SQLite aislados; incluye importación, revisión, publicación, lote y descarga.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Documentación autogenerada consistente.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "git_diff_check",
+      "command": "git diff --check",
+      "status": "falla",
+      "exitCode": 2,
+      "durationMs": 0,
+      "resultSummary": "Detecta trailing whitespace en archivos ajenos al alcance y artefactos generados del árbol compartido; no se alteraron.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    },
+    {
+      "name": "git_diff_scope",
+      "command": "git diff --check -- AGENTS.md CHANGELOG.md docs/IA_SKILLS_MCP_POLICY.md docs/AUTO_ENV.md apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Sin errores de whitespace en archivos rastreados modificados por este alcance.",
+      "timestamp": "2026-09-25T18:26:19.816Z"
+    }
+  ],
+  "decisions": [
+    "Un reactivo se vincula exactamente con un tema canónico; una importación multitema exige temaId por fila.",
+    "Reasignar tema crea una versión revisable en vez de mutar silenciosamente.",
+    "Las skills son guías, no permisos ni reemplazo de contratos.",
+    "E2E usa Edge y datos aislados; la prueba de interoperabilidad PDF es sintética."
+  ],
+  "assumptions": [
+    "El lote físico ya confirmado por el usuario sigue fuera del alcance de cambios."
+  ],
+  "risks": [
+    "No se repitió el conjunto CI completo; se ejecutaron gates focalizados más auditoría de políticas.",
+    "No se reinició ni verificó el runtime de escritorio, el PDF real en Edge o una impresión física durante esta sesión.",
+    "El árbol contiene cambios concurrentes; no se limpiaron ni integraron cambios ajenos.",
+    "El diff global conserva trailing whitespace preexistente/ajeno en archivos compartidos; la revisión acotada de los archivos rastreados de este cambio sí pasó."
+  ],
+  "nextStep": "Las mejoras de software y skills incluidas quedaron implementadas y verificadas en el alcance descrito; integrar o desplegar requiere revisar por separado el árbol compartido y la instalación activa.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/omr-letter-color-template",
+    "commit": "working-tree",
+    "workingTreeStatus": "Árbol compartido con cambios preexistentes ajenos; alcance de esta sesión delimitado en files.changed."
+  }
+}

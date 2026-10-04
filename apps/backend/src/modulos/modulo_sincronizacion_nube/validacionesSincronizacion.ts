@@ -13,8 +13,16 @@ export const esquemaPublicarResultados = z.object({
   periodoId: esquemaObjectId
 });
 
+export const esquemaListarCodigosAcceso = z.object({
+  periodoId: esquemaObjectId.optional(),
+  estado: z.enum(['vigente', 'expirado', 'usado']).optional(),
+  limite: z.coerce.number().int().min(1).max(100).default(25),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
 export const esquemaGenerarCodigoAcceso = z.object({
-  periodoId: esquemaObjectId
+  periodoId: esquemaObjectId,
+  clientRequestId: z.string().uuid().optional()
 });
 
 // Paquete de sincronización (entre computadoras). Permite export/import manual (USB/Drive).

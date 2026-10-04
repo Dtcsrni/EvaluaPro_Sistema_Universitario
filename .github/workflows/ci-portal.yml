@@ -28,6 +28,9 @@ on:
       - ".github/workflows/ci-portal.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-portal-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -71,7 +74,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -80,7 +83,9 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci --foreground-scripts
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
 
       - name: Etapa lint portal
         run: npm -C apps/portal_alumno_cloud run lint

@@ -49,6 +49,7 @@ export type Periodo = {
   fechaFin?: string;
   grupos?: string[];
   activo?: boolean;
+  tienePortada?: boolean;
   createdAt?: string;
   archivadoEn?: string;
   resumenArchivado?: {
@@ -82,6 +83,7 @@ export type Plantilla = {
     separateCoverPage?: boolean;
   };
   omrConfig?: {
+    examTemplateId?: 'omr-canonical-v4' | 'omr-inline-exam-v1';
     sheetFamilyCode?: string;
     sheetRevisionId?: string;
     prefillMode?: 'none' | 'roster' | 'per-student';
@@ -237,6 +239,21 @@ export type OmrJobDetalle = {
     confidence: number;
     autoGradable?: boolean;
     manualReviewRequired?: boolean;
+    sourceFileId?: string;
+    sourceFileName?: string;
+    sourcePage?: number;
+    examId?: string;
+    folio?: string;
+    examPage?: number;
+    identitySource?: 'qr' | 'manual';
+    ocrSuggestion?: {
+      generatedAssessmentId: string;
+      folio: string;
+      examPage: number;
+      confidence: number;
+      source?: 'ocr_two_position_consensus';
+      matchingPositions?: 2;
+    };
     scoreResult?: {
       totalPreguntas: number;
       correctas: number;
@@ -251,7 +268,7 @@ export type OmrJobDetalle = {
     versionResult?: {
       versionCode?: string | null;
     };
-    responses: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
+    responses: RespuestaRevisionOmr[];
     exceptions: Array<{
       code: string;
       severity: 'info' | 'warning' | 'blocking';
@@ -259,6 +276,22 @@ export type OmrJobDetalle = {
       recommendedAction?: string;
     }>;
   }>;
+  packages?: Array<{
+    id: string;
+    fileName: string;
+    status: 'complete' | 'needs_review' | string;
+    pageCount: number;
+    course: string;
+    subject: string;
+    partial: string;
+    teacher: string;
+    student: string;
+    group: string;
+    folio: string;
+  }>;
+  files?: Array<{ id: string; nombre: string; bytes: number; pages: number; sha256: string }>;
+  candidateExams?: Array<{ id: string; folio: string; studentName: string; group: string; pages: number[] }>;
+  errors?: Array<{ fileName?: string; code: string }>;
   reviewResolutions?: Array<{
     sheetSerial: string;
     resolvedAt: string;
@@ -268,6 +301,11 @@ export type OmrJobDetalle = {
 
 export type Pregunta = {
   _id: string;
+  reactivoId?: string;
+  reactivoExternalKey?: string;
+  reactivoVersionActual?: number;
+  reactivoEstado?: 'draft' | 'review' | 'published' | 'retired' | string;
+  temaIdsCanonicos?: string[];
   periodoId?: string;
   tema?: string;
   activo?: boolean;
@@ -304,8 +342,42 @@ export type RespuestaSyncPull = {
   pdfsGuardados?: number;
 };
 
+export type EstadoRespuestaOmr = 'respondida' | 'sin_marca' | 'ambigua' | 'doble_marca' | 'tachada' | 'manual_review';
+
+export type FlagRespuestaOmr =
+  | 'doble_marca'
+  | 'bajo_contraste'
+  | 'fuera_roi'
+  | 'parcial_detectada'
+  | 'tachada_detectada';
+
+export type RespuestaDetectadaOmr = {
+  numeroPregunta: number;
+  opcion: string | null;
+  confianza: number;
+  estadoRespuesta?: EstadoRespuestaOmr;
+  flags?: FlagRespuestaOmr[];
+};
+
+export type CandidataRespuestaOmr = {
+  opcion: 'A' | 'B' | 'C' | 'D' | 'E';
+  score: number;
+  fillRatioCore: number;
+  estadoMarca: 'no_marcada' | 'parcial' | 'marcada' | 'tachada';
+};
+
+export type RespuestaRevisionOmr = {
+  numeroPregunta: number;
+  opcion: string | null;
+  opcionDetectada?: string | null;
+  confianza?: number;
+  estadoRespuesta?: EstadoRespuestaOmr;
+  flags?: FlagRespuestaOmr[];
+  candidatas?: CandidataRespuestaOmr[];
+};
+
 export type ResultadoOmr = {
-  respuestasDetectadas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
+  respuestasDetectadas: RespuestaDetectadaOmr[];
   advertencias: string[];
   qrTexto?: string;
   calidadPagina: number;
@@ -314,12 +386,22 @@ export type ResultadoOmr = {
   templateVersionDetectada: 4;
   confianzaPromedioPagina: number;
   ratioAmbiguas: number;
+  resumenRespuestas?: {
+    totalReactivos: number;
+    reactivosRespondidos: number;
+    reactivosSinMarca: number;
+    reactivosAmbiguos: number;
+    reactivosInvalidos: number;
+    examenVacio: boolean;
+    examenVacioProbable: boolean;
+    estadoExamen: 'vacio_confirmado' | 'vacio_probable' | 'con_respuestas' | 'requiere_revision';
+  };
 };
 
 export type PermisosUI = {
   periodos: { leer: boolean; gestionar: boolean; archivar: boolean };
   alumnos: { leer: boolean; gestionar: boolean };
-  banco: { leer: boolean; gestionar: boolean; archivar: boolean };
+  banco: { leer: boolean; gestionar: boolean; archivar: boolean; publicar?: boolean };
   plantillas: { leer: boolean; gestionar: boolean; archivar: boolean; previsualizar: boolean };
   examenes: { leer: boolean; generar: boolean; archivar: boolean; regenerar: boolean; descargar: boolean };
   entregas: { gestionar: boolean };
@@ -468,7 +550,7 @@ export type ClassroomPreviewResultado = {
 export type RevisionPaginaOmr = {
   numeroPagina: number;
   resultado: ResultadoOmr;
-  respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
+  respuestas: RespuestaDetectadaOmr[];
   imagenBase64?: string;
   nombreArchivo?: string;
   actualizadoEn: number;

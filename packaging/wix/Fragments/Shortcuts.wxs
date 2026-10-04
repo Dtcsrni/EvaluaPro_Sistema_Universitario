@@ -3,18 +3,24 @@
   <Fragment>
     <ComponentGroup Id="CG.Shortcuts">
       <Component Id="CMP.ShortcutDesktopProd" Directory="DesktopFolder" Guid="7D746D16-3049-4EEE-AEC5-4B0FD25D79AE" Condition="INSTALL_DESKTOP_SHORTCUTS = 1">
+        <?if $(var.FlavorId) = docente-local ?>
         <Shortcut
           Id="SC.DesktopProd"
           Name="EvaluaPro"
           Description="Plataforma docente local: banco, exámenes, recepción y calificación"
-          <?if $(var.FlavorId) = docente-local ?>
           Target="[INSTALLFOLDER]EvaluaPro.exe"
-          <?else?>
-          Target="[System64Folder]wscript.exe"
-          Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
-          <?endif?>
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconProd.ico" />
+        <?else?>
+        <Shortcut
+          Id="SC.DesktopProd"
+          Name="EvaluaPro"
+          Description="Plataforma docente local: banco, exámenes, recepción y calificación"
+          Target="[System64Folder]wscript.exe"
+          Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="EvaluaProIconProd.ico" />
+        <?endif?>
         <RemoveFolder Id="RF.DesktopProd" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="DesktopProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -48,18 +54,24 @@
       <?endif?>
 
       <Component Id="CMP.ShortcutMenuProd" Directory="ApplicationProgramsFolder" Guid="86FC4E0A-3C0A-45A7-9B6F-4BD3EA1C90B8" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+        <?if $(var.FlavorId) = docente-local ?>
         <Shortcut
           Id="SC.MenuProd"
           Name="EvaluaPro"
           Description="Plataforma docente local: banco, exámenes, recepción y calificación"
-          <?if $(var.FlavorId) = docente-local ?>
           Target="[INSTALLFOLDER]EvaluaPro.exe"
-          <?else?>
-          Target="[System64Folder]wscript.exe"
-          Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
-          <?endif?>
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconProd.ico" />
+        <?else?>
+        <Shortcut
+          Id="SC.MenuProd"
+          Name="EvaluaPro"
+          Description="Plataforma docente local: banco, exámenes, recepción y calificación"
+          Target="[System64Folder]wscript.exe"
+          Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="EvaluaProIconProd.ico" />
+        <?endif?>
         <RemoveFolder Id="RF.MenuProdFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>

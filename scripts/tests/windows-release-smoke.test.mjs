@@ -422,6 +422,7 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   assertBrokerSuccess(verifyRes, 'verify-installation');
 
   const openRunId = `release-smoke-${Date.now()}`;
+  const openRequestedAt = new Date().toISOString();
   const openRes = runPowerShell([
     '-File', brokerPath,
     '-Action', 'open-dashboard',
@@ -438,11 +439,13 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
     previousLock,
     processInfo,
     ports: fallbackPorts,
-    installRoot: root
+    installRoot: root,
+    requestedAt: openRequestedAt
   });
   assertBrokerSuccess(openRes, 'open-dashboard');
 
   const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
+  assert.equal(bootstrap.runId, openRunId, 'El estado de bootstrap no corresponde a esta ejecución del smoke.');
   assert.equal(bootstrap.desiredMode, 'prod');
   assert.notEqual(bootstrap.state, 'failed');
 

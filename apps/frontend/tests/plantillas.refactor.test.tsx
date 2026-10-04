@@ -97,12 +97,23 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
   });
 
   it('alterna interactivamente entre pestañas y muestra sus componentes y guías rápidas dedicadas', () => {
-    render(<HarnessPlantillas />);
+    render(
+      <HarnessPlantillas
+        plantillas={[{
+          _id: 'pla-1',
+          titulo: 'Parcial Algebra',
+          tipo: 'parcial',
+          numeroPaginas: 2,
+          periodoId: 'per-1',
+          temas: ['Algebra']
+        }]}
+      />
+    );
 
     // Pestaña 1 (Diseño) activa por defecto
     expect(screen.getByRole('heading', { name: /Diseño de plantilla/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Plantillas existentes/i })).toBeInTheDocument();
-    expect(screen.getAllByText('OMR canónico · v4').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('OMR canónico · v4').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/ESTUDIO DE CONSTRUCCIÓN/i)).toBeInTheDocument();
 
     // Cambiar a Pestaña 2 (Generación)

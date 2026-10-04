@@ -107,7 +107,7 @@ export function validarQueryRobusto(schema: z.ZodTypeAny) {
         );
       }
 
-      req.query = resultado.data as Request['query'];
+      res.locals.validatedQuery = resultado.data;
       next();
     } catch (err) {
       next(err);

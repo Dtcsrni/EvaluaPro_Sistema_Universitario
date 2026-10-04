@@ -5,6 +5,7 @@
  * para que el controlador HTTP sea una fachada delgada.
  */
 import fs from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { prisma } from '../../../infraestructura/baseDatos/sqlite.js';
@@ -63,6 +64,10 @@ function parseJsonSafe<T>(val: unknown): T | null {
 
 function formatearPlantillaPrisma(raw: any, preguntasIds: string[] = []) {
   if (!raw) return null;
+  const bookletConfig = parseJsonSafe<Record<string, unknown>>(raw.bookletConfig) ?? {};
+  const blueprint = bookletConfig.blueprint as { version?: unknown } | undefined;
+  const blueprintStatus = raw.blueprintStatus ?? bookletConfig.blueprintStatus ?? (blueprint ? 'ready' : 'legacy_dynamic');
+  const blueprintVersion = raw.blueprintVersion ?? bookletConfig.blueprintVersion ?? (blueprint ? blueprint.version : undefined);
   return {
     _id: raw.id,
     id: raw.id,
@@ -77,13 +82,145 @@ function formatearPlantillaPrisma(raw: any, preguntasIds: string[] = []) {
     defaultVersionCount: raw.defaultVersionCount,
     answerKeyMode: raw.answerKeyMode,
     archivadoEn: raw.archivadoEn ?? undefined,
-    bookletConfig: parseJsonSafe<any>(raw.bookletConfig),
+    bookletConfig,
     omrConfig: parseJsonSafe<any>(raw.omrConfig),
     configuracionPdf: parseJsonSafe<any>(raw.configuracionPdf),
     temas: parseJsonSafe<string[]>(raw.temas) ?? [],
     preguntasIds,
+    blueprintJson: raw.blueprintJson ?? (blueprint ? JSON.stringify(blueprint) : undefined),
+    blueprintHash: raw.blueprintHash ?? undefined,
+    blueprintStatus,
+    blueprintVersion,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt
+  };
+}
+
+type BlueprintReactivo = {
+  id: string;
+  version: number;
+  contentHash: string;
+  source?: 'canonical' | 'legacy';
+  reactivoId?: string;
+  reactivoVersionId?: string;
+  reactivoVersion?: number;
+};
+
+type BlueprintPlantilla = {
+  version: 1 | 2;
+  engine: 'omr-canonical-v4';
+  items: BlueprintReactivo[];
+  setHash: string;
+};
+
+function hashSha256Local(value: string) {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function hashContenidoPregunta(pregunta: BancoPreguntaLean, numeroVersion: number): string {
+  const version = pregunta.versiones.find((item) => item.numeroVersion === numeroVersion) ?? pregunta.versiones[0];
+  return hashSha256Local(JSON.stringify({
+    id: pregunta.id,
+    version: numeroVersion,
+    enunciado: version?.enunciado ?? '',
+    opciones: (version?.opciones ?? []).map((opcion) => ({ texto: opcion.texto, esCorrecta: opcion.esCorrecta }))
+  }));
+}
+
+function imagenDesdeReactivoMetadata(metadataJson: string): string | undefined {
+  try {
+    const metadata = JSON.parse(metadataJson || '{}') as { imageDataUrl?: unknown };
+    return typeof metadata.imageDataUrl === 'string' ? metadata.imageDataUrl : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function marcarPlantillaRequiereRepreview(plantillaId: string) {
+  const plantilla = await prisma.examenPlantilla.findUnique({ where: { id: plantillaId }, select: { bookletConfig: true } });
+  if (!plantilla) return;
+  const config = parseJsonSafe<Record<string, unknown>>(plantilla.bookletConfig) ?? {};
+  if (config.blueprintStatus === 'requires_repreview') return;
+  await prisma.examenPlantilla.update({
+    where: { id: plantillaId },
+    data: { bookletConfig: JSON.stringify({ ...config, blueprintStatus: 'requires_repreview' }) }
+  });
+}
+
+export async function construirBlueprintPlantilla(preguntasDb: BancoPreguntaLean[]): Promise<BlueprintPlantilla> {
+  const legacyIds = preguntasDb.map((pregunta) => String(pregunta.id));
+  const canonicos = legacyIds.length > 0
+    ? await prisma.reactivo.findMany({
+      where: { legacyPreguntaId: { in: legacyIds }, estado: 'published' },
+      include: { versiones: true }
+    })
+    : [];
+  const canonicosPorLegacy = new Map(canonicos.map((reactivo) => [String(reactivo.legacyPreguntaId), reactivo]));
+  const items = preguntasDb.map((pregunta) => {
+    const legacyVersion = Number(pregunta.versionActual);
+    const reactivo = canonicosPorLegacy.get(String(pregunta.id));
+    const reactivoVersion = reactivo?.versiones.find((version) => version.numeroVersion === reactivo.versionActual);
+    return reactivo && reactivoVersion
+      ? {
+        id: String(pregunta.id),
+        version: legacyVersion,
+        contentHash: reactivoVersion.contentHash,
+        source: 'canonical' as const,
+        reactivoId: reactivo.id,
+        reactivoVersionId: reactivoVersion.id,
+        reactivoVersion: reactivoVersion.numeroVersion
+      }
+      : {
+        id: String(pregunta.id),
+        version: legacyVersion,
+        contentHash: hashContenidoPregunta(pregunta, legacyVersion),
+        source: 'legacy' as const
+      };
+  });
+  return {
+    version: 2,
+    engine: 'omr-canonical-v4',
+    items,
+    setHash: hashSha256Local(JSON.stringify(items))
+  };
+}
+
+function leerBlueprint(plantilla: { blueprintJson?: unknown; blueprintStatus?: unknown }): BlueprintPlantilla | null {
+  if (plantilla.blueprintStatus !== 'ready' || typeof plantilla.blueprintJson !== 'string') return null;
+  try {
+    const parsed = JSON.parse(plantilla.blueprintJson) as BlueprintPlantilla;
+    if (![1, 2].includes(parsed?.version) || parsed.engine !== 'omr-canonical-v4' || !Array.isArray(parsed.items) || parsed.items.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function construirSnapshotVersionesBlueprint(params: {
+  plantilla: { blueprintJson?: unknown; blueprintStatus?: unknown };
+  preguntaIds?: string[];
+}) {
+  const blueprint = leerBlueprint(params.plantilla);
+  const ids = params.preguntaIds ? new Set(params.preguntaIds) : null;
+  const items = blueprint?.items.filter((item) => !ids || ids.has(item.id)) ?? [];
+  return {
+    previewFingerprint: blueprint?.setHash ?? null,
+    versionSet: items.map((item) => ({
+      preguntaId: item.id,
+      version: item.version,
+      contentHash: item.contentHash,
+      source: item.source ?? 'legacy',
+      reactivoId: item.reactivoId ?? null,
+      reactivoVersionId: item.reactivoVersionId ?? null,
+      reactivoVersion: item.reactivoVersion ?? null
+    })),
+    questionMap: Object.fromEntries(items.map((item) => [item.id, {
+      version: item.version,
+      contentHash: item.contentHash,
+      reactivoId: item.reactivoId ?? null,
+      reactivoVersionId: item.reactivoVersionId ?? null,
+      reactivoVersion: item.reactivoVersion ?? null
+    }]))
   };
 }
 
@@ -210,12 +347,40 @@ export function construirInicialesAlumno(nombreCompleto: unknown): string {
   return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
 }
 
+function construirIdentidadCortaAlumno(params: {
+  nombreCompleto?: unknown;
+  nombres?: unknown;
+  apellidos?: unknown;
+}): { primerNombre: string; iniciales: string } {
+  const tokensCompletos = String(params.nombreCompleto ?? '').trim().split(/\s+/).filter(Boolean);
+  const nombres = String(params.nombres ?? '').trim().split(/\s+/).filter(Boolean);
+  const apellidos = String(params.apellidos ?? '').trim().split(/\s+/).filter(Boolean);
+  const tieneNombresEstructurados = nombres.length > 0 && apellidos.length > 0;
+  // El padrón importado de Classroom de este grupo conserva los apellidos antes
+  // de los nombres. Cuando el modelo sí trae campos estructurados, éstos mandan.
+  const tokensNombre = tieneNombresEstructurados
+    ? nombres
+    : tokensCompletos.length >= 3
+      ? tokensCompletos.slice(2)
+      : tokensCompletos.slice(0, 1);
+  const primerNombreOriginal = tokensNombre[0] ?? '';
+  const tokensRestantes = tieneNombresEstructurados
+    ? [...nombres.slice(1), ...apellidos]
+    : tokensCompletos.filter((_, indice) => indice !== (tokensCompletos.length >= 3 ? 2 : 0));
+  const primerNombre = primerNombreOriginal
+    ? `${primerNombreOriginal.charAt(0).toLocaleUpperCase('es-MX')}${primerNombreOriginal.slice(1).toLocaleLowerCase('es-MX')}`
+    : '';
+  const inicialesPrimerNombre = construirInicialesAlumno(primerNombreOriginal).slice(0, 1);
+  const inicialesRestantes = construirInicialesAlumno(tokensRestantes.join(' '));
+  return { primerNombre, iniciales: `${inicialesPrimerNombre}${inicialesRestantes}` };
+}
+
 export function construirEncabezadoPdf(params: {
   periodo: unknown;
   docenteDb: unknown;
   instrucciones: unknown;
   incluirPrefijosDocente?: boolean;
-  alumno?: { nombreCompleto?: unknown; grupo?: unknown };
+  alumno?: { nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown };
 }) {
   const periodo = params.periodo as { nombre?: unknown } | null | undefined;
   const docente = params.docenteDb as
@@ -230,9 +395,18 @@ export function construirEncabezadoPdf(params: {
     | null
     | undefined;
 
+  const nombreDocenteBase = String(docente?.nombreCompleto ?? '').trim();
+  if (!nombreDocenteBase) {
+    throw new ErrorAplicacion(
+      'DOCENTE_SIN_NOMBRE',
+      'No se puede generar el PDF sin el nombre del docente autenticado.',
+      409
+    );
+  }
   const nombreDocente = params.incluirPrefijosDocente
-    ? formatearDocente(docente?.nombreCompleto)
-    : String(docente?.nombreCompleto ?? '').trim();
+    ? formatearDocente(nombreDocenteBase)
+    : nombreDocenteBase;
+  const identidadAlumno = params.alumno ? construirIdentidadCortaAlumno(params.alumno) : undefined;
 
   return {
     materia: String(periodo?.nombre ?? ''),
@@ -243,8 +417,9 @@ export function construirEncabezadoPdf(params: {
     alumno: params.alumno
       ? {
           nombre: String(params.alumno.nombreCompleto ?? '').trim() || undefined,
+          primerNombre: identidadAlumno?.primerNombre || undefined,
           grupo: String(params.alumno.grupo ?? '').trim() || undefined,
-          iniciales: construirInicialesAlumno(params.alumno.nombreCompleto)
+          iniciales: identidadAlumno?.iniciales ?? ''
         }
       : undefined,
     logos: {
@@ -366,7 +541,9 @@ export function construirFingerprintLayoutPreview(): string {
     // Versionar explícitamente el contrato de composición. Así un PDF
     // cacheado antes de un cambio geométrico (por ejemplo, el pie fuera de
     // página) nunca se reutiliza como si fuera una preview actual.
-    'pdf-lib-canonical-layout-20260915-safe-footer',
+    // Cambia al modificar burbujas, paso o fiduciales del perfil movil v4.
+    // Asi un preview anterior no se reutiliza con una geometria distinta.
+    'pdf-lib-canonical-layout-20260922-directional-fiducial-sparse-ink-staple-v1',
     construirFirmaVisualPdf(),
     ...variables.map((nombre) => `${nombre}=${String(process.env[nombre] ?? '').trim()}`)
   ].join('|');
@@ -620,14 +797,75 @@ function limitarPreguntasPorObjetivo(preguntas: any[], objetivoRaw: unknown) {
 
 export async function resolverPreguntasPlantilla(params: {
   docenteId: unknown;
-  plantilla: { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[]; reactivosObjetivo?: unknown };
+  plantilla: { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[]; reactivosObjetivo?: unknown; blueprintJson?: unknown; blueprintStatus?: unknown; bookletConfig?: unknown };
   ordenarPorRecencia?: boolean;
+  usarBlueprint?: boolean;
 }) {
   const docId = String(params.docenteId);
+  if (params.usarBlueprint && params.plantilla.blueprintStatus === 'requires_repreview') {
+    throw new ErrorAplicacion('BLUEPRINT_REQUIERE_REPREVIEW', 'La plantilla cambió porque cambió el banco publicado. Previsualiza el PDF nuevamente.', 409, { plantillaId: params.plantilla.id });
+  }
+  const blueprint = params.usarBlueprint ? leerBlueprint(params.plantilla) : null;
+  if (params.usarBlueprint && !blueprint) {
+    throw new ErrorAplicacion('BLUEPRINT_REQUERIDO', 'La generación requiere un preview confirmado de la plantilla', 409, { plantillaId: params.plantilla.id });
+  }
   const temas = resolverTemasPlantilla(params.plantilla);
 
-  let rawPreguntas: any[] = [];
-  if (temas.length > 0) {
+  let rawPreguntas: any[];
+  if (blueprint) {
+    const listIds = blueprint.items.map((item) => item.id);
+    rawPreguntas = await prisma.bancoPregunta.findMany({
+      where: { docenteId: docId, activo: true, id: { in: listIds } },
+      include: { versiones: { include: { opciones: true } } }
+    });
+    const byId = new Map(rawPreguntas.map((pregunta) => [pregunta.id, pregunta]));
+    const faltantes = listIds.filter((id) => !byId.has(id));
+    if (faltantes.length > 0) {
+      await marcarPlantillaRequiereRepreview(params.plantilla.id);
+      throw new ErrorAplicacion('BLUEPRINT_OBSOLETO', 'El blueprint contiene reactivos que ya no están disponibles', 409, { faltantes });
+    }
+    const canonicalVersionIds = blueprint.items.map((item) => item.reactivoVersionId).filter((id): id is string => Boolean(id));
+    const canonicalVersions = canonicalVersionIds.length > 0
+      ? await prisma.reactivoVersion.findMany({ where: { id: { in: canonicalVersionIds } }, include: { opciones: true, reactivo: true } })
+      : [];
+    const canonicalById = new Map(canonicalVersions.map((version) => [version.id, version]));
+    const blueprintHash = hashSha256Local(JSON.stringify(blueprint.items));
+    const divergentes = blueprint.items.filter((item) => {
+      const pregunta = byId.get(item.id);
+      if (item.reactivoVersionId) {
+        const versionCanonica = canonicalById.get(item.reactivoVersionId);
+        return !versionCanonica ||
+          versionCanonica.reactivoId !== item.reactivoId ||
+          versionCanonica.contentHash !== item.contentHash ||
+          versionCanonica.reactivo.estado !== 'published' ||
+          versionCanonica.reactivo.versionActual !== item.reactivoVersion ||
+          versionCanonica.numeroVersion !== item.reactivoVersion;
+      }
+      const version = pregunta?.versiones?.find((candidate: { numeroVersion: number }) => candidate.numeroVersion === item.version);
+      return !version || hashContenidoPregunta(pregunta as unknown as BancoPreguntaLean, item.version) !== item.contentHash;
+    }).map((item) => ({ id: item.id, version: item.version, reactivoVersionId: item.reactivoVersionId, contentHash: item.contentHash }));
+    if (blueprintHash !== blueprint.setHash) divergentes.push({ id: '__set__', version: 0, reactivoVersionId: undefined, contentHash: blueprint.setHash });
+    if (divergentes.length > 0) {
+      await marcarPlantillaRequiereRepreview(params.plantilla.id);
+      throw new ErrorAplicacion('BLUEPRINT_OBSOLETO', 'El contenido de una versión fijada cambió o ya no está disponible', 409, { divergentes });
+    }
+    rawPreguntas = listIds.map((id) => {
+      const pregunta = byId.get(id);
+      const item = blueprint.items.find((entry) => entry.id === id);
+      const versionCanonica = item?.reactivoVersionId ? canonicalById.get(item.reactivoVersionId) : null;
+      if (!versionCanonica) return { ...pregunta, versionActual: item?.version ?? pregunta?.versionActual };
+      return {
+        ...pregunta,
+        versionActual: item?.version ?? pregunta?.versionActual,
+        versiones: [{
+          numeroVersion: item?.version ?? pregunta?.versionActual,
+          enunciado: versionCanonica.enunciado,
+          imagenUrl: imagenDesdeReactivoMetadata(versionCanonica.metadataJson),
+          opciones: versionCanonica.opciones.map((opcion) => ({ texto: opcion.texto, esCorrecta: opcion.esCorrecta }))
+        }]
+      };
+    });
+  } else if (temas.length > 0) {
     if (!params.plantilla.periodoId) {
       throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla por temas requiere materia (periodoId)', 400);
     }

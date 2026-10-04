@@ -4,7 +4,7 @@
  * Responsabilidad: proteger la representación visible de fórmulas del editor.
  */
 import { describe, expect, it } from 'vitest';
-import { textoVisibleLatex } from '../src/apps/app_docente/features/banco/components/RichTextEditor';
+import { sanearHtml, textoVisibleLatex } from '../src/apps/app_docente/features/banco/components/RichTextEditor';
 
 describe('RichTextEditor', () => {
   it('convierte notacion LaTeX habitual a una previsualizacion segura y legible', () => {
@@ -26,5 +26,19 @@ describe('RichTextEditor', () => {
     expect(visible).toContain('&lt;');
     expect(visible).toContain('&amp;');
     expect(visible).not.toContain('<y');
+  });
+
+  it('elimina contenido peligroso anidado dentro de etiquetas no permitidas', () => {
+    const limpio = sanearHtml('<x-wrapper><img src="x" onerror="alert(1)"></x-wrapper>');
+
+    expect(limpio).not.toContain('<img');
+    expect(limpio).not.toContain('onerror');
+  });
+
+  it('vuelve a limpiar los elementos permitidos que estaban bajo una etiqueta no permitida', () => {
+    const limpio = sanearHtml('<x-wrapper><span data-latex="x" onclick="alert(1)"><b>seguro</b></span></x-wrapper>');
+
+    expect(limpio).toContain('<span data-latex="x"><b>seguro</b></span>');
+    expect(limpio).not.toContain('onclick');
   });
 });

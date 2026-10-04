@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "description": "API docente (Express + TypeScript + SQLite nativo/Prisma) para gestión de evaluaciones, autenticación y flujo de examen OMR.",
-  "version": "1.1.6",
+  "version": "1.2.3",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
@@ -22,8 +22,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate && tsc --project tsconfig.json",
-    "typecheck": "prisma generate && tsc --noEmit --project tsconfig.json --pretty false",
+    "build": "prisma generate --config prisma.config.mjs && tsc --project tsconfig.json",
+    "typecheck": "prisma generate --config prisma.config.mjs && tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "node ../../scripts/testing/run-backend-coverage-batches.mjs",
@@ -32,6 +32,7 @@
     "dev:omr:actual": "tsx scripts/omr-run-dev-profile.ts actual",
     "auth:reset-password": "tsx scripts/auth-reset-password.ts",
     "omr:eval:profile": "tsx scripts/omr-eval-profile.ts",
+    "omr:qr:preprint-check": "tsx scripts/omr-qr-preprint-check.ts",
     "omr:sweep:geometria": "tsx scripts/omr-sweep-geometria.ts",
     "omr:sweep:umbrales": "tsx scripts/omr-sweep-umbrales.ts",
     "omr:diagnose:rechazo": "tsx scripts/omr-diagnose-rechazo.ts",
@@ -51,34 +52,43 @@
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-better-sqlite3": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@tesseract.js-data/spa": "^1.0.0",
+    "@zxing/library": "^0.23.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "decimal.js": "^10.6.0",
-    "docx": "^9.6.0",
-    "dotenv": "^17.3.1",
+    "docx": "^9.7.1",
+    "dotenv": "^18.0.3",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2",
-    "google-auth-library": "^10.6.1",
-    "helmet": "^8.1.0",
+    "express-rate-limit": "^8.7.0",
+    "google-auth-library": "^11.1.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "jsqr": "^1.4.0",
-    "multer": "^2.2.0",
+    "multer": "^2.4.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
-    "playwright": "^1.58.2",
+    "playwright": "^1.63.0",
     "qrcode": "^1.5.4",
-    "sharp": "^0.35.3",
-    "zod": "^4.3.6"
+    "sharp": "^0.35.4",
+    "tesseract.js": "^7.0.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.4",
-    "@eslint/js": "^9.39.3",
+    "@eslint/eslintrc": "^3.3.7",
+    "@eslint/js": "^10.0.1",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/multer": "^2.1.0",
+    "@types/multer": "^2.2.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/qrcode": "^1.5.6",
-    "prisma": "^6.19.3"
+    "prisma": "^7.10.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   }
 }
