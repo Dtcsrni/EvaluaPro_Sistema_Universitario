@@ -154,8 +154,12 @@ test('runner serializa Windows Installer y no mata el Hub durante una transacciÃ
 test('runner selecciona opciones del combo solo con SelectionItemPattern', () => {
   assert.match(runner, /Find-ByName -RootElement \$Combo -Name \$ItemName[\s\S]*?SelectionItemPattern/);
   assert.match(runner, /\$selectionPattern\.Select\(\)/);
+  assert.match(runner, /'uninstall' \{ 'Desinstalar \(con respaldo\)' \}/);
+  assert.match(runner, /'repair' \{ 'Reparar componentes' \}/);
   assert.match(runner, /No se pudo seleccionar la opcion/);
   assert.match(runner, /SendKeys\]::SendWait\('\{ENTER\}'\)/);
+  assert.match(runner, /Modo no aplicado: solicitado=\$\{Mode\} accion=/);
+  assert.match(runner, /Resumen de impacto no coincide con modo=\$\{Mode\}/);
   assert.doesNotMatch(runner, /Invoke-Control -Element \$item/);
 });
 

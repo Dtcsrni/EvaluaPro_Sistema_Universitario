@@ -798,9 +798,9 @@ function Invoke-InstallerHubMode {
   $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
   if ($modeCombo) {
     $label = switch ($Mode) {
-      'install' { 'Instalar' }
-      'repair' { 'Reparar' }
-      'uninstall' { 'Desinstalar' }
+      'install' { 'Instalar / Actualizar versión' }
+      'repair' { 'Reparar componentes' }
+      'uninstall' { 'Desinstalar (con respaldo)' }
     }
     Select-ComboItem -Combo $modeCombo -ItemName $label
   }
@@ -849,6 +849,27 @@ function Invoke-InstallerHubMode {
   Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) | Out-Null
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 15
   if (-not $startButton) { throw "No se encontro StartButton mode=$Mode" }
+  $expectedAction = switch ($Mode) {
+    'install' { 'Instalar' }
+    'repair' { 'Reparar' }
+    'uninstall' { 'Desinstalar' }
+  }
+  if ($startButton.Current.Name -ne $expectedAction) {
+    Add-Result -Area $Mode -Item 'mode-selection' -Ok $false -Detail "expected=$expectedAction actual=$($startButton.Current.Name)"
+    throw "Modo no aplicado: solicitado=${Mode} accion=$($startButton.Current.Name); se detiene antes de ejecutar."
+  }
+  $modeImpact = Find-ById -RootElement $window -AutomationId 'ModeImpactTitleTextBlock' -TimeoutSec 5
+  $expectedImpact = switch ($Mode) {
+    'install' { 'Instalar o actualizar' }
+    'repair' { 'Reparar instalación' }
+    'uninstall' { 'Desinstalar' }
+  }
+  if (-not $modeImpact -or $modeImpact.Current.Name -ne $expectedImpact) {
+    $actualImpact = if ($modeImpact) { $modeImpact.Current.Name } else { '<missing>' }
+    Add-Result -Area $Mode -Item 'mode-impact' -Ok $false -Detail "expected=$expectedImpact actual=$actualImpact"
+    throw "Resumen de impacto no coincide con modo=${Mode}: $actualImpact"
+  }
+  Add-Result -Area $Mode -Item 'mode-selection' -Ok $true -Detail "action=$expectedAction impact=$expectedImpact"
   Add-Result -Area $Mode -Item 'start-button' -Ok $startButton.Current.IsEnabled -Detail "name=$($startButton.Current.Name)"
   if (-not $startButton.Current.IsEnabled) { throw "StartButton no habilitado mode=$Mode" }
 
