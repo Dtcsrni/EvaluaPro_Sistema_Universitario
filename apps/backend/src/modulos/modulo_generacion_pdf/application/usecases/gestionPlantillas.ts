@@ -145,38 +145,39 @@ export async function crearPlantillaUseCase(params: {
     .replace(/\s+/g, ' ')
     .toLowerCase();
 
-  const raw = await prisma.examenPlantilla.create({
-    data: {
-      docenteId: docId,
-      periodoId: periodoId || null,
-      tipo: String(params.body.tipo ?? 'parcial'),
-      titulo,
-      tituloNormalizado: normalizado,
-      instrucciones: params.body.instrucciones ? String(params.body.instrucciones) : null,
-      numeroPaginas: Number(params.body.numeroPaginas ?? 1) || 1,
-      reactivosObjetivo: Number(params.body.reactivosObjetivo ?? 20) || 20,
-      defaultVersionCount: Number(params.body.defaultVersionCount ?? 1) || 1,
-      answerKeyMode: String(params.body.answerKeyMode ?? 'digital'),
-      bookletConfig: JSON.stringify(bookletConfig),
-      omrConfig: JSON.stringify(omrConfig),
-      configuracionPdf: JSON.stringify(configuracionPdf),
-      temas: JSON.stringify(temas || [])
-    }
-  });
-
   const preguntasIds = Array.isArray(params.body.preguntasIds) ? params.body.preguntasIds.map(String) : [];
-  if (preguntasIds.length > 0) {
-    await prisma.preguntaPlantilla.createMany({
-      data: preguntasIds.map((preguntaId, orden) => ({
-        plantillaId: raw.id,
-        preguntaId,
-        orden
-      }))
+  return prisma.$transaction(async (tx) => {
+    const raw = await tx.examenPlantilla.create({
+      data: {
+        docenteId: docId,
+        periodoId: periodoId || null,
+        tipo: String(params.body.tipo ?? 'parcial'),
+        titulo,
+        tituloNormalizado: normalizado,
+        instrucciones: params.body.instrucciones ? String(params.body.instrucciones) : null,
+        numeroPaginas: Number(params.body.numeroPaginas ?? 1) || 1,
+        reactivosObjetivo: Number(params.body.reactivosObjetivo ?? 20) || 20,
+        defaultVersionCount: Number(params.body.defaultVersionCount ?? 1) || 1,
+        answerKeyMode: String(params.body.answerKeyMode ?? 'digital'),
+        bookletConfig: JSON.stringify(bookletConfig),
+        omrConfig: JSON.stringify(omrConfig),
+        configuracionPdf: JSON.stringify(configuracionPdf),
+        temas: JSON.stringify(temas || [])
+      }
     });
-  }
 
-  const plantilla = formatearPlantillaPrisma(raw, preguntasIds);
-  return { plantilla };
+    if (preguntasIds.length > 0) {
+      await tx.preguntaPlantilla.createMany({
+        data: preguntasIds.map((preguntaId, orden) => ({
+          plantillaId: raw.id,
+          preguntaId,
+          orden
+        }))
+      });
+    }
+
+    return { plantilla: formatearPlantillaPrisma(raw, preguntasIds) };
+  });
 }
 
 export async function actualizarPlantillaUseCase(params: {
@@ -261,28 +262,30 @@ export async function actualizarPlantillaUseCase(params: {
     data.periodoId = null;
   }
 
-  const raw = await prisma.examenPlantilla.update({
-    where: { id: params.plantillaId },
-    data
-  });
-
-  if (patch.preguntasIds !== undefined) {
-    await prisma.preguntaPlantilla.deleteMany({
-      where: { plantillaId: params.plantillaId }
+  return prisma.$transaction(async (tx) => {
+    const raw = await tx.examenPlantilla.update({
+      where: { id: params.plantillaId },
+      data
     });
-    if (preguntasIds.length > 0) {
-      await prisma.preguntaPlantilla.createMany({
-        data: preguntasIds.map((preguntaId, orden) => ({
-          plantillaId: params.plantillaId,
-          preguntaId,
-          orden
-        }))
-      });
-    }
-  }
 
-  const plantilla = formatearPlantillaPrisma(raw, preguntasIds);
-  return { plantilla };
+    if (patch.preguntasIds !== undefined) {
+      await tx.preguntaPlantilla.deleteMany({
+        where: { plantillaId: params.plantillaId }
+      });
+      if (preguntasIds.length > 0) {
+        await tx.preguntaPlantilla.createMany({
+          data: preguntasIds.map((preguntaId, orden) => ({
+            plantillaId: params.plantillaId,
+            preguntaId,
+            orden
+          }))
+        });
+      }
+    }
+
+    const plantilla = formatearPlantillaPrisma(raw, preguntasIds);
+    return { plantilla };
+  });
 }
 
 export async function archivarPlantillaUseCase(params: {

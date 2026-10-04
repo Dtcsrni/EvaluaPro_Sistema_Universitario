@@ -8,6 +8,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado.js';
 import { BancoPregunta } from '../../src/modulos/modulo_banco_preguntas/modeloBancoPregunta.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { crearApp } from '../../src/app.js';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
@@ -186,6 +187,44 @@ describe('plantillas CRUD + previsualizacion', () => {
 
     const listResp = await request(app).get('/api/examenes/plantillas').set(auth).expect(200);
     expect(listResp.body?.plantillas?.length ?? 0).toBe(0);
+  }, TEST_TIMEOUT_PLANTILLAS_MS);
+
+  it('revierte el alta y la sustitución de preguntas si una relación falla', async () => {
+    const token = await registrarDocente('plantilla-atomica@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const periodoResp = await request(app)
+      .post('/api/periodos')
+      .set(auth)
+      .send({ nombre: 'Periodo atómico', fechaInicio: '2025-01-01', fechaFin: '2025-06-01', grupos: ['A'] })
+      .expect(201);
+    const periodoId = periodoResp.body.periodo._id as string;
+    const preguntasIds = await crearPreguntas({ auth, periodoId, total: 1 });
+    const preguntaInexistente = '00000000-0000-4000-8000-000000000000';
+
+    await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({ periodoId, tipo: 'parcial', titulo: 'Alta fallida', numeroPaginas: 1, preguntasIds: [preguntaInexistente] })
+      .expect(500);
+    expect(await prisma.examenPlantilla.count({ where: { titulo: 'Alta fallida' } })).toBe(0);
+
+    const creada = await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({ periodoId, tipo: 'parcial', titulo: 'Plantilla inicial', numeroPaginas: 1, preguntasIds })
+      .expect(201);
+    const plantillaId = creada.body.plantilla._id as string;
+
+    await request(app)
+      .post(`/api/examenes/plantillas/${plantillaId}`)
+      .set(auth)
+      .send({ titulo: 'Edición fallida', preguntasIds: [preguntaInexistente] })
+      .expect(500);
+
+    const detalle = await request(app).get(`/api/examenes/plantillas/${plantillaId}`).set(auth).expect(200);
+    expect(detalle.body.plantilla.titulo).toBe('Plantilla inicial');
+    expect(detalle.body.plantilla.preguntasIds).toEqual(preguntasIds);
+    expect(await prisma.preguntaPlantilla.count({ where: { plantillaId } })).toBe(1);
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 
   it('permite archivar una plantilla con examenes generados', async () => {
