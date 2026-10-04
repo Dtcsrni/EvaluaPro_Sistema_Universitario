@@ -102,6 +102,18 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByLabelText('Correo')).toBeInTheDocument();
   });
 
+  it('mantiene un acceso de recuperación visible si falta el Client ID y reintenta cargarlo', async () => {
+    const user = userEvent.setup();
+    const onReintentarGoogle = vi.fn().mockResolvedValue(false);
+    render(<SeccionAutenticacion onIngresar={() => {}} onReintentarGoogle={onReintentarGoogle} oauthGoogleDisponible={false} />);
+
+    await user.click(screen.getByRole('button', { name: /Reintentar acceso con Google/i }));
+
+    expect(onReintentarGoogle).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Google todavía no está disponible/i);
+    expect(screen.getByLabelText('Correo')).toBeInTheDocument();
+  });
+
   it('ingresa con correo/contrasena y notifica token', async () => {
     const user = userEvent.setup();
     const onIngresar = vi.fn();
