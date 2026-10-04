@@ -452,6 +452,21 @@ test('bootstrap SQLite docente usa Node nativo y esquema SQL empaquetado', () =>
   assert.match(helper, /Esquema SQLite local preparado con Node nativo/);
 });
 
+test('reparación detiene procesos Node propios antes de reemplazar el payload', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const start = helper.indexOf('function Invoke-PostInstall');
+  const end = helper.indexOf('function Get-EvaluaProOwnedNodeProcessIds', start);
+  assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install y reparación');
+  const postInstall = helper.slice(start, end);
+  const repairGuard = postInstall.indexOf("if ($Mode -eq 'repair')");
+  const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', repairGuard);
+  const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', repairGuard);
+
+  assert.ok(repairGuard >= 0 && stopProcesses > repairGuard, 'repair debe detener los procesos de la instalación');
+  assert.ok(expandPayload > stopProcesses, 'repair debe detenerlos antes de reemplazar archivos');
+  assert.match(postInstall, /No se pudieron detener todos los procesos Node de esta instalaci[oó]n antes de reparar/);
+});
+
 test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
   const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
   assert.match(runner, /apps\\backend\\dist\\index\.js/);
