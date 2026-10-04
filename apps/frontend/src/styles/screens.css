@@ -7073,7 +7073,7 @@
   top: 0.55rem;
   bottom: 0.55rem;
   width: 3px;
-  border-radius: 99px;
+  border-radius: 2px;
   background: color-mix(in srgb, var(--muted) 55%, transparent);
   content: '';
 }
