@@ -81,7 +81,7 @@ describe('consenso OMR v2', () => {
 
   it('acepta una candidata parcial con núcleo aislado y abstiene si falta margen', () => {
     const candidata = {
-      score: 0.15,
+      score: 0.18,
       fillRatioCore: 0.38,
       shapeCompactness: 0.16,
       centerDarknessDelta: 0.04,
@@ -95,6 +95,7 @@ describe('consenso OMR v2', () => {
       fillCoreMargin: 0.1
     };
     expect(debeAbstenerseMarcaParcialOmr(candidata)).toBe(false);
+    expect(debeAbstenerseMarcaParcialOmr({ ...candidata, score: 0.179 })).toBe(true);
     expect(debeAbstenerseMarcaParcialOmr({ ...candidata, fillCoreMargin: 0.079 })).toBe(true);
     expect(debeAbstenerseMarcaParcialOmr({ ...candidata, fillCoreCompetitorScore: 0.081 })).toBe(true);
     expect(debeAbstenerseMarcaParcialOmr({ ...candidata, permitirConfianzaMarcada: false })).toBe(true);

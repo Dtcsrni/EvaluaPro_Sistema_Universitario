@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: package-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   empaquetado:
@@ -28,6 +28,10 @@ jobs:
         shell: bash
         run: |
           VERSION="$(node --input-type=module -e "import packageJson from './package.json' with { type: 'json' }; process.stdout.write(String(packageJson.version))")"
+          if [[ "$GITHUB_REF" == refs/tags/* && "${GITHUB_REF_NAME#v}" != "$VERSION" ]]; then
+            echo "La tag $GITHUB_REF_NAME no coincide con package.json ($VERSION)." >&2
+            exit 1
+          fi
           SHA_SHORT="${GITHUB_SHA::12}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "sha_short=$SHA_SHORT" >> "$GITHUB_OUTPUT"

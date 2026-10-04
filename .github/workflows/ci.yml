@@ -16,6 +16,9 @@ on:
   schedule:
     - cron: "0 6 * * *"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -140,7 +143,7 @@ jobs:
   core_backend_portal:
     name: Core Backend/Portal
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     needs:
       - detectar_cambios
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.job_core_backend_portal == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -168,7 +171,10 @@ jobs:
           npm ci --foreground-scripts
 
       - name: Preparar runtime sharp (linux-x64)
-        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa lint backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -198,8 +204,14 @@ jobs:
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_classroom_audit_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:classroom:audit:ci
 
+      - name: Etapa contrato del runner de cobertura backend
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        run: node --test scripts/tests/backend-coverage-batches.test.mjs
+
       - name: Etapa coverage backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        env:
+          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "3600000"
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa coverage portal

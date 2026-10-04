@@ -195,6 +195,55 @@ test('release stable gate expone GH_TOKEN para gh cli', () => {
   assert.match(workflow, /validate-stable-promotion\.mjs/);
 });
 
+test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
+  const readOnlyWorkflows = [
+    'ci.yml',
+    'ci-backend.yml',
+    'ci-frontend.yml',
+    'ci-portal.yml',
+    'ci-docs.yml',
+    'ci-antivirus-gate.yml',
+    'ci-policy-audit.yml'
+  ];
+
+  for (const workflowName of readOnlyWorkflows) {
+    const workflow = fs.readFileSync(path.join(workflowDir, workflowName), 'utf8');
+    assert.match(workflow, /^permissions:\s*\n\s+contents:\s*read\s*$/m, workflowName);
+  }
+
+  const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  assert.match(installerWorkflow, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(installerWorkflow, /installer_windows:[\s\S]*?permissions:\s*\n\s+contents:\s*read/);
+  assert.match(installerWorkflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+});
+
+test('publicaciones externas serializan ejecuciones en curso', () => {
+  const nonInterruptibleWorkflows = [
+    'package.yml',
+    'release-beta.yml',
+    'release-stable-gate.yml',
+    'tag-release-guard.yml'
+  ];
+
+  for (const workflowName of nonInterruptibleWorkflows) {
+    const workflow = fs.readFileSync(path.join(workflowDir, workflowName), 'utf8');
+    assert.match(workflow, /cancel-in-progress:\s*false/, workflowName);
+  }
+
+  const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  assert.match(installerWorkflow, /cancel-in-progress:\s*\$\{\{\s*!startsWith\(github\.ref, 'refs\/tags\/v'\)\s*\}\}/);
+});
+
+test('package workflow rechaza tag que no coincide con package.json antes de publicar', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
+  const validationIndex = workflow.indexOf('${GITHUB_REF_NAME#v}');
+  const pushIndex = workflow.indexOf('docker push');
+
+  assert.ok(validationIndex >= 0, 'falta validación de versión de tag');
+  assert.ok(pushIndex > validationIndex, 'la validación debe ocurrir antes de publicar imágenes');
+  assert.match(workflow, /no coincide con package\.json/);
+});
+
 test('qa:full genera el manifiesto despues de todos los reportes que incluye', () => {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const qaFull = String(packageJson.scripts?.['qa:full'] ?? '');

@@ -164,9 +164,13 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
-  assert.match(workflow, /Publicar release assets \(tags v\*\)/);
-  assert.match(workflow, /steps\.stable_release_assets\.outputs\.files/);
+  assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*installer_windows/);
+  assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@v6/);
+  assert.match(workflow, /name: Publicar release assets \(tags v\*\)[\s\S]*?softprops\/action-gh-release@v2/);
   assert.match(workflow, /make_latest:\s*false/);
+  assert.match(workflow, /permissions:\s*\n\s*contents:\s*read/);
+  assert.match(workflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
+  assert.doesNotMatch(workflow, /stable_release_assets/);
   assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.match(stableGateWorkflow, /gh release edit "v\$\{\{ steps\.resolve_version\.outputs\.target \}\}".*--latest/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
@@ -333,6 +337,7 @@ test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   assert.match(helper, /Join-Path \$programDataRoot 'EvaluaPro'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix/);
   assert.match(helper, /localDataDir = Join-Path \$localDataRoot 'data'/);
+  assert.match(helper, /StartsWith\(\$qaRootPrefix,[\s\S]*?\$effectiveDatabaseUrl = \$defaultDatabaseUrl/);
 });
 
 test('runner dummy usa API docente y no confunde puerto web del dashboard', () => {
@@ -341,6 +346,12 @@ test('runner dummy usa API docente y no confunde puerto web del dashboard', () =
   assert.match(runner, /http:\/\/127\.0\.0\.1:4000\/api/);
   assert.match(runner, /Dashboard port sirve UI\/control/);
   assert.match(runner, /E2E_DOCENTE_SQLITE_PATH/);
+  assert.match(runner, /Start-Process -FilePath 'node\.exe'.*RedirectStandardOutput \$stdoutPath -RedirectStandardError \$stderrPath/);
+  assert.match(runner, /dummy-data-cycle\.stderr\.log/);
+  assert.match(runner, /WaitForExit\(180000\)/);
+  assert.match(runner, /\$seedResult\.verificado -eq \$true/);
+  assert.match(runner, /\$cleanup -contains 'alumnos-local:3'/);
+  assert.match(runner, /\$cleanup -contains 'cuenta:local-db'/);
 });
 
 test('fallback dummy queda confinado a SQLite bajo LOCALAPPDATA', () => {
@@ -445,11 +456,33 @@ test('bootstrap SQLite docente usa Node nativo y esquema SQL empaquetado', () =>
   assert.match(helper, /Esquema SQLite local preparado con Node nativo/);
 });
 
+test('reparación detiene procesos Node propios antes de reemplazar el payload', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const start = helper.indexOf('function Invoke-PostInstall');
+  const end = helper.indexOf('function Get-EvaluaProOwnedNodeProcessIds', start);
+  assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install y reparación');
+  const postInstall = helper.slice(start, end);
+  const repairGuard = postInstall.indexOf("if ($Mode -eq 'repair')");
+  const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', repairGuard);
+  const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', repairGuard);
+
+  assert.ok(repairGuard >= 0 && stopProcesses > repairGuard, 'repair debe detener los procesos de la instalación');
+  assert.ok(expandPayload > stopProcesses, 'repair debe detenerlos antes de reemplazar archivos');
+  assert.match(postInstall, /No se pudieron detener todos los procesos Node de esta instalaci[oó]n antes de reparar/);
+});
+
 test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
   const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
   assert.match(runner, /apps\\backend\\dist\\index\.js/);
   assert.match(runner, /apps\\frontend\\dist-docente\\index\.html/);
   assert.match(runner, /Wait-InstalledPayload/);
+});
+
+test('runner E2E PowerShell conserva UTF-8 en Windows PowerShell 5.1', () => {
+  const runnerPath = path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1');
+  const runnerBytes = fs.readFileSync(runnerPath);
+  assert.deepEqual(runnerBytes.subarray(0, 3), Buffer.from([0xef, 0xbb, 0xbf]));
+  assert.match(runnerBytes.toString('utf8'), /Instalar \/ Actualizar versión/);
 });
 
 test('E2E docente exige elevación solo para el destino per-machine real', () => {
@@ -2200,14 +2233,28 @@ test('runner E2E tolera estados finales sin propiedad timeout', () => {
   assert.match(runner, /stateTimedOut/);
 });
 
-test('runner E2E acepta post-install helper JSON como estado estable', () => {
+test('runner E2E espera la respuesta exitosa del helper antes de declarar estado estable', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
-  assert.match(runner, /function Get-LatestPostInstallHelperState/);
+  assert.match(runner, /function Get-LatestInstallerHelperState/);
   assert.match(runner, /MinLastWriteTime/);
   assert.match(runner, /LastWriteTime -ge \$MinLastWriteTime/);
-  assert.match(runner, /post-install-\*\.response\.json/);
-  assert.match(runner, /Post-install helper OK/);
+  assert.match(runner, /\$responsePrefix = if \(\$Mode -eq 'uninstall'\) \{ 'uninstall' \} else \{ 'post-install' \}/);
+  assert.match(runner, /\$responsePrefix \+ '-\*\.response\.json'/);
+  assert.match(runner, /Get-LatestInstallerHelperState -Mode \$Mode/);
+  assert.match(runner, /Installer helper OK/);
+});
+
+test('runner E2E no confunde una etapa previa con "ok" con la finalización', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  const start = runner.indexOf('function Wait-InstallerStableState');
+  const end = runner.indexOf('function Get-LatestInstallerHelperState', start);
+  assert.ok(start >= 0 && end > start, 'debe localizar el contrato de espera estable');
+  const stableWait = runner.slice(start, end);
+
+  assert.doesNotMatch(stableWait, /instalaci[oó]n\.\*ok/i);
+  assert.doesNotMatch(stableWait, /instalaci[oó]n completada/i);
+  assert.match(stableWait, /Get-LatestInstallerHelperState -Mode \$Mode -MinLastWriteTime \$OperationStartedAt/);
 });
 
 test('runner E2E ejecuta broker instalado preservando rutas con espacios', () => {
