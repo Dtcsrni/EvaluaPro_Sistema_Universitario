@@ -70,25 +70,39 @@ jobs:
       - name: Resolver version objetivo
         id: resolve_version
         shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            TARGET="${{ inputs.version }}"
-          else
-            TARGET="${GITHUB_REF_NAME}"
-          fi
+          set -euo pipefail
+          TARGET="${INPUT_VERSION:-$GITHUB_REF_NAME}"
           TARGET="${TARGET#v}"
+          if [[ ! "$TARGET" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "La versión estable debe tener formato SemVer numérico X.Y.Z: $TARGET" >&2
+            exit 1
+          fi
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
       - name: Materializar manifest del instalador publicado
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
+          REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
+          set -euo pipefail
+          if [[ ! "$TARGET_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Versión estable inválida para descargar el manifest." >&2
+            exit 1
+          fi
+          if [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Repositorio GitHub inválido." >&2
+            exit 1
+          fi
           mkdir -p dist/installer
-          TAG="v${{ steps.resolve_version.outputs.target }}"
+          TAG="v$TARGET_VERSION"
           for attempt in {1..170}; do
             if gh release download "$TAG" \
-              --repo "${{ github.repository }}" \
+              --repo "$REPOSITORY" \
               --pattern "EvaluaPro-release-manifest.json" \
               --dir "dist/installer" \
               --clobber; then
@@ -104,19 +118,45 @@ jobs:
       - name: Ejecutar gate estable
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          node scripts/release/validate-stable-promotion.mjs
-          --repo=${{ github.repository }}
-          --version=${{ steps.resolve_version.outputs.target }}
-          --required-streak=10
-          --workflow=ci.yml
-          --branch=main
-          ${{ inputs.evidence_dir && format('--evidence-dir={0}', inputs.evidence_dir) || '' }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
+          EVIDENCE_DIR: ${{ inputs.evidence_dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$TARGET_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Versión estable inválida para el gate." >&2
+            exit 1
+          fi
+          if [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Repositorio GitHub inválido." >&2
+            exit 1
+          fi
+          args=(
+            "--repo=$REPOSITORY"
+            "--version=$TARGET_VERSION"
+            "--required-streak=10"
+            "--workflow=ci.yml"
+            "--branch=main"
+          )
+          if [[ -n "$EVIDENCE_DIR" ]]; then
+            args+=("--evidence-dir=$EVIDENCE_DIR")
+          fi
+          node scripts/release/validate-stable-promotion.mjs "${args[@]}"
 
       - name: Marcar release como Latest
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "v${{ steps.resolve_version.outputs.target }}" --repo "${{ github.repository }}" --latest
+          TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$TARGET_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ || ! "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Versión o repositorio inválido para promover Latest." >&2
+            exit 1
+          fi
+          gh release edit "v$TARGET_VERSION" --repo "$REPOSITORY" --latest
 
       - name: Publicar decision de auditoria
         if: always()

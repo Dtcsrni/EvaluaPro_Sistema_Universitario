@@ -51,7 +51,10 @@ jobs:
           npm run docs:generate
 
       - name: Commit y push si hay cambios
+        env:
+          TARGET_BRANCH: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
           if git diff --quiet; then
             echo "Sin cambios autogenerados"
             exit 0
@@ -62,7 +65,11 @@ jobs:
 
           git add docs
           git commit -m "chore(docs): autogenerar docs y diagramas"
-          if ! git push origin HEAD:${{ github.ref_name }}; then
+          if [[ "$GITHUB_REF" != refs/heads/* ]] || ! git check-ref-format "refs/heads/$TARGET_BRANCH"; then
+            echo "Ref destino no es una rama valida: $TARGET_BRANCH" >&2
+            exit 1
+          fi
+          if ! git push origin "HEAD:refs/heads/$TARGET_BRANCH"; then
             echo "::warning::No se pudo hacer push automático (rama protegida o reglas de repositorio)."
             echo "::warning::Los docs se generaron, pero deben incorporarse por PR/manualmente."
             exit 0

@@ -216,9 +216,19 @@ jobs:
 
       - name: Etapa hash/manifest beta
         shell: powershell
+        env:
+          BETA_TAG: ${{ needs.beta_gate.outputs.beta_tag }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
         run: |
-          $tag = "${{ needs.beta_gate.outputs.beta_tag }}"
-          $base = "https://github.com/${{ github.repository }}/releases/download/$tag"
+          $tag = $env:BETA_TAG
+          if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-beta\.(0|[1-9][0-9]*)$') {
+            throw "Formato de tag beta inválido: $tag"
+          }
+          $repository = $env:RELEASE_REPOSITORY
+          if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
+            throw "Repositorio de release inválido."
+          }
+          $base = "https://github.com/$repository/releases/download/$tag"
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1 -Channel beta -ReleaseBaseUrl "$base"
 
       - name: Antivirus gate del Installer Hub
@@ -241,10 +251,16 @@ jobs:
       - name: Cargar notas beta
         id: notes
         shell: bash
+        env:
+          BETA_VERSION: ${{ needs.beta_gate.outputs.beta_version }}
         run: |
           set -euo pipefail
-          notes_path="reports/release/beta/${{ needs.beta_gate.outputs.beta_version }}/notes.md"
-          if [ -z "$notes_path" ] || [ ! -f "$notes_path" ]; then
+          if [[ ! "$BETA_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-beta\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Version beta inválida para buscar notas." >&2
+            exit 1
+          fi
+          notes_path="reports/release/beta/$BETA_VERSION/notes.md"
+          if [ ! -f "$notes_path" ]; then
             echo "No se encontro notes.md de beta." >&2
             exit 1
           fi

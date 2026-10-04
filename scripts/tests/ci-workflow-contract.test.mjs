@@ -330,7 +330,7 @@ test('release stable gate es el unico que promueve Latest despues de validar', (
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const stableGateWorkflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const validateIndex = stableGateWorkflow.indexOf('validate-stable-promotion.mjs');
-  const latestIndex = stableGateWorkflow.indexOf('gh release edit "v${{ steps.resolve_version.outputs.target }}"');
+  const latestIndex = stableGateWorkflow.indexOf('gh release edit "v$TARGET_VERSION"');
 
   assert.match(installerWorkflow, /make_latest:\s*false/);
   assert.doesNotMatch(installerWorkflow, /make_latest:\s*\$\{\{[^}]*!\(/);
@@ -338,6 +338,23 @@ test('release stable gate es el unico que promueve Latest despues de validar', (
   assert.ok(validateIndex >= 0, 'release stable gate debe ejecutar validate-stable-promotion');
   assert.ok(latestIndex > validateIndex, 'release stable gate debe marcar Latest solo despues de validar');
   assert.match(stableGateWorkflow.slice(latestIndex), /--latest/);
+});
+
+test('release stable gate valida SemVer numérico y pasa argumentos con array sin interpolacion shell', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const resolveIndex = workflow.indexOf('TARGET="${INPUT_VERSION:-$GITHUB_REF_NAME}"');
+  const semverIndex = workflow.indexOf('La versión estable debe tener formato SemVer numérico X.Y.Z');
+  const tagIndex = workflow.indexOf('TAG="v$TARGET_VERSION"');
+  const argsIndex = workflow.indexOf('args=(');
+  const invokeIndex = workflow.indexOf('node scripts/release/validate-stable-promotion.mjs "${args[@]}"');
+
+  assert.ok(resolveIndex >= 0, 'la versión de entrada debe llegar por env');
+  assert.ok(semverIndex > resolveIndex, 'SemVer numérico debe validarse antes de usar la versión');
+  assert.ok(tagIndex > semverIndex, 'la tag del release debe construirse despues de validar SemVer');
+  assert.ok(argsIndex >= 0, 'los argumentos deben componerse en un array Bash');
+  assert.ok(invokeIndex > argsIndex, 'el CLI debe recibir el array como argumentos separados');
+  assert.match(workflow, /INPUT_VERSION:\s*\$\{\{ inputs\.version \}\}/);
+  assert.match(workflow, /EVIDENCE_DIR:\s*\$\{\{ inputs\.evidence_dir \}\}/);
 });
 
 test('Dockerfile backend incluye schema Prisma antes del build', () => {

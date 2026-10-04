@@ -223,7 +223,15 @@ jobs:
 
       - name: Preparar base para diff coverage (PR)
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --depth=1
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_REF" ]] || ! git check-ref-format "refs/heads/$BASE_REF"; then
+            echo "Base ref inválida para diff coverage." >&2
+            exit 1
+          fi
+          git fetch --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
 
       - name: Etapa diff-coverage-check
         env:
@@ -301,7 +309,15 @@ jobs:
 
       - name: Preparar base para diff coverage (PR)
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --depth=1
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_REF" ]] || ! git check-ref-format "refs/heads/$BASE_REF"; then
+            echo "Base ref inválida para diff coverage." >&2
+            exit 1
+          fi
+          git fetch --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
 
       - name: Etapa diff-coverage-check
         env:

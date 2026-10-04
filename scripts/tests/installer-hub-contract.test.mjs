@@ -172,7 +172,11 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /stable_release_assets/);
   assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
-  assert.match(stableGateWorkflow, /gh release edit "v\$\{\{ steps\.resolve_version\.outputs\.target \}\}".*--latest/);
+  assert.match(stableGateWorkflow, /gh release edit "v\$TARGET_VERSION" --repo "\$REPOSITORY" --latest/);
+  assert.match(workflow, /RELEASE_TAG:\s*\$\{\{ github\.ref_name \}\}/);
+  assert.match(workflow, /RELEASE_REPOSITORY:\s*\$\{\{ github\.repository \}\}/);
+  assert.match(workflow, /INSTALLER_CI_RUN_ID:\s*\$\{\{ github\.run_id \}\}/);
+  assert.match(workflow, /Formato de tag de release inválido/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/_internal\/docente-local\/EvaluaPro-docente-local\.msi/);
   assert.doesNotMatch(workflow, /saas-completo\/EvaluaPro-InstallerHub-saas-completo/);
@@ -1687,8 +1691,11 @@ test('package workflow publica imagenes docente GHCR versionadas', () => {
   assert.match(workflow, /docker\/login-action@v3/);
   assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-api-docente/);
   assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-web-docente/);
-  assert.match(workflow, /docker push \$\{\{ steps\.meta\.outputs\.api_image \}\}:\$\{\{ steps\.meta\.outputs\.version \}\}/);
-  assert.match(workflow, /docker push \$\{\{ steps\.meta\.outputs\.web_image \}\}:\$\{\{ steps\.meta\.outputs\.version \}\}/);
+  assert.match(workflow, /API_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.api_image \}\}/);
+  assert.match(workflow, /WEB_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.web_image \}\}/);
+  assert.match(workflow, /docker push "\$API_IMAGE:\$IMAGE_VERSION"/);
+  assert.match(workflow, /docker push "\$WEB_IMAGE:\$IMAGE_VERSION"/);
+  assert.doesNotMatch(workflow, /docker push \$\{\{/);
 });
 
 test.skip('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
