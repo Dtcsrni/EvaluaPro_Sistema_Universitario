@@ -44,7 +44,7 @@ export const esquemaCrearPolitica = z
     nombre: z.string().trim().min(3).max(120),
     descripcion: z.string().trim().max(400).optional(),
     parametros: z.union([parametrosLisc, parametrosSv]).optional(),
-    clientRequestId: z.string().uuid().optional()
+    clientRequestId: z.string().uuid()
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -68,6 +68,17 @@ export const esquemaCrearPolitica = z
       }
     }
   });
+
+export const esquemaArchivarPolitica = z.object({
+  motivo: z.string().trim().min(3).max(400),
+  clientRequestId: z.string().uuid(),
+  confirmarEliminacion: z.literal(true)
+}).strict();
+
+export const esquemaListarAuditoriaPolitica = z.object({
+  limite: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
 
 export const esquemaActualizarEvidencia = z.object({
   periodoId: esquemaObjectId,

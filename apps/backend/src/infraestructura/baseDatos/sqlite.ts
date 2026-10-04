@@ -47,6 +47,7 @@ export async function conectarSqlite(): Promise<void> {
   ejecutarMigracionEvidenciasEvaluacion();
   ejecutarMigracionTemariosAuditoria();
   ejecutarMigracionTemasBancoAuditoria();
+  ejecutarMigracionPoliticasCalificacionAuditoria();
 }
 
 function resolverRutaArchivoSqlite(urlConfigurada?: string): string | null {
@@ -152,6 +153,18 @@ function ejecutarMigracionTemasBancoAuditoria() {
   const candidatos = [
     path.resolve(process.cwd(), 'scripts', 'migrate-temas-banco-auditoria-sqlite.mjs'),
     path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-temas-banco-auditoria-sqlite.mjs')
+  ];
+  const script = candidatos.find((candidate) => fs.existsSync(candidate));
+  if (!script) return;
+  execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
+}
+
+function ejecutarMigracionPoliticasCalificacionAuditoria() {
+  const databasePath = resolverRutaArchivoSqlite(databaseUrl);
+  if (!databasePath) return;
+  const candidatos = [
+    path.resolve(process.cwd(), 'scripts', 'migrate-politicas-calificacion-auditoria-sqlite.mjs'),
+    path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-politicas-calificacion-auditoria-sqlite.mjs')
   ];
   const script = candidatos.find((candidate) => fs.existsSync(candidate));
   if (!script) return;

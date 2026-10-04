@@ -877,6 +877,26 @@ export class EvaluaproClient {
     return (await this.request(`/evaluaciones/politicas/${encodeURIComponent(codigo)}?${query}`)).data.politica;
   }
 
+  async listarAuditoriaPoliticaCalificacion(codigo, { limite = 50, cursor } = {}) {
+    const query = new URLSearchParams({ limite: String(limite) });
+    if (cursor) query.set('cursor', cursor);
+    return (await this.request(`/evaluaciones/politicas/${encodeURIComponent(codigo)}/auditoria?${query}`)).data;
+  }
+
+  async listarTodaAuditoriaPoliticaCalificacion(codigo, { limite = 50 } = {}) {
+    const eventos = [];
+    const cursores = new Set();
+    let cursor;
+    do {
+      const pagina = await this.listarAuditoriaPoliticaCalificacion(codigo, { limite, ...(cursor ? { cursor } : {}) });
+      eventos.push(...pagina.eventos);
+      cursor = pagina.nextCursor ?? undefined;
+      if (cursor && cursores.has(cursor)) throw new Error('La paginación de auditoría de política repitió un cursor');
+      if (cursor) cursores.add(cursor);
+    } while (cursor);
+    return eventos;
+  }
+
   async obtenerResumenEvaluacion(periodoId, alumnoId) {
     const query = new URLSearchParams({ periodoId: String(periodoId) });
     return (await this.request(`/evaluaciones/v2/alumnos/${encodeURIComponent(alumnoId)}/resumen?${query}`)).data.resumen;
@@ -908,10 +928,16 @@ export class EvaluaproClient {
     })).data.politica;
   }
 
-  async archivarPoliticaCalificacion(codigo, { confirmarEliminacion = false } = {}) {
+  async archivarPoliticaCalificacion(codigo, { confirmarEliminacion = false, clientRequestId, motivo } = {}) {
     if (!confirmarEliminacion) throw new Error('Archivar una política requiere confirmarEliminacion: true');
-    return (await this.request(`/evaluaciones/politicas/${encodeURIComponent(codigo)}`, {
-      method: 'DELETE', confirmarEliminacion
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(clientRequestId ?? ''))) {
+      throw new TypeError('clientRequestId UUID es obligatorio para recuperar reintentos de archivo de política');
+    }
+    if (typeof motivo !== 'string' || motivo.trim().length < 3) {
+      throw new TypeError('motivo de archivo de política debe contener al menos 3 caracteres');
+    }
+    return (await this.request(`/evaluaciones/politicas/${encodeURIComponent(codigo)}/archivar`, {
+      method: 'POST', body: { clientRequestId, motivo: motivo.trim(), confirmarEliminacion: true }
     })).data.politica;
   }
 

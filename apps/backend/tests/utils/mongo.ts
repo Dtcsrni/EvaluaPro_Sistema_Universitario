@@ -130,6 +130,7 @@ export async function limpiarMongoTest() {
       'solicitudes_revision',
       'calificaciones',
       'politicas_calificacion',
+      'auditoria_politicas_calificacion',
       'examenes_generados',
       'pregunta_plantilla',
       'examenes_plantilla',

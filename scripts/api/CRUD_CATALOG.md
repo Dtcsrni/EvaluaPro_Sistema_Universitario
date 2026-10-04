@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 240 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 242 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -118,7 +118,9 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Evaluaciones | `/evaluaciones/evidencias/{evidenciaId}/restaurar` | POST | Bearer | evaluaciones:gestionar | esquemaRestaurarEvidencia |
 | Evaluaciones | `/evaluaciones/examenes/componentes` | POST | Bearer | evaluaciones:gestionar | esquemaComponenteExamen |
 | Evaluaciones | `/evaluaciones/politicas` | GET, POST | Bearer | evaluaciones:leer, evaluaciones:gestionar | esquemaCrearPolitica |
-| Evaluaciones | `/evaluaciones/politicas/{codigo}` | GET, PUT, DELETE | Bearer | evaluaciones:leer, evaluaciones:gestionar | esquemaCrearPolitica |
+| Evaluaciones | `/evaluaciones/politicas/{codigo}` | GET, PUT, DELETE | Bearer | evaluaciones:leer, evaluaciones:gestionar | esquemaCrearPolitica, esquemaArchivarPolitica |
+| Evaluaciones | `/evaluaciones/politicas/{codigo}/archivar` | POST | Bearer | evaluaciones:gestionar | esquemaArchivarPolitica |
+| Evaluaciones | `/evaluaciones/politicas/{codigo}/auditoria` | GET | Bearer | evaluaciones:leer | esquemaListarAuditoriaPolitica |
 | Evaluaciones | `/evaluaciones/v2/alumnos/{alumnoId}/resumen` | GET | Bearer | evaluaciones:leer | — |
 | Evaluaciones | `/evaluaciones/v2/classroom/cursos/{courseId}/mapeo-alumnos` | PUT | Bearer | classroom:pull | esquemaActualizarMapeoAlumnosCurso |
 | Evaluaciones | `/evaluaciones/v2/classroom/importaciones/ejecutar` | POST | Bearer | classroom:pull | esquemaEjecutarImportacionClassroom |

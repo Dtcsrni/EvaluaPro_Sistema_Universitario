@@ -691,6 +691,19 @@ export async function publicarReactivo(docenteId: string, reactivoId: string) {
   if (!reactivo) throw new ErrorAplicacion('REACTIVO_NO_ENCONTRADO', 'Reactivo no encontrado', 404);
   if (reactivo.estado === 'draft') throw new ErrorAplicacion('REACTIVO_NO_REVISADO', 'El reactivo debe pasar por revisión antes de publicarse', 409);
   if (reactivo.estado === 'retired') throw new ErrorAplicacion('REACTIVO_RETIRADO', 'Un reactivo retirado no puede publicarse', 409);
+  if (reactivo.estado === 'published') {
+    if (!reactivo.legacyPreguntaId) {
+      throw new ErrorAplicacion('REACTIVO_PUBLICADO_INCONSISTENTE', 'El reactivo publicado no tiene una referencia legada recuperable', 409);
+    }
+    const legado = await prisma.bancoPregunta.findFirst({
+      where: { id: reactivo.legacyPreguntaId, docenteId },
+      select: { id: true, activo: true }
+    });
+    if (!legado?.activo) {
+      throw new ErrorAplicacion('REACTIVO_PUBLICADO_INCONSISTENTE', 'La representación publicada del reactivo no está disponible', 409);
+    }
+    return { reactivo, legacyPreguntaId: legado.id };
+  }
   const version = await prisma.reactivoVersion.findFirst({ where: { reactivoId, numeroVersion: reactivo.versionActual }, include: { opciones: true } });
   if (!version) throw new ErrorAplicacion('REACTIVO_SIN_VERSION', 'El reactivo no tiene una versión válida', 409);
   const asignacion = await prisma.reactivoAsignacion.findFirst({ where: { reactivoId } });
@@ -700,6 +713,22 @@ export async function publicarReactivo(docenteId: string, reactivoId: string) {
   const imagenUrl = await imagenDesdeMetadata(version.metadataJson, docenteId);
 
   const resultado = await prisma.$transaction(async (tx) => {
+    const reservado = await tx.reactivo.updateMany({
+      where: { id: reactivoId, docenteId, estado: 'review', versionActual: reactivo.versionActual },
+      data: { estado: 'published' }
+    });
+    if (reservado.count === 0) {
+      const vigente = await tx.reactivo.findFirst({ where: { id: reactivoId, docenteId } });
+      if (vigente?.estado === 'published' && vigente.legacyPreguntaId) {
+        const legadoVigente = await tx.bancoPregunta.findFirst({
+          where: { id: vigente.legacyPreguntaId, docenteId, activo: true },
+          select: { id: true }
+        });
+        if (legadoVigente) return { actualizado: vigente, legacyId: legadoVigente.id };
+      }
+      throw new ErrorAplicacion('REACTIVO_ESTADO_CAMBIO', 'El reactivo cambió mientras se publicaba; consulta su estado vigente', 409);
+    }
+
     let legacyId = reactivo.legacyPreguntaId;
     if (!legacyId) {
       const legacy = await tx.bancoPregunta.create({ data: { docenteId, periodoId: asignacion.periodoId, tema: tema.nombre, activo: true, versionActual: 1, recoverySource: JSON.stringify({ origen: 'reactivo_canonico', reactivoId }) } });
