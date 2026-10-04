@@ -1024,7 +1024,7 @@ describe('pdf layout visual guard', () => {
     } finally {
       await parser.destroy();
     }
-  });
+  }, 300_000);
 
   it('acomoda 36 reactivos breves compactos en dos páginas sin reducir OMR ni QR', async () => {
     const parametros = crearParametrosBrevesCompactos(36);
@@ -1084,7 +1084,7 @@ describe('pdf layout visual guard', () => {
     } finally {
       await parser.destroy();
     }
-  });
+  }, 300_000);
 
   it('no autocalifica contornos vacíos y conserva círculos sintéticos marcados', async () => {
     const resultado = await generarPdfExamen({

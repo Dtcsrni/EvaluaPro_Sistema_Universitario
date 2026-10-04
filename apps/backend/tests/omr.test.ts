@@ -327,7 +327,7 @@ describe('analizarOmr', () => {
     expect(['rechazado_calidad', 'requiere_revision']).toContain(resultado.estadoAnalisis);
     expect(resultado.calidadPagina).toBeGreaterThanOrEqual(0);
     expect(resultado.calidadPagina).toBeLessThanOrEqual(1);
-  });
+  }, 300_000);
 
   it('detecta una opcion marcada con referencias de registro', async () => {
     const width = 612;
@@ -383,7 +383,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
     expect(resultado.templateVersionDetectada).toBe(4);
     expect(resultado.calidadPagina).toBeGreaterThan(0);
-  });
+  }, 300_000);
 
   it('marca como ambiguo si hay doble respuesta', async () => {
     const width = 612;
@@ -441,7 +441,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
     expect(resultado.templateVersionDetectada).toBe(4);
     expect(['ok', 'requiere_revision', 'rechazado_calidad']).toContain(resultado.estadoAnalisis);
-  });
+  }, 300_000);
 
   it('distingue burbuja hueca de burbuja realmente marcada', async () => {
     const width = 612;

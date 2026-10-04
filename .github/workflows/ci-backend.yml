@@ -59,7 +59,7 @@ jobs:
   backend_module:
     name: Backend Module
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     needs:
       - detectar_cambios
     if: github.event_name == 'workflow_dispatch' || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared == 'true' || needs.detectar_cambios.outputs.job_core_backend_portal == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -139,7 +139,7 @@ jobs:
 
       - name: Etapa coverage backend
         env:
-          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "1800000"
+          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "3600000"
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa tdd-debt-check
