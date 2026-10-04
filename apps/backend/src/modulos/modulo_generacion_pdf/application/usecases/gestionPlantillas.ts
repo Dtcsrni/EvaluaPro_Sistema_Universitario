@@ -4,6 +4,8 @@
  * Responsabilidad: concentrar reglas de CRUD de plantillas sin depender de
  * Express, preservando validaciones multi-tenant y consistencia de dominio.
  */
+import { createHash, randomUUID } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
 import { guardarEnPapelera } from '../../../../modulos/modulo_papelera/servicioPapelera.js';
@@ -52,6 +54,76 @@ function formatearPlantillaPrisma(raw: any, preguntasIds: string[] = []) {
   };
 }
 
+type AccionPlantilla = 'crear' | 'actualizar' | 'archivar' | 'eliminar';
+
+function canonicalizar(valor: unknown): unknown {
+  if (Array.isArray(valor)) return valor.map(canonicalizar);
+  if (valor && typeof valor === 'object') {
+    return Object.fromEntries(Object.entries(valor).sort(([a], [b]) => a.localeCompare(b)).map(([clave, contenido]) => [clave, canonicalizar(contenido)]));
+  }
+  return valor;
+}
+
+function prepararMutacionPlantilla(accion: AccionPlantilla, plantillaId: string | null, payload: unknown, requestId?: unknown) {
+  const clientRequestId = String(requestId ?? randomUUID()).trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)) {
+    throw new ErrorAplicacion('PLANTILLA_REQUEST_ID_INVALIDO', 'clientRequestId debe ser UUID', 400);
+  }
+  const requestHash = createHash('sha256')
+    .update(JSON.stringify(canonicalizar({ accion, plantillaId, payload })))
+    .digest('hex');
+  return { clientRequestId, requestHash };
+}
+
+async function recuperarMutacionPlantilla(
+  tx: Prisma.TransactionClient,
+  params: { docenteId: string; plantillaId: string | null; accion: AccionPlantilla; clientRequestId: string; requestHash: string }
+) {
+  const evento = await tx.examenPlantillaAuditoria.findUnique({
+    where: { docenteId_clientRequestId: { docenteId: params.docenteId, clientRequestId: params.clientRequestId } }
+  });
+  if (!evento) return null;
+  if (evento.accion !== params.accion || evento.plantillaId !== (params.plantillaId ?? evento.plantillaId) || evento.requestHash !== params.requestHash) {
+    throw new ErrorAplicacion('PLANTILLA_REQUEST_ID_REUTILIZADO', 'clientRequestId ya fue utilizado para otra mutación o payload.', 409);
+  }
+  return { ...(JSON.parse(evento.despues) as Record<string, unknown>), repetida: true, clientRequestId: params.clientRequestId };
+}
+
+async function consultarRepeticionPlantilla(params: {
+  docenteId: string;
+  plantillaId: string | null;
+  accion: AccionPlantilla;
+  clientRequestId: string;
+  requestHash: string;
+}) {
+  return prisma.$transaction((tx) => recuperarMutacionPlantilla(tx, params));
+}
+
+async function registrarMutacionPlantilla(
+  tx: Prisma.TransactionClient,
+  params: {
+    docenteId: string;
+    plantillaId: string;
+    accion: AccionPlantilla;
+    clientRequestId: string;
+    requestHash: string;
+    antes: unknown;
+    despues: unknown;
+  }
+) {
+  await tx.examenPlantillaAuditoria.create({
+    data: {
+      ...params,
+      antes: params.antes === null ? null : JSON.stringify(params.antes),
+      despues: JSON.stringify(params.despues)
+    }
+  });
+}
+
+function serializarCursorAuditoria(evento: { id: string; createdAt: Date }) {
+  return Buffer.from(JSON.stringify({ id: evento.id, createdAt: evento.createdAt.toISOString() }), 'utf8').toString('base64url');
+}
+
 export async function listarPlantillasUseCase(params: {
   docenteId: unknown;
   periodoId?: unknown;
@@ -98,6 +170,12 @@ export async function crearPlantillaUseCase(params: {
   body: Record<string, unknown>;
 }) {
   const docId = String(params.docenteId);
+  const { clientRequestId: requestId, ...payloadMutacion } = params.body;
+  const mutacion = prepararMutacionPlantilla('crear', null, payloadMutacion, requestId);
+  const contextoMutacion = { docenteId: docId, plantillaId: null, accion: 'crear' as const, ...mutacion };
+  const repeticion = await consultarRepeticionPlantilla(contextoMutacion);
+  if (repeticion) return repeticion;
+
   const titulo = String(params.body.titulo ?? '').trim();
   const periodoId = params.body.periodoId ? String(params.body.periodoId) : undefined;
 
@@ -146,8 +224,11 @@ export async function crearPlantillaUseCase(params: {
     .toLowerCase();
 
   const preguntasIds = Array.isArray(params.body.preguntasIds) ? params.body.preguntasIds.map(String) : [];
-  return prisma.$transaction(async (tx) => {
-    const raw = await tx.examenPlantilla.create({
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const repetidaEnTransaccion = await recuperarMutacionPlantilla(tx, contextoMutacion);
+      if (repetidaEnTransaccion) return repetidaEnTransaccion;
+      const raw = await tx.examenPlantilla.create({
       data: {
         docenteId: docId,
         periodoId: periodoId || null,
@@ -164,20 +245,33 @@ export async function crearPlantillaUseCase(params: {
         configuracionPdf: JSON.stringify(configuracionPdf),
         temas: JSON.stringify(temas || [])
       }
-    });
-
-    if (preguntasIds.length > 0) {
-      await tx.preguntaPlantilla.createMany({
-        data: preguntasIds.map((preguntaId, orden) => ({
-          plantillaId: raw.id,
-          preguntaId,
-          orden
-        }))
       });
-    }
 
-    return { plantilla: formatearPlantillaPrisma(raw, preguntasIds) };
-  });
+      if (preguntasIds.length > 0) {
+        await tx.preguntaPlantilla.createMany({
+          data: preguntasIds.map((preguntaId, orden) => ({
+            plantillaId: raw.id,
+            preguntaId,
+            orden
+          }))
+        });
+      }
+
+      const resultado = { plantilla: formatearPlantillaPrisma(raw, preguntasIds), clientRequestId: mutacion.clientRequestId, repetida: false };
+      await registrarMutacionPlantilla(tx, {
+        ...contextoMutacion,
+        plantillaId: raw.id,
+        antes: null,
+        despues: resultado
+      });
+      return resultado;
+    });
+  } catch (error) {
+    if ((error as { code?: string })?.code !== 'P2002') throw error;
+    const ganadora = await consultarRepeticionPlantilla(contextoMutacion);
+    if (ganadora) return ganadora;
+    throw error;
+  }
 }
 
 export async function actualizarPlantillaUseCase(params: {
@@ -186,6 +280,12 @@ export async function actualizarPlantillaUseCase(params: {
   body: Record<string, unknown>;
 }) {
   const docId = String(params.docenteId);
+  const { clientRequestId: requestId, ...payloadMutacion } = params.body;
+  const mutacion = prepararMutacionPlantilla('actualizar', params.plantillaId, payloadMutacion, requestId);
+  const contextoMutacion = { docenteId: docId, plantillaId: params.plantillaId, accion: 'actualizar' as const, ...mutacion };
+  const repeticion = await consultarRepeticionPlantilla(contextoMutacion);
+  if (repeticion) return repeticion;
+
   const actual = await obtenerPlantillaDocente(docId, params.plantillaId);
 
   const temas = normalizarTemas(params.body.temas);
@@ -262,7 +362,10 @@ export async function actualizarPlantillaUseCase(params: {
     data.periodoId = null;
   }
 
-  return prisma.$transaction(async (tx) => {
+  try {
+    return await prisma.$transaction(async (tx) => {
+    const repetidaEnTransaccion = await recuperarMutacionPlantilla(tx, contextoMutacion);
+    if (repetidaEnTransaccion) return repetidaEnTransaccion;
     const raw = await tx.examenPlantilla.update({
       where: { id: params.plantillaId },
       data
@@ -284,64 +387,108 @@ export async function actualizarPlantillaUseCase(params: {
     }
 
     const plantilla = formatearPlantillaPrisma(raw, preguntasIds);
-    return { plantilla };
-  });
+    const resultado = { plantilla, clientRequestId: mutacion.clientRequestId, repetida: false };
+    await registrarMutacionPlantilla(tx, {
+      ...contextoMutacion,
+      antes: actual,
+      despues: resultado
+    });
+    return resultado;
+    });
+  } catch (error) {
+    if ((error as { code?: string })?.code !== 'P2002') throw error;
+    const ganadora = await consultarRepeticionPlantilla(contextoMutacion);
+    if (ganadora) return ganadora;
+    throw error;
+  }
 }
 
 export async function archivarPlantillaUseCase(params: {
   docenteId: unknown;
   plantillaId: string;
+  clientRequestId?: unknown;
 }) {
   const docId = String(params.docenteId);
+  const mutacion = prepararMutacionPlantilla('archivar', params.plantillaId, {}, params.clientRequestId);
+  const contextoMutacion = { docenteId: docId, plantillaId: params.plantillaId, accion: 'archivar' as const, ...mutacion };
+  const repeticion = await consultarRepeticionPlantilla(contextoMutacion);
+  if (repeticion) return repeticion;
   const plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
-  if (plantilla.archivadoEn) {
-    return { ok: true, plantilla };
+  try {
+    return await prisma.$transaction(async (tx) => {
+    const repetidaEnTransaccion = await recuperarMutacionPlantilla(tx, contextoMutacion);
+    if (repetidaEnTransaccion) return repetidaEnTransaccion;
+    if (plantilla.archivadoEn) {
+      const resultado = { ok: true, plantilla, clientRequestId: mutacion.clientRequestId, repetida: false };
+      await registrarMutacionPlantilla(tx, { ...contextoMutacion, antes: plantilla, despues: resultado });
+      return resultado;
+    }
+    const raw = await tx.examenPlantilla.update({
+      where: { id: params.plantillaId },
+      data: { archivadoEn: new Date() }
+    });
+    const resultado = { ok: true, plantilla: formatearPlantillaPrisma(raw, plantilla.preguntasIds), clientRequestId: mutacion.clientRequestId, repetida: false };
+    await registrarMutacionPlantilla(tx, { ...contextoMutacion, antes: plantilla, despues: resultado });
+    return resultado;
+    });
+  } catch (error) {
+    if ((error as { code?: string })?.code !== 'P2002') throw error;
+    const ganadora = await consultarRepeticionPlantilla(contextoMutacion);
+    if (ganadora) return ganadora;
+    throw error;
   }
-
-  const raw = await prisma.examenPlantilla.update({
-    where: { id: params.plantillaId },
-    data: { archivadoEn: new Date() }
-  });
-
-  return { ok: true, plantilla: formatearPlantillaPrisma(raw, plantilla.preguntasIds) };
 }
 
 export async function eliminarPlantillaUseCase(params: {
   docenteId: unknown;
   plantillaId: string;
+  clientRequestId?: unknown;
 }) {
   const docId = String(params.docenteId);
-  const plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
-  asegurarPlantillaActiva(plantilla);
+  const mutacion = prepararMutacionPlantilla('eliminar', params.plantillaId, {}, params.clientRequestId);
+  const contextoMutacion = { docenteId: docId, plantillaId: params.plantillaId, accion: 'eliminar' as const, ...mutacion };
+  const repeticion = await consultarRepeticionPlantilla(contextoMutacion);
+  if (repeticion) return repeticion;
 
-  const examenes = await prisma.examenGenerado.findMany({
-    where: { docenteId: docId, plantillaId: params.plantillaId }
-  });
-  const examenesIds = examenes.map((e) => e.id);
+  try {
+    return await prisma.$transaction(async (tx) => {
+    const repetidaEnTransaccion = await recuperarMutacionPlantilla(tx, contextoMutacion);
+    if (repetidaEnTransaccion) return repetidaEnTransaccion;
 
-  const [entregasDocs, calificacionesDocs, banderasDocs] = examenesIds.length
-    ? await Promise.all([
-        prisma.entrega.findMany({ where: { docenteId: docId, examenGeneradoId: { in: examenesIds } } }),
-        prisma.calificacion.findMany({ where: { docenteId: docId, examenGeneradoId: { in: examenesIds } } }),
-        prisma.banderaRevision.findMany({ where: { docenteId: docId, examenGeneradoId: { in: examenesIds } } })
-      ])
-    : [[], [], []];
+    const rawPlantilla = await tx.examenPlantilla.findFirst({ where: { id: params.plantillaId, docenteId: docId } });
+    if (!rawPlantilla) throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+    const preguntas = await tx.preguntaPlantilla.findMany({ where: { plantillaId: rawPlantilla.id }, orderBy: { orden: 'asc' } });
+    const plantilla = formatearPlantillaPrisma(rawPlantilla, preguntas.map((pregunta) => pregunta.preguntaId));
+    if (!plantilla) throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+    asegurarPlantillaActiva(plantilla);
 
-  await guardarEnPapelera({
-    docenteId: docId,
-    tipo: 'plantilla',
-    entidadId: params.plantillaId,
-    payload: {
+    const examenes = await tx.examenGenerado.findMany({
+      where: { docenteId: docId, plantillaId: params.plantillaId }
+    });
+    const examenesIds = examenes.map((e) => e.id);
+    const [entregasDocs, calificacionesDocs, banderasDocs] = examenesIds.length
+      ? await Promise.all([
+          tx.entrega.findMany({ where: { docenteId: docId, examenGeneradoId: { in: examenesIds } } }),
+          tx.calificacion.findMany({ where: { docenteId: docId, examenGeneradoId: { in: examenesIds } } }),
+          tx.banderaRevision.findMany({ where: { docenteId: docId, examenGeneradoId: { in: examenesIds } } })
+        ])
+      : [[], [], []];
+
+    const antes = {
       plantilla,
       examenes,
       entregas: entregasDocs,
       calificaciones: calificacionesDocs,
       banderas: banderasDocs
-    }
-  });
+    };
+    await guardarEnPapelera({
+      docenteId: docId,
+      tipo: 'plantilla',
+      entidadId: params.plantillaId,
+      payload: antes,
+      tx
+    });
 
-  // Execute deletion in a transaction to guarantee consistency
-  await prisma.$transaction(async (tx) => {
     if (examenesIds.length > 0) {
       await tx.entrega.deleteMany({ where: { docenteId: docId, examenGeneradoId: { in: examenesIds } } });
       await tx.calificacion.deleteMany({ where: { docenteId: docId, examenGeneradoId: { in: examenesIds } } });
@@ -349,17 +496,74 @@ export async function eliminarPlantillaUseCase(params: {
       await tx.examenGenerado.deleteMany({ where: { docenteId: docId, id: { in: examenesIds } } });
     }
     await tx.preguntaPlantilla.deleteMany({ where: { plantillaId: params.plantillaId } });
-    await tx.examenPlantilla.delete({ where: { id: params.plantillaId } });
-  });
+    await tx.examenPlantilla.delete({ where: { id: params.plantillaId, docenteId: docId } });
 
-  return {
-    ok: true,
-    eliminados: {
-      plantillas: 1,
-      examenes: examenes.length,
-      entregas: entregasDocs.length,
-      calificaciones: calificacionesDocs.length,
-      banderas: banderasDocs.length
+    const resultado = {
+      ok: true,
+      eliminados: {
+        plantillas: 1,
+        examenes: examenes.length,
+        entregas: entregasDocs.length,
+        calificaciones: calificacionesDocs.length,
+        banderas: banderasDocs.length
+      },
+      clientRequestId: mutacion.clientRequestId,
+      repetida: false
+    };
+    await registrarMutacionPlantilla(tx, { ...contextoMutacion, antes, despues: resultado });
+    return resultado;
+    });
+  } catch (error) {
+    if ((error as { code?: string })?.code !== 'P2002') throw error;
+    const ganadora = await consultarRepeticionPlantilla(contextoMutacion);
+    if (ganadora) return ganadora;
+    throw error;
+  }
+}
+
+export async function listarAuditoriaPlantillaUseCase(params: {
+  docenteId: unknown;
+  plantillaId: string;
+  limite: number;
+  cursor?: string;
+}) {
+  const docenteId = String(params.docenteId);
+  const plantilla = await prisma.examenPlantillaAuditoria.findFirst({
+    where: { docenteId, plantillaId: params.plantillaId },
+    select: { id: true }
+  });
+  const vigente = await prisma.examenPlantilla.findFirst({ where: { id: params.plantillaId, docenteId }, select: { id: true } });
+  if (!plantilla && !vigente) throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+
+  let cursor: { id: string; createdAt: Date } | undefined;
+  if (params.cursor) {
+    try {
+      const decoded = JSON.parse(Buffer.from(params.cursor, 'base64url').toString('utf8')) as { id?: unknown; createdAt?: unknown };
+      const createdAt = new Date(String(decoded.createdAt ?? ''));
+      if (typeof decoded.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(decoded.id) || !Number.isFinite(createdAt.getTime())) throw new Error('invalid cursor');
+      cursor = { id: decoded.id, createdAt };
+    } catch {
+      throw new ErrorAplicacion('PLANTILLA_AUDITORIA_CURSOR_INVALIDO', 'El cursor de auditoría de plantilla no es válido', 400);
     }
+  }
+
+  const eventos = await prisma.examenPlantillaAuditoria.findMany({
+    where: {
+      docenteId,
+      plantillaId: params.plantillaId,
+      ...(cursor ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] } : {})
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: params.limite + 1
+  });
+  const tieneSiguiente = eventos.length > params.limite;
+  const pagina = tieneSiguiente ? eventos.slice(0, params.limite) : eventos;
+  return {
+    eventos: pagina.map((evento) => ({
+      ...evento,
+      antes: evento.antes ? JSON.parse(evento.antes) : null,
+      despues: JSON.parse(evento.despues)
+    })),
+    nextCursor: tieneSiguiente ? serializarCursorAuditoria(pagina[pagina.length - 1]) : null
   };
 }

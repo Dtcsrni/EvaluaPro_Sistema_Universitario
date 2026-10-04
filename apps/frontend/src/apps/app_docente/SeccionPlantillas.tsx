@@ -18,6 +18,7 @@ import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabaj
 import { cargarTodasLasPaginasArchivadas } from './features/plantillas/archivoOmr';
 import { guardarTabPlantillas, PLANTILLAS_TAB_STORAGE_KEY, type TabPlantillas } from './features/plantillas/tabPlantillasState';
 import { guardarLotePendiente, leerLotePendiente, validarResumenLoteGenerado } from './features/plantillas/loteGeneracionSesion';
+import { confirmarClientRequestIdPlantilla, obtenerClientRequestIdPlantilla } from './features/plantillas/mutacionIdempotente';
 import {
   usePlantillasGeneradosActions,
   type ExamenGeneradoResumen
@@ -935,6 +936,8 @@ export function SeccionPlantillas({
       if (temasSeleccionados.length > 0 || estabaEnTemas) {
         payload.temas = temasSeleccionados;
       }
+      const clientRequestId = obtenerClientRequestIdPlantilla('actualizar', plantillaEditandoId, payload);
+      payload.clientRequestId = clientRequestId;
 
       await enviarConPermiso(
         'plantillas:gestionar',
@@ -942,6 +945,7 @@ export function SeccionPlantillas({
         payload,
         'No tienes permiso para editar plantillas.'
       );
+      confirmarClientRequestIdPlantilla('actualizar', plantillaEditandoId, clientRequestId);
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla actualizada', durationMs: 2200 });
       registrarAccionDocente('actualizar_plantilla', true, Date.now() - inicio);
       cancelarEdicion();
@@ -989,12 +993,14 @@ export function SeccionPlantillas({
       const inicio = Date.now();
       setArchivandoPlantillaId(plantilla._id);
       setMensaje('');
+      const clientRequestId = obtenerClientRequestIdPlantilla('eliminar', plantilla._id, {});
       await enviarConPermiso(
         'plantillas:archivar',
         `/examenes/plantillas/${encodeURIComponent(plantilla._id)}/eliminar`,
-        {},
+        { clientRequestId },
         'No tienes permiso para eliminar plantillas.'
       );
+      confirmarClientRequestIdPlantilla('eliminar', plantilla._id, clientRequestId);
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla eliminada', durationMs: 2200 });
       registrarAccionDocente('eliminar_plantilla', true, Date.now() - inicio);
       if (plantillaId === plantilla._id) setPlantillaId('');
@@ -1073,6 +1079,8 @@ export function SeccionPlantillas({
       const periodoIdNorm = String(periodoId || '').trim();
       if (periodoIdNorm) payload.periodoId = periodoIdNorm;
       if (temasSeleccionados.length > 0) payload.temas = temasSeleccionados;
+      const clientRequestId = obtenerClientRequestIdPlantilla('crear', null, payload);
+      payload.clientRequestId = clientRequestId;
 
       await enviarConPermiso(
         'plantillas:gestionar',
@@ -1080,6 +1088,7 @@ export function SeccionPlantillas({
         payload,
         'No tienes permiso para crear plantillas.'
       );
+      confirmarClientRequestIdPlantilla('crear', null, clientRequestId);
       setMensaje('Plantilla creada');
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla creada', durationMs: 2200 });
       registrarAccionDocente('crear_plantilla', true, Date.now() - inicio);

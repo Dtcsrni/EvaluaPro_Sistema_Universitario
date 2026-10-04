@@ -227,6 +227,72 @@ describe('plantillas CRUD + previsualizacion', () => {
     expect(await prisma.preguntaPlantilla.count({ where: { plantillaId } })).toBe(1);
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 
+  it('versiona la auditoría de plantilla y recupera alta, edición, archivo y borrado por clientRequestId', async () => {
+    const token = await registrarDocente('plantilla-idempotente@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const periodoResp = await request(app)
+      .post('/api/periodos')
+      .set(auth)
+      .send({ nombre: 'Periodo idempotente', fechaInicio: '2025-01-01', fechaFin: '2025-06-01', grupos: ['A'] })
+      .expect(201);
+    const periodoId = periodoResp.body.periodo._id as string;
+    const preguntasIds = await crearPreguntas({ auth, periodoId, total: 1 });
+    const crearPayload = {
+      clientRequestId: 'e9515b20-b017-4a3a-a83d-20e7740718c1',
+      periodoId, tipo: 'parcial', titulo: 'Plantilla idempotente', numeroPaginas: 1, preguntasIds
+    };
+    const creada = await request(app).post('/api/examenes/plantillas').set(auth).send(crearPayload).expect(201);
+    const repetida = await request(app).post('/api/examenes/plantillas').set(auth).send(crearPayload).expect(201);
+    const plantillaId = creada.body.plantilla._id as string;
+    expect(repetida.body.plantilla._id).toBe(plantillaId);
+    expect(repetida.body.repetida).toBe(true);
+    expect(await prisma.examenPlantilla.count({ where: { docenteId: creada.body.plantilla.docenteId, titulo: 'Plantilla idempotente' } })).toBe(1);
+    await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({ ...crearPayload, titulo: 'Otro título' })
+      .expect(409);
+
+    const editarPayload = { clientRequestId: '477b79c9-d6ce-42c3-95f8-2536d41616e6', titulo: 'Plantilla actualizada' };
+    await request(app).post(`/api/examenes/plantillas/${plantillaId}`).set(auth).send(editarPayload).expect(200);
+    const edicionRepetida = await request(app).post(`/api/examenes/plantillas/${plantillaId}`).set(auth).send(editarPayload).expect(200);
+    expect(edicionRepetida.body.repetida).toBe(true);
+    expect(edicionRepetida.body.plantilla.titulo).toBe('Plantilla actualizada');
+
+    const archivoId = '1755c6d9-4731-4aa3-9bbf-f4ed156170c8';
+    await request(app).post(`/api/examenes/plantillas/${plantillaId}/archivar`).set(auth).send({ clientRequestId: archivoId }).expect(200);
+    const archivoRepetido = await request(app).post(`/api/examenes/plantillas/${plantillaId}/archivar`).set(auth).send({ clientRequestId: archivoId }).expect(200);
+    expect(archivoRepetido.body.repetida).toBe(true);
+
+    const auditoria = await request(app).get(`/api/examenes/plantillas/${plantillaId}/auditoria?limite=2`).set(auth).expect(200);
+    expect(auditoria.body.eventos.map((evento: { accion: string }) => evento.accion)).toEqual(['archivar', 'actualizar']);
+    expect(auditoria.body.nextCursor).toBeTruthy();
+    const siguiente = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/auditoria?limite=2&cursor=${encodeURIComponent(auditoria.body.nextCursor)}`)
+      .set(auth)
+      .expect(200);
+    expect(siguiente.body.eventos.map((evento: { accion: string }) => evento.accion)).toEqual(['crear']);
+
+    const eliminada = await request(app).post(`/api/examenes/plantillas/${plantillaId}/eliminar`).set(auth)
+      .send({ clientRequestId: '0cc29ec7-ff1e-49bc-b507-c6f112f01024' }).expect(409);
+    expect(eliminada.body.error.codigo).toBe('PLANTILLA_ARCHIVADA');
+
+    const eliminable = await request(app).post('/api/examenes/plantillas').set(auth).send({
+      clientRequestId: 'da42e23a-e4d9-4682-862b-dcd1d4e88e3a',
+      periodoId, tipo: 'parcial', titulo: 'Plantilla para borrar', numeroPaginas: 1, preguntasIds
+    }).expect(201);
+    const eliminableId = eliminable.body.plantilla._id as string;
+    const borrado = await request(app).post(`/api/examenes/plantillas/${eliminableId}/eliminar`).set(auth)
+      .send({ clientRequestId: '39bf8c12-617a-4481-968f-61d62f65bcdb' }).expect(200);
+    const borradoRepetido = await request(app).post(`/api/examenes/plantillas/${eliminableId}/eliminar`).set(auth)
+      .send({ clientRequestId: '39bf8c12-617a-4481-968f-61d62f65bcdb' }).expect(200);
+    expect(borrado.body.eliminados).toEqual(borradoRepetido.body.eliminados);
+    expect(borradoRepetido.body.repetida).toBe(true);
+    expect(await prisma.papeleraItem.count({ where: { docenteId: creada.body.plantilla.docenteId, itemId: eliminableId } })).toBe(1);
+    const auditoriaBorrado = await request(app).get(`/api/examenes/plantillas/${eliminableId}/auditoria`).set(auth).expect(200);
+    expect(auditoriaBorrado.body.eventos.map((evento: { accion: string }) => evento.accion)).toEqual(['eliminar', 'crear']);
+  }, TEST_TIMEOUT_PLANTILLAS_MS);
+
   it('permite archivar una plantilla con examenes generados', async () => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };

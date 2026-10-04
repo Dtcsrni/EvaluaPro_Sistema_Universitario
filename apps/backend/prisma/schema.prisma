@@ -512,6 +512,22 @@ model PreguntaPlantilla {
   @@map("pregunta_plantilla")
 }
 
+model ExamenPlantillaAuditoria {
+  id              String   @id @default(uuid())
+  docenteId       String
+  plantillaId     String
+  accion          String
+  clientRequestId String
+  requestHash     String
+  antes           String?
+  despues         String
+  createdAt       DateTime @default(now())
+
+  @@unique([docenteId, clientRequestId])
+  @@index([docenteId, plantillaId, createdAt, id])
+  @@map("auditoria_plantillas_examen")
+}
+
 model ExamenGenerado {
   id                       String                    @id @default(uuid())
   docenteId                String

@@ -34,6 +34,15 @@ export const esquemaListarAuditoriaLotePdf = z.object({
   cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
 }).strict();
 
+export const esquemaListarAuditoriaPlantilla = z.object({
+  limite: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
+export const esquemaCambiarEstadoPlantilla = z.object({
+  clientRequestId: z.string().uuid().optional()
+}).strict().optional();
+
 const esquemaLogosBooklet = z
   .object({
     izquierdaPath: z.string().trim().max(4_000_000).optional(),
@@ -109,6 +118,7 @@ function validarTextosUnicos(valores: string[], ctx: z.RefinementCtx, etiqueta: 
  */
 export const esquemaCrearPlantilla = z
   .object({
+    clientRequestId: z.string().uuid().optional(),
     periodoId: esquemaObjectId.optional(),
     tipo: z.enum(['parcial', 'global']),
     titulo: esquemaTitulo,
@@ -184,6 +194,7 @@ export const esquemaPurgarExamenesGenerados = z
 
 export const esquemaActualizarPlantilla = z
   .object({
+    clientRequestId: z.string().uuid().optional(),
     periodoId: esquemaObjectId.optional(),
     tipo: z.enum(['parcial', 'global']).optional(),
     titulo: esquemaTitulo.optional(),

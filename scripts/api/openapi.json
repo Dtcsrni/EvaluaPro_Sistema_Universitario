@@ -4974,7 +4974,7 @@
           "plantillas:archivar"
         ],
         "x-evaluapro-validators": [
-          "esquemaBodyVacioOpcional"
+          "esquemaCambiarEstadoPlantilla"
         ]
       }
     },
@@ -5060,7 +5060,7 @@
           "plantillas:archivar"
         ],
         "x-evaluapro-validators": [
-          "esquemaBodyVacioOpcional"
+          "esquemaCambiarEstadoPlantilla"
         ]
       }
     },
@@ -19866,6 +19866,81 @@
         ],
         "x-evaluapro-validators": [
           "esquemaArchivarPolitica"
+        ]
+      }
+    },
+    "/examenes/plantillas/{id}/auditoria": {
+      "get": {
+        "tags": [
+          "Exámenes"
+        ],
+        "operationId": "get_examenes_plantillas_id_auditoria",
+        "summary": "GET /examenes/plantillas/{id}/auditoria",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_generacion_pdf/rutasGeneracionPdf.ts",
+        "x-evaluapro-permissions": [
+          "plantillas:leer"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaListarAuditoriaPlantilla"
         ]
       }
     }
