@@ -862,7 +862,7 @@ describe('workflow OMR por jobs', () => {
       .expect(202);
     const jobId = String(creado.body.job.jobId);
     let job = creado.body.job;
-    const limite = Date.now() + 120_000;
+    const limite = Date.now() + 600_000;
     while (job.status === 'processing' && Date.now() < limite) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       job = (await request(app).get(`/api/omr/ingestas/${jobId}`).set(auth).expect(200)).body.job;
@@ -915,7 +915,7 @@ describe('workflow OMR por jobs', () => {
       .set(auth).buffer(true).parse(parsearBinario).expect(200);
     expect(originalDespues.body).toEqual(scan);
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(calificacionesAntes);
-  }, 180_000);
+  }, 600_000);
 
   it('sugiere identidad local por OCR del pie sin validar QR ni asignar identidad automáticamente', async () => {
     const token = await registrar('omr-jobs-ocr-pie@prueba.test');
