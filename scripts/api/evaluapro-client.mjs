@@ -751,9 +751,9 @@ export class EvaluaproClient {
     })).data;
   }
 
-  async listarPaginaExamenesGenerados({ periodoId, alumnoId, plantillaId, folio, archivado, limite, cursor } = {}) {
+  async listarPaginaExamenesGenerados({ periodoId, alumnoId, plantillaId, tipoExamen, folio, archivado, limite, cursor } = {}) {
     const query = new URLSearchParams();
-    for (const [key, value] of Object.entries({ periodoId, alumnoId, plantillaId, folio, archivado, limite, cursor })) {
+    for (const [key, value] of Object.entries({ periodoId, alumnoId, plantillaId, tipoExamen, folio, archivado, limite, cursor })) {
       if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
     }
     const suffix = query.size ? `?${query}` : '';

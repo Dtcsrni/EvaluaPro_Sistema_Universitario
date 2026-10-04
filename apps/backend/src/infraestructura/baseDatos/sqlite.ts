@@ -44,6 +44,7 @@ export async function conectarSqlite(): Promise<void> {
   ejecutarMigracionCalificacionesListaIdempotencia();
   ejecutarMigracionArtefactosLotePdf();
   ejecutarMigracionCicloVidaLotesPdf();
+  ejecutarMigracionTipoExamenGenerado();
   ejecutarMigracionEvidenciasEvaluacion();
   ejecutarMigracionTemariosAuditoria();
   ejecutarMigracionTemasBancoAuditoria();
@@ -122,6 +123,22 @@ function ejecutarMigracionCicloVidaLotesPdf() {
   const script = candidatos.find((candidate) => fs.existsSync(candidate));
   if (!script) return;
   execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
+}
+
+function ejecutarMigracionTipoExamenGenerado() {
+  const databasePath = resolverRutaArchivoSqlite(databaseUrl);
+  if (!databasePath) return;
+  const candidatos = [
+    path.resolve(process.cwd(), 'scripts', 'migrate-examen-tipo-examen-sqlite.mjs'),
+    path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-examen-tipo-examen-sqlite.mjs')
+  ];
+  const script = candidatos.find((candidate) => fs.existsSync(candidate));
+  if (!script) return;
+  try {
+    execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
+  } catch {
+    // Prisma conserva el diagnóstico original si el esquema no puede prepararse.
+  }
 }
 
 function ejecutarMigracionEvidenciasEvaluacion() {

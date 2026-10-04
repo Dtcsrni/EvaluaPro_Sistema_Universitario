@@ -138,12 +138,16 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     plantillaId?: unknown;
     confirmarMasivo?: unknown;
     loteId?: unknown;
+    tipoExamen?: unknown;
+    alumnoIds?: unknown;
   };
   const payload = await generarExamenesLoteUseCase({
     docenteId: obtenerDocenteId(req),
     plantillaId: String(body.plantillaId ?? '').trim(),
     confirmarMasivo: Boolean(body.confirmarMasivo),
-    loteId: String(body.loteId ?? '').trim()
+    loteId: String(body.loteId ?? '').trim(),
+    tipoExamen: body.tipoExamen === 'extraordinario' ? 'extraordinario' : undefined,
+    alumnoIds: Array.isArray(body.alumnoIds) ? body.alumnoIds.map((id) => String(id)) : undefined
   });
   res.status(201).json(payload);
 }

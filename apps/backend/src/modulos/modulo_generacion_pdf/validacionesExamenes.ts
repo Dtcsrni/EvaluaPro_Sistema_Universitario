@@ -12,6 +12,7 @@ export const esquemaListarExamenesGenerados = z.object({
   periodoId: esquemaObjectId.optional(),
   alumnoId: esquemaObjectId.optional(),
   plantillaId: esquemaObjectId.optional(),
+  tipoExamen: z.enum(['parcial', 'global', 'extraordinario']).optional(),
   folio: z.string().trim().min(1).max(100).optional(),
   archivado: z.enum(['1', 'true', 'si', 's', '0', 'false', 'no', 'n']).default('false'),
   limite: z.coerce.number().int().min(1).max(200).default(100),
@@ -174,7 +175,16 @@ export const esquemaGenerarExamen = z.object({
 export const esquemaGenerarExamenesLote = z.object({
   plantillaId: esquemaObjectId,
   confirmarMasivo: z.boolean().optional(),
-  loteId: z.string().trim().min(4).max(16).regex(/^[A-Za-z0-9_-]+$/).optional()
+  loteId: z.string().trim().min(4).max(16).regex(/^[A-Za-z0-9_-]+$/).optional(),
+  tipoExamen: z.literal('extraordinario').optional(),
+  alumnoIds: z.array(esquemaObjectId).min(1).max(500).refine((ids) => new Set(ids).size === ids.length, 'No se permiten alumnos duplicados').optional()
+}).strict().superRefine((valor, contexto) => {
+  if (valor.tipoExamen === 'extraordinario' && !valor.alumnoIds?.length) {
+    contexto.addIssue({ code: z.ZodIssueCode.custom, path: ['alumnoIds'], message: 'Selecciona al menos un alumno para el examen extraordinario.' });
+  }
+  if (valor.tipoExamen !== 'extraordinario' && valor.alumnoIds) {
+    contexto.addIssue({ code: z.ZodIssueCode.custom, path: ['tipoExamen'], message: 'La selección individual de alumnos solo está disponible para extraordinarios.' });
+  }
 });
 
 export const esquemaRegenerarExamenGenerado = z

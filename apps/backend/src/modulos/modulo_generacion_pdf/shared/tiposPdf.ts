@@ -10,7 +10,7 @@ export type TemplateVersion = 4;
 export type OmrTemplateId = 'omr-canonical-v4' | 'omr-inline-exam-v1';
 export const OMR_TEMPLATE_ID_CANONICAL: OmrTemplateId = 'omr-canonical-v4';
 export const OMR_TEMPLATE_ID_INLINE_EXAM: OmrTemplateId = 'omr-inline-exam-v1';
-export type TipoExamen = 'parcial' | 'global';
+export type TipoExamen = 'parcial' | 'global' | 'extraordinario';
 
 export interface EncabezadoExamen {
   institucion?: string;

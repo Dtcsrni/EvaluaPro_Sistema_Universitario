@@ -165,6 +165,7 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
     ...(filtros.periodoId ? { periodoId: filtros.periodoId } : {}),
     ...(filtros.alumnoId ? { alumnoId: filtros.alumnoId } : {}),
     ...(filtros.plantillaId ? { plantillaId: filtros.plantillaId } : {}),
+    ...(filtros.tipoExamen ? { tipoExamen: filtros.tipoExamen } : {}),
     ...(filtros.folio ? { folio: filtros.folio.toUpperCase() } : {}),
     archivadoEn: filtrarArchivadas ? { not: null } : null
   };
@@ -195,6 +196,7 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
       id: true,
       periodoId: true,
       plantillaId: true,
+      tipoExamen: true,
       alumnoId: true,
       loteId: true,
       origenGeneracion: true,
@@ -250,6 +252,7 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
       id: raw.id,
       periodoId: raw.periodoId,
       plantillaId: raw.plantillaId,
+      tipoExamen: raw.tipoExamen ?? undefined,
       alumnoId: raw.alumnoId,
       loteId: raw.loteId,
       origenGeneracion: raw.origenGeneracion,
@@ -562,7 +565,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
       folio,
       preguntas: preguntasBase,
       mapaVariante: examen?.mapaVariante as never,
-      tipoExamen: plantillaRaw.tipo as 'parcial' | 'global',
+      tipoExamen: String(examen?.tipoExamen ?? plantillaRaw.tipo) as import('../../compartido/tipos/dominio.js').TipoExamen,
       totalPaginas: paginasObjetivo,
       margenMm: parseJsonSafe<any>(plantillaRaw.configuracionPdf)?.margenMm ?? 8,
       templateVersion,

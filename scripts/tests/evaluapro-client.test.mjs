@@ -1021,3 +1021,21 @@ test('cliente pagina la auditoría append-only de políticas hasta agotar el cur
   assert.equal(urls[0].searchParams.get('limite'), '1');
   assert.equal(urls[2].searchParams.get('cursor'), 'cursor-siguiente');
 });
+
+test('cliente automatiza extraordinarios y filtra el historial por tipoExamen', async () => {
+  const calls = [];
+  const client = new EvaluaproClient({ baseUrl: 'http://localhost', fetchImpl: async (url, init = {}) => {
+    calls.push({ url: new URL(url), init });
+    return new Response(JSON.stringify({ loteId: 'EXT_20261004', examenes: [{ tipoExamen: 'extraordinario' }], nextCursor: null }), {
+      status: 201, headers: { 'content-type': 'application/json' }
+    });
+  } });
+  const payload = {
+    plantillaId: 'template-1', loteId: 'EXT_20261004', tipoExamen: 'extraordinario', alumnoIds: ['student-1']
+  };
+  await client.generarLoteExamenes(payload, { confirmarEscritura: true });
+  assert.deepEqual(JSON.parse(calls[0].init.body), payload);
+  const pagina = await client.listarPaginaExamenesGenerados({ tipoExamen: 'extraordinario', limite: 10 });
+  assert.equal(pagina.examenes[0].tipoExamen, 'extraordinario');
+  assert.equal(calls[1].url.searchParams.get('tipoExamen'), 'extraordinario');
+});
