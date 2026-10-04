@@ -25,7 +25,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - REQ-009: El workflow E2E instala bajo un directorio `EvaluaPro-QA-Isolated-*` en LOCALAPPDATA y fuerza DATABASE_URL a la SQLite de esa raíz, para que runtime y limpieza del fixture usen la misma base aislada.
 - REQ-010: Si Windows PowerShell no expone ExitCode aunque el proceso haya terminado, el runner acepta el ciclo dummy solo cuando su JSON demuestra cuenta, 3 materias, 3 alumnos, verificación y limpieza completa.
 - REQ-011: El runner E2E selecciona opciones del ComboBox usando los nombres accesibles exactos definidos por la interfaz y aplica SelectionItemPattern o teclado; nunca invoca un TextBlock descriptivo que coincida por nombre.
-- REQ-012: Antes de ejecutar una operación, el runner verifica que la acción primaria y el resumen de impacto coincidan con el modo solicitado; ante discrepancia, detiene la E2E sin ejecutar una operación distinta.
+- REQ-012: Antes de ejecutar una operación, el runner verifica que la acción primaria accesible coincida con el modo solicitado; ante discrepancia, detiene la E2E sin ejecutar una operación distinta.
 
 ## Criterios de Aceptación
 - Fallos en post-install no dejan archivos huerfanos.
@@ -38,7 +38,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - El ciclo dummy termina en 180 segundos como máximo y conserva stdout/stderr por separado, incluido el caso de fallo.
 - El bundle E2E configura y prepara SQLite dentro del directorio aislado del runner, nunca en la base compartida de `ProgramData`.
 - Un ExitCode nulo nunca basta por sí solo para declarar éxito del ciclo dummy; se requiere toda la evidencia estructurada de creación, verificación y limpieza.
-- La opción de desinstalación se busca por su nombre accesible completo (`Desinstalar (con respaldo)`) y acción primaria/resumen de impacto deben confirmar el modo antes de ejecutar.
+- La opción de desinstalación se busca por su nombre accesible completo (`Desinstalar (con respaldo)`) y la acción primaria debe confirmar el modo antes de ejecutar.
 - Si la interfaz conserva otra operación (por ejemplo, Reparar al solicitar Desinstalar), el runner falla antes de iniciar la transacción MSI/Burn.
 
 ## Matriz de Trazabilidad

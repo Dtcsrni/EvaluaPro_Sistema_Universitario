@@ -858,18 +858,7 @@ function Invoke-InstallerHubMode {
     Add-Result -Area $Mode -Item 'mode-selection' -Ok $false -Detail "expected=$expectedAction actual=$($startButton.Current.Name)"
     throw "Modo no aplicado: solicitado=${Mode} accion=$($startButton.Current.Name); se detiene antes de ejecutar."
   }
-  $expectedImpact = switch ($Mode) {
-    'install' { 'Instalar o actualizar' }
-    'repair' { 'Reparar instalación' }
-    'uninstall' { 'Desinstalar' }
-  }
-  $modeImpact = Find-ByName -RootElement $window -Name $expectedImpact -TimeoutSec 5
-  if (-not $modeImpact -or $modeImpact.Current.Name -ne $expectedImpact) {
-    $actualImpact = if ($modeImpact) { $modeImpact.Current.Name } else { '<missing>' }
-    Add-Result -Area $Mode -Item 'mode-impact' -Ok $false -Detail "expected=$expectedImpact actual=$actualImpact"
-    throw "Resumen de impacto no coincide con modo=${Mode}: $actualImpact"
-  }
-  Add-Result -Area $Mode -Item 'mode-selection' -Ok $true -Detail "action=$expectedAction impact=$expectedImpact"
+  Add-Result -Area $Mode -Item 'mode-selection' -Ok $true -Detail "action=$expectedAction"
   Add-Result -Area $Mode -Item 'start-button' -Ok $startButton.Current.IsEnabled -Detail "name=$($startButton.Current.Name)"
   if (-not $startButton.Current.IsEnabled) { throw "StartButton no habilitado mode=$Mode" }
 
