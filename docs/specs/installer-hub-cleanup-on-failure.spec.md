@@ -1,8 +1,8 @@
 ---
 id: SPEC-INSTALLER-ROLLBACK-CLEANUP
 titulo: Limpieza y Rollback Automatico ante Fallos de Instalacion
-version: 1.3.0
-fecha: 2026-10-03
+version: 1.4.0
+fecha: 2026-10-04
 autor: Codex / Agente IA
 modulo: modulo_installer_windows
 estado: approved
@@ -26,6 +26,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - REQ-010: Si Windows PowerShell no expone ExitCode aunque el proceso haya terminado, el runner acepta el ciclo dummy solo cuando su JSON demuestra cuenta, 3 materias, 3 alumnos, verificación y limpieza completa.
 - REQ-011: El runner E2E selecciona opciones del ComboBox usando los nombres accesibles exactos definidos por la interfaz y aplica SelectionItemPattern o teclado; nunca invoca un TextBlock descriptivo que coincida por nombre.
 - REQ-012: Antes de ejecutar una operación, el runner verifica que la acción primaria accesible coincida con el modo solicitado; ante discrepancia, detiene la E2E sin ejecutar una operación distinta.
+- REQ-013: El E2E de actualización instala en una ruta QA aislada la versión estable anterior desde el asset y sidecar oficiales, valida su SHA-256, escribe un marcador no productivo en su SQLite, aplica el bundle candidato y verifica que la versión registrada avanzó y que el marcador sobrevivió; elimina el marcador al finalizar.
 
 ## Criterios de Aceptación
 - Fallos en post-install no dejan archivos huerfanos.
@@ -40,6 +41,8 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - Un ExitCode nulo nunca basta por sí solo para declarar éxito del ciclo dummy; se requiere toda la evidencia estructurada de creación, verificación y limpieza.
 - La opción de desinstalación se busca por su nombre accesible completo (`Desinstalar (con respaldo)`) y la acción primaria debe confirmar el modo antes de ejecutar.
 - Si la interfaz conserva otra operación (por ejemplo, Reparar al solicitar Desinstalar), el runner falla antes de iniciar la transacción MSI/Burn.
+- La prueba de upgrade usa el bundle oficial v1.2.3 con SHA-256 `644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913`, comprueba el instalador antes de ejecutarlo, instala el candidato sobre esa misma ruta, requiere una `DisplayVersion` mayor y verifica el marcador en la misma SQLite; el marcador es temporal y se limpia en `finally`.
+- El workflow Windows descarga EXE y sidecar desde la URL oficial del tag, valida su integridad antes de pasar el baseline al E2E y conserva reporte que distinga baseline, upgrade y persistencia.
 
 ## Matriz de Trazabilidad
 
@@ -57,3 +60,4 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 | REQ-010 | Fallback estricto por ExitCode nulo con evidencia estructurada del ciclo dummy | `scripts/tests/installer-hub-contract.test.mjs` | En validación |
 | REQ-011 | Selección segura del modo E2E mediante patrón de selección o teclado | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
 | REQ-012 | Confirmación de acción primaria y resumen de impacto antes de iniciar la operación | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | En validación |
+| REQ-013 | Upgrade real v1.2.3 → candidato con integridad oficial y persistencia SQLite | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1`, `.github/workflows/ci-installer-windows.yml` | Implementación local; E2E Windows pendiente |

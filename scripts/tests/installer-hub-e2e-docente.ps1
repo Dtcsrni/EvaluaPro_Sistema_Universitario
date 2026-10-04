@@ -14,6 +14,7 @@ param(
   [string]$RootPath = '',
   [string]$ReportDir = '',
   [string]$InstallDir = '',
+  [string]$BaselineBundlePath = '',
   [int]$Port = 4519,
   [switch]$IUnderstandThisMutatesPc,
   [switch]$AllowExistingInstall,
@@ -750,7 +751,8 @@ function Get-LatestInstallerHelperState {
 function Invoke-InstallerHubMode {
   param(
     [ValidateSet('install', 'repair', 'uninstall')]
-    [string]$Mode
+    [string]$Mode,
+    [string]$BundlePath = $script:bundlePath
   )
   $arguments = switch ($Mode) {
     'repair' { '/repair' }
@@ -761,9 +763,9 @@ function Invoke-InstallerHubMode {
   $previousQaInstallDir = $env:EVALUAPRO_QA_INSTALL_DIR
   $env:EVALUAPRO_QA_INSTALL_DIR = $installedRoot
   $process = if ($arguments) {
-    Start-Process -FilePath $bundlePath -ArgumentList $arguments -PassThru -WindowStyle Normal
+    Start-Process -FilePath $BundlePath -ArgumentList $arguments -PassThru -WindowStyle Normal
   } else {
-    Start-Process -FilePath $bundlePath -PassThru -WindowStyle Normal
+    Start-Process -FilePath $BundlePath -PassThru -WindowStyle Normal
   }
   if ($null -eq $previousQaInstallDir) {
     Remove-Item Env:EVALUAPRO_QA_INSTALL_DIR -ErrorAction SilentlyContinue
@@ -771,7 +773,7 @@ function Invoke-InstallerHubMode {
     $env:EVALUAPRO_QA_INSTALL_DIR = $previousQaInstallDir
   }
   $processes.Add($process) | Out-Null
-  Write-E2ELog "Installer Hub iniciado mode=$Mode pid=$($process.Id)"
+  Write-E2ELog "Installer Hub iniciado mode=$Mode bundle=$BundlePath pid=$($process.Id)"
   $freshWindow = Find-Window -TimeoutSec 1
   $window = if ($freshWindow) { $freshWindow } else { Find-Window -TimeoutSec 90 }
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
@@ -1264,6 +1266,100 @@ function Test-UpdateSmoke {
   Add-Result -Area 'update' -Item 'status' -Ok ($null -ne $status -and [string]$status.state -ne 'failed') -Detail "$BaseUrl/api/update/status"
 }
 
+function Get-InstalledProductVersion {
+  $target = [IO.Path]::GetFullPath($installedRoot).TrimEnd('\')
+  $entry = @(Get-EvaluaProUninstallEntries | Where-Object {
+      -not [string]::IsNullOrWhiteSpace([string]$_.installLocation) -and
+      [IO.Path]::GetFullPath([string]$_.installLocation).TrimEnd('\') -eq $target
+    } | Select-Object -First 1)[0]
+  if ($null -eq $entry) { throw "No existe entrada de producto para la instalación temporal: $installedRoot" }
+  $parsed = $null
+  if (-not [version]::TryParse([string]$entry.displayVersion, [ref]$parsed)) {
+    throw "DisplayVersion instalada invalida: $($entry.displayVersion)"
+  }
+  return $parsed
+}
+
+function Assert-OfficialUpgradeBaseline {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path
+  $sidecarPath = "$resolvedPath.sha256"
+  if (-not (Test-Path -LiteralPath $sidecarPath)) { throw "Falta el sidecar SHA-256 del baseline oficial: $sidecarPath" }
+  $expectedSha = '644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913'
+  $sidecarText = Get-Content -Raw -LiteralPath $sidecarPath
+  $sidecarMatch = [regex]::Match($sidecarText, '(?i)\b([0-9a-f]{64})\b')
+  if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $expectedSha) {
+    throw 'El sidecar no coincide con el SHA-256 oficial fijado para EvaluaPro v1.2.3.'
+  }
+  $actualSha = (Get-FileHash -LiteralPath $resolvedPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actualSha -ne $sidecarMatch.Groups[1].Value.ToLowerInvariant()) {
+    throw "El instalador baseline v1.2.3 no coincide con su sidecar SHA-256: $resolvedPath"
+  }
+  Add-Result -Area 'upgrade-baseline' -Item 'official-sha256' -Ok $true -Detail $actualSha
+  return $resolvedPath
+}
+
+function Invoke-UpgradeDataMarker {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet('write', 'verify', 'remove')][string]$Action,
+    [Parameter(Mandatory = $true)][string]$Marker
+  )
+  $databasePath = Join-Path $installedRoot 'data\evaluapro.db'
+  $nodePath = Join-Path $installedRoot 'runtime\node\node.exe'
+  if (-not (Test-Path -LiteralPath $databasePath)) { throw "No existe la base instalada para probar upgrade: $databasePath" }
+  if (-not (Test-Path -LiteralPath $nodePath)) { throw "No existe Node empaquetado para probar upgrade: $nodePath" }
+  $script = @'
+const { DatabaseSync } = require('node:sqlite');
+const [action, databasePath, marker] = process.argv.slice(1);
+const db = new DatabaseSync(databasePath);
+try {
+  db.exec('CREATE TABLE IF NOT EXISTS "_qa_upgrade_probe" (marker TEXT PRIMARY KEY)');
+  if (action === 'write') db.prepare('INSERT OR REPLACE INTO "_qa_upgrade_probe" (marker) VALUES (?)').run(marker);
+  else if (action === 'verify') {
+    const row = db.prepare('SELECT marker FROM "_qa_upgrade_probe" WHERE marker = ?').get(marker);
+    if (!row) process.exitCode = 3;
+  } else if (action === 'remove') db.exec('DROP TABLE IF EXISTS "_qa_upgrade_probe"');
+} finally { db.close(); }
+'@
+  & $nodePath -e $script $Action $databasePath $Marker
+  if ($LASTEXITCODE -ne 0) { throw "No se pudo $Action el marcador SQLite de upgrade (exit=$LASTEXITCODE)." }
+}
+
+function Invoke-UpgradeBaselineFlow {
+  param([Parameter(Mandatory = $true)][string]$BaselinePath)
+  $verifiedBaseline = Assert-OfficialUpgradeBaseline -Path $BaselinePath
+  Invoke-InstallerHubMode -Mode 'install' -BundlePath $verifiedBaseline | Out-Null
+  Wait-InstalledPayload -TimeoutSec 240
+  Test-InstalledState -Phase 'post-baseline-install'
+  $baselineVersion = Get-InstalledProductVersion
+  if ($baselineVersion -ne [version]'1.2.3') { throw "El instalador baseline no dejó v1.2.3; versión observada: $baselineVersion" }
+  Add-Result -Area 'upgrade' -Item 'baseline-version' -Ok $true -Detail ([string]$baselineVersion)
+
+  $baselineRunId = 'e2e-upgrade-baseline-' + [guid]::NewGuid().ToString('N')
+  Invoke-InstalledBroker -Action 'open-dashboard' -RunId $baselineRunId -TimeoutSec 240
+  $baselineState = Wait-BootstrapState -RunId $baselineRunId -AcceptedStates @('healthy', 'degraded') -TimeoutSec 240
+  $baselineStateValue = if ($baselineState.PSObject.Properties.Match('state').Count -gt 0) { [string]$baselineState.state } else { 'unknown' }
+  if ($baselineStateValue -notin @('healthy', 'degraded')) { throw "La app baseline no quedó saludable antes de upgrade: $baselineStateValue" }
+
+  $marker = 'upgrade-' + [guid]::NewGuid().ToString('N')
+  Invoke-InstalledBroker -Action 'stop-all' -RunId ('upgrade-stop-' + [guid]::NewGuid().ToString('N'))
+  Invoke-UpgradeDataMarker -Action 'write' -Marker $marker
+  Add-Result -Area 'upgrade' -Item 'baseline-data-marker' -Ok $true -Detail 'marcador SQLite escrito en la base instalada temporal'
+  try {
+    Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath | Out-Null
+    Wait-InstalledPayload -TimeoutSec 240
+    $candidateVersion = Get-InstalledProductVersion
+    $versionAdvanced = $candidateVersion -gt $baselineVersion
+    Add-Result -Area 'upgrade' -Item 'candidate-version-advanced' -Ok $versionAdvanced -Detail "baseline=$baselineVersion candidate=$candidateVersion"
+    if (-not $versionAdvanced) { throw "La actualización no avanzó la versión: $baselineVersion -> $candidateVersion" }
+    Invoke-UpgradeDataMarker -Action 'verify' -Marker $marker
+    Add-Result -Area 'upgrade' -Item 'data-preserved' -Ok $true -Detail 'el marcador SQLite previo continúa después del upgrade'
+    Test-InstalledState -Phase 'post-upgrade'
+  } finally {
+    try { Invoke-UpgradeDataMarker -Action 'remove' -Marker $marker } catch { Write-E2ELog "No se pudo limpiar marcador QA de upgrade: $($_.Exception.Message)" }
+  }
+}
+
 function Invoke-DummyDataCycle {
   param([string]$BaseUrl)
   if (-not $SeedDummyData) { return }
@@ -1494,9 +1590,13 @@ try {
   Add-Result -Area 'preflight' -Item 'free-space' -Ok ($drive.Free -gt 8GB) -Detail ("freeGB={0:n2}" -f ($drive.Free / 1GB))
   Add-Result -Area 'preflight' -Item 'powershell' -Ok ($PSVersionTable.PSVersion.Major -ge 5) -Detail ([string]$PSVersionTable.PSVersion)
 
-  Invoke-InstallerHubMode -Mode 'install' | Out-Null
-  Wait-InstalledPayload -TimeoutSec 240
-  Test-InstalledState -Phase 'post-install'
+  if ([string]::IsNullOrWhiteSpace($BaselineBundlePath)) {
+    Invoke-InstallerHubMode -Mode 'install' | Out-Null
+    Wait-InstalledPayload -TimeoutSec 240
+    Test-InstalledState -Phase 'post-install'
+  } else {
+    Invoke-UpgradeBaselineFlow -BaselinePath $BaselineBundlePath
+  }
 
   Invoke-InstalledBroker -Action 'verify-installation' -RunId ('e2e-verify-' + [guid]::NewGuid().ToString('N'))
   $openRunId = 'e2e-open-' + [guid]::NewGuid().ToString('N')
