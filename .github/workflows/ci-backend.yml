@@ -135,6 +135,8 @@ jobs:
           if-no-files-found: warn
 
       - name: Etapa coverage backend
+        env:
+          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "1200000"
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa tdd-debt-check

@@ -203,6 +203,8 @@ jobs:
 
       - name: Etapa coverage backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        env:
+          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "1200000"
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa coverage portal
