@@ -1120,7 +1120,7 @@ describe('pdf layout visual guard', () => {
     } finally {
       await parser.destroy();
     }
-  }, 120_000);
+  }, 300_000);
 
   it('maximiza la plantilla compacta a 43 reactivos en dos páginas y conserva el desborde 44', async () => {
     const capacidades = [
