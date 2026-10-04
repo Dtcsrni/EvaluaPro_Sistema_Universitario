@@ -151,6 +151,14 @@ test('runner serializa Windows Installer y no mata el Hub durante una transacciÃ
   assert.match(runner, /ParentProcessId -ne 1604/);
 });
 
+test('runner selecciona opciones del combo solo con SelectionItemPattern', () => {
+  assert.match(runner, /Find-ByName -RootElement \$Combo -Name \$ItemName[\s\S]*?SelectionItemPattern/);
+  assert.match(runner, /\$selectionPattern\.Select\(\)/);
+  assert.match(runner, /No se pudo seleccionar la opcion/);
+  assert.match(runner, /SendKeys\]::SendWait\('\{ENTER\}'\)/);
+  assert.doesNotMatch(runner, /Invoke-Control -Element \$item/);
+});
+
 test('runner limita broker y mata solo su Ã¡rbol al vencer timeout', () => {
   assert.match(runner, /\$TimeoutSec = 60/);
   assert.match(runner, /WaitForExit\(\$TimeoutSec \* 1000\)/);

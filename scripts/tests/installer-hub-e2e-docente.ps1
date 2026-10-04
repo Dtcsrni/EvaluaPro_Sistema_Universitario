@@ -564,7 +564,13 @@ function Select-ComboItem {
   if (-not (Expand-Control -Element $Combo)) { throw "Combo no expandible: $($Combo.Current.AutomationId)" }
   Start-Sleep -Milliseconds 400
   $item = Find-ByName -RootElement $Combo -Name $ItemName -TimeoutSec 2
-  if (-not $item) { $item = Find-ByName -RootElement ([System.Windows.Automation.AutomationElement]::RootElement) -Name $ItemName -TimeoutSec 3 }
+  $selectionPattern = $null
+  if ($item -and -not $item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$selectionPattern)) { $item = $null }
+  if (-not $item) {
+    $item = Find-ByName -RootElement ([System.Windows.Automation.AutomationElement]::RootElement) -Name $ItemName -TimeoutSec 3
+    $selectionPattern = $null
+    if ($item -and -not $item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$selectionPattern)) { $item = $null }
+  }
   if (-not $item) {
     try {
       $Combo.SetFocus()
@@ -586,12 +592,8 @@ function Select-ComboItem {
       return
     } catch {}
   }
-  $pattern = $null
-  if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) {
-    $pattern.Select()
-  } else {
-    Invoke-Control -Element $item
-  }
+  if (-not $item) { throw "No se pudo seleccionar la opcion '$ItemName' del combo $($Combo.Current.AutomationId)." }
+  $selectionPattern.Select()
   Start-Sleep -Milliseconds 700
 }
 
