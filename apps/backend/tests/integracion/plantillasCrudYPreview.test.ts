@@ -142,6 +142,7 @@ describe('plantillas CRUD + previsualizacion', () => {
         preguntasIds
       })
       .expect(201);
+    expect(plantillaResp.body.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
     const plantillaId = plantillaResp.body.plantilla._id as string;
 
     const editResp = await request(app)
@@ -152,6 +153,7 @@ describe('plantillas CRUD + previsualizacion', () => {
         numeroPaginas: 1
       })
       .expect(200);
+    expect(editResp.body.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(editResp.body?.plantilla?.titulo).toBe('Parcial 1 (editado)');
 
     const detalle = await request(app).get(`/api/examenes/plantillas/${plantillaId}`).set(auth).expect(200);
@@ -183,6 +185,7 @@ describe('plantillas CRUD + previsualizacion', () => {
     expect(generadosDespuesPreview).toBe(0);
 
     const archivarResp = await request(app).post(`/api/examenes/plantillas/${plantillaId}/archivar`).set(auth).expect(200);
+    expect(archivarResp.body.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(archivarResp.body?.plantilla?.archivadoEn).toBeTruthy();
 
     const listResp = await request(app).get('/api/examenes/plantillas').set(auth).expect(200);

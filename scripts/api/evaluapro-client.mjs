@@ -54,6 +54,11 @@ function exigirClientRequestId(value, accion) {
   return requestId;
 }
 
+function validarClientRequestIdOpcional(value, accion) {
+  if (value === undefined || value === null) return undefined;
+  return exigirClientRequestId(value, accion);
+}
+
 async function leerRespuesta(response, responseType) {
   if (responseType === 'binary') return Buffer.from(await response.arrayBuffer());
   if (response.status === 204) return undefined;
@@ -422,26 +427,26 @@ export class EvaluaproClient {
 
   async crearPlantilla(payload, { confirmarEscritura = false } = {}) {
     if (!confirmarEscritura) throw new Error('Crear una plantilla de examen requiere confirmarEscritura: true');
-    const clientRequestId = exigirClientRequestId(payload?.clientRequestId, 'crear plantilla de examen');
-    return (await this.request('/examenes/plantillas', { method: 'POST', body: { ...payload, clientRequestId } })).data.plantilla;
+    const clientRequestId = validarClientRequestIdOpcional(payload?.clientRequestId, 'crear plantilla de examen');
+    return (await this.request('/examenes/plantillas', { method: 'POST', body: { ...payload, ...(clientRequestId ? { clientRequestId } : {}) } })).data.plantilla;
   }
 
   async actualizarPlantilla(plantillaId, payload, { confirmarEscritura = false } = {}) {
     if (!confirmarEscritura) throw new Error('Actualizar una plantilla de examen requiere confirmarEscritura: true');
-    const clientRequestId = exigirClientRequestId(payload?.clientRequestId, 'actualizar plantilla de examen');
-    return (await this.request(`/examenes/plantillas/${encodeURIComponent(plantillaId)}`, { method: 'POST', body: { ...payload, clientRequestId } })).data.plantilla;
+    const clientRequestId = validarClientRequestIdOpcional(payload?.clientRequestId, 'actualizar plantilla de examen');
+    return (await this.request(`/examenes/plantillas/${encodeURIComponent(plantillaId)}`, { method: 'POST', body: { ...payload, ...(clientRequestId ? { clientRequestId } : {}) } })).data.plantilla;
   }
 
   async archivarPlantilla(plantillaId, { confirmarEliminacion = false, clientRequestId } = {}) {
     if (!confirmarEliminacion) throw new Error('Archivar una plantilla de examen requiere confirmarEliminacion: true');
-    const requestId = exigirClientRequestId(clientRequestId, 'archivar plantilla de examen');
-    return (await this.request(`/examenes/plantillas/${encodeURIComponent(plantillaId)}/archivar`, { method: 'POST', body: { clientRequestId: requestId } })).data.plantilla;
+    const requestId = validarClientRequestIdOpcional(clientRequestId, 'archivar plantilla de examen');
+    return (await this.request(`/examenes/plantillas/${encodeURIComponent(plantillaId)}/archivar`, { method: 'POST', body: requestId ? { clientRequestId: requestId } : {} })).data.plantilla;
   }
 
   async eliminarPlantilla(plantillaId, { confirmarEliminacion = false, clientRequestId } = {}) {
     if (!confirmarEliminacion) throw new Error('Eliminar una plantilla y sus artefactos relacionados requiere confirmarEliminacion: true');
-    const requestId = exigirClientRequestId(clientRequestId, 'eliminar plantilla de examen');
-    return (await this.request(`/examenes/plantillas/${encodeURIComponent(plantillaId)}/eliminar`, { method: 'POST', body: { clientRequestId: requestId } })).data;
+    const requestId = validarClientRequestIdOpcional(clientRequestId, 'eliminar plantilla de examen');
+    return (await this.request(`/examenes/plantillas/${encodeURIComponent(plantillaId)}/eliminar`, { method: 'POST', body: requestId ? { clientRequestId: requestId } : {} })).data;
   }
 
   async previsualizarPlantilla(plantillaId) {

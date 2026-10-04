@@ -472,6 +472,10 @@ test('cliente expone ciclo de vida seguro de plantillas y lotes de exámenes', a
   assert.equal(calls[0].url.pathname, '/api/examenes/plantillas');
   assert.equal(calls[1].url.pathname, '/api/examenes/plantillas/template-1');
   assert.equal(calls[2].url.pathname, '/api/examenes/plantillas/template-1/archivar');
+  for (const indice of [0, 1, 2]) {
+    assert.equal(Object.hasOwn(JSON.parse(calls[indice].init.body), 'clientRequestId'), false,
+      'el cliente conserva el contrato compatible cuando clientRequestId se omite');
+  }
   assert.equal(calls[3].url.pathname, '/api/examenes/plantillas/template-1/previsualizar');
   const pdf = await client.previsualizarPlantillaPdf('template-1', { forzarRegeneracion: true });
   assert.equal(Buffer.isBuffer(pdf), true);
@@ -506,6 +510,7 @@ test('cliente expone ciclo de vida seguro de plantillas y lotes de exámenes', a
   assert.equal(calls.length, 14, 'eliminar sin confirmar no debe enviar solicitud');
   await client.eliminarPlantilla('template-1', { confirmarEliminacion: true });
   assert.equal(calls[14].url.pathname, '/api/examenes/plantillas/template-1/eliminar');
+  assert.equal(Object.hasOwn(JSON.parse(calls[14].init.body), 'clientRequestId'), false);
 });
 
 test('preflight identifica periodo y no consulta lease sin ID de equipo', async () => {
