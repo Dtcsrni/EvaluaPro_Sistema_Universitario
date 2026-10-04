@@ -56,26 +56,37 @@ jobs:
 
       - name: Resolver version objetivo
         id: resolve_version
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
         shell: bash
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            TARGET="${{ inputs.version }}"
+          set -euo pipefail
+          if [ -n "$VERSION_INPUT" ]; then
+            TARGET="$VERSION_INPUT"
           else
-            TARGET="${GITHUB_REF_NAME}"
+            TARGET="$TAG_NAME"
           fi
           TARGET="${TARGET#v}"
+          if [[ ! "$TARGET" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version estable no valida: $TARGET" >&2
+            exit 1
+          fi
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
       - name: Materializar manifest del instalador publicado
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p dist/installer
-          TAG="v${{ steps.resolve_version.outputs.target }}"
+          TAG="v${TARGET_VERSION}"
           for attempt in {1..40}; do
             if gh release download "$TAG" \
-              --repo "${{ github.repository }}" \
+              --repo "$GH_REPO" \
               --pattern "EvaluaPro-release-manifest.json" \
               --dir "dist/installer" \
               --clobber; then
@@ -91,19 +102,31 @@ jobs:
       - name: Ejecutar gate estable
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          node scripts/release/validate-stable-promotion.mjs
-          --repo=${{ github.repository }}
-          --version=${{ steps.resolve_version.outputs.target }}
-          --required-streak=10
-          --workflow=ci.yml
-          --branch=main
-          ${{ inputs.evidence_dir && format('--evidence-dir={0}', inputs.evidence_dir) || '' }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
+          EVIDENCE_DIR: ${{ inputs.evidence_dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            --repo "$GH_REPO"
+            --version "$TARGET_VERSION"
+            --required-streak 10
+            --workflow ci.yml
+            --branch main
+          )
+          if [[ -n "$EVIDENCE_DIR" ]]; then
+            args+=(--evidence-dir "$EVIDENCE_DIR")
+          fi
+          node scripts/release/validate-stable-promotion.mjs "${args[@]}"
 
       - name: Marcar release como Latest
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "v${{ steps.resolve_version.outputs.target }}" --repo "${{ github.repository }}" --latest
+          GH_REPO: ${{ github.repository }}
+          TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
+        shell: bash
+        run: gh release edit "v${TARGET_VERSION}" --repo "$GH_REPO" --latest
 
       - name: Publicar decision de auditoria
         if: always()

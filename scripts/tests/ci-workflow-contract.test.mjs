@@ -270,7 +270,7 @@ test('release stable gate es el unico que promueve Latest despues de validar', (
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const stableGateWorkflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const validateIndex = stableGateWorkflow.indexOf('validate-stable-promotion.mjs');
-  const latestIndex = stableGateWorkflow.indexOf('gh release edit "v${{ steps.resolve_version.outputs.target }}"');
+  const latestIndex = stableGateWorkflow.indexOf('gh release edit "v${TARGET_VERSION}"');
 
   assert.match(installerWorkflow, /make_latest:\s*false/);
   assert.doesNotMatch(installerWorkflow, /make_latest:\s*\$\{\{[^}]*!\(/);
@@ -278,6 +278,19 @@ test('release stable gate es el unico que promueve Latest despues de validar', (
   assert.ok(validateIndex >= 0, 'release stable gate debe ejecutar validate-stable-promotion');
   assert.ok(latestIndex > validateIndex, 'release stable gate debe marcar Latest solo despues de validar');
   assert.match(stableGateWorkflow.slice(latestIndex), /--latest/);
+});
+
+test('stable promotion never interpolates untrusted inputs into shell source', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+
+  assert.match(workflow, /VERSION_INPUT:\s*\$\{\{\s*inputs\.version\s*\}\}/);
+  assert.match(workflow, /EVIDENCE_DIR:\s*\$\{\{\s*inputs\.evidence_dir\s*\}\}/);
+  assert.ok(workflow.includes('if [[ ! "$TARGET" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]; then'));
+  assert.match(workflow, /args=\(/);
+  assert.match(workflow, /args\+=\(--evidence-dir "\$EVIDENCE_DIR"\)/);
+  assert.doesNotMatch(workflow, /TARGET="\$\{\{\s*inputs\.version/);
+  assert.doesNotMatch(workflow, /gh release edit "v\$\{\{\s*steps\.resolve_version\.outputs\.target/);
+  assert.doesNotMatch(workflow, /--evidence-dir=\$\{\{\s*inputs\.evidence_dir/);
 });
 
 test('Dockerfile backend incluye schema Prisma antes del build', () => {
