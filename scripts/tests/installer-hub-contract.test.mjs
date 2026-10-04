@@ -324,8 +324,9 @@ test('tag guard solo permite versiones semver estables o prerelease canonicas', 
 
 test('tag guard espera la ventana completa y conserva la tag si el release se retrasa', () => {
   const guard = fs.readFileSync(path.join(root, '.github/workflows/tag-release-guard.yml'), 'utf8');
-  assert.match(guard, /timeout-minutes: 30/);
-  assert.match(guard, /max_attempts=40/);
+  assert.match(guard, /timeout-minutes: 100/);
+  assert.match(guard, /max_attempts=170/);
+  assert.match(guard, /sleep_seconds=30/);
   assert.match(guard, /La tag se conserva para permitir reintento y diagnostico/);
   assert.doesNotMatch(guard, /No se encontro release.*Eliminando tag remoto/);
 });
