@@ -858,12 +858,12 @@ function Invoke-InstallerHubMode {
     Add-Result -Area $Mode -Item 'mode-selection' -Ok $false -Detail "expected=$expectedAction actual=$($startButton.Current.Name)"
     throw "Modo no aplicado: solicitado=${Mode} accion=$($startButton.Current.Name); se detiene antes de ejecutar."
   }
-  $modeImpact = Find-ById -RootElement $window -AutomationId 'ModeImpactTitleTextBlock' -TimeoutSec 5
   $expectedImpact = switch ($Mode) {
     'install' { 'Instalar o actualizar' }
     'repair' { 'Reparar instalación' }
     'uninstall' { 'Desinstalar' }
   }
+  $modeImpact = Find-ByName -RootElement $window -Name $expectedImpact -TimeoutSec 5
   if (-not $modeImpact -or $modeImpact.Current.Name -ne $expectedImpact) {
     $actualImpact = if ($modeImpact) { $modeImpact.Current.Name } else { '<missing>' }
     Add-Result -Area $Mode -Item 'mode-impact' -Ok $false -Detail "expected=$expectedImpact actual=$actualImpact"

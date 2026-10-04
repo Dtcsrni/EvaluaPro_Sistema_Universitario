@@ -159,6 +159,7 @@ test('runner selecciona opciones del combo solo con SelectionItemPattern', () =>
   assert.match(runner, /No se pudo seleccionar la opcion/);
   assert.match(runner, /SendKeys\]::SendWait\('\{ENTER\}'\)/);
   assert.match(runner, /Modo no aplicado: solicitado=\$\{Mode\} accion=/);
+  assert.match(runner, /Find-ByName -RootElement \$window -Name \$expectedImpact/);
   assert.match(runner, /Resumen de impacto no coincide con modo=\$\{Mode\}/);
   assert.doesNotMatch(runner, /Invoke-Control -Element \$item/);
 });
