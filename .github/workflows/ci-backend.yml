@@ -89,7 +89,8 @@ jobs:
             make \
             g++ \
             cmake \
-            pkg-config
+            pkg-config \
+            poppler-utils
 
       - name: Etapa setup
         run: |
