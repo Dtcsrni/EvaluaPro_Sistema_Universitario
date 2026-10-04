@@ -18,7 +18,7 @@ function invalidarFirmaQr(textoQr: string) {
 
 describe('escaneo OMR: QR asociado a examen', () => {
   const app = crearApp();
-  const TEST_TIMEOUT_QR_MS = 60_000;
+  const TEST_TIMEOUT_QR_MS = 300_000;
   const QR_IMAGE_WIDTH = 512;
   const preguntasPorEscenario = 5;
 

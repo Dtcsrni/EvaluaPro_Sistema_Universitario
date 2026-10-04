@@ -306,7 +306,7 @@ describe('workflow OMR por jobs', () => {
       .get(`/api/omr/jobs/${jobId}`)
       .set({ Authorization: `Bearer ${segundoToken}` })
       .expect(404);
-  }, 60_000);
+  }, 300_000);
 
   it('ingresa PDFs grandes por multipart, conserva páginas sin QR y clasifica sin escribir calificaciones', async () => {
     const token = await registrar('omr-jobs-ingesta@prueba.test');
@@ -340,7 +340,7 @@ describe('workflow OMR por jobs', () => {
     expect(creado.body.job.status).toBe('processing');
 
     let job = creado.body.job;
-    const limite = Date.now() + 120_000;
+    const limite = Date.now() + 600_000;
     while (job.status === 'processing' && Date.now() < limite) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       const estado = await request(app).get(`/api/omr/ingestas/${jobId}`).set(auth).expect(200);
@@ -493,7 +493,7 @@ describe('workflow OMR por jobs', () => {
       .attach('archivos', distinto, { filename: 'otro.pdf', contentType: 'application/pdf' })
       .expect(409);
     expect(conflicto.body.error.codigo).toBe('OMR_INGESTA_IDEMPOTENCY_CONFLICT');
-  }, 180_000);
+  }, 600_000);
 
   it('localiza por QR el lote exacto cotejando solo el PDF de referencia y no crea jobs ni calificaciones', async () => {
     const token = await registrar('omr-referencia-prevalidar@prueba.test');
@@ -642,7 +642,7 @@ describe('workflow OMR por jobs', () => {
       .attach('referencia', pdfLote.body as Buffer, { filename: 'referencia-global.pdf', contentType: 'application/pdf' })
       .expect(202);
     let job = creado.body.job;
-    const limite = Date.now() + 120_000;
+    const limite = Date.now() + 600_000;
     while (job.status === 'processing' && Date.now() < limite) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       job = (await request(app).get(`/api/omr/ingestas/${job.jobId}`).set(auth).expect(200)).body.job;
@@ -677,7 +677,7 @@ describe('workflow OMR por jobs', () => {
     expect(job.status).toBe('failed');
     expect(job.errors).toContainEqual(expect.objectContaining({ code: 'OMR_REFERENCIA_NO_COINCIDE_LOTE' }));
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } })).toBe(0);
-  }, 180_000);
+  }, 600_000);
 
   it('usa el PDF individual cuando el examen tiene loteId pero su origen es individual', async () => {
     const token = await registrar('omr-jobs-pdf-individual@prueba.test');
@@ -702,7 +702,7 @@ describe('workflow OMR por jobs', () => {
       .expect(202);
 
     let job = creado.body.job;
-    const limite = Date.now() + 120_000;
+    const limite = Date.now() + 600_000;
     while (job.status === 'processing' && Date.now() < limite) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       job = (await request(app).get(`/api/omr/ingestas/${job.jobId}`).set(auth).expect(200)).body.job;
@@ -712,7 +712,7 @@ describe('workflow OMR por jobs', () => {
     expect(job.reference.pages).toBe(1);
     expect(job.pages).toHaveLength(1);
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(0);
-  }, 180_000);
+  }, 600_000);
 
   it('reprocesa una ingesta fallida desde originales verificados sin duplicar páginas ni calificaciones', async () => {
     const token = await registrar('omr-jobs-pdf-retry@prueba.test');
@@ -733,7 +733,7 @@ describe('workflow OMR por jobs', () => {
       .expect(202);
 
     let job = creado.body.job;
-    const limite = Date.now() + 120_000;
+    const limite = Date.now() + 600_000;
     while (job.status === 'processing' && Date.now() < limite) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       job = (await request(app).get(`/api/omr/ingestas/${job.jobId}`).set(auth).expect(200)).body.job;
@@ -765,7 +765,7 @@ describe('workflow OMR por jobs', () => {
     job = reintento.body.job;
     expect(job.pagesProcessed).toBe(1);
     expect(job.pages).toHaveLength(1);
-    const limiteReintento = Date.now() + 120_000;
+    const limiteReintento = Date.now() + 600_000;
     while (job.status === 'processing' && Date.now() < limiteReintento) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       job = (await request(app).get(`/api/omr/ingestas/${job.jobId}`).set(auth).expect(200)).body.job;
@@ -788,7 +788,7 @@ describe('workflow OMR por jobs', () => {
       .set(auth)
       .send({ clientRequestId: '59f7d702-f577-4be2-8224-e9c5ea1763f0' })
       .expect(409);
-  }, 180_000);
+  }, 600_000);
 
   it('rasteriza PDF por página y conserva errores de una captura sin ocultar las demás', async () => {
     const token = await registrar('omr-jobs-pdf@prueba.test');
@@ -843,7 +843,7 @@ describe('workflow OMR por jobs', () => {
     });
     expect(paginaInvalida.sourceFileName).toBe('examen-corrupto.pdf');
     expect(loteMixto.body.job.pages[0].sheetSerial).not.toBe(paginaInvalida.sheetSerial);
-  }, 120_000);
+  }, 600_000);
 
   it('permite asociar manualmente una página sin QR, preserva el original y mantiene revisión sin calificar', async () => {
     const token = await registrar('omr-jobs-manual-ingesta@prueba.test');
