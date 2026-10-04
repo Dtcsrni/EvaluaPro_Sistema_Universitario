@@ -164,9 +164,13 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
-  assert.match(workflow, /Publicar release assets \(tags v\*\)/);
-  assert.match(workflow, /steps\.stable_release_assets\.outputs\.files/);
+  assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*installer_windows/);
+  assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@v6/);
+  assert.match(workflow, /name: Publicar release assets \(tags v\*\)[\s\S]*?softprops\/action-gh-release@v2/);
   assert.match(workflow, /make_latest:\s*false/);
+  assert.match(workflow, /permissions:\s*\n\s*contents:\s*read/);
+  assert.match(workflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
+  assert.doesNotMatch(workflow, /stable_release_assets/);
   assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.match(stableGateWorkflow, /gh release edit "v\$\{\{ steps\.resolve_version\.outputs\.target \}\}".*--latest/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
