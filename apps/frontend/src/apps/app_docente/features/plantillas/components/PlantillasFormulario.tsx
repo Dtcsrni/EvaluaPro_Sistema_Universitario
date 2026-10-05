@@ -325,7 +325,7 @@ export function PlantillasFormulario({
               </select>
               <span className="ayuda" role={examTemplateId === 'omr-inline-exam-v1' ? 'alert' : undefined}>
                 {examTemplateId === 'omr-inline-exam-v1'
-                  ? 'Cada opción A–E lleva su burbuja en el mismo bloque. Requiere revisión manual completa; la calificación automática está bloqueada mientras se evalúa.'
+                  ? 'Cada opción A–E lleva su burbuja en el mismo bloque. Agrega un reverso en blanco por página para impedir trasluz; al imprimir a doble cara usa una hoja por página de examen. Al cargar fotos, envía solo las caras impresas. Requiere revisión manual completa; la calificación automática está bloqueada mientras se evalúa.'
                   : 'Conserva la geometría OMR vigente de TV4.'}
               </span>
             </label>

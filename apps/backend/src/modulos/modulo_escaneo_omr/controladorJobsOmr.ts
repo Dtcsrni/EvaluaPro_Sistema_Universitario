@@ -14,13 +14,15 @@ import { rasterizarPdfParaPreview } from '../modulo_generacion_pdf/infra/rasteri
 import { analizarImagen } from './controladorEscaneoOmr.js';
 import { esquemaListarJobsOmr } from './validacionesOmr.js';
 import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './omr/decision/respuestaRevision.js';
+import { resolverPaginaCapturableOmr } from './paginasCapturablesOmr.js';
+import { evaluarAutoCalificableOmr } from './politicaAutoCalificacionOmr.js';
 
 type CapturaOmr = { nombreArchivo?: string; imagenBase64: string };
 type TipoFuenteOmr = 'image_batch' | 'camera_capture' | 'pdf';
 type EntradaPaginaJob = { pageIndex: number; imagenBase64?: string; nombreArchivo?: string; error?: string };
 type ErrorJob = { pageIndex: number; message: string; nombreArchivo?: string };
 
-type PaginaJob = {
+export type PaginaJob = {
   sheetSerial: string;
   pageIndex: number;
   pageType?: 'examen' | 'reverso-vacio';
@@ -136,29 +138,44 @@ function ejecutarAnalisisInterno(params: {
   });
 }
 
-function convertirResultadoAPagina(
+export function convertirResultadoAPagina(
   folio: string,
   pageIndex: number,
   payload: any,
   sourceFileName?: string,
-  forzarRevisionManual = false
+  forzarRevisionManual = false,
+  totalPreguntasEsperadas = 0
 ): PaginaJob {
   const resultado = payload?.resultado ?? {};
   const estado = String(resultado.estadoAnalisis ?? 'requiere_revision');
-  const scanStatus: PaginaJob['scanStatus'] = estado === 'ok' ? 'accepted' : estado === 'rechazado_calidad' ? 'rejected' : 'needs_review';
+  const estadoBase: PaginaJob['scanStatus'] = estado === 'ok' ? 'accepted' : estado === 'rechazado_calidad' ? 'rejected' : 'needs_review';
   const motivos = Array.isArray(resultado.motivosRevision) ? resultado.motivosRevision.map((item: unknown) => String(item)).filter(Boolean) : [];
-  const respuestas = Array.isArray(resultado.respuestasDetectadas)
-    ? resultado.respuestasDetectadas.map(proyectarRespuestaParaRevisionOmr)
+  const respuestasDetectadas = Array.isArray(resultado.respuestasDetectadas) ? resultado.respuestasDetectadas : [];
+  const respuestas = respuestasDetectadas.length > 0
+    ? respuestasDetectadas.map(proyectarRespuestaParaRevisionOmr)
     : [];
   const confidence = Number(resultado.confianzaPromedioPagina ?? 0);
+  const calidadPagina = Number(resultado.calidadPagina ?? 0);
+  const ratioAmbiguas = Number(resultado.ratioAmbiguas ?? 1);
+  const coberturaDeteccion = totalPreguntasEsperadas > 0 ? respuestasDetectadas.length / totalPreguntasEsperadas : 0;
+  const decision = evaluarAutoCalificableOmr({
+    estadoAnalisis: estado as 'ok' | 'rechazado_calidad' | 'requiere_revision',
+    calidadPagina,
+    confianzaPromedioPagina: confidence,
+    ratioAmbiguas,
+    coberturaDeteccion,
+    respuestasDetectadas
+  });
+  const autoGradable = !forzarRevisionManual && estadoBase === 'accepted' && decision.autoCalificableOmr;
+  const scanStatus: PaginaJob['scanStatus'] = estadoBase === 'accepted' && !autoGradable ? 'needs_review' : estadoBase;
   const pagina: PaginaJob = {
     sheetSerial: `${folio}-P${pageIndex}`,
     pageIndex,
     ...(sourceFileName ? { sourceFileName } : {}),
     scanStatus,
     confidence: Number.isFinite(confidence) ? confidence : 0,
-    autoGradable: !forzarRevisionManual && scanStatus === 'accepted',
-    manualReviewRequired: forzarRevisionManual || scanStatus !== 'accepted',
+    autoGradable,
+    manualReviewRequired: !autoGradable,
     identityResult: { studentId: payload?.alumnoId ?? null },
     versionResult: { versionCode: null },
     responses: respuestas,
@@ -170,12 +187,19 @@ function convertirResultadoAPagina(
     })),
     resultado: {
       estadoAnalisis: estado,
-      calidadPagina: Number(resultado.calidadPagina ?? 0),
-      ratioAmbiguas: Number(resultado.ratioAmbiguas ?? 1)
+      calidadPagina,
+      ratioAmbiguas
     }
   };
-  if (forzarRevisionManual && scanStatus === 'accepted') {
-    pagina.scanStatus = 'needs_review';
+  if (estadoBase === 'accepted' && !autoGradable && !forzarRevisionManual) {
+    pagina.exceptions.push({
+      code: 'OMR_RESPUESTA_REQUIERE_REVISION',
+      severity: 'warning',
+      message: 'Una o más respuestas OMR no cumplen la política de confianza automática.',
+      recommendedAction: 'Revisar cada respuesta contra la captura original antes de finalizar el job.'
+    });
+  }
+  if (forzarRevisionManual && estadoBase === 'accepted') {
     pagina.exceptions.push({
       code: 'OMR_TEMPLATE_EXPERIMENTAL',
       severity: 'warning',
@@ -317,6 +341,7 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
   const examen = await prisma.examenGenerado.findFirst({ where: { id: body.generatedAssessmentId, docenteId } });
   if (!examen) throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen generado no encontrado', 404);
   const mapaOmr = parseJsonSafe<any>(examen.mapaOmr, null);
+  const mapaVariante = parseJsonSafe<any>(examen.mapaVariante, null);
   if (Number(examen.omrRuntimeVersion ?? mapaOmr?.templateVersion ?? 0) !== 4 && Number(mapaOmr?.templateVersion ?? 0) !== 4) {
     throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El examen no corresponde al contrato OMR canónico', 422);
   }
@@ -355,11 +380,15 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
   await prisma.omrScanJob.update({ where: { id: job.id }, data: { totalHojas: paginasEntrada.length } });
 
   for (const entrada of paginasEntrada) {
+    const paginaMapa = Array.isArray(mapaOmr?.paginas)
+      ? resolverPaginaCapturableOmr(mapaOmr.paginas, entrada.pageIndex, body.sourceType)
+      : undefined;
+    const numeroPaginaOmr = paginaMapa?.numeroPagina ?? entrada.pageIndex;
     if (entrada.error) {
-      errors.push({ pageIndex: entrada.pageIndex, message: entrada.error, nombreArchivo: entrada.nombreArchivo });
+      errors.push({ pageIndex: numeroPaginaOmr, message: entrada.error, nombreArchivo: entrada.nombreArchivo });
       paginas.push({
-        sheetSerial: `${examen.folio}-P${entrada.pageIndex}`,
-        pageIndex: entrada.pageIndex,
+        sheetSerial: `${examen.folio}-P${numeroPaginaOmr}`,
+        pageIndex: numeroPaginaOmr,
         ...(entrada.nombreArchivo ? { sourceFileName: entrada.nombreArchivo } : {}),
         scanStatus: 'rejected',
         confidence: 0,
@@ -376,9 +405,6 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
       await prisma.omrScanJob.update({ where: { id: job.id }, data: { procesadas: paginas.length } });
       continue;
     }
-    const paginaMapa = Array.isArray(mapaOmr?.paginas)
-      ? mapaOmr.paginas.find((pagina: { numeroPagina?: number }) => Number(pagina.numeroPagina) === entrada.pageIndex)
-      : undefined;
     if (paginaMapa?.tipoPagina === 'reverso-vacio') {
       paginas.push({
         sheetSerial: `${examen.folio}-P${entrada.pageIndex}`,
@@ -406,13 +432,14 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
       continue;
     }
     try {
-      const payload = await ejecutarAnalisisInterno({ docenteId, folio: examen.folio, numeroPagina: entrada.pageIndex, imagenBase64: entrada.imagenBase64 ?? '' });
+      const payload = await ejecutarAnalisisInterno({ docenteId, folio: examen.folio, numeroPagina: numeroPaginaOmr, imagenBase64: entrada.imagenBase64 ?? '' });
       paginas.push(convertirResultadoAPagina(
         examen.folio,
-        entrada.pageIndex,
+        numeroPaginaOmr,
         payload,
         entrada.nombreArchivo,
-        mapaOmr?.templateId === 'omr-inline-exam-v1'
+        mapaOmr?.templateId === 'omr-inline-exam-v1',
+        Array.isArray(mapaVariante?.ordenPreguntas) ? mapaVariante.ordenPreguntas.length : 0
       ));
     } catch (error) {
       errors.push({
