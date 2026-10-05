@@ -1179,6 +1179,10 @@ function Invoke-CaptureCommand {
   $stdout = Join-Path $ReportDir ("{0}.stdout.log" -f $Name)
   $stderr = Join-Path $ReportDir ("{0}.stderr.log" -f $Name)
   $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+  # Keep the native handle while Start-Process still exposes it; some Windows
+  # runner processes lose the managed ExitCode after WaitForExit drains streams.
+  $processHandle = [IntPtr]::Zero
+  try { $processHandle = [IntPtr]$process.Handle } catch {}
   if (-not $process.WaitForExit($TimeoutSec * 1000)) {
     try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
     throw "Timeout ejecutando $Name"
@@ -1207,7 +1211,10 @@ namespace EvaluaPro {
 '@
     }
     [uint32]$nativeExitCode = 0
-    $exitCodeAvailable = [EvaluaPro.NativeProcessExitCode]::GetExitCodeProcess($process.Handle, [ref]$nativeExitCode)
+    if ($processHandle -eq [IntPtr]::Zero) {
+      throw "No se pudo determinar ExitCode de ${Name}: el handle nativo del proceso no estuvo disponible antes de esperar su finalización."
+    }
+    $exitCodeAvailable = [EvaluaPro.NativeProcessExitCode]::GetExitCodeProcess($processHandle, [ref]$nativeExitCode)
     if (-not $exitCodeAvailable) {
       $nativeError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
       throw "No se pudo determinar ExitCode de $Name mediante GetExitCodeProcess (Win32=$nativeError)."

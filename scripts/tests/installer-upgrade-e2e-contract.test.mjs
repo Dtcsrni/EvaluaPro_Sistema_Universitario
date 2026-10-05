@@ -27,7 +27,9 @@ test('upgrade E2E verifica el bundle oficial v1.2.3 y prepara su MSI extraído',
 });
 
 test('runner E2E recupera ExitCode del handle de Windows y falla si sigue siendo desconocido', () => {
-  assert.match(e2e, /GetExitCodeProcess\(\$process\.Handle, \[ref\]\$nativeExitCode\)/);
+  assert.match(e2e, /\$processHandle = \[IntPtr\]::Zero\s+try \{ \$processHandle = \[IntPtr\]\$process\.Handle \} catch \{\}\s+if \(-not \$process\.WaitForExit/);
+  assert.match(e2e, /GetExitCodeProcess\(\$processHandle, \[ref\]\$nativeExitCode\)/);
+  assert.match(e2e, /handle nativo del proceso no estuvo disponible antes de esperar su finalización/);
   assert.match(e2e, /No se pudo determinar ExitCode de \$Name mediante GetExitCodeProcess/);
   assert.doesNotMatch(e2e, /Falling back to 0 \(Success\)/);
 });
