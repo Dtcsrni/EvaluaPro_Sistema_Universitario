@@ -84,6 +84,21 @@ $reportPath = Join-Path $ReportDir 'report.json'
 $legacyReportPath = Join-Path $ReportDir 'installer-hub-e2e-docente-report.json'
 $logPath = Join-Path $ReportDir 'installer-hub-e2e-docente.log'
 $tutorialPath = Join-Path $ReportDir 'tutorial.md'
+$sharedProgramDataDatabasePath = Join-Path $env:ProgramData 'EvaluaPro\data\evaluapro.db'
+$script:sharedProgramDataSqliteArtifactsAtStart = @(
+  foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
+    $candidate = $sharedProgramDataDatabasePath + $suffix
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { $candidate }
+  }
+)
+$script:sharedProgramDataDatabaseExistedAtStart = $script:sharedProgramDataSqliteArtifactsAtStart.Count -gt 0
+$script:operationalConfigPath = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\operational-config.last.json'
+$script:operationalConfigExistedAtStart = Test-Path -LiteralPath $script:operationalConfigPath -PathType Leaf
+$script:operationalConfigOriginalBytes = if ($script:operationalConfigExistedAtStart) {
+  [IO.File]::ReadAllBytes($script:operationalConfigPath)
+} else {
+  $null
+}
 $results = New-Object System.Collections.Generic.List[object]
 $screenshots = New-Object System.Collections.Generic.List[string]
 $artifacts = New-Object System.Collections.Generic.List[string]
@@ -1352,6 +1367,7 @@ function Invoke-UpgradeBaselineFlow {
   $verifiedBaseline = Assert-OfficialUpgradeBaseline -Path $BaselinePath
   Invoke-InstallerHubMode -Mode 'install' -BundlePath $verifiedBaseline | Out-Null
   Wait-InstalledPayload -TimeoutSec 240
+  Set-QAIsolatedSqlite | Out-Null
   Test-InstalledState -Phase 'post-baseline-install'
   $baselineVersion = Get-InstalledProductVersion
   if ($baselineVersion -ne [version]'1.2.3') { throw "El instalador baseline no dejó v1.2.3; versión observada: $baselineVersion" }
@@ -1383,6 +1399,16 @@ function Invoke-UpgradeBaselineFlow {
 }
 
 function Resolve-InstalledSqlitePath {
+  $databasePath = Get-ConfiguredInstalledSqlitePath
+  $localDatabase = [IO.Path]::GetFullPath((Join-Path $installedRoot 'data\evaluapro.db'))
+  if ($databasePath -ne $localDatabase) {
+    throw "La ruta SQLite del instalador está fuera de los destinos QA permitidos: $databasePath"
+  }
+  if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) { throw "No existe la SQLite instalada: $databasePath" }
+  return $databasePath
+}
+
+function Get-ConfiguredInstalledSqlitePath {
   $envFile = Join-Path $installedRoot '.env'
   if (-not (Test-Path -LiteralPath $envFile -PathType Leaf)) { throw "No existe la configuración de base instalada: $envFile" }
   $values = @{}
@@ -1396,12 +1422,70 @@ function Resolve-InstalledSqlitePath {
   $match = [regex]::Match($databaseUrl, '^file:(?<path>[A-Za-z]:[\\/][^?#]+)$')
   if (-not $match.Success) { throw 'La base instalada debe declarar una ruta SQLite local en .env.' }
   $databasePath = [IO.Path]::GetFullPath([Uri]::UnescapeDataString($match.Groups['path'].Value.Replace('/', '\\')))
+  return $databasePath
+}
+
+function Set-QAIsolatedSqlite {
+  $databasePath = Get-ConfiguredInstalledSqlitePath
   $localDatabase = [IO.Path]::GetFullPath((Join-Path $installedRoot 'data\evaluapro.db'))
-  if ($databasePath -ne $localDatabase) {
+  if ($databasePath -eq $localDatabase) {
+    if (-not (Test-Path -LiteralPath $localDatabase -PathType Leaf)) { throw "No existe la SQLite instalada: $localDatabase" }
+    Add-Result -Area 'database-isolation' -Item 'isolated-sqlite' -Ok $true -Detail $localDatabase
+    return $localDatabase
+  }
+  $sharedDatabase = [IO.Path]::GetFullPath($sharedProgramDataDatabasePath)
+  if ($databasePath -ne $sharedDatabase) {
     throw "La ruta SQLite del instalador está fuera de los destinos QA permitidos: $databasePath"
   }
-  if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) { throw "No existe la SQLite instalada: $databasePath" }
-  return $databasePath
+  if ($script:sharedProgramDataDatabaseExistedAtStart) {
+    throw "Se rechaza mover una SQLite de ProgramData preexistente; el runner debe ejecutarse en un host QA limpio: $databasePath"
+  }
+  if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) { throw "No existe la SQLite baseline recién creada: $databasePath" }
+  if (Test-Path -LiteralPath $localDatabase) { throw "Ya existe la SQLite destino del runner: $localDatabase" }
+
+  $localDataDirectory = Split-Path -Parent $localDatabase
+  New-Item -ItemType Directory -Force -Path $localDataDirectory | Out-Null
+  $moves = @()
+  foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
+    $source = $databasePath + $suffix
+    if (Test-Path -LiteralPath $source -PathType Leaf) {
+      $destination = $localDatabase + $suffix
+      if (Test-Path -LiteralPath $destination) { throw "Ya existe un archivo SQLite QA destino: $destination" }
+      $moves += [pscustomobject]@{ source = $source; destination = $destination }
+    }
+  }
+  if (-not ($moves | Where-Object { $_.source -eq $databasePath })) { throw "No se encontró la SQLite baseline: $databasePath" }
+
+  $moved = New-Object System.Collections.Generic.List[object]
+  try {
+    foreach ($move in $moves) {
+      Move-Item -LiteralPath $move.source -Destination $move.destination
+      $moved.Add($move) | Out-Null
+    }
+    $envFile = Join-Path $installedRoot '.env'
+    $contents = [IO.File]::ReadAllText($envFile)
+    $localDatabaseUrl = 'file:' + ($localDatabase -replace '\\', '/')
+    $databaseSettingPattern = '(?m)^(\s*(?:BACKEND_DATABASE_URL|DATABASE_URL)\s*=\s*).*$'
+    $settingCount = [regex]::Matches($contents, $databaseSettingPattern).Count
+    if ($settingCount -lt 1) { throw 'No se encontraron variables SQLite para actualizar el entorno QA.' }
+    $updated = [regex]::Replace($contents, $databaseSettingPattern, [System.Text.RegularExpressions.MatchEvaluator] {
+        param($match)
+        return $match.Groups[1].Value + $localDatabaseUrl
+      })
+    [IO.File]::WriteAllText($envFile, $updated, [Text.UTF8Encoding]::new($false))
+    $verifiedPath = Get-ConfiguredInstalledSqlitePath
+    if ($verifiedPath -ne $localDatabase) { throw "El .env QA no quedó apuntando a la SQLite aislada: $verifiedPath" }
+  } catch {
+    for ($index = $moved.Count - 1; $index -ge 0; $index--) {
+      $move = $moved[$index]
+      if ((Test-Path -LiteralPath $move.destination -PathType Leaf) -and -not (Test-Path -LiteralPath $move.source)) {
+        Move-Item -LiteralPath $move.destination -Destination $move.source -ErrorAction SilentlyContinue
+      }
+    }
+    throw
+  }
+  Add-Result -Area 'database-isolation' -Item 'fresh-programdata-sqlite-relocated' -Ok $true -Detail "origen=$databasePath destino=$localDatabase"
+  return $localDatabase
 }
 
 function Invoke-DummyDataCycle {
@@ -1538,9 +1622,6 @@ function Write-TutorialMarkdown {
   }
   $content -join "`r`n" | Set-Content -Path $tutorialPath -Encoding UTF8
   $artifacts.Add($tutorialPath) | Out-Null
-  $docsTutorialDir = Join-Path $root 'docs\tutoriales'
-  New-Item -ItemType Directory -Force -Path $docsTutorialDir | Out-Null
-  Copy-Item -LiteralPath $tutorialPath -Destination (Join-Path $docsTutorialDir 'installer-hub-docente-e2e.md') -Force
 }
 
 function Test-InstalledState {
@@ -1601,6 +1682,12 @@ try {
   }
   $installedRoot = $InstallDir
 
+  $sharedDatabaseAbsent = -not $script:sharedProgramDataDatabaseExistedAtStart
+  Add-Result -Area 'preflight' -Item 'shared-programdata-database-absent' -Ok $sharedDatabaseAbsent -Detail $sharedProgramDataDatabasePath
+  if (-not $sharedDatabaseAbsent) {
+    throw "El E2E no se ejecuta porque ya existe una SQLite compartida en ProgramData; use un host QA limpio para no tocar datos existentes: $sharedProgramDataDatabasePath"
+  }
+
   $existing = @(Get-EvaluaProUninstallEntries)
   Export-JsonArtifact -Name 'preflight-uninstall-entries.json' -Data $existing | Out-Null
   Add-Result -Area 'preflight' -Item 'existing-install' -Ok ($AllowExistingInstall -or $existing.Count -eq 0) -Detail ("entries={0}" -f $existing.Count)
@@ -1636,6 +1723,7 @@ try {
   if ([string]::IsNullOrWhiteSpace($BaselineBundlePath)) {
     Invoke-InstallerHubMode -Mode 'install' | Out-Null
     Wait-InstalledPayload -TimeoutSec 240
+    Set-QAIsolatedSqlite | Out-Null
     Test-InstalledState -Phase 'post-install'
   } else {
     Invoke-UpgradeBaselineFlow -BaselinePath $BaselineBundlePath
@@ -1741,4 +1829,27 @@ finally {
     } catch {}
   }
   Stop-InstallerHubProcesses -Reason 'finally'
+  try {
+    $currentProfileExists = Test-Path -LiteralPath $script:operationalConfigPath -PathType Leaf
+    $currentProfileOwnedByQa = $false
+    if ($currentProfileExists) {
+      try {
+        $currentProfile = Get-Content -Raw -LiteralPath $script:operationalConfigPath | ConvertFrom-Json
+        $currentInstallDir = [string]$currentProfile.installDir
+        $currentProfileOwnedByQa = -not [string]::IsNullOrWhiteSpace($currentInstallDir) -and
+          [IO.Path]::GetFullPath($currentInstallDir).TrimEnd('\\') -eq [IO.Path]::GetFullPath($installedRoot).TrimEnd('\\')
+      } catch {}
+    }
+    if ($script:operationalConfigExistedAtStart -and (-not $currentProfileExists -or $currentProfileOwnedByQa)) {
+      [IO.File]::WriteAllBytes($script:operationalConfigPath, $script:operationalConfigOriginalBytes)
+      Write-E2ELog 'Perfil operativo previo restaurado tras la prueba QA.'
+    } elseif (-not $script:operationalConfigExistedAtStart -and $currentProfileOwnedByQa) {
+      Remove-Item -LiteralPath $script:operationalConfigPath -Force
+      Write-E2ELog 'Perfil operativo creado por la prueba QA retirado.'
+    } elseif ($currentProfileExists -and -not $currentProfileOwnedByQa) {
+      Write-E2ELog 'El perfil operativo cambió de destino durante E2E; se conserva para evitar sobrescribir una actualización externa.'
+    }
+  } catch {
+    Write-E2ELog "WARNING: No se pudo restaurar el perfil operativo QA: $($_.Exception.Message)"
+  }
 }

@@ -59,6 +59,29 @@ test('runner acepta el EXE publicado con SHA obligatorio y CRC32 opcional', () =
   assert.doesNotMatch(e2e, /if \(-not \(Test-Path -LiteralPath \$crcPath\)\) \{ throw "No existe CRC32/);
 });
 
+test('runner protege ProgramData y aísla la SQLite recién creada por el baseline', () => {
+  assert.match(e2e, /sharedProgramDataSqliteArtifactsAtStart = @\([\s\S]+?-wal'[\s\S]+?'-shm'[\s\S]+?'-journal'/);
+  assert.match(e2e, /sharedProgramDataDatabaseExistedAtStart = \$script:sharedProgramDataSqliteArtifactsAtStart\.Count -gt 0/);
+  assert.match(e2e, /shared-programdata-database-absent/);
+  assert.match(e2e, /host QA limpio para no tocar datos existentes/);
+  assert.match(e2e, /function Set-QAIsolatedSqlite/);
+  assert.match(e2e, /sharedProgramDataDatabaseExistedAtStart\)\s*\{\s*throw/);
+  assert.match(e2e, /foreach \(\$suffix in @\('', '-wal', '-shm', '-journal'\)\)/);
+  const baselineInstall = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath $verifiedBaseline");
+  const isolateBaseline = e2e.indexOf('Set-QAIsolatedSqlite | Out-Null', baselineInstall);
+  const baselineState = e2e.indexOf("Test-InstalledState -Phase 'post-baseline-install'", baselineInstall);
+  assert.ok(baselineInstall >= 0 && isolateBaseline > baselineInstall && isolateBaseline < baselineState);
+  assert.match(e2e, /operationalConfigOriginalBytes/);
+  assert.match(e2e, /operationalConfigExistedAtStart -and \(-not \$currentProfileExists -or \$currentProfileOwnedByQa\)/);
+  assert.match(e2e, /Perfil operativo previo restaurado tras la prueba QA/);
+  assert.match(e2e, /Move-Item -LiteralPath \$move\.destination -Destination \$move\.source/);
+});
+
+test('tutorial y capturas de una E2E fallida se quedan dentro del reporte QA', () => {
+  assert.match(e2e, /Set-Content -Path \$tutorialPath/);
+  assert.doesNotMatch(e2e, /Copy-Item -LiteralPath \$tutorialPath -Destination .*installer-hub-docente-e2e\.md/);
+});
+
 test('release valida el asset descargado desde GitHub antes de hacer público el release', () => {
   assert.match(workflow, /draft: true/);
   assert.match(workflow, /post_publish_installer_e2e:/);

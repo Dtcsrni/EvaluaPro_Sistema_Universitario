@@ -321,8 +321,23 @@ test('build MSI bloquea MSI docente sin bootstrap y esquema SQLite nativos', () 
 
 test('tag guard solo permite versiones semver estables o prerelease canonicas', () => {
   const guard = fs.readFileSync(path.join(root, '.github/workflows/tag-release-guard.yml'), 'utf8');
-  assert.match(guard, /v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+/);
-  assert.match(guard, /alpha\|beta\|rc/);
+  const guardPattern = guard.match(/tag_release_guard:[\s\S]*?if \[\[ ! "\$TAG_NAME" =~ (.+?) \]\]; then/)?.[1];
+  const cleanupPattern = guard.match(/cleanup_invalid_tag:[\s\S]*?if \[\[ "\$TAG_NAME" =~ (.+?) \]\]; then/)?.[1];
+  assert.ok(guardPattern, 'el gate debe declarar el formato canónico');
+  assert.ok(cleanupPattern, 'el cleanup debe validar tags válidas antes de borrar');
+  const canonicalPattern = guardPattern.split(' || ')[0];
+  assert.equal(cleanupPattern.split(' || ')[0], canonicalPattern, 'el cleanup debe reconocer la misma versión canónica');
+  const canonicalTag = new RegExp(canonicalPattern);
+  for (const tag of ['v0.0.0', 'v1.2.3', 'v1.2.3-alpha.1', 'v1.2.3-beta.2', 'v1.2.3-rc.3']) {
+    assert.equal(canonicalTag.test(tag), true, `${tag} debe ser válida`);
+  }
+  for (const tag of ['v01.2.3', 'v1.02.3', 'v1.2.03', 'v1.2.3-beta.01', 'v1.2.3-preview.1']) {
+    assert.equal(canonicalTag.test(tag), false, `${tag} debe ser rechazada`);
+  }
+  const cleanupCondition = guard.match(/cleanup_invalid_tag:[\s\S]*?if \[\[ (.+?) \]\]; then/)?.[1] ?? '';
+  assert.match(cleanupCondition, /"\$TAG_NAME" =~/);
+  assert.match(cleanupCondition, /! "\$REPOSITORY" =~/);
+  assert.doesNotMatch(cleanupCondition, /! "\$TAG_NAME" =~/);
   assert.match(guard, /Formato de tag no permitido/);
 });
 

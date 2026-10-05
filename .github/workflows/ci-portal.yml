@@ -87,37 +87,5 @@ jobs:
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
 
-      - name: Etapa lint portal
-        run: npm -C apps/portal_alumno_cloud run lint
-
       - name: Etapa typecheck portal
         run: npm -C apps/portal_alumno_cloud run typecheck
-
-      - name: Etapa test portal
-        run: npm run test:portal:ci
-
-      - name: Etapa coverage portal
-        run: npm -C apps/portal_alumno_cloud run test:coverage
-
-      - name: Etapa tdd-debt-check
-        run: npm run test:coverage:exclusions:debt
-
-      - name: Preparar base para diff coverage (PR)
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$BASE_REF" ]] || ! git check-ref-format "refs/heads/$BASE_REF"; then
-            echo "Base ref inválida para diff coverage." >&2
-            exit 1
-          fi
-          git fetch --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-
-      - name: Etapa diff-coverage-check
-        env:
-          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/portal_alumno_cloud/src"
-        run: npm run test:coverage:diff -- --apps portal
-
-      - name: Etapa build portal
-        run: npm -C apps/portal_alumno_cloud run build

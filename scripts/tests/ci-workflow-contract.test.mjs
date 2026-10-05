@@ -256,6 +256,42 @@ test('publicaciones externas serializan ejecuciones en curso', () => {
   assert.match(installerWorkflow, /cancel-in-progress:\s*\$\{\{\s*!startsWith\(github\.ref, 'refs\/tags\/v'\)\s*\}\}/);
 });
 
+test('release beta automatica escucha CI Checks exitoso de main', () => {
+  const beta = fs.readFileSync(path.join(workflowDir, 'release-beta.yml'), 'utf8');
+  const triggers = beta.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '';
+
+  assert.match(triggers, /workflow_run:\n\s+workflows:\n\s+- ["']CI Checks["']\n\s+types:\s*\n\s+- completed\n\s+branches:\s*\n\s+- main/);
+  assert.match(beta, /github\.event\.workflow_run\.conclusion == 'success'/);
+  assert.match(beta, /github\.event\.workflow_run\.head_branch == 'main'/);
+});
+
+test('CI central concentra suites completas y cobertura sin excluir todo el código fuente', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const moduleWorkflows = ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml'];
+
+  assert.match(central, /npm -C apps\/backend run test:coverage/);
+  assert.match(central, /npm run test:frontend:coverage:min/);
+  assert.match(central, /npm -C apps\/portal_alumno_cloud run test:coverage/);
+  assert.match(central, /npm run test:coverage:diff -- --apps backend,portal/);
+  assert.match(central, /npm run test:coverage:diff -- --apps frontend/);
+  assert.doesNotMatch(central, /DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS:[^\n]*apps\/(?:backend|frontend|portal_alumno_cloud)\/src(?:[;" ]|$)/);
+
+  for (const name of moduleWorkflows) {
+    const moduleWorkflow = fs.readFileSync(path.join(workflowDir, name), 'utf8');
+    assert.doesNotMatch(moduleWorkflow, /test:coverage|test:coverage:diff|test:coverage:exclusions:debt/, name);
+  }
+
+  const backend = fs.readFileSync(path.join(workflowDir, 'ci-backend.yml'), 'utf8');
+  const frontend = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
+  const portal = fs.readFileSync(path.join(workflowDir, 'ci-portal.yml'), 'utf8');
+  const docs = fs.readFileSync(path.join(workflowDir, 'ci-docs.yml'), 'utf8');
+  assert.match(backend, /test:omr:canonical:gate:ci/);
+  assert.match(backend, /tests OMR criticos/);
+  assert.match(frontend, /guard:wcag/);
+  assert.match(portal, /run typecheck/);
+  assert.match(docs, /run sdd:audit/);
+});
+
 test('package workflow rechaza tag que no coincide con package.json antes de publicar', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
   const validationIndex = workflow.indexOf('${GITHUB_REF_NAME#v}');
