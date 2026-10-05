@@ -263,8 +263,7 @@ export function SeccionPlantillas({
   }, []);
 
   const plantillaSeleccionada = useMemo(() => {
-    const plantillasActivas = Array.isArray(plantillas) ? plantillas : [];
-    return [...plantillasActivas, ...plantillasArchivadasGeneracion].find((p) => p._id === plantillaId) ?? null;
+    return [...(Array.isArray(plantillas) ? plantillas : []), ...plantillasArchivadasGeneracion].find((p) => p._id === plantillaId) ?? null;
   }, [plantillas, plantillasArchivadasGeneracion, plantillaId]);
 
   const plantillaEditando = useMemo(() => {
@@ -1610,10 +1609,7 @@ export function SeccionPlantillas({
           <PlantillasConsolaGeneracion
             plantillaId={plantillaId}
             setPlantillaId={setPlantillaId}
-            plantillas={[
-              ...(Array.isArray(plantillas) ? plantillas : []),
-              ...plantillasArchivadasGeneracion
-            ]}
+            plantillas={[...(Array.isArray(plantillas) ? plantillas : []), ...plantillasArchivadasGeneracion]}
             alumnos={alumnos}
             generando={generando}
             puedeGenerar={puedeGenerar}
