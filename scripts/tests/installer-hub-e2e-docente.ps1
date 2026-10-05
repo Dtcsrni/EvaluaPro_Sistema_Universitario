@@ -1351,11 +1351,32 @@ function Test-UpdateSmoke {
 
 function Get-InstalledProductVersion {
   $target = [IO.Path]::GetFullPath($installedRoot).TrimEnd('\')
-  $entry = @(Get-EvaluaProUninstallEntries | Where-Object {
+  $allEntries = @(Get-EvaluaProUninstallEntries)
+  $matchingEntries = @($allEntries | Where-Object {
       -not [string]::IsNullOrWhiteSpace([string]$_.installLocation) -and
       [IO.Path]::GetFullPath([string]$_.installLocation).TrimEnd('\') -eq $target
-    } | Select-Object -First 1)[0]
-  if ($null -eq $entry) { throw "No existe entrada de producto para la instalación temporal: $installedRoot" }
+    })
+  if ($matchingEntries.Count -gt 1) {
+    throw "Hay varias entradas de producto EvaluaPro para la instalación temporal: $installedRoot"
+  }
+
+  if ($matchingEntries.Count -eq 1) {
+    $entry = $matchingEntries[0]
+  } elseif ($allEntries.Count -eq 1 -and
+      [string]::IsNullOrWhiteSpace([string]$allEntries[0].installLocation) -and
+      (Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf)) {
+    # MSI v1.2.3 does not reliably publish ARPINSTALLLOCATION. On the clean,
+    # isolated E2E runner a unique ARP product plus its executable at the exact
+    # target proves which installation produced the version entry.
+    $entry = $allEntries[0]
+    Write-E2ELog "ARP no publicó InstallLocation; se valida la única entrada EvaluaPro contra el payload aislado en $target."
+  } else {
+    $entryDetails = @($allEntries | ForEach-Object {
+        "version=$($_.displayVersion); location=$($_.installLocation); key=$($_.registryPath)"
+      }) -join ' | '
+    if ([string]::IsNullOrWhiteSpace($entryDetails)) { $entryDetails = 'sin entradas EvaluaPro registradas' }
+    throw "No existe una entrada MSI inequívoca para la instalación temporal '$installedRoot': $entryDetails"
+  }
   $parsed = $null
   if (-not [version]::TryParse([string]$entry.displayVersion, [ref]$parsed)) {
     throw "DisplayVersion instalada invalida: $($entry.displayVersion)"

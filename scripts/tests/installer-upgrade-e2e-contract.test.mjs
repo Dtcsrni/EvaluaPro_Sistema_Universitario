@@ -34,6 +34,18 @@ test('runner E2E recupera ExitCode del handle de Windows y falla si sigue siendo
   assert.doesNotMatch(e2e, /Falling back to 0 \(Success\)/);
 });
 
+test('baseline legado valida version ARP sin InstallLocation solo con una entrada y payload aislado', () => {
+  const getterStart = e2e.indexOf('function Get-InstalledProductVersion {');
+  const getterEnd = e2e.indexOf('\nfunction Assert-OfficialUpgradeBaseline {', getterStart);
+  const getter = e2e.slice(getterStart, getterEnd);
+
+  assert.match(getter, /\$matchingEntries\.Count -gt 1/);
+  assert.match(getter, /\$allEntries\.Count -eq 1 -and\s+\[string\]::IsNullOrWhiteSpace\(\[string\]\$allEntries\[0\]\.installLocation\)/);
+  assert.match(getter, /Join-Path \$target 'EvaluaPro\.exe'/);
+  assert.match(getter, /No existe una entrada MSI inequívoca/);
+  assert.doesNotMatch(getter, /\)\[0\]/);
+});
+
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
   const baselineInstall = e2e.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
   const stopBaseline = e2e.indexOf("Invoke-InstalledBroker -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
