@@ -91,8 +91,16 @@ test('workflows no interpolan expresiones GitHub directamente en bloques run', (
   }
 });
 
-test('refs de PR y tag se validan desde env antes de usarse en fetch, push o URLs', () => {
-  for (const workflowName of ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci.yml']) {
+test('solo CI central descarga la base del PR y valida refs de PR/tag antes de usarlas', () => {
+  const baseRefConsumers = ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci.yml']
+    .filter((workflowName) => {
+      const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', workflowName), 'utf8');
+      return /git fetch --depth=1 origin "refs\/heads\/\$BASE_REF:refs\/remotes\/origin\/\$BASE_REF"/.test(workflow);
+    });
+
+  assert.deepEqual(baseRefConsumers, ['ci.yml'], 'solo CI central debe descargar la base para diff coverage');
+
+  for (const workflowName of baseRefConsumers) {
     const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', workflowName), 'utf8');
     assert.match(workflow, /BASE_REF:\s*\$\{\{ github\.base_ref \}\}/, workflowName);
     assert.match(workflow, /git check-ref-format "refs\/heads\/\$BASE_REF"/, workflowName);
