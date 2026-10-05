@@ -1,0 +1,189 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "01a0eb82-c1be-7052-8dcf-06b049262f23",
+  "parentSessionId": "01a0f1b5-90bd-7121-91d0-2e8ce4267547",
+  "status": "final",
+  "generatedAt": "2026-10-04T19:43:26Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding-agent",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Auditar el trabajo OMR propio frente a origin/main, corregir defectos seguros, validar, subir rama y abrir PR sin merge ni release."
+  },
+  "objective": "Mantener manual la calificación de omr-inline-exam-v1 y asegurar que su QR firmado pueda cotejarse con el manifiesto local.",
+  "scope": [
+    "Bloqueo de calificación manual de plantilla inline.",
+    "Firma HMAC y validación QR por manifiesto.",
+    "Pruebas focales backend/frontend y typecheck."
+  ],
+  "constraints": [
+    "No modificar datos fuente ni resultados QA locales.",
+    "No habilitar calificación automática ni declarar precisión física de 90%.",
+    "No mezclar cambios del checkout canónico ni otros hilos.",
+    "No hacer merge ni publicar release."
+  ],
+  "actions": [
+    {
+      "type": "review",
+      "summary": "Actualicé origin/main y confirmé que el candidato de plantilla ya estaba integrado; hallé bloqueos en revisión manual y firma del QR inline.",
+      "timestamp": "2026-10-04T19:43:26Z",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Permití calificar solo tras revisión confirmada, registré revisor autenticado y hora del servidor, mantuve autoCalificableOmr=false e incluí KI en el QR firmado.",
+      "timestamp": "2026-10-04T19:43:26Z",
+      "status": "ok"
+    },
+    {
+      "type": "delivery",
+      "summary": "Creé commit 438dd92d, subí la rama y abrí PR 105; sin merge.",
+      "timestamp": "2026-10-04T19:43:26Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/handoff/trace.schema.json",
+      "apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts",
+      "apps/frontend/src/apps/app_docente/SeccionCalificar.tsx"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts",
+      "apps/backend/tests/calificacion.omr.payload.test.ts",
+      "apps/backend/tests/pdf.layout.visual.guard.test.ts",
+      "docs/handoff/sesiones/2026-10-04/01a0eb82-c1be-7052-8dcf-06b049262f23.json",
+      "docs/handoff/sesiones/2026-10-04/01a0eb82-c1be-7052-8dcf-06b049262f23.md"
+    ],
+    "artifacts": [
+      "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/pull/105"
+    ]
+  },
+  "commands": [
+    {
+      "name": "Install locked dependencies",
+      "command": "npm ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 52000,
+      "resultSummary": "1031 paquetes instalados; npm audit reportó 5 vulnerabilidades existentes (1 baja, 4 altas); no se modificaron dependencias."
+    },
+    {
+      "name": "Backend typecheck",
+      "command": "npm run typecheck --workspace apps/backend",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11580,
+      "resultSummary": "Prisma Client generado desde el schema y TypeScript terminó sin errores."
+    },
+    {
+      "name": "Frontend typecheck",
+      "command": "npx tsc --noEmit --project apps/frontend/tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3140,
+      "resultSummary": "Sin errores TypeScript."
+    },
+    {
+      "name": "Backend calificación OMR payload",
+      "command": "npm test --workspace apps/backend -- tests/calificacion.omr.payload.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 17481,
+      "resultSummary": "1 archivo; 11/11 pruebas pasaron, incluida confirmación manual y cotejo de manifiesto."
+    },
+    {
+      "name": "Backend inline layout guard",
+      "command": "npm test --workspace apps/backend -- tests/pdf.layout.visual.guard.test.ts -t \"dibuja y mapea una burbuja|mantiene las burbujas inline\"",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3122,
+      "resultSummary": "2/2 pruebas focales pasaron."
+    },
+    {
+      "name": "Backend QR tests",
+      "command": "npm test --workspace apps/backend -- tests/qr.examen.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1408,
+      "resultSummary": "5/5 pruebas pasaron."
+    },
+    {
+      "name": "Frontend template tests",
+      "command": "npm test --workspace apps/frontend -- tests/plantillas.refactor.test.tsx",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 18419,
+      "resultSummary": "14/14 pruebas pasaron."
+    },
+    {
+      "name": "Focused ESLint",
+      "command": "npx eslint apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts apps/backend/tests/calificacion.omr.payload.test.ts apps/backend/tests/pdf.layout.visual.guard.test.ts --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 12237,
+      "resultSummary": "Sin warnings ni errores."
+    },
+    {
+      "name": "Whitespace and patch validation",
+      "command": "git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 539,
+      "resultSummary": "Sin errores de whitespace."
+    },
+    {
+      "name": "IA traceability contract tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 753,
+      "resultSummary": "7/7 pruebas de contrato de trazabilidad pasaron."
+    },
+    {
+      "name": "IA handoff contract tests",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 730,
+      "resultSummary": "11/11 pruebas de contrato de handoff pasaron."
+    }
+  ],
+  "decisions": [
+    "La plantilla inline solo acepta respuestas si revisionConfirmada=true; QR y manifiesto deben coincidir byte a byte.",
+    "El backend registra el ID del docente autenticado y timestamp del servidor; nunca marca el candidato como auto-calificable.",
+    "El campo KI identifica la clave HMAC y no expone claves de respuesta.",
+    "No se creó una versión estable de OMR/QR porque falta evidencia física etiquetada que supere 90% de exactitud total."
+  ],
+  "assumptions": [
+    "La confirmación enviada por la interfaz docente solo se habilita después de revisar manualmente las respuestas.",
+    "El merge de la rama requiere revisión de PR; este trabajo no autoriza integración ni release."
+  ],
+  "risks": [
+    "No se ejecutó validación física ni evaluación independiente del corpus completo con la plantilla inline.",
+    "El flujo global no se sometió a la suite completa; se ejecutaron pruebas focales.",
+    "La instalación reportó 5 vulnerabilidades en dependencias; no se alteraron paquetes."
+  ],
+  "nextStep": "Revisar y validar el PR 105; mantener revisión manual hasta superar 90% de exactitud de examen completo en datos físicos etiquetados.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": [
+      "Revisión/merge del PR 105",
+      "Validación física etiquetada para el gate de 90%"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:/Users/evega/Documents/EvaluaPro-worktrees/omr-inline-plantilla",
+    "branch": "codex/omr-inline-plantilla",
+    "commit": "438dd92d9fb758fc7c220bfecaabbc86c381c3b6",
+    "workingTreeStatus": "limpio antes de agregar esta traza"
+  }
+}
