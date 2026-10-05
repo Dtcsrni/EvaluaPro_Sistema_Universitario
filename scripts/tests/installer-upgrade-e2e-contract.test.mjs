@@ -48,3 +48,27 @@ test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgr
   assert.match(workflow, /\$runnerArgs \+= @\('-BaselineBundlePath', \$env:BASELINE_BUNDLE_PATH\)/);
   assert.match(workflow, /\$required = \$candidateVersion -gt \$baselineVersion/);
 });
+
+test('runner acepta el EXE publicado con SHA obligatorio y CRC32 opcional', () => {
+  assert.match(e2e, /\[string\]\$CandidateBundlePath/);
+  assert.match(e2e, /Resolve-Path -LiteralPath \$CandidateBundlePath/);
+  assert.match(e2e, /if \(Test-Path -LiteralPath \$crcPath\)/);
+  assert.match(e2e, /No se publicó CRC32; SHA-256 es obligatorio y se verificó/);
+  assert.doesNotMatch(e2e, /if \(-not \(Test-Path -LiteralPath \$crcPath\)\) \{ throw "No existe CRC32/);
+});
+
+test('release valida el asset descargado desde GitHub antes de hacer público el release', () => {
+  assert.match(workflow, /draft: true/);
+  assert.match(workflow, /post_publish_installer_e2e:/);
+  assert.match(workflow, /needs: \[installer_windows, publish_installer_release\]/);
+  assert.match(workflow, /outputs:\s+release_id: \$\{\{ steps\.publish_release\.outputs\.id \}\}/);
+  assert.match(workflow, /if \("v\$packageVersion" -ne \$tag\)/);
+  assert.match(workflow, /CandidateBundlePath/);
+  assert.match(workflow, /\$candidateAsset\.url/);
+  assert.match(workflow, /assetDigest/);
+  assert.match(workflow, /SHA-256 del EXE no coincide con el digest de GitHub/);
+  assert.match(workflow, /draft=false/);
+  assert.match(workflow, /finalize_installer_release:/);
+  assert.match(workflow, /needs: \[publish_installer_release, post_publish_installer_e2e\]/);
+  assert.match(workflow, /Publicar evidencia E2E del asset descargado/);
+});

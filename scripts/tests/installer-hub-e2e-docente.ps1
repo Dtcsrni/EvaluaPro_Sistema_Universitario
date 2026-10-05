@@ -14,6 +14,7 @@ param(
   [string]$RootPath = '',
   [string]$ReportDir = '',
   [string]$InstallDir = '',
+  [string]$CandidateBundlePath = '',
   [string]$BaselineBundlePath = '',
   [int]$Port = 4519,
   [switch]$IUnderstandThisMutatesPc,
@@ -203,6 +204,14 @@ function Copy-ArtifactIfExists {
 }
 
 function Resolve-BundlePath {
+  if (-not [string]::IsNullOrWhiteSpace($CandidateBundlePath)) {
+    $candidatePath = (Resolve-Path -LiteralPath $CandidateBundlePath -ErrorAction Stop).Path
+    if (-not (Test-Path -LiteralPath $candidatePath -PathType Leaf) -or [IO.Path]::GetExtension($candidatePath) -ne '.exe') {
+      throw "CandidateBundlePath debe apuntar a un archivo EXE existente: $CandidateBundlePath"
+    }
+    return $candidatePath
+  }
+
   $manifestPath = Join-Path $root 'dist\installer\installer-local-paths.json'
   $internalManifestPath = Join-Path $root 'dist\installer\_internal\installer-local-paths.json'
   $selected = if (Test-Path -LiteralPath $manifestPath) { $manifestPath } elseif (Test-Path -LiteralPath $internalManifestPath) { $internalManifestPath } else { '' }
@@ -286,13 +295,16 @@ function Assert-Hash {
   Add-Result -Area 'preflight' -Item 'sha256' -Ok ($actual -eq $expected) -Detail "expected=$expected actual=$actual"
   if ($actual -ne $expected) { throw 'Hash SHA256 invalido para el bundle.' }
   $crcPath = "$ExePath.crc32"
-  if (-not (Test-Path -LiteralPath $crcPath)) { throw "No existe CRC32 junto al bundle: $crcPath" }
-  $crcText = Get-Content -Path $crcPath -Raw
-  $expectedCrc = ([regex]::Match($crcText, '[A-Fa-f0-9]{8}')).Value.ToLowerInvariant()
-  if (-not $expectedCrc) { throw "CRC32 esperado invalido: $crcPath" }
-  $actualCrc = Get-Crc32Hash -Path $ExePath
-  Add-Result -Area 'preflight' -Item 'crc32' -Ok ($actualCrc -eq $expectedCrc) -Detail "expected=$expectedCrc actual=$actualCrc"
-  if ($actualCrc -ne $expectedCrc) { throw 'CRC32 invalido para el bundle.' }
+  if (Test-Path -LiteralPath $crcPath) {
+    $crcText = Get-Content -Path $crcPath -Raw
+    $expectedCrc = ([regex]::Match($crcText, '[A-Fa-f0-9]{8}')).Value.ToLowerInvariant()
+    if (-not $expectedCrc) { throw "CRC32 esperado invalido: $crcPath" }
+    $actualCrc = Get-Crc32Hash -Path $ExePath
+    Add-Result -Area 'preflight' -Item 'crc32' -Ok ($actualCrc -eq $expectedCrc) -Detail "expected=$expectedCrc actual=$actualCrc"
+    if ($actualCrc -ne $expectedCrc) { throw 'CRC32 invalido para el bundle.' }
+  } else {
+    Add-Result -Area 'preflight' -Item 'crc32' -Ok $true -Detail 'No se publicó CRC32; SHA-256 es obligatorio y se verificó.'
+  }
 }
 
 function Wait-WindowsInstallerIdle {
