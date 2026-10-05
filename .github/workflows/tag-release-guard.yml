@@ -16,9 +16,9 @@ jobs:
   tag_release_guard:
     name: Validar tag con release asociado
     runs-on: ubuntu-latest
-    # El build del instalador (60 min) y la publicación (15 min) son jobs secuenciales.
+    # El build y la E2E completa del instalador (180 min) y la publicación (15 min) son jobs secuenciales.
     # La espera cubre ambos límites con margen y conserva la tag si vence.
-    timeout-minutes: 100
+    timeout-minutes: 205
     outputs:
       invalid_tag: ${{ steps.guard.outputs.invalid_tag }}
 
@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          max_attempts=170
+          max_attempts=390
           sleep_seconds=30
 
           if [[ ! "$TAG_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]]; then

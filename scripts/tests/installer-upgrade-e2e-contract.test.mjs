@@ -44,7 +44,9 @@ test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgr
   assert.match(workflow, /\$baselineName = 'EvaluaPro-InstallerHub-docente-local-v1\.2\.3\.exe'/);
   assert.match(workflow, /\$baselineVersion = \[version\]'1\.2\.3'/);
   assert.match(workflow, /steps\.upgrade_gate\.outputs\.required == 'true'/);
-  assert.match(workflow, /Invoke-WebRequest -Uri \(\$baselineUrl \+ '\.sha256'\)/);
+  assert.match(workflow, /download-github-release-asset\.ps1/);
+  assert.match(workflow, /-ExpectedLength 249491600 -ExpectedSha256 \$expectedHash/);
+  assert.doesNotMatch(workflow, /Invoke-WebRequest -Uri \$baselineUrl -OutFile/);
   assert.match(workflow, /Get-FileHash -LiteralPath \$baselinePath -Algorithm SHA256/);
   assert.match(workflow, /644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913/);
   assert.match(workflow, /\$runnerArgs \+= @\('-BaselineBundlePath', \$env:BASELINE_BUNDLE_PATH\)/);
@@ -90,10 +92,29 @@ test('release valida el asset descargado desde GitHub antes de hacer público el
   assert.match(workflow, /if \("v\$packageVersion" -ne \$tag\)/);
   assert.match(workflow, /CandidateBundlePath/);
   assert.match(workflow, /\$candidateAsset\.url/);
+  assert.match(workflow, /-ExpectedLength \(\[long\]\$candidateAsset\.size\) -ExpectedSha256 \$digestMatch\.Groups\[1\]\.Value -GitHubApiAsset/);
   assert.match(workflow, /assetDigest/);
   assert.match(workflow, /SHA-256 del EXE no coincide con el digest de GitHub/);
   assert.match(workflow, /draft=false/);
   assert.match(workflow, /finalize_installer_release:/);
   assert.match(workflow, /needs: \[publish_installer_release, post_publish_installer_e2e\]/);
   assert.match(workflow, /Publicar evidencia E2E del asset descargado/);
+});
+
+test('el tiempo de descarga y la E2E cabe en las ventanas de tag y promoción estable', () => {
+  const tagGuard = fs.readFileSync(path.join(root, '.github', 'workflows', 'tag-release-guard.yml'), 'utf8');
+  const stableGate = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
+  const installerTimeout = Number(workflow.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const publishTimeout = Number(workflow.match(/publish_installer_release:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const releaseWindow = installerTimeout + publishTimeout;
+  const tagAttempts = Number(tagGuard.match(/max_attempts=(\d+)/)?.[1]);
+  const stableAttempts = Number(stableGate.match(/for attempt in \{1\.\.(\d+)\}/)?.[1]);
+  const tagTimeout = Number(tagGuard.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+  const stableTimeout = Number(stableGate.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+
+  assert.equal(installerTimeout, 180);
+  assert.ok(tagAttempts * 30 / 60 >= releaseWindow, 'tag guard debe esperar build/E2E y publicación');
+  assert.ok(tagTimeout >= tagAttempts * 30 / 60 + 10, 'timeout del tag guard debe incluir margen');
+  assert.ok(stableAttempts * 30 / 60 >= releaseWindow, 'gate estable debe esperar build y publicación');
+  assert.ok(stableTimeout >= releaseWindow + 90, 'gate estable debe dejar margen para QA completa');
 });
