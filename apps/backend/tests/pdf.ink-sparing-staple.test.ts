@@ -64,6 +64,35 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
     expect(() => validarSeparacionDuplexOmr(mapa)).toThrow(/contenido impreso detrás de una zona OMR/);
   });
 
+  it('rechaza texto del frente detrás de una burbuja del reverso', () => {
+    const mapa: MapaOmr = {
+      margenMm: 8,
+      templateVersion: 4,
+      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 1 },
+      perfilLayout: {} as MapaOmr['perfilLayout'],
+      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
+      paginas: [
+        {
+          numeroPagina: 1,
+          duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 },
+          preguntas: [{
+            numeroPregunta: 1,
+            idPregunta: 'q1',
+            opciones: [],
+            textRuns: [{ tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 100, y: 96, width: 20, height: 9 } }]
+          }]
+        },
+        {
+          numeroPagina: 2,
+          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
+          preguntas: [{ numeroPregunta: 2, idPregunta: 'q2', opciones: [{ letra: 'A', x: 503, y: 100, radio: 8 }] }]
+        }
+      ]
+    };
+
+    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'burbuja-con-tinta-reverso')).toBe(true);
+  });
+
   it('rechaza tinta del reverso detrás de la reserva completa del QR', () => {
     const mapa: MapaOmr = {
       margenMm: 8,
