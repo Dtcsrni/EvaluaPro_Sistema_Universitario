@@ -51,10 +51,10 @@ export function usePlantillasPreviewActions({
 }: Params) {
   const cargarPreviewPlantilla = useCallback(
     async (id: string) => {
-      if (cargandoPreviewPlantillaId === id) return;
+      if (cargandoPreviewPlantillaId === id) return null;
       if (!puedePrevisualizarPlantillas) {
         avisarSinPermiso('No tienes permiso para previsualizar plantillas.');
-        return;
+        return null;
       }
       try {
         setCargandoPreviewPlantillaId(id);
@@ -63,6 +63,7 @@ export function usePlantillasPreviewActions({
         );
         setPreviewPorPlantillaId((prev) => ({ ...prev, [id]: payload }));
         emitToast({ level: 'ok', title: 'Previsualización', message: 'Boceto actualizado', durationMs: 1800 });
+        return payload;
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo generar la previsualizacion de la plantilla');
         emitToast({
@@ -72,6 +73,7 @@ export function usePlantillasPreviewActions({
           durationMs: 5200,
           action: accionToastSesionParaError(error, 'docente')
         });
+        return null;
       } finally {
         setCargandoPreviewPlantillaId(null);
       }
@@ -98,15 +100,15 @@ export function usePlantillasPreviewActions({
 
   const cargarPreviewPdfPlantilla = useCallback(
     async (id: string, kind: PreviewPdfKind = 'booklet') => {
-      if (cargandoPreviewPdfPlantillaId === id) return;
+      if (cargandoPreviewPdfPlantillaId === id) return null;
       if (!puedePrevisualizarPlantillas) {
         avisarSinPermiso('No tienes permiso para previsualizar plantillas.');
-        return;
+        return null;
       }
       const token = obtenerTokenDocente();
       if (!token) {
         emitToast({ level: 'error', title: 'Sesion no valida', message: 'Vuelve a iniciar sesion.', durationMs: 4200 });
-        return;
+        return null;
       }
 
       const intentar = async (t: string) =>
@@ -157,6 +159,7 @@ export function usePlantillasPreviewActions({
           };
         });
         emitToast({ level: 'ok', title: 'Previsualización PDF', message: 'PDF actualizado', durationMs: 2200 });
+        return paginas;
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo generar el PDF de previsualizacion');
         emitToast({
@@ -166,6 +169,7 @@ export function usePlantillasPreviewActions({
           durationMs: 5200,
           action: accionToastSesionParaError(error, 'docente')
         });
+        return null;
       } finally {
         setCargandoPreviewPdfPlantillaId(null);
       }
@@ -204,5 +208,22 @@ export function usePlantillasPreviewActions({
     [setPreviewPdfUrlPorPlantillaId]
   );
 
-  return { cargarPreviewPlantilla, togglePreviewPlantilla, cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla };
+  const previsualizarPdfConfirmado = useCallback(async (id: string) => {
+    const resumen = await cargarPreviewPlantilla(id);
+    if (!resumen) return null;
+    const paginas = await cargarPreviewPdfPlantilla(id, 'booklet');
+    if (!paginas) return null;
+    const numeroPaginas = Number(resumen.numeroPaginas);
+    const totalDisponibles = Number(resumen.totalDisponibles);
+    const totalUsados = Number(resumen.totalUsados);
+    return {
+      layoutConfirmado: resumen.layoutConfirmado === true && numeroPaginas === 4 && paginas.length === 4 && totalUsados === totalDisponibles,
+      paginas,
+      totalDisponibles,
+      totalUsados,
+      numeroPaginas
+    };
+  }, [cargarPreviewPdfPlantilla, cargarPreviewPlantilla]);
+
+  return { cargarPreviewPlantilla, togglePreviewPlantilla, cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla, previsualizarPdfConfirmado };
 }

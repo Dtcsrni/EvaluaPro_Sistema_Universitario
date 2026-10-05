@@ -61,7 +61,7 @@ export function PlantillasListado({
   previewPdfUrlPorPlantillaId: PlantillaPreviewPdfState;
   puedePrevisualizarPlantillas: boolean;
   cargandoPreviewPdfPlantillaId: string | null;
-  cargarPreviewPdfPlantilla: (plantillaId: string, kind?: 'booklet' | 'omrSheet') => Promise<void>;
+  cargarPreviewPdfPlantilla: (plantillaId: string, kind?: 'booklet' | 'omrSheet') => Promise<PreviewPdfPage[] | null>;
   cerrarPreviewPdfPlantilla: (plantillaId: string, kind?: 'booklet' | 'omrSheet') => void;
   abrirPdfFullscreen: (url: string, pages?: PreviewPdfPage[]) => void;
   pdfFullscreenUrl: string | null;

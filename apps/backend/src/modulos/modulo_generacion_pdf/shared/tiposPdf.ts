@@ -45,6 +45,8 @@ export interface ParametrosGeneracionPdf {
     autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
+    /** Reparte el contenido entre el número objetivo de páginas cuando es posible. */
+    distribuirEnPaginasObjetivo?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
   encabezado?: EncabezadoExamen;

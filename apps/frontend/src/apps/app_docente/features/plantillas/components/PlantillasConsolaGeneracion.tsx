@@ -10,6 +10,7 @@ import type { Alumno, Periodo, Plantilla } from '../../../tipos';
 import { esMensajeError, idCortoMateria } from '../../../utilidades';
 import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 import { crearClaveLoteGeneracion, leerLotePendiente } from '../loteGeneracionSesion';
+import type { PreviewPdfPage } from '../hooks/usePlantillasPreviewActions';
 
 type ProgresoLoteGeneracion = {
   loteId: string;
@@ -38,6 +39,7 @@ export function PlantillasConsolaGeneracion({
   lotePdfUrl,
   descargarPdfLote,
   progresoLoteGeneracion,
+  onPrevisualizarExtraordinario,
   onIrAHistorial
 }: {
   plantillaId: string;
@@ -56,21 +58,41 @@ export function PlantillasConsolaGeneracion({
   lotePdfUrl: string | null;
   descargarPdfLote: () => Promise<void>;
   progresoLoteGeneracion: ProgresoLoteGeneracion | null;
+  onPrevisualizarExtraordinario: (plantillaId: string) => Promise<{
+    layoutConfirmado: boolean;
+    paginas: PreviewPdfPage[];
+    totalDisponibles: number;
+    totalUsados: number;
+    numeroPaginas: number;
+  } | null>;
   onIrAHistorial?: () => void;
 }) {
   const [modoGeneracion, setModoGeneracion] = useState<'lote' | 'individual'>('lote');
   const [tipoExamen, setTipoExamen] = useState<'ordinario' | 'extraordinario'>('ordinario');
   const [alumnoIdsExtraordinario, setAlumnoIdsExtraordinario] = useState<string[]>([]);
+  const [previsualizandoExtraordinario, setPrevisualizandoExtraordinario] = useState(false);
+  const [previewExtraordinario, setPreviewExtraordinario] = useState<{
+    layoutConfirmado: boolean;
+    paginas: PreviewPdfPage[];
+    totalDisponibles: number;
+    totalUsados: number;
+    numeroPaginas: number;
+  } | null>(null);
+  const [previewExtraordinarioConfirmado, setPreviewExtraordinarioConfirmado] = useState(false);
   const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
   const listaPeriodos = Array.isArray(periodos) ? periodos : [];
   const listaAlumnos = Array.isArray(alumnos) ? alumnos : [];
+  const periodoPlantilla = listaPeriodos.find((periodo) => periodo._id === plantillaSeleccionada?.periodoId);
+  const esPeriodoArchivado = periodoPlantilla?.activo === false &&
+    Number.isFinite(Date.parse(String(periodoPlantilla.fechaFin ?? ''))) &&
+    Date.parse(String(periodoPlantilla.fechaFin)) < Date.now();
 
   const alumnosMateria = plantillaSeleccionada
-    ? listaAlumnos.filter((a) => a.periodoId === plantillaSeleccionada.periodoId && (a as Alumno & { activo?: boolean }).activo !== false)
+    ? listaAlumnos.filter((a) => a.periodoId === plantillaSeleccionada.periodoId && (esPeriodoArchivado || a.activo !== false))
     : listaAlumnos;
   const alumnosMateriaPorId = useMemo(() => new Map(alumnosMateria.map((alumno) => [alumno._id, alumno])), [alumnosMateria]);
   const alumnosExtraordinariosSeleccionados = alumnoIdsExtraordinario.filter((alumnoId) => alumnosMateriaPorId.has(alumnoId));
-  const esExtraordinario = tipoExamen === 'extraordinario';
+  const esExtraordinario = esPeriodoArchivado || tipoExamen === 'extraordinario';
   const claveRecuperacionLote = crearClaveLoteGeneracion(
     plantillaId,
     esExtraordinario ? 'extraordinario' : undefined,
@@ -85,11 +107,17 @@ export function PlantillasConsolaGeneracion({
   useEffect(() => {
     setAlumnoIdsExtraordinario([]);
     setModoGeneracion('lote');
+    setPreviewExtraordinario(null);
+    setPreviewExtraordinarioConfirmado(false);
   }, [plantillaId]);
 
   useEffect(() => {
     if (esExtraordinario && modoGeneracion !== 'lote') setModoGeneracion('lote');
   }, [esExtraordinario, modoGeneracion]);
+
+  useEffect(() => {
+    if (esPeriodoArchivado && modoGeneracion !== 'lote') setModoGeneracion('lote');
+  }, [esPeriodoArchivado, modoGeneracion]);
 
   const textoBotonGenerar =
     esExtraordinario
@@ -167,11 +195,15 @@ export function PlantillasConsolaGeneracion({
                 data-tooltip="Selecciona la plantilla base para generar los exámenes."
               >
                 <option value="">Selecciona una plantilla de examen</option>
-                {listaPlantillas.map((p) => (
+                {listaPlantillas.map((p) => {
+                  const periodo = listaPeriodos.find((item) => item._id === p.periodoId);
+                  const archivada = periodo?.activo === false;
+                  return (
                   <option key={p._id} value={p._id}>
-                    {listaPeriodos.find((periodo) => periodo._id === p.periodoId)?.nombre ?? 'Materia no identificada'} · {p.titulo} (ID: {idCortoMateria(p._id)})
+                    {periodo?.nombre ?? 'Materia no identificada'}{archivada ? ' · Periodo cerrado, solo extraordinario' : ''} · {p.titulo} (ID: {idCortoMateria(p._id)})
                   </option>
-                ))}
+                  );
+                })}
               </select>
             </div>
             <span className="ayuda">Estructura temática y banco que se usará para construir las preguntas.</span>
@@ -206,7 +238,7 @@ export function PlantillasConsolaGeneracion({
                 setModoGeneracion('individual');
                 emitToast({ level: 'info', title: 'Modalidad', message: 'Examen individual seleccionado', durationMs: 1600 });
               }}
-              disabled={!puedeGenerarExamenes}
+              disabled={!puedeGenerarExamenes || esPeriodoArchivado}
             >
               📄 Examen Individual de Muestra
             </button>
@@ -217,11 +249,11 @@ export function PlantillasConsolaGeneracion({
             <div className="auth-input-box auth-input-box--select auth-input-box--animated">
               <select
                 aria-label="Tipo de examen"
-                value={tipoExamen}
+                value={esPeriodoArchivado ? 'extraordinario' : tipoExamen}
                 onChange={(event) => setTipoExamen(event.target.value === 'extraordinario' ? 'extraordinario' : 'ordinario')}
-                disabled={!puedeGenerarExamenes || !plantillaSeleccionada}
+                disabled={!puedeGenerarExamenes}
               >
-                <option value="ordinario">Ordinario · {plantillaSeleccionada?.tipo === 'global' ? 'Global' : 'Parcial'}</option>
+                <option value="ordinario" disabled={esPeriodoArchivado}>Ordinario · {plantillaSeleccionada?.tipo === 'global' ? 'Global' : 'Parcial'}</option>
                 <option value="extraordinario">Extraordinario</option>
               </select>
             </div>
@@ -233,8 +265,9 @@ export function PlantillasConsolaGeneracion({
               <p id="plantillas-extraordinario-ayuda" className="ayuda">
                 Elige únicamente a los alumnos destinatarios. La calificación se conservará aparte de sus parciales y globales.
               </p>
+              {esPeriodoArchivado && <p role="status">Periodo cerrado: el extraordinario conserva la materia y la plantilla archivadas. Formato fijo: 4 páginas (2 hojas dúplex); se usarán todas las preguntas del global si caben con tipografía legible.</p>}
               {alumnosMateria.length === 0 ? (
-                <p role="status">No hay alumnos activos en la materia seleccionada.</p>
+                <p role="status">No hay alumnos disponibles en la materia seleccionada.</p>
               ) : (
                 <>
                   <div className="acciones">
@@ -278,6 +311,57 @@ export function PlantillasConsolaGeneracion({
                   </ul>
                   <p role="status">Seleccionados: {alumnosExtraordinariosSeleccionados.length}</p>
                 </>
+              )}
+              {esPeriodoArchivado && plantillaId && (
+                <div className="plantillas-preview anim-fade-in mt-15">
+                  <div className="acciones">
+                    <Boton
+                      type="button"
+                      variante="secundario"
+                      cargando={previsualizandoExtraordinario}
+                      disabled={!puedeGenerarExamenes || previsualizandoExtraordinario}
+                      onClick={async () => {
+                        setPrevisualizandoExtraordinario(true);
+                        setPreviewExtraordinarioConfirmado(false);
+                        try {
+                          const preview = await onPrevisualizarExtraordinario(plantillaId);
+                          setPreviewExtraordinario(preview);
+                        } finally {
+                          setPrevisualizandoExtraordinario(false);
+                        }
+                      }}
+                    >
+                      {previewExtraordinario ? 'Actualizar vista previa PDF' : 'Previsualizar PDF antes de generar'}
+                    </Boton>
+                  </div>
+                  {previewExtraordinario && (
+                    <>
+                      <p role="status">
+                        {previewExtraordinario.layoutConfirmado
+                          ? `Vista previa validada: 4 páginas (2 hojas dúplex), ${previewExtraordinario.totalUsados} de ${previewExtraordinario.totalDisponibles} preguntas del global. Revisa las páginas antes de confirmar.`
+                          : `No se pudo validar el formato de 4 páginas con todas las preguntas (${previewExtraordinario.totalUsados} de ${previewExtraordinario.totalDisponibles}); no se puede generar hasta ajustar la vista previa.`}
+                      </p>
+                      {previewExtraordinario.paginas.length > 0 && (
+                        <div className="plantillas-preview__pages" aria-label="Páginas de la vista previa del extraordinario">
+                          {previewExtraordinario.paginas.map((pagina) => (
+                            <figure key={pagina.numero} className="plantillas-preview__pdfPage">
+                              <img src={pagina.dataUrl} width={pagina.width} height={pagina.height} alt={`Página ${pagina.numero} de la vista previa del extraordinario`} />
+                            </figure>
+                          ))}
+                        </div>
+                      )}
+                      <label className="campo-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={previewExtraordinarioConfirmado}
+                          disabled={!previewExtraordinario.layoutConfirmado}
+                          onChange={(event) => setPreviewExtraordinarioConfirmado(event.target.checked)}
+                        />
+                        <span>Confirmo que revisé la vista previa del examen.</span>
+                      </label>
+                    </>
+                  )}
+                </div>
               )}
             </fieldset>
           ) : null}
@@ -327,7 +411,7 @@ export function PlantillasConsolaGeneracion({
                 type="button"
                 variante="primario"
                 cargando={generandoLote}
-                disabled={!puedeGenerarExamenes || !plantillaId || (esExtraordinario ? alumnosExtraordinariosSeleccionados.length === 0 : alumnosMateria.length === 0)}
+                disabled={!puedeGenerarExamenes || !plantillaId || (esExtraordinario ? alumnosExtraordinariosSeleccionados.length === 0 : alumnosMateria.length === 0) || (esPeriodoArchivado && !previewExtraordinarioConfirmado)}
                 onClick={() => onGenerarExamenesLote(esExtraordinario ? {
                   tipoExamen: 'extraordinario',
                   alumnoIds: alumnosExtraordinariosSeleccionados
