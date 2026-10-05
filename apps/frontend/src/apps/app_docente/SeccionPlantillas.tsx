@@ -24,6 +24,7 @@ import {
   type ExamenGeneradoResumen
 } from './features/plantillas/hooks/usePlantillasGeneradosActions';
 import { usePlantillasOmrActions } from './features/plantillas/hooks/usePlantillasOmrActions';
+import { usePlantillasArchivadasGeneracion } from './features/plantillas/hooks/usePlantillasArchivadasGeneracion';
 import {
   usePlantillasPreviewActions,
   type PreviewPdfPage,
@@ -211,26 +212,12 @@ export function SeccionPlantillas({
   const puedeAnalizarOmr = permisos.omr.analizar;
   const puedeGestionarPlantillas = permisos.plantillas.gestionar;
   const puedeArchivarPlantillas = permisos.plantillas.archivar;
-  const [plantillasArchivadasGeneracion, setPlantillasArchivadasGeneracion] = useState<Plantilla[]>([]);
-
-  useEffect(() => {
-    if (tabActiva !== 'generacion' || !permisos.plantillas.leer) return;
-    let vigente = true;
-    void clienteApi.obtener<{ plantillas?: Plantilla[] }>('/examenes/plantillas?archivado=true')
-      .then((respuesta) => {
-        const ahora = Date.now();
-        const periodosCerrados = new Set(periodosArchivados
-          .filter((periodo) => Number.isFinite(Date.parse(String(periodo.fechaFin ?? ''))) && Date.parse(String(periodo.fechaFin)) < ahora)
-          .map((periodo) => periodo._id));
-        const plantillasDePeriodosCerrados = (Array.isArray(respuesta.plantillas) ? respuesta.plantillas : [])
-          .filter((plantilla) => Boolean(plantilla.archivadoEn) && periodosCerrados.has(String(plantilla.periodoId ?? '')));
-        if (vigente) setPlantillasArchivadasGeneracion(plantillasDePeriodosCerrados);
-      })
-      .catch((error) => {
-        if (vigente) setMensajeGeneracion(mensajeDeError(error, 'No se pudieron cargar las plantillas de materias cerradas'));
-      });
-    return () => { vigente = false; };
-  }, [periodosArchivados, permisos.plantillas.leer, tabActiva]);
+  const plantillasArchivadasGeneracion = usePlantillasArchivadasGeneracion({
+    habilitada: tabActiva === 'generacion',
+    puedeLeer: permisos.plantillas.leer,
+    periodosArchivados,
+    setMensaje: setMensajeGeneracion
+  });
   const puedePrevisualizarPlantillas = permisos.plantillas.previsualizar;
   const bloqueoEdicion = !puedeGestionarPlantillas;
 
