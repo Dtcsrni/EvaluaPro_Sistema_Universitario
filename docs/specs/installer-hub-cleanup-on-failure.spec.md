@@ -51,6 +51,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - Al terminar, el perfil operativo vuelve a sus bytes previos si todavía apunta a la ruta QA de la ejecución. Los tutoriales y capturas quedan bajo `ReportDir`; las corridas fallidas no escriben `docs/tutoriales`.
 - La reconciliación opcional se termina antes de 90 segundos; su timeout o error queda como warning degradado, y el manifiesto crítico de actualización aún se genera y valida.
 - El MSI baseline proviene del EXE oficial descargado y verificado; el runner encuentra el MSI por firma binaria aunque Burn lo extraiga como `a0`; la fixture no depende del helper GUI antiguo de v1.2.3.
+- Si `System.Diagnostics.Process.ExitCode` no está disponible después de terminar un comando E2E, el runner lee `GetExitCodeProcess`; si tampoco puede obtenerlo, aborta en vez de inferir éxito.
 
 ## Matriz de Trazabilidad
 

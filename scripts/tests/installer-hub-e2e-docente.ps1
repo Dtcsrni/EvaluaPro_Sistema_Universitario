@@ -1191,7 +1191,29 @@ function Invoke-CaptureCommand {
   
   $exitCode = $process.ExitCode
   if ($null -eq $exitCode) {
-    throw "No se pudo determinar ExitCode de $Name; se aborta para no aceptar un proceso indeterminado como exitoso."
+    if (-not $process.HasExited) {
+      throw "No se pudo determinar ExitCode de $Name porque el proceso todavía aparece activo."
+    }
+    if (-not ('EvaluaPro.NativeProcessExitCode' -as [type])) {
+      Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace EvaluaPro {
+  public static class NativeProcessExitCode {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool GetExitCodeProcess(IntPtr processHandle, out uint exitCode);
+  }
+}
+'@
+    }
+    [uint32]$nativeExitCode = 0
+    $exitCodeAvailable = [EvaluaPro.NativeProcessExitCode]::GetExitCodeProcess($process.Handle, [ref]$nativeExitCode)
+    if (-not $exitCodeAvailable) {
+      $nativeError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+      throw "No se pudo determinar ExitCode de $Name mediante GetExitCodeProcess (Win32=$nativeError)."
+    }
+    $exitCode = [int]$nativeExitCode
+    Write-E2ELog "ExitCode de $Name recuperado con GetExitCodeProcess: $exitCode"
   }
   
   Add-Result -Area 'command' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"

@@ -26,8 +26,9 @@ test('upgrade E2E verifica el bundle oficial v1.2.3 y prepara su MSI extraído',
   assert.match(e2e, /baselineVersion -ne \[version\]'1\.2\.3'/);
 });
 
-test('runner E2E aborta si no puede obtener ExitCode, nunca convierte estado desconocido en éxito', () => {
-  assert.match(e2e, /if \(\$null -eq \$exitCode\) \{\s*throw "No se pudo determinar ExitCode de \$Name/);
+test('runner E2E recupera ExitCode del handle de Windows y falla si sigue siendo desconocido', () => {
+  assert.match(e2e, /GetExitCodeProcess\(\$process\.Handle, \[ref\]\$nativeExitCode\)/);
+  assert.match(e2e, /No se pudo determinar ExitCode de \$Name mediante GetExitCodeProcess/);
   assert.doesNotMatch(e2e, /Falling back to 0 \(Success\)/);
 });
 
