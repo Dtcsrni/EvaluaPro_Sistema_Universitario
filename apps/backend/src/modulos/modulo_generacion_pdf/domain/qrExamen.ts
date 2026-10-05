@@ -236,7 +236,7 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
     `EXAMEN:${folio}:P${numeroPagina}:TV${templateVersion}`,
     esPlantillaInline ? `TI:${templateId}` : '',
     (payload.compacto && !esPlantillaInline) ? '' : examId ? `ID:${examId}` : '',
-    !esPlantillaInline && keyId ? `KI:${keyId}` : '',
+    keyId ? `KI:${keyId}` : '',
     !esPlantillaInline && totalPreguntas > 0 ? `TQ:${totalPreguntas}` : '',
     !esPlantillaInline && preguntaDesde > 0 ? `QD:${preguntaDesde}` : '',
     !esPlantillaInline && preguntaHasta >= preguntaDesde && preguntaHasta > 0 ? `QH:${preguntaHasta}` : '',

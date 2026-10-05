@@ -1469,6 +1469,27 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
               Inicio de sesión con Google deshabilitado en este entorno.
             </span>
           </p>
+          <div
+            class="auth-google-wrapper"
+          >
+            <div
+              class="auth-google-control"
+            >
+              <button
+                aria-busy="false"
+                class="auth-google-fallback"
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  class="auth-google-fallback__mark"
+                >
+                  G
+                </span>
+                Reintentar acceso con Google
+              </button>
+            </div>
+          </div>
           <form
             class="auth-form-fields"
           >

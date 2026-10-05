@@ -21,7 +21,7 @@ type AlumnoFila = {
 
 type CalificacionFila = {
   alumnoId: unknown;
-  tipoExamen?: 'parcial' | 'global';
+  tipoExamen?: 'parcial' | 'global' | 'extraordinario';
   plantillaTitulo?: string;
   calificacionExamenFinalTexto?: string;
   evaluacionContinuaTexto?: string;

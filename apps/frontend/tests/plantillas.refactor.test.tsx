@@ -12,7 +12,7 @@ import {
 } from '../src/apps/app_docente/SeccionPlantillas';
 import { PlantillasListado } from '../src/apps/app_docente/features/plantillas/components/PlantillasListado';
 import type { PreviewPdfUrls } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
-import type { PermisosUI, Plantilla, PreviewPlantilla } from '../src/apps/app_docente/tipos';
+import type { Alumno, PermisosUI, Plantilla, PreviewPlantilla } from '../src/apps/app_docente/tipos';
 
 const permisos: PermisosUI = {
   periodos: { leer: true, gestionar: true, archivar: true },
@@ -30,10 +30,12 @@ const permisos: PermisosUI = {
 
 function HarnessPlantillas({
   permisosEntrada = permisos,
-  plantillas = [] as Plantilla[]
+  plantillas = [] as Plantilla[],
+  alumnos = [] as Alumno[]
 }: {
   permisosEntrada?: PermisosUI;
   plantillas?: Plantilla[];
+  alumnos?: Alumno[];
 }) {
   const [previewPorPlantillaId, setPreviewPorPlantillaId] = useState<Record<string, PreviewPlantilla>>({});
   const [cargandoPreviewPlantillaId, setCargandoPreviewPlantillaId] = useState<string | null>(null);
@@ -48,7 +50,7 @@ function HarnessPlantillas({
       plantillas={plantillas}
       periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
       preguntas={[]}
-      alumnos={[]}
+      alumnos={alumnos}
       permisos={permisosEntrada}
       enviarConPermiso={async () => ({})}
       avisarSinPermiso={() => {}}
@@ -129,6 +131,40 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getAllByText('OMR canónico · v4').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/Custodia, Descargas y Trazabilidad OMR/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /OMR canónico · v4/i })).toBeInTheDocument();
+  });
+
+  it('permite seleccionar destinatarios al elegir el tipo extraordinario', () => {
+    render(
+      <HarnessPlantillas
+        plantillas={[{
+          _id: 'pla-1',
+          titulo: 'Parcial Algebra',
+          tipo: 'parcial',
+          numeroPaginas: 2,
+          periodoId: 'per-1',
+          temas: ['Algebra']
+        }]}
+        alumnos={[
+          { _id: 'al-1', matricula: 'MAT-1', nombreCompleto: 'Ana Uno', periodoId: 'per-1', activo: true },
+          { _id: 'al-2', matricula: 'MAT-2', nombreCompleto: 'Luis Dos', periodoId: 'per-1', activo: true },
+          { _id: 'al-3', matricula: 'MAT-3', nombreCompleto: 'Eva Otra Materia', periodoId: 'per-2', activo: true }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'pla-1' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Tipo de examen' }), { target: { value: 'extraordinario' } });
+
+    expect(screen.getByRole('group', { name: /Alumnos que presentarán el extraordinario/i })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Ana Uno · MAT-1/i })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Luis Dos · MAT-2/i })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /Eva Otra Materia/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Generar examen individual de muestra/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Ana Uno · MAT-1/i }));
+    expect(screen.getByText('Seleccionados: 1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Generar extraordinarios \(1 alumnos\)/i })).toBeEnabled();
   });
 
   it('conserva la pestaña activa cuando la sección se vuelve a montar después de actualizar', () => {

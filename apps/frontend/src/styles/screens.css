@@ -6844,6 +6844,35 @@
   justify-content: center;
 }
 
+.plantillas-seleccion-alumnos {
+  min-width: 0;
+  margin: 1rem 0 0;
+  padding: 1rem;
+  /* WCAG AA: validar el borde no textual con contraste 3:1 sobre la superficie del formulario. */
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 12px;
+}
+
+.plantillas-seleccion-alumnos > .lista {
+  max-height: 20rem;
+  overflow: auto;
+  padding: 0.25rem;
+}
+
+.plantillas-seleccion-alumnos .campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+.plantillas-seleccion-alumnos .campo-checkbox input {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 .plantillas-generar__cta {
   margin-top: 1.25rem;
 }

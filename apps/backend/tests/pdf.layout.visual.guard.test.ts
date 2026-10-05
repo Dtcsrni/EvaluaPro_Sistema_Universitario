@@ -383,6 +383,8 @@ describe('pdf layout visual guard', () => {
     expect(resumenQrInline?.templateId).toBe('omr-inline-exam-v1');
     expect(resumenQrInline?.qrPayloadMode).toBe('manifest-bound');
     expect(resumenQrInline?.examId).toBeTruthy();
+    expect(resumenQrInline?.payloadSignatureValid).toBe(true);
+    expect(resumenQrInline?.keyId).toBeTruthy();
     expect(resumenQrInline?.answerKeyHash).toBeUndefined();
     expect(qrInline).toContain('TI:omr-inline-exam-v1');
     expect(qrInline).not.toMatch(/:(?:VH|AK|K):/);
