@@ -2,22 +2,11 @@
 
 ## Estado actual
 
-El checkout observado el 2026-09-24 declara `1.1.6` y se describe como
-`v1.1.6-14-g3337afd8-dirty`; contiene la etiqueta Git local `v1.1.6` y cambios
-locales extensos. Esto no acredita que `v1.1.6` esté publicado ni que ese árbol
-sea una release reproducible.
-
-La vista pública de [Releases de GitHub](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases),
-consultada el 2026-09-24, todavía muestra `v1.1.1` como Latest y
-`v1.1.1-beta.2`. Esto contradice la afirmación histórica de que no hay releases
-publicados o tags. No se pudo confirmar el estado remoto de tags ni los últimos
-10 resultados de CI porque GitHub CLI no está autenticada y la vista de Actions
-no expuso las conclusiones de las corridas.
-
-Por tanto, **no hay una candidata estable aprobada desde este checkout**. No
-descargar ni presentar artefactos QA locales como release. Antes del próximo
-ship, reconciliar el inventario remoto (releases, tags, assets y checksums) con
-el estado del repositorio y conservar evidencia verificable del ciclo docente.
+La API pública de GitHub consultada el 2026-10-04 confirma `v1.2.3` como la
+última release publicada. La rama `fix/release-gates-v1.2.4` declara `1.2.4` y
+contiene cambios candidatos del workflow de publicación y E2E. Esa candidata no
+se considera publicada hasta que el EXE se descargue del release draft, pase la
+E2E completa de instalación/upgrade y el workflow la convierta en pública.
 
 ## Criterio para la próxima estable
 

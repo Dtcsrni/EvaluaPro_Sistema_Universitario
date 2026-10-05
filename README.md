@@ -4,7 +4,7 @@
 
 ### Plataforma Universitaria de Evaluación, Calificación OMR y Analítica Académica
 
-[![Versión](https://img.shields.io/badge/version-v1.2.1-blue?style=for-the-badge&logo=semver)](docs/VERSIONADO.md)
+[![Versión](https://img.shields.io/badge/version-v1.2.4-blue?style=for-the-badge&logo=semver)](docs/VERSIONADO.md)
 [![Licencia](https://img.shields.io/badge/license-AGPL--3.0--or--later-emerald?style=for-the-badge)](LICENSE)
 [![Arquitectura](https://img.shields.io/badge/arquitectura-Offline--First_Native_SQLite-purple?style=for-the-badge)](docs/ARQUITECTURA_C4.md)
 [![Sitio Oficial](https://img.shields.io/badge/portal_web-GitHub_Pages-cyan?style=for-the-badge)](https://dtcsrni.github.io/EvaluaPro_Sistema_Universitario/)
@@ -45,7 +45,7 @@ flowchart LR
 
 ---
 
-## Novedades Principales en la Versión Estable `v1.1.1`
+## Capacidades principales de EvaluaPro
 
 - 🎯 **Estudio de Diseño de Exámenes (`SPEC-034`):** Interfaz unificada en 3 pestañas:
   1. *Diseño y Parámetros:* Variantes A/B/C/D, barajado determinista, balance de dificultad y hoja de respuestas integrada.
@@ -81,7 +81,7 @@ EvaluaPro/
 ### Para Usuarios Finales y Docentes (Windows)
 Descarga el ejecutable oficial desde la sección de **[Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases)**:
 ```text
-EvaluaPro-InstallerHub-docente-local-v1.1.1.exe
+EvaluaPro-InstallerHub-docente-local-v1.2.4.exe
 ```
 El instalador configura automáticamente los prerequisitos del sistema (Node runtime, SQLite local y accesos directos oficiales) sin configuraciones manuales.
 

@@ -2,10 +2,17 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
-## [Unreleased] - 2026-10-03
+## [Unreleased]
+
+## [1.2.4] - 2026-10-04
+
+### Added
+- El release de Windows se crea como borrador, descarga de GitHub el EXE y sidecar recién cargados, verifica el SHA-256 contra el digest de la API y ejecuta el E2E completo de actualización desde v1.2.3 antes de hacerlo público.
+- El E2E de upgrade comprueba que la versión instalada avance y que los datos SQLite sobrevivan usando la misma base confinada bajo `LOCALAPPDATA`.
 
 ### Fixed
 - Los fallos al regenerar accesos directos quedan degradados con diagnóstico; el manifiesto crítico para el updater se genera de forma independiente y sigue siendo bloqueante si no puede escribirse.
+- La limpieza del fixture E2E confirma la ausencia de la cuenta, materias y alumnos dummy en la SQLite aislada; sus aserciones ya no dependen de qué capa eliminó primero cada registro.
 
 ## [1.2.3] - 2026-10-03
 
