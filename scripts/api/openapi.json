@@ -4974,7 +4974,7 @@
           "plantillas:archivar"
         ],
         "x-evaluapro-validators": [
-          "esquemaBodyVacioOpcional"
+          "esquemaCambiarEstadoPlantilla"
         ]
       }
     },
@@ -5060,7 +5060,7 @@
           "plantillas:archivar"
         ],
         "x-evaluapro-validators": [
-          "esquemaBodyVacioOpcional"
+          "esquemaCambiarEstadoPlantilla"
         ]
       }
     },
@@ -17693,12 +17693,32 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true
+                "required": [
+                  "motivo",
+                  "clientRequestId",
+                  "confirmarEliminacion"
+                ],
+                "properties": {
+                  "motivo": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 400
+                  },
+                  "clientRequestId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "confirmarEliminacion": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -17711,6 +17731,16 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -17735,6 +17765,26 @@
               }
             }
           },
+          "404": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error HTTP con envelope de aplicación, código y mensaje.",
             "content": {
@@ -17749,6 +17799,9 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
         "x-evaluapro-permissions": [
           "evaluaciones:gestionar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaArchivarPolitica"
         ]
       }
     },
@@ -19498,6 +19551,396 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_alumnos/rutasPeriodos.ts",
         "x-evaluapro-permissions": [
           "periodos:gestionar"
+        ]
+      }
+    },
+    "/evaluaciones/politicas/{codigo}/auditoria": {
+      "get": {
+        "tags": [
+          "Evaluaciones"
+        ],
+        "operationId": "get_evaluaciones_politicas_codigo_auditoria",
+        "summary": "GET /evaluaciones/politicas/{codigo}/auditoria",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eventos append-only de las políticas del docente, paginados por versión descendente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "eventos",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "eventos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "docenteId",
+                          "codigo",
+                          "version",
+                          "accion",
+                          "clientRequestId",
+                          "requestHash",
+                          "antes",
+                          "despues",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "docenteId": {
+                            "type": "string"
+                          },
+                          "codigo": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "accion": {
+                            "type": "string",
+                            "enum": [
+                              "crear",
+                              "versionar",
+                              "archivar"
+                            ]
+                          },
+                          "motivo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "clientRequestId": {
+                            "type": "string"
+                          },
+                          "requestHash": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "antes": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": true
+                          },
+                          "despues": {
+                            "type": "object",
+                            "additionalProperties": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-permissions": [
+          "evaluaciones:leer"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaListarAuditoriaPolitica"
+        ]
+      }
+    },
+    "/evaluaciones/politicas/{codigo}/archivar": {
+      "post": {
+        "tags": [
+          "Evaluaciones"
+        ],
+        "operationId": "post_evaluaciones_politicas_codigo_archivar",
+        "summary": "POST /evaluaciones/politicas/{codigo}/archivar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "motivo",
+                  "clientRequestId",
+                  "confirmarEliminacion"
+                ],
+                "properties": {
+                  "motivo": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 400
+                  },
+                  "clientRequestId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "confirmarEliminacion": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-permissions": [
+          "evaluaciones:gestionar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaArchivarPolitica"
+        ]
+      }
+    },
+    "/examenes/plantillas/{id}/auditoria": {
+      "get": {
+        "tags": [
+          "Exámenes"
+        ],
+        "operationId": "get_examenes_plantillas_id_auditoria",
+        "summary": "GET /examenes/plantillas/{id}/auditoria",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_generacion_pdf/rutasGeneracionPdf.ts",
+        "x-evaluapro-permissions": [
+          "plantillas:leer"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaListarAuditoriaPlantilla"
         ]
       }
     }

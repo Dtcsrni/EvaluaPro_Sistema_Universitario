@@ -656,6 +656,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           <SeccionPlantillas
             plantillas={plantillas}
             periodos={periodos}
+            periodosArchivados={periodosArchivados}
             preguntas={preguntas}
             permisos={permisosUI}
             preferenciasPdf={docente.preferenciasPdf}

@@ -17,12 +17,13 @@ function crearRespuesta() {
   } as unknown as Response;
 }
 
-function crearAnalisisOmrOk() {
+function crearAnalisisOmrOk(revisionConfirmada = false) {
   return {
     estadoAnalisis: 'ok' as const,
     calidadPagina: 0.95,
     confianzaPromedioPagina: 0.93,
     ratioAmbiguas: 0,
+    ...(revisionConfirmada ? { revisionConfirmada: true } : {}),
     templateVersionDetectada: 4 as const,
     motivosRevision: [],
     engineVersion: 'omr-cv',
@@ -163,7 +164,9 @@ describe('calificaciones persistencia', () => {
       body: {
         examenGeneradoId: examen.id,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
-        omrAnalisis: crearAnalisisOmrOk(),
+        // Las respuestas de este fixture no incluyen confianza por reactivo;
+        // la persistencia se prueba con revisión humana explícita.
+        omrAnalisis: crearAnalisisOmrOk(true),
         bonoSolicitado: 0,
         retroalimentacion: 'Correcto',
         versionPolitica: 1,
@@ -298,7 +301,9 @@ describe('calificaciones persistencia', () => {
       body: {
         examenGeneradoId: examen.id,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
-        omrAnalisis: crearAnalisisOmrOk(),
+        // Las respuestas de este fixture no incluyen confianza por reactivo;
+        // la persistencia se prueba con revisión humana explícita.
+        omrAnalisis: crearAnalisisOmrOk(true),
         paginasOmr: [
           {
             numeroPagina: 1,
@@ -434,7 +439,8 @@ describe('calificaciones persistencia', () => {
     const cuerpoBase = {
       examenGeneradoId: examen.id,
       respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
-      omrAnalisis: crearAnalisisOmrOk()
+      // Capturas legacy sin confianza por reactivo: revisión humana confirmada.
+      omrAnalisis: crearAnalisisOmrOk(true)
     };
 
     await calificarExamen(

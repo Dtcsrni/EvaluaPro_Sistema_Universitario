@@ -45,6 +45,8 @@ export interface ParametrosGeneracionPdf {
     autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
+    /** Reparte el contenido entre el número objetivo de páginas cuando es posible. */
+    distribuirEnPaginasObjetivo?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
   encabezado?: EncabezadoExamen;
@@ -222,6 +224,8 @@ export interface PaginaOmr {
     marginModules?: number;
     /** Numero de modulos de la matriz QR, sin quiet zone. */
     matrixModules?: number;
+    /** Ancho físico en puntos de cada módulo incluyendo quiet zone en `size`. */
+    moduleSize?: number;
   };
   marcasPagina?: {
     tipo: 'lineas' | 'cuadrados';
@@ -236,7 +240,14 @@ export interface PaginaOmr {
   preguntas: Array<{
     numeroPregunta: number;
     idPregunta: string;
-    opciones: Array<{ letra: string; x: number; y: number; radio?: number }>;
+    opciones: Array<{
+      letra: string;
+      x: number;
+      y: number;
+      radio?: number;
+      /** Bounds de la etiqueta impresa fuera de la burbuja, para QA dúplex. */
+      labelBounds?: { x: number; y: number; width: number; height: number };
+    }>;
     textRuns?: Array<{
       tipo: 'texto' | 'codigo';
       fuente: string;

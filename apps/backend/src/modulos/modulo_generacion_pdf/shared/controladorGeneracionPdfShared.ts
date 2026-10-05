@@ -117,12 +117,15 @@ function hashSha256Local(value: string) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
-function hashContenidoPregunta(pregunta: BancoPreguntaLean, numeroVersion: number): string {
+export function hashContenidoPregunta(pregunta: BancoPreguntaLean, numeroVersion: number): string {
   const version = pregunta.versiones.find((item) => item.numeroVersion === numeroVersion) ?? pregunta.versiones[0];
   return hashSha256Local(JSON.stringify({
     id: pregunta.id,
     version: numeroVersion,
-    enunciado: version?.enunciado ?? '',
+    // The blueprint is built from formatearPreguntaPrisma(), which normalizes
+    // editorial prefixes. Validation also receives raw Prisma rows, so hash
+    // the same rendered text in both paths.
+    enunciado: normalizarEnunciadoBanco(version?.enunciado ?? ''),
     opciones: (version?.opciones ?? []).map((opcion) => ({ texto: opcion.texto, esCorrecta: opcion.esCorrecta }))
   }));
 }
@@ -147,9 +150,12 @@ async function marcarPlantillaRequiereRepreview(plantillaId: string) {
   });
 }
 
-export async function construirBlueprintPlantilla(preguntasDb: BancoPreguntaLean[]): Promise<BlueprintPlantilla> {
+export async function construirBlueprintPlantilla(
+  preguntasDb: BancoPreguntaLean[],
+  opciones: { legacyOnly?: boolean } = {}
+): Promise<BlueprintPlantilla> {
   const legacyIds = preguntasDb.map((pregunta) => String(pregunta.id));
-  const canonicos = legacyIds.length > 0
+  const canonicos = !opciones.legacyOnly && legacyIds.length > 0
     ? await prisma.reactivo.findMany({
       where: { legacyPreguntaId: { in: legacyIds }, estado: 'published' },
       include: { versiones: true }
@@ -728,16 +734,25 @@ export async function validarPeriodoDocenteActivo(docenteId: unknown, periodoId?
   };
 }
 
-export async function resolverPeriodoPlantillaActivo(plantilla: { periodoId?: unknown }) {
+export async function resolverPeriodoPlantillaActivo(
+  plantilla: { periodoId?: unknown },
+  opciones: { permitirArchivado?: boolean; docenteId?: unknown } = {}
+) {
   if (!plantilla.periodoId) return null;
   const pId = String(plantilla.periodoId);
-  const periodo = await prisma.periodo.findUnique({
-    where: { id: pId }
-  });
+  const periodo = opciones.docenteId
+    ? await prisma.periodo.findFirst({ where: { id: pId, docenteId: String(opciones.docenteId) } })
+    : await prisma.periodo.findUnique({ where: { id: pId } });
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
   }
-  if (periodo.activo === false) {
+  if (opciones.permitirArchivado && periodo.activo === false) {
+    const fechaFin = periodo.fechaFin.getTime();
+    if (!Number.isFinite(fechaFin) || fechaFin >= Date.now()) {
+      throw new ErrorAplicacion('PERIODO_NO_CONCLUIDO', 'Los extraordinarios solo pueden generarse después de la fecha de fin del periodo.', 409);
+    }
+  }
+  if (periodo.activo === false && !opciones.permitirArchivado) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
   }
   return {
@@ -800,6 +815,7 @@ export async function resolverPreguntasPlantilla(params: {
   plantilla: { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[]; reactivosObjetivo?: unknown; blueprintJson?: unknown; blueprintStatus?: unknown; bookletConfig?: unknown };
   ordenarPorRecencia?: boolean;
   usarBlueprint?: boolean;
+  permitirArchivados?: boolean;
 }) {
   const docId = String(params.docenteId);
   if (params.usarBlueprint && params.plantilla.blueprintStatus === 'requires_repreview') {
@@ -815,13 +831,18 @@ export async function resolverPreguntasPlantilla(params: {
   if (blueprint) {
     const listIds = blueprint.items.map((item) => item.id);
     rawPreguntas = await prisma.bancoPregunta.findMany({
-      where: { docenteId: docId, activo: true, id: { in: listIds } },
+      where: {
+        docenteId: docId,
+        ...(params.plantilla.periodoId ? { periodoId: String(params.plantilla.periodoId) } : {}),
+        ...(params.permitirArchivados ? {} : { activo: true }),
+        id: { in: listIds }
+      },
       include: { versiones: { include: { opciones: true } } }
     });
     const byId = new Map(rawPreguntas.map((pregunta) => [pregunta.id, pregunta]));
     const faltantes = listIds.filter((id) => !byId.has(id));
     if (faltantes.length > 0) {
-      await marcarPlantillaRequiereRepreview(params.plantilla.id);
+      if (!params.permitirArchivados) await marcarPlantillaRequiereRepreview(params.plantilla.id);
       throw new ErrorAplicacion('BLUEPRINT_OBSOLETO', 'El blueprint contiene reactivos que ya no están disponibles', 409, { faltantes });
     }
     const canonicalVersionIds = blueprint.items.map((item) => item.reactivoVersionId).filter((id): id is string => Boolean(id));
@@ -846,7 +867,7 @@ export async function resolverPreguntasPlantilla(params: {
     }).map((item) => ({ id: item.id, version: item.version, reactivoVersionId: item.reactivoVersionId, contentHash: item.contentHash }));
     if (blueprintHash !== blueprint.setHash) divergentes.push({ id: '__set__', version: 0, reactivoVersionId: undefined, contentHash: blueprint.setHash });
     if (divergentes.length > 0) {
-      await marcarPlantillaRequiereRepreview(params.plantilla.id);
+      if (!params.permitirArchivados) await marcarPlantillaRequiereRepreview(params.plantilla.id);
       throw new ErrorAplicacion('BLUEPRINT_OBSOLETO', 'El contenido de una versión fijada cambió o ya no está disponible', 409, { divergentes });
     }
     rawPreguntas = listIds.map((id) => {
@@ -872,7 +893,7 @@ export async function resolverPreguntasPlantilla(params: {
     rawPreguntas = await prisma.bancoPregunta.findMany({
       where: {
         docenteId: docId,
-        activo: true,
+        ...(params.permitirArchivados ? {} : { activo: true }),
         periodoId: String(params.plantilla.periodoId),
         tema: { in: temas }
       },
@@ -901,7 +922,8 @@ export async function resolverPreguntasPlantilla(params: {
     rawPreguntas = await prisma.bancoPregunta.findMany({
       where: {
         docenteId: docId,
-        activo: true,
+        ...(params.permitirArchivados ? {} : { activo: true }),
+        ...(params.plantilla.periodoId ? { periodoId: String(params.plantilla.periodoId) } : {}),
         id: { in: listIds }
       },
       include: {

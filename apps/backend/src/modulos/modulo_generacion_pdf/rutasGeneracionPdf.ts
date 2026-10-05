@@ -13,6 +13,7 @@ import {
   generarExamen,
   generarExamenesLote,
   listarAuditoriaLotePdf,
+  listarAuditoriaPlantilla,
   obtenerPlantilla,
   obtenerProgresoGeneracionLote,
   descargarPdfLote,
@@ -24,6 +25,7 @@ import {
 import {
   esquemaActualizarPlantilla,
   esquemaBodyVacioOpcional,
+  esquemaCambiarEstadoPlantilla,
   esquemaCambiarEstadoLotePdf,
   esquemaCrearPlantilla,
   esquemaGenerarExamen,
@@ -31,6 +33,7 @@ import {
   esquemaListarExamenesGenerados,
   esquemaListarLotesExamenes,
   esquemaListarAuditoriaLotePdf,
+  esquemaListarAuditoriaPlantilla,
   esquemaPurgarExamenesGenerados,
   esquemaRegenerarExamenGenerado
 } from './validacionesExamenes.js';
@@ -50,18 +53,19 @@ const router = Router();
 
 router.get('/plantillas', requerirPermiso('plantillas:leer'), listarPlantillas);
 router.get('/plantillas/:id', requerirPermiso('plantillas:leer'), obtenerPlantilla);
+router.get('/plantillas/:id/auditoria', requerirPermiso('plantillas:leer'), validarQueryRobusto(esquemaListarAuditoriaPlantilla), listarAuditoriaPlantilla);
 router.post('/plantillas', requerirPermiso('plantillas:gestionar'), validarCuerpo(esquemaCrearPlantilla, { strict: true }), crearPlantilla);
 router.post('/plantillas/:id', requerirPermiso('plantillas:gestionar'), validarCuerpo(esquemaActualizarPlantilla, { strict: true }), actualizarPlantilla);
 router.post(
   '/plantillas/:id/archivar',
   requerirPermiso('plantillas:archivar'),
-  validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
+  validarCuerpo(esquemaCambiarEstadoPlantilla, { strict: true }),
   archivarPlantilla
 );
 router.post(
   '/plantillas/:id/eliminar',
   requerirPermiso('plantillas:archivar'),
-  validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
+  validarCuerpo(esquemaCambiarEstadoPlantilla, { strict: true }),
   eliminarPlantilla
 );
 router.get('/plantillas/:id/previsualizar', requerirPermiso('plantillas:previsualizar'), previsualizarPlantilla);

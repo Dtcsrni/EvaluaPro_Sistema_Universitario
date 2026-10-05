@@ -4,7 +4,7 @@
  * Responsabilidad: Seccion funcional del shell docente.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
@@ -84,6 +84,8 @@ export function SeccionEvaluaciones(params: {
   const [politicas, setPoliticas] = useState<Politica[]>([]);
   const [politicaCodigo, setPoliticaCodigo] = useState('POLICY_LISC_ENCUADRE_2026');
   const [politicaVersion, setPoliticaVersion] = useState<number>(1);
+  const solicitudesPolitica = useRef(new Map<string, string>());
+  const solicitudesArchivoPolitica = useRef(new Map<string, string>());
   const [codigoEditor, setCodigoEditor] = useState('POLICY_PERSONALIZADA');
   const [nombreEditor, setNombreEditor] = useState('Política personalizada');
   const [descripcionEditor, setDescripcionEditor] = useState('');
@@ -199,20 +201,24 @@ export function SeccionEvaluaciones(params: {
     setCargando(true);
     try {
       const parametros = JSON.parse(parametrosEditor) as Record<string, unknown>;
-      const payload = {
+      const datos = {
         codigo: codigoEditor.trim(),
         nombre: nombreEditor.trim(),
         descripcion: descripcionEditor.trim(),
         familia: familiaEditor,
-        parametros,
-        clientRequestId: crypto.randomUUID()
+        parametros
       };
+      const claveSolicitud = JSON.stringify(datos);
+      const clientRequestId = solicitudesPolitica.current.get(claveSolicitud) ?? crypto.randomUUID();
+      solicitudesPolitica.current.set(claveSolicitud, clientRequestId);
+      const payload = { ...datos, clientRequestId };
       const historial = await clienteApi.obtener<{ politicas?: Politica[] }>(
         '/evaluaciones/politicas?incluirVersiones=true&incluirArchivadas=true'
       );
       const existe = (historial.politicas ?? []).some((item) => item.codigo === payload.codigo && !item.sistema);
       if (existe) await clienteApi.actualizar(`/evaluaciones/politicas/${encodeURIComponent(payload.codigo)}`, payload);
       else await clienteApi.enviar('/evaluaciones/politicas', payload);
+      solicitudesPolitica.current.delete(claveSolicitud);
       emitToast({ level: 'ok', title: 'Evaluaciones', message: existe ? 'Nueva versión de política creada' : 'Política creada' });
       await cargarContexto();
     } catch (error) {
@@ -228,7 +234,14 @@ export function SeccionEvaluaciones(params: {
     if (!politica || politica.sistema || !politica.activa) return;
     setCargando(true);
     try {
-      await clienteApi.eliminar(`/evaluaciones/politicas/${encodeURIComponent(politica.codigo)}`);
+      const clientRequestId = solicitudesArchivoPolitica.current.get(politica.codigo) ?? crypto.randomUUID();
+      solicitudesArchivoPolitica.current.set(politica.codigo, clientRequestId);
+      await clienteApi.enviar(`/evaluaciones/politicas/${encodeURIComponent(politica.codigo)}/archivar`, {
+        clientRequestId,
+        motivo: 'Archivada desde la interfaz docente',
+        confirmarEliminacion: true
+      });
+      solicitudesArchivoPolitica.current.delete(politica.codigo);
       emitToast({ level: 'ok', title: 'Evaluaciones', message: 'Política archivada mediante una nueva versión' });
       await cargarContexto();
     } catch (error) {

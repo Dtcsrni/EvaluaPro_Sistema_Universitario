@@ -34,6 +34,7 @@ import {
   guardarPoliticaEvaluacionesV2,
   listarEvidenciasEvaluacion,
   listarPoliticasCalificacion,
+  listarAuditoriaPoliticaCalificacion,
   obtenerPoliticaCalificacion,
   archivarPoliticaCalificacion,
   obtenerEvidenciaEvaluacion,
@@ -51,9 +52,11 @@ import {
   esquemaCrearPolitica,
   esquemaActualizarEvidencia,
   esquemaArchivarEvidencia,
+  esquemaArchivarPolitica,
   esquemaRestaurarEvidencia,
   esquemaInicializarEncuadre,
-  esquemaListarEvidenciasEvaluacion
+  esquemaListarEvidenciasEvaluacion,
+  esquemaListarAuditoriaPolitica
 } from './validacionesEvaluaciones.js';
 import {
   esquemaActualizarMapeoAlumnosCurso,
@@ -69,6 +72,7 @@ import {
 const router = Router();
 
 router.get('/politicas', requerirPermiso('evaluaciones:leer'), listarPoliticasCalificacion);
+router.get('/politicas/:codigo/auditoria', requerirPermiso('evaluaciones:leer'), validarQueryRobusto(esquemaListarAuditoriaPolitica), listarAuditoriaPoliticaCalificacion);
 router.post(
   '/politicas',
   requerirPermiso('evaluaciones:gestionar'),
@@ -82,7 +86,18 @@ router.put(
   validarCuerpo(esquemaCrearPolitica, { strict: true }),
   crearPoliticaCalificacion
 );
-router.delete('/politicas/:codigo', requerirPermiso('evaluaciones:gestionar'), archivarPoliticaCalificacion);
+router.delete(
+  '/politicas/:codigo',
+  requerirPermiso('evaluaciones:gestionar'),
+  validarCuerpo(esquemaArchivarPolitica, { strict: true }),
+  archivarPoliticaCalificacion
+);
+router.post(
+  '/politicas/:codigo/archivar',
+  requerirPermiso('evaluaciones:gestionar'),
+  validarCuerpo(esquemaArchivarPolitica, { strict: true }),
+  archivarPoliticaCalificacion
+);
 router.get('/configuracion-periodo', requerirPermiso('evaluaciones:leer'), obtenerConfiguracionPeriodo);
 router.post(
   '/configuracion-periodo',

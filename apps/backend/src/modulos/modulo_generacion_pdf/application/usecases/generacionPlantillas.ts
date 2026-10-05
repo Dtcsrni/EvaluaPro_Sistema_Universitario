@@ -360,9 +360,6 @@ async function generarExamenesLoteUseCaseInterno(params: {
 }) {
   const docId = String(params.docenteId);
   const plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
-  if (plantilla.archivadoEn) {
-    throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'La plantilla esta archivada', 409);
-  }
   if (!plantilla.periodoId) {
     throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla requiere materia (periodoId) para generar en lote', 400);
   }
@@ -376,6 +373,10 @@ async function generarExamenesLoteUseCaseInterno(params: {
   if (tipoExamen !== 'extraordinario' && params.alumnoIds) {
     throw new ErrorAplicacion('SELECCION_ALUMNOS_NO_ADMITIDA', 'La selección individual de alumnos solo está disponible para extraordinarios.', 400);
   }
+  const esExtraordinarioArchivado = tipoExamen === 'extraordinario' && Boolean(plantilla.archivadoEn);
+  if (plantilla.archivadoEn && !esExtraordinarioArchivado) {
+    throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'Las plantillas archivadas solo admiten extraordinarios del periodo cerrado.', 409);
+  }
 
   const loteIdNormalizado = normalizarLoteId(params.loteId);
   const loteId = loteIdNormalizado || randomUUID().split('-')[0].toUpperCase();
@@ -387,22 +388,40 @@ async function generarExamenesLoteUseCaseInterno(params: {
     throw new ErrorAplicacion('LOTE_ARCHIVADO', 'El lote está archivado; restáuralo o genera un lote nuevo.', 409, { loteId });
   }
 
-  const periodo = await resolverPeriodoPlantillaActivo(plantilla as { periodoId?: unknown });
+  const periodo = await resolverPeriodoPlantillaActivo(
+    plantilla as { periodoId?: unknown },
+    { permitirArchivado: esExtraordinarioArchivado, docenteId: docId }
+  );
+  if (esExtraordinarioArchivado && periodo?.activo !== false) {
+    throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'El extraordinario requiere una plantilla de una materia archivada.', 409);
+  }
+  if (!esExtraordinarioArchivado && periodo?.activo === false) {
+    throw new ErrorAplicacion('PERIODO_INACTIVO', 'Una materia archivada solo admite extraordinarios con su plantilla archivada.', 409);
+  }
   const docenteDb = await resolverDocentePdf(docId);
-  const alumnosActivos = await prisma.alumno.findMany({
-    where: { periodoId: String(plantilla.periodoId), activo: true }
-  });
   const idsExtraordinario = tipoExamen === 'extraordinario' ? new Set(params.alumnoIds ?? []) : null;
-  let alumnos = alumnosActivos;
+  let alumnos: Array<{ id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }>;
   if (idsExtraordinario) {
-    const alumnosActivosPorId = new Map(alumnosActivos.map((alumno) => [String(alumno.id), alumno]));
     if (idsExtraordinario.size !== (params.alumnoIds ?? []).length) {
       throw new ErrorAplicacion('ALUMNOS_DUPLICADOS', 'La selección contiene alumnos duplicados.', 400);
     }
-    if ([...idsExtraordinario].some((alumnoId) => !alumnosActivosPorId.has(alumnoId))) {
-      throw new ErrorAplicacion('ALUMNOS_NO_VALIDOS', 'Todos los alumnos seleccionados deben estar activos en la materia de la plantilla.', 400);
+    const alumnosSeleccionados = await prisma.alumno.findMany({
+      where: {
+        periodoId: String(plantilla.periodoId),
+        id: { in: [...idsExtraordinario] },
+        ...(esExtraordinarioArchivado ? {} : { activo: true })
+      }
+    });
+    const alumnosPorId = new Map(alumnosSeleccionados.map((alumno) => [String(alumno.id), alumno]));
+    if ([...idsExtraordinario].some((alumnoId) => !alumnosPorId.has(alumnoId))) {
+      const estadoRequerido = esExtraordinarioArchivado ? 'pertenecer al periodo de la plantilla' : 'estar activos en la materia de la plantilla';
+      throw new ErrorAplicacion('ALUMNOS_NO_VALIDOS', `Todos los alumnos seleccionados deben ${estadoRequerido}.`, 400);
     }
-    alumnos = (params.alumnoIds ?? []).map((alumnoId) => alumnosActivosPorId.get(alumnoId)!);
+    alumnos = (params.alumnoIds ?? []).map((alumnoId) => alumnosPorId.get(alumnoId)!);
+  } else {
+    alumnos = await prisma.alumno.findMany({
+      where: { periodoId: String(plantilla.periodoId), activo: true }
+    });
   }
   const cohorteLoteHash = tipoExamen === 'extraordinario'
     ? createHash('sha256').update([...(params.alumnoIds ?? [])].sort().join('\n')).digest('hex')
@@ -425,16 +444,21 @@ async function generarExamenesLoteUseCaseInterno(params: {
     docenteId: docId,
     plantilla: plantilla as any,
     usarBlueprint: true,
+    permitirArchivados: esExtraordinarioArchivado,
     // Debe coincidir con la resolución usada por la previsualización. Cuando
     // reactivosObjetivo limita un banco, el orden de la consulta determina el
     // subconjunto y, por tanto, su fingerprint de layout validado.
     ordenarPorRecencia: true
   });
-  const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
+  // Mantener el mismo formato que la vista previa del extraordinario archivado:
+  // cuatro páginas de examen, equivalentes a dos hojas impresas por ambos lados.
+  const numeroPaginas = esExtraordinarioArchivado
+    ? 4
+    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const bookletConfigPlantilla = (plantilla.bookletConfig ?? {}) as Record<string, unknown>;
   const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
-  const layoutFingerprintOmr = `${construirFingerprintLayoutPreview()}|${omrTemplateId}`;
+  const layoutFingerprintOmr = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? '|extra-duplex-4p-v1' : ''}`;
   const layoutValidado = bookletConfigPlantilla.resolvedLayout as {
     version?: number;
     fontScale?: number;
@@ -445,8 +469,13 @@ async function generarExamenesLoteUseCaseInterno(params: {
     totalPreguntas?: number;
     temas?: string[];
   } | undefined;
+  const fingerprintPreguntasVigente = layoutValidado?.preguntasFingerprint === construirFingerprintPreguntasPreview(preguntasDb);
+  // Archivar actualiza updatedAt en los reactivos legacy aunque su contenido no
+  // cambie. Para el extraordinario cerrado, resolverPreguntasPlantilla ya
+  // verificó el hash de cada versión fijada por el blueprint.
+  const blueprintArchivadoVerificado = esExtraordinarioArchivado && Boolean(plantilla.blueprintJson);
   const layoutVigente = layoutValidado?.version === 1 &&
-    layoutValidado.preguntasFingerprint === construirFingerprintPreguntasPreview(preguntasDb) &&
+    (fingerprintPreguntasVigente || blueprintArchivadoVerificado) &&
     layoutValidado.layoutFingerprint === layoutFingerprintOmr &&
     Number(layoutValidado.numeroPaginas) === numeroPaginas &&
     Number(layoutValidado.totalPreguntas) === preguntasBase.length &&
@@ -604,7 +633,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
           margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
           templateVersion: templateVersionOmr,
           omrTemplateId,
-          bookletConfig,
+          bookletConfig: { ...bookletConfig, distribuirEnPaginasObjetivo: esExtraordinarioArchivado },
           encabezado: construirEncabezadoPdf({
             periodo,
             docenteDb,
@@ -1016,7 +1045,10 @@ export async function descargarPdfLoteUseCase(params: {
   } catch {
     throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF de lote no disponible', 404, { docenteId: docId });
   }
-  const paginasMaximasPorExamen = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown } | null);
+  const plantillaArchivada = Boolean((plantilla as { archivadoEn?: unknown } | null)?.archivadoEn);
+  const paginasMaximasPorExamen = plantillaArchivada && examenesDelLote.every((examen) => String(examen.tipoExamen ?? '') === 'extraordinario')
+    ? 4
+    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown } | null);
   let paginasPorExamen: number;
   if (artefactoPersistido) {
     const paginasValidas = Number(artefactoPersistido.totalPaginas);

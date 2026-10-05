@@ -118,6 +118,7 @@ export async function generarExamenIndividual(
       densityMode: params.bookletConfig?.densityMode,
       fontScale,
       lineSpacing,
+      distribuirEnPaginasObjetivo: params.bookletConfig?.distribuirEnPaginasObjetivo === true || params.tipoExamen === 'extraordinario',
       logos: params.bookletConfig?.logos
     },
     params.encabezado
@@ -171,7 +172,8 @@ export async function generarExamenIndividual(
     try {
       const resultado = await renderizar(combinacion.escala, combinacion.espaciado);
       ultimoResultado = resultado;
-      if (resultado.preguntasRestantes === 0 && resultado.paginas.length <= totalPaginas) {
+      const paginasConContenido = resultado.paginas.filter((pagina) => pagina.tipoPagina !== 'reverso-vacio').length;
+      if (resultado.preguntasRestantes === 0 && paginasConContenido <= totalPaginas) {
         guardarPistaAutoFit(claveAutoFit, combinacion);
         return resultado;
       }

@@ -1,8 +1,8 @@
 ---
 id: SPEC-070
 titulo: Operación docente automatizable por API con correspondencia en GUI
-version: 1.23.9
-fecha: 2026-10-03
+version: 1.23.10
+fecha: 2026-10-04
 autor: Codex / EvaluaPro Team
 modulo: api_docente_automatizacion
 estado: approved
@@ -133,7 +133,11 @@ la automatización no debe inferir autorización por disponer de token API.
   acotada, contenido vigente y asignaciones canónicas. Toda consulta debe estar
   delimitada al docente autenticado; IDs ajenos se responden como no encontrados.
   La lectura debe conservar la distinción entre `versionActual` (número) y el
-  contenido de esa versión, y no incluir los assets binarios en listados.
+  contenido de esa versión, y no incluir los assets binarios en listados. La
+  publicación debe ser recuperable ante reintentos secuenciales o concurrentes:
+  una transición ya completada devuelve la misma referencia legada sin crear otra
+  `VersionPregunta`; una inconsistencia entre estado y referencia produce conflicto
+  explícito. Retirar conserva la identidad y bloquea la publicación posterior.
 - **REQ-017:** Una ingesta OMR PDF debe permitir resolver por API una página sin QR
   al examen y página generados de su mismo lote, y editar respuestas detectadas en
   páginas que requieren revisión. La resolución conserva el original y su hash,
@@ -150,8 +154,9 @@ la automatización no debe inferir autorización por disponer de token API.
   código es una acción confirmada; la sincronización al portal sigue separada y no
   debe declararse revocada la copia remota hasta verificar su invalidación. La GUI
   permite consultar esos metadatos y expirar el mismo recurso con aviso de publicación.
-- **REQ-021:** La lista de exámenes generados debe validar filtros, limitar el tamaño
-  de cada respuesta y exponer un cursor estable ordenado por `generadoEn` e ID. La
+- **REQ-021:** La lista de exámenes generados debe validar filtros por periodo,
+  alumno, plantilla y tipo de examen (`parcial`, `global`, `extraordinario`), limitar
+  el tamaño de cada respuesta y exponer un cursor estable ordenado por `generadoEn` e ID. La
   respuesta debe mantener el filtro por docente y devolver 
 extCursor` explícito;
   el cliente API y la GUI deben poder continuar la consulta sin perder ni repetir
@@ -182,10 +187,15 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   y baja lógica por docente. Una versión publicada es inmutable; PUT crea la siguiente
   versión y DELETE publica una versión archivada, sin destruir referencias históricas.
   Solo las familias de fórmula soportadas por EvaluaPro se aceptan y sus pesos/umbral
-  deben validarse. Configurar un periodo requiere la versión activa más reciente; los
+  deben validarse. Las mutaciones requieren `clientRequestId` UUID y archivo requiere
+  además motivo/confirmación. Cada alta, versión y archivo escribe el evento
+  append-only con actor, hash y valores before/after en la misma transacción; la API
+  ofrece auditoría paginada por docente/código. Configurar un periodo requiere la versión activa más reciente; los
   cálculos resuelven código+versión exactos, aplican los parámetros persistidos y
   guardan ID, versión y parámetros en auditoría. El listado y la GUI muestran las
-  mismas definiciones. Los reintentos usan `clientRequestId` estable.
+  mismas definiciones. Los reintentos usan `clientRequestId` estable. La migración
+  no reconstruye eventos históricos: la auditoría comienza con las mutaciones hechas
+  después de instalarla; las versiones anteriores siguen consultables como políticas.
 - **REQ-026:** La evidencia manual tiene ciclo de alta/lectura/edición/archivo/restauración
   por API y GUI. Las ediciones requieren `expectedUpdatedAt` (control de concurrencia
   optimista), motivo y confirmación; cada cambio registra actor, instante, motivo y
@@ -313,7 +323,11 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   estado; pagina entre 1 y 100 elementos por cursor y devuelve la versión vigente
   y sus opciones. `GET /banco-preguntas/reactivos/{reactivoId}` devuelve el
   contenido vigente completo. Un docente no puede consultar el reactivo de otro;
-  un cursor inválido devuelve error de validación sin filtrar existencia ajena.
+  un cursor inválido devuelve error de validación sin filtrar existencia ajena. Dos
+  publicaciones concurrentes del mismo reactivo revisado generan una sola versión
+  legada y ambas recuperan la misma referencia; volver a publicar el recurso vigente
+  no añade otra versión. Un estado publicado sin representación legada activa devuelve
+  conflicto explícito, y un reactivo retirado no puede publicarse.
 
 - **AC-013:** Una integración sube un PDF que contiene una página sin QR, la asocia
   al examen/página correcta de su lote por API, conserva bytes/hash del original,
@@ -366,8 +380,11 @@ extCursor` nullable para compatibilidad.
   parámetros crea una versión nueva, no modifica la anterior; asignar esa versión al
   periodo cambia efectivamente el resumen calculado y la auditoría identifica la
   política/version. Reusar `clientRequestId` con el mismo payload es idempotente y
-  con otro payload produce 409. Archivar conserva la historia y bloquea su asignación
-  futura. La GUI puede seleccionar, editar/versionar y archivar las mismas políticas.
+  con otro payload produce 409. Alta, versionado y archivo dejan un evento append-only
+  paginado con actor, motivo, hash y snapshots antes/después; repetir una clave/payload
+  no duplica evento y reutilizarla con otro payload produce 409. Archivar conserva la
+  historia y bloquea su asignación futura. La GUI puede seleccionar, editar/versionar,
+  archivar y continuar consultando las mismas políticas.
 - **AC-024:** Una evidencia manual puede editarse solo con su `updatedAt` vigente;
   una versión atrasada recibe 409. Edición, archivo y restauración aparecen en detalle
   y auditoría con actor/motivo. Archivar la saca del resumen de evaluación y restaurarla
@@ -461,7 +478,7 @@ implica que ya satisfagan todos los criterios nuevos.
 | REQ-005 / AC-003 | Preview y ejecución de importación Classroom | `apps/backend/tests/integracion/classroom.v2.test.ts` | Pendiente de ampliar |
 | REQ-006 / AC-004 | Reintento sin duplicados en importación/calificación | `apps/backend/tests/calificacion.persistencia.test.ts` | Pendiente de ampliar |
 | REQ-007 / AC-002 | Banco/taxonomía y operaciones API de reactivos | `apps/backend/tests/bancoPreguntas.controlador.test.ts` | Pendiente de ampliar |
-| REQ-016 / AC-012 | Listado paginado, detalle vigente, historial de importación y aislamiento de reactivos canónicos | `apps/backend/tests/integracion/reactivosIngesta.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/check-openapi-contract.mjs` | Historial de importación usa cursores estables, resúmenes agregados y detalle por ID; SDK protege revisión/publicación/retiro; auditoría CRUD global pendiente |
+| REQ-016 / AC-012 | Listado paginado, detalle vigente, historial de importación, aislamiento e idempotencia concurrente de publicación de reactivos canónicos | `apps/backend/tests/integracion/reactivosIngesta.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/check-openapi-contract.mjs` | Suite de ingesta 15/15; SDK 40/40; typecheck, ESLint y contrato/lifecycle 73/73 validados. Historial usa cursores estables; publicación concurrente/secuencial no duplica versión legada. Auditoría CRUD global pendiente |
 | REQ-017 / AC-013 | Idempotencia multipart, resolución manual, paquete/manifiesto y original | `apps/backend/tests/integracion/omrJobsWorkflow.test.ts`; `apps/frontend/tests/plantillasOmrWorkflow.test.tsx`; `scripts/tests/evaluapro-client.test.mjs` | Implementado y validado en foco |
 | REQ-018 / AC-014 | Listado paginado/filtros de jobs OMR con aislamiento de docente | `apps/backend/tests/integracion/omrJobsWorkflow.test.ts`; `apps/frontend/tests/plantillas.omrResumen.test.ts`; `scripts/tests/evaluapro-client.test.mjs` | API/SDK validados en foco. La GUI ahora sincroniza el resumen con el detalle vigente al abrir o actualizar un job; prueba focal 2/2 y build docente completo aprobados. GUI local 4173 y los espejos del build tienen el mismo SHA-256 de árbol; la lectura OMR en GUI muestra el mismo estado/detalle que el job API. |
 | REQ-006 / AC-015 | Idempotencia de calificación con UUID y conflicto de payload | `apps/backend/tests/integracion/omrJobsWorkflow.test.ts`; `scripts/tests/evaluapro-client.test.mjs` | Idempotencia validada; consultas/revisión protegida disponibles en cliente; paridad GUI pendiente |
@@ -476,11 +493,11 @@ implica que ya satisfagan todos los criterios nuevos.
 | REQ-028 / AC-026 | CRUD seguro de temarios, auditoría y carga PDF multipart en paridad con GUI | `apps/backend/tests/integracion/temario.pdf.test.ts`; `apps/frontend/tests/seccionTemarios.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-temarios-auditoria-sqlite.test.mjs` | Implementado; validación focalizada pendiente de cierre final |
 | REQ-029 / AC-027 | Todos los modelos Prisma clasificados en la matriz de ciclos de vida | `scripts/tests/api-resource-lifecycle.test.mjs`; `scripts/api/check-resource-lifecycle.mjs` | Implementado; guard integrado a `api:contract:check` |
 | REQ-024 / AC-022 | Paginación de evidencias de evaluación con filtros y aislamiento del docente | `apps/backend/tests/integracion/evaluacionesEvidenciasPaginacionApi.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/check-openapi-contract.mjs` | Validado en foco; auditoría CRUD general pendiente |
-| REQ-025 / AC-023 | CRUD docente de políticas versionadas, auditoría y efecto en cálculo | `apps/backend/tests/integracion/evaluaciones.modulo.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/check-openapi-contract.mjs`; `apps/frontend/tests/seccionEvaluaciones.test.tsx` | Validado en foco; auditoría CRUD general pendiente |
+| REQ-025 / AC-023 | CRUD docente de políticas versionadas, auditoría y efecto en cálculo | `apps/backend/tests/integracion/evaluaciones.modulo.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-politicas-calificacion-auditoria-sqlite.test.mjs`; `scripts/api/check-openapi-contract.mjs`; `apps/frontend/tests/seccionEvaluaciones.test.tsx` | Backend 8/8, frontend 9/9, SDK+migración 41/41, typecheck, ESLint y contrato/lifecycle 73/73 validados; la auditoría CRUD general de los demás recursos sigue abierta |
 | REQ-026 / AC-024 | CRUD auditable de evidencia manual, archivo/restauración y paridad GUI | `apps/backend/tests/integracion/evaluacionesEvidenciasPaginacionApi.test.ts`; `apps/frontend/tests/seccionEvaluaciones.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-evidencias-evaluacion-sqlite.test.mjs` | Validado en foco; auditoría CRUD general pendiente |
 | REQ-019 / AC-017 | Lista/detalle paginado de entregas, privacidad e aislamiento por docente | `apps/backend/tests/integracion/entregasApiLifecycle.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/check-openapi-contract.mjs` | Validado en foco; auditoría CRUD global pendiente |
 | REQ-015 / AC-016 | Lectura individual/aislamiento de alumnos, plantillas y temas de banco | `apps/backend/tests/integracion/alumnosEdicion.test.ts`; `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts`; `apps/backend/tests/integracion/temasBancoLifecycle.test.ts`; `apps/frontend/tests/bancoGestionTemas.test.tsx` | API/GUI validadas en foco; confirmación de mutaciones del SDK cubierta por `scripts/tests/evaluapro-client.test.mjs`; auditoría CRUD global pendiente |
-| REQ-007 / AC-002 | Preview/CRUD y generación de plantillas PDF | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | Pendiente de ampliar |
+| REQ-007 / AC-002 | Preview/CRUD y generación de plantillas PDF | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts`; `apps/frontend/tests/plantillas.mutacionIdempotente.test.ts`; `scripts/tests/migrate-plantillas-auditoria-sqlite.test.mjs` | Alta/edición/archivo/borrado son transaccionales, idempotentes y auditables; SDK y GUI conservan/reutilizan UUID; prueba focal cubre rollback, reintentos, conflicto de payload, cursores y papelera. Ampliar auditoría CRUD del resto de recursos |
 | REQ-008 / AC-005 | Ingreso y clasificación de archivos/hojas de examen | `apps/backend/tests/integracion/qrEscaneoOmr.test.ts` | Pendiente de ampliar |
 | REQ-009 / AC-002 | Prevalidación, excepciones y finalización OMR | `apps/backend/tests/integracion/omrJobsWorkflow.test.ts` | Pendiente de ampliar |
 | REQ-008 / AC-005 | Paridad de ingesta PDF multipágina, comparación de referencia y revisión en GUI/API | `docs/specs/SPEC-071_ingesta_clasificacion_lotes_omr.spec.md`; `apps/backend/tests/integracion/omrJobsWorkflow.test.ts`; `apps/frontend/tests/plantillasOmrWorkflow.test.tsx`; `apps/frontend/tests/plantillas.omrResumen.test.ts`; `scripts/tests/evaluapro-client.test.mjs` | Carga/revisión con rutas, UI y SDK presentes; pruebas focales disponibles. El job CamScanner productivo completó 48/48 y conserva el original; las 48 páginas quedaron en revisión por `OMR_QR_NO_VALIDO_O_FUERA_DE_LOTE`, con 0 clasificadas/aceptadas y sin notas escritas. Por tanto, el recorrido GUI/API existe y se ejecutó, pero el cotejo real QR, clasificación correcta del lote y validación de límites de memoria/páginas siguen sin aprobar (SPEC-071). |

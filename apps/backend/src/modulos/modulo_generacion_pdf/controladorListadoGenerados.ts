@@ -165,6 +165,7 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
     ...(filtros.periodoId ? { periodoId: filtros.periodoId } : {}),
     ...(filtros.alumnoId ? { alumnoId: filtros.alumnoId } : {}),
     ...(filtros.plantillaId ? { plantillaId: filtros.plantillaId } : {}),
+    ...(filtros.tipoExamen ? { tipoExamen: filtros.tipoExamen } : {}),
     ...(filtros.folio ? { folio: filtros.folio.toUpperCase() } : {}),
     archivadoEn: filtrarArchivadas ? { not: null } : null
   };

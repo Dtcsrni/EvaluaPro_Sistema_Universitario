@@ -412,6 +412,18 @@ describe('módulo evaluaciones (LISC)', () => {
 
     const creada = await request(app).post('/api/evaluaciones/politicas').set(auth).send(politicaBase).expect(201);
     expect(creada.body.politica.version).toBe(1);
+    await request(app).post('/api/evaluaciones/politicas').set(auth).send(politicaBase).expect(200);
+    await request(app).post('/api/evaluaciones/politicas').set(auth).send({
+      ...politicaBase,
+      nombre: 'Contenido distinto con la misma clave'
+    }).expect(409);
+    const auditoriaCreacion = await request(app)
+      .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria`)
+      .set(auth).expect(200);
+    expect(auditoriaCreacion.body.eventos).toHaveLength(1);
+    expect(auditoriaCreacion.body.eventos[0]).toMatchObject({
+      accion: 'crear', version: 1, clientRequestId: politicaBase.clientRequestId, antes: null
+    });
     const lista = await request(app).get('/api/evaluaciones/politicas').set(auth).expect(200);
     expect(lista.body.politicas.some((item: any) => item.codigo === politicaBase.codigo && item.version === 1)).toBe(true);
 
@@ -458,7 +470,43 @@ describe('módulo evaluaciones (LISC)', () => {
     expect(Number(calculoV2.body.resumen.finalDecimal)).toBe(0);
     expect(calculoV2.body.resumen.auditoria.politicaVersion).toBe(2);
 
-    await request(app).delete(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}`).set(auth).expect(200);
+    const requestArchivo = '830e66e4-9c89-40e1-a8f0-d6fec747664a';
+    const archivo = await request(app)
+      .post(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/archivar`)
+      .set(auth)
+      .send({ motivo: 'Reemplazada por una regla vigente', clientRequestId: requestArchivo, confirmarEliminacion: true })
+      .expect(200);
+    expect(archivo.body.politica).toMatchObject({ version: 3, activa: false });
+    await request(app)
+      .post(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/archivar`)
+      .set(auth)
+      .send({ motivo: 'Reemplazada por una regla vigente', clientRequestId: requestArchivo, confirmarEliminacion: true })
+      .expect(200);
+    const archivoConOtraClave = await request(app)
+      .post(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/archivar`)
+      .set(auth)
+      .send({ motivo: 'Reemplazada por una regla vigente', clientRequestId: '8f947d40-17a0-4628-81f6-a687badacfd5', confirmarEliminacion: true })
+      .expect(409);
+    expect(archivoConOtraClave.body.error.codigo).toBe('POLITICA_ARCHIVADA');
+
+    const auditoriaPrimera = await request(app)
+      .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria?limite=2`)
+      .set(auth).expect(200);
+    expect(auditoriaPrimera.body.eventos.map((evento: any) => evento.accion)).toEqual(['archivar', 'versionar']);
+    expect(auditoriaPrimera.body.eventos[0]).toMatchObject({
+      version: 3, motivo: 'Reemplazada por una regla vigente', clientRequestId: requestArchivo,
+      antes: expect.objectContaining({ version: 2, activa: true }),
+      despues: expect.objectContaining({ version: 3, activa: false })
+    });
+    expect(auditoriaPrimera.body.nextCursor).toEqual(expect.any(String));
+    const auditoriaSiguiente = await request(app)
+      .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria?limite=2&cursor=${encodeURIComponent(auditoriaPrimera.body.nextCursor)}`)
+      .set(auth).expect(200);
+    expect(auditoriaSiguiente.body.eventos.map((evento: any) => evento.accion)).toEqual(['crear']);
+    const cursorInvalido = await request(app)
+      .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria?cursor=not-json`)
+      .set(auth).expect(400);
+    expect(cursorInvalido.body.error.codigo).toBe('CURSOR_INVALIDO');
     await request(app).post('/api/evaluaciones/configuracion-periodo').set(auth).send({
       periodoId: String(periodo._id), politicaCodigo: politicaBase.codigo, politicaVersion: 3
     }).expect(409);
@@ -468,6 +516,9 @@ describe('módulo evaluaciones (LISC)', () => {
     });
     const authOtro = { Authorization: `Bearer ${crearTokenDocente({ docenteId: String(segundoDocente._id), roles: ['docente'] })}` };
     await request(app).get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}?version=1`).set(authOtro).expect(404);
+    const auditoriaOtro = await request(app)
+      .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria`).set(authOtro).expect(200);
+    expect(auditoriaOtro.body.eventos).toEqual([]);
   });
 
   describe('política de cuarentena OMR (SPEC-OMR-CUARENTENA-RETENCION)', () => {

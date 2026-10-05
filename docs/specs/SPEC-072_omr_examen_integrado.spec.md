@@ -1,8 +1,8 @@
 ---
 id: SPEC-072
 titulo: Plantilla candidata de examen con OMR integrado por opcion
-version: 0.3.0
-fecha: 2026-09-30
+version: 0.5.0
+fecha: 2026-10-04
 autor: EvaluaPro Team
 modulo: modulo_escaneo_omr, modulo_generacion_pdf
 estado: approved
@@ -23,8 +23,7 @@ respuestas. Cada opcion A–E tendra un circulo OMR inmediatamente al lado de su
 texto. El motor podra leer las coordenadas por pagina/reactivo/opcion desde el
 mapa ligado al QR. La plantilla experimental omr-inline-exam-v1 y el motor
 evaluapro-omr-qr mantienen versionado separado de la aplicacion; el motor
-sigue en 1.0.0-dev.3. Una futura dev.4 requiere una especificacion aprobada
-y medicion completa. TV4 queda sin cambios como control y la lectura manual
+sigue en 1.0.0-dev.3. TV4 queda sin cambios como control y la lectura manual
 sigue siendo la unica fuente de calificaciones hasta superar el gate.
 
 La hipotesis principal es reducir el espacio entre la opcion impresa y su
@@ -95,7 +94,11 @@ elementos editoriales contaminen la medicion de tinta.
   La marca elegida puede ser relleno o X simple contenida. Doble marca, trazo
   que invade otra burbuja, palomita no validada, borrado, baja calidad,
   desacuerdo entre lectores o geometria dudosa se conserva como revision
-  manual, no se convierte a la opcion mas cercana.
+  manual, no se convierte a la opcion mas cercana. Una respuesta individual
+  ambigua, doble, tachada o con confianza por debajo del umbral bloquea la
+  autocalificacion aunque los promedios de pagina sean altos. Cada respuesta
+  debe incluir estado y confianza individual; su ausencia también bloquea la
+  autocalificacion.
 - **REQ-008 — Etiquetas y particiones sin fuga:** Adjudicar verdad terreno
   sin ver predicciones del motor y por dos revisores; resolver desacuerdos
   antes de sellar. Separar entrenamiento/calibracion/prueba por examen fisico,
@@ -127,13 +130,33 @@ elementos editoriales contaminen la medicion de tinta.
   el mapa registra pagina/reactivo/opcion y QR. Para lotes con variantes se
   mantiene el conteo uniforme de paginas exigido por SPEC-068 sin reducir
   legibilidad; si no cabe, se aumenta la paginacion uniforme del lote.
+- **REQ-013 — Zonas OMR libres por ambas caras:** Para `omr-inline-exam-v1`,
+  cada cara de examen se imprime frente a una cara posterior vacía para evitar
+  que tinta del reverso altere la lectura. Esto usa una hoja física por página
+  de examen. El mapa identifica las burbujas, zonas de silencio de cuatro
+  módulos del QR, fiduciales con sus
+  reservas y demás elementos impresos que puedan dejar tinta. En impresión
+  dúplex, reflejar coordenadas según el borde de volteo y la tolerancia de
+  registro; rechazar cuando texto, imagen, campo, línea u otro fiducial invada
+  la zona leída de una burbuja, QR o fiducial. Solo se permite la marca de
+  registro gemela alineada con el patrón esperado. El renderer no reduce la
+  reserva para forzar que un diseño pase. La paginación TV4 queda intacta como
+  control. Al enviar imágenes sueltas se asocian en orden únicamente las caras
+  con examen; al enviar el PDF completo se conserva el índice físico, incluidos
+  los reversos vacíos.
+- **REQ-014 — QR robusto en la página final:** El QR conserva cuatro módulos
+  blancos completos en cada lado, payload firmado ligado a examen/página/
+  plantilla/mapa, y dimensiones/configuración de corrección registradas en el
+  mapa. Verificar QR en la página rasterizada final con leyendas, marcos,
+  marcas y reverso. Aumentar densidad del payload exige volver a comprobar la
+  matriz rasterizada y capturas CamScanner.
 
 ## Criterios de Aceptación
 
-La especificacion sigue en draft; no autoriza cambios de codigo productivo
-ni de pruebas automatizadas hasta aprobacion conforme a SDD. La generacion
-candidata final debera ocurrir por el renderer y flujo de EvaluaPro, no por un
-renderer PDF paralelo.
+La especificación aprobada autoriza implementar y probar el candidato OMR
+versionado; no promueve la plantilla ni autoriza escritura automática de
+calificaciones. La generación ocurre por el renderer y el flujo de EvaluaPro,
+no por un renderer PDF paralelo.
 
 1. El examen contiene todas las burbujas OMR junto a sus opciones; no se genera
    una hoja separada. Una vista previa y PDF real de EvaluaPro muestran que el
@@ -160,6 +183,14 @@ renderer PDF paralelo.
 7. El motor mantiene version SemVer propia, separada de la aplicacion y de
    omr-inline-exam-v1. No hay release estable hasta pasar los gates completos
    y dejar evidencia de regresion.
+8. La candidata dúplex intercala una página posterior vacía por cada página
+   de examen. Pruebas sintéticas de ambos volteos rechazan texto, imagen,
+   burbuja, etiqueta, QR o fiducial ajeno detrás de una reserva; un mapa seguro
+   pasa y el reporte señala ambas páginas, elementos y zona. Capturas de imagen
+   consecutivas omiten los reversos vacíos al buscar su página en el mapa.
+9. La página rasterizada decodifica su QR intacto con cuatro módulos de margen;
+   cualquier elemento superpuesto en matriz o margen falla. El mapa coincide
+   con la corrección, dimensión y tamaño de módulo que dibujó el renderer.
 
 ## Boceto de una pregunta integrada
 
@@ -189,6 +220,8 @@ candidatas, no un layout probado ni aceptado para produccion.
 | REQ-005, REQ-007 | Registro, lectura por burbuja y abstencion segura | apps/backend/tests/omr.geometry.reference.test.ts | Pendiente de extender |
 | REQ-006 | QR por pagina ligado a mapa/manifiesto | apps/backend/tests/omr.qr.preimpresion.test.ts | Pendiente de extender |
 | REQ-008–011 | Particion sin fuga, exactitud total, promocion y rendimiento | apps/backend/tests/omr.dataset-grain.test.ts | Pendiente de implementar |
+| REQ-013 | Reversos limpios, colisiones y asociación de capturas | apps/backend/tests/pdf.ink-sparing-staple.test.ts, apps/backend/tests/pdf.layout.visual.guard.test.ts, apps/backend/tests/omr.paginasCapturables.test.ts | Implementado; validación física pendiente |
+| REQ-014 | QR decodificado desde página PDF rasterizada | apps/backend/tests/pdf.layout.visual.guard.test.ts | Implementado en raster del renderer; CamScanner físico pendiente |
 
 ## Evidencia y limites
 

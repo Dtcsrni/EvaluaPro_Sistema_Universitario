@@ -17,6 +17,7 @@ import {
   crearPlantillaUseCase,
   eliminarPlantillaUseCase,
   listarPlantillasUseCase,
+  listarAuditoriaPlantillaUseCase,
   obtenerPlantillaUseCase
 } from './application/usecases/gestionPlantillas.js';
 import {
@@ -31,7 +32,7 @@ import {
   previsualizarPlantillaUseCase
 } from './application/usecases/previsualizacionPlantillas.js';
 import { cambiarEstadoLotePdfUseCase, listarAuditoriaLotePdfUseCase } from './application/usecases/cicloVidaLotes.js';
-import { esquemaListarAuditoriaLotePdf } from './validacionesExamenes.js';
+import { esquemaListarAuditoriaLotePdf, esquemaListarAuditoriaPlantilla } from './validacionesExamenes.js';
 
 export async function listarPlantillas(req: SolicitudDocente, res: Response) {
   const payload = await listarPlantillasUseCase({
@@ -45,6 +46,17 @@ export async function listarPlantillas(req: SolicitudDocente, res: Response) {
 
 export async function obtenerPlantilla(req: SolicitudDocente, res: Response) {
   const payload = await obtenerPlantillaUseCase({ docenteId: obtenerDocenteId(req), plantillaId: String(req.params.id ?? '').trim() });
+  res.json(payload);
+}
+
+export async function listarAuditoriaPlantilla(req: SolicitudDocente, res: Response) {
+  const query = esquemaListarAuditoriaPlantilla.parse(res.locals.validatedQuery ?? req.query);
+  const payload = await listarAuditoriaPlantillaUseCase({
+    docenteId: obtenerDocenteId(req),
+    plantillaId: String(req.params.id ?? '').trim(),
+    limite: query.limite,
+    cursor: query.cursor
+  });
   res.json(payload);
 }
 
@@ -68,7 +80,8 @@ export async function actualizarPlantilla(req: SolicitudDocente, res: Response) 
 export async function archivarPlantilla(req: SolicitudDocente, res: Response) {
   const payload = await archivarPlantillaUseCase({
     docenteId: obtenerDocenteId(req),
-    plantillaId: String(req.params.id || '').trim()
+    plantillaId: String(req.params.id || '').trim(),
+    clientRequestId: (req.body as { clientRequestId?: unknown } | undefined)?.clientRequestId
   });
   res.json(payload);
 }
@@ -76,7 +89,8 @@ export async function archivarPlantilla(req: SolicitudDocente, res: Response) {
 export async function eliminarPlantilla(req: SolicitudDocente, res: Response) {
   const payload = await eliminarPlantillaUseCase({
     docenteId: obtenerDocenteId(req),
-    plantillaId: String(req.params.id || '').trim()
+    plantillaId: String(req.params.id || '').trim(),
+    clientRequestId: (req.body as { clientRequestId?: unknown } | undefined)?.clientRequestId
   });
   res.json(payload);
 }

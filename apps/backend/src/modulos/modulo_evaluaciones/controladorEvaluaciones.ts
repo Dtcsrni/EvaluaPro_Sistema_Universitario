@@ -19,7 +19,9 @@ import {
   redondearFinalInstitucional
 } from './servicioPoliticasCalificacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { ejecutarMutacionPoliticaAuditable, listarAuditoriaPoliticaCalificacion as consultarAuditoriaPolitica } from './servicioAuditoriaPoliticasCalificacion.js';
 import {
+  esquemaArchivarPolitica,
   esquemaArchivarEvidencia,
   esquemaCrearPolitica,
   esquemaListarEvidenciasEvaluacion,
@@ -81,6 +83,7 @@ type DefinicionPolitica = {
   parametros: Record<string, any>;
   activa: boolean;
   clientRequestId?: string;
+  clientRequestAction?: 'crear' | 'versionar' | 'archivar';
   archivadaEn?: string;
   actorDocenteId?: string;
 };
@@ -638,6 +641,14 @@ export async function obtenerPoliticaCalificacion(req: SolicitudDocente, res: Re
   res.json({ politica });
 }
 
+export async function listarAuditoriaPoliticaCalificacion(req: SolicitudDocente, res: Response) {
+  const pagina = await consultarAuditoriaPolitica(obtenerDocenteId(req), String(req.params.codigo), {
+    limite: Number(req.query.limite ?? 50),
+    cursor: typeof req.query.cursor === 'string' ? req.query.cursor : undefined
+  });
+  res.json(pagina);
+}
+
 export async function obtenerContextoEvaluacionesV2(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const periodoId = String(req.query.periodoId ?? '').trim();
@@ -686,6 +697,8 @@ export async function crearPoliticaCalificacion(req: SolicitudDocente, res: Resp
     const repetida = registros.find((registro) => leerDefinicionPolitica(registro).clientRequestId === payload.clientRequestId);
     if (repetida) {
       const existente = leerDefinicionPolitica(repetida);
+      const accionExistente = existente.clientRequestAction ?? (existente.version > 1 ? 'versionar' : 'crear');
+      const accionSolicitada = esVersionado ? 'versionar' : 'crear';
       const esperada = {
         codigo: payload.codigo,
         nombre: payload.nombre,
@@ -704,7 +717,7 @@ export async function crearPoliticaCalificacion(req: SolicitudDocente, res: Resp
         activa: existente.activa,
         version: existente.version
       };
-      if (jsonCanonico(esperada) !== jsonCanonico(recibida)) {
+      if (accionExistente !== accionSolicitada || jsonCanonico(esperada) !== jsonCanonico(recibida)) {
         throw new ErrorAplicacion('IDEMPOTENCIA_CONFLICTO', 'clientRequestId ya fue usado con otro contenido', 409);
       }
       res.json({ politica: serializarPolitica(repetida) });
@@ -718,7 +731,7 @@ export async function crearPoliticaCalificacion(req: SolicitudDocente, res: Resp
   }
   const version = (anterior?.version ?? 0) + 1;
   const parametros = parametrosPredeterminados(payload.familia, payload.parametros as Record<string, any> | undefined);
-  const definicion: DefinicionPolitica & { clientRequestId?: string } = {
+  const definicion: DefinicionPolitica = {
     codigo: payload.codigo,
     version,
     nombre: payload.nombre,
@@ -727,23 +740,29 @@ export async function crearPoliticaCalificacion(req: SolicitudDocente, res: Resp
     parametros,
     activa: true,
     actorDocenteId: docenteId,
-    ...(payload.clientRequestId ? { clientRequestId: payload.clientRequestId } : {})
+    ...(payload.clientRequestId ? { clientRequestId: payload.clientRequestId } : {}),
+    clientRequestAction: esVersionado ? 'versionar' : 'crear'
   };
   const id = idPolitica(docenteId, payload.codigo, version);
   const configuracion = JSON.stringify(definicion);
-  try {
-    const registro = await prisma.politicaCalificacion.create({
-      data: { id, docenteId, nombre: payload.nombre, configuracion }
-    });
-    res.status(201).json({ politica: serializarPolitica(registro) });
-  } catch (error) {
-    if ((error as { code?: string })?.code !== 'P2002') throw error;
-    const existente = await prisma.politicaCalificacion.findUnique({ where: { id } });
-    if (!existente || existente.configuracion !== configuracion) {
-      throw new ErrorAplicacion('POLITICA_VERSION_CONFLICTO', 'La versión ya existe con contenido distinto', 409);
+  const cambio = await ejecutarMutacionPoliticaAuditable({
+    docenteId,
+    codigo: payload.codigo,
+    accion: esVersionado ? 'versionar' : 'crear',
+    clientRequestId: payload.clientRequestId,
+    payload,
+    async mutar(tx) {
+      const registro = await tx.politicaCalificacion.create({ data: { id, docenteId, nombre: payload.nombre, configuracion } });
+      const politica = serializarPolitica(registro);
+      return {
+        resultado: politica,
+        version,
+        antes: anterior ? serializarPolitica(registros.find((item) => leerDefinicionPolitica(item).version === anterior.version)!) : null,
+        despues: politica
+      };
     }
-    res.json({ politica: serializarPolitica(existente) });
-  }
+  });
+  res.status(cambio.repetida ? 200 : 201).json({ politica: cambio.resultado });
 }
 
 export async function archivarPoliticaCalificacion(req: SolicitudDocente, res: Response) {
@@ -756,25 +775,41 @@ export async function archivarPoliticaCalificacion(req: SolicitudDocente, res: R
     .sort((a, b) => b.definicion.version - a.definicion.version);
   const actual = versiones[0];
   if (!actual) throw new ErrorAplicacion('POLITICA_NO_ENCONTRADA', 'No existe esa política para el docente', 404);
-  if (!actual.definicion.activa) {
-    res.json({ politica: serializarPolitica(actual.registro) });
-    return;
-  }
+  const payload = esquemaArchivarPolitica.parse(req.body);
   const version = actual.definicion.version + 1;
   const definicionAnterior = { ...actual.definicion };
   delete definicionAnterior.clientRequestId;
+  delete definicionAnterior.clientRequestAction;
   const definicion = {
     ...definicionAnterior,
     version,
     activa: false,
     actorDocenteId: docenteId,
-    archivadaEn: new Date().toISOString()
+    archivadaEn: new Date().toISOString(),
+    clientRequestId: payload.clientRequestId,
+    clientRequestAction: 'archivar'
   };
   const id = idPolitica(docenteId, codigo, version);
-  const registro = await prisma.politicaCalificacion.create({
-    data: { id, docenteId, nombre: definicion.nombre, configuracion: JSON.stringify(definicion) }
+  const antes = serializarPolitica(actual.registro);
+  const cambio = await ejecutarMutacionPoliticaAuditable({
+    docenteId,
+    codigo,
+    accion: 'archivar',
+    motivo: payload.motivo,
+    clientRequestId: payload.clientRequestId,
+    payload: { ...payload, codigo },
+    async mutar(tx) {
+      if (!actual.definicion.activa) {
+        throw new ErrorAplicacion('POLITICA_ARCHIVADA', 'La política ya está archivada', 409);
+      }
+      const registro = await tx.politicaCalificacion.create({
+        data: { id, docenteId, nombre: definicion.nombre, configuracion: JSON.stringify(definicion) }
+      });
+      const politica = serializarPolitica(registro);
+      return { resultado: politica, version, antes, despues: politica };
+    }
   });
-  res.json({ politica: serializarPolitica(registro) });
+  res.json({ politica: cambio.resultado });
 }
 
 export async function obtenerConfiguracionPeriodo(req: SolicitudDocente, res: Response) {
