@@ -55,6 +55,19 @@ describe('BancoImportacionReactivos', () => {
     expect(await screen.findByText(/bi-001 — create \(applied\)/)).toBeInTheDocument();
   });
 
+  it('tolera entradas de historial sin filas y conserva la pantalla usable', async () => {
+    vi.spyOn(clienteApi, 'obtener').mockResolvedValue({ importaciones: [{
+      importId: 'imp-sin-filas', batchId: 'ia-sin-filas', periodoId: 'bi-1', estado: 'confirmed',
+      inputSha256: 'd'.repeat(64), createdAt: '2026-09-23T10:00:00.000Z',
+      summary: { create: 0, noOp: 1, newVersion: 0, conflict: 0, error: 0 }
+    }] });
+
+    renderImportacion();
+
+    expect(await screen.findByText('ia-sin-filas')).toBeInTheDocument();
+    expect(screen.getByText('Ver filas (0)')).toBeInTheDocument();
+  });
+
   it('expone en el historial las filas DOCX en cuarentena y sus motivos', async () => {
     vi.spyOn(clienteApi, 'obtener').mockResolvedValue({ importaciones: [{
       importId: 'imp-docx', batchId: 'docx-abcdef', periodoId: 'bi-1', estado: 'quarantined',
