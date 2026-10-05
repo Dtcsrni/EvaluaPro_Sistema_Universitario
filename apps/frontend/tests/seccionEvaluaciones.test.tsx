@@ -139,6 +139,38 @@ describe('SeccionEvaluaciones', () => {
     })));
   });
 
+  it('archiva una política por la misma ruta auditable de la API', async () => {
+    vi.mocked(clienteApi.obtener).mockResolvedValue({
+      politicas: [{
+        codigo: 'POLICY_PERSONALIZADA', version: 2, nombre: 'Política personalizada',
+        familia: 'lisc_encuadre', parametros: { pesosGlobales: { continua: 0.5, examenes: 0.5 } }, activa: true
+      }]
+    } as never);
+    vi.mocked(clienteApi.enviar).mockResolvedValue({});
+    render(
+      <SeccionEvaluaciones
+        periodos={periodosMock}
+        alumnos={alumnosMock}
+        puedeGestionar={true}
+        puedeClassroomConectar={false}
+        puedeClassroomPull={false}
+        classroomDisponible={false}
+      />
+    );
+
+    await screen.findByRole('option', { name: 'Política personalizada' });
+    fireEvent.change(screen.getByLabelText(/^política$/i), { target: { value: 'POLICY_PERSONALIZADA' } });
+    fireEvent.click(screen.getByRole('button', { name: /archivar política seleccionada/i }));
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledWith(
+      '/evaluaciones/politicas/POLICY_PERSONALIZADA/archivar',
+      expect.objectContaining({
+        clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+        motivo: 'Archivada desde la interfaz docente',
+        confirmarEliminacion: true
+      })
+    ));
+  });
+
   it('permite editar y archivar una evidencia manual con motivo desde la GUI', async () => {
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
       if (String(ruta).startsWith('/evaluaciones/evidencias?')) return {

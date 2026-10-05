@@ -472,6 +472,10 @@ test('cliente expone ciclo de vida seguro de plantillas y lotes de exámenes', a
   assert.equal(calls[0].url.pathname, '/api/examenes/plantillas');
   assert.equal(calls[1].url.pathname, '/api/examenes/plantillas/template-1');
   assert.equal(calls[2].url.pathname, '/api/examenes/plantillas/template-1/archivar');
+  for (const indice of [0, 1, 2]) {
+    assert.equal(Object.hasOwn(JSON.parse(calls[indice].init.body), 'clientRequestId'), false,
+      'el cliente conserva el contrato compatible cuando clientRequestId se omite');
+  }
   assert.equal(calls[3].url.pathname, '/api/examenes/plantillas/template-1/previsualizar');
   const pdf = await client.previsualizarPlantillaPdf('template-1', { forzarRegeneracion: true });
   assert.equal(Buffer.isBuffer(pdf), true);
@@ -506,6 +510,7 @@ test('cliente expone ciclo de vida seguro de plantillas y lotes de exámenes', a
   assert.equal(calls.length, 14, 'eliminar sin confirmar no debe enviar solicitud');
   await client.eliminarPlantilla('template-1', { confirmarEliminacion: true });
   assert.equal(calls[14].url.pathname, '/api/examenes/plantillas/template-1/eliminar');
+  assert.equal(Object.hasOwn(JSON.parse(calls[14].init.body), 'clientRequestId'), false);
 });
 
 test('preflight identifica periodo y no consulta lease sin ID de equipo', async () => {
@@ -979,6 +984,13 @@ test('cliente exige confirmación e idempotencia para mutaciones de políticas y
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].url.pathname, '/api/evaluaciones/politicas');
   await assert.rejects(client.archivarPoliticaCalificacion('POLICY_DOCENTE'), /confirmarEliminacion/);
+  await assert.rejects(client.archivarPoliticaCalificacion('POLICY_DOCENTE', { confirmarEliminacion: true, motivo: 'Baja' }), /clientRequestId/);
+  const archived = await client.archivarPoliticaCalificacion('POLICY_DOCENTE', {
+    confirmarEliminacion: true, clientRequestId: '744f38ba-34d6-45d9-b509-c4bf64c9c613', motivo: 'Política reemplazada'
+  });
+  assert.equal(archived.codigo, 'POLICY_DOCENTE');
+  assert.equal(calls[1].url.pathname, '/api/evaluaciones/politicas/POLICY_DOCENTE/archivar');
+  assert.equal(JSON.parse(calls[1].init.body).confirmarEliminacion, true);
   await assert.rejects(client.crearEvidenciaEvaluacion({ periodoId: 'p', alumnoId: 'a', titulo: 'Evidencia' }), /confirmarEscritura/);
   await assert.rejects(client.crearEvidenciaEvaluacion({ periodoId: 'p', alumnoId: 'a', titulo: 'Evidencia' }, { confirmarEscritura: true }), /clientRequestId/);
   await assert.rejects(client.actualizarEvidenciaEvaluacion('e-1', { expectedUpdatedAt: '2026-01-01', motivoCambio: 'Corrección' }), /confirmarEscritura/);
@@ -986,5 +998,44 @@ test('cliente exige confirmación e idempotencia para mutaciones de políticas y
   await assert.rejects(client.restaurarEvidenciaEvaluacion('e-1', { motivo: 'Validada' }), /confirmarEscritura/);
   const evidence = await client.crearEvidenciaEvaluacion({ clientRequestId, periodoId: 'p', alumnoId: 'a', titulo: 'Evidencia' }, { confirmarEscritura: true });
   assert.equal(evidence.id, clientRequestId);
-  assert.equal(calls[1].url.pathname, '/api/evaluaciones/evidencias');
+  assert.equal(calls[2].url.pathname, '/api/evaluaciones/evidencias');
+});
+
+test('cliente pagina la auditoría append-only de políticas hasta agotar el cursor', async () => {
+  const urls = [];
+  const client = new EvaluaproClient({ baseUrl: 'http://localhost', fetchImpl: async (url) => {
+    const actual = new URL(url);
+    urls.push(actual);
+    const page = actual.searchParams.has('cursor')
+      ? { eventos: [{ version: 1 }], nextCursor: null }
+      : { eventos: [{ version: 2 }], nextCursor: 'cursor-siguiente' };
+    return new Response(JSON.stringify(page), { status: 200, headers: { 'content-type': 'application/json' } });
+  } });
+
+  const first = await client.listarAuditoriaPoliticaCalificacion('POLICY_AUDIT', { limite: 1 });
+  assert.equal(first.eventos[0].version, 2);
+  assert.equal(first.nextCursor, 'cursor-siguiente');
+  const all = await client.listarTodaAuditoriaPoliticaCalificacion('POLICY_AUDIT', { limite: 1 });
+  assert.deepEqual(all.map((evento) => evento.version), [2, 1]);
+  assert.equal(urls[0].pathname, '/api/evaluaciones/politicas/POLICY_AUDIT/auditoria');
+  assert.equal(urls[0].searchParams.get('limite'), '1');
+  assert.equal(urls[2].searchParams.get('cursor'), 'cursor-siguiente');
+});
+
+test('cliente automatiza extraordinarios y filtra el historial por tipoExamen', async () => {
+  const calls = [];
+  const client = new EvaluaproClient({ baseUrl: 'http://localhost', fetchImpl: async (url, init = {}) => {
+    calls.push({ url: new URL(url), init });
+    return new Response(JSON.stringify({ loteId: 'EXT_20261004', examenes: [{ tipoExamen: 'extraordinario' }], nextCursor: null }), {
+      status: 201, headers: { 'content-type': 'application/json' }
+    });
+  } });
+  const payload = {
+    plantillaId: 'template-1', loteId: 'EXT_20261004', tipoExamen: 'extraordinario', alumnoIds: ['student-1']
+  };
+  await client.generarLoteExamenes(payload, { confirmarEscritura: true });
+  assert.deepEqual(JSON.parse(calls[0].init.body), payload);
+  const pagina = await client.listarPaginaExamenesGenerados({ tipoExamen: 'extraordinario', limite: 10 });
+  assert.equal(pagina.examenes[0].tipoExamen, 'extraordinario');
+  assert.equal(calls[1].url.searchParams.get('tipoExamen'), 'extraordinario');
 });

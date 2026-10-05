@@ -267,6 +267,13 @@ describe('flujo de examen', () => {
       .set(auth)
       .expect(200);
     expect(historial.body.examenes.filter((item: { tipoExamen?: string }) => item.tipoExamen === 'extraordinario')).toHaveLength(2);
+    const extraordinariosApi = await request(app)
+      .get(`/api/examenes/generados?plantillaId=${encodeURIComponent(plantillaId)}&tipoExamen=extraordinario&limite=10`)
+      .set(auth)
+      .expect(200);
+    expect(extraordinariosApi.body.examenes).toHaveLength(2);
+    expect(extraordinariosApi.body.examenes.every((item: { tipoExamen?: string }) => item.tipoExamen === 'extraordinario')).toBe(true);
+    await request(app).get(`/api/examenes/generados?tipoExamen=invalido`).set(auth).expect(400);
 
     const examen = examenes[0];
     await request(app).post('/api/calificaciones/calificar').set(auth).send({
