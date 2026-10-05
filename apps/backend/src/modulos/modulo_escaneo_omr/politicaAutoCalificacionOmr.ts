@@ -12,6 +12,11 @@ export type EntradaAutoCalificacionOmr = {
   confianzaPromedioPagina: number;
   ratioAmbiguas: number;
   coberturaDeteccion: number;
+  respuestasDetectadas?: ReadonlyArray<{
+    opcion: string | null;
+    confianza?: number;
+    estadoRespuesta?: 'respondida' | 'sin_marca' | 'ambigua' | 'doble_marca' | 'tachada';
+  }>;
 };
 
 export const UMBRALES_OMR_AUTO = {
@@ -59,6 +64,14 @@ export function evaluarAutoCalificableOmr(args: EntradaAutoCalificacionOmr) {
     ratioAmbiguas
   });
   const hardStop =
+    (args.respuestasDetectadas?.some((respuesta) =>
+      !respuesta.estadoRespuesta ||
+      (respuesta.estadoRespuesta !== 'respondida' && respuesta.estadoRespuesta !== 'sin_marca') ||
+      (respuesta.estadoRespuesta === 'respondida' && respuesta.opcion === null) ||
+      (respuesta.estadoRespuesta === 'sin_marca' && respuesta.opcion !== null) ||
+      !Number.isFinite(respuesta.confianza) ||
+      clamp01(Number(respuesta.confianza)) < UMBRALES_OMR_AUTO.autoConfMin
+    ) ?? false) ||
     clamp01(confianzaPromedioPagina) <= UMBRALES_OMR_AUTO.autoHardStopConfMax ||
     clamp01(ratioAmbiguas) >= UMBRALES_OMR_AUTO.autoHardStopAmbiguasMin ||
     clamp01(coberturaDeteccion) <= UMBRALES_OMR_AUTO.autoHardStopDeteccionMax ||

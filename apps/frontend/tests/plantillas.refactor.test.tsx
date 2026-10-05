@@ -105,6 +105,18 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByText('Selecciona una materia para comenzar')).toBeInTheDocument();
   });
 
+  it('advierte sobre reverso en blanco y captura solo de caras impresas en la plantilla inline', () => {
+    render(<HarnessPlantillas />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Plantilla OMR del examen' }), {
+      target: { value: 'omr-inline-exam-v1' }
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Agrega un reverso en blanco por página para impedir trasluz; al imprimir a doble cara usa una hoja por página de examen. Al cargar fotos, envía solo las caras impresas.'
+    );
+  });
+
   it('alterna interactivamente entre pestañas y muestra sus componentes y guías rápidas dedicadas', () => {
     render(
       <HarnessPlantillas
