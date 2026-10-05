@@ -486,19 +486,21 @@ test('bootstrap SQLite docente usa Node nativo y esquema SQL empaquetado', () =>
   assert.match(helper, /Esquema SQLite local preparado con Node nativo/);
 });
 
-test('reparación detiene procesos Node propios antes de reemplazar el payload', () => {
+test('install y repair detienen procesos Node propios antes de configurar y reemplazar el payload', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   const start = helper.indexOf('function Invoke-PostInstall');
   const end = helper.indexOf('function Get-EvaluaProOwnedNodeProcessIds', start);
-  assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install y reparación');
+  assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install');
   const postInstall = helper.slice(start, end);
-  const repairGuard = postInstall.indexOf("if ($Mode -eq 'repair')");
-  const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', repairGuard);
-  const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', repairGuard);
+  const installOrRepairGuard = postInstall.indexOf("if ($Mode -in @('install', 'repair'))");
+  const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', installOrRepairGuard);
+  const runtimeConfiguration = postInstall.indexOf('Ensure-InstallerRuntimeContract -TargetDir $targetDir', installOrRepairGuard);
+  const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', installOrRepairGuard);
 
-  assert.ok(repairGuard >= 0 && stopProcesses > repairGuard, 'repair debe detener los procesos de la instalación');
-  assert.ok(expandPayload > stopProcesses, 'repair debe detenerlos antes de reemplazar archivos');
-  assert.match(postInstall, /No se pudieron detener todos los procesos Node de esta instalaci[oó]n antes de reparar/);
+  assert.ok(installOrRepairGuard >= 0 && stopProcesses > installOrRepairGuard, 'install y repair deben detener los procesos propios');
+  assert.ok(runtimeConfiguration > stopProcesses, 'los procesos deben terminar antes de modificar configuración');
+  assert.ok(expandPayload > stopProcesses, 'los procesos deben terminar antes de reemplazar archivos');
+  assert.match(postInstall, /No se pudieron detener todos los procesos Node de esta instalaci[oó]n antes de aplicar el payload/);
 });
 
 test('E2E bloquea payload docente incompleto antes de abrir broker', () => {

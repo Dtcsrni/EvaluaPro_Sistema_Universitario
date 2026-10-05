@@ -12,6 +12,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - El runner solo traslada a QA la SQLite de `ProgramData` creada por esa corrida en un host limpio; bloquea el inicio si detecta una base previa y restaura el perfil operativo al terminar.
 
 ### Fixed
+- La actualización detiene y verifica los procesos Node propios antes de tocar la configuración o expandir el payload; si alguno no termina, falla con sus PID y deja intactos los procesos Node ajenos.
 - El guard de tags y su limpieza rechazan de forma consistente versiones SemVer no canónicas, incluidos ceros iniciales.
 - La beta automática vuelve a escuchar el cierre exitoso de `CI Checks` en `main`, como ya documentaba el flujo de publicación.
 - La cobertura completa queda centralizada en `CI Checks`; los workflows de módulo conservan contratos rápidos y específicos y el diff coverage vuelve a contar cambios bajo `src`.

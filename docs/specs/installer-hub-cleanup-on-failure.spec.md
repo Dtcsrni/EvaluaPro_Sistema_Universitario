@@ -1,7 +1,7 @@
 ---
 id: SPEC-INSTALLER-ROLLBACK-CLEANUP
 titulo: Limpieza y Rollback Automatico ante Fallos de Instalacion
-version: 1.4.2
+version: 1.4.3
 fecha: 2026-10-05
 autor: Codex / Agente IA
 modulo: modulo_installer_windows
@@ -31,6 +31,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - REQ-015: El runner restaura o retira el perfil operativo global que haya cambiado durante su instalación QA y conserva tutorial, capturas y logs dentro de `ReportDir`; un fallo de E2E no modifica la documentación del checkout.
 - REQ-016: La reconciliación opcional de accesos directos tiene un límite de 90 segundos, captura salida acotada y nunca bloquea el payload funcional, SQLite ni el manifiesto del actualizador; si se excede, queda registrada como degradación.
 - REQ-017: La prueba de upgrade conserva y valida el bundle oficial v1.2.3 por SHA-256, extrae el payload MSI con WiX y lo identifica por la firma OLE Compound File aunque Burn le asigne un nombre opaco, comprueba que la instalación registrada sea 1.2.3 y usa esa instalación junto con una SQLite QA aislada como baseline antes de instalar el bundle candidato.
+- REQ-018: Antes de configurar o reemplazar el payload durante `post-install` en modos `install` y `repair`, el helper detiene y verifica la terminación de los procesos `node.exe` cuya línea de comandos o runtime pertenezcan a la raíz de esa instalación; si queda alguno activo, falla con los PID pendientes antes de expandir el ZIP y sin detener procesos de otras aplicaciones.
 
 ## Criterios de Aceptación
 - Fallos en post-install no dejan archivos huerfanos.
@@ -52,6 +53,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - La reconciliación opcional se termina antes de 90 segundos; su timeout o error queda como warning degradado, y el manifiesto crítico de actualización aún se genera y valida.
 - El MSI baseline proviene del EXE oficial descargado y verificado; el runner encuentra el MSI por firma binaria aunque Burn lo extraiga como `a0`; la fixture no depende del helper GUI antiguo de v1.2.3.
 - Si `System.Diagnostics.Process.ExitCode` no está disponible después de terminar un comando E2E, el runner lee `GetExitCodeProcess`; si tampoco puede obtenerlo, aborta en vez de inferir éxito.
+- En una actualización desde una versión con la app abierta, `post-install` cierra los procesos Node propios antes de modificar `.env` o expandir archivos; verifica que los PID ya no estén activos y conserva íntegros la SQLite y el marcador de upgrade.
 
 ## Matriz de Trazabilidad
 
@@ -74,3 +76,4 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 | REQ-015 | Restauración del perfil operativo y retención de evidencia dentro del reporte | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1` | Implementación local; E2E Windows pendiente |
 | REQ-016 | Timeout y degradación de reconciliación opcional de accesos | `scripts/tests/installer-hub-contract.test.mjs` | Contrato aprobado; E2E Windows pendiente |
 | REQ-017 | Upgrade desde MSI extraído del bundle oficial v1.2.3 | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Contrato aprobado; E2E Windows pendiente |
+| REQ-018 | Cierre verificado de procesos propios antes de aplicar payload en instalación/repair | `scripts/tests/installer-hub-contract.test.mjs`, `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | E2E Windows pendiente |

@@ -706,6 +706,16 @@ function Invoke-PostInstall {
   if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
   }
+  if ($Mode -in @('install', 'repair')) {
+    Write-HelperProgress -Percent 4 -Status 'Deteniendo procesos propios antes de aplicar el payload.'
+    $processStop = Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir
+    if (-not $processStop.ok) {
+      throw "No se pudieron detener todos los procesos Node de esta instalación antes de aplicar el payload: $($processStop.remaining -join ', ')"
+    }
+    if ($processStop.requested.Count -gt 0) {
+      Write-Host "Procesos Node propios detenidos antes de aplicar el payload: $($processStop.requested -join ', ')"
+    }
+  }
   Write-HelperProgress -Percent 5 -Status 'Validando el contrato de runtime.'
   Ensure-InstallerRuntimeContract -TargetDir $targetDir -Request $requestJson
   Write-HelperProgress -Percent 12 -Status 'Configurando el perfil operativo.'
@@ -848,13 +858,6 @@ function Invoke-PostInstall {
   }
 
   # 1. Expandir y validar payload antes de preparar SQLite.
-  if ($Mode -eq 'repair') {
-    Write-HelperProgress -Percent 28 -Status 'Deteniendo procesos propios antes de reparar.'
-    $processStop = Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir
-    if (-not $processStop.ok) {
-      throw "No se pudieron detener todos los procesos Node de esta instalación antes de reparar: $($processStop.remaining -join ', ')"
-    }
-  }
   Write-HelperProgress -Percent 30 -Status 'Expandiendo y validando el payload nativo.'
   $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir -Request $requestJson
   Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip
