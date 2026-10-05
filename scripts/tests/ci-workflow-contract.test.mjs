@@ -285,6 +285,17 @@ test('CI central concentra suites completas y cobertura sin excluir todo el cód
   const frontend = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
   const portal = fs.readFileSync(path.join(workflowDir, 'ci-portal.yml'), 'utf8');
   const docs = fs.readFileSync(path.join(workflowDir, 'ci-docs.yml'), 'utf8');
+
+  const setupIndex = backend.indexOf('npm ci --foreground-scripts');
+  const prismaIndex = backend.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
+  const omrTestsIndex = backend.indexOf('npm -C apps/backend run test');
+  const canonicalGateIndex = backend.indexOf('npm run test:omr:canonical:gate:ci');
+
+  assert.ok(setupIndex >= 0, 'backend module: falta npm ci');
+  assert.ok(prismaIndex > setupIndex, 'backend module: generar Prisma despues de npm ci');
+  assert.ok(omrTestsIndex > prismaIndex, 'backend module: Prisma debe estar disponible antes de pruebas OMR');
+  assert.ok(canonicalGateIndex > prismaIndex, 'backend module: Prisma debe estar disponible antes del gate OMR');
+
   assert.match(backend, /test:omr:canonical:gate:ci/);
   assert.match(backend, /tests OMR criticos/);
   assert.match(frontend, /guard:wcag/);

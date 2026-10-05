@@ -100,6 +100,9 @@ jobs:
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
 
+      - name: Generar Prisma Client para pruebas OMR
+        run: npx prisma generate --config=apps/backend/prisma.config.mjs
+
       - name: Preparar runtime CV nativo (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
