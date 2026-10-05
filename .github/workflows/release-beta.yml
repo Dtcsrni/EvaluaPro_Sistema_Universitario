@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   beta_gate:
@@ -47,13 +47,13 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event.workflow_run.head_sha || github.sha }}
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -64,7 +64,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Configurar .NET SDK 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
 
@@ -115,7 +115,7 @@ jobs:
 
       - name: Publicar decision beta
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: beta-gate-decision
           path: reports/release/beta/**/decision.json
@@ -128,16 +128,18 @@ jobs:
     needs:
       - beta_gate
     if: needs.beta_gate.outputs.publish == 'true'
+    permissions:
+      contents: write
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           ref: ${{ needs.beta_gate.outputs.head_sha }}
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -148,7 +150,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Configurar .NET SDK 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
 
@@ -290,7 +292,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publicar prerelease beta
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ needs.beta_gate.outputs.beta_tag }}
           target_commitish: ${{ needs.beta_gate.outputs.head_sha }}

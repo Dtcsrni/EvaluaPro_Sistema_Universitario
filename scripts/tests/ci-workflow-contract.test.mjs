@@ -215,6 +215,28 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
   assert.match(installerWorkflow, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
   assert.match(installerWorkflow, /installer_windows:[\s\S]*?permissions:\s*\n\s+contents:\s*read/);
   assert.match(installerWorkflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+
+  const beta = fs.readFileSync(path.join(workflowDir, 'release-beta.yml'), 'utf8');
+  assert.match(beta, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(beta, /beta_release:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+
+  const stable = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  assert.match(stable, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(stable, /promote_latest:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.doesNotMatch(stable.match(/stable_gate:[\s\S]*?promote_latest:/)?.[0] ?? '', /contents:\s*write/);
+
+  const pages = fs.readFileSync(path.join(workflowDir, 'pages-marketing.yml'), 'utf8');
+  assert.match(pages, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(pages, /deploy:[\s\S]*?permissions:[\s\S]*?pages:\s*write[\s\S]*?id-token:\s*write/);
+  assert.doesNotMatch(pages.match(/validate:[\s\S]*?deploy:/)?.[0] ?? '', /pages:\s*write|id-token:\s*write/);
+
+  const autogen = fs.readFileSync(path.join(workflowDir, 'autogen-docs.yml'), 'utf8');
+  assert.match(autogen, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(autogen, /publish_docs:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+
+  const tagGuard = fs.readFileSync(path.join(workflowDir, 'tag-release-guard.yml'), 'utf8');
+  assert.match(tagGuard, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(tagGuard, /cleanup_invalid_tag:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
 });
 
 test('publicaciones externas serializan ejecuciones en curso', () => {
@@ -334,7 +356,7 @@ test('release stable gate es el unico que promueve Latest despues de validar', (
 
   assert.match(installerWorkflow, /make_latest:\s*false/);
   assert.doesNotMatch(installerWorkflow, /make_latest:\s*\$\{\{[^}]*!\(/);
-  assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
+  assert.match(stableGateWorkflow, /promote_latest:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
   assert.ok(validateIndex >= 0, 'release stable gate debe ejecutar validate-stable-promotion');
   assert.ok(latestIndex > validateIndex, 'release stable gate debe marcar Latest solo despues de validar');
   assert.match(stableGateWorkflow.slice(latestIndex), /--latest/);

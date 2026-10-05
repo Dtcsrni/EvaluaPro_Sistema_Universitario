@@ -6,6 +6,8 @@ import path from 'node:path';
 const root = process.cwd();
 const e2ePath = path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1');
 const e2e = fs.readFileSync(e2ePath, 'utf8');
+const workflowPath = path.join(root, '.github', 'workflows', 'ci-installer-windows.yml');
+const workflow = fs.readFileSync(workflowPath, 'utf8');
 
 test('upgrade E2E fija y verifica el instalador oficial v1.2.3 antes de ejecutarlo', () => {
   assert.match(e2e, /\[string\]\$BaselineBundlePath/);
@@ -33,4 +35,16 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   assert.match(e2e, /Invoke-UpgradeBaselineFlow -BaselinePath \$BaselineBundlePath/);
   assert.match(e2e, /Join-Path \$installedRoot 'data\\evaluapro\.db'/);
   assert.match(e2e, /Join-Path \$installedRoot 'runtime\\node\\node\.exe'/);
+});
+
+test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgrade', () => {
+  assert.match(workflow, /releases\/download\/v1\.2\.3\/' \+ \$baselineName/);
+  assert.match(workflow, /\$baselineName = 'EvaluaPro-InstallerHub-docente-local-v1\.2\.3\.exe'/);
+  assert.match(workflow, /\$baselineVersion = \[version\]'1\.2\.3'/);
+  assert.match(workflow, /steps\.upgrade_gate\.outputs\.required == 'true'/);
+  assert.match(workflow, /Invoke-WebRequest -Uri \(\$baselineUrl \+ '\.sha256'\)/);
+  assert.match(workflow, /Get-FileHash -LiteralPath \$baselinePath -Algorithm SHA256/);
+  assert.match(workflow, /644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913/);
+  assert.match(workflow, /\$runnerArgs \+= @\('-BaselineBundlePath', \$env:BASELINE_BUNDLE_PATH\)/);
+  assert.match(workflow, /\$required = \$candidateVersion -gt \$baselineVersion/);
 });

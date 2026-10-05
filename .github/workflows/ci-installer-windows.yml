@@ -24,12 +24,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -40,7 +40,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Configurar .NET SDK 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
 
@@ -143,6 +143,43 @@ jobs:
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: npx playwright install chromium
 
+      - name: Determinar si aplica upgrade desde v1.2.3
+        id: upgrade_gate
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        shell: powershell
+        run: |
+          $candidateRaw = (Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
+          $candidateStable = ([string]$candidateRaw).Split('-')[0]
+          $candidateVersion = $null
+          if (-not [version]::TryParse($candidateStable, [ref]$candidateVersion)) { throw "Versión candidata inválida: $candidateRaw" }
+          $baselineVersion = [version]'1.2.3'
+          $required = $candidateVersion -gt $baselineVersion
+          "version=$candidateRaw" >> $env:GITHUB_OUTPUT
+          "required=$($required.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          Write-Host "Upgrade E2E requerido: $required ($baselineVersion -> $candidateRaw)"
+
+      - name: Descargar y verificar baseline oficial v1.2.3 para upgrade E2E
+        if: steps.upgrade_gate.outputs.required == 'true'
+        shell: powershell
+        run: |
+          $baselineDir = Join-Path $env:RUNNER_TEMP 'evaluapro-upgrade-baseline-v1.2.3'
+          New-Item -ItemType Directory -Path $baselineDir -Force | Out-Null
+          $baselineName = 'EvaluaPro-InstallerHub-docente-local-v1.2.3.exe'
+          $baselinePath = Join-Path $baselineDir $baselineName
+          $baselineUrl = 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/download/v1.2.3/' + $baselineName
+          Invoke-WebRequest -Uri $baselineUrl -OutFile $baselinePath
+          Invoke-WebRequest -Uri ($baselineUrl + '.sha256') -OutFile ($baselinePath + '.sha256')
+          $expectedHash = '644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913'
+          $sidecarText = Get-Content -Raw -LiteralPath ($baselinePath + '.sha256')
+          $sidecarMatch = [regex]::Match($sidecarText, '(?i)^\s*([0-9a-f]{64})\s+')
+          if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $expectedHash) {
+            throw 'El sidecar oficial de EvaluaPro v1.2.3 no coincide con el SHA-256 fijado.'
+          }
+          $actualHash = (Get-FileHash -LiteralPath $baselinePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $expectedHash) { throw 'El bundle oficial v1.2.3 descargado no coincide con su SHA-256.' }
+          "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
+          Write-Host "Baseline oficial v1.2.3 verificado: $actualHash"
+
       - name: E2E completa sobre el bundle docente que se publicará
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         shell: powershell
@@ -155,18 +192,23 @@ jobs:
         run: |
           if ($env:INSTALLER_CI_RUN_ID -notmatch '^[0-9]+$') { throw "GitHub run ID inválido." }
           $reportDir = "reports/qa/installer-hub-e2e-docente/ci-$env:INSTALLER_CI_RUN_ID"
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 `
-            -RootPath "$env:GITHUB_WORKSPACE" `
-            -ReportDir $reportDir `
-            -InstallDir (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-installer-hub-e2e') `
-            -Port 4519 `
-            -IUnderstandThisMutatesPc `
-            -SeedDummyData
+          $runnerArgs = @(
+            '-RootPath', $env:GITHUB_WORKSPACE,
+            '-ReportDir', $reportDir,
+            '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-installer-hub-e2e'),
+            '-Port', '4519',
+            '-IUnderstandThisMutatesPc',
+            '-SeedDummyData'
+          )
+          if (-not [string]::IsNullOrWhiteSpace($env:BASELINE_BUNDLE_PATH)) {
+            $runnerArgs += @('-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH)
+          }
+          & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 @runnerArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publicar evidencia de la E2E completa
         if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-hub-e2e-${{ github.run_id }}
           path: reports/qa/installer-hub-e2e-docente/ci-${{ github.run_id }}/
@@ -205,7 +247,7 @@ jobs:
           if (Test-Path "dist/installer/EvaluaPro-docente-local.msi") { throw "MSI tecnico no debe quedar en raiz publica: dist/installer/EvaluaPro-docente-local.msi" }
 
       - name: Publicar artefactos instalador
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-windows
           path: |
@@ -216,7 +258,7 @@ jobs:
             dist/installer/SIGNING-NOT-PRODUCTION.txt
 
       - name: Publicar artefactos internos instalador
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-windows-internal
           path: |
@@ -233,7 +275,7 @@ jobs:
 
     steps:
       - name: Descargar artefactos del build validado
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: installer-windows
           path: dist/installer
@@ -253,7 +295,7 @@ jobs:
           test -f dist/installer/antivirus-scan-report.txt
 
       - name: Publicar release assets (tags v*)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           make_latest: false

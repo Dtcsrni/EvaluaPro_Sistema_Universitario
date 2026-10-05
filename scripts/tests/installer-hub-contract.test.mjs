@@ -154,7 +154,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
   const stableGateWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
 
-  assert.match(workflow, /actions\/setup-dotnet@v4/);
+  assert.match(workflow, /actions\/setup-dotnet@[0-9a-f]{40} # v4/);
   assert.match(workflow, /dotnet-version:\s*10\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
@@ -165,13 +165,13 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
   assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*installer_windows/);
-  assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@v6/);
-  assert.match(workflow, /name: Publicar release assets \(tags v\*\)[\s\S]*?softprops\/action-gh-release@v2/);
+  assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@[0-9a-f]{40} # v6/);
+  assert.match(workflow, /name: Publicar release assets \(tags v\*\)[\s\S]*?softprops\/action-gh-release@[0-9a-f]{40} # v2/);
   assert.match(workflow, /make_latest:\s*false/);
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*read/);
   assert.match(workflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /stable_release_assets/);
-  assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
+  assert.match(stableGateWorkflow, /promote_latest:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
   assert.match(stableGateWorkflow, /gh release edit "v\$TARGET_VERSION" --repo "\$REPOSITORY" --latest/);
   assert.match(workflow, /RELEASE_TAG:\s*\$\{\{ github\.ref_name \}\}/);
   assert.match(workflow, /RELEASE_REPOSITORY:\s*\$\{\{ github\.repository \}\}/);
@@ -189,7 +189,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
 test('workflow beta publica solo hubs en assets de prerelease', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
 
-  assert.match(workflow, /actions\/setup-dotnet@v4/);
+  assert.match(workflow, /actions\/setup-dotnet@[0-9a-f]{40} # v4/);
   assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /steps\.beta_assets\.outputs\.files/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
@@ -1688,7 +1688,7 @@ test('package workflow publica imagenes docente GHCR versionadas', () => {
   const workflow = fs.readFileSync(packageWorkflowPath, 'utf8');
 
   assert.match(workflow, /packages:\s*write/);
-  assert.match(workflow, /docker\/login-action@v3/);
+  assert.match(workflow, /docker\/login-action@[0-9a-f]{40} # v3/);
   assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-api-docente/);
   assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-web-docente/);
   assert.match(workflow, /API_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.api_image \}\}/);

@@ -51,6 +51,21 @@ test('workflow CodeQL existe y contiene contrato minimo', () => {
   assert.match(workflow, /javascript-typescript/i);
 });
 
+test('todas las GitHub Actions externas están fijadas a un SHA completo', () => {
+  const workflows = fs.readdirSync(path.join(root, '.github', 'workflows')).filter((name) => /\.ya?ml$/i.test(name));
+  const pinnedSha = /^[0-9a-f]{40}$/i;
+
+  for (const workflowName of workflows) {
+    const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', workflowName), 'utf8');
+    for (const [, reference] of workflow.matchAll(/^\s*uses:\s*([^\s#]+)/gm)) {
+      if (reference.startsWith('./') || reference.startsWith('docker://')) continue;
+      const at = reference.lastIndexOf('@');
+      assert.ok(at > 0, `${workflowName}: falta pin SHA en ${reference}`);
+      assert.match(reference.slice(at + 1), pinnedSha, `${workflowName}: referencia flotante ${reference}`);
+    }
+  }
+});
+
 test('workflows no interpolan expresiones GitHub directamente en bloques run', () => {
   const workflows = [
     'autogen-docs.yml',
