@@ -1,0 +1,125 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "224e91f1-f2d0-4925-a0e0-1879661bfb8e",
+  "status": "draft",
+  "generatedAt": "2026-10-05T13:41:43Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "API"
+  },
+  "request": {
+    "summary": "Validar la release v1.2.4 con E2E completa del instalador descargado desde el release público de GitHub."
+  },
+  "objective": "Asegurar que el instalador publicado sea funcional y actualizable; no declarar completitud hasta probar el asset público real.",
+  "scope": [
+    "Sincronizar PR #106 con main después del merge de PR #111.",
+    "Asegurar validación E2E del asset público y rollback a borrador ante fallo.",
+    "Publicar release v1.2.4 solo después de gates y validar el SHA-256 del EXE descargado."
+  ],
+  "constraints": [
+    "No archivar el hilo de extraordinarios por instrucción directa del usuario.",
+    "No afirmar que un asset de release draft equivale a validar la URL pública.",
+    "No ejecutar el E2E local si el preflight detecta SQLite de usuario en ProgramData; usar runner Windows aislado."
+  ],
+  "actions": [
+    {
+      "type": "github",
+      "summary": "Confirmado PR #111 integrado en main en 55406a10f49b9983d6970d56cef8c4af72f2f898.",
+      "timestamp": "2026-10-05T13:26:44Z",
+      "status": "ok"
+    },
+    {
+      "type": "git",
+      "summary": "Fusionado origin/main en la rama de release y publicado el head sincronizado c920fd8fe096835034d0e051d98c360754687996.",
+      "timestamp": "2026-10-05T13:28:39Z",
+      "status": "ok"
+    },
+    {
+      "type": "workflow",
+      "summary": "Añadido job de E2E Windows sobre browser_download_url público, verificaciones SHA-256 y rollback a draft cuando no pasa.",
+      "timestamp": "2026-10-05T13:37:00Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      ".github/workflows/ci-installer-windows.yml",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "docs/specs/ci_cd_integrity.spec.md",
+      "scripts/tests/ci-workflow-contract.test.mjs"
+    ],
+    "changed": [
+      ".github/workflows/ci-installer-windows.yml",
+      "docs/specs/ci_cd_integrity.spec.md",
+      "scripts/tests/ci-workflow-contract.test.mjs"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "CI workflow contract",
+      "command": "node --test scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 152,
+      "resultSummary": "29/29 pruebas aprobadas."
+    },
+    {
+      "name": "SDD audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1032,
+      "resultSummary": "Todas las especificaciones cumplen la política."
+    },
+    {
+      "name": "Diff whitespace validation",
+      "command": "git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 340,
+      "resultSummary": "Sin errores de whitespace."
+    },
+    {
+      "name": "CI policy audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 8958,
+      "resultSummary": "Auditoría de contratos, políticas IA y SDD aprobada."
+    }
+  ],
+  "decisions": [
+    "La E2E publicada descarga el EXE anónimamente desde la URL canónica /releases/download/ y exige coincidencia entre digest API, sidecar y archivo.",
+    "Si falla o se cancela la validación del asset público, un job con permiso separado vuelve el release a borrador."
+  ],
+  "assumptions": [
+    "El pipeline de tag crea el release draft y lo publica solo tras la E2E del asset descargado del draft."
+  ],
+  "risks": [
+    "La CI remota debe repetirse porque la adición del job de E2E pública modifica el workflow del instalador.",
+    "El asset público y su E2E completa todavía no existen; el release v1.2.4 no está publicado."
+  ],
+  "nextStep": "Validar el nuevo contrato localmente, esperar y corregir los checks de CI, fusionar #106 con SHA esperado y ejecutar la tag release; verificar evidencia E2E sobre el asset público descargado.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "CI de PR #106 verde en el nuevo head",
+      "PR #106 integrado en main",
+      "Release v1.2.4 publicado con asset instalador",
+      "E2E completa aprobada sobre el EXE descargado desde URL pública de GitHub",
+      "Verificación del SHA-256 publicado"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro-worktrees\\release-gates-v1.2.4",
+    "branch": "fix/release-gates-v1.2.4",
+    "commit": "c920fd8fe096835034d0e051d98c360754687996",
+    "workingTreeStatus": "Cambios locales pendientes de validar y publicar."
+  }
+}

@@ -449,3 +449,28 @@ test('Dockerfile frontend incluye el wrapper y la política de configuración de
   assert.ok(buildIndex > appVersionIndex, 'frontend build debe ejecutarse despues de copiar app-version');
   assert.ok(buildIndex > omrPolicyIndex, 'frontend build debe ejecutarse despues de copiar la politica OMR');
 });
+
+test('release estable valida el asset desde su URL pública y lo oculta si falla la E2E', () => {
+  const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const finalizeIndex = installer.indexOf('finalize_installer_release:');
+  const publicE2eIndex = installer.indexOf('verify_public_installer_e2e:');
+  const rollbackIndex = installer.indexOf('redraft_failed_public_installer_release:');
+  const publicE2e = installer.slice(publicE2eIndex, rollbackIndex);
+  const rollback = installer.slice(rollbackIndex);
+
+  assert.ok(finalizeIndex >= 0, 'debe existir el job que hace público el release');
+  assert.ok(publicE2eIndex > finalizeIndex, 'la E2E debe correr despues de que el release sea público');
+  assert.match(publicE2e, /needs:\s*finalize_installer_release/);
+  assert.match(publicE2e, /contents:\s*read/);
+  assert.match(publicE2e, /\.browser_download_url/);
+  assert.match(publicE2e, /releases\/download\/\$tag\/\$candidateName/);
+  assert.match(publicE2e, /sidecarAsset\.browser_download_url/);
+  assert.match(publicE2e, /ExpectedSha256/);
+  assert.match(publicE2e, /installer-hub-e2e-docente\.ps1/);
+  assert.match(publicE2e, /BASELINE_BUNDLE_PATH/);
+  assert.match(publicE2e, /-SeedDummyData/);
+  assert.match(rollback, /needs:\s*verify_public_installer_e2e/);
+  assert.match(rollback, /needs\.verify_public_installer_e2e\.result != 'success'/);
+  assert.match(rollback, /contents:\s*write/);
+  assert.match(rollback, /-F draft=true/);
+});
