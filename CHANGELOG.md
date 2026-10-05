@@ -2,6 +2,49 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [Unreleased] - 2026-10-03
+
+### Fixed
+- Los fallos al regenerar accesos directos quedan degradados con diagnóstico; el manifiesto crítico para el updater se genera de forma independiente y sigue siendo bloqueante si no puede escribirse.
+
+## [1.2.3] - 2026-10-03
+
+### Fixed
+- El post-install pasa `SyncRepoOutput` como bandera PowerShell (`[switch]`) en vez de serializar un booleano a texto entre procesos; evita que falle la creación de accesos/manifiesto y que se revierta la instalación.
+
+### Verification
+- Contrato focal de post-install y accesos directos: 1/1.
+
+## [1.2.2] - 2026-09-30
+
+### Added
+- **Portadas de materias (`SPEC-073`):** API autenticada y GUI para cargar JPG/JPEG, PNG o WebP con límite de 20 MiB/20 MP, normalización WebP, persistencia SQLite separada, vista previa, reintento y fallback genérico.
+
+### Fixed
+- La sincronización parcial de Classroom ahora comunica los errores por actividad y los conteos reales sin presentar la ejecución como éxito completo.
+- La captura manual de calificaciones requiere un UUID idempotente, reutiliza la clave en reintentos de resultado incierto y evita duplicar auditorías o versiones.
+
+### Verification
+- Suites focales de portadas: API 5/5, GUI 3/3; calificaciones manuales: API 15/15, GUI 8/8; Classroom: GUI 9/9, API 5/5.
+- Typecheck, lint focal, OpenAPI/API contracts, WCAG y los builds de los cambios integrados pasaron en ramas aisladas.
+- Los gates remotos globales no quedaron verdes: falló un test OMR preexistente (`omr.consenso.robusto.test.ts`, 1/58); `Installer Windows (MSI + Bundle)` seguía ejecutándose al preparar la release. La firma de artefactos no está incluida.
+
+## [1.2.1] - 2026-09-30
+
+### Fixed
+- El lockfile autónomo del backend usado por el staging del instalador fija también `exceljs/uuid` en 11.1.1; antes el bundle aislado resolvía `uuid@8.3.2` aunque el lock raíz ya estaba corregido.
+- El editor de reactivos vuelve a limpiar recursivamente los descendientes antes de desenvolver etiquetas HTML no permitidas; añade regresiones para elementos y atributos activos anidados.
+- Los identificadores de sesión usan `crypto.randomUUID()` o `crypto.getRandomValues()` cuando están disponibles; el fallback no criptográfico queda limitado a una secuencia local sin uso de autorización.
+
+### Security
+- El lockfile actualiza `brace-expansion` a 1.1.21/2.1.7 e `ip-address` a 10.7.2; `uuid` de ExcelJS queda fijado a 11.1.1 mediante override compatible con `require('uuid').v4()`.
+- El audit del árbol completo permanece con 4 hallazgos altos en Prisma/`@prisma/config`/`mysql2`, cuya remediación automática propone migrar Prisma 7 a 6.19.3. No se aplica ese downgrade porque el backend usa Prisma 7 y `@prisma/adapter-better-sqlite3` 7; se requiere migración y validación de compatibilidad aparte.
+
+### Verification
+- `npm run build`: backend, frontend y portal compilan.
+- `npm -C apps/frontend test -- tests/richTextEditor.test.ts tests/sesion.test.ts`: 6/6; `npm -C apps/backend test -- tests/reactivosContrato.test.ts tests/analiticas.xlsx.sv.contract.test.ts`: 14/14; `npm run test:update`: 12/12; `npm run sdd:audit`: correcto.
+- `npm audit`: quedan 4 hallazgos altos en Prisma 7 y sus dependencias de configuración; la corrección automática exige cambiar a Prisma 6. No se ejecutaron los demás gates globales de release.
+
 ## [Unreleased] - 2026-09-29
 
 ### Added

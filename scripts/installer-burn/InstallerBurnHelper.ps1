@@ -53,6 +53,19 @@ function Write-Response {
   [IO.File]::WriteAllText($ResponsePath, $json + [Environment]::NewLine, [System.Text.Encoding]::UTF8)
 }
 
+function Write-HelperProgress {
+  param(
+    [Parameter(Mandatory = $true)][int]$Percent,
+    [Parameter(Mandatory = $true)][string]$Status
+  )
+
+  $event = [ordered]@{
+    Percent = [Math]::Max(0, [Math]::Min(100, $Percent))
+    Status = $Status
+  }
+  Write-Output ("EVALUAPRO_PROGRESS:" + ($event | ConvertTo-Json -Compress))
+}
+
 function Get-RequestValue {
   param(
     [Parameter(Mandatory = $true)]
@@ -127,7 +140,21 @@ function Expand-NativePayload {
   $payloadStage = Join-Path $TargetDir ('.payload-stage-' + [Guid]::NewGuid().ToString('N'))
   try {
     New-Item -ItemType Directory -Path $payloadStage -Force | Out-Null
-    Expand-Archive -LiteralPath $PayloadZip -DestinationPath $payloadStage -Force
+    $tar = Get-Command -Name 'tar.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($tar) {
+      Write-HelperProgress -Percent 34 -Status 'Extrayendo archivos del payload nativo.'
+      $extractOutput = @(& $tar.Source -xf $PayloadZip -C $payloadStage 2>&1)
+      $extractExitCode = $LASTEXITCODE
+      if ($extractExitCode -ne 0) {
+        $extractDetail = (@($extractOutput | Select-Object -Last 8) -join ' ').Trim()
+        throw "No se pudo extraer el payload nativo con tar.exe (exit=$extractExitCode). $extractDetail"
+      }
+    } else {
+      Write-HelperProgress -Percent 34 -Status 'Extrayendo archivos del payload nativo.'
+      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      [System.IO.Compression.ZipFile]::ExtractToDirectory($PayloadZip, $payloadStage)
+    }
+    Write-HelperProgress -Percent 52 -Status 'Validando los archivos esenciales del payload.'
     foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\start-docente-native.mjs', 'scripts\runtime-env.mjs')) {
       if (-not (Test-Path -LiteralPath (Join-Path $payloadStage $relativePath))) {
         throw "Payload nativo incompleto: falta $relativePath"
@@ -140,7 +167,9 @@ function Expand-NativePayload {
       if (Test-Path -LiteralPath $destination) {
         Remove-Item -LiteralPath $destination -Recurse -Force
       }
-      Copy-Item -LiteralPath $entry.FullName -Destination $destination -Recurse -Force
+      # El staging comparte volumen con el destino; mover evita una segunda
+      # escritura completa del árbol de dependencias.
+      Move-Item -LiteralPath $entry.FullName -Destination $destination -Force
     }
     Write-Host 'Payload nativo validado y expandido en la raíz de instalación.'
   } finally {
@@ -623,7 +652,9 @@ function Invoke-PostInstall {
   if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
   }
+  Write-HelperProgress -Percent 5 -Status 'Validando el contrato de runtime.'
   Ensure-InstallerRuntimeContract -TargetDir $targetDir -Request $requestJson
+  Write-HelperProgress -Percent 12 -Status 'Configurando el perfil operativo.'
   if (Get-Command Invoke-EvaluaProOperationalConfiguration -ErrorAction SilentlyContinue) {
     $configMap = Get-RequestConfigMap -Request $requestJson
     if (-not $configMap.ContainsKey('flavorId')) {
@@ -641,6 +672,7 @@ function Invoke-PostInstall {
   # reaplicar el contrato docente conserva la ruta SQLite efectiva del request.
   Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
   $envPath = Assert-InstallerRuntimeEnv -TargetDir $targetDir
+  Write-HelperProgress -Percent 25 -Status 'Perfil operativo validado.'
   $runtimeEnv = Read-InstallerEnvMap -Path $envPath
   $effectiveFlavor = [string]$runtimeEnv['EVALUAPRO_FLAVOR']
   if ($effectiveFlavor.Trim().ToLowerInvariant() -eq 'docente-local') {
@@ -659,6 +691,11 @@ function Invoke-PostInstall {
     if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
     $defaultDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
     $effectiveDatabaseUrl = [string]$runtimeEnv['DATABASE_URL']
+    if ($targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+      # Una configuración operativa puede traer el default compartido de ProgramData;
+      # en QA la URL efectiva debe seguir la raíz aislada donde se prepara SQLite.
+      $effectiveDatabaseUrl = $defaultDatabaseUrl
+    }
     if ([string]::IsNullOrWhiteSpace($effectiveDatabaseUrl)) { $effectiveDatabaseUrl = $defaultDatabaseUrl }
     Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $effectiveDatabaseUrl
     Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $effectiveDatabaseUrl
@@ -757,18 +794,30 @@ function Invoke-PostInstall {
   }
 
   # 1. Expandir y validar payload antes de preparar SQLite.
+  if ($Mode -eq 'repair') {
+    Write-HelperProgress -Percent 28 -Status 'Deteniendo procesos propios antes de reparar.'
+    $processStop = Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir
+    if (-not $processStop.ok) {
+      throw "No se pudieron detener todos los procesos Node de esta instalación antes de reparar: $($processStop.remaining -join ', ')"
+    }
+  }
+  Write-HelperProgress -Percent 30 -Status 'Expandiendo y validando el payload nativo.'
   $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir -Request $requestJson
   Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip
+  Write-HelperProgress -Percent 58 -Status 'Payload nativo expandido.'
 
-  # 2. Descargar Node LTS
+  # 2. Validar el runtime Node autocontenido. La instalación debe funcionar sin red.
   $nodeExe = Join-Path $nodeDir "node.exe"
   if (-not (Test-Path $nodeExe)) {
-    Write-Host "Descargando Node.js LTS Portable..."
-    # En produccion, esto leeria desde el manifiesto de la release.
-    # Por ahora descargamos directo el ejecutable binario.
-    $nodeUrl = "https://nodejs.org/dist/v24.15.0/win-x64/node.exe"
-    Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeExe -UseBasicParsing
+    throw "Payload docente incompleto: falta el runtime Node autocontenido ($nodeExe). Se requiere reconstruir el instalador con runtime/node/node.exe."
   }
+  $nodeVersionOutput = @(& $nodeExe --version 2>&1)
+  $nodeExitCode = $LASTEXITCODE
+  $nodeVersion = if ($nodeVersionOutput.Count -gt 0) { [string]$nodeVersionOutput[0].ToString().Trim() } else { '' }
+  if ($nodeExitCode -ne 0 -or $nodeVersion -notmatch '^v24\.') {
+    throw "Runtime Node docente inválido: se esperaba Node.js 24.x y se detectó '$nodeVersion' (exit=$nodeExitCode)."
+  }
+  Write-HelperProgress -Percent 63 -Status "Runtime Node $nodeVersion validado."
 
   # El bundle docente no lleva historial de migraciones: el esquema SQL
   # autocontenido se aplica de forma idempotente antes del primer arranque.
@@ -778,9 +827,11 @@ function Invoke-PostInstall {
   if ($Mode -eq 'uninstall') {
     Write-Host 'Preparacion SQLite omitida en desinstalacion.'
   } elseif ((Test-Path $sqliteBootstrap) -and (Test-Path $schemaSql)) {
+    Write-HelperProgress -Percent 66 -Status 'Preparando la base de datos SQLite.'
     & $nodeExe $sqliteBootstrap --database (Join-Path $localDataDir 'evaluapro.db') --schema-sql $schemaSql
     if ($LASTEXITCODE -ne 0) { throw "No se pudo preparar la base SQLite local con SQL nativo (exit=$LASTEXITCODE)." }
     Write-Host 'Esquema SQLite local preparado con Node nativo.'
+    Write-HelperProgress -Percent 76 -Status 'Base de datos SQLite preparada.'
   } else {
     throw 'Payload docente incompleto: no existe bootstrap SQLite o esquema SQL.'
   }
@@ -832,6 +883,7 @@ function Invoke-PostInstall {
   # Si Windows rechaza el registro, el broker de sesión sigue siendo utilizable y se informa como degradación.
   $backgroundTaskRegistered = $false
   $backgroundTaskWarning = $null
+  Write-HelperProgress -Percent 80 -Status 'Configurando el inicio del broker.'
   try {
     $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$vbsPath`"" -WorkingDirectory $targetDir
     $trigger = New-ScheduledTaskTrigger -AtLogOn
@@ -841,29 +893,83 @@ function Invoke-PostInstall {
     $backgroundTaskWarning = "Windows rechazó la persistencia automática del broker; se ejecutará bajo demanda sin elevar: $($_.Exception.Message)"
     Write-Warning $backgroundTaskWarning
   }
+  Write-HelperProgress -Percent 84 -Status 'Broker configurado.'
   
   # El primer arranque queda bajo demanda del broker. Iniciar aquí una segunda
   # instancia en el puerto fijo 4519 compite con el broker del Hub cuando el
   # usuario abre la aplicación inmediatamente después de instalar.
   Write-Host 'Dashboard nativo preparado; se iniciará bajo demanda por el broker.'
 
-  # Registrar accesos directos y manifiesto después de que payload/config/runtime
-  # estén completos. El verificador y el broker consumen este manifiesto.
+  # Los accesos directos mejoran el primer uso, pero no son requisito para que
+  # la aplicación instalada funcione ni para que el updater la detecte.
+  # Ejecutamos la reconciliación como paso degradable para que un error de
+  # PowerShell/COM en el perfil del usuario no desinstale un MSI válido.
+  $shortcutWarnings = New-Object System.Collections.Generic.List[string]
   $shortcutScript = Join-Path $targetDir 'scripts\create-shortcuts.ps1'
+  Write-HelperProgress -Percent 87 -Status 'Configurando accesos directos.'
   if (-not (Test-Path -LiteralPath $shortcutScript)) {
-    throw "Payload incompleto: no existe create-shortcuts.ps1 en $targetDir."
+    $shortcutWarnings.Add("No existe create-shortcuts.ps1 en $targetDir; se conserva el acceso creado por MSI.") | Out-Null
+  } else {
+    & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $shortcutScript `
+      -OutputDir 'accesos-directos' -Force `
+      -SyncRepoOutput -SkipManifestUpdate `
+      -Port 4519
+    $shortcutExitCode = $LASTEXITCODE
+    if ($shortcutExitCode -ne 0) {
+      $shortcutWarnings.Add("La reconciliación de accesos directos terminó con exit=$shortcutExitCode.") | Out-Null
+    }
   }
-  & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $shortcutScript `
-    -OutputDir 'accesos-directos' -Force `
-    -SyncRepoOutput $true `
-    -Port 4519
-  if ($LASTEXITCODE -ne 0) {
-    throw "No se pudieron crear accesos directos/manifiesto de instalación (exit=$LASTEXITCODE)."
+
+  $shortcutReportPath = Join-Path $targetDir 'logs\shortcut-reconciliation.json'
+  if (Test-Path -LiteralPath $shortcutReportPath) {
+    try {
+      $shortcutReport = Get-Content -LiteralPath $shortcutReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      if ([string]$shortcutReport.state -ne 'ok') {
+        $shortcutWarnings.Add('La reconciliación de accesos directos reportó errores; el acceso puede abrirse desde el menú de inicio de Windows.') | Out-Null
+      }
+    } catch {
+      $shortcutWarnings.Add("No se pudo leer shortcut-reconciliation.json: $($_.Exception.Message)") | Out-Null
+    }
+  } else {
+    $shortcutWarnings.Add('No se generó shortcut-reconciliation.json; se conserva el acceso creado por MSI.') | Out-Null
+    try {
+      $fallbackShortcutReport = [ordered]@{
+        schemaVersion = 1
+        generatedAt = (Get-Date).ToString('o')
+        root = $targetDir
+        flavorId = $effectiveFlavor
+        state = 'degraded'
+        entries = @()
+        errors = @($shortcutWarnings.ToArray())
+      }
+      $fallbackShortcutReport | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $shortcutReportPath -Encoding UTF8
+    } catch {
+      $shortcutWarnings.Add("No se pudo guardar el diagnóstico de accesos directos: $($_.Exception.Message)") | Out-Null
+    }
   }
+
+  foreach ($shortcutWarning in ($shortcutWarnings | Select-Object -Unique)) {
+    Write-Warning $shortcutWarning
+  }
+  Write-HelperProgress -Percent 92 -Status 'Accesos directos procesados.'
+
+  # El manifiesto habilita dashboard/updater y es crítico. Debe poder generarse
+  # independientemente de los accesos directos, incluso cuando su reconciliación
+  # quedó degradada.
   $installationManifest = Join-Path $targetDir 'logs\installation.manifest.json'
-  if (-not (Test-Path -LiteralPath $installationManifest)) {
-    throw "No se generó el manifiesto de instalación: $installationManifest"
+  $manifestScript = Join-Path $targetDir 'scripts\generate-installation-manifest.ps1'
+  if (-not (Test-Path -LiteralPath $manifestScript)) {
+    throw "No existe el generador crítico del manifiesto de instalación: $manifestScript"
   }
+  Write-HelperProgress -Percent 95 -Status 'Generando el manifiesto de instalación y actualización.'
+  & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $manifestScript -InstallDir $targetDir -Port 4519
+  if ($LASTEXITCODE -ne 0) {
+    throw "No se pudo generar el manifiesto de instalación requerido para actualización (exit=$LASTEXITCODE)."
+  }
+  if (-not (Test-Path -LiteralPath $installationManifest)) {
+    throw "No se generó el manifiesto de instalación requerido para actualización: $installationManifest"
+  }
+  Write-HelperProgress -Percent 98 -Status 'Manifiesto de actualización validado.'
 
   # Validacion rapida
   Start-Sleep -Seconds 3
@@ -872,9 +978,9 @@ function Invoke-PostInstall {
     ok = $true
     phase = "helper_postinstall"
     exitCode = 0
-    message = if ($backgroundTaskRegistered) { "Instalacion Nativa exitosa." } else { "Instalacion Nativa exitosa; broker bajo demanda." }
-    degraded = -not $backgroundTaskRegistered
-      warning = if ($licenseWarning) { $licenseWarning } else { $backgroundTaskWarning }
+    message = if ($shortcutWarnings.Count -gt 0) { "Instalacion funcional; accesos directos degradados. Abre EvaluaPro.exe desde la carpeta de instalación." } elseif ($backgroundTaskRegistered) { "Instalacion Nativa exitosa." } else { "Instalacion Nativa exitosa; broker bajo demanda." }
+    degraded = (-not $backgroundTaskRegistered) -or ($shortcutWarnings.Count -gt 0)
+      warnings = @(@($licenseWarning, $backgroundTaskWarning) + @($shortcutWarnings.ToArray()) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
       license = $licenseState
     data = @{
       envPath = $envPath
@@ -887,6 +993,7 @@ function Invoke-PostInstall {
       }
     }
   }
+  Write-HelperProgress -Percent 100 -Status 'Instalación finalizada.'
 }
 
 function Get-EvaluaProOwnedNodeProcessIds {

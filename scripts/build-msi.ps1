@@ -429,6 +429,40 @@ function Add-DocenteNativeCompiledPayload {
         (Join-Path $backendTarget 'node_modules/@prisma/engines'),
         (Join-Path $backendTarget 'node_modules/@prisma/fetch-engine'),
         (Join-Path $backendTarget 'node_modules/@prisma/get-platform'),
+        # La CLI Prisma instala Studio/PGlite y sus dependencias de interfaz
+        # aunque no formen parte del grafo de runtime del backend SQLite.
+        (Join-Path $backendTarget 'node_modules/@prisma/dev'),
+        (Join-Path $backendTarget 'node_modules/@prisma/studio-core'),
+        (Join-Path $backendTarget 'node_modules/@prisma/query-plan-executor'),
+        (Join-Path $backendTarget 'node_modules/@prisma/streams-local'),
+        (Join-Path $backendTarget 'node_modules/@prisma/config'),
+        (Join-Path $backendTarget 'node_modules/@electric-sql'),
+        (Join-Path $backendTarget 'node_modules/@radix-ui'),
+        (Join-Path $backendTarget 'node_modules/@visx'),
+        (Join-Path $backendTarget 'node_modules/@types'),
+        (Join-Path $backendTarget 'node_modules/@standard-schema'),
+        (Join-Path $backendTarget 'node_modules/elkjs'),
+        (Join-Path $backendTarget 'node_modules/effect'),
+        (Join-Path $backendTarget 'node_modules/fast-check'),
+        (Join-Path $backendTarget 'node_modules/pure-rand'),
+        (Join-Path $backendTarget 'node_modules/react'),
+        (Join-Path $backendTarget 'node_modules/react-dom'),
+        (Join-Path $backendTarget 'node_modules/scheduler'),
+        (Join-Path $backendTarget 'node_modules/csstype'),
+        (Join-Path $backendTarget 'node_modules/d3-array'),
+        (Join-Path $backendTarget 'node_modules/d3-color'),
+        (Join-Path $backendTarget 'node_modules/d3-delaunay'),
+        (Join-Path $backendTarget 'node_modules/d3-format'),
+        (Join-Path $backendTarget 'node_modules/d3-geo'),
+        (Join-Path $backendTarget 'node_modules/d3-interpolate'),
+        (Join-Path $backendTarget 'node_modules/d3-path'),
+        (Join-Path $backendTarget 'node_modules/d3-scale'),
+        (Join-Path $backendTarget 'node_modules/d3-shape'),
+        (Join-Path $backendTarget 'node_modules/d3-time'),
+        (Join-Path $backendTarget 'node_modules/d3-time-format'),
+        # El addon compilado se empaqueta abajo; el código fuente de SQLite
+        # solo sirve para compilarlo y no se ejecuta en el equipo destino.
+        (Join-Path $backendTarget 'node_modules/better-sqlite3/deps'),
         (Join-Path $backendTarget 'node_modules/@prisma/client/runtime/query_engine_bg*'),
         (Join-Path $backendTarget 'node_modules/@prisma/client/runtime/query_compiler_bg*'),
         (Join-Path $backendTarget 'node_modules/.prisma/client/query_engine_bg*'),
@@ -448,6 +482,32 @@ function Add-DocenteNativeCompiledPayload {
           Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
         }
       }
+      # El flavor usa Prisma Client generado para SQLite. Los módulos WASM
+      # para CockroachDB/MySQL/PostgreSQL/SQL Server y el compilador pequeño
+      # no son cargados por ese cliente y agregan varias decenas de MiB.
+      $prismaRuntimePath = Join-Path $backendTarget 'node_modules/@prisma/client/runtime'
+      $unusedQueryCompilers = @(
+        Get-ChildItem -LiteralPath $prismaRuntimePath -File -Force -ErrorAction SilentlyContinue |
+          Where-Object {
+            $_.Name -match '^query_compiler_(fast|small)_bg\.(cockroachdb|mysql|postgresql|sqlserver)\.wasm-base64\.(js|mjs)$' -or
+            $_.Name -match '^query_compiler_small_bg\.sqlite\.wasm-base64\.(js|mjs)$'
+          }
+      )
+      foreach ($unusedQueryCompiler in $unusedQueryCompilers) {
+        Remove-Item -LiteralPath $unusedQueryCompiler.FullName -Force -ErrorAction Stop
+      }
+
+      # El worker OMR carga explícitamente el modelo español 4.0.0_best_int.
+      # Se excluyen dos duplicados históricos y el modelo español alternativo.
+      foreach ($unusedOcrAsset in @(
+        (Join-Path $StagingRoot 'apps/backend/eng.traineddata'),
+        (Join-Path $StagingRoot 'apps/backend/spa.traineddata'),
+        (Join-Path $backendTarget 'node_modules/@tesseract.js-data/spa/4.0.0')
+      )) {
+        if (Test-Path -LiteralPath $unusedOcrAsset) {
+          Remove-Item -LiteralPath $unusedOcrAsset -Recurse -Force -ErrorAction Stop
+        }
+      }
       # pdf-parse importa pdfjs-dist en tiempo de ejecución. Mantener ambos
       # módulos en el payload evita que la API falle al arrancar después de
       # instalar el bundle docente-local.
@@ -456,6 +516,10 @@ function Add-DocenteNativeCompiledPayload {
         if (-not (Test-Path -LiteralPath $requiredRuntimeModulePath)) {
           throw "Falta dependencia de runtime requerida por el backend: $requiredRuntimeModulePath"
         }
+      }
+      $requiredSpanishOcrModel = Join-Path $backendTarget 'node_modules/@tesseract.js-data/spa/4.0.0_best_int/spa.traineddata.gz'
+      if (-not (Test-Path -LiteralPath $requiredSpanishOcrModel)) {
+        throw "Falta el modelo español offline requerido para OMR: $requiredSpanishOcrModel"
       }
       if ($reusePrebuiltDependencies) {
         Write-Host '[msi] Payload preconstruido reutilizado y podado para runtime Windows.'
@@ -482,6 +546,36 @@ function Add-DocenteNativeCompiledPayload {
           Remove-Item -LiteralPath $nonRuntimeDirectory.FullName -Recurse -Force -ErrorAction Stop
         }
       }
+
+      # npm ci se ejecuta con scripts deshabilitados en el staging. Reutilizar
+      # el addon que npm preparó para el mismo Node Windows del build para que
+      # el runtime SQLite no dependa de compilar código C++ en el equipo destino.
+      $stagedSqliteAddon = Join-Path $runtimeNodeModules 'better-sqlite3/build/Release/better_sqlite3.node'
+      if (-not (Test-Path -LiteralPath $stagedSqliteAddon)) {
+        $builtSqliteAddon = Join-Path $RootPath 'node_modules/better-sqlite3/build/Release/better_sqlite3.node'
+        if (-not (Test-Path -LiteralPath $builtSqliteAddon)) {
+          throw "No se encontró el addon SQLite para Node Windows: $builtSqliteAddon"
+        }
+        New-Item -ItemType Directory -Path (Split-Path $stagedSqliteAddon -Parent) -Force | Out-Null
+        Copy-Item -LiteralPath $builtSqliteAddon -Destination $stagedSqliteAddon -Force
+      }
+
+      $sqliteRuntimeSmoke = @'
+import { PrismaClient } from '@prisma/client';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+const client = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: 'file::memory:' }) });
+try {
+  const rows = await client.$queryRawUnsafe('SELECT 1 AS value');
+  if (Number(rows?.[0]?.value) !== 1) throw new Error('SQLite smoke returned an unexpected result.');
+} finally {
+  await client.$disconnect();
+}
+'@
+      $sqliteSmokeOutput = @(& $nodeForBuild --input-type=module -e $sqliteRuntimeSmoke 2>&1 | ForEach-Object { [string]$_ })
+      if ($LASTEXITCODE -ne 0) {
+        throw "Prisma/SQLite no pudo completar su smoke de runtime: $($sqliteSmokeOutput -join ' ')"
+      }
+      Write-Host '[msi] Runtime Prisma/SQLite validado con consulta en memoria.'
       Write-Host '[msi] Payload nativo podado: se conserva únicamente Prisma SQLite/Windows y dependencias de ejecución.'
     } finally {
       Pop-Location

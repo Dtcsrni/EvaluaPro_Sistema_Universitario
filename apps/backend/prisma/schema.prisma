@@ -91,6 +91,7 @@ model Periodo {
   activo              Boolean                   @default(true)
   archivadoEn         DateTime?
   resumenArchivado    String? // JSON string
+  portada             PeriodoPortada?
   alumnos             Alumno[]
   asistenciaReglas    AsistenciaRegla[]
   asistenciaSesiones  AsistenciaSesion[]
@@ -110,6 +111,20 @@ model Periodo {
 
   @@unique([docenteId, nombreNormalizado])
   @@map("periodos")
+}
+
+model PeriodoPortada {
+  periodoId  String   @id
+  periodo    Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  contenido  Bytes
+  mimeType   String
+  sizeBytes  Int
+  width      Int
+  height     Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("periodo_portadas")
 }
 
 model Alumno {

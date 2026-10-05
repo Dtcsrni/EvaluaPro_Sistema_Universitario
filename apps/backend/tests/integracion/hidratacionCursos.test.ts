@@ -178,6 +178,24 @@ describe('Integración: Hidratación de cursos iniciados', () => {
 
     expect(alumnos).toHaveLength(2);
     expect(evidenciasHistoricas).toHaveLength(4);
+    const evidenciaPorMatricula = new Map(alumnos.map((alumno) => [
+      alumno.matricula,
+      evidenciasHistoricas
+        .filter((evidencia) => evidencia.alumnoId === alumno.id)
+        .map((evidencia) => ({
+          titulo: evidencia.titulo,
+          calificacion: Number(evidencia.calificacionDecimal)
+        }))
+        .sort((a, b) => a.titulo.localeCompare(b.titulo))
+    ]));
+    expect(evidenciaPorMatricula.get('CUH001')).toEqual([
+      { titulo: 'Primer Parcial', calificacion: 8.5 },
+      { titulo: 'Segundo Parcial', calificacion: 9 }
+    ]);
+    expect(evidenciaPorMatricula.get('CUH002')).toEqual([
+      { titulo: 'Primer Parcial', calificacion: 7 },
+      { titulo: 'Segundo Parcial', calificacion: 8 }
+    ]);
     expect(evidenciasDocx).toHaveLength(2);
     expect(preguntas).toHaveLength(0);
     expect(reactivosCanonicos).toHaveLength(0);

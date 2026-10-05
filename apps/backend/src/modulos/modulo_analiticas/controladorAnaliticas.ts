@@ -347,7 +347,7 @@ export async function previsualizarBonoExtracurricular(req: SolicitudDocente, re
 export async function guardarCalificacionLista(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const { periodoId, alumnoId, componente, calificacion, version, clientRequestId } = req.body as {
-    periodoId: string; alumnoId: string; componente: string; calificacion: number; version?: number; clientRequestId?: string;
+    periodoId: string; alumnoId: string; componente: string; calificacion: number; version?: number; clientRequestId: string;
   };
   const payloadHash = createHash('sha256')
     .update(JSON.stringify({ periodoId, alumnoId, componente, calificacion, version: version ?? null }))
@@ -372,10 +372,8 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
 
   try {
     const resultado = await prisma.$transaction(async (tx) => {
-      if (clientRequestId) {
-        const repetida = await reproducir(tx);
-        if (repetida) return { calificacion: repetida, repetida: true, creada: false };
-      }
+      const repetida = await reproducir(tx);
+      if (repetida) return { calificacion: repetida, repetida: true, creada: false };
 
       const periodo = await tx.periodo.findFirst({ where: { id: periodoId, docenteId }, select: { id: true } });
       if (!periodo) throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
@@ -391,7 +389,7 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
       const evento = {
         en: new Date().toISOString(), usuarioId: docenteId,
         anterior: existente?.calificacion ?? null, nueva: calificacion,
-        ...(clientRequestId ? { clientRequestId, payloadHash } : {})
+        clientRequestId, payloadHash
       };
       const auditoriaAnterior = leerRegistroJson(existente?.auditoria);
       const eventosPrevios = Array.isArray(auditoriaAnterior.eventos) ? auditoriaAnterior.eventos : [];
@@ -407,11 +405,9 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
         if (actualizado.count !== 1) throw new ErrorAplicacion('CONFLICTO_VERSION', 'La calificación cambió en otra sesión. Recarga la lista antes de editar.', 409);
         guardado = await tx.calificacionListaManual.findUniqueOrThrow({ where: { id: existente.id } });
       }
-      if (clientRequestId) {
-        await tx.calificacionListaMutacion.create({ data: {
-          docenteId, clientRequestId, payloadHash, calificacionId: guardado.id
-        } });
-      }
+      await tx.calificacionListaMutacion.create({ data: {
+        docenteId, clientRequestId, payloadHash, calificacionId: guardado.id
+      } });
       return { calificacion: guardado, repetida: false, creada: !existente };
     });
     res.status(resultado.repetida ? 200 : resultado.creada ? 201 : 200).json({
@@ -419,15 +415,12 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
       ...(resultado.repetida ? { repetida: true } : {})
     });
   } catch (error) {
-    if (clientRequestId && (error as { code?: string })?.code === 'P2002') {
+    if ((error as { code?: string })?.code === 'P2002') {
       const repetida = await reproducir(prisma);
       if (repetida) {
         res.status(200).json({ calificacion: repetida, repetida: true });
         return;
       }
-      throw new ErrorAplicacion('CONFLICTO_VERSION', 'La calificación fue capturada en otra sesión. Recarga la lista.', 409);
-    }
-    if (!clientRequestId && (error as { code?: string })?.code === 'P2002') {
       throw new ErrorAplicacion('CONFLICTO_VERSION', 'La calificación fue capturada en otra sesión. Recarga la lista.', 409);
     }
     throw error;

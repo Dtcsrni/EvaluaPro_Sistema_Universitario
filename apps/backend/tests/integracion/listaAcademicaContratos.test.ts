@@ -184,15 +184,23 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
       periodoId: escenario.periodoId,
       alumnoId: escenario.alumnoId,
       componente: 'Exámen 2do Parcial',
-      calificacion: 5.26
+      calificacion: 5.26,
+      clientRequestId: 'f90c2856-0ea3-4a75-b37d-9af4b8676e75'
     }).expect(400);
     await request(app).post(ruta).set(escenario.auth).send({
       periodoId: escenario.periodoId,
       alumnoId: escenario.alumnoId,
       componente: 'Practica 2do Parcial',
       calificacion: 6,
-      version: 1
+      version: 1,
+      clientRequestId: '026afbdd-306b-487d-a6af-6cbf7a7b98df'
     }).expect(409);
+    await request(app).post(ruta).set(escenario.auth).send({
+      periodoId: escenario.periodoId,
+      alumnoId: escenario.alumnoId,
+      componente: 'Exámen Global',
+      calificacion: 4.5
+    }).expect(400);
 
     const consulta = await request(app)
       .get(`/api/analiticas/lista-academica?periodoId=${encodeURIComponent(escenario.periodoId)}`)
@@ -210,7 +218,8 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
       periodoId: escenario.periodoId,
       alumnoId: escenario.alumnoId,
       componente: 'Exámen Global',
-      calificacion: 5.01
+      calificacion: 5.01,
+      clientRequestId: 'fd6a22f0-20d5-4355-a7a5-e30b3259c710'
     }).expect(400);
 
     const alta = await request(app).post(ruta).set(escenario.auth).send({

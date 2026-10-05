@@ -3973,6 +3973,60 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.materia-avatar--portada {
+  overflow: hidden;
+}
+
+.materia-avatar__imagen {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.materia-portada-editor {
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--glass-border, currentColor);
+  border-radius: 12px;
+  background: var(--glass-surface-2, transparent);
+}
+
+.materia-portada-editor--nueva {
+  margin-block: 0.7rem;
+}
+
+.materia-portada-editor input[type='file'] {
+  max-width: 100%;
+  font: inherit;
+}
+
+.materia-portada-editor__preview {
+  width: min(100%, 240px);
+  max-height: 150px;
+  border: 1px solid var(--glass-border, currentColor);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.materia-portada-editor__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.materia-portada-editor__ayuda,
+.materia-portada-editor__error {
+  margin: 0;
+  color: var(--muted, inherit);
+  font-size: 0.875rem;
+}
+
+.materia-portada-editor__error {
+  color: var(--error, currentColor);
+}
+
 .materia-avatar:hover {
   transform: scale(1.08) rotate(3deg);
   box-shadow: 0 0 24px rgba(56, 189, 248, 0.45);

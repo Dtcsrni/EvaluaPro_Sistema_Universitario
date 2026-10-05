@@ -29,6 +29,8 @@ El repositorio opera bajo la política estricta de SDD documentada en [`docs/POL
 - **Accesibilidad:** [`SPEC-058: Guardrail WCAG 2.2 AA`](specs/SPEC-058_wcag_accesibilidad_guardrail.spec.md)
 
 ### 3. Instalación, Despliegue y Operación
+- [Portadas de materias (`SPEC-073`)](specs/SPEC-073_portada_materia_api_gui.spec.md) — Criterios de API y GUI.
+- [API de portadas de materias](API_PERIODOS_PORTADA.md) — Endpoints, permisos y límites de carga.
 - [Guía de Installer Hub](INSTALLER_HUB.md) — Empaquetado WiX Toolset v5 Burn con Bootstrapper WPF .NET 8.
 - [Guía de Despliegue](DESPLIEGUE.md) — Configuración para entornos locales y en la nube.
 - [Sincronización entre Computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md) — Protocolo de respaldo y migración de datos.

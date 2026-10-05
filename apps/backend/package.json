@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "description": "API docente (Express + TypeScript + SQLite nativo/Prisma) para gestión de evaluaciones, autenticación y flujo de examen OMR.",
-  "version": "1.2.0",
+  "version": "1.2.3",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
@@ -85,5 +85,10 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/qrcode": "^1.5.6",
     "prisma": "^7.10.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   }
 }

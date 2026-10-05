@@ -45,7 +45,7 @@ export function textoPlanoRico(valor: string): string {
   return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
 
-function sanearHtml(valor: string): string {
+export function sanearHtml(valor: string): string {
   if (typeof DOMParser === 'undefined') return valor.replace(/<[^>]*>/g, '');
   const doc = new DOMParser().parseFromString(valor, 'text/html');
   const recorrer = (nodo: Node) => {
@@ -53,6 +53,7 @@ function sanearHtml(valor: string): string {
       if (hijo.nodeType === Node.ELEMENT_NODE) {
         const elemento = hijo as HTMLElement;
         if (!TAGS_PERMITIDAS.has(elemento.tagName)) {
+          recorrer(hijo);
           hijo.replaceWith(...Array.from(hijo.childNodes));
           continue;
         }

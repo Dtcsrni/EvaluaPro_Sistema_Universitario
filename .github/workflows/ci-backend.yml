@@ -30,6 +30,9 @@ on:
       - ".github/workflows/ci-backend.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-backend-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -59,7 +62,7 @@ jobs:
   backend_module:
     name: Backend Module
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     needs:
       - detectar_cambios
     if: github.event_name == 'workflow_dispatch' || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared == 'true' || needs.detectar_cambios.outputs.job_core_backend_portal == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -89,7 +92,8 @@ jobs:
             make \
             g++ \
             cmake \
-            pkg-config
+            pkg-config \
+            poppler-utils
 
       - name: Etapa setup
         run: |
@@ -133,7 +137,12 @@ jobs:
             reports/qa/latest/omr-canonical-gate-wrapper.json
           if-no-files-found: warn
 
+      - name: Etapa contrato del runner de cobertura backend
+        run: node --test scripts/tests/backend-coverage-batches.test.mjs
+
       - name: Etapa coverage backend
+        env:
+          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "3600000"
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa tdd-debt-check

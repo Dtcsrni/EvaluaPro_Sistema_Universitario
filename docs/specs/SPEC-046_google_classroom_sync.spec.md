@@ -1,8 +1,8 @@
 ---
 id: SPEC-046
 titulo: Sincronización de Calificaciones desde Google Classroom
-version: 1.4.0
-fecha: 2026-09-29
+version: 1.5.0
+fecha: 2026-09-30
 autor: Antigravity / EvaluaPro Team
 modulo: modulo_classroom
 estado: approved
@@ -23,6 +23,7 @@ EvaluaPro sincroniza las calificaciones que ya fueron asignadas a actividades en
 - **REQ-009 (Solo lectura y reconciliación)**: Calificaciones filtra evidencias Classroom por la materia seleccionada y las presenta como solo lectura. Si se elimina una nota asignada en Classroom, la siguiente sincronización limpia la nota local obsoleta.
 - **REQ-010 (Revisión en la fuente)**: Cada evidencia sincronizada expone el enlace original de actividad que entrega Classroom, si es válido. Calificaciones ofrece un enlace externo de solo lectura para abrir esa actividad en Classroom; EvaluaPro no presenta entregas duplicadas ni modifica el trabajo o su nota.
 - **REQ-011 (Consulta histórica de materias archivadas)**: En Classroom, la persona docente puede solicitar incluir materias archivadas, identificadas claramente, para consultar historial y sincronizar actividades ya calificadas de ese periodo. La consulta no reactiva la materia. Para un periodo archivado, el mapeo puede resolver alumnos locales inactivos pertenecientes a ese mismo periodo; periodos activos mantienen el filtro actual de alumnos activos. La sincronización conserva permisos, preview, confirmación y auditoría vigentes.
+- **REQ-012 (Resultado parcial de ejecución)**: Si la API termina la solicitud pero devuelve errores por actividad junto con conteos reales, Calificaciones anuncia que la ejecución terminó con errores, conserva los conteos y detalles devueltos y no presenta el resultado como una sincronización íntegramente completada. Una relectura correcta de evidencias no elimina ni oculta esos errores.
 
 ## Criterios de Aceptación
 1. El flujo de autenticación OAuth 2.0 conecta de forma segura con la API de Google Classroom.
@@ -39,6 +40,7 @@ EvaluaPro sincroniza las calificaciones que ya fueron asignadas a actividades en
 12. Una evidencia con `metadata.alternateLink` HTTPS de `classroom.google.com` muestra un enlace `target="_blank"` protegido; hosts externos, protocolos distintos y URLs inválidas no crean enlaces.
 13. La GUI solicita `GET /periodos?activo=false` solo cuando se activa «Incluir materias archivadas», las etiqueta como archivadas, conserva la materia activa sin duplicarla y no reactiva ni sincroniza automáticamente la materia seleccionada.
 14. En una materia archivada, las coincidencias por correo/matrícula pueden resolver sus alumnos locales inactivos; en una materia activa los alumnos inactivos siguen fuera del mapeo automático.
+15. Si la ejecución devuelve conteos y al menos un error por actividad, la GUI muestra un aviso accesible de finalización con errores con los conteos reales, mantiene visible el detalle del error y distingue ese resultado de una ejecución completa; la relectura de evidencias se reporta por separado.
 
 ## Matriz de Trazabilidad
 
@@ -56,3 +58,4 @@ EvaluaPro sincroniza las calificaciones que ya fueron asignadas a actividades en
 | REQ-009 | Evidencias de solo lectura y vinculación alumno–cuenta dentro de Calificaciones | `apps/frontend/tests/classroomEnCalificaciones.test.tsx` | En actualización |
 | REQ-010 | Preservación del enlace en la API y acceso seguro a actividad original en Calificaciones | `apps/backend/tests/integracion/evaluacionesEvidenciasPaginacionApi.test.ts`; `apps/frontend/tests/classroomEnCalificaciones.test.tsx` | En actualización |
 | REQ-011 | Listado explícito y selección de materias archivadas sin reactivación | `apps/frontend/tests/seccionClassroom.test.tsx`; `apps/backend/tests/integracion/classroom.v2.test.ts` | Pruebas focalizadas y runtime local verificados; falta validar Classroom real |
+| REQ-012 | Conteos reales y errores por actividad no deben mostrarse como éxito total | `apps/frontend/tests/classroomEnCalificaciones.test.tsx`; `apps/backend/tests/integracion/classroom.v2.test.ts` | GUI 9/9 y API 5/5 focales en este worktree; sin Classroom real en esta auditoría |

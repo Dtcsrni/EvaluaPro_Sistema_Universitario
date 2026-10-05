@@ -256,6 +256,13 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   incluirá respuestas ni datos personales por defecto; detalle completo se obtiene
   por el ID del job y conserva aislamiento del docente autenticado.
 
+- **REQ-033:** Las portadas opcionales de materias se administran mediante
+  `GET/PUT/DELETE /periodos/{periodoId}/portada` con sesión, permisos y aislamiento
+  por docente. La carga multipart acepta JPG/JPEG, PNG y WebP hasta 20 MiB y
+  20 megapíxeles; el recurso se normaliza a WebP y no se incluye como bytes en el
+  listado. La GUI presenta la misma portada o el fallback genérico conforme a
+  `SPEC-073`.
+
 ## Criterios de Aceptación
 
 - **AC-001:** Un validador de contrato verifica el OpenAPI y detecta divergencias
@@ -404,7 +411,10 @@ pm run api:contract:check`.
   bono único con prioridad Global/C3, P2 y P1, con evaluación continua antes que
   examen dentro de cada corte; el preview devuelve los seis destinos de asignación y
   la GUI muestra los importes no nulos antes de confirmar. El preview no modifica calificaciones ni evidencias,
-  y el guardado requiere confirmación explícita, versión y clave idempotente; y (d)
+  todo guardado requiere un `clientRequestId` UUID (su ausencia se rechaza en API), y las actualizaciones requieren
+  además la versión vigente. Repetir la clave con payload idéntico devuelve el resultado original sin incrementar
+  versión ni duplicar auditoría; reutilizarla con otro payload devuelve 409. La escritura requiere confirmación
+  explícita; y (d)
   la lectura posterior a la ejecución en la lista académica y su exportación. La
   vista previa, cálculo de final ponderado y fórmulas del XLSX se verifican en
   pruebas focales. La inspección de la lista institucional vigente y la ejecución
@@ -429,6 +439,12 @@ pm run api:contract:check`.
   mediante `/autenticacion/google`, conserva el token devuelto en memoria y devuelve
   el perfil docente. La validación local evita solicitudes con credenciales inválidas;
   ni la credencial ni el token se escriben en logs o almacenamiento persistente.
+
+- **AC-032:** La API permite consultar, reemplazar y retirar la portada de una
+  materia propia; rechaza MIME falso, formatos no admitidos, archivos mayores a
+  20 MiB y más de 20 MP. El listado no devuelve el BLOB. La GUI previsualiza,
+  guarda y administra la imagen, muestra fallback cuando falta y permite reintentar
+  una carga fallida sin duplicar la materia.
 
 ## Matriz de Trazabilidad
 
@@ -481,6 +497,8 @@ implica que ya satisfagan todos los criterios nuevos.
 | REQ-032 / AC-030 | Global manual, Classroom continuo C3, bono con prioridad y lectura de la lista | `SPEC-046_google_classroom_sync.spec.md`; `SPEC-059_consulta_calificaciones_por_alumno.spec.md`; `apps/frontend/src/apps/app_docente/SeccionEvaluaciones.tsx`; `apps/frontend/src/apps/app_docente/ClassroomEnCalificaciones.tsx`; `apps/frontend/src/apps/app_docente/ConsultaCalificaciones.tsx`; `apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts`; `apps/backend/src/modulos/modulo_evaluaciones/validacionesEvaluaciones.ts`; `apps/backend/src/modulos/modulo_evaluaciones/controladorEvaluaciones.ts`; `apps/backend/src/modulos/modulo_integraciones_classroom/validacionesClassroom.ts`; `apps/backend/src/modulos/modulo_analiticas/controladorAnaliticas.ts`; `apps/backend/src/modulos/modulo_analiticas/servicioListaAcademica.ts`; `apps/backend/src/modulos/modulo_analiticas/servicioBonoExtracurricular.ts`; `apps/backend/src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones.ts`; `apps/frontend/tests/classroomEnCalificaciones.mapeoCortes.test.tsx`; `apps/frontend/tests/seccionCalificaciones.resumen.test.tsx`; `apps/frontend/tests/seccionEvaluaciones.test.tsx`; `apps/backend/tests/integracion/classroom.v2.test.ts`; `apps/backend/tests/integracion/evaluaciones.modulo.test.ts`; `apps/backend/tests/integracion/listaAcademicaContratos.test.ts`; `apps/backend/tests/bonoExtracurricular.test.ts`; `apps/backend/tests/analiticas.xlsx.sv.contract.test.ts`; `scripts/api/evaluapro-client.mjs`; `scripts/tests/evaluapro-client.test.mjs` | Evidencia del checkout: backend 4 archivos/21 pruebas, GUI 3 archivos/14 pruebas y SDK API 35/35 aprobados en revisión previa. Auditoría y actualización de los libros OneDrive el 2026-09-29: 4 filas DDAW y 12 BI tienen Global/continua; la revisión de las dos actividades de Classroom y el cálculo independiente coinciden en las 16 filas; cero parciales sobre 10. Los cinco bonos de BI (0.5, 0.5, 1, 1, 1) coinciden con la imagen fuente y la cascada Continua Global→Examen Global→Continua P2→Examen P2→Continua P1→Examen P1; suma aplicada 4.0. Se agregó una columna de bono con fórmula por alumno y se completaron las fórmulas de columnas calculadas que no estaban extendidas a todas las filas. Los archivos reemplazaron sus originales después de crear respaldo; hashes de las copias OneDrive coinciden con los artefactos auditados. Las calificaciones escritas manualmente en los libros no se sincronizaron por la API de EvaluaPro. Siguen pendientes el cotejo integral marcas↔clave del lote y la revisión de este resultado dentro de la GUI instalada con los libros vigentes. |
 | REQ-009 / AC-031 | Blancos y dobles marcas no resueltas cuentan incorrectas en GUI y API, conservando el estado enviado | `apps/frontend/tests/seccionCalificar.test.tsx`; `apps/backend/tests/integracion/calificacionOmrPrioridad.test.ts`; `apps/backend/tests/omr.estado-respuesta.test.ts` | GUI OMR/calificación 8/8 y SDK API 35/35 aprobados previamente; `omrJobsWorkflow.test.ts` 8/8 en la revisión anterior; integración de calificación API 2/2 actual para `sin_marca` y `doble_marca`, ambas con `opcion: null`, cero aciertos y estado preservado |
 | REQ-009 / AC-013, REQ-017 / AC-005 | Revisión manual de marcas dudosas y soporte explícito para X/palomitas | `docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md`; `output/qa/omr-mark-shapes-20260928/manifest.json`; `apps/backend/tests/omr.estado-respuesta.test.ts`; `apps/frontend/tests/plantillasOmrWorkflow.test.tsx`; `apps/backend/tests/integracion/omrJobsWorkflow.test.ts` | Corrección manual está presente en UI/API. El artefacto QA aporta 6 ejemplos reales de X y 2 ambiguos, pero no ejemplos de palomita ni evaluación del motor; reconocimiento automático continúa pendiente. |
+
+| REQ-033 / AC-032 | Portada binaria con permisos, límite, normalización y paridad API/GUI | `SPEC-073_portada_materia_api_gui.spec.md`; `apps/backend/tests/integracion/periodosPortada.test.ts`; `apps/frontend/tests/seccionPeriodos.portada.test.tsx`; `scripts/api/check-openapi-contract.mjs` | API 5/5, GUI 3/3, OpenAPI y paridad de listado/fallback verificados en foco |
 
 ## Análisis de cobertura del flujo de listas
 

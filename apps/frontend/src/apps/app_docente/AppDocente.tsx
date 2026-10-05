@@ -51,7 +51,7 @@ const SeccionAsistencias = lazy(() => import('./SeccionAsistencias').then(({ Sec
 const SeccionTemarios = lazy(() => import('./SeccionTemarios').then(({ SeccionTemarios: modulo }) => ({ default: modulo })));
 const SeccionPlantillas = lazy(() => import('./SeccionPlantillas').then(({ SeccionPlantillas: modulo }) => ({ default: modulo })));
 const SeccionSincronizacion = lazy(() => import('./SeccionSincronizacion').then(({ SeccionSincronizacion: modulo }) => ({ default: modulo })));
-export function AppDocente({ googleClientId }: { googleClientId?: string } = {}) {
+export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClientId?: string; onReintentarGoogle?: () => Promise<boolean> } = {}) {
   const montadoRef = useRef(true);
   const [docente, setDocente] = useState<Docente | null>(null);
   const [estadoLease, setEstadoLease] = useState<EstadoLeaseUI | null>(null);
@@ -424,6 +424,7 @@ export function AppDocente({ googleClientId }: { googleClientId?: string } = {})
       <SeccionAutenticacion
         oauthGoogleDisponible={oauthGoogleDisponible}
         oauthGoogleBackendDisponible={oauthGoogleBackendDisponible}
+        onReintentarGoogle={onReintentarGoogle}
         smtpDisponible={smtpDisponible}
         requireGoogleOAuth={requireGoogleOAuth}
         passwordLoginAllowed={passwordLoginAllowed}

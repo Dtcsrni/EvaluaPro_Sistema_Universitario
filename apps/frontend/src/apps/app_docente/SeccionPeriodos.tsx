@@ -12,6 +12,7 @@ import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaMateriaVisual } from './GuiaMateriaVisual';
+import { GestionPortadaMateria, ImagenPortadaMateria, useVistaPrevia } from './PortadaMateria';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { clienteApi } from './clienteApiDocente';
@@ -43,6 +44,8 @@ export function SeccionPeriodos({
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const [grupos, setGrupos] = useState('');
+  const [archivoPortada, setArchivoPortada] = useState<File | null>(null);
+  const [portadaPendienteId, setPortadaPendienteId] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState('');
   const [creando, setCreando] = useState(false);
   const [archivandoId, setArchivandoId] = useState<string | null>(null);
@@ -51,6 +54,7 @@ export function SeccionPeriodos({
   const [accionesAbiertasId, setAccionesAbiertasId] = useState<string | null>(null);
   const [registroMateriaAbierto, setRegistroMateriaAbierto] = useState(false);
   const [guardandoEdicionId, setGuardandoEdicionId] = useState<string | null>(null);
+  const vistaPreviaPortada = useVistaPrevia(archivoPortada);
 
   const alumnosPorPeriodo = useMemo(() => {
     const mapa = new Map<string, Alumno[]>();
@@ -256,7 +260,7 @@ export function SeccionPeriodos({
       if (!puedeCrear) return;
       setCreando(true);
       setMensaje('');
-      await enviarConPermiso(
+      const respuesta = await enviarConPermiso<{ periodo?: { _id?: string; id?: string } }>(
         'periodos:gestionar',
         '/periodos',
         {
@@ -267,8 +271,33 @@ export function SeccionPeriodos({
         },
         'No tienes permiso para registrar materias.'
       );
-      setMensaje('Materia creada');
-      emitToast({ level: 'ok', title: 'Materias', message: 'Materia creada', durationMs: 2200 });
+      const periodoId = String(respuesta.periodo?._id || respuesta.periodo?.id || '').trim();
+      let falloPortada = false;
+      if (archivoPortada && periodoId) {
+        try {
+          const formData = new FormData();
+          formData.append('archivo', archivoPortada);
+          await clienteApi.actualizarFormData(`/periodos/${encodeURIComponent(periodoId)}/portada`, formData);
+          setArchivoPortada(null);
+          setPortadaPendienteId(null);
+        } catch {
+          falloPortada = true;
+          setPortadaPendienteId(periodoId);
+        }
+      } else {
+        setArchivoPortada(null);
+        setPortadaPendienteId(null);
+      }
+      const textoResultado = falloPortada
+        ? 'Materia creada; no se pudo guardar la portada. Puedes reintentar sin crear otra materia.'
+        : 'Materia creada';
+      setMensaje(textoResultado);
+      emitToast({
+        level: falloPortada ? 'warn' : 'ok',
+        title: falloPortada ? 'Portada pendiente' : 'Materias',
+        message: textoResultado,
+        durationMs: falloPortada ? 5200 : 2200
+      });
       registrarAccionDocente('crear_periodo', true, Date.now() - inicio);
       setNombre('');
       setFechaInicio('');
@@ -288,6 +317,23 @@ export function SeccionPeriodos({
       registrarAccionDocente('crear_periodo', false);
     } finally {
       setCreando(false);
+    }
+  }
+
+  async function reintentarPortada() {
+    if (!portadaPendienteId || !archivoPortada || !puedeGestionar) return;
+    try {
+      const formData = new FormData();
+      formData.append('archivo', archivoPortada);
+      await clienteApi.actualizarFormData(`/periodos/${encodeURIComponent(portadaPendienteId)}/portada`, formData);
+      setArchivoPortada(null);
+      setPortadaPendienteId(null);
+      setMensaje('Portada guardada');
+      emitToast({ level: 'ok', title: 'Portada', message: 'Portada guardada', durationMs: 2200 });
+      onRefrescar();
+    } catch (error) {
+      const texto = mensajeDeError(error, 'No se pudo guardar la portada');
+      setMensaje(`Materia creada. ${texto} Puedes reintentar sin crear otra materia.`);
     }
   }
 
@@ -646,6 +692,34 @@ export function SeccionPeriodos({
             </label>
           </div>
 
+          <div className="materia-portada-editor materia-portada-editor--nueva">
+            <label className="campo">
+              <span>Portada (opcional)</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                aria-label="Seleccionar portada para la nueva materia"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0] ?? null;
+                  setPortadaPendienteId(null);
+                  if (file && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type.toLowerCase())) {
+                    setArchivoPortada(null);
+                    setMensaje('Selecciona una imagen JPG/JPEG, PNG o WebP.');
+                  } else if (file && file.size > 20 * 1024 * 1024) {
+                    setArchivoPortada(null);
+                    setMensaje('La imagen no debe superar 20 MiB.');
+                  } else {
+                    setArchivoPortada(file);
+                    setMensaje('');
+                  }
+                }}
+                disabled={bloqueoEdicion || creando}
+              />
+            </label>
+            {vistaPreviaPortada && <img className="materia-portada-editor__preview" src={vistaPreviaPortada} alt="Vista previa de la portada seleccionada" />}
+            <p className="materia-portada-editor__ayuda">JPG/JPEG, PNG o WebP; máximo 20 MiB. Si no seleccionas imagen, se usará la portada genérica.</p>
+          </div>
+
           {/* Fila 2: Fechas y Botón de Creación */}
           <div className="materias-form__row materias-form__row--bottom">
             <label className="campo campo--fecha">
@@ -709,6 +783,11 @@ export function SeccionPeriodos({
             <p className={esMensajeError(mensaje) ? 'mensaje error anim-fade-in' : 'mensaje ok anim-fade-in'} role="status">
               {mensaje}
             </p>
+          )}
+          {portadaPendienteId && archivoPortada && (
+            <Boton type="button" variante="secundario" onClick={reintentarPortada} disabled={!puedeGestionar}>
+              Reintentar portada
+            </Boton>
           )}
         </div>
         </div>
@@ -821,9 +900,7 @@ export function SeccionPeriodos({
                           >
                             <div className="materia-card-header">
                               <div className="materia-title-group">
-                                <div className="materia-avatar" aria-hidden="true">
-                                  <Icono nombre="periodos" />
-                                </div>
+                                <ImagenPortadaMateria periodoId={periodo._id} tienePortada={periodo.tienePortada} />
                                 <div>
                                   <div className="item-title" title={periodo._id}>
                                     {etiquetaMateria(periodo)}
@@ -924,6 +1001,13 @@ export function SeccionPeriodos({
                         className={`item-actions${accionesAbiertasId === periodo._id ? ' item-actions--open' : ''}`}
                         hidden={accionesAbiertasId !== periodo._id}
                       >
+                        <GestionPortadaMateria
+                          periodoId={periodo._id}
+                          nombreMateria={etiquetaMateria(periodo)}
+                          tienePortada={periodo.tienePortada}
+                          onCambio={onRefrescar}
+                          disabled={!puedeGestionar}
+                        />
                         {editandoId === periodo._id ? (
                           <>
                             <Boton

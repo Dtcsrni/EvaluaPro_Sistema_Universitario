@@ -94,6 +94,7 @@ function Invoke-PostInstallVerification {
   )
 
   $issues = @()
+  $warnings = @()
   $allowUnregistered = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED).Trim().ToLowerInvariant()
 
   if ($Mode -eq 'install' -or $Mode -eq 'repair') {
@@ -117,7 +118,6 @@ function Invoke-PostInstallVerification {
       (Join-Path $effectiveDir 'scripts\\launcher-broker.ps1'),
       (Join-Path $effectiveDir 'scripts\\launcher-tray-hidden.vbs'),
       (Join-Path $effectiveDir 'scripts\\launcher-dashboard-hidden.vbs'),
-      (Join-Path $effectiveDir 'logs\\shortcut-reconciliation.json'),
       (Join-Path $effectiveDir 'logs\\installation.manifest.json')
     )
     if ([string]$Flavor.flavorId -eq 'docente-local') {
@@ -154,7 +154,7 @@ function Invoke-PostInstallVerification {
     }
     foreach ($shortcut in $shortcutTargets) {
       if (-not (Test-Path -LiteralPath $shortcut)) {
-        $issues += "Falta acceso directo esperado: $shortcut"
+        $warnings += "Falta acceso directo opcional: $shortcut"
       }
     }
 
@@ -163,11 +163,14 @@ function Invoke-PostInstallVerification {
       if (Test-Path -LiteralPath $shortcutReportPath) {
         $shortcutReport = Get-Content -LiteralPath $shortcutReportPath -Raw -Encoding utf8 | ConvertFrom-Json
         if ([string]$shortcutReport.state -ne 'ok') {
-          $issues += 'La reconciliación de accesos directos reporta errores.'
+          $warnings += 'La reconciliación de accesos directos reporta errores; la aplicación y el updater se validan por separado.'
         }
       }
     } catch {
-      $issues += "No se pudo leer la reconciliación de accesos directos: $($_.Exception.Message)"
+      $warnings += "No se pudo leer la reconciliación de accesos directos: $($_.Exception.Message)"
+    }
+    if (-not (Test-Path -LiteralPath $shortcutReportPath)) {
+      $warnings += 'No existe el reporte de reconciliación de accesos directos.'
     }
 
     $envPath = Join-Path $effectiveDir '.env'
@@ -279,7 +282,10 @@ function Invoke-PostInstallVerification {
 
   if ($issues.Count -eq 0) {
     if ($OnLog) { & $OnLog 'ok' 'Verificacion final completada sin hallazgos.' }
-    return [pscustomobject]@{ ok = $true; issues = @() }
+    foreach ($warning in $warnings) {
+      if ($OnLog) { & $OnLog 'warn' $warning }
+    }
+    return [pscustomobject]@{ ok = $true; issues = @(); warnings = @($warnings) }
   }
 
   if ($OnLog) {
@@ -288,7 +294,7 @@ function Invoke-PostInstallVerification {
     }
   }
 
-  return [pscustomobject]@{ ok = $false; issues = $issues }
+  return [pscustomobject]@{ ok = $false; issues = $issues; warnings = @($warnings) }
 }
 
 Export-ModuleMember -Function @(

@@ -111,6 +111,16 @@ function etiquetaEstadoMarca(estado: string) {
   }
 }
 
+function resumirVersionesAssessment(versionSet: Array<{ versionCode: string; questionCount: number }>) {
+  const resumen = new Map<string, number>();
+  for (const version of versionSet) {
+    const codigo = String(version.versionCode || 'A').trim() || 'A';
+    const cantidad = Number(version.questionCount);
+    resumen.set(codigo, (resumen.get(codigo) ?? 0) + (Number.isFinite(cantidad) && cantidad > 0 ? cantidad : 1));
+  }
+  return Array.from(resumen, ([versionCode, questionCount]) => ({ versionCode, questionCount }));
+}
+
 function esArchivoPdf(file: File) {
   return file.type.toLowerCase() === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 }
@@ -163,6 +173,10 @@ export function PlantillasOmrWorkflow({
   resolverHojaOmr,
   finalizarJobOmr
 }: Props) {
+  const versionesAssessment = useMemo(
+    () => resumirVersionesAssessment(assessmentDetalle?.assessment.versionSet ?? []),
+    [assessmentDetalle?.assessment.versionSet]
+  );
   const confirm = useConfirmDialog();
   const [files, setFiles] = useState<File[]>([]);
   const [referencePdf, setReferencePdf] = useState<File | undefined>();
@@ -382,13 +396,13 @@ export function PlantillasOmrWorkflow({
       <div className="item-meta">
         <span>Folio: {assessmentDetalle.assessment.folio}</span>
         <span>Seed: {assessmentDetalle.assessment.generationSeed || '-'}</span>
-        <span>Versiones: {assessmentDetalle.assessment.statisticsSummary.versionCount}</span>
+        <span>Versiones: {versionesAssessment.length || assessmentDetalle.assessment.statisticsSummary.versionCount}</span>
         <span>Hojas: {assessmentDetalle.assessment.statisticsSummary.sheetCount}</span>
         <span>Packets: {assessmentDetalle.assessment.statisticsSummary.studentPacketCount}</span>
       </div>
-      {Array.isArray(assessmentDetalle.assessment.versionSet) && assessmentDetalle.assessment.versionSet.length > 0 && (
+      {versionesAssessment.length > 0 && (
         <div className="item-meta">
-          {assessmentDetalle.assessment.versionSet.map((version) => (
+          {versionesAssessment.map((version) => (
             <span key={`${assessmentDetalle.assessment._id}-${version.versionCode}`}>
               Versión {version.versionCode}: {version.questionCount} reactivos
             </span>

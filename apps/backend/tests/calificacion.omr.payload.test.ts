@@ -10,7 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app.js';
 import { configuracion } from '../src/configuracion.js';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
-import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
+import { construirTextoQrExamenPagina, extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
 
 function refirmarQr(textoQr: string) {
@@ -174,6 +174,34 @@ async function crearEscenarioBase(app: ReturnType<typeof crearApp>) {
     qrTexto: String(examen.body.examenGenerado.paginas?.[0]?.qrTexto ?? ''),
     templateVersion: Number(examen.body.examenGenerado.mapaOmr?.templateVersion ?? 4) as 4
   };
+}
+
+async function prepararPlantillaInline(base: Awaited<ReturnType<typeof crearEscenarioBase>>) {
+  const examen = await prisma.examenGenerado.findUnique({ where: { id: base.examenGeneradoId } });
+  if (!examen) throw new Error('No se encontró el examen de prueba para configurar la plantilla inline');
+
+  const mapaOmr = JSON.parse(String(examen.mapaOmr ?? '{}')) as Record<string, any>;
+  const paginas = JSON.parse(String(examen.paginas ?? '[]')) as Array<Record<string, any>>;
+  const qrTexto = construirTextoQrExamenPagina({
+    folio: base.folio,
+    numeroPagina: 1,
+    templateVersion: 4,
+    templateId: 'omr-inline-exam-v1',
+    compacto: true,
+    examId: base.examenGeneradoId
+  });
+
+  mapaOmr.templateId = 'omr-inline-exam-v1';
+  for (const pagina of Array.isArray(mapaOmr.paginas) ? mapaOmr.paginas : []) {
+    pagina.templateId = 'omr-inline-exam-v1';
+  }
+  if (paginas[0]) paginas[0].qrTexto = qrTexto;
+
+  await prisma.examenGenerado.update({
+    where: { id: base.examenGeneradoId },
+    data: { mapaOmr: JSON.stringify(mapaOmr), paginas: JSON.stringify(paginas) }
+  });
+  return qrTexto;
 }
 
 describe('calificación OMR payload estricto', () => {
@@ -343,6 +371,49 @@ describe('calificación OMR payload estricto', () => {
       .expect(422);
 
     expect(respuesta.body.error.codigo).toBe('OMR_REQUIERE_REVISION_MANUAL');
+  });
+
+  it('permite calificar la plantilla inline solo después de confirmar la revisión humana', async () => {
+    const base = await crearEscenarioBase(app);
+    const qrTexto = await prepararPlantillaInline(base);
+    const payload = {
+      examenGeneradoId: base.examenGeneradoId,
+      folio: base.folio,
+      alumnoId: base.alumnoId,
+      respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+      omrAnalisis: {
+        estadoAnalisis: 'requiere_revision' as const,
+        calidadPagina: 0.48,
+        confianzaPromedioPagina: 0.41,
+        ratioAmbiguas: 0,
+        templateVersionDetectada: base.templateVersion,
+        engineVersion: 'omr-cv',
+        geomQuality: 0.96,
+        photoQuality: 0.96,
+        decisionPolicy: 'conservadora_v1',
+        motivosRevision: [],
+        qrTexto
+      }
+    };
+
+    const sinRevision = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send(payload)
+      .expect(422);
+    expect(sinRevision.body.error.codigo).toBe('OMR_REQUIERE_REVISION_MANUAL');
+
+    const revisada = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({ ...payload, omrAnalisis: { ...payload.omrAnalisis, revisionConfirmada: true } })
+      .expect(201);
+    expect(revisada.body.calificacion.respuestasDetectadas[0].opcion).toBe('A');
+    expect(revisada.body.calificacion.omrAuditoria.revisionConfirmada).toBe(true);
+    expect(revisada.body.calificacion.omrAuditoria.autoCalificableOmr).toBe(false);
+    expect(revisada.body.calificacion.omrAuditoria.usuarioRevisor).toBeTruthy();
+    expect(revisada.body.calificacion.omrAuditoria.revisionTimestamp).toBeTruthy();
+    expect(revisada.body.calificacion.omrAuditoria.qrValidationMode).toBe('manifest-exact');
   });
 
   it('rechaza paginasOmr sin omrAnalisis completo', async () => {

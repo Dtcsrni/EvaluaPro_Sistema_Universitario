@@ -51,10 +51,16 @@ export async function listarPeriodos(req: SolicitudDocente, res: Response) {
   }
 
   const rawPeriodos = await prisma.periodo.findMany(query);
+  const ids = rawPeriodos.map((periodo) => periodo.id);
+  const portadas = ids.length
+    ? await prisma.periodoPortada.findMany({ where: { periodoId: { in: ids } }, select: { periodoId: true } })
+    : [];
+  const idsConPortada = new Set(portadas.map((portada) => portada.periodoId));
   const periodos = rawPeriodos.map((p) => ({
     ...p,
     grupos: JSON.parse(p.grupos || '[]'),
-    resumenArchivado: p.resumenArchivado ? JSON.parse(p.resumenArchivado) : null
+    resumenArchivado: p.resumenArchivado ? JSON.parse(p.resumenArchivado) : null,
+    tienePortada: idsConPortada.has(p.id)
   }));
 
   res.json({ periodos });

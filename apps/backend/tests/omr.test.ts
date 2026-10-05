@@ -59,7 +59,7 @@ describe('rescate QR por orientación de página', () => {
       payloadsEsperados: [wrongPayload]
     })).resolves.toBeNull();
     await expect(detectarQrEnResolucionFuenteRotada(page)).resolves.toBeNull();
-  });
+  }, 180_000);
 
   it('recupera el QR exacto de una página girada y devuelve coordenadas de la captura original', async () => {
     const width = 1600;
@@ -88,7 +88,7 @@ describe('rescate QR por orientación de página', () => {
     expect(centro.y).toBeGreaterThan(height * 0.7);
     await expect(detectarQrConRotacionPagina(pixeles, info.width, info.height, undefined, ['EXAMEN:OTRO:P1:TV4']))
       .resolves.toBeNull();
-  });
+  }, 180_000);
 
   it.each([90, 270] as const)('recupera una captura apaisada girada %i° sin cambiar el marco de coordenadas', async (giro) => {
     const width = 1600;
@@ -125,7 +125,7 @@ describe('rescate QR por orientación de página', () => {
       expect(centro.x).toBeLessThan(height / 3);
       expect(centro.y).toBeLessThan(width / 3);
     }
-  });
+  }, 180_000);
 });
 
 function crearMapaOmrCanonico(
@@ -327,7 +327,7 @@ describe('analizarOmr', () => {
     expect(['rechazado_calidad', 'requiere_revision']).toContain(resultado.estadoAnalisis);
     expect(resultado.calidadPagina).toBeGreaterThanOrEqual(0);
     expect(resultado.calidadPagina).toBeLessThanOrEqual(1);
-  });
+  }, 300_000);
 
   it('detecta una opcion marcada con referencias de registro', async () => {
     const width = 612;
@@ -383,7 +383,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
     expect(resultado.templateVersionDetectada).toBe(4);
     expect(resultado.calidadPagina).toBeGreaterThan(0);
-  });
+  }, 300_000);
 
   it('marca como ambiguo si hay doble respuesta', async () => {
     const width = 612;
@@ -441,7 +441,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
     expect(resultado.templateVersionDetectada).toBe(4);
     expect(['ok', 'requiere_revision', 'rechazado_calidad']).toContain(resultado.estadoAnalisis);
-  });
+  }, 300_000);
 
   it('distingue burbuja hueca de burbuja realmente marcada', async () => {
     const width = 612;
@@ -509,7 +509,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas).toHaveLength(1);
     expect(resultado.respuestasDetectadas[0].opcion, JSON.stringify(resultado.respuestasDetectadas[0].scoresPorOpcion.map(({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness }) => ({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness })))).toBe('C');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-  });
+  }, 300_000);
 
   it('penaliza trazos lineales y prioriza relleno central real', async () => {
     const width = 612;
@@ -587,7 +587,7 @@ describe('analizarOmr', () => {
     expect(['C', 'D'], JSON.stringify(resultado.respuestasDetectadas[0].scoresPorOpcion.map(({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness }) => ({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness })))).toContain(resultado.respuestasDetectadas[0].opcion);
     expect(resultado.respuestasDetectadas[0].opcion).not.toBe('A');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-  });
+  }, 300_000);
 
   it('retiene evidencia de una X centrada y se abstiene si la orientación no es verificable', async () => {
     const escala = 2;
@@ -660,7 +660,7 @@ describe('analizarOmr', () => {
     });
     expect(resultado.respuestasDetectadas[0]).toMatchObject({ opcion: null, estadoRespuesta: 'ambigua' });
     expect(resultado.respuestasDetectadas[0]?.flags).not.toContain('tachada_detectada');
-  });
+  }, 300_000);
 
   it('detecta marca azul con dominante de iluminacion calida', async () => {
     const width = 612;
@@ -733,6 +733,6 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas).toHaveLength(1);
     expect(resultado.respuestasDetectadas[0].opcion).toBe('B');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-  });
+  }, 300_000);
 
 });

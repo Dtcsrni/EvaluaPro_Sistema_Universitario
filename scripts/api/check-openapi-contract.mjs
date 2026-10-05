@@ -53,6 +53,20 @@ for (const [route, method, operationId] of [
 ]) {
   if (spec.paths?.[route]?.[method]?.operationId !== operationId) errors.push(`Falta operación crítica ${method.toUpperCase()} ${route}`);
 }
+const portadaPath = spec.paths?.['/periodos/{periodoId}/portada'];
+const portadaGet = portadaPath?.get;
+const portadaPut = portadaPath?.put;
+if (portadaGet?.responses?.['200']?.content?.['image/webp']?.schema?.format !== 'binary'
+  || !portadaGet?.security?.some((security) => security.bearerAuth)
+  || !portadaGet?.['x-evaluapro-permissions']?.includes('periodos:leer')) {
+  errors.push('GET /periodos/{periodoId}/portada: debe declarar WebP binario, bearer y permiso periodos:leer');
+}
+if (portadaPut?.requestBody?.required !== true
+  || !portadaPut?.requestBody?.content?.['multipart/form-data']?.schema?.required?.includes('archivo')
+  || !portadaPut?.security?.some((security) => security.bearerAuth)
+  || !portadaPut?.['x-evaluapro-permissions']?.includes('periodos:gestionar')) {
+  errors.push('PUT /periodos/{periodoId}/portada: debe declarar archivo multipart requerido, bearer y permiso periodos:gestionar');
+}
 const omrPagePreview = spec.paths?.['/omr/ingestas/{jobId}/paginas/{pageIndex}/preview']?.get;
 if (omrPagePreview?.responses?.['200']?.content?.['image/png']?.schema?.format !== 'binary'
   || !omrPagePreview?.security?.some((security) => security.bearerAuth)

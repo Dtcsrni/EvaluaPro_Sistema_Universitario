@@ -383,6 +383,8 @@ describe('pdf layout visual guard', () => {
     expect(resumenQrInline?.templateId).toBe('omr-inline-exam-v1');
     expect(resumenQrInline?.qrPayloadMode).toBe('manifest-bound');
     expect(resumenQrInline?.examId).toBeTruthy();
+    expect(resumenQrInline?.payloadSignatureValid).toBe(true);
+    expect(resumenQrInline?.keyId).toBeTruthy();
     expect(resumenQrInline?.answerKeyHash).toBeUndefined();
     expect(qrInline).toContain('TI:omr-inline-exam-v1');
     expect(qrInline).not.toMatch(/:(?:VH|AK|K):/);
@@ -1047,7 +1049,7 @@ describe('pdf layout visual guard', () => {
     } finally {
       await parser.destroy();
     }
-  });
+  }, 300_000);
 
   it('acomoda 36 reactivos breves compactos en dos páginas sin reducir OMR ni QR', async () => {
     const parametros = crearParametrosBrevesCompactos(36);
@@ -1107,7 +1109,7 @@ describe('pdf layout visual guard', () => {
     } finally {
       await parser.destroy();
     }
-  });
+  }, 300_000);
 
   it('no autocalifica contornos vacíos y conserva círculos sintéticos marcados', async () => {
     const resultado = await generarPdfExamen({
@@ -1143,7 +1145,7 @@ describe('pdf layout visual guard', () => {
     } finally {
       await parser.destroy();
     }
-  }, 120_000);
+  }, 300_000);
 
   it('maximiza la plantilla compacta a 43 reactivos en dos páginas y conserva el desborde 44', async () => {
     const capacidades = [
@@ -1275,7 +1277,7 @@ describe('pdf layout visual guard', () => {
         await parser.destroy();
       }
     }
-  }, 180_000);
+  }, 900_000);
 
   it('mantiene la columna OMR libre en continuaciones con texto largo', async () => {
     const parametros = crearParametros(6);

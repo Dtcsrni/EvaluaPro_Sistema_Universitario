@@ -17,7 +17,7 @@ on:
 
 concurrency:
   group: release-stable-gate-${{ github.workflow }}-${{ inputs.version || github.ref_name || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
