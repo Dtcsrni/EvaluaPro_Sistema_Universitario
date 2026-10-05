@@ -93,6 +93,7 @@ export type Plantilla = {
     captureMode?: 'pdf_and_mobile';
   };
   periodoId?: string;
+  archivadoEn?: string;
   preguntasIds?: string[];
   temas?: string[];
   instrucciones?: string;
@@ -102,6 +103,7 @@ export type Plantilla = {
 export type PreviewPlantilla = {
   // Clasico (previsualizar plantilla tradicional)
   plantillaId?: string;
+  layoutConfirmado?: boolean;
   numeroPaginas?: number;
   totalDisponibles?: number;
   totalUsados?: number;

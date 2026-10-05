@@ -45,6 +45,7 @@ export async function generarPdfExamen({
     autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
+    distribuirEnPaginasObjetivo?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
   encabezado?: {

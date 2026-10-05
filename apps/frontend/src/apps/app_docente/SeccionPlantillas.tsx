@@ -91,6 +91,7 @@ function leerTabPlantillasInicial(): TabPlantillas {
 export function SeccionPlantillas({
   plantillas,
   periodos,
+  periodosArchivados = [],
   preguntas,
   alumnos,
   permisos,
@@ -111,6 +112,7 @@ export function SeccionPlantillas({
 }: {
   plantillas: Plantilla[];
   periodos: Periodo[];
+  periodosArchivados?: Periodo[];
   preguntas: Pregunta[];
   alumnos: Alumno[];
   permisos: PermisosUI;
@@ -208,6 +210,26 @@ export function SeccionPlantillas({
   const puedeAnalizarOmr = permisos.omr.analizar;
   const puedeGestionarPlantillas = permisos.plantillas.gestionar;
   const puedeArchivarPlantillas = permisos.plantillas.archivar;
+  const [plantillasArchivadasGeneracion, setPlantillasArchivadasGeneracion] = useState<Plantilla[]>([]);
+
+  useEffect(() => {
+    if (tabActiva !== 'generacion' || !permisos.plantillas.leer) return;
+    let vigente = true;
+    void clienteApi.obtener<{ plantillas?: Plantilla[] }>('/examenes/plantillas?archivado=true')
+      .then((respuesta) => {
+        const ahora = Date.now();
+        const periodosCerrados = new Set(periodosArchivados
+          .filter((periodo) => Number.isFinite(Date.parse(String(periodo.fechaFin ?? ''))) && Date.parse(String(periodo.fechaFin)) < ahora)
+          .map((periodo) => periodo._id));
+        const plantillasDePeriodosCerrados = (Array.isArray(respuesta.plantillas) ? respuesta.plantillas : [])
+          .filter((plantilla) => Boolean(plantilla.archivadoEn) && periodosCerrados.has(String(plantilla.periodoId ?? '')));
+        if (vigente) setPlantillasArchivadasGeneracion(plantillasDePeriodosCerrados);
+      })
+      .catch((error) => {
+        if (vigente) setMensajeGeneracion(mensajeDeError(error, 'No se pudieron cargar las plantillas de materias cerradas'));
+      });
+    return () => { vigente = false; };
+  }, [periodosArchivados, permisos.plantillas.leer, tabActiva]);
   const puedePrevisualizarPlantillas = permisos.plantillas.previsualizar;
   const bloqueoEdicion = !puedeGestionarPlantillas;
 
@@ -241,8 +263,8 @@ export function SeccionPlantillas({
   }, []);
 
   const plantillaSeleccionada = useMemo(() => {
-    return (Array.isArray(plantillas) ? plantillas : []).find((p) => p._id === plantillaId) ?? null;
-  }, [plantillas, plantillaId]);
+    return [...plantillas, ...plantillasArchivadasGeneracion].find((p) => p._id === plantillaId) ?? null;
+  }, [plantillas, plantillasArchivadasGeneracion, plantillaId]);
 
   const plantillaEditando = useMemo(() => {
     if (!plantillaEditandoId) return null;
@@ -678,7 +700,7 @@ export function SeccionPlantillas({
     },
     [avisarSinPermiso, cargarExamenesGenerados, confirm, enviarConPermiso, puedeArchivarExamenes, restaurandoLoteId, setMensajeGeneracion]
   );
-  const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
+  const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla, previsualizarPdfConfirmado } =
     usePlantillasPreviewActions({
       puedePrevisualizarPlantillas,
       avisarSinPermiso,
@@ -1300,7 +1322,10 @@ export function SeccionPlantillas({
       if (loteRespuesta.toUpperCase() !== loteCliente.toUpperCase()) {
         throw new Error('El servidor respondió con otro identificador de lote. No se marcará como listo.');
       }
-      validarResumenLoteGenerado(payload ?? {}, totalAlumnos, Number(plantillaSeleccionada?.numeroPaginas ?? 0));
+      const paginasMaximasPorExamen = tipoExamen === 'extraordinario' && Boolean(plantillaSeleccionada?.archivadoEn)
+        ? 4
+        : Number(plantillaSeleccionada?.numeroPaginas ?? 0);
+      validarResumenLoteGenerado(payload ?? {}, totalAlumnos, paginasMaximasPorExamen);
       await consultarProgreso(loteRespuesta);
       setProgresoLoteGeneracion({
         loteId: loteRespuesta,
@@ -1584,20 +1609,21 @@ export function SeccionPlantillas({
           <PlantillasConsolaGeneracion
             plantillaId={plantillaId}
             setPlantillaId={setPlantillaId}
-            plantillas={plantillas}
+            plantillas={[...plantillas, ...plantillasArchivadasGeneracion]}
             alumnos={alumnos}
             generando={generando}
             puedeGenerar={puedeGenerar}
             onGenerarExamen={generarExamen}
             generandoLote={generandoLote}
             plantillaSeleccionada={plantillaSeleccionada}
-            periodos={periodos}
+            periodos={[...periodos, ...periodosArchivados]}
             puedeGenerarExamenes={puedeGenerarExamenes}
             onGenerarExamenesLote={generarExamenesLote}
             mensajeGeneracion={mensajeGeneracion}
             lotePdfUrl={lotePdfUrl}
             descargarPdfLote={descargarPdfLote}
             progresoLoteGeneracion={progresoLoteGeneracion}
+            onPrevisualizarExtraordinario={previsualizarPdfConfirmado}
             onIrAHistorial={() => cambiarTab('historial')}
           />
         </div>

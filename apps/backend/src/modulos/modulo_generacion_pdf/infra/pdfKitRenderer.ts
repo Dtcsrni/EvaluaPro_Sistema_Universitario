@@ -3198,7 +3198,9 @@ export class PdfKitRenderer {
       // En continuacion, el primer reactivo usa la izquierda del QR y su
       // panel se baja por separado; no es necesario desperdiciar toda la
       // franja superior solo por la reserva derecha.
-      const yZonaContenido = yZonaContenidoBase;
+      const yZonaContenido = examen.layout.distribuirEnPaginasObjetivo && !esPrimera && stapleKeepOutZone
+        ? Math.min(yZonaContenidoBase, stapleKeepOutZone.y - mmAPuntos(2))
+        : yZonaContenidoBase;
       const cursorYInicio = snapToGrid(yZonaContenido);
       if (esPrimera && cursorYInicio >= yCaja) {
         throw new Error('Layout invalido: el contenido invade el encabezado de la primera pagina');
@@ -3669,6 +3671,14 @@ export class PdfKitRenderer {
         maxPreguntasPorPagina,
         !esPrimera ? capacidadPanelContinuacion : maxPreguntasPorPagina
       );
+      const preguntasRestantesParaDistribuir = totalPreguntas - indicePregunta;
+      const paginasObjetivoRestantes = paginasObjetivo - numeroPagina + 1;
+      const topeDistribuido = examen.layout.distribuirEnPaginasObjetivo && paginasObjetivoRestantes > 0
+        ? Math.ceil(preguntasRestantesParaDistribuir / paginasObjetivoRestantes)
+        : topePaginaActual;
+      const topePreguntasPlanPagina = examen.layout.distribuirEnPaginasObjetivo
+        ? Math.min(topePaginaActual, Math.max(1, topeDistribuido))
+        : topePaginaActual;
       // La separación funcional ya está contenida en `separacionPregunta` y
       // en la línea divisoria. No se redistribuye el sobrante de la página:
       // hacerlo producía huecos grandes entre reactivos, especialmente cuando
@@ -3687,7 +3697,7 @@ export class PdfKitRenderer {
         }
         return { yBase, yRender };
       };
-      while (indicePregunta + planPagina.length < preguntasOrdenadas.length && planPagina.length < topePaginaActual) {
+      while (indicePregunta + planPagina.length < preguntasOrdenadas.length && planPagina.length < topePreguntasPlanPagina) {
         const preguntaPlan = preguntasOrdenadas[indicePregunta + planPagina.length];
         if (!preguntaPlan) break;
         const limiteDerechoPlan = !esPrimera && planPagina.length === 0 ? xDerechaTextoContinuacion : xDerechaTexto;

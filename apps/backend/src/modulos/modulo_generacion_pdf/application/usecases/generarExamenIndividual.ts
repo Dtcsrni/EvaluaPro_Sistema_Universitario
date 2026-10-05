@@ -118,6 +118,7 @@ export async function generarExamenIndividual(
       densityMode: params.bookletConfig?.densityMode,
       fontScale,
       lineSpacing,
+      distribuirEnPaginasObjetivo: params.bookletConfig?.distribuirEnPaginasObjetivo === true || params.tipoExamen === 'extraordinario',
       logos: params.bookletConfig?.logos
     },
     params.encabezado

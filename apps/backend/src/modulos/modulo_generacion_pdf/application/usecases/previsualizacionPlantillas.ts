@@ -182,21 +182,32 @@ function construirPaginasSketch(params: {
 
 async function resolverContextoPreview(docenteId: unknown, plantillaId: string) {
   const plantilla = await obtenerPlantillaDocente(docenteId, plantillaId);
+  const periodoResuelto = await resolverPeriodoPlantillaActivo(plantilla, { permitirArchivado: true, docenteId });
+  const permitirArchivados = Boolean(plantilla.archivadoEn) && periodoResuelto?.activo === false;
+  if (periodoResuelto?.activo === false && !permitirArchivados) {
+    throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
+  }
   const { preguntasDb, temas } = await resolverPreguntasPlantilla({
     docenteId,
     plantilla: plantilla as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] },
-    ordenarPorRecencia: true
+    ordenarPorRecencia: true,
+    permitirArchivados
   });
 
   if (preguntasDb.length === 0) {
     throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas disponibles para previsualizar', 400);
   }
 
-  const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
+  // Un extraordinario desde un periodo archivado se imprime en dos hojas
+  // dúplex. Este formato no modifica el número configurado en el global fuente.
+  const esExtraordinarioArchivado = Boolean(plantilla.archivadoEn) && periodoResuelto?.activo === false;
+  const numeroPaginas = esExtraordinarioArchivado
+    ? 4
+    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const preguntasFingerprint = construirFingerprintPreguntasPreview(preguntasDb);
   const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
-  const layoutFingerprint = `${construirFingerprintLayoutPreview()}|${omrTemplateId}`;
+  const layoutFingerprint = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? '|extra-duplex-4p-v1' : ''}`;
   const layoutValidado = resolverLayoutValidadoPlantilla({
     plantilla: plantilla as { bookletConfig?: unknown },
     preguntasFingerprint,
@@ -207,6 +218,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   });
   const bookletConfig = {
     ...(plantilla.bookletConfig ?? {}),
+    distribuirEnPaginasObjetivo: esExtraordinarioArchivado,
     autoFitPages: layoutValidado ? false : true,
     autoFitTypography: layoutValidado ? false : true,
     fontScale: layoutValidado?.fontScale ?? 1,
@@ -215,10 +227,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   const seed = hash32(String(plantilla._id));
   const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, seed);
   const mapaVarianteDet = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}`);
-  const [periodo, docenteDb] = await Promise.all([
-    resolverPeriodoPlantillaActivo(plantilla as { periodoId?: unknown }),
-    resolverDocentePdf(docenteId)
-  ]);
+  const docenteDb = await resolverDocentePdf(docenteId);
   const templateVersionOmr = resolverTemplateVersionOmr({
     docenteId,
     periodoId: plantilla.periodoId,
@@ -232,7 +241,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
     preguntasCandidatas,
     mapaVarianteDet,
     numeroPaginas,
-    periodo,
+    periodo: periodoResuelto,
     docenteDb,
     temas,
     templateVersionOmr,
@@ -280,7 +289,9 @@ export async function previsualizarPlantillaUseCase(params: {
     examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
     preguntas: contexto.preguntasCandidatas,
     mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
-    tipoExamen: contexto.plantilla.tipo as 'parcial' | 'global',
+    tipoExamen: contexto.periodo?.activo === false && contexto.plantilla.archivadoEn
+      ? 'extraordinario'
+      : contexto.plantilla.tipo as 'parcial' | 'global',
     totalPaginas: contexto.numeroPaginas,
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
@@ -305,7 +316,7 @@ export async function previsualizarPlantillaUseCase(params: {
       numeroPaginas: contexto.numeroPaginas,
       totalPreguntas: contexto.preguntasBase.length,
       temas: contexto.temas,
-      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb)
+      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false })
     });
   }
 
@@ -347,6 +358,7 @@ export async function previsualizarPlantillaUseCase(params: {
 
   return {
     plantillaId: String(contexto.plantilla._id),
+    layoutConfirmado: previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas,
     numeroPaginas: contexto.numeroPaginas,
     numeroPaginasConfiguradas: contexto.numeroPaginas,
     totalDisponibles,
@@ -421,7 +433,9 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
     preguntas: contexto.preguntasCandidatas,
     mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
-    tipoExamen: contexto.plantilla.tipo as 'parcial' | 'global',
+    tipoExamen: contexto.periodo?.activo === false && contexto.plantilla.archivadoEn
+      ? 'extraordinario'
+      : contexto.plantilla.tipo as 'parcial' | 'global',
     totalPaginas: contexto.numeroPaginas,
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
@@ -446,7 +460,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
       numeroPaginas: contexto.numeroPaginas,
       totalPreguntas: contexto.preguntasBase.length,
       temas: contexto.temas,
-      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb)
+      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false })
     });
   }
 

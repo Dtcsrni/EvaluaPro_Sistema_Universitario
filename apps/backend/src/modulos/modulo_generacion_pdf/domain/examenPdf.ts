@@ -23,6 +23,7 @@ export interface LayoutExamenConfig {
   densityMode?: ModoDensidadBooklet;
   fontScale?: number;
   lineSpacing?: number;
+  distribuirEnPaginasObjetivo?: boolean;
   logos?: { izquierdaPath?: string; derechaPath?: string };
 }
 
