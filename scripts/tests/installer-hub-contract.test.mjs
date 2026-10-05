@@ -492,11 +492,13 @@ test('install y repair detienen procesos Node propios antes de configurar y reem
   const end = helper.indexOf('function Get-EvaluaProOwnedNodeProcessIds', start);
   assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install');
   const postInstall = helper.slice(start, end);
-  const installOrRepairGuard = postInstall.indexOf("if ($Mode -in @('install', 'repair'))");
+  const requestMode = postInstall.indexOf("$installMode = [string](Get-RequestValue -Request $requestJson -Names @('mode', 'Mode') -DefaultValue 'install')");
+  const installOrRepairGuard = postInstall.indexOf("if ($installMode.Trim().ToLowerInvariant() -in @('install', 'repair'))");
   const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', installOrRepairGuard);
   const runtimeConfiguration = postInstall.indexOf('Ensure-InstallerRuntimeContract -TargetDir $targetDir', installOrRepairGuard);
   const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', installOrRepairGuard);
 
+  assert.ok(requestMode >= 0 && requestMode < installOrRepairGuard, 'el modo install/repair debe obtenerse del request; el argumento CLI solo admite post-install');
   assert.ok(installOrRepairGuard >= 0 && stopProcesses > installOrRepairGuard, 'install y repair deben detener los procesos propios');
   assert.ok(runtimeConfiguration > stopProcesses, 'los procesos deben terminar antes de modificar configuración');
   assert.ok(expandPayload > stopProcesses, 'los procesos deben terminar antes de reemplazar archivos');
