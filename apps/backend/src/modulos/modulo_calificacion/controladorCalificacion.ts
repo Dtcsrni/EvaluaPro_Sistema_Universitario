@@ -712,7 +712,8 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     calidadPagina,
     confianzaPromedioPagina,
     ratioAmbiguas,
-    coberturaDeteccion
+    coberturaDeteccion,
+    respuestasDetectadas: respuestas
   });
   const autoCalificableOmr = templateIdOmr !== 'omr-inline-exam-v1' && cumpleUmbralAutomatico;
 

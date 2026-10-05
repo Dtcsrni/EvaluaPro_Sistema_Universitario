@@ -17,14 +17,15 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
     const mapa = (volteo: 'borde-largo' | 'borde-corto', toleranciaRegistroMm: number): MapaOmr => ({
       margenMm: 8,
       templateVersion: 4,
+      templateId: 'omr-canonical-v4',
       impresion: { modo: 'duplex', volteo, paginasPorHoja: 2, toleranciaRegistroMm },
       perfilLayout: {} as MapaOmr['perfilLayout'],
       perfil: { burbujaRadio: 8.5 } as MapaOmr['perfil'],
       paginas: [
-        { numeroPagina: 1, duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 }, preguntas: [
+        { numeroPagina: 1, templateId: 'omr-canonical-v4', duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 }, preguntas: [
           { numeroPregunta: 1, idPregunta: 'q1', opciones: [{ letra: 'A', x: 100, y: 100 }] }
         ] },
-        { numeroPagina: 2, duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 }, preguntas: [
+        { numeroPagina: 2, templateId: 'omr-canonical-v4', duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 }, preguntas: [
           { numeroPregunta: 2, idPregunta: 'q2', opciones: [{ letra: 'A', x: 492, y: 100 }] }
         ] }
       ]
@@ -34,6 +35,151 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
     expect(() => validarSeparacionDuplexOmr(mapa('borde-largo', 3))).toThrow(/Plantilla OMR dúplex insegura/);
     expect(detectarColisionesDuplexOmr(mapa('borde-corto', 3))).toHaveLength(0);
     expect(detectarColisionesDuplexOmr(mapa('borde-largo', 1))).toHaveLength(0);
+  });
+
+  it('rechaza texto del reverso detrás de una burbuja después del volteo dúplex', () => {
+    const mapa: MapaOmr = {
+      margenMm: 8,
+      templateVersion: 4,
+      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 3 },
+      perfilLayout: {} as MapaOmr['perfilLayout'],
+      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
+      paginas: [
+        { numeroPagina: 1, duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 }, preguntas: [
+          { numeroPregunta: 1, idPregunta: 'q1', opciones: [{ letra: 'A', x: 100, y: 100, radio: 8 }] }
+        ] },
+        { numeroPagina: 2, duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 }, preguntas: [
+          {
+            numeroPregunta: 2,
+            idPregunta: 'q2',
+            opciones: [],
+            textRuns: [{ tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 503, y: 96, width: 20, height: 9 } }]
+          }
+        ] }
+      ]
+    };
+
+    const colisiones = detectarColisionesDuplexOmr(mapa);
+    expect(colisiones.some((item) => item.tipo === 'burbuja-con-tinta-reverso')).toBe(true);
+    expect(() => validarSeparacionDuplexOmr(mapa)).toThrow(/contenido impreso detrás de una zona OMR/);
+  });
+
+  it('rechaza texto del frente detrás de una burbuja del reverso', () => {
+    const mapa: MapaOmr = {
+      margenMm: 8,
+      templateVersion: 4,
+      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 1 },
+      perfilLayout: {} as MapaOmr['perfilLayout'],
+      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
+      paginas: [
+        {
+          numeroPagina: 1,
+          duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 },
+          preguntas: [{
+            numeroPregunta: 1,
+            idPregunta: 'q1',
+            opciones: [],
+            textRuns: [{ tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 100, y: 96, width: 20, height: 9 } }]
+          }]
+        },
+        {
+          numeroPagina: 2,
+          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
+          preguntas: [{ numeroPregunta: 2, idPregunta: 'q2', opciones: [{ letra: 'A', x: 503, y: 100, radio: 8 }] }]
+        }
+      ]
+    };
+
+    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'burbuja-con-tinta-reverso')).toBe(true);
+  });
+
+  it('rechaza tinta del reverso detrás de la reserva completa del QR', () => {
+    const mapa: MapaOmr = {
+      margenMm: 8,
+      templateVersion: 4,
+      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 1 },
+      perfilLayout: {} as MapaOmr['perfilLayout'],
+      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
+      paginas: [
+        {
+          numeroPagina: 1,
+          duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 },
+          qr: { texto: 'qr', x: 500, y: 700, size: 32, padding: 3, marginModules: 4 },
+          preguntas: []
+        },
+        {
+          numeroPagina: 2,
+          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
+          preguntas: [{
+            numeroPregunta: 2,
+            idPregunta: 'q2',
+            opciones: [],
+            textRuns: [{ tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 103, y: 706, width: 12, height: 8 } }]
+          }]
+        }
+      ]
+    };
+
+    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'qr-con-tinta-reverso')).toBe(true);
+  });
+
+  it('rechaza una imagen del reverso detrás de una burbuja', () => {
+    const mapa: MapaOmr = {
+      margenMm: 8,
+      templateVersion: 4,
+      templateId: 'omr-inline-exam-v1',
+      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 1 },
+      perfilLayout: {} as MapaOmr['perfilLayout'],
+      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
+      paginas: [
+        {
+          numeroPagina: 1,
+          templateId: 'omr-inline-exam-v1',
+          duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 },
+          preguntas: [{ numeroPregunta: 1, idPregunta: 'q1', opciones: [{ letra: 'A', x: 100, y: 100, radio: 8 }] }]
+        },
+        {
+          numeroPagina: 2,
+          templateId: 'omr-inline-exam-v1',
+          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
+          preguntas: [{ numeroPregunta: 2, idPregunta: 'q2', opciones: [], imagen: { x: 503, y: 96, width: 20, height: 9 } }]
+        }
+      ]
+    };
+
+    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'burbuja-con-tinta-reverso')).toBe(true);
+  });
+
+  it('rechaza texto del reverso detrás de un fiducial de página', () => {
+    const marcas = {
+      tipo: 'cuadrados' as const,
+      size: 4,
+      quietZone: 2,
+      tl: { x: 10, y: 782 }, tr: { x: 602, y: 782 },
+      bl: { x: 10, y: 10 }, br: { x: 602, y: 10 }
+    };
+    const mapa: MapaOmr = {
+      margenMm: 8,
+      templateVersion: 4,
+      templateId: 'omr-inline-exam-v1',
+      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 0 },
+      perfilLayout: {} as MapaOmr['perfilLayout'],
+      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
+      paginas: [
+        { numeroPagina: 1, templateId: 'omr-inline-exam-v1', duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 }, marcasPagina: marcas, preguntas: [] },
+        {
+          numeroPagina: 2,
+          templateId: 'omr-inline-exam-v1',
+          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
+          marcasPagina: marcas,
+          preguntas: [{ numeroPregunta: 2, idPregunta: 'q2', opciones: [], textRuns: [
+            { tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 590, y: 780, width: 10, height: 3 } }
+          ] }]
+        }
+      ]
+    };
+
+    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'fiducial-con-tinta-reverso')).toBe(true);
   });
 
   it('ubica GRAPA dentro de una reserva punteada, Ecofont y geometría libre de señales OMR', async () => {
