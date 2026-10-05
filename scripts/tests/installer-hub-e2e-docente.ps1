@@ -1191,12 +1191,29 @@ function Invoke-CaptureCommand {
   
   $exitCode = $process.ExitCode
   if ($null -eq $exitCode) {
-    Write-E2ELog "WARNING: ExitCode was null for $Name. Falling back to 0 (Success) since process exited."
-    $exitCode = 0
+    throw "No se pudo determinar ExitCode de $Name; se aborta para no aceptar un proceso indeterminado como exitoso."
   }
   
   Add-Result -Area 'command' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
   if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
+}
+
+function Test-MsiPackageFile {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  # Burn extracts attached payloads with opaque names (for example, a0).
+  # MSI files use the OLE Compound File signature, so identify the package by bytes.
+  $expectedSignature = [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1)
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    if ($stream.Length -lt $expectedSignature.Length) { return $false }
+    $signature = New-Object byte[] $expectedSignature.Length
+    $read = $stream.Read($signature, 0, $signature.Length)
+    if ($read -ne $expectedSignature.Length) { return $false }
+    return [Convert]::ToBase64String($signature) -eq [Convert]::ToBase64String($expectedSignature)
+  } finally {
+    $stream.Dispose()
+  }
 }
 
 function Export-RuntimeAudit {
@@ -1346,10 +1363,13 @@ function Install-OfficialUpgradeBaselineMsi {
   $quotedExtractRoot = '"' + (([IO.Path]::GetFullPath($extractRoot)) -replace '"', '\"') + '"'
   Invoke-CaptureCommand -Name 'upgrade-baseline-wix-extract' -FilePath $wixCommand.Source -ArgumentList @('burn', 'extract', $quotedBundle, '-out', $quotedExtractRoot) -WorkingDirectory $root -TimeoutSec 300
 
-  $baselineMsis = @(Get-ChildItem -LiteralPath $extractRoot -Filter 'EvaluaPro-docente-local.msi' -File -Recurse)
-  if ($baselineMsis.Count -ne 1) { throw "El bundle oficial v1.2.3 debe contener exactamente un MSI docente; encontrados=$($baselineMsis.Count)." }
+  $baselineMsis = @(Get-ChildItem -LiteralPath $extractRoot -File -Recurse | Where-Object { Test-MsiPackageFile -Path $_.FullName })
+  if ($baselineMsis.Count -ne 1) { throw "El bundle oficial v1.2.3 debe contener exactamente un payload MSI; encontrados=$($baselineMsis.Count)." }
+  $baselineMsiPath = Join-Path $extractRoot 'EvaluaPro-docente-local.msi'
+  if (Test-Path -LiteralPath $baselineMsiPath) { throw 'La ruta MSI normalizada ya existe dentro del staging de extracción.' }
+  Move-Item -LiteralPath $baselineMsis[0].FullName -Destination $baselineMsiPath
 
-  $quotedMsi = '"' + (($baselineMsis[0].FullName) -replace '"', '\"') + '"'
+  $quotedMsi = '"' + ($baselineMsiPath -replace '"', '\"') + '"'
   $quotedInstallRoot = '"' + ([IO.Path]::GetFullPath($installedRoot) -replace '"', '\"') + '"'
   Invoke-CaptureCommand -Name 'upgrade-baseline-msi-install' -FilePath 'msiexec.exe' -ArgumentList @(
     '/i', $quotedMsi,

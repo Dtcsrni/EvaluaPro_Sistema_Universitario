@@ -15,11 +15,20 @@ test('upgrade E2E verifica el bundle oficial v1.2.3 y prepara su MSI extraído',
   assert.match(e2e, /Get-FileHash -LiteralPath \$resolvedPath -Algorithm SHA256/);
   assert.match(e2e, /Assert-OfficialUpgradeBaseline -Path \$BaselinePath/);
   assert.match(e2e, /function Install-OfficialUpgradeBaselineMsi/);
+  assert.match(e2e, /function Test-MsiPackageFile/);
+  assert.match(e2e, /0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1/);
   assert.match(e2e, /wixCommand\.Source -ArgumentList @\('burn', 'extract'/);
   assert.match(e2e, /EvaluaPro-docente-local\.msi/);
+  assert.match(e2e, /Where-Object \{ Test-MsiPackageFile -Path \$_.FullName \}/);
+  assert.match(e2e, /Move-Item -LiteralPath \$baselineMsis\[0\]\.FullName -Destination \$baselineMsiPath/);
   assert.match(e2e, /REQUIRE_INSTALLER_HUB=1/);
   assert.match(e2e, /Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath \$verifiedBaseline/);
   assert.match(e2e, /baselineVersion -ne \[version\]'1\.2\.3'/);
+});
+
+test('runner E2E aborta si no puede obtener ExitCode, nunca convierte estado desconocido en éxito', () => {
+  assert.match(e2e, /if \(\$null -eq \$exitCode\) \{\s*throw "No se pudo determinar ExitCode de \$Name/);
+  assert.doesNotMatch(e2e, /Falling back to 0 \(Success\)/);
 });
 
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
