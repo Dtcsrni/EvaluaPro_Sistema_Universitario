@@ -83,7 +83,13 @@ export function BancoImportacionReactivos({
     setCargandoHistorial(true);
     void clienteApi.obtener<{ importaciones?: ImportHistoryEntry[] }>('/banco-preguntas/importaciones?limite=50')
       .then((resultado) => {
-        if (vigente) setHistorialImportaciones(Array.isArray(resultado.importaciones) ? resultado.importaciones : []);
+        if (vigente) {
+          const importaciones = Array.isArray(resultado.importaciones) ? resultado.importaciones : [];
+          setHistorialImportaciones(importaciones.map((item) => ({
+            ...item,
+            rows: Array.isArray(item.rows) ? item.rows : []
+          })));
+        }
       })
       .catch(() => {
         if (vigente) setHistorialImportaciones([]);
