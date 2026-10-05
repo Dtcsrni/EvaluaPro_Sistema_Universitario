@@ -166,7 +166,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
   assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*installer_windows/);
   assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@[0-9a-f]{40} # v6/);
-  assert.match(workflow, /name: Publicar release assets \(tags v\*\)[\s\S]*?softprops\/action-gh-release@[0-9a-f]{40} # v2/);
+  assert.match(workflow, /name: Preparar release como borrador hasta validar el asset descargado[\s\S]*?softprops\/action-gh-release@[0-9a-f]{40} # v2/);
   assert.match(workflow, /make_latest:\s*false/);
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*read/);
   assert.match(workflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
@@ -341,6 +341,7 @@ test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   assert.match(helper, /programDataRoot/);
   assert.match(helper, /Join-Path \$programDataRoot 'EvaluaPro'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix/);
+  assert.match(helper, /if \(\$isQaInstall\) \{ \$requestedDatabaseUrl = \$localDatabaseUrl \}/);
   assert.match(helper, /localDataDir = Join-Path \$localDataRoot 'data'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix,[\s\S]*?\$effectiveDatabaseUrl = \$defaultDatabaseUrl/);
 });
@@ -355,7 +356,11 @@ test('runner dummy usa API docente y no confunde puerto web del dashboard', () =
   assert.match(runner, /dummy-data-cycle\.stderr\.log/);
   assert.match(runner, /WaitForExit\(180000\)/);
   assert.match(runner, /\$seedResult\.verificado -eq \$true/);
-  assert.match(runner, /\$cleanup -contains 'alumnos-local:3'/);
+  assert.match(runner, /Resolve-InstalledSqlitePath/);
+  assert.match(runner, /EVALUAPRO_DATABASE_URL/);
+  assert.match(runner, /\$seedResult\.cleanupVerified -eq \$true/);
+  assert.doesNotMatch(runner, /\$cleanup -contains 'alumnos-local:3'/);
+  assert.doesNotMatch(runner, /\$cleanup -contains 'materias-local:3'/);
   assert.match(runner, /\$cleanup -contains 'cuenta:local-db'/);
 });
 
@@ -364,6 +369,11 @@ test('fallback dummy queda confinado a SQLite bajo LOCALAPPDATA', () => {
   assert.doesNotMatch(seed, /V:\/Software\/EvaluaPro\/apps\/backend\/data\/evaluapro\.db/);
   assert.match(seed, /E2E_DOCENTE_SQLITE_PATH/);
   assert.match(seed, /LOCALAPPDATA/);
+  assert.match(seed, /realpath\(sqlitePath\)/);
+  assert.match(seed, /cleanupVerified = true/);
+  assert.match(seed, /prisma\.papeleraItem\.deleteMany/);
+  assert.match(seed, /await cleanupLocalFallback\(\)/);
+  assert.match(seed, /cuentasRestantes/);
 });
 
 test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {

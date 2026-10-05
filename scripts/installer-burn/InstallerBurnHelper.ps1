@@ -325,10 +325,11 @@ function Write-InstallerRuntimeEnv {
   if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
   $targetFullPath = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
   $qaRootPrefix = (Join-Path $localAppData 'EvaluaPro-QA-Isolated-').TrimEnd('\')
+  $isQaInstall = $targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)
   $programDataRoot = [string]$env:ProgramData
   if ([string]::IsNullOrWhiteSpace($programDataRoot)) { $programDataRoot = 'C:\ProgramData' }
   $localDataRoot = if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local') {
-    if ($targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    if ($isQaInstall) {
       $targetFullPath
     } else {
       Join-Path $programDataRoot 'EvaluaPro'
@@ -340,6 +341,7 @@ function Write-InstallerRuntimeEnv {
   if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
   $localDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
   $requestedDatabaseUrl = [string](Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue $localDatabaseUrl)
+  if ($isQaInstall) { $requestedDatabaseUrl = $localDatabaseUrl }
   Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL' -Value $requestedDatabaseUrl
   Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value $requestedDatabaseUrl
   Set-InstallerEnvValue -Map $envMap -Key 'NODE_ENV' -Value (Get-RequestConfigValue -Request $Request -Name 'nodeEnv' -DefaultValue 'production')

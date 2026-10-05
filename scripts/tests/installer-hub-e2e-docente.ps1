@@ -773,16 +773,26 @@ function Invoke-InstallerHubMode {
   }
   Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "before-$Mode"
   $previousQaInstallDir = $env:EVALUAPRO_QA_INSTALL_DIR
+  $previousDatabaseUrl = $env:EVALUAPRO_DATABASE_URL
   $env:EVALUAPRO_QA_INSTALL_DIR = $installedRoot
-  $process = if ($arguments) {
-    Start-Process -FilePath $BundlePath -ArgumentList $arguments -PassThru -WindowStyle Normal
-  } else {
-    Start-Process -FilePath $BundlePath -PassThru -WindowStyle Normal
-  }
-  if ($null -eq $previousQaInstallDir) {
-    Remove-Item Env:EVALUAPRO_QA_INSTALL_DIR -ErrorAction SilentlyContinue
-  } else {
-    $env:EVALUAPRO_QA_INSTALL_DIR = $previousQaInstallDir
+  $env:EVALUAPRO_DATABASE_URL = 'file:' + ((Join-Path $installedRoot 'data\evaluapro.db') -replace '\\', '/')
+  try {
+    $process = if ($arguments) {
+      Start-Process -FilePath $BundlePath -ArgumentList $arguments -PassThru -WindowStyle Normal
+    } else {
+      Start-Process -FilePath $BundlePath -PassThru -WindowStyle Normal
+    }
+  } finally {
+    if ($null -eq $previousQaInstallDir) {
+      Remove-Item Env:EVALUAPRO_QA_INSTALL_DIR -ErrorAction SilentlyContinue
+    } else {
+      $env:EVALUAPRO_QA_INSTALL_DIR = $previousQaInstallDir
+    }
+    if ($null -eq $previousDatabaseUrl) {
+      Remove-Item Env:EVALUAPRO_DATABASE_URL -ErrorAction SilentlyContinue
+    } else {
+      $env:EVALUAPRO_DATABASE_URL = $previousDatabaseUrl
+    }
   }
   $processes.Add($process) | Out-Null
   Write-E2ELog "Installer Hub iniciado mode=$Mode bundle=$BundlePath pid=$($process.Id)"
@@ -1316,7 +1326,7 @@ function Invoke-UpgradeDataMarker {
     [Parameter(Mandatory = $true)][ValidateSet('write', 'verify', 'remove')][string]$Action,
     [Parameter(Mandatory = $true)][string]$Marker
   )
-  $databasePath = Join-Path $installedRoot 'data\evaluapro.db'
+  $databasePath = Resolve-InstalledSqlitePath
   $nodePath = Join-Path $installedRoot 'runtime\node\node.exe'
   if (-not (Test-Path -LiteralPath $databasePath)) { throw "No existe la base instalada para probar upgrade: $databasePath" }
   if (-not (Test-Path -LiteralPath $nodePath)) { throw "No existe Node empaquetado para probar upgrade: $nodePath" }
@@ -1372,6 +1382,28 @@ function Invoke-UpgradeBaselineFlow {
   }
 }
 
+function Resolve-InstalledSqlitePath {
+  $envFile = Join-Path $installedRoot '.env'
+  if (-not (Test-Path -LiteralPath $envFile -PathType Leaf)) { throw "No existe la configuración de base instalada: $envFile" }
+  $values = @{}
+  foreach ($line in Get-Content -LiteralPath $envFile) {
+    if ($line -match '^\s*(BACKEND_DATABASE_URL|DATABASE_URL)\s*=\s*(.*?)\s*$') {
+      $values[$matches[1]] = $matches[2].Trim().Trim('"').Trim("'")
+    }
+  }
+  $databaseUrl = [string]$values['BACKEND_DATABASE_URL']
+  if ([string]::IsNullOrWhiteSpace($databaseUrl)) { $databaseUrl = [string]$values['DATABASE_URL'] }
+  $match = [regex]::Match($databaseUrl, '^file:(?<path>[A-Za-z]:[\\/][^?#]+)$')
+  if (-not $match.Success) { throw 'La base instalada debe declarar una ruta SQLite local en .env.' }
+  $databasePath = [IO.Path]::GetFullPath([Uri]::UnescapeDataString($match.Groups['path'].Value.Replace('/', '\\')))
+  $localDatabase = [IO.Path]::GetFullPath((Join-Path $installedRoot 'data\evaluapro.db'))
+  if ($databasePath -ne $localDatabase) {
+    throw "La ruta SQLite del instalador está fuera de los destinos QA permitidos: $databasePath"
+  }
+  if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) { throw "No existe la SQLite instalada: $databasePath" }
+  return $databasePath
+}
+
 function Invoke-DummyDataCycle {
   param([string]$BaseUrl)
   if (-not $SeedDummyData) { return }
@@ -1389,7 +1421,7 @@ function Invoke-DummyDataCycle {
   $previousBase = $env:E2E_DOCENTE_BASE_URL
   $previousSqlitePath = $env:E2E_DOCENTE_SQLITE_PATH
   $env:E2E_DOCENTE_BASE_URL = $apiBase
-  $env:E2E_DOCENTE_SQLITE_PATH = Join-Path $installedRoot 'data\evaluapro.db'
+  $env:E2E_DOCENTE_SQLITE_PATH = Resolve-InstalledSqlitePath
   try {
     $seedScript = Join-Path $root 'scripts/tests/seed-docente-dummy.mjs'
     $stdoutPath = Join-Path $ReportDir 'dummy-data-cycle.stdout.log'
@@ -1419,8 +1451,7 @@ function Invoke-DummyDataCycle {
           @($seedResult.materias).Count -eq 3 -and
           @($seedResult.alumnos).Count -eq 3 -and
           $cleanupErrors.Count -eq 0 -and
-          $cleanup -contains 'alumnos-local:3' -and
-          $cleanup -contains 'materias-local:3' -and
+          $seedResult.cleanupVerified -eq $true -and
           $cleanup -contains 'cuenta:local-db'
       }
       $exitCode = if ($structuredSuccess) { 0 } else { -1 }

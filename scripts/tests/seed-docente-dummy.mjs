@@ -3,6 +3,8 @@
  * Crea datos aislados, los verifica y los elimina al finalizar.
  */
 import assert from 'node:assert/strict';
+import { realpath } from 'node:fs/promises';
+import path from 'node:path';
 
 const baseUrl = (process.env.E2E_DOCENTE_BASE_URL || 'http://127.0.0.1:4000/api').replace(/\/$/, '');
 const stamp = Date.now().toString(36);
@@ -11,18 +13,28 @@ const contrasena = process.env.E2E_DOCENTE_PASSWORD || `E2eLocal-${stamp}-Seguro
 const resultados = { baseUrl, cuenta: correo, materias: [], alumnos: [], cleanup: [], cleanupErrors: [] };
 
 async function cleanupLocalFallback() {
+  const apiCleanupErrors = [...resultados.cleanupErrors];
   if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(`${baseUrl}/`)) {
     throw new Error('la limpieza directa solo se permite contra una API localhost');
   }
-  const sqlitePath = process.env.E2E_DOCENTE_SQLITE_PATH;
-  if (!sqlitePath || !/^[a-zA-Z]:[\\/].*/.test(sqlitePath)) {
+  const requestedSqlitePath = process.env.E2E_DOCENTE_SQLITE_PATH;
+  if (!requestedSqlitePath || !path.win32.isAbsolute(requestedSqlitePath)) {
     throw new Error('E2E_DOCENTE_SQLITE_PATH es obligatorio para limpieza local confinada');
   }
   const localAppData = process.env.LOCALAPPDATA;
-  const normalizedPath = sqlitePath.replace(/\\/g, '/').toLowerCase();
-  const normalizedRoot = localAppData ? localAppData.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '') : '';
-  if (!normalizedRoot || !(normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`))) {
+  if (!localAppData || path.win32.basename(requestedSqlitePath).toLowerCase() !== 'evaluapro.db') {
+    throw new Error('la limpieza local requiere LOCALAPPDATA y la SQLite esperada del instalador');
+  }
+  const sqlitePath = path.win32.resolve(requestedSqlitePath);
+  const localRoot = path.win32.resolve(localAppData);
+  const relativePath = path.win32.relative(localRoot, sqlitePath);
+  if (!relativePath || relativePath === '..' || relativePath.startsWith(`..${path.win32.sep}`) || path.win32.isAbsolute(relativePath)) {
     throw new Error('la limpieza local solo permite una base bajo LOCALAPPDATA');
+  }
+  const [realSqlitePath, realLocalRoot] = await Promise.all([realpath(sqlitePath), realpath(localRoot)]);
+  const realRelativePath = path.win32.relative(realLocalRoot, realSqlitePath);
+  if (!realRelativePath || realRelativePath === '..' || realRelativePath.startsWith(`..${path.win32.sep}`) || path.win32.isAbsolute(realRelativePath)) {
+    throw new Error('la ruta real de la SQLite debe permanecer bajo LOCALAPPDATA');
   }
   process.env.DATABASE_URL = `file:${sqlitePath.replace(/\\/g, '/')}`;
   process.env.BACKEND_DATABASE_URL = process.env.DATABASE_URL;
@@ -35,14 +47,53 @@ async function cleanupLocalFallback() {
       where: { correo },
       select: { id: true }
     });
+    const nombresPeriodo = Array.from({ length: 3 }, (_, index) => `Materia E2E Local ${stamp}-${index + 1}`);
+    const correosAlumno = Array.from({ length: 3 }, (_, index) => `alumno.e2e.${stamp}.${index + 1}@cuh.mx`);
+    let alumnosEliminados = 0;
+    let periodosEliminados = 0;
+    let papelerasEliminadas = 0;
+    let cuentasEliminadas = 0;
+
     for (const docente of docentes) {
-      const alumnos = await prisma.alumno.deleteMany({ where: { periodo: { docenteId: docente.id } } });
-      const periodos = await prisma.periodo.deleteMany({ where: { docenteId: docente.id } });
-      resultados.cleanup.push(`alumnos-local:${alumnos.count}`, `materias-local:${periodos.count}`);
-      await prisma.docente.delete({ where: { id: docente.id } });
+      const periodos = await prisma.periodo.findMany({
+        where: { docenteId: docente.id, OR: [{ id: { in: resultados.materias } }, { nombre: { in: nombresPeriodo } }] },
+        select: { id: true }
+      });
+      const periodoIds = [...new Set([...resultados.materias, ...periodos.map(({ id }) => id)])];
+      const alumnos = await prisma.alumno.deleteMany({
+        where: {
+          OR: [
+            { id: { in: resultados.alumnos } },
+            { correo: { in: correosAlumno } },
+            { periodo: { is: { id: { in: periodoIds }, docenteId: docente.id } } }
+          ]
+        }
+      });
+      alumnosEliminados += alumnos.count;
+      const periodosBorrados = await prisma.periodo.deleteMany({ where: { id: { in: periodoIds }, docenteId: docente.id } });
+      periodosEliminados += periodosBorrados.count;
+      const papelera = await prisma.papeleraItem.deleteMany({ where: { docenteId: docente.id } });
+      papelerasEliminadas += papelera.count;
+      const cuenta = await prisma.docente.deleteMany({ where: { id: docente.id, correo } });
+      cuentasEliminadas += cuenta.count;
     }
+
+    const [cuentasRestantes, periodosRestantes, alumnosRestantes] = await Promise.all([
+      prisma.docente.count({ where: { correo } }),
+      prisma.periodo.count({
+        where: { OR: [{ id: { in: resultados.materias } }, { docente: { is: { correo } }, nombre: { in: nombresPeriodo } }] }
+      }),
+      prisma.alumno.count({ where: { OR: [{ id: { in: resultados.alumnos } }, { correo: { in: correosAlumno } }] } })
+    ]);
+    assert.equal(cuentasRestantes, 0, 'la cuenta dummy debe desaparecer de la SQLite aislada');
+    assert.equal(periodosRestantes, 0, 'las materias dummy deben desaparecer de la SQLite aislada');
+    assert.equal(alumnosRestantes, 0, 'los alumnos dummy deben desaparecer de la SQLite aislada');
+    resultados.cleanup.push(`alumnos-local:${alumnosEliminados}`, `materias-local:${periodosEliminados}`, `papelera-local:${papelerasEliminadas}`);
+    resultados.cleanup.push(`cuenta-local:${cuentasEliminadas}`);
     resultados.cleanup.push('cuenta:local-db');
-    resultados.cleanupMode = 'api+isolated-local-db-fallback';
+    resultados.cleanupVerified = true;
+    resultados.cleanupMode = 'api+verified-isolated-local-db';
+    resultados.cleanupApiErrors = apiCleanupErrors;
     resultados.cleanupErrors = [];
   } finally {
     await prisma.$disconnect();
@@ -102,19 +153,18 @@ try {
   assert.equal(alumnos.alumnos?.filter(({ id }) => resultados.alumnos.includes(id)).length, 3);
   resultados.verificado = true;
 } finally {
-  for (const id of resultados.alumnos.reverse()) {
+  for (const id of [...resultados.alumnos].reverse()) {
     try { await request(`/alumnos/${id}/eliminar`, { method: 'POST', headers: auth, body: '{}' }); resultados.cleanup.push(`alumno:${id}`); }
     catch (error) { resultados.cleanupErrors.push(`alumno:${id}:${error.message}`); }
   }
-for (const id of resultados.materias.reverse()) {
+  for (const id of [...resultados.materias].reverse()) {
     try { await request(`/periodos/${id}/eliminar`, { method: 'POST', headers: auth, body: '{}' }); resultados.cleanup.push(`materia:${id}`); }
     catch (error) { resultados.cleanupErrors.push(`materia:${id}:${error.message}`); }
   }
 }
 
-if (resultados.cleanupErrors.length > 0) await cleanupLocalFallback();
+await cleanupLocalFallback();
 assert.equal(resultados.cleanupErrors.length, 0, `la limpieza dummy debe ser completa: ${resultados.cleanupErrors.join('; ')}`);
-assert.ok(resultados.cleanup.some((entry) => entry.startsWith('alumnos-local:3')), 'debe limpiar 3 alumnos');
-assert.ok(resultados.cleanup.some((entry) => entry.startsWith('materias-local:3')), 'debe limpiar 3 materias');
+assert.equal(resultados.cleanupVerified, true, 'debe verificar la eliminación de todos los datos dummy');
 assert.ok(resultados.cleanup.includes('cuenta:local-db'), 'debe limpiar la cuenta dummy');
 console.log(JSON.stringify(resultados, null, 2));

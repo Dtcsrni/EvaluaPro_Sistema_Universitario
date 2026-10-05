@@ -33,8 +33,10 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   assert.match(e2e, /finally\s*\{\s*try \{ Invoke-UpgradeDataMarker -Action 'remove'/);
   assert.match(e2e, /if \(\[string\]::IsNullOrWhiteSpace\(\$BaselineBundlePath\)\)/);
   assert.match(e2e, /Invoke-UpgradeBaselineFlow -BaselinePath \$BaselineBundlePath/);
-  assert.match(e2e, /Join-Path \$installedRoot 'data\\evaluapro\.db'/);
+  assert.match(e2e, /\$databasePath = Resolve-InstalledSqlitePath/);
   assert.match(e2e, /Join-Path \$installedRoot 'runtime\\node\\node\.exe'/);
+  assert.match(e2e, /EVALUAPRO_DATABASE_URL = 'file:' \+ \(\(Join-Path \$installedRoot 'data\\evaluapro\.db'\)/);
+  assert.match(e2e, /if \(\$databasePath -ne \$localDatabase\)/);
 });
 
 test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgrade', () => {
