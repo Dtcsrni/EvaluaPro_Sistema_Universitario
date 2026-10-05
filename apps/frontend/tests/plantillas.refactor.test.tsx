@@ -11,6 +11,7 @@ import {
   SeccionPlantillas
 } from '../src/apps/app_docente/SeccionPlantillas';
 import { PlantillasListado } from '../src/apps/app_docente/features/plantillas/components/PlantillasListado';
+import { ConfirmDialogProvider } from '../src/ui/feedback/ConfirmDialogProvider';
 import type { PreviewPdfUrls } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
 import type { Alumno, PermisosUI, Plantilla, PreviewPlantilla } from '../src/apps/app_docente/tipos';
 
@@ -31,11 +32,17 @@ const permisos: PermisosUI = {
 function HarnessPlantillas({
   permisosEntrada = permisos,
   plantillas = [] as Plantilla[],
-  alumnos = [] as Alumno[]
+  preguntas = [],
+  alumnos = [] as Alumno[],
+  enviarConPermiso = async () => ({}),
+  onRefrescar = () => {}
 }: {
   permisosEntrada?: PermisosUI;
   plantillas?: Plantilla[];
+  preguntas?: Pregunta[];
   alumnos?: Alumno[];
+  enviarConPermiso?: (permiso: string, ruta: string, payload: Record<string, unknown>, mensaje?: string) => Promise<unknown>;
+  onRefrescar?: () => void;
 }) {
   const [previewPorPlantillaId, setPreviewPorPlantillaId] = useState<Record<string, PreviewPlantilla>>({});
   const [cargandoPreviewPlantillaId, setCargandoPreviewPlantillaId] = useState<string | null>(null);
@@ -49,10 +56,10 @@ function HarnessPlantillas({
     <SeccionPlantillas
       plantillas={plantillas}
       periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
-      preguntas={[]}
+      preguntas={preguntas}
       alumnos={alumnos}
       permisos={permisosEntrada}
-      enviarConPermiso={async () => ({})}
+      enviarConPermiso={enviarConPermiso}
       avisarSinPermiso={() => {}}
       previewPorPlantillaId={previewPorPlantillaId}
       setPreviewPorPlantillaId={setPreviewPorPlantillaId}
@@ -64,7 +71,7 @@ function HarnessPlantillas({
       setPreviewPdfUrlPorPlantillaId={setPreviewPdfUrlPorPlantillaId}
       cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
       setCargandoPreviewPdfPlantillaId={setCargandoPreviewPdfPlantillaId}
-      onRefrescar={() => {}}
+      onRefrescar={onRefrescar}
     />
   );
 }
@@ -260,6 +267,78 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     // Cancelar edición
     fireEvent.click(screen.getByRole('button', { name: /^Cancelar$/i }));
     expect(screen.getByRole('button', { name: /Crear plantilla/i })).toBeInTheDocument();
+  });
+
+  it('actualiza una plantilla con un clientRequestId estable y refresca el listado al confirmar éxito', async () => {
+    const enviarConPermiso = vi.fn(async () => ({}));
+    const onRefrescar = vi.fn();
+    render(
+      <HarnessPlantillas
+        enviarConPermiso={enviarConPermiso}
+        onRefrescar={onRefrescar}
+        plantillas={[
+          { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/i }));
+    fireEvent.change(screen.getByLabelText(/Titulo/i), { target: { value: 'Parcial Algebra actualizado' } });
+    fireEvent.click(screen.getByRole('button', { name: /Actualizar plantilla/i }));
+
+    await waitFor(() => expect(enviarConPermiso).toHaveBeenCalledOnce());
+    const [, ruta, payload] = enviarConPermiso.mock.calls[0];
+    expect(ruta).toBe('/examenes/plantillas/pla-1');
+    expect(payload.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
+    await waitFor(() => expect(onRefrescar).toHaveBeenCalledOnce());
+  });
+
+  it('crea una plantilla con un clientRequestId estable y refresca el listado al confirmar éxito', async () => {
+    const enviarConPermiso = vi.fn(async () => ({}));
+    const onRefrescar = vi.fn();
+    render(
+      <HarnessPlantillas
+        enviarConPermiso={enviarConPermiso}
+        onRefrescar={onRefrescar}
+        preguntas={[{ _id: 'pre-1', periodoId: 'per-1', tema: 'Algebra', versiones: [{ enunciado: 'Pregunta' }] }]}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Titulo/i), { target: { value: 'Nuevo examen' } });
+    fireEvent.change(document.querySelector('.campo--materia select') as HTMLSelectElement, { target: { value: 'per-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Algebra/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Crear plantilla/i }));
+
+    await waitFor(() => expect(enviarConPermiso).toHaveBeenCalledOnce());
+    const [, ruta, payload] = enviarConPermiso.mock.calls[0];
+    expect(ruta).toBe('/examenes/plantillas');
+    expect(payload.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
+    await waitFor(() => expect(onRefrescar).toHaveBeenCalledOnce());
+  });
+
+  it('elimina una plantilla con un clientRequestId y refresca solo después de confirmar', async () => {
+    const enviarConPermiso = vi.fn(async () => ({}));
+    const onRefrescar = vi.fn();
+    render(
+      <ConfirmDialogProvider>
+        <HarnessPlantillas
+          enviarConPermiso={enviarConPermiso}
+          onRefrescar={onRefrescar}
+          plantillas={[
+            { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] }
+          ]}
+        />
+      </ConfirmDialogProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Archivar/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sí, eliminar plantilla' }));
+
+    await waitFor(() => expect(enviarConPermiso).toHaveBeenCalledOnce());
+    const [, ruta, payload] = enviarConPermiso.mock.calls[0];
+    expect(ruta).toBe('/examenes/plantillas/pla-1/eliminar');
+    expect(payload.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
+    await waitFor(() => expect(onRefrescar).toHaveBeenCalledOnce());
   });
 
   it('preserva los temas de la plantilla al entrar en modo edición', () => {

@@ -413,6 +413,10 @@ describe('módulo evaluaciones (LISC)', () => {
     const creada = await request(app).post('/api/evaluaciones/politicas').set(auth).send(politicaBase).expect(201);
     expect(creada.body.politica.version).toBe(1);
     await request(app).post('/api/evaluaciones/politicas').set(auth).send(politicaBase).expect(200);
+    await request(app).post('/api/evaluaciones/politicas').set(auth).send({
+      ...politicaBase,
+      nombre: 'Contenido distinto con la misma clave'
+    }).expect(409);
     const auditoriaCreacion = await request(app)
       .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria`)
       .set(auth).expect(200);
@@ -478,6 +482,12 @@ describe('módulo evaluaciones (LISC)', () => {
       .set(auth)
       .send({ motivo: 'Reemplazada por una regla vigente', clientRequestId: requestArchivo, confirmarEliminacion: true })
       .expect(200);
+    const archivoConOtraClave = await request(app)
+      .post(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/archivar`)
+      .set(auth)
+      .send({ motivo: 'Reemplazada por una regla vigente', clientRequestId: '8f947d40-17a0-4628-81f6-a687badacfd5', confirmarEliminacion: true })
+      .expect(409);
+    expect(archivoConOtraClave.body.error.codigo).toBe('POLITICA_ARCHIVADA');
 
     const auditoriaPrimera = await request(app)
       .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria?limite=2`)
@@ -493,6 +503,10 @@ describe('módulo evaluaciones (LISC)', () => {
       .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria?limite=2&cursor=${encodeURIComponent(auditoriaPrimera.body.nextCursor)}`)
       .set(auth).expect(200);
     expect(auditoriaSiguiente.body.eventos.map((evento: any) => evento.accion)).toEqual(['crear']);
+    const cursorInvalido = await request(app)
+      .get(`/api/evaluaciones/politicas/${encodeURIComponent(politicaBase.codigo)}/auditoria?cursor=not-json`)
+      .set(auth).expect(400);
+    expect(cursorInvalido.body.error.codigo).toBe('CURSOR_INVALIDO');
     await request(app).post('/api/evaluaciones/configuracion-periodo').set(auth).send({
       periodoId: String(periodo._id), politicaCodigo: politicaBase.codigo, politicaVersion: 3
     }).expect(409);

@@ -32,4 +32,23 @@ describe('ID estable para mutaciones de plantilla en GUI', () => {
     confirmarClientRequestIdPlantilla('actualizar', 'plantilla-1', cambio, storage);
     expect(obtenerClientRequestIdPlantilla('actualizar', 'plantilla-1', { titulo: 'P2' }, storage)).not.toBe(cambio);
   });
+
+  it('usa localStorage por defecto para recuperar el UUID tras una respuesta incierta', () => {
+    const primero = obtenerClientRequestIdPlantilla('crear', null, { titulo: 'Global' });
+    const reintento = obtenerClientRequestIdPlantilla('crear', null, { titulo: 'Global' });
+
+    expect(reintento).toBe(primero);
+    confirmarClientRequestIdPlantilla('crear', null, primero);
+  });
+
+  it('falla de forma explícita si no puede persistir el ID de reintento', () => {
+    const storage = {
+      getItem: () => null,
+      setItem: () => { throw new Error('quota'); },
+      removeItem: () => {}
+    } as unknown as Storage;
+
+    expect(() => obtenerClientRequestIdPlantilla('crear', null, { titulo: 'Global' }, storage))
+      .toThrow('No se pudo guardar el ID de reintento de la plantilla. Libera espacio de almacenamiento y vuelve a intentar.');
+  });
 });

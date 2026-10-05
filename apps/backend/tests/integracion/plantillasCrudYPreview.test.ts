@@ -255,6 +255,11 @@ describe('plantillas CRUD + previsualizacion', () => {
       .set(auth)
       .send({ ...crearPayload, titulo: 'Otro título' })
       .expect(409);
+    await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({ ...crearPayload, clientRequestId: 'no-es-uuid' })
+      .expect(400);
 
     const editarPayload = { clientRequestId: '477b79c9-d6ce-42c3-95f8-2536d41616e6', titulo: 'Plantilla actualizada' };
     await request(app).post(`/api/examenes/plantillas/${plantillaId}`).set(auth).send(editarPayload).expect(200);
@@ -266,15 +271,24 @@ describe('plantillas CRUD + previsualizacion', () => {
     await request(app).post(`/api/examenes/plantillas/${plantillaId}/archivar`).set(auth).send({ clientRequestId: archivoId }).expect(200);
     const archivoRepetido = await request(app).post(`/api/examenes/plantillas/${plantillaId}/archivar`).set(auth).send({ clientRequestId: archivoId }).expect(200);
     expect(archivoRepetido.body.repetida).toBe(true);
+    const archivoYaArchivado = await request(app).post(`/api/examenes/plantillas/${plantillaId}/archivar`).set(auth)
+      .send({ clientRequestId: '6cbd7864-046f-4a61-86c1-2800ff750aac' }).expect(200);
+    expect(archivoYaArchivado.body.repetida).toBe(false);
+    expect(archivoYaArchivado.body.plantilla.archivadoEn).toBeTruthy();
 
     const auditoria = await request(app).get(`/api/examenes/plantillas/${plantillaId}/auditoria?limite=2`).set(auth).expect(200);
-    expect(auditoria.body.eventos.map((evento: { accion: string }) => evento.accion)).toEqual(['archivar', 'actualizar']);
+    expect(auditoria.body.eventos.map((evento: { accion: string }) => evento.accion)).toEqual(['archivar', 'archivar']);
     expect(auditoria.body.nextCursor).toBeTruthy();
     const siguiente = await request(app)
       .get(`/api/examenes/plantillas/${plantillaId}/auditoria?limite=2&cursor=${encodeURIComponent(auditoria.body.nextCursor)}`)
       .set(auth)
       .expect(200);
-    expect(siguiente.body.eventos.map((evento: { accion: string }) => evento.accion)).toEqual(['crear']);
+    expect(siguiente.body.eventos.map((evento: { accion: string }) => evento.accion)).toEqual(['actualizar', 'crear']);
+    const cursorInvalido = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/auditoria?cursor=not-json`)
+      .set(auth)
+      .expect(400);
+    expect(cursorInvalido.body.error.codigo).toBe('PLANTILLA_AUDITORIA_CURSOR_INVALIDO');
 
     const eliminada = await request(app).post(`/api/examenes/plantillas/${plantillaId}/eliminar`).set(auth)
       .send({ clientRequestId: '0cc29ec7-ff1e-49bc-b507-c6f112f01024' }).expect(409);
