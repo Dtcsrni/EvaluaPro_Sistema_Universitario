@@ -4,11 +4,10 @@
 Se usa SemVer en raiz del monorepo.
 
 ## Estado actual
-- Versión declarada en el checkout: `1.1.6` en `package.json`, `config/app-version.json` y paquetes de aplicaciones.
-- Estado observado: `v1.1.6-14-g3337afd8-dirty`; hay cambios locales y no equivale a una release reproducible.
+- Versión declarada en la rama candidata: `1.2.4` en `package.json`, `config/app-version.json` y paquetes de aplicaciones.
+- Última release pública verificada por API de GitHub el 2026-10-04: `v1.2.3`. La candidata `v1.2.4` aún requiere integrar los PR abiertos y aprobar la E2E completa del asset descargado antes de publicarse.
 - Versión de la GUI instalada: no verificada en este cierre; no inferirla desde el manifiesto de código.
-- El inventario de publicación es discrepante: `docs/RELEASE_STATUS.md` no concuerda con la vista pública de Releases, que consultada el 2026-09-24 muestra `v1.1.1` como Latest y `v1.1.1-beta.2`. La CLI `gh` no está autenticada, así que no se verificaron tags ni racha de CI remotos. Confirmar el estado de publicación antes de anunciar o basar una actualización en una versión.
-- No asignar una versión objetivo a la próxima estable hasta cerrar compatibilidad, evidencia de release y aprobación del responsable.
+- La candidata `v1.2.4` es el siguiente corte solicitado; su estado de release depende de la evidencia del instalador publicado y descargado, no del número declarado en el checkout.
 - Seguimiento de calidad vigente: `docs/INVENTARIO_PROYECTO.md` y `docs/ENGINEERING_BASELINE.md`.
 - Trazabilidad de continuidad entre agentes: `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md`.
 

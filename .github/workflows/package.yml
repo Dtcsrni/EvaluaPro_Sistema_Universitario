@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Resolver metadata
         id: meta
@@ -39,43 +39,80 @@ jobs:
           echo "web_image=ghcr.io/${GITHUB_REPOSITORY,,}/evaluapro-web-docente" >> "$GITHUB_OUTPUT"
 
       - name: Login GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Etapa package (Docker build)
+        env:
+          API_IMAGE: ${{ steps.meta.outputs.api_image }}
+          WEB_IMAGE: ${{ steps.meta.outputs.web_image }}
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
+          IMAGE_SHA: ${{ github.sha }}
+          IMAGE_SHA_SHORT: ${{ steps.meta.outputs.sha_short }}
         run: |
+          set -euo pipefail
+          if [[ ! "$API_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ || ! "$WEB_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ ]]; then
+            echo "Nombre de imagen GHCR inválido." >&2
+            exit 1
+          fi
+          if [[ ! "$IMAGE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+\.)*[0-9A-Za-z-]+)?$ || ! "$IMAGE_SHA" =~ ^[0-9a-f]{40}$ || ! "$IMAGE_SHA_SHORT" =~ ^[0-9a-f]{12}$ ]]; then
+            echo "Tag o digest de imagen inválido." >&2
+            exit 1
+          fi
           docker build -f apps/backend/Dockerfile \
-            -t ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.version }} \
-            -t ${{ steps.meta.outputs.api_image }}:${{ github.sha }} \
-            -t ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.sha_short }} .
+            -t "$API_IMAGE:$IMAGE_VERSION" \
+            -t "$API_IMAGE:$IMAGE_SHA" \
+            -t "$API_IMAGE:$IMAGE_SHA_SHORT" .
           docker build -f apps/frontend/Dockerfile \
             --build-arg VITE_API_BASE_URL=http://localhost:4000/api \
             --build-arg VITE_APP_DESTINO=docente \
-            -t ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.version }} \
-            -t ${{ steps.meta.outputs.web_image }}:${{ github.sha }} \
-            -t ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.sha_short }} .
+            -t "$WEB_IMAGE:$IMAGE_VERSION" \
+            -t "$WEB_IMAGE:$IMAGE_SHA" \
+            -t "$WEB_IMAGE:$IMAGE_SHA_SHORT" .
 
       - name: Publicar imágenes GHCR
+        env:
+          API_IMAGE: ${{ steps.meta.outputs.api_image }}
+          WEB_IMAGE: ${{ steps.meta.outputs.web_image }}
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
+          IMAGE_SHA: ${{ github.sha }}
+          IMAGE_SHA_SHORT: ${{ steps.meta.outputs.sha_short }}
         run: |
-          docker push ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.version }}
-          docker push ${{ steps.meta.outputs.api_image }}:${{ github.sha }}
-          docker push ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.sha_short }}
-          docker push ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.version }}
-          docker push ${{ steps.meta.outputs.web_image }}:${{ github.sha }}
-          docker push ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.sha_short }}
+          set -euo pipefail
+          if [[ ! "$API_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ || ! "$WEB_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ || ! "$IMAGE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+\.)*[0-9A-Za-z-]+)?$ || ! "$IMAGE_SHA" =~ ^[0-9a-f]{40}$ || ! "$IMAGE_SHA_SHORT" =~ ^[0-9a-f]{12}$ ]]; then
+            echo "Metadata de imagen inválida para publicación." >&2
+            exit 1
+          fi
+          docker push "$API_IMAGE:$IMAGE_VERSION"
+          docker push "$API_IMAGE:$IMAGE_SHA"
+          docker push "$API_IMAGE:$IMAGE_SHA_SHORT"
+          docker push "$WEB_IMAGE:$IMAGE_VERSION"
+          docker push "$WEB_IMAGE:$IMAGE_SHA"
+          docker push "$WEB_IMAGE:$IMAGE_SHA_SHORT"
 
       - name: Exportar IDs de imágenes
+        env:
+          API_IMAGE: ${{ steps.meta.outputs.api_image }}
+          WEB_IMAGE: ${{ steps.meta.outputs.web_image }}
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
+          set -euo pipefail
+          if [[ ! "$API_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ || ! "$WEB_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ || ! "$IMAGE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+\.)*[0-9A-Za-z-]+)?$ ]]; then
+            echo "Metadata de imagen inválida para inspección." >&2
+            exit 1
+          fi
           {
-            echo "${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.version }} $(docker image inspect ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.version }} --format='{{.Id}}')"
-            echo "${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.version }} $(docker image inspect ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.version }} --format='{{.Id}}')"
+            printf '%s ' "$API_IMAGE:$IMAGE_VERSION"
+            docker image inspect "$API_IMAGE:$IMAGE_VERSION" --format='{{.Id}}'
+            printf '%s ' "$WEB_IMAGE:$IMAGE_VERSION"
+            docker image inspect "$WEB_IMAGE:$IMAGE_VERSION" --format='{{.Id}}'
           } > image-digests.txt
 
       - name: Publicar artefacto
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: image-digests
           path: image-digests.txt

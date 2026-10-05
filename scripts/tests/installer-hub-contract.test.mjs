@@ -154,7 +154,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
   const stableGateWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
 
-  assert.match(workflow, /actions\/setup-dotnet@v4/);
+  assert.match(workflow, /actions\/setup-dotnet@[0-9a-f]{40} # v4/);
   assert.match(workflow, /dotnet-version:\s*10\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
@@ -165,14 +165,18 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
   assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*installer_windows/);
-  assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@v6/);
-  assert.match(workflow, /name: Publicar release assets \(tags v\*\)[\s\S]*?softprops\/action-gh-release@v2/);
+  assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@[0-9a-f]{40} # v6/);
+  assert.match(workflow, /name: Preparar release como borrador hasta validar el asset descargado[\s\S]*?softprops\/action-gh-release@[0-9a-f]{40} # v2/);
   assert.match(workflow, /make_latest:\s*false/);
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*read/);
   assert.match(workflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /stable_release_assets/);
-  assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
-  assert.match(stableGateWorkflow, /gh release edit "v\$\{\{ steps\.resolve_version\.outputs\.target \}\}".*--latest/);
+  assert.match(stableGateWorkflow, /promote_latest:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
+  assert.match(stableGateWorkflow, /gh release edit "v\$TARGET_VERSION" --repo "\$REPOSITORY" --latest/);
+  assert.match(workflow, /RELEASE_TAG:\s*\$\{\{ github\.ref_name \}\}/);
+  assert.match(workflow, /RELEASE_REPOSITORY:\s*\$\{\{ github\.repository \}\}/);
+  assert.match(workflow, /INSTALLER_CI_RUN_ID:\s*\$\{\{ github\.run_id \}\}/);
+  assert.match(workflow, /Formato de tag de release inválido/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/_internal\/docente-local\/EvaluaPro-docente-local\.msi/);
   assert.doesNotMatch(workflow, /saas-completo\/EvaluaPro-InstallerHub-saas-completo/);
@@ -185,7 +189,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
 test('workflow beta publica solo hubs en assets de prerelease', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
 
-  assert.match(workflow, /actions\/setup-dotnet@v4/);
+  assert.match(workflow, /actions\/setup-dotnet@[0-9a-f]{40} # v4/);
   assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /steps\.beta_assets\.outputs\.files/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
@@ -317,15 +321,31 @@ test('build MSI bloquea MSI docente sin bootstrap y esquema SQLite nativos', () 
 
 test('tag guard solo permite versiones semver estables o prerelease canonicas', () => {
   const guard = fs.readFileSync(path.join(root, '.github/workflows/tag-release-guard.yml'), 'utf8');
-  assert.match(guard, /v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+/);
-  assert.match(guard, /alpha\|beta\|rc/);
+  const guardPattern = guard.match(/tag_release_guard:[\s\S]*?if \[\[ ! "\$TAG_NAME" =~ (.+?) \]\]; then/)?.[1];
+  const cleanupPattern = guard.match(/cleanup_invalid_tag:[\s\S]*?if \[\[ "\$TAG_NAME" =~ (.+?) \]\]; then/)?.[1];
+  assert.ok(guardPattern, 'el gate debe declarar el formato canónico');
+  assert.ok(cleanupPattern, 'el cleanup debe validar tags válidas antes de borrar');
+  const canonicalPattern = guardPattern.split(' || ')[0];
+  assert.equal(cleanupPattern.split(' || ')[0], canonicalPattern, 'el cleanup debe reconocer la misma versión canónica');
+  const canonicalTag = new RegExp(canonicalPattern);
+  for (const tag of ['v0.0.0', 'v1.2.3', 'v1.2.3-alpha.1', 'v1.2.3-beta.2', 'v1.2.3-rc.3']) {
+    assert.equal(canonicalTag.test(tag), true, `${tag} debe ser válida`);
+  }
+  for (const tag of ['v01.2.3', 'v1.02.3', 'v1.2.03', 'v1.2.3-beta.01', 'v1.2.3-preview.1']) {
+    assert.equal(canonicalTag.test(tag), false, `${tag} debe ser rechazada`);
+  }
+  const cleanupCondition = guard.match(/cleanup_invalid_tag:[\s\S]*?if \[\[ (.+?) \]\]; then/)?.[1] ?? '';
+  assert.match(cleanupCondition, /"\$TAG_NAME" =~/);
+  assert.match(cleanupCondition, /! "\$REPOSITORY" =~/);
+  assert.doesNotMatch(cleanupCondition, /! "\$TAG_NAME" =~/);
   assert.match(guard, /Formato de tag no permitido/);
 });
 
 test('tag guard espera la ventana completa y conserva la tag si el release se retrasa', () => {
   const guard = fs.readFileSync(path.join(root, '.github/workflows/tag-release-guard.yml'), 'utf8');
-  assert.match(guard, /timeout-minutes: 30/);
-  assert.match(guard, /max_attempts=40/);
+  assert.match(guard, /timeout-minutes: 205/);
+  assert.match(guard, /max_attempts=390/);
+  assert.match(guard, /sleep_seconds=30/);
   assert.match(guard, /La tag se conserva para permitir reintento y diagnostico/);
   assert.doesNotMatch(guard, /No se encontro release.*Eliminando tag remoto/);
 });
@@ -336,6 +356,7 @@ test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   assert.match(helper, /programDataRoot/);
   assert.match(helper, /Join-Path \$programDataRoot 'EvaluaPro'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix/);
+  assert.match(helper, /if \(\$isQaInstall\) \{ \$requestedDatabaseUrl = \$localDatabaseUrl \}/);
   assert.match(helper, /localDataDir = Join-Path \$localDataRoot 'data'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix,[\s\S]*?\$effectiveDatabaseUrl = \$defaultDatabaseUrl/);
 });
@@ -350,7 +371,11 @@ test('runner dummy usa API docente y no confunde puerto web del dashboard', () =
   assert.match(runner, /dummy-data-cycle\.stderr\.log/);
   assert.match(runner, /WaitForExit\(180000\)/);
   assert.match(runner, /\$seedResult\.verificado -eq \$true/);
-  assert.match(runner, /\$cleanup -contains 'alumnos-local:3'/);
+  assert.match(runner, /Resolve-InstalledSqlitePath/);
+  assert.match(runner, /EVALUAPRO_DATABASE_URL/);
+  assert.match(runner, /\$seedResult\.cleanupVerified -eq \$true/);
+  assert.doesNotMatch(runner, /\$cleanup -contains 'alumnos-local:3'/);
+  assert.doesNotMatch(runner, /\$cleanup -contains 'materias-local:3'/);
   assert.match(runner, /\$cleanup -contains 'cuenta:local-db'/);
 });
 
@@ -359,6 +384,11 @@ test('fallback dummy queda confinado a SQLite bajo LOCALAPPDATA', () => {
   assert.doesNotMatch(seed, /V:\/Software\/EvaluaPro\/apps\/backend\/data\/evaluapro\.db/);
   assert.match(seed, /E2E_DOCENTE_SQLITE_PATH/);
   assert.match(seed, /LOCALAPPDATA/);
+  assert.match(seed, /realpath\(sqlitePath\)/);
+  assert.match(seed, /cleanupVerified = true/);
+  assert.match(seed, /prisma\.papeleraItem\.deleteMany/);
+  assert.match(seed, /await cleanupLocalFallback\(\)/);
+  assert.match(seed, /cuentasRestantes/);
 });
 
 test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
@@ -456,19 +486,23 @@ test('bootstrap SQLite docente usa Node nativo y esquema SQL empaquetado', () =>
   assert.match(helper, /Esquema SQLite local preparado con Node nativo/);
 });
 
-test('reparación detiene procesos Node propios antes de reemplazar el payload', () => {
+test('install y repair detienen procesos Node propios antes de configurar y reemplazar el payload', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   const start = helper.indexOf('function Invoke-PostInstall');
   const end = helper.indexOf('function Get-EvaluaProOwnedNodeProcessIds', start);
-  assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install y reparación');
+  assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install');
   const postInstall = helper.slice(start, end);
-  const repairGuard = postInstall.indexOf("if ($Mode -eq 'repair')");
-  const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', repairGuard);
-  const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', repairGuard);
+  const requestMode = postInstall.indexOf("$installMode = [string](Get-RequestValue -Request $requestJson -Names @('mode', 'Mode') -DefaultValue 'install')");
+  const installOrRepairGuard = postInstall.indexOf("if ($installMode.Trim().ToLowerInvariant() -in @('install', 'repair'))");
+  const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', installOrRepairGuard);
+  const runtimeConfiguration = postInstall.indexOf('Ensure-InstallerRuntimeContract -TargetDir $targetDir', installOrRepairGuard);
+  const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', installOrRepairGuard);
 
-  assert.ok(repairGuard >= 0 && stopProcesses > repairGuard, 'repair debe detener los procesos de la instalación');
-  assert.ok(expandPayload > stopProcesses, 'repair debe detenerlos antes de reemplazar archivos');
-  assert.match(postInstall, /No se pudieron detener todos los procesos Node de esta instalaci[oó]n antes de reparar/);
+  assert.ok(requestMode >= 0 && requestMode < installOrRepairGuard, 'el modo install/repair debe obtenerse del request; el argumento CLI solo admite post-install');
+  assert.ok(installOrRepairGuard >= 0 && stopProcesses > installOrRepairGuard, 'install y repair deben detener los procesos propios');
+  assert.ok(runtimeConfiguration > stopProcesses, 'los procesos deben terminar antes de modificar configuración');
+  assert.ok(expandPayload > stopProcesses, 'los procesos deben terminar antes de reemplazar archivos');
+  assert.match(postInstall, /No se pudieron detener todos los procesos Node de esta instalaci[oó]n antes de aplicar el payload/);
 });
 
 test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
@@ -1683,11 +1717,14 @@ test('package workflow publica imagenes docente GHCR versionadas', () => {
   const workflow = fs.readFileSync(packageWorkflowPath, 'utf8');
 
   assert.match(workflow, /packages:\s*write/);
-  assert.match(workflow, /docker\/login-action@v3/);
+  assert.match(workflow, /docker\/login-action@[0-9a-f]{40} # v3/);
   assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-api-docente/);
   assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-web-docente/);
-  assert.match(workflow, /docker push \$\{\{ steps\.meta\.outputs\.api_image \}\}:\$\{\{ steps\.meta\.outputs\.version \}\}/);
-  assert.match(workflow, /docker push \$\{\{ steps\.meta\.outputs\.web_image \}\}:\$\{\{ steps\.meta\.outputs\.version \}\}/);
+  assert.match(workflow, /API_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.api_image \}\}/);
+  assert.match(workflow, /WEB_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.web_image \}\}/);
+  assert.match(workflow, /docker push "\$API_IMAGE:\$IMAGE_VERSION"/);
+  assert.match(workflow, /docker push "\$WEB_IMAGE:\$IMAGE_VERSION"/);
+  assert.doesNotMatch(workflow, /docker push \$\{\{/);
 });
 
 test.skip('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
@@ -2479,7 +2516,7 @@ test('SPEC-050: post-install regenera tambien los shortcuts locales y el build n
   const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
   const trackedLinks = execFileSync('git', ['ls-files', '-z', '--', 'accesos-directos/*.lnk'], { cwd: root, encoding: 'utf8' });
 
-  assert.match(helper, /-OutputDir 'accesos-directos' -Force `\s+-SyncRepoOutput -SkipManifestUpdate `\s+-Port 4519/);
+  assert.match(helper, /-OutputDir accesos-directos -Force -SyncRepoOutput -SkipManifestUpdate -Port 4519/);
   assert.match(shortcuts, /\[switch\]\$SyncRepoOutput/);
   assert.match(buildMsi, /\$relativePath -match '\^accesos-directos\/\[\^\/\]\+\\\.lnk\$'/);
   assert.equal(trackedLinks, '', 'Los accesos .lnk generados no deben versionarse.');
@@ -2490,6 +2527,14 @@ test('SPEC-INSTALLER-ROLLBACK-CLEANUP: un fallo de shortcuts conserva la instala
   const verifier = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PostInstallVerifier.psm1'), 'utf8');
 
   assert.match(helper, /-SyncRepoOutput -SkipManifestUpdate/);
+  assert.match(helper, /function Invoke-ShortcutReconciliation/);
+  assert.match(helper, /WaitForExit\(\$TimeoutSeconds \* 1000\)/);
+  assert.match(helper, /\$process\.Kill\(\)/);
+  assert.match(helper, /\$stopped = \$process\.WaitForExit\(5000\)/);
+  assert.match(helper, /El proceso no terminó después de solicitar su cierre/);
+  assert.match(helper, /-TimeoutSeconds 90/);
+  assert.match(helper, /excedió 90 segundos; se conserva la instalación/);
+  assert.doesNotMatch(helper, /& \$powerShellPath -NoProfile -ExecutionPolicy Bypass -File \$shortcutScript/);
   assert.match(helper, /shortcutWarnings\.Add\(/);
   assert.match(helper, /state = 'degraded'/);
   assert.match(helper, /generate-installation-manifest\.ps1/);

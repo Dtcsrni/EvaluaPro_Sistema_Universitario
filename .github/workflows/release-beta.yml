@@ -19,13 +19,20 @@ on:
         description: "Motivo de la publicacion manual beta"
         required: false
         type: string
+  workflow_run:
+    workflows:
+      - "CI Checks"
+    types:
+      - completed
+    branches:
+      - main
 
 concurrency:
   group: release-beta-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', inputs.version || inputs.head_sha || github.ref_name) || format('auto-{0}', github.event.workflow_run.head_branch || github.ref_name) }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   beta_gate:
@@ -47,13 +54,13 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event.workflow_run.head_sha || github.sha }}
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -64,7 +71,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Configurar .NET SDK 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
 
@@ -115,7 +122,7 @@ jobs:
 
       - name: Publicar decision beta
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: beta-gate-decision
           path: reports/release/beta/**/decision.json
@@ -128,16 +135,18 @@ jobs:
     needs:
       - beta_gate
     if: needs.beta_gate.outputs.publish == 'true'
+    permissions:
+      contents: write
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           ref: ${{ needs.beta_gate.outputs.head_sha }}
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -148,7 +157,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Configurar .NET SDK 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
 
@@ -216,9 +225,19 @@ jobs:
 
       - name: Etapa hash/manifest beta
         shell: powershell
+        env:
+          BETA_TAG: ${{ needs.beta_gate.outputs.beta_tag }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
         run: |
-          $tag = "${{ needs.beta_gate.outputs.beta_tag }}"
-          $base = "https://github.com/${{ github.repository }}/releases/download/$tag"
+          $tag = $env:BETA_TAG
+          if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-beta\.(0|[1-9][0-9]*)$') {
+            throw "Formato de tag beta inválido: $tag"
+          }
+          $repository = $env:RELEASE_REPOSITORY
+          if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
+            throw "Repositorio de release inválido."
+          }
+          $base = "https://github.com/$repository/releases/download/$tag"
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1 -Channel beta -ReleaseBaseUrl "$base"
 
       - name: Antivirus gate del Installer Hub
@@ -241,10 +260,16 @@ jobs:
       - name: Cargar notas beta
         id: notes
         shell: bash
+        env:
+          BETA_VERSION: ${{ needs.beta_gate.outputs.beta_version }}
         run: |
           set -euo pipefail
-          notes_path="reports/release/beta/${{ needs.beta_gate.outputs.beta_version }}/notes.md"
-          if [ -z "$notes_path" ] || [ ! -f "$notes_path" ]; then
+          if [[ ! "$BETA_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-beta\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Version beta inválida para buscar notas." >&2
+            exit 1
+          fi
+          notes_path="reports/release/beta/$BETA_VERSION/notes.md"
+          if [ ! -f "$notes_path" ]; then
             echo "No se encontro notes.md de beta." >&2
             exit 1
           fi
@@ -274,7 +299,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publicar prerelease beta
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ needs.beta_gate.outputs.beta_tag }}
           target_commitish: ${{ needs.beta_gate.outputs.head_sha }}

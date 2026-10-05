@@ -20,13 +20,15 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   stable_gate:
     name: Stable Promotion Gate
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 300
+    outputs:
+      target_version: ${{ steps.resolve_version.outputs.target }}
     if: |
       github.event_name == 'workflow_dispatch' ||
       (startsWith(github.ref, 'refs/tags/v') &&
@@ -36,10 +38,10 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -54,35 +56,62 @@ jobs:
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
 
+      - name: Preparar cliente Prisma para QA candidato
+        run: npx prisma generate --config=apps/backend/prisma.config.mjs
+
+      - name: Preparar evidencias visuales para manifiesto QA
+        run: |
+          npx playwright install --with-deps chromium
+          npm run gui:screen-matrix
+          git restore -- docs/release/manual/gui-screen-matrix.md
+          npm run test:gui:responsive:e2e:ci
+
+      - name: Generar evidencia QA completa del SHA etiquetado
+        run: npm run qa:full
+
       - name: Resolver version objetivo
         id: resolve_version
         shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            TARGET="${{ inputs.version }}"
-          else
-            TARGET="${GITHUB_REF_NAME}"
-          fi
+          set -euo pipefail
+          TARGET="${INPUT_VERSION:-$GITHUB_REF_NAME}"
           TARGET="${TARGET#v}"
+          if [[ ! "$TARGET" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "La versión estable debe tener formato SemVer numérico X.Y.Z: $TARGET" >&2
+            exit 1
+          fi
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
       - name: Materializar manifest del instalador publicado
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
+          REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
+          set -euo pipefail
+          if [[ ! "$TARGET_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Versión estable inválida para descargar el manifest." >&2
+            exit 1
+          fi
+          if [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Repositorio GitHub inválido." >&2
+            exit 1
+          fi
           mkdir -p dist/installer
-          TAG="v${{ steps.resolve_version.outputs.target }}"
-          for attempt in {1..40}; do
+          TAG="v$TARGET_VERSION"
+          for attempt in {1..390}; do
             if gh release download "$TAG" \
-              --repo "${{ github.repository }}" \
+              --repo "$REPOSITORY" \
               --pattern "EvaluaPro-release-manifest.json" \
               --dir "dist/installer" \
               --clobber; then
               test -s "dist/installer/EvaluaPro-release-manifest.json"
               exit 0
             fi
-            echo "Manifest de instalador no disponible aun para $TAG (intento $attempt/40)."
+            echo "Manifest de instalador no disponible aun para $TAG (intento $attempt/390)."
             sleep 30
           done
           echo "No se pudo descargar EvaluaPro-release-manifest.json para $TAG." >&2
@@ -91,24 +120,60 @@ jobs:
       - name: Ejecutar gate estable
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          node scripts/release/validate-stable-promotion.mjs
-          --repo=${{ github.repository }}
-          --version=${{ steps.resolve_version.outputs.target }}
-          --required-streak=10
-          --workflow=ci.yml
-          --branch=main
-          ${{ inputs.evidence_dir && format('--evidence-dir={0}', inputs.evidence_dir) || '' }}
-
-      - name: Marcar release como Latest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "v${{ steps.resolve_version.outputs.target }}" --repo "${{ github.repository }}" --latest
+          REPOSITORY: ${{ github.repository }}
+          TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
+          EVIDENCE_DIR: ${{ inputs.evidence_dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$TARGET_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Versión estable inválida para el gate." >&2
+            exit 1
+          fi
+          if [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Repositorio GitHub inválido." >&2
+            exit 1
+          fi
+          args=(
+            "--repo=$REPOSITORY"
+            "--version=$TARGET_VERSION"
+            "--required-streak=10"
+            "--workflow=ci.yml"
+            "--branch=main"
+          )
+          if [[ -n "$EVIDENCE_DIR" ]]; then
+            args+=("--evidence-dir=$EVIDENCE_DIR")
+          fi
+          node scripts/release/validate-stable-promotion.mjs "${args[@]}"
 
       - name: Publicar decision de auditoria
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: stable-gate-decision-${{ steps.resolve_version.outputs.target }}
-          path: reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
+          path: |
+            reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
+            reports/qa/latest/
           if-no-files-found: warn
+
+  promote_latest:
+    name: Promover release validado
+    runs-on: ubuntu-latest
+    needs: stable_gate
+    if: needs.stable_gate.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - name: Marcar release como Latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_VERSION: ${{ needs.stable_gate.outputs.target_version }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$TARGET_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ || ! "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Versión o repositorio inválido para promover Latest." >&2
+            exit 1
+          fi
+          gh release edit "v$TARGET_VERSION" --repo "$REPOSITORY" --latest

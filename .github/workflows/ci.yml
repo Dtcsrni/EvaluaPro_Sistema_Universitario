@@ -63,7 +63,7 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
@@ -81,12 +81,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -134,7 +134,7 @@ jobs:
 
       - name: Publicar reporte affected CI
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: reports-affected-ci
           path: reports.affected-ci.json
@@ -150,12 +150,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -223,13 +223,21 @@ jobs:
 
       - name: Preparar base para diff coverage (PR)
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --depth=1
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_REF" ]] || ! git check-ref-format "refs/heads/$BASE_REF"; then
+            echo "Base ref inválida para diff coverage." >&2
+            exit 1
+          fi
+          git fetch --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
 
       - name: Etapa diff-coverage-check
         env:
           DIFF_COVERAGE_MIN: "90"
           DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after';err instanceof Error ? err.message : String(err)"
-          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts;apps/backend/src;apps/portal_alumno_cloud/src"
+          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
         run: npm run test:coverage:diff -- --apps backend,portal
 
       - name: Etapa build backend
@@ -250,7 +258,7 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
@@ -259,7 +267,7 @@ jobs:
         run: git fetch --no-tags origin 53e0590244c55e4ff7f9104c6ea4dd1c5c2a2e12
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -301,12 +309,19 @@ jobs:
 
       - name: Preparar base para diff coverage (PR)
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --depth=1
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_REF" ]] || ! git check-ref-format "refs/heads/$BASE_REF"; then
+            echo "Base ref inválida para diff coverage." >&2
+            exit 1
+          fi
+          git fetch --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
 
       - name: Etapa diff-coverage-check
         env:
           DIFF_COVERAGE_MIN: "90"
-          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"
         run: npm run test:coverage:diff -- --apps frontend
 
       - name: Etapa build frontend
@@ -322,12 +337,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -369,7 +384,7 @@ jobs:
 
       - name: Publicar reporte de auditoría
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: npm-audit-report
           path: npm-audit-report.json
@@ -427,12 +442,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -510,12 +525,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -550,7 +565,7 @@ jobs:
 
       - name: Publicar reporte de performance
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: perf-report
           path: |
@@ -576,12 +591,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -616,7 +631,7 @@ jobs:
 
       - name: Publicar artefactos QA
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: qa-reports
           path: reports/qa/latest

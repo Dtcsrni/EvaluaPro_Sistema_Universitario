@@ -30,6 +30,22 @@ test('frontend-only activa frontend y ux, pero no backend ni perf/compliance', (
   assert.equal(result.matchedJobs.ext_compliance_evidencia, false);
 });
 
+test('guardas WCAG activan frontend antes de integrar cambios en PR', () => {
+  const guards = [
+    'scripts/wcag-guard.mjs',
+    'scripts/tests/ui-contrast-audit.mjs',
+    'scripts/tests/wcag-guard.contract.test.mjs',
+    'docs/WCAG_UI_POLICY.md'
+  ];
+
+  for (const guard of guards) {
+    const result = evaluateAffectedChangeSet(config, [guard]);
+    assert.equal(result.matchedGroups.frontend, true, `${guard} debe activar el grupo frontend`);
+    assert.equal(result.matchedJobs.core_frontend, true, `${guard} debe ejecutar el core frontend`);
+    assert.equal(result.matchedGates['ux-visual-check'], true, `${guard} debe ejecutar el gate UX`);
+  }
+});
+
 test('docs-only activa docs y evita gates extended no relacionados', () => {
   const result = evaluateAffectedChangeSet(config, ['docs/README.md']);
 

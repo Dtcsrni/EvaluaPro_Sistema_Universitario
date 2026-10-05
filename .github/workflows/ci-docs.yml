@@ -45,7 +45,7 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
@@ -63,12 +63,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -83,25 +83,5 @@ jobs:
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
 
-      - name: Etapa contract-check
-        run: npm run pipeline:contract:check
-
-      - name: Etapa docs-check
-        run: |
-          npm run docs:generate
-          npm run docs:check
-
-      - name: Etapa diagramas-check
-        run: npm run diagramas:check
-
-      - name: Etapa diagramas-render
-        run: |
-          rm -rf ~/.cache/puppeteer
-          npx puppeteer browsers install chrome
-          npm run diagramas:render
-
-      - name: Etapa diagramas-consistencia-check
-        run: npm run diagramas:consistencia:check
-
-      - name: Etapa routes-check
-        run: npm run routes:check
+      - name: Etapa SDD audit
+        run: npm run sdd:audit

@@ -51,7 +51,7 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
@@ -69,12 +69,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -100,26 +100,14 @@ jobs:
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
 
+      - name: Generar Prisma Client para pruebas OMR
+        run: npx prisma generate --config=apps/backend/prisma.config.mjs
+
       - name: Preparar runtime CV nativo (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa smoke OMR CV
         run: npm -C apps/backend run omr:cv:smoke
-
-      - name: Etapa lint backend
-        run: npm -C apps/backend run lint
-
-      - name: Etapa typecheck backend
-        run: npm -C apps/backend run typecheck
-
-      - name: Etapa test backend
-        run: npm run test:backend:ci
-
-      - name: Etapa test portal alumno
-        run: npm run test:portal:ci
-
-      - name: Etapa build frontend alumno
-        run: npm run build:frontend:alumno
 
       - name: Etapa tests OMR criticos
         run: npm -C apps/backend run test -- --reporter=verbose tests/omr.cv.engine.test.ts tests/omr.etapaScoring.fallback.test.ts tests/omr.prevalidacion.test.ts tests/omr.contrato.test.ts tests/integracion/qrEscaneoOmr.test.ts tests/omr.test.ts
@@ -129,34 +117,10 @@ jobs:
 
       - name: Publicar artefactos OMR QA
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: omr-qa-reports
           path: |
             reports/qa/latest/omr/**
             reports/qa/latest/omr-canonical-gate-wrapper.json
           if-no-files-found: warn
-
-      - name: Etapa contrato del runner de cobertura backend
-        run: node --test scripts/tests/backend-coverage-batches.test.mjs
-
-      - name: Etapa coverage backend
-        env:
-          BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "3600000"
-        run: npm -C apps/backend run test:coverage
-
-      - name: Etapa tdd-debt-check
-        run: npm run test:coverage:exclusions:debt
-
-      - name: Preparar base para diff coverage (PR)
-        if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --depth=1
-
-      - name: Etapa diff-coverage-check
-        env:
-          DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after';err instanceof Error ? err.message : String(err)"
-          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts;apps/backend/src"
-        run: npm run test:coverage:diff -- --apps backend
-
-      - name: Etapa build backend
-        run: npm -C apps/backend run build

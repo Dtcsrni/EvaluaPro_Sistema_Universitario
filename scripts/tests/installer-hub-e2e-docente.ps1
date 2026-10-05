@@ -14,6 +14,8 @@ param(
   [string]$RootPath = '',
   [string]$ReportDir = '',
   [string]$InstallDir = '',
+  [string]$CandidateBundlePath = '',
+  [string]$BaselineBundlePath = '',
   [int]$Port = 4519,
   [switch]$IUnderstandThisMutatesPc,
   [switch]$AllowExistingInstall,
@@ -82,6 +84,21 @@ $reportPath = Join-Path $ReportDir 'report.json'
 $legacyReportPath = Join-Path $ReportDir 'installer-hub-e2e-docente-report.json'
 $logPath = Join-Path $ReportDir 'installer-hub-e2e-docente.log'
 $tutorialPath = Join-Path $ReportDir 'tutorial.md'
+$sharedProgramDataDatabasePath = Join-Path $env:ProgramData 'EvaluaPro\data\evaluapro.db'
+$script:sharedProgramDataSqliteArtifactsAtStart = @(
+  foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
+    $candidate = $sharedProgramDataDatabasePath + $suffix
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { $candidate }
+  }
+)
+$script:sharedProgramDataDatabaseExistedAtStart = $script:sharedProgramDataSqliteArtifactsAtStart.Count -gt 0
+$script:operationalConfigPath = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\operational-config.last.json'
+$script:operationalConfigExistedAtStart = Test-Path -LiteralPath $script:operationalConfigPath -PathType Leaf
+$script:operationalConfigOriginalBytes = if ($script:operationalConfigExistedAtStart) {
+  [IO.File]::ReadAllBytes($script:operationalConfigPath)
+} else {
+  $null
+}
 $results = New-Object System.Collections.Generic.List[object]
 $screenshots = New-Object System.Collections.Generic.List[string]
 $artifacts = New-Object System.Collections.Generic.List[string]
@@ -196,12 +213,26 @@ function Copy-ArtifactIfExists {
   $targetName = if ($Name) { $Name } else { Split-Path -Leaf $Path }
   $targetDir = if ($targetName -match 'sha|SHASUMS') { $hashesDir } elseif ($targetName -match 'manifest|update-config') { $manifestDir } elseif ($targetName -match 'log') { $logsDir } else { $ReportDir }
   $target = Join-Path $targetDir $targetName
+  $sourceFullPath = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path)
+  $targetFullPath = [IO.Path]::GetFullPath($target)
+  if ([string]::Equals($sourceFullPath, $targetFullPath, [StringComparison]::OrdinalIgnoreCase)) {
+    if (-not $script:artifacts.Contains($targetFullPath)) { $script:artifacts.Add($targetFullPath) | Out-Null }
+    return $targetFullPath
+  }
   Copy-Item -LiteralPath $Path -Destination $target -Force -Recurse
-  $script:artifacts.Add($target) | Out-Null
+  if (-not $script:artifacts.Contains($targetFullPath)) { $script:artifacts.Add($targetFullPath) | Out-Null }
   return $target
 }
 
 function Resolve-BundlePath {
+  if (-not [string]::IsNullOrWhiteSpace($CandidateBundlePath)) {
+    $candidatePath = (Resolve-Path -LiteralPath $CandidateBundlePath -ErrorAction Stop).Path
+    if (-not (Test-Path -LiteralPath $candidatePath -PathType Leaf) -or [IO.Path]::GetExtension($candidatePath) -ne '.exe') {
+      throw "CandidateBundlePath debe apuntar a un archivo EXE existente: $CandidateBundlePath"
+    }
+    return $candidatePath
+  }
+
   $manifestPath = Join-Path $root 'dist\installer\installer-local-paths.json'
   $internalManifestPath = Join-Path $root 'dist\installer\_internal\installer-local-paths.json'
   $selected = if (Test-Path -LiteralPath $manifestPath) { $manifestPath } elseif (Test-Path -LiteralPath $internalManifestPath) { $internalManifestPath } else { '' }
@@ -285,13 +316,16 @@ function Assert-Hash {
   Add-Result -Area 'preflight' -Item 'sha256' -Ok ($actual -eq $expected) -Detail "expected=$expected actual=$actual"
   if ($actual -ne $expected) { throw 'Hash SHA256 invalido para el bundle.' }
   $crcPath = "$ExePath.crc32"
-  if (-not (Test-Path -LiteralPath $crcPath)) { throw "No existe CRC32 junto al bundle: $crcPath" }
-  $crcText = Get-Content -Path $crcPath -Raw
-  $expectedCrc = ([regex]::Match($crcText, '[A-Fa-f0-9]{8}')).Value.ToLowerInvariant()
-  if (-not $expectedCrc) { throw "CRC32 esperado invalido: $crcPath" }
-  $actualCrc = Get-Crc32Hash -Path $ExePath
-  Add-Result -Area 'preflight' -Item 'crc32' -Ok ($actualCrc -eq $expectedCrc) -Detail "expected=$expectedCrc actual=$actualCrc"
-  if ($actualCrc -ne $expectedCrc) { throw 'CRC32 invalido para el bundle.' }
+  if (Test-Path -LiteralPath $crcPath) {
+    $crcText = Get-Content -Path $crcPath -Raw
+    $expectedCrc = ([regex]::Match($crcText, '[A-Fa-f0-9]{8}')).Value.ToLowerInvariant()
+    if (-not $expectedCrc) { throw "CRC32 esperado invalido: $crcPath" }
+    $actualCrc = Get-Crc32Hash -Path $ExePath
+    Add-Result -Area 'preflight' -Item 'crc32' -Ok ($actualCrc -eq $expectedCrc) -Detail "expected=$expectedCrc actual=$actualCrc"
+    if ($actualCrc -ne $expectedCrc) { throw 'CRC32 invalido para el bundle.' }
+  } else {
+    Add-Result -Area 'preflight' -Item 'crc32' -Ok $true -Detail 'No se publicó CRC32; SHA-256 es obligatorio y se verificó.'
+  }
 }
 
 function Wait-WindowsInstallerIdle {
@@ -750,7 +784,8 @@ function Get-LatestInstallerHelperState {
 function Invoke-InstallerHubMode {
   param(
     [ValidateSet('install', 'repair', 'uninstall')]
-    [string]$Mode
+    [string]$Mode,
+    [string]$BundlePath = $script:bundlePath
   )
   $arguments = switch ($Mode) {
     'repair' { '/repair' }
@@ -759,19 +794,29 @@ function Invoke-InstallerHubMode {
   }
   Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "before-$Mode"
   $previousQaInstallDir = $env:EVALUAPRO_QA_INSTALL_DIR
+  $previousDatabaseUrl = $env:EVALUAPRO_DATABASE_URL
   $env:EVALUAPRO_QA_INSTALL_DIR = $installedRoot
-  $process = if ($arguments) {
-    Start-Process -FilePath $bundlePath -ArgumentList $arguments -PassThru -WindowStyle Normal
-  } else {
-    Start-Process -FilePath $bundlePath -PassThru -WindowStyle Normal
-  }
-  if ($null -eq $previousQaInstallDir) {
-    Remove-Item Env:EVALUAPRO_QA_INSTALL_DIR -ErrorAction SilentlyContinue
-  } else {
-    $env:EVALUAPRO_QA_INSTALL_DIR = $previousQaInstallDir
+  $env:EVALUAPRO_DATABASE_URL = 'file:' + ((Join-Path $installedRoot 'data\evaluapro.db') -replace '\\', '/')
+  try {
+    $process = if ($arguments) {
+      Start-Process -FilePath $BundlePath -ArgumentList $arguments -PassThru -WindowStyle Normal
+    } else {
+      Start-Process -FilePath $BundlePath -PassThru -WindowStyle Normal
+    }
+  } finally {
+    if ($null -eq $previousQaInstallDir) {
+      Remove-Item Env:EVALUAPRO_QA_INSTALL_DIR -ErrorAction SilentlyContinue
+    } else {
+      $env:EVALUAPRO_QA_INSTALL_DIR = $previousQaInstallDir
+    }
+    if ($null -eq $previousDatabaseUrl) {
+      Remove-Item Env:EVALUAPRO_DATABASE_URL -ErrorAction SilentlyContinue
+    } else {
+      $env:EVALUAPRO_DATABASE_URL = $previousDatabaseUrl
+    }
   }
   $processes.Add($process) | Out-Null
-  Write-E2ELog "Installer Hub iniciado mode=$Mode pid=$($process.Id)"
+  Write-E2ELog "Installer Hub iniciado mode=$Mode bundle=$BundlePath pid=$($process.Id)"
   $freshWindow = Find-Window -TimeoutSec 1
   $window = if ($freshWindow) { $freshWindow } else { Find-Window -TimeoutSec 90 }
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
@@ -1140,6 +1185,10 @@ function Invoke-CaptureCommand {
   $stdout = Join-Path $ReportDir ("{0}.stdout.log" -f $Name)
   $stderr = Join-Path $ReportDir ("{0}.stderr.log" -f $Name)
   $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+  # Keep the native handle while Start-Process still exposes it; some Windows
+  # runner processes lose the managed ExitCode after WaitForExit drains streams.
+  $processHandle = [IntPtr]::Zero
+  try { $processHandle = [IntPtr]$process.Handle } catch {}
   if (-not $process.WaitForExit($TimeoutSec * 1000)) {
     try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
     throw "Timeout ejecutando $Name"
@@ -1152,12 +1201,54 @@ function Invoke-CaptureCommand {
   
   $exitCode = $process.ExitCode
   if ($null -eq $exitCode) {
-    Write-E2ELog "WARNING: ExitCode was null for $Name. Falling back to 0 (Success) since process exited."
-    $exitCode = 0
+    if (-not $process.HasExited) {
+      throw "No se pudo determinar ExitCode de $Name porque el proceso todavía aparece activo."
+    }
+    if (-not ('EvaluaPro.NativeProcessExitCode' -as [type])) {
+      Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace EvaluaPro {
+  public static class NativeProcessExitCode {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool GetExitCodeProcess(IntPtr processHandle, out uint exitCode);
+  }
+}
+'@
+    }
+    [uint32]$nativeExitCode = 0
+    if ($processHandle -eq [IntPtr]::Zero) {
+      throw "No se pudo determinar ExitCode de ${Name}: el handle nativo del proceso no estuvo disponible antes de esperar su finalización."
+    }
+    $exitCodeAvailable = [EvaluaPro.NativeProcessExitCode]::GetExitCodeProcess($processHandle, [ref]$nativeExitCode)
+    if (-not $exitCodeAvailable) {
+      $nativeError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+      throw "No se pudo determinar ExitCode de $Name mediante GetExitCodeProcess (Win32=$nativeError)."
+    }
+    $exitCode = [int]$nativeExitCode
+    Write-E2ELog "ExitCode de $Name recuperado con GetExitCodeProcess: $exitCode"
   }
   
   Add-Result -Area 'command' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
   if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
+}
+
+function Test-MsiPackageFile {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  # Burn extracts attached payloads with opaque names (for example, a0).
+  # MSI files use the OLE Compound File signature, so identify the package by bytes.
+  $expectedSignature = [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1)
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    if ($stream.Length -lt $expectedSignature.Length) { return $false }
+    $signature = New-Object byte[] $expectedSignature.Length
+    $read = $stream.Read($signature, 0, $signature.Length)
+    if ($read -ne $expectedSignature.Length) { return $false }
+    return [Convert]::ToBase64String($signature) -eq [Convert]::ToBase64String($expectedSignature)
+  } finally {
+    $stream.Dispose()
+  }
 }
 
 function Export-RuntimeAudit {
@@ -1264,6 +1355,305 @@ function Test-UpdateSmoke {
   Add-Result -Area 'update' -Item 'status' -Ok ($null -ne $status -and [string]$status.state -ne 'failed') -Detail "$BaseUrl/api/update/status"
 }
 
+function Normalize-InstallerProductVersion {
+  param([Parameter(Mandatory = $true)][version]$Version)
+  if ($Version.Build -lt 0) { throw "La versión MSI no contiene el tercer componente requerido: $Version" }
+  if ($Version.Revision -gt 0) { throw "La versión MSI contiene un cuarto componente inesperado: $Version" }
+  return [version]::new($Version.Major, $Version.Minor, $Version.Build)
+}
+
+function Get-InstalledProductVersion {
+  $target = [IO.Path]::GetFullPath($installedRoot).TrimEnd('\')
+  $allEntries = @(Get-EvaluaProUninstallEntries)
+  $matchingEntries = @($allEntries | Where-Object {
+      -not [string]::IsNullOrWhiteSpace([string]$_.installLocation) -and
+      [IO.Path]::GetFullPath([string]$_.installLocation).TrimEnd('\') -eq $target
+    })
+  if ($matchingEntries.Count -gt 1) {
+    throw "Hay varias entradas de producto EvaluaPro para la instalación temporal: $installedRoot"
+  }
+
+  if ($matchingEntries.Count -eq 1) {
+    $entry = $matchingEntries[0]
+  } elseif ($allEntries.Count -eq 1 -and
+      [string]::IsNullOrWhiteSpace([string]$allEntries[0].installLocation) -and
+      ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
+       (Test-Path -LiteralPath (Join-Path $target 'evaluapro-native-dist.zip') -PathType Leaf))) {
+    # MSI v1.2.3 does not reliably publish ARPINSTALLLOCATION. On the clean,
+    # isolated E2E runner a unique ARP product plus its installed payload at the
+    # exact target proves which installation produced the version entry. The
+    # baseline MSI lays down the ZIP before the post-install helper expands it.
+    $entry = $allEntries[0]
+    Write-E2ELog "ARP no publicó InstallLocation; se valida la única entrada EvaluaPro contra el EXE o ZIP de payload aislado en $target."
+  } else {
+    $entryDetails = @($allEntries | ForEach-Object {
+        "version=$($_.displayVersion); location=$($_.installLocation); key=$($_.registryPath)"
+      }) -join ' | '
+    if ([string]::IsNullOrWhiteSpace($entryDetails)) { $entryDetails = 'sin entradas EvaluaPro registradas' }
+    throw "No existe una entrada MSI inequívoca para la instalación temporal '$installedRoot': $entryDetails"
+  }
+  $parsed = $null
+  if (-not [version]::TryParse([string]$entry.displayVersion, [ref]$parsed)) {
+    throw "DisplayVersion instalada invalida: $($entry.displayVersion)"
+  }
+  return (Normalize-InstallerProductVersion -Version $parsed)
+}
+
+function Assert-OfficialUpgradeBaseline {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path
+  $sidecarPath = "$resolvedPath.sha256"
+  if (-not (Test-Path -LiteralPath $sidecarPath)) { throw "Falta el sidecar SHA-256 del baseline oficial: $sidecarPath" }
+  $expectedSha = '644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913'
+  $sidecarText = Get-Content -Raw -LiteralPath $sidecarPath
+  $sidecarMatch = [regex]::Match($sidecarText, '(?i)\b([0-9a-f]{64})\b')
+  if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $expectedSha) {
+    throw 'El sidecar no coincide con el SHA-256 oficial fijado para EvaluaPro v1.2.3.'
+  }
+  $actualSha = (Get-FileHash -LiteralPath $resolvedPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actualSha -ne $sidecarMatch.Groups[1].Value.ToLowerInvariant()) {
+    throw "El instalador baseline v1.2.3 no coincide con su sidecar SHA-256: $resolvedPath"
+  }
+  Add-Result -Area 'upgrade-baseline' -Item 'official-sha256' -Ok $true -Detail $actualSha
+  return $resolvedPath
+}
+
+function Install-OfficialUpgradeBaselineMsi {
+  param([Parameter(Mandatory = $true)][string]$VerifiedBundlePath)
+
+  $wixCommand = Get-Command -Name 'wix.exe' -CommandType Application -ErrorAction Stop | Select-Object -First 1
+  $extractRoot = Join-Path $env:RUNNER_TEMP ('evaluapro-upgrade-baseline-extract-' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+  $quotedBundle = '"' + (([IO.Path]::GetFullPath($VerifiedBundlePath)) -replace '"', '\"') + '"'
+  $quotedExtractRoot = '"' + (([IO.Path]::GetFullPath($extractRoot)) -replace '"', '\"') + '"'
+  Invoke-CaptureCommand -Name 'upgrade-baseline-wix-extract' -FilePath $wixCommand.Source -ArgumentList @('burn', 'extract', $quotedBundle, '-out', $quotedExtractRoot) -WorkingDirectory $root -TimeoutSec 300
+
+  $baselineMsis = @(Get-ChildItem -LiteralPath $extractRoot -File -Recurse | Where-Object { Test-MsiPackageFile -Path $_.FullName })
+  if ($baselineMsis.Count -ne 1) { throw "El bundle oficial v1.2.3 debe contener exactamente un payload MSI; encontrados=$($baselineMsis.Count)." }
+  $baselineMsiPath = Join-Path $extractRoot 'EvaluaPro-docente-local.msi'
+  if (Test-Path -LiteralPath $baselineMsiPath) { throw 'La ruta MSI normalizada ya existe dentro del staging de extracción.' }
+  Move-Item -LiteralPath $baselineMsis[0].FullName -Destination $baselineMsiPath
+
+  $quotedMsi = '"' + ($baselineMsiPath -replace '"', '\"') + '"'
+  $quotedInstallRoot = '"' + ([IO.Path]::GetFullPath($installedRoot) -replace '"', '\"') + '"'
+  $msiInstallLog = Join-Path $ReportDir 'upgrade-baseline-msi-install.log'
+  $quotedMsiInstallLog = '"' + ([IO.Path]::GetFullPath($msiInstallLog) -replace '"', '\"') + '"'
+  Invoke-CaptureCommand -Name 'upgrade-baseline-msi-install' -FilePath 'msiexec.exe' -ArgumentList @(
+    '/i', $quotedMsi,
+    "INSTALLFOLDER=$quotedInstallRoot",
+    'REQUIRE_INSTALLER_HUB=1', 'BURNMSIINSTALL=1',
+    'INSTALL_DESKTOP_SHORTCUTS=0', 'INSTALL_STARTMENU_SHORTCUTS=0',
+    '/l*v', $quotedMsiInstallLog,
+    '/qn', '/norestart'
+  ) -WorkingDirectory $root -TimeoutSec 300
+  Copy-ArtifactIfExists -Path $msiInstallLog | Out-Null
+
+  $installedVersion = Get-InstalledProductVersion
+  if ($installedVersion -ne [version]'1.2.3') { throw "El MSI extraído del bundle oficial no instaló v1.2.3; observado=$installedVersion" }
+
+  $requestPath = Join-Path $ReportDir 'upgrade-baseline-post-install.request.json'
+  $responsePath = Join-Path $ReportDir 'upgrade-baseline-post-install.response.json'
+  $request = [ordered]@{
+    mode = 'install'
+    flavorId = 'docente-local'
+    installDir = [IO.Path]::GetFullPath($installedRoot)
+    exportData = '1'
+    dataDir = Join-Path $installedRoot 'data'
+    config = [ordered]@{
+      databaseUrl = 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
+      nodeEnv = 'production'
+      puertoApi = '4000'
+      puertoPortal = '4518'
+      corsOrigenes = 'http://localhost:4173,http://127.0.0.1:4173'
+      portalAlumnoUrl = ''
+      portalAlumnoApiKey = 'portal-key-shared'
+      portalApiKey = 'portal-key-shared'
+      passwordResetEnabled = '0'
+      passwordResetUrlBase = ''
+      requireLicenseActivation = '0'
+      apiComercialBaseUrl = ''
+      tenantId = ''
+      codigoActivacion = ''
+      licenciaAccountEmail = 'soporte@tu-institucion.mx'
+      flavorId = 'docente-local'
+      updateChannel = 'stable'
+      updateOwner = 'Dtcsrni'
+      updateRepo = 'EvaluaPro_Sistema_Universitario'
+      updateAssetName = 'EvaluaPro-InstallerHub-docente-local.exe'
+      updateShaAssetName = 'EvaluaPro-InstallerHub-docente-local.exe.sha256'
+      updateRequireSha256 = '1'
+    }
+  }
+  [IO.File]::WriteAllText($requestPath, ($request | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+  $helperPath = Join-Path $root 'scripts\installer-burn\InstallerBurnHelper.ps1'
+  $quotedHelper = '"' + ([IO.Path]::GetFullPath($helperPath) -replace '"', '\"') + '"'
+  $quotedRequest = '"' + ([IO.Path]::GetFullPath($requestPath) -replace '"', '\"') + '"'
+  $quotedResponse = '"' + ([IO.Path]::GetFullPath($responsePath) -replace '"', '\"') + '"'
+  Invoke-CaptureCommand -Name 'upgrade-baseline-post-install' -FilePath 'powershell.exe' -ArgumentList @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $quotedHelper,
+    '-Mode', 'post-install', '-RequestPath', $quotedRequest, '-ResponsePath', $quotedResponse
+  ) -WorkingDirectory $root -TimeoutSec 900
+
+  if (-not (Test-Path -LiteralPath $responsePath -PathType Leaf)) { throw 'El helper QA no produjo respuesta para el baseline oficial v1.2.3.' }
+  $response = Get-Content -LiteralPath $responsePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  if (-not $response.ok) { throw "No se pudo preparar el MSI baseline oficial v1.2.3: $([string]$response.message)" }
+  # El helper escribe la respuesta directamente dentro de ReportDir; la copia sería sobre sí misma.
+  Copy-ArtifactIfExists -Path $responsePath | Out-Null
+  Add-Result -Area 'upgrade-baseline' -Item 'official-msi-installed' -Ok $true -Detail 'bundle oficial SHA-256 verificado; MSI extraído e instalado como v1.2.3'
+}
+
+function Invoke-UpgradeDataMarker {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet('write', 'verify', 'remove')][string]$Action,
+    [Parameter(Mandatory = $true)][string]$Marker
+  )
+  $databasePath = Resolve-InstalledSqlitePath
+  $nodePath = Join-Path $installedRoot 'runtime\node\node.exe'
+  if (-not (Test-Path -LiteralPath $databasePath)) { throw "No existe la base instalada para probar upgrade: $databasePath" }
+  if (-not (Test-Path -LiteralPath $nodePath)) { throw "No existe Node empaquetado para probar upgrade: $nodePath" }
+  $script = @'
+const { DatabaseSync } = require('node:sqlite');
+const [action, databasePath, marker] = process.argv.slice(1);
+const db = new DatabaseSync(databasePath);
+try {
+  db.exec('CREATE TABLE IF NOT EXISTS "_qa_upgrade_probe" (marker TEXT PRIMARY KEY)');
+  if (action === 'write') db.prepare('INSERT OR REPLACE INTO "_qa_upgrade_probe" (marker) VALUES (?)').run(marker);
+  else if (action === 'verify') {
+    const row = db.prepare('SELECT marker FROM "_qa_upgrade_probe" WHERE marker = ?').get(marker);
+    if (!row) process.exitCode = 3;
+  } else if (action === 'remove') db.exec('DROP TABLE IF EXISTS "_qa_upgrade_probe"');
+} finally { db.close(); }
+'@
+  & $nodePath -e $script $Action $databasePath $Marker
+  if ($LASTEXITCODE -ne 0) { throw "No se pudo $Action el marcador SQLite de upgrade (exit=$LASTEXITCODE)." }
+}
+
+function Invoke-UpgradeBaselineFlow {
+  param([Parameter(Mandatory = $true)][string]$BaselinePath)
+  $verifiedBaseline = Assert-OfficialUpgradeBaseline -Path $BaselinePath
+  Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline
+  Wait-InstalledPayload -TimeoutSec 240
+  Set-QAIsolatedSqlite | Out-Null
+  Test-InstalledState -Phase 'post-baseline-install'
+  $baselineVersion = Get-InstalledProductVersion
+  if ($baselineVersion -ne [version]'1.2.3') { throw "El instalador baseline no dejó v1.2.3; versión observada: $baselineVersion" }
+  Add-Result -Area 'upgrade' -Item 'baseline-version' -Ok $true -Detail ([string]$baselineVersion)
+
+  $baselineRunId = 'e2e-upgrade-baseline-' + [guid]::NewGuid().ToString('N')
+  Invoke-InstalledBroker -Action 'open-dashboard' -RunId $baselineRunId -TimeoutSec 240
+  $baselineState = Wait-BootstrapState -RunId $baselineRunId -AcceptedStates @('healthy', 'degraded') -TimeoutSec 240
+  $baselineStateValue = if ($baselineState.PSObject.Properties.Match('state').Count -gt 0) { [string]$baselineState.state } else { 'unknown' }
+  if ($baselineStateValue -notin @('healthy', 'degraded')) { throw "La app baseline no quedó saludable antes de upgrade: $baselineStateValue" }
+
+  $marker = 'upgrade-' + [guid]::NewGuid().ToString('N')
+  Invoke-InstalledBroker -Action 'stop-all' -RunId ('upgrade-stop-' + [guid]::NewGuid().ToString('N'))
+  Invoke-UpgradeDataMarker -Action 'write' -Marker $marker
+  Add-Result -Area 'upgrade' -Item 'baseline-data-marker' -Ok $true -Detail 'marcador SQLite escrito en la base instalada temporal'
+  try {
+    Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath | Out-Null
+    Wait-InstalledPayload -TimeoutSec 240
+    $candidateVersion = Get-InstalledProductVersion
+    $versionAdvanced = $candidateVersion -gt $baselineVersion
+    Add-Result -Area 'upgrade' -Item 'candidate-version-advanced' -Ok $versionAdvanced -Detail "baseline=$baselineVersion candidate=$candidateVersion"
+    if (-not $versionAdvanced) { throw "La actualización no avanzó la versión: $baselineVersion -> $candidateVersion" }
+    Invoke-UpgradeDataMarker -Action 'verify' -Marker $marker
+    Add-Result -Area 'upgrade' -Item 'data-preserved' -Ok $true -Detail 'el marcador SQLite previo continúa después del upgrade'
+    Test-InstalledState -Phase 'post-upgrade'
+  } finally {
+    try { Invoke-UpgradeDataMarker -Action 'remove' -Marker $marker } catch { Write-E2ELog "No se pudo limpiar marcador QA de upgrade: $($_.Exception.Message)" }
+  }
+}
+
+function Resolve-InstalledSqlitePath {
+  $databasePath = Get-ConfiguredInstalledSqlitePath
+  $localDatabase = [IO.Path]::GetFullPath((Join-Path $installedRoot 'data\evaluapro.db'))
+  if ($databasePath -ne $localDatabase) {
+    throw "La ruta SQLite del instalador está fuera de los destinos QA permitidos: $databasePath"
+  }
+  if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) { throw "No existe la SQLite instalada: $databasePath" }
+  return $databasePath
+}
+
+function Get-ConfiguredInstalledSqlitePath {
+  $envFile = Join-Path $installedRoot '.env'
+  if (-not (Test-Path -LiteralPath $envFile -PathType Leaf)) { throw "No existe la configuración de base instalada: $envFile" }
+  $values = @{}
+  foreach ($line in Get-Content -LiteralPath $envFile) {
+    if ($line -match '^\s*(BACKEND_DATABASE_URL|DATABASE_URL)\s*=\s*(.*?)\s*$') {
+      $values[$matches[1]] = $matches[2].Trim().Trim('"').Trim("'")
+    }
+  }
+  $databaseUrl = [string]$values['BACKEND_DATABASE_URL']
+  if ([string]::IsNullOrWhiteSpace($databaseUrl)) { $databaseUrl = [string]$values['DATABASE_URL'] }
+  $match = [regex]::Match($databaseUrl, '^file:(?<path>[A-Za-z]:[\\/][^?#]+)$')
+  if (-not $match.Success) { throw 'La base instalada debe declarar una ruta SQLite local en .env.' }
+  $databasePath = [IO.Path]::GetFullPath([Uri]::UnescapeDataString($match.Groups['path'].Value.Replace('/', '\\')))
+  return $databasePath
+}
+
+function Set-QAIsolatedSqlite {
+  $databasePath = Get-ConfiguredInstalledSqlitePath
+  $localDatabase = [IO.Path]::GetFullPath((Join-Path $installedRoot 'data\evaluapro.db'))
+  if ($databasePath -eq $localDatabase) {
+    if (-not (Test-Path -LiteralPath $localDatabase -PathType Leaf)) { throw "No existe la SQLite instalada: $localDatabase" }
+    Add-Result -Area 'database-isolation' -Item 'isolated-sqlite' -Ok $true -Detail $localDatabase
+    return $localDatabase
+  }
+  $sharedDatabase = [IO.Path]::GetFullPath($sharedProgramDataDatabasePath)
+  if ($databasePath -ne $sharedDatabase) {
+    throw "La ruta SQLite del instalador está fuera de los destinos QA permitidos: $databasePath"
+  }
+  if ($script:sharedProgramDataDatabaseExistedAtStart) {
+    throw "Se rechaza mover una SQLite de ProgramData preexistente; el runner debe ejecutarse en un host QA limpio: $databasePath"
+  }
+  if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) { throw "No existe la SQLite baseline recién creada: $databasePath" }
+  if (Test-Path -LiteralPath $localDatabase) { throw "Ya existe la SQLite destino del runner: $localDatabase" }
+
+  $localDataDirectory = Split-Path -Parent $localDatabase
+  New-Item -ItemType Directory -Force -Path $localDataDirectory | Out-Null
+  $moves = @()
+  foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
+    $source = $databasePath + $suffix
+    if (Test-Path -LiteralPath $source -PathType Leaf) {
+      $destination = $localDatabase + $suffix
+      if (Test-Path -LiteralPath $destination) { throw "Ya existe un archivo SQLite QA destino: $destination" }
+      $moves += [pscustomobject]@{ source = $source; destination = $destination }
+    }
+  }
+  if (-not ($moves | Where-Object { $_.source -eq $databasePath })) { throw "No se encontró la SQLite baseline: $databasePath" }
+
+  $moved = New-Object System.Collections.Generic.List[object]
+  try {
+    foreach ($move in $moves) {
+      Move-Item -LiteralPath $move.source -Destination $move.destination
+      $moved.Add($move) | Out-Null
+    }
+    $envFile = Join-Path $installedRoot '.env'
+    $contents = [IO.File]::ReadAllText($envFile)
+    $localDatabaseUrl = 'file:' + ($localDatabase -replace '\\', '/')
+    $databaseSettingPattern = '(?m)^(\s*(?:BACKEND_DATABASE_URL|DATABASE_URL)\s*=\s*).*$'
+    $settingCount = [regex]::Matches($contents, $databaseSettingPattern).Count
+    if ($settingCount -lt 1) { throw 'No se encontraron variables SQLite para actualizar el entorno QA.' }
+    $updated = [regex]::Replace($contents, $databaseSettingPattern, [System.Text.RegularExpressions.MatchEvaluator] {
+        param($match)
+        return $match.Groups[1].Value + $localDatabaseUrl
+      })
+    [IO.File]::WriteAllText($envFile, $updated, [Text.UTF8Encoding]::new($false))
+    $verifiedPath = Get-ConfiguredInstalledSqlitePath
+    if ($verifiedPath -ne $localDatabase) { throw "El .env QA no quedó apuntando a la SQLite aislada: $verifiedPath" }
+  } catch {
+    for ($index = $moved.Count - 1; $index -ge 0; $index--) {
+      $move = $moved[$index]
+      if ((Test-Path -LiteralPath $move.destination -PathType Leaf) -and -not (Test-Path -LiteralPath $move.source)) {
+        Move-Item -LiteralPath $move.destination -Destination $move.source -ErrorAction SilentlyContinue
+      }
+    }
+    throw
+  }
+  Add-Result -Area 'database-isolation' -Item 'fresh-programdata-sqlite-relocated' -Ok $true -Detail "origen=$databasePath destino=$localDatabase"
+  return $localDatabase
+}
+
 function Invoke-DummyDataCycle {
   param([string]$BaseUrl)
   if (-not $SeedDummyData) { return }
@@ -1281,7 +1671,7 @@ function Invoke-DummyDataCycle {
   $previousBase = $env:E2E_DOCENTE_BASE_URL
   $previousSqlitePath = $env:E2E_DOCENTE_SQLITE_PATH
   $env:E2E_DOCENTE_BASE_URL = $apiBase
-  $env:E2E_DOCENTE_SQLITE_PATH = Join-Path $installedRoot 'data\evaluapro.db'
+  $env:E2E_DOCENTE_SQLITE_PATH = Resolve-InstalledSqlitePath
   try {
     $seedScript = Join-Path $root 'scripts/tests/seed-docente-dummy.mjs'
     $stdoutPath = Join-Path $ReportDir 'dummy-data-cycle.stdout.log'
@@ -1311,8 +1701,7 @@ function Invoke-DummyDataCycle {
           @($seedResult.materias).Count -eq 3 -and
           @($seedResult.alumnos).Count -eq 3 -and
           $cleanupErrors.Count -eq 0 -and
-          $cleanup -contains 'alumnos-local:3' -and
-          $cleanup -contains 'materias-local:3' -and
+          $seedResult.cleanupVerified -eq $true -and
           $cleanup -contains 'cuenta:local-db'
       }
       $exitCode = if ($structuredSuccess) { 0 } else { -1 }
@@ -1399,9 +1788,6 @@ function Write-TutorialMarkdown {
   }
   $content -join "`r`n" | Set-Content -Path $tutorialPath -Encoding UTF8
   $artifacts.Add($tutorialPath) | Out-Null
-  $docsTutorialDir = Join-Path $root 'docs\tutoriales'
-  New-Item -ItemType Directory -Force -Path $docsTutorialDir | Out-Null
-  Copy-Item -LiteralPath $tutorialPath -Destination (Join-Path $docsTutorialDir 'installer-hub-docente-e2e.md') -Force
 }
 
 function Test-InstalledState {
@@ -1462,6 +1848,12 @@ try {
   }
   $installedRoot = $InstallDir
 
+  $sharedDatabaseAbsent = -not $script:sharedProgramDataDatabaseExistedAtStart
+  Add-Result -Area 'preflight' -Item 'shared-programdata-database-absent' -Ok $sharedDatabaseAbsent -Detail $sharedProgramDataDatabasePath
+  if (-not $sharedDatabaseAbsent) {
+    throw "El E2E no se ejecuta porque ya existe una SQLite compartida en ProgramData; use un host QA limpio para no tocar datos existentes: $sharedProgramDataDatabasePath"
+  }
+
   $existing = @(Get-EvaluaProUninstallEntries)
   Export-JsonArtifact -Name 'preflight-uninstall-entries.json' -Data $existing | Out-Null
   Add-Result -Area 'preflight' -Item 'existing-install' -Ok ($AllowExistingInstall -or $existing.Count -eq 0) -Detail ("entries={0}" -f $existing.Count)
@@ -1494,9 +1886,14 @@ try {
   Add-Result -Area 'preflight' -Item 'free-space' -Ok ($drive.Free -gt 8GB) -Detail ("freeGB={0:n2}" -f ($drive.Free / 1GB))
   Add-Result -Area 'preflight' -Item 'powershell' -Ok ($PSVersionTable.PSVersion.Major -ge 5) -Detail ([string]$PSVersionTable.PSVersion)
 
-  Invoke-InstallerHubMode -Mode 'install' | Out-Null
-  Wait-InstalledPayload -TimeoutSec 240
-  Test-InstalledState -Phase 'post-install'
+  if ([string]::IsNullOrWhiteSpace($BaselineBundlePath)) {
+    Invoke-InstallerHubMode -Mode 'install' | Out-Null
+    Wait-InstalledPayload -TimeoutSec 240
+    Set-QAIsolatedSqlite | Out-Null
+    Test-InstalledState -Phase 'post-install'
+  } else {
+    Invoke-UpgradeBaselineFlow -BaselinePath $BaselineBundlePath
+  }
 
   Invoke-InstalledBroker -Action 'verify-installation' -RunId ('e2e-verify-' + [guid]::NewGuid().ToString('N'))
   $openRunId = 'e2e-open-' + [guid]::NewGuid().ToString('N')
@@ -1598,4 +1995,27 @@ finally {
     } catch {}
   }
   Stop-InstallerHubProcesses -Reason 'finally'
+  try {
+    $currentProfileExists = Test-Path -LiteralPath $script:operationalConfigPath -PathType Leaf
+    $currentProfileOwnedByQa = $false
+    if ($currentProfileExists) {
+      try {
+        $currentProfile = Get-Content -Raw -LiteralPath $script:operationalConfigPath | ConvertFrom-Json
+        $currentInstallDir = [string]$currentProfile.installDir
+        $currentProfileOwnedByQa = -not [string]::IsNullOrWhiteSpace($currentInstallDir) -and
+          [IO.Path]::GetFullPath($currentInstallDir).TrimEnd('\\') -eq [IO.Path]::GetFullPath($installedRoot).TrimEnd('\\')
+      } catch {}
+    }
+    if ($script:operationalConfigExistedAtStart -and (-not $currentProfileExists -or $currentProfileOwnedByQa)) {
+      [IO.File]::WriteAllBytes($script:operationalConfigPath, $script:operationalConfigOriginalBytes)
+      Write-E2ELog 'Perfil operativo previo restaurado tras la prueba QA.'
+    } elseif (-not $script:operationalConfigExistedAtStart -and $currentProfileOwnedByQa) {
+      Remove-Item -LiteralPath $script:operationalConfigPath -Force
+      Write-E2ELog 'Perfil operativo creado por la prueba QA retirado.'
+    } elseif ($currentProfileExists -and -not $currentProfileOwnedByQa) {
+      Write-E2ELog 'El perfil operativo cambió de destino durante E2E; se conserva para evitar sobrescribir una actualización externa.'
+    }
+  } catch {
+    Write-E2ELog "WARNING: No se pudo restaurar el perfil operativo QA: $($_.Exception.Message)"
+  }
 }

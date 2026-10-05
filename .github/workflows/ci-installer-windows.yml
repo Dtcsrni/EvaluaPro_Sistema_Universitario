@@ -18,18 +18,18 @@ jobs:
   installer_windows:
     name: Installer Windows (MSI + Bundle)
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     permissions:
       contents: read
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.21.0
           cache: npm
@@ -40,7 +40,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Configurar .NET SDK 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
 
@@ -104,11 +104,22 @@ jobs:
 
       - name: Etapa hash/manifest de release instalador
         shell: powershell
+        env:
+          RELEASE_IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
         run: |
-          $isTag = "${{ startsWith(github.ref, 'refs/tags/v') }}" -eq "true"
+          $isTag = $env:RELEASE_IS_TAG -eq "true"
           if ($isTag) {
-            $tag = "${{ github.ref_name }}"
-            $base = "https://github.com/${{ github.repository }}/releases/download/$tag"
+            $tag = $env:RELEASE_TAG
+            if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') {
+              throw "Formato de tag de release inválido: $tag"
+            }
+            $repository = $env:RELEASE_REPOSITORY
+            if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
+              throw "Repositorio de release inválido."
+            }
+            $base = "https://github.com/$repository/releases/download/$tag"
             powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1 -ReleaseBaseUrl "$base"
           } else {
             powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1
@@ -132,6 +143,44 @@ jobs:
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: npx playwright install chromium
 
+      - name: Determinar si aplica upgrade desde v1.2.3
+        id: upgrade_gate
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        shell: powershell
+        run: |
+          $candidateRaw = (Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
+          $candidateStable = ([string]$candidateRaw).Split('-')[0]
+          $candidateVersion = $null
+          if (-not [version]::TryParse($candidateStable, [ref]$candidateVersion)) { throw "Versión candidata inválida: $candidateRaw" }
+          $baselineVersion = [version]'1.2.3'
+          $required = $candidateVersion -gt $baselineVersion
+          "version=$candidateRaw" >> $env:GITHUB_OUTPUT
+          "required=$($required.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          Write-Host "Upgrade E2E requerido: $required ($baselineVersion -> $candidateRaw)"
+
+      - name: Descargar y verificar baseline oficial v1.2.3 para upgrade E2E
+        if: steps.upgrade_gate.outputs.required == 'true'
+        shell: powershell
+        run: |
+          $baselineDir = Join-Path $env:RUNNER_TEMP 'evaluapro-upgrade-baseline-v1.2.3'
+          New-Item -ItemType Directory -Path $baselineDir -Force | Out-Null
+          $baselineName = 'EvaluaPro-InstallerHub-docente-local-v1.2.3.exe'
+          $baselinePath = Join-Path $baselineDir $baselineName
+          $baselineUrl = 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/download/v1.2.3/' + $baselineName
+          $expectedHash = '644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913'
+          $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
+          & $downloadScript -Uri $baselineUrl -Destination $baselinePath -ExpectedLength 249491600 -ExpectedSha256 $expectedHash
+          & $downloadScript -Uri ($baselineUrl + '.sha256') -Destination ($baselinePath + '.sha256') -MaxAttempts 3
+          $sidecarText = Get-Content -Raw -LiteralPath ($baselinePath + '.sha256')
+          $sidecarMatch = [regex]::Match($sidecarText, '(?i)^\s*([0-9a-f]{64})\s+')
+          if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $expectedHash) {
+            throw 'El sidecar oficial de EvaluaPro v1.2.3 no coincide con el SHA-256 fijado.'
+          }
+          $actualHash = (Get-FileHash -LiteralPath $baselinePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $expectedHash) { throw 'El bundle oficial v1.2.3 descargado no coincide con su SHA-256.' }
+          "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
+          Write-Host "Baseline oficial v1.2.3 verificado: $actualHash"
+
       - name: E2E completa sobre el bundle docente que se publicará
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         shell: powershell
@@ -140,20 +189,27 @@ jobs:
           EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
           EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
+          INSTALLER_CI_RUN_ID: ${{ github.run_id }}
         run: |
-          $reportDir = "reports/qa/installer-hub-e2e-docente/ci-${{ github.run_id }}"
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 `
-            -RootPath "$env:GITHUB_WORKSPACE" `
-            -ReportDir $reportDir `
-            -InstallDir (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-installer-hub-e2e') `
-            -Port 4519 `
-            -IUnderstandThisMutatesPc `
-            -SeedDummyData
+          if ($env:INSTALLER_CI_RUN_ID -notmatch '^[0-9]+$') { throw "GitHub run ID inválido." }
+          $reportDir = "reports/qa/installer-hub-e2e-docente/ci-$env:INSTALLER_CI_RUN_ID"
+          $runnerArgs = @(
+            '-RootPath', $env:GITHUB_WORKSPACE,
+            '-ReportDir', $reportDir,
+            '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-installer-hub-e2e'),
+            '-Port', '4519',
+            '-IUnderstandThisMutatesPc',
+            '-SeedDummyData'
+          )
+          if (-not [string]::IsNullOrWhiteSpace($env:BASELINE_BUNDLE_PATH)) {
+            $runnerArgs += @('-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH)
+          }
+          & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 @runnerArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publicar evidencia de la E2E completa
         if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-hub-e2e-${{ github.run_id }}
           path: reports/qa/installer-hub-e2e-docente/ci-${{ github.run_id }}/
@@ -192,7 +248,7 @@ jobs:
           if (Test-Path "dist/installer/EvaluaPro-docente-local.msi") { throw "MSI tecnico no debe quedar en raiz publica: dist/installer/EvaluaPro-docente-local.msi" }
 
       - name: Publicar artefactos instalador
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-windows
           path: |
@@ -203,7 +259,7 @@ jobs:
             dist/installer/SIGNING-NOT-PRODUCTION.txt
 
       - name: Publicar artefactos internos instalador
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-windows-internal
           path: |
@@ -217,10 +273,12 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+    outputs:
+      release_id: ${{ steps.publish_release.outputs.id }}
 
     steps:
       - name: Descargar artefactos del build validado
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: installer-windows
           path: dist/installer
@@ -239,9 +297,11 @@ jobs:
           test -f dist/installer/EvaluaPro-release-manifest.json
           test -f dist/installer/antivirus-scan-report.txt
 
-      - name: Publicar release assets (tags v*)
-        uses: softprops/action-gh-release@v2
+      - name: Preparar release como borrador hasta validar el asset descargado
+        id: publish_release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
+          draft: true
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           make_latest: false
           overwrite_files: true
@@ -250,6 +310,165 @@ jobs:
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
             dist/installer/EvaluaPro-release-manifest.json
             dist/installer/antivirus-scan-report.txt
+
+  post_publish_installer_e2e:
+    name: E2E del asset descargado desde el release draft
+    needs: [installer_windows, publish_installer_release]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+
+    steps:
+      - name: Descargar código de la tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.21.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Instalar dependencias de la E2E
+        shell: powershell
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
+          npx prisma generate --config=apps/backend/prisma.config.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Descargar y verificar EXE y sidecar desde el release draft
+        id: draft_asset
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $repository = $env:RELEASE_REPOSITORY
+          $tag = $env:RELEASE_TAG
+          if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Repositorio inválido.' }
+          if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') { throw 'Tag de release inválida.' }
+          $packageVersion = [string](Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
+          if ("v$packageVersion" -ne $tag) { throw "La versión del paquete ($packageVersion) no coincide con la tag ($tag)." }
+          $releases = gh api "repos/$repository/releases?per_page=100" | ConvertFrom-Json
+          $matches = @($releases | Where-Object { $_.tag_name -eq $tag -and $_.draft })
+          if ($matches.Count -ne 1) { throw "Se esperaba un release draft único para $tag; encontrados=$($matches.Count)." }
+          $release = $matches[0]
+          $candidateName = "EvaluaPro-InstallerHub-docente-local-$tag.exe"
+          $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
+          $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
+          if (-not $candidateAsset -or -not $sidecarAsset) { throw "El release draft no contiene el EXE y sidecar esperados para $tag." }
+          $assetDigest = [string]$candidateAsset.digest
+          $digestMatch = [regex]::Match($assetDigest, '(?i)^sha256:([0-9a-f]{64})$')
+          if (-not $digestMatch.Success) { throw "La API de GitHub no reportó digest SHA-256 válido para $candidateName: '$assetDigest'." }
+          $downloadDir = Join-Path $env:RUNNER_TEMP ('published-installer-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
+          $candidatePath = Join-Path $downloadDir $candidateName
+          $sidecarPath = $candidatePath + '.sha256'
+          $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
+          & $downloadScript -Uri ([uri][string]$candidateAsset.url) -Destination $candidatePath -ExpectedLength ([long]$candidateAsset.size) -ExpectedSha256 $digestMatch.Groups[1].Value -GitHubApiAsset
+          & $downloadScript -Uri ([uri][string]$sidecarAsset.url) -Destination $sidecarPath -ExpectedLength ([long]$sidecarAsset.size) -GitHubApiAsset
+          $sidecarText = Get-Content -Raw -LiteralPath $sidecarPath
+          $sidecarMatch = [regex]::Match($sidecarText, '(?i)^\s*([0-9a-f]{64})\s+')
+          if (-not $sidecarMatch.Success) { throw 'El sidecar SHA-256 publicado no tiene el formato esperado.' }
+          $sidecarHash = $sidecarMatch.Groups[1].Value.ToLowerInvariant()
+          $actualHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $apiHash = $digestMatch.Groups[1].Value.ToLowerInvariant()
+          if ($sidecarHash -ne $actualHash) { throw 'El SHA-256 del EXE descargado no coincide con el sidecar publicado.' }
+          if ($apiHash -ne $actualHash) { throw 'SHA-256 del EXE no coincide con el digest de GitHub.' }
+          "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
+          "release_id=$($release.id)" >> $env:GITHUB_OUTPUT
+          Write-Host "EXE publicado verificado; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
+
+      - name: Descargar y verificar baseline oficial v1.2.3
+        shell: powershell
+        env:
+          BASELINE_BUNDLE_NAME: EvaluaPro-InstallerHub-docente-local-v1.2.3.exe
+        run: |
+          $baselineDir = Join-Path $env:RUNNER_TEMP 'evaluapro-upgrade-baseline-v1.2.3'
+          New-Item -ItemType Directory -Path $baselineDir -Force | Out-Null
+          $baselinePath = Join-Path $baselineDir $env:BASELINE_BUNDLE_NAME
+          $baselineUrl = 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/download/v1.2.3/' + $env:BASELINE_BUNDLE_NAME
+          $expectedHash = '644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913'
+          $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
+          & $downloadScript -Uri $baselineUrl -Destination $baselinePath -ExpectedLength 249491600 -ExpectedSha256 $expectedHash
+          & $downloadScript -Uri ($baselineUrl + '.sha256') -Destination ($baselinePath + '.sha256') -MaxAttempts 3
+          $sidecar = [regex]::Match((Get-Content -Raw -LiteralPath ($baselinePath + '.sha256')), '(?i)^\s*([0-9a-f]{64})\s+')
+          $actualHash = (Get-FileHash -LiteralPath $baselinePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (-not $sidecar.Success -or $sidecar.Groups[1].Value.ToLowerInvariant() -ne $expectedHash -or $actualHash -ne $expectedHash) {
+            throw 'El baseline oficial v1.2.3 no coincide con el SHA-256 fijado.'
+          }
+          "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
+
+      - name: E2E completa con el EXE descargado del release
+        shell: powershell
+        env:
+          EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
+          EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
+          CANDIDATE_BUNDLE_PATH: ${{ steps.draft_asset.outputs.candidate_path }}
+          INSTALLER_CI_RUN_ID: ${{ github.run_id }}
+        run: |
+          if (-not (Test-Path -LiteralPath $env:CANDIDATE_BUNDLE_PATH)) { throw 'Falta el EXE descargado del release draft.' }
+          if (-not (Test-Path -LiteralPath $env:BASELINE_BUNDLE_PATH)) { throw 'Falta el baseline oficial v1.2.3.' }
+          $reportDir = "reports/qa/installer-hub-e2e-published/ci-$env:INSTALLER_CI_RUN_ID"
+          $runnerArgs = @(
+            '-RootPath', $env:GITHUB_WORKSPACE,
+            '-ReportDir', $reportDir,
+            '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-published-e2e'),
+            '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
+            '-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH,
+            '-Port', '4519',
+            '-IUnderstandThisMutatesPc',
+            '-SeedDummyData'
+          )
+          & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 @runnerArgs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publicar evidencia E2E del asset descargado
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: installer-hub-published-e2e-${{ github.run_id }}
+          path: reports/qa/installer-hub-e2e-published/ci-${{ github.run_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+
+  finalize_installer_release:
+    name: Hacer público el release tras E2E aprobada
+    needs: [publish_installer_release, post_publish_installer_e2e]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: Publicar el release draft validado
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.publish_installer_release.outputs.release_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_ID" =~ ^[0-9]+$ ]]; then
+            echo 'ID del release draft inválido.' >&2
+            exit 1
+          fi
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false
 
       - name: Retirar release estable anterior v1.1.5
         if: github.ref == 'refs/tags/v1.1.6'
@@ -263,3 +482,155 @@ jobs:
           else
             echo 'El release v1.1.5 ya no existe; no hay nada que retirar.'
           fi
+
+  verify_public_installer_e2e:
+    name: E2E del asset público descargado desde GitHub
+    needs: finalize_installer_release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+
+    steps:
+      - name: Descargar código de la tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.21.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Instalar dependencias de la E2E
+        shell: powershell
+        run: |
+          npm install --global npm@12.1.0
+          npm ci --foreground-scripts
+          npx prisma generate --config=apps/backend/prisma.config.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Descargar y verificar el asset público por su URL de release
+        id: public_asset
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $repository = $env:RELEASE_REPOSITORY
+          $tag = $env:RELEASE_TAG
+          if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Repositorio inválido.' }
+          if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') { throw 'Tag de release inválida.' }
+          $packageVersion = [string](Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
+          if ("v$packageVersion" -ne $tag) { throw "La versión del paquete ($packageVersion) no coincide con la tag ($tag)." }
+          $release = gh api "repos/$repository/releases/tags/$tag" | ConvertFrom-Json
+          if ($release.draft -or $release.tag_name -ne $tag) { throw "El release $tag no está publicado." }
+          $candidateName = "EvaluaPro-InstallerHub-docente-local-$tag.exe"
+          $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
+          $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
+          if (-not $candidateAsset -or -not $sidecarAsset) { throw "El release público no contiene el EXE y sidecar esperados para $tag." }
+          $expectedUrl = "https://github.com/$repository/releases/download/$tag/$candidateName"
+          if ([string]$candidateAsset.browser_download_url -ne $expectedUrl) { throw 'La URL pública del asset no coincide con la ruta canónica del release.' }
+          if ([string]$sidecarAsset.browser_download_url -ne ($expectedUrl + '.sha256')) { throw 'La URL pública del sidecar no coincide con el instalador.' }
+          $digestMatch = [regex]::Match([string]$candidateAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          if (-not $digestMatch.Success) { throw "GitHub no reportó digest SHA-256 válido para $candidateName." }
+          $downloadDir = Join-Path $env:RUNNER_TEMP ('public-installer-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
+          $candidatePath = Join-Path $downloadDir $candidateName
+          $sidecarPath = $candidatePath + '.sha256'
+          $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
+          & $downloadScript -Uri ([uri]$expectedUrl) -Destination $candidatePath -ExpectedLength ([long]$candidateAsset.size) -ExpectedSha256 $digestMatch.Groups[1].Value
+          & $downloadScript -Uri ([uri][string]$sidecarAsset.browser_download_url) -Destination $sidecarPath -ExpectedLength ([long]$sidecarAsset.size)
+          $sidecarMatch = [regex]::Match((Get-Content -Raw -LiteralPath $sidecarPath), '(?i)^\s*([0-9a-f]{64})\s+')
+          $actualHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con su sidecar.' }
+          if ($digestMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con el digest de GitHub.' }
+          "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
+          Write-Host "Asset público descargado por browser_download_url; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
+
+      - name: Descargar y verificar baseline oficial v1.2.3
+        shell: powershell
+        env:
+          BASELINE_BUNDLE_NAME: EvaluaPro-InstallerHub-docente-local-v1.2.3.exe
+        run: |
+          $baselineDir = Join-Path $env:RUNNER_TEMP 'evaluapro-upgrade-baseline-v1.2.3'
+          New-Item -ItemType Directory -Path $baselineDir -Force | Out-Null
+          $baselinePath = Join-Path $baselineDir $env:BASELINE_BUNDLE_NAME
+          $baselineUrl = 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/download/v1.2.3/' + $env:BASELINE_BUNDLE_NAME
+          $expectedHash = '644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913'
+          $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
+          & $downloadScript -Uri $baselineUrl -Destination $baselinePath -ExpectedLength 249491600 -ExpectedSha256 $expectedHash
+          & $downloadScript -Uri ($baselineUrl + '.sha256') -Destination ($baselinePath + '.sha256') -MaxAttempts 3
+          $sidecar = [regex]::Match((Get-Content -Raw -LiteralPath ($baselinePath + '.sha256')), '(?i)^\s*([0-9a-f]{64})\s+')
+          $actualHash = (Get-FileHash -LiteralPath $baselinePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (-not $sidecar.Success -or $sidecar.Groups[1].Value.ToLowerInvariant() -ne $expectedHash -or $actualHash -ne $expectedHash) { throw 'El baseline oficial v1.2.3 no coincide con el SHA-256 fijado.' }
+          "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
+
+      - name: E2E completa sobre el instalador descargado del release público
+        shell: powershell
+        env:
+          EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
+          EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
+          CANDIDATE_BUNDLE_PATH: ${{ steps.public_asset.outputs.candidate_path }}
+          INSTALLER_CI_RUN_ID: ${{ github.run_id }}
+        run: |
+          if (-not (Test-Path -LiteralPath $env:CANDIDATE_BUNDLE_PATH)) { throw 'Falta el EXE descargado del release público.' }
+          if (-not (Test-Path -LiteralPath $env:BASELINE_BUNDLE_PATH)) { throw 'Falta el baseline oficial v1.2.3.' }
+          $reportDir = "reports/qa/installer-hub-e2e-public/ci-$env:INSTALLER_CI_RUN_ID"
+          $runnerArgs = @(
+            '-RootPath', $env:GITHUB_WORKSPACE,
+            '-ReportDir', $reportDir,
+            '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-public-release-e2e'),
+            '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
+            '-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH,
+            '-Port', '4521',
+            '-IUnderstandThisMutatesPc',
+            '-SeedDummyData'
+          )
+          & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 @runnerArgs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publicar evidencia E2E del release público
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: installer-hub-public-e2e-${{ github.run_id }}
+          path: reports/qa/installer-hub-e2e-public/ci-${{ github.run_id }}/
+          if-no-files-found: warn
+          retention-days: 90
+
+  redraft_failed_public_installer_release:
+    name: Ocultar release si falla la E2E del asset público
+    needs: verify_public_installer_e2e
+    if: ${{ always() && needs.verify_public_installer_e2e.result != 'success' && needs.verify_public_installer_e2e.result != 'skipped' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: Volver a borrador el release no validado
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.id')
+          if [[ ! "$release_id" =~ ^[0-9]+$ ]]; then
+            echo 'No se pudo resolver el release para ocultarlo.' >&2
+            exit 1
+          fi
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" -F draft=true

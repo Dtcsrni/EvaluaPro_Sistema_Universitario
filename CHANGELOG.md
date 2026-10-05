@@ -2,10 +2,24 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
-## [Unreleased] - 2026-10-03
+## [Unreleased]
+
+## [1.2.4] - 2026-10-04
+
+### Added
+- El release de Windows se crea como borrador, descarga de GitHub el EXE y sidecar recién cargados, verifica el SHA-256 contra el digest de la API y ejecuta el E2E completo de actualización desde v1.2.3 antes de hacerlo público.
+- El E2E de upgrade comprueba que la versión instalada avance y que los datos SQLite sobrevivan usando la misma base confinada bajo `LOCALAPPDATA`.
+- El runner solo traslada a QA la SQLite de `ProgramData` creada por esa corrida en un host limpio; bloquea el inicio si detecta una base previa y restaura el perfil operativo al terminar.
 
 ### Fixed
+- El helper post-install lee `install`/`repair` del request Burn, no del modo CLI `post-install`, para detener procesos Node propios antes de reemplazar el payload en una actualización.
+- La actualización detiene y verifica los procesos Node propios antes de tocar la configuración o expandir el payload; si alguno no termina, falla con sus PID y deja intactos los procesos Node ajenos.
+- El guard de tags y su limpieza rechazan de forma consistente versiones SemVer no canónicas, incluidos ceros iniciales.
+- La beta automática vuelve a escuchar el cierre exitoso de `CI Checks` en `main`, como ya documentaba el flujo de publicación.
+- La cobertura completa queda centralizada en `CI Checks`; los workflows de módulo conservan contratos rápidos y específicos y el diff coverage vuelve a contar cambios bajo `src`.
 - Los fallos al regenerar accesos directos quedan degradados con diagnóstico; el manifiesto crítico para el updater se genera de forma independiente y sigue siendo bloqueante si no puede escribirse.
+- La limpieza del fixture E2E confirma la ausencia de la cuenta, materias y alumnos dummy en la SQLite aislada; sus aserciones ya no dependen de qué capa eliminó primero cada registro.
+- Los tutoriales y capturas de E2E se guardan dentro del reporte y ya no sobrescriben documentación del checkout cuando una corrida queda incompleta.
 
 ## [1.2.3] - 2026-10-03
 

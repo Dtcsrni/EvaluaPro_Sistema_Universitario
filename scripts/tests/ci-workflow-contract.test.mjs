@@ -215,6 +215,28 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
   assert.match(installerWorkflow, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
   assert.match(installerWorkflow, /installer_windows:[\s\S]*?permissions:\s*\n\s+contents:\s*read/);
   assert.match(installerWorkflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+
+  const beta = fs.readFileSync(path.join(workflowDir, 'release-beta.yml'), 'utf8');
+  assert.match(beta, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(beta, /beta_release:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+
+  const stable = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  assert.match(stable, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(stable, /promote_latest:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.doesNotMatch(stable.match(/stable_gate:[\s\S]*?promote_latest:/)?.[0] ?? '', /contents:\s*write/);
+
+  const pages = fs.readFileSync(path.join(workflowDir, 'pages-marketing.yml'), 'utf8');
+  assert.match(pages, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(pages, /deploy:[\s\S]*?permissions:[\s\S]*?pages:\s*write[\s\S]*?id-token:\s*write/);
+  assert.doesNotMatch(pages.match(/validate:[\s\S]*?deploy:/)?.[0] ?? '', /pages:\s*write|id-token:\s*write/);
+
+  const autogen = fs.readFileSync(path.join(workflowDir, 'autogen-docs.yml'), 'utf8');
+  assert.match(autogen, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(autogen, /publish_docs:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+
+  const tagGuard = fs.readFileSync(path.join(workflowDir, 'tag-release-guard.yml'), 'utf8');
+  assert.match(tagGuard, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(tagGuard, /cleanup_invalid_tag:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
 });
 
 test('publicaciones externas serializan ejecuciones en curso', () => {
@@ -232,6 +254,53 @@ test('publicaciones externas serializan ejecuciones en curso', () => {
 
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   assert.match(installerWorkflow, /cancel-in-progress:\s*\$\{\{\s*!startsWith\(github\.ref, 'refs\/tags\/v'\)\s*\}\}/);
+});
+
+test('release beta automatica escucha CI Checks exitoso de main', () => {
+  const beta = fs.readFileSync(path.join(workflowDir, 'release-beta.yml'), 'utf8');
+  const triggers = beta.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '';
+
+  assert.match(triggers, /workflow_run:\n\s+workflows:\n\s+- ["']CI Checks["']\n\s+types:\s*\n\s+- completed\n\s+branches:\s*\n\s+- main/);
+  assert.match(beta, /github\.event\.workflow_run\.conclusion == 'success'/);
+  assert.match(beta, /github\.event\.workflow_run\.head_branch == 'main'/);
+});
+
+test('CI central concentra suites completas y cobertura sin excluir todo el código fuente', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const moduleWorkflows = ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml'];
+
+  assert.match(central, /npm -C apps\/backend run test:coverage/);
+  assert.match(central, /npm run test:frontend:coverage:min/);
+  assert.match(central, /npm -C apps\/portal_alumno_cloud run test:coverage/);
+  assert.match(central, /npm run test:coverage:diff -- --apps backend,portal/);
+  assert.match(central, /npm run test:coverage:diff -- --apps frontend/);
+  assert.doesNotMatch(central, /DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS:[^\n]*apps\/(?:backend|frontend|portal_alumno_cloud)\/src(?:[;" ]|$)/);
+
+  for (const name of moduleWorkflows) {
+    const moduleWorkflow = fs.readFileSync(path.join(workflowDir, name), 'utf8');
+    assert.doesNotMatch(moduleWorkflow, /test:coverage|test:coverage:diff|test:coverage:exclusions:debt/, name);
+  }
+
+  const backend = fs.readFileSync(path.join(workflowDir, 'ci-backend.yml'), 'utf8');
+  const frontend = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
+  const portal = fs.readFileSync(path.join(workflowDir, 'ci-portal.yml'), 'utf8');
+  const docs = fs.readFileSync(path.join(workflowDir, 'ci-docs.yml'), 'utf8');
+
+  const setupIndex = backend.indexOf('npm ci --foreground-scripts');
+  const prismaIndex = backend.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
+  const omrTestsIndex = backend.indexOf('npm -C apps/backend run test');
+  const canonicalGateIndex = backend.indexOf('npm run test:omr:canonical:gate:ci');
+
+  assert.ok(setupIndex >= 0, 'backend module: falta npm ci');
+  assert.ok(prismaIndex > setupIndex, 'backend module: generar Prisma despues de npm ci');
+  assert.ok(omrTestsIndex > prismaIndex, 'backend module: Prisma debe estar disponible antes de pruebas OMR');
+  assert.ok(canonicalGateIndex > prismaIndex, 'backend module: Prisma debe estar disponible antes del gate OMR');
+
+  assert.match(backend, /test:omr:canonical:gate:ci/);
+  assert.match(backend, /tests OMR criticos/);
+  assert.match(frontend, /guard:wcag/);
+  assert.match(portal, /run typecheck/);
+  assert.match(docs, /run sdd:audit/);
 });
 
 test('package workflow rechaza tag que no coincide con package.json antes de publicar', () => {
@@ -266,18 +335,95 @@ test('release stable gate materializa manifest del instalador antes de validar',
   assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
 });
 
+test('release stable gate genera QA fresco ligado al SHA candidato antes de validar', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const installIndex = workflow.indexOf('npm ci --foreground-scripts');
+  const prismaIndex = workflow.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
+  const playwrightIndex = workflow.indexOf('npx playwright install --with-deps chromium');
+  const matrixIndex = workflow.indexOf('npm run gui:screen-matrix');
+  const restoreIndex = workflow.indexOf('git restore -- docs/release/manual/gui-screen-matrix.md');
+  const responsiveIndex = workflow.indexOf('npm run test:gui:responsive:e2e:ci');
+  const qaIndex = workflow.indexOf('npm run qa:full');
+  const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
+
+  assert.ok(installIndex >= 0, 'release stable gate debe instalar dependencias');
+  assert.ok(prismaIndex > installIndex, 'Prisma debe generarse despues de instalar dependencias');
+  assert.ok(playwrightIndex > prismaIndex, 'Playwright debe instalarse despues de generar Prisma');
+  assert.ok(matrixIndex > playwrightIndex, 'la matriz GUI debe generarse despues de instalar Chromium');
+  assert.ok(restoreIndex > matrixIndex, 'el markdown generado debe restaurarse antes de medir limpieza');
+  assert.ok(responsiveIndex > restoreIndex, 'E2E responsive debe generar capturas antes del manifiesto');
+  assert.ok(qaIndex > responsiveIndex, 'QA completa debe generar manifiesto tras las capturas');
+  assert.ok(validateIndex > qaIndex, 'el gate debe validar despues de generar QA del SHA actual');
+  assert.match(workflow, /reports\/qa\/latest/);
+});
+
+test('CI frontend activa el mismo conjunto de guardas WCAG para push y pull request', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
+  const pushPaths = workflow.match(/  push:[\s\S]*?    paths:\n([\s\S]*?)  pull_request:/)?.[1] || '';
+  const pullRequestPaths = workflow.match(/  pull_request:\n    paths:\n([\s\S]*?)  workflow_dispatch:/)?.[1] || '';
+  const frontendMap = JSON.parse(fs.readFileSync(path.join(root, 'ci', 'affected-test-map.json'), 'utf8')).groups.frontend.paths;
+  const guards = [
+    'scripts/wcag-guard.mjs',
+    'scripts/tests/ui-contrast-audit.mjs',
+    'scripts/tests/wcag-guard.contract.test.mjs',
+    'docs/WCAG_UI_POLICY.md'
+  ];
+
+  for (const guard of guards) {
+    assert.ok(pushPaths.includes(guard), `push debe incluir ${guard}`);
+    assert.ok(pullRequestPaths.includes(guard), `pull_request debe incluir ${guard}`);
+    assert.ok(frontendMap.includes(guard), `el mapa affected CI debe asignar ${guard} al frontend`);
+  }
+});
+
+test('guardas de release esperan al menos el timeout combinado del build y la publicación', () => {
+  const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const tagGuard = fs.readFileSync(path.join(workflowDir, 'tag-release-guard.yml'), 'utf8');
+  const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const installerMinutes = Number(installer.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const publishMinutes = Number(installer.match(/publish_installer_release:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const releaseWindowMinutes = installerMinutes + publishMinutes;
+  const tagTimeoutMinutes = Number(tagGuard.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+  const tagAttempts = Number(tagGuard.match(/max_attempts=(\d+)/)?.[1]);
+  const tagSleepSeconds = Number(tagGuard.match(/sleep_seconds=(\d+)/)?.[1]);
+  const stableTimeoutMinutes = Number(stableGate.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+  const stableAttempts = Number(stableGate.match(/for attempt in \{1\.\.(\d+)\}/)?.[1]);
+
+  assert.ok(tagAttempts * tagSleepSeconds / 60 >= releaseWindowMinutes, 'tag guard debe cubrir build MSI y publicacion');
+  assert.ok(tagTimeoutMinutes >= tagAttempts * tagSleepSeconds / 60 + 10, 'timeout del tag guard debe cubrir la ventana y margen');
+  assert.ok(stableAttempts * tagSleepSeconds / 60 >= releaseWindowMinutes, 'gate estable debe cubrir build MSI y publicacion');
+  assert.ok(stableTimeoutMinutes >= releaseWindowMinutes + 90, 'gate estable debe dejar margen para QA completa');
+});
+
 test('release stable gate es el unico que promueve Latest despues de validar', () => {
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const stableGateWorkflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const validateIndex = stableGateWorkflow.indexOf('validate-stable-promotion.mjs');
-  const latestIndex = stableGateWorkflow.indexOf('gh release edit "v${{ steps.resolve_version.outputs.target }}"');
+  const latestIndex = stableGateWorkflow.indexOf('gh release edit "v$TARGET_VERSION"');
 
   assert.match(installerWorkflow, /make_latest:\s*false/);
   assert.doesNotMatch(installerWorkflow, /make_latest:\s*\$\{\{[^}]*!\(/);
-  assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
+  assert.match(stableGateWorkflow, /promote_latest:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
   assert.ok(validateIndex >= 0, 'release stable gate debe ejecutar validate-stable-promotion');
   assert.ok(latestIndex > validateIndex, 'release stable gate debe marcar Latest solo despues de validar');
   assert.match(stableGateWorkflow.slice(latestIndex), /--latest/);
+});
+
+test('release stable gate valida SemVer numérico y pasa argumentos con array sin interpolacion shell', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const resolveIndex = workflow.indexOf('TARGET="${INPUT_VERSION:-$GITHUB_REF_NAME}"');
+  const semverIndex = workflow.indexOf('La versión estable debe tener formato SemVer numérico X.Y.Z');
+  const tagIndex = workflow.indexOf('TAG="v$TARGET_VERSION"');
+  const argsIndex = workflow.indexOf('args=(');
+  const invokeIndex = workflow.indexOf('node scripts/release/validate-stable-promotion.mjs "${args[@]}"');
+
+  assert.ok(resolveIndex >= 0, 'la versión de entrada debe llegar por env');
+  assert.ok(semverIndex > resolveIndex, 'SemVer numérico debe validarse antes de usar la versión');
+  assert.ok(tagIndex > semverIndex, 'la tag del release debe construirse despues de validar SemVer');
+  assert.ok(argsIndex >= 0, 'los argumentos deben componerse en un array Bash');
+  assert.ok(invokeIndex > argsIndex, 'el CLI debe recibir el array como argumentos separados');
+  assert.match(workflow, /INPUT_VERSION:\s*\$\{\{ inputs\.version \}\}/);
+  assert.match(workflow, /EVIDENCE_DIR:\s*\$\{\{ inputs\.evidence_dir \}\}/);
 });
 
 test('Dockerfile backend incluye schema Prisma antes del build', () => {
@@ -302,4 +448,29 @@ test('Dockerfile frontend incluye el wrapper y la política de configuración de
   assert.ok(buildIndex > scriptIndex, 'frontend build debe ejecutarse despues de copiar el wrapper');
   assert.ok(buildIndex > appVersionIndex, 'frontend build debe ejecutarse despues de copiar app-version');
   assert.ok(buildIndex > omrPolicyIndex, 'frontend build debe ejecutarse despues de copiar la politica OMR');
+});
+
+test('release estable valida el asset desde su URL pública y lo oculta si falla la E2E', () => {
+  const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const finalizeIndex = installer.indexOf('finalize_installer_release:');
+  const publicE2eIndex = installer.indexOf('verify_public_installer_e2e:');
+  const rollbackIndex = installer.indexOf('redraft_failed_public_installer_release:');
+  const publicE2e = installer.slice(publicE2eIndex, rollbackIndex);
+  const rollback = installer.slice(rollbackIndex);
+
+  assert.ok(finalizeIndex >= 0, 'debe existir el job que hace público el release');
+  assert.ok(publicE2eIndex > finalizeIndex, 'la E2E debe correr despues de que el release sea público');
+  assert.match(publicE2e, /needs:\s*finalize_installer_release/);
+  assert.match(publicE2e, /contents:\s*read/);
+  assert.match(publicE2e, /\.browser_download_url/);
+  assert.match(publicE2e, /releases\/download\/\$tag\/\$candidateName/);
+  assert.match(publicE2e, /sidecarAsset\.browser_download_url/);
+  assert.match(publicE2e, /ExpectedSha256/);
+  assert.match(publicE2e, /installer-hub-e2e-docente\.ps1/);
+  assert.match(publicE2e, /BASELINE_BUNDLE_PATH/);
+  assert.match(publicE2e, /-SeedDummyData/);
+  assert.match(rollback, /needs:\s*verify_public_installer_e2e/);
+  assert.match(rollback, /needs\.verify_public_installer_e2e\.result != 'success'/);
+  assert.match(rollback, /contents:\s*write/);
+  assert.match(rollback, /-F draft=true/);
 });

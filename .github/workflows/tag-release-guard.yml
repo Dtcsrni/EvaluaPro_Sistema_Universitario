@@ -10,18 +10,21 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   tag_release_guard:
     name: Validar tag con release asociado
     runs-on: ubuntu-latest
-    # El instalador Windows puede tardar mas de 10 minutos antes de crear el release.
-    # La ventana del guard debe cubrir ese flujo y permitir recuperacion sin borrar la tag.
-    timeout-minutes: 30
+    # El build y la E2E completa del instalador (180 min) y la publicación (15 min) son jobs secuenciales.
+    # La espera cubre ambos límites con margen y conserva la tag si vence.
+    timeout-minutes: 205
+    outputs:
+      invalid_tag: ${{ steps.guard.outputs.invalid_tag }}
 
     steps:
       - name: Esperar release para el tag
+        id: guard
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
@@ -30,12 +33,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          max_attempts=40
+          max_attempts=390
           sleep_seconds=30
 
-          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-((alpha|beta|rc)\.[0-9]+))?$ ]]; then
+          if [[ ! "$TAG_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]]; then
             echo "Formato de tag no permitido: $TAG_NAME" >&2
-            gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG_NAME"
+            echo "invalid_tag=true" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
@@ -52,3 +55,26 @@ jobs:
           echo "No se encontro release para $TAG_NAME dentro de la ventana de espera." >&2
           echo "La tag se conserva para permitir reintento y diagnostico." >&2
           exit 1
+
+
+  cleanup_invalid_tag:
+    name: Eliminar tag de formato inválido
+    runs-on: ubuntu-latest
+    needs: tag_release_guard
+    if: always() && needs.tag_release_guard.outputs.invalid_tag == 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Eliminar referencia de tag inválida
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$TAG_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ || ! "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Refusing to delete unless the tag is invalid and the repository is valid." >&2
+            exit 1
+          fi
+          gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG_NAME"
