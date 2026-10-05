@@ -1349,6 +1349,13 @@ function Test-UpdateSmoke {
   Add-Result -Area 'update' -Item 'status' -Ok ($null -ne $status -and [string]$status.state -ne 'failed') -Detail "$BaseUrl/api/update/status"
 }
 
+function Normalize-InstallerProductVersion {
+  param([Parameter(Mandatory = $true)][version]$Version)
+  if ($Version.Build -lt 0) { throw "La versión MSI no contiene el tercer componente requerido: $Version" }
+  if ($Version.Revision -gt 0) { throw "La versión MSI contiene un cuarto componente inesperado: $Version" }
+  return [version]::new($Version.Major, $Version.Minor, $Version.Build)
+}
+
 function Get-InstalledProductVersion {
   $target = [IO.Path]::GetFullPath($installedRoot).TrimEnd('\')
   $allEntries = @(Get-EvaluaProUninstallEntries)
@@ -1383,7 +1390,7 @@ function Get-InstalledProductVersion {
   if (-not [version]::TryParse([string]$entry.displayVersion, [ref]$parsed)) {
     throw "DisplayVersion instalada invalida: $($entry.displayVersion)"
   }
-  return $parsed
+  return (Normalize-InstallerProductVersion -Version $parsed)
 }
 
 function Assert-OfficialUpgradeBaseline {

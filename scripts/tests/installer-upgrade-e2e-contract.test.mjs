@@ -53,6 +53,13 @@ test('E2E conserva el log MSI verbose para diagnosticar propiedades de instalaci
   assert.match(e2e, /Copy-ArtifactIfExists -Path \$msiInstallLog/);
 });
 
+test('E2E normaliza la versión MSI de cuatro componentes al SemVer de tres', () => {
+  assert.match(e2e, /function Normalize-InstallerProductVersion/);
+  assert.match(e2e, /\[version\]::new\(\$Version\.Major, \$Version\.Minor, \$Version\.Build\)/);
+  assert.match(e2e, /cuarto componente inesperado/);
+  assert.match(e2e, /return \(Normalize-InstallerProductVersion -Version \$parsed\)/);
+});
+
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
   const baselineInstall = e2e.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
   const stopBaseline = e2e.indexOf("Invoke-InstalledBroker -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
