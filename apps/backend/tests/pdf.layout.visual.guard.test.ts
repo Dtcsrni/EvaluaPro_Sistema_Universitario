@@ -390,6 +390,25 @@ describe('pdf layout visual guard', () => {
     expect(pregunta?.perfilOmr?.ubicacion).toBe('junto-a-opcion');
     expect(pregunta?.fiduciales).toBeUndefined();
     expect(pregunta?.opciones).toHaveLength(5);
+    expect(pagina?.qr?.marginModules).toBe(4);
+    expect(pagina?.qr?.matrixModules).toBeGreaterThan(0);
+    expect(pagina?.qr?.moduleSize).toBeCloseTo(
+      Number(pagina?.qr?.size) / (Number(pagina?.qr?.matrixModules) + Number(pagina?.qr?.marginModules) * 2),
+      6
+    );
+    const reversoVacio = resultado.mapaOmr.paginas.find((item) => item.tipoPagina === 'reverso-vacio');
+    expect(reversoVacio).toMatchObject({ numeroPagina: 2, duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 }, preguntas: [] });
+    const parser = new PDFParse({ data: resultado.pdfBytes });
+    try {
+      const capturas = await parser.getScreenshot({ partial: [1, 2], desiredWidth: 1530, imageBuffer: true, imageDataUrl: false });
+      expect(capturas.pages).toHaveLength(2);
+      const qrFinal = await sharp(capturas.pages[0]!.data).png().toBuffer();
+      expect(await leerQrDesdeImagen(`data:image/png;base64,${qrFinal.toString('base64')}`)).toBe(pagina?.qr?.texto);
+      const dorso = await sharp(capturas.pages[1]!.data).removeAlpha().raw().toBuffer();
+      expect([...dorso].some((pixel) => pixel < 250)).toBe(false);
+    } finally {
+      await parser.destroy();
+    }
 
     const opciones = pregunta?.opciones ?? [];
     const radioEsperado = 4 * 72 / 25.4;
@@ -448,6 +467,10 @@ describe('pdf layout visual guard', () => {
         }
       }
     }
+    expect(resultado.mapaOmr.paginas.map((pagina) => pagina.tipoPagina)).toEqual(
+      paginas.flatMap(() => ['examen', 'reverso-vacio'])
+    );
+    expect(detectarColisionesDuplexOmr(resultado.mapaOmr)).toHaveLength(0);
   });
 
   it('imprime folio y página en dos posiciones independientes del pie', async () => {

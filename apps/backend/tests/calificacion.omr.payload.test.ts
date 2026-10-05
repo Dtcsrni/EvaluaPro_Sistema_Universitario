@@ -224,6 +224,36 @@ describe('calificación OMR payload estricto', () => {
     expect(respuesta.body.error.codigo).toBe('OMR_PAYLOAD_INCOMPLETO');
   });
 
+  it('exige revisión si una respuesta individual es ambigua aunque el promedio de página pase', async () => {
+    const base = await crearEscenarioBase(app);
+
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({
+        examenGeneradoId: base.examenGeneradoId,
+        folio: base.folio,
+        alumnoId: base.alumnoId,
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: null, confianza: 0.99, estadoRespuesta: 'ambigua' }],
+        omrAnalisis: {
+          estadoAnalisis: 'ok',
+          calidadPagina: 0.99,
+          confianzaPromedioPagina: 0.99,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: base.templateVersion,
+          engineVersion: 'omr-cv',
+          geomQuality: 0.99,
+          photoQuality: 0.99,
+          decisionPolicy: 'conservadora_v1',
+          motivosRevision: [],
+          qrTexto: base.qrTexto
+        }
+      })
+      .expect(422);
+
+    expect(respuesta.body.error.codigo).toBe('OMR_REQUIERE_REVISION_MANUAL');
+  }, 60_000);
+
   it('rechaza folio de payload que no coincide', async () => {
     const base = await crearEscenarioBase(app);
 
@@ -348,7 +378,7 @@ describe('calificación OMR payload estricto', () => {
         examenGeneradoId: base.examenGeneradoId,
         folio: base.folio,
         alumnoId: base.alumnoId,
-        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97, estadoRespuesta: 'respondida' }],
         omrAnalisis: {
           estadoAnalisis: 'ok',
           calidadPagina: 0.98,
@@ -473,7 +503,7 @@ describe('calificación OMR payload estricto', () => {
         examenGeneradoId: base.examenGeneradoId,
         folio: base.folio,
         alumnoId: base.alumnoId,
-        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97, estadoRespuesta: 'respondida' }],
         omrAnalisis: {
           estadoAnalisis: 'ok',
           calidadPagina: 0.98,

@@ -703,7 +703,8 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     calidadPagina,
     confianzaPromedioPagina,
     ratioAmbiguas,
-    coberturaDeteccion
+    coberturaDeteccion,
+    respuestasDetectadas: respuestas
   });
 
   if (respuestas.length > 0 && !autoCalificableOmr && !revisionConfirmada) {

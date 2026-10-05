@@ -34,5 +34,56 @@ describe('politicaAutoCalificacionOmr', () => {
     expect(resultado.autoCalificableOmr).toBe(true);
   });
 
+  it('bloquea la autocalificación si una respuesta individual sigue ambigua aunque los agregados pasen', () => {
+    const resultado = evaluarAutoCalificableOmr({
+      estadoAnalisis: 'ok',
+      calidadPagina: 0.99,
+      confianzaPromedioPagina: 0.99,
+      ratioAmbiguas: 0,
+      coberturaDeteccion: 1,
+      respuestasDetectadas: [
+        { opcion: 'A', confianza: 0.99, estadoRespuesta: 'respondida' },
+        { opcion: null, confianza: 0.99, estadoRespuesta: 'ambigua' }
+      ]
+    });
+
+    expect(resultado.hardStop).toBe(true);
+    expect(resultado.autoCalificableOmr).toBe(false);
+  });
+
+  it('bloquea una opción individual débil aunque el promedio de página sea alto', () => {
+    const resultado = evaluarAutoCalificableOmr({
+      estadoAnalisis: 'ok',
+      calidadPagina: 0.99,
+      confianzaPromedioPagina: 0.99,
+      ratioAmbiguas: 0,
+      coberturaDeteccion: 1,
+      respuestasDetectadas: [
+        { opcion: 'A', confianza: 0.99, estadoRespuesta: 'respondida' },
+        { opcion: 'B', confianza: 0.2, estadoRespuesta: 'respondida' }
+      ]
+    });
+
+    expect(resultado.hardStop).toBe(true);
+    expect(resultado.autoCalificableOmr).toBe(false);
+  });
+
+  it('bloquea la autocalificación si falta estado o confianza individual', () => {
+    const resultado = evaluarAutoCalificableOmr({
+      estadoAnalisis: 'ok',
+      calidadPagina: 0.99,
+      confianzaPromedioPagina: 0.99,
+      ratioAmbiguas: 0,
+      coberturaDeteccion: 1,
+      respuestasDetectadas: [
+        { opcion: 'A', estadoRespuesta: 'respondida' },
+        { opcion: 'B', confianza: 0.99 }
+      ]
+    });
+
+    expect(resultado.hardStop).toBe(true);
+    expect(resultado.autoCalificableOmr).toBe(false);
+  });
+
 });
 
