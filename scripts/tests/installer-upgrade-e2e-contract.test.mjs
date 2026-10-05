@@ -9,23 +9,30 @@ const e2e = fs.readFileSync(e2ePath, 'utf8');
 const workflowPath = path.join(root, '.github', 'workflows', 'ci-installer-windows.yml');
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 
-test('upgrade E2E fija y verifica el instalador oficial v1.2.3 antes de ejecutarlo', () => {
+test('upgrade E2E verifica el bundle oficial v1.2.3 y prepara su MSI extraído', () => {
   assert.match(e2e, /\[string\]\$BaselineBundlePath/);
   assert.match(e2e, /644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913/);
   assert.match(e2e, /Get-FileHash -LiteralPath \$resolvedPath -Algorithm SHA256/);
   assert.match(e2e, /Assert-OfficialUpgradeBaseline -Path \$BaselinePath/);
-  assert.match(e2e, /Invoke-InstallerHubMode -Mode 'install' -BundlePath \$verifiedBaseline/);
+  assert.match(e2e, /function Install-OfficialUpgradeBaselineMsi/);
+  assert.match(e2e, /wixCommand\.Source -ArgumentList @\('burn', 'extract'/);
+  assert.match(e2e, /EvaluaPro-docente-local\.msi/);
+  assert.match(e2e, /REQUIRE_INSTALLER_HUB=1/);
+  assert.match(e2e, /Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath \$verifiedBaseline/);
   assert.match(e2e, /baselineVersion -ne \[version\]'1\.2\.3'/);
 });
 
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
-  const baselineInstall = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath $verifiedBaseline");
+  const baselineInstall = e2e.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
   const stopBaseline = e2e.indexOf("Invoke-InstalledBroker -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
   const markerWrite = e2e.indexOf("Invoke-UpgradeDataMarker -Action 'write' -Marker $marker");
   const candidateInstall = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath");
   const versionCheck = e2e.indexOf("Get-InstalledProductVersion", candidateInstall);
   const markerVerify = e2e.indexOf("Invoke-UpgradeDataMarker -Action 'verify' -Marker $marker", candidateInstall);
   assert.ok(baselineInstall >= 0 && baselineInstall < markerWrite);
+  assert.match(e2e, /upgrade-baseline-post-install\.request\.json/);
+  assert.match(e2e, /response\.ok/);
+  assert.match(e2e, /official-msi-installed/);
   assert.ok(stopBaseline >= 0 && stopBaseline < markerWrite, 'la app baseline debe cerrarse antes de escribir SQLite');
   assert.ok(markerWrite < candidateInstall);
   assert.ok(candidateInstall < versionCheck && versionCheck < markerVerify);
@@ -69,7 +76,7 @@ test('runner protege ProgramData y aísla la SQLite recién creada por el baseli
   assert.match(e2e, /function Set-QAIsolatedSqlite/);
   assert.match(e2e, /sharedProgramDataDatabaseExistedAtStart\)\s*\{\s*throw/);
   assert.match(e2e, /foreach \(\$suffix in @\('', '-wal', '-shm', '-journal'\)\)/);
-  const baselineInstall = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath $verifiedBaseline");
+  const baselineInstall = e2e.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
   const isolateBaseline = e2e.indexOf('Set-QAIsolatedSqlite | Out-Null', baselineInstall);
   const baselineState = e2e.indexOf("Test-InstalledState -Phase 'post-baseline-install'", baselineInstall);
   assert.ok(baselineInstall >= 0 && isolateBaseline > baselineInstall && isolateBaseline < baselineState);

@@ -1,8 +1,8 @@
 ---
 id: SPEC-INSTALLER-ROLLBACK-CLEANUP
 titulo: Limpieza y Rollback Automatico ante Fallos de Instalacion
-version: 1.4.1
-fecha: 2026-10-04
+version: 1.4.2
+fecha: 2026-10-05
 autor: Codex / Agente IA
 modulo: modulo_installer_windows
 estado: approved
@@ -29,6 +29,8 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - REQ-013: El E2E de actualización instala en una ruta QA aislada la versión estable anterior desde el asset y sidecar oficiales, valida su SHA-256, escribe un marcador no productivo en su SQLite, aplica el bundle candidato y verifica que la versión registrada avanzó y que el marcador sobrevivió; elimina el marcador al finalizar.
 - REQ-014: Antes de instalar, el runner rechaza cualquier SQLite ya existente en `ProgramData\EvaluaPro\data\evaluapro.db`. Si el baseline oficial v1.2.3 crea esa SQLite en un host limpio, el runner mueve el archivo y sus sidecars a la raíz QA de `LOCALAPPDATA` y actualiza el `.env` antes de iniciar backend, dashboard o datos dummy.
 - REQ-015: El runner restaura o retira el perfil operativo global que haya cambiado durante su instalación QA y conserva tutorial, capturas y logs dentro de `ReportDir`; un fallo de E2E no modifica la documentación del checkout.
+- REQ-016: La reconciliación opcional de accesos directos tiene un límite de 90 segundos, captura salida acotada y nunca bloquea el payload funcional, SQLite ni el manifiesto del actualizador; si se excede, queda registrada como degradación.
+- REQ-017: La prueba de upgrade conserva y valida el bundle oficial v1.2.3 por SHA-256, extrae su MSI con WiX, comprueba que la instalación registrada sea 1.2.3 y usa esa instalación junto con una SQLite QA aislada como baseline antes de instalar el bundle candidato.
 
 ## Criterios de Aceptación
 - Fallos en post-install no dejan archivos huerfanos.
@@ -47,6 +49,8 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - El workflow Windows descarga EXE y sidecar desde la URL oficial del tag, valida su integridad antes de pasar el baseline al E2E y conserva reporte que distinga baseline, upgrade y persistencia.
 - Si la SQLite de ProgramData existía antes del E2E, no se inicia el instalador. En un host QA limpio, la SQLite nueva de v1.2.3 y sus archivos WAL/journal pasan a LOCALAPPDATA antes de iniciar servicios; una base compartida nunca se mueve ni se abre para la prueba.
 - Al terminar, el perfil operativo vuelve a sus bytes previos si todavía apunta a la ruta QA de la ejecución. Los tutoriales y capturas quedan bajo `ReportDir`; las corridas fallidas no escriben `docs/tutoriales`.
+- La reconciliación opcional se termina antes de 90 segundos; su timeout o error queda como warning degradado, y el manifiesto crítico de actualización aún se genera y valida.
+- El MSI baseline proviene del EXE oficial descargado y verificado; la fixture de upgrade no depende del helper GUI antiguo de v1.2.3.
 
 ## Matriz de Trazabilidad
 
@@ -67,3 +71,5 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 | REQ-013 | Upgrade real v1.2.3 → candidato con integridad oficial y persistencia SQLite | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1`, `.github/workflows/ci-installer-windows.yml` | Implementación local; E2E Windows pendiente |
 | REQ-014 | Rechazo de SQLite preexistente y aislamiento de la SQLite baseline recién creada | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1` | Implementación local; E2E Windows pendiente |
 | REQ-015 | Restauración del perfil operativo y retención de evidencia dentro del reporte | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1` | Implementación local; E2E Windows pendiente |
+| REQ-016 | Timeout y degradación de reconciliación opcional de accesos | `scripts/tests/installer-hub-contract.test.mjs` | Contrato aprobado; E2E Windows pendiente |
+| REQ-017 | Upgrade desde MSI extraído del bundle oficial v1.2.3 | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Contrato aprobado; E2E Windows pendiente |

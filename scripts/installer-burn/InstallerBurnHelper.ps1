@@ -66,6 +66,58 @@ function Write-HelperProgress {
   Write-Output ("EVALUAPRO_PROGRESS:" + ($event | ConvertTo-Json -Compress))
 }
 
+function Invoke-ShortcutReconciliation {
+  param(
+    [Parameter(Mandatory = $true)][string]$PowerShellPath,
+    [Parameter(Mandatory = $true)][string]$ScriptPath,
+    [Parameter(Mandatory = $true)][string]$TargetDir,
+    [int]$TimeoutSeconds = 90
+  )
+
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $PowerShellPath
+  $startInfo.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $ScriptPath + '" -OutputDir accesos-directos -Force -SyncRepoOutput -SkipManifestUpdate -Port 4519'
+  $startInfo.WorkingDirectory = $TargetDir
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  if (-not $process.Start()) { throw 'No se pudo iniciar la reconciliación de accesos directos.' }
+
+  $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+  $stderrTask = $process.StandardError.ReadToEndAsync()
+  if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+    try { $process.Kill() } catch {}
+    $stopped = $false
+    try { $stopped = $process.WaitForExit(5000) } catch {}
+    $stdout = ''
+    $stderr = ''
+    if ($stopped) {
+      $stdout = try { $stdoutTask.GetAwaiter().GetResult() } catch { '' }
+      $stderr = try { $stderrTask.GetAwaiter().GetResult() } catch { '' }
+    } else {
+      $stderr = 'El proceso no terminó después de solicitar su cierre.'
+    }
+    return [pscustomobject]@{
+      ExitCode = $null
+      TimedOut = $true
+      Stdout = [string]$stdout
+      Stderr = [string]$stderr
+    }
+  }
+
+  $process.WaitForExit()
+  return [pscustomobject]@{
+    ExitCode = $process.ExitCode
+    TimedOut = $false
+    Stdout = [string]$stdoutTask.GetAwaiter().GetResult()
+    Stderr = [string]$stderrTask.GetAwaiter().GetResult()
+  }
+}
+
 function Get-RequestValue {
   param(
     [Parameter(Mandatory = $true)]
@@ -908,21 +960,30 @@ function Invoke-PostInstall {
   # PowerShell/COM en el perfil del usuario no desinstale un MSI válido.
   $shortcutWarnings = New-Object System.Collections.Generic.List[string]
   $shortcutScript = Join-Path $targetDir 'scripts\create-shortcuts.ps1'
+  $shortcutReportPath = Join-Path $targetDir 'logs\shortcut-reconciliation.json'
   Write-HelperProgress -Percent 87 -Status 'Configurando accesos directos.'
   if (-not (Test-Path -LiteralPath $shortcutScript)) {
     $shortcutWarnings.Add("No existe create-shortcuts.ps1 en $targetDir; se conserva el acceso creado por MSI.") | Out-Null
   } else {
-    & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $shortcutScript `
-      -OutputDir 'accesos-directos' -Force `
-      -SyncRepoOutput -SkipManifestUpdate `
-      -Port 4519
-    $shortcutExitCode = $LASTEXITCODE
-    if ($shortcutExitCode -ne 0) {
-      $shortcutWarnings.Add("La reconciliación de accesos directos terminó con exit=$shortcutExitCode.") | Out-Null
+    Remove-Item -LiteralPath $shortcutReportPath -Force -ErrorAction SilentlyContinue
+    try {
+      $shortcutResult = Invoke-ShortcutReconciliation -PowerShellPath $powerShellPath -ScriptPath $shortcutScript -TargetDir $targetDir -TimeoutSeconds 90
+      if ($shortcutResult.TimedOut) {
+        $shortcutWarnings.Add('La reconciliación de accesos directos excedió 90 segundos; se conserva la instalación y se omite esta mejora opcional.') | Out-Null
+        foreach ($line in @($shortcutResult.Stdout, $shortcutResult.Stderr) -split "`r?`n" | Where-Object { $_ } | Select-Object -Last 4) {
+          Write-Host ("Diagnóstico de accesos directos: " + ([string]$line).Substring(0, [Math]::Min(240, ([string]$line).Length)))
+        }
+      } elseif ($shortcutResult.ExitCode -ne 0) {
+        $shortcutWarnings.Add("La reconciliación de accesos directos terminó con exit=$($shortcutResult.ExitCode); se conserva la instalación.") | Out-Null
+        foreach ($line in @($shortcutResult.Stdout, $shortcutResult.Stderr) -split "`r?`n" | Where-Object { $_ } | Select-Object -Last 4) {
+          Write-Host ("Diagnóstico de accesos directos: " + ([string]$line).Substring(0, [Math]::Min(240, ([string]$line).Length)))
+        }
+      }
+    } catch {
+      $shortcutWarnings.Add("No se pudo reconciliar los accesos directos: $($_.Exception.Message); se conserva la instalación.") | Out-Null
     }
   }
 
-  $shortcutReportPath = Join-Path $targetDir 'logs\shortcut-reconciliation.json'
   if (Test-Path -LiteralPath $shortcutReportPath) {
     try {
       $shortcutReport = Get-Content -LiteralPath $shortcutReportPath -Raw -Encoding UTF8 | ConvertFrom-Json

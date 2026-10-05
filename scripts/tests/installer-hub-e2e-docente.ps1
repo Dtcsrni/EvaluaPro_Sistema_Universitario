@@ -1336,6 +1336,82 @@ function Assert-OfficialUpgradeBaseline {
   return $resolvedPath
 }
 
+function Install-OfficialUpgradeBaselineMsi {
+  param([Parameter(Mandatory = $true)][string]$VerifiedBundlePath)
+
+  $wixCommand = Get-Command -Name 'wix.exe' -CommandType Application -ErrorAction Stop | Select-Object -First 1
+  $extractRoot = Join-Path $env:RUNNER_TEMP ('evaluapro-upgrade-baseline-extract-' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+  $quotedBundle = '"' + (([IO.Path]::GetFullPath($VerifiedBundlePath)) -replace '"', '\"') + '"'
+  $quotedExtractRoot = '"' + (([IO.Path]::GetFullPath($extractRoot)) -replace '"', '\"') + '"'
+  Invoke-CaptureCommand -Name 'upgrade-baseline-wix-extract' -FilePath $wixCommand.Source -ArgumentList @('burn', 'extract', $quotedBundle, '-out', $quotedExtractRoot) -WorkingDirectory $root -TimeoutSec 300
+
+  $baselineMsis = @(Get-ChildItem -LiteralPath $extractRoot -Filter 'EvaluaPro-docente-local.msi' -File -Recurse)
+  if ($baselineMsis.Count -ne 1) { throw "El bundle oficial v1.2.3 debe contener exactamente un MSI docente; encontrados=$($baselineMsis.Count)." }
+
+  $quotedMsi = '"' + (($baselineMsis[0].FullName) -replace '"', '\"') + '"'
+  $quotedInstallRoot = '"' + ([IO.Path]::GetFullPath($installedRoot) -replace '"', '\"') + '"'
+  Invoke-CaptureCommand -Name 'upgrade-baseline-msi-install' -FilePath 'msiexec.exe' -ArgumentList @(
+    '/i', $quotedMsi,
+    "INSTALLFOLDER=$quotedInstallRoot",
+    'REQUIRE_INSTALLER_HUB=1', 'BURNMSIINSTALL=1',
+    'INSTALL_DESKTOP_SHORTCUTS=0', 'INSTALL_STARTMENU_SHORTCUTS=0',
+    '/qn', '/norestart'
+  ) -WorkingDirectory $root -TimeoutSec 300
+
+  $installedVersion = Get-InstalledProductVersion
+  if ($installedVersion -ne [version]'1.2.3') { throw "El MSI extraído del bundle oficial no instaló v1.2.3; observado=$installedVersion" }
+
+  $requestPath = Join-Path $ReportDir 'upgrade-baseline-post-install.request.json'
+  $responsePath = Join-Path $ReportDir 'upgrade-baseline-post-install.response.json'
+  $request = [ordered]@{
+    mode = 'install'
+    flavorId = 'docente-local'
+    installDir = [IO.Path]::GetFullPath($installedRoot)
+    exportData = '1'
+    dataDir = Join-Path $installedRoot 'data'
+    config = [ordered]@{
+      databaseUrl = 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
+      nodeEnv = 'production'
+      puertoApi = '4000'
+      puertoPortal = '4518'
+      corsOrigenes = 'http://localhost:4173,http://127.0.0.1:4173'
+      portalAlumnoUrl = ''
+      portalAlumnoApiKey = 'portal-key-shared'
+      portalApiKey = 'portal-key-shared'
+      passwordResetEnabled = '0'
+      passwordResetUrlBase = ''
+      requireLicenseActivation = '0'
+      apiComercialBaseUrl = ''
+      tenantId = ''
+      codigoActivacion = ''
+      licenciaAccountEmail = 'soporte@tu-institucion.mx'
+      flavorId = 'docente-local'
+      updateChannel = 'stable'
+      updateOwner = 'Dtcsrni'
+      updateRepo = 'EvaluaPro_Sistema_Universitario'
+      updateAssetName = 'EvaluaPro-InstallerHub-docente-local.exe'
+      updateShaAssetName = 'EvaluaPro-InstallerHub-docente-local.exe.sha256'
+      updateRequireSha256 = '1'
+    }
+  }
+  [IO.File]::WriteAllText($requestPath, ($request | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+  $helperPath = Join-Path $root 'scripts\installer-burn\InstallerBurnHelper.ps1'
+  $quotedHelper = '"' + ([IO.Path]::GetFullPath($helperPath) -replace '"', '\"') + '"'
+  $quotedRequest = '"' + ([IO.Path]::GetFullPath($requestPath) -replace '"', '\"') + '"'
+  $quotedResponse = '"' + ([IO.Path]::GetFullPath($responsePath) -replace '"', '\"') + '"'
+  Invoke-CaptureCommand -Name 'upgrade-baseline-post-install' -FilePath 'powershell.exe' -ArgumentList @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $quotedHelper,
+    '-Mode', 'post-install', '-RequestPath', $quotedRequest, '-ResponsePath', $quotedResponse
+  ) -WorkingDirectory $root -TimeoutSec 900
+
+  if (-not (Test-Path -LiteralPath $responsePath -PathType Leaf)) { throw 'El helper QA no produjo respuesta para el baseline oficial v1.2.3.' }
+  $response = Get-Content -LiteralPath $responsePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  if (-not $response.ok) { throw "No se pudo preparar el MSI baseline oficial v1.2.3: $([string]$response.message)" }
+  Copy-ArtifactIfExists -Path $responsePath | Out-Null
+  Add-Result -Area 'upgrade-baseline' -Item 'official-msi-installed' -Ok $true -Detail 'bundle oficial SHA-256 verificado; MSI extraído e instalado como v1.2.3'
+}
+
 function Invoke-UpgradeDataMarker {
   param(
     [Parameter(Mandatory = $true)][ValidateSet('write', 'verify', 'remove')][string]$Action,
@@ -1365,7 +1441,7 @@ try {
 function Invoke-UpgradeBaselineFlow {
   param([Parameter(Mandatory = $true)][string]$BaselinePath)
   $verifiedBaseline = Assert-OfficialUpgradeBaseline -Path $BaselinePath
-  Invoke-InstallerHubMode -Mode 'install' -BundlePath $verifiedBaseline | Out-Null
+  Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline
   Wait-InstalledPayload -TimeoutSec 240
   Set-QAIsolatedSqlite | Out-Null
   Test-InstalledState -Phase 'post-baseline-install'
