@@ -1364,12 +1364,14 @@ function Get-InstalledProductVersion {
     $entry = $matchingEntries[0]
   } elseif ($allEntries.Count -eq 1 -and
       [string]::IsNullOrWhiteSpace([string]$allEntries[0].installLocation) -and
-      (Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf)) {
+      ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
+       (Test-Path -LiteralPath (Join-Path $target 'evaluapro-native-dist.zip') -PathType Leaf))) {
     # MSI v1.2.3 does not reliably publish ARPINSTALLLOCATION. On the clean,
-    # isolated E2E runner a unique ARP product plus its executable at the exact
-    # target proves which installation produced the version entry.
+    # isolated E2E runner a unique ARP product plus its installed payload at the
+    # exact target proves which installation produced the version entry. The
+    # baseline MSI lays down the ZIP before the post-install helper expands it.
     $entry = $allEntries[0]
-    Write-E2ELog "ARP no publicó InstallLocation; se valida la única entrada EvaluaPro contra el payload aislado en $target."
+    Write-E2ELog "ARP no publicó InstallLocation; se valida la única entrada EvaluaPro contra el EXE o ZIP de payload aislado en $target."
   } else {
     $entryDetails = @($allEntries | ForEach-Object {
         "version=$($_.displayVersion); location=$($_.installLocation); key=$($_.registryPath)"
@@ -1421,13 +1423,17 @@ function Install-OfficialUpgradeBaselineMsi {
 
   $quotedMsi = '"' + ($baselineMsiPath -replace '"', '\"') + '"'
   $quotedInstallRoot = '"' + ([IO.Path]::GetFullPath($installedRoot) -replace '"', '\"') + '"'
+  $msiInstallLog = Join-Path $ReportDir 'upgrade-baseline-msi-install.log'
+  $quotedMsiInstallLog = '"' + ([IO.Path]::GetFullPath($msiInstallLog) -replace '"', '\"') + '"'
   Invoke-CaptureCommand -Name 'upgrade-baseline-msi-install' -FilePath 'msiexec.exe' -ArgumentList @(
     '/i', $quotedMsi,
     "INSTALLFOLDER=$quotedInstallRoot",
     'REQUIRE_INSTALLER_HUB=1', 'BURNMSIINSTALL=1',
     'INSTALL_DESKTOP_SHORTCUTS=0', 'INSTALL_STARTMENU_SHORTCUTS=0',
+    '/l*v', $quotedMsiInstallLog,
     '/qn', '/norestart'
   ) -WorkingDirectory $root -TimeoutSec 300
+  Copy-ArtifactIfExists -Path $msiInstallLog | Out-Null
 
   $installedVersion = Get-InstalledProductVersion
   if ($installedVersion -ne [version]'1.2.3') { throw "El MSI extraído del bundle oficial no instaló v1.2.3; observado=$installedVersion" }

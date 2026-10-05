@@ -42,8 +42,15 @@ test('baseline legado valida version ARP sin InstallLocation solo con una entrad
   assert.match(getter, /\$matchingEntries\.Count -gt 1/);
   assert.match(getter, /\$allEntries\.Count -eq 1 -and\s+\[string\]::IsNullOrWhiteSpace\(\[string\]\$allEntries\[0\]\.installLocation\)/);
   assert.match(getter, /Join-Path \$target 'EvaluaPro\.exe'/);
+  assert.match(getter, /Join-Path \$target 'evaluapro-native-dist\.zip'/);
   assert.match(getter, /No existe una entrada MSI inequívoca/);
   assert.doesNotMatch(getter, /\)\[0\]/);
+});
+
+test('E2E conserva el log MSI verbose para diagnosticar propiedades de instalación del baseline', () => {
+  assert.match(e2e, /upgrade-baseline-msi-install\.log/);
+  assert.match(e2e, /'\/l\*v', \$quotedMsiInstallLog/);
+  assert.match(e2e, /Copy-ArtifactIfExists -Path \$msiInstallLog/);
 });
 
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
