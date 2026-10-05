@@ -213,8 +213,14 @@ function Copy-ArtifactIfExists {
   $targetName = if ($Name) { $Name } else { Split-Path -Leaf $Path }
   $targetDir = if ($targetName -match 'sha|SHASUMS') { $hashesDir } elseif ($targetName -match 'manifest|update-config') { $manifestDir } elseif ($targetName -match 'log') { $logsDir } else { $ReportDir }
   $target = Join-Path $targetDir $targetName
+  $sourceFullPath = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path)
+  $targetFullPath = [IO.Path]::GetFullPath($target)
+  if ([string]::Equals($sourceFullPath, $targetFullPath, [StringComparison]::OrdinalIgnoreCase)) {
+    if (-not $script:artifacts.Contains($targetFullPath)) { $script:artifacts.Add($targetFullPath) | Out-Null }
+    return $targetFullPath
+  }
   Copy-Item -LiteralPath $Path -Destination $target -Force -Recurse
-  $script:artifacts.Add($target) | Out-Null
+  if (-not $script:artifacts.Contains($targetFullPath)) { $script:artifacts.Add($targetFullPath) | Out-Null }
   return $target
 }
 
@@ -1491,6 +1497,7 @@ function Install-OfficialUpgradeBaselineMsi {
   if (-not (Test-Path -LiteralPath $responsePath -PathType Leaf)) { throw 'El helper QA no produjo respuesta para el baseline oficial v1.2.3.' }
   $response = Get-Content -LiteralPath $responsePath -Raw -Encoding UTF8 | ConvertFrom-Json
   if (-not $response.ok) { throw "No se pudo preparar el MSI baseline oficial v1.2.3: $([string]$response.message)" }
+  # El helper escribe la respuesta directamente dentro de ReportDir; la copia sería sobre sí misma.
   Copy-ArtifactIfExists -Path $responsePath | Out-Null
   Add-Result -Area 'upgrade-baseline' -Item 'official-msi-installed' -Ok $true -Detail 'bundle oficial SHA-256 verificado; MSI extraído e instalado como v1.2.3'
 }

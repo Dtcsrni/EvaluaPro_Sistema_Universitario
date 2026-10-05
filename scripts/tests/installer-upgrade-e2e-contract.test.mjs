@@ -53,6 +53,24 @@ test('E2E conserva el log MSI verbose para diagnosticar propiedades de instalaci
   assert.match(e2e, /Copy-ArtifactIfExists -Path \$msiInstallLog/);
 });
 
+test('Copy-ArtifactIfExists tolera origen y destino iguales sin perder el artefacto', () => {
+  const copyStart = e2e.indexOf('function Copy-ArtifactIfExists {');
+  const copyEnd = e2e.indexOf('\nfunction Resolve-BundlePath {', copyStart);
+  const copyHelper = e2e.slice(copyStart, copyEnd);
+
+  assert.match(copyHelper, /\[IO\.Path\]::GetFullPath\(\(Resolve-Path -LiteralPath \$Path -ErrorAction Stop\)\.Path\)/);
+  assert.match(copyHelper, /\[IO\.Path\]::GetFullPath\(\$target\)/);
+  assert.match(copyHelper, /\[string\]::Equals\(\$sourceFullPath, \$targetFullPath, \[StringComparison\]::OrdinalIgnoreCase\)/);
+  assert.match(copyHelper, /if \(-not \$script:artifacts\.Contains\(\$targetFullPath\)\) \{ \$script:artifacts\.Add\(\$targetFullPath\)/);
+  assert.match(copyHelper, /return \$targetFullPath\s*\}\s*Copy-Item/);
+
+  const responseStart = e2e.indexOf("$responsePath = Join-Path $ReportDir 'upgrade-baseline-post-install.response.json'");
+  const responseEnd = e2e.indexOf("Add-Result -Area 'upgrade-baseline'", responseStart);
+  const responseHandling = e2e.slice(responseStart, responseEnd);
+  assert.match(responseHandling, /Copy-ArtifactIfExists -Path \$responsePath/);
+  assert.match(responseHandling, /El helper escribe la respuesta directamente dentro de ReportDir/);
+});
+
 test('E2E normaliza la versión MSI de cuatro componentes al SemVer de tres', () => {
   assert.match(e2e, /function Normalize-InstallerProductVersion/);
   assert.match(e2e, /\[version\]::new\(\$Version\.Major, \$Version\.Minor, \$Version\.Build\)/);
