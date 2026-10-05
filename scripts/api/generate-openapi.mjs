@@ -188,6 +188,10 @@ const queryParametersByValidator = {
     { name: 'alumnoId', in: 'query', required: false, schema: { type: 'string' } },
     { name: 'limite', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 400, default: 120 } },
     { name: 'cursor', in: 'query', required: false, schema: { type: 'string', minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' } }
+  ],
+  esquemaListarAuditoriaPolitica: [
+    { name: 'limite', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+    { name: 'cursor', in: 'query', required: false, schema: { type: 'string', minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' } }
   ]
 };
 
@@ -454,6 +458,71 @@ for (const mount of mounts) {
                 required: ['evidencias', 'nextCursor'],
                 properties: {
                   evidencias: { type: 'array', items: { type: 'object', additionalProperties: true } },
+                  nextCursor: { type: ['string', 'null'] }
+                },
+                additionalProperties: false
+              }
+            }
+          }
+        }
+      };
+    }
+    if ((fullPath === '/evaluaciones/politicas/{codigo}/archivar'
+      || (fullPath === '/evaluaciones/politicas/{codigo}' && method === 'delete'))
+      && ['post', 'delete'].includes(method)) {
+      rutaDeclarada.requestBody = {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['motivo', 'clientRequestId', 'confirmarEliminacion'],
+              properties: {
+                motivo: { type: 'string', minLength: 3, maxLength: 400 },
+                clientRequestId: { type: 'string', format: 'uuid' },
+                confirmarEliminacion: { type: 'boolean', const: true }
+              },
+              additionalProperties: false
+            }
+          }
+        }
+      };
+      rutaDeclarada.responses = {
+        '200': responseJson,
+        '400': responseError,
+        '401': responseError,
+        '403': responseError,
+        '404': responseError,
+        '409': responseError,
+        default: responseError
+      };
+    }
+    if (fullPath === '/evaluaciones/politicas/{codigo}/auditoria' && method === 'get') {
+      rutaDeclarada.responses = {
+        ...(rutaDeclarada.responses ?? {}),
+        '200': {
+          description: 'Eventos append-only de las políticas del docente, paginados por versión descendente.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['eventos', 'nextCursor'],
+                properties: {
+                  eventos: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['id', 'docenteId', 'codigo', 'version', 'accion', 'clientRequestId', 'requestHash', 'antes', 'despues', 'createdAt'],
+                      properties: {
+                        id: { type: 'string' }, docenteId: { type: 'string' }, codigo: { type: 'string' }, version: { type: 'integer', minimum: 1 },
+                        accion: { type: 'string', enum: ['crear', 'versionar', 'archivar'] }, motivo: { type: ['string', 'null'] },
+                        clientRequestId: { type: 'string' }, requestHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+                        antes: { type: ['object', 'null'], additionalProperties: true }, despues: { type: 'object', additionalProperties: true },
+                        createdAt: { type: 'string', format: 'date-time' }
+                      },
+                      additionalProperties: false
+                    }
+                  },
                   nextCursor: { type: ['string', 'null'] }
                 },
                 additionalProperties: false

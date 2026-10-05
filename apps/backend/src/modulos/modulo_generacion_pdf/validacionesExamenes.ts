@@ -12,6 +12,7 @@ export const esquemaListarExamenesGenerados = z.object({
   periodoId: esquemaObjectId.optional(),
   alumnoId: esquemaObjectId.optional(),
   plantillaId: esquemaObjectId.optional(),
+  tipoExamen: z.enum(['parcial', 'global', 'extraordinario']).optional(),
   folio: z.string().trim().min(1).max(100).optional(),
   archivado: z.enum(['1', 'true', 'si', 's', '0', 'false', 'no', 'n']).default('false'),
   limite: z.coerce.number().int().min(1).max(200).default(100),
@@ -33,6 +34,15 @@ export const esquemaListarAuditoriaLotePdf = z.object({
   limite: z.coerce.number().int().min(1).max(100).default(30),
   cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
 }).strict();
+
+export const esquemaListarAuditoriaPlantilla = z.object({
+  limite: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
+export const esquemaCambiarEstadoPlantilla = z.object({
+  clientRequestId: z.string().uuid().optional()
+}).strict().optional();
 
 const esquemaLogosBooklet = z
   .object({
@@ -109,6 +119,7 @@ function validarTextosUnicos(valores: string[], ctx: z.RefinementCtx, etiqueta: 
  */
 export const esquemaCrearPlantilla = z
   .object({
+    clientRequestId: z.string().uuid().optional(),
     periodoId: esquemaObjectId.optional(),
     tipo: z.enum(['parcial', 'global']),
     titulo: esquemaTitulo,
@@ -193,6 +204,7 @@ export const esquemaPurgarExamenesGenerados = z
 
 export const esquemaActualizarPlantilla = z
   .object({
+    clientRequestId: z.string().uuid().optional(),
     periodoId: esquemaObjectId.optional(),
     tipo: z.enum(['parcial', 'global']).optional(),
     titulo: esquemaTitulo.optional(),

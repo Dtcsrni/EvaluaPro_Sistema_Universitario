@@ -162,6 +162,35 @@ if (!evidenciasList?.security?.some((security) => security.bearerAuth)
   || !evidenciasResponse?.required?.includes('nextCursor')) {
   errors.push('GET /evaluaciones/evidencias: debe paginar la lectura del docente con permiso evaluaciones:leer');
 }
+const auditoriaPoliticaList = spec.paths?.['/evaluaciones/politicas/{codigo}/auditoria']?.get;
+const auditoriaPoliticaQueryNames = new Set((auditoriaPoliticaList?.parameters ?? []).filter((parameter) => parameter.in === 'query').map((parameter) => parameter.name));
+const auditoriaPoliticaResponse = auditoriaPoliticaList?.responses?.['200']?.content?.['application/json']?.schema;
+if (!auditoriaPoliticaList?.security?.some((security) => security.bearerAuth)
+  || !auditoriaPoliticaList?.['x-evaluapro-permissions']?.includes('evaluaciones:leer')
+  || !auditoriaPoliticaQueryNames.has('limite')
+  || auditoriaPoliticaList?.parameters?.find((parameter) => parameter.name === 'limite')?.schema?.maximum !== 100
+  || !auditoriaPoliticaQueryNames.has('cursor')
+  || auditoriaPoliticaResponse?.properties?.eventos?.type !== 'array'
+  || !auditoriaPoliticaResponse?.required?.includes('nextCursor')
+  || !auditoriaPoliticaResponse?.properties?.nextCursor?.type?.includes('null')) {
+  errors.push('GET /evaluaciones/politicas/{codigo}/auditoria: debe paginar el historial del docente con permiso evaluaciones:leer');
+}
+for (const [path, method] of [
+  ['/evaluaciones/politicas/{codigo}/archivar', 'post'],
+  ['/evaluaciones/politicas/{codigo}', 'delete']
+]) {
+  const archive = spec.paths?.[path]?.[method];
+  const archiveBody = archive?.requestBody?.content?.['application/json']?.schema;
+  if (!archive?.security?.some((security) => security.bearerAuth)
+    || !archive?.['x-evaluapro-permissions']?.includes('evaluaciones:gestionar')
+    || !archive?.requestBody?.required
+    || !['motivo', 'clientRequestId', 'confirmarEliminacion'].every((name) => archiveBody?.required?.includes(name))
+    || archiveBody?.properties?.clientRequestId?.format !== 'uuid'
+    || archiveBody?.properties?.confirmarEliminacion?.const !== true
+    || !archive?.responses?.['409']) {
+    errors.push(`${method.toUpperCase()} ${path}: debe exigir confirmación, motivo, idempotencia UUID y permiso evaluaciones:gestionar`);
+  }
+}
 const generarExamenIndividual = spec.paths?.['/examenes/generados']?.post;
 const generarExamenIndividualBody = generarExamenIndividual?.requestBody?.content?.['application/json']?.schema;
 if (!generarExamenIndividual?.requestBody?.required

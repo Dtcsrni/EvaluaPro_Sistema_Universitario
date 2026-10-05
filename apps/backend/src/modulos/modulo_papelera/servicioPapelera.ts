@@ -5,14 +5,17 @@
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import type { Prisma } from '@prisma/client';
 
 export async function guardarEnPapelera(params: {
   docenteId: string;
   tipo: 'periodo' | 'alumno' | 'plantilla';
   entidadId: string;
   payload: Record<string, unknown>;
+  tx?: Prisma.TransactionClient;
 }) {
-  return prisma.papeleraItem.create({
+  const cliente = params.tx ?? prisma;
+  return cliente.papeleraItem.create({
     data: {
       docenteId: params.docenteId,
       tipo: params.tipo,

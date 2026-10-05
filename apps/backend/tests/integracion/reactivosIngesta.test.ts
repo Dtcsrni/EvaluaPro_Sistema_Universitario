@@ -604,7 +604,13 @@ describe('ingesta contractual de reactivos', () => {
     const confirmado = await request(app).post(`/api/banco-preguntas/importaciones/${preview.body.importId}/confirmar`).set('Authorization', `Bearer ${token}`).send({ planHash: preview.body.planHash, payload: batch }).expect(200);
     const reactivoId = String(confirmado.body.reactivoIds[0]);
     await request(app).post(`/api/banco-preguntas/reactivos/${reactivoId}/revisar`).set('Authorization', `Bearer ${token}`).send({}).expect(200);
-    const publicado = await request(app).post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`).set('Authorization', `Bearer ${token}`).send({}).expect(200);
+    const [publicado, reintentoPublicacion] = await Promise.all([
+      request(app).post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`).set('Authorization', `Bearer ${token}`).send({}).expect(200),
+      request(app).post(`/api/banco-preguntas/reactivos/${reactivoId}/publicar`).set('Authorization', `Bearer ${token}`).send({}).expect(200)
+    ]);
+    const versionesLegadasAntesDelReintento = await prisma.versionPregunta.count({ where: { preguntaId: publicado.body.legacyPreguntaId } });
+    expect(reintentoPublicacion.body).toMatchObject({ legacyPreguntaId: publicado.body.legacyPreguntaId });
+    expect(await prisma.versionPregunta.count({ where: { preguntaId: publicado.body.legacyPreguntaId } })).toBe(versionesLegadasAntesDelReintento);
 
     const retirado = await request(app).post(`/api/banco-preguntas/reactivos/${reactivoId}/retirar`).set('Authorization', `Bearer ${token}`).send({}).expect(200);
     expect(retirado.body.reactivo.estado).toBe('retired');

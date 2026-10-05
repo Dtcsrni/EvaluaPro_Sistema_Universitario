@@ -39,6 +39,7 @@ model Docente {
   eventosLotePdf            ExamenLoteArtefactoPdfAuditoria[]
   papeleraItems            PapeleraItem[]
   politicasCalificacion    PoliticaCalificacion[]
+  auditoriaPoliticasCalificacion PoliticaCalificacionAuditoria[]
   solicitudesRevision      SolicitudRevisionAlumno[]
   sesiones                 SesionDocente[]
   recuperacionesContrasena RecuperacionContrasenaDocente[]
@@ -511,6 +512,22 @@ model PreguntaPlantilla {
   @@map("pregunta_plantilla")
 }
 
+model ExamenPlantillaAuditoria {
+  id              String   @id @default(uuid())
+  docenteId       String
+  plantillaId     String
+  accion          String
+  clientRequestId String
+  requestHash     String
+  antes           String?
+  despues         String
+  createdAt       DateTime @default(now())
+
+  @@unique([docenteId, clientRequestId])
+  @@index([docenteId, plantillaId, createdAt, id])
+  @@map("auditoria_plantillas_examen")
+}
+
 model ExamenGenerado {
   id                       String                    @id @default(uuid())
   docenteId                String
@@ -577,6 +594,26 @@ model PoliticaCalificacion {
   updatedAt     DateTime @updatedAt
 
   @@map("politicas_calificacion")
+}
+
+model PoliticaCalificacionAuditoria {
+  id              String   @id @default(uuid())
+  docenteId       String
+  docente         Docente  @relation(fields: [docenteId], references: [id], onDelete: Restrict)
+  codigo          String
+  version         Int
+  accion          String
+  motivo          String?
+  clientRequestId String
+  requestHash     String
+  antes           String?
+  despues         String
+  createdAt       DateTime @default(now())
+
+  @@unique([docenteId, clientRequestId])
+  @@unique([docenteId, codigo, version])
+  @@index([docenteId, codigo, createdAt, id])
+  @@map("auditoria_politicas_calificacion")
 }
 
 model Calificacion {
