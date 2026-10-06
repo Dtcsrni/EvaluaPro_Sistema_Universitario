@@ -150,6 +150,22 @@ function buildRootCoverageBatches() {
   return batches;
 }
 
+function buildChangedCoverageArgs(baseRef) {
+  const normalizedBaseRef = String(baseRef ?? '').trim();
+  if (!normalizedBaseRef || normalizedBaseRef.startsWith('-') || normalizedBaseRef.includes('\\0')) {
+    throw new TypeError('BACKEND_COVERAGE_CHANGED_FROM debe ser una referencia Git válida');
+  }
+  return [
+    'vitest',
+    'run',
+    '--coverage',
+    `--changed=${normalizedBaseRef}`,
+    '--pool=forks',
+    '--reporter=default',
+    ...zeroThresholdArgs
+  ];
+}
+
 function batchArgs(name, filters) {
   const pool = filters.some((filter) => String(filter).includes('sincronizacion.dos-equipos.e2e.test.ts'))
     ? '--pool=threads'
@@ -331,10 +347,27 @@ async function runBatches(batches, concurrency, executeBatch = runBatch) {
 }
 
 async function main() {
-  const plan = buildCoveragePlan();
   const startedAt = new Date().toISOString();
   const startedAtMs = Date.now();
   await prepareRun();
+  const changedFrom = process.env.BACKEND_COVERAGE_CHANGED_FROM?.trim();
+  if (changedFrom) {
+    const args = buildChangedCoverageArgs(changedFrom);
+    process.stdout.write(`[backend-coverage] modo diferencial; base=${changedFrom}\\n`);
+    const code = await runVitest(args, 'backend-changed');
+    await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAtMs,
+      changedFrom,
+      results: [{ name: 'backend-changed', exitCode: code, durationMs: Date.now() - startedAtMs }],
+      failed: code !== 0,
+      failureStage: code === 0 ? null : 'changed-coverage'
+    }, null, 2));
+    process.exit(code);
+  }
+
+  const plan = buildCoveragePlan();
   process.stdout.write(`[backend-coverage] concurrencia=${batchConcurrency}; lotes=${plan.batches.length}\n`);
   const batches = await runBatches(plan.batches, batchConcurrency);
   if (batches.exitCode !== 0) {
@@ -374,7 +407,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildCoveragePlan, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
+export { buildChangedCoverageArgs, buildCoveragePlan, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
