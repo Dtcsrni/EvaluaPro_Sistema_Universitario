@@ -26,10 +26,10 @@ import type {
 } from './tipos';
 import { esMensajeError, mensajeDeError } from './utilidades';
 import { evaluarCalidadCaptura, type CalidadCaptura } from './QrAccesoMovil';
+import { PanelRevisionVisualOmr } from './PanelRevisionVisualOmr';
 
 export { QrAccesoMovil } from './QrAccesoMovil';
 
-const UMBRAL_AUTO_CONFIABLE_UI = 0.82;
 const UMBRAL_OCR_PIE = 75;
 
 async function leerReferenciaPieDeImagen(imagenBase64: string): Promise<ReferenciaPieOmr | null> {
@@ -150,8 +150,6 @@ export function SeccionEscaneo({
   const [bloqueoManual, setBloqueoManual] = useState(false);
   const [fuenteIdentificacion, setFuenteIdentificacion] = useState<'qr' | 'ocr' | null>(null);
   const [procesandoLote, setProcesandoLote] = useState(false);
-  const [zoomImagen, setZoomImagen] = useState(1);
-  const claseZoomImagen = `omr-review-card__image--zoom-${Math.round(zoomImagen * 100)}`;
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [lote, setLote] = useState<
     Array<{
@@ -1021,129 +1019,18 @@ export function SeccionEscaneo({
               <span>Mostrar solo pendientes</span>
             </label>
           </div>
-          <div className="omr-review-grid omr-review-grid--visual">
-            <section className="item-glass omr-review-card omr-review-card--imagen" aria-labelledby="omr-imagen-title">
-              <div className="omr-review-card__heading">
-                <div>
-                  <span className="omr-review-card__eyebrow">Documento escaneado</span>
-                  <h4 id="omr-imagen-title">Imagen del examen</h4>
-                </div>
-                <div className="omr-image-controls" role="group" aria-label="Controles de imagen">
-                  <button type="button" className="omr-image-control" onClick={() => setZoomImagen((actual) => Math.max(0.75, Number((actual - 0.25).toFixed(2))))} aria-label="Alejar imagen" title="Alejar">
-                    −
-                  </button>
-                  <output className="omr-image-zoom" aria-live="polite">{Math.round(zoomImagen * 100)}%</output>
-                  <button type="button" className="omr-image-control" onClick={() => setZoomImagen((actual) => Math.min(2.5, Number((actual + 0.25).toFixed(2))))} aria-label="Acercar imagen" title="Acercar">
-                    +
-                  </button>
-                  <button type="button" className="omr-image-reset" onClick={() => setZoomImagen(1)}>
-                    Restablecer
-                  </button>
-                </div>
-              </div>
-              <div className="omr-review-card__image-wrap omr-review-card__image-viewport">
-                {paginaRevisionActiva?.imagenBase64 ? (
-                  <img
-                    className={`preview omr-review-card__image omr-review-card__image--zoomable ${claseZoomImagen}`}
-                    src={paginaRevisionActiva.imagenBase64}
-                    alt={`Examen ${examenIdActivo ?? ''} página ${paginaActiva ?? ''}`}
-                  />
-                ) : imagenBase64 ? (
-                  <img
-                    className={`preview omr-review-card__image omr-review-card__image--zoomable ${claseZoomImagen}`}
-                    src={imagenBase64}
-                    alt="Imagen cargada para análisis OMR"
-                  />
-                ) : (
-                  <InlineMensaje tipo="info">
-                    {paginaRevisionActiva
-                      ? 'No hay imagen archivada para esta página.'
-                      : 'Selecciona una página de la revisión para ver su imagen.'}
-                  </InlineMensaje>
-                )}
-              </div>
-              <p className="omr-review-card__hint">Usa el zoom para leer marcas o anotaciones sin perder la referencia del folio.</p>
-            </section>
-            <section className="item-glass omr-review-card omr-review-card--panel omr-review-card--comparador" aria-labelledby="omr-comparador-title">
-              <div className="omr-review-card__heading">
-                <div>
-                  <span className="omr-review-card__eyebrow">Clave oficial por pregunta</span>
-                  <h4 id="omr-comparador-title">Alumno vs. clave</h4>
-                </div>
-                <span className="badge">{preguntasMostradas.length}/{resumenRevision.total}</span>
-              </div>
-              {preguntasMostradas.length === 0 ? (
-                <InlineMensaje tipo="info">
-                  {soloPendientes && resumenRevision.total > 0 ? 'No hay pendientes en esta página.' : 'Aún no hay respuestas para revisar.'}
-                </InlineMensaje>
-              ) : (
-                <div className="omr-answer-table" role="table" aria-label="Comparación de respuestas y clave">
-                  <div className="omr-answer-table__head" role="row">
-                    <span role="columnheader">Pregunta</span>
-                    <span role="columnheader">Alumno</span>
-                    <span role="columnheader">Clave</span>
-                    <span role="columnheader">Estado</span>
-                  </div>
-                  <ol className="omr-respuesta-lista" role="rowgroup">
-                    {preguntasMostradas.map((fila) => {
-                      const confianzaPct = Math.round(fila.confianza * 100);
-                      const claseConfianza = fila.confianza >= 0.75 ? 'ok' : fila.confianza >= 0.5 ? 'warning' : 'error';
-                      const estado = !fila.tieneClave ? 'sin-clave' : fila.esCorrecta ? 'ok' : fila.opcion ? 'error' : 'warning';
-                      const estadoTexto = !fila.tieneClave ? 'Sin clave' : fila.esCorrecta ? 'Correcta' : fila.opcion ? 'Incorrecta' : 'Sin respuesta';
-                      return (
-                        <li key={`det-${fila.numeroPregunta}`} className={`omr-answer-row omr-answer-row--${estado}${fila.esDudosa ? ' es-dudosa' : ''}`} role="row">
-                          <div className="omr-answer-row__question" role="cell">
-                            <strong>Pregunta {fila.numeroPregunta}</strong>
-                            <span className={`badge ${claseConfianza}`}>{confianzaPct}% confianza</span>
-                          </div>
-                          <div className="omr-answer-row__choice" role="cell">
-                            <span className="omr-answer-row__label">Detectada</span>
-                            <select
-                              aria-label={`Respuesta alumno pregunta ${fila.numeroPregunta}`}
-                              value={fila.opcion ?? ''}
-                              onChange={(event) => {
-                                onActualizarPregunta(fila.numeroPregunta, event.target.value || null);
-                                onConfirmarRevisionOmr(false);
-                              }}
-                              onKeyDown={(event) => {
-                                const key = event.key.toUpperCase();
-                                if (['A', 'B', 'C', 'D', 'E'].includes(key)) {
-                                  event.preventDefault();
-                                  onActualizarPregunta(fila.numeroPregunta, key);
-                                  onConfirmarRevisionOmr(false);
-                                } else if (key === 'DELETE' || key === 'BACKSPACE' || key === '0' || key === '-') {
-                                  event.preventDefault();
-                                  onActualizarPregunta(fila.numeroPregunta, null);
-                                  onConfirmarRevisionOmr(false);
-                                }
-                              }}
-                            >
-                              <option value="">Sin respuesta</option>
-                              <option value="A">A</option>
-                              <option value="B">B</option>
-                              <option value="C">C</option>
-                              <option value="D">D</option>
-                              <option value="E">E</option>
-                            </select>
-                          </div>
-                          <div className="omr-answer-row__choice omr-answer-row__key" role="cell">
-                            <span className="omr-answer-row__label">Clave oficial</span>
-                            <strong>{fila.correcta ?? 'Sin clave'}</strong>
-                          </div>
-                          <div className="omr-answer-row__status" role="cell">
-                            <span className={`badge ${estado}`}>{estadoTexto}</span>
-                            <span className="omr-answer-row__auto">
-                              {fila.opcion ? (fila.confianza >= UMBRAL_AUTO_CONFIABLE_UI ? 'Lectura alta' : 'Revisar lectura') : 'Captura vacía'}
-                            </span>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              )}
-            </section>
-          </div>
+          <PanelRevisionVisualOmr
+            imagenRevisionBase64={paginaRevisionActiva?.imagenBase64}
+            paginaSeleccionada={Boolean(paginaRevisionActiva)}
+            imagenCaptura={imagenBase64}
+            examenId={examenIdActivo}
+            numeroPagina={paginaActiva}
+            preguntas={preguntasMostradas}
+            totalPreguntas={resumenRevision.total}
+            soloPendientes={soloPendientes}
+            onActualizarPregunta={onActualizarPregunta}
+            onConfirmarRevisionOmr={onConfirmarRevisionOmr}
+          />
           {advertenciasResultado.length > 0 && (
             <div className="alerta">
               {rescateExperimentalAplicado || qrSinValidar ? (
