@@ -6,7 +6,9 @@ param(
   [string]$InstallerDir = '',
   [string]$Version = '',
   [string]$Channel = 'stable',
-  [string]$ReleaseBaseUrl = ''
+  [string]$ReleaseBaseUrl = '',
+  [string]$FlavorId = '',
+  [string]$CommitSha = ''
 )
 
 Set-StrictMode -Version Latest
@@ -178,10 +180,15 @@ function Resolve-InstallerArtifactPath {
 
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
+$flavors = @($catalog.flavors)
+if (-not [string]::IsNullOrWhiteSpace($FlavorId)) {
+  $flavors = @($flavors | Where-Object { [string]$_.flavorId -eq $FlavorId })
+  if ($flavors.Count -ne 1) { throw "Flavor no reconocido para el manifest de release: $FlavorId" }
+}
 $versionTag = Resolve-VersionTag -RootPath $root -RequestedVersion $Version
 $shasumsByDirectory = @{}
 
-foreach ($flavor in $catalog.flavors) {
+foreach ($flavor in $flavors) {
   $flavorId = [string]$flavor.flavorId
   $versionedHubName = Get-VersionedArtifactName -BaseName ([string]$flavor.installerHubExeName) -VersionTag $versionTag
   $artifacts = @(
@@ -224,5 +231,7 @@ $manifestParams = @{
 }
 if ($Version) { $manifestParams.Version = $Version }
 if ($ReleaseBaseUrl) { $manifestParams.ReleaseBaseUrl = $ReleaseBaseUrl }
+if ($FlavorId) { $manifestParams.FlavorId = $FlavorId }
+if ($CommitSha) { $manifestParams.CommitSha = $CommitSha }
 
 & $manifestScript @manifestParams

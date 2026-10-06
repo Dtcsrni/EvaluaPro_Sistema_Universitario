@@ -284,9 +284,9 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
   assert.match(beta, /beta_release:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
 
   const stable = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
-  assert.match(stable, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
-  assert.match(stable, /promote_latest:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
-  assert.doesNotMatch(stable.match(/stable_gate:[\s\S]*?promote_latest:/)?.[0] ?? '', /contents:\s*write/);
+  assert.match(stable, /^permissions:\s*\n\s+contents:\s*read\s*\n\s+actions:\s*read\s*$/m);
+  assert.match(stable, /publish_after_go:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.doesNotMatch(stable.match(/stable_gate:[\s\S]*?publish_after_go:/)?.[0] ?? '', /contents:\s*write/);
 
   const pages = fs.readFileSync(path.join(workflowDir, 'pages-marketing.yml'), 'utf8');
   assert.match(pages, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
@@ -407,18 +407,25 @@ test('qa:full genera el manifiesto despues de todos los reportes que incluye', (
   assert.equal(manifestIndex, qaFull.lastIndexOf('test:qa:manifest'), 'qa:full debe finalizar con el manifiesto actualizado');
 });
 
-test('release stable gate materializa manifest del instalador antes de validar', () => {
+test('release stable gate consume artefacto inmutable por run id antes de validar y publicar', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
-  const downloadIndex = workflow.indexOf('gh release download "$TAG"');
+  const downloadIndex = workflow.indexOf('name: Descargar artefacto inmutable del build candidato');
   const manifestIndex = workflow.indexOf('dist/installer/EvaluaPro-release-manifest.json');
   const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
+  const publishIndex = workflow.indexOf('gh release create');
 
-  assert.ok(downloadIndex >= 0, 'release stable gate debe descargar manifest desde release assets');
-  assert.ok(manifestIndex > downloadIndex, 'release stable gate debe materializar manifest en dist/installer');
+  assert.match(workflow, /source_sha:[\s\S]*?required: true/);
+  assert.match(workflow, /candidate_run_id:[\s\S]*?required: true/);
+  assert.match(workflow, /run-id:\s*\$\{\{ inputs\.candidate_run_id \}\}/);
+  assert.ok(downloadIndex >= 0, 'release stable gate debe descargar el artefacto del run candidato');
+  assert.ok(manifestIndex > downloadIndex, 'release stable gate debe revisar el manifiesto descargado');
   assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
+  assert.ok(publishIndex > validateIndex, 'tag y release solo se crean despues del gate');
+  assert.doesNotMatch(workflow.slice(0, validateIndex), /gh release download|releases\/tags\/v/);
+  assert.match(workflow, /if: needs\.stable_gate\.result == 'success'/);
 });
 
-test('release stable gate genera QA fresco ligado al SHA candidato antes de validar', () => {
+test('release stable gate genera QA desde checkout limpio del SHA candidato antes de validar', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const installIndex = workflow.indexOf('npm ci --foreground-scripts');
   const prismaIndex = workflow.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
@@ -437,6 +444,10 @@ test('release stable gate genera QA fresco ligado al SHA candidato antes de vali
   assert.ok(responsiveIndex > restoreIndex, 'E2E responsive debe generar capturas antes del manifiesto');
   assert.ok(qaIndex > responsiveIndex, 'QA completa debe generar manifiesto tras las capturas');
   assert.ok(validateIndex > qaIndex, 'el gate debe validar despues de generar QA del SHA actual');
+  assert.match(workflow, /ref:\s*\$\{\{ inputs\.source_sha \}\}/);
+  assert.match(workflow, /git rev-parse origin\/main/);
+  assert.match(workflow, /RUN_SHA.*SOURCE_SHA/);
+  assert.match(workflow, /RELEASE_CANDIDATE_SHA="\$SOURCE_SHA"/);
   assert.match(workflow, /reports\/qa\/latest/);
 });
 
@@ -459,23 +470,20 @@ test('CI frontend activa el mismo conjunto de guardas WCAG para push y pull requ
   }
 });
 
-test('guardas de release esperan al menos el timeout combinado del build y la publicación', () => {
+test('el gate estable deja margen suficiente para CI de instalador y QA completa', () => {
   const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const tagGuard = fs.readFileSync(path.join(workflowDir, 'tag-release-guard.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const installerMinutes = Number(installer.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
-  const publishMinutes = Number(installer.match(/publish_installer_release:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
-  const releaseWindowMinutes = installerMinutes + publishMinutes;
   const tagTimeoutMinutes = Number(tagGuard.match(/timeout-minutes:\s*(\d+)/)?.[1]);
   const tagAttempts = Number(tagGuard.match(/max_attempts=(\d+)/)?.[1]);
   const tagSleepSeconds = Number(tagGuard.match(/sleep_seconds=(\d+)/)?.[1]);
   const stableTimeoutMinutes = Number(stableGate.match(/timeout-minutes:\s*(\d+)/)?.[1]);
-  const stableAttempts = Number(stableGate.match(/for attempt in \{1\.\.(\d+)\}/)?.[1]);
+  const qaBudgetMinutes = 90;
 
-  assert.ok(tagAttempts * tagSleepSeconds / 60 >= releaseWindowMinutes, 'tag guard debe cubrir build MSI y publicacion');
+  assert.ok(tagAttempts * tagSleepSeconds / 60 >= installerMinutes, 'tag guard debe cubrir build MSI');
   assert.ok(tagTimeoutMinutes >= tagAttempts * tagSleepSeconds / 60 + 10, 'timeout del tag guard debe cubrir la ventana y margen');
-  assert.ok(stableAttempts * tagSleepSeconds / 60 >= releaseWindowMinutes, 'gate estable debe cubrir build MSI y publicacion');
-  assert.ok(stableTimeoutMinutes >= releaseWindowMinutes + 90, 'gate estable debe dejar margen para QA completa');
+  assert.ok(stableTimeoutMinutes >= installerMinutes + qaBudgetMinutes, 'gate estable debe dejar margen para instalador y QA completa');
 });
 
 test('release stable gate es el unico que promueve Latest despues de validar', () => {
@@ -486,26 +494,27 @@ test('release stable gate es el unico que promueve Latest despues de validar', (
 
   assert.match(installerWorkflow, /make_latest:\s*false/);
   assert.doesNotMatch(installerWorkflow, /make_latest:\s*\$\{\{[^}]*!\(/);
-  assert.match(stableGateWorkflow, /promote_latest:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.match(stableGateWorkflow, /mark_latest:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
   assert.ok(validateIndex >= 0, 'release stable gate debe ejecutar validate-stable-promotion');
   assert.ok(latestIndex > validateIndex, 'release stable gate debe marcar Latest solo despues de validar');
   assert.match(stableGateWorkflow.slice(latestIndex), /--latest/);
 });
 
-test('release stable gate valida SemVer numérico y pasa argumentos con array sin interpolacion shell', () => {
+test('release stable gate resuelve SemVer del commit candidato y pasa argumentos con array sin interpolación shell', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
-  const resolveIndex = workflow.indexOf('TARGET="${INPUT_VERSION:-$GITHUB_REF_NAME}"');
-  const semverIndex = workflow.indexOf('La versión estable debe tener formato SemVer numérico X.Y.Z');
+  const resolveIndex = workflow.indexOf("require('./package.json').version");
+  const semverIndex = workflow.indexOf('La versión estable debe ser SemVer X.Y.Z');
   const tagIndex = workflow.indexOf('TAG="v$TARGET_VERSION"');
   const argsIndex = workflow.indexOf('args=(');
   const invokeIndex = workflow.indexOf('node scripts/release/validate-stable-promotion.mjs "${args[@]}"');
 
-  assert.ok(resolveIndex >= 0, 'la versión de entrada debe llegar por env');
+  assert.ok(resolveIndex >= 0, 'la versión debe obtenerse del package.json del SHA candidato');
   assert.ok(semverIndex > resolveIndex, 'SemVer numérico debe validarse antes de usar la versión');
-  assert.ok(tagIndex > semverIndex, 'la tag del release debe construirse despues de validar SemVer');
+  assert.ok(tagIndex > semverIndex, 'la tag del release debe construirse despues del gate');
   assert.ok(argsIndex >= 0, 'los argumentos deben componerse en un array Bash');
   assert.ok(invokeIndex > argsIndex, 'el CLI debe recibir el array como argumentos separados');
-  assert.match(workflow, /INPUT_VERSION:\s*\$\{\{ inputs\.version \}\}/);
+  assert.match(workflow, /TARGET_VERSION:\s*\$\{\{ steps\.resolve_version\.outputs\.target \}\}/);
+  assert.match(workflow, /SOURCE_SHA:\s*\$\{\{ steps\.candidate\.outputs\.sha \}\}/);
   assert.match(workflow, /EVIDENCE_DIR:\s*\$\{\{ inputs\.evidence_dir \}\}/);
 });
 

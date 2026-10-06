@@ -160,7 +160,12 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
   assert.match(workflow, /name: Etapa signing gate \(opcional\)\s+if: github\.event_name != 'pull_request'/);
   assert.match(workflow, /pull_request:/);
+  assert.match(workflow, /source_sha:[\s\S]*?required: true/);
   assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local/);
+  assert.match(workflow, /-FlavorId docente-local/);
+  assert.match(workflow, /retention-days: 90/);
+  assert.doesNotMatch(workflow.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '', /push:\s*\n\s+tags:/);
+  assert.match(workflow, /if: github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
@@ -171,12 +176,12 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*read/);
   assert.match(workflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /stable_release_assets/);
-  assert.match(stableGateWorkflow, /promote_latest:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
-  assert.match(stableGateWorkflow, /gh release edit "v\$TARGET_VERSION" --repo "\$REPOSITORY" --latest/);
+  assert.match(stableGateWorkflow, /publish_after_go:[\s\S]*?if: needs\.stable_gate\.result == 'success'/);
+  assert.match(stableGateWorkflow, /mark_latest:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
+  assert.match(stableGateWorkflow, /gh release edit "v\$TARGET_VERSION" --repo "\$GITHUB_REPOSITORY" --latest/);
   assert.match(workflow, /RELEASE_TAG:\s*\$\{\{ github\.ref_name \}\}/);
   assert.match(workflow, /RELEASE_REPOSITORY:\s*\$\{\{ github\.repository \}\}/);
   assert.match(workflow, /INSTALLER_CI_RUN_ID:\s*\$\{\{ github\.run_id \}\}/);
-  assert.match(workflow, /Formato de tag de release inválido/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/_internal\/docente-local\/EvaluaPro-docente-local\.msi/);
   assert.doesNotMatch(workflow, /saas-completo\/EvaluaPro-InstallerHub-saas-completo/);
@@ -998,6 +1003,9 @@ test('generador de hashes publica SHASUMS256 agregado por directorio contractual
   assert.match(hashScript, /SHASUMS256\.txt/);
   assert.match(hashScript, /\$shasumsByDirectory/);
   assert.match(hashScript, /GetEnumerator\(\)/);
+  assert.match(hashScript, /\[string\]\$FlavorId/);
+  assert.match(hashScript, /\$flavors\s*=\s*@\(\$flavors \| Where-Object/);
+  assert.match(hashScript, /\$manifestParams\.FlavorId = \$FlavorId/);
 });
 
 test('firma de instaladores regenera hashes y manifest despues de mutar binarios', () => {
@@ -1007,8 +1015,11 @@ test('firma de instaladores regenera hashes y manifest despues de mutar binarios
   assert.match(signScript, /Test-AlreadySignedValid/);
   assert.match(signScript, /Ya firmado y valido; se omite/);
   assert.match(signScript, /'-InstallerDir'[\s\S]*\$InstallerDir/);
-  assert.match(signScript, /Start-Process[\s\S]*'-File'[\s\S]*\$hashScript[\s\S]*-PassThru/);
+  assert.match(signScript, /\$hashArgs = @\([\s\S]*'-File'[\s\S]*\$hashScript/);
+  assert.match(signScript, /\$hashProcess\s*=\s*Start-Process[\s\S]*-ArgumentList\s+\$hashArgs[\s\S]*-PassThru/);
   assert.match(signScript, /\$hashProcess\.ExitCode/);
+  assert.match(signScript, /EVALUAPRO_RELEASE_FLAVOR/);
+  assert.match(signScript, /EVALUAPRO_RELEASE_COMMIT/);
   assert.doesNotMatch(signScript, /& \$hashScript -InstallerDir \$InstallerDir\s+if \(\$LASTEXITCODE -ne 0\)/);
   assert.match(signScript, /post-firma/);
 });
@@ -1548,17 +1559,17 @@ test('configuracion operativa rechaza ajustes inseguros o invalidos (fail-fast)'
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $cfg = @{
   databaseUrl='file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
-  jwtSecreto='TEST_ONLY_JWT_SECRET'
+  jwtSecreto='synthetic-test-jwtSecreto'
   nodeEnv='production'
   puertoApi='0'
   puertoPortal='4518'
   corsOrigenes='*'
   portalAlumnoUrl='https://portal-alumno.example.edu'
-  portalAlumnoApiKey='TEST_ONLY_PORTAL_API_KEY'
-  portalApiKey='TEST_ONLY_PORTAL_API_KEY'
+  portalAlumnoApiKey='synthetic-test-portalAlumnoApiKey'
+  portalApiKey='synthetic-test-portalApiKey'
   passwordResetEnabled='0'
   requireGoogleOAuth='0'
-  backupCifradoSecreto='TEST_ONLY_BACKUP_SECRET'
+  backupCifradoSecreto='synthetic-test-backupCifradoSecreto'
   correoModuloActivo='0'
   requireLicenseActivation='0'
   updateChannel='stable'
@@ -2023,19 +2034,19 @@ test('configuracion operativa escribe .env y update-config endurecido para docen
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $cfg = @{
   databaseUrl='file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
-  jwtSecreto=''
+  jwtSecreto='synthetic-test-jwtSecreto'
   nodeEnv='production'
   puertoApi='4000'
   puertoPortal='4518'
   corsOrigenes='http://localhost:4173,http://127.0.0.1:4173'
   portalAlumnoUrl='https://portal.ejemplo.edu'
-  portalAlumnoApiKey='TEST_ONLY_PORTAL_API_KEY'
-  portalApiKey='TEST_ONLY_PORTAL_API_KEY'
+  portalAlumnoApiKey='synthetic-test-portalAlumnoApiKey'
+  portalApiKey='synthetic-test-portalApiKey'
   passwordResetEnabled='0'
   passwordResetTokenMinutes='30'
   passwordResetUrlBase=''
   requireGoogleOAuth='0'
-  backupCifradoSecreto='TEST_ONLY_BACKUP_SECRET'
+  backupCifradoSecreto='synthetic-test-backupCifradoSecreto'
   correoModuloActivo='0'
   requireLicenseActivation='0'
   updateChannel='stable'
@@ -2068,14 +2079,14 @@ $r | ConvertTo-Json -Depth 8
     assert.match(envRaw, /DATABASE_URL=/);
     assert.match(envRaw, /BACKEND_DATABASE_URL=/);
     assert.match(envRaw, /JWT_SECRETO=/);
-    assert.match(envRaw, /EVALUAPRO_BACKUP_CIFRADO_SECRETO=TEST_ONLY_BACKUP_SECRET/);
+    assert.match(envRaw, /EVALUAPRO_BACKUP_CIFRADO_SECRETO=synthetic-test-backupCifradoSecreto/);
     assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
     assert.doesNotMatch(envRaw, /EVALUAPRO_IMAGE_TAG=/);
     assert.match(envRaw, /BACKEND_DATA_DIR_DEV=\.\/apps\/backend\/data\/examenes_dev/);
     assert.match(envRaw, /BACKEND_DATA_DIR_PROD=\.\/apps\/backend\/data\/examenes_prod/);
     assert.match(envRaw, /PORTAL_SYNC_REQUIRED=1/);
-    assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=TEST_ONLY_PORTAL_API_KEY/);
-    assert.match(envRaw, /PORTAL_API_KEY=TEST_ONLY_PORTAL_API_KEY/);
+    assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=synthetic-test-portalAlumnoApiKey/);
+    assert.match(envRaw, /PORTAL_API_KEY=synthetic-test-portalApiKey/);
 
     const updateConfigPath = path.join(path.dirname(envPath), 'config', 'update-config.json');
     const updateConfigRaw = fs.readFileSync(updateConfigPath, 'utf8').replace(/^\uFEFF/, '');
@@ -2184,7 +2195,7 @@ test('configuracion operativa separa Google login de Classroom y valida requisit
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $login = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; requireGoogleOAuth='1'; googleOauthClientId='login-client'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
-$classroom = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; classroomEnabled='1'; googleClassroomClientId='classroom-client'; googleClassroomClientSecret='classroom-secret'; googleClassroomRedirectUri='https://example.edu/oauth/callback'; classroomTokenCipherKey='invalid'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
+$classroom = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; classroomEnabled='1'; googleClassroomClientId='classroom-client'; googleClassroomClientSecret='synthetic-test-googleClassroomClientSecret'; googleClassroomRedirectUri='https://example.edu/oauth/callback'; classroomTokenCipherKey='invalid'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
 $loginResult = Test-OperationalConfig -Mode install -Config $login
 $classroomResult = Test-OperationalConfig -Mode install -Config $classroom
 [pscustomobject]@{ loginOk=$loginResult.ok; classroomOk=$classroomResult.ok; classroomError=[bool](($classroomResult.errors -join '|') -match 'classroomTokenCipherKey') } | ConvertTo-Json -Compress
@@ -2401,6 +2412,9 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /commit\s*=\s*\$commit/);
   assert.match(script, /artifacts\s*=\s*\$artifacts/);
   assert.match(script, /flavors\s*=\s*\$flavors/);
+  assert.match(script, /\[string\]\$FlavorId/);
+  assert.match(script, /\$selectedFlavors\s*=\s*@\(\$selectedFlavors \| Where-Object/);
+  assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\) \{ \$DeploymentTarget \} elseif \(\$FlavorId\)/);
   assert.match(script, /flavorId\s*=/);
   assert.match(script, /\$publishedAssetPath\s*=\s*\$versionedHubName/);
   assert.match(script, /\$publishedAssetShaPath\s*=\s*"\$versionedHubName\.sha256"/);

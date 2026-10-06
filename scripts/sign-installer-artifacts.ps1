@@ -271,7 +271,13 @@ try {
   $versionTag = Resolve-VersionTag -RootPath $root
 
   $targets = @()
-  foreach ($flavor in $catalog.flavors) {
+  $flavorId = [string]$env:EVALUAPRO_RELEASE_FLAVOR
+  $signingFlavors = @($catalog.flavors)
+  if (-not [string]::IsNullOrWhiteSpace($flavorId)) {
+    $signingFlavors = @($signingFlavors | Where-Object { [string]$_.flavorId -eq $flavorId })
+    if ($signingFlavors.Count -ne 1) { throw "Flavor no reconocido para la firma de release: $flavorId" }
+  }
+  foreach ($flavor in $signingFlavors) {
     $flavorId = [string]$flavor.flavorId
     $versionedBundleName = Get-VersionedArtifactName -BaseName ([string]$flavor.bundleName) -VersionTag $versionTag
     $versionedHubName = Get-VersionedArtifactName -BaseName ([string]$flavor.installerHubExeName) -VersionTag $versionTag
@@ -310,7 +316,7 @@ try {
   }
 
   $hashScript = Join-Path $root 'scripts\generate-installer-hashes.ps1'
-  $hashProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList @(
+  $hashArgs = @(
     '-NoProfile',
     '-ExecutionPolicy',
     'Bypass',
@@ -318,7 +324,11 @@ try {
     $hashScript,
     '-InstallerDir',
     $InstallerDir
-  ) -NoNewWindow -Wait -PassThru
+  )
+  if (-not [string]::IsNullOrWhiteSpace($flavorId)) { $hashArgs += @('-FlavorId', $flavorId) }
+  $releaseCommit = [string]$env:EVALUAPRO_RELEASE_COMMIT
+  if (-not [string]::IsNullOrWhiteSpace($releaseCommit)) { $hashArgs += @('-CommitSha', $releaseCommit) }
+  $hashProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList $hashArgs -NoNewWindow -Wait -PassThru
   if ($hashProcess.ExitCode -ne 0) {
     throw "Fallo regeneracion de hashes/manifest post-firma (exit=$($hashProcess.ExitCode))."
   }
