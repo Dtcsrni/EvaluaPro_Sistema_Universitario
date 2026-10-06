@@ -9,6 +9,13 @@ import { GoogleLogin } from '@react-oauth/google';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
+import {
+  eliminarFotoPerfilLocal,
+  EVENTO_FOTO_PERFIL_DOCENTE,
+  guardarFotoPerfilLocal,
+  MAX_FOTO_PERFIL_BYTES,
+  obtenerFotoPerfilLocal
+} from './fotoPerfilDocente';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaCuentaVisual } from './GuiaCuentaVisual';
@@ -52,6 +59,7 @@ export function SeccionCuenta({
   const [contrasenaActual, setContrasenaActual] = useState('');
   const [credentialReauth, setCredentialReauth] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState('');
+  const [fotoPerfilLocal, setFotoPerfilLocal] = useState(() => obtenerFotoPerfilLocal(docente.id));
   const [guardando, setGuardando] = useState(false);
   const [regenerandoAccesos, setRegenerandoAccesos] = useState(false);
 
@@ -79,6 +87,49 @@ export function SeccionCuenta({
   } | null>(null);
 
   const versionActual = obtenerVersionTecnicaApp();
+  const fotoPerfilCuenta = String(docente.imagenPerfil || '').trim();
+  const tieneFotoPerfilCuenta = /^(https:\/\/|data:image\/(?:png|jpeg|webp);base64,)/i.test(fotoPerfilCuenta);
+
+  function seleccionarFotoPerfil(archivo?: File) {
+    if (!archivo) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(archivo.type)) {
+      setMensaje('La imagen debe ser PNG, JPG o WebP.');
+      return;
+    }
+    if (archivo.size > MAX_FOTO_PERFIL_BYTES) {
+      setMensaje('La imagen no puede superar 1 MB.');
+      return;
+    }
+    const lector = new FileReader();
+    lector.onload = () => {
+      const dataUrl = String(lector.result ?? '');
+      try {
+        guardarFotoPerfilLocal(docente.id, dataUrl);
+        setFotoPerfilLocal(dataUrl);
+        setMensaje('La foto de perfil se guardó en este equipo.');
+        window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
+          detail: { docenteId: docente.id, foto: dataUrl }
+        }));
+      } catch (error) {
+        setMensaje(error instanceof Error ? error.message : 'No se pudo guardar la foto en este equipo.');
+      }
+    };
+    lector.onerror = () => setMensaje('No se pudo leer la imagen seleccionada.');
+    lector.readAsDataURL(archivo);
+  }
+
+  function retirarFotoPerfil() {
+    try {
+      eliminarFotoPerfilLocal(docente.id);
+      setFotoPerfilLocal(null);
+      setMensaje('La foto local se retiró; se mostrará el avatar docente predeterminado.');
+      window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
+        detail: { docenteId: docente.id, foto: null }
+      }));
+    } catch {
+      setMensaje('No se pudo retirar la foto de este equipo.');
+    }
+  }
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
   const requiereContrasenaActual = Boolean(docente.tieneContrasena);
@@ -414,6 +465,45 @@ export function SeccionCuenta({
           </div>
         </div>
       </div>
+
+      <section className="cuenta-foto-perfil" aria-labelledby="cuenta-foto-perfil-titulo">
+        <div className="cuenta-foto-perfil__avatar" aria-hidden="true">
+          {tieneFotoPerfilCuenta
+            ? <img src={fotoPerfilCuenta} alt="" />
+            : fotoPerfilLocal
+              ? <img src={fotoPerfilLocal} alt="" />
+              : <Icono nombre="cuenta" size={30} />}
+        </div>
+        <div className="cuenta-foto-perfil__contenido">
+          <h3 id="cuenta-foto-perfil-titulo">Foto de perfil</h3>
+          <p className="nota">
+            {tieneFotoPerfilCuenta
+              ? 'Se usa la imagen vinculada a tu cuenta.'
+              : 'La imagen se guarda en este equipo y no se envía al servidor.'}
+          </p>
+          {!tieneFotoPerfilCuenta && (
+            <div className="cuenta-foto-perfil__acciones">
+              <label className="chip cuenta-foto-perfil__cargar">
+                <Icono nombre="publicar" size={16} />
+                <span>{fotoPerfilLocal ? 'Cambiar foto' : 'Agregar foto'}</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  aria-label="Seleccionar foto de perfil"
+                  onChange={(event) => {
+                    seleccionarFotoPerfil(event.target.files?.[0]);
+                    event.currentTarget.value = '';
+                  }}
+                />
+              </label>
+              {fotoPerfilLocal && (
+                <button type="button" className="chip" onClick={retirarFotoPerfil}>Quitar foto</button>
+              )}
+              <span className="nota">PNG, JPG o WebP · máximo 1 MB</span>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* 2. Bento Visual Guide */}
       <GuiaCuentaVisual />

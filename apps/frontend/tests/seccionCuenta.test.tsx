@@ -8,6 +8,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionCuenta } from '../src/apps/app_docente/SeccionCuenta';
+import { obtenerFotoPerfilLocal } from '../src/apps/app_docente/fotoPerfilDocente';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import { emitToast } from '../src/ui/toast/toastBus';
 import type { Docente } from '../src/apps/app_docente/tipos';
@@ -73,6 +74,51 @@ describe('SeccionCuenta', () => {
     expect(screen.getByText('Disponible')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Universidad EvaluaPro')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Excelencia y Rigor')).toBeInTheDocument();
+  });
+
+  it('guarda la foto elegida solo en el equipo y permite retirarla', async () => {
+    renderConOAuth(
+      <SeccionCuenta
+        docente={{ ...docenteMock, id: 'doc-1' }}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+        oauthGoogleDisponible={true}
+        classroomDisponible={false}
+        smtpDisponible={true}
+        requireGoogleOAuth={false}
+      />
+    );
+
+    const input = screen.getByLabelText('Seleccionar foto de perfil');
+    fireEvent.change(input, { target: { files: [new File(['foto de prueba'], 'perfil.png', { type: 'image/png' })] } });
+    await waitFor(() => expect(obtenerFotoPerfilLocal('doc-1')).toMatch(/^data:image\/png;base64,/));
+    expect(await screen.findByText('La imagen se guarda en este equipo y no se envía al servidor.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar foto' }));
+    expect(obtenerFotoPerfilLocal('doc-1')).toBeNull();
+  });
+
+  it('rechaza archivos que no son imagen admitida y no los persiste', async () => {
+    renderConOAuth(
+      <SeccionCuenta
+        docente={{ ...docenteMock, id: 'doc-1' }}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+        oauthGoogleDisponible={true}
+        classroomDisponible={false}
+        smtpDisponible={true}
+        requireGoogleOAuth={false}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Seleccionar foto de perfil'), {
+      target: { files: [new File(['documento'], 'archivo.svg', { type: 'image/svg+xml' })] }
+    });
+
+    expect(await screen.findByText('La imagen debe ser PNG, JPG o WebP.')).toBeInTheDocument();
+    expect(obtenerFotoPerfilLocal('doc-1')).toBeNull();
   });
 
   it('permite cambiar contraseña tras validar contraseña actual y coincidencia de 8+ caracteres', async () => {

@@ -4,11 +4,12 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Icono } from '../../ui/iconos';
 import { TemaBoton } from '../../tema/TemaBoton';
 import { Boton } from '../../ui/ux/componentes/Boton';
-import { abrirVentanaVersion, OMR_CANONICAL_DISPLAY_LABEL, obtenerVersionApp } from '../../ui/version/versionInfo';
+import { abrirVentanaVersion, obtenerVersionTecnicaApp } from '../../ui/version/versionInfo';
+import { EVENTO_FOTO_PERFIL_DOCENTE, obtenerFotoPerfilLocal } from './fotoPerfilDocente';
 import type { Docente } from './tipos';
 
 export function ShellDocente({
@@ -22,14 +23,39 @@ export function ShellDocente({
   onAbrirCuenta: () => void;
   children: ReactNode;
 }) {
-  const version = obtenerVersionApp();
+  const version = obtenerVersionTecnicaApp();
+  const [fotoLocal, setFotoLocal] = useState<string | null>(null);
+  const [fotoCuentaFallida, setFotoCuentaFallida] = useState(false);
+  const [fotoLocalFallida, setFotoLocalFallida] = useState(false);
   const nombreSesion = docente
     ? ([docente.nombres, docente.apellidos].filter(Boolean).join(' ').trim() || docente.nombreCompleto || (docente as unknown as Record<string, string>).nombre || docente.correo)
     : 'Modo de acceso';
 
-  const iniciales = docente
-    ? [docente.nombres?.[0], docente.apellidos?.[0]].filter(Boolean).join('').toUpperCase() || 'EP'
-    : 'DOC';
+  const fotoCuenta = String(docente?.imagenPerfil || '').trim();
+  const fotoCuentaSegura = /^(https:\/\/|data:image\/(?:png|jpeg|webp);base64,)/i.test(fotoCuenta) ? fotoCuenta : '';
+  const fotoVisible = fotoCuentaSegura && !fotoCuentaFallida
+    ? fotoCuentaSegura
+    : fotoLocal && !fotoLocalFallida
+      ? fotoLocal
+      : null;
+
+  useEffect(() => {
+    setFotoLocal(docente?.id ? obtenerFotoPerfilLocal(docente.id) : null);
+    setFotoCuentaFallida(false);
+    setFotoLocalFallida(false);
+  }, [docente?.id, fotoCuentaSegura]);
+
+  useEffect(() => {
+    const actualizarFoto = (evento: Event) => {
+      const detalle = (evento as CustomEvent<{ docenteId?: string; foto?: string | null }>).detail;
+      if (detalle?.docenteId === docente?.id) {
+        setFotoLocal(detalle.foto || null);
+        setFotoLocalFallida(false);
+      }
+    };
+    window.addEventListener(EVENTO_FOTO_PERFIL_DOCENTE, actualizarFoto);
+    return () => window.removeEventListener(EVENTO_FOTO_PERFIL_DOCENTE, actualizarFoto);
+  }, [docente?.id]);
 
   return (
     <section className="card anim-entrada shell-docente superficie-app superficie-app--docente">
@@ -55,7 +81,16 @@ export function ShellDocente({
               onClick={onAbrirCuenta}
             >
               <span className="chip-docente-avatar" aria-hidden="true">
-                <span>{iniciales}</span>
+                {fotoVisible ? (
+                  <img
+                    src={fotoVisible}
+                    alt=""
+                    onError={() => {
+                      if (fotoCuentaSegura && fotoVisible === fotoCuentaSegura) setFotoCuentaFallida(true);
+                      else setFotoLocalFallida(true);
+                    }}
+                  />
+                ) : <Icono nombre="cuenta" size={25} />}
                 <span className="chip-docente-avatar__status" />
               </span>
               <span className="chip-docente-copy">
@@ -65,31 +100,31 @@ export function ShellDocente({
               <Icono nombre="chevron" size={18} className="chip-docente-chevron" />
             </button>
           )}
-          <button
-            type="button"
-            className="chip chip-version"
-            data-tooltip="Abrir información de versión, tecnologías y changelog"
-            title="Abrir información de versión, tecnologías y changelog"
-            onClick={() => abrirVentanaVersion('docente')}
-          >
-            v{version}
-          </button>
-          <span className="version-env-badge chip-omr-contract" title="Contrato único de generación y lectura OMR activo">
-            {OMR_CANONICAL_DISPLAY_LABEL}
-          </span>
-          <TemaBoton />
-          {docente && (
-            <Boton
-              variante="secundario"
+          <div className="shell-docente__controles">
+            <button
               type="button"
-              icono={<Icono nombre="salir" />}
-              onClick={onCerrarSesion}
-              data-tooltip="Cerrar sesión de forma segura en este equipo"
-              title="Cerrar sesión de forma segura en este equipo"
+              className="chip chip-version"
+              aria-label={`Versión ${version}`}
+              data-tooltip="Abrir información de versión, tecnologías y changelog"
+              title="Abrir información de versión, tecnologías y changelog"
+              onClick={() => abrirVentanaVersion('docente')}
             >
-              Salir
-            </Boton>
-          )}
+              v{version}
+            </button>
+            <TemaBoton />
+            {docente && (
+              <Boton
+                variante="secundario"
+                type="button"
+                icono={<Icono nombre="salir" />}
+                onClick={onCerrarSesion}
+                data-tooltip="Cerrar sesión de forma segura en este equipo"
+                title="Cerrar sesión de forma segura en este equipo"
+              >
+                Salir
+              </Boton>
+            )}
+          </div>
         </div>
       </div>
       <div className="shell-docente__content">
