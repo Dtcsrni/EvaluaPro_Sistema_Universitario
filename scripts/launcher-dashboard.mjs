@@ -1235,7 +1235,7 @@ function setDockerAutostart(patch) {
 }
 
 function dockerDisplayString() {
-  if (!requiresDockerRuntime(readInstallationManifest())) return 'No aplica';
+  if (!requiresDockerRuntime(readInstallationManifest())) return 'No requerido para docente-local';
   if (dockerAutostart.state === 'starting') return 'Iniciando runtime Docker...';
   if (dockerAutostart.state === 'checking') return 'Comprobando runtime Docker...';
   if (dockerAutostart.state === 'error') return dockerAutostart.lastError || 'El runtime Docker no responde.';
@@ -1277,16 +1277,18 @@ function resolveEffectiveDockerRuntime(flavorPolicy = resolveFlavorPolicy(readIn
   }
   const preference = dockerRuntimePreference();
   const context = tryGetDockerContext();
-  const mode = preference === 'desktop' && context === 'desktop-linux'
+  const docenteWslTarget = flavorPolicy.flavorId === 'docente-local' && flavorPolicy.runtimeTarget === 'wsl2-docker-minimal';
+  const effectivePreference = preference === 'auto' && docenteWslTarget ? 'wsl2-engine' : preference;
+  const mode = effectivePreference === 'desktop' && context === 'desktop-linux'
     ? 'desktop-manual'
     : context === 'desktop-linux'
       ? 'desktop-unapproved'
       : 'wsl2-engine';
-  const warning = mode === 'desktop-unapproved'
-    ? 'Docker Desktop requiere EVALUAPRO_DOCKER_RUNTIME=desktop.'
+  const warning = mode === 'desktop-unapproved' && docenteWslTarget
+    ? 'Este flavor requiere WSL2 + Docker Engine; Docker Desktop solo se acepta con EVALUAPRO_DOCKER_RUNTIME=desktop.'
     : '';
   return {
-    preference,
+    preference: effectivePreference,
     mode,
     context,
     warning

@@ -9,7 +9,7 @@ de los datos académicos.
 
 | Instancia | Autoridad de datos | Runtime | Regla de convivencia |
 | --- | --- | --- | --- |
-| `docente-local` | SQLite local, normalmente bajo `C:\ProgramData\EvaluaPro\data` | Node portable + API/UI nativas | Una instancia productiva por host y raíz de datos |
+| `docente-local` | SQLite local, normalmente bajo `C:\ProgramData\EvaluaPro\data` | Node portable + API/UI nativas, sin Docker | Una instancia productiva por host y raíz de datos |
 | `saas-completo` | Servicios Docker/portal y sus volúmenes | Docker Compose y portal institucional | Requiere raíces, puertos y datos separados de cualquier instancia local |
 | `dataset-prep` | Artefactos externos de QA | Ejecución batch de Node + `sharp` | No es servicio, no se instala y no se incluye en el ejecutable |
 | Installer Hub | No contiene datos académicos | Burn/WPF + helper PowerShell | Una UI activa por host mediante mutex; puede reparar las instancias existentes |

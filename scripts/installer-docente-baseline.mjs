@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 const args = process.argv.slice(2);
@@ -22,6 +23,21 @@ function readJson(filePath) {
   } catch {
     return null;
   }
+}
+
+function runProbe(command, commandArgs) {
+  const result = spawnSync(command, commandArgs, {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 12_000
+  });
+  return {
+    ok: result.status === 0,
+    code: Number(result.status ?? -1),
+    stdout: String(result.stdout || '').trim().slice(0, 3000),
+    stderr: String(result.stderr || '').trim().slice(0, 1200)
+  };
 }
 
 function statIfPresent(filePath) {
@@ -53,12 +69,33 @@ const flavors = readJson(path.join(root, 'config', 'installer-flavors.json'));
 const docente = Array.isArray(flavors?.flavors)
   ? flavors.flavors.find((flavor) => flavor.flavorId === 'docente-local')
   : null;
+const requiresDockerRuntime = docente?.requireDockerRuntime === true;
+const skippedDockerProbe = (reason) => ({ ok: true, skipped: true, reason, code: 0, stdout: '', stderr: '' });
+const compose = requiresDockerRuntime
+  ? runProbe('docker', ['compose', '-f', 'docker-compose.yml', '--profile', 'prod', 'ps', '--format', 'json'])
+  : skippedDockerProbe('runtime nativo docente-local');
+const dockerDf = requiresDockerRuntime
+  ? runProbe('docker', ['system', 'df', '--format', 'json'])
+  : skippedDockerProbe('runtime nativo docente-local');
+const dockerContext = requiresDockerRuntime
+  ? runProbe('docker', ['context', 'show'])
+  : skippedDockerProbe('runtime nativo docente-local');
+const composeServices = requiresDockerRuntime
+  ? runProbe('docker', ['compose', '-f', 'docker-compose.yml', '--profile', 'prod', 'config', '--services'])
+  : skippedDockerProbe('runtime nativo docente-local');
+
 const report = {
   generatedAt: new Date().toISOString(),
   flavorId: 'docente-local',
   contract: {
-    runtimeTarget: 'native-node-sqlite',
+    runtimeTarget: requiresDockerRuntime ? 'docker-compatible' : 'native-node-sqlite',
     requireLocalPortal: Boolean(docente?.requireLocalPortal),
+    requiredServices: requiresDockerRuntime ? ['mongo_local', 'api_docente_prod', 'web_docente_prod'] : [],
+    requiredImages: requiresDockerRuntime ? {
+      apiDocente: process.env.EVALUAPRO_API_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro-api-docente:1.2.4',
+      webDocente: process.env.EVALUAPRO_WEB_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro-web-docente:1.2.4',
+      mongo: 'mongo:8.0.23'
+    } : {},
     deferredConfig: ['portal/sync', 'OAuth/Classroom', 'correo', 'licencia si no es obligatoria']
   },
   artifacts: {
@@ -74,6 +111,12 @@ const report = {
     payloadPresent: false,
     payloadWithinLimit: false,
     ok: false
+  },
+  probes: {
+    dockerComposeProd: compose,
+    dockerSystemDf: dockerDf,
+    dockerContext,
+    composeServices
   },
   acceptance: {
     compareBeforeAfter: [
@@ -105,6 +148,7 @@ if (jsonOnly) {
   process.stdout.write('Baseline docente-local\n');
   process.stdout.write(`- Bundle(s): ${report.artifacts.bundles.length}\n`);
   process.stdout.write(`- Portal local requerido: ${report.contract.requireLocalPortal ? 'si' : 'no'}\n`);
+  process.stdout.write(`- Docker compose probe: ${compose.ok ? 'ok' : 'no disponible'}\n`);
   process.stdout.write(`- Bundle dentro de limite: ${report.quality.bundleWithinLimit ? 'si' : 'no'} (${maxBundleBytes} bytes)\n`);
   process.stdout.write(`- Payload MSI dentro de limite: ${report.quality.payloadWithinLimit ? 'si' : 'no'} (${maxPayloadBytes} bytes)\n`);
   process.stdout.write('\nUsa `--json` para evidencia machine-readable; agrega `--enforce` para bloquear release.\n');

@@ -126,9 +126,15 @@ export function QrAccesoMovil({ vista }: { vista: 'entrega' | 'calificaciones' }
           ? (data.ips as unknown[]).map((ip) => String(ip || '').trim()).filter(Boolean)
           : [];
         const esPreferida = (ip: string) => ip.startsWith('192.168.') || ip.startsWith('10.');
+        const esDocker = (ip: string) => /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip);
         const ipPreferida = ips.find(esPreferida);
-        const ip = String(ipPreferida || data?.preferida || ips[0] || '').trim();
+        const ip = String(ipPreferida || ips.find((val) => !esDocker(val)) || data?.preferida || ips[0] || '').trim();
         if (!ip) throw new Error('Sin IP local');
+        if (esDocker(ip) && !ipPreferida) {
+          setError('Detecte una IP de Docker. Escribe la IP de tu PC para generar el QR.');
+          setUrlMovil('');
+          return;
+        }
         setUrlMovil(construirUrl(ip));
       })
       .catch(() => {

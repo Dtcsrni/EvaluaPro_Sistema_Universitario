@@ -97,8 +97,12 @@ seguir siendo local para conservar el funcionamiento offline-first.
 
 - `Preparar`: flavor, modo, ruta y accesos. La configuracion tecnica del flavor se resuelve con defaults internos; no debe exponerse como panel avanzado al usuario final.
 - `Revisar`: deteccion de prerequisitos, resumen accionable y tabla estable con scroll si aplica.
-  - El Hub debe ser autónomo y adaptativo: ninguna sonda de prerequisito externo puede bloquear la UI sin timeout.
-  - En `docente-local`, el runtime objetivo es Windows nativo con Node.js embebido, API/Web locales y SQLite.
+  - El Hub debe ser autonomo y adaptativo: ninguna sonda de `docker`, `wsl.exe` o prerequisito externo puede bloquear la UI sin timeout.
+  - En `docente-local`, el runtime objetivo es `WSL2 + Docker Engine`; la ruta feliz no instala ni requiere `Docker Desktop`.
+  - Si el equipo del docente ya trae `Docker Desktop` instalado y sano, el Hub puede aceptarlo como runtime compatible para evitar doble runtime o conflictos locales.
+  - Si `Docker Desktop` existe pero causa conflicto o su daemon no responde, no debe bloquear la ruta feliz: el Hub debe preferir/remediar `WSL2 + Docker Engine`.
+  - `Docker Runtime Windows` significa runtime Docker operativo bajo el target efectivo del flavor.
+  - `Node.js WSL2` es obligatorio para el target `WSL2 + Docker Engine`; solo se marca no requerido cuando se ha seleccionado compatibilidad `Docker Desktop` y el daemon esta sano.
 - `Ejecutar`: progreso, etapa actual y linea de tareas.
 - `Resultado`: estado final, reinicio si aplica y evidencia tecnica.
 - El stepper debe mostrar texto de estado ademas de color: pendiente, activo, correcto, advertencia o error.

@@ -7,24 +7,26 @@ API local, SQLite/Prisma, frontend docente y runtime Node embebido.
 
 - La operación docente se ejecuta directamente en la PC.
 - El portal alumno conserva su despliegue desacoplado para escenarios cloud.
-- La operación docente no requiere un servicio de datos externo.
+- Docker y WSL2 pertenecen a entornos auxiliares o a otros flavors; no forman
+  parte del camino operativo docente actual.
 
 ## Desarrollo local
-Iniciar la aplicación docente local:
+Levantar stack base:
 ```bash
-npm run docente:prod:native
+npm run stack:dev
 ```
 
-Para editar módulos por separado:
+Alternativa separada:
 ```bash
-npm run dev:frontend:docente
+npm run dev:backend
+npm run dev:frontend
 npm run dev:frontend:alumno
 npm run dev:portal
 ```
 
 ## Operación local de ensayo
 ```bash
-npm run docente:prod:native
+npm run stack:prod
 ```
 
 Portal local de ensayo (modo estable, destinado a laboratorio o validación puntual):

@@ -43,7 +43,7 @@
       "detectRule": {
         "type": "docker_runtime_windows"
       },
-      "usageScope": "saas-completo"
+      "usageScope": "stack-docente-minimo"
     },
     {
       "name": "Node.js WSL2",
@@ -57,7 +57,7 @@
         "type": "node_major_wsl",
         "minMajor": 24
       },
-      "usageScope": "saas-completo"
+      "usageScope": "stack-docente-minimo-wsl2-engine"
     }
   ]
 }
