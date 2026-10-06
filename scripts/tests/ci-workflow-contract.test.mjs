@@ -259,6 +259,9 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
   assert.match(installerWorkflow, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
   assert.match(installerWorkflow, /installer_windows:[\s\S]*?permissions:\s*\n\s+contents:\s*read/);
   assert.match(installerWorkflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.match(installerWorkflow, /post_publish_installer_e2e:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.match(installerWorkflow, /post_publish_installer_e2e:[\s\S]*?persist-credentials:\s*false/);
+  assert.match(installerWorkflow, /id:\s*draft_asset[\s\S]*?GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}/);
 
   const beta = fs.readFileSync(path.join(workflowDir, 'release-beta.yml'), 'utf8');
   assert.match(beta, /^permissions:\s*\n\s+contents:\s*read\s*$/m);

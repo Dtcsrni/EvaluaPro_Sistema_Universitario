@@ -7,6 +7,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ### Fixed
 - El workflow Package Images publica bajo el namespace GHCR del owner y genera referencias válidas `ghcr.io/NAMESPACE/IMAGE_NAME`; antes construía una ruta anidada que su propio gate rechazaba.
 - El mapa de CI afectado incluye Package Images y su contrato de workflows; esos cambios ya no pueden quedar sin las suites que los verifican.
+- La E2E del release draft usa un token con acceso necesario para leer borradores; el checkout no persiste credenciales y el token solo se expone al paso de descarga.
 
 ## [1.2.4] - 2026-10-04
 
