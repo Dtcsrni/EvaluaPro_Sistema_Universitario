@@ -13,6 +13,7 @@ import { createRequire } from 'node:module';
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
 const workflowDir = path.join(root, '.github', 'workflows');
+const backendDockerWorkflowPath = path.join(workflowDir, 'ci-docker-backend.yml');
 const packageJsonPath = path.join(root, 'package.json');
 const backendDockerfilePath = path.join(root, 'apps', 'backend', 'Dockerfile');
 const frontendDockerfilePath = path.join(root, 'apps', 'frontend', 'Dockerfile');
@@ -510,6 +511,18 @@ test('Dockerfile backend incluye schema y config Prisma antes del build', () => 
   assert.ok(buildIndex > prismaConfigIndex, 'backend build debe ejecutarse despues de copiar la config Prisma');
 });
 
+test('CI construye la imagen Docker backend en PR afectadas sin publicar', () => {
+  const workflow = fs.readFileSync(backendDockerWorkflowPath, 'utf8');
+
+  assert.match(workflow, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
+  assert.match(workflow, /pull_request:\s*\n\s+paths:/);
+  assert.match(workflow, /apps\/backend\/Dockerfile/);
+  assert.match(workflow, /apps\/backend\/\*\*/);
+  assert.match(workflow, /docker build\s+--file apps\/backend\/Dockerfile/);
+  assert.match(workflow, /--tag\s+"?evaluapro-backend:pr-\$\{GITHUB_SHA\}"?/);
+  assert.doesNotMatch(workflow, /docker\s+(?:login|push)\b|packages:\s*write|ghcr\.io/i);
+});
+
 test('Dockerfile frontend incluye el wrapper y la política de configuración del workspace', () => {
   const dockerfile = fs.readFileSync(frontendDockerfilePath, 'utf8');
   const scriptIndex = dockerfile.indexOf('COPY scripts/vite-build-safe.mjs ./scripts/vite-build-safe.mjs');
@@ -549,3 +562,4 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(rollback, /contents:\s*write/);
   assert.match(rollback, /-F draft=true/);
 });
+
