@@ -164,6 +164,20 @@ test('release valida el asset descargado desde GitHub antes de hacer público el
   assert.match(workflow, /Publicar evidencia E2E del asset descargado/);
 });
 
+test('las E2E del asset de borrador y público instalan WiX para extraer el baseline', () => {
+  const jobs = workflow.split(/(?=^  [a-z0-9_]+:)/m);
+  for (const jobName of ['post_publish_installer_e2e', 'verify_public_installer_e2e']) {
+    const job = jobs.find((section) => section.startsWith(`  ${jobName}:`));
+    assert.ok(job, `Debe existir el job ${jobName}`);
+    assert.match(job, /actions\/setup-dotnet@[a-f0-9]{40}/);
+    assert.match(job, /dotnet-version:\s*10\.0\.x/);
+    assert.match(job, /dotnet tool install --global wix --version 7\.0\.0/);
+    assert.match(job, /wix eula accept wix7/);
+    assert.match(job, /GITHUB_PATH/);
+    assert.ok(job.indexOf('Instalar WiX CLI estable para la E2E') < job.indexOf('E2E completa'));
+  }
+});
+
 test('el tiempo de descarga y la E2E cabe en las ventanas de tag y promoción estable', () => {
   const tagGuard = fs.readFileSync(path.join(root, '.github', 'workflows', 'tag-release-guard.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
