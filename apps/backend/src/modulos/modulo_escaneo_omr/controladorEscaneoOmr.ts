@@ -230,6 +230,7 @@ export async function prevalidarLoteCapturas(req: SolicitudDocente, res: Respons
       const menor = Math.min(ancho, alto);
       const mayor = Math.max(ancho, alto);
       const contraste = Number(stats.channels?.[0]?.stdev ?? 0);
+      const variacionColor = Math.max(0, ...stats.channels.slice(0, 3).map((canal) => Number(canal.stdev ?? 0)));
       const calidadResolucion = menor >= 900 && mayor >= 1300 ? 1 : menor >= 720 && mayor >= 1024 ? 0.7 : 0.4;
       const calidadContraste = Math.max(0, Math.min(1, contraste / 44));
       const calidad = Number(((calidadResolucion * 0.58) + (calidadContraste * 0.42)).toFixed(4));
@@ -239,11 +240,15 @@ export async function prevalidarLoteCapturas(req: SolicitudDocente, res: Respons
       if (contraste > 95) sugerencias.push('Reflejo o sobreexposición detectada: evita flash directo.');
 
       let qrDetectado = false;
-      try {
-        const qr = await leerQrDesdeImagen(String(item?.imagenBase64 ?? ''));
-        qrDetectado = Boolean(qr && /EXAMEN:/i.test(qr));
-      } catch {
-        qrDetectado = false;
+      // Una imagen sin variación de intensidad no puede contener un QR legible.
+      // Evita ejecutar todos los pases de detección y realce sobre capturas vacías.
+      if (variacionColor >= 1) {
+        try {
+          const qr = await leerQrDesdeImagen(String(item?.imagenBase64 ?? ''));
+          qrDetectado = Boolean(qr && /EXAMEN:/i.test(qr));
+        } catch {
+          qrDetectado = false;
+        }
       }
       if (!qrDetectado) sugerencias.push('No se detectó QR: recorta menos y captura la hoja completa.');
 
