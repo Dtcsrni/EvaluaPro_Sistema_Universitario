@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { promisify } from 'node:util';
 import test from 'node:test';
 
