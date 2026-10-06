@@ -208,6 +208,22 @@ function buildFocusedCoverageArgsForFiles(files) {
   ];
 }
 
+function buildDifferentialCoveragePlan(changedFrom, changedFiles) {
+  if (!String(changedFrom ?? '').trim()) throw new Error('referencia Git válida requerida para cobertura diferencial');
+  if (!Array.isArray(changedFiles)) throw new TypeError('changedFiles debe ser un arreglo');
+  if (changedFiles.length === 0) {
+    return { mode: 'sin-fuentes-backend', args: null, skipReason: 'no-backend-source-files' };
+  }
+
+  const focusedArgs = buildFocusedCoverageArgsForFiles(changedFiles);
+  const args = focusedArgs ?? buildChangedCoverageArgs(changedFrom);
+  return {
+    mode: args.includes('--changed=' + changedFrom) ? 'diferencial por dependencias' : 'diferencial enfocado',
+    args,
+    skipReason: null
+  };
+}
+
 async function resolveChangedSourceFiles(baseRef) {
   const { stdout } = await execFile(
     'git',
@@ -404,9 +420,25 @@ async function main() {
   const changedFrom = process.env.BACKEND_COVERAGE_CHANGED_FROM?.trim();
   if (changedFrom) {
     const changedFiles = await resolveChangedSourceFiles(changedFrom);
-    const args = buildFocusedCoverageArgsForFiles(changedFiles) ?? buildChangedCoverageArgs(changedFrom);
-    const mode = args.includes('--changed=' + changedFrom) ? 'diferencial por dependencias' : 'diferencial enfocado';
+    const coveragePlan = buildDifferentialCoveragePlan(changedFrom, changedFiles);
+    const { args, mode, skipReason } = coveragePlan;
     process.stdout.write(`[backend-coverage] modo ${mode}; base=${changedFrom}; fuentes=${changedFiles.length}\n`);
+    if (skipReason) {
+      await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        durationMs: Date.now() - startedAtMs,
+        changedFrom,
+        changedFiles,
+        mode,
+        skipped: true,
+        skipReason,
+        results: [],
+        failed: false,
+        failureStage: null
+      }, null, 2));
+      process.exit(0);
+    }
     const code = await runVitest(args, 'backend-changed');
     if (code !== 0) await emitFailureExcerpt('backend-changed', 1, 'backend-changed.log');
     await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
@@ -464,7 +496,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildChangedCoverageArgs, buildCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
+export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildChangedCoverageArgs, buildCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt } from '../testing/run-backend-coverage-batches.mjs';
+import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt } from '../testing/run-backend-coverage-batches.mjs';
 
 test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   const plan = buildCoveragePlan();
@@ -51,6 +51,24 @@ test('coverage diferencial ejecuta solo pruebas afectadas y reporta archivos mod
 test('coverage diferencial rechaza una referencia vacía o una opción inyectada', () => {
   assert.throws(() => buildChangedCoverageArgs(''), /referencia Git válida/);
   assert.throws(() => buildChangedCoverageArgs('--run'), /referencia Git válida/);
+});
+
+test('coverage diferencial omite Vitest si el diff no contiene fuentes backend', () => {
+  assert.deepEqual(buildDifferentialCoveragePlan('origin/main', []), {
+    mode: 'sin-fuentes-backend',
+    args: null,
+    skipReason: 'no-backend-source-files'
+  });
+});
+
+test('coverage diferencial conserva el perfil enfocado cuando sí cambian fuentes', () => {
+  const plan = buildDifferentialCoveragePlan('origin/main', [
+    'apps/backend/src/modulos/modulo_autenticacion/servicioGoogle.ts'
+  ]);
+
+  assert.equal(plan.mode, 'diferencial enfocado');
+  assert.equal(plan.skipReason, null);
+  assert.ok(plan.args.includes('tests/servicioGoogle.test.ts'));
 });
 
 test('coverage diferencial enfoca el test y el controlador OMR cuando solo cambia ese modulo', () => {

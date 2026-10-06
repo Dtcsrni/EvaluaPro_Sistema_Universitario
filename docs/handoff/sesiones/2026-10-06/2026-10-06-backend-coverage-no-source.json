@@ -1,0 +1,124 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "2026-10-06-backend-coverage-no-source",
+  "status": "final",
+  "generatedAt": "2026-10-06T19:40:20.189Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "agente-ia",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Reducir la cobertura diferencial backend cuando el PR no modifica fuentes backend y evitar ejecutar Vitest sobre todo el grafo por lockfiles."
+  },
+  "objective": "Hacer que la cobertura diferencial no consuma tiempo cuando no existen líneas de código fuente backend modificadas, conservando pruebas completas y umbrales para cambios reales.",
+  "scope": [
+    "scripts/testing/run-backend-coverage-batches.mjs",
+    "scripts/tests/backend-coverage-batches.test.mjs",
+    "SPEC-CI-CD-INTEGRITY"
+  ],
+  "constraints": [
+    "No relajar umbrales de cobertura ni diff coverage.",
+    "Mantener la suite completa backend ejecutándose en CI.",
+    "Emitir diagnóstico explícito cuando coverage diferencial se omite."
+  ],
+  "actions": [
+    {
+      "type": "code",
+      "summary": "Añadido plan diferencial que omite Vitest si no hay fuentes backend cambiadas y escribe resumen exitoso con la razón.",
+      "timestamp": "2026-10-06T19:40:19.636Z",
+      "status": "ok"
+    },
+    {
+      "type": "test",
+      "summary": "Cubierto el camino sin fuentes y preservado el perfil enfocado cuando sí cambia código backend.",
+      "timestamp": "2026-10-06T19:40:19.642Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "scripts/testing/run-backend-coverage-batches.mjs",
+      "scripts/tests/backend-coverage-batches.test.mjs",
+      "scripts/testing/check-diff-coverage.mjs",
+      "docs/specs/ci_cd_integrity.spec.md"
+    ],
+    "changed": [
+      "scripts/testing/run-backend-coverage-batches.mjs",
+      "scripts/tests/backend-coverage-batches.test.mjs",
+      "docs/specs/ci_cd_integrity.spec.md"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "coverage runner tests",
+      "command": "node --test scripts/tests/backend-coverage-batches.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 114,
+      "resultSummary": "11/11 pruebas pasaron.",
+      "timestamp": "2026-10-06T19:40:20.189Z"
+    },
+    {
+      "name": "coverage runner no-source path",
+      "command": "BACKEND_COVERAGE_CHANGED_FROM=origin/main npm -C apps/backend run test:coverage",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 65,
+      "resultSummary": "Skip explícito; fuentes=0; run-summary indica skipped=true y failureStage=null.",
+      "timestamp": "2026-10-06T19:40:20.189Z"
+    },
+    {
+      "name": "TDD enforcement",
+      "command": "GITHUB_BASE_REF=main npm run test:tdd:enforcement:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1700,
+      "resultSummary": "Deuda exclusions pasa 7/7; diff coverage no-op al no haber líneas modificadas en apps/*/src.",
+      "timestamp": "2026-10-06T19:40:20.189Z"
+    },
+    {
+      "name": "CI policy audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 15000,
+      "resultSummary": "Contratos, políticas, trazabilidad, handoff y SDD pasan.",
+      "timestamp": "2026-10-06T19:40:20.189Z"
+    },
+    {
+      "name": "CI contracts",
+      "command": "node --test scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 338,
+      "resultSummary": "35/35 pruebas pasaron.",
+      "timestamp": "2026-10-06T19:40:20.189Z"
+    }
+  ],
+  "decisions": [
+    "Saltar solo la medición diferencial backend cuando no hay fuentes backend cambiadas; no saltar las pruebas backend completas.",
+    "Mantener thresholds existentes para cualquier archivo fuente cubierto que cambie."
+  ],
+  "assumptions": [
+    "El job CI ejecuta la suite completa backend antes de coverage diferencial, incluso en PR de dependencias."
+  ],
+  "risks": [
+    "La ejecución remota del nuevo PR aún debe confirmar el comportamiento y el tiempo total de CI."
+  ],
+  "nextStep": "Crear PR, validar CI en GitHub y reintentar PR #119 después de integrar esta optimización.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\_release-v1.2.4-retag",
+    "branch": "fix/skip-backend-coverage-no-source",
+    "commit": "d7d065e0",
+    "workingTreeStatus": "M docs/specs/ci_cd_integrity.spec.md\n M scripts/testing/run-backend-coverage-batches.mjs\n M scripts/tests/backend-coverage-batches.test.mjs"
+  }
+}
