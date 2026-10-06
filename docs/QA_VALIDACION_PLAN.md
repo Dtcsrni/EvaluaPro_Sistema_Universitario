@@ -1,21 +1,26 @@
-# Plan de validacion QA (manual + automatizada) - Version mejorada
+# Plan de validación QA (manual + automatizada)
 
-Objetivo: ejecutar validacion humana y automatizada sin bajar gates, usando credenciales default protegidas en el contexto local con variables de entorno.
+Objetivo: validar `docente-local` en Windows con una VM limpia y credenciales
+locales protegidas en variables de entorno.
 
-## 0) Decisiones previas (obligatorias)
-- Perfil: Basico (Installer Hub E2E en VM) o Completo (CI core + QA extended).
-- Entorno: solo VM limpia, solo host o ambos.
-- Runtime Docker permitido: WSL2 (Desktop solo con override explicito).
+## 1) Decisiones previas
 
-## 1) Precondiciones tecnicas
+- Perfil: básico (Installer Hub E2E en VM) o completo (CI core + QA extended).
+- Entorno: VM limpia, host o ambos; registrar cuál se utilizó.
+- Runtime: Windows x64 con Node.js embebido, API/Web locales y SQLite local.
+
+## 2) Precondiciones técnicas
+
 - VM: `EvaluaPro-E2E-Win11`, snapshot `pre-evaluapro-installer-e2e`.
-- Runtime: WSL2 + Ubuntu + Docker Engine operativo.
-- Node >= 24, `npm install` desde la raiz.
-- No instalar Docker Desktop para `docente-local`; aceptar Docker Desktop solo si ya existe, esta sano y evita doble runtime/conflicto local, o con override explicito `EVALUAPRO_DOCKER_RUNTIME=desktop`.
+- Node.js 24 o superior para las tareas de desarrollo y validación del repositorio.
+- `npm install` desde la raíz del repositorio.
+- Usar el bundle construido para `docente-local`; verificar versión y SHA-256 antes
+  de instalarlo.
 
-## 2) Credenciales default locales (protegidas con env vars)
+## 3) Credenciales locales
 
 Variables base (usuario/clave):
+
 - `EVALUAPRO_QA_DOCENTE_USER`
 - `EVALUAPRO_QA_DOCENTE_PASS`
 - `EVALUAPRO_QA_ALUMNO_USER`
@@ -24,6 +29,7 @@ Variables base (usuario/clave):
 - `EVALUAPRO_QA_ADMIN_PASS`
 
 Opcionales si se requiere API/portal:
+
 - `RELEASE_GATE_API_BASE`
 - `RELEASE_GATE_DOCENTE_TOKEN`
 - `RELEASE_GATE_DOCENTE_ID`
@@ -31,85 +37,65 @@ Opcionales si se requiere API/portal:
 - `PORTAL_ALUMNO_URL`
 - `PORTAL_ALUMNO_API_KEY`
 
-Regla: no versionar credenciales. Se almacenan como variables de entorno de usuario en Windows.
+No versionar credenciales; configurarlas como variables de entorno de usuario en
+Windows.
 
-## 3) Validacion manual humana
+## 4) Validación manual
 
-Base de checklist:
-- [docs/release/manual/docente-local-prueba-manual-2026-05-27.md](docs/release/manual/docente-local-prueba-manual-2026-05-27.md)
-- [docs/release/manual/gui-screen-matrix.md](docs/release/manual/gui-screen-matrix.md)
+Checklist base:
 
-Evidencia requerida:
-- Capturas clave (dashboard, login, calificaciones, exportaciones).
-- PDF generado e impresion.
-- `reports/qa/latest/manifest.json` actualizado.
-- `docs/release/manual/prod-flow.json` (si aplica gate estable).
+- [Prueba manual docente-local](docs/release/manual/docente-local-prueba-manual-2026-05-27.md)
+- [Matriz de pantallas GUI](docs/release/manual/gui-screen-matrix.md)
 
-## 4) Validacion automatizada (desbloqueada)
+Guardar capturas del Dashboard, login, calificaciones y exportaciones; conservar
+el PDF generado y el resultado de impresión. Actualizar
+`reports/qa/latest/manifest.json` y `docs/release/manual/prod-flow.json` cuando
+aplique el gate estable.
 
-### 4.1 Installer Hub E2E (VM)
-Prerequisitos:
-- Runtime Docker: WSL2 (no Desktop salvo override).
-- Snapshot: `pre-evaluapro-installer-e2e`.
+## 5) Validación automatizada
+
+### Installer Hub E2E (VM)
+
 - VM: `EvaluaPro-E2E-Win11`.
+- Snapshot: `pre-evaluapro-installer-e2e`.
+- Preflight no destructivo:
 
-Comandos (en VM/host segun corresponda):
 ```powershell
-# Preflight no destructivo
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/installer-hub-vm-readiness.ps1
+```
 
-# E2E mutante dentro de la VM
+- E2E mutante dentro de la VM:
+
+```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 -IUnderstandThisMutatesVm
 ```
 
 Variables clave:
+
 - `EVALUAPRO_E2E_VM_SNAPSHOT=pre-evaluapro-installer-e2e`
-- `EVALUAPRO_DOCKER_RUNTIME=wsl2` (solo usar `desktop` con override explicito)
 
-Referencia visual: [docs/tutoriales/installer-hub-docente-e2e.md](docs/tutoriales/installer-hub-docente-e2e.md)
+### CI core + QA extended
 
-### 4.2 CI core + QA extended
-Secuencia sugerida (respetar gates):
-```bash
-npm run lint
-npm run typecheck
-npm run test:backend:ci
-npm run test:portal:ci
-npm run test:frontend:ci
-npm run test:coverage:ci
-npm run test:coverage:diff
-npm run docs:check
-npm run routes:check
-npm run qa:clean-architecture:strict
-npm run test:flujo-docente:ci
-npm run test:dataset-prodlike:ci
-npm run test:e2e:docente-alumno:ci
-npm run test:global-grade:ci
-npm run test:pdf-print:ci
-npm run test:ux-quality:ci
-npm run test:ux-visual:ci
-npm run perf:check
-```
+Respetar el orden de los gates configurados en `ci/pipeline.matrix.json`. La
+secuencia habitual incluye lint, typecheck, pruebas backend/portal/frontend,
+cobertura, arquitectura, flujo docente, PDF/impresión, UX y rendimiento.
 
-Matriz oficial: [ci/pipeline.matrix.json](ci/pipeline.matrix.json)
+## 6) Orden de ejecución
 
-## 5) Orden de ejecucion recomendado
-1. Preparar credenciales locales (env vars).
-2. Preflight VM y runtime.
-3. Automatizada (perfil elegido).
-4. Manual humana (checklist y evidencias).
-5. Consolidar reportes y decision Go/No-Go.
-
-## 6) Evidencias y ubicacion
-- Installer Hub: `reports/qa/installer-hub-e2e-docente/<timestamp>/`.
-- QA general: `reports/qa/latest/*`.
-- Manual: `docs/release/manual/*` y capturas asociadas.
+1. Preparar credenciales locales.
+2. Restaurar el snapshot y ejecutar el preflight de la VM.
+3. Ejecutar el perfil automatizado seleccionado.
+4. Completar la validación manual y guardar evidencias.
+5. Consolidar reportes y la decisión Go/No-Go.
 
 ## 7) Go/No-Go
-- Go: todos los pasos manuales y automatizados completos sin errores bloqueantes, evidencia presente.
-- No-Go: fallo de login, generacion, PDF/impresion, calificacion, runtime minimo o gates CI rojos.
 
-## 8) Notas de seguridad operativa
+- Go: los pasos manuales y automatizados requeridos están completos, sin errores
+  bloqueantes y con evidencia ligada al bundle validado.
+- No-Go: falla login, generación, descarga/impresión, calificación, runtime local
+  o un gate CI requerido.
+
+## 8) Seguridad operativa
+
 - No colocar credenciales en archivos versionados.
-- No ejecutar el runner mutante sin snapshot valido.
-- No instalar Docker Desktop en docente-local. Si ya existe en el equipo del docente y su daemon esta sano, puede usarse como compatibilidad documentada; si causa conflicto o no responde, volver a `WSL2 + Docker Engine`.
+- No ejecutar el runner mutante sin un snapshot válido.

@@ -13,7 +13,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [DESPLIEGUE.md](DESPLIEGUE.md) — Despliegue
 - [DEVOPS_BASELINE.md](DEVOPS_BASELINE.md) — DevOps Baseline
 - [DIAGRAMAS.md](DIAGRAMAS.md) — Diagramas
-- [DOCENTE_LOCAL_LITE.md](DOCENTE_LOCAL_LITE.md) — Docente Local Lite
+- [DOCENTE_LOCAL_LITE.md](DOCENTE_LOCAL_LITE.md) — Runtime docente-local
 - [ENGINEERING_BASELINE.md](ENGINEERING_BASELINE.md) — Engineering Baseline
 - [ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md](ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md) — Estabilizacion: Fallos Y Aprendizajes
 - [ESTILO_AVANZADO_Y_ANIMACIONES.md](ESTILO_AVANZADO_Y_ANIMACIONES.md) — Guía de Estilo Avanzado, Transparencias y Animaciones
@@ -41,8 +41,8 @@ No editar a mano: los cambios se pisan al regenerar.
 - [PROCESO_GLOBAL_CURSO_INICIADO.md](PROCESO_GLOBAL_CURSO_INICIADO.md) — Proceso estandar para global desde curso iniciado
 - [PRUEBAS.md](PRUEBAS.md) — Pruebas automatizadas
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)
-- [QA_INSTALLER_HUB_DOCENTE_2026-05-20.md](QA_INSTALLER_HUB_DOCENTE_2026-05-20.md) — QA Installer Hub docente-local - 2026-05-20
-- [QA_VALIDACION_PLAN.md](QA_VALIDACION_PLAN.md) — Plan de validacion QA (manual + automatizada) - Version mejorada
+- [QA_INSTALLER_HUB_DOCENTE_2026-05-20.md](QA_INSTALLER_HUB_DOCENTE_2026-05-20.md) — QA Installer Hub docente-local — corte 2026-05-20
+- [QA_VALIDACION_PLAN.md](QA_VALIDACION_PLAN.md) — Plan de validación QA (manual + automatizada)
 - [README.md](README.md) — Centro Documental de EvaluaPro
 - [RELEASE_BIGBANG_1_0_BETA.md](RELEASE_BIGBANG_1_0_BETA.md) — Cierre Beta `1.0.0-beta.0`
 - [RELEASE_GATE_STABLE.md](RELEASE_GATE_STABLE.md) — Gate de Promocion a Estable

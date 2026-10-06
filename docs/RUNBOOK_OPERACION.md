@@ -65,7 +65,7 @@ Alcance de la reparación v1:
    - apertura estable de la BA `WPF .NET 8`,
    - deteccion automatica de modo (`install` / `repair` / `uninstall`),
    - analisis de requisitos del equipo,
-   - prerequisitos visibles (runtime Node embebido local + runtime Docker compatible para stack docente minimo),
+   - prerequisitos visibles del flavor seleccionado y estado de salud de sus servicios,
    - si se elige `WSL2 + Docker Engine` y falta `WSL2`/Docker Engine/Node 24 en la distro objetivo, emision de guía local de bootstrap y remediacion semiautomatica para completar el runtime soportado,
    - chain `MSI` controlado por Burn,
    - helper post-install para `.env`, `update-config.json`, verificacion final y blindaje local de licencia.

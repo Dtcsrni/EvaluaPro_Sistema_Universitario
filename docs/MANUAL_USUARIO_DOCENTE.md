@@ -49,7 +49,7 @@ El manual recorre minuciosamente cada interacción visual del sistema en 14 secc
 
 El sistema EvaluaPro para docentes se distribuye como una aplicación nativa Windows autónoma:
 
-1. Ejecute `EvaluaPro-InstallerHub-docente.exe`. El **Installer Hub** realiza un análisis automático de dependencias (Node ejecutable y SQLite embebido) sin necesidad de configurar Docker ni servicios adicionales.
+1. Ejecute `EvaluaPro-InstallerHub-docente.exe`. El **Installer Hub** prepara el runtime local, Node.js embebido y SQLite.
 2. Seleccione la carpeta de destino y el perfil de acceso `docente-local`. Presione **Instalar**.
 
 ![Paso 0 - Instalador Nativo Installer Hub WPF](file:///c:/Users/evega/Documents/EvaluaPro/docs/assets/ui/01_dashboard.png)

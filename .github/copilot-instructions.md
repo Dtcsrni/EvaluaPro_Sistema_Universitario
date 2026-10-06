@@ -7,7 +7,7 @@ Estas instrucciones describen convenciones y flujos reales del repo. Prioriza se
 	- [apps/backend](../apps/backend): API docente (lectura/escritura) en Express + Mongoose + TypeScript.
 	- [apps/frontend](../apps/frontend): UI React + Vite; contiene dos “destinos” (docente/alumno) seleccionados por `VITE_APP_DESTINO`.
 	- [apps/portal_alumno_cloud](../apps/portal_alumno_cloud): Portal alumno (read-model) para despliegue cloud; enfocado en consulta y sincronizacion.
-- Motivacion de separacion: el backend docente opera localmente (Docker) y el portal alumno se despliega como servicio publico separado (ver [docs/ARQUITECTURA.md](../docs/ARQUITECTURA.md) y [docs/DESPLIEGUE.md](../docs/DESPLIEGUE.md)).
+- Motivacion de separacion: el backend docente opera localmente con SQLite embebido y el portal alumno se despliega como servicio publico separado (ver [docs/ARQUITECTURA.md](../docs/ARQUITECTURA.md) y [docs/DESPLIEGUE.md](../docs/DESPLIEGUE.md)).
 
 ## Layout del backend (como navegarlo)
 - Capas (ver [docs/ARQUITECTURA.md](../docs/ARQUITECTURA.md)):
@@ -99,7 +99,7 @@ Estas instrucciones describen convenciones y flujos reales del repo. Prioriza se
 - El portal aplica defensas “por defecto” (helmet, rate limit, validación de esquemas) igual que el backend (ver [apps/portal_alumno_cloud/src/app.ts](../apps/portal_alumno_cloud/src/app.ts)).
 
 ## Datos, archivos y DB
-- SQLite nativo con Prisma: el backend docente local opera de forma 100% autónoma y offline-first sobre SQLite embebido (ver [apps/backend/prisma/schema.prisma](../apps/backend/prisma/schema.prisma)), sin requerir servicios de bases de datos externas ni Docker.
+- SQLite nativo con Prisma: el backend docente local opera de forma 100% autónoma y offline-first sobre SQLite embebido (ver [apps/backend/prisma/schema.prisma](../apps/backend/prisma/schema.prisma)), sin requerir servicios de bases de datos externas.
 - PDFs/artefactos: se guardan en [apps/backend/data/examenes](../apps/backend/data/examenes) (operativo; no versionar). Varias pruebas generan PDFs en esa ruta (ver [docs/PRUEBAS.md](../docs/PRUEBAS.md)).
 - Sincronizacion local->cloud: backend publica hacia `PORTAL_ALUMNO_URL` con `PORTAL_ALUMNO_API_KEY` (ver variables en [docs/AUTO_ENV.md](../docs/AUTO_ENV.md)).
 

@@ -1548,17 +1548,17 @@ test('configuracion operativa rechaza ajustes inseguros o invalidos (fail-fast)'
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $cfg = @{
   databaseUrl='file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
-  jwtSecreto='abc123'
+  jwtSecreto='TEST_ONLY_JWT_SECRET'
   nodeEnv='production'
   puertoApi='0'
   puertoPortal='4518'
   corsOrigenes='*'
   portalAlumnoUrl='https://portal-alumno.example.edu'
-  portalAlumnoApiKey='portal-key'
-  portalApiKey='portal-key'
+  portalAlumnoApiKey='TEST_ONLY_PORTAL_API_KEY'
+  portalApiKey='TEST_ONLY_PORTAL_API_KEY'
   passwordResetEnabled='0'
   requireGoogleOAuth='0'
-  backupCifradoSecreto='shared-sync-secret-for-test'
+  backupCifradoSecreto='TEST_ONLY_BACKUP_SECRET'
   correoModuloActivo='0'
   requireLicenseActivation='0'
   updateChannel='stable'
@@ -2029,13 +2029,13 @@ $cfg = @{
   puertoPortal='4518'
   corsOrigenes='http://localhost:4173,http://127.0.0.1:4173'
   portalAlumnoUrl='https://portal.ejemplo.edu'
-  portalAlumnoApiKey='portal-key-shared'
-  portalApiKey='portal-key-shared'
+  portalAlumnoApiKey='TEST_ONLY_PORTAL_API_KEY'
+  portalApiKey='TEST_ONLY_PORTAL_API_KEY'
   passwordResetEnabled='0'
   passwordResetTokenMinutes='30'
   passwordResetUrlBase=''
   requireGoogleOAuth='0'
-  backupCifradoSecreto='shared-sync-secret-for-test'
+  backupCifradoSecreto='TEST_ONLY_BACKUP_SECRET'
   correoModuloActivo='0'
   requireLicenseActivation='0'
   updateChannel='stable'
@@ -2068,14 +2068,14 @@ $r | ConvertTo-Json -Depth 8
     assert.match(envRaw, /DATABASE_URL=/);
     assert.match(envRaw, /BACKEND_DATABASE_URL=/);
     assert.match(envRaw, /JWT_SECRETO=/);
-    assert.match(envRaw, /EVALUAPRO_BACKUP_CIFRADO_SECRETO=shared-sync-secret-for-test/);
+    assert.match(envRaw, /EVALUAPRO_BACKUP_CIFRADO_SECRETO=TEST_ONLY_BACKUP_SECRET/);
     assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
     assert.doesNotMatch(envRaw, /EVALUAPRO_IMAGE_TAG=/);
     assert.match(envRaw, /BACKEND_DATA_DIR_DEV=\.\/apps\/backend\/data\/examenes_dev/);
     assert.match(envRaw, /BACKEND_DATA_DIR_PROD=\.\/apps\/backend\/data\/examenes_prod/);
     assert.match(envRaw, /PORTAL_SYNC_REQUIRED=1/);
-    assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=portal-key-shared/);
-    assert.match(envRaw, /PORTAL_API_KEY=portal-key-shared/);
+    assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=TEST_ONLY_PORTAL_API_KEY/);
+    assert.match(envRaw, /PORTAL_API_KEY=TEST_ONLY_PORTAL_API_KEY/);
 
     const updateConfigPath = path.join(path.dirname(envPath), 'config', 'update-config.json');
     const updateConfigRaw = fs.readFileSync(updateConfigPath, 'utf8').replace(/^\uFEFF/, '');
@@ -2140,11 +2140,11 @@ $envPath = '${path.join(installDir, '.env').replace(/'/g, "''")}'
 @(
   'GOOGLE_OAUTH_CLIENT_ID=oauth-existing',
   'GOOGLE_CLASSROOM_CLIENT_ID=classroom-existing',
-  'GOOGLE_CLASSROOM_CLIENT_SECRET=secret-existing',
+  'GOOGLE_CLASSROOM_CLIENT_SECRET=TEST_ONLY_CLASSROOM_SECRET',
   'GOOGLE_CLASSROOM_REDIRECT_URI=https://example.edu/oauth/callback',
   'CLASSROOM_TOKEN_CIPHER_KEY=${cipherKey}',
   'CLASSROOM_ENABLED=1',
-  'EVALUAPRO_BACKUP_CIFRADO_SECRETO=sync-secret-existing',
+  'EVALUAPRO_BACKUP_CIFRADO_SECRETO=TEST_ONLY_BACKUP_SECRET',
   'REQUIRE_GOOGLE_OAUTH=1'
 ) | Set-Content -LiteralPath $envPath -Encoding utf8
 $cfg = @{ flavorId='docente-local'; nodeEnv='production'; puertoApi='4000'; puertoPortal='4518'; corsOrigenes='http://localhost:4173'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
@@ -2153,12 +2153,12 @@ $raw = Get-Content -LiteralPath $envPath -Raw
 [pscustomobject]@{
   oauth = [bool]($raw -match '(?m)^GOOGLE_OAUTH_CLIENT_ID=oauth-existing\r?$')
   classroomId = [bool]($raw -match '(?m)^GOOGLE_CLASSROOM_CLIENT_ID=classroom-existing\r?$')
-  classroomSecret = [bool]($raw -match '(?m)^GOOGLE_CLASSROOM_CLIENT_SECRET=secret-existing\r?$')
+  classroomSecret = [bool]($raw -match '(?m)^GOOGLE_CLASSROOM_CLIENT_SECRET=TEST_ONLY_CLASSROOM_SECRET\r?$')
   redirect = [bool]($raw -match '(?m)^GOOGLE_CLASSROOM_REDIRECT_URI=https://example.edu/oauth/callback\r?$')
   cipher = [bool]($raw -match '(?m)^CLASSROOM_TOKEN_CIPHER_KEY=${cipherKey}\r?$')
   enabled = [bool]($raw -match '(?m)^CLASSROOM_ENABLED=1\r?$')
   required = [bool]($raw -match '(?m)^REQUIRE_GOOGLE_OAUTH=1\r?$')
-  backup = [bool]($raw -match '(?m)^EVALUAPRO_BACKUP_CIFRADO_SECRETO=sync-secret-existing\r?$')
+  backup = [bool]($raw -match '(?m)^EVALUAPRO_BACKUP_CIFRADO_SECRETO=TEST_ONLY_BACKUP_SECRET\r?$')
 } | ConvertTo-Json -Compress
 `.trim();
 
@@ -2324,7 +2324,7 @@ test('launcher broker arranca dashboard preservando rutas instaladas con espacio
   assert.match(broker, /Start-Process -FilePath \$psExe -ArgumentList \(ConvertTo-NativeArgumentString -Arguments \$args\)/);
 });
 
-test('dashboard usa runtime nativo en docente-local y conserva Docker solo para flavors que lo requieren', () => {
+test('dashboard usa runtime nativo en docente-local y soporta flavors institucionales', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
 
   assert.match(dashboard, /function resolveEffectiveDockerRuntime/);
@@ -2341,14 +2341,13 @@ test('dashboard usa runtime nativo en docente-local y conserva Docker solo para 
   assert.match(dashboard, /desktop-unapproved/);
   assert.match(dashboard, /EVALUAPRO_DOCKER_RUNTIME=desktop/);
   assert.match(dashboard, /runtime: dockerRuntime/);
+  assert.doesNotMatch(dashboard, /docenteWslTarget|No requerido para docente-local/);
 });
 
-test('baseline docente deriva runtime y evita probes Docker innecesarios', () => {
+test('baseline docente publica solo el runtime nativo y los límites del bundle', () => {
   const baseline = fs.readFileSync(path.join(root, 'scripts', 'installer-docente-baseline.mjs'), 'utf8');
-  assert.match(baseline, /runtimeTarget: requiresDockerRuntime \? 'docker-compatible' : 'native-node-sqlite'/);
-  assert.match(baseline, /skippedDockerProbe\('runtime nativo docente-local'\)/);
-  assert.match(baseline, /requiredServices: requiresDockerRuntime \? /);
-  assert.match(baseline, /requiredImages: requiresDockerRuntime \? /);
+  assert.match(baseline, /runtimeTarget: 'native-node-sqlite'/);
+  assert.doesNotMatch(baseline, /docker|compose|requiresDockerRuntime/i);
   assert.match(baseline, /const maxPayloadBytes = 180 \* 1024 \* 1024/);
   assert.match(baseline, /const maxBundleBytes = 240 \* 1024 \* 1024/);
 });
