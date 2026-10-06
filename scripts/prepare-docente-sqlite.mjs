@@ -32,6 +32,13 @@ try {
     .replace(/CREATE UNIQUE INDEX(?!\s+IF NOT EXISTS)/gi, 'CREATE UNIQUE INDEX IF NOT EXISTS')
     .replace(/CREATE INDEX(?!\s+IF NOT EXISTS)/gi, 'CREATE INDEX IF NOT EXISTS');
   database.exec(schema);
+
+  // El SQL de Prisma solo crea objetos ausentes. Aplicar esta migración
+  // aditiva permite que una base v1.2.3 existente use el perfil actualizado.
+  const docenteColumns = database.prepare('PRAGMA table_info("docentes")').all();
+  if (docenteColumns.length > 0 && !docenteColumns.some((column) => column.name === 'imagenPerfil')) {
+    database.exec('ALTER TABLE "docentes" ADD COLUMN "imagenPerfil" TEXT;');
+  }
 } finally {
   database.close();
 }

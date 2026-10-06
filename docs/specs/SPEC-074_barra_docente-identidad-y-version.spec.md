@@ -19,7 +19,7 @@ La barra docente muestra una etiqueta técnica OMR que no ayuda a la navegación
 - **REQ-001:** La barra del shell docente no presenta la etiqueta de contrato OMR; las vistas y herramientas OMR conservan su información técnica.
 - **REQ-002:** La versión de la barra se obtiene del valor técnico del build `VITE_APP_VERSION` mediante `obtenerVersionTecnicaApp()`; no se mantienen literales por pantalla.
 - **REQ-003:** El avatar prioriza una imagen no vacía devuelta por el perfil de cuenta; si no existe, muestra un icono docente neutral. Un error de carga retorna al icono genérico.
-- **REQ-004:** Si el docente inicia sesión con Google, la foto HTTPS de su perfil verificado se conserva vinculada a su cuenta y se entrega en `/autenticacion/perfil`. Si no existe una foto de cuenta, puede elegir o retirar una imagen local. Se valida tipo PNG/JPEG/WebP y tamaño máximo documentado; la imagen local se guarda por docente en el navegador y no se envía a la API.
+- **REQ-004:** Si el docente inicia sesión con Google, la foto HTTPS de su perfil verificado se conserva vinculada a su cuenta y se entrega en `/autenticacion/perfil`. Al actualizar una base SQLite anterior se añade la columna opcional sin pérdida de datos. Si no existe una foto de cuenta, puede elegir o retirar una imagen local. Se valida tipo PNG/JPEG/WebP y tamaño máximo documentado; la imagen local se guarda por docente en el navegador y no se envía a la API.
 - **REQ-005:** La barra ordena visualmente identidad, versión, tema y salida; mantiene nombres accesibles, teclado, foco visible y adaptación responsive.
 
 ## Criterios de Aceptación
@@ -35,5 +35,5 @@ La barra docente muestra una etiqueta técnica OMR que no ayuda a la navegación
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001, REQ-002, REQ-003 | Barra sin chip OMR, versión del helper, avatar neutral, prioridad y fallback de foto | `apps/frontend/tests/appDocente.test.tsx`; `apps/frontend/tests/seccionCuenta.test.tsx` | CI pendiente |
-| REQ-004 | Persistencia de foto Google en cuenta/perfil y persistencia local por docente con validación de formato/tamaño | `apps/backend/tests/integracion/autenticacion.googleOnly.test.ts`; `apps/frontend/tests/fotoPerfilDocente.test.ts`; `apps/frontend/tests/seccionCuenta.test.tsx` | CI pendiente |
+| REQ-004 | Persistencia de foto Google en cuenta/perfil, migración SQLite aditiva y persistencia local por docente | `apps/backend/tests/integracion/autenticacion.googleOnly.test.ts`; `scripts/tests/prepare-docente-sqlite.test.mjs`; `apps/frontend/tests/fotoPerfilDocente.test.ts`; `apps/frontend/tests/seccionCuenta.test.tsx` | CI pendiente |
 | REQ-005 | Navegación al perfil desde el botón accesible | `apps/frontend/tests/appDocente.test.tsx` | CI pendiente |

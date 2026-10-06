@@ -247,6 +247,10 @@ async function asegurarEsquemaSqlite(): Promise<void> {
         }
       }
     }
+    const columnasDocente = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info("docentes");');
+    if (columnasDocente.length > 0 && !columnasDocente.some((columna) => columna.name === 'imagenPerfil')) {
+      await prisma.$executeRawUnsafe('ALTER TABLE "docentes" ADD COLUMN "imagenPerfil" TEXT;');
+    }
     // Additive migration for existing SQLite installations. The cover stays
     // in a child table, so ordinary period queries never load its bytes.
     await prisma.$executeRawUnsafe(`

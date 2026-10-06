@@ -23,8 +23,8 @@ test('prepare-docente-sqlite conserva una base existente y crea objetos faltante
     await execFileAsync(process.execPath, [path.join(root, 'scripts', 'prepare-docente-sqlite.mjs'), '--database', database, '--schema-sql', schema]);
     await execFileAsync(process.execPath, ['--input-type=module', '-e', `import { DatabaseSync } from 'node:sqlite';const d=new DatabaseSync(${JSON.stringify(database)});d.exec("INSERT INTO docentes(id,correo) VALUES ('d1','docente@example.test')");d.close();`]);
     await execFileAsync(process.execPath, [path.join(root, 'scripts', 'prepare-docente-sqlite.mjs'), '--database', database, '--schema-sql', schema]);
-    const check = await execFileAsync(process.execPath, ['--input-type=module', '-e', `import { DatabaseSync } from 'node:sqlite';const d=new DatabaseSync(${JSON.stringify(database)});console.log(d.prepare("SELECT count(*) AS c FROM docentes").get().c);d.close();`]);
-    assert.equal(check.stdout.trim(), '1');
+    const check = await execFileAsync(process.execPath, ['--input-type=module', '-e', `import { DatabaseSync } from 'node:sqlite';const d=new DatabaseSync(${JSON.stringify(database)});const count=d.prepare("SELECT count(*) AS c FROM docentes").get().c;const columns=d.prepare('PRAGMA table_info("docentes")').all();console.log(JSON.stringify({count,hasProfileImage:columns.some(c=>c.name==='imagenPerfil')}));d.close();`]);
+    assert.deepEqual(JSON.parse(check.stdout.trim()), { count: 1, hasProfileImage: true });
   } finally {
     await fs.rm(temp, { recursive: true, force: true });
   }
