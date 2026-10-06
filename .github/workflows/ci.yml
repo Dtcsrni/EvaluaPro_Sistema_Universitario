@@ -225,6 +225,7 @@ jobs:
             apps/backend/.vitest-reports/backend-coverage-logs/*.log
           if-no-files-found: warn
           retention-days: 7
+          include-hidden-files: true
 
       - name: Etapa coverage portal
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'

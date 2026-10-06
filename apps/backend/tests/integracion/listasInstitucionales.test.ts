@@ -27,8 +27,9 @@ function parsearBinario(res: NodeJS.ReadableStream & { setEncoding: (encoding: s
   res.on('end', () => cb(null, Buffer.concat(chunks)));
 }
 
+const directorioListasTest = String(process.env.EVALUAPRO_TEST_LISTAS_DIR || '').trim();
 function rutaClase(...partes: string[]) {
-  return path.join('C:', 'Users', 'evega', 'OneDrive', 'Clases CUH', ...partes);
+  return directorioListasTest ? path.resolve(directorioListasTest, ...partes) : null;
 }
 
 describe('Integracion: listas institucionales por plantilla', () => {
@@ -62,11 +63,15 @@ describe('Integracion: listas institucionales por plantilla', () => {
     await cerrarMongoTest();
   });
 
-  it('hidrata XLSX reales mayo-junio con alumnos y calificaciones AL:BA', async () => {
+  it.skipIf(![
+    rutaClase('Electronica y Aplicaciones Digitales', 'electro_app_digital_mayo-junio.xlsx'),
+    rutaClase('Administracion de la Calidad', 'admin_calidad_mayo_junio.xlsx')
+  ].every((archivo): archivo is string => Boolean(archivo && fs.existsSync(archivo))))(
+    'hidrata XLSX reales mayo-junio con alumnos y calificaciones AL:BA cuando se configura el directorio local de fixtures',
+    async () => {
     const electronica = rutaClase('Electronica y Aplicaciones Digitales', 'electro_app_digital_mayo-junio.xlsx');
     const calidad = rutaClase('Administracion de la Calidad', 'admin_calidad_mayo_junio.xlsx');
-    expect(fs.existsSync(electronica)).toBe(true);
-    expect(fs.existsSync(calidad)).toBe(true);
+    if (!electronica || !calidad) throw new Error('EVALUAPRO_TEST_LISTAS_DIR no contiene los fixtures XLSX requeridos');
 
     const previewElectronica = await request(app)
       .post('/api/hidratacion-cursos/preview')
@@ -111,7 +116,8 @@ describe('Integracion: listas institucionales por plantilla', () => {
       .expect(200);
     expect(previewCalidad.body.planImportacion.alumnosDetectados).toBe(1);
     expect(previewCalidad.body.planImportacion.evidenciasHistoricasDetectadas).toBeGreaterThanOrEqual(14);
-  });
+    }
+  );
 
   it('lista plantillas y genera CUH en XLSX y PDF', async () => {
     await prisma.alumno.createMany({

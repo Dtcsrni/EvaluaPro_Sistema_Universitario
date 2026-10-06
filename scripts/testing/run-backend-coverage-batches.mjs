@@ -172,6 +172,18 @@ const focusedCoverageProfiles = new Map([
   ['apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts', {
     tests: ['tests/omr.prevalidacion.test.ts'],
     include: 'src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts'
+  }],
+  ['apps/backend/src/infraestructura/baseDatos/sqlite.ts', {
+    tests: ['tests/integracion/periodosPortada.test.ts'],
+    include: 'src/infraestructura/baseDatos/sqlite.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_autenticacion/controladorAutenticacion.ts', {
+    tests: ['tests/integracion/autenticacion.googleOnly.test.ts'],
+    include: 'src/modulos/modulo_autenticacion/controladorAutenticacion.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_autenticacion/servicioGoogle.ts', {
+    tests: ['tests/servicioGoogle.test.ts'],
+    include: 'src/modulos/modulo_autenticacion/servicioGoogle.ts'
   }]
 ]);
 

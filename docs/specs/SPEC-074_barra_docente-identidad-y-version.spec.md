@@ -35,5 +35,5 @@ La barra docente muestra una etiqueta técnica OMR que no ayuda a la navegación
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001, REQ-002, REQ-003 | Barra sin chip OMR, versión del helper, avatar neutral, prioridad y fallback de foto | `apps/frontend/tests/appDocente.test.tsx`; `apps/frontend/tests/seccionCuenta.test.tsx` | CI pendiente |
-| REQ-004 | Persistencia de foto Google en cuenta/perfil, migración SQLite aditiva y persistencia local por docente | `apps/backend/tests/integracion/autenticacion.googleOnly.test.ts`; `scripts/tests/prepare-docente-sqlite.test.mjs`; `apps/frontend/tests/fotoPerfilDocente.test.ts`; `apps/frontend/tests/seccionCuenta.test.tsx` | CI pendiente |
+| REQ-004 | Persistencia de foto Google en cuenta/perfil, migración SQLite aditiva y persistencia local por docente | `apps/backend/tests/integracion/autenticacion.googleOnly.test.ts`; `apps/backend/tests/servicioGoogle.test.ts`; `apps/backend/tests/integracion/periodosPortada.test.ts`; `scripts/tests/prepare-docente-sqlite.test.mjs`; `apps/frontend/tests/fotoPerfilDocente.test.ts`; `apps/frontend/tests/seccionCuenta.test.tsx` | CI pendiente |
 | REQ-005 | Navegación al perfil desde el botón accesible | `apps/frontend/tests/appDocente.test.tsx` | CI pendiente |

@@ -67,6 +67,23 @@ test('coverage diferencial enfoca el test y el controlador OMR cuando solo cambi
   assert.equal(args.some((arg) => arg.startsWith('--changed=')), false);
 });
 
+test('coverage diferencial enfoca SQLite y las dos rutas de autenticacion con sus pruebas directas', () => {
+  const args = buildFocusedCoverageArgsForFiles([
+    'apps/backend/src/infraestructura/baseDatos/sqlite.ts',
+    'apps/backend/src/modulos/modulo_autenticacion/controladorAutenticacion.ts',
+    'apps/backend/src/modulos/modulo_autenticacion/servicioGoogle.ts'
+  ]);
+
+  assert.ok(args);
+  assert.ok(args.includes('tests/integracion/periodosPortada.test.ts'));
+  assert.ok(args.includes('tests/integracion/autenticacion.googleOnly.test.ts'));
+  assert.ok(args.includes('tests/servicioGoogle.test.ts'));
+  assert.ok(args.includes('--coverage.include=src/infraestructura/baseDatos/sqlite.ts'));
+  assert.ok(args.includes('--coverage.include=src/modulos/modulo_autenticacion/controladorAutenticacion.ts'));
+  assert.ok(args.includes('--coverage.include=src/modulos/modulo_autenticacion/servicioGoogle.ts'));
+  assert.equal(args.some((arg) => arg.startsWith('--changed=')), false);
+});
+
 test('coverage diferencial cae a seleccion automatica ante fuentes sin perfil validado', () => {
   assert.equal(buildFocusedCoverageArgsForFiles([
     'apps/backend/src/modulos/modulo_calificacion/controlador.ts'

@@ -181,4 +181,13 @@ describe('portadas de materias', () => {
     );
     expect(tablas).toHaveLength(1);
   });
+
+  it('añade imagenPerfil al actualizar una base SQLite docente existente', async () => {
+    await prisma.$executeRawUnsafe('ALTER TABLE "docentes" DROP COLUMN "imagenPerfil"');
+
+    await conectarSqlite();
+
+    const columnas = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info("docentes");');
+    expect(columnas.some((columna) => columna.name === 'imagenPerfil')).toBe(true);
+  });
 });
