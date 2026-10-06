@@ -26,7 +26,7 @@ EvaluaPro necesita conservar capturas OMR reales sin introducirlas en el ejecuta
 - AC-001: Un dataset de 38 JPEG reales produce manifiesto, etiquetas, hashes y archivo comprimido; los hashes de las imágenes recuperadas coinciden con los originales.
 - AC-002: La ausencia de EXIF se informa explícitamente y no se convierte en una identidad de cámara inventada.
 - AC-003: La captura duplicada se conserva para trazabilidad, pero se marca como no única y no incrementa el conteo de páginas únicas.
-- AC-004: Los contratos del Hub documentan una instancia de Hub por equipo, una instancia productiva `docente-local` por raíz de datos y una instancia institucional `saas-completo` con prerequisitos Docker/portal.
+- AC-004: Los contratos del Hub documentan una instancia de Hub por equipo, una instancia productiva `docente-local` por raíz de datos y una instancia institucional `saas-completo` con sus prerequisitos de despliegue y portal.
 - AC-005: Las pruebas de update manager cubren canal stable, release remota inferior y verificación de SHA-256; los contratos del Hub cubren el ciclo y la exclusión side-by-side insegura.
 
 ## Matriz de Trazabilidad

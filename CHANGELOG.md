@@ -127,7 +127,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - Clarificación en el Installer Hub WPF (.NET 8) de los modos de ejecución (*Instalar / Actualizar versión*, *Reparar componentes*, *Desinstalar con respaldo*) para garantizar transiciones seguras sin pérdida de datos académicos.
 - **Modernización y Reestructuración Exhaustiva de READMEs y Documentación (`SPEC-DOCS-MODERNIZATION`)**:
   - Reestructuración integral del `README.md` raíz con formato visual de código abierto institucional, diagrama de flujo operativo Mermaid (Diseño -> PDF -> OMR -> Forense -> Sincronización), insignias de CI/CD actualizadas, matriz de capacidades de la versión estable `v1.1.1` y guía de inicio rápido para docentes y desarrolladores.
-  - Actualización y saneamiento de todos los READMEs modulares (`apps/backend/README.md`, `apps/frontend/README.md`, `apps/portal_alumno_cloud/README.md`, `docs/README.md`), eliminando referencias obsoletas a MongoDB/MERN y Docker para el flujo docente en favor de la arquitectura real: **SQLite nativo offline-first con Prisma ORM**, **React 18 Bento Elevation & Glassmorphism Prismatic Sapphire** y **WiX Toolset v5 Burn con Installer Hub WPF (.NET 8)**.
+  - Actualización y saneamiento de todos los READMEs modulares (`apps/backend/README.md`, `apps/frontend/README.md`, `apps/portal_alumno_cloud/README.md`, `docs/README.md`), reflejando la arquitectura docente **SQLite nativo offline-first con Prisma ORM**, **React 18 Bento Elevation & Glassmorphism Prismatic Sapphire** y **WiX Toolset v5 Burn con Installer Hub WPF (.NET 8)**.
   - Sincronización automática de catálogos comerciales, índices de variables de entorno, diagramas C4 y 100% de cumplimiento en auditoría SDD (36 especificaciones formales).
 - **Modernización Integral de Landing Page y GitHub Pages (`SPEC-002`)**:
   - Actualización completa de `site/index.html` y `site/styles.css` con el sistema de diseño Bento Elevation, orbe neón dinámico, métricas reales de `v1.1.1` (100% precisión OMR, 36 specs SDD, 0 ms latencia offline), showcase interactivo del Estudio de Diseño de Exámenes en 3 pestañas (`SPEC-034`), simulador visual OMR de alta confianza y enlaces directos institucionales.
@@ -227,7 +227,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [1.1.1] - 2026-06-30
 
 ### Added
-- Migración de la arquitectura del instalador local (docente) a una distribución nativa Ultra-Ligera en Windows (removiendo hipervisor, WSL y Docker Desktop) mediante Node.js Portable embebido.
+- Migración de la arquitectura del instalador local docente a una distribución nativa ligera en Windows mediante Node.js Portable embebido.
 - Interfaz gráfica actualizada en Bootstrapper para soportar flujo de exportación de base de datos local de SQLite durante desinstalación.
 - Scripts E2E consolidados para validar el instalador Bootstrapper en flujo local simulando el paso a paso gráfico con exportación de respaldo y limpieza.
 - Corrección de script de WiX para pasar argumento Version desde el orquestador (`build-msi.ps1`).
@@ -402,14 +402,14 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Dashboard agrega canal de soporte privilegiado con step-up local y allowlist para operaciones Hub/update; desinstalacion exige confirmacion explicita.
 - Baseline de adelgazamiento docente disponible con `npm run installer:docente:baseline` y guia `docs/DOCENTE_LOCAL_LITE.md`.
 - QA parcial del Installer Hub `docente-local` queda trazada en `docs/QA_INSTALLER_HUB_DOCENTE_2026-05-20.md` con gates confirmados, evidencia UI, hallazgos VM y pendientes para cerrar install/repair/uninstall reales.
-- Contrato UX/operativo de `docente-local` aclara `WSL2 + Docker Engine` como ruta feliz; `Docker Desktop` queda como compatibilidad explicita y no debe desplazar el bootstrap WSL2 cuando su daemon no responde.
+- La documentación de `docente-local` se actualiza para reflejar el runtime nativo Windows vigente.
 - Installer Hub deja de depender de `LaunchApprovedExe` para el helper `post-install` y ahora resuelve el host PowerShell directamente desde la BA con fallback ordenado (`powershell.exe` del sistema, `pwsh.exe` si está disponible), lo que evita el fallo de elevación cuando Burn no puede resolver `App Paths`.
 - `scripts/Install-EvaluaPro.ps1` deja de forzar `-Verb RunAs` al abrir el Hub copiado y lo lanza directo con su working directory, evitando el fallo de `status=-2147024891` en el post-install cuando la shell ya está elevada.
 - Artefactos de release del Installer Hub separados por flavor para evitar mezcla en `dist/installer`:
   - públicos en `dist/installer/<flavor>/EvaluaPro-InstallerHub-<flavor>-v<version>.exe`
   - internos en `dist/installer/_internal/<flavor>/EvaluaPro-<flavor>.msi`
   - scripts de hash/manifest/firma y workflows CI/Beta actualizados al layout por carpeta.
-- Installer Hub corrige el falso `0x80070643` de `docente-local` cuando Burn ya validó `WSL2 + Docker`:
+- Installer Hub corrige el falso `0x80070643` de `docente-local` cuando Burn ya validó los prerequisitos del bundle:
   - `packaging/wix/Product.wxs` deja de revalidar Docker host en el MSI cuando la instalación viene desde Installer Hub/Burn
   - la interfaz WPF del bootstrapper ahora expone una línea de etapas visibles (`Detección`, `Remediación`, `Planificación`, `Ejecución MSI`, `Post-instalación`, `Finalización`)
   - el Hub muestra un resumen de error más legible con código, paquete y rutas de logs cuando el MSI falla
@@ -437,7 +437,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - nuevos comandos `npm run env:doctor:wsl`, `npm run env:doctor:windows`, `npm run env:doctor`
   - validaciones de `node>=24`, `npm`, Docker CLI/daemon, `docker compose` y accesibilidad de `wsl --status` para target Windows
   - nueva suite `scripts/tests/env-doctor.test.mjs` y comando `npm run test:env:doctor`
-- `docente-local` se redefine como stack docente minimo centralizado en `WSL2 + Docker`:
+- `docente-local` se redefine como runtime docente local centralizado en Windows:
   - el contrato de flavor expone `requireLocalPortal: false` y `runtimeTarget: wsl2-docker-minimal`
   - el dashboard, tray y broker dejan de considerar `portal` como requisito del camino feliz en `docente-local`
   - la salud operativa del flavor se alinea a `mongo_local + api_docente_prod + web_docente_prod`

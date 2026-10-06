@@ -25,7 +25,7 @@ gestiona instalación, reparación, actualización y desinstalación desde la PC
   - Fijación formal de `v1.1.1` como primera versión estable reconocida del producto (`docs/VERSIONADO.md`, `CHANGELOG.md`, `docs/release/evidencias/1.1.1/`).
   - Nuevos emblemas vectoriales SVG con canal alfa 100% transparente en esquinas para la app docente e Installer Hub.
   - Landing page oficial en GitHub Pages modernizada con Bento Elevation, orbe zafiro, simulador OMR interactivo y Estudio de Diseño de Exámenes en 3 pestañas (`SPEC-034`).
-  - Eliminación definitiva de referencias a MongoDB/MERN y Docker en el flujo docente en favor de SQLite nativo offline-first con Prisma ORM.
+  - El flujo docente usa SQLite nativo offline-first con Prisma ORM.
   - Modernización visual de todos los READMEs modulares (`README.md`, `apps/backend`, `apps/frontend`, `apps/portal_alumno_cloud`, `docs`).
 - **Ecosistema Integral SDD/TDD desde el Hub (`SPEC-034` a `SPEC-049` y 36 specs 100% implementadas)**:
   - Formalización y trazabilidad completa de las 36 especificaciones en `docs/specs/` en estado `implemented`, con criterios de aceptación verificados y matrices de trazabilidad auditadas al 100% vinculadas a pruebas unitarias, de integración y contratos reales en disco.
@@ -80,7 +80,7 @@ gestiona instalación, reparación, actualización y desinstalación desde la PC
   - **Fatal Exception Dialogs:** Añadidas alertas visuales amigables de tipo `MessageBox` ante cualquier excepción crítica no controlada en el hilo principal de WPF para eliminar cierres silenciosos.
   - **Gates Verificados:** Se validó localmente con `npm run test:installer-hub:contract` en verde ✅ y `npm run installer:hub:build` en verde ✅. El binario v1.1.1 resíliete fue compilado y cargado exitosamente a la ruta local `O:\Descargas\EvaluaPro-InstallerHub-docente-local-v1.1.1.exe`.
 - Corte 2026-06-30 (Migración a Arquitectura Nativa Docente-Local y Estabilización):
-  - **Installer Hub Contract Tests:** Refactorizados los tests de contrato (`scripts/tests/installer-hub-contract.test.mjs`) para omitir aserciones de WSL y Docker Desktop obsoletos, alineándose con la distribución nativa ultra-ligera en Windows basada en Node.js embebido gestionada por `InstallerBurnHelper.ps1`.
+  - **Installer Hub Contract Tests:** Refactorizados los tests de contrato (`scripts/tests/installer-hub-contract.test.mjs`) para alinearse con la distribución nativa ligera en Windows basada en Node.js embebido y gestionada por `InstallerBurnHelper.ps1`.
   - **Linter Fix:** Corregido error de linter (`@typescript-eslint/no-unused-vars`) en `apps/backend/tests/integracion/classroom.v2.test.ts`.
   - **Gates Verificados:** Se ejecutó satisfactoriamente toda la suite de validación CI local: `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅, `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅, `npm run perf:check` ✅, `npm run pipeline:contract:check` ✅, `npm run test:sdd:policy` ✅, `npm run test:ia:traceability` ✅, confirmando total estabilización del sistema en la nueva arquitectura nativa.
 - Corte 2026-06-29 (listas institucionales, QA automatizada y release 1.1.0 Go):
@@ -215,28 +215,25 @@ gestiona instalación, reparación, actualización y desinstalación desde la PC
     - backend productivo ya no exige portal cloud cuando `EVALUAPRO_FLAVOR=docente-local` y `PORTAL_SYNC_REQUIRED=0`
     - Hub/verificador conservan fail-fast para stack local, pero portal/sync puede activarse al primer uso
     - Dashboard protege operaciones Hub/update de soporte con sesion step-up y allowlist local
-    - `npm run installer:docente:baseline` captura baseline repo/host para cortes de footprint y spike sin Docker
+    - `npm run installer:docente:baseline` captura el contrato y footprint del bundle docente
   - Installer Hub corrige la desalineación Burn/MSI para `docente-local`:
-    - `Product.wxs` ya no vuelve a disparar la `Launch Condition` host de Docker cuando Burn instala vía `REQUIRE_INSTALLER_HUB=1` / `BURNMSIINSTALL=1`
+    - `Product.wxs` ya no vuelve a disparar condiciones de host cuando Burn instala vía `REQUIRE_INSTALLER_HUB=1` / `BURNMSIINSTALL=1`
     - el bootstrapper WPF expone etapas visibles de instalación (`Detección`, `Remediación`, `Planificación`, `Ejecución MSI`, `Post-instalación`, `Finalización`)
     - en error MSI, la GUI publica paquete, código Windows y rutas de `Log MSI` / `Log BA` sin depender de que el operador lea la bitácora cruda
-  - Installer Hub migra `docente-local` a un modelo con runtime Windows embebido + runtime `WSL2` preparado:
-    - `Node.js` host queda como prerequisito obligatorio para `docente-local` con remediacion automatica en el Hub
-    - `config/installer-prereqs.manifest.json` mantiene `Node.js WSL2` y reincorpora `Node.js` host en el perfil docente
-    - `scripts/installer-burn/modules/PrereqDetector.psm1` y `PrereqInstaller.psm1` detectan/provisionan `Node 24` dentro de la distro `WSL2`
-    - `scripts/installer-burn/InstallerBurnHelper.ps1` deja listo `runtime/node/node.exe` como runtime privado local del producto
-    - `scripts/generate-installation-manifest.ps1` expone `runtime.embeddedNode` y `runtime.wsl`
-    - `packaging/wix/Product.wxs` deja de imponer `Launch Condition` global de `Node.js` para `docente-local`
+  - Installer Hub migra `docente-local` a un modelo de runtime nativo de Windows:
+    - `runtime/node/node.exe` se instala como runtime privado local del producto
+    - `scripts/generate-installation-manifest.ps1` expone el estado del runtime embebido
+    - `packaging/wix/Product.wxs` aplica las condiciones de prerequisitos propias de cada flavor
   - se agrega `env-doctor` dual (`wsl|windows|auto`) para preflight fail-fast de entorno operativo:
-    - valida `node>=24`, `npm`, Docker CLI/daemon, `docker compose` y accesibilidad de `wsl --status` en target Windows
+    - valida los requisitos de desarrollo del host Windows y las herramientas requeridas por los despliegues institucionales
     - nuevos comandos npm: `env:doctor:wsl`, `env:doctor:windows`, `env:doctor`
     - nueva prueba dedicada: `test:env:doctor`
-  - `docente-local` queda recortado a un stack minimo centralizado sobre `WSL2 + Docker`: `mongo_local`, `api_docente_prod`, `web_docente_prod`
+  - `docente-local` queda recortado a un runtime nativo local de Windows con SQLite y API/Web
   - `portal_alumno_cloud` deja de formar parte del criterio de salud/arranque del flavor docente y pasa a tratarse como integracion opcional
   - `scripts/launcher-dashboard.mjs`, `scripts/launcher-tray.ps1` y `scripts/launcher-broker.ps1` consumen `requireLocalPortal` para no autoarrancar ni exigir `portal` en `docente-local`
   - los accesos directos quedan centralizados en Installer Hub; dashboard, broker y reparación dejan de regenerarlos fuera del flujo de instalación/reparación del Hub
-  - `docker-compose.yml` mueve `mongo_express_local` al profile `support`
-  - `config/installer-flavors.json`, `config/installer-prereqs.manifest.json` y `scripts/generate-installation-manifest.ps1` publican el contrato `requireLocalPortal=false` y `runtimeTarget=wsl2-docker-minimal`
+  - las herramientas de diagnóstico institucional quedan fuera de la ruta docente predeterminada
+  - `config/installer-flavors.json`, `config/installer-prereqs.manifest.json` y `scripts/generate-installation-manifest.ps1` publican el contrato `requireLocalPortal=false` y `runtimeTarget=native-node-sqlite`
   - validacion del corte en este entorno:
     - `node --test scripts/tests/installer-hub-contract.test.mjs` bloqueado: `node: command not found`
     - `node --test scripts/tests/windows-release-smoke.test.mjs` bloqueado: `node: command not found`

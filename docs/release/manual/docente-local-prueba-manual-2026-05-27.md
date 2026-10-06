@@ -4,10 +4,9 @@ Objetivo: ejecutar una prueba manual docente sobre el Installer Hub `docente-loc
 
 ## Precondiciones
 - Instalar desde `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v1.0.0.exe`.
-- Runtime esperado: `WSL2 + Ubuntu + Docker Engine`.
-- Stack minimo sano: `mongo_local`, `api_docente_prod`, `web_docente_prod`.
+- Runtime esperado: Node.js embebido en Windows, API/Web locales y SQLite.
+- Verificar que Installer Hub complete la inicializacion local antes de abrir la UI.
 - URL docente: `http://localhost:4173`.
-- No usar Docker Desktop salvo soporte explicito con `EVALUAPRO_DOCKER_RUNTIME=desktop`.
 
 ## Datos minimos
 - 1 docente activo.
@@ -49,4 +48,4 @@ Objetivo: ejecutar una prueba manual docente sobre el Installer Hub `docente-loc
 
 ## Go/No-Go
 - `GO` para piloto manual: todos los pasos anteriores completos sin error bloqueante y con evidencia guardada.
-- `NO-GO`: fallo de login, generacion, descarga/impresion PDF, calificacion o runtime minimo.
+- `NO-GO`: fallo de login, generacion, descarga/impresion PDF, calificacion o runtime local.

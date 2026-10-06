@@ -22,7 +22,7 @@ Version visible vigente: `1.1.1`
 - **Modernización Integral de Landing Page (GitHub Pages):**
   - Despliegue exitoso en `https://dtcsrni.github.io/EvaluaPro_Sistema_Universitario/` con arquitectura Bento Elevation, orbe zafiro, simulador OMR interactivo y showcase de las 3 pestañas del Estudio de Diseño de Exámenes (`SPEC-034`).
 - **Reestructuración y Saneamiento de READMEs y Stack:**
-  - Eliminación definitiva de referencias a MongoDB/MERN y Docker en el flujo docente en favor de **SQLite nativo offline-first con Prisma ORM**.
+  - El flujo docente usa **SQLite nativo offline-first con Prisma ORM**.
   - Modernización visual institucional de `README.md`, `apps/backend/README.md`, `apps/frontend/README.md`, `apps/portal_alumno_cloud/README.md` y `docs/README.md`.
 - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (206 tests), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run ci:policy:audit` ✅ (36 specs SDD auditadas 100% en verde).
 
@@ -96,7 +96,7 @@ Version visible vigente: `1.1.1`
 
 #### 2.1) Footprint y clasificacion del corte 2026-06-30
 - Estabilización y Validación de Arquitectura Nativa Docente-Local 2026-06-30:
-  - Desacople completo de la orquestación legacy basada en Docker/WSL para el perfil `docente-local`.
+  - Desacople completo del runtime docente-local respecto de servicios institucionales de servidor.
   - Refactorización de las pruebas de contrato del instalador (`scripts/tests/installer-hub-contract.test.mjs`) para evaluar el nuevo flujo de instalación nativo soportado por `InstallerBurnHelper.ps1`, ignorando aserciones obsoletas de WSL y contenedores.
   - Resolución de linter en pruebas de integración de backend (`classroom.v2.test.ts`) para limpiar variables no usadas.
   - Pase exitoso de la matriz global de calidad de CI: lint, typecheck, tests frontend/backend/portal, cobertura TDD, perf, contratos de pipeline, políticas SDD (`test:sdd:policy`) y trazabilidad IA (`test:ia:traceability`).
@@ -245,18 +245,18 @@ Version visible vigente: `1.1.1`
 - Estabilizacion V1.0 2026-05-21:
   - ruleset remoto `main-v1b-minimo` activo para `main` con Pull Request obligatorio y required check minimo `Verificaciones Core (PR bloqueante)`
   - el lote S1 saca del arbol activo evidencia UI regenerable de Installer Hub y el wrapper QA OMR fuera del manifest contractual
-  - `docker-compose.yml` deja de usar tags `latest` para MongoDB y Mongo Express en el stack local
+  - el stack institucional fija versiones de MongoDB y herramientas de diagnóstico para sus despliegues locales
 - Recorte `docente-local` 2026-04-08:
   - corte Lite 2026-05-20:
     - instalacion minima docente difiere portal/sync e integraciones no criticas mediante `EVALUAPRO_FLAVOR=docente-local` + `PORTAL_SYNC_REQUIRED=0`
     - Dashboard concentra operaciones Hub/update sensibles tras step-up local y allowlist de soporte
-    - `npm run installer:docente:baseline` deja evidencia no destructiva para comparar footprint antes de topologia compacta o spike sin Docker
+    - `npm run installer:docente:baseline` deja evidencia no destructiva del bundle docente y sus límites de footprint
   - se corrige la desalineación entre prerequisitos validados por Burn y `Launch Conditions` del MSI:
-    - `docente-local` ya no debe fallar con `1603/0x80070643` por revalidación host de Docker cuando Burn ya aprobó `WSL2 + Docker`
+    - `docente-local` ya no debe fallar con `1603/0x80070643` al repetir validaciones de host completadas por Burn
     - el Installer Hub WPF agrega timeline explícito de etapas y resumen visual de error MSI para no depender solo de la bitácora
   - Installer Hub asume preparacion dual del runtime para `docente-local`:
     - Windows usa `Node` embebido privado del producto para launcher/dashboard/tray
-    - `WSL2` queda como runtime operativo del stack con `Docker Engine + Node 24`
+    - Windows ejecuta localmente el runtime operativo con Node embebido, API/Web y SQLite
     - `Node.js` host global vuelve a declararse prerequisito obligatorio en `docente-local` con remediacion automatica dentro del Hub
     - `installation.manifest.json` ahora expone `runtime.embeddedNode` y `runtime.wsl`
   - se incorpora `env-doctor` dual para diagnostico operacional estricto por entorno:
@@ -264,11 +264,11 @@ Version visible vigente: `1.1.1`
     - `env:doctor:windows` para build/smoke del instalador en host Windows
     - `env:doctor` como selector automatico por plataforma
     - contrato de salida estable (`ok`, `target`, `checks`, `failures`, `warnings`) y exit code bloqueante si hay fallos criticos
-  - el flavor docente local se declara como stack minimo centralizado en `WSL2 + Docker`
-  - componentes obligatorios del flavor: `mongo_local`, `api_docente_prod`, `web_docente_prod`
+  - el flavor docente local se declara como runtime nativo centralizado en Windows
+  - componentes obligatorios del flavor: runtime Node embebido, API/Web locales y SQLite
   - `portal_alumno_cloud` deja de contarse como servicio local obligatorio y pasa a integracion opcional
-  - `mongo_express_local` sale del perfil por defecto y queda reservado a soporte/diagnostico mediante profile `support`
-  - el contrato publico de instalacion expone `requireLocalPortal=false` y `runtimeTarget=wsl2-docker-minimal`
+  - las herramientas de diagnóstico institucional quedan reservadas al perfil de soporte
+  - el contrato público de instalación expone `requireLocalPortal=false` y `runtimeTarget=native-node-sqlite`
 - Migración Installer Hub Burn 2026-04-03:
   - `EvaluaPro-InstallerHub-<flavor>.exe` pasa a generarse desde `WiX Burn` con BA personalizada `WPF .NET 8`
   - nuevo helper `scripts/installer-burn/InstallerBurnHelper.ps1` reutiliza módulos headless de prerequisitos, configuración operativa, verificación y licencia
@@ -454,7 +454,7 @@ Version visible vigente: `1.1.1`
 - Sin rutas productivas `v2`.
 - Sin archivos de rollout/adopcion retirados.
 - Sin servicio PDF antiguo en runtime.
-- Docker runtime docente adelgazado:
+- Runtime institucional de servidor adelgazado:
   - backend multistage sin toolchain de compilacion en runtime
   - runtime backend aislado al workspace `apps/backend`
   - Playwright instalado con `chromium --no-shell` y binario estable expuesto para PDF exacto

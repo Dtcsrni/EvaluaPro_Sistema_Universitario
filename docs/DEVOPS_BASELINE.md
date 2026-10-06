@@ -3,17 +3,17 @@
 Fecha de baseline: 2026-02-13.
 
 ## Topología operativa (local + cloud mínimo)
-1. Local docente (Docker Compose):
-- Windows default: `WSL2 + Docker Engine`.
-- Compatibilidad opcional: `Docker Desktop`.
+1. Runtime docente local:
+- Windows nativo con Node.js embebido, API/Web locales y SQLite.
+2. Servicios institucionales en Compose:
 - `mongo_local`
 - `api_docente_local`
 - `web_docente_local`
 - `mongo_express_local` (opcional)
-2. Perfil prod local:
+3. Perfil institucional prod:
 - `api_docente_prod`
 - `web_docente_prod`
-3. Cloud mínimo:
+4. Cloud mínimo:
 - `apps/portal_alumno_cloud` desplegable en servicio gestionado.
 
 ## Entrega y verificación

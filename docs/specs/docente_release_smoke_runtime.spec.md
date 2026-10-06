@@ -15,7 +15,7 @@ El flavor `docente-local` debe instalar un runtime nativo ligero y verificable. 
 ## Requisitos Funcionales
 
 - REQ-001: El smoke debe verificar que `docente-local` declara `native-node-sqlite` como runtime objetivo.
-- REQ-002: El smoke debe comprobar manifest, shortcuts y control plane sin depender de Docker/WSL2.
+- REQ-002: El smoke debe comprobar el manifiesto, los accesos directos y el plano de control en el runtime nativo de Windows.
 - REQ-003: El smoke debe conservar una expectativa explícita de estado operativo para detectar regresiones de bundle.
 - REQ-004: La UX docente debe respetar el contrato visual de radios contenidos y matriz canónica de pantallas.
 - REQ-005: El E2E local debe crear cuentas dummy, tres materias y tres alumnos, y recorrer el ciclo docente completo con datos aislados y eliminables.
@@ -27,7 +27,7 @@ El flavor `docente-local` debe instalar un runtime nativo ligero y verificable. 
 ## Criterios de Aceptación
 
 - El test `windows-release-smoke` pasa contra el bundle docente generado por `origin/main`.
-- Ninguna aserción del smoke docente exige `wsl2-docker-minimal`.
+- La validación comprueba el runtime Node/SQLite local declarado por el flavor.
 - La validación mantiene cobertura de manifest, runtime embebido, shortcuts y `/api/status`.
 - El contrato visual y la matriz de pantallas pasan sin radios oversized ni pantallas omitidas.
 - El runner local produce evidencia de las cuentas, materias y alumnos dummy y valida install, operación, navegación, persistencia y uninstall.
@@ -137,7 +137,7 @@ será modificada o desinstalada.
 
 ### REQ-021 - Runtime nativo autocontenido y ligero
 
-El flavor docente-local no debe depender de `npm`, Vite, Docker, VM ni
+El flavor docente-local no debe depender de `npm`, Vite, máquinas virtuales ni
 dependencias de desarrollo en tiempo de ejecución. El launcher debe ejecutar
 el backend compilado con el Node embebido y servir el build docente mediante un
 servidor HTTP estático nativo, con fallback SPA y protección contra traversal.
