@@ -12,6 +12,7 @@ export type PerfilGoogle = {
   correo: string;
   sub: string;
   nombreCompleto?: string;
+  imagenPerfil?: string;
 };
 
 let client: OAuth2Client | null = null;
@@ -53,6 +54,9 @@ export async function verificarCredencialGoogle(credential: string): Promise<Per
   return {
     correo: correoFinal,
     sub: String(sub),
-    nombreCompleto: typeof payload?.name === 'string' ? payload.name : undefined
+    nombreCompleto: typeof payload?.name === 'string' ? payload.name : undefined,
+    imagenPerfil: typeof payload?.picture === 'string' && payload.picture.startsWith('https://')
+      ? payload.picture
+      : undefined
   };
 }

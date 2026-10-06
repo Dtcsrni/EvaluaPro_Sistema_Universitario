@@ -76,6 +76,26 @@ describe('SeccionCuenta', () => {
     expect(screen.getByDisplayValue('Excelencia y Rigor')).toBeInTheDocument();
   });
 
+  it('vuelve al avatar genérico si la foto vinculada a la cuenta no carga', () => {
+    const { container } = renderConOAuth(
+      <SeccionCuenta
+        docente={{ ...docenteMock, id: 'doc-1', imagenPerfil: 'https://cuenta.example/foto.png' }}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+        oauthGoogleDisponible={true}
+        smtpDisponible={true}
+        requireGoogleOAuth={false}
+      />
+    );
+
+    const imagen = container.querySelector('.cuenta-foto-perfil__avatar img');
+    expect(imagen).not.toBeNull();
+    fireEvent.error(imagen!);
+    expect(container.querySelector('.cuenta-foto-perfil__avatar img')).toBeNull();
+    expect(container.querySelector('.cuenta-foto-perfil__avatar .icono')).not.toBeNull();
+  });
+
   it('guarda la foto elegida solo en el equipo y permite retirarla', async () => {
     renderConOAuth(
       <SeccionCuenta

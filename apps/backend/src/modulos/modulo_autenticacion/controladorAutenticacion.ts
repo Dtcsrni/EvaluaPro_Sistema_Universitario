@@ -237,6 +237,7 @@ export async function registrarDocenteGoogle(req: Request, res: Response) {
       where: { id: existente.id },
       data: {
         googleSub: perfil.sub,
+        ...(perfil.imagenPerfil ? { imagenPerfil: perfil.imagenPerfil } : {}),
         roles: JSON.stringify(rolesFinales),
         ultimoAcceso: new Date()
       }
@@ -264,6 +265,7 @@ export async function registrarDocenteGoogle(req: Request, res: Response) {
       correo,
       hashContrasena,
       googleSub: perfil.sub,
+      imagenPerfil: perfil.imagenPerfil,
       roles: JSON.stringify(roles),
       activo: true,
       ultimoAcceso: new Date()
@@ -329,6 +331,7 @@ export async function ingresarDocenteGoogle(req: Request, res: Response) {
     where: { id: docente.id },
     data: {
       googleSub: perfil.sub,
+      ...(perfil.imagenPerfil ? { imagenPerfil: perfil.imagenPerfil } : {}),
       roles: JSON.stringify(rolesFinales),
       ultimoAcceso: new Date()
     }
@@ -591,6 +594,7 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
       id: docente.id,
       nombreCompleto: docente.nombreCompleto,
       correo: docente.correo,
+      imagenPerfil: docente.imagenPerfil || undefined,
       roles,
       permisos: permisosComoLista(roles),
       tieneContrasena: Boolean(docente.hashContrasena),

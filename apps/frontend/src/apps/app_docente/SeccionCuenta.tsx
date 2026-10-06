@@ -60,6 +60,8 @@ export function SeccionCuenta({
   const [credentialReauth, setCredentialReauth] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState('');
   const [fotoPerfilLocal, setFotoPerfilLocal] = useState(() => obtenerFotoPerfilLocal(docente.id));
+  const [fotoCuentaFallida, setFotoCuentaFallida] = useState(false);
+  const [fotoLocalFallida, setFotoLocalFallida] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [regenerandoAccesos, setRegenerandoAccesos] = useState(false);
 
@@ -89,6 +91,7 @@ export function SeccionCuenta({
   const versionActual = obtenerVersionTecnicaApp();
   const fotoPerfilCuenta = String(docente.imagenPerfil || '').trim();
   const tieneFotoPerfilCuenta = /^(https:\/\/|data:image\/(?:png|jpeg|webp);base64,)/i.test(fotoPerfilCuenta);
+  const mostrarFotoCuenta = tieneFotoPerfilCuenta && !fotoCuentaFallida;
 
   function seleccionarFotoPerfil(archivo?: File) {
     if (!archivo) return;
@@ -106,6 +109,7 @@ export function SeccionCuenta({
       try {
         guardarFotoPerfilLocal(docente.id, dataUrl);
         setFotoPerfilLocal(dataUrl);
+        setFotoLocalFallida(false);
         setMensaje('La foto de perfil se guardó en este equipo.');
         window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
           detail: { docenteId: docente.id, foto: dataUrl }
@@ -122,6 +126,7 @@ export function SeccionCuenta({
     try {
       eliminarFotoPerfilLocal(docente.id);
       setFotoPerfilLocal(null);
+      setFotoLocalFallida(false);
       setMensaje('La foto local se retiró; se mostrará el avatar docente predeterminado.');
       window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
         detail: { docenteId: docente.id, foto: null }
@@ -468,10 +473,10 @@ export function SeccionCuenta({
 
       <section className="cuenta-foto-perfil" aria-labelledby="cuenta-foto-perfil-titulo">
         <div className="cuenta-foto-perfil__avatar" aria-hidden="true">
-          {tieneFotoPerfilCuenta
-            ? <img src={fotoPerfilCuenta} alt="" />
-            : fotoPerfilLocal
-              ? <img src={fotoPerfilLocal} alt="" />
+          {mostrarFotoCuenta
+            ? <img src={fotoPerfilCuenta} alt="" onError={() => setFotoCuentaFallida(true)} />
+            : fotoPerfilLocal && !fotoLocalFallida
+              ? <img src={fotoPerfilLocal} alt="" onError={() => setFotoLocalFallida(true)} />
               : <Icono nombre="cuenta" size={30} />}
         </div>
         <div className="cuenta-foto-perfil__contenido">
