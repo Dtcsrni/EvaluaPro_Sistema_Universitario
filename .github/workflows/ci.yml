@@ -643,7 +643,7 @@ jobs:
           path: reports/qa/latest
 
   verificaciones_ext:
-    name: Verificaciones Extendidas (PR/Main/Release)
+    name: Verificaciones Extendidas (Main/Release)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs:
