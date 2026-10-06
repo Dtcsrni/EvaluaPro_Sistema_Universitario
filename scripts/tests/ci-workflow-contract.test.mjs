@@ -264,7 +264,8 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
     'ci-portal.yml',
     'ci-docs.yml',
     'ci-antivirus-gate.yml',
-    'ci-policy-audit.yml'
+    'ci-policy-audit.yml',
+    'ci-docker-backend.yml'
   ];
 
   for (const workflowName of readOnlyWorkflows) {
