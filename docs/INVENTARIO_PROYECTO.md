@@ -401,7 +401,6 @@ Version visible vigente: `1.1.1`
 
 ## 5) CI workflows
 - `CI Checks`: core + extended
-- `CI Docker Backend`: build completo, local y sin publicación de la imagen backend para PR que cambien entradas relevantes del Dockerfile
 - `CI Frontend Module`: frontend aislado
 - `Package Images`: empaquetado Docker
 - `Release Beta`: prerelease automatica beta tras CI completo si el diff es significativo
