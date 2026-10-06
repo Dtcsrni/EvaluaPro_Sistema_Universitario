@@ -198,8 +198,13 @@ test('release stable gate expone GH_TOKEN para gh cli', () => {
 test('E2E del release draft delimita variable PowerShell seguida de dos puntos', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const draftAssetBlock = workflow.match(/id: draft_asset[\s\S]*?run:\s*\|([\s\S]*?)(?=\n\s{6}- name:)/)?.[1] ?? '';
+  const draftAssetJob = workflow.match(/post_publish_installer_e2e:[\s\S]*?(?=\n  [a-z][a-z0-9_]+:|$)/)?.[0] ?? '';
 
   assert.ok(draftAssetBlock, 'falta el bloque de verificación del asset draft');
+  assert.match(draftAssetJob, /RELEASE_ID:\s*\$\{\{\s*needs\.publish_installer_release\.outputs\.release_id\s*\}\}/);
+  assert.match(draftAssetBlock, /gh api "repos\/\$repository\/releases\/\$releaseId"/);
+  assert.match(draftAssetBlock, /\$release\.tag_name -ne \$tag -or -not \$release\.draft/);
+  assert.doesNotMatch(draftAssetBlock, /releases\?per_page=/);
   assert.match(draftAssetBlock, /\$\{candidateName\}:/);
   assert.doesNotMatch(draftAssetBlock, /\$candidateName:/);
 });
