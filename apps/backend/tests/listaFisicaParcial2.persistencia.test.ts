@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
 import { guardarCalificacionLista } from '../src/modulos/modulo_analiticas/controladorAnaliticas.js';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 
 const docenteId = '11111111-1111-4111-8111-111111111111';
 const otroDocenteId = '33333333-3333-4333-8333-333333333333';
@@ -19,9 +19,9 @@ function solicitud(payload: Record<string, unknown>, quien = docenteId) {
 }
 
 describe('persistencia de componentes manuales de la lista física', () => {
-  beforeAll(async () => { await conectarMongoTest(); });
+  beforeAll(async () => { await conectarSqliteTest(); });
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     await prisma.docente.createMany({ data: [
       { id: docenteId, correo: 'lista-docente@prueba.test', nombreCompleto: 'Docente Lista' },
       { id: otroDocenteId, correo: 'lista-otro@prueba.test', nombreCompleto: 'Otro Docente' }
@@ -34,7 +34,7 @@ describe('persistencia de componentes manuales de la lista física', () => {
       id: alumnoId, periodoId, matricula: 'MAT-01', nombreCompleto: 'Alumno Prueba', correo: 'alumno@prueba.test'
     } });
   });
-  afterAll(async () => { await cerrarMongoTest(); });
+  afterAll(async () => { await cerrarSqliteTest(); });
 
   it('crea, actualiza con versionado, audita y rechaza una escritura obsoleta o ajena', async () => {
     const payload = { periodoId, alumnoId, componente: 'Practica 2do Parcial', calificacion: 8.5 };

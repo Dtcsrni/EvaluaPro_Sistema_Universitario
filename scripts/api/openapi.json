@@ -19250,6 +19250,158 @@
           }
         ]
       }
+    },
+    "/autenticacion/preferencias/retencion-parciales": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_preferencias_retencion_parciales",
+        "summary": "POST /autenticacion/preferencias/retencion-parciales",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-permissions": [
+          "cuenta:actualizar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaActualizarRetencionParciales"
+        ]
+      }
+    },
+    "/analiticas/lista-academica/resultados-extra-externos": {
+      "post": {
+        "tags": [
+          "Analíticas"
+        ],
+        "operationId": "post_analiticas_lista_academica_resultados_extra_externos",
+        "summary": "POST /analiticas/lista-academica/resultados-extra-externos",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts",
+        "x-evaluapro-permissions": [
+          "calificaciones:calificar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaRegistrarResultadoExtraExterno"
+        ]
+      }
     }
   },
   "components": {

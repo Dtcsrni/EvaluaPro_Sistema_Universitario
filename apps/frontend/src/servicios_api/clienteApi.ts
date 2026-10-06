@@ -91,7 +91,7 @@ export function crearClienteApi() {
     })
   });
 
-  type RequestOptions = { timeoutMs?: number };
+  type RequestOptions = { timeoutMs?: number; headers?: Record<string, string> };
 
   let refreshEnCurso: Promise<string | null> | null = null;
 

@@ -113,7 +113,7 @@ export const esquemaCrearPlantilla = z
     tipo: z.enum(['parcial', 'global']),
     titulo: esquemaTitulo,
     instrucciones: esquemaInstrucciones.optional(),
-    numeroPaginas: z.number().int().positive().max(50),
+    numeroPaginas: z.number().int().positive().max(50).optional(),
     reactivosObjetivo: z.number().int().positive().max(200).optional(),
     defaultVersionCount: z.number().int().positive().max(12).optional(),
     answerKeyMode: z.enum(['digital', 'scan_sheet']).optional(),

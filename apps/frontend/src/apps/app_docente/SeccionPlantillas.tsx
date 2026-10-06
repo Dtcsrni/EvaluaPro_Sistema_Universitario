@@ -23,6 +23,7 @@ import {
   type ExamenGeneradoResumen
 } from './features/plantillas/hooks/usePlantillasGeneradosActions';
 import { usePlantillasOmrActions } from './features/plantillas/hooks/usePlantillasOmrActions';
+import { usePlantillasArchivadasGeneracion } from './features/plantillas/hooks/usePlantillasArchivadasGeneracion';
 import {
   usePlantillasPreviewActions,
   type PreviewPdfPage,
@@ -91,6 +92,7 @@ function leerTabPlantillasInicial(): TabPlantillas {
 export function SeccionPlantillas({
   plantillas,
   periodos,
+  periodosArchivados = [],
   preguntas,
   alumnos,
   permisos,
@@ -111,6 +113,7 @@ export function SeccionPlantillas({
 }: {
   plantillas: Plantilla[];
   periodos: Periodo[];
+  periodosArchivados?: Periodo[];
   preguntas: Pregunta[];
   alumnos: Alumno[];
   permisos: PermisosUI;
@@ -146,13 +149,14 @@ export function SeccionPlantillas({
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
   const [periodoId, setPeriodoId] = useState('');
-  const [numeroPaginas, setNumeroPaginas] = useState(2);
+  const [numeroPaginas, setNumeroPaginas] = useState(preferenciasPdf?.paginasPorTipo?.parcial ?? 2);
   const [reactivosObjetivo, setReactivosObjetivo] = useState(20);
   const [logoIzquierda, setLogoIzquierda] = useState(preferenciasPdf?.logos?.izquierdaPath ?? '');
   const [logoDerecha, setLogoDerecha] = useState(preferenciasPdf?.logos?.derechaPath ?? '');
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
   const [examTemplateId, setExamTemplateId] = useState<'omr-canonical-v4' | 'omr-inline-exam-v1'>('omr-canonical-v4');
   const [mensaje, setMensaje] = useState('');
+
   const [plantillaId, setPlantillaId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
   const [lotePdfUrl, setLotePdfUrl] = useState<string | null>(null);
@@ -195,6 +199,11 @@ export function SeccionPlantillas({
   const [generandoLote, setGenerandoLote] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [plantillaEditandoId, setPlantillaEditandoId] = useState<string | null>(null);
+  useEffect(() => {
+    if (modoEdicion) return;
+    const paginasPredeterminadas = preferenciasPdf?.paginasPorTipo?.[tipo] ?? (tipo === 'global' ? 4 : 2);
+    setNumeroPaginas(paginasPredeterminadas);
+  }, [modoEdicion, preferenciasPdf?.paginasPorTipo, tipo]);
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
   const [archivandoPlantillaId, setArchivandoPlantillaId] = useState<string | null>(null);
   const [filtroPlantillas, setFiltroPlantillas] = useState('');
@@ -208,6 +217,11 @@ export function SeccionPlantillas({
   const puedeAnalizarOmr = permisos.omr.analizar;
   const puedeGestionarPlantillas = permisos.plantillas.gestionar;
   const puedeArchivarPlantillas = permisos.plantillas.archivar;
+  const plantillasArchivadasGeneracion = usePlantillasArchivadasGeneracion(
+    tabActiva === 'generacion' && permisos.plantillas.leer,
+    periodosArchivados,
+    setMensajeGeneracion
+  );
   const puedePrevisualizarPlantillas = permisos.plantillas.previsualizar;
   const bloqueoEdicion = !puedeGestionarPlantillas;
 
@@ -241,8 +255,8 @@ export function SeccionPlantillas({
   }, []);
 
   const plantillaSeleccionada = useMemo(() => {
-    return (Array.isArray(plantillas) ? plantillas : []).find((p) => p._id === plantillaId) ?? null;
-  }, [plantillas, plantillaId]);
+    return [...plantillas, ...plantillasArchivadasGeneracion].find((p) => p._id === plantillaId) ?? null;
+  }, [plantillas, plantillasArchivadasGeneracion, plantillaId]);
 
   const plantillaEditando = useMemo(() => {
     if (!plantillaEditandoId) return null;
@@ -678,8 +692,9 @@ export function SeccionPlantillas({
     },
     [avisarSinPermiso, cargarExamenesGenerados, confirm, enviarConPermiso, puedeArchivarExamenes, restaurandoLoteId, setMensajeGeneracion]
   );
-  const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
+  const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla, previsualizarPdfConfirmado } =
     usePlantillasPreviewActions({
+      paginasExtraordinarioObjetivo: preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4,
       puedePrevisualizarPlantillas,
       avisarSinPermiso,
       previewPorPlantillaId,
@@ -854,7 +869,7 @@ export function SeccionPlantillas({
     setTitulo('');
     setTipo('parcial');
     setPeriodoId('');
-    setNumeroPaginas(2);
+    setNumeroPaginas(preferenciasPdf?.paginasPorTipo?.parcial ?? 2);
     setReactivosObjetivo(20);
     setLogoIzquierda(preferenciasPdf?.logos?.izquierdaPath ?? '');
     setLogoDerecha(preferenciasPdf?.logos?.derechaPath ?? '');
@@ -1300,7 +1315,10 @@ export function SeccionPlantillas({
       if (loteRespuesta.toUpperCase() !== loteCliente.toUpperCase()) {
         throw new Error('El servidor respondió con otro identificador de lote. No se marcará como listo.');
       }
-      validarResumenLoteGenerado(payload ?? {}, totalAlumnos, Number(plantillaSeleccionada?.numeroPaginas ?? 0));
+      const paginasMaximasPorExamen = tipoExamen === 'extraordinario' && Boolean(plantillaSeleccionada?.archivadoEn)
+        ? preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4
+        : Number(plantillaSeleccionada?.numeroPaginas ?? 0);
+      validarResumenLoteGenerado(payload ?? {}, totalAlumnos, paginasMaximasPorExamen);
       await consultarProgreso(loteRespuesta);
       setProgresoLoteGeneracion({
         loteId: loteRespuesta,
@@ -1346,12 +1364,18 @@ export function SeccionPlantillas({
     puedeGenerarExamenes,
     progresoLoteGeneracion,
     setMensajeGeneracion,
+    preferenciasPdf?.paginasPorTipo?.extraordinario
   ]);
 
   const formularioPlantilla = (
     <PlantillasFormulario
       modoEdicion={modoEdicion}
       plantillaEditando={plantillaEditando}
+      tipo={tipo}
+      onTipoChange={(siguienteTipo) => {
+        setTipo(siguienteTipo);
+        setNumeroPaginas(preferenciasPdf?.paginasPorTipo?.[siguienteTipo] ?? (siguienteTipo === 'global' ? 4 : 2));
+      }}
       examTemplateId={examTemplateId}
       setExamTemplateId={setExamTemplateId}
       titulo={titulo}
@@ -1584,20 +1608,22 @@ export function SeccionPlantillas({
           <PlantillasConsolaGeneracion
             plantillaId={plantillaId}
             setPlantillaId={setPlantillaId}
-            plantillas={plantillas}
+            plantillas={[...plantillas, ...plantillasArchivadasGeneracion]}
             alumnos={alumnos}
             generando={generando}
             puedeGenerar={puedeGenerar}
             onGenerarExamen={generarExamen}
             generandoLote={generandoLote}
             plantillaSeleccionada={plantillaSeleccionada}
-            periodos={periodos}
+            periodos={[...periodos, ...periodosArchivados]}
             puedeGenerarExamenes={puedeGenerarExamenes}
             onGenerarExamenesLote={generarExamenesLote}
             mensajeGeneracion={mensajeGeneracion}
             lotePdfUrl={lotePdfUrl}
             descargarPdfLote={descargarPdfLote}
             progresoLoteGeneracion={progresoLoteGeneracion}
+            onPrevisualizarExtraordinario={previsualizarPdfConfirmado}
+            paginasExtraordinarioDefault={preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4}
             onIrAHistorial={() => cambiarTab('historial')}
           />
         </div>

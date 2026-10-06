@@ -61,9 +61,10 @@ export function usePermisosDocente(docente: Docente | null) {
   const esAdmin = Boolean(docente?.roles?.includes('admin'));
   const permisosDocente = useMemo(() => new Set(docente?.permisos ?? []), [docente?.permisos]);
   const puede = useCallback((permiso: string) => {
+    if (esAdmin) return true;
     if (permisosDocente.has(permiso)) return true;
     return PERMISOS_GESTION_BANCO_COMPATIBLES.has(permiso) && permisosDocente.has('banco:gestionar');
-  }, [permisosDocente]);
+  }, [esAdmin, permisosDocente]);
   const permisoRecuperacion =
     puede('omr:rehidratar_lotes') ||
     puede('omr:rehidratar_lote') ||

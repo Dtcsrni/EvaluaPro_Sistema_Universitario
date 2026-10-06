@@ -20,8 +20,8 @@ Portal:
 2. Verificar logs:
 - backend/portal en formato JSON con `requestId`.
 3. Comprobar readiness:
-- Si `ready` da 503, validar conectividad MongoDB.
-- Campo estandar: `dependencies.mongodb` (`status`, `ready`, `state`, `description`).
+- Si `ready` da 503, validar la conectividad a la base configurada (`DATABASE_URL`).
+- Campo estandar: `dependencies.db` (`status`, `ready`, `state`, `description`).
 
 ### Arranque estable local (Windows)
 1. Ejecutar acceso directo:
@@ -33,7 +33,7 @@ Portal:
 3. Verificacion:
 - backend: `GET /api/salud/live`
 - frontend docente disponible en `http://localhost:4173`
-- MongoDB local accesible por el stack Docker
+- base de datos configurada accesible (`DATABASE_URL` o `BACKEND_DATABASE_URL`)
 
 ### Reparar instalacion desde Dashboard
 1. Abrir pestaña `Configuración`.
@@ -70,7 +70,7 @@ Alcance de la reparación v1:
    - chain `MSI` controlado por Burn,
    - helper post-install para `.env`, `update-config.json`, verificacion final y blindaje local de licencia.
    - no existe ya una variante soportada `PowerShell WinForms`; el bundle Burn es la unica entrada valida.
-   - el stack minimo del flavor es `mongo_local + api_docente_prod + web_docente_prod`; portal local no requerido.
+   - el stack minimo del flavor es `api_docente_prod + web_docente_prod`; portal local no requerido.
    - `Node.js 24` host en Windows forma parte del prerequisito obligatorio y se remedia automaticamente dentro del flujo del Hub.
 4. Criterio de integridad:
    - `EvaluaPro-release-manifest.json` y los `.sha256` publicados coinciden con los artefactos locales.

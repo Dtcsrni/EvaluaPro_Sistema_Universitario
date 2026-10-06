@@ -5,7 +5,7 @@ Adaptadores de infraestructura del backend (IO, base de datos, logging, segurida
 Ruta: `apps/backend/src/infraestructura/baseDatos`.
 
 ## Archivos clave
-- `mongoose.ts`
+- `sqlite.ts`: cliente Prisma con adaptador SQLite y ruta de persistencia local.
 
 ## Reglas de mantenimiento
 - Mantener cambios pequeños y trazables con pruebas/validación asociada.

@@ -12,22 +12,22 @@ import {
   reconstruirDesdeManifest,
   verificarArtifactsRecuperacion
 } from '../../src/modulos/modulo_recuperacion_examenes/servicioRecuperacionExamenes.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { crearPreguntasPublicadas } from './_reactivosHelper.js';
 
 describe('recuperacion de examenes', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function prepararEscenarioBase() {

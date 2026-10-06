@@ -404,7 +404,10 @@ pm run api:contract:check`.
   bono único con prioridad Global/C3, P2 y P1, con evaluación continua antes que
   examen dentro de cada corte; el preview devuelve los seis destinos de asignación y
   la GUI muestra los importes no nulos antes de confirmar. El preview no modifica calificaciones ni evidencias,
-  y el guardado requiere confirmación explícita, versión y clave idempotente; y (d)
+  todo guardado requiere un `clientRequestId` UUID (su ausencia se rechaza en API), y las actualizaciones requieren
+  además la versión vigente. Repetir la clave con payload idéntico devuelve el resultado original sin incrementar
+  versión ni duplicar auditoría; reutilizarla con otro payload devuelve 409. La escritura requiere confirmación
+  explícita; y (d)
   la lectura posterior a la ejecución en la lista académica y su exportación. La
   vista previa, cálculo de final ponderado y fórmulas del XLSX se verifican en
   pruebas focales. La inspección de la lista institucional vigente y la ejecución

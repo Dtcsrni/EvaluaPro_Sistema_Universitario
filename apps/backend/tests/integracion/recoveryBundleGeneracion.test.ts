@@ -17,21 +17,21 @@ import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/
 import { verificarRecoveryBundle, verificarRecoveryManifest } from '../../src/modulos/modulo_generacion_pdf/domain/recoveryManifest.js';
 import { resolverRutaPdfExamen } from '../../src/infraestructura/archivos/almacenLocal.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('generación PDF: recovery manifest y bundle', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function prepararEscenarioBase() {

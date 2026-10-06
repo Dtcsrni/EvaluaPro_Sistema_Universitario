@@ -24,7 +24,6 @@ describe('configuracion (produccion)', () => {
   it('falla si faltan variables criticas del portal cloud en production', async () => {
     process.env.NODE_ENV = 'production';
     process.env.JWT_SECRETO = 'secret';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/evaluapro';
     process.env.CORS_ORIGENES = 'https://docente.example.com';
     delete process.env.PORTAL_ALUMNO_URL;
     delete process.env.PORTAL_ALUMNO_API_KEY;
@@ -35,7 +34,6 @@ describe('configuracion (produccion)', () => {
   it('usa production cuando NODE_ENV no se declara', async () => {
     delete process.env.NODE_ENV;
     process.env.JWT_SECRETO = 'secret';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/evaluapro';
     process.env.CORS_ORIGENES = 'https://docente.example.com';
     process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';
 
@@ -49,7 +47,6 @@ describe('configuracion (produccion)', () => {
     process.env.NODE_ENV = 'production';
     process.env.EVALUAPRO_FLAVOR = 'docente-local';
     process.env.JWT_SECRETO = 'secret';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/evaluapro';
     process.env.CORS_ORIGENES = 'http://localhost:4173';
     delete process.env.PORTAL_ALUMNO_URL;
     delete process.env.PORTAL_ALUMNO_API_KEY;
@@ -67,7 +64,6 @@ describe('configuracion (produccion)', () => {
     process.env.EVALUAPRO_FLAVOR = 'docente-local';
     process.env.PORTAL_SYNC_REQUIRED = '1';
     process.env.JWT_SECRETO = 'secret';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/evaluapro';
     process.env.CORS_ORIGENES = 'http://localhost:4173';
     delete process.env.PORTAL_ALUMNO_URL;
     delete process.env.PORTAL_ALUMNO_API_KEY;
@@ -78,7 +74,6 @@ describe('configuracion (produccion)', () => {
   it('falla si falta CORS_ORIGENES en production', async () => {
     process.env.NODE_ENV = 'production';
     process.env.JWT_SECRETO = 'secret';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/evaluapro';
     process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';
     process.env.PORTAL_ALUMNO_API_KEY = 'portal-key';
     process.env.CORS_ORIGENES = '';
@@ -90,7 +85,6 @@ describe('configuracion (produccion)', () => {
     // PORTAL_ALUMNO_API_KEY NO es obligatorio en producción — es opcional.
     process.env.NODE_ENV = 'production';
     process.env.JWT_SECRETO = 'secret';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/evaluapro';
     process.env.CORS_ORIGENES = 'https://docente.example.com';
     process.env.EVALUAPRO_FLAVOR = 'cloud';
     process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';

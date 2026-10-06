@@ -11,6 +11,7 @@ import {
   asegurarPlantillaActiva,
   normalizarTemas,
   obtenerPlantillaDocente,
+  resolverPaginasObjetivoPreferidas,
   validarPeriodoDocenteActivo,
   validarTituloPlantillaDisponible
 } from '../../shared/controladorGeneracionPdfShared.js';
@@ -108,8 +109,17 @@ export async function crearPlantillaUseCase(params: {
   const temas = normalizarTemas(params.body.temas);
   await validarTituloPlantillaDisponible({ docenteId: docId, titulo, periodoId: periodoId ?? null });
 
+  const docente = await prisma.docente.findUnique({ where: { id: docId }, select: { preferenciasPdf: true } });
+  const preferenciasPdf = parseJsonSafe<Record<string, unknown>>(docente?.preferenciasPdf);
+  const tipo = params.body.tipo === 'global' ? 'global' : 'parcial';
+  const paginasConfiguradas = (params.body.bookletConfig as any)?.targetPages;
+  const numeroPaginas = Number(params.body.numeroPaginas ?? paginasConfiguradas ?? resolverPaginasObjetivoPreferidas(
+    { preferenciasPdf },
+    tipo
+  ));
+
   const bookletConfig = {
-    targetPages: Number((params.body.bookletConfig as any)?.targetPages ?? params.body.numeroPaginas ?? 2) || 2,
+    targetPages: numeroPaginas,
     densityMode: String((params.body.bookletConfig as any)?.densityMode ?? 'compact'),
     autoFitPages: (params.body.bookletConfig as any)?.autoFitPages === true,
     allowImages: (params.body.bookletConfig as any)?.allowImages !== false,
@@ -149,11 +159,11 @@ export async function crearPlantillaUseCase(params: {
     data: {
       docenteId: docId,
       periodoId: periodoId || null,
-      tipo: String(params.body.tipo ?? 'parcial'),
+      tipo,
       titulo,
       tituloNormalizado: normalizado,
       instrucciones: params.body.instrucciones ? String(params.body.instrucciones) : null,
-      numeroPaginas: Number(params.body.numeroPaginas ?? 1) || 1,
+      numeroPaginas,
       reactivosObjetivo: Number(params.body.reactivosObjetivo ?? 20) || 20,
       defaultVersionCount: Number(params.body.defaultVersionCount ?? 1) || 1,
       answerKeyMode: String(params.body.answerKeyMode ?? 'digital'),

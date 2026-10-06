@@ -35,6 +35,7 @@ describe('SeccionCuenta', () => {
     preferenciasPdf: {
       institucion: 'Universidad EvaluaPro',
       lema: 'Excelencia y Rigor',
+      paginasPorTipo: { parcial: 2, global: 4, extraordinario: 4 },
       logos: {
         izquierdaPath: '',
         derechaPath: ''
@@ -124,7 +125,8 @@ describe('SeccionCuenta', () => {
     vi.mocked(clienteApi.enviar).mockResolvedValue({
       preferenciasPdf: {
         institucion: 'Campus Central',
-        lema: 'Innovación Continua'
+        lema: 'Innovación Continua',
+        paginasPorTipo: { parcial: 2, global: 6, extraordinario: 4 }
       }
     });
 
@@ -142,6 +144,7 @@ describe('SeccionCuenta', () => {
 
     const inputLema = screen.getByLabelText(/^Lema/i, { selector: 'input' });
     fireEvent.change(inputLema, { target: { value: 'Innovación Continua' } });
+    fireEvent.change(screen.getByLabelText('Páginas predeterminadas para global'), { target: { value: '6' } });
 
     const botonGuardarPdf = screen.getByRole('button', { name: /Guardar PDF/i });
     fireEvent.click(botonGuardarPdf);
@@ -151,7 +154,8 @@ describe('SeccionCuenta', () => {
         '/autenticacion/preferencias/pdf',
         expect.objectContaining({
           institucion: 'Campus Central',
-          lema: 'Innovación Continua'
+          lema: 'Innovación Continua',
+          paginasPorTipo: { parcial: 2, global: 6, extraordinario: 4 }
         })
       );
     });
@@ -160,7 +164,8 @@ describe('SeccionCuenta', () => {
       expect.objectContaining({
         preferenciasPdf: {
           institucion: 'Campus Central',
-          lema: 'Innovación Continua'
+          lema: 'Innovación Continua',
+          paginasPorTipo: { parcial: 2, global: 6, extraordinario: 4 }
         }
       })
     );

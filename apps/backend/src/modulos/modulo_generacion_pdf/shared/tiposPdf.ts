@@ -1,6 +1,6 @@
 /**
  * Tipos compartidos para el dominio de generacion de PDFs.
- * 
+ *
  * Define DTOs, types y constantes compartidas entre capas del modulo.
  */
 
@@ -28,6 +28,7 @@ export interface EncabezadoExamen {
 export interface ParametrosGeneracionPdf {
   titulo: string;
   folio: string;
+  loteId?: string;
   examId?: string;
   preguntas: PreguntaBase[];
   mapaVariante: MapaVariante;
@@ -45,6 +46,8 @@ export interface ParametrosGeneracionPdf {
     autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
+    /** Reparte el contenido entre el número objetivo de páginas cuando es posible. */
+    distribuirEnPaginasObjetivo?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
   encabezado?: EncabezadoExamen;
@@ -302,6 +305,7 @@ export interface PaginaOmr {
     questionBackgroundBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     questionPromptBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     omrPanelBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    omrQuestionNumberBoxes?: Array<{ id: string; numeroPregunta: number; x: number; y: number; width: number; height: number }>;
     collisionBoxes?: Array<{ pagina: number; a: string; b: string }>;
   };
 }

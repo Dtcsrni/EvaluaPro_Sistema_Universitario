@@ -18,6 +18,7 @@ import { validarSeparacionDuplexOmr } from './domain/duplexOmrGuard.js';
 export async function generarPdfExamen({
   titulo,
   folio,
+  loteId,
   examId,
   preguntas,
   mapaVariante,
@@ -31,6 +32,7 @@ export async function generarPdfExamen({
 }: {
   titulo: string;
   folio: string;
+  loteId?: string;
   examId?: string;
   preguntas: PreguntaBase[];
   mapaVariante: MapaVariante;
@@ -45,6 +47,7 @@ export async function generarPdfExamen({
     autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
+    distribuirEnPaginasObjetivo?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
   encabezado?: {
@@ -62,6 +65,7 @@ export async function generarPdfExamen({
   const resultado = await generarExamenIndividual({
     titulo,
     folio,
+    loteId,
     examId,
     preguntas,
     mapaVariante,

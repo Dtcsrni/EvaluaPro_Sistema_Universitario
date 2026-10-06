@@ -4,7 +4,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { registrarDocente } from './_flujoDocenteHelper.js';
 
 describe('Integración: Asistencias, Reglas y Excepciones', () => {
@@ -14,11 +14,11 @@ describe('Integración: Asistencias, Reglas y Excepciones', () => {
   let alumnoId: string;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
 
     // 1. Registrar docente y obtener token
     const token = await registrarDocente(app, 'docente-asistencias@prueba.test');
@@ -53,7 +53,7 @@ describe('Integración: Asistencias, Reglas y Excepciones', () => {
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('debe gestionar sesiones de asistencia, pases de lista, reglas y excepciones', async () => {

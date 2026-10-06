@@ -42,7 +42,7 @@ const REGEX_OBJECT_ID = /^[0-9a-fA-F]{24}$/;
 function normalizarObjectId(valor: unknown): string {
   if (typeof valor === 'string') {
     const trimmed = valor.trim();
-    return REGEX_OBJECT_ID.test(trimmed) ? trimmed : trimmed; // In sqlite we support uuid as well, so don't reject non-mongo IDs
+    return REGEX_OBJECT_ID.test(trimmed) ? trimmed : trimmed; // Acepta identificadores heredados y UUID.
   }
   if (valor && typeof valor === 'object') {
     const conHex = valor as { toHexString?: () => string };
@@ -562,6 +562,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     generarPdfExamen({
       titulo: String(plantillaRaw.titulo ?? ''),
       folio,
+      loteId: String(examen?.loteId ?? ''),
       preguntas: preguntasBase,
       mapaVariante: examen?.mapaVariante as never,
       tipoExamen: String(examen?.tipoExamen ?? plantillaRaw.tipo) as import('../../compartido/tipos/dominio.js').TipoExamen,

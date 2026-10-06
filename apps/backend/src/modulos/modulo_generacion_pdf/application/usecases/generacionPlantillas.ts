@@ -16,6 +16,7 @@ import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
 import { generarVariante } from '../../servicioVariantes.js';
 import { construirRecoveryBundle, construirRecoveryManifest, verificarRecoveryManifest } from '../../domain/recoveryManifest.js';
 import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
+import { obtenerPreviewArchivadoValidado } from '../../domain/previewArchivado.js';
 import { extraerPreguntasUsadasMapaOmr, resolverOmrTemplateId } from '../../domain/templateCanonico.js';
 import { validarPdfConsolidadoLote, validarPdfIndividualLote } from '../../domain/validacionLotePdf.js';
 import {
@@ -28,15 +29,19 @@ import {
   construirNombrePdfExamen,
   construirNombrePdfLote,
   esEntornoTest,
+  excluirReferenciasTecnologiaRetirada,
   mapearPreguntasBase,
   normalizarLoteId,
   obtenerPlantillaDocente,
   ordenarPreguntasAleatorio,
   resolverDocentePdf,
+  resolverPaginasObjetivoPreferidas,
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
   resolverTemplateVersionOmr
 } from '../../shared/controladorGeneracionPdfShared.js';
+
+const INSTRUCCIONES_OMR_EXTRAORDINARIO = 'Lee cada pregunta y marca una sola opción rellenando por completo el círculo correspondiente. Si cambias tu respuesta, borra la marca anterior antes de seleccionar otra.';
 
 function parsearJsonPersistido<T>(valor: unknown): T | undefined {
   if (typeof valor !== 'string') return valor as T | undefined;
@@ -144,11 +149,14 @@ async function generarExamenUseCaseInterno(params: {
 
   const periodo = await resolverPeriodoPlantillaActivo(plantilla as { periodoId?: unknown });
   const docenteDb = await resolverDocentePdf(docId);
-  const { preguntasDb, temas } = await resolverPreguntasPlantilla({
+  const preguntasResueltas = await resolverPreguntasPlantilla({
     docenteId: docId,
     plantilla: plantilla as any,
     usarBlueprint: true
   });
+  let preguntasDb = preguntasResueltas.preguntasDb;
+  const { temas } = preguntasResueltas;
+  preguntasDb = excluirReferenciasTecnologiaRetirada(periodo?.nombre, preguntasDb).preguntasDb;
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
@@ -177,6 +185,7 @@ async function generarExamenUseCaseInterno(params: {
   const resultadoPdf = await generarPdfExamen({
     titulo: plantilla.titulo,
     folio,
+    loteId,
     examId: examenGeneradoId,
     preguntas: preguntasCandidatas,
     mapaVariante,
@@ -312,7 +321,7 @@ async function generarExamenUseCaseInterno(params: {
     preguntasIds = mvUsada.ordenPreguntas;
   }
 
-  // Convert to Mongoose-like output structure to preserve API compatibility
+  // Preserve the legacy API response shape for existing clients.
   const examenGenerado = {
     ...raw,
     _id: raw.id,
@@ -360,9 +369,6 @@ async function generarExamenesLoteUseCaseInterno(params: {
 }) {
   const docId = String(params.docenteId);
   const plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
-  if (plantilla.archivadoEn) {
-    throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'La plantilla esta archivada', 409);
-  }
   if (!plantilla.periodoId) {
     throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla requiere materia (periodoId) para generar en lote', 400);
   }
@@ -376,6 +382,10 @@ async function generarExamenesLoteUseCaseInterno(params: {
   if (tipoExamen !== 'extraordinario' && params.alumnoIds) {
     throw new ErrorAplicacion('SELECCION_ALUMNOS_NO_ADMITIDA', 'La selección individual de alumnos solo está disponible para extraordinarios.', 400);
   }
+  const esExtraordinarioArchivado = tipoExamen === 'extraordinario' && Boolean(plantilla.archivadoEn);
+  if (plantilla.archivadoEn && !esExtraordinarioArchivado) {
+    throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'Las plantillas archivadas solo admiten extraordinarios del periodo cerrado.', 409);
+  }
 
   const loteIdNormalizado = normalizarLoteId(params.loteId);
   const loteId = loteIdNormalizado || randomUUID().split('-')[0].toUpperCase();
@@ -387,22 +397,47 @@ async function generarExamenesLoteUseCaseInterno(params: {
     throw new ErrorAplicacion('LOTE_ARCHIVADO', 'El lote está archivado; restáuralo o genera un lote nuevo.', 409, { loteId });
   }
 
-  const periodo = await resolverPeriodoPlantillaActivo(plantilla as { periodoId?: unknown });
+  const periodo = await resolverPeriodoPlantillaActivo(
+    plantilla as { periodoId?: unknown },
+    { permitirArchivado: esExtraordinarioArchivado, docenteId: docId }
+  );
+  if (esExtraordinarioArchivado && periodo?.activo !== false) {
+    throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'El extraordinario requiere una plantilla de una materia archivada.', 409);
+  }
+  if (!esExtraordinarioArchivado && periodo?.activo === false) {
+    throw new ErrorAplicacion('PERIODO_INACTIVO', 'Una materia archivada solo admite extraordinarios con su plantilla archivada.', 409);
+  }
+  const previewArchivado = esExtraordinarioArchivado
+    ? obtenerPreviewArchivadoValidado({
+      docenteId: docId,
+      periodoId: String(plantilla.periodoId),
+      plantillaId: String(plantilla.id)
+    })
+    : undefined;
   const docenteDb = await resolverDocentePdf(docId);
-  const alumnosActivos = await prisma.alumno.findMany({
-    where: { periodoId: String(plantilla.periodoId), activo: true }
-  });
   const idsExtraordinario = tipoExamen === 'extraordinario' ? new Set(params.alumnoIds ?? []) : null;
-  let alumnos = alumnosActivos;
+  let alumnos: Array<{ id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }>;
   if (idsExtraordinario) {
-    const alumnosActivosPorId = new Map(alumnosActivos.map((alumno) => [String(alumno.id), alumno]));
     if (idsExtraordinario.size !== (params.alumnoIds ?? []).length) {
       throw new ErrorAplicacion('ALUMNOS_DUPLICADOS', 'La selección contiene alumnos duplicados.', 400);
     }
-    if ([...idsExtraordinario].some((alumnoId) => !alumnosActivosPorId.has(alumnoId))) {
-      throw new ErrorAplicacion('ALUMNOS_NO_VALIDOS', 'Todos los alumnos seleccionados deben estar activos en la materia de la plantilla.', 400);
+    const alumnosSeleccionados = await prisma.alumno.findMany({
+      where: {
+        periodoId: String(plantilla.periodoId),
+        id: { in: [...idsExtraordinario] },
+        ...(esExtraordinarioArchivado ? {} : { activo: true })
+      }
+    });
+    const alumnosPorId = new Map(alumnosSeleccionados.map((alumno) => [String(alumno.id), alumno]));
+    if ([...idsExtraordinario].some((alumnoId) => !alumnosPorId.has(alumnoId))) {
+      const estadoRequerido = esExtraordinarioArchivado ? 'pertenecer al periodo de la plantilla' : 'estar activos en la materia de la plantilla';
+      throw new ErrorAplicacion('ALUMNOS_NO_VALIDOS', `Todos los alumnos seleccionados deben ${estadoRequerido}.`, 400);
     }
-    alumnos = (params.alumnoIds ?? []).map((alumnoId) => alumnosActivosPorId.get(alumnoId)!);
+    alumnos = (params.alumnoIds ?? []).map((alumnoId) => alumnosPorId.get(alumnoId)!);
+  } else {
+    alumnos = await prisma.alumno.findMany({
+      where: { periodoId: String(plantilla.periodoId), activo: true }
+    });
   }
   const cohorteLoteHash = tipoExamen === 'extraordinario'
     ? createHash('sha256').update([...(params.alumnoIds ?? [])].sort().join('\n')).digest('hex')
@@ -421,20 +456,45 @@ async function generarExamenesLoteUseCaseInterno(params: {
     );
   }
 
-  const { preguntasDb, temas } = await resolverPreguntasPlantilla({
+  if (esExtraordinarioArchivado && !previewArchivado) {
+    throw new ErrorAplicacion(
+      'PLANTILLA_NO_VALIDADA',
+      'Previsualiza el extraordinario y confirma el diseño antes de generar. La vista previa vence a los 10 minutos o al reiniciar el proceso.',
+      409,
+      { plantillaId: plantilla.id }
+    );
+  }
+  const plantillaParaGeneracion = previewArchivado
+    ? {
+      ...plantilla,
+      blueprintJson: previewArchivado.blueprintJson,
+      blueprintStatus: 'ready',
+      bookletConfig: previewArchivado.bookletConfig
+    }
+    : plantilla;
+
+  const preguntasResueltas = await resolverPreguntasPlantilla({
     docenteId: docId,
-    plantilla: plantilla as any,
+    plantilla: plantillaParaGeneracion as any,
     usarBlueprint: true,
+    permitirArchivados: esExtraordinarioArchivado,
     // Debe coincidir con la resolución usada por la previsualización. Cuando
     // reactivosObjetivo limita un banco, el orden de la consulta determina el
     // subconjunto y, por tanto, su fingerprint de layout validado.
     ordenarPorRecencia: true
   });
-  const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
+  let preguntasDb = preguntasResueltas.preguntasDb;
+  const { temas } = preguntasResueltas;
+  preguntasDb = excluirReferenciasTecnologiaRetirada(periodo?.nombre, preguntasDb).preguntasDb;
+  // Mantener la preferencia global del extraordinario independiente del global
+  // fuente; la misma configuración ya se validó en la vista previa archivada.
+  const numeroPaginas = esExtraordinarioArchivado
+    ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
+    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
-  const bookletConfigPlantilla = (plantilla.bookletConfig ?? {}) as Record<string, unknown>;
+  const bookletConfigPlantilla = (plantillaParaGeneracion.bookletConfig ?? {}) as Record<string, unknown>;
   const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
-  const layoutFingerprintOmr = `${construirFingerprintLayoutPreview()}|${omrTemplateId}`;
+  const layoutFingerprintOmr = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? `|extra-duplex-${numeroPaginas}p-v1` : ''}`;
   const layoutValidado = bookletConfigPlantilla.resolvedLayout as {
     version?: number;
     fontScale?: number;
@@ -445,8 +505,13 @@ async function generarExamenesLoteUseCaseInterno(params: {
     totalPreguntas?: number;
     temas?: string[];
   } | undefined;
+  const fingerprintPreguntasVigente = layoutValidado?.preguntasFingerprint === construirFingerprintPreguntasPreview(preguntasDb);
+  // Archivar actualiza updatedAt en los reactivos legacy aunque su contenido no
+  // cambie. Para el extraordinario cerrado, resolverPreguntasPlantilla ya
+  // verificó el hash de cada versión fijada por el blueprint.
+  const blueprintArchivadoVerificado = esExtraordinarioArchivado && Boolean(plantillaParaGeneracion.blueprintJson);
   const layoutVigente = layoutValidado?.version === 1 &&
-    layoutValidado.preguntasFingerprint === construirFingerprintPreguntasPreview(preguntasDb) &&
+    (fingerprintPreguntasVigente || blueprintArchivadoVerificado) &&
     layoutValidado.layoutFingerprint === layoutFingerprintOmr &&
     Number(layoutValidado.numeroPaginas) === numeroPaginas &&
     Number(layoutValidado.totalPreguntas) === preguntasBase.length &&
@@ -530,7 +595,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
     ) {
       throw new ErrorAplicacion('LOTE_REANUDACION_BANCO_CAMBIADO', 'El banco del lote cambió desde su generación parcial.', 409, { loteId, alumnoId });
     }
-    const snapshotPrevio = construirSnapshotVersionesBlueprint({ plantilla, preguntaIds: preguntaIdsPrevias });
+    const snapshotPrevio = construirSnapshotVersionesBlueprint({ plantilla: plantillaParaGeneracion, preguntaIds: preguntaIdsPrevias });
     if (!examenPrevio.previewFingerprint || examenPrevio.previewFingerprint !== snapshotPrevio.previewFingerprint) {
       throw new ErrorAplicacion('LOTE_REANUDACION_PLANTILLA_CAMBIADA', 'La plantilla o sus versiones cambiaron desde la generación parcial.', 409, { loteId, alumnoId });
     }
@@ -587,15 +652,20 @@ async function generarExamenesLoteUseCaseInterno(params: {
 
   const crearExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }) => {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
-      const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBaseLote);
-      const mapaVariante = generarVariante(preguntasCandidatas);
+      const preguntasCandidatas = esExtraordinarioArchivado
+        ? preguntasBaseLote
+        : ordenarPreguntasAleatorio(preguntasBaseLote);
+      const mapaVariante = esExtraordinarioArchivado && previewArchivado
+        ? previewArchivado.mapaVariante
+        : generarVariante(preguntasCandidatas);
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       const folio = randomUUID().split('-')[0].toUpperCase();
       try {
         const examenGeneradoId = randomUUID();
         const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
-          titulo: plantilla.titulo,
+          titulo: esExtraordinarioArchivado ? 'Examen Extraordinario' : plantilla.titulo,
           folio,
+          loteId,
           examId: examenGeneradoId,
           preguntas: preguntasCandidatas,
           mapaVariante,
@@ -604,11 +674,11 @@ async function generarExamenesLoteUseCaseInterno(params: {
           margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
           templateVersion: templateVersionOmr,
           omrTemplateId,
-          bookletConfig,
+          bookletConfig: { ...bookletConfig, distribuirEnPaginasObjetivo: esExtraordinarioArchivado },
           encabezado: construirEncabezadoPdf({
             periodo,
             docenteDb,
-            instrucciones: plantilla.instrucciones,
+            instrucciones: esExtraordinarioArchivado ? INSTRUCCIONES_OMR_EXTRAORDINARIO : plantilla.instrucciones,
             incluirPrefijosDocente: true,
             alumno
           })
@@ -617,7 +687,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
         const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
         const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
         const snapshotVersiones = construirSnapshotVersionesBlueprint({
-          plantilla,
+          plantilla: plantillaParaGeneracion,
           preguntaIds: mapaVarianteUsada.ordenPreguntas
         });
         const reactivosUsados = Array.isArray(mapaVarianteUsada.ordenPreguntas) ? mapaVarianteUsada.ordenPreguntas.length : 0;
@@ -985,14 +1055,15 @@ export async function descargarPdfLoteUseCase(params: {
   const plantillaId = examenLote?.plantillaId || undefined;
   const periodoId = examenLote?.periodoId || undefined;
 
-  const [plantilla, periodo, totalExamenes] = await Promise.all([
+  const [plantilla, periodo, totalExamenes, docenteDb] = await Promise.all([
     plantillaId
       ? prisma.examenPlantilla.findUnique({ where: { id: plantillaId } })
       : Promise.resolve(null),
     periodoId
       ? prisma.periodo.findUnique({ where: { id: periodoId } })
       : Promise.resolve(null),
-    prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote } })
+    prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote } }),
+    resolverDocentePdf(docId)
   ]);
 
   const artefactos = await prisma.$queryRaw<Array<{ archivoNombre: string; sha256: string; totalPaginas: number; totalExamenes: number }>>`
@@ -1016,7 +1087,10 @@ export async function descargarPdfLoteUseCase(params: {
   } catch {
     throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF de lote no disponible', 404, { docenteId: docId });
   }
-  const paginasMaximasPorExamen = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown } | null);
+  const plantillaArchivada = Boolean((plantilla as { archivadoEn?: unknown } | null)?.archivadoEn);
+  const paginasMaximasPorExamen = plantillaArchivada && examenesDelLote.every((examen) => String(examen.tipoExamen ?? '') === 'extraordinario')
+    ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
+    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown } | null);
   let paginasPorExamen: number;
   if (artefactoPersistido) {
     const paginasValidas = Number(artefactoPersistido.totalPaginas);

@@ -14,12 +14,46 @@ import { crearHash, compararContrasena } from './servicioHash.js';
 import { crearTokenDocente } from './servicioTokens.js';
 import { obtenerDocenteId, type SolicitudDocente } from './middlewareAutenticacion.js';
 import { cerrarSesionDocente, emitirSesionDocente, refrescarSesionDocente, revocarSesionesDocente } from './servicioSesiones.js';
-import { verificarCredencialGoogle } from './servicioGoogle.js';
+import { verificarCredencialGoogle, type PerfilGoogle } from './servicioGoogle.js';
 import { permisosComoLista, normalizarRoles } from '../../infraestructura/seguridad/rbac.js';
 import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo.js';
 import { aTituloPropio } from '../../compartido/utilidades/texto.js';
+import { log } from '../../infraestructura/logging/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UUID_FLUJO_AUTENTICACION = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function resolverPaginasPreferidas(valor: unknown, predeterminado: number): number {
+  const paginas = Number(valor);
+  return Number.isInteger(paginas) && paginas >= 2 && paginas <= 50 && paginas % 2 === 0
+    ? paginas
+    : predeterminado;
+}
+
+function registrarTrazaAutenticacion(
+  req: Request,
+  metodo: 'google' | 'contrasena',
+  etapa: string,
+  resultado: 'iniciado' | 'exito' | 'error',
+  detalle: { codigo?: string; duracionMs?: number } = {}
+) {
+  const authFlowId = String(req.header('x-auth-flow-id') || '').trim();
+  const requestId = (req as Request & { requestId?: string }).requestId;
+  log(resultado === 'error' ? 'warn' : 'info', 'Etapa de autenticación docente', {
+    requestId,
+    ...(UUID_FLUJO_AUTENTICACION.test(authFlowId) ? { authFlowId } : {}),
+    authMethod: metodo,
+    stage: etapa,
+    outcome: resultado,
+    ...(detalle.codigo ? { code: detalle.codigo } : {}),
+    ...(detalle.duracionMs !== undefined ? { durationMs: detalle.duracionMs } : {})
+  });
+}
+
+function codigoErrorAutenticacion(error: unknown, alternativo: string): string {
+  const codigo = error instanceof ErrorAplicacion ? error.codigo : alternativo;
+  return /^[A-Z0-9_]{1,64}$/.test(codigo) ? codigo : alternativo;
+}
 
 function rolesParaToken(roles: unknown): string[] {
   const normalizados = normalizarRoles(roles);
@@ -278,11 +312,14 @@ export async function ingresarDocente(req: Request, res: Response) {
   const { correo, contrasena } = req.body;
   const correoFinal = String(correo || '').toLowerCase();
 
+  registrarTrazaAutenticacion(req, 'contrasena', 'busqueda_cuenta', 'iniciado');
   const docente = await prisma.docente.findUnique({ where: { correo: correoFinal } });
   if (!docente) {
+    registrarTrazaAutenticacion(req, 'contrasena', 'busqueda_cuenta', 'error', { codigo: 'CREDENCIALES_INVALIDAS' });
     throw new ErrorAplicacion('CREDENCIALES_INVALIDAS', 'Credenciales invalidas', 401);
   }
   if (!docente.hashContrasena) {
+    registrarTrazaAutenticacion(req, 'contrasena', 'busqueda_cuenta', 'error', { codigo: 'DOCENTE_SIN_CONTRASENA' });
     throw new ErrorAplicacion(
       'DOCENTE_SIN_CONTRASENA',
       'Esta cuenta no tiene contrasena. Ingresa con Google o define una contrasena.',
@@ -290,37 +327,65 @@ export async function ingresarDocente(req: Request, res: Response) {
     );
   }
   if (!docente.activo) {
+    registrarTrazaAutenticacion(req, 'contrasena', 'busqueda_cuenta', 'error', { codigo: 'DOCENTE_INACTIVO' });
     throw new ErrorAplicacion('DOCENTE_INACTIVO', 'Docente inactivo', 403);
   }
+  registrarTrazaAutenticacion(req, 'contrasena', 'busqueda_cuenta', 'exito');
 
+  const inicioValidacion = Date.now();
+  registrarTrazaAutenticacion(req, 'contrasena', 'validacion_contrasena', 'iniciado');
   const ok = await compararContrasena(contrasena, docente.hashContrasena);
   if (!ok) {
+    registrarTrazaAutenticacion(req, 'contrasena', 'validacion_contrasena', 'error', {
+      codigo: 'CREDENCIALES_INVALIDAS',
+      duracionMs: Date.now() - inicioValidacion
+    });
     throw new ErrorAplicacion('CREDENCIALES_INVALIDAS', 'Credenciales invalidas', 401);
   }
+  registrarTrazaAutenticacion(req, 'contrasena', 'validacion_contrasena', 'exito', { duracionMs: Date.now() - inicioValidacion });
 
   const actualizado = await prisma.docente.update({
     where: { id: docente.id },
     data: { ultimoAcceso: new Date() }
   });
 
+  registrarTrazaAutenticacion(req, 'contrasena', 'sesion_emitida', 'iniciado');
   await responderSesionDocente(res, actualizado, 200);
+  registrarTrazaAutenticacion(req, 'contrasena', 'sesion_emitida', 'exito');
 }
 
 export async function ingresarDocenteGoogle(req: Request, res: Response) {
   const { credential } = req.body as { credential?: unknown };
-  const perfil = await verificarCredencialGoogle(String(credential ?? ''));
+  const inicioVerificacion = Date.now();
+  registrarTrazaAutenticacion(req, 'google', 'validacion_credencial_google', 'iniciado');
+  let perfil: PerfilGoogle;
+  try {
+    perfil = await verificarCredencialGoogle(String(credential ?? ''));
+  } catch (error) {
+    registrarTrazaAutenticacion(req, 'google', 'validacion_credencial_google', 'error', {
+      codigo: codigoErrorAutenticacion(error, 'GOOGLE_VERIFICATION_FAILED'),
+      duracionMs: Date.now() - inicioVerificacion
+    });
+    throw error;
+  }
+  registrarTrazaAutenticacion(req, 'google', 'validacion_credencial_google', 'exito', { duracionMs: Date.now() - inicioVerificacion });
 
+  registrarTrazaAutenticacion(req, 'google', 'busqueda_cuenta', 'iniciado');
   const docente = await prisma.docente.findUnique({ where: { correo: perfil.correo } });
   if (!docente) {
+    registrarTrazaAutenticacion(req, 'google', 'busqueda_cuenta', 'error', { codigo: 'DOCENTE_NO_REGISTRADO' });
     throw new ErrorAplicacion('DOCENTE_NO_REGISTRADO', 'No existe una cuenta de docente para ese correo', 401);
   }
   if (!docente.activo) {
+    registrarTrazaAutenticacion(req, 'google', 'busqueda_cuenta', 'error', { codigo: 'DOCENTE_INACTIVO' });
     throw new ErrorAplicacion('DOCENTE_INACTIVO', 'Docente inactivo', 403);
   }
 
   if (docente.googleSub && docente.googleSub !== perfil.sub) {
+    registrarTrazaAutenticacion(req, 'google', 'busqueda_cuenta', 'error', { codigo: 'GOOGLE_SUB_MISMATCH' });
     throw new ErrorAplicacion('GOOGLE_SUB_MISMATCH', 'Cuenta Google no coincide con el docente', 401);
   }
+  registrarTrazaAutenticacion(req, 'google', 'busqueda_cuenta', 'exito');
 
   const rolesActuales = JSON.parse(docente.roles || '[]');
   const rolesFinales = fusionarRolesGoogleConSuperadmin(rolesActuales, perfil.correo);
@@ -334,7 +399,9 @@ export async function ingresarDocenteGoogle(req: Request, res: Response) {
     }
   });
 
+  registrarTrazaAutenticacion(req, 'google', 'sesion_emitida', 'iniciado');
   await responderSesionDocente(res, actualizado, 200);
+  registrarTrazaAutenticacion(req, 'google', 'sesion_emitida', 'exito');
 }
 
 export async function recuperarContrasenaGoogle(req: Request, res: Response) {
@@ -574,6 +641,7 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
   if (!docente) {
     throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);
   }
+  const preferenciaRetencion = await prisma.preferenciaRetencionParcial.findUnique({ where: { docenteId } });
   const rolesArray = JSON.parse(docente.roles || '[]');
   const roles = rolesParaToken(rolesArray);
   
@@ -599,13 +667,30 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
       preferenciasPdf: {
         institucion: String(preferenciasPdf.institucion ?? '').trim() || undefined,
         lema: String(preferenciasPdf.lema ?? '').trim() || undefined,
+        paginasPorTipo: {
+          parcial: resolverPaginasPreferidas(preferenciasPdf.paginasPorTipo?.parcial, 2),
+          global: resolverPaginasPreferidas(preferenciasPdf.paginasPorTipo?.global, 4),
+          extraordinario: resolverPaginasPreferidas(preferenciasPdf.paginasPorTipo?.extraordinario, 4)
+        },
         logos: {
           izquierdaPath: String(preferenciasPdf.logos?.izquierdaPath ?? '').trim() || undefined,
           derechaPath: String(preferenciasPdf.logos?.derechaPath ?? '').trim() || undefined
         }
-      }
+      },
+      retencionParcialesArchivadosMeses: preferenciaRetencion?.meses ?? null
     }
   });
+}
+
+export async function actualizarPreferenciaRetencionParciales(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const { meses } = req.body as { meses: 3 | 6 | 12 | null };
+  const preferencia = await prisma.preferenciaRetencionParcial.upsert({
+    where: { docenteId },
+    create: { docenteId, meses },
+    update: { meses }
+  });
+  res.json({ retencionParcialesArchivadosMeses: preferencia.meses ?? null });
 }
 
 export async function capacidadesIntegracionesPublicas(_req: Request, res: Response) {
@@ -622,7 +707,12 @@ export async function capacidadesIntegracionesPublicas(_req: Request, res: Respo
 
 export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const body = req.body as { institucion?: unknown; lema?: unknown; logos?: { izquierdaPath?: unknown; derechaPath?: unknown } };
+  const body = req.body as {
+    institucion?: unknown;
+    lema?: unknown;
+    paginasPorTipo?: { parcial?: unknown; global?: unknown; extraordinario?: unknown };
+    logos?: { izquierdaPath?: unknown; derechaPath?: unknown };
+  };
 
   const docente = await prisma.docente.findUnique({ where: { id: docenteId } });
   if (!docente) {
@@ -640,6 +730,13 @@ export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, re
 
   if (typeof body.institucion === 'string') prefs.institucion = body.institucion.trim();
   if (typeof body.lema === 'string') prefs.lema = body.lema.trim();
+  if (body.paginasPorTipo && typeof body.paginasPorTipo === 'object') {
+    prefs.paginasPorTipo = {
+      parcial: resolverPaginasPreferidas(body.paginasPorTipo.parcial, resolverPaginasPreferidas(prefs.paginasPorTipo?.parcial, 2)),
+      global: resolverPaginasPreferidas(body.paginasPorTipo.global, resolverPaginasPreferidas(prefs.paginasPorTipo?.global, 4)),
+      extraordinario: resolverPaginasPreferidas(body.paginasPorTipo.extraordinario, resolverPaginasPreferidas(prefs.paginasPorTipo?.extraordinario, 4))
+    };
+  }
   if (body.logos && typeof body.logos === 'object') {
     if (!prefs.logos) prefs.logos = {};
     if (typeof body.logos.izquierdaPath === 'string') prefs.logos.izquierdaPath = body.logos.izquierdaPath.trim();
@@ -655,6 +752,11 @@ export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, re
     preferenciasPdf: {
       institucion: String(prefs.institucion ?? '').trim() || undefined,
       lema: String(prefs.lema ?? '').trim() || undefined,
+      paginasPorTipo: {
+        parcial: resolverPaginasPreferidas(prefs.paginasPorTipo?.parcial, 2),
+        global: resolverPaginasPreferidas(prefs.paginasPorTipo?.global, 4),
+        extraordinario: resolverPaginasPreferidas(prefs.paginasPorTipo?.extraordinario, 4)
+      },
       logos: {
         izquierdaPath: String(prefs.logos?.izquierdaPath ?? '').trim() || undefined,
         derechaPath: String(prefs.logos?.derechaPath ?? '').trim() || undefined

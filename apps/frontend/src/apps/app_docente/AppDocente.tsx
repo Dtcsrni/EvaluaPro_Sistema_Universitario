@@ -17,6 +17,7 @@ import { useOmrWorkflowState } from './hooks/useOmrWorkflowState';
 import { useRecursosAcademicosDocente } from './hooks/useRecursosAcademicosDocente';
 import { usePlantillasPreviewState } from './hooks/usePlantillasPreviewState';
 import { registrarAccionDocente } from './telemetriaDocente';
+import { registrarEventoTrazabilidadAutenticacion } from './trazaAutenticacion';
 import { guardarTabPlantillas } from './features/plantillas/tabPlantillasState';
 import type {
   Alumno,
@@ -428,8 +429,17 @@ export function AppDocente({ googleClientId }: { googleClientId?: string } = {})
         requireGoogleOAuth={requireGoogleOAuth}
         passwordLoginAllowed={passwordLoginAllowed}
         primerUso={capacidadesIntegraciones?.primerUso}
-        onIngresar={(token, persistente = true) => {
+        onIngresar={(token, persistente = true, flowId) => {
           const sesionGuardada = guardarTokenDocente(token, persistente);
+          if (flowId) {
+            registrarEventoTrazabilidadAutenticacion({
+              flowId,
+              canal: 'sesion',
+              etapa: 'token_guardado',
+              resultado: sesionGuardada ? 'exito' : 'error',
+              ...(sesionGuardada ? {} : { codigo: 'TOKEN_STORAGE_FAILED' })
+            });
+          }
           if (!sesionGuardada) {
             emitToast({
               level: 'error',
@@ -441,8 +451,12 @@ export function AppDocente({ googleClientId }: { googleClientId?: string } = {})
           }
           void clienteApi
             .obtener<{ docente: Docente }>('/autenticacion/perfil')
-            .then((payload) => setDocente(payload.docente))
+            .then((payload) => {
+              if (flowId) registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'sesion', etapa: 'perfil_validado', resultado: 'exito' });
+              setDocente(payload.docente);
+            })
             .catch(() => {
+              if (flowId) registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'sesion', etapa: 'perfil_rechazado', resultado: 'error', codigo: 'PROFILE_VALIDATION_FAILED' });
               emitToast({
                 level: 'error',
                 title: 'Sesion no validada',
@@ -655,6 +669,7 @@ export function AppDocente({ googleClientId }: { googleClientId?: string } = {})
           <SeccionPlantillas
             plantillas={plantillas}
             periodos={periodos}
+            periodosArchivados={periodosArchivados}
             preguntas={preguntas}
             permisos={permisosUI}
             preferenciasPdf={docente.preferenciasPdf}

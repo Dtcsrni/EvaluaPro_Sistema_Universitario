@@ -770,6 +770,20 @@ export async function resolverDocentePdf(docenteId: unknown) {
   };
 }
 
+export function resolverPaginasObjetivoPreferidas(
+  docenteDb: unknown,
+  tipo: 'parcial' | 'global' | 'extraordinario'
+): number {
+  const predeterminadas = { parcial: 2, global: 4, extraordinario: 4 };
+  const preferencias = (docenteDb as {
+    preferenciasPdf?: { paginasPorTipo?: Partial<Record<typeof tipo, unknown>> };
+  } | null | undefined)?.preferenciasPdf?.paginasPorTipo;
+  const valor = Number(preferencias?.[tipo]);
+  return Number.isInteger(valor) && valor >= 2 && valor <= 50 && valor % 2 === 0
+    ? valor
+    : predeterminadas[tipo];
+}
+
 export function resolverTemasPlantilla(plantilla: { temas?: unknown[] }) {
   return Array.isArray(plantilla.temas) ? (plantilla.temas ?? []).map((tema) => String(tema ?? '').trim()).filter(Boolean) : [];
 }
@@ -812,6 +826,10 @@ export async function resolverPreguntasPlantilla(params: {
   permitirArchivados?: boolean;
 }) {
   const docId = String(params.docenteId);
+  const periodoId = String(params.plantilla.periodoId ?? '').trim();
+  if (!periodoId) {
+    throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla debe estar vinculada a una materia y periodo para generar el examen desde su banco', 400, { plantillaId: params.plantilla.id });
+  }
   if (params.usarBlueprint && params.plantilla.blueprintStatus === 'requires_repreview') {
     throw new ErrorAplicacion('BLUEPRINT_REQUIERE_REPREVIEW', 'La plantilla cambió porque cambió el banco publicado. Previsualiza el PDF nuevamente.', 409, { plantillaId: params.plantilla.id });
   }
@@ -827,7 +845,7 @@ export async function resolverPreguntasPlantilla(params: {
     rawPreguntas = await prisma.bancoPregunta.findMany({
       where: {
         docenteId: docId,
-        ...(params.plantilla.periodoId ? { periodoId: String(params.plantilla.periodoId) } : {}),
+        periodoId,
         ...(params.permitirArchivados ? {} : { activo: true }),
         id: { in: listIds }
       },
@@ -841,7 +859,10 @@ export async function resolverPreguntasPlantilla(params: {
     }
     const canonicalVersionIds = blueprint.items.map((item) => item.reactivoVersionId).filter((id): id is string => Boolean(id));
     const canonicalVersions = canonicalVersionIds.length > 0
-      ? await prisma.reactivoVersion.findMany({ where: { id: { in: canonicalVersionIds } }, include: { opciones: true, reactivo: true } })
+      ? await prisma.reactivoVersion.findMany({
+        where: { id: { in: canonicalVersionIds } },
+        include: { opciones: true, reactivo: { include: { asignaciones: { select: { periodoId: true } } } } }
+      })
       : [];
     const canonicalById = new Map(canonicalVersions.map((version) => [version.id, version]));
     const blueprintHash = hashSha256Local(JSON.stringify(blueprint.items));
@@ -852,6 +873,9 @@ export async function resolverPreguntasPlantilla(params: {
         return !versionCanonica ||
           versionCanonica.reactivoId !== item.reactivoId ||
           versionCanonica.contentHash !== item.contentHash ||
+          versionCanonica.reactivo.docenteId !== docId ||
+          versionCanonica.reactivo.legacyPreguntaId !== item.id ||
+          !versionCanonica.reactivo.asignaciones.some((asignacion) => asignacion.periodoId === periodoId) ||
           versionCanonica.reactivo.estado !== 'published' ||
           versionCanonica.reactivo.versionActual !== item.reactivoVersion ||
           versionCanonica.numeroVersion !== item.reactivoVersion;
@@ -888,7 +912,7 @@ export async function resolverPreguntasPlantilla(params: {
       where: {
         docenteId: docId,
         ...(params.permitirArchivados ? {} : { activo: true }),
-        periodoId: String(params.plantilla.periodoId),
+        periodoId,
         tema: { in: temas }
       },
       include: {
@@ -917,7 +941,7 @@ export async function resolverPreguntasPlantilla(params: {
       where: {
         docenteId: docId,
         ...(params.permitirArchivados ? {} : { activo: true }),
-        ...(params.plantilla.periodoId ? { periodoId: String(params.plantilla.periodoId) } : {}),
+        periodoId,
         id: { in: listIds }
       },
       include: {
@@ -931,6 +955,17 @@ export async function resolverPreguntasPlantilla(params: {
         ? [{ updatedAt: 'desc' }, { id: 'desc' }]
         : undefined
     });
+
+    const idsEncontrados = new Set(rawPreguntas.map((pregunta) => String(pregunta.id)));
+    const faltantes = (listIds ?? []).filter((id) => !idsEncontrados.has(String(id)));
+    if (faltantes.length > 0) {
+      throw new ErrorAplicacion(
+        'REACTIVOS_FUERA_DEL_BANCO_MATERIA',
+        'La plantilla contiene reactivos que no están disponibles en el banco de esta materia; corrige la selección antes de generar',
+        409,
+        { plantillaId: params.plantilla.id, reactivosNoDisponibles: faltantes }
+      );
+    }
 
     if (!params.ordenarPorRecencia && listIds && listIds.length > 0) {
       const map = new Map(rawPreguntas.map((p) => [p.id, p]));
@@ -948,20 +983,173 @@ export async function resolverPreguntasPlantilla(params: {
   return { preguntasDb, preguntasIds, temas };
 }
 
+export function validarPreguntasBase(preguntasDb: BancoPreguntaLean[]) {
+  const preguntas = preguntasDb.map((pregunta) => {
+    const version =
+      pregunta.versiones.find((item) => item.numeroVersion === pregunta.versionActual) ??
+      pregunta.versiones[0];
+    return {
+      id: String(pregunta.id),
+      enunciado: String(version?.enunciado ?? ''),
+      imagenUrl: version?.imagenUrl ?? undefined,
+      opciones: Array.isArray(version?.opciones) ? version.opciones : []
+    };
+  });
+  const invalidas = preguntas.flatMap((pregunta) => {
+    const problemas: string[] = [];
+    const opciones = Array.isArray(pregunta.opciones) ? pregunta.opciones : [];
+    if (opciones.length !== 5) problemas.push('requiere exactamente cinco opciones');
+    if (opciones.some((opcion) => !String(opcion.texto ?? '').trim())) problemas.push('contiene opciones vacías');
+    if (opciones.filter((opcion) => opcion.esCorrecta === true).length !== 1) {
+      problemas.push('requiere exactamente una respuesta correcta');
+    }
+    const opcionesNormalizadas = opciones.map((opcion) => String(opcion.texto ?? '')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/[*_`]/g, '')
+      .trim()
+      .replace(/[.:;!?]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .toLocaleLowerCase('es-MX'));
+    if (opcionesNormalizadas.some((texto) => /^(?:opcion|option)\s+[a-e]$/.test(texto))) {
+      problemas.push('contiene opciones genéricas de relleno');
+    }
+    const opcionesNoVacias = opcionesNormalizadas.filter(Boolean);
+    if (new Set(opcionesNoVacias).size !== opcionesNoVacias.length) problemas.push('contiene opciones repetidas');
+    return problemas.length > 0
+      ? [{ id: pregunta.id, enunciado: pregunta.enunciado.slice(0, 240), problemas }]
+      : [];
+  });
+  const idsInvalidos = new Set(invalidas.map((pregunta) => pregunta.id));
+  const preguntasValidas = preguntas.filter((pregunta) => !idsInvalidos.has(pregunta.id));
+  return {
+    preguntas: preguntasValidas.length > 0 ? normalizarPreguntasCanonicas(preguntasValidas) : [],
+    invalidas
+  };
+}
+
 export function mapearPreguntasBase(preguntasDb: BancoPreguntaLean[]) {
-  return normalizarPreguntasCanonicas(
-    preguntasDb.map((pregunta) => {
-      const version =
-        pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
-        pregunta.versiones[0];
-      return {
-        id: String(pregunta.id),
-        enunciado: version.enunciado,
-        imagenUrl: version.imagenUrl ?? undefined,
-        opciones: version.opciones
-      };
-    })
-  );
+  const { preguntas, invalidas } = validarPreguntasBase(preguntasDb);
+  if (invalidas.length > 0) {
+    const resumen = invalidas.slice(0, 12).map(({ id, problemas }) => `${id} (${problemas.join(', ')})`).join('; ');
+    throw new ErrorAplicacion(
+      'PLANTILLA_REACTIVOS_OMR_INVALIDOS',
+      `No se puede previsualizar o generar la plantilla: corrige en Banco los reactivos OMR inválidos. ${resumen}${invalidas.length > 12 ? `; y ${invalidas.length - 12} más` : ''}.`,
+      422,
+      { reactivosInvalidos: invalidas }
+    );
+  }
+  return preguntas;
+}
+
+export function excluirReferenciasTecnologiaRetirada(
+  materiaNombre: unknown,
+  preguntasDb: BancoPreguntaLean[]
+) {
+  if (!/\bdiseño y desarrollo de aplicaciones web\b/i.test(String(materiaNombre ?? ''))) {
+    return { preguntasDb, idsExcluidos: new Set<string>() };
+  }
+
+  const idsExcluidos = new Set<string>();
+  const preguntasFiltradas = preguntasDb.filter((pregunta) => {
+    const version = pregunta.versiones.find((item) => item.numeroVersion === pregunta.versionActual)
+      ?? pregunta.versiones[0];
+    const contenido = [
+      version?.enunciado ?? '',
+      ...(version?.opciones ?? []).map((opcion) => opcion.texto)
+    ].join(' ');
+    if (!/\b(?:mongodb|mongoose)\b/i.test(contenido)) return true;
+    idsExcluidos.add(String(pregunta.id));
+    return false;
+  });
+
+  return { preguntasDb: preguntasFiltradas, idsExcluidos };
+}
+
+export async function resolverPreguntasExtraordinarioArchivado(params: {
+  docenteId: unknown;
+  materiaNombre?: unknown;
+  plantilla: {
+    id: string;
+    periodoId?: unknown;
+    tipo?: unknown;
+    titulo?: unknown;
+    preguntasIds?: unknown[];
+    temas?: unknown[];
+    reactivosObjetivo?: unknown;
+  };
+}) {
+  const base = await resolverPreguntasPlantilla({
+    docenteId: params.docenteId,
+    plantilla: params.plantilla,
+    ordenarPorRecencia: true,
+    permitirArchivados: true
+  });
+  const esGlobal = String(params.plantilla.tipo) === 'global'
+    || /\bglobal\b/i.test(String(params.plantilla.titulo ?? ''));
+  if (!esGlobal || !params.plantilla.periodoId) {
+    return {
+      ...base,
+      fuentesExtraordinario: [] as string[],
+      reactivosOmitidosPorOmr: [] as Array<{ id: string; enunciado: string; problemas: string[] }>,
+      totalPreguntasFuente: base.preguntasDb.length,
+      totalPreguntasOmitidasTecnologiaRetirada: 0
+    };
+  }
+
+  const baseFiltrada = excluirReferenciasTecnologiaRetirada(params.materiaNombre, base.preguntasDb);
+
+  const plantillaId = String(params.plantilla.id);
+  const parciales = await prisma.examenPlantilla.findMany({
+    where: {
+      docenteId: String(params.docenteId),
+      periodoId: String(params.plantilla.periodoId),
+      tipo: 'parcial',
+      archivadoEn: { not: null },
+      id: { not: plantillaId }
+    },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
+  });
+  const preguntasPorId = new Map(baseFiltrada.preguntasDb.map((pregunta) => [String(pregunta.id), pregunta]));
+  const temasCombinados = new Set(base.temas);
+  const temasPlantilla = [...base.temas];
+  const idsFuente = new Set(baseFiltrada.preguntasDb.map((pregunta) => String(pregunta.id)));
+  const idsExcluidosTecnologia = new Set(baseFiltrada.idsExcluidos);
+  const invalidasPorId = new Map<string, { id: string; enunciado: string; problemas: string[] }>();
+  const fuentesExtraordinario: string[] = [];
+
+  for (const parcialRaw of parciales) {
+    const parcial = await obtenerPlantillaDocente(params.docenteId, String(parcialRaw.id));
+    const preguntasParcial = await resolverPreguntasPlantilla({
+      docenteId: params.docenteId,
+      plantilla: parcial as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[]; reactivosObjetivo?: unknown },
+      ordenarPorRecencia: true,
+      permitirArchivados: true
+    });
+    const parcialFiltrado = excluirReferenciasTecnologiaRetirada(params.materiaNombre, preguntasParcial.preguntasDb);
+    parcialFiltrado.idsExcluidos.forEach((id) => idsExcluidosTecnologia.add(id));
+    const validacion = validarPreguntasBase(parcialFiltrado.preguntasDb);
+    const idsInvalidos = new Set(validacion.invalidas.map((item) => item.id));
+    validacion.invalidas.forEach((item) => invalidasPorId.set(item.id, item));
+    for (const pregunta of parcialFiltrado.preguntasDb) {
+      const id = String(pregunta.id);
+      idsFuente.add(id);
+      if (!idsInvalidos.has(id) && !preguntasPorId.has(id)) preguntasPorId.set(id, pregunta);
+    }
+    preguntasParcial.temas.forEach((tema) => temasCombinados.add(tema));
+    fuentesExtraordinario.push(String(parcial.titulo ?? 'Parcial'));
+  }
+
+  return {
+    ...base,
+    preguntasDb: [...preguntasPorId.values()],
+    temas: [...temasCombinados],
+    temasPlantilla,
+    fuentesExtraordinario,
+    reactivosOmitidosPorOmr: [...invalidasPorId.values()],
+    totalPreguntasFuente: idsFuente.size,
+    totalPreguntasOmitidasTecnologiaRetirada: idsExcluidosTecnologia.size
+  };
 }
 
 export async function obtenerConteoTemasMateria(params: { docenteId: unknown; periodoId: unknown }) {

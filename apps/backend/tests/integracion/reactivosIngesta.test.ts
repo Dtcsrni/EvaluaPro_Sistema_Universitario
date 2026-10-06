@@ -5,18 +5,18 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { construirBlueprintPlantilla, construirSnapshotVersionesBlueprint } from '../../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('ingesta contractual de reactivos', () => {
   const app = crearApp();
 
   beforeEach(async () => {
-    await conectarMongoTest();
-    await limpiarMongoTest();
+    await conectarSqliteTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function preparar() {

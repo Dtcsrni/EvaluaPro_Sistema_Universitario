@@ -5,14 +5,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { eliminarArchivoExamen, guardarPdfExamen } from '../../src/infraestructura/archivos/almacenLocal.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('consulta API de paquetes de examen por lote', () => {
   const app = crearApp();
 
-  beforeAll(async () => { await conectarMongoTest(); });
-  beforeEach(async () => { await limpiarMongoTest(); });
-  afterAll(async () => { await cerrarMongoTest(); });
+  beforeAll(async () => { await conectarSqliteTest(); });
+  beforeEach(async () => { await limpiarSqliteTest(); });
+  afterAll(async () => { await cerrarSqliteTest(); });
 
   async function prepararDocente(correo: string) {
     const registro = await request(app).post('/api/autenticacion/registrar').send({

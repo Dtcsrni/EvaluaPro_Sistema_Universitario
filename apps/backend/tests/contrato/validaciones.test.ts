@@ -10,15 +10,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
 import { tokenDocentePrueba } from '../utils/token.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { esquemaActualizarPregunta, esquemaCrearPregunta } from '../../src/modulos/modulo_banco_preguntas/validacionesBancoPreguntas.js';
 
 describe('validaciones de payload', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
-    await limpiarMongoTest();
+    await conectarSqliteTest();
+    await limpiarSqliteTest();
     await Docente.create({
       _id: '507f1f77bcf86cd799439011',
       nombreCompleto: 'Docente Contrato',
@@ -29,7 +29,7 @@ describe('validaciones de payload', () => {
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('rechaza registro sin campos requeridos', async () => {

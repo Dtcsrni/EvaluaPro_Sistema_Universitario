@@ -48,6 +48,9 @@ export async function conectarSqlite(): Promise<void> {
   ejecutarMigracionEvidenciasEvaluacion();
   ejecutarMigracionTemariosAuditoria();
   ejecutarMigracionTemasBancoAuditoria();
+  ejecutarMigracionRetencionParcial();
+  ejecutarMigracionOrigenCalificacion();
+  ejecutarMigracionResultadosExtraExternos();
 }
 
 function resolverRutaArchivoSqlite(urlConfigurada?: string): string | null {
@@ -169,6 +172,42 @@ function ejecutarMigracionTemasBancoAuditoria() {
   const candidatos = [
     path.resolve(process.cwd(), 'scripts', 'migrate-temas-banco-auditoria-sqlite.mjs'),
     path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-temas-banco-auditoria-sqlite.mjs')
+  ];
+  const script = candidatos.find((candidate) => fs.existsSync(candidate));
+  if (!script) return;
+  execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
+}
+
+function ejecutarMigracionRetencionParcial() {
+  const databasePath = resolverRutaArchivoSqlite(databaseUrl);
+  if (!databasePath) return;
+  const candidatos = [
+    path.resolve(process.cwd(), 'scripts', 'migrate-preferencias-retencion-parcial-sqlite.mjs'),
+    path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-preferencias-retencion-parcial-sqlite.mjs')
+  ];
+  const script = candidatos.find((candidate) => fs.existsSync(candidate));
+  if (!script) return;
+  execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
+}
+
+function ejecutarMigracionOrigenCalificacion() {
+  const databasePath = resolverRutaArchivoSqlite(databaseUrl);
+  if (!databasePath) return;
+  const candidatos = [
+    path.resolve(process.cwd(), 'scripts', 'migrate-calificacion-origen-inferida-sqlite.mjs'),
+    path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-calificacion-origen-inferida-sqlite.mjs')
+  ];
+  const script = candidatos.find((candidate) => fs.existsSync(candidate));
+  if (!script) return;
+  execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
+}
+
+function ejecutarMigracionResultadosExtraExternos() {
+  const databasePath = resolverRutaArchivoSqlite(databaseUrl);
+  if (!databasePath) return;
+  const candidatos = [
+    path.resolve(process.cwd(), 'scripts', 'migrate-resultados-extra-externos-sqlite.mjs'),
+    path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-resultados-extra-externos-sqlite.mjs')
   ];
   const script = candidatos.find((candidate) => fs.existsSync(candidate));
   if (!script) return;

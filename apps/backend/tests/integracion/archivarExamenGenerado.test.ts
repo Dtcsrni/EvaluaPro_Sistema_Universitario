@@ -7,22 +7,22 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, it, expect } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('archivar examen generado', () => {
   const preguntasPorEscenario = 20;
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function registrarDocente() {

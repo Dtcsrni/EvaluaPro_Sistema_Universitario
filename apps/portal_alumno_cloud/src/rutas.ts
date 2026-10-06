@@ -188,7 +188,7 @@ router.get('/salud/ready', async (_req, res) => {
     estado: lista ? 'ok' : 'degradado',
     tiempoActivo: process.uptime(),
     dependencies: {
-      mongodb: {
+      db: {
         status: lista ? 'ok' : 'fail',
         ready: lista,
         state: lista ? 1 : 0,

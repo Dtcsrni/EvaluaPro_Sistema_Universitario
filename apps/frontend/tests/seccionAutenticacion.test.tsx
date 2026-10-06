@@ -78,6 +78,8 @@ vi.mock('@react-oauth/google', () => ({
 describe('SeccionAutenticacion', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
+    vi.spyOn(console, 'info').mockImplementation(() => {});
   });
 
   it('configura el boton oficial de Google con tema y texto de alto contraste', () => {
@@ -117,8 +119,8 @@ describe('SeccionAutenticacion', () => {
     expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/ingresar', {
       correo: 'docente@local.test',
       contrasena: '12345678'
-    });
-    expect(onIngresar).toHaveBeenCalledWith('token-prueba', true);
+    }, { headers: { 'X-Auth-Flow-ID': expect.stringMatching(/^[0-9a-f-]{36}$/i) } });
+    expect(onIngresar).toHaveBeenCalledWith('token-prueba', true, expect.stringMatching(/^[0-9a-f-]{36}$/i));
   });
 
   it('acepta correos de cualquier dominio sin mostrar una política institucional', async () => {
@@ -136,7 +138,7 @@ describe('SeccionAutenticacion', () => {
       expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/ingresar', {
         correo: 'docente@externo.test',
         contrasena: '12345678'
-      });
+      }, { headers: { 'X-Auth-Flow-ID': expect.stringMatching(/^[0-9a-f-]{36}$/i) } });
     });
     expect(screen.queryByText(/Solo se permiten/i)).not.toBeInTheDocument();
   });
@@ -217,10 +219,29 @@ describe('SeccionAutenticacion', () => {
     const googleBtn = screen.getByTestId('mock-google-login');
     await user.click(googleBtn);
 
-    expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/google', expect.objectContaining({
-      credential: expect.stringContaining('mock.')
-    }));
-    expect(onIngresar).toHaveBeenCalledWith('token-google', true);
+    expect(clienteApi.enviar).toHaveBeenCalledWith(
+      '/autenticacion/google',
+      expect.objectContaining({ credential: expect.stringContaining('mock.') }),
+      { headers: { 'X-Auth-Flow-ID': expect.stringMatching(/^[0-9a-f-]{36}$/i) } }
+    );
+    expect(onIngresar).toHaveBeenCalledWith('token-google', true, expect.stringMatching(/^[0-9a-f-]{36}$/i));
+  });
+
+  it('registra el error reportado por Google y permite copiar un diagnóstico sin credenciales', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    await user.click(screen.getByTestId('mock-google-error'));
+    expect(screen.getByText(/Error de autorización con Google/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /copiar diagnóstico de acceso/i }));
+    await waitFor(() => expect(screen.getByText(/Diagnóstico local copiado/i)).toBeInTheDocument());
+    expect(writeText).toHaveBeenCalledOnce();
+    const diagnostico = String(writeText.mock.calls[0]?.[0]);
+    expect(diagnostico).toContain('PROVIDER_ERROR');
+    expect(diagnostico).not.toContain('mock.eyJ');
   });
 
   it('maneja error al ingresar con Google cuando el docente no está registrado', async () => {

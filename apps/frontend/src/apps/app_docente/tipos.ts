@@ -25,8 +25,10 @@ export type Docente = {
   preferenciasPdf?: {
     institucion?: string;
     lema?: string;
+    paginasPorTipo?: { parcial: number; global: number; extraordinario: number };
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
+  retencionParcialesArchivadosMeses?: 3 | 6 | 12 | null;
 };
 
 export type Alumno = {
@@ -92,6 +94,7 @@ export type Plantilla = {
     captureMode?: 'pdf_and_mobile';
   };
   periodoId?: string;
+  archivadoEn?: string;
   preguntasIds?: string[];
   temas?: string[];
   instrucciones?: string;
@@ -101,9 +104,16 @@ export type Plantilla = {
 export type PreviewPlantilla = {
   // Clasico (previsualizar plantilla tradicional)
   plantillaId?: string;
+  layoutConfirmado?: boolean;
   numeroPaginas?: number;
   totalDisponibles?: number;
   totalUsados?: number;
+  tituloImpreso?: string;
+  tipoExamen?: string;
+  fuentesExtraordinario?: string[];
+  preguntasOmitidasPorFormato?: number;
+  preguntasOmitidasPorOmr?: Array<{ id: string; enunciado: string; problemas: string[] }>;
+  totalPreguntasOmitidasPorOmr?: number;
   fraccionVaciaUltimaPagina?: number;
   advertencias?: string[];
   conteoPorTema?: Array<{ tema: string; disponibles: number }>;
