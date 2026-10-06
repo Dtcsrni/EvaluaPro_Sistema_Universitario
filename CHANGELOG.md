@@ -12,6 +12,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - El runner solo traslada a QA la SQLite de `ProgramData` creada por esa corrida en un host limpio; bloquea el inicio si detecta una base previa y restaura el perfil operativo al terminar.
 
 ### Fixed
+- La validación del digest del instalador en el release draft delimita la variable PowerShell antes de los dos puntos; evita abortar la verificación y deja continuar la E2E del asset.
 - El helper post-install lee `install`/`repair` del request Burn, no del modo CLI `post-install`, para detener procesos Node propios antes de reemplazar el payload en una actualización.
 - La actualización detiene y verifica los procesos Node propios antes de tocar la configuración o expandir el payload; si alguno no termina, falla con sus PID y deja intactos los procesos Node ajenos.
 - El guard de tags y su limpieza rechazan de forma consistente versiones SemVer no canónicas, incluidos ceros iniciales.

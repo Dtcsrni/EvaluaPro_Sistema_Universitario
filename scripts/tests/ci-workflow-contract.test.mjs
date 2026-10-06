@@ -195,6 +195,15 @@ test('release stable gate expone GH_TOKEN para gh cli', () => {
   assert.match(workflow, /validate-stable-promotion\.mjs/);
 });
 
+test('E2E del release draft delimita variable PowerShell seguida de dos puntos', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const draftAssetBlock = workflow.match(/id: draft_asset[\s\S]*?run:\s*\|([\s\S]*?)(?=\n\s{6}- name:)/)?.[1] ?? '';
+
+  assert.ok(draftAssetBlock, 'falta el bloque de verificación del asset draft');
+  assert.match(draftAssetBlock, /\$\{candidateName\}:/);
+  assert.doesNotMatch(draftAssetBlock, /\$candidateName:/);
+});
+
 test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
   const readOnlyWorkflows = [
     'ci.yml',

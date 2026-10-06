@@ -371,7 +371,7 @@ jobs:
           if (-not $candidateAsset -or -not $sidecarAsset) { throw "El release draft no contiene el EXE y sidecar esperados para $tag." }
           $assetDigest = [string]$candidateAsset.digest
           $digestMatch = [regex]::Match($assetDigest, '(?i)^sha256:([0-9a-f]{64})$')
-          if (-not $digestMatch.Success) { throw "La API de GitHub no reportó digest SHA-256 válido para $candidateName: '$assetDigest'." }
+          if (-not $digestMatch.Success) { throw "La API de GitHub no reportó digest SHA-256 válido para ${candidateName}: '$assetDigest'." }
           $downloadDir = Join-Path $env:RUNNER_TEMP ('published-installer-' + [guid]::NewGuid().ToString('N'))
           New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
           $candidatePath = Join-Path $downloadDir $candidateName
