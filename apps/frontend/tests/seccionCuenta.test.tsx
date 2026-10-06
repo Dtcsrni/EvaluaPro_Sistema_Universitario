@@ -8,7 +8,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionCuenta } from '../src/apps/app_docente/SeccionCuenta';
-import { obtenerFotoPerfilLocal } from '../src/apps/app_docente/fotoPerfilDocente';
+import { MAX_FOTO_PERFIL_BYTES, obtenerFotoPerfilLocal } from '../src/apps/app_docente/fotoPerfilDocente';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import { emitToast } from '../src/ui/toast/toastBus';
 import type { Docente } from '../src/apps/app_docente/tipos';
@@ -119,6 +119,51 @@ describe('SeccionCuenta', () => {
 
     expect(await screen.findByText('La imagen debe ser PNG, JPG o WebP.')).toBeInTheDocument();
     expect(obtenerFotoPerfilLocal('doc-1')).toBeNull();
+  });
+
+  it('rechaza una foto mayor de 1 MB antes de leerla', async () => {
+    renderConOAuth(
+      <SeccionCuenta
+        docente={{ ...docenteMock, id: 'doc-1' }}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+        oauthGoogleDisponible={true}
+        classroomDisponible={false}
+        smtpDisponible={true}
+        requireGoogleOAuth={false}
+      />
+    );
+
+    const imagenGrande = new File([new Uint8Array(MAX_FOTO_PERFIL_BYTES + 1)], 'perfil.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('Seleccionar foto de perfil'), { target: { files: [imagenGrande] } });
+    expect(await screen.findByText('La imagen no puede superar 1 MB.')).toBeInTheDocument();
+    expect(obtenerFotoPerfilLocal('doc-1')).toBeNull();
+  });
+
+  it('informa si el almacenamiento local rechaza la foto seleccionada', async () => {
+    const guardar = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (clave, valor) {
+      if (clave.startsWith('evaluapro:foto-perfil-docente:')) throw new Error('Almacenamiento lleno');
+      return Storage.prototype.setItem.call(this, clave, valor);
+    });
+    renderConOAuth(
+      <SeccionCuenta
+        docente={{ ...docenteMock, id: 'doc-1' }}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+        oauthGoogleDisponible={true}
+        classroomDisponible={false}
+        smtpDisponible={true}
+        requireGoogleOAuth={false}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Seleccionar foto de perfil'), {
+      target: { files: [new File(['foto'], 'perfil.png', { type: 'image/png' })] }
+    });
+    expect(await screen.findByText('Almacenamiento lleno')).toBeInTheDocument();
+    guardar.mockRestore();
   });
 
   it('permite cambiar contraseña tras validar contraseña actual y coincidencia de 8+ caracteres', async () => {

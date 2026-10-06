@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   eliminarFotoPerfilLocal,
   guardarFotoPerfilLocal,
@@ -26,5 +26,13 @@ describe('fotoPerfilDocente', () => {
   it('rechaza imágenes que exceden 1 MB', () => {
     const demasiadoGrande = `data:image/png;base64,${'a'.repeat(MAX_FOTO_PERFIL_BYTES * 2)}`;
     expect(() => guardarFotoPerfilLocal('doc-1', demasiadoGrande)).toThrow('superar 1 MB');
+  });
+
+  it('devuelve null si el navegador no permite leer el almacenamiento local', () => {
+    const leer = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('Almacenamiento no disponible');
+    });
+    expect(obtenerFotoPerfilLocal('doc-1')).toBeNull();
+    leer.mockRestore();
   });
 });

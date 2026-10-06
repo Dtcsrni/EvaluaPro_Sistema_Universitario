@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AppDocente } from '../src/apps/app_docente/AppDocente';
-import { guardarFotoPerfilLocal } from '../src/apps/app_docente/fotoPerfilDocente';
+import { EVENTO_FOTO_PERFIL_DOCENTE, guardarFotoPerfilLocal } from '../src/apps/app_docente/fotoPerfilDocente';
 import { TemaProvider } from '../src/tema/TemaProvider';
 import { obtenerVersionTecnicaApp } from '../src/ui/version/versionInfo';
 
@@ -55,6 +55,40 @@ describe('AppDocente', () => {
     await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
     await waitFor(() => expect(document.querySelector('.chip-docente-avatar img')).toHaveAttribute('src', 'data:image/png;base64,aGVsbG8='));
     expect(document.querySelector('.chip-docente-avatar [data-icono="cuenta"]')).toBeNull();
+  });
+
+  it('actualiza el avatar cuando cambia la foto local del docente actual', async () => {
+    localStorage.setItem('tokenDocente', 'token-falso');
+    render(<TemaProvider><AppDocente /></TemaProvider>);
+
+    await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
+    window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
+      detail: { docenteId: '1', foto: 'data:image/png;base64,aGVsbG8=' }
+    }));
+    await waitFor(() => expect(document.querySelector('.chip-docente-avatar img')).toHaveAttribute('src', 'data:image/png;base64,aGVsbG8='));
+  });
+
+  it('vuelve al avatar neutral si falla la imagen local', async () => {
+    localStorage.setItem('tokenDocente', 'token-falso');
+    guardarFotoPerfilLocal('1', 'data:image/png;base64,aGVsbG8=');
+    render(<TemaProvider><AppDocente /></TemaProvider>);
+
+    await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
+    await waitFor(() => expect(document.querySelector('.chip-docente-avatar img')).toBeInTheDocument());
+    fireEvent.error(document.querySelector('.chip-docente-avatar img') as HTMLImageElement);
+    await waitFor(() => expect(document.querySelector('.chip-docente-avatar [data-icono="cuenta"]')).toBeInTheDocument());
+  });
+
+  it('abre la información técnica desde la versión del shell', async () => {
+    localStorage.setItem('tokenDocente', 'token-falso');
+    const abrir = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const user = userEvent.setup();
+    render(<TemaProvider><AppDocente /></TemaProvider>);
+
+    await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
+    await user.click(screen.getByRole('button', { name: `Versión ${obtenerVersionTecnicaApp()}` }));
+    expect(abrir).toHaveBeenCalledOnce();
+    abrir.mockRestore();
   });
 
   it('prioriza la imagen vinculada a la cuenta sobre la imagen local', async () => {
