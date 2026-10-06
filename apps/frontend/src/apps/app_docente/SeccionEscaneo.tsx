@@ -243,9 +243,6 @@ export function SeccionEscaneo({
     return examen.paginas.find((pagina) => Number(pagina.numeroPagina) === Number(paginaActiva)) ?? null;
   }, [examenIdActivo, paginaActiva, revisionesSeguras]);
 
-  useEffect(() => {
-    setZoomImagen(1);
-  }, [examenIdActivo, paginaActiva]);
   const hayCambiosPendientesPagina = useMemo(() => {
     if (!paginaRevisionActiva) return false;
     const firma = (respuestas: Array<{ numeroPregunta: number; opcion: string | null }>) =>
