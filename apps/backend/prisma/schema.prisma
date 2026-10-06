@@ -17,6 +17,7 @@ model Docente {
   correo                   String                          @unique
   hashContrasena           String?
   googleSub                String?
+  imagenPerfil             String?
   roles                    String                          @default("[]") // JSON array de roles
   activo                   Boolean                         @default(true)
   ultimoAcceso             DateTime?

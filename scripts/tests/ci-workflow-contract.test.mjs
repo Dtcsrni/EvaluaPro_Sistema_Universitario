@@ -366,6 +366,17 @@ test('CI central concentra suites completas y cobertura sin excluir todo el cód
   assert.match(docs, /run sdd:audit/);
 });
 
+test('CI publica diagnósticos de cobertura aunque el runner escriba bajo .vitest-reports', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const coreBackend = extractJobBlock(central, 'core_backend_portal');
+  const upload = coreBackend.match(/- name: Publicar diagnóstico de cobertura backend[\s\S]*?(?=\n      - name:|$)/)?.[0] ?? '';
+
+  assert.match(upload, /if:\s*always\(\)/);
+  assert.match(upload, /apps\/backend\/\.vitest-reports\/\*\*\/run-summary\.json/);
+  assert.match(upload, /apps\/backend\/\.vitest-reports\/backend-coverage-logs\/\*\.log/);
+  assert.match(upload, /include-hidden-files:\s*true/);
+});
+
 test('package workflow rechaza tag que no coincide con package.json antes de publicar', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
   const validationIndex = workflow.indexOf('${GITHUB_REF_NAME#v}');

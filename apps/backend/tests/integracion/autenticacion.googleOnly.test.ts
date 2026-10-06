@@ -14,7 +14,8 @@ vi.mock('../../src/modulos/modulo_autenticacion/servicioGoogle', () => ({
   verificarCredencialGoogle: vi.fn(async () => ({
     correo: 'docente@prueba.test',
     sub: 'google-sub-only',
-    nombreCompleto: 'Docente Google Only'
+    nombreCompleto: 'Docente Google Only',
+    imagenPerfil: 'https://lh3.googleusercontent.com/a/foto-docente'
   }))
 }));
 
@@ -84,6 +85,13 @@ describe('autenticacion google-only', () => {
     expect(login.body?.token).toBeTruthy();
     const actualizado = await Docente.findById(docente._id).lean();
     expect(actualizado?.googleSub).toBe('google-sub-only');
+    expect(actualizado?.imagenPerfil).toBe('https://lh3.googleusercontent.com/a/foto-docente');
+
+    const perfil = await request(app)
+      .get('/api/autenticacion/perfil')
+      .set('Authorization', `Bearer ${login.body.token}`)
+      .expect(200);
+    expect(perfil.body?.docente?.imagenPerfil).toBe('https://lh3.googleusercontent.com/a/foto-docente');
   });
 
   it('bloquea definir contraseña aun con sesión iniciada', async () => {

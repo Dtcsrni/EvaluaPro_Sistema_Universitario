@@ -215,6 +215,18 @@ jobs:
           BACKEND_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
         run: npm -C apps/backend run test:coverage
 
+      - name: Publicar diagnóstico de cobertura backend
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: backend-coverage-diagnostics
+          path: |
+            apps/backend/.vitest-reports/**/run-summary.json
+            apps/backend/.vitest-reports/backend-coverage-logs/*.log
+          if-no-files-found: warn
+          retention-days: 7
+          include-hidden-files: true
+
       - name: Etapa coverage portal
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/portal_alumno_cloud run test:coverage

@@ -1561,14 +1561,54 @@
 
 /* Cuenta docente: control de identidad visible, accionable y legible. */
 .shell-docente__acciones {
+  display: flex;
   align-items: center;
   gap: 0.7rem;
+}
+
+.shell-docente__controles {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--glass-border-strong);
 }
 
 @media (min-width: 1180px) {
   .shell-docente__header,
   .shell-docente__acciones {
     flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 1179px) {
+  .shell-docente__acciones {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .shell-docente__controles {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell-docente__acciones {
+    align-items: stretch;
+  }
+
+  button.chip-docente-sesion {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .shell-docente__controles {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+    padding: 0;
+    border-left: 0;
   }
 }
 
@@ -1642,6 +1682,23 @@ button.chip-docente-sesion:active {
   place-items: center;
   border-radius: 11px;
   background: linear-gradient(145deg, #123d57, #15213f 68%, #2c1f4d);
+}
+
+.chip-docente-avatar > img {
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
+  object-fit: cover;
+}
+
+.chip-docente-avatar > .icono {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--glass-surface-1);
+  color: var(--ui-text-primary);
 }
 
 .chip-docente-avatar__status {
@@ -4990,6 +5047,96 @@ button.chip-docente-sesion:active {
   background: rgba(11, 30, 39, 0.86) !important;
   color: #e4f4ef !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+:root[data-theme] .chip-docente-avatar > .icono {
+  background: var(--glass-surface-1);
+  color: var(--ui-text-primary);
+}
+
+.cuenta-foto-perfil {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--glass-surface-1);
+}
+
+.cuenta-foto-perfil__avatar {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--ui-text-primary);
+}
+
+.cuenta-foto-perfil__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cuenta-foto-perfil__contenido {
+  min-width: 0;
+}
+
+.cuenta-foto-perfil__contenido h3 {
+  margin: 0;
+  color: var(--ui-text-primary);
+}
+
+.cuenta-foto-perfil__contenido p {
+  margin: 0.25rem 0 0.5rem;
+}
+
+.cuenta-foto-perfil__acciones {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.cuenta-foto-perfil__cargar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  cursor: pointer;
+}
+
+.cuenta-foto-perfil__cargar input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cuenta-foto-perfil__cargar:focus-within {
+  outline: 3px solid var(--brand-cobalt);
+  outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+  .cuenta-foto-perfil {
+    align-items: flex-start;
+    padding: 0.75rem;
+  }
+
+  .cuenta-foto-perfil__avatar {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
 }
 
 :root[data-theme] .chip-docente-avatar__status {

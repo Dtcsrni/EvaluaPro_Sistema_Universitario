@@ -10,6 +10,7 @@ export type Docente = {
   nombres?: string;
   apellidos?: string;
   correo: string;
+  imagenPerfil?: string;
   roles?: string[];
   permisos?: string[];
   tieneContrasena?: boolean;

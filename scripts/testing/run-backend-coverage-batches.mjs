@@ -172,6 +172,18 @@ const focusedCoverageProfiles = new Map([
   ['apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts', {
     tests: ['tests/omr.prevalidacion.test.ts'],
     include: 'src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts'
+  }],
+  ['apps/backend/src/infraestructura/baseDatos/sqlite.ts', {
+    tests: ['tests/integracion/periodosPortada.test.ts'],
+    include: 'src/infraestructura/baseDatos/sqlite.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_autenticacion/controladorAutenticacion.ts', {
+    tests: ['tests/integracion/autenticacion.googleOnly.test.ts'],
+    include: 'src/modulos/modulo_autenticacion/controladorAutenticacion.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_autenticacion/servicioGoogle.ts', {
+    tests: ['tests/servicioGoogle.test.ts'],
+    include: 'src/modulos/modulo_autenticacion/servicioGoogle.ts'
   }]
 ]);
 
@@ -333,9 +345,9 @@ async function cleanBatchArtifacts(name) {
   });
 }
 
-async function emitFailureExcerpt(batchName, attempt) {
+async function emitFailureExcerpt(batchName, attempt, logFileName = null) {
   const attemptLabel = `${batchName} ${attempt}/${batchAttempts}`;
-  const logPath = path.join(logsDir, `${attemptLabel.replace(/[^a-z0-9_-]+/gi, '_')}.log`);
+  const logPath = path.join(logsDir, logFileName ?? `${attemptLabel.replace(/[^a-z0-9_-]+/gi, '_')}.log`);
   try {
     const log = await fs.readFile(logPath, 'utf8');
     const excerpt = formatFailureExcerpt(log);
@@ -396,11 +408,15 @@ async function main() {
     const mode = args.includes('--changed=' + changedFrom) ? 'diferencial por dependencias' : 'diferencial enfocado';
     process.stdout.write(`[backend-coverage] modo ${mode}; base=${changedFrom}; fuentes=${changedFiles.length}\n`);
     const code = await runVitest(args, 'backend-changed');
+    if (code !== 0) await emitFailureExcerpt('backend-changed', 1, 'backend-changed.log');
     await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
       startedAt,
       finishedAt: new Date().toISOString(),
       durationMs: Date.now() - startedAtMs,
       changedFrom,
+      changedFiles,
+      mode,
+      failureLog: path.relative(rootDir, path.join(logsDir, 'backend-changed.log')).replaceAll(path.sep, '/'),
       results: [{ name: 'backend-changed', exitCode: code, durationMs: Date.now() - startedAtMs }],
       failed: code !== 0,
       failureStage: code === 0 ? null : 'changed-coverage'
