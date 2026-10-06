@@ -468,7 +468,7 @@ function Add-DocenteNativeCompiledPayload {
         (Join-Path $backendTarget 'node_modules/.prisma/client/query_engine_bg*'),
         (Join-Path $backendTarget 'node_modules/.prisma/client/query_compiler_bg*'),
         # Un node_modules reutilizado puede conservar engines de Linux del
-        # perfil Docker. El payload docente es Windows + SQLite y solo usa el
+        # perfil institucional. El payload docente es Windows + SQLite y solo usa el
         # engine native generado arriba (query_engine-windows.dll.node).
         (Join-Path $backendTarget 'node_modules/.prisma/client/libquery_engine-*.so.node'),
         (Join-Path $backendTarget 'node_modules/.cache')

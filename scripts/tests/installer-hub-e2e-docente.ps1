@@ -1257,7 +1257,6 @@ function Export-RuntimeAudit {
   Export-JsonArtifact -Name $auditName -Data ([pscustomobject]@{
     generatedAt = (Get-Date).ToString('o')
     runtime = 'native-node-sqlite'
-    dockerRequired = $false
   }) | Out-Null
 }
 

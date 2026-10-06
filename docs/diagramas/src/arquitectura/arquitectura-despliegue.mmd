@@ -17,8 +17,8 @@ flowchart TB
     classDef repo fill:#fef3c7,stroke:#f59e0b,color:#7c2d12;
     classDef ext fill:#f1f5f9,stroke:#94a3b8,color:#0f172a;
 
-  subgraph Docker["Docker Compose (local)"]
-    mongo_local[(MongoDB Local)]:::db
+  subgraph DocenteLocal["Runtime nativo Windows"]
+    sqlite_local[(SQLite local)]:::db
     api_docente_local[API Docente Local<br/>apps backend]:::svc
     web_docente_local[Web Docente Local<br/>apps frontend]:::svc
     pdf_local[[Repositorio PDFs locales<br/>data/examenes]]:::repo
@@ -26,7 +26,7 @@ flowchart TB
 
   docente[Docente]:::user --> web_docente_local
   web_docente_local --> api_docente_local
-  api_docente_local --> mongo_local
+  api_docente_local --> sqlite_local
   api_docente_local --> pdf_local
 
   subgraph CloudRun["Nube (Cloud Run / similar)"]

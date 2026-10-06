@@ -17,7 +17,7 @@ El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
 - Ejecutar configuracion operativa, activacion de licencia y validacion final con helper controlado bajo contrato JSON.
 - Dejar trazabilidad en logs por sesion para soporte tecnico.
 - Para `docente-local`, centralizar la plataforma local nativa: `SQLite + API + Web docente`.
-- Docker queda fuera de la ruta `docente-local`; solo aplica a otros flavors o tareas tecnicas no docentes.
+- `docente-local` se instala en Windows con Node.js embebido y SQLite local.
 
 ## Flujo funcional
 
