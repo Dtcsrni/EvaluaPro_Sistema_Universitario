@@ -379,6 +379,15 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
       const repetida = await reproducir(tx);
       if (repetida) return { calificacion: repetida, repetida: true, creada: false };
 
+      if (componente === 'Solicitud Extra' && calificacion === 1) {
+        const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
+        const fila = filas.find((item) => item.alumnoId === alumnoId);
+        if (!fila) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece al periodo seleccionado', 404);
+        if (!fila.extraDisponible) {
+          throw new ErrorAplicacion('EXTRA_NO_DISPONIBLE', 'La solicitud de Extra solo se habilita cuando la calificación final vigente de la materia es menor que 6.', 409);
+        }
+      }
+
       const periodo = await tx.periodo.findFirst({ where: { id: periodoId, docenteId }, select: { id: true } });
       if (!periodo) throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
       const alumno = await tx.alumno.findFirst({ where: { id: alumnoId, periodoId }, select: { id: true } });

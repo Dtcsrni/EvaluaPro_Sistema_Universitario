@@ -1363,19 +1363,8 @@ export function SeccionPlantillas({
       globalThis.clearInterval(timerSondeo);
       setGenerandoLote(false);
     }
-  }, [
-    alumnos,
-    avisarSinPermiso,
-    cargarExamenesGenerados,
-    confirm,
-    enviarConPermiso,
-    plantillaSeleccionada,
-    plantillaId,
-    puedeGenerarExamenes,
-    progresoLoteGeneracion,
-    setMensajeGeneracion,
-    preferenciasPdf?.paginasPorTipo?.extraordinario
-  ]);
+  }, [alumnos, avisarSinPermiso, cargarExamenesGenerados, confirm, enviarConPermiso, plantillaSeleccionada, plantillaId,
+    puedeGenerarExamenes, progresoLoteGeneracion, setMensajeGeneracion]);
 
   const formularioPlantilla = (
     <PlantillasFormulario

@@ -621,6 +621,15 @@ model PoliticaCalificacionAuditoria {
   @@map("auditoria_politicas_calificacion")
 }
 
+model PreferenciaRetencionParcial {
+  docenteId String   @id
+  docente   Docente  @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  meses     Int?
+  updatedAt DateTime @updatedAt
+
+  @@map("preferencias_retencion_parcial")
+}
+
 model Calificacion {
   id                           String         @id @default(uuid())
   docenteId                    String

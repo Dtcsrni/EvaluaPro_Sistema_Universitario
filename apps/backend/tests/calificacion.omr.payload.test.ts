@@ -11,7 +11,6 @@ import { crearApp } from '../src/app.js';
 import { configuracion } from '../src/configuracion.js';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
 import { construirTextoQrExamenPagina, extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
 
 function refirmarQr(textoQr: string) {
   const limpio = String(textoQr ?? '').trim();

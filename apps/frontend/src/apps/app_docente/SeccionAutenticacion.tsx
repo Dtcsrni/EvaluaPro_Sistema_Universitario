@@ -90,7 +90,7 @@ export function SeccionAutenticacion({
   primerUso,
   modoInicial
 }: {
-  onIngresar: (token: string, persistente?: boolean) => void;
+  onIngresar: (token: string, persistente?: boolean, flowId?: string) => void;
   onReintentarGoogle?: () => Promise<boolean>;
   oauthGoogleDisponible?: boolean;
   oauthGoogleBackendDisponible?: boolean;
@@ -124,6 +124,7 @@ export function SeccionAutenticacion({
   const [mantenerSesion, setMantenerSesion] = useState(true);
   const [reintentandoGoogle, setReintentandoGoogle] = useState(false);
   const [diagnosticoGoogle, setDiagnosticoGoogle] = useState('');
+  const [estadoDiagnostico, setEstadoDiagnostico] = useState('');
 
   function calcularFortalezaPassword(pwd: string) {
     if (!pwd) return { nivel: 0, texto: '', color: '#94a3b8' };
@@ -139,6 +140,27 @@ export function SeccionAutenticacion({
   }
 
   const fortaleza = calcularFortalezaPassword(contrasena);
+
+  function datosErrorTrazabilidad(error: unknown) {
+    const detalle = error instanceof ErrorRemoto ? error.detalle : undefined;
+    const candidato = typeof detalle?.codigo === 'string' ? detalle.codigo.toUpperCase() : '';
+    const codigo = /^[A-Z0-9_]{1,64}$/.test(candidato)
+      ? candidato
+      : typeof detalle?.status === 'number' ? `HTTP_${detalle.status}` : 'ERROR_CLIENTE';
+    return {
+      codigo,
+      ...(typeof detalle?.status === 'number' ? { httpStatus: detalle.status } : {})
+    };
+  }
+
+  async function copiarDiagnosticoAcceso() {
+    try {
+      await navigator.clipboard.writeText(exportarTrazaAutenticacion());
+      setEstadoDiagnostico('Diagnóstico local copiado. No incluye credenciales ni datos personales.');
+    } catch {
+      setEstadoDiagnostico('No se pudo copiar el diagnóstico desde este navegador.');
+    }
+  }
 
   function hayGoogleConfigurado() {
     return Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());

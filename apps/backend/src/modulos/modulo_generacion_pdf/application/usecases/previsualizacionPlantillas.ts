@@ -35,7 +35,6 @@ import {
   resolverPaginasObjetivoPreferidas,
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
-  resolverPreguntasExtraordinarioArchivado,
   construirBlueprintPlantilla,
   resolverTemplateVersionOmr
 } from '../../shared/controladorGeneracionPdfShared.js';
@@ -145,13 +144,14 @@ async function guardarLayoutValidadoPlantilla(params: {
   totalPreguntas: number;
   temas: string[];
   blueprint?: unknown;
-}) {
+}): Promise<Record<string, unknown> | undefined> {
   const bookletConfig = construirBookletConfigValidado(params);
-  if (!bookletConfig) return;
+  if (!bookletConfig) return undefined;
   await prisma.examenPlantilla.update({
     where: { id: params.plantillaId },
     data: { bookletConfig: JSON.stringify(bookletConfig) }
   });
+  return bookletConfig;
 }
 
 function guardarPreviewMemoria<T>(mapa: Map<string, T>, clave: string, valor: T) {
@@ -206,12 +206,15 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   if (periodoResuelto?.activo === false && !permitirArchivados) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
   }
-  const { preguntasDb, temas } = await resolverPreguntasPlantilla({
+  const preguntasResueltas = await resolverPreguntasPlantilla({
     docenteId,
     plantilla: plantilla as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] },
     ordenarPorRecencia: true,
     permitirArchivados
   });
+  const filtradas = excluirReferenciasTecnologiaRetirada(periodoResuelto?.nombre, preguntasResueltas.preguntasDb);
+  const preguntasDb = filtradas.preguntasDb;
+  const { temas } = preguntasResueltas;
 
   if (preguntasDb.length === 0) {
     throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas disponibles para previsualizar', 400);
@@ -220,13 +223,14 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   // Un extraordinario desde un periodo archivado se imprime en dos hojas
   // dúplex. Este formato no modifica el número configurado en el global fuente.
   const esExtraordinarioArchivado = Boolean(plantilla.archivadoEn) && periodoResuelto?.activo === false;
+  const docenteDb = await resolverDocentePdf(docenteId);
   const numeroPaginas = esExtraordinarioArchivado
-    ? 4
+    ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
     : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const preguntasFingerprint = construirFingerprintPreguntasPreview(preguntasDb);
   const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
-  const layoutFingerprint = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? '|extra-duplex-4p-v1' : ''}`;
+  const layoutFingerprint = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? `|extra-duplex-${numeroPaginas}p-v1` : ''}`;
   const layoutValidado = resolverLayoutValidadoPlantilla({
     plantilla: plantilla as { bookletConfig?: unknown },
     preguntasFingerprint,
@@ -237,6 +241,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   });
   const bookletConfig = {
     ...(plantilla.bookletConfig ?? {}),
+    targetPages: numeroPaginas,
     distribuirEnPaginasObjetivo: esExtraordinarioArchivado,
     autoFitPages: layoutValidado ? false : true,
     autoFitTypography: layoutValidado ? false : true,
@@ -246,7 +251,6 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   const seed = hash32(String(plantilla._id));
   const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, seed);
   const mapaVarianteDet = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}`);
-  const docenteDb = await resolverDocentePdf(docenteId);
   const templateVersionOmr = resolverTemplateVersionOmr({
     docenteId,
     periodoId: plantilla.periodoId,
@@ -256,11 +260,13 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   return {
     plantilla,
     preguntasDb,
+    totalPreguntasOmitidasTecnologiaRetirada: filtradas.idsExcluidos.size,
     preguntasBase,
     preguntasCandidatas,
     mapaVarianteDet,
     numeroPaginas,
     periodo: periodoResuelto,
+    esExtraordinarioArchivado,
     docenteDb,
     temas,
     templateVersionOmr,
@@ -382,6 +388,7 @@ export async function previsualizarPlantillaUseCase(params: {
     numeroPaginasConfiguradas: contexto.numeroPaginas,
     totalDisponibles,
     totalUsados,
+    totalPreguntasOmitidasTecnologiaRetirada: contexto.totalPreguntasOmitidasTecnologiaRetirada,
     fraccionVaciaUltimaPagina,
     advertencias,
     conteoPorTema,
@@ -422,7 +429,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
   });
   const archivoPreview = path.join(dirPreview, fileName);
 
-  if (!params.forzarRegeneracion) {
+  if (!params.forzarRegeneracion && !contexto.esExtraordinarioArchivado) {
     const memoria = previewsPdfMemoria.get(fileName);
     if (memoria && Date.now() < memoria.expiraEn) {
       return { buffer: Buffer.from(memoria.buffer), fileName: memoria.fileName };
@@ -433,7 +440,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
   try {
     const stat = await fs.stat(archivoPreview);
     const expiraEn = stat.mtimeMs + PREVIEW_MEMORIA_TTL_MS;
-    if (!params.forzarRegeneracion && Date.now() < expiraEn) {
+    if (!params.forzarRegeneracion && !contexto.esExtraordinarioArchivado && Date.now() < expiraEn) {
       const buffer = await fs.readFile(archivoPreview);
       guardarPreviewMemoria(previewsPdfMemoria, fileName, {
         buffer,
@@ -463,13 +470,16 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,
-      instrucciones: (contexto.plantilla as { instrucciones?: unknown }).instrucciones,
-      incluirPrefijosDocente: false
+      instrucciones: contexto.esExtraordinarioArchivado
+        ? INSTRUCCIONES_OMR_EXTRAORDINARIO
+        : (contexto.plantilla as { instrucciones?: unknown }).instrucciones,
+      incluirPrefijosDocente: true
     })
   });
 
   if (previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
-    await guardarLayoutValidadoPlantilla({
+    const blueprint = await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false });
+    const bookletConfigValidado = await guardarLayoutValidadoPlantilla({
       plantillaId: String(contexto.plantilla._id),
       bookletConfig: contexto.plantilla.bookletConfig,
       fontScale: previewResultado.fontScaleAplicada,
@@ -479,8 +489,21 @@ export async function previsualizarPlantillaPdfUseCase(params: {
       numeroPaginas: contexto.numeroPaginas,
       totalPreguntas: contexto.preguntasBase.length,
       temas: contexto.temas,
-      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false })
+      blueprint
     });
+    if (contexto.esExtraordinarioArchivado && contexto.plantilla.periodoId && bookletConfigValidado) {
+      guardarPreviewArchivadoValidado({
+        docenteId: String(params.docenteId),
+        periodoId: String(contexto.plantilla.periodoId),
+        plantillaId: String(contexto.plantilla._id),
+        bookletConfig: bookletConfigValidado,
+        blueprintJson: JSON.stringify(blueprint),
+        mapaVariante: {
+          ordenPreguntas: contexto.mapaVarianteDet.ordenPreguntas,
+          ordenOpcionesPorPregunta: contexto.mapaVarianteDet.ordenOpcionesPorPregunta
+        }
+      });
+    }
   }
 
   const buffer = Buffer.from(previewResultado.pdfBytes);

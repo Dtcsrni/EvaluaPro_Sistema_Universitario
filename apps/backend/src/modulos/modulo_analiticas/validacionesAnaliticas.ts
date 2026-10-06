@@ -47,6 +47,9 @@ export const esquemaGuardarCalificacionLista = z.object({
   if (valor.calificacion > maximo) {
     contexto.addIssue({ code: 'custom', path: ['calificacion'], message: `La calificación no puede exceder ${maximo}.` });
   }
+  if (valor.componente === 'Solicitud Extra' && ![0, 1].includes(valor.calificacion)) {
+    contexto.addIssue({ code: 'custom', path: ['calificacion'], message: 'La solicitud de Extra solo admite 0 o 1.' });
+  }
   if (valor.componente !== 'Bono extracurricular' && valor.calificacion > 10) {
     contexto.addIssue({ code: 'custom', path: ['calificacion'], message: 'La calificación parcial no puede exceder 10.' });
   }

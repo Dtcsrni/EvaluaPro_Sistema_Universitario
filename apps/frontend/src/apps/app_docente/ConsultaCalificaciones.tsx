@@ -159,6 +159,11 @@ export function ConsultaCalificaciones({
   const filaSeleccionadaRef = useRef<FilaConsultaCalificacion | null>(null);
   const solicitudesCalificacionPendientes = useRef(new Map<string, string>());
   const solicitudBonoPendiente = useRef<{ clave: string; clientRequestId: string } | null>(null);
+  const solicitudExtraPendiente = useRef<{ clave: string; clientRequestId: string } | null>(null);
+  const solicitudResultadoExtraPendiente = useRef<{ clave: string; clientRequestId: string } | null>(null);
+  const [resultadoExtraExterno, setResultadoExtraExterno] = useState({
+    folio: '', loteId: '', fuenteArchivo: '', documentoSha256: '', aciertos: '', totalReactivos: '', criteriosAplicados: ''
+  });
   filaSeleccionadaRef.current = filaSeleccionada;
   const alumnoSeleccionadoId = filaSeleccionada?.alumnoId;
   const periodoSeleccionado = periodos.find((periodo) => String(periodo._id) === periodoId);

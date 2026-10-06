@@ -26,8 +26,8 @@ export type Docente = {
   preferenciasPdf?: {
     institucion?: string;
     lema?: string;
-    logos?: { izquierdaPath?: string; derechaPath?: string };
     paginasPorTipo?: { parcial: number; global: number; extraordinario: number };
+    logos?: { izquierdaPath?: string; derechaPath?: string };
   };
   retencionParcialesArchivadosMeses?: 3 | 6 | 12 | null;
 };

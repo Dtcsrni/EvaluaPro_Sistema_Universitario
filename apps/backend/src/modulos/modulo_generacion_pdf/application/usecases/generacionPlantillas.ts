@@ -407,6 +407,13 @@ async function generarExamenesLoteUseCaseInterno(params: {
   if (!esExtraordinarioArchivado && periodo?.activo === false) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'Una materia archivada solo admite extraordinarios con su plantilla archivada.', 409);
   }
+  const previewArchivado = esExtraordinarioArchivado
+    ? obtenerPreviewArchivadoValidado({
+      docenteId: docId,
+      periodoId: String(plantilla.periodoId),
+      plantillaId: String(plantilla.id)
+    })
+    : undefined;
   const docenteDb = await resolverDocentePdf(docId);
   const idsExtraordinario = tipoExamen === 'extraordinario' ? new Set(params.alumnoIds ?? []) : null;
   let alumnos: Array<{ id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }>;
@@ -476,15 +483,17 @@ async function generarExamenesLoteUseCaseInterno(params: {
     // subconjunto y, por tanto, su fingerprint de layout validado.
     ordenarPorRecencia: true
   });
-  // Mantener el mismo formato que la vista previa del extraordinario archivado:
-  // cuatro páginas de examen, equivalentes a dos hojas impresas por ambos lados.
+  let preguntasDb = preguntasResueltas.preguntasDb;
+  const { temas } = preguntasResueltas;
+  preguntasDb = excluirReferenciasTecnologiaRetirada(periodo?.nombre, preguntasDb).preguntasDb;
+  // La configuración guardada para extraordinarios debe coincidir con la vista previa.
   const numeroPaginas = esExtraordinarioArchivado
-    ? 4
+    ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
     : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const bookletConfigPlantilla = (plantillaParaGeneracion.bookletConfig ?? {}) as Record<string, unknown>;
   const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
-  const layoutFingerprintOmr = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? '|extra-duplex-4p-v1' : ''}`;
+  const layoutFingerprintOmr = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? `|extra-duplex-${numeroPaginas}p-v1` : ''}`;
   const layoutValidado = bookletConfigPlantilla.resolvedLayout as {
     version?: number;
     fontScale?: number;
@@ -499,7 +508,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   // Archivar actualiza updatedAt en los reactivos legacy aunque su contenido no
   // cambie. Para el extraordinario cerrado, resolverPreguntasPlantilla ya
   // verificó el hash de cada versión fijada por el blueprint.
-  const blueprintArchivadoVerificado = esExtraordinarioArchivado && Boolean(plantilla.blueprintJson);
+  const blueprintArchivadoVerificado = esExtraordinarioArchivado && Boolean(plantillaParaGeneracion.blueprintJson);
   const layoutVigente = layoutValidado?.version === 1 &&
     (fingerprintPreguntasVigente || blueprintArchivadoVerificado) &&
     layoutValidado.layoutFingerprint === layoutFingerprintOmr &&
@@ -518,6 +527,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   }
   const bookletConfig = {
     ...bookletConfigPlantilla,
+    targetPages: numeroPaginas,
     // En producción masiva se consume la configuración ya validada de la
     // plantilla. No se ejecuta el auto-fit ni se prueban variantes de layout.
     autoFitPages: false,
@@ -1079,7 +1089,7 @@ export async function descargarPdfLoteUseCase(params: {
   }
   const plantillaArchivada = Boolean((plantilla as { archivadoEn?: unknown } | null)?.archivadoEn);
   const paginasMaximasPorExamen = plantillaArchivada && examenesDelLote.every((examen) => String(examen.tipoExamen ?? '') === 'extraordinario')
-    ? 4
+    ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
     : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown } | null);
   let paginasPorExamen: number;
   if (artefactoPersistido) {
