@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
@@ -15,6 +16,7 @@ const workflowDir = path.join(root, '.github', 'workflows');
 const packageJsonPath = path.join(root, 'package.json');
 const backendDockerfilePath = path.join(root, 'apps', 'backend', 'Dockerfile');
 const frontendDockerfilePath = path.join(root, 'apps', 'frontend', 'Dockerfile');
+const require = createRequire(import.meta.url);
 
 function extractJobBlock(workflow, jobKey) {
   const startMarker = `  ${jobKey}:\n`;
@@ -207,6 +209,34 @@ test('E2E del release draft delimita variable PowerShell seguida de dos puntos',
   assert.doesNotMatch(draftAssetBlock, /releases\?per_page=/);
   assert.match(draftAssetBlock, /\$\{candidateName\}:/);
   assert.doesNotMatch(draftAssetBlock, /\$candidateName:/);
+});
+
+test('apps que exponen Express fijan proxy-addr en la primera versión corregida', () => {
+  const manifests = [
+    ['package.json', 'package-lock.json'],
+    ['apps/backend/package.json', 'apps/backend/package-lock.json'],
+    ['apps/portal_alumno_cloud/package.json', 'apps/portal_alumno_cloud/package-lock.json']
+  ];
+
+  for (const [manifestPath, lockPath] of manifests) {
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, manifestPath), 'utf8'));
+    const lock = JSON.parse(fs.readFileSync(path.join(root, lockPath), 'utf8'));
+
+    assert.equal(manifest.overrides?.['proxy-addr'], '2.0.8', manifestPath);
+    assert.equal(lock.packages?.['node_modules/proxy-addr']?.version, '2.0.8', lockPath);
+  }
+});
+
+test('proxy-addr conserva rangos IPv4 validos y rechaza el prefijo IPv6 mapeado ambiguo', () => {
+  const proxyaddr = require('proxy-addr');
+  const ambiguousMappedRange = proxyaddr.compile(['::ffff:10.0.0.0/8']);
+  const validMappedRange = proxyaddr.compile(['::ffff:10.0.0.0/104']);
+  const validIpv4Range = proxyaddr.compile(['10.0.0.0/8']);
+
+  assert.equal(ambiguousMappedRange('203.0.113.9', 0), false);
+  assert.equal(validMappedRange('::ffff:10.1.2.3', 0), true);
+  assert.equal(validIpv4Range('10.1.2.3', 0), true);
+  assert.equal(validIpv4Range('203.0.113.9', 0), false);
 });
 
 test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
