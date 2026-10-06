@@ -152,7 +152,7 @@ function buildRootCoverageBatches() {
 
 function buildChangedCoverageArgs(baseRef) {
   const normalizedBaseRef = String(baseRef ?? '').trim();
-  if (!normalizedBaseRef || normalizedBaseRef.startsWith('-') || normalizedBaseRef.includes('\\0')) {
+  if (!normalizedBaseRef || normalizedBaseRef.startsWith('-')) {
     throw new TypeError('BACKEND_COVERAGE_CHANGED_FROM debe ser una referencia Git válida');
   }
   return [
@@ -353,7 +353,7 @@ async function main() {
   const changedFrom = process.env.BACKEND_COVERAGE_CHANGED_FROM?.trim();
   if (changedFrom) {
     const args = buildChangedCoverageArgs(changedFrom);
-    process.stdout.write(`[backend-coverage] modo diferencial; base=${changedFrom}\\n`);
+    process.stdout.write(`[backend-coverage] modo diferencial; base=${changedFrom}\n`);
     const code = await runVitest(args, 'backend-changed');
     await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
       startedAt,
