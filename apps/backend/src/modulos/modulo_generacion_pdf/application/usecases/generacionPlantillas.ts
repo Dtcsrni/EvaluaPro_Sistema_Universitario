@@ -1055,15 +1055,14 @@ export async function descargarPdfLoteUseCase(params: {
   const plantillaId = examenLote?.plantillaId || undefined;
   const periodoId = examenLote?.periodoId || undefined;
 
-  const [plantilla, periodo, totalExamenes, docenteDb] = await Promise.all([
+  const [plantilla, periodo, totalExamenes] = await Promise.all([
     plantillaId
       ? prisma.examenPlantilla.findUnique({ where: { id: plantillaId } })
       : Promise.resolve(null),
     periodoId
       ? prisma.periodo.findUnique({ where: { id: periodoId } })
       : Promise.resolve(null),
-    prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote } }),
-    resolverDocentePdf(docId)
+    prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote } })
   ]);
 
   const artefactos = await prisma.$queryRaw<Array<{ archivoNombre: string; sha256: string; totalPaginas: number; totalExamenes: number }>>`
@@ -1087,10 +1086,6 @@ export async function descargarPdfLoteUseCase(params: {
   } catch {
     throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF de lote no disponible', 404, { docenteId: docId });
   }
-  const plantillaArchivada = Boolean((plantilla as { archivadoEn?: unknown } | null)?.archivadoEn);
-  const paginasMaximasPorExamen = plantillaArchivada && examenesDelLote.every((examen) => String(examen.tipoExamen ?? '') === 'extraordinario')
-    ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
-    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown } | null);
   let paginasPorExamen: number;
   if (artefactoPersistido) {
     const paginasValidas = Number(artefactoPersistido.totalPaginas);
@@ -1109,8 +1104,8 @@ export async function descargarPdfLoteUseCase(params: {
       throw new ErrorAplicacion('LOTE_PAGINACION_NO_VERIFICABLE', 'El historial no permite comprobar que todos los exámenes tengan la misma paginación.', 409, { loteId: lote });
     }
   }
-  if (paginasPorExamen < 1 || paginasPorExamen > paginasMaximasPorExamen) {
-    throw new ErrorAplicacion('LOTE_PDF_INTEGRIDAD_INVALIDA', 'La paginación guardada excede el máximo de la plantilla.', 409, { loteId: lote, paginasPorExamen, paginasMaximasPorExamen });
+  if (!Number.isInteger(paginasPorExamen) || paginasPorExamen < 1) {
+    throw new ErrorAplicacion('LOTE_PDF_INTEGRIDAD_INVALIDA', 'La paginación persistida del lote no es válida.', 409, { loteId: lote, paginasPorExamen });
   }
   const resumenPdf = await validarPdfConsolidadoLoteAplicacion(buffer, examenesDelLote.length * paginasPorExamen);
   if (artefactoPersistido && (

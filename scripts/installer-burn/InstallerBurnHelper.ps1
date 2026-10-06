@@ -207,7 +207,7 @@ function Expand-NativePayload {
       [System.IO.Compression.ZipFile]::ExtractToDirectory($PayloadZip, $payloadStage)
     }
     Write-HelperProgress -Percent 52 -Status 'Validando los archivos esenciales del payload.'
-    foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\start-docente-native.mjs', 'scripts\runtime-env.mjs')) {
+    foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\start-docente-native.mjs', 'scripts\runtime-env.mjs', 'scripts\migrate-calificacion-origen-inferida-sqlite.mjs', 'scripts\migrate-preferencias-retencion-parcial-sqlite.mjs', 'scripts\migrate-resultados-extra-externos-sqlite.mjs')) {
       if (-not (Test-Path -LiteralPath (Join-Path $payloadStage $relativePath))) {
         throw "Payload nativo incompleto: falta $relativePath"
       }

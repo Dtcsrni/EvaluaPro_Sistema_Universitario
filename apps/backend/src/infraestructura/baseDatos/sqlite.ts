@@ -40,6 +40,9 @@ export async function conectarSqlite(): Promise<void> {
   await prisma.$connect();
   await asegurarEsquemaSqlite();
   ejecutarMigracionReactivosAditiva();
+  ejecutarMigracionSqliteAdicional('migrate-calificacion-origen-inferida-sqlite.mjs');
+  ejecutarMigracionSqliteAdicional('migrate-preferencias-retencion-parcial-sqlite.mjs');
+  ejecutarMigracionSqliteAdicional('migrate-resultados-extra-externos-sqlite.mjs');
   ejecutarMigracionCalificacionesListaManual();
   ejecutarMigracionCalificacionesListaIdempotencia();
   ejecutarMigracionArtefactosLotePdf();
@@ -50,6 +53,21 @@ export async function conectarSqlite(): Promise<void> {
   ejecutarMigracionTemasBancoAuditoria();
   ejecutarMigracionPoliticasCalificacionAuditoria();
   ejecutarMigracionPlantillasAuditoria();
+}
+
+function ejecutarMigracionSqliteAdicional(nombreScript: string): void {
+  const databasePath = resolverRutaArchivoSqlite(databaseUrl);
+  if (!databasePath) return;
+  const candidatos = [
+    path.resolve(process.cwd(), 'scripts', nombreScript),
+    path.resolve(process.cwd(), '..', '..', 'scripts', nombreScript)
+  ];
+  const script = candidatos.find((candidate) => fs.existsSync(candidate));
+  if (!script) {
+    if (entorno === 'production') throw new Error(`Falta la migración SQLite requerida: ${nombreScript}`);
+    return;
+  }
+  execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
 }
 
 function resolverRutaArchivoSqlite(urlConfigurada?: string): string | null {

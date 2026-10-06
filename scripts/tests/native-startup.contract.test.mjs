@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const nativeLauncher = fs.readFileSync(path.join(root, 'scripts', 'start-docente-native.mjs'), 'utf8');
+const sqliteRuntime = fs.readFileSync(path.join(root, 'apps', 'backend', 'src', 'infraestructura', 'baseDatos', 'sqlite.ts'), 'utf8');
+const msiBuilder = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+const installerHelper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
 const runtimeEnv = fs.readFileSync(path.join(root, 'scripts', 'runtime-env.mjs'), 'utf8');
 const staticServer = fs.readFileSync(path.join(root, 'scripts', 'serve-docente-static.mjs'), 'utf8');
 const bundleGuard = fs.readFileSync(path.join(root, 'scripts', 'docente-bundle-guard.mjs'), 'utf8');
@@ -28,6 +31,19 @@ test('el launcher nativo recarga configuración Classroom del .env frente a un s
   assert.match(runtimeEnv, /'GOOGLE_CLASSROOM_REDIRECT_URI'/);
   assert.match(runtimeEnv, /'CLASSROOM_TOKEN_CIPHER_KEY'/);
   assert.match(runtimeEnv, /nodeEnv[\s\S]*production[\s\S]*flavor[\s\S]*docente-local/);
+});
+
+test('el runtime y el payload nativo incluyen las migraciones SQLite nuevas', () => {
+  const migrations = [
+    'migrate-calificacion-origen-inferida-sqlite.mjs',
+    'migrate-preferencias-retencion-parcial-sqlite.mjs',
+    'migrate-resultados-extra-externos-sqlite.mjs'
+  ];
+  for (const migration of migrations) {
+    assert.ok(sqliteRuntime.includes(`ejecutarMigracionSqliteAdicional('${migration}')`));
+    assert.ok(msiBuilder.includes(migration), `El MSI debe empaquetar ${migration}.`);
+    assert.ok(installerHelper.includes(migration), `El instalador debe validar ${migration}.`);
+  }
 });
 
 test('el servidor estático registra EADDRINUSE sin dejar un error no controlado', () => {
