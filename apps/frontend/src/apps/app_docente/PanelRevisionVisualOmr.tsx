@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 
 const UMBRAL_AUTO_CONFIABLE_UI = 0.82;
@@ -37,6 +37,7 @@ export function PanelRevisionVisualOmr({
   onConfirmarRevisionOmr: (confirmada: boolean) => void;
 }) {
   const [zoomImagen, setZoomImagen] = useState(1);
+  useEffect(() => setZoomImagen(1), [examenId, numeroPagina]);
   const claseZoomImagen = `omr-review-card__image--zoom-${Math.round(zoomImagen * 100)}`;
 
   return (
