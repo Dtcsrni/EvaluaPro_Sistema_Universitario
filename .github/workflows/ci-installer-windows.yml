@@ -354,17 +354,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_ID: ${{ needs.publish_installer_release.outputs.release_id }}
         run: |
           $repository = $env:RELEASE_REPOSITORY
           $tag = $env:RELEASE_TAG
+          $releaseId = $env:RELEASE_ID
           if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Repositorio inválido.' }
           if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') { throw 'Tag de release inválida.' }
+          if ($releaseId -notmatch '^[0-9]+$') { throw 'ID del release draft inválido.' }
           $packageVersion = [string](Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
           if ("v$packageVersion" -ne $tag) { throw "La versión del paquete ($packageVersion) no coincide con la tag ($tag)." }
-          $releases = gh api "repos/$repository/releases?per_page=100" | ConvertFrom-Json
-          $matches = @($releases | Where-Object { $_.tag_name -eq $tag -and $_.draft })
-          if ($matches.Count -ne 1) { throw "Se esperaba un release draft único para $tag; encontrados=$($matches.Count)." }
-          $release = $matches[0]
+          $release = gh api "repos/$repository/releases/$releaseId" | ConvertFrom-Json
+          if ([string]$release.id -ne $releaseId -or $release.tag_name -ne $tag -or -not $release.draft) {
+            throw "El release $releaseId no es el borrador esperado para $tag."
+          }
           $candidateName = "EvaluaPro-InstallerHub-docente-local-$tag.exe"
           $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
           $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1

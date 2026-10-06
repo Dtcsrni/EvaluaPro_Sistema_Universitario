@@ -44,5 +44,8 @@
     "@types/node": "^24.13.6",
     "prisma": "^7.10.0",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "proxy-addr": "2.0.8"
   }
 }

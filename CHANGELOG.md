@@ -12,6 +12,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - El runner solo traslada a QA la SQLite de `ProgramData` creada por esa corrida en un host limpio; bloquea el inicio si detecta una base previa y restaura el perfil operativo al terminar.
 
 ### Fixed
+- `proxy-addr` queda fijado en la versión corregida 2.0.8 en el monorepo y los manifests autónomos de backend/portal; corrige la validación de subredes IPv4 mapeadas a IPv6 al evaluar cabeceras `X-Forwarded-For`.
+- La E2E del borrador consulta el release por el ID devuelto al publicarlo y confirma tag y estado; evita depender de la lista paginada de releases para encontrar un borrador recién creado.
 - La validación del digest del instalador en el release draft delimita la variable PowerShell antes de los dos puntos; evita abortar la verificación y deja continuar la E2E del asset.
 - El helper post-install lee `install`/`repair` del request Burn, no del modo CLI `post-install`, para detener procesos Node propios antes de reemplazar el payload en una actualización.
 - La actualización detiene y verifica los procesos Node propios antes de tocar la configuración o expandir el payload; si alguno no termina, falla con sus PID y deja intactos los procesos Node ajenos.
