@@ -4,6 +4,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Fixed
+- El workflow Package Images publica bajo el namespace GHCR del owner y genera referencias válidas `ghcr.io/NAMESPACE/IMAGE_NAME`; antes construía una ruta anidada que su propio gate rechazaba.
+
 ## [1.2.4] - 2026-10-04
 
 ### Added

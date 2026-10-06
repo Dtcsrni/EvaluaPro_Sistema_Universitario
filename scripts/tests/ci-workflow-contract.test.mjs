@@ -357,6 +357,15 @@ test('package workflow rechaza tag que no coincide con package.json antes de pub
   assert.match(workflow, /no coincide con package\.json/);
 });
 
+test('package workflow usa namespace GHCR del owner y nombres de imagen de un segmento', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
+
+  assert.match(workflow, /OWNER="\$\{GITHUB_REPOSITORY%%\/\*\}"/);
+  assert.match(workflow, /api_image=ghcr\.io\/\$\{OWNER,,\}\/evaluapro-api-docente/);
+  assert.match(workflow, /web_image=ghcr\.io\/\$\{OWNER,,\}\/evaluapro-web-docente/);
+  assert.doesNotMatch(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}/);
+});
+
 test('qa:full genera el manifiesto despues de todos los reportes que incluye', () => {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const qaFull = String(packageJson.scripts?.['qa:full'] ?? '');
