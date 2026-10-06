@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildChangedCoverageArgs, buildCoveragePlan, formatFailureExcerpt } from '../testing/run-backend-coverage-batches.mjs';
+import { buildChangedCoverageArgs, buildCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt } from '../testing/run-backend-coverage-batches.mjs';
 
 test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   const plan = buildCoveragePlan();
@@ -51,4 +51,24 @@ test('coverage diferencial ejecuta solo pruebas afectadas y reporta archivos mod
 test('coverage diferencial rechaza una referencia vacía o una opción inyectada', () => {
   assert.throws(() => buildChangedCoverageArgs(''), /referencia Git válida/);
   assert.throws(() => buildChangedCoverageArgs('--run'), /referencia Git válida/);
+});
+
+test('coverage diferencial enfoca el test y el controlador OMR cuando solo cambia ese modulo', () => {
+  const args = buildFocusedCoverageArgsForFiles([
+    'apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts'
+  ]);
+
+  assert.ok(args);
+  assert.equal(args.includes('tests/omr.prevalidacion.test.ts'), true);
+  assert.equal(
+    args.includes('--coverage.include=src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts'),
+    true
+  );
+  assert.equal(args.some((arg) => arg.startsWith('--changed=')), false);
+});
+
+test('coverage diferencial cae a seleccion automatica ante fuentes sin perfil validado', () => {
+  assert.equal(buildFocusedCoverageArgsForFiles([
+    'apps/backend/src/modulos/modulo_calificacion/controlador.ts'
+  ]), null);
 });
