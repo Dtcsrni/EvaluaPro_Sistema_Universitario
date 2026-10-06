@@ -5,7 +5,6 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
-- Un workflow de PR afectadas construye la imagen Docker completa del backend con permisos de solo lectura y una etiqueta local efímera; no inicia sesión ni publica imágenes.
 - El workflow Package Images publica bajo el namespace GHCR del owner y genera referencias válidas `ghcr.io/NAMESPACE/IMAGE_NAME`; antes construía una ruta anidada que su propio gate rechazaba.
 - El mapa de CI afectado incluye Package Images y su contrato de workflows; esos cambios ya no pueden quedar sin las suites que los verifican.
 - La E2E del release draft usa un token con acceso necesario para leer borradores; el checkout no persiste credenciales y el token solo se expone al paso de descarga.
