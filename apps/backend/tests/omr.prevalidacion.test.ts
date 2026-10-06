@@ -71,5 +71,24 @@ describe('OMR prevalidacion de lote', () => {
 
     expect(mocks.leerQrDesdeImagen).toHaveBeenCalledOnce();
   });
+
+  it('mantiene la prevalidacion cuando falla el detector QR', async () => {
+    mocks.leerQrDesdeImagen.mockRejectedValueOnce(new Error('decoder unavailable'));
+    const png = await sharp(Buffer.from(
+      '<svg width="100" height="100"><rect width="100" height="100" fill="#00ff00"/><rect x="20" y="20" width="60" height="60" fill="black"/></svg>'
+    )).png().toBuffer();
+    const req = {
+      body: { capturas: [{ imagenBase64: png.toString('base64') }] }
+    } as unknown as SolicitudDocente;
+    const res = crearRespuesta();
+
+    await expect(prevalidarLoteCapturas(req, res)).resolves.toBeUndefined();
+
+    const payload = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0] as {
+      resultados: Array<{ qrDetectado: boolean; sugerencias: string[] }>;
+    };
+    expect(payload.resultados[0].qrDetectado).toBe(false);
+    expect(payload.resultados[0].sugerencias).toContain('No se detectó QR: recorta menos y captura la hoja completa.');
+  });
 });
 
