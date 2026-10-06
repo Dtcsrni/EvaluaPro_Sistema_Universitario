@@ -170,7 +170,8 @@ async function run() {
     prismaBin = path.resolve(process.cwd(), 'apps', 'backend', 'node_modules', '.bin', 'prisma');
   }
   const schemaPath = path.resolve(process.cwd(), 'apps', 'backend', 'prisma', 'schema.prisma');
-  const cmd = `"${prismaBin}" db push --schema="${schemaPath}" --accept-data-loss`;
+  const prismaConfigPath = path.resolve(process.cwd(), 'apps', 'backend', 'prisma.config.mjs');
+  const cmd = `"${prismaBin}" db push --config="${prismaConfigPath}" --schema="${schemaPath}" --accept-data-loss`;
 
   try {
     execSync(cmd, {

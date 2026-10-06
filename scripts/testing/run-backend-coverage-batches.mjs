@@ -23,7 +23,8 @@
  * Responsabilidad: Ejecutar cobertura backend por lotes y aplicar umbrales en el merge global.
  * Limites: No altera la seleccion de tests ni los thresholds definidos por Vitest.
  */
-import { spawn } from 'node:child_process';
+import { execFile as execFileCallback, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { closeSync, openSync, readdirSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -34,6 +35,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..', '..');
+const execFile = promisify(execFileCallback);
 const backendDir = path.join(rootDir, 'apps', 'backend');
 const reportsRootDir = path.join(backendDir, '.vitest-reports');
 const reportsDir = path.join(
@@ -148,6 +150,59 @@ function buildRootCoverageBatches() {
     index += chunkSize;
   }
   return batches;
+}
+
+function buildChangedCoverageArgs(baseRef) {
+  const normalizedBaseRef = String(baseRef ?? '').trim();
+  if (!normalizedBaseRef || normalizedBaseRef.startsWith('-')) {
+    throw new TypeError('BACKEND_COVERAGE_CHANGED_FROM debe ser una referencia Git válida');
+  }
+  return [
+    'vitest',
+    'run',
+    '--coverage',
+    `--changed=${normalizedBaseRef}`,
+    '--pool=forks',
+    '--reporter=default',
+    ...zeroThresholdArgs
+  ];
+}
+
+const focusedCoverageProfiles = new Map([
+  ['apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts', {
+    tests: ['tests/omr.prevalidacion.test.ts'],
+    include: 'src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts'
+  }]
+]);
+
+function buildFocusedCoverageArgsForFiles(files) {
+  const normalizedFiles = [...new Set(files.map((file) => String(file).replaceAll(String.fromCharCode(92), '/')))];
+  if (normalizedFiles.length === 0) return null;
+
+  const profiles = normalizedFiles.map((file) => focusedCoverageProfiles.get(file));
+  if (profiles.some((profile) => !profile)) return null;
+
+  const tests = [...new Set(profiles.flatMap((profile) => profile.tests))];
+  const includes = [...new Set(profiles.map((profile) => profile.include))];
+  return [
+    'vitest',
+    'run',
+    '--coverage',
+    ...tests,
+    ...includes.map((include) => `--coverage.include=${include}`),
+    '--pool=forks',
+    '--reporter=default',
+    ...zeroThresholdArgs
+  ];
+}
+
+async function resolveChangedSourceFiles(baseRef) {
+  const { stdout } = await execFile(
+    'git',
+    ['diff', '--name-only', `${baseRef}...HEAD`, '--', 'apps/backend/src'],
+    { cwd: rootDir, windowsHide: true, maxBuffer: 20 * 1024 * 1024 }
+  );
+  return stdout.split(String.fromCharCode(10)).map((file) => file.trim()).filter(Boolean);
 }
 
 function batchArgs(name, filters) {
@@ -331,10 +386,29 @@ async function runBatches(batches, concurrency, executeBatch = runBatch) {
 }
 
 async function main() {
-  const plan = buildCoveragePlan();
   const startedAt = new Date().toISOString();
   const startedAtMs = Date.now();
   await prepareRun();
+  const changedFrom = process.env.BACKEND_COVERAGE_CHANGED_FROM?.trim();
+  if (changedFrom) {
+    const changedFiles = await resolveChangedSourceFiles(changedFrom);
+    const args = buildFocusedCoverageArgsForFiles(changedFiles) ?? buildChangedCoverageArgs(changedFrom);
+    const mode = args.includes('--changed=' + changedFrom) ? 'diferencial por dependencias' : 'diferencial enfocado';
+    process.stdout.write(`[backend-coverage] modo ${mode}; base=${changedFrom}; fuentes=${changedFiles.length}\n`);
+    const code = await runVitest(args, 'backend-changed');
+    await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAtMs,
+      changedFrom,
+      results: [{ name: 'backend-changed', exitCode: code, durationMs: Date.now() - startedAtMs }],
+      failed: code !== 0,
+      failureStage: code === 0 ? null : 'changed-coverage'
+    }, null, 2));
+    process.exit(code);
+  }
+
+  const plan = buildCoveragePlan();
   process.stdout.write(`[backend-coverage] concurrencia=${batchConcurrency}; lotes=${plan.batches.length}\n`);
   const batches = await runBatches(plan.batches, batchConcurrency);
   if (batches.exitCode !== 0) {
@@ -374,7 +448,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildCoveragePlan, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
+export { buildChangedCoverageArgs, buildCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {

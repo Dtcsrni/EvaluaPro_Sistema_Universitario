@@ -146,6 +146,22 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(compliance, /github\.event_name == 'schedule'/);
 });
 
+test('escalacion full-extended ejecuta sus gates en PR antes del merge', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const jobs = [
+    extractJobBlock(workflow, 'ext_funcionales'),
+    extractJobBlock(workflow, 'ext_perf_arquitectura'),
+    extractJobBlock(workflow, 'ext_compliance_evidencia')
+  ];
+  const aggregate = extractJobBlock(workflow, 'verificaciones_ext');
+
+  for (const job of jobs) {
+    assert.match(job, /github\.event_name == 'pull_request'/);
+    assert.match(job, /needs\.detectar_cambios\.outputs\.escalation == 'full-extended'/);
+  }
+  assert.match(aggregate, /github\.event_name == 'pull_request'/);
+});
+
 test('jobs extended generan Prisma antes de importar backend', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const cases = [
@@ -259,6 +275,9 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
   assert.match(installerWorkflow, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
   assert.match(installerWorkflow, /installer_windows:[\s\S]*?permissions:\s*\n\s+contents:\s*read/);
   assert.match(installerWorkflow, /publish_installer_release:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.match(installerWorkflow, /post_publish_installer_e2e:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.match(installerWorkflow, /post_publish_installer_e2e:[\s\S]*?persist-credentials:\s*false/);
+  assert.match(installerWorkflow, /id:\s*draft_asset[\s\S]*?GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}/);
 
   const beta = fs.readFileSync(path.join(workflowDir, 'release-beta.yml'), 'utf8');
   assert.match(beta, /^permissions:\s*\n\s+contents:\s*read\s*$/m);
@@ -355,6 +374,15 @@ test('package workflow rechaza tag que no coincide con package.json antes de pub
   assert.ok(validationIndex >= 0, 'falta validación de versión de tag');
   assert.ok(pushIndex > validationIndex, 'la validación debe ocurrir antes de publicar imágenes');
   assert.match(workflow, /no coincide con package\.json/);
+});
+
+test('package workflow usa namespace GHCR del owner y nombres de imagen de un segmento', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
+
+  assert.match(workflow, /OWNER="\$\{GITHUB_REPOSITORY%%\/\*\}"/);
+  assert.match(workflow, /api_image=ghcr\.io\/\$\{OWNER,,\}\/evaluapro-api-docente/);
+  assert.match(workflow, /web_image=ghcr\.io\/\$\{OWNER,,\}\/evaluapro-web-docente/);
+  assert.doesNotMatch(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}/);
 });
 
 test('qa:full genera el manifiesto despues de todos los reportes que incluye', () => {

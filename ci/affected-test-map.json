@@ -81,8 +81,12 @@
     },
     "release": {
       "paths": [
+        "apps/backend/prisma.config.mjs",
         "scripts/release/**",
+        "scripts/perf-collect-business.ts",
+        "scripts/tests/perf-business-config.contract.test.mjs",
         ".github/workflows/ci-installer-windows.yml",
+        ".github/workflows/package.yml",
         ".github/workflows/release-beta.yml",
         ".github/workflows/release-stable-gate.yml",
         ".github/workflows/ci.yml",
@@ -126,6 +130,7 @@
         "docker-compose.yml",
         "apps/backend/src/compartido/**",
         "scripts/testing/**",
+        "scripts/tests/ci-workflow-contract.test.mjs",
         "scripts/retry.mjs",
         "tsconfig.base.json",
         "vitest.base.ts",

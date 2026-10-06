@@ -65,6 +65,19 @@ test('cambios en ci o release escalan a full-extended', () => {
   assert.equal(fromRelease.escalation, 'full-extended');
 });
 
+test('workflow Package Images y contratos de workflows activan las suites que validan cambios CI', () => {
+  const packageWorkflow = evaluateAffectedChangeSet(config, ['.github/workflows/package.yml']);
+  const workflowContract = evaluateAffectedChangeSet(config, ['scripts/tests/ci-workflow-contract.test.mjs']);
+
+  assert.equal(packageWorkflow.matchedGroups.release, true);
+  assert.equal(packageWorkflow.escalation, 'full-extended');
+  assert.equal(packageWorkflow.matchedJobs.core_contract_docs_gov, true);
+  assert.equal(packageWorkflow.matchedGates['perf-check'], true);
+  assert.equal(workflowContract.matchedGroups.shared, true);
+  assert.equal(workflowContract.escalation, 'full-core');
+  assert.equal(workflowContract.matchedJobs.core_contract_docs_gov, true);
+});
+
 test('shared backend compartido escala al menos a full-core', () => {
   const result = evaluateAffectedChangeSet(config, ['apps/backend/src/compartido/seguridad/token.ts']);
 

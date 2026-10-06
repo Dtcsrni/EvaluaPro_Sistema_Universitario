@@ -150,6 +150,7 @@
     "qa:clean-architecture:strict": "node scripts/clean-architecture-check.mjs --strict",
     "perf:collect": "node --import tsx scripts/perf-collect.ts",
     "perf:collect:business": "node --import tsx scripts/perf-collect-business.ts",
+    "test:perf:contract": "node --test scripts/tests/perf-business-config.contract.test.mjs",
     "perf:baseline": "node scripts/perf-baseline.mjs",
     "perf:baseline:business": "node scripts/perf-baseline.mjs --input=reports/perf/business.latest.json --output=docs/perf/baseline.business.json",
     "perf:check:run": "node scripts/perf-check.mjs",

@@ -33,10 +33,11 @@ jobs:
             exit 1
           fi
           SHA_SHORT="${GITHUB_SHA::12}"
+          OWNER="${GITHUB_REPOSITORY%%/*}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "sha_short=$SHA_SHORT" >> "$GITHUB_OUTPUT"
-          echo "api_image=ghcr.io/${GITHUB_REPOSITORY,,}/evaluapro-api-docente" >> "$GITHUB_OUTPUT"
-          echo "web_image=ghcr.io/${GITHUB_REPOSITORY,,}/evaluapro-web-docente" >> "$GITHUB_OUTPUT"
+          echo "api_image=ghcr.io/${OWNER,,}/evaluapro-api-docente" >> "$GITHUB_OUTPUT"
+          echo "web_image=ghcr.io/${OWNER,,}/evaluapro-web-docente" >> "$GITHUB_OUTPUT"
 
       - name: Login GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
