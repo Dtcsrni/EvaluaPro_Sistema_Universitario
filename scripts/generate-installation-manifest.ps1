@@ -428,8 +428,8 @@ $payload = [ordered]@{
     runtimeTarget = if ($requiresDockerRuntime) { 'docker-compatible' } else { 'native-node-sqlite' }
     dockerImages = if ($requiresDockerRuntime) {
       [ordered]@{
-        apiDocente = if ($env:EVALUAPRO_API_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_API_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:1.1.1' }
-        webDocente = if ($env:EVALUAPRO_WEB_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_WEB_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:1.1.1' }
+        apiDocente = if ($env:EVALUAPRO_API_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_API_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro-api-docente:1.2.4' }
+        webDocente = if ($env:EVALUAPRO_WEB_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_WEB_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro-web-docente:1.2.4' }
         mongo = 'mongo:8.0.23'
       }
     } else { [ordered]@{} }

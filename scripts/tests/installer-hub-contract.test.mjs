@@ -1699,9 +1699,9 @@ test('Compose legacy conserva image-first y fallback build separado fuera del Hu
 
   assert.match(compose, /api_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
   assert.match(compose, /web_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
-  assert.match(compose, /api_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_API_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro_sistema_universitario\/evaluapro-api-docente/);
-  assert.match(compose, /web_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro_sistema_universitario\/evaluapro-web-docente/);
-  assert.match(compose, /EVALUAPRO_IMAGE_TAG:-1\.1\.1/);
+  assert.match(compose, /api_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_API_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro-api-docente/);
+  assert.match(compose, /web_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro-web-docente/);
+  assert.match(compose, /EVALUAPRO_IMAGE_TAG:-1\.2\.4/);
   assert.doesNotMatch(compose, /api_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
   assert.doesNotMatch(compose, /web_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
   assert.match(prodBuild, /api_docente_prod:[\s\S]*?build:/);
@@ -1718,8 +1718,8 @@ test('package workflow publica imagenes docente GHCR versionadas', () => {
 
   assert.match(workflow, /packages:\s*write/);
   assert.match(workflow, /docker\/login-action@[0-9a-f]{40} # v3/);
-  assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-api-docente/);
-  assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-web-docente/);
+  assert.match(workflow, /ghcr\.io\/\$\{OWNER,,\}\/evaluapro-api-docente/);
+  assert.match(workflow, /ghcr\.io\/\$\{OWNER,,\}\/evaluapro-web-docente/);
   assert.match(workflow, /API_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.api_image \}\}/);
   assert.match(workflow, /WEB_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.web_image \}\}/);
   assert.match(workflow, /docker push "\$API_IMAGE:\$IMAGE_VERSION"/);

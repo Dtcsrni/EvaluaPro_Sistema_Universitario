@@ -92,8 +92,8 @@ const report = {
     requireLocalPortal: Boolean(docente?.requireLocalPortal),
     requiredServices: requiresDockerRuntime ? ['mongo_local', 'api_docente_prod', 'web_docente_prod'] : [],
     requiredImages: requiresDockerRuntime ? {
-      apiDocente: process.env.EVALUAPRO_API_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:1.1.1',
-      webDocente: process.env.EVALUAPRO_WEB_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:1.1.1',
+      apiDocente: process.env.EVALUAPRO_API_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro-api-docente:1.2.4',
+      webDocente: process.env.EVALUAPRO_WEB_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro-web-docente:1.2.4',
       mongo: 'mongo:8.0.23'
     } : {},
     deferredConfig: ['portal/sync', 'OAuth/Classroom', 'correo', 'licencia si no es obligatoria']
