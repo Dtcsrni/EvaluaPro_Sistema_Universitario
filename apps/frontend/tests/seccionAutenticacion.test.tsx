@@ -256,6 +256,18 @@ describe('SeccionAutenticacion', () => {
     expect(diagnostico).not.toContain('mock.eyJ');
   });
 
+  it('muestra error si no puede copiar el diagnóstico de Google', async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('clipboard blocked')) }
+    });
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    await user.click(screen.getByTestId('mock-google-error'));
+    await user.click(screen.getByRole('button', { name: /copiar diagnóstico de acceso/i }));
+    expect(await screen.findByText(/No se pudo copiar el diagnóstico desde este navegador/i)).toBeInTheDocument();
+  });
+
   it('maneja error al ingresar con Google cuando el docente no está registrado', async () => {
     const user = userEvent.setup();
     const errorNoRegistrado = new ErrorRemoto('No registrado', { status: 404, codigo: 'DOCENTE_NO_REGISTRADO' });
@@ -399,6 +411,29 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByText(/No se pudo obtener datos de Google/i)).toBeInTheDocument();
   });
 
+  it('alterna la visibilidad de contraseña y el estado de sesión recordada', async () => {
+    const user = userEvent.setup();
+    render(<SeccionAutenticacion onIngresar={() => {}} />);
+    await user.click(screen.getAllByRole('button', { name: /^Ingresar$/i })[0]!);
+    const contrasena = screen.getByLabelText(/Contrase[nñ]a/i);
+    expect(contrasena).toHaveAttribute('type', 'password');
+    await user.click(screen.getByRole('button', { name: 'Mostrar' }));
+    expect(contrasena).toHaveAttribute('type', 'text');
+    const recordar = screen.getByRole('checkbox', { name: /Mantener sesión iniciada/i });
+    await user.click(recordar);
+    expect(recordar).not.toBeChecked();
+  });
+
+  it('muestra la validación si Google no entrega credencial al reautenticar', async () => {
+    const user = userEvent.setup();
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
+    await user.click(screen.getByRole('button', { name: /Recuperar contraseña con Google/i }));
+    const vacios = screen.getAllByTestId('mock-google-login-empty');
+    await user.click(vacios[vacios.length - 1]!);
+    expect(await screen.findByText(/No se recibió credencial de Google/i)).toBeInTheDocument();
+  });
+
   it('maneja error 429 al recuperar contrasena con Google', async () => {
     const user = userEvent.setup();
     const error429 = new ErrorRemoto('Rate limited', { status: 429, error: 'Demasiadas solicitudes' });
@@ -427,12 +462,15 @@ describe('SeccionAutenticacion', () => {
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@test.com' } });
     fireEvent.change(screen.getByLabelText(/Clave o Código de Licencia/i), { target: { value: 'LIC-123' } });
     fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'password123' } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'docente-input@test.com' } });
+    fireEvent.input(screen.getByLabelText(/Clave o Código de Licencia/i), { target: { value: 'LIC-INPUT-123' } });
+    fireEvent.input(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'password-input-123' } });
 
     expect(screen.getByLabelText('Nombres')).toHaveValue('Docente');
     expect(screen.getByLabelText('Apellidos')).toHaveValue('Prueba');
-    expect(screen.getByLabelText('Correo')).toHaveValue('docente@test.com');
-    expect(screen.getByLabelText(/Clave o Código de Licencia/i)).toHaveValue('LIC-123');
-    expect(screen.getByLabelText(/Contrase[nñ]a/i)).toHaveValue('password123');
+    expect(screen.getByLabelText('Correo')).toHaveValue('docente-input@test.com');
+    expect(screen.getByLabelText(/Clave o Código de Licencia/i)).toHaveValue('LIC-INPUT-123');
+    expect(screen.getByLabelText(/Contrase[nñ]a/i)).toHaveValue('password-input-123');
   });
 
   it('permite editar nombres y clave de licencia tras registro con Google', async () => {
@@ -449,6 +487,7 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByLabelText('Nombres')).toHaveValue('Juan Modificado');
     expect(screen.getByLabelText('Apellidos')).toHaveValue('Perez Modificado');
     expect(screen.getByLabelText(/Clave o Código de Licencia/i)).toHaveValue('LIC-GOOGLE-123');
+    await user.click(screen.getByRole('button', { name: 'Cambiar correo' }));
   });
 
   it('valida datos obligatorios de nombres y apellidos en registro', async () => {

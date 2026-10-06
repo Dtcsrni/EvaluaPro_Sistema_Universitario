@@ -196,6 +196,40 @@ describe('ConsultaCalificaciones', () => {
     expect(screen.queryByLabelText('Folio visible')).not.toBeInTheDocument();
   });
 
+  it('recupera un resultado externo aunque falle la escritura después de persistir', async () => {
+    const user = userEvent.setup();
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '4', parcial2: '5', global: '5', final: '4.84', calificacionFinalCurso: '4.84',
+      extraDisponible: true, solicitaExtra: true, solicitudExtraVersion: 1, resultadosExtraordinarios: [], observaciones: '',
+      tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '', practica2doParcial: '',
+      practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '', examen2doParcialAutomatico: '',
+      examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '', examenGlobalLista: '',
+      examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    const resultado = {
+      claseRegistro: 'externo', folio: '88DC8464', loteId: null, calificacionSobre5: '2.29', calificacionSobre10: '4.57',
+      estadoAprobatorio: 'No aprobatoria', origen: 'manual', fuenteArchivo: 'extra.pdf', documentoSha256: 'a'.repeat(64)
+    };
+    obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] }).mockResolvedValueOnce({
+      filas: [{ ...filaExtra, resultadosExtraordinarios: [resultado] }]
+    });
+    enviarMock.mockRejectedValueOnce(new Error('respuesta perdida'));
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.type(screen.getByLabelText('Folio visible'), '88dc8464');
+    await user.type(screen.getByLabelText('Archivo fuente'), 'extra.pdf');
+    await user.type(screen.getByLabelText('SHA-256 del PDF'), 'a'.repeat(64));
+    await user.type(screen.getByLabelText('Aciertos'), '16');
+    await user.type(screen.getByLabelText('Reactivos evaluables'), '35');
+    await user.type(screen.getByLabelText('Criterios aplicados'), 'Revisado contra la clave oficial de la materia.');
+    await user.click(screen.getByRole('button', { name: 'Registrar resultado externo' }));
+
+    expect(await screen.findByText('Resultado extraordinario · externo')).toBeInTheDocument();
+    expect(screen.queryByText('respuesta perdida')).not.toBeInTheDocument();
+    expect(enviarMock).toHaveBeenCalledTimes(1);
+  });
+
   it('recupera una solicitud de Extra confirmada aunque falle la respuesta de guardado', async () => {
     const user = userEvent.setup();
     const filaExtra = {

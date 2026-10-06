@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   exportarTrazaAutenticacion,
   leerTrazaAutenticacion,
+  nuevoIdFlujoAutenticacion,
   registrarEventoTrazabilidadAutenticacion
 } from '../src/apps/app_docente/trazaAutenticacion';
 
@@ -60,5 +61,22 @@ describe('trazaAutenticacion', () => {
       resultado: 'iniciado'
     })).not.toThrow();
     expect(leerTrazaAutenticacion()).toEqual([]);
+  });
+
+  it('recupera de IDs no disponibles, JSON corrupto y eventos con estructura inválida', () => {
+    vi.spyOn(crypto, 'randomUUID').mockImplementation(() => { throw new Error('no disponible'); });
+    expect(nuevoIdFlujoAutenticacion()).toBe('');
+    vi.mocked(crypto.randomUUID).mockRestore();
+
+    localStorage.setItem('evaluapro.auth.trace.v1', '{mal json');
+    expect(leerTrazaAutenticacion()).toEqual([]);
+    localStorage.setItem('evaluapro.auth.trace.v1', JSON.stringify([
+      null,
+      { flowId: 'invalido', timestamp: 'ayer', canal: 'google', etapa: 'solicitud_api', resultado: 'exito' },
+      { flowId, timestamp: new Date().toISOString(), canal: 'google', etapa: 'solicitud_api', resultado: 'exito', codigo: 'correo@privado.test' }
+    ]));
+    const eventos = leerTrazaAutenticacion();
+    expect(eventos).toHaveLength(1);
+    expect(eventos[0]).not.toHaveProperty('codigo');
   });
 });

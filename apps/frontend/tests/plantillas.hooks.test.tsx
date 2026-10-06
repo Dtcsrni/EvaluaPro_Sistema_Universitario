@@ -4,8 +4,9 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { act, renderHook } from '@testing-library/react';
+import { act, fireEvent, renderHook, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { ConfirmDialogProvider } from '../src/ui/feedback/ConfirmDialogProvider';
 import { usePlantillasGeneradosActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions';
 import { usePlantillasOmrActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions';
 import { usePlantillasPreviewActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
@@ -79,6 +80,52 @@ describe('hooks de plantillas', () => {
     await act(async () => result.current.descargarPdfLotePorId('LOT-QA'));
     expect(createObjectUrl).not.toHaveBeenCalled();
     expect(setMensajeGeneracion).toHaveBeenCalledWith(expect.stringContaining('integridad'));
+  });
+
+  it('renueva el token tras 401 y confirma regeneración y archivo de exámenes', async () => {
+    localStorage.setItem('tokenDocente', 'token-vencido');
+    vi.spyOn(clienteApi, 'intentarRefrescarToken').mockResolvedValue('token-renovado');
+    const fetchMock = vi.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({ status: 401 } as Response)
+      .mockResolvedValueOnce({ status: 200, ok: true, blob: async () => new Blob(['pdf']), headers: new Headers() } as Response);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:token-renovado');
+    const wrapper = ({ children }: { children: React.ReactNode }) => <ConfirmDialogProvider>{children}</ConfirmDialogProvider>;
+    const enviarConPermiso = vi.fn().mockResolvedValue({});
+    const { result } = renderHook(() => usePlantillasGeneradosActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeRegenerarExamenes: true,
+      puedeArchivarExamenes: true,
+      descargandoExamenId: null,
+      regenerandoExamenId: null,
+      archivandoExamenId: null,
+      setDescargandoExamenId: vi.fn(),
+      setRegenerandoExamenId: vi.fn(),
+      setArchivandoExamenId: vi.fn(),
+      setMensajeGeneracion: vi.fn(),
+      cargarExamenesGenerados: vi.fn().mockResolvedValue(undefined),
+      enviarConPermiso,
+      lotePdfUrl: '/lote.pdf'
+    }), { wrapper });
+
+    await act(async () => result.current.descargarPdfLote());
+    expect(clienteApi.intentarRefrescarToken).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ headers: { Authorization: 'Bearer token-renovado' } }));
+
+    let regeneracion!: Promise<void>;
+    act(() => { regeneracion = result.current.regenerarPdfExamen({
+      _id: 'examen-1', folio: 'F-1', plantillaId: 'pla-1', descargadoEn: '2026-01-01'
+    }); });
+    expect(await screen.findByRole('button', { name: 'Sí, regenerar' })).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Sí, regenerar' })); await regeneracion; });
+    expect(enviarConPermiso).toHaveBeenCalledWith('examenes:regenerar', '/examenes/generados/examen-1/regenerar', { forzar: true }, expect.any(String));
+
+    let archivado!: Promise<void>;
+    act(() => { archivado = result.current.eliminarExamenGenerado({ _id: 'examen-1', folio: 'F-1', plantillaId: 'pla-1' }); });
+    expect(await screen.findByRole('button', { name: 'Sí, ocultar examen' })).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Sí, ocultar examen' })); await archivado; });
+    expect(enviarConPermiso).toHaveBeenCalledWith('examenes:archivar', '/examenes/generados/examen-1/archivar', {}, expect.any(String));
   });
 
   it('usePlantillasGeneradosActions avisa cuando no hay permiso para descargar lote', async () => {
