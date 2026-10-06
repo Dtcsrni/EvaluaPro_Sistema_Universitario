@@ -1,14 +1,14 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('reinscripción desde materia archivada', () => {
   const app = crearApp();
 
-  beforeAll(async () => { await conectarMongoTest(); });
-  beforeEach(async () => { await limpiarMongoTest(); });
-  afterAll(async () => { await cerrarMongoTest(); });
+  beforeAll(async () => { await conectarSqliteTest(); });
+  beforeEach(async () => { await limpiarSqliteTest(); });
+  afterAll(async () => { await cerrarSqliteTest(); });
 
   async function registrar(correo: string) {
     const respuesta = await request(app)

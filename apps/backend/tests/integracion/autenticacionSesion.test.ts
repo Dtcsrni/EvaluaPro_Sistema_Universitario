@@ -19,21 +19,21 @@ vi.mock('../../src/modulos/modulo_autenticacion/servicioGoogle', () => {
 });
 
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('autenticacion (sesiones)', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('emite refresh cookie al registrar y permite refrescar token', async () => {
@@ -77,6 +77,29 @@ describe('autenticacion (sesiones)', () => {
       .expect(200);
 
     expect(login.body.token).toBeTruthy();
+  });
+
+  it('expone y persiste páginas predeterminadas pares por tipo de examen', async () => {
+    const registro = await request(app)
+      .post('/api/autenticacion/registrar')
+      .send({ nombreCompleto: 'Docente Preferencias', correo: 'paginas@prueba.test', contrasena: 'Secreto123!' })
+      .expect(201);
+    const auth = { Authorization: `Bearer ${registro.body.token as string}` };
+
+    const perfilInicial = await request(app).get('/api/autenticacion/perfil').set(auth).expect(200);
+    expect(perfilInicial.body.docente.preferenciasPdf.paginasPorTipo).toEqual({ parcial: 2, global: 4, extraordinario: 4 });
+
+    const actualizado = await request(app).post('/api/autenticacion/preferencias/pdf').set(auth).send({
+      paginasPorTipo: { parcial: 2, global: 6, extraordinario: 8 }
+    }).expect(200);
+    expect(actualizado.body.preferenciasPdf.paginasPorTipo).toEqual({ parcial: 2, global: 6, extraordinario: 8 });
+
+    const perfilActualizado = await request(app).get('/api/autenticacion/perfil').set(auth).expect(200);
+    expect(perfilActualizado.body.docente.preferenciasPdf.paginasPorTipo).toEqual({ parcial: 2, global: 6, extraordinario: 8 });
+
+    await request(app).post('/api/autenticacion/preferencias/pdf').set(auth).send({
+      paginasPorTipo: { parcial: 3, global: 4, extraordinario: 4 }
+    }).expect(400);
   });
 
   it('permite ingresar con Google para un docente existente', async () => {

@@ -99,6 +99,59 @@ describe('ConsultaCalificaciones', () => {
     expect((clienteApi as { obtener: unknown }).obtener).toBeDefined();
   });
 
+  it('muestra Extra solo con final reprobatoria y persiste la solicitud explícita del docente', async () => {
+    const user = userEvent.setup();
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '5.99', parcial2: '5.99', global: '5.99', final: '5.99', calificacionFinalCurso: '5.99',
+      calificacionFinalCursoActa: '5', extraDisponible: true, solicitaExtra: false, solicitudExtraVersion: null,
+      resultadosExtraordinarios: [{ examenGeneradoId: 'examen-1', loteId: 'lote-1', folio: 'folio-1', calificacionSobre5: '2.285714285714285714', calificacionSobre10: '4.57', estadoAprobatorio: 'No aprobatoria', origen: 'inferida manualmente' }],
+      bonoExtracurricular: '', observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] }).mockResolvedValue({ filas: [{ ...filaExtra, solicitaExtra: true, solicitudExtraVersion: 1 }] });
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    expect(screen.queryByText(/Calificación 2.29 \/ 5 · equivalente 4.57 \/ 10 · No aprobatoria/)).not.toBeInTheDocument();
+    const solicitud = screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' });
+    expect(solicitud).not.toBeChecked();
+    await user.click(solicitud);
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({
+      periodoId: 'periodo-1', alumnoId: 'alumno-1', componente: 'Solicitud Extra', calificacion: 1,
+      clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i)
+    })));
+    await waitFor(() => expect(screen.getByText(/Calificación 2.29 \/ 5 · equivalente 4.57 \/ 10 · No aprobatoria/)).toBeInTheDocument());
+    expect(screen.getByText(/Lote lote-1 · folio folio-1 · examen examen-1/)).toBeInTheDocument();
+  });
+
+  it('presenta un resultado externo sin inventar lote ni examen generado', async () => {
+    const user = userEvent.setup();
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '4', parcial2: '5', global: '5', final: '4.84', calificacionFinalCurso: '4.84',
+      calificacionFinalCursoActa: '4', extraDisponible: true, solicitaExtra: true, solicitudExtraVersion: 1,
+      resultadosExtraordinarios: [{
+        claseRegistro: 'externo', folio: '88DC8464', loteId: null, calificacionSobre5: '2.29', calificacionSobre10: '4.57',
+        estadoAprobatorio: 'No aprobatoria', origen: 'inferida manualmente', fuenteArchivo: 'extra-externo-prueba.pdf',
+        documentoSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      }],
+      observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] });
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    expect(screen.getByText('Resultado extraordinario · externo')).toBeInTheDocument();
+    expect(screen.getByText(/Lote sin verificar · folio 88DC8464 · archivo extra-externo-prueba.pdf/)).toBeInTheDocument();
+    expect(screen.getByText(/SHA-256: a{64}/)).toBeInTheDocument();
+    expect(screen.queryByText(/examen undefined/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Registrar resultado de examen Extra externo' })).not.toBeInTheDocument();
+  });
+
   it('permite consultar y actualizar materias archivadas sin reactivarlas', async () => {
     const user = userEvent.setup();
     const onSeleccionarAlumno = vi.fn();

@@ -1,8 +1,5 @@
 /**
- * mongo
- *
- * Responsabilidad: SQLite temporal real para pruebas. Redirige las llamadas
- * heredadas de MongoDB a Prisma Client con aislamiento por worker de Vitest.
+ * SQLite temporal real para pruebas con aislamiento por worker de Vitest.
  */
 import { execSync } from 'node:child_process';
 import path from 'node:path';
@@ -31,7 +28,7 @@ process.env.BACKEND_DATABASE_URL = dbUrl;
 
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 
-export async function conectarMongoTest() {
+export async function conectarSqliteTest() {
   if (!testOwnsDataDir) throw new Error('La base de pruebas debe estar en un directorio temporal exclusivo del proceso.');
   process.env.DATABASE_URL = dbUrl;
   process.env.BACKEND_DATABASE_URL = dbUrl;
@@ -72,7 +69,7 @@ export async function conectarMongoTest() {
   await prisma.$connect();
 }
 
-export async function limpiarMongoTest() {
+export async function limpiarSqliteTest() {
   if (!testOwnsDataDir) throw new Error('No se limpiará un directorio de datos externo.');
   await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
   try {
@@ -162,7 +159,7 @@ export async function limpiarMongoTest() {
   await prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;');
 }
 
-export async function cerrarMongoTest() {
+export async function cerrarSqliteTest() {
   await prisma.$disconnect();
   // Borrar la base y su carpeta temporal para no contaminar data/ del runtime.
   if (testOwnsDataDir) {

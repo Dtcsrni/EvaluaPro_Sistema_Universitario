@@ -12,6 +12,7 @@ import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
 import { generarVariante } from '../../servicioVariantes.js';
 import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
 import { resolverOmrTemplateId } from '../../domain/templateCanonico.js';
+import { guardarPreviewArchivadoValidado } from '../../domain/previewArchivado.js';
 import { obtenerPlantillaDocente } from '../../shared/controladorGeneracionPdfShared.js';
 import {
   clavePreviewPlantilla,
@@ -21,6 +22,7 @@ import {
   construirFingerprintPreguntasPreview,
   construirNombrePdfPreviewPlantilla,
   esEntornoDevelopment,
+  excluirReferenciasTecnologiaRetirada,
   generarVarianteDeterminista,
   hash32,
   limpiarPreviewTemporales,
@@ -29,10 +31,12 @@ import {
   obtenerConteoTemasMateria,
   obtenerDirectorioPreview,
   ordenarPreguntasDeterminista,
-  construirBlueprintPlantilla,
   resolverDocentePdf,
+  resolverPaginasObjetivoPreferidas,
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
+  resolverPreguntasExtraordinarioArchivado,
+  construirBlueprintPlantilla,
   resolverTemplateVersionOmr
 } from '../../shared/controladorGeneracionPdfShared.js';
 import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico.js';
@@ -40,6 +44,7 @@ import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../inf
 
 const PREVIEW_MEMORIA_TTL_MS = 10 * 60 * 1000;
 const MAX_PREVIEWS_MEMORIA = 8;
+const INSTRUCCIONES_OMR_EXTRAORDINARIO = 'Lee cada pregunta y marca una sola opción rellenando por completo el círculo correspondiente. Si cambias tu respuesta, borra la marca anterior antes de seleccionar otra.';
 
 type PreviewPdfMemoria = {
   buffer: Buffer;
@@ -94,8 +99,7 @@ function resolverLayoutValidadoPlantilla(params: {
   return { fontScale, lineSpacing };
 }
 
-async function guardarLayoutValidadoPlantilla(params: {
-  plantillaId: string;
+function construirBookletConfigValidado(params: {
   bookletConfig: unknown;
   fontScale?: number;
   lineSpacing?: number;
@@ -108,30 +112,45 @@ async function guardarLayoutValidadoPlantilla(params: {
 }) {
   const fontScale = Number(params.fontScale);
   const lineSpacing = Number(params.lineSpacing);
-  if (!Number.isFinite(fontScale) || !Number.isFinite(lineSpacing)) return;
+  if (!Number.isFinite(fontScale) || !Number.isFinite(lineSpacing)) return undefined;
   const base = (params.bookletConfig ?? {}) as Record<string, unknown>;
+  return {
+    ...base,
+    autoFitPages: false,
+    autoFitTypography: false,
+    fontScale,
+    lineSpacing,
+    resolvedLayout: {
+      version: 1,
+      fontScale,
+      lineSpacing,
+      preguntasFingerprint: params.preguntasFingerprint,
+      layoutFingerprint: params.layoutFingerprint,
+      numeroPaginas: params.numeroPaginas,
+      totalPreguntas: params.totalPreguntas,
+      temas: params.temas
+    },
+    ...(params.blueprint ? { blueprint: params.blueprint, blueprintStatus: 'ready', blueprintVersion: 2 } : {})
+  };
+}
+
+async function guardarLayoutValidadoPlantilla(params: {
+  plantillaId: string;
+  bookletConfig: unknown;
+  fontScale?: number;
+  lineSpacing?: number;
+  preguntasFingerprint: string;
+  layoutFingerprint: string;
+  numeroPaginas: number;
+  totalPreguntas: number;
+  temas: string[];
+  blueprint?: unknown;
+}) {
+  const bookletConfig = construirBookletConfigValidado(params);
+  if (!bookletConfig) return;
   await prisma.examenPlantilla.update({
     where: { id: params.plantillaId },
-    data: {
-      bookletConfig: JSON.stringify({
-        ...base,
-        autoFitPages: false,
-        autoFitTypography: false,
-        fontScale,
-        lineSpacing,
-        resolvedLayout: {
-          version: 1,
-          fontScale,
-          lineSpacing,
-          preguntasFingerprint: params.preguntasFingerprint,
-          layoutFingerprint: params.layoutFingerprint,
-          numeroPaginas: params.numeroPaginas,
-          totalPreguntas: params.totalPreguntas,
-          temas: params.temas
-        },
-        ...(params.blueprint ? { blueprint: params.blueprint, blueprintStatus: 'ready', blueprintVersion: 2 } : {})
-      })
-    }
+    data: { bookletConfig: JSON.stringify(bookletConfig) }
   });
 }
 

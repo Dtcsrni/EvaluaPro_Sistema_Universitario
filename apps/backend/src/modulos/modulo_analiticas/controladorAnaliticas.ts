@@ -8,11 +8,13 @@
 import type { Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import { Decimal } from 'decimal.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { generarCsv } from './servicioExportacionCsv.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { construirListaAcademica } from './servicioListaAcademica.js';
+import { presentarCalificacionExtraordinaria } from '../modulo_calificacion/servicioCalificacion.js';
 import { COLUMNAS_LISTA_ACADEMICA, ListaAcademicaFila } from './tiposListaAcademica.js';
 import { generarDocxListaAcademica } from './servicioExportacionDocx.js';
 import { generarXlsxCalificacionesProduccion } from './servicioExportacionXlsxCalificaciones.js';
@@ -227,7 +229,7 @@ function leerRegistroJson(valor: unknown): Record<string, unknown> {
 }
 
 async function cargarDatosListaAcademica(docenteId: string, periodoId: string, bonoExtracurricularPorAlumno?: ReadonlyMap<string, number>) {
-  const [alumnos, calificaciones, banderas, evidencias, mapeos, calificacionesManuales, componentesExamen] = await Promise.all([
+  const [alumnos, calificaciones, banderas, evidencias, mapeos, calificacionesManuales, componentesExamen, resultadosExtraExternos] = await Promise.all([
     prisma.alumno.findMany({ where: { periodo: { id: periodoId, docenteId } } }),
     prisma.calificacion.findMany({
       where: { docenteId, periodoId },
@@ -237,7 +239,8 @@ async function cargarDatosListaAcademica(docenteId: string, periodoId: string, b
     prisma.evidenciaEvaluacion.findMany({ where: { docenteId, periodoId, fuente: 'classroom' } }),
     prisma.mapeoClassroomEvidencia.findMany({ where: { docenteId, periodoId } }),
     prisma.calificacionListaManual.findMany({ where: { docenteId, periodoId } }),
-    prisma.componenteExamen.findMany({ where: { docenteId, periodoId, corte: 'global' } })
+    prisma.componenteExamen.findMany({ where: { docenteId, periodoId, corte: 'global' } }),
+    prisma.resultadoExtraExterno.findMany({ where: { docenteId, periodoId } })
   ]);
 
   const mappedAlumnos = alumnos.map((alumno) => ({ ...alumno, _id: alumno.id }));
@@ -264,6 +267,7 @@ async function cargarDatosListaAcademica(docenteId: string, periodoId: string, b
     mapeosClassroom: mappedMapeos,
     calificacionesManuales,
     componentesExamen,
+    resultadosExtraExternos,
     bonoExtracurricularPorAlumno
   });
 
@@ -422,6 +426,105 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
         return;
       }
       throw new ErrorAplicacion('CONFLICTO_VERSION', 'La calificación fue capturada en otra sesión. Recarga la lista.', 409);
+    }
+    throw error;
+  }
+}
+
+export async function registrarResultadoExtraExterno(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const datos = req.body as {
+    periodoId: string; alumnoId: string; solicitaExtra: true; folio: string; loteId?: string | null;
+    fuenteArchivo: string; documentoSha256: string; aciertos: number; totalReactivos: number;
+    criteriosAplicados: string; clientRequestId: string;
+  };
+  const { periodoId, alumnoId, folio, clientRequestId } = datos;
+  const payloadCanonico = {
+    periodoId, alumnoId, solicitaExtra: datos.solicitaExtra, folio, loteId: datos.loteId ?? null,
+    fuenteArchivo: datos.fuenteArchivo, documentoSha256: datos.documentoSha256.toLowerCase(),
+    aciertos: datos.aciertos, totalReactivos: datos.totalReactivos, criteriosAplicados: datos.criteriosAplicados
+  };
+  const payloadHash = createHash('sha256').update(JSON.stringify(payloadCanonico)).digest('hex');
+  const buscarReintento = async (tx: Prisma.TransactionClient | typeof prisma) => {
+    const anterior = await tx.resultadoExtraExterno.findUnique({
+      where: { docenteId_clientRequestId: { docenteId, clientRequestId } }
+    });
+    if (!anterior) return null;
+    if (anterior.payloadHash !== payloadHash) {
+      throw new ErrorAplicacion('CLAVE_IDEMPOTENCIA_REUTILIZADA', 'clientRequestId ya fue usado con otro resultado externo.', 409);
+    }
+    return anterior;
+  };
+
+  const existente = await buscarReintento(prisma);
+  if (existente) {
+    res.status(200).json({ resultado: existente, repetido: true });
+    return;
+  }
+
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, docenteId }, select: { id: true } });
+  if (!periodo) throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado.', 404);
+  const alumno = await prisma.alumno.findFirst({ where: { id: alumnoId, periodoId }, select: { id: true } });
+  if (!alumno) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece al periodo seleccionado.', 404);
+
+  const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
+  const fila = filas.find((item) => item.alumnoId === alumnoId);
+  if (!fila?.extraDisponible) {
+    throw new ErrorAplicacion('EXTRA_NO_DISPONIBLE', 'La calificación final vigente debe ser menor que 6 para registrar Extra.', 409);
+  }
+  if (!fila.solicitaExtra) {
+    throw new ErrorAplicacion('SOLICITUD_EXTRA_REQUERIDA', 'El docente debe registrar primero que el alumno solicita presentar Extra.', 409);
+  }
+
+  const sobre5Exacto = new Decimal(datos.aciertos).mul(5).div(datos.totalReactivos);
+  const presentacion = presentarCalificacionExtraordinaria(sobre5Exacto.toString());
+  const evidencia = JSON.stringify({
+    fuenteArchivo: datos.fuenteArchivo,
+    documentoSha256: datos.documentoSha256.toLowerCase(),
+    criteriosAplicados: datos.criteriosAplicados,
+    loteId: datos.loteId ?? null,
+    folio,
+    actorDocenteId: docenteId,
+    registradoEn: new Date().toISOString(),
+    claseResultado: 'externo'
+  });
+  const data = {
+    docenteId, periodoId, alumnoId, folio, loteId: datos.loteId ?? null,
+    fuenteArchivo: datos.fuenteArchivo, documentoSha256: datos.documentoSha256.toLowerCase(),
+    aciertos: datos.aciertos, totalReactivos: datos.totalReactivos,
+    calificacionSobre5Exacta: sobre5Exacto.toString(), calificacionSobre5Texto: sobre5Exacto.toFixed(2),
+    calificacionSobre10Texto: presentacion.calificacionEquivalenteSobre10Texto,
+    estadoAprobatorio: presentacion.estadoAprobatorio, origen: 'inferida manualmente', evidencia,
+    clientRequestId, payloadHash, capturadoPor: docenteId
+  };
+
+  try {
+    const resultado = await prisma.$transaction(async (tx) => {
+      const recuperado = await buscarReintento(tx);
+      if (recuperado) return { resultado: recuperado, repetido: true };
+      const solicitud = await tx.calificacionListaManual.findUnique({
+        where: { docenteId_periodoId_alumnoId_componente: { docenteId, periodoId, alumnoId, componente: 'Solicitud Extra' } }
+      });
+      if (Number(solicitud?.calificacion) !== 1) {
+        throw new ErrorAplicacion('SOLICITUD_EXTRA_REQUERIDA', 'El docente debe registrar primero que el alumno solicita presentar Extra.', 409);
+      }
+      const resultadoExistente = await tx.resultadoExtraExterno.findUnique({
+        where: { docenteId_periodoId_alumnoId_folio: { docenteId, periodoId, alumnoId, folio } }
+      });
+      if (resultadoExistente) {
+        throw new ErrorAplicacion('FOLIO_EXTRA_DUPLICADO', 'El folio externo ya tiene un resultado registrado para este alumno.', 409);
+      }
+      return { resultado: await tx.resultadoExtraExterno.create({ data }), repetido: false };
+    });
+    res.status(resultado.repetido ? 200 : 201).json(resultado);
+  } catch (error) {
+    if ((error as { code?: string })?.code === 'P2002') {
+      const recuperado = await buscarReintento(prisma);
+      if (recuperado) {
+        res.status(200).json({ resultado: recuperado, repetido: true });
+        return;
+      }
+      throw new ErrorAplicacion('FOLIO_EXTRA_DUPLICADO', 'El folio externo ya tiene un resultado registrado para este alumno.', 409);
     }
     throw error;
   }

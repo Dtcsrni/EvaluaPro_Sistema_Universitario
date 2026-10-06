@@ -22,6 +22,7 @@ model Docente {
   activo                   Boolean                         @default(true)
   ultimoAcceso             DateTime?
   preferenciasPdf          String? // JSON string (institucion, lema, logos)
+  preferenciaRetencionParcial PreferenciaRetencionParcial?
   periodos                 Periodo[]
   asistenciaReglas         AsistenciaRegla[]
   asistenciaSesiones       AsistenciaSesion[]
@@ -30,6 +31,7 @@ model Docente {
   examenesPlantilla        ExamenPlantilla[]
   examenesGenerados        ExamenGenerado[]
   calificaciones           Calificacion[]
+  resultadosExtraExternos  ResultadoExtraExterno[]
   calificacionesLista      CalificacionListaManual[]
   mutacionesCalificacionLista CalificacionListaMutacion[]
   banderasRevision         BanderaRevision[]
@@ -103,6 +105,7 @@ model Periodo {
   examenesPlantilla   ExamenPlantilla[]
   examenesGenerados   ExamenGenerado[]
   calificaciones      Calificacion[]
+  resultadosExtraExternos ResultadoExtraExterno[]
   calificacionesLista CalificacionListaManual[]
   codigosAcceso       CodigoAcceso[]
   bancoTemas          TemaBanco[]
@@ -144,6 +147,7 @@ model Alumno {
   asistenciaExcepcion AsistenciaExcepcion?
   examenesGenerados   ExamenGenerado[]
   calificaciones      Calificacion[]
+  resultadosExtraExternos ResultadoExtraExterno[]
   calificacionesLista CalificacionListaManual[]
   banderasRevision    BanderaRevision[]
   solicitudesRevision SolicitudRevisionAlumno[]
@@ -639,6 +643,8 @@ model Calificacion {
   calificacionParcialTexto     String?
   calificacionGlobalTexto      String?
   retroalimentacion            String?
+  origen                        String?
+  origenEvidencia               String? // JSON string
   respuestasDetectadas         String? // JSON string
   omrAuditoria                 String? // JSON string
   politicaId                   String?
@@ -687,6 +693,38 @@ model CalificacionListaMutacion {
   @@unique([docenteId, clientRequestId])
   @@index([docenteId, calificacionId])
   @@map("calificaciones_lista_manual_mutaciones")
+}
+
+model ResultadoExtraExterno {
+  id                         String   @id @default(uuid())
+  docenteId                  String
+  docente                    Docente  @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  periodoId                  String
+  periodo                    Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  alumnoId                   String
+  alumno                     Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  folio                      String
+  loteId                     String?
+  fuenteArchivo              String
+  documentoSha256            String
+  aciertos                   Int
+  totalReactivos             Int
+  calificacionSobre5Exacta   String
+  calificacionSobre5Texto    String
+  calificacionSobre10Texto   String
+  estadoAprobatorio          String
+  origen                     String   @default("inferida manualmente")
+  evidencia                  String   // JSON string
+  clientRequestId            String
+  payloadHash                String
+  capturadoPor               String
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@unique([docenteId, clientRequestId])
+  @@unique([docenteId, periodoId, alumnoId, folio])
+  @@index([docenteId, periodoId, alumnoId])
+  @@map("resultados_extra_externos")
 }
 
 model SolicitudRevisionAlumno {

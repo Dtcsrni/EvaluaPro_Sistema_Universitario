@@ -94,6 +94,9 @@ export function SeccionCalificar({
     aciertos: number;
     totalReactivos: number;
     calificacionFinalSobre5: number;
+    calificacionEquivalenteSobre10Texto?: string;
+    estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
+    origen?: string;
   };
   onCalificar: (payload: {
     examenGeneradoId: string;
@@ -216,6 +219,26 @@ export function SeccionCalificar({
   const notaFinalMostrada = soloLectura && resumenPersistido
     ? Number(Number(resumenPersistido.calificacionFinalSobre5 || 0).toFixed(2))
     : notaFinalSobre5;
+  const notaFinalSobre5Exacta =
+    soloLectura && resumenPersistido
+      ? Number(resumenPersistido.calificacionFinalSobre5 || 0)
+      : Math.min(
+          5,
+          (resumenDinamico.total > 0 ? (resumenDinamico.aciertos * 5) / resumenDinamico.total : 0) +
+            (bonusActivo && !bonusBloqueadoPorMaximo ? 0.25 : 0)
+        );
+  const notaEquivalenteSobre10 =
+    soloLectura && resumenPersistido?.calificacionEquivalenteSobre10Texto
+      ? Number(resumenPersistido.calificacionEquivalenteSobre10Texto)
+      : notaFinalSobre5Exacta * 2;
+  const esAprobatoriaExtraordinario =
+    soloLectura && resumenPersistido?.estadoAprobatorio
+      ? resumenPersistido.estadoAprobatorio === 'Aprobatoria'
+      : totalMostrado > 0 &&
+        20 * aciertosMostrados +
+          (bonusActivo && !bonusBloqueadoPorMaximo ? totalMostrado : 0) >
+          12 * totalMostrado;
+  const esExtraordinario = String(etiquetaTipoExamen ?? '').trim().toLowerCase().includes('extraordinario');
 
   const estadoOmrEtiqueta = useMemo(() => {
     if (!resultadoOmr) return 'requiere_revision';
@@ -338,6 +361,13 @@ export function SeccionCalificar({
           Aciertos: {aciertosMostrados}/{totalMostrado}
         </span>
         <span>Calificación final: {notaFinalMostrada.toFixed(2)} / 5.00</span>
+        {esExtraordinario && totalMostrado > 0 ? (
+          <>
+            <span>Equivalente: {notaEquivalenteSobre10.toFixed(2)} / 10.00</span>
+            <span>{esAprobatoriaExtraordinario ? 'Aprobatoria' : 'No aprobatoria'}</span>
+          </>
+        ) : null}
+        {soloLectura && resumenPersistido?.origen ? <span>Origen: {resumenPersistido.origen}</span> : null}
       </div>
       {resultadoOmr && (
         <div className="item-meta">

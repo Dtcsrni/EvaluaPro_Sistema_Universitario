@@ -103,6 +103,9 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByText('Tipografía e interlineado')).toBeInTheDocument();
     expect(screen.getByText('Gestionados por el motor')).toBeInTheDocument();
     expect(screen.getByText('Selecciona una materia para comenzar')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cantidad de páginas')).toHaveValue(2);
+    fireEvent.change(screen.getByLabelText('Tipo de plantilla'), { target: { value: 'global' } });
+    expect(screen.getByLabelText('Cantidad de páginas')).toHaveValue(4);
   });
 
   it('advierte sobre reverso en blanco y captura solo de caras impresas en la plantilla inline', () => {

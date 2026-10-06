@@ -8,12 +8,12 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
 import { tokenDocentePrueba } from '../utils/token.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('contrato: limites de payload', () => {
   beforeAll(async () => {
-    await conectarMongoTest();
-    await limpiarMongoTest();
+    await conectarSqliteTest();
+    await limpiarSqliteTest();
     await Docente.create({
       _id: '507f1f77bcf86cd799439011',
       nombreCompleto: 'Docente Limites',
@@ -24,7 +24,7 @@ describe('contrato: limites de payload', () => {
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('responde 413 si el JSON excede LIMITE_JSON', async () => {

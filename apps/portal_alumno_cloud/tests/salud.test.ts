@@ -20,7 +20,7 @@ describe('salud portal', () => {
 
     const ready = await request(app).get('/api/portal/salud/ready');
     expect([200, 503]).toContain(ready.status);
-    expect(ready.body?.dependencies?.mongodb).toEqual(
+    expect(ready.body?.dependencies?.db).toEqual(
       expect.objectContaining({
         status: expect.any(String),
         ready: expect.any(Boolean),

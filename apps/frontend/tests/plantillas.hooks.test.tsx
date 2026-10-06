@@ -176,6 +176,53 @@ describe('hooks de plantillas', () => {
     });
   });
 
+  it('valida la vista previa extraordinaria contra la preferencia global de páginas', async () => {
+    localStorage.setItem('tokenDocente', 'token-test');
+    vi.spyOn(clienteApi, 'obtener').mockResolvedValue({
+      numeroPaginas: 6,
+      totalDisponibles: 10,
+      totalUsados: 10,
+      preguntasOmitidasPorFormato: 0,
+      preguntasOmitidasPorOmr: [],
+      layoutConfirmado: true
+    });
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        pdfBase64: btoa('%PDF-1.4 preview'),
+        paginas: Array.from({ length: 6 }, (_, indice) => ({
+          numero: indice + 1,
+          width: 816,
+          height: 1056,
+          dataUrl: 'data:image/png;base64,AAAA'
+        }))
+      })
+    } as Response);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview-extra');
+    const { result } = renderHook(() => usePlantillasPreviewActions({
+      paginasExtraordinarioObjetivo: 6,
+      puedePrevisualizarPlantillas: true,
+      avisarSinPermiso: vi.fn(),
+      previewPorPlantillaId: {},
+      cargandoPreviewPlantillaId: null,
+      cargandoPreviewPdfPlantillaId: null,
+      setPreviewPorPlantillaId: vi.fn(),
+      setCargandoPreviewPlantillaId: vi.fn(),
+      setPlantillaPreviewId: vi.fn(),
+      setPreviewPdfUrlPorPlantillaId: vi.fn(),
+      setCargandoPreviewPdfPlantillaId: vi.fn()
+    }));
+
+    let preview: Awaited<ReturnType<typeof result.current.previsualizarPdfConfirmado>> = null;
+    await act(async () => {
+      preview = await result.current.previsualizarPdfConfirmado('pla-extra');
+    });
+
+    expect(preview?.layoutConfirmado).toBe(true);
+    expect(preview?.paginas).toHaveLength(6);
+  });
+
   it('usePlantillasOmrActions avisa cuando no hay permiso para analizar OMR', async () => {
     const avisarSinPermiso = vi.fn();
     const { result } = renderHook(() =>

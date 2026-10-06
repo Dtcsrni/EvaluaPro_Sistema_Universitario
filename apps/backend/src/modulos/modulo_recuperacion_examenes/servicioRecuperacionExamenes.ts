@@ -709,6 +709,7 @@ async function reconstructFromManifestInternal(params: {
   const pdf = await generarPdfExamen({
     titulo: String(plantilla.titulo ?? 'Examen Recuperado'),
     folio: params.manifest.folio,
+    loteId: params.manifest.loteId,
     examId: params.manifest.examId,
     preguntas: preguntasBase,
     mapaVariante,

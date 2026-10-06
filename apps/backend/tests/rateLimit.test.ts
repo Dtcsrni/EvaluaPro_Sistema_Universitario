@@ -6,15 +6,15 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 
 describe('rate limit', () => {
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('responde 429 al exceder el limite', async () => {
@@ -30,7 +30,7 @@ describe('rate limit', () => {
     const { crearApp } = await import('../src/app.js');
     const app = crearApp();
 
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
 
     const payload = { nombreCompleto: 'Docente Test', correo: 'docente@prueba.test', contrasena: 'Secreto123!' };
 

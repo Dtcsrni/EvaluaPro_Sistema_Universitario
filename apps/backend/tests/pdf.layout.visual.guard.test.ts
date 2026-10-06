@@ -139,7 +139,14 @@ function assertBloquesHeader(pagina: Awaited<ReturnType<typeof generarPdfExamen>
     expect(segundaFila).toHaveLength(2);
     expect(Math.max(...segundaFila) - Math.min(...segundaFila)).toBeLessThanOrEqual(0.001);
     const calificacion = bloquesHeader.find((bloque) => bloque.id === 'calificacion-etiqueta');
-    expect(calificacion?.y ?? 0).toBeLessThan(Math.min(...segundaFila) - 8);
+    const conteo = bloquesHeader.find((bloque) => bloque.id === 'conteo-reactivos');
+    expect(calificacion).toBeTruthy();
+    expect(conteo).toBeTruthy();
+    if ((calificacion?.x ?? 0) >= (conteo?.x ?? 0) + (conteo?.width ?? 0)) {
+      expect(calificacion?.y).toBeCloseTo(conteo?.y ?? 0, 3);
+    } else {
+      expect(calificacion?.y ?? 0).toBeLessThan(Math.min(...segundaFila) - 8);
+    }
   }
   for (let i = 0; i < iconosHeader.length; i += 1) {
     const icono = iconosHeader[i] as Rect;
@@ -241,14 +248,14 @@ function assertPreguntasLayout(
         // margen nominal ni volver a quedar innecesariamente separado del
         // borde imprimible.
         expect(omr.x + omr.width).toBeCloseTo(ANCHO_CARTA - (10 * 72 / 25.4) - 4, 5);
-        // La compactación solo elimina aire estructural; el diámetro, el
-        // paso y las quiet zones de las marcas se validan debajo sin cambiar.
-        expect(omr.height).toBeGreaterThanOrEqual(altaDensidad ? 27 : 30);
-        // El perfil estándar usa una reserva superior de 7.8 pt; el compacto
-        // de 38+ reactivos usa 2.4/1.8 pt alrededor de círculo/etiqueta para
-        // ganar densidad sin cambiar burbuja ni paso.
+        // El panel compacto puede bajar a 25 pt, conservando burbuja de 6.4 mm,
+        // distancia a la etiqueta y quiet zones; los paneles normales retienen
+        // su reserva vertical mayor.
+        expect(omr.height).toBeGreaterThanOrEqual(altaDensidad ? 26.5 : 30);
+        // El perfil estándar usa más aire; 38+ reactivos reserva 1.2 pt arriba
+        // y al menos 1.9 pt entre la etiqueta y el borde inferior.
         expect(omr.height).toBeLessThanOrEqual(35);
-        expect(actual.perfilOmr?.etiquetaBordeInferiorGap).toBeGreaterThan(altaDensidad ? 1.79 : 2.39);
+        expect(actual.perfilOmr?.etiquetaBordeInferiorGap).toBeGreaterThan(altaDensidad ? 0.99 : 0.79);
       }
       for (const run of actual.textRuns ?? []) {
         expect(interseca(run.bbox, omr), `texto superpuesto al OMR en pregunta ${actual.numeroPregunta}`).toBe(false);
@@ -952,7 +959,7 @@ describe('pdf layout visual guard', () => {
     });
     const paginas = resultado.mapaOmr.paginas.filter((pagina) => pagina.tipoPagina !== 'reverso-vacio');
 
-    expect(paginas.map((pagina) => pagina.preguntas.length)).toEqual([17, 17]);
+    expect(paginas.map((pagina) => pagina.preguntas.length)).toEqual([15, 19]);
     expect(paginas.reduce((total, pagina) => total + pagina.preguntas.length, 0)).toBe(34);
     expect(resultado.preguntasRestantes).toBe(0);
     expect(resultado.metricasLayout?.fontSizePregunta).toBeGreaterThanOrEqual(10.4);
@@ -1061,7 +1068,7 @@ describe('pdf layout visual guard', () => {
       encabezado: { institucion: 'Centro de prueba', materia: 'Control de capacidad', mostrarMarcaInstitucional: false }
     });
     const paginas = resultado.mapaOmr.paginas.filter((pagina) => pagina.tipoPagina !== 'reverso-vacio');
-    expect(paginas.map((pagina) => pagina.preguntas.length)).toEqual([17, 19]);
+    expect(paginas.map((pagina) => pagina.preguntas.length)).toEqual([18, 18]);
     expect(paginas.flatMap((pagina) => pagina.preguntas).map((pregunta) => pregunta.numeroPregunta))
       .toEqual(Array.from({ length: 36 }, (_valor, indice) => indice + 1));
     expect(resultado.preguntasRestantes).toBe(0);
@@ -1074,6 +1081,24 @@ describe('pdf layout visual guard', () => {
     expect(Math.max(...metadataCompacta.map((bloque) => bloque.y))
       - Math.min(...metadataCompacta.map((bloque) => bloque.y))).toBeLessThan(0.01);
     expect(metadataCompacta.every((bloque) => bloque.height >= 7.4)).toBe(true);
+    for (const pagina of paginas) {
+      const numerosOmr = pagina.layoutDebug?.omrQuestionNumberBoxes ?? [];
+      expect(numerosOmr.map((bloque) => bloque.numeroPregunta))
+        .toEqual(pagina.preguntas.map((pregunta) => pregunta.numeroPregunta));
+      for (const bloque of numerosOmr) {
+        const pregunta = pagina.preguntas.find((item) => item.numeroPregunta === bloque.numeroPregunta)!;
+        const panel = pregunta.cajaOmr!;
+        expect(bloque.x + bloque.width).toBeLessThan(panel.x);
+        expect(bloque.y).toBeGreaterThanOrEqual(pregunta.cajaOmr?.y ?? 0);
+        expect(bloque.y + bloque.height).toBeLessThanOrEqual((pregunta.cajaOmr?.y ?? 0) + (pregunta.cajaOmr?.height ?? 0));
+        for (const burbuja of pregunta.opciones) {
+          const radio = pregunta.perfilOmr?.radio ?? 0;
+          const cruza = bloque.x < burbuja.x + radio && bloque.x + bloque.width > burbuja.x - radio
+            && bloque.y < burbuja.y + radio && bloque.y + bloque.height > burbuja.y - radio;
+          expect(cruza).toBe(false);
+        }
+      }
+    }
     for (const pagina of paginas) {
       assertPreguntasLayout(pagina);
       expect(pagina.layoutDebug?.collisionBoxes ?? []).toHaveLength(0);
@@ -1147,7 +1172,7 @@ describe('pdf layout visual guard', () => {
     }
   }, 300_000);
 
-  it('maximiza la plantilla compacta a 43 reactivos en dos páginas y conserva el desborde 44', async () => {
+  it('usa toda la capacidad legible de dos páginas y solo desborda cuando la geometría no admite otro reactivo', async () => {
     const capacidades = [
       [38, [21, 17]],
       [39, [21, 18]],
@@ -1169,6 +1194,8 @@ describe('pdf layout visual guard', () => {
       expect(paginas.flatMap((pagina) => pagina.preguntas).map((pregunta) => pregunta.numeroPregunta))
         .toEqual(Array.from({ length: totalPreguntas }, (_valor, indice) => indice + 1));
       expect(resultado.preguntasRestantes).toBe(0);
+      expect(resultado.metricasLayout?.fontSizePregunta ?? 0).toBeGreaterThanOrEqual(10);
+      expect(resultado.metricasLayout?.fontSizeOpcion ?? 0).toBeGreaterThanOrEqual(8.5);
       expect(resultado.mapaOmr.blockSpec?.bubbleDiameterMm).toBe(6.4);
       expect(resultado.mapaOmr.blockSpec?.bubblePitchXmm).toBe(9.17);
       expect(detectarColisionesDuplexOmr(resultado.mapaOmr)).toHaveLength(0);
@@ -1278,6 +1305,23 @@ describe('pdf layout visual guard', () => {
       }
     }
   }, 900_000);
+
+  it('no trunca bancos extensos por un máximo fijo de preguntas', async () => {
+    const totalPreguntas = 60;
+    const resultado = await generarPdfExamen({
+      ...crearParametrosBrevesCompactos(totalPreguntas),
+      totalPaginas: 2,
+      bookletConfig: { densityMode: 'compact', fontScale: 1, lineSpacing: 1 },
+      encabezado: { institucion: 'Centro de prueba', materia: 'Control de capacidad', mostrarMarcaInstitucional: false }
+    });
+    const paginas = resultado.mapaOmr.paginas.filter((pagina) => pagina.tipoPagina !== 'reverso-vacio');
+
+    expect(paginas.length).toBeGreaterThan(2);
+    expect(paginas.flatMap((pagina) => pagina.preguntas).map((pregunta) => pregunta.numeroPregunta))
+      .toEqual(Array.from({ length: totalPreguntas }, (_valor, indice) => indice + 1));
+    expect(resultado.preguntasRestantes).toBe(0);
+    expect(paginas.every((pagina) => (pagina.layoutDebug?.collisionBoxes ?? []).length === 0)).toBe(true);
+  });
 
   it('mantiene la columna OMR libre en continuaciones con texto largo', async () => {
     const parametros = crearParametros(6);

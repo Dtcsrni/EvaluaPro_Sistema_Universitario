@@ -27,7 +27,9 @@ export type Docente = {
     institucion?: string;
     lema?: string;
     logos?: { izquierdaPath?: string; derechaPath?: string };
+    paginasPorTipo?: { parcial: number; global: number; extraordinario: number };
   };
+  retencionParcialesArchivadosMeses?: 3 | 6 | 12 | null;
 };
 
 export type Alumno = {

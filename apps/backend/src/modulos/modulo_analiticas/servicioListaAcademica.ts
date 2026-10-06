@@ -6,6 +6,7 @@
  */
 import type { ListaAcademicaFila } from './tiposListaAcademica.js';
 import { distribuirBonoExtracurricular } from './servicioBonoExtracurricular.js';
+import { presentarCalificacionExtraordinaria } from '../modulo_calificacion/servicioCalificacion.js';
 import {
   calcularColumnasFisicasParcial2,
   type CalificacionManualLista,
@@ -23,6 +24,7 @@ type AlumnoFila = {
 };
 
 type CalificacionFila = {
+  _id?: unknown;
   alumnoId: unknown;
   tipoExamen?: unknown;
   plantillaTitulo?: unknown;
@@ -32,12 +34,26 @@ type CalificacionFila = {
   evaluacionContinuaTexto?: unknown;
   proyectoTexto?: unknown;
   createdAt?: unknown;
+  origen?: unknown;
+  examenGenerado?: { id?: unknown; alumnoId?: unknown; loteId?: unknown; folio?: unknown } | null;
 };
 
 type ComponenteExamenFila = {
   alumnoId: unknown;
   corte?: unknown;
   examenCorteDecimal?: unknown;
+};
+
+type ResultadoExtraExternoFila = {
+  alumnoId: unknown;
+  folio: unknown;
+  loteId?: unknown;
+  fuenteArchivo: unknown;
+  documentoSha256: unknown;
+  calificacionSobre5Texto: unknown;
+  calificacionSobre10Texto: unknown;
+  estadoAprobatorio: unknown;
+  origen: unknown;
 };
 
 export type CorteExamen = 'parcial1' | 'parcial2' | 'global';
@@ -134,6 +150,7 @@ export function construirListaAcademica(
     mapeosClassroom?: MapeoListaClassroom[];
     calificacionesManuales?: CalificacionManualLista[];
     componentesExamen?: ComponenteExamenFila[];
+    resultadosExtraExternos?: ResultadoExtraExternoFila[];
     bonoExtracurricularPorAlumno?: ReadonlyMap<string, number>;
   } = {}
 ): ListaAcademicaFila[] {
@@ -250,6 +267,45 @@ export function construirListaAcademica(
     const calificacionFinalCurso = totalP1ConBono !== null && totalP2ConBono !== null && totalP3ConBono !== null
       ? round4((totalP1ConBono * 0.2) + (totalP2ConBono * 0.2) + (totalP3ConBono * 0.6))
       : null;
+    const extraRegistro = (opciones.calificacionesManuales ?? []).find((registro) =>
+      limpiarTexto(registro.alumnoId) === alumnoId && limpiarTexto(registro.componente) === 'Solicitud Extra'
+    );
+    const resultadosInternos = calificacionesAlumno
+      .filter((item) => limpiarTexto(item.tipoExamen) === 'extraordinario')
+      .flatMap((item) => {
+        const examenGenerado = item.examenGenerado;
+        const examenGeneradoId = limpiarTexto(examenGenerado?.id);
+        const alumnoExamenId = limpiarTexto(examenGenerado?.alumnoId);
+        const loteId = limpiarTexto(examenGenerado?.loteId);
+        const folio = limpiarTexto(examenGenerado?.folio);
+        const calificacionSobre5 = limpiarTexto(item.calificacionExamenFinalTexto);
+        if (!examenGeneradoId || alumnoExamenId !== alumnoId || !loteId || !folio || !calificacionSobre5) return [];
+        const equivalente = presentarCalificacionExtraordinaria(calificacionSobre5);
+        return [{
+          claseRegistro: 'interno' as const,
+          examenGeneradoId,
+          loteId,
+          folio,
+          calificacionSobre5,
+          calificacionSobre10: equivalente.calificacionEquivalenteSobre10Texto,
+          estadoAprobatorio: equivalente.estadoAprobatorio,
+          origen: limpiarTexto(item.origen)
+        }];
+      });
+    const resultadosExternos = (opciones.resultadosExtraExternos ?? [])
+      .filter((item) => limpiarTexto(item.alumnoId) === alumnoId)
+      .map((item) => ({
+        claseRegistro: 'externo' as const,
+        folio: limpiarTexto(item.folio),
+        loteId: limpiarTexto(item.loteId) || null,
+        calificacionSobre5: limpiarTexto(item.calificacionSobre5Texto),
+        calificacionSobre10: limpiarTexto(item.calificacionSobre10Texto),
+        estadoAprobatorio: limpiarTexto(item.estadoAprobatorio) as 'Aprobatoria' | 'No aprobatoria',
+        origen: limpiarTexto(item.origen),
+        fuenteArchivo: limpiarTexto(item.fuenteArchivo),
+        documentoSha256: limpiarTexto(item.documentoSha256)
+      }));
+    const resultadosExtraordinarios = [...resultadosInternos, ...resultadosExternos];
     const finalesPersistidos = calificacionesAlumno
       .map((item) => limpiarTexto(item.calificacionExamenFinalTexto))
       .filter(Boolean);
@@ -286,6 +342,11 @@ export function construirListaAcademica(
       bonoExtracurricularVersion: numeroLista(bonoRegistro?.version),
       bonoDistribucion: distribucionBono.asignacion,
       calificacionFinalCurso: calificacionFinalCurso === null ? '' : String(calificacionFinalCurso),
+      calificacionFinalCursoActa: calificacionFinalCurso === null ? '' : String(calificacionFinalCurso < 6 ? Math.floor(calificacionFinalCurso) : Math.round(calificacionFinalCurso)),
+      extraDisponible: calificacionFinalCurso !== null && calificacionFinalCurso < 6,
+      solicitaExtra: Number(extraRegistro?.calificacion) === 1,
+      solicitudExtraVersion: numeroLista(extraRegistro?.version),
+      resultadosExtraordinarios,
       final,
       observaciones: banderasAlumno,
       conformidadAlumno: ''

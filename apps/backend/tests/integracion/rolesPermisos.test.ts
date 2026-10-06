@@ -9,7 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { crearApp } from '../../src/app.js';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { PERMISOS_POR_ROL, permisosParaRoles } from '../../src/infraestructura/seguridad/rbac.js';
 
@@ -17,15 +17,15 @@ describe('roles y permisos', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function crearDocenteConRoles(correo: string, roles: string[]) {

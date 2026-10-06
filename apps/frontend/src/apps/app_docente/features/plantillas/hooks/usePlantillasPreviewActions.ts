@@ -25,6 +25,7 @@ export type PreviewPdfUrls = {
 };
 
 type Params = {
+  paginasExtraordinarioObjetivo?: number;
   puedePrevisualizarPlantillas: boolean;
   avisarSinPermiso: (mensaje: string) => void;
   previewPorPlantillaId: Record<string, PreviewPlantilla>;
@@ -38,6 +39,7 @@ type Params = {
 };
 
 export function usePlantillasPreviewActions({
+  paginasExtraordinarioObjetivo = 4,
   puedePrevisualizarPlantillas,
   avisarSinPermiso,
   previewPorPlantillaId,

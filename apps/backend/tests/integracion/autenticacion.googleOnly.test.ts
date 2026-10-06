@@ -8,7 +8,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 vi.mock('../../src/modulos/modulo_autenticacion/servicioGoogle', () => ({
   verificarCredencialGoogle: vi.fn(async () => ({
@@ -29,11 +29,11 @@ async function crearAppGoogleOnly() {
 
 describe('autenticacion google-only', () => {
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterEach(() => {
@@ -42,7 +42,7 @@ describe('autenticacion google-only', () => {
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('expone capacidades y bloquea flujos por contraseña', async () => {

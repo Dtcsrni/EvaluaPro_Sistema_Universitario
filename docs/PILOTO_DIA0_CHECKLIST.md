@@ -10,8 +10,8 @@ Objetivo: dejar operativo el piloto (1 institucion, 1-3 docentes) con backend lo
 - [ ] Confirmar salud de rutas nuevas:
   - [ ] `GET /api/version`
   - [ ] `GET /api/portal/version`
-  - [ ] `GET /api/salud/ready` con `dependencies.mongodb`
-  - [ ] `GET /api/portal/salud/ready` con `dependencies.mongodb`
+  - [ ] `GET /api/salud/ready` con `dependencies.db`
+  - [ ] `GET /api/portal/salud/ready` con `dependencies.db`
 
 ## 2. Artefactos de distribucion Windows
 - [ ] Generar MSI:
@@ -46,7 +46,7 @@ Objetivo: dejar operativo el piloto (1 institucion, 1-3 docentes) con backend lo
 ## 3. Despliegue portal cloud (Cloud Run free-tier)
 - [ ] Desplegar `apps/portal_alumno_cloud`.
 - [ ] Configurar variables/secretos obligatorios:
-  - [ ] `MONGODB_URI`
+  - [ ] `DATABASE_URL` (portal)
   - [ ] `PORTAL_API_KEY`
   - [ ] `CORS_ORIGENES` (sin `*`)
   - [ ] `CODIGO_ACCESO_HORAS`
@@ -58,7 +58,7 @@ Objetivo: dejar operativo el piloto (1 institucion, 1-3 docentes) con backend lo
 
 ## 4. Configuracion backend local (sitio piloto)
 - [ ] En entorno docente definir:
-  - [ ] `MONGODB_URI`
+  - [ ] `BACKEND_DATABASE_URL` o `DATABASE_URL` (SQLite)
   - [ ] `JWT_SECRETO`
   - [ ] `NODE_ENV`, `PUERTO_API`, `PUERTO_PORTAL`
   - [ ] `PORTAL_ALUMNO_URL` (URL cloud real)

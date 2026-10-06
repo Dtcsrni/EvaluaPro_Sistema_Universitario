@@ -2,15 +2,15 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { prepararEscenarioFlujo, registrarDocente } from './_flujoDocenteHelper.js';
 
 describe('ciclo de consulta API de entregas', () => {
   const app = crearApp();
 
-  beforeAll(async () => { await conectarMongoTest(); });
-  beforeEach(async () => { await limpiarMongoTest(); });
-  afterAll(async () => { await cerrarMongoTest(); });
+  beforeAll(async () => { await conectarSqliteTest(); });
+  beforeEach(async () => { await limpiarSqliteTest(); });
+  afterAll(async () => { await cerrarSqliteTest(); });
 
   it('filtra, pagina y consulta entregas propias sin exponer correo del alumno', async () => {
     const escenario = await prepararEscenarioFlujo(app, 'parcial', 'entregas-owner@prueba.test');

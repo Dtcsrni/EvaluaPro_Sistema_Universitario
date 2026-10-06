@@ -52,6 +52,7 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Analíticas | `/analiticas/lista-academica-firma` | GET | Bearer | analiticas:leer | — |
 | Analíticas | `/analiticas/lista-academica/bono/preview` | POST | Bearer | calificaciones:calificar | esquemaPreviewBonoExtracurricular |
 | Analíticas | `/analiticas/lista-academica/calificaciones` | POST | Bearer | calificaciones:calificar | esquemaGuardarCalificacionLista |
+| Analíticas | `/analiticas/lista-academica/resultados-extra-externos` | POST | Bearer | calificaciones:calificar | esquemaRegistrarResultadoExtraExterno |
 | API | `/comercial-publico/licencias/activar` | POST | Público | — | esquemaActivarLicencia |
 | API | `/comercial-publico/licencias/heartbeat` | POST | Público | — | esquemaHeartbeatLicencia |
 | API | `/comercial-publico/mercadopago/webhook` | POST | Público | — | esquemaWebhookMercadoPago |
@@ -75,6 +76,7 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Autenticación | `/autenticacion/ingresar` | POST | Público | — | esquemaIngresarDocente |
 | Autenticación | `/autenticacion/perfil` | GET | Bearer | cuenta:leer | — |
 | Autenticación | `/autenticacion/preferencias/pdf` | POST | Bearer | cuenta:actualizar | esquemaActualizarPreferenciasPdf |
+| Autenticación | `/autenticacion/preferencias/retencion-parciales` | POST | Bearer | cuenta:actualizar | esquemaActualizarRetencionParciales |
 | Autenticación | `/autenticacion/recuperar-contrasena-google` | POST | Público | — | esquemaRecuperarContrasenaGoogle |
 | Autenticación | `/autenticacion/refrescar` | POST | Público | — | esquemaBodyVacioOpcional |
 | Autenticación | `/autenticacion/registrar` | POST | Público | — | esquemaRegistrarDocente |

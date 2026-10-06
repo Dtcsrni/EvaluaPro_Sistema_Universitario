@@ -4,7 +4,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { registrarDocente } from './_flujoDocenteHelper.js';
 import { parsearTextoTemario } from '../../src/modulos/modulo_temarios/servicioParserTemario.js';
 
@@ -14,11 +14,11 @@ describe('Integración: Temarios y Parser de PDF', () => {
   let periodoId: string;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
 
     // Registrar docente y obtener token
     const token = await registrarDocente(app, 'docente-temarios@prueba.test');
@@ -39,7 +39,7 @@ describe('Integración: Temarios y Parser de PDF', () => {
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   describe('Unidad: Parser de Texto de Temario', () => {
