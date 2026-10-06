@@ -498,13 +498,16 @@ test('release stable gate valida SemVer numérico y pasa argumentos con array si
   assert.match(workflow, /EVIDENCE_DIR:\s*\$\{\{ inputs\.evidence_dir \}\}/);
 });
 
-test('Dockerfile backend incluye schema Prisma antes del build', () => {
+test('Dockerfile backend incluye schema y config Prisma antes del build', () => {
   const dockerfile = fs.readFileSync(backendDockerfilePath, 'utf8');
   const prismaIndex = dockerfile.indexOf('COPY apps/backend/prisma ./apps/backend/prisma');
+  const prismaConfigIndex = dockerfile.indexOf('COPY apps/backend/prisma.config.mjs ./apps/backend/prisma.config.mjs');
   const buildIndex = dockerfile.indexOf('npm --workspace apps/backend run build');
 
   assert.ok(prismaIndex >= 0, 'Dockerfile backend debe copiar apps/backend/prisma');
+  assert.ok(prismaConfigIndex >= 0, 'Dockerfile backend debe copiar apps/backend/prisma.config.mjs');
   assert.ok(buildIndex > prismaIndex, 'backend build debe ejecutarse despues de copiar Prisma');
+  assert.ok(buildIndex > prismaConfigIndex, 'backend build debe ejecutarse despues de copiar la config Prisma');
 });
 
 test('Dockerfile frontend incluye el wrapper y la política de configuración del workspace', () => {

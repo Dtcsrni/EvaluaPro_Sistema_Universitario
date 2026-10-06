@@ -24,6 +24,7 @@ COPY apps/backend/package*.json ./apps/backend/
 COPY apps/frontend/package*.json ./apps/frontend/
 COPY apps/portal_alumno_cloud/package*.json ./apps/portal_alumno_cloud/
 COPY apps/backend/tsconfig.json ./apps/backend/
+COPY apps/backend/prisma.config.mjs ./apps/backend/prisma.config.mjs
 COPY apps/backend/prisma ./apps/backend/prisma
 COPY apps/backend/scripts ./apps/backend/scripts
 COPY apps/backend/src ./apps/backend/src
