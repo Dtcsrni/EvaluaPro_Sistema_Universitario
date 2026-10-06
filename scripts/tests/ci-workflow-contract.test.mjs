@@ -146,6 +146,22 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(compliance, /github\.event_name == 'schedule'/);
 });
 
+test('escalacion full-extended ejecuta sus gates en PR antes del merge', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const jobs = [
+    extractJobBlock(workflow, 'ext_funcionales'),
+    extractJobBlock(workflow, 'ext_perf_arquitectura'),
+    extractJobBlock(workflow, 'ext_compliance_evidencia')
+  ];
+  const aggregate = extractJobBlock(workflow, 'verificaciones_ext');
+
+  for (const job of jobs) {
+    assert.match(job, /github\.event_name == 'pull_request'/);
+    assert.match(job, /needs\.detectar_cambios\.outputs\.escalation == 'full-extended'/);
+  }
+  assert.match(aggregate, /github\.event_name == 'pull_request'/);
+});
+
 test('jobs extended generan Prisma antes de importar backend', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const cases = [

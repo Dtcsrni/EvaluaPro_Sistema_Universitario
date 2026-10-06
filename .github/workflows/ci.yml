@@ -434,7 +434,8 @@ jobs:
       needs.verificaciones_core.result == 'success' &&
       (github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
-      ((github.event_name == 'workflow_dispatch' ||
+      ((github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/heads/release/')) &&
       (needs.detectar_cambios.outputs.job_ext_funcionales == 'true' ||
@@ -517,7 +518,8 @@ jobs:
       needs.verificaciones_core.result == 'success' &&
       (github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
-      ((github.event_name == 'workflow_dispatch' ||
+      ((github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/heads/release/')) &&
       (needs.detectar_cambios.outputs.job_ext_perf_arquitectura == 'true' ||
@@ -557,7 +559,9 @@ jobs:
 
       - name: Etapa perf-business-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_perf_business_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
-        run: npm run perf:check:business
+        run: |
+          npm run test:perf:contract
+          npm run perf:check:business
 
       - name: Etapa clean-architecture-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_clean_architecture_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -583,7 +587,8 @@ jobs:
       needs.verificaciones_core.result == 'success' &&
       (github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
-      ((github.event_name == 'workflow_dispatch' ||
+      ((github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/heads/release/')) &&
       (needs.detectar_cambios.outputs.job_ext_compliance_evidencia == 'true' ||
@@ -637,7 +642,7 @@ jobs:
           path: reports/qa/latest
 
   verificaciones_ext:
-    name: Verificaciones Extendidas (Main/Release)
+    name: Verificaciones Extendidas (PR/Main/Release)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs:
@@ -648,6 +653,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
+      github.event_name == 'pull_request' ||
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/heads/release/')
 

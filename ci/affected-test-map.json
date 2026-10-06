@@ -81,7 +81,10 @@
     },
     "release": {
       "paths": [
+        "apps/backend/prisma.config.mjs",
         "scripts/release/**",
+        "scripts/perf-collect-business.ts",
+        "scripts/tests/perf-business-config.contract.test.mjs",
         ".github/workflows/ci-installer-windows.yml",
         ".github/workflows/package.yml",
         ".github/workflows/release-beta.yml",
