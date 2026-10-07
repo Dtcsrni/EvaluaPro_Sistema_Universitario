@@ -6,6 +6,7 @@ vi.mock('../../src/modulos/modulo_autenticacion/servicioGoogle.js', () => ({ ver
 
 import { crearApp } from '../../src/app.js';
 import { ErrorAplicacion } from '../../src/compartido/errores/errorAplicacion.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import * as logger from '../../src/infraestructura/logging/logger.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
@@ -127,5 +128,41 @@ describe('trazabilidad del login', () => {
       .find((meta) => meta.stage === 'validacion_credencial_google' && meta.outcome === 'iniciado');
     expect(evento).not.toHaveProperty('authFlowId');
     expect(JSON.stringify(logSpy.mock.calls)).not.toContain('docente@prueba.test');
+  });
+
+  it('traza los rechazos por cuenta inexistente, inactiva y vinculación Google discordante', async () => {
+    await request(app)
+      .post('/api/autenticacion/registrar')
+      .send({ nombreCompleto: 'Docente Prueba', correo: 'docente@prueba.test', contrasena: 'Secreto123!' })
+      .expect(201);
+
+    await request(app).post('/api/autenticacion/ingresar')
+      .send({ correo: 'no-existe@prueba.test', contrasena: 'Secreto123!' }).expect(401);
+    await request(app).post('/api/autenticacion/ingresar')
+      .send({ correo: 'docente@prueba.test', contrasena: 'Incorrecta123!' }).expect(401);
+
+    await prisma.docente.update({ where: { correo: 'docente@prueba.test' }, data: { activo: false, googleSub: 'sub-vinculado' } });
+    await request(app).post('/api/autenticacion/ingresar')
+      .send({ correo: 'docente@prueba.test', contrasena: 'Secreto123!' }).expect(403);
+
+    verificarCredencialGoogle.mockResolvedValueOnce({ correo: 'no-existe@prueba.test', sub: 'sub-nuevo', nombreCompleto: 'Sin cuenta' });
+    await request(app).post('/api/autenticacion/google').send({ credential: 'id-token-de-prueba-no-vacio' }).expect(401);
+    verificarCredencialGoogle.mockResolvedValueOnce({ correo: 'docente@prueba.test', sub: 'sub-distinto', nombreCompleto: 'Docente' });
+    await request(app).post('/api/autenticacion/google').send({ credential: 'id-token-de-prueba-no-vacio' }).expect(403);
+
+    await prisma.docente.update({ where: { correo: 'docente@prueba.test' }, data: { activo: true } });
+    verificarCredencialGoogle.mockResolvedValueOnce({ correo: 'docente@prueba.test', sub: 'sub-distinto', nombreCompleto: 'Docente' });
+    await request(app).post('/api/autenticacion/google').send({ credential: 'id-token-de-prueba-no-vacio' }).expect(401);
+
+    const eventos = logSpy.mock.calls
+      .filter(([, mensaje]) => mensaje === 'Etapa de autenticación docente')
+      .map(([, , meta]) => meta as Record<string, unknown>);
+    expect(eventos).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'CREDENCIALES_INVALIDAS', authMethod: 'contrasena', outcome: 'error' }),
+      expect.objectContaining({ code: 'DOCENTE_INACTIVO', authMethod: 'contrasena', outcome: 'error' }),
+      expect.objectContaining({ code: 'DOCENTE_NO_REGISTRADO', authMethod: 'google', outcome: 'error' }),
+      expect.objectContaining({ code: 'DOCENTE_INACTIVO', authMethod: 'google', outcome: 'error' }),
+      expect.objectContaining({ code: 'GOOGLE_SUB_MISMATCH', authMethod: 'google', outcome: 'error' })
+    ]));
   });
 });

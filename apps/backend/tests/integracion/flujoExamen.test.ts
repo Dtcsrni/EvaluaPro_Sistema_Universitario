@@ -10,7 +10,7 @@ import { PDFDocument } from 'pdf-lib';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { excluirReferenciasTecnologiaRetirada, resolverPreguntasPlantilla } from '../../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
+import { excluirReferenciasTecnologiaRetirada, mapearPreguntasBase, resolverPreguntasPlantilla } from '../../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('flujo de examen', () => {
@@ -47,6 +47,26 @@ describe('flujo de examen', () => {
     expect([...resultado.idsExcluidos]).toEqual(['reactivo-mongo']);
     expect(fuente[0].versiones[0].enunciado).toBe('Consulta MongoDB');
     expect(excluirReferenciasTecnologiaRetirada('Inteligencia de Negocios', fuente).preguntasDb).toBe(fuente);
+  });
+
+  it('bloquea reactivos OMR con respuesta incorrecta o opciones genéricas', () => {
+    const preguntaBase = {
+      id: 'reactivo-invalido',
+      versionActual: 1,
+      versiones: [{
+        numeroVersion: 1,
+        enunciado: '¿Qué práctica valida los datos antes de guardarlos?',
+        opciones: ['Validar tipo y rango', 'Opción B', 'Opción C', 'Opción D', 'Opción E'].map((texto, indice) => ({
+          texto,
+          esCorrecta: indice === 0
+        }))
+      }]
+    };
+
+    expect(() => mapearPreguntasBase([preguntaBase])).toThrow(expect.objectContaining({ codigo: 'PLANTILLA_REACTIVOS_OMR_INVALIDOS' }));
+    const sinCorrecta = structuredClone(preguntaBase);
+    sinCorrecta.versiones[0].opciones.forEach((opcion) => { opcion.esCorrecta = false; });
+    expect(() => mapearPreguntasBase([sinCorrecta])).toThrow(expect.objectContaining({ codigo: 'PLANTILLA_REACTIVOS_OMR_INVALIDOS' }));
   });
 
   it('bloquea plantillas sin materia y preguntas seleccionadas desde el banco de otro periodo', async () => {
@@ -376,6 +396,35 @@ describe('flujo de examen', () => {
     await request(app).get(`/api/examenes/generados?tipoExamen=invalido`).set(auth).expect(400);
 
     const examen = examenes[0];
+    await request(app).post('/api/calificaciones/calificar').set(auth).send({
+      examenGeneradoId: examen.id,
+      alumnoId: examen.alumnoId,
+      aciertos: 8,
+      totalReactivos: 2,
+      origen: 'inferida manualmente',
+      origenEvidencia: { loteId: examen.loteId, folio: examen.folio, documentoSha256: 'a'.repeat(64), criteriosAplicados: 'Cotejo del lote y folio contra el examen.' }
+    }).expect(400);
+    await request(app).post('/api/calificaciones/calificar').set(auth).send({
+      examenGeneradoId: examen.id,
+      alumnoId: examen.alumnoId,
+      aciertos: 1,
+      totalReactivos: 100,
+      origen: 'inferida manualmente',
+      origenEvidencia: { loteId: examen.loteId, folio: examen.folio, documentoSha256: 'a'.repeat(64), criteriosAplicados: 'Cotejo del lote y folio contra el examen.' }
+    }).expect(400);
+    await request(app).post('/api/calificaciones/calificar').set(auth).send({
+      examenGeneradoId: examen.id,
+      alumnoId: examen.alumnoId,
+      aciertos: 8,
+      totalReactivos: 10,
+      origen: 'inferida manualmente',
+      origenEvidencia: {
+        loteId: 'LOTE-DISTINTO',
+        folio: 'FOLIO-DISTINTO',
+        documentoSha256: 'a'.repeat(64),
+        criteriosAplicados: 'Cotejo manual del lote y folio contra el examen generado.'
+      }
+    }).expect(409);
     await request(app).post('/api/calificaciones/calificar').set(auth).send({
       examenGeneradoId: examen.id,
       alumnoId: examen.alumnoId,

@@ -33,6 +33,15 @@ describe('retención de exámenes generados', () => {
     await fs.mkdir(dataDir, { recursive: true });
   });
 
+  it('rechaza una configuración de retención de parciales archivados incompleta o fuera del catálogo', async () => {
+    await expect(ejecutarPurgeExamenesGenerados({
+      scope: 'archived-partials', olderThanDays: 1, retentionMonths: 6
+    })).rejects.toThrow('requiere docenteId');
+    await expect(ejecutarPurgeExamenesGenerados({
+      docenteId: 'docente-invalido', scope: 'archived-partials', olderThanDays: 1, retentionMonths: 4 as 3 | 6 | 12
+    })).rejects.toThrow('requiere meses 3, 6 o 12');
+  });
+
   afterAll(async () => {
     await fs.rm(dataDir, { recursive: true, force: true });
     await cerrarSqliteTest();

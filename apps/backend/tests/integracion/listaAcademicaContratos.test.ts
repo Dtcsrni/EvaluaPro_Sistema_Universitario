@@ -311,6 +311,7 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
       alumnoId: escenario.alumnoId,
       solicitaExtra: true,
       folio: '88DC8464',
+      loteId: 'lote-externo-01',
       fuenteArchivo: 'extra-externo-prueba.pdf',
       documentoSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       aciertos: 16,
@@ -319,10 +320,25 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
       clientRequestId: '5488c0f4-271e-4748-9d8b-1a66bbbe38fc'
     };
     const ruta = '/api/analiticas/lista-academica/resultados-extra-externos';
+    await prisma.calificacionListaManual.deleteMany({ where: {
+      docenteId: periodo.docenteId,
+      periodoId: escenario.periodoId,
+      alumnoId: escenario.alumnoId,
+      componente: 'Solicitud Extra'
+    } });
+    await request(app).post(ruta).set(escenario.auth).send(payload).expect(409);
+    await request(app).post('/api/analiticas/lista-academica/calificaciones').set(escenario.auth).send({
+      periodoId: escenario.periodoId,
+      alumnoId: escenario.alumnoId,
+      componente: 'Solicitud Extra',
+      calificacion: 1,
+      clientRequestId: 'be391a40-137d-4dbc-8fc6-38c2be6a327b'
+    }).expect(201);
+    await request(app).post(ruta).set(escenario.auth).send({ ...payload, aciertos: 36, clientRequestId: '018f2f9d-99a6-46c5-bf5a-8d2a3793af80' }).expect(400);
     const alta = await request(app).post(ruta).set(escenario.auth).send(payload).expect(201);
     expect(alta.body.resultado).toMatchObject({
       folio: '88DC8464',
-      loteId: null,
+      loteId: 'LOTE-EXTERNO-01',
       aciertos: 16,
       totalReactivos: 35,
       calificacionSobre5Texto: '2.29',
@@ -345,10 +361,32 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
       solicitaExtra: true,
       calificacionFinalCurso: '5.2',
       resultadosExtraordinarios: [expect.objectContaining({
-        claseRegistro: 'externo', folio: '88DC8464', loteId: null, calificacionSobre5: '2.29',
+        claseRegistro: 'externo', folio: '88DC8464', loteId: 'LOTE-EXTERNO-01', calificacionSobre5: '2.29',
         calificacionSobre10: '4.57', estadoAprobatorio: 'No aprobatoria', origen: 'inferida manualmente'
       })]
     });
+    await request(app).post(ruta).set(escenario.auth).send({ ...payload, clientRequestId: '38bccaa0-2e4b-43d1-9c4b-6f9d41406fbd' }).expect(409);
+  });
+
+  it('rechaza resultado externo cuando la calificación final ya no da derecho a Extra', async () => {
+    const escenario = await prepararEscenarioFlujo(app, 'parcial', 'docente-extra-no-disponible@prueba.test');
+    const respuesta = await request(app)
+      .post('/api/analiticas/lista-academica/resultados-extra-externos')
+      .set(escenario.auth)
+      .send({
+        periodoId: escenario.periodoId,
+        alumnoId: escenario.alumnoId,
+        solicitaExtra: true,
+        folio: 'FOLIO-EXTRA-01',
+        fuenteArchivo: 'acta-extra.pdf',
+        documentoSha256: 'b'.repeat(64),
+        aciertos: 4,
+        totalReactivos: 5,
+        criteriosAplicados: 'Revisión manual del documento y cotejo de reactivos contestables.',
+        clientRequestId: '6ca25ca0-6821-4718-8fe5-88bc4d8f2b9d'
+      })
+      .expect(409);
+    expect(respuesta.body.error.codigo).toBe('EXTRA_NO_DISPONIBLE');
   });
 
   it('captura Exámen Global manual en escala física sin crear desglose teórico/práctico', async () => {
