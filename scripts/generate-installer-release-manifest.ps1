@@ -7,7 +7,9 @@ param(
   [string]$Channel = 'stable',
   [string]$OutputPath = '',
   [string]$DeploymentTarget = '',
-  [string]$ReleaseBaseUrl = ''
+  [string]$ReleaseBaseUrl = '',
+  [string]$FlavorId = '',
+  [string]$CommitSha = ''
 )
 
 Set-StrictMode -Version Latest
@@ -150,7 +152,8 @@ if (-not $OutputPath) {
   $OutputPath = Join-Path $root 'dist\installer\EvaluaPro-release-manifest.json'
 }
 
-$commit = [string]$env:GITHUB_SHA
+$commit = [string]$CommitSha
+if (-not $commit) { $commit = [string]$env:GITHUB_SHA }
 if (-not $commit) {
   try {
     $commit = (& git rev-parse HEAD 2>$null | Select-Object -First 1)
@@ -166,6 +169,11 @@ $installerDir = Split-Path -Parent $OutputPath
 $internalInstallerDir = Join-Path $installerDir '_internal'
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
+$selectedFlavors = @($catalog.flavors)
+if (-not [string]::IsNullOrWhiteSpace($FlavorId)) {
+  $selectedFlavors = @($selectedFlavors | Where-Object { [string]$_.flavorId -eq $FlavorId })
+  if ($selectedFlavors.Count -ne 1) { throw "Flavor no reconocido para el manifest de release: $FlavorId" }
+}
 
 function Join-UrlPath {
   param(
@@ -232,7 +240,7 @@ $artifacts = @()
 $allArtifacts = @(
   [ordered]@{ name = 'EvaluaPro-release-manifest.json'; flavorId = ''; preferInternal = $false }
 )
-foreach ($flavor in $catalog.flavors) {
+foreach ($flavor in $selectedFlavors) {
   $flavorId = [string]$flavor.flavorId
   $versionedHubName = Get-VersionedArtifactName -BaseName ([string]$flavor.installerHubExeName) -VersionTag $versionTag
   $allArtifacts += @(
@@ -270,7 +278,7 @@ foreach ($artifactDescriptor in $allArtifacts) {
 }
 
 $flavors = @()
-foreach ($flavor in $catalog.flavors) {
+foreach ($flavor in $selectedFlavors) {
   $msiName = [string]$flavor.msiName
   $bundleName = [string]$flavor.bundleName
   $hubName = [string]$flavor.installerHubExeName
@@ -324,7 +332,7 @@ $payload = [ordered]@{
   artifacts = $artifacts
   flavors = $flavors
   deployment = [ordered]@{
-    target = if ($DeploymentTarget) { $DeploymentTarget } else { 'multi-flavor-windows' }
+    target = if ($DeploymentTarget) { $DeploymentTarget } elseif ($FlavorId) { $FlavorId } else { 'multi-flavor-windows' }
   }
 }
 

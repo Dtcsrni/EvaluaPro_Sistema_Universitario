@@ -136,13 +136,6 @@ function writeInstallerManifest(baseDir, overrides = {}) {
     },
     flavors: [
       {
-        flavorId: 'saas-completo',
-        assetName: `EvaluaPro-InstallerHub-saas-completo-v${version}.exe`,
-        msiName: 'EvaluaPro-saas-completo.msi',
-        installerHubName: `EvaluaPro-InstallerHub-saas-completo-v${version}.exe`,
-        installerHubVersionedName: `EvaluaPro-InstallerHub-saas-completo-v${version}.exe`
-      },
-      {
         flavorId: 'docente-local',
         assetName: `EvaluaPro-InstallerHub-docente-local-v${version}.exe`,
         msiName: 'EvaluaPro-docente-local.msi',
@@ -218,7 +211,7 @@ function writeClassroomEvidence(baseDir, overrides = {}) {
   return evidencePath;
 }
 
-test('stable promotion pasa con evidencia completa, streak y manifest multi-flavor', () => {
+test('stable promotion pasa con evidencia completa, streak y manifest docente-local', () => {
   const evidenceDir = mkTempDir('evaluapro-stable-evidence-');
   const installerDir = mkTempDir('evaluapro-installer-manifest-');
   const qaDir = mkTempDir('evaluapro-qa-evidence-');
@@ -350,7 +343,7 @@ test('stable promotion falla si un flavor apunta a asset versionado incorrecto',
   const installerManifestPath = writeInstallerManifest(installerDir, { version: '1.1.1' });
   const qaManifestPath = writeQaEvidence(qaDir);
   const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
-  installerManifest.flavors[1].installerHubName = 'EvaluaPro-InstallerHub-docente-local-v1.1.0.exe';
+  installerManifest.flavors[0].installerHubName = 'EvaluaPro-InstallerHub-docente-local-v1.1.0.exe';
   fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
@@ -531,6 +524,78 @@ test('stable promotion rechaza un manifiesto QA cuyo commit difiere del candidat
   const check = result.checks.find((item) => item.id === 'automated-qa-evidence');
   assert.equal(check?.ok, false);
   assert.match(check?.detail || '', /commit QA no corresponde/i);
+});
+
+test('stable promotion solo acepta el flavor docente-local', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-unexpected-flavor-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-unexpected-flavor-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-unexpected-flavor-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const manifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
+  manifest.flavors.push({ ...manifest.flavors[0], flavorId: 'saas-completo' });
+  fs.writeFileSync(installerManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    requiredStreak: 10,
+    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+  const check = result.checks.find((item) => item.id === 'installer-multi-flavor');
+  assert.equal(check?.ok, false);
+  assert.match(check?.detail || '', /fuera de alcance docente-local/i);
+});
+
+test('stable promotion exige que el manifiesto del instalador identifique el SHA candidato', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-installer-sha-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-sha-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-installer-sha-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const previous = process.env.RELEASE_CANDIDATE_SHA;
+  process.env.RELEASE_CANDIDATE_SHA = 'f'.repeat(40);
+  try {
+    const result = evaluateStablePromotion({
+      version: '1.0.0',
+      requiredStreak: 10,
+      runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+      evidenceDir,
+      installerManifestPath,
+      qaManifestPath
+    });
+    const check = result.checks.find((item) => item.id === 'installer-multi-flavor');
+    assert.equal(check?.ok, false);
+    assert.match(check?.detail || '', /SHA candidato/i);
+  } finally {
+    if (previous === undefined) delete process.env.RELEASE_CANDIDATE_SHA;
+    else process.env.RELEASE_CANDIDATE_SHA = previous;
+  }
+});
+
+test('stable promotion exige que la evidencia versionada identifique el SHA candidato', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-sha-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-evidence-sha-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-evidence-sha-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    candidateSha: 'f'.repeat(40),
+    requiredStreak: 10,
+    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+  const check = result.checks.find((item) => item.id === 'release-evidence');
+  assert.equal(check?.ok, false);
+  assert.match(check?.detail || '', /commit no coincide con SHA candidato/i);
 });
 
 test('stable promotion rechaza QA ejecutado con cambios de fuente sin commit', () => {

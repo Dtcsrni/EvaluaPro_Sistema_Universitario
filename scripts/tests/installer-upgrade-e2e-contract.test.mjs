@@ -178,20 +178,20 @@ test('las E2E del asset de borrador y público instalan WiX para extraer el base
   }
 });
 
-test('el tiempo de descarga y la E2E cabe en las ventanas de tag y promoción estable', () => {
+test('el build candidato y QA caben en la ventana del gate estable previo a publicación', () => {
   const tagGuard = fs.readFileSync(path.join(root, '.github', 'workflows', 'tag-release-guard.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
   const installerTimeout = Number(workflow.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
   const publishTimeout = Number(workflow.match(/publish_installer_release:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
   const releaseWindow = installerTimeout + publishTimeout;
   const tagAttempts = Number(tagGuard.match(/max_attempts=(\d+)/)?.[1]);
-  const stableAttempts = Number(stableGate.match(/for attempt in \{1\.\.(\d+)\}/)?.[1]);
   const tagTimeout = Number(tagGuard.match(/timeout-minutes:\s*(\d+)/)?.[1]);
   const stableTimeout = Number(stableGate.match(/timeout-minutes:\s*(\d+)/)?.[1]);
 
   assert.equal(installerTimeout, 180);
   assert.ok(tagAttempts * 30 / 60 >= releaseWindow, 'tag guard debe esperar build/E2E y publicación');
   assert.ok(tagTimeout >= tagAttempts * 30 / 60 + 10, 'timeout del tag guard debe incluir margen');
-  assert.ok(stableAttempts * 30 / 60 >= releaseWindow, 'gate estable debe esperar build y publicación');
-  assert.ok(stableTimeout >= releaseWindow + 90, 'gate estable debe dejar margen para QA completa');
+  assert.ok(stableTimeout >= installerTimeout + 90, 'gate estable debe dejar margen para build candidato y QA completa');
+  assert.match(stableGate, /run-id:\s*\$\{\{ inputs\.candidate_run_id \}\}/);
+  assert.doesNotMatch(stableGate.slice(0, stableGate.indexOf('validate-stable-promotion.mjs')), /gh release download/);
 });

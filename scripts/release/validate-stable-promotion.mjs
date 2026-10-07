@@ -169,17 +169,27 @@ function validateInstallerReleaseManifest(manifestPathArg, expectedVersion = '')
   const topLevelVersion = String(manifest?.version || '').trim();
   const buildCommit = String(manifest?.build?.commit || '').trim();
   const deploymentTarget = String(manifest?.deployment?.target || '').trim();
-  const required = ['saas-completo', 'docente-local'];
+  const required = ['docente-local'];
+  const unexpected = flavors
+    .map((item) => String(item?.flavorId || ''))
+    .filter((flavorId) => flavorId !== 'docente-local');
   const missing = required.filter((flavorId) => !flavors.some((item) => String(item?.flavorId || '') === flavorId));
 
   if (missing.length > 0) {
-    throw new Error(`Manifest multi-flavor incompleto: ${missing.join(', ')}`);
+    throw new Error(`Manifest docente-local incompleto: falta ${missing.join(', ')}`);
+  }
+  if (unexpected.length > 0 || flavors.length !== 1) {
+    throw new Error(`Manifest estable fuera de alcance docente-local: flavors=${flavors.map((item) => String(item?.flavorId || '<sin-id>')).join(',')}`);
   }
   if (!buildVersion || !buildCommit || !deploymentTarget) {
     throw new Error('Manifest release incompleto: faltan build.version, build.commit o deployment.target');
   }
   if (expectedVersion && buildVersion !== expectedVersion) {
     throw new Error(`Manifest release version invalida: build.version=${buildVersion}, esperado=${expectedVersion}`);
+  }
+  const expectedCommit = String(process.env.RELEASE_CANDIDATE_SHA || '').trim();
+  if (expectedCommit && buildCommit.toLowerCase() !== expectedCommit.toLowerCase()) {
+    throw new Error(`Manifest release no corresponde al SHA candidato: build.commit=${buildCommit}, candidato=${expectedCommit}`);
   }
   if (expectedVersion && topLevelVersion && topLevelVersion !== expectedVersion) {
     throw new Error(`Manifest release version invalida: version=${topLevelVersion}, esperado=${expectedVersion}`);
@@ -269,6 +279,10 @@ export function evaluateStablePromotion(options) {
       if (evidenceVersion !== options.version) {
         throw new Error(`manifest.json: version no coincide con objetivo stable. version=${evidenceVersion || 'invalida'}, esperado=${options.version}`);
       }
+      const candidateSha = String(options.candidateSha || '').trim().toLowerCase();
+      if (candidateSha && String(evidenceManifest?.commit || '').trim().toLowerCase() !== candidateSha) {
+        throw new Error(`manifest.json: commit no coincide con SHA candidato. commit=${evidenceManifest?.commit || 'ausente'}, candidato=${candidateSha}`);
+      }
     }
     checks.push({ id: 'release-evidence', ok: true, detail: options.evidenceDir });
   } catch (error) {
@@ -350,6 +364,7 @@ export async function main() {
     evidenceDir,
     prodFlowResult,
     installerManifestPath: getArg('installer-manifest', ''),
+    candidateSha: getArg('candidate-sha', process.env.RELEASE_CANDIDATE_SHA || ''),
     qaManifestPath: getArg('qa-manifest', process.env.RELEASE_GATE_QA_MANIFEST || '')
   });
 

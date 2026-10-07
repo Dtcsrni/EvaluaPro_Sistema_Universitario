@@ -2,10 +2,12 @@ name: CI Installer Windows
 
 on:
   pull_request:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "SHA completo de main para construir el artefacto candidato"
+        required: true
+        type: string
 
 concurrency:
   group: ci-installer-windows-${{ github.workflow }}-${{ github.ref }}
@@ -26,7 +28,20 @@ jobs:
       - name: Descargar código
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           fetch-depth: 0
+
+      - name: Verificar el SHA de origen
+        if: github.event_name == 'workflow_dispatch'
+        shell: powershell
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          if ($env:SOURCE_SHA -notmatch '^[0-9a-fA-F]{40}$') { throw 'source_sha debe ser un SHA completo.' }
+          $checkedOut = (& git rev-parse HEAD).Trim()
+          if ($checkedOut -ne $env:SOURCE_SHA.ToLowerInvariant()) { throw 'El checkout no coincide con source_sha.' }
+          $mainSha = (& git rev-parse origin/main).Trim()
+          if ($mainSha -ne $checkedOut) { throw 'El SHA candidato debe ser el HEAD actual de main.' }
 
       - name: Configurar Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -105,22 +120,11 @@ jobs:
       - name: Etapa hash/manifest de release instalador
         shell: powershell
         env:
-          RELEASE_IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
-          RELEASE_TAG: ${{ github.ref_name }}
-          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_IS_CANDIDATE: ${{ github.event_name == 'workflow_dispatch' }}
+          CANDIDATE_SHA: ${{ inputs.source_sha || github.sha }}
         run: |
-          $isTag = $env:RELEASE_IS_TAG -eq "true"
-          if ($isTag) {
-            $tag = $env:RELEASE_TAG
-            if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') {
-              throw "Formato de tag de release inválido: $tag"
-            }
-            $repository = $env:RELEASE_REPOSITORY
-            if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
-              throw "Repositorio de release inválido."
-            }
-            $base = "https://github.com/$repository/releases/download/$tag"
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1 -ReleaseBaseUrl "$base"
+          if ($env:RELEASE_IS_CANDIDATE -eq "true") {
+            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1 -FlavorId docente-local -CommitSha $env:CANDIDATE_SHA
           } else {
             powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1
           }
@@ -134,6 +138,8 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: powershell
         env:
+          EVALUAPRO_RELEASE_FLAVOR: ${{ github.event_name == 'workflow_dispatch' && 'docente-local' || '' }}
+          EVALUAPRO_RELEASE_COMMIT: ${{ inputs.source_sha || github.sha }}
           EVALUAPRO_SIGN_CERT_BASE64: ${{ secrets.EVALUAPRO_SIGN_CERT_BASE64 }}
           EVALUAPRO_SIGN_CERT_PASSWORD: ${{ secrets.EVALUAPRO_SIGN_CERT_PASSWORD }}
           EVALUAPRO_SIGN_TIMESTAMP_URL: ${{ secrets.EVALUAPRO_SIGN_TIMESTAMP_URL }}
@@ -257,6 +263,7 @@ jobs:
             dist/installer/antivirus-scan-report.txt
             dist/installer/EvaluaPro-release-manifest.json
             dist/installer/SIGNING-NOT-PRODUCTION.txt
+          retention-days: 90
 
       - name: Publicar artefactos internos instalador
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -268,7 +275,7 @@ jobs:
   publish_installer_release:
     name: Publicar release del instalador
     needs: installer_windows
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -314,7 +321,7 @@ jobs:
   post_publish_installer_e2e:
     name: E2E del asset descargado desde el release draft
     needs: [installer_windows, publish_installer_release]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
@@ -473,7 +480,7 @@ jobs:
   finalize_installer_release:
     name: Hacer público el release tras E2E aprobada
     needs: [publish_installer_release, post_publish_installer_e2e]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -509,7 +516,7 @@ jobs:
   verify_public_installer_e2e:
     name: E2E del asset público descargado desde GitHub
     needs: finalize_installer_release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
@@ -655,7 +662,7 @@ jobs:
   redraft_failed_public_installer_release:
     name: Ocultar release si falla la E2E del asset público
     needs: verify_public_installer_e2e
-    if: ${{ always() && needs.verify_public_installer_e2e.result != 'success' && needs.verify_public_installer_e2e.result != 'skipped' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ always() && needs.verify_public_installer_e2e.result != 'success' && needs.verify_public_installer_e2e.result != 'skipped' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
