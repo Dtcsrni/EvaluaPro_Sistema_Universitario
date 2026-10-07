@@ -10,7 +10,7 @@ import { PDFDocument } from 'pdf-lib';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { excluirReferenciasTecnologiaRetirada, mapearPreguntasBase, resolverPreguntasPlantilla } from '../../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
+import { excluirReferenciasTecnologiaRetirada, mapearPreguntasBase, resolverPreguntasExtraordinarioArchivado, resolverPreguntasPlantilla } from '../../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('flujo de examen', () => {
@@ -97,6 +97,47 @@ describe('flujo de examen', () => {
       docenteId: docente.id,
       plantilla: { id: 'plantilla-materia-origen', periodoId, preguntasIds: [preguntaAjenaId] }
     })).rejects.toMatchObject({ codigo: 'REACTIVOS_FUERA_DEL_BANCO_MATERIA' });
+  });
+
+  it('combina reactivos de parciales archivados de la misma materia para un global extraordinario', async () => {
+    const token = await registrarDocente();
+    const auth = { Authorization: `Bearer ${token}` };
+    const docente = await prisma.docente.findUniqueOrThrow({ where: { correo: 'docente@prueba.test' } });
+    const periodo = await request(app).post('/api/periodos').set(auth).send({
+      nombre: 'Materia con global extraordinario',
+      fechaInicio: '2026-01-01',
+      fechaFin: '2026-06-30'
+    }).expect(201);
+    const periodoId = String(periodo.body.periodo._id);
+    const preguntasIds = await crearPreguntasCanonicas(auth, periodoId, 3);
+    const parcial = await request(app).post('/api/examenes/plantillas').set(auth).send({
+      periodoId, tipo: 'parcial', titulo: 'Primer parcial materia actual', numeroPaginas: 2,
+      preguntasIds: preguntasIds.slice(0, 2)
+    }).expect(201);
+    const global = await request(app).post('/api/examenes/plantillas').set(auth).send({
+      periodoId, tipo: 'global', titulo: 'Global materia actual', numeroPaginas: 4,
+      preguntasIds: preguntasIds.slice(2)
+    }).expect(201);
+    await prisma.examenPlantilla.update({ where: { id: String(parcial.body.plantilla._id) }, data: { archivadoEn: new Date() } });
+
+    const resultado = await resolverPreguntasExtraordinarioArchivado({
+      docenteId: docente.id,
+      materiaNombre: 'Inteligencia de Negocios',
+      plantilla: {
+        id: String(global.body.plantilla._id),
+        periodoId,
+        tipo: 'global',
+        titulo: 'Global materia actual',
+        preguntasIds: preguntasIds.slice(2),
+        temas: [],
+        reactivosObjetivo: 1
+      }
+    });
+
+    expect(resultado.fuentesExtraordinario).toEqual(['Primer parcial materia actual']);
+    expect(resultado.preguntasDb.map((pregunta) => String(pregunta.id))).toEqual(expect.arrayContaining(preguntasIds));
+    expect(resultado.totalPreguntasFuente).toBe(3);
+    expect(resultado.reactivosOmitidosPorOmr).toEqual([]);
   });
 
   it('usa la preferencia global por tipo como páginas iniciales de la plantilla', async () => {
