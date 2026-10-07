@@ -2244,6 +2244,19 @@ test('payload nativo incluye las dependencias directas del launcher docente', ()
   }
 });
 
+test('helper conserva compatibilidad con payloads previos y exige migraciones desde 1.2.4', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  assert.match(helper, /apps\\backend\\package\.json/);
+  assert.match(helper, /\$payloadVersion -ge \[version\]'1\.2\.4'/);
+  for (const migration of [
+    'migrate-calificacion-origen-inferida-sqlite.mjs',
+    'migrate-preferencias-retencion-parcial-sqlite.mjs',
+    'migrate-resultados-extra-externos-sqlite.mjs'
+  ]) {
+    assert.ok(helper.includes(migration), `El helper debe validar ${migration} en payloads nuevos.`);
+  }
+});
+
 test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
   const securityModule = fs.readFileSync(licenseSecurityModulePath, 'utf8');
   assert.match(securityModule, /System\.Security\.Cryptography\.ProtectedData/);
