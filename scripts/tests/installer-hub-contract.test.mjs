@@ -164,8 +164,9 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local/);
   assert.match(workflow, /-FlavorId docente-local/);
   assert.match(workflow, /retention-days: 90/);
-  assert.doesNotMatch(workflow.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '', /push:\s*\n\s+tags:/);
+  assert.match(workflow.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '', /push:\s*\n\s+tags:\s*\n\s+- ["']?v\*["']?/);
   assert.match(workflow, /github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.match(workflow, /RELEASE_IS_CANDIDATE:[\s\S]*?github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.match(workflow, /github\.event_name == 'workflow_dispatch' && inputs\.release_tag != ''/);
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);

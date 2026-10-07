@@ -2,6 +2,9 @@ name: CI Installer Windows
 
 on:
   pull_request:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       source_sha:
@@ -137,7 +140,7 @@ jobs:
       - name: Etapa hash/manifest de release instalador
         shell: powershell
         env:
-          RELEASE_IS_CANDIDATE: ${{ github.event_name == 'workflow_dispatch' }}
+          RELEASE_IS_CANDIDATE: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
           CANDIDATE_SHA: ${{ inputs.source_sha || github.sha }}
         run: |
           if ($env:RELEASE_IS_CANDIDATE -eq "true") {
@@ -155,7 +158,7 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: powershell
         env:
-          EVALUAPRO_RELEASE_FLAVOR: ${{ github.event_name == 'workflow_dispatch' && 'docente-local' || '' }}
+          EVALUAPRO_RELEASE_FLAVOR: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'docente-local' || '' }}
           EVALUAPRO_RELEASE_COMMIT: ${{ inputs.source_sha || github.sha }}
           EVALUAPRO_SIGN_CERT_BASE64: ${{ secrets.EVALUAPRO_SIGN_CERT_BASE64 }}
           EVALUAPRO_SIGN_CERT_PASSWORD: ${{ secrets.EVALUAPRO_SIGN_CERT_PASSWORD }}
