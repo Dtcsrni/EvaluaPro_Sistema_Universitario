@@ -114,7 +114,7 @@ test('solo CI central descarga la base del PR y valida refs de PR/tag antes de u
   assert.match(docsWorkflow, /git push origin "HEAD:refs\/heads\/\$TARGET_BRANCH"/);
 
   const installerWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
-  assert.match(installerWorkflow, /RELEASE_TAG:\s*\$\{\{ github\.ref_name \}\}/);
+  assert.match(installerWorkflow, /RELEASE_TAG:\s*\$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
   assert.match(installerWorkflow, /RELEASE_REPOSITORY:\s*\$\{\{ github\.repository \}\}/);
   assert.match(installerWorkflow, /\$tag -notmatch '\^v\(0\|\[1-9\]\[0-9\]\*\)/);
   assert.match(installerWorkflow, /https:\/\/github\.com\/\$repository\/releases\/download\/\$tag/);
