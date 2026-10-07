@@ -181,9 +181,10 @@ function Resolve-InstallerArtifactPath {
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 $flavors = @($catalog.flavors)
-if (-not [string]::IsNullOrWhiteSpace($FlavorId)) {
-  $flavors = @($flavors | Where-Object { [string]$_.flavorId -eq $FlavorId })
-  if ($flavors.Count -ne 1) { throw "Flavor no reconocido para el manifest de release: $FlavorId" }
+$requestedFlavorId = $FlavorId
+if (-not [string]::IsNullOrWhiteSpace($requestedFlavorId)) {
+  $flavors = @($flavors | Where-Object { [string]$_.flavorId -eq $requestedFlavorId })
+  if ($flavors.Count -ne 1) { throw "Flavor no reconocido para el manifest de release: $requestedFlavorId" }
 }
 $versionTag = Resolve-VersionTag -RootPath $root -RequestedVersion $Version
 $shasumsByDirectory = @{}
@@ -231,7 +232,7 @@ $manifestParams = @{
 }
 if ($Version) { $manifestParams.Version = $Version }
 if ($ReleaseBaseUrl) { $manifestParams.ReleaseBaseUrl = $ReleaseBaseUrl }
-if ($FlavorId) { $manifestParams.FlavorId = $FlavorId }
+if ($requestedFlavorId) { $manifestParams.FlavorId = $requestedFlavorId }
 if ($CommitSha) { $manifestParams.CommitSha = $CommitSha }
 
 & $manifestScript @manifestParams

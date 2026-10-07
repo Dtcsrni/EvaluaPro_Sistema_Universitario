@@ -79,7 +79,7 @@ function validateAutomatedQaEvidence(qaManifestPath) {
   const faltantes = Number(resumen?.faltantes ?? NaN);
   const generadoMs = Date.parse(manifest?.generadoEn);
   const now = Date.now();
-  const candidateCommit = currentGitCommit();
+  const candidateCommit = String(process.env.RELEASE_CANDIDATE_SHA || currentGitCommit()).trim().toLowerCase();
   const manifestRoot = path.resolve(path.dirname(manifestPath), '..', '..', '..');
 
   if (estado !== 'ok' || faltantes !== 0) {
@@ -94,7 +94,7 @@ function validateAutomatedQaEvidence(qaManifestPath) {
   if (now - generadoMs > QA_MAX_AGE_MS) {
     throw new Error('Manifest QA obsoleto: generadoEn supera 24 horas');
   }
-  if (!candidateCommit || manifest.commit !== candidateCommit) {
+  if (!candidateCommit || String(manifest.commit || '').trim().toLowerCase() !== candidateCommit) {
     throw new Error(`Commit QA no corresponde al candidato: QA=${manifest.commit || 'ausente'}, candidato=${candidateCommit || 'no disponible'}`);
   }
   if (manifest.workingTreeClean !== true || manifest.dirtyPathCount !== 0) {

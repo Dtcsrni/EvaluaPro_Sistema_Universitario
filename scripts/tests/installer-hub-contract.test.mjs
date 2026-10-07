@@ -165,7 +165,8 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /-FlavorId docente-local/);
   assert.match(workflow, /retention-days: 90/);
   assert.doesNotMatch(workflow.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '', /push:\s*\n\s+tags:/);
-  assert.match(workflow, /if: github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.match(workflow, /github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.match(workflow, /github\.event_name == 'workflow_dispatch' && inputs\.release_tag != ''/);
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
@@ -179,7 +180,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(stableGateWorkflow, /publish_after_go:[\s\S]*?if: needs\.stable_gate\.result == 'success'/);
   assert.match(stableGateWorkflow, /mark_latest:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
   assert.match(stableGateWorkflow, /gh release edit "v\$TARGET_VERSION" --repo "\$GITHUB_REPOSITORY" --latest/);
-  assert.match(workflow, /RELEASE_TAG:\s*\$\{\{ github\.ref_name \}\}/);
+  assert.match(workflow, /RELEASE_TAG:\s*\$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
   assert.match(workflow, /RELEASE_REPOSITORY:\s*\$\{\{ github\.repository \}\}/);
   assert.match(workflow, /INSTALLER_CI_RUN_ID:\s*\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
@@ -1005,7 +1006,8 @@ test('generador de hashes publica SHASUMS256 agregado por directorio contractual
   assert.match(hashScript, /GetEnumerator\(\)/);
   assert.match(hashScript, /\[string\]\$FlavorId/);
   assert.match(hashScript, /\$flavors\s*=\s*@\(\$flavors \| Where-Object/);
-  assert.match(hashScript, /\$manifestParams\.FlavorId = \$FlavorId/);
+  assert.match(hashScript, /\$requestedFlavorId = \$FlavorId/);
+  assert.match(hashScript, /\$manifestParams\.FlavorId = \$requestedFlavorId/);
 });
 
 test('firma de instaladores regenera hashes y manifest despues de mutar binarios', () => {
@@ -2424,6 +2426,15 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
   assert.match(script, /SignerCertificate/);
   assert.match(script, /NotSigned/);
+});
+
+test('generador de hashes conserva el FlavorId solicitado durante el ciclo del catálogo', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'generate-installer-hashes.ps1'), 'utf8');
+  assert.match(script, /\$requestedFlavorId\s*=\s*\$FlavorId/);
+  assert.match(script, /Where-Object\s*\{\s*\[string\]\$_.flavorId\s+-eq\s+\$requestedFlavorId\s*\}/);
+  assert.match(script, /\$manifestParams\.FlavorId\s*=\s*\$requestedFlavorId/);
+  assert.doesNotMatch(script, /\$manifestParams\.FlavorId\s*=\s*\$FlavorId/);
+  assert.match(script, /\$flavorId\s*=\s*\[string\]\$flavor\.flavorId/);
 });
 
 test('SPEC-050: host nativo EvaluaPro.exe cuenta con definicion de proyecto WPF, WebView2 y single file host', () => {
