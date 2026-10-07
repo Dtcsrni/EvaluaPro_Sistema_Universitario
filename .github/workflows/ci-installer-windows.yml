@@ -2,16 +2,23 @@ name: CI Installer Windows
 
 on:
   pull_request:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       source_sha:
         description: "SHA completo de main para construir el artefacto candidato"
         required: true
         type: string
+      release_tag:
+        description: "Tag estable; al establecerla se publica solo después de E2E draft y pública"
+        required: false
+        type: string
 
 concurrency:
-  group: ci-installer-windows-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+  group: ci-installer-windows-${{ github.workflow }}-${{ inputs.release_tag || github.ref }}
+  cancel-in-progress: ${{ inputs.release_tag == '' && !startsWith(github.ref, 'refs/tags/v') }}
 
 permissions:
   contents: read
@@ -36,12 +43,25 @@ jobs:
         shell: powershell
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           if ($env:SOURCE_SHA -notmatch '^[0-9a-fA-F]{40}$') { throw 'source_sha debe ser un SHA completo.' }
           $checkedOut = (& git rev-parse HEAD).Trim()
           if ($checkedOut -ne $env:SOURCE_SHA.ToLowerInvariant()) { throw 'El checkout no coincide con source_sha.' }
           $mainSha = (& git rev-parse origin/main).Trim()
-          if ($mainSha -ne $checkedOut) { throw 'El SHA candidato debe ser el HEAD actual de main.' }
+          if ($env:RELEASE_TAG) {
+            if ($env:RELEASE_TAG -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'release_tag debe ser SemVer estable vX.Y.Z.' }
+            $version = [string](Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
+            if ($env:RELEASE_TAG -ne "v$version") { throw 'release_tag no coincide con la versión del SHA candidato.' }
+            & git merge-base --is-ancestor $checkedOut $mainSha
+            if ($LASTEXITCODE -ne 0) { throw 'El SHA candidato no es ancestro del HEAD actual de main.' }
+            $changed = @(& git diff --name-only "$checkedOut..$mainSha")
+            if ($LASTEXITCODE -ne 0) { throw 'No se pudo comparar el SHA candidato con main.' }
+            $expectedPrefix = "docs/release/evidencias/$version/"
+            if (@($changed | Where-Object { -not $_.StartsWith($expectedPrefix, [System.StringComparison]::Ordinal) }).Count -gt 0) {
+              throw 'Después del SHA candidato solo se permiten archivos de evidencia de esta versión.'
+            }
+          } elseif ($mainSha -ne $checkedOut) { throw 'El SHA candidato debe ser el HEAD actual de main.' }
 
       - name: Configurar Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -120,7 +140,7 @@ jobs:
       - name: Etapa hash/manifest de release instalador
         shell: powershell
         env:
-          RELEASE_IS_CANDIDATE: ${{ github.event_name == 'workflow_dispatch' }}
+          RELEASE_IS_CANDIDATE: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
           CANDIDATE_SHA: ${{ inputs.source_sha || github.sha }}
         run: |
           if ($env:RELEASE_IS_CANDIDATE -eq "true") {
@@ -138,7 +158,7 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: powershell
         env:
-          EVALUAPRO_RELEASE_FLAVOR: ${{ github.event_name == 'workflow_dispatch' && 'docente-local' || '' }}
+          EVALUAPRO_RELEASE_FLAVOR: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'docente-local' || '' }}
           EVALUAPRO_RELEASE_COMMIT: ${{ inputs.source_sha || github.sha }}
           EVALUAPRO_SIGN_CERT_BASE64: ${{ secrets.EVALUAPRO_SIGN_CERT_BASE64 }}
           EVALUAPRO_SIGN_CERT_PASSWORD: ${{ secrets.EVALUAPRO_SIGN_CERT_PASSWORD }}
@@ -275,7 +295,7 @@ jobs:
   publish_installer_release:
     name: Publicar release del instalador
     needs: installer_windows
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -308,8 +328,10 @@ jobs:
         id: publish_release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          prerelease: ${{ contains(inputs.release_tag || github.ref_name, 'alpha') || contains(inputs.release_tag || github.ref_name, 'beta') || contains(inputs.release_tag || github.ref_name, 'rc') }}
           make_latest: false
           overwrite_files: true
           files: |
@@ -321,7 +343,7 @@ jobs:
   post_publish_installer_e2e:
     name: E2E del asset descargado desde el release draft
     needs: [installer_windows, publish_installer_release]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
@@ -332,7 +354,7 @@ jobs:
       - name: Descargar código de la tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ inputs.release_tag || github.ref }}
           persist-credentials: false
 
       - name: Configurar .NET SDK 10
@@ -380,7 +402,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
           RELEASE_ID: ${{ needs.publish_installer_release.outputs.release_id }}
         run: |
           $repository = $env:RELEASE_REPOSITORY
@@ -480,7 +502,7 @@ jobs:
   finalize_installer_release:
     name: Hacer público el release tras E2E aprobada
     needs: [publish_installer_release, post_publish_installer_e2e]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -516,7 +538,7 @@ jobs:
   verify_public_installer_e2e:
     name: E2E del asset público descargado desde GitHub
     needs: finalize_installer_release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
@@ -526,7 +548,7 @@ jobs:
       - name: Descargar código de la tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Configurar .NET SDK 10
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
@@ -573,7 +595,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           $repository = $env:RELEASE_REPOSITORY
           $tag = $env:RELEASE_TAG
@@ -662,7 +684,7 @@ jobs:
   redraft_failed_public_installer_release:
     name: Ocultar release si falla la E2E del asset público
     needs: verify_public_installer_e2e
-    if: ${{ always() && needs.verify_public_installer_e2e.result != 'success' && needs.verify_public_installer_e2e.result != 'skipped' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ always() && needs.verify_public_installer_e2e.result != 'success' && needs.verify_public_installer_e2e.result != 'skipped' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -672,7 +694,7 @@ jobs:
       - name: Volver a borrador el release no validado
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail

@@ -285,7 +285,7 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
 
   const stable = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   assert.match(stable, /^permissions:\s*\n\s+contents:\s*read\s*\n\s+actions:\s*read\s*$/m);
-  assert.match(stable, /publish_after_go:[\s\S]*?permissions:\s*\n\s+contents:\s*write/);
+  assert.match(stable, /publish_after_go:[\s\S]*?permissions:\s*\n\s+contents:\s*read\s*\n\s+actions:\s*write/);
   assert.doesNotMatch(stable.match(/stable_gate:[\s\S]*?publish_after_go:/)?.[0] ?? '', /contents:\s*write/);
 
   const pages = fs.readFileSync(path.join(workflowDir, 'pages-marketing.yml'), 'utf8');
@@ -316,7 +316,7 @@ test('publicaciones externas serializan ejecuciones en curso', () => {
   }
 
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
-  assert.match(installerWorkflow, /cancel-in-progress:\s*\$\{\{\s*!startsWith\(github\.ref, 'refs\/tags\/v'\)\s*\}\}/);
+  assert.match(installerWorkflow, /cancel-in-progress:[\s\S]{0,50}inputs\.release_tag == '' && !startsWith\(github\.ref, 'refs\/tags\/v'\)/);
 });
 
 test('release beta automatica escucha CI Checks exitoso de main', () => {
@@ -407,12 +407,12 @@ test('qa:full genera el manifiesto despues de todos los reportes que incluye', (
   assert.equal(manifestIndex, qaFull.lastIndexOf('test:qa:manifest'), 'qa:full debe finalizar con el manifiesto actualizado');
 });
 
-test('release stable gate consume artefacto inmutable por run id antes de validar y publicar', () => {
+test('release stable gate consume build inmutable y delega la publicación a la E2E completa', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const downloadIndex = workflow.indexOf('name: Descargar artefacto inmutable del build candidato');
   const manifestIndex = workflow.indexOf('dist/installer/EvaluaPro-release-manifest.json');
   const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
-  const publishIndex = workflow.indexOf('gh release create');
+  const publishIndex = workflow.indexOf('actions/workflows/ci-installer-windows.yml/dispatches');
 
   assert.match(workflow, /source_sha:[\s\S]*?required: true/);
   assert.match(workflow, /candidate_run_id:[\s\S]*?required: true/);
@@ -420,12 +420,16 @@ test('release stable gate consume artefacto inmutable por run id antes de valida
   assert.ok(downloadIndex >= 0, 'release stable gate debe descargar el artefacto del run candidato');
   assert.ok(manifestIndex > downloadIndex, 'release stable gate debe revisar el manifiesto descargado');
   assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
-  assert.ok(publishIndex > validateIndex, 'tag y release solo se crean despues del gate');
+  assert.ok(publishIndex > validateIndex, 'el pipeline de publicación solo se despacha despues del gate');
   assert.doesNotMatch(workflow.slice(0, validateIndex), /gh release download|releases\/tags\/v/);
   assert.match(workflow, /if: needs\.stable_gate\.result == 'success'/);
+  assert.match(workflow, /inputs\[source_sha\]=\$SOURCE_SHA/);
+  assert.match(workflow, /inputs\[release_tag\]=\$TAG/);
+  assert.match(workflow, /return_run_details=true/);
+  assert.match(workflow, /\.workflow_run_id/);
 });
 
-test('release stable gate genera QA desde checkout limpio del SHA candidato antes de validar', () => {
+test('release stable gate permite evidencia posterior y genera QA desde el SHA candidato', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const installIndex = workflow.indexOf('npm ci --foreground-scripts');
   const prismaIndex = workflow.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
@@ -444,10 +448,14 @@ test('release stable gate genera QA desde checkout limpio del SHA candidato ante
   assert.ok(responsiveIndex > restoreIndex, 'E2E responsive debe generar capturas antes del manifiesto');
   assert.ok(qaIndex > responsiveIndex, 'QA completa debe generar manifiesto tras las capturas');
   assert.ok(validateIndex > qaIndex, 'el gate debe validar despues de generar QA del SHA actual');
-  assert.match(workflow, /ref:\s*\$\{\{ inputs\.source_sha \}\}/);
+  assert.match(workflow, /ref:\s*\$\{\{ inputs\.source_sha \}\}[\s\S]*?path: candidate/);
   assert.match(workflow, /git rev-parse origin\/main/);
+  assert.match(workflow, /git merge-base --is-ancestor/);
+  assert.match(workflow, /docs\/release\/evidencias\/\$VERSION/);
+  assert.match(workflow, /working-directory: candidate/);
   assert.match(workflow, /RUN_SHA.*SOURCE_SHA/);
   assert.match(workflow, /RELEASE_CANDIDATE_SHA="\$SOURCE_SHA"/);
+  assert.match(workflow, /QA_MANIFEST: candidate\/reports\/qa\/latest\/manifest\.json/);
   assert.match(workflow, /reports\/qa\/latest/);
 });
 
@@ -565,4 +573,8 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(rollback, /needs\.verify_public_installer_e2e\.result != 'success'/);
   assert.match(rollback, /contents:\s*write/);
   assert.match(rollback, /-F draft=true/);
+  assert.match(installer, /inputs\.release_tag != ''/);
+  assert.match(installer, /tag_name: \$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
+  assert.match(installer, /target_commitish: \$\{\{ github\.sha \}\}/);
+  assert.match(installer, /ref: \$\{\{ inputs\.release_tag \|\| github\.ref \}\}/);
 });

@@ -598,6 +598,42 @@ test('stable promotion exige que la evidencia versionada identifique el SHA cand
   assert.match(check?.detail || '', /commit no coincide con SHA candidato/i);
 });
 
+test('stable promotion acepta evidencia comprometida después y ligada al SHA inmutable del candidato', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-follow-up-commit-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-follow-up-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-follow-up-');
+  const candidateSha = 'c'.repeat(40);
+  writeEvidenceDir(evidenceDir);
+  const evidenceManifestPath = path.join(evidenceDir, 'manifest.json');
+  const evidenceManifest = JSON.parse(fs.readFileSync(evidenceManifestPath, 'utf8'));
+  evidenceManifest.commit = candidateSha;
+  fs.writeFileSync(evidenceManifestPath, `${JSON.stringify(evidenceManifest, null, 2)}\n`);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
+  installerManifest.build.commit = candidateSha;
+  fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
+  const qaManifestPath = writeQaEvidence(qaDir, { commit: candidateSha });
+  const previous = process.env.RELEASE_CANDIDATE_SHA;
+  process.env.RELEASE_CANDIDATE_SHA = candidateSha;
+  try {
+    const result = evaluateStablePromotion({
+      version: '1.0.0',
+      candidateSha,
+      requiredStreak: 10,
+      runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+      evidenceDir,
+      installerManifestPath,
+      qaManifestPath
+    });
+    assert.equal(result.checks.find((item) => item.id === 'release-evidence')?.ok, true);
+    assert.equal(result.checks.find((item) => item.id === 'automated-qa-evidence')?.ok, true);
+    assert.equal(result.checks.find((item) => item.id === 'installer-multi-flavor')?.ok, true);
+  } finally {
+    if (previous === undefined) delete process.env.RELEASE_CANDIDATE_SHA;
+    else process.env.RELEASE_CANDIDATE_SHA = previous;
+  }
+});
+
 test('stable promotion rechaza QA ejecutado con cambios de fuente sin commit', () => {
   const evidenceDir = mkTempDir('evaluapro-stable-evidence-qa-dirty-');
   const installerDir = mkTempDir('evaluapro-installer-manifest-qa-dirty-');

@@ -33,10 +33,18 @@ jobs:
       target_version: ${{ steps.resolve_version.outputs.target }}
       candidate_sha: ${{ steps.candidate.outputs.sha }}
     steps:
-      - name: Validar SHA candidato y descargar código exacto
+      - name: Descargar el commit actual de main con evidencia de release
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Descargar el SHA de código candidato
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.source_sha }}
+          path: candidate
           fetch-depth: 0
           persist-credentials: false
 
@@ -52,10 +60,19 @@ jobs:
           [[ "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'source_sha debe ser un SHA completo.' >&2; exit 1; }
           SOURCE_SHA="${SOURCE_SHA,,}"
           [[ "$CANDIDATE_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'candidate_run_id debe ser numérico.' >&2; exit 1; }
-          CHECKED_OUT="$(git rev-parse HEAD)"
+          GATE_SHA="$(git rev-parse HEAD)"
           MAIN_SHA="$(git rev-parse origin/main)"
-          [[ "$CHECKED_OUT" == "$SOURCE_SHA" ]] || { echo 'El checkout no coincide con source_sha.' >&2; exit 1; }
-          [[ "$MAIN_SHA" == "$SOURCE_SHA" ]] || { echo 'source_sha ya no es el HEAD actual de main.' >&2; exit 1; }
+          [[ "$GATE_SHA" == "$GITHUB_SHA" && "$MAIN_SHA" == "$GATE_SHA" ]] || { echo 'El gate debe ejecutarse desde el HEAD actual de main.' >&2; exit 1; }
+          git merge-base --is-ancestor "$SOURCE_SHA" "$GATE_SHA" || { echo 'source_sha debe ser ancestro del main actual.' >&2; exit 1; }
+          VERSION="$(node -p "require('./package.json').version")"
+          CANDIDATE_VERSION="$(node -p "require('./candidate/package.json').version")"
+          [[ "$VERSION" == "$CANDIDATE_VERSION" ]] || { echo 'La versión candidata cambió después del SHA de build.' >&2; exit 1; }
+          EVIDENCE_PREFIX="docs/release/evidencias/$VERSION/"
+          mapfile -t POST_CANDIDATE_PATHS < <(git diff --name-only "$SOURCE_SHA..$GATE_SHA")
+          (( ${#POST_CANDIDATE_PATHS[@]} > 0 )) || { echo 'Falta el commit posterior con evidencia de release.' >&2; exit 1; }
+          for changed_path in "${POST_CANDIDATE_PATHS[@]}"; do
+            [[ "$changed_path" == "$EVIDENCE_PREFIX"* ]] || { echo "Cambio posterior al candidato fuera de evidencia: $changed_path" >&2; exit 1; }
+          done
           RUN="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID")"
           RUN_SHA="$(jq -r '.head_sha' <<<"$RUN")"
           RUN_BRANCH="$(jq -r '.head_branch' <<<"$RUN")"
@@ -107,15 +124,18 @@ jobs:
             apps/frontend/package-lock.json
             apps/portal_alumno_cloud/package-lock.json
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias en el código candidato
+        working-directory: candidate
         run: |
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
 
       - name: Preparar cliente Prisma para QA candidato
+        working-directory: candidate
         run: npx prisma generate --config=apps/backend/prisma.config.mjs
 
       - name: Preparar evidencias visuales para manifiesto QA
+        working-directory: candidate
         run: |
           npx playwright install --with-deps chromium
           npm run gui:screen-matrix
@@ -124,9 +144,11 @@ jobs:
 
       - name: Confirmar árbol fuente limpio antes de QA completa
         shell: bash
+        working-directory: candidate
         run: test -z "$(git status --porcelain --untracked-files=all)"
 
       - name: Generar evidencia QA completa del SHA candidato
+        working-directory: candidate
         run: npm run qa:full
 
       - name: Ejecutar gate estable
@@ -136,10 +158,12 @@ jobs:
           TARGET_VERSION: ${{ steps.resolve_version.outputs.target }}
           SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
           EVIDENCE_DIR: ${{ inputs.evidence_dir }}
+          RELEASE_CANDIDATE_SHA: ${{ steps.candidate.outputs.sha }}
+          QA_MANIFEST: candidate/reports/qa/latest/manifest.json
         shell: bash
         run: |
           set -euo pipefail
-          args=("--repo=$REPOSITORY" "--version=$TARGET_VERSION" "--required-streak=10" "--workflow=ci.yml" "--branch=main")
+          args=("--repo=$REPOSITORY" "--version=$TARGET_VERSION" "--required-streak=10" "--workflow=ci.yml" "--branch=main" "--qa-manifest=$QA_MANIFEST")
           [[ -z "$EVIDENCE_DIR" ]] || args+=("--evidence-dir=$EVIDENCE_DIR")
           RELEASE_CANDIDATE_SHA="$SOURCE_SHA" node scripts/release/validate-stable-promotion.mjs "${args[@]}"
 
@@ -150,90 +174,65 @@ jobs:
           name: stable-gate-decision-${{ steps.resolve_version.outputs.target }}
           path: |
             reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
-            reports/qa/latest/
+            candidate/reports/qa/latest/
           if-no-files-found: warn
 
   publish_after_go:
-    name: Publicar release solo tras Go
+    name: Ejecutar publicación y E2E completa tras Go
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     needs: stable_gate
     if: needs.stable_gate.result == 'success'
     permissions:
-      contents: write
-      actions: read
+      contents: read
+      actions: write
     steps:
-      - name: Descargar instalador validado del run candidato
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
-        with:
-          name: installer-windows
-          path: dist/installer
-          repository: ${{ github.repository }}
-          run-id: ${{ inputs.candidate_run_id }}
-          github-token: ${{ github.token }}
-
-      - name: Crear tag y release estable desde el SHA aprobado
+      - name: Despachar pipeline de release con E2E draft y pública
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_VERSION: ${{ needs.stable_gate.outputs.target_version }}
           SOURCE_SHA: ${{ needs.stable_gate.outputs.candidate_sha }}
+          GATE_SHA: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
           TAG="v$TARGET_VERSION"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "El release $TAG ya existe; se detiene para evitar sobrescribirlo." >&2; exit 1
+          existing_release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/dev/null || true)"
+          existing_tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq '.sha' 2>/dev/null || true)"
+          if [[ -n "$existing_release" ]]; then
+            existing_draft="$(jq -r '.draft' <<<"$existing_release")"
+            [[ "$existing_draft" == true && "$existing_tag_commit" == "$GATE_SHA" ]] || {
+              echo "El release $TAG ya existe y no es un draft recuperable del SHA de main validado." >&2; exit 1;
+            }
+          elif [[ -n "$existing_tag_commit" && "$existing_tag_commit" != "$GATE_SHA" ]]; then
+            echo "La tag $TAG ya apunta a otro SHA y no se reemplaza." >&2; exit 1
           fi
-          if git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "La tag $TAG ya existe; se detiene para evitar reemplazarla." >&2; exit 1
-          fi
-          INSTALLER="dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-$TAG.exe"
-          test -s "$INSTALLER"
-          test -s "$INSTALLER.sha256"
-          gh release create "$TAG" "$INSTALLER" "$INSTALLER.sha256" dist/installer/EvaluaPro-release-manifest.json dist/installer/antivirus-scan-report.txt \
-            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "EvaluaPro $TAG" --notes "Release docente-local validado por Stable Promotion Gate." --latest=false
-
-  verify_public_release:
-    name: Verificar asset publicado contra el artefacto validado
-    runs-on: ubuntu-latest
-    needs: [stable_gate, publish_after_go]
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - name: Descargar artefacto candidato para cotejo
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
-        with:
-          name: installer-windows
-          path: expected
-          repository: ${{ github.repository }}
-          run-id: ${{ inputs.candidate_run_id }}
-          github-token: ${{ github.token }}
-
-      - name: Comparar asset público y hash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_VERSION: ${{ needs.stable_gate.outputs.target_version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="v$TARGET_VERSION"
-          NAME="EvaluaPro-InstallerHub-docente-local-$TAG.exe"
-          mkdir -p public
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$NAME*" --dir public
-          EXPECTED="expected/docente-local/$NAME"
-          ACTUAL="public/$NAME"
-          test -s "$EXPECTED" && test -s "$ACTUAL"
-          EXPECTED_SIZE="$(stat -c %s "$EXPECTED")"
-          ACTUAL_SIZE="$(stat -c %s "$ACTUAL")"
-          EXPECTED_HASH="$(sha256sum "$EXPECTED" | cut -d' ' -f1)"
-          ACTUAL_HASH="$(sha256sum "$ACTUAL" | cut -d' ' -f1)"
-          [[ "$EXPECTED_SIZE" == "$ACTUAL_SIZE" && "$EXPECTED_HASH" == "$ACTUAL_HASH" ]] || { echo 'El asset público no coincide con el artefacto candidato validado.' >&2; exit 1; }
-          grep -qi "$ACTUAL_HASH" "public/$NAME.sha256"
+          dispatch_result="$(gh api --method POST "repos/$GITHUB_REPOSITORY/actions/workflows/ci-installer-windows.yml/dispatches" \
+            -F return_run_details=true \
+            -f ref=main \
+            -f "inputs[source_sha]=$SOURCE_SHA" \
+            -f "inputs[release_tag]=$TAG")"
+          run_id="$(jq -r '.workflow_run_id // empty' <<<"$dispatch_result")"
+          [[ "$run_id" =~ ^[0-9]+$ ]] || { echo 'GitHub no devolvió el run_id del pipeline de publicación.' >&2; exit 1; }
+          deadline=$((SECONDS + 21000))
+          while (( SECONDS < deadline )); do
+            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.status')"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.conclusion // empty')"
+            echo "CI Installer Windows run=$run_id status=$status conclusion=${conclusion:-pending}"
+            if [[ "$status" == completed ]]; then
+              [[ "$conclusion" == success ]] || { gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --log-failed || true; exit 1; }
+              echo "release_run_id=$run_id" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo 'Timeout esperando publicación y E2E pública del instalador.' >&2
+          exit 1
 
   mark_latest:
     name: Marcar como Latest después de verificar el asset
     runs-on: ubuntu-latest
-    needs: [stable_gate, verify_public_release]
+    needs: [stable_gate, publish_after_go]
     permissions:
       contents: write
     steps:
