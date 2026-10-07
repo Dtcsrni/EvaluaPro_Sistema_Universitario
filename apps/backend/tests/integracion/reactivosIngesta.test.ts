@@ -49,8 +49,14 @@ describe('ingesta contractual de reactivos', () => {
         itemId: null,
         expectedVersion: null,
         format: 'omr.mcq5',
-        stem: { format: 'richtext', value: `Reactivo ${sufijo}` },
-        options: ['A', 'B', 'C', 'D', 'E'].map((key, index) => ({ key, value: `Opción ${key}`, isCorrect: index === 0 })),
+        stem: { format: 'richtext', value: 'En inteligencia de negocios, ¿qué describe mejor la función de un indicador KPI?' },
+        options: [
+          'Mide el avance de un objetivo con una métrica definida',
+          'Almacena las credenciales de acceso a una fuente de datos',
+          'Sustituye el proceso de validar la calidad de los datos',
+          'Convierte automáticamente una correlación en causalidad',
+          'Elimina la necesidad de documentar el significado de las métricas'
+        ].map((value, index) => ({ key: ['A', 'B', 'C', 'D', 'E'][index]!, value, isCorrect: index === 0 })),
         metadata: { difficultyHypothesis: 'medium' },
         provenance: { origin: 'generated', confidence: 0.9, notes: 'fixture de integración' }
       }]
@@ -410,7 +416,7 @@ describe('ingesta contractual de reactivos', () => {
     expect(preview.body.payload).toMatchObject({
       contract: 'evaluapro.reactivos.batch',
       target: { periodoId, temaIds: [temaId] },
-      items: [{ externalKey: 'bi-xlsx', stem: { value: 'Reactivo xlsx' }, provenance: { origin: 'imported' } }]
+      items: [{ externalKey: 'bi-xlsx', stem: { value: 'En inteligencia de negocios, ¿qué describe mejor la función de un indicador KPI?' }, provenance: { origin: 'imported' } }]
     });
     expect(preview.body.summary).toMatchObject({ create: 1, conflict: 0 });
     expect(await prisma.reactivo.count()).toBe(0);
