@@ -330,6 +330,7 @@ test('release beta automatica escucha CI Checks exitoso de main', () => {
 
 test('CI central concentra suites completas y cobertura sin excluir todo el código fuente', () => {
   const central = fs.readFileSync(workflowPath, 'utf8');
+  const coreBackend = extractJobBlock(central, 'core_backend_portal');
   const moduleWorkflows = ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml'];
 
   assert.match(central, /npm -C apps\/backend run test:coverage/);
@@ -338,6 +339,10 @@ test('CI central concentra suites completas y cobertura sin excluir todo el cód
   assert.match(central, /npm run test:coverage:diff -- --apps backend,portal/);
   assert.match(central, /npm run test:coverage:diff -- --apps frontend/);
   assert.doesNotMatch(central, /DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS:[^\n]*apps\/(?:backend|frontend|portal_alumno_cloud)\/src(?:[;" ]|$)/);
+  const backendJobTimeoutMinutes = Number(coreBackend.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+  const backendCoverageTimeoutMs = Number(coreBackend.match(/BACKEND_COVERAGE_BATCH_TIMEOUT_MS:\s*"(\d+)"/)?.[1]);
+  assert.ok(backendCoverageTimeoutMs >= 90 * 60 * 1000, 'la cobertura diferencial debe tolerar suites extensas sin reducir su alcance');
+  assert.ok(backendCoverageTimeoutMs < backendJobTimeoutMinutes * 60 * 1000, 'la cobertura debe conservar margen dentro del límite global del job');
 
   for (const name of moduleWorkflows) {
     const moduleWorkflow = fs.readFileSync(path.join(workflowDir, name), 'utf8');
