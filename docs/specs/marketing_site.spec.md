@@ -29,8 +29,8 @@ El sitio público debe ayudar a docentes a decidir si EvaluaPro corresponde a su
 - **AC-001:** El smoke test confirma los títulos, secciones, CTA, destino de Releases y el perfil `docente-local`.
 - **AC-002:** El test valida que exista un solo `<h1>` y que cada enlace interno apunte a un ID real.
 - **AC-003:** El test falla si reaparecen las afirmaciones obsoletas de v1.1.1, precisión OMR total, sincronización automática, respuesta garantizada o SLA 24/7.
-- **AC-004:** El CSS mantiene soporte responsivo, preferencia de movimiento reducido y contenido visible como mejora progresiva.
-- **AC-005:** El JavaScript permite abrir/cerrar el menú móvil, anuncia `aria-expanded` y admite `Escape`; si falta `IntersectionObserver`, el contenido permanece visible.
+- **AC-004:** El CSS mantiene soporte responsivo y movimiento reducido. En móvil, muestra navegación y descarga cuando JavaScript no se ejecuta; solo oculta el menú después de que el script marca `html.has-js`.
+- **AC-005:** El JavaScript activa el botón móvil, anuncia `aria-expanded` y admite `Escape`; el contenido y los enlaces permanecen utilizables si falta JavaScript o `IntersectionObserver`.
 
 ## Matriz de Trazabilidad
 
@@ -38,5 +38,5 @@ El sitio público debe ayudar a docentes a decidir si EvaluaPro corresponde a su
 | --- | --- | --- | --- |
 | REQ-001, REQ-002, REQ-003 | Mensaje, CTA y enlaces del sitio público | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
 | REQ-004, REQ-005 | Sin afirmaciones no sustentadas ni disponibilidad automática de integraciones | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
-| REQ-006 | H1 único, navegación por anclas y estilos de movimiento reducido | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
+| REQ-006 | H1 único, navegación por anclas, estilos de movimiento reducido y enlaces visibles en móvil sin JavaScript | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
 | REQ-007 | FAQ nativa y navegación móvil | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
