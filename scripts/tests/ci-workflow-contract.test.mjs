@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { buildModuleCoveragePlan } from '../testing/run-module-coverage.mjs';
 
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
@@ -330,14 +331,36 @@ test('release beta automatica escucha CI Checks exitoso de main', () => {
   assert.match(beta, /github\.event\.workflow_run\.head_branch == 'main'/);
 });
 
+test('runner de cobertura de módulos usa solo suites afectadas en PR y cobertura completa fuera de PR', () => {
+  const sinCambios = buildModuleCoveragePlan('frontend', 'origin/main', []);
+  assert.equal(sinCambios.mode, 'skip');
+  assert.equal(sinCambios.args, null);
+
+  const cambioFrontend = buildModuleCoveragePlan('frontend', 'origin/main', ['apps/frontend/src/features/Example.tsx']);
+  assert.equal(cambioFrontend.mode, 'changed');
+  assert.ok(cambioFrontend.args.includes('--changed=origin/main'));
+  assert.ok(cambioFrontend.args.includes('--coverage.thresholds.lines=0'));
+  assert.ok(cambioFrontend.args.includes('--coverage.thresholds.functions=0'));
+  assert.ok(cambioFrontend.args.includes('--coverage.thresholds.branches=0'));
+  assert.ok(cambioFrontend.args.includes('--coverage.thresholds.statements=0'));
+
+  const cambioPortal = buildModuleCoveragePlan('portal', 'origin/main', ['apps/portal_alumno_cloud/src/rutas.ts']);
+  assert.equal(cambioPortal.mode, 'changed');
+  assert.ok(cambioPortal.args.includes('--changed=origin/main'));
+
+  assert.equal(buildModuleCoveragePlan('portal').mode, 'full');
+  assert.throws(() => buildModuleCoveragePlan('frontend', '--bad-ref', []), /referencia Git válida/);
+});
+
 test('CI central concentra suites completas y cobertura sin excluir todo el código fuente', () => {
   const central = fs.readFileSync(workflowPath, 'utf8');
   const coreBackend = extractJobBlock(central, 'core_backend_portal');
   const moduleWorkflows = ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml'];
 
   assert.match(central, /npm -C apps\/backend run test:coverage/);
-  assert.match(central, /npm run test:frontend:coverage:min/);
-  assert.match(central, /npm -C apps\/portal_alumno_cloud run test:coverage/);
+  assert.match(central, /run-module-coverage\.mjs --apps frontend/);
+  assert.match(central, /run-module-coverage\.mjs --apps portal/);
+  assert.match(central, /MODULE_COVERAGE_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
   assert.match(central, /npm run test:coverage:diff -- --apps backend,portal/);
   assert.match(central, /npm run test:coverage:diff -- --apps frontend/);
   assert.doesNotMatch(central, /DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS:[^\n]*apps\/(?:backend|frontend|portal_alumno_cloud)\/src(?:[;" ]|$)/);
