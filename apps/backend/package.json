@@ -88,6 +88,8 @@
   },
   "overrides": {
     "proxy-addr": "2.0.8",
+    "deepmerge-ts": "^8.0.2",
+    "mysql2": "^3.24.4",
     "exceljs": {
       "uuid": "^11.1.1"
     }

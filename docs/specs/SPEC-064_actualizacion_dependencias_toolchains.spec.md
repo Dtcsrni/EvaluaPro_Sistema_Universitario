@@ -1,7 +1,7 @@
 ---
 id: SPEC-064
 titulo: Actualizacion de dependencias y toolchains estables
-version: 1.0.0
+version: 1.1.0
 fecha: 2026-09-23
 autor: Erick Vega / Codex
 modulo: devops_dependencias_toolchains
@@ -32,6 +32,9 @@ su EULA. Se excluyen versiones prerelease y cambios de datos de usuario.
   herramientas de prueba detectadas en lint, typecheck, compilacion y tests.
 - **REQ-005:** Mantener evidencia de versiones y pruebas; no declarar la
   actualizacion completa si un gate obligatorio o build del instalador falla.
+- **REQ-006:** Resolver los avisos de seguridad vigentes sin degradar Prisma 7;
+  fijar dependencias transitivas vulnerables a versiones corregidas compatibles,
+  documentar las excepciones de major y mantener sincronizados los locks npm.
 
 ## Criterios de Aceptación
 
@@ -43,6 +46,9 @@ su EULA. Se excluyen versiones prerelease y cambios de datos de usuario.
 - Pasan lint, typecheck, pruebas frontend/backend/portal y los contratos del
   instalador; se compilan MSI y Bundle en Windows cuando el entorno lo permite.
 - La auditoria SDD y los contratos de pipeline pasan sin rebajar umbrales.
+- `npm audit` y las auditorias de backend/portal no reportan las vulnerabilidades
+  identificadas; los overrides no cambian el contrato funcional de Prisma,
+  Mermaid/KaTeX ni las herramientas de orquestacion de scripts.
 
 ## Matriz de Trazabilidad
 
@@ -55,3 +61,4 @@ su EULA. Se excluyen versiones prerelease y cambios de datos de usuario.
 | REQ-003 | Build MSI/Bundle Windows | `scripts/tests/wix-bundle-build.test.mjs` | Pendiente |
 | REQ-004 | Contrato de configuración de jobs CI para validar workspaces | `scripts/tests/ci-workflow-contract.test.mjs` | Pendiente |
 | REQ-005 | Contrato de auditoría SDD | `scripts/tests/sdd-audit.test.mjs` | Pendiente |
+| REQ-006 | Auditoria de seguridad de dependencias raíz, backend y portal | `npm audit --json` / `npm -C <workspace> audit --json` | Pendiente |
