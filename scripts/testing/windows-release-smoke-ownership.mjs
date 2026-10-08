@@ -37,9 +37,9 @@ export async function assertSmokeEnvironmentAvailable({ ports, probePort, lock, 
   }
 }
 
-function validateNewPid(pid, previousPid) {
-  if (!Number.isInteger(pid) || pid <= 0 || pid === previousPid) {
-    throw new Error('El smoke no pudo demostrar un PID nuevo para el dashboard que inició.');
+function validatePid(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    throw new Error('El smoke no pudo confirmar un PID válido para el dashboard que inició.');
   }
 }
 
@@ -72,19 +72,21 @@ function validateCommandLine(pid, normalizedCommand, normalizedRoot) {
   }
 }
 
-export function createOwnedDashboardIdentity({ lock, previousLock, processInfo, ports, installRoot, requestedAt }) {
+export function createOwnedDashboardIdentity({ lock, processInfo, ports, installRoot, requestedAt }) {
   const pid = Number(lock?.pid || 0);
   const port = Number(lock?.port || 0);
-  const previousPid = Number(previousLock?.pid || 0);
   const commandLine = String(processInfo?.commandLine || '');
   const normalizedCommand = normalizeText(commandLine);
   const normalizedRoot = normalizeText(path.resolve(installRoot));
   const createdAt = String(processInfo?.creationDate || '');
   const startedAt = String(lock?.startedAt || '');
 
-  validateNewPid(pid, previousPid);
   validateReservedPort(port, ports, lock?.port);
   validateLock(lock, startedAt, requestedAt);
+  // Preflight aborts if the stale lock's PID is still alive. Windows may reuse a
+  // freed PID for this newly started process, so freshness and command-line identity
+  // prove ownership more reliably than requiring a different numeric PID.
+  validatePid(pid);
   validateProcess(pid, processInfo, createdAt);
   validateCommandLine(pid, normalizedCommand, normalizedRoot);
 
