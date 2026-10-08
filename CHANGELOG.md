@@ -4,11 +4,13 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-10-08
+
 ### Fixed
-- Dependencias transitivas fijadas a versiones corregidas para los avisos de `shell-quote`, `deepmerge-ts`, `mysql2` y KaTeX, sin degradar Prisma 7. La verificación de locks y auditoría queda ligada a SPEC-064.
-- El workflow Package Images publica bajo el namespace GHCR del owner y genera referencias válidas `ghcr.io/NAMESPACE/IMAGE_NAME`; antes construía una ruta anidada que su propio gate rechazaba.
-- El mapa de CI afectado incluye Package Images y su contrato de workflows; esos cambios ya no pueden quedar sin las suites que los verifican.
-- La E2E del release draft usa un token con acceso necesario para leer borradores; el checkout no persiste credenciales y el token solo se expone al paso de descarga.
+- Dependabot y la auditoría npm quedan sin hallazgos en raíz, backend y portal: se actualizó `sharp` y se fijaron `shell-quote`, `deepmerge-ts`, `mysql2` y KaTeX en versiones corregidas, conservando Prisma 7.
+- Package Images publica las imágenes en el namespace GHCR del owner con referencias válidas.
+- El mapa de CI incluye los gates afectados de Package Images y su contrato.
+- La E2E del release draft consulta el borrador con el token de lectura necesario y limita la exposición de credenciales al paso de descarga.
 
 ## [1.2.4] - 2026-10-04
 
