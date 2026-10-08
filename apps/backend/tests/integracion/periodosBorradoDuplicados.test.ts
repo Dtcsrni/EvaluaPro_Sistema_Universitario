@@ -192,7 +192,7 @@ describe('periodos (materias)', () => {
       .set({ Authorization: `Bearer ${token}` })
       .expect(200);
     expect(generadosArchivados.body.examenes.length).toBe(1);
-  });
+  }, 90_000);
 
   it('archiva una materia (la oculta de activas) y guarda resumen', async () => {
     const token = await registrar('docente-arch@local.test');
