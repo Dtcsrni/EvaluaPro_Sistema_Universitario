@@ -79,8 +79,10 @@ function normalizeRelative(inputPath) {
   return normalized.replace(/^\.\//, '');
 }
 
-function isCoverableFile(filePath) {
-  const ext = path.extname(normalizeRelative(filePath)).toLowerCase();
+export function isCoverableFile(filePath) {
+  const normalized = normalizeRelative(filePath).toLowerCase();
+  if (/\.d\.(?:ts|mts|cts)$/.test(normalized)) return false;
+  const ext = path.extname(normalized);
   return COVERABLE_EXTENSIONS.has(ext);
 }
 
