@@ -1615,6 +1615,7 @@ export function SeccionPlantillas({
             generandoLote={generandoLote}
             plantillaSeleccionada={plantillaSeleccionada}
             periodos={[...periodos, ...periodosArchivados]}
+            paginasExtraordinarioObjetivo={preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4}
             puedeGenerarExamenes={puedeGenerarExamenes}
             onGenerarExamenesLote={generarExamenesLote}
             mensajeGeneracion={mensajeGeneracion}

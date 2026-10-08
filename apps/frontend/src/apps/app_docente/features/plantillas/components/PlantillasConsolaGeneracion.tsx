@@ -40,6 +40,7 @@ export function PlantillasConsolaGeneracion({
   descargarPdfLote,
   progresoLoteGeneracion,
   onPrevisualizarExtraordinario,
+  paginasExtraordinarioObjetivo = 4,
   onIrAHistorial
 }: {
   plantillaId: string;
@@ -52,6 +53,7 @@ export function PlantillasConsolaGeneracion({
   onGenerarExamen: () => Promise<void>;
   generandoLote: boolean;
   plantillaSeleccionada: Plantilla | null;
+  paginasExtraordinarioObjetivo?: number;
   puedeGenerarExamenes: boolean;
   onGenerarExamenesLote: (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[] }) => Promise<void>;
   mensajeGeneracion: string;
@@ -64,6 +66,10 @@ export function PlantillasConsolaGeneracion({
     totalDisponibles: number;
     totalUsados: number;
     numeroPaginas: number;
+    fuentesExtraordinario?: string[];
+    totalPreguntasFuente?: number;
+    preguntasOmitidasPorFormato?: number;
+    preguntasOmitidasPorOmr?: Array<{ id: string; enunciado: string; problemas: string[] }>;
   } | null>;
   onIrAHistorial?: () => void;
 }) {
@@ -77,6 +83,10 @@ export function PlantillasConsolaGeneracion({
     totalDisponibles: number;
     totalUsados: number;
     numeroPaginas: number;
+    fuentesExtraordinario?: string[];
+    totalPreguntasFuente?: number;
+    preguntasOmitidasPorFormato?: number;
+    preguntasOmitidasPorOmr?: Array<{ id: string; enunciado: string; problemas: string[] }>;
   } | null>(null);
   const [previewExtraordinarioConfirmado, setPreviewExtraordinarioConfirmado] = useState(false);
   const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
@@ -265,7 +275,7 @@ export function PlantillasConsolaGeneracion({
               <p id="plantillas-extraordinario-ayuda" className="ayuda">
                 Elige únicamente a los alumnos destinatarios. La calificación se conservará aparte de sus parciales y globales.
               </p>
-              {esPeriodoArchivado && <p role="status">Periodo cerrado: el extraordinario conserva la materia y la plantilla archivadas. Formato fijo: 4 páginas (2 hojas dúplex); se usarán todas las preguntas del global si caben con tipografía legible.</p>}
+              {esPeriodoArchivado && <p role="status">Periodo cerrado: el extraordinario conserva la materia y la plantilla archivadas. Objetivo: {paginasExtraordinarioObjetivo} páginas ({Math.ceil(paginasExtraordinarioObjetivo / 2)} hojas dúplex); se imprimirá el máximo de preguntas que quepa con tipografía legible.</p>}
               {alumnosMateria.length === 0 ? (
                 <p role="status">No hay alumnos disponibles en la materia seleccionada.</p>
               ) : (
@@ -338,9 +348,22 @@ export function PlantillasConsolaGeneracion({
                     <>
                       <p role="status">
                         {previewExtraordinario.layoutConfirmado
-                          ? `Vista previa validada: 4 páginas (2 hojas dúplex), ${previewExtraordinario.totalUsados} de ${previewExtraordinario.totalDisponibles} preguntas del global. Revisa las páginas antes de confirmar.`
-                          : `No se pudo validar el formato de 4 páginas con todas las preguntas (${previewExtraordinario.totalUsados} de ${previewExtraordinario.totalDisponibles}); no se puede generar hasta ajustar la vista previa.`}
+                          ? `Vista previa validada: ${previewExtraordinario.numeroPaginas} páginas (${Math.ceil(previewExtraordinario.numeroPaginas / 2)} hojas dúplex), ${previewExtraordinario.totalUsados} de ${previewExtraordinario.totalDisponibles} preguntas válidas impresas.${(previewExtraordinario.preguntasOmitidasPorFormato ?? 0) > 0 ? ` ${previewExtraordinario.preguntasOmitidasPorFormato} no caben con la tipografía legible mínima.` : ''} Revisa las páginas antes de confirmar.`
+                          : `No se pudo validar el formato de ${previewExtraordinario.numeroPaginas} páginas; no hay páginas completas con preguntas legibles. No se puede generar.`}
                       </p>
+                      {(previewExtraordinario.fuentesExtraordinario?.length ?? 0) > 0 && (
+                        <p>Fuentes combinadas: global archivado y {previewExtraordinario.fuentesExtraordinario?.join(', ')}.</p>
+                      )}
+                      {(previewExtraordinario.preguntasOmitidasPorOmr?.length ?? 0) > 0 && (
+                        <details>
+                          <summary>Reactivos parciales excluidos por defectos OMR ({previewExtraordinario.preguntasOmitidasPorOmr?.length})</summary>
+                          <ul>
+                            {previewExtraordinario.preguntasOmitidasPorOmr?.map((reactivo) => (
+                              <li key={reactivo.id}><code>{reactivo.id}</code>: {reactivo.problemas.join('; ')}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
                       {previewExtraordinario.paginas.length > 0 && (
                         <div className="plantillas-preview__pages" aria-label="Páginas de la vista previa del extraordinario">
                           {previewExtraordinario.paginas.map((pagina) => (

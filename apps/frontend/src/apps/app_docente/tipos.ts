@@ -110,6 +110,10 @@ export type PreviewPlantilla = {
   numeroPaginas?: number;
   totalDisponibles?: number;
   totalUsados?: number;
+  fuentesExtraordinario?: string[];
+  totalPreguntasFuente?: number;
+  preguntasOmitidasPorFormato?: number;
+  preguntasOmitidasPorOmr?: Array<{ id: string; enunciado: string; problemas: string[] }>;
   fraccionVaciaUltimaPagina?: number;
   advertencias?: string[];
   conteoPorTema?: Array<{ tema: string; disponibles: number }>;

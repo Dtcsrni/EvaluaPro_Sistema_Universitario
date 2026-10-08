@@ -220,11 +220,18 @@ export function usePlantillasPreviewActions({
     const totalDisponibles = Number(resumen.totalDisponibles);
     const totalUsados = Number(resumen.totalUsados);
     return {
-      layoutConfirmado: resumen.layoutConfirmado === true && numeroPaginas === paginasObjetivo && paginas.length === paginasObjetivo && totalUsados === totalDisponibles,
+      layoutConfirmado: resumen.layoutConfirmado === true &&
+        numeroPaginas === paginasObjetivo &&
+        paginas.length === paginasObjetivo &&
+        totalUsados > 0,
       paginas,
       totalDisponibles,
       totalUsados,
-      numeroPaginas
+      numeroPaginas,
+      fuentesExtraordinario: resumen.fuentesExtraordinario,
+      totalPreguntasFuente: resumen.totalPreguntasFuente,
+      preguntasOmitidasPorFormato: resumen.preguntasOmitidasPorFormato,
+      preguntasOmitidasPorOmr: resumen.preguntasOmitidasPorOmr
     };
   }, [cargarPreviewPdfPlantilla, cargarPreviewPlantilla, paginasExtraordinarioObjetivo]);
 
