@@ -72,6 +72,48 @@ function validateCommandLine(pid, normalizedCommand, normalizedRoot) {
   }
 }
 
+export async function waitForOwnedDashboardIdentity({
+  readLock,
+  readProcess,
+  ports,
+  installRoot,
+  requestedAt,
+  timeoutMs = 60_000,
+  intervalMs = 250,
+  now = Date.now,
+  pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+}) {
+  const requestedTimestamp = Date.parse(requestedAt);
+  if (!Number.isFinite(requestedTimestamp) || timeoutMs <= 0 || intervalMs <= 0) {
+    throw new Error('Parámetros inválidos para esperar el lock del smoke.');
+  }
+
+  const deadline = now() + timeoutMs;
+  while (now() <= deadline) {
+    const lock = await readLock();
+    const pid = Number(lock?.pid || 0);
+    const port = Number(lock?.port || 0);
+    const startedTimestamp = Date.parse(String(lock?.startedAt || ''));
+
+    if (
+      lock?.mode === 'prod' &&
+      Number.isInteger(pid) && pid > 0 &&
+      Number.isInteger(port) && ports.includes(port) &&
+      Number.isFinite(startedTimestamp) && startedTimestamp >= requestedTimestamp
+    ) {
+      const processInfo = await readProcess(pid);
+      if (Number(processInfo?.pid) === pid) {
+        return createOwnedDashboardIdentity({ lock, processInfo, ports, installRoot, requestedAt });
+      }
+    }
+
+    if (now() >= deadline) break;
+    await pause(Math.min(intervalMs, deadline - now()));
+  }
+
+  throw new Error('No apareció un lock reciente y válido para el dashboard iniciado por el smoke.');
+}
+
 export function createOwnedDashboardIdentity({ lock, processInfo, ports, installRoot, requestedAt }) {
   const pid = Number(lock?.pid || 0);
   const port = Number(lock?.port || 0);
