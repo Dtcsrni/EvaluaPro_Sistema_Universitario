@@ -60,6 +60,7 @@ for (const token of requiredJs) {
 }
 
 assert(css.includes('.topbar nav { width: 100%; display: grid;'), 'La navegación y descarga deben permanecer visibles si JavaScript no carga');
+assert(css.includes('html:not(.has-js) .topbar { position: static; }'), 'El header expandido sin JavaScript no debe ocultar destinos de navegación');
 assert(css.includes('html.has-js .topbar nav { display: none; }'), 'El menú compacto solo se oculta cuando JavaScript ya está activo');
 assert(css.includes('html.has-js .nav-toggle { display: inline-flex; }'), 'El botón de menú solo aparece cuando su controlador está disponible');
 

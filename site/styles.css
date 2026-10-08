@@ -360,6 +360,7 @@ html.has-js .reveal:not(.is-visible) { opacity: 0; transform: translateY(0.8rem)
 
 @media (max-width: 720px) {
   html { scroll-padding-top: 4rem; }
+  html:not(.has-js) .topbar { position: static; }
   .container { width: min(100% - 2rem, 560px); }
   .topbar__inner { min-height: 66px; flex-wrap: wrap; gap: 0.75rem; }
   .nav-toggle { display: none; }
