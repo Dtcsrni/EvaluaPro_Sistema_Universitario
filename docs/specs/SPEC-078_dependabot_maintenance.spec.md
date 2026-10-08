@@ -36,4 +36,5 @@ El cambio se limita a `docente-local` y a los workspaces npm existentes. No aña
 | REQ-001 | Mantener los cuatro workspaces npm | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
 | REQ-002 | Exigir límite de cinco PR y bloquear cero | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
 | REQ-003 | Conservar calendario y no dirigir a otra rama | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
-| REQ-004 | Mantener la configuración de seguridad sin deshabilitarla | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
+| REQ-004 | No deshabilitar por archivo las actualizaciones de seguridad | Inspección de `.github/dependabot.yml`; ajustes de seguridad se gestionan aparte en GitHub | Inspeccionado |
+| REQ-005 | Bloquear límite cero o workspace ausente | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
