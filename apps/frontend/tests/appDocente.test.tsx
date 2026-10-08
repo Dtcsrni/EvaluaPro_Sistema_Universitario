@@ -234,7 +234,7 @@ describe('AppDocente', () => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       const json = (payload: unknown, ok = true, status = 200) => ({ ok, status, json: async () => payload, blob: async () => new Blob() });
       if (url.includes('/autenticacion/ingresar')) return json({ token: 'token-profile-fail' });
-      if (url.includes('/autenticacion/perfil')) return json({ mensaje: 'perfil no disponible' }, false, 503);
+      if (url.includes('/autenticacion/perfil')) return json({ mensaje: 'perfil no disponible' }, false, 400);
       if (url.includes('/autenticacion/capacidades-integraciones')) return json({ capacidadesIntegraciones: { passwordLoginAllowed: true } });
       if (url.includes('/salud')) return json({ tiempoActivo: 1 });
       return json({});

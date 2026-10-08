@@ -130,7 +130,7 @@ describe('ExtraordinariosCalificaciones', () => {
     });
     vi.stubGlobal('crypto', { randomUUID: () => '12345678-aaaa-bbbb-cccc-123456789000' });
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ paginas: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AA==' }] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ paginas: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AA==' }, { numero: 2, width: 100, height: 140, dataUrl: 'data:image/png;base64,AA==' }] }) })
       .mockResolvedValueOnce({ ok: false, status: 401 })
       .mockResolvedValueOnce({ ok: true, status: 200, headers: { get: (name: string) => name === 'X-EvaluaPro-PDF-SHA256' ? hash : null }, blob: async () => new Blob(['pdf']) });
     vi.stubGlobal('fetch', fetchMock);
@@ -142,8 +142,9 @@ describe('ExtraordinariosCalificaciones', () => {
 
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar para generar Extra: Pérez Ana' }));
     fireEvent.change(screen.getByLabelText('Plantilla de examen'), { target: { value: 'tpl-1' } });
+    tokenMock.mockReturnValue('token-docente');
     fireEvent.click(screen.getByRole('button', { name: 'Revisar vista previa' }));
-    expect(await screen.findByText(/Vista previa validada · 1 páginas/)).toBeInTheDocument();
+    expect(await screen.findByText(/Vista previa validada · 2 páginas/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Revisé el diseño y las páginas de la vista previa' }));
     fireEvent.click(screen.getByRole('button', { name: 'Generar lote Extra' }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/examenes/generados/lote', expect.objectContaining({ plantillaId: 'tpl-1', tipoExamen: 'extraordinario', alumnoIds: ['a-1'], loteId: '12345678' })));

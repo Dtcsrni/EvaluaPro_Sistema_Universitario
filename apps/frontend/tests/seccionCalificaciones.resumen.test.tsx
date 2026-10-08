@@ -3,7 +3,7 @@
  *
  * Contrato de consulta rápida por alumno y tipo de examen.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ConsultaCalificaciones } from '../src/apps/app_docente/ConsultaCalificaciones';
@@ -525,7 +525,7 @@ describe('ConsultaCalificaciones', () => {
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
     await user.click(screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' }));
-    expect(await screen.findByText('Solicitud rechazada')).toBeInTheDocument();
+    expect(await screen.findAllByText('Solicitud rechazada')).not.toHaveLength(0);
     expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({ componente: 'Solicitud Extra', calificacion: 1 }));
   });
 
