@@ -436,7 +436,6 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   const processInfo = readProcessIdentity(currentLock?.pid);
   ownedDashboard = createOwnedDashboardIdentity({
     lock: currentLock,
-    previousLock,
     processInfo,
     ports: fallbackPorts,
     installRoot: root,
