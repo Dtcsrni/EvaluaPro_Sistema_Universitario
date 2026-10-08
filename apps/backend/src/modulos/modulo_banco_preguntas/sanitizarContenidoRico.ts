@@ -94,6 +94,7 @@ export function sanitizarContenidoRico(valor: unknown): string {
   const fuente = String(valor ?? '');
   let salida = '';
   let cursor = 0;
+  const spansSeguros: boolean[] = [];
 
   while (cursor < fuente.length) {
     const inicio = fuente.indexOf('<', cursor);
@@ -132,8 +133,13 @@ export function sanitizarContenidoRico(valor: unknown): string {
     if (nombre === 'br' && !esCierre) salida += '<br>';
     else if (ETIQUETAS_FORMATO.has(nombre)) salida += esCierre ? `</${nombre}>` : `<${nombre}>`;
     else if (nombre === 'span') {
-      if (esCierre) salida += '</span>';
-      else salida += spanLatexSeguro(etiqueta) ?? '';
+      if (esCierre) {
+        if (spansSeguros.pop()) salida += '</span>';
+      } else {
+        const aperturaSegura = spanLatexSeguro(etiqueta);
+        spansSeguros.push(aperturaSegura !== null);
+        salida += aperturaSegura ?? '';
+      }
     }
     cursor = fin + 1;
   }
