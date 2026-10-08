@@ -30,3 +30,12 @@ test('rejects unsafe refs and module selectors', () => {
   assert.throws(() => buildModuleCoveragePlan('saas-completo', '', []), /no admitido/);
   assert.throws(() => parseApps('frontend,unknown'), /--apps/);
 });
+
+test('treats changed executable lines missing from LCOV as uncovered', async () => {
+  const { isLineCovered } = await import('../testing/check-diff-coverage.mjs');
+
+  assert.equal(isLineCovered(undefined, 17), false);
+  assert.equal(isLineCovered(new Map(), 17), false);
+  assert.equal(isLineCovered(new Map([[17, 0]]), 17), false);
+  assert.equal(isLineCovered(new Map([[17, 1]]), 17), true);
+});

@@ -39,6 +39,10 @@ const APPS = [
 
 const COVERABLE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
+export function isLineCovered(lineHits, line) {
+  return lineHits?.has(line) === true && (lineHits.get(line) ?? 0) > 0;
+}
+
 function getArg(name) {
   const index = process.argv.indexOf(name);
   if (index < 0) return null;
@@ -370,7 +374,6 @@ async function main() {
   let ignored = 0;
   let ignoredByPath = 0;
   let ignoredStructural = 0;
-  let ignoredNonExecutable = 0;
   const missing = [];
 
   for (const [file, lines] of touchedCoverable.entries()) {
@@ -396,14 +399,8 @@ async function main() {
         continue;
       }
 
-      if (!lineHits?.has(line)) {
-        ignoredNonExecutable += 1;
-        continue;
-      }
-
       total += 1;
-      const hits = lineHits.get(line) ?? 0;
-      if (hits > 0) {
+      if (isLineCovered(lineHits, line)) {
         covered += 1;
       } else {
         missing.push(`${normalizedFile}:${line}`);
@@ -418,9 +415,6 @@ async function main() {
   }
   if (ignoredStructural > 0) {
     console.log(`[diff-coverage] Líneas estructurales ignoradas: ${ignoredStructural}`);
-  }
-  if (ignoredNonExecutable > 0) {
-    console.log(`[diff-coverage] Líneas no instrumentables ignoradas: ${ignoredNonExecutable}`);
   }
   if (ignorePathSubstrings.length > 0) {
     console.log(`[diff-coverage] Líneas ignoradas por ruta: ${ignoredByPath} (${ignorePathSubstrings.join(';')})`);
@@ -440,4 +434,6 @@ async function main() {
   console.log('[diff-coverage] OK');
 }
 
-await main();
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  await main();
+}
