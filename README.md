@@ -1,35 +1,52 @@
 # EvaluaPro
 
-**EvaluaPro** es una aplicación de escritorio para que el docente administre sus materias, prepare exámenes, procese hojas de respuestas OMR y revise calificaciones desde Windows. El producto que se mantiene para distribución es `docente-local`: la API y la interfaz docente trabajan en el equipo y guardan sus datos en SQLite.
+**EvaluaPro** reúne preparación de exámenes, lectura asistida de hojas de respuesta y revisión de resultados en una aplicación de escritorio para Windows. El perfil publicado es **`docente-local`**: los datos operativos se guardan en SQLite en la computadora donde se usa.
 
-[Descargas oficiales](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) · [Documentación](docs/README.md) · [Manual docente](docs/MANUAL_USUARIO_DOCENTE.md) · [Reportar un problema](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/issues)
+[Descargar desde GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) · [Guía de inicio](docs/MANUAL_USUARIO_DOCENTE.md) · [Instalación y actualización](docs/INSTALLER_HUB.md) · [Centro documental](docs/README.md) · [Reportar un problema](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/issues)
 
-> La versión del código en `main` no equivale a una release pública. Para instalar, usa el ejecutable y el checksum que aparecen en la página de Releases de GitHub. No des por disponible una versión hasta verla publicada allí.
+> Descarga el instalador y su archivo `.sha256` de la misma release. Comprueba el hash antes de ejecutar el EXE. El código de `main`, un tag o una release en borrador no representan una descarga pública.
 
-## Qué puedes hacer
+## Empieza en tres pasos
 
-- Organizar periodos, materias, grupos, alumnos, asistencia y temarios.
-- Crear un banco de preguntas y diseñar plantillas de evaluación.
-- Generar cuadernillos y hojas de respuesta con folios QR para vincular el material al registro correspondiente.
-- Cargar escaneos para lectura OMR (reconocimiento de marcas ópticas), revisar casos ambiguos y confirmar las calificaciones desde la aplicación.
-- Consultar y exportar información académica según las opciones habilitadas en el perfil.
-- Respaldar y migrar datos con los flujos documentados. La base SQLite activa no debe sincronizarse directamente con OneDrive, una carpeta compartida o una memoria USB.
+1. Abre [la última release pública](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) y localiza `EvaluaPro-InstallerHub-docente-local-v<versión>.exe`.
+2. Descarga el archivo `.sha256` asociado y calcula el hash en PowerShell:
 
-La operación local básica no necesita una cuenta de nube. Classroom, el portal de alumnos y otras conexiones remotas dependen de configuración, credenciales, despliegue y conectividad propios; no forman parte de una sincronización automática al instalar `docente-local`.
+   ```powershell
+   Get-FileHash .\EvaluaPro-InstallerHub-docente-local-v<versión>.exe -Algorithm SHA256
+   ```
 
-## Instalar en otro equipo
+   Compara `Hash` con el checksum publicado. Si no coincide, no ejecutes el instalador.
+3. Inicia Installer Hub, sigue los requisitos indicados y abre EvaluaPro al terminar. La [guía de instalación](docs/INSTALLER_HUB.md) cubre reparación, actualización y recuperación.
 
-1. Abre [Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) y descarga el asset `EvaluaPro-InstallerHub-docente-local-v<versión>.exe`.
-2. Descarga el archivo `.sha256` asociado y verifica el hash antes de ejecutar el instalador. La página de release incluye los artefactos publicados para cada versión.
-3. Ejecuta el Installer Hub y sigue el asistente. Conserva una copia de seguridad antes de reparar, actualizar o migrar información existente.
-4. Al terminar, abre EvaluaPro desde el acceso directo y consulta el [manual docente](docs/MANUAL_USUARIO_DOCENTE.md) para iniciar sesión y preparar el primer periodo.
+## Flujo docente
 
-Consulta [Instalación y actualización](docs/INSTALLER_HUB.md) para detalles, requisitos y recuperación. El instalador puede conservar datos durante una actualización; esa protección no sustituye un respaldo independiente.
+- **Organiza:** periodos, materias, grupos, alumnos y seguimiento disponible en el perfil.
+- **Prepara:** preguntas y plantillas; genera documentos de examen con folios de referencia.
+- **Procesa:** carga hojas escaneadas para lectura OMR (reconocimiento óptico de marcas).
+- **Revisa:** verifica la identidad, las respuestas dudosas y los resultados antes de confirmar calificaciones.
 
-## Requisitos para desarrollo
+La lectura OMR es asistida. El docente conserva la decisión final sobre revisión y confirmación de notas.
 
-- Windows 10/11 de 64 bits para compilar el Installer Hub.
-- Node.js 24 y npm compatibles con los `engines` definidos en el repositorio.
+## Datos, privacidad y continuidad
+
+- Cada instalación mantiene su propia SQLite. Instalar EvaluaPro en otro equipo **no** copia alumnos, exámenes ni calificaciones.
+- Haz y verifica un respaldo antes de actualizar, reparar o migrar.
+- Para mover datos, usa los mecanismos documentados de snapshot o exportación/importación. No sincronices directamente la SQLite activa con OneDrive, una carpeta compartida o una USB.
+- Los respaldos y exportaciones pueden contener datos personales; protégelos y limita su acceso.
+- Classroom, el portal de alumnos y otras integraciones requieren configuración adicional. No se activan automáticamente al instalar el perfil local.
+
+Consulta [respaldo y migración](docs/SINCRONIZACION_ENTRE_COMPUTADORAS.md) y el [aviso de privacidad](docs/legal/aviso-privacidad-integral.md).
+
+## Estado del producto
+
+- **Distribución mantenida:** `docente-local` para Windows de 64 bits.
+- **Almacenamiento operativo:** SQLite local.
+- **Versión descargable:** la que figure en la release pública, no la versión declarada en `main`.
+- **Licencia:** [GNU AGPL v3 o posterior](LICENSE).
+
+## Desarrollo
+
+Requisitos del repositorio: Node.js `>=24.15.0` y npm `>=12.1.0`.
 
 ```bash
 git clone https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario.git
@@ -37,7 +54,7 @@ cd EvaluaPro_Sistema_Universitario
 npm ci
 ```
 
-Comandos frecuentes:
+Comandos habituales:
 
 ```bash
 npm run dev:backend
@@ -47,17 +64,16 @@ npm run typecheck
 npm run docs:check
 ```
 
-Revisa [`package.json`](package.json) para el catálogo completo de comandos y las instrucciones de [`CONTRIBUTING.md`](CONTRIBUTING.md) antes de proponer cambios.
-
-## Estado del producto
-
-- **Perfil mantenido para distribución:** `docente-local` en Windows.
-- **Datos operativos:** SQLite local; las actualizaciones no son un mecanismo de respaldo.
-- **Release instalada:** consulta GitHub Releases; el número del repositorio, el tag y la versión publicada son estados distintos.
-- **Integraciones externas:** requieren preparación específica y no deben suponerse disponibles en una instalación limpia.
+Antes de cambiar código, revisa [CONTRIBUTING.md](CONTRIBUTING.md), [AGENTS.md](AGENTS.md), el [índice documental](docs/README.md) y la spec correspondiente en [`docs/specs/`](docs/specs/). Consulta [`package.json`](package.json) para todos los comandos.
 
 ## Documentación
 
-Empieza en el [Centro documental](docs/README.md). Allí se separan las guías para docentes, las instrucciones de instalación, las decisiones de arquitectura, las especificaciones de desarrollo y las evidencias históricas.
+| Tarea | Guía |
+| --- | --- |
+| Primer uso como docente | [Manual docente](docs/MANUAL_USUARIO_DOCENTE.md) |
+| Instalar, actualizar o reparar | [Installer Hub](docs/INSTALLER_HUB.md) |
+| Respaldar o cambiar de equipo | [Sincronización y migración](docs/SINCRONIZACION_ENTRE_COMPUTADORAS.md) |
+| Diagnosticar un problema | [Runbook](docs/RUNBOOK_OPERACION.md) |
+| Arquitectura y desarrollo | [Centro documental](docs/README.md) |
+| Versiones y releases | [Versionado](docs/VERSIONADO.md) · [Estado de releases](docs/RELEASE_STATUS.md) |
 
-EvaluaPro se distribuye bajo [GNU AGPL v3 o posterior](LICENSE). Lee la licencia antes de redistribuir o modificar el software.

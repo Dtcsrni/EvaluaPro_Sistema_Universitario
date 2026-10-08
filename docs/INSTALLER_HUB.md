@@ -1,10 +1,6 @@
 # Installer Hub (Windows)
 
-Alcance de esta guía: el perfil `docente-local` para Windows. La versión de
-código y la versión publicada son distintas: en el corte del 2026-10-08,
-`main` declara `1.2.6` y GitHub Releases/latest muestra `v1.1.6`. Confirma el
-instalador y checksum que realmente aparecen en [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
-
+Esta guía cubre el Installer Hub que se distribuye para el perfil `docente-local` en Windows. Consulta [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) para identificar la descarga pública actual; el valor de `main` o una release en borrador no equivale a un instalador publicado.
 Bootstrapper oficial de Windows para instalacion, reparacion y desinstalacion de EvaluaPro.
 La superficie pública es `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`.
 El contrato visual y UX del Hub vive en `DESIGN.md`.
@@ -215,7 +211,7 @@ Regla de publicacion:
 - Limpieza total: requiere confirmacion explicita.
 - Desinstalacion estandar: retira binarios y accesos; preserva datos operativos, licencia local y logs salvo flujo confirmado de limpieza total.
 
-## Flags de bootstrap runtime Docker
+## Flujos Docker reservados para perfiles futuros\n\nEstos flags no forman parte del instalador distribuido de `docente-local`. Se documentan como contratos internos del repositorio; no deben anunciarse ni habilitarse hasta aprobar y publicar un perfil futuro.\n\n## Flags de bootstrap runtime Docker
 
 - `EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL=1`:
   - habilita bootstrap semiautomatico;
