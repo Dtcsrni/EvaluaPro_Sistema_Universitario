@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "main"
-      - "release/**"
     paths:
       - "apps/portal_alumno_cloud/**"
       - "package.json"

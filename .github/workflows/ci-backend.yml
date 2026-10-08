@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "main"
-      - "release/**"
     paths:
       - "apps/backend/**"
       - "omr_samples_tv*/**"
