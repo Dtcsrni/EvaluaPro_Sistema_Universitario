@@ -1,10 +1,16 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-09-03
-Version tecnica vigente: `1.1.1`
-Version visible vigente: `1.1.1`
+Fecha de actualización del resumen: 2026-10-08
+Versión fuente en `main`: `1.2.6` (`config/app-version.json`)
+Release pública observada: `v1.1.6` en GitHub Releases/latest al 2026-10-08
+Versión instalada: debe comprobarse en el equipo; no inferirla desde este inventario.
 
-## Estado actual 2026-09-03
+## Resumen actual 2026-10-08
+- El alcance de distribución considerado es `docente-local` para Windows.
+- El README y las guías principales enlazan la release pública, el manual docente, instalación y respaldos.
+- Los detalles de capacidades, dependencias y módulos deben confirmarse en el código y los contratos correspondientes; este inventario también conserva cortes históricos.
+
+## Registro histórico 2026-09-03
 - **Purga de legado OMR/PDF:** retirados OMR V1, TV3, renderer HTML/fallback anterior,
   adaptadores V9/V10 y utilidades temporales heredadas.
 - **Superficies conservadas:** contrato OMR/PDF canónico TV4, `pdfKitRenderer`, preview,

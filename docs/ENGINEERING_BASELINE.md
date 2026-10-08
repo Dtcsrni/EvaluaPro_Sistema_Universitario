@@ -1,10 +1,18 @@
 # Engineering Baseline
 
-Fecha de baseline vigente: 2026-09-03
-Version técnica: `1.1.1`
-Versión visible GUI: `1.1.1`
+Fecha de corte documental: 2026-10-08
+Versión fuente integrada en `main`: `1.2.6` (`config/app-version.json`)
+Última release pública observada: `v1.1.6` en GitHub Releases/latest al 2026-10-08
+Versión visible instalada: depende del equipo; no verificada en este corte.
 
-## Corte vigente 2026-09-03
+## Estado vigente al 2026-10-08
+
+- El producto se mantiene para distribución en Windows con el perfil `docente-local`.
+- La versión de `main` y la versión instalada desde un asset público deben verificarse por separado.
+- La landing y las guías de inicio describen el almacenamiento SQLite local, el flujo OMR asistido con revisión docente y los requisitos de respaldo/migración.
+- Esta actualización documental no verifica nuevamente los gates de CI, el instalador descargable ni la interfaz instalada. Usa `docs/RELEASE_STATUS.md` para conocer la evidencia requerida antes de declarar una release disponible.
+
+## Corte histórico 2026-09-03
 
 - **Purga de legado OMR/PDF:** retirados del árbol activo OMR V1, TV3, el renderer HTML y
   fallback anterior, adaptadores de templates V9/V10 y utilidades temporales heredadas.

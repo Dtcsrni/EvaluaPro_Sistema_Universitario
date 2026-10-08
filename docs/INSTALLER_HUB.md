@@ -1,16 +1,18 @@
 # Installer Hub (Windows)
 
-Estado actual: QA local del flavor nativo `docente-local`. El Hub instala,
-repara y desinstala en la PC; todavía no existe un bundle distribuible estable.
+Alcance de esta guía: el perfil `docente-local` para Windows. La versión de
+código y la versión publicada son distintas: en el corte del 2026-10-08,
+`main` declara `1.2.6` y GitHub Releases/latest muestra `v1.1.6`. Confirma el
+instalador y checksum que realmente aparecen en [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
 
 Bootstrapper oficial de Windows para instalacion, reparacion y desinstalacion de EvaluaPro.
-La superficie publica ahora es `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`.
-El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
+La superficie pública es `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`.
+El contrato visual y UX del Hub vive en `DESIGN.md`.
 
 ## Objetivo
 
 - Ejecutar instalacion, reparacion o desinstalacion desde una GUI guiada.
-- Verificar y preparar prerequisitos de Windows segun flavor.
+- Verificar y preparar los prerequisitos de Windows para `docente-local`.
 - Para `docente-local`, preparar el runtime Node embebido local para dashboard,
   tray y accesos directos.
 - Encadenar el `MSI` por medio de `Burn` con elevacion, cache, repair/uninstall y logging nativos.
@@ -65,16 +67,15 @@ El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
   - `scripts/installer-burn/modules/PostInstallVerifier.psm1`
   - `scripts/installer-burn/modules/LicenseClientSecurity.psm1`
 
-La superficie soportada es el bundle Burn con BA WPF. El flujo de desarrollo y
-QA usa artefactos locales; el bundle público se habilitará después del cierre
-de las gates.
+La superficie de instalación es el bundle Burn con BA WPF. El build local y el
+bundle descargable son artefactos distintos; solo el bundle adjunto a una
+release pública se puede recomendar a usuarios finales. Esta guía no habilita
+otros perfiles.
 
 ## Contratos de release
 
-Assets publicos esperados en GitHub Release:
+Asset público considerado para la distribución actual:
 
-- `saas-completo/EvaluaPro-InstallerHub-saas-completo-v<version>.exe`
-- `saas-completo/EvaluaPro-InstallerHub-saas-completo-v<version>.exe.sha256`
 - `docente-local/EvaluaPro-InstallerHub-docente-local-v<version>.exe`
 - `docente-local/EvaluaPro-InstallerHub-docente-local-v<version>.exe.sha256`
 - `EvaluaPro-release-manifest.json`

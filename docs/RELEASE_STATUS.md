@@ -1,39 +1,28 @@
 # Estado de releases
 
-## Estado actual
+## Corte documentado: 2026-10-08
 
-La API pública de GitHub consultada el 2026-10-04 confirma `v1.2.3` como la
-última release publicada. La rama `fix/release-gates-v1.2.4` declara `1.2.4` y
-contiene cambios candidatos del workflow de publicación y E2E. Esa candidata no
-se considera publicada hasta que el EXE se descargue del release draft, pase la
-E2E completa de instalación/upgrade y el workflow la convierta en pública.
+- La versión fuente integrada en `main` es `1.2.6` (`config/app-version.json`).
+- GitHub Releases/latest mostró `v1.1.6` al consultar la página pública el 2026-10-08.
+- Por tanto, este corte no presenta `v1.2.6` como una release pública. Consulta [Releases/latest](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) antes de instalar y vuelve a comprobar este documento después de una publicación.
+- El alcance de distribución mantenido es `docente-local` para Windows. No habilites ni anuncies otros perfiles por este documento.
 
-## Criterio para la próxima estable
+## Qué cuenta como release completa
 
-## Candidata nominal y SemVer
+La release no se considera lista solo porque exista una versión en `main`, un tag o un borrador. Para cerrar una promoción estable:
 
-La candidata de producto se denomina **EvaluaPro Tlanahuatil-panoloani**.
-`Tlanahuatil-panoloani` se toma de la transcripción oficial de náhuatl de la
-UNAM para la idea de un aviso/mensaje que se transmite; conecta el propósito
-del sistema —instrumentos de evaluación, registro y comunicación de resultados
-en contextos escolares nahuas— sin afirmar que el software traduzca o
-represente por sí solo una variante comunitaria. La referencia lingüística es
-la transcripción institucional de la UNAM:
-https://historicas.unam.mx/publicaciones/publicadigital/libros/081b/081b_05_04_transcripcion.pdf
+1. Los workflows requeridos del commit de release terminan en estado satisfactorio.
+2. La release pública contiene el instalador `docente-local`, su checksum y manifiesto.
+3. Se descarga el instalador desde la página pública, se valida su checksum y se ejecuta la E2E completa de instalación y actualización en un entorno aislado.
+4. La E2E confirma arranque, funciones docentes básicas, actualización a la versión nueva y conservación de datos de prueba.
+5. El resultado, SHA, asset y log resumido quedan registrados en `docs/release/evidencias/<versión>/`.
 
-La versión objetivo es **v1.2.0**: incorpora funcionalidad compatible nueva
-(dataset OMR externo, ciclo de vida del Hub y protección contra downgrade), por
-lo que corresponde al incremento `MINOR` de SemVer. La candidata previa debe
-usar `v1.2.0-rc.1`; no se debe crear la release estable mientras el estado del
-checkout, la release pública, el bundle firmado, los checksums y los gates no
-estén reconciliados. La regla de precedencia aplicada por el updater sigue
-SemVer 2.0.0: https://semver.org/lang/es/
+## Referencias de fuente de verdad
 
-Solo se podrá crear una nueva tag/release estable cuando exista evidencia de:
+- [Versionado](VERSIONADO.md) describe cómo distinguir código, tag, release e instalación.
+- [Release gate estable](RELEASE_GATE_STABLE.md) define los contratos de promoción.
+- [Changelog](../CHANGELOG.md) describe el contenido del código.
+- [Releases de GitHub](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases) muestra lo que está realmente publicado.
+- `docs/release/evidencias/` conserva los resultados de ejecuciones previas como evidencia histórica.
 
-- bundle firmado y hash coincidente;
-- gate de payload nativo SQLite verde;
-- UX/UI interactiva completa con capturas y estados esperados;
-- ciclo `instalar -> datos dummy -> reparar -> actualizar -> desinstalar` verde;
-- gates contractuales y de seguridad verdes;
-- ramas de release sincronizadas.
+Las evidencias históricas no prueban el estado de una release posterior. No infieras integridad, firma, actualización o aprobación de un asset a partir del tag o del número de versión.

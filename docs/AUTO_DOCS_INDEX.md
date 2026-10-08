@@ -28,7 +28,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [INSTANCE_LIFECYCLE.md](INSTANCE_LIFECYCLE.md) — Ciclo de vida de instancias EvaluaPro
 - [INVENTARIO_CODIGO_EXHAUSTIVO.md](INVENTARIO_CODIGO_EXHAUSTIVO.md) — Inventario Exhaustivo de Codigo
 - [INVENTARIO_PROYECTO.md](INVENTARIO_PROYECTO.md) — Inventario Tecnico del Proyecto
-- [MANUAL_USUARIO_DOCENTE.md](MANUAL_USUARIO_DOCENTE.md) — Manual de Usuario | EvaluaPro (Flavor Docente)
+- [MANUAL_USUARIO_DOCENTE.md](MANUAL_USUARIO_DOCENTE.md) — Manual de EvaluaPro para docentes
 - [MANUAL_UX_CAPTURES.md](MANUAL_UX_CAPTURES.md) — Manual UX/UI de EvaluaPro - Capturas de E2E
 - [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR canónico
 - [OPERACION_EXAMEN_GLOBAL_PROD.md](OPERACION_EXAMEN_GLOBAL_PROD.md) — Operacion de Examen Global en Produccion
@@ -43,7 +43,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)
 - [QA_INSTALLER_HUB_DOCENTE_2026-05-20.md](QA_INSTALLER_HUB_DOCENTE_2026-05-20.md) — QA Installer Hub docente-local — corte 2026-05-20
 - [QA_VALIDACION_PLAN.md](QA_VALIDACION_PLAN.md) — Plan de validación QA (manual + automatizada)
-- [README.md](README.md) — Centro Documental de EvaluaPro
+- [README.md](README.md) — Documentación de EvaluaPro
 - [RELEASE_BIGBANG_1_0_BETA.md](RELEASE_BIGBANG_1_0_BETA.md) — Cierre Beta `1.0.0-beta.0`
 - [RELEASE_GATE_STABLE.md](RELEASE_GATE_STABLE.md) — Gate de Promocion a Estable
 - [RELEASE_STATUS.md](RELEASE_STATUS.md) — Estado de releases
@@ -51,12 +51,12 @@ No editar a mano: los cambios se pisan al regenerar.
 - [ROADMAP_REQUISITOS.md](ROADMAP_REQUISITOS.md) — Roadmap de Requisitos Verificables
 - [ROLES_PERMISOS.md](ROLES_PERMISOS.md) — Roles, accesos y permisos (RBAC)
 - [RUNBOOK_OPERACION.md](RUNBOOK_OPERACION.md) — Runbook Operación (Local + Cloud mínimo)
-- [SECURITY_POLICY.md](SECURITY_POLICY.md) — Security Policy Corporativa
+- [SECURITY_POLICY.md](SECURITY_POLICY.md) — Política de seguridad del proyecto
 - [SEGURIDAD.md](SEGURIDAD.md) — Seguridad
 - [SEGURIDAD_OPERATIVA.md](SEGURIDAD_OPERATIVA.md) — Checklist de Seguridad Operativa
 - [SINCRONIZACION_ENTRE_COMPUTADORAS.md](SINCRONIZACION_ENTRE_COMPUTADORAS.md) — Sincronizacion entre computadoras
 - [TAGGING_POLICY.md](TAGGING_POLICY.md) — Política de tags y releases
 - [UX_QUALITY_CRITERIA.md](UX_QUALITY_CRITERIA.md) — Criterios UX de Calidad (Gate Verificable)
-- [VERSIONADO.md](VERSIONADO.md) — Versionado
+- [VERSIONADO.md](VERSIONADO.md) — Versionado y releases
 - [WCAG_UI_POLICY.md](WCAG_UI_POLICY.md) — Política de accesibilidad WCAG de EvaluaPro
 - [AUTO_ENV.md](AUTO_ENV.md) — Variables de entorno (auto-generado)

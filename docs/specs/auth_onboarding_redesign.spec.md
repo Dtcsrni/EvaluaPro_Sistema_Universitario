@@ -17,7 +17,7 @@ La pantalla inicial de autenticacion y primer uso de EvaluaPro mostraba titulos 
 - REQ-001: La pantalla de autenticacion no debe renderizar encabezados de submodulos internos ni metricas de sesion innecesarias.
 - REQ-002: El portal de acceso debe mostrar la marca EvaluaPro, propuesta de valor clara y tres pilares funcionales.
 - REQ-003: El formulario debe permitir alternar fluidamente entre Iniciar Sesion y Registro / Activacion de Licencia.
-- REQ-004: El badge de version debe reflejar la version estable oficial (v1.1.1).
+- REQ-004: El badge de versión debe reflejar la versión del build actual, recibida desde la configuración de versión del frontend; no debe quedar fijado a una release histórica.
 - REQ-005: El lanzador debe invocar exclusivamente la ventana de escritorio dedicada sin abrir pestanas de navegador duplicadas.
 - REQ-006: La interfaz del portal de bienvenida debe incluir micro-interacciones fluidas y animaciones CSS escalonadas (staggered fade/scale) accesibles, respetando prefers-reduced-motion.
 
@@ -33,6 +33,6 @@ La pantalla inicial de autenticacion y primer uso de EvaluaPro mostraba titulos 
 | REQ-001 | Pantalla de acceso desacoplada del shell | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
 | REQ-002 | Marca EvaluaPro y pilares de bienvenida | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
 | REQ-003 | Alternancia fluida entre login y registro | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
-| REQ-004 | Badge de versión estable visible | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
+| REQ-004 | Badge de versión asociado al build actual | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
 | REQ-005 | Lanzador exclusivo de escritorio | `scripts/tests/installer-hub-contract.test.mjs` | Implementado |
 | REQ-006 | Micro-interacciones y accesibilidad CSS | `apps/frontend/tests/gui.responsive.audit.test.ts` | Implementado |

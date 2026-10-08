@@ -1,13 +1,20 @@
 # Despliegue
 
-## Estado actual y estrategia
-EvaluaPro se encuentra en desarrollo y QA local (`0.0.0-dev`). El camino
-principal del flavor `docente-local` es una aplicación nativa para Windows:
+## Estado y alcance
+En el corte documental del 2026-10-08, el código integrado en `main` declara
+`1.2.6`, mientras que GitHub Releases/latest muestra `v1.1.6`. Este documento
+describe el despliegue del código del repositorio; no prueba que una versión o
+un asset esté publicado. El único perfil de distribución considerado aquí es
+`docente-local` para Windows.
+
+El perfil docente es una aplicación local para Windows:
 API local, SQLite/Prisma, frontend docente y runtime Node embebido.
 
 - La operación docente se ejecuta directamente en la PC.
-- El portal alumno conserva su despliegue desacoplado para escenarios cloud.
+- El portal alumno es un componente separado para laboratorio o un despliegue configurado aparte.
 - La operación docente no requiere un servicio de datos externo.
+
+Antes de seguir instrucciones de build, consulta [Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) para identificar el instalador público disponible.
 
 ## Desarrollo local
 Iniciar la aplicación docente local:
