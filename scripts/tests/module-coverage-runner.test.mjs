@@ -30,3 +30,23 @@ test('rejects unsafe refs and module selectors', () => {
   assert.throws(() => buildModuleCoveragePlan('saas-completo', '', []), /no admitido/);
   assert.throws(() => parseApps('frontend,unknown'), /--apps/);
 });
+
+
+test('excludes TypeScript declaration files from the executable coverage denominator', async () => {
+  const { isCoverableFile } = await import('../testing/check-diff-coverage.mjs');
+
+  assert.equal(isCoverableFile('apps/frontend/src/tipos/api.d.ts'), false);
+  assert.equal(isCoverableFile('apps/backend/src/types/api.d.mts'), false);
+  assert.equal(isCoverableFile('apps/portal_alumno_cloud/src/types/api.d.cts'), false);
+  assert.equal(isCoverableFile('apps/frontend/src/App.tsx'), true);
+  assert.equal(isCoverableFile('apps/backend/src/index.ts'), true);
+});
+
+test('treats changed executable lines missing from LCOV as uncovered', async () => {
+  const { isLineCovered } = await import('../testing/check-diff-coverage.mjs');
+
+  assert.equal(isLineCovered(undefined, 17), false);
+  assert.equal(isLineCovered(new Map(), 17), false);
+  assert.equal(isLineCovered(new Map([[17, 0]]), 17), false);
+  assert.equal(isLineCovered(new Map([[17, 1]]), 17), true);
+});
