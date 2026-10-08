@@ -45,7 +45,7 @@ const requiredHtml = [
 ];
 
 const requiredCss = ['.hero', '.faq', '.reveal', '.btn-primary', '.product-preview', 'prefers-reduced-motion'];
-const requiredJs = ['IntersectionObserver', 'aria-expanded', 'Escape'];
+const requiredJs = ["classList.add('has-js')", 'IntersectionObserver', 'aria-expanded', 'Escape'];
 
 for (const token of requiredHtml) {
   assert(html.includes(token), `Falta token HTML: ${token}`);
@@ -58,6 +58,10 @@ for (const token of requiredCss) {
 for (const token of requiredJs) {
   assert(js.includes(token), `Falta token JS: ${token}`);
 }
+
+assert(css.includes('.topbar nav { width: 100%; display: grid;'), 'La navegación y descarga deben permanecer visibles si JavaScript no carga');
+assert(css.includes('html.has-js .topbar nav { display: none; }'), 'El menú compacto solo se oculta cuando JavaScript ya está activo');
+assert(css.includes('html.has-js .nav-toggle { display: inline-flex; }'), 'El botón de menú solo aparece cuando su controlador está disponible');
 
 assert((html.match(/<h1(?:\s|>)/gi) ?? []).length === 1, 'La página debe tener un único h1');
 
