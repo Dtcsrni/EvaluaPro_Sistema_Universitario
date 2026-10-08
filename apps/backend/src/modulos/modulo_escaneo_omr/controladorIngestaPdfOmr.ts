@@ -8,6 +8,7 @@ import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { resolverRutaPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { obtenerRutaTemporalOmr, retirarRutaTemporalOmr } from './archivoTemporalOmr.js';
 import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen.js';
 import { rasterizarPdfParaPreview } from '../modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
 import { descargarPdfLoteUseCase } from '../modulo_generacion_pdf/application/usecases/generacionPlantillas.js';
@@ -154,7 +155,10 @@ function idJobIngesta(docenteId: string, clientRequestId: string) {
   return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`;
 }
 async function limpiarArchivosCargados(files: ArchivoCargado[]) {
-  await Promise.all(files.map((file) => fs.rm(path.dirname(file.path), { recursive: true, force: true }).catch(() => undefined)));
+  await Promise.all(files.map((file) => {
+    const ruta = retirarRutaTemporalOmr(file);
+    return ruta ? fs.rm(path.dirname(ruta), { recursive: true, force: true }).catch(() => undefined) : Promise.resolve();
+  }));
 }
 
 type ResumenExamenLoteArchivadoOmr = { id: string; folio: string; paginas: string; mapaOmr: string | null };
@@ -266,7 +270,7 @@ export async function prevalidarReferenciaIngestaPdfOmr(req: SolicitudDocente, r
     if (referencia.size <= 0 || referencia.size > MAX_PDF_BYTES) {
       throw new ErrorAplicacion('OMR_PDF_TAMANO_INVALIDO', 'El PDF de referencia debe pesar como máximo 120 MiB', 413);
     }
-    const bytes = await fs.readFile(referencia.path);
+    const bytes = await fs.readFile(obtenerRutaTemporalOmr(referencia));
     if (bytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
       throw new ErrorAplicacion('OMR_REFERENCIA_PDF_INVALIDO', 'El archivo de referencia no tiene una cabecera PDF válida', 400);
     }
@@ -458,7 +462,7 @@ export async function crearIngestaPdfOmr(req: SolicitudDocente, res: Response) {
   let bytesReferencia: Buffer | null;
   try {
     if (archivoReferencia) {
-      bytesReferencia = await fs.readFile(archivoReferencia.path);
+      bytesReferencia = await fs.readFile(obtenerRutaTemporalOmr(archivoReferencia));
       nombreReferencia = path.basename(archivoReferencia.originalname || 'referencia-lote.pdf');
     } else if (loteIdConsolidado && !artefactoReferencia) {
       const paquete = await descargarPdfLoteUseCase({ docenteId, loteId: loteIdConsolidado });
@@ -522,7 +526,8 @@ export async function crearIngestaPdfOmr(req: SolicitudDocente, res: Response) {
   try {
     let totalPaginas = 0;
     for (const [index, file] of files.entries()) {
-      const bytes = await fs.readFile(file.path);
+      const tempPath = obtenerRutaTemporalOmr(file);
+      const bytes = await fs.readFile(tempPath);
       if (bytes.subarray(0, 5).toString('ascii') !== '%PDF-') throw new ErrorAplicacion('OMR_PDF_INVALIDO', 'Uno de los archivos no tiene una cabecera PDF válida', 400);
       const paginas = (await PDFDocument.load(bytes)).getPageCount();
       if (paginas < 1 || paginas > MAX_PDF_PAGES || totalPaginas + paginas > MAX_JOB_PAGES) {
@@ -531,7 +536,7 @@ export async function crearIngestaPdfOmr(req: SolicitudDocente, res: Response) {
       totalPaginas += paginas;
       const nombre = path.basename(file.originalname || `captura-${index + 1}.pdf`).slice(0, 180);
       const relativePath = path.join(rootJob(jobId), 'originales', `${String(index + 1).padStart(2, '0')}-${randomUUID()}-${slug(nombre, 'captura')}.pdf`);
-      archivosPreparados.push({ id: String(index + 1), nombre, relativePath, sha256: sha256(bytes), bytes: bytes.length, pages: paginas, tempPath: file.path });
+      archivosPreparados.push({ id: String(index + 1), nombre, relativePath, sha256: sha256(bytes), bytes: bytes.length, pages: paginas, tempPath });
     }
   } catch (error) {
     await limpiarArchivosCargados(archivosCargados);

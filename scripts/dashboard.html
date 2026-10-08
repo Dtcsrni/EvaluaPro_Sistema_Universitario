@@ -5270,12 +5270,6 @@
       return 'i';
     }
 
-    function escaparCss(valor) {
-      if (typeof valor !== 'string') return '';
-      if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(valor);
-      return valor.replace(/"/g, '\\"');
-    }
-
     function cerrarToast(notificacion) {
       if (!notificacion || notificacion.classList.contains('out')) return;
       notificacion.classList.add('out');
@@ -5296,7 +5290,7 @@
       const maximoNotificaciones = 4;
 
       if (id) {
-        const existente = contenedor.querySelector(`.toast[data-id="${escaparCss(id)}"]`);
+        const existente = Array.from(contenedor.querySelectorAll('.toast')).find((toast) => toast.dataset.id === id);
         if (existente) existente.remove();
       }
 
