@@ -354,7 +354,7 @@ jobs:
       - name: Descargar código de la tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
 
       - name: Configurar .NET SDK 10

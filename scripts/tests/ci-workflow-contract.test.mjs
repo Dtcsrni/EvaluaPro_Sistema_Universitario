@@ -221,6 +221,7 @@ test('E2E del release draft delimita variable PowerShell seguida de dos puntos',
   const draftAssetJob = workflow.match(/post_publish_installer_e2e:[\s\S]*?(?=\n  [a-z][a-z0-9_]+:|$)/)?.[0] ?? '';
 
   assert.ok(draftAssetBlock, 'falta el bloque de verificación del asset draft');
+  assert.match(draftAssetJob, /ref:\s*\$\{\{\s*inputs\.source_sha\s*\|\|\s*github\.sha\s*\}\}/, 'el draft se valida con el SHA fuente porque su tag aún no está publicada');
   assert.match(draftAssetJob, /RELEASE_ID:\s*\$\{\{\s*needs\.publish_installer_release\.outputs\.release_id\s*\}\}/);
   assert.match(draftAssetBlock, /gh api "repos\/\$repository\/releases\/\$releaseId"/);
   assert.match(draftAssetBlock, /\$release\.tag_name -ne \$tag -or -not \$release\.draft/);
