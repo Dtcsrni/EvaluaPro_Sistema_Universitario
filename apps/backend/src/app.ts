@@ -48,7 +48,13 @@ export function crearApp() {
   app.use(helmet());
   app.use(
     cors({
-      origin: configuracion.corsOrigenes,
+      origin: (solicitado, callback) => {
+        if (solicitado && configuracion.corsOrigenes.includes(solicitado)) {
+          callback(null, solicitado);
+          return;
+        }
+        callback(null, false);
+      },
       credentials: true,
       // Permite que el frontend lea el nombre real del PDF (Content-Disposition)
       // al descargar via fetch.
