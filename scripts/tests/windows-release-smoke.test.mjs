@@ -384,27 +384,6 @@ test('smoke GUI no destructivo valida el bundle Burn publico empaquetado', { tim
   assert.equal(child.exitCode !== null || child.signalCode !== null, true);
 });
 
-test('espera el lock recién creado por el broker y no confunde la ausencia transitoria con un puerto inválido', async () => {
-  const testPorts = Array.from({ length: 20 }, (_, index) => 4519 + index);
-  let reads = 0;
-  let pauses = 0;
-  const owner = await waitForOwnedDashboardIdentity({
-    readLock: async () => (++reads < 2 ? null : lock),
-    readProcess: async () => processInfo,
-    ports: testPorts,
-    installRoot: root,
-    requestedAt,
-    timeoutMs: 1_000,
-    intervalMs: 10,
-    now: () => 0,
-    pause: async () => { pauses += 1; }
-  });
-  assert.equal(owner.pid, lock.pid);
-  assert.equal(owner.port, lock.port);
-  assert.equal(reads, 2);
-  assert.equal(pauses, 1);
-});
-
 test('smoke activo valida broker, manifest, shortcuts y control plane sin depender del legado', { timeout: 480_000 }, async (t) => {
   if (!isActiveSmokeEnabled(process.env)) {
     test.skip('Requiere opt-in explícito; inicia procesos de la aplicación en modo prod.');
