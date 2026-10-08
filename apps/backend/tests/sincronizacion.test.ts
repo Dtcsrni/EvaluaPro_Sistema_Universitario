@@ -6,7 +6,7 @@
 import type { Response } from 'express';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { conectarSqliteTest, cerrarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
 import { cifrarRespaldo, descifrarRespaldo } from '../src/modulos/modulo_sincronizacion_nube/sincronizacionInterna.js';
 
@@ -61,15 +61,15 @@ describe('sincronizacion nube', () => {
     importarPaquete = controlador.importarPaquete;
     enviarPaqueteServidor = controlador.enviarPaqueteServidor;
     traerPaquetesServidor = controlador.traerPaquetesServidor;
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('genera codigo de acceso y lo persiste', async () => {
@@ -352,7 +352,7 @@ describe('sincronizacion nube', () => {
       checksumSha256: string;
     };
 
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     await asegurarDocente(docenteIdDestino, correo);
 
     const resImport = crearRespuesta();
@@ -666,7 +666,7 @@ describe('sincronizacion nube', () => {
       checksumSha256: string;
     };
 
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     await asegurarDocente(docenteId, 'docente-equipos@test.com');
 
     await importarPaquete(

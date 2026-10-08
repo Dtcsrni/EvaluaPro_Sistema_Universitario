@@ -16,7 +16,7 @@ import { crearCargadorArchivosPdfOmr } from '../../src/modulos/modulo_escaneo_om
 import { recuperarIngestasPdfOmrInterrumpidas } from '../../src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('límite agregado multipart OMR', () => {
   it('corta la escritura al superar el tamaño total y limpia los temporales', async () => {
@@ -83,15 +83,15 @@ describe('workflow OMR por jobs', () => {
   const preguntasPorEscenario = 5;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function registrar(correo: string) {

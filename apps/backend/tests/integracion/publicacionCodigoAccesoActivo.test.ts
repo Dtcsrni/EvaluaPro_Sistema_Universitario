@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 const portalState = vi.hoisted(() => ({ postJson: vi.fn() }));
 vi.mock('../../src/modulos/modulo_sincronizacion_nube/infra/portalSyncClient.js', () => ({
@@ -8,12 +8,12 @@ vi.mock('../../src/modulos/modulo_sincronizacion_nube/infra/portalSyncClient.js'
 }));
 
 describe('publicación de código de acceso vigente', () => {
-  beforeAll(async () => { await conectarMongoTest(); });
+  beforeAll(async () => { await conectarSqliteTest(); });
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     portalState.postJson.mockReset().mockResolvedValue({ ok: true, status: 200, payload: {} });
   });
-  afterAll(async () => { await cerrarMongoTest(); });
+  afterAll(async () => { await cerrarSqliteTest(); });
 
   it('omite códigos expirados y selecciona solo uno vigente', async () => {
     const docenteId = '6e19a319-852f-4a51-8edf-f91b411889ef';

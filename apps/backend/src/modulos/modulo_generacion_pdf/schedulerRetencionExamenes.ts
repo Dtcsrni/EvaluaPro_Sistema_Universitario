@@ -5,6 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { configuracion } from '../../configuracion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { log, logError } from '../../infraestructura/logging/logger.js';
 import { ejecutarPurgeExamenesGenerados } from './servicioRetencionExamenes.js';
 
@@ -44,12 +45,28 @@ export function iniciarSchedulerRetencionExamenes() {
     enEjecucion = true;
     ultimoSlotEjecutado = slot;
     try {
-      const resumen = await ejecutarPurgeExamenesGenerados({
-        olderThanDays: configuracion.dataRetentionDefaultDays,
-        scope: 'ttl',
-        reason: 'ttl'
+      const preferencias = await prisma.preferenciaRetencionParcial.findMany({
+        where: { meses: { in: [3, 6, 12] } },
+        select: { docenteId: true, meses: true }
       });
-      log('info', 'Scheduler de retención de exámenes ejecutado', resumen);
+      for (const preferencia of preferencias) {
+        if (preferencia.meses !== 3 && preferencia.meses !== 6 && preferencia.meses !== 12) continue;
+        try {
+          const resumen = await ejecutarPurgeExamenesGenerados({
+            docenteId: preferencia.docenteId,
+            olderThanDays: 1,
+            retentionMonths: preferencia.meses,
+            scope: 'archived-partials',
+            reason: 'ttl'
+          });
+          log('info', 'Scheduler de retención de parciales archivados ejecutado', resumen);
+        } catch (error) {
+          logError('Error al retener parciales archivados de un docente', error, { docenteId: preferencia.docenteId });
+        }
+      }
+      log('info', 'Scheduler de retención de parciales archivados finalizado', {
+        docentesConfigurados: preferencias.length
+      });
     } catch (error) {
       logError('Error en scheduler de retención de exámenes', error);
     } finally {
@@ -64,6 +81,7 @@ export function iniciarSchedulerRetencionExamenes() {
 
   log('ok', 'Scheduler de retención de exámenes iniciado', {
     cron: configuracion.dataPurgeCron,
-    retentionDays: configuracion.dataRetentionDefaultDays
+    automaticoPorDefecto: false,
+    opcionesMeses: [3, 6, 12]
   });
 }

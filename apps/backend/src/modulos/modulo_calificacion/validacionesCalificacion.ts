@@ -67,6 +67,15 @@ const esquemaPaginaOmrCalificacion = z
   })
   .strict();
 
+const esquemaOrigenInferido = z
+  .object({
+    loteId: z.string().trim().min(1).max(80),
+    folio: z.string().trim().min(4).max(60),
+    documentoSha256: z.string().regex(/^[a-f0-9]{64}$/i),
+    criteriosAplicados: z.string().trim().min(12).max(1200)
+  })
+  .strict();
+
 export const esquemaCalificarExamen = z
   .object({
     examenGeneradoId: esquemaObjectId,
@@ -76,6 +85,8 @@ export const esquemaCalificarExamen = z
     aciertos: z.number().int().min(0).optional(),
     totalReactivos: z.number().int().positive().optional(),
     bonoSolicitado: z.number().min(0).optional(),
+    origen: z.literal('inferida manualmente').optional(),
+    origenEvidencia: esquemaOrigenInferido.optional(),
     evaluacionContinua: z.number().min(0).optional(),
     proyecto: z.number().min(0).optional(),
     retroalimentacion: z.string().optional(),
@@ -93,6 +104,20 @@ export const esquemaCalificarExamen = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    if (data.origen === 'inferida manualmente' && !data.origenEvidencia) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Se requiere evidencia de origen para una calificación inferida manualmente',
+        path: ['origenEvidencia']
+      });
+    }
+    if (data.origenEvidencia && data.origen !== 'inferida manualmente') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'La evidencia de origen solo se admite para calificaciones inferidas manualmente',
+        path: ['origen']
+      });
+    }
     const respuestas = Array.isArray(data.respuestasDetectadas) ? data.respuestasDetectadas : [];
     const paginasOmr = Array.isArray(data.paginasOmr) ? data.paginasOmr : [];
     const requiereAuditoriaOmr = respuestas.length > 0 || paginasOmr.length > 0;

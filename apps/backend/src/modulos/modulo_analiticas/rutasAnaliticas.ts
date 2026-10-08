@@ -13,11 +13,12 @@ import {
   exportarListaAcademicaFirma,
   consultarListaAcademica,
   previsualizarBonoExtracurricular,
+  registrarResultadoExtraExterno,
   guardarCalificacionLista,
   listarBanderas,
   registrarEventosUso
 } from './controladorAnaliticas.js';
-import { esquemaCrearBandera, esquemaExportarCsv, esquemaGuardarCalificacionLista, esquemaPreviewBonoExtracurricular } from './validacionesAnaliticas.js';
+import { esquemaCrearBandera, esquemaExportarCsv, esquemaGuardarCalificacionLista, esquemaPreviewBonoExtracurricular, esquemaRegistrarResultadoExtraExterno } from './validacionesAnaliticas.js';
 import { esquemaRegistrarEventosUso } from './validacionesEventosUso.js';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
@@ -34,6 +35,7 @@ router.get('/lista-academica-docx', requerirPermiso('analiticas:leer'), exportar
 router.get('/lista-academica-firma', requerirPermiso('analiticas:leer'), exportarListaAcademicaFirma);
 router.get('/lista-academica', requerirPermiso('analiticas:leer'), consultarListaAcademica);
 router.post('/lista-academica/bono/preview', requerirPermiso('calificaciones:calificar'), validarCuerpo(esquemaPreviewBonoExtracurricular, { strict: true }), previsualizarBonoExtracurricular);
+router.post('/lista-academica/resultados-extra-externos', requerirPermiso('calificaciones:calificar'), validarCuerpo(esquemaRegistrarResultadoExtraExterno, { strict: true }), registrarResultadoExtraExterno);
 router.post('/lista-academica/calificaciones', requerirPermiso('calificaciones:calificar'), validarCuerpo(esquemaGuardarCalificacionLista, { strict: true }), guardarCalificacionLista);
 
 export default router;

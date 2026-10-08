@@ -12,13 +12,14 @@ import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { eliminarArchivoExamen, resolverRutaPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 
-export type PurgeScope = 'ttl' | 'all';
+export type PurgeScope = 'ttl' | 'all' | 'archived-partials';
 export type PurgeReason = 'ttl' | 'manual_initial_cleanup' | 'manual';
 
 export type PurgeSummary = {
   dryRun: boolean;
   scope: PurgeScope;
   olderThanDays: number;
+  retentionMonths?: 3 | 6 | 12;
   fechaCorte: string;
   candidatos: number;
   documentosActualizados: number;
@@ -172,21 +173,47 @@ async function purgeSingleExamArtifacts(examen: any, reason: PurgeReason, dryRun
 export async function ejecutarPurgeExamenesGenerados(params: {
   docenteId?: string;
   olderThanDays: number;
+  retentionMonths?: 3 | 6 | 12;
   dryRun?: boolean;
   scope?: PurgeScope;
   reason?: PurgeReason;
 }) {
-  const olderThanDays = Math.max(1, Math.trunc(Number(params.olderThanDays) || 0));
   const dryRun = Boolean(params.dryRun);
   const scope = params.scope ?? 'ttl';
   const reason = params.reason ?? (scope === 'all' ? 'manual_initial_cleanup' : 'ttl');
-  const fechaCorte = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  let fechaCorte: Date;
+  let retentionMonths: 3 | 6 | 12 | undefined;
+  let olderThanDays: number;
+  if (scope === 'archived-partials') {
+    if (!params.docenteId) throw new Error('La retención de parciales archivados requiere docenteId.');
+    if (![3, 6, 12].includes(Number(params.retentionMonths))) {
+      throw new Error('La retención de parciales archivados requiere meses 3, 6 o 12.');
+    }
+    retentionMonths = Number(params.retentionMonths) as 3 | 6 | 12;
+    fechaCorte = new Date(now);
+    const diaOriginal = fechaCorte.getDate();
+    fechaCorte.setDate(1);
+    fechaCorte.setMonth(fechaCorte.getMonth() - retentionMonths);
+    const ultimoDiaMes = new Date(fechaCorte.getFullYear(), fechaCorte.getMonth() + 1, 0).getDate();
+    fechaCorte.setDate(Math.min(diaOriginal, ultimoDiaMes));
+    olderThanDays = Math.floor((now.getTime() - fechaCorte.getTime()) / (24 * 60 * 60 * 1000));
+  } else {
+    olderThanDays = Math.max(1, Math.trunc(Number(params.olderThanDays) || 0));
+    fechaCorte = new Date(now.getTime() - olderThanDays * 24 * 60 * 60 * 1000);
+  }
 
   const where: any = {
     retentionStatus: { not: 'artifacts_purged' }
   };
   if (params.docenteId) where.docenteId = params.docenteId;
   if (scope === 'ttl') where.generadoEn = { lte: fechaCorte };
+  if (scope === 'archived-partials') {
+    where.generadoEn = { lte: fechaCorte };
+    where.tipoExamen = 'parcial';
+    where.periodo = { is: { activo: false } };
+    where.plantilla = { is: { tipo: 'parcial', archivadoEn: { not: null } } };
+  }
 
   const candidatos = await prisma.examenGenerado.findMany({ where });
   const detalles: PurgeSummary['detalles'] = [];
@@ -206,6 +233,7 @@ export async function ejecutarPurgeExamenesGenerados(params: {
     dryRun,
     scope,
     olderThanDays,
+    ...(retentionMonths ? { retentionMonths } : {}),
     fechaCorte: fechaCorte.toISOString(),
     candidatos: candidatos.length,
     documentosActualizados,

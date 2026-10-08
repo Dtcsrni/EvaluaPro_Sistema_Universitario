@@ -8,6 +8,7 @@ import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import {
 	definirContrasenaDocente,
 	actualizarPreferenciasPdfDocente,
+	actualizarPreferenciaRetencionParciales,
 	capacidadesIntegracionesPublicas,
 	ingresarDocente,
 	ingresarDocenteGoogle,
@@ -25,6 +26,7 @@ import { requerirDocente } from './middlewareAutenticacion.js';
 import {
 	esquemaBodyVacioOpcional,
 	esquemaActualizarPreferenciasPdf,
+	esquemaActualizarRetencionParciales,
 	esquemaDefinirContrasenaDocente,
 	esquemaIngresarDocente,
 	esquemaIngresarDocenteGoogle,
@@ -118,6 +120,14 @@ router.post(
 	requerirPermiso('cuenta:actualizar'),
 	validarCuerpo(esquemaActualizarPreferenciasPdf, { strict: true }),
 	actualizarPreferenciasPdfDocente
+);
+
+router.post(
+	'/preferencias/retencion-parciales',
+	requerirDocente,
+	requerirPermiso('cuenta:actualizar'),
+	validarCuerpo(esquemaActualizarRetencionParciales, { strict: true }),
+	actualizarPreferenciaRetencionParciales
 );
 
 router.post(

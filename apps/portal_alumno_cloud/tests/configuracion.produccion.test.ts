@@ -23,7 +23,6 @@ describe('configuracion portal (produccion)', () => {
 
   it('falla si CORS_ORIGENES no esta definido en production', async () => {
     process.env.NODE_ENV = 'production';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/portal';
     process.env.PORTAL_API_KEY = 'portal-key';
     process.env.CORS_ORIGENES = '';
 
@@ -32,7 +31,6 @@ describe('configuracion portal (produccion)', () => {
 
   it('falla si CORS_ORIGENES usa wildcard en production', async () => {
     process.env.NODE_ENV = 'production';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/portal';
     process.env.PORTAL_API_KEY = 'portal-key';
     process.env.CORS_ORIGENES = '*';
 

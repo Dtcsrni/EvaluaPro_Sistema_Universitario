@@ -121,7 +121,8 @@ export async function generarExamenIndividual(
       distribuirEnPaginasObjetivo: params.bookletConfig?.distribuirEnPaginasObjetivo === true || params.tipoExamen === 'extraordinario',
       logos: params.bookletConfig?.logos
     },
-    params.encabezado
+    params.encabezado,
+    params.loteId
   );
 
   const fontScaleBase = Math.min(1.3, Math.max(0.75, Number(params.bookletConfig?.fontScale ?? 1) || 1));

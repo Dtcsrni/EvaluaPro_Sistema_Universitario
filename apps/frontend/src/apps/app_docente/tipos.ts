@@ -26,8 +26,10 @@ export type Docente = {
   preferenciasPdf?: {
     institucion?: string;
     lema?: string;
+    paginasPorTipo?: { parcial: number; global: number; extraordinario: number };
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
+  retencionParcialesArchivadosMeses?: 3 | 6 | 12 | null;
 };
 
 export type Alumno = {

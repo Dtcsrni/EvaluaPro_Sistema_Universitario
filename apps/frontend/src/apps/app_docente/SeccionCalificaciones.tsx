@@ -19,6 +19,7 @@ import { GuiaCalificacionesVisual } from './GuiaCalificacionesVisual';
 import { ConsultaCalificaciones, type ResumenConsultaCalificaciones } from './ConsultaCalificaciones';
 import { SolicitudesRevisionPanel } from './SolicitudesRevisionPanel';
 import { ClassroomEnCalificaciones } from './ClassroomEnCalificaciones';
+import { ExtraordinariosCalificaciones } from './ExtraordinariosCalificaciones';
 import type {
   Alumno,
   ExamenGeneradoClave,
@@ -41,7 +42,7 @@ import {
   normalizarTemplateVersionOmrDetectada
 } from './utilidades';
 
-type VistaCalificaciones = 'resultados' | 'actas' | 'operacion' | 'classroom';
+type VistaCalificaciones = 'resultados' | 'extraordinarios' | 'actas' | 'operacion' | 'classroom';
 const RETRASO_LIBERACION_URL_DESCARGA_MS = 1000;
 
 export function SeccionCalificaciones({
@@ -425,6 +426,9 @@ export function SeccionCalificaciones({
       aciertos: number;
       totalReactivos: number;
       calificacionFinalSobre5: number;
+      calificacionEquivalenteSobre10Texto?: string;
+      estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
+      origen?: string;
     };
     claveCorrectaPorNumero: Record<number, string>;
     ordenPreguntas: number[];
@@ -795,6 +799,9 @@ export function SeccionCalificaciones({
             aciertos?: number;
             totalReactivos?: number;
             calificacionExamenFinalTexto?: string;
+            calificacionEquivalenteSobre10Texto?: string;
+            estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
+            origen?: string | null;
             paginasOmr?: Array<{ numeroPagina?: number; imagenBase64?: string }>;
           };
         }>(`/calificaciones/examen/${encodeURIComponent(id)}`)
@@ -921,7 +928,10 @@ export function SeccionCalificaciones({
         resumenPersistido: {
           aciertos: Number.isFinite(aciertosPersistidos) ? aciertosPersistidos : 0,
           totalReactivos: Number.isFinite(totalReactivosPersistidos) ? totalReactivosPersistidos : 0,
-          calificacionFinalSobre5: Number.isFinite(calificacionFinalPersistida) ? calificacionFinalPersistida : 0
+          calificacionFinalSobre5: Number.isFinite(calificacionFinalPersistida) ? calificacionFinalPersistida : 0,
+          calificacionEquivalenteSobre10Texto: calificacionPayload?.calificacion?.calificacionEquivalenteSobre10Texto,
+          estadoAprobatorio: calificacionPayload?.calificacion?.estadoAprobatorio,
+          origen: String(calificacionPayload?.calificacion?.origen ?? '').trim() || undefined
         },
         claveCorrectaPorNumero: clave.claveCorrectaPorNumero,
         ordenPreguntas: clave.ordenPreguntas,
@@ -1075,19 +1085,37 @@ export function SeccionCalificaciones({
           <span className="calificaciones-workspace-nav__index">01</span>
           <span><strong>Resultados</strong><small>Consulta por alumno</small></span>
         </button>
-        <button type="button" className={vistaCalificaciones === 'actas' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'actas'} onClick={() => setVistaCalificaciones('actas')}>
+        <button type="button" className={vistaCalificaciones === 'extraordinarios' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'extraordinarios'} onClick={() => setVistaCalificaciones('extraordinarios')}>
           <span className="calificaciones-workspace-nav__index">02</span>
+          <span><strong>Extraordinarios</strong><small>Solicitud · examen · resultado</small></span>
+        </button>
+        <button type="button" className={vistaCalificaciones === 'actas' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'actas'} onClick={() => setVistaCalificaciones('actas')}>
+          <span className="calificaciones-workspace-nav__index">03</span>
           <span><strong>Actas y exportación</strong><small>Prepara el resultado oficial</small></span>
         </button>
         <button type="button" className={vistaCalificaciones === 'operacion' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'operacion'} onClick={() => setVistaCalificaciones('operacion')}>
-          <span className="calificaciones-workspace-nav__index">03</span>
+          <span className="calificaciones-workspace-nav__index">04</span>
           <span><strong>Revisión y captura</strong><small>OMR, manual y aclaraciones</small></span>
         </button>
         <button type="button" className={vistaCalificaciones === 'classroom' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'classroom'} onClick={() => setVistaCalificaciones('classroom')}>
-          <span className="calificaciones-workspace-nav__index">04</span>
+          <span className="calificaciones-workspace-nav__index">05</span>
           <span><strong>Classroom</strong><small>Vínculos · cortes · consulta</small></span>
         </button>
       </nav>
+
+      {vistaCalificaciones === 'extraordinarios' && (
+        <ExtraordinariosCalificaciones
+          periodos={periodosConsulta}
+          periodoId={periodoReporteId}
+          onPeriodoChange={setPeriodoReporteId}
+          puedeCalificar={puedeCalificar}
+          puedeGenerar={permisos.examenes.generar && permisos.plantillas.previsualizar}
+          onAbrirRevision={(alumnoSeleccionadoId) => {
+            seleccionarAlumnoManual(alumnoSeleccionadoId);
+            setVistaCalificaciones('operacion');
+          }}
+        />
+      )}
 
       {vistaCalificaciones === 'resultados' && (
         <ConsultaCalificaciones

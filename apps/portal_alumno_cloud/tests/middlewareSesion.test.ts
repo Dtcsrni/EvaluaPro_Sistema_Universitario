@@ -11,7 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { requerirSesionAlumno, type SolicitudAlumno } from '../src/servicios/middlewareSesion';
 import { SesionAlumno } from '../src/modelos/modeloSesionAlumno';
 import { hashToken } from '../src/servicios/servicioSesion';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase';
 
 function crearApp() {
   const app = express();
@@ -25,15 +25,15 @@ describe('requerirSesionAlumno', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('rechaza cuando no hay token', async () => {

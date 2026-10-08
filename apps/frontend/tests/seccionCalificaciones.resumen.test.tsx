@@ -3,7 +3,7 @@
  *
  * Contrato de consulta rápida por alumno y tipo de examen.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ConsultaCalificaciones } from '../src/apps/app_docente/ConsultaCalificaciones';
@@ -20,6 +20,7 @@ vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
 
 describe('ConsultaCalificaciones', () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     obtenerMock.mockReset();
     enviarMock.mockReset().mockResolvedValue({ ok: true });
     obtenerMock.mockResolvedValue({
@@ -97,6 +98,167 @@ describe('ConsultaCalificaciones', () => {
     await user.click(screen.getByRole('button', { name: 'Abrir revisión manual' }));
     expect(onSeleccionarAlumno).toHaveBeenCalledWith('alumno-1');
     expect((clienteApi as { obtener: unknown }).obtener).toBeDefined();
+  });
+
+  it('muestra Extra solo con final reprobatoria y persiste la solicitud explícita del docente', async () => {
+    const user = userEvent.setup();
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '5.99', parcial2: '5.99', global: '5.99', final: '5.99', calificacionFinalCurso: '5.99',
+      calificacionFinalCursoActa: '5', extraDisponible: true, solicitaExtra: false, solicitudExtraVersion: null,
+      resultadosExtraordinarios: [{ examenGeneradoId: 'examen-1', loteId: 'lote-1', folio: 'folio-1', calificacionSobre5: '2.285714285714285714', calificacionSobre10: '4.57', estadoAprobatorio: 'No aprobatoria', origen: 'inferida manualmente' }],
+      bonoExtracurricular: '', observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] }).mockResolvedValue({ filas: [{ ...filaExtra, solicitaExtra: true, solicitudExtraVersion: 1 }] });
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    expect(screen.queryByText(/Calificación 2.29 \/ 5 · equivalente 4.57 \/ 10 · No aprobatoria/)).not.toBeInTheDocument();
+    const solicitud = screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' });
+    expect(solicitud).not.toBeChecked();
+    await user.click(solicitud);
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({
+      periodoId: 'periodo-1', alumnoId: 'alumno-1', componente: 'Solicitud Extra', calificacion: 1,
+      clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i)
+    })));
+    await waitFor(() => expect(screen.getByText(/Calificación 2.29 \/ 5 · equivalente 4.57 \/ 10 · No aprobatoria/)).toBeInTheDocument());
+    expect(screen.getByText(/Lote lote-1 · folio folio-1 · examen examen-1/)).toBeInTheDocument();
+  });
+
+  it('presenta un resultado externo sin inventar lote ni examen generado', async () => {
+    const user = userEvent.setup();
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '4', parcial2: '5', global: '5', final: '4.84', calificacionFinalCurso: '4.84',
+      calificacionFinalCursoActa: '4', extraDisponible: true, solicitaExtra: true, solicitudExtraVersion: 1,
+      resultadosExtraordinarios: [{
+        claseRegistro: 'externo', folio: '88DC8464', loteId: null, calificacionSobre5: '2.29', calificacionSobre10: '4.57',
+        estadoAprobatorio: 'No aprobatoria', origen: 'inferida manualmente', fuenteArchivo: 'extra-externo-prueba.pdf',
+        documentoSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      }],
+      observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] });
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    expect(screen.getByText('Resultado extraordinario · externo')).toBeInTheDocument();
+    expect(screen.getByText(/Lote sin verificar · folio 88DC8464 · archivo extra-externo-prueba.pdf/)).toBeInTheDocument();
+    expect(screen.getByText(/SHA-256: a{64}/)).toBeInTheDocument();
+    expect(screen.queryByText(/examen undefined/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Registrar resultado de examen Extra externo' })).not.toBeInTheDocument();
+  });
+
+  it('valida y registra la evidencia de un Extra externo con solicitud docente', async () => {
+    const user = userEvent.setup();
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '4', parcial2: '5', global: '5', final: '4.84', calificacionFinalCurso: '4.84',
+      calificacionFinalCursoActa: '4', extraDisponible: true, solicitaExtra: true, solicitudExtraVersion: 1,
+      resultadosExtraordinarios: [], observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    const resultadoExterno = {
+      claseRegistro: 'externo' as const, folio: '88DC8464', loteId: null, calificacionSobre5: '2.29', calificacionSobre10: '4.57',
+      estadoAprobatorio: 'No aprobatoria' as const, origen: 'inferida manualmente', fuenteArchivo: 'extra-externo.pdf',
+      documentoSha256: 'a'.repeat(64)
+    };
+    obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] }).mockResolvedValueOnce({
+      filas: [{ ...filaExtra, resultadosExtraordinarios: [resultadoExterno] }]
+    });
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Registrar resultado externo' }));
+    await waitFor(() => expect(screen.getAllByText(/Completa folio, archivo, SHA-256/)).toHaveLength(2));
+    expect(enviarMock).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText('Folio visible'), '88dc8464');
+    await user.type(screen.getByLabelText('Lote (opcional)'), 'lote-a');
+    vi.stubGlobal('crypto', {
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0xab).buffer) },
+      randomUUID: () => '01234567-89ab-cdef-0123-456789abcdef'
+    });
+    const archivo = new File(['%PDF-1.7 evidencia'], 'extra-externo.pdf', { type: 'application/pdf' });
+    Object.defineProperty(archivo, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7 evidencia').buffer });
+    fireEvent.change(screen.getByLabelText('PDF fuente local'), { target: { files: [archivo] } });
+    expect(await screen.findByText(`SHA-256 calculado en este dispositivo: ${'ab'.repeat(32)}`)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Aciertos'), '16');
+    await user.type(screen.getByLabelText('Reactivos evaluables'), '35');
+    await user.type(screen.getByLabelText('Criterios aplicados'), 'Se revisó cada reactivo contra la clave autorizada.');
+    await user.click(screen.getByRole('button', { name: 'Registrar resultado externo' }));
+
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/resultados-extra-externos', expect.objectContaining({
+      periodoId: 'periodo-1', alumnoId: 'alumno-1', solicitaExtra: true, folio: '88DC8464', loteId: 'LOTE-A',
+      fuenteArchivo: 'extra-externo.pdf', documentoSha256: 'ab'.repeat(32), aciertos: 16, totalReactivos: 35,
+      criteriosAplicados: 'Se revisó cada reactivo contra la clave autorizada.',
+      clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i)
+    })));
+    expect(await screen.findByText('Resultado extraordinario · externo')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Folio visible')).not.toBeInTheDocument();
+  });
+
+  it('recupera un resultado externo aunque falle la escritura después de persistir', async () => {
+    const user = userEvent.setup();
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '4', parcial2: '5', global: '5', final: '4.84', calificacionFinalCurso: '4.84',
+      extraDisponible: true, solicitaExtra: true, solicitudExtraVersion: 1, resultadosExtraordinarios: [], observaciones: '',
+      tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '', practica2doParcial: '',
+      practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '', examen2doParcialAutomatico: '',
+      examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '', examenGlobalLista: '',
+      examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    const resultado = {
+      claseRegistro: 'externo', folio: '88DC8464', loteId: null, calificacionSobre5: '2.29', calificacionSobre10: '4.57',
+      estadoAprobatorio: 'No aprobatoria', origen: 'manual', fuenteArchivo: 'extra.pdf', documentoSha256: 'a'.repeat(64)
+    };
+    obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] }).mockResolvedValueOnce({
+      filas: [{ ...filaExtra, resultadosExtraordinarios: [resultado] }]
+    });
+    enviarMock.mockRejectedValueOnce(new Error('respuesta perdida'));
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.type(screen.getByLabelText('Folio visible'), '88dc8464');
+    vi.stubGlobal('crypto', {
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0xab).buffer) },
+      randomUUID: () => '01234567-89ab-cdef-0123-456789abcdef'
+    });
+    const archivo = new File(['%PDF-1.7 evidencia'], 'extra.pdf', { type: 'application/pdf' });
+    Object.defineProperty(archivo, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7 evidencia').buffer });
+    fireEvent.change(screen.getByLabelText('PDF fuente local'), { target: { files: [archivo] } });
+    expect(await screen.findByText(`SHA-256 calculado en este dispositivo: ${'ab'.repeat(32)}`)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Aciertos'), '16');
+    await user.type(screen.getByLabelText('Reactivos evaluables'), '35');
+    await user.type(screen.getByLabelText('Criterios aplicados'), 'Revisado contra la clave oficial de la materia.');
+    await user.click(screen.getByRole('button', { name: 'Registrar resultado externo' }));
+
+    expect(await screen.findByText('Resultado extraordinario · externo')).toBeInTheDocument();
+    expect(screen.queryByText('respuesta perdida')).not.toBeInTheDocument();
+    expect(enviarMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('recupera una solicitud de Extra confirmada aunque falle la respuesta de guardado', async () => {
+    const user = userEvent.setup();
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '5', parcial2: '5', global: '5', final: '5', calificacionFinalCurso: '5', extraDisponible: true,
+      solicitaExtra: false, solicitudExtraVersion: null, resultadosExtraordinarios: [], observaciones: ''
+    };
+    enviarMock.mockRejectedValueOnce(new Error('Timeout'));
+    obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] }).mockResolvedValueOnce({
+      filas: [{ ...filaExtra, solicitaExtra: true, solicitudExtraVersion: 1 }]
+    });
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Solicitud registrada por el docente'));
+    expect(screen.queryByText('Timeout')).not.toBeInTheDocument();
   });
 
   it('permite consultar y actualizar materias archivadas sin reactivarlas', async () => {
@@ -345,5 +507,81 @@ describe('ConsultaCalificaciones', () => {
     const escrituras = enviarMock.mock.calls.filter(([ruta]) => ruta === '/analiticas/lista-academica/calificaciones');
     expect(escrituras).toHaveLength(2);
     expect(escrituras[0][1].clientRequestId).toBe(escrituras[1][1].clientRequestId);
+  });
+
+  it('muestra errores al guardar una solicitud Extra y al registrar un PDF externo', async () => {
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '5', parcial2: '5.5', global: '5.5', final: '5.3', calificacionFinalCurso: '5.3',
+      calificacionFinalCursoActa: '5', extraDisponible: true, solicitaExtra: false, solicitudExtraVersion: null,
+      resultadosExtraordinarios: [], observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    obtenerMock.mockResolvedValue({ filas: [filaExtra] });
+    enviarMock.mockRejectedValueOnce(new Error('Solicitud rechazada'));
+    const user = userEvent.setup();
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' }));
+    expect(await screen.findAllByText('Solicitud rechazada')).not.toHaveLength(0);
+    expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({ componente: 'Solicitud Extra', calificacion: 1 }));
+  });
+
+  it('valida el PDF local externo y presenta el error del registro conservando datos para corregir', async () => {
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '5', parcial2: '5.5', global: '5.5', final: '5.3', calificacionFinalCurso: '5.3',
+      calificacionFinalCursoActa: '5', extraDisponible: true, solicitaExtra: true, solicitudExtraVersion: 1,
+      resultadosExtraordinarios: [], observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    obtenerMock.mockResolvedValue({ filas: [filaExtra] });
+    enviarMock.mockRejectedValueOnce(new Error('No se pudo registrar resultado'));
+    vi.stubGlobal('crypto', {
+      randomUUID: () => '123e4567-e89b-42d3-a456-426614174000',
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0x0b).buffer) }
+    });
+    const user = userEvent.setup();
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    const grupo = screen.getByRole('group', { name: 'Registrar resultado de examen Extra externo' });
+    const archivoInput = within(grupo).getByLabelText('PDF fuente local');
+    const txt = new File(['texto'], 'examen.txt', { type: 'text/plain' });
+    fireEvent.change(archivoInput, { target: { files: [txt] } });
+    expect(await screen.findAllByText(/Selecciona un archivo PDF válido y no vacío/)).not.toHaveLength(0);
+
+    vi.stubGlobal('crypto', { randomUUID: () => '123e4567-e89b-42d3-a456-426614174000' });
+    const pdfSeguro = new File(['%PDF-1.7'], 'anwar.pdf', { type: 'application/pdf' });
+    Object.defineProperty(pdfSeguro, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7').buffer });
+    fireEvent.change(archivoInput, { target: { files: [pdfSeguro] } });
+    expect(await screen.findAllByText(/no permite calcular SHA-256 localmente/)).not.toHaveLength(0);
+
+    vi.stubGlobal('crypto', {
+      randomUUID: () => '123e4567-e89b-42d3-a456-426614174000',
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0x0b).buffer) }
+    });
+    const firmaInvalida = new File(['otro texto'], 'anwar.pdf', { type: 'application/pdf' });
+    Object.defineProperty(firmaInvalida, 'arrayBuffer', { value: async () => new TextEncoder().encode('texto').buffer });
+    fireEvent.change(archivoInput, { target: { files: [firmaInvalida] } });
+    expect(await screen.findAllByText('El contenido seleccionado no tiene firma PDF.')).not.toHaveLength(0);
+
+    const pdfValido = new File(['%PDF-1.7'], 'anwar.pdf', { type: 'application/pdf' });
+    Object.defineProperty(pdfValido, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7').buffer });
+    fireEvent.change(archivoInput, { target: { files: [pdfValido] } });
+    expect(await screen.findByText('SHA-256 calculado en este dispositivo: ' + '0b'.repeat(32))).toBeInTheDocument();
+
+    await user.type(within(grupo).getByLabelText('Folio visible'), 'FOLIO-EXTRA');
+    await user.type(within(grupo).getByLabelText('Aciertos'), '7');
+    await user.type(within(grupo).getByLabelText('Reactivos evaluables'), '10');
+    await user.type(within(grupo).getByLabelText('Criterios aplicados'), 'Revisión manual con rúbrica');
+    await user.click(within(grupo).getByRole('button', { name: 'Registrar resultado externo' }));
+    expect(await screen.findAllByText('No se pudo registrar resultado')).not.toHaveLength(0);
+    expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/resultados-extra-externos', expect.objectContaining({
+      folio: 'FOLIO-EXTRA', fuenteArchivo: 'anwar.pdf', documentoSha256: '0b'.repeat(32), aciertos: 7, totalReactivos: 10
+    }));
   });
 });

@@ -10,23 +10,33 @@ import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloEx
 import { BancoPregunta } from '../../src/modulos/modulo_banco_preguntas/modeloBancoPregunta.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('plantillas CRUD + previsualizacion', () => {
   const app = crearApp();
   const TOTAL_PREGUNTAS_TEST = 8;
   const TEST_TIMEOUT_PLANTILLAS_MS = 90_000;
+  const preguntasFixture = [
+    { enunciado: '¿Qué medida se obtiene al sumar todos los datos y dividirlos entre la cantidad de observaciones?', opciones: ['Media aritmética', 'Mediana', 'Moda', 'Rango', 'Varianza'] },
+    { enunciado: 'En una lista ordenada con cantidad impar de datos, ¿qué valor corresponde a la mediana?', opciones: ['El valor central', 'La suma de los datos', 'El valor más frecuente', 'La diferencia entre extremos', 'El promedio de los extremos'] },
+    { enunciado: '¿Qué representa la moda de un conjunto de mediciones?', opciones: ['El valor que más se repite', 'El valor central', 'La suma de los datos', 'La diferencia entre extremos', 'La raíz de la varianza'] },
+    { enunciado: '¿Cómo se calcula el rango de un conjunto de datos?', opciones: ['Restando el mínimo al máximo', 'Sumando todos los datos', 'Dividiendo la suma entre la cantidad', 'Contando el valor más frecuente', 'Eligiendo el valor central'] },
+    { enunciado: 'De 24 observaciones, 6 pertenecen a la misma categoría. ¿Qué porcentaje representan?', opciones: ['25%', '6%', '18%', '40%', '75%'] },
+    { enunciado: '¿Cuál es la mediana del conjunto ordenado 2, 5, 7, 9, 12?', opciones: ['7', '5', '9', '12', '2'] },
+    { enunciado: 'Si la media de cinco datos es 8, ¿cuál es la suma de esos datos?', opciones: ['40', '13', '8', '5', '3'] },
+    { enunciado: '¿Qué tipo de gráfica permite comparar frecuencias entre categorías discretas?', opciones: ['Gráfica de barras', 'Histograma continuo', 'Diagrama de dispersión', 'Diagrama de caja', 'Curva acumulada'] }
+  ];
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function registrarDocente(correo = 'docente@prueba.test') {
@@ -56,16 +66,16 @@ describe('plantillas CRUD + previsualizacion', () => {
       source: { kind: 'manual', generator: 'plantillasCrudYPreview.test', generatedAt: new Date().toISOString() },
       items: Array.from({ length: params.total }, (_, index) => {
         const numero = index + 1;
-        const sufijo = params.tema ? ` ${numero}` : '';
+        const pregunta = preguntasFixture[index % preguntasFixture.length]!;
         return {
           externalKey: `plantilla-${params.periodoId}-${numero}`,
           itemId: null,
           expectedVersion: null,
           format: 'omr.mcq5',
-          stem: { format: 'richtext', value: `Pregunta ${numero}` },
-          options: ['A', 'B', 'C', 'D', 'E'].map((key, optionIndex) => ({
-            key,
-            value: `Opcion ${key}${sufijo}`,
+          stem: { format: 'richtext', value: pregunta.enunciado },
+          options: pregunta.opciones.map((value, optionIndex) => ({
+            key: String.fromCharCode(65 + optionIndex),
+            value,
             isCorrect: optionIndex === 0
           })),
           metadata: { difficultyHypothesis: 'medium' },
@@ -421,14 +431,14 @@ describe('plantillas CRUD + previsualizacion', () => {
         versiones: {
           create: {
             numeroVersion: 2,
-            enunciado: 'Pregunta 1 actualizada para invalidar preview',
+            enunciado: '¿Qué medida estadística se obtiene al sumar los datos y dividir entre su cantidad?',
             opciones: {
               create: [
-                { texto: 'Opcion A', esCorrecta: true },
-                { texto: 'Opcion B', esCorrecta: false },
-                { texto: 'Opcion C', esCorrecta: false },
-                { texto: 'Opcion D', esCorrecta: false },
-                { texto: 'Opcion E', esCorrecta: false }
+                { texto: 'Media aritmética', esCorrecta: true },
+                { texto: 'Mediana', esCorrecta: false },
+                { texto: 'Moda', esCorrecta: false },
+                { texto: 'Rango', esCorrecta: false },
+                { texto: 'Varianza', esCorrecta: false }
               ]
             }
           }

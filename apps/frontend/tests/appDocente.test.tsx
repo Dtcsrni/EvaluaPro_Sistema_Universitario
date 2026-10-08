@@ -221,4 +221,44 @@ describe('AppDocente', () => {
 
     expect(await screen.findByRole('navigation', { name: 'Secciones del portal docente' })).toBeInTheDocument();
   });
+
+  it('registra perfil_rechazado y muestra toast cuando falla validar la sesión emitida', async () => {
+    localStorage.removeItem('tokenDocente');
+    const flowId = '123e4567-e89b-42d3-a456-426614174000';
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(flowId);
+    const eventosToast: Array<{ detail?: Record<string, unknown> }> = [];
+    const escucharToast = (event: Event) => eventosToast.push(event as CustomEvent<Record<string, unknown>>);
+    window.addEventListener('app:toast', escucharToast);
+    const fetchMock = vi.mocked(global.fetch);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const json = (payload: unknown, ok = true, status = 200) => ({ ok, status, json: async () => payload, blob: async () => new Blob() });
+      if (url.includes('/autenticacion/ingresar')) return json({ token: 'token-profile-fail' });
+      if (url.includes('/autenticacion/perfil')) return json({ mensaje: 'perfil no disponible' }, false, 400);
+      if (url.includes('/autenticacion/capacidades-integraciones')) return json({ capacidadesIntegraciones: { passwordLoginAllowed: true } });
+      if (url.includes('/salud')) return json({ tiempoActivo: 1 });
+      return json({});
+    });
+    try {
+      const user = userEvent.setup();
+      render(<TemaProvider><AppDocente /></TemaProvider>);
+      await user.type(await screen.findByLabelText('Correo'), 'docente@evaluapro.test');
+      await user.type(screen.getByLabelText(/Contrase[nñ]a/i), '12345678');
+      const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
+      await user.click(botonesIngresar[botonesIngresar.length - 1]);
+
+      await waitFor(() => {
+        const eventos = JSON.parse(localStorage.getItem('evaluapro.auth.trace.v1') || '[]');
+        expect(eventos).toEqual(expect.arrayContaining([expect.objectContaining({
+          flowId, canal: 'sesion', etapa: 'perfil_rechazado', resultado: 'error', codigo: 'PROFILE_VALIDATION_FAILED'
+        })]));
+      });
+      expect(localStorage.getItem('tokenDocente')).toBe('token-profile-fail');
+      expect(eventosToast).toEqual(expect.arrayContaining([expect.objectContaining({
+        detail: expect.objectContaining({ title: 'Sesion no validada', message: 'La sesión se guardó, pero no se pudo validar el perfil con la API.' })
+      })]));
+    } finally {
+      window.removeEventListener('app:toast', escucharToast);
+    }
+  });
 });

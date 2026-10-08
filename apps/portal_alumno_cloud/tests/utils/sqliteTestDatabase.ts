@@ -1,8 +1,5 @@
 /**
- * mongo
- *
- * Responsabilidad: SQLite temporal real para pruebas del portal.
- * Redirige las llamadas heredadas de MongoDB/Mongoose a SQLite/Prisma Client con aislamiento por worker de Vitest.
+ * SQLite temporal real para pruebas del portal con aislamiento por worker de Vitest.
  */
 import { execSync } from 'node:child_process';
 import path from 'node:path';
@@ -24,7 +21,7 @@ process.env.PORTAL_DATABASE_URL = `file:${dbPath}`;
 
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
 
-export async function conectarMongoTest() {
+export async function conectarSqliteTest() {
   if (!testOwnsDataDir) throw new Error('La base de pruebas del portal debe estar en un directorio temporal exclusivo del proceso.');
   process.env.DATABASE_URL = `file:${dbPath}`;
   process.env.PORTAL_DATABASE_URL = `file:${dbPath}`;
@@ -66,7 +63,7 @@ export async function conectarMongoTest() {
   await prisma.$connect();
 }
 
-export async function limpiarMongoTest() {
+export async function limpiarSqliteTest() {
   if (!testOwnsDataDir) throw new Error('No se limpiará una base de datos del portal fuera del directorio temporal propio.');
   await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
   try {
@@ -100,7 +97,7 @@ export async function limpiarMongoTest() {
   await prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;');
 }
 
-export async function cerrarMongoTest() {
+export async function cerrarSqliteTest() {
   await prisma.$disconnect();
   // Limpieza del archivo de base de datos del test
   if (testOwnsDataDir && fs.existsSync(dbPath)) {

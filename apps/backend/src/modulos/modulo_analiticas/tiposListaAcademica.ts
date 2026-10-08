@@ -33,6 +33,22 @@ export type ListaAcademicaFila = {
   bonoExtracurricularVersion: number | null;
   bonoDistribucion?: AsignacionBonoExtracurricular;
   calificacionFinalCurso: string;
+  calificacionFinalCursoActa: string;
+  extraDisponible: boolean;
+  solicitaExtra: boolean;
+  solicitudExtraVersion: number | null;
+  resultadosExtraordinarios: Array<{
+    claseRegistro: 'interno' | 'externo';
+    examenGeneradoId?: string;
+    loteId?: string | null;
+    folio: string;
+    calificacionSobre5: string;
+    calificacionSobre10: string;
+    estadoAprobatorio: 'Aprobatoria' | 'No aprobatoria';
+    origen: string;
+    fuenteArchivo?: string;
+    documentoSha256?: string;
+  }>;
   practica2doParcialVersion: number | null;
   examen2doParcialVersion: number | null;
   global: string;

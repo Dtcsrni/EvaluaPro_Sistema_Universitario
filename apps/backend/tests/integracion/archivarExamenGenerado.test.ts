@@ -7,22 +7,22 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, it, expect } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('archivar examen generado', () => {
   const preguntasPorEscenario = 20;
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function registrarDocente() {
@@ -62,10 +62,10 @@ describe('archivar examen generado', () => {
         itemId: null,
         expectedVersion: null,
         format: 'omr.mcq5',
-        stem: { format: 'richtext', value: `Pregunta ${index + 1}` },
-        options: ['A', 'B', 'C', 'D', 'E'].map((key, optionIndex) => ({
-          key,
-          value: `Opcion ${key}`,
+        stem: { format: 'richtext', value: `¿Qué práctica es adecuada para diseñar la arquitectura del sistema ${index + 1}?` },
+        options: ['Separar responsabilidades por módulos', 'Guardar contraseñas en texto plano', 'Duplicar toda la lógica en cada pantalla', 'Permitir acceso sin autorización', 'Ignorar los errores de persistencia'].map((value, optionIndex) => ({
+          key: String.fromCharCode(65 + optionIndex),
+          value,
           isCorrect: optionIndex === 0
         })),
         metadata: { difficultyHypothesis: 'medium' },

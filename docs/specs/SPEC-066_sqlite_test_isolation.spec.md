@@ -30,6 +30,6 @@ Las pruebas de integración crean y limpian datos de SQLite. El preparador no de
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001 | Aislamiento de SQLite temporal | `apps/backend/tests/integracion/listasInstitucionales.test.ts` | Pendiente de validación |
-| REQ-002 | Rechazo de directorio ajeno | `apps/backend/tests/utils/mongo.ts` | Pendiente de validación |
-| REQ-003 | Prisma sin aceptación de pérdida de datos | `apps/backend/tests/utils/mongo.ts` | Pendiente de validación |
-| REQ-004 | Aislamiento y protección de base temporal del portal | `apps/portal_alumno_cloud/tests/utils/mongo.ts` | Pendiente de validación |
+| REQ-002 | Rechazo de directorio ajeno | `apps/backend/tests/utils/sqliteTestDatabase.ts` | Pendiente de validación |
+| REQ-003 | Prisma sin aceptación de pérdida de datos | `apps/backend/tests/utils/sqliteTestDatabase.ts` | Pendiente de validación |
+| REQ-004 | Aislamiento y protección de base temporal del portal | `apps/portal_alumno_cloud/tests/utils/sqliteTestDatabase.ts` | Pendiente de validación |

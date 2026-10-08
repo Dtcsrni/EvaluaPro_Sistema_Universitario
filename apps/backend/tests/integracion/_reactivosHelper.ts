@@ -8,7 +8,18 @@ export async function crearPreguntasPublicadas(params: {
   periodoId: string;
   externalPrefix: string;
   preguntas: string[];
+  opciones?: string[];
 }) {
+  const opciones = params.opciones ?? [
+    'Registrar el cambio y sus relaciones dentro de una transacción',
+    'Guardar cada registro por separado sin comprobar errores',
+    'Eliminar los datos previos antes de validar la solicitud',
+    'Confiar en que el cliente reintentará cualquier operación fallida',
+    'Desactivar las restricciones para acelerar el guardado'
+  ];
+  if (opciones.length !== 5 || opciones.some((opcion) => !opcion.trim())) {
+    throw new Error('Las fixtures de reactivos requieren cinco opciones sustantivas.');
+  }
   const loteId = randomUUID();
   const temaResp = await request(params.app)
     .post('/api/banco-preguntas/temas')
@@ -30,7 +41,7 @@ export async function crearPreguntasPublicadas(params: {
       stem: { format: 'richtext', value: enunciado },
       options: ['A', 'B', 'C', 'D', 'E'].map((key, optionIndex) => ({
         key,
-        value: `Opción ${key}`,
+        value: opciones[optionIndex],
         isCorrect: optionIndex === 0
       })),
       metadata: { difficultyHypothesis: 'medium' },

@@ -47,6 +47,9 @@ Docker, WSL, credenciales o integraciones.
 ## Flujo de exámenes
 
 - Para tareas que abarquen diseño y generación, usar `.agents/skills/evaluapro-exam-workflow/SKILL.md` como router.
+- Para abrir la UI local o iniciar sesión mediante navegador, usar `.agents/skills/evaluapro-local-session-readiness/SKILL.md` y verificar salud de API/UI antes de abrir o recargar.
+- Para consultar historial, folios, lotes o confirmar existencia/estado de un examen, usar `.agents/skills/evaluapro-exam-query/SKILL.md`.
+- Para revisar hojas contestadas o calcular/persistir una calificación OMR, usar `.agents/skills/evaluapro-exam-grading/SKILL.md` junto con el contrato API y las guardas de autorización de este archivo.
 - Cargar la skill de etapa pertinente: `evaluapro-topic-blueprint` para evidencia/temas; `evaluapro-reactivo-review` para autoría, importación y revisión; `evaluapro-exam-batch-qa` para plantilla, lote, recuperación y verificación imprimible.
 - Las skills orientan el proceso, pero no amplían la solicitud ni sustituyen contratos, permisos, specs aprobadas o evidencia observada.
 

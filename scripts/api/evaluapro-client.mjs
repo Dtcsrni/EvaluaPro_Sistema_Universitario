@@ -1084,6 +1084,32 @@ export class EvaluaproClient {
     return this.guardarCalificacionLista(payload, { confirmarEscritura });
   }
 
+  async registrarSolicitudExtraordinario(payload, { confirmarEscritura = false } = {}) {
+    if (!confirmarEscritura) throw new Error('Registrar una solicitud de Extra requiere confirmarEscritura: true y autorización docente');
+    if (payload?.componente !== 'Solicitud Extra' || ![0, 1].includes(payload?.calificacion)) {
+      throw new TypeError('La solicitud de Extra debe usar componente "Solicitud Extra" y calificación 0 o 1');
+    }
+    return this.guardarCalificacionLista(payload, { confirmarEscritura });
+  }
+
+  async registrarResultadoExtraExterno(payload, { confirmarEscritura = false } = {}) {
+    if (!confirmarEscritura) throw new Error('Registrar una calificación Extra externa requiere confirmarEscritura: true y autorización docente');
+    if (payload?.solicitaExtra !== true) throw new TypeError('La solicitud Extra debe estar confirmada por el docente');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(payload?.clientRequestId ?? ''))) {
+      throw new TypeError('clientRequestId UUID estable es obligatorio para registrar o recuperar un resultado externo');
+    }
+    if (!Number.isInteger(payload?.aciertos) || !Number.isInteger(payload?.totalReactivos)
+      || payload.aciertos < 0 || payload.totalReactivos < 1 || payload.aciertos > payload.totalReactivos) {
+      throw new RangeError('El resultado externo requiere aciertos entre cero y los reactivos evaluables');
+    }
+    if (!/^[a-f0-9]{64}$/i.test(String(payload?.documentoSha256 ?? ''))) {
+      throw new TypeError('documentoSha256 debe ser una huella SHA-256 hexadecimal');
+    }
+    return (await this.request('/analiticas/lista-academica/resultados-extra-externos', {
+      method: 'POST', body: payload
+    })).data;
+  }
+
   async guardarCalificacionLista(payload, { confirmarEscritura = false } = {}) {
     if (!confirmarEscritura) throw new Error('Guardar una calificación manual requiere confirmarEscritura: true y autorización docente');
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(payload?.clientRequestId ?? ''))) {
@@ -1100,7 +1126,8 @@ export class EvaluaproClient {
       ['Practica 2do Parcial', 10],
       ['Exámen 2do Parcial', 5.25],
       ['Exámen Global', 5],
-      ['Bono extracurricular', 1]
+      ['Bono extracurricular', 1],
+      ['Solicitud Extra', 1]
     ]);
     const maximo = maximosPorComponente.get(payload?.componente);
     if (maximo === undefined) {

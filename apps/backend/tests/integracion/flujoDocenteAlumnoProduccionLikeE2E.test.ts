@@ -10,12 +10,12 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import {
-  cerrarMongoTest as cerrarMongoPortalTest,
-  conectarMongoTest as conectarMongoPortalTest,
-  limpiarMongoTest as limpiarMongoPortalTest
-} from '../../../portal_alumno_cloud/tests/utils/mongo.js';
+  cerrarSqliteTest as cerrarSqlitePortalTest,
+  conectarSqliteTest as conectarSqlitePortalTest,
+  limpiarSqliteTest as limpiarSqlitePortalTest
+} from '../../../portal_alumno_cloud/tests/utils/sqliteTestDatabase.js';
 import { prepararEscenarioFlujo } from './_flujoDocenteHelper.js';
 
 type AppFactory = () => import('express').Express;
@@ -39,8 +39,8 @@ describe('flujo docente->portal->alumno (prod-like)', () => {
   let portalUrl = '';
 
   beforeAll(async () => {
-    await conectarMongoTest();
-    await conectarMongoPortalTest();
+    await conectarSqliteTest();
+    await conectarSqlitePortalTest();
     process.env.PORTAL_API_KEY = 'TEST_PORTAL_KEY';
     vi.resetModules();
     ({ crearApp: crearAppPortal } = await import('../../../portal_alumno_cloud/src/app.js'));
@@ -59,8 +59,8 @@ describe('flujo docente->portal->alumno (prod-like)', () => {
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
-    await limpiarMongoPortalTest();
+    await limpiarSqliteTest();
+    await limpiarSqlitePortalTest();
   });
 
   afterAll(async () => {
@@ -68,8 +68,8 @@ describe('flujo docente->portal->alumno (prod-like)', () => {
       await new Promise<void>((resolve, reject) => portalServer?.close((error) => (error ? reject(error) : resolve())));
       portalServer = null;
     }
-    await cerrarMongoTest();
-    await cerrarMongoPortalTest();
+    await cerrarSqliteTest();
+    await cerrarSqlitePortalTest();
   });
 
   it('encadena flujo parcial/global y valida trazabilidad + metricas', async () => {

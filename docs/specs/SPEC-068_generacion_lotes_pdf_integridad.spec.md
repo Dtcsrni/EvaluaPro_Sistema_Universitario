@@ -1,8 +1,8 @@
 ---
 id: SPEC-068
 titulo: Integridad y recuperación de lotes de exámenes PDF
-version: 1.1.0
-fecha: 2026-09-27
+version: 1.1.1
+fecha: 2026-10-06
 autor: Erick Vega / Codex
 modulo: modulo_generacion_pdf
 estado: approved
@@ -15,10 +15,10 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 ## Requisitos Funcionales
 
 - REQ-001: Validar cada PDF individual antes de publicarlo: no exceder el máximo de páginas de plantilla, usar tamaño Carta en todas las páginas, contener todos los reactivos y mantener congruencia de folio/QR/mapa OMR. Todos los ejemplares del lote deben tener el mismo número real de páginas.
-- REQ-002: Validar el consolidado antes de exponer la descarga: total de páginas igual a estudiantes por páginas reales uniformes por examen, no mayores al máximo configurado, orden estable y Carta en todas las páginas. Persistir nombre, hash SHA-256 y conteos del archivo; rechazar una descarga si bytes, páginas o total de exámenes difieren del registro.
+- REQ-002: Validar el consolidado antes de exponer la descarga: total de páginas igual a estudiantes por páginas reales uniformes por examen y dentro del máximo configurado al generar, orden estable y Carta en todas las páginas. Persistir nombre, hash SHA-256 y conteos del archivo. La descarga histórica se valida contra esos conteos y huella persistidos (o los mapas de página del lote legado), nunca contra una preferencia que pudo cambiar después; rechazar bytes, páginas o total de exámenes divergentes del registro.
 - REQ-003: Congelar para el lote el fingerprint de banco/plantilla y el layout validado; usar una misma escala tipográfica para todos los ejemplares. Rechazar antes de publicar si una variante desborda, omite reactivos o incumple el mínimo de legibilidad definido por la plantilla aprobada.
 - REQ-004: Renderizar la identidad del alumno como primer nombre completo seguido de guion bajo e iniciales restantes, en cursiva menor, fuera del campo manuscrito «Nombre del alumno». No imprimir una etiqueta «Iniciales».
-- REQ-005: Preservar la reserva de engrapado y la geometría OMR; la zona y la etiqueta «GRAPA» se orientan verticalmente, y texto, QR, fiduciales y burbujas no pueden invadir las zonas protegidas.
+- REQ-005: Preservar la reserva de engrapado y la geometría OMR; la zona y la etiqueta «GRAPA» se orientan verticalmente, y texto, QR, fiduciales y burbujas no pueden invadir las zonas protegidas. En páginas interiores, el despeje se aplica aunque la distribución de preguntas no use una cantidad objetivo de páginas.
 - REQ-006: Mantener estado persistente de lote y transición explícita `iniciando -> generando -> validando -> completado` o `fallido`. Un lote no ofrece descarga hasta `completado`.
 - REQ-007: Una falla recuperable debe permitir reanudar el mismo lote sin duplicar alumnos, folios ni manifiestos. Una falla en persistencia del artefacto debe dejar los exámenes en estado fallido y sin habilitar descarga; al corregirse la condición, el mismo ID reanuda el lote idempotentemente.
 - REQ-008: La UI sólo marca completo si coincide la cantidad de alumnos/exámenes, el total de páginas y el SHA-256; retiene el mismo ID para reintentar y permite descargar sólo el paquete validado.
@@ -31,6 +31,7 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 - En una prueba de lote con dos alumnos y máximo de cuatro páginas, los dos exámenes conservan el mismo número real de páginas Carta (sin exceder cuatro) y el consolidado coincide exactamente con su suma; cualquier valor divergente bloquea la descarga. La validación unitaria también cubre exceder el máximo y geometría/tamaño incorrectos.
 - Las páginas contienen exactamente el conjunto esperado de reactivos, sin huecos ni duplicados, y cada QR corresponde al folio del examen y al ordinal de página.
 - La validación ocurre antes de declarar completo/publicable el lote; el hash del archivo servido coincide con el hash persistido.
+- Cambiar la preferencia de páginas del docente después de archivar un lote extraordinario no invalida su descarga si el PDF conserva los conteos y la huella persistidos.
 - Inyectar una falla al persistir el registro del artefacto y alterar un PDF válido de igual número de páginas no produce duplicados ni habilita descargas inválidas; reanudar conserva alumno-folio y termina con un paquete íntegro.
 - Un lote con textos largos conserva escala tipográfica uniforme, no invade campos manuscritos ni reserva de engrapado y no degrada el mapa OMR.
 - La etiqueta «GRAPA» es vertical, queda dentro de su reserva con margen, y la zona conserva separación mínima de la quiet zone del fiducial superior izquierdo.
@@ -44,7 +45,7 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 | REQ-002 | Conteo y orden del PDF consolidado, hash persistido y descarga | `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts`; `scripts/tests/migrate-examen-lote-artefactos-pdf-sqlite.test.mjs` | Validado |
 | REQ-003 | Layout de variantes y densidad validada | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Validado |
 | REQ-004 | Formato de identidad del alumno | `apps/backend/tests/inicialesAlumno.test.ts` | Validado |
-| REQ-005 | Reserva de engrapado y colisiones OMR | `apps/backend/tests/pdf.ink-sparing-staple.test.ts` | Validado |
+| REQ-005 | Reserva de engrapado y colisiones OMR, con y sin distribución por páginas objetivo | `apps/backend/tests/pdf.ink-sparing-staple.test.ts`; `apps/backend/tests/pdf.extraordinario.dosHojas.test.ts` | Validación focal pendiente |
 | REQ-006 | Estados visibles y descarga sólo al completar | `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` | Validado |
 | REQ-007 | Fallo en persistencia, recuperación idempotente y sin duplicados | `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` | Validado |
 | REQ-008 | Retención del ID y validación de resumen en UI | `apps/frontend/tests/plantillas.loteSesion.test.ts` | Validado |

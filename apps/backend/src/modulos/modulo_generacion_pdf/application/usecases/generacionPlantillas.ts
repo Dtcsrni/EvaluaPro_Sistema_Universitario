@@ -16,6 +16,7 @@ import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
 import { generarVariante } from '../../servicioVariantes.js';
 import { construirRecoveryBundle, construirRecoveryManifest, verificarRecoveryManifest } from '../../domain/recoveryManifest.js';
 import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
+import { obtenerPreviewArchivadoValidado } from '../../domain/previewArchivado.js';
 import { extraerPreguntasUsadasMapaOmr, resolverOmrTemplateId } from '../../domain/templateCanonico.js';
 import { validarPdfConsolidadoLote, validarPdfIndividualLote } from '../../domain/validacionLotePdf.js';
 import {
@@ -28,15 +29,19 @@ import {
   construirNombrePdfExamen,
   construirNombrePdfLote,
   esEntornoTest,
+  excluirReferenciasTecnologiaRetirada,
   mapearPreguntasBase,
   normalizarLoteId,
   obtenerPlantillaDocente,
   ordenarPreguntasAleatorio,
   resolverDocentePdf,
+  resolverPaginasObjetivoPreferidas,
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
   resolverTemplateVersionOmr
 } from '../../shared/controladorGeneracionPdfShared.js';
+
+const INSTRUCCIONES_OMR_EXTRAORDINARIO = 'Lee cada pregunta y marca una sola opción rellenando por completo el círculo correspondiente. Si cambias tu respuesta, borra la marca anterior antes de seleccionar otra.';
 
 function parsearJsonPersistido<T>(valor: unknown): T | undefined {
   if (typeof valor !== 'string') return valor as T | undefined;
@@ -144,11 +149,14 @@ async function generarExamenUseCaseInterno(params: {
 
   const periodo = await resolverPeriodoPlantillaActivo(plantilla as { periodoId?: unknown });
   const docenteDb = await resolverDocentePdf(docId);
-  const { preguntasDb, temas } = await resolverPreguntasPlantilla({
+  const preguntasResueltas = await resolverPreguntasPlantilla({
     docenteId: docId,
     plantilla: plantilla as any,
     usarBlueprint: true
   });
+  let preguntasDb = preguntasResueltas.preguntasDb;
+  const { temas } = preguntasResueltas;
+  preguntasDb = excluirReferenciasTecnologiaRetirada(periodo?.nombre, preguntasDb).preguntasDb;
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
@@ -177,6 +185,7 @@ async function generarExamenUseCaseInterno(params: {
   const resultadoPdf = await generarPdfExamen({
     titulo: plantilla.titulo,
     folio,
+    loteId,
     examId: examenGeneradoId,
     preguntas: preguntasCandidatas,
     mapaVariante,
@@ -312,7 +321,7 @@ async function generarExamenUseCaseInterno(params: {
     preguntasIds = mvUsada.ordenPreguntas;
   }
 
-  // Convert to Mongoose-like output structure to preserve API compatibility
+  // Preserve the legacy API response shape for existing clients.
   const examenGenerado = {
     ...raw,
     _id: raw.id,
@@ -398,6 +407,13 @@ async function generarExamenesLoteUseCaseInterno(params: {
   if (!esExtraordinarioArchivado && periodo?.activo === false) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'Una materia archivada solo admite extraordinarios con su plantilla archivada.', 409);
   }
+  const previewArchivado = esExtraordinarioArchivado
+    ? obtenerPreviewArchivadoValidado({
+      docenteId: docId,
+      periodoId: String(plantilla.periodoId),
+      plantillaId: String(plantilla.id)
+    })
+    : undefined;
   const docenteDb = await resolverDocentePdf(docId);
   const idsExtraordinario = tipoExamen === 'extraordinario' ? new Set(params.alumnoIds ?? []) : null;
   let alumnos: Array<{ id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }>;
@@ -440,9 +456,26 @@ async function generarExamenesLoteUseCaseInterno(params: {
     );
   }
 
-  const { preguntasDb, temas } = await resolverPreguntasPlantilla({
+  if (esExtraordinarioArchivado && !previewArchivado) {
+    throw new ErrorAplicacion(
+      'PLANTILLA_NO_VALIDADA',
+      'Previsualiza el extraordinario y confirma el diseño antes de generar. La vista previa vence a los 10 minutos o al reiniciar el proceso.',
+      409,
+      { plantillaId: plantilla.id }
+    );
+  }
+  const plantillaParaGeneracion = previewArchivado
+    ? {
+      ...plantilla,
+      blueprintJson: previewArchivado.blueprintJson,
+      blueprintStatus: 'ready',
+      bookletConfig: previewArchivado.bookletConfig
+    }
+    : plantilla;
+
+  const preguntasResueltas = await resolverPreguntasPlantilla({
     docenteId: docId,
-    plantilla: plantilla as any,
+    plantilla: plantillaParaGeneracion as any,
     usarBlueprint: true,
     permitirArchivados: esExtraordinarioArchivado,
     // Debe coincidir con la resolución usada por la previsualización. Cuando
@@ -450,15 +483,17 @@ async function generarExamenesLoteUseCaseInterno(params: {
     // subconjunto y, por tanto, su fingerprint de layout validado.
     ordenarPorRecencia: true
   });
-  // Mantener el mismo formato que la vista previa del extraordinario archivado:
-  // cuatro páginas de examen, equivalentes a dos hojas impresas por ambos lados.
+  let preguntasDb = preguntasResueltas.preguntasDb;
+  const { temas } = preguntasResueltas;
+  preguntasDb = excluirReferenciasTecnologiaRetirada(periodo?.nombre, preguntasDb).preguntasDb;
+  // La configuración guardada para extraordinarios debe coincidir con la vista previa.
   const numeroPaginas = esExtraordinarioArchivado
-    ? 4
+    ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
     : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
-  const bookletConfigPlantilla = (plantilla.bookletConfig ?? {}) as Record<string, unknown>;
+  const bookletConfigPlantilla = (plantillaParaGeneracion.bookletConfig ?? {}) as Record<string, unknown>;
   const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
-  const layoutFingerprintOmr = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? '|extra-duplex-4p-v1' : ''}`;
+  const layoutFingerprintOmr = `${construirFingerprintLayoutPreview()}|${omrTemplateId}${esExtraordinarioArchivado ? `|extra-duplex-${numeroPaginas}p-v1` : ''}`;
   const layoutValidado = bookletConfigPlantilla.resolvedLayout as {
     version?: number;
     fontScale?: number;
@@ -473,7 +508,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   // Archivar actualiza updatedAt en los reactivos legacy aunque su contenido no
   // cambie. Para el extraordinario cerrado, resolverPreguntasPlantilla ya
   // verificó el hash de cada versión fijada por el blueprint.
-  const blueprintArchivadoVerificado = esExtraordinarioArchivado && Boolean(plantilla.blueprintJson);
+  const blueprintArchivadoVerificado = esExtraordinarioArchivado && Boolean(plantillaParaGeneracion.blueprintJson);
   const layoutVigente = layoutValidado?.version === 1 &&
     (fingerprintPreguntasVigente || blueprintArchivadoVerificado) &&
     layoutValidado.layoutFingerprint === layoutFingerprintOmr &&
@@ -492,6 +527,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   }
   const bookletConfig = {
     ...bookletConfigPlantilla,
+    targetPages: numeroPaginas,
     // En producción masiva se consume la configuración ya validada de la
     // plantilla. No se ejecuta el auto-fit ni se prueban variantes de layout.
     autoFitPages: false,
@@ -559,7 +595,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
     ) {
       throw new ErrorAplicacion('LOTE_REANUDACION_BANCO_CAMBIADO', 'El banco del lote cambió desde su generación parcial.', 409, { loteId, alumnoId });
     }
-    const snapshotPrevio = construirSnapshotVersionesBlueprint({ plantilla, preguntaIds: preguntaIdsPrevias });
+    const snapshotPrevio = construirSnapshotVersionesBlueprint({ plantilla: plantillaParaGeneracion, preguntaIds: preguntaIdsPrevias });
     if (!examenPrevio.previewFingerprint || examenPrevio.previewFingerprint !== snapshotPrevio.previewFingerprint) {
       throw new ErrorAplicacion('LOTE_REANUDACION_PLANTILLA_CAMBIADA', 'La plantilla o sus versiones cambiaron desde la generación parcial.', 409, { loteId, alumnoId });
     }
@@ -616,15 +652,20 @@ async function generarExamenesLoteUseCaseInterno(params: {
 
   const crearExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }) => {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
-      const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBaseLote);
-      const mapaVariante = generarVariante(preguntasCandidatas);
+      const preguntasCandidatas = esExtraordinarioArchivado
+        ? preguntasBaseLote
+        : ordenarPreguntasAleatorio(preguntasBaseLote);
+      const mapaVariante = esExtraordinarioArchivado && previewArchivado
+        ? previewArchivado.mapaVariante
+        : generarVariante(preguntasCandidatas);
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       const folio = randomUUID().split('-')[0].toUpperCase();
       try {
         const examenGeneradoId = randomUUID();
         const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
-          titulo: plantilla.titulo,
+          titulo: esExtraordinarioArchivado ? 'Examen Extraordinario' : plantilla.titulo,
           folio,
+          loteId,
           examId: examenGeneradoId,
           preguntas: preguntasCandidatas,
           mapaVariante,
@@ -637,7 +678,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
           encabezado: construirEncabezadoPdf({
             periodo,
             docenteDb,
-            instrucciones: plantilla.instrucciones,
+            instrucciones: esExtraordinarioArchivado ? INSTRUCCIONES_OMR_EXTRAORDINARIO : plantilla.instrucciones,
             incluirPrefijosDocente: true,
             alumno
           })
@@ -646,7 +687,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
         const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
         const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
         const snapshotVersiones = construirSnapshotVersionesBlueprint({
-          plantilla,
+          plantilla: plantillaParaGeneracion,
           preguntaIds: mapaVarianteUsada.ordenPreguntas
         });
         const reactivosUsados = Array.isArray(mapaVarianteUsada.ordenPreguntas) ? mapaVarianteUsada.ordenPreguntas.length : 0;
@@ -1045,10 +1086,6 @@ export async function descargarPdfLoteUseCase(params: {
   } catch {
     throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF de lote no disponible', 404, { docenteId: docId });
   }
-  const plantillaArchivada = Boolean((plantilla as { archivadoEn?: unknown } | null)?.archivadoEn);
-  const paginasMaximasPorExamen = plantillaArchivada && examenesDelLote.every((examen) => String(examen.tipoExamen ?? '') === 'extraordinario')
-    ? 4
-    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown } | null);
   let paginasPorExamen: number;
   if (artefactoPersistido) {
     const paginasValidas = Number(artefactoPersistido.totalPaginas);
@@ -1067,8 +1104,8 @@ export async function descargarPdfLoteUseCase(params: {
       throw new ErrorAplicacion('LOTE_PAGINACION_NO_VERIFICABLE', 'El historial no permite comprobar que todos los exámenes tengan la misma paginación.', 409, { loteId: lote });
     }
   }
-  if (paginasPorExamen < 1 || paginasPorExamen > paginasMaximasPorExamen) {
-    throw new ErrorAplicacion('LOTE_PDF_INTEGRIDAD_INVALIDA', 'La paginación guardada excede el máximo de la plantilla.', 409, { loteId: lote, paginasPorExamen, paginasMaximasPorExamen });
+  if (!Number.isInteger(paginasPorExamen) || paginasPorExamen < 1) {
+    throw new ErrorAplicacion('LOTE_PDF_INTEGRIDAD_INVALIDA', 'La paginación persistida del lote no es válida.', 409, { loteId: lote, paginasPorExamen });
   }
   const resumenPdf = await validarPdfConsolidadoLoteAplicacion(buffer, examenesDelLote.length * paginasPorExamen);
   if (artefactoPersistido && (

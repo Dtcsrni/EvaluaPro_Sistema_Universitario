@@ -5,7 +5,7 @@
  */
 import type { Response } from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { conectarSqliteTest, cerrarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion.js';
 import { listarPapelera, restaurarPapelera } from '../src/modulos/modulo_papelera/controladorPapelera.js';
@@ -37,17 +37,17 @@ function crearRespuesta() {
 
 describe('controladorPapelera (integracion)', () => {
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     mockConfiguracion.entorno = 'development';
     mockObtenerDocenteId.mockReturnValue('docente-1');
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('lista items por docente y aplica limite positivo solicitado', async () => {

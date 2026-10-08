@@ -7,9 +7,10 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { crearApp } from '../../src/app.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { prepararEscenarioFlujo, registrarDocente } from './_flujoDocenteHelper.js';
 
 function parsearBinario(res: NodeJS.ReadableStream & { setEncoding: (encoding: string) => void }, cb: (error: Error | null, body?: Buffer) => void) {
@@ -22,15 +23,15 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('requiere permiso analiticas:leer y periodoId para exportar', async () => {
@@ -209,6 +210,183 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
     expect(consulta.body.filas).toEqual(expect.arrayContaining([
       expect.objectContaining({ alumnoId: escenario.alumnoId, practica2doParcial: '8', practica2doParcialVersion: 2 })
     ]));
+  });
+
+  it('rechaza la solicitud de Extra si la final vigente no es reprobatoria', async () => {
+    const escenario = await prepararEscenarioFlujo(app, 'parcial', 'docente-solicitud-extra-lista@prueba.test');
+    await request(app)
+      .post('/api/analiticas/lista-academica/calificaciones')
+      .set(escenario.auth)
+      .send({
+        periodoId: escenario.periodoId,
+        alumnoId: escenario.alumnoId,
+        componente: 'Solicitud Extra',
+        calificacion: 1,
+        clientRequestId: '145a06b7-8f6c-4aaf-b86e-dad6a9a8ee29'
+      })
+      .expect(409);
+
+    await request(app)
+      .post('/api/analiticas/lista-academica/calificaciones')
+      .set(escenario.auth)
+      .send({
+        periodoId: escenario.periodoId,
+        alumnoId: escenario.alumnoId,
+        componente: 'Solicitud Extra',
+        calificacion: 0.5,
+        clientRequestId: '9d15d3e7-0449-4f6a-a6bd-9a9ae1cf9e8f'
+      })
+      .expect(400);
+  });
+
+  it('registra solicitud Extra solo para final menor a 6 con versión, auditoría e idempotencia', async () => {
+    const escenario = await prepararEscenarioFlujo(app, 'parcial', 'docente-extra-elegible-lista@prueba.test');
+    const periodo = await prisma.periodo.findUniqueOrThrow({ where: { id: escenario.periodoId }, select: { docenteId: true } });
+    const base = {
+      docenteId: periodo.docenteId,
+      periodoId: escenario.periodoId,
+      examenGeneradoId: escenario.examenId,
+      alumnoId: escenario.alumnoId,
+      totalReactivos: 5,
+      aciertos: 2,
+      fraccion: JSON.stringify({ numerador: '10', denominador: '5' }),
+      calificacionExamenTexto: '2',
+      bonoTexto: '0',
+      calificacionExamenFinalTexto: '2',
+      calificacionParcialTexto: '4'
+    };
+    await prisma.calificacion.createMany({ data: [
+      { ...base, tipoExamen: 'parcial' },
+      { ...base, tipoExamen: 'parcial' },
+      { ...base, tipoExamen: 'global', calificacionParcialTexto: null, calificacionGlobalTexto: '4' }
+    ] });
+
+    const ruta = '/api/analiticas/lista-academica/calificaciones';
+    const clientRequestId = '4ff057af-bc9d-4fa0-aef8-2b3206bf4c9a';
+    const respuesta = await request(app).get(`/api/analiticas/lista-academica?periodoId=${encodeURIComponent(escenario.periodoId)}`).set(escenario.auth).expect(200);
+    expect(respuesta.body.filas[0]).toMatchObject({ calificacionFinalCurso: '5.2', calificacionFinalCursoActa: '5', extraDisponible: true, solicitaExtra: false });
+
+    const creada = await request(app).post(ruta).set(escenario.auth).send({
+      periodoId: escenario.periodoId, alumnoId: escenario.alumnoId, componente: 'Solicitud Extra', calificacion: 1, clientRequestId
+    }).expect(201);
+    expect(creada.body.calificacion).toMatchObject({ componente: 'Solicitud Extra', calificacion: 1, version: 1 });
+    expect(JSON.parse(creada.body.calificacion.auditoria).eventos).toHaveLength(1);
+
+    const repetida = await request(app).post(ruta).set(escenario.auth).send({
+      periodoId: escenario.periodoId, alumnoId: escenario.alumnoId, componente: 'Solicitud Extra', calificacion: 1, clientRequestId
+    }).expect(200);
+    expect(repetida.body.repetida).toBe(true);
+
+    const posterior = await request(app).get(`/api/analiticas/lista-academica?periodoId=${encodeURIComponent(escenario.periodoId)}`).set(escenario.auth).expect(200);
+    expect(posterior.body.filas[0]).toMatchObject({ calificacionFinalCurso: '5.2', solicitaExtra: true, solicitudExtraVersion: 1 });
+  });
+
+  it('registra resultado externo Extra con procedencia, escalas exactas e idempotencia, aislado de la final', async () => {
+    const escenario = await prepararEscenarioFlujo(app, 'parcial', 'docente-extra-externo@prueba.test');
+    const periodo = await prisma.periodo.findUniqueOrThrow({ where: { id: escenario.periodoId }, select: { docenteId: true } });
+    const base = {
+      docenteId: periodo.docenteId,
+      periodoId: escenario.periodoId,
+      examenGeneradoId: escenario.examenId,
+      alumnoId: escenario.alumnoId,
+      totalReactivos: 5,
+      aciertos: 2,
+      fraccion: JSON.stringify({ numerador: '10', denominador: '5' }),
+      calificacionExamenTexto: '2',
+      bonoTexto: '0',
+      calificacionExamenFinalTexto: '2'
+    };
+    await prisma.calificacion.createMany({ data: [
+      { ...base, tipoExamen: 'parcial', calificacionParcialTexto: '4' },
+      { ...base, tipoExamen: 'parcial', calificacionParcialTexto: '4' },
+      { ...base, tipoExamen: 'global', calificacionParcialTexto: null, calificacionGlobalTexto: '4' }
+    ] });
+    await request(app).post('/api/analiticas/lista-academica/calificaciones').set(escenario.auth).send({
+      periodoId: escenario.periodoId, alumnoId: escenario.alumnoId, componente: 'Solicitud Extra', calificacion: 1,
+      clientRequestId: '69ae589d-24bb-4d85-8b3f-97cf8a3e1e01'
+    }).expect(201);
+
+    const payload = {
+      periodoId: escenario.periodoId,
+      alumnoId: escenario.alumnoId,
+      solicitaExtra: true,
+      folio: '88DC8464',
+      loteId: 'lote-externo-01',
+      fuenteArchivo: 'extra-externo-prueba.pdf',
+      documentoSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      aciertos: 16,
+      totalReactivos: 35,
+      criteriosAplicados: 'Revisión manual en dos pasadas; seis reactivos no contestables se excluyen del denominador.',
+      clientRequestId: '5488c0f4-271e-4748-9d8b-1a66bbbe38fc'
+    };
+    const ruta = '/api/analiticas/lista-academica/resultados-extra-externos';
+    await prisma.calificacionListaManual.deleteMany({ where: {
+      docenteId: periodo.docenteId,
+      periodoId: escenario.periodoId,
+      alumnoId: escenario.alumnoId,
+      componente: 'Solicitud Extra'
+    } });
+    await request(app).post(ruta).set(escenario.auth).send(payload).expect(409);
+    await request(app).post('/api/analiticas/lista-academica/calificaciones').set(escenario.auth).send({
+      periodoId: escenario.periodoId,
+      alumnoId: escenario.alumnoId,
+      componente: 'Solicitud Extra',
+      calificacion: 1,
+      clientRequestId: 'be391a40-137d-4dbc-8fc6-38c2be6a327b'
+    }).expect(201);
+    await request(app).post(ruta).set(escenario.auth).send({ ...payload, aciertos: 36, clientRequestId: '018f2f9d-99a6-46c5-bf5a-8d2a3793af80' }).expect(400);
+    const alta = await request(app).post(ruta).set(escenario.auth).send(payload).expect(201);
+    expect(alta.body.resultado).toMatchObject({
+      folio: '88DC8464',
+      loteId: 'LOTE-EXTERNO-01',
+      aciertos: 16,
+      totalReactivos: 35,
+      calificacionSobre5Texto: '2.29',
+      calificacionSobre10Texto: '4.57',
+      estadoAprobatorio: 'No aprobatoria',
+      origen: 'inferida manualmente',
+      capturadoPor: periodo.docenteId
+    });
+    expect(alta.body.resultado.examenGeneradoId).toBeUndefined();
+    expect(JSON.parse(alta.body.resultado.evidencia)).toMatchObject({ claseResultado: 'externo', folio: '88DC8464' });
+
+    const repetida = await request(app).post(ruta).set(escenario.auth).send(payload).expect(200);
+    expect(repetida.body.repetido).toBe(true);
+    await request(app).post(ruta).set(escenario.auth).send({ ...payload, aciertos: 17 }).expect(409);
+
+    const consulta = await request(app)
+      .get(`/api/analiticas/lista-academica?periodoId=${encodeURIComponent(escenario.periodoId)}`)
+      .set(escenario.auth).expect(200);
+    expect(consulta.body.filas[0]).toMatchObject({
+      solicitaExtra: true,
+      calificacionFinalCurso: '5.2',
+      resultadosExtraordinarios: [expect.objectContaining({
+        claseRegistro: 'externo', folio: '88DC8464', loteId: 'LOTE-EXTERNO-01', calificacionSobre5: '2.29',
+        calificacionSobre10: '4.57', estadoAprobatorio: 'No aprobatoria', origen: 'inferida manualmente'
+      })]
+    });
+    await request(app).post(ruta).set(escenario.auth).send({ ...payload, clientRequestId: '38bccaa0-2e4b-43d1-9c4b-6f9d41406fbd' }).expect(409);
+  });
+
+  it('rechaza resultado externo cuando la calificación final ya no da derecho a Extra', async () => {
+    const escenario = await prepararEscenarioFlujo(app, 'parcial', 'docente-extra-no-disponible@prueba.test');
+    const respuesta = await request(app)
+      .post('/api/analiticas/lista-academica/resultados-extra-externos')
+      .set(escenario.auth)
+      .send({
+        periodoId: escenario.periodoId,
+        alumnoId: escenario.alumnoId,
+        solicitaExtra: true,
+        folio: 'FOLIO-EXTRA-01',
+        fuenteArchivo: 'acta-extra.pdf',
+        documentoSha256: 'b'.repeat(64),
+        aciertos: 4,
+        totalReactivos: 5,
+        criteriosAplicados: 'Revisión manual del documento y cotejo de reactivos contestables.',
+        clientRequestId: '6ca25ca0-6821-4718-8fe5-88bc4d8f2b9d'
+      })
+      .expect(409);
+    expect(respuesta.body.error.codigo).toBe('EXTRA_NO_DISPONIBLE');
   });
 
   it('captura Exámen Global manual en escala física sin crear desglose teórico/práctico', async () => {
