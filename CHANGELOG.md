@@ -16,7 +16,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Package Images publica las imágenes en el namespace GHCR del owner con referencias válidas.
 - El mapa de CI incluye los gates afectados de Package Images y su contrato.
 - La E2E del release draft consulta el borrador con el token de lectura necesario y limita la exposición de credenciales al paso de descarga.
-- Las suites de CI de ramas de trabajo se ejecutan por PR; los `push` de `release/**` ya no compiten con esos PR y cancelan sus checks agregados.
+- Las suites CI y CodeQL validan ramas de trabajo por PR; sus `push` no compiten con esos PR ni cancelan checks requeridos.
 
 ## [1.2.4] - 2026-10-04
 

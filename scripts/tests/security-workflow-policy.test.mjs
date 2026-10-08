@@ -45,7 +45,9 @@ test('workflow CodeQL existe y contiene contrato minimo', () => {
 
   assert.match(workflow, /name:\s*Security CodeQL/i);
   assert.match(workflow, /pull_request:/i);
-  assert.match(workflow, /push:/i);
+  const pushConfig = workflow.match(/^  push:\n([\s\S]*?)(?=^  [a-z_]+:)/m)?.[1] ?? '';
+  assert.match(pushConfig, /branches:\n\s+- main/i);
+  assert.doesNotMatch(pushConfig, /release\//i);
   assert.match(workflow, /github\/codeql-action\/init@/i);
   assert.match(workflow, /github\/codeql-action\/analyze@/i);
   assert.match(workflow, /javascript-typescript/i);
