@@ -17,21 +17,21 @@ import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/
 import { verificarRecoveryBundle, verificarRecoveryManifest } from '../../src/modulos/modulo_generacion_pdf/domain/recoveryManifest.js';
 import { resolverRutaPdfExamen } from '../../src/infraestructura/archivos/almacenLocal.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('generación PDF: recovery manifest y bundle', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function prepararEscenarioBase() {
@@ -57,7 +57,8 @@ describe('generación PDF: recovery manifest y bundle', () => {
       .expect(201);
 
     const periodoId = periodo.body.periodo._id as string;
-    await request(app)
+    const alumnoIds: string[] = [];
+    const alumnoUno = await request(app)
       .post('/api/alumnos')
       .set(auth)
       .send({
@@ -68,7 +69,8 @@ describe('generación PDF: recovery manifest y bundle', () => {
         grupo: 'A'
       })
       .expect(201);
-    await request(app)
+    alumnoIds.push(String(alumnoUno.body.alumno._id));
+    const alumnoDos = await request(app)
       .post('/api/alumnos')
       .set(auth)
       .send({
@@ -79,6 +81,7 @@ describe('generación PDF: recovery manifest y bundle', () => {
         grupo: 'A'
       })
       .expect(201);
+    alumnoIds.push(String(alumnoDos.body.alumno._id));
 
     const tema = await request(app)
       .post('/api/banco-preguntas/temas')
@@ -99,7 +102,13 @@ describe('generación PDF: recovery manifest y bundle', () => {
         expectedVersion: null,
         format: 'omr.mcq5',
         stem: { format: 'richtext', value: `Pregunta recovery ${index + 1}` },
-        options: ['A', 'B', 'C', 'D', 'E'].map((key, optionIndex) => ({ key, value: `Opción ${key}`, isCorrect: optionIndex === index % 5 })),
+        options: [
+          'Folio único por examen',
+          'Hash SHA-256 del PDF',
+          'Periodo de los alumnos',
+          'Páginas fijadas en plantilla',
+          'Migración aditiva de datos'
+        ].map((value, optionIndex) => ({ key: ['A', 'B', 'C', 'D', 'E'][optionIndex]!, value, isCorrect: optionIndex === index % 5 })),
         metadata: { difficultyHypothesis: 'medium' },
         provenance: { origin: 'authored', confidence: 1, notes: 'Fixture de regresión recuperación de lote.' }
       }))
@@ -134,7 +143,7 @@ describe('generación PDF: recovery manifest y bundle', () => {
       .set(auth)
       .expect(200);
 
-    return { auth, periodoId, plantillaId: String(plantilla.body.plantilla._id) };
+    return { auth, periodoId, plantillaId: String(plantilla.body.plantilla._id), alumnoIds };
   }
 
   async function descargarPdfLote(auth: Record<string, string>, loteId: string) {
@@ -276,6 +285,41 @@ describe('generación PDF: recovery manifest y bundle', () => {
     } finally {
       await writeFile(rutaPaquete, paqueteOriginal);
     }
+  });
+
+  it('descarga lotes extraordinarios archivados con las páginas persistidas aunque cambie la preferencia', async () => {
+    const base = await prepararEscenarioBase();
+    await request(app).post(`/api/periodos/${base.periodoId}/archivar`).set(base.auth).send({}).expect(200);
+    await request(app)
+      .get(`/api/examenes/plantillas/${base.plantillaId}/previsualizar/pdf/visual`)
+      .set(base.auth)
+      .expect(200);
+
+    const loteId = 'LOTEXTRAPAGES01';
+    const generado = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(base.auth)
+      .send({
+        plantillaId: base.plantillaId,
+        loteId,
+        confirmarMasivo: true,
+        tipoExamen: 'extraordinario',
+        alumnoIds: base.alumnoIds
+      })
+      .expect(201);
+    expect(generado.body.paginasPorExamen).toBe(4);
+
+    await request(app)
+      .post('/api/autenticacion/preferencias/pdf')
+      .set(base.auth)
+      .send({ paginasPorTipo: { parcial: 2, global: 4, extraordinario: 2 } })
+      .expect(200);
+
+    const descarga = await descargarPdfLote(base.auth, loteId);
+    expect(descarga.status).toBe(200);
+    const pdf = await PDFDocument.load(descarga.body as Buffer);
+    expect(pdf.getPageCount()).toBe(8);
+    expect(descarga.headers['x-evaluapro-pdf-pages']).toBe('8');
   });
 
   it('reporta progreso de lote en estados iniciando, generando, fallido y completado', async () => {

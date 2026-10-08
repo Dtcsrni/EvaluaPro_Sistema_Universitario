@@ -277,6 +277,44 @@ describe('SeccionCuenta', () => {
     );
   });
 
+  it('guarda objetivos de páginas pares y retención configurable de parciales', async () => {
+    const actualizarDocente = vi.fn();
+    vi.mocked(clienteApi.enviar).mockImplementation(async (ruta: string) => {
+      if (ruta === '/autenticacion/preferencias/retencion-parciales') {
+        return { retencionParcialesArchivadosMeses: 6 } as never;
+      }
+      return { preferenciasPdf: { paginasPorTipo: { parcial: 2, global: 6, extraordinario: 4 } } } as never;
+    });
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={actualizarDocente}
+        esAdmin={false}
+        esDev={false}
+      />
+    );
+
+    const global = screen.getByLabelText('Páginas predeterminadas para global');
+    fireEvent.change(global, { target: { value: '5' } });
+    expect(global).toHaveValue(4);
+    fireEvent.change(global, { target: { value: '6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar PDF' }));
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledWith(
+      '/autenticacion/preferencias/pdf',
+      expect.objectContaining({ paginasPorTipo: { parcial: 2, global: 6, extraordinario: 4 } })
+    ));
+    expect(actualizarDocente).toHaveBeenCalledWith(expect.objectContaining({
+      preferenciasPdf: expect.objectContaining({ paginasPorTipo: { parcial: 2, global: 6, extraordinario: 4 } })
+    }));
+
+    fireEvent.change(screen.getByLabelText('Plazo para conservar PDF de parciales archivados'), { target: { value: '6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar retención' }));
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledWith(
+      '/autenticacion/preferencias/retencion-parciales', { meses: 6 }
+    ));
+    expect(await screen.findByText('Preferencia de retención guardada')).toBeInTheDocument();
+  });
+
   it('permite regenerar accesos directos en el escritorio', async () => {
     renderConOAuth(
       <SeccionCuenta

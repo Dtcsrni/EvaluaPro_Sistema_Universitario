@@ -6,7 +6,7 @@
  */
 import type { Response } from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { conectarSqliteTest, cerrarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
 import { listarSolicitudesRevision, resolverSolicitudRevision } from '../src/modulos/modulo_calificacion/controladorCalificacion.js';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
@@ -20,15 +20,15 @@ function crearRespuesta() {
 
 describe('calificaciones solicitudes revision', () => {
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('lista solicitudes del docente y permite resolverlas', async () => {

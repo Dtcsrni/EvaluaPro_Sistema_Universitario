@@ -150,13 +150,14 @@ export function SeccionPlantillas({
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
   const [periodoId, setPeriodoId] = useState('');
-  const [numeroPaginas, setNumeroPaginas] = useState(2);
+  const [numeroPaginas, setNumeroPaginas] = useState(preferenciasPdf?.paginasPorTipo?.parcial ?? 2);
   const [reactivosObjetivo, setReactivosObjetivo] = useState(20);
   const [logoIzquierda, setLogoIzquierda] = useState(preferenciasPdf?.logos?.izquierdaPath ?? '');
   const [logoDerecha, setLogoDerecha] = useState(preferenciasPdf?.logos?.derechaPath ?? '');
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
   const [examTemplateId, setExamTemplateId] = useState<'omr-canonical-v4' | 'omr-inline-exam-v1'>('omr-canonical-v4');
   const [mensaje, setMensaje] = useState('');
+
   const [plantillaId, setPlantillaId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
   const [lotePdfUrl, setLotePdfUrl] = useState<string | null>(null);
@@ -199,6 +200,11 @@ export function SeccionPlantillas({
   const [generandoLote, setGenerandoLote] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [plantillaEditandoId, setPlantillaEditandoId] = useState<string | null>(null);
+  useEffect(() => {
+    if (modoEdicion) return;
+    const paginasPredeterminadas = preferenciasPdf?.paginasPorTipo?.[tipo] ?? (tipo === 'global' ? 4 : 2);
+    setNumeroPaginas(paginasPredeterminadas);
+  }, [modoEdicion, preferenciasPdf?.paginasPorTipo, tipo]);
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
   const [archivandoPlantillaId, setArchivandoPlantillaId] = useState<string | null>(null);
   const [filtroPlantillas, setFiltroPlantillas] = useState('');
@@ -690,6 +696,7 @@ export function SeccionPlantillas({
   );
   const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla, previsualizarPdfConfirmado } =
     usePlantillasPreviewActions({
+      paginasExtraordinarioObjetivo: preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4,
       puedePrevisualizarPlantillas,
       avisarSinPermiso,
       previewPorPlantillaId,
@@ -864,7 +871,7 @@ export function SeccionPlantillas({
     setTitulo('');
     setTipo('parcial');
     setPeriodoId('');
-    setNumeroPaginas(2);
+    setNumeroPaginas(preferenciasPdf?.paginasPorTipo?.parcial ?? 2);
     setReactivosObjetivo(20);
     setLogoIzquierda(preferenciasPdf?.logos?.izquierdaPath ?? '');
     setLogoDerecha(preferenciasPdf?.logos?.derechaPath ?? '');
@@ -1356,23 +1363,18 @@ export function SeccionPlantillas({
       globalThis.clearInterval(timerSondeo);
       setGenerandoLote(false);
     }
-  }, [
-    alumnos,
-    avisarSinPermiso,
-    cargarExamenesGenerados,
-    confirm,
-    enviarConPermiso,
-    plantillaSeleccionada,
-    plantillaId,
-    puedeGenerarExamenes,
-    progresoLoteGeneracion,
-    setMensajeGeneracion,
-  ]);
+  }, [alumnos, avisarSinPermiso, cargarExamenesGenerados, confirm, enviarConPermiso, plantillaSeleccionada, plantillaId,
+    puedeGenerarExamenes, progresoLoteGeneracion, setMensajeGeneracion]);
 
   const formularioPlantilla = (
     <PlantillasFormulario
       modoEdicion={modoEdicion}
       plantillaEditando={plantillaEditando}
+      tipo={tipo}
+      onTipoChange={(siguienteTipo) => {
+        setTipo(siguienteTipo);
+        setNumeroPaginas(preferenciasPdf?.paginasPorTipo?.[siguienteTipo] ?? (siguienteTipo === 'global' ? 4 : 2));
+      }}
       examTemplateId={examTemplateId}
       setExamTemplateId={setExamTemplateId}
       titulo={titulo}

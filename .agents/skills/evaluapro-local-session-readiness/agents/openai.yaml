@@ -1,0 +1,4 @@
+interface:
+  display_name: "EvaluaPro Session Readiness"
+  short_description: "Verify and recover local EvaluaPro services before browser access"
+  default_prompt: "Check API and UI health before opening EvaluaPro in the Codex side browser."

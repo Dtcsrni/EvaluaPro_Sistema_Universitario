@@ -9,7 +9,7 @@ import { PDFParse } from 'pdf-parse';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { registrarDocente } from './_flujoDocenteHelper.js';
 
 async function extraerTextoPdf(buffer: Buffer) {
@@ -38,11 +38,11 @@ describe('Integracion: listas institucionales por plantilla', () => {
   let periodoId: string;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     const token = await registrarDocente(app, 'docente-listas-institucionales@prueba.test');
     auth = { Authorization: `Bearer ${token}` };
 
@@ -60,7 +60,7 @@ describe('Integracion: listas institucionales por plantilla', () => {
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it.skipIf(![

@@ -2,14 +2,14 @@ import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 
 describe('preflight API docente', () => {
   const app = crearApp();
 
-  beforeAll(async () => conectarMongoTest());
-  beforeEach(async () => limpiarMongoTest());
-  afterAll(async () => cerrarMongoTest());
+  beforeAll(async () => conectarSqliteTest());
+  beforeEach(async () => limpiarSqliteTest());
+  afterAll(async () => cerrarSqliteTest());
 
   it('exige sesion y no devuelve preflight a una petición anónima', async () => {
     const respuesta = await request(app).get('/api/preflight').expect(401);

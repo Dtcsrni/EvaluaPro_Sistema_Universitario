@@ -3,7 +3,7 @@ import sharp from 'sharp';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { conectarSqlite, prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 const app = crearApp();
 const parsearBinario = (respuesta: NodeJS.ReadableStream, callback: (error: Error | null, body?: Buffer) => void) => {
@@ -15,15 +15,15 @@ const parsearBinario = (respuesta: NodeJS.ReadableStream, callback: (error: Erro
 
 describe('portadas de materias', () => {
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function registrar(correo: string) {

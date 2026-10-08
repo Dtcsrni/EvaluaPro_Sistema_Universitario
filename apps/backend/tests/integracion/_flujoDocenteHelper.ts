@@ -79,8 +79,17 @@ export async function prepararEscenarioFlujo(
       itemId: null,
       expectedVersion: null,
       format: 'omr.mcq5',
-      stem: { format: 'richtext', value: `Pregunta ${tipoExamen} ${i + 1}` },
-      options: ['A', 'B', 'C', 'D', 'E'].map((key, index) => ({ key, value: `Opcion ${key}`, isCorrect: index === 0 })),
+      stem: {
+        format: 'richtext',
+        value: `En una aplicación web, ¿qué práctica ayuda a validar de forma segura los datos recibidos por una función (${tipoExamen} ${i + 1})?`
+      },
+      options: [
+        { key: 'A', value: 'Comprobar tipo, formato y rango antes de usar los datos', isCorrect: true },
+        { key: 'B', value: 'Confiar en que la interfaz siempre envía valores válidos', isCorrect: false },
+        { key: 'C', value: 'Convertir cualquier dato inválido en una cadena vacía', isCorrect: false },
+        { key: 'D', value: 'Omitir la validación cuando la petición usa HTTPS', isCorrect: false },
+        { key: 'E', value: 'Guardar el dato recibido antes de revisar sus límites', isCorrect: false }
+      ],
       metadata: { difficultyHypothesis: 'medium' },
       provenance: { origin: 'authored', confidence: 1, notes: 'fixture de integración' }
     }))
@@ -111,10 +120,12 @@ export async function prepararEscenarioFlujo(
     .expect(201);
   const plantillaId = plantillaResp.body.plantilla._id as string;
 
-  await request(app)
+  const previewPdf = await request(app)
     .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
-    .set(auth)
-    .expect(200);
+    .set(auth);
+  if (previewPdf.status !== 200) {
+    throw new Error(`Previsualización E2E falló: HTTP ${previewPdf.status}, detalle ${JSON.stringify(previewPdf.body)}`);
+  }
 
   const examenResp = await request(app)
     .post('/api/examenes/generados')

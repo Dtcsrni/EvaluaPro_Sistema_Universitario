@@ -16,7 +16,7 @@ import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion
 import { extraerResumenQrExamen, type ResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen.js';
 import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
 import { leerCapturasOmrParaPortal } from '../modulo_sincronizacion_nube/infra/omrCapturas.js';
-import { calcularCalificacion } from './servicioCalificacion.js';
+import { calcularCalificacion, presentarCalificacionExtraordinaria } from './servicioCalificacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 const comprimirGzip = promisify(gzip);
@@ -130,9 +130,13 @@ function formatearCalificacionPrisma(raw: any) {
     ...raw,
     _id: raw.id,
     fraccion: parseJsonSafe(raw.fraccion),
+    origenEvidencia: parseJsonSafe(raw.origenEvidencia),
     respuestasDetectadas: parseJsonSafe(raw.respuestasDetectadas),
     omrAuditoria: parseJsonSafe(raw.omrAuditoria),
-    componentesExamen: parseJsonSafe(raw.componentesExamen)
+    componentesExamen: parseJsonSafe(raw.componentesExamen),
+    ...(String(raw.tipoExamen ?? '').toLowerCase() === 'extraordinario'
+      ? presentarCalificacionExtraordinaria(raw.calificacionExamenFinalTexto)
+      : {})
   };
 }
 
@@ -550,6 +554,8 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     aciertos,
     totalReactivos,
     bonoSolicitado,
+    origen,
+    origenEvidencia,
     evaluacionContinua,
     proyecto,
     retroalimentacion,
@@ -601,6 +607,19 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('TIPO_EXAMEN_INVALIDO', 'El tipo de examen no está admitido para calificación.', 400);
   }
   const esExtraordinario = tipoExamenCalificado === 'extraordinario';
+  const esInferidaManualmente = origen === 'inferida manualmente';
+  if (esInferidaManualmente) {
+    const loteEvidencia = String(origenEvidencia?.loteId ?? '').trim().toUpperCase();
+    const folioEvidencia = String(origenEvidencia?.folio ?? '').trim().toUpperCase();
+    const loteExamen = String(examen.loteId ?? '').trim().toUpperCase();
+    const folioExamen = String(examen.folio ?? '').trim().toUpperCase();
+    if (!esExtraordinario) {
+      throw new ErrorAplicacion('ORIGEN_INFERIDO_INVALIDO', 'El origen inferido manualmente solo se admite en extraordinarios.', 400);
+    }
+    if (!loteExamen || loteEvidencia !== loteExamen || folioEvidencia !== folioExamen || !examen.alumnoId || (alumnoId && String(alumnoId) !== String(examen.alumnoId))) {
+      throw new ErrorAplicacion('EVIDENCIA_ORIGEN_NO_COINCIDE', 'El lote, folio o alumno de la evidencia no coincide con el examen generado.', 409);
+    }
+  }
 
   const alumnoFinal = alumnoId ?? examen.alumnoId;
   if (!alumnoFinal && !soloPreview) {
@@ -758,7 +777,15 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
 
   const usarAciertosDetectados = respuestas.length > 0 && (autoCalificableOmr || revisionConfirmada);
   const aciertosFinal = usarAciertosDetectados ? aciertosCalculados : typeof aciertos === 'number' ? aciertos : aciertosCalculados;
-  const totalFinal = total || totalReactivos || aciertosFinal || 1;
+  const totalFinal = esInferidaManualmente
+    ? Number(totalReactivos || 0)
+    : total || totalReactivos || aciertosFinal || 1;
+  if (!Number.isInteger(totalFinal) || totalFinal <= 0 || aciertosFinal > totalFinal) {
+    throw new ErrorAplicacion('TOTAL_REACTIVOS_INVALIDO', 'El total evaluable debe ser positivo y no menor que los aciertos.', 400);
+  }
+  if (esInferidaManualmente && total > 0 && totalFinal > total) {
+    throw new ErrorAplicacion('TOTAL_REACTIVOS_INVALIDO', 'El total inferido no puede superar los reactivos oficiales del examen.', 400);
+  }
   const aciertosAjustados = Math.min(aciertosFinal, totalFinal);
 
   const entrega = await prisma.entrega.findFirst({
@@ -797,6 +824,7 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
         calificacionExamenTexto: resultado.calificacionTexto,
         bonoTexto: resultado.bonoTexto,
         calificacionExamenFinalTexto: resultado.calificacionFinalTexto,
+        ...(esExtraordinario ? presentarCalificacionExtraordinaria(resultado.calificacionFinalTexto) : {}),
         evaluacionContinuaTexto: resultado.evaluacionContinuaTexto,
         proyectoTexto: resultado.proyectoTexto,
         calificacionParcialTexto: resultado.calificacionParcialTexto,
@@ -830,6 +858,16 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
       calificacionParcialTexto: resultado.calificacionParcialTexto,
       calificacionGlobalTexto: resultado.calificacionGlobalTexto,
       retroalimentacion: retroalimentacion ? String(retroalimentacion) : null,
+      origen: esInferidaManualmente ? 'inferida manualmente' : null,
+      origenEvidencia: esInferidaManualmente
+        ? JSON.stringify({
+            ...origenEvidencia,
+            loteId: String(origenEvidencia.loteId).trim().toUpperCase(),
+            folio: String(origenEvidencia.folio).trim().toUpperCase(),
+            actorDocenteId: docenteId,
+            registradoEn: new Date().toISOString()
+          })
+        : null,
       respuestasDetectadas: JSON.stringify(respuestasDetectadas || []),
       omrAuditoria: analisisOmr || (clientRequestId && requestHash)
         ? JSON.stringify({

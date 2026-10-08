@@ -7,7 +7,7 @@
 import crypto from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { conectarSqliteTest, cerrarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 
 function construirFirmaMpOficial(params: {
@@ -25,7 +25,7 @@ describe('integracion webhook Mercado Pago - firma estricta', () => {
   let app: ReturnType<(typeof import('../../src/app.js'))['crearApp']>;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
     process.env.MERCADOPAGO_WEBHOOK_SECRET = 'mp-secret-integration';
     process.env.MERCADOPAGO_WEBHOOK_FIRMA_ESTRICTA = 'true';
     process.env.MERCADOPAGO_WEBHOOK_MAX_EDAD_SEGUNDOS = '600';
@@ -36,13 +36,13 @@ describe('integracion webhook Mercado Pago - firma estricta', () => {
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     vi.unstubAllGlobals();
   });
 
   afterAll(async () => {
     vi.unstubAllGlobals();
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('acepta firma oficial y procesa payment aprobado', async () => {

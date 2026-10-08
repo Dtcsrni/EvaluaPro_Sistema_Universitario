@@ -17,6 +17,11 @@ import { clienteApi } from './clienteApiDocente';
 import { tipoMensajeInline } from './mensajeInline';
 import { registrarAccionDocente } from './telemetriaDocente';
 import {
+  exportarTrazaAutenticacion,
+  nuevoIdFlujoAutenticacion,
+  registrarEventoTrazabilidadAutenticacion
+} from './trazaAutenticacion';
+import {
   mensajeDeError
 } from './utilidades';
 
@@ -24,19 +29,41 @@ function GoogleLoginConRespaldo({
   onSuccess,
   onError,
   onFallback,
-  etiqueta = 'Acceder con Google'
+  etiqueta = 'Acceder con Google',
+  instrumentar = false
 }: {
-  onSuccess: (cred: { credential?: string }) => void;
-  onError?: () => void;
+  onSuccess: (cred: { credential?: string }, flowId: string) => void;
+  onError?: (flowId: string) => void;
   onFallback: () => void;
   etiqueta?: string;
+  instrumentar?: boolean;
 }) {
+  const flowIdRef = useRef<string>('');
+  if (!flowIdRef.current) flowIdRef.current = nuevoIdFlujoAutenticacion();
+  const flowId = flowIdRef.current;
+
+  useEffect(() => {
+    if (!instrumentar) return;
+    registrarEventoTrazabilidadAutenticacion({
+      flowId,
+      canal: 'google',
+      etapa: 'widget_google_visible',
+      resultado: 'exito'
+    });
+  }, [flowId, instrumentar]);
+
   return (
     <div className="auth-google-control">
       <div className="auth-google-provider">
         <GoogleLogin
-          onSuccess={onSuccess}
-          onError={onError}
+          onSuccess={(cred) => {
+            if (instrumentar) registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'callback_google', resultado: 'exito' });
+            onSuccess(cred, flowId);
+          }}
+          onError={() => {
+            if (instrumentar) registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'callback_google', resultado: 'error', codigo: 'PROVIDER_ERROR' });
+            onError?.(flowId);
+          }}
           useOneTap={false}
           theme="filled_blue"
           size="large"
@@ -63,7 +90,7 @@ export function SeccionAutenticacion({
   primerUso,
   modoInicial
 }: {
-  onIngresar: (token: string, persistente?: boolean) => void;
+  onIngresar: (token: string, persistente?: boolean, flowId?: string) => void;
   onReintentarGoogle?: () => Promise<boolean>;
   oauthGoogleDisponible?: boolean;
   oauthGoogleBackendDisponible?: boolean;
@@ -97,6 +124,7 @@ export function SeccionAutenticacion({
   const [mantenerSesion, setMantenerSesion] = useState(true);
   const [reintentandoGoogle, setReintentandoGoogle] = useState(false);
   const [diagnosticoGoogle, setDiagnosticoGoogle] = useState('');
+  const [estadoDiagnostico, setEstadoDiagnostico] = useState('');
 
   function calcularFortalezaPassword(pwd: string) {
     if (!pwd) return { nivel: 0, texto: '', color: '#94a3b8' };
@@ -112,6 +140,27 @@ export function SeccionAutenticacion({
   }
 
   const fortaleza = calcularFortalezaPassword(contrasena);
+
+  function datosErrorTrazabilidad(error: unknown) {
+    const detalle = error instanceof ErrorRemoto ? error.detalle : undefined;
+    const candidato = typeof detalle?.codigo === 'string' ? detalle.codigo.toUpperCase() : '';
+    const codigo = /^[A-Z0-9_]{1,64}$/.test(candidato)
+      ? candidato
+      : typeof detalle?.status === 'number' ? `HTTP_${detalle.status}` : 'ERROR_CLIENTE';
+    return {
+      codigo,
+      ...(typeof detalle?.status === 'number' ? { httpStatus: detalle.status } : {})
+    };
+  }
+
+  async function copiarDiagnosticoAcceso() {
+    try {
+      await navigator.clipboard.writeText(exportarTrazaAutenticacion());
+      setEstadoDiagnostico('Diagnóstico local copiado. No incluye credenciales ni datos personales.');
+    } catch {
+      setEstadoDiagnostico('No se pudo copiar el diagnóstico desde este navegador.');
+    }
+  }
 
   function hayGoogleConfigurado() {
     return Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
@@ -239,6 +288,7 @@ export function SeccionAutenticacion({
   }
 
   async function ingresar() {
+    const flowId = nuevoIdFlujoAutenticacion();
     try {
       if (!passwordDisponible) {
         setMensaje('Esta instalación requiere inicio de sesión con Google.');
@@ -248,8 +298,14 @@ export function SeccionAutenticacion({
       const inicio = Date.now();
       setEnviando(true);
       setMensaje('');
-      const respuesta = await clienteApi.enviar<{ token: string }>('/autenticacion/ingresar', { correo, contrasena });
-      onIngresar(respuesta.token, mantenerSesion);
+      registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'contrasena', etapa: 'solicitud_api', resultado: 'iniciado' });
+      const respuesta = await clienteApi.enviar<{ token: string }>(
+        '/autenticacion/ingresar',
+        { correo, contrasena },
+        { headers: { 'X-Auth-Flow-ID': flowId } }
+      );
+      registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'contrasena', etapa: 'solicitud_api', resultado: 'exito', duracionMs: Date.now() - inicio });
+      onIngresar(respuesta.token, mantenerSesion, flowId);
       emitToast({ level: 'ok', title: 'Sesion', message: 'Bienvenido/a', durationMs: 2200 });
       registrarAccionDocente('login', true, Date.now() - inicio);
     } catch (error) {
@@ -276,24 +332,45 @@ export function SeccionAutenticacion({
           : accionToastSesionParaError(error, 'docente')
       });
       registrarAccionDocente('login', false);
+      registrarEventoTrazabilidadAutenticacion({
+        flowId,
+        canal: 'contrasena',
+        etapa: 'solicitud_api',
+        resultado: 'error',
+        ...datosErrorTrazabilidad(error)
+      });
     } finally {
       setEnviando(false);
     }
   }
 
-  async function ingresarConGoogle(credential: string) {
+  async function ingresarConGoogle(credential: string, flowId: string) {
+    const inicio = Date.now();
     try {
       if (bloquearSiEnCurso()) return;
-      const inicio = Date.now();
       setEnviando(true);
       setMensaje('');
-      const respuesta = await clienteApi.enviar<{ token: string }>('/autenticacion/google', { credential });
-      onIngresar(respuesta.token, mantenerSesion);
+      registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'solicitud_api', resultado: 'iniciado' });
+      const respuesta = await clienteApi.enviar<{ token: string }>(
+        '/autenticacion/google',
+        { credential },
+        { headers: { 'X-Auth-Flow-ID': flowId } }
+      );
+      registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'solicitud_api', resultado: 'exito', duracionMs: Date.now() - inicio });
+      onIngresar(respuesta.token, mantenerSesion, flowId);
       emitToast({ level: 'ok', title: 'Sesion', message: 'Bienvenido/a', durationMs: 2200 });
       registrarAccionDocente('login_google', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo ingresar con Google');
       setMensaje(msg);
+      registrarEventoTrazabilidadAutenticacion({
+        flowId,
+        canal: 'google',
+        etapa: 'solicitud_api',
+        resultado: 'error',
+        duracionMs: Date.now() - inicio,
+        ...datosErrorTrazabilidad(error)
+      });
 
       if (error instanceof ErrorRemoto && error.detalle?.status === 429) {
         iniciarCooldown(8_000);
@@ -677,20 +754,29 @@ export function SeccionAutenticacion({
                 </div>
               )}
               <GoogleLoginConRespaldo
-                onSuccess={(cred) => {
+                instrumentar
+                onSuccess={(cred, flowId) => {
                   const token = cred.credential;
                   if (!token) {
+                    registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'callback_google', resultado: 'error', codigo: 'CREDENTIAL_MISSING' });
                     setMensaje('No se recibió credencial de Google.');
                     return;
                   }
-                  void ingresarConGoogle(token);
+                  void ingresarConGoogle(token, flowId);
                 }}
-                onError={() => {
+                onError={(flowId) => {
+                  registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'callback_google', resultado: 'error', codigo: 'PROVIDER_ERROR' });
                   setErrorGoogleOauth(true);
                   setMensaje('Error de autorización con Google. Verifica los orígenes autorizados de JavaScript en Google Cloud Console.');
                 }}
                 onFallback={informarGoogleNoDisponible}
               />
+              <div className="acciones acciones--mt">
+                <button type="button" className="chip" onClick={() => void copiarDiagnosticoAcceso()}>
+                  Copiar diagnóstico de acceso
+                </button>
+                {estadoDiagnostico && <span role="status" aria-live="polite">{estadoDiagnostico}</span>}
+              </div>
               {googleBackendNoDisponible && (
                 <p className="nota nota--mt" role="status">
                   Google está visible, pero el servicio local no reporta su configuración OAuth. Revisa el archivo de configuración instalado y reinicia EvaluaPro.
