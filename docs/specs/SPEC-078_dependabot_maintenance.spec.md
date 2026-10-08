@@ -33,7 +33,7 @@ El cambio se limita a `docente-local` y a los workspaces npm existentes. No aña
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001 | Mantener los cuatro workspaces npm | `scripts/tests/dependabot-security-policy.test.mjs` | Pendiente |
-| REQ-002 | Exigir límite de cinco PR y bloquear cero | `scripts/tests/dependabot-security-policy.test.mjs` | Pendiente |
-| REQ-003 | Conservar calendario y no dirigir a otra rama | `scripts/tests/dependabot-security-policy.test.mjs` | Pendiente |
-| REQ-004 | Mantener la configuración de seguridad sin deshabilitarla | `scripts/tests/dependabot-security-policy.test.mjs` | Pendiente |
+| REQ-001 | Mantener los cuatro workspaces npm | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
+| REQ-002 | Exigir límite de cinco PR y bloquear cero | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
+| REQ-003 | Conservar calendario y no dirigir a otra rama | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
+| REQ-004 | Mantener la configuración de seguridad sin deshabilitarla | `scripts/tests/dependabot-security-policy.test.mjs` | Aprobado en CI |
