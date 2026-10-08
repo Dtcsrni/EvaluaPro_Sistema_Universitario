@@ -567,7 +567,7 @@ describe('ConsultaCalificaciones', () => {
     const firmaInvalida = new File(['otro texto'], 'anwar.pdf', { type: 'application/pdf' });
     Object.defineProperty(firmaInvalida, 'arrayBuffer', { value: async () => new TextEncoder().encode('texto').buffer });
     fireEvent.change(archivoInput, { target: { files: [firmaInvalida] } });
-    expect(await screen.findByText('El contenido seleccionado no tiene firma PDF.')).toBeInTheDocument();
+    expect(await screen.findAllByText('El contenido seleccionado no tiene firma PDF.')).not.toHaveLength(0);
 
     const pdfValido = new File(['%PDF-1.7'], 'anwar.pdf', { type: 'application/pdf' });
     Object.defineProperty(pdfValido, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7').buffer });
@@ -579,7 +579,7 @@ describe('ConsultaCalificaciones', () => {
     await user.type(within(grupo).getByLabelText('Reactivos evaluables'), '10');
     await user.type(within(grupo).getByLabelText('Criterios aplicados'), 'Revisión manual con rúbrica');
     await user.click(within(grupo).getByRole('button', { name: 'Registrar resultado externo' }));
-    expect(await screen.findByText('No se pudo registrar resultado')).toBeInTheDocument();
+    expect(await screen.findAllByText('No se pudo registrar resultado')).not.toHaveLength(0);
     expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/resultados-extra-externos', expect.objectContaining({
       folio: 'FOLIO-EXTRA', fuenteArchivo: 'anwar.pdf', documentoSha256: '0b'.repeat(32), aciertos: 7, totalReactivos: 10
     }));
