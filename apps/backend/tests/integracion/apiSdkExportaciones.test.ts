@@ -9,7 +9,7 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 // @ts-expect-error El cliente SDK es un módulo JavaScript sin declaraciones TypeScript.
 import { EvaluaproClient } from '../../../../scripts/api/evaluapro-client.mjs';
 
@@ -17,15 +17,15 @@ describe('descargas de calificaciones mediante el SDK API', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('descarga CSV y XLSX autenticados por el periodo elegido y conserva sus bytes', async () => {

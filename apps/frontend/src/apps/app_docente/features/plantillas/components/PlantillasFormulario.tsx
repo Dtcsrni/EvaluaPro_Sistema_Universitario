@@ -16,6 +16,8 @@ type TemaDisponible = { tema: string; total: number };
 export function PlantillasFormulario({
   modoEdicion,
   plantillaEditando,
+  tipo,
+  onTipoChange,
   examTemplateId,
   setExamTemplateId,
   titulo,
@@ -49,6 +51,8 @@ export function PlantillasFormulario({
 }: {
   modoEdicion: boolean;
   plantillaEditando: Plantilla | null;
+  tipo: 'parcial' | 'global';
+  onTipoChange: (value: 'parcial' | 'global') => void;
   examTemplateId: 'omr-canonical-v4' | 'omr-inline-exam-v1';
   setExamTemplateId: (value: 'omr-canonical-v4' | 'omr-inline-exam-v1') => void;
   titulo: string;
@@ -157,6 +161,22 @@ export function PlantillasFormulario({
             </div>
             <span className="ayuda">Nombre representativo para el examen.</span>
           </label>
+
+        <label className="campo campo--tipo">
+          <span className="campo__label-row"><span>Tipo de examen</span></span>
+          <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+            <select
+              value={tipo}
+              onChange={(event) => onTipoChange(event.target.value === 'global' ? 'global' : 'parcial')}
+              disabled={bloqueoEdicion}
+              aria-label="Tipo de plantilla"
+            >
+              <option value="parcial">Parcial</option>
+              <option value="global">Global</option>
+            </select>
+          </div>
+          <span className="ayuda">El valor predeterminado se configura en Cuenta → Preferencias de PDF.</span>
+        </label>
 
           <label className="campo campo--materia">
             <span className="campo__label-row">

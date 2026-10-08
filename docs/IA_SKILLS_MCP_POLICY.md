@@ -60,7 +60,10 @@ Usar solo cuando el alcance lo pida:
 
 `AGENTS.md` enruta el trabajo de exámenes a estas skills versionadas bajo `.agents/skills/`:
 
+- `evaluapro-local-session-readiness`: verifica API/UI y recupera la sesión local antes de abrir el navegador.
 - `evaluapro-exam-workflow`: coordina etapas y gates de punta a punta.
+- `evaluapro-exam-query`: consulta lotes, folios, estados y artefactos con evidencia de EvaluaPro y sin escrituras.
+- `evaluapro-exam-grading`: revisa lectura OMR y calificación según examen, variante y clave; persiste solo mediante el flujo autorizado.
 - `evaluapro-topic-blueprint`: deriva temas y ponderación desde evidencia del curso.
 - `evaluapro-reactivo-review`: crea/revisa reactivos automáticos con clave, distractores, procedencia y tema único.
 - `evaluapro-exam-batch-qa`: congela blueprint, genera/recupera lote y comprueba PDF, descarga y límites de impresión.

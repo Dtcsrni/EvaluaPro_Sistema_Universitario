@@ -425,6 +425,9 @@ export function SeccionCalificaciones({
       aciertos: number;
       totalReactivos: number;
       calificacionFinalSobre5: number;
+      calificacionEquivalenteSobre10Texto?: string;
+      estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
+      origen?: string;
     };
     claveCorrectaPorNumero: Record<number, string>;
     ordenPreguntas: number[];
@@ -795,6 +798,9 @@ export function SeccionCalificaciones({
             aciertos?: number;
             totalReactivos?: number;
             calificacionExamenFinalTexto?: string;
+            calificacionEquivalenteSobre10Texto?: string;
+            estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
+            origen?: string | null;
             paginasOmr?: Array<{ numeroPagina?: number; imagenBase64?: string }>;
           };
         }>(`/calificaciones/examen/${encodeURIComponent(id)}`)
@@ -921,7 +927,10 @@ export function SeccionCalificaciones({
         resumenPersistido: {
           aciertos: Number.isFinite(aciertosPersistidos) ? aciertosPersistidos : 0,
           totalReactivos: Number.isFinite(totalReactivosPersistidos) ? totalReactivosPersistidos : 0,
-          calificacionFinalSobre5: Number.isFinite(calificacionFinalPersistida) ? calificacionFinalPersistida : 0
+          calificacionFinalSobre5: Number.isFinite(calificacionFinalPersistida) ? calificacionFinalPersistida : 0,
+          calificacionEquivalenteSobre10Texto: calificacionPayload?.calificacion?.calificacionEquivalenteSobre10Texto,
+          estadoAprobatorio: calificacionPayload?.calificacion?.estadoAprobatorio,
+          origen: String(calificacionPayload?.calificacion?.origen ?? '').trim() || undefined
         },
         claveCorrectaPorNumero: clave.claveCorrectaPorNumero,
         ordenPreguntas: clave.ordenPreguntas,

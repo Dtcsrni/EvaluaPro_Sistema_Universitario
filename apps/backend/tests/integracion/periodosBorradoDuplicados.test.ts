@@ -8,7 +8,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { crearPreguntasPublicadas } from './_reactivosHelper.js';
 
 describe('periodos (materias)', () => {
@@ -16,15 +16,15 @@ describe('periodos (materias)', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function registrar(correo: string) {
@@ -112,7 +112,15 @@ describe('periodos (materias)', () => {
       auth: { Authorization: `Bearer ${token}` },
       periodoId,
       externalPrefix: 'archivar-materia',
-      preguntas: Array.from({ length: preguntasPorEscenario }, (_, index) => `Pregunta ${index + 1}`)
+      preguntas: Array.from({ length: preguntasPorEscenario }, (_, index) =>
+        `Al archivar una materia, ¿qué debe conservarse para mantener el historial académico ${index + 1}?`),
+      opciones: [
+        'Los exámenes y reactivos asociados, junto con su relación con la materia',
+        'Solo el nombre visible de la materia, sin registros relacionados',
+        'Las relaciones con exámenes eliminadas para reducir el espacio usado',
+        'Únicamente los datos que pertenezcan a materias todavía activas',
+        'Los archivos reemplazados por una copia sin identificadores originales'
+      ]
     });
 
     const plantillaId = await crearPlantilla(token, periodoId, preguntasIds);

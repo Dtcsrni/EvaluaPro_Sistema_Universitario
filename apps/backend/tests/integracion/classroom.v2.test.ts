@@ -14,7 +14,7 @@ import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servic
 import { EvidenciaEvaluacion } from '../../src/modulos/modulo_evaluaciones/modeloEvidenciaEvaluacion.js';
 import { classroomGet, obtenerTokenAccesoClassroom } from '../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 vi.mock('../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle', () => ({
   construirUrlOauthClassroom: vi.fn(),
@@ -35,16 +35,16 @@ describe('classroom v2', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     vi.clearAllMocks();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function crearContexto() {

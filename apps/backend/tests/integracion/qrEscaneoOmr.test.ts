@@ -10,7 +10,7 @@ import QRCode from 'qrcode';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 function invalidarFirmaQr(textoQr: string) {
   return String(textoQr).replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA');
@@ -23,15 +23,15 @@ describe('escaneo OMR: QR asociado a examen', () => {
   const preguntasPorEscenario = 5;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function registrarDocente() {
@@ -78,6 +78,28 @@ describe('escaneo OMR: QR asociado a examen', () => {
       .send({ periodoId, nombre: 'Tema QR OMR' })
       .expect(201);
     const temaId = String(temaResp.body.tema._id);
+    const preguntasDeAplicacionesWeb = [
+      {
+        enunciado: '¿Qué práctica ayuda a reutilizar una interfaz que aparece en varias pantallas?',
+        opciones: ['Extraerla como componente con propiedades explícitas', 'Copiar y pegar todo su marcado', 'Guardar el marcado en una ruta temporal', 'Duplicar los estilos por cada pantalla', 'Renderizarla como imagen estática']
+      },
+      {
+        enunciado: '¿Qué conviene hacer con los datos de un formulario antes de guardarlos?',
+        opciones: ['Validar formato y reglas del dominio en el servidor', 'Confiar solo en el atributo placeholder', 'Convertir cualquier valor vacío en cero', 'Aceptar los datos y corregirlos al mostrarlos', 'Desactivar la validación para acelerar el envío']
+      },
+      {
+        enunciado: '¿Qué mecanismo permite cambiar una vista sin recargar el documento completo?',
+        opciones: ['Actualizar el estado de la interfaz y renderizar la vista afectada', 'Reiniciar el servidor después de cada clic', 'Sustituir el sitio por una captura de pantalla', 'Duplicar la página en una ventana nueva', 'Borrar el historial del navegador']
+      },
+      {
+        enunciado: '¿Qué respuesta HTTP indica que una solicitud autenticada carece de permisos?',
+        opciones: ['403 Forbidden', '200 OK', '301 Moved Permanently', '304 Not Modified', '418 I\'m a teapot']
+      },
+      {
+        enunciado: '¿Qué atributo asocia una etiqueta accesible con su control de formulario?',
+        opciones: ['for con el id del control', 'src con el nombre del control', 'href con la etiqueta', 'target con el valor', 'download con el formulario']
+      }
+    ];
     const lote = {
       contract: 'evaluapro.reactivos.batch',
       schemaVersion: 1,
@@ -88,15 +110,15 @@ describe('escaneo OMR: QR asociado a examen', () => {
         generator: 'qr-omr-integration-test',
         generatedAt: new Date().toISOString()
       },
-      items: Array.from({ length: preguntasPorEscenario }, (_, indice) => ({
+      items: preguntasDeAplicacionesWeb.slice(0, preguntasPorEscenario).map((pregunta, indice) => ({
         externalKey: `qr-omr-${Date.now()}-${indice + 1}`,
         itemId: null,
         expectedVersion: null,
         format: 'omr.mcq5',
-        stem: { format: 'richtext', value: `Pregunta ${indice + 1}` },
-        options: ['A', 'B', 'C', 'D', 'E'].map((key, index) => ({
-          key,
-          value: `Opcion ${key}`,
+        stem: { format: 'richtext', value: pregunta.enunciado },
+        options: pregunta.opciones.map((value, index) => ({
+          key: ['A', 'B', 'C', 'D', 'E'][index]!,
+          value,
           isCorrect: index === 0
         })),
         metadata: { difficultyHypothesis: 'medium' },

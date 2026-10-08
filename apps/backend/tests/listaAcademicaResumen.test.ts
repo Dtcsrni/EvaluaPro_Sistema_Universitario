@@ -7,6 +7,46 @@ import { describe, expect, it } from 'vitest';
 import { construirListaAcademica } from '../src/modulos/modulo_analiticas/servicioListaAcademica.js';
 
 describe('construirListaAcademica', () => {
+  it('habilita Extra solo con final menor que 6 y redondea finales reprobatorios hacia abajo', () => {
+    const alumnos = [{ _id: 'alumno-1', matricula: 'A-001', nombreCompleto: 'Alumno Uno', grupo: 'A' }];
+    const calificaciones = [
+      { alumnoId: 'alumno-1', tipoExamen: 'parcial', plantillaTitulo: 'Primer Parcial', calificacionParcialTexto: '4.84' },
+      { alumnoId: 'alumno-1', tipoExamen: 'parcial', plantillaTitulo: 'Segundo Parcial', calificacionParcialTexto: '4.84' },
+      { alumnoId: 'alumno-1', tipoExamen: 'global', calificacionGlobalTexto: '4.84' }
+    ];
+    const reprobado = construirListaAcademica(alumnos, calificaciones, [], {
+      calificacionesManuales: [{ alumnoId: 'alumno-1', componente: 'Solicitud Extra', calificacion: 1, version: 2 }]
+    })[0];
+    const conResultado = construirListaAcademica(alumnos, [
+      ...calificaciones,
+      {
+        _id: 'calificacion-extra-1', alumnoId: 'alumno-1', tipoExamen: 'extraordinario', calificacionExamenFinalTexto: '2.285714285714285714', origen: 'inferida manualmente',
+        examenGenerado: { id: 'examen-1', alumnoId: 'alumno-1', loteId: 'lote-1', folio: 'folio-1' }
+      }
+    ], [], {
+      calificacionesManuales: [{ alumnoId: 'alumno-1', componente: 'Solicitud Extra', calificacion: 1, version: 2 }]
+    })[0];
+    expect(reprobado).toMatchObject({ extraDisponible: true, solicitaExtra: true, solicitudExtraVersion: 2, calificacionFinalCursoActa: '4' });
+    expect(conResultado.resultadosExtraordinarios).toEqual([expect.objectContaining({
+      examenGeneradoId: 'examen-1', loteId: 'lote-1', folio: 'folio-1', calificacionSobre5: '2.285714285714285714',
+      calificacionSobre10: '4.57', estadoAprobatorio: 'No aprobatoria', origen: 'inferida manualmente'
+    })]);
+
+    const limite = construirListaAcademica(alumnos, [
+      { alumnoId: 'alumno-1', tipoExamen: 'parcial', plantillaTitulo: 'Primer Parcial', calificacionParcialTexto: '6' },
+      { alumnoId: 'alumno-1', tipoExamen: 'parcial', plantillaTitulo: 'Segundo Parcial', calificacionParcialTexto: '6' },
+      { alumnoId: 'alumno-1', tipoExamen: 'global', calificacionGlobalTexto: '6' }
+    ], [])[0];
+    expect(limite).toMatchObject({ extraDisponible: false, solicitaExtra: false, calificacionFinalCursoActa: '6' });
+
+    const reprobadoAlLimite = construirListaAcademica(alumnos, [
+      { alumnoId: 'alumno-1', tipoExamen: 'parcial', plantillaTitulo: 'Primer Parcial', calificacionParcialTexto: '5.99' },
+      { alumnoId: 'alumno-1', tipoExamen: 'parcial', plantillaTitulo: 'Segundo Parcial', calificacionParcialTexto: '5.99' },
+      { alumnoId: 'alumno-1', tipoExamen: 'global', calificacionGlobalTexto: '5.99' }
+    ], [])[0];
+    expect(reprobadoAlLimite).toMatchObject({ extraDisponible: true, calificacionFinalCursoActa: '5' });
+  });
+
   it('conserva los dos parciales y el global del mismo alumno', () => {
     const filas = construirListaAcademica(
       [{ _id: 'alumno-1', matricula: 'A-001', nombreCompleto: 'Alumno Uno', grupo: 'A' }],

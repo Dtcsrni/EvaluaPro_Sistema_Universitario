@@ -1,8 +1,8 @@
 ---
 id: SPEC-070
 titulo: Operación docente automatizable por API con correspondencia en GUI
-version: 1.23.10
-fecha: 2026-10-04
+version: 1.23.11
+fecha: 2026-10-06
 autor: Codex / EvaluaPro Team
 modulo: api_docente_automatizacion
 estado: approved
@@ -256,6 +256,14 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   se persiste separada y no alimenta componentes ni agregados de parcial/global.
   Reintentos con el mismo lote deben coincidir en tipo y cohorte; una selección
   distinta requiere un `loteId` nuevo.
+- **REQ-034:** La API expone `POST /autenticacion/preferencias/retencion-parciales`
+  para que cada docente configure `meses` como `null` (conservar por defecto), 3,
+  6 o 12. La política de expiración solo puede purgar archivos de parciales de
+  periodos archivados y debe conservar los registros e historial académico.
+- **REQ-035:** La API expone el registro de resultados extraordinarios externos
+  mediante `POST /analiticas/lista-academica/resultados-extra-externos`, con permiso
+  `calificaciones:calificar`, validación estricta e idempotencia. Su elegibilidad,
+  procedencia, auditoría y separación de la nota ordinaria se rigen por SPEC-076.
 - **REQ-019:** Las entregas deben poder listarse y consultarse por ID desde API,
   con filtros por examen, alumno, periodo, lote y estado, paginación acotada y
   cursor estable. Cada respuesta debe limitarse al docente autenticado y omitir
@@ -448,6 +456,12 @@ pm run api:contract:check`.
   exámenes. Una solicitud válida genera exactamente un examen extraordinario por
   alumno elegido; el reintento idempotente valida la misma cohorte. La calificación
   conserva la nota extraordinaria y no escribe campos ni agregados ordinarios.
+- **AC-033:** El contrato OpenAPI y el catálogo generado documentan la ruta de
+  retención con su permiso, validador y opciones `null`, 3, 6 y 12 meses. La ruta
+  rechaza otros plazos; su purga mantiene intactos los registros de parciales.
+- **AC-034:** El contrato OpenAPI y el catálogo generado documentan el alta de
+  resultados Extra externos con su permiso y validador. La operación conserva las
+  reglas y evidencias de SPEC-076 y no altera calificaciones ordinarias.
 - **AC-017:** La API permite listar entregas con filtros y cursor, consultar
   una entrega propia por ID, rechazar IDs ajenos como 404 y rechazar cursores o
   parámetros inválidos. La respuesta no expone el correo del alumno; las
@@ -489,6 +503,8 @@ implica que ya satisfagan todos los criterios nuevos.
 | REQ-027 / AC-025 | Inmutabilidad del lote y recuperación con el mismo ID | `apps/backend/tests/integracion/examenesRetention.test.ts`; `apps/backend/tests/integracion/examenesLotesApi.test.ts` | Implementado; incompatibilidad cubierta por el contrato de recuperación |
 | REQ-030 / AC-028 | Archivo/restauración atómica, idempotente y auditable del artefacto PDF con paridad GUI | `apps/backend/tests/integracion/examenesLotesApi.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `apps/frontend/tests/plantillasHistorialLotes.archivo.test.tsx`; `scripts/tests/migrate-examen-lotes-ciclo-vida-sqlite.test.mjs` | Backend/SDK/migración y representación GUI/paginación validados en foco |
 | REQ-033 / AC-032 | Generación y calificación aparte de extraordinarios asignados a alumnos seleccionados | `apps/backend/tests/integracion/flujoExamen.test.ts`; `apps/backend/tests/examenExtraordinario.rules.test.ts`; `apps/frontend/tests/plantillas.refactor.test.tsx`; `scripts/tests/migrate-examen-tipo-examen-sqlite.test.mjs` | Implementado; validación focal |
+| REQ-034 / AC-033 | Preferencia API de retención solo para parciales archivados y contrato OpenAPI | `apps/backend/tests/integracion/examenesRetention.test.ts`; `scripts/tests/migrate-preferencias-retencion-parcial-sqlite.test.mjs`; `scripts/api/generate-openapi.mjs`; `scripts/api/check-openapi-contract.mjs` | Implementado; plazo, alcance, migración y contrato documentados |
+| REQ-035 / AC-034 | Registro idempotente de Extra externo con elegibilidad y procedencia | `docs/specs/SPEC-076_solicitud_extra_por_reprobacion.spec.md`; `apps/backend/tests/integracion/listaAcademicaContratos.test.ts`; `scripts/tests/migrate-resultados-extra-externos-sqlite.test.mjs`; `scripts/api/generate-openapi.mjs`; `scripts/api/check-openapi-contract.mjs` | Implementado conforme a SPEC-076; migración y contrato incluidos |
 | REQ-031 / AC-029 | CRUD transaccional, idempotente y auditable de temas del banco con paridad GUI | `apps/backend/tests/integracion/temasBancoLifecycle.test.ts`; `apps/backend/tests/bancoPreguntas.controlador.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-temas-banco-auditoria-sqlite.test.mjs`; `apps/frontend/tests/bancoGestionTemas.test.tsx` | Backend/SDK/migración/controlador validados; typecheck API/GUI validado; GUI mantiene clave de reintento |
 | REQ-028 / AC-026 | CRUD seguro de temarios, auditoría y carga PDF multipart en paridad con GUI | `apps/backend/tests/integracion/temario.pdf.test.ts`; `apps/frontend/tests/seccionTemarios.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-temarios-auditoria-sqlite.test.mjs` | Implementado; validación focalizada pendiente de cierre final |
 | REQ-029 / AC-027 | Todos los modelos Prisma clasificados en la matriz de ciclos de vida | `scripts/tests/api-resource-lifecycle.test.mjs`; `scripts/api/check-resource-lifecycle.mjs` | Implementado; guard integrado a `api:contract:check` |

@@ -184,6 +184,11 @@ export const esquemaActualizarPreferenciasPdf = z
   .object({
     institucion: z.string().min(1).max(120).optional(),
     lema: z.string().min(1).max(160).optional(),
+    paginasPorTipo: z.object({
+      parcial: z.number().int().min(2).max(50).multipleOf(2),
+      global: z.number().int().min(2).max(50).multipleOf(2),
+      extraordinario: z.number().int().min(2).max(50).multipleOf(2)
+    }).strict().optional(),
     logos: z
       .object({
         // Las cargas desde la UI se almacenan como data URL para conservar
@@ -195,6 +200,10 @@ export const esquemaActualizarPreferenciasPdf = z
       .optional()
   })
   .strict()
-  .refine((data) => Boolean(data.institucion || data.lema || data.logos), {
+  .refine((data) => Boolean(data.institucion || data.lema || data.logos || data.paginasPorTipo), {
     message: 'Nada para actualizar'
   });
+
+export const esquemaActualizarRetencionParciales = z.object({
+  meses: z.union([z.literal(3), z.literal(6), z.literal(12)]).nullable()
+}).strict();

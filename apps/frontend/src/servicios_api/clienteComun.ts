@@ -551,6 +551,7 @@ type RetryDescriptor = {
 
 type ClienteRequestOptions = {
   timeoutMs?: number;
+  headers?: Record<string, string>;
 };
 
 type CrearClienteJsonBaseOptions = {
@@ -592,9 +593,10 @@ export function crearPublicadorEventosUsoJson<EventoUso>(opts: {
 }
 
 export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
-  const withJsonHeaders = (token: string | null, includeJsonContentType: boolean) => ({
+  const withJsonHeaders = (token: string | null, includeJsonContentType: boolean, requestHeaders?: Record<string, string>) => ({
     ...(includeJsonContentType ? { 'Content-Type': 'application/json' } : {}),
     ...(opts.headers || {}),
+    ...(requestHeaders || {}),
     ...(token ? { Authorization: 'Bearer ' + token } : {})
   });
 
@@ -603,7 +605,8 @@ export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
     {
       method = 'GET',
       payload,
-      timeoutMs = 12_000
+      timeoutMs = 12_000,
+      headers: requestHeaders
     }: ClienteRequestOptions & { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; payload?: unknown } = {}
   ): Promise<T> => {
     const token = opts.obtenerToken?.() ?? null;
@@ -616,7 +619,7 @@ export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
           fetch(opts.baseUrl + ruta, {
             method,
             credentials: opts.credentials,
-            headers: withJsonHeaders(activeToken, includeJsonContentType),
+            headers: withJsonHeaders(activeToken, includeJsonContentType, requestHeaders),
             body: payload === undefined ? undefined : JSON.stringify(payload),
             signal
           });
@@ -641,12 +644,12 @@ export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
   };
 
   return {
-    obtener: <T>(ruta: string, opciones?: ClienteRequestOptions) => solicitar<T>(ruta, { method: 'GET', timeoutMs: opciones?.timeoutMs }),
+    obtener: <T>(ruta: string, opciones?: ClienteRequestOptions) => solicitar<T>(ruta, { method: 'GET', timeoutMs: opciones?.timeoutMs, headers: opciones?.headers }),
     enviar: <T>(ruta: string, payload: unknown, opciones?: ClienteRequestOptions) =>
-      solicitar<T>(ruta, { method: 'POST', payload, timeoutMs: opciones?.timeoutMs ?? 15_000 }),
+      solicitar<T>(ruta, { method: 'POST', payload, timeoutMs: opciones?.timeoutMs ?? 15_000, headers: opciones?.headers }),
     actualizar: <T>(ruta: string, payload: unknown, opciones?: ClienteRequestOptions) =>
-      solicitar<T>(ruta, { method: 'PUT', payload, timeoutMs: opciones?.timeoutMs ?? 15_000 }),
+      solicitar<T>(ruta, { method: 'PUT', payload, timeoutMs: opciones?.timeoutMs ?? 15_000, headers: opciones?.headers }),
     eliminar: <T>(ruta: string, opciones?: ClienteRequestOptions) =>
-      solicitar<T>(ruta, { method: 'DELETE', timeoutMs: opciones?.timeoutMs ?? 15_000 })
+      solicitar<T>(ruta, { method: 'DELETE', timeoutMs: opciones?.timeoutMs, headers: opciones?.headers })
   };
 }

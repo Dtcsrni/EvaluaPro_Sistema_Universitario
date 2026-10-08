@@ -67,6 +67,18 @@ export function SeccionCuenta({
 
   const [institucionPdf, setInstitucionPdf] = useState(docente.preferenciasPdf?.institucion ?? '');
   const [lemaPdf, setLemaPdf] = useState(docente.preferenciasPdf?.lema ?? '');
+  const [paginasPorTipo, setPaginasPorTipo] = useState({
+    parcial: docente.preferenciasPdf?.paginasPorTipo?.parcial ?? 2,
+    global: docente.preferenciasPdf?.paginasPorTipo?.global ?? 4,
+    extraordinario: docente.preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4
+  });
+  useEffect(() => {
+    setPaginasPorTipo({
+      parcial: docente.preferenciasPdf?.paginasPorTipo?.parcial ?? 2,
+      global: docente.preferenciasPdf?.paginasPorTipo?.global ?? 4,
+      extraordinario: docente.preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4
+    });
+  }, [docente.id, docente.preferenciasPdf?.paginasPorTipo]);
   const logoIzqInicial = docente.preferenciasPdf?.logos?.izquierdaPath ?? '';
   const logoDerInicial = docente.preferenciasPdf?.logos?.derechaPath ?? '';
   const [logoIzqPdf, setLogoIzqPdf] = useState(esDataUrlImagen(logoIzqInicial) ? logoIzqInicial : '');
@@ -76,6 +88,7 @@ export function SeccionCuenta({
   const [papelera, setPapelera] = useState<Array<Record<string, unknown>>>([]);
   const [cargandoPapelera, setCargandoPapelera] = useState(false);
   const [restaurandoId, setRestaurandoId] = useState<string | null>(null);
+  const [retencionParcialesMeses, setRetencionParcialesMeses] = useState<3 | 6 | 12 | null>(docente.retencionParcialesArchivadosMeses ?? null);
 
   // Estados del Gestor de Actualizaciones
   const [buscandoActualizaciones, setBuscandoActualizaciones] = useState(false);
@@ -190,6 +203,7 @@ export function SeccionCuenta({
       const cuerpo: Record<string, unknown> = {};
       if (institucionPdf.trim()) cuerpo.institucion = institucionPdf.trim();
       if (lemaPdf.trim()) cuerpo.lema = lemaPdf.trim();
+      cuerpo.paginasPorTipo = paginasPorTipo;
       const logoIzquierda = logoIzqPdf.trim() || logoIzqPdfPath.trim();
       const logoDerecha = logoDerPdf.trim() || logoDerPdfPath.trim();
       if (logoIzquierda || logoDerecha) {
@@ -219,6 +233,32 @@ export function SeccionCuenta({
         action: accionToastSesionParaError(error, 'docente')
       });
       registrarAccionDocente('preferencias_pdf', false);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  async function guardarRetencionParciales() {
+    try {
+      setGuardando(true);
+      setMensaje('');
+      const respuesta = await clienteApi.enviar<{ retencionParcialesArchivadosMeses: 3 | 6 | 12 | null }>(
+        '/autenticacion/preferencias/retencion-parciales',
+        { meses: retencionParcialesMeses }
+      );
+      setRetencionParcialesMeses(respuesta.retencionParcialesArchivadosMeses);
+      onDocenteActualizado({
+        ...docente,
+        retencionParcialesArchivadosMeses: respuesta.retencionParcialesArchivadosMeses
+      });
+      setMensaje('Preferencia de retención guardada');
+      emitToast({ level: 'ok', title: 'Historial', message: 'Preferencia de retención guardada', durationMs: 2400 });
+      registrarAccionDocente('preferencia_retencion_parciales', true);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo guardar la preferencia de retención');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'Historial', message: msg, durationMs: 5200 });
+      registrarAccionDocente('preferencia_retencion_parciales', false);
     } finally {
       setGuardando(false);
     }
@@ -657,6 +697,33 @@ export function SeccionCuenta({
           </label>
         </div>
 
+        <div className="grid grid--3">
+          {([
+            ['parcial', 'Parcial'],
+            ['global', 'Global'],
+            ['extraordinario', 'Extraordinario']
+          ] as const).map(([tipo, etiqueta]) => (
+            <label className="campo" key={tipo}>
+              <span>Páginas predeterminadas · {etiqueta}</span>
+              <input
+                type="number"
+                min={2}
+                max={50}
+                step={2}
+                value={paginasPorTipo[tipo]}
+                onChange={(event) => {
+                  const valor = Number(event.target.value);
+                  if (Number.isInteger(valor) && valor >= 2 && valor <= 50 && valor % 2 === 0) {
+                    setPaginasPorTipo((actual) => ({ ...actual, [tipo]: valor }));
+                  }
+                }}
+                aria-label={`Páginas predeterminadas para ${etiqueta.toLocaleLowerCase()}`}
+              />
+              <span className="ayuda">{paginasPorTipo[tipo]} páginas · {paginasPorTipo[tipo] / 2} hojas dúplex. Solo números pares.</span>
+            </label>
+          ))}
+        </div>
+
         <div className="grid grid--2 cuenta-pdf__logos">
           <div className="cuenta-pdf__logo-field">
             <label className="campo">
@@ -687,6 +754,44 @@ export function SeccionCuenta({
         <div className="acciones acciones--mt">
           <Boton onClick={guardarPreferenciasPdf} disabled={guardando}>
             Guardar PDF
+          </Boton>
+        </div>
+      </div>
+
+      <div className="cuenta-subpanel cuenta-retencion anim-fade-in">
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Historial de materias</span>
+            </span>
+            <h3 className="entregas-title-heading">
+              <Icono nombre="pdf" /> Retención de parciales archivados
+            </h3>
+            <p className="nota">Por defecto, los parciales y sus archivos se conservan siempre. Si eliges un plazo, se purgarán automáticamente los archivos de exámenes parciales archivados al cumplirlo; el historial, las calificaciones y los demás exámenes se conservan.</p>
+          </div>
+        </div>
+        <div className="grid grid--2">
+          <label className="campo">
+            <span>Eliminar automáticamente los PDF archivados después de</span>
+            <select
+              value={retencionParcialesMeses ?? ''}
+              onChange={(event) => {
+                const value = event.target.value;
+                setRetencionParcialesMeses(value === '' ? null : Number(value) as 3 | 6 | 12);
+              }}
+              aria-label="Plazo para conservar PDF de parciales archivados"
+            >
+              <option value="">Conservar siempre (predeterminado)</option>
+              <option value="3">3 meses</option>
+              <option value="6">6 meses</option>
+              <option value="12">1 año</option>
+            </select>
+          </label>
+        </div>
+        <div className="acciones acciones--mt">
+          <Boton onClick={guardarRetencionParciales} disabled={guardando}>
+            Guardar retención
           </Boton>
         </div>
       </div>

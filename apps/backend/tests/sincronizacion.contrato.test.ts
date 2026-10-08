@@ -4,7 +4,7 @@
 import type { Response } from 'express';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { conectarSqliteTest, cerrarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
 import {
   exportarPaquete,
@@ -31,15 +31,15 @@ function crearRespuesta() {
 
 describe('sincronizacion contratos minimos', () => {
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('mantiene shape en exportar/importar/listar', async () => {

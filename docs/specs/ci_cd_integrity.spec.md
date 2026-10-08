@@ -1,8 +1,8 @@
 ---
 id: SPEC-CI-CD-INTEGRITY
 titulo: Integridad y seguridad de ciclos CI/CD
-version: 1.2.1
-fecha: 2026-10-05
+version: 1.2.2
+fecha: 2026-10-06
 autor: Codex / Agente IA
 modulo: devops
 estado: approved
@@ -22,6 +22,7 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 - **REQ-006:** El workflow beta automático se dispara cuando termina `CI Checks` para `main`, pero solo evalúa/publica cuando ese workflow concluyó exitosamente y el SHA corresponde a `main`.
 - **REQ-007:** `CI Checks` es propietario de las suites completas, coverage y diff coverage. Los workflows de módulo mantienen señales rápidas y específicas, no vuelven a ejecutar coverage; diff coverage evalúa código fuente cambiado y solo puede excluir archivos concretos de deuda aprobada, nunca un directorio `src` completo. Si el diff no contiene fuentes backend, omite únicamente coverage backend diferencial con diagnóstico explícito; la suite completa de pruebas backend continúa ejecutándose.
 - **REQ-008:** Una release estable del instalador solo permanece pública si una E2E completa descarga el EXE por su URL pública canónica, verifica tamaño y SHA-256 contra el digest de la API de GitHub y el sidecar, y ejecuta install/repair/upgrade/dashboard/uninstall sobre un runner Windows aislado. Si esa E2E falla, el workflow vuelve el release a borrador.
+- **REQ-009:** El Dockerfile del backend copia `apps/backend/prisma.config.mjs` dentro de la etapa `builder` antes de ejecutar `npm --workspace apps/backend run build`, que invoca `prisma generate --config prisma.config.mjs`.
 
 ## Criterios de Aceptación
 - **AC-001 (REQ-001):** Las pruebas de contrato enumeran workflows read-only y fallan si pierden `contents: read` o habilitan permisos de escritura.
@@ -32,6 +33,7 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 - **AC-006 (REQ-006):** La prueba de contrato confirma el trigger `workflow_run` de `CI Checks` completado sobre `main` y la defensa adicional por conclusión exitosa y rama `main`.
 - **AC-007 (REQ-007):** Las pruebas confirman que el workflow central conserva suites/coverage/diff coverage, los workflows de módulo no duplican coverage, no hay exclusiones para raíces `src` y un diff sin fuentes backend omite solo coverage diferencial sin invocar Vitest.
 - **AC-008 (REQ-008):** La prueba de contrato confirma que el job E2E depende del job que publica el release, usa `browser_download_url`/la URL canónica pública, valida hashes, descarga el baseline v1.2.3, ejecuta el runner E2E completo y vuelve a borrador el release ante fallo.
+- **AC-009 (REQ-009):** La prueba de contrato falla si el Dockerfile backend omite la copia del archivo de configuración Prisma o si esa copia aparece después del build.
 
 ## Matriz de Trazabilidad
 
@@ -45,3 +47,4 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 | REQ-006 | Activar publicación beta automática después de CI verde en main | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
 | REQ-007 | Ejecutar coverage una sola vez, medir líneas reales del diff y omitir el lote diferencial si no hay fuentes backend cambiadas | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/backend-coverage-batches.test.mjs` | Implementado |
 | REQ-008 | E2E completa del EXE descargado del release público y rollback si falla | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
+| REQ-009 | Copiar configuración Prisma antes del build Docker backend | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |

@@ -36,7 +36,8 @@ export class ExamenPdf {
     public readonly mapaVariante: MapaVariante,
     public readonly tipoExamen: TipoExamen,
     public readonly layout: LayoutExamenConfig,
-    public readonly encabezado?: EncabezadoExamen
+    public readonly encabezado?: EncabezadoExamen,
+    public readonly loteId?: string
   ) {
     // Validaciones de negocio
     if (!folio || folio.trim().length === 0) {
@@ -56,6 +57,11 @@ export class ExamenPdf {
 
   get folioNormalizado(): string {
     return this.folio.trim().toUpperCase();
+  }
+
+  get numeroCompuestoNormalizado(): string {
+    const loteIdNormalizado = String(this.loteId ?? '').trim().toUpperCase();
+    return loteIdNormalizado ? `${loteIdNormalizado}-${this.folioNormalizado}` : this.folioNormalizado;
   }
 
   get examIdNormalizado(): string {

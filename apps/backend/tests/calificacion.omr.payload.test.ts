@@ -11,7 +11,7 @@ import { crearApp } from '../src/app.js';
 import { configuracion } from '../src/configuracion.js';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
 import { construirTextoQrExamenPagina, extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 
 function refirmarQr(textoQr: string) {
   const limpio = String(textoQr ?? '').trim();
@@ -208,15 +208,15 @@ describe('calificación OMR payload estricto', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('rechaza payload OMR con longitud de respuestas inconsistente', async () => {

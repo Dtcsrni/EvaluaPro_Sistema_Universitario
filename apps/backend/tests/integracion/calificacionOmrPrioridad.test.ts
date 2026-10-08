@@ -7,21 +7,21 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('calificacion OMR prioriza respuestas detectadas', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function registrarDocente() {
@@ -84,8 +84,10 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
         itemId: null,
         expectedVersion: null,
         format: 'omr.mcq5',
-        stem: { format: 'richtext', value: `Pregunta ${indice + 1}` },
-        options: ['A', 'B', 'C', 'D', 'E'].map((key, index) => ({ key, value: `Opcion ${key}`, isCorrect: index === 0 })),
+        stem: { format: 'richtext', value: `En una lectura OMR, ¿qué acción conserva la trazabilidad de la respuesta ${indice + 1}?` },
+        options: ['Conservar la confianza y el estado de lectura', 'Convertir toda lectura dudosa en acierto', 'Eliminar el registro de confianza', 'Aceptar una doble marca como correcta', 'Omitir la revisión manual'].map((value, index) => ({
+          key: String.fromCharCode(65 + index), value, isCorrect: index === 0
+        })),
         metadata: { difficultyHypothesis: 'medium' },
         provenance: { origin: 'authored', confidence: 1, notes: 'fixture de prioridad OMR' }
       }))

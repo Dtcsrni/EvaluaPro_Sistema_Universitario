@@ -19,7 +19,7 @@ import {
   listarCursosClassroom,
   obtenerTokenAccesoClassroom
 } from '../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 vi.mock('../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle', () => ({
   construirUrlOauthClassroom: vi.fn(),
@@ -36,16 +36,16 @@ describe('auditoria integración classroom', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
     vi.clearAllMocks();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   async function crearContexto() {

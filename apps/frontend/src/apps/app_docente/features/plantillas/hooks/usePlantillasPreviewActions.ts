@@ -25,6 +25,7 @@ export type PreviewPdfUrls = {
 };
 
 type Params = {
+  paginasExtraordinarioObjetivo?: number;
   puedePrevisualizarPlantillas: boolean;
   avisarSinPermiso: (mensaje: string) => void;
   previewPorPlantillaId: Record<string, PreviewPlantilla>;
@@ -38,6 +39,7 @@ type Params = {
 };
 
 export function usePlantillasPreviewActions({
+  paginasExtraordinarioObjetivo = 4,
   puedePrevisualizarPlantillas,
   avisarSinPermiso,
   previewPorPlantillaId,
@@ -213,17 +215,18 @@ export function usePlantillasPreviewActions({
     if (!resumen) return null;
     const paginas = await cargarPreviewPdfPlantilla(id, 'booklet');
     if (!paginas) return null;
+    const paginasObjetivo = paginasExtraordinarioObjetivo;
     const numeroPaginas = Number(resumen.numeroPaginas);
     const totalDisponibles = Number(resumen.totalDisponibles);
     const totalUsados = Number(resumen.totalUsados);
     return {
-      layoutConfirmado: resumen.layoutConfirmado === true && numeroPaginas === 4 && paginas.length === 4 && totalUsados === totalDisponibles,
+      layoutConfirmado: resumen.layoutConfirmado === true && numeroPaginas === paginasObjetivo && paginas.length === paginasObjetivo && totalUsados === totalDisponibles,
       paginas,
       totalDisponibles,
       totalUsados,
       numeroPaginas
     };
-  }, [cargarPreviewPdfPlantilla, cargarPreviewPlantilla]);
+  }, [cargarPreviewPdfPlantilla, cargarPreviewPlantilla, paginasExtraordinarioObjetivo]);
 
   return { cargarPreviewPlantilla, togglePreviewPlantilla, cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla, previsualizarPdfConfirmado };
 }

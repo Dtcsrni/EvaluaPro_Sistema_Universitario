@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 import { prepararEscenarioFlujo } from './_flujoDocenteHelper.js';
 
 const VERSION_LOCAL = '1.1.0-local.0';
@@ -50,18 +50,18 @@ describe('release prod-flow local smoke mayo-junio', () => {
   let server: ReturnType<typeof app.listen> | undefined;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
     if (server) {
       await new Promise<void>((resolve, reject) => server?.close((error) => (error ? reject(error) : resolve())));
     }
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('ejecuta el gate automatico contra API local y evidencia separada', async () => {
