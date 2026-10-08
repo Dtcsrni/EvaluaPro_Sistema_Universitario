@@ -3,7 +3,7 @@
  *
  * Contrato de consulta rápida por alumno y tipo de examen.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ConsultaCalificaciones } from '../src/apps/app_docente/ConsultaCalificaciones';
@@ -20,6 +20,7 @@ vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
 
 describe('ConsultaCalificaciones', () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     obtenerMock.mockReset();
     enviarMock.mockReset().mockResolvedValue({ ok: true });
     obtenerMock.mockResolvedValue({
@@ -179,8 +180,14 @@ describe('ConsultaCalificaciones', () => {
 
     await user.type(screen.getByLabelText('Folio visible'), '88dc8464');
     await user.type(screen.getByLabelText('Lote (opcional)'), 'lote-a');
-    await user.type(screen.getByLabelText('Archivo fuente'), ' extra-externo.pdf ');
-    await user.type(screen.getByLabelText('SHA-256 del PDF'), 'A'.repeat(64));
+    vi.stubGlobal('crypto', {
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0xab).buffer) },
+      randomUUID: () => '01234567-89ab-cdef-0123-456789abcdef'
+    });
+    const archivo = new File(['%PDF-1.7 evidencia'], 'extra-externo.pdf', { type: 'application/pdf' });
+    Object.defineProperty(archivo, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7 evidencia').buffer });
+    fireEvent.change(screen.getByLabelText('PDF fuente local'), { target: { files: [archivo] } });
+    expect(await screen.findByText(`SHA-256 calculado en este dispositivo: ${'ab'.repeat(32)}`)).toBeInTheDocument();
     await user.type(screen.getByLabelText('Aciertos'), '16');
     await user.type(screen.getByLabelText('Reactivos evaluables'), '35');
     await user.type(screen.getByLabelText('Criterios aplicados'), 'Se revisó cada reactivo contra la clave autorizada.');
@@ -188,7 +195,7 @@ describe('ConsultaCalificaciones', () => {
 
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/resultados-extra-externos', expect.objectContaining({
       periodoId: 'periodo-1', alumnoId: 'alumno-1', solicitaExtra: true, folio: '88DC8464', loteId: 'LOTE-A',
-      fuenteArchivo: 'extra-externo.pdf', documentoSha256: 'a'.repeat(64), aciertos: 16, totalReactivos: 35,
+      fuenteArchivo: 'extra-externo.pdf', documentoSha256: 'ab'.repeat(32), aciertos: 16, totalReactivos: 35,
       criteriosAplicados: 'Se revisó cada reactivo contra la clave autorizada.',
       clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i)
     })));
@@ -218,8 +225,14 @@ describe('ConsultaCalificaciones', () => {
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
     await user.type(screen.getByLabelText('Folio visible'), '88dc8464');
-    await user.type(screen.getByLabelText('Archivo fuente'), 'extra.pdf');
-    await user.type(screen.getByLabelText('SHA-256 del PDF'), 'a'.repeat(64));
+    vi.stubGlobal('crypto', {
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0xab).buffer) },
+      randomUUID: () => '01234567-89ab-cdef-0123-456789abcdef'
+    });
+    const archivo = new File(['%PDF-1.7 evidencia'], 'extra.pdf', { type: 'application/pdf' });
+    Object.defineProperty(archivo, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7 evidencia').buffer });
+    fireEvent.change(screen.getByLabelText('PDF fuente local'), { target: { files: [archivo] } });
+    expect(await screen.findByText(`SHA-256 calculado en este dispositivo: ${'ab'.repeat(32)}`)).toBeInTheDocument();
     await user.type(screen.getByLabelText('Aciertos'), '16');
     await user.type(screen.getByLabelText('Reactivos evaluables'), '35');
     await user.type(screen.getByLabelText('Criterios aplicados'), 'Revisado contra la clave oficial de la materia.');
