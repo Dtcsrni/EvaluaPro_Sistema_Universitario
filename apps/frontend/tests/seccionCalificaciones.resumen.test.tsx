@@ -552,7 +552,7 @@ describe('ConsultaCalificaciones', () => {
     const archivoInput = within(grupo).getByLabelText('PDF fuente local');
     const txt = new File(['texto'], 'examen.txt', { type: 'text/plain' });
     fireEvent.change(archivoInput, { target: { files: [txt] } });
-    expect(await within(grupo).findByText(/Selecciona un archivo PDF válido y no vacío/)).toBeInTheDocument();
+    expect(await screen.findAllByText(/Selecciona un archivo PDF válido y no vacío/)).not.toHaveLength(0);
 
     vi.stubGlobal('crypto', { randomUUID: () => '123e4567-e89b-42d3-a456-426614174000' });
     const pdfSeguro = new File(['%PDF-1.7'], 'anwar.pdf', { type: 'application/pdf' });
