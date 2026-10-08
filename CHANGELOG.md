@@ -6,11 +6,17 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [1.2.6] - 2026-10-08
 
+### Added
+- Flujo docente unificado de extraordinarios: elegibilidad por reprobación, solicitud y trazabilidad del examen extraordinario hasta su calificación.
+- Runtime local nativo para Windows con SQLite y conservación de los datos durante actualizaciones.
+- Identidad del docente en la barra principal: versión enlazada a la versión técnica y foto sincronizada desde la cuenta, con fallback local y avatar genérico.
+
 ### Fixed
 - Dependabot y la auditoría npm quedan sin hallazgos en raíz, backend y portal: se actualizó `sharp` y se fijaron `shell-quote`, `deepmerge-ts`, `mysql2` y KaTeX en versiones corregidas, conservando Prisma 7.
 - Package Images publica las imágenes en el namespace GHCR del owner con referencias válidas.
 - El mapa de CI incluye los gates afectados de Package Images y su contrato.
 - La E2E del release draft consulta el borrador con el token de lectura necesario y limita la exposición de credenciales al paso de descarga.
+- Las suites de CI de ramas de trabajo se ejecutan por PR; los `push` de `release/**` ya no compiten con esos PR y cancelan sus checks agregados.
 
 ## [1.2.4] - 2026-10-04
 

@@ -117,7 +117,7 @@ test('workflow CI expone force_full_ci y gating affected-only en extended', () =
   assert.match(workflow, /needs\.detectar_cambios\.outputs\.escalation == 'full-extended'/);
 });
 
-test('workflows core reservan push para ramas de integracion', () => {
+test('workflows core reservan push para main y validan ramas de trabajo mediante PR', () => {
   const coreWorkflows = [
     'ci.yml',
     'ci-backend.yml',
@@ -128,8 +128,10 @@ test('workflows core reservan push para ramas de integracion', () => {
 
   for (const workflowName of coreWorkflows) {
     const workflow = fs.readFileSync(path.join(workflowDir, workflowName), 'utf8');
+    const pushConfig = workflow.match(/^  push:\n([\s\S]*?)(?=^  [a-z_]+:)/m)?.[1] ?? '';
 
-    assert.match(workflow, /push:\s+branches:\s+- "main"\s+- "release\/\*\*"/s, workflowName);
+    assert.match(pushConfig, /branches:\n\s+- "main"/s, workflowName);
+    assert.doesNotMatch(pushConfig, /release\/\*\*/, workflowName);
     assert.match(workflow, /pull_request:/, workflowName);
     assert.doesNotMatch(workflow, /push:\s+branches:\s+- "\*\*"/s, workflowName);
   }
