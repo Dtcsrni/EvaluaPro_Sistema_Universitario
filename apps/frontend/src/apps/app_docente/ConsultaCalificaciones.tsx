@@ -151,6 +151,7 @@ export function ConsultaCalificaciones({
   const [error, setError] = useState('');
   const [borradores, setBorradores] = useState({ practica: '', examen: '', global: '' });
   const [guardando, setGuardando] = useState<'practica' | 'examen' | 'global' | 'extra' | 'resultadoExtra' | null>(null);
+  const [calculandoHashExtra, setCalculandoHashExtra] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState('');
   const [borradorBono, setBorradorBono] = useState('');
   const [vistaPreviaBono, setVistaPreviaBono] = useState<VistaPreviaBono | null>(null);
@@ -387,6 +388,31 @@ export function ConsultaCalificaciones({
       setErrorGuardado(razon instanceof Error ? razon.message : 'No se pudo registrar el resultado externo.');
     } finally {
       setGuardando(null);
+    }
+  }
+
+  async function seleccionarPdfExtra(file?: File) {
+    if (!file) return;
+    setErrorGuardado('');
+    if (!/\.pdf$/i.test(file.name) || file.size === 0) {
+      setErrorGuardado('Selecciona un archivo PDF válido y no vacío. El archivo permanece en este dispositivo.');
+      return;
+    }
+    if (!globalThis.crypto?.subtle) {
+      setErrorGuardado('Este navegador no permite calcular SHA-256 localmente. Usa un contexto seguro y vuelve a intentarlo.');
+      return;
+    }
+    setCalculandoHashExtra(true);
+    try {
+      const bytes = await file.arrayBuffer();
+      if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error('El contenido seleccionado no tiene firma PDF.');
+      const hash = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+      const documentoSha256 = Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, '0')).join('');
+      setResultadoExtraExterno((actual) => ({ ...actual, fuenteArchivo: file.name, documentoSha256 }));
+    } catch (razon) {
+      setErrorGuardado(razon instanceof Error ? razon.message : 'No se pudo leer el PDF para calcular su SHA-256 localmente.');
+    } finally {
+      setCalculandoHashExtra(false);
     }
   }
 
@@ -688,7 +714,7 @@ export function ConsultaCalificaciones({
                       {resultado.claseRegistro === 'externo'
                         ? <p>{resultado.loteId ? `Lote ${resultado.loteId} · ` : 'Lote sin verificar · '}folio {resultado.folio} · archivo {resultado.fuenteArchivo}</p>
                         : <p>Lote {resultado.loteId} · folio {resultado.folio} · examen {resultado.examenGeneradoId}</p>}
-                      {resultado.documentoSha256 && <p>SHA-256: {resultado.documentoSha256}</p>}
+                      {resultado.documentoSha256 && <p className="calificaciones-extra__sha256">SHA-256: {resultado.documentoSha256}</p>}
                       {resultado.origen && <p>Origen: {resultado.origen}</p>}
                     </article>
                   ))}
@@ -699,8 +725,10 @@ export function ConsultaCalificaciones({
                       <div className="calificaciones-consulta__manual-editors">
                         <label className="campo"><span>Folio visible</span><input value={resultadoExtraExterno.folio} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, folio: event.target.value }))} /></label>
                         <label className="campo"><span>Lote (opcional)</span><input value={resultadoExtraExterno.loteId} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, loteId: event.target.value }))} /></label>
-                        <label className="campo"><span>Archivo fuente</span><input value={resultadoExtraExterno.fuenteArchivo} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, fuenteArchivo: event.target.value }))} /></label>
-                        <label className="campo"><span>SHA-256 del PDF</span><input value={resultadoExtraExterno.documentoSha256} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, documentoSha256: event.target.value }))} /></label>
+                        <label className="campo"><span>PDF fuente local</span><input type="file" accept="application/pdf,.pdf" aria-describedby="extra-pdf-local-help" disabled={calculandoHashExtra || guardando !== null} onChange={(event) => void seleccionarPdfExtra(event.target.files?.[0])} /></label>
+                        <p id="extra-pdf-local-help" className="nota">El PDF se lee en este navegador para obtener el nombre y el SHA-256; no se sube ni se guarda otra copia.</p>
+                        {resultadoExtraExterno.fuenteArchivo && <p>Archivo: {resultadoExtraExterno.fuenteArchivo}{calculandoHashExtra ? ' · calculando SHA-256…' : ''}</p>}
+                        {resultadoExtraExterno.documentoSha256 && <p className="calificaciones-extra__sha256">SHA-256 calculado en este dispositivo: {resultadoExtraExterno.documentoSha256}</p>}
                         <label className="campo"><span>Aciertos</span><input type="number" min="0" step="1" value={resultadoExtraExterno.aciertos} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, aciertos: event.target.value }))} /></label>
                         <label className="campo"><span>Reactivos evaluables</span><input type="number" min="1" step="1" value={resultadoExtraExterno.totalReactivos} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, totalReactivos: event.target.value }))} /></label>
                         <label className="campo"><span>Criterios aplicados</span><textarea value={resultadoExtraExterno.criteriosAplicados} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, criteriosAplicados: event.target.value }))} /></label>
