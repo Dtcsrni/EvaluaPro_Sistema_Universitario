@@ -5,7 +5,8 @@ EvaluaPro usa versiones SemVer (`MAJOR.MINOR.PATCH`). La versión del repositori
 ## Estado observado
 
 - Código integrado en `main`: `1.2.6`, según `config/app-version.json` en este corte.
-- Última release pública observada el 2026-10-08: `v1.1.6`, según [GitHub Releases/latest](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
+- Última release pública observada el 2026-10-08: `v1.2.5`, según [GitHub Releases/latest](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
+- `v1.2.6` estaba en borrador en ese corte; no se trata como descarga pública.
 - La versión instalada solo se confirma desde EvaluaPro en el equipo.
 - El perfil considerado para distribución es `docente-local` en Windows.
 
