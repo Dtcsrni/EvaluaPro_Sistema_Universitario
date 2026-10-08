@@ -19,7 +19,8 @@ import {
   assertSmokeEnvironmentAvailable,
   cleanupOwnedDashboard,
   createOwnedDashboardIdentity,
-  isActiveSmokeEnabled
+  isActiveSmokeEnabled,
+  waitForOwnedDashboardIdentity
 } from '../testing/windows-release-smoke-ownership.mjs';
 
 const root = process.cwd();
@@ -432,16 +433,14 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
     '-NoOpen'
   ], { timeout: 300_000 });
 
-  const currentLock = readDashboardLock();
-  const processInfo = readProcessIdentity(currentLock?.pid);
-  ownedDashboard = createOwnedDashboardIdentity({
-    lock: currentLock,
-    processInfo,
+  assertBrokerSuccess(openRes, 'open-dashboard');
+  ownedDashboard = await waitForOwnedDashboardIdentity({
+    readLock: async () => readDashboardLock(),
+    readProcess: async (pid) => readProcessIdentity(pid),
     ports: fallbackPorts,
     installRoot: root,
     requestedAt: openRequestedAt
   });
-  assertBrokerSuccess(openRes, 'open-dashboard');
 
   const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
   assert.equal(bootstrap.runId, openRunId, 'El estado de bootstrap no corresponde a esta ejecución del smoke.');

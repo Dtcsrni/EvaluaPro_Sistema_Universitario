@@ -9,7 +9,8 @@ import {
   cleanupOwnedDashboard,
   createOwnedDashboardIdentity,
   isActiveSmokeEnabled,
-  sameProcessIdentity
+  sameProcessIdentity,
+  waitForOwnedDashboardIdentity
 } from '../testing/windows-release-smoke-ownership.mjs';
 
 const root = path.resolve('C:/qa/evaluapro');
@@ -110,6 +111,26 @@ test('la identidad propia valida lock reciente y admite reutilización legítima
     }),
     /instancia anterior/
   );
+});
+
+test('espera el lock recién creado y tolera su ausencia transitoria', async () => {
+  let reads = 0;
+  let pauses = 0;
+  const owner = await waitForOwnedDashboardIdentity({
+    readLock: async () => (++reads < 2 ? null : lock),
+    readProcess: async () => processInfo,
+    ports,
+    installRoot: root,
+    requestedAt,
+    timeoutMs: 1_000,
+    intervalMs: 10,
+    now: () => 0,
+    pause: async () => { pauses += 1; }
+  });
+  assert.equal(owner.pid, lock.pid);
+  assert.equal(owner.port, lock.port);
+  assert.equal(reads, 2);
+  assert.equal(pauses, 1);
 });
 
 test('cleanup cierra solo la identidad registrada; un PID sustituido no se toca', async () => {
