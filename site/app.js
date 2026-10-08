@@ -1,9 +1,9 @@
 /* Navegación móvil y aparición progresiva sin ocultar contenido si falta JavaScript. */
 const navToggle = document.getElementById('navToggle');
 const topbarNav = document.getElementById('main-navigation');
+document.documentElement.classList.add('has-js');
 
 if ('IntersectionObserver' in window) {
-  document.documentElement.classList.add('has-js');
   const revealObserver = new IntersectionObserver(
     (entries, observer) => {
       entries.forEach((entry) => {
