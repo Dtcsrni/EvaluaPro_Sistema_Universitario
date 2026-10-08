@@ -1,7 +1,7 @@
 # Dependabot policy:
 # - keep security capabilities available in GitHub
-# - stop automatic version-update PR churn on main
-# - keep npm security updates configured while avoiding routine version-update PR churn
+# - review routine version updates in bounded Dependabot PR batches
+# - keep security updates enabled; GitHub handles them separately from the version-update limit
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -11,7 +11,7 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "America/Mexico_City"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(deps)"
@@ -26,7 +26,7 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "America/Mexico_City"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(deps)"
@@ -41,7 +41,7 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "America/Mexico_City"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(deps)"
@@ -56,7 +56,7 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "America/Mexico_City"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(deps)"

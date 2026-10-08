@@ -2,7 +2,7 @@
 
 ## Estado y alcance
 En el corte documental del 2026-10-08, el código integrado en `main` declara
-`1.2.6`, mientras que GitHub Releases/latest muestra `v1.1.6`. Este documento
+`1.2.6`, mientras que GitHub Releases/latest muestra `v1.2.5`. La release `v1.2.6` aparece como borrador en este corte. Este documento
 describe el despliegue del código del repositorio; no prueba que una versión o
 un asset esté publicado. El único perfil de distribución considerado aquí es
 `docente-local` para Windows.

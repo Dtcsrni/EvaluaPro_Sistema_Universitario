@@ -2,7 +2,8 @@
 
 Fecha de actualización del resumen: 2026-10-08
 Versión fuente en `main`: `1.2.6` (`config/app-version.json`)
-Release pública observada: `v1.1.6` en GitHub Releases/latest al 2026-10-08
+Release pública observada: `v1.2.5` en GitHub Releases/latest al 2026-10-08
+Release `v1.2.6`: borrador, no descarga pública
 Versión instalada: debe comprobarse en el equipo; no inferirla desde este inventario.
 
 ## Resumen actual 2026-10-08

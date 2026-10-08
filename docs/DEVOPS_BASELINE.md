@@ -57,10 +57,11 @@ Fecha de baseline: 2026-02-13.
   - networking host↔contenedor portable vía `host-gateway`.
 - Hardening de dependencias nativas en backend module:
   - instalacion explicita de `sharp` linux-x64 antes de pruebas para evitar errores de runtime nativo en runners Linux.
-- Politica versionada de Dependabot:
-  - `.github/dependabot.yml` deshabilita PRs automaticas de versionado (`open-pull-requests-limit: 0`) para preservar la operacion de rama unica sobre `main`.
-  - Los bumps de mantenimiento quedan bajo integracion manual programada.
-  - Las alertas/security updates siguen gobernadas por GitHub y no dependen de abrir ramas de versionado recurrentes.
+- Política versionada de Dependabot:
+  - `.github/dependabot.yml` analiza semanalmente los cuatro workspaces npm (raíz, backend, frontend y portal).
+  - `open-pull-requests-limit: 5` limita las PR de actualizaciones de versión por workspace; cero las desactiva.
+  - Las PR de actualizaciones de seguridad usan el flujo de security updates de GitHub y no comparten ese límite.
+  - La política está protegida por `scripts/tests/dependabot-security-policy.test.mjs`; cada PR sigue los gates de CI antes de integrarse.
 
 ## Enforcements TDD activos
 - Diff coverage bloqueante en CI (`DIFF_COVERAGE_MIN=90`).
