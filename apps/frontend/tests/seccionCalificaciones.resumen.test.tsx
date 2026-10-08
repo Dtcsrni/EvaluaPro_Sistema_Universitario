@@ -508,4 +508,80 @@ describe('ConsultaCalificaciones', () => {
     expect(escrituras).toHaveLength(2);
     expect(escrituras[0][1].clientRequestId).toBe(escrituras[1][1].clientRequestId);
   });
+
+  it('muestra errores al guardar una solicitud Extra y al registrar un PDF externo', async () => {
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '5', parcial2: '5.5', global: '5.5', final: '5.3', calificacionFinalCurso: '5.3',
+      calificacionFinalCursoActa: '5', extraDisponible: true, solicitaExtra: false, solicitudExtraVersion: null,
+      resultadosExtraordinarios: [], observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    obtenerMock.mockResolvedValue({ filas: [filaExtra] });
+    enviarMock.mockRejectedValueOnce(new Error('Solicitud rechazada'));
+    const user = userEvent.setup();
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' }));
+    expect(await screen.findByText('Solicitud rechazada')).toBeInTheDocument();
+    expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({ componente: 'Solicitud Extra', calificacion: 1 }));
+  });
+
+  it('valida el PDF local externo y presenta el error del registro conservando datos para corregir', async () => {
+    const filaExtra = {
+      alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+      parcial1: '5', parcial2: '5.5', global: '5.5', final: '5.3', calificacionFinalCurso: '5.3',
+      calificacionFinalCursoActa: '5', extraDisponible: true, solicitaExtra: true, solicitudExtraVersion: 1,
+      resultadosExtraordinarios: [], observaciones: '', tareasYEjercicios2doParcial: '', tareasPuntosObtenidos: '', tareasPuntosPosibles: '',
+      practica2doParcial: '', practica2doParcialVersion: null, evaluacionContinua2doParcial: '', examen2doParcial: '',
+      examen2doParcialAutomatico: '', examen2doParcialVersion: null, calificacionSegundoParcial: '', examenGlobalComponente: '',
+      examenGlobalLista: '', examenGlobalListaVersion: null, continuaTercerParcialLista: '', calificacionTercerParcial: ''
+    };
+    obtenerMock.mockResolvedValue({ filas: [filaExtra] });
+    enviarMock.mockRejectedValueOnce(new Error('No se pudo registrar resultado'));
+    vi.stubGlobal('crypto', {
+      randomUUID: () => '123e4567-e89b-42d3-a456-426614174000',
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0x0b).buffer) }
+    });
+    const user = userEvent.setup();
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    const grupo = screen.getByRole('group', { name: 'Registrar resultado de examen Extra externo' });
+    const archivoInput = within(grupo).getByLabelText('PDF fuente local');
+    const txt = new File(['texto'], 'examen.txt', { type: 'text/plain' });
+    fireEvent.change(archivoInput, { target: { files: [txt] } });
+    expect(await screen.findByText(/Selecciona un archivo PDF válido y no vacío/)).toBeInTheDocument();
+
+    vi.stubGlobal('crypto', { randomUUID: () => '123e4567-e89b-42d3-a456-426614174000' });
+    const pdfSeguro = new File(['%PDF-1.7'], 'anwar.pdf', { type: 'application/pdf' });
+    Object.defineProperty(pdfSeguro, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7').buffer });
+    fireEvent.change(archivoInput, { target: { files: [pdfSeguro] } });
+    expect(await screen.findByText(/no permite calcular SHA-256 localmente/)).toBeInTheDocument();
+
+    vi.stubGlobal('crypto', {
+      randomUUID: () => '123e4567-e89b-42d3-a456-426614174000',
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0x0b).buffer) }
+    });
+    const firmaInvalida = new File(['otro texto'], 'anwar.pdf', { type: 'application/pdf' });
+    Object.defineProperty(firmaInvalida, 'arrayBuffer', { value: async () => new TextEncoder().encode('texto').buffer });
+    fireEvent.change(archivoInput, { target: { files: [firmaInvalida] } });
+    expect(await screen.findByText('El contenido seleccionado no tiene firma PDF.')).toBeInTheDocument();
+
+    const pdfValido = new File(['%PDF-1.7'], 'anwar.pdf', { type: 'application/pdf' });
+    Object.defineProperty(pdfValido, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7').buffer });
+    fireEvent.change(archivoInput, { target: { files: [pdfValido] } });
+    expect(await screen.findByText('SHA-256 calculado en este dispositivo: ' + '0b'.repeat(32))).toBeInTheDocument();
+
+    await user.type(within(grupo).getByLabelText('Folio visible'), 'FOLIO-EXTRA');
+    await user.type(within(grupo).getByLabelText('Aciertos'), '7');
+    await user.type(within(grupo).getByLabelText('Reactivos evaluables'), '10');
+    await user.type(within(grupo).getByLabelText('Criterios aplicados'), 'Revisión manual con rúbrica');
+    await user.click(within(grupo).getByRole('button', { name: 'Registrar resultado externo' }));
+    expect(await screen.findByText('No se pudo registrar resultado')).toBeInTheDocument();
+    expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/resultados-extra-externos', expect.objectContaining({
+      folio: 'FOLIO-EXTRA', fuenteArchivo: 'anwar.pdf', documentoSha256: '0b'.repeat(32), aciertos: 7, totalReactivos: 10
+    }));
+  });
 });
