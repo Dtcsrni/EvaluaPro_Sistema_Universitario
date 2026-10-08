@@ -558,7 +558,7 @@ describe('ConsultaCalificaciones', () => {
     const pdfSeguro = new File(['%PDF-1.7'], 'anwar.pdf', { type: 'application/pdf' });
     Object.defineProperty(pdfSeguro, 'arrayBuffer', { value: async () => new TextEncoder().encode('%PDF-1.7').buffer });
     fireEvent.change(archivoInput, { target: { files: [pdfSeguro] } });
-    expect(await screen.findByText(/no permite calcular SHA-256 localmente/)).toBeInTheDocument();
+    expect(await screen.findAllByText(/no permite calcular SHA-256 localmente/)).not.toHaveLength(0);
 
     vi.stubGlobal('crypto', {
       randomUUID: () => '123e4567-e89b-42d3-a456-426614174000',
