@@ -228,7 +228,9 @@ jobs:
 
       - name: Etapa coverage portal
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
-        run: npm -C apps/portal_alumno_cloud run test:coverage
+        env:
+          MODULE_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+        run: node scripts/testing/run-module-coverage.mjs --apps portal
 
       - name: Etapa tdd-debt-check
         run: npm run test:coverage:exclusions:debt
@@ -314,7 +316,9 @@ jobs:
         run: npm run test:ux-quality:ci
 
       - name: Etapa coverage frontend
-        run: npm run test:frontend:coverage:min
+        env:
+          MODULE_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+        run: node scripts/testing/run-module-coverage.mjs --apps frontend
 
       - name: Etapa tdd-debt-check
         run: npm run test:coverage:exclusions:debt
