@@ -211,7 +211,7 @@ jobs:
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         env:
           BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "5400000"
-          BACKEND_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+          BACKEND_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: npm -C apps/backend run test:coverage
 
       - name: Publicar diagnóstico de cobertura backend
@@ -229,7 +229,7 @@ jobs:
       - name: Etapa coverage portal
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         env:
-          MODULE_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+          MODULE_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: node scripts/testing/run-module-coverage.mjs --apps portal
 
       - name: Etapa tdd-debt-check
@@ -317,7 +317,7 @@ jobs:
 
       - name: Etapa coverage frontend
         env:
-          MODULE_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+          MODULE_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: node scripts/testing/run-module-coverage.mjs --apps frontend
 
       - name: Etapa tdd-debt-check
