@@ -1,53 +1,53 @@
 # Documentación de EvaluaPro
 
-Este índice separa las guías para operar EvaluaPro de las especificaciones técnicas y los registros históricos. La aplicación que se prepara para uso en otros equipos es `docente-local` en Windows. La versión del repositorio, la publicada en GitHub y la instalada en una computadora deben verificarse por separado.
+Usa este índice para llegar a la guía correcta. La distribución preparada para otros equipos es **`docente-local` para Windows**. Los contratos y la evidencia técnica no garantizan por sí solos que cada función o integración esté en un asset público.
 
-## Elige una ruta
+## Soy docente y quiero…
 
-| Si necesitas… | Empieza aquí |
+| Necesito… | Abre |
 | --- | --- |
-| Instalar EvaluaPro en una computadora | [Instalación y actualización](INSTALLER_HUB.md) |
-| Iniciar sesión y trabajar como docente | [Manual docente](MANUAL_USUARIO_DOCENTE.md) |
-| Entender opciones de respaldo y migración | [Sincronización entre computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md) |
-| Diagnosticar una instalación o un servicio | [Runbook de operación](RUNBOOK_OPERACION.md) |
-| Preparar o desplegar el proyecto | [Guía de despliegue](DESPLIEGUE.md) |
-| Entender módulos y límites del sistema | [Arquitectura](ARQUITECTURA.md) y [arquitectura C4](ARQUITECTURA_C4.md) |
-| Revisar privacidad o seguridad | [Política de seguridad](SECURITY_POLICY.md), [seguridad operativa](SEGURIDAD_OPERATIVA.md) y [aviso de privacidad](legal/aviso-privacidad-integral.md) |
-| Desarrollar o revisar una funcionalidad | [Especificaciones](specs/) y [política SDD](POLITICA_SDD.md) |
-| Distinguir código, tag y release | [Versionado](VERSIONADO.md) y [estado de releases](RELEASE_STATUS.md) |
-| Consultar planeación comercial histórica | [Material comercial](comercial/README.md) |
+| Instalar EvaluaPro y verificar el instalador | [Instalación y actualización](INSTALLER_HUB.md) |
+| Preparar mi primera materia y evaluación | [Manual docente](MANUAL_USUARIO_DOCENTE.md) |
+| Respaldar o mover información a otro equipo | [Sincronización entre computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md) |
+| Resolver un problema de inicio o instalación | [Runbook de operación](RUNBOOK_OPERACION.md) |
+| Entender privacidad y tratamiento de datos | [Aviso de privacidad](legal/aviso-privacidad-integral.md) |
 
-## Uso docente
+### Ruta de inicio
 
-- [Manual completo](MANUAL_USUARIO_DOCENTE.md) — flujo desde la instalación hasta el respaldo y la consulta de resultados.
-- [Tutorial ilustrado](tutoriales/MANUAL_USUARIO.md) — guía breve de configuración inicial con capturas del repositorio.
-- [Prueba E2E del Installer Hub](tutoriales/installer-hub-docente-e2e.md) — evidencia visual de un recorrido de instalación; es material de QA, no una promesa de que toda versión pública haya pasado ese recorrido.
-- [Mover datos entre equipos](SINCRONIZACION_ENTRE_COMPUTADORAS.md) — opciones y advertencias para exportar, importar o coordinar datos.
+1. Descarga desde [la última release pública](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
+2. Verifica el checksum del instalador antes de ejecutarlo.
+3. Instala `docente-local` y confirma que la aplicación abre en ese equipo.
+4. Crea un respaldo antes de actualizar o migrar y vuelve a verificar los datos después de importarlos.
 
-El instalador y el actualizador conservan datos operativos durante las operaciones cubiertas por sus contratos. Aun así, respalda la información antes de reparar, actualizar o migrar. Nunca sincronices directamente el archivo SQLite que está usando la aplicación.
+La base SQLite activa no es un mecanismo de sincronización. Usa la guía de [respaldo y migración](SINCRONIZACION_ENTRE_COMPUTADORAS.md).
 
-## Diseño técnico y desarrollo
+## Desarrollo y operación técnica
 
-- [Arquitectura integral](ARQUITECTURA.md) · [C4](ARQUITECTURA_C4.md) · [diagramas](diagramas/)
-- [Especificaciones por módulo](specs/) · [contratos](contracts/)
-- [Guía Installer Hub](INSTALLER_HUB.md) · [despliegue](DESPLIEGUE.md)
-- [Política SDD](POLITICA_SDD.md) · [WCAG para interfaces](WCAG_UI_POLICY.md) · [calidad UX](UX_QUALITY_CRITERIA.md)
-- [Seguridad](SECURITY_POLICY.md) · [operación segura](SEGURIDAD_OPERATIVA.md) · [cumplimiento y privacidad](CUMPLIMIENTO.md)
-- [Línea base de ingeniería](ENGINEERING_BASELINE.md) · [inventario de proyecto](INVENTARIO_PROYECTO.md)
+| Tema | Referencia |
+| --- | --- |
+| Estructura y módulos | [Arquitectura](ARQUITECTURA.md), [diagramas C4](ARQUITECTURA_C4.md), [diagramas](diagramas/) |
+| Instalador Windows | [Guía Installer Hub](INSTALLER_HUB.md) |
+| Build y despliegue | [Despliegue](DESPLIEGUE.md) |
+| Contratos por módulo | [Especificaciones](specs/) y [contratos](contracts/) |
+| Desarrollo guiado por specs | [Política SDD](POLITICA_SDD.md) |
+| Interfaz accesible | [Política WCAG](WCAG_UI_POLICY.md) y [criterios UX](UX_QUALITY_CRITERIA.md) |
+| Seguridad y cumplimiento | [Política de seguridad](SECURITY_POLICY.md), [seguridad operativa](SEGURIDAD_OPERATIVA.md), [cumplimiento](CUMPLIMIENTO.md) |
+| CI/CD y dependencias | [DevOps baseline](DEVOPS_BASELINE.md) |
+| Versiones y publicación | [Versionado](VERSIONADO.md), [estado](RELEASE_STATUS.md), [gate estable](RELEASE_GATE_STABLE.md) |
 
-Las especificaciones describen contratos o trabajo de ingeniería; una spec implementada no demuestra por sí sola que una función esté habilitada en el instalador, conectada a un servicio externo o incluida en la última release pública. Verifica el estado en el código, el manifiesto del instalador y la página de Releases.
+## Estado y evidencia
 
-## Releases y versiones
+- La versión fuente se declara en `config/app-version.json`.
+- `main`, el tag, una release borrador, una release pública y una instalación local son estados diferentes.
+- [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases) es la fuente de verdad para saber qué instalador está disponible.
+- Las specs describen contratos de ingeniería; no prueban por sí solas que un servicio externo esté configurado o que una función aparezca en el instalador.
 
-- La versión fuente se declara en `config/app-version.json` y se distribuye entre los paquetes por los scripts de versionado.
-- Una rama `main` actualizada no publica automáticamente un instalador.
-- La release pública se confirma en [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases).
-- La versión instalada se confirma en la aplicación del equipo.
+## Tutoriales e histórico
 
-Consulta [VERSIONADO.md](VERSIONADO.md) y [RELEASE_STATUS.md](RELEASE_STATUS.md) antes de usar términos como “estable”, “publicada” o “disponible”.
+- [Manual ilustrado](tutoriales/MANUAL_USUARIO.md).
+- [Recorrido E2E del Installer Hub](tutoriales/installer-hub-docente-e2e.md): evidencia del recorrido indicado, no una garantía para todas las releases.
+- [Material comercial histórico](comercial/README.md).
 
-## Convenciones del archivo
+Los archivos de `docs/release/evidencias/`, `docs/handoff/sesiones/` y los cortes fechados de inventario son registros históricos: se conservan sin reescribirlos como si describieran el estado actual. Las guías e índices vigentes sí deben mantenerse al día.
 
-Los documentos bajo `docs/release/evidencias/`, `docs/handoff/sesiones/` y los cortes fechados de inventario son registros históricos. Se conservan como evidencia y no se reescriben para que parezcan describir el estado actual. Los índices y guías operativas sí se actualizan cuando cambian los flujos vigentes.
-
-Índices automáticos e inventarios: [AUTO_DOCS_INDEX](AUTO_DOCS_INDEX.md), [AUTO_ENV](AUTO_ENV.md) e [inventario exhaustivo de código](INVENTARIO_CODIGO_EXHAUSTIVO.md).
+Índices generados: [AUTO_DOCS_INDEX](AUTO_DOCS_INDEX.md), [AUTO_ENV](AUTO_ENV.md) e [inventario exhaustivo de código](INVENTARIO_CODIGO_EXHAUSTIVO.md).

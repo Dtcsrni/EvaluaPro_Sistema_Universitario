@@ -31,6 +31,7 @@ test('rejects unsafe refs and module selectors', () => {
   assert.throws(() => parseApps('frontend,unknown'), /--apps/);
 });
 
+
 test('excludes TypeScript declaration files from the executable coverage denominator', async () => {
   const { isCoverableFile } = await import('../testing/check-diff-coverage.mjs');
 
