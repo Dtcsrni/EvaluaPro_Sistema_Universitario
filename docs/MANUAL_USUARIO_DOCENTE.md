@@ -1,84 +1,93 @@
-# Manual de EvaluaPro para docentes
+# Manual docente de EvaluaPro
 
-Esta guía cubre el perfil de escritorio `docente-local` en Windows: instalación, preparación de un curso, generación de exámenes, revisión OMR y respaldo de datos.
-
-> **Estado de versión.** Al corte del 2026-10-08, `main` declara `1.2.6`, mientras que la página pública de GitHub Releases/latest muestra `v1.1.6`. Descarga solo lo que aparezca publicado en [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest). Los nombres de secciones y botones pueden variar entre versiones.
+Guía práctica para **`docente-local` en Windows**: instalar, preparar un curso, generar y revisar una evaluación y conservar los datos. Las pantallas pueden variar entre versiones; confirma las opciones de tu instalación y las notas de la release.
 
 ## Antes de empezar
 
-- Usa Windows de 64 bits y una cuenta con permisos para instalar el producto.
-- La instalación puede necesitar Node.js 24; Installer Hub detecta y prepara este requisito según el equipo.
-- Prepara la lista del grupo y las preguntas antes de generar una evaluación.
-- Si ya hay datos en el equipo, crea un respaldo antes de actualizar, reparar o migrar.
+- Windows de 64 bits y permisos para completar la instalación.
+- Internet para descargar la release y los requisitos que solicite Installer Hub. La operación local y las integraciones externas son distintas.
+- Lista del grupo y material de evaluación que quieras registrar.
+- Si ya tienes información en EvaluaPro, un respaldo verificado antes de actualizar, reparar o migrar.
+- Una ubicación controlada para PDFs y respaldos: pueden incluir datos personales.
 
 ## 1. Descargar e instalar
 
-1. Abre [Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
-2. Descarga el asset `EvaluaPro-InstallerHub-docente-local-v<versión>.exe` y su archivo `.sha256`.
-3. Comprueba que el hash calculado coincida con el valor publicado antes de ejecutar el EXE.
-4. Inicia el Installer Hub y completa las verificaciones que muestra. Sigue las instrucciones de Windows si solicita instalar un prerequisito.
-5. Cuando finalice, abre EvaluaPro desde el acceso directo y confirma que el tablero y el estado de la API local estén disponibles.
+1. Abre [Releases de GitHub](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
+2. Descarga `EvaluaPro-InstallerHub-docente-local-v<versión>.exe` y el archivo `.sha256` asociado.
+3. En PowerShell, calcula el hash:
+   ```powershell
+   Get-FileHash .\EvaluaPro-InstallerHub-docente-local-v<versión>.exe -Algorithm SHA256
+   ```
+   Compara el resultado con el checksum de la misma release. Si difiere, no ejecutes el instalador.
+4. Ejecuta Installer Hub y sigue las comprobaciones que muestre. Lee cualquier solicitud de reinicio o instalación de requisitos.
+5. Abre EvaluaPro desde el acceso directo y confirma que muestra la pantalla de inicio y una versión instalada.
 
-Para reparación, actualización o problemas de inicio, consulta la [guía del Installer Hub](INSTALLER_HUB.md) y el [runbook](RUNBOOK_OPERACION.md).
+Para reparar o revisar logs, consulta [Instalación y actualización](INSTALLER_HUB.md) y el [runbook](RUNBOOK_OPERACION.md).
 
-## 2. Preparar la primera materia
+## 2. Prepara un curso
 
-1. Inicia sesión con una cuenta docente habilitada para esa instalación. Usa el mecanismo que muestre la pantalla de acceso.
-2. Crea el periodo y la materia; define las fechas y el grupo de acuerdo con tu calendario.
-3. Registra al alumnado y revisa matrículas y asignaciones antes de guardar.
-4. Configura las asistencias y el temario si forman parte del flujo de tu curso.
+1. Inicia sesión con la cuenta docente preparada para esa instalación.
+2. Selecciona o crea el periodo académico y la materia.
+3. Revisa grupo y alumnado antes de guardar.
+4. Configura asistencia o temario si forman parte de tu curso.
+5. Comprueba el periodo activo antes de capturar actividades o calificaciones.
 
-La base de datos pertenece a esta instalación. Instalar EvaluaPro en otro equipo no copia alumnos, materias ni calificaciones.
+Cada equipo tiene su propia base local. Instalar la aplicación en otro equipo no transfiere estos registros.
 
-## 3. Diseñar y generar un examen
+## 3. Diseña y genera una evaluación
 
-1. Crea o selecciona los temas y reactivos del banco.
-2. En el diseñador, elige la materia, incorpora las preguntas y revisa instrucciones, ponderación y vista previa.
-3. Genera el PDF desde la plantilla. Revisa que corresponda al grupo y examen previstos.
-4. Guarda el PDF y utiliza sus folios/QR para relacionar la entrega con el registro correcto.
+1. Elige los temas y reactivos adecuados para el objetivo de evaluación.
+2. En el diseñador, selecciona la materia y arma la plantilla.
+3. Revisa instrucciones, preguntas, opciones, ponderación y vista previa.
+4. Genera el PDF y confirma que corresponde al periodo, materia, grupo y plantilla correctos.
+5. Haz una impresión de prueba y comprueba la orientación y legibilidad del folio QR antes de imprimir un lote.
 
-Antes de imprimir un lote, comprueba la primera página, la orientación y que el QR se lea en una copia de prueba.
+Guarda el PDF original con un nombre que identifique curso y evaluación sin incluir datos personales innecesarios.
 
-## 4. Procesar hojas de respuestas
+## 4. Lee y revisa hojas OMR
 
-1. Abre el flujo OMR de la aplicación y carga el archivo de escaneo en uno de los formatos que acepte la pantalla.
-2. Comprueba el folio, el alumno y el examen detectados antes de asociar o cerrar el proceso.
-3. Revisa cada advertencia, respuesta ambigua o excepción. OMR significa reconocimiento óptico de marcas: la lectura es asistida y no reemplaza la revisión docente.
-4. Confirma la calificación solo después de compararla con la clave y la política de evaluación aplicable.
-5. Conserva el original escaneado y el historial que necesites para atender una aclaración.
+OMR significa *reconocimiento óptico de marcas*. La aplicación interpreta marcas en hojas escaneadas, pero no reemplaza la revisión docente.
 
-No asignes una calificación a partir de una captura o sugerencia automática sin verificar la identidad del examen y del alumno.
+1. Abre el flujo OMR y carga un PDF o imagen que acepte la pantalla.
+2. Comprueba que el folio vincule la hoja con el examen correcto.
+3. Revisa alumno, respuestas, advertencias y casos ambiguos.
+4. Compara la lectura con la clave y la política de evaluación aplicable.
+5. Confirma la calificación solo después de verificar identidad y resultado.
+6. Conserva el escaneo fuente y la referencia del lote cuando necesites trazabilidad.
 
-## 5. Consultar y exportar resultados
+Una hoja aceptada o una lectura automática no equivale por sí sola a una nota confirmada.
 
-Selecciona el periodo y la materia correctos en Calificaciones o Analíticas. Antes de exportar, valida el rango, el encabezado y el archivo generado. Trata los CSV/XLSX como datos personales del alumnado y almacénalos conforme a las reglas de tu institución.
+## 5. Consulta y exporta resultados
 
-Publicar calificaciones en Classroom o en un portal de alumnos requiere configuración adicional, permisos y conectividad. La instalación local no activa ni completa esa publicación por sí sola.
+Selecciona el periodo y la materia correctos. Antes de compartir una exportación, revisa encabezados, filas y archivo de salida. Protege CSV/XLSX con datos del alumnado de acuerdo con las reglas de tu institución.
 
-## 6. Respaldar y mover los datos
+Classroom y el portal de alumnos requieren configuración, permisos y conectividad independientes; la instalación local no publica notas automáticamente.
 
-Usa la opción de exportación/importación de respaldo descrita en [Sincronización entre computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md). Antes de restaurar un respaldo, valida su origen y conserva una copia de la base actual.
+## 6. Respalda o cambia de computadora
 
-- No sincronices la SQLite activa con OneDrive, una unidad de red o una memoria USB.
-- Usa los archivos de snapshot/exportación que genera EvaluaPro.
-- Confirma la integridad y el contenido en el equipo destino antes de retirar la copia anterior.
-- Los respaldos pueden contener datos personales; protégelos con una contraseña robusta y guárdalos en una ubicación controlada.
+Usa snapshot o exportación/importación descritos en [Sincronización entre computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md).
 
-## 7. Actualizar EvaluaPro
+1. En el equipo origen, crea el respaldo en EvaluaPro y conserva una copia independiente.
+2. En el equipo destino, verifica origen e integridad y usa la validación disponible antes de importar.
+3. Importa el formato compatible desde la aplicación; no reemplaces manualmente la base activa.
+4. Inicia sesión y comprueba periodos, materias, archivos y registros antes de retirar la copia anterior.
+
+No sincronices la SQLite abierta por EvaluaPro con OneDrive, una carpeta compartida o una USB. Protege los respaldos y limita quién puede acceder a ellos.
+
+## 7. Actualiza
 
 1. Crea y verifica un respaldo.
-2. Abre la release que quieres instalar en GitHub; comprueba tag, fecha, asset y checksum.
-3. Ejecuta el Installer Hub descargado y sigue el flujo de actualización.
-4. Abre EvaluaPro y confirma la versión visible, el acceso a los datos y el estado local de los servicios.
-5. Conserva el reporte de instalación si algo falla y consulta el [runbook de operación](RUNBOOK_OPERACION.md).
+2. Descarga la nueva release pública y su checksum; confirma que pertenecen al mismo tag.
+3. Ejecuta Installer Hub y sigue el flujo de actualización disponible.
+4. Abre la aplicación y comprueba versión, acceso y datos.
+5. Si algo falla, conserva el log del Hub y consulta el [runbook](RUNBOOK_OPERACION.md). No borres la base ni fuerces una migración manual.
 
-La actualización preserva datos según el contrato del instalador, pero no reemplaza una copia de seguridad previa ni demuestra por sí sola que una migración de datos haya concluido correctamente.
+La protección de datos del instalador no sustituye el respaldo ni demuestra por sí sola que la migración concluyó correctamente.
 
 ## Guías relacionadas
 
-- [Centro documental](README.md)
 - [Instalación y actualización](INSTALLER_HUB.md)
-- [Mover datos entre computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md)
-- [Despliegue](DESPLIEGUE.md)
+- [Respaldo y migración](SINCRONIZACION_ENTRE_COMPUTADORAS.md)
+- [Runbook de operación](RUNBOOK_OPERACION.md)
 - [Aviso de privacidad](legal/aviso-privacidad-integral.md)
 - [Estado de releases](RELEASE_STATUS.md)

@@ -3,8 +3,8 @@
 ## Corte documentado: 2026-10-08
 
 - La versión fuente integrada en `main` es `1.2.6` (`config/app-version.json`).
-- GitHub Releases/latest mostró `v1.1.6` al consultar la página pública el 2026-10-08.
-- Por tanto, este corte no presenta `v1.2.6` como una release pública. Consulta [Releases/latest](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) antes de instalar y vuelve a comprobar este documento después de una publicación.
+- GitHub Releases/latest mostró `v1.2.5` al consultar la página pública el 2026-10-08.
+- `v1.2.6` aparece como borrador con assets; no se presenta como release pública ni como descarga vigente. Consulta [Releases/latest](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) antes de instalar y vuelve a comprobar este documento después de una publicación.
 - El alcance de distribución mantenido es `docente-local` para Windows. No habilites ni anuncies otros perfiles por este documento.
 
 ## Qué cuenta como release completa

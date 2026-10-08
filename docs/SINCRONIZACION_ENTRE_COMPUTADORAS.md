@@ -1,16 +1,21 @@
-# Sincronizacion entre computadoras
+# Respaldo y migración entre computadoras
 
-Este documento describe opciones separadas para respaldar, mover o coordinar
-datos. No significa que dos instalaciones queden sincronizadas al instalar el
-programa. Comprueba que la pantalla y la versión instalada ofrezcan la opción
-que quieres usar:
-1. Instantanea local 1:1 por archivo (`.ep-snapshot`).
-2. Paquete parcial compatible (`.ep-sync.json`).
-3. Servidor intermedio (`push/pull`).
+Cada instalación de `docente-local` mantiene su propia base SQLite. Instalar EvaluaPro en otro equipo no copia ni sincroniza los datos. Para llevar información a una segunda computadora, utiliza una opción explícita de exportación/importación que aparezca en la versión instalada.
 
-La operación común de `docente-local` usa una SQLite por equipo. Para trasladar
-datos entre equipos, utiliza el snapshot o paquete soportado por la aplicación.
-No apuntes OneDrive ni otra herramienta a la SQLite que está abierta en uso.
+## Elige el flujo adecuado
+
+| Necesidad | Opción | Consideración |
+| --- | --- | --- |
+| Mover toda la información de una instalación | Snapshot local 1:1 (`.ep-snapshot`) | Sustituye el estado del equipo destino después de validar e importar. |
+| Transferir registros compatibles sin reemplazar toda la base | Paquete parcial (`.ep-sync.json`) | Respeta el alcance incluido; no es un respaldo completo. |
+| Coordinar equipos mediante carpeta o servidor | Push/pull o carpeta sincronizada | Requiere que la pantalla, configuración y versión instalada ofrezcan ese mecanismo. |
+
+La SQLite activa no es formato de transporte. No la sincronices mediante OneDrive, una unidad de red o USB mientras EvaluaPro la utiliza.
+
+Antes de migrar, crea una copia adicional. En destino, valida origen e integridad, importa mediante la aplicación y revisa los datos antes de retirar el respaldo. Los archivos pueden contener datos personales y deben protegerse.
+
+Los apartados técnicos siguientes describen contratos del repositorio. No garantizan que todos los mecanismos estén disponibles o configurados en cada release pública; confirma la interfaz instalada.
+
 
 ## Trabajo coordinado con OneDrive
 
