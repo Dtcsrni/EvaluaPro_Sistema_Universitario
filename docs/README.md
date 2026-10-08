@@ -15,6 +15,7 @@ Este índice separa las guías para operar EvaluaPro de las especificaciones té
 | Revisar privacidad o seguridad | [Política de seguridad](SECURITY_POLICY.md), [seguridad operativa](SEGURIDAD_OPERATIVA.md) y [aviso de privacidad](legal/aviso-privacidad-integral.md) |
 | Desarrollar o revisar una funcionalidad | [Especificaciones](specs/) y [política SDD](POLITICA_SDD.md) |
 | Distinguir código, tag y release | [Versionado](VERSIONADO.md) y [estado de releases](RELEASE_STATUS.md) |
+| Consultar planeación comercial histórica | [Material comercial](comercial/README.md) |
 
 ## Uso docente
 
