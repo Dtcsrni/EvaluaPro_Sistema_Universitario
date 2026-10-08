@@ -2,7 +2,7 @@
 
 Fecha de corte documental: 2026-10-08
 Versión fuente integrada en `main`: `1.2.6` (`config/app-version.json`)
-Última release pública observada: `v1.1.6` en GitHub Releases/latest al 2026-10-08
+Última release pública observada: `v1.2.5` en GitHub Releases/latest al 2026-10-08\nRelease `v1.2.6`: borrador, no descarga pública
 Versión visible instalada: depende del equipo; no verificada en este corte.
 
 ## Estado vigente al 2026-10-08

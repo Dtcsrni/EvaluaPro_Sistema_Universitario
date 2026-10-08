@@ -9,7 +9,7 @@ EvaluaPro usa versiones SemVer (`MAJOR.MINOR.PATCH`). La versión del repositori
 - La versión instalada solo se confirma desde EvaluaPro en el equipo.
 - El perfil considerado para distribución es `docente-local` en Windows.
 
-Estos datos describen el corte de documentación y pueden cambiar al publicar otra release. Antes de instalar, confirma el tag, el asset del instalador y el checksum en GitHub.
+En este corte, `v1.2.6` aparece como borrador, no como release pública. Estos datos pueden cambiar al publicar otra release. Antes de instalar, confirma el tag, el asset del instalador y el checksum en GitHub.
 
 ## Fuentes de versión
 

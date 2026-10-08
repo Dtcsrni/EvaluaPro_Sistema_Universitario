@@ -215,7 +215,7 @@ Regla de publicacion:
 - Limpieza total: requiere confirmacion explicita.
 - Desinstalacion estandar: retira binarios y accesos; preserva datos operativos, licencia local y logs salvo flujo confirmado de limpieza total.
 
-## Flags de bootstrap runtime Docker
+## Flujos Docker reservados para perfiles futuros\n\nEstos flags no forman parte del instalador distribuido de `docente-local`. Se documentan como contratos internos del repositorio; no deben anunciarse ni habilitarse hasta aprobar y publicar un perfil futuro.\n\n## Flags de bootstrap runtime Docker
 
 - `EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL=1`:
   - habilita bootstrap semiautomatico;
