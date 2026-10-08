@@ -1,7 +1,7 @@
 # Dependabot policy:
 # - keep security capabilities available in GitHub
 # - stop automatic version-update PR churn on main
-# - make the repository's single-branch policy explicit
+# - keep npm security updates configured while avoiding routine version-update PR churn
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -11,7 +11,6 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "America/Mexico_City"
-    target-branch: "main"
     open-pull-requests-limit: 0
     rebase-strategy: "disabled"
     commit-message:
@@ -27,7 +26,6 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "America/Mexico_City"
-    target-branch: "main"
     open-pull-requests-limit: 0
     rebase-strategy: "disabled"
     commit-message:
@@ -43,7 +41,6 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "America/Mexico_City"
-    target-branch: "main"
     open-pull-requests-limit: 0
     rebase-strategy: "disabled"
     commit-message:
@@ -59,7 +56,6 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "America/Mexico_City"
-    target-branch: "main"
     open-pull-requests-limit: 0
     rebase-strategy: "disabled"
     commit-message:

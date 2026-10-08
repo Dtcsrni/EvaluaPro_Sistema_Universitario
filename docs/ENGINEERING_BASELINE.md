@@ -1,10 +1,18 @@
 # Engineering Baseline
 
-Fecha de baseline vigente: 2026-09-03
-Version técnica: `1.1.1`
-Versión visible GUI: `1.1.1`
+Fecha de corte documental: 2026-10-08
+Versión fuente integrada en `main`: `1.2.6` (`config/app-version.json`)
+Última release pública observada: `v1.1.6` en GitHub Releases/latest al 2026-10-08
+Versión visible instalada: depende del equipo; no verificada en este corte.
 
-## Corte vigente 2026-09-03
+## Estado vigente al 2026-10-08
+
+- El producto se mantiene para distribución en Windows con el perfil `docente-local`.
+- La versión de `main` y la versión instalada desde un asset público deben verificarse por separado.
+- La landing y las guías de inicio describen el almacenamiento SQLite local, el flujo OMR asistido con revisión docente y los requisitos de respaldo/migración.
+- Esta actualización documental no verifica nuevamente los gates de CI, el instalador descargable ni la interfaz instalada. Usa `docs/RELEASE_STATUS.md` para conocer la evidencia requerida antes de declarar una release disponible.
+
+## Corte histórico 2026-09-03
 
 - **Purga de legado OMR/PDF:** retirados del árbol activo OMR V1, TV3, el renderer HTML y
   fallback anterior, adaptadores de templates V9/V10 y utilidades temporales heredadas.
@@ -33,7 +41,9 @@ gestiona instalación, reparación, actualización y desinstalación desde la PC
 - **TDD, E2E Real y Cobertura Integral**: 56 suites de prueba en frontend con 206 tests pasando al 100% en verde, suite E2E real docente-alumno prod-like con SQLite y Prisma (`flujoDocenteAlumnoProduccionLikeE2E`), contratos de Installer Hub (70/70), validación OMR TV3 con dataset real (30 capturas, 208 preguntas, 100% de precisión y 0 falsos positivos) y Clean Architecture verificada en modo estricto (`qa:clean-architecture:strict`).
 - **Gates de Calidad Obligatorios**: Verificados en verde (lint, typecheck, frontend CI 206/206 en 56 archivos, backend CI 24 lotes, portal CI 32/32, perf budgets 4/4, pipeline contracts 17/17, SDD audit 36/36 specs, ci:policy:audit verde, Clean Architecture estricta verde, OMR TV3 real dataset verde, 100% diff coverage).
 
-## Estado vigente
+## Registro histórico conservado
+
+Los cortes siguientes describen estados y validaciones de sus fechas; no acreditan el estado actual del producto ni de los gates.
 - Corte 2026-08-28 (Línea Base Oficial v1.1.1, Íconos Transparentes, Modernización Landing Page y Reestructuración Exhaustiva de READMEs):
   - **Línea Base Estable:** Fijación oficial de `v1.1.1` como primera versión estable reconocida del producto.
   - **Íconos y Accesos Directos:** Emblemas vectoriales con canal alfa 100% transparente y normalización a 2 accesos directos oficiales (`EvaluaPro` y `EvaluaPro - Hub`).

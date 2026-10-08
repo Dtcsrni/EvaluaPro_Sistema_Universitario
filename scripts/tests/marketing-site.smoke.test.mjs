@@ -32,15 +32,20 @@ const js = fs.readFileSync(jsPath, 'utf8');
 const requiredHtml = [
   'id="inicio"',
   'id="producto"',
+  'id="como-funciona"',
+  'id="datos"',
   'id="licencias"',
   'id="faq"',
-  'Solicitar demo',
-  'Cotizar licencia',
+  'aria-label="Navegación principal"',
+  'docente-local',
+  'El docente debe revisar',
+  'Descargar para Windows',
+  'releases/latest',
   'armsystechno@gmail.com'
 ];
 
-const requiredCss = ['.hero', '.pricing', '.faq', '.reveal', '.btn-primary'];
-const requiredJs = ['IntersectionObserver', 'metric', 'requestAnimationFrame'];
+const requiredCss = ['.hero', '.faq', '.reveal', '.btn-primary', '.product-preview', 'prefers-reduced-motion'];
+const requiredJs = ['IntersectionObserver', 'aria-expanded', 'Escape'];
 
 for (const token of requiredHtml) {
   assert(html.includes(token), `Falta token HTML: ${token}`);
@@ -52,6 +57,24 @@ for (const token of requiredCss) {
 
 for (const token of requiredJs) {
   assert(js.includes(token), `Falta token JS: ${token}`);
+}
+
+assert((html.match(/<h1(?:\s|>)/gi) ?? []).length === 1, 'La página debe tener un único h1');
+
+const sectionIds = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
+for (const [, target] of html.matchAll(/href="#([^\"]+)"/g)) {
+  assert(sectionIds.has(target), `El ancla interna #${target} no apunta a una sección existente`);
+}
+
+for (const staleClaim of [
+  'v1.1.1',
+  '100% Precisión',
+  'sincroniza automáticamente con Google Classroom',
+  'Respuesta garantizada en 24 horas',
+  'SLA de soporte técnico 24/7',
+  '100% Confianza OMR'
+]) {
+  assert(!html.includes(staleClaim), `La landing conserva una afirmación obsoleta o no sustentada: ${staleClaim}`);
 }
 
 console.log('[marketing-site-smoke] ok');

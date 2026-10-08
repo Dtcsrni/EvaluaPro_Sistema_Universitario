@@ -1,52 +1,37 @@
-# Manual de Usuario Docente - EvaluaPro
+# Inicio rápido docente
 
-Bienvenido a **EvaluaPro Sistema Universitario**, tu plataforma integral para la gestión y evaluación de alumnos mediante tecnología OMR. En este manual rápido te explicaremos cómo configurar tu primer ciclo escolar y registrar a tus primeros estudiantes.
+Esta guía resume el primer recorrido por el perfil `docente-local`. Para instrucciones completas y límites de respaldo, consulta el [manual docente](../MANUAL_USUARIO_DOCENTE.md).
 
----
+## Instalar
 
-## 1. El Escritorio Principal (Dashboard)
+1. Descarga el instalador y el checksum desde [GitHub Releases/latest](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
+2. Verifica el checksum del EXE y ejecuta Installer Hub.
+3. Completa los requisitos que indique el asistente; inicia EvaluaPro al terminar.
 
-Una vez que inicias sesión por primera vez, serás recibido por tu **Escritorio**. Aquí tendrás una vista rápida de tus periodos activos, estadísticas de exámenes y atajos a las funciones más utilizadas.
+La versión de `main` no necesariamente está publicada como instalador. Confirma el tag de la release y la versión visible en la aplicación.
 
-![Dashboard de EvaluaPro](../../docs/assets/ui/01_dashboard.png)
+## Preparar una evaluación
 
-> **Tip:** El panel lateral izquierdo siempre te permitirá navegar entre Periodos, Exámenes, Banco de Preguntas y Analíticas.
+1. Inicia sesión con una cuenta docente habilitada.
+2. Registra el periodo, la materia y el grupo.
+3. Revisa matrículas y alumnos antes de crear la evaluación.
+4. Prepara los reactivos y la plantilla; verifica el PDF antes de imprimir.
+5. Conserva los folios/QR para relacionar las respuestas con el examen correspondiente.
 
----
+## Revisar respuestas
 
-## 2. Creando tu Primer Periodo / Materia
+1. Carga el archivo de escaneo desde el módulo OMR.
+2. Comprueba folio, alumno y examen.
+3. Resuelve las lecturas ambiguas y compara las respuestas con la clave.
+4. Confirma la calificación manualmente según la política vigente.
 
-Para poder evaluar, primero debes crear la materia que impartes (Periodo Escolar). En el panel lateral, dirígete a **Periodos** y haz clic en el botón superior derecho **Crear materia**.
+OMR es lectura óptica de marcas; sus resultados pueden requerir revisión. No uses la lectura automática como confirmación de identidad ni como decisión final de calificación.
 
-Se desplegará el siguiente formulario:
+## Cuidar los datos
 
-![Formulario Crear Materia](../../docs/assets/ui/02_crear_materia.png)
+- Respalda antes de actualizar, reparar o mover la información.
+- Usa el flujo de snapshot/exportación de EvaluaPro.
+- Nunca sincronices la SQLite activa con OneDrive, red o USB.
+- Las integraciones remotas requieren configurar sus servicios y credenciales.
 
-Completa los campos:
-- **Nombre de la materia:** Ej. Matemáticas Discretas.
-- **Fecha inicio y fin:** Delimita el semestre escolar.
-- **Grupos:** Opcionalmente registra el identificador de los grupos (Ej. Grupo A).
-
-Al confirmar, la materia aparecerá listada en tus Periodos Activos:
-
-![Lista de Materias](../../docs/assets/ui/03_lista_materias.png)
-
----
-
-## 3. Registro de Alumnos
-
-Una vez creada tu materia, navega al apartado de **Alumnos** desde el menú lateral. En esta sección podrás dar de alta a tus estudiantes para vincularlos con sus hojas de respuestas OMR.
-
-Haz clic en **Crear alumno** y llena su información:
-
-![Formulario Crear Alumno](../../docs/assets/ui/04_crear_alumno.png)
-
-Asegúrate de:
-- Escribir correctamente la **Matrícula** (es clave para el escaneo OMR automático).
-- Asignarlo a la **Materia** que acabas de crear usando el selector.
-
-Al finalizar, verás tu lista de estudiantes poblada y lista para ser evaluada:
-
-![Lista de Alumnos](../../docs/assets/ui/05_lista_alumnos.png)
-
-¡Y listo! Con esto ya tienes tu entorno configurado para crear tu primera plantilla de examen y comenzar a procesar calificaciones masivas.
+Consulta [Respaldo y migración](../SINCRONIZACION_ENTRE_COMPUTADORAS.md), [Instalación](../INSTALLER_HUB.md) y [Runbook](../RUNBOOK_OPERACION.md).

@@ -588,7 +588,7 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(design, /Preparar, Revisar, Ejecutar y Resultado/);
   assert.match(design, /#F6F8FA/);
   assert.match(uxCriteria, /docs\/DESIGN\.md/);
-  assert.match(installerHubDocs, /docs\/DESIGN\.md/);
+  assert.match(installerHubDocs, /`DESIGN\.md`/);
 
   assert.match(mainWindowXaml, /Width="1440"/);
   assert.match(mainWindowXaml, /Height="1020"/);

@@ -30,14 +30,3 @@ Este directorio centraliza la continuidad entre sesiones de agentes IA.
 - El envelope no ejecuta comandos, usa rutas relativas, marca el contenido como no confiable
   y exige validacion antes de importarlo. A2A es el adaptador de red futuro; MCP permanece
   reservado para herramientas, recursos y datos.
-
-<!-- AUTO:COMMERCIAL-CONTEXT:START -->
-## Contexto Comercial y Soporte
-
-- Rol de este documento: Documentacion funcional/operativa para despliegue, seguridad y cumplimiento.
-- Edicion Comunitaria (AGPL): flujo operativo base para uso real.
-- Edicion Comercial/Institucional: mas automatizacion, soporte SLA, endurecimiento y hoja de ruta prioritaria por nivel.
-- Catalogo dinamico de capacidades: [FEATURE_CATALOG](../comercial/FEATURE_CATALOG.md).
-- Licenciamiento comercial y modalidades de pago: [LICENSING_TIERS](../comercial/LICENSING_TIERS.md).
-- Ultima sincronizacion automatica: 2026-08-28.
-<!-- AUTO:COMMERCIAL-CONTEXT:END -->

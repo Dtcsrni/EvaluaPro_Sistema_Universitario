@@ -1,9 +1,16 @@
 # Sincronizacion entre computadoras
 
-Este modulo permite mover datos operativos por tres vias independientes:
+Este documento describe opciones separadas para respaldar, mover o coordinar
+datos. No significa que dos instalaciones queden sincronizadas al instalar el
+programa. Comprueba que la pantalla y la versión instalada ofrezcan la opción
+que quieres usar:
 1. Instantanea local 1:1 por archivo (`.ep-snapshot`).
 2. Paquete parcial compatible (`.ep-sync.json`).
 3. Servidor intermedio (`push/pull`).
+
+La operación común de `docente-local` usa una SQLite por equipo. Para trasladar
+datos entre equipos, utiliza el snapshot o paquete soportado por la aplicación.
+No apuntes OneDrive ni otra herramienta a la SQLite que está abierta en uso.
 
 ## Trabajo coordinado con OneDrive
 

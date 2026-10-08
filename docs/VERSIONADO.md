@@ -1,124 +1,40 @@
-# Versionado
+# Versionado y releases
 
-## Politica
-Se usa SemVer en raiz del monorepo.
+EvaluaPro usa versiones SemVer (`MAJOR.MINOR.PATCH`). La versión del repositorio, el tag de Git, la release pública y la versión instalada son estados diferentes; no se deben inferir unos de otros.
 
-## Estado actual
-- Versión declarada en la rama candidata: `1.2.4` en `package.json`, `config/app-version.json` y paquetes de aplicaciones.
-- Última release pública verificada por API de GitHub el 2026-10-04: `v1.2.3`. La candidata `v1.2.4` aún requiere integrar los PR abiertos y aprobar la E2E completa del asset descargado antes de publicarse.
-- Versión de la GUI instalada: no verificada en este cierre; no inferirla desde el manifiesto de código.
-- La candidata `v1.2.4` es el siguiente corte solicitado; su estado de release depende de la evidencia del instalador publicado y descargado, no del número declarado en el checkout.
-- Seguimiento de calidad vigente: `docs/INVENTARIO_PROYECTO.md` y `docs/ENGINEERING_BASELINE.md`.
-- Trazabilidad de continuidad entre agentes: `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md`.
+## Estado observado
 
-## Definiciones
-- Alpha: cambios de alto movimiento con contratos inestables.
-- Beta: contratos principales funcionales con ajustes controlados.
-- Estable: release candidata cuando pasa bateria completa de calidad y no hay cambios breaking pendientes.
+- Código integrado en `main`: `1.2.6`, según `config/app-version.json` en este corte.
+- Última release pública observada el 2026-10-08: `v1.1.6`, según [GitHub Releases/latest](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
+- La versión instalada solo se confirma desde EvaluaPro en el equipo.
+- El perfil considerado para distribución es `docente-local` en Windows.
 
-## Criterios para promover release estable
-Debe pasar:
-- `npm run test:ci`
-- `npm run test:coverage:ci`
-- `npm run perf:check`
-- `npm run test:dataset-prodlike:ci`
-- `npm run test:e2e:docente-alumno:ci`
-- `npm run test:global-grade:ci`
-- `npm run test:pdf-print:ci`
-- `npm run test:ux-visual:ci`
-- `npm run test:qa:manifest`
-- `npm run test:portal`
-- `npm run test:frontend`
-- `npm run routes:check`
-- `npm run docs:check`
-- `npm run diagramas:check`
-- `npm run diagramas:render:check`
-- `npm run diagramas:consistencia:check`
-- `npm run release:validate:stable -- --version=<version>`
-- 10 corridas CI consecutivas verdes.
-- Flujo docente humano activo en produccion con evidencia de integridad y metricas.
+Estos datos describen el corte de documentación y pueden cambiar al publicar otra release. Antes de instalar, confirma el tag, el asset del instalador y el checksum en GitHub.
 
-## Rampa de calidad asociada a releases
-| Semana | Cobertura backend | Cobertura frontend | Cobertura portal | Reglas ESLint complejidad |
-| --- | --- | --- | --- | --- |
-| Semana 1 | 55 | 39/40/31/37 (L/F/B/S) | 50 | `complexity=18`, `max-depth=5`, `max-params=5` |
-| Semana 2 | 62 | 52 | 58 | `complexity=16`, `max-depth=4`, `max-params=5` |
-| Semana 3 | 70 | 60 | 65 | `complexity=15`, `max-depth=4`, `max-params=4` |
+## Fuentes de versión
 
-## Convenciones de cambio
-- Cambios funcionales relevantes: actualizar docs y pruebas en el mismo ciclo.
-- Cambios en rutas o permisos: validar guardarrailes y diagramas.
-- Cambios OMR/calificacion: incluir pruebas de regresion.
-- Convencion de commits recomendada:
-  - `feat:`
-  - `fix:`
-  - `refactor:`
-  - `docs:`
-  - `chore:`
+- Versión de producto: `config/app-version.json`.
+- Versiones de paquetes y lockfiles: raíz y workspaces; actualizarlas con los scripts oficiales del repositorio.
+- Registro de cambios: `CHANGELOG.md`.
+- Artefacto instalado y su checksum: página y manifiesto de la release correspondiente.
 
-## Proceso de release (mínimo)
-1. Ejecutar contrato de calidad:
-   - `npm run lint`
-   - `npm run typecheck`
-   - `npm run test:ci`
-   - `npm run test:dataset-prodlike:ci`
-   - `npm run test:e2e:docente-alumno:ci`
-   - `npm run test:global-grade:ci`
-   - `npm run test:pdf-print:ci`
-   - `npm run test:ux-visual:ci`
-   - `npm run test:qa:manifest`
-   - `npm run build`
-2. Verificar pipeline contract:
-   - `npm run pipeline:contract:check`
-3. Actualizar `CHANGELOG.md` y publicar versión SemVer.
-4. Publicar contrato de instalador Windows estable:
-   - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe`
-   - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe.sha256`
-   - `EvaluaPro-InstallerHub-docente-local-v<version>.exe`
-   - `EvaluaPro-InstallerHub-docente-local-v<version>.exe.sha256`
-   - `antivirus-scan-report.txt`
-   - `EvaluaPro-release-manifest.json`
-   - no publicar `Setup.exe`/MSI individuales en la página de release (quedan fuera de assets públicos)
-   - con gate antivirus bloqueante sobre los artefactos oficiales del directorio `dist/installer`.
-   - el build de instalador por flavor debe ser incremental por diff (solo flavors afectados; fallback `all` si no hay base de diff confiable).
-5. Ejecutar gate de estable:
-   - `npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json`
-6. Versionar evidencias en:
-   - `docs/release/evidencias/<version>/`
-7. Incluir checklist de rollback readiness:
-   - `docs/release/evidencias/<version>/rollback_readiness.json`
-7. Validar decision automatica de estable:
-   - workflow `Release Stable Gate` en verde y artefacto `decision.json` publicado.
+## Promoción a release estable
 
-## Publicacion beta automatica
-1. CI completo en `main`:
-   - `CI Checks` en verde.
-2. Evaluacion de alcance:
-   - `npm run release:validate:beta -- --version=<version> --head-sha=<sha> --base-ref=<baseRef>`
-3. Si el diff es significativo:
-   - el workflow `Release Beta` genera un prerelease `v<version>-beta.<n>` y evidencia `notes.md` + `diff-summary.json` derivadas del diff.
-   - publica solo los assets oficiales:
-     - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe`
-     - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe.sha256`
-     - `EvaluaPro-InstallerHub-docente-local-v<version>.exe`
-     - `EvaluaPro-InstallerHub-docente-local-v<version>.exe.sha256`
-     - `EvaluaPro-release-manifest.json`
-     - `antivirus-scan-report.txt`
-   - ejecuta un gate antivirus bloqueante (Microsoft Defender) sobre `dist/installer` antes de publicar la prerelease.
-   - `CI Antivirus Gate` valida contractualmente que los workflows de beta/release sigan incluyendo esos mismos assets y el escaneo AV.
-4. Si el diff es solo documental o regenerable:
-   - no se publica beta nueva.
-5. La beta no sustituye el gate estable:
-   - el gate estable sigue requiriendo el flujo humano en produccion.
+Una versión solo se describe como pública o estable cuando su release aparece publicada en GitHub y los gates del repositorio confirman el artefacto esperado. La integración en `main`, un tag, un borrador de release o un EXE local no satisfacen por sí solos esa condición.
 
-## Publicacion beta manual
-1. Se puede disparar `Release Beta` por `workflow_dispatch` sin depender de `main`.
-2. Debes proporcionar:
-   - `version`
-   - `head_sha`
-   - `base_ref` si quieres comparar contra una base concreta
-   - `reason` para dejar trazabilidad del motivo de la beta manual
-3. El criterio de publicacion sigue siendo el mismo:
-   - no publica si el diff no toca superficies de release relevantes
-   - publica prerelease solo si el corte merece beta
-   - genera `notes.md` y `diff-summary.json` en la misma evidencia para release/body
+El flujo de release debe verificar:
+
+1. Estado y versión de `main`, tag y manifiesto del artefacto.
+2. Checksums de instalador y archivos publicados.
+3. E2E del instalador descargado desde la release, incluyendo actualización y conservación de datos en un entorno aislado.
+4. Gates de CI y políticas aplicables al cambio.
+5. Publicación final y disponibilidad de la release y sus assets desde GitHub.
+
+Consulta [estado de releases](RELEASE_STATUS.md), [release gate estable](RELEASE_GATE_STABLE.md) y [changelog](../CHANGELOG.md).
+
+## Compatibilidad
+
+- No reutilices un número de versión para un payload diferente.
+- Los prereleases llevan sufijo (`-alpha`, `-beta`, `-rc`) y no se presentan como una release estable.
+- Si cambia el contrato de datos, instalador o actualizador, documenta el efecto en notas y evidencias de release.
+- Las actualizaciones no sustituyen un respaldo previo de los datos docentes.

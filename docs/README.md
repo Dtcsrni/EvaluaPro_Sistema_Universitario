@@ -1,73 +1,53 @@
-# Centro Documental de EvaluaPro
+# Documentación de EvaluaPro
 
-Centro neurálgico de arquitectura, especificaciones de desarrollo guiadas por contratos (Spec-Driven Development), operación, calidad y gobernanza de **Sistema EvaluaPro**.
+Este índice separa las guías para operar EvaluaPro de las especificaciones técnicas y los registros históricos. La aplicación que se prepara para uso en otros equipos es `docente-local` en Windows. La versión del repositorio, la publicada en GitHub y la instalada en una computadora deben verificarse por separado.
 
-> **Línea Base Oficial:** Versión estable `v1.1.1` para Windows (`docente-local` nativo con Installer Hub WiX Burn + .NET 8).
+## Elige una ruta
 
----
+| Si necesitas… | Empieza aquí |
+| --- | --- |
+| Instalar EvaluaPro en una computadora | [Instalación y actualización](INSTALLER_HUB.md) |
+| Iniciar sesión y trabajar como docente | [Manual docente](MANUAL_USUARIO_DOCENTE.md) |
+| Entender opciones de respaldo y migración | [Sincronización entre computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md) |
+| Diagnosticar una instalación o un servicio | [Runbook de operación](RUNBOOK_OPERACION.md) |
+| Preparar o desplegar el proyecto | [Guía de despliegue](DESPLIEGUE.md) |
+| Entender módulos y límites del sistema | [Arquitectura](ARQUITECTURA.md) y [arquitectura C4](ARQUITECTURA_C4.md) |
+| Revisar privacidad o seguridad | [Política de seguridad](SECURITY_POLICY.md), [seguridad operativa](SEGURIDAD_OPERATIVA.md) y [aviso de privacidad](legal/aviso-privacidad-integral.md) |
+| Desarrollar o revisar una funcionalidad | [Especificaciones](specs/) y [política SDD](POLITICA_SDD.md) |
+| Distinguir código, tag y release | [Versionado](VERSIONADO.md) y [estado de releases](RELEASE_STATUS.md) |
+| Consultar planeación comercial histórica | [Material comercial](comercial/README.md) |
 
-## Estructura y Navegación Documental
+## Uso docente
 
-### 1. Arquitectura y Diseño
-- [Arquitectura Integral del Sistema](ARQUITECTURA.md) — Visión general de módulos y diseño por capas.
-- [Arquitectura C4 y Diagramas](ARQUITECTURA_C4.md) — Modelos Context, Container, Component y Code en Mermaid.
-- [Sistema de Diseño Visual](DESIGN.md) — Especificación de Bento Elevation, Glassmorphism y accesibilidad.
-- [Política WCAG UI](WCAG_UI_POLICY.md) — Guardrail obligatorio por elemento, estado y tema.
-- [Criterios de Calidad UX](UX_QUALITY_CRITERIA.md) — Estándares contractuales de interfaz y tiempos de respuesta.
+- [Manual completo](MANUAL_USUARIO_DOCENTE.md) — flujo desde la instalación hasta el respaldo y la consulta de resultados.
+- [Tutorial ilustrado](tutoriales/MANUAL_USUARIO.md) — guía breve de configuración inicial con capturas del repositorio.
+- [Prueba E2E del Installer Hub](tutoriales/installer-hub-docente-e2e.md) — evidencia visual de un recorrido de instalación; es material de QA, no una promesa de que toda versión pública haya pasado ese recorrido.
+- [Mover datos entre equipos](SINCRONIZACION_ENTRE_COMPUTADORAS.md) — opciones y advertencias para exportar, importar o coordinar datos.
 
-### 2. Especificaciones de Desarrollo (Spec-Driven Development - SDD)
-El repositorio opera bajo la política estricta de SDD documentada en [`docs/POLITICA_SDD.md`](POLITICA_SDD.md). Todo cambio de código o pruebas responde a una especificación formal:
-- **Estudio de Diseño de Exámenes:** [`SPEC-034: Diseño de Exámenes en 3 Pestañas`](specs/SPEC-034_diseno_examenes_tabs.spec.md)
-- **Installer Hub:** [`SPEC-035: Hub Selector & Instalación Windows`](specs/SPEC-035_hub_selector_pwa.spec.md)
-- **Autenticación & Guardrails:** [`SPEC-036: Seguridad y Sesión Docente`](specs/SPEC-036_autenticacion_guardrails.spec.md)
-- **Ciclo de Vida de Materias:** [`SPEC-037: Gestión de Periodos y Materias`](specs/SPEC-037_materias_periodos_lifecycle.spec.md)
-- **Roster & Asistencias:** [`SPEC-038: Catálogo de Alumnos`](specs/SPEC-038_alumnos_roster_management.spec.md), [`SPEC-039: Seguimiento de Asistencias`](specs/SPEC-039_asistencias_seguimiento.spec.md)
-- **Encuadre & Firmas:** [`SPEC-040: Temarios, Encuadre y Firmas Digitales`](specs/SPEC-040_temarios_encuadre_firmas.spec.md)
-- **Banco de Reactivos:** [`SPEC-041: Taxonomía y Banco de Preguntas`](specs/SPEC-041_banco_preguntas_taxonomia.spec.md)
-- **Producción OMR & Forense:** [`SPEC-042: Producción de Exámenes`](specs/SPEC-042_diseno_produccion_examenes_omr.spec.md), [`SPEC-044: Motor de Calificación OMR`](specs/SPEC-044_calificaciones_motor_omr.spec.md), [`SPEC-045: Rehidratación Forense`](specs/SPEC-045_rehidratacion_forense.spec.md)
-- **Integraciones:** [`SPEC-046: Google Classroom Sync`](specs/SPEC-046_google_classroom_sync.spec.md), [`SPEC-047: Portal Alumno Cloud`](specs/SPEC-047_portal_alumno_cloud.spec.md), [`SPEC-048: Sincronización Offline-Cloud`](specs/SPEC-048_sincronizacion_offline_cloud.spec.md)
-- **Accesibilidad:** [`SPEC-058: Guardrail WCAG 2.2 AA`](specs/SPEC-058_wcag_accesibilidad_guardrail.spec.md)
+El instalador y el actualizador conservan datos operativos durante las operaciones cubiertas por sus contratos. Aun así, respalda la información antes de reparar, actualizar o migrar. Nunca sincronices directamente el archivo SQLite que está usando la aplicación.
 
-### 3. Instalación, Despliegue y Operación
-- [Portadas de materias (`SPEC-073`)](specs/SPEC-073_portada_materia_api_gui.spec.md) — Criterios de API y GUI.
-- [API de portadas de materias](API_PERIODOS_PORTADA.md) — Endpoints, permisos y límites de carga.
-- [Guía de Installer Hub](INSTALLER_HUB.md) — Empaquetado WiX Toolset v5 Burn con Bootstrapper WPF .NET 8.
-- [Guía de Despliegue](DESPLIEGUE.md) — Configuración para entornos locales y en la nube.
-- [Sincronización entre Computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md) — Protocolo de respaldo y migración de datos.
-- [Runbook de Operación](RUNBOOK_OPERACION.md) — Procedimientos para incidentes, copias de seguridad y diagnósticos.
+## Diseño técnico y desarrollo
 
-### 4. Seguridad, Gobernanza y Cumplimiento
-- [Política de Seguridad](SECURITY_POLICY.md) — Cifrado de datos en reposo, sellado HMAC-SHA256 y auditoría.
-- [Cumplimiento Normativo](CUMPLIMIENTO.md) — Alineación con marcos de privacidad de datos universitarios.
-- [Aviso de Privacidad Integral](legal/aviso-privacidad-integral.md) y [Procedimiento ARCO](legal/procedimiento-arco.md).
-- [Política de Versionado](VERSIONADO.md) y [Release Gate Estable](RELEASE_GATE_STABLE.md).
+- [Arquitectura integral](ARQUITECTURA.md) · [C4](ARQUITECTURA_C4.md) · [diagramas](diagramas/)
+- [Especificaciones por módulo](specs/) · [contratos](contracts/)
+- [Guía Installer Hub](INSTALLER_HUB.md) · [despliegue](DESPLIEGUE.md)
+- [Política SDD](POLITICA_SDD.md) · [WCAG para interfaces](WCAG_UI_POLICY.md) · [calidad UX](UX_QUALITY_CRITERIA.md)
+- [Seguridad](SECURITY_POLICY.md) · [operación segura](SEGURIDAD_OPERATIVA.md) · [cumplimiento y privacidad](CUMPLIMIENTO.md)
+- [Línea base de ingeniería](ENGINEERING_BASELINE.md) · [inventario de proyecto](INVENTARIO_PROYECTO.md)
 
----
+Las especificaciones describen contratos o trabajo de ingeniería; una spec implementada no demuestra por sí sola que una función esté habilitada en el instalador, conectada a un servicio externo o incluida en la última release pública. Verifica el estado en el código, el manifiesto del instalador y la página de Releases.
 
-## Documentos Generados Automáticamente
+## Releases y versiones
 
-- [`AUTO_DOCS_INDEX.md`](AUTO_DOCS_INDEX.md) — Índice exhaustivo de documentación versionada.
-- [`AUTO_ENV.md`](AUTO_ENV.md) — Catálogo consolidado de variables de entorno y banderas de feature.
-- [`INVENTARIO_CODIGO_EXHAUSTIVO.md`](INVENTARIO_CODIGO_EXHAUSTIVO.md) — Catálogo de archivos, líneas y módulos del proyecto.
+- La versión fuente se declara en `config/app-version.json` y se distribuye entre los paquetes por los scripts de versionado.
+- Una rama `main` actualizada no publica automáticamente un instalador.
+- La release pública se confirma en [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases).
+- La versión instalada se confirma en la aplicación del equipo.
 
-### Comandos de Sincronización
-```bash
-# Sincronizar índices y contratos de documentación
-npm run docs:generate
-npm run docs:commercial:sync
-npm run docs:sync
+Consulta [VERSIONADO.md](VERSIONADO.md) y [RELEASE_STATUS.md](RELEASE_STATUS.md) antes de usar términos como “estable”, “publicada” o “disponible”.
 
-# Regenerar inventario completo de código
-npm run inventario:codigo
-```
+## Convenciones del archivo
 
-<!-- AUTO:COMMERCIAL-CONTEXT:START -->
-## Contexto Comercial y Soporte
+Los documentos bajo `docs/release/evidencias/`, `docs/handoff/sesiones/` y los cortes fechados de inventario son registros históricos. Se conservan como evidencia y no se reescriben para que parezcan describir el estado actual. Los índices y guías operativas sí se actualizan cuando cambian los flujos vigentes.
 
-- Rol de este documento: Documentacion funcional/operativa para despliegue, seguridad y cumplimiento.
-- Edicion Comunitaria (AGPL): flujo operativo base para uso real.
-- Edicion Comercial/Institucional: mas automatizacion, soporte SLA, endurecimiento y hoja de ruta prioritaria por nivel.
-- Catalogo dinamico de capacidades: [FEATURE_CATALOG](comercial/FEATURE_CATALOG.md).
-- Licenciamiento comercial y modalidades de pago: [LICENSING_TIERS](comercial/LICENSING_TIERS.md).
-- Ultima sincronizacion automatica: 2026-08-28.
-<!-- AUTO:COMMERCIAL-CONTEXT:END -->
+Índices automáticos e inventarios: [AUTO_DOCS_INDEX](AUTO_DOCS_INDEX.md), [AUTO_ENV](AUTO_ENV.md) e [inventario exhaustivo de código](INVENTARIO_CODIGO_EXHAUSTIVO.md).
