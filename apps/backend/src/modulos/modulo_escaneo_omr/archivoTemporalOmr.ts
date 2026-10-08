@@ -1,8 +1,8 @@
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 
-// Multer copies accepted file metadata into its `req.files` placeholder. An
-// enumerable private symbol survives that trusted shallow copy while remaining
-// impossible to supply through multipart field names or ordinary file fields.
+// Multer's OBJECT strategy copies file metadata into its `req.files` placeholder
+// with Object.assign. An enumerable private symbol survives that trusted copy
+// but cannot be supplied through multipart field names or ordinary file fields.
 const RUTA_TEMPORAL_OMR = Symbol('rutaTemporalOmr');
 type ArchivoConRutaTemporal = object & { [RUTA_TEMPORAL_OMR]?: string };
 
