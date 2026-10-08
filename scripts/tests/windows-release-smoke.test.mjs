@@ -385,12 +385,13 @@ test('smoke GUI no destructivo valida el bundle Burn publico empaquetado', { tim
 });
 
 test('espera el lock recién creado por el broker y no confunde la ausencia transitoria con un puerto inválido', async () => {
+  const testPorts = Array.from({ length: 20 }, (_, index) => 4519 + index);
   let reads = 0;
   let pauses = 0;
   const owner = await waitForOwnedDashboardIdentity({
     readLock: async () => (++reads < 2 ? null : lock),
     readProcess: async () => processInfo,
-    ports,
+    ports: testPorts,
     installRoot: root,
     requestedAt,
     timeoutMs: 1_000,
