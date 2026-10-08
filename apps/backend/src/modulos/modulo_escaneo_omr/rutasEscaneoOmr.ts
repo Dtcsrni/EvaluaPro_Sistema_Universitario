@@ -19,6 +19,7 @@ import { esquemaAnalizarOmr, esquemaCrearIngestaPdfOmr, esquemaCrearJobOmr, esqu
 import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/validacionesExamenes.js';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 import { MAX_JOB_BYTES, MAX_PDF_BYTES } from './limitesIngestaPdfOmr.js';
+import { registrarRutaTemporalOmr, retirarRutaTemporalOmr } from './archivoTemporalOmr.js';
 
 const router = Router();
 // Un campo puede contener hasta 100 IDs de 200 caracteres UTF-8 más el JSON
@@ -49,6 +50,7 @@ export function crearCargadorArchivosPdfOmr(maxJobBytes = MAX_JOB_BYTES, tempRoo
 
         try {
           await pipeline(file.stream, limiteTotal, createWriteStream(filePath, { flags: 'wx' }));
+          registrarRutaTemporalOmr(file, filePath);
           callback(null, { destination: directory, filename, path: filePath, size });
         } catch (error) {
           await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined);
@@ -57,7 +59,12 @@ export function crearCargadorArchivosPdfOmr(maxJobBytes = MAX_JOB_BYTES, tempRoo
       })().catch((error: unknown) => callback(error as Error));
     },
     _removeFile(_req, file, callback) {
-      void fs.rm(path.dirname(file.path), { recursive: true, force: true }).then(() => callback(null), callback);
+      const ruta = retirarRutaTemporalOmr(file);
+      if (!ruta) {
+        callback(null);
+        return;
+      }
+      void fs.rm(path.dirname(ruta), { recursive: true, force: true }).then(() => callback(null), callback);
     }
   };
   const cargaPdfOmr = multer({
@@ -93,7 +100,10 @@ export function crearCargadorArchivosPdfOmr(maxJobBytes = MAX_JOB_BYTES, tempRoo
 
 async function limpiarCargaTemporal(req: import('express').Request) {
   const files = normalizarArchivosCargados(req);
-  await Promise.all(files.map((file) => fs.rm(path.dirname(file.path), { recursive: true, force: true }).catch(() => undefined)));
+  await Promise.all(files.map((file) => {
+    const ruta = retirarRutaTemporalOmr(file);
+    return ruta ? fs.rm(path.dirname(ruta), { recursive: true, force: true }).catch(() => undefined) : Promise.resolve();
+  }));
 }
 
 function normalizarArchivosCargados(req: import('express').Request) {
