@@ -68,7 +68,7 @@ test('el smoke aborta ante PID vivo del lock aunque el puerto no responda', asyn
   );
 });
 
-test('la identidad propia exige PID nuevo, puerto reservado y command line del checkout', () => {
+test('la identidad propia valida lock reciente y admite reutilización legítima de PID', () => {
   const owner = createOwnedDashboardIdentity({
     lock,
     previousLock: { pid: 77 },
@@ -80,16 +80,14 @@ test('la identidad propia exige PID nuevo, puerto reservado y command line del c
   assert.equal(owner.pid, 1250);
   assert.equal(owner.port, 4522);
   assert.equal(sameProcessIdentity(owner, processInfo), true);
-  assert.throws(
-    () => createOwnedDashboardIdentity({
-      lock: { ...lock, pid: 77 },
-      previousLock: { pid: 77 },
-      processInfo: { ...processInfo, pid: 77 },
-      ports,
-      installRoot: root
-    }),
-    /PID nuevo/
-  );
+  const reusedPidOwner = createOwnedDashboardIdentity({
+    lock,
+    processInfo,
+    ports,
+    installRoot: root,
+    requestedAt
+  });
+  assert.equal(reusedPidOwner.pid, lock.pid);
   assert.throws(
     () => createOwnedDashboardIdentity({
       lock,
