@@ -125,11 +125,17 @@ export function ExtraordinariosCalificaciones({
   const alumnosExternosDisponibles = solicitados;
 
   useEffect(() => {
-    setSeleccionados((actuales) => actuales.filter((id) => seleccionables.has(id)));
+    setSeleccionados([]);
     setPreview(null);
     setConfirmoPreview(false);
     setResultadoLote(null);
-  }, [periodoId, seleccionables]);
+  }, [periodoId]);
+
+  useEffect(() => {
+    setSeleccionados((actuales) => actuales.filter((id) => seleccionables.has(id)));
+    setPreview(null);
+    setConfirmoPreview(false);
+  }, [seleccionables]);
 
   async function guardarSolicitud(fila: FilaConsultaCalificacion, solicita: boolean) {
     if (!fila.alumnoId || !periodoId || (!fila.extraDisponible && solicita) || !puedeCalificar) return;
