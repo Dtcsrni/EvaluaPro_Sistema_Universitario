@@ -394,6 +394,20 @@ function Add-DocenteNativeCompiledPayload {
         & $npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend desde el lock raíz (exit=$LASTEXITCODE)." }
         Copy-Item -LiteralPath (Join-Path $npmWorkspaceRoot 'node_modules') -Destination $backendTarget -Recurse -Force
+        # npm puede instalar dependencias específicas del workspace anidadas aquí,
+        # mientras las demás se izan a node_modules raíz. Fusionarlas conserva
+        # la versión de producción del backend (por ejemplo, zod v4) en el MSI.
+        $backendNodeModulesTarget = Join-Path $backendTarget 'node_modules'
+        $workspaceNodeModules = Join-Path $npmWorkspaceRoot 'apps/backend/node_modules'
+        if (Test-Path -LiteralPath $workspaceNodeModules) {
+          Get-ChildItem -LiteralPath $workspaceNodeModules -Recurse -File -Force | ForEach-Object {
+            $relativeModulePath = $_.FullName.Substring($workspaceNodeModules.Length).TrimStart([char[]]@([char]92, [char]47))
+            $destinationModulePath = Join-Path $backendNodeModulesTarget $relativeModulePath
+            $destinationModuleDirectory = Split-Path -Parent $destinationModulePath
+            New-Item -ItemType Directory -Path $destinationModuleDirectory -Force | Out-Null
+            Copy-Item -LiteralPath $_.FullName -Destination $destinationModulePath -Force
+          }
+        }
       } finally {
         Pop-Location
         Remove-Item -LiteralPath $npmWorkspaceRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -549,6 +563,17 @@ function Add-DocenteNativeCompiledPayload {
         $requiredRuntimeModulePath = Join-Path $backendTarget ("node_modules/{0}" -f $requiredRuntimeModule)
         if (-not (Test-Path -LiteralPath $requiredRuntimeModulePath)) {
           throw "Falta dependencia de runtime requerida por el backend: $requiredRuntimeModulePath"
+        }
+      }
+      # Cada dependencia directa de producción del backend debe existir en el
+      # árbol que se empaquetará. Esto detecta instalaciones incompletas aunque
+      # otra versión de la misma dependencia exista en el node_modules raíz.
+      $backendPackageManifest = Get-Content -LiteralPath (Join-Path $backendTarget 'package.json') -Raw -Encoding utf8 | ConvertFrom-Json
+      $backendNodeModules = Join-Path $backendTarget 'node_modules'
+      foreach ($runtimeDependency in $backendPackageManifest.dependencies.PSObject.Properties.Name) {
+        $runtimeDependencyPath = Join-Path $backendNodeModules ($runtimeDependency.Replace('/', [IO.Path]::DirectorySeparatorChar))
+        if (-not (Test-Path -LiteralPath $runtimeDependencyPath)) {
+          throw "Falta dependencia de runtime declarada en package.json: $runtimeDependency"
         }
       }
       $pdfRuntimeSmoke = Join-Path $backendTarget '.pdf-runtime-smoke.mjs'
