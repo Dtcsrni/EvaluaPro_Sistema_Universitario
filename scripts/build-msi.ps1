@@ -393,11 +393,6 @@ function Add-DocenteNativeCompiledPayload {
       try {
         & $npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend desde el lock raíz (exit=$LASTEXITCODE)." }
-        # npm puede materializar dependencias compartidas del monorepo en el
-        # node_modules raíz. Podar el workspace seleccionado evita copiar al
-        # instalador paquetes de frontend/portal que no pertenecen al backend.
-        & $npmCommand prune --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts --package-lock=false
-        if ($LASTEXITCODE -ne 0) { throw "Falló la poda del staging de dependencias backend (exit=$LASTEXITCODE)." }
         Copy-Item -LiteralPath (Join-Path $npmWorkspaceRoot 'node_modules') -Destination $backendTarget -Recurse -Force
       } finally {
         Pop-Location
@@ -480,6 +475,14 @@ function Add-DocenteNativeCompiledPayload {
         (Join-Path $backendTarget 'node_modules/@visx'),
         (Join-Path $backendTarget 'node_modules/@types'),
         (Join-Path $backendTarget 'node_modules/@standard-schema'),
+        # El backend extrae texto de PDF; no rasteriza páginas ni usa Canvas.
+        # pdfjs declara Canvas como opcional y el paquete nativo elevaba el MSI
+        # sin intervenir en las rutas OMR/PDF usadas por docente-local.
+        (Join-Path $backendTarget 'node_modules/@napi-rs/canvas'),
+        (Join-Path $backendTarget 'node_modules/@napi-rs/canvas-win32-x64-msvc'),
+        (Join-Path $backendTarget 'node_modules/@napi-rs/canvas-win32-arm64-msvc'),
+        (Join-Path $backendTarget 'node_modules/pdf-parse/node_modules/@napi-rs/canvas'),
+        (Join-Path $backendTarget 'node_modules/pdf-parse/node_modules/@napi-rs/canvas-win32-x64-msvc'),
         (Join-Path $backendTarget 'node_modules/elkjs'),
         (Join-Path $backendTarget 'node_modules/effect'),
         (Join-Path $backendTarget 'node_modules/fast-check'),
@@ -555,6 +558,36 @@ function Add-DocenteNativeCompiledPayload {
         if (-not (Test-Path -LiteralPath $requiredRuntimeModulePath)) {
           throw "Falta dependencia de runtime requerida por el backend: $requiredRuntimeModulePath"
         }
+      }
+      $pdfRuntimeSmoke = Join-Path $backendTarget '.pdf-runtime-smoke.mjs'
+      $pdfRuntimeSmokeSource = @'
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { PDFParse } from 'pdf-parse';
+
+const require = createRequire(import.meta.url);
+try {
+  require.resolve('@napi-rs/canvas');
+  throw new Error('Canvas opcional no fue podado del payload docente.');
+} catch (error) {
+  if (error?.code !== 'MODULE_NOT_FOUND') throw error;
+}
+
+const parser = new PDFParse({ data: readFileSync(process.argv[2]) });
+try {
+  const result = await parser.getText();
+  if (!result.text?.includes('PDF TEST')) throw new Error('pdf-parse no extrajo el texto esperado.');
+} finally {
+  await parser.destroy();
+}
+'@
+      $pdfRuntimeSmokeUtf8 = New-Object System.Text.UTF8Encoding($false)
+      [IO.File]::WriteAllText($pdfRuntimeSmoke, $pdfRuntimeSmokeSource, $pdfRuntimeSmokeUtf8)
+      try {
+        & $nodeForBuild $pdfRuntimeSmoke (Join-Path $RootPath 'apps/backend/sample-test.pdf')
+        if ($LASTEXITCODE -ne 0) { throw "Falló el smoke PDF docente sin Canvas opcional (exit=$LASTEXITCODE)." }
+      } finally {
+        Remove-Item -LiteralPath $pdfRuntimeSmoke -Force -ErrorAction SilentlyContinue
       }
       $requiredSpanishOcrModel = Join-Path $backendTarget 'node_modules/@tesseract.js-data/spa/4.0.0_best_int/spa.traineddata.gz'
       if (-not (Test-Path -LiteralPath $requiredSpanishOcrModel)) {

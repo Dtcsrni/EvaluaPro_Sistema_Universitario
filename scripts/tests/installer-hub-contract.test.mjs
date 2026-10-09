@@ -416,11 +416,11 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
   assert.match(buildMsi, /package-lock\.json/);
   assert.ok(buildMsi.includes("npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts"));
-  const backendWorkspaceInstall = buildMsi.indexOf("npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts");
-  const backendWorkspacePrune = buildMsi.indexOf("npmCommand prune --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts --package-lock=false");
-  const backendNodeModulesCopy = buildMsi.indexOf("Copy-Item -LiteralPath (Join-Path $npmWorkspaceRoot 'node_modules')");
-  assert.ok(backendWorkspacePrune > backendWorkspaceInstall, 'backend staging must be pruned after npm ci');
-  assert.ok(backendNodeModulesCopy > backendWorkspacePrune, 'backend staging must be pruned before node_modules is copied into the MSI');
+  assert.match(buildMsi, /node_modules\/\@napi-rs\/canvas-win32-x64-msvc/);
+  assert.match(buildMsi, /pdf-parse\/node_modules\/\@napi-rs\/canvas/);
+  assert.match(buildMsi, /El backend extrae texto de PDF; no rasteriza páginas ni usa Canvas/);
+  assert.match(buildMsi, /\.pdf-runtime-smoke\.mjs/);
+  assert.match(buildMsi, /PDF TEST/);
   assert.match(buildMsi, /if \(\$reusePrebuiltDependencies\) \{[\s\S]*?npmCommand prune --omit=dev --ignore-scripts --package-lock=false/);
   assert.match(buildMsi, /prismaCliPath = Join-Path \$RootPath 'node_modules\/prisma\/build\/index\.js'/);
   assert.ok(!buildMsi.includes("apps/backend/package-lock.json"));
