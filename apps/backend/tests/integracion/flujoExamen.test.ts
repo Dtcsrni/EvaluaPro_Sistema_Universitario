@@ -611,6 +611,18 @@ describe('flujo de examen', () => {
     expect(resumenPreview.body.totalUsados).toBeLessThan(preguntasIds.length);
     const pdfPreview = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth).expect(200);
     expect(pdfPreview.body.paginasTotales).toBe(4);
+    const pdfCacheado = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf`)
+      .set(auth)
+      .expect(200);
+    await request(app).post('/api/autenticacion/preferencias/pdf').set(auth).send({
+      institucion: 'Instituto actualizado durante la prueba'
+    }).expect(200);
+    const pdfRefrescado = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf?refresh=1`)
+      .set(auth)
+      .expect(200);
+    expect(pdfRefrescado.headers['content-disposition']).not.toBe(pdfCacheado.headers['content-disposition']);
     const fuenteDespuesPreview = await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } });
     expect(fuenteDespuesPreview.bookletConfig).toBe(fuenteAntesPreview.bookletConfig);
     expect(fuenteDespuesPreview.blueprintJson).toBe(fuenteAntesPreview.blueprintJson);
