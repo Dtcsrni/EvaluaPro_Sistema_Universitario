@@ -608,6 +608,6 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(rollback, /-F draft=true/);
   assert.match(installer, /inputs\.release_tag != ''/);
   assert.match(installer, /tag_name: \$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
-  assert.match(installer, /target_commitish: \$\{\{ github\.sha \}\}/);
+  assert.match(installer, /target_commitish: \\$\\{\\{ inputs\\.source_sha \\|\\| github\\.sha \\}\\}/);
   assert.match(installer, /ref: \$\{\{ inputs\.release_tag \|\| github\.ref \}\}/);
 });
