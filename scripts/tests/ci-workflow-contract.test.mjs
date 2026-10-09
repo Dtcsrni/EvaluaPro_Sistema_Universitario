@@ -580,6 +580,7 @@ test('Dockerfile frontend incluye el wrapper y la política de configuración de
 
 test('release estable valida el asset desde su URL pública y lo oculta si falla la E2E', () => {
   const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const finalizeIndex = installer.indexOf('finalize_installer_release:');
   const publicE2eIndex = installer.indexOf('verify_public_installer_e2e:');
   const rollbackIndex = installer.indexOf('redraft_failed_public_installer_release:');
@@ -601,9 +602,11 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(rollback, /needs\.verify_public_installer_e2e\.result != 'success'/);
   assert.match(rollback, /contents:\s*write/);
   assert.match(rollback, /-F draft=true/);
+  assert.match(stableGate, /existing_tag_commit" != "\\$SOURCE_SHA"/);
+  assert.doesNotMatch(stableGate, /existing_tag_commit" != "\\$GATE_SHA"/);
   assert.match(installer, /inputs\.release_tag != ''/);
   assert.match(installer, /tag_name: \$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
-  assert.match(installer, /target_commitish: \$\{\{ github\.sha \}\}/);
+  assert.match(installer, /target_commitish: \\$\{\{ inputs\.source_sha \\|\\| github\.sha \\}\}/);
   assert.match(installer, /ref: \$\{\{ inputs\.release_tag \|\| github\.ref \}\}/);
 });
 test('smoke Windows fija la identidad antes de la primera acción del broker', () => {
