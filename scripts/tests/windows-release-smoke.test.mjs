@@ -7,6 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import net from 'node:net';
@@ -200,13 +201,87 @@ function readDashboardLock() {
   }
 }
 
-function readSmokeFailureDiagnostics(runId, brokerStatus) {
+function readLockFileSnapshot(filePath) {
+  let raw;
+  try {
+    raw = fs.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    return {
+      exists: fs.existsSync(filePath),
+      lock: null,
+      readErrorCode: String(error?.code || 'UNKNOWN'),
+      parseError: false
+    };
+  }
+
+  try {
+    return { exists: true, lock: JSON.parse(raw), readErrorCode: null, parseError: false };
+  } catch {
+    return { exists: true, lock: null, readErrorCode: null, parseError: true };
+  }
+}
+
+test('diagnostico del smoke distingue lock ausente, invalido y legible', (t) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-release-smoke-lock-'));
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+
+  const lockPathForTest = path.join(tempDir, 'dashboard.lock.json');
+  assert.deepEqual(readLockFileSnapshot(lockPathForTest), {
+    exists: false,
+    lock: null,
+    readErrorCode: 'ENOENT',
+    parseError: false
+  });
+
+  fs.writeFileSync(lockPathForTest, '{invalid json', 'utf8');
+  assert.deepEqual(readLockFileSnapshot(lockPathForTest), {
+    exists: true,
+    lock: null,
+    readErrorCode: null,
+    parseError: true
+  });
+
+  const expectedLock = { pid: 1234, port: 4519, mode: 'prod' };
+  fs.writeFileSync(lockPathForTest, JSON.stringify(expectedLock), 'utf8');
+  assert.deepEqual(readLockFileSnapshot(lockPathForTest), {
+    exists: true,
+    lock: expectedLock,
+    readErrorCode: null,
+    parseError: false
+  });
+});
+
+async function readSmokeFailureDiagnostics(runId, brokerStatus) {
   const lock = readDashboardLock();
+  const lockSnapshot = readLockFileSnapshot(lockPath);
+  const singletonSnapshot = readLockFileSnapshot(path.join(root, 'logs', 'dashboard.singleton.json'));
   let bootstrap = null;
   try {
     bootstrap = readJson(path.join(root, 'logs', `bootstrap-state-${runId}.json`));
   } catch {
     // Un estado ausente también es evidencia útil para este diagnóstico.
+  }
+
+  let dashboardRuntime = null;
+  const dashboardBase = String(bootstrap?.meta?.base || '').trim();
+  if (/^http:\/\/127\.0\.0\.1:\d+$/.test(dashboardBase)) {
+    try {
+      const response = await httpJson(`${dashboardBase}/api/install`, 5_000);
+      const body = response?.body || {};
+      const reportedRoot = String(body.paths?.root || '');
+      const reportedLockPath = String(body.paths?.lockPath || '');
+      dashboardRuntime = {
+        status: Number(response.status) || null,
+        pid: Number(body.dashboard?.pid) || null,
+        port: Number(body.dashboard?.port) || null,
+        reportedRoot: reportedRoot || null,
+        rootMatchesSmokeWorkspace: reportedRoot ? path.resolve(reportedRoot).toLowerCase() === path.resolve(root).toLowerCase() : null,
+        reportedLockPath: reportedLockPath || null,
+        lockPathMatchesSmokeWorkspace: reportedLockPath ? path.resolve(reportedLockPath).toLowerCase() === path.resolve(lockPath).toLowerCase() : null
+      };
+    } catch (error) {
+      dashboardRuntime = { readErrorCode: String(error?.code || error?.name || 'UNKNOWN') };
+    }
   }
 
   const processScript = `$items = @(Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $PID -and $_.Name -ieq 'node.exe' -and $_.CommandLine -like '*launcher-dashboard.mjs*' } | Select-Object -First 5 @{Name='pid';Expression={[int]$_.ProcessId}}, @{Name='name';Expression={[string]$_.Name}}, @{Name='creationDate';Expression={[string]$_.CreationDate}}); ConvertTo-Json -InputObject $items -Compress`;
@@ -236,7 +311,17 @@ function readSmokeFailureDiagnostics(runId, brokerStatus) {
   return JSON.stringify({
     brokerStatus: Number(brokerStatus),
     lock: safeLock,
+    lockFile: { exists: lockSnapshot.exists, readErrorCode: lockSnapshot.readErrorCode, parseError: lockSnapshot.parseError },
+    singletonFile: {
+      exists: singletonSnapshot.exists,
+      readErrorCode: singletonSnapshot.readErrorCode,
+      parseError: singletonSnapshot.parseError,
+      pid: Number(singletonSnapshot.lock?.pid) || null,
+      port: Number(singletonSnapshot.lock?.port) || null,
+      state: String(singletonSnapshot.lock?.state || '')
+    },
     bootstrap: safeBootstrap,
+    dashboardRuntime,
     dashboardProcesses: processes.map((item) => ({
       pid: Number(item?.pid) || null,
       name: String(item?.name || ''),
@@ -490,7 +575,7 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
       requestedAt: openRequestedAt
     });
   } catch (error) {
-    const diagnostics = readSmokeFailureDiagnostics(openRunId, openRes.status);
+    const diagnostics = await readSmokeFailureDiagnostics(openRunId, openRes.status);
     throw new Error(`${error.message} Diagnóstico de smoke (sin command line ni datos de entorno): ${diagnostics}`);
   }
 
