@@ -2347,6 +2347,18 @@ test('runner E2E ejecuta broker instalado preservando rutas con espacios', () =>
   assert.match(runner, /bootstrap-state-\{0\}\.json/);
 });
 
+test('runner E2E aplica el mismo estado aceptable al timeout y al exit code nulo del broker', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  const start = runner.indexOf('function Invoke-InstalledBroker');
+  const end = runner.indexOf('function Export-BrokerDiagnostics', start);
+  assert.ok(start >= 0 && end > start, 'debe localizar la validación de estado del broker instalado');
+  const broker = runner.slice(start, end);
+
+  assert.match(broker, /\$acceptedBootstrapStates = @\('healthy', 'degraded'\)/);
+  assert.equal((broker.match(/\.state -in \$acceptedBootstrapStates/g) || []).length, 2);
+  assert.doesNotMatch(broker, /\.state -eq 'healthy'/);
+});
+
 test('runner E2E local falla temprano si memoria o pagefile no alcanzan', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
