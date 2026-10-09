@@ -1,8 +1,8 @@
 ---
 id: SPEC-064
 titulo: Actualizacion de dependencias y toolchains estables
-version: 1.1.0
-fecha: 2026-09-23
+version: 1.1.1
+fecha: 2026-10-09
 autor: Erick Vega / Codex
 modulo: devops_dependencias_toolchains
 estado: approved
@@ -52,7 +52,7 @@ su EULA. Se excluyen versiones prerelease y cambios de datos de usuario.
 
 | ID Requisito | Descripcion del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001 | Reproducibilidad de dependencias y consistencia de instalación CI | `scripts/tests/ci-workflow-contract.test.mjs` | Pendiente |
+| REQ-001 | Dependabot raíz y sincronización de locks npm del workspace | `scripts/tests/dependabot-security-policy.test.mjs` | Pendiente |
 | REQ-002 | Contrato de persistencia SQLite/Prisma en backend | `apps/backend/tests/sincronizacion.test.ts` | Pendiente |
 | REQ-002 | Integracion SQLite del portal | `apps/portal_alumno_cloud/tests/integracion/portal.test.ts` | Pendiente |
 | REQ-003 | Version/politica WiX y EULA del instalador | `scripts/tests/wix-version-policy.test.mjs` | Pendiente |
