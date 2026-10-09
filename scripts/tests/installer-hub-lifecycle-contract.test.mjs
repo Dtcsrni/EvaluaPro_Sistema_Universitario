@@ -219,7 +219,7 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
 });
 
 test('el payload docente conserva los módulos PDF requeridos en runtime', () => {
-  assert.match(msiBuild, /foreach \(\$requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist', 'tesseract\.js', '@tesseract\.js-data\/spa'\)\)/);
+  assert.match(msiBuild, /foreach \(\$requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist', '@napi-rs\/canvas', 'tesseract\.js', '@tesseract\.js-data\/spa'\)\)/);
   assert.match(msiBuild, /Falta dependencia de runtime requerida por el backend/);
   assert.doesNotMatch(msiBuild, /Join-Path \$backendTarget 'node_modules\/pdfjs-dist'/);
 });

@@ -13,8 +13,11 @@ const enforce = args.includes('--enforce');
 // autocontenido y su runtime .NET para conservar instalación autónoma. Estos
 // presupuestos incluyen margen para el runtime nativo de Windows, Prisma,
 // Sharp y canvas; no autorizan retirar dependencias funcionales.
-const maxPayloadBytes = 180 * 1024 * 1024;
-const maxBundleBytes = 240 * 1024 * 1024;
+// Calibrado con el build v1.2.6 anclado al lock raíz: payload MSI 194 MiB y
+// Bundle 256.3 MiB. El margen de 6 MiB/13.7 MiB absorbe variación normal sin
+// permitir que una regresión grande pase inadvertida.
+const maxPayloadBytes = 200 * 1024 * 1024;
+const maxBundleBytes = 270 * 1024 * 1024;
 
 function readJson(filePath) {
   try {

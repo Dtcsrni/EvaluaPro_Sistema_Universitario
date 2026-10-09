@@ -57,10 +57,11 @@ Fecha de baseline: 2026-02-13.
 - Hardening de dependencias nativas en backend module:
   - instalacion explicita de `sharp` linux-x64 antes de pruebas para evitar errores de runtime nativo en runners Linux.
 - Política versionada de Dependabot:
-  - `.github/dependabot.yml` analiza semanalmente los cuatro workspaces npm (raíz, backend, frontend y portal).
-  - `open-pull-requests-limit: 5` limita las PR de actualizaciones de versión por workspace; cero las desactiva.
+  - `.github/dependabot.yml` analiza semanalmente `/`; npm resuelve backend, frontend y portal como workspaces del monorepo y usa el lock raíz como fuente canónica.
+  - `open-pull-requests-limit: 5` limita las PR de actualizaciones de versión; cero las desactiva.
   - Las PR de actualizaciones de seguridad usan el flujo de security updates de GitHub y no comparten ese límite.
-  - La política está protegida por `scripts/tests/dependabot-security-policy.test.mjs`; cada PR sigue los gates de CI antes de integrarse.
+  - El instalador docente selecciona `apps/backend` con `npm ci --workspace` y reutiliza el lock raíz, evitando manifests nuevos con un lock hijo obsoleto.
+  - La política y el contrato del instalador están protegidos por `scripts/tests/dependabot-security-policy.test.mjs`; CI valida el MSI Windows afectado.
 
 ## Enforcements TDD activos
 - Las PR ejecutan pruebas afectadas por módulo; los reportes de cobertura son diagnósticos y la cobertura integral se solicita con `workflow_dispatch` + `force_full_ci`.
