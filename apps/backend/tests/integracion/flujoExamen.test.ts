@@ -11,9 +11,49 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { excluirReferenciasTecnologiaRetirada, mapearPreguntasBase, resolverPreguntasExtraordinarioArchivado, resolverPreguntasPlantilla } from '../../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
+import { generarExtraordinarioMaximo } from '../../src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('flujo de examen', () => {
+  it('busca reactivos compactos fuera del prefijo aleatorio para maximizar la selección', async () => {
+    const preguntas = [
+      { id: 'larga-1', enunciado: 'L'.repeat(800), opciones: [{ texto: 'opción', esCorrecta: true }] },
+      { id: 'larga-2', enunciado: 'L'.repeat(800), opciones: [{ texto: 'opción', esCorrecta: true }] },
+      { id: 'corta-1', enunciado: 'S', opciones: [{ texto: 'opción', esCorrecta: true }] },
+      { id: 'corta-2', enunciado: 'S', opciones: [{ texto: 'opción', esCorrecta: true }] }
+    ];
+    const alturas = preguntas.map((pregunta) => ({
+      questionId: pregunta.id,
+      plannedHeightPt: pregunta.id.startsWith('larga') ? 800 : 80,
+      renderedHeightPt: pregunta.id.startsWith('larga') ? 800 : 80
+    }));
+    const renderizar = async (seleccion: typeof preguntas) => {
+      const idsUsados = seleccion.length === 2 && seleccion.every((pregunta) => pregunta.id.startsWith('corta'))
+        ? seleccion.map((pregunta) => pregunta.id)
+        : [];
+      return {
+        pdfBytes: Buffer.alloc(0),
+        paginas: [{ numero: 1 }, { numero: 2 }],
+        preguntasRestantes: idsUsados.length === 2 ? 0 : seleccion.length,
+        mapaOmr: {
+          paginas: [{
+            numeroPagina: 1,
+            preguntas: idsUsados.map((idPregunta) => ({ idPregunta })),
+            layoutDebug: { plannedQuestionHeights: alturas }
+          }]
+        }
+      } as never;
+    };
+    const resultado = await generarExtraordinarioMaximo({
+      preguntas,
+      paginasObjetivo: 2,
+      renderizar
+    });
+    const idsUsados = resultado.mapaOmr.paginas.flatMap((pagina) => pagina.preguntas.map((pregunta) => pregunta.idPregunta));
+    expect(idsUsados).toEqual(['corta-1', 'corta-2']);
+    expect(resultado.paginas).toHaveLength(2);
+  });
+
   const preguntasPorEscenario = 20;
   const app = crearApp();
 
