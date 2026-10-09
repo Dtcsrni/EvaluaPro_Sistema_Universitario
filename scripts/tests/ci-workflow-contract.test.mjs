@@ -510,6 +510,7 @@ test('CI frontend activa el mismo conjunto de guardas WCAG para push y pull requ
 
 test('el gate estable deja margen suficiente para CI de instalador y QA completa', () => {
   const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const tagGuard = fs.readFileSync(path.join(workflowDir, 'tag-release-guard.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const installerMinutes = Number(installer.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
@@ -606,8 +607,9 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(rollback, /needs\.verify_public_installer_e2e\.result != 'success'/);
   assert.match(rollback, /contents:\s*write/);
   assert.match(rollback, /-F draft=true/);
+  assert.match(stableGate, /existing_tag_commit.*SOURCE_SHA/);
   assert.match(installer, /inputs\.release_tag != ''/);
   assert.match(installer, /tag_name: \$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
-  assert.match(installer, /target_commitish: \\$\\{\\{ inputs\\.source_sha \\|\\| github\\.sha \\}\\}/);
+  assert.match(installer, /target_commitish: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/);
   assert.match(installer, /ref: \$\{\{ inputs\.release_tag \|\| github\.ref \}\}/);
 });
