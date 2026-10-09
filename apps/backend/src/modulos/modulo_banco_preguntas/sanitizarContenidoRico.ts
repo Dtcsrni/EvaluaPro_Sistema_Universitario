@@ -120,7 +120,7 @@ export function sanitizarContenidoRico(valor: unknown): string {
     const etiqueta = fuente.slice(inicio, fin + 1);
     const nombre = /^<\s*\/?\s*([a-z][a-z0-9:-]*)\b/i.exec(etiqueta)?.[1]?.toLowerCase();
     if (!nombre) {
-      const anterior = salida.at(-1) ?? '';
+      const anterior = salida[salida.length - 1] ?? '';
       const siguiente = fuente[fin + 1] ?? '';
       if (anterior && siguiente && !/\s/.test(anterior) && !/\s/.test(siguiente)) salida += ' ';
       cursor = fin + 1;
