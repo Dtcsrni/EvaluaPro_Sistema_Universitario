@@ -110,6 +110,14 @@ function Get-LockPort {
     $candidate = if ($null -ne $parsed.port) { [int]$parsed.port } else { 0 }
     if ($candidate -ge 1 -and $candidate -le 65535) {
       if (Test-DashboardPortResponsive $candidate) { return $candidate }
+      # El dashboard publica el lock al entrar a listen. Una comprobación HTTP
+      # concurrente puede ocurrir antes de que Node atienda la primera petición;
+      # no borrar un lock que todavía pertenece a un proceso vivo.
+      $ownerPid = if ($null -ne $parsed.pid) { [int]$parsed.pid } else { 0 }
+      if (Test-DashboardProcessAlive $ownerPid) {
+        Write-BrokerLog("Dashboard todavía inicia en puerto $candidate (pid=$ownerPid); se conserva el lock.")
+        return $candidate
+      }
       Write-BrokerLog("Lockfile stale: dashboard no responde en puerto $candidate.")
       try { Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue } catch {}
     }
@@ -117,6 +125,26 @@ function Get-LockPort {
     Write-BrokerLog("No se pudo leer lockfile: $($_.Exception.Message)")
   }
   return $null
+}
+
+function Test-DashboardProcessAlive([int]$processId) {
+  if ($processId -le 0) { return $false }
+  try {
+    $process = Get-CimInstance -ClassName Win32_Process -Filter ("ProcessId={0}" -f $processId) -ErrorAction Stop
+    if (-not $process) { return $false }
+    $commandLine = [string]$process.CommandLine
+    if ([string]::IsNullOrWhiteSpace($commandLine)) { return $true }
+    return ($commandLine -match 'launcher-dashboard\.(mjs|ps1)')
+  } catch {
+    # Si CIM no permite leer la línea de comandos, la existencia del PID basta
+    # para evitar borrar un lock válido durante el arranque.
+    try {
+      Get-Process -Id $processId -ErrorAction Stop | Out-Null
+      return $true
+    } catch {
+      return $false
+    }
+  }
 }
 
 function Get-ApiBase([int]$requestedPort) {
