@@ -224,12 +224,56 @@ async function generarExtraordinarioMaximo(params: {
   paginasObjetivo: number;
   renderizar: (preguntas: PreguntaBase[]) => Promise<ResultadoGeneracionPdf>;
 }) {
-  let minimo = 1;
-  let maximo = params.preguntas.length - 1;
   let mejorResultado: ResultadoGeneracionPdf | undefined;
+  let mejorCardinalidad = 0;
+  let alturasRenderizadas = new Map<string, number>();
+
+  const registrarAlturas = (resultado: ResultadoGeneracionPdf) => {
+    for (const pagina of resultado.mapaOmr.paginas ?? []) {
+      for (const pregunta of pagina.layoutDebug?.plannedQuestionHeights ?? []) {
+        const altura = Number(pregunta.renderedHeightPt || pregunta.plannedHeightPt);
+        if (pregunta.questionId && Number.isFinite(altura) && altura > 0) {
+          alturasRenderizadas.set(pregunta.questionId, altura);
+        }
+      }
+    }
+  };
+
+  const evaluarOrden = async (preguntasOrdenadas: PreguntaBase[]) => {
+    let minimo = 1;
+    let maximo = preguntasOrdenadas.length - 1;
+    while (minimo <= maximo) {
+      const cantidad = Math.floor((minimo + maximo) / 2);
+      let resultado: ResultadoGeneracionPdf;
+      try {
+        resultado = await params.renderizar(preguntasOrdenadas.slice(0, cantidad));
+      } catch (error) {
+        if (error instanceof Error && /^Layout invalido:/u.test(error.message)) {
+          maximo = cantidad - 1;
+          continue;
+        }
+        throw error;
+      }
+      registrarAlturas(resultado);
+      const idsUsados = extraerPreguntasHastaPagina(resultado.mapaOmr, params.paginasObjetivo);
+      const cabeEnObjetivo = resultado.preguntasRestantes === 0 &&
+        resultado.paginas.length <= params.paginasObjetivo &&
+        idsUsados.size === cantidad;
+      if (cabeEnObjetivo) {
+        if (cantidad > mejorCardinalidad) {
+          mejorResultado = resultado;
+          mejorCardinalidad = cantidad;
+        }
+        minimo = cantidad + 1;
+      } else {
+        maximo = cantidad - 1;
+      }
+    }
+  };
 
   try {
     const resultadoCompleto = await params.renderizar(params.preguntas);
+    registrarAlturas(resultadoCompleto);
     const idsUsados = extraerPreguntasHastaPagina(resultadoCompleto.mapaOmr, params.paginasObjetivo);
     if (resultadoCompleto.preguntasRestantes === 0 &&
       resultadoCompleto.paginas.length === params.paginasObjetivo &&
@@ -240,29 +284,25 @@ async function generarExtraordinarioMaximo(params: {
     if (!(error instanceof Error) || !/^Layout invalido:/u.test(error.message)) throw error;
   }
 
-  while (minimo <= maximo) {
-    const cantidad = Math.floor((minimo + maximo) / 2);
-    let resultado: ResultadoGeneracionPdf;
-    try {
-      resultado = await params.renderizar(params.preguntas.slice(0, cantidad));
-    } catch (error) {
-      if (error instanceof Error && /^Layout invalido:/u.test(error.message)) {
-        maximo = cantidad - 1;
-        continue;
-      }
-      throw error;
-    }
-    const idsUsados = extraerPreguntasHastaPagina(resultado.mapaOmr, params.paginasObjetivo);
-    const cabeEnObjetivo = resultado.preguntasRestantes === 0 &&
-      resultado.paginas.length <= params.paginasObjetivo &&
-      idsUsados.size === cantidad;
-    if (cabeEnObjetivo) {
-      mejorResultado = resultado;
-      minimo = cantidad + 1;
-    } else {
-      maximo = cantidad - 1;
-    }
-  }
+  // Conserva el orden de variante como primer desempate y prueba además un
+  // orden compacto medido por el renderer; la altura textual es el fallback
+  // para preguntas que no llegaron a renderizarse en la pasada completa.
+  const preguntasCompactas = params.preguntas
+    .map((pregunta, indice) => {
+      const textoEstimado = pregunta.enunciado.length +
+        pregunta.opciones.reduce((total, opcion) => total + opcion.texto.length, 0) +
+        (pregunta.imagenUrl ? 500 : 0);
+      return {
+        pregunta,
+        indice,
+        altura: alturasRenderizadas.get(pregunta.id) ?? Math.max(1, textoEstimado)
+      };
+    })
+    .sort((a, b) => a.altura - b.altura || a.indice - b.indice)
+    .map(({ pregunta }) => pregunta);
+
+  await evaluarOrden(params.preguntas);
+  await evaluarOrden(preguntasCompactas);
 
   if (!mejorResultado || mejorResultado.paginas.length !== params.paginasObjetivo) {
     throw new ErrorAplicacion(
@@ -373,6 +413,14 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
 }
 
 function clavePreviewContexto(contexto: Awaited<ReturnType<typeof resolverContextoPreview>>) {
+  const encabezado = construirEncabezadoPdf({
+    periodo: contexto.periodo,
+    docenteDb: contexto.docenteDb,
+    instrucciones: contexto.esExtraordinarioArchivado
+      ? INSTRUCCIONES_OMR_EXTRAORDINARIO
+      : (contexto.plantilla as { instrucciones?: unknown }).instrucciones,
+    incluirPrefijosDocente: true
+  });
   return clavePreviewPlantilla({
     plantillaId: String(contexto.plantilla._id ?? contexto.plantilla.id),
     plantillaUpdatedAt: (contexto.plantilla as { updatedAt?: unknown }).updatedAt,
@@ -380,7 +428,7 @@ function clavePreviewContexto(contexto: Awaited<ReturnType<typeof resolverContex
     totalPreguntas: contexto.preguntasBase.length,
     temas: contexto.temas,
     preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
-    layoutFingerprint: contexto.layoutFingerprint
+    layoutFingerprint: `${contexto.layoutFingerprint}|encabezado-${hash32(JSON.stringify(encabezado))}`
   });
 }
 
@@ -616,7 +664,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     })
   });
   const previewResultado = contexto.esExtraordinarioArchivado
-    ? obtenerPreviewExtraordinarioMaximo(previewKey) ?? await generarExtraordinarioMaximo({
+    ? (!params.forzarRegeneracion ? obtenerPreviewExtraordinarioMaximo(previewKey) : undefined) ?? await generarExtraordinarioMaximo({
       preguntas: contexto.preguntasCandidatas,
       paginasObjetivo: contexto.numeroPaginas,
       renderizar
