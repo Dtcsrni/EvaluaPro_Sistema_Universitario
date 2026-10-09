@@ -302,7 +302,8 @@ export async function generarExtraordinarioMaximo(params: {
     .map(({ pregunta }) => pregunta);
 
   await evaluarOrden(params.preguntas);
-  await evaluarOrden(preguntasCompactas);
+  const mismoOrdenCompacto = preguntasCompactas.every((pregunta, indice) => pregunta.id === params.preguntas[indice]?.id);
+  if (!mismoOrdenCompacto) await evaluarOrden(preguntasCompactas);
 
   if (!mejorResultado || mejorResultado.paginas.length !== params.paginasObjetivo) {
     throw new ErrorAplicacion(

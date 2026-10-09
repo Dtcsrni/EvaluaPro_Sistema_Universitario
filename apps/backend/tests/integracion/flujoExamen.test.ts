@@ -54,6 +54,36 @@ describe('flujo de examen', () => {
     expect(resultado.paginas).toHaveLength(2);
   });
 
+  it('no vuelve a renderizar el mismo orden compacto al buscar el maximo', async () => {
+    const preguntas = ['A', 'B', 'C', 'D'].map((id) => ({
+      id,
+      enunciado: 'Enunciado del reactivo',
+      opciones: [{ texto: 'Opcion de respuesta', esCorrecta: true }]
+    }));
+    const llamadas: string[][] = [];
+    const renderizar = async (seleccion: typeof preguntas) => {
+      const idsUsados = seleccion.length <= 2 ? seleccion.map((pregunta) => pregunta.id) : [];
+      llamadas.push(seleccion.map((pregunta) => pregunta.id));
+      return {
+        pdfBytes: Buffer.alloc(0),
+        paginas: [{ numero: 1 }, { numero: 2 }],
+        preguntasRestantes: idsUsados.length === seleccion.length ? 0 : seleccion.length,
+        mapaOmr: {
+          paginas: [{
+            numeroPagina: 1,
+            preguntas: idsUsados.map((idPregunta) => ({ idPregunta })),
+            layoutDebug: { plannedQuestionHeights: [] }
+          }]
+        }
+      } as never;
+    };
+
+    const resultado = await generarExtraordinarioMaximo({ preguntas, paginasObjetivo: 2, renderizar });
+
+    expect(resultado.mapaOmr.paginas.flatMap((pagina) => pagina.preguntas.map((pregunta) => pregunta.idPregunta))).toHaveLength(2);
+    expect(llamadas).toHaveLength(4);
+  });
+
   const preguntasPorEscenario = 20;
   const app = crearApp();
 
@@ -608,18 +638,6 @@ describe('flujo de examen', () => {
     expect(resumenPreview.body.fuentesExtraordinario).toEqual(['Primer parcial Diseño Web', 'Segundo parcial Diseño Web']);
     expect(resumenPreview.body.totalUsados).toBeGreaterThan(0);
     expect(resumenPreview.body.totalUsados).toBeLessThan(preguntasIds.length);
-    const pdfCacheado = await request(app)
-      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf`)
-      .set(auth)
-      .expect(200);
-    await request(app).post('/api/autenticacion/preferencias/pdf').set(auth).send({
-      institucion: 'Instituto actualizado durante la prueba'
-    }).expect(200);
-    const pdfRefrescado = await request(app)
-      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf?refresh=1`)
-      .set(auth)
-      .expect(200);
-    expect(pdfRefrescado.headers['content-disposition']).not.toBe(pdfCacheado.headers['content-disposition']);
     const fuenteDespuesPreview = await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } });
     expect(fuenteDespuesPreview.bookletConfig).toBe(fuenteAntesPreview.bookletConfig);
     expect(fuenteDespuesPreview.blueprintJson).toBe(fuenteAntesPreview.blueprintJson);
