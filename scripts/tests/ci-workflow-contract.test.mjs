@@ -11,6 +11,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { buildModuleCoveragePlan } from '../testing/run-module-coverage.mjs';
 import { resolveThreshold } from '../testing/check-diff-coverage.mjs';
+import { evaluateAffectedChangeSet } from '../testing/resolve-affected-ci.mjs';
 
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
@@ -617,4 +618,31 @@ test('smoke Windows fija la identidad antes de la primera acción del broker', (
   assert.ok(requestedAtIndex >= 0 && requestedAtIndex < verifyIndex, 'la identidad debe fecharse antes de verify-installation');
   assert.ok(verifyIndex >= 0 && verifyRunIdIndex > verifyIndex && verifyRunIdIndex < openIndex, 'verify-installation debe usar el RunId del smoke');
   assert.ok(openIndex >= 0 && openRunIdIndex > openIndex, 'open-dashboard debe conservar el mismo RunId');
+});
+
+test('Installer Windows omite PR sin cambios de payload y conserva la E2E para cambios publicados', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const mapPath = path.join(root, 'ci', 'affected-test-map.json');
+  const affectedMap = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
+  const detector = extractJobBlock(workflow, 'detectar_cambios');
+  const installer = extractJobBlock(workflow, 'installer_windows');
+
+  assert.match(detector, /resolve-affected-ci\.mjs --github-output=/);
+  assert.match(detector, /group_\(installer\|backend\|frontend\|portal\|shared\)=true/);
+  assert.match(installer, /needs: detectar_cambios/);
+  assert.match(installer, /needs\.detectar_cambios\.outputs\.run_installer == 'true'/);
+
+  const docsOnly = evaluateAffectedChangeSet(affectedMap, ['docs/README.md']);
+  assert.equal(docsOnly.matchedGroups.installer, false);
+  assert.equal(docsOnly.matchedGroups.backend, false);
+  assert.equal(docsOnly.matchedGroups.frontend, false);
+  assert.equal(docsOnly.matchedGroups.portal, false);
+  assert.equal(docsOnly.matchedGroups.shared, false);
+
+  const installerWorkflowOnly = evaluateAffectedChangeSet(affectedMap, ['.github/workflows/ci-installer-windows.yml']);
+  assert.equal(installerWorkflowOnly.matchedGroups.release, false);
+  assert.equal(installerWorkflowOnly.matchedGroups.ci_tooling, true);
+
+  const payload = evaluateAffectedChangeSet(affectedMap, ['apps/backend/src/app.ts']);
+  assert.equal(payload.matchedGroups.backend, true);
 });
