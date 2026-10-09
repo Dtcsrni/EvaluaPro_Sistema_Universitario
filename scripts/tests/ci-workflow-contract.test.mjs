@@ -646,3 +646,27 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   const payload = evaluateAffectedChangeSet(affectedMap, ['apps/backend/src/app.ts']);
   assert.equal(payload.matchedGroups.backend, true);
 });
+
+test('Installer Windows reserva el ciclo E2E completo para releases y ejecuciones manuales', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const installer = extractJobBlock(workflow, 'installer_windows');
+  const releaseOnly = /if: startsWith\\(github\\.ref, 'refs\\/tags\\/v'\\) \\|\\| github\\.event_name == 'workflow_dispatch'/;
+
+  for (const stepName of [
+    'Instalar Chromium para la E2E docente completa',
+    'Determinar si aplica upgrade desde v1.2.3',
+    'E2E completa sobre el bundle docente que se publicará'
+  ]) {
+    const start = installer.indexOf('- name: ' + stepName);
+    assert.ok(start >= 0, 'falta el paso ' + stepName);
+    const rest = installer.slice(start);
+    const nextStep = rest.search(/\\n      - name:/);
+    const step = nextStep >= 0 ? rest.slice(0, nextStep) : rest;
+    assert.match(step, releaseOnly, stepName + ' debe correr solo para release o dispatch manual');
+  }
+
+  const evidenceStart = installer.indexOf('- name: Publicar evidencia de la E2E completa');
+  const evidence = installer.slice(evidenceStart, installer.indexOf('\\n      - name:', evidenceStart));
+  assert.match(evidence, /if: always\\(\\) && \\(startsWith\\(github\\.ref, 'refs\\/tags\\/v'\\) \\|\\| github\\.event_name == 'workflow_dispatch'\\)/);
+  assert.match(installer, /name: Verificar artefactos\\n        if: github\\.event_name == 'pull_request'/);
+});

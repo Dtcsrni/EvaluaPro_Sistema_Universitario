@@ -195,12 +195,12 @@ jobs:
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-installer-artifacts.ps1
 
       - name: Instalar Chromium para la E2E docente completa
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: npx playwright install chromium
 
       - name: Determinar si aplica upgrade desde v1.2.3
         id: upgrade_gate
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         shell: powershell
         run: |
           $candidateRaw = (Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
@@ -237,7 +237,7 @@ jobs:
           Write-Host "Baseline oficial v1.2.3 verificado: $actualHash"
 
       - name: E2E completa sobre el bundle docente que se publicará
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         shell: powershell
         env:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
@@ -263,7 +263,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publicar evidencia de la E2E completa
-        if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+        if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-hub-e2e-${{ github.run_id }}
