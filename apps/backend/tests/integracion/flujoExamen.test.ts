@@ -623,12 +623,12 @@ describe('flujo de examen', () => {
     expect(examen.estado).toBe('generado');
     const mapaGenerado = JSON.parse(String(examen.mapaVariante)) as { ordenPreguntas?: string[] };
     expect(mapaGenerado.ordenPreguntas).toHaveLength(resumenPreview.body.totalUsados);
-        const idsPreview = (resumenPreview.body.paginas as Array<{ preguntas?: Array<{ id?: string }> }>)
-          .flatMap((pagina) => pagina.preguntas?.map((pregunta) => String(pregunta.id ?? '')) ?? [])
-          .filter(Boolean);
-        const idsGenerados = mapaGenerado.ordenPreguntas ?? [];
-        expect(new Set(idsPreview).size).toBe(idsPreview.length);
-        expect([...idsGenerados].sort()).toEqual([...idsPreview].sort());
+    const idsPreview = (resumenPreview.body.paginas as Array<{ preguntas?: Array<{ id?: string }> }>)
+      .flatMap((pagina) => pagina.preguntas?.map((pregunta) => String(pregunta.id ?? '')) ?? [])
+      .filter(Boolean);
+    const idsGenerados = mapaGenerado.ordenPreguntas ?? [];
+    expect(new Set(idsPreview).size).toBe(idsPreview.length);
+    expect([...idsGenerados].sort()).toEqual([...idsPreview].sort());
     const pdf = await request(app).get(`/api/examenes/generados/lote/${loteId}/pdf`).set(auth).expect(200);
     expect(pdf.header['content-type']).toContain('application/pdf');
     expect(pdf.body.subarray(0, 5).toString()).toBe('%PDF-');
