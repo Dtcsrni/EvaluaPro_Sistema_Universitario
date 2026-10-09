@@ -24,8 +24,37 @@ permissions:
   contents: read
 
 jobs:
+  detectar_cambios:
+    name: Detectar módulos para Installer Windows
+    runs-on: ubuntu-latest
+    outputs:
+      run_installer: ${{ steps.resolve.outputs.run_installer }}
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolver cambios de PR
+        id: resolve
+        if: github.event_name == 'pull_request'
+        run: |
+          node scripts/testing/resolve-affected-ci.mjs --github-output="$GITHUB_OUTPUT" > affected-ci.json
+          if grep -Eq '^group_(installer|backend|frontend|portal|shared)=true$' "$GITHUB_OUTPUT"; then
+            echo 'run_installer=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run_installer=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Habilitar build fuera de PR
+        id: resolve_non_pr
+        if: github.event_name != 'pull_request'
+        run: echo 'run_installer=true' >> "$GITHUB_OUTPUT"
+
   installer_windows:
     name: Installer Windows (MSI + Bundle)
+    needs: detectar_cambios
+    if: github.event_name != 'pull_request' || needs.detectar_cambios.outputs.run_installer == 'true'
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
