@@ -29,6 +29,7 @@ if (-not $isWindowsPlatform) {
 }
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+. (Join-Path $PSScriptRoot 'installer\Remove-NpmWorkspaceLink.ps1')
 $wix = Join-Path $root "packaging\wix"
 $out = Join-Path $root "dist\installer"
 $internalOut = Join-Path $out '_internal'
@@ -361,7 +362,6 @@ function Add-DocenteNativeCompiledPayload {
     New-Item -ItemType Directory -Path (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/src/modulos/modulo_analiticas/plantillas/LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx') -Destination (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package.json') -Destination $backendTarget -Force
-    Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package-lock.json') -Destination $backendTarget -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/prisma.config.mjs') -Destination $backendTarget -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/prisma') -Destination $backendTarget -Recurse -Force
     $prebuiltNodeModules = Join-Path $RootPath 'dist-native/backend/node_modules'
@@ -369,14 +369,46 @@ function Add-DocenteNativeCompiledPayload {
     if ($reusePrebuiltDependencies) {
       Write-Host '[msi] Reutilizando node_modules de dist-native; se evita npm ci redundante.'
       Copy-Item -LiteralPath $prebuiltNodeModules -Destination $backendTarget -Recurse -Force
+    } else {
+      # Instalar desde el lock canónico del monorepo. Copiar solo el manifiesto
+      # del backend junto a su lock hijo puede desalinearlos tras Dependabot.
+      $npmWorkspaceRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("evaluapro-npm-workspace-{0}" -f [Guid]::NewGuid().ToString('N'))
+      New-Item -ItemType Directory -Path $npmWorkspaceRoot -Force | Out-Null
+      Copy-Item -LiteralPath (Join-Path $RootPath 'package.json') -Destination $npmWorkspaceRoot -Force
+      Copy-Item -LiteralPath (Join-Path $RootPath 'package-lock.json') -Destination $npmWorkspaceRoot -Force
+      $npmConfig = Join-Path $RootPath '.npmrc'
+      if (Test-Path -LiteralPath $npmConfig) {
+        Copy-Item -LiteralPath $npmConfig -Destination $npmWorkspaceRoot -Force
+      }
+      foreach ($workspacePath in @('apps/backend', 'apps/frontend', 'apps/portal_alumno_cloud')) {
+        $workspaceManifest = Join-Path $RootPath (Join-Path $workspacePath 'package.json')
+        if (-not (Test-Path -LiteralPath $workspaceManifest)) {
+          throw "Falta el manifiesto requerido del workspace npm: $workspaceManifest"
+        }
+        $workspaceTarget = Join-Path $npmWorkspaceRoot $workspacePath
+        New-Item -ItemType Directory -Path $workspaceTarget -Force | Out-Null
+        Copy-Item -LiteralPath $workspaceManifest -Destination $workspaceTarget -Force
+      }
+      Push-Location $npmWorkspaceRoot
+      try {
+        & $npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts
+        if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend desde el lock raíz (exit=$LASTEXITCODE)." }
+        Copy-Item -LiteralPath (Join-Path $npmWorkspaceRoot 'node_modules') -Destination $backendTarget -Recurse -Force
+      } finally {
+        Pop-Location
+        Remove-Item -LiteralPath $npmWorkspaceRoot -Recurse -Force -ErrorAction SilentlyContinue
+      }
+      $backendWorkspaceLink = Join-Path $backendTarget 'node_modules/backend'
+      Remove-NpmWorkspaceLink -LiteralPath $backendWorkspaceLink
     }
     Push-Location $backendTarget
     try {
-      if (-not $reusePrebuiltDependencies) {
-        & $npmCommand ci --omit=dev --ignore-scripts
-        if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend de producción (exit=$LASTEXITCODE)." }
-      }
       $nodeForBuild = if (Test-Path (Join-Path $RootPath 'runtime/node/node.exe')) { Join-Path $RootPath 'runtime/node/node.exe' } else { 'node' }
+      $prismaCliPath = Join-Path $RootPath 'node_modules/prisma/build/index.js'
+      if (-not (Test-Path -LiteralPath $prismaCliPath)) {
+        $prismaCliPath = Join-Path $backendTarget 'node_modules/prisma/build/index.js'
+      }
+      if (-not (Test-Path -LiteralPath $prismaCliPath)) { throw 'No se encontró Prisma CLI en el entorno de build.' }
       $stagedSchemaPath = Join-Path $backendTarget 'prisma/schema.prisma'
       $stagedSchema = Get-Content -LiteralPath $stagedSchemaPath -Raw -Encoding utf8
       if ($stagedSchema -match 'binaryTargets\s*=\s*\[\s*"native"\s*,\s*"debian-openssl-3\.0\.x"\s*\]') {
@@ -384,14 +416,14 @@ function Add-DocenteNativeCompiledPayload {
         [IO.File]::WriteAllText($stagedSchemaPath, $stagedSchema, (New-Object System.Text.UTF8Encoding($false)))
         Write-Host '[msi] Schema docente reducido a engine native (Windows); se omite engine Linux no utilizado.'
       }
-      & $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') generate --config (Join-Path $backendTarget 'prisma.config.mjs') --schema $stagedSchemaPath
+      & $nodeForBuild $prismaCliPath generate --config (Join-Path $backendTarget 'prisma.config.mjs') --schema $stagedSchemaPath
       if ($LASTEXITCODE -ne 0) { throw "Falló generación del cliente Prisma nativo (exit=$LASTEXITCODE)." }
       $previousErrorActionPreference = $ErrorActionPreference
       $ErrorActionPreference = 'Continue'
       $env:PRISMA_HIDE_UPDATE_MESSAGE = '1'
       $env:CHECKPOINT_DISABLE = '1'
       try {
-        $schemaSqlOutput = @(& $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') migrate diff --from-empty --to-schema $stagedSchemaPath --config (Join-Path $backendTarget 'prisma.config.mjs') --script 2>&1 | ForEach-Object { [string]$_ })
+        $schemaSqlOutput = @(& $nodeForBuild $prismaCliPath migrate diff --from-empty --to-schema $stagedSchemaPath --config (Join-Path $backendTarget 'prisma.config.mjs') --script 2>&1 | ForEach-Object { [string]$_ })
       } finally {
         $ErrorActionPreference = $previousErrorActionPreference
       }
@@ -418,8 +450,10 @@ function Add-DocenteNativeCompiledPayload {
       # prune contra el contrato de producción antes de la poda específica de
       # Prisma evita transportar Vitest, TypeScript u otros paquetes ajenos al
       # runtime nativo.
-      & $npmCommand prune --omit=dev --ignore-scripts
-      if ($LASTEXITCODE -ne 0) { throw "Falló poda de dependencias de desarrollo (exit=$LASTEXITCODE)." }
+      if ($reusePrebuiltDependencies) {
+        & $npmCommand prune --omit=dev --ignore-scripts --package-lock=false
+        if ($LASTEXITCODE -ne 0) { throw "Falló poda de dependencias de desarrollo (exit=$LASTEXITCODE)." }
+      }
 
       # El cliente ya fue generado y el esquema SQL ya quedó materializado.
       # El runtime Windows no necesita la CLI Prisma, sus engines de descarga,
@@ -511,11 +545,32 @@ function Add-DocenteNativeCompiledPayload {
       # pdf-parse importa pdfjs-dist en tiempo de ejecución. Mantener ambos
       # módulos en el payload evita que la API falle al arrancar después de
       # instalar el bundle docente-local.
-      foreach ($requiredRuntimeModule in @('pdf-parse', 'pdfjs-dist', 'tesseract.js', '@tesseract.js-data/spa')) {
+      foreach ($requiredRuntimeModule in @('pdf-parse', 'pdfjs-dist', '@napi-rs/canvas', 'tesseract.js', '@tesseract.js-data/spa')) {
         $requiredRuntimeModulePath = Join-Path $backendTarget ("node_modules/{0}" -f $requiredRuntimeModule)
         if (-not (Test-Path -LiteralPath $requiredRuntimeModulePath)) {
           throw "Falta dependencia de runtime requerida por el backend: $requiredRuntimeModulePath"
         }
+      }
+      $pdfRuntimeSmoke = Join-Path $backendTarget '.pdf-runtime-smoke.mjs'
+      $pdfRuntimeSmokeSource = @'
+import { readFileSync } from 'node:fs';
+import { PDFParse } from 'pdf-parse';
+
+const parser = new PDFParse({ data: readFileSync(process.argv[2]) });
+try {
+  const result = await parser.getText();
+  if (!result.text?.includes('PDF TEST')) throw new Error('pdf-parse no extrajo el texto esperado.');
+} finally {
+  await parser.destroy();
+}
+'@
+      $pdfRuntimeSmokeUtf8 = New-Object System.Text.UTF8Encoding($false)
+      [IO.File]::WriteAllText($pdfRuntimeSmoke, $pdfRuntimeSmokeSource, $pdfRuntimeSmokeUtf8)
+      try {
+        & $nodeForBuild $pdfRuntimeSmoke (Join-Path $RootPath 'apps/backend/sample-test.pdf')
+        if ($LASTEXITCODE -ne 0) { throw "Falló el smoke PDF docente sin Canvas opcional (exit=$LASTEXITCODE)." }
+      } finally {
+        Remove-Item -LiteralPath $pdfRuntimeSmoke -Force -ErrorAction SilentlyContinue
       }
       $requiredSpanishOcrModel = Join-Path $backendTarget 'node_modules/@tesseract.js-data/spa/4.0.0_best_int/spa.traineddata.gz'
       if (-not (Test-Path -LiteralPath $requiredSpanishOcrModel)) {

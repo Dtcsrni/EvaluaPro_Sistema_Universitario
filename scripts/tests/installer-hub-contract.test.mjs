@@ -414,7 +414,14 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /apps\/frontend\/dist-docente/);
   assert.match(buildMsi, /apps\/backend\/dist/);
   assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
-  assert.match(buildMsi, /npmCommand ci --omit=dev --ignore-scripts/);
+  assert.match(buildMsi, /package-lock\.json/);
+  assert.ok(buildMsi.includes("npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts"));
+  assert.match(buildMsi, /requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist', '\@napi-rs\/canvas'/);
+  assert.match(buildMsi, /\.pdf-runtime-smoke\.mjs/);
+  assert.match(buildMsi, /PDF TEST/);
+  assert.match(buildMsi, /if \(\$reusePrebuiltDependencies\) \{[\s\S]*?npmCommand prune --omit=dev --ignore-scripts --package-lock=false/);
+  assert.match(buildMsi, /prismaCliPath = Join-Path \$RootPath 'node_modules\/prisma\/build\/index\.js'/);
+  assert.ok(!buildMsi.includes("apps/backend/package-lock.json"));
   assert.match(buildMsi, /InstallerBurnHelper\.ps1/);
 });
 
@@ -2382,8 +2389,9 @@ test('baseline docente publica solo el runtime nativo y los límites del bundle'
   const baseline = fs.readFileSync(path.join(root, 'scripts', 'installer-docente-baseline.mjs'), 'utf8');
   assert.match(baseline, /runtimeTarget: 'native-node-sqlite'/);
   assert.doesNotMatch(baseline, /docker|compose|requiresDockerRuntime/i);
-  assert.match(baseline, /const maxPayloadBytes = 180 \* 1024 \* 1024/);
-  assert.match(baseline, /const maxBundleBytes = 240 \* 1024 \* 1024/);
+  assert.match(baseline, /const maxPayloadBytes = 200 \* 1024 \* 1024/);
+  assert.match(baseline, /const maxBundleBytes = 270 \* 1024 \* 1024/);
+  assert.match(baseline, /Calibrado con el build v1\.2\.6 anclado al lock raíz/);
 });
 
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {
@@ -2620,4 +2628,21 @@ test('SPEC-050: bootstrapper hub y build-msi integran lanzamiento y empaquetado 
 
   assert.match(buildMsi, /EvaluaPro\.AppHost\.csproj/);
   assert.match(buildMsi, /EvaluaPro\.exe/);
+});
+test('build-msi limpia el workspace npm opcional sin Remove-Item', { skip: process.platform !== 'win32' }, () => {
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const cleanupHelper = fs.readFileSync(path.join(root, 'scripts', 'installer', 'Remove-NpmWorkspaceLink.ps1'), 'utf8');
+  const cleanupTest = path.join(root, 'scripts', 'tests', 'remove-npm-workspace-link.test.ps1');
+
+  assert.match(buildMsi, /installer\\Remove-NpmWorkspaceLink\.ps1/);
+  assert.match(buildMsi, /Remove-NpmWorkspaceLink -LiteralPath \$backendWorkspaceLink/);
+  assert.match(cleanupHelper, /FileAttributes\]::ReparsePoint/);
+  assert.match(cleanupHelper, /\[System\.IO\.Directory\]::Delete\(\$entry\.FullName, -not \$isReparsePoint\)/);
+  assert.doesNotMatch(cleanupHelper, /Remove-Item/);
+  execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', cleanupTest], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30_000
+  });
 });
