@@ -382,6 +382,11 @@ test('CI selecciona pruebas afectadas por módulo y reserva cobertura global par
     const moduleWorkflow = fs.readFileSync(path.join(workflowDir, name), 'utf8');
     assert.doesNotMatch(moduleWorkflow, /test:coverage|test:coverage:diff|test:coverage:exclusions:debt/, name);
   }
+
+  const backendModule = fs.readFileSync(path.join(workflowDir, 'ci-backend.yml'), 'utf8');
+  assert.match(backendModule, /backend_omr:\s*\$\{\{ steps\.affected\.outputs\.group_backend_omr \}\}/);
+  assert.match(backendModule, /if: github\.event_name == 'workflow_dispatch' \|\| needs\.detectar_cambios\.outputs\.backend_omr == 'true'/);
+  assert.doesNotMatch(backendModule, /outputs\.backend == 'true' \|\| needs\.detectar_cambios\.outputs\.shared == 'true'/);
 });
 
 test('CI publica diagnósticos de cobertura aunque el runner escriba bajo .vitest-reports', () => {

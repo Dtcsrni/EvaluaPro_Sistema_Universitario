@@ -49,6 +49,12 @@
       "summary": "Corregí el contrato obsoleto de descarga de base y el parámetro sin uso que bloqueó lint backend; 13 pruebas focales pasan.",
       "timestamp": "2026-10-09T02:29:00Z",
       "status": "ok"
+    },
+    {
+      "type": "targeted-gates",
+      "summary": "Dividí los gates extendidos por dominio y restringí CI tooling a contratos; 24 pruebas focales pasan.",
+      "timestamp": "2026-10-09T03:00:00Z",
+      "status": "ok"
     }
   ],
   "files": {
@@ -68,6 +74,11 @@
       "apps/backend/tests/archivoTemporalOmr.test.ts",
       "scripts/tests/security-workflow-policy.test.mjs",
       "scripts/tests/installer-hub-contract.test.mjs",
+      "ci/affected-test-map.json",
+      ".github/workflows/ci-backend.yml",
+      "scripts/tests/affected-ci-resolver.test.mjs",
+      "docs/specs/ci_cd_integrity.spec.md",
+      "docs/DEVOPS_BASELINE.md",
       "docs/specs/ci_cd_integrity.spec.md",
       "docs/PRUEBAS.md",
       "docs/QA_GATE_CRITERIA.md",
@@ -169,12 +180,40 @@
       "durationMs": 3000,
       "resultSummary": "1/1 pasó localmente; se aisla el JSON emitido por PowerShell con marcadores para no mezclar salida incidental.",
       "timestamp": "2026-10-09T02:34:00Z"
+    },
+    {
+      "name": "affected CI resolver",
+      "command": "node --test scripts/tests/affected-ci-resolver.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 117,
+      "resultSummary": "10/10; grupos funcionales quedan aislados y CI tooling activa solo contratos.",
+      "timestamp": "2026-10-09T03:00:00Z"
+    },
+    {
+      "name": "CI changed-tests contract",
+      "command": "node --test --test-name-pattern=\"CI selecciona pruebas\" scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 92,
+      "resultSummary": "1/1; confirma backend --changed y OMR condicionado por grupo afectado.",
+      "timestamp": "2026-10-09T03:00:00Z"
+    },
+    {
+      "name": "workflow and backend runner contracts",
+      "command": "node --test scripts/tests/security-workflow-policy.test.mjs scripts/tests/backend-test-batches.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 180,
+      "resultSummary": "13/13.",
+      "timestamp": "2026-10-09T03:00:00Z"
     }
   ],
   "decisions": [
     "Usar Vitest --changed para seleccionar archivos de prueba relacionados con el cambio mediante dependencias estáticas.",
     "Fallback a suite completa cuando no hay cambios modulares comprobables; Vitest también fuerza suite completa ante cambios de package.json/configuración.",
-    "Quitar la cobertura instrumentada de PR y de la corrida nocturna para no duplicar ejecución; conservarla con dispatch force_full_ci."
+    "Quitar la cobertura instrumentada de PR y de la corrida nocturna para no duplicar ejecución; conservarla con dispatch force_full_ci.",
+    "Mapear gates funcionales por dominio y limitar cambios CI a sus contratos; mantener full-core para runtime compartido y full en schedule/dispatch."
   ],
   "assumptions": [
     "El contrato de PR ejecutará npm ci y por ello tendrá las dependencias requeridas, incluida proxy-addr.",
@@ -182,9 +221,9 @@
   ],
   "risks": [
     "Vitest no está instalado en el clon local; la ejecución funcional TypeScript depende de CI remoto.",
-    "CI debe repetirse sobre el commit que contiene las correcciones de lint y contrato; PR #130 no está listo para merge ni release."
+    "CI debe repetirse sobre el commit que contiene las correcciones y el mapa de gates por dominio; los checks de PR #130 aún están pendientes."
   ],
-  "nextStep": "Subir las correcciones, revisar los checks nuevos y luego continuar merge de PRs y verificar la release pública v1.2.6 con E2E completa.",
+  "nextStep": "Subir el mapa afectado, revisar los checks nuevos y luego continuar merge de PRs y verificar la release pública v1.2.6 con E2E completa.",
   "completion": {
     "isComplete": false,
     "pendingFields": [
@@ -195,7 +234,7 @@
   "repo": {
     "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\dep-sync-sync130",
     "branch": "security/fix-codeql-v126",
-    "commit": "9281c40a",
-    "workingTreeStatus": "?? docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json; ?? docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.md"
+    "commit": "9281c40a + 06016d58 + 6eae5986; targeted gate map pending commit",
+    "workingTreeStatus": "M .github/workflows/ci-backend.yml; M ci/affected-test-map.json; M docs/DEVOPS_BASELINE.md; M docs/specs/ci_cd_integrity.spec.md; M scripts/tests/affected-ci-resolver.test.mjs; M scripts/tests/ci-workflow-contract.test.mjs; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.md"
   }
 }

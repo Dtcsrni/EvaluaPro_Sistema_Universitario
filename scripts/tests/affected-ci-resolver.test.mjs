@@ -57,12 +57,20 @@ test('docs-only activa docs y evita gates extended no relacionados', () => {
   assert.equal(result.matchedJobs.ext_compliance_evidencia, false);
 });
 
-test('cambios en ci o release escalan a full-extended', () => {
+test('cambios CI y release ejecutan contratos específicos sin correr todos los gates extendidos', () => {
   const fromCi = evaluateAffectedChangeSet(config, ['ci/pipeline.matrix.json']);
   const fromRelease = evaluateAffectedChangeSet(config, ['scripts/release/promote-stable.mjs']);
 
-  assert.equal(fromCi.escalation, 'full-extended');
-  assert.equal(fromRelease.escalation, 'full-extended');
+  assert.equal(fromCi.escalation, 'affected');
+  assert.equal(fromCi.matchedGroups.ci_tooling, true);
+  assert.equal(fromCi.matchedJobs.core_contract_docs_gov, true);
+  assert.equal(fromCi.matchedJobs.ext_funcionales, false);
+  assert.equal(fromCi.matchedJobs.ext_perf_arquitectura, false);
+  assert.equal(fromRelease.escalation, 'affected');
+  assert.equal(fromRelease.matchedGroups.release, true);
+  assert.equal(fromRelease.matchedJobs.core_contract_docs_gov, true);
+  assert.equal(fromRelease.matchedJobs.ext_funcionales, false);
+  assert.equal(fromRelease.matchedJobs.ext_perf_arquitectura, false);
 });
 
 test('workflow Package Images y contratos de workflows activan las suites que validan cambios CI', () => {
@@ -70,12 +78,31 @@ test('workflow Package Images y contratos de workflows activan las suites que va
   const workflowContract = evaluateAffectedChangeSet(config, ['scripts/tests/ci-workflow-contract.test.mjs']);
 
   assert.equal(packageWorkflow.matchedGroups.release, true);
-  assert.equal(packageWorkflow.escalation, 'full-extended');
+  assert.equal(packageWorkflow.escalation, 'affected');
   assert.equal(packageWorkflow.matchedJobs.core_contract_docs_gov, true);
-  assert.equal(packageWorkflow.matchedGates['perf-check'], true);
-  assert.equal(workflowContract.matchedGroups.shared, true);
-  assert.equal(workflowContract.escalation, 'full-core');
+  assert.equal(packageWorkflow.matchedGates['perf-check'], false);
+  assert.equal(workflowContract.matchedGroups.ci_tooling, true);
+  assert.equal(workflowContract.matchedGroups.shared, false);
+  assert.equal(workflowContract.escalation, 'affected');
   assert.equal(workflowContract.matchedJobs.core_contract_docs_gov, true);
+});
+
+test('los gates OMR solo corren cuando cambia OMR o su dataset', () => {
+  const unrelatedBackend = evaluateAffectedChangeSet(config, [
+    'apps/backend/src/modulos/modulo_asistencias/servicioAsistencia.ts'
+  ]);
+  const omrTest = evaluateAffectedChangeSet(config, [
+    'apps/backend/tests/archivoTemporalOmr.test.ts'
+  ]);
+
+  assert.equal(unrelatedBackend.matchedGroups.backend, true);
+  assert.equal(unrelatedBackend.matchedGroups.backend_omr, false);
+  assert.equal(unrelatedBackend.matchedGates['omr-tv-extended-gate'], false);
+  assert.equal(unrelatedBackend.matchedJobs.ext_funcionales, false);
+  assert.equal(omrTest.matchedGroups.backend_omr, true);
+  assert.equal(omrTest.matchedGates['omr-tv-extended-gate'], true);
+  assert.equal(omrTest.matchedGates['pdf-print-check'], false);
+  assert.equal(omrTest.matchedGates['dataset-prodlike-check'], false);
 });
 
 test('shared backend compartido escala al menos a full-core', () => {

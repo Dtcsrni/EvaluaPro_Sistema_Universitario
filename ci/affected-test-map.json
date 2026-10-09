@@ -10,8 +10,70 @@
         "npm -C apps/backend run lint",
         "npm -C apps/backend run typecheck",
         "npm run test:backend:ci",
-        "npm -C apps/backend run test:coverage",
         "npm -C apps/backend run build"
+      ]
+    },
+    "backend_omr": {
+      "paths": [
+        "apps/backend/src/modulos/modulo_escaneo_omr/**",
+        "apps/backend/tests/**/*omr*",
+        "apps/backend/tests/archivoTemporalOmr.test.ts",
+        "apps/backend/tests/integracion/qrEscaneoOmr.test.ts",
+        "apps/backend/tests/integracion/omrJobsWorkflow.test.ts",
+        "omr_samples_tv*/**"
+      ],
+      "commands": [
+        "npm run test:omr:canonical:gate:ci"
+      ]
+    },
+    "backend_docente_flow": {
+      "paths": [
+        "apps/backend/src/modulos/modulo_autenticacion/**",
+        "apps/backend/src/modulos/modulo_admin_docentes/**",
+        "apps/backend/src/modulos/modulo_alumnos/**",
+        "apps/backend/src/modulos/modulo_evaluaciones/**",
+        "apps/backend/src/modulos/modulo_vinculacion_entrega/**",
+        "apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts"
+      ],
+      "commands": [
+        "npm run test:dataset-prodlike:ci",
+        "npm run test:e2e:docente-alumno:ci"
+      ]
+    },
+    "backend_grade": {
+      "paths": [
+        "apps/backend/src/modulos/modulo_calificacion/**",
+        "apps/backend/tests/**/*calificacion*",
+        "apps/backend/tests/**/*Calificacion*"
+      ],
+      "commands": [
+        "npm run test:global-grade:ci"
+      ]
+    },
+    "backend_pdf": {
+      "paths": [
+        "apps/backend/src/modulos/modulo_generacion_pdf/**",
+        "apps/backend/tests/**/*pdf*",
+        "apps/backend/tests/**/*Pdf*",
+        "apps/backend/tests/integracion/pdfImpresionContrato.test.ts"
+      ],
+      "commands": [
+        "npm run test:pdf-print:ci"
+      ]
+    },
+    "backend_privacy": {
+      "paths": [
+        "apps/backend/src/modulos/modulo_alumnos/**",
+        "apps/backend/src/modulos/modulo_admin_docentes/**",
+        "apps/backend/src/modulos/modulo_papelera/**",
+        "apps/backend/src/modulos/modulo_compliance/**",
+        "apps/backend/tests/**/*privacidad*",
+        "apps/backend/tests/**/*retencion*",
+        "apps/backend/tests/**/*dsr*"
+      ],
+      "commands": [
+        "npm run test:compliance:dsr-flow",
+        "npm run compliance:evidence:generate"
       ]
     },
     "frontend": {
@@ -81,23 +143,66 @@
     },
     "release": {
       "paths": [
-        "apps/backend/prisma.config.mjs",
         "scripts/release/**",
-        "scripts/perf-collect-business.ts",
-        "scripts/tests/perf-business-config.contract.test.mjs",
         ".github/workflows/ci-installer-windows.yml",
         ".github/workflows/package.yml",
         ".github/workflows/release-beta.yml",
-        ".github/workflows/release-stable-gate.yml",
-        ".github/workflows/ci.yml",
-        "ci/**"
+        ".github/workflows/release-stable-gate.yml"
       ],
       "commands": [
         "npm run test:release:policy",
         "npm run test:ruleset:policy",
         "npm run test:security:policy"
+      ]
+    },
+    "ci_tooling": {
+      "paths": [
+        "scripts/testing/**",
+        "scripts/tests/ci-workflow-contract.test.mjs",
+        "scripts/tests/affected-ci-resolver.test.mjs",
+        ".github/workflows/ci*.yml",
+        "ci/**"
       ],
-      "escalate": "full-extended"
+      "commands": [
+        "npm run pipeline:contract:check",
+        "npm run test:security:policy"
+      ]
+    },
+    "performance": {
+      "paths": [
+        "apps/backend/src/modulos/modulo_analiticas/**",
+        "scripts/perf/**",
+        "scripts/perf-check.mjs",
+        "scripts/perf-check-business.mjs",
+        "scripts/perf-collect.ts",
+        "scripts/perf-collect-business.ts",
+        "scripts/tests/perf-business-config.contract.test.mjs",
+        "docs/performance/**",
+        "apps/backend/prisma.config.mjs"
+      ],
+      "commands": [
+        "npm run perf:check",
+        "npm run perf:check:business"
+      ]
+    },
+    "architecture": {
+      "paths": [
+        "scripts/clean-architecture-check.mjs",
+        "scripts/tests/clean-architecture*.test.mjs",
+        "docs/architecture/**"
+      ],
+      "commands": [
+        "npm run qa:clean-architecture:check"
+      ]
+    },
+    "qa_manifest": {
+      "paths": [
+        "scripts/testing/generar-qa-manifest.mjs",
+        "scripts/tests/qa-manifest*.test.mjs"
+      ],
+      "commands": [
+        "npm run test:qa:manifest"
+      ]
     },
     "docs": {
       "paths": [
@@ -129,70 +234,63 @@
         "package-lock.json",
         "docker-compose.yml",
         "apps/backend/src/compartido/**",
-        "scripts/testing/**",
-        "scripts/tests/ci-workflow-contract.test.mjs",
         "scripts/retry.mjs",
         "tsconfig.base.json",
-        "vitest.base.ts",
-        ".github/workflows/ci-backend.yml",
-        ".github/workflows/ci-frontend.yml",
-        ".github/workflows/ci-portal.yml",
-        ".github/workflows/ci-docs.yml"
+        "vitest.base.ts"
       ],
       "commands": [
-        "npm run test:coverage:exclusions:debt",
-        "npm run test:coverage:diff"
+        "npm run test:coverage:exclusions:debt"
       ],
       "escalate": "full-core"
     }
   },
   "gates": {
     "flujo-docente-check": {
-      "groups": ["backend"]
+      "groups": ["backend_docente_flow"]
     },
     "dataset-prodlike-check": {
-      "groups": ["backend"]
+      "groups": ["backend_docente_flow", "backend_grade"]
     },
     "omr-tv-extended-gate": {
-      "groups": ["backend"]
+      "groups": ["backend_omr"]
     },
     "docente-alumno-e2e-check": {
-      "groups": ["backend"]
+      "groups": ["backend_docente_flow"]
     },
     "global-grade-check": {
-      "groups": ["backend"]
+      "groups": ["backend_grade"]
     },
     "pdf-print-check": {
-      "groups": ["backend"]
+      "groups": ["backend_pdf"]
     },
     "classroom-audit-check": {
       "groups": ["classroom"]
     },
+    "perf-check": {
+      "groups": ["performance"]
+    },
+    "perf-business-check": {
+      "groups": ["performance"]
+    },
+    "clean-architecture-check": {
+      "groups": ["architecture"]
+    },
     "ux-visual-check": {
       "groups": ["frontend"]
     },
-    "perf-check": {
-      "groups": ["backend", "shared", "release"]
-    },
-    "perf-business-check": {
-      "groups": ["backend", "shared", "release"]
-    },
-    "clean-architecture-check": {
-      "groups": ["backend", "shared", "release"]
-    },
     "qa-manifest": {
-      "groups": ["backend", "shared", "release"]
+      "groups": ["qa_manifest"]
     },
     "dsr-flow-test": {
-      "groups": ["backend", "compliance", "shared", "release"]
+      "groups": ["backend_privacy", "compliance", "shared"]
     },
     "compliance-evidence": {
-      "groups": ["backend", "portal", "compliance", "shared", "release"]
+      "groups": ["backend_privacy", "compliance", "portal", "shared"]
     }
   },
   "jobs": {
     "core_contract_docs_gov": {
-      "groups": ["docs", "installer", "release", "shared"]
+      "groups": ["docs", "installer", "release", "shared", "ci_tooling"]
     },
     "core_backend_portal": {
       "groups": ["backend", "portal", "classroom", "shared"]

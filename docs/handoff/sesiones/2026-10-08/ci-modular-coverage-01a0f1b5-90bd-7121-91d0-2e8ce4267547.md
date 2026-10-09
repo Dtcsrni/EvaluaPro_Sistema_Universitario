@@ -35,6 +35,7 @@
 - [ok] incremental-tests: Backend, frontend y portal usan selección Vitest --changed cuando el diff toca sus fuentes o pruebas; cambios de dependencias/configuración caen a suite completa. (2026-10-09T02:26:15.862Z)
 - [pending] remote-ci: CI Checks, CodeQL, Installer Windows y workflows de módulos iniciados para el commit 9281c40a. (2026-10-09T02:26:15.862Z)
 - [ok] ci-failure-fixes: Corregí el contrato obsoleto de descarga de base y el parámetro sin uso que bloqueó lint backend; 13 pruebas focales pasan. (2026-10-09T02:29:00Z)
+- [ok] targeted-gates: Dividí los gates extendidos por dominio y restringí CI tooling a contratos; 24 pruebas focales pasan. (2026-10-09T03:00:00Z)
 
 ## Archivos leidos
 - AGENTS.md
@@ -52,6 +53,11 @@
 - apps/backend/tests/archivoTemporalOmr.test.ts
 - scripts/tests/security-workflow-policy.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
+- ci/affected-test-map.json
+- .github/workflows/ci-backend.yml
+- scripts/tests/affected-ci-resolver.test.mjs
+- docs/specs/ci_cd_integrity.spec.md
+- docs/DEVOPS_BASELINE.md
 - docs/specs/ci_cd_integrity.spec.md
 - docs/PRUEBAS.md
 - docs/QA_GATE_CRITERIA.md
@@ -79,6 +85,13 @@
   resultado: diff sin errores de whitespace.
 - installer step-up focused test: `node --test --test-name-pattern="step-up local inicializa" scripts/tests/installer-hub-contract.test.mjs` -> ok (exitCode=0)
   resultado: 1/1 pasó localmente; agregué marcadores para extraer el JSON del contrato Windows sin confundir salida incidental de PowerShell.
+- affected CI resolver: `node --test scripts/tests/affected-ci-resolver.test.mjs` -> ok (exitCode=0)
+  resultado: 10/10; backend no OMR no activa gates OMR/producto y tooling CI queda limitado a contratos.
+- CI changed-tests contract: `node --test --test-name-pattern="CI selecciona pruebas" scripts/tests/ci-workflow-contract.test.mjs` -> ok (exitCode=0)
+  resultado: 1/1; confirma selección incremental backend y job OMR condicionado por grupo afectado.
+- workflow and runner contracts: `node --test scripts/tests/security-workflow-policy.test.mjs scripts/tests/backend-test-batches.test.mjs` -> ok (exitCode=0)
+  resultado: 13/13.
+- map JSON and diff whitespace: validación de parseo JSON y `git diff --check` -> ok (exitCode=0).
 
 ## Decisiones
 - Usar Vitest --changed para seleccionar archivos de prueba relacionados con el cambio mediante dependencias estáticas.
@@ -91,11 +104,11 @@
 
 ## Riesgos abiertos
 - Vitest no está instalado en el clon local; la ejecución funcional TypeScript depende de CI remoto.
-- CI debe repetirse sobre el commit que contiene las correcciones de lint, contrato y serialización de salida del test Windows; PR #130 no está listo para merge ni release.
+- CI debe repetirse sobre el commit que contiene las correcciones y el mapa de gates por dominio; PR #130 no está listo para merge ni release.
 
 ## Estado del arbol
 ```txt
-?? docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json; ?? docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.md
+M .github/workflows/ci-backend.yml; M ci/affected-test-map.json; M docs/DEVOPS_BASELINE.md; M docs/specs/ci_cd_integrity.spec.md; M scripts/tests/affected-ci-resolver.test.mjs; M scripts/tests/ci-workflow-contract.test.mjs; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.md
 ```
 
 ## Siguiente paso recomendado
@@ -104,6 +117,8 @@
 ## Artefactos generados
 - https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/pull/130
 - 9281c40aed4a537fc8aaeaf476b6bc200395b214
+- 06016d58be7a9b421ec8c3897be622d5351624fb
+- 6eae5986b5f0b96e004ebd2e81c61afdbb904c16
 
 ## Completitud semantica
 - isComplete: false
