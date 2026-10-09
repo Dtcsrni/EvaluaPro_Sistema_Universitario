@@ -650,7 +650,7 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
 test('Installer Windows reserva el ciclo E2E completo para releases y ejecuciones manuales', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const installer = extractJobBlock(workflow, 'installer_windows');
-  const releaseOnly = /if: startsWith\\(github\\.ref, 'refs\\/tags\\/v'\\) \\|\\| github\\.event_name == 'workflow_dispatch'/;
+  const releaseCondition = "if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'";
 
   for (const stepName of [
     'Instalar Chromium para la E2E docente completa',
@@ -660,13 +660,17 @@ test('Installer Windows reserva el ciclo E2E completo para releases y ejecucione
     const start = installer.indexOf('- name: ' + stepName);
     assert.ok(start >= 0, 'falta el paso ' + stepName);
     const rest = installer.slice(start);
-    const nextStep = rest.search(/\\n      - name:/);
+    const nextStep = rest.indexOf('\n      - name:');
     const step = nextStep >= 0 ? rest.slice(0, nextStep) : rest;
-    assert.match(step, releaseOnly, stepName + ' debe correr solo para release o dispatch manual');
+    assert.ok(step.includes(releaseCondition), stepName + ' debe correr solo para release o dispatch manual');
   }
 
   const evidenceStart = installer.indexOf('- name: Publicar evidencia de la E2E completa');
-  const evidence = installer.slice(evidenceStart, installer.indexOf('\\n      - name:', evidenceStart));
-  assert.match(evidence, /if: always\\(\\) && \\(startsWith\\(github\\.ref, 'refs\\/tags\\/v'\\) \\|\\| github\\.event_name == 'workflow_dispatch'\\)/);
-  assert.match(installer, /name: Verificar artefactos\\n        if: github\\.event_name == 'pull_request'/);
+  assert.ok(evidenceStart >= 0, 'falta el paso de evidencia E2E');
+  const evidenceRest = installer.slice(evidenceStart);
+  const evidenceEnd = evidenceRest.indexOf('\n      - name:');
+  const evidence = evidenceEnd >= 0 ? evidenceRest.slice(0, evidenceEnd) : evidenceRest;
+  assert.ok(evidence.includes("if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')"));
+
+  assert.ok(installer.includes("name: Verificar artefactos\n        if: github.event_name == 'pull_request'"), 'los PR conservan la verificación de MSI y bundle');
 });
