@@ -2365,6 +2365,14 @@ test('launcher broker arranca dashboard preservando rutas instaladas con espacio
   assert.match(broker, /Start-Process -FilePath \$psExe -ArgumentList \(ConvertTo-NativeArgumentString -Arguments \$args\)/);
 });
 
+test('launcher broker conserva el lock de un dashboard vivo durante su primera respuesta HTTP', () => {
+  const broker = fs.readFileSync(path.join(root, 'scripts', 'launcher-broker.ps1'), 'utf8');
+
+  assert.match(broker, /function Test-DashboardProcessAlive\(\[int\]\$processId\)/);
+  assert.match(broker, /if \(Test-DashboardProcessAlive \$ownerPid\)\s*\{[\s\S]*?return \$candidate/);
+  assert.match(broker, /Lockfile stale: dashboard no responde en puerto/);
+});
+
 test('dashboard usa runtime nativo en docente-local y soporta flavors institucionales', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
 
