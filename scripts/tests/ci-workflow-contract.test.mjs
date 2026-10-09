@@ -11,6 +11,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { buildModuleCoveragePlan } from '../testing/run-module-coverage.mjs';
 import { resolveThreshold } from '../testing/check-diff-coverage.mjs';
+import { evaluateAffectedChangeSet } from '../testing/resolve-affected-ci.mjs';
 
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
@@ -507,7 +508,7 @@ test('el gate estable deja margen suficiente para CI de instalador y QA completa
   const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const tagGuard = fs.readFileSync(path.join(workflowDir, 'tag-release-guard.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
-  const installerMinutes = Number(installer.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const installerMinutes = Number(installer.match(/installer_windows_build:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
   const tagTimeoutMinutes = Number(tagGuard.match(/timeout-minutes:\s*(\d+)/)?.[1]);
   const tagAttempts = Number(tagGuard.match(/max_attempts=(\d+)/)?.[1]);
   const tagSleepSeconds = Number(tagGuard.match(/sleep_seconds=(\d+)/)?.[1]);
@@ -620,4 +621,42 @@ test('smoke Windows fija la identidad antes de la primera acción del broker', (
   assert.ok(requestedAtIndex >= 0 && requestedAtIndex < verifyIndex, 'la identidad debe fecharse antes de verify-installation');
   assert.ok(verifyIndex >= 0 && verifyRunIdIndex > verifyIndex && verifyRunIdIndex < openIndex, 'verify-installation debe usar el RunId del smoke');
   assert.ok(openIndex >= 0 && openRunIdIndex > openIndex, 'open-dashboard debe conservar el mismo RunId');
+});
+
+test('Installer Windows omite PR sin cambios de payload y conserva la E2E para cambios publicados', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const mapPath = path.join(root, 'ci', 'affected-test-map.json');
+  const affectedMap = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
+  const detector = extractJobBlock(workflow, 'detectar_cambios');
+  const installerBuild = extractJobBlock(workflow, 'installer_windows_build');
+  const installerGate = extractJobBlock(workflow, 'installer_windows');
+
+  assert.match(detector, /resolve-affected-ci\.mjs --github-output=/);
+  assert.match(detector, /group_\(installer\|backend\|frontend\|portal\|shared\)=true/);
+  assert.match(installerBuild, /needs: detectar_cambios/);
+  assert.match(installerBuild, /needs\.detectar_cambios\.outputs\.run_installer == 'true'/);
+  assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
+  assert.match(installerGate, /if: always\(\)/);
+  assert.match(installerGate, /needs: \[detectar_cambios, installer_windows_build\]/);
+  assert.match(installerGate, /BUILD_RESULT: \$\{\{ needs\.installer_windows_build\.result \}\}/);
+  assert.match(installerGate, /Sin cambios de payload: build MSI\/Bundle omitido/);
+
+  const docsOnly = evaluateAffectedChangeSet(affectedMap, ['docs/README.md']);
+  assert.equal(docsOnly.matchedGroups.installer, false);
+  assert.equal(docsOnly.matchedGroups.backend, false);
+  assert.equal(docsOnly.matchedGroups.frontend, false);
+  assert.equal(docsOnly.matchedGroups.portal, false);
+  assert.equal(docsOnly.matchedGroups.shared, false);
+
+  const installerWorkflowOnly = evaluateAffectedChangeSet(affectedMap, ['.github/workflows/ci-installer-windows.yml']);
+  assert.equal(installerWorkflowOnly.matchedGroups.release, false);
+  assert.equal(installerWorkflowOnly.matchedGroups.ci_tooling, true);
+
+  const payload = evaluateAffectedChangeSet(affectedMap, ['apps/backend/src/app.ts']);
+  assert.equal(payload.matchedGroups.backend, true);
+});
+
+test('el diagnóstico smoke excluye PowerShell y solo considera Node del dashboard', () => {
+  const smoke = fs.readFileSync(path.join(root, 'scripts', 'tests', 'windows-release-smoke.test.mjs'), 'utf8');
+  assert.ok(smoke.includes("Where-Object { $_.ProcessId -ne $PID -and $_.Name -ieq 'node.exe'"));
 });

@@ -97,6 +97,10 @@ test('payload nativo usa extracción rápida y publica desde staging sin copiar 
 
 test('el workflow de release bloquea la publicación si falla la E2E completa del bundle', () => {
   assert.match(installerWorkflow, /E2E completa sobre el bundle docente que se publicará/);
+  assert.match(installerWorkflow, /- name: Instalar Chromium para la E2E docente completa\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: E2E completa sobre el bundle docente que se publicará\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: Publicar evidencia de la E2E completa\s+if: always\(\) && \(startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'\)/);
   assert.match(installerWorkflow, /scripts\/tests\/installer-hub-e2e-docente\.ps1/);
   assert.match(installerWorkflow, /-SeedDummyData/);
   assert.match(installerWorkflow, /Publicar evidencia de la E2E completa/);
