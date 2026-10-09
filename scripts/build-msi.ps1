@@ -393,6 +393,11 @@ function Add-DocenteNativeCompiledPayload {
       try {
         & $npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend desde el lock raíz (exit=$LASTEXITCODE)." }
+        # npm puede materializar dependencias compartidas del monorepo en el
+        # node_modules raíz. Podar el workspace seleccionado evita copiar al
+        # instalador paquetes de frontend/portal que no pertenecen al backend.
+        & $npmCommand prune --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts --package-lock=false
+        if ($LASTEXITCODE -ne 0) { throw "Falló la poda del staging de dependencias backend (exit=$LASTEXITCODE)." }
         Copy-Item -LiteralPath (Join-Path $npmWorkspaceRoot 'node_modules') -Destination $backendTarget -Recurse -Force
       } finally {
         Pop-Location
