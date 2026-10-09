@@ -48,7 +48,7 @@ Recommended module workflows:
 
 Policy:
 - CI detects changed paths and runs the tests and build checks for affected modules; unrelated module test suites are skipped.
-- Full coverage runs only on schedule or an explicit `workflow_dispatch` with `force_full_ci=true`.
+- Full coverage runs only on an explicit `workflow_dispatch` with `force_full_ci=true`; it is excluded from PR and scheduled runs due to its runtime.
 - Coverage exclusion debt remains a blocking check; CI does not impose a fixed diff-coverage percentage.
 - A module failure fails that module workflow only.
 - Sibling module workflows continue and publish their own status.
@@ -81,7 +81,7 @@ Policy:
 
 ### coverage-check
 - Command: `npm run test:coverage:ci`
-- Trigger: scheduled run or explicit `workflow_dispatch` with `force_full_ci=true`; not a per-PR gate.
+- Trigger: explicit `workflow_dispatch` with `force_full_ci=true`; not a per-PR or scheduled gate.
 
 ### tdd-enforcement-check
 - Command: `npm run test:coverage:exclusions:debt`
