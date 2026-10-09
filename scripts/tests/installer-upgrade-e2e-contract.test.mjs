@@ -103,6 +103,7 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
 });
 
 test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgrade', () => {
+  assert.match(workflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
   assert.match(workflow, /releases\/download\/v1\.2\.3\/' \+ \$baselineName/);
   assert.match(workflow, /\$baselineName = 'EvaluaPro-InstallerHub-docente-local-v1\.2\.3\.exe'/);
   assert.match(workflow, /\$baselineVersion = \[version\]'1\.2\.3'/);
