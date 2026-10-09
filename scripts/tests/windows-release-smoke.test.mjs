@@ -413,17 +413,19 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
     assert.equal(await probeTcpPort(ownedDashboard.port), false, `El puerto propio ${ownedDashboard.port} quedó activo después del smoke.`);
   });
 
+  // verify-installation también ejecuta Ensure-DashboardRunning; la ventana de
+  // identidad debe empezar antes del primer comando del broker.
+  const openRunId = `release-smoke-${Date.now()}`;
+  const openRequestedAt = new Date().toISOString();
   const verifyRes = runPowerShell([
     '-File', brokerPath,
     '-Action', 'verify-installation',
     '-Mode', 'prod',
     '-Port', '4519',
+    '-RunId', openRunId,
     '-NoOpen'
   ], { timeout: 120_000 });
   assertBrokerSuccess(verifyRes, 'verify-installation');
-
-  const openRunId = `release-smoke-${Date.now()}`;
-  const openRequestedAt = new Date().toISOString();
   const openRes = runPowerShell([
     '-File', brokerPath,
     '-Action', 'open-dashboard',
