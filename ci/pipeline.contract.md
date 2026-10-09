@@ -5,21 +5,20 @@ Define a single CI/CD contract that any runner can execute 1:1 (GitHub Actions, 
 
 ## Execution profiles
 
-### Profile `core` (blocking for every PR and direct `main`/`release/*` push)
+### Profile `core` (blocking for every PR and direct `main`/`release/*` push; gates are selected by affected modules)
 1. `setup`
 2. `contract-check`
 3. `lint`
 4. `typecheck`
 5. `test`
 6. `ux-quality-check`
-7. `coverage-check`
-8. `tdd-enforcement-check`
-9. `build`
-10. `docs-check`
-11. `security-scan`
-12. `legal-docs-check`
-13. `pii-leak-check`
-14. `retention-policy-check`
+7. `tdd-enforcement-check`
+8. `build`
+9. `docs-check`
+10. `security-scan`
+11. `legal-docs-check`
+12. `pii-leak-check`
+13. `retention-policy-check`
 
 ### Profile `extended` (blocking for `main`, `release/*`, `schedule`, or manual dispatch)
 1. `setup`
@@ -48,6 +47,9 @@ Recommended module workflows:
 - `CI Docs Module` -> contract/docs/diagrams/routes checks
 
 Policy:
+- CI detects changed paths and runs the tests and build checks for affected modules; unrelated module test suites are skipped.
+- Full coverage runs only on schedule or an explicit `workflow_dispatch` with `force_full_ci=true`.
+- Coverage exclusion debt remains a blocking check; CI does not impose a fixed diff-coverage percentage.
 - A module failure fails that module workflow only.
 - Sibling module workflows continue and publish their own status.
 - A global integrator workflow (`CI Checks`) remains the release-gating source of truth.
@@ -79,12 +81,11 @@ Policy:
 
 ### coverage-check
 - Command: `npm run test:coverage:ci`
+- Trigger: scheduled run or explicit `workflow_dispatch` with `force_full_ci=true`; not a per-PR gate.
 
 ### tdd-enforcement-check
-- Commands:
-  - `npm run test:coverage:exclusions:debt`
-  - `npm run test:coverage:diff`
-- Default threshold: `DIFF_COVERAGE_MIN=90`
+- Command: `npm run test:coverage:exclusions:debt`
+- Changed-module tests are the per-PR regression gate; coverage percentages remain diagnostic unless a workflow explicitly configures a threshold.
 
 ### flujo-docente-check
 - Command: `npm run test:flujo-docente:ci`
