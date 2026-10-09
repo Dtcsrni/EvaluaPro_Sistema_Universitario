@@ -508,7 +508,7 @@ test('el gate estable deja margen suficiente para CI de instalador y QA completa
   const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const tagGuard = fs.readFileSync(path.join(workflowDir, 'tag-release-guard.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
-  const installerMinutes = Number(installer.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const installerMinutes = Number(installer.match(/installer_windows_build:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
   const tagTimeoutMinutes = Number(tagGuard.match(/timeout-minutes:\s*(\d+)/)?.[1]);
   const tagAttempts = Number(tagGuard.match(/max_attempts=(\d+)/)?.[1]);
   const tagSleepSeconds = Number(tagGuard.match(/sleep_seconds=(\d+)/)?.[1]);
@@ -625,12 +625,18 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   const mapPath = path.join(root, 'ci', 'affected-test-map.json');
   const affectedMap = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
   const detector = extractJobBlock(workflow, 'detectar_cambios');
-  const installer = extractJobBlock(workflow, 'installer_windows');
+  const installerBuild = extractJobBlock(workflow, 'installer_windows_build');
+  const installerGate = extractJobBlock(workflow, 'installer_windows');
 
   assert.match(detector, /resolve-affected-ci\.mjs --github-output=/);
   assert.match(detector, /group_\(installer\|backend\|frontend\|portal\|shared\)=true/);
-  assert.match(installer, /needs: detectar_cambios/);
-  assert.match(installer, /needs\.detectar_cambios\.outputs\.run_installer == 'true'/);
+  assert.match(installerBuild, /needs: detectar_cambios/);
+  assert.match(installerBuild, /needs\.detectar_cambios\.outputs\.run_installer == 'true'/);
+  assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
+  assert.match(installerGate, /if: always\(\)/);
+  assert.match(installerGate, /needs: \[detectar_cambios, installer_windows_build\]/);
+  assert.match(installerGate, /BUILD_RESULT: \$\{\{ needs\.installer_windows_build\.result \}\}/);
+  assert.match(installerGate, /Sin cambios de payload: build MSI\/Bundle omitido/);
 
   const docsOnly = evaluateAffectedChangeSet(affectedMap, ['docs/README.md']);
   assert.equal(docsOnly.matchedGroups.installer, false);
