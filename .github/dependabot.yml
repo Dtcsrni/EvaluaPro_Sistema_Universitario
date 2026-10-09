@@ -1,7 +1,7 @@
 # Dependabot policy:
-# - keep security capabilities available in GitHub
-# - review routine version updates in bounded Dependabot PR batches
-# - keep security updates enabled; GitHub handles them separately from the version-update limit
+# - update npm workspaces from the repository root so manifests and the root lock move together
+# - review bounded weekly batches and automatically rebase update branches
+# - keep GitHub security updates enabled; they are handled separately from version updates
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -12,49 +12,7 @@ updates:
       time: "05:00"
       timezone: "America/Mexico_City"
     open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    commit-message:
-      prefix: "chore(deps)"
-    labels:
-      - "dependencies"
-
-  - package-ecosystem: "npm"
-    directory: "/apps/backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "05:00"
-      timezone: "America/Mexico_City"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    commit-message:
-      prefix: "chore(deps)"
-    labels:
-      - "dependencies"
-
-  - package-ecosystem: "npm"
-    directory: "/apps/frontend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "05:00"
-      timezone: "America/Mexico_City"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    commit-message:
-      prefix: "chore(deps)"
-    labels:
-      - "dependencies"
-
-  - package-ecosystem: "npm"
-    directory: "/apps/portal_alumno_cloud"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "05:00"
-      timezone: "America/Mexico_City"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
+    rebase-strategy: "auto"
     commit-message:
       prefix: "chore(deps)"
     labels:

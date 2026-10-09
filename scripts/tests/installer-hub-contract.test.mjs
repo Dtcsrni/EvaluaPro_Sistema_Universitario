@@ -414,7 +414,10 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /apps\/frontend\/dist-docente/);
   assert.match(buildMsi, /apps\/backend\/dist/);
   assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
-  assert.match(buildMsi, /npmCommand ci --omit=dev --ignore-scripts/);
+  assert.match(buildMsi, /package-lock\\.json/);
+  assert.match(buildMsi, /npmCommand ci --workspace=apps\\/backend --include-workspace-root=false --ignore-scripts/);
+  assert.match(buildMsi, /npmCommand prune --omit=dev --ignore-scripts --package-lock=false/);
+  assert.doesNotMatch(buildMsi, /apps\\/backend\\/package-lock\\.json/);
   assert.match(buildMsi, /InstallerBurnHelper\.ps1/);
 });
 
@@ -2620,4 +2623,21 @@ test('SPEC-050: bootstrapper hub y build-msi integran lanzamiento y empaquetado 
 
   assert.match(buildMsi, /EvaluaPro\.AppHost\.csproj/);
   assert.match(buildMsi, /EvaluaPro\.exe/);
+});
+test('build-msi limpia el workspace npm opcional sin Remove-Item', { skip: process.platform !== 'win32' }, () => {
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const cleanupHelper = fs.readFileSync(path.join(root, 'scripts', 'installer', 'Remove-NpmWorkspaceLink.ps1'), 'utf8');
+  const cleanupTest = path.join(root, 'scripts', 'tests', 'remove-npm-workspace-link.test.ps1');
+
+  assert.match(buildMsi, /installer\\Remove-NpmWorkspaceLink\.ps1/);
+  assert.match(buildMsi, /Remove-NpmWorkspaceLink -LiteralPath \$backendWorkspaceLink/);
+  assert.match(cleanupHelper, /FileAttributes\]::ReparsePoint/);
+  assert.match(cleanupHelper, /\[System\.IO\.Directory\]::Delete\(\$entry\.FullName, -not \$isReparsePoint\)/);
+  assert.doesNotMatch(cleanupHelper, /Remove-Item/);
+  execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', cleanupTest], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30_000
+  });
 });

@@ -29,6 +29,7 @@ if (-not $isWindowsPlatform) {
 }
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+. (Join-Path $PSScriptRoot 'installer\Remove-NpmWorkspaceLink.ps1')
 $wix = Join-Path $root "packaging\wix"
 $out = Join-Path $root "dist\installer"
 $internalOut = Join-Path $out '_internal'
@@ -361,7 +362,6 @@ function Add-DocenteNativeCompiledPayload {
     New-Item -ItemType Directory -Path (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/src/modulos/modulo_analiticas/plantillas/LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx') -Destination (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package.json') -Destination $backendTarget -Force
-    Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package-lock.json') -Destination $backendTarget -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/prisma.config.mjs') -Destination $backendTarget -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/prisma') -Destination $backendTarget -Recurse -Force
     $prebuiltNodeModules = Join-Path $RootPath 'dist-native/backend/node_modules'
@@ -369,13 +369,40 @@ function Add-DocenteNativeCompiledPayload {
     if ($reusePrebuiltDependencies) {
       Write-Host '[msi] Reutilizando node_modules de dist-native; se evita npm ci redundante.'
       Copy-Item -LiteralPath $prebuiltNodeModules -Destination $backendTarget -Recurse -Force
+    } else {
+      # Instalar desde el lock canónico del monorepo. Copiar solo el manifiesto
+      # del backend junto a su lock hijo puede desalinearlos tras Dependabot.
+      $npmWorkspaceRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("evaluapro-npm-workspace-{0}" -f [Guid]::NewGuid().ToString('N'))
+      New-Item -ItemType Directory -Path $npmWorkspaceRoot -Force | Out-Null
+      Copy-Item -LiteralPath (Join-Path $RootPath 'package.json') -Destination $npmWorkspaceRoot -Force
+      Copy-Item -LiteralPath (Join-Path $RootPath 'package-lock.json') -Destination $npmWorkspaceRoot -Force
+      $npmConfig = Join-Path $RootPath '.npmrc'
+      if (Test-Path -LiteralPath $npmConfig) {
+        Copy-Item -LiteralPath $npmConfig -Destination $npmWorkspaceRoot -Force
+      }
+      foreach ($workspacePath in @('apps/backend', 'apps/frontend', 'apps/portal_alumno_cloud')) {
+        $workspaceManifest = Join-Path $RootPath (Join-Path $workspacePath 'package.json')
+        if (-not (Test-Path -LiteralPath $workspaceManifest)) {
+          throw "Falta el manifiesto requerido del workspace npm: $workspaceManifest"
+        }
+        $workspaceTarget = Join-Path $npmWorkspaceRoot $workspacePath
+        New-Item -ItemType Directory -Path $workspaceTarget -Force | Out-Null
+        Copy-Item -LiteralPath $workspaceManifest -Destination $workspaceTarget -Force
+      }
+      Push-Location $npmWorkspaceRoot
+      try {
+        & $npmCommand ci --workspace=apps/backend --include-workspace-root=false --ignore-scripts
+        if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend desde el lock raíz (exit=$LASTEXITCODE)." }
+        Copy-Item -LiteralPath (Join-Path $npmWorkspaceRoot 'node_modules') -Destination $backendTarget -Recurse -Force
+      } finally {
+        Pop-Location
+        Remove-Item -LiteralPath $npmWorkspaceRoot -Recurse -Force -ErrorAction SilentlyContinue
+      }
+      $backendWorkspaceLink = Join-Path $backendTarget 'node_modules/backend'
+      Remove-NpmWorkspaceLink -LiteralPath $backendWorkspaceLink
     }
     Push-Location $backendTarget
     try {
-      if (-not $reusePrebuiltDependencies) {
-        & $npmCommand ci --omit=dev --ignore-scripts
-        if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend de producción (exit=$LASTEXITCODE)." }
-      }
       $nodeForBuild = if (Test-Path (Join-Path $RootPath 'runtime/node/node.exe')) { Join-Path $RootPath 'runtime/node/node.exe' } else { 'node' }
       $stagedSchemaPath = Join-Path $backendTarget 'prisma/schema.prisma'
       $stagedSchema = Get-Content -LiteralPath $stagedSchemaPath -Raw -Encoding utf8
@@ -418,7 +445,7 @@ function Add-DocenteNativeCompiledPayload {
       # prune contra el contrato de producción antes de la poda específica de
       # Prisma evita transportar Vitest, TypeScript u otros paquetes ajenos al
       # runtime nativo.
-      & $npmCommand prune --omit=dev --ignore-scripts
+      & $npmCommand prune --omit=dev --ignore-scripts --package-lock=false
       if ($LASTEXITCODE -ne 0) { throw "Falló poda de dependencias de desarrollo (exit=$LASTEXITCODE)." }
 
       # El cliente ya fue generado y el esquema SQL ya quedó materializado.
