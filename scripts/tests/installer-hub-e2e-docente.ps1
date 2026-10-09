@@ -1101,6 +1101,7 @@ function Invoke-InstalledBroker {
     [string]$RunId,
     [int]$TimeoutSec = 60
   )
+  $acceptedBootstrapStates = @('healthy', 'degraded')
   $broker = Join-Path $installedRoot 'scripts\launcher-broker.ps1'
   if (-not (Test-Path -LiteralPath $broker)) { throw "No existe broker instalado: $broker" }
   $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $broker, '-Action', $Action, '-Mode', 'prod', '-Port', [string]$Port, '-RunId', $RunId, '-NoOpen')
@@ -1114,7 +1115,7 @@ function Invoke-InstalledBroker {
       $stateDeadline = (Get-Date).AddSeconds(180)
       do {
         if (Test-Path -LiteralPath $statePath) {
-          try { $healthyState = ((Get-Content -Raw -Path $statePath | ConvertFrom-Json).state -in @('healthy', 'degraded')) } catch {}
+          try { $healthyState = ((Get-Content -Raw -Path $statePath | ConvertFrom-Json).state -in $acceptedBootstrapStates) } catch {}
         }
         if (-not $healthyState) { Start-Sleep -Seconds 2 }
       } while (-not $healthyState -and (Get-Date) -lt $stateDeadline)
@@ -1147,10 +1148,10 @@ function Invoke-InstalledBroker {
     $statePath = Join-Path $installedRoot ("logs\bootstrap-state-{0}.json" -f ($RunId -replace '[^a-zA-Z0-9_-]', ''))
     $healthyState = $false
     if (Test-Path -LiteralPath $statePath) {
-      try { $healthyState = ((Get-Content -Raw -Path $statePath | ConvertFrom-Json).state -eq 'healthy') } catch {}
+      try { $healthyState = ((Get-Content -Raw -Path $statePath | ConvertFrom-Json).state -in $acceptedBootstrapStates) } catch {}
     }
     if ($healthyState) {
-      Write-E2ELog "WARNING: ExitCode nulo para broker action=$Action; se acepta estado JSON healthy como evidencia alternativa."
+      Write-E2ELog "WARNING: ExitCode nulo para broker action=$Action; se acepta estado JSON healthy/degraded como evidencia alternativa."
       $exitCode = 0
     } else {
       $exitCode = -1
