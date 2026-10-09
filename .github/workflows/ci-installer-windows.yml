@@ -51,8 +51,8 @@ jobs:
         if: github.event_name != 'pull_request'
         run: echo 'run_installer=true' >> "$GITHUB_OUTPUT"
 
-  installer_windows:
-    name: Installer Windows (MSI + Bundle)
+  installer_windows_build:
+    name: Installer Windows Build (MSI + Bundle)
     needs: detectar_cambios
     if: github.event_name != 'pull_request' || needs.detectar_cambios.outputs.run_installer == 'true'
     runs-on: windows-latest
@@ -321,9 +321,42 @@ jobs:
           path: |
             dist/installer/_internal/**
 
+  installer_windows:
+    name: Installer Windows (MSI + Bundle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [detectar_cambios, installer_windows_build]
+    if: always()
+    steps:
+      - name: Validar resultado del build o aceptar PR sin payload afectado
+        shell: bash
+        env:
+          DETECTOR_RESULT: ${{ needs.detectar_cambios.result }}
+          RUN_INSTALLER: ${{ needs.detectar_cambios.outputs.run_installer }}
+          BUILD_RESULT: ${{ needs.installer_windows_build.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$DETECTOR_RESULT" != "success" ]]; then
+            echo "No se pudo determinar si el payload del instalador cambió." >&2
+            exit 1
+          fi
+          if [[ "$RUN_INSTALLER" != "true" ]]; then
+            echo "Sin cambios de payload: build MSI/Bundle omitido."
+            if [[ "$BUILD_RESULT" != "skipped" ]]; then
+              echo "Resultado inesperado del build: $BUILD_RESULT" >&2
+              exit 1
+            fi
+            exit 0
+          fi
+          if [[ "$BUILD_RESULT" != "success" ]]; then
+            echo "El build MSI/Bundle terminó: $BUILD_RESULT" >&2
+            exit 1
+          fi
+          echo "Build MSI/Bundle aprobado."
+
   publish_installer_release:
     name: Publicar release del instalador
-    needs: installer_windows
+    needs: installer_windows_build
     if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
