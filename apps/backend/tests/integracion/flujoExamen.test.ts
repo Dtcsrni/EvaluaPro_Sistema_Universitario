@@ -632,24 +632,6 @@ describe('flujo de examen', () => {
     await request(app).post(`/api/periodos/${periodoId}/archivar`).set(auth).send({}).expect(200);
     const archivadas = await request(app).get('/api/examenes/plantillas?archivado=true').set(auth).expect(200);
     expect(archivadas.body.plantillas.map((item: { _id: string }) => item._id)).toContain(plantillaId);
-    const fuenteAntesPreview = await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } });
-    const resumenPreview = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar`).set(auth).expect((response) => {
-      if (response.status !== 200) throw new Error(JSON.stringify(response.body));
-    });
-    expect(resumenPreview.body.numeroPaginas).toBe(4);
-    expect(resumenPreview.body.totalPreguntasFuente).toBe(preguntasIds.length);
-    expect(resumenPreview.body.fuentesExtraordinario).toEqual(['Primer parcial Diseño Web', 'Segundo parcial Diseño Web']);
-    expect(resumenPreview.body.totalUsados).toBeGreaterThan(0);
-    expect(resumenPreview.body.totalUsados).toBeLessThan(preguntasIds.length);
-    await request(app)
-      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf`)
-      .set(auth)
-      .expect(200);
-    const fuenteDespuesPreview = await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } });
-    expect(fuenteDespuesPreview.bookletConfig).toBe(fuenteAntesPreview.bookletConfig);
-    expect(fuenteDespuesPreview.blueprintJson).toBe(fuenteAntesPreview.blueprintJson);
-    expect(fuenteDespuesPreview.updatedAt).toEqual(fuenteAntesPreview.updatedAt);
-
     const ordinaryLotId = `ORD_${Date.now().toString(36)}`.slice(0, 16).toUpperCase();
     await request(app).post('/api/examenes/generados/lote').set(auth).send({
       plantillaId,
@@ -675,6 +657,24 @@ describe('flujo de examen', () => {
       tipoExamen: 'extraordinario',
       alumnoIds: [String(alumnoAjeno.body.alumno._id)]
     }).expect(400);
+    const fuenteAntesPreview = await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } });
+    const resumenPreview = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar`).set(auth).expect((response) => {
+      if (response.status !== 200) throw new Error(JSON.stringify(response.body));
+    });
+    expect(resumenPreview.body.numeroPaginas).toBe(4);
+    expect(resumenPreview.body.totalPreguntasFuente).toBe(preguntasIds.length);
+    expect(resumenPreview.body.fuentesExtraordinario).toEqual(['Primer parcial Diseño Web', 'Segundo parcial Diseño Web']);
+    expect(resumenPreview.body.totalUsados).toBeGreaterThan(0);
+    expect(resumenPreview.body.totalUsados).toBeLessThan(preguntasIds.length);
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf`)
+      .set(auth)
+      .expect(200);
+    const fuenteDespuesPreview = await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } });
+    expect(fuenteDespuesPreview.bookletConfig).toBe(fuenteAntesPreview.bookletConfig);
+    expect(fuenteDespuesPreview.blueprintJson).toBe(fuenteAntesPreview.blueprintJson);
+    expect(fuenteDespuesPreview.updatedAt).toEqual(fuenteAntesPreview.updatedAt);
+
     expect(await prisma.examenGenerado.count({ where: { loteId: loteAjenoId } })).toBe(0);
 
     const loteId = `EXT_${Date.now().toString(36)}`.slice(0, 16).toUpperCase();
