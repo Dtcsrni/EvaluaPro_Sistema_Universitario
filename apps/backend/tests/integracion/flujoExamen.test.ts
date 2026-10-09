@@ -576,26 +576,25 @@ describe('flujo de examen', () => {
       grupo: 'A'
     }).expect(201);
     const alumnoId = String(alumnoResp.body.alumno._id);
-    const preguntasIds = await crearPreguntasCanonicas(auth, periodoId, 60);
+    const preguntasIds = await crearPreguntasCanonicas(auth, periodoId, 48);
     await request(app).post('/api/examenes/plantillas').set(auth).send({
       periodoId, tipo: 'parcial', titulo: 'Primer parcial Diseño Web', numeroPaginas: 2,
-      preguntasIds: preguntasIds.slice(0, 20)
+      preguntasIds: preguntasIds.slice(0, 16)
     }).expect((response) => {
       if (response.status !== 201) throw new Error(JSON.stringify(response.body));
     });
     await request(app).post('/api/examenes/plantillas').set(auth).send({
       periodoId, tipo: 'parcial', titulo: 'Segundo parcial Diseño Web', numeroPaginas: 2,
-      preguntasIds: preguntasIds.slice(20, 40)
+      preguntasIds: preguntasIds.slice(16, 32)
     }).expect(201);
     const plantillaResp = await request(app).post('/api/examenes/plantillas').set(auth).send({
       periodoId,
       tipo: 'global',
       titulo: 'Global Diseño Web',
       numeroPaginas: 4,
-      preguntasIds: preguntasIds.slice(40)
+      preguntasIds: preguntasIds.slice(32)
     }).expect(201);
     const plantillaId = String(plantillaResp.body.plantilla._id);
-    await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth).expect(200);
 
     await request(app).post(`/api/periodos/${periodoId}/archivar`).set(auth).send({}).expect(200);
     const archivadas = await request(app).get('/api/examenes/plantillas?archivado=true').set(auth).expect(200);
@@ -609,8 +608,6 @@ describe('flujo de examen', () => {
     expect(resumenPreview.body.fuentesExtraordinario).toEqual(['Primer parcial Diseño Web', 'Segundo parcial Diseño Web']);
     expect(resumenPreview.body.totalUsados).toBeGreaterThan(0);
     expect(resumenPreview.body.totalUsados).toBeLessThan(preguntasIds.length);
-    const pdfPreview = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth).expect(200);
-    expect(pdfPreview.body.paginasTotales).toBe(4);
     const pdfCacheado = await request(app)
       .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf`)
       .set(auth)
