@@ -533,15 +533,17 @@ export async function previsualizarPlantillaUseCase(params: {
   const { paginas, metricasPaginas, mapaOmr, preguntasRestantes } = previewResultado;
   const porId = new Map<string, (typeof contexto.preguntasCandidatas)[number]>();
   for (const pregunta of contexto.preguntasCandidatas) porId.set(pregunta.id, pregunta);
-  const ordenadas = (contexto.mapaVarianteDet.ordenPreguntas || [])
-    .map((id) => porId.get(id))
-    .filter((item): item is NonNullable<typeof item> => Boolean(item));
-
   const totalDisponibles = contexto.preguntasDb.length;
   const paginasParaPreview = contexto.esExtraordinarioArchivado ? paginas.slice(0, contexto.numeroPaginas) : paginas;
   const preguntasUsadasIds = contexto.esExtraordinarioArchivado
     ? extraerPreguntasHastaPagina(mapaOmr, contexto.numeroPaginas)
     : extraerPreguntasUsadasMapaOmr(mapaOmr as never);
+  // El PDF reordena por la variante completa y descarta los reactivos que no
+  // caben; el resumen debe indexar sus páginas sobre ese subconjunto impreso.
+  const ordenadas = (contexto.mapaVarianteDet.ordenPreguntas || [])
+    .filter((id) => !contexto.esExtraordinarioArchivado || preguntasUsadasIds.has(String(id)))
+    .map((id) => porId.get(id))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
   const totalUsados = preguntasUsadasIds.size;
   const metricasPaginasSeguras = Array.isArray(metricasPaginas) ? metricasPaginas : [];
   const ultima = metricasPaginasSeguras[metricasPaginasSeguras.length - 1];
