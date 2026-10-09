@@ -209,7 +209,7 @@ function readSmokeFailureDiagnostics(runId, brokerStatus) {
     // Un estado ausente también es evidencia útil para este diagnóstico.
   }
 
-  const processScript = `$items = @(Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*launcher-dashboard.mjs*' } | Select-Object -First 5 @{Name='pid';Expression={[int]$_.ProcessId}}, @{Name='name';Expression={[string]$_.Name}}, @{Name='creationDate';Expression={[string]$_.CreationDate}}); ConvertTo-Json -InputObject $items -Compress`;
+  const processScript = `$items = @(Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $PID -and $_.Name -ieq 'node.exe' -and $_.CommandLine -like '*launcher-dashboard.mjs*' } | Select-Object -First 5 @{Name='pid';Expression={[int]$_.ProcessId}}, @{Name='name';Expression={[string]$_.Name}}, @{Name='creationDate';Expression={[string]$_.CreationDate}}); ConvertTo-Json -InputObject $items -Compress`;
   const processResult = runPowerShell(['-Command', processScript], { timeout: 10_000 });
   const parsedProcesses = processResult.status === 0 ? parseJsonOutput(processResult.stdout) : [];
   const processes = Array.isArray(parsedProcesses) ? parsedProcesses : (parsedProcesses ? [parsedProcesses] : []);
