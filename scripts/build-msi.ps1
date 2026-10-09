@@ -475,14 +475,6 @@ function Add-DocenteNativeCompiledPayload {
         (Join-Path $backendTarget 'node_modules/@visx'),
         (Join-Path $backendTarget 'node_modules/@types'),
         (Join-Path $backendTarget 'node_modules/@standard-schema'),
-        # El backend extrae texto de PDF; no rasteriza páginas ni usa Canvas.
-        # pdfjs declara Canvas como opcional y el paquete nativo elevaba el MSI
-        # sin intervenir en las rutas OMR/PDF usadas por docente-local.
-        (Join-Path $backendTarget 'node_modules/@napi-rs/canvas'),
-        (Join-Path $backendTarget 'node_modules/@napi-rs/canvas-win32-x64-msvc'),
-        (Join-Path $backendTarget 'node_modules/@napi-rs/canvas-win32-arm64-msvc'),
-        (Join-Path $backendTarget 'node_modules/pdf-parse/node_modules/@napi-rs/canvas'),
-        (Join-Path $backendTarget 'node_modules/pdf-parse/node_modules/@napi-rs/canvas-win32-x64-msvc'),
         (Join-Path $backendTarget 'node_modules/elkjs'),
         (Join-Path $backendTarget 'node_modules/effect'),
         (Join-Path $backendTarget 'node_modules/fast-check'),
@@ -553,7 +545,7 @@ function Add-DocenteNativeCompiledPayload {
       # pdf-parse importa pdfjs-dist en tiempo de ejecución. Mantener ambos
       # módulos en el payload evita que la API falle al arrancar después de
       # instalar el bundle docente-local.
-      foreach ($requiredRuntimeModule in @('pdf-parse', 'pdfjs-dist', 'tesseract.js', '@tesseract.js-data/spa')) {
+      foreach ($requiredRuntimeModule in @('pdf-parse', 'pdfjs-dist', '@napi-rs/canvas', 'tesseract.js', '@tesseract.js-data/spa')) {
         $requiredRuntimeModulePath = Join-Path $backendTarget ("node_modules/{0}" -f $requiredRuntimeModule)
         if (-not (Test-Path -LiteralPath $requiredRuntimeModulePath)) {
           throw "Falta dependencia de runtime requerida por el backend: $requiredRuntimeModulePath"
@@ -562,16 +554,7 @@ function Add-DocenteNativeCompiledPayload {
       $pdfRuntimeSmoke = Join-Path $backendTarget '.pdf-runtime-smoke.mjs'
       $pdfRuntimeSmokeSource = @'
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { PDFParse } from 'pdf-parse';
-
-const require = createRequire(import.meta.url);
-try {
-  require.resolve('@napi-rs/canvas');
-  throw new Error('Canvas opcional no fue podado del payload docente.');
-} catch (error) {
-  if (error?.code !== 'MODULE_NOT_FOUND') throw error;
-}
 
 const parser = new PDFParse({ data: readFileSync(process.argv[2]) });
 try {

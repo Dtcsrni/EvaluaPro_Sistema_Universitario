@@ -416,9 +416,7 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
   assert.match(buildMsi, /package-lock\.json/);
   assert.ok(buildMsi.includes("npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts"));
-  assert.match(buildMsi, /node_modules\/\@napi-rs\/canvas-win32-x64-msvc/);
-  assert.match(buildMsi, /pdf-parse\/node_modules\/\@napi-rs\/canvas/);
-  assert.match(buildMsi, /El backend extrae texto de PDF; no rasteriza páginas ni usa Canvas/);
+  assert.match(buildMsi, /requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist', '\@napi-rs\/canvas'/);
   assert.match(buildMsi, /\.pdf-runtime-smoke\.mjs/);
   assert.match(buildMsi, /PDF TEST/);
   assert.match(buildMsi, /if \(\$reusePrebuiltDependencies\) \{[\s\S]*?npmCommand prune --omit=dev --ignore-scripts --package-lock=false/);
@@ -2391,8 +2389,9 @@ test('baseline docente publica solo el runtime nativo y los límites del bundle'
   const baseline = fs.readFileSync(path.join(root, 'scripts', 'installer-docente-baseline.mjs'), 'utf8');
   assert.match(baseline, /runtimeTarget: 'native-node-sqlite'/);
   assert.doesNotMatch(baseline, /docker|compose|requiresDockerRuntime/i);
-  assert.match(baseline, /const maxPayloadBytes = 180 \* 1024 \* 1024/);
-  assert.match(baseline, /const maxBundleBytes = 240 \* 1024 \* 1024/);
+  assert.match(baseline, /const maxPayloadBytes = 200 \* 1024 \* 1024/);
+  assert.match(baseline, /const maxBundleBytes = 270 \* 1024 \* 1024/);
+  assert.match(baseline, /Calibrado con el build v1\.2\.6 anclado al lock raíz/);
 });
 
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {
