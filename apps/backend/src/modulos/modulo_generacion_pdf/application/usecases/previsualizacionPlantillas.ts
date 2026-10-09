@@ -226,7 +226,7 @@ export async function generarExtraordinarioMaximo(params: {
 }) {
   let mejorResultado: ResultadoGeneracionPdf | undefined;
   let mejorCardinalidad = 0;
-  let alturasRenderizadas = new Map<string, number>();
+  const alturasRenderizadas = new Map<string, number>();
 
   const registrarAlturas = (resultado: ResultadoGeneracionPdf) => {
     for (const pagina of resultado.mapaOmr.paginas ?? []) {
