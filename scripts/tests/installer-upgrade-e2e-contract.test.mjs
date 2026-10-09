@@ -103,6 +103,7 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
 });
 
 test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgrade', () => {
+  assert.match(workflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
   assert.match(workflow, /releases\/download\/v1\.2\.3\/' \+ \$baselineName/);
   assert.match(workflow, /\$baselineName = 'EvaluaPro-InstallerHub-docente-local-v1\.2\.3\.exe'/);
   assert.match(workflow, /\$baselineVersion = \[version\]'1\.2\.3'/);
@@ -181,7 +182,7 @@ test('las E2E del asset de borrador y público instalan WiX para extraer el base
 test('el build candidato y QA caben en la ventana del gate estable previo a publicación', () => {
   const tagGuard = fs.readFileSync(path.join(root, '.github', 'workflows', 'tag-release-guard.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
-  const installerTimeout = Number(workflow.match(/installer_windows:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
+  const installerTimeout = Number(workflow.match(/installer_windows_build:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
   const publishTimeout = Number(workflow.match(/publish_installer_release:[\s\S]*?timeout-minutes:\s*(\d+)/)?.[1]);
   const releaseWindow = installerTimeout + publishTimeout;
   const tagAttempts = Number(tagGuard.match(/max_attempts=(\d+)/)?.[1]);
