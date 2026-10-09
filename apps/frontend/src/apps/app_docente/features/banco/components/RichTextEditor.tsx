@@ -46,7 +46,7 @@ export function textoPlanoRico(valor: string): string {
 }
 
 export function sanearHtml(valor: string): string {
-  if (typeof DOMParser === 'undefined') return valor.replace(/<[^>]*>/g, '');
+  if (typeof DOMParser === 'undefined') return escaparHtml(valor);
   const doc = new DOMParser().parseFromString(valor, 'text/html');
   const recorrer = (nodo: Node) => {
     for (const hijo of Array.from(nodo.childNodes)) {

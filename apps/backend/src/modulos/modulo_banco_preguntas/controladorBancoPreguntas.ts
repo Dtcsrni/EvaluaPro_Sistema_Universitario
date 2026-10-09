@@ -9,6 +9,7 @@ import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacio
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { normalizarEnunciadoBanco } from './normalizarEnunciadoBanco.js';
+import { sanitizarContenidoRico } from './sanitizarContenidoRico.js';
 import { esquemaListarAuditoriaTemaBanco } from './validacionesBancoPreguntas.js';
 
 function normalizarTema(valor: unknown): string | undefined {
@@ -73,25 +74,6 @@ function normalizarTextoComparable(valor: unknown): string {
     .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
     .toLowerCase();
-}
-
-// El editor cliente también sanea, pero el límite de confianza es el backend:
-// solo se persisten etiquetas tipográficas y el marcador de fórmula LaTeX.
-function sanitizarContenidoRico(valor: unknown): string {
-  const fuente = String(valor ?? '').replace(/<!--[\s\S]*?-->|<\s*(?:script|style)[^>]*>[\s\S]*?<\s*\/\s*(?:script|style)\s*>/gi, '');
-  return fuente.replace(/<[^>]*>/g, (tag) => {
-    if (/^<\s*br\s*\/?>$/i.test(tag)) return '<br>';
-    const cierre = /^<\s*\/\s*(strong|b|em|i|u|sub|sup|span)\s*>$/i.exec(tag);
-    if (cierre) return `</${cierre[1].toLowerCase()}>`;
-    const etiqueta = /^<\s*(strong|b|em|i|u|sub|sup)\s*>$/i.exec(tag);
-    if (etiqueta) return `<${etiqueta[1].toLowerCase()}>`;
-    if (/^<\s*span\b/i.test(tag) && /data-latex\s*=\s*["'][^"']*["']/i.test(tag)) {
-      const contenido = /data-latex\s*=\s*["']([^"']*)["']/i.exec(tag)?.[1] ?? '';
-      const seguro = contenido.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<span data-latex="${seguro}">`;
-    }
-    return '';
-  });
 }
 
 function firmaOpciones(opciones: { texto: string }[]): string {

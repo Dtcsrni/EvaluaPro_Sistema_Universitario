@@ -26,11 +26,11 @@ Gate de paso a implementacion:
 
 ## Fase 3. Implementacion (TDD)
 - cambio funcional con prueba nueva/ajustada en la misma entrega,
-- cumplimiento de diff coverage y deuda temporal controlada,
+- pruebas relacionadas con los módulos y comportamientos modificados, y deuda temporal controlada,
 - trazabilidad del cambio en docs de baseline cuando aplique.
 
 ## Fase 4. Verificacion (CI/QA)
-- ejecucion de quality gates bloqueantes de CI,
+- ejecucion de pruebas afectadas por el diff en PR; suites completas y cobertura global en CI programado o bajo solicitud,
 - verificacion de contratos funcionales (backend/frontend/portal/docs),
 - evidencia en reportes (`reports/qa/latest/*`) cuando aplique.
 

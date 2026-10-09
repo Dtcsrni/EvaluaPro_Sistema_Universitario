@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { normalizarEnunciadoBanco } from './normalizarEnunciadoBanco.js';
+import { sanitizarContenidoRico } from './sanitizarContenidoRico.js';
 import {
   contentHashReactivo,
   planHashReactivos,
@@ -31,17 +32,6 @@ type PlanImportacion = {
   target: ReactivosBatch['target'];
   rows: FilaPlan[];
 };
-
-function normalizarContenido(valor: string): string {
-  const fuente = String(valor ?? '').replace(/<!--[^]*?-->|<\s*(?:script|style)[^>]*>[^]*?<\s*\/(?:script|style)\s*>/gi, '');
-  return fuente.replace(/<[^>]*>/g, (tag) => {
-    if (/^<\s*br\s*\/?\s*>$/i.test(tag)) return '<br>';
-    if (/^<\s*(strong|b|em|i|u|sub|sup)\s*>$/i.test(tag)) return tag.toLowerCase();
-    if (/^<\s*\/\s*(strong|b|em|i|u|sub|sup)\s*>$/i.test(tag)) return tag.toLowerCase();
-    if (/^<\s*span\b/i.test(tag) && /data-latex\s*=\s*["'][^"']*["']/i.test(tag)) return tag.replace(/\s+/g, ' ').trim();
-    return '';
-  });
-}
 
 async function imagenDesdeMetadata(metadataJson: string, docenteId: string): Promise<string | null> {
   try {
@@ -402,7 +392,7 @@ export async function confirmarReactivos(params: { docenteId: string; importId: 
       }
 
       const numeroVersion = row.operation === 'create' ? 1 : reactivo.versionActual + 1;
-      const stem = normalizarEnunciadoBanco(normalizarContenido(item.stem.value));
+      const stem = normalizarEnunciadoBanco(sanitizarContenidoRico(item.stem.value));
       const metadataVersion: Record<string, unknown> = { ...item.metadata };
       const imageDataUrl = typeof item.metadata.imageDataUrl === 'string' ? item.metadata.imageDataUrl : null;
       if (imageDataUrl) {
@@ -431,7 +421,7 @@ export async function confirmarReactivos(params: { docenteId: string; importId: 
           metadataJson: serializarCanonico(metadataVersion),
           procedenciaJson: serializarCanonico(item.provenance),
           contentHash: row.contentHash,
-          opciones: { create: item.options.map((option) => ({ clave: option.key, texto: normalizarContenido(option.value), esCorrecta: option.isCorrect })) }
+          opciones: { create: item.options.map((option) => ({ clave: option.key, texto: sanitizarContenidoRico(option.value), esCorrecta: option.isCorrect })) }
         }
       });
       void version;

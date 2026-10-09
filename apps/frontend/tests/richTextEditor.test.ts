@@ -3,7 +3,7 @@
  *
  * Responsabilidad: proteger la representación visible de fórmulas del editor.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { sanearHtml, textoVisibleLatex } from '../src/apps/app_docente/features/banco/components/RichTextEditor';
 
 describe('RichTextEditor', () => {
@@ -40,5 +40,16 @@ describe('RichTextEditor', () => {
 
     expect(limpio).toContain('<span data-latex="x"><b>seguro</b></span>');
     expect(limpio).not.toContain('onclick');
+  });
+
+  it('escapa el contenido por completo cuando DOMParser no está disponible', () => {
+    const parser = globalThis.DOMParser;
+    vi.stubGlobal('DOMParser', undefined);
+    try {
+      expect(sanearHtml('<script>alert(1)</script> & texto'))
+        .toBe('&lt;script&gt;alert(1)&lt;/script&gt; &amp; texto');
+    } finally {
+      vi.stubGlobal('DOMParser', parser);
+    }
   });
 });

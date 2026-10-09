@@ -8,8 +8,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
-import { resolveBatchConcurrency, runBatches, toTestArgs } from '../testing/run-backend-test-batches.mjs';
+import { buildBackendTestSelection, buildChangedTestArgs, resolveBatchConcurrency, runBatches, toTestArgs } from '../testing/run-backend-test-batches.mjs';
 import {
+  buildFocusedTestArgsForFiles,
   getDefaultBatchConcurrency as getCoverageDefaultConcurrency,
   resolveBatchConcurrency as resolveCoverageConcurrency,
   runBatches as runCoverageBatches
@@ -141,4 +142,51 @@ test('backend test batches aísla sincronización E2E en forks sobre Windows', (
     '--pool=forks',
     '--reporter=default'
   ]);
+});
+
+test('backend changed test selection validates the ref and avoids coverage instrumentation', () => {
+  assert.deepEqual(buildChangedTestArgs('origin/main'), ['run', '--changed=origin/main', '--pool=forks', '--reporter=default']);
+  assert.deepEqual(buildChangedTestArgs('0123456789abcdef'), ['run', '--changed=0123456789abcdef', '--pool=forks', '--reporter=default']);
+  assert.throws(() => buildChangedTestArgs('--inject'), /referencia Git válida/);
+  assert.throws(() => buildChangedTestArgs('origin/../main'), /referencia Git válida/);
+});
+
+test('backend focused test selection avoids broad import-graph fan-out', () => {
+  const args = buildFocusedTestArgsForFiles([
+    'apps/backend/src/app.ts',
+    'apps/backend/src/configuracion.ts',
+    'apps/backend/src/modulos/modulo_banco_preguntas/sanitizarContenidoRico.ts',
+    'apps/backend/src/modulos/modulo_escaneo_omr/archivoTemporalOmr.ts',
+    'apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts'
+  ], [
+    'apps/backend/tests/app.cors.test.ts',
+    'apps/backend/tests/configuracion.produccion.test.ts',
+    'apps/backend/tests/sanitizarContenidoRico.test.ts',
+    'apps/backend/tests/archivoTemporalOmr.test.ts',
+    'apps/backend/tests/pdfKitRenderer.security.test.ts'
+  ]);
+
+  assert.equal(args[0], 'run');
+  assert.equal(args.includes('--coverage'), false);
+  assert.equal(args.filter((arg) => arg.endsWith('.test.ts')).length, 7);
+  assert.equal(args.includes('tests/app.cors.test.ts'), true);
+  assert.equal(args.includes('tests/integracion/omrJobsWorkflow.test.ts'), true);
+  assert.equal(args.includes('tests/pdfKitRenderer.security.test.ts'), true);
+  assert.deepEqual(buildFocusedTestArgsForFiles(['apps/backend/src/no-exact-profile.ts'], []), null);
+  assert.deepEqual(buildFocusedTestArgsForFiles([], ['apps/backend/tests/app.cors.test.ts']), [
+    'run', 'tests/app.cors.test.ts', '--pool=forks', '--reporter=default'
+  ]);
+});
+
+test('backend test selection runs only profiled tests and falls back safely', () => {
+  const focused = buildBackendTestSelection([
+    'apps/backend/src/configuracion.ts',
+    'apps/backend/tests/configuracion.produccion.test.ts'
+  ]);
+  assert.equal(focused.mode, 'focused');
+  assert.equal(focused.args.filter((arg) => arg === 'tests/configuracion.produccion.test.ts').length, 1);
+
+  assert.deepEqual(buildBackendTestSelection(['docs/PRUEBAS.md']), { mode: 'skip', args: null });
+  assert.deepEqual(buildBackendTestSelection(['apps/backend/src/nuevo-modulo.ts']), { mode: 'related', args: null });
+  assert.deepEqual(buildBackendTestSelection([], false), { mode: 'full', args: null });
 });

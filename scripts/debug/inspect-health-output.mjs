@@ -4,13 +4,14 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { execSync } from 'child_process'
+import { execFileSync } from 'child_process'
 
 const prereq = 'c:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\scripts\\installer-burn\\modules\\PrereqDetector.psm1'
 const installDir = 'C:\\Users\\evega\\AppData\\Local\\Temp\\evaluapro-debug-1c46ac7f50524caea04cd43beeafd937\\EvaluaPro'
-const cmd = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Import-Module -Force '${prereq}' -DisableNameChecking; Get-EvaluaProInstallationHealth -InstallDir '${installDir}' | ConvertTo-Json -Depth 8`
+const payload = Buffer.from(JSON.stringify({ prereq, installDir }), 'utf8').toString('base64')
+const cmd = `$paths = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')) | ConvertFrom-Json; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Import-Module -Force -LiteralPath $paths.prereq -DisableNameChecking; Get-EvaluaProInstallationHealth -InstallDir $paths.installDir | ConvertTo-Json -Depth 8`
 try {
-  const out = execSync('powershell -NoProfile -ExecutionPolicy Bypass -Command "' + cmd.replace(/"/g, '\\"') + '"', { encoding: 'utf8' })
+  const out = execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', cmd], { encoding: 'utf8' })
   console.log('RAW OUTPUT:\n', out)
   try {
     const parsed = JSON.parse(out)

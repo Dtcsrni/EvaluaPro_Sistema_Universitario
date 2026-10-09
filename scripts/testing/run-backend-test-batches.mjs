@@ -18,11 +18,11 @@
  * workers en Windows sin reducir la seleccion de pruebas.
  * Limites: No cambia assertions ni filtros funcionales; solo particiona la ejecucion.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { buildCoveragePlan } from './run-backend-coverage-batches.mjs';
+import { buildCoveragePlan, buildFocusedTestArgsForFiles } from './run-backend-coverage-batches.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,6 +60,26 @@ function toTestArgs(batch) {
   return ['run', ...filters, '--pool=forks', '--reporter=default'];
 }
 
+function buildChangedTestArgs(baseRef) {
+  const normalized = String(baseRef ?? '').trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(normalized) || normalized.includes('..') || normalized.includes('//') || normalized.endsWith('/')) {
+    throw new TypeError('BACKEND_TEST_CHANGED_FROM debe ser una referencia Git válida');
+  }
+  return ['run', `--changed=${normalized}`, '--pool=forks', '--reporter=default'];
+}
+
+function buildBackendTestSelection(changedFiles, diffResolved = true) {
+  if (!diffResolved) return { mode: 'full', args: null };
+  if (!Array.isArray(changedFiles) || changedFiles.length === 0) return { mode: 'skip', args: null };
+
+  const sourceFiles = changedFiles.filter((file) => file.startsWith('apps/backend/src/'));
+  const changedTestFiles = changedFiles.filter((file) => file.startsWith('apps/backend/tests/'));
+  if (sourceFiles.length === 0 && changedTestFiles.length === 0) return { mode: 'skip', args: null };
+  const focusedArgs = buildFocusedTestArgsForFiles(sourceFiles, changedTestFiles);
+  return focusedArgs
+    ? { mode: 'focused', args: focusedArgs }
+    : { mode: 'related', args: null };
+}
 function runVitest(args, name) {
   return new Promise((resolve) => {
     process.stdout.write(`[backend-tests] ${name}\n`);
@@ -101,13 +121,42 @@ async function runBatches(batches, concurrency, executeBatch = runBatch) {
 }
 
 async function main() {
+  const changedFrom = process.env.BACKEND_TEST_CHANGED_FROM?.trim();
+  if (changedFrom) {
+    const affectedArgs = buildChangedTestArgs(changedFrom);
+    const changedPaths = spawnSync('git', ['diff', '--name-only', `${changedFrom}...HEAD`, '--', 'apps/backend/src', 'apps/backend/tests'], {
+      cwd: rootDir,
+      encoding: 'utf8',
+      windowsHide: true
+    });
+    const files = changedPaths.status === 0
+      ? changedPaths.stdout.split(/\r?\n/).map((file) => file.trim()).filter(Boolean)
+      : [];
+    const selection = buildBackendTestSelection(files, changedPaths.status === 0);
+    if (selection.mode === 'skip') {
+      process.stdout.write('[backend-tests] sin cambios backend en src/tests; pruebas omitidas\n');
+      return;
+    }
+    if (selection.mode === 'focused') {
+      process.stdout.write(`[backend-tests] modo focal; base=${changedFrom}; tests=${selection.args.length - 3}\n`);
+      process.exitCode = await runVitest(selection.args, 'backend-focused');
+      return;
+    }
+    if (selection.mode === 'related') {
+      process.stdout.write(`[backend-tests] modo Vitest --changed (source sin perfil focal); base=${changedFrom}; paths=${files.length}\n`);
+      process.exitCode = await runVitest(affectedArgs, 'backend-affected');
+      return;
+    }
+    process.stdout.write('[backend-tests] no se pudo resolver el diff; fallback a suite completa\n');
+  }
+
   const plan = buildCoveragePlan();
   process.stdout.write(`[backend-tests] concurrencia=${batchConcurrency}; lotes=${plan.batches.length}\n`);
   const code = await runBatches(plan.batches, batchConcurrency);
   process.exit(code);
 }
 
-export { resolveBatchConcurrency, runBatches, toTestArgs };
+export { buildBackendTestSelection, buildChangedTestArgs, resolveBatchConcurrency, runBatches, toTestArgs };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {

@@ -7,6 +7,7 @@
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
+import { codificarInvocacionCliWindows } from "./lib/vscode-cli-command.mjs";
 
 const root = process.cwd();
 
@@ -152,12 +153,14 @@ if (!codeBin) {
   process.exit(0);
 }
 
-const quoteArg = (value) => `"${value.replace(/"/g, '\\"')}"`;
-
 const runCode = (args, options = {}) => {
   if (process.platform === "win32") {
-    const command = [quoteArg(codeBin), ...args.map(quoteArg)].join(" ");
-    return spawnSync(command, { ...options, shell: true });
+    return spawnSync("powershell.exe", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-EncodedCommand",
+      codificarInvocacionCliWindows(codeBin, args),
+    ], options);
   }
   return spawnSync(codeBin, args, options);
 };
