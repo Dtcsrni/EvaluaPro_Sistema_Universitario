@@ -184,6 +184,42 @@ const focusedCoverageProfiles = new Map([
   ['apps/backend/src/modulos/modulo_autenticacion/servicioGoogle.ts', {
     tests: ['tests/servicioGoogle.test.ts'],
     include: 'src/modulos/modulo_autenticacion/servicioGoogle.ts'
+  }],
+  ['apps/backend/src/app.ts', {
+    tests: ['tests/app.cors.test.ts'],
+    include: 'src/app.ts'
+  }],
+  ['apps/backend/src/configuracion.ts', {
+    tests: ['tests/configuracion.produccion.test.ts'],
+    include: 'src/configuracion.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts', {
+    tests: ['tests/sanitizarContenidoRico.test.ts', 'tests/integracion/reactivosIngesta.test.ts'],
+    include: 'src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_banco_preguntas/sanitizarContenidoRico.ts', {
+    tests: ['tests/sanitizarContenidoRico.test.ts', 'tests/integracion/reactivosIngesta.test.ts'],
+    include: 'src/modulos/modulo_banco_preguntas/sanitizarContenidoRico.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_banco_preguntas/servicioReactivos.ts', {
+    tests: ['tests/integracion/reactivosIngesta.test.ts'],
+    include: 'src/modulos/modulo_banco_preguntas/servicioReactivos.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_escaneo_omr/archivoTemporalOmr.ts', {
+    tests: ['tests/archivoTemporalOmr.test.ts', 'tests/integracion/omrJobsWorkflow.test.ts'],
+    include: 'src/modulos/modulo_escaneo_omr/archivoTemporalOmr.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts', {
+    tests: ['tests/integracion/omrJobsWorkflow.test.ts'],
+    include: 'src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts', {
+    tests: ['tests/integracion/omrJobsWorkflow.test.ts'],
+    include: 'src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts', {
+    tests: ['tests/pdfKitRenderer.security.test.ts'],
+    include: 'src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts'
   }]
 ]);
 
