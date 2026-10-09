@@ -102,6 +102,17 @@ test('coverage diferencial enfoca SQLite y las dos rutas de autenticacion con su
   assert.equal(args.some((arg) => arg.startsWith('--changed=')), false);
 });
 
+test('coverage diferencial enfoca la previsualizacion extraordinaria en su flujo E2E directo', () => {
+  const plan = buildDifferentialCoveragePlan('origin/main', [
+    'apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts'
+  ]);
+
+  assert.equal(plan.mode, 'diferencial enfocado');
+  assert.ok(plan.args.includes('tests/integracion/flujoExamen.test.ts'));
+  assert.ok(plan.args.includes('--coverage.include=src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts'));
+  assert.equal(plan.args.some((arg) => arg.startsWith('--changed=')), false);
+});
+
 test('coverage diferencial enfoca seguridad backend en pruebas directas de los nueve archivos', () => {
   const changedFiles = [
     'apps/backend/src/app.ts',
