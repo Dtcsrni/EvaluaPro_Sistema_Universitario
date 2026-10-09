@@ -67,6 +67,7 @@
       "scripts/tests/backend-test-batches.test.mjs",
       "apps/backend/tests/archivoTemporalOmr.test.ts",
       "scripts/tests/security-workflow-policy.test.mjs",
+      "scripts/tests/installer-hub-contract.test.mjs",
       "docs/specs/ci_cd_integrity.spec.md",
       "docs/PRUEBAS.md",
       "docs/QA_GATE_CRITERIA.md",
@@ -159,6 +160,15 @@
       "durationMs": 100,
       "resultSummary": "Diff sin errores de whitespace.",
       "timestamp": "2026-10-09T02:29:00Z"
+    },
+    {
+      "name": "installer step-up focused test",
+      "command": "node --test --test-name-pattern=\"step-up local inicializa\" scripts/tests/installer-hub-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3000,
+      "resultSummary": "1/1 pasó localmente; se aisla el JSON emitido por PowerShell con marcadores para no mezclar salida incidental.",
+      "timestamp": "2026-10-09T02:34:00Z"
     }
   ],
   "decisions": [

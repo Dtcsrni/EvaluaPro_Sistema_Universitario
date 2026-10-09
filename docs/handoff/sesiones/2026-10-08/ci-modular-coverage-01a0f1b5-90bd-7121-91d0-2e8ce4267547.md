@@ -51,6 +51,7 @@
 - scripts/tests/backend-test-batches.test.mjs
 - apps/backend/tests/archivoTemporalOmr.test.ts
 - scripts/tests/security-workflow-policy.test.mjs
+- scripts/tests/installer-hub-contract.test.mjs
 - docs/specs/ci_cd_integrity.spec.md
 - docs/PRUEBAS.md
 - docs/QA_GATE_CRITERIA.md
@@ -76,6 +77,8 @@
   resultado: 50/51 pasaron; único fallo `MODULE_NOT_FOUND: proxy-addr` por dependencias ausentes en el clon.
 - whitespace: `git diff --check` -> ok (exitCode=0)
   resultado: diff sin errores de whitespace.
+- installer step-up focused test: `node --test --test-name-pattern="step-up local inicializa" scripts/tests/installer-hub-contract.test.mjs` -> ok (exitCode=0)
+  resultado: 1/1 pasó localmente; agregué marcadores para extraer el JSON del contrato Windows sin confundir salida incidental de PowerShell.
 
 ## Decisiones
 - Usar Vitest --changed para seleccionar archivos de prueba relacionados con el cambio mediante dependencias estáticas.
@@ -88,7 +91,7 @@
 
 ## Riesgos abiertos
 - Vitest no está instalado en el clon local; la ejecución funcional TypeScript depende de CI remoto.
-- CI debe repetirse sobre el commit que contiene las correcciones de lint y contrato; PR #130 no está listo para merge ni release.
+- CI debe repetirse sobre el commit que contiene las correcciones de lint, contrato y serialización de salida del test Windows; PR #130 no está listo para merge ni release.
 
 ## Estado del arbol
 ```txt

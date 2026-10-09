@@ -81,9 +81,16 @@ function runPowerShell(command) {
   }
 }
 
-function parseJsonOutput(stdout) {
+function parseJsonOutput(stdout, startMarker = '', endMarker = '') {
   const text = String(stdout || '').trim();
   if (!text) return {};
+  if (startMarker && endMarker) {
+    const start = text.lastIndexOf(startMarker);
+    const end = start < 0 ? -1 : text.indexOf(endMarker, start + startMarker.length);
+    if (start >= 0 && end >= 0) {
+      return JSON.parse(text.slice(start + startMarker.length, end).trim()) || {};
+    }
+  }
   try {
     return JSON.parse(text) || {};
   } catch {
@@ -2392,11 +2399,13 @@ $before = Get-EvaluaProStepUpStatus -RootDir '${tempRoot.replace(/'/g, "''")}'
 $totp = Get-EvaluaProCurrentTotpCode -RootDir '${tempRoot.replace(/'/g, "''")}'
 $auth = Invoke-EvaluaProStepUp -RootDir '${tempRoot.replace(/'/g, "''")}' -TotpCode $totp
 $after = Get-EvaluaProStepUpStatus -RootDir '${tempRoot.replace(/'/g, "''")}'
+Write-Output 'EVALUAPRO_JSON_START'
 [pscustomobject]@{
   before = $before
   after = $after
   methods = $step.methods
 } | ConvertTo-Json -Depth 10
+Write-Output 'EVALUAPRO_JSON_END'
 `.trim();
 
   try {
@@ -2408,7 +2417,7 @@ $after = Get-EvaluaProStepUpStatus -RootDir '${tempRoot.replace(/'/g, "''")}'
       test();
       return;
     }
-    const parsed = parseJsonOutput(result.stdout);
+    const parsed = parseJsonOutput(result.stdout, 'EVALUAPRO_JSON_START', 'EVALUAPRO_JSON_END');
     assert.equal(parsed.before.licenseValid, true);
     assert.equal(parsed.before.required, true);
     assert.equal(Array.isArray(parsed.methods), true);
