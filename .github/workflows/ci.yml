@@ -649,12 +649,7 @@ jobs:
       - ext_funcionales
       - ext_perf_arquitectura
       - ext_compliance_evidencia
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'pull_request' ||
-      github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/')
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
 
     steps:
       - name: Validar resultado agregado Extended

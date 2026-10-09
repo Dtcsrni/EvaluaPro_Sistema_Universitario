@@ -414,10 +414,11 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /apps\/frontend\/dist-docente/);
   assert.match(buildMsi, /apps\/backend\/dist/);
   assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
-  assert.match(buildMsi, /package-lock\\.json/);
+  assert.match(buildMsi, /package-lock\.json/);
   assert.ok(buildMsi.includes("npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts"));
   assert.match(buildMsi, /if \(\$reusePrebuiltDependencies\) \{[\s\S]*?npmCommand prune --omit=dev --ignore-scripts --package-lock=false/);
-  assert.match(buildMsi, /prismaCliPath = Join-Path \$RootPath 'node_modules\/prisma\/build\/index\.js'/);\n  assert.ok(!buildMsi.includes("apps/backend/package-lock.json"));
+  assert.match(buildMsi, /prismaCliPath = Join-Path \$RootPath 'node_modules\/prisma\/build\/index\.js'/);
+  assert.ok(!buildMsi.includes("apps/backend/package-lock.json"));
   assert.match(buildMsi, /InstallerBurnHelper\.ps1/);
 });
 

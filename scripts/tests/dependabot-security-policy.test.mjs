@@ -27,7 +27,7 @@ test('Dependabot mantiene npm desde la raíz para sincronizar manifests y lockfi
 
 test('el MSI docente instala desde el lock npm raíz y no consume el lock hijo del backend', () => {
   assert.match(installerBuild, /Join-Path \$RootPath 'package-lock\.json'/);
-  assert.match(installerBuild, /& \$npmCommand ci --workspace=apps\/backend --include-workspace-root=false --ignore-scripts/);
+  assert.match(installerBuild, /& \$npmCommand ci --workspace=apps\/backend --include-workspace-root=false --omit=dev --ignore-scripts/);
   assert.match(installerBuild, /& \$npmCommand prune --omit=dev --ignore-scripts --package-lock=false/);
   assert.doesNotMatch(installerBuild, /apps\/backend\/package-lock\.json/);
 });
