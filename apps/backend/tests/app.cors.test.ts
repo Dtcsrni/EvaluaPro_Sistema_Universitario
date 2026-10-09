@@ -27,4 +27,13 @@ describe('CORS del backend', () => {
     expect(respuesta.headers['access-control-allow-origin']).toBeUndefined();
     expect(respuesta.headers['access-control-allow-credentials']).toBeUndefined();
   });
+
+  it('no agrega permiso CORS a solicitudes sin Origin', async () => {
+    const respuesta = await request(app)
+      .options('/api/autenticacion/registrar')
+      .set('Access-Control-Request-Method', 'POST');
+
+    expect(respuesta.headers['access-control-allow-origin']).toBeUndefined();
+    expect(respuesta.headers['access-control-allow-credentials']).toBeUndefined();
+  });
 });

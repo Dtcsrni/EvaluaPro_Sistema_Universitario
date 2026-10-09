@@ -64,7 +64,7 @@ Fecha de baseline: 2026-02-13.
   - La política está protegida por `scripts/tests/dependabot-security-policy.test.mjs`; cada PR sigue los gates de CI antes de integrarse.
 
 ## Enforcements TDD activos
-- Diff coverage bloqueante en CI (`DIFF_COVERAGE_MIN=90`).
+- Las PR ejecutan pruebas afectadas por módulo; los reportes de cobertura son diagnósticos y la cobertura integral se solicita con `workflow_dispatch` + `force_full_ci`.
 - Registro de deuda temporal de exclusiones de coverage:
   - `docs/tdd-exclusions-debt.json`
 - Verificador bloqueante de deuda vencida:

@@ -8,7 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
-import { resolveBatchConcurrency, runBatches, toTestArgs } from '../testing/run-backend-test-batches.mjs';
+import { buildChangedTestArgs, resolveBatchConcurrency, runBatches, toTestArgs } from '../testing/run-backend-test-batches.mjs';
 import {
   getDefaultBatchConcurrency as getCoverageDefaultConcurrency,
   resolveBatchConcurrency as resolveCoverageConcurrency,
@@ -141,4 +141,11 @@ test('backend test batches aísla sincronización E2E en forks sobre Windows', (
     '--pool=forks',
     '--reporter=default'
   ]);
+});
+
+test('backend changed test selection validates the ref and avoids coverage instrumentation', () => {
+  assert.deepEqual(buildChangedTestArgs('origin/main'), ['run', '--changed=origin/main', '--pool=forks', '--reporter=default']);
+  assert.deepEqual(buildChangedTestArgs('0123456789abcdef'), ['run', '--changed=0123456789abcdef', '--pool=forks', '--reporter=default']);
+  assert.throws(() => buildChangedTestArgs('--inject'), /referencia Git válida/);
+  assert.throws(() => buildChangedTestArgs('origin/../main'), /referencia Git válida/);
 });

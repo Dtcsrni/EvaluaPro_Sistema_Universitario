@@ -23,4 +23,26 @@ describe('sanitizarContenidoRico', () => {
     expect(sanitizarContenidoRico('<span data-latex=x>x</span>')).toBe('x');
     expect(sanitizarContenidoRico('<span data-latex="a" data-latex="b">x</span>')).toBe('x');
   });
+
+  it('normaliza entidades HTML y escapes numéricos inválidos en el atributo LaTeX', () => {
+    expect(sanitizarContenidoRico('<span data-latex = \'&LT;&#62;&quot;&apos;&#39;&nbsp;&#65;&#x1F600;&#0;&#xD800;&#x110000;\'>x</span>'))
+      .toBe('<span data-latex="&lt;&gt;&quot;\'\' A😀���">x</span>');
+  });
+
+  it('omite comentarios incompletos y texto raw hasta un cierre válido', () => {
+    expect(sanitizarContenidoRico('antes<!-- sin cierre')).toBe('antes');
+    expect(sanitizarContenidoRico('<script>uno</scripture>dos</script>después'))
+      .toBe('después');
+    expect(sanitizarContenidoRico('<style>todo el resto')).toBe('');
+  });
+
+  it('rechaza marcadores duplicados, sin valor y con cierres no confiables', () => {
+    expect(sanitizarContenidoRico('<span data-latex="a" DATA-LATEX="b">x</span>')).toBe('x');
+    expect(sanitizarContenidoRico('<span data-latex>y</span>')).toBe('y');
+    expect(sanitizarContenidoRico('</span><span class="solo formato">z</span>')).toBe('z');
+  });
+
+  it('maneja etiquetas sin nombre válido y delimitadores incompletos como texto', () => {
+    expect(sanitizarContenidoRico('<>texto<1bad>más <?xml?> <texto')).toBe('texto más  &lt;texto');
+  });
 });

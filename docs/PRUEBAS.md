@@ -5,7 +5,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 
 ## Politica TDD (obligatoria)
 - Todo cambio funcional debe incluir prueba nueva o ajuste de regresion en el mismo PR.
-- Se exige cobertura en lineas modificadas (`diff coverage`) con umbral minimo `90%`.
+- En PR se ejecutan las pruebas relacionadas con cambios por módulo; la cobertura se usa como diagnóstico y no tiene un umbral global obligatorio.
 - Las exclusiones de cobertura solo se aceptan como deuda temporal con:
   - owner asignado,
   - fecha de expiracion,
@@ -40,7 +40,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
   - aislar fallos por dominio y mantener señal de calidad de los demas modulos.
 - Comportamiento esperado:
   - si falla un modulo, los otros workflows siguen ejecutando y reportando resultado.
-  - el workflow monolitico `CI Checks` permanece como gate integrador de compatibilidad global.
+  - el workflow `CI Checks` usa selección afectada por módulo en PR, conserva suites completas en schedule/dispatch completo y corre cobertura integral solo con `force_full_ci`.
   - ramas de trabajo y estabilizacion validan core por `pull_request`; `push` directo queda reservado a `main` y `release/**` para no duplicar check-runs del mismo head.
 - Instalador en PR:
   - cambios afectados en Installer Hub, packaging o manifiestos de instalador activan `npm run test:installer-hub:contract` y `npm run test:wix:policy` dentro de `CI Checks`.

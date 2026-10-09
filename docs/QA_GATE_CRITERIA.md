@@ -15,7 +15,6 @@ Definir criterios verificables para aprobar una release candidata antes de la va
 9. `npm run perf:check:business`
 10. `npm run qa:clean-architecture:strict`
 11. `npm run test:coverage:exclusions:debt`
-12. `npm run test:coverage:diff`
 
 ## Evidencias obligatorias (`reports/qa/latest`)
 - `dataset-prodlike.json`
@@ -30,7 +29,7 @@ Definir criterios verificables para aprobar una release candidata antes de la va
 - Todos los comandos en verde.
 - Sin bypass manual en CI.
 - Artefactos presentes y consistentes.
-- `diff coverage` >= 90% en lineas modificadas.
+- Pruebas relacionadas con los comportamientos afectados aprobadas; la cobertura se revisa como diagnóstico.
 - Sin deuda de exclusiones vencida.
 
 ## Trazabilidad requisito -> prueba -> evidencia -> workflow

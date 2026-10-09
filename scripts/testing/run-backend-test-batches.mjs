@@ -18,7 +18,7 @@
  * workers en Windows sin reducir la seleccion de pruebas.
  * Limites: No cambia assertions ni filtros funcionales; solo particiona la ejecucion.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -60,6 +60,13 @@ function toTestArgs(batch) {
   return ['run', ...filters, '--pool=forks', '--reporter=default'];
 }
 
+function buildChangedTestArgs(baseRef) {
+  const normalized = String(baseRef ?? '').trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(normalized) || normalized.includes('..') || normalized.includes('//') || normalized.endsWith('/')) {
+    throw new TypeError('BACKEND_TEST_CHANGED_FROM debe ser una referencia Git válida');
+  }
+  return ['run', `--changed=${normalized}`, '--pool=forks', '--reporter=default'];
+}
 function runVitest(args, name) {
   return new Promise((resolve) => {
     process.stdout.write(`[backend-tests] ${name}\n`);
@@ -101,13 +108,29 @@ async function runBatches(batches, concurrency, executeBatch = runBatch) {
 }
 
 async function main() {
+  const changedFrom = process.env.BACKEND_TEST_CHANGED_FROM?.trim();
+  if (changedFrom) {
+    const affectedArgs = buildChangedTestArgs(changedFrom);
+    const changedPaths = spawnSync('git', ['diff', '--name-only', `${changedFrom}...HEAD`, '--', 'apps/backend/src', 'apps/backend/tests'], {
+      cwd: rootDir,
+      encoding: 'utf8',
+      windowsHide: true
+    });
+    if (changedPaths.status === 0 && changedPaths.stdout.trim()) {
+      process.stdout.write(`[backend-tests] modo afectado; base=${changedFrom}; paths=${changedPaths.stdout.trim().split(/\r?\n/).length}\n`);
+      process.exitCode = await runVitest(affectedArgs, 'backend-affected');
+      return;
+    }
+    process.stdout.write('[backend-tests] sin diff backend comprobable; fallback a suite completa\n');
+  }
+
   const plan = buildCoveragePlan();
   process.stdout.write(`[backend-tests] concurrencia=${batchConcurrency}; lotes=${plan.batches.length}\n`);
   const code = await runBatches(plan.batches, batchConcurrency);
   process.exit(code);
 }
 
-export { resolveBatchConcurrency, runBatches, toTestArgs };
+export { buildChangedTestArgs, resolveBatchConcurrency, runBatches, toTestArgs };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {

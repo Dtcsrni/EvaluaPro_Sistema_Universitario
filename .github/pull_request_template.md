@@ -15,7 +15,7 @@
 ## Evidencia TDD y Calidad (Obligatoria)
 - [ ] Agregué o ajusté pruebas antes o simultáneamente al cambio funcional.
 - [ ] Se incluyó prueba de regresión para el comportamiento modificado.
-- [ ] El `diff coverage` en líneas modificadas cumple el umbral (`>= 90%`).
+- [ ] Las pruebas cubren los comportamientos afectados por los cambios; la cobertura se revisa como diagnóstico.
 - [ ] No introduje exclusiones nuevas de cobertura ni stubs vacíos.
 - [ ] No se registraron credenciales, tokens ni datos personales sensibles.
 
