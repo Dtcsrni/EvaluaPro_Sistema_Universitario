@@ -363,6 +363,7 @@ test('CI central concentra suites completas y cobertura sin excluir todo el cód
   assert.match(central, /run-module-coverage\.mjs --apps portal/);
   assert.match(central, /MODULE_COVERAGE_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
   assert.match(central, /npm run test:coverage:diff -- --apps backend,portal/);
+  assert.ok(central.includes('git fetch --force --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"'));
   assert.match(central, /npm run test:coverage:diff -- --apps frontend/);
   assert.doesNotMatch(central, /DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS:[^\n]*apps\/(?:backend|frontend|portal_alumno_cloud)\/src(?:[;" ]|$)/);
   const backendJobTimeoutMinutes = Number(coreBackend.match(/timeout-minutes:\s*(\d+)/)?.[1]);
