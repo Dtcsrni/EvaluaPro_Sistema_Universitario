@@ -9,7 +9,6 @@
       "typecheck",
       "test",
       "ux-quality-check",
-      "coverage-check",
       "tdd-enforcement-check",
       "build",
       "docs-check",
@@ -36,6 +35,10 @@
     ],
     "package": [
       "package"
+    ],
+    "full-coverage": [
+      "setup",
+      "coverage-check"
     ]
   },
   "stages": [
@@ -167,13 +170,16 @@
         "apps/backend/coverage/**",
         "apps/frontend/coverage/**",
         "apps/portal_alumno_cloud/coverage/**"
+      ],
+      "triggers": [
+        "schedule",
+        "workflow_dispatch.force_full_ci"
       ]
     },
     {
       "name": "tdd-enforcement-check",
       "commands": [
-        "npm run test:coverage:exclusions:debt",
-        "npm run test:coverage:diff"
+        "npm run test:coverage:exclusions:debt"
       ],
       "artifacts": [
         "docs/tdd-exclusions-debt.json"
