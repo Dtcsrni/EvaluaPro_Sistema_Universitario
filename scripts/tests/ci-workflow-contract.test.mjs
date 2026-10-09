@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { buildModuleCoveragePlan } from '../testing/run-module-coverage.mjs';
+import { resolveThreshold } from '../testing/check-diff-coverage.mjs';
 
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
@@ -222,6 +223,7 @@ test('E2E del release draft delimita variable PowerShell seguida de dos puntos',
   const draftAssetJob = workflow.match(/post_publish_installer_e2e:[\s\S]*?(?=\n  [a-z][a-z0-9_]+:|$)/)?.[0] ?? '';
 
   assert.ok(draftAssetBlock, 'falta el bloque de verificación del asset draft');
+  assert.match(draftAssetJob, /ref:\s*\$\{\{\s*inputs\.source_sha\s*\|\|\s*github\.sha\s*\}\}/, 'el draft se valida con el SHA fuente porque su tag aún no está publicada');
   assert.match(draftAssetJob, /RELEASE_ID:\s*\$\{\{\s*needs\.publish_installer_release\.outputs\.release_id\s*\}\}/);
   assert.match(draftAssetBlock, /gh api "repos\/\$repository\/releases\/\$releaseId"/);
   assert.match(draftAssetBlock, /\$release\.tag_name -ne \$tag -or -not \$release\.draft/);
@@ -352,48 +354,41 @@ test('runner de cobertura de módulos usa solo suites afectadas en PR y cobertur
   assert.throws(() => buildModuleCoveragePlan('frontend', '--bad-ref', []), /referencia Git válida/);
 });
 
-test('CI central concentra suites completas y cobertura sin excluir todo el código fuente', () => {
+test('diff coverage no impone umbral sin configuración explícita', () => {
+  assert.equal(resolveThreshold([], {}), null);
+  assert.equal(resolveThreshold(['--min=78.5'], {}), 78.5);
+  assert.equal(resolveThreshold(['--min', '91'], {}), 91);
+  assert.equal(resolveThreshold([], { DIFF_COVERAGE_MIN: '82' }), 82);
+  assert.throws(() => resolveThreshold(['--min=101'], {}), /Valor inválido/);
+});
+test('CI selecciona pruebas afectadas por módulo y reserva cobertura global para validaciones completas', () => {
   const central = fs.readFileSync(workflowPath, 'utf8');
   const coreBackend = extractJobBlock(central, 'core_backend_portal');
+  const coreFrontend = extractJobBlock(central, 'core_frontend');
+  const backendRunner = fs.readFileSync(path.join(root, 'scripts', 'testing', 'run-backend-test-batches.mjs'), 'utf8');
   const moduleWorkflows = ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml'];
 
-  assert.match(central, /npm -C apps\/backend run test:coverage/);
-  assert.match(central, /run-module-coverage\.mjs --apps frontend/);
-  assert.match(central, /run-module-coverage\.mjs --apps portal/);
-  assert.match(central, /MODULE_COVERAGE_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
-  assert.match(central, /npm run test:coverage:diff -- --apps backend,portal/);
-  assert.match(central, /npm run test:coverage:diff -- --apps frontend/);
+  assert.match(coreBackend, /BACKEND_TEST_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
+  assert.match(coreBackend, /run: npm run test:backend:ci/);
+  assert.match(backendRunner, /buildFocusedTestArgsForFiles/);
+  assert.match(backendRunner, /modo Vitest --changed \(source sin perfil focal\)/);
+  assert.match(coreFrontend, /VITEST_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
+  assert.match(coreFrontend, /--changed=\"\$VITEST_CHANGED_FROM\"/);
+  assert.match(coreBackend, /Etapa coverage backend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
+  assert.match(coreBackend, /Etapa coverage portal\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
+  assert.match(coreFrontend, /Etapa coverage frontend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
+  assert.doesNotMatch(central, /DIFF_COVERAGE_MIN|Etapa diff-coverage-check|Preparar base para diff coverage/);
   assert.doesNotMatch(central, /DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS:[^\n]*apps\/(?:backend|frontend|portal_alumno_cloud)\/src(?:[;" ]|$)/);
-  const backendJobTimeoutMinutes = Number(coreBackend.match(/timeout-minutes:\s*(\d+)/)?.[1]);
-  const backendCoverageTimeoutMs = Number(coreBackend.match(/BACKEND_COVERAGE_BATCH_TIMEOUT_MS:\s*"(\d+)"/)?.[1]);
-  assert.ok(backendCoverageTimeoutMs >= 90 * 60 * 1000, 'la cobertura diferencial debe tolerar suites extensas sin reducir su alcance');
-  assert.ok(backendCoverageTimeoutMs < backendJobTimeoutMinutes * 60 * 1000, 'la cobertura debe conservar margen dentro del límite global del job');
 
   for (const name of moduleWorkflows) {
     const moduleWorkflow = fs.readFileSync(path.join(workflowDir, name), 'utf8');
     assert.doesNotMatch(moduleWorkflow, /test:coverage|test:coverage:diff|test:coverage:exclusions:debt/, name);
   }
 
-  const backend = fs.readFileSync(path.join(workflowDir, 'ci-backend.yml'), 'utf8');
-  const frontend = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
-  const portal = fs.readFileSync(path.join(workflowDir, 'ci-portal.yml'), 'utf8');
-  const docs = fs.readFileSync(path.join(workflowDir, 'ci-docs.yml'), 'utf8');
-
-  const setupIndex = backend.indexOf('npm ci --foreground-scripts');
-  const prismaIndex = backend.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
-  const omrTestsIndex = backend.indexOf('npm -C apps/backend run test');
-  const canonicalGateIndex = backend.indexOf('npm run test:omr:canonical:gate:ci');
-
-  assert.ok(setupIndex >= 0, 'backend module: falta npm ci');
-  assert.ok(prismaIndex > setupIndex, 'backend module: generar Prisma despues de npm ci');
-  assert.ok(omrTestsIndex > prismaIndex, 'backend module: Prisma debe estar disponible antes de pruebas OMR');
-  assert.ok(canonicalGateIndex > prismaIndex, 'backend module: Prisma debe estar disponible antes del gate OMR');
-
-  assert.match(backend, /test:omr:canonical:gate:ci/);
-  assert.match(backend, /tests OMR criticos/);
-  assert.match(frontend, /guard:wcag/);
-  assert.match(portal, /run typecheck/);
-  assert.match(docs, /run sdd:audit/);
+  const backendModule = fs.readFileSync(path.join(workflowDir, 'ci-backend.yml'), 'utf8');
+  assert.match(backendModule, /backend_omr:\s*\$\{\{ steps\.affected\.outputs\.group_backend_omr \}\}/);
+  assert.match(backendModule, /if: github\.event_name == 'workflow_dispatch' \|\| needs\.detectar_cambios\.outputs\.backend_omr == 'true'/);
+  assert.doesNotMatch(backendModule, /outputs\.backend == 'true' \|\| needs\.detectar_cambios\.outputs\.shared == 'true'/);
 });
 
 test('CI publica diagnósticos de cobertura aunque el runner escriba bajo .vitest-reports', () => {

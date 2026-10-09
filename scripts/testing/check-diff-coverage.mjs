@@ -75,10 +75,12 @@ export function getTypeOnlyLines(filePath, sourceText) {
   return lines;
 }
 
-function getArg(name) {
-  const index = process.argv.indexOf(name);
+function getArg(name, args = process.argv) {
+  const equalsArg = args.find((arg) => arg.startsWith(`${name}=`));
+  if (equalsArg) return equalsArg.slice(name.length + 1);
+  const index = args.indexOf(name);
   if (index < 0) return null;
-  return process.argv[index + 1] ?? null;
+  return args[index + 1] ?? null;
 }
 
 function resolveSelectedApps() {
@@ -300,8 +302,9 @@ async function hasWorkingTreeChanges(apps) {
   return stdout.trim().length > 0;
 }
 
-function resolveThreshold() {
-  const raw = getArg('--min') ?? process.env.DIFF_COVERAGE_MIN ?? '90';
+function resolveThreshold(args = process.argv, env = process.env) {
+  const raw = getArg('--min', args) ?? env.DIFF_COVERAGE_MIN;
+  if (raw == null || String(raw).trim() === '') return null;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 100) {
     throw new Error(`Valor inválido para diff coverage mínimo: ${raw}`);
@@ -467,9 +470,9 @@ async function main() {
   if (ignorePathSubstrings.length > 0) {
     console.log(`[diff-coverage] Líneas ignoradas por ruta: ${ignoredByPath} (${ignorePathSubstrings.join(';')})`);
   }
-  console.log(`[diff-coverage] Líneas tocadas: ${total} | Cubiertas: ${covered} | Diff coverage: ${percent}% | Umbral: ${minCoverage}%`);
+  console.log(`[diff-coverage] Líneas tocadas: ${total} | Cubiertas: ${covered} | Diff coverage: ${percent}% | ${minCoverage == null ? 'Solo diagnóstico' : `Umbral explícito: ${minCoverage}%`}`);
 
-  if (percent < minCoverage) {
+  if (minCoverage != null && percent < minCoverage) {
     const sample = missing.slice(0, 80).map((entry) => `  - ${entry}`).join('\n');
     console.error('[diff-coverage] FALLO: cobertura de diff por debajo del mínimo.');
     if (sample) {
@@ -481,6 +484,8 @@ async function main() {
 
   console.log('[diff-coverage] OK');
 }
+
+export { resolveThreshold };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   await main();

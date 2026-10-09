@@ -19,7 +19,24 @@ const limiteJson =
   !limiteJsonEntorno || limiteJsonEntorno === 'undefined' || limiteJsonEntorno === 'null'
     ? '10mb'
     : limiteJsonEntorno;
-const corsOrigenes = parsearListaCsv(process.env.CORS_ORIGENES ?? 'http://localhost:5173');
+const corsOrigenes = parsearListaCsv(process.env.CORS_ORIGENES ?? 'http://localhost:5173').map((origen) => {
+  if (origen === '*') {
+    throw new Error('CORS_ORIGENES debe contener orígenes HTTP(S) exactos; no se permite el comodín ni rutas');
+  }
+  let url: URL;
+  try {
+    url = new URL(origen);
+  } catch {
+    throw new Error('CORS_ORIGENES debe contener orígenes HTTP(S) válidos');
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('CORS_ORIGENES debe contener orígenes HTTP(S) válidos');
+  }
+  if (url.origin !== origen) {
+    throw new Error('CORS_ORIGENES debe contener orígenes HTTP(S) exactos; no se permite el comodín ni rutas');
+  }
+  return origen;
+});
 // En producción, el secreto JWT debe ser proporcionado por entorno.
 // En desarrollo/test se permite un valor por defecto para facilitar el setup.
 const jwtSecreto = process.env.JWT_SECRETO ?? '';

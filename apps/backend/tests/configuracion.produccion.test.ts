@@ -81,6 +81,30 @@ describe('configuracion (produccion)', () => {
     await expect(import('../src/configuracion.js')).rejects.toThrow('CORS_ORIGENES es requerido en producción');
   });
 
+  it('rechaza el comodín y las rutas en CORS_ORIGENES', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRETO = 'secret';
+    process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';
+    process.env.PORTAL_ALUMNO_API_KEY = 'portal-key';
+    process.env.CORS_ORIGENES = '*';
+
+    await expect(import('../src/configuracion.js')).rejects.toThrow(/orígenes HTTP\(S\) exactos/);
+  });
+
+  it('acepta una lista de orígenes HTTP(S) exactos y rechaza otros esquemas', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRETO = 'secret';
+    process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';
+    process.env.CORS_ORIGENES = 'http://localhost:4173,https://docente.example.com';
+
+    const { configuracion } = await import('../src/configuracion.js');
+    expect(configuracion.corsOrigenes).toEqual(['http://localhost:4173', 'https://docente.example.com']);
+
+    vi.resetModules();
+    process.env.CORS_ORIGENES = 'file://docente.example.com';
+    await expect(import('../src/configuracion.js')).rejects.toThrow(/orígenes HTTP\(S\) válidos/);
+  });
+
   it('expone campos del portal y flavor sin exigir PORTAL_ALUMNO_API_KEY en prod', async () => {
     // PORTAL_ALUMNO_API_KEY NO es obligatorio en producción — es opcional.
     process.env.NODE_ENV = 'production';

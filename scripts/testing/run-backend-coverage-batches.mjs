@@ -188,6 +188,42 @@ const focusedCoverageProfiles = new Map([
   ['apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts', {
     tests: ['tests/integracion/flujoExamen.test.ts'],
     include: 'src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts'
+  }],
+  ['apps/backend/src/app.ts', {
+    tests: ['tests/app.cors.test.ts'],
+    include: 'src/app.ts'
+  }],
+  ['apps/backend/src/configuracion.ts', {
+    tests: ['tests/configuracion.produccion.test.ts'],
+    include: 'src/configuracion.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts', {
+    tests: ['tests/sanitizarContenidoRico.test.ts', 'tests/integracion/reactivosIngesta.test.ts'],
+    include: 'src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_banco_preguntas/sanitizarContenidoRico.ts', {
+    tests: ['tests/sanitizarContenidoRico.test.ts', 'tests/integracion/reactivosIngesta.test.ts'],
+    include: 'src/modulos/modulo_banco_preguntas/sanitizarContenidoRico.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_banco_preguntas/servicioReactivos.ts', {
+    tests: ['tests/integracion/reactivosIngesta.test.ts'],
+    include: 'src/modulos/modulo_banco_preguntas/servicioReactivos.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_escaneo_omr/archivoTemporalOmr.ts', {
+    tests: ['tests/archivoTemporalOmr.test.ts', 'tests/integracion/omrJobsWorkflow.test.ts'],
+    include: 'src/modulos/modulo_escaneo_omr/archivoTemporalOmr.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts', {
+    tests: ['tests/integracion/omrJobsWorkflow.test.ts'],
+    include: 'src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts', {
+    tests: ['tests/integracion/omrJobsWorkflow.test.ts'],
+    include: 'src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts', {
+    tests: ['tests/pdfKitRenderer.security.test.ts'],
+    include: 'src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts'
   }]
 ]);
 
@@ -210,6 +246,21 @@ function buildFocusedCoverageArgsForFiles(files) {
     '--reporter=default',
     ...zeroThresholdArgs
   ];
+}
+
+function buildFocusedTestArgsForFiles(sourceFiles, changedTestFiles = []) {
+  const normalizedSources = [...new Set(sourceFiles.map((file) => String(file).replaceAll(String.fromCharCode(92), '/')))];
+  const profiles = normalizedSources.map((file) => focusedCoverageProfiles.get(file));
+  if (profiles.some((profile) => !profile)) return null;
+
+  const changedTests = changedTestFiles
+    .map((file) => String(file).replaceAll(String.fromCharCode(92), '/'))
+    .filter((file) => file.startsWith('apps/backend/tests/'))
+    .map((file) => file.slice('apps/backend/'.length));
+  const tests = [...new Set([...profiles.flatMap((profile) => profile?.tests ?? []), ...changedTests])];
+  if (tests.length === 0) return null;
+
+  return ['run', ...tests, '--pool=forks', '--reporter=default'];
 }
 
 function buildDifferentialCoveragePlan(changedFrom, changedFiles) {
@@ -500,7 +551,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
+export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildFocusedTestArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {

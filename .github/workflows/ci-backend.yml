@@ -45,6 +45,7 @@ jobs:
     outputs:
       escalation: ${{ steps.affected.outputs.escalation }}
       backend: ${{ steps.affected.outputs.group_backend }}
+      backend_omr: ${{ steps.affected.outputs.group_backend_omr }}
       shared: ${{ steps.affected.outputs.group_shared }}
       job_core_backend_portal: ${{ steps.affected.outputs.job_core_backend_portal }}
 
@@ -64,7 +65,7 @@ jobs:
     timeout-minutes: 180
     needs:
       - detectar_cambios
-    if: github.event_name == 'workflow_dispatch' || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared == 'true' || needs.detectar_cambios.outputs.job_core_backend_portal == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+    if: github.event_name == 'workflow_dispatch' || needs.detectar_cambios.outputs.backend_omr == 'true'
 
     steps:
       - name: Descargar código

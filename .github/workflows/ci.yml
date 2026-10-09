@@ -193,11 +193,20 @@ jobs:
 
       - name: Etapa test backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        env:
+          BACKEND_TEST_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: npm run test:backend:ci
 
       - name: Etapa test portal
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
-        run: npm run test:portal:ci
+        env:
+          VITEST_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
+        run: |
+          if [[ -n "$VITEST_CHANGED_FROM" ]] && ! git diff --quiet "$VITEST_CHANGED_FROM...HEAD" -- apps/portal_alumno_cloud/src apps/portal_alumno_cloud/tests; then
+            npm -C apps/portal_alumno_cloud run test -- --changed="$VITEST_CHANGED_FROM" --reporter=default
+          else
+            npm run test:portal:ci
+          fi
 
       - name: Etapa classroom-audit-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_classroom_audit_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -208,7 +217,7 @@ jobs:
         run: node --test scripts/tests/backend-coverage-batches.test.mjs
 
       - name: Etapa coverage backend
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        if: (github.event_name == 'workflow_dispatch' && inputs.force_full_ci)
         env:
           BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "5400000"
           BACKEND_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
@@ -227,7 +236,7 @@ jobs:
           include-hidden-files: true
 
       - name: Etapa coverage portal
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        if: (github.event_name == 'workflow_dispatch' && inputs.force_full_ci)
         env:
           MODULE_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: node scripts/testing/run-module-coverage.mjs --apps portal
@@ -235,24 +244,6 @@ jobs:
       - name: Etapa tdd-debt-check
         run: npm run test:coverage:exclusions:debt
 
-      - name: Preparar base para diff coverage (PR)
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$BASE_REF" ]] || ! git check-ref-format "refs/heads/$BASE_REF"; then
-            echo "Base ref inválida para diff coverage." >&2
-            exit 1
-          fi
-          git fetch --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-
-      - name: Etapa diff-coverage-check
-        env:
-          DIFF_COVERAGE_MIN: "90"
-          DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after';err instanceof Error ? err.message : String(err)"
-          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
-        run: npm run test:coverage:diff -- --apps backend,portal
 
       - name: Etapa build backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -307,7 +298,14 @@ jobs:
         run: npm -C apps/frontend run typecheck
 
       - name: Etapa test frontend
-        run: npm run test:frontend:ci
+        env:
+          VITEST_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
+        run: |
+          if [[ -n "$VITEST_CHANGED_FROM" ]] && ! git diff --quiet "$VITEST_CHANGED_FROM...HEAD" -- apps/frontend/src apps/frontend/tests; then
+            npm -C apps/frontend run test -- --changed="$VITEST_CHANGED_FROM" --pool=forks --reporter=default
+          else
+            npm run test:frontend:ci
+          fi
 
       - name: Etapa test client proyectos
         run: npm run test:client:proyectos:ci
@@ -316,6 +314,7 @@ jobs:
         run: npm run test:ux-quality:ci
 
       - name: Etapa coverage frontend
+        if: (github.event_name == 'workflow_dispatch' && inputs.force_full_ci)
         env:
           MODULE_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: node scripts/testing/run-module-coverage.mjs --apps frontend
@@ -323,22 +322,6 @@ jobs:
       - name: Etapa tdd-debt-check
         run: npm run test:coverage:exclusions:debt
 
-      - name: Preparar base para diff coverage (PR)
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$BASE_REF" ]] || ! git check-ref-format "refs/heads/$BASE_REF"; then
-            echo "Base ref inválida para diff coverage." >&2
-            exit 1
-          fi
-          git fetch --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-
-      - name: Etapa diff-coverage-check
-        env:
-          DIFF_COVERAGE_MIN: "90"
-        run: npm run test:coverage:diff -- --apps frontend
 
       - name: Etapa build frontend
         run: npm -C apps/frontend run build

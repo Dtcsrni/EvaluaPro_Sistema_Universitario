@@ -113,6 +113,40 @@ test('coverage diferencial enfoca la previsualizacion extraordinaria en su flujo
   assert.equal(plan.args.some((arg) => arg.startsWith('--changed=')), false);
 });
 
+test('coverage diferencial enfoca seguridad backend en pruebas directas de los nueve archivos', () => {
+  const changedFiles = [
+    'apps/backend/src/app.ts',
+    'apps/backend/src/configuracion.ts',
+    'apps/backend/src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts',
+    'apps/backend/src/modulos/modulo_banco_preguntas/sanitizarContenidoRico.ts',
+    'apps/backend/src/modulos/modulo_banco_preguntas/servicioReactivos.ts',
+    'apps/backend/src/modulos/modulo_escaneo_omr/archivoTemporalOmr.ts',
+    'apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts',
+    'apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts',
+    'apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts'
+  ];
+  const plan = buildDifferentialCoveragePlan('origin/main', changedFiles);
+
+  assert.equal(plan.mode, 'diferencial enfocado');
+  assert.equal(plan.skipReason, null);
+  for (const testFile of [
+    'tests/app.cors.test.ts',
+    'tests/configuracion.produccion.test.ts',
+    'tests/sanitizarContenidoRico.test.ts',
+    'tests/integracion/reactivosIngesta.test.ts',
+    'tests/archivoTemporalOmr.test.ts',
+    'tests/integracion/omrJobsWorkflow.test.ts',
+    'tests/pdfKitRenderer.security.test.ts'
+  ]) {
+    assert.ok(plan.args.includes(testFile), `falta prueba directa: ${testFile}`);
+  }
+  for (const changedFile of changedFiles) {
+    const coveragePath = `--coverage.include=${changedFile.replace('apps/backend/', '')}`;
+    assert.ok(plan.args.includes(coveragePath), `falta cobertura de fuente: ${coveragePath}`);
+  }
+  assert.equal(plan.args.some((arg) => arg.startsWith('--changed=')), false);
+});
+
 test('coverage diferencial cae a seleccion automatica ante fuentes sin perfil validado', () => {
   assert.equal(buildFocusedCoverageArgsForFiles([
     'apps/backend/src/modulos/modulo_calificacion/controlador.ts'

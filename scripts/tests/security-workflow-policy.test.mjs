@@ -93,21 +93,14 @@ test('workflows no interpolan expresiones GitHub directamente en bloques run', (
   }
 });
 
-test('solo CI central descarga la base del PR y valida refs de PR/tag antes de usarlas', () => {
+test('CI modular no descarga la base solo para cobertura y valida refs de publicación', () => {
   const baseRefConsumers = ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci.yml']
     .filter((workflowName) => {
       const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', workflowName), 'utf8');
       return /git fetch --depth=1 origin "refs\/heads\/\$BASE_REF:refs\/remotes\/origin\/\$BASE_REF"/.test(workflow);
     });
 
-  assert.deepEqual(baseRefConsumers, ['ci.yml'], 'solo CI central debe descargar la base para diff coverage');
-
-  for (const workflowName of baseRefConsumers) {
-    const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', workflowName), 'utf8');
-    assert.match(workflow, /BASE_REF:\s*\$\{\{ github\.base_ref \}\}/, workflowName);
-    assert.match(workflow, /git check-ref-format "refs\/heads\/\$BASE_REF"/, workflowName);
-    assert.match(workflow, /git fetch --depth=1 origin "refs\/heads\/\$BASE_REF:refs\/remotes\/origin\/\$BASE_REF"/, workflowName);
-  }
+  assert.deepEqual(baseRefConsumers, [], 'la CI modular no debe descargar la base solo para cobertura diferencial');
 
   const docsWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'autogen-docs.yml'), 'utf8');
   assert.match(docsWorkflow, /TARGET_BRANCH:\s*\$\{\{ github\.ref_name \}\}/);

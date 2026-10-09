@@ -1,0 +1,255 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547",
+  "status": "draft",
+  "generatedAt": "2026-10-09T02:26:15.862Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "agente-ia",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Eliminar el umbral arbitrario de diff coverage y hacer que CI seleccione pruebas afectadas por módulo, evitando la cobertura instrumentada repetida de 34 minutos."
+  },
+  "objective": "Actualizar CI y la política de pruebas para que los PR validen cambios mediante pruebas relacionadas y reserven cobertura integral para una ejecución completa explícita.",
+  "scope": [
+    "Selección incremental de tests backend, frontend y portal",
+    "Cobertura como diagnóstico sin umbral global por defecto",
+    "Contrato CI y documentación"
+  ],
+  "constraints": [
+    "Mantener docente-local como único flavor activo.",
+    "No declarar release completa mientras los checks remotos sigan pendientes.",
+    "No interpretar la ausencia local de node_modules como fallo funcional del código."
+  ],
+  "actions": [
+    {
+      "type": "ci-policy",
+      "summary": "Eliminé el gate porcentual 90%; diff coverage quedó diagnóstico y cobertura completa se ejecuta solo con force_full_ci.",
+      "timestamp": "2026-10-09T02:26:15.862Z",
+      "status": "ok"
+    },
+    {
+      "type": "incremental-tests",
+      "summary": "Backend, frontend y portal usan selección Vitest --changed cuando el diff toca sus fuentes o pruebas; cambios de dependencias/configuración caen a suite completa.",
+      "timestamp": "2026-10-09T02:26:15.862Z",
+      "status": "ok"
+    },
+    {
+      "type": "remote-ci",
+      "summary": "CI Checks, CodeQL, Installer Windows y workflows de módulos iniciados para el commit 9281c40a.",
+      "timestamp": "2026-10-09T02:26:15.862Z",
+      "status": "pending"
+    },
+    {
+      "type": "ci-failure-fixes",
+      "summary": "Corregí el contrato obsoleto de descarga de base y el parámetro sin uso que bloqueó lint backend; 13 pruebas focales pasan.",
+      "timestamp": "2026-10-09T02:29:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "targeted-gates",
+      "summary": "Dividí los gates extendidos por dominio y restringí CI tooling a contratos; 24 pruebas focales pasan.",
+      "timestamp": "2026-10-09T03:00:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "full-pr-impact",
+      "summary": "El resolver sobre todo el diff de PR #130 selecciona OMR, PDF, UX, backend/frontend afectados y contratos/docs, sin escalación full-core ni perf/compliance no relacionados.",
+      "timestamp": "2026-10-09T03:03:00Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/specs/ci_cd_integrity.spec.md",
+      "scripts/testing/run-backend-test-batches.mjs",
+      "scripts/testing/run-module-coverage.mjs",
+      ".github/workflows/ci.yml"
+    ],
+    "changed": [
+      ".github/workflows/ci.yml",
+      "scripts/testing/run-backend-test-batches.mjs",
+      "scripts/testing/check-diff-coverage.mjs",
+      "scripts/tests/ci-workflow-contract.test.mjs",
+      "scripts/tests/backend-test-batches.test.mjs",
+      "apps/backend/tests/archivoTemporalOmr.test.ts",
+      "scripts/tests/security-workflow-policy.test.mjs",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "ci/affected-test-map.json",
+      ".github/workflows/ci-backend.yml",
+      "scripts/tests/affected-ci-resolver.test.mjs",
+      "docs/specs/ci_cd_integrity.spec.md",
+      "docs/DEVOPS_BASELINE.md",
+      "docs/specs/ci_cd_integrity.spec.md",
+      "docs/PRUEBAS.md",
+      "docs/QA_GATE_CRITERIA.md",
+      "docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json",
+      "docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.md"
+    ],
+    "artifacts": [
+      "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/pull/130",
+      "9281c40aed4a537fc8aaeaf476b6bc200395b214"
+    ]
+  },
+  "commands": [
+    {
+      "name": "backend runner tests",
+      "command": "node --test scripts/tests/backend-test-batches.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 150,
+      "resultSummary": "8/8 pruebas pasaron.",
+      "timestamp": "2026-10-09T02:26:15.862Z"
+    },
+    {
+      "name": "CI modular coverage contract",
+      "command": "node --test --test-name-pattern=\"diff coverage no impone|CI selecciona pruebas afectadas\" scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 105,
+      "resultSummary": "2/2 contratos relevantes pasaron.",
+      "timestamp": "2026-10-09T02:26:15.862Z"
+    },
+    {
+      "name": "CI contracts full local",
+      "command": "node --test scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 153,
+      "resultSummary": "36/37 pasaron; el único fallo local fue MODULE_NOT_FOUND: proxy-addr, porque este checkout no tiene node_modules.",
+      "timestamp": "2026-10-09T02:26:15.862Z"
+    },
+    {
+      "name": "syntax and whitespace",
+      "command": "node --check scripts/testing/run-backend-test-batches.mjs; node --check scripts/testing/check-diff-coverage.mjs; node --check scripts/tests/backend-test-batches.test.mjs; node --check scripts/tests/ci-workflow-contract.test.mjs; git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1900,
+      "resultSummary": "Sintaxis y diff whitespace limpios.",
+      "timestamp": "2026-10-09T02:26:15.862Z"
+    },
+    {
+      "name": "push PR branch",
+      "command": "git push origin security/fix-codeql-v126",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3300,
+      "resultSummary": "Push exitoso; PR #130 actualizado al SHA 9281c40aed4a537fc8aaeaf476b6bc200395b214.",
+      "timestamp": "2026-10-09T02:26:15.862Z"
+    },
+    {
+      "name": "pipeline workflow contract",
+      "command": "npm run pipeline:contract:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 3682,
+      "resultSummary": "36/37 contratos; el fallo local es el mismo MODULE_NOT_FOUND: proxy-addr por dependencias no instaladas.",
+      "timestamp": "2026-10-09T02:26:37.3494029Z"
+    },
+    {
+      "name": "targeted tests after remote CI failures",
+      "command": "node --test scripts/tests/security-workflow-policy.test.mjs scripts/tests/backend-test-batches.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1657,
+      "resultSummary": "13/13 pasaron; incluye contrato CI modular y 8 tests del runner backend.",
+      "timestamp": "2026-10-09T02:29:00Z"
+    },
+    {
+      "name": "combined local contracts",
+      "command": "node --test scripts/tests/security-workflow-policy.test.mjs scripts/tests/backend-test-batches.test.mjs scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "partial",
+      "exitCode": 1,
+      "durationMs": 164,
+      "resultSummary": "50/51 pasaron; único fallo MODULE_NOT_FOUND: proxy-addr porque faltan dependencias locales.",
+      "timestamp": "2026-10-09T02:29:00Z"
+    },
+    {
+      "name": "whitespace",
+      "command": "git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 100,
+      "resultSummary": "Diff sin errores de whitespace.",
+      "timestamp": "2026-10-09T02:29:00Z"
+    },
+    {
+      "name": "installer step-up focused test",
+      "command": "node --test --test-name-pattern=\"step-up local inicializa\" scripts/tests/installer-hub-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3000,
+      "resultSummary": "1/1 pasó localmente; se aisla el JSON emitido por PowerShell con marcadores para no mezclar salida incidental.",
+      "timestamp": "2026-10-09T02:34:00Z"
+    },
+    {
+      "name": "affected CI resolver",
+      "command": "node --test scripts/tests/affected-ci-resolver.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 117,
+      "resultSummary": "10/10; grupos funcionales quedan aislados y CI tooling activa solo contratos.",
+      "timestamp": "2026-10-09T03:00:00Z"
+    },
+    {
+      "name": "CI changed-tests contract",
+      "command": "node --test --test-name-pattern=\"CI selecciona pruebas\" scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 92,
+      "resultSummary": "1/1; confirma backend --changed y OMR condicionado por grupo afectado.",
+      "timestamp": "2026-10-09T03:00:00Z"
+    },
+    {
+      "name": "workflow and backend runner contracts",
+      "command": "node --test scripts/tests/security-workflow-policy.test.mjs scripts/tests/backend-test-batches.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 180,
+      "resultSummary": "13/13.",
+      "timestamp": "2026-10-09T03:00:00Z"
+    },
+    {
+      "name": "full PR impact resolver",
+      "command": "node scripts/testing/resolve-affected-ci.mjs --base=1c39a4fc6d03d5818bb91a4192ba5b817f2a23e5 --head=HEAD",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 100,
+      "resultSummary": "escalation=affected; seleccionó OMR, PDF print y UX visual; no activó full-core, perf ni compliance extendida.",
+      "timestamp": "2026-10-09T03:03:00Z"
+    }
+  ],
+  "decisions": [
+    "Usar Vitest --changed para seleccionar archivos de prueba relacionados con el cambio mediante dependencias estáticas.",
+    "Fallback a suite completa cuando no hay cambios modulares comprobables; Vitest también fuerza suite completa ante cambios de package.json/configuración.",
+    "Quitar la cobertura instrumentada de PR y de la corrida nocturna para no duplicar ejecución; conservarla con dispatch force_full_ci.",
+    "Mapear gates funcionales por dominio y limitar cambios CI a sus contratos; mantener full-core para runtime compartido y full en schedule/dispatch."
+  ],
+  "assumptions": [
+    "El contrato de PR ejecutará npm ci y por ello tendrá las dependencias requeridas, incluida proxy-addr.",
+    "Los workflows remotos iniciados validarán la semántica de --changed en el entorno GitHub."
+  ],
+  "risks": [
+    "Vitest no está instalado en el clon local; la ejecución funcional TypeScript depende de CI remoto.",
+    "CI debe repetirse sobre el commit que contiene las correcciones y el mapa de gates por dominio; los checks de PR #130 aún están pendientes."
+  ],
+  "nextStep": "Subir el mapa afectado, revisar los checks nuevos y luego continuar merge de PRs y verificar la release pública v1.2.6 con E2E completa.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "CI remota terminal",
+      "merge y release pública verificada"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\dep-sync-sync130",
+    "branch": "security/fix-codeql-v126",
+    "commit": "9281c40a + 06016d58 + 6eae5986 + 60399c00; refinamiento root package scripts pending commit",
+    "workingTreeStatus": "M ci/affected-test-map.json; M scripts/tests/affected-ci-resolver.test.mjs; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.md"
+  }
+}

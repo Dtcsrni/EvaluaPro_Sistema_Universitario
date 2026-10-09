@@ -23,7 +23,6 @@ Fecha de baseline: 2026-02-13.
   - `npm run build`
   - `npm run test:ci`
   - `npm run test:coverage:exclusions:debt`
-  - `npm run test:coverage:diff`
 - Contrato agnóstico de pipeline:
   - `ci/pipeline.contract.md`
   - `ci/pipeline.matrix.json`
@@ -64,7 +63,8 @@ Fecha de baseline: 2026-02-13.
   - La política está protegida por `scripts/tests/dependabot-security-policy.test.mjs`; cada PR sigue los gates de CI antes de integrarse.
 
 ## Enforcements TDD activos
-- Diff coverage bloqueante en CI (`DIFF_COVERAGE_MIN=90`).
+- Las PR ejecutan pruebas afectadas por módulo; los reportes de cobertura son diagnósticos y la cobertura integral se solicita con `workflow_dispatch` + `force_full_ci`.
+- Los gates extendidos del mapa `ci/affected-test-map.json` se aíslan por dominio funcional; cambios de CI no ejecutan E2E de producto no relacionadas. `schedule` y `force_full_ci` conservan las suites completas.
 - Registro de deuda temporal de exclusiones de coverage:
   - `docs/tdd-exclusions-debt.json`
 - Verificador bloqueante de deuda vencida:

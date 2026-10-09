@@ -1,0 +1,108 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "security-boundaries-01a0f1b5-90bd-7121-91d0-2e8ce4267547",
+  "status": "draft",
+  "generatedAt": "2026-10-08T14:41:16Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "agente-ia",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Cerrar los hallazgos de Dependabot/CodeQL, publicar la siguiente release docente-local, validarla sobre el asset público y actualizar README, documentación y marketing."
+  },
+  "objective": "Integrar cambios documentados de seguridad y CI, estabilizar la rama principal y verificar la release instalable pública v1.2.6.",
+  "scope": [
+    "Sanitización de contenido rico y fallback del editor",
+    "CORS, cargas OMR, entidades PDF y serialización de comandos",
+    "E2E de release draft/public y documentación asociada",
+    "Release docente-local v1.2.6"
+  ],
+  "constraints": [
+    "Mantener el producto limitado a docente-local; flavors futuros siguen aplazados.",
+    "No afirmar que la release funciona hasta completar el E2E del asset público de GitHub.",
+    "No registrar credenciales ni secretos."
+  ],
+  "actions": [
+    {
+      "type": "security-fix",
+      "summary": "Corregido el cierre huérfano de span cuando se rechaza un marcador LaTeX inválido.",
+      "timestamp": "2026-10-08T14:41:16Z",
+      "status": "ok"
+    },
+    {
+      "type": "ci",
+      "summary": "CI remota del commit 9efa2ba3 en PR #130 está en ejecución; un intento anterior identificó el caso límite que se corrigió.",
+      "timestamp": "2026-10-08T14:41:16Z",
+      "status": "pending"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "apps/backend/src/modulos/modulo_banco_preguntas/sanitizarContenidoRico.ts",
+      "apps/backend/tests/sanitizarContenidoRico.test.ts",
+      "docs/handoff/trace.schema.json",
+      "docs/specs/ci_cd_integrity.spec.md"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_banco_preguntas/sanitizarContenidoRico.ts",
+      "docs/specs/security_boundaries_hardening.spec.md",
+      "docs/handoff/sesiones/2026-10-08/security-boundaries-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json"
+    ],
+    "artifacts": [
+      "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/pull/130"
+    ]
+  },
+  "commands": [
+    {
+      "name": "focused backend test",
+      "command": "npm test -- tests/sanitizarContenidoRico.test.ts",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 939,
+      "resultSummary": "No inició: vitest no está instalado en el checkout local.",
+      "timestamp": "2026-10-08T14:41:16Z"
+    },
+    {
+      "name": "diff whitespace check",
+      "command": "git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Sin errores de whitespace en el cambio local.",
+      "timestamp": "2026-10-08T14:41:16Z"
+    }
+  ],
+  "decisions": [
+    "Balancear únicamente aperturas span aprobadas y omitir cierres sin apertura segura correspondiente.",
+    "Dejar el cierre/publicación condicionado a CI y al E2E del instalador de Windows."
+  ],
+  "assumptions": [
+    "El repositorio y el PR #130 son los destinos autorizados para integrar estos cambios.",
+    "La estrategia acordada mantiene el alcance docente-local."
+  ],
+  "risks": [
+    "La prueba backend focal no se pudo ejecutar localmente por dependencias ausentes.",
+    "El runner Windows y el E2E público pueden revelar fallos funcionales adicionales."
+  ],
+  "nextStep": "Esperar CI completa en el último SHA, resolver fallos, integrar PR #130 y ejecutar el flujo de release con verificación E2E del asset público.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "CI completa verde",
+      "merge de PR #130",
+      "publicación v1.2.6",
+      "E2E completa descargando el asset público"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\docs-marketing-refresh",
+    "branch": "security/fix-codeql-v126",
+    "commit": "9efa2ba3e83de5a120b70f0bf528bc71fa345afd",
+    "workingTreeStatus": "M docs/specs/security_boundaries_hardening.spec.md; M docs/handoff/sesiones/2026-10-08/security-boundaries-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json"
+  }
+}
