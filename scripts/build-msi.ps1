@@ -391,7 +391,7 @@ function Add-DocenteNativeCompiledPayload {
       }
       Push-Location $npmWorkspaceRoot
       try {
-        & $npmCommand ci --workspace=apps/backend --include-workspace-root=false --ignore-scripts
+        & $npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend desde el lock raíz (exit=$LASTEXITCODE)." }
         Copy-Item -LiteralPath (Join-Path $npmWorkspaceRoot 'node_modules') -Destination $backendTarget -Recurse -Force
       } finally {
@@ -404,6 +404,11 @@ function Add-DocenteNativeCompiledPayload {
     Push-Location $backendTarget
     try {
       $nodeForBuild = if (Test-Path (Join-Path $RootPath 'runtime/node/node.exe')) { Join-Path $RootPath 'runtime/node/node.exe' } else { 'node' }
+      $prismaCliPath = Join-Path $RootPath 'node_modules/prisma/build/index.js'
+      if (-not (Test-Path -LiteralPath $prismaCliPath)) {
+        $prismaCliPath = Join-Path $backendTarget 'node_modules/prisma/build/index.js'
+      }
+      if (-not (Test-Path -LiteralPath $prismaCliPath)) { throw 'No se encontró Prisma CLI en el entorno de build.' }
       $stagedSchemaPath = Join-Path $backendTarget 'prisma/schema.prisma'
       $stagedSchema = Get-Content -LiteralPath $stagedSchemaPath -Raw -Encoding utf8
       if ($stagedSchema -match 'binaryTargets\s*=\s*\[\s*"native"\s*,\s*"debian-openssl-3\.0\.x"\s*\]') {
@@ -411,14 +416,14 @@ function Add-DocenteNativeCompiledPayload {
         [IO.File]::WriteAllText($stagedSchemaPath, $stagedSchema, (New-Object System.Text.UTF8Encoding($false)))
         Write-Host '[msi] Schema docente reducido a engine native (Windows); se omite engine Linux no utilizado.'
       }
-      & $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') generate --config (Join-Path $backendTarget 'prisma.config.mjs') --schema $stagedSchemaPath
+      & $nodeForBuild $prismaCliPath generate --config (Join-Path $backendTarget 'prisma.config.mjs') --schema $stagedSchemaPath
       if ($LASTEXITCODE -ne 0) { throw "Falló generación del cliente Prisma nativo (exit=$LASTEXITCODE)." }
       $previousErrorActionPreference = $ErrorActionPreference
       $ErrorActionPreference = 'Continue'
       $env:PRISMA_HIDE_UPDATE_MESSAGE = '1'
       $env:CHECKPOINT_DISABLE = '1'
       try {
-        $schemaSqlOutput = @(& $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') migrate diff --from-empty --to-schema $stagedSchemaPath --config (Join-Path $backendTarget 'prisma.config.mjs') --script 2>&1 | ForEach-Object { [string]$_ })
+        $schemaSqlOutput = @(& $nodeForBuild $prismaCliPath migrate diff --from-empty --to-schema $stagedSchemaPath --config (Join-Path $backendTarget 'prisma.config.mjs') --script 2>&1 | ForEach-Object { [string]$_ })
       } finally {
         $ErrorActionPreference = $previousErrorActionPreference
       }
@@ -445,8 +450,10 @@ function Add-DocenteNativeCompiledPayload {
       # prune contra el contrato de producción antes de la poda específica de
       # Prisma evita transportar Vitest, TypeScript u otros paquetes ajenos al
       # runtime nativo.
-      & $npmCommand prune --omit=dev --ignore-scripts --package-lock=false
-      if ($LASTEXITCODE -ne 0) { throw "Falló poda de dependencias de desarrollo (exit=$LASTEXITCODE)." }
+      if ($reusePrebuiltDependencies) {
+        & $npmCommand prune --omit=dev --ignore-scripts --package-lock=false
+        if ($LASTEXITCODE -ne 0) { throw "Falló poda de dependencias de desarrollo (exit=$LASTEXITCODE)." }
+      }
 
       # El cliente ya fue generado y el esquema SQL ya quedó materializado.
       # El runtime Windows no necesita la CLI Prisma, sus engines de descarga,
