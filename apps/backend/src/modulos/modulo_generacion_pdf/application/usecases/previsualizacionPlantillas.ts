@@ -219,7 +219,7 @@ function extraerPreguntasHastaPagina(mapaOmr: {
   return ids;
 }
 
-async function generarExtraordinarioMaximo(params: {
+export async function generarExtraordinarioMaximo(params: {
   preguntas: PreguntaBase[];
   paginasObjetivo: number;
   renderizar: (preguntas: PreguntaBase[]) => Promise<ResultadoGeneracionPdf>;
