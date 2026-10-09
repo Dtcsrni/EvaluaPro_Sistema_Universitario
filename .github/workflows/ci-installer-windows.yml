@@ -391,7 +391,7 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
-          target_commitish: ${{ github.sha }}
+          target_commitish: ${{ inputs.source_sha || github.sha }}
           draft: true
           prerelease: ${{ contains(inputs.release_tag || github.ref_name, 'alpha') || contains(inputs.release_tag || github.ref_name, 'beta') || contains(inputs.release_tag || github.ref_name, 'rc') }}
           make_latest: false
