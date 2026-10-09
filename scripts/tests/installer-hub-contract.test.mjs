@@ -416,9 +416,10 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
   assert.match(buildMsi, /package-lock\.json/);
   assert.ok(buildMsi.includes("npmCommand ci --workspace=apps/backend --include-workspace-root=false --omit=dev --ignore-scripts"));
-  assert.match(buildMsi, /workspaceNodeModules[\\s\\S]*?Copy-Item -LiteralPath \\$_\\.FullName -Destination \\$destinationModulePath/);
-  assert.match(buildMsi, /backendPackageManifest\\.dependencies\\.PSObject\\.Properties\\.Name/);
-  assert.match(buildMsi, /Falta dependencia de runtime declarada en package\\.json/);
+  assert.ok(buildMsi.includes("Get-ChildItem -LiteralPath $workspaceNodeModules -Recurse -File -Force"));
+  assert.ok(buildMsi.includes("Copy-Item -LiteralPath $_.FullName -Destination $destinationModulePath -Force"));
+  assert.ok(buildMsi.includes("$backendPackageManifest.dependencies.PSObject.Properties.Name"));
+  assert.ok(buildMsi.includes("Falta dependencia de runtime declarada en package.json"));
   assert.match(buildMsi, /requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist', '\@napi-rs\/canvas'/);
   assert.match(buildMsi, /\.pdf-runtime-smoke\.mjs/);
   assert.match(buildMsi, /PDF TEST/);
