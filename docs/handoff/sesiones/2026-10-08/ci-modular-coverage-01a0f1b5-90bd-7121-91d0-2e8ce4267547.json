@@ -55,6 +55,12 @@
       "summary": "Dividí los gates extendidos por dominio y restringí CI tooling a contratos; 24 pruebas focales pasan.",
       "timestamp": "2026-10-09T03:00:00Z",
       "status": "ok"
+    },
+    {
+      "type": "full-pr-impact",
+      "summary": "El resolver sobre todo el diff de PR #130 selecciona OMR, PDF, UX, backend/frontend afectados y contratos/docs, sin escalación full-core ni perf/compliance no relacionados.",
+      "timestamp": "2026-10-09T03:03:00Z",
+      "status": "ok"
     }
   ],
   "files": {
@@ -207,6 +213,15 @@
       "durationMs": 180,
       "resultSummary": "13/13.",
       "timestamp": "2026-10-09T03:00:00Z"
+    },
+    {
+      "name": "full PR impact resolver",
+      "command": "node scripts/testing/resolve-affected-ci.mjs --base=1c39a4fc6d03d5818bb91a4192ba5b817f2a23e5 --head=HEAD",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 100,
+      "resultSummary": "escalation=affected; seleccionó OMR, PDF print y UX visual; no activó full-core, perf ni compliance extendida.",
+      "timestamp": "2026-10-09T03:03:00Z"
     }
   ],
   "decisions": [
@@ -234,7 +249,7 @@
   "repo": {
     "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\dep-sync-sync130",
     "branch": "security/fix-codeql-v126",
-    "commit": "9281c40a + 06016d58 + 6eae5986; targeted gate map pending commit",
-    "workingTreeStatus": "M .github/workflows/ci-backend.yml; M ci/affected-test-map.json; M docs/DEVOPS_BASELINE.md; M docs/specs/ci_cd_integrity.spec.md; M scripts/tests/affected-ci-resolver.test.mjs; M scripts/tests/ci-workflow-contract.test.mjs; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.md"
+    "commit": "9281c40a + 06016d58 + 6eae5986 + 60399c00; refinamiento root package scripts pending commit",
+    "workingTreeStatus": "M ci/affected-test-map.json; M scripts/tests/affected-ci-resolver.test.mjs; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.json; M docs/handoff/sesiones/2026-10-08/ci-modular-coverage-01a0f1b5-90bd-7121-91d0-2e8ce4267547.md"
   }
 }

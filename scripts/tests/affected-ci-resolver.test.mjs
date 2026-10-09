@@ -76,6 +76,7 @@ test('cambios CI y release ejecutan contratos específicos sin correr todos los 
 test('workflow Package Images y contratos de workflows activan las suites que validan cambios CI', () => {
   const packageWorkflow = evaluateAffectedChangeSet(config, ['.github/workflows/package.yml']);
   const workflowContract = evaluateAffectedChangeSet(config, ['scripts/tests/ci-workflow-contract.test.mjs']);
+  const rootScriptPolicy = evaluateAffectedChangeSet(config, ['package.json']);
 
   assert.equal(packageWorkflow.matchedGroups.release, true);
   assert.equal(packageWorkflow.escalation, 'affected');
@@ -85,6 +86,10 @@ test('workflow Package Images y contratos de workflows activan las suites que va
   assert.equal(workflowContract.matchedGroups.shared, false);
   assert.equal(workflowContract.escalation, 'affected');
   assert.equal(workflowContract.matchedJobs.core_contract_docs_gov, true);
+  assert.equal(rootScriptPolicy.matchedGroups.ci_tooling, true);
+  assert.equal(rootScriptPolicy.matchedGroups.shared, false);
+  assert.equal(rootScriptPolicy.escalation, 'affected');
+  assert.equal(rootScriptPolicy.matchedJobs.ext_funcionales, false);
 });
 
 test('los gates OMR solo corren cuando cambia OMR o su dataset', () => {

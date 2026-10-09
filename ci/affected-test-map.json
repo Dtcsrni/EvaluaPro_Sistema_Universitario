@@ -157,6 +157,7 @@
     },
     "ci_tooling": {
       "paths": [
+        "package.json",
         "scripts/testing/**",
         "scripts/tests/ci-workflow-contract.test.mjs",
         "scripts/tests/affected-ci-resolver.test.mjs",
@@ -230,7 +231,6 @@
     },
     "shared": {
       "paths": [
-        "package.json",
         "package-lock.json",
         "docker-compose.yml",
         "apps/backend/src/compartido/**",
@@ -282,10 +282,10 @@
       "groups": ["qa_manifest"]
     },
     "dsr-flow-test": {
-      "groups": ["backend_privacy", "compliance", "shared"]
+      "groups": ["backend_privacy", "compliance"]
     },
     "compliance-evidence": {
-      "groups": ["backend_privacy", "compliance", "portal", "shared"]
+      "groups": ["backend_privacy", "compliance", "portal"]
     }
   },
   "jobs": {

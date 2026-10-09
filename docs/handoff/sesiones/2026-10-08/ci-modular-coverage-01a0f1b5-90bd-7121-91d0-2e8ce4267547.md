@@ -36,6 +36,7 @@
 - [pending] remote-ci: CI Checks, CodeQL, Installer Windows y workflows de módulos iniciados para el commit 9281c40a. (2026-10-09T02:26:15.862Z)
 - [ok] ci-failure-fixes: Corregí el contrato obsoleto de descarga de base y el parámetro sin uso que bloqueó lint backend; 13 pruebas focales pasan. (2026-10-09T02:29:00Z)
 - [ok] targeted-gates: Dividí los gates extendidos por dominio y restringí CI tooling a contratos; 24 pruebas focales pasan. (2026-10-09T03:00:00Z)
+- [ok] full-pr-impact: Ejecuté el resolver sobre todo el diff de PR #130; selecciona OMR, PDF, UX, backend/frontend afectados y contratos/docs, sin escalación full-core ni perf/compliance no relacionados. (2026-10-09T03:03:00Z)
 
 ## Archivos leidos
 - AGENTS.md
@@ -92,6 +93,8 @@
 - workflow and runner contracts: `node --test scripts/tests/security-workflow-policy.test.mjs scripts/tests/backend-test-batches.test.mjs` -> ok (exitCode=0)
   resultado: 13/13.
 - map JSON and diff whitespace: validación de parseo JSON y `git diff --check` -> ok (exitCode=0).
+- full PR impact resolver: `node scripts/testing/resolve-affected-ci.mjs --base=1c39a4fc6d03d5818bb91a4192ba5b817f2a23e5 --head=HEAD` -> ok (exitCode=0)
+  resultado: `escalation=affected`; selected gates: OMR, PDF print y UX visual; no perf, compliance extendida ni full-core.
 
 ## Decisiones
 - Usar Vitest --changed para seleccionar archivos de prueba relacionados con el cambio mediante dependencias estáticas.
@@ -104,7 +107,7 @@
 
 ## Riesgos abiertos
 - Vitest no está instalado en el clon local; la ejecución funcional TypeScript depende de CI remoto.
-- CI debe repetirse sobre el commit que contiene las correcciones y el mapa de gates por dominio; PR #130 no está listo para merge ni release.
+- CI debe repetirse sobre el mapa afinado; los checks remotos del último commit están pendientes.
 
 ## Estado del arbol
 ```txt
