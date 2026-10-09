@@ -586,6 +586,7 @@ test('Dockerfile frontend incluye el wrapper y la política de configuración de
 
 test('release estable valida el asset desde su URL pública y lo oculta si falla la E2E', () => {
   const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const finalizeIndex = installer.indexOf('finalize_installer_release:');
   const publicE2eIndex = installer.indexOf('verify_public_installer_e2e:');
   const rollbackIndex = installer.indexOf('redraft_failed_public_installer_release:');
