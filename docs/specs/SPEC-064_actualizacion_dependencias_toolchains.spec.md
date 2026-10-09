@@ -18,10 +18,7 @@ su EULA. Se excluyen versiones prerelease y cambios de datos de usuario.
 
 ## Requisitos Funcionales
 
-- **REQ-001:** Actualizar dependencias directas y transitivas de los workspaces
-  npm a la version estable mas reciente compatible con la migracion aprobada;
-  mantener sincronizados los cuatro package-lock existentes y preservar entradas
-  ajenas ya declaradas, incluido `lucide-react`.
+- **REQ-001:** Mantener las actualizaciones npm desde la raíz única del workspace, usando `package-lock.json` como lock canónico. Si una ruta del instalador conserva un lockfile hijo, actualizarlo en la misma PR para que `npm ci` raíz y del instalador queden sincronizados; preservar dependencias ajenas al cambio, incluido `lucide-react`.
 - **REQ-002:** Migrar Prisma/SQLite, cliente generado, esquema/configuracion e
   imports requeridos por la version estable seleccionada, sin modificar datos ni
   aplicar migraciones destructivas a bases de usuario.
@@ -38,6 +35,7 @@ su EULA. Se excluyen versiones prerelease y cambios de datos de usuario.
 
 ## Criterios de Aceptación
 
+- Dependabot define una sola ubicación npm `/` y rebasa automáticamente las PR; el contrato correspondiente falla si reaparecen configuraciones npm anidadas.
 - `npm ci` reproduce las dependencias desde los locks sin errores.
 - Cada workspace genera/valida el cliente Prisma esperado sin alterar bases de
   datos existentes; las pruebas SQLite de backend y portal pasan.
