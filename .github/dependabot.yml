@@ -17,7 +17,6 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-      - "dependabot"
 
   - package-ecosystem: "npm"
     directory: "/apps/backend"
@@ -32,7 +31,6 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-      - "dependabot"
 
   - package-ecosystem: "npm"
     directory: "/apps/frontend"
@@ -47,7 +45,6 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-      - "dependabot"
 
   - package-ecosystem: "npm"
     directory: "/apps/portal_alumno_cloud"
@@ -62,4 +59,3 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-      - "dependabot"
