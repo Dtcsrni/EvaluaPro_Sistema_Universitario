@@ -5,7 +5,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 
 ## Politica TDD (obligatoria)
 - Todo cambio funcional debe incluir prueba nueva o ajuste de regresion en el mismo PR.
-- En PR se ejecutan las pruebas relacionadas con cambios por módulo; la cobertura se usa como diagnóstico y no tiene un umbral global obligatorio.
+- En PR backend utiliza perfiles fuente→tests para evitar que un módulo raíz (por ejemplo `app.ts`) arrastre todo el grafo de imports; sin perfil confiable conserva `Vitest --changed` y no reduce la selección a ciegas. Frontend y portal usan `--changed` por módulo. La cobertura se usa como diagnóstico y no tiene un umbral global obligatorio.
 - Las exclusiones de cobertura solo se aceptan como deuda temporal con:
   - owner asignado,
   - fecha de expiracion,

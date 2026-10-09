@@ -29,7 +29,10 @@ const corsOrigenes = parsearListaCsv(process.env.CORS_ORIGENES ?? 'http://localh
   } catch {
     throw new Error('CORS_ORIGENES debe contener orígenes HTTP(S) válidos');
   }
-  if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origen) {
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('CORS_ORIGENES debe contener orígenes HTTP(S) válidos');
+  }
+  if (url.origin !== origen) {
     throw new Error('CORS_ORIGENES debe contener orígenes HTTP(S) exactos; no se permite el comodín ni rutas');
   }
   return origen;

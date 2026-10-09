@@ -365,11 +365,13 @@ test('CI selecciona pruebas afectadas por módulo y reserva cobertura global par
   const central = fs.readFileSync(workflowPath, 'utf8');
   const coreBackend = extractJobBlock(central, 'core_backend_portal');
   const coreFrontend = extractJobBlock(central, 'core_frontend');
+  const backendRunner = fs.readFileSync(path.join(root, 'scripts', 'testing', 'run-backend-test-batches.mjs'), 'utf8');
   const moduleWorkflows = ['ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml'];
 
   assert.match(coreBackend, /BACKEND_TEST_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
   assert.match(coreBackend, /run: npm run test:backend:ci/);
-  assert.match(coreBackend, /--changed="\$VITEST_CHANGED_FROM"/);
+  assert.match(backendRunner, /buildFocusedTestArgsForFiles/);
+  assert.match(backendRunner, /modo Vitest --changed \(source sin perfil focal\)/);
   assert.match(coreFrontend, /VITEST_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
   assert.match(coreFrontend, /--changed=\"\$VITEST_CHANGED_FROM\"/);
   assert.match(coreBackend, /Etapa coverage backend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);

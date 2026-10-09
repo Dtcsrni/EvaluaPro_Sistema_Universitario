@@ -244,6 +244,21 @@ function buildFocusedCoverageArgsForFiles(files) {
   ];
 }
 
+function buildFocusedTestArgsForFiles(sourceFiles, changedTestFiles = []) {
+  const normalizedSources = [...new Set(sourceFiles.map((file) => String(file).replaceAll(String.fromCharCode(92), '/')))];
+  const profiles = normalizedSources.map((file) => focusedCoverageProfiles.get(file));
+  if (profiles.some((profile) => !profile)) return null;
+
+  const changedTests = changedTestFiles
+    .map((file) => String(file).replaceAll(String.fromCharCode(92), '/'))
+    .filter((file) => file.startsWith('apps/backend/tests/'))
+    .map((file) => file.slice('apps/backend/'.length));
+  const tests = [...new Set([...profiles.flatMap((profile) => profile?.tests ?? []), ...changedTests])];
+  if (tests.length === 0) return null;
+
+  return ['run', ...tests, '--pool=forks', '--reporter=default'];
+}
+
 function buildDifferentialCoveragePlan(changedFrom, changedFiles) {
   if (!String(changedFrom ?? '').trim()) throw new Error('referencia Git válida requerida para cobertura diferencial');
   if (!Array.isArray(changedFiles)) throw new TypeError('changedFiles debe ser un arreglo');
@@ -532,7 +547,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
+export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildFocusedTestArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
