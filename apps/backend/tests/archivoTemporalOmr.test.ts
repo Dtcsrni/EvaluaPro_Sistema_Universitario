@@ -40,7 +40,10 @@ describe('rutas temporales OMR', () => {
     try {
       const app = express();
       app.post('/carga', crearCargadorArchivosPdfOmr(4, tempRoot), (_req, res) => res.sendStatus(204));
-      app.use((_error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => res.sendStatus(400));
+      app.use((_error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+        void next;
+        res.sendStatus(400);
+      });
 
       await request(app)
         .post('/carga')
