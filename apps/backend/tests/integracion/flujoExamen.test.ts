@@ -666,7 +666,7 @@ describe('flujo de examen', () => {
     expect(resumenPreview.body.fuentesExtraordinario).toEqual(['Primer parcial Diseño Web', 'Segundo parcial Diseño Web']);
     expect(resumenPreview.body.totalUsados).toBeGreaterThan(0);
     expect(resumenPreview.body.totalUsados).toBeLessThan(preguntasIds.length);
-    await request(app)
+    const pdfPreviewInicial = await request(app)
       .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf`)
       .set(auth)
       .expect(200);
@@ -674,6 +674,16 @@ describe('flujo de examen', () => {
     expect(fuenteDespuesPreview.bookletConfig).toBe(fuenteAntesPreview.bookletConfig);
     expect(fuenteDespuesPreview.blueprintJson).toBe(fuenteAntesPreview.blueprintJson);
     expect(fuenteDespuesPreview.updatedAt).toEqual(fuenteAntesPreview.updatedAt);
+
+    await request(app).post('/api/autenticacion/preferencias/pdf').set(auth).send({
+      institucion: 'Institución actualizada para refrescar el PDF'
+    }).expect(200);
+    const pdfRefrescado = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf?refresh=1`)
+      .set(auth)
+      .expect(200);
+    expect(Buffer.from(pdfRefrescado.body).subarray(0, 5).toString()).toBe('%PDF-');
+    expect(Buffer.from(pdfRefrescado.body).equals(Buffer.from(pdfPreviewInicial.body))).toBe(false);
 
     expect(await prisma.examenGenerado.count({ where: { loteId: loteAjenoId } })).toBe(0);
 
