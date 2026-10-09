@@ -81,7 +81,7 @@ describe('flujo de examen', () => {
     const resultado = await generarExtraordinarioMaximo({ preguntas, paginasObjetivo: 2, renderizar });
 
     expect(resultado.mapaOmr.paginas.flatMap((pagina) => pagina.preguntas.map((pregunta) => pregunta.idPregunta))).toHaveLength(2);
-    expect(llamadas).toHaveLength(4);
+    expect(llamadas).toHaveLength(3);
   });
 
   const preguntasPorEscenario = 20;
@@ -281,26 +281,29 @@ describe('flujo de examen', () => {
         generatedAt: '2026-09-24T00:00:00Z',
         sourceDocumentSha256: null
       },
-      items: Array.from({ length: total }, (_, index) => ({
-        externalKey: `flujo-examen-${sufijo}-${index + 1}`,
-        itemId: null,
-        expectedVersion: null,
-        format: 'omr.mcq5',
-        stem: { format: 'richtext', value: `Pregunta ${index + 1}` },
-        options: [
-          `Separar responsabilidades y validar cada dato al recibirlo en la aplicación ${index + 1}.`,
-          `Duplicar las mismas reglas de validación dentro de cada pantalla del proyecto ${index + 1}.`,
-          `Aceptar cualquier entrada y corregirla después de guardar el estado ${index + 1}.`,
-          `Compartir variables globales para omitir contratos entre componentes ${index + 1}.`,
-          `Desactivar la validación para acelerar todas las rutas ${index + 1}.`
-        ].map((value, optionIndex) => ({
-          key: ['A', 'B', 'C', 'D', 'E'][optionIndex],
-          value,
-          isCorrect: optionIndex === 0
-        })),
-        metadata: { difficultyHypothesis: 'medium' },
-        provenance: { origin: 'authored', confidence: 1, notes: 'fixture de flujo de examen' }
-      }))
+      items: Array.from({ length: total }, (_, index) => {
+        const numero = String(index + 1).padStart(3, '0');
+        return {
+          externalKey: `flujo-examen-${sufijo}-${numero}`,
+          itemId: null,
+          expectedVersion: null,
+          format: 'omr.mcq5',
+          stem: { format: 'richtext', value: `Pregunta ${numero}` },
+          options: [
+            `Separar responsabilidades y validar cada dato al recibirlo en la aplicación ${numero}.`,
+            `Duplicar las mismas reglas de validación dentro de cada pantalla del proyecto ${numero}.`,
+            `Aceptar cualquier entrada y corregirla después de guardar el estado ${numero}.`,
+            `Compartir variables globales para omitir contratos entre componentes ${numero}.`,
+            `Desactivar la validación para acelerar todas las rutas ${numero}.`
+          ].map((value, optionIndex) => ({
+            key: ['A', 'B', 'C', 'D', 'E'][optionIndex],
+            value,
+            isCorrect: optionIndex === 0
+          })),
+          metadata: { difficultyHypothesis: 'medium' },
+          provenance: { origin: 'authored', confidence: 1, notes: 'fixture de flujo de examen' }
+        };
+      })
     };
     const preview = await request(app)
       .post('/api/banco-preguntas/importaciones/preview')
@@ -638,6 +641,10 @@ describe('flujo de examen', () => {
     expect(resumenPreview.body.fuentesExtraordinario).toEqual(['Primer parcial Diseño Web', 'Segundo parcial Diseño Web']);
     expect(resumenPreview.body.totalUsados).toBeGreaterThan(0);
     expect(resumenPreview.body.totalUsados).toBeLessThan(preguntasIds.length);
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf`)
+      .set(auth)
+      .expect(200);
     const fuenteDespuesPreview = await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } });
     expect(fuenteDespuesPreview.bookletConfig).toBe(fuenteAntesPreview.bookletConfig);
     expect(fuenteDespuesPreview.blueprintJson).toBe(fuenteAntesPreview.blueprintJson);
