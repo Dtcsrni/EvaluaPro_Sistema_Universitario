@@ -611,3 +611,15 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(installer, /target_commitish: \$\{\{ github\.sha \}\}/);
   assert.match(installer, /ref: \$\{\{ inputs\.release_tag \|\| github\.ref \}\}/);
 });
+test('smoke Windows fija la identidad antes de la primera acción del broker', () => {
+  const smoke = fs.readFileSync(path.join(root, 'scripts', 'tests', 'windows-release-smoke.test.mjs'), 'utf8');
+  const requestedAtIndex = smoke.indexOf('const openRequestedAt = new Date().toISOString();');
+  const verifyIndex = smoke.indexOf("'-Action', 'verify-installation'");
+  const openIndex = smoke.indexOf("'-Action', 'open-dashboard'");
+  const verifyRunIdIndex = smoke.indexOf("'-RunId', openRunId", verifyIndex);
+  const openRunIdIndex = smoke.indexOf("'-RunId', openRunId", openIndex);
+
+  assert.ok(requestedAtIndex >= 0 && requestedAtIndex < verifyIndex, 'la identidad debe fecharse antes de verify-installation');
+  assert.ok(verifyIndex >= 0 && verifyRunIdIndex > verifyIndex && verifyRunIdIndex < openIndex, 'verify-installation debe usar el RunId del smoke');
+  assert.ok(openIndex >= 0 && openRunIdIndex > openIndex, 'open-dashboard debe conservar el mismo RunId');
+});
