@@ -10,6 +10,7 @@ import process from 'node:process';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const execFile = promisify(execFileCb);
 const __filename = fileURLToPath(import.meta.url);
@@ -41,6 +42,37 @@ const COVERABLE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cj
 
 export function isLineCovered(lineHits, line) {
   return lineHits?.has(line) === true && (lineHits.get(line) ?? 0) > 0;
+}
+
+export function getLineCoverageStatus(lineHits, line) {
+  if (!lineHits || lineHits.size === 0) return 'missing-file';
+  if (!lineHits.has(line)) return 'uninstrumented';
+  return isLineCovered(lineHits, line) ? 'covered' : 'uncovered';
+}
+
+export function getTypeOnlyLines(filePath, sourceText) {
+  const scriptKind = filePath.toLowerCase().endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, scriptKind);
+  const lines = new Set();
+  const addNodeLines = (node) => {
+    const first = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+    const last = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
+    for (let line = first; line <= last; line += 1) lines.add(line);
+  };
+  const visit = (node) => {
+    if (
+      ts.isTypeAliasDeclaration(node) ||
+      ts.isInterfaceDeclaration(node) ||
+      ts.isPropertySignature(node) ||
+      ts.isMethodSignature(node) ||
+      ts.isIndexSignatureDeclaration(node) ||
+      (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
+      (ts.isExportDeclaration(node) && node.isTypeOnly)
+    ) addNodeLines(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return lines;
 }
 
 function getArg(name, args = process.argv) {
@@ -326,9 +358,12 @@ async function buildFileLinesCache(touchedCoverable) {
     const absolute = path.join(rootDir, normalizedFile);
     try {
       const content = await fs.readFile(absolute, 'utf8');
-      cache.set(normalizedFile, content.split(/\r?\n/));
+      cache.set(normalizedFile, {
+        lines: content.split(/\r?\n/),
+        typeOnlyLines: getTypeOnlyLines(normalizedFile, content)
+      });
     } catch {
-      cache.set(normalizedFile, []);
+      cache.set(normalizedFile, { lines: [], typeOnlyLines: new Set() });
     }
   }
   return cache;
@@ -379,6 +414,7 @@ async function main() {
   let ignored = 0;
   let ignoredByPath = 0;
   let ignoredStructural = 0;
+  let ignoredUninstrumented = 0;
   const missing = [];
 
   for (const [file, lines] of touchedCoverable.entries()) {
@@ -391,21 +427,28 @@ async function main() {
 
     for (const line of lines) {
       if (ignoreLineSubstrings.length > 0) {
-        const sourceLine = fileLinesCache.get(normalizedFile)?.[line - 1] ?? '';
+        const sourceLine = fileLinesCache.get(normalizedFile)?.lines[line - 1] ?? '';
         if (ignoreLineSubstrings.some((entry) => sourceLine.includes(entry))) {
           ignored += 1;
           continue;
         }
       }
 
-      const sourceLine = fileLinesCache.get(normalizedFile)?.[line - 1] ?? '';
-      if (isStructuralOnlyLine(sourceLine)) {
+      const fileLines = fileLinesCache.get(normalizedFile);
+      const sourceLine = fileLines?.lines[line - 1] ?? '';
+      if (fileLines?.typeOnlyLines.has(line) || isStructuralOnlyLine(sourceLine)) {
         ignoredStructural += 1;
         continue;
       }
 
+      const coverageStatus = getLineCoverageStatus(lineHits, line);
+      if (coverageStatus === 'uninstrumented') {
+        ignoredUninstrumented += 1;
+        continue;
+      }
+
       total += 1;
-      if (isLineCovered(lineHits, line)) {
+      if (coverageStatus === 'covered') {
         covered += 1;
       } else {
         missing.push(`${normalizedFile}:${line}`);
@@ -420,6 +463,9 @@ async function main() {
   }
   if (ignoredStructural > 0) {
     console.log(`[diff-coverage] Líneas estructurales ignoradas: ${ignoredStructural}`);
+  }
+  if (ignoredUninstrumented > 0) {
+    console.log(`[diff-coverage] Líneas sin entrada LCOV ignoradas como no instrumentables: ${ignoredUninstrumented}`);
   }
   if (ignorePathSubstrings.length > 0) {
     console.log(`[diff-coverage] Líneas ignoradas por ruta: ${ignoredByPath} (${ignorePathSubstrings.join(';')})`);

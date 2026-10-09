@@ -9,7 +9,7 @@ import path from 'node:path';
 import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
 import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
 import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
-import { generarVariante } from '../../servicioVariantes.js';
+import { generarVariante, type PreguntaBase } from '../../servicioVariantes.js';
 import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
 import { resolverOmrTemplateId } from '../../domain/templateCanonico.js';
 import { guardarPreviewArchivadoValidado } from '../../domain/previewArchivado.js';
@@ -34,12 +34,14 @@ import {
   resolverDocentePdf,
   resolverPaginasObjetivoPreferidas,
   resolverPeriodoPlantillaActivo,
+  resolverPreguntasExtraordinarioArchivado,
   resolverPreguntasPlantilla,
   construirBlueprintPlantilla,
   resolverTemplateVersionOmr
 } from '../../shared/controladorGeneracionPdfShared.js';
 import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico.js';
 import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../infra/rasterizadorPdfPreview.js';
+import type { ResultadoGeneracionPdf } from '../../shared/tiposPdf.js';
 
 const PREVIEW_MEMORIA_TTL_MS = 10 * 60 * 1000;
 const MAX_PREVIEWS_MEMORIA = 8;
@@ -64,6 +66,7 @@ type PreviewVisualMemoria = {
 
 const previewsPdfMemoria = new Map<string, PreviewPdfMemoria>();
 const previewsVisualesMemoria = new Map<string, PreviewVisualMemoria>();
+const previewsExtraordinariosMaximos = new Map<string, { resultado: ResultadoGeneracionPdf; expiraEn: number }>();
 
 type LayoutValidadoPlantilla = {
   version?: number;
@@ -144,13 +147,16 @@ async function guardarLayoutValidadoPlantilla(params: {
   totalPreguntas: number;
   temas: string[];
   blueprint?: unknown;
+  persistir?: boolean;
 }): Promise<Record<string, unknown> | undefined> {
   const bookletConfig = construirBookletConfigValidado(params);
   if (!bookletConfig) return undefined;
-  await prisma.examenPlantilla.update({
-    where: { id: params.plantillaId },
-    data: { bookletConfig: JSON.stringify(bookletConfig) }
-  });
+  if (params.persistir !== false) {
+    await prisma.examenPlantilla.update({
+      where: { id: params.plantillaId },
+      data: { bookletConfig: JSON.stringify(bookletConfig) }
+    });
+  }
   return bookletConfig;
 }
 
@@ -199,30 +205,156 @@ function construirPaginasSketch(params: {
   });
 }
 
+function extraerPreguntasHastaPagina(mapaOmr: {
+  paginas?: Array<{ numeroPagina?: number; preguntas?: Array<{ idPregunta?: string }> }>;
+}, numeroPaginaMaximo: number) {
+  const ids = new Set<string>();
+  for (const pagina of mapaOmr.paginas ?? []) {
+    if (Number(pagina.numeroPagina) > numeroPaginaMaximo) continue;
+    for (const pregunta of pagina.preguntas ?? []) {
+      const id = String(pregunta.idPregunta ?? '').trim();
+      if (id) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+export async function generarExtraordinarioMaximo(params: {
+  preguntas: PreguntaBase[];
+  paginasObjetivo: number;
+  renderizar: (preguntas: PreguntaBase[]) => Promise<ResultadoGeneracionPdf>;
+}) {
+  let mejorResultado: ResultadoGeneracionPdf | undefined;
+  let mejorCardinalidad = 0;
+  const alturasRenderizadas = new Map<string, number>();
+
+  const registrarAlturas = (resultado: ResultadoGeneracionPdf) => {
+    for (const pagina of resultado.mapaOmr.paginas ?? []) {
+      for (const pregunta of pagina.layoutDebug?.plannedQuestionHeights ?? []) {
+        const altura = Number(pregunta.renderedHeightPt || pregunta.plannedHeightPt);
+        if (pregunta.questionId && Number.isFinite(altura) && altura > 0) {
+          alturasRenderizadas.set(pregunta.questionId, altura);
+        }
+      }
+    }
+  };
+
+  const evaluarOrden = async (preguntasOrdenadas: PreguntaBase[]) => {
+    let minimo = 1;
+    let maximo = preguntasOrdenadas.length - 1;
+    while (minimo <= maximo) {
+      const cantidad = Math.floor((minimo + maximo) / 2);
+      let resultado: ResultadoGeneracionPdf;
+      try {
+        resultado = await params.renderizar(preguntasOrdenadas.slice(0, cantidad));
+      } catch (error) {
+        if (error instanceof Error && /^Layout invalido:/u.test(error.message)) {
+          maximo = cantidad - 1;
+          continue;
+        }
+        throw error;
+      }
+      registrarAlturas(resultado);
+      const idsUsados = extraerPreguntasHastaPagina(resultado.mapaOmr, params.paginasObjetivo);
+      const cabeEnObjetivo = resultado.preguntasRestantes === 0 &&
+        resultado.paginas.length <= params.paginasObjetivo &&
+        idsUsados.size === cantidad;
+      if (cabeEnObjetivo) {
+        if (cantidad > mejorCardinalidad) {
+          mejorResultado = resultado;
+          mejorCardinalidad = cantidad;
+        }
+        minimo = cantidad + 1;
+      } else {
+        maximo = cantidad - 1;
+      }
+    }
+  };
+
+  try {
+    const resultadoCompleto = await params.renderizar(params.preguntas);
+    registrarAlturas(resultadoCompleto);
+    const idsUsados = extraerPreguntasHastaPagina(resultadoCompleto.mapaOmr, params.paginasObjetivo);
+    if (resultadoCompleto.preguntasRestantes === 0 &&
+      resultadoCompleto.paginas.length === params.paginasObjetivo &&
+      idsUsados.size === params.preguntas.length) {
+      return resultadoCompleto;
+    }
+  } catch (error) {
+    if (!(error instanceof Error) || !/^Layout invalido:/u.test(error.message)) throw error;
+  }
+
+  // Conserva el orden de variante como primer desempate y prueba además un
+  // orden compacto medido por el renderer; la altura textual es el fallback
+  // para preguntas que no llegaron a renderizarse en la pasada completa.
+  const preguntasCompactas = params.preguntas
+    .map((pregunta, indice) => {
+      const textoEstimado = pregunta.enunciado.length +
+        pregunta.opciones.reduce((total, opcion) => total + opcion.texto.length, 0) +
+        (pregunta.imagenUrl ? 500 : 0);
+      return {
+        pregunta,
+        indice,
+        altura: alturasRenderizadas.get(pregunta.id) ?? Math.max(1, textoEstimado)
+      };
+    })
+    .sort((a, b) => a.altura - b.altura || a.indice - b.indice)
+    .map(({ pregunta }) => pregunta);
+
+  await evaluarOrden(params.preguntas);
+  const mismoOrdenCompacto = preguntasCompactas.every((pregunta, indice) => pregunta.id === params.preguntas[indice]?.id);
+  if (!mismoOrdenCompacto) await evaluarOrden(preguntasCompactas);
+
+  if (!mejorResultado || mejorResultado.paginas.length !== params.paginasObjetivo) {
+    throw new ErrorAplicacion(
+      'LAYOUT_EXTRAORDINARIO_NO_VALIDABLE',
+      `No se pudo ajustar el extraordinario a ${params.paginasObjetivo} páginas con reactivos legibles. Revisa el banco o aumenta la preferencia de páginas.`,
+      409
+    );
+  }
+  return mejorResultado;
+}
+
 async function resolverContextoPreview(docenteId: unknown, plantillaId: string) {
   const plantilla = await obtenerPlantillaDocente(docenteId, plantillaId);
   const periodoResuelto = await resolverPeriodoPlantillaActivo(plantilla, { permitirArchivado: true, docenteId });
   const permitirArchivados = Boolean(plantilla.archivadoEn) && periodoResuelto?.activo === false;
+  const esExtraordinarioArchivado = permitirArchivados;
   if (periodoResuelto?.activo === false && !permitirArchivados) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
   }
-  const preguntasResueltas = await resolverPreguntasPlantilla({
-    docenteId,
-    plantilla: plantilla as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] },
-    ordenarPorRecencia: true,
-    permitirArchivados
-  });
-  const filtradas = excluirReferenciasTecnologiaRetirada(periodoResuelto?.nombre, preguntasResueltas.preguntasDb);
+  const preguntasResueltas = esExtraordinarioArchivado
+    ? await resolverPreguntasExtraordinarioArchivado({
+      docenteId,
+      materiaNombre: periodoResuelto?.nombre,
+      plantilla: plantilla as {
+        id: string;
+        periodoId?: unknown;
+        tipo?: unknown;
+        titulo?: unknown;
+        preguntasIds?: unknown[];
+        temas?: unknown[];
+        reactivosObjetivo?: unknown;
+      }
+    })
+    : await resolverPreguntasPlantilla({
+      docenteId,
+      plantilla: plantilla as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] },
+      ordenarPorRecencia: true,
+      permitirArchivados
+    });
+  const filtradas = esExtraordinarioArchivado
+    ? { preguntasDb: preguntasResueltas.preguntasDb, idsExcluidos: new Set<string>() }
+    : excluirReferenciasTecnologiaRetirada(periodoResuelto?.nombre, preguntasResueltas.preguntasDb);
   const preguntasDb = filtradas.preguntasDb;
-  const { temas } = preguntasResueltas;
+  const temas = preguntasResueltas.temas;
 
   if (preguntasDb.length === 0) {
     throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas disponibles para previsualizar', 400);
   }
 
-  // Un extraordinario desde un periodo archivado se imprime en dos hojas
-  // dúplex. Este formato no modifica el número configurado en el global fuente.
-  const esExtraordinarioArchivado = Boolean(plantilla.archivadoEn) && periodoResuelto?.activo === false;
+  // El extraordinario archivado usa su preferencia global de páginas, sin
+  // modificar la plantilla global que sirve como fuente.
   const docenteDb = await resolverDocentePdf(docenteId);
   const numeroPaginas = esExtraordinarioArchivado
     ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
@@ -260,7 +392,6 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   return {
     plantilla,
     preguntasDb,
-    totalPreguntasOmitidasTecnologiaRetirada: filtradas.idsExcluidos.size,
     preguntasBase,
     preguntasCandidatas,
     mapaVarianteDet,
@@ -269,11 +400,54 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
     esExtraordinarioArchivado,
     docenteDb,
     temas,
+    fuentesExtraordinario: 'fuentesExtraordinario' in preguntasResueltas ? preguntasResueltas.fuentesExtraordinario : [],
+    reactivosOmitidosPorOmr: 'reactivosOmitidosPorOmr' in preguntasResueltas ? preguntasResueltas.reactivosOmitidosPorOmr : [],
+    totalPreguntasFuente: 'totalPreguntasFuente' in preguntasResueltas ? preguntasResueltas.totalPreguntasFuente : preguntasDb.length,
+    totalPreguntasOmitidasTecnologiaRetirada: 'totalPreguntasOmitidasTecnologiaRetirada' in preguntasResueltas
+      ? preguntasResueltas.totalPreguntasOmitidasTecnologiaRetirada
+      : filtradas.idsExcluidos.size,
     templateVersionOmr,
     omrTemplateId,
     layoutFingerprint,
     bookletConfig
   };
+}
+
+function clavePreviewContexto(contexto: Awaited<ReturnType<typeof resolverContextoPreview>>) {
+  const encabezado = construirEncabezadoPdf({
+    periodo: contexto.periodo,
+    docenteDb: contexto.docenteDb,
+    instrucciones: contexto.esExtraordinarioArchivado
+      ? INSTRUCCIONES_OMR_EXTRAORDINARIO
+      : (contexto.plantilla as { instrucciones?: unknown }).instrucciones,
+    incluirPrefijosDocente: true
+  });
+  return clavePreviewPlantilla({
+    plantillaId: String(contexto.plantilla._id ?? contexto.plantilla.id),
+    plantillaUpdatedAt: (contexto.plantilla as { updatedAt?: unknown }).updatedAt,
+    numeroPaginas: contexto.numeroPaginas,
+    totalPreguntas: contexto.preguntasBase.length,
+    temas: contexto.temas,
+    preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
+    layoutFingerprint: `${contexto.layoutFingerprint}|encabezado-${hash32(JSON.stringify(encabezado))}`
+  });
+}
+
+function obtenerPreviewExtraordinarioMaximo(clave: string) {
+  const preview = previewsExtraordinariosMaximos.get(clave);
+  if (!preview) return undefined;
+  if (Date.now() >= preview.expiraEn) {
+    previewsExtraordinariosMaximos.delete(clave);
+    return undefined;
+  }
+  return preview.resultado;
+}
+
+function guardarPreviewExtraordinarioMaximo(clave: string, resultado: ResultadoGeneracionPdf) {
+  guardarPreviewMemoria(previewsExtraordinariosMaximos, clave, {
+    resultado,
+    expiraEn: Date.now() + PREVIEW_MEMORIA_TTL_MS
+  });
 }
 
 export async function previsualizarPlantillaUseCase(params: {
@@ -308,11 +482,11 @@ export async function previsualizarPlantillaUseCase(params: {
     }
   }
 
-  const previewResultado = await generarPdfExamen({
-    titulo: String(contexto.plantilla.titulo ?? ''),
+  const renderizar = (preguntas: PreguntaBase[]) => generarPdfExamen({
+    titulo: contexto.esExtraordinarioArchivado ? 'Examen Extraordinario' : String(contexto.plantilla.titulo ?? ''),
     folio: 'PREVIEW',
     examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
-    preguntas: contexto.preguntasCandidatas,
+    preguntas,
     mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
     tipoExamen: contexto.periodo?.activo === false && contexto.plantilla.archivadoEn
       ? 'extraordinario'
@@ -325,12 +499,24 @@ export async function previsualizarPlantillaUseCase(params: {
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,
-      instrucciones: (contexto.plantilla as { instrucciones?: unknown }).instrucciones,
+      instrucciones: contexto.esExtraordinarioArchivado
+        ? INSTRUCCIONES_OMR_EXTRAORDINARIO
+        : (contexto.plantilla as { instrucciones?: unknown }).instrucciones,
       incluirPrefijosDocente: true
     })
   });
+  const previewResultado = contexto.esExtraordinarioArchivado
+    ? await generarExtraordinarioMaximo({
+      preguntas: contexto.preguntasCandidatas,
+      paginasObjetivo: contexto.numeroPaginas,
+      renderizar
+    })
+    : await renderizar(contexto.preguntasCandidatas);
+  if (contexto.esExtraordinarioArchivado) {
+    guardarPreviewExtraordinarioMaximo(clavePreviewContexto(contexto), previewResultado);
+  }
 
-  if (previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
+  if (!contexto.esExtraordinarioArchivado && previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
     await guardarLayoutValidadoPlantilla({
       plantillaId: String(contexto.plantilla._id),
       bookletConfig: contexto.plantilla.bookletConfig,
@@ -348,12 +534,19 @@ export async function previsualizarPlantillaUseCase(params: {
   const { paginas, metricasPaginas, mapaOmr, preguntasRestantes } = previewResultado;
   const porId = new Map<string, (typeof contexto.preguntasCandidatas)[number]>();
   for (const pregunta of contexto.preguntasCandidatas) porId.set(pregunta.id, pregunta);
-  const ordenadas = (contexto.mapaVarianteDet.ordenPreguntas || [])
+  let ordenadas = (contexto.mapaVarianteDet.ordenPreguntas || [])
     .map((id) => porId.get(id))
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   const totalDisponibles = contexto.preguntasDb.length;
-  const totalUsados = extraerPreguntasUsadasMapaOmr(mapaOmr as never).size;
+  const paginasParaPreview = contexto.esExtraordinarioArchivado ? paginas.slice(0, contexto.numeroPaginas) : paginas;
+  const preguntasUsadasIds = contexto.esExtraordinarioArchivado
+    ? extraerPreguntasHastaPagina(mapaOmr, contexto.numeroPaginas)
+    : extraerPreguntasUsadasMapaOmr(mapaOmr as never);
+  if (contexto.esExtraordinarioArchivado) {
+    ordenadas = ordenadas.filter((pregunta) => preguntasUsadasIds.has(String(pregunta.id)));
+  }
+  const totalUsados = preguntasUsadasIds.size;
   const metricasPaginasSeguras = Array.isArray(metricasPaginas) ? metricasPaginas : [];
   const ultima = metricasPaginasSeguras[metricasPaginasSeguras.length - 1];
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
@@ -376,25 +569,31 @@ export async function previsualizarPlantillaUseCase(params: {
     }
   }
   if ((preguntasRestantes ?? 0) > 0) {
-    advertencias.push(
-      `Hay ${preguntasRestantes} pregunta(s) que no caben en ${contexto.numeroPaginas} pagina(s). Aumenta el numero de paginas.`
-    );
+    advertencias.push(contexto.esExtraordinarioArchivado
+      ? `Hay ${Math.max(0, totalDisponibles - totalUsados)} pregunta(s) que no caben en las ${contexto.numeroPaginas} páginas configuradas; la vista previa conserva las que sí caben con tipografía legible.`
+      : `Hay ${preguntasRestantes} pregunta(s) que no caben en ${contexto.numeroPaginas} pagina(s). Aumenta el numero de paginas.`);
   }
 
   return {
     plantillaId: String(contexto.plantilla._id),
-    layoutConfirmado: previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas,
+    layoutConfirmado: contexto.esExtraordinarioArchivado
+      ? totalUsados > 0 && paginasParaPreview.length === contexto.numeroPaginas
+      : previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas,
     numeroPaginas: contexto.numeroPaginas,
     numeroPaginasConfiguradas: contexto.numeroPaginas,
     totalDisponibles,
     totalUsados,
     totalPreguntasOmitidasTecnologiaRetirada: contexto.totalPreguntasOmitidasTecnologiaRetirada,
+    fuentesExtraordinario: contexto.fuentesExtraordinario,
+    totalPreguntasFuente: contexto.totalPreguntasFuente,
+    preguntasOmitidasPorFormato: Math.max(0, totalDisponibles - totalUsados),
+    preguntasOmitidasPorOmr: contexto.reactivosOmitidosPorOmr,
     fraccionVaciaUltimaPagina,
     advertencias,
     conteoPorTema,
     temasDisponiblesEnMateria,
     paginas: construirPaginasSketch({
-      paginas: (Array.isArray(paginas) ? paginas : []) as Array<{ numero: number; preguntasDel?: number; preguntasAl?: number }>,
+      paginas: (Array.isArray(paginasParaPreview) ? paginasParaPreview : []) as Array<{ numero: number; preguntasDel?: number; preguntasAl?: number }>,
       preguntasOrdenadas: ordenadas
     })
   };
@@ -412,15 +611,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     await limpiarPreviewTemporales();
   }
 
-  const previewKey = clavePreviewPlantilla({
-    plantillaId: params.plantillaId,
-    plantillaUpdatedAt: (contexto.plantilla as { updatedAt?: unknown }).updatedAt,
-    numeroPaginas: contexto.numeroPaginas,
-    totalPreguntas: contexto.preguntasBase.length,
-    temas: contexto.temas,
-    preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
-    layoutFingerprint: contexto.layoutFingerprint
-  });
+  const previewKey = clavePreviewContexto(contexto);
   const dirPreview = obtenerDirectorioPreview();
   const fileName = construirNombrePdfPreviewPlantilla({
     plantillaId: params.plantillaId,
@@ -453,11 +644,11 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     // Se regenera.
   }
 
-  const previewResultado = await generarPdfExamen({
-    titulo: String(contexto.plantilla.titulo ?? ''),
+  const renderizar = (preguntas: PreguntaBase[]) => generarPdfExamen({
+    titulo: contexto.esExtraordinarioArchivado ? 'Examen Extraordinario' : String(contexto.plantilla.titulo ?? ''),
     folio: 'PREVIEW',
     examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
-    preguntas: contexto.preguntasCandidatas,
+    preguntas,
     mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
     tipoExamen: contexto.periodo?.activo === false && contexto.plantilla.archivadoEn
       ? 'extraordinario'
@@ -476,20 +667,57 @@ export async function previsualizarPlantillaPdfUseCase(params: {
       incluirPrefijosDocente: true
     })
   });
+  const previewResultado = contexto.esExtraordinarioArchivado
+    ? (!params.forzarRegeneracion ? obtenerPreviewExtraordinarioMaximo(previewKey) : undefined) ?? await generarExtraordinarioMaximo({
+      preguntas: contexto.preguntasCandidatas,
+      paginasObjetivo: contexto.numeroPaginas,
+      renderizar
+    })
+    : await renderizar(contexto.preguntasCandidatas);
+  if (contexto.esExtraordinarioArchivado) guardarPreviewExtraordinarioMaximo(previewKey, previewResultado);
 
-  if (previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
-    const blueprint = await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false });
+  const paginasParaPdf = contexto.esExtraordinarioArchivado
+    ? previewResultado.paginas.slice(0, contexto.numeroPaginas)
+    : previewResultado.paginas;
+  const preguntasUsadasIds = contexto.esExtraordinarioArchivado
+    ? extraerPreguntasHastaPagina(previewResultado.mapaOmr, contexto.numeroPaginas)
+    : extraerPreguntasUsadasMapaOmr(previewResultado.mapaOmr as never);
+  const preguntasSeleccionadas = contexto.preguntasDb.filter((pregunta) => preguntasUsadasIds.has(String(pregunta.id)));
+  const vistaPreviaUsable = contexto.esExtraordinarioArchivado
+    ? preguntasSeleccionadas.length > 0 && paginasParaPdf.length === contexto.numeroPaginas
+    : previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas;
+  if (vistaPreviaUsable) {
+    const preguntasBlueprint = contexto.esExtraordinarioArchivado ? preguntasSeleccionadas : contexto.preguntasDb;
+    const blueprint = await construirBlueprintPlantilla(preguntasBlueprint, { legacyOnly: contexto.periodo?.activo === false });
+    const ordenPreguntasConfirmadas = contexto.mapaVarianteDet.ordenPreguntas.filter((id) => preguntasUsadasIds.has(String(id)));
+    const ordenOpcionesConfirmadas = Object.fromEntries(
+      Object.entries(contexto.mapaVarianteDet.ordenOpcionesPorPregunta).filter(([id]) => preguntasUsadasIds.has(id))
+    );
+    const temasBlueprint = contexto.esExtraordinarioArchivado
+      ? (await resolverPreguntasPlantilla({
+        docenteId: params.docenteId,
+        plantilla: {
+          ...contexto.plantilla,
+          blueprintJson: JSON.stringify(blueprint),
+          blueprintStatus: 'ready'
+        } as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[]; blueprintJson?: unknown; blueprintStatus?: unknown },
+        usarBlueprint: true,
+        permitirArchivados: true,
+        ordenarPorRecencia: true
+      })).temas
+      : contexto.temas;
     const bookletConfigValidado = await guardarLayoutValidadoPlantilla({
       plantillaId: String(contexto.plantilla._id),
       bookletConfig: contexto.plantilla.bookletConfig,
       fontScale: previewResultado.fontScaleAplicada,
       lineSpacing: previewResultado.lineSpacingAplicado,
-      preguntasFingerprint: construirFingerprintPreguntasPreview(contexto.preguntasDb),
+      preguntasFingerprint: construirFingerprintPreguntasPreview(preguntasBlueprint),
       layoutFingerprint: contexto.layoutFingerprint,
       numeroPaginas: contexto.numeroPaginas,
-      totalPreguntas: contexto.preguntasBase.length,
-      temas: contexto.temas,
-      blueprint
+      totalPreguntas: preguntasBlueprint.length,
+      temas: temasBlueprint,
+      blueprint,
+      persistir: !contexto.esExtraordinarioArchivado
     });
     if (contexto.esExtraordinarioArchivado && contexto.plantilla.periodoId && bookletConfigValidado) {
       guardarPreviewArchivadoValidado({
@@ -498,10 +726,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
         plantillaId: String(contexto.plantilla._id),
         bookletConfig: bookletConfigValidado,
         blueprintJson: JSON.stringify(blueprint),
-        mapaVariante: {
-          ordenPreguntas: contexto.mapaVarianteDet.ordenPreguntas,
-          ordenOpcionesPorPregunta: contexto.mapaVarianteDet.ordenOpcionesPorPregunta
-        }
+        mapaVariante: { ordenPreguntas: ordenPreguntasConfirmadas, ordenOpcionesPorPregunta: ordenOpcionesConfirmadas }
       });
     }
   }
