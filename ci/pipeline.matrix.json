@@ -172,7 +172,6 @@
         "apps/portal_alumno_cloud/coverage/**"
       ],
       "triggers": [
-        "schedule",
         "workflow_dispatch.force_full_ci"
       ]
     },
