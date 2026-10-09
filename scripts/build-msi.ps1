@@ -401,7 +401,7 @@ function Add-DocenteNativeCompiledPayload {
         $workspaceNodeModules = Join-Path $npmWorkspaceRoot 'apps/backend/node_modules'
         if (Test-Path -LiteralPath $workspaceNodeModules) {
           Get-ChildItem -LiteralPath $workspaceNodeModules -Recurse -File -Force | ForEach-Object {
-            $relativeModulePath = $_.FullName.Substring($workspaceNodeModules.Length).TrimStart('\\', '/')
+            $relativeModulePath = $_.FullName.Substring($workspaceNodeModules.Length).TrimStart([char[]]@([char]92, [char]47))
             $destinationModulePath = Join-Path $backendNodeModulesTarget $relativeModulePath
             $destinationModuleDirectory = Split-Path -Parent $destinationModulePath
             New-Item -ItemType Directory -Path $destinationModuleDirectory -Force | Out-Null
