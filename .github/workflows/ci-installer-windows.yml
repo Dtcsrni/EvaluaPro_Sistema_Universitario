@@ -28,7 +28,7 @@ jobs:
     name: Detectar módulos para Installer Windows
     runs-on: ubuntu-latest
     outputs:
-      run_installer: ${{ steps.resolve.outputs.run_installer }}
+      run_installer: ${{ steps.resolve.outputs.run_installer || steps.resolve_non_pr.outputs.run_installer }}
     steps:
       - name: Descargar código
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
