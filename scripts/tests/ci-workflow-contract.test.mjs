@@ -652,3 +652,8 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   const payload = evaluateAffectedChangeSet(affectedMap, ['apps/backend/src/app.ts']);
   assert.equal(payload.matchedGroups.backend, true);
 });
+
+test('el diagnóstico smoke excluye PowerShell y solo considera Node del dashboard', () => {
+  const smoke = fs.readFileSync(path.join(root, 'scripts', 'tests', 'windows-release-smoke.test.mjs'), 'utf8');
+  assert.ok(smoke.includes("Where-Object { $_.ProcessId -ne $PID -and $_.Name -ieq 'node.exe'"));
+});

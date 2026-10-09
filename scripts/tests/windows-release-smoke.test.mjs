@@ -200,6 +200,51 @@ function readDashboardLock() {
   }
 }
 
+function readSmokeFailureDiagnostics(runId, brokerStatus) {
+  const lock = readDashboardLock();
+  let bootstrap = null;
+  try {
+    bootstrap = readJson(path.join(root, 'logs', `bootstrap-state-${runId}.json`));
+  } catch {
+    // Un estado ausente también es evidencia útil para este diagnóstico.
+  }
+
+  const processScript = `$items = @(Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $PID -and $_.Name -ieq 'node.exe' -and $_.CommandLine -like '*launcher-dashboard.mjs*' } | Select-Object -First 5 @{Name='pid';Expression={[int]$_.ProcessId}}, @{Name='name';Expression={[string]$_.Name}}, @{Name='creationDate';Expression={[string]$_.CreationDate}}); ConvertTo-Json -InputObject $items -Compress`;
+  const processResult = runPowerShell(['-Command', processScript], { timeout: 10_000 });
+  const parsedProcesses = processResult.status === 0 ? parseJsonOutput(processResult.stdout) : [];
+  const processes = Array.isArray(parsedProcesses) ? parsedProcesses : (parsedProcesses ? [parsedProcesses] : []);
+
+  const safeLock = lock ? {
+    pid: Number(lock.pid) || null,
+    port: Number(lock.port) || null,
+    mode: String(lock.mode || ''),
+    startedAt: String(lock.startedAt || '')
+  } : null;
+  const safeBootstrap = bootstrap ? {
+    state: String(bootstrap.state || ''),
+    message: String(bootstrap.message || ''),
+    desiredMode: String(bootstrap.desiredMode || ''),
+    port: Number(bootstrap.port) || null,
+    timestamp: String(bootstrap.timestamp || ''),
+    meta: {
+      base: String(bootstrap.meta?.base || ''),
+      webUrl: String(bootstrap.meta?.webUrl || ''),
+      degraded: typeof bootstrap.meta?.degraded === 'boolean' ? bootstrap.meta.degraded : null
+    }
+  } : null;
+
+  return JSON.stringify({
+    brokerStatus: Number(brokerStatus),
+    lock: safeLock,
+    bootstrap: safeBootstrap,
+    dashboardProcesses: processes.map((item) => ({
+      pid: Number(item?.pid) || null,
+      name: String(item?.name || ''),
+      creationDate: String(item?.creationDate || '')
+    }))
+  });
+}
+
 function probeTcpPort(port, timeoutMs = 700) {
   return new Promise((resolve) => {
     const socket = net.createConnection({ host: '127.0.0.1', port });
@@ -436,13 +481,18 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   ], { timeout: 300_000 });
 
   assertBrokerSuccess(openRes, 'open-dashboard');
-  ownedDashboard = await waitForOwnedDashboardIdentity({
-    readLock: async () => readDashboardLock(),
-    readProcess: async (pid) => readProcessIdentity(pid),
-    ports: fallbackPorts,
-    installRoot: root,
-    requestedAt: openRequestedAt
-  });
+  try {
+    ownedDashboard = await waitForOwnedDashboardIdentity({
+      readLock: async () => readDashboardLock(),
+      readProcess: async (pid) => readProcessIdentity(pid),
+      ports: fallbackPorts,
+      installRoot: root,
+      requestedAt: openRequestedAt
+    });
+  } catch (error) {
+    const diagnostics = readSmokeFailureDiagnostics(openRunId, openRes.status);
+    throw new Error(`${error.message} Diagnóstico de smoke (sin command line ni datos de entorno): ${diagnostics}`);
+  }
 
   const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
   assert.equal(bootstrap.runId, openRunId, 'El estado de bootstrap no corresponde a esta ejecución del smoke.');
