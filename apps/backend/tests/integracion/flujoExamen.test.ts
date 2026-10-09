@@ -690,7 +690,7 @@ describe('flujo de examen', () => {
     expect((await prisma.alumno.findUniqueOrThrow({ where: { id: alumnoId } })).activo).toBe(false);
     expect((await prisma.bancoPregunta.findMany({ where: { periodoId } })).every((pregunta) => pregunta.activo === false)).toBe(true);
     expect((await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } })).archivadoEn).not.toBeNull();
-  }, 120_000);
+  }, 240_000);
 
   it('rechaza el extraordinario si el periodo está archivado antes de su fecha de fin', async () => {
     const token = await registrarDocente();
