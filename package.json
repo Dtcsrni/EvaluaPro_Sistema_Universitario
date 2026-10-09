@@ -105,9 +105,9 @@
     "compliance:hooks:install": "node scripts/compliance/install-git-hooks.mjs",
     "compliance:evidence:generate": "node scripts/compliance/generate-evidence.mjs",
     "compliance:full:ci": "npm-run-all -s test:compliance:policy test:compliance:dsr-flow compliance:evidence:generate",
-    "test:coverage:diff": "node scripts/testing/check-diff-coverage.mjs",
+    "test:coverage:diff": "node scripts/testing/check-diff-coverage.mjs --min=90",
     "test:coverage:exclusions:debt": "node scripts/testing/check-coverage-exclusions-debt.mjs",
-    "test:tdd:enforcement:ci": "npm run test:coverage:exclusions:debt",
+    "test:tdd:enforcement:ci": "npm run test:coverage:exclusions:debt && npm run test:coverage:diff",
     "test:flujo-docente:ci": "npm -C apps/backend run test -- --reporter=verbose tests/integracion/flujoDocenteParcialE2E.test.ts tests/integracion/flujoDocenteGlobalE2E.test.ts",
     "test:e2e:docente-alumno:ci": "node scripts/testing/run-gate-with-report.mjs --gate=e2e-docente-alumno --report=reports/qa/latest/e2e-docente-alumno.json --command=\"npm -C apps/backend run test -- --reporter=verbose tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts\"",
     "test:global-grade:ci": "node scripts/testing/run-gate-with-report.mjs --gate=global-grade --report=reports/qa/latest/global-grade.json --command=\"npm -C apps/backend run test -- --reporter=verbose tests/calificacion.global.reglas.test.ts tests/integracion/calificacionGlobalContratoE2E.test.ts\"",
@@ -256,7 +256,7 @@
     "supertest": "^7.3.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.3"
   },
   "optionalDependencies": {
     "gcp-metadata": "^9.0.4"
