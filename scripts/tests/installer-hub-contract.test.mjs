@@ -415,9 +415,9 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /apps\/backend\/dist/);
   assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
   assert.match(buildMsi, /package-lock\\.json/);
-  assert.match(buildMsi, /npmCommand ci --workspace=apps\\/backend --include-workspace-root=false --ignore-scripts/);
+  assert.ok(buildMsi.includes("npmCommand ci --workspace=apps/backend --include-workspace-root=false --ignore-scripts"));
   assert.match(buildMsi, /npmCommand prune --omit=dev --ignore-scripts --package-lock=false/);
-  assert.doesNotMatch(buildMsi, /apps\\/backend\\/package-lock\\.json/);
+  assert.ok(!buildMsi.includes("apps/backend/package-lock.json"));
   assert.match(buildMsi, /InstallerBurnHelper\.ps1/);
 });
 
