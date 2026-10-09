@@ -185,6 +185,10 @@ const focusedCoverageProfiles = new Map([
     tests: ['tests/servicioGoogle.test.ts'],
     include: 'src/modulos/modulo_autenticacion/servicioGoogle.ts'
   }],
+  ['apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts', {
+    tests: ['tests/integracion/flujoExamen.test.ts'],
+    include: 'src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts'
+  }],
   ['apps/backend/src/app.ts', {
     tests: ['tests/app.cors.test.ts'],
     include: 'src/app.ts'

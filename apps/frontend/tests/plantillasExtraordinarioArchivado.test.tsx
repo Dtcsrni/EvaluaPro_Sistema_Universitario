@@ -44,7 +44,12 @@ describe('generación extraordinaria desde periodo archivado', () => {
       })),
       totalDisponibles: 24,
       totalUsados: 24,
-      numeroPaginas: 4
+      numeroPaginas: 4,
+      fuentesExtraordinario: ['Primer parcial Diseño Web', 'Segundo parcial Diseño Web'],
+      preguntasOmitidasPorOmr: [{
+        id: 'P1-17',
+        problemas: ['opciones insuficientes', 'marcas ambiguas']
+      }]
     }));
 
     render(
@@ -77,7 +82,12 @@ describe('generación extraordinaria desde periodo archivado', () => {
     const checkbox = screen.getByRole('checkbox', { name: /Carlos Anwar · CUH512419101/i });
     fireEvent.click(checkbox);
     fireEvent.click(screen.getByRole('button', { name: /Previsualizar PDF antes de generar/i }));
-    await screen.findByText(/24 de 24 preguntas del global/i);
+    await screen.findByText(/Vista previa validada: 4 páginas \(2 hojas dúplex\), 24 de 24 preguntas válidas impresas/i);
+    expect(screen.getByText(/Fuentes combinadas: global archivado y Primer parcial Diseño Web, Segundo parcial Diseño Web/i)).toBeInTheDocument();
+    const omrDetails = screen.getByText(/Reactivos parciales excluidos por defectos OMR \(1\)/i).closest('details');
+    expect(omrDetails).not.toBeNull();
+    expect(within(omrDetails as HTMLElement).getByText('P1-17')).toBeInTheDocument();
+    expect(within(omrDetails as HTMLElement).getByText(/opciones insuficientes; marcas ambiguas/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo que revisé la vista previa del examen/i }));
     fireEvent.click(screen.getByRole('button', { name: /Generar extraordinarios \(1 alumnos\)/i }));
 

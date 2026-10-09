@@ -1,8 +1,8 @@
 ---
 id: SPEC-073
 titulo: Generación y calificación independiente de exámenes extraordinarios
-version: 1.1.0
-fecha: 2026-10-05
+version: 1.2.0
+fecha: 2026-10-08
 autor: Codex / EvaluaPro Team
 modulo: modulo_generacion_pdf
 estado: implemented
@@ -23,7 +23,7 @@ Personas beneficiadas: docentes que programan oportunidades extraordinarias y al
 - **REQ-005 (Compatibilidad histórica):** Los exámenes y calificaciones preexistentes conservan su interpretación y comportamiento; no se reclasifican retrospectivamente como extraordinarios.
 - **REQ-006 (Validaciones):** Se rechaza la generación extraordinaria si falta la plantilla, el tipo no es admitido, no hay alumnos seleccionados o algún alumno no pertenece al periodo/materia de la plantilla. Se conserva el flujo de generación idempotente y las confirmaciones existentes.
 - **REQ-007 (Periodo concluido):** Se puede generar un extraordinario usando una plantilla y alumnos de la misma materia archivada. Esta vía solo lee los registros archivados necesarios, no reactiva ni modifica materia, alumnos, plantilla o reactivos. Una plantilla archivada no admite exámenes ordinarios y un alumno de otra materia se rechaza.
-- **REQ-008 (Formato y cobertura):** El extraordinario de una plantilla global archivada se presenta en cuatro páginas (dos hojas impresas por ambos lados). La vista previa debe reportar cuántos reactivos del global caben y usar la tipografía legible permitida por el motor; la generación se habilita únicamente cuando la vista previa cumple el formato y refleja el conjunto íntegro del global.
+- **REQ-008 (Formato y cobertura):** El extraordinario de una plantilla global archivada combina las preguntas válidas del global con las de los parciales archivados de la misma materia y periodo, sin duplicados ni reactivos de otras materias. La preferencia global por tipo determina el objetivo de páginas (predeterminado: cuatro); debe ser un número par para imprimir siempre en dúplex, en hojas tamaño carta por defecto. La vista previa muestra fuentes y omisiones por formato u OMR, y la generación usa exactamente el subconjunto máximo que quepa respetando el límite tipográfico legible del motor.
 
 ## Criterios de Aceptación
 
@@ -36,7 +36,9 @@ Personas beneficiadas: docentes que programan oportunidades extraordinarias y al
 7. La matriz de trazabilidad se actualiza con pruebas reales de UI, API, persistencia y exclusión de agregados.
 8. En una materia archivada, Diseño de Exámenes ofrece la plantilla de archivo únicamente para extraordinario, permite elegir sus alumnos conservados y muestra el lote en historial; el examen queda vinculado a los IDs canónicos originales.
 9. La generación ordinaria sigue bloqueada para materias/plantillas archivadas; crear el extraordinario no reactiva registros fuente ni modifica sus banderas de archivo.
-10. El extraordinario de global archivado se previsualiza y genera en exactamente cuatro páginas, conserva todas las preguntas del global que el motor pueda maquetar dentro del límite tipográfico legible y no cambia el formato de la plantilla fuente.
+10. El extraordinario de global archivado combina global y parciales archivados de la misma materia, sin importar preguntas de otros periodos, y deduplica por ID.
+11. La vista previa y el PDF tienen el número configurado de páginas (cuatro por defecto, dos hojas dúplex), informan reactivos omitidos por formato u OMR y guardan temporalmente la selección validada.
+12. La generación imprime exactamente la selección validada y no modifica el global, sus parciales ni los bancos archivados.
 
 ## Matriz de Trazabilidad
 
@@ -45,4 +47,5 @@ Personas beneficiadas: docentes que programan oportunidades extraordinarias y al
 | REQ-001, REQ-002, REQ-003 | Seleccionar tipo y alumnos; generar y mostrar exámenes extraordinarios | `apps/frontend/tests/plantillas.refactor.test.tsx`; `apps/backend/tests/integracion/flujoExamen.test.ts` | Implementado; frontend 15/15 y backend 4/4 en foco |
 | REQ-002, REQ-006 | Generación por lote con validación de pertenencia y cohorte estable | `apps/backend/tests/integracion/flujoExamen.test.ts`; `apps/backend/tests/examenExtraordinario.rules.test.ts` | Implementado; backend 4/4 en foco |
 | REQ-004, REQ-005 | Persistencia de la nota extraordinaria independiente de la calificación ordinaria y compatibilidad histórica | `apps/backend/tests/integracion/flujoExamen.test.ts`; `apps/backend/tests/examenExtraordinario.rules.test.ts`; `scripts/tests/migrate-examen-tipo-examen-sqlite.test.mjs` | Implementado; backend 4/4 y migración 2/2 en foco |
-| REQ-007 | Generar desde plantilla/alumnos/reactivos archivados sin reactivar datos fuente; UI limita esta selección a extraordinarios | `apps/backend/tests/integracion/flujoExamen.test.ts`; `apps/frontend/tests/plantillasExtraordinarioArchivado.test.tsx` | En implementación |
+| REQ-007 | Generar desde plantilla/alumnos/reactivos archivados sin reactivar datos fuente; UI limita esta selección a extraordinarios | `apps/backend/tests/integracion/flujoExamen.test.ts`; `apps/frontend/tests/plantillasExtraordinarioArchivado.test.tsx` | Validación focalizada aprobada |
+| REQ-008 | Combinar global y parciales de la misma materia; excluir otros periodos; previsualizar, guardar selección temporal y generar dúplex con páginas configurables | `apps/backend/tests/integracion/flujoExamen.test.ts` | Validación focalizada aprobada: 2 pruebas integradas |

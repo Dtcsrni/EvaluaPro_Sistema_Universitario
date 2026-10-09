@@ -42,11 +42,28 @@ test('excludes TypeScript declaration files from the executable coverage denomin
   assert.equal(isCoverableFile('apps/backend/src/index.ts'), true);
 });
 
-test('treats changed executable lines missing from LCOV as uncovered', async () => {
-  const { isLineCovered } = await import('../testing/check-diff-coverage.mjs');
+test('distinguishes uncovered executable lines from lines without LCOV instrumentation', async () => {
+  const { getLineCoverageStatus } = await import('../testing/check-diff-coverage.mjs');
 
-  assert.equal(isLineCovered(undefined, 17), false);
-  assert.equal(isLineCovered(new Map(), 17), false);
-  assert.equal(isLineCovered(new Map([[17, 0]]), 17), false);
-  assert.equal(isLineCovered(new Map([[17, 1]]), 17), true);
+  assert.equal(getLineCoverageStatus(undefined, 17), 'missing-file');
+  assert.equal(getLineCoverageStatus(new Map(), 17), 'missing-file');
+  assert.equal(getLineCoverageStatus(new Map([[10, 1]]), 17), 'uninstrumented');
+  assert.equal(getLineCoverageStatus(new Map([[17, 0]]), 17), 'uncovered');
+  assert.equal(getLineCoverageStatus(new Map([[17, 1]]), 17), 'covered');
+});
+
+test('excludes TypeScript type declarations from the diff coverage denominator', async () => {
+  const { getTypeOnlyLines } = await import('../testing/check-diff-coverage.mjs');
+  const source = [
+    'export type Preview = {',
+    '  fuentes?: string[];',
+    '  reactivos?: Array<{ id: string; problemas: string[] }>;',
+    '};',
+    'const cantidad = 4;'
+  ].join('\n');
+  const typeOnlyLines = getTypeOnlyLines('preview.tsx', source);
+
+  assert.equal(typeOnlyLines.has(2), true);
+  assert.equal(typeOnlyLines.has(3), true);
+  assert.equal(typeOnlyLines.has(5), false);
 });
