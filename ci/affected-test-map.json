@@ -160,6 +160,7 @@
         "scripts/testing/**",
         "scripts/tests/ci-workflow-contract.test.mjs",
         "scripts/tests/affected-ci-resolver.test.mjs",
+        "scripts/tests/windows-release-smoke.test.mjs",
         ".github/workflows/ci*.yml",
         "ci/**"
       ],
