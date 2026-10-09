@@ -29,6 +29,7 @@ if (-not $isWindowsPlatform) {
 }
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+. (Join-Path $PSScriptRoot 'installer\Remove-NpmWorkspaceLink.ps1')
 $wix = Join-Path $root "packaging\wix"
 $out = Join-Path $root "dist\installer"
 $internalOut = Join-Path $out '_internal'
@@ -398,9 +399,7 @@ function Add-DocenteNativeCompiledPayload {
         Remove-Item -LiteralPath $npmWorkspaceRoot -Recurse -Force -ErrorAction SilentlyContinue
       }
       $backendWorkspaceLink = Join-Path $backendTarget 'node_modules/backend'
-      if (Test-Path -LiteralPath $backendWorkspaceLink) {
-        Remove-Item -LiteralPath $backendWorkspaceLink -Force -ErrorAction Stop
-      }
+      Remove-NpmWorkspaceLink -LiteralPath $backendWorkspaceLink
     }
     Push-Location $backendTarget
     try {
