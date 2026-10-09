@@ -204,7 +204,7 @@ jobs:
             [[ "$existing_draft" == true && "$existing_tag_commit" == "$SOURCE_SHA" ]] || {
               echo "El release $TAG ya existe y no es un draft recuperable del SHA de main validado." >&2; exit 1;
             }
-          elif [[ -n "$existing_tag_commit" && "$existing_tag_commit" != "$GATE_SHA" ]]; then
+          elif [[ -n "$existing_tag_commit" && "$existing_tag_commit" != "$SOURCE_SHA" ]]; then
             echo "La tag $TAG ya apunta a otro SHA y no se reemplaza." >&2; exit 1
           fi
           dispatch_result="$(gh api --method POST "repos/$GITHUB_REPOSITORY/actions/workflows/ci-installer-windows.yml/dispatches" \
