@@ -313,11 +313,15 @@ function formatFailureExcerpt(log, lineLimit = failureExcerptLineLimit, lineLeng
 
 function chunkFiles(namePrefix, files, size = integrationChunkSize) {
   const batches = [];
+  const isIsolated = (file) => /flujoDocente(Global|Parcial)E2E|qrEscaneoOmr|omrJobsWorkflow|pdfImpresionContrato|recoveryBundleGeneracion|recuperacionExamenes/.test(file);
 
   for (let index = 0; index < files.length;) {
     const current = files[index];
-    const isolated = /flujoDocente(Global|Parcial)E2E|qrEscaneoOmr|pdfImpresionContrato|recoveryBundleGeneracion|recuperacionExamenes/.test(current);
-    const chunkSize = isolated ? 1 : size;
+    const isolated = isIsolated(current);
+    const nextIsolatedIndex = files.findIndex((file, fileIndex) => fileIndex > index && isIsolated(file));
+    const chunkSize = isolated
+      ? 1
+      : Math.min(size, nextIsolatedIndex === -1 ? size : nextIsolatedIndex - index);
     const chunk = files.slice(index, index + chunkSize);
     const suffix = String(batches.length + 1).padStart(2, '0');
     const name = `${namePrefix}-${suffix}`;
