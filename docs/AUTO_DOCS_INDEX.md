@@ -28,7 +28,6 @@ No editar a mano: los cambios se pisan al regenerar.
 - [INSTANCE_LIFECYCLE.md](INSTANCE_LIFECYCLE.md) — Ciclo de vida de instancias EvaluaPro
 - [INVENTARIO_CODIGO_EXHAUSTIVO.md](INVENTARIO_CODIGO_EXHAUSTIVO.md) — Inventario Exhaustivo de Codigo
 - [INVENTARIO_PROYECTO.md](INVENTARIO_PROYECTO.md) — Inventario Tecnico del Proyecto
-- [MANUAL_USUARIO_DOCENTE.md](MANUAL_USUARIO_DOCENTE.md) — Manual de EvaluaPro para docentes
 - [MANUAL_UX_CAPTURES.md](MANUAL_UX_CAPTURES.md) — Manual UX/UI de EvaluaPro - Capturas de E2E
 - [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR canónico
 - [OPERACION_EXAMEN_GLOBAL_PROD.md](OPERACION_EXAMEN_GLOBAL_PROD.md) — Operacion de Examen Global en Produccion
