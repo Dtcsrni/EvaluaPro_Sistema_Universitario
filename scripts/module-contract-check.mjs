@@ -3,56 +3,98 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import ts from 'typescript';
 import { pathToFileURL } from 'node:url';
 
 const DEFAULTS = {
   moduleRoot: 'apps/backend/src/modulos',
-  manifestPath: 'docs/contracts/module-contracts.v1.json',
-  prismaSchemaPath: 'apps/backend/prisma/schema.prisma'
+  manifestPath: 'docs/contracts/module-contracts.v2.json',
+  legacyManifestPath: 'docs/contracts/module-contracts.v1.json',
+  prismaSchemaPath: 'apps/backend/prisma/schema.prisma',
+  tsconfigPath: 'apps/backend/tsconfig.json'
 };
 
-function parseVersion(value) {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?$/.exec(String(value ?? ''));
-  return match ? { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]), prerelease: match[4] ?? null } : null;
+export function parseVersion(value) {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(String(value ?? ''));
+  if (!match) return null;
+  const prerelease = match[4] ? match[4].split('.') : [];
+  if (prerelease.some((identifier) => /^\d+$/.test(identifier) && identifier.length > 1 && identifier.startsWith('0'))) return null;
+  return {
+    major: BigInt(match[1]),
+    minor: BigInt(match[2]),
+    patch: BigInt(match[3]),
+    prerelease,
+    build: match[5] ? match[5].split('.') : []
+  };
 }
 
-function compareVersions(a, b) {
+export function compareVersions(a, b) {
   for (const key of ['major', 'minor', 'patch']) {
     if (a[key] !== b[key]) return a[key] < b[key] ? -1 : 1;
   }
-  if (a.prerelease === b.prerelease) return 0;
-  if (!a.prerelease) return 1;
-  if (!b.prerelease) return -1;
-  return a.prerelease.localeCompare(b.prerelease);
+  if (a.prerelease.length === 0 || b.prerelease.length === 0) {
+    if (a.prerelease.length === b.prerelease.length) return 0;
+    return a.prerelease.length === 0 ? 1 : -1;
+  }
+  const length = Math.min(a.prerelease.length, b.prerelease.length);
+  for (let index = 0; index < length; index += 1) {
+    const left = a.prerelease[index];
+    const right = b.prerelease[index];
+    if (left === right) continue;
+    const leftNumeric = /^\d+$/.test(left);
+    const rightNumeric = /^\d+$/.test(right);
+    if (leftNumeric && rightNumeric) return BigInt(left) < BigInt(right) ? -1 : 1;
+    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+    return left < right ? -1 : 1;
+  }
+  return a.prerelease.length === b.prerelease.length ? 0 : a.prerelease.length < b.prerelease.length ? -1 : 1;
 }
 
-function satisfiesRange(versionText, rangeText) {
+export function satisfiesRange(versionText, rangeText) {
   const version = parseVersion(versionText);
   if (!version || typeof rangeText !== 'string' || !rangeText.trim()) return false;
   const range = rangeText.trim();
   if (range.startsWith('^') || range.startsWith('~')) {
     const base = parseVersion(range.slice(1));
     if (!base || compareVersions(version, base) < 0) return false;
-    if (range.startsWith('~')) return version.major === base.major && version.minor === base.minor;
-    return base.major > 0 ? version.major === base.major : base.minor > 0 ? version.major === 0 && version.minor === base.minor : version.major === 0 && version.minor === 0 && version.patch === base.patch;
+    const upper = range.startsWith('~')
+      ? { major: base.major, minor: base.minor + 1n, patch: 0n, prerelease: [], build: [] }
+      : base.major > 0
+        ? { major: base.major + 1n, minor: 0n, patch: 0n, prerelease: [], build: [] }
+        : base.minor > 0
+          ? { major: 0n, minor: base.minor + 1n, patch: 0n, prerelease: [], build: [] }
+          : { major: 0n, minor: 0n, patch: base.patch + 1n, prerelease: [], build: [] };
+    if (compareVersions(version, upper) >= 0) return false;
+    return permitsPrerelease(version, [{ version: base, operator: '>=' }, { version: upper, operator: '<' }]);
   }
+  const exact = parseVersion(range);
+  if (exact) return compareVersions(version, exact) === 0;
   const constraints = range.split(/\s+/);
-  if (constraints.length === 1) return constraints[0] === versionText;
-  return constraints.every((constraint) => {
+  if (constraints.some((constraint) => !constraint)) return false;
+  const parsed = constraints.map((constraint) => {
     const match = /^(>=|>|<=|<|=)(.+)$/.exec(constraint);
-    if (!match) return false;
-    const bound = parseVersion(match[2]);
-    if (!bound) return false;
-    const compared = compareVersions(version, bound);
-    return match[1] === '>=' ? compared >= 0 : match[1] === '>' ? compared > 0 : match[1] === '<=' ? compared <= 0 : match[1] === '<' ? compared < 0 : compared === 0;
+    const bound = match ? parseVersion(match[2]) : null;
+    return match && bound ? { version: bound, operator: match[1] } : null;
   });
+  if (parsed.length === 0 || parsed.some((constraint) => !constraint)) return false;
+  const satisfies = parsed.every(({ version: bound, operator }) => {
+    const compared = compareVersions(version, bound);
+    return operator === '>=' ? compared >= 0 : operator === '>' ? compared > 0 : operator === '<=' ? compared <= 0 : operator === '<' ? compared < 0 : compared === 0;
+  });
+  return satisfies && permitsPrerelease(version, parsed);
+}
+
+function permitsPrerelease(version, constraints) {
+  if (version.prerelease.length === 0) return true;
+  return constraints.some(({ version: bound }) => bound.prerelease.length > 0 &&
+    version.major === bound.major && version.minor === bound.minor && version.patch === bound.patch);
 }
 
 function listTypeScriptFiles(directory) {
   if (!fs.existsSync(directory)) return [];
   const files = [];
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     const target = path.join(directory, entry.name);
     if (entry.isDirectory()) files.push(...listTypeScriptFiles(target));
     else if (/\.tsx?$/.test(entry.name)) files.push(target);
@@ -61,25 +103,201 @@ function listTypeScriptFiles(directory) {
 }
 
 function moduleIdForPath(moduleRoot, filePath, moduleIds) {
-  const firstSegment = path.relative(moduleRoot, filePath).split(path.sep)[0];
+  const relative = path.relative(moduleRoot, filePath);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  const firstSegment = relative.split(path.sep)[0];
   return moduleIds.has(firstSegment) ? firstSegment : null;
+}
+
+function readTypeScriptCompilerOptions(root, tsconfigPath) {
+  const absoluteConfigPath = path.resolve(root, tsconfigPath);
+  if (!fs.existsSync(absoluteConfigPath)) {
+    return {
+      options: { module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext },
+      errors: []
+    };
+  }
+  const read = ts.readConfigFile(absoluteConfigPath, ts.sys.readFile);
+  if (read.error) return { options: {}, errors: [ts.flattenDiagnosticMessageText(read.error.messageText, '\n')] };
+  const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, path.dirname(absoluteConfigPath), undefined, absoluteConfigPath);
+  const errors = parsed.errors.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+  return { options: parsed.options, errors };
+}
+
+function createTypeScriptProgram(root, tsconfigPath, compilerOptions) {
+  const absoluteConfigPath = path.resolve(root, tsconfigPath);
+  if (!fs.existsSync(absoluteConfigPath)) {
+    const rootNames = listTypeScriptFiles(path.resolve(root, 'apps/backend/src'));
+    return ts.createProgram(rootNames, compilerOptions);
+  }
+  const read = ts.readConfigFile(absoluteConfigPath, ts.sys.readFile);
+  if (read.error) return null;
+  const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, path.dirname(absoluteConfigPath), undefined, absoluteConfigPath);
+  return ts.createProgram(parsed.fileNames, { ...parsed.options, ...compilerOptions });
 }
 
 function moduleSpecifierNodes(sourceFile) {
   const result = [];
   for (const statement of sourceFile.statements) {
     if ((ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier)) {
-      result.push({ specifier: statement.moduleSpecifier.text, node: statement.moduleSpecifier });
+      result.push({ specifier: statement.moduleSpecifier.text, node: statement.moduleSpecifier, kind: 'static' });
+    }
+    if (ts.isImportEqualsDeclaration(statement) && ts.isExternalModuleReference(statement.moduleReference)) {
+      const expression = statement.moduleReference.expression;
+      if (expression && ts.isStringLiteral(expression)) result.push({ specifier: expression.text, node: expression, kind: 'static' });
     }
   }
   const visit = (node) => {
-    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0])) {
-      result.push({ specifier: node.arguments[0].text, node: node.arguments[0] });
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const argument = node.arguments[0];
+      if (argument && ts.isStringLiteralLike(argument)) result.push({ specifier: argument.text, node: argument, kind: 'dynamic' });
+      else result.push({ specifier: null, node: argument ?? node, kind: 'dynamic' });
+    }
+    if (ts.isImportTypeNode(node)) {
+      const argument = node.argument;
+      if (ts.isLiteralTypeNode(argument) && ts.isStringLiteralLike(argument.literal)) {
+        result.push({ specifier: argument.literal.text, node: argument.literal, kind: 'type' });
+      }
+    }
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'require') {
+      const argument = node.arguments[0];
+      if (argument && ts.isStringLiteralLike(argument)) result.push({ specifier: argument.text, node: argument, kind: 'require' });
+      else result.push({ specifier: null, node: argument ?? node, kind: 'require' });
     }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
   return result;
+}
+
+function normalizePublicSignature(signature, declaration, moduleId, moduleRoot, moduleIds, compilerOptions) {
+  const sourcePath = declaration.getSourceFile().fileName;
+  return signature.replace(/import\(["']([^"']+)["']\)/g, (_match, specifier) => {
+    const resolved = ts.resolveModuleName(specifier, sourcePath, compilerOptions, ts.sys).resolvedModule?.resolvedFileName;
+    if (!resolved) return `import(${JSON.stringify(specifier)})`;
+    const targetModule = moduleIdForPath(moduleRoot, path.resolve(resolved), moduleIds);
+    if (targetModule === moduleId) return 'import("#self")';
+    if (targetModule) return `import("#module/${targetModule}")`;
+    const relativeToBackend = path.relative(path.resolve(path.dirname(moduleRoot)), resolved).replaceAll(path.sep, '/');
+    return `import("#host/${relativeToBackend}")`;
+  });
+}
+
+function extractPublicApi(program, entryPath, moduleId, moduleRoot, moduleIds, compilerOptions) {
+  const sourceFile = program?.getSourceFile(path.resolve(entryPath));
+  if (!sourceFile) return null;
+  const checker = program.getTypeChecker();
+  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+  if (!moduleSymbol) return null;
+  return checker.getExportsOfModule(moduleSymbol).map((exportedSymbol) => {
+    const symbol = exportedSymbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exportedSymbol) : exportedSymbol;
+    const declaration = symbol.declarations?.[0] ?? sourceFile;
+    const type = symbol.flags & (ts.SymbolFlags.TypeAlias | ts.SymbolFlags.Interface)
+      ? checker.getDeclaredTypeOfSymbol(symbol)
+      : checker.getTypeOfSymbolAtLocation(symbol, declaration);
+    const signature = checker.typeToString(type, declaration, ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.InTypeAlias);
+    return {
+      name: exportedSymbol.getName(),
+      signature: normalizePublicSignature(signature, declaration, moduleId, moduleRoot, moduleIds, compilerOptions)
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function readCurrentPublicApis(options = {}) {
+  const root = path.resolve(options.root ?? process.cwd());
+  const moduleRoot = path.resolve(root, options.moduleRoot ?? DEFAULTS.moduleRoot);
+  const tsconfigPath = options.tsconfigPath ?? DEFAULTS.tsconfigPath;
+  const moduleIds = new Set(fs.readdirSync(moduleRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+  const { options: compilerOptions, errors } = readTypeScriptCompilerOptions(root, tsconfigPath);
+  if (errors.length) throw new Error(`No se pudo leer tsconfig: ${errors.join('; ')}`);
+  const program = createTypeScriptProgram(root, tsconfigPath, compilerOptions);
+  if (!program) throw new Error('No se pudo crear el programa TypeScript');
+  return Object.fromEntries([...moduleIds].sort().map((moduleId) => {
+    const api = extractPublicApi(program, path.join(moduleRoot, moduleId, 'index.ts'), moduleId, moduleRoot, moduleIds, compilerOptions);
+    if (!api) throw new Error(`No se pudo extraer la API de ${moduleId}`);
+    return [moduleId, api];
+  }));
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function compareApiSnapshots(previous, current, currentVersion) {
+  const previousByName = new Map(previous.exports.map((item) => [item.name, item.signature]));
+  const currentByName = new Map(current.exports.map((item) => [item.name, item.signature]));
+  let breaking = false;
+  let additive = false;
+  for (const [name, signature] of previousByName) {
+    if (!currentByName.has(name) || currentByName.get(name) !== signature) breaking = true;
+  }
+  for (const name of currentByName.keys()) if (!previousByName.has(name)) additive = true;
+
+  const oldVersion = parseVersion(previous.version);
+  const newVersion = parseVersion(currentVersion);
+  if (!oldVersion || !newVersion || compareVersions(newVersion, oldVersion) <= 0) {
+    return ['publicApiHistory.version: cada snapshot agregado requiere una version SemVer mayor que la anterior'];
+  }
+  if (breaking && newVersion.major <= oldVersion.major) {
+    return [`publicApiHistory.breaking: ${previous.version} -> ${currentVersion} cambia o elimina exports; incremente major`];
+  }
+  if (!breaking && additive && newVersion.major === oldVersion.major && newVersion.minor <= oldVersion.minor) {
+    return [`publicApiHistory.additive: ${previous.version} -> ${currentVersion} agrega exports; incremente minor o major`];
+  }
+  return [];
+}
+
+export function validatePublicApiHistory(descriptor, currentExports) {
+  const errors = [];
+  const history = descriptor.publicApiHistory;
+  if (!Array.isArray(history) || history.length === 0) {
+    return [`${descriptor.id}.publicApiHistory: requiere al menos un snapshot versionado`];
+  }
+  let previous = null;
+  for (const [index, snapshot] of history.entries()) {
+    if (!snapshot || !parseVersion(snapshot.version) || !Array.isArray(snapshot.exports)) {
+      errors.push(`${descriptor.id}.publicApiHistory[${index}]: version SemVer y exports son obligatorios`);
+      continue;
+    }
+    const exportNames = snapshot.exports.map((item) => item?.name);
+    if (snapshot.exports.some((item) => !item || typeof item.name !== 'string' || typeof item.signature !== 'string') ||
+        new Set(exportNames).size !== exportNames.length) {
+      errors.push(`${descriptor.id}.publicApiHistory[${index}].exports: cada export debe tener nombre único y firma`);
+    }
+    const canonicalExports = [...snapshot.exports].sort((a, b) => String(a?.name).localeCompare(String(b?.name)));
+    if (!sameJson(snapshot.exports, canonicalExports)) errors.push(`${descriptor.id}.publicApiHistory[${index}].exports: ordene por nombre`);
+    if (previous) {
+      errors.push(...compareApiSnapshots(previous, snapshot, snapshot.version).map((error) => `${descriptor.id}.${error}`));
+    }
+    previous = snapshot;
+  }
+  const latest = history.at(-1);
+  if (latest?.version !== descriptor.contractVersion) {
+    errors.push(`${descriptor.id}.publicApiHistory.latest: ${latest?.version ?? 'missing'} debe coincidir con contractVersion ${descriptor.contractVersion}`);
+  }
+  if (latest && !sameJson(latest.exports, currentExports)) {
+    errors.push(`${descriptor.id}.publicApiHistory.drift: exports actuales no coinciden con el snapshot ${latest.version}; incremente contractVersion y agregue historial`);
+  }
+  return errors;
+}
+
+export function validateAppendOnlyHistory(baseManifest, currentManifest) {
+  if (!baseManifest || baseManifest.schemaVersion < 2) return [];
+  const errors = [];
+  const currentById = new Map((currentManifest.modules ?? []).map((descriptor) => [descriptor.id, descriptor]));
+  for (const oldDescriptor of baseManifest.modules ?? []) {
+    if (!Array.isArray(oldDescriptor.publicApiHistory)) continue;
+    const currentDescriptor = currentById.get(oldDescriptor.id);
+    if (!currentDescriptor) {
+      errors.push(`${oldDescriptor.id}.publicApiHistory.removed: no se elimina el descriptor durante una evolucion compatible`);
+      continue;
+    }
+    const oldHistory = oldDescriptor.publicApiHistory;
+    const currentHistory = currentDescriptor.publicApiHistory ?? [];
+    const prefixMatches = oldHistory.every((snapshot, index) => sameJson(snapshot, currentHistory[index]));
+    if (!prefixMatches) errors.push(`${oldDescriptor.id}.publicApiHistory.immutable: los snapshots previos de ${oldDescriptor.id} no se reescriben ni eliminan`);
+  }
+  return errors;
 }
 
 function findCycles(graph) {
@@ -116,6 +334,7 @@ export function inspectModuleContracts(options = {}) {
   const moduleRoot = path.resolve(root, options.moduleRoot ?? DEFAULTS.moduleRoot);
   const manifestPath = path.resolve(root, options.manifestPath ?? DEFAULTS.manifestPath);
   const prismaSchemaPath = path.resolve(root, options.prismaSchemaPath ?? DEFAULTS.prismaSchemaPath);
+  const tsconfigPath = options.tsconfigPath ?? DEFAULTS.tsconfigPath;
   const errors = [];
   const moduleDirs = fs.existsSync(moduleRoot)
     ? fs.readdirSync(moduleRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort()
@@ -128,7 +347,26 @@ export function inspectModuleContracts(options = {}) {
     return { ok: false, errors: [`registry.read: ${error.message}`], modules: 0, dependencyPairs: 0, cycles: [] };
   }
 
-  if (manifest.schemaVersion !== 1) errors.push(`registry.version: se esperaba 1; recibido ${manifest.schemaVersion}`);
+  const baseRef = options.baseRef ?? process.env.GITHUB_BASE_REF;
+  if (baseRef) {
+    let baseManifest = null;
+    let baseReadError = null;
+    for (const registryPath of [DEFAULTS.manifestPath, DEFAULTS.legacyManifestPath]) {
+      for (const ref of [`origin/${baseRef}`, baseRef]) {
+        try {
+          baseManifest = JSON.parse(execFileSync('git', ['show', `${ref}:${registryPath}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+          break;
+        } catch (error) {
+          baseReadError = error;
+        }
+      }
+      if (baseManifest) break;
+    }
+    if (!baseManifest) errors.push(`registry.base: no se pudo leer el contrato del branch base "${baseRef}": ${baseReadError?.message ?? 'no disponible'}`);
+    else errors.push(...validateAppendOnlyHistory(baseManifest, manifest));
+  }
+
+  if (manifest.schemaVersion !== 2) errors.push(`registry.version: se esperaba 2; recibido ${manifest.schemaVersion}`);
   if (!parseVersion(manifest.host?.version)) errors.push(`host.version: SemVer inválido "${manifest.host?.version}"`);
   if (!satisfiesRange(manifest.host?.version, manifest.host?.compatibility)) errors.push(`host.compatibility: ${manifest.host?.version} no satisface "${manifest.host?.compatibility}"`);
   if (!Array.isArray(manifest.modules)) errors.push('registry.modules: debe ser un arreglo');
@@ -142,13 +380,19 @@ export function inspectModuleContracts(options = {}) {
   for (const id of descriptorsById.keys()) if (!moduleIds.has(id)) errors.push(`module.unknown: el registro contiene módulo inexistente "${id}"`);
 
   const graph = new Map(moduleDirs.map((id) => [id, new Set()]));
+  const compilerConfig = readTypeScriptCompilerOptions(root, tsconfigPath);
+  errors.push(...compilerConfig.errors.map((error) => `typescript.config: ${error}`));
+  const program = createTypeScriptProgram(root, tsconfigPath, compilerConfig.options);
   for (const moduleId of moduleDirs) {
     const descriptor = descriptorsById.get(moduleId);
     if (!descriptor) continue;
     if (!parseVersion(descriptor.contractVersion)) errors.push(`${moduleId}.contractVersion: SemVer inválido "${descriptor.contractVersion}"`);
     if (!satisfiesRange(manifest.host?.version, descriptor.hostCompatibility)) errors.push(`${moduleId}.hostCompatibility: host ${manifest.host?.version} fuera de "${descriptor.hostCompatibility}"`);
-    const entry = path.resolve(root, descriptor.entry ?? '');
-    if (!descriptor.entry || !fs.existsSync(entry)) errors.push(`${moduleId}.entry: no existe "${descriptor.entry}"`);
+    const expectedEntry = path.join(moduleRoot, moduleId, 'index.ts');
+    const expectedEntryRelative = path.relative(root, expectedEntry).replaceAll(path.sep, '/');
+    if (descriptor.entry !== expectedEntryRelative || !fs.existsSync(expectedEntry)) {
+      errors.push(`${moduleId}.entry: debe ser exactamente "${expectedEntryRelative}"`);
+    }
     if (!Array.isArray(descriptor.dependencies)) errors.push(`${moduleId}.dependencies: debe ser un arreglo`);
     const declared = new Map();
     for (const dependency of Array.isArray(descriptor.dependencies) ? descriptor.dependencies : []) {
@@ -166,22 +410,38 @@ export function inspectModuleContracts(options = {}) {
     descriptor._declaredDependencies = declared;
   }
 
+  const currentApis = new Map();
   for (const moduleId of moduleDirs) {
     const directory = path.join(moduleRoot, moduleId);
     for (const filePath of listTypeScriptFiles(directory)) {
       const source = fs.readFileSync(filePath, 'utf8');
       const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
-      for (const { specifier } of moduleSpecifierNodes(sourceFile)) {
-        if (!specifier.startsWith('.')) continue;
-        const targetPath = path.resolve(path.dirname(filePath), specifier);
-        const targetModule = moduleIdForPath(moduleRoot, targetPath, moduleIds);
+      for (const reference of moduleSpecifierNodes(sourceFile)) {
+        const { specifier, kind } = reference;
+        if (specifier === null) {
+          if (kind === 'dynamic' || kind === 'require') errors.push(`${moduleId}.dynamic-import.nonliteral: ${path.relative(root, filePath)} contiene ${kind} no literal`);
+          continue;
+        }
+        const targetPath = ts.resolveModuleName(specifier, filePath, compilerConfig.options, ts.sys).resolvedModule?.resolvedFileName;
+        if (!targetPath) continue;
+        const targetModule = moduleIdForPath(moduleRoot, path.resolve(targetPath), moduleIds);
         if (!targetModule || targetModule === moduleId) continue;
         graph.get(moduleId).add(targetModule);
-        if (path.basename(specifier) !== 'index.js' && path.basename(specifier) !== 'index.ts') {
-          errors.push(`${moduleId}.private-import: ${path.relative(root, filePath)} importa ${specifier}; usa ${targetModule}/index.js`);
+        const targetEntry = path.resolve(moduleRoot, targetModule, 'index.ts');
+        if (path.resolve(targetPath) !== targetEntry) {
+          errors.push(`${moduleId}.private-import: ${path.relative(root, filePath)} resuelve ${specifier} a ${path.relative(root, targetPath)}; usa la entrada pública ${path.relative(root, targetEntry).replaceAll(path.sep, '/')}`);
         }
       }
     }
+    const descriptor = descriptorsById.get(moduleId);
+    if (program && descriptor) {
+      const api = extractPublicApi(program, path.join(moduleRoot, moduleId, 'index.ts'), moduleId, moduleRoot, moduleIds, compilerConfig.options);
+      if (!api) errors.push(`${moduleId}.publicApi: no se pudo leer la entrada TypeScript con el compilador`);
+      else {
+        currentApis.set(moduleId, api);
+        errors.push(...validatePublicApiHistory(descriptor, api));
+      }
+    } else if (!program) errors.push('typescript.program: no se pudo crear el programa desde tsconfig');
   }
 
   for (const [moduleId, actual] of graph) {
@@ -192,6 +452,21 @@ export function inspectModuleContracts(options = {}) {
   }
   const cycles = findCycles(graph);
   for (const cycle of cycles) errors.push(`dependency.cycle: ${cycle.join(' -> ')}`);
+
+  const dependencyGraph = Object.fromEntries([...graph].sort(([a], [b]) => a.localeCompare(b)).map(([id, deps]) => [id, [...deps].sort()]));
+  const transitiveConsumers = Object.fromEntries(moduleDirs.map((id) => {
+    const consumers = new Set();
+    const visit = (dependency) => {
+      for (const [consumer, dependencies] of graph) {
+        if (dependencies.has(dependency) && !consumers.has(consumer)) {
+          consumers.add(consumer);
+          visit(consumer);
+        }
+      }
+    };
+    visit(id);
+    return [id, [...consumers].sort()];
+  }));
 
   let prismaModels = [];
   try {
@@ -226,17 +501,25 @@ export function inspectModuleContracts(options = {}) {
     errors,
     modules: moduleDirs.length,
     dependencyPairs: [...graph.values()].reduce((total, dependencies) => total + dependencies.size, 0),
+    dependencyGraph,
+    transitiveConsumers,
     cycles,
     prismaModels: prismaModels.length,
-    declaredModelOwners: modelOwners.size
+    declaredModelOwners: modelOwners.size,
+    persistenceOwners: Object.fromEntries([...modelOwners].sort(([a], [b]) => a.localeCompare(b)).map(([model, owners]) => [model, [...owners].sort()]))
   };
+}
+
+export function writeModuleContractReport(result, root = process.cwd()) {
+  const reportPath = path.resolve(root, 'reports/qa/latest/module-contracts.json');
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, `${JSON.stringify({ version: 2, gate: 'module-contracts', ...result }, null, 2)}\n`, 'utf8');
+  return reportPath;
 }
 
 function main() {
   const result = inspectModuleContracts();
-  const reportPath = path.resolve(process.cwd(), 'reports/qa/latest/module-contracts.json');
-  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
-  fs.writeFileSync(reportPath, `${JSON.stringify({ version: 1, gate: 'module-contracts', generatedAt: new Date().toISOString(), ...result }, null, 2)}\n`, 'utf8');
+  const reportPath = writeModuleContractReport(result);
   console.log(`[module-contracts] ${result.ok ? 'OK' : 'FAIL'}: ${result.modules} módulos, ${result.dependencyPairs} dependencias, ${result.prismaModels} modelos Prisma.`);
   for (const error of result.errors) console.error(`- ${error}`);
   console.log(`[module-contracts] reporte: ${path.relative(process.cwd(), reportPath)}`);

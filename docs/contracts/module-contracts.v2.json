@@ -1,0 +1,781 @@
+{
+  "schemaVersion": 2,
+  "host": {
+    "version": "1.2.6",
+    "compatibility": ">=1.2.6 <2.0.0"
+  },
+  "persistence": {
+    "engine": "prisma-sqlite",
+    "schema": "apps/backend/prisma/schema.prisma",
+    "migrationLocation": "apps/backend/prisma/migrations",
+    "migrationStrategy": "expand-migrate-contract",
+    "ownerRegistry": "modules[].persistenceModels",
+    "singleDatabase": true,
+    "destructiveChangesRequireCompatibilityWindow": true
+  },
+  "modules": [
+    {
+      "id": "modulo_admin_docentes",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_admin_docentes/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Administración de docentes y permisos asociados.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_alumnos",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_alumnos/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Alumnos, periodos, grupos y padrones.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_papelera",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "Periodo",
+        "PeriodoPortada",
+        "Alumno"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "Alumno",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "Periodo",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_analiticas",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_analiticas/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Consultas analíticas, banderas y exportaciones.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_calificacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "BanderaRevision",
+        "EventoUso"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "BanderaRevision",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_asistencias",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_asistencias/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Reglas, sesiones y registros de asistencia.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "AsistenciaRegla",
+        "AsistenciaSesion",
+        "AsistenciaRegistro",
+        "AsistenciaExcepcion"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_autenticacion",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_autenticacion/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Identidad docente, sesión, autenticación y autorización.",
+      "dependencies": [],
+      "persistenceModels": [
+        "Docente",
+        "SesionDocente",
+        "RecuperacionContrasenaDocente"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "compararContrasena",
+              "signature": "(contrasena: string, hash: string) => Promise<boolean>"
+            },
+            {
+              "name": "obtenerDocenteId",
+              "signature": "(req: SolicitudDocente) => string"
+            },
+            {
+              "name": "requerirDocente",
+              "signature": "(req: SolicitudDocente, _res: Response, next: NextFunction) => Promise<void>"
+            },
+            {
+              "name": "requerirPermiso",
+              "signature": "(...permisos: Permiso[]) => (req: SolicitudDocente, _res: Response, next: NextFunction) => void"
+            },
+            {
+              "name": "SolicitudDocente",
+              "signature": "Request<import(\"#host/../../../node_modules/@types/express-serve-static-core/index.d.ts\").ParamsDictionary, any, any, import(\"#host/../../../node_modules/@types/qs/index.d.ts\").ParsedQs, Record<string, any>> & { docenteId?: string; docenteRoles?: string[]; }"
+            },
+            {
+              "name": "verificarCredencialGoogle",
+              "signature": "(credential: string) => Promise<PerfilGoogle>"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_banco_preguntas",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_banco_preguntas/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Preguntas, reactivos, temas e importaciones versionadas.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "BancoPregunta",
+        "VersionPregunta",
+        "OpcionPregunta",
+        "Reactivo",
+        "ReactivoVersion",
+        "ReactivoOpcion",
+        "ReactivoAsignacion",
+        "ReactivoImportacion",
+        "ReactivoImportacionFila",
+        "ReactivoAsset",
+        "ReactivoCalibracion",
+        "TemaBanco",
+        "TemaBancoAuditoria"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "BancoPregunta",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "compactarOpcionBancoParaPdf",
+              "signature": "(valor: unknown) => string"
+            },
+            {
+              "name": "confirmarReactivos",
+              "signature": "(params: { docenteId: string; importId: string; planHash: string; batch?: ReactivosBatch; }) => Promise<{ importId: string; estado: string; summary: { create: number; noOp: number; newVersion: number; conflict: number; error: number; quarantined: number; }; reactivoIds: (string | null)[]; draftReactivoIds: never[]; } | { importId: string; estado: string; summary: { create: number; noOp: number; newVersion: number; conflict: number; error: number; }; reactivoIds: string[]; draftReactivoIds: string[]; }>"
+            },
+            {
+              "name": "normalizarEnunciadoBanco",
+              "signature": "(valor: unknown) => string"
+            },
+            {
+              "name": "previsualizarReactivos",
+              "signature": "(params: { docenteId: string; batch: ReactivosBatch; }) => Promise<{ importId: string; inputSha256: string; planHash: string; estado: string; plan: PlanImportacion; target: { periodo: { id: string; nombre: string; }; temas: { id: string; nombre: string; }[]; }; summary: { create: number; noOp: number; newVersion: number; conflict: number; error: number; }; }>"
+            },
+            {
+              "name": "registrarCuarentenaReactivos",
+              "signature": "(params: { docenteId: string; periodoId: string; inputSha256: string; batchId: string; nombreArchivo: string; tipoDocumento: string; rows: Array<{ linea: number; externalKey: string; detalle: Record<string, unknown>; }>; }) => Promise<{ importId: null; quarantined: number; existente: boolean; } | { importId: string; quarantined: number; existente: boolean; }>"
+            },
+            {
+              "name": "validarReactivosBatch",
+              "signature": "(input: unknown) => ReactivosBatch"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_calificacion",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_calificacion/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Calificaciones, revisión y persistencia de notas.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_escaneo_omr",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_generacion_pdf",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "PreferenciaRetencionParcial",
+        "Calificacion",
+        "CalificacionListaManual",
+        "CalificacionListaMutacion",
+        "ResultadoExtraExterno",
+        "SolicitudRevisionAlumno"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "Calificacion",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "presentarCalificacionExtraordinaria",
+              "signature": "(calificacionSobre5Texto: string | number) => { readonly calificacionEquivalenteSobre10Texto: string; readonly estadoAprobatorio: \"Aprobatoria\" | \"No aprobatoria\"; }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_comercial",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_comercial/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Operaciones comerciales de la aplicación.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_comercial_core",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_comercial_core/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Planes, licencias, suscripciones, tenants y auditoría comercial.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "Tenant",
+        "Suscripcion",
+        "Cobranza",
+        "Licencia",
+        "Cupon",
+        "Campana",
+        "ConsentimientoComercial",
+        "EventoComercial",
+        "AuditoriaComercial",
+        "PlanComercial",
+        "PlantillaNotificacion"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_compliance",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_compliance/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Cumplimiento, solicitudes de derechos y eventos.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "EventoCumplimiento",
+        "SolicitudDsr"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_escaneo_omr",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_escaneo_omr/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Ingesta y análisis de hojas OMR.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_generacion_pdf",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "EscaneoOmrArchivado",
+        "OmrSheetFamily",
+        "OmrSheetRevision",
+        "OmrScanJob"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "evaluarAutoCalificableOmr",
+              "signature": "(args: EntradaAutoCalificacionOmr) => { hardStop: boolean; rescateAltaPrecision: boolean; autoCalificableOmr: boolean; }"
+            },
+            {
+              "name": "leerCapturasOmrParaPortal",
+              "signature": "(folio: string) => Promise<Array<{ numeroPagina: number; formato: \"webp\"; imagenBase64: string; calidad?: number; sugerencias?: string[]; }>>"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_evaluaciones",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_evaluaciones/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Evidencias, políticas y resúmenes de evaluación.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "PoliticaCalificacion",
+        "PoliticaCalificacionAuditoria",
+        "ConfiguracionPeriodoEvaluacion",
+        "EvidenciaEvaluacion",
+        "ComponenteExamen",
+        "ResumenEvaluacionAlumno",
+        "EncuadreAcademico",
+        "FirmaEncuadre"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "EvidenciaEvaluacion",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "ResumenEvaluacionAlumno",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_generacion_pdf",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_generacion_pdf/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Plantillas, lotes, PDFs y artefactos de examen.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_banco_preguntas",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_papelera",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "ExamenPlantilla",
+        "PreguntaPlantilla",
+        "ExamenPlantillaAuditoria",
+        "ExamenGenerado",
+        "ExamenRecoveryBundle",
+        "ExamenLoteArtefactoPdf",
+        "ExamenLoteArtefactoPdfAuditoria",
+        "ExamenRecoveryManifest"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "descargarPdfLoteUseCase",
+              "signature": "(params: { docenteId: unknown; loteId: string; }) => Promise<{ buffer: Buffer<ArrayBufferLike>; fileName: string; pdfSha256: string; totalPaginas: number; }>"
+            },
+            {
+              "name": "esquemaBodyVacioOpcional",
+              "signature": "z.ZodOptional<z.ZodObject<{}, z.core.$strict>>"
+            },
+            {
+              "name": "ExamenGenerado",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "ExamenPlantilla",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "extraerResumenQrExamen",
+              "signature": "(textoQr?: string) => ResumenQrExamen | null"
+            },
+            {
+              "name": "generarPdfExamen",
+              "signature": "({ titulo, folio, loteId, examId, preguntas, mapaVariante, tipoExamen, totalPaginas, margenMm, encabezado, bookletConfig, templateVersion, omrTemplateId }: { titulo: string; folio: string; loteId?: string; examId?: string; preguntas: PreguntaBase[]; mapaVariante: MapaVariante; tipoExamen: TipoExamen; totalPaginas: number; margenMm?: number; templateVersion?: TemplateVersion; omrTemplateId?: OmrTemplateId; bookletConfig?: { densityMode?: \"balanced\" | \"compact\" | \"relaxed\"; autoFitPages?: boolean; autoFitTypography?: boolean; fontScale?: number; lineSpacing?: number; distribuirEnPaginasObjetivo?: boolean; logos?: { izquierdaPath?: string; derechaPath?: string; }; }; encabezado?: { institucion?: string; lema?: string; materia?: string; docente?: string; instrucciones?: string; alumno?: { nombre?: string; grupo?: string; iniciales?: string; }; mostrarInstrucciones?: boolean; mostrarMarcaInstitucional?: boolean; logos?: { izquierdaPath?: string; derechaPath?: string; }; }; }) => Promise<import(\"#self\").ResultadoGeneracionPdf>"
+            },
+            {
+              "name": "MapaVariante",
+              "signature": "{ ordenPreguntas: string[]; ordenOpcionesPorPregunta: Record<string, number[]>; }"
+            },
+            {
+              "name": "normalizarTituloPlantilla",
+              "signature": "(titulo: string) => string"
+            },
+            {
+              "name": "PreguntaBase",
+              "signature": "{ id: string; enunciado: string; imagenUrl?: string; opciones: OpcionPregunta[]; }"
+            },
+            {
+              "name": "rasterizarPdfParaPreview",
+              "signature": "(buffer: Buffer, opciones?: OpcionesRasterizadoPdf) => Promise<{ paginas: PaginaPdfPreviewVisual[]; paginasTotales: number; paginasOmitidas: number; }>"
+            },
+            {
+              "name": "RecoveryBundle",
+              "signature": "{ version: 1; kind: \"lot-recovery\"; keyId: string; generatedAt: string; loteId: string; docenteId?: string; periodoId?: string; plantillaId?: string; templateVersion: TemplateVersion; totalExamenes: number; questionBankHash: string; questionBank: Array<{ questionId: string; questionRef: string; enunciado: string; opcionesBase: Array<{ index: number; texto: string; esCorrecta: boolean; }>; sourceExamIds: string[]; sourceFolios: string[]; }>; examenes: Array<{ examId: string; folio: string; manifestHash: string; variantHash?: string; answerKeyHash?: string; answerKeySnapshotHash: string; totalPreguntas: number; totalPaginas: number; }>; manifests: RecoveryManifest[]; signature: string; bundleHash: string; }"
+            },
+            {
+              "name": "RecoveryManifest",
+              "signature": "{ version: 1; kind: \"exam-recovery\"; keyId: string; generatedAt: string; examId: string; docenteId?: string; periodoId?: string; plantillaId?: string; loteId?: string; folio: string; templateVersion: TemplateVersion; totalPreguntas: number; totalPaginas: number; variantHash?: string; answerKeyHash?: string; qrKeyId?: string; questionBankHash: string; answerKeySnapshot: RecoveryAnswerKeySnapshot; traceability: RecoveryTraceability; mapaOmrSnapshot: MapaOmr; pages: Array<{ numeroPagina: number; qrTexto: string; preguntaDesde?: number; preguntaHasta?: number; questionRefs: string[]; optionOrders: string[]; questionIds: string[]; }>; questions: RecoveryQuestionSnapshot[]; signature: string; manifestHash: string; }"
+            },
+            {
+              "name": "RecoveryQuestionSnapshot",
+              "signature": "{ questionId: string; questionRef: string; pageNumber: number; visibleNumber: number; variantOrder: number[]; correctLetterVisible: string; enunciado: string; opcionesBase: Array<{ index: number; texto: string; esCorrecta: boolean; }>; opcionesVisibles: Array<{ letra: string; originalIndex: number; texto: string; esCorrecta: boolean; }>; }"
+            },
+            {
+              "name": "ResumenQrExamen",
+              "signature": "{ folio: string; numeroPagina: number; templateVersion?: TemplateVersion; templateId?: OmrTemplateId; keyId?: string; examId?: string; totalPreguntas?: number; preguntaDesde?: number; preguntaHasta?: number; variantHash?: string; answerKeyHash?: string; pageAnswerKey?: string; payloadSignature?: string; payloadSignatureMode?: \"hmac-v1\" | \"unsupported\" | \"none\"; payloadSignatureValid?: boolean; qrPayloadMode?: \"self-contained\" | \"manifest-bound\"; validatedAgainstManifest?: boolean; questionRefs?: string[]; optionOrders?: string[]; raw: string; }"
+            },
+            {
+              "name": "TemplateVersion",
+              "signature": "4"
+            },
+            {
+              "name": "verificarRecoveryBundle",
+              "signature": "(bundle: RecoveryBundle) => boolean"
+            },
+            {
+              "name": "verificarRecoveryManifest",
+              "signature": "(manifest: RecoveryManifest) => boolean"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_hidratacion_cursos",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_hidratacion_cursos/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Hidratación de datos iniciales de cursos.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_banco_preguntas",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_integraciones_classroom",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_integraciones_classroom/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Conexión, consulta e importación de Google Classroom.",
+      "dependencies": [
+        {
+          "module": "modulo_alumnos",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_evaluaciones",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "IntegracionClassroom",
+        "BitacoraSyncClassroom",
+        "MapeoClassroomAlumnoCurso",
+        "MapeoClassroomEvidencia"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_listas_institucionales",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_listas_institucionales/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Listas institucionales por plantilla.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_papelera",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_papelera/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Archivo y recuperación lógica de entidades.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "PapeleraItem"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "guardarEnPapelera",
+              "signature": "(params: { docenteId: string; tipo: \"periodo\" | \"alumno\" | \"plantilla\"; entidadId: string; payload: Record<string, unknown>; tx?: Prisma.TransactionClient; }) => Promise<{ itemId: string; id: string; docenteId: string; createdAt: Date; tipo: string; datosJson: string; }>"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_recuperacion_examenes",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_recuperacion_examenes/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Recuperación y reconstrucción de exámenes.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_generacion_pdf",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "ReconstruccionExamen"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_sincronizacion_nube",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_sincronizacion_nube/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Paquetes, códigos de acceso y sincronización con portal.",
+      "dependencies": [
+        {
+          "module": "modulo_alumnos",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_analiticas",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_banco_preguntas",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_calificacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_escaneo_omr",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_evaluaciones",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_generacion_pdf",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_vinculacion_entrega",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "CodigoAcceso",
+        "Sincronizacion"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "requerirLeaseEscritura",
+              "signature": "(req: Request, _res: Response, next: NextFunction) => Promise<void>"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modulo_temarios",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_temarios/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Temarios, avance y encuadre curricular.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "Temario",
+        "TemarioNodo",
+        "AuditoriaTemario"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": []
+        }
+      ]
+    },
+    {
+      "id": "modulo_vinculacion_entrega",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_vinculacion_entrega/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Vinculación entre folios y entregas.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "Entrega"
+      ],
+      "publicApiHistory": [
+        {
+          "version": "1.0.0",
+          "exports": [
+            {
+              "name": "Entrega",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
