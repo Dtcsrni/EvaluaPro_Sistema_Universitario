@@ -190,11 +190,13 @@
       "paths": [
         "scripts/clean-architecture-check.mjs",
         "scripts/module-contract-check.mjs",
+        "scripts/module-contract-snapshot.mjs",
         "scripts/tests/clean-architecture*.test.mjs",
         "scripts/tests/module-contract-check.test.mjs",
         "docs/architecture/**",
         "docs/ARQUITECTURA.md",
         "docs/contracts/module-contracts.v1.json",
+        "docs/contracts/module-contracts.v2.json",
         "apps/backend/src/modulos/**",
         "apps/backend/src/rutas.ts"
       ],
