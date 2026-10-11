@@ -164,8 +164,6 @@
     "ia:handoff:validate": "node scripts/ia-handoff-envelope.mjs --validate=docs/handoff/outgoing.json",
     "ai:model:pick": "node scripts/ai-model-router.mjs",
     "ai:caveman:status": "node scripts/ai-caveman-status.mjs",
-    "ai:serena:status": "node scripts/ai-serena-status.mjs",
-    "ai:serena:policy:status": "node scripts/ai-serena-policy-status.mjs",
     "ai:skills-mcp:status": "node scripts/ai-skills-mcp-policy-status.mjs",
     "test:ai:model-router": "node --test scripts/tests/ai-model-router.test.mjs",
     "ai:ask": "node scripts/ai-openai-client.mjs",

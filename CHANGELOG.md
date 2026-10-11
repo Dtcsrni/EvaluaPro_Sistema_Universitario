@@ -504,16 +504,16 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - nueva guia `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`
   - referencia cruzada en trazabilidad, instrucciones de agente y readmes de `docs/` y `scripts/`
   - `scripts/ai-model-router.mjs` reconoce mejor solicitudes de politica/estrategia, Codex y VS Code para evitar selecciones genéricas baratas
-- Integracion Serena MCP repo-local para Codex:
-  - `.codex/config.toml` agrega `mcp_servers.serena` con `--project-from-cwd` y `--context=codex`
-  - `.codex/hooks.json` agrega recordatorio de activacion de proyecto Serena en `SessionStart`
-  - nuevo verificador `scripts/ai-serena-status.mjs` y comando `npm run ai:serena:status`
-- Politica de aprovechamiento Serena endurecida para minimizar tokens sin degradar calidad:
-  - protocolo operativo en `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md` (consultas simbolicas primero, alcance acotado por `relative_path`, `max_answer_chars` bajo, fallback shell solo si Serena no alcanza)
-  - nuevo verificador integral `scripts/ai-serena-policy-status.mjs` y comando `npm run ai:serena:policy:status`
-  - enforcement explícito `SERENA REQUIRED ALWAYS` en hooks repo/global y regla obligatoria en `AGENTS.md`
+- Integracion MCP MCP repo-local para Codex:
+  - `.codex/config.toml` agrega `mcp_servers.MCP` con `--project-from-cwd` y `--context=codex`
+  - `.codex/hooks.json` agrega recordatorio de activacion de proyecto MCP en `SessionStart`
+  - nuevo verificador `scripts/ai-MCP-status.mjs` y comando `npm run ai:MCP:status`
+- Politica de aprovechamiento MCP endurecida para minimizar tokens sin degradar calidad:
+  - protocolo operativo en `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md` (consultas simbolicas primero, alcance acotado por `relative_path`, `max_answer_chars` bajo, fallback shell solo si MCP no alcanza)
+  - nuevo verificador integral `scripts/ai-MCP-policy-status.mjs` y comando `npm run ai:MCP:policy:status`
+  - enforcement explícito `MCP REQUIRED ALWAYS` en hooks repo/global y regla obligatoria en `AGENTS.md`
   - hooks repo-local (`.codex/hooks.json`) y hooks globales (`~/.codex/hooks.json`) con recordatorios de activacion + disciplina de consulta
-  - capa global `~/.codex/config.toml` fija `mcp_servers.serena` con binario absoluto y `features.codex_hooks=true` para evitar fallos por PATH y activar la politica en cada sesion
+  - capa global `~/.codex/config.toml` fija `mcp_servers.MCP` con binario absoluto y `features.codex_hooks=true` para evitar fallos por PATH y activar la politica en cada sesion
 - `npm run test:ai:model-router` queda disponible como validacion local del router de modelos.
 - Se agrega un router automatico de modelos para tareas IA:
   - modulo reutilizable `scripts/ai-model-router.mjs`

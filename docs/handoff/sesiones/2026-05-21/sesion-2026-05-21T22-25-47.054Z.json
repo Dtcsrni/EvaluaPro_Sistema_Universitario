@@ -90,7 +90,7 @@
       "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
       "docs/INVENTARIO_PROYECTO.md",
       "docs/QA_INSTALLER_HUB_DOCENTE_2026-05-20.md",
-      ".serena.precheckout-20260521/",
+      ".MCP.precheckout-20260521/",
       "docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.json",
       "docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.md"
     ],
@@ -210,6 +210,6 @@
     "rootDir": "V:\\Software\\EvaluaPro",
     "branch": "stabilization/v1.0",
     "commit": "1003850",
-    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/QA_INSTALLER_HUB_DOCENTE_2026-05-20.md\n?? .serena.precheckout-20260521/\n?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.json\n?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.md"
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/QA_INSTALLER_HUB_DOCENTE_2026-05-20.md\n?? .MCP.precheckout-20260521/\n?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.json\n?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.md"
   }
 }

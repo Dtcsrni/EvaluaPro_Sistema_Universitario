@@ -67,10 +67,8 @@ function inspectRepo({ configText, hooksText, policyExists, scriptExists }) {
   const checks = {
     hasPolicyDoc: policyExists,
     hasVerifierScript: scriptExists,
-    hasSerenaMcp: /\[mcp_servers\.serena\]/i.test(configText),
     hasCodexHooks: /codex_hooks\s*=\s*true/i.test(configText),
     hasCavemanHook: /caveman/i.test(hooksText),
-    hasSerenaHook: /SERENA REQUIRED ALWAYS/i.test(hooksText)
   };
   return {
     ready: Object.values(checks).every(Boolean),
@@ -92,8 +90,6 @@ function inspectGlobal({ configText, hooksText }) {
   };
 
   const checks = {
-    hasSerenaMcp: /\[mcp_servers\.serena\]/i.test(configText),
-    hasGlobalSerenaHook: /SERENA GLOBAL POLICY \(REQUIRED ALWAYS\)/i.test(hooksText),
     requiredPlugins: Object.fromEntries(
       Object.entries(requiredPlugins).map(([name, pluginId]) => [name, pluginEnabled(configText, pluginId)])
     ),
@@ -106,8 +102,6 @@ function inspectGlobal({ configText, hooksText }) {
   };
 
   const requiredReady =
-    checks.hasSerenaMcp &&
-    checks.hasGlobalSerenaHook &&
     Object.values(checks.requiredPlugins).every(Boolean);
   const discouragedEnabled =
     checks.discouragedPlugins.figmaEnabled || checks.discouragedPlugins.canvaEnabled;

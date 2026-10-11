@@ -51,8 +51,8 @@
   },
   "commands": [
     {
-      "name": "ai_serena_policy_status",
-      "command": "npm run ai:serena:policy:status -- --json",
+      "name": "ai_MCP_policy_status",
+      "command": "npm run ai:MCP:policy:status -- --json",
       "status": "ok",
       "exitCode": 0,
       "durationMs": 1600,

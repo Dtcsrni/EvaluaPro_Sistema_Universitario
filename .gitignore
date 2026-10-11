@@ -63,7 +63,6 @@ backups/
 elevated*.log
 tmp_elevated_runner.ps1
 .automation/
-.serena.precheckout-*/
 packaging/wix/**/PublishOutputs.*.txt
 scripts/tests/*.tmp
 
@@ -97,3 +96,9 @@ packaging/app-host/publish/
 
 # Accesos directos Windows: contienen rutas absolutas de la máquina local.
 accesos-directos/*.lnk
+
+# Local exam scans, derived QA runs, and exported student workbooks stay outside Git.
+/storage/omr_debug/
+/output/qa/
+/docs/qa/
+/outputs/

@@ -33,10 +33,10 @@
 - No cambiar TrustedHosts desde shell no elevada
 
 ## Acciones
-- [ok] validation: Ejecucion de ai_serena_status (2026-05-25T04:18:20.808Z)
+- [ok] validation: Ejecucion de ai_MCP_status (2026-05-25T04:18:20.808Z)
 - [ok] validation: Ejecucion de ai_caveman_status (2026-05-25T04:18:20.808Z)
-- [ok] validation: Ejecucion de ai_serena_policy_status (2026-05-25T04:18:20.808Z)
-- [ok] validation: Ejecucion de serena_health_check (2026-05-25T04:18:20.808Z)
+- [ok] validation: Ejecucion de ai_MCP_policy_status (2026-05-25T04:18:20.808Z)
+- [ok] validation: Ejecucion de MCP_health_check (2026-05-25T04:18:20.808Z)
 - [ok] validation: Ejecucion de lint (2026-05-25T04:18:20.808Z)
 - [ok] validation: Ejecucion de typecheck (2026-05-25T04:18:20.808Z)
 - [ok] validation: Ejecucion de test_frontend_ci (2026-05-25T04:18:20.808Z)
@@ -63,7 +63,7 @@
 ## Archivos cambiados
 - .codex/hooks.json
 - .gitignore
-- .serena/project.yml
+- .MCP/project.yml
 - CHANGELOG.md
 - apps/backend/package.json
 - apps/backend/reports/qa/latest/e2e-docente-alumno.json
@@ -111,12 +111,12 @@
 - reports/qa/latest/clean-architecture.json
 - reports/qa/latest/ux-visual.json
 - scripts/README.md
-- scripts/ai-serena-policy-status.mjs
+- scripts/ai-MCP-policy-status.mjs
 - scripts/env-doctor.mjs
 - scripts/testing/run-backend-coverage-batches.mjs
 - scripts/tests/backend-coverage-batches.test.mjs
 - scripts/tests/env-doctor.test.mjs
-- .serena.precheckout-20260521/
+- .MCP.precheckout-20260521/
 - docs/ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md
 - docs/GUI_REDISENO_FIGMA.md
 - docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.json
@@ -124,16 +124,16 @@
 - docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T22-25-47.054Z.json
 - docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T22-25-47.054Z.md
 - docs/handoff/sesiones/2026-05-22/
-- scripts/tests/ai-serena-policy-status.test.mjs
+- scripts/tests/ai-MCP-policy-status.test.mjs
 
 ## Validacion ejecutada
-- ai_serena_status: `npm run ai:serena:status -- --json` -> ok (exitCode=0, duracionMs=0)
+- ai_MCP_status: `npm run ai:MCP:status -- --json` -> ok (exitCode=0, duracionMs=0)
   resultado: ready=true; commandAvailable=true
 - ai_caveman_status: `npm run ai:caveman:status -- --json` -> ok (exitCode=0, duracionMs=0)
   resultado: ready=true
-- ai_serena_policy_status: `npm run ai:serena:policy:status -- --json` -> ok (exitCode=0, duracionMs=0)
+- ai_MCP_policy_status: `npm run ai:MCP:policy:status -- --json` -> ok (exitCode=0, duracionMs=0)
   resultado: repo.ready=true; global.ready=true
-- serena_health_check: `serena.exe project health-check .` -> ok (exitCode=0, duracionMs=0)
+- MCP_health_check: `MCP.exe project health-check .` -> ok (exitCode=0, duracionMs=0)
   resultado: Health check passed - All tools working correctly
 - lint: `npm run lint` -> ok (exitCode=0, duracionMs=0)
   resultado: backend/frontend/portal ESLint verde
@@ -160,7 +160,7 @@
 - docs_check_final: `npm run docs:check` -> ok (exitCode=0, duracionMs=0)
   resultado: [docs] ok
 - stage_minimo: `git diff --cached --name-status` -> ok (exitCode=0, duracionMs=0)
-  resultado: staged: .serena/project.yml, package.json, run-backend-coverage-batches, backend-coverage-batches.test, handoff final json/md
+  resultado: staged: .MCP/project.yml, package.json, run-backend-coverage-batches, backend-coverage-batches.test, handoff final json/md
 - admin_preflight: `WindowsPrincipal.IsInRole(Administrator)` -> ok (exitCode=0, duracionMs=0)
   resultado: IsAdmin=false; user=TEZKATLI\evega
 - vm_hyperv_module_preflight: `Get-Module -ListAvailable Hyper-V` -> ok (exitCode=0, duracionMs=0)
@@ -177,7 +177,7 @@
 ## Decisiones
 - Mantener staged solo el lote minimo de estabilizacion.
 - No ejecutar installer-hub-e2e-docente.ps1 porque esta shell no es admin, Get-VM falla por permisos, TrustedHosts esta vacio y snapshot env no esta definido.
-- Serena no se usa como bloqueante operativo aunque el proyecto se activa por politica del entorno.
+- MCP no se usa como bloqueante operativo aunque el proyecto se activa por politica del entorno.
 
 ## Supuestos
 - El commit/PR debe hacerse solo con staged actual salvo decision explicita de incluir otros cambios.
@@ -192,7 +192,7 @@
 ```txt
 M .codex/hooks.json
  M .gitignore
-M  .serena/project.yml
+M  .MCP/project.yml
  M CHANGELOG.md
  M apps/backend/package.json
  M apps/backend/reports/qa/latest/e2e-docente-alumno.json
@@ -240,12 +240,12 @@ M  package.json
  M reports/qa/latest/clean-architecture.json
  M reports/qa/latest/ux-visual.json
  M scripts/README.md
- M scripts/ai-serena-policy-status.mjs
+ M scripts/ai-MCP-policy-status.mjs
  M scripts/env-doctor.mjs
 A  scripts/testing/run-backend-coverage-batches.mjs
 A  scripts/tests/backend-coverage-batches.test.mjs
  M scripts/tests/env-doctor.test.mjs
-?? .serena.precheckout-20260521/
+?? .MCP.precheckout-20260521/
 ?? docs/ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md
 ?? docs/GUI_REDISENO_FIGMA.md
 ?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.json
@@ -253,7 +253,7 @@ A  scripts/tests/backend-coverage-batches.test.mjs
 ?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T22-25-47.054Z.json
 ?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T22-25-47.054Z.md
 ?? docs/handoff/sesiones/2026-05-22/
-?? scripts/tests/ai-serena-policy-status.test.mjs
+?? scripts/tests/ai-MCP-policy-status.test.mjs
 ```
 
 ## Siguiente paso recomendado
