@@ -13,6 +13,16 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/flujoDocenteGlobalE2E.test.ts')), true);
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/qrEscaneoOmr.test.ts')), true);
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/aislamientoDocente.test.ts')), true);
+
+  const integrationFiles = plan.batches.flatMap((batch) => batch.args.filter((arg) => arg.startsWith('tests/integracion/')));
+  assert.equal(new Set(integrationFiles).size, integrationFiles.length, 'hay suites de integración duplicadas entre lotes');
+
+  const omrWorkflowBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/omrJobsWorkflow.test.ts'));
+  assert.ok(omrWorkflowBatch, 'falta el lote aislado de omrJobsWorkflow');
+  assert.deepEqual(
+    omrWorkflowBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/omrJobsWorkflow.test.ts']
+  );
 });
 
 test('cobertura backend conserva umbrales solo en el merge final', () => {
