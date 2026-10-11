@@ -13,7 +13,7 @@ import {
   OMR_CANONICAL_CONTRACT_ID,
   OMR_CANONICAL_DISPLAY_LABEL,
   TEMPLATE_VERSION_CANONICA
-} from '../../modulos/modulo_generacion_pdf/domain/templateCanonico.js';
+} from '../../modulos/modulo_generacion_pdf/index.js';
 
 const router = Router();
 type TecnologiaVersion = { id: string; label: string; logoUrl: string; website: string };

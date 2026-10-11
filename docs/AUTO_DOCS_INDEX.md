@@ -53,7 +53,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [SECURITY_POLICY.md](SECURITY_POLICY.md) — Política de seguridad del proyecto
 - [SEGURIDAD.md](SEGURIDAD.md) — Seguridad
 - [SEGURIDAD_OPERATIVA.md](SEGURIDAD_OPERATIVA.md) — Checklist de Seguridad Operativa
-- [SINCRONIZACION_ENTRE_COMPUTADORAS.md](SINCRONIZACION_ENTRE_COMPUTADORAS.md) — Sincronizacion entre computadoras
+- [SINCRONIZACION_ENTRE_COMPUTADORAS.md](SINCRONIZACION_ENTRE_COMPUTADORAS.md) — Respaldo y migración entre computadoras
 - [TAGGING_POLICY.md](TAGGING_POLICY.md) — Política de tags y releases
 - [UX_QUALITY_CRITERIA.md](UX_QUALITY_CRITERIA.md) — Criterios UX de Calidad (Gate Verificable)
 - [VERSIONADO.md](VERSIONADO.md) — Versionado y releases

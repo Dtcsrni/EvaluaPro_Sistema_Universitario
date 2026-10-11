@@ -1,4 +1,16 @@
-# Contrato de reactivos para generadores
+# Contratos de EvaluaPro
+
+## Contratos de módulos backend
+
+El registro [`module-contracts.v2.json`](./module-contracts.v2.json) define versión SemVer, compatibilidad del host, dependencias, APIs de dominio, superficies de composición y propiedad de modelos persistidos para los 21 módulos backend.
+
+- Los consumidores de dominio importan desde el `index.ts` público del módulo.
+- El host docente (`apps/backend/src/rutas.ts` y `apps/backend/src/index.ts`) integra routers y tareas de inicio mediante `composition.ts`.
+- Los historiales de dominio y composición son append-only y comparten `contractVersion`; los cambios incompatibles requieren versión major y los aditivos versión minor.
+- Para registrar una API nueva, incrementa `contractVersion` y ejecuta `npm run qa:module-contracts:snapshot`; después valida con `npm run qa:module-contracts:check`.
+- `qa:clean-architecture:strict` vuelve a comprobar límites, ciclos y propiedad de datos.
+
+## Contrato de reactivos para generadores
 
 El contrato canónico es [`reactivos-batch.v1.schema.json`](./reactivos-batch.v1.schema.json).
 La plantilla tabular equivalente está definida en [`reactivos-xlsx.v1.md`](./reactivos-xlsx.v1.md) y se puede descargar desde el Banco de reactivos.

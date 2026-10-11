@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   compareVersions,
+  readCurrentCompositionApis,
   inspectModuleContracts,
   parseVersion,
   readCurrentPublicApis,
@@ -29,6 +30,8 @@ function fixture({
   versionB = '1.0.0',
   ownersA = ['User'],
   ownersB = [],
+  compositionA = 'export const hostAdapter = true;',
+  compositionB = 'export const hostAdapter = true;',
   entryA,
   aliasB
 } = {}) {
@@ -42,7 +45,10 @@ function fixture({
   const privateImports = aliasB ? "import '@b-private';" : importsA;
   write('src/modulos/a/index.ts', `${privateImports}\n${sourceA}\n`);
   write('src/modulos/b/index.ts', `${importsB}\n${sourceB}\n`);
+  write('src/modulos/a/composition.ts', `${compositionA}\n`);
+  write('src/modulos/b/composition.ts', `${compositionB}\n`);
   if (aliasB) write('src/modulos/b/private.ts', 'export const internal = true;\n');
+  write('package.json', JSON.stringify({ version: '1.2.0' }));
   write('apps/backend/prisma/schema.prisma', 'model User {\n id String @id\n}\n');
   write('tsconfig.fixture.json', JSON.stringify({
     compilerOptions: {
@@ -57,14 +63,17 @@ function fixture({
   }));
 
   const apis = readCurrentPublicApis({ root, moduleRoot: 'src/modulos', tsconfigPath: 'tsconfig.fixture.json' });
+  const compositionApis = readCurrentCompositionApis({ root, moduleRoot: 'src/modulos', tsconfigPath: 'tsconfig.fixture.json' });
   const module = (id, dependencies, hostCompatibility, persistenceModels, contractVersion = '1.0.0', entry = `src/modulos/${id}/index.ts`) => ({
     id,
     contractVersion,
     entry,
+    compositionEntry: `src/modulos/${id}/composition.ts`,
     hostCompatibility,
     dependencies,
     persistenceModels,
-    publicApiHistory: [{ version: contractVersion, exports: apis[id] }]
+    publicApiHistory: [{ version: contractVersion, exports: apis[id] }],
+    compositionApiHistory: [{ version: contractVersion, exports: compositionApis[id] }]
   });
   write('contracts.json', JSON.stringify({
     schemaVersion: 2,
@@ -95,6 +104,56 @@ test('la base vigente registra todos los módulos, sin ciclos ni modelos huérfa
   assert.equal(result.declaredModelOwners, result.prismaModels);
   assert.ok(result.dependencyGraph.modulo_admin_docentes.includes('modulo_autenticacion'));
   assert.ok(result.transitiveConsumers.modulo_autenticacion.length > 0);
+});
+
+test('el host del registro debe coincidir con la versión del producto', () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.2.1' }), 'utf8');
+  assert.ok(inspect(root).errors.some((error) => error.includes('host.version.mismatch')));
+});
+
+test('el host no puede importar archivos privados en lugar de composition.ts', () => {
+  const root = fixture();
+  const hostRoot = path.join(root, 'apps/backend/src/rutas.ts');
+  fs.mkdirSync(path.dirname(hostRoot), { recursive: true });
+  fs.writeFileSync(hostRoot, "import '../../../src/modulos/b/private.js';\n", 'utf8');
+  fs.writeFileSync(path.join(root, 'src/modulos/b/private.ts'), 'export const internal = true;\n', 'utf8');
+  assert.ok(inspect(root).errors.some((error) => error.includes('b.host.private-import')));
+});
+
+test('los servicios compartidos solo consumen la API de dominio index.ts', () => {
+  const root = fixture();
+  const sharedFile = path.join(root, 'apps/backend/src/compartido/servicio.ts');
+  fs.mkdirSync(path.dirname(sharedFile), { recursive: true });
+  fs.writeFileSync(sharedFile, "import '../../../../src/modulos/b/private.js';\n", 'utf8');
+  fs.writeFileSync(path.join(root, 'src/modulos/b/private.ts'), 'export const internal = true;\n', 'utf8');
+  assert.ok(inspect(root).errors.some((error) => error.includes('b.external.private-import')));
+});
+
+test('el composition root puede consumir solo la entrada de composición registrada', () => {
+  const root = fixture();
+  const hostRoot = path.join(root, 'apps/backend/src/rutas.ts');
+  fs.mkdirSync(path.dirname(hostRoot), { recursive: true });
+  fs.writeFileSync(hostRoot, "import '../../../src/modulos/b/composition.js';\n", 'utf8');
+  const valid = inspect(root);
+  assert.equal(valid.ok, true, valid.errors.join('\n'));
+
+  fs.writeFileSync(hostRoot, "import '../../../src/modulos/b/index.js';\n", 'utf8');
+  assert.ok(inspect(root).errors.some((error) => error.includes('b.host.private-import')));
+});
+
+test('detecta cambios a la API de composición sin bump ni snapshot nuevo', () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, 'src/modulos/a/composition.ts'), 'export const hostAdapter = "changed";\n', 'utf8');
+  assert.ok(inspect(root).errors.some((error) => error.includes('a.compositionApiHistory.drift')));
+});
+
+test('el historial de composición exige SemVer e impide reescritura del baseline', () => {
+  const base = { schemaVersion: 2, modules: [{ id: 'a', compositionApiHistory: [{ version: '1.0.0', exports: [] }] }] };
+  const appended = { schemaVersion: 2, modules: [{ id: 'a', compositionApiHistory: [{ version: '1.0.0', exports: [] }, { version: '1.1.0', exports: [{ name: 'mount', signature: '() => void' }] }] }] };
+  const rewritten = { schemaVersion: 2, modules: [{ id: 'a', compositionApiHistory: [{ version: '1.0.0', exports: [{ name: 'broken', signature: '() => void' }] }] }] };
+  assert.deepEqual(validateAppendOnlyHistory(base, appended), []);
+  assert.ok(validateAppendOnlyHistory(base, rewritten).some((error) => error.includes('compositionApiHistory.immutable')));
 });
 
 test('las entradas públicas no cargan routers del composition root', () => {

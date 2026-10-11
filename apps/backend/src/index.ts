@@ -6,12 +6,11 @@ import { crearApp } from './app.js';
 import { configuracion } from './configuracion.js';
 import { conectarSqlite } from './infraestructura/baseDatos/sqlite.js';
 import { logError, log } from './infraestructura/logging/logger.js';
-import { seedAdminDocente } from './modulos/modulo_autenticacion/seedAdmin.js';
-import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv } from './modulos/modulo_escaneo_omr/infra/omrCvEngine.js';
-import { recuperarIngestasPdfOmrInterrumpidas } from './modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.js';
+import { seedAdminDocente } from './modulos/modulo_autenticacion/composition.js';
+import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv, recuperarIngestasPdfOmrInterrumpidas } from './modulos/modulo_escaneo_omr/composition.js';
 
-import { iniciarSchedulerCobranzaAutomatica } from './modulos/modulo_comercial_core/schedulerCobranza.js';
-import { iniciarSchedulerRetencionExamenes } from './modulos/modulo_generacion_pdf/schedulerRetencionExamenes.js';
+import { iniciarSchedulerCobranzaAutomatica } from './modulos/modulo_comercial_core/composition.js';
+import { iniciarSchedulerRetencionExamenes } from './modulos/modulo_generacion_pdf/composition.js';
 
 async function iniciar() {
   await conectarSqlite();
