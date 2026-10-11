@@ -5,8 +5,8 @@
  * Limites: Delegar la lógica compleja de PDFs a servicioEncuadrePdf y base de datos a Prisma.
  */
 import type { Response, Request } from 'express';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
-import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import type { SolicitudDocente } from '../modulo_autenticacion/index.js';
+import { obtenerDocenteId } from '../modulo_autenticacion/index.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import {

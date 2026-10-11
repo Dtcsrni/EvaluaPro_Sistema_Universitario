@@ -1,0 +1,44 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "06753a9a-2295-4bb8-8fca-c540f0849011",
+  "status": "final",
+  "generatedAt": "2026-10-11T19:16:19.000Z",
+  "validationProfile": "full",
+  "agent": { "name": "unknown", "version": "unknown", "provider": "unknown", "kind": "unknown", "channel": "unknown" },
+  "request": { "summary": "Cerrar el corte de EvaluaPro, integrar el trabajo pendiente y preparar contratos para evolución modular compatible." },
+  "objective": "Establecer interfaces y dependencias modulares verificables, eliminar ciclos detectados y dejar integrados los cambios aprobados para el corte actual.",
+  "scope": ["Inventario de 21 módulos backend y propiedad de modelos Prisma", "Contratos versionados, reglas de compatibilidad y verificador automatizado", "Importaciones públicas entre módulos y eliminación de ciclos detectados", "Integración con guardas de arquitectura, CI, especificación y changelog", "Cierre de ramas y worktrees pendientes"],
+  "constraints": ["Conservar los datos locales OMR fuera de Git", "No inventar secretos para el gate de rendimiento", "Mantener rutas públicas, permisos y orden de montaje compatibles"],
+  "actions": [
+    { "type": "architecture-change", "summary": "Se añadieron contratos 1.0.0 para 21 módulos, propiedad de 76 modelos y comprobaciones de compatibilidad, imports y ciclos.", "timestamp": "2026-10-11T19:16:19.000Z", "status": "ok" },
+    { "type": "regression-fix", "summary": "Se retiraron tres ciclos de dependencias y se conservaron las rutas mediante composición en la raíz.", "timestamp": "2026-10-11T19:16:19.000Z", "status": "ok" },
+    { "type": "validation", "summary": "Lint, typecheck, suites frontend, backend y portal, contratos, políticas y trazabilidad pasaron; cobertura instrumental agotó tiempos de lote y rendimiento no pudo iniciar por configuración de entorno.", "timestamp": "2026-10-11T19:16:19.000Z", "status": "ok" },
+    { "type": "commit", "summary": "Cambios arquitectónicos registrados en el commit 07b3f05a.", "timestamp": "2026-10-11T19:16:19.000Z", "status": "ok" }
+  ],
+  "files": {
+    "read": ["AGENTS.md", "docs/POLITICA_SDD.md", "docs/ARQUITECTURA.md", "docs/handoff/trace.schema.json", "docs/contracts/module-contracts.v1.json", "ci/affected-test-map.json", "package.json"],
+    "changed": ["CHANGELOG.md", "apps/backend/src/modulos/", "apps/backend/src/rutas.ts", "ci/affected-test-map.json", "ci/pipeline.contract.md", "docs/ARQUITECTURA.md", "docs/contracts/module-contracts.v1.json", "docs/specs/SPEC-079_module_contracts_evolution.spec.md", "package.json", "reports/qa/latest/clean-architecture.json", "reports/qa/latest/module-contracts.json", "scripts/api/openapi.json", "scripts/clean-architecture-check.mjs", "scripts/module-contract-check.mjs", "scripts/tests/clean-architecture-check.test.mjs", "scripts/tests/module-contract-check.test.mjs"],
+    "artifacts": ["reports/qa/latest/module-contracts.json", "docs/handoff/sesiones/2026-10-11/06753a9a-2295-4bb8-8fca-c540f0849011.json"]
+  },
+  "commands": [
+    { "name": "dependency-install", "command": "npm ci", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Instalación limpia aprobada; 0 vulnerabilidades y lockfiles sin cambios." },
+    { "name": "lint", "command": "npm run lint", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Aprobado." },
+    { "name": "typecheck", "command": "npm run typecheck", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Backend, frontend y portal aprobados." },
+    { "name": "frontend-ci", "command": "npm run test:frontend:ci", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "81 archivos y 406 pruebas aprobados." },
+    { "name": "backend-ci", "command": "npm run test:backend:ci", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "56 lotes aprobados, incluidos OMR, PDF, Classroom, calificaciones, alumnos y sincronización." },
+    { "name": "portal-ci", "command": "npm run test:portal:ci", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "11 archivos y 32 pruebas aprobados." },
+    { "name": "module-contracts", "command": "npm run test:module-contracts", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "10 pruebas de contratos modulares aprobadas." },
+    { "name": "api-contract", "command": "npm run api:contract:check", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "245 rutas, 282 operaciones y 76 modelos verificados." },
+    { "name": "pipeline-contract", "command": "npm run pipeline:contract:check", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "41 de 41 comprobaciones aprobadas." },
+    { "name": "policy-audit", "command": "npm run ci:policy:audit", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Auditorías de política, trazabilidad y SDD aprobadas." },
+    { "name": "coverage-ci", "command": "npm run test:coverage:ci", "status": "falla", "exitCode": null, "durationMs": 0, "resultSummary": "Agotó/reintentó tiempos de dos lotes instrumentados; pruebas backend equivalentes sin instrumentación aprobaron." },
+    { "name": "performance-check", "command": "npm run perf:check", "status": "omitido", "exitCode": null, "durationMs": 0, "resultSummary": "No inició: entorno sin JWT_SECRETO; no se generó un secreto." },
+    { "name": "diff-check", "command": "git diff --cached --check", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Sin errores de whitespace antes del commit." }
+  ],
+  "decisions": ["La compatibilidad se declara con SemVer para contratos modulares, rangos de dependencias y versión host de EvaluaPro.", "Prisma mantiene migraciones centrales mediante expand-migrate-contract.", "Los routers permanecen en la raíz de composición para evitar efectos secundarios en el contrato público de cada módulo.", "Los datos OMR se conservan locales fuera del repositorio.", "Las puntas de ramas retiradas se archivaron bajo refs/archive/closeout-20261011 antes de quitar sus referencias antiguas."],
+  "assumptions": [],
+  "risks": ["Repetir la cobertura instrumental completa con timeout suficiente para los lotes pesados.", "El gate de rendimiento requiere JWT_SECRETO proporcionado por el entorno seguro.", "La compatibilidad futura depende de actualizar el registro cuando cambien APIs o propiedad de datos."],
+  "nextStep": "Validar esta traza y sincronizar los commits de main con origin; luego repetir cobertura instrumental y rendimiento en un entorno configurado.",
+  "completion": { "isComplete": false, "pendingFields": ["repetir npm run test:coverage:ci con timeout adecuado", "ejecutar npm run perf:check con JWT_SECRETO disponible", "confirmar push y estado remoto de main"] },
+  "repo": { "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro", "branch": "main", "commit": "07b3f05a", "workingTreeStatus": "commit arquitectónico creado; traza y sincronización remota pendientes" }
+}

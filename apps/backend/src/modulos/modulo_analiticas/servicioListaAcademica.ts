@@ -6,7 +6,7 @@
  */
 import type { ListaAcademicaFila } from './tiposListaAcademica.js';
 import { distribuirBonoExtracurricular } from './servicioBonoExtracurricular.js';
-import { presentarCalificacionExtraordinaria } from '../modulo_calificacion/servicioCalificacion.js';
+import { presentarCalificacionExtraordinaria } from '../modulo_calificacion/index.js';
 import {
   calcularColumnasFisicasParcial2,
   type CalificacionManualLista,

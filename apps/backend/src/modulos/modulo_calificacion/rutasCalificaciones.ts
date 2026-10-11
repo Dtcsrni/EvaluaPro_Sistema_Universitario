@@ -15,7 +15,7 @@ import {
   esquemaResolverSolicitudRevision,
   esquemaSincronizarSolicitudesRevision
 } from './validacionesCalificacion.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 
 const router = Router();
 

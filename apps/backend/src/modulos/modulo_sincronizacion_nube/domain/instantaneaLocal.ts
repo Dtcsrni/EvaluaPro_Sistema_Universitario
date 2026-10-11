@@ -13,8 +13,8 @@ import { gzipSync, gunzipSync } from 'node:zlib';
 import { configuracion } from '../../../configuracion.js';
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
 import { prisma, conectarSqlite, desconectarSqlite, crearClientePrismaSqlite } from '../../../infraestructura/baseDatos/sqlite.js';
-import { compararContrasena } from '../../modulo_autenticacion/servicioHash.js';
-import { verificarCredencialGoogle } from '../../modulo_autenticacion/servicioGoogle.js';
+import { compararContrasena } from '../../modulo_autenticacion/index.js';
+import { verificarCredencialGoogle } from '../../modulo_autenticacion/index.js';
 
 export const INSTANTANEA_LOCAL_FORMATO = 'evaluapro-local-snapshot';
 export const INSTANTANEA_LOCAL_VERSION = 1;

@@ -8,7 +8,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import { validarQueryRobusto } from '../../compartido/robustez/utilitariosControlador.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import {
   listarTemarios,
   crearTemarioManual,

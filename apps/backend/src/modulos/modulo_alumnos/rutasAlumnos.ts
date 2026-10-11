@@ -5,8 +5,8 @@ import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import { actualizarAlumno, crearAlumno, eliminarAlumnoDev, listarAlumnos, obtenerAlumno, reinscribirGrupoArchivado } from './controladorAlumnos.js';
 import { esquemaActualizarAlumno, esquemaCrearAlumno, esquemaReinscribirGrupoArchivado } from './validacionesAlumnos.js';
-import { esquemaBodyVacioOpcional } from './validacionesPeriodos.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { esquemaBodyVacioOpcional } from '../../compartido/validaciones/esquemasComunes.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 
 const router = Router();
 

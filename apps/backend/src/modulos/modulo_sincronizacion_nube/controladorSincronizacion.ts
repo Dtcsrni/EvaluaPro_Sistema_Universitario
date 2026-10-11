@@ -8,7 +8,7 @@ import { Buffer } from 'node:buffer';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { esquemaListarCodigosAcceso } from './validacionesSincronizacion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import { listarSincronizacionesUseCase } from './application/usecases/listarSincronizaciones.js';
 import { generarCodigoAccesoUseCase } from './application/usecases/generarCodigoAcceso.js';
 import { publicarResultadosUseCase } from './application/usecases/publicarResultados.js';

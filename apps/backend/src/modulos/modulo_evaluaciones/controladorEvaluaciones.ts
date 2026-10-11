@@ -8,7 +8,7 @@ import type { Response } from 'express';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import {
   type CodigoPoliticaCalificacion
 } from './modeloPoliticaCalificacion.js';

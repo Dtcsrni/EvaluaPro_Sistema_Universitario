@@ -7,7 +7,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import { importarHidratacion, previsualizarHidratacion } from './controladorHidratacionCursos.js';
 import { esquemaHidratacionMultipart } from './validacionesHidratacionCursos.js';
 

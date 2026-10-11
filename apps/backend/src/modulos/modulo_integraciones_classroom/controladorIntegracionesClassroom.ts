@@ -7,7 +7,7 @@
 import type { Request, Response } from 'express';
 import { URL } from 'node:url';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
 import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia.js';
 import {

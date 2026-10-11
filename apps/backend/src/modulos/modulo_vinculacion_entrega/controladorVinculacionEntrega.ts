@@ -12,7 +12,7 @@ import { Buffer } from 'node:buffer';
 import type { Prisma } from '@prisma/client';
 import { esquemaListarEntregas } from './validacionesVinculacion.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 /**

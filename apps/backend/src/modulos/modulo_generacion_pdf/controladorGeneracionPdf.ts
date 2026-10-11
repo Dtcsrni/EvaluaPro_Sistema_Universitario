@@ -9,8 +9,8 @@
  * - Serializa respuestas HTTP sin modificar contratos públicos existentes.
  */
 import type { Response } from 'express';
-import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId } from '../modulo_autenticacion/index.js';
+import type { SolicitudDocente } from '../modulo_autenticacion/index.js';
 import {
   archivarPlantillaUseCase,
   actualizarPlantillaUseCase,

@@ -20,7 +20,7 @@ import {
   normalizarPreguntasCanonicas
 } from '../domain/templateCanonico.js';
 import { normalizarTituloPlantilla } from '../modeloExamenPlantilla.js';
-import { normalizarEnunciadoBanco } from '../../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
+import { normalizarEnunciadoBanco } from '../../modulo_banco_preguntas/index.js';
 
 export type MapaVariante = {
   ordenPreguntas: string[];

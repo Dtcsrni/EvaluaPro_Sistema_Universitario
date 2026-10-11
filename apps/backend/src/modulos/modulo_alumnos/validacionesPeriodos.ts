@@ -98,5 +98,3 @@ export const esquemaActualizarPeriodo = z
       });
     }
   });
-
-export const esquemaBodyVacioOpcional = z.object({}).strict().optional();

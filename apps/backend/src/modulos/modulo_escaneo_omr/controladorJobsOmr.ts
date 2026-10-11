@@ -8,9 +8,9 @@
 import type { Response } from 'express';
 import { createHash } from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
-import { rasterizarPdfParaPreview } from '../modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
+import { rasterizarPdfParaPreview } from '../modulo_generacion_pdf/index.js';
 import { analizarImagen } from './controladorEscaneoOmr.js';
 import { esquemaListarJobsOmr } from './validacionesOmr.js';
 import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './omr/decision/respuestaRevision.js';

@@ -7,12 +7,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { inspectModuleContracts } from './module-contract-check.mjs';
 
 const strict = process.argv.includes('--strict');
 const root = process.cwd();
 const outPath = path.join(root, 'reports', 'qa', 'latest', 'clean-architecture.json');
 
 const checks = [];
+const moduleContracts = inspectModuleContracts({ root });
+addCheck(
+  'modules.contracts',
+  moduleContracts.ok,
+  `${moduleContracts.errors.length} errores; ${moduleContracts.modules} módulos, ${moduleContracts.dependencyPairs} dependencias, ${moduleContracts.prismaModels} modelos Prisma`
+);
 
 function read(filePath) {
   return fs.readFileSync(path.join(root, filePath), 'utf8');
@@ -93,6 +100,7 @@ const report = {
   strict,
   generatedAt: new Date().toISOString(),
   ok,
+  moduleContracts,
   checks
 };
 

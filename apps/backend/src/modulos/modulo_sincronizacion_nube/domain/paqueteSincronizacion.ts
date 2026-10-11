@@ -6,14 +6,14 @@ import { gunzipSync, gzipSync } from 'zlib';
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
 import { guardarPdfExamen } from '../../../infraestructura/archivos/almacenLocal.js';
 import { prisma } from '../../../infraestructura/baseDatos/sqlite.js';
-import { Alumno } from '../../modulo_alumnos/modeloAlumno.js';
-import { Periodo } from '../../modulo_alumnos/modeloPeriodo.js';
-import { BanderaRevision } from '../../modulo_analiticas/modeloBanderaRevision.js';
-import { BancoPregunta } from '../../modulo_banco_preguntas/modeloBancoPregunta.js';
-import { Calificacion } from '../../modulo_calificacion/modeloCalificacion.js';
-import { ExamenGenerado } from '../../modulo_generacion_pdf/modeloExamenGenerado.js';
-import { ExamenPlantilla } from '../../modulo_generacion_pdf/modeloExamenPlantilla.js';
-import { Entrega } from '../../modulo_vinculacion_entrega/modeloEntrega.js';
+import { Alumno } from '../../modulo_alumnos/index.js';
+import { Periodo } from '../../modulo_alumnos/index.js';
+import { BanderaRevision } from '../../modulo_analiticas/index.js';
+import { BancoPregunta } from '../../modulo_banco_preguntas/index.js';
+import { Calificacion } from '../../modulo_calificacion/index.js';
+import { ExamenGenerado } from '../../modulo_generacion_pdf/index.js';
+import { ExamenPlantilla } from '../../modulo_generacion_pdf/index.js';
+import { Entrega } from '../../modulo_vinculacion_entrega/index.js';
 import { Sincronizacion } from '../modeloSincronizacion.js';
 import {
   MAX_BASE64_CHARS,

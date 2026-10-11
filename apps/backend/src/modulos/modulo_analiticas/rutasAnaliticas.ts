@@ -20,7 +20,7 @@ import {
 } from './controladorAnaliticas.js';
 import { esquemaCrearBandera, esquemaExportarCsv, esquemaGuardarCalificacionLista, esquemaPreviewBonoExtracurricular, esquemaRegistrarResultadoExtraExterno } from './validacionesAnaliticas.js';
 import { esquemaRegistrarEventosUso } from './validacionesEventosUso.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 
 const router = Router();
 

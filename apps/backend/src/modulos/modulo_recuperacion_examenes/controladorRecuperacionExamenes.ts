@@ -5,7 +5,7 @@
  * Limites: Evitar mover logica de negocio profunda a controlador.
  */
 import type { Response } from 'express';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import {
   listarBundlesRecuperables,
   reconstruirDesdeBundle,

@@ -6,8 +6,9 @@ import multer from 'multer';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import { actualizarPeriodo, archivarPeriodo, crearPeriodo, eliminarPeriodoDev, listarPeriodos } from './controladorPeriodos.js';
-import { esquemaActualizarPeriodo, esquemaBodyVacioOpcional, esquemaCrearPeriodo } from './validacionesPeriodos.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { esquemaActualizarPeriodo, esquemaCrearPeriodo } from './validacionesPeriodos.js';
+import { esquemaBodyVacioOpcional } from '../../compartido/validaciones/esquemasComunes.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import { eliminarPortadaPeriodo, guardarPortadaPeriodo, obtenerPortadaPeriodo, LIMITE_PORTADA_BYTES } from './controladorPortadasPeriodos.js';
 
 const router = Router();
