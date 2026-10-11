@@ -2,7 +2,7 @@
 
 **EvaluaPro** reúne preparación de exámenes, lectura asistida de hojas de respuesta y revisión de resultados en una aplicación de escritorio para Windows. El perfil publicado es **`docente-local`**: los datos operativos se guardan en SQLite en la computadora donde se usa.
 
-[Descargar desde GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) · [Guía de inicio](docs/MANUAL_USUARIO_DOCENTE.md) · [Instalación y actualización](docs/INSTALLER_HUB.md) · [Centro documental](docs/README.md) · [Reportar un problema](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/issues)
+[Descargar desde GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) · [Instalación y actualización](docs/INSTALLER_HUB.md) · [Centro documental](docs/README.md) · [Reportar un problema](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/issues)
 
 > Descarga el instalador y su archivo `.sha256` de la misma release. Comprueba el hash antes de ejecutar el EXE. El código de `main`, un tag o una release en borrador no representan una descarga pública.
 
@@ -70,7 +70,6 @@ Antes de cambiar código, revisa [CONTRIBUTING.md](CONTRIBUTING.md), [AGENTS.md]
 
 | Tarea | Guía |
 | --- | --- |
-| Primer uso como docente | [Manual docente](docs/MANUAL_USUARIO_DOCENTE.md) |
 | Instalar, actualizar o reparar | [Installer Hub](docs/INSTALLER_HUB.md) |
 | Respaldar o cambiar de equipo | [Sincronización y migración](docs/SINCRONIZACION_ENTRE_COMPUTADORAS.md) |
 | Diagnosticar un problema | [Runbook](docs/RUNBOOK_OPERACION.md) |
