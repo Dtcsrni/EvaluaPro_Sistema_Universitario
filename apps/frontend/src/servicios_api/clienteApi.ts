@@ -173,19 +173,31 @@ export function crearClienteApi() {
     }
   });
 
-  async function enviarFormData<T>(ruta: string, formData: FormData): Promise<T> {
-    const token = obtenerTokenDocente();
-    const resp = await fetch(`${baseApi}${ruta}`, {
-      method: 'POST',
+  async function enviarFormDataConMetodo<T>(metodo: 'POST' | 'PUT', ruta: string, formData: FormData): Promise<T> {
+    const ejecutar = (token: string | null) => fetch(`${baseApi}${ruta}`, {
+      method: metodo,
       headers: { 'X-EvaluaPro-Equipo': obtenerIdEquipoSincronizacion(), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       credentials: 'include',
       body: formData
     });
+    let resp = await ejecutar(obtenerTokenDocente());
+    if (resp.status === 401) {
+      const token = await intentarRefrescarToken();
+      if (token) resp = await ejecutar(token);
+    }
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({})) as { error?: { mensaje?: string } };
       throw new Error(body?.error?.mensaje ?? `Error HTTP ${resp.status}`);
     }
     return resp.json() as Promise<T>;
+  }
+
+  async function enviarFormData<T>(ruta: string, formData: FormData): Promise<T> {
+    return enviarFormDataConMetodo<T>('POST', ruta, formData);
+  }
+
+  async function actualizarFormData<T>(ruta: string, formData: FormData): Promise<T> {
+    return enviarFormDataConMetodo<T>('PUT', ruta, formData);
   }
 
   async function enviarBinario(ruta: string, body: ArrayBuffer | Uint8Array, opciones?: { contentType?: string; timeoutMs?: number }): Promise<Response> {
@@ -259,6 +271,7 @@ export function crearClienteApi() {
     actualizar: <T>(ruta: string, payload: unknown, opciones?: RequestOptions) => clienteBase.actualizar<T>(ruta, payload, opciones),
     eliminar: <T>(ruta: string, opciones?: RequestOptions) => clienteBase.eliminar<T>(ruta, opciones),
     enviarFormData,
+    actualizarFormData,
     enviarBinario,
     obtenerBinario,
     registrarEventosUso,

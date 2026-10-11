@@ -1228,6 +1228,7 @@
 }
 
 .materia-progress-bar {
+  appearance: none;
   width: min(18rem, 100%);
   height: 6px;
   margin-top: 0.62rem;
@@ -1237,12 +1238,19 @@
   background: rgba(8, 16, 23, 0.46);
 }
 
-.materia-progress-bar span {
-  display: block;
-  height: 100%;
+.materia-progress-bar::-webkit-progress-bar {
+  border-radius: inherit;
+  background: transparent;
+}
+
+.materia-progress-bar::-webkit-progress-value {
   border-radius: inherit;
   background: var(--materia-accent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.materia-progress-bar::-moz-progress-bar {
+  border-radius: inherit;
+  background: var(--materia-accent);
 }
 
 .materia-progress-ring {

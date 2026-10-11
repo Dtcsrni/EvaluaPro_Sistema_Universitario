@@ -60,6 +60,24 @@ async function asegurarEsquemaSqlite(): Promise<void> {
         }
       }
     }
+
+    // `db push` solo se ejecuta en una base vacía. Crear esta tabla hija
+    // explícitamente permite instalar el soporte de portada al actualizar
+    // bases SQLite existentes sin reescribir sus datos.
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "periodo_portadas" (
+        "periodoId" TEXT NOT NULL PRIMARY KEY,
+        "contenido" BLOB NOT NULL,
+        "mimeType" TEXT NOT NULL,
+        "sizeBytes" INTEGER NOT NULL,
+        "width" INTEGER NOT NULL,
+        "height" INTEGER NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL,
+        CONSTRAINT "periodo_portadas_periodoId_fkey"
+          FOREIGN KEY ("periodoId") REFERENCES "periodos" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      );
+    `);
   } catch {
     // Si la conexion es en memoria de tests o no permite queryRaw, continuar
   }

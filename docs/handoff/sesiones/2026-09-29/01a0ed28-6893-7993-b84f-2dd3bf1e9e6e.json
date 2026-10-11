@@ -1,0 +1,218 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "01a0ed28-6893-7993-b84f-2dd3bf1e9e6e",
+  "status": "final",
+  "generatedAt": "2026-09-29T15:17:52.157Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Implementar primero soporte API/GUI para portadas de materias en EvaluaPro, con formatos comunes y mínimo de 20 MiB; validar gates de release."
+  },
+  "objective": "Dejar implementado y verificable el soporte de portada sin crear registros reales ni marcar asistencias; liberar solo si todos los gates autorizados pasan.",
+  "scope": [
+    "API autenticada GET/PUT/DELETE de portada por periodo",
+    "Persistencia SQLite y normalización de imagen",
+    "Selector, vista previa, retry y fallback genérico en GUI",
+    "Validación de gates y seguridad del diff"
+  ],
+  "constraints": [
+    "No crear materia ni roster en la instalación existente",
+    "No marcar asistencia",
+    "No comprometer ni publicar si gates globales fallan",
+    "No inventar JWT_SECRETO; no tocar base de datos de usuario"
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Implementado SPEC-068 en rama aislada; 20 MiB, 20 MP; JPEG/PNG/WebP; salida WebP 1600x1200.",
+      "timestamp": "2026-09-29T15:17:52.155Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Pruebas enfocadas de API (5/5), GUI (8/8), builds backend y frontend, typecheck, lint, WCAG y routes:check pasaron.",
+      "timestamp": "2026-09-29T15:17:52.156Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Security diff scan completado, 10 fuentes revisadas, 0 hallazgos; preguntas abiertas sobre binding empaquetado y cargas concurrentes.",
+      "timestamp": "2026-09-29T15:17:52.156Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Coverage: 3/3 intentos fallaron por timeout de archivarExamenGenerado.test.ts; TDD queda bloqueado por ausencia de apps/backend/coverage/lcov.info.",
+      "timestamp": "2026-09-29T15:17:52.156Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Portal 32/32, pipeline contract, trazabilidad y handoff pasan. Perf pasa en development; modo production exige JWT_SECRETO no proporcionado.",
+      "timestamp": "2026-09-29T15:17:52.156Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Frontend CI 57/60 archivos y 245/248 pruebas; backend CI tuvo fallo 404 en calificacionOmrPrioridad.test.ts; ci:policy:audit/Sdd fallan por referencias inexistentes en SPEC-036 y SPEC-042.",
+      "timestamp": "2026-09-29T15:17:52.156Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "README.md",
+      "docs/README.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/IA_SKILLS_MCP_POLICY.md",
+      "docs/WCAG_UI_POLICY.md"
+    ],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/prisma/schema.prisma",
+      "apps/backend/src/infraestructura/baseDatos/sqlite.ts",
+      "apps/backend/src/modulos/modulo_alumnos/controladorPeriodos.ts",
+      "apps/backend/src/modulos/modulo_alumnos/rutasPeriodos.ts",
+      "apps/backend/src/modulos/modulo_alumnos/controladorPortadasPeriodos.ts",
+      "apps/backend/tests/utils/mongo.ts",
+      "apps/backend/tests/integracion/periodosPortada.test.ts",
+      "apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx",
+      "apps/frontend/src/apps/app_docente/PortadaMateria.tsx",
+      "apps/frontend/src/apps/app_docente/tipos.ts",
+      "apps/frontend/src/servicios_api/clienteApi.ts",
+      "apps/frontend/src/styles/cards.css",
+      "apps/frontend/src/styles/screens.css",
+      "apps/frontend/tests/seccionPeriodos.portada.test.tsx",
+      "docs/API_PERIODOS_PORTADA.md",
+      "docs/README.md",
+      "docs/specs/SPEC-068_portada_materia_api_gui.spec.md"
+    ],
+    "artifacts": [
+      "Codex Security report ee5d1aec-c6b1-43ca-86f6-4bb3c49bb4f7; 0 findings; complete diff coverage"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 746,
+      "resultSummary": "✔ ext_perf_arquitectura prepara sharp antes de perf:check (1.8794ms) | ✔ ext_funcionales usa el gate OMR canónico (0.6737ms) | ✔ ext_funcionales ejecuta PDF print y visual juntos (0.597ms) | ✔ ext_funcionales conserva quality visual y journeys para UX (0.6158ms) | ... | npm notice run evaluapro@1.1.6 pipeline:contract:check | npm notice run node scripts/pipeline-contract-check.mjs",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 1139,
+      "resultSummary": "npm notice run evaluapro@1.1.6 docs:check | npm notice run node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate | [docs] desactualizado: docs/AUTO_DOCS_INDEX.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-09-29T15:17:52.157Z"
+    }
+  ],
+  "decisions": [
+    "SPEC-068 permanece approved: el gate global SDD no está limpio.",
+    "Mantener la rama sin commit, push, sync ni release hasta resolver los bloqueos.",
+    "La materia real, el temario, el roster y cualquier asistencia siguen sin crearse ni escribirse."
+  ],
+  "assumptions": [
+    "Los errores de SPEC-036 y SPEC-042 son anteriores a esta rama; sus archivos no fueron modificados."
+  ],
+  "risks": [
+    "Full CI no está verde: coverage timeout repetido; frontend/backend tienen fallos preexistentes; SDD/policy audit bloqueados.",
+    "No se verificó empaquetado ni instalación física; el browser actual muestra v1.1.6 sin materias.",
+    "El API binding y memoria bajo cargas concurrentes quedan abiertos en el reporte de seguridad."
+  ],
+  "nextStep": "Resolver con evidencia los bloqueos globales de frontend/backend, coverage y SDD; después repetir release gates, probar GUI sin mutar datos reales y solo entonces decidir commit/push/sync/release.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro-worktrees\\period-cover-support",
+    "branch": "codex/period-cover-support-candidate",
+    "commit": "894840df",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/prisma/schema.prisma\n M apps/backend/src/infraestructura/baseDatos/sqlite.ts\n M apps/backend/src/modulos/modulo_alumnos/controladorPeriodos.ts\n M apps/backend/src/modulos/modulo_alumnos/rutasPeriodos.ts\n M apps/backend/tests/utils/mongo.ts\n M apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx\n M apps/frontend/src/apps/app_docente/tipos.ts\n M apps/frontend/src/servicios_api/clienteApi.ts\n M apps/frontend/src/styles/cards.css\n M apps/frontend/src/styles/screens.css\n M docs/README.md\n?? apps/backend/src/modulos/modulo_alumnos/controladorPortadasPeriodos.ts\n?? apps/backend/tests/integracion/periodosPortada.test.ts\n?? apps/frontend/src/apps/app_docente/PortadaMateria.tsx\n?? apps/frontend/tests/seccionPeriodos.portada.test.tsx\n?? docs/API_PERIODOS_PORTADA.md\n?? docs/handoff/sesiones/2026-09-29/\n?? docs/specs/SPEC-068_portada_materia_api_gui.spec.md"
+  }
+}
