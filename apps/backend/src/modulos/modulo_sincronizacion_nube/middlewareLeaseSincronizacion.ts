@@ -4,7 +4,7 @@
  */
 import type { NextFunction, Request, Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import { verificarLeaseEscritura } from './domain/leaseSincronizacion.js';
 import { obtenerConfiguracionSincronizacion } from './domain/preferenciasSincronizacion.js';
 

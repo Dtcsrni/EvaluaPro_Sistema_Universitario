@@ -131,8 +131,8 @@ Policy:
 - Output: `reports/perf/business.latest.json`
 
 ### clean-architecture-check
-- Command: `npm run qa:clean-architecture:strict`
-- Output: `reports/qa/latest/clean-architecture.json`
+- Commands: `npm run test:module-contracts`, `npm run qa:module-contracts:check`, `npm run qa:clean-architecture:strict`
+- Outputs: `reports/qa/latest/module-contracts.json`, `reports/qa/latest/clean-architecture.json`
 
 ### docs-check
 - Commands:

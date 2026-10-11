@@ -2,7 +2,7 @@
  * Rutas para listas institucionales por plantilla.
  */
 import { Router } from 'express';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import { generarListaInstitucional, listarPlantillas } from './controladorListasInstitucionales.js';
 
 const router = Router();

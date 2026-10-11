@@ -6,18 +6,18 @@
  */
 import { promises as fs } from 'fs';
 import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
-import { Alumno } from '../../../modulo_alumnos/modeloAlumno.js';
-import { Periodo } from '../../../modulo_alumnos/modeloPeriodo.js';
-import { Calificacion } from '../../../modulo_calificacion/modeloCalificacion.js';
-import { BancoPregunta } from '../../../modulo_banco_preguntas/modeloBancoPregunta.js';
-import { ExamenGenerado } from '../../../modulo_generacion_pdf/modeloExamenGenerado.js';
-import { BanderaRevision } from '../../../modulo_analiticas/modeloBanderaRevision.js';
-import { ResumenEvaluacionAlumno } from '../../../modulo_evaluaciones/modeloResumenEvaluacionAlumno.js';
+import { Alumno } from '../../../modulo_alumnos/index.js';
+import { Periodo } from '../../../modulo_alumnos/index.js';
+import { Calificacion } from '../../../modulo_calificacion/index.js';
+import { BancoPregunta } from '../../../modulo_banco_preguntas/index.js';
+import { ExamenGenerado } from '../../../modulo_generacion_pdf/index.js';
+import { BanderaRevision } from '../../../modulo_analiticas/index.js';
+import { ResumenEvaluacionAlumno } from '../../../modulo_evaluaciones/index.js';
 import { CodigoAcceso } from '../../modeloCodigoAcceso.js';
 import { Sincronizacion } from '../../modeloSincronizacion.js';
 import { comprimirBase64, construirComparativaRespuestas } from '../../sincronizacionInterna.js';
 import { crearClientePortal } from '../../infra/portalSyncClient.js';
-import { leerCapturasOmrParaPortal } from '../../infra/omrCapturas.js';
+import { leerCapturasOmrParaPortal } from '../../../modulo_escaneo_omr/index.js';
 import { syncClock } from '../../infra/repositoriosSync.js';
 import { construirColeccionesAcademicasPortal } from '../../domain/portalAcademicoAssembler.js';
 

@@ -9,20 +9,20 @@ import { configuracion } from '../../configuracion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
 import { permisosParaRoles } from '../../infraestructura/seguridad/rbac.js';
-import { generarPdfExamen } from '../modulo_generacion_pdf/servicioGeneracionPdf.js';
-import { normalizarTituloPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla.js';
+import { generarPdfExamen } from '../modulo_generacion_pdf/index.js';
+import { normalizarTituloPlantilla } from '../modulo_generacion_pdf/index.js';
 import {
   extraerResumenQrExamen
-} from '../modulo_generacion_pdf/domain/qrExamen.js';
+} from '../modulo_generacion_pdf/index.js';
 import {
   verificarRecoveryBundle,
   verificarRecoveryManifest,
   type RecoveryBundle,
   type RecoveryManifest,
   type RecoveryQuestionSnapshot
-} from '../modulo_generacion_pdf/domain/recoveryManifest.js';
-import type { PreguntaBase, MapaVariante } from '../modulo_generacion_pdf/servicioVariantes.js';
-import type { TemplateVersion } from '../modulo_generacion_pdf/shared/tiposPdf.js';
+} from '../modulo_generacion_pdf/index.js';
+import type { PreguntaBase, MapaVariante } from '../modulo_generacion_pdf/index.js';
+import type { TemplateVersion } from '../modulo_generacion_pdf/index.js';
 
 type AccessContext = {
   actorDocenteId: string;

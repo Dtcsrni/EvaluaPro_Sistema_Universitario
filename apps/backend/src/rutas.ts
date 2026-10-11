@@ -10,7 +10,7 @@
 import { Router } from 'express';
 import rutasSalud, { obtenerVersionInfo } from './compartido/salud/rutasSalud.js';
 import rutasAutenticacion from './modulos/modulo_autenticacion/rutasAutenticacion.js';
-import { requerirDocente } from './modulos/modulo_autenticacion/middlewareAutenticacion.js';
+import { requerirDocente } from './modulos/modulo_autenticacion/index.js';
 import rutasAlumnos from './modulos/modulo_alumnos/rutasAlumnos.js';
 import rutasPeriodos from './modulos/modulo_alumnos/rutasPeriodos.js';
 import rutasBancoPreguntas from './modulos/modulo_banco_preguntas/rutasBancoPreguntas.js';
@@ -23,6 +23,7 @@ import rutasSincronizacionNube from './modulos/modulo_sincronizacion_nube/rutasS
 import rutasAdminDocentes from './modulos/modulo_admin_docentes/rutasAdminDocentes.js';
 import rutasPapelera from './modulos/modulo_papelera/rutasPapelera.js';
 import rutasEvaluaciones from './modulos/modulo_evaluaciones/rutasEvaluaciones.js';
+import rutasEvaluacionesClassroom from './modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.js';
 import rutasEvaluacionesPublicas from './modulos/modulo_evaluaciones/rutasEvaluacionesPublicas.js';
 import rutasIntegracionesClassroomPublicas from './modulos/modulo_integraciones_classroom/rutasIntegracionesClassroomPublicas.js';
 import rutasIntegracionesClassroom from './modulos/modulo_integraciones_classroom/rutasIntegracionesClassroom.js';
@@ -36,7 +37,7 @@ import rutasTemarios from './modulos/modulo_temarios/rutasTemarios.js';
 import rutasHidratacionCursos from './modulos/modulo_hidratacion_cursos/rutasHidratacionCursos.js';
 import rutasListasInstitucionales from './modulos/modulo_listas_institucionales/rutasListasInstitucionales.js';
 import { exportarMetricasPrometheus } from './compartido/observabilidad/metrics.js';
-import { requerirLeaseEscritura } from './modulos/modulo_sincronizacion_nube/middlewareLeaseSincronizacion.js';
+import { requerirLeaseEscritura } from './modulos/modulo_sincronizacion_nube/index.js';
 import { obtenerPreflight } from './compartido/preflight/controladorPreflight.js';
 
 export function crearRouterApi() {
@@ -81,6 +82,7 @@ export function crearRouterApi() {
   router.use('/analiticas', rutasAnaliticas);
   router.use('/sincronizaciones', rutasSincronizacionNube);
   router.use('/evaluaciones', rutasEvaluaciones);
+  router.use('/evaluaciones', rutasEvaluacionesClassroom);
   router.use('/integraciones/classroom', rutasIntegracionesClassroom);
   router.use('/compliance', rutasCompliance);
   router.use('/comercial', rutasComercial);

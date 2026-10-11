@@ -4,6 +4,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Added
+- Contratos versionados para los 21 módulos backend: entradas públicas, compatibilidad con host, dependencias sin ciclos y propiedad única de los 76 modelos Prisma; los gates estáticos quedan integrados al mapa de CI.
+
 ## [1.2.6] - 2026-10-08
 
 ### Added

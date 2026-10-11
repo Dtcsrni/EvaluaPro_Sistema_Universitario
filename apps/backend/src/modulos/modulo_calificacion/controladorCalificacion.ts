@@ -12,10 +12,10 @@ import { gzip, gunzipSync } from 'node:zlib';
 import { promisify } from 'node:util';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../configuracion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
-import { extraerResumenQrExamen, type ResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen.js';
-import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
-import { leerCapturasOmrParaPortal } from '../modulo_sincronizacion_nube/infra/omrCapturas.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
+import { extraerResumenQrExamen, type ResumenQrExamen } from '../modulo_generacion_pdf/index.js';
+import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/index.js';
+import { leerCapturasOmrParaPortal } from '../modulo_escaneo_omr/index.js';
 import { calcularCalificacion, presentarCalificacionExtraordinaria } from './servicioCalificacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 

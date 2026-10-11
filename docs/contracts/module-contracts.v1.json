@@ -1,0 +1,476 @@
+{
+  "schemaVersion": 1,
+  "host": {
+    "version": "1.2.6",
+    "compatibility": ">=1.2.6 <2.0.0"
+  },
+  "persistence": {
+    "engine": "prisma-sqlite",
+    "schema": "apps/backend/prisma/schema.prisma",
+    "migrationLocation": "apps/backend/prisma/migrations",
+    "migrationStrategy": "expand-migrate-contract",
+    "ownerRegistry": "modules[].persistenceModels",
+    "singleDatabase": true,
+    "destructiveChangesRequireCompatibilityWindow": true
+  },
+  "modules": [
+    {
+      "id": "modulo_admin_docentes",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_admin_docentes/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Administración de docentes y permisos asociados.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": []
+    },
+    {
+      "id": "modulo_alumnos",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_alumnos/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Alumnos, periodos, grupos y padrones.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_papelera",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "Periodo",
+        "PeriodoPortada",
+        "Alumno"
+      ]
+    },
+    {
+      "id": "modulo_analiticas",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_analiticas/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Consultas analíticas, banderas y exportaciones.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_calificacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "BanderaRevision",
+        "EventoUso"
+      ]
+    },
+    {
+      "id": "modulo_asistencias",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_asistencias/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Reglas, sesiones y registros de asistencia.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "AsistenciaRegla",
+        "AsistenciaSesion",
+        "AsistenciaRegistro",
+        "AsistenciaExcepcion"
+      ]
+    },
+    {
+      "id": "modulo_autenticacion",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_autenticacion/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Identidad docente, sesión, autenticación y autorización.",
+      "dependencies": [],
+      "persistenceModels": [
+        "Docente",
+        "SesionDocente",
+        "RecuperacionContrasenaDocente"
+      ]
+    },
+    {
+      "id": "modulo_banco_preguntas",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_banco_preguntas/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Preguntas, reactivos, temas e importaciones versionadas.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "BancoPregunta",
+        "VersionPregunta",
+        "OpcionPregunta",
+        "Reactivo",
+        "ReactivoVersion",
+        "ReactivoOpcion",
+        "ReactivoAsignacion",
+        "ReactivoImportacion",
+        "ReactivoImportacionFila",
+        "ReactivoAsset",
+        "ReactivoCalibracion",
+        "TemaBanco",
+        "TemaBancoAuditoria"
+      ]
+    },
+    {
+      "id": "modulo_calificacion",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_calificacion/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Calificaciones, revisión y persistencia de notas.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_escaneo_omr",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_generacion_pdf",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "PreferenciaRetencionParcial",
+        "Calificacion",
+        "CalificacionListaManual",
+        "CalificacionListaMutacion",
+        "ResultadoExtraExterno",
+        "SolicitudRevisionAlumno"
+      ]
+    },
+    {
+      "id": "modulo_comercial",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_comercial/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Operaciones comerciales de la aplicación.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": []
+    },
+    {
+      "id": "modulo_comercial_core",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_comercial_core/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Planes, licencias, suscripciones, tenants y auditoría comercial.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "Tenant",
+        "Suscripcion",
+        "Cobranza",
+        "Licencia",
+        "Cupon",
+        "Campana",
+        "ConsentimientoComercial",
+        "EventoComercial",
+        "AuditoriaComercial",
+        "PlanComercial",
+        "PlantillaNotificacion"
+      ]
+    },
+    {
+      "id": "modulo_compliance",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_compliance/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Cumplimiento, solicitudes de derechos y eventos.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "EventoCumplimiento",
+        "SolicitudDsr"
+      ]
+    },
+    {
+      "id": "modulo_escaneo_omr",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_escaneo_omr/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Ingesta y análisis de hojas OMR.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_generacion_pdf",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "EscaneoOmrArchivado",
+        "OmrSheetFamily",
+        "OmrSheetRevision",
+        "OmrScanJob"
+      ]
+    },
+    {
+      "id": "modulo_evaluaciones",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_evaluaciones/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Evidencias, políticas y resúmenes de evaluación.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "PoliticaCalificacion",
+        "PoliticaCalificacionAuditoria",
+        "ConfiguracionPeriodoEvaluacion",
+        "EvidenciaEvaluacion",
+        "ComponenteExamen",
+        "ResumenEvaluacionAlumno",
+        "EncuadreAcademico",
+        "FirmaEncuadre"
+      ]
+    },
+    {
+      "id": "modulo_generacion_pdf",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_generacion_pdf/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Plantillas, lotes, PDFs y artefactos de examen.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_banco_preguntas",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_papelera",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "ExamenPlantilla",
+        "PreguntaPlantilla",
+        "ExamenPlantillaAuditoria",
+        "ExamenGenerado",
+        "ExamenRecoveryBundle",
+        "ExamenLoteArtefactoPdf",
+        "ExamenLoteArtefactoPdfAuditoria",
+        "ExamenRecoveryManifest"
+      ]
+    },
+    {
+      "id": "modulo_hidratacion_cursos",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_hidratacion_cursos/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Hidratación de datos iniciales de cursos.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_banco_preguntas",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": []
+    },
+    {
+      "id": "modulo_integraciones_classroom",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_integraciones_classroom/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Conexión, consulta e importación de Google Classroom.",
+      "dependencies": [
+        {
+          "module": "modulo_alumnos",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_evaluaciones",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "IntegracionClassroom",
+        "BitacoraSyncClassroom",
+        "MapeoClassroomAlumnoCurso",
+        "MapeoClassroomEvidencia"
+      ]
+    },
+    {
+      "id": "modulo_listas_institucionales",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_listas_institucionales/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Listas institucionales por plantilla.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": []
+    },
+    {
+      "id": "modulo_papelera",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_papelera/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Archivo y recuperación lógica de entidades.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "PapeleraItem"
+      ]
+    },
+    {
+      "id": "modulo_recuperacion_examenes",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_recuperacion_examenes/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Recuperación y reconstrucción de exámenes.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_generacion_pdf",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "ReconstruccionExamen"
+      ]
+    },
+    {
+      "id": "modulo_sincronizacion_nube",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_sincronizacion_nube/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Paquetes, códigos de acceso y sincronización con portal.",
+      "dependencies": [
+        {
+          "module": "modulo_alumnos",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_analiticas",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_banco_preguntas",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_calificacion",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_escaneo_omr",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_evaluaciones",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_generacion_pdf",
+          "contractRange": "^1.0.0"
+        },
+        {
+          "module": "modulo_vinculacion_entrega",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "CodigoAcceso",
+        "Sincronizacion"
+      ]
+    },
+    {
+      "id": "modulo_temarios",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_temarios/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Temarios, avance y encuadre curricular.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "Temario",
+        "TemarioNodo",
+        "AuditoriaTemario"
+      ]
+    },
+    {
+      "id": "modulo_vinculacion_entrega",
+      "contractVersion": "1.0.0",
+      "entry": "apps/backend/src/modulos/modulo_vinculacion_entrega/index.ts",
+      "hostCompatibility": ">=1.2.6 <2.0.0",
+      "purpose": "Vinculación entre folios y entregas.",
+      "dependencies": [
+        {
+          "module": "modulo_autenticacion",
+          "contractRange": "^1.0.0"
+        }
+      ],
+      "persistenceModels": [
+        "Entrega"
+      ]
+    }
+  ]
+}

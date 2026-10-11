@@ -4,11 +4,11 @@
 import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../configuracion.js';
-import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId } from '../modulo_autenticacion/index.js';
+import type { SolicitudDocente } from '../modulo_autenticacion/index.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { aTituloPropio, normalizarEspacios } from '../../compartido/utilidades/texto.js';
-import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera.js';
+import { guardarEnPapelera } from '../modulo_papelera/index.js';
 
 export function normalizarNombrePeriodo(nombre: string): string {
   return normalizarEspacios(nombre).toLowerCase();

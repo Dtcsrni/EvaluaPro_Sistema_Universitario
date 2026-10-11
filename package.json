@@ -146,6 +146,8 @@
     "security:audit": "npm audit --omit=dev --audit-level=critical",
     "docs:carpetas:generate": "node scripts/generar-readmes-carpetas.mjs",
     "inventario:codigo": "node scripts/inventario-codigo.mjs",
+    "qa:module-contracts:check": "node scripts/module-contract-check.mjs --strict",
+    "test:module-contracts": "node --test scripts/tests/module-contract-check.test.mjs scripts/tests/clean-architecture-check.test.mjs",
     "qa:clean-architecture:check": "node scripts/clean-architecture-check.mjs",
     "qa:clean-architecture:strict": "node scripts/clean-architecture-check.mjs --strict",
     "perf:collect": "node --import tsx scripts/perf-collect.ts",

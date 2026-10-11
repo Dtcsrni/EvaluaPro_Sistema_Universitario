@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import sharp from 'sharp';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 
 export const LIMITE_PORTADA_BYTES = 20 * 1024 * 1024;
 export const LIMITE_PORTADA_PIXELES = 20_000_000;

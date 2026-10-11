@@ -46,8 +46,8 @@ import {
 	esquemaPublicarResultados,
 	esquemaTraerPaquetesServidor
 } from './validacionesSincronizacion.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
-import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/validacionesExamenes.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
+import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/index.js';
 
 const router = Router();
 

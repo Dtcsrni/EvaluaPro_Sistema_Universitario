@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EvaluaPro API docente",
-    "version": "1.2.4",
+    "version": "1.2.6",
     "description": "Contrato de las operaciones clave para automatizar autoría de reactivos, generación de exámenes, procesamiento OMR, calificación y consulta académica. Las operaciones usan los mismos servicios y persistencia que la GUI."
   },
   "servers": [
@@ -1376,7 +1376,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ]
@@ -1402,7 +1402,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ]
@@ -1438,7 +1438,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ]
@@ -1474,7 +1474,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ]
@@ -1519,7 +1519,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ],
@@ -9246,7 +9246,7 @@
             }
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:conectar"
         ]
@@ -9319,7 +9319,7 @@
             }
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:conectar"
         ],
@@ -9405,7 +9405,7 @@
             }
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ],
@@ -9470,7 +9470,7 @@
             }
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ]
@@ -9543,7 +9543,7 @@
             }
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ],
@@ -9619,7 +9619,7 @@
             }
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ],
@@ -9684,7 +9684,7 @@
             }
           }
         },
-        "x-evaluapro-router": "apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts",
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
         ]

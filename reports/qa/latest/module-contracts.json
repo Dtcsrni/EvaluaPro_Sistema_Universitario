@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "gate": "module-contracts",
+  "generatedAt": "2026-10-11T19:07:09.477Z",
+  "ok": true,
+  "errors": [],
+  "modules": 21,
+  "dependencyPairs": 39,
+  "cycles": [],
+  "prismaModels": 76,
+  "declaredModelOwners": 76
+}

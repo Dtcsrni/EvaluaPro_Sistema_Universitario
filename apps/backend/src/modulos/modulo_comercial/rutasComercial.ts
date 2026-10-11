@@ -6,7 +6,7 @@
  */
 import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import {
   listarEstrategiasMonetizacionComunitaria,
   listarOfertasMonetizacionComunitaria,

@@ -8,7 +8,7 @@ import type { Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../configuracion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import {
   AuditoriaComercial,
   Campana,

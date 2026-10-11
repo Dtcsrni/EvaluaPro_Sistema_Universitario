@@ -3,7 +3,7 @@
  */
 import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { parsearTextoTemario, extraerTextoPdf } from './servicioParserTemario.js';
 import { esquemaListarAuditoriaTemario } from './validacionesTemarios.js';

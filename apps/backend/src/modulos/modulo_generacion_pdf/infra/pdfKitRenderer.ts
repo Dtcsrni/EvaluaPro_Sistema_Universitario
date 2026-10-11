@@ -43,7 +43,7 @@ import { PDF_VISUAL_BASELINE_RGB } from './pdfVisualBaseline.js';
 import {
   compactarOpcionBancoParaPdf,
   normalizarEnunciadoBanco
-} from '../../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
+} from '../../modulo_banco_preguntas/index.js';
 
 type PerfilPlantillaRender = PerfilPlantillaOmr & {
   version: 4;

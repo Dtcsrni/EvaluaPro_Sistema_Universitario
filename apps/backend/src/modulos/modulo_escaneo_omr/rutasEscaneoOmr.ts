@@ -16,8 +16,8 @@ import { crearJobOmr, finalizarJobOmr, listarJobsOmr, obtenerJobOmr, resolverHoj
 import { crearIngestaPdfOmr, descargarManifiestoIngestaPdfOmr, descargarOriginalIngestaPdfOmr, descargarPaqueteIngestaPdfOmr, obtenerIngestaPdfOmr, prevalidarReferenciaIngestaPdfOmr, previsualizarPaginaIngestaPdfOmr, previsualizarReferenciaIngestaPdfOmr, recuperarIngestaPdfOmrPorClave, resolverPaginaIngestaPdfOmr, reintentarIngestaPdfOmr } from './controladorIngestaPdfOmr.js';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import { esquemaAnalizarOmr, esquemaCrearIngestaPdfOmr, esquemaCrearJobOmr, esquemaPrevalidarLoteOmr, esquemaPrevalidarReferenciaIngestaOmr, esquemaResolverJobOmr, esquemaResolverPaginaIngestaOmr, esquemaReintentarIngestaOmr } from './validacionesOmr.js';
-import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/validacionesExamenes.js';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/index.js';
+import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import { MAX_JOB_BYTES, MAX_PDF_BYTES } from './limitesIngestaPdfOmr.js';
 import { registrarRutaTemporalOmr, retirarRutaTemporalOmr } from './archivoTemporalOmr.js';
 

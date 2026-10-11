@@ -8,7 +8,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
-import { guardarEnPapelera } from '../../../../modulos/modulo_papelera/servicioPapelera.js';
+import { guardarEnPapelera } from '../../../modulo_papelera/index.js';
 import {
   asegurarPlantillaActiva,
   normalizarTemas,

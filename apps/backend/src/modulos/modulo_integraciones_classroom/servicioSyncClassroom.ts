@@ -6,8 +6,8 @@
  */
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
-import { Alumno } from '../modulo_alumnos/modeloAlumno.js';
-import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion.js';
+import { Alumno } from '../modulo_alumnos/index.js';
+import { EvidenciaEvaluacion } from '../modulo_evaluaciones/index.js';
 import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
 import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia.js';
 import { MapeoClassroomAlumnoCurso } from './modeloMapeoClassroomAlumnoCurso.js';

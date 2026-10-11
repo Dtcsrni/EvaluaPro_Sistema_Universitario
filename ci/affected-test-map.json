@@ -189,10 +189,18 @@
     "architecture": {
       "paths": [
         "scripts/clean-architecture-check.mjs",
+        "scripts/module-contract-check.mjs",
         "scripts/tests/clean-architecture*.test.mjs",
-        "docs/architecture/**"
+        "scripts/tests/module-contract-check.test.mjs",
+        "docs/architecture/**",
+        "docs/ARQUITECTURA.md",
+        "docs/contracts/module-contracts.v1.json",
+        "apps/backend/src/modulos/**",
+        "apps/backend/src/rutas.ts"
       ],
       "commands": [
+        "npm run test:module-contracts",
+        "npm run qa:module-contracts:check",
         "npm run qa:clean-architecture:check"
       ]
     },

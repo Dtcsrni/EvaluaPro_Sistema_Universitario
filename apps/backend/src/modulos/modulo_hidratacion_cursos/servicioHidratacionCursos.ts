@@ -9,8 +9,8 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { confirmarReactivos, previsualizarReactivos, registrarCuarentenaReactivos } from '../modulo_banco_preguntas/servicioReactivos.js';
-import { validarReactivosBatch } from '../modulo_banco_preguntas/reactivosContrato.js';
+import { confirmarReactivos, previsualizarReactivos, registrarCuarentenaReactivos } from '../modulo_banco_preguntas/index.js';
+import { validarReactivosBatch } from '../modulo_banco_preguntas/index.js';
 
 export type ArchivoHidratacion = {
   originalname: string;

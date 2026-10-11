@@ -2,7 +2,7 @@
  * Controlador de listas institucionales por plantilla.
  */
 import type { Response } from 'express';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import type { SolicitudDocente } from '../modulo_autenticacion/index.js';
 import {
   generarListaInstitucionalPdf,
   generarListaInstitucionalXlsx,
