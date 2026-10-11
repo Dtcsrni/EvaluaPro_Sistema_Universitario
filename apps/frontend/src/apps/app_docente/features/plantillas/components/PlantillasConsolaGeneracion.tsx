@@ -64,6 +64,9 @@ export function PlantillasConsolaGeneracion({
     totalDisponibles: number;
     totalUsados: number;
     numeroPaginas: number;
+    preguntasOmitidasPorFormato?: number;
+    preguntasOmitidasPorOmr?: Array<{ id: string; enunciado: string; problemas: string[] }>;
+    fuentesExtraordinario?: string[];
   } | null>;
   onIrAHistorial?: () => void;
 }) {
@@ -77,6 +80,9 @@ export function PlantillasConsolaGeneracion({
     totalDisponibles: number;
     totalUsados: number;
     numeroPaginas: number;
+    preguntasOmitidasPorFormato?: number;
+    preguntasOmitidasPorOmr?: Array<{ id: string; enunciado: string; problemas: string[] }>;
+    fuentesExtraordinario?: string[];
   } | null>(null);
   const [previewExtraordinarioConfirmado, setPreviewExtraordinarioConfirmado] = useState(false);
   const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
@@ -265,7 +271,7 @@ export function PlantillasConsolaGeneracion({
               <p id="plantillas-extraordinario-ayuda" className="ayuda">
                 Elige únicamente a los alumnos destinatarios. La calificación se conservará aparte de sus parciales y globales.
               </p>
-              {esPeriodoArchivado && <p role="status">Periodo cerrado: el extraordinario conserva la materia y la plantilla archivadas. Formato fijo: 4 páginas (2 hojas dúplex); se usarán todas las preguntas del global si caben con tipografía legible.</p>}
+              {esPeriodoArchivado && <p role="status">Periodo cerrado: formato fijo de 4 páginas (2 hojas dúplex). Si eliges un global, se agregan automáticamente sus parciales archivados del mismo periodo; las preguntas duplicadas se cuentan una sola vez.</p>}
               {alumnosMateria.length === 0 ? (
                 <p role="status">No hay alumnos disponibles en la materia seleccionada.</p>
               ) : (
@@ -338,9 +344,24 @@ export function PlantillasConsolaGeneracion({
                     <>
                       <p role="status">
                         {previewExtraordinario.layoutConfirmado
-                          ? `Vista previa validada: 4 páginas (2 hojas dúplex), ${previewExtraordinario.totalUsados} de ${previewExtraordinario.totalDisponibles} preguntas del global. Revisa las páginas antes de confirmar.`
-                          : `No se pudo validar el formato de 4 páginas con todas las preguntas (${previewExtraordinario.totalUsados} de ${previewExtraordinario.totalDisponibles}); no se puede generar hasta ajustar la vista previa.`}
+                          ? `Vista previa validada: 4 páginas (2 hojas dúplex), ${previewExtraordinario.totalUsados} de ${previewExtraordinario.totalDisponibles} preguntas del conjunto combinado se imprimen${previewExtraordinario.preguntasOmitidasPorFormato ? `; ${previewExtraordinario.preguntasOmitidasPorFormato} válidas no caben con tipografía legible` : ''}${previewExtraordinario.preguntasOmitidasPorOmr?.length ? `; ${previewExtraordinario.preguntasOmitidasPorOmr.length} ${previewExtraordinario.preguntasOmitidasPorOmr.length === 1 ? 'reactivo parcial inválido se excluyó' : 'reactivos parciales inválidos se excluyeron'} del OMR` : ''}. Revisa las páginas y las exclusiones antes de confirmar.`
+                          : `El conjunto combinado contiene ${previewExtraordinario.totalDisponibles} preguntas y ${previewExtraordinario.totalUsados} caben en 4 páginas; no se puede generar hasta que todas las preguntas OMR válidas quepan con fuente legible.`}
                       </p>
+                      {previewExtraordinario.preguntasOmitidasPorOmr?.length ? (
+                        <details className="plantillas-preview__omrExclusions">
+                          <summary>Revisar reactivos excluidos por defectos OMR ({previewExtraordinario.preguntasOmitidasPorOmr.length})</summary>
+                          <ul>
+                            {previewExtraordinario.preguntasOmitidasPorOmr.map((reactivo) => (
+                              <li key={reactivo.id}>
+                                <code>{reactivo.id}</code>: {reactivo.enunciado || 'Sin enunciado'} — {reactivo.problemas.join('; ')}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      ) : null}
+                      {previewExtraordinario.fuentesExtraordinario?.length ? (
+                        <p role="status">Fuentes añadidas: {previewExtraordinario.fuentesExtraordinario.join(' · ')}.</p>
+                      ) : null}
                       {previewExtraordinario.paginas.length > 0 && (
                         <div className="plantillas-preview__pages" aria-label="Páginas de la vista previa del extraordinario">
                           {previewExtraordinario.paginas.map((pagina) => (
@@ -357,7 +378,7 @@ export function PlantillasConsolaGeneracion({
                           disabled={!previewExtraordinario.layoutConfirmado}
                           onChange={(event) => setPreviewExtraordinarioConfirmado(event.target.checked)}
                         />
-                        <span>Confirmo que revisé la vista previa del examen.</span>
+                        <span>Confirmo que revisé la vista previa y las exclusiones por capacidad o por defectos OMR.</span>
                       </label>
                     </>
                   )}

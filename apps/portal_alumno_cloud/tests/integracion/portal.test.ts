@@ -9,7 +9,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { gzipSync } from 'zlib';
 import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase';
 
 function validarResultadosBasicos(resultadosBody: Record<string, unknown>, folio: string) {
   const resultados = (resultadosBody as { resultados?: Array<Record<string, unknown>> }).resultados ?? [];
@@ -97,15 +97,15 @@ describe('portal alumno', () => {
   const apiKey = process.env.PORTAL_API_KEY ?? 'TEST_PORTAL_KEY';
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarSqliteTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarSqliteTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarSqliteTest();
   });
 
   it('sincroniza y permite consultar resultados', async () => {

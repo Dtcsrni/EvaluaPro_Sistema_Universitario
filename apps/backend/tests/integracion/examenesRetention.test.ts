@@ -12,7 +12,8 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { ejecutarRetencionParcialesArchivados } from '../../src/modulos/modulo_generacion_pdf/servicioRetencionExamenes.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 describe('retención de exámenes generados', () => {
   const app = crearApp();
@@ -22,19 +23,19 @@ describe('retención de exámenes generados', () => {
   const dataDir = path.resolve(String(process.env.EVALUAPRO_ARCHIVOS_DIR));
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
     await fs.mkdir(dataDir, { recursive: true });
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
     await fs.rm(dataDir, { recursive: true, force: true });
     await fs.mkdir(dataDir, { recursive: true });
   });
 
   afterAll(async () => {
     await fs.rm(dataDir, { recursive: true, force: true });
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   async function registrarDocente() {
@@ -212,6 +213,41 @@ describe('retención de exámenes generados', () => {
 
     const descarga = await request(app).get(`/api/examenes/generados/${escenario.examenId}/pdf`).set(auth).expect(410);
     expect(descarga.body?.error?.codigo).toBe('EXAMEN_ARTIFACTOS_EXPURGADOS');
+  });
+
+  it('conserva parciales archivados por defecto y solo expurga sus PDF con retención opt-in', async () => {
+    const token = await registrarDocente();
+    const auth = { Authorization: `Bearer ${token}` };
+    const escenario = await crearEscenario(auth);
+
+    await prisma.periodo.update({ where: { id: escenario.periodoId }, data: { archivadoEn: new Date('2026-01-01T00:00:00Z') } });
+    await prisma.examenGenerado.update({ where: { id: escenario.examenId }, data: { generadoEn: new Date('2025-01-01T00:00:00Z'), archivadoEn: new Date('2026-01-01T00:00:00Z') } });
+
+    const historialArchivado = await request(app)
+      .get('/api/examenes/generados?archivado=true&tipoExamen=parcial&limite=200')
+      .set(auth)
+      .expect(200);
+    expect(historialArchivado.body?.examenes?.map((examen: { _id: string }) => examen._id)).toContain(escenario.examenId);
+
+    const referencia = new Date('2026-10-05T00:00:00Z');
+    const sinRetencion = await ejecutarRetencionParcialesArchivados(referencia);
+    expect(sinRetencion.docentesConfigurados).toBe(0);
+    expect(await prisma.examenGenerado.findUnique({ where: { id: escenario.examenId } })).toMatchObject({ retentionStatus: 'active' });
+    await fs.access(escenario.rutaPdf);
+
+    await request(app)
+      .post('/api/autenticacion/preferencias/pdf')
+      .set(auth)
+      .send({ retencionParcialesMeses: 3 })
+      .expect(200);
+
+    const conRetencion = await ejecutarRetencionParcialesArchivados(referencia);
+    expect(conRetencion.docentesConfigurados).toBe(1);
+    expect(conRetencion.candidatos).toBe(1);
+    expect(conRetencion.documentosActualizados).toBe(1);
+    expect(await prisma.examenGenerado.findUnique({ where: { id: escenario.examenId } })).toMatchObject({ retentionStatus: 'artifacts_purged' });
+    await expect(fs.access(escenario.rutaPdf)).rejects.toThrow();
+    expect(await prisma.examenGenerado.count({ where: { id: escenario.examenId } })).toBe(1);
   });
 
   it('devuelve 410 al descargar el PDF de lote despues de expurgar sus artefactos', async () => {

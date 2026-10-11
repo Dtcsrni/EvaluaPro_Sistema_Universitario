@@ -26,11 +26,6 @@ export function resolverOmrTemplateId(templateId?: OmrTemplateId): OmrTemplateId
 }
 
 const OPCIONES_OMR_CANONICAS = 5;
-type Opcion = { texto: string; esCorrecta: boolean };
-
-function crearOpcionVacia(indice: number): Opcion {
-  return { texto: `Opcion ${String.fromCharCode(65 + indice)}`, esCorrecta: false };
-}
 
 export function esTemplateVersionCanonica(templateVersion?: number): templateVersion is TemplateVersion {
   return Number(templateVersion) === TEMPLATE_VERSION_CANONICA;
@@ -49,14 +44,32 @@ export function resolverTemplateVersionCanonica(templateVersion?: number): Templ
 
 export function normalizarPreguntaCanonica(pregunta: PreguntaBase): PreguntaBase {
   const opciones = Array.isArray(pregunta.opciones) ? pregunta.opciones.slice() : [];
-  if (opciones.length > OPCIONES_OMR_CANONICAS) {
+  if (opciones.length !== OPCIONES_OMR_CANONICAS) {
     throw new ErrorAplicacion(
       'PREGUNTA_OMR_OPCIONES_INVALIDAS',
-      `La pregunta ${pregunta.id} tiene ${opciones.length} opciones; la plantilla canónica admite máximo ${OPCIONES_OMR_CANONICAS}.`,
-      422
+      `La pregunta ${pregunta.id} tiene ${opciones.length} opciones; la plantilla OMR requiere exactamente ${OPCIONES_OMR_CANONICAS} opciones reales.`,
+      422,
+      { preguntaId: pregunta.id, opcionesRecibidas: opciones.length, opcionesRequeridas: OPCIONES_OMR_CANONICAS }
     );
   }
-  while (opciones.length < OPCIONES_OMR_CANONICAS) opciones.push(crearOpcionVacia(opciones.length));
+  const opcionesVacias = opciones.some((opcion) => !String(opcion.texto ?? '').trim());
+  if (opcionesVacias) {
+    throw new ErrorAplicacion(
+      'PREGUNTA_OMR_OPCIONES_INVALIDAS',
+      `La pregunta ${pregunta.id} contiene opciones vacías; cada burbuja OMR debe tener una respuesta impresa.`,
+      422,
+      { preguntaId: pregunta.id }
+    );
+  }
+  const respuestasCorrectas = opciones.filter((opcion) => opcion.esCorrecta === true).length;
+  if (respuestasCorrectas !== 1) {
+    throw new ErrorAplicacion(
+      'PREGUNTA_OMR_CLAVE_INVALIDA',
+      `La pregunta ${pregunta.id} debe tener exactamente una opción correcta.`,
+      422,
+      { preguntaId: pregunta.id, respuestasCorrectas }
+    );
+  }
   return { ...pregunta, opciones };
 }
 

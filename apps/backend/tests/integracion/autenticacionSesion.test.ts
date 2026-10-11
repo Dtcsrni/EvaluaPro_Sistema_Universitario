@@ -19,21 +19,21 @@ vi.mock('../../src/modulos/modulo_autenticacion/servicioGoogle', () => {
 });
 
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 describe('autenticacion (sesiones)', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   it('emite refresh cookie al registrar y permite refrescar token', async () => {

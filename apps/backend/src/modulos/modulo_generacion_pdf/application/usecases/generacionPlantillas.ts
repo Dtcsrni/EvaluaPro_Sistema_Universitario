@@ -14,9 +14,11 @@ import { normalizarParaNombreArchivo } from '../../../../compartido/utilidades/t
 import { construirMetadataRetencion } from '../../servicioRetencionExamenes.js';
 import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
 import { generarVariante } from '../../servicioVariantes.js';
+import { resolverInstruccionesExamen, resolverTituloExamen } from '../../shared/tiposPdf.js';
 import { construirRecoveryBundle, construirRecoveryManifest, verificarRecoveryManifest } from '../../domain/recoveryManifest.js';
 import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
 import { extraerPreguntasUsadasMapaOmr, resolverOmrTemplateId } from '../../domain/templateCanonico.js';
+import { obtenerPreviewArchivadoValidado } from '../../domain/previewArchivado.js';
 import { validarPdfConsolidadoLote, validarPdfIndividualLote } from '../../domain/validacionLotePdf.js';
 import {
   construirEncabezadoPdf,
@@ -28,10 +30,12 @@ import {
   construirNombrePdfExamen,
   construirNombrePdfLote,
   esEntornoTest,
+  hash32,
   mapearPreguntasBase,
   normalizarLoteId,
   obtenerPlantillaDocente,
   ordenarPreguntasAleatorio,
+  ordenarPreguntasDeterminista,
   resolverDocentePdf,
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
@@ -359,7 +363,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   alumnoIds?: string[];
 }) {
   const docId = String(params.docenteId);
-  const plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
+  let plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
   if (!plantilla.periodoId) {
     throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla requiere materia (periodoId) para generar en lote', 400);
   }
@@ -397,6 +401,27 @@ async function generarExamenesLoteUseCaseInterno(params: {
   }
   if (!esExtraordinarioArchivado && periodo?.activo === false) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'Una materia archivada solo admite extraordinarios con su plantilla archivada.', 409);
+  }
+  if (esExtraordinarioArchivado) {
+    const previewArchivado = obtenerPreviewArchivadoValidado({
+      docenteId: docId,
+      periodoId: String(plantilla.periodoId),
+      plantillaId: String(plantilla.id)
+    });
+    if (!previewArchivado) {
+      throw new ErrorAplicacion(
+        'PLANTILLA_NO_VALIDADA',
+        'La vista previa del extraordinario archivado expiró o se perdió al reiniciar el servicio. Vuelve a previsualizar antes de generar.',
+        409,
+        { plantillaId: plantilla.id }
+      );
+    }
+    plantilla = {
+      ...plantilla,
+      bookletConfig: previewArchivado.bookletConfig,
+      blueprintJson: previewArchivado.blueprintJson,
+      blueprintStatus: 'ready'
+    };
   }
   const docenteDb = await resolverDocentePdf(docId);
   const idsExtraordinario = tipoExamen === 'extraordinario' ? new Set(params.alumnoIds ?? []) : null;
@@ -616,14 +641,20 @@ async function generarExamenesLoteUseCaseInterno(params: {
 
   const crearExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }) => {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
-      const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBaseLote);
+      const usarOrdenPreview = esExtraordinarioArchivado && (
+        String(plantilla.tipo) === 'global' || /\bglobal\b/i.test(String(plantilla.titulo ?? ''))
+      );
+      const preguntasCandidatas = usarOrdenPreview
+        ? ordenarPreguntasDeterminista(preguntasBaseLote, hash32(String(plantilla.id)))
+        : ordenarPreguntasAleatorio(preguntasBaseLote);
       const mapaVariante = generarVariante(preguntasCandidatas);
+      if (usarOrdenPreview) mapaVariante.ordenPreguntas = preguntasCandidatas.map((pregunta) => pregunta.id);
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       const folio = randomUUID().split('-')[0].toUpperCase();
       try {
         const examenGeneradoId = randomUUID();
         const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
-          titulo: plantilla.titulo,
+          titulo: resolverTituloExamen(tipoExamen as import('../../shared/tiposPdf.js').TipoExamen, String(plantilla.titulo ?? '')),
           folio,
           examId: examenGeneradoId,
           preguntas: preguntasCandidatas,
@@ -637,7 +668,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
           encabezado: construirEncabezadoPdf({
             periodo,
             docenteDb,
-            instrucciones: plantilla.instrucciones,
+            instrucciones: resolverInstruccionesExamen(tipoExamen as import('../../shared/tiposPdf.js').TipoExamen, plantilla.instrucciones),
             incluirPrefijosDocente: true,
             alumno
           })

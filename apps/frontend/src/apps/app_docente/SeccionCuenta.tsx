@@ -57,6 +57,7 @@ export function SeccionCuenta({
 
   const [institucionPdf, setInstitucionPdf] = useState(docente.preferenciasPdf?.institucion ?? '');
   const [lemaPdf, setLemaPdf] = useState(docente.preferenciasPdf?.lema ?? '');
+  const [retencionParcialesMeses, setRetencionParcialesMeses] = useState<0 | 3 | 6 | 12>(docente.preferenciasPdf?.retencionParcialesMeses ?? 0);
   const logoIzqInicial = docente.preferenciasPdf?.logos?.izquierdaPath ?? '';
   const logoDerInicial = docente.preferenciasPdf?.logos?.derechaPath ?? '';
   const [logoIzqPdf, setLogoIzqPdf] = useState(esDataUrlImagen(logoIzqInicial) ? logoIzqInicial : '');
@@ -134,6 +135,7 @@ export function SeccionCuenta({
       const cuerpo: Record<string, unknown> = {};
       if (institucionPdf.trim()) cuerpo.institucion = institucionPdf.trim();
       if (lemaPdf.trim()) cuerpo.lema = lemaPdf.trim();
+      cuerpo.retencionParcialesMeses = retencionParcialesMeses;
       const logoIzquierda = logoIzqPdf.trim() || logoIzqPdfPath.trim();
       const logoDerecha = logoDerPdf.trim() || logoDerPdfPath.trim();
       if (logoIzquierda || logoDerecha) {
@@ -589,9 +591,24 @@ export function SeccionCuenta({
 
         <p className="nota cuenta-pdf__logo-help">PNG, JPG o WebP · máximo 2 MB por imagen. Estas imágenes se usarán automáticamente como logos predeterminados en nuevos exámenes.</p>
 
+        <label className="campo">
+          <span>Conservar archivos de parciales de materias archivadas</span>
+          <select
+            value={retencionParcialesMeses}
+            onChange={(evento) => setRetencionParcialesMeses(Number(evento.target.value) as 0 | 3 | 6 | 12)}
+            aria-label="Retención de archivos de parciales"
+          >
+            <option value={0}>Conservar siempre (predeterminado)</option>
+            <option value={3}>Eliminar automáticamente después de 3 meses</option>
+            <option value={6}>Eliminar automáticamente después de 6 meses</option>
+            <option value={12}>Eliminar automáticamente después de 1 año</option>
+          </select>
+          <small>Los exámenes y sus calificaciones permanecen en el historial; esta opción solo elimina los archivos PDF de parciales de periodos archivados.</small>
+        </label>
+
         <div className="acciones acciones--mt">
           <Boton onClick={guardarPreferenciasPdf} disabled={guardando}>
-            Guardar PDF
+            Guardar preferencias
           </Boton>
         </div>
       </div>

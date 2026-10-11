@@ -1,8 +1,8 @@
 ---
 id: SPEC-068
 titulo: Integridad y recuperación de lotes de exámenes PDF
-version: 1.1.0
-fecha: 2026-09-27
+version: 1.1.2
+fecha: 2026-10-05
 autor: Erick Vega / Codex
 modulo: modulo_generacion_pdf
 estado: approved
@@ -25,6 +25,8 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 - REQ-009: La descarga de Blob debe conservar los bytes hasta que el navegador haya iniciado la descarga, renovar una sesión 401 cuando sea posible, verificar SHA-256 y no presentar como listo un lote incompleto o alterado.
 - REQ-010: Prueba de interoperabilidad de Edge usa un artefacto sintético de prueba y verifica render/descarga sin alterar ni volver a generar lotes reales. Si Edge difiere, registrar navegador/versión, hash y páginas afectadas antes de clasificarlo como defecto del PDF.
 - REQ-011: El artefacto consolidado admite archivo/restauración atómica por API y GUI con auditoría idempotente. Archivar conserva los exámenes y sus entregas, calificaciones y referencias OMR; restaurar valida archivo, SHA-256 y estructura PDF, y un lote archivado no puede regenerarse con el mismo ID.
+- REQ-012: Antes de previsualizar o generar, cada reactivo OMR debe tener exactamente cinco opciones reales, no vacías, distintas y exactamente una respuesta correcta. Etiquetas de relleno como `Opción A` no cuentan como distractores. La plantilla rechaza reactivos incompletos en vez de completar opciones o imprimir burbujas sin respuesta.
+- REQ-013: En diseños compactos, cada panel OMR imprime su número con tamaño legible sin invadir burbujas ni provocar marcas falsas al escanear una hoja en blanco. El área de calificación se ajusta a sus campos, no invade los datos del alumno y no aumenta la altura reservada al examen de alta densidad.
 
 ## Criterios de Aceptación
 
@@ -33,6 +35,8 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 - La validación ocurre antes de declarar completo/publicable el lote; el hash del archivo servido coincide con el hash persistido.
 - Inyectar una falla al persistir el registro del artefacto y alterar un PDF válido de igual número de páginas no produce duplicados ni habilita descargas inválidas; reanudar conserva alumno-folio y termina con un paquete íntegro.
 - Un lote con textos largos conserva escala tipográfica uniforme, no invade campos manuscritos ni reserva de engrapado y no degrada el mapa OMR.
+- Un reactivo con menos o más de cinco opciones, opciones vacías/repetidas/genéricas o cero/más de una respuesta correcta bloquea la vista previa y la generación e identifica los reactivos que deben corregirse en Banco.
+- El área de calificación se ajusta al ancho medido de `Calif. (0-5)` más un renglón manuscrito de 12 pt y ocupa como máximo 56 × 21 pt; en alta densidad, los campos en línea no colisionan con grupo y conservan la distribución de reactivos validada por la prueba de capacidad. Los números OMR son visibles y una hoja sintética sin marcas sigue clasificándose como vacía.
 - La etiqueta «GRAPA» es vertical, queda dentro de su reserva con margen, y la zona conserva separación mínima de la quiet zone del fiducial superior izquierdo.
 - Las pruebas del cliente verifican la descarga de bytes, expiración/liberación del Object URL y presentación de errores; la prueba Edge automatizada usa únicamente fixtures de QA, no datos o PDFs reales del usuario.
 
@@ -51,3 +55,5 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 | REQ-009 | Descarga de Blob, SHA-256, liberación diferida y sesión | `apps/frontend/tests/plantillas.hooks.test.tsx` | Parcial: SHA y liberación validados; renovación 401 no cubierta |
 | REQ-010 | Render/descarga Edge con fixture sintético | `tests/gui-responsive/plantillas-pdf-edge.spec.ts` | Validado en Edge headless |
 | REQ-011 | Archivo/restauración de lote, preservación de referencias, idempotencia, auditoría y paridad API/GUI | `apps/backend/tests/integracion/examenesLotesApi.test.ts`; `apps/frontend/tests/plantillasHistorialLotes.archivo.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-examen-lotes-ciclo-vida-sqlite.test.mjs` | Validado en pruebas focales |
+| REQ-012 | Rechazo de reactivos OMR incompletos o con clave incorrecta antes de imprimir | `apps/backend/tests/pdf.canonico.test.ts`; `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | Pendiente de validación focal |
+| REQ-013 | Calificación compacta, etiquetas numéricas OMR legibles y escaneo en blanco | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Validado en prueba focal |

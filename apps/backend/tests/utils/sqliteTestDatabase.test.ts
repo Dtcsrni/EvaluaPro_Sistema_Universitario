@@ -1,12 +1,12 @@
 /**
- * mongo.test
+ * sqliteTestDatabase.test
  *
  * Responsabilidad: Verifica el aislamiento de base SQLite temporal usada por pruebas.
  */
 import { describe, expect, it } from 'vitest';
 import { resolverNombreDbTest } from './testDbPath.js';
 
-describe('utils/mongo test database isolation', () => {
+describe('utils/sqlite test database isolation', () => {
   it('usa un nombre distinto para procesos Vitest distintos con el mismo worker id', () => {
     const base = { VITEST_WORKER_ID: '1', VITEST_POOL_ID: '1' };
     const primero = resolverNombreDbTest({ ...base, EVALUAPRO_TEST_PROCESS_ID: '100' });

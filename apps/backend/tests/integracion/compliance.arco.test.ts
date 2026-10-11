@@ -6,21 +6,21 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 describe('modulo compliance', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   async function crearDocenteConRoles(correo: string, roles: string[]) {

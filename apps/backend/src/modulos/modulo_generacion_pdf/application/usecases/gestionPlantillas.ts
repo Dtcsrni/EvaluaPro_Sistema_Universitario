@@ -99,6 +99,31 @@ async function consultarRepeticionPlantilla(params: {
   return prisma.$transaction((tx) => recuperarMutacionPlantilla(tx, params));
 }
 
+async function validarPreguntasDeMateria(
+  tx: Prisma.TransactionClient,
+  docenteId: string,
+  periodoId: unknown,
+  preguntasIds: string[]
+) {
+  if (!periodoId || preguntasIds.length === 0) return;
+  const periodoIdNormalizado = String(periodoId);
+  const preguntas = await tx.bancoPregunta.findMany({
+    where: { id: { in: preguntasIds } },
+    select: { id: true, docenteId: true, periodoId: true }
+  });
+  const idsDeOtraMateria = preguntas
+    .filter((pregunta) => pregunta.docenteId !== docenteId || pregunta.periodoId !== periodoIdNormalizado)
+    .map((pregunta) => pregunta.id);
+  if (idsDeOtraMateria.length > 0) {
+    throw new ErrorAplicacion(
+      'PREGUNTAS_OTRA_MATERIA',
+      'La plantilla solo puede incluir preguntas de la misma materia.',
+      400,
+      { preguntasIds: idsDeOtraMateria }
+    );
+  }
+}
+
 async function registrarMutacionPlantilla(
   tx: Prisma.TransactionClient,
   params: {
@@ -228,6 +253,7 @@ export async function crearPlantillaUseCase(params: {
     return await prisma.$transaction(async (tx) => {
       const repetidaEnTransaccion = await recuperarMutacionPlantilla(tx, contextoMutacion);
       if (repetidaEnTransaccion) return repetidaEnTransaccion;
+      await validarPreguntasDeMateria(tx, docId, periodoId, preguntasIds);
       const raw = await tx.examenPlantilla.create({
       data: {
         docenteId: docId,
@@ -366,6 +392,9 @@ export async function actualizarPlantillaUseCase(params: {
     return await prisma.$transaction(async (tx) => {
     const repetidaEnTransaccion = await recuperarMutacionPlantilla(tx, contextoMutacion);
     if (repetidaEnTransaccion) return repetidaEnTransaccion;
+    if (patch.preguntasIds !== undefined || patch.periodoId !== undefined) {
+      await validarPreguntasDeMateria(tx, docId, merged.periodoId, preguntasIds);
+    }
     const raw = await tx.examenPlantilla.update({
       where: { id: params.plantillaId },
       data

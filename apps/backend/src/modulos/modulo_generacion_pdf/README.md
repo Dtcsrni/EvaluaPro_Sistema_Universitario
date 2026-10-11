@@ -23,7 +23,7 @@ Principios activos:
 - Sin compatibilidad de `totalReactivos` en modulo PDF.
 - Contrato canónico operativo en generación:
   - `templateVersion` se fija en la versión única soportada.
-  - preguntas normalizadas a 5 opciones para el mapa OMR canónico.
+  - cada reactivo debe traer exactamente cinco opciones con texto y una sola respuesta correcta; el motor rechaza opciones faltantes o vacías en lugar de inventar burbujas sin respuesta.
   - preguntas con mas de 5 opciones se rechazan (422).
 - Generacion desacoplada de alumno:
   - el examen se genera sin `alumnoId` asociado.

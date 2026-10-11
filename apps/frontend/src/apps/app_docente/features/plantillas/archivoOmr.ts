@@ -28,3 +28,18 @@ export async function cargarTodasLasPaginasArchivadas<T>(
     cursor = siguiente;
   }
 }
+
+/** Carga todas las páginas activas y archivadas y las ordena por fecha reciente. */
+export async function cargarHistorialCompletoExamenes<T extends { generadoEn?: string }>(
+  obtenerPagina: (archivado: boolean, cursor: string | null) => Promise<PaginaExamenesArchivados<T>>
+) {
+  const [activos, archivados] = await Promise.all([
+    cargarTodasLasPaginasArchivadas((cursor) => obtenerPagina(false, cursor)),
+    cargarTodasLasPaginasArchivadas((cursor) => obtenerPagina(true, cursor))
+  ]);
+  return [...activos, ...archivados].sort((a, b) => {
+    const fechaA = Date.parse(String(a.generadoEn ?? '')) || 0;
+    const fechaB = Date.parse(String(b.generadoEn ?? '')) || 0;
+    return fechaB - fechaA;
+  });
+}

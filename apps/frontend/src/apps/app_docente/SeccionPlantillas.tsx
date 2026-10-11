@@ -15,7 +15,7 @@ import { PlantillasFormulario } from './features/plantillas/components/Plantilla
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
 import { PlantillasOmrWorkflow, type ArchivoOmrLote, type TrabajoOmrResumen } from './features/plantillas/components/PlantillasOmrWorkflow';
 import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabajoOmr';
-import { cargarTodasLasPaginasArchivadas } from './features/plantillas/archivoOmr';
+import { cargarHistorialCompletoExamenes, cargarTodasLasPaginasArchivadas } from './features/plantillas/archivoOmr';
 import { guardarTabPlantillas, PLANTILLAS_TAB_STORAGE_KEY, type TabPlantillas } from './features/plantillas/tabPlantillasState';
 import { crearClaveLoteGeneracion, guardarLotePendiente, leerLotePendiente, validarResumenLoteGenerado } from './features/plantillas/loteGeneracionSesion';
 import { confirmarClientRequestIdPlantilla, obtenerClientRequestIdPlantilla } from './features/plantillas/mutacionIdempotente';
@@ -327,17 +327,20 @@ export function SeccionPlantillas({
     setCargandoLotesArchivados(true);
     setCursorLotesArchivados(null);
     const [examenesResult, lotesResult] = await Promise.allSettled([
-        clienteApi.obtener<{ examenes: ExamenGeneradoResumen[] }>(
-          `/examenes/generados?plantillaId=${encodeURIComponent(plantillaId)}&limite=50`
-        ),
+        cargarHistorialCompletoExamenes<ExamenGeneradoResumen>(async (archivado, cursor) => {
+          const query = new URLSearchParams({ plantillaId, limite: '200' });
+          if (archivado) query.set('archivado', 'true');
+          if (cursor) query.set('cursor', cursor);
+          return clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(`/examenes/generados?${query.toString()}`);
+        }),
         clienteApi.obtener<{ lotes: LotePdfArchivadoResumen[]; nextCursor?: string | null }>(
           `/examenes/generados/lotes?plantillaId=${encodeURIComponent(plantillaId)}&archivado=true&limite=100`
         )
     ]);
     if (examenesResult.status === 'fulfilled') {
-      setExamenesGenerados(Array.isArray(examenesResult.value.examenes) ? examenesResult.value.examenes : []);
+      setExamenesGenerados(examenesResult.value);
     } else {
-      setMensajeGeneracion(mensajeDeError(examenesResult.reason, 'No se pudo cargar el historial de exámenes'));
+      setMensajeGeneracion(mensajeDeError(examenesResult.reason, 'No se pudo cargar el historial completo de exámenes'));
     }
     if (lotesResult.status === 'fulfilled') {
       setLotesArchivados(Array.isArray(lotesResult.value.lotes) ? lotesResult.value.lotes : []);

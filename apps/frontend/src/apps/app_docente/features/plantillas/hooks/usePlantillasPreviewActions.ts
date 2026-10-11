@@ -216,12 +216,16 @@ export function usePlantillasPreviewActions({
     const numeroPaginas = Number(resumen.numeroPaginas);
     const totalDisponibles = Number(resumen.totalDisponibles);
     const totalUsados = Number(resumen.totalUsados);
+    const totalOmitidasPorOmr = Number(resumen.totalPreguntasOmitidasPorOmr ?? resumen.preguntasOmitidasPorOmr?.length ?? 0);
     return {
-      layoutConfirmado: resumen.layoutConfirmado === true && numeroPaginas === 4 && paginas.length === 4 && totalUsados === totalDisponibles,
+      layoutConfirmado: resumen.layoutConfirmado === true && numeroPaginas === 4 && paginas.length === 4 && totalUsados > 0,
       paginas,
       totalDisponibles,
       totalUsados,
-      numeroPaginas
+      numeroPaginas,
+      preguntasOmitidasPorFormato: Number(resumen.preguntasOmitidasPorFormato ?? Math.max(0, totalDisponibles - totalUsados - totalOmitidasPorOmr)),
+      preguntasOmitidasPorOmr: resumen.preguntasOmitidasPorOmr ?? [],
+      fuentesExtraordinario: resumen.fuentesExtraordinario ?? []
     };
   }, [cargarPreviewPdfPlantilla, cargarPreviewPlantilla]);
 

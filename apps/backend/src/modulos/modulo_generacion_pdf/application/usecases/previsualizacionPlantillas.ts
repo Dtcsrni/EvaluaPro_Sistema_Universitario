@@ -33,10 +33,13 @@ import {
   resolverDocentePdf,
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
-  resolverTemplateVersionOmr
+  resolverTemplateVersionOmr,
+  validarPreguntasBase
 } from '../../shared/controladorGeneracionPdfShared.js';
 import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico.js';
 import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../infra/rasterizadorPdfPreview.js';
+import { resolverInstruccionesExamen, resolverTituloExamen } from '../../shared/tiposPdf.js';
+import { guardarPreviewArchivadoValidado } from '../../domain/previewArchivado.js';
 
 const PREVIEW_MEMORIA_TTL_MS = 10 * 60 * 1000;
 const MAX_PREVIEWS_MEMORIA = 8;
@@ -96,6 +99,9 @@ function resolverLayoutValidadoPlantilla(params: {
 
 async function guardarLayoutValidadoPlantilla(params: {
   plantillaId: string;
+  docenteId: string;
+  periodoId?: string;
+  mantenerFuenteInmutable?: boolean;
   bookletConfig: unknown;
   fontScale?: number;
   lineSpacing?: number;
@@ -105,33 +111,49 @@ async function guardarLayoutValidadoPlantilla(params: {
   totalPreguntas: number;
   temas: string[];
   blueprint?: unknown;
+  fuentesExtraordinarioIds?: string[];
+  totalPreguntasCandidatas?: number;
 }) {
   const fontScale = Number(params.fontScale);
   const lineSpacing = Number(params.lineSpacing);
   if (!Number.isFinite(fontScale) || !Number.isFinite(lineSpacing)) return;
   const base = (params.bookletConfig ?? {}) as Record<string, unknown>;
+  const bookletConfigValidado = {
+    ...base,
+    autoFitPages: false,
+    autoFitTypography: false,
+    fontScale,
+    lineSpacing,
+    resolvedLayout: {
+      version: 1,
+      fontScale,
+      lineSpacing,
+      preguntasFingerprint: params.preguntasFingerprint,
+      layoutFingerprint: params.layoutFingerprint,
+      numeroPaginas: params.numeroPaginas,
+      totalPreguntas: params.totalPreguntas,
+      temas: params.temas
+    },
+    ...(params.fuentesExtraordinarioIds?.length ? {
+      extraordinarioFuentesPlantillaIds: params.fuentesExtraordinarioIds,
+      extraordinarioTotalPreguntasCandidatas: params.totalPreguntasCandidatas
+    } : {}),
+    ...(params.blueprint ? { blueprint: params.blueprint, blueprintStatus: 'ready', blueprintVersion: 2 } : {})
+  };
+  if (params.mantenerFuenteInmutable) {
+    if (!params.periodoId || !params.blueprint) return;
+    guardarPreviewArchivadoValidado({
+      docenteId: params.docenteId,
+      periodoId: params.periodoId,
+      plantillaId: params.plantillaId,
+      bookletConfig: bookletConfigValidado,
+      blueprintJson: JSON.stringify(params.blueprint)
+    });
+    return;
+  }
   await prisma.examenPlantilla.update({
     where: { id: params.plantillaId },
-    data: {
-      bookletConfig: JSON.stringify({
-        ...base,
-        autoFitPages: false,
-        autoFitTypography: false,
-        fontScale,
-        lineSpacing,
-        resolvedLayout: {
-          version: 1,
-          fontScale,
-          lineSpacing,
-          preguntasFingerprint: params.preguntasFingerprint,
-          layoutFingerprint: params.layoutFingerprint,
-          numeroPaginas: params.numeroPaginas,
-          totalPreguntas: params.totalPreguntas,
-          temas: params.temas
-        },
-        ...(params.blueprint ? { blueprint: params.blueprint, blueprintStatus: 'ready', blueprintVersion: 2 } : {})
-      })
-    }
+    data: { bookletConfig: JSON.stringify(bookletConfigValidado) }
   });
 }
 
@@ -187,12 +209,58 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   if (periodoResuelto?.activo === false && !permitirArchivados) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
   }
-  const { preguntasDb, temas } = await resolverPreguntasPlantilla({
+  const resultadoBase = await resolverPreguntasPlantilla({
     docenteId,
     plantilla: plantilla as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] },
     ordenarPorRecencia: true,
     permitirArchivados
   });
+  let preguntasDb = resultadoBase.preguntasDb;
+  let temas = resultadoBase.temas;
+  const temasPlantilla = [...resultadoBase.temas];
+  const fuentesExtraordinario: string[] = [];
+  const fuentesExtraordinarioIds: string[] = [];
+  const preguntasGlobalesIds = resultadoBase.preguntasDb.map((pregunta) => String(pregunta.id));
+  const idsPreguntasFuente = new Set(preguntasGlobalesIds);
+  const reactivosOmitidosOmrPorId = new Map<string, { id: string; enunciado: string; problemas: string[] }>();
+  const esPlantillaGlobal = String(plantilla.tipo) === 'global' || /\bglobal\b/i.test(String(plantilla.titulo ?? ''));
+  if (permitirArchivados && esPlantillaGlobal && plantilla.periodoId) {
+    const parciales = await prisma.examenPlantilla.findMany({
+      where: {
+        docenteId: String(docenteId),
+        periodoId: String(plantilla.periodoId),
+        tipo: 'parcial',
+        archivadoEn: { not: null },
+        id: { not: String(plantilla._id) }
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
+    });
+    const preguntasPorId = new Map(preguntasDb.map((pregunta) => [String(pregunta.id), pregunta]));
+    const temasCombinados = new Set(temas);
+    for (const parcialRaw of parciales) {
+      const parcial = await obtenerPlantillaDocente(docenteId, String(parcialRaw.id));
+      const resultadoParcial = await resolverPreguntasPlantilla({
+        docenteId,
+        plantilla: parcial as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] },
+        ordenarPorRecencia: true,
+        permitirArchivados: true
+      });
+      const validacionParcial = validarPreguntasBase(resultadoParcial.preguntasDb);
+      const idsInvalidos = new Set(validacionParcial.invalidas.map((item) => item.id));
+      validacionParcial.invalidas.forEach((item) => reactivosOmitidosOmrPorId.set(item.id, item));
+      for (const pregunta of resultadoParcial.preguntasDb) {
+        const id = String(pregunta.id);
+        idsPreguntasFuente.add(id);
+        if (idsInvalidos.has(id)) continue;
+        if (!preguntasPorId.has(id)) preguntasPorId.set(id, pregunta);
+      }
+      resultadoParcial.temas.forEach((tema) => temasCombinados.add(tema));
+      fuentesExtraordinario.push(String(parcial.titulo ?? 'Parcial'));
+      fuentesExtraordinarioIds.push(String(parcial.id));
+    }
+    preguntasDb = [...preguntasPorId.values()];
+    temas = [...temasCombinados];
+  }
 
   if (preguntasDb.length === 0) {
     throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas disponibles para previsualizar', 400);
@@ -214,7 +282,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
     layoutFingerprint,
     numeroPaginas,
     totalPreguntas: preguntasBase.length,
-    temas
+    temas: temasPlantilla
   });
   const bookletConfig = {
     ...(plantilla.bookletConfig ?? {}),
@@ -244,6 +312,13 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
     periodo: periodoResuelto,
     docenteDb,
     temas,
+    temasPlantilla,
+    fuentesExtraordinario,
+    fuentesExtraordinarioIds,
+    preguntasGlobalesIds,
+    totalPreguntasFuente: idsPreguntasFuente.size,
+    reactivosOmitidosOmr: [...reactivosOmitidosOmrPorId.values()],
+    totalPreguntasCandidatas: preguntasDb.length,
     templateVersionOmr,
     omrTemplateId,
     layoutFingerprint,
@@ -251,11 +326,79 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   };
 }
 
+function puntajeDensidadPregunta(pregunta: { enunciado: string; imagenUrl?: string; opciones: Array<{ texto: string }> }) {
+  const textoOpciones = pregunta.opciones.reduce((total, opcion) => total + String(opcion.texto ?? '').length, 0);
+  return String(pregunta.enunciado ?? '').length + textoOpciones * 0.7 + (pregunta.imagenUrl ? 320 : 0);
+}
+
+async function generarPdfPreviewContexto(contexto: Awaited<ReturnType<typeof resolverContextoPreview>>, incluirPrefijosDocente: boolean) {
+  const tipoExamen = contexto.periodo?.activo === false && contexto.plantilla.archivadoEn
+    ? 'extraordinario'
+    : contexto.plantilla.tipo as 'parcial' | 'global';
+  return generarPdfExamen({
+    titulo: resolverTituloExamen(tipoExamen, String(contexto.plantilla.titulo ?? '')),
+    folio: 'PREVIEW',
+    examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
+    preguntas: contexto.preguntasCandidatas,
+    mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
+    tipoExamen,
+    totalPaginas: contexto.numeroPaginas,
+    margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
+    templateVersion: contexto.templateVersionOmr,
+    omrTemplateId: contexto.omrTemplateId,
+    bookletConfig: contexto.bookletConfig,
+    encabezado: construirEncabezadoPdf({
+      periodo: contexto.periodo,
+      docenteDb: contexto.docenteDb,
+      instrucciones: resolverInstruccionesExamen(tipoExamen, (contexto.plantilla as { instrucciones?: unknown }).instrucciones),
+      incluirPrefijosDocente
+    })
+  });
+}
+
+async function prepararPreviewMaximo(docenteId: unknown, plantillaId: string, incluirPrefijosDocente: boolean) {
+  let contexto = await resolverContextoPreview(docenteId, plantillaId);
+  const preguntasCompletas = contexto.preguntasDb.length;
+  const idsGlobales = new Set(contexto.preguntasGlobalesIds);
+  const preguntasAdicionales = contexto.preguntasBase
+    .filter((pregunta) => !idsGlobales.has(String(pregunta.id)))
+    .sort((a, b) => puntajeDensidadPregunta(a) - puntajeDensidadPregunta(b) || a.id.localeCompare(b.id));
+  let resultado = await generarPdfPreviewContexto(contexto, incluirPrefijosDocente);
+
+  while ((resultado.preguntasRestantes ?? 0) > 0 && preguntasAdicionales.length > 0) {
+    preguntasAdicionales.pop();
+    const idsSeleccionados = new Set([
+      ...contexto.preguntasGlobalesIds,
+      ...preguntasAdicionales.map((pregunta) => String(pregunta.id))
+    ]);
+    const preguntasDb = contexto.preguntasDb.filter((pregunta) => idsSeleccionados.has(String(pregunta.id)));
+    const preguntasBase = mapearPreguntasBase(preguntasDb);
+    const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(String(contexto.plantilla._id)));
+    contexto = {
+      ...contexto,
+      preguntasDb,
+      preguntasBase,
+      preguntasCandidatas,
+      mapaVarianteDet: generarVarianteDeterminista(preguntasCandidatas, `plantilla:${contexto.plantilla._id}`)
+    };
+    resultado = await generarPdfPreviewContexto(contexto, incluirPrefijosDocente);
+  }
+
+  return {
+    contexto,
+    previewResultado: resultado,
+    totalPreguntasCandidatas: preguntasCompletas,
+    totalPreguntasFuente: contexto.totalPreguntasFuente,
+    reactivosOmitidosOmr: contexto.reactivosOmitidosOmr
+  };
+}
+
 export async function previsualizarPlantillaUseCase(params: {
   docenteId: unknown;
   plantillaId: string;
 }) {
-  const contexto = await resolverContextoPreview(params.docenteId, params.plantillaId);
+  const { contexto, previewResultado, totalPreguntasCandidatas, totalPreguntasFuente, reactivosOmitidosOmr } =
+    await prepararPreviewMaximo(params.docenteId, params.plantillaId, true);
   const temasNormalizados = contexto.temas.map((tema) => normalizarNombreTemaPreview(tema)).filter(Boolean);
   const conteoPorTema: Array<{ tema: string; disponibles: number }> = [];
   const temasDisponiblesEnMateria: Array<{ tema: string; disponibles: number }> = [];
@@ -283,31 +426,12 @@ export async function previsualizarPlantillaUseCase(params: {
     }
   }
 
-  const previewResultado = await generarPdfExamen({
-    titulo: String(contexto.plantilla.titulo ?? ''),
-    folio: 'PREVIEW',
-    examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
-    preguntas: contexto.preguntasCandidatas,
-    mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
-    tipoExamen: contexto.periodo?.activo === false && contexto.plantilla.archivadoEn
-      ? 'extraordinario'
-      : contexto.plantilla.tipo as 'parcial' | 'global',
-    totalPaginas: contexto.numeroPaginas,
-    margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
-    templateVersion: contexto.templateVersionOmr,
-    omrTemplateId: contexto.omrTemplateId,
-    bookletConfig: contexto.bookletConfig,
-    encabezado: construirEncabezadoPdf({
-      periodo: contexto.periodo,
-      docenteDb: contexto.docenteDb,
-      instrucciones: (contexto.plantilla as { instrucciones?: unknown }).instrucciones,
-      incluirPrefijosDocente: true
-    })
-  });
-
   if (previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
     await guardarLayoutValidadoPlantilla({
       plantillaId: String(contexto.plantilla._id),
+      docenteId: String(params.docenteId),
+      periodoId: contexto.plantilla.periodoId ? String(contexto.plantilla.periodoId) : undefined,
+      mantenerFuenteInmutable: Boolean(contexto.plantilla.archivadoEn) && contexto.periodo?.activo === false,
       bookletConfig: contexto.plantilla.bookletConfig,
       fontScale: previewResultado.fontScaleAplicada,
       lineSpacing: previewResultado.lineSpacingAplicado,
@@ -315,8 +439,10 @@ export async function previsualizarPlantillaUseCase(params: {
       layoutFingerprint: contexto.layoutFingerprint,
       numeroPaginas: contexto.numeroPaginas,
       totalPreguntas: contexto.preguntasBase.length,
-      temas: contexto.temas,
-      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false })
+      temas: contexto.temasPlantilla,
+      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false }),
+      fuentesExtraordinarioIds: contexto.fuentesExtraordinarioIds,
+      totalPreguntasCandidatas
     });
   }
 
@@ -327,13 +453,13 @@ export async function previsualizarPlantillaUseCase(params: {
     .map((id) => porId.get(id))
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-  const totalDisponibles = contexto.preguntasDb.length;
+  const totalDisponibles = totalPreguntasFuente;
   const totalUsados = extraerPreguntasUsadasMapaOmr(mapaOmr as never).size;
   const metricasPaginasSeguras = Array.isArray(metricasPaginas) ? metricasPaginas : [];
   const ultima = metricasPaginasSeguras[metricasPaginasSeguras.length - 1];
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const umbralVacioResidual = 0.05;
-  const consumioTodas = totalUsados >= totalDisponibles;
+  const consumioTodas = totalUsados >= totalPreguntasCandidatas;
   const advertencias: string[] = [];
 
   if (consumioTodas && fraccionVaciaUltimaPagina > umbralVacioResidual) {
@@ -358,6 +484,10 @@ export async function previsualizarPlantillaUseCase(params: {
 
   return {
     plantillaId: String(contexto.plantilla._id),
+    fuentesExtraordinario: contexto.fuentesExtraordinario,
+    preguntasOmitidasPorFormato: Math.max(0, totalPreguntasCandidatas - contexto.preguntasDb.length),
+    preguntasOmitidasPorOmr: reactivosOmitidosOmr,
+    totalPreguntasOmitidasPorOmr: reactivosOmitidosOmr.length,
     layoutConfirmado: previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas,
     numeroPaginas: contexto.numeroPaginas,
     numeroPaginasConfiguradas: contexto.numeroPaginas,
@@ -379,7 +509,11 @@ export async function previsualizarPlantillaPdfUseCase(params: {
   plantillaId: string;
   forzarRegeneracion?: boolean;
 }) {
-  const contexto = await resolverContextoPreview(params.docenteId, params.plantillaId);
+  const { contexto, previewResultado, totalPreguntasCandidatas } = await prepararPreviewMaximo(
+    params.docenteId,
+    params.plantillaId,
+    false
+  );
   const esDev = esEntornoDevelopment();
 
   if (!esDev && !params.forzarRegeneracion) {
@@ -427,31 +561,12 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     // Se regenera.
   }
 
-  const previewResultado = await generarPdfExamen({
-    titulo: String(contexto.plantilla.titulo ?? ''),
-    folio: 'PREVIEW',
-    examId: `PREVIEW-${String(contexto.plantilla._id ?? contexto.plantilla.id ?? '').slice(0, 24)}`,
-    preguntas: contexto.preguntasCandidatas,
-    mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
-    tipoExamen: contexto.periodo?.activo === false && contexto.plantilla.archivadoEn
-      ? 'extraordinario'
-      : contexto.plantilla.tipo as 'parcial' | 'global',
-    totalPaginas: contexto.numeroPaginas,
-    margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
-    templateVersion: contexto.templateVersionOmr,
-    omrTemplateId: contexto.omrTemplateId,
-    bookletConfig: contexto.bookletConfig,
-    encabezado: construirEncabezadoPdf({
-      periodo: contexto.periodo,
-      docenteDb: contexto.docenteDb,
-      instrucciones: (contexto.plantilla as { instrucciones?: unknown }).instrucciones,
-      incluirPrefijosDocente: false
-    })
-  });
-
   if (previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
     await guardarLayoutValidadoPlantilla({
       plantillaId: String(contexto.plantilla._id),
+      docenteId: String(params.docenteId),
+      periodoId: contexto.plantilla.periodoId ? String(contexto.plantilla.periodoId) : undefined,
+      mantenerFuenteInmutable: Boolean(contexto.plantilla.archivadoEn) && contexto.periodo?.activo === false,
       bookletConfig: contexto.plantilla.bookletConfig,
       fontScale: previewResultado.fontScaleAplicada,
       lineSpacing: previewResultado.lineSpacingAplicado,
@@ -459,8 +574,10 @@ export async function previsualizarPlantillaPdfUseCase(params: {
       layoutFingerprint: contexto.layoutFingerprint,
       numeroPaginas: contexto.numeroPaginas,
       totalPreguntas: contexto.preguntasBase.length,
-      temas: contexto.temas,
-      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false })
+      temas: contexto.temasPlantilla,
+      blueprint: await construirBlueprintPlantilla(contexto.preguntasDb, { legacyOnly: contexto.periodo?.activo === false }),
+      fuentesExtraordinarioIds: contexto.fuentesExtraordinarioIds,
+      totalPreguntasCandidatas
     });
   }
 

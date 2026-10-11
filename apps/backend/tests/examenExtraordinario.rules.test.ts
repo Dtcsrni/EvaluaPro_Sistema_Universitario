@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacion.js';
 import { resolverCorteExamen } from '../src/modulos/modulo_analiticas/servicioListaAcademica.js';
 import { esquemaGenerarExamenesLote } from '../src/modulos/modulo_generacion_pdf/validacionesExamenes.js';
+import { resolverTituloExamen } from '../src/modulos/modulo_generacion_pdf/shared/tiposPdf.js';
 
 const plantillaId = '11111111-1111-4111-8111-111111111111';
 const alumnoUno = '22222222-2222-4222-8222-222222222222';
@@ -9,6 +10,11 @@ const alumnoDos = '33333333-3333-4333-8333-333333333333';
 const lote = { plantillaId, confirmarMasivo: true, loteId: 'EXT_1234' };
 
 describe('exámenes extraordinarios', () => {
+  it('usa el título fijo del extraordinario y conserva el título ordinario', () => {
+    expect(resolverTituloExamen('extraordinario', 'Global Diseño Web')).toBe('Examen Extraordinario');
+    expect(resolverTituloExamen('global', 'Global Diseño Web')).toBe('Global Diseño Web');
+  });
+
   it('requiere alumnos únicos para generar un extraordinario por lote', () => {
     expect(esquemaGenerarExamenesLote.safeParse({
       ...lote,

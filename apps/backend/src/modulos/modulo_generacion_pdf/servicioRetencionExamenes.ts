@@ -214,3 +214,68 @@ export async function ejecutarPurgeExamenesGenerados(params: {
     detalles
   } satisfies PurgeSummary;
 }
+
+function restarMeses(fecha: Date, meses: number) {
+  const resultado = new Date(fecha);
+  const diaOriginal = resultado.getDate();
+  resultado.setDate(1);
+  resultado.setMonth(resultado.getMonth() - meses);
+  const ultimoDiaMesDestino = new Date(resultado.getFullYear(), resultado.getMonth() + 1, 0).getDate();
+  resultado.setDate(Math.min(diaOriginal, ultimoDiaMesDestino));
+  return resultado;
+}
+
+function mesesRetencionParciales(preferenciasPdf: string | null) {
+  try {
+    const meses = Number(JSON.parse(preferenciasPdf || '{}')?.retencionParcialesMeses);
+    return [3, 6, 12].includes(meses) ? meses : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Purga opt-in de PDFs de parciales antiguos en periodos archivados.
+ * Los registros, las calificaciones y el historial se conservan.
+ */
+export async function ejecutarRetencionParcialesArchivados(fechaReferencia = new Date()) {
+  const docentes = await prisma.docente.findMany({
+    select: { id: true, preferenciasPdf: true }
+  });
+  let docentesConfigurados = 0;
+  let candidatos = 0;
+  let archivosEliminados = 0;
+  let archivosFaltantes = 0;
+  let documentosActualizados = 0;
+
+  for (const docente of docentes) {
+    const meses = mesesRetencionParciales(docente.preferenciasPdf);
+    if (!meses) continue;
+    docentesConfigurados += 1;
+    const fechaCorte = restarMeses(fechaReferencia, meses);
+    const examenes = await prisma.examenGenerado.findMany({
+      where: {
+        docenteId: docente.id,
+        tipoExamen: 'parcial',
+        generadoEn: { lte: fechaCorte },
+        retentionStatus: { not: 'artifacts_purged' },
+        periodo: { archivadoEn: { not: null } }
+      }
+    });
+    candidatos += examenes.length;
+    for (const examen of examenes) {
+      const detalle = await purgeSingleExamArtifacts(examen, 'ttl', false);
+      archivosEliminados += detalle.archivosEliminados;
+      archivosFaltantes += detalle.archivosFaltantes;
+      documentosActualizados += 1;
+    }
+  }
+
+  return {
+    docentesConfigurados,
+    candidatos,
+    documentosActualizados,
+    archivosEliminados,
+    archivosFaltantes
+  };
+}

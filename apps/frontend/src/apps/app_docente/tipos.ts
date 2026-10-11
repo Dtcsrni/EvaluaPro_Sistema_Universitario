@@ -25,6 +25,7 @@ export type Docente = {
   preferenciasPdf?: {
     institucion?: string;
     lema?: string;
+    retencionParcialesMeses?: 0 | 3 | 6 | 12;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
 };
@@ -107,6 +108,10 @@ export type PreviewPlantilla = {
   numeroPaginas?: number;
   totalDisponibles?: number;
   totalUsados?: number;
+  preguntasOmitidasPorFormato?: number;
+  preguntasOmitidasPorOmr?: Array<{ id: string; enunciado: string; problemas: string[] }>;
+  totalPreguntasOmitidasPorOmr?: number;
+  fuentesExtraordinario?: string[];
   fraccionVaciaUltimaPagina?: number;
   advertencias?: string[];
   conteoPorTema?: Array<{ tema: string; disponibles: number }>;

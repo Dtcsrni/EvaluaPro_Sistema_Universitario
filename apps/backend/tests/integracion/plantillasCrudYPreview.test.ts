@@ -6,11 +6,12 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { PDFParse } from 'pdf-parse';
 import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado.js';
 import { BancoPregunta } from '../../src/modulos/modulo_banco_preguntas/modeloBancoPregunta.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 describe('plantillas CRUD + previsualizacion', () => {
   const app = crearApp();
@@ -18,15 +19,15 @@ describe('plantillas CRUD + previsualizacion', () => {
   const TEST_TIMEOUT_PLANTILLAS_MS = 90_000;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   async function registrarDocente(correo = 'docente@prueba.test') {
@@ -62,10 +63,12 @@ describe('plantillas CRUD + previsualizacion', () => {
           itemId: null,
           expectedVersion: null,
           format: 'omr.mcq5',
-          stem: { format: 'richtext', value: `Pregunta ${numero}` },
+          stem: { format: 'richtext', value: `${params.tema ? `[${params.tema}] ` : ''}Pregunta ${numero}` },
           options: ['A', 'B', 'C', 'D', 'E'].map((key, optionIndex) => ({
             key,
-            value: `Opcion ${key}${sufijo}`,
+            value: optionIndex === 0
+              ? `Respuesta que resuelve el caso ${numero}${sufijo}`
+              : `Alternativa que no resuelve el caso ${numero}, variante ${key}${sufijo}`,
             isCorrect: optionIndex === 0
           })),
           metadata: { difficultyHypothesis: 'medium' },
@@ -228,6 +231,95 @@ describe('plantillas CRUD + previsualizacion', () => {
     expect(detalle.body.plantilla.titulo).toBe('Plantilla inicial');
     expect(detalle.body.plantilla.preguntasIds).toEqual(preguntasIds);
     expect(await prisma.preguntaPlantilla.count({ where: { plantillaId } })).toBe(1);
+  }, TEST_TIMEOUT_PLANTILLAS_MS);
+
+  it('rechaza vincular preguntas de otra materia y solo genera las preguntas locales', async () => {
+    const token = await registrarDocente('plantilla-materia-scope@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const crearPeriodo = async (nombre: string) => {
+      const respuesta = await request(app)
+        .post('/api/periodos')
+        .set(auth)
+        .send({ nombre, fechaInicio: '2025-01-01', fechaFin: '2025-06-01', grupos: ['A'] })
+        .expect(201);
+      return respuesta.body.periodo._id as string;
+    };
+    const periodoObjetivo = await crearPeriodo('Diseño y Desarrollo de Aplicaciones Web');
+    const periodoAjeno = await crearPeriodo('Otra materia');
+    const preguntasObjetivo = await crearPreguntas({
+      auth,
+      periodoId: periodoObjetivo,
+      total: 1,
+      tema: 'MATERIA_OBJETIVO'
+    });
+    const preguntasAjenas = await crearPreguntas({
+      auth,
+      periodoId: periodoAjeno,
+      total: 1,
+      tema: 'MATERIA_AJENA'
+    });
+
+    await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({
+        periodoId: periodoObjetivo,
+        tipo: 'parcial',
+        titulo: 'Plantilla con pregunta ajena',
+        numeroPaginas: 1,
+        preguntasIds: [...preguntasObjetivo, ...preguntasAjenas]
+      })
+      .expect(400);
+    expect(await prisma.examenPlantilla.count({ where: { titulo: 'Plantilla con pregunta ajena' } })).toBe(0);
+
+    const creada = await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({
+        periodoId: periodoObjetivo,
+        tipo: 'parcial',
+        titulo: 'Plantilla de materia correcta',
+        numeroPaginas: 1,
+        preguntasIds: preguntasObjetivo
+      })
+      .expect(201);
+    const plantillaId = creada.body.plantilla._id as string;
+
+    await request(app)
+      .post(`/api/examenes/plantillas/${plantillaId}`)
+      .set(auth)
+      .send({ titulo: 'Edición con pregunta ajena', preguntasIds: [...preguntasObjetivo, ...preguntasAjenas] })
+      .expect(400);
+    await request(app)
+      .post(`/api/examenes/plantillas/${plantillaId}`)
+      .set(auth)
+      .send({ periodoId: periodoAjeno })
+      .expect(400);
+    const detalle = await request(app).get(`/api/examenes/plantillas/${plantillaId}`).set(auth).expect(200);
+    expect(detalle.body.plantilla.preguntasIds).toEqual(preguntasObjetivo);
+    expect(detalle.body.plantilla.periodoId).toBe(periodoObjetivo);
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
+
+    const generado = await request(app)
+      .post('/api/examenes/generados')
+      .set(auth)
+      .send({ plantillaId })
+      .expect(201);
+    const pdf = await request(app)
+      .get(`/api/examenes/generados/${generado.body.examenGenerado._id}/pdf`)
+      .set(auth)
+      .expect(200);
+    const parser = new PDFParse({ data: pdf.body });
+    try {
+      const texto = (await parser.getText()).text;
+      expect(texto).toContain('MATERIA_OBJETIVO');
+      expect(texto).not.toContain('MATERIA_AJENA');
+    } finally {
+      await parser.destroy();
+    }
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 
   it('versiona la auditoría de plantilla y recupera alta, edición, archivo y borrado por clientRequestId', async () => {
@@ -424,11 +516,11 @@ describe('plantillas CRUD + previsualizacion', () => {
             enunciado: 'Pregunta 1 actualizada para invalidar preview',
             opciones: {
               create: [
-                { texto: 'Opcion A', esCorrecta: true },
-                { texto: 'Opcion B', esCorrecta: false },
-                { texto: 'Opcion C', esCorrecta: false },
-                { texto: 'Opcion D', esCorrecta: false },
-                { texto: 'Opcion E', esCorrecta: false }
+                { texto: 'Respuesta que resuelve el caso actualizado', esCorrecta: true },
+                { texto: 'Alternativa por confundir el dato de entrada', esCorrecta: false },
+                { texto: 'Alternativa por invertir el orden de la operación', esCorrecta: false },
+                { texto: 'Alternativa por usar un valor de salida distinto', esCorrecta: false },
+                { texto: 'Alternativa por omitir una condición requerida', esCorrecta: false }
               ]
             }
           }

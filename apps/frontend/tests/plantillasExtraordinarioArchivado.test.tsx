@@ -42,9 +42,15 @@ describe('generación extraordinaria desde periodo archivado', () => {
         width: 1,
         height: 1
       })),
-      totalDisponibles: 24,
+      totalDisponibles: 27,
       totalUsados: 24,
-      numeroPaginas: 4
+      numeroPaginas: 4,
+      preguntasOmitidasPorFormato: 2,
+      preguntasOmitidasPorOmr: [{
+        id: 'reactivo-omr-invalido',
+        enunciado: '¿Cuál reactivo tiene opciones incompletas?',
+        problemas: ['requiere exactamente cinco opciones']
+      }]
     }));
 
     render(
@@ -72,13 +78,16 @@ describe('generación extraordinaria desde periodo archivado', () => {
     const modalidad = screen.getByRole('combobox', { name: 'Tipo de examen' });
     expect(modalidad).toHaveValue('extraordinario');
     expect(within(modalidad).getByRole('option', { name: /Ordinario · Global/i })).toBeDisabled();
-    expect(screen.getByText(/Periodo cerrado: el extraordinario conserva la materia y la plantilla archivadas/i)).toBeInTheDocument();
+    expect(screen.getByText(/Periodo cerrado: formato fijo de 4 páginas/i)).toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: /Alumno de otra materia/i })).not.toBeInTheDocument();
     const checkbox = screen.getByRole('checkbox', { name: /Carlos Anwar · CUH512419101/i });
     fireEvent.click(checkbox);
     fireEvent.click(screen.getByRole('button', { name: /Previsualizar PDF antes de generar/i }));
-    await screen.findByText(/24 de 24 preguntas del global/i);
-    fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo que revisé la vista previa del examen/i }));
+    await screen.findByText(/24 de 27 preguntas del conjunto combinado se imprimen; 2 válidas no caben con tipografía legible; 1 reactivo parcial inválido se excluyó del OMR/i);
+    fireEvent.click(screen.getByText(/Revisar reactivos excluidos por defectos OMR/i));
+    expect(await screen.findByText(/reactivo-omr-invalido/)).toBeInTheDocument();
+    expect(screen.getByText(/requiere exactamente cinco opciones/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo que revisé la vista previa y las exclusiones/i }));
     fireEvent.click(screen.getByRole('button', { name: /Generar extraordinarios \(1 alumnos\)/i }));
 
     await waitFor(() => expect(generarLote).toHaveBeenCalledWith({

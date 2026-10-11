@@ -1,14 +1,14 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 describe('ciclo de vida de temas de banco por API', () => {
   const app = crearApp();
 
-  beforeAll(async () => { await conectarMongoTest(); });
-  beforeEach(async () => { await limpiarMongoTest(); });
-  afterAll(async () => { await cerrarMongoTest(); });
+  beforeAll(async () => { await conectarBaseDatosTest(); });
+  beforeEach(async () => { await limpiarBaseDatosTest(); });
+  afterAll(async () => { await cerrarBaseDatosTest(); });
 
   async function registrar(correo: string) {
     const respuesta = await request(app)

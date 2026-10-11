@@ -954,20 +954,61 @@ export async function resolverPreguntasPlantilla(params: {
   return { preguntasDb, preguntasIds, temas };
 }
 
+export function validarPreguntasBase(preguntasDb: BancoPreguntaLean[]) {
+  const preguntas = preguntasDb.map((pregunta) => {
+    const version =
+      pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
+      pregunta.versiones[0];
+    return {
+      id: String(pregunta.id),
+      enunciado: String(version?.enunciado ?? ''),
+      imagenUrl: version?.imagenUrl ?? undefined,
+      opciones: Array.isArray(version?.opciones) ? version.opciones : []
+    };
+  });
+  const invalidas = preguntas.flatMap((pregunta) => {
+    const opciones = Array.isArray(pregunta.opciones) ? pregunta.opciones : [];
+    const problemas: string[] = [];
+    if (opciones.length !== 5) problemas.push('requiere exactamente cinco opciones');
+    if (opciones.some((opcion) => !String(opcion.texto ?? '').trim())) problemas.push('contiene opciones vacías');
+    if (opciones.filter((opcion) => opcion.esCorrecta === true).length !== 1) problemas.push('requiere exactamente una respuesta correcta');
+    const opcionesNormalizadas = opciones.map((opcion) => String(opcion.texto ?? '')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/[*_`]/g, '')
+      .trim()
+      .replace(/[.:;!?]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .toLocaleLowerCase('es-MX'));
+    if (opcionesNormalizadas.some((texto) => /^(?:opcion|option)\s+[a-e]$/.test(texto))) {
+      problemas.push('contiene opciones genéricas de relleno');
+    }
+    if (new Set(opcionesNormalizadas.filter(Boolean)).size !== opcionesNormalizadas.filter(Boolean).length) {
+      problemas.push('contiene opciones repetidas');
+    }
+    return problemas.length > 0
+      ? [{ id: pregunta.id, enunciado: pregunta.enunciado.slice(0, 240), problemas }]
+      : [];
+  });
+  const idsInvalidos = new Set(invalidas.map((pregunta) => pregunta.id));
+  return {
+    preguntas: normalizarPreguntasCanonicas(preguntas.filter((pregunta) => !idsInvalidos.has(pregunta.id))),
+    invalidas
+  };
+}
+
 export function mapearPreguntasBase(preguntasDb: BancoPreguntaLean[]) {
-  return normalizarPreguntasCanonicas(
-    preguntasDb.map((pregunta) => {
-      const version =
-        pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
-        pregunta.versiones[0];
-      return {
-        id: String(pregunta.id),
-        enunciado: version.enunciado,
-        imagenUrl: version.imagenUrl ?? undefined,
-        opciones: version.opciones
-      };
-    })
-  );
+  const { preguntas, invalidas } = validarPreguntasBase(preguntasDb);
+  if (invalidas.length > 0) {
+    const resumen = invalidas.slice(0, 12).map(({ id, problemas }) => `${id} (${problemas.join(', ')})`).join('; ');
+    throw new ErrorAplicacion(
+      'PLANTILLA_REACTIVOS_OMR_INVALIDOS',
+      `No se puede previsualizar o generar la plantilla: corrige en Banco los reactivos OMR inválidos. ${resumen}${invalidas.length > 12 ? `; y ${invalidas.length - 12} más` : ''}.`,
+      422,
+      { reactivosInvalidos: invalidas }
+    );
+  }
+  return preguntas;
 }
 
 export async function obtenerConteoTemasMateria(params: { docenteId: unknown; periodoId: unknown }) {

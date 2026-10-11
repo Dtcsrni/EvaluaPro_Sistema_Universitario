@@ -12,6 +12,17 @@ export const OMR_TEMPLATE_ID_CANONICAL: OmrTemplateId = 'omr-canonical-v4';
 export const OMR_TEMPLATE_ID_INLINE_EXAM: OmrTemplateId = 'omr-inline-exam-v1';
 export type TipoExamen = 'parcial' | 'global' | 'extraordinario';
 
+export function resolverTituloExamen(tipoExamen: TipoExamen, tituloPlantilla: string): string {
+  return tipoExamen === 'extraordinario' ? 'Examen Extraordinario' : tituloPlantilla;
+}
+
+export function resolverInstruccionesExamen(tipoExamen: TipoExamen, instruccionesPlantilla?: unknown): string {
+  if (tipoExamen === 'extraordinario') {
+    return 'Lea y razone cada reactivo. Marque una sola opción rellenando por completo el círculo correspondiente. Si cambia su respuesta, borre por completo la marca anterior.';
+  }
+  return String(instruccionesPlantilla ?? '').trim();
+}
+
 export interface EncabezadoExamen {
   institucion?: string;
   lema?: string;
@@ -313,6 +324,8 @@ export interface PaginaOmr {
     questionBackgroundBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     questionPromptBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     omrPanelBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+    /** Caja del número de reactivo impresa en la cabecera de cada panel OMR. */
+    omrQuestionNumberBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     collisionBoxes?: Array<{ pagina: number; a: string; b: string }>;
   };
 }

@@ -6,25 +6,27 @@
  */
 // Pruebas del flujo completo de examen.
 import request from 'supertest';
+import { PDFDocument } from 'pdf-lib';
+import { PDFParse } from 'pdf-parse';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 describe('flujo de examen', () => {
   const preguntasPorEscenario = 20;
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   async function registrarDocente() {
@@ -39,14 +41,21 @@ describe('flujo de examen', () => {
     return respuesta.body.token as string;
   }
 
-  async function crearPreguntasCanonicas(auth: { Authorization: string }, periodoId: string) {
+  async function crearPreguntasCanonicas(auth: { Authorization: string }, periodoId: string, tema = 'Flujo de examen') {
     const temaResp = await request(app)
       .post('/api/banco-preguntas/temas')
       .set(auth)
-      .send({ periodoId, nombre: 'Flujo de examen' })
+      .send({ periodoId, nombre: tema })
       .expect(201);
     const temaId = String(temaResp.body.tema._id);
     const sufijo = Date.now();
+    const opcionesEscenario = [
+      'Validar los datos de entrada antes de persistirlos.',
+      'Aceptar cualquier valor y ajustar el registro después.',
+      'Desactivar la validación para evitar errores de captura.',
+      'Usar un dato compartido sin comprobar su origen.',
+      'Guardar primero y revisar la consistencia al final.'
+    ];
     const lote = {
       contract: 'evaluapro.reactivos.batch',
       schemaVersion: 1,
@@ -63,10 +72,10 @@ describe('flujo de examen', () => {
         itemId: null,
         expectedVersion: null,
         format: 'omr.mcq5',
-        stem: { format: 'richtext', value: `Pregunta ${index + 1}` },
-        options: ['A', 'B', 'C', 'D', 'E'].map((key, optionIndex) => ({
-          key,
-          value: `Opcion ${key}`,
+        stem: { format: 'richtext', value: `Pregunta ${index + 1}: ¿qué práctica conserva la calidad de los datos?` },
+        options: opcionesEscenario.map((value, optionIndex) => ({
+          key: String.fromCharCode(65 + optionIndex),
+          value,
           isCorrect: optionIndex === 0
         })),
         metadata: { difficultyHypothesis: 'medium' },
@@ -186,6 +195,45 @@ describe('flujo de examen', () => {
       .set(auth)
       .expect(200);
     expect(pdfResp.header['content-type']).toContain('application/pdf');
+    const pdfParcial = await PDFDocument.load(pdfResp.body);
+    expect(pdfParcial.getPageCount()).toBe(2);
+    const textoParcial = new PDFParse({ data: pdfResp.body });
+    try {
+      const contenidoParcial = (await textoParcial.getText()).text;
+      expect(contenidoParcial).toContain('Parcial 1');
+      expect(contenidoParcial).toContain('Pregunta 20');
+    } finally {
+      await textoParcial.destroy();
+    }
+
+    const plantillaGlobal = await request(app).post('/api/examenes/plantillas').set(auth).send({
+      periodoId,
+      tipo: 'global',
+      titulo: 'Global de prueba',
+      numeroPaginas: 2,
+      preguntasIds
+    }).expect(201);
+    await request(app)
+      .get(`/api/examenes/plantillas/${String(plantillaGlobal.body.plantilla._id)}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
+    const globalGenerado = await request(app).post('/api/examenes/generados').set(auth).send({
+      plantillaId: String(plantillaGlobal.body.plantilla._id)
+    }).expect(201);
+    const pdfGlobalResp = await request(app)
+      .get(`/api/examenes/generados/${String(globalGenerado.body.examenGenerado._id)}/pdf`)
+      .set(auth)
+      .expect(200);
+    const pdfGlobal = await PDFDocument.load(pdfGlobalResp.body);
+    expect(pdfGlobal.getPageCount()).toBe(2);
+    const textoGlobal = new PDFParse({ data: pdfGlobalResp.body });
+    try {
+      const contenidoGlobal = (await textoGlobal.getText()).text;
+      expect(contenidoGlobal).toContain('Global de prueba');
+      expect(contenidoGlobal).toContain('Pregunta 20');
+    } finally {
+      await textoGlobal.destroy();
+    }
 
     const csvResp = await request(app)
       .get(`/api/analiticas/calificaciones-csv?periodoId=${periodoId}`)
@@ -231,7 +279,9 @@ describe('flujo de examen', () => {
       preguntasIds
     }).expect(201);
     const plantillaId = String(plantillaResp.body.plantilla._id);
-    await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth).expect(200);
+    await request(app).post(`/api/periodos/${periodoId}/archivar`).set(auth).send({}).expect(200);
+    const vistaPreviaArchivada = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth);
+    expect(vistaPreviaArchivada.status, JSON.stringify(vistaPreviaArchivada.body)).toBe(200);
 
     const loteId = `EXT_${Date.now().toString(36)}`.slice(0, 16).toUpperCase();
     const respuesta = await request(app).post('/api/examenes/generados/lote').set(auth).send({
@@ -240,7 +290,9 @@ describe('flujo de examen', () => {
       loteId,
       tipoExamen: 'extraordinario',
       alumnoIds: alumnos.slice(0, 2)
-    }).expect(201);
+    }).expect((response) => {
+      if (response.status !== 201) throw new Error(JSON.stringify(response.body));
+    });
     expect(respuesta.body.totalAlumnos).toBe(2);
     const examenes = await prisma.examenGenerado.findMany({ where: { loteId }, orderBy: { alumnoId: 'asc' } });
     expect(examenes).toHaveLength(2);
@@ -334,15 +386,81 @@ describe('flujo de examen', () => {
       tipo: 'global',
       titulo: 'Global Diseño Web',
       numeroPaginas: 2,
+      instrucciones: 'Instrucciones del global de origen: entregue el global al docente.',
       preguntasIds
     }).expect(201);
     const plantillaId = String(plantillaResp.body.plantilla._id);
-    await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth).expect(200);
+    const parcialIds = await crearPreguntasCanonicas(auth, periodoId, 'Segundo parcial · fuentes adicionales');
+    const parcialExtraResp = await request(app).post('/api/examenes/plantillas').set(auth).send({
+      periodoId,
+      tipo: 'parcial',
+      titulo: 'Segundo Parcial Diseño Web',
+      numeroPaginas: 2,
+      preguntasIds: [preguntasIds[0], parcialIds[0], parcialIds[1], parcialIds[2]]
+    }).expect(201);
+    const plantillaParcialExtraId = String(parcialExtraResp.body.plantilla._id);
+    const otroPeriodoResp = await request(app).post('/api/periodos').set(auth).send({
+      nombre: 'Materia archivada ajena',
+      fechaInicio: '2026-07-01',
+      fechaFin: '2026-09-30',
+      grupos: ['A']
+    }).expect(201);
+    const otroPeriodoId = String(otroPeriodoResp.body.periodo._id);
+    const preguntasMateriaAjena = await crearPreguntasCanonicas(auth, otroPeriodoId, 'Materia ajena');
+    const plantillaMateriaAjena = await request(app).post('/api/examenes/plantillas').set(auth).send({
+      periodoId: otroPeriodoId,
+      tipo: 'parcial',
+      titulo: 'Parcial de otra materia',
+      numeroPaginas: 2,
+      preguntasIds: [preguntasMateriaAjena[0]]
+    }).expect(201);
+    const reactivoInvalido = await prisma.bancoPregunta.findUniqueOrThrow({
+      where: { id: parcialIds[2] },
+      include: { versiones: { include: { opciones: true } } }
+    });
+    const opcionAEliminar = reactivoInvalido.versiones[0]?.opciones[4];
+    expect(opcionAEliminar).toBeTruthy();
+    await prisma.opcionPregunta.delete({ where: { id: opcionAEliminar!.id } });
+    const vistaPreviaAntesDeCerrar = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth);
+    expect(vistaPreviaAntesDeCerrar.status, JSON.stringify(vistaPreviaAntesDeCerrar.body)).toBe(200);
 
     await request(app).post(`/api/periodos/${periodoId}/archivar`).set(auth).send({}).expect(200);
+    await request(app).post(`/api/periodos/${otroPeriodoId}/archivar`).set(auth).send({}).expect(200);
     const archivadas = await request(app).get('/api/examenes/plantillas?archivado=true').set(auth).expect(200);
     expect(archivadas.body.plantillas.map((item: { _id: string }) => item._id)).toContain(plantillaId);
-    await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth).expect(200);
+    expect(archivadas.body.plantillas.map((item: { _id: string }) => item._id)).toContain(plantillaParcialExtraId);
+    expect(archivadas.body.plantillas.map((item: { _id: string }) => item._id)).toContain(String(plantillaMateriaAjena.body.plantilla._id));
+    const fuenteArchivadaAntesDePreview = {
+      periodo: await prisma.periodo.findUniqueOrThrow({ where: { id: periodoId } }),
+      alumno: await prisma.alumno.findUniqueOrThrow({ where: { id: alumnoId } }),
+      plantillas: await prisma.examenPlantilla.findMany({ where: { periodoId }, orderBy: { id: 'asc' } }),
+      reactivos: await prisma.bancoPregunta.findMany({
+        where: { periodoId },
+        include: { versiones: { include: { opciones: { orderBy: { id: 'asc' } } } } },
+        orderBy: { id: 'asc' }
+      })
+    };
+    const resumenPreview = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar`).set(auth).expect(200);
+    expect(resumenPreview.body.layoutConfirmado).toBe(true);
+    expect(resumenPreview.body.totalDisponibles).toBe(23);
+    expect(resumenPreview.body.totalUsados).toBe(22);
+    expect(resumenPreview.body.totalPreguntasOmitidasPorOmr).toBe(1);
+    expect(resumenPreview.body.preguntasOmitidasPorOmr).toEqual([
+      expect.objectContaining({ id: parcialIds[2], problemas: expect.arrayContaining(['requiere exactamente cinco opciones']) })
+    ]);
+    const fuenteArchivadaDespuesDePreview = {
+      periodo: await prisma.periodo.findUniqueOrThrow({ where: { id: periodoId } }),
+      alumno: await prisma.alumno.findUniqueOrThrow({ where: { id: alumnoId } }),
+      plantillas: await prisma.examenPlantilla.findMany({ where: { periodoId }, orderBy: { id: 'asc' } }),
+      reactivos: await prisma.bancoPregunta.findMany({
+        where: { periodoId },
+        include: { versiones: { include: { opciones: { orderBy: { id: 'asc' } } } } },
+        orderBy: { id: 'asc' }
+      })
+    };
+    expect(fuenteArchivadaDespuesDePreview).toEqual(fuenteArchivadaAntesDePreview);
+    const vistaPreviaMateriaCerrada = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`).set(auth);
+    expect(vistaPreviaMateriaCerrada.status, JSON.stringify(vistaPreviaMateriaCerrada.body)).toBe(200);
 
     const ordinaryLotId = `ORD_${Date.now().toString(36)}`.slice(0, 16).toUpperCase();
     await request(app).post('/api/examenes/generados/lote').set(auth).send({
@@ -389,14 +507,43 @@ describe('flujo de examen', () => {
     expect(examen.plantillaId).toBe(plantillaId);
     expect(examen.tipoExamen).toBe('extraordinario');
     expect(examen.estado).toBe('generado');
+    const preguntasImpresas = JSON.parse(examen.mapaVariante) as { ordenPreguntas: string[] };
+    expect(preguntasImpresas.ordenPreguntas).toHaveLength(22);
+    expect(new Set(preguntasImpresas.ordenPreguntas).size).toBe(22);
+    expect(preguntasIds.every((id) => preguntasImpresas.ordenPreguntas.includes(id))).toBe(true);
+    expect(preguntasImpresas.ordenPreguntas).toContain(parcialIds[0]);
+    expect(preguntasImpresas.ordenPreguntas).toContain(parcialIds[1]);
+    expect(preguntasImpresas.ordenPreguntas).not.toContain(parcialIds[2]);
+    expect(preguntasImpresas.ordenPreguntas).not.toContain(preguntasMateriaAjena[0]);
     const pdf = await request(app).get(`/api/examenes/generados/lote/${loteId}/pdf`).set(auth).expect(200);
     expect(pdf.header['content-type']).toContain('application/pdf');
     expect(pdf.body.subarray(0, 5).toString()).toBe('%PDF-');
+    const parser = new PDFParse({ data: pdf.body });
+    try {
+      const textoPdf = (await parser.getText()).text;
+      expect(textoPdf).toContain('Examen Extraordinario');
+      expect(textoPdf).toContain('Lea y razone cada reactivo');
+      expect(textoPdf).not.toContain('Instrucciones del global de origen');
+    } finally {
+      await parser.destroy();
+    }
+    const pdfExtraordinario = await PDFDocument.load(pdf.body);
+    expect(pdfExtraordinario.getPageCount()).toBe(4);
 
     expect((await prisma.periodo.findUniqueOrThrow({ where: { id: periodoId } })).activo).toBe(false);
     expect((await prisma.alumno.findUniqueOrThrow({ where: { id: alumnoId } })).activo).toBe(false);
     expect((await prisma.bancoPregunta.findMany({ where: { periodoId } })).every((pregunta) => pregunta.activo === false)).toBe(true);
     expect((await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } })).archivadoEn).not.toBeNull();
+    expect({
+      periodo: await prisma.periodo.findUniqueOrThrow({ where: { id: periodoId } }),
+      alumno: await prisma.alumno.findUniqueOrThrow({ where: { id: alumnoId } }),
+      plantillas: await prisma.examenPlantilla.findMany({ where: { periodoId }, orderBy: { id: 'asc' } }),
+      reactivos: await prisma.bancoPregunta.findMany({
+        where: { periodoId },
+        include: { versiones: { include: { opciones: { orderBy: { id: 'asc' } } } } },
+        orderBy: { id: 'asc' }
+      })
+    }).toEqual(fuenteArchivadaAntesDePreview);
   });
 
   it('rechaza el extraordinario si el periodo está archivado antes de su fecha de fin', async () => {

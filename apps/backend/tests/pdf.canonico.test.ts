@@ -43,18 +43,19 @@ describe('pdf OMR canónico', () => {
       preguntas: [
         {
           id: 'p1',
-          enunciado: 'Pregunta con 4 opciones',
+          enunciado: 'Pregunta con 5 opciones',
           opciones: [
             { texto: 'A', esCorrecta: false },
             { texto: 'B', esCorrecta: true },
             { texto: 'C', esCorrecta: false },
-            { texto: 'D', esCorrecta: false }
+            { texto: 'D', esCorrecta: false },
+            { texto: 'E', esCorrecta: false }
           ]
         }
       ],
       mapaVariante: {
         ordenPreguntas: ['p1'],
-        ordenOpcionesPorPregunta: { p1: [1, 0, 2, 3] }
+        ordenOpcionesPorPregunta: { p1: [1, 0, 2, 3, 4] }
       },
       tipoExamen: 'parcial',
       totalPaginas: 1,

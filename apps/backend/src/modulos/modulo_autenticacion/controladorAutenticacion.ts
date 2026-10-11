@@ -599,6 +599,9 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
       preferenciasPdf: {
         institucion: String(preferenciasPdf.institucion ?? '').trim() || undefined,
         lema: String(preferenciasPdf.lema ?? '').trim() || undefined,
+        retencionParcialesMeses: [0, 3, 6, 12].includes(Number(preferenciasPdf.retencionParcialesMeses))
+          ? Number(preferenciasPdf.retencionParcialesMeses)
+          : 0,
         logos: {
           izquierdaPath: String(preferenciasPdf.logos?.izquierdaPath ?? '').trim() || undefined,
           derechaPath: String(preferenciasPdf.logos?.derechaPath ?? '').trim() || undefined
@@ -622,7 +625,7 @@ export async function capacidadesIntegracionesPublicas(_req: Request, res: Respo
 
 export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const body = req.body as { institucion?: unknown; lema?: unknown; logos?: { izquierdaPath?: unknown; derechaPath?: unknown } };
+  const body = req.body as { institucion?: unknown; lema?: unknown; retencionParcialesMeses?: unknown; logos?: { izquierdaPath?: unknown; derechaPath?: unknown } };
 
   const docente = await prisma.docente.findUnique({ where: { id: docenteId } });
   if (!docente) {
@@ -640,6 +643,9 @@ export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, re
 
   if (typeof body.institucion === 'string') prefs.institucion = body.institucion.trim();
   if (typeof body.lema === 'string') prefs.lema = body.lema.trim();
+  if ([0, 3, 6, 12].includes(Number(body.retencionParcialesMeses))) {
+    prefs.retencionParcialesMeses = Number(body.retencionParcialesMeses);
+  }
   if (body.logos && typeof body.logos === 'object') {
     if (!prefs.logos) prefs.logos = {};
     if (typeof body.logos.izquierdaPath === 'string') prefs.logos.izquierdaPath = body.logos.izquierdaPath.trim();
@@ -655,6 +661,9 @@ export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, re
     preferenciasPdf: {
       institucion: String(prefs.institucion ?? '').trim() || undefined,
       lema: String(prefs.lema ?? '').trim() || undefined,
+      retencionParcialesMeses: [0, 3, 6, 12].includes(Number(prefs.retencionParcialesMeses))
+        ? Number(prefs.retencionParcialesMeses)
+        : 0,
       logos: {
         izquierdaPath: String(prefs.logos?.izquierdaPath ?? '').trim() || undefined,
         derechaPath: String(prefs.logos?.derechaPath ?? '').trim() || undefined

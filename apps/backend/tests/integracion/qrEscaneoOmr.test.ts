@@ -10,7 +10,7 @@ import QRCode from 'qrcode';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 function invalidarFirmaQr(textoQr: string) {
   return String(textoQr).replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA');
@@ -23,15 +23,15 @@ describe('escaneo OMR: QR asociado a examen', () => {
   const preguntasPorEscenario = 5;
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   async function registrarDocente() {

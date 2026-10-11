@@ -124,7 +124,8 @@ describe('SeccionCuenta', () => {
     vi.mocked(clienteApi.enviar).mockResolvedValue({
       preferenciasPdf: {
         institucion: 'Campus Central',
-        lema: 'Innovación Continua'
+        lema: 'Innovación Continua',
+        retencionParcialesMeses: 6
       }
     });
 
@@ -142,8 +143,11 @@ describe('SeccionCuenta', () => {
 
     const inputLema = screen.getByLabelText(/^Lema/i, { selector: 'input' });
     fireEvent.change(inputLema, { target: { value: 'Innovación Continua' } });
+    const selectorRetencion = screen.getByLabelText('Retención de archivos de parciales');
+    expect(selectorRetencion).toHaveValue('0');
+    fireEvent.change(selectorRetencion, { target: { value: '6' } });
 
-    const botonGuardarPdf = screen.getByRole('button', { name: /Guardar PDF/i });
+    const botonGuardarPdf = screen.getByRole('button', { name: /Guardar preferencias/i });
     fireEvent.click(botonGuardarPdf);
 
     await waitFor(() => {
@@ -151,7 +155,8 @@ describe('SeccionCuenta', () => {
         '/autenticacion/preferencias/pdf',
         expect.objectContaining({
           institucion: 'Campus Central',
-          lema: 'Innovación Continua'
+          lema: 'Innovación Continua',
+          retencionParcialesMeses: 6
         })
       );
     });
@@ -160,7 +165,8 @@ describe('SeccionCuenta', () => {
       expect.objectContaining({
         preferenciasPdf: {
           institucion: 'Campus Central',
-          lema: 'Innovación Continua'
+          lema: 'Innovación Continua',
+          retencionParcialesMeses: 6
         }
       })
     );
@@ -315,7 +321,7 @@ describe('SeccionCuenta', () => {
       />
     );
 
-    const botonGuardarPdf = screen.getByRole('button', { name: /Guardar PDF/i });
+    const botonGuardarPdf = screen.getByRole('button', { name: /Guardar preferencias/i });
     fireEvent.click(botonGuardarPdf);
 
     await waitFor(() => {
@@ -413,7 +419,7 @@ describe('SeccionCuenta', () => {
     const inputLogoDer = screen.getByLabelText(/Logo derecha/i);
     fireEvent.change(inputLogoDer, { target: { value: 'logos/der.png' } });
 
-    const botonGuardarPdf = screen.getByRole('button', { name: /Guardar PDF/i });
+    const botonGuardarPdf = screen.getByRole('button', { name: /Guardar preferencias/i });
     fireEvent.click(botonGuardarPdf);
 
     await waitFor(() => {
@@ -457,7 +463,7 @@ describe('SeccionCuenta', () => {
     });
 
     await waitFor(() => expect(screen.getByAltText(/Vista previa del logo izquierdo/i)).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: /Guardar PDF/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Guardar preferencias/i }));
 
     await waitFor(() => {
       expect(clienteApi.enviar).toHaveBeenCalledWith(

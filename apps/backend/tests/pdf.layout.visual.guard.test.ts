@@ -139,7 +139,12 @@ function assertBloquesHeader(pagina: Awaited<ReturnType<typeof generarPdfExamen>
     expect(segundaFila).toHaveLength(2);
     expect(Math.max(...segundaFila) - Math.min(...segundaFila)).toBeLessThanOrEqual(0.001);
     const calificacion = bloquesHeader.find((bloque) => bloque.id === 'calificacion-etiqueta');
-    expect(calificacion?.y ?? 0).toBeLessThan(Math.min(...segundaFila) - 8);
+    const zonaCalificacionHeader = slotsHeader.find((slot) => slot.id === 'zona-calificacion');
+    if (zonaCalificacionHeader && zonaCalificacionHeader.height > 13) {
+      expect(calificacion?.y ?? 0).toBeLessThan(Math.min(...segundaFila) - 8);
+    } else if (!zonaCalificacionHeader) {
+      expect(Math.abs((calificacion?.y ?? 0) - Math.min(...segundaFila))).toBeLessThanOrEqual(0.001);
+    }
   }
   for (let i = 0; i < iconosHeader.length; i += 1) {
     const icono = iconosHeader[i] as Rect;
@@ -160,6 +165,24 @@ function assertBloquesHeader(pagina: Awaited<ReturnType<typeof generarPdfExamen>
     for (const slot of slotsHeader) {
       expect(contiene(header, slot as Rect), `slot ${slot.id} fuera de la cabecera`).toBe(true);
       expect(interseca(slot as Rect, qr), `slot ${slot.id} invade el QR`).toBe(false);
+      if (slot.id === 'zona-calificacion') {
+        expect(slot.width).toBeLessThanOrEqual(56.01);
+        expect(slot.height).toBeLessThanOrEqual(21.01);
+        const idsTextoZona = slot.height <= 13
+          ? ['calificacion-etiqueta']
+          : ['reactivos-etiqueta', 'conteo-reactivos', 'calificacion-etiqueta'];
+        for (const id of idsTextoZona) {
+          const bloque = bloquesHeader.find((item) => item.id === id);
+          expect(bloque).toBeDefined();
+          expect(contiene(slot as Rect, bloque as Rect), `${id} fuera del área de calificación`).toBe(true);
+        }
+        const idsCampoZona = slot.height <= 13 ? ['calificacion-linea'] : ['reactivos-linea', 'calificacion-linea'];
+        for (const id of idsCampoZona) {
+          const campo = camposHeader.find((item) => item.id === id);
+          expect(campo).toBeDefined();
+          expect(contiene(slot as Rect, campo as Rect), `${id} fuera del área de calificación`).toBe(true);
+        }
+      }
       if (slot.id === 'logo-izquierdo' || slot.id === 'logo-derecho') {
         expect(slot.width).toBeGreaterThanOrEqual(64);
         expect(slot.height).toBeGreaterThanOrEqual(64);
@@ -194,6 +217,7 @@ function assertPreguntasLayout(
   }
   const preguntas = Array.isArray(pagina.preguntas) ? pagina.preguntas : [];
   const qr = pagina.layoutDebug?.qr as Rect | undefined;
+  const cajasNumeroOmr = pagina.layoutDebug?.omrQuestionNumberBoxes ?? [];
   const fondosPreguntas = Array.isArray(pagina.layoutDebug?.questionBackgroundBoxes)
     ? pagina.layoutDebug.questionBackgroundBoxes as Rect[]
     : [];
@@ -235,6 +259,11 @@ function assertPreguntasLayout(
 
     const omr = actual.cajaOmr;
     if (omr) {
+      if (actual.perfilOmr?.ubicacion !== 'junto-a-opcion') {
+        const cajaNumero = cajasNumeroOmr.find((caja) => caja.id === `numero-omr-${actual.numeroPregunta}`);
+        expect(cajaNumero, `falta el número impreso de la pregunta ${actual.numeroPregunta}`).toBeDefined();
+        if (cajaNumero) expect(contiene(omr, cajaNumero), `el número de la pregunta ${actual.numeroPregunta} sale del panel OMR`).toBe(true);
+      }
       expect(omr.x + omr.width).toBeLessThanOrEqual(ANCHO_CARTA - 6.9);
       if (actual.perfilOmr?.orientacion === 'horizontal') {
         // El panel debe usar la reserva derecha prevista, sin invadir el
@@ -245,8 +274,7 @@ function assertPreguntasLayout(
         // paso y las quiet zones de las marcas se validan debajo sin cambiar.
         expect(omr.height).toBeGreaterThanOrEqual(altaDensidad ? 27 : 30);
         // El perfil estándar usa una reserva superior de 7.8 pt; el compacto
-        // de 38+ reactivos usa 2.4/1.8 pt alrededor de círculo/etiqueta para
-        // ganar densidad sin cambiar burbuja ni paso.
+        // reserva 6.2 pt para que el número del reactivo no toque la burbuja.
         expect(omr.height).toBeLessThanOrEqual(35);
         expect(actual.perfilOmr?.etiquetaBordeInferiorGap).toBeGreaterThan(altaDensidad ? 1.79 : 2.39);
       }
@@ -314,7 +342,7 @@ function assertPrimeraPreguntaDebajoDelHeader(
     assertRectDentroPagina(instructions);
     expect(primera.y + primera.height).toBeLessThanOrEqual(instructions.y - 0.5);
     for (const run of pagina.preguntas[0]?.textRuns ?? []) {
-      expect(interseca(run.bbox, instructions), 'glifo del primer reactivo superpuesto a indicaciones').toBe(false);
+      expect(interseca(run.bbox, instructions), `glifo del primer reactivo superpuesto a indicaciones: ${JSON.stringify({ pregunta: run.bbox, instrucciones: instructions })}`).toBe(false);
     }
   }
 }
@@ -561,11 +589,19 @@ describe('pdf layout visual guard', () => {
     const nombre = bloques.find((bloque) => bloque.id === 'nombre-etiqueta');
     const grupo = bloques.find((bloque) => bloque.id === 'grupo-etiqueta');
     const identidad = bloques.find((bloque) => bloque.id === 'alumno-identidad');
+    const zonaCalificacion = slots.find((slot) => slot.id === 'zona-calificacion');
+    const lineaCalificacion = primeraPagina.layoutDebug?.headerFieldBoxes.find((campo) => campo.id === 'calificacion-linea');
     const logos = slots.filter((slot) => slot.id === 'logo-izquierdo' || slot.id === 'logo-derecho');
 
     expect(nombre).toBeDefined();
     expect(grupo).toBeDefined();
     expect(identidad).toBeDefined();
+    expect(lineaCalificacion).toBeDefined();
+    if (zonaCalificacion) {
+      expect(zonaCalificacion.width).toBeLessThanOrEqual(56.01);
+      expect(zonaCalificacion.height).toBeLessThanOrEqual(21.01);
+      expect(contiene(zonaCalificacion as Rect, lineaCalificacion as Rect)).toBe(true);
+    }
     expect(bloques.some((bloque) => bloque.id === 'alumno-iniciales')).toBe(false);
     expect(Number(identidad?.x ?? 0)).toBeGreaterThanOrEqual(Number(nombre?.x ?? 0));
     expect(logos).toHaveLength(2);
@@ -1051,7 +1087,7 @@ describe('pdf layout visual guard', () => {
     }
   }, 300_000);
 
-  it('acomoda 36 reactivos breves compactos en dos páginas sin reducir OMR ni QR', async () => {
+  it('reparte 36 reactivos compactos sin reducir OMR ni QR', async () => {
     const parametros = crearParametrosBrevesCompactos(36);
 
     const resultado = await generarPdfExamen({
@@ -1061,11 +1097,14 @@ describe('pdf layout visual guard', () => {
       encabezado: { institucion: 'Centro de prueba', materia: 'Control de capacidad', mostrarMarcaInstitucional: false }
     });
     const paginas = resultado.mapaOmr.paginas.filter((pagina) => pagina.tipoPagina !== 'reverso-vacio');
-    expect(paginas.map((pagina) => pagina.preguntas.length)).toEqual([17, 19]);
+    expect(paginas.map((pagina) => pagina.preguntas.length)).toEqual([18, 18]);
     expect(paginas.flatMap((pagina) => pagina.preguntas).map((pregunta) => pregunta.numeroPregunta))
       .toEqual(Array.from({ length: 36 }, (_valor, indice) => indice + 1));
     expect(resultado.preguntasRestantes).toBe(0);
     expect(paginas).toHaveLength(2);
+    const metricasConPreguntas = resultado.metricasPaginas.filter((pagina) => pagina.preguntas > 0);
+    expect(metricasConPreguntas).toHaveLength(2);
+    expect(metricasConPreguntas.every((pagina) => pagina.fraccionVacia < 0.35)).toBe(true);
     expect(resultado.mapaOmr.blockSpec?.bubbleDiameterMm).toBe(6.4);
     expect(resultado.mapaOmr.blockSpec?.bubblePitchXmm).toBe(9.17);
     const metadataCompacta = (paginas[0]?.layoutDebug?.headerTextBlocks ?? [])
@@ -1073,7 +1112,8 @@ describe('pdf layout visual guard', () => {
     expect(metadataCompacta).toHaveLength(3);
     expect(Math.max(...metadataCompacta.map((bloque) => bloque.y))
       - Math.min(...metadataCompacta.map((bloque) => bloque.y))).toBeLessThan(0.01);
-    expect(metadataCompacta.every((bloque) => bloque.height >= 7.4)).toBe(true);
+    expect(metadataCompacta.find((bloque) => bloque.id === 'calificacion-etiqueta')?.height ?? 0)
+      .toBeGreaterThanOrEqual(6);
     for (const pagina of paginas) {
       assertPreguntasLayout(pagina);
       expect(pagina.layoutDebug?.collisionBoxes ?? []).toHaveLength(0);
@@ -1091,6 +1131,30 @@ describe('pdf layout visual guard', () => {
       });
       expect(capturas.pages).toHaveLength(paginas.length);
       for (const [indice, captura] of capturas.pages.entries()) {
+        const pagina = paginas[indice]!;
+        const metadata = await sharp(captura.data).metadata();
+        const escala = Number(metadata.width ?? 1600) / ANCHO_CARTA;
+        const altoImagen = Number(metadata.height ?? 0);
+        const numerosOmr = pagina.layoutDebug?.omrQuestionNumberBoxes ?? [];
+        expect(numerosOmr).toHaveLength(pagina.preguntas.length);
+        for (const caja of numerosOmr) {
+          const region = {
+            left: Math.floor(caja.x * escala),
+            top: Math.floor((ALTO_CARTA - caja.y - caja.height) * escala),
+            width: Math.ceil(caja.width * escala),
+            height: Math.ceil(caja.height * escala)
+          };
+          expect(region.left).toBeGreaterThanOrEqual(0);
+          expect(region.top).toBeGreaterThanOrEqual(0);
+          expect(region.left + region.width).toBeLessThanOrEqual(Number(metadata.width ?? 1600));
+          expect(region.top + region.height).toBeLessThanOrEqual(altoImagen);
+          const pixeles = await sharp(captura.data).extract(region).removeAlpha().raw().toBuffer();
+          let tinta = 0;
+          for (let pixel = 0; pixel < pixeles.length; pixel += 3) {
+            if (Math.min(pixeles[pixel] ?? 255, pixeles[pixel + 1] ?? 255, pixeles[pixel + 2] ?? 255) < 100) tinta += 1;
+          }
+          expect(tinta, `el número OMR ${caja.id} no es visible en la imagen`).toBeGreaterThan(0);
+        }
         const jpegMovil = await sharp(captura.data)
           .resize({ width: 1600, withoutEnlargement: true })
           .blur(0.3)
@@ -1147,15 +1211,15 @@ describe('pdf layout visual guard', () => {
     }
   }, 300_000);
 
-  it('maximiza la plantilla compacta a 43 reactivos en dos páginas y conserva el desborde 44', async () => {
+  it('conserva etiquetas OMR legibles y reparte el desborde compacto sin perder reactivos', async () => {
     const capacidades = [
-      [38, [21, 17]],
-      [39, [21, 18]],
-      [40, [21, 19]],
-      [41, [21, 20]],
-      [42, [21, 21]],
-      [43, [21, 22]],
-      [44, [21, 22, 1]]
+      [38, [18, 18, 2]],
+      [39, [18, 18, 3]],
+      [40, [18, 18, 4]],
+      [41, [18, 18, 5]],
+      [42, [18, 18, 6]],
+      [43, [18, 18, 7]],
+      [44, [18, 18, 8]]
     ] as const;
     for (const [totalPreguntas, conteosEsperados] of capacidades) {
       const resultado = await generarPdfExamen({
@@ -1172,6 +1236,19 @@ describe('pdf layout visual guard', () => {
       expect(resultado.mapaOmr.blockSpec?.bubbleDiameterMm).toBe(6.4);
       expect(resultado.mapaOmr.blockSpec?.bubblePitchXmm).toBe(9.17);
       expect(detectarColisionesDuplexOmr(resultado.mapaOmr)).toHaveLength(0);
+      if (totalPreguntas >= 36) {
+        const zonaCalificacion = paginas[0]?.layoutDebug?.headerSlots.find((slot) => slot.id === 'zona-calificacion');
+        const lineaCalificacion = paginas[0]?.layoutDebug?.headerFieldBoxes.find((campo) => campo.id === 'calificacion-linea');
+        expect(lineaCalificacion).toBeDefined();
+        if (zonaCalificacion) {
+          expect(zonaCalificacion.width).toBeLessThanOrEqual(56.01);
+          expect(zonaCalificacion.height).toBeLessThanOrEqual(21.01);
+          expect(contiene(zonaCalificacion as Rect, lineaCalificacion as Rect)).toBe(true);
+        } else {
+          expect(lineaCalificacion?.width).toBeGreaterThanOrEqual(8);
+          expect(lineaCalificacion?.width).toBeLessThanOrEqual(24.01);
+        }
+      }
       for (const pagina of paginas) {
         assertPreguntasLayout(pagina, true);
         expect(pagina.layoutDebug?.collisionBoxes ?? []).toHaveLength(0);

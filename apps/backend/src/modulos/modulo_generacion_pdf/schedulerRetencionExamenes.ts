@@ -6,7 +6,7 @@
  */
 import { configuracion } from '../../configuracion.js';
 import { log, logError } from '../../infraestructura/logging/logger.js';
-import { ejecutarPurgeExamenesGenerados } from './servicioRetencionExamenes.js';
+import { ejecutarRetencionParcialesArchivados } from './servicioRetencionExamenes.js';
 
 let timer: NodeJS.Timeout | null = null;
 let enEjecucion = false;
@@ -44,11 +44,7 @@ export function iniciarSchedulerRetencionExamenes() {
     enEjecucion = true;
     ultimoSlotEjecutado = slot;
     try {
-      const resumen = await ejecutarPurgeExamenesGenerados({
-        olderThanDays: configuracion.dataRetentionDefaultDays,
-        scope: 'ttl',
-        reason: 'ttl'
-      });
+      const resumen = await ejecutarRetencionParcialesArchivados(ahora);
       log('info', 'Scheduler de retención de exámenes ejecutado', resumen);
     } catch (error) {
       logError('Error en scheduler de retención de exámenes', error);
@@ -64,6 +60,6 @@ export function iniciarSchedulerRetencionExamenes() {
 
   log('ok', 'Scheduler de retención de exámenes iniciado', {
     cron: configuracion.dataPurgeCron,
-    retentionDays: configuracion.dataRetentionDefaultDays
+    mode: 'solo parciales archivados con retencion opt-in'
   });
 }

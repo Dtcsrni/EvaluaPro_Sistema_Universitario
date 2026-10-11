@@ -9,7 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { crearApp } from '../../src/app.js';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 import { prepararEscenarioFlujo, registrarDocente } from './_flujoDocenteHelper.js';
 
 function parsearBinario(res: NodeJS.ReadableStream & { setEncoding: (encoding: string) => void }, cb: (error: Error | null, body?: Buffer) => void) {
@@ -22,15 +22,15 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   it('requiere permiso analiticas:leer y periodoId para exportar', async () => {

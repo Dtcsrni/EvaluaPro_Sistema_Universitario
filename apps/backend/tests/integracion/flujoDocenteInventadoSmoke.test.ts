@@ -19,21 +19,21 @@ import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servic
 import { Periodo } from '../../src/modulos/modulo_alumnos/modeloPeriodo.js';
 import { Alumno } from '../../src/modulos/modulo_alumnos/modeloAlumno.js';
 import { evaluarAutoCalificableOmr } from '../../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 describe('Flujo Docente Integral Completo (Materia y Alumnos Inventados)', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   it('ejecuta el ciclo de vida académico completo del docente', async () => {

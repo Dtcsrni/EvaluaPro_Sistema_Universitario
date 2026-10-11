@@ -10,7 +10,8 @@ describe('PDF de extraordinario archivado', () => {
         { texto: 'Separar responsabilidades y validar cada dato en el límite del componente.', esCorrecta: true },
         { texto: 'Duplicar la lógica de validación en cada pantalla que usa el componente.', esCorrecta: false },
         { texto: 'Aceptar cualquier valor y corregirlo después de guardar el estado.', esCorrecta: false },
-        { texto: 'Compartir variables globales para evitar definir contratos entre módulos.', esCorrecta: false }
+        { texto: 'Compartir variables globales para evitar definir contratos entre módulos.', esCorrecta: false },
+        { texto: 'Posponer todas las comprobaciones hasta que termine la aplicación.', esCorrecta: false }
       ]
     }));
 

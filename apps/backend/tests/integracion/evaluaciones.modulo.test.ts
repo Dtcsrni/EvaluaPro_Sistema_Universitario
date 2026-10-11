@@ -12,21 +12,21 @@ import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
 import { Alumno } from '../../src/modulos/modulo_alumnos/modeloAlumno.js';
 import { Periodo } from '../../src/modulos/modulo_alumnos/modeloPeriodo.js';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { cerrarBaseDatosTest, conectarBaseDatosTest, limpiarBaseDatosTest } from '../utils/sqliteTestDatabase.js';
 
 describe('módulo evaluaciones (LISC)', () => {
   const app = crearApp();
 
   beforeAll(async () => {
-    await conectarMongoTest();
+    await conectarBaseDatosTest();
   });
 
   beforeEach(async () => {
-    await limpiarMongoTest();
+    await limpiarBaseDatosTest();
   });
 
   afterAll(async () => {
-    await cerrarMongoTest();
+    await cerrarBaseDatosTest();
   });
 
   async function crearContexto() {
