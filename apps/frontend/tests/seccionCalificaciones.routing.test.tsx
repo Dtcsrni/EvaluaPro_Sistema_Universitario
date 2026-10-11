@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SeccionCalificaciones } from '../src/apps/app_docente/SeccionCalificaciones';
 
@@ -62,16 +62,15 @@ const propsBase = {
   onCalificar: vi.fn(async () => undefined),
   permisos,
   avisarSinPermiso: vi.fn()
-} as unknown as Omit<ComponentProps<typeof SeccionCalificaciones>, 'vistaInicial' | 'onVistaInicialAplicada'>;
+} as unknown as ComponentProps<typeof SeccionCalificaciones>;
 
 describe('ruta Classroom desde Calificaciones', () => {
-  it('abre directamente el espacio Classroom y consume la vista inicial de una sola vez', async () => {
-    const onVistaInicialAplicada = vi.fn();
-    render(<SeccionCalificaciones {...propsBase} vistaInicial="classroom" onVistaInicialAplicada={onVistaInicialAplicada} />);
+  it('abre el espacio Classroom al seleccionar su navegación', async () => {
+    render(<SeccionCalificaciones {...propsBase} />);
 
+    fireEvent.click(screen.getByRole('button', { name: /ClassroomVínculos/ }));
     expect(await screen.findByText('Contenido de sincronización Classroom')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /ClassroomVínculos/ })).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(onVistaInicialAplicada).toHaveBeenCalledOnce());
   });
 
   it('mantiene Resultados como entrada normal a Calificaciones', async () => {
