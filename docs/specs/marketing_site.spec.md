@@ -5,7 +5,7 @@ version: 2.1.0
 fecha: 2026-10-10
 autor: Codex
 modulo: marketing
-estado: approved
+estado: implemented
 ---
 
 # SPEC-002: Sitio público de EvaluaPro
