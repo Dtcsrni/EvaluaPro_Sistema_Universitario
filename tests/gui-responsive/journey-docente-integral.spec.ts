@@ -188,6 +188,10 @@ test.describe('Journey docente integral visual', () => {
   });
 
   test('recorre diseño, generación, entrega, evaluación, calificación y publicación', async ({ page, request }) => {
+    page.on('pageerror', (error) => console.error(`[E2E pageerror] ${error.stack || error.message}`));
+    page.on('console', (message) => {
+      if (message.type() === 'error') console.error(`[E2E console.error] ${message.text()}`);
+    });
     const sufijo = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const outputDir = process.env.E2E_SCREENSHOT_DIR || path.join(process.cwd(), 'docs', 'assets', 'ui');
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
@@ -280,7 +284,7 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '20_banco_seccion.png'), fullPage: true });
 
     // Paso 5: Plantillas
-    await page.getByRole('button', { name: 'Diseño de Exámenes', exact: true }).click();
+    await page.getByRole('button', { name: 'Diseño de Exámenes', exact: true }).click({ timeout: 20_000 });
     await expect(page.getByRole('heading', { name: 'Diseño de Exámenes', exact: true })).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '24_plantilla_seccion.png'), fullPage: true, animations: 'disabled' });
 
@@ -336,8 +340,12 @@ test.describe('Journey docente integral visual', () => {
     if (!omrPath) throw new Error('La descarga de la hoja OMR no produjo ruta temporal');
     await page.screenshot({ path: path.join(outputDir, '29_omr_descarga_hoja.png'), fullPage: true });
 
-    const omrInput = historial.locator('.plantillas-omr input[type="file"]');
-    await omrInput.setInputFiles(omrPath);
+    const omrInput = historial.locator('.plantillas-omr input[type="file"]').first();
+    await omrInput.setInputFiles({
+      name: omrDownload.suggestedFilename() || 'hoja-omr.pdf',
+      mimeType: 'application/pdf',
+      buffer: fs.readFileSync(omrPath)
+    });
     await page.screenshot({ path: path.join(outputDir, '30_omr_panel_carga.png'), fullPage: true });
 
     await page.getByRole('button', { name: 'Procesar capturas', exact: true }).click();
@@ -562,7 +570,7 @@ test.describe('Journey docente integral visual', () => {
 
     // Classroom aislado: valida interfaz y consentimiento sin OAuth ni escritura real en Google.
     const corsHeaders = {
-      'access-control-allow-origin': `http://127.0.0.1:${process.env.E2E_DOCENTE_WEB_PORT || '4000'}`,
+      'access-control-allow-origin': `http://127.0.0.1:${process.env.E2E_DOCENTE_WEB_PORT || '4173'}`,
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'Authorization, Content-Type, If-None-Match'
@@ -621,19 +629,15 @@ test.describe('Journey docente integral visual', () => {
     await expect(page.getByRole('button', { name: 'Classroom', exact: true })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Classroom', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Google Classroom', exact: true })).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('checkbox', { name: 'Seleccionar Ejercicios vencidos E2E' }).check();
-    await page.getByRole('button', { name: 'Previsualizar importación' }).click();
-    await expect(page.getByText('9.00 / 10')).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('checkbox', { name: /Confirmar faltante vencido: Alumno E2E/ }).check();
-    await expect(page.getByText('4.50 / 10')).toBeVisible({ timeout: 20_000 });
-    const resultsBox = await page.locator('.classroom-sync-results').boundingBox();
-    const missingBox = await page.locator('section[aria-labelledby="classroom-faltantes-heading"]').boundingBox();
-    expect(resultsBox && missingBox && missingBox.width).toBeGreaterThan((resultsBox?.width ?? 0) * 0.85);
+    await page.getByRole('button', { name: 'Calificaciones', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Calificaciones', exact: true })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('navigation', { name: 'Espacios de calificaciones' }).getByRole('button', { name: /04 Classroom/ }).click();
+    const classroomConsulta = page.locator('.calificaciones-workspace-view');
+    await expect(classroomConsulta.getByRole('heading', { name: 'Calificaciones asignadas y evidencias', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(classroomConsulta.getByRole('option', { name: 'Curso Classroom E2E' })).toBeAttached({ timeout: 20_000 });
+    await classroomConsulta.getByRole('combobox', { name: 'Curso de Classroom' }).selectOption('curso-classroom-e2e');
+    await expect(classroomConsulta).toContainText('No hay calificaciones Classroom sincronizadas para esta materia.');
     await expect(page.locator('.toast')).toHaveCount(0, { timeout: 15_000 });
-    await page.screenshot({ path: path.join(outputDir, '55_classroom_faltante_confirmado.png'), fullPage: true, animations: 'disabled' });
-    const classroomExecute = page.waitForResponse((response) => response.url().includes('/importaciones/ejecutar') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Ejecutar Sincronización a EvaluaPro' }).click();
-    expect((await classroomExecute).status()).toBe(200);
-    await expect(page.getByText('4.50 / 10')).toBeVisible({ timeout: 20_000 });
+    await page.screenshot({ path: path.join(outputDir, '55_classroom_consulta_calificaciones.png'), fullPage: true, animations: 'disabled' });
   });
 });

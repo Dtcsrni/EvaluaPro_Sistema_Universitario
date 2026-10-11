@@ -165,6 +165,7 @@ export function ConsultaCalificaciones({
   const [resultadoExtraExterno, setResultadoExtraExterno] = useState({
     folio: '', loteId: '', fuenteArchivo: '', documentoSha256: '', aciertos: '', totalReactivos: '', criteriosAplicados: ''
   });
+
   filaSeleccionadaRef.current = filaSeleccionada;
   const alumnoSeleccionadoId = filaSeleccionada?.alumnoId;
   const periodoSeleccionado = periodos.find((periodo) => String(periodo._id) === periodoId);
