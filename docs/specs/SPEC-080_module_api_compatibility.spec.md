@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-10-11
 autor: Codex
 modulo: arquitectura_backend
-estado: approved
+estado: implemented
 ---
 
 ## Contexto
@@ -50,5 +50,6 @@ La integración sigue siendo un monolito modular local con una sola base SQLite/
 
 ## Evidencia de validación
 
-- Local: `npm run test:module-contracts` (18/18), `npm run qa:module-contracts:check` (21 módulos, 39 dependencias, 76 modelos), `npm run sdd:audit` (exitoso).
-- Pendiente para estado `implemented`: gates completos de `AGENTS.md` y CI remota de PR.
+- Local: `npm run test:module-contracts` (18/18), `npm run qa:module-contracts:check` (21 módulos, 39 dependencias, 76 modelos), `npm run lint`, `npm run typecheck`, `npm run test:frontend:ci` (406/406), `npm run test:backend:ci` (todos los lotes), `npm run test:portal:ci` (32/32), `npm run ci:policy:audit`, `npm run pipeline:contract:check` (41/41), `npm run api:contract:check` y `npm run sdd:audit`.
+- CI del PR #184: los siete workflows concluyeron `success`; pasaron el chequeo contractual, documentación, instalador Windows y CodeQL. Los workflows backend/portal aplicaron la selección por archivos afectados.
+- Límites de validación local: `npm run test:coverage:ci` terminó con código 1 tras tres timeouts de 480000 ms en `backend-root-31` y `backend-integracion-n-z-03`, sin registrar fallos de aserción en sus salidas; `npm run perf:check` no inició mediciones porque la configuración requiere `JWT_SECRETO` en producción y no está definido en el entorno.
