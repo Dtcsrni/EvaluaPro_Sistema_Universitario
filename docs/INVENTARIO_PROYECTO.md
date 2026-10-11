@@ -1,14 +1,14 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de actualización del resumen: 2026-10-08
+Fecha de actualización del resumen: 2026-10-10
 Versión fuente en `main`: `1.2.6` (`config/app-version.json`)
 Release pública observada: `v1.2.5` en GitHub Releases/latest al 2026-10-08
 Release `v1.2.6`: borrador, no descarga pública
 Versión instalada: debe comprobarse en el equipo; no inferirla desde este inventario.
 
-## Resumen actual 2026-10-08
+## Resumen actual 2026-10-10
 - El alcance de distribución considerado es `docente-local` para Windows.
-- El README y las guías principales enlazan la release pública, el manual docente, instalación y respaldos.
+- El README y las guías principales enlazan la release pública, instalación y respaldos; el manual de usuario fue retirado del contenido vigente.
 - Los detalles de capacidades, dependencias y módulos deben confirmarse en el código y los contratos correspondientes; este inventario también conserva cortes históricos.
 
 ## Registro histórico 2026-09-03

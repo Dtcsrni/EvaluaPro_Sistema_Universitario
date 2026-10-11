@@ -65,6 +65,7 @@ assert(css.includes('html.has-js .topbar nav { display: none; }'), 'El menú com
 assert(css.includes('html.has-js .nav-toggle { display: inline-flex; }'), 'El botón de menú solo aparece cuando su controlador está disponible');
 
 assert((html.match(/<h1(?:\s|>)/gi) ?? []).length === 1, 'La página debe tener un único h1');
+assert(!/MANUAL_USUARIO_DOCENTE|MANUAL_USUARIO\.md|(?:Abrir|Ver) el manual docente/i.test(html), 'La landing page no debe ofrecer un manual de usuario');
 
 const sectionIds = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
 for (const [, target] of html.matchAll(/href="#([^\"]+)"/g)) {

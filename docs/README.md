@@ -6,8 +6,7 @@ Usa este índice para llegar a la guía correcta. La distribución preparada par
 
 | Necesito… | Abre |
 | --- | --- |
-| Instalar EvaluaPro y verificar el instalador | [Instalación y actualización](INSTALLER_HUB.md) |
-| Preparar mi primera materia y evaluación | [Manual docente](MANUAL_USUARIO_DOCENTE.md) |
+| Instalar EvaluaPro y empezar a usarlo | [Instalación y actualización](INSTALLER_HUB.md) |
 | Respaldar o mover información a otro equipo | [Sincronización entre computadoras](SINCRONIZACION_ENTRE_COMPUTADORAS.md) |
 | Resolver un problema de inicio o instalación | [Runbook de operación](RUNBOOK_OPERACION.md) |
 | Entender privacidad y tratamiento de datos | [Aviso de privacidad](legal/aviso-privacidad-integral.md) |
@@ -44,7 +43,6 @@ La base SQLite activa no es un mecanismo de sincronización. Usa la guía de [re
 
 ## Tutoriales e histórico
 
-- [Manual ilustrado](tutoriales/MANUAL_USUARIO.md).
 - [Recorrido E2E del Installer Hub](tutoriales/installer-hub-docente-e2e.md): evidencia del recorrido indicado, no una garantía para todas las releases.
 - [Material comercial histórico](comercial/README.md).
 
