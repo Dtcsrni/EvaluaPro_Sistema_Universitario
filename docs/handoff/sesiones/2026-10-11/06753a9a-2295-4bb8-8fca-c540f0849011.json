@@ -2,7 +2,7 @@
   "traceSchemaVersion": "1.0.0",
   "sessionId": "06753a9a-2295-4bb8-8fca-c540f0849011",
   "status": "final",
-  "generatedAt": "2026-10-11T19:16:19.000Z",
+  "generatedAt": "2026-10-11T23:16:13.000Z",
   "validationProfile": "full",
   "agent": { "name": "unknown", "version": "unknown", "provider": "unknown", "kind": "unknown", "channel": "unknown" },
   "request": { "summary": "Cerrar el corte de EvaluaPro, integrar el trabajo pendiente y preparar contratos para evolución modular compatible." },
@@ -12,12 +12,13 @@
   "actions": [
     { "type": "architecture-change", "summary": "Se añadieron contratos 1.0.0 para 21 módulos, propiedad de 76 modelos y comprobaciones de compatibilidad, imports y ciclos.", "timestamp": "2026-10-11T19:16:19.000Z", "status": "ok" },
     { "type": "regression-fix", "summary": "Se retiraron tres ciclos de dependencias y se conservaron las rutas mediante composición en la raíz.", "timestamp": "2026-10-11T19:16:19.000Z", "status": "ok" },
-    { "type": "validation", "summary": "Lint, typecheck, suites frontend, backend y portal, contratos, políticas y trazabilidad pasaron; cobertura instrumental agotó tiempos de lote y rendimiento no pudo iniciar por configuración de entorno.", "timestamp": "2026-10-11T19:16:19.000Z", "status": "ok" },
-    { "type": "commit", "summary": "Cambios arquitectónicos registrados en el commit 07b3f05a.", "timestamp": "2026-10-11T19:16:19.000Z", "status": "ok" }
+    { "type": "validation", "summary": "Lint, typecheck, suites funcionales, contratos, políticas y coberturas backend/portal/frontend aprobados. SPEC-081 y su regresión pasan local y CI. Perf:check pasó en development (80 iteraciones, 10 warmup, 4/4 budgets, 0 fallos); producción no se midió porque el entorno no provee JWT_SECRETO.", "timestamp": "2026-10-11T23:16:13.000Z", "status": "ok" },
+    { "type": "commit", "summary": "SPEC-079/080 y compatibilidad modular integradas mediante PR #184 y #185; main sincronizada en 03227855 antes del cierre de cobertura.", "timestamp": "2026-10-11T23:16:13.000Z", "status": "ok" },
+    { "type": "commit", "summary": "SPEC-081 y aislamiento de omrJobsWorkflow integrados mediante PR #186; commit squash 519d65feb27652d24b1d814dd2adca57f8c51ee0. Siete de siete workflows pasaron.", "timestamp": "2026-10-11T23:16:13.000Z", "status": "ok" }
   ],
   "files": {
     "read": ["AGENTS.md", "docs/POLITICA_SDD.md", "docs/ARQUITECTURA.md", "docs/handoff/trace.schema.json", "docs/contracts/module-contracts.v1.json", "ci/affected-test-map.json", "package.json"],
-    "changed": ["CHANGELOG.md", "apps/backend/src/modulos/", "apps/backend/src/rutas.ts", "ci/affected-test-map.json", "ci/pipeline.contract.md", "docs/ARQUITECTURA.md", "docs/contracts/module-contracts.v1.json", "docs/specs/SPEC-079_module_contracts_evolution.spec.md", "package.json", "reports/qa/latest/clean-architecture.json", "reports/qa/latest/module-contracts.json", "scripts/api/openapi.json", "scripts/clean-architecture-check.mjs", "scripts/module-contract-check.mjs", "scripts/tests/clean-architecture-check.test.mjs", "scripts/tests/module-contract-check.test.mjs"],
+    "changed": ["CHANGELOG.md", "apps/backend/src/modulos/", "apps/backend/src/rutas.ts", "ci/affected-test-map.json", "ci/pipeline.contract.md", "docs/ARQUITECTURA.md", "docs/contracts/module-contracts.v1.json", "docs/specs/SPEC-079_module_contracts_evolution.spec.md", "docs/specs/SPEC-081_aislamiento_cobertura_omr.spec.md", "package.json", "reports/qa/latest/clean-architecture.json", "reports/qa/latest/module-contracts.json", "scripts/api/openapi.json", "scripts/clean-architecture-check.mjs", "scripts/module-contract-check.mjs", "scripts/testing/run-backend-coverage-batches.mjs", "scripts/tests/backend-coverage-batches.test.mjs", "scripts/tests/clean-architecture-check.test.mjs", "scripts/tests/module-contract-check.test.mjs", "docs/handoff/sesiones/2026-10-11/06753a9a-2295-4bb8-8fca-c540f0849011.json"],
     "artifacts": ["reports/qa/latest/module-contracts.json", "docs/handoff/sesiones/2026-10-11/06753a9a-2295-4bb8-8fca-c540f0849011.json"]
   },
   "commands": [
@@ -31,14 +32,18 @@
     { "name": "api-contract", "command": "npm run api:contract:check", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "245 rutas, 282 operaciones y 76 modelos verificados." },
     { "name": "pipeline-contract", "command": "npm run pipeline:contract:check", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "41 de 41 comprobaciones aprobadas." },
     { "name": "policy-audit", "command": "npm run ci:policy:audit", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Auditorías de política, trazabilidad y SDD aprobadas." },
-    { "name": "coverage-ci", "command": "npm run test:coverage:ci", "status": "falla", "exitCode": null, "durationMs": 0, "resultSummary": "Agotó/reintentó tiempos de dos lotes instrumentados; pruebas backend equivalentes sin instrumentación aprobaron." },
-    { "name": "performance-check", "command": "npm run perf:check", "status": "omitido", "exitCode": null, "durationMs": 0, "resultSummary": "No inició: entorno sin JWT_SECRETO; no se generó un secreto." },
+    { "name": "coverage-ci", "command": "npm run test:coverage:ci (primera ejecución, antes de SPEC-081)", "status": "falla", "exitCode": 1, "durationMs": 0, "resultSummary": "La ejecución local agotó límites de lote en PDF/OMR; SPEC-081 separó omrJobsWorkflow y se completó la cobertura por fases." },
+    { "name": "coverage-final", "command": "57 lotes backend + omrJobsWorkflow con cobertura + merge global + portal coverage + frontend coverage:min", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "58 blobs fusionados; backend global aprobado: Statements 75.08%, Branches 64.14%, Functions 80.07%, Lines 77.69%. OMR 12/12 en 1163.75 s; portal 11 archivos y 32/32; frontend coverage exit 0." },
+    { "name": "coverage-plan-regression", "command": "node --test scripts/tests/backend-coverage-batches.test.mjs", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "13/13 pruebas; lote OMR exclusivo y suites de integración sin duplicados." },
+    { "name": "performance-check", "command": "npm run perf:check con NODE_ENV=development", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "80 iteraciones, 10 warmup, 4/4 budgets aprobados, 0 fallos. El modo production no se midió porque el entorno no tenía JWT_SECRETO; no se generó un secreto." },
+    { "name": "pr-186-ci", "command": "GitHub Actions PR #186", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "7/7 workflows aprobados: backend, portal, frontend, docs, installer, CI Checks y CodeQL." },
+    { "name": "remote-sync", "command": "git pull --ff-only origin main", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "main local actualizado al merge 519d65feb27652d24b1d814dd2adca57f8c51ee0." },
     { "name": "diff-check", "command": "git diff --cached --check", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Sin errores de whitespace antes del commit." }
   ],
-  "decisions": ["La compatibilidad se declara con SemVer para contratos modulares, rangos de dependencias y versión host de EvaluaPro.", "Prisma mantiene migraciones centrales mediante expand-migrate-contract.", "Los routers permanecen en la raíz de composición para evitar efectos secundarios en el contrato público de cada módulo.", "Los datos OMR se conservan locales fuera del repositorio.", "Las puntas de ramas retiradas se archivaron bajo refs/archive/closeout-20261011 antes de quitar sus referencias antiguas."],
+  "decisions": ["La compatibilidad se declara con SemVer para contratos modulares, rangos de dependencias y versión host de EvaluaPro.", "Prisma mantiene migraciones centrales mediante expand-migrate-contract.", "Los routers permanecen en la raíz de composición para evitar efectos secundarios en el contrato público de cada módulo.", "Los datos OMR se conservan locales fuera del repositorio.", "Las puntas de ramas retiradas se archivaron bajo refs/archive/closeout-20261011 antes de quitar sus referencias antiguas.", "El lote omrJobsWorkflow se ejecuta de forma exclusiva para dejar su duración y cobertura aisladas.", "PR #186 se fusionó tras 7/7 workflows verdes; su rama local y remota se eliminó."],
   "assumptions": [],
-  "risks": ["Repetir la cobertura instrumental completa con timeout suficiente para los lotes pesados.", "El gate de rendimiento requiere JWT_SECRETO proporcionado por el entorno seguro.", "La compatibilidad futura depende de actualizar el registro cuando cambien APIs o propiedad de datos."],
-  "nextStep": "Validar esta traza y sincronizar los commits de main con origin; luego repetir cobertura instrumental y rendimiento en un entorno configurado.",
-  "completion": { "isComplete": false, "pendingFields": ["repetir npm run test:coverage:ci con timeout adecuado", "ejecutar npm run perf:check con JWT_SECRETO disponible", "confirmar push y estado remoto de main"] },
-  "repo": { "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro", "branch": "main", "commit": "07b3f05a", "workingTreeStatus": "commit arquitectónico creado; traza y sincronización remota pendientes" }
+  "risks": ["La medición de rendimiento en NODE_ENV=production no se ejecutó porque el entorno no tenía JWT_SECRETO; la corrida development aprobó 4/4 budgets.", "La compatibilidad futura depende de actualizar el registro de contratos al cambiar APIs o propiedad de datos."],
+  "nextStep": "En la siguiente versión, actualizar snapshots y rangos de contrato con cada cambio público de módulo y conservar el gate de compatibilidad en CI.",
+  "completion": { "isComplete": true, "pendingFields": [] },
+  "repo": { "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro", "branch": "main", "commit": "519d65feb27652d24b1d814dd2adca57f8c51ee0", "workingTreeStatus": "main sincronizada tras PR #186; un worktree principal, sin ramas temporales locales o remotas." }
 }
