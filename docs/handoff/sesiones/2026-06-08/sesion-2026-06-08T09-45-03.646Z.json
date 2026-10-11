@@ -19,7 +19,7 @@
     "scripts/tests/installer-hub-e2e-docente.ps1"
   ],
   "constraints": [
-    "Mantener Caveman y Serena activos durante todo el proceso"
+    "Mantener Caveman y MCP activos durante todo el proceso"
   ],
   "actions": [
     {

@@ -34,7 +34,7 @@
 - No documentar version/proveedor exacto si runtime no lo expone
 
 ## Acciones
-- [ok] validation: Ejecucion de ai_serena_policy_status (2026-06-02T07:36:45.453Z)
+- [ok] validation: Ejecucion de ai_MCP_policy_status (2026-06-02T07:36:45.453Z)
 - [ok] validation: Ejecucion de ai_caveman_status (2026-06-02T07:36:45.453Z)
 - [ok] validation: Ejecucion de test_stabilization_completion_audit (2026-06-02T07:36:45.453Z)
 - [ok] validation: Ejecucion de test_installer_hub_contract (2026-06-02T07:36:45.453Z)
@@ -74,7 +74,7 @@
 - docs/handoff/sesiones/2026-06-02/sesion-2026-06-02-estabilizacion-release-docentes.input.json
 
 ## Validacion ejecutada
-- ai_serena_policy_status: `npm run ai:serena:policy:status -- --json` -> ok (exitCode=0, duracionMs=1600)
+- ai_MCP_policy_status: `npm run ai:MCP:policy:status -- --json` -> ok (exitCode=0, duracionMs=1600)
   resultado: ready=true repo/global
 - ai_caveman_status: `npm run ai:caveman:status -- --json` -> ok (exitCode=0, duracionMs=1500)
   resultado: ready=true
@@ -136,7 +136,7 @@
 M .codex/hooks.json
  M .github/workflows/package.yml
  M .gitignore
-M  .serena/project.yml
+M  .MCP/project.yml
  M CHANGELOG.md
  M apps/backend/package.json
  M apps/backend/reports/qa/latest/e2e-docente-alumno.json
@@ -214,7 +214,7 @@ MM package.json
  M reports/qa/latest/pdf-print.json
  M reports/qa/latest/ux-visual.json
  M scripts/README.md
- M scripts/ai-serena-policy-status.mjs
+ M scripts/ai-MCP-policy-status.mjs
  M scripts/build-msi.ps1
  M scripts/env-doctor.mjs
  M scripts/generate-installation-manifest.ps1
@@ -235,7 +235,7 @@ A  scripts/tests/backend-coverage-batches.test.mjs
  M tests/gui-responsive/responsive-alumno.spec.ts
  M tests/gui-responsive/responsive-docente.spec.ts
 ?? .automation/
-?? .serena.precheckout-20260521/
+?? .MCP.precheckout-20260521/
 ?? apps/frontend/dist-docente/
 ?? apps/frontend/dist-e2e-admin_negocio/
 ?? apps/frontend/dist-e2e-alumno/
@@ -314,7 +314,7 @@ A  scripts/tests/backend-coverage-batches.test.mjs
 ?? scripts/setup-wsl2-vm-host.ps1
 ?? scripts/start-installer-hub-e2e-elevated.ps1
 ?? scripts/testing/generate-gui-screen-matrix.mjs
-?? scripts/tests/ai-serena-policy-status.test.mjs
+?? scripts/tests/ai-MCP-policy-status.test.mjs
 ?? scripts/tests/gui-design-contract.test.mjs
 ?? scripts/tests/gui-screen-matrix.test.mjs
 ?? scripts/tests/installer-hub-e2e-docente.ps1.tmp

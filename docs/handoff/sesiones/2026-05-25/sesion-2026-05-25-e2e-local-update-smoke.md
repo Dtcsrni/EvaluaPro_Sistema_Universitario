@@ -109,7 +109,7 @@
 ```txt
 M .codex/hooks.json
  M .gitignore
-M  .serena/project.yml
+M  .MCP/project.yml
  M CHANGELOG.md
  M apps/backend/package.json
  M apps/backend/reports/qa/latest/e2e-docente-alumno.json
@@ -166,14 +166,14 @@ M  package.json
  M reports/qa/latest/pdf-print.json
  M reports/qa/latest/ux-visual.json
  M scripts/README.md
- M scripts/ai-serena-policy-status.mjs
+ M scripts/ai-MCP-policy-status.mjs
  M scripts/env-doctor.mjs
 A  scripts/testing/run-backend-coverage-batches.mjs
 A  scripts/tests/backend-coverage-batches.test.mjs
  M scripts/tests/env-doctor.test.mjs
  M scripts/tests/installer-hub-contract.test.mjs
  M scripts/tests/installer-hub-e2e-docente.ps1
-?? .serena.precheckout-20260521/
+?? .MCP.precheckout-20260521/
 ?? apps/frontend/dist-e2e-admin_negocio/
 ?? apps/frontend/dist-e2e-alumno/
 ?? apps/frontend/dist-e2e-docente/
@@ -189,7 +189,7 @@ A  scripts/tests/backend-coverage-batches.test.mjs
 ?? docs/handoff/sesiones/2026-05-25/sesion-2026-05-25T04-44-27.219Z.json
 ?? docs/handoff/sesiones/2026-05-25/sesion-2026-05-25T04-44-27.219Z.md
 ?? reports/qa/latest/prodlike-imported.json
-?? scripts/tests/ai-serena-policy-status.test.mjs
+?? scripts/tests/ai-MCP-policy-status.test.mjs
 ```
 
 ## Siguiente paso recomendado

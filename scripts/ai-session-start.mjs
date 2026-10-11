@@ -4,11 +4,11 @@
  *
  * Responsabilidad: imprimir los recordatorios repo-locales que deben aparecer
  * al iniciar o reanudar una sesion Codex en este workspace.
- * Limites: no modifica estado; solo emite texto explicito para Caveman y Serena.
+ * Limites: no modifica estado; solo emite texto explicito para Caveman.
  */
 
 const lines = [
-  'SESSION: Caveman=full persistente; Serena=activar antes de codigo; handoff=JSON compacto, sin secretos.'
+  'SESSION: Caveman=full persistente; handoff=JSON compacto, sin secretos.'
 ];
 
 for (const line of lines) {

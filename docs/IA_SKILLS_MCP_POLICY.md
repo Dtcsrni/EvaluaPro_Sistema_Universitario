@@ -10,7 +10,6 @@ Guia operativa para seleccionar skills, plugins y MCP en sesiones de agentes sob
 ## Matriz obligatoria
 Usar por defecto en sesiones tecnicas:
 
-- `Serena`: lectura, busqueda y edicion semantica de codigo. Activar proyecto antes de leer o editar.
 - `Caveman`: salida breve y operativa salvo excepcion explicita del usuario.
 - `GitHub`: repos remotos, PRs, issues, ramas, commits, diffs, CI y checks.
 - `Codex Security`: cambios o revisiones de auth, PII, cumplimiento, secretos, CI/CD, release, instaladores y superficies expuestas.
@@ -41,7 +40,7 @@ Usar solo cuando el alcance lo pida:
 - Para componentes UI no crear una dependencia externa nueva: documentar el boceto con Excalidraw y bajar la decision a componentes versionados + pruebas visuales.
 
 ## Reglas por tipo de tarea
-- Debugging: Serena primero; si hay fallo, reproducir con comando real; usar Superpowers systematic debugging cuando el fallo no sea trivial.
+- Debugging: reproducir con comando real; usar Superpowers systematic debugging cuando el fallo no sea trivial.
 - PR/CI/remoto: GitHub primero; usar `gh-fix-ci` si el bloqueo vive en GitHub Actions.
 - Seguridad/compliance: Codex Security primero; no exponer secretos ni PII; validar diff o ruta afectada.
 - Frontend/UI: Browser + Playwright; Excalidraw solo para boceto; aceptar cambios con docs UX y evidencia visual.
@@ -51,8 +50,6 @@ Usar solo cuando el alcance lo pida:
 ## Verificacion
 - Estado repo/global:
   - `npm run ai:skills-mcp:status -- --json`
-- Serena:
-  - `npm run ai:serena:policy:status -- --json`
 - Caveman:
   - `npm run ai:caveman:status -- --json`
 
@@ -71,7 +68,7 @@ Usar solo cuando el alcance lo pida:
 La skill de flujo completo selecciona solo las etapas necesarias; no carga todas por defecto. Cada una respeta EvaluaPro como fuente de verdad y no autoriza mutaciones externas adicionales.
 
 ## Checklist retomable
-- `[x]` Serena/Caveman integrados en repo y global.
+- `[x]` Caveman integrado en repo.
 - `[x]` Politica skills/MCP versionada.
 - `[x]` Excalidraw definido como alternativa gratuita por defecto para bocetos.
 - `[x]` Figma/Canva excluidos por defecto.

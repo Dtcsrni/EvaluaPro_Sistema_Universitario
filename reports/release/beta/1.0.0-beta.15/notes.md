@@ -50,7 +50,7 @@
 - packaging/wix/BurnBootstrapperApp/obj/project.assets.json
 - packaging/wix/BurnBootstrapperApp/obj/project.nuget.cache
 - scripts/README.md
-- scripts/ai-serena-policy-status.mjs
+- scripts/ai-MCP-policy-status.mjs
 - scripts/build-msi.ps1
 - scripts/ci/run-e2e-auto.ps1
 - scripts/ci/run-e2e-host-canary.ps1
@@ -76,7 +76,7 @@
 - scripts/start-installer-hub-e2e-elevated.ps1
 - scripts/testing/generate-gui-screen-matrix.mjs
 - scripts/testing/run-backend-coverage-batches.mjs
-- scripts/tests/ai-serena-policy-status.test.mjs
+- scripts/tests/ai-MCP-policy-status.test.mjs
 - scripts/tests/backend-coverage-batches.test.mjs
 - scripts/tests/env-doctor.test.mjs
 - scripts/tests/gui-design-contract.test.mjs
@@ -91,7 +91,7 @@
 - .codex/hooks.json
 - .github/workflows/package.yml
 - .gitignore
-- .serena/project.yml
+- .MCP/project.yml
 - CHANGELOG.md
 - apps/backend/package.json
 - apps/backend/reports/qa/latest/e2e-docente-alumno.json
@@ -288,7 +288,7 @@
 - reports/qa/latest/prodlike-imported.json
 - reports/qa/latest/ux-visual.json
 - scripts/README.md
-- scripts/ai-serena-policy-status.mjs
+- scripts/ai-MCP-policy-status.mjs
 - scripts/build-msi.ps1
 - scripts/ci/run-e2e-auto.ps1
 - scripts/ci/run-e2e-host-canary.ps1
@@ -314,7 +314,7 @@
 - scripts/start-installer-hub-e2e-elevated.ps1
 - scripts/testing/generate-gui-screen-matrix.mjs
 - scripts/testing/run-backend-coverage-batches.mjs
-- scripts/tests/ai-serena-policy-status.test.mjs
+- scripts/tests/ai-MCP-policy-status.test.mjs
 - scripts/tests/backend-coverage-batches.test.mjs
 - scripts/tests/env-doctor.test.mjs
 - scripts/tests/gui-design-contract.test.mjs

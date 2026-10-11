@@ -308,7 +308,6 @@ este documento se actualiza automáticamente al regenerar.
 - `GITHUB_SHA` (usado en: scripts/release/gate-prod-flow.mjs, scripts/release/validate-beta-promotion.mjs, scripts/testing/resolve-affected-ci.mjs, scripts/wcag-guard.mjs)
 - `GOOGLE_CLASSROOM_CLIENT_SECRET` (usado en: scripts/tests/classroom-doctor.test.mjs)
 - `GUI_MATRIX_DATE` (usado en: scripts/testing/generate-gui-screen-matrix.mjs)
-- `HOME` (usado en: scripts/ai-serena-status.mjs)
 - `HOST` (usado en: scripts/serve-docente-static.mjs)
 - `JWT_SECRETO` (usado en: scripts/generar-licencia-master.mjs, scripts/perf-collect-business.ts)
 - `LICENCIA_JWT_SECRETO` (usado en: scripts/generar-licencia-master.mjs)

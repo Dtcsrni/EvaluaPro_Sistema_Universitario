@@ -676,8 +676,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ai-caveman-status.mjs
 - scripts/ai-model-router.mjs
 - scripts/ai-openai-client.mjs
-- scripts/ai-serena-policy-status.mjs
-- scripts/ai-serena-status.mjs
 - scripts/ai-session-start.mjs
 - scripts/ai-skills-mcp-policy-status.mjs
 - scripts/assert-installer-hub-bundle.ps1
@@ -771,8 +769,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/sanitize-xlsx-template.ps1
 - scripts/sdd-audit.mjs
 - scripts/security-env-check.mjs
-- scripts/serena-mcp.ps1
-- scripts/serena-mcp.sh
 - scripts/serve-docente-static.mjs
 - scripts/setup-qa-credenciales.ps1
 - scripts/shortcut-ops.ps1
@@ -803,7 +799,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/ai-caveman-status.test.mjs
 - scripts/tests/ai-model-router.test.mjs
 - scripts/tests/ai-openai-client.test.mjs
-- scripts/tests/ai-serena-policy-status.test.mjs
 - scripts/tests/app-host-health.contract.test.mjs
 - scripts/tests/app-host-shutdown.contract.test.mjs
 - scripts/tests/backend-coverage-batches.test.mjs

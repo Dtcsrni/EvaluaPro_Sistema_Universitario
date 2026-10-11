@@ -31,8 +31,6 @@ Docker, WSL, credenciales o integraciones.
 
 ## Tokens, herramientas y agentes
 
-- Usar Serena por defecto para explorar codigo: activar el proyecto, acotar `relative_path`
-  y `max_answer_chars`; usar shell solo cuando Serena no cubra la necesidad.
 - Usar skills/MCP solo cuando correspondan a la tarea; preferir herramientas read-only y
   diferir schemas grandes hasta necesitarlos.
 - Caveman es una politica de estilo conciso, no una prueba de ahorro de facturacion.

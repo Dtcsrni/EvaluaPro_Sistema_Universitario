@@ -63,7 +63,6 @@ backups/
 elevated*.log
 tmp_elevated_runner.ps1
 .automation/
-.serena.precheckout-*/
 packaging/wix/**/PublishOutputs.*.txt
 scripts/tests/*.tmp
 

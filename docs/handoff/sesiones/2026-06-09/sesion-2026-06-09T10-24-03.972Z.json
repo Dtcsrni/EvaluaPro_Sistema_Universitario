@@ -21,7 +21,7 @@
     "scripts/build-msi.ps1"
   ],
   "constraints": [
-    "Mantener Caveman y Serena activos durante todo el proceso",
+    "Mantener Caveman y MCP activos durante todo el proceso",
     "Cumplir estrictamente con la matriz de calidad de AGENTS.md"
   ],
   "actions": [

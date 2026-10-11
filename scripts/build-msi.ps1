@@ -112,7 +112,7 @@ function New-InstallerBuildStagingRoot {
       $fallbackArgs = @(
         '--files', '--hidden', '--no-ignore-vcs',
         '-g', '!.git/**', '-g', '!**/node_modules/**', '-g', '!**/dist/**', '-g', '!**/dist-*/**',
-        '-g', '!**/bin/**', '-g', '!**/obj/**', '-g', '!**/.serena/**', '-g', '!**/.vitest-reports/**',
+        '-g', '!**/bin/**', '-g', '!**/obj/**', '-g', '!**/.vitest-reports/**',
         '-g', '!**/reports/**',
         '-g', '!**/build/**', '-g', '!**/out/**', '-g', '!**/coverage/**',
         '-g', '!**/.cache/**', '-g', '!**/.next/**', '-g', '!**/.turbo/**',
