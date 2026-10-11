@@ -16,4 +16,16 @@ describe('rutas temporales OMR', () => {
     expect(retirarRutaTemporalOmr(archivo)).toBe(rutaGenerada);
     expect(() => obtenerRutaTemporalOmr(archivo)).toThrowError(/no pertenece a esta carga/);
   });
+
+  it('conserva la ruta autorizada cuando Multer copia los metadatos al objeto de req.files', () => {
+    const archivo = { path: 'C:\\ruta\\proporcionada-por-cliente.pdf' };
+    const rutaGenerada = 'C:\\Temp\\evaluapro-omr-upload-a1b2\\12345678-1234-4234-8234-123456789abc.pdf';
+    registrarRutaTemporalOmr(archivo, rutaGenerada);
+
+    // Multer's field strategy copies metadata onto its placeholder with Object.assign.
+    const archivoEnRequest = Object.assign({}, archivo);
+    expect(obtenerRutaTemporalOmr(archivoEnRequest)).toBe(rutaGenerada);
+    expect(retirarRutaTemporalOmr(archivoEnRequest)).toBe(rutaGenerada);
+    expect(() => obtenerRutaTemporalOmr(archivoEnRequest)).toThrowError(/no pertenece a esta carga/);
+  });
 });
