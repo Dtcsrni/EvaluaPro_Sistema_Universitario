@@ -122,6 +122,29 @@ test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgr
   assert.match(workflow, /\$required = \$candidateVersion -gt \$baselineVersion/);
 });
 
+test('smoke GUI cierra y confirma la salida de todo proceso Installer Hub que él mismo inició', () => {
+  const smokeStart = workflow.indexOf('- name: Smoke GUI del bundle Burn publico empaquetado');
+  const smokeEnd = workflow.indexOf('- name: Etapa hash/manifest de release instalador', smokeStart);
+  const smoke = workflow.slice(smokeStart, smokeEnd);
+
+  assert.ok(smokeStart >= 0 && smokeEnd > smokeStart, 'el workflow conserva el smoke GUI de empaquetado');
+  assert.match(smoke, /Get-CimInstance Win32_Process -ErrorAction Stop/);
+  assert.match(smoke, /EvaluaPro-InstallerHub\*\.exe/);
+  assert.match(smoke, /EvaluaPro\.BurnBootstrapperApp\.exe/);
+  assert.match(smoke, /runner ya tenía procesos Installer Hub antes del smoke/);
+  assert.match(smoke, /taskkill\.exe \/PID \$proc\.Id \/T \/F/);
+  assert.match(smoke, /\$deadline = \(Get-Date\)\.AddSeconds\(30\)/);
+  assert.match(smoke, /taskkill\.exe \/PID \$smokeProcess\.ProcessId \/T \/F/);
+  assert.match(smoke, /Get-ActiveInstallerHubProcess \| Where-Object \{ \$_.ProcessId -notin/);
+  assert.match(smoke, /smoke dejó procesos Installer Hub activos tras el cierre del árbol/);
+});
+
+test('preflight E2E identifica nombre y PID cuando detecta un Installer Hub activo', () => {
+  assert.match(e2e, /\$activeInstallerHubProcessDetails = \(\$activeInstallerHubProcesses \| ForEach-Object \{ "\{0\}:\{1\}" -f \$_.ProcessName, \$_.Id \}\) -join ', '/);
+  assert.match(e2e, /Add-Result -Area 'preflight' -Item 'no-active-installer-hub' -Ok \(\$activeInstallerHubProcesses\.Count -eq 0\) -Detail \$activeInstallerHubProcessDetails/);
+  assert.match(e2e, /Hay procesos Installer Hub activos: \$activeInstallerHubProcessDetails/);
+});
+
 test('runner acepta el EXE publicado con SHA obligatorio y CRC32 opcional', () => {
   assert.match(e2e, /\[string\]\$CandidateBundlePath/);
   assert.match(e2e, /Resolve-Path -LiteralPath \$CandidateBundlePath/);
