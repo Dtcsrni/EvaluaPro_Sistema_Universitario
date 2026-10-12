@@ -130,13 +130,24 @@ test('cambios classroom activan auditoria focal desde el mapa afectado', () => {
 });
 
 test('cambios installer activan contrato en el integrador core', () => {
-  const result = evaluateAffectedChangeSet(config, [
-    'scripts/installer-burn/InstallerBurnHelper.ps1'
-  ]);
+  const installerContractFiles = [
+    'scripts/installer-burn/InstallerBurnHelper.ps1',
+    'scripts/tests/installer-hub-contract.test.mjs',
+    'scripts/tests/installer-upgrade-e2e-contract.test.mjs',
+    'scripts/tests/github-release-asset-download.test.mjs',
+    'scripts/tests/windows-release-smoke-ownership.test.mjs',
+    'scripts/tests/windows-release-smoke.test.mjs',
+    'scripts/tests/runtime-env.test.mjs',
+    'scripts/tests/installer-flavor-contract-scope.test.mjs'
+  ];
 
-  assert.equal(result.escalation, 'affected');
-  assert.equal(result.matchedGroups.installer, true);
-  assert.equal(result.matchedJobs.core_contract_docs_gov, true);
+  for (const file of installerContractFiles) {
+    const result = evaluateAffectedChangeSet(config, [file]);
+
+    assert.equal(result.escalation, 'affected', `${file} no debe ejecutar gates extendidos`);
+    assert.equal(result.matchedGroups.installer, true, `${file} debe activar el grupo installer`);
+    assert.equal(result.matchedJobs.core_contract_docs_gov, true, `${file} debe ejecutar el contrato installer`);
+  }
 });
 
 test('cambios en carga de env del runtime activan contrato installer', () => {
