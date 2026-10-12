@@ -320,6 +320,13 @@ export function construirNombrePdfLote(parametros: {
   return `${partes.join('_')}.pdf`;
 }
 
+/** Devuelve la etiqueta corta del parcial para el título del examen y su descarga. */
+export function construirNombreVisibleExamenLote(tituloPlantilla: unknown): string {
+  const titulo = String(tituloPlantilla ?? '').trim().replace(/\s+/g, ' ');
+  const parcial = titulo.match(/^(Primer|Segundo|Tercer|Cuarto|Quinto|Sexto)\s+Parcial\b/i);
+  return parcial ? `${parcial[1][0]?.toUpperCase()}${parcial[1].slice(1).toLowerCase()} Parcial` : titulo;
+}
+
 function formatearDocente(nombreCompleto: unknown): string {
   const nombre = String(nombreCompleto ?? '').trim();
   if (!nombre) return '';
@@ -344,7 +351,7 @@ export function construirInicialesAlumno(nombreCompleto: unknown): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase()
     .match(/[a-z0-9]+/g) ?? [];
-  const significativas = palabras.filter((palabra) => !particulas.has(palabra));
+  const significativas = palabras.filter((palabra) => palabra.length === 1 || !particulas.has(palabra));
   const iniciales = (significativas.length > 0 ? significativas : palabras)
     .map((palabra) => palabra.charAt(0))
     .join('')
@@ -372,7 +379,9 @@ function construirIdentidadCortaAlumno(params: {
   const primerNombreOriginal = tokensNombre[0] ?? '';
   const tokensRestantes = tieneNombresEstructurados
     ? [...nombres.slice(1), ...apellidos]
-    : tokensCompletos.filter((_, indice) => indice !== (tokensCompletos.length >= 3 ? 2 : 0));
+    : tokensCompletos.length >= 3
+      ? [...tokensCompletos.slice(3), ...tokensCompletos.slice(0, 2)]
+      : tokensCompletos.slice(1);
   const primerNombre = primerNombreOriginal
     ? `${primerNombreOriginal.charAt(0).toLocaleUpperCase('es-MX')}${primerNombreOriginal.slice(1).toLocaleLowerCase('es-MX')}`
     : '';

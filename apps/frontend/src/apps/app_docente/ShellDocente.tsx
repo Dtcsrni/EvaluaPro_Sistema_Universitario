@@ -9,6 +9,7 @@ import { Icono } from '../../ui/iconos';
 import { TemaBoton } from '../../tema/TemaBoton';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { abrirVentanaVersion, obtenerVersionTecnicaApp } from '../../ui/version/versionInfo';
+import { UpdateAvailabilityBanner } from '../../ui/version/UpdateAvailabilityBanner';
 import { EVENTO_FOTO_PERFIL_DOCENTE, obtenerFotoPerfilLocal } from './fotoPerfilDocente';
 import type { Docente } from './tipos';
 
@@ -127,6 +128,7 @@ export function ShellDocente({
           </div>
         </div>
       </div>
+      <UpdateAvailabilityBanner />
       <div className="shell-docente__content">
         {children}
       </div>

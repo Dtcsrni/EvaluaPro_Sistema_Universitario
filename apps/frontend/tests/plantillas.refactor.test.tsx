@@ -35,7 +35,8 @@ function HarnessPlantillas({
   preguntas = [],
   alumnos = [] as Alumno[],
   enviarConPermiso = async () => ({}),
-  onRefrescar = () => {}
+  onRefrescar = () => {},
+  plantillasTrasRefrescar = [] as Plantilla[]
 }: {
   permisosEntrada?: PermisosUI;
   plantillas?: Plantilla[];
@@ -43,8 +44,10 @@ function HarnessPlantillas({
   alumnos?: Alumno[];
   enviarConPermiso?: (permiso: string, ruta: string, payload: Record<string, unknown>, mensaje?: string) => Promise<unknown>;
   onRefrescar?: () => void;
+  plantillasTrasRefrescar?: Plantilla[];
 }) {
   const [previewPorPlantillaId, setPreviewPorPlantillaId] = useState<Record<string, PreviewPlantilla>>({});
+  const [catalogoPlantillas, setCatalogoPlantillas] = useState(plantillas);
   const [cargandoPreviewPlantillaId, setCargandoPreviewPlantillaId] = useState<string | null>(null);
   const [plantillaPreviewId, setPlantillaPreviewId] = useState<string | null>(null);
   const [previewPdfUrlPorPlantillaId, setPreviewPdfUrlPorPlantillaId] = useState<
@@ -54,7 +57,7 @@ function HarnessPlantillas({
 
   return (
     <SeccionPlantillas
-      plantillas={plantillas}
+      plantillas={catalogoPlantillas}
       periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
       preguntas={preguntas}
       alumnos={alumnos}
@@ -71,7 +74,12 @@ function HarnessPlantillas({
       setPreviewPdfUrlPorPlantillaId={setPreviewPdfUrlPorPlantillaId}
       cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
       setCargandoPreviewPdfPlantillaId={setCargandoPreviewPdfPlantillaId}
-      onRefrescar={onRefrescar}
+      onRefrescar={() => {
+        if (plantillasTrasRefrescar.length > 0) {
+          setCatalogoPlantillas((actuales) => [...actuales, ...plantillasTrasRefrescar]);
+        }
+        onRefrescar();
+      }}
     />
   );
 }
@@ -145,6 +153,10 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByRole('heading', { name: /Generación de exámenes/i })).toBeInTheDocument();
     expect(screen.getByText('OMR canónico · v4')).toBeInTheDocument();
     expect(screen.getByText(/Producción OMR, Folios Únicos y Códigos QR/i)).toBeInTheDocument();
+    const formatoLote = screen.getByRole('group', { name: /Formato de salida del lote/i });
+    expect(within(formatoLote).getByRole('button', { name: /PDF · lote consolidado/i })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(formatoLote).getByRole('button', { name: /ZIP · PDFs individuales/i }));
+    expect(within(formatoLote).getByRole('button', { name: /ZIP · PDFs individuales/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('heading', { name: /Plantillas existentes/i })).not.toBeInTheDocument();
 
     // Cambiar a Pestaña 3 (Historial)
@@ -153,6 +165,30 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getAllByText('OMR canónico · v4').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/Custodia, Descargas y Trazabilidad OMR/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /OMR canónico · v4/i })).toBeInTheDocument();
+  });
+
+  it('exige seleccionar grupo cuando la plantilla tiene varios padrones y calcula solo el grupo elegido', () => {
+    render(
+      <HarnessPlantillas
+        plantillas={[{ _id: 'pla-1', titulo: 'Primer Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] } as Plantilla]}
+        alumnos={[
+          { _id: 'a-1', matricula: 'M-1', nombreCompleto: 'Ana A', periodoId: 'per-1', grupo: 'A', activo: true },
+          { _id: 'a-2', matricula: 'M-2', nombreCompleto: 'Luis A', periodoId: 'per-1', grupo: 'A', activo: true },
+          { _id: 'b-1', matricula: 'M-3', nombreCompleto: 'Eva B', periodoId: 'per-1', grupo: 'B', activo: true }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Plantilla base para el examen/i }), { target: { value: 'pla-1' } });
+    const selectorGrupo = screen.getByRole('combobox', { name: 'Grupo destinatario del lote' });
+    expect(selectorGrupo).toHaveValue('');
+    expect(screen.getByText(/Alumnos del grupo:/)).toHaveTextContent(/Alumnos del grupo:\s*0/);
+    expect(screen.getByRole('button', { name: /Generar lote PDF consolidado/i })).toBeDisabled();
+
+    fireEvent.change(selectorGrupo, { target: { value: 'B' } });
+    expect(screen.getByText(/Alumnos del grupo:/)).toHaveTextContent(/Alumnos del grupo:\s*1/);
+    expect(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumnos\)/i })).toBeEnabled();
   });
 
   it('permite seleccionar destinatarios al elegir el tipo extraordinario', () => {
@@ -234,7 +270,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
 
     // En pestaña de generación
     fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
-    expect(screen.getByRole('button', { name: /Generar paquete de exámenes/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Generar lote PDF consolidado/i })).toBeDisabled();
   });
 
   it('aplica filtro de listado por título en la pestaña de diseño', () => {
@@ -306,15 +342,18 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(ruta).toBe('/examenes/plantillas/pla-1');
     expect(payload.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
     await waitFor(() => expect(onRefrescar).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    expect(screen.getByRole('combobox', { name: /Plantilla base para el examen/i })).toHaveValue('pla-1');
   });
 
   it('crea una plantilla con un clientRequestId estable y refresca el listado al confirmar éxito', async () => {
-    const enviarConPermiso = vi.fn(async () => ({}));
+    const enviarConPermiso = vi.fn(async () => ({ plantilla: { _id: 'pla-nueva' } }));
     const onRefrescar = vi.fn();
     render(
       <HarnessPlantillas
         enviarConPermiso={enviarConPermiso}
         onRefrescar={onRefrescar}
+        plantillasTrasRefrescar={[{ _id: 'pla-nueva', titulo: 'Nuevo examen', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] }]}
         preguntas={[{ _id: 'pre-1', periodoId: 'per-1', tema: 'Algebra', versiones: [{ enunciado: 'Pregunta' }] }]}
       />
     );
@@ -329,6 +368,8 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(ruta).toBe('/examenes/plantillas');
     expect(payload.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
     await waitFor(() => expect(onRefrescar).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    expect(screen.getByRole('combobox', { name: /Plantilla base para el examen/i })).toHaveValue('pla-nueva');
   });
 
   it('elimina una plantilla con un clientRequestId y refresca solo después de confirmar', async () => {

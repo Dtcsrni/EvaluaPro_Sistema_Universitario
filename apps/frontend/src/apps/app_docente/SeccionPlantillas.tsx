@@ -1,7 +1,7 @@
 /** Seccion de plantillas y generacion de examenes (orquestacion UI + handlers). */
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { accionToastSesionParaError, ErrorRemoto } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
@@ -52,7 +52,7 @@ type ProgresoLoteGeneracion = {
   generados: number;
   porcentaje: number;
   completado: boolean;
-  estado: 'iniciando' | 'generando' | 'completado' | 'fallido' | 'archivado';
+  estado: 'validando' | 'iniciando' | 'generando' | 'completado' | 'fallido' | 'archivado';
 };
 
 type LotePdfArchivadoResumen = {
@@ -503,8 +503,7 @@ export function SeccionPlantillas({
     setProgresoLoteGeneracion(null);
     void cargarExamenesGenerados();
   }, [plantillaId, cargarExamenesGenerados]);
-
-  const { descargarPdfExamen, descargarPdfLote, descargarPdfLotePorId, regenerarPdfExamen, eliminarExamenGenerado } = usePlantillasGeneradosActions({
+  const { descargarPdfExamen, descargarPdfLote, descargarPdfLotePorId, descargarZipLote, descargarZipLotePorId, regenerarPdfExamen, eliminarExamenGenerado } = usePlantillasGeneradosActions({
     avisarSinPermiso,
     puedeDescargarExamenes,
     puedeRegenerarExamenes,
@@ -520,21 +519,17 @@ export function SeccionPlantillas({
     enviarConPermiso,
     lotePdfUrl
   });
-
-  const descargarPaquete = useCallback(
-    async (loteId: string) => {
-      const lote = String(loteId || '').trim();
-      if (!lote || descargandoLoteId === lote) return;
-      try {
-        setDescargandoLoteId(lote);
-        await descargarPdfLotePorId(lote);
-      } finally {
-        setDescargandoLoteId(null);
-      }
-    },
-    [descargandoLoteId, descargarPdfLotePorId]
-  );
-
+  const descargarPaquete = useCallback(async (loteId: string) => {
+    const lote = String(loteId || '').trim(); if (!lote || descargandoLoteId === lote) return;
+    setDescargandoLoteId(lote);
+    try { await descargarPdfLotePorId(lote); } finally { setDescargandoLoteId(null); }
+  }, [descargandoLoteId, descargarPdfLotePorId]);
+  const descargarZipPaquete = useCallback(async (loteId: string) => {
+    const lote = String(loteId || '').trim();
+    if (!lote || descargandoLoteId === lote) return;
+    setDescargandoLoteId(lote);
+    try { await descargarZipLotePorId(lote); } finally { setDescargandoLoteId(null); }
+  }, [descargandoLoteId, descargarZipLotePorId]);
   const regenerarPaquete = useCallback(
     async (loteId: string, examenesLote: ExamenGeneradoResumen[]) => {
       const lote = String(loteId || '').trim();
@@ -956,13 +951,14 @@ export function SeccionPlantillas({
       const clientRequestId = obtenerClientRequestIdPlantilla('actualizar', plantillaEditandoId, payload);
       payload.clientRequestId = clientRequestId;
 
-      await enviarConPermiso(
+      await enviarConPermiso<{ plantilla?: { _id?: string } }>(
         'plantillas:gestionar',
         `/examenes/plantillas/${encodeURIComponent(plantillaEditandoId)}`,
         payload,
         'No tienes permiso para editar plantillas.'
       );
       confirmarClientRequestIdPlantilla('actualizar', plantillaEditandoId, clientRequestId);
+      setPlantillaId(plantillaEditandoId);
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla actualizada', durationMs: 2200 });
       registrarAccionDocente('actualizar_plantilla', true, Date.now() - inicio);
       cancelarEdicion();
@@ -1099,13 +1095,14 @@ export function SeccionPlantillas({
       const clientRequestId = obtenerClientRequestIdPlantilla('crear', null, payload);
       payload.clientRequestId = clientRequestId;
 
-      await enviarConPermiso(
+      const respuesta = await enviarConPermiso<{ plantilla?: { _id?: string } }>(
         'plantillas:gestionar',
         '/examenes/plantillas',
         payload,
         'No tienes permiso para crear plantillas.'
       );
       confirmarClientRequestIdPlantilla('crear', null, clientRequestId);
+      if (respuesta?.plantilla?._id) setPlantillaId(String(respuesta.plantilla._id));
       setMensaje('Plantilla creada');
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla creada', durationMs: 2200 });
       registrarAccionDocente('crear_plantilla', true, Date.now() - inicio);
@@ -1188,29 +1185,36 @@ export function SeccionPlantillas({
     puedeGenerarExamenes
   ]);
 
-  const generarExamenesLote = useCallback(async (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[] }) => {
+  const generarExamenesLote = useCallback(async (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[]; grupo?: string }) => {
     const tipoExamen = opciones?.tipoExamen;
     const alumnosSolicitados = opciones?.alumnoIds ?? [];
+    const grupoSolicitado = String(opciones?.grupo ?? '').trim();
     const alumnoIds = tipoExamen === 'extraordinario' ? [...new Set(alumnosSolicitados)].sort() : undefined;
     if (tipoExamen === 'extraordinario' && (!alumnoIds?.length || alumnoIds.length !== alumnosSolicitados.length)) {
       setMensajeGeneracion('Selecciona uno o más alumnos distintos para generar el extraordinario.');
       return;
     }
-    const claveRecuperacion = crearClaveLoteGeneracion(plantillaId, tipoExamen, alumnoIds);
+    const alumnosActivosPeriodo = Array.isArray(alumnos)
+      ? alumnos.filter((alumno) => alumno.activo !== false && String(alumno.periodoId ?? '') === String(plantillaSeleccionada?.periodoId ?? ''))
+      : [];
+    const gruposPeriodo = [...new Set(alumnosActivosPeriodo.map((alumno) => String(alumno.grupo ?? '').trim()).filter(Boolean))];
+    const grupoEfectivo = tipoExamen === 'extraordinario'
+      ? undefined
+      : grupoSolicitado || (gruposPeriodo.length === 1 ? gruposPeriodo[0] : '');
+    if (tipoExamen !== 'extraordinario' && (!grupoEfectivo || !gruposPeriodo.includes(grupoEfectivo))) {
+      setMensajeGeneracion(gruposPeriodo.length > 1
+        ? 'Selecciona un grupo válido antes de generar el lote.'
+        : 'No hay un grupo con alumnos activos para la plantilla seleccionada.');
+      return;
+    }
+    const claveRecuperacion = crearClaveLoteGeneracion(plantillaId, tipoExamen, alumnoIds, grupoEfectivo);
     const lotePendiente = leerLotePendiente(claveRecuperacion) ??
       (progresoLoteGeneracion?.estado === 'fallido' && progresoLoteGeneracion.claveRecuperacion === claveRecuperacion
         ? progresoLoteGeneracion.loteId
         : null);
     const cantidadAlumnos = tipoExamen === 'extraordinario'
       ? alumnoIds?.length ?? 0
-      : Array.isArray(alumnos)
-        ? alumnos.filter(
-            (alumno) =>
-              (alumno as unknown as { activo?: unknown })?.activo !== false &&
-              String((alumno as unknown as { periodoId?: unknown })?.periodoId ?? '') ===
-                String((plantillaSeleccionada as unknown as { periodoId?: unknown })?.periodoId ?? '')
-          ).length
-        : 0;
+      : alumnosActivosPeriodo.filter((alumno) => String(alumno.grupo ?? '').trim() === grupoEfectivo).length;
     const ok = await confirm({
       title: lotePendiente
         ? tipoExamen === 'extraordinario' ? 'Reanudar extraordinarios' : 'Reanudar paquete incompleto'
@@ -1219,7 +1223,7 @@ export function SeccionPlantillas({
         ? 'Se reanudará el mismo lote, conservando los exámenes ya generados y verificados.'
         : tipoExamen === 'extraordinario'
           ? `Se generarán exámenes extraordinarios únicamente para los ${cantidadAlumnos} alumnos seleccionados. Sus calificaciones quedarán separadas de parciales y globales.`
-          : 'Se generarán exámenes para todos los alumnos activos de la materia seleccionada.',
+          : `Se generarán ${cantidadAlumnos} exámenes para el grupo ${grupoEfectivo}.`,
       details: ['Asegúrate de que plantilla, alumnos y banco estén listos antes de continuar.'],
       confirmLabel: lotePendiente
         ? 'Sí, reanudar lote'
@@ -1234,16 +1238,7 @@ export function SeccionPlantillas({
     );
     guardarLotePendiente(claveRecuperacion, loteCliente);
 
-    const totalEsperadoInicial = tipoExamen === 'extraordinario'
-      ? cantidadAlumnos
-      : Array.isArray(alumnos)
-      ? alumnos.filter(
-          (alumno) =>
-            (alumno as unknown as { activo?: unknown })?.activo !== false &&
-            String((alumno as unknown as { periodoId?: unknown })?.periodoId ?? '') ===
-              String((plantillaSeleccionada as unknown as { periodoId?: unknown })?.periodoId ?? '')
-        ).length
-      : 0;
+    const totalEsperadoInicial = cantidadAlumnos;
 
     setProgresoLoteGeneracion({
       loteId: loteCliente,
@@ -1252,7 +1247,7 @@ export function SeccionPlantillas({
       generados: 0,
       porcentaje: 0,
       completado: false,
-      estado: lotePendiente ? 'generando' : 'iniciando'
+      estado: 'validando'
     });
 
     let sondeoActivo = true;
@@ -1263,7 +1258,7 @@ export function SeccionPlantillas({
       sondeoEnCurso = true;
       try {
         const progreso = await clienteApi.obtener<ProgresoLoteGeneracion>(
-          `/examenes/generados/lote/${encodeURIComponent(lote)}/progreso?plantillaId=${encodeURIComponent(plantillaId)}`
+          `/examenes/generados/lote/${encodeURIComponent(lote)}/progreso?plantillaId=${encodeURIComponent(plantillaId)}&grupo=${encodeURIComponent(grupoEfectivo ?? '')}&totalEsperado=${encodeURIComponent(String(totalEsperadoInicial))}`
         );
         if (!sondeoActivo) return;
         setProgresoLoteGeneracion((anterior) => ({
@@ -1273,9 +1268,7 @@ export function SeccionPlantillas({
           generados: Number(progreso?.generados ?? 0),
           porcentaje: Number(progreso?.porcentaje ?? 0),
           completado: Boolean(progreso?.completado),
-          estado:
-            (progreso?.estado as ProgresoLoteGeneracion['estado'] | undefined) ??
-            (Number(progreso?.generados ?? 0) > 0 ? 'generando' : 'iniciando')
+          estado: (progreso?.estado as ProgresoLoteGeneracion['estado'] | undefined) ?? (Number(progreso?.generados ?? 0) > 0 ? 'generando' : 'validando')
         }));
       } catch {
         // no-op: el sondeo puede arrancar antes de que exista el primer examen del lote.
@@ -1311,7 +1304,7 @@ export function SeccionPlantillas({
           plantillaId,
           confirmarMasivo: true,
           loteId: loteCliente,
-          ...(tipoExamen === 'extraordinario' ? { tipoExamen, alumnoIds } : {})
+          ...(tipoExamen === 'extraordinario' ? { tipoExamen, alumnoIds } : { grupo: grupoEfectivo })
         },
         'No tienes permiso para generar examenes.',
         {
@@ -1347,16 +1340,13 @@ export function SeccionPlantillas({
       registrarAccionDocente('generar_examenes_lote', true, Date.now() - inicio);
       await cargarExamenesGenerados();
     } catch (error) {
-      setProgresoLoteGeneracion((anterior) => anterior ? { ...anterior, completado: false, estado: 'fallido' } : null);
+      const errorEnPrevalidacion = error instanceof ErrorRemoto && (error.detalle.detalles as { etapa?: unknown } | undefined)?.etapa === 'prevalidacion';
+      if (errorEnPrevalidacion) guardarLotePendiente(claveRecuperacion, null);
+      setProgresoLoteGeneracion(errorEnPrevalidacion ? null : (anterior) => anterior ? { ...anterior, completado: false, estado: 'fallido' } : null);
       const msg = mensajeDeError(error, 'No se pudo generar en lote');
-      setMensajeGeneracion(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo generar en lote',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setMensajeGeneracion(`${msg}${errorEnPrevalidacion ? ' No se guardó ningún examen y puedes corregir la plantilla antes de iniciar otro lote.' : ''}`);
+      emitToast({ level: 'error', title: 'No se pudo generar en lote', message: msg, durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente') });
       registrarAccionDocente('generar_examenes_lote', false);
     } finally {
       sondeoActivo = false;
@@ -1437,7 +1427,6 @@ export function SeccionPlantillas({
             <p className="nota">Configura estructura, temas y genera paquetes impresos en PDF con códigos QR y hojas OMR.</p>
           </div>
         </div>
-
         {/* Header Actions & Mini-KPIs */}
         <div className="plantillas-header-right">
           <div className="plantillas-header-actions">
@@ -1462,7 +1451,6 @@ export function SeccionPlantillas({
               </Boton>
             )}
           </div>
-
           <div className="banco-header-kpis" aria-live="polite">
             <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Total de plantillas configuradas">
               <span className="banco-mini-kpi__icon" aria-hidden="true">
@@ -1474,7 +1462,6 @@ export function SeccionPlantillas({
               <span className="banco-mini-kpi__num">{resumenPlantillas.total}</span>
               <span className="banco-mini-kpi__lbl">Plantillas</span>
             </div>
-
             <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Plantillas con unidades temáticas asignadas">
               <span className="banco-mini-kpi__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -1486,7 +1473,6 @@ export function SeccionPlantillas({
               <span className="banco-mini-kpi__num">{resumenPlantillas.conTemas}</span>
               <span className="banco-mini-kpi__lbl">Con temas</span>
             </div>
-
             <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Total de temas vinculados en plantillas">
               <span className="banco-mini-kpi__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -1603,7 +1589,6 @@ export function SeccionPlantillas({
       {tabActiva === 'generacion' && (
         <div className="anim-fade-in" role="tabpanel" aria-label="Generar Paquete PDF/OMR">
           <GuiaGeneracionExamenesVisual />
-
           <PlantillasConsolaGeneracion
             plantillaId={plantillaId}
             setPlantillaId={setPlantillaId}
@@ -1621,6 +1606,7 @@ export function SeccionPlantillas({
             mensajeGeneracion={mensajeGeneracion}
             lotePdfUrl={lotePdfUrl}
             descargarPdfLote={descargarPdfLote}
+            descargarZipLote={descargarZipLote}
             progresoLoteGeneracion={progresoLoteGeneracion}
             onPrevisualizarExtraordinario={previsualizarPdfConfirmado}
             onIrAHistorial={() => cambiarTab('historial')}
@@ -1632,7 +1618,6 @@ export function SeccionPlantillas({
       {tabActiva === 'historial' && (
         <div className="anim-fade-in" role="tabpanel" aria-label="Historial de Lotes">
           <GuiaHistorialLotesVisual />
-
           <PlantillasHistorialLotes
             cargandoExamenesGenerados={cargandoExamenesGenerados}
             examenesGenerados={examenesGenerados}
@@ -1651,6 +1636,7 @@ export function SeccionPlantillas({
             regenerandoLoteId={regenerandoLoteId}
             eliminandoLoteId={eliminandoLoteId}
             onDescargarPaquete={descargarPaquete}
+            onDescargarZipPaquete={descargarZipPaquete}
             onRegenerarPaquete={regenerarPaquete}
             onEliminarPaquete={eliminarPaquete}
             lotesArchivados={lotesArchivados}
@@ -1661,7 +1647,6 @@ export function SeccionPlantillas({
             restaurandoLoteId={restaurandoLoteId}
             onRestaurarPaquete={restaurarPaquete}
           />
-
           <PlantillasOmrWorkflow
             assessmentDetalle={assessmentDetalle}
             trabajosOmr={trabajosOmr}

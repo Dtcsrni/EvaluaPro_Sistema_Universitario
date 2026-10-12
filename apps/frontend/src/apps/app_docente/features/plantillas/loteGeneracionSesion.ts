@@ -7,9 +7,10 @@ function clavePorPlantilla(plantillaId: string) {
 export function crearClaveLoteGeneracion(
   plantillaId: string,
   tipoExamen?: 'extraordinario',
-  alumnoIds: string[] = []
+  alumnoIds: string[] = [],
+  grupo?: string
 ) {
-  if (tipoExamen !== 'extraordinario') return plantillaId;
+  if (tipoExamen !== 'extraordinario') return grupo ? `${plantillaId}:grupo:${encodeURIComponent(grupo.trim())}` : plantillaId;
   return `${plantillaId}:extraordinario:${[...alumnoIds].sort().join(',')}`;
 }
 

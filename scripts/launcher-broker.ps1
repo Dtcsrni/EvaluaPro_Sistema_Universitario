@@ -443,8 +443,116 @@ function Resolve-HubExecutablePath {
   return $null
 }
 
+function Resolve-LatestStableHubExecutablePath([string]$CurrentHubPath) {
+  if ([string]::IsNullOrWhiteSpace($CurrentHubPath) -or -not (Test-Path -LiteralPath $CurrentHubPath -PathType Leaf)) { return $CurrentHubPath }
+  $partialPath = ''
+  try {
+    $config = Get-Content -LiteralPath $updateConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$config.channel -ne 'stable' -or [string]$config.flavorId -ne 'docente-local' -or -not [bool]$config.autoCheckEnabled) { return $CurrentHubPath }
+    $owner = [string]$config.owner
+    $repo = [string]$config.repo
+    if ($owner -ne 'Dtcsrni' -or $repo -ne 'EvaluaPro_Sistema_Universitario') { throw 'Repositorio de actualizacion no permitido.' }
+
+    Add-Type -AssemblyName System.Windows.Forms
+    $headers = @{ Accept = 'application/vnd.github+json'; 'User-Agent' = 'EvaluaPro-InstallerHub' }
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/latest" -Headers $headers -Method Get -TimeoutSec 20
+    if ($release.draft -or $release.prerelease) { throw 'La API devolvio una release no estable.' }
+    $tag = [string]$release.tag_name
+    if ($tag -notmatch '^v?(\d+\.\d+\.\d+)$') { throw "Tag estable invalido: $tag" }
+    $latestVersion = [version]$matches[1]
+    $releaseUri = [Uri][string]$release.html_url
+    if ($releaseUri.Scheme -ne 'https' -or $releaseUri.Host -ne 'github.com' -or $releaseUri.AbsolutePath -ne "/$owner/$repo/releases/tag/$tag") {
+      throw 'La URL de la release no pertenece al repositorio oficial.'
+    }
+
+    $currentVersion = $null
+    $currentProductVersion = [string](Get-Item -LiteralPath $CurrentHubPath).VersionInfo.ProductVersion
+    if ($currentProductVersion -match '(\d+\.\d+\.\d+)') { $currentVersion = [version]$matches[1] }
+    if ($null -eq $currentVersion) {
+      $package = Get-Content -LiteralPath (Join-Path $root 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+      if ([string]$package.version -notmatch '^\d+\.\d+\.\d+$') { throw 'La version instalada no se pudo validar.' }
+      $currentVersion = [version]$package.version
+    }
+    if ($latestVersion -le $currentVersion) { return $CurrentHubPath }
+
+    $configuredAssetName = [string]$config.assetName
+    $configuredChecksumName = [string]$config.sha256AssetName
+    if ($configuredAssetName -cne 'EvaluaPro-InstallerHub-docente-local.exe' -or $configuredChecksumName -cne "$configuredAssetName.sha256") { throw 'La configuración base de assets no corresponde al flavor docente-local.' }
+    $assetName = "EvaluaPro-InstallerHub-docente-local-v$($latestVersion.ToString()).exe"
+    $checksumName = "$assetName.sha256"
+    $installerAsset = @($release.assets) | Where-Object { [string]$_.name -ceq $assetName } | Select-Object -First 1
+    $checksumAsset = @($release.assets) | Where-Object { [string]$_.name -ceq $checksumName } | Select-Object -First 1
+    foreach ($asset in @($installerAsset, $checksumAsset)) {
+      $assetUri = [Uri][string]$asset.browser_download_url
+      if ($asset.name -notin @($assetName, $checksumName) -or $assetUri.Scheme -ne 'https' -or $assetUri.Host -ne 'github.com' -or $assetUri.AbsolutePath -notlike "/$owner/$repo/releases/download/$tag/*") {
+        throw 'La release no incluye assets oficiales compatibles.'
+      }
+    }
+
+    $updateDir = Join-Path (Join-Path $env:LOCALAPPDATA 'EvaluaPro\updates') $latestVersion.ToString()
+    if (-not (Test-Path -LiteralPath $updateDir)) { New-Item -ItemType Directory -Path $updateDir -Force | Out-Null }
+    $targetPath = Join-Path $updateDir $assetName
+    $partialPath = "$targetPath.partial"
+    $checksumResponse = Invoke-WebRequest -Uri ([string]$checksumAsset.browser_download_url) -Headers $headers -Method Get -TimeoutSec 30 -UseBasicParsing
+    $checksumFinalHost = [string]$checksumResponse.BaseResponse.ResponseUri.Host
+    if ($checksumFinalHost -notin @('github.com', 'release-assets.githubusercontent.com')) { throw 'El checksum redirigio a un host no permitido.' }
+    $checksumText = [string]$checksumResponse.Content
+    if ($checksumText -notmatch '(?im)^\s*([a-f0-9]{64})(?:\s+[* ].*)?\s*$') { throw 'El checksum de la release está mal formado.' }
+    $expectedHash = $matches[1].ToLowerInvariant()
+    $cachedHash = if (Test-Path -LiteralPath $targetPath) { (Get-FileHash -LiteralPath $targetPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+    $currentSignature = Get-AuthenticodeSignature -LiteralPath $CurrentHubPath
+    if ($cachedHash -eq $expectedHash) {
+      $cachedProductVersion = [string](Get-Item -LiteralPath $targetPath).VersionInfo.ProductVersion
+      $cachedVersion = $null
+      if ($cachedProductVersion -match '(\d+\.\d+\.\d+)') { $cachedVersion = [version]$matches[1] }
+      $cachedSignature = Get-AuthenticodeSignature -LiteralPath $targetPath
+      if ($cachedVersion -eq $latestVersion -and $currentSignature.Status -eq 'Valid' -and $cachedSignature.Status -eq 'Valid' -and
+          $currentSignature.SignerCertificate.Thumbprint -eq $cachedSignature.SignerCertificate.Thumbprint) {
+        return $targetPath
+      }
+    }
+
+    $answer = [System.Windows.Forms.MessageBox]::Show(
+      "Se encontró EvaluaPro v$($latestVersion.ToString()). Se descargará y verificará el Installer Hub firmado; después podrás revisar y confirmar la actualización. ¿Continuar?",
+      'EvaluaPro · Actualización disponible',
+      [System.Windows.Forms.MessageBoxButtons]::YesNo,
+      [System.Windows.Forms.MessageBoxIcon]::Question
+    )
+    if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return $CurrentHubPath }
+
+    if ($currentSignature.Status -ne 'Valid') { throw 'Windows no validó la firma del Installer Hub instalado.' }
+    Invoke-WebRequest -Uri ([string]$installerAsset.browser_download_url) -Headers $headers -Method Get -TimeoutSec 600 -UseBasicParsing -OutFile $partialPath
+    $actualHash = (Get-FileHash -LiteralPath $partialPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) { throw 'La suma SHA-256 del Installer Hub no coincide.' }
+    $newProductVersion = [string](Get-Item -LiteralPath $partialPath).VersionInfo.ProductVersion
+    if ($newProductVersion -notmatch '(\d+\.\d+\.\d+)' -or [version]$matches[1] -ne $latestVersion) { throw 'La version del ejecutable no coincide con el tag estable.' }
+    $newSignature = Get-AuthenticodeSignature -LiteralPath $partialPath
+    if ($newSignature.Status -ne 'Valid' -or $currentSignature.SignerCertificate.Thumbprint -ne $newSignature.SignerCertificate.Thumbprint) {
+      throw 'Windows no validó la firma del mismo editor en el Installer Hub descargado.'
+    }
+    Move-Item -LiteralPath $partialPath -Destination $targetPath -Force
+    return $targetPath
+  } catch {
+    Write-BrokerLog("No se pudo actualizar Installer Hub automáticamente: $($_.Exception.Message)")
+    try {
+      [System.Windows.Forms.MessageBox]::Show(
+        'No se pudo verificar la actualización del Hub. La instalación no se modificó; se abrirá el Hub actual.',
+        'EvaluaPro · No se pudo actualizar el Hub',
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+      ) | Out-Null
+    } catch { Write-BrokerLog('No se pudo mostrar el aviso; se abrirá el Hub instalado.') }
+    return $CurrentHubPath
+  } finally {
+    if ($partialPath -and (Test-Path -LiteralPath $partialPath)) {
+      try { Remove-Item -LiteralPath $partialPath -Force } catch {}
+    }
+  }
+}
+
 function Open-Hub {
   $hubExecutablePath = Resolve-HubExecutablePath
+  if ($hubExecutablePath) { $hubExecutablePath = Resolve-LatestStableHubExecutablePath -CurrentHubPath $hubExecutablePath }
   if ($hubExecutablePath) {
     Write-BrokerLog("Abriendo Hub empaquetado: $hubExecutablePath")
     Start-Process -FilePath $hubExecutablePath -WorkingDirectory (Split-Path -Path $hubExecutablePath -Parent) | Out-Null

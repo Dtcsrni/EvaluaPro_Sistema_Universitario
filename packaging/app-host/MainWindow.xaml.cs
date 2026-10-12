@@ -2,7 +2,11 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -10,6 +14,8 @@ using Forms = System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Win32;
+using WpfMessageBox = System.Windows.MessageBox;
 
 namespace EvaluaPro.AppHost;
 
@@ -564,15 +570,23 @@ public partial class MainWindow : Window
         MaximizeBtn.ToolTip = WindowState == WindowState.Maximized ? "Restaurar" : "Maximizar";
     }
 
-    private void AppWebView_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    private async void AppWebView_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         if (!e.Source.StartsWith("http://127.0.0.1:4173/", StringComparison.OrdinalIgnoreCase)) return;
 
         try
         {
             using var documento = JsonDocument.Parse(e.WebMessageAsJson);
-            if (!documento.RootElement.TryGetProperty("type", out var tipo) ||
-                tipo.GetString() != "EVALUAPRO_SELECT_SYNC_FOLDER") return;
+            if (!documento.RootElement.TryGetProperty("type", out var tipo)) return;
+            if (tipo.GetString() == "EVALUAPRO_UPDATE_HUB")
+            {
+                var version = documento.RootElement.TryGetProperty("version", out var versionElement)
+                    ? versionElement.GetString()
+                    : null;
+                await DownloadAndOpenLatestInstallerHubAsync(version ?? string.Empty);
+                return;
+            }
+            if (tipo.GetString() != "EVALUAPRO_SELECT_SYNC_FOLDER") return;
 
             using var dialogo = new Forms.FolderBrowserDialog
             {
@@ -592,6 +606,253 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Debug.WriteLine($"Error al seleccionar la carpeta de sincronización: {ex.Message}");
+        }
+    }
+
+    private async Task DownloadAndOpenLatestInstallerHubAsync(string requestedVersion)
+    {
+        if (!Version.TryParse(requestedVersion, out var requested) || requestedVersion.Contains('-'))
+        {
+            WpfMessageBox.Show(this, "La versión de actualización recibida no es válida.", "EvaluaPro · Actualización", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var updateRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro", "updates", requestedVersion);
+        var targetPath = Path.Combine(updateRoot, $"EvaluaPro-InstallerHub-docente-local-v{requestedVersion}.exe");
+        var partialPath = targetPath + ".partial";
+        try
+        {
+            using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true }) { Timeout = TimeSpan.FromMinutes(10) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("EvaluaPro-AppHost");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            using var latestResponse = await client.GetAsync(
+                "https://api.github.com/repos/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest",
+                HttpCompletionOption.ResponseHeadersRead);
+            latestResponse.EnsureSuccessStatusCode();
+            using var releaseJson = await JsonDocument.ParseAsync(await latestResponse.Content.ReadAsStreamAsync());
+            var release = releaseJson.RootElement;
+            var tag = release.TryGetProperty("tag_name", out var tagElement) ? tagElement.GetString() ?? string.Empty : string.Empty;
+            var releaseVersion = tag.TrimStart('v', 'V');
+            if (!Version.TryParse(releaseVersion, out var latest) || latest != requested)
+                throw new InvalidOperationException("La release cambió desde que se mostró el aviso. Vuelve a buscar actualizaciones.");
+            var installedVersion = ReadInstalledVersion();
+            if (latest <= installedVersion)
+            {
+                WpfMessageBox.Show(this, "Esta instalación ya está en la versión estable más reciente.", "EvaluaPro · Al día", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean())
+                throw new InvalidOperationException("La release está en borrador y no se puede instalar.");
+            if (release.TryGetProperty("prerelease", out var prerelease) && prerelease.GetBoolean())
+                throw new InvalidOperationException("La release es beta y no corresponde al canal estable.");
+            var releaseUrl = release.TryGetProperty("html_url", out var htmlElement) ? htmlElement.GetString() ?? string.Empty : string.Empty;
+            if (releaseUrl != $"https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/tag/{tag}")
+                throw new InvalidOperationException("La release no pertenece al repositorio oficial.");
+
+            var assets = release.GetProperty("assets").EnumerateArray().ToArray();
+            var installerName = $"EvaluaPro-InstallerHub-docente-local-v{releaseVersion}.exe";
+            var installer = ResolveReleaseAsset(assets, installerName);
+            var checksum = ResolveReleaseAsset(assets, $"{installerName}.sha256");
+            var answer = WpfMessageBox.Show(
+                this,
+                $"Se encontró EvaluaPro v{releaseVersion}. Se descargará y verificará el Installer Hub firmado; después podrás revisar y confirmar la actualización en el Hub.\n\n¿Continuar?",
+                "EvaluaPro · Actualización disponible",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (answer != MessageBoxResult.Yes) return;
+
+            Directory.CreateDirectory(updateRoot);
+            var expectedHash = await ReadExpectedHashAsync(client, checksum);
+            if (!File.Exists(targetPath) || !HashMatches(targetPath, expectedHash))
+            {
+                if (File.Exists(partialPath)) File.Delete(partialPath);
+                using var response = await client.GetAsync(installer, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+                if (response.RequestMessage?.RequestUri is not Uri finalUri || !IsAllowedReleaseHost(finalUri.Host))
+                    throw new InvalidOperationException("La descarga salió de los dominios permitidos de GitHub.");
+                await using (var target = new FileStream(partialPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 128, useAsync: true))
+                await using (var source = await response.Content.ReadAsStreamAsync())
+                    await source.CopyToAsync(target);
+                if (!HashMatches(partialPath, expectedHash))
+                    throw new InvalidOperationException("La suma SHA-256 del instalador no coincide.");
+                File.Move(partialPath, targetPath, overwrite: true);
+            }
+
+            VerifySameTrustedPublisher(targetPath);
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = targetPath,
+                WorkingDirectory = updateRoot,
+                UseShellExecute = true
+            };
+            Process.Start(startInfo);
+            Close();
+        }
+        catch (Exception ex)
+        {
+            try { if (File.Exists(partialPath)) File.Delete(partialPath); } catch { }
+            WriteStartupDiagnostic($"Falló la actualización segura del Installer Hub: {ex.Message}");
+            WpfMessageBox.Show(this, "No se pudo preparar la actualización. La instalación actual no se modificó. Revisa conexión, firma del editor o el registro local de EvaluaPro.", "EvaluaPro · Actualización no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private static Uri ResolveReleaseAsset(JsonElement[] assets, string expectedName)
+    {
+        foreach (var asset in assets)
+        {
+            if (!asset.TryGetProperty("name", out var name) || name.GetString() != expectedName) continue;
+            if (!asset.TryGetProperty("browser_download_url", out var urlElement) ||
+                !Uri.TryCreate(urlElement.GetString(), UriKind.Absolute, out var url) ||
+                url.Scheme != Uri.UriSchemeHttps || !string.Equals(url.Host, "github.com", StringComparison.OrdinalIgnoreCase))
+                break;
+            return url;
+        }
+        throw new InvalidOperationException($"La release no incluye el asset oficial requerido: {expectedName}.");
+    }
+
+    private static async Task<string> ReadExpectedHashAsync(HttpClient client, Uri checksumUrl)
+    {
+        using var response = await client.GetAsync(checksumUrl, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+        if (response.RequestMessage?.RequestUri is not Uri finalUri || !IsAllowedReleaseHost(finalUri.Host))
+            throw new InvalidOperationException("El checksum salió de los dominios permitidos de GitHub.");
+        var content = await response.Content.ReadAsStringAsync();
+        var match = Regex.Match(content, @"^\s*([a-f0-9]{64})(?:\s+[* ].*)?\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!match.Success) throw new InvalidOperationException("El archivo de suma SHA-256 está mal formado.");
+        return match.Groups[1].Value.ToLowerInvariant();
+    }
+
+    private Version ReadInstalledVersion()
+    {
+        var packagePath = Path.Combine(appRoot, "package.json");
+        using var package = JsonDocument.Parse(File.ReadAllText(packagePath));
+        var version = package.RootElement.TryGetProperty("version", out var versionElement)
+            ? versionElement.GetString()
+            : null;
+        if (string.IsNullOrWhiteSpace(version) || !Version.TryParse(version, out var parsed))
+            throw new InvalidOperationException("No se pudo leer la versión instalada para bloquear degradaciones.");
+        return parsed;
+    }
+
+    private static bool HashMatches(string path, string expectedHash)
+    {
+        if (!File.Exists(path)) return false;
+        using var stream = File.OpenRead(path);
+        return string.Equals(Convert.ToHexString(SHA256.HashData(stream)), expectedHash, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAllowedReleaseHost(string host) =>
+        string.Equals(host, "github.com", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(host, "release-assets.githubusercontent.com", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(host, "objects.githubusercontent.com", StringComparison.OrdinalIgnoreCase);
+
+    private static void VerifySameTrustedPublisher(string installerPath)
+    {
+        var installedHubPath = ResolveInstalledHubPath();
+        if (!VerifyAuthenticode(installedHubPath) || !VerifyAuthenticode(installerPath))
+            throw new InvalidOperationException("Windows no validó la firma Authenticode del Hub instalado o del instalador descargado.");
+        using var installedCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(installedHubPath));
+        using var updateCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(installerPath));
+        if (!string.Equals(installedCert.Thumbprint, updateCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("El instalador está firmado por un editor distinto al del Hub instalado.");
+    }
+
+    private static string ResolveInstalledHubPath()
+    {
+        foreach (var registryRoot in new[] { Registry.CurrentUser, Registry.LocalMachine })
+        {
+            try
+            {
+                using var uninstallKey = registryRoot.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall");
+                if (uninstallKey is null) continue;
+                foreach (var subKeyName in uninstallKey.GetSubKeyNames())
+                {
+                    try
+                    {
+                        using var bundleKey = uninstallKey.OpenSubKey(subKeyName);
+                        var displayName = Convert.ToString(bundleKey?.GetValue("DisplayName")) ?? string.Empty;
+                        var cachedBundle = Convert.ToString(bundleKey?.GetValue("BundleCachePath")) ?? string.Empty;
+                        if (!displayName.Contains("EvaluaPro", StringComparison.OrdinalIgnoreCase) ||
+                            !Path.IsPathFullyQualified(cachedBundle) || !File.Exists(cachedBundle)) continue;
+
+                        var fileName = Path.GetFileName(cachedBundle);
+                        if (!fileName.StartsWith("EvaluaPro-InstallerHub-docente-local", StringComparison.OrdinalIgnoreCase) ||
+                            !fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
+                        return cachedBundle;
+                    }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        throw new InvalidOperationException("No se encontró en el registro el Installer Hub instalado para fijar la identidad del editor.");
+    }
+
+    private static bool VerifyAuthenticode(string path)
+    {
+        var fileInfo = new WinTrustFileInfo(path);
+        var fileInfoPointer = Marshal.AllocHGlobal(Marshal.SizeOf<WinTrustFileInfo>());
+        try
+        {
+            Marshal.StructureToPtr(fileInfo, fileInfoPointer, false);
+            var trustData = new WinTrustData(fileInfoPointer);
+            return WinVerifyTrust(IntPtr.Zero, new Guid("00AAC56B-CD44-11D0-8CC2-00C04FC295EE"), ref trustData) == 0;
+        }
+        finally
+        {
+            Marshal.DestroyStructure<WinTrustFileInfo>(fileInfoPointer);
+            Marshal.FreeHGlobal(fileInfoPointer);
+        }
+    }
+
+    [DllImport("wintrust.dll", ExactSpelling = true, PreserveSig = true)]
+    private static extern uint WinVerifyTrust(IntPtr hwnd, [MarshalAs(UnmanagedType.LPStruct)] Guid actionId, ref WinTrustData trustData);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private sealed class WinTrustFileInfo
+    {
+        public uint StructSize = (uint)Marshal.SizeOf<WinTrustFileInfo>();
+        [MarshalAs(UnmanagedType.LPWStr)] public string FilePath;
+        public IntPtr FileHandle;
+        public IntPtr KnownSubject;
+        public WinTrustFileInfo(string filePath) => FilePath = filePath;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WinTrustData
+    {
+        public uint StructSize;
+        public IntPtr PolicyCallbackData;
+        public IntPtr SipClientData;
+        public uint UiChoice;
+        public uint RevocationChecks;
+        public uint UnionChoice;
+        public IntPtr FileInfo;
+        public uint StateAction;
+        public IntPtr StateData;
+        public IntPtr UrlReference;
+        public uint ProviderFlags;
+        public uint UiContext;
+        public IntPtr SignatureSettings;
+
+        public WinTrustData(IntPtr fileInfo)
+        {
+            StructSize = (uint)Marshal.SizeOf<WinTrustData>();
+            PolicyCallbackData = IntPtr.Zero;
+            SipClientData = IntPtr.Zero;
+            UiChoice = 2;
+            RevocationChecks = 1;
+            UnionChoice = 1;
+            FileInfo = fileInfo;
+            StateAction = 0;
+            StateData = IntPtr.Zero;
+            UrlReference = IntPtr.Zero;
+            ProviderFlags = 0x00000080;
+            UiContext = 0;
+            SignatureSettings = IntPtr.Zero;
         }
     }
 

@@ -6,6 +6,7 @@
  */
 import { createHash, randomUUID } from 'crypto';
 import fs from 'node:fs/promises';
+import JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
 import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
@@ -28,6 +29,7 @@ import {
   construirFingerprintPreguntasPreview,
   construirNombrePdfExamen,
   construirNombrePdfLote,
+  construirNombreVisibleExamenLote,
   esEntornoTest,
   excluirReferenciasTecnologiaRetirada,
   mapearPreguntasBase,
@@ -336,12 +338,14 @@ async function generarExamenUseCaseInterno(params: {
 }
 
 const lotesEnGeneracion = new Set<string>();
+const etapasLotesGeneracion = new Map<string, 'validando' | 'generando'>();
 
 export async function generarExamenesLoteUseCase(params: {
   docenteId: unknown;
   plantillaId: string;
   confirmarMasivo?: boolean;
   loteId?: string;
+  grupo?: string;
   tipoExamen?: 'extraordinario';
   alumnoIds?: string[];
 }) {
@@ -364,6 +368,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   plantillaId: string;
   confirmarMasivo?: boolean;
   loteId?: string;
+  grupo?: string;
   tipoExamen?: 'extraordinario';
   alumnoIds?: string[];
 }) {
@@ -381,6 +386,9 @@ async function generarExamenesLoteUseCaseInterno(params: {
   }
   if (tipoExamen !== 'extraordinario' && params.alumnoIds) {
     throw new ErrorAplicacion('SELECCION_ALUMNOS_NO_ADMITIDA', 'La selección individual de alumnos solo está disponible para extraordinarios.', 400);
+  }
+  if (tipoExamen === 'extraordinario' && params.grupo) {
+    throw new ErrorAplicacion('GRUPO_NO_ADMITIDO', 'La selección de grupo se aplica solo a lotes ordinarios.', 400);
   }
   const esExtraordinarioArchivado = tipoExamen === 'extraordinario' && Boolean(plantilla.archivadoEn);
   if (plantilla.archivadoEn && !esExtraordinarioArchivado) {
@@ -435,13 +443,23 @@ async function generarExamenesLoteUseCaseInterno(params: {
     }
     alumnos = (params.alumnoIds ?? []).map((alumnoId) => alumnosPorId.get(alumnoId)!);
   } else {
-    alumnos = await prisma.alumno.findMany({
+    const alumnosActivos = await prisma.alumno.findMany({
       where: { periodoId: String(plantilla.periodoId), activo: true }
     });
+    const gruposActivos = [...new Set(alumnosActivos.map((alumno) => String(alumno.grupo ?? '').trim()).filter(Boolean))];
+    const grupo = String(params.grupo ?? '').trim() || (gruposActivos.length === 1 ? gruposActivos[0] : '');
+    if (!grupo && gruposActivos.length > 1) {
+      throw new ErrorAplicacion('GRUPO_REQUERIDO', 'Selecciona un grupo para limitar el lote a una sola cohorte.', 400, { gruposDisponibles: gruposActivos.sort() });
+    }
+    if (!grupo || !gruposActivos.includes(grupo)) {
+      throw new ErrorAplicacion('GRUPO_NO_VALIDO', 'El grupo seleccionado no tiene alumnos activos en la materia de la plantilla.', 400);
+    }
+    alumnos = alumnosActivos.filter((alumno) => String(alumno.grupo ?? '').trim() === grupo);
   }
-  const cohorteLoteHash = tipoExamen === 'extraordinario'
-    ? createHash('sha256').update([...(params.alumnoIds ?? [])].sort().join('\n')).digest('hex')
-    : null;
+  const grupoLote = tipoExamen === 'extraordinario' ? null : String(params.grupo ?? '').trim() || String(alumnos[0]?.grupo ?? '').trim();
+  const cohorteLoteHash = createHash('sha256')
+    .update(`${grupoLote ?? 'extraordinario'}\n${alumnos.map((alumno) => String(alumno.id)).sort().join('\n')}`)
+    .digest('hex');
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
   const esTest = esEntornoTest();
 
@@ -570,7 +588,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
       examenPrevio.plantillaId !== String(plantilla.id) ||
       (idsExtraordinario && !idsExtraordinario.has(alumnoId)) ||
       tipoExamenPrevio !== tipoExamen ||
-      (tipoExamen === 'extraordinario' && examenPrevio.cohorteLoteHash !== cohorteLoteHash)
+      examenPrevio.cohorteLoteHash !== cohorteLoteHash
     ) {
       throw new ErrorAplicacion(
         'LOTE_REANUDACION_INCOMPATIBLE',
@@ -636,13 +654,6 @@ async function generarExamenesLoteUseCaseInterno(params: {
     manifiestoPrevioPorAlumno.set(alumnoId, manifiestoPrevio as ReturnType<typeof construirRecoveryManifest>);
   }
 
-  if (examenesPrevios.length > 0) {
-    await prisma.examenGenerado.updateMany({
-      where: { docenteId: docId, loteId },
-      data: { estado: 'generando' }
-    });
-  }
-
   const firmasVariantesLote = new Set<string>();
   for (const examenPrevio of examenesPrevios) {
     const mapaVariantePrevio = parsearJsonPersistido<Parameters<typeof construirFirmaVariante>[0]>(examenPrevio.mapaVariante);
@@ -650,7 +661,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   }
   const maxIntentosVarianteUnica = Math.min(36, Math.max(10, totalAlumnos * 2));
 
-  const crearExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }) => {
+  const prepararExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }) => {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
       const preguntasCandidatas = esExtraordinarioArchivado
         ? preguntasBaseLote
@@ -663,7 +674,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
       try {
         const examenGeneradoId = randomUUID();
         const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
-          titulo: esExtraordinarioArchivado ? 'Examen Extraordinario' : plantilla.titulo,
+          titulo: esExtraordinarioArchivado ? 'Examen Extraordinario' : construirNombreVisibleExamenLote(plantilla.titulo),
           folio,
           loteId,
           examId: examenGeneradoId,
@@ -753,55 +764,20 @@ async function generarExamenesLoteUseCaseInterno(params: {
           pdfBytes,
           layoutVersion: 4
         });
-        const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
-        let raw: Awaited<ReturnType<typeof prisma.examenGenerado.create>>;
-        try {
-          raw = await prisma.$transaction(async (tx) => {
-            const examen = await tx.examenGenerado.create({
-              data: {
-                id: examenGeneradoId,
-                docenteId: docId,
-                periodoId: plantilla.periodoId ? String(plantilla.periodoId) : null,
-                plantillaId: String(plantilla.id),
-                tipoExamen,
-                cohorteLoteHash,
-                alumnoId: String(alumno.id),
-                loteId,
-                origenGeneracion: 'lote',
-                folio,
-                estado: 'generando',
-                mapaVariante: JSON.stringify(mapaVarianteUsada),
-                paginas: JSON.stringify(paginas),
-                mapaOmr: JSON.stringify(mapaOmr),
-                questionMap: JSON.stringify(snapshotVersiones.questionMap),
-                versionSet: JSON.stringify(snapshotVersiones.versionSet),
-                previewFingerprint: snapshotVersiones.previewFingerprint,
-                rutaPdf,
-                retentionStatus: 'active',
-                recoveryKeyId: recoveryManifest.keyId,
-                recoveryManifestHash: recoveryManifest.manifestHash,
-                recoveryManifest: JSON.stringify(recoveryManifest)
-              }
-            });
-            await tx.examenRecoveryManifest.create({
-              data: {
-                docenteId: docId,
-                manifestHash: recoveryManifest.manifestHash,
-                nombre: `manifest-${folio}`,
-                metadata: JSON.stringify(recoveryManifest)
-              }
-            });
-            return examen;
-          });
-        } catch (error) {
-          await eliminarArchivoExamen(rutaPdf);
-          throw error;
-        }
-
         if (paginasPorExamenLote === null) paginasPorExamenLote = resumenIndividual.paginas;
         firmasVariantesLote.add(firmaVariante);
 
-        return { examenGenerado: raw, pdfBytes, recoveryManifest };
+        return {
+          examenGeneradoId,
+          folio,
+          pdfBytes,
+          recoveryManifest,
+          nombreArchivo,
+          mapaVarianteUsada,
+          paginas,
+          mapaOmr,
+          snapshotVersiones
+        };
       } catch (error) {
         const msg = String((error as { message?: unknown }).message ?? '');
         if (msg.includes('E11000') && msg.toLowerCase().includes('folio')) {
@@ -813,21 +789,129 @@ async function generarExamenesLoteUseCaseInterno(params: {
     throw new ErrorAplicacion('FOLIO_COLISION', 'No se pudo generar un folio unico', 500);
   };
 
+  const persistirExamenPreparado = async (
+    alumno: { id: string },
+    preparado: Awaited<ReturnType<typeof prepararExamenSinAlumno>>
+  ) => {
+    const rutaPdf = await guardarPdfExamen(preparado.nombreArchivo, preparado.pdfBytes);
+    try {
+      const examenGenerado = await prisma.$transaction(async (tx) => {
+        const examen = await tx.examenGenerado.create({
+          data: {
+            id: preparado.examenGeneradoId,
+            docenteId: docId,
+            periodoId: plantilla.periodoId ? String(plantilla.periodoId) : null,
+            plantillaId: String(plantilla.id),
+            tipoExamen,
+            cohorteLoteHash,
+            alumnoId: String(alumno.id),
+            loteId,
+            origenGeneracion: 'lote',
+            folio: preparado.folio,
+            estado: 'generando',
+            mapaVariante: JSON.stringify(preparado.mapaVarianteUsada),
+            paginas: JSON.stringify(preparado.paginas),
+            mapaOmr: JSON.stringify(preparado.mapaOmr),
+            questionMap: JSON.stringify(preparado.snapshotVersiones.questionMap),
+            versionSet: JSON.stringify(preparado.snapshotVersiones.versionSet),
+            previewFingerprint: preparado.snapshotVersiones.previewFingerprint,
+            rutaPdf,
+            retentionStatus: 'active',
+            recoveryKeyId: preparado.recoveryManifest.keyId,
+            recoveryManifestHash: preparado.recoveryManifest.manifestHash,
+            recoveryManifest: JSON.stringify(preparado.recoveryManifest)
+          }
+        });
+        await tx.examenRecoveryManifest.create({
+          data: {
+            docenteId: docId,
+            manifestHash: preparado.recoveryManifest.manifestHash,
+            nombre: `manifest-${preparado.folio}`,
+            metadata: JSON.stringify(preparado.recoveryManifest)
+          }
+        });
+        return examen;
+      });
+      return { examenGenerado, pdfBytes: preparado.pdfBytes, recoveryManifest: preparado.recoveryManifest };
+    } catch (error) {
+      await eliminarArchivoExamen(rutaPdf);
+      throw error;
+    }
+  };
+
   const examenesGenerados: Array<{ _id: string; folio: string; generadoEn: Date }> = [];
   const pdfsLote: Uint8Array[] = [];
   const recoveryManifests: Array<ReturnType<typeof construirRecoveryManifest>> = [];
+  const examenesPreparadosPorAlumno = new Map<string, Awaited<ReturnType<typeof prepararExamenSinAlumno>>>();
+  const claveEtapaLote = `${docId}:${loteId}`;
+  etapasLotesGeneracion.set(claveEtapaLote, 'validando');
+  let alumnoEnValidacion: (typeof alumnos)[number] | undefined;
+  try {
+    // Preflight completo: renderizar y validar cada variante exacta antes de
+    // guardar folios, manifiestos, PDFs definitivos o exámenes en SQLite.
+    for (let indice = 0; indice < totalAlumnos; indice += 1) {
+      const alumno = alumnos[indice] as { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown };
+      const alumnoId = String(alumno.id);
+      if (examenPrevioPorAlumno.has(alumnoId)) continue;
+      alumnoEnValidacion = alumno;
+      const preparado = await prepararExamenSinAlumno(alumno);
+      examenesPreparadosPorAlumno.set(alumnoId, preparado);
+    }
+  } catch (error) {
+    etapasLotesGeneracion.delete(claveEtapaLote);
+    const errorOriginal = error as { codigo?: unknown; code?: unknown; message?: unknown; detalles?: unknown };
+    const alumnoId = String(alumnoEnValidacion?.id ?? '');
+    const nombreAlumno = String(alumnoEnValidacion?.nombreCompleto ?? [alumnoEnValidacion?.nombres, alumnoEnValidacion?.apellidos].filter(Boolean).join(' ') ?? '').trim();
+    const mensajeOriginal = String(errorOriginal.message ?? 'No se pudo validar el PDF individual.');
+    const codigoOriginal = String(errorOriginal.codigo ?? errorOriginal.code ?? 'LOTE_PREFLIGHT_INVALIDO');
+    const accionSugerida = codigoOriginal === 'LOTE_CANTIDAD_PAGINAS_INVALIDA'
+      ? 'Ajusta reactivos o páginas de la plantilla, actualiza su vista previa y vuelve a validar.'
+      : 'Corrige la plantilla o sus datos y vuelve a validar antes de iniciar el lote.';
+    throw new ErrorAplicacion(
+      codigoOriginal,
+      `${nombreAlumno ? `No se pudo validar el examen de ${nombreAlumno}. ` : ''}${mensajeOriginal} ${accionSugerida}`,
+      409,
+      {
+        ...(errorOriginal.detalles && typeof errorOriginal.detalles === 'object' ? errorOriginal.detalles as Record<string, unknown> : {}),
+        etapa: 'prevalidacion',
+        loteId,
+        alumnoId: alumnoId || undefined,
+        accionSugerida
+      }
+    );
+  }
+
+  etapasLotesGeneracion.set(claveEtapaLote, 'generando');
+  try {
+    if (examenesPrevios.length > 0) {
+      await prisma.examenGenerado.updateMany({
+        where: { docenteId: docId, loteId },
+        data: { estado: 'generando' }
+      });
+    }
+  } catch (error) {
+    etapasLotesGeneracion.delete(claveEtapaLote);
+    throw error;
+  }
+
   try {
     for (let indice = 0; indice < totalAlumnos; indice += 1) {
       const alumno = alumnos[indice] as { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown };
       const alumnoId = String(alumno.id);
       const examenExistente = examenPrevioPorAlumno.get(alumnoId);
+      const preparado = examenesPreparadosPorAlumno.get(alumnoId);
       const resultado = examenExistente
         ? {
             examenGenerado: examenExistente,
             pdfBytes: pdfPrevioPorAlumno.get(alumnoId),
             recoveryManifest: manifiestoPrevioPorAlumno.get(alumnoId)
           }
-        : await crearExamenSinAlumno(alumno);
+        : preparado
+          ? await persistirExamenPreparado(alumno, preparado)
+          : null;
+      if (!resultado) {
+        throw new ErrorAplicacion('LOTE_ARTEFACTO_INCOMPLETO', 'No se pudo recuperar un examen prevalidado del lote.', 409, { loteId, alumnoId });
+      }
       if (!resultado.pdfBytes || !resultado.recoveryManifest) {
         throw new ErrorAplicacion('LOTE_ARTEFACTO_INCOMPLETO', 'Falta un PDF o manifiesto requerido para consolidar el lote.', 409, { loteId, alumnoId });
       }
@@ -853,6 +937,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
       where: { docenteId: docId, loteId, estado: 'generando' },
       data: { estado: 'fallido' }
     }).catch(() => undefined);
+    etapasLotesGeneracion.delete(claveEtapaLote);
     throw error;
   }
 
@@ -920,6 +1005,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
       where: { docenteId: docId, loteId },
       data: { estado: 'generado' }
     });
+    etapasLotesGeneracion.delete(claveEtapaLote);
     lotePdfUrl = `/examenes/generados/lote/${encodeURIComponent(loteSafe)}/pdf`;
     return {
       loteId,
@@ -938,6 +1024,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
       where: { docenteId: docId, loteId, estado: 'generando' },
       data: { estado: 'fallido' }
     }).catch(() => undefined);
+    etapasLotesGeneracion.delete(claveEtapaLote);
     throw error;
   }
 }
@@ -946,6 +1033,8 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
   docenteId: unknown;
   loteId: string;
   plantillaId?: string;
+  grupo?: string;
+  totalEsperado?: number;
 }) {
   const docId = String(params.docenteId);
   const lote = normalizarLoteId(params.loteId);
@@ -971,13 +1060,19 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
   }
 
   let totalEsperado = 0;
-  if (params.plantillaId) {
+  if (Number.isSafeInteger(params.totalEsperado) && Number(params.totalEsperado) > 0) {
+    totalEsperado = Math.min(Number(params.totalEsperado), 500);
+  } else if (params.plantillaId) {
     const raw = await prisma.examenPlantilla.findFirst({
       where: { id: params.plantillaId, docenteId: docId }
     });
     if (raw && raw.periodoId) {
       totalEsperado = await prisma.alumno.count({
-        where: { periodoId: raw.periodoId, activo: true }
+        where: {
+          periodoId: raw.periodoId,
+          activo: true,
+          ...(typeof params.grupo === 'string' && params.grupo.trim() ? { grupo: params.grupo.trim() } : {})
+        }
       });
     }
   }
@@ -990,7 +1085,8 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
   const porcentajeBase = totalEsperado > 0 ? Math.round((generados / totalEsperado) * 100) : 0;
   const porcentaje = Math.max(0, Math.min(100, porcentajeBase));
   const completado = totalEsperado > 0 && listos >= totalEsperado && generados >= totalEsperado;
-  const estado = fallidos > 0 ? 'fallido' : completado ? 'completado' : generados > 0 ? 'generando' : 'iniciando';
+  const estado = etapasLotesGeneracion.get(`${docId}:${lote}`) ??
+    (fallidos > 0 ? 'fallido' : completado ? 'completado' : generados > 0 ? 'generando' : 'iniciando');
 
   return {
     loteId: lote,
@@ -1122,5 +1218,118 @@ export async function descargarPdfLoteUseCase(params: {
       examenesRegistrados: artefactoPersistido.totalExamenes
     });
   }
-  return { buffer, fileName, pdfSha256: artefactoPersistido?.sha256 ?? resumenPdf.sha256, totalPaginas: resumenPdf.paginas };
+  const nombreVisible = construirNombreVisibleExamenLote(plantilla?.titulo);
+  const fileNameDescarga = nombreVisible
+    ? `${normalizarParaNombreArchivo(nombreVisible, { maxLen: 48 }) || 'examen'}.pdf`
+    : fileName;
+  return { buffer, fileName: fileNameDescarga, pdfSha256: artefactoPersistido?.sha256 ?? resumenPdf.sha256, totalPaginas: resumenPdf.paginas };
+}
+
+export async function descargarZipLoteUseCase(params: { docenteId: unknown; loteId: string }) {
+  const docId = String(params.docenteId);
+  const lote = normalizarLoteId(params.loteId);
+  if (!lote) throw new ErrorAplicacion('LOTE_INVALIDO', 'Lote invalido', 400);
+
+  const artefacto = await prisma.examenLoteArtefactoPdf.findFirst({
+    where: { docenteId: docId, loteId: lote },
+    select: { archivadoEn: true, totalExamenes: true }
+  });
+  if (artefacto?.archivadoEn) {
+    throw new ErrorAplicacion('LOTE_ARCHIVADO', 'El lote está archivado; restáuralo antes de descargar.', 410, { loteId: lote });
+  }
+
+  const examenes = await prisma.examenGenerado.findMany({
+    where: { docenteId: docId, loteId: lote },
+    orderBy: { generadoEn: 'asc' }
+  });
+  if (!examenes.length) throw new ErrorAplicacion('LOTE_NO_ENCONTRADO', 'No se encontraron exámenes para este lote.', 404, { loteId: lote });
+  if (artefacto && Number(artefacto.totalExamenes) !== examenes.length) {
+    throw new ErrorAplicacion('LOTE_ZIP_CONTEO_INVALIDO', 'El registro del lote no coincide con sus exámenes individuales.', 409, {
+      loteId: lote,
+      examenesRegistrados: Number(artefacto.totalExamenes),
+      examenesEncontrados: examenes.length
+    });
+  }
+  if (examenes.some((examen) => examen.estado !== 'generado')) {
+    throw new ErrorAplicacion('LOTE_NO_COMPLETO', 'El ZIP no está listo: el lote contiene exámenes incompletos.', 409, {
+      loteId: lote,
+      examenesListos: examenes.filter((examen) => examen.estado === 'generado').length,
+      examenesEsperados: examenes.length
+    });
+  }
+  const folios = examenes.map((examen) => String(examen.folio ?? '').trim());
+  if (folios.some((folio) => !folio) || new Set(folios).size !== folios.length) {
+    throw new ErrorAplicacion('LOTE_FOLIOS_INVALIDOS', 'El lote contiene folios vacíos o duplicados; no se puede crear un ZIP seguro.', 409, { loteId: lote });
+  }
+
+  const archivos = new Set<string>();
+  const zip = new JSZip();
+  let paginasPorExamen: number | undefined;
+  for (const examen of examenes) {
+    const retention = construirMetadataRetencion(examen);
+    if (retention.retentionStatus === 'artifacts_purged') {
+      throw new ErrorAplicacion('EXAMEN_ARTIFACTOS_EXPURGADOS', 'Falta un PDF individual del lote por política de retención.', 410, {
+        loteId: lote,
+        folio: examen.folio,
+        ...retention
+      });
+    }
+    if (!examen.rutaPdf) {
+      throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'El registro no tiene ruta para su PDF individual.', 409, { loteId: lote, folio: examen.folio });
+    }
+
+    const mapa = parsearJsonPersistido<{ paginas?: Array<{ preguntas?: unknown[] }> }>(examen.mapaOmr);
+    const paginasOmr = Array.isArray(mapa?.paginas) ? mapa.paginas : [];
+    const preguntasEsperadas = paginasOmr.reduce((total, pagina) => total + (Array.isArray(pagina.preguntas) ? pagina.preguntas.length : 0), 0);
+    if (!paginasOmr.length || preguntasEsperadas < 1) {
+      throw new ErrorAplicacion('LOTE_MAPA_PAGINAS_INVALIDO', 'El mapa OMR guardado no permite comprobar un PDF individual.', 409, {
+        loteId: lote,
+        folio: examen.folio
+      });
+    }
+
+    let pdfBytes: Buffer;
+    try {
+      pdfBytes = await fs.readFile(examen.rutaPdf);
+    } catch {
+      throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'Falta un PDF individual del lote; no se creó el ZIP.', 409, { loteId: lote, folio: examen.folio });
+    }
+    const resumen = await validarPdfIndividualLoteAplicacion({
+      pdfBytes,
+      paginasMaximas: paginasOmr.length,
+      preguntasEsperadas,
+      folio: String(examen.folio),
+      mapaOmr: { paginas: paginasOmr as never[] }
+    });
+    if (paginasPorExamen !== undefined && resumen.paginas !== paginasPorExamen) {
+      throw new ErrorAplicacion('LOTE_PAGINACION_NO_UNIFORME', 'Los exámenes del lote tienen diferente número de páginas.', 409, {
+        loteId: lote,
+        folio: examen.folio,
+        paginasEsperadas: paginasPorExamen,
+        paginasEncontradas: resumen.paginas
+      });
+    }
+    paginasPorExamen = resumen.paginas;
+    const nombreArchivo = `${normalizarParaNombreArchivo(String(examen.folio), { maxLen: 48 }) || `examen-${examen.id}`}.pdf`;
+    if (archivos.has(nombreArchivo.toLocaleLowerCase('es-MX'))) {
+      throw new ErrorAplicacion('LOTE_NOMBRES_ARCHIVO_DUPLICADOS', 'Los folios producen nombres duplicados dentro del ZIP.', 409, { loteId: lote });
+    }
+    archivos.add(nombreArchivo.toLocaleLowerCase('es-MX'));
+    zip.file(nombreArchivo, pdfBytes);
+  }
+
+  const [plantilla, periodo] = await Promise.all([
+    examenes[0]?.plantillaId ? prisma.examenPlantilla.findUnique({ where: { id: String(examenes[0].plantillaId) } }) : null,
+    examenes[0]?.periodoId ? prisma.periodo.findUnique({ where: { id: String(examenes[0].periodoId) } }) : null
+  ]);
+  const nombreVisible = construirNombreVisibleExamenLote(plantilla?.titulo);
+  const nombreBase = nombreVisible || construirNombrePdfLote({
+    loteId: lote,
+    materiaNombre: String(periodo?.nombre ?? ''),
+    plantillaTitulo: String(plantilla?.titulo ?? ''),
+    totalExamenes: examenes.length
+  }).replace(/\.pdf$/i, '');
+  const fileName = `${normalizarParaNombreArchivo(nombreBase, { maxLen: 48 }) || 'examenes'}.zip`;
+  const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+  return { buffer, fileName, totalExamenes: examenes.length, totalPaginas: examenes.length * (paginasPorExamen ?? 0), paginasPorExamen };
 }

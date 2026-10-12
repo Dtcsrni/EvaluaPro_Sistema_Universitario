@@ -176,6 +176,7 @@ export const esquemaGenerarExamenesLote = z.object({
   plantillaId: esquemaObjectId,
   confirmarMasivo: z.boolean().optional(),
   loteId: z.string().trim().min(4).max(16).regex(/^[A-Za-z0-9_-]+$/).optional(),
+  grupo: z.string().trim().min(1).max(64).optional(),
   tipoExamen: z.literal('extraordinario').optional(),
   alumnoIds: z.array(esquemaObjectId).min(1).max(500).refine((ids) => new Set(ids).size === ids.length, 'No se permiten alumnos duplicados').optional()
 }).strict().superRefine((valor, contexto) => {
@@ -186,6 +187,12 @@ export const esquemaGenerarExamenesLote = z.object({
     contexto.addIssue({ code: z.ZodIssueCode.custom, path: ['tipoExamen'], message: 'La selección individual de alumnos solo está disponible para extraordinarios.' });
   }
 });
+
+export const esquemaProgresoGeneracionLote = z.object({
+  plantillaId: esquemaObjectId.optional(),
+  grupo: z.string().trim().min(1).max(64).optional(),
+  totalEsperado: z.coerce.number().int().min(1).max(500).optional()
+}).strict();
 
 export const esquemaRegenerarExamenGenerado = z
   .object({

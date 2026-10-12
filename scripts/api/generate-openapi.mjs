@@ -7,8 +7,24 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const entryPath = path.join(root, 'apps/backend/src/rutas.ts');
 const entry = await readFile(entryPath, 'utf8');
 const imports = new Map();
-for (const match of entry.matchAll(/import\s+([A-Za-z_$][\w$]*)\s*(?:,\s*\{[^}]*\})?\s+from\s+['"]([^'"]+)['"]/g)) {
-  if (match[2].includes('/rutas')) imports.set(match[1], `${match[2].replace(/^\./, 'apps/backend/src').replace(/\.js$/, '.ts')}`);
+for (const match of entry.matchAll(/import\s+([^;\n]+?)\s+from\s+['"]([^'"]+)['"]/g)) {
+  const importClause = match[1].trim();
+  const moduleSpecifier = match[2];
+  if (moduleSpecifier.includes('/rutas')) {
+    const defaultName = importClause.match(/^([A-Za-z_$][\w$]*)/)?.[1];
+    if (defaultName) imports.set(defaultName, moduleSpecifier.replace(/^\./, 'apps/backend/src').replace(/\.js$/, '.ts'));
+  }
+  if (moduleSpecifier.endsWith('/composition.js')) {
+    const compositionPath = path.resolve(root, moduleSpecifier.replace(/^\.\//, 'apps/backend/src/').replace(/\.js$/, '.ts'));
+    const composition = await readFile(compositionPath, 'utf8');
+    const routeExports = new Map([...composition.matchAll(/export\s+\{\s*default\s+as\s+([A-Za-z_$][\w$]*)\s*\}\s+from\s+['"]([^'"]+)['"]/g)]
+      .map((exportMatch) => [exportMatch[1], path.relative(root, path.resolve(path.dirname(compositionPath), exportMatch[2].replace(/\.js$/, '.ts'))).replaceAll('\\', '/') ]));
+    const namedImports = importClause.match(/\{([^}]+)\}/)?.[1] ?? '';
+    for (const imported of namedImports.split(',')) {
+      const localName = imported.trim().split(/\s+as\s+/).at(-1);
+      if (localName && routeExports.has(localName)) imports.set(localName, routeExports.get(localName));
+    }
+  }
 }
 
 const mounts = [];
@@ -192,6 +208,11 @@ const queryParametersByValidator = {
   esquemaListarAuditoriaPolitica: [
     { name: 'limite', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
     { name: 'cursor', in: 'query', required: false, schema: { type: 'string', minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' } }
+  ],
+  esquemaProgresoGeneracionLote: [
+    { name: 'plantillaId', in: 'query', required: false, schema: { type: 'string', minLength: 1 } },
+    { name: 'grupo', in: 'query', required: false, schema: { type: 'string', minLength: 1, maxLength: 64 } },
+    { name: 'totalEsperado', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 500 } }
   ]
 };
 
@@ -364,6 +385,51 @@ for (const mount of mounts) {
         '403': responseError,
         '409': responseError,
         default: responseError
+      };
+    }
+    if (fullPath === '/examenes/generados/lote' && method === 'post') {
+      rutaDeclarada.requestBody = {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['plantillaId'],
+              properties: {
+                plantillaId: { type: 'string', minLength: 1 },
+                confirmarMasivo: { type: 'boolean' },
+                loteId: { type: 'string', minLength: 4, maxLength: 16, pattern: '^[A-Za-z0-9_-]+$' },
+                grupo: { type: 'string', minLength: 1, maxLength: 64 },
+                tipoExamen: { type: 'string', const: 'extraordinario' },
+                alumnoIds: { type: 'array', minItems: 1, maxItems: 500, uniqueItems: true, items: { type: 'string' } }
+              },
+              additionalProperties: false
+            }
+          }
+        }
+      };
+    }
+    if (fullPath === '/examenes/generados/lote/{loteId}/zip' && method === 'get') {
+      rutaDeclarada.responses = {
+        '200': { description: 'Archivo ZIP con los exámenes PDF individuales del lote.', content: { 'application/zip': { schema: { type: 'string', format: 'binary' } } } },
+        '401': responseError,
+        '403': responseError,
+        '404': responseError,
+        '409': responseError,
+        '410': responseError,
+        default: responseError
+      };
+    }
+    if (fullPath === '/examenes/generados/lote/{loteId}/progreso' && method === 'get') {
+      rutaDeclarada.responses = {
+        ...(rutaDeclarada.responses ?? {}),
+        '200': {
+          description: 'Progreso de generación del lote y total de exámenes esperados para la cohorte seleccionada.',
+          content: { 'application/json': { schema: { type: 'object', required: ['loteId', 'totalEsperado', 'generados', 'fallidos', 'porcentaje', 'completado', 'estado'], properties: {
+            loteId: { type: 'string' }, totalEsperado: { type: 'integer', minimum: 0 }, generados: { type: 'integer', minimum: 0 }, fallidos: { type: 'integer', minimum: 0 },
+            porcentaje: { type: 'integer', minimum: 0, maximum: 100 }, completado: { type: 'boolean' }, estado: { type: 'string' }, archivadoEn: { type: 'string', format: 'date-time' }
+          }, additionalProperties: false } } }
+        }
       };
     }
     if (fullPath === '/examenes/generados' && method === 'post') {
@@ -613,6 +679,15 @@ for (const mount of mounts) {
           }
         };
       }
+    }
+    if (fullPath === '/examenes/generados/lote/{loteId}/zip' && method === 'get') {
+      operation.responses = {
+        ...operation.responses,
+        '200': { description: 'Archivo ZIP con los exámenes PDF individuales del lote.', content: { 'application/zip': { schema: { type: 'string', format: 'binary' } } } },
+        '404': responseError,
+        '409': responseError,
+        '410': responseError
+      };
     }
     item[method] = operation;
     routeCount += 1;
