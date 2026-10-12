@@ -123,6 +123,9 @@ function Read-InstallerRequestPayload {
   if ($null -ne $script:InstallerRequestPayload) { return $script:InstallerRequestPayload }
   $requestJson = ''
   if (-not [string]::IsNullOrWhiteSpace($RequestJsonBase64)) {
+    if ($RequestJsonBase64.Length -gt 21848) {
+      throw 'El snapshot codificado del handoff excede el límite seguro de 16 KiB.'
+    }
     try {
       $requestBytes = [Convert]::FromBase64String($RequestJsonBase64)
       if ($requestBytes.Length -gt 16384) { throw 'El snapshot del handoff excede el límite seguro de 16 KiB.' }
@@ -136,9 +139,13 @@ function Read-InstallerRequestPayload {
     if (($requestItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
       throw 'El archivo de solicitud es un enlace/reparse point y se rechaza.'
     }
-    $requestJson = [IO.File]::ReadAllText($requestItem.FullName, [Text.Encoding]::UTF8)
-    if ([Text.Encoding]::UTF8.GetByteCount($requestJson) -gt 16384) {
-      throw 'La solicitud Installer Hub excede el límite seguro de 16 KiB.'
+    $requestStream = [IO.File]::Open($requestItem.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+      if ($requestStream.Length -gt 16384) { throw 'La solicitud Installer Hub excede el límite seguro de 16 KiB.' }
+      $requestReader = New-Object System.IO.StreamReader($requestStream, [Text.Encoding]::UTF8, $true)
+      try { $requestJson = $requestReader.ReadToEnd() } finally { $requestReader.Dispose() }
+    } finally {
+      if ($requestStream) { $requestStream.Dispose() }
     }
   } else {
     throw 'Falta el contenido inmutable o la ruta del handoff Installer Hub.'

@@ -81,7 +81,14 @@ function Read-EvaluaProInstallerRequest {
       throw 'El archivo de solicitud es un enlace/reparse point y se rechaza.'
     }
     if ([string]::IsNullOrEmpty($JsonContent)) {
-      $JsonContent = [IO.File]::ReadAllText($item.FullName, [Text.Encoding]::UTF8)
+      $stream = [IO.File]::Open($item.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+      try {
+        if ($stream.Length -gt 16384) { throw 'La solicitud Installer Hub excede el límite seguro de 16 KiB.' }
+        $reader = New-Object System.IO.StreamReader($stream, [Text.Encoding]::UTF8, $true)
+        try { $JsonContent = $reader.ReadToEnd() } finally { $reader.Dispose() }
+      } finally {
+        if ($stream) { $stream.Dispose() }
+      }
     }
   } elseif ([string]::IsNullOrWhiteSpace($JsonContent)) {
     throw 'La validación de la solicitud requiere una ruta o un snapshot JSON inmutable.'
