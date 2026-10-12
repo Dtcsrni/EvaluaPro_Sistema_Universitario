@@ -4,7 +4,7 @@ import { compararVersiones, obtenerVersionTecnicaApp } from './versionInfo';
 
 const OWNER = 'Dtcsrni';
 const REPOSITORY = 'EvaluaPro_Sistema_Universitario';
-const ASSET_NAME = 'EvaluaPro-InstallerHub-docente-local.exe';
+const ASSET_PREFIX = 'EvaluaPro-InstallerHub-docente-local-v';
 const POSTPONED_VERSION_KEY = 'evaluapro:update-postponed-version';
 
 type LatestRelease = {
@@ -37,8 +37,9 @@ export function UpdateAvailabilityBanner() {
         const candidate = await response.json() as LatestRelease;
         const version = String(candidate.tag_name || '').replace(/^v/i, '').trim();
         const assets = Array.isArray(candidate.assets) ? candidate.assets : [];
-        const hasInstaller = assets.some((asset) => asset.name === ASSET_NAME);
-        const hasChecksum = assets.some((asset) => asset.name === `${ASSET_NAME}.sha256`);
+        const assetName = `${ASSET_PREFIX}${version}.exe`;
+        const hasInstaller = assets.some((asset) => asset.name === assetName);
+        const hasChecksum = assets.some((asset) => asset.name === `${assetName}.sha256`);
         const releaseUrl = String(candidate.html_url || '');
 
         if (

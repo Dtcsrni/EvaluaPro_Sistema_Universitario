@@ -141,7 +141,7 @@
     "docs:sync": "npm run diagramas:generate && npm run diagramas:render && npm run docs:generate && npm run docs:commercial:sync",
     "routes:check": "node scripts/routes-check.mjs",
     "api:openapi:write": "node scripts/api/generate-openapi.mjs --write",
-    "api:contract:check": "node scripts/api/generate-openapi.mjs --check && node scripts/api/check-openapi-contract.mjs && node scripts/api/check-resource-lifecycle.mjs",
+    "api:contract:check": "node scripts/api/generate-openapi.mjs --check && node scripts/api/check-openapi-contract.mjs && node scripts/api/check-resource-lifecycle.mjs && node --test scripts/tests/exam-batch-openapi.test.mjs",
     "security:env:check": "node scripts/security-env-check.mjs",
     "security:audit": "npm audit --omit=dev --audit-level=critical",
     "docs:carpetas:generate": "node scripts/generar-readmes-carpetas.mjs",

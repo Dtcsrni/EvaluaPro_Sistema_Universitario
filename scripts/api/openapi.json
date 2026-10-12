@@ -830,7 +830,51 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/JsonObject"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "plantillaId"
+                ],
+                "properties": {
+                  "plantillaId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "confirmarMasivo": {
+                    "type": "boolean"
+                  },
+                  "loteId": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 16,
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                  },
+                  "grupo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "tipoExamen": {
+                    "type": "string",
+                    "const": "extraordinario"
+                  },
+                  "alumnoIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 500,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -878,11 +922,89 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "plantillaId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "grupo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "totalEsperado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
           }
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/Json"
+            "description": "Progreso de generación del lote y total de exámenes esperados para la cohorte seleccionada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "loteId",
+                    "totalEsperado",
+                    "generados",
+                    "fallidos",
+                    "porcentaje",
+                    "completado",
+                    "estado"
+                  ],
+                  "properties": {
+                    "loteId": {
+                      "type": "string"
+                    },
+                    "totalEsperado": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "generados": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fallidos": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "porcentaje": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "completado": {
+                      "type": "boolean"
+                    },
+                    "estado": {
+                      "type": "string"
+                    },
+                    "archivadoEn": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "404": {
             "$ref": "#/components/responses/Error"
@@ -891,6 +1013,9 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_generacion_pdf/rutasGeneracionPdf.ts",
         "x-evaluapro-permissions": [
           "examenes:leer"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaProgresoGeneracionLote"
         ]
       }
     },
@@ -20093,6 +20218,108 @@
         ],
         "x-evaluapro-validators": [
           "esquemaRegistrarResultadoExtraExterno"
+        ]
+      }
+    },
+    "/examenes/generados/lote/{loteId}/zip": {
+      "get": {
+        "tags": [
+          "Exámenes"
+        ],
+        "operationId": "get_examenes_generados_lote_loteId_zip",
+        "summary": "GET /examenes/generados/lote/{loteId}/zip",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "loteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archivo ZIP con los exámenes PDF individuales del lote.",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_generacion_pdf/rutasGeneracionPdf.ts",
+        "x-evaluapro-permissions": [
+          "examenes:descargar"
         ]
       }
     }

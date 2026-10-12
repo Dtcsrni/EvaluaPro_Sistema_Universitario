@@ -153,7 +153,8 @@ test('AppHost abre Installer Hub solo por mensaje local validado del WebView', (
   assert.match(appHost, /BundleCachePath/);
   assert.match(appHost, /installedCert\.Thumbprint/);
   assert.match(appHost, /WinVerifyTrust/);
-  assert.match(appHost, /EvaluaPro-InstallerHub-docente-local\.exe/);
+  assert.match(appHost, /EvaluaPro-InstallerHub-docente-local-v\{releaseVersion\}\.exe/);
+  assert.match(appHost, /EvaluaPro-InstallerHub-docente-local-v\{requestedVersion\}\.exe/);
 });
 
 test('el acceso directo del Hub usa release estable, verifica y reutiliza su cache firmado', () => {
@@ -161,6 +162,7 @@ test('el acceso directo del Hub usa release estable, verifica y reutiliza su cac
   assert.match(launcherBroker, /releases\/latest/);
   assert.match(launcherBroker, /config\.channel -ne 'stable'/);
   assert.match(launcherBroker, /config\.flavorId -ne 'docente-local'/);
+  assert.match(launcherBroker, /EvaluaPro-InstallerHub-docente-local-v\$\(\$latestVersion\.ToString\(\)\)\.exe/);
   assert.match(launcherBroker, /Get-FileHash .* -Algorithm SHA256/);
   assert.match(launcherBroker, /Get-AuthenticodeSignature/);
   assert.match(launcherBroker, /currentSignature\.SignerCertificate\.Thumbprint -eq \$cachedSignature\.SignerCertificate\.Thumbprint/);

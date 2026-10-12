@@ -33,6 +33,7 @@ import {
   esquemaGenerarExamenesLote,
   esquemaListarExamenesGenerados,
   esquemaListarLotesExamenes,
+  esquemaProgresoGeneracionLote,
   esquemaListarAuditoriaLotePdf,
   esquemaListarAuditoriaPlantilla,
   esquemaPurgarExamenesGenerados,
@@ -82,7 +83,7 @@ router.get('/generados/:id', requerirPermiso('examenes:leer'), obtenerExamenGene
 router.get('/generados/:id/pdf', requerirPermiso('examenes:descargar'), descargarPdf);
 router.get('/generados/lote/:loteId/pdf', requerirPermiso('examenes:descargar'), descargarPdfLote);
 router.get('/generados/lote/:loteId/zip', requerirPermiso('examenes:descargar'), descargarZipLote);
-router.get('/generados/lote/:loteId/progreso', requerirPermiso('examenes:leer'), obtenerProgresoGeneracionLote);
+router.get('/generados/lote/:loteId/progreso', requerirPermiso('examenes:leer'), validarQueryRobusto(esquemaProgresoGeneracionLote), obtenerProgresoGeneracionLote);
 router.post(
   '/generados/purge',
   requerirPermiso('examenes:archivar'),

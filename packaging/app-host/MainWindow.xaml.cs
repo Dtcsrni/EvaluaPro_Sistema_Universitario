@@ -618,7 +618,7 @@ public partial class MainWindow : Window
         }
 
         var updateRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro", "updates", requestedVersion);
-        var targetPath = Path.Combine(updateRoot, "EvaluaPro-InstallerHub-docente-local.exe");
+        var targetPath = Path.Combine(updateRoot, $"EvaluaPro-InstallerHub-docente-local-v{requestedVersion}.exe");
         var partialPath = targetPath + ".partial";
         try
         {
@@ -650,8 +650,9 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("La release no pertenece al repositorio oficial.");
 
             var assets = release.GetProperty("assets").EnumerateArray().ToArray();
-            var installer = ResolveReleaseAsset(assets, "EvaluaPro-InstallerHub-docente-local.exe");
-            var checksum = ResolveReleaseAsset(assets, "EvaluaPro-InstallerHub-docente-local.exe.sha256");
+            var installerName = $"EvaluaPro-InstallerHub-docente-local-v{releaseVersion}.exe";
+            var installer = ResolveReleaseAsset(assets, installerName);
+            var checksum = ResolveReleaseAsset(assets, $"{installerName}.sha256");
             var answer = WpfMessageBox.Show(
                 this,
                 $"Se encontró EvaluaPro v{releaseVersion}. Se descargará y verificará el Installer Hub firmado; después podrás revisar y confirmar la actualización en el Hub.\n\n¿Continuar?",

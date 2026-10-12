@@ -160,7 +160,9 @@ export async function obtenerProgresoGeneracionLote(req: SolicitudDocente, res: 
   const payload = await obtenerProgresoGeneracionLoteUseCase({
     docenteId: obtenerDocenteId(req),
     loteId: String(req.params.loteId || '').trim(),
-    plantillaId: String(req.query.plantillaId || '').trim() || undefined
+    plantillaId: String(req.query.plantillaId || '').trim() || undefined,
+    grupo: String(req.query.grupo || '').trim() || undefined,
+    totalEsperado: Number.isSafeInteger(Number(req.query.totalEsperado)) ? Number(req.query.totalEsperado) : undefined
   });
   res.json(payload);
 }

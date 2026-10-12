@@ -188,6 +188,12 @@ export const esquemaGenerarExamenesLote = z.object({
   }
 });
 
+export const esquemaProgresoGeneracionLote = z.object({
+  plantillaId: esquemaObjectId.optional(),
+  grupo: z.string().trim().min(1).max(64).optional(),
+  totalEsperado: z.coerce.number().int().min(1).max(500).optional()
+}).strict();
+
 export const esquemaRegenerarExamenGenerado = z
   .object({
     // Si el examen ya fue descargado, se requiere confirmación explícita.

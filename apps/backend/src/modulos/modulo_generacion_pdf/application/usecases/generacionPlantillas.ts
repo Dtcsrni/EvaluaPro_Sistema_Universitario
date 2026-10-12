@@ -1033,6 +1033,8 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
   docenteId: unknown;
   loteId: string;
   plantillaId?: string;
+  grupo?: string;
+  totalEsperado?: number;
 }) {
   const docId = String(params.docenteId);
   const lote = normalizarLoteId(params.loteId);
@@ -1058,13 +1060,19 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
   }
 
   let totalEsperado = 0;
-  if (params.plantillaId) {
+  if (Number.isSafeInteger(params.totalEsperado) && Number(params.totalEsperado) > 0) {
+    totalEsperado = Math.min(Number(params.totalEsperado), 500);
+  } else if (params.plantillaId) {
     const raw = await prisma.examenPlantilla.findFirst({
       where: { id: params.plantillaId, docenteId: docId }
     });
     if (raw && raw.periodoId) {
       totalEsperado = await prisma.alumno.count({
-        where: { periodoId: raw.periodoId, activo: true }
+        where: {
+          periodoId: raw.periodoId,
+          activo: true,
+          ...(typeof params.grupo === 'string' && params.grupo.trim() ? { grupo: params.grupo.trim() } : {})
+        }
       });
     }
   }

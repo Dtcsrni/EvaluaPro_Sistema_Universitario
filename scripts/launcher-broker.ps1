@@ -475,9 +475,11 @@ function Resolve-LatestStableHubExecutablePath([string]$CurrentHubPath) {
     }
     if ($latestVersion -le $currentVersion) { return $CurrentHubPath }
 
-    $assetName = [string]$config.assetName
-    $checksumName = [string]$config.sha256AssetName
-    if ($assetName -cne 'EvaluaPro-InstallerHub-docente-local.exe' -or $checksumName -cne "$assetName.sha256") { throw 'Los assets configurados no corresponden al flavor docente-local.' }
+    $configuredAssetName = [string]$config.assetName
+    $configuredChecksumName = [string]$config.sha256AssetName
+    if ($configuredAssetName -cne 'EvaluaPro-InstallerHub-docente-local.exe' -or $configuredChecksumName -cne "$configuredAssetName.sha256") { throw 'La configuración base de assets no corresponde al flavor docente-local.' }
+    $assetName = "EvaluaPro-InstallerHub-docente-local-v$($latestVersion.ToString()).exe"
+    $checksumName = "$assetName.sha256"
     $installerAsset = @($release.assets) | Where-Object { [string]$_.name -ceq $assetName } | Select-Object -First 1
     $checksumAsset = @($release.assets) | Where-Object { [string]$_.name -ceq $checksumName } | Select-Object -First 1
     foreach ($asset in @($installerAsset, $checksumAsset)) {

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UpdateAvailabilityBanner } from '../src/ui/version/UpdateAvailabilityBanner';
 import { obtenerVersionTecnicaApp } from '../src/ui/version/versionInfo';
 
-const installer = 'EvaluaPro-InstallerHub-docente-local.exe';
+const installer = 'EvaluaPro-InstallerHub-docente-local-v9.9.9.exe';
 const stableRelease = {
   tag_name: 'v9.9.9',
   draft: false,
@@ -42,6 +42,7 @@ describe('UpdateAvailabilityBanner', () => {
     ['versión igual', { ...stableRelease, tag_name: `v${obtenerVersionTecnicaApp()}` }],
     ['versión anterior', { ...stableRelease, tag_name: 'v1.0.0' }],
     ['sin instalador', { ...stableRelease, assets: [{ name: `${installer}.sha256` }] }],
+    ['asset heredado sin versión', { ...stableRelease, assets: [{ name: 'EvaluaPro-InstallerHub-docente-local.exe' }, { name: 'EvaluaPro-InstallerHub-docente-local.exe.sha256' }] }],
     ['URL externa', { ...stableRelease, html_url: 'https://example.invalid/release' }]
   ])('oculta candidatos no publicables (%s)', async (_label, candidate) => {
     mockRelease(candidate);
