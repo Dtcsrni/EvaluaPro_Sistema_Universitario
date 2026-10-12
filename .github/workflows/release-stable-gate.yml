@@ -161,11 +161,12 @@ jobs:
           SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
           EVIDENCE_DIR: ${{ inputs.evidence_dir }}
           RELEASE_CANDIDATE_SHA: ${{ steps.candidate.outputs.sha }}
+          INSTALLER_RUN_ID: ${{ steps.candidate.outputs.installer_run_id }}
           QA_MANIFEST: candidate/reports/qa/latest/manifest.json
         shell: bash
         run: |
           set -euo pipefail
-          args=("--repo=$REPOSITORY" "--version=$TARGET_VERSION" "--candidate-sha=$SOURCE_SHA" "--installer-run-id=${{ steps.candidate.outputs.installer_run_id }}" "--workflow=ci.yml" "--branch=main" "--qa-manifest=$QA_MANIFEST")
+          args=("--repo=$REPOSITORY" "--version=$TARGET_VERSION" "--candidate-sha=$SOURCE_SHA" "--installer-run-id=$INSTALLER_RUN_ID" "--workflow=ci.yml" "--branch=main" "--qa-manifest=$QA_MANIFEST")
           [[ -z "$EVIDENCE_DIR" ]] || args+=("--evidence-dir=$EVIDENCE_DIR")
           RELEASE_CANDIDATE_SHA="$SOURCE_SHA" node scripts/release/validate-stable-promotion.mjs "${args[@]}"
 

@@ -155,7 +155,8 @@ test('gate estable valida CI Checks y el instalador sobre el SHA candidato, sin 
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
 
   assert.match(workflow, /--candidate-sha=\$SOURCE_SHA/);
-  assert.match(workflow, /--installer-run-id=\$\{\{ steps\.candidate\.outputs\.installer_run_id \}\}/);
+  assert.match(workflow, /INSTALLER_RUN_ID: \$\{\{ steps\.candidate\.outputs\.installer_run_id \}\}/);
+  assert.match(workflow, /--installer-run-id=\$INSTALLER_RUN_ID/);
   assert.match(workflow, /--branch=main/);
   assert.doesNotMatch(workflow, /required-streak|ci-green|CI_STREAK/i);
   assert.doesNotMatch(workflow, /needs\.stable_gate\.outputs\.installer_run_id/);
