@@ -109,7 +109,7 @@ test('payload nativo valida entradas y registra respaldo recuperable antes de pr
   assert.ok(payloadModule.indexOf('Move-Item -LiteralPath $destination -Destination $backup') < payloadModule.indexOf('Move-Item -LiteralPath $stagedEntry -Destination $destination'));
   assert.match(transactionModule, /function Recover-PayloadTransaction/);
   assert.match(transactionModule, /function Complete-PayloadTransaction/);
-  assert.match(helper, /Recover-PayloadTransaction -TargetDir \$targetDir/);
+  assert.match(helper, /-ModuleName Transaction -FunctionName 'Recover-PayloadTransaction' -Parameters @\{ TargetDir = \$targetDir \}/);
   assert.match(helper, /Complete-PayloadTransaction -TargetDir \$targetDir/);
   assert.match(helper, /Global\\EvaluaProInstallerRoot-/);
 });
@@ -130,7 +130,21 @@ test('un fallo de repair conserva el payload previo y el rollback fallido conser
   const dispatcher = helper.slice(helper.lastIndexOf('$failureMessage = $_.Exception.Message'));
   assert.match(dispatcher, /installMode\.Trim\(\)\.ToLowerInvariant\(\) -eq 'install'/);
   assert.match(dispatcher, /-not \$transactionEvidenceExists -and -not \$script:PendingPayloadTransaction/);
-  assert.match(dispatcher, /Recover-PayloadTransaction -TargetDir \$script:InstallerRootPath/);
+  assert.match(dispatcher, /-ModuleName Transaction -FunctionName 'Recover-PayloadTransaction' -Parameters @\{ TargetDir = \$script:InstallerRootPath \}/);
+});
+
+test('elevated helper consumes el snapshot validado y no reabre la ruta de usuario', () => {
+  const requestReader = helper.slice(helper.indexOf('function Read-InstallerRequestPayload {'), helper.indexOf('\nfunction Write-HelperProgress {'));
+  const elevation = helper.slice(helper.indexOf('function Invoke-PostInstall {'), helper.indexOf('\nfunction Invoke-Update {'));
+  const elevatedArguments = elevation.slice(elevation.indexOf('$childArgs = @('), elevation.indexOf("$elevated = Start-Process"));
+
+  assert.match(helper, /\[string\]\$RequestJsonBase64 = ''/);
+  assert.match(requestReader, /FromBase64String\(\$RequestJsonBase64\)/);
+  assert.match(requestReader, /JsonContent = \$requestJson/);
+  assert.match(requestReader, /excede el límite seguro de 16 KiB/);
+  assert.match(elevatedArguments, /'-RequestJsonBase64', \$requestSnapshot/);
+  assert.doesNotMatch(elevatedArguments, /RequestPath/);
+  assert.match(elevation, /\$script:InstallerRequestJson/);
 });
 
 test('el workflow de release bloquea la publicación si falla la E2E completa del bundle', () => {

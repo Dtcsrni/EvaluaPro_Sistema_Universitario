@@ -69,15 +69,27 @@ function Initialize-InstallerHubProtectedDataType {
 
 function Read-EvaluaProInstallerRequest {
   param(
-    [Parameter(Mandatory = $true)][string]$Path,
+    [string]$Path = '',
+    [AllowEmptyString()][string]$JsonContent = '',
     [Parameter(Mandatory = $true)][string]$ExpectedCommand
   )
 
-  $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-    throw 'El archivo de solicitud es un enlace/reparse point y se rechaza.'
+  $item = $null
+  if (-not [string]::IsNullOrWhiteSpace($Path)) {
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw 'El archivo de solicitud es un enlace/reparse point y se rechaza.'
+    }
+    if ([string]::IsNullOrEmpty($JsonContent)) {
+      $JsonContent = [IO.File]::ReadAllText($item.FullName, [Text.Encoding]::UTF8)
+    }
+  } elseif ([string]::IsNullOrWhiteSpace($JsonContent)) {
+    throw 'La validación de la solicitud requiere una ruta o un snapshot JSON inmutable.'
   }
-  $envelope = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+  if ([Text.Encoding]::UTF8.GetByteCount($JsonContent) -gt 16384) {
+    throw 'La solicitud Installer Hub excede el límite seguro de 16 KiB.'
+  }
+  $envelope = $JsonContent | ConvertFrom-Json -ErrorAction Stop
   if ($null -eq $envelope.PSObject.Properties['schemaVersion']) {
     if ($ExpectedCommand -ne 'detect-prereqs') {
       throw 'El adaptador legado solo admite detección sin efectos; mutaciones requieren el protocolo versionado.'
@@ -104,8 +116,10 @@ function Read-EvaluaProInstallerRequest {
   $protectedSecretsProperty = $envelope.PSObject.Properties['protectedSecrets']
   if ($protectedSecretsProperty) { $protectedSecretsValue = [string]$protectedSecretsProperty.Value }
   if ($ExpectedCommand -in @('post-install', 'update', 'uninstall') -or -not [string]::IsNullOrWhiteSpace($protectedSecretsValue)) {
-    Test-InstallerHubPrivateAcl -Path $item.DirectoryName
-    Test-InstallerHubPrivateAcl -Path $Path
+    if ($item) {
+      Test-InstallerHubPrivateAcl -Path $item.DirectoryName
+      Test-InstallerHubPrivateAcl -Path $Path
+    }
   }
   $parsedOperationId = [guid]::Empty
   if (-not [guid]::TryParse([string]$envelope.operationId, [ref]$parsedOperationId)) { throw 'La correlación de solicitud no es un UUID válido.' }

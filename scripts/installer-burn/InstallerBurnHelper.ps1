@@ -4,8 +4,8 @@ param(
   [Parameter(Mandatory = $true)]
   [ValidateSet('detect-prereqs', 'post-install', 'license-heartbeat', 'update', 'uninstall')]
   [string]$Mode,
-  [Parameter(Mandatory = $true)]
-  [string]$RequestPath,
+  [string]$RequestPath = '',
+  [string]$RequestJsonBase64 = '',
   [Parameter(Mandatory = $true)]
   [string]$ResponsePath
 )
@@ -18,6 +18,7 @@ $script:InstallerRootPath = $null
 $script:PendingPayloadTransaction = $false
 $script:InstallerHubOperationId = $null
 $script:InstallerRequestPayload = $null
+$script:InstallerRequestJson = $null
 
 # Forzar UTF-8 en todos los streams de PowerShell para evitar corrupción de
 # caracteres especiales (tildes, eñes) en el JSON de respuesta.
@@ -120,17 +121,44 @@ function Write-Response {
 
 function Read-InstallerRequestPayload {
   if ($null -ne $script:InstallerRequestPayload) { return $script:InstallerRequestPayload }
+  $requestJson = ''
+  if (-not [string]::IsNullOrWhiteSpace($RequestJsonBase64)) {
+    try {
+      $requestBytes = [Convert]::FromBase64String($RequestJsonBase64)
+      if ($requestBytes.Length -gt 16384) { throw 'El snapshot del handoff excede el límite seguro de 16 KiB.' }
+      $requestJson = [Text.Encoding]::UTF8.GetString($requestBytes)
+      [Array]::Clear($requestBytes, 0, $requestBytes.Length)
+    } catch {
+      throw "El snapshot inmutable del handoff es inválido: $($_.Exception.Message)"
+    }
+  } elseif (-not [string]::IsNullOrWhiteSpace($RequestPath)) {
+    $requestItem = Get-Item -LiteralPath $RequestPath -Force -ErrorAction Stop
+    if (($requestItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw 'El archivo de solicitud es un enlace/reparse point y se rechaza.'
+    }
+    $requestJson = [IO.File]::ReadAllText($requestItem.FullName, [Text.Encoding]::UTF8)
+    if ([Text.Encoding]::UTF8.GetByteCount($requestJson) -gt 16384) {
+      throw 'La solicitud Installer Hub excede el límite seguro de 16 KiB.'
+    }
+  } else {
+    throw 'Falta el contenido inmutable o la ruta del handoff Installer Hub.'
+  }
+  $script:InstallerRequestJson = $requestJson
   # Preserve the caller's correlation even when strict contract validation fails.
   # This lets the caller receive the actual validation error instead of masking it
   # as a response with a newly generated, unrelated operationId.
   try {
-    $rawEnvelope = Get-Content -LiteralPath $RequestPath -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    $rawEnvelope = $requestJson | ConvertFrom-Json -ErrorAction Stop
     $candidateOperationId = [guid]::Empty
     if ([guid]::TryParse([string]$rawEnvelope.operationId, [ref]$candidateOperationId)) {
       $script:InstallerHubOperationId = $candidateOperationId.ToString('D')
     }
   } catch { }
-  $request = Read-EvaluaProInstallerRequest -Path $RequestPath -ExpectedCommand $Mode
+  $request = Invoke-InstallerHubModuleFunction -ModuleName Contracts -FunctionName 'Read-EvaluaProInstallerRequest' -Parameters @{
+    Path = $RequestPath
+    JsonContent = $requestJson
+    ExpectedCommand = $Mode
+  }
   $script:InstallerHubOperationId = $request.OperationId
   $script:InstallerRequestPayload = $request.Payload
   return $request.Payload
@@ -806,11 +834,13 @@ function Invoke-PostInstall {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = New-Object Security.Principal.WindowsPrincipal($identity)
   $isAdministrator = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-  if ($requiresElevation -and -not $isAdministrator -and $env:EVALUAPRO_HELPER_ELEVATED -ne '1') {
-    $env:EVALUAPRO_HELPER_ELEVATED = '1'
+  if ($requiresElevation -and -not $isAdministrator) {
+    $requestBytes = [Text.Encoding]::UTF8.GetBytes([string]$script:InstallerRequestJson)
+    $requestSnapshot = [Convert]::ToBase64String($requestBytes)
+    [Array]::Clear($requestBytes, 0, $requestBytes.Length)
     $childArgs = @(
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath,
-      '-Mode', 'post-install', '-RequestPath', $RequestPath, '-ResponsePath', $ResponsePath
+      '-Mode', 'post-install', '-RequestJsonBase64', $requestSnapshot, '-ResponsePath', $ResponsePath
     )
     $elevated = Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $childArgs -Wait -PassThru
     if ($elevated.ExitCode -ne 0) {

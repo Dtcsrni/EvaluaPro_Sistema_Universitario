@@ -125,6 +125,30 @@ $r = Read-EvaluaProInstallerRequest`
   }
 });
 
+test('el contrato valida el snapshot elevado desde memoria sin volver a leer una ruta', () => {
+  const operationId = '9e27c568-1f58-4d68-9fa2-5f52a811e77d';
+  const requestJson = JSON.stringify({
+    schemaVersion: 1,
+    operationId,
+    command: 'post-install',
+    issuedAtUtc: new Date(Date.now() - 1000).toISOString(),
+    expiresAtUtc: new Date(Date.now() + 5 * 60_000).toISOString(),
+    payload: { mode: 'install', installDir: 'C:\\Program Files\\EvaluaPro' }
+  }).replace(/'/g, "''");
+  const modulePath = installerHubContractsModulePath.replace(/'/g, "''");
+  const result = runPowerShell(`
+Import-Module '${modulePath}' -Force
+$request = Read-EvaluaProInstallerRequest -JsonContent '${requestJson}' -ExpectedCommand 'post-install'
+[pscustomobject]@{ operationId=$request.OperationId; schemaVersion=$request.SchemaVersion; payloadMode=$request.Payload.mode } | ConvertTo-Json -Compress
+`.trim());
+  if (result.skipped) return;
+  assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+  const response = JSON.parse(result.stdout.trim().split(/\r?\n/).at(-1));
+  assert.equal(response.operationId, operationId);
+  assert.equal(response.schemaVersion, 1);
+  assert.equal(response.payloadMode, 'install');
+});
+
 test('el helper conserva la correlación al responder errores de contrato', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-error-correlation-'));
   const requestPath = path.join(tempRoot, 'request.json');
@@ -892,7 +916,9 @@ test('helper post-install eleva escritura de configuración per-machine', () => 
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(helper, /WindowsBuiltInRole\]::Administrator/);
   assert.match(helper, /Start-Process -FilePath 'powershell\.exe' -Verb RunAs/);
-  assert.match(helper, /EVALUAPRO_HELPER_ELEVATED/);
+  assert.match(helper, /RequestJsonBase64/);
+  assert.match(helper, /InstallerRequestJson/);
+  assert.doesNotMatch(helper, /'-Mode', 'post-install', '-RequestPath', \$RequestPath/);
 });
 
 test('installer hub WPF publica timeline por etapas y resumen de error MSI visible', () => {
