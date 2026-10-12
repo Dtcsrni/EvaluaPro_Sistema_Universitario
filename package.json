@@ -1,7 +1,7 @@
 {
   "name": "evaluapro",
   "description": "Plataforma para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR), operación docente local nativa y dashboard.",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
     "email": "armsystechno@gmail.com"
@@ -92,7 +92,7 @@
     "test:wix:policy": "node --test scripts/tests/wix-version-policy.test.mjs",
     "test:wix:bundle": "node --test scripts/tests/wix-bundle-build.test.mjs",
     "test:ruleset:policy": "node --test scripts/tests/ruleset-main.test.mjs",
-    "test:release:policy": "node --test scripts/tests/release-ci-streak.test.mjs scripts/tests/release-evidence-contract.test.mjs scripts/tests/release-stable-promotion.test.mjs scripts/tests/release-beta-promotion.test.mjs scripts/tests/classroom-e2e-evidence.test.mjs scripts/tests/classroom-doctor.test.mjs",
+    "test:release:policy": "node --test scripts/tests/release-ci-candidate.test.mjs scripts/tests/release-evidence-contract.test.mjs scripts/tests/release-stable-promotion.test.mjs scripts/tests/release-beta-promotion.test.mjs scripts/tests/classroom-e2e-evidence.test.mjs scripts/tests/classroom-doctor.test.mjs",
     "test:security:policy": "node --test scripts/tests/security-workflow-policy.test.mjs",
     "test:ia:traceability": "node --test scripts/tests/ia-traceability.test.mjs",
     "test:ia:handoff": "node --test scripts/tests/ia-handoff-envelope.test.mjs",
@@ -141,7 +141,7 @@
     "docs:sync": "npm run diagramas:generate && npm run diagramas:render && npm run docs:generate && npm run docs:commercial:sync",
     "routes:check": "node scripts/routes-check.mjs",
     "api:openapi:write": "node scripts/api/generate-openapi.mjs --write",
-    "api:contract:check": "node scripts/api/generate-openapi.mjs --check && node scripts/api/check-openapi-contract.mjs && node scripts/api/check-resource-lifecycle.mjs",
+    "api:contract:check": "node scripts/api/generate-openapi.mjs --check && node scripts/api/check-openapi-contract.mjs && node scripts/api/check-resource-lifecycle.mjs && node --test scripts/tests/exam-batch-openapi.test.mjs",
     "security:env:check": "node scripts/security-env-check.mjs",
     "security:audit": "npm audit --omit=dev --audit-level=critical",
     "docs:carpetas:generate": "node scripts/generar-readmes-carpetas.mjs",
@@ -175,7 +175,7 @@
     "release:gate:prod-flow": "node scripts/release/gate-prod-flow.mjs",
     "release:validate:beta": "node scripts/release/validate-beta-promotion.mjs",
     "ops:smoke:pilot": "node scripts/release/smoke-piloto-hibrido.mjs",
-    "release:check:ci-streak": "node scripts/release/check-ci-streak.mjs",
+    "release:check:ci-candidate": "node scripts/release/check-ci-candidate.mjs",
     "classroom:doctor": "node scripts/classroom-doctor.mjs",
     "release:check:evidence": "node scripts/release/check-release-evidence.mjs",
     "release:check:classroom-e2e": "node scripts/release/check-classroom-e2e-evidence.mjs",

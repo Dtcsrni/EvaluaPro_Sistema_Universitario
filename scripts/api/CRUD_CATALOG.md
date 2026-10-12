@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 245 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 246 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -145,8 +145,9 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Exámenes | `/examenes/generados/lote/{loteId}/archivar` | POST | Bearer | examenes:archivar | esquemaCambiarEstadoLotePdf |
 | Exámenes | `/examenes/generados/lote/{loteId}/auditoria` | GET | Bearer | examenes:leer | esquemaListarAuditoriaLotePdf |
 | Exámenes | `/examenes/generados/lote/{loteId}/pdf` | GET | Bearer | examenes:descargar | — |
-| Exámenes | `/examenes/generados/lote/{loteId}/progreso` | GET | Bearer | examenes:leer | — |
+| Exámenes | `/examenes/generados/lote/{loteId}/progreso` | GET | Bearer | examenes:leer | esquemaProgresoGeneracionLote |
 | Exámenes | `/examenes/generados/lote/{loteId}/restaurar` | POST | Bearer | examenes:archivar | esquemaCambiarEstadoLotePdf |
+| Exámenes | `/examenes/generados/lote/{loteId}/zip` | GET | Bearer | examenes:descargar | — |
 | Exámenes | `/examenes/generados/lotes` | GET | Bearer | examenes:leer | esquemaListarLotesExamenes |
 | Exámenes | `/examenes/generados/purge` | POST | Bearer | examenes:archivar | esquemaPurgarExamenesGenerados |
 | Exámenes | `/examenes/plantillas` | GET, POST | Bearer | plantillas:leer, plantillas:gestionar | esquemaCrearPlantilla |

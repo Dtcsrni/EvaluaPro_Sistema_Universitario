@@ -39,14 +39,15 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
 });
 
 test('el host adopta servicios sanos antes del retorno temprano y solo si coinciden con la instalación', () => {
-  assert.match(hostSource, /await TryAdoptDashboardAsync\(dashboardPort\);[\s\S]*?if \(await ProbePortAsync\(webHealthUrl\) && await ProbePortAsync\(apiHealthUrl\)\)/);
+  assert.match(hostSource, /await TryAdoptDashboardAsync\(dashboardPort\);[\s\S]*?var webResponds = await ProbePortAsync\(webHealthUrl\);[\s\S]*?var apiResponds = await ProbePortAsync\(apiHealthUrl\);[\s\S]*?if \(webResponds && apiResponds\)/);
   assert.match(hostSource, /lockRoot\.TryGetProperty\("pid"/);
   assert.match(hostSource, /lockPort != dashboardPort/);
-  assert.match(hostSource, /PathsEqual\(rootElement\.GetString\(\) \?\? string\.Empty, appRoot\)/);
+  assert.match(hostSource, /PathsEqual\(statusRoot, appRoot\)/);
   assert.match(hostSource, /statusPort != dashboardPort/);
   assert.match(hostSource, /dashboardProcess = process/);
   assert.match(hostSource, /dashboardProcess = Process\.Start\(psi\)/);
-  assert.match(hostSource, /if \(dashboardProcess != null\) return true;[\s\S]*?se rechaza reutilizar servicios independientes[\s\S]*?return false;/);
+  assert.match(hostSource, /dashboardProcess != null && await VerifyDashboardIdentityAsync\(dashboardProcess, dashboardPort\)\) return true/);
+  assert.match(hostSource, /sin identidad de dashboard verificada; no se adoptan ni se inicia sobre esos puertos/);
 });
 
 test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente', () => {

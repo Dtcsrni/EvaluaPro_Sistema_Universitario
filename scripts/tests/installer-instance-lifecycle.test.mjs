@@ -43,19 +43,19 @@ test('manifest incompleto se clasifica como reparable y requiere respaldo', () =
 
 test('el helper detiene solo procesos Node con ownership de la instancia', () => {
   const helper = fs.readFileSync(path.resolve('scripts/installer-burn/InstallerBurnHelper.ps1'), 'utf8');
-  assert.match(helper, /Get-EvaluaProOwnedNodeProcessIds/);
+  const processModule = fs.readFileSync(path.resolve('scripts/installer-burn/modules/InstallerHubProcesses.psm1'), 'utf8');
+  assert.match(helper, /Import-Module \$installerHubProcessesModule/);
   assert.match(helper, /Stop-EvaluaProOwnedNodeProcesses/);
-  assert.doesNotMatch(helper, /Stop-Process -Name ["']node["']/i);
+  assert.doesNotMatch(processModule, /Stop-Process -Name ["']node["']/i);
 
-  const ownershipStart = helper.indexOf('function Get-EvaluaProOwnedNodeProcessIds');
-  const stopStart = helper.indexOf('function Stop-EvaluaProOwnedNodeProcesses', ownershipStart);
-  const stopEnd = helper.indexOf('\nfunction ', stopStart + 1);
-  const ownership = helper.slice(ownershipStart, stopStart);
-  const stop = helper.slice(stopStart, stopEnd);
+  const ownershipStart = processModule.indexOf('function Get-EvaluaProOwnedNodeProcessIds');
+  const stopStart = processModule.indexOf('function Stop-EvaluaProOwnedNodeProcesses', ownershipStart);
+  const ownership = processModule.slice(ownershipStart, stopStart);
+  const stop = processModule.slice(stopStart);
   assert.match(ownership, /Win32_Process -Filter "Name = 'node\.exe'"/);
   assert.match(ownership, /CommandLine/);
   assert.match(ownership, /ExecutablePath/);
-  assert.match(ownership, /StartsWith\(\(Join-Path \$targetRoot 'runtime\\node'\)/);
+  assert.match(ownership, /GetFullPath\(\$executablePath\)\.Equals\(\$runtimeNode/);
   assert.match(stop, /Stop-Process -Id \$processId -Force/);
   assert.match(stop, /remaining = \$remainingIds/);
   assert.match(stop, /ok = \$remainingIds\.Count -eq 0/);

@@ -29,6 +29,10 @@ export type RespuestaLiveness = RespuestaSalud & {
 
 export type RespuestaReadiness = RespuestaSalud & {
   dependencies?: {
+    host?: {
+      state: 'starting' | 'ready' | 'draining' | 'stopped';
+      ready: boolean;
+    };
     sqlite: {
       status: 'ok' | 'fail';
       ready: boolean;

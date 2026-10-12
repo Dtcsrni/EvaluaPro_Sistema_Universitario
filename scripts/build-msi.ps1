@@ -86,6 +86,7 @@ function New-InstallerBuildStagingRoot {
     'accesos-directos/',
     'apps/',
     'config/',
+    'contracts/installer-hub/',
     'logos/',
     'packaging/wix/',
     'runtime/',
@@ -227,14 +228,30 @@ function Get-TrackedFilesWithTimeout {
   $stdoutPath = Join-Path $env:TEMP ("evaluapro-git-files-{0}.out" -f [Guid]::NewGuid().ToString('N'))
   $stderrPath = Join-Path $env:TEMP ("evaluapro-git-files-{0}.err" -f [Guid]::NewGuid().ToString('N'))
   try {
-    $proc = Start-Process -FilePath $GitExecutable -ArgumentList @('-C', $RootPath, 'ls-files') -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+    # Include new, non-ignored files so a local build from a working tree cannot
+    # silently omit newly added modules before they are committed.
+    $proc = Start-Process -FilePath $GitExecutable -ArgumentList @('-C', $RootPath, 'ls-files', '--cached', '--others', '--exclude-standard') -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
     if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
       Start-Process -FilePath taskkill.exe -ArgumentList @('/PID', [string]$proc.Id, '/T', '/F') -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
       Write-Warning "Git ls-files excedió ${TimeoutSeconds}s; se usará fallback de enumeración acotada."
       return @()
     }
-    if ($proc.ExitCode -ne 0) {
-      Write-Warning "Git ls-files terminó con exit=$($proc.ExitCode); se usará fallback de enumeración acotada."
+    # Flush the process handle after the timed wait before reading ExitCode.
+    $proc.WaitForExit()
+    $proc.Refresh()
+    $gitExitCode = if ($proc.HasExited) { $proc.ExitCode } else { $null }
+    if ($null -eq $gitExitCode) {
+      $gitStdErrText = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue } else { '' }
+      $gitStdOutFiles = if (Test-Path -LiteralPath $stdoutPath) { @(Get-Content -LiteralPath $stdoutPath -Encoding utf8 -ErrorAction SilentlyContinue) } else { @() }
+      if ([string]::IsNullOrWhiteSpace([string]$gitStdErrText) -and $gitStdOutFiles.Count -gt 0) {
+        Write-Warning 'Git ls-files no expuso ExitCode; se acepta stdout no vacío sin errores.'
+        return $gitStdOutFiles
+      }
+      Write-Warning 'Git ls-files no expuso ExitCode ni una lista verificable; se usará fallback de enumeración acotada.'
+      return @()
+    }
+    if ($gitExitCode -ne 0) {
+      Write-Warning "Git ls-files terminó con exit=$gitExitCode; se usará fallback de enumeración acotada."
       return @()
     }
     return @(Get-Content -LiteralPath $stdoutPath -Encoding utf8 -ErrorAction SilentlyContinue)
@@ -339,6 +356,20 @@ function Add-DocenteNativeCompiledPayload {
     $helperTarget = Join-Path $StagingRoot 'scripts/installer-burn/InstallerBurnHelper.ps1'
     New-Item -ItemType Directory -Path (Split-Path $helperTarget -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $helperSource -Destination $helperTarget -Force
+    foreach ($hubModule in @('InstallerHubContracts.psm1', 'InstallerHubOperation.psm1', 'InstallerHubProcesses.psm1', 'InstallerHubTransaction.psm1', 'InstallerHubPayload.psm1', 'InstallerHubVerification.psm1')) {
+      $moduleSource = Join-Path $RootPath (Join-Path 'scripts/installer-burn/modules' $hubModule)
+      if (-not (Test-Path -LiteralPath $moduleSource)) { throw "Falta módulo requerido del Installer Hub: $moduleSource" }
+      $moduleTargetRoot = Join-Path $StagingRoot 'scripts/installer-burn/modules'
+      New-Item -ItemType Directory -Path $moduleTargetRoot -Force | Out-Null
+      Copy-Item -LiteralPath $moduleSource -Destination (Join-Path $moduleTargetRoot $hubModule) -Force
+    }
+    foreach ($hubContract in @('request-envelope-v1.schema.json', 'response-envelope-v1.schema.json', 'dashboard-readiness-v1.schema.json')) {
+      $contractSource = Join-Path $RootPath (Join-Path 'contracts/installer-hub' $hubContract)
+      if (-not (Test-Path -LiteralPath $contractSource)) { throw "Falta contrato requerido del Installer Hub: $contractSource" }
+      $contractTargetRoot = Join-Path $StagingRoot 'scripts/installer-burn/modules'
+      New-Item -ItemType Directory -Path $contractTargetRoot -Force | Out-Null
+      Copy-Item -LiteralPath $contractSource -Destination (Join-Path $contractTargetRoot $hubContract) -Force
+    }
     $sqliteBootstrapSource = Join-Path $RootPath 'scripts/prepare-docente-sqlite.mjs'
     if (-not (Test-Path $sqliteBootstrapSource)) { throw "Falta bootstrap SQLite requerido: $sqliteBootstrapSource" }
     Copy-Item -LiteralPath $sqliteBootstrapSource -Destination (Join-Path $StagingRoot 'scripts/prepare-docente-sqlite.mjs') -Force
@@ -1272,9 +1303,30 @@ function Publish-BurnBootstrapperApp {
   $publishArgs += @('-o', $OutputDirectory)
   # Contract marker for installer-hub tests: "$DotNetExecutable publish"
   Write-Verbose ("[msi] command: {0} publish {1}" -f $DotNetExecutable, ($publishArgs -join ' '))
-  $publishProc = Start-Process -FilePath $DotNetExecutable -ArgumentList $publishArgs -Wait -NoNewWindow -PassThru
-  if ([int]$publishProc.ExitCode -ne 0) {
-    throw ("Fallo publish de la Bootstrapper Application Burn (exit={0})." -f [int]$publishProc.ExitCode)
+  $publishTimeoutSeconds = 600
+  if ($env:EVALUAPRO_BA_PUBLISH_TIMEOUT_SECONDS -match '^\d+$') {
+    $publishTimeoutSeconds = [Math]::Max(60, [int]$env:EVALUAPRO_BA_PUBLISH_TIMEOUT_SECONDS)
+  }
+  $publishOut = Join-Path $env:TEMP ("evaluapro-ba-publish-{0}.out.log" -f [Guid]::NewGuid().ToString('N'))
+  $publishErr = Join-Path $env:TEMP ("evaluapro-ba-publish-{0}.err.log" -f [Guid]::NewGuid().ToString('N'))
+  try {
+    $publishProc = Start-Process -FilePath $DotNetExecutable -ArgumentList $publishArgs -NoNewWindow -PassThru -RedirectStandardOutput $publishOut -RedirectStandardError $publishErr
+    if (-not $publishProc.WaitForExit($publishTimeoutSeconds * 1000)) {
+      & taskkill.exe /PID ([string]$publishProc.Id) /T /F | Out-Null
+      throw "Publish de Bootstrapper Application excedió ${publishTimeoutSeconds}s."
+    }
+    $publishProc.WaitForExit()
+    $publishProc.Refresh()
+    if (-not $publishProc.HasExited) {
+      throw 'Publish de Bootstrapper Application no confirmó la terminación.'
+    }
+    if (Test-Path -LiteralPath $publishOut) { Get-Content -LiteralPath $publishOut -ErrorAction SilentlyContinue | Out-Host }
+    if (Test-Path -LiteralPath $publishErr) { Get-Content -LiteralPath $publishErr -ErrorAction SilentlyContinue | Out-Host }
+    if ([int]$publishProc.ExitCode -ne 0) {
+      throw ("Fallo publish de la Bootstrapper Application Burn (exit={0})." -f [int]$publishProc.ExitCode)
+    }
+  } finally {
+    Remove-Item -LiteralPath $publishOut,$publishErr -Force -ErrorAction SilentlyContinue
   }
 
   $exePath = Join-Path $OutputDirectory 'EvaluaPro.BurnBootstrapperApp.exe'
@@ -1420,7 +1472,9 @@ function Invoke-InstallerHashesGeneration {
   param(
     [Parameter(Mandatory = $true)]
     [string]$RootPath,
-    [string]$RequestedVersion = ''
+    [string]$RequestedVersion = '',
+    [string]$Channel = 'stable',
+    [string]$FlavorId = ''
   )
 
   $hashScript = Join-Path $RootPath 'scripts\generate-installer-hashes.ps1'
@@ -1431,6 +1485,12 @@ function Invoke-InstallerHashesGeneration {
   $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $hashScript)
   if (-not [string]::IsNullOrWhiteSpace($RequestedVersion)) {
     $args += @('-Version', $RequestedVersion)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($Channel)) {
+    $args += @('-Channel', $Channel)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($FlavorId)) {
+    $args += @('-FlavorId', $FlavorId)
   }
 
   $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList $args -Wait -NoNewWindow -PassThru
@@ -1543,6 +1603,42 @@ if ($selectedFlavors.Count -eq 0) {
 }
 $effectiveVersionTag = Resolve-InstallerVersionTag -RootPath $root -RequestedVersion $Version
 $effectiveVersionNumeric = ConvertTo-DotNetNumericVersion -VersionTag $effectiveVersionTag
+$payloadVersion = ([Regex]::Replace($effectiveVersionTag, '[-+].*$', '')).Trim()
+$workspacePackages = @(
+  @{ Path = 'package.json'; Lock = 'package-lock.json'; LockKey = ''; Name = 'root' },
+  @{ Path = 'apps/backend/package.json'; Lock = 'apps/backend/package-lock.json'; LockKey = 'apps/backend'; Name = 'backend' },
+  @{ Path = 'apps/frontend/package.json'; Lock = 'apps/frontend/package-lock.json'; LockKey = 'apps/frontend'; Name = 'frontend' },
+  @{ Path = 'apps/portal_alumno_cloud/package.json'; Lock = 'apps/portal_alumno_cloud/package-lock.json'; LockKey = 'apps/portal_alumno_cloud'; Name = 'portal-alumno-cloud' }
+)
+foreach ($workspacePackage in $workspacePackages) {
+  $packagePath = Join-Path $root ([string]$workspacePackage.Path)
+  $lockPath = Join-Path $root ([string]$workspacePackage.Lock)
+  if (-not (Test-Path -LiteralPath $packagePath -PathType Leaf) -or -not (Test-Path -LiteralPath $lockPath -PathType Leaf)) {
+    throw "Falta el manifiesto de versión del paquete $($workspacePackage.Name): $packagePath / $lockPath"
+  }
+  try {
+    $packageMetadata = Get-Content -LiteralPath $packagePath -Raw -Encoding utf8 | ConvertFrom-Json -ErrorAction Stop
+    $lockText = Get-Content -LiteralPath $lockPath -Raw -Encoding utf8
+    $lockVersionMatch = [Regex]::Match($lockText, '^\s*\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"version"\s*:\s*"([^"]+)"')
+    if (-not $lockVersionMatch.Success) { throw "No se pudo leer la version raíz de package-lock: $lockPath" }
+    $lockPackageVersion = $lockVersionMatch.Groups[1].Value
+  } catch {
+    throw "No se pudo leer el manifiesto de versión del paquete $($workspacePackage.Name): $($_.Exception.Message)"
+  }
+  if ([string]$packageMetadata.version -ne $payloadVersion -or
+      $lockPackageVersion -ne $payloadVersion) {
+    throw "Versiones desalineadas para $($workspacePackage.Name): bundle=$effectiveVersionTag payload esperado=$payloadVersion package=$($packageMetadata.version) lock=$lockPackageVersion. Alinea package.json y package-lock.json antes de empaquetar."
+  }
+}
+$appVersionPath = Join-Path $root 'config\app-version.json'
+try {
+  $appVersionMetadata = Get-Content -LiteralPath $appVersionPath -Raw -Encoding utf8 | ConvertFrom-Json -ErrorAction Stop
+} catch {
+  throw "No se pudo leer config/app-version.json: $($_.Exception.Message)"
+}
+if ([string]$appVersionMetadata.version -ne $payloadVersion -or [string]$appVersionMetadata.displayVersion -ne $payloadVersion) {
+  throw "config/app-version.json desalineado: bundle=$effectiveVersionTag payload esperado=$payloadVersion appVersion=$($appVersionMetadata.version) displayVersion=$($appVersionMetadata.displayVersion)."
+}
 $effectiveBundleNamesByFlavor = @{}
 
 $stepsPerFlavor = if ($buildBundle) { 2 } else { 1 }
@@ -1696,7 +1792,9 @@ if ($buildBundle) {
   }
 
   Remove-OptionalInstallerArtifacts -OutputDirectory $out
-  Invoke-InstallerHashesGeneration -RootPath $root -RequestedVersion $Version
+  $manifestChannel = if ($IsolateBundleIdentity) { 'qa' } else { 'stable' }
+  $manifestFlavorId = if (@($selectedFlavors).Count -eq 1) { [string]$selectedFlavors[0].flavorId } else { '' }
+  Invoke-InstallerHashesGeneration -RootPath $root -RequestedVersion $Version -Channel $manifestChannel -FlavorId $manifestFlavorId
 
   Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Completado" -PercentComplete 100
   Write-Host "[msi] Artefactos generados en $out para flavors: $($selectedFlavors.flavorId -join ', ')"

@@ -4,6 +4,9 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Security.AccessControl;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -263,9 +266,39 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         var sessionId = $"burn-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}".ToLowerInvariant();
         sessionRoot = Path.Combine(root, sessionId);
         Directory.CreateDirectory(sessionRoot);
-        requestRoot = Path.Combine(sessionRoot, "requests");
-        Directory.CreateDirectory(requestRoot);
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData))
+        {
+            throw new InvalidOperationException("Windows no proporcionó LocalApplicationData para el handoff privado del helper.");
+        }
+        requestRoot = Path.Combine(localAppData, "EvaluaPro", "installer-hub", "requests", sessionId);
+        CreatePrivateHandoffDirectory(requestRoot);
         sessionLogPath = Path.Combine(sessionRoot, "burn-bootstrapper.log");
+    }
+
+    private static void CreatePrivateHandoffDirectory(string directoryPath)
+    {
+        var identity = WindowsIdentity.GetCurrent();
+        var userSid = identity.User ?? throw new InvalidOperationException("No se pudo determinar el SID del usuario para proteger el handoff.");
+        var security = new DirectorySecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        foreach (var sid in new[]
+        {
+            userSid,
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+            new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null)
+        })
+        {
+            security.AddAccessRule(new FileSystemAccessRule(
+                sid,
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+        }
+
+        Directory.CreateDirectory(directoryPath);
+        FileSystemAclExtensions.SetAccessControl(new DirectoryInfo(directoryPath), security);
     }
 
     private void StartUiThread()
@@ -1040,6 +1073,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     SetStageState(StageRemediation, InstallerStageStatus.Running, "Resolviendo prerequisitos automáticamente.", statusText);
                     UpdateUiState(statusText: statusText, progress: progressValue, busy: true);
                 }).ConfigureAwait(false);
+            if (!remediationResponse.Ok)
+            {
+                throw new InvalidOperationException(remediationResponse.Message ?? "La remediación automática nativa no está disponible.");
+            }
             FlushHelperLogs(remediationResponse.Logs);
             helperDetectionLogsFlushed = true;
             helperDetectionResponse = remediationResponse;
@@ -1372,92 +1409,211 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
     private async Task<HelperEnvelope<TData>> InvokeHelperAsync<TData>(string mode, Dictionary<string, object?> request, Action<HelperProgressEvent>? onProgress = null)
     {
-        Directory.CreateDirectory(requestRoot);
         var correlationId = $"{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}";
         var requestPath = Path.Combine(requestRoot, $"{mode}-{correlationId}.request.json");
         var responsePath = Path.Combine(requestRoot, $"{mode}-{correlationId}.response.json");
         var scriptPath = Path.Combine(payloadRoot, "InstallerBurnHelper.ps1");
+        var operationId = Guid.NewGuid().ToString("D");
+        var sensitiveValues = GetHelperSensitiveValues(request);
+        var protectedPayload = ProtectHelperRequestPayload(request);
+        var now = DateTimeOffset.UtcNow;
+        var envelope = new Dictionary<string, object?>
+        {
+            ["schemaVersion"] = 1,
+            ["operationId"] = operationId,
+            ["command"] = mode,
+            ["issuedAtUtc"] = now.ToString("O"),
+            ["expiresAtUtc"] = now.AddMinutes(30).ToString("O"),
+            ["payload"] = protectedPayload.Payload
+        };
+        if (protectedPayload.ProtectedSecrets is not null)
+        {
+            envelope["protectedSecrets"] = protectedPayload.ProtectedSecrets;
+        }
 
-        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions), Encoding.UTF8).ConfigureAwait(false);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(envelope, JsonOptions), new UTF8Encoding(false)).ConfigureAwait(false);
         Log("info", $"[helper:{mode}] correlacion={correlationId}");
 
         var stdoutLines = new List<string>();
         var stderrLines = new List<string>();
-        using var process = StartPowerShellHelperProcess(mode, scriptPath, requestPath, responsePath, onProgress, stdoutLines, stderrLines);
-
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
         try
         {
-            using var timeoutCts = new CancellationTokenSource(GetHelperTimeout(mode));
-            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!process.HasExited)
-        {
-            Log("error", $"Helper {mode} excedió el timeout; cancelando árbol pid={process.Id} request={requestPath} response={responsePath}.");
+            SecurePrivateHandoffFile(requestPath);
+            using var process = StartPowerShellHelperProcess(mode, scriptPath, requestPath, responsePath, onProgress, stdoutLines, stderrLines, sensitiveValues);
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             try
             {
-                process.Kill(entireProcessTree: true);
+                using var timeoutCts = new CancellationTokenSource(GetHelperTimeout(mode));
+                await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
             }
-            catch (Exception killException)
+            catch (OperationCanceledException) when (!process.HasExited)
             {
-                Log("warn", $"No se pudo cancelar completamente el árbol del helper {mode} pid={process.Id}: {killException.Message}");
+                Log("error", $"Helper {mode} excedió el timeout; cancelando árbol pid={process.Id} request={requestPath} response={responsePath}.");
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (Exception killException)
+                {
+                    Log("warn", $"No se pudo cancelar completamente el árbol del helper {mode} pid={process.Id}: {killException.Message}");
+                }
+
+                try
+                {
+                    await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                }
+                catch (Exception waitException)
+                {
+                    Log("warn", $"El proceso del helper {mode} no confirmó salida tras la cancelación: {waitException.Message}");
+                }
+
+                var capturedStdout = SnapshotHelperLines(stdoutLines);
+                var capturedStderr = SnapshotHelperLines(stderrLines);
+                if (!string.IsNullOrWhiteSpace(capturedStdout))
+                {
+                    Log("info", $"[helper:{mode}:stdout-at-timeout] {TrimForLog(RedactHelperText(capturedStdout, sensitiveValues))}");
+                }
+                if (!string.IsNullOrWhiteSpace(capturedStderr))
+                {
+                    Log("warn", $"[helper:{mode}:stderr-at-timeout] {TrimForLog(RedactHelperText(capturedStderr, sensitiveValues))}");
+                }
+
+                throw new TimeoutException($"Helper {mode} excedió su timeout de {GetHelperTimeout(mode).TotalSeconds:0}s. request={requestPath} response={responsePath}");
+            }
+            var stdout = string.Join(Environment.NewLine, stdoutLines);
+            var stderr = string.Join(Environment.NewLine, stderrLines);
+
+            if (!string.IsNullOrWhiteSpace(stdout))
+            {
+                Log("info", $"[helper:{mode}:stdout] {TrimForLog(RedactHelperText(stdout, sensitiveValues))}");
             }
 
+            if (!string.IsNullOrWhiteSpace(stderr))
+            {
+                var stderrLevel = process.ExitCode == 0 ? "info" : "warn";
+                Log(stderrLevel, $"[helper:{mode}:stderr] {TrimForLog(RedactHelperText(stderr, sensitiveValues))}");
+            }
+
+            if (process.ExitCode != 0 && !File.Exists(responsePath))
+            {
+                throw new InvalidOperationException(
+                    $"Helper {mode} fallo sin generar respuesta JSON (exit={process.ExitCode}). stderr={TrimForLog(RedactHelperText(stderr, sensitiveValues))}");
+            }
+
+            HelperEnvelope<TData> response;
             try
             {
-                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                response = await WaitForResponseFileAsync<TData>(responsePath, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
             }
-            catch (Exception waitException)
+            catch (TimeoutException) when (File.Exists(responsePath))
             {
-                Log("warn", $"El proceso del helper {mode} no confirmó salida tras la cancelación: {waitException.Message}");
+                Log("warn", $"Helper {mode} genero archivo de respuesta pero no se pudo leer dentro de 20s. Reintentando 10s adicionales.");
+                response = await WaitForResponseFileAsync<TData>(responsePath, TimeSpan.FromSeconds(10)).ConfigureAwait(false);
             }
-
-            var capturedStdout = SnapshotHelperLines(stdoutLines);
-            var capturedStderr = SnapshotHelperLines(stderrLines);
-            if (!string.IsNullOrWhiteSpace(capturedStdout))
+            catch (TimeoutException timeoutEx)
             {
-                Log("info", $"[helper:{mode}:stdout-at-timeout] {TrimForLog(capturedStdout)}");
+                throw new TimeoutException($"Helper {mode} no genero respuesta valida en el tiempo esperado. response={responsePath}", timeoutEx);
             }
-            if (!string.IsNullOrWhiteSpace(capturedStderr))
+
+            if (response.SchemaVersion != 1 || !Guid.TryParse(response.OperationId, out var responseOperationId) ||
+                !string.Equals(responseOperationId.ToString("D"), operationId, StringComparison.OrdinalIgnoreCase))
             {
-                Log("warn", $"[helper:{mode}:stderr-at-timeout] {TrimForLog(capturedStderr)}");
+                throw new InvalidOperationException($"El helper {mode} devolvió una respuesta con contrato o correlación no válidos.");
             }
-
-            throw new TimeoutException($"Helper {mode} excedió su timeout de {GetHelperTimeout(mode).TotalSeconds:0}s. request={requestPath} response={responsePath}");
+            return response;
         }
-        var stdout = string.Join(Environment.NewLine, stdoutLines);
-        var stderr = string.Join(Environment.NewLine, stderrLines);
-
-        if (!string.IsNullOrWhiteSpace(stdout))
+        finally
         {
-            Log("info", $"[helper:{mode}:stdout] {TrimForLog(stdout)}");
+            TryDeleteHandoffFile(requestPath);
+            TryDeleteHandoffFile(responsePath);
         }
+    }
 
-        if (!string.IsNullOrWhiteSpace(stderr))
+    private static (Dictionary<string, object?> Payload, string? ProtectedSecrets) ProtectHelperRequestPayload(Dictionary<string, object?> request)
+    {
+        var payload = new Dictionary<string, object?>(request, StringComparer.OrdinalIgnoreCase);
+        var secretNames = new[] { "portalAlumnoApiKey", "portalApiKey", "codigoActivacion" };
+        var secrets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (payload.TryGetValue("config", out var configObject) && configObject is Dictionary<string, object?> config)
         {
-            var stderrLevel = process.ExitCode == 0 ? "info" : "warn";
-            Log(stderrLevel, $"[helper:{mode}:stderr] {TrimForLog(stderr)}");
+            config = new Dictionary<string, object?>(config, StringComparer.OrdinalIgnoreCase);
+            payload["config"] = config;
+            foreach (var name in secretNames)
+            {
+                if (config.TryGetValue(name, out var value) && value is not null)
+                {
+                    secrets[name] = Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+                    config.Remove(name);
+                }
+            }
         }
 
-        if (process.ExitCode != 0 && !File.Exists(responsePath))
+        if (secrets.Count == 0)
         {
-            throw new InvalidOperationException(
-                $"Helper {mode} fallo sin generar respuesta JSON (exit={process.ExitCode}). stderr={TrimForLog(stderr)}");
+            return (payload, null);
         }
 
+        var secretBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(secrets, JsonOptions));
         try
         {
-            return await WaitForResponseFileAsync<TData>(responsePath, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+            var encrypted = ProtectedData.Protect(secretBytes, optionalEntropy: null, DataProtectionScope.LocalMachine);
+            return (payload, Convert.ToBase64String(encrypted));
         }
-        catch (TimeoutException) when (File.Exists(responsePath))
+        finally
         {
-            Log("warn", $"Helper {mode} genero archivo de respuesta pero no se pudo leer dentro de 20s. Reintentando 10s adicionales.");
-            return await WaitForResponseFileAsync<TData>(responsePath, TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            CryptographicOperations.ZeroMemory(secretBytes);
+            foreach (var key in secrets.Keys.ToArray()) secrets[key] = string.Empty;
         }
-        catch (TimeoutException timeoutEx)
+    }
+
+    private static IReadOnlyList<string> GetHelperSensitiveValues(Dictionary<string, object?> request)
+    {
+        if (!request.TryGetValue("config", out var configObject) || configObject is not Dictionary<string, object?> config) return [];
+        return new[] { "portalAlumnoApiKey", "portalApiKey", "codigoActivacion" }
+            .Where(config.ContainsKey)
+            .Select(name => Convert.ToString(config[name], System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
+            .Where(value => !string.IsNullOrEmpty(value))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string RedactHelperText(string text, IReadOnlyList<string> sensitiveValues)
+    {
+        foreach (var sensitiveValue in sensitiveValues)
         {
-            throw new TimeoutException($"Helper {mode} no genero respuesta valida en el tiempo esperado. response={responsePath}", timeoutEx);
+            if (!string.IsNullOrEmpty(sensitiveValue)) text = text.Replace(sensitiveValue, "[REDACTED]", StringComparison.Ordinal);
+        }
+        return text;
+    }
+
+    private static void SecurePrivateHandoffFile(string path)
+    {
+        var security = new FileSecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        var identity = WindowsIdentity.GetCurrent();
+        var userSid = identity.User ?? throw new InvalidOperationException("No se pudo determinar el SID del usuario para proteger el handoff.");
+        foreach (var sid in new[]
+        {
+            userSid,
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+            new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null)
+        })
+        {
+            security.AddAccessRule(new FileSystemAccessRule(sid, FileSystemRights.FullControl, AccessControlType.Allow));
+        }
+        new FileInfo(path).SetAccessControl(security);
+    }
+
+    private void TryDeleteHandoffFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            Log("warn", $"No se pudo eliminar un archivo temporal de handoff: {ex.GetType().Name}");
         }
     }
 
@@ -1480,7 +1636,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         string responsePath,
         Action<HelperProgressEvent>? onProgress,
         List<string> stdoutLines,
-        List<string> stderrLines)
+        List<string> stderrLines,
+        IReadOnlyList<string> sensitiveValues)
     {
         Exception? lastError = null;
         var candidateFailures = new List<string>();
@@ -1503,6 +1660,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
                 if (TryParseHelperProgress(args.Data, out var progressEvent))
                 {
+                    progressEvent.Status = RedactHelperText(progressEvent.Status, sensitiveValues);
                     Log("info", $"[helper:{mode}:progress] {progressEvent.Percent}% {TrimForLog(progressEvent.Status, 240)}");
                     onProgress?.Invoke(progressEvent);
                     return;
@@ -2657,6 +2815,8 @@ internal sealed class FailureDisplay
 
 public sealed class HelperEnvelope<TData>
 {
+    public int SchemaVersion { get; set; }
+    public string? OperationId { get; set; }
     public bool Ok { get; set; }
     public string? Phase { get; set; }
     public int ExitCode { get; set; }

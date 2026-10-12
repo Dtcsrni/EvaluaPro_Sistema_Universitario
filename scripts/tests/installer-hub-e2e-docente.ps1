@@ -92,6 +92,20 @@ $script:sharedProgramDataSqliteArtifactsAtStart = @(
   }
 )
 $script:sharedProgramDataDatabaseExistedAtStart = $script:sharedProgramDataSqliteArtifactsAtStart.Count -gt 0
+$script:sharedProgramDataSqliteSnapshotAtStart = @(
+  foreach ($path in $script:sharedProgramDataSqliteArtifactsAtStart) {
+    $item = Get-Item -LiteralPath $path -ErrorAction Stop
+    [pscustomobject]@{
+      path = $path
+      length = [int64]$item.Length
+      sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+  }
+)
+$script:initialUninstallRegistryPaths = @()
+$script:upgradingExistingInstall = $false
+$script:existingInstalledPayloadVersion = $null
+$script:preUpgradeDatabaseBackup = $null
 $script:operationalConfigPath = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\operational-config.last.json'
 $script:operationalConfigExistedAtStart = Test-Path -LiteralPath $script:operationalConfigPath -PathType Leaf
 $script:operationalConfigOriginalBytes = if ($script:operationalConfigExistedAtStart) {
@@ -104,6 +118,7 @@ $screenshots = New-Object System.Collections.Generic.List[string]
 $artifacts = New-Object System.Collections.Generic.List[string]
 $processes = New-Object System.Collections.Generic.List[System.Diagnostics.Process]
 $failed = $false
+$script:qaMutationStarted = $false
 $bundlePath = ''
 $installedRoot = ''
 
@@ -166,27 +181,6 @@ function Get-ProcessSnapshot {
   Get-Process |
     Where-Object { $_.ProcessName -like 'EvaluaPro*' -or $_.ProcessName -like 'node' -or $_.ProcessName -like 'npm' } |
     Select-Object Id, ProcessName, MainWindowTitle, Path
-}
-
-function Stop-InstallerHubProcesses {
-  param([string]$Reason = 'cleanup')
-
-  $targets = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
-      $_.ProcessName -like 'EvaluaPro-InstallerHub*' -or
-      $_.ProcessName -eq 'EvaluaPro.BurnBootstrapperApp'
-    })
-  foreach ($target in $targets) {
-    try {
-      Write-E2ELog ("Cerrando proceso Installer Hub residual reason={0} name={1} pid={2}" -f $Reason, $target.ProcessName, $target.Id)
-      if ($target.MainWindowHandle -ne [IntPtr]::Zero) {
-        $target.CloseMainWindow() | Out-Null
-        Start-Sleep -Seconds 2
-      }
-      if (-not $target.HasExited) {
-        Stop-Process -Id $target.Id -Force -ErrorAction SilentlyContinue
-      }
-    } catch {}
-  }
 }
 
 function Minimize-RunnerConsole {
@@ -731,6 +725,15 @@ function Wait-InstallerStableState {
     if ($cleanTextForErrorCheck -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
+    # The Bootstrapper Application deletes its private handoff files after it
+    # consumes the helper response. When that happens, the exact terminal UI
+    # state is the durable observable contract for this E2E runner.
+    $uiReportsCompleted = $text -match '(?is)Estado completado' -and
+      $text -match '(?is)El flujo finaliz[oó] correctamente' -and
+      $text -match '(?is)Operaci[oó]n finalizada correctamente'
+    if ($uiReportsCompleted) {
+      return [pscustomobject]@{ ok = $true; text = "Installer Hub UI terminal success`n$text" }
+    }
     # El texto del Hub incluye estados "ok" de etapas previas, por ejemplo
     # "Planificación de instalación · ok". Solo la respuesta del helper prueba
     # que terminó la operación seleccionada.
@@ -796,7 +799,12 @@ function Invoke-InstallerHubMode {
   $previousQaInstallDir = $env:EVALUAPRO_QA_INSTALL_DIR
   $previousDatabaseUrl = $env:EVALUAPRO_DATABASE_URL
   $env:EVALUAPRO_QA_INSTALL_DIR = $installedRoot
-  $env:EVALUAPRO_DATABASE_URL = 'file:' + ((Join-Path $installedRoot 'data\evaluapro.db') -replace '\\', '/')
+  $databasePath = if ($script:upgradingExistingInstall) {
+    Get-ConfiguredInstalledSqlitePath
+  } else {
+    Join-Path $installedRoot 'data\evaluapro.db'
+  }
+  $env:EVALUAPRO_DATABASE_URL = 'file:' + ($databasePath -replace '\\', '/')
   try {
     $process = if ($arguments) {
       Start-Process -FilePath $BundlePath -ArgumentList $arguments -PassThru -WindowStyle Normal
@@ -954,7 +962,6 @@ function Invoke-InstallerHubMode {
     throw "Installer Hub no terminó tras cierre controlado mode=$Mode; se conserva el proceso para diagnóstico."
   }
   Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "after-$Mode"
-  Stop-InstallerHubProcesses -Reason "after-close"
   return $true
 }
 
@@ -1272,18 +1279,30 @@ function Export-NativeEvidence {
   if (-not (Test-Path $nativeDir)) {
     New-Item -ItemType Directory -Force -Path $nativeDir | Out-Null
   }
-  $processes = Get-Process -Name "node" -ErrorAction SilentlyContinue
-  if ($processes) {
-    $processes | ConvertTo-Json -Depth 2 | Set-Content -Path (Join-Path $nativeDir 'node-processes.json') -Encoding UTF8
+  $processes = @(Get-InstalledNodeProcesses)
+  $processes | ConvertTo-Json -Depth 3 | Set-Content -Path (Join-Path $nativeDir 'node-processes.json') -Encoding UTF8
+}
+
+function Get-InstalledNodeProcesses {
+  $expectedNodePath = [IO.Path]::GetFullPath((Join-Path $installedRoot 'runtime\node\node.exe'))
+  if (-not (Test-Path -LiteralPath $expectedNodePath -PathType Leaf)) { return @() }
+  try {
+    $processes = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction Stop)
+  } catch {
+    throw "No se pudo enumerar los procesos Node para validar el runtime instalado: $($_.Exception.Message)"
   }
+  return @($processes | Where-Object {
+      -not [string]::IsNullOrWhiteSpace([string]$_.ExecutablePath) -and
+      [string]::Equals([IO.Path]::GetFullPath([string]$_.ExecutablePath), $expectedNodePath, [StringComparison]::OrdinalIgnoreCase)
+    })
 }
 
 function Assert-NativeStable {
   $deadline = (Get-Date).AddSeconds(150)
   $lastError = 'sin respuesta'
   do {
-    $running = Get-Process -Name "node" -ErrorAction SilentlyContinue
-    $count = if ($running) { @($running).Count } else { 0 }
+    $running = @(Get-InstalledNodeProcesses)
+    $count = $running.Count
     if ($count -ge 1) {
       try {
         $api = Invoke-RestMethod -Uri 'http://127.0.0.1:4000/api/salud' -TimeoutSec 5
@@ -1375,22 +1394,30 @@ function Get-InstalledProductVersion {
 
   if ($matchingEntries.Count -eq 1) {
     $entry = $matchingEntries[0]
-  } elseif ($allEntries.Count -eq 1 -and
+  } elseif ($script:upgradingExistingInstall -and $allEntries.Count -eq 1 -and
+      $script:initialUninstallRegistryPaths -contains [string]$allEntries[0].registryPath -and
       [string]::IsNullOrWhiteSpace([string]$allEntries[0].installLocation) -and
       ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
        (Test-Path -LiteralPath (Join-Path $target 'evaluapro-native-dist.zip') -PathType Leaf))) {
-    # MSI v1.2.3 does not reliably publish ARPINSTALLLOCATION. On the clean,
-    # isolated E2E runner a unique ARP product plus its installed payload at the
-    # exact target proves which installation produced the version entry. The
-    # baseline MSI lays down the ZIP before the post-install helper expands it.
     $entry = $allEntries[0]
-    Write-E2ELog "ARP no publicó InstallLocation; se valida la única entrada EvaluaPro contra el EXE o ZIP de payload aislado en $target."
+    Write-E2ELog "ARP conservó la clave existente sin InstallLocation; se verifica la versión actualizada contra el payload en $target."
   } else {
+    $newEntries = @($allEntries | Where-Object { $script:initialUninstallRegistryPaths -notcontains [string]$_.registryPath })
+    if ($newEntries.Count -eq 1 -and
+      [string]::IsNullOrWhiteSpace([string]$newEntries[0].installLocation) -and
+      ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
+       (Test-Path -LiteralPath (Join-Path $target 'evaluapro-native-dist.zip') -PathType Leaf))) {
+      # Some MSI packages omit ARPINSTALLLOCATION. In isolated QA, the one new
+      # registry entry plus payload at the unique target identifies the product.
+      $entry = $newEntries[0]
+      Write-E2ELog "ARP no publicó InstallLocation; se valida la nueva entrada EvaluaPro contra el EXE o ZIP de payload aislado en $target."
+    } else {
     $entryDetails = @($allEntries | ForEach-Object {
         "version=$($_.displayVersion); location=$($_.installLocation); key=$($_.registryPath)"
       }) -join ' | '
     if ([string]::IsNullOrWhiteSpace($entryDetails)) { $entryDetails = 'sin entradas EvaluaPro registradas' }
     throw "No existe una entrada MSI inequívoca para la instalación temporal '$installedRoot': $entryDetails"
+    }
   }
   $parsed = $null
   if (-not [version]::TryParse([string]$entry.displayVersion, [ref]$parsed)) {
@@ -1592,6 +1619,14 @@ function Get-ConfiguredInstalledSqlitePath {
 }
 
 function Set-QAIsolatedSqlite {
+  if ($script:upgradingExistingInstall) {
+    $databasePath = Get-ConfiguredInstalledSqlitePath
+    if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) {
+      throw "La base configurada desapareció durante la actualización: $databasePath"
+    }
+    Add-Result -Area 'database-isolation' -Item 'existing-sqlite-retained-for-upgrade' -Ok $true -Detail $databasePath
+    return $databasePath
+  }
   $databasePath = Get-ConfiguredInstalledSqlitePath
   $localDatabase = [IO.Path]::GetFullPath((Join-Path $installedRoot 'data\evaluapro.db'))
   if ($databasePath -eq $localDatabase) {
@@ -1652,6 +1687,61 @@ function Set-QAIsolatedSqlite {
   }
   Add-Result -Area 'database-isolation' -Item 'fresh-programdata-sqlite-relocated' -Ok $true -Detail "origen=$databasePath destino=$localDatabase"
   return $localDatabase
+}
+
+function Assert-SharedProgramDataSqliteUnchanged {
+  $currentPaths = @(
+    foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
+      $candidate = $sharedProgramDataDatabasePath + $suffix
+      if (Test-Path -LiteralPath $candidate -PathType Leaf) { $candidate }
+    }
+  )
+  $samePaths = (@($currentPaths | Sort-Object) -join "`n") -ceq (@($script:sharedProgramDataSqliteArtifactsAtStart | Sort-Object) -join "`n")
+  $sameContent = $samePaths
+  if ($sameContent) {
+    foreach ($snapshot in $script:sharedProgramDataSqliteSnapshotAtStart) {
+      if (-not (Test-Path -LiteralPath $snapshot.path -PathType Leaf)) { $sameContent = $false; break }
+      $item = Get-Item -LiteralPath $snapshot.path -ErrorAction Stop
+      $hash = (Get-FileHash -LiteralPath $snapshot.path -Algorithm SHA256).Hash.ToLowerInvariant()
+      if ([int64]$item.Length -ne [int64]$snapshot.length -or $hash -ne [string]$snapshot.sha256) {
+        $sameContent = $false
+        break
+      }
+    }
+  }
+  Export-JsonArtifact -Name 'shared-programdata-sqlite-baseline.json' -Data $script:sharedProgramDataSqliteSnapshotAtStart | Out-Null
+  Add-Result -Area 'database-isolation' -Item 'shared-programdata-sqlite-unchanged' -Ok $sameContent -Detail ("initial={0} current={1}" -f $script:sharedProgramDataSqliteArtifactsAtStart.Count, $currentPaths.Count)
+  if (-not $sameContent) {
+    throw "La SQLite compartida en ProgramData cambió durante el E2E; se conserva intacta y requiere revisión: $sharedProgramDataDatabasePath"
+  }
+}
+
+function Backup-ExistingInstallDatabase {
+  if (-not $script:upgradingExistingInstall) { return }
+  $databasePath = Get-ConfiguredInstalledSqlitePath
+  if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) {
+    throw "No existe la base configurada para respaldar antes de actualizar: $databasePath"
+  }
+  $backupRoot = Join-Path ([IO.Path]::GetTempPath()) ("evaluapro-preupgrade-{0}" -f [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+  $backupBase = Join-Path $backupRoot 'evaluapro.db'
+  $backupRecords = @()
+  foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
+    $source = $databasePath + $suffix
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { continue }
+    $destination = $backupBase + $suffix
+    Copy-Item -LiteralPath $source -Destination $destination -ErrorAction Stop
+    $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+    $backupHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($sourceHash -ne $backupHash) { throw "El respaldo previo no coincide con su origen: $source" }
+    $backupRecords += [pscustomobject]@{ source = $source; backup = $destination; sha256 = $backupHash }
+  }
+  if (-not ($backupRecords | Where-Object { $_.source -eq $databasePath })) {
+    throw "No se pudo respaldar la base principal antes de actualizar: $databasePath"
+  }
+  $script:preUpgradeDatabaseBackup = [pscustomobject]@{ root = $backupRoot; files = $backupRecords }
+  Export-JsonArtifact -Name 'pre-upgrade-database-backup.json' -Data $script:preUpgradeDatabaseBackup | Out-Null
+  Add-Result -Area 'preflight' -Item 'pre-upgrade-database-backup' -Ok $true -Detail ("files={0} root={1}" -f $backupRecords.Count, $backupRoot)
 }
 
 function Invoke-DummyDataCycle {
@@ -1726,15 +1816,16 @@ function Invoke-DummyDataCycle {
   }
 }
 
-function Assert-NoActiveEvaluaProAfterUninstall {
+function Assert-NoActiveEvaluaProProcesses {
   $active = @(Get-Process | Where-Object {
       $_.ProcessName -like 'EvaluaPro-InstallerHub*' -or
       $_.ProcessName -eq 'EvaluaPro.BurnBootstrapperApp' -or
       $_.ProcessName -like 'EvaluaPro*'
     })
-  Add-Result -Area 'post-uninstall' -Item 'active-evaluapro-processes' -Ok ($active.Count -eq 0) -Detail ("count={0}" -f $active.Count)
+  $area = if ($script:upgradingExistingInstall) { 'upgrade-existing-install' } else { 'post-uninstall' }
+  Add-Result -Area $area -Item 'active-evaluapro-processes' -Ok ($active.Count -eq 0) -Detail ("count={0}" -f $active.Count)
   if ($active.Count -gt 0) {
-    Export-JsonArtifact -Name 'processes-active-after-uninstall.json' -Data $active | Out-Null
+    Export-JsonArtifact -Name 'processes-active-after-flow.json' -Data $active | Out-Null
   }
 }
 
@@ -1746,7 +1837,11 @@ function Write-TutorialMarkdown {
   $content = @(
     '# Tutorial visual E2E Installer Hub docente-local',
     '',
-    'Este tutorial se genera desde evidencia real de la PC. Muestra el flujo completo install, repair, Plataforma docente nativa, dashboard y uninstall.',
+    $(if ($script:upgradingExistingInstall) {
+      'Este tutorial se genera desde evidencia real de la PC. Muestra la actualización de una instalación existente, repair, Plataforma docente nativa y dashboard; la versión actualizada queda instalada.'
+    } else {
+      'Este tutorial se genera desde evidencia real de la PC. Muestra el flujo completo install, repair, Plataforma docente nativa, dashboard y uninstall.'
+    }),
     '',
     '## 1. Preparar',
     '- Confirmar flavor `docente-local`, modo y ruta.',
@@ -1832,7 +1927,6 @@ try {
   Set-Content -Path $logPath -Encoding UTF8 -Value ('{0:u} Inicio E2E real Installer Hub docente' -f (Get-Date))
   Minimize-RunnerConsole
   Export-JsonArtifact -Name 'processes-before.json' -Data (Get-ProcessSnapshot) | Out-Null
-  Stop-InstallerHubProcesses -Reason 'preflight'
   Assert-SystemMemoryReady
 
   $bundlePath = Resolve-BundlePath
@@ -1848,15 +1942,81 @@ try {
   }
   $installedRoot = $InstallDir
 
-  $sharedDatabaseAbsent = -not $script:sharedProgramDataDatabaseExistedAtStart
-  Add-Result -Area 'preflight' -Item 'shared-programdata-database-absent' -Ok $sharedDatabaseAbsent -Detail $sharedProgramDataDatabasePath
-  if (-not $sharedDatabaseAbsent) {
-    throw "El E2E no se ejecuta porque ya existe una SQLite compartida en ProgramData; use un host QA limpio para no tocar datos existentes: $sharedProgramDataDatabasePath"
-  }
-
   $existing = @(Get-EvaluaProUninstallEntries)
+  $script:initialUninstallRegistryPaths = @($existing | ForEach-Object { [string]$_.registryPath })
   Export-JsonArtifact -Name 'preflight-uninstall-entries.json' -Data $existing | Out-Null
   Add-Result -Area 'preflight' -Item 'existing-install' -Ok ($AllowExistingInstall -or $existing.Count -eq 0) -Detail ("entries={0}" -f $existing.Count)
+  $localAppDataRoot = [IO.Path]::GetFullPath(${env:LOCALAPPDATA}).TrimEnd('\')
+  $normalizedTargetRoot = [IO.Path]::GetFullPath($installedRoot).TrimEnd('\')
+  $targetInsideLocalAppData = $normalizedTargetRoot.StartsWith($localAppDataRoot + '\', [StringComparison]::OrdinalIgnoreCase)
+  $defaultInstallRoot = [IO.Path]::GetFullPath((Join-Path ${env:LOCALAPPDATA} 'EvaluaPro')).TrimEnd('\')
+  $releaseManifestPath = Join-Path $root 'dist\installer\EvaluaPro-release-manifest.json'
+  $releaseManifest = if (Test-Path -LiteralPath $releaseManifestPath -PathType Leaf) { Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json } else { $null }
+  $manifestFlavor = @()
+  if ($releaseManifest -and $releaseManifest.PSObject.Properties.Match('flavors').Count -gt 0) {
+    $manifestFlavor = @($releaseManifest.flavors | Where-Object { [string]$_.flavorId -eq 'docente-local' } | Select-Object -First 1)
+  }
+  $stableCandidate = $null -ne $releaseManifest -and [string]$releaseManifest.channel -eq 'stable' -and
+    $manifestFlavor.Count -eq 1 -and [string]$manifestFlavor[0].channel -eq 'stable'
+  $installedPackagePath = Join-Path $normalizedTargetRoot 'package.json'
+  if ((Test-Path -LiteralPath (Join-Path $normalizedTargetRoot 'EvaluaPro.exe') -PathType Leaf) -and
+      (Test-Path -LiteralPath (Join-Path $normalizedTargetRoot '.env') -PathType Leaf) -and
+      (Test-Path -LiteralPath $installedPackagePath -PathType Leaf)) {
+    try {
+      $installedPackage = Get-Content -Raw -LiteralPath $installedPackagePath | ConvertFrom-Json
+      $parsedInstalledVersion = $null
+      if ([string]$installedPackage.name -eq 'evaluapro' -and
+          [version]::TryParse([string]$installedPackage.version, [ref]$parsedInstalledVersion)) {
+        $script:existingInstalledPayloadVersion = $parsedInstalledVersion
+      }
+    } catch { $script:existingInstalledPayloadVersion = $null }
+  }
+  $installedManifestVersion = $null
+  $installedVersionMetadataPath = Join-Path $normalizedTargetRoot 'config\app-version.json'
+  if (Test-Path -LiteralPath $installedVersionMetadataPath -PathType Leaf) {
+    try {
+      $installedVersionMetadata = Get-Content -Raw -LiteralPath $installedVersionMetadataPath | ConvertFrom-Json
+      $parsedManifestVersion = $null
+      if ([version]::TryParse([string]$installedVersionMetadata.version, [ref]$parsedManifestVersion)) {
+        $installedManifestVersion = $parsedManifestVersion
+      }
+    } catch { $installedManifestVersion = $null }
+  }
+  $candidateAppVersion = [version]::Parse([string]$releaseManifest.version)
+  $payloadIsBehind = $null -ne $script:existingInstalledPayloadVersion -and $script:existingInstalledPayloadVersion -lt $candidateAppVersion
+  $versionMetadataIsBehind = $null -ne $installedManifestVersion -and $installedManifestVersion -lt $candidateAppVersion
+  $targetHasPriorPayload = $payloadIsBehind -or $versionMetadataIsBehind
+  $registeredPayloadVersion = $null
+  if ($existing.Count -eq 1) {
+    try { $registeredPayloadVersion = Normalize-InstallerProductVersion -Version ([version]::Parse([string]$existing[0].displayVersion)) } catch {}
+  }
+  # A completed/failed bundle may have registered a newer installer version
+  # while its native payload still reports the prior package version. Treat
+  # that state as upgradeable when the inventory is singular and the target
+  # path is the expected user install; the candidate must reconcile it.
+  $registryInventoryCompatible = $existing.Count -le 1 -and
+    ($existing.Count -eq 0 -or $registeredPayloadVersion -ge (Normalize-InstallerProductVersion -Version $script:existingInstalledPayloadVersion))
+  $script:upgradingExistingInstall = $registryInventoryCompatible -and $targetHasPriorPayload -and $AllowExistingInstall -and
+    -not [string]::IsNullOrWhiteSpace($CandidateBundlePath) -and
+    [string]::IsNullOrWhiteSpace($BaselineBundlePath) -and $stableCandidate -and
+    $normalizedTargetRoot -eq $defaultInstallRoot -and
+    (Test-Path -LiteralPath (Join-Path $normalizedTargetRoot 'EvaluaPro.exe') -PathType Leaf) -and
+    (Test-Path -LiteralPath (Join-Path $normalizedTargetRoot '.env') -PathType Leaf)
+  $isolatedCandidateRun = -not [string]::IsNullOrWhiteSpace($CandidateBundlePath) -and
+    [string]::IsNullOrWhiteSpace($BaselineBundlePath) -and
+    $AllowExistingInstall -and $targetInsideLocalAppData -and
+    $normalizedTargetRoot -ne $defaultInstallRoot -and
+    -not (Test-Path -LiteralPath $normalizedTargetRoot)
+  Add-Result -Area 'preflight' -Item 'stable-upgrade-existing-install' -Ok $script:upgradingExistingInstall -Detail ("target={0} stableCandidate={1} payloadVersion={2} priorEntries={3}" -f $normalizedTargetRoot, $stableCandidate, $script:existingInstalledPayloadVersion, $existing.Count)
+  Add-Result -Area 'preflight' -Item 'candidate-or-upgrade-target' -Ok ($isolatedCandidateRun -or $script:upgradingExistingInstall) -Detail ("isolated={0} upgrade={1} target={2}" -f $isolatedCandidateRun, $script:upgradingExistingInstall, $normalizedTargetRoot)
+  if ($script:sharedProgramDataDatabaseExistedAtStart -and -not ($isolatedCandidateRun -or $script:upgradingExistingInstall)) {
+    throw "Existe SQLite previa en ProgramData. Solo se admite el E2E de candidata sin baseline en un destino de QA nuevo bajo LocalAppData: $sharedProgramDataDatabasePath"
+  }
+  if ($script:sharedProgramDataDatabaseExistedAtStart -and $script:upgradingExistingInstall) {
+    Add-Result -Area 'preflight' -Item 'shared-programdata-sqlite-upgrade' -Ok $true -Detail 'La base será respaldada antes de iniciar la actualización estable.'
+  } elseif ($script:sharedProgramDataDatabaseExistedAtStart -and $isolatedCandidateRun) {
+    Add-Result -Area 'preflight' -Item 'shared-programdata-sqlite-preserved' -Ok $true -Detail ("SQLite preexistente se preservará por SHA-256; target={0}" -f $normalizedTargetRoot)
+  }
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = New-Object Security.Principal.WindowsPrincipal($identity)
   $isAdministrator = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -1882,10 +2042,23 @@ try {
     throw 'La PC no esta limpia: ya existe una instalacion EvaluaPro.'
   }
 
+  $activeInstallerHubProcesses = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+      $_.ProcessName -like 'EvaluaPro-InstallerHub*' -or
+      $_.ProcessName -eq 'EvaluaPro.BurnBootstrapperApp'
+    })
+  Add-Result -Area 'preflight' -Item 'no-active-installer-hub' -Ok ($activeInstallerHubProcesses.Count -eq 0) -Detail (($activeInstallerHubProcesses | ForEach-Object { "{0}:{1}" -f $_.ProcessName, $_.Id }) -join ',')
+  if ($activeInstallerHubProcesses.Count -gt 0) {
+    throw 'Hay procesos Installer Hub activos. El runner no los cerrará; ciérrelos manualmente o use un host QA limpio.'
+  }
+
   $drive = Get-PSDrive -Name ([IO.Path]::GetPathRoot($installedRoot).Substring(0, 1))
   Add-Result -Area 'preflight' -Item 'free-space' -Ok ($drive.Free -gt 8GB) -Detail ("freeGB={0:n2}" -f ($drive.Free / 1GB))
   Add-Result -Area 'preflight' -Item 'powershell' -Ok ($PSVersionTable.PSVersion.Major -ge 5) -Detail ([string]$PSVersionTable.PSVersion)
 
+  # Set this only after every non-mutating preflight has passed. Cleanup must not
+  # write ProgramData or terminate processes when the runner rejects the host.
+  $script:qaMutationStarted = $true
+  Backup-ExistingInstallDatabase
   if ([string]::IsNullOrWhiteSpace($BaselineBundlePath)) {
     Invoke-InstallerHubMode -Mode 'install' | Out-Null
     Wait-InstalledPayload -TimeoutSec 240
@@ -1934,36 +2107,56 @@ try {
   Invoke-InstallerHubMode -Mode 'repair' | Out-Null
   Test-InstalledState -Phase 'post-repair'
 
-  Invoke-InstallerHubMode -Mode 'uninstall' | Out-Null
-  $remainingEntries = @(Get-EvaluaProUninstallEntries)
-  Export-JsonArtifact -Name 'post-uninstall-entries.json' -Data $remainingEntries | Out-Null
-  Add-Result -Area 'post-uninstall' -Item 'uninstall-registry' -Ok ($remainingEntries.Count -eq 0) -Detail ("entries={0}" -f $remainingEntries.Count)
-  Add-Result -Area 'post-uninstall' -Item 'install-dir-removed' -Ok (-not (Test-Path -LiteralPath $installedRoot)) -Detail $installedRoot
+  if ($script:upgradingExistingInstall) {
+    $postUpgradeEntries = @(Get-EvaluaProUninstallEntries)
+    $expectedVersion = [version]::Parse(([string]$releaseManifest.version + '.0'))
+    $installedVersion = Get-InstalledProductVersion
+    $versionMatches = $installedVersion -eq (Normalize-InstallerProductVersion -Version $expectedVersion)
+    $singleCurrentRegistration = $postUpgradeEntries.Count -eq 1
+    $currentRegistryPath = if ($postUpgradeEntries.Count -gt 0) { [string]$postUpgradeEntries[0].registryPath } else { '' }
+    Add-Result -Area 'upgrade-existing-install' -Item 'single-current-registration' -Ok $singleCurrentRegistration -Detail ("initial={0} after={1} key={2}" -f $script:initialUninstallRegistryPaths.Count, $postUpgradeEntries.Count, $currentRegistryPath)
+    Add-Result -Area 'upgrade-existing-install' -Item 'version-updated' -Ok $versionMatches -Detail ("expected={0} actual={1}" -f $expectedVersion, $installedVersion)
+    Add-Result -Area 'upgrade-existing-install' -Item 'installation-retained' -Ok (Test-Path -LiteralPath (Join-Path $installedRoot 'EvaluaPro.exe') -PathType Leaf) -Detail $installedRoot
+    if (-not ($singleCurrentRegistration -and $versionMatches)) { throw 'La actualización estable no dejó una sola entrada registrada en la versión esperada.' }
+  } else {
+    Invoke-InstallerHubMode -Mode 'uninstall' | Out-Null
+    $remainingEntries = @(Get-EvaluaProUninstallEntries)
+    Export-JsonArtifact -Name 'post-uninstall-entries.json' -Data $remainingEntries | Out-Null
+    $remainingPaths = @($remainingEntries | ForEach-Object { [string]$_.registryPath })
+    $preservedInitialEntries = @($script:initialUninstallRegistryPaths | Where-Object { $remainingPaths -contains $_ })
+    $newRemainingEntries = @($remainingEntries | Where-Object { $script:initialUninstallRegistryPaths -notcontains [string]$_.registryPath })
+    $registryClean = $newRemainingEntries.Count -eq 0 -and $preservedInitialEntries.Count -eq $script:initialUninstallRegistryPaths.Count
+    Add-Result -Area 'post-uninstall' -Item 'uninstall-registry' -Ok $registryClean -Detail ("initial={0} remaining={1} new={2} preserved={3}" -f $script:initialUninstallRegistryPaths.Count, $remainingEntries.Count, $newRemainingEntries.Count, $preservedInitialEntries.Count)
+    if (-not $registryClean) { throw 'El uninstall no retiró únicamente la entrada de QA o cambió entradas EvaluaPro preexistentes.' }
+    Add-Result -Area 'post-uninstall' -Item 'install-dir-removed' -Ok (-not (Test-Path -LiteralPath $installedRoot)) -Detail $installedRoot
+    Assert-SharedProgramDataSqliteUnchanged
 
-  $backupDir = "C:\Users\Public\Documents\EvaluaPro_Backup"
-  $backupArchives = @(Get-ChildItem -Path $backupDir -File -Filter "data_*.zip" -ErrorAction SilentlyContinue)
-  $restoreOk = $false
-  $restoreDetail = "backup_archives={0}" -f $backupArchives.Count
-  if ($backupArchives.Count -gt 0) {
-    $restoreStage = Join-Path ([IO.Path]::GetTempPath()) ("evaluapro-restore-check-" + [Guid]::NewGuid().ToString('N'))
-    try {
-      Expand-Archive -LiteralPath $backupArchives[-1].FullName -DestinationPath $restoreStage -Force
-      $restoreOk = Test-Path -LiteralPath (Join-Path $restoreStage 'evaluapro.db')
-      $restoreDetail = "backup_archives={0} restore_db={1}" -f $backupArchives.Count,$restoreOk
-    } catch {
-      $restoreDetail = "backup_archives={0} restore_error={1}" -f $backupArchives.Count,$_.Exception.Message
-    } finally {
-      Remove-Item -LiteralPath $restoreStage -Recurse -Force -ErrorAction SilentlyContinue
+    $backupDir = "C:\Users\Public\Documents\EvaluaPro_Backup"
+    $backupArchives = @(Get-ChildItem -Path $backupDir -File -Filter "data_*.zip" -ErrorAction SilentlyContinue)
+    $restoreOk = $false
+    $restoreDetail = "backup_archives={0}" -f $backupArchives.Count
+    if ($backupArchives.Count -gt 0) {
+      $restoreStage = Join-Path ([IO.Path]::GetTempPath()) ("evaluapro-restore-check-" + [Guid]::NewGuid().ToString('N'))
+      try {
+        Expand-Archive -LiteralPath $backupArchives[-1].FullName -DestinationPath $restoreStage -Force
+        $restoreOk = Test-Path -LiteralPath (Join-Path $restoreStage 'evaluapro.db')
+        $restoreDetail = "backup_archives={0} restore_db={1}" -f $backupArchives.Count,$restoreOk
+      } catch {
+        $restoreDetail = "backup_archives={0} restore_error={1}" -f $backupArchives.Count,$_.Exception.Message
+      } finally {
+        Remove-Item -LiteralPath $restoreStage -Recurse -Force -ErrorAction SilentlyContinue
+      }
     }
+    Add-Result -Area 'post-uninstall' -Item 'backup-created' -Ok $restoreOk -Detail $restoreDetail
   }
-  Add-Result -Area 'post-uninstall' -Item 'backup-created' -Ok $restoreOk -Detail $restoreDetail
 
-  Assert-NoActiveEvaluaProAfterUninstall
+  Assert-NoActiveEvaluaProProcesses
 
   Export-InstallerLogs
   Export-JsonArtifact -Name 'processes-after.json' -Data (Get-ProcessSnapshot) | Out-Null
   $orphanProcesses = @(Get-Process | Where-Object { $_.ProcessName -like 'EvaluaPro-InstallerHub*' -or $_.ProcessName -eq 'EvaluaPro.BurnBootstrapperApp' })
-  Add-Result -Area 'post-uninstall' -Item 'orphan-processes' -Ok ($orphanProcesses.Count -eq 0) -Detail ("count={0}" -f $orphanProcesses.Count)
+  $processResultArea = if ($script:upgradingExistingInstall) { 'upgrade-existing-install' } else { 'post-uninstall' }
+  Add-Result -Area $processResultArea -Item 'orphan-processes' -Ok ($orphanProcesses.Count -eq 0) -Detail ("count={0}" -f $orphanProcesses.Count)
   Write-VisualFlowManifest
   Write-TutorialMarkdown
 
@@ -1990,32 +2183,34 @@ finally {
         Start-Sleep -Seconds 2
       }
       if ($process -and -not $process.HasExited) {
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        Write-E2ELog ("Cerrando árbol de proceso E2E iniciado por pid={0}" -f $process.Id)
+        & taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null
       }
     } catch {}
   }
-  Stop-InstallerHubProcesses -Reason 'finally'
-  try {
-    $currentProfileExists = Test-Path -LiteralPath $script:operationalConfigPath -PathType Leaf
-    $currentProfileOwnedByQa = $false
-    if ($currentProfileExists) {
-      try {
-        $currentProfile = Get-Content -Raw -LiteralPath $script:operationalConfigPath | ConvertFrom-Json
-        $currentInstallDir = [string]$currentProfile.installDir
-        $currentProfileOwnedByQa = -not [string]::IsNullOrWhiteSpace($currentInstallDir) -and
-          [IO.Path]::GetFullPath($currentInstallDir).TrimEnd('\\') -eq [IO.Path]::GetFullPath($installedRoot).TrimEnd('\\')
-      } catch {}
+  if ($script:qaMutationStarted -and -not $script:upgradingExistingInstall) {
+    try {
+      $currentProfileExists = Test-Path -LiteralPath $script:operationalConfigPath -PathType Leaf
+      $currentProfileOwnedByQa = $false
+      if ($currentProfileExists) {
+        try {
+          $currentProfile = Get-Content -Raw -LiteralPath $script:operationalConfigPath | ConvertFrom-Json
+          $currentInstallDir = [string]$currentProfile.installDir
+          $currentProfileOwnedByQa = -not [string]::IsNullOrWhiteSpace($currentInstallDir) -and
+            [IO.Path]::GetFullPath($currentInstallDir).TrimEnd('\\') -eq [IO.Path]::GetFullPath($installedRoot).TrimEnd('\\')
+        } catch {}
+      }
+      if ($script:operationalConfigExistedAtStart -and (-not $currentProfileExists -or $currentProfileOwnedByQa)) {
+        [IO.File]::WriteAllBytes($script:operationalConfigPath, $script:operationalConfigOriginalBytes)
+        Write-E2ELog 'Perfil operativo previo restaurado tras la prueba QA.'
+      } elseif (-not $script:operationalConfigExistedAtStart -and $currentProfileOwnedByQa) {
+        Remove-Item -LiteralPath $script:operationalConfigPath -Force
+        Write-E2ELog 'Perfil operativo creado por la prueba QA retirado.'
+      } elseif ($currentProfileExists -and -not $currentProfileOwnedByQa) {
+        Write-E2ELog 'El perfil operativo cambió de destino durante E2E; se conserva para evitar sobrescribir una actualización externa.'
+      }
+    } catch {
+      Write-E2ELog "WARNING: No se pudo restaurar el perfil operativo QA: $($_.Exception.Message)"
     }
-    if ($script:operationalConfigExistedAtStart -and (-not $currentProfileExists -or $currentProfileOwnedByQa)) {
-      [IO.File]::WriteAllBytes($script:operationalConfigPath, $script:operationalConfigOriginalBytes)
-      Write-E2ELog 'Perfil operativo previo restaurado tras la prueba QA.'
-    } elseif (-not $script:operationalConfigExistedAtStart -and $currentProfileOwnedByQa) {
-      Remove-Item -LiteralPath $script:operationalConfigPath -Force
-      Write-E2ELog 'Perfil operativo creado por la prueba QA retirado.'
-    } elseif ($currentProfileExists -and -not $currentProfileOwnedByQa) {
-      Write-E2ELog 'El perfil operativo cambió de destino durante E2E; se conserva para evitar sobrescribir una actualización externa.'
-    }
-  } catch {
-    Write-E2ELog "WARNING: No se pudo restaurar el perfil operativo QA: $($_.Exception.Message)"
   }
 }

@@ -158,12 +158,12 @@ describe('generación PDF: recovery manifest y bundle', () => {
       });
   }
 
-  async function consultarProgresoLote(auth: Record<string, string>, loteId: string, plantillaId?: string) {
+  async function consultarProgresoLote(auth: Record<string, string>, loteId: string, query?: Record<string, string>, expectedStatus = 200) {
     const req = request(app)
       .get(`/api/examenes/generados/lote/${encodeURIComponent(loteId)}/progreso`)
       .set(auth);
-    if (plantillaId) req.query({ plantillaId });
-    return req.expect(200);
+    if (query) req.query(query);
+    return req.expect(expectedStatus);
   }
 
   it('persiste manifiesto firmado y keyId de QR en examen individual', async () => {
@@ -259,7 +259,7 @@ describe('generación PDF: recovery manifest y bundle', () => {
     } finally {
       await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS inyectar_fallo_persistencia_pdf_lote');
     }
-    const progresoTrasFallo = await consultarProgresoLote(base.auth, 'LOTREC01', base.plantillaId);
+    const progresoTrasFallo = await consultarProgresoLote(base.auth, 'LOTREC01', { plantillaId: base.plantillaId });
     expect(progresoTrasFallo.body).toMatchObject({ fallidos: 2, completado: false, estado: 'fallido' });
     const descargaDuranteFallo = await descargarPdfLote(base.auth, 'LOTREC01');
     expect(descargaDuranteFallo.status).toBe(409);
@@ -332,8 +332,18 @@ describe('generación PDF: recovery manifest y bundle', () => {
     const plantilla = await ExamenPlantilla.findById(base.plantillaId).lean();
     expect(plantilla).toBeTruthy();
 
+    for (const [index, matricula] of ['CUH512410170', 'CUH512410171'].entries()) {
+      await request(app).post('/api/alumnos').set(base.auth).send({
+        periodoId: base.periodoId,
+        matricula,
+        nombreCompleto: `Alumno Recovery Grupo B ${index + 1}`,
+        correo: `alumno-recovery-b-${index + 1}@cuh.mx`,
+        grupo: 'B'
+      }).expect(201);
+    }
+
     const loteId = 'LOTPROG01';
-    const progresoInicial = await consultarProgresoLote(base.auth, loteId, base.plantillaId);
+    const progresoInicial = await consultarProgresoLote(base.auth, loteId, { plantillaId: base.plantillaId, grupo: 'A' });
     expect(progresoInicial.body).toMatchObject({
       loteId,
       totalEsperado: 2,
@@ -354,7 +364,7 @@ describe('generación PDF: recovery manifest y bundle', () => {
       paginas: []
     });
 
-    const progresoParcial = await consultarProgresoLote(base.auth, loteId, base.plantillaId);
+    const progresoParcial = await consultarProgresoLote(base.auth, loteId, { plantillaId: base.plantillaId, grupo: 'A' });
     expect(progresoParcial.body).toMatchObject({
       loteId,
       totalEsperado: 2,
@@ -363,7 +373,7 @@ describe('generación PDF: recovery manifest y bundle', () => {
       completado: false,
       estado: 'generando'
     });
-    const progresoParcialLower = await consultarProgresoLote(base.auth, loteId.toLowerCase(), base.plantillaId);
+    const progresoParcialLower = await consultarProgresoLote(base.auth, loteId.toLowerCase(), { plantillaId: base.plantillaId, grupo: 'A' });
     expect(progresoParcialLower.body).toMatchObject({
       loteId,
       totalEsperado: 2,
@@ -384,7 +394,7 @@ describe('generación PDF: recovery manifest y bundle', () => {
       paginas: []
     });
 
-    const progresoCompleto = await consultarProgresoLote(base.auth, loteId, base.plantillaId);
+    const progresoCompleto = await consultarProgresoLote(base.auth, loteId, { plantillaId: base.plantillaId, grupo: 'A' });
     expect(progresoCompleto.body).toMatchObject({
       loteId,
       totalEsperado: 2,
@@ -395,7 +405,8 @@ describe('generación PDF: recovery manifest y bundle', () => {
     });
 
     await ExamenGenerado.updateOne({ loteId, folio: 'LOTGEN01' }, { $set: { estado: 'fallido' } });
-    const progresoFallido = await consultarProgresoLote(base.auth, loteId, base.plantillaId);
+    const progresoFallido = await consultarProgresoLote(base.auth, loteId, { plantillaId: base.plantillaId, grupo: 'A' });
     expect(progresoFallido.body).toMatchObject({ fallidos: 1, completado: false, estado: 'fallido' });
+    await consultarProgresoLote(base.auth, loteId, { plantillaId: base.plantillaId, grupo: 'A', totalEsperado: '501' }, 400);
   });
 });

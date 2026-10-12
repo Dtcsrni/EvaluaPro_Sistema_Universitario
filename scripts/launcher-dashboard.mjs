@@ -17,7 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import net from 'net';
 import process from 'node:process';
-import { X509Certificate } from 'node:crypto';
+import { X509Certificate, randomUUID } from 'node:crypto';
 import { spawn, spawnSync, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { createUpdateManager } from './update-manager.mjs';
@@ -40,6 +40,7 @@ const verbose = args.includes('--verbose');
 const fullLogs = args.includes('--full-logs');
 
 const dashboardStartedAt = Date.now();
+const dashboardInstanceId = randomUUID();
 let listeningPort = 0;
 
 // Docker/stack bootstrap state (for shortcuts/tray).
@@ -3845,15 +3846,22 @@ async function findExistingInstance() {
 
 function writeLock(port) {
   const payload = {
+    contractVersion: 1,
+    instanceId: dashboardInstanceId,
+    state: 'ready',
     pid: process.pid,
     port,
     mode,
-    startedAt: new Date().toISOString()
+    startedAt: new Date(dashboardStartedAt).toISOString(),
+    root
   };
+  const temporaryPath = `${lockPath}.${dashboardInstanceId}.tmp`;
   try {
-    fs.writeFileSync(lockPath, JSON.stringify(payload, null, 2));
+    fs.writeFileSync(temporaryPath, JSON.stringify(payload, null, 2), { flag: 'wx' });
+    fs.renameSync(temporaryPath, lockPath);
   } catch {
-    // ignore
+    try { fs.rmSync(temporaryPath, { force: true }); } catch { /* best effort cleanup */ }
+    throw new Error('No se pudo publicar la identidad del dashboard de forma atómica.');
   }
   updateSingletonLock({ port, state: 'ready', lastSeenAt: new Date().toISOString() });
 }
@@ -4118,6 +4126,9 @@ const server = http.createServer(async (req, res) => {
         displayVersion: pkg.displayVersion || pkg.version || ''
       },
       dashboard: {
+        contractVersion: 1,
+        instanceId: dashboardInstanceId,
+        state: 'ready',
         mode: uiMode,
         modeConfig: mode,
         port: listeningPort,

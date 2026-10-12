@@ -13,45 +13,132 @@ type OpcionesArranque = {
   crearAplicacion?: () => Express;
   desconectar?: () => Promise<unknown>;
   puerto?: number;
+  shutdownTimeoutMs?: number;
 };
+
+export type EstadoCicloVidaApi = 'starting' | 'ready' | 'draining' | 'stopped';
+type CicloVidaApi = { state: EstadoCicloVidaApi };
+const ciclosVida = new WeakMap<Server, CicloVidaApi>();
+const cierres = new WeakMap<Server, Promise<void>>();
+const timeoutsCierre = new WeakMap<Server, number>();
+const MAX_TIMEOUT_MS = 2_147_483_647;
+
+function resolverTimeoutCierre(explicito?: number): number {
+  const desdeEntorno = process.env.EVALUAPRO_API_SHUTDOWN_TIMEOUT_MS;
+  const timeout = explicito ?? (desdeEntorno === undefined || desdeEntorno.trim() === ''
+    ? 90_000
+    : Number(desdeEntorno));
+  if (!Number.isFinite(timeout) || timeout <= 0 || timeout > MAX_TIMEOUT_MS) {
+    throw new Error(`EVALUAPRO_API_SHUTDOWN_TIMEOUT_MS debe ser un número finito entre 0 y ${MAX_TIMEOUT_MS}`);
+  }
+  return timeout;
+}
 
 export async function iniciarApiDocenteLocal({
   conectar = conectarSqlite,
   crearAplicacion = crearApp,
   desconectar = () => prisma.$disconnect(),
-  puerto = configuracion.puerto
+  puerto = configuracion.puerto,
+  shutdownTimeoutMs
 }: OpcionesArranque = {}): Promise<Server> {
-  await conectar();
+  const timeoutCierre = resolverTimeoutCierre(shutdownTimeoutMs);
+  const cicloVida: CicloVidaApi = { state: 'starting' };
 
   let servidor: Server | undefined;
   try {
-    const servidorLocal = crearAplicacion().listen(puerto, '127.0.0.1');
+    await conectar();
+    const aplicacion = crearAplicacion();
+    aplicacion.locals.apiLifecycle = cicloVida;
+    const servidorLocal = aplicacion.listen(puerto, '127.0.0.1');
     servidor = servidorLocal;
+    ciclosVida.set(servidorLocal, cicloVida);
+    timeoutsCierre.set(servidorLocal, timeoutCierre);
     await new Promise<void>((resolve, reject) => {
       servidorLocal.once('error', reject);
       servidorLocal.once('listening', resolve);
     });
+    cicloVida.state = 'ready';
     return servidorLocal;
   } catch (error) {
     if (servidor?.listening) {
-      await new Promise<void>((resolve) => servidor!.close(() => resolve()));
+      try {
+        await new Promise<void>((resolve, reject) => {
+          servidor!.close((errorCierre) => errorCierre ? reject(errorCierre) : resolve());
+        });
+      } catch (errorLimpieza) {
+        logError('Error secundario al cerrar HTTP durante el arranque', errorLimpieza);
+      }
     }
-    await desconectar().catch(() => undefined);
+    cicloVida.state = 'stopped';
+    try {
+      await desconectar();
+    } catch (errorLimpieza) {
+      logError('Error secundario al desconectar persistencia durante el arranque', errorLimpieza);
+    }
     throw error;
   }
 }
 
 export async function cerrarApiDocenteLocal(
   servidor: Server,
-  desconectar: () => Promise<unknown> = () => prisma.$disconnect()
+  desconectar: () => Promise<unknown> = () => prisma.$disconnect(),
+  timeoutMs?: number
 ): Promise<void> {
+  const existente = cierres.get(servidor);
+  if (existente) return existente;
+
+  const operacion = cerrarUnaVez(
+    servidor,
+    desconectar,
+    resolverTimeoutCierre(timeoutMs ?? timeoutsCierre.get(servidor))
+  );
+  cierres.set(servidor, operacion);
+  return operacion;
+}
+
+async function cerrarUnaVez(
+  servidor: Server,
+  desconectar: () => Promise<unknown>,
+  timeoutMs: number
+): Promise<void> {
+  const cicloVida = ciclosVida.get(servidor);
+  if (cicloVida) cicloVida.state = 'draining';
+
+  let errorHttp: unknown;
+  let errorPersistencia: unknown;
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
   try {
-    await new Promise<void>((resolve, reject) => {
+    const cierreHttp = new Promise<void>((resolve, reject) => {
       servidor.close((error) => error ? reject(error) : resolve());
     });
+    const vencimiento = new Promise<'timeout'>((resolve) => {
+      temporizador = setTimeout(() => resolve('timeout'), timeoutMs);
+    });
+    const resultado = await Promise.race([cierreHttp.then(() => 'closed' as const), vencimiento]);
+    if (resultado === 'timeout') {
+      servidor.closeAllConnections();
+      await cierreHttp;
+    }
+  } catch (error) {
+    errorHttp = error;
   } finally {
-    await desconectar();
+    if (temporizador) clearTimeout(temporizador);
+    try {
+      await desconectar();
+    } catch (error) {
+      errorPersistencia = error;
+      logError('Error al desconectar persistencia durante el cierre de API docente local', error);
+    }
+    if (cicloVida) cicloVida.state = 'stopped';
   }
+
+  if (errorHttp && errorPersistencia) {
+    const errorCombinado = new Error('Fallaron el cierre HTTP y la desconexión de persistencia');
+    Object.assign(errorCombinado, { errors: [errorHttp, errorPersistencia] });
+    throw errorCombinado;
+  }
+  if (errorHttp) throw errorHttp;
+  if (errorPersistencia) throw errorPersistencia;
 }
 
 async function ejecutar(): Promise<void> {
@@ -74,7 +161,6 @@ const archivoEjecutado = process.argv[1] ? pathToFileURL(path.resolve(process.ar
 if (archivoEjecutado === import.meta.url) {
   void ejecutar().catch(async (error) => {
     logError('No se pudo iniciar la API docente local', error);
-    await prisma.$disconnect().catch(() => undefined);
     process.exitCode = 1;
   });
 }

@@ -1258,7 +1258,7 @@ export function SeccionPlantillas({
       sondeoEnCurso = true;
       try {
         const progreso = await clienteApi.obtener<ProgresoLoteGeneracion>(
-          `/examenes/generados/lote/${encodeURIComponent(lote)}/progreso?plantillaId=${encodeURIComponent(plantillaId)}`
+          `/examenes/generados/lote/${encodeURIComponent(lote)}/progreso?plantillaId=${encodeURIComponent(plantillaId)}&grupo=${encodeURIComponent(grupoEfectivo ?? '')}&totalEsperado=${encodeURIComponent(String(totalEsperadoInicial))}`
         );
         if (!sondeoActivo) return;
         setProgresoLoteGeneracion((anterior) => ({

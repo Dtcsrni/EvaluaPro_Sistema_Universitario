@@ -176,10 +176,16 @@ router.get('/live', (_req, res) => {
 
 router.get('/ready', async (_req, res) => {
   const { estado, textoEstado, lista } = await obtenerEstadoDb();
+  const ciclo = _req.app.locals.apiLifecycle as { state?: string } | undefined;
+  const estadosValidos = ['starting', 'ready', 'draining', 'stopped'] as const;
+  const estadoHost = estadosValidos.find((estadoValido) => estadoValido === ciclo?.state) ?? 'ready';
+  const hostListo = estadoHost === 'ready';
+  const listaTotal = lista && hostListo;
   const payload: RespuestaReadiness = {
-    estado: lista ? 'ok' : 'degradado',
+    estado: listaTotal ? 'ok' : 'degradado',
     tiempoActivo: process.uptime(),
     dependencies: {
+      host: { state: estadoHost, ready: hostListo },
       sqlite: {
         status: lista ? 'ok' : 'fail',
         ready: lista,
@@ -195,7 +201,7 @@ router.get('/ready', async (_req, res) => {
       }
     }
   };
-  res.status(lista ? 200 : 503).json(payload);
+  res.status(listaTotal ? 200 : 503).json(payload);
 });
 
 router.get('/metrics', async (_req, res) => {

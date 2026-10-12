@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { evaluateStreak, fetchRunsFromGitHub } from './check-ci-streak.mjs';
+import { fetchCandidateWorkflowRuns, fetchWorkflowRun, validateCiCandidate } from './check-ci-candidate.mjs';
 import { validateEvidenceContract } from './check-release-evidence.mjs';
 
 const REQUIRED_QA_ARTIFACTS = [
@@ -262,12 +262,21 @@ function validateInstallerReleaseManifest(manifestPathArg, expectedVersion = '')
 
 export function evaluateStablePromotion(options) {
   const checks = [];
-  const runs = options.runs || [];
-  const streakVerdict = evaluateStreak(runs, options.requiredStreak);
+  const ciVerdict = validateCiCandidate({
+    ciRuns: options.ciRuns || [],
+    installerRun: options.installerRun,
+    candidateSha: options.candidateSha,
+    branch: options.branch || 'main'
+  });
   checks.push({
-    id: 'ci-streak',
-    ok: streakVerdict.ok,
-    detail: `streak=${streakVerdict.streak}/${options.requiredStreak}`
+    id: 'ci-candidate',
+    ok: ciVerdict.ci.ok,
+    detail: ciVerdict.ci.detail
+  });
+  checks.push({
+    id: 'installer-candidate',
+    ok: ciVerdict.installer.ok,
+    detail: ciVerdict.installer.detail
   });
 
   try {
@@ -318,16 +327,24 @@ export function evaluateStablePromotion(options) {
   }
 
   const ok = checks.every((item) => item.ok);
-  return { ok, checks };
+  return {
+    ok,
+    checks,
+    ciCandidate: {
+      ciChecks: ciVerdict.ci.run,
+      installerWindows: ciVerdict.installer.run
+    }
+  };
 }
 
 export async function main() {
   const version = getArg('version', process.env.RELEASE_VERSION || '');
-  const requiredStreak = Number(getArg('required-streak', process.env.CI_STREAK_REQUIRED || '10'));
-  const branch = getArg('branch', process.env.CI_STREAK_BRANCH || 'main');
-  const workflowFile = getArg('workflow', process.env.CI_STREAK_WORKFLOW || 'ci.yml');
+  const branch = getArg('branch', 'main');
+  const workflowFile = getArg('workflow', 'ci.yml');
   const repo = getArg('repo', process.env.GITHUB_REPOSITORY || '');
-  const runsFixture = getArg('runs-fixture', process.env.CI_STREAK_RUNS_FIXTURE || '');
+  const ciRunsFixture = getArg('ci-runs-fixture', process.env.CI_CANDIDATE_RUNS_FIXTURE || '');
+  const candidateSha = getArg('candidate-sha', process.env.RELEASE_CANDIDATE_SHA || '').trim().toLowerCase();
+  const installerRunId = getArg('installer-run-id', process.env.RELEASE_INSTALLER_RUN_ID || '').trim();
   const evidenceDirArg = getArg('evidence-dir', '');
   const runProdFlow = getArg('run-prod-flow', '0') === '1';
   const reportDirArg = getArg('report-dir', '');
@@ -344,13 +361,14 @@ export async function main() {
     : path.resolve(process.cwd(), `reports/release/stable-gate/${version || 'adhoc'}`);
   fs.mkdirSync(reportDir, { recursive: true });
 
-  if (!runsFixture && !repo) {
-    throw new Error('Falta --repo=<owner/repo> o GITHUB_REPOSITORY para consultar racha CI');
-  }
+  if (!/^[a-f0-9]{40}$/.test(candidateSha)) throw new Error('Falta --candidate-sha con el SHA completo del commit que se promociona.');
+  if (!repo) throw new Error('Falta --repo=<owner/repo> o GITHUB_REPOSITORY para verificar CI del candidato.');
+  if (!installerRunId) throw new Error('Falta --installer-run-id de CI Installer Windows para el candidato.');
 
-  const runs = runsFixture
-    ? parseRunsFixture(runsFixture)
-    : fetchRunsFromGitHub(repo, branch, workflowFile, Math.max(requiredStreak + 5, 30));
+  const ciRuns = ciRunsFixture
+    ? parseRunsFixture(ciRunsFixture)
+    : fetchCandidateWorkflowRuns(repo, branch, workflowFile, candidateSha);
+  const installerRun = fetchWorkflowRun(repo, installerRunId);
   let prodFlowResult = null;
   if (runProdFlow) {
     const scriptPath = path.resolve(process.cwd(), 'scripts/release/gate-prod-flow.mjs');
@@ -359,18 +377,21 @@ export async function main() {
 
   const result = evaluateStablePromotion({
     version,
-    requiredStreak,
-    runs,
+    ciRuns,
+    installerRun,
+    branch,
     evidenceDir,
     prodFlowResult,
     installerManifestPath: getArg('installer-manifest', ''),
-    candidateSha: getArg('candidate-sha', process.env.RELEASE_CANDIDATE_SHA || ''),
+    candidateSha,
     qaManifestPath: getArg('qa-manifest', process.env.RELEASE_GATE_QA_MANIFEST || '')
   });
 
   const decision = {
     timestamp: new Date().toISOString(),
     version: version || path.basename(evidenceDir),
+    candidateSha,
+    ciCandidate: result.ciCandidate,
     decision: result.ok ? 'Go' : 'No-Go',
     checks: result.checks
   };

@@ -66,10 +66,6 @@ export function validateEvidenceContract(baseDir) {
   if (typeof manifest.commit !== 'string' || !manifest.commit.trim()) {
     throw new Error('manifest.json: campo commit invalido');
   }
-  if (!Number.isFinite(Number(manifest.ciConsecutivoVerde))) {
-    throw new Error('manifest.json: campo ciConsecutivoVerde invalido');
-  }
-
   const gate = manifest.gateHumanoProduccion || {};
   if (typeof gate.periodoId !== 'string' || !gate.periodoId.trim()) {
     throw new Error('manifest.json: gateHumanoProduccion.periodoId invalido');

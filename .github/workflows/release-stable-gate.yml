@@ -32,6 +32,7 @@ jobs:
     outputs:
       target_version: ${{ steps.resolve_version.outputs.target }}
       candidate_sha: ${{ steps.candidate.outputs.sha }}
+      installer_run_id: ${{ steps.candidate.outputs.installer_run_id }}
     steps:
       - name: Descargar el commit actual de main con evidencia de release
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -82,6 +83,7 @@ jobs:
             echo 'La ejecución candidata debe ser exitosa, de CI Installer Windows y del mismo SHA de main.' >&2; exit 1;
           }
           echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "installer_run_id=$CANDIDATE_RUN_ID" >> "$GITHUB_OUTPUT"
 
       - name: Descargar artefacto inmutable del build candidato
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
@@ -159,11 +161,12 @@ jobs:
           SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
           EVIDENCE_DIR: ${{ inputs.evidence_dir }}
           RELEASE_CANDIDATE_SHA: ${{ steps.candidate.outputs.sha }}
+          INSTALLER_RUN_ID: ${{ steps.candidate.outputs.installer_run_id }}
           QA_MANIFEST: candidate/reports/qa/latest/manifest.json
         shell: bash
         run: |
           set -euo pipefail
-          args=("--repo=$REPOSITORY" "--version=$TARGET_VERSION" "--required-streak=10" "--workflow=ci.yml" "--branch=main" "--qa-manifest=$QA_MANIFEST")
+          args=("--repo=$REPOSITORY" "--version=$TARGET_VERSION" "--candidate-sha=$SOURCE_SHA" "--installer-run-id=$INSTALLER_RUN_ID" "--workflow=ci.yml" "--branch=main" "--qa-manifest=$QA_MANIFEST")
           [[ -z "$EVIDENCE_DIR" ]] || args+=("--evidence-dir=$EVIDENCE_DIR")
           RELEASE_CANDIDATE_SHA="$SOURCE_SHA" node scripts/release/validate-stable-promotion.mjs "${args[@]}"
 

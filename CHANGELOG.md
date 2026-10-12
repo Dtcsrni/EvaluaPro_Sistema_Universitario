@@ -4,9 +4,20 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-10-12
+
 ### Added
 - Contratos versionados para los 21 módulos backend: entradas públicas, compatibilidad con host, dependencias sin ciclos y propiedad única de los 76 modelos Prisma; los gates estáticos quedan integrados al mapa de CI.
+- Límites modulares del Installer Hub para contrato, operación, procesos, transacción de payload y verificación.
+- Ciclo de vida local serializado y readiness con identidad del dashboard para reducir arranques dobles y adopciones de procesos ajenos.
 - Flujo de lote OMR con cohorte por grupo validada por la API, prevalidación de todas las variantes y elección entre ZIP de PDFs individuales y PDF consolidado.
+- Aviso discreto de actualización en la aplicación docente y apertura confirmada del Installer Hub desde AppHost o desde su acceso directo; los bundles estables se verifican por SHA-256 y Authenticode.
+
+### Fixed
+- La promoción del payload ahora usa staging, diario de transacción, respaldo y recuperación antes de modificar archivos gestionados.
+- Los eventos de progreso del helper ya no contaminan el resultado de la transacción; el orquestador valida la forma e identidad del resultado antes de continuar.
+- El build bloquea desalineaciones entre bundle, paquetes, lockfiles y versión visible de la aplicación.
+- El E2E reconoce el estado terminal del Hub después de que se limpia el handoff privado y admite instalaciones recuperables con registro adelantado.
 
 ## [1.2.6] - 2026-10-08
 
