@@ -25,7 +25,6 @@ function writeEvidence(baseDir, { includeIntegrity = true } = {}) {
     version: '1.0.0',
     displayVersion: '1.0.0b',
     commit: 'abc123',
-    ciConsecutivoVerde: 10,
     evidenciaWindows: {
       path: 'docs/release/evidencias/1.1.1/windows-release-smoke.md'
     },

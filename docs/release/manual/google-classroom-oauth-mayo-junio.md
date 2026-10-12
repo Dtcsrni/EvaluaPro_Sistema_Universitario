@@ -75,7 +75,8 @@ Despues de operar la UI docente con el curso real mayo-junio:
 & "C:\Program Files\nodejs\npm.cmd" run release:validate:stable -- `
   --version=1.1.0 `
   --repo=Dtcsrni/EvaluaPro_Sistema_Universitario `
-  --ci-green=13
+  --candidate-sha=<sha-completo-de-main> `
+  --installer-run-id=<run-exitoso-de-CI-Installer-Windows>
 ```
 
 ## Limite real

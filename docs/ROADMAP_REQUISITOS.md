@@ -34,7 +34,7 @@ Salida:
 
 ## Fase 3 - Promocion a estable
 Salida:
-- 10 corridas CI consecutivas en verde.
+- `CI Checks` y `CI Installer Windows` completados en verde para el mismo SHA candidato de `main`.
 - Flujo humano en produccion validado.
 - Evidencias versionadas en `docs/release/evidencias/<version>/`.
 

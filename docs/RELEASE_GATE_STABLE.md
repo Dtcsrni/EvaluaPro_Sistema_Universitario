@@ -6,17 +6,18 @@ Definir una regla estricta y auditable para promover una version `beta` a `estab
 ## Regla Go/No-Go
 Se promueve a estable solo si se cumplen todos:
 
-1. 10 corridas CI consecutivas en verde.
-2. Gating de calidad beta completo en verde (`lint`, `typecheck`, `tests`, `coverage`, `perf`, `security`, `docs`, `routes`, `pipeline contract`).
-3. Evidencia QA automatizada completa en `reports/qa/latest/manifest.json`.
-4. `clean-architecture-check` en verde y evidencia `reports/qa/latest/clean-architecture.json` presente.
-5. Evidencia versionada en `docs/release/evidencias/<version>/`.
-6. Checklist de rollback readiness validado (`rollback_readiness.json`).
+1. La ejecución `CI Checks` debe terminar en verde para el SHA completo candidato de `main`.
+2. La ejecución `CI Installer Windows` que produjo el artefacto debe terminar en verde para ese mismo SHA candidato.
+3. Gating de calidad beta completo en verde (`lint`, `typecheck`, `tests`, `coverage`, `perf`, `security`, `docs`, `routes`, `pipeline contract`).
+4. Evidencia QA automatizada completa en `reports/qa/latest/manifest.json`.
+5. `clean-architecture-check` en verde y evidencia `reports/qa/latest/clean-architecture.json` presente.
+6. Evidencia versionada en `docs/release/evidencias/<version>/`.
+7. Checklist de rollback readiness validado (`rollback_readiness.json`).
 
 Si falla cualquier punto: **No-Go**.
 
 Automatizacion bloqueante:
-- workflow `.github/workflows/release-stable-gate.yml` (tags `v*` sin `-alpha/-beta/-rc` y `workflow_dispatch`).
+- workflow `.github/workflows/release-stable-gate.yml` (`workflow_dispatch`).
 - script orquestador: `npm run release:validate:stable -- --version=<version>`.
 
 ## QA automatizada obligatoria

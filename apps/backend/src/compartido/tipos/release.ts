@@ -40,7 +40,6 @@ export type ResultadoGateHumanoProduccion = {
 export type EvidenciaReleaseEstable = {
   version: string;
   commit: string;
-  ciConsecutivoVerde: number;
   gateHumanoProduccion: ResultadoGateHumanoProduccion;
   artefactos: {
     timeline: string;
