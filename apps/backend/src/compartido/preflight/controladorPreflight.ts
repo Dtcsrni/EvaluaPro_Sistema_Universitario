@@ -3,10 +3,9 @@ import type { Response } from 'express';
 import { obtenerVersionInfo } from '../salud/rutasSalud.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { permisosComoLista } from '../../infraestructura/seguridad/rbac.js';
-import type { SolicitudDocente } from '../../modulos/modulo_autenticacion/middlewareAutenticacion.js';
-import { obtenerDocenteId } from '../../modulos/modulo_autenticacion/middlewareAutenticacion.js';
-import { obtenerEstadoLease } from '../../modulos/modulo_sincronizacion_nube/domain/leaseSincronizacion.js';
-import { obtenerConfiguracionSincronizacion } from '../../modulos/modulo_sincronizacion_nube/domain/preferenciasSincronizacion.js';
+import { obtenerDocenteId } from '../../modulos/modulo_autenticacion/index.js';
+import type { SolicitudDocente } from '../../modulos/modulo_autenticacion/index.js';
+import { obtenerConfiguracionSincronizacion, obtenerEstadoLease } from '../../modulos/modulo_sincronizacion_nube/index.js';
 import { configuracion } from '../../configuracion.js';
 
 const EQUIPO_ID_VALIDO = /^[A-Za-z0-9._:-]{8,128}$/;

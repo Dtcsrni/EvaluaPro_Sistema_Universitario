@@ -2,16 +2,412 @@
   "version": 1,
   "gate": "clean-architecture",
   "strict": true,
-  "generatedAt": "2026-10-11T19:13:15.434Z",
+  "generatedAt": "2026-10-11T23:46:20.929Z",
   "ok": true,
   "moduleContracts": {
     "ok": true,
     "errors": [],
     "modules": 21,
     "dependencyPairs": 39,
+    "dependencyGraph": {
+      "modulo_admin_docentes": [
+        "modulo_autenticacion"
+      ],
+      "modulo_alumnos": [
+        "modulo_autenticacion",
+        "modulo_papelera"
+      ],
+      "modulo_analiticas": [
+        "modulo_autenticacion",
+        "modulo_calificacion"
+      ],
+      "modulo_asistencias": [
+        "modulo_autenticacion"
+      ],
+      "modulo_autenticacion": [],
+      "modulo_banco_preguntas": [
+        "modulo_autenticacion"
+      ],
+      "modulo_calificacion": [
+        "modulo_autenticacion",
+        "modulo_escaneo_omr",
+        "modulo_generacion_pdf"
+      ],
+      "modulo_comercial": [
+        "modulo_autenticacion"
+      ],
+      "modulo_comercial_core": [
+        "modulo_autenticacion"
+      ],
+      "modulo_compliance": [
+        "modulo_autenticacion"
+      ],
+      "modulo_escaneo_omr": [
+        "modulo_autenticacion",
+        "modulo_generacion_pdf"
+      ],
+      "modulo_evaluaciones": [
+        "modulo_autenticacion"
+      ],
+      "modulo_generacion_pdf": [
+        "modulo_autenticacion",
+        "modulo_banco_preguntas",
+        "modulo_papelera"
+      ],
+      "modulo_hidratacion_cursos": [
+        "modulo_autenticacion",
+        "modulo_banco_preguntas"
+      ],
+      "modulo_integraciones_classroom": [
+        "modulo_alumnos",
+        "modulo_autenticacion",
+        "modulo_evaluaciones"
+      ],
+      "modulo_listas_institucionales": [
+        "modulo_autenticacion"
+      ],
+      "modulo_papelera": [
+        "modulo_autenticacion"
+      ],
+      "modulo_recuperacion_examenes": [
+        "modulo_autenticacion",
+        "modulo_generacion_pdf"
+      ],
+      "modulo_sincronizacion_nube": [
+        "modulo_alumnos",
+        "modulo_analiticas",
+        "modulo_autenticacion",
+        "modulo_banco_preguntas",
+        "modulo_calificacion",
+        "modulo_escaneo_omr",
+        "modulo_evaluaciones",
+        "modulo_generacion_pdf",
+        "modulo_vinculacion_entrega"
+      ],
+      "modulo_temarios": [
+        "modulo_autenticacion"
+      ],
+      "modulo_vinculacion_entrega": [
+        "modulo_autenticacion"
+      ]
+    },
+    "transitiveConsumers": {
+      "modulo_admin_docentes": [],
+      "modulo_alumnos": [
+        "modulo_integraciones_classroom",
+        "modulo_sincronizacion_nube"
+      ],
+      "modulo_analiticas": [
+        "modulo_sincronizacion_nube"
+      ],
+      "modulo_asistencias": [],
+      "modulo_autenticacion": [
+        "modulo_admin_docentes",
+        "modulo_alumnos",
+        "modulo_analiticas",
+        "modulo_asistencias",
+        "modulo_banco_preguntas",
+        "modulo_calificacion",
+        "modulo_comercial",
+        "modulo_comercial_core",
+        "modulo_compliance",
+        "modulo_escaneo_omr",
+        "modulo_evaluaciones",
+        "modulo_generacion_pdf",
+        "modulo_hidratacion_cursos",
+        "modulo_integraciones_classroom",
+        "modulo_listas_institucionales",
+        "modulo_papelera",
+        "modulo_recuperacion_examenes",
+        "modulo_sincronizacion_nube",
+        "modulo_temarios",
+        "modulo_vinculacion_entrega"
+      ],
+      "modulo_banco_preguntas": [
+        "modulo_analiticas",
+        "modulo_calificacion",
+        "modulo_escaneo_omr",
+        "modulo_generacion_pdf",
+        "modulo_hidratacion_cursos",
+        "modulo_recuperacion_examenes",
+        "modulo_sincronizacion_nube"
+      ],
+      "modulo_calificacion": [
+        "modulo_analiticas",
+        "modulo_sincronizacion_nube"
+      ],
+      "modulo_comercial": [],
+      "modulo_comercial_core": [],
+      "modulo_compliance": [],
+      "modulo_escaneo_omr": [
+        "modulo_analiticas",
+        "modulo_calificacion",
+        "modulo_sincronizacion_nube"
+      ],
+      "modulo_evaluaciones": [
+        "modulo_integraciones_classroom",
+        "modulo_sincronizacion_nube"
+      ],
+      "modulo_generacion_pdf": [
+        "modulo_analiticas",
+        "modulo_calificacion",
+        "modulo_escaneo_omr",
+        "modulo_recuperacion_examenes",
+        "modulo_sincronizacion_nube"
+      ],
+      "modulo_hidratacion_cursos": [],
+      "modulo_integraciones_classroom": [],
+      "modulo_listas_institucionales": [],
+      "modulo_papelera": [
+        "modulo_alumnos",
+        "modulo_analiticas",
+        "modulo_calificacion",
+        "modulo_escaneo_omr",
+        "modulo_generacion_pdf",
+        "modulo_integraciones_classroom",
+        "modulo_recuperacion_examenes",
+        "modulo_sincronizacion_nube"
+      ],
+      "modulo_recuperacion_examenes": [],
+      "modulo_sincronizacion_nube": [],
+      "modulo_temarios": [],
+      "modulo_vinculacion_entrega": [
+        "modulo_sincronizacion_nube"
+      ]
+    },
     "cycles": [],
     "prismaModels": 76,
-    "declaredModelOwners": 76
+    "declaredModelOwners": 76,
+    "persistenceOwners": {
+      "Alumno": [
+        "modulo_alumnos"
+      ],
+      "AsistenciaExcepcion": [
+        "modulo_asistencias"
+      ],
+      "AsistenciaRegistro": [
+        "modulo_asistencias"
+      ],
+      "AsistenciaRegla": [
+        "modulo_asistencias"
+      ],
+      "AsistenciaSesion": [
+        "modulo_asistencias"
+      ],
+      "AuditoriaComercial": [
+        "modulo_comercial_core"
+      ],
+      "AuditoriaTemario": [
+        "modulo_temarios"
+      ],
+      "BancoPregunta": [
+        "modulo_banco_preguntas"
+      ],
+      "BanderaRevision": [
+        "modulo_analiticas"
+      ],
+      "BitacoraSyncClassroom": [
+        "modulo_integraciones_classroom"
+      ],
+      "Calificacion": [
+        "modulo_calificacion"
+      ],
+      "CalificacionListaManual": [
+        "modulo_calificacion"
+      ],
+      "CalificacionListaMutacion": [
+        "modulo_calificacion"
+      ],
+      "Campana": [
+        "modulo_comercial_core"
+      ],
+      "Cobranza": [
+        "modulo_comercial_core"
+      ],
+      "CodigoAcceso": [
+        "modulo_sincronizacion_nube"
+      ],
+      "ComponenteExamen": [
+        "modulo_evaluaciones"
+      ],
+      "ConfiguracionPeriodoEvaluacion": [
+        "modulo_evaluaciones"
+      ],
+      "ConsentimientoComercial": [
+        "modulo_comercial_core"
+      ],
+      "Cupon": [
+        "modulo_comercial_core"
+      ],
+      "Docente": [
+        "modulo_autenticacion"
+      ],
+      "EncuadreAcademico": [
+        "modulo_evaluaciones"
+      ],
+      "Entrega": [
+        "modulo_vinculacion_entrega"
+      ],
+      "EscaneoOmrArchivado": [
+        "modulo_escaneo_omr"
+      ],
+      "EventoComercial": [
+        "modulo_comercial_core"
+      ],
+      "EventoCumplimiento": [
+        "modulo_compliance"
+      ],
+      "EventoUso": [
+        "modulo_analiticas"
+      ],
+      "EvidenciaEvaluacion": [
+        "modulo_evaluaciones"
+      ],
+      "ExamenGenerado": [
+        "modulo_generacion_pdf"
+      ],
+      "ExamenLoteArtefactoPdf": [
+        "modulo_generacion_pdf"
+      ],
+      "ExamenLoteArtefactoPdfAuditoria": [
+        "modulo_generacion_pdf"
+      ],
+      "ExamenPlantilla": [
+        "modulo_generacion_pdf"
+      ],
+      "ExamenPlantillaAuditoria": [
+        "modulo_generacion_pdf"
+      ],
+      "ExamenRecoveryBundle": [
+        "modulo_generacion_pdf"
+      ],
+      "ExamenRecoveryManifest": [
+        "modulo_generacion_pdf"
+      ],
+      "FirmaEncuadre": [
+        "modulo_evaluaciones"
+      ],
+      "IntegracionClassroom": [
+        "modulo_integraciones_classroom"
+      ],
+      "Licencia": [
+        "modulo_comercial_core"
+      ],
+      "MapeoClassroomAlumnoCurso": [
+        "modulo_integraciones_classroom"
+      ],
+      "MapeoClassroomEvidencia": [
+        "modulo_integraciones_classroom"
+      ],
+      "OmrScanJob": [
+        "modulo_escaneo_omr"
+      ],
+      "OmrSheetFamily": [
+        "modulo_escaneo_omr"
+      ],
+      "OmrSheetRevision": [
+        "modulo_escaneo_omr"
+      ],
+      "OpcionPregunta": [
+        "modulo_banco_preguntas"
+      ],
+      "PapeleraItem": [
+        "modulo_papelera"
+      ],
+      "Periodo": [
+        "modulo_alumnos"
+      ],
+      "PeriodoPortada": [
+        "modulo_alumnos"
+      ],
+      "PlanComercial": [
+        "modulo_comercial_core"
+      ],
+      "PlantillaNotificacion": [
+        "modulo_comercial_core"
+      ],
+      "PoliticaCalificacion": [
+        "modulo_evaluaciones"
+      ],
+      "PoliticaCalificacionAuditoria": [
+        "modulo_evaluaciones"
+      ],
+      "PreferenciaRetencionParcial": [
+        "modulo_calificacion"
+      ],
+      "PreguntaPlantilla": [
+        "modulo_generacion_pdf"
+      ],
+      "Reactivo": [
+        "modulo_banco_preguntas"
+      ],
+      "ReactivoAsignacion": [
+        "modulo_banco_preguntas"
+      ],
+      "ReactivoAsset": [
+        "modulo_banco_preguntas"
+      ],
+      "ReactivoCalibracion": [
+        "modulo_banco_preguntas"
+      ],
+      "ReactivoImportacion": [
+        "modulo_banco_preguntas"
+      ],
+      "ReactivoImportacionFila": [
+        "modulo_banco_preguntas"
+      ],
+      "ReactivoOpcion": [
+        "modulo_banco_preguntas"
+      ],
+      "ReactivoVersion": [
+        "modulo_banco_preguntas"
+      ],
+      "ReconstruccionExamen": [
+        "modulo_recuperacion_examenes"
+      ],
+      "RecuperacionContrasenaDocente": [
+        "modulo_autenticacion"
+      ],
+      "ResultadoExtraExterno": [
+        "modulo_calificacion"
+      ],
+      "ResumenEvaluacionAlumno": [
+        "modulo_evaluaciones"
+      ],
+      "SesionDocente": [
+        "modulo_autenticacion"
+      ],
+      "Sincronizacion": [
+        "modulo_sincronizacion_nube"
+      ],
+      "SolicitudDsr": [
+        "modulo_compliance"
+      ],
+      "SolicitudRevisionAlumno": [
+        "modulo_calificacion"
+      ],
+      "Suscripcion": [
+        "modulo_comercial_core"
+      ],
+      "TemaBanco": [
+        "modulo_banco_preguntas"
+      ],
+      "TemaBancoAuditoria": [
+        "modulo_banco_preguntas"
+      ],
+      "Temario": [
+        "modulo_temarios"
+      ],
+      "TemarioNodo": [
+        "modulo_temarios"
+      ],
+      "Tenant": [
+        "modulo_comercial_core"
+      ],
+      "VersionPregunta": [
+        "modulo_banco_preguntas"
+      ]
+    }
   },
   "checks": [
     {

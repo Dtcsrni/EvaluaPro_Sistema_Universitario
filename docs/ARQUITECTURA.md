@@ -43,7 +43,7 @@ EvaluaPro usa arquitectura de monorepo con separacion por aplicaciones:
 | `modulo_temarios` | Temarios, avance y encuadre curricular. | `modulo_autenticacion` | `Temario`, `TemarioNodo`, `AuditoriaTemario` |
 | `modulo_vinculacion_entrega` | Vinculación entre folios y entregas. | `modulo_autenticacion` | `Entrega` |
 
-Cada módulo publica `index.ts`; los demás módulos consumen solo esa entrada. El composition root monta routers directamente para no hacer que una importación de dominio cargue rutas de otros módulos. El registro de versiones, rangos compatibles, dependencias, historial de API TypeScript y propiedad de datos está en `docs/contracts/module-contracts.v2.json`.
+Cada módulo publica dos superficies separadas: `index.ts` para APIs de dominio y `composition.ts` para la integración con el host (routers y tareas de ciclo de vida). Los módulos y servicios compartidos consumen la API de dominio; `apps/backend/src/rutas.ts` y `apps/backend/src/index.ts` consumen solo la entrada de composición. Así, una API de dominio no carga routers y el host deja de depender de rutas privadas de cada módulo. El registro versiona ambas superficies con SemVer junto con dependencias, compatibilidad del host y propiedad de datos en `docs/contracts/module-contracts.v2.json`.
 
 ## Contratos de arquitectura
 - Rutas publicas solo en autenticacion y salud.
@@ -54,11 +54,11 @@ Cada módulo publica `index.ts`; los demás módulos consumen solo esa entrada. 
 ## Evolución y compatibilidad de módulos
 
 - El despliegue sigue siendo un monolito modular: frontend, API local y portal cloud son aplicaciones del monorepo, pero los módulos backend no se publican ni despliegan por separado.
-- Cada módulo tiene `contractVersion` SemVer, `hostCompatibility`, dependencias con rango de contrato y una entrada pública. El gate `qa:module-contracts:check` resuelve imports con `apps/backend/tsconfig.json`, compara firmas públicas TypeScript con un historial append-only, impide cambios incompatibles sin bump SemVer, rechaza imports internos entre módulos y ciclos, y comprueba propietario único para cada modelo Prisma.
-- Para actualizar una API pública, cambia primero `contractVersion` según compatibilidad y ejecuta `npm run qa:module-contracts:snapshot`; el comando agrega un snapshot y falla si detecta cambios sin versión nueva o un bump insuficiente.
+- Cada módulo tiene `contractVersion` SemVer, `hostCompatibility`, dependencias con rango de contrato, una entrada de dominio `index.ts` y una entrada de host `composition.ts`. El gate `qa:module-contracts:check` resuelve imports con `apps/backend/tsconfig.json`, compara ambas superficies TypeScript con historiales append-only, impide cambios incompatibles sin bump SemVer, rechaza imports privados del host/módulos y ciclos, y comprueba propietario único para cada modelo Prisma. También exige que la versión del host coincida con `package.json`.
+- Para actualizar una API de dominio o de composición, cambia primero `contractVersion` según compatibilidad y ejecuta `npm run qa:module-contracts:snapshot`; el comando agrega snapshots a ambos historiales y falla si detecta cambios sin versión nueva o un bump insuficiente.
 - Para agregar o cambiar una dependencia: actualizar primero la API pública consumida, declarar el rango en el registro y validar el grafo. Los cambios incompatibles incrementan la versión mayor del contrato y requieren adaptar consumidores antes de integrar el host.
 - Prisma y SQLite mantienen una base y migraciones centrales. Aplicar `expand-migrate-contract`: expandir de forma compatible, migrar datos/consumidores y retirar columnas o estructuras solo cuando todos los consumidores hayan superado la ventana de compatibilidad.
-- La versión de contrato es actualmente `1.0.0` en todos los módulos y el host admite `>=1.2.6 <2.0.0`. Son límites de integración dentro del monorepo; no representan paquetes publicados ni compatibilidad binaria entre procesos.
+- La versión de contrato es actualmente `1.1.0` en todos los módulos y el host admite `>=1.2.6 <2.0.0`. Son límites de integración dentro del monorepo; no representan paquetes publicados ni compatibilidad binaria entre procesos.
 
 ## Datos y persistencia
 - Fuente primaria local del flavor docente: SQLite administrado por Prisma

@@ -219,6 +219,23 @@ export function readCurrentPublicApis(options = {}) {
   }));
 }
 
+export function readCurrentCompositionApis(options = {}) {
+  const root = path.resolve(options.root ?? process.cwd());
+  const moduleRoot = path.resolve(root, options.moduleRoot ?? DEFAULTS.moduleRoot);
+  const tsconfigPath = options.tsconfigPath ?? DEFAULTS.tsconfigPath;
+  const moduleIds = new Set(fs.readdirSync(moduleRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+  const { options: compilerOptions, errors } = readTypeScriptCompilerOptions(root, tsconfigPath);
+  if (errors.length) throw new Error(`No se pudo leer tsconfig: ${errors.join('; ')}`);
+  const program = createTypeScriptProgram(root, tsconfigPath, compilerOptions);
+  if (!program) throw new Error('No se pudo crear el programa TypeScript');
+  return Object.fromEntries([...moduleIds].sort().map((moduleId) => {
+    const entryPath = path.join(moduleRoot, moduleId, 'composition.ts');
+    const api = extractPublicApi(program, entryPath, moduleId, moduleRoot, moduleIds, compilerOptions);
+    if (!api) throw new Error(`No se pudo extraer la API de composición de ${moduleId}`);
+    return [moduleId, api];
+  }));
+}
+
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
@@ -281,21 +298,57 @@ export function validatePublicApiHistory(descriptor, currentExports) {
   return errors;
 }
 
+export function validateCompositionApiHistory(descriptor, currentExports) {
+  const history = descriptor.compositionApiHistory;
+  if (!Array.isArray(history) || history.length === 0) {
+    return [`${descriptor.id}.compositionApiHistory: requiere al menos un snapshot versionado`];
+  }
+  const errors = [];
+  let previous = null;
+  for (const [index, snapshot] of history.entries()) {
+    if (!snapshot || !parseVersion(snapshot.version) || !Array.isArray(snapshot.exports)) {
+      errors.push(`${descriptor.id}.compositionApiHistory[${index}]: version SemVer y exports son obligatorios`);
+      continue;
+    }
+    const exportNames = snapshot.exports.map((item) => item?.name);
+    if (snapshot.exports.some((item) => !item || typeof item.name !== 'string' || typeof item.signature !== 'string') ||
+        new Set(exportNames).size !== exportNames.length) {
+      errors.push(`${descriptor.id}.compositionApiHistory[${index}].exports: cada export debe tener nombre único y firma`);
+    }
+    const canonicalExports = [...snapshot.exports].sort((a, b) => String(a?.name).localeCompare(String(b?.name)));
+    if (!sameJson(snapshot.exports, canonicalExports)) errors.push(`${descriptor.id}.compositionApiHistory[${index}].exports: ordene por nombre`);
+    if (previous) errors.push(...compareApiSnapshots(previous, snapshot, snapshot.version).map((error) => `${descriptor.id}.${error.replace('publicApiHistory', 'compositionApiHistory')}`));
+    previous = snapshot;
+  }
+  const latest = history.at(-1);
+  if (latest?.version !== descriptor.contractVersion) {
+    errors.push(`${descriptor.id}.compositionApiHistory.latest: ${latest?.version ?? 'missing'} debe coincidir con contractVersion ${descriptor.contractVersion}`);
+  }
+  if (latest && !sameJson(latest.exports, currentExports)) {
+    errors.push(`${descriptor.id}.compositionApiHistory.drift: exports de composición actuales no coinciden con el snapshot ${latest.version}; incremente contractVersion y agregue historial`);
+  }
+  return errors;
+}
+
 export function validateAppendOnlyHistory(baseManifest, currentManifest) {
   if (!baseManifest || baseManifest.schemaVersion < 2) return [];
   const errors = [];
   const currentById = new Map((currentManifest.modules ?? []).map((descriptor) => [descriptor.id, descriptor]));
   for (const oldDescriptor of baseManifest.modules ?? []) {
-    if (!Array.isArray(oldDescriptor.publicApiHistory)) continue;
     const currentDescriptor = currentById.get(oldDescriptor.id);
     if (!currentDescriptor) {
       errors.push(`${oldDescriptor.id}.publicApiHistory.removed: no se elimina el descriptor durante una evolucion compatible`);
       continue;
     }
-    const oldHistory = oldDescriptor.publicApiHistory;
-    const currentHistory = currentDescriptor.publicApiHistory ?? [];
-    const prefixMatches = oldHistory.every((snapshot, index) => sameJson(snapshot, currentHistory[index]));
-    if (!prefixMatches) errors.push(`${oldDescriptor.id}.publicApiHistory.immutable: los snapshots previos de ${oldDescriptor.id} no se reescriben ni eliminan`);
+    for (const [field, oldHistory] of [
+      ['publicApiHistory', oldDescriptor.publicApiHistory],
+      ['compositionApiHistory', oldDescriptor.compositionApiHistory]
+    ]) {
+      if (!Array.isArray(oldHistory)) continue;
+      const currentHistory = currentDescriptor[field] ?? [];
+      const prefixMatches = oldHistory.every((snapshot, index) => sameJson(snapshot, currentHistory[index]));
+      if (!prefixMatches) errors.push(`${oldDescriptor.id}.${field}.immutable: los snapshots previos de ${oldDescriptor.id} no se reescriben ni eliminan`);
+    }
   }
   return errors;
 }
@@ -369,6 +422,12 @@ export function inspectModuleContracts(options = {}) {
   if (manifest.schemaVersion !== 2) errors.push(`registry.version: se esperaba 2; recibido ${manifest.schemaVersion}`);
   if (!parseVersion(manifest.host?.version)) errors.push(`host.version: SemVer inválido "${manifest.host?.version}"`);
   if (!satisfiesRange(manifest.host?.version, manifest.host?.compatibility)) errors.push(`host.compatibility: ${manifest.host?.version} no satisface "${manifest.host?.compatibility}"`);
+  try {
+    const packageVersion = JSON.parse(fs.readFileSync(path.resolve(root, 'package.json'), 'utf8')).version;
+    if (manifest.host?.version !== packageVersion) errors.push(`host.version.mismatch: el registro declara ${manifest.host?.version ?? 'missing'} y package.json declara ${packageVersion ?? 'missing'}`);
+  } catch (error) {
+    errors.push(`host.package: no se pudo leer package.json (${error.message})`);
+  }
   if (!Array.isArray(manifest.modules)) errors.push('registry.modules: debe ser un arreglo');
   const descriptors = Array.isArray(manifest.modules) ? manifest.modules : [];
   const descriptorsById = new Map();
@@ -392,6 +451,11 @@ export function inspectModuleContracts(options = {}) {
     const expectedEntryRelative = path.relative(root, expectedEntry).replaceAll(path.sep, '/');
     if (descriptor.entry !== expectedEntryRelative || !fs.existsSync(expectedEntry)) {
       errors.push(`${moduleId}.entry: debe ser exactamente "${expectedEntryRelative}"`);
+    }
+    const expectedCompositionEntry = path.join(moduleRoot, moduleId, 'composition.ts');
+    const expectedCompositionEntryRelative = path.relative(root, expectedCompositionEntry).replaceAll(path.sep, '/');
+    if (descriptor.compositionEntry !== expectedCompositionEntryRelative || !fs.existsSync(expectedCompositionEntry)) {
+      errors.push(`${moduleId}.compositionEntry: debe ser exactamente "${expectedCompositionEntryRelative}"`);
     }
     if (!Array.isArray(descriptor.dependencies)) errors.push(`${moduleId}.dependencies: debe ser un arreglo`);
     const declared = new Map();
@@ -441,7 +505,44 @@ export function inspectModuleContracts(options = {}) {
         currentApis.set(moduleId, api);
         errors.push(...validatePublicApiHistory(descriptor, api));
       }
+      const compositionEntryPath = path.join(moduleRoot, moduleId, 'composition.ts');
+      const compositionApi = extractPublicApi(program, compositionEntryPath, moduleId, moduleRoot, moduleIds, compilerConfig.options);
+      if (!compositionApi) errors.push(`${moduleId}.compositionApi: no se pudo leer la entrada de composición con el compilador`);
+      else errors.push(...validateCompositionApiHistory(descriptor, compositionApi));
     } else if (!program) errors.push('typescript.program: no se pudo crear el programa desde tsconfig');
+  }
+
+  const sourceRoot = path.resolve(root, options.sourceRoot ?? 'apps/backend/src');
+  const compositionRoots = new Set(['rutas.ts', 'index.ts']);
+  for (const filePath of listTypeScriptFiles(sourceRoot)) {
+    const moduleId = moduleIdForPath(moduleRoot, filePath, moduleIds);
+    if (moduleId) continue;
+    const relativeSource = path.relative(sourceRoot, filePath).replaceAll(path.sep, '/');
+    const isCompositionRoot = compositionRoots.has(relativeSource);
+    const source = fs.readFileSync(filePath, 'utf8');
+    const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
+    for (const { specifier, kind } of moduleSpecifierNodes(sourceFile)) {
+      if (specifier === null) {
+        if (kind === 'dynamic' || kind === 'require') {
+          const layer = isCompositionRoot ? 'host' : 'external';
+          errors.push(`${layer}.dynamic-import.nonliteral: ${path.relative(root, filePath)} contiene ${kind} no literal`);
+        }
+        continue;
+      }
+      const targetPath = ts.resolveModuleName(specifier, filePath, compilerConfig.options, ts.sys).resolvedModule?.resolvedFileName;
+      if (!targetPath) continue;
+      const targetModule = moduleIdForPath(moduleRoot, path.resolve(targetPath), moduleIds);
+      if (!targetModule) continue;
+      const descriptor = descriptorsById.get(targetModule);
+      const expectedEntry = isCompositionRoot
+        ? path.resolve(root, descriptor?.compositionEntry ?? path.join(moduleRoot, targetModule, 'composition.ts'))
+        : path.resolve(moduleRoot, targetModule, 'index.ts');
+      if (path.resolve(targetPath) !== expectedEntry) {
+        const surface = isCompositionRoot ? 'compositionEntry' : 'entry';
+        const layer = isCompositionRoot ? 'host' : 'external';
+        errors.push(`${targetModule}.${layer}.private-import: ${path.relative(root, filePath)} resuelve ${specifier} a ${path.relative(root, targetPath)}; usa la ${surface} ${path.relative(root, expectedEntry).replaceAll(path.sep, '/')}`);
+      }
+    }
   }
 
   for (const [moduleId, actual] of graph) {

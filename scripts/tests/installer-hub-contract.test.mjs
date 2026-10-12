@@ -278,7 +278,7 @@ test('ConvertTo-DotNetNumericVersion convierte versiones semver y prerelease a c
   const psCommand = `${funcMatch[0]}; ConvertTo-DotNetNumericVersion -VersionTag '1.1.0-beta.5'; ConvertTo-DotNetNumericVersion -VersionTag '0.0.0-dev'; ConvertTo-DotNetNumericVersion -VersionTag '2.3.4.5'`;
   const psRes = runPowerShell(psCommand);
   if (psRes.skipped) return;
-  assert.equal(psRes.status, 0);
+  assert.equal(psRes.status, 0, `PowerShell falló. stderr: ${psRes.stderr || '(vacío)'}; stdout: ${psRes.stdout || '(vacío)'}`);
   const lines = psRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   assert.equal(lines[0], '1.1.0.0');
   assert.equal(lines[1], '0.0.0.0');

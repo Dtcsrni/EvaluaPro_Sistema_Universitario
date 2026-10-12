@@ -8,3 +8,8 @@ export { generarPdfExamen } from './servicioGeneracionPdf.js';
 export { type MapaVariante, type PreguntaBase } from './servicioVariantes.js';
 export { type TemplateVersion } from './shared/tiposPdf.js';
 export { esquemaBodyVacioOpcional } from './validacionesExamenes.js';
+export {
+  OMR_CANONICAL_CONTRACT_ID,
+  OMR_CANONICAL_DISPLAY_LABEL,
+  TEMPLATE_VERSION_CANONICA
+} from './domain/templateCanonico.js';
