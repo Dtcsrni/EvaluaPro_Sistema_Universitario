@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { createHash, randomUUID } from 'node:crypto';
 import { PDFDocument } from 'pdf-lib';
+import JSZip from 'jszip';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
@@ -207,6 +208,93 @@ describe('consulta API de paquetes de examen por lote', () => {
       });
     } finally {
       await eliminarArchivoExamen(archivoNombre);
+    }
+  });
+
+  it('descarga un ZIP con un PDF individual por folio y rechaza integridad incompleta', async () => {
+    const owner = await prepararDocente('lotes-zip@prueba.test');
+    const loteId = 'LOT_ZIP_01';
+    const archivos: string[] = [];
+    const folios = Array.from({ length: 12 }, (_, indice) => `ZIP-FOLIO-${String(indice + 1).padStart(2, '0')}`);
+    try {
+      for (const [indice, folio] of folios.entries()) {
+        const alumno = await prisma.alumno.create({
+          data: {
+            periodoId: owner.periodoId,
+            matricula: `ZIP-MAT-${indice}-${randomUUID()}`,
+            nombreCompleto: `Alumno ZIP ${indice + 1}`,
+            correo: `zip-${indice}-${randomUUID()}@prueba.test`
+          }
+        });
+        const pdf = await PDFDocument.create();
+        pdf.addPage([612, 792]);
+        pdf.addPage([612, 792]);
+        const archivoNombre = `zip-${randomUUID()}.pdf`;
+        archivos.push(await guardarPdfExamen(archivoNombre, Buffer.from(await pdf.save())));
+        const mapaOmr = {
+          paginas: [1, 2].map((numeroPagina) => ({
+            numeroPagina,
+            preguntas: [{ idPregunta: `pregunta-${numeroPagina}` }],
+            qr: { texto: `EvaluaPro:${folio}:pagina-${numeroPagina}` }
+          }))
+        };
+        await prisma.examenGenerado.create({
+          data: {
+            docenteId: owner.docenteId,
+            periodoId: owner.periodoId,
+            plantillaId: owner.plantillaId,
+            alumnoId: alumno.id,
+            loteId,
+            folio,
+            estado: 'generado',
+            mapaVariante: '{}',
+            rutaPdf: archivos.at(-1),
+            mapaOmr: JSON.stringify(mapaOmr),
+            retentionStatus: 'active'
+          }
+        });
+      }
+      await prisma.examenLoteArtefactoPdf.create({
+        data: {
+          docenteId: owner.docenteId,
+          loteId,
+          plantillaId: owner.plantillaId,
+          archivoNombre: `zip-manifest-${randomUUID()}.pdf`,
+          sha256: 'a'.repeat(64),
+          totalPaginas: 24,
+          totalExamenes: 12
+        }
+      });
+
+      const respuesta = await request(app)
+        .get(`/api/examenes/generados/lote/${loteId}/zip`)
+        .set(owner.auth)
+        .buffer(true)
+        .parse((res, cb) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+          res.on('end', () => cb(null, Buffer.concat(chunks)));
+        })
+        .expect(200)
+        .expect('Content-Type', /application\/zip/)
+        .expect('X-EvaluaPro-ZIP-Entries', '12')
+        .expect('X-EvaluaPro-ZIP-Pages', '24');
+      expect(respuesta.headers['content-disposition']).toContain('.zip');
+      expect(respuesta.headers['x-evaluapro-zip-sha256']).toBe(createHash('sha256').update(respuesta.body).digest('hex'));
+      const zip = await JSZip.loadAsync(respuesta.body);
+      expect(Object.keys(zip.files).sort()).toEqual(folios.map((folio) => `${folio}.pdf`).sort());
+      for (const folio of folios) {
+        const bytes = await zip.file(`${folio}.pdf`)!.async('nodebuffer');
+        expect((await PDFDocument.load(bytes)).getPageCount()).toBe(2);
+      }
+
+      await prisma.examenLoteArtefactoPdf.updateMany({ where: { docenteId: owner.docenteId, loteId }, data: { totalExamenes: 13 } });
+      await request(app).get(`/api/examenes/generados/lote/${loteId}/zip`).set(owner.auth).expect(409);
+      await prisma.examenLoteArtefactoPdf.updateMany({ where: { docenteId: owner.docenteId, loteId }, data: { totalExamenes: 12 } });
+      await prisma.examenGenerado.updateMany({ where: { docenteId: owner.docenteId, loteId: loteId, folio: folios[0] }, data: { rutaPdf: null } });
+      await request(app).get(`/api/examenes/generados/lote/${loteId}/zip`).set(owner.auth).expect(409);
+    } finally {
+      await Promise.all(archivos.map((ruta) => eliminarArchivoExamen(ruta)));
     }
   });
 });

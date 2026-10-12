@@ -31,7 +31,7 @@ type ProgresoLoteGeneracion = {
   generados: number;
   porcentaje: number;
   completado: boolean;
-  estado: 'iniciando' | 'generando' | 'completado' | 'fallido';
+  estado: 'validando' | 'iniciando' | 'generando' | 'completado' | 'fallido';
 };
 
 export function PlantillasGenerados({
@@ -388,9 +388,9 @@ export function PlantillasGenerados({
                           cargando={descargandoLoteId === pkg.loteId}
                           disabled={!puedeDescargarExamenes}
                           onClick={() => void onDescargarPaquete(pkg.loteId, pkg.items)}
-                          data-tooltip="Descarga el PDF consolidado del paquete."
+                          data-tooltip="Descarga el PDF consolidado del lote."
                         >
-                          Descargar ZIP / PDF
+                          Descargar PDF consolidado
                         </Boton>
                         <Boton
                           type="button"

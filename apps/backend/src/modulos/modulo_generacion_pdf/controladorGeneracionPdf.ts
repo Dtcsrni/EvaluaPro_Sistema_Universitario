@@ -9,6 +9,7 @@
  * - Serializa respuestas HTTP sin modificar contratos públicos existentes.
  */
 import type { Response } from 'express';
+import { createHash } from 'node:crypto';
 import { obtenerDocenteId } from '../modulo_autenticacion/index.js';
 import type { SolicitudDocente } from '../modulo_autenticacion/index.js';
 import {
@@ -22,6 +23,7 @@ import {
 } from './application/usecases/gestionPlantillas.js';
 import {
   descargarPdfLoteUseCase,
+  descargarZipLoteUseCase,
   generarExamenesLoteUseCase,
   generarExamenUseCase,
   obtenerProgresoGeneracionLoteUseCase
@@ -138,6 +140,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     plantillaId?: unknown;
     confirmarMasivo?: unknown;
     loteId?: unknown;
+    grupo?: unknown;
     tipoExamen?: unknown;
     alumnoIds?: unknown;
   };
@@ -146,6 +149,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     plantillaId: String(body.plantillaId ?? '').trim(),
     confirmarMasivo: Boolean(body.confirmarMasivo),
     loteId: String(body.loteId ?? '').trim(),
+    grupo: typeof body.grupo === 'string' ? body.grupo.trim() : undefined,
     tipoExamen: body.tipoExamen === 'extraordinario' ? 'extraordinario' : undefined,
     alumnoIds: Array.isArray(body.alumnoIds) ? body.alumnoIds.map((id) => String(id)) : undefined
   });
@@ -170,6 +174,19 @@ export async function descargarPdfLote(req: SolicitudDocente, res: Response) {
   res.setHeader('Content-Disposition', `attachment; filename="${payload.fileName}"`);
   res.setHeader('X-EvaluaPro-PDF-SHA256', payload.pdfSha256);
   res.setHeader('X-EvaluaPro-PDF-Pages', String(payload.totalPaginas));
+  res.send(payload.buffer);
+}
+
+export async function descargarZipLote(req: SolicitudDocente, res: Response) {
+  const payload = await descargarZipLoteUseCase({
+    docenteId: obtenerDocenteId(req),
+    loteId: String(req.params.loteId || '').trim()
+  });
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${payload.fileName}"`);
+  res.setHeader('X-EvaluaPro-ZIP-Entries', String(payload.totalExamenes));
+  res.setHeader('X-EvaluaPro-ZIP-Pages', String(payload.totalPaginas));
+  res.setHeader('X-EvaluaPro-ZIP-SHA256', createHash('sha256').update(payload.buffer).digest('hex'));
   res.send(payload.buffer);
 }
 

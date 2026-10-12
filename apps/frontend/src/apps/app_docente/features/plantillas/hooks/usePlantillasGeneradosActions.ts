@@ -22,6 +22,15 @@ async function validarHashDescargaPdf(blob: Blob, hashEsperado: string | null) {
   }
 }
 
+async function validarHashDescargaZip(blob: Blob, hashEsperado: string | null) {
+  if (!hashEsperado || !globalThis.crypto?.subtle) return;
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  const hashReal = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  if (hashReal.toLowerCase() !== hashEsperado.trim().toLowerCase()) {
+    throw new Error('La integridad del ZIP descargado no coincide con la del servidor. Vuelve a descargar el lote.');
+  }
+}
+
 function liberarUrlDescargaPosteriormente(url: string) {
   globalThis.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
@@ -310,6 +319,80 @@ export function usePlantillasGeneradosActions({
     [avisarSinPermiso, puedeDescargarExamenes, setMensajeGeneracion]
   );
 
+  const descargarZipLote = useCallback(async () => {
+    if (!lotePdfUrl) return;
+    const url = lotePdfUrl.replace(/\/pdf(?:\?.*)?$/i, '/zip');
+    if (url === lotePdfUrl) {
+      setMensajeGeneracion('No se pudo identificar el lote para descargar sus exámenes individuales.');
+      return;
+    }
+    if (!puedeDescargarExamenes) {
+      avisarSinPermiso('No tienes permiso para descargar examenes.');
+      return;
+    }
+    const token = obtenerTokenDocente();
+    if (!token) {
+      setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+      return;
+    }
+    try {
+      const resp = await solicitarPdfLote(url, token);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      await validarHashDescargaZip(blob, resp.headers.get('X-EvaluaPro-ZIP-SHA256'));
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
+      const nombre = match ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, '')) : '';
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = nombre || 'examenes_individuales.zip';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      liberarUrlDescargaPosteriormente(objectUrl);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo descargar el ZIP de exámenes individuales');
+      setMensajeGeneracion(msg);
+      emitToast({ level: 'error', title: 'No se pudo descargar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+    }
+  }, [avisarSinPermiso, lotePdfUrl, puedeDescargarExamenes, setMensajeGeneracion]);
+
+  const descargarZipLotePorId = useCallback(async (loteId: string) => {
+    const lote = String(loteId || '').trim();
+    if (!lote) return;
+    if (!puedeDescargarExamenes) {
+      avisarSinPermiso('No tienes permiso para descargar examenes.');
+      return;
+    }
+    const token = obtenerTokenDocente();
+    if (!token) {
+      setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+      return;
+    }
+    try {
+      const resp = await solicitarPdfLote(`/examenes/generados/lote/${encodeURIComponent(lote)}/zip`, token);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      await validarHashDescargaZip(blob, resp.headers.get('X-EvaluaPro-ZIP-SHA256'));
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
+      const nombre = match ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, '')) : '';
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = nombre || `examenes_individuales_${lote}.zip`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      liberarUrlDescargaPosteriormente(objectUrl);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo descargar el ZIP de exámenes individuales');
+      setMensajeGeneracion(msg);
+      emitToast({ level: 'error', title: 'No se pudo descargar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+    }
+  }, [avisarSinPermiso, puedeDescargarExamenes, setMensajeGeneracion]);
+
   const eliminarExamenGenerado = useCallback(
     async (examen: ExamenGeneradoResumen) => {
       if (archivandoExamenId === examen._id) return;
@@ -369,6 +452,8 @@ export function usePlantillasGeneradosActions({
     descargarPdfExamen,
     descargarPdfLote,
     descargarPdfLotePorId,
+    descargarZipLote,
+    descargarZipLotePorId,
     regenerarPdfExamen,
     eliminarExamenGenerado
   };

@@ -16,10 +16,15 @@ import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioG
 import { ANCHO_CARTA, ALTO_CARTA, MM_A_PUNTOS } from '../src/modulos/modulo_generacion_pdf/shared/tiposPdf.js';
 import { obtenerTransformacion } from '../src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.js';
 import { leerQrDesdeImagen } from '../src/modulos/modulo_escaneo_omr/servicioOmrCv.js';
-import { construirEncabezadoPdf } from '../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
+import { construirEncabezadoPdf, construirNombreVisibleExamenLote } from '../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
 import { cajaQrDesdeManifiesto, detectarQrRgba } from '../scripts/omr-qr-preprint-check.js';
 
 describe('pdf OMR canónico', () => {
+  it('reduce el título visible del examen a la etiqueta del parcial', () => {
+    expect(construirNombreVisibleExamenLote('Primer Parcial - Legalidad y Marketing - 23A (15 reactivos)'))
+      .toBe('Primer Parcial');
+  });
+
   it('requiere el nombre del docente autenticado al preparar una cabecera de aplicación', () => {
     expect(construirEncabezadoPdf({
       periodo: { nombre: 'Control sintético' },

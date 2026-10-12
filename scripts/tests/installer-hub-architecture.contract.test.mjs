@@ -14,6 +14,7 @@ const payload = read('scripts', 'installer-burn', 'modules', 'InstallerHubPayloa
 const verification = read('scripts', 'installer-burn', 'modules', 'InstallerHubVerification.psm1');
 const bootstrapper = read('packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs');
 const appHost = read('packaging', 'app-host', 'MainWindow.xaml.cs');
+const launcherBroker = read('scripts', 'launcher-broker.ps1');
 const bundle = read('packaging', 'wix', 'Bundle.wxs');
 const appFiles = read('packaging', 'wix', 'Fragments', 'AppFiles.wxs');
 const msiBuild = read('scripts', 'build-msi.ps1');
@@ -137,6 +138,34 @@ test('AppHost solo declara readiness con identidad propia y runtime embebido', (
   assert.match(launcher, /contractVersion: 1/);
   assert.match(launcher, /instanceId: dashboardInstanceId/);
   assert.match(launcher, /fs\.renameSync\(temporaryPath, lockPath\)/);
+});
+
+test('AppHost abre Installer Hub solo por mensaje local validado del WebView', () => {
+  assert.match(appHost, /e\.Source\.StartsWith\("http:\/\/127\.0\.0\.1:4173\//);
+  assert.match(appHost, /EVALUAPRO_UPDATE_HUB/);
+  assert.match(appHost, /releases\/latest/);
+  assert.match(appHost, /UserAgent\.ParseAdd\("EvaluaPro-AppHost"\)/);
+  assert.match(appHost, /MessageBoxButton\.YesNo/);
+  assert.match(appHost, /ReadExpectedHashAsync/);
+  assert.match(appHost, /HashMatches\(partialPath, expectedHash\)/);
+  assert.match(appHost, /VerifySameTrustedPublisher/);
+  assert.match(appHost, /ResolveInstalledHubPath/);
+  assert.match(appHost, /BundleCachePath/);
+  assert.match(appHost, /installedCert\.Thumbprint/);
+  assert.match(appHost, /WinVerifyTrust/);
+  assert.match(appHost, /EvaluaPro-InstallerHub-docente-local\.exe/);
+});
+
+test('el acceso directo del Hub usa release estable, verifica y reutiliza su cache firmado', () => {
+  assert.match(launcherBroker, /function Resolve-LatestStableHubExecutablePath/);
+  assert.match(launcherBroker, /releases\/latest/);
+  assert.match(launcherBroker, /config\.channel -ne 'stable'/);
+  assert.match(launcherBroker, /config\.flavorId -ne 'docente-local'/);
+  assert.match(launcherBroker, /Get-FileHash .* -Algorithm SHA256/);
+  assert.match(launcherBroker, /Get-AuthenticodeSignature/);
+  assert.match(launcherBroker, /currentSignature\.SignerCertificate\.Thumbprint -eq \$cachedSignature\.SignerCertificate\.Thumbprint/);
+  assert.match(launcherBroker, /Move-Item -LiteralPath \$partialPath -Destination \$targetPath/);
+  assert.match(launcherBroker, /Resolve-LatestStableHubExecutablePath -CurrentHubPath/);
 });
 
 test('la remediación no informa éxito si solo volvió a detectar requisitos', () => {
