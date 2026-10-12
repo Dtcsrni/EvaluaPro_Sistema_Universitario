@@ -13,6 +13,7 @@ import rutasSalud, { obtenerVersionInfo } from '../src/compartido/salud/rutasSal
 
 function crearApp() {
   const app = express();
+  app.locals.apiLifecycle = { state: 'ready' };
   app.use('/salud', rutasSalud);
   return app;
 }
@@ -29,6 +30,7 @@ describe('rutasSalud', () => {
   });
 
   afterEach(() => {
+    app.locals.apiLifecycle = { state: 'ready' };
     networkInterfacesSpy.mockReset();
   });
 
@@ -57,6 +59,19 @@ describe('rutasSalud', () => {
       description: 'desconectado'
     });
     expect(respuesta.body.dependencias.db.lista).toBe(false);
+  });
+
+  it('marca readiness no lista durante el drenado sin alterar salud ni liveness', async () => {
+    prisma.$queryRawUnsafe = vi.fn().mockResolvedValue(1) as any;
+    app.locals.apiLifecycle.state = 'draining';
+
+    const ready = await request(app).get('/salud/ready').expect(503);
+    expect(ready.body.estado).toBe('degradado');
+    expect(ready.body.dependencies.host).toEqual({ state: 'draining', ready: false });
+    expect(ready.body.dependencies.sqlite.ready).toBe(true);
+
+    await request(app).get('/salud').expect(200);
+    await request(app).get('/salud/live').expect(200);
   });
 
   it('expone liveness y métricas Prometheus con el gauge de SQLite', async () => {

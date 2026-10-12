@@ -12,6 +12,12 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$script:InstallerRootMutex = $null
+$script:InstallerRootMutexOwned = $false
+$script:InstallerRootPath = $null
+$script:PendingPayloadTransaction = $false
+$script:InstallerHubOperationId = $null
+$script:InstallerRequestPayload = $null
 
 # Forzar UTF-8 en todos los streams de PowerShell para evitar corrupción de
 # caracteres especiales (tildes, eñes) en el JSON de respuesta.
@@ -25,6 +31,60 @@ $moduleRoots = @(
   $PSScriptRoot
 )
 $operationalConfigModule = $null
+$installerHubContractsModule = $null
+$installerHubOperationModule = $null
+$installerHubProcessesModule = $null
+$installerHubTransactionModule = $null
+$installerHubPayloadModule = $null
+$installerHubVerificationModule = $null
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'InstallerHubContracts.psm1'
+  if (Test-Path -LiteralPath $candidate) { $installerHubContractsModule = $candidate; break }
+}
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'InstallerHubOperation.psm1'
+  if (Test-Path -LiteralPath $candidate) { $installerHubOperationModule = $candidate; break }
+}
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'InstallerHubProcesses.psm1'
+  if (Test-Path -LiteralPath $candidate) { $installerHubProcessesModule = $candidate; break }
+}
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'InstallerHubTransaction.psm1'
+  if (Test-Path -LiteralPath $candidate) { $installerHubTransactionModule = $candidate; break }
+}
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'InstallerHubPayload.psm1'
+  if (Test-Path -LiteralPath $candidate) { $installerHubPayloadModule = $candidate; break }
+}
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'InstallerHubVerification.psm1'
+  if (Test-Path -LiteralPath $candidate) { $installerHubVerificationModule = $candidate; break }
+}
+if (-not $installerHubContractsModule -or -not $installerHubOperationModule -or -not $installerHubProcessesModule -or -not $installerHubTransactionModule -or -not $installerHubPayloadModule -or -not $installerHubVerificationModule) {
+  throw 'Payload incompleto: faltan módulos de contrato, operación, procesos, transacción, payload o verificación del Installer Hub.'
+}
+$script:InstallerHubModuleInstances = @{
+  Contracts = Import-Module $installerHubContractsModule -DisableNameChecking -Force -PassThru
+  Operation = Import-Module $installerHubOperationModule -DisableNameChecking -Force -PassThru
+  Processes = Import-Module $installerHubProcessesModule -DisableNameChecking -Force -PassThru
+  Transaction = Import-Module $installerHubTransactionModule -DisableNameChecking -Force -PassThru
+  Payload = Import-Module $installerHubPayloadModule -DisableNameChecking -Force -PassThru
+  Verification = Import-Module $installerHubVerificationModule -DisableNameChecking -Force -PassThru
+}
+
+function Invoke-InstallerHubModuleFunction {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet('Contracts','Operation','Processes','Transaction','Payload','Verification')][string]$ModuleName,
+    [Parameter(Mandatory = $true)][string]$FunctionName,
+    [hashtable]$Parameters = @{}
+  )
+
+  $module = $script:InstallerHubModuleInstances[$ModuleName]
+  if (-not $module) { throw "Módulo de Installer Hub no inicializado: $ModuleName" }
+  return & $module { param($name, $boundParameters) & $name @boundParameters } $FunctionName $Parameters
+}
+
 foreach ($moduleRoot in $moduleRoots) {
   $candidate = Join-Path $moduleRoot 'OperationalConfig.psm1'
   if (Test-Path -LiteralPath $candidate) {
@@ -49,8 +109,31 @@ if ($licenseSecurityModule) {
 
 function Write-Response {
   param([hashtable]$Payload)
-  $json = $Payload | ConvertTo-Json -Depth 10
-  [IO.File]::WriteAllText($ResponsePath, $json + [Environment]::NewLine, [System.Text.Encoding]::UTF8)
+  $Payload['schemaVersion'] = 1
+  if (-not $script:InstallerHubOperationId) { $script:InstallerHubOperationId = [guid]::NewGuid().ToString('D') }
+  $Payload['operationId'] = $script:InstallerHubOperationId
+  if (-not $Payload.ContainsKey('exitCode')) { $Payload['exitCode'] = if ($Payload['ok']) { 0 } else { 1 } }
+  if (-not $Payload.ContainsKey('message')) { $Payload['message'] = '' }
+  $json = Protect-EvaluaProDiagnosticText -Text ($Payload | ConvertTo-Json -Depth 10)
+  Write-EvaluaProAtomicText -Path $ResponsePath -Content ($json + [Environment]::NewLine) -Encoding ([System.Text.UTF8Encoding]::new($false))
+}
+
+function Read-InstallerRequestPayload {
+  if ($null -ne $script:InstallerRequestPayload) { return $script:InstallerRequestPayload }
+  # Preserve the caller's correlation even when strict contract validation fails.
+  # This lets the caller receive the actual validation error instead of masking it
+  # as a response with a newly generated, unrelated operationId.
+  try {
+    $rawEnvelope = Get-Content -LiteralPath $RequestPath -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    $candidateOperationId = [guid]::Empty
+    if ([guid]::TryParse([string]$rawEnvelope.operationId, [ref]$candidateOperationId)) {
+      $script:InstallerHubOperationId = $candidateOperationId.ToString('D')
+    }
+  } catch { }
+  $request = Read-EvaluaProInstallerRequest -Path $RequestPath -ExpectedCommand $Mode
+  $script:InstallerHubOperationId = $request.OperationId
+  $script:InstallerRequestPayload = $request.Payload
+  return $request.Payload
 }
 
 function Write-HelperProgress {
@@ -63,7 +146,10 @@ function Write-HelperProgress {
     Percent = [Math]::Max(0, [Math]::Min(100, $Percent))
     Status = $Status
   }
-  Write-Output ("EVALUAPRO_PROGRESS:" + ($event | ConvertTo-Json -Compress))
+  # Progress is a side channel, not part of a function's return value. This
+  # callback is passed to module operations, so pipeline output would be
+  # collected with the result and could hide fields such as transactionPending.
+  [Console]::Out.WriteLine("EVALUAPRO_PROGRESS:" + ($event | ConvertTo-Json -Compress))
 }
 
 function Invoke-ShortcutReconciliation {
@@ -142,42 +228,77 @@ function Get-TargetInstallDir {
   return [string](Get-RequestValue -Request $Request -Names @('TargetDir', 'targetDir', 'InstallDir', 'installDir') -DefaultValue 'C:\Program Files\EvaluaPro')
 }
 
-function Resolve-NativePayloadZip {
-  param(
-    [Parameter(Mandatory = $true)][string]$TargetDir,
-    [object]$Request = $null
-  )
+function Assert-InstallerHubTreeHasNoReparsePoints {
+  param([Parameter(Mandatory = $true)][string]$Path)
 
-  $customZip = if ($Request) { Get-RequestValue -Request $Request -Names @('PayloadZip', 'payloadZip') } else { $null }
-  if ($customZip -and (Test-Path -LiteralPath [string]$customZip)) {
-    return [string]$customZip
+  $root = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+  if (($root.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "Se rechazó una raíz de datos con reparse point: $Path"
   }
-
-  if ($env:EVALUAPRO_NATIVE_DIST_ZIP -and (Test-Path -LiteralPath $env:EVALUAPRO_NATIVE_DIST_ZIP)) {
-    return $env:EVALUAPRO_NATIVE_DIST_ZIP
-  }
-
-  $localAppData = [string]$env:LOCALAPPDATA
-  if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
-
-  $candidates = @(
-    (Join-Path $TargetDir 'evaluapro-native-dist.zip'),
-    (Join-Path $localAppData 'EvaluaPro\evaluapro-native-dist.zip'),
-    (Join-Path $PSScriptRoot 'evaluapro-native-dist.zip'),
-    (Join-Path (Split-Path -Parent $PSScriptRoot) 'evaluapro-native-dist.zip'),
-    (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'evaluapro-native-dist.zip'),
-    (Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) 'evaluapro-native-dist.zip'),
-    (Join-Path $env:ProgramData 'EvaluaPro\evaluapro-native-dist.zip'),
-    (Join-Path $env:ProgramFiles 'EvaluaPro\evaluapro-native-dist.zip')
-  )
-
-  foreach ($candidate in $candidates) {
-    if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path -LiteralPath $candidate)) {
-      return $candidate
+  $pending = New-Object 'System.Collections.Generic.Stack[System.IO.DirectoryInfo]'
+  if ($root -is [IO.DirectoryInfo]) { $pending.Push($root) }
+  while ($pending.Count -gt 0) {
+    $directory = $pending.Pop()
+    foreach ($child in $directory.GetFileSystemInfos()) {
+      if (($child.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Se rechazó un enlace/reparse point dentro del árbol de datos: $($child.FullName)"
+      }
+      if ($child -is [IO.DirectoryInfo]) { $pending.Push($child) }
     }
   }
+}
 
-  throw "No existe payload nativo MSI: $($candidates[0])"
+function Enter-InstallerRootLock {
+  param([Parameter(Mandatory = $true)][string]$TargetDir)
+
+  $root = Invoke-InstallerHubModuleFunction -ModuleName Operation -FunctionName 'Assert-EvaluaProInstallPath' -Parameters @{ Path = $TargetDir }
+  if (Test-Path -LiteralPath $root -PathType Leaf) {
+    throw "La ruta de instalación apunta a un archivo: $root"
+  }
+  if (-not (Test-Path -LiteralPath $root)) {
+    New-Item -ItemType Directory -Path $root -Force -ErrorAction Stop | Out-Null
+  }
+  $rootItem = Get-Item -LiteralPath $root -Force -ErrorAction Stop
+  if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "La raíz de instalación no puede ser un junction/symlink: $root"
+  }
+
+  $hash = [Security.Cryptography.SHA256]::Create()
+  try {
+    $rootBytes = [Text.Encoding]::Unicode.GetBytes($root.ToUpperInvariant())
+    $rootHash = ([BitConverter]::ToString($hash.ComputeHash($rootBytes)) -replace '-', '').ToLowerInvariant()
+  } finally { $hash.Dispose() }
+  $mutexName = 'Global\EvaluaProInstallerRoot-' + $rootHash
+  $createdNew = $false
+  $script:InstallerRootMutex = [Threading.Mutex]::new($false, $mutexName, [ref]$createdNew)
+  try {
+    $script:InstallerRootMutexOwned = $script:InstallerRootMutex.WaitOne([TimeSpan]::FromMinutes(2))
+  } catch [Threading.AbandonedMutexException] {
+    $script:InstallerRootMutexOwned = $true
+  }
+  if (-not $script:InstallerRootMutexOwned) {
+    $script:InstallerRootMutex.Dispose()
+    $script:InstallerRootMutex = $null
+    throw "Otra operación del Installer Hub mantiene el lock de '$root' después de 120 segundos."
+  }
+  $script:InstallerRootPath = $root
+  Set-EvaluaProTransactionLockedRoot -RootPath $root
+}
+
+function Exit-InstallerRootLock {
+  if ($script:InstallerRootMutex) {
+    if ($script:InstallerRootMutexOwned) { $script:InstallerRootMutex.ReleaseMutex() }
+    $script:InstallerRootMutex.Dispose()
+    $script:InstallerRootMutex = $null
+    $script:InstallerRootMutexOwned = $false
+    $script:InstallerRootPath = $null
+    Set-EvaluaProTransactionLockedRoot -RootPath ''
+  }
+}
+
+function Resolve-NativePayloadZip {
+  param([Parameter(Mandatory = $true)][string]$TargetDir)
+  return Invoke-InstallerHubModuleFunction -ModuleName Payload -FunctionName 'Resolve-EvaluaProNativePayloadZip' -Parameters @{ TargetDir = $TargetDir }
 }
 
 function Expand-NativePayload {
@@ -186,62 +307,33 @@ function Expand-NativePayload {
     [Parameter(Mandatory = $true)][string]$PayloadZip
   )
 
-  if (-not (Test-Path -LiteralPath $PayloadZip)) {
-    throw "No existe payload nativo MSI: $PayloadZip"
+  $result = Invoke-InstallerHubModuleFunction -ModuleName Payload -FunctionName 'Invoke-EvaluaProPayloadPromotion' -Parameters @{
+    TargetDir = $TargetDir
+    PayloadZip = $PayloadZip
+    LockedRoot = $script:InstallerRootPath
+    OperationId = $script:InstallerHubOperationId
+    OnProgress = { param($percent, $status) Write-HelperProgress -Percent $percent -Status $status }
   }
-  $payloadStage = Join-Path $TargetDir ('.payload-stage-' + [Guid]::NewGuid().ToString('N'))
-  try {
-    New-Item -ItemType Directory -Path $payloadStage -Force | Out-Null
-    $tar = Get-Command -Name 'tar.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($tar) {
-      Write-HelperProgress -Percent 34 -Status 'Extrayendo archivos del payload nativo.'
-      $extractOutput = @(& $tar.Source -xf $PayloadZip -C $payloadStage 2>&1)
-      $extractExitCode = $LASTEXITCODE
-      if ($extractExitCode -ne 0) {
-        $extractDetail = (@($extractOutput | Select-Object -Last 8) -join ' ').Trim()
-        throw "No se pudo extraer el payload nativo con tar.exe (exit=$extractExitCode). $extractDetail"
-      }
-    } else {
-      Write-HelperProgress -Percent 34 -Status 'Extrayendo archivos del payload nativo.'
-      Add-Type -AssemblyName System.IO.Compression.FileSystem
-      [System.IO.Compression.ZipFile]::ExtractToDirectory($PayloadZip, $payloadStage)
-    }
-    Write-HelperProgress -Percent 52 -Status 'Validando los archivos esenciales del payload.'
-    $requiredPayloadFiles = @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'apps\backend\package.json', 'runtime\node\node.exe', 'scripts\start-docente-native.mjs', 'scripts\runtime-env.mjs')
-    $backendPackagePath = Join-Path $payloadStage 'apps\backend\package.json'
-    try {
-      $backendPackage = Get-Content -LiteralPath $backendPackagePath -Raw -Encoding utf8 | ConvertFrom-Json -ErrorAction Stop
-      $payloadVersion = [version]::Parse([string]$backendPackage.version)
-    } catch {
-      throw "No se pudo identificar una versión válida en apps\backend\package.json del payload: $($_.Exception.Message)"
-    }
-    # La rama 1.2.4 agregó estas migraciones. Mantener el helper compatible
-    # con payloads anteriores permite probar/actualizar el MSI oficial 1.2.3.
-    if ($payloadVersion -ge [version]'1.2.4') {
-      $requiredPayloadFiles += @('scripts\migrate-calificacion-origen-inferida-sqlite.mjs', 'scripts\migrate-preferencias-retencion-parcial-sqlite.mjs', 'scripts\migrate-resultados-extra-externos-sqlite.mjs')
-    }
-    foreach ($relativePath in $requiredPayloadFiles) {
-      if (-not (Test-Path -LiteralPath (Join-Path $payloadStage $relativePath))) {
-        throw "Payload nativo incompleto: falta $relativePath"
-      }
-    }
-    foreach ($entry in @(Get-ChildItem -LiteralPath $payloadStage -Force)) {
-      $destination = Join-Path $TargetDir $entry.Name
-      # Reemplazo por entrada evita que Copy-Item cree apps\apps o scripts\scripts
-      # cuando repair/update reusan una instalación parcialmente desplegada.
-      if (Test-Path -LiteralPath $destination) {
-        Remove-Item -LiteralPath $destination -Recurse -Force
-      }
-      # El staging comparte volumen con el destino; mover evita una segunda
-      # escritura completa del árbol de dependencias.
-      Move-Item -LiteralPath $entry.FullName -Destination $destination -Force
-    }
-    Write-Host 'Payload nativo validado y expandido en la raíz de instalación.'
-  } finally {
-    if (Test-Path -LiteralPath $payloadStage) {
-      Remove-Item -LiteralPath $payloadStage -Recurse -Force -ErrorAction SilentlyContinue
+  $requiredResultFields = @('ok', 'transactionPending', 'root', 'transactionId', 'version')
+  if ($null -eq $result -or $result -is [array]) {
+    throw 'El módulo de payload devolvió una respuesta sin objeto único; se detiene la operación antes de configurar el runtime.'
+  }
+  foreach ($field in $requiredResultFields) {
+    if ($null -eq $result.PSObject.Properties[$field]) {
+      throw "El módulo de payload devolvió un resultado fuera del contrato; falta '$field'."
     }
   }
+  if (-not [bool]$result.ok -or -not [bool]$result.transactionPending) {
+    throw 'El módulo de payload no confirmó una transacción pendiente válida; se detiene la operación antes de configurar el runtime.'
+  }
+  $resultRoot = [IO.Path]::GetFullPath([string]$result.root).TrimEnd('\')
+  if (-not $resultRoot.Equals($script:InstallerRootPath, [StringComparison]::OrdinalIgnoreCase) -or
+      [string]$result.transactionId -notmatch '^[0-9a-fA-F]{32}$' -or
+      [string]::IsNullOrWhiteSpace([string]$result.version)) {
+    throw 'El módulo de payload devolvió una identidad de transacción incompleta o ajena a la raíz bloqueada.'
+  }
+  $script:PendingPayloadTransaction = $true
+  Write-Host 'Payload nativo validado y expandido en la raíz de instalación.'
 }
 
 function Wait-NativeDashboardReady {
@@ -350,7 +442,7 @@ function Write-InstallerEnvMap {
   foreach ($key in $Map.Keys) {
     $lines += ("{0}={1}" -f $key, $Map[$key])
   }
-  [IO.File]::WriteAllText($Path, (($lines -join [Environment]::NewLine) + [Environment]::NewLine), [Text.Encoding]::UTF8)
+  Write-EvaluaProAtomicText -Path $Path -Content (($lines -join [Environment]::NewLine) + [Environment]::NewLine) -Encoding ([Text.UTF8Encoding]::new($false))
 }
 
 function Get-InstalledPackageVersion {
@@ -599,7 +691,7 @@ function Get-InstalledInstanceInventory {
 }
 
 function Detect-Prerequisites {
-  $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
+  $requestJson = Read-InstallerRequestPayload
   $requestedFlavorId = [string](Get-RequestValue -Request $requestJson -Names @('flavorId', 'FlavorId') -DefaultValue 'docente-local')
   $targetDir = Get-TargetInstallDir -Request $requestJson
   $instanceInventory = Get-InstalledInstanceInventory -TargetDir $targetDir -RequestedFlavorId $requestedFlavorId
@@ -660,6 +752,17 @@ function Detect-Prerequisites {
 
   $ready = $edgeInstalled -and ($PSVersionTable.PSVersion.Major -ge 5) -and $instanceInventory.state -ne 'conflict'
   $issues = @()
+  $autoRemediateRequested = ConvertTo-InstallerHubBool -Value ([string](Get-RequestValue -Request $requestJson -Names @('autoRemediate') -DefaultValue '0'))
+  if ($autoRemediateRequested -and -not $ready) {
+    Write-Response @{
+      ok = $false
+      phase = 'prerequisites_remediation_unavailable'
+      exitCode = 10
+      message = 'La remediación automática nativa no está disponible para los requisitos pendientes. Instala Microsoft Edge WebView2 Runtime y vuelve a ejecutar EvaluaPro.'
+      data = @{ prerequisites = $prereqs; ready = $false; lifecycle = $instanceInventory }
+    }
+    return
+  }
   if ($instanceInventory.state -eq 'conflict') {
     $issues += 'Existe una instancia de otro flavor o con raíces/puertos en conflicto; requiere reparación o limpieza explícita.'
   }
@@ -684,7 +787,7 @@ function Invoke-PostInstall {
 
   $powerShellPath = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
 
-  $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
+  $requestJson = Read-InstallerRequestPayload
   $targetDir = Get-TargetInstallDir -Request $requestJson
   $targetRoot = [IO.Path]::GetFullPath($targetDir).TrimEnd('\')
   $protectedRoots = @(
@@ -716,15 +819,14 @@ function Invoke-PostInstall {
     return
   }
 
-  if (-not (Test-Path $targetDir)) {
-    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-  }
   # -Mode identifies the helper command (`post-install`); the lifecycle action
   # is carried by the request generated by Burn (`install` or `repair`).
   $installMode = [string](Get-RequestValue -Request $requestJson -Names @('mode', 'Mode') -DefaultValue 'install')
   if ($installMode.Trim().ToLowerInvariant() -in @('install', 'repair')) {
+    Enter-InstallerRootLock -TargetDir $targetDir
+    Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Recover-PayloadTransaction' -Parameters @{ TargetDir = $targetDir }
     Write-HelperProgress -Percent 4 -Status 'Deteniendo procesos propios antes de aplicar el payload.'
-    $processStop = Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir
+    $processStop = Invoke-InstallerHubModuleFunction -ModuleName Processes -FunctionName 'Stop-EvaluaProOwnedNodeProcesses' -Parameters @{ TargetDir = $targetDir }
     if (-not $processStop.ok) {
       throw "No se pudieron detener todos los procesos Node de esta instalación antes de aplicar el payload: $($processStop.remaining -join ', ')"
     }
@@ -732,8 +834,17 @@ function Invoke-PostInstall {
       Write-Host "Procesos Node propios detenidos antes de aplicar el payload: $($processStop.requested -join ', ')"
     }
   }
+  if (-not (Test-Path $targetDir)) {
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+  }
+  Write-HelperProgress -Percent 5 -Status 'Expandiendo y validando el payload antes de modificar configuración.'
+  $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir
+  Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip
+  Write-HelperProgress -Percent 18 -Status 'Payload validado y preparado bajo transacción recuperable.'
+
   Write-HelperProgress -Percent 5 -Status 'Validando el contrato de runtime.'
   Ensure-InstallerRuntimeContract -TargetDir $targetDir -Request $requestJson
+  Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Set-PayloadTransactionState' -Parameters @{ TargetDir = $targetDir; State = 'configuring' }
   Write-HelperProgress -Percent 12 -Status 'Configurando el perfil operativo.'
   if (Get-Command Invoke-EvaluaProOperationalConfiguration -ErrorAction SilentlyContinue) {
     $configMap = Get-RequestConfigMap -Request $requestJson
@@ -868,28 +979,11 @@ function Invoke-PostInstall {
     }
   }
 
-  $nodeDir = Join-Path $targetDir "runtime\node"
-  if (-not (Test-Path $nodeDir)) {
-    New-Item -ItemType Directory -Path $nodeDir -Force | Out-Null
-  }
-
-  # 1. Expandir y validar payload antes de preparar SQLite.
-  Write-HelperProgress -Percent 30 -Status 'Expandiendo y validando el payload nativo.'
-  $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir -Request $requestJson
-  Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip
-  Write-HelperProgress -Percent 58 -Status 'Payload nativo expandido.'
-
-  # 2. Validar el runtime Node autocontenido. La instalación debe funcionar sin red.
-  $nodeExe = Join-Path $nodeDir "node.exe"
-  if (-not (Test-Path $nodeExe)) {
-    throw "Payload docente incompleto: falta el runtime Node autocontenido ($nodeExe). Se requiere reconstruir el instalador con runtime/node/node.exe."
-  }
-  $nodeVersionOutput = @(& $nodeExe --version 2>&1)
-  $nodeExitCode = $LASTEXITCODE
-  $nodeVersion = if ($nodeVersionOutput.Count -gt 0) { [string]$nodeVersionOutput[0].ToString().Trim() } else { '' }
-  if ($nodeExitCode -ne 0 -or $nodeVersion -notmatch '^v24\.') {
-    throw "Runtime Node docente inválido: se esperaba Node.js 24.x y se detectó '$nodeVersion' (exit=$nodeExitCode)."
-  }
+  # El runtime se valida desde el payload ya promovido; el diario conserva el estado
+  # anterior hasta que el manifiesto y los servicios completen sus verificaciones.
+  $runtimeCheck = Invoke-InstallerHubModuleFunction -ModuleName Verification -FunctionName 'Assert-EvaluaProNativeRuntime' -Parameters @{ InstallDir = $targetDir }
+  $nodeExe = [string]$runtimeCheck.nodePath
+  $nodeVersion = [string]$runtimeCheck.nodeVersion
   Write-HelperProgress -Percent 63 -Status "Runtime Node $nodeVersion validado."
 
   # El bundle docente no lleva historial de migraciones: el esquema SQL
@@ -1038,19 +1132,15 @@ function Invoke-PostInstall {
   # El manifiesto habilita dashboard/updater y es crítico. Debe poder generarse
   # independientemente de los accesos directos, incluso cuando su reconciliación
   # quedó degradada.
-  $installationManifest = Join-Path $targetDir 'logs\installation.manifest.json'
-  $manifestScript = Join-Path $targetDir 'scripts\generate-installation-manifest.ps1'
-  if (-not (Test-Path -LiteralPath $manifestScript)) {
-    throw "No existe el generador crítico del manifiesto de instalación: $manifestScript"
-  }
+  Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Set-PayloadTransactionState' -Parameters @{ TargetDir = $targetDir; State = 'verifying' }
   Write-HelperProgress -Percent 95 -Status 'Generando el manifiesto de instalación y actualización.'
-  & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $manifestScript -InstallDir $targetDir -Port 4519
-  if ($LASTEXITCODE -ne 0) {
-    throw "No se pudo generar el manifiesto de instalación requerido para actualización (exit=$LASTEXITCODE)."
-  }
-  if (-not (Test-Path -LiteralPath $installationManifest)) {
-    throw "No se generó el manifiesto de instalación requerido para actualización: $installationManifest"
-  }
+  $null = Invoke-EvaluaProInstallationManifestVerification `
+    -InstallDir $targetDir `
+    -PowerShellPath $powerShellPath `
+    -Port 4519 `
+    -ExpectedNodeVersion $nodeVersion
+  Complete-PayloadTransaction -TargetDir $targetDir
+  $script:PendingPayloadTransaction = $false
   Write-HelperProgress -Percent 98 -Status 'Manifiesto de actualización validado.'
 
   # Validacion rapida
@@ -1078,64 +1168,37 @@ function Invoke-PostInstall {
   Write-HelperProgress -Percent 100 -Status 'Instalación finalizada.'
 }
 
-function Get-EvaluaProOwnedNodeProcessIds {
-  param([Parameter(Mandatory = $true)][string]$TargetDir)
-
-  $targetRoot = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
-  $processes = @()
-  try {
-    $processes = @(Get-CimInstance -ClassName Win32_Process -Filter "Name = 'node.exe'" -ErrorAction Stop)
-  } catch {
-    Write-Host "No se pudo enumerar node.exe para el inventario de ownership: $($_.Exception.Message)"
-    return @()
-  }
-
-  $owned = @()
-  foreach ($process in $processes) {
-    $commandLine = [string]$process.CommandLine
-    $executablePath = [string]$process.ExecutablePath
-    $commandOwned = $commandLine.IndexOf($targetRoot, [StringComparison]::OrdinalIgnoreCase) -ge 0
-    $runtimeOwned = $executablePath.StartsWith((Join-Path $targetRoot 'runtime\node'), [StringComparison]::OrdinalIgnoreCase)
-    if (($commandOwned -or $runtimeOwned) -and $process.ProcessId) {
-      $owned += [int]$process.ProcessId
-    }
-  }
-  return @($owned | Select-Object -Unique)
-}
-
-function Stop-EvaluaProOwnedNodeProcesses {
-  param([Parameter(Mandatory = $true)][string]$TargetDir)
-
-  $ownedIds = @(Get-EvaluaProOwnedNodeProcessIds -TargetDir $TargetDir)
-  foreach ($processId in $ownedIds) {
-    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
-  }
-  if ($ownedIds.Count -gt 0) { Start-Sleep -Seconds 2 }
-  $remainingIds = @((Get-EvaluaProOwnedNodeProcessIds -TargetDir $TargetDir) | Where-Object { $ownedIds -contains $_ })
-  return [ordered]@{
-    requested = $ownedIds
-    remaining = $remainingIds
-    ok = $remainingIds.Count -eq 0
-  }
-}
-
 function Invoke-Update {
   Write-Host "Iniciando actualizacion de EvaluaPro..."
   
-  $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
+  $requestJson = Read-InstallerRequestPayload
   $targetDir = Get-TargetInstallDir -Request $requestJson
+  Enter-InstallerRootLock -TargetDir $targetDir
+  Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Recover-PayloadTransaction' -Parameters @{ TargetDir = $targetDir }
 
   $vbsPath = Join-Path $targetDir "evaluapro-launcher.vbs"
-  $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir -Request $requestJson
+  $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir
 
   # Detener únicamente node.exe cuyo command line o runtime pertenece a esta
   # instalación; nunca detener Node de otra aplicación del usuario.
-  $processStop = Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir
+  $processStop = Invoke-InstallerHubModuleFunction -ModuleName Processes -FunctionName 'Stop-EvaluaProOwnedNodeProcesses' -Parameters @{ TargetDir = $targetDir }
   if (-not $processStop.ok) {
     throw "No se pudieron detener todos los procesos Node propiedad de EvaluaPro: $($processStop.remaining -join ', ')"
   }
 
   Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip
+
+  $runtimeCheck = Invoke-InstallerHubModuleFunction -ModuleName Verification -FunctionName 'Assert-EvaluaProNativeRuntime' -Parameters @{ InstallDir = $targetDir }
+  $nodeVersion = [string]$runtimeCheck.nodeVersion
+  $powerShellPath = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+  Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Set-PayloadTransactionState' -Parameters @{ TargetDir = $targetDir; State = 'verifying' }
+  $null = Invoke-EvaluaProInstallationManifestVerification `
+    -InstallDir $targetDir `
+    -PowerShellPath $powerShellPath `
+    -Port 4519 `
+    -ExpectedNodeVersion $nodeVersion
+  Complete-PayloadTransaction -TargetDir $targetDir
+  $script:PendingPayloadTransaction = $false
 
   # Reiniciar
   Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden
@@ -1152,18 +1215,22 @@ function Invoke-Update {
 function Invoke-Uninstall {
   Write-Host "Iniciando desinstalacion nativa de EvaluaPro..."
   
-  $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
+  $requestJson = Read-InstallerRequestPayload
   $targetDir = Get-TargetInstallDir -Request $requestJson
+  Enter-InstallerRootLock -TargetDir $targetDir
+  Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Recover-PayloadTransaction' -Parameters @{ TargetDir = $targetDir }
   
-  $exportData = $false
-  if ($requestJson.PSObject.Properties.Match('ExportData').Count -gt 0) {
-    if ($requestJson.ExportData -eq 1 -or $requestJson.ExportData -eq "1" -or $requestJson.ExportData -eq $true) {
-      $exportData = $true
-    }
+  $exportData = ConvertTo-InstallerHubBool -Value ([string](Get-RequestValue -Request $requestJson -Names @('ExportData', 'exportData') -DefaultValue '0'))
+  $dataDir = [IO.Path]::GetFullPath([string](Get-RequestValue -Request $requestJson -Names @('DataDir', 'dataDir') -DefaultValue (Join-Path $targetDir 'data')))
+  $localDataDir = [IO.Path]::GetFullPath((Join-Path $targetDir 'data'))
+  if (-not $dataDir.Equals($localDataDir, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'La desinstalación solo puede gestionar data dentro de la raíz de esta instalación; los datos externos quedan intactos.'
   }
+  $allowLocalDataRemoval = $false
+  $targetBackup = $null
 
   Write-Host "Deteniendo servicios y tareas de la instancia..."
-  $processStop = Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir
+  $processStop = Invoke-InstallerHubModuleFunction -ModuleName Processes -FunctionName 'Stop-EvaluaProOwnedNodeProcesses' -Parameters @{ TargetDir = $targetDir }
   if (-not $processStop.ok) {
     throw "No se pudieron detener todos los procesos Node propiedad de EvaluaPro: $($processStop.remaining -join ', ')"
   }
@@ -1173,49 +1240,89 @@ function Invoke-Uninstall {
 
   if ($exportData) {
     Write-Host "Realizando respaldo de datos (ExportData activado)..."
-    $dataDir = Get-RequestValue -Request $requestJson -Names @('DataDir', 'dataDir') -DefaultValue (Join-Path $targetDir 'data')
-    $dataDir = [string]$dataDir
-    if (Test-Path $dataDir) {
-      $backupDir = "C:\Users\Public\Documents\EvaluaPro_Backup"
-      if (-not (Test-Path $backupDir)) {
-        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    if (Test-Path -LiteralPath $dataDir -PathType Container) {
+      Assert-InstallerHubTreeHasNoReparsePoints -Path $dataDir
+      $dataEntries = @(Get-ChildItem -LiteralPath $dataDir -Force -ErrorAction Stop)
+      if ($dataEntries.Count -eq 0) {
+        Write-Warning 'El directorio de datos está vacío; no se creó respaldo y se conservará.'
+      } else {
+      $localAppData = [string]$env:LOCALAPPDATA
+      if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'No existe LocalAppData para guardar un respaldo privado de EvaluaPro.' }
+      $backupDir = Join-Path $localAppData 'EvaluaPro\Backups'
+      $backupSecurity = New-Object System.Security.AccessControl.DirectorySecurity
+      $backupSecurity.SetAccessRuleProtection($true, $false)
+      $backupIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+      $backupSids = @($backupIdentity.User, [Security.Principal.SecurityIdentifier]::new([Security.Principal.WellKnownSidType]::LocalSystemSid, $null), [Security.Principal.SecurityIdentifier]::new([Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null))
+      foreach ($sid in $backupSids) {
+        if ($sid) { $backupSecurity.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($sid, [Security.AccessControl.FileSystemRights]::FullControl, ([Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit), [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow)) }
       }
+      [IO.Directory]::CreateDirectory($backupDir, $backupSecurity) | Out-Null
+      (Get-Item -LiteralPath $backupDir -Force).SetAccessControl($backupSecurity)
+      Assert-InstallerHubTreeHasNoReparsePoints -Path $backupDir
       $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-      $targetBackup = Join-Path $backupDir "data_$timestamp.zip"
-      $backupStage = Join-Path ([IO.Path]::GetTempPath()) ("evaluapro-backup-" + [Guid]::NewGuid().ToString('N'))
+      $targetBackup = Join-Path $backupDir ("data_{0}_{1}.zip" -f $timestamp, ([guid]::NewGuid().ToString('N')))
+      $backupStage = Join-Path $backupDir (".stage-" + [Guid]::NewGuid().ToString('N'))
       New-Item -ItemType Directory -Path $backupStage -Force | Out-Null
       try {
-        Copy-Item -Path (Join-Path $dataDir '*') -Destination $backupStage -Recurse -Force -ErrorAction Stop
-        Compress-Archive -Path (Join-Path $backupStage '*') -DestinationPath $targetBackup -CompressionLevel Optimal -Force
+        foreach ($dataEntry in $dataEntries) {
+          Copy-Item -LiteralPath $dataEntry.FullName -Destination (Join-Path $backupStage $dataEntry.Name) -Recurse -Force -ErrorAction Stop
+        }
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($backupStage, $targetBackup, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+        if (-not (Test-Path -LiteralPath $targetBackup -PathType Leaf) -or (Get-Item -LiteralPath $targetBackup).Length -le 0) { throw 'El respaldo de datos está vacío o incompleto.' }
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($targetBackup)
+        try { if ($archive.Entries.Count -eq 0) { throw 'El respaldo ZIP no contiene archivos.' } } finally { $archive.Dispose() }
+        $allowLocalDataRemoval = $dataDir.Equals($localDataDir, [StringComparison]::OrdinalIgnoreCase)
+      } catch {
+        if (Test-Path -LiteralPath $targetBackup) { Remove-Item -LiteralPath $targetBackup -Force -ErrorAction SilentlyContinue }
+        throw
       } finally {
         Remove-Item -LiteralPath $backupStage -Recurse -Force -ErrorAction SilentlyContinue
       }
       Write-Host "Respaldo creado en $targetBackup"
+      }
     }
   }
 
-  Write-Host "Limpiando directorio de instalacion nativo..."
-  if (Test-Path $targetDir) {
-    $removed = $false
-    for ($attempt = 1; $attempt -le 5 -and -not $removed; $attempt++) {
-      Remove-Item -LiteralPath $targetDir -Recurse -Force -ErrorAction SilentlyContinue
-      $removed = -not (Test-Path -LiteralPath $targetDir)
-      if (-not $removed) { Start-Sleep -Milliseconds (250 * $attempt) }
-    }
-    if (-not $removed -and (Test-Path -LiteralPath $targetDir)) {
-      throw "No se pudo retirar el directorio de instalacion despues de 5 intentos: $targetDir"
-    }
+  Write-Host 'Retirando archivos de la aplicación con una transacción recuperable.'
+  $transactionDir = Join-Path ([IO.Path]::GetFullPath($targetDir).TrimEnd('\')) '.evaluapro-payload-transaction'
+  if (Test-Path -LiteralPath $transactionDir) { Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Recover-PayloadTransaction' -Parameters @{ TargetDir = $targetDir } }
+  New-Item -ItemType Directory -Path (Join-Path $transactionDir 'backup') -Force -ErrorAction Stop | Out-Null
+  $uninstallEntries = @(Get-ChildItem -LiteralPath $targetDir -Force -ErrorAction Stop | Where-Object {
+    $_.Name -ne '.evaluapro-payload-transaction' -and ($allowLocalDataRemoval -or $_.Name -ne 'data')
+  } | ForEach-Object { [ordered]@{ name = [string]$_.Name; existed = $true; snapshot = $false } })
+  foreach ($entry in $uninstallEntries) {
+    Assert-InstallerHubTreeHasNoReparsePoints -Path (Join-Path $targetDir ([string]$entry.name))
   }
-  
-  # Opcional: Eliminar ProgramData si NO se exporta? No, la politica general es no borrar datos a menos que el usuario purgue.
-  # El MSI puede borrar el shortcut. Dejamos el ProgramData intacto por defecto para futuras instalaciones.
+  $uninstallJournal = [ordered]@{
+    schemaVersion = 1
+    root = [IO.Path]::GetFullPath($targetDir).TrimEnd('\')
+    state = 'validated'
+    operationId = $script:InstallerHubOperationId
+    transactionId = [guid]::NewGuid().ToString('N')
+    allowDataRemoval = [bool]$allowLocalDataRemoval
+    entries = $uninstallEntries
+  }
+  Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Write-PayloadTransactionJournal' -Parameters @{ TransactionDir = $transactionDir; Journal = $uninstallJournal }
+  $uninstallJournal = Invoke-InstallerHubModuleFunction -ModuleName Operation -FunctionName 'Set-EvaluaProOperationState' -Parameters @{ Journal = $uninstallJournal; State = 'promoting' }
+  Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Write-PayloadTransactionJournal' -Parameters @{ TransactionDir = $transactionDir; Journal = $uninstallJournal }
+  $script:PendingPayloadTransaction = $true
+  foreach ($entry in $uninstallEntries) {
+    Move-Item -LiteralPath (Join-Path $targetDir ([string]$entry.name)) -Destination (Join-Path (Join-Path $transactionDir 'backup') ([string]$entry.name)) -Force -ErrorAction Stop
+  }
+  Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Set-PayloadTransactionState' -Parameters @{ TargetDir = $targetDir; State = 'verifying' }
+  Complete-PayloadTransaction -TargetDir $targetDir
+  $script:PendingPayloadTransaction = $false
+  if (@(Get-ChildItem -LiteralPath $targetDir -Force -ErrorAction Stop).Count -eq 0) {
+    Remove-Item -LiteralPath $targetDir -Force -ErrorAction Stop
+  }
 
   Write-Response @{
     ok = $true
     phase = "helper_uninstall"
     exitCode = 0
     message = "Desinstalacion Nativa exitosa."
-    data = @{ ownedNodeProcesses = $processStop.requested; dataPreservedByDefault = -not $exportData }
+    data = @{ ownedNodeProcesses = $processStop.requested; dataPreservedByDefault = -not $allowLocalDataRemoval; preservedDataDir = if (-not $allowLocalDataRemoval -and (Test-Path -LiteralPath (Join-Path $targetDir 'data'))) { Join-Path $targetDir 'data' } else { $null }; exportedBackup = if ($exportData) { $targetBackup } else { $null } }
   }
 }
 
@@ -1251,6 +1358,7 @@ function Invoke-RollbackOnFailure {
 }
 
 try {
+  if ($Mode -ne 'license-heartbeat') { $null = Read-InstallerRequestPayload }
   if ($Mode -eq 'detect-prereqs') {
     Detect-Prerequisites
   } elseif ($Mode -eq 'post-install') {
@@ -1263,17 +1371,32 @@ try {
     Invoke-Uninstall
   }
 } catch {
+  $failureMessage = $_.Exception.Message
+  if ($script:PendingPayloadTransaction -and $script:InstallerRootPath) {
+    try {
+      Invoke-InstallerHubModuleFunction -ModuleName Transaction -FunctionName 'Recover-PayloadTransaction' -Parameters @{ TargetDir = $script:InstallerRootPath }
+      $script:PendingPayloadTransaction = $false
+    } catch {
+      $failureMessage += " | Rollback pendiente preservado en $(Join-Path $script:InstallerRootPath '.evaluapro-payload-transaction'): $($_.Exception.Message)"
+    }
+  }
   if ($Mode -eq 'post-install') {
     try {
-      $req = if ($RequestPath -and (Test-Path -LiteralPath $RequestPath)) { Get-Content -Raw -Path $RequestPath | ConvertFrom-Json } else { $null }
+      $req = $script:InstallerRequestPayload
       $tDir = if ($req) { Get-TargetInstallDir -Request $req } else { $null }
-      if ($tDir) { Invoke-RollbackOnFailure -TargetDirectory $tDir }
+      $installMode = if ($req) { [string](Get-RequestValue -Request $req -Names @('mode', 'Mode') -DefaultValue '') } else { '' }
+      $transactionEvidenceExists = $tDir -and (Test-Path -LiteralPath (Join-Path $tDir '.evaluapro-payload-transaction'))
+      if ($tDir -and $installMode.Trim().ToLowerInvariant() -eq 'install' -and -not $transactionEvidenceExists -and -not $script:PendingPayloadTransaction) {
+        Invoke-RollbackOnFailure -TargetDirectory $tDir
+      }
     } catch { }
   }
   Write-Response @{
     ok = $false
     phase = "helper_fatal"
     exitCode = 1
-    message = $_.Exception.Message
+    message = $failureMessage
   }
+} finally {
+  Exit-InstallerRootLock
 }

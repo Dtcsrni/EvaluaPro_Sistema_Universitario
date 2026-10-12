@@ -28,6 +28,10 @@ const dockerComposePath = path.join(root, 'docker-compose.yml');
 const dockerComposeProdBuildPath = path.join(root, 'docker-compose.prod-build.yml');
 const packageWorkflowPath = path.join(root, '.github', 'workflows', 'package.yml');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
+const installerHubContractsModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubContracts.psm1');
+const installerHubTransactionModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubTransaction.psm1');
+const installerHubPayloadModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubPayload.psm1');
+const installerHubVerificationModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubVerification.psm1');
 const installerHubBundleGuardPath = path.join(root, 'scripts', 'assert-installer-hub-bundle.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
@@ -88,6 +92,271 @@ function runPowerShellArgs(args, { nonInteractive = false } = {}) {
 function runPowerShell(command) {
   return runPowerShellArgs(['-Command', command]);
 }
+
+test('el contrato PowerShell acepta protectedSecrets opcional y rechaza extensiones desconocidas', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-request-contract-'));
+  const requestPath = path.join(tempRoot, 'request.json');
+  const escapedRequestPath = requestPath.replace(/'/g, "''");
+  try {
+    const parseScript = `
+Import-Module -Force -WarningAction SilentlyContinue '${installerHubContractsModulePath.replace(/'/g, "''")}'
+$now = [DateTimeOffset]::UtcNow
+$envelope = [ordered]@{ schemaVersion=1; operationId='44a1e0aa-661d-42b8-a7f0-8a58b4e0d7c5'; command='detect-prereqs'; issuedAtUtc=$now.AddSeconds(-1).ToString('o'); expiresAtUtc=$now.AddMinutes(20).ToString('o'); payload=@{} }
+[IO.File]::WriteAllText('${escapedRequestPath}', ($envelope | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
+$r = Read-EvaluaProInstallerRequest -Path '${escapedRequestPath}' -ExpectedCommand 'detect-prereqs'
+[pscustomobject]@{ schemaVersion=$r.SchemaVersion; operationId=$r.OperationId } | ConvertTo-Json -Compress
+`.trim();
+    const validResult = runPowerShell(parseScript);
+    if (validResult.skipped) return;
+    assert.equal(validResult.status, 0, `${validResult.stderr}\n${validResult.stdout}`);
+    const parsed = JSON.parse(validResult.stdout);
+    assert.equal(parsed.schemaVersion, 1);
+
+    const unknownFieldScript = parseScript.replace(
+      "$r = Read-EvaluaProInstallerRequest",
+      `$envelope['unsolicited'] = $true; [IO.File]::WriteAllText('${escapedRequestPath}', ($envelope | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false));
+$r = Read-EvaluaProInstallerRequest`
+    );
+    const rejectedResult = runPowerShell(unknownFieldScript);
+    assert.notEqual(rejectedResult.status, 0, 'el helper debe rechazar campos que el contrato no declara');
+    assert.match(rejectedResult.stderr + rejectedResult.stdout, /campos no permitidos/i);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('el helper conserva la correlación al responder errores de contrato', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-error-correlation-'));
+  const requestPath = path.join(tempRoot, 'request.json');
+  const responsePath = path.join(tempRoot, 'response.json');
+  const operationId = '44a1e0aa-661d-42b8-a7f0-8a58b4e0d7c5';
+  const helperPath = burnHelperPath.replace(/'/g, "''");
+  const escapedRequestPath = requestPath.replace(/'/g, "''");
+  const escapedResponsePath = responsePath.replace(/'/g, "''");
+  try {
+    const script = `
+$now = [DateTimeOffset]::UtcNow
+$envelope = [ordered]@{ schemaVersion=1; operationId='${operationId}'; command='detect-prereqs'; issuedAtUtc=$now.AddSeconds(-1).ToString('o'); expiresAtUtc=$now.AddMinutes(20).ToString('o'); payload=@{}; unsolicited=$true }
+[IO.File]::WriteAllText('${escapedRequestPath}', ($envelope | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
+& '${helperPath}' -Mode detect-prereqs -RequestPath '${escapedRequestPath}' -ResponsePath '${escapedResponsePath}'
+`.trim();
+    const result = runPowerShell(script);
+    if (result.skipped) return;
+    assert.equal(fs.existsSync(responsePath), true, `${result.stderr}\n${result.stdout}`);
+    const response = JSON.parse(fs.readFileSync(responsePath, 'utf8').replace(/^\uFEFF/, ''));
+    assert.equal(response.ok, false);
+    assert.equal(response.operationId, operationId);
+    assert.match(response.message, /campos no permitidos/i);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('el helper descifra protectedSecrets desde un proceso PowerShell independiente', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-dpapi-'));
+  const requestPath = path.join(tempRoot, 'request.json');
+  const responsePath = path.join(tempRoot, 'response.json');
+  const operationId = '0e58e8fc-a4bf-4199-b761-6a15ae47de90';
+  const secret = 'test-installerhub-dpapi-secret';
+  const escapedRequestPath = requestPath.replace(/'/g, "''");
+  const escapedResponsePath = responsePath.replace(/'/g, "''");
+  const helperPath = burnHelperPath.replace(/'/g, "''");
+  try {
+    const createRequestScript = `
+Add-Type -AssemblyName System.Security -ErrorAction Stop
+$secretJson = ConvertTo-Json -InputObject @{ portalApiKey='${secret}' } -Compress
+$bytes = [Text.Encoding]::UTF8.GetBytes($secretJson)
+$cipher = [Security.Cryptography.ProtectedData]::Protect($bytes, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
+$now = [DateTimeOffset]::UtcNow
+$envelope = [ordered]@{ schemaVersion=1; operationId='${operationId}'; command='detect-prereqs'; issuedAtUtc=$now.AddSeconds(-1).ToString('o'); expiresAtUtc=$now.AddMinutes(20).ToString('o'); payload=@{}; protectedSecrets=[Convert]::ToBase64String($cipher) }
+[IO.File]::WriteAllText('${escapedRequestPath}', ($envelope | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
+`.trim();
+    const createResult = runPowerShell(createRequestScript);
+    if (createResult.skipped) return;
+    assert.equal(createResult.status, 0, `${createResult.stderr}\n${createResult.stdout}`);
+
+    const helperScript = `& '${helperPath}' -Mode detect-prereqs -RequestPath '${escapedRequestPath}' -ResponsePath '${escapedResponsePath}'`;
+    const helperResult = runPowerShell(helperScript);
+    assert.equal(fs.existsSync(responsePath), true, `${helperResult.stderr}\n${helperResult.stdout}`);
+    const response = JSON.parse(fs.readFileSync(responsePath, 'utf8').replace(/^\uFEFF/, ''));
+    assert.equal(response.ok, true, response.message);
+    assert.equal(response.operationId, operationId);
+    assert.doesNotMatch(JSON.stringify(response), new RegExp(secret));
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('post-install alcanza la validación del payload con dependencias modulares explícitas', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-postinstall-contract-'));
+  const targetDir = path.join(tempRoot, 'install-target');
+  const requestPath = path.join(tempRoot, 'request.json');
+  const responsePath = path.join(tempRoot, 'response.json');
+  const operationId = '71d1e079-bfc9-45d2-bc20-3c3942c77f3b';
+  const helperPath = burnHelperPath.replace(/'/g, "''");
+  const escapedRequestPath = requestPath.replace(/'/g, "''");
+  const escapedResponsePath = responsePath.replace(/'/g, "''");
+  const escapedTargetDir = targetDir.replace(/'/g, "''");
+  try {
+    const createRequestScript = `
+Add-Type -AssemblyName System.Security -ErrorAction Stop
+$bytes = [Text.Encoding]::UTF8.GetBytes('{"portalApiKey":"contract-test"}')
+$cipher = [Security.Cryptography.ProtectedData]::Protect($bytes, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
+$now = [DateTimeOffset]::UtcNow
+$payload = [ordered]@{ mode='install'; flavorId='docente-local'; installDir='${escapedTargetDir}'; dataDir=(Join-Path '${escapedTargetDir}' 'data'); config=@{ flavorId='docente-local' } }
+$envelope = [ordered]@{ schemaVersion=1; operationId='${operationId}'; command='post-install'; issuedAtUtc=$now.AddSeconds(-1).ToString('o'); expiresAtUtc=$now.AddMinutes(20).ToString('o'); payload=$payload; protectedSecrets=[Convert]::ToBase64String($cipher) }
+[IO.File]::WriteAllText('${escapedRequestPath}', ($envelope | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+`.trim();
+    const createResult = runPowerShell(createRequestScript);
+    if (createResult.skipped) return;
+    assert.equal(createResult.status, 0, `${createResult.stderr}\n${createResult.stdout}`);
+
+    const helperScript = `& '${helperPath}' -Mode post-install -RequestPath '${escapedRequestPath}' -ResponsePath '${escapedResponsePath}'`;
+    const helperResult = runPowerShell(helperScript);
+    assert.equal(fs.existsSync(responsePath), true, `${helperResult.stderr}\n${helperResult.stdout}`);
+    const response = JSON.parse(fs.readFileSync(responsePath, 'utf8').replace(/^\uFEFF/, ''));
+    assert.equal(response.ok, false);
+    assert.equal(response.operationId, operationId);
+    assert.match(response.message, /No existe el payload instalado por el MSI/i);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('la transacción real reemplaza el journal y restaura el payload anterior', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-transaction-'));
+  const escapedModulePath = installerHubTransactionModulePath.replace(/'/g, "''");
+  const escapedRoot = tempRoot.replace(/'/g, "''");
+  const script = `
+$ErrorActionPreference = 'Stop'
+Import-Module -Force -WarningAction SilentlyContinue '${escapedModulePath}'
+$root = '${escapedRoot}'
+$transactionDir = Join-Path $root '.evaluapro-payload-transaction'
+$backupDir = Join-Path $transactionDir 'backup'
+New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path $root 'service.txt'), 'new-payload')
+[IO.File]::WriteAllText((Join-Path $backupDir 'service.txt'), 'previous-payload')
+Set-EvaluaProTransactionLockedRoot -RootPath $root
+$journal = [ordered]@{ schemaVersion=1; root=$root; state='promoting'; transactionId='test'; entries=@([ordered]@{ name='service.txt'; existed=$true; snapshot=$false }) }
+Write-PayloadTransactionJournal -TransactionDir $transactionDir -Journal $journal
+$journal.note = 'second atomic write'
+Write-PayloadTransactionJournal -TransactionDir $transactionDir -Journal $journal
+Recover-PayloadTransaction -TargetDir $root
+$payload = [IO.File]::ReadAllText((Join-Path $root 'service.txt'))
+if ($payload -ne 'previous-payload') { throw "Rollback dejó payload inesperado: $payload" }
+if (Test-Path -LiteralPath $transactionDir) { throw 'La transacción recuperada no se limpió.' }
+Write-Output 'OK: journal reemplazado y payload restaurado'
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) return;
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+    assert.match(result.stdout, /journal reemplazado y payload restaurado/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('el módulo de payload promueve desde staging y revierte sin tocar .env ni data', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-payload-'));
+  const escapedModulePath = installerHubPayloadModulePath.replace(/'/g, "''");
+  const escapedRoot = tempRoot.replace(/'/g, "''");
+  const script = `
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+Import-Module -Force -WarningAction SilentlyContinue '${escapedModulePath}'
+Import-Module -Force -WarningAction SilentlyContinue '${installerHubTransactionModulePath.replace(/'/g, "''")}'
+$root = '${escapedRoot}'
+$source = Join-Path $root 'fixture'
+$payloadFiles = @{
+  'apps/backend/dist/index.js' = 'new-backend'
+  'apps/backend/dist/prisma/schema.sql' = 'CREATE TABLE sample(id INTEGER);'
+  'apps/backend/package.json' = '{"name":"evaluapro","version":"1.2.3"}'
+  'runtime/node/node.exe' = 'synthetic-node'
+  'scripts/start-docente-native.mjs' = 'start'
+  'scripts/runtime-env.mjs' = 'env'
+}
+foreach ($file in $payloadFiles.GetEnumerator()) {
+  $parent = Split-Path -Parent (Join-Path $source $file.Key)
+  New-Item -ItemType Directory -Path $parent -Force | Out-Null
+  [IO.File]::WriteAllText((Join-Path $source $file.Key), $file.Value, [Text.UTF8Encoding]::new($false))
+}
+$zipPath = Join-Path $root 'evaluapro-native-dist.zip'
+[System.IO.Compression.ZipFile]::CreateFromDirectory($source, $zipPath)
+$oldApps = Join-Path $root 'apps'
+New-Item -ItemType Directory -Path $oldApps -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path $oldApps 'old.txt'), 'previous-app')
+New-Item -ItemType Directory -Path (Join-Path $root 'data') -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path $root 'data/user.db'), 'keep-data')
+[IO.File]::WriteAllText((Join-Path $root '.env'), 'KEEP=configuration')
+$result = Invoke-EvaluaProPayloadPromotion -TargetDir $root -PayloadZip $zipPath -LockedRoot $root -OperationId 'test-operation'
+if (-not $result.transactionPending) { throw 'La promoción no dejó transacción pendiente de verificación.' }
+if ([IO.File]::ReadAllText((Join-Path $root 'apps/backend/dist/index.js')) -ne 'new-backend') { throw 'El payload no se promovió.' }
+if ([IO.File]::ReadAllText((Join-Path $root '.env')) -ne 'KEEP=configuration') { throw '.env cambió durante la promoción.' }
+Recover-PayloadTransaction -TargetDir $root
+if ([IO.File]::ReadAllText((Join-Path $root 'apps/old.txt')) -ne 'previous-app') { throw 'El rollback no restauró el payload previo.' }
+if (Test-Path -LiteralPath (Join-Path $root 'runtime')) { throw 'El rollback no retiró el runtime recién promovido.' }
+if ([IO.File]::ReadAllText((Join-Path $root 'data/user.db')) -ne 'keep-data') { throw 'El rollback modificó data del usuario.' }
+if ([IO.File]::ReadAllText((Join-Path $root '.env')) -ne 'KEEP=configuration') { throw 'El rollback modificó .env.' }
+$faultObserved = $false
+try {
+  $null = Invoke-EvaluaProPayloadPromotion -TargetDir $root -PayloadZip $zipPath -LockedRoot $root -OperationId 'fault-operation' -OnBeforePromoteEntry {
+    param($name)
+    if ($name -eq 'apps') { throw 'synthetic promotion fault' }
+  }
+} catch { $faultObserved = $_.Exception.Message -match 'synthetic promotion fault' }
+if (-not $faultObserved) { throw 'La inyección no alcanzó el punto intermedio de promoción.' }
+if ([IO.File]::ReadAllText((Join-Path $root 'apps/old.txt')) -ne 'previous-app') { throw 'El rollback automático no restauró la aplicación anterior.' }
+if (Test-Path -LiteralPath (Join-Path $root '.evaluapro-payload-transaction')) { throw 'Quedó journal después de completar correctamente el rollback automático.' }
+if ([IO.File]::ReadAllText((Join-Path $root 'data/user.db')) -ne 'keep-data') { throw 'La falla de promoción alteró data del usuario.' }
+Write-Output 'OK: promoción, rollback, .env y data verificados'
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) return;
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+    assert.match(result.stdout, /promoción, rollback, \.env y data verificados/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('la verificación rechaza manifiestos que no corresponden a la raíz, runtime o puerto activos', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-manifest-'));
+  const manifestPath = path.join(tempRoot, 'installation.manifest.json');
+  const escapedModulePath = installerHubVerificationModulePath.replace(/'/g, "''");
+  const escapedManifestPath = manifestPath.replace(/'/g, "''");
+  const escapedRoot = tempRoot.replace(/'/g, "''");
+  const script = `
+$ErrorActionPreference = 'Stop'
+Import-Module -Force -WarningAction SilentlyContinue '${escapedModulePath}'
+$manifest = [ordered]@{
+  app = [ordered]@{ version = '1.2.7' }
+  installation = [ordered]@{ root = '${escapedRoot}'; installed = $true; flavor = 'docente-local'; port = 4519 }
+  runtime = [ordered]@{ embeddedNode = [ordered]@{ present = $true; version = 'v24.11.0' } }
+  criticalFiles = @([ordered]@{ path = 'EvaluaPro.exe'; exists = $true; sha256 = ('a' * 64) })
+}
+[IO.File]::WriteAllText('${escapedManifestPath}', ($manifest | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+$null = Test-EvaluaProInstallationManifest -ManifestPath '${escapedManifestPath}' -ExpectedRoot '${escapedRoot}' -ExpectedPort 4519 -ExpectedNodeVersion 'v24.11.0'
+$manifest.installation.port = 4520
+[IO.File]::WriteAllText('${escapedManifestPath}', ($manifest | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+$rejected = $false
+try { $null = Test-EvaluaProInstallationManifest -ManifestPath '${escapedManifestPath}' -ExpectedRoot '${escapedRoot}' -ExpectedPort 4519 -ExpectedNodeVersion 'v24.11.0' } catch { $rejected = $_.Exception.Message -match 'puerto distinto' }
+if (-not $rejected) { throw 'El verificador aceptó un puerto discrepante.' }
+Write-Output 'OK: manifiesto validado y discrepancia rechazada'
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) return;
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+    assert.match(result.stdout, /manifiesto validado y discrepancia rechazada/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
 
 function parseJsonOutput(stdout, startMarker = '', endMarker = '') {
   const text = String(stdout || '').trim();
@@ -528,7 +797,7 @@ test('bootstrap SQLite docente usa Node nativo y esquema SQL empaquetado', () =>
 test('install y repair detienen procesos Node propios antes de configurar y reemplazar el payload', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   const start = helper.indexOf('function Invoke-PostInstall');
-  const end = helper.indexOf('function Get-EvaluaProOwnedNodeProcessIds', start);
+  const end = helper.indexOf('function Invoke-Update', start);
   assert.ok(start >= 0 && end > start, 'debe localizar el flujo post-install');
   const postInstall = helper.slice(start, end);
   const requestMode = postInstall.indexOf("$installMode = [string](Get-RequestValue -Request $requestJson -Names @('mode', 'Mode') -DefaultValue 'install')");
@@ -564,6 +833,58 @@ test('E2E docente exige elevación solo para el destino per-machine real', () =>
   assert.match(runner, /foreignMachineEntries/);
   assert.match(runner, /foreign-install-warning/);
   assert.match(runner, /targetMachineInstall=\{0\}/);
+});
+
+test('E2E protege datos e instalaciones preexistentes y limpia solo su destino QA', () => {
+  const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+  const preflightDatabase = runner.indexOf("if ($script:sharedProgramDataDatabaseExistedAtStart -and -not ($isolatedCandidateRun -or $script:upgradingExistingInstall))");
+  const preflightInstall = runner.indexOf("if (-not $AllowExistingInstall -and $existing.Count -gt 0)");
+  const activeProcessGuard = runner.indexOf("$activeInstallerHubProcesses = @(");
+  const installFlow = runner.indexOf("if ([string]::IsNullOrWhiteSpace($BaselineBundlePath))");
+  const startInstaller = runner.indexOf("Invoke-InstallerHubMode -Mode 'install' | Out-Null", installFlow);
+
+  assert.ok(preflightDatabase >= 0 && preflightInstall > preflightDatabase);
+  assert.ok(activeProcessGuard > preflightInstall, 'primero se deben validar base e instalaciones existentes');
+  assert.ok(installFlow > activeProcessGuard && startInstaller > installFlow, 'el instalador solo se inicia después de las guardas previas');
+  assert.match(runner, /Get-FileHash -LiteralPath \$path -Algorithm SHA256/);
+  assert.match(runner, /function Assert-SharedProgramDataSqliteUnchanged/);
+  assert.match(runner, /-Item 'shared-programdata-sqlite-unchanged'/);
+  assert.match(runner, /\$targetInsideLocalAppData/);
+  assert.match(runner, /\$normalizedTargetRoot -ne \$defaultInstallRoot/);
+  assert.match(runner, /\$script:initialUninstallRegistryPaths = @\(\$existing \| ForEach-Object/);
+  assert.match(runner, /\$newRemainingEntries\.Count -eq 0 -and \$preservedInitialEntries\.Count/);
+  assert.match(runner, /\$script:upgradingExistingInstall = \$registryInventoryCompatible -and \$targetHasPriorPayload[\s\S]*?stableCandidate/);
+  assert.match(runner, /\$installedPackagePath = Join-Path \$normalizedTargetRoot 'package\.json'/);
+  assert.match(runner, /\$installedVersionMetadataPath = Join-Path \$normalizedTargetRoot 'config\\app-version\.json'/);
+  assert.match(runner, /\$targetHasPriorPayload = \$payloadIsBehind -or \$versionMetadataIsBehind/);
+  assert.match(runner, /\$registryInventoryCompatible = \$existing\.Count -le 1/);
+  assert.match(runner, /\$registeredPayloadVersion -ge \(Normalize-InstallerProductVersion/);
+  assert.match(runner, /candidate-or-upgrade-target' -Ok \(\$isolatedCandidateRun -or \$script:upgradingExistingInstall\)/);
+  assert.match(runner, /\$singleCurrentRegistration = \$postUpgradeEntries\.Count -eq 1/);
+  assert.match(runner, /-Item 'version-updated'/);
+  assert.match(runner, /pre-upgrade-database-backup\.json/);
+  assert.match(runner, /\$databasePath = if \(\$script:upgradingExistingInstall\) \{\s*Get-ConfiguredInstalledSqlitePath/);
+  assert.doesNotMatch(runner, /Stop-InstallerHubProcesses/);
+  assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
+  assert.match(runner, /Hay procesos Installer Hub activos\. El runner no los cerrará/);
+  assert.match(runner, /\$script:qaMutationStarted = \$false/);
+  assert.match(runner, /\$script:qaMutationStarted = \$true[\s\S]*?Invoke-InstallerHubMode -Mode 'install'/);
+  assert.match(runner, /if \(\$script:qaMutationStarted -and -not \$script:upgradingExistingInstall\) \{\s*try \{\s*\$currentProfileExists/);
+});
+
+test('E2E verifica el Node empaquetado y no cuenta procesos Node ajenos del host', () => {
+  const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+  const processResolver = runner.slice(runner.indexOf('function Get-InstalledNodeProcesses'), runner.indexOf('function Assert-NativeStable'));
+  const nativeCheck = runner.slice(runner.indexOf('function Assert-NativeStable'), runner.indexOf('function Capture-UrlWithPlaywright'));
+  const nativeEvidence = runner.slice(runner.indexOf('function Export-NativeEvidence'), runner.indexOf('function Get-InstalledNodeProcesses'));
+
+  assert.match(processResolver, /Join-Path \$installedRoot 'runtime\\node\\node\.exe'/);
+  assert.match(processResolver, /Get-CimInstance Win32_Process -Filter "Name='node\.exe'"/);
+  assert.match(processResolver, /ExecutablePath/);
+  assert.match(processResolver, /StringComparison\]::OrdinalIgnoreCase/);
+  assert.match(nativeCheck, /\$running = @\(Get-InstalledNodeProcesses\)/);
+  assert.doesNotMatch(nativeCheck, /Get-Process -Name "node"/);
+  assert.match(nativeEvidence, /Get-InstalledNodeProcesses/);
 });
 
 test('helper post-install eleva escritura de configuración per-machine', () => {
@@ -1028,6 +1349,10 @@ test('build-msi publica BA personalizada y conserva contrato de asset publico po
   assert.match(buildScript, /\$DotNetExecutable publish/);
   assert.match(buildScript, /BootstrapperApp/);
   assert.match(buildScript, /Invoke-InstallerHashesGeneration/);
+  assert.match(buildScript, /\$manifestChannel\s*=\s*if \(\$IsolateBundleIdentity\) \{ 'qa' \} else \{ 'stable' \}/);
+  assert.match(buildScript, /-RequestedVersion \$Version -Channel \$manifestChannel -FlavorId \$manifestFlavorId/);
+  assert.match(buildScript, /\$args \+= @\('-Channel', \$Channel\)/);
+  assert.match(buildScript, /\$args \+= @\('-FlavorId', \$FlavorId\)/);
   assert.equal(catalog.flavors.every((flavor) => flavor.bundleName === flavor.installerHubExeName), true);
 });
 
@@ -2270,14 +2595,14 @@ test('launcher nativo no deja un override vacio ocultar el .env instalado', () =
 
 test('payload nativo incluye las dependencias directas del launcher docente', () => {
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
-  const burn = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  const payload = fs.readFileSync(installerHubPayloadModulePath, 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const archiveContract = buildMsi.match(/function New-DocentePayloadArchive[\s\S]*?\$required\s*=\s*@\(([\s\S]*?)\n\s*\)/)?.[1] || '';
 
   assert.equal(packageJson.scripts['build:native'], 'npm run msi:build -- -Flavor docente-local');
   assert.equal(fs.existsSync(path.join(root, 'scripts', 'build-native-dist.ps1')), false);
   assert.match(buildMsi, /runtime-env\.mjs/);
-  assert.match(burn, /scripts\\runtime-env\.mjs/);
+  assert.match(payload, /scripts\\runtime-env\.mjs/);
   assert.match(buildMsi, /Join-Path \$RootPath 'runtime\/node\/node\.exe'/);
   for (const requiredPath of [
     'apps/backend/dist/index.js',
@@ -2291,15 +2616,15 @@ test('payload nativo incluye las dependencias directas del launcher docente', ()
 });
 
 test('helper conserva compatibilidad con payloads previos y exige migraciones desde 1.2.4', () => {
-  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
-  assert.match(helper, /apps\\backend\\package\.json/);
-  assert.match(helper, /\$payloadVersion -ge \[version\]'1\.2\.4'/);
+  const payload = fs.readFileSync(installerHubPayloadModulePath, 'utf8');
+  assert.match(payload, /apps\\backend\\package\.json/);
+  assert.match(payload, /\$payloadVersion -ge \[version\]'1\.2\.4'/);
   for (const migration of [
     'migrate-calificacion-origen-inferida-sqlite.mjs',
     'migrate-preferencias-retencion-parcial-sqlite.mjs',
     'migrate-resultados-extra-externos-sqlite.mjs'
   ]) {
-    assert.ok(helper.includes(migration), `El helper debe validar ${migration} en payloads nuevos.`);
+    assert.ok(payload.includes(migration), `El módulo de payload debe validar ${migration} en payloads nuevos.`);
   }
 });
 
@@ -2329,7 +2654,7 @@ test('runner E2E tolera estados finales sin propiedad timeout', () => {
   assert.match(runner, /stateTimedOut/);
 });
 
-test('runner E2E espera la respuesta exitosa del helper antes de declarar estado estable', () => {
+test('runner E2E confirma la respuesta del helper o el estado terminal observable del Hub', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
   assert.match(runner, /function Get-LatestInstallerHelperState/);
@@ -2339,6 +2664,10 @@ test('runner E2E espera la respuesta exitosa del helper antes de declarar estado
   assert.match(runner, /\$responsePrefix \+ '-\*\.response\.json'/);
   assert.match(runner, /Get-LatestInstallerHelperState -Mode \$Mode/);
   assert.match(runner, /Installer helper OK/);
+  assert.match(runner, /Installer Hub UI terminal success/);
+  assert.match(runner, /Estado completado/);
+  assert.match(runner, /El flujo finaliz\[oó\] correctamente/);
+  assert.match(runner, /Operaci\[oó\]n finalizada correctamente/);
 });
 
 test('runner E2E no confunde una etapa previa con "ok" con la finalización', () => {
@@ -2349,7 +2678,8 @@ test('runner E2E no confunde una etapa previa con "ok" con la finalización', ()
   const stableWait = runner.slice(start, end);
 
   assert.doesNotMatch(stableWait, /instalaci[oó]n\.\*ok/i);
-  assert.doesNotMatch(stableWait, /instalaci[oó]n completada/i);
+  assert.match(stableWait, /\$uiReportsCompleted/);
+  assert.match(stableWait, /Estado completado/);
   assert.match(stableWait, /Get-LatestInstallerHelperState -Mode \$Mode -MinLastWriteTime \$OperationStartedAt/);
 });
 
@@ -2618,6 +2948,7 @@ test('SPEC-050: post-install regenera tambien los shortcuts locales y el build n
 test('SPEC-INSTALLER-ROLLBACK-CLEANUP: un fallo de shortcuts conserva la instalación funcional y el updater', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   const verifier = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PostInstallVerifier.psm1'), 'utf8');
+  const hubVerification = fs.readFileSync(installerHubVerificationModulePath, 'utf8');
 
   assert.match(helper, /-SyncRepoOutput -SkipManifestUpdate/);
   assert.match(helper, /function Invoke-ShortcutReconciliation/);
@@ -2630,7 +2961,7 @@ test('SPEC-INSTALLER-ROLLBACK-CLEANUP: un fallo de shortcuts conserva la instala
   assert.doesNotMatch(helper, /& \$powerShellPath -NoProfile -ExecutionPolicy Bypass -File \$shortcutScript/);
   assert.match(helper, /shortcutWarnings\.Add\(/);
   assert.match(helper, /state = 'degraded'/);
-  assert.match(helper, /generate-installation-manifest\.ps1/);
+  assert.match(hubVerification, /generate-installation-manifest\.ps1/);
   assert.match(helper, /Instalacion funcional; accesos directos degradados/);
   assert.match(helper, /degraded = \(-not \$backgroundTaskRegistered\) -or \(\$shortcutWarnings\.Count -gt 0\)/);
   assert.match(helper, /warnings = @\(@\(\$licenseWarning, \$backgroundTaskWarning\)/);
