@@ -203,6 +203,20 @@ test('rechaza imports dinámicos y require no literales', () => {
   assert.equal(errors.filter((error) => error.includes('a.dynamic-import.nonliteral')).length, 2);
 });
 
+test('rechaza imports dinámicos y require no literales fuera de los módulos', () => {
+  const root = fixture();
+  const hostRoot = path.join(root, 'apps/backend/src/rutas.ts');
+  const sharedFile = path.join(root, 'apps/backend/src/compartido/servicio.ts');
+  fs.mkdirSync(path.dirname(hostRoot), { recursive: true });
+  fs.mkdirSync(path.dirname(sharedFile), { recursive: true });
+  fs.writeFileSync(hostRoot, 'void import(modulePath);\nrequire(modulePath);\n', 'utf8');
+  fs.writeFileSync(sharedFile, 'void import(modulePath);\nrequire(modulePath);\n', 'utf8');
+
+  const errors = inspect(root).errors;
+  assert.equal(errors.filter((error) => error.includes('host.dynamic-import.nonliteral')).length, 2);
+  assert.equal(errors.filter((error) => error.includes('external.dynamic-import.nonliteral')).length, 2);
+});
+
 test('rechaza dependencias reales ausentes del registro', () => {
   const result = inspect(fixture({ dependenciesA: [] }));
   assert.ok(result.errors.some((error) => error.includes('a.dependency.undeclared')));

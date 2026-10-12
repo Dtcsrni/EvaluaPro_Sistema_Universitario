@@ -522,7 +522,13 @@ export function inspectModuleContracts(options = {}) {
     const source = fs.readFileSync(filePath, 'utf8');
     const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
     for (const { specifier, kind } of moduleSpecifierNodes(sourceFile)) {
-      if (!specifier) continue;
+      if (specifier === null) {
+        if (kind === 'dynamic' || kind === 'require') {
+          const layer = isCompositionRoot ? 'host' : 'external';
+          errors.push(`${layer}.dynamic-import.nonliteral: ${path.relative(root, filePath)} contiene ${kind} no literal`);
+        }
+        continue;
+      }
       const targetPath = ts.resolveModuleName(specifier, filePath, compilerConfig.options, ts.sys).resolvedModule?.resolvedFileName;
       if (!targetPath) continue;
       const targetModule = moduleIdForPath(moduleRoot, path.resolve(targetPath), moduleIds);
