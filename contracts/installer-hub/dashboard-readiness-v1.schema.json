@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evaluapro.local/contracts/installer-hub/dashboard-readiness-v1.schema.json",
+  "title": "EvaluaPro dashboard readiness identity v1",
+  "type": "object",
+  "required": ["dashboard", "paths"],
+  "properties": {
+    "dashboard": {
+      "type": "object",
+      "required": ["contractVersion", "instanceId", "state", "pid", "port", "startedAt"],
+      "properties": {
+        "contractVersion": { "const": 1 },
+        "instanceId": { "type": "string", "format": "uuid" },
+        "state": { "enum": ["ready"] },
+        "pid": { "type": "integer", "minimum": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "startedAt": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "paths": {
+      "type": "object",
+      "required": ["root"],
+      "properties": { "root": { "type": "string", "minLength": 1 } },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

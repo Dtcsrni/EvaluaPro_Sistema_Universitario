@@ -38,6 +38,15 @@
       <Payload SourceFile="OperationalConfig.psm1" Name="OperationalConfig.psm1" />
       <Payload SourceFile="PostInstallVerifier.psm1" Name="PostInstallVerifier.psm1" />
       <Payload SourceFile="LicenseClientSecurity.psm1" Name="LicenseClientSecurity.psm1" />
+      <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubContracts.psm1" Name="InstallerHubContracts.psm1" />
+      <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubOperation.psm1" Name="InstallerHubOperation.psm1" />
+      <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubProcesses.psm1" Name="InstallerHubProcesses.psm1" />
+      <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubTransaction.psm1" Name="InstallerHubTransaction.psm1" />
+      <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubPayload.psm1" Name="InstallerHubPayload.psm1" />
+      <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubVerification.psm1" Name="InstallerHubVerification.psm1" />
+      <Payload SourceFile="$(var.SourceRoot)/contracts/installer-hub/request-envelope-v1.schema.json" Name="request-envelope-v1.schema.json" />
+      <Payload SourceFile="$(var.SourceRoot)/contracts/installer-hub/response-envelope-v1.schema.json" Name="response-envelope-v1.schema.json" />
+      <Payload SourceFile="$(var.SourceRoot)/contracts/installer-hub/dashboard-readiness-v1.schema.json" Name="dashboard-readiness-v1.schema.json" />
     </BootstrapperApplication>
 
     <Chain>

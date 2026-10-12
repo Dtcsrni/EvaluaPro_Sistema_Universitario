@@ -345,6 +345,28 @@ function Read-EnvMap {
   return $map
 }
 
+function Write-OperationalAtomicText {
+  param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][string]$Content)
+  $fullPath = [IO.Path]::GetFullPath($Path)
+  $parent = Split-Path -Parent $fullPath
+  if (-not (Test-Path -LiteralPath $parent -PathType Container)) { New-Item -ItemType Directory -Path $parent -Force -ErrorAction Stop | Out-Null }
+  $temporary = Join-Path $parent ('.' + [IO.Path]::GetFileName($fullPath) + '.' + [guid]::NewGuid().ToString('N') + '.tmp')
+  $replaceBackup = $temporary + '.bak'
+  $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Content)
+  $stream = [IO.File]::Open($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+  try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+  try {
+    if (Test-Path -LiteralPath $fullPath) {
+      [IO.File]::Replace($temporary, $fullPath, $replaceBackup, $true)
+      if (Test-Path -LiteralPath $replaceBackup) { Remove-Item -LiteralPath $replaceBackup -Force -ErrorAction Stop }
+    }
+    else { [IO.File]::Move($temporary, $fullPath) }
+  } finally {
+    if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue }
+    if (Test-Path -LiteralPath $replaceBackup) { Remove-Item -LiteralPath $replaceBackup -Force -ErrorAction SilentlyContinue }
+  }
+}
+
 function Write-EnvMap {
   param(
     [string]$Path,
@@ -355,7 +377,7 @@ function Write-EnvMap {
   foreach ($k in $keys) {
     $content += ('{0}={1}' -f $k, [string]$Map[$k])
   }
-  [IO.File]::WriteAllText($Path, ($content -join [Environment]::NewLine) + [Environment]::NewLine, [System.Text.Encoding]::UTF8)
+  Write-OperationalAtomicText -Path $Path -Content (($content -join [Environment]::NewLine) + [Environment]::NewLine)
 }
 
 function Read-JsonMap {
@@ -379,7 +401,7 @@ function Write-JsonFile {
     [object]$Data
   )
   $json = $Data | ConvertTo-Json -Depth 12
-  [IO.File]::WriteAllText($Path, $json + [Environment]::NewLine, [System.Text.Encoding]::UTF8)
+  Write-OperationalAtomicText -Path $Path -Content ($json + [Environment]::NewLine)
 }
 
 function Get-InstalledPackageVersion {
@@ -553,7 +575,7 @@ function Invoke-EvaluaProOperationalConfiguration {
       updateRequireSha256 = [bool]$normalized.updateRequireSha256
     }
   }
-  [IO.File]::WriteAllText($profilePath, ($profile | ConvertTo-Json -Depth 8), [System.Text.Encoding]::UTF8)
+  Write-JsonFile -Path $profilePath -Data $profile
 
   if ($OnLog) {
     & $OnLog 'ok' "Configuracion operativa aplicada en .env: $envPath"
