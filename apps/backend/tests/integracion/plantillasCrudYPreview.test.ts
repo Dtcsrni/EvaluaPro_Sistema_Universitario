@@ -5,12 +5,13 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado.js';
 import { BancoPregunta } from '../../src/modulos/modulo_banco_preguntas/modeloBancoPregunta.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { crearApp } from '../../src/app.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
+import * as servicioGeneracionPdf from '../../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
 
 describe('plantillas CRUD + previsualizacion', () => {
   const app = crearApp();
@@ -526,5 +527,135 @@ describe('plantillas CRUD + previsualizacion', () => {
       tipo: 'centro_vacio',
       radio: expect.any(Number)
     });
+  }, TEST_TIMEOUT_PLANTILLAS_MS);
+
+  it('prevalida todas las variantes antes de persistir el primer examen y señala al alumno que falla', async () => {
+    const token = await registrarDocente('preflight-lote@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const periodoResp = await request(app)
+      .post('/api/periodos')
+      .set(auth)
+      .send({ nombre: 'Materia Preflight', fechaInicio: '2026-01-01', fechaFin: '2026-06-01', grupos: ['A'] })
+      .expect(201);
+    const periodoId = periodoResp.body.periodo._id as string;
+
+    for (const [indice, nombreCompleto] of ['Ana Preflight', 'Luis Preflight'].entries()) {
+      await request(app)
+        .post('/api/alumnos')
+        .set(auth)
+        .send({ periodoId, matricula: `CUH51241020${indice}`, nombreCompleto, correo: `preflight-${indice}@prueba.test`, grupo: 'A' })
+        .expect(201);
+    }
+
+    const preguntasIds = await crearPreguntas({ auth, periodoId, total: 8, tema: 'Tema Preflight' });
+    const plantillaResp = await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({ periodoId, tipo: 'parcial', titulo: 'Plantilla Preflight', numeroPaginas: 2, reactivosObjetivo: 1, preguntasIds })
+      .expect(201);
+    const plantillaId = plantillaResp.body.plantilla._id as string;
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
+
+    const renderOriginal = servicioGeneracionPdf.generarPdfExamen;
+    const renderSpy = vi.spyOn(servicioGeneracionPdf, 'generarPdfExamen');
+    renderSpy
+      .mockImplementationOnce(renderOriginal)
+      .mockImplementationOnce(async () => {
+        throw Object.assign(new Error('El PDF individual tiene 3 páginas; el máximo configurado es 2.'), {
+          code: 'LOTE_CANTIDAD_PAGINAS_INVALIDA',
+          detalles: { paginasEncontradas: 3, paginasMaximas: 2 }
+        });
+      });
+
+    let respuestaLote;
+    try {
+      respuestaLote = await request(app)
+        .post('/api/examenes/generados/lote')
+        .set(auth)
+        .send({ plantillaId, loteId: 'LOT_PREFLIGHT_01' });
+    } finally {
+      renderSpy.mockRestore();
+    }
+
+    expect(respuestaLote.status).toBe(409);
+    expect(respuestaLote.body.error).toMatchObject({
+      codigo: 'LOTE_CANTIDAD_PAGINAS_INVALIDA',
+      detalles: { etapa: 'prevalidacion', alumnoId: expect.any(String), paginasEncontradas: 3, paginasMaximas: 2 }
+    });
+    expect(respuestaLote.body.error.mensaje).toMatch(/No se pudo validar el examen de .*Ana Preflight|No se pudo validar el examen de .*Luis Preflight/);
+    expect(await prisma.examenGenerado.count({ where: { loteId: 'LOT_PREFLIGHT_01' } })).toBe(0);
+  }, TEST_TIMEOUT_PLANTILLAS_MS);
+
+  it('exige grupo en periodos multigrupo y genera solo el padrón activo del grupo elegido', async () => {
+    const token = await registrarDocente('grupos-lote@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const periodoResp = await request(app)
+      .post('/api/periodos')
+      .set(auth)
+      .send({ nombre: 'Materia con grupos', fechaInicio: '2026-01-01', fechaFin: '2026-06-01', grupos: ['A', 'B'] })
+      .expect(201);
+    const periodoId = periodoResp.body.periodo._id as string;
+
+    for (const alumno of [
+      { matricula: 'CUH512410301', nombreCompleto: 'Ana Grupo A', grupo: 'A' },
+      { matricula: 'CUH512410302', nombreCompleto: 'Luis Grupo A', grupo: 'A' },
+      { matricula: 'CUH512410303', nombreCompleto: 'Eva Grupo B', grupo: 'B' }
+    ]) {
+      await request(app)
+        .post('/api/alumnos')
+        .set(auth)
+        .send({ periodoId, ...alumno, correo: `${alumno.matricula}@prueba.test` })
+        .expect(201);
+    }
+
+    const preguntasIds = await crearPreguntas({ auth, periodoId, total: TOTAL_PREGUNTAS_TEST, tema: 'Tema multigrupo' });
+    const plantillaResp = await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({ periodoId, tipo: 'parcial', titulo: 'Primer Parcial', numeroPaginas: 2, reactivosObjetivo: 1, preguntasIds })
+      .expect(201);
+    const plantillaId = plantillaResp.body.plantilla._id as string;
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
+
+    const loteId = 'LOT_GRUPO_A01';
+    await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId, loteId })
+      .expect(400)
+      .expect((response) => expect(response.body.error.codigo).toBe('GRUPO_REQUERIDO'));
+    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(0);
+
+    await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId, loteId, grupo: 'C' })
+      .expect(400)
+      .expect((response) => expect(response.body.error.codigo).toBe('GRUPO_NO_VALIDO'));
+    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(0);
+
+    const estudiantesA = await prisma.alumno.findMany({ where: { periodoId, grupo: 'A' }, select: { id: true } });
+    const respuestaLote = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId, loteId, grupo: 'A' })
+      .expect(201);
+    expect(respuestaLote.body.totalAlumnos).toBe(2);
+    const examenesLote = await prisma.examenGenerado.findMany({ where: { loteId }, select: { alumnoId: true } });
+    expect(examenesLote.map((examen) => examen.alumnoId).sort()).toEqual(estudiantesA.map((alumno) => alumno.id).sort());
+
+    await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId, loteId, grupo: 'B' })
+      .expect(409)
+      .expect((response) => expect(response.body.error.codigo).toBe('LOTE_REANUDACION_INCOMPATIBLE'));
+    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(2);
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 });

@@ -191,6 +191,9 @@ describe('generación PDF: recovery manifest y bundle', () => {
 
   it('persiste bundle firmado por lote y lo referencia desde los exámenes', async () => {
     const base = await prepararEscenarioBase();
+    await ExamenPlantilla.findByIdAndUpdate(base.plantillaId, {
+      titulo: 'Primer Parcial - Legalidad y Marketing - 23A (15 reactivos)'
+    });
     const lote = await request(app)
       .post('/api/examenes/generados/lote')
       .set(base.auth)
@@ -230,6 +233,8 @@ describe('generación PDF: recovery manifest y bundle', () => {
     expect(descargaUpper.status).toBe(200);
     expect(descargaLower.status).toBe(200);
     expect(String(descargaUpper.headers['content-type'] || '')).toContain('application/pdf');
+    expect(String(descargaUpper.headers['content-disposition'] || '')).toContain('filename="Primer_Parcial.pdf"');
+    expect(String(artefactoPersistido[0]?.archivoNombre)).not.toBe('Primer_Parcial.pdf');
     expect(String(descargaLower.headers['content-type'] || '')).toContain('application/pdf');
     expect(Buffer.compare(descargaUpper.body as Buffer, descargaLower.body as Buffer)).toBe(0);
     const pdfBytes = descargaUpper.body as Buffer;

@@ -6,6 +6,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Added
 - Contratos versionados para los 21 módulos backend: entradas públicas, compatibilidad con host, dependencias sin ciclos y propiedad única de los 76 modelos Prisma; los gates estáticos quedan integrados al mapa de CI.
+- Flujo de lote OMR con cohorte por grupo validada por la API, prevalidación de todas las variantes y elección entre ZIP de PDFs individuales y PDF consolidado.
 
 ## [1.2.6] - 2026-10-08
 

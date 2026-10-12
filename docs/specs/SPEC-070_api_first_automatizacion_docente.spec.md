@@ -1,8 +1,8 @@
 ---
 id: SPEC-070
 titulo: Operación docente automatizable por API con correspondencia en GUI
-version: 1.23.11
-fecha: 2026-10-06
+version: 1.23.12
+fecha: 2026-10-12
 autor: Codex / EvaluaPro Team
 modulo: api_docente_automatizacion
 estado: approved
@@ -264,6 +264,11 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   mediante `POST /analiticas/lista-academica/resultados-extra-externos`, con permiso
   `calificaciones:calificar`, validación estricta e idempotencia. Su elegibilidad,
   procedencia, auditoría y separación de la nota ordinaria se rigen por SPEC-076.
+- **REQ-036:** `POST /examenes/generados/lote` admite `grupo` opcional para lotes
+  ordinarios. Si hay varios grupos activos en el periodo, el API exige uno; valida que
+  exista y limita alumnos, hash de cohorte, recuperación y artefactos a ese padrón.
+  Sin grupo explícito, solo se infiere automáticamente cuando el periodo tiene uno.
+  Extraordinarios conservan su selección explícita por `alumnoIds` y rechazan `grupo`.
 - **REQ-019:** Las entregas deben poder listarse y consultarse por ID desde API,
   con filtros por examen, alumno, periodo, lote y estado, paginación acotada y
   cursor estable. Cada respuesta debe limitarse al docente autenticado y omitir
@@ -462,6 +467,11 @@ pm run api:contract:check`.
 - **AC-034:** El contrato OpenAPI y el catálogo generado documentan el alta de
   resultados Extra externos con su permiso y validador. La operación conserva las
   reglas y evidencias de SPEC-076 y no altera calificaciones ordinarias.
+- **AC-035:** Con alumnos activos en los grupos A y B, un lote ordinario sin grupo
+  falla antes de persistir exámenes; `grupo: "A"` genera únicamente exámenes para
+  alumnos de A, y un grupo inexistente falla sin artefactos. Si el periodo tiene un
+  solo grupo, la omisión del campo sigue siendo compatible. El OpenAPI declara el
+  campo `grupo`; un extraordinario lo rechaza y conserva su selección por `alumnoIds`.
 - **AC-017:** La API permite listar entregas con filtros y cursor, consultar
   una entrega propia por ID, rechazar IDs ajenos como 404 y rechazar cursores o
   parámetros inválidos. La respuesta no expone el correo del alumno; las
@@ -532,6 +542,7 @@ implica que ya satisfagan todos los criterios nuevos.
 | REQ-009 / AC-013, REQ-017 / AC-005 | Revisión manual de marcas dudosas y soporte explícito para X/palomitas | `docs/specs/SPEC-062_omr_calibracion_y_plantilla_movil.spec.md`; `output/qa/omr-mark-shapes-20260928/manifest.json`; `apps/backend/tests/omr.estado-respuesta.test.ts`; `apps/frontend/tests/plantillasOmrWorkflow.test.tsx`; `apps/backend/tests/integracion/omrJobsWorkflow.test.ts` | Corrección manual está presente en UI/API. El artefacto QA aporta 6 ejemplos reales de X y 2 ambiguos, pero no ejemplos de palomita ni evaluación del motor; reconocimiento automático continúa pendiente. |
 
 | REQ-033 / AC-032 | Portada binaria con permisos, límite, normalización y paridad API/GUI | `SPEC-073_portada_materia_api_gui.spec.md`; `apps/backend/tests/integracion/periodosPortada.test.ts`; `apps/frontend/tests/seccionPeriodos.portada.test.tsx`; `scripts/api/check-openapi-contract.mjs` | API 5/5, GUI 3/3, OpenAPI y paridad de listado/fallback verificados en foco |
+| REQ-036 / AC-035 | Cohorte ordinaria por grupo, validación de pertenencia y hash de reanudación | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts`; `apps/frontend/tests/plantillas.refactor.test.tsx`; `scripts/api/check-openapi-contract.mjs` | Backend 8/8 y GUI 20/20 focales aprobadas; contrato pendiente de regenerar/auditar |
 
 ## Análisis de cobertura del flujo de listas
 

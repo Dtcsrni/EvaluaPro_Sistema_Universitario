@@ -49,6 +49,7 @@ export function PlantillasHistorialLotes({
   regenerandoLoteId,
   eliminandoLoteId,
   onDescargarPaquete,
+  onDescargarZipPaquete,
   onRegenerarPaquete,
   onEliminarPaquete,
   lotesArchivados,
@@ -76,6 +77,7 @@ export function PlantillasHistorialLotes({
   regenerandoLoteId: string | null;
   eliminandoLoteId: string | null;
   onDescargarPaquete: (loteId: string) => Promise<void>;
+  onDescargarZipPaquete: (loteId: string) => Promise<void>;
   onRegenerarPaquete: (loteId: string, items: ExamenGeneradoResumen[]) => Promise<void>;
   onEliminarPaquete: (loteId: string, items: ExamenGeneradoResumen[]) => Promise<void>;
   lotesArchivados: LoteArchivadoResumen[];
@@ -189,15 +191,11 @@ export function PlantillasHistorialLotes({
                           </div>
                         </div>
                         <div className="plantillas-item__actions">
-                          <Boton
-                            type="button"
-                            variante="primario"
-                            tamano="sm"
-                            cargando={descargandoLoteId === p.loteId}
-                            disabled={!puedeDescargarExamenes}
-                            onClick={() => void onDescargarPaquete(p.loteId)}
-                          >
-                            📥 Descargar ZIP / PDF
+                          <Boton type="button" variante="primario" tamano="sm" cargando={descargandoLoteId === p.loteId} disabled={!puedeDescargarExamenes} onClick={() => void onDescargarZipPaquete(p.loteId)}>
+                            📦 Descargar ZIP de individuales
+                          </Boton>
+                          <Boton type="button" variante="secundario" tamano="sm" cargando={descargandoLoteId === p.loteId} disabled={!puedeDescargarExamenes} onClick={() => void onDescargarPaquete(p.loteId)}>
+                            📄 Descargar PDF consolidado
                           </Boton>
                           <Boton
                             type="button"

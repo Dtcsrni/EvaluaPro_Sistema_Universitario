@@ -18,7 +18,7 @@ type ProgresoLoteGeneracion = {
   generados: number;
   porcentaje: number;
   completado: boolean;
-  estado: 'iniciando' | 'generando' | 'completado' | 'fallido' | 'archivado';
+  estado: 'validando' | 'iniciando' | 'generando' | 'completado' | 'fallido' | 'archivado';
   claveRecuperacion?: string;
 };
 
@@ -38,6 +38,7 @@ export function PlantillasConsolaGeneracion({
   mensajeGeneracion,
   lotePdfUrl,
   descargarPdfLote,
+  descargarZipLote,
   progresoLoteGeneracion,
   onPrevisualizarExtraordinario,
   paginasExtraordinarioObjetivo = 4,
@@ -55,10 +56,11 @@ export function PlantillasConsolaGeneracion({
   plantillaSeleccionada: Plantilla | null;
   paginasExtraordinarioObjetivo?: number;
   puedeGenerarExamenes: boolean;
-  onGenerarExamenesLote: (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[] }) => Promise<void>;
+  onGenerarExamenesLote: (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[]; grupo?: string }) => Promise<void>;
   mensajeGeneracion: string;
   lotePdfUrl: string | null;
   descargarPdfLote: () => Promise<void>;
+  descargarZipLote: () => Promise<void>;
   progresoLoteGeneracion: ProgresoLoteGeneracion | null;
   onPrevisualizarExtraordinario: (plantillaId: string) => Promise<{
     layoutConfirmado: boolean;
@@ -74,7 +76,9 @@ export function PlantillasConsolaGeneracion({
   onIrAHistorial?: () => void;
 }) {
   const [modoGeneracion, setModoGeneracion] = useState<'lote' | 'individual'>('lote');
+  const [formatoSalidaLote, setFormatoSalidaLote] = useState<'zip' | 'pdf'>('pdf');
   const [tipoExamen, setTipoExamen] = useState<'ordinario' | 'extraordinario'>('ordinario');
+  const [grupoLote, setGrupoLote] = useState('');
   const [alumnoIdsExtraordinario, setAlumnoIdsExtraordinario] = useState<string[]>([]);
   const [previsualizandoExtraordinario, setPrevisualizandoExtraordinario] = useState(false);
   const [previewExtraordinario, setPreviewExtraordinario] = useState<{
@@ -91,22 +95,34 @@ export function PlantillasConsolaGeneracion({
   const [previewExtraordinarioConfirmado, setPreviewExtraordinarioConfirmado] = useState(false);
   const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
   const listaPeriodos = Array.isArray(periodos) ? periodos : [];
-  const listaAlumnos = Array.isArray(alumnos) ? alumnos : [];
+  const listaAlumnos = useMemo(() => Array.isArray(alumnos) ? alumnos : [], [alumnos]);
   const periodoPlantilla = listaPeriodos.find((periodo) => periodo._id === plantillaSeleccionada?.periodoId);
   const esPeriodoArchivado = periodoPlantilla?.activo === false &&
     Number.isFinite(Date.parse(String(periodoPlantilla.fechaFin ?? ''))) &&
     Date.parse(String(periodoPlantilla.fechaFin)) < Date.now();
 
-  const alumnosMateria = plantillaSeleccionada
+  const esExtraordinario = esPeriodoArchivado || tipoExamen === 'extraordinario';
+  const alumnosPeriodo = useMemo(() => plantillaSeleccionada
     ? listaAlumnos.filter((a) => a.periodoId === plantillaSeleccionada.periodoId && (esPeriodoArchivado || a.activo !== false))
+    : listaAlumnos, [esPeriodoArchivado, listaAlumnos, plantillaSeleccionada]);
+  const gruposMateria = useMemo(() => [...new Set(alumnosPeriodo
+    .map((alumno) => String(alumno.grupo ?? '').trim())
+    .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), [alumnosPeriodo]);
+  useEffect(() => {
+    setGrupoLote(gruposMateria.length === 1 ? gruposMateria[0] : '');
+  }, [gruposMateria, plantillaId]);
+  const alumnosMateria = plantillaSeleccionada
+    ? (esExtraordinario
+      ? alumnosPeriodo
+      : alumnosPeriodo.filter((alumno) => String(alumno.grupo ?? '').trim() === grupoLote))
     : listaAlumnos;
   const alumnosMateriaPorId = useMemo(() => new Map(alumnosMateria.map((alumno) => [alumno._id, alumno])), [alumnosMateria]);
   const alumnosExtraordinariosSeleccionados = alumnoIdsExtraordinario.filter((alumnoId) => alumnosMateriaPorId.has(alumnoId));
-  const esExtraordinario = esPeriodoArchivado || tipoExamen === 'extraordinario';
   const claveRecuperacionLote = crearClaveLoteGeneracion(
     plantillaId,
     esExtraordinario ? 'extraordinario' : undefined,
-    alumnosExtraordinariosSeleccionados
+    alumnosExtraordinariosSeleccionados,
+    esExtraordinario ? undefined : grupoLote
   );
   const lotePendienteId = plantillaId ? leerLotePendiente(claveRecuperacionLote) : null;
   const hayLoteReanudable = !generandoLote && Boolean(
@@ -144,7 +160,7 @@ export function PlantillasConsolaGeneracion({
         ? 'Generando paquete masivo…'
         : hayLoteReanudable
           ? 'Reintentar paquete incompleto'
-        : `Generar paquete de exámenes (${alumnosMateria.length} alumnos)`;
+        : `Generar lote ${formatoSalidaLote === 'zip' ? 'ZIP de individuales' : 'PDF consolidado'} (${alumnosMateria.length} alumnos)`;
   const progresoEnAlcance = progresoLoteGeneracion?.claveRecuperacion === claveRecuperacionLote
     ? progresoLoteGeneracion
     : null;
@@ -164,7 +180,7 @@ export function PlantillasConsolaGeneracion({
         generados: 0,
         porcentaje: 0,
         completado: false,
-        estado: 'iniciando' as const
+        estado: 'validando' as const
       }
     : null);
 
@@ -186,7 +202,7 @@ export function PlantillasConsolaGeneracion({
             {OMR_CANONICAL_DISPLAY_LABEL}
           </span>
           <span className="banco-tag-preguntas">Plantillas: {listaPlantillas.length}</span>
-          <span className="banco-tag-paginas">Alumnos en materia: {alumnosMateria.length}</span>
+          <span className="banco-tag-paginas">{esExtraordinario ? 'Alumnos en materia' : 'Alumnos del grupo'}: {alumnosMateria.length}</span>
         </div>
       </div>
 
@@ -253,6 +269,44 @@ export function PlantillasConsolaGeneracion({
               📄 Examen Individual de Muestra
             </button>
           </div>
+
+          {modoGeneracion === 'lote' && !esExtraordinario && (
+            <label className="campo mt-10">
+              <span className="campo__label-row"><span>Grupo destinatario del lote</span></span>
+              <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+                <select
+                  aria-label="Grupo destinatario del lote"
+                  value={grupoLote}
+                  onChange={(event) => setGrupoLote(event.target.value)}
+                  disabled={generandoLote || gruposMateria.length === 0}
+                >
+                  <option value="">Selecciona un grupo</option>
+                  {gruposMateria.map((grupo) => <option key={grupo} value={grupo}>{grupo}</option>)}
+                </select>
+              </div>
+              {gruposMateria.length === 0 && <p role="alert" className="nota">No hay alumnos activos con grupo asignado en la materia de esta plantilla.</p>}
+              {gruposMateria.length > 1 && !grupoLote && <p className="nota">Selecciona un grupo para limitar el lote a su padrón activo.</p>}
+            </label>
+          )}
+
+          {modoGeneracion === 'lote' && !esExtraordinario && (
+            <div className="plantillas-temas-box mt-10">
+              <div className="plantillas-temas__header">
+                <div>
+                  <h4 className="plantillas-temas__title">Formato de entrega del lote</h4>
+                  <p className="nota">Elige qué paquete descargarás al terminar. Los dos formatos también estarán en el historial.</p>
+                </div>
+              </div>
+              <div className="plantillas-modo-toggle mt-10" role="group" aria-label="Formato de salida del lote">
+                <button type="button" className={`boton ${formatoSalidaLote === 'zip' ? 'boton--primario' : 'boton--secundario'}`} aria-pressed={formatoSalidaLote === 'zip'} onClick={() => setFormatoSalidaLote('zip')} disabled={generandoLote}>
+                  ZIP · PDFs individuales
+                </button>
+                <button type="button" className={`boton ${formatoSalidaLote === 'pdf' ? 'boton--primario' : 'boton--secundario'}`} aria-pressed={formatoSalidaLote === 'pdf'} onClick={() => setFormatoSalidaLote('pdf')} disabled={generandoLote}>
+                  PDF · lote consolidado
+                </button>
+              </div>
+            </div>
+          )}
 
           <label className="campo">
             <span className="campo__label-row"><span>Tipo de examen</span></span>
@@ -402,8 +456,10 @@ export function PlantillasConsolaGeneracion({
             <div className="progreso-lote-card__header">
               <span>
                 {progresoVisible.estado === 'fallido'
-                  ? '⚠️ Lote incompleto. Reintentará con el mismo ID y conservará los PDFs individuales válidos.'
-                  : '⚡ Generando paquete masivo en el servidor...'}
+                  ? '⚠️ Lote incompleto. Puedes reanudarlo con el mismo ID y conservará los exámenes verificados.'
+                  : progresoVisible.estado === 'validando'
+                    ? '🔎 Validando las variantes de todos los alumnos antes de guardar el lote…'
+                    : '⚡ Generando paquete masivo en el servidor...'}
               </span>
               <span><b>{progresoVisible.generados}</b> / {progresoVisible.totalEsperado} ({progresoVisible.porcentaje}%)</span>
             </div>
@@ -434,24 +490,25 @@ export function PlantillasConsolaGeneracion({
                 type="button"
                 variante="primario"
                 cargando={generandoLote}
-                disabled={!puedeGenerarExamenes || !plantillaId || (esExtraordinario ? alumnosExtraordinariosSeleccionados.length === 0 : alumnosMateria.length === 0) || (esPeriodoArchivado && !previewExtraordinarioConfirmado)}
+            disabled={!puedeGenerarExamenes || !plantillaId || (esExtraordinario ? alumnosExtraordinariosSeleccionados.length === 0 : modoGeneracion === 'lote' ? !grupoLote || alumnosMateria.length === 0 : alumnosMateria.length === 0) || (esPeriodoArchivado && !previewExtraordinarioConfirmado)}
                 onClick={() => onGenerarExamenesLote(esExtraordinario ? {
                   tipoExamen: 'extraordinario',
                   alumnoIds: alumnosExtraordinariosSeleccionados
-                } : undefined)}
+            } : modoGeneracion === 'lote' ? { grupo: grupoLote } : undefined)}
               >
                 {textoBotonGenerar}
               </Boton>
             )}
 
             {lotePdfUrl && (
-              <Boton
-                type="button"
-                variante="secundario"
-                onClick={descargarPdfLote}
-              >
-                📥 Descargar paquete PDF generado
-              </Boton>
+              <>
+                <Boton type="button" variante="secundario" onClick={formatoSalidaLote === 'zip' ? descargarZipLote : descargarPdfLote}>
+                  {formatoSalidaLote === 'zip' ? '📥 Descargar ZIP de PDFs individuales' : '📥 Descargar PDF consolidado'}
+                </Boton>
+                <Boton type="button" variante="secundario" onClick={formatoSalidaLote === 'zip' ? descargarPdfLote : descargarZipLote}>
+                  {formatoSalidaLote === 'zip' ? 'Descargar PDF consolidado' : 'Descargar ZIP de individuales'}
+                </Boton>
+              </>
             )}
 
             {onIrAHistorial && (
