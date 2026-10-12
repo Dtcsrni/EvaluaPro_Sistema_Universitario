@@ -919,7 +919,7 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   assert.match(runner, /\$databasePath = if \(\$script:upgradingExistingInstall\) \{\s*Get-ConfiguredInstalledSqlitePath/);
   assert.doesNotMatch(runner, /Stop-InstallerHubProcesses/);
   assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
-  assert.match(runner, /Hay procesos Installer Hub activos\. El runner no los cerrará/);
+  assert.match(runner, /Hay procesos Installer Hub activos(?:: [^\r\n]+)?\. El runner no los cerrará/);
   assert.match(runner, /\$script:qaMutationStarted = \$false/);
   assert.match(runner, /\$script:qaMutationStarted = \$true[\s\S]*?Invoke-InstallerHubMode -Mode 'install'/);
   assert.match(runner, /if \(\$script:qaMutationStarted -and -not \$script:upgradingExistingInstall\) \{\s*try \{\s*\$currentProfileExists/);
