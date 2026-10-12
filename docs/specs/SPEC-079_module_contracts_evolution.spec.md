@@ -1,11 +1,11 @@
 ---
 id: SPEC-079
 titulo: Contratos versionados y evolución independiente de módulos
-version: 1.0.0
+version: 1.0.1
 fecha: 2026-10-11
 autor: Codex
 modulo: arquitectura-backend
-estado: implemented
+estado: approved
 ---
 
 ## Contexto
@@ -21,7 +21,7 @@ Esta spec implementa evolución independiente dentro del monolito: cada módulo 
 - REQ-003: el gate estático debe resolver imports TypeScript relativos, comparar dependencias reales con el registro, rechazar dependencias no declaradas y detectar ciclos. El gate genera un reporte reproducible sin incluir código fuente ni datos operativos.
 - REQ-004: eliminar los ciclos alumnos/papelera y calificación/sincronización cloud sin cambiar rutas HTTP, autorización, resultados ni persistencia.
 - REQ-005: el registro debe definir la propiedad de modelos/tablas persistidos y el contrato de migración. Ninguna entidad persistida puede quedar sin propietario o tener más de uno; los cambios son aditivos primero y destructivos solo tras vencer la ventana de compatibilidad declarada.
-- REQ-006: la CI ejecuta el chequeo de contratos para cambios de backend y arquitectura; pruebas de módulo más consumidores transitivos afectados son el primer nivel, y las suites backend/portal completas siguen como gate de integración/release.
+- REQ-006: la CI ejecuta el chequeo de contratos para cambios de backend y arquitectura; pruebas de módulo más consumidores transitivos afectados son el primer nivel, y las suites backend/portal completas siguen como gate de integración/release. Los cambios en una prueba también deben seleccionar el grupo que ejecuta esa prueba, aunque no cambie el código de producción.
 - REQ-007: documentar inventario módulo por módulo, dependencias, contratos públicos, propiedad de datos, riesgos y secuencia de migración. Mantener el monolito modular y SQLite local; no añadir dependencias de runtime ni microservicios.
 - REQ-008: el verificador falla con mensajes accionables ante versión inválida, rango de host incompatible, import privado, dependencia fuera del registro, ciclo o propiedad de datos ausente/duplicada.
 
@@ -44,7 +44,7 @@ Esta spec implementa evolución independiente dentro del monolito: cada módulo 
 | REQ-003 | Resolver grafo real, dependencias declaradas y ciclos | `scripts/tests/module-contract-check.test.mjs` | Verificado: 39 dependencias declaradas, cero ciclos |
 | REQ-004 | Verificar los ciclos iniciales y sus sustitutos unidireccionales | `scripts/tests/module-contract-check.test.mjs` y suites backend CI | Verificado: Classroom, alumnos/papelera, calificación/OMR |
 | REQ-005 | Propiedad única de cada modelo persistido y compatibilidad de migraciones | `scripts/tests/module-contract-check.test.mjs` | Verificado: 76 propietarios; ausencia y duplicidad rechazadas |
-| REQ-006 | Integración del gate estructural con clean architecture y CI afectada | `scripts/tests/clean-architecture-check.test.mjs` y `ci/affected-test-map.json` | Verificado: gate y selección afectados registrados |
+| REQ-006 | Integración del gate estructural y enrutamiento de pruebas afectadas en CI | `scripts/tests/clean-architecture-check.test.mjs`, `scripts/tests/affected-ci-resolver.test.mjs` y `ci/affected-test-map.json` | En validación: código y pruebas de Installer Hub seleccionan `core_contract_docs_gov` |
 | REQ-007 | Inventario y límites vigentes en la documentación | `docs/ARQUITECTURA.md` | Verificado: 21 módulos, datos y límites de despliegue documentados |
 | REQ-008 | Mensajes/fallos verificables para cada violación del contrato | `scripts/tests/module-contract-check.test.mjs` | Verificado: rangos, dependencias, ciclos y propiedad inválidos rechazados |
 

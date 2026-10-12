@@ -58,14 +58,18 @@ function getAvailablePowerShell() {
   return '';
 }
 
-function runPowerShell(command) {
+function runPowerShellArgs(args, { nonInteractive = false } = {}) {
   const shell = getAvailablePowerShell();
   if (!shell) {
     return { skipped: true, stdout: '', stderr: '', status: 0 };
   }
 
+  const powerShellArgs = ['-NoProfile'];
+  if (nonInteractive) powerShellArgs.push('-NonInteractive');
+  powerShellArgs.push('-ExecutionPolicy', 'Bypass', ...args);
+
   try {
-    const stdout = execFileSync(shell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
+    const stdout = execFileSync(shell, powerShellArgs, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 20_000
@@ -79,6 +83,10 @@ function runPowerShell(command) {
       status: Number(error.status || 1)
     };
   }
+}
+
+function runPowerShell(command) {
+  return runPowerShellArgs(['-Command', command]);
 }
 
 function parseJsonOutput(stdout, startMarker = '', endMarker = '') {
@@ -275,14 +283,20 @@ test('ConvertTo-DotNetNumericVersion convierte versiones semver y prerelease a c
   const funcMatch = buildMsiSource.match(/function ConvertTo-DotNetNumericVersion\s*\{[\s\S]*?\n\}/);
   assert.ok(funcMatch, 'Debe existir la función ConvertTo-DotNetNumericVersion en build-msi.ps1');
 
-  const psCommand = `${funcMatch[0]}; ConvertTo-DotNetNumericVersion -VersionTag '1.1.0-beta.5'; ConvertTo-DotNetNumericVersion -VersionTag '0.0.0-dev'; ConvertTo-DotNetNumericVersion -VersionTag '2.3.4.5'`;
-  const psRes = runPowerShell(psCommand);
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-dotnet-version-'));
+  const scriptPath = path.join(tempRoot, 'version-contract.ps1');
+  const psScript = `${funcMatch[0]}\nConvertTo-DotNetNumericVersion -VersionTag '1.1.0-beta.5'\nConvertTo-DotNetNumericVersion -VersionTag '0.0.0-dev'\nConvertTo-DotNetNumericVersion -VersionTag '2.3.4.5'\n`;
+  let psRes;
+  try {
+    fs.writeFileSync(scriptPath, `\uFEFF${psScript}`, 'utf8');
+    psRes = runPowerShellArgs(['-File', scriptPath], { nonInteractive: true });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
   if (psRes.skipped) return;
   assert.equal(psRes.status, 0, `PowerShell falló. stderr: ${psRes.stderr || '(vacío)'}; stdout: ${psRes.stdout || '(vacío)'}`);
   const lines = psRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  assert.equal(lines[0], '1.1.0.0');
-  assert.equal(lines[1], '0.0.0.0');
-  assert.equal(lines[2], '2.3.4.5');
+  assert.deepEqual(lines, ['1.1.0.0', '0.0.0.0', '2.3.4.5']);
 });
 
 test('docente-local no reutiliza rutas per-machine detectadas por Burn', () => {
