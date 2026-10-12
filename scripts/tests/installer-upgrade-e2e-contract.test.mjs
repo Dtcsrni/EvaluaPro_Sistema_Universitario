@@ -40,7 +40,9 @@ test('baseline legado valida version ARP sin InstallLocation solo con una entrad
   const getter = e2e.slice(getterStart, getterEnd);
 
   assert.match(getter, /\$matchingEntries\.Count -gt 1/);
-  assert.match(getter, /\$allEntries\.Count -eq 1 -and\s+\[string\]::IsNullOrWhiteSpace\(\[string\]\$allEntries\[0\]\.installLocation\)/);
+  assert.match(getter, /\$script:upgradingExistingInstall\s+-and\s+\$allEntries\.Count -eq 1/);
+  assert.match(getter, /\$script:initialUninstallRegistryPaths -contains \[string\]\$allEntries\[0\]\.registryPath/);
+  assert.match(getter, /\$newEntries\.Count -eq 1[\s\S]*?installLocation/);
   assert.match(getter, /Join-Path \$target 'EvaluaPro\.exe'/);
   assert.match(getter, /Join-Path \$target 'evaluapro-native-dist\.zip'/);
   assert.match(getter, /No existe una entrada MSI inequívoca/);
@@ -98,7 +100,10 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   assert.match(e2e, /Invoke-UpgradeBaselineFlow -BaselinePath \$BaselineBundlePath/);
   assert.match(e2e, /\$databasePath = Resolve-InstalledSqlitePath/);
   assert.match(e2e, /Join-Path \$installedRoot 'runtime\\node\\node\.exe'/);
-  assert.match(e2e, /EVALUAPRO_DATABASE_URL = 'file:' \+ \(\(Join-Path \$installedRoot 'data\\evaluapro\.db'\)/);
+  assert.match(e2e, /function Get-ConfiguredInstalledSqlitePath/);
+  assert.match(e2e, /BACKEND_DATABASE_URL\|DATABASE_URL/);
+  assert.match(e2e, /Join-Path \$installedRoot 'data\\evaluapro\.db'/);
+  assert.match(e2e, /La ruta SQLite del instalador está fuera de los destinos QA permitidos/);
   assert.match(e2e, /if \(\$databasePath -ne \$localDatabase\)/);
 });
 
@@ -128,8 +133,9 @@ test('runner acepta el EXE publicado con SHA obligatorio y CRC32 opcional', () =
 test('runner protege ProgramData y aísla la SQLite recién creada por el baseline', () => {
   assert.match(e2e, /sharedProgramDataSqliteArtifactsAtStart = @\([\s\S]+?-wal'[\s\S]+?'-shm'[\s\S]+?'-journal'/);
   assert.match(e2e, /sharedProgramDataDatabaseExistedAtStart = \$script:sharedProgramDataSqliteArtifactsAtStart\.Count -gt 0/);
-  assert.match(e2e, /shared-programdata-database-absent/);
-  assert.match(e2e, /host QA limpio para no tocar datos existentes/);
+  assert.match(e2e, /shared-programdata-sqlite-unchanged/);
+  assert.match(e2e, /Se rechaza mover una SQLite de ProgramData preexistente/);
+  assert.match(e2e, /SQLite preexistente se preservará por SHA-256/);
   assert.match(e2e, /function Set-QAIsolatedSqlite/);
   assert.match(e2e, /sharedProgramDataDatabaseExistedAtStart\)\s*\{\s*throw/);
   assert.match(e2e, /foreach \(\$suffix in @\('', '-wal', '-shm', '-journal'\)\)/);

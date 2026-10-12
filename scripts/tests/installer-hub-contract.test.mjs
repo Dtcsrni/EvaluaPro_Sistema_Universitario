@@ -152,7 +152,7 @@ $envelope = [ordered]@{ schemaVersion=1; operationId='${operationId}'; command='
   }
 });
 
-test('el helper descifra protectedSecrets desde un proceso PowerShell independiente', () => {
+test('el helper descifra protectedSecrets desde un proceso PowerShell independiente', { skip: process.platform !== 'win32' }, () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-dpapi-'));
   const requestPath = path.join(tempRoot, 'request.json');
   const responsePath = path.join(tempRoot, 'response.json');
@@ -187,7 +187,7 @@ $envelope = [ordered]@{ schemaVersion=1; operationId='${operationId}'; command='
   }
 });
 
-test('post-install alcanza la validación del payload con dependencias modulares explícitas', () => {
+test('post-install alcanza la validación del payload con dependencias modulares explícitas', { skip: process.platform !== 'win32' }, () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-postinstall-contract-'));
   const targetDir = path.join(tempRoot, 'install-target');
   const requestPath = path.join(tempRoot, 'request.json');
@@ -708,7 +708,8 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /PDF TEST/);
   assert.match(buildMsi, /if \(\$reusePrebuiltDependencies\) \{[\s\S]*?npmCommand prune --omit=dev --ignore-scripts --package-lock=false/);
   assert.match(buildMsi, /prismaCliPath = Join-Path \$RootPath 'node_modules\/prisma\/build\/index\.js'/);
-  assert.ok(!buildMsi.includes("apps/backend/package-lock.json"));
+  assert.match(buildMsi, /apps\/backend\/package-lock\.json/); // El lockfile hijo solo participa en la verificación de versiones.
+  assert.doesNotMatch(buildMsi, /Copy-Item -LiteralPath \(Join-Path \$RootPath 'apps\/backend\/package-lock\.json'\)/);
   assert.match(buildMsi, /InstallerBurnHelper\.ps1/);
 });
 
@@ -802,7 +803,7 @@ test('install y repair detienen procesos Node propios antes de configurar y reem
   const postInstall = helper.slice(start, end);
   const requestMode = postInstall.indexOf("$installMode = [string](Get-RequestValue -Request $requestJson -Names @('mode', 'Mode') -DefaultValue 'install')");
   const installOrRepairGuard = postInstall.indexOf("if ($installMode.Trim().ToLowerInvariant() -in @('install', 'repair'))");
-  const stopProcesses = postInstall.indexOf('Stop-EvaluaProOwnedNodeProcesses -TargetDir $targetDir', installOrRepairGuard);
+  const stopProcesses = postInstall.indexOf("-ModuleName Processes -FunctionName 'Stop-EvaluaProOwnedNodeProcesses'", installOrRepairGuard);
   const runtimeConfiguration = postInstall.indexOf('Ensure-InstallerRuntimeContract -TargetDir $targetDir', installOrRepairGuard);
   const expandPayload = postInstall.indexOf('Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip', installOrRepairGuard);
 
