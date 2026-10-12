@@ -137,7 +137,7 @@ npm run ci:policy:audit:remote
 ```
 
 Adicional obligatorio para promover a estable:
-- 10 corridas CI consecutivas en verde.
+- `CI Checks` y `CI Installer Windows` completados en verde para el mismo SHA candidato de `main`.
 - evidencia de flujo docente humano en producción (`docs/release/evidencias/<version>/`).
 
 ## Criterio candidato beta 1.0.0

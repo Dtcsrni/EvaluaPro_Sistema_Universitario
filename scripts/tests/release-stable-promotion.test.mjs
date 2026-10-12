@@ -9,9 +9,40 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { contarCambiosFuente, crearQaManifest } from '../testing/generar-qa-manifest.mjs';
-import { evaluateStablePromotion } from '../release/validate-stable-promotion.mjs';
+import { evaluateStablePromotion as evaluateStablePromotionImpl } from '../release/validate-stable-promotion.mjs';
+
+const CANDIDATE_SHA = 'a'.repeat(40);
+
+function candidateRun(id, name, sha = CANDIDATE_SHA) {
+  return {
+    id,
+    name,
+    head_branch: 'main',
+    head_sha: sha,
+    status: 'completed',
+    conclusion: 'success',
+    run_attempt: 1,
+    updated_at: '2026-10-01T00:00:00.000Z'
+  };
+}
+
+function evaluateStablePromotion(options) {
+  const candidateSha = options.candidateSha || CANDIDATE_SHA;
+  const previousCandidateSha = process.env.RELEASE_CANDIDATE_SHA;
+  process.env.RELEASE_CANDIDATE_SHA = candidateSha;
+  try {
+    return evaluateStablePromotionImpl({
+      ...options,
+      candidateSha,
+      ciRuns: [candidateRun(101, 'CI Checks', candidateSha)],
+      installerRun: candidateRun(102, 'CI Installer Windows', candidateSha)
+    });
+  } finally {
+    if (previousCandidateSha === undefined) delete process.env.RELEASE_CANDIDATE_SHA;
+    else process.env.RELEASE_CANDIDATE_SHA = previousCandidateSha;
+  }
+}
 
 function mkTempDir(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -26,8 +57,7 @@ function writeEvidenceDir(baseDir) {
   const manifest = {
     version: '1.0.0',
     displayVersion: '1.0.0b',
-    commit: 'abc123',
-    ciConsecutivoVerde: 10,
+    commit: CANDIDATE_SHA,
     evidenciaWindows: {
       path: 'docs/release/evidencias/1.1.1/windows-release-smoke.md'
     },
@@ -81,7 +111,7 @@ function writeQaEvidence(baseDir, overrides = {}) {
   const manifest = {
     version: '1',
     generadoEn: new Date().toISOString(),
-    commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    commit: CANDIDATE_SHA,
     workingTreeClean: true,
     dirtyPathCount: 0,
     artefactos,
@@ -121,7 +151,7 @@ function writeInstallerManifest(baseDir, overrides = {}) {
     version,
     build: {
       version,
-      commit: 'abc123'
+      commit: CANDIDATE_SHA
     },
     artifacts: [
       {
@@ -211,19 +241,15 @@ function writeClassroomEvidence(baseDir, overrides = {}) {
   return evidencePath;
 }
 
-test('stable promotion pasa con evidencia completa, streak y manifest docente-local', () => {
+test('stable promotion pasa con evidencia completa y CI ligado al SHA candidato', () => {
   const evidenceDir = mkTempDir('evaluapro-stable-evidence-');
   const installerDir = mkTempDir('evaluapro-installer-manifest-');
   const qaDir = mkTempDir('evaluapro-qa-evidence-');
   writeEvidenceDir(evidenceDir);
   const installerManifestPath = writeInstallerManifest(installerDir);
   const qaManifestPath = writeQaEvidence(qaDir);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -244,12 +270,8 @@ test('stable promotion no exige gate humano ni Classroom manual cuando QA automa
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   const installerManifestPath = writeInstallerManifest(installerDir);
   const qaManifestPath = writeQaEvidence(qaDir);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath,
@@ -270,12 +292,8 @@ test('stable promotion falla si el manifest release es incompleto aunque tenga f
   const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
   delete installerManifest.build;
   fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -292,12 +310,8 @@ test('stable promotion falla si la evidencia release no corresponde a la version
   writeEvidenceDir(evidenceDir);
   const installerManifestPath = writeInstallerManifest(installerDir, { version: '1.1.1' });
   const qaManifestPath = writeQaEvidence(qaDir);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.1.1',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -317,12 +331,8 @@ test('stable promotion falla si el manifest de instalador no corresponde a la ve
   writeEvidenceDir(evidenceDir);
   const installerManifestPath = writeInstallerManifest(installerDir, { version: '1.0.0' });
   const qaManifestPath = writeQaEvidence(qaDir);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.1.1',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -345,12 +355,8 @@ test('stable promotion falla si un flavor apunta a asset versionado incorrecto',
   const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
   installerManifest.flavors[0].installerHubName = 'EvaluaPro-InstallerHub-docente-local-v1.1.0.exe';
   fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.1.1',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -378,12 +384,8 @@ test('stable promotion falla si el catalogo de artefactos contiene un Hub de otr
     signed: true
   });
   fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.1.1',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -411,12 +413,8 @@ test('stable promotion falla si algun artefacto de instalador no esta firmado', 
     signed: false
   });
   fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -439,12 +437,8 @@ test('stable promotion falla si un artefacto firmado no tiene path verificable',
   const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
   delete installerManifest.artifacts[0].path;
   fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -466,12 +460,8 @@ test('stable promotion falla si falta evidencia automatizada de UX/UI y flujo do
   const qaManifestPath = writeQaEvidence(qaDir, {
     resumen: { total: 8, presentes: 7, faltantes: 1, estado: 'missing-artifacts' }
   });
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -488,12 +478,8 @@ test('stable promotion valida presencia y estructura del gate de release', () =>
   writeEvidenceDir(evidenceDir);
   const installerManifestPath = writeInstallerManifest(installerDir);
   const qaManifestPath = writeQaEvidence(qaDir);
-
-  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs,
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -515,8 +501,6 @@ test('stable promotion rechaza un manifiesto QA cuyo commit difiere del candidat
 
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -539,8 +523,6 @@ test('stable promotion solo acepta el flavor docente-local', () => {
 
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -562,8 +544,7 @@ test('stable promotion exige que el manifiesto del instalador identifique el SHA
   try {
     const result = evaluateStablePromotion({
       version: '1.0.0',
-      requiredStreak: 10,
-      runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
+      candidateSha: 'f'.repeat(40),
       evidenceDir,
       installerManifestPath,
       qaManifestPath
@@ -587,8 +568,6 @@ test('stable promotion exige que la evidencia versionada identifique el SHA cand
   const result = evaluateStablePromotion({
     version: '1.0.0',
     candidateSha: 'f'.repeat(40),
-    requiredStreak: 10,
-    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -619,8 +598,6 @@ test('stable promotion acepta evidencia comprometida después y ligada al SHA in
     const result = evaluateStablePromotion({
       version: '1.0.0',
       candidateSha,
-      requiredStreak: 10,
-      runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
       evidenceDir,
       installerManifestPath,
       qaManifestPath
@@ -648,8 +625,6 @@ test('stable promotion rechaza QA ejecutado con cambios de fuente sin commit', (
 
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -677,8 +652,6 @@ test('stable promotion rechaza artefactos QA con más de 24 horas', () => {
 
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -701,8 +674,6 @@ test('stable promotion rechaza manifiesto QA generado hace más de 24 horas', ()
 
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -725,8 +696,6 @@ test('stable promotion rechaza tamaño QA distinto al archivo real', () => {
 
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
     evidenceDir,
     installerManifestPath,
     qaManifestPath
@@ -749,8 +718,6 @@ test('stable promotion rechaza fecha QA que no coincide con el archivo real', ()
 
   const result = evaluateStablePromotion({
     version: '1.0.0',
-    requiredStreak: 10,
-    runs: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, conclusion: 'success' })),
     evidenceDir,
     installerManifestPath,
     qaManifestPath

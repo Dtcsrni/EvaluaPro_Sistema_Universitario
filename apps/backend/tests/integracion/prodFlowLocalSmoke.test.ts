@@ -77,7 +77,6 @@ describe('release prod-flow local smoke mayo-junio', () => {
       RELEASE_GATE_API_BASE: apiBase,
       RELEASE_GATE_DOCENTE_TOKEN: escenario.token,
       RELEASE_GATE_DOCENTE_ID: DOCENTE_ID_LOCAL,
-      RELEASE_GATE_CI_GREEN: '13'
     };
 
     const resultado = await ejecutarNpmRepo(
@@ -91,7 +90,6 @@ describe('release prod-flow local smoke mayo-junio', () => {
         `--api-base=${apiBase}`,
         `--docente-id=${DOCENTE_ID_LOCAL}`,
         '--entorno=local-smoke',
-        '--ci-green=13'
       ],
       env
     );

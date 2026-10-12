@@ -51,7 +51,6 @@ Opciones:
   --docente-id=<valor>        Identificador docente para hash (default: manual.docenteId o env RELEASE_GATE_DOCENTE_ID)
   --entorno=<valor>           Entorno de evidencia (default: env RELEASE_GATE_ENTORNO o production)
   --commit=<sha>              Commit (default: env GITHUB_SHA o "local")
-  --ci-green=<n>              Corridas verdes consecutivas (default: env RELEASE_GATE_CI_GREEN o 0)
 `;
 
 function arg(nombre, fallback = '') {
@@ -165,7 +164,6 @@ async function run() {
   const apiBase = normalizarBaseApi(arg('api-base', process.env.RELEASE_GATE_API_BASE || 'http://localhost:3000/api'));
   const token = arg('token', process.env.RELEASE_GATE_DOCENTE_TOKEN || '');
   const commit = arg('commit', process.env.GITHUB_SHA || 'local');
-  const ciGreen = Number(arg('ci-green', process.env.RELEASE_GATE_CI_GREEN || '0'));
   const entorno = arg('entorno', process.env.RELEASE_GATE_ENTORNO || 'production') || 'production';
   const versionMeta = await leerVersionMetadata();
 
@@ -283,7 +281,6 @@ async function run() {
     version: versionMeta.version || version,
     displayVersion: versionMeta.displayVersion || versionMeta.version || version,
     commit,
-    ciConsecutivoVerde: Number.isFinite(ciGreen) ? ciGreen : 0,
     evidenciaWindows: {
       path: (() => {
         const evidencePath = resolveWindowsEvidencePath();

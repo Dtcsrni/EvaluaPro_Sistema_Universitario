@@ -162,7 +162,7 @@ Evidencia manual final:
 
 ## 9. Gate estable con docente humano en produccion
 1. Confirmar prerequisitos:
-- 10 corridas CI consecutivas verdes.
+- `CI Checks` y `CI Installer Windows` completados en verde para el mismo SHA candidato de `main`.
 - checklist de rollback listo.
 2. Ejecutar flujo humano completo con docente activo.
 3. Generar evidencia automatizada:

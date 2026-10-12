@@ -151,6 +151,16 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(compliance, /github\.event_name == 'schedule'/);
 });
 
+test('gate estable valida CI Checks y el instalador sobre el SHA candidato, sin racha histórica', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+
+  assert.match(workflow, /--candidate-sha=\$SOURCE_SHA/);
+  assert.match(workflow, /--installer-run-id=\$\{\{ steps\.candidate\.outputs\.installer_run_id \}\}/);
+  assert.match(workflow, /--branch=main/);
+  assert.doesNotMatch(workflow, /required-streak|ci-green|CI_STREAK/i);
+  assert.doesNotMatch(workflow, /needs\.stable_gate\.outputs\.installer_run_id/);
+});
+
 test('escalacion full-extended ejecuta sus gates en PR antes del merge', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const jobs = [
