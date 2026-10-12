@@ -9,6 +9,12 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     ]);
   });
 
+  it('reconoce el formato visual del nuevo pie y omite el total de páginas', () => {
+    expect(extraerReferenciasPieOmr('FOLIO OCR-SERIAL-TEST-01 · Pagina 2 de 12')).toEqual([
+      { folio: 'OCR-SERIAL-TEST-01', numeroPagina: 2 }
+    ]);
+  });
+
   it('tolera separadores OCR y confusión de 1 por I solo en página', () => {
     expect(extraerReferenciasPieOmr('21CD759C + Pagina I')).toEqual([
       { folio: '21CD759C', numeroPagina: 1 }
@@ -19,6 +25,7 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     expect(extraerReferenciasPieOmr('texto sin identificación')).toEqual([]);
     expect(extraerReferenciasPieOmr('13CEDC79 Página 0')).toEqual([]);
     expect(extraerReferenciasPieOmr('13CEDC79 P1 y 21CD759C P2')).toHaveLength(2);
+    expect(extraerReferenciasPieOmr('FOLIO 13CEDC79 Pagina 1 de 2 21CD759C Pagina 2 de 2')).toHaveLength(2);
   });
 
   it('requiere dos posiciones con coincidencia exacta de folio y página', () => {

@@ -21,7 +21,7 @@ export function limitarTiempoOcrPie<T>(operacion: Promise<T>, timeoutMs = 15_000
 const require = createRequire(import.meta.url);
 const UMBRAL_CONFIANZA_OCR_PIE = 75;
 const ESCALA_OCR_PIE = 4;
-const PATRON_REFERENCIA_PIE = /\b([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:PAGINA|P)\.?\s*(\d{1,2}|[IL|])(?=$|[\s.,;])/g;
+const PATRON_REFERENCIA_PIE = /\b(?:FOLIO\s+)?([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:PAGINA|P)\.?\s*(\d{1,2}|[IL|])(?:\s+DE\s+\d{1,2})?(?=$|[\s.,;])/g;
 
 /** Construye el worker desde los assets locales para que el OCR no requiera red. */
 export async function crearLectorPieOmr(): Promise<LectorPieOmr> {

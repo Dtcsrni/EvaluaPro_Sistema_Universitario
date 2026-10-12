@@ -288,6 +288,12 @@ export interface PaginaOmr {
     bindingZone?: { x: number; y: number; width: number; height: number };
     /** Zona sin burbujas OMR; en páginas pares refleja horizontalmente el reverso dúplex. */
     bindingKeepOutZone?: { x: number; y: number; width: number; height: number };
+    footerReferences?: Array<{
+      text: string;
+      fontFamily: string;
+      size: number;
+      bbox: { x: number; y: number; width: number; height: number };
+    }>;
     /** Etiqueta GRAPA posicionada dentro de la reserva de grapado. */
     bindingLabel?: { x: number; y: number; width: number; height: number; rotation?: 90 | 270 };
     continuationBand?: { x: number; y: number; width: number; height: number };
