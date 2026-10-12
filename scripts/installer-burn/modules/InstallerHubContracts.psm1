@@ -74,13 +74,14 @@ function Read-EvaluaProInstallerRequest {
     [Parameter(Mandatory = $true)][string]$ExpectedCommand
   )
 
+  $hasJsonSnapshot = $PSBoundParameters.ContainsKey('JsonContent')
   $item = $null
   if (-not [string]::IsNullOrWhiteSpace($Path)) {
     $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
       throw 'El archivo de solicitud es un enlace/reparse point y se rechaza.'
     }
-    if ([string]::IsNullOrEmpty($JsonContent)) {
+    if (-not $hasJsonSnapshot) {
       $stream = [IO.File]::Open($item.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
       try {
         if ($stream.Length -gt 16384) { throw 'La solicitud Installer Hub excede el límite seguro de 16 KiB.' }
@@ -90,8 +91,11 @@ function Read-EvaluaProInstallerRequest {
         if ($stream) { $stream.Dispose() }
       }
     }
-  } elseif ([string]::IsNullOrWhiteSpace($JsonContent)) {
+  } elseif (-not $hasJsonSnapshot) {
     throw 'La validación de la solicitud requiere una ruta o un snapshot JSON inmutable.'
+  }
+  if ($hasJsonSnapshot -and [string]::IsNullOrWhiteSpace($JsonContent)) {
+    throw 'El snapshot JSON inmutable de la solicitud está vacío.'
   }
   if ([Text.Encoding]::UTF8.GetByteCount($JsonContent) -gt 16384) {
     throw 'La solicitud Installer Hub excede el límite seguro de 16 KiB.'

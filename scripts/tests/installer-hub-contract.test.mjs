@@ -149,6 +149,34 @@ $request = Read-EvaluaProInstallerRequest -JsonContent '${requestJson}' -Expecte
   assert.equal(response.payloadMode, 'install');
 });
 
+test('el contrato rechaza un snapshot vacío sin volver a leer el archivo de solicitud', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-empty-snapshot-'));
+  const requestPath = path.join(tempRoot, 'request.json');
+  const escapedRequestPath = requestPath.replace(/'/g, "''");
+  const modulePath = installerHubContractsModulePath.replace(/'/g, "''");
+  try {
+    const script = `
+Import-Module '${modulePath}' -Force
+$now = [DateTimeOffset]::UtcNow
+$envelope = [ordered]@{ schemaVersion=1; operationId='c352b3b6-a9a9-4f1c-9479-d5ae977344ed'; command='post-install'; issuedAtUtc=$now.AddSeconds(-1).ToString('o'); expiresAtUtc=$now.AddMinutes(5).ToString('o'); payload=@{ mode='install'; installDir='C:\\Program Files\\EvaluaPro' } }
+[IO.File]::WriteAllText('${escapedRequestPath}', ($envelope | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
+try {
+  Read-EvaluaProInstallerRequest -Path '${escapedRequestPath}' -JsonContent '' -ExpectedCommand 'post-install' | Out-Null
+  throw 'El snapshot vacío fue aceptado.'
+} catch {
+  if ($_.Exception.Message -notmatch 'snapshot JSON inmutable.*vacío') { throw }
+  Write-Output 'EMPTY_SNAPSHOT_REJECTED'
+}
+`.trim();
+    const result = runPowerShell(script);
+    if (result.skipped) return;
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+    assert.match(result.stdout, /EMPTY_SNAPSHOT_REJECTED/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('el helper conserva la correlación al responder errores de contrato', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-error-correlation-'));
   const requestPath = path.join(tempRoot, 'request.json');
