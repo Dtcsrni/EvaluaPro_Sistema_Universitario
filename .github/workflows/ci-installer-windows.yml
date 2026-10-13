@@ -196,16 +196,38 @@ jobs:
             })
             if ($uiProcesses.Count -eq 0) { throw 'La interfaz WPF del Installer Hub se cerró antes del smoke timeout.' }
           } catch {
-            Write-Host "Smoke Burn fallido: $($_.Exception.Message)"
-            $activeProcesses = @(Get-ActiveInstallerHubProcess)
-            if ($activeProcesses.Count -gt 0) {
-              Write-Host 'Procesos Installer Hub presentes al capturar el fallo:'
-              $activeProcesses | Format-Table -AutoSize | Out-String | Write-Host
-            }
-            $fatalLog = Join-Path $env:TEMP 'EvaluaPro-InstallerHub-fatal.log'
-            if ($smokeLaunchedAt -and (Test-Path -LiteralPath $fatalLog -PathType Leaf) -and (Get-Item -LiteralPath $fatalLog).LastWriteTimeUtc -ge $smokeLaunchedAt) {
-              Write-Host 'Diagnóstico fatal del Installer Hub:'
-              Get-Content -LiteralPath $fatalLog -Tail 80 | Write-Host
+            Write-Output "SMOKE_BURN_FAILURE: $($_.Exception.GetType().FullName): $($_.Exception.Message)"
+            try {
+              $activeProcesses = @(Get-ActiveInstallerHubProcess)
+              if ($activeProcesses.Count -gt 0) {
+                Write-Output 'SMOKE_BURN_ACTIVE_PROCESSES:'
+                $activeProcesses | ForEach-Object { Write-Output ("{0}:{1}:parent={2}" -f $_.Name, $_.ProcessId, $_.ParentProcessId) }
+              }
+
+              if ($smokeLaunchedAt) {
+                $logRoot = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+                if (Test-Path -LiteralPath $logRoot -PathType Container) {
+                  $sessionLogs = @(Get-ChildItem -LiteralPath $logRoot -Filter 'burn-bootstrapper.log' -File -Recurse -ErrorAction SilentlyContinue |
+                    Where-Object { $_.LastWriteTimeUtc -ge $smokeLaunchedAt } |
+                    Sort-Object LastWriteTimeUtc -Descending |
+                    Select-Object -First 3)
+                  foreach ($sessionLog in $sessionLogs) {
+                    Write-Output "SMOKE_BURN_SESSION_LOG: $($sessionLog.FullName)"
+                    Get-Content -LiteralPath $sessionLog.FullName -ErrorAction Stop |
+                      Where-Object { $_ -match '\[(error|warn)\]|Bootstrapper iniciado|UI Loaded|UI Closed|StartUiThread fatal exception' } |
+                      ForEach-Object { Write-Output ($_ -replace '(?i)(resume\s*token\s*[=:]\s*)[^\s,;]+', '$1[REDACTED]') }
+                  }
+                }
+
+                $fatalLog = Join-Path $env:TEMP 'EvaluaPro-InstallerHub-fatal.log'
+                if ((Test-Path -LiteralPath $fatalLog -PathType Leaf) -and (Get-Item -LiteralPath $fatalLog).LastWriteTimeUtc -ge $smokeLaunchedAt) {
+                  Write-Output 'SMOKE_BURN_FATAL_LOG:'
+                  Get-Content -LiteralPath $fatalLog -Tail 80 -ErrorAction Stop |
+                    ForEach-Object { Write-Output ($_ -replace '(?i)(resume\s*token\s*[=:]\s*)[^\s,;]+', '$1[REDACTED]') }
+                }
+              }
+            } catch {
+              Write-Output "SMOKE_BURN_DIAGNOSTIC_CAPTURE_FAILURE: $($_.Exception.GetType().FullName): $($_.Exception.Message)"
             }
             throw
           } finally {
