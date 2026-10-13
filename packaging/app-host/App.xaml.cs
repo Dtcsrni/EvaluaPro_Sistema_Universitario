@@ -15,10 +15,14 @@ public partial class App : System.Windows.Application
     private static readonly TimeSpan OrphanedInstanceMinimumAge = TimeSpan.FromSeconds(30);
     private static Mutex? desktopSingletonMutex;
     private static bool ownsDesktopSingleton;
+    internal static bool IsInstallerHubInvocation { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        if (!TryAcquireDesktopSingleton())
+        IsInstallerHubInvocation = e.Args.Any(argument =>
+            string.Equals(argument, "--installer-hub", StringComparison.OrdinalIgnoreCase));
+
+        if (!IsInstallerHubInvocation && !TryAcquireDesktopSingleton())
         {
             FocusExistingWindow();
             Shutdown();

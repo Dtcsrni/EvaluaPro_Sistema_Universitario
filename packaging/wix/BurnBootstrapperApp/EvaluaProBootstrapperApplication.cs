@@ -424,8 +424,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         var appExe = Path.Combine(installDir, "EvaluaPro.exe");
-        var trayVbs = Path.Combine(installDir, "scripts", "launcher-tray-hidden.vbs");
-        var launcher = Path.Combine(installDir, "scripts", "launcher-broker.ps1");
 
         try
         {
@@ -440,36 +438,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 Log("info", $"EvaluaPro nativo iniciado: {appExe}");
                 return;
             }
-
-            if (File.Exists(trayVbs))
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "wscript.exe",
-                    Arguments = $"//nologo \"{trayVbs}\" prod 4519",
-                    WorkingDirectory = installDir,
-                    UseShellExecute = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                });
-                Log("info", $"EvaluaPro iniciado via VBS tray: {trayVbs}");
-                return;
-            }
-
-            if (File.Exists(launcher))
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{launcher}\" -Action open-dashboard -Mode prod -Port 4519",
-                    WorkingDirectory = installDir,
-                    UseShellExecute = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                });
-                Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
-                return;
-            }
-
-            Log("warn", $"No se pudo iniciar EvaluaPro: falta {launcher}.");
+            Log("warn", $"No se pudo iniciar EvaluaPro: falta {appExe}.");
         }
         catch (Exception ex)
         {
@@ -824,7 +793,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         var manifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
         var hasInstalledFiles = File.Exists(manifestPath)
-            || File.Exists(Path.Combine(installDir, "scripts", "launcher-broker.ps1"))
+            || File.Exists(Path.Combine(installDir, "EvaluaPro.exe"))
             || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
         var isGenuinelyInstalled = msiInstalled || hasInstalledFiles;
 
@@ -884,7 +853,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         // Validar si la instalación previa está genuinamente completa
         var headlessManifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
         var hasHeadlessInstalledFiles = File.Exists(headlessManifestPath)
-            || File.Exists(Path.Combine(installDir, "scripts", "launcher-broker.ps1"))
+            || File.Exists(Path.Combine(installDir, "EvaluaPro.exe"))
             || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
         var isGenuinelyInstalledHeadless = msiInstalled || hasHeadlessInstalledFiles;
 
@@ -1412,7 +1381,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         var correlationId = $"{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}";
         var requestPath = Path.Combine(requestRoot, $"{mode}-{correlationId}.request.json");
         var responsePath = Path.Combine(requestRoot, $"{mode}-{correlationId}.response.json");
-        var scriptPath = Path.Combine(payloadRoot, "InstallerBurnHelper.ps1");
         var operationId = Guid.NewGuid().ToString("D");
         var sensitiveValues = GetHelperSensitiveValues(request);
         var protectedPayload = ProtectHelperRequestPayload(request);
@@ -1439,7 +1407,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         try
         {
             SecurePrivateHandoffFile(requestPath);
-            using var process = StartPowerShellHelperProcess(mode, scriptPath, requestPath, responsePath, onProgress, stdoutLines, stderrLines, sensitiveValues);
+            using var process = StartNativeHelperProcess(mode, requestPath, responsePath, onProgress, stdoutLines, stderrLines, sensitiveValues);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             try
@@ -1629,9 +1597,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         };
     }
 
-    private Process StartPowerShellHelperProcess(
+    private Process StartNativeHelperProcess(
         string mode,
-        string scriptPath,
         string requestPath,
         string responsePath,
         Action<HelperProgressEvent>? onProgress,
@@ -1639,122 +1606,67 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         List<string> stderrLines,
         IReadOnlyList<string> sensitiveValues)
     {
-        Exception? lastError = null;
-        var candidateFailures = new List<string>();
+        var executable = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
+            throw new FileNotFoundException("No se pudo resolver el ejecutable nativo firmado del bootstrapper.");
 
-        foreach (var executable in GetPowerShellExecutableCandidates())
-        {
-            var psi = CreatePowerShellHelperStartInfo(executable, scriptPath, mode, requestPath, responsePath);
-            var process = new Process
-            {
-                StartInfo = psi,
-                EnableRaisingEvents = true
-            };
-
-            process.OutputDataReceived += (_, args) =>
-            {
-                if (string.IsNullOrWhiteSpace(args.Data))
-                {
-                    return;
-                }
-
-                if (TryParseHelperProgress(args.Data, out var progressEvent))
-                {
-                    progressEvent.Status = RedactHelperText(progressEvent.Status, sensitiveValues);
-                    Log("info", $"[helper:{mode}:progress] {progressEvent.Percent}% {TrimForLog(progressEvent.Status, 240)}");
-                    onProgress?.Invoke(progressEvent);
-                    return;
-                }
-
-                lock (stdoutLines)
-                {
-                    stdoutLines.Add(args.Data);
-                }
-            };
-
-            process.ErrorDataReceived += (_, args) =>
-            {
-                if (string.IsNullOrWhiteSpace(args.Data))
-                {
-                    return;
-                }
-
-                lock (stderrLines)
-                {
-                    stderrLines.Add(args.Data);
-                }
-            };
-
-            try
-            {
-                if (process.Start())
-                {
-                    Log("info", $"Helper {mode} iniciado con host {psi.FileName} (pid={process.Id}).");
-                    return process;
-                }
-
-                var error = new InvalidOperationException($"No se pudo iniciar el proceso con host {psi.FileName}.");
-                lastError = error;
-                candidateFailures.Add($"{psi.FileName}: {error.Message}");
-            }
-            catch (Exception ex)
-            {
-                lastError = ex;
-                candidateFailures.Add($"{psi.FileName}: {DescribePowerShellStartFailure(ex)}");
-            }
-
-            process.Dispose();
-            Log("warn", $"No se pudo iniciar helper {mode} con host {executable}: {DescribePowerShellStartFailure(lastError)}");
-        }
-
-        var diagnostics = candidateFailures.Count == 0
-            ? "sin candidatos registrados"
-            : string.Join(" | ", candidateFailures);
-        throw new InvalidOperationException(
-            $"No se pudo iniciar el helper {mode} con ningun host de PowerShell compatible. Diagnostico: {diagnostics}",
-            lastError);
-    }
-
-    private ProcessStartInfo CreatePowerShellHelperStartInfo(string executablePath, string scriptPath, string mode, string requestPath, string responsePath)
-    {
         var psi = new ProcessStartInfo
         {
-            FileName = executablePath,
+            FileName = executable,
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
-            StandardOutputEncoding = System.Text.Encoding.UTF8,
-            StandardErrorEncoding = System.Text.Encoding.UTF8,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
             WorkingDirectory = payloadRoot
         };
-
-        psi.ArgumentList.Add("-NoProfile");
-        psi.ArgumentList.Add("-ExecutionPolicy");
-        psi.ArgumentList.Add("Bypass");
-        psi.ArgumentList.Add("-File");
-        psi.ArgumentList.Add(scriptPath);
-        psi.ArgumentList.Add("-Mode");
+        psi.ArgumentList.Add("--native-helper");
+        psi.ArgumentList.Add("--mode");
         psi.ArgumentList.Add(mode);
-        psi.ArgumentList.Add("-RequestPath");
+        psi.ArgumentList.Add("--request");
         psi.ArgumentList.Add(requestPath);
-        psi.ArgumentList.Add("-ResponsePath");
+        psi.ArgumentList.Add("--response");
         psi.ArgumentList.Add(responsePath);
 
-        return psi;
-    }
-
-    private static IEnumerable<string> GetPowerShellExecutableCandidates()
-    {
-        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-        if (!string.IsNullOrWhiteSpace(windowsDirectory))
+        var process = new Process
         {
-            yield return Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-        }
+            StartInfo = psi,
+            EnableRaisingEvents = true
+        };
+        process.OutputDataReceived += (_, args) =>
+        {
+            if (string.IsNullOrWhiteSpace(args.Data)) return;
+            if (TryParseHelperProgress(args.Data, out var progressEvent))
+            {
+                progressEvent.Status = RedactHelperText(progressEvent.Status, sensitiveValues);
+                Log("info", $"[native-helper:{mode}:progress] {progressEvent.Percent}% {TrimForLog(progressEvent.Status, 240)}");
+                onProgress?.Invoke(progressEvent);
+                return;
+            }
+            lock (stdoutLines) stdoutLines.Add(args.Data);
+        };
+        process.ErrorDataReceived += (_, args) =>
+        {
+            if (string.IsNullOrWhiteSpace(args.Data)) return;
+            lock (stderrLines) stderrLines.Add(args.Data);
+        };
 
-        yield return "pwsh.exe";
-        yield return "pwsh";
-        yield return "powershell.exe";
+        try
+        {
+            if (!process.Start()) throw new InvalidOperationException("Windows no inició el helper nativo del bootstrapper.");
+            Log("info", $"Helper .NET nativo {mode} iniciado (pid={process.Id}).");
+            return process;
+        }
+        catch (Exception ex)
+        {
+            process.Dispose();
+            if (ex is Win32Exception win32 && win32.NativeErrorCode == 5)
+            {
+                throw new UnauthorizedAccessException("Windows denegó iniciar el helper nativo; revisa permisos o vuelve a ejecutar el bundle Burn.", ex);
+            }
+            throw new InvalidOperationException($"No se pudo iniciar el helper .NET nativo para {mode}: {ex.GetType().Name}.", ex);
+        }
     }
 
     private static async Task<HelperEnvelope<TData>> WaitForResponseFileAsync<TData>(string responsePath, TimeSpan timeout)
@@ -1791,32 +1703,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         throw new TimeoutException($"No se genero archivo de respuesta del helper: {responsePath}");
-    }
-
-    private static string DescribePowerShellStartFailure(Exception? error)
-    {
-        if (error is null)
-        {
-            return "sin detalle";
-        }
-
-        if (error is UnauthorizedAccessException)
-        {
-            return "acceso denegado al iniciar host PowerShell (verifica permisos administrativos/UAC)";
-        }
-
-        if (error is Win32Exception win32)
-        {
-            return win32.NativeErrorCode switch
-            {
-                2 => "host no encontrado en el sistema (archivo o comando inexistente)",
-                5 => "acceso denegado al iniciar el proceso",
-                740 => "se requieren privilegios elevados para ejecutar el host",
-                _ => $"Win32 {win32.NativeErrorCode}: {win32.Message}"
-            };
-        }
-
-        return error.Message;
     }
 
     private static string TrimForLog(string? value, int max = 1200)
@@ -1888,7 +1774,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         var manifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
         var hasInstalledFiles = File.Exists(manifestPath)
-            || File.Exists(Path.Combine(installDir, "scripts", "launcher-broker.ps1"))
+            || File.Exists(Path.Combine(installDir, "EvaluaPro.exe"))
             || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
         var isGenuinelyInstalled = msiInstalled || hasInstalledFiles;
 
@@ -2612,10 +2498,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             parts.Add("Accion sugerida: ejecuta la reparacion con permisos de administrador y revisa UAC/politicas del equipo.");
         }
         else if (!string.IsNullOrWhiteSpace(reason)
-                 && (reason.Contains("PowerShell", StringComparison.OrdinalIgnoreCase)
+                 && (reason.Contains("bootstrapper", StringComparison.OrdinalIgnoreCase)
                      || reason.Contains("helper", StringComparison.OrdinalIgnoreCase)))
         {
-            parts.Add("Accion sugerida: valida disponibilidad de PowerShell (powershell.exe/pwsh) y reintenta en modo Reparar.");
+            parts.Add("Accion sugerida: vuelve a abrir el Installer Hub oficial; si persiste, comparte el registro de la sesión con soporte.");
         }
         else
         {

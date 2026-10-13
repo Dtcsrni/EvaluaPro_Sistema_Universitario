@@ -613,6 +613,24 @@ test('ingesta PDF OMR conserva multipart, UUID y permite resolver una página po
   assert.deepEqual(JSON.parse(calls[5].init.body), { generatedAssessmentId: 'exam-1', examPage: 2, resolutionReason: 'Revisión manual' });
 });
 
+test('exportar dataset de ingesta exige advertencia y envía solo páginas únicas seleccionadas', async () => {
+  const calls = [];
+  const client = new EvaluaproClient({
+    baseUrl: 'http://localhost', token: 'token',
+    fetchImpl: async (url, init) => {
+      calls.push({ url: new URL(url), init });
+      return new Response(Buffer.from('PK\x03\x04'), { status: 200, headers: { 'content-type': 'application/zip' } });
+    }
+  });
+  await assert.rejects(client.exportarDatasetIngestaPdfOmr('job-1', { pageIndexes: [1] }), /datos identificables/);
+  await assert.rejects(client.exportarDatasetIngestaPdfOmr('job-1', { pageIndexes: [1, 1], confirmarDatosIdentificables: true }), /únicos/);
+  const archivo = await client.exportarDatasetIngestaPdfOmr('job-1', { pageIndexes: [1, 3], confirmarDatosIdentificables: true });
+  assert.equal(Buffer.isBuffer(archivo), true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.pathname, '/api/omr/ingestas/job-1/dataset-export');
+  assert.deepEqual(JSON.parse(calls[0].init.body), { pageIndexes: [1, 3], confirmarDatosIdentificables: true });
+});
+
 test('prevalidar referencia OMR localiza el assessment coincidente sin clave de mutación', async () => {
   let llamada;
   const client = new EvaluaproClient({

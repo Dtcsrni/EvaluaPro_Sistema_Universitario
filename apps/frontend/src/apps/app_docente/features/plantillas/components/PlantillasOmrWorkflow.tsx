@@ -51,6 +51,8 @@ type Props = {
   cargandoAssessmentId: string | null;
   procesandoOmr: boolean;
   descargarArtifact: (url: string | undefined, fileName: string) => Promise<void>;
+  descargarDatasetOmr?: (jobId: string, pageIndexes: number[]) => Promise<{ sha256: string; sourceCount: number; labelCount: number }>;
+  puedeAnalizarOmr?: boolean;
   obtenerPreviewPaginaOmr: (jobId: string, pageIndex: number) => Promise<Blob>;
   obtenerPreviewReferenciaOmr: (jobId: string, pageIndex: number, generatedAssessmentId: string, examPage: number) => Promise<Blob>;
   crearJobOmr: (args: { assessmentId: string; files: File[]; sourceType: 'image_batch' | 'camera_capture' | 'pdf'; referencePdf?: File }) => Promise<void>;
@@ -166,6 +168,8 @@ export function PlantillasOmrWorkflow({
   cargandoAssessmentId,
   procesandoOmr,
   descargarArtifact,
+  descargarDatasetOmr,
+  puedeAnalizarOmr = true,
   obtenerPreviewPaginaOmr,
   obtenerPreviewReferenciaOmr,
   crearJobOmr,
@@ -197,6 +201,8 @@ export function PlantillasOmrWorkflow({
   const [loteArchivadoSeleccionado, setLoteArchivadoSeleccionado] = useState('');
   const [mensajePrevalidacion, setMensajePrevalidacion] = useState<{ tipo: 'info' | 'ok' | 'warning' | 'error'; texto: string } | null>(null);
   const [prevalidandoReferencia, setPrevalidandoReferencia] = useState(false);
+  const [paginasDatasetSeleccionadas, setPaginasDatasetSeleccionadas] = useState<number[]>([]);
+  const [exportandoDataset, setExportandoDataset] = useState(false);
   const loteArchivadoActivo = useMemo(
     () => lotesArchivadosOmr.find((lote) => lote.assessmentId === loteArchivadoSeleccionado) ?? null,
     [loteArchivadoSeleccionado, lotesArchivadosOmr]
@@ -264,6 +270,43 @@ export function PlantillasOmrWorkflow({
   const paquetesOmr = jobOmrIngesta?.packages ?? [];
   const originalesOmr = jobOmrIngesta?.files ?? [];
   const esIngestaOmr = Boolean(jobOmrIngesta && Array.isArray(jobOmrIngesta.packages) && Array.isArray(jobOmrIngesta.files));
+  const paginasDatasetElegibles = useMemo(() => (jobOmr?.pages ?? []).filter((page) =>
+    esIngestaOmr
+    && page.scanStatus === 'needs_review'
+    && Boolean(page.examId && page.examPage && page.folio && page.identitySource && page.resolutionReason?.trim())
+    && page.responses.length > 0
+    && page.responses.every((answer) => answer.estadoRespuesta === 'manual_review')
+  ), [esIngestaOmr, jobOmr?.pages]);
+  useEffect(() => setPaginasDatasetSeleccionadas([]), [jobOmr?.jobId]);
+  const exportarDataset = async () => {
+    if (!jobOmr || !descargarDatasetOmr || paginasDatasetSeleccionadas.length === 0) return;
+    const aceptado = await confirm({
+      title: 'Exportar dataset OMR',
+      message: 'El ZIP conservará páginas originales para QA. Los píxeles pueden mostrar nombres, matrícula o códigos QR identificables.',
+      confirmLabel: 'Confirmar y descargar',
+      tone: 'warning',
+      details: [
+        `${paginasDatasetSeleccionadas.length} páginas con resolución manual guardada se etiquetarán.`,
+        'Se incluyen los PDF fuente completos necesarios; pueden contener otras páginas no seleccionadas. El manifiesto omite nombres, matrícula, folio y contenido QR.',
+        'Guarda el ZIP en una ubicación protegida y compártelo únicamente con personas autorizadas.'
+      ]
+    });
+    if (!aceptado) return;
+    setExportandoDataset(true);
+    try {
+      const resultado = await descargarDatasetOmr(jobOmr.jobId, paginasDatasetSeleccionadas);
+      emitToast({
+        level: 'ok',
+        title: 'Dataset OMR descargado',
+        message: `${resultado.labelCount} etiquetas · ${resultado.sourceCount} fuentes · SHA-256 ${resultado.sha256}`,
+        durationMs: 9000
+      });
+    } catch (error) {
+      emitToast({ level: 'error', title: 'Exportación OMR', message: error instanceof Error ? error.message : 'No se pudo generar el dataset. Puedes reintentar sin modificar el job.', durationMs: 7000 });
+    } finally {
+      setExportandoDataset(false);
+    }
+  };
   const panelHistorialOmr = (
     <section className="resultado plantillas-omr__history" aria-labelledby="plantillas-omr-history-title">
       <div className="plantillas-omr__history-head">
@@ -583,6 +626,40 @@ export function PlantillasOmrWorkflow({
           {esIngestaOmr && (
             <div className="resultado plantillas-omr__sources">
               <h4>Archivos originales conservados</h4>
+              <section aria-label="Selección de páginas para dataset OMR">
+                <h5>Dataset de QA con etiquetas confirmadas</h5>
+                <p>Solo aparecen páginas con identidad y respuestas guardadas mediante revisión manual. Las páginas automáticas o pendientes no se etiquetan.</p>
+                {paginasDatasetElegibles.length > 0 ? (
+                  <ul className="lista">
+                    {paginasDatasetElegibles.map((page) => (
+                      <li key={`dataset-${page.pageIndex}`}>
+                        <label className="campo">
+                          <input
+                            type="checkbox"
+                            aria-label={`Incluir página ${page.pageIndex} con etiquetas revisadas`}
+                            checked={paginasDatasetSeleccionadas.includes(page.pageIndex)}
+                            onChange={(event) => setPaginasDatasetSeleccionadas((current) => event.target.checked
+                              ? [...new Set([...current, page.pageIndex])]
+                              : current.filter((index) => index !== page.pageIndex))}
+                          />
+                          Página {page.pageIndex} · origen {page.sourcePage ?? page.pageIndex} · {page.responses.length} respuestas revisadas
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <InlineMensaje tipo="info">Aún no hay páginas con resolución manual completa guardada.</InlineMensaje>}
+                {descargarDatasetOmr && puedeAnalizarOmr && (
+                  <Boton
+                    type="button"
+                    variante="secundario"
+                    cargando={exportandoDataset}
+                    disabled={exportandoDataset || paginasDatasetSeleccionadas.length === 0}
+                    onClick={() => void exportarDataset()}
+                  >
+                    Exportar páginas seleccionadas a ZIP QA
+                  </Boton>
+                )}
+              </section>
               <ul className="lista">
                 {originalesOmr.map((archivo) => (
                   <li key={archivo.id}>

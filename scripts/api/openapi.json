@@ -20322,6 +20322,131 @@
           "examenes:descargar"
         ]
       }
+    },
+    "/omr/ingestas/{jobId}/dataset-export": {
+      "post": {
+        "tags": [
+          "OMR"
+        ],
+        "operationId": "post_omr_ingestas_jobId_dataset_export",
+        "summary": "POST /omr/ingestas/{jobId}/dataset-export",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pageIndexes",
+                  "confirmarDatosIdentificables"
+                ],
+                "properties": {
+                  "pageIndexes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 600,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 600
+                    }
+                  },
+                  "confirmarDatosIdentificables": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ZIP descargable de QA con fuentes PDF y etiquetas manualmente confirmadas.",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "X-Content-SHA256": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "X-OMR-Source-Count": {
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-OMR-Label-Count": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+        "x-evaluapro-permissions": [
+          "omr:analizar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaExportarDatasetIngestaOmr"
+        ]
+      }
     }
   },
   "components": {

@@ -10,6 +10,7 @@ import fontkit from '@pdf-lib/fontkit';
 import {
   LineCapStyle,
   PDFDocument,
+  StandardFonts,
   TextRenderingMode,
   degrees,
   popGraphicsState,
@@ -1793,14 +1794,13 @@ export class PdfKitRenderer {
   async generarPdf(examen: ExamenPdf): Promise<ResultadoGeneracionPdf> {
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
-    // Ecofont Vera Sans solo se distribuye aquí en variante regular. Todas
-    // las funciones tipográficas apuntan deliberadamente al mismo recurso:
-    // el énfasis enriquecido conserva tamaño, color y subrayado, pero nunca
-    // introduce Helvetica, Courier u otra familia en el PDF.
+    // El texto legible por personas conserva Ecofont. Helvetica se reserva
+    // para las dos referencias mecánicas que lee el OCR del pie.
     const fuente = await embedFuenteEcofont(pdfDoc);
     const fuenteBold = fuente;
     const fuenteItalica = fuente;
     const fuenteMono = fuente;
+    const fuenteOcr = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     void examen.tipoExamen;
 
@@ -2278,7 +2278,7 @@ export class PdfKitRenderer {
       const margenSeguridadGrapa = mmAPuntos(3);
       stapleKeepOutZone = {
         ...zonaEngrapadoFisica,
-        x: numeroPagina % 2 === 0
+        x: numeroPaginaPdf % 2 === 0
           ? ANCHO_CARTA - zonaEngrapadoFisica.x - zonaEngrapadoFisica.width
           : zonaEngrapadoFisica.x
       };
@@ -2470,51 +2470,41 @@ export class PdfKitRenderer {
       // recupera espacio útil sin alterar la reserva física del QR.
       const limiteContenidoContinuacion = Number.POSITIVE_INFINITY;
 
-      // Dos copias independientes de la referencia permiten un fallback OCR
-      // redundante. Ambas quedan en el pie, separadas de las esquinas con
-      // fiduciales y de la reserva física de grapa en el borde superior.
-      const pieTexto = `${folioQr} · Pagina ${numeroPagina}`;
-      const pieSize = 7;
-      // El borde inferior se dibuja en `margen + 3.5`; colocar la línea base
-      // por encima de ese borde evita que los ascendentes del texto lo crucen
-      // al rasterizar o imprimir a tamaño carta.
-      const pieY = margen + 9;
-      const pieWidth = fuenteBold.widthOfTextAtSize(pieTexto, pieSize);
-      const posicionesPie = [ANCHO_CARTA * 0.1, ANCHO_CARTA * 0.52];
-      if (pieWidth > ANCHO_CARTA * 0.38) {
-        throw new Error(`Layout invalido: la referencia de pagina ${numeroPagina} no cabe en las dos zonas OCR del pie`);
-      }
-      for (const [indice, pieX] of posicionesPie.entries()) {
-        const pieRect: RectBox = { x: pieX, y: Math.max(0, pieY - 1), width: pieWidth, height: pieSize + 2 };
-        assertRectDentroPagina(pieRect, `referencia OCR ${indice + 1} de pagina ${numeroPagina}`);
-        page.drawText(pieTexto, { x: pieX, y: pieY, size: pieSize, font: fuenteBold, color: colorGris });
-      }
-      let sizeCompuestoPie = 8;
-      const xCompuestoPie = ANCHO_CARTA * 0.68;
-      const limiteDerechoCompuestoPie = ANCHO_CARTA - margen - perfilOmr.marcaCuadradoSize
-        - perfilOmr.marcaCuadradoQuietZone - 5;
-      let anchoCompuestoPie = fuenteBold.widthOfTextAtSize(examen.numeroCompuestoNormalizado, sizeCompuestoPie);
-      while (xCompuestoPie + anchoCompuestoPie > limiteDerechoCompuestoPie && sizeCompuestoPie > 6) {
-        sizeCompuestoPie = Math.max(6, sizeCompuestoPie - 0.25);
-        anchoCompuestoPie = fuenteBold.widthOfTextAtSize(examen.numeroCompuestoNormalizado, sizeCompuestoPie);
-      }
-      const rectCompuestoPie: RectBox = {
-        x: xCompuestoPie,
-        y: Math.max(0, pieY - 1),
-        width: anchoCompuestoPie,
-        height: sizeCompuestoPie + 2
-      };
-      if (xCompuestoPie + anchoCompuestoPie > limiteDerechoCompuestoPie) {
-        throw new Error(`Layout invalido: el identificador compuesto no cabe en el pie de pagina ${numeroPagina}`);
-      }
-      assertRectDentroPagina(rectCompuestoPie, `identificador compuesto de pagina ${numeroPagina}`);
-      page.drawText(examen.numeroCompuestoNormalizado, {
-        x: xCompuestoPie,
-        y: pieY,
-        size: sizeCompuestoPie,
-        font: fuenteBold,
-        color: colorPrimario
+      const margenSeguridadFiducial = mmAPuntos(2);
+      const quietZonesFiduciales: RectBox[] = (['tl', 'tr', 'bl', 'br'] as const).map((esquina) => {
+        const marca = marcasPagina[esquina];
+        const izquierda = esquina.endsWith('l');
+        const superior = esquina.startsWith('t');
+        const extension = perfilOmr.marcaCuadradoQuietZone + margenSeguridadFiducial;
+        return {
+          x: (izquierda ? marca.x : marca.x - perfilOmr.marcaCuadradoSize) - extension,
+          y: (superior ? marca.y - perfilOmr.marcaCuadradoSize : marca.y) - extension,
+          width: perfilOmr.marcaCuadradoSize + extension * 2,
+          height: perfilOmr.marcaCuadradoSize + extension * 2
+        };
       });
+      if (stapleKeepOutZone) {
+        // Las continuaciones ya expanden esta reserva 3 mm al espejarla.
+        // La primera página conserva la zona física y necesita esa expansión
+        // aquí para que todas las caras se comparen con el mismo criterio.
+        const margenSeguridadGrapa = numeroPaginaPdf === 1 ? mmAPuntos(3) : 0;
+        const zonaGrapaExpandida: RectBox = {
+          x: stapleKeepOutZone.x - margenSeguridadGrapa,
+          y: stapleKeepOutZone.y - margenSeguridadGrapa,
+          width: stapleKeepOutZone.width + margenSeguridadGrapa * 2,
+          height: stapleKeepOutZone.height + margenSeguridadGrapa * 2
+        };
+        const fiducialesInvadidos = quietZonesFiduciales
+          .map((quietZone, indice) => rectInterseca(zonaGrapaExpandida, quietZone) ? indice + 1 : null)
+          .filter((indice): indice is number => indice !== null);
+        if (fiducialesInvadidos.length > 0) {
+          const diagnostico = fiducialesInvadidos.map((indice) => {
+            const quietZone = quietZonesFiduciales[indice - 1]!;
+            return `${indice}:grapa(${zonaGrapaExpandida.x.toFixed(1)},${zonaGrapaExpandida.y.toFixed(1)},${zonaGrapaExpandida.width.toFixed(1)},${zonaGrapaExpandida.height.toFixed(1)})/quiet(${quietZone.x.toFixed(1)},${quietZone.y.toFixed(1)},${quietZone.width.toFixed(1)},${quietZone.height.toFixed(1)})`;
+          });
+          throw new Error(`Layout invalido: reserva de engrapado invade quiet zones de fiduciales ${diagnostico.join('; ')} en la pagina ${numeroPagina}`);
+        }
+      }
 
       if (esPrimera) {
         const headerLeft = xCaja + 8;
@@ -4832,22 +4822,15 @@ export class PdfKitRenderer {
         const stapleX = Math.min(stapleXPreferido, stapleXMaximo);
         stapleZone = {
           x: stapleX,
-          // Baja 2 mm respecto al límite previo para mantener separación
-          // verificable de la quiet zone del fiducial superior izquierdo.
-          y: ALTO_CARTA - mmAPuntos(42),
+          // Se baja 1 mm para conservar el despeje adicional al reflejar la
+          // reserva dúplex hacia el fiducial de la esquina opuesta.
+          y: ALTO_CARTA - mmAPuntos(43),
           width: stapleWidth,
           height: stapleHeight
         };
         zonaEngrapadoFisica = stapleZone;
         stapleKeepOutZone = stapleZone;
         assertRectDentroPagina(stapleZone, 'zona de engrapado');
-        const quietFiducialSuperiorIzquierdo: RectBox = {
-          x: Math.max(0, margen - perfilOmr.marcaCuadradoQuietZone),
-          y: Math.max(0, ALTO_CARTA - margen - perfilOmr.marcaCuadradoSize - perfilOmr.marcaCuadradoQuietZone),
-          width: perfilOmr.marcaCuadradoSize + perfilOmr.marcaCuadradoQuietZone * 2,
-          height: perfilOmr.marcaCuadradoSize + perfilOmr.marcaCuadradoQuietZone * 2
-        };
-        const margenSeguridadFiducial = mmAPuntos(2);
         const rectQrExpandido: RectBox = {
           x: rectQr.x - mmAPuntos(1),
           y: rectQr.y - mmAPuntos(1),
@@ -4863,12 +4846,10 @@ export class PdfKitRenderer {
           ...questionTextInkBoxes,
           ...omrPanelBoxes
         ];
-        const fiducialInvadido = stapleKeepOutZone.y + stapleKeepOutZone.height > quietFiducialSuperiorIzquierdo.y - margenSeguridadFiducial
-          || rectInterseca(stapleKeepOutZone, quietFiducialSuperiorIzquierdo);
         const qrInvadido = rectInterseca(stapleKeepOutZone, rectQrExpandido);
         const contenidoInvadido = bloquesNoGrapables.filter((caja) => rectInterseca(stapleKeepOutZone!, caja)).map(({ id }) => id);
-        if (fiducialInvadido || qrInvadido || contenidoInvadido.length > 0) {
-          throw new Error(`Layout invalido: reserva de engrapado invade fiducial=${fiducialInvadido}, qr=${qrInvadido}, contenido=${contenidoInvadido.join(',')}`);
+        if (qrInvadido || contenidoInvadido.length > 0) {
+          throw new Error(`Layout invalido: reserva de engrapado invade qr=${qrInvadido}, contenido=${contenidoInvadido.join(',')}`);
         }
         // Calado blanco sin cobertura de tinta: evita que el marco y el
         // ornamento preexistentes atraviesen la marca de engrapado.
@@ -5060,6 +5041,91 @@ export class PdfKitRenderer {
       }
 
       numeroPagina += 1;
+    }
+
+    const paginasExamen = paginasMeta.filter((pagina) => pagina.tipoPagina === 'examen');
+    const totalPaginasExamen = paginasExamen.length;
+    const posicionesPie = [ANCHO_CARTA * 0.1, ANCHO_CARTA * 0.52];
+    const anchoZonaPie = ANCHO_CARTA * 0.38;
+    const pieSize = 8.5;
+    const pieY = margen + 2.5;
+    const piePanel: RectBox = {
+      x: posicionesPie[0]!,
+      y: margen + 0.5,
+      width: ANCHO_CARTA * 0.8,
+      height: 13
+    };
+    for (const [indicePagina, paginaMeta] of paginasExamen.entries()) {
+      const page = pdfDoc.getPages()[paginaMeta.numero - 1];
+      if (!page) throw new Error(`Layout invalido: no existe la pagina ${paginaMeta.numero} para dibujar el pie`);
+      const paginaOmr = paginasOmr.find((pagina) => pagina.numeroPagina === paginaMeta.numero);
+      const marcasFooter = paginaOmr?.marcasPagina;
+      if (!marcasFooter) throw new Error(`Layout invalido: faltan fiduciales para el pie de pagina ${paginaMeta.numero}`);
+      const quietZonesFooter: RectBox[] = (['tl', 'tr', 'bl', 'br'] as const).map((esquina) => {
+        const marca = marcasFooter[esquina];
+        const izquierda = esquina.endsWith('l');
+        const superior = esquina.startsWith('t');
+        const extension = marcasFooter.quietZone + mmAPuntos(2);
+        return {
+          x: (izquierda ? marca.x : marca.x - marcasFooter.size) - extension,
+          y: (superior ? marca.y - marcasFooter.size : marca.y) - extension,
+          width: marcasFooter.size + extension * 2,
+          height: marcasFooter.size + extension * 2
+        };
+      });
+      const cajasContenidoPie = [
+        ...(paginaOmr.layoutDebug?.qr ? [paginaOmr.layoutDebug.qr] : []),
+        ...(paginaOmr.layoutDebug?.questionBlockBoxes ?? []),
+        ...(paginaOmr.layoutDebug?.questionPromptBoxes ?? []),
+        ...(paginaOmr.layoutDebug?.omrPanelBoxes ?? []),
+        ...paginaOmr.preguntas.flatMap((pregunta) => (pregunta.textRuns ?? []).map((run) => run.bbox))
+      ];
+      const colisionesPie = cajasContenidoPie.filter((caja) => rectInterseca(piePanel, caja));
+      if (colisionesPie.length > 0) {
+        const diagnostico = colisionesPie.map((caja) =>
+          `${'id' in caja ? caja.id : 'bloque'}(${caja.x.toFixed(1)},${caja.y.toFixed(1)},${caja.width.toFixed(1)},${caja.height.toFixed(1)})`
+        );
+        throw new Error(`Layout invalido: el pie invade contenido OMR en la pagina ${paginaMeta.numero}: ${diagnostico.join('; ')}`);
+      }
+      const numeroPaginaExamen = indicePagina + 1;
+      const pieTexto = `FOLIO ${examen.folioNormalizado} · Pagina ${numeroPaginaExamen} de ${totalPaginasExamen}`;
+      const pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
+      if (pieWidth > anchoZonaPie) {
+        throw new Error(`Layout invalido: la referencia OCR de la pagina ${numeroPaginaExamen} excede el ancho permitido a ${pieSize} pt`);
+      }
+      const posicionesTexto: RectBox[] = [];
+      page.drawRectangle({
+        ...piePanel,
+        color: rgb(1, 1, 1),
+        borderColor: colorLinea,
+        borderWidth: 0.45,
+        borderOpacity: 0.7
+      });
+      page.drawLine({
+        start: { x: ANCHO_CARTA * 0.5, y: piePanel.y + 1.5 },
+        end: { x: ANCHO_CARTA * 0.5, y: piePanel.y + piePanel.height - 1.5 },
+        color: colorLinea,
+        thickness: 0.45,
+        opacity: 0.75
+      });
+      for (const [indice, pieX] of posicionesPie.entries()) {
+        const x = pieX + (anchoZonaPie - pieWidth) / 2;
+        const bbox = { x, y: pieY - 1, width: pieWidth, height: pieSize + 2 };
+        assertRectDentroPagina(bbox, `referencia OCR ${indice + 1} de pagina ${numeroPaginaExamen}`);
+        if (quietZonesFooter.some((quietZone) => rectInterseca(bbox, quietZone))) {
+          throw new Error(`Layout invalido: referencia OCR ${indice + 1} invade un fiducial en la pagina ${numeroPaginaExamen}`);
+        }
+        posicionesTexto.push(bbox);
+        page.drawText(pieTexto, { x, y: pieY, size: pieSize, font: fuenteOcr, color: colorPrimario });
+      }
+      if (paginaOmr?.layoutDebug) {
+        paginaOmr.layoutDebug.footerReferences = posicionesTexto.map((bbox) => ({
+          text: pieTexto,
+          fontFamily: StandardFonts.Helvetica,
+          size: pieSize,
+          bbox
+        }));
+      }
     }
 
     // Los reversos del candidato integrado son blancos; la plantilla canónica

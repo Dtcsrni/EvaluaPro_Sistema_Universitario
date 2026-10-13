@@ -1,0 +1,400 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-12T20-08-50.905Z",
+  "status": "final",
+  "generatedAt": "2026-10-12T20:08:50.905Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Implementar SPEC-093 aprobado: exportar desde la GUI un ZIP de dataset OMR con confirmación de datos identificables."
+  },
+  "objective": "Permitir exportar páginas OMR resueltas manualmente, etiquetadas y pseudonimizadas desde la GUI, con controles de privacidad e integridad.",
+  "scope": [
+    "Backend protegido para exportar páginas OMR elegibles en ZIP con manifiesto y SHA-256.",
+    "GUI para seleccionar páginas manualmente confirmadas y aceptar advertencia de identificabilidad antes de descargar.",
+    "SDK, OpenAPI, pruebas de regresión y cobertura enfocada para el flujo."
+  ],
+  "constraints": [
+    "No modificar jobs ni calificaciones durante la exportación.",
+    "No incluir nombres, matrículas, folios ni nombres originales de archivos en el manifiesto.",
+    "No adjuntar ni transmitir el dataset desde esta sesión.",
+    "No usar superficies de navegador alternativas después del bloqueo explícito de CUA."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "coverage_plan_regression: 14/14 pruebas pasaron; cobertura diferencial incluye unidad y API OMR.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "omr_dataset_backend: 2 archivos y 3 pruebas pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "omr_dataset_frontend: 1 archivo y 10 pruebas pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "sdk_contract: 42/42 pruebas pasaron, incluida la confirmación explícita de datos identificables.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "api_contract: 247 rutas y 284 declaraciones sincronizadas; 76/76 modelos con ciclo de vida; 2 pruebas pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "docs_generate: Actualizó AUTO_ENV y AUTO_DOCS_INDEX.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "docs_check: Documentación generada sincronizada.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "sdd_audit: Auditoría de especificaciones exitosa; SPEC-093 aprobado con 4 rutas de prueba enlazadas.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "frontend_ci: Reintento con threads: 82 archivos y 418 pruebas pasaron; ejecución inicial forks bloqueada por ENOENT temporal del sandbox.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "lint: Lint completo pasó.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "typecheck: Typecheck completo pasó.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "wcag: 20/20 pares de contraste pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "tdd_enforcement: Pasó; deuda de exclusiones de cobertura: 7 entradas.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "pipeline_contract: 42/42 contratos pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "coverage_ci: Bloqueado por ENOENT de módulo temporal SSR del sandbox y EACCES al loopback 127.0.0.1:8003 en una suite preexistente.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "backend_ci: Reintentos agotados: ENOENT temporal SSR del sandbox y EACCES al loopback en una suite preexistente.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "portal_ci: Suites bloqueadas por ENOENT del módulo temporal SSR del sandbox.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "perf_check: JWT_SECRETO de producción requerido y no disponible; no se inventó ni se inyectó un secreto.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "visual_gui_e2e: No ejecutada: política explícita de CUA bloqueó el navegador y prohíbe intentos alternativos.",
+      "timestamp": "2026-10-12T20:08:50.905Z",
+      "status": "omitido"
+    },
+    {
+      "type": "runtime",
+      "summary": "Se inició el acceso directo instalado EvaluaPro.lnk (broker prod); broker, API y UI respondieron HTTP 200. La pestaña reutilizó la sesión ya abierta.",
+      "timestamp": "2026-10-13T01:03:46.614Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/specs/SPEC-093_dataset_omr_desde_gui.spec.md",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+      "scripts/testing/run-backend-coverage-batches.mjs",
+      "scripts/tests/backend-coverage-batches.test.mjs"
+    ],
+    "changed": [
+      "apps/backend/package-lock.json",
+      "apps/backend/package.json",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/exportadorDatasetOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts",
+      "apps/backend/src/tipos/archiver.d.ts",
+      "apps/backend/tests/integracion/omrDatasetExportApi.test.ts",
+      "apps/backend/tests/omrDatasetExport.test.ts",
+      "apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts",
+      "apps/frontend/src/apps/app_docente/tipos.ts",
+      "apps/frontend/tests/plantillasOmrWorkflow.test.tsx",
+      "docs/AUTO_DOCS_INDEX.md",
+      "docs/AUTO_ENV.md",
+      "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "docs/specs/SPEC-093_dataset_omr_desde_gui.spec.md",
+      "package-lock.json",
+      "scripts/api/CRUD_CATALOG.md",
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/api/generate-openapi.mjs",
+      "scripts/api/openapi.json",
+      "scripts/testing/run-backend-coverage-batches.mjs",
+      "scripts/tests/backend-coverage-batches.test.mjs",
+      "scripts/tests/evaluapro-client.test.mjs"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-10-12/sesion-2026-10-12T20-08-50.905Z.json",
+      "docs/handoff/sesiones/2026-10-12/sesion-2026-10-12T20-08-50.905Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "coverage_plan_regression",
+      "command": "node --test scripts/tests/backend-coverage-batches.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "14/14 pruebas pasaron; cobertura diferencial incluye unidad y API OMR.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "omr_dataset_backend",
+      "command": "npm -C apps/backend run test -- tests/omrDatasetExport.test.ts tests/integracion/omrDatasetExportApi.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "2 archivos y 3 pruebas pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "omr_dataset_frontend",
+      "command": "npm -C apps/frontend run test -- tests/plantillasOmrWorkflow.test.tsx",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "1 archivo y 10 pruebas pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "sdk_contract",
+      "command": "node --test scripts/tests/evaluapro-client.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "42/42 pruebas pasaron, incluida la confirmación explícita de datos identificables.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "api_contract",
+      "command": "npm run api:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "247 rutas y 284 declaraciones sincronizadas; 76/76 modelos con ciclo de vida; 2 pruebas pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "docs_generate",
+      "command": "npm run docs:generate",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Actualizó AUTO_ENV y AUTO_DOCS_INDEX.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Documentación generada sincronizada.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Auditoría de especificaciones exitosa; SPEC-093 aprobado con 4 rutas de prueba enlazadas.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Reintento con threads: 82 archivos y 418 pruebas pasaron; ejecución inicial forks bloqueada por ENOENT temporal del sandbox.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Lint completo pasó.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Typecheck completo pasó.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "wcag",
+      "command": "npm run guard:wcag",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "20/20 pares de contraste pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "tdd_enforcement",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Pasó; deuda de exclusiones de cobertura: 7 entradas.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "pipeline_contract",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "42/42 contratos pasaron.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Bloqueado por ENOENT de módulo temporal SSR del sandbox y EACCES al loopback 127.0.0.1:8003 en una suite preexistente.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Reintentos agotados: ENOENT temporal SSR del sandbox y EACCES al loopback en una suite preexistente.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Suites bloqueadas por ENOENT del módulo temporal SSR del sandbox.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "JWT_SECRETO de producción requerido y no disponible; no se inventó ni se inyectó un secreto.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "visual_gui_e2e",
+      "command": "Inspección visual de GUI en navegador",
+      "status": "falla",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "Reintento CUA alcanzó la GUI tras recuperar runtime. UI reporta 1.2.6; API y manifiesto instalado 1.2.7. La vista Diseño de Exámenes no contiene control de exportación SPEC-093; no se descargaron ni modificaron datos.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    },
+    {
+      "name": "ci_policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Auditoría completa de pipeline, toolchain, ruleset, release, seguridad, SDD, trazabilidad y handoff pasó.",
+      "timestamp": "2026-10-12T20:08:50.905Z"
+    }
+  ],
+  "decisions": [
+    "Exportar solo páginas elegidas explícitamente con resolución manual confirmada y asociación válida a examen/alumno.",
+    "Mantener la descarga local en GUI con aceptación obligatoria de una advertencia sobre identificadores visibles y páginas adicionales dentro de los PDF originales.",
+    "Integridad mediante SHA-256 y exportación ZIP en streaming; archivos dentro del ZIP usan nombres seudónimos.",
+    "Integrar las nuevas suites en el plan de cobertura enfocada para preservar las regresiones."
+  ],
+  "assumptions": [
+    "El docente que descarga el ZIP administra su almacenamiento y uso posterior; la GUI no envía el archivo a terceros."
+  ],
+  "risks": [
+    "Los PDF fuente pueden incluir páginas no seleccionadas o datos identificables visibles; la advertencia y selección explícita son controles del flujo, no anonimización de píxeles.",
+    "Las suites backend/portal/coverage globales y perf:check requieren una ejecución fuera de las restricciones actuales del sandbox y con el secreto de rendimiento legítimamente configurado.",
+    "El runtime instalado sirve frontend 1.2.6 con API/manifest 1.2.7; el control exportador de SPEC-093 no aparece en la GUI, por lo que falta E2E funcional tras sincronizar la próxima release."
+  ],
+  "nextStep": "Sincronizar e instalar la release con frontend actualizado que incluya SPEC-093; después ejecutar el E2E GUI de selección, advertencia y descarga ZIP en datos de prueba.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\worktrees\\exam-batch-flow",
+    "branch": "codex/exam-batch-flow",
+    "commit": "50f11c90",
+    "workingTreeStatus": " M .agents/skills/evaluapro-local-session-readiness/SKILL.md\n M apps/backend/package-lock.json\n M apps/backend/package.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/src/app.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/infra/ocrPieOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts\n M apps/backend/tests/app.cors.test.ts\n M apps/backend/tests/inicialesAlumno.test.ts\n M apps/backend/tests/integracion/examenesLotesApi.test.ts\n M apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts\n M apps/frontend/src/apps/app_docente/tipos.ts\n M apps/frontend/tests/plantillasOmrWorkflow.test.tsx\n M docs/AUTO_ENV.md\n M docs/INSTALLER_HUB.md\n M docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md\n M docs/specs/SPEC-083_flujo_prevalidacion_lotes_pdf.spec.md\n M docs/specs/SPEC-091_actualizacion_app_y_installer_hub.spec.md\n M docs/specs/SPEC-092_ecofont_ocr_footer_y_grapa.spec.md\n M package-lock.json\n M packaging/app-host/App.xaml.cs\n M packaging/app-host/MainWindow.xaml.cs\n M packaging/wix/Bundle.wxs\n M packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs\n M packaging/wix/BurnBootstrapperApp/Program.cs\n M packaging/wix/Fragments/AppFiles.wxs\n M packaging/wix/Fragments/Shortcuts.wxs\n M packaging/wix/README.md\n M scripts/api/CRUD_CATALOG.md\n M scripts/api/evaluapro-client.mjs\n M scripts/api/generate-openapi.mjs\n M scripts/api/openapi.json\n M scripts/build-msi.ps1\n M scripts/create-shortcuts.ps1\n M scripts/launcher-broker.ps1\n M scripts/testing/run-backend-coverage-batches.mjs\n M scripts/tests/backend-coverage-batches.test.mjs\n M scripts/tests/evaluapro-client.test.mjs\n M scripts/tests/installer-hub-contract.test.mjs\n?? apps/backend/src/modulos/modulo_escaneo_omr/exportadorDatasetOmr.ts\n?? apps/backend/src/tipos/\n?? apps/backend/tests/integracion/omrDatasetExportApi.test.ts\n?? apps/backend/tests/omrDatasetExport.test.ts\n?? apps/backend/tests/pdf.omr.ocr.e2e.test.ts\n?? docs/handoff/sesiones/2026-10-12/\n?? docs/installer/\n?? docs/specs/SPEC-093_dataset_omr_desde_gui.spec.md\n?? docs/specs/SPEC-094_runtime_windows_nativo_sin_powershell.spec.md\n?? packaging/wix/BurnBootstrapperApp/NativeInstallerHelper.cs"
+  }
+}

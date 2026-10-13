@@ -50,7 +50,166 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        if (App.IsInstallerHubInvocation)
+        {
+            ShowInTaskbar = false;
+            Hide();
+            await OpenInstallerHubFromShortcutAsync();
+            Close();
+            return;
+        }
+
         await StartApplicationFlowAsync();
+    }
+
+    private async Task OpenInstallerHubFromShortcutAsync()
+    {
+        string? installedHubPath = null;
+        try
+        {
+            ResolveAppRoot();
+            installedHubPath = ResolveHubPathForLaunch();
+            if (!VerifyAuthenticode(installedHubPath))
+                throw new InvalidOperationException("La firma Authenticode del Installer Hub instalado no es válida.");
+
+            using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true })
+            {
+                Timeout = TimeSpan.FromSeconds(25)
+            };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("EvaluaPro-AppHost");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            using var response = await client.GetAsync(
+                "https://api.github.com/repos/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest",
+                HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+            using var releaseJson = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+            var release = releaseJson.RootElement;
+            var tag = release.TryGetProperty("tag_name", out var tagElement)
+                ? tagElement.GetString() ?? string.Empty
+                : string.Empty;
+            var releaseVersionText = tag.TrimStart('v', 'V');
+            if (!Version.TryParse(releaseVersionText, out var releaseVersion) ||
+                releaseVersion.Revision > 0 ||
+                (release.TryGetProperty("draft", out var draft) && draft.GetBoolean()) ||
+                (release.TryGetProperty("prerelease", out var prerelease) && prerelease.GetBoolean()))
+            {
+                throw new InvalidOperationException("GitHub no devolvió una release estable válida para el Hub.");
+            }
+
+            var releaseUrl = release.TryGetProperty("html_url", out var htmlElement)
+                ? htmlElement.GetString() ?? string.Empty
+                : string.Empty;
+            if (!string.Equals(
+                    releaseUrl,
+                    $"https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/tag/{tag}",
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("La release no pertenece al repositorio oficial de EvaluaPro.");
+            }
+
+            if (releaseVersion > ReadInstalledVersion())
+            {
+                var openedUpdate = await DownloadAndOpenLatestInstallerHubAsync(releaseVersion.ToString(3));
+                if (openedUpdate) return;
+            }
+
+            LaunchVerifiedInstallerHub(installedHubPath);
+        }
+        catch (Exception ex)
+        {
+            WriteStartupDiagnostic($"No se pudo comprobar la versión estable del Hub: {ex.GetType().Name}: {ex.Message}");
+            var fallbackPath = installedHubPath;
+            if (string.IsNullOrWhiteSpace(fallbackPath))
+            {
+                try { fallbackPath = ResolveHubPathForLaunch(); }
+                catch (Exception resolveException)
+                {
+                    WriteStartupDiagnostic($"No se pudo resolver el Hub instalado: {resolveException.GetType().Name}.");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(fallbackPath) && File.Exists(fallbackPath) && VerifyAuthenticode(fallbackPath))
+            {
+                WpfMessageBox.Show(
+                    "No se pudo comprobar si hay una actualización. Se abrirá el Installer Hub instalado; no se modificó la instalación.",
+                    "EvaluaPro · Comprobación no disponible",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                LaunchVerifiedInstallerHub(fallbackPath);
+                return;
+            }
+
+            WpfMessageBox.Show(
+                "No se pudo comprobar la actualización ni verificar un Installer Hub instalado. Conéctate a Internet o vuelve a ejecutar el instalador oficial.",
+                "EvaluaPro · Hub no disponible",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private string ResolveHubPathForLaunch()
+    {
+        foreach (var manifestPath in new[]
+        {
+            Path.Combine(appRoot, "dist", "installer", "installer-local-paths.json"),
+            Path.Combine(appRoot, "dist", "installer", "_internal", "installer-local-paths.json"),
+            Path.Combine(appRoot, "config", "installer-local-paths.json"),
+            Path.Combine(appRoot, "installer", "installer-local-paths.json")
+        })
+        {
+            if (!File.Exists(manifestPath)) continue;
+            try
+            {
+                using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
+                var root = manifest.RootElement;
+                foreach (var candidate in EnumerateHubManifestPaths(root))
+                {
+                    if (Path.IsPathFullyQualified(candidate) && File.Exists(candidate)) return Path.GetFullPath(candidate);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+            {
+                WriteStartupDiagnostic($"Se omitió un manifiesto local de Hub inválido: {Path.GetFileName(manifestPath)} ({ex.GetType().Name}).");
+            }
+        }
+
+        return ResolveInstalledHubPath();
+    }
+
+    private static IEnumerable<string> EnumerateHubManifestPaths(JsonElement root)
+    {
+        if (root.TryGetProperty("recommendedHubExecutablePath", out var recommendedPath) &&
+            recommendedPath.ValueKind == JsonValueKind.String)
+            yield return recommendedPath.GetString() ?? string.Empty;
+
+        if (root.TryGetProperty("recommended", out var recommended) &&
+            recommended.TryGetProperty("bundlePublicPath", out var recommendedBundle) &&
+            recommendedBundle.ValueKind == JsonValueKind.String)
+            yield return recommendedBundle.GetString() ?? string.Empty;
+
+        if (root.TryGetProperty("artifacts", out var artifacts) && artifacts.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var artifact in artifacts.EnumerateArray())
+            {
+                if (artifact.TryGetProperty("bundlePublicPath", out var bundlePath) && bundlePath.ValueKind == JsonValueKind.String)
+                    yield return bundlePath.GetString() ?? string.Empty;
+            }
+        }
+    }
+
+    private static void LaunchVerifiedInstallerHub(string hubPath)
+    {
+        if (!Path.IsPathFullyQualified(hubPath) || !File.Exists(hubPath) || !VerifyAuthenticode(hubPath))
+            throw new InvalidOperationException("No se ejecutará un Installer Hub ausente o con firma inválida.");
+
+        var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = hubPath,
+            WorkingDirectory = Path.GetDirectoryName(hubPath) ?? AppDomain.CurrentDomain.BaseDirectory,
+            UseShellExecute = true
+        });
+        if (process is null) throw new InvalidOperationException("Windows no pudo iniciar el Installer Hub verificado.");
+        process.Dispose();
     }
 
     private async Task StartApplicationFlowAsync()
@@ -78,7 +237,6 @@ public partial class MainWindow : Window
         SplashStatusTextBlock.Text = "Iniciando servicios locales...";
 
         ResolveAppRoot();
-        await ReconcileShortcutsAsync();
 
         try
         {
@@ -163,8 +321,7 @@ public partial class MainWindow : Window
 
         foreach (var dir in candidates)
         {
-            if (File.Exists(Path.Combine(dir, "scripts", "start-docente-native.mjs")) ||
-                File.Exists(Path.Combine(dir, "scripts", "launcher-broker.ps1")))
+            if (File.Exists(Path.Combine(dir, "scripts", "start-docente-native.mjs")))
             {
                 appRoot = dir;
                 return;
@@ -196,52 +353,6 @@ public partial class MainWindow : Window
             Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar),
             Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar),
             StringComparison.OrdinalIgnoreCase);
-    }
-
-    private async Task ReconcileShortcutsAsync()
-    {
-        var shortcutScript = Path.Combine(appRoot, "scripts", "create-shortcuts.ps1");
-        if (!File.Exists(shortcutScript))
-        {
-            WriteStartupDiagnostic($"No existe el reconciliador de accesos: '{shortcutScript}'.");
-            return;
-        }
-
-        try
-        {
-            var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
-            if (!File.Exists(powershell)) powershell = "powershell.exe";
-
-            using var process = Process.Start(new ProcessStartInfo
-            {
-                FileName = powershell,
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{shortcutScript}\" -Force -Port {DashboardPortFallback}",
-                WorkingDirectory = appRoot,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            });
-
-            if (process is null)
-            {
-                WriteStartupDiagnostic("No se pudo crear el proceso de reconciliación de accesos.");
-                return;
-            }
-
-            await Task.Run(() => process.WaitForExit(10_000));
-            if (!process.HasExited)
-            {
-                try { process.Kill(entireProcessTree: true); } catch { }
-                WriteStartupDiagnostic("La reconciliación de accesos excedió 10 segundos.");
-                return;
-            }
-
-            WriteStartupDiagnostic($"Reconciliación de accesos finalizada con código {process.ExitCode}.");
-        }
-        catch (Exception ex)
-        {
-            WriteStartupDiagnostic($"Falló la reconciliación de accesos: {ex.Message}");
-        }
     }
 
     private void WriteStartupDiagnostic(string message)
@@ -609,12 +720,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task DownloadAndOpenLatestInstallerHubAsync(string requestedVersion)
+    private async Task<bool> DownloadAndOpenLatestInstallerHubAsync(string requestedVersion)
     {
         if (!Version.TryParse(requestedVersion, out var requested) || requestedVersion.Contains('-'))
         {
             WpfMessageBox.Show(this, "La versión de actualización recibida no es válida.", "EvaluaPro · Actualización", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            return false;
         }
 
         var updateRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro", "updates", requestedVersion);
@@ -639,7 +750,7 @@ public partial class MainWindow : Window
             if (latest <= installedVersion)
             {
                 WpfMessageBox.Show(this, "Esta instalación ya está en la versión estable más reciente.", "EvaluaPro · Al día", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
+                return false;
             }
             if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean())
                 throw new InvalidOperationException("La release está en borrador y no se puede instalar.");
@@ -659,7 +770,7 @@ public partial class MainWindow : Window
                 "EvaluaPro · Actualización disponible",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
-            if (answer != MessageBoxResult.Yes) return;
+            if (answer != MessageBoxResult.Yes) return false;
 
             Directory.CreateDirectory(updateRoot);
             var expectedHash = await ReadExpectedHashAsync(client, checksum);
@@ -685,14 +796,17 @@ public partial class MainWindow : Window
                 WorkingDirectory = updateRoot,
                 UseShellExecute = true
             };
-            Process.Start(startInfo);
+            if (Process.Start(startInfo) is null)
+                throw new InvalidOperationException("Windows no pudo iniciar el Installer Hub descargado.");
             Close();
+            return true;
         }
         catch (Exception ex)
         {
             try { if (File.Exists(partialPath)) File.Delete(partialPath); } catch { }
             WriteStartupDiagnostic($"Falló la actualización segura del Installer Hub: {ex.Message}");
             WpfMessageBox.Show(this, "No se pudo preparar la actualización. La instalación actual no se modificó. Revisa conexión, firma del editor o el registro local de EvaluaPro.", "EvaluaPro · Actualización no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
         }
     }
 

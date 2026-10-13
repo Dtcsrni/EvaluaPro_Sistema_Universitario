@@ -1594,14 +1594,15 @@ test.skip('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-in
 
   assert.doesNotMatch(program, /\[STAThread\]/);
   assert.match(program, /ManagedBootstrapperApplication\.Run/);
+  assert.match(program, /--native-helper/);
+  assert.match(program, /NativeInstallerHelper\.Run/);
 
   assert.match(source, /engineHandle\?\.Detect\(\)/);
   assert.match(source, /var exitCode = operationFinished\.Task\.GetAwaiter\(\)\.GetResult\(\)/);
   assert.match(source, /engineHandle\?\.Quit\(exitCode\)/);
-  assert.match(source, /StartPowerShellHelperProcess/);
-  assert.match(source, /CreatePowerShellHelperStartInfo/);
-  assert.match(source, /GetPowerShellExecutableCandidates/);
-  assert.match(source, /ArgumentList\.Add\("-RequestPath"\)/);
+  assert.match(source, /StartNativeHelperProcess/);
+  assert.match(source, /ArgumentList\.Add\("--native-helper"\)/);
+  assert.doesNotMatch(source, /StartPowerShellHelperProcess|CreatePowerShellHelperStartInfo|GetPowerShellExecutableCandidates/);
   assert.doesNotMatch(source, /LaunchApprovedExe/);
   assert.match(source, /detect-prereqs/);
   assert.match(source, /RunAutomaticRemediationFromDetectionAsync/);
@@ -1933,6 +1934,10 @@ test('launcher broker unifica shortcuts, hub y splash state', () => {
   assert.equal(shortcutNames.includes('EvaluaPro - Desinstalar'), true);
   assert.equal(shortcutManifest.shortcuts.some((entry) => entry.operation === 'open-hub'), true);
   assert.equal(shortcutManifest.shortcuts.some((entry) => entry.operation === 'uninstall'), true);
+  assert.match(shortcuts, /\$targetPowerShell\s*=\s*Join-Path \$env:WINDIR/);
+  assert.match(shortcuts, /if \(\$operation -eq 'open-hub'\)/);
+  assert.match(shortcuts, /-NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden/);
+  assert.match(shortcuts, /-Action open-hub -Port \$Port -Mode auto/);
   assert.match(broker, /Iniciando desinstalacion guiada/);
   assert.match(shortcuts, /shortcuts-manifest\.json/);
   assert.match(shortcuts, /Resolve-InstalledShortcutIconPath/);
@@ -2950,6 +2955,75 @@ test('SPEC-050: MSI docente-local no deja el acceso principal dependiendo de un 
     assert.match(docenteBranch, /Target="\[INSTALLFOLDER\]EvaluaPro\.exe"/);
     assert.doesNotMatch(docenteBranch, /launcher-tray-hidden\.vbs/);
   }
+});
+
+test('SPEC-094 REQ-002: los accesos del Hub docente-local abren el AppHost nativo', () => {
+  const shortcuts = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'Shortcuts.wxs'), 'utf8');
+  const desktopHub = shortcuts.match(/<Component Id="CMP\.ShortcutDesktopHub"[\s\S]*?<\/Component>/)?.[0] || '';
+  const menuHub = shortcuts.match(/<Component Id="CMP\.ShortcutMenuHub"[\s\S]*?<\/Component>/)?.[0] || '';
+
+  for (const component of [desktopHub, menuHub]) {
+    const docenteBranch = component.match(/<\?if \$\(var\.FlavorId\) = docente-local \?>([\s\S]*?)<\?else\?>/)?.[1] || '';
+    assert.match(docenteBranch, /Target="\[INSTALLFOLDER\]EvaluaPro\.exe"/);
+    assert.match(docenteBranch, /Arguments="--installer-hub"/);
+    assert.doesNotMatch(docenteBranch, /powershell\.exe|wscript\.exe|\.ps1|\.vbs/i);
+  }
+});
+
+test('SPEC-094 REQ-005: el launcher Hub nativo usa timeout y fallback verificado', () => {
+  const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
+  const app = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'App.xaml.cs'), 'utf8');
+
+  assert.match(app, /--installer-hub/);
+  assert.match(appHost, /OpenInstallerHubFromShortcutAsync/);
+  assert.match(appHost, /Timeout = TimeSpan\.FromSeconds\(25\)/);
+  assert.match(appHost, /LaunchVerifiedInstallerHub\(fallbackPath\)/);
+  assert.match(appHost, /VerifyAuthenticode\(fallbackPath\)/);
+  assert.match(appHost, /No se pudo comprobar si hay una actualización/);
+});
+
+test('SPEC-094 REQ-003: el arranque docente no lanza PowerShell para reconciliar accesos', () => {
+  const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
+  assert.doesNotMatch(appHost, /ReconcileShortcutsAsync|powershell\.exe|create-shortcuts\.ps1/i);
+  assert.match(appHost, /start-docente-native\.mjs/);
+});
+
+test('SPEC-094 REQ-003: Burn ejecuta el helper .NET incluido sin buscar hosts de scripting', () => {
+  const program = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'Program.cs'), 'utf8');
+  const bootstrapper = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
+  const bundle = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Bundle.wxs'), 'utf8');
+  const appFiles = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'AppFiles.wxs'), 'utf8');
+
+  assert.match(program, /--native-helper/);
+  assert.match(program, /NativeInstallerHelper\.Run/);
+  assert.match(bootstrapper, /StartNativeHelperProcess/);
+  assert.match(bootstrapper, /Environment\.ProcessPath/);
+  assert.doesNotMatch(bootstrapper, /StartPowerShellHelperProcess|GetPowerShellExecutableCandidates|ExecutionPolicy/);
+  const docenteBundle = bundle.match(/<\?if \$\(var\.FlavorId\) = docente-local \?>[\s\S]*?<\?else\?>/)?.[0] || '';
+  assert.doesNotMatch(docenteBundle, /PowerShellHost|InstallerBurnHelper\.ps1|\.psm1/);
+  assert.doesNotMatch(appFiles, /InstallerBurnHelper\.ps1|\.psm1/);
+});
+
+test('SPEC-094 REQ-002: el payload docente excluye scripts Windows de runtime', () => {
+  const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const payloadArchive = build.match(/function New-DocentePayloadArchive[\s\S]*?\n}/)?.[0] || '';
+  assert.match(payloadArchive, /Add-Type -AssemblyName System\.IO\.Compression\r?\n\s*Add-Type -AssemblyName System\.IO\.Compression\.FileSystem/);
+  assert.doesNotMatch(payloadArchive, /Path\.GetRelativePath/);
+  assert.match(payloadArchive, /fullFilePath\.StartsWith\(\$stagingPrefix, \[StringComparison\]::OrdinalIgnoreCase\)/);
+  assert.match(payloadArchive, /scripts\/installer-burn/);
+  assert.match(payloadArchive, /\(ps1\|psm1\|vbs\)/);
+});
+
+test('SPEC-094: el helper nativo conserva la base existente y aísla instalaciones QA', () => {
+  const helper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
+  const config = helper.match(/private static void ConfigureRuntime\([\s\S]*?\n    private static void EnsureSqlite/)?.[0] || '';
+  assert.match(config, /GetString\(values, "DATABASE_URL"\)/);
+  assert.match(config, /if \(string\.IsNullOrWhiteSpace\(databaseUrl\) \|\| isQaInstall\)/);
+  assert.match(config, /EvaluaPro-QA-Isolated-/);
+  assert.match(config, /Path\.Combine\(fullRoot, "data"\)/);
+  assert.match(config, /Path\.Combine\(Environment\.GetFolderPath\(Environment\.SpecialFolder\.CommonApplicationData\), "EvaluaPro", "data"\)/);
+  assert.match(config, /BACKEND_DATA_DIR_DEV/);
+  assert.match(config, /BACKEND_DATA_DIR_PROD/);
 });
 
 test('SPEC-050: el generador de iconos no puede crear shortcuts', () => {

@@ -6,7 +6,7 @@ Responsable: `I.S.C. Erick Renato Vega Ceron`.
 ## Estructura
 - `Product.wxs`: MSI principal por flavor (`EvaluaPro-<flavor>.msi`).
 - `Bundle.wxs`: bundle publico por flavor (`EvaluaPro-InstallerHub-<flavor>.exe`) basado en WiX Burn.
-- `BurnBootstrapperApp/`: Bootstrapper Application personalizada en `WPF .NET 8`.
+- `BurnBootstrapperApp/`: Bootstrapper Application personalizada en `WPF .NET 8`; el flujo público `docente-local` usa el helper nativo incluido y no inicia PowerShell en runtime.
 - `Fragments/AppFiles.wxs`: archivos instalados.
 - `Fragments/Shortcuts.wxs`: accesos directos Dev/Prod.
 - `Fragments/Cleanup.wxs`: limpieza de logs/menu en uninstall.
@@ -70,11 +70,11 @@ Artefactos tecnicos esperados:
 - El acceso directo principal **EvaluaPro** de `docente-local` ejecuta directamente:
   - `EvaluaPro.exe` (host nativo WPF/WebView2 con icono embebido)
 - El acceso directo principal de flavors con bandeja conserva:
-  - `launcher-tray-hidden.vbs prod 4519`
+  - `launcher-tray-hidden.vbs prod 4519` (flavors heredados; excluido de `docente-local`)
 - El acceso directo **Dev** ejecuta:
-  - `launcher-tray-hidden.vbs dev 4519`
+  - `launcher-tray-hidden.vbs dev 4519` (flavors heredados; excluido de `docente-local`)
 - `config/shortcuts-manifest.json` es la fuente única de nombres, iconos y launchers.
-- `scripts/create-shortcuts.ps1` es el único escritor de `.lnk`; después de guardar valida destino, dependencias e icono y deja `logs/shortcut-reconciliation.json`.
+- `scripts/create-shortcuts.ps1` se conserva para desarrollo/flavors heredados. En `docente-local`, WiX/MSI crea los accesos nativos y los reconcilia en instalación/actualización.
 - Instalacion/actualizacion:
   - genera automaticamente accesos directos de menu inicio.
   - por defecto tambien genera accesos directos en escritorio (`InstallDesktopShortcuts=1`).

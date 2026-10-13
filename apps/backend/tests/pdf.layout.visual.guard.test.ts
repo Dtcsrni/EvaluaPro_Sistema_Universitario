@@ -482,17 +482,23 @@ describe('pdf layout visual guard', () => {
     expect(detectarColisionesDuplexOmr(resultado.mapaOmr)).toHaveLength(0);
   });
 
-  it('imprime folio y página en dos posiciones independientes del pie', async () => {
+  it('imprime dos referencias OCR por página con el total real y sin serial compuesto', async () => {
     const resultado = await generarPdfExamen({
-      ...crearParametros(1),
+      ...crearParametros(24),
       folio: 'OCR-SERIAL-TEST-01',
-      totalPaginas: 1,
+      loteId: 'LOTE-COMPOUND-QA',
       encabezado: { institucion: 'Centro de prueba', materia: 'Identificación de hoja' }
     });
     const parser = new PDFParse({ data: resultado.pdfBytes });
     try {
       const texto = (await parser.getText()).text;
-      expect(texto.match(/OCR-SERIAL-TEST-01\s*[·•]\s*Pagina\s*1/gi)).toHaveLength(2);
+      const totalPaginas = resultado.paginas.filter((pagina) => pagina.tipoPagina === 'examen').length;
+      expect(totalPaginas).toBeGreaterThan(1);
+      for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+        expect(texto.match(new RegExp(`FOLIO\\s+OCR-SERIAL-TEST-01\\s*[·•]\\s*Pagina\\s*${pagina}\\s+de\\s+${totalPaginas}`, 'gi')))
+          .toHaveLength(2);
+      }
+      expect(texto).not.toContain('LOTE-COMPOUND-QA-OCR-SERIAL-TEST-01');
     } finally {
       await parser.destroy();
     }
