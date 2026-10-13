@@ -25,7 +25,7 @@ describe('E2E PDF generado a identidad OMR por OCR real', () => {
     const ordenPreguntas = preguntas.map((pregunta) => pregunta.id);
     const examen = await generarPdfExamen({
       titulo: 'E2E OCR OMR',
-      folio: '8A1B2C3D',
+      folio: 'FEEDFACE',
       preguntas,
       mapaVariante: {
         ordenPreguntas,
@@ -54,7 +54,7 @@ describe('E2E PDF generado a identidad OMR por OCR real', () => {
         expect(captura, `debe rasterizar la página ${pagina.numeroPagina}`).toBeDefined();
         const referencia = await leerReferenciaPieOmr(captura!.dataUrl, lectorOcr);
         expect(referencia, `Tesseract debe consensuar ambas regiones en la página ${pagina.numeroPagina}`)
-          .toMatchObject({ folio: '8A1B2C3D', numeroPagina: paginasExamen.indexOf(pagina) + 1 });
+          .toMatchObject({ folio: 'FEEDFACE', numeroPagina: paginasExamen.indexOf(pagina) + 1 });
         expect(referencia!.confianza).toBeGreaterThanOrEqual(75);
       }
     } finally {

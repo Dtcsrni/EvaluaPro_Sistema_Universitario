@@ -19,6 +19,9 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     expect(extraerReferenciasPieOmr('21CD759C + Pagina I')).toEqual([
       { folio: '21CD759C', numeroPagina: 1 }
     ]);
+    expect(extraerReferenciasPieOmr('FOLIO FEEDFACE - PAGINA Z DE 2')).toEqual([
+      { folio: 'FEEDFACE', numeroPagina: 2 }
+    ]);
   });
 
   it('se abstiene ante ausencia, página fuera de rango o más de una identidad', () => {

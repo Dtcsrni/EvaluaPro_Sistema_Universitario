@@ -73,7 +73,7 @@ primera pagina y no explicita la cobertura de todos los fiduciales en el frente 
 | ID Requisito | Descripcion del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001, REQ-002 | Recursos de fuente usados por cada página; Ecofont para texto humano y exactamente dos usos Helvetica para OCR | `apps/backend/tests/pdf.ecofont.test.ts` | Completado; todas las páginas de examen verificadas |
-| REQ-002, REQ-003 | Dos referencias independientes, total real de páginas y OCR sin serial compuesto; PDF generado rasterizado y leído con Tesseract español local | `apps/backend/tests/pdf.layout.visual.guard.test.ts`; `apps/backend/tests/omr.ocrPie.test.ts`; `apps/backend/tests/pdf.omr.ocr.e2e.test.ts` | Pendiente: la E2E real devuelve null para el pie generado; no se considera aprobado |
+| REQ-002, REQ-003 | Dos referencias independientes, total real de páginas y OCR sin serial compuesto; PDF generado rasterizado y leído con Tesseract español local | `apps/backend/tests/pdf.layout.visual.guard.test.ts`; `apps/backend/tests/omr.ocrPie.test.ts`; `apps/backend/tests/pdf.omr.ocr.e2e.test.ts` | Completado para el PDF sintético generado; el lector intenta imagen binarizada, escala de grises y nitidez cuando la confianza no alcanza el umbral |
 | REQ-004 | Bounds, no-solapes y render visual del pie en página Carta | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Completado; renderizado de anverso y reverso revisado |
 | REQ-005 | Grapa separada de cada fiducial y quiet zone en anverso y reverso | `apps/backend/tests/pdf.ink-sparing-staple.test.ts` | Completado; 4 esquinas por página con márgenes de seguridad |
 
@@ -81,10 +81,12 @@ primera pagina y no explicita la cobertura de todos los fiduciales en el frente 
 
 - Validacion de este corte: `app.cors.test.ts` y `inicialesAlumno.test.ts`, 7/7;
   `integracion/examenesLotesApi.test.ts`, 3/3; `git diff --check`, aprobado.
-- Pendiente bloqueante: `pdf.omr.ocr.e2e.test.ts` genera y rasteriza un examen, pero
-  Tesseract no logra consensuar el folio y la pagina del pie. No se rebajo el umbral de
-  confianza ni se declara cumplido REQ-002/003. La E2E de instalacion Windows tambien
-  sigue pendiente de CI verde.
-- QA visual: el raster de Carta confirma posicion y separacion del pie; no es evidencia
-  de lectura OCR efectiva ni de impresion/escaneo fisico.
+- La E2E `pdf.omr.ocr.e2e.test.ts` genera y rasteriza un examen de varias paginas;
+  Tesseract lee las dos referencias de cada pagina con consenso y confianza minima 75.
+  El lector conserva la lectura binarizada inicial y recurre a escala de grises y nitidez
+  solo si no obtiene una referencia valida; la prueba incluye folio OCR-amigable `FEEDFACE`
+  y el parser cubre la confusion habitual `Z` por pagina 2. No se rebajo el umbral.
+- La E2E de instalacion Windows de los cambios relacionados sigue pendiente de CI verde.
+- QA visual: el raster de Carta confirma posicion y separacion del pie. La lectura OCR
+  sintética está verificada; la impresión y el escaneo físico siguen sin validarse.
 - No se genero ni publico un lote de examenes como parte de esta correccion.
