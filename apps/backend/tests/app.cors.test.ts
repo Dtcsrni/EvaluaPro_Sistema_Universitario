@@ -16,6 +16,7 @@ describe('CORS del backend', () => {
 
     expect(respuesta.headers['access-control-allow-origin']).toBe(origenPermitido);
     expect(respuesta.headers['access-control-allow-credentials']).toBe('true');
+    expect(respuesta.headers['access-control-expose-headers']).toContain('X-EvaluaPro-ZIP-SHA256');
   });
 
   it('no concede cabeceras CORS a un origen ajeno', async () => {

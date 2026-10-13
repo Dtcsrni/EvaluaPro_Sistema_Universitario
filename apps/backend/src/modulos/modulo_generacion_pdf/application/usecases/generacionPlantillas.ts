@@ -1294,6 +1294,29 @@ export async function descargarZipLoteUseCase(params: { docenteId: unknown; lote
     } catch {
       throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'Falta un PDF individual del lote; no se creó el ZIP.', 409, { loteId: lote, folio: examen.folio });
     }
+    const recoveryManifest = parsearJsonPersistido<Parameters<typeof verificarRecoveryManifest>[0]>(examen.recoveryManifest);
+    if (
+      !recoveryManifest ||
+      !verificarRecoveryManifest(recoveryManifest) ||
+      recoveryManifest.examId !== String(examen.id) ||
+      recoveryManifest.docenteId !== docId ||
+      recoveryManifest.loteId !== lote ||
+      recoveryManifest.folio !== String(examen.folio).toUpperCase() ||
+      JSON.stringify(recoveryManifest.mapaOmrSnapshot) !== JSON.stringify(mapa)
+    ) {
+      throw new ErrorAplicacion('LOTE_MANIFIESTO_INVALIDO', 'El manifiesto firmado no corresponde al PDF, folio, lote o mapa OMR guardado.', 409, {
+        loteId: lote,
+        folio: examen.folio
+      });
+    }
+    const sha256Fuente = recoveryManifest.traceability.sourcePdfSha256?.toUpperCase();
+    const sha256Actual = createHash('sha256').update(pdfBytes).digest('hex').toUpperCase();
+    if (!sha256Fuente || sha256Fuente !== sha256Actual) {
+      throw new ErrorAplicacion('LOTE_PDF_HASH_INVALIDO', 'El PDF individual no coincide con el hash cubierto por su manifiesto firmado.', 409, {
+        loteId: lote,
+        folio: examen.folio
+      });
+    }
     const resumen = await validarPdfIndividualLoteAplicacion({
       pdfBytes,
       paginasMaximas: paginasOmr.length,

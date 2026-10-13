@@ -28,7 +28,8 @@ export async function crearLectorPieOmr(): Promise<LectorPieOmr> {
   const rutaDatosSpa = path.join(path.dirname(require.resolve('@tesseract.js-data/spa')), '4.0.0_best_int');
   const worker = await createWorker('spa', 1, { langPath: rutaDatosSpa, gzip: true });
   await worker.setParameters({
-    tessedit_pageseg_mode: PSM.SINGLE_LINE
+    tessedit_pageseg_mode: PSM.SINGLE_LINE,
+    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-.:·•+/|'
   });
   return worker;
 }

@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-10-12
 autor: Codex
 modulo: modulo_generacion_pdf
-estado: implemented
+estado: approved
 ---
 
 ## Contexto
@@ -73,16 +73,18 @@ primera pagina y no explicita la cobertura de todos los fiduciales en el frente 
 | ID Requisito | Descripcion del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001, REQ-002 | Recursos de fuente usados por cada página; Ecofont para texto humano y exactamente dos usos Helvetica para OCR | `apps/backend/tests/pdf.ecofont.test.ts` | Completado; todas las páginas de examen verificadas |
-| REQ-002, REQ-003 | Dos referencias independientes, total real de páginas y OCR sin serial compuesto | `apps/backend/tests/pdf.layout.visual.guard.test.ts`; `apps/backend/tests/omr.ocrPie.test.ts` | Completado; OCR conserva consenso doble |
+| REQ-002, REQ-003 | Dos referencias independientes, total real de páginas y OCR sin serial compuesto; PDF generado rasterizado y leído con Tesseract español local | `apps/backend/tests/pdf.layout.visual.guard.test.ts`; `apps/backend/tests/omr.ocrPie.test.ts`; `apps/backend/tests/pdf.omr.ocr.e2e.test.ts` | Pendiente: la E2E real devuelve null para el pie generado; no se considera aprobado |
 | REQ-004 | Bounds, no-solapes y render visual del pie en página Carta | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Completado; renderizado de anverso y reverso revisado |
 | REQ-005 | Grapa separada de cada fiducial y quiet zone en anverso y reverso | `apps/backend/tests/pdf.ink-sparing-staple.test.ts` | Completado; 4 esquinas por página con márgenes de seguridad |
 
 ## Resultado de Implementacion
 
-- Validaciones: `npm -C apps/backend run typecheck`; ESLint dirigido a los siete
-  archivos de produccion/pruebas modificados; y cuatro suites Vitest enfocadas,
-  con 53 pruebas aprobadas. La prueba tipografica reforzada se volvio a ejecutar
-  individualmente y paso.
-- QA visual: se renderizaron y revisaron ambas caras en tamaño Carta; el pie queda
-  fuera de la zona OMR y los fiduciales conservan su espacio libre frente a la grapa.
+- Validacion de este corte: `app.cors.test.ts` y `inicialesAlumno.test.ts`, 7/7;
+  `integracion/examenesLotesApi.test.ts`, 3/3; `git diff --check`, aprobado.
+- Pendiente bloqueante: `pdf.omr.ocr.e2e.test.ts` genera y rasteriza un examen, pero
+  Tesseract no logra consensuar el folio y la pagina del pie. No se rebajo el umbral de
+  confianza ni se declara cumplido REQ-002/003. La E2E de instalacion Windows tambien
+  sigue pendiente de CI verde.
+- QA visual: el raster de Carta confirma posicion y separacion del pie; no es evidencia
+  de lectura OCR efectiva ni de impresion/escaneo fisico.
 - No se genero ni publico un lote de examenes como parte de esta correccion.

@@ -328,6 +328,20 @@ for (const mount of mounts) {
       rutaDeclarada.requestBody = requestOmrReferencePrevalidation;
       rutaDeclarada.responses = { ...(rutaDeclarada.responses ?? {}), '200': responseOmrReferencePrevalidation };
     }
+    if (fullPath === '/omr/ingestas/{jobId}/dataset-export' && method === 'post') {
+      rutaDeclarada.requestBody = {
+        required: true,
+        content: { 'application/json': { schema: {
+          type: 'object', additionalProperties: false,
+          required: ['pageIndexes', 'confirmarDatosIdentificables'],
+          properties: {
+            pageIndexes: { type: 'array', minItems: 1, maxItems: 600, uniqueItems: true, items: { type: 'integer', minimum: 1, maximum: 600 } },
+            confirmarDatosIdentificables: { type: 'boolean', const: true }
+          }
+        } } }
+      };
+      rutaDeclarada.responses = { ...(rutaDeclarada.responses ?? {}), '200': { description: 'ZIP descargable de QA con fuentes PDF y etiquetas manualmente confirmadas.', content: { 'application/zip': { schema: { type: 'string', format: 'binary' } } }, headers: { 'X-Content-SHA256': { schema: { type: 'string', pattern: '^[a-f0-9]{64}$' } }, 'X-OMR-Source-Count': { schema: { type: 'integer' } }, 'X-OMR-Label-Count': { schema: { type: 'integer' } } } } };
+    }
     if (fullPath === '/sincronizaciones/codigo-acceso' && method === 'post') {
       rutaDeclarada.requestBody = {
         required: true,
@@ -656,6 +670,28 @@ for (const mount of mounts) {
     if (fullPath === '/omr/ingestas/prevalidar-referencia' && method === 'post') {
       operation.requestBody = requestOmrReferencePrevalidation;
       operation.responses['200'] = responseOmrReferencePrevalidation;
+    }
+    if (fullPath === '/omr/ingestas/{jobId}/dataset-export' && method === 'post') {
+      operation.requestBody = {
+        required: true,
+        content: { 'application/json': { schema: {
+          type: 'object', additionalProperties: false,
+          required: ['pageIndexes', 'confirmarDatosIdentificables'],
+          properties: {
+            pageIndexes: { type: 'array', minItems: 1, maxItems: 600, uniqueItems: true, items: { type: 'integer', minimum: 1, maximum: 600 } },
+            confirmarDatosIdentificables: { type: 'boolean', const: true }
+          }
+        } } }
+      };
+      operation.responses['200'] = {
+        description: 'ZIP descargable de QA con fuentes PDF y etiquetas manualmente confirmadas.',
+        content: { 'application/zip': { schema: { type: 'string', format: 'binary' } } },
+        headers: {
+          'X-Content-SHA256': { schema: { type: 'string', pattern: '^[a-f0-9]{64}$' } },
+          'X-OMR-Source-Count': { schema: { type: 'integer' } },
+          'X-OMR-Label-Count': { schema: { type: 'integer' } }
+        }
+      };
     }
     if (fullPath === '/omr/ingestas/{jobId}/paginas/{pageIndex}/preview' && method === 'get') {
       operation.responses['200'] = responseOmrPagePreview;

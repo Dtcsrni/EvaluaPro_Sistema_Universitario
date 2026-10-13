@@ -707,7 +707,7 @@ export function SeccionPlantillas({
     if (!plantillaEditandoId) return;
     await cargarPreviewPdfPlantilla(plantillaEditandoId, 'booklet');
   }
-  const { cargarAssessmentDetalle, descargarArtifact, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, resolverHojaOmr, finalizarJobOmr } = usePlantillasOmrActions({
+  const { cargarAssessmentDetalle, descargarArtifact, descargarDatasetOmr, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, resolverHojaOmr, finalizarJobOmr } = usePlantillasOmrActions({
     avisarSinPermiso,
     puedeDescargarExamenes,
     puedeAnalizarOmr,
@@ -1667,6 +1667,8 @@ export function SeccionPlantillas({
             cargandoAssessmentId={cargandoAssessmentId}
             procesandoOmr={procesandoOmr}
             descargarArtifact={descargarArtifact}
+            descargarDatasetOmr={descargarDatasetOmr}
+            puedeAnalizarOmr={puedeAnalizarOmr}
             obtenerPreviewPaginaOmr={obtenerPreviewPaginaOmr}
             obtenerPreviewReferenciaOmr={obtenerPreviewReferenciaOmr}
             crearJobOmr={crearJobOmr}

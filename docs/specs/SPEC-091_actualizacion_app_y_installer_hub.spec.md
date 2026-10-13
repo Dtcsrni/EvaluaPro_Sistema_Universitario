@@ -1,7 +1,7 @@
 ---
 id: SPEC-091
 titulo: Deteccion y actualizacion segura desde la aplicacion y Installer Hub
-version: 1.0.0
+version: 1.2.0
 fecha: 2026-10-12
 autor: Codex
 modulo: modulo_actualizacion_instalador
@@ -54,3 +54,4 @@ La actualizacion debe seguir funcionando sin Classroom, portal, dashboard visibl
 - No se implementa instalacion silenciosa ni actualizacion forzada.
 - La aplicacion informa; el Hub ejecuta el instalador. No se introduce un segundo mecanismo independiente de reemplazo de archivos.
 - El Hub debe verificar la firma del instalador descargado con una identidad de editor configurada/versionada; una suma SHA-256 por si sola detecta corrupcion, pero no autentica el origen.
+- La sustitución de PowerShell/WSH por un launcher nativo para abrir el Hub se especifica en SPEC-094; esta spec conserva el contrato de confirmación, firma, hash y delegación al Burn.

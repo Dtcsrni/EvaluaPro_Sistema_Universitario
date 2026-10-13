@@ -109,6 +109,7 @@ const integrationFilesNZ = [
   'tests/integracion/flujoExamen.test.ts',
   'tests/integracion/hidratacionCursos.test.ts',
   'tests/integracion/listaAcademicaContratos.test.ts',
+  'tests/integracion/omrDatasetExportApi.test.ts',
   'tests/integracion/omrJobsWorkflow.test.ts',
   'tests/integracion/pdfImpresionContrato.test.ts',
   'tests/integracion/periodosBorradoDuplicados.test.ts',
@@ -214,12 +215,16 @@ const focusedCoverageProfiles = new Map([
     include: 'src/modulos/modulo_escaneo_omr/archivoTemporalOmr.ts'
   }],
   ['apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts', {
-    tests: ['tests/integracion/omrJobsWorkflow.test.ts'],
+    tests: ['tests/integracion/omrDatasetExportApi.test.ts', 'tests/integracion/omrJobsWorkflow.test.ts'],
     include: 'src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts'
   }],
   ['apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts', {
-    tests: ['tests/integracion/omrJobsWorkflow.test.ts'],
+    tests: ['tests/integracion/omrDatasetExportApi.test.ts', 'tests/integracion/omrJobsWorkflow.test.ts'],
     include: 'src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts'
+  }],
+  ['apps/backend/src/modulos/modulo_escaneo_omr/exportadorDatasetOmr.ts', {
+    tests: ['tests/omrDatasetExport.test.ts'],
+    include: 'src/modulos/modulo_escaneo_omr/exportadorDatasetOmr.ts'
   }],
   ['apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts', {
     tests: ['tests/pdfKitRenderer.security.test.ts'],

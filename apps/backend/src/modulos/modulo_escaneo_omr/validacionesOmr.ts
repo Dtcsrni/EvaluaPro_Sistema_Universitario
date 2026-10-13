@@ -3,6 +3,7 @@
  */
 import { z } from 'zod';
 import { configuracion } from '../../configuracion.js';
+import { MAX_JOB_PAGES } from './limitesIngestaPdfOmr.js';
 
 export const esquemaAnalizarOmr = z.object({
   folio: z.string().optional(),
@@ -45,6 +46,12 @@ export const esquemaResolverPaginaIngestaOmr = z.object({
   examPage: z.number().int().positive().optional(),
   resolutionReason: z.string().trim().min(1).max(500),
   finalResponses: z.array(z.object({ numeroPregunta: z.number().int().positive(), opcion: z.string().trim().length(1).nullable() }).strict()).optional()
+}).strict();
+
+export const esquemaExportarDatasetIngestaOmr = z.object({
+  pageIndexes: z.array(z.number().int().positive().max(MAX_JOB_PAGES)).min(1).max(MAX_JOB_PAGES)
+    .refine((indexes) => new Set(indexes).size === indexes.length, 'pageIndexes no debe contener duplicados'),
+  confirmarDatosIdentificables: z.literal(true)
 }).strict();
 
 const capturaOmr = z

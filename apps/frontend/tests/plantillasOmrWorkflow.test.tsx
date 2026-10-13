@@ -498,4 +498,55 @@ describe('PlantillasOmrWorkflow', () => {
     if (originalRevokeObjectUrl) Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: originalRevokeObjectUrl });
     else delete (URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL;
   });
+
+  it('exporta solo páginas con resolución manual guardada tras advertir sobre identificadores en los píxeles', async () => {
+    const descargarDatasetOmr = vi.fn().mockResolvedValue({ sha256: 'f'.repeat(64), sourceCount: 1, labelCount: 1 });
+    const assessmentDetalle: GeneratedAssessmentDetalle = {
+      assessment: {
+        _id: 'exam-1', folio: 'EX-001', generationSeed: 'seed', title: 'Ciencias', templateId: 'template-1', templateVersion: 4,
+        statisticsSummary: { versionCount: 1, pageCount: 1, questionCount: 1, uniqueQuestionCount: 1 }, artifacts: []
+      }, jobs: []
+    };
+    const job = {
+      jobId: 'job-dataset', sourceType: 'pdf', status: 'completed', pagesTotal: 2, pagesProcessed: 2,
+      files: [{ id: 'source-1', nombre: 'scan.pdf', bytes: 1024, pages: 2, sha256: 'a'.repeat(64) }], packages: [],
+      pages: [
+        {
+          sheetSerial: 'QR-PRIVADO', pageIndex: 1, sourceFileId: 'source-1', sourcePage: 1,
+          scanStatus: 'needs_review', examId: 'exam-1', folio: 'FOLIO-PRIVADO', examPage: 1,
+          identitySource: 'manual', resolutionReason: 'Comparada visualmente',
+          responses: [{ numeroPregunta: 1, opcion: 'B', estadoRespuesta: 'manual_review', opcionDetectada: 'A', confianza: 0.8, flags: [], candidatas: [] }],
+          exceptions: []
+        },
+        {
+          sheetSerial: 'AUTOMATICA', pageIndex: 2, sourceFileId: 'source-1', sourcePage: 2,
+          scanStatus: 'accepted', examId: 'exam-2', folio: 'FOLIO-2', examPage: 1,
+          identitySource: 'qr', responses: [{ numeroPregunta: 1, opcion: 'A', estadoRespuesta: 'respondida', opcionDetectada: 'A', confianza: 0.9, flags: [], candidatas: [] }],
+          exceptions: []
+        }
+      ]
+    } as unknown as OmrJobDetalle;
+    render(
+      <ConfirmDialogProvider>
+        <PlantillasOmrWorkflow
+          assessmentDetalle={assessmentDetalle} jobOmr={job} cargandoAssessmentId={null} procesandoOmr={false}
+          lotesArchivadosOmr={[]} cargandoLotesArchivadosOmr={false} onSeleccionarLoteArchivado={vi.fn().mockResolvedValue(undefined)}
+          descargarArtifact={vi.fn().mockResolvedValue(undefined)} descargarDatasetOmr={descargarDatasetOmr}
+          obtenerPreviewPaginaOmr={vi.fn().mockResolvedValue(new Blob([], { type: 'image/png' }))}
+          obtenerPreviewReferenciaOmr={vi.fn().mockResolvedValue(new Blob([], { type: 'image/png' }))}
+          crearJobOmr={vi.fn().mockResolvedValue(undefined)} resolverHojaOmr={vi.fn().mockResolvedValue(undefined)}
+          finalizarJobOmr={vi.fn().mockResolvedValue(undefined)}
+        />
+      </ConfirmDialogProvider>
+    );
+
+    expect(screen.getByRole('checkbox', { name: 'Incluir página 1 con etiquetas revisadas' })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Incluir página 2 con etiquetas revisadas' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Incluir página 1 con etiquetas revisadas' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar páginas seleccionadas a ZIP QA' }));
+    expect(screen.getByText(/nombres, matrícula o códigos QR identificables/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar y descargar' }));
+
+    await waitFor(() => expect(descargarDatasetOmr).toHaveBeenCalledWith('job-dataset', [1]));
+  });
 });

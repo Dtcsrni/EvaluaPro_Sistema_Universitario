@@ -10,30 +10,6 @@
       <Component Id="CMP.RootPackageJson" Guid="*">
         <File Id="F.RootPackageJson" Source="$(var.SourceRoot)/package.json" KeyPath="yes" />
       </Component>
-      <Component Id="CMP.BurnHelper" Guid="*">
-        <File Id="F.BurnHelper" Source="$(var.SourceRoot)/scripts/installer-burn/InstallerBurnHelper.ps1" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnOperationalConfig" Guid="*">
-        <File Id="F.BurnOperationalConfig" Source="$(var.SourceRoot)/scripts/installer-burn/modules/OperationalConfig.psm1" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnHubContracts" Guid="*">
-        <File Id="F.BurnHubContracts" Source="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubContracts.psm1" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnHubOperation" Guid="*">
-        <File Id="F.BurnHubOperation" Source="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubOperation.psm1" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnHubProcesses" Guid="*">
-        <File Id="F.BurnHubProcesses" Source="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubProcesses.psm1" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnHubTransaction" Guid="*">
-        <File Id="F.BurnHubTransaction" Source="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubTransaction.psm1" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnHubPayload" Guid="*">
-        <File Id="F.BurnHubPayload" Source="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubPayload.psm1" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnHubVerification" Guid="*">
-        <File Id="F.BurnHubVerification" Source="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubVerification.psm1" KeyPath="yes" />
-      </Component>
       <Component Id="CMP.BurnHubRequestSchema" Guid="*">
         <File Id="F.BurnHubRequestSchema" Source="$(var.SourceRoot)/contracts/installer-hub/request-envelope-v1.schema.json" Name="request-envelope-v1.schema.json" KeyPath="yes" />
       </Component>

@@ -63,7 +63,10 @@ export function crearApp() {
         'X-EvaluaPro-Snapshot-Checksum',
         'X-EvaluaPro-Snapshot-Exported-At',
         'X-EvaluaPro-Snapshot-Counts',
-        'X-EvaluaPro-Snapshot-Methods'
+        'X-EvaluaPro-Snapshot-Methods',
+        'X-EvaluaPro-ZIP-SHA256',
+        'X-EvaluaPro-ZIP-Entries',
+        'X-EvaluaPro-ZIP-Pages'
       ]
     })
   );

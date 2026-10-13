@@ -25,7 +25,17 @@
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="DesktopProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
-      <Component Id="CMP.ShortcutDesktopHub" Directory="DesktopFolder" Guid="52E7A07E-44E9-4CD4-B97F-23FE9E043B02" Condition="INSTALL_DESKTOP_SHORTCUTS = 1">
+      <Component Id="CMP.ShortcutDesktopHub" Directory="DesktopFolder" Guid="81B30633-3D4D-4E9C-85AA-289B60CBEE4E" Condition="INSTALL_DESKTOP_SHORTCUTS = 1">
+        <?if $(var.FlavorId) = docente-local ?>
+        <Shortcut
+          Id="SC.DesktopHub"
+          Name="EvaluaPro - Hub"
+          Description="Installer Hub local para instalar, verificar, reparar y operar EvaluaPro"
+          Target="[INSTALLFOLDER]EvaluaPro.exe"
+          Arguments="--installer-hub"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="EvaluaProIconHub.ico" />
+        <?else?>
         <Shortcut
           Id="SC.DesktopHub"
           Name="EvaluaPro - Hub"
@@ -34,6 +44,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; open-hub 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconHub.ico" />
+        <?endif?>
         <RemoveFolder Id="RF.DesktopHub" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="DesktopHub" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -76,7 +87,17 @@
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
-      <Component Id="CMP.ShortcutMenuHub" Directory="ApplicationProgramsFolder" Guid="66DA4A81-BA8E-4545-8B90-E5BEB278D9B3" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+      <Component Id="CMP.ShortcutMenuHub" Directory="ApplicationProgramsFolder" Guid="0B368A4D-8CE1-4D9D-B368-D29DD074081B" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+        <?if $(var.FlavorId) = docente-local ?>
+        <Shortcut
+          Id="SC.MenuHub"
+          Name="EvaluaPro - Hub"
+          Description="Installer Hub local para instalar, verificar, reparar y operar EvaluaPro"
+          Target="[INSTALLFOLDER]EvaluaPro.exe"
+          Arguments="--installer-hub"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="EvaluaProIconHub.ico" />
+        <?else?>
         <Shortcut
           Id="SC.MenuHub"
           Name="EvaluaPro - Hub"
@@ -85,6 +106,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; open-hub 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconHub.ico" />
+        <?endif?>
         <RemoveFolder Id="RF.MenuHubFolder" On="uninstall" />
         <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuHub" Type="integer" Value="1" KeyPath="yes" />
       </Component>

@@ -2,7 +2,7 @@
 
 Esta guía cubre el Installer Hub que se distribuye para el perfil `docente-local` en Windows. Consulta [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest) para identificar la descarga pública actual; el valor de `main` o una release en borrador no equivale a un instalador publicado.
 Bootstrapper oficial de Windows para instalacion, reparacion y desinstalacion de EvaluaPro.
-La superficie pública es `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`.
+La superficie pública es `WiX Burn + Bootstrapper Application WPF .NET 8 + helper .NET nativo headless`.
 El contrato visual y UX del Hub vive en `DESIGN.md`.
 
 ## Objetivo
@@ -32,8 +32,7 @@ El contrato visual y UX del Hub vive en `DESIGN.md`.
    - persistencia SQLite local
 
 5. Planificacion y ejecucion del chain MSI por Burn.
-6. Configuracion operativa obligatoria en helper post-install (`post-install`).
-   El helper se invoca directamente desde la BA con resolucion de host PowerShell en cascada (`powershell.exe` del sistema, `pwsh.exe` si existe) para evitar fallos por `App Paths` de Burn.
+6. Configuración operativa en el helper .NET nativo post-install (`post-install`), distribuido en el mismo ejecutable firmado de la BA. No depende de PowerShell, Windows Script Host ni `ExecutionPolicy`.
 
 7. Verificacion post-instalacion.
 8. Blindaje local de licencia:
@@ -54,14 +53,11 @@ El contrato visual y UX del Hub vive en `DESIGN.md`.
   - `packaging/wix/BurnBootstrapperApp/MainWindow.xaml`
 
 - Helper headless:
-  - `scripts/installer-burn/InstallerBurnHelper.ps1`
+  - `packaging/wix/BurnBootstrapperApp/NativeInstallerHelper.cs`
+  - Se ejecuta como modo interno del bootstrapper firmado con el contrato JSON existente.
 
-- Modulos:
-  - `scripts/installer-burn/modules/PrereqDetector.psm1`
-  - `scripts/installer-burn/modules/Common.psm1`
-  - `scripts/installer-burn/modules/OperationalConfig.psm1`
-  - `scripts/installer-burn/modules/PostInstallVerifier.psm1`
-  - `scripts/installer-burn/modules/LicenseClientSecurity.psm1`
+- Inventario de runtime y excepciones: `docs/installer/windows-runtime-inventory.md`.
+- `scripts/installer-burn/` permanece como código fuente de tooling/flavors heredados; no se distribuye como runtime del payload público `docente-local`.
 
 La superficie de instalación es el bundle Burn con BA WPF. El build local y el
 bundle descargable son artefactos distintos; solo el bundle adjunto a una

@@ -22,20 +22,27 @@ if ($Port -eq 4000 -or $Port -eq 4173) {
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $logDir = Join-Path $root 'logs'
 $logFile = Join-Path $logDir 'launcher-broker.log'
+$fallbackLogFile = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'EvaluaPro\logs\launcher-broker.log' } else { '' }
+$script:EffectiveBrokerLogFile = ''
 $dashboardLauncher = Join-Path $root 'scripts\launcher-dashboard.ps1'
 $hubManifestPath = Join-Path $root 'dist\installer\installer-local-paths.json'
 $hubManifestPathInternal = Join-Path $root 'dist\installer\_internal\installer-local-paths.json'
 $manifestScript = Join-Path $root 'scripts\generate-installation-manifest.ps1'
 $updateConfigPath = Join-Path $root 'config\update-config.json'
-if (-not (Test-Path -LiteralPath $logDir)) {
-  New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-}
-
 function Write-BrokerLog([string]$message) {
-  try {
-    $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-    Add-Content -LiteralPath $logFile -Value "[$ts] $message"
-  } catch {}
+  $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+  $line = "[$ts] $message"
+  foreach ($candidate in @($logFile, $fallbackLogFile) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique) {
+    try {
+      $candidateDir = Split-Path -Parent $candidate
+      if (-not (Test-Path -LiteralPath $candidateDir)) {
+        New-Item -ItemType Directory -Path $candidateDir -Force | Out-Null
+      }
+      Add-Content -LiteralPath $candidate -Value $line -ErrorAction Stop
+      $script:EffectiveBrokerLogFile = $candidate
+      return
+    } catch {}
+  }
 }
 
 function Get-EffectiveRunId {
@@ -533,10 +540,16 @@ function Resolve-LatestStableHubExecutablePath([string]$CurrentHubPath) {
     Move-Item -LiteralPath $partialPath -Destination $targetPath -Force
     return $targetPath
   } catch {
-    Write-BrokerLog("No se pudo actualizar Installer Hub automáticamente: $($_.Exception.Message)")
+    $safeDetail = [string]$_.Exception.Message -replace '(?i)(access_token|token|sig|signature|code)=([^&\s]+)', '$1=[REDACTED]'
+    Write-BrokerLog("No se pudo actualizar Installer Hub automáticamente usando '$updateConfigPath': $safeDetail")
+    $logLocation = if ([string]::IsNullOrWhiteSpace($script:EffectiveBrokerLogFile)) {
+      'No disponible: no se pudo escribir en el directorio de instalación ni en el perfil local del usuario.'
+    } else {
+      $script:EffectiveBrokerLogFile
+    }
     try {
       [System.Windows.Forms.MessageBox]::Show(
-        'No se pudo verificar la actualización del Hub. La instalación no se modificó; se abrirá el Hub actual.',
+        "No se pudo comprobar la actualización del Hub. No se modificó la instalación; se abrirá el Hub actual.`nDetalle: $safeDetail`nRegistro: $logLocation",
         'EvaluaPro · No se pudo actualizar el Hub',
         [System.Windows.Forms.MessageBoxButtons]::OK,
         [System.Windows.Forms.MessageBoxIcon]::Warning

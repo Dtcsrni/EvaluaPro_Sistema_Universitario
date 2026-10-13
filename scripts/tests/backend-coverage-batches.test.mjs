@@ -12,6 +12,7 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/classroom.pull.test.ts')), true);
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/flujoDocenteGlobalE2E.test.ts')), true);
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/qrEscaneoOmr.test.ts')), true);
+  assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/omrDatasetExportApi.test.ts')), true);
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/aislamientoDocente.test.ts')), true);
 
   const integrationFiles = plan.batches.flatMap((batch) => batch.args.filter((arg) => arg.startsWith('tests/integracion/')));
@@ -23,6 +24,19 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
     omrWorkflowBatch.args.filter((arg) => arg.startsWith('tests/')),
     ['tests/integracion/omrJobsWorkflow.test.ts']
   );
+});
+
+test('coverage diferencial enfoca la exportación de dataset OMR en sus pruebas directas', () => {
+  const args = buildFocusedCoverageArgsForFiles([
+    'apps/backend/src/modulos/modulo_escaneo_omr/exportadorDatasetOmr.ts',
+    'apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts'
+  ]);
+
+  assert.ok(args);
+  assert.ok(args.includes('tests/omrDatasetExport.test.ts'));
+  assert.ok(args.includes('tests/integracion/omrDatasetExportApi.test.ts'));
+  assert.ok(args.includes('--coverage.include=src/modulos/modulo_escaneo_omr/exportadorDatasetOmr.ts'));
+  assert.ok(args.includes('--coverage.include=src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts'));
 });
 
 test('cobertura backend conserva umbrales solo en el merge final', () => {
