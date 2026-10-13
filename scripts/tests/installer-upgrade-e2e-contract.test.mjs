@@ -141,6 +141,7 @@ test('smoke GUI cierra y confirma la salida de todo proceso Installer Hub que é
   assert.match(smoke, /taskkill\.exe \/PID \$\(\$smokeProcess\.ProcessId\) \/T \/F/);
   assert.match(smoke, /Get-ActiveInstallerHubProcess \| Where-Object \{ \$_.ProcessId -notin/);
   assert.match(smoke, /smoke dejó procesos Installer Hub activos tras el cierre del árbol/);
+  assert.match(smoke, /SMOKE_BURN_REMAINING_PROCESSES:/);
 });
 
 test('preflight E2E identifica nombre y PID cuando detecta un Installer Hub activo', () => {

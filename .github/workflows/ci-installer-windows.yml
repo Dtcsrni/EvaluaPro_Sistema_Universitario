@@ -250,6 +250,7 @@ jobs:
               $remainingProcesses = @(Get-ActiveInstallerHubProcess | Where-Object { $_.ProcessId -notin @($preexistingProcesses | ForEach-Object { $_.ProcessId }) })
               if ($remainingProcesses.Count -gt 0) {
                 $details = ($remainingProcesses | ForEach-Object { "{0}:{1} parent={2}" -f $_.Name, $_.ProcessId, $_.ParentProcessId }) -join ', '
+                Write-Output "SMOKE_BURN_REMAINING_PROCESSES: $details"
                 throw "El smoke dejó procesos Installer Hub activos tras el cierre del árbol: $details"
               }
             }
