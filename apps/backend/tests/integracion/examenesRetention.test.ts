@@ -346,5 +346,20 @@ describe('retención de exámenes generados', () => {
       expect(examen.retentionStatus).toBe('artifacts_purged');
       expect(examen.rutaPdf ?? null).toBeNull();
     }
+    const manifiestoLote = await prisma.examenLoteArtefactoPdf.findFirst({ where: { loteId } });
+    expect(manifiestoLote).toBeTruthy();
+    const lotesEnHistorial = await request(app)
+      .get(`/api/examenes/generados/lotes?plantillaId=${encodeURIComponent(base.plantillaId)}&limite=100`)
+      .set(auth)
+      .expect(200);
+    expect(lotesEnHistorial.body.lotes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        loteId,
+        plantillaId: base.plantillaId,
+        sha256: manifiestoLote?.sha256,
+        totalExamenes: 2,
+        archivado: false
+      })
+    ]));
   });
 });
