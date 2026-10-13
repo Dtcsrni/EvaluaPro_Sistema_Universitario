@@ -17,7 +17,7 @@ import { PlantillasOmrWorkflow, type ArchivoOmrLote, type TrabajoOmrResumen } fr
 import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabajoOmr';
 import { cargarTodasLasPaginasArchivadas } from './features/plantillas/archivoOmr';
 import { guardarTabPlantillas, PLANTILLAS_TAB_STORAGE_KEY, type TabPlantillas } from './features/plantillas/tabPlantillasState';
-import { crearClaveLoteGeneracion, guardarLotePendiente, leerLotePendiente, validarResumenLoteGenerado } from './features/plantillas/loteGeneracionSesion';
+import { confirmarLoteEnHistorial, crearClaveLoteGeneracion, guardarLotePendiente, leerLotePendiente, validarLoteListoParaDescarga, type LotePdfArchivadoResumen, type ProgresoLoteGeneracion } from './features/plantillas/loteGeneracionSesion';
 import { confirmarClientRequestIdPlantilla, obtenerClientRequestIdPlantilla } from './features/plantillas/mutacionIdempotente';
 import {
   usePlantillasGeneradosActions,
@@ -44,25 +44,6 @@ import type {
   Docente
 } from './tipos';
 import { idCortoMateria, mensajeDeError } from './utilidades';
-
-type ProgresoLoteGeneracion = {
-  loteId: string;
-  claveRecuperacion?: string;
-  totalEsperado: number;
-  generados: number;
-  porcentaje: number;
-  completado: boolean;
-  estado: 'validando' | 'iniciando' | 'generando' | 'completado' | 'fallido' | 'archivado';
-};
-
-type LotePdfArchivadoResumen = {
-  loteId: string;
-  plantillaId: string;
-  totalExamenes: number;
-  totalPaginas: number;
-  archivado: true;
-  archivadoEn: string;
-};
 
 export function existeTituloPlantillaDuplicadoPorPeriodo(
   plantillas: Plantilla[],
@@ -1237,6 +1218,7 @@ export function SeccionPlantillas({
         : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase()
     );
     guardarLotePendiente(claveRecuperacion, loteCliente);
+    setLotePdfUrl(null);
 
     const totalEsperadoInicial = cantidadAlumnos;
 
@@ -1312,29 +1294,49 @@ export function SeccionPlantillas({
         }
       );
       const totalAlumnos = Number(payload?.totalAlumnos ?? 0);
-      const totalGenerados = Array.isArray(payload?.examenesGenerados) ? payload.examenesGenerados.length : 0;
       const loteUrl = String(payload?.lotePdfUrl ?? '').trim();
       const loteRespuesta = String(payload?.loteId ?? loteCliente).trim() || loteCliente;
-      if (loteRespuesta.toUpperCase() !== loteCliente.toUpperCase()) {
-        throw new Error('El servidor respondió con otro identificador de lote. No se marcará como listo.');
-      }
+      sondeoActivo = false;
+      globalThis.clearInterval(timerSondeo);
       const paginasMaximasPorExamen = tipoExamen === 'extraordinario' && Boolean(plantillaSeleccionada?.archivadoEn)
         ? 4
         : Number(plantillaSeleccionada?.numeroPaginas ?? 0);
-      validarResumenLoteGenerado(payload ?? {}, totalAlumnos, paginasMaximasPorExamen);
-      await consultarProgreso(loteRespuesta);
+      const queryProgreso = new URLSearchParams({
+        plantillaId,
+        grupo: grupoEfectivo ?? '',
+        totalEsperado: String(totalEsperadoInicial)
+      });
+      const progresoPersistido = await clienteApi.obtener<ProgresoLoteGeneracion>(
+        `/examenes/generados/lote/${encodeURIComponent(loteRespuesta)}/progreso?${queryProgreso.toString()}`
+      );
+      validarLoteListoParaDescarga(payload ?? {}, progresoPersistido, {
+        loteId: loteCliente,
+        totalAlumnos: totalEsperadoInicial,
+        paginasMaximasPorExamen
+      });
+      await confirmarLoteEnHistorial({
+        loteId: loteRespuesta,
+        plantillaId,
+        totalExamenes: totalAlumnos,
+        totalPaginas: Number(payload?.totalPaginas),
+        sha256: String(payload?.pdfSha256 ?? '')
+      }, (ruta) => clienteApi.obtener(ruta));
       setProgresoLoteGeneracion({
         loteId: loteRespuesta,
         totalEsperado: totalAlumnos > 0 ? totalAlumnos : totalEsperadoInicial,
-        generados: totalGenerados,
-        porcentaje: totalAlumnos > 0 ? Math.min(100, Math.round((totalGenerados / totalAlumnos) * 100)) : 100,
+        generados: Number(progresoPersistido.generados),
+        porcentaje: Number(progresoPersistido.porcentaje),
         completado: true,
-        estado: 'completado'
+        estado: 'completado',
+        loteRegistrado: true,
+        artefactoVerificado: true,
+        pdfSha256: String(progresoPersistido.pdfSha256),
+        totalPaginas: Number(progresoPersistido.totalPaginas)
       });
       setLotePdfUrl(loteUrl || null);
       guardarLotePendiente(claveRecuperacion, null);
       setMensajeGeneracion(
-        `Generación de paquete lista. Alumnos: ${totalAlumnos}. Exámenes generados: ${totalGenerados}.`
+        `Generación de paquete lista. Alumnos: ${totalAlumnos}. Exámenes generados: ${Number(progresoPersistido.generados)}.`
       );
       emitToast({ level: 'ok', title: 'Examenes', message: 'Generación masiva completada', durationMs: 2200 });
       registrarAccionDocente('generar_examenes_lote', true, Date.now() - inicio);
