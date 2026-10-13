@@ -132,9 +132,9 @@ test('smoke GUI cierra y confirma la salida de todo proceso Installer Hub que é
   assert.match(smoke, /EvaluaPro-InstallerHub\*\.exe/);
   assert.match(smoke, /EvaluaPro\.BurnBootstrapperApp\.exe/);
   assert.match(smoke, /runner ya tenía procesos Installer Hub antes del smoke/);
-  assert.match(smoke, /taskkill\.exe \/PID \$proc\.Id \/T \/F/);
+  assert.match(smoke, /taskkill\.exe \/PID \$\(\$proc\.Id\) \/T \/F/);
   assert.match(smoke, /\$deadline = \(Get-Date\)\.AddSeconds\(30\)/);
-  assert.match(smoke, /taskkill\.exe \/PID \$smokeProcess\.ProcessId \/T \/F/);
+  assert.match(smoke, /taskkill\.exe \/PID \$\(\$smokeProcess\.ProcessId\) \/T \/F/);
   assert.match(smoke, /Get-ActiveInstallerHubProcess \| Where-Object \{ \$_.ProcessId -notin/);
   assert.match(smoke, /smoke dejó procesos Installer Hub activos tras el cierre del árbol/);
 });
