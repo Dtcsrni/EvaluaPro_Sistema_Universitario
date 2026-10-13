@@ -253,6 +253,9 @@ jobs:
                 Write-Output "SMOKE_BURN_REMAINING_PROCESSES: $details"
                 throw "El smoke dejó procesos Installer Hub activos tras el cierre del árbol: $details"
               }
+              # taskkill puede devolver un código distinto de cero si el proceso terminó entre la enumeración y el cierre.
+              # La condición real de éxito es que el árbol iniciado por este smoke ya no exista.
+              $global:LASTEXITCODE = 0
             }
           }
 

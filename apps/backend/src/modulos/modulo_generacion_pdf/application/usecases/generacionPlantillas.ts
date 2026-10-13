@@ -404,6 +404,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   if (artefactoLotePrevio?.archivadoEn) {
     throw new ErrorAplicacion('LOTE_ARCHIVADO', 'El lote está archivado; restáuralo o genera un lote nuevo.', 409, { loteId });
   }
+  let rutaPdfLoteNuevo: string | null = null;
 
   const periodo = await resolverPeriodoPlantillaActivo(
     plantilla as { periodoId?: unknown },
@@ -987,7 +988,12 @@ async function generarExamenesLoteUseCaseInterno(params: {
       plantillaTitulo: String(plantilla.titulo ?? ''),
       totalExamenes: totalAlumnos
     });
-    await guardarPdfExamen(nombreArchivo, loteBytes);
+    rutaPdfLoteNuevo = await guardarPdfExamen(nombreArchivo, loteBytes);
+    const pdfEscrito = await fs.readFile(rutaPdfLoteNuevo);
+    const hashPdfEscrito = createHash('sha256').update(pdfEscrito).digest('hex');
+    if (hashPdfEscrito !== resumenPdf.sha256) {
+      throw new ErrorAplicacion('LOTE_PDF_PERSISTENCIA_INVALIDA', 'El PDF consolidado escrito en almacenamiento no coincide con la huella calculada.', 409, { loteId });
+    }
     await prisma.$executeRaw`
       INSERT INTO examen_lote_artefactos_pdf
         (id, docenteId, loteId, plantillaId, archivoNombre, sha256, totalPaginas, totalExamenes, createdAt, updatedAt)
@@ -1001,10 +1007,49 @@ async function generarExamenesLoteUseCaseInterno(params: {
         totalExamenes = excluded.totalExamenes,
         updatedAt = CURRENT_TIMESTAMP
     `;
+    const artefactoPersistido = await prisma.examenLoteArtefactoPdf.findFirst({
+      where: { docenteId: docId, loteId },
+      select: { archivoNombre: true, sha256: true, totalPaginas: true, totalExamenes: true, archivadoEn: true }
+    });
+    const examenesAntesDeCompletar = await prisma.examenGenerado.findMany({
+      where: { docenteId: docId, loteId },
+      select: { estado: true }
+    });
+    const registroPersistidoValido = Boolean(
+      artefactoPersistido &&
+      artefactoPersistido.archivadoEn === null &&
+      artefactoPersistido.archivoNombre === nombreArchivo &&
+      artefactoPersistido.sha256 === resumenPdf.sha256 &&
+      Number(artefactoPersistido.totalPaginas) === resumenPdf.paginas &&
+      Number(artefactoPersistido.totalExamenes) === totalAlumnos &&
+      examenesAntesDeCompletar.length === totalAlumnos &&
+      examenesAntesDeCompletar.every((examen) => examen.estado === 'generando')
+    );
+    if (!registroPersistidoValido) {
+      throw new ErrorAplicacion('LOTE_HISTORIAL_PERSISTENCIA_INVALIDA', 'El historial del lote no coincide con los exámenes y el PDF validados.', 409, {
+        loteId,
+        examenesRegistrados: examenesAntesDeCompletar.length,
+        examenesEsperados: totalAlumnos
+      });
+    }
     await prisma.examenGenerado.updateMany({
       where: { docenteId: docId, loteId },
       data: { estado: 'generado' }
     });
+    const examenesCompletados = await prisma.examenGenerado.count({
+      where: { docenteId: docId, loteId, estado: 'generado' }
+    });
+    if (examenesCompletados !== totalAlumnos) {
+      throw new ErrorAplicacion('LOTE_HISTORIAL_INCOMPLETO', 'El historial no confirmó todos los exámenes del lote como generados.', 409, {
+        loteId,
+        examenesRegistrados: examenesCompletados,
+        examenesEsperados: totalAlumnos
+      });
+    }
+    const pdfFinal = await fs.readFile(resolverRutaPdfExamen(nombreArchivo));
+    if (createHash('sha256').update(pdfFinal).digest('hex') !== resumenPdf.sha256) {
+      throw new ErrorAplicacion('LOTE_PDF_PERSISTENCIA_INVALIDA', 'La huella del PDF consolidado cambió antes de confirmar el lote.', 409, { loteId });
+    }
     etapasLotesGeneracion.delete(claveEtapaLote);
     lotePdfUrl = `/examenes/generados/lote/${encodeURIComponent(loteSafe)}/pdf`;
     return {
@@ -1024,6 +1069,13 @@ async function generarExamenesLoteUseCaseInterno(params: {
       where: { docenteId: docId, loteId, estado: 'generando' },
       data: { estado: 'fallido' }
     }).catch(() => undefined);
+    if (rutaPdfLoteNuevo && !artefactoLotePrevio) {
+      const artefactoRegistrado = await prisma.examenLoteArtefactoPdf.findFirst({
+        where: { docenteId: docId, loteId },
+        select: { id: true }
+      }).catch(() => null);
+      if (!artefactoRegistrado) await eliminarArchivoExamen(rutaPdfLoteNuevo).catch(() => undefined);
+    }
     etapasLotesGeneracion.delete(claveEtapaLote);
     throw error;
   }
@@ -1044,7 +1096,13 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
 
   const artefactoLote = await prisma.examenLoteArtefactoPdf.findFirst({
     where: { docenteId: docId, loteId: lote },
-    select: { archivadoEn: true }
+    select: {
+      archivadoEn: true,
+      archivoNombre: true,
+      sha256: true,
+      totalPaginas: true,
+      totalExamenes: true
+    }
   });
   if (artefactoLote?.archivadoEn) {
     return {
@@ -1077,16 +1135,49 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
     }
   }
 
-  const [generados, listos, fallidos] = await Promise.all([
+  const [generados, listos, fallidos, totalRegistrados] = await Promise.all([
     prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote, archivadoEn: null } }),
     prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote, archivadoEn: null, estado: 'generado' } }),
-    prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote, archivadoEn: null, estado: 'fallido' } })
+    prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote, archivadoEn: null, estado: 'fallido' } }),
+    prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote } })
   ]);
   const porcentajeBase = totalEsperado > 0 ? Math.round((generados / totalEsperado) * 100) : 0;
   const porcentaje = Math.max(0, Math.min(100, porcentajeBase));
-  const completado = totalEsperado > 0 && listos >= totalEsperado && generados >= totalEsperado;
-  const estado = etapasLotesGeneracion.get(`${docId}:${lote}`) ??
-    (fallidos > 0 ? 'fallido' : completado ? 'completado' : generados > 0 ? 'generando' : 'iniciando');
+  const loteRegistrado = Boolean(
+    artefactoLote &&
+    artefactoLote.archivoNombre &&
+    /^[a-f0-9]{64}$/i.test(String(artefactoLote.sha256 ?? '')) &&
+    Number(artefactoLote.totalExamenes) === totalRegistrados &&
+    Number(artefactoLote.totalExamenes) > 0 &&
+    Number(artefactoLote.totalPaginas) > 0 &&
+    Number(artefactoLote.totalPaginas) % Number(artefactoLote.totalExamenes) === 0
+  );
+  let artefactoVerificado = false;
+  if (loteRegistrado && artefactoLote) {
+    try {
+      const bytesPersistidos = await fs.readFile(resolverRutaPdfExamen(artefactoLote.archivoNombre));
+      artefactoVerificado = createHash('sha256').update(bytesPersistidos).digest('hex') === String(artefactoLote.sha256).toLowerCase();
+    } catch {
+      artefactoVerificado = false;
+    }
+  }
+  const completado = totalEsperado > 0 &&
+    totalRegistrados === totalEsperado &&
+    listos === totalEsperado &&
+    generados === totalEsperado &&
+    loteRegistrado &&
+    artefactoVerificado &&
+    Number(artefactoLote?.totalExamenes) === totalEsperado;
+  const etapaActual = etapasLotesGeneracion.get(`${docId}:${lote}`);
+  const estado = etapaActual ?? (
+    fallidos > 0 || (listos === totalEsperado && totalEsperado > 0 && !completado)
+      ? 'fallido'
+      : completado
+        ? 'completado'
+        : generados > 0
+          ? 'generando'
+          : 'iniciando'
+  );
 
   return {
     loteId: lote,
@@ -1095,7 +1186,11 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
     fallidos,
     porcentaje,
     completado,
-    estado
+    estado,
+    loteRegistrado,
+    artefactoVerificado,
+    pdfSha256: artefactoLote?.sha256 ?? null,
+    totalPaginas: artefactoLote?.totalPaginas ?? null
   };
 }
 
