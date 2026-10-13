@@ -1903,7 +1903,7 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
   assert.match(betaWorkflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   for (const workflow of [stableWorkflow, betaWorkflow]) {
     assert.match(workflow, /Start-Process -FilePath \$exe(\.FullName)? -PassThru/);
-    assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout/);
+    assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout|El bundle Burn no mantuvo activo EvaluaPro\.BurnBootstrapperApp\.exe tras el arranque|La interfaz WPF del Installer Hub se cerró antes del smoke timeout/);
   }
 });
 
