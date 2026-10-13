@@ -158,12 +158,102 @@ jobs:
         run: |
           $exe = Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $exe) { throw "No existe dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe" }
-          $proc = Start-Process -FilePath $exe.FullName -PassThru
-          Start-Sleep -Seconds 2
-          if ($proc.HasExited) { throw 'El Installer Hub empaquetado se cerro antes del smoke timeout.' }
-          Start-Sleep -Seconds 3
-          if (-not $proc.HasExited) {
-            try { Stop-Process -Id $proc.Id -Force } catch {}
+          function Get-ActiveInstallerHubProcess {
+            @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+              $_.Name -like 'EvaluaPro-InstallerHub*.exe' -or $_.Name -eq 'EvaluaPro.BurnBootstrapperApp.exe'
+            } | Select-Object ProcessId, Name, ParentProcessId)
+          }
+          $preexistingProcesses = @()
+          $baselineCaptured = $false
+          $proc = $null
+          $smokeLaunchedAt = $null
+          try {
+            $preexistingProcesses = @(Get-ActiveInstallerHubProcess)
+            $baselineCaptured = $true
+            if ($preexistingProcesses.Count -gt 0) {
+              $details = ($preexistingProcesses | ForEach-Object { "{0}:{1}" -f $_.Name, $_.ProcessId }) -join ', '
+              throw "El runner ya tenía procesos Installer Hub antes del smoke: $details"
+            }
+            $smokeLaunchedAt = [DateTime]::UtcNow
+            $proc = Start-Process -FilePath $exe.FullName -PassThru
+            $startupDeadline = (Get-Date).AddSeconds(15)
+            $uiProcesses = @()
+            do {
+              $uiProcesses = @(Get-ActiveInstallerHubProcess | Where-Object {
+                $_.Name -eq 'EvaluaPro.BurnBootstrapperApp.exe' -and $_.ProcessId -notin @($preexistingProcesses | ForEach-Object { $_.ProcessId })
+              })
+              if ($uiProcesses.Count -gt 0) { break }
+              Start-Sleep -Milliseconds 500
+            } while ((Get-Date) -lt $startupDeadline)
+            if ($uiProcesses.Count -eq 0) {
+              $proc.Refresh()
+              $exitDetail = if ($proc.HasExited) { " código=$($proc.ExitCode)" } else { ' sigue activo sin iniciar su BA WPF' }
+              throw "El bundle Burn no mantuvo activo EvaluaPro.BurnBootstrapperApp.exe tras el arranque.$exitDetail"
+            }
+            Start-Sleep -Seconds 3
+            $uiProcesses = @(Get-ActiveInstallerHubProcess | Where-Object {
+              $_.Name -eq 'EvaluaPro.BurnBootstrapperApp.exe' -and $_.ProcessId -notin @($preexistingProcesses | ForEach-Object { $_.ProcessId })
+            })
+            if ($uiProcesses.Count -eq 0) { throw 'La interfaz WPF del Installer Hub se cerró antes del smoke timeout.' }
+          } catch {
+            Write-Output "SMOKE_BURN_FAILURE: $($_.Exception.GetType().FullName): $($_.Exception.Message)"
+            try {
+              $activeProcesses = @(Get-ActiveInstallerHubProcess)
+              if ($activeProcesses.Count -gt 0) {
+                Write-Output 'SMOKE_BURN_ACTIVE_PROCESSES:'
+                $activeProcesses | ForEach-Object { Write-Output ("{0}:{1}:parent={2}" -f $_.Name, $_.ProcessId, $_.ParentProcessId) }
+              }
+
+              if ($smokeLaunchedAt) {
+                $logRoot = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+                if (Test-Path -LiteralPath $logRoot -PathType Container) {
+                  $sessionLogs = @(Get-ChildItem -LiteralPath $logRoot -Filter 'burn-bootstrapper.log' -File -Recurse -ErrorAction SilentlyContinue |
+                    Where-Object { $_.LastWriteTimeUtc -ge $smokeLaunchedAt } |
+                    Sort-Object LastWriteTimeUtc -Descending |
+                    Select-Object -First 3)
+                  foreach ($sessionLog in $sessionLogs) {
+                    Write-Output "SMOKE_BURN_SESSION_LOG: $($sessionLog.FullName)"
+                    Get-Content -LiteralPath $sessionLog.FullName -ErrorAction Stop |
+                      Where-Object { $_ -match '\[(error|warn)\]|Bootstrapper iniciado|UI Loaded|UI Closed|StartUiThread fatal exception' } |
+                      ForEach-Object { Write-Output ($_ -replace '(?i)(resume\s*token\s*[=:]\s*)[^\s,;]+', '$1[REDACTED]') }
+                  }
+                }
+
+                $fatalLog = Join-Path $env:TEMP 'EvaluaPro-InstallerHub-fatal.log'
+                if ((Test-Path -LiteralPath $fatalLog -PathType Leaf) -and (Get-Item -LiteralPath $fatalLog).LastWriteTimeUtc -ge $smokeLaunchedAt) {
+                  Write-Output 'SMOKE_BURN_FATAL_LOG:'
+                  Get-Content -LiteralPath $fatalLog -Tail 80 -ErrorAction Stop |
+                    ForEach-Object { Write-Output ($_ -replace '(?i)(resume\s*token\s*[=:]\s*)[^\s,;]+', '$1[REDACTED]') }
+                }
+              }
+            } catch {
+              Write-Output "SMOKE_BURN_DIAGNOSTIC_CAPTURE_FAILURE: $($_.Exception.GetType().FullName): $($_.Exception.Message)"
+            }
+            throw
+          } finally {
+            if ($baselineCaptured) {
+              if ($proc) {
+                try {
+                  $proc.Refresh()
+                  if (-not $proc.HasExited) { & cmd.exe /c "taskkill.exe /PID $($proc.Id) /T /F >nul 2>&1" }
+                } catch {}
+              }
+              $deadline = (Get-Date).AddSeconds(30)
+              do {
+                $smokeProcesses = @(Get-ActiveInstallerHubProcess | Where-Object { $_.ProcessId -notin @($preexistingProcesses | ForEach-Object { $_.ProcessId }) })
+                foreach ($smokeProcess in $smokeProcesses) {
+                  & cmd.exe /c "taskkill.exe /PID $($smokeProcess.ProcessId) /T /F >nul 2>&1"
+                }
+                if ($smokeProcesses.Count -eq 0) { break }
+                Start-Sleep -Milliseconds 500
+              } while ((Get-Date) -lt $deadline)
+              $remainingProcesses = @(Get-ActiveInstallerHubProcess | Where-Object { $_.ProcessId -notin @($preexistingProcesses | ForEach-Object { $_.ProcessId }) })
+              if ($remainingProcesses.Count -gt 0) {
+                $details = ($remainingProcesses | ForEach-Object { "{0}:{1} parent={2}" -f $_.Name, $_.ProcessId, $_.ParentProcessId }) -join ', '
+                Write-Output "SMOKE_BURN_REMAINING_PROCESSES: $details"
+                throw "El smoke dejó procesos Installer Hub activos tras el cierre del árbol: $details"
+              }
+            }
           }
 
       - name: Etapa hash/manifest de release instalador

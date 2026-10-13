@@ -33,7 +33,7 @@ La mitigación debe proteger install, repair y update contra concurrencia, fallo
 - Dos operaciones simultáneas sobre la misma raíz no intercalan etapas; una operación sobre otra raíz independiente puede continuar.
 - Un payload inválido nunca crea ni reemplaza destinos.
 - Solo un commit completo elimina el respaldo transaccional; errores de recuperación conservan evidencia y fallan cerrados.
-- El E2E Windows verifica install, repair, upgrade, persistencia SQLite, rollback y ausencia de procesos residuales sobre rutas QA aisladas.
+- El E2E Windows verifica install, repair, upgrade, persistencia SQLite, rollback y ausencia de procesos residuales sobre rutas QA aisladas. Los smoke previos del bundle deben cerrar el árbol de procesos que iniciaron y confirmar que no dejaron un Installer Hub huérfano antes de comenzar la E2E.
 
 ## Matriz de Trazabilidad
 
@@ -45,6 +45,7 @@ La mitigación debe proteger install, repair y update contra concurrencia, fallo
 | REQ-005, REQ-007 | Recuperación ante transacción incompleta y fallo de rollback | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Implementado; recuperación Windows pendiente |
 | REQ-006 | Commit y eliminación de respaldo tras validar manifiesto | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Implementado; E2E Windows pendiente |
 | Criterios Windows | Instalación, reparación, upgrade, persistencia y procesos residuales | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1` | Pendiente |
+| Runner Windows | El smoke del bundle cierra su árbol de procesos y falla con nombres/PID si deja huérfanos | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`, `.github/workflows/ci-installer-windows.yml` | Implementado; CI Windows pendiente |
 
 ## Riesgos y decisiones
 

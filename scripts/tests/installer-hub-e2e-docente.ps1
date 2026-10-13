@@ -2046,9 +2046,10 @@ try {
       $_.ProcessName -like 'EvaluaPro-InstallerHub*' -or
       $_.ProcessName -eq 'EvaluaPro.BurnBootstrapperApp'
     })
-  Add-Result -Area 'preflight' -Item 'no-active-installer-hub' -Ok ($activeInstallerHubProcesses.Count -eq 0) -Detail (($activeInstallerHubProcesses | ForEach-Object { "{0}:{1}" -f $_.ProcessName, $_.Id }) -join ',')
+  $activeInstallerHubProcessDetails = ($activeInstallerHubProcesses | ForEach-Object { "{0}:{1}" -f $_.ProcessName, $_.Id }) -join ', '
+  Add-Result -Area 'preflight' -Item 'no-active-installer-hub' -Ok ($activeInstallerHubProcesses.Count -eq 0) -Detail $activeInstallerHubProcessDetails
   if ($activeInstallerHubProcesses.Count -gt 0) {
-    throw 'Hay procesos Installer Hub activos. El runner no los cerrará; ciérrelos manualmente o use un host QA limpio.'
+    throw "Hay procesos Installer Hub activos: $activeInstallerHubProcessDetails. El runner no los cerrará; ciérrelos manualmente o use un host QA limpio."
   }
 
   $drive = Get-PSDrive -Name ([IO.Path]::GetPathRoot($installedRoot).Substring(0, 1))

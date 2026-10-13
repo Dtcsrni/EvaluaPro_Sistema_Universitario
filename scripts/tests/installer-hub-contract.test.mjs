@@ -919,7 +919,7 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   assert.match(runner, /\$databasePath = if \(\$script:upgradingExistingInstall\) \{\s*Get-ConfiguredInstalledSqlitePath/);
   assert.doesNotMatch(runner, /Stop-InstallerHubProcesses/);
   assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
-  assert.match(runner, /Hay procesos Installer Hub activos\. El runner no los cerrará/);
+  assert.match(runner, /Hay procesos Installer Hub activos(?:: [^\r\n]+)?\. El runner no los cerrará/);
   assert.match(runner, /\$script:qaMutationStarted = \$false/);
   assert.match(runner, /\$script:qaMutationStarted = \$true[\s\S]*?Invoke-InstallerHubMode -Mode 'install'/);
   assert.match(runner, /if \(\$script:qaMutationStarted -and -not \$script:upgradingExistingInstall\) \{\s*try \{\s*\$currentProfileExists/);
@@ -1904,8 +1904,13 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
   assert.match(betaWorkflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   for (const workflow of [stableWorkflow, betaWorkflow]) {
     assert.match(workflow, /Start-Process -FilePath \$exe(\.FullName)? -PassThru/);
-    assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout/);
+    assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout|El bundle Burn no mantuvo activo EvaluaPro\.BurnBootstrapperApp\.exe tras el arranque|La interfaz WPF del Installer Hub se cerró antes del smoke timeout/);
   }
+  assert.match(stableWorkflow, /SMOKE_BURN_FAILURE:/);
+  assert.match(stableWorkflow, /SMOKE_BURN_SESSION_LOG:/);
+  assert.match(stableWorkflow, /SMOKE_BURN_DIAGNOSTIC_CAPTURE_FAILURE:/);
+  assert.match(stableWorkflow, /resume\\s\*token.*REDACTED/);
+  assert.match(stableWorkflow, /EvaluaPro-InstallerHub-fatal\.log/);
 });
 
 test('launcher broker unifica shortcuts, hub y splash state', () => {
