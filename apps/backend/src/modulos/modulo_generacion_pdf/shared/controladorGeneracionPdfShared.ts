@@ -344,14 +344,16 @@ export function resolverTemplateVersionOmr(params: { docenteId: unknown; periodo
  * Se omiten partículas habituales de nombres hispanos para no desperdiciar
  * espacio (p. ej. "de la"), conservando como máximo seis iniciales.
  */
-export function construirInicialesAlumno(nombreCompleto: unknown): string {
+export function construirInicialesAlumno(nombreCompleto: unknown, preservarInicialesAisladas = false): string {
   const particulas = new Set(['a', 'da', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'y']);
   const palabras = String(nombreCompleto ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase()
     .match(/[a-z0-9]+/g) ?? [];
-  const significativas = palabras.filter((palabra) => palabra.length === 1 || !particulas.has(palabra));
+  const significativas = palabras.filter((palabra) =>
+    (preservarInicialesAisladas && palabra.length === 1) || !particulas.has(palabra)
+  );
   const iniciales = (significativas.length > 0 ? significativas : palabras)
     .map((palabra) => palabra.charAt(0))
     .join('')
@@ -386,7 +388,10 @@ function construirIdentidadCortaAlumno(params: {
     ? `${primerNombreOriginal.charAt(0).toLocaleUpperCase('es-MX')}${primerNombreOriginal.slice(1).toLocaleLowerCase('es-MX')}`
     : '';
   const inicialesPrimerNombre = construirInicialesAlumno(primerNombreOriginal).slice(0, 1);
-  const inicialesRestantes = construirInicialesAlumno(tokensRestantes.join(' '));
+  const inicialesRestantes = construirInicialesAlumno(
+    tokensRestantes.join(' '),
+    !tieneNombresEstructurados && tokensCompletos.length >= 3
+  );
   return { primerNombre, iniciales: `${inicialesPrimerNombre}${inicialesRestantes}` };
 }
 

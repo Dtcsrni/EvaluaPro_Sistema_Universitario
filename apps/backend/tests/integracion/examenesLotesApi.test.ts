@@ -1,11 +1,14 @@
 import request from 'supertest';
 import { createHash, randomUUID } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
 import { PDFDocument } from 'pdf-lib';
 import JSZip from 'jszip';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { eliminarArchivoExamen, guardarPdfExamen } from '../../src/infraestructura/archivos/almacenLocal.js';
+import { construirRecoveryManifest } from '../../src/modulos/modulo_generacion_pdf/domain/recoveryManifest.js';
+import { construirTextoQrExamenPagina } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 describe('consulta API de paquetes de examen por lote', () => {
@@ -230,16 +233,59 @@ describe('consulta API de paquetes de examen por lote', () => {
         pdf.addPage([612, 792]);
         pdf.addPage([612, 792]);
         const archivoNombre = `zip-${randomUUID()}.pdf`;
-        archivos.push(await guardarPdfExamen(archivoNombre, Buffer.from(await pdf.save())));
+        const pdfBytes = Buffer.from(await pdf.save());
+        archivos.push(await guardarPdfExamen(archivoNombre, pdfBytes));
+        const examId = randomUUID();
+        const preguntas = [1, 2].map((numero) => ({
+          id: `pregunta-${numero}`,
+          enunciado: `Reactivo ${numero}`,
+          opciones: ['A', 'B', 'C', 'D', 'E'].map((texto, indice) => ({ texto, esCorrecta: indice === 0 }))
+        }));
+        const mapaVariante = {
+          ordenPreguntas: preguntas.map((pregunta) => pregunta.id),
+          ordenOpcionesPorPregunta: Object.fromEntries(preguntas.map((pregunta) => [pregunta.id, [0, 1, 2, 3, 4]]))
+        };
+        const qrTextoPorPagina = preguntas.map((pregunta, indice) => construirTextoQrExamenPagina({
+          folio,
+          numeroPagina: indice + 1,
+          templateVersion: 4,
+          examId,
+          totalPreguntas: preguntas.length,
+          preguntaDesde: indice + 1,
+          preguntaHasta: indice + 1,
+          questionIdsPagina: [pregunta.id],
+          mapaVariante,
+          preguntas
+        }));
         const mapaOmr = {
           paginas: [1, 2].map((numeroPagina) => ({
             numeroPagina,
             preguntas: [{ idPregunta: `pregunta-${numeroPagina}` }],
-            qr: { texto: `EvaluaPro:${folio}:pagina-${numeroPagina}` }
+            qr: { texto: qrTextoPorPagina[numeroPagina - 1] }
           }))
         };
+        const recoveryManifest = construirRecoveryManifest({
+          examId,
+          docenteId: owner.docenteId,
+          periodoId: owner.periodoId,
+          plantillaId: owner.plantillaId,
+          loteId,
+          folio,
+          templateVersion: 4,
+          preguntas,
+          mapaVariante,
+          paginas: qrTextoPorPagina.map((qrTexto, indice) => ({
+            numero: indice + 1,
+            qrTexto,
+            preguntasDel: indice + 1,
+            preguntasAl: indice + 1
+          })),
+          pdfBytes,
+          mapaOmr: mapaOmr as never
+        });
         await prisma.examenGenerado.create({
           data: {
+            id: examId,
             docenteId: owner.docenteId,
             periodoId: owner.periodoId,
             plantillaId: owner.plantillaId,
@@ -250,6 +296,7 @@ describe('consulta API de paquetes de examen por lote', () => {
             mapaVariante: '{}',
             rutaPdf: archivos.at(-1),
             mapaOmr: JSON.stringify(mapaOmr),
+            recoveryManifest: JSON.stringify(recoveryManifest),
             retentionStatus: 'active'
           }
         });
@@ -287,6 +334,11 @@ describe('consulta API de paquetes de examen por lote', () => {
         const bytes = await zip.file(`${folio}.pdf`)!.async('nodebuffer');
         expect((await PDFDocument.load(bytes)).getPageCount()).toBe(2);
       }
+
+      const pdfOriginal = await readFile(archivos[0]!);
+      await writeFile(archivos[0]!, Buffer.concat([pdfOriginal, Buffer.from('mutacion') ]));
+      await request(app).get(`/api/examenes/generados/lote/${loteId}/zip`).set(owner.auth).expect(409);
+      await writeFile(archivos[0]!, pdfOriginal);
 
       await prisma.examenLoteArtefactoPdf.updateMany({ where: { docenteId: owner.docenteId, loteId }, data: { totalExamenes: 13 } });
       await request(app).get(`/api/examenes/generados/lote/${loteId}/zip`).set(owner.auth).expect(409);

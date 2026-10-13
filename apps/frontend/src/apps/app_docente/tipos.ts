@@ -255,6 +255,7 @@ export type OmrJobDetalle = {
     folio?: string;
     examPage?: number;
     identitySource?: 'qr' | 'manual';
+    resolutionReason?: string;
     ocrSuggestion?: {
       generatedAssessmentId: string;
       folio: string;

@@ -23,15 +23,15 @@
     <?endif?>
     <Variable Name="SelectedFlavorId" Type="string" Value="$(var.FlavorId)" Persisted="yes" />
 
+    <?if $(var.FlavorId) != docente-local ?>
     <ApprovedExeForElevation
       Id="PowerShellHost"
       Key="SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\powershell.exe" />
+    <?endif?>
 
     <BootstrapperApplication SourceFile="EvaluaPro.BurnBootstrapperApp.exe" Name="EvaluaPro.BurnBootstrapperApp.exe">
+      <?if $(var.FlavorId) != docente-local ?>
       <Payload SourceFile="InstallerBurnHelper.ps1" Name="InstallerBurnHelper.ps1" />
-      <Payload SourceFile="installer-prereqs.manifest.json" Name="installer-prereqs.manifest.json" />
-      <Payload SourceFile="$(var.FlavorCatalogPath)" Name="installer-flavors.json" />
-      <Payload SourceFile="portable-license.mjs" Name="portable-license.mjs" />
       <Payload SourceFile="Common.psm1" Name="Common.psm1" />
       <Payload SourceFile="PrereqDetector.psm1" Name="PrereqDetector.psm1" />
       <Payload SourceFile="PrereqInstaller.psm1" Name="PrereqInstaller.psm1" />
@@ -44,6 +44,10 @@
       <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubTransaction.psm1" Name="InstallerHubTransaction.psm1" />
       <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubPayload.psm1" Name="InstallerHubPayload.psm1" />
       <Payload SourceFile="$(var.SourceRoot)/scripts/installer-burn/modules/InstallerHubVerification.psm1" Name="InstallerHubVerification.psm1" />
+      <?endif?>
+      <Payload SourceFile="installer-prereqs.manifest.json" Name="installer-prereqs.manifest.json" />
+      <Payload SourceFile="$(var.FlavorCatalogPath)" Name="installer-flavors.json" />
+      <Payload SourceFile="portable-license.mjs" Name="portable-license.mjs" />
       <Payload SourceFile="$(var.SourceRoot)/contracts/installer-hub/request-envelope-v1.schema.json" Name="request-envelope-v1.schema.json" />
       <Payload SourceFile="$(var.SourceRoot)/contracts/installer-hub/response-envelope-v1.schema.json" Name="response-envelope-v1.schema.json" />
       <Payload SourceFile="$(var.SourceRoot)/contracts/installer-hub/dashboard-readiness-v1.schema.json" Name="dashboard-readiness-v1.schema.json" />

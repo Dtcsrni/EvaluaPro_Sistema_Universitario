@@ -719,12 +719,25 @@ function New-DocentePayloadArchive {
     }
   }
 
+  Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
-  [System.IO.Compression.ZipFile]::CreateFromDirectory(
-    $StagingRoot, $OutputPath,
-    [System.IO.Compression.CompressionLevel]::Optimal, $false
-  )
+  $archive = [System.IO.Compression.ZipFile]::Open($OutputPath, [System.IO.Compression.ZipArchiveMode]::Create)
+  $stagingFullPath = [System.IO.Path]::GetFullPath($StagingRoot).TrimEnd([char[]]@('\', '/'))
+  $stagingPrefix = $stagingFullPath + [System.IO.Path]::DirectorySeparatorChar
+  try {
+    foreach ($file in Get-ChildItem -LiteralPath $StagingRoot -File -Recurse -Force) {
+      $fullFilePath = [System.IO.Path]::GetFullPath($file.FullName)
+      if (-not $fullFilePath.StartsWith($stagingPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Archivo de payload fuera del staging: $fullFilePath"
+      }
+      $relative = $fullFilePath.Substring($stagingPrefix.Length) -replace '\\', '/'
+      if ($relative -match '(^|/)scripts/installer-burn/' -or $relative -match '\.(ps1|psm1|vbs)$') { continue }
+      $null = [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+        $archive, $file.FullName, $relative, [System.IO.Compression.CompressionLevel]::Optimal
+      )
+    }
+  } finally { $archive.Dispose() }
   $archiveInfo = Get-Item -LiteralPath $OutputPath
   if ($archiveInfo.Length -lt 1MB) {
     throw "Payload ZIP sospechosamente pequeño: $OutputPath ($($archiveInfo.Length) bytes)"

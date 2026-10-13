@@ -1,7 +1,7 @@
 ---
 id: SPEC-070
 titulo: Operación docente automatizable por API con correspondencia en GUI
-version: 1.23.12
+version: 1.23.13
 fecha: 2026-10-12
 autor: Codex / EvaluaPro Team
 modulo: api_docente_automatizacion
@@ -269,6 +269,11 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   exista y limita alumnos, hash de cohorte, recuperación y artefactos a ese padrón.
   Sin grupo explícito, solo se infiere automáticamente cuando el periodo tiene uno.
   Extraordinarios conservan su selección explícita por `alumnoIds` y rechazan `grupo`.
+- **REQ-037:** `POST /omr/ingestas/{jobId}/dataset-export` requiere `omr:analizar`,
+  aislamiento por docente, confirmación de la advertencia de datos identificables y
+  selección no vacía de páginas con resolución manual persistida. Incluye fuentes PDF
+  originales sin recomprimir y etiquetas confirmadas en un ZIP temporal; anonimiza
+  nombres de archivo/manifiesto, verifica hashes y no modifica job ni calificaciones.
 - **REQ-019:** Las entregas deben poder listarse y consultarse por ID desde API,
   con filtros por examen, alumno, periodo, lote y estado, paginación acotada y
   cursor estable. Cada respuesta debe limitarse al docente autenticado y omitir
@@ -472,6 +477,10 @@ pm run api:contract:check`.
   alumnos de A, y un grupo inexistente falla sin artefactos. Si el periodo tiene un
   solo grupo, la omisión del campo sigue siendo compatible. El OpenAPI declara el
   campo `grupo`; un extraordinario lo rechaza y conserva su selección por `alumnoIds`.
+- **AC-036:** El contrato OpenAPI declara el ZIP binario, los conteos y SHA-256. La
+  ruta rechaza sin sesión, sin confirmación, con páginas duplicadas/no confirmadas o
+  para un job ajeno. Los tests comprueban hash de fuentes/ZIP, privacidad del manifiesto,
+  descarga desde GUI y que el job/perfil académico no cambia.
 - **AC-017:** La API permite listar entregas con filtros y cursor, consultar
   una entrega propia por ID, rechazar IDs ajenos como 404 y rechazar cursores o
   parámetros inválidos. La respuesta no expone el correo del alumno; las
@@ -543,6 +552,7 @@ implica que ya satisfagan todos los criterios nuevos.
 
 | REQ-033 / AC-032 | Portada binaria con permisos, límite, normalización y paridad API/GUI | `SPEC-073_portada_materia_api_gui.spec.md`; `apps/backend/tests/integracion/periodosPortada.test.ts`; `apps/frontend/tests/seccionPeriodos.portada.test.tsx`; `scripts/api/check-openapi-contract.mjs` | API 5/5, GUI 3/3, OpenAPI y paridad de listado/fallback verificados en foco |
 | REQ-036 / AC-035 | Cohorte ordinaria por grupo, validación de pertenencia y hash de reanudación | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts`; `apps/frontend/tests/plantillas.refactor.test.tsx`; `scripts/api/check-openapi-contract.mjs` | Backend 8/8 y GUI 20/20 focales aprobadas; contrato pendiente de regenerar/auditar |
+| REQ-037 / AC-036 | Exportación protegida de dataset OMR con etiquetas humanas y fuentes verificadas | `apps/backend/tests/omrDatasetExport.test.ts`; `apps/backend/tests/integracion/omrDatasetExportApi.test.ts`; `apps/frontend/tests/plantillasOmrWorkflow.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/check-openapi-contract.mjs` | Implementación y pruebas focales pendientes |
 
 ## Análisis de cobertura del flujo de listas
 

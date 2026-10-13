@@ -21,14 +21,15 @@ export function limitarTiempoOcrPie<T>(operacion: Promise<T>, timeoutMs = 15_000
 const require = createRequire(import.meta.url);
 const UMBRAL_CONFIANZA_OCR_PIE = 75;
 const ESCALA_OCR_PIE = 4;
-const PATRON_REFERENCIA_PIE = /\b([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:PAGINA|P)\.?\s*(\d{1,2}|[IL|])(?=$|[\s.,;])/g;
+const PATRON_REFERENCIA_PIE = /\b(?:FOLIO\s+)?([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:PAGINA|P)\.?\s*(\d{1,2}|[IL|Z])(?:\s+DE\s+\d{1,2})?(?=$|[\s.,;])/g;
 
 /** Construye el worker desde los assets locales para que el OCR no requiera red. */
 export async function crearLectorPieOmr(): Promise<LectorPieOmr> {
   const rutaDatosSpa = path.join(path.dirname(require.resolve('@tesseract.js-data/spa')), '4.0.0_best_int');
   const worker = await createWorker('spa', 1, { langPath: rutaDatosSpa, gzip: true });
   await worker.setParameters({
-    tessedit_pageseg_mode: PSM.SINGLE_LINE
+    tessedit_pageseg_mode: PSM.SINGLE_LINE,
+    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-.:·•+/|'
   });
   return worker;
 }
@@ -42,7 +43,7 @@ export function extraerReferenciasPieOmr(texto: string): Array<{ folio: string; 
   return Array.from(normalizado.matchAll(PATRON_REFERENCIA_PIE)).flatMap((coincidencia) => {
     const folio = String(coincidencia[1] ?? '').replace(/[^A-Z0-9_-]/g, '');
     const paginaLeida = String(coincidencia[2] ?? '');
-    const numeroPagina = /^[IL|]$/.test(paginaLeida) ? 1 : Number(paginaLeida);
+    const numeroPagina = /^[IL|]$/.test(paginaLeida) ? 1 : paginaLeida === 'Z' ? 2 : Number(paginaLeida);
     return folio.length >= 4 && numeroPagina >= 1 && numeroPagina <= 50
       ? [{ folio, numeroPagina }]
       : [];
@@ -98,22 +99,29 @@ export async function leerReferenciaPieOmr(
         lecturas.push(null);
         continue;
       }
-      const orientado = await sharp(pagina)
+      const recorte = sharp(pagina)
         .extract({ left, top, width, height })
         .greyscale()
-        .normalise()
-        .threshold(165)
-        .resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
-        .png()
-        .toBuffer();
-      const { data } = await worker.recognize(orientado);
-      const confianza = Number(data.confidence ?? 0);
-      const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
-        ? extraerReferenciasPieOmr(String(data.text ?? ''))
-        : [];
-      lecturas.push(referencias.length === 1
-        ? { ...referencias[0]!, confianza }
-        : null);
+        .normalise();
+      const preparaciones = [
+        () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
+        () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
+        () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer()
+      ];
+      let lecturaValida: ReferenciaPieOmr | undefined;
+      for (const preparar of preparaciones) {
+        const variante = await preparar();
+        const { data } = await worker.recognize(variante);
+        const confianza = Number(data.confidence ?? 0);
+        const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
+          ? extraerReferenciasPieOmr(String(data.text ?? ''))
+          : [];
+        if (referencias.length === 1) {
+          lecturaValida = { ...referencias[0]!, confianza };
+          break;
+        }
+      }
+      lecturas.push(lecturaValida ?? null);
     }
     const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
     if (consenso) resultados.push(consenso);

@@ -701,6 +701,19 @@ export class EvaluaproClient {
     return (await this.request(`/omr/ingestas/${encodeURIComponent(jobId)}/manifiesto`, { responseType: 'binary' })).data;
   }
 
+  async exportarDatasetIngestaPdfOmr(jobId, { pageIndexes, confirmarDatosIdentificables = false } = {}) {
+    const indexes = Array.isArray(pageIndexes) ? pageIndexes.map(Number) : [];
+    if (!confirmarDatosIdentificables) throw new Error('Exportar páginas OMR requiere confirmar los datos identificables de las fuentes');
+    if (!indexes.length || indexes.some((index) => !Number.isSafeInteger(index) || index < 1) || new Set(indexes).size !== indexes.length) {
+      throw new TypeError('pageIndexes debe contener enteros positivos únicos');
+    }
+    return (await this.request(`/omr/ingestas/${encodeURIComponent(jobId)}/dataset-export`, {
+      method: 'POST',
+      body: { pageIndexes: indexes, confirmarDatosIdentificables: true },
+      responseType: 'binary'
+    })).data;
+  }
+
   async descargarPaqueteIngestaPdfOmr(jobId, packageId) {
     return (await this.request(`/omr/ingestas/${encodeURIComponent(jobId)}/paquetes/${encodeURIComponent(packageId)}`, { responseType: 'binary' })).data;
   }

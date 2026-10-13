@@ -42,6 +42,10 @@ $targetWscript = Join-Path $env:WINDIR "System32\wscript.exe"
 if (-not (Test-Path -LiteralPath $targetWscript)) {
   $targetWscript = 'wscript.exe'
 }
+$targetPowerShell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+if (-not (Test-Path -LiteralPath $targetPowerShell)) {
+  throw "No se encontró Windows PowerShell requerido para los accesos de operación: $targetPowerShell"
+}
 
 $outputPath = if ([System.IO.Path]::IsPathRooted($OutputDir)) { $OutputDir } else { Join-Path $root $OutputDir }
 $trayHiddenVbs = Join-Path $root 'scripts\launcher-tray-hidden.vbs'
@@ -216,9 +220,26 @@ function New-ShortcutDefinition($definition, [string]$flavorId) {
       $arguments = "//nologo `"$trayHiddenVbs`" $([string]$definition.mode) $Port"
     }
     'operation' {
-      $target = $targetWscript
-      if (-not (Test-Path -LiteralPath $shortcutOpHiddenVbs)) { throw "No se encontró launcher requerido: $shortcutOpHiddenVbs" }
-      $arguments = "//nologo `"$shortcutOpHiddenVbs`" $([string]$definition.operation) $Port auto"
+      $operation = [string]$definition.operation
+      $allowedOperations = @('open-dashboard', 'restart-stack', 'stop-all', 'repair', 'uninstall', 'open-hub', 'verify-installation')
+      if ($operation -notin $allowedOperations) { throw "Operación no permitida en acceso directo: $operation" }
+      if ($operation -eq 'open-hub') {
+        if ($flavorId -eq 'docente-local') {
+          $nativeHubLauncher = Join-Path $root 'EvaluaPro.exe'
+          if (-not (Test-Path -LiteralPath $nativeHubLauncher -PathType Leaf)) { throw "No se encontró launcher nativo del Hub: $nativeHubLauncher" }
+          $target = $nativeHubLauncher
+          $arguments = '--installer-hub'
+        } else {
+          $brokerScript = Join-Path $root 'scripts\launcher-broker.ps1'
+          if (-not (Test-Path -LiteralPath $brokerScript -PathType Leaf)) { throw "No se encontró launcher requerido: $brokerScript" }
+          $target = $targetPowerShell
+          $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File `"$brokerScript`" -Action open-hub -Port $Port -Mode auto"
+        }
+      } else {
+        $target = $targetWscript
+        if (-not (Test-Path -LiteralPath $shortcutOpHiddenVbs)) { throw "No se encontró launcher requerido: $shortcutOpHiddenVbs" }
+        $arguments = "//nologo `"$shortcutOpHiddenVbs`" $operation $Port auto"
+      }
     }
     default { throw "Launcher no soportado en manifiesto: $launcher" }
   }

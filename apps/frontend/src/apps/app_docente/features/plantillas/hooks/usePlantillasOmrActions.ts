@@ -97,6 +97,31 @@ async function descargarArchivoProtegido(url: string, fileName: string) {
   URL.revokeObjectURL(href);
 }
 
+async function solicitarDescargaDatasetOmr(jobId: string, pageIndexes: number[]) {
+  const response = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}/dataset-export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pageIndexes, confirmarDatosIdentificables: true })
+  });
+  const blob = await response.blob();
+  const sha256 = response.headers.get('X-Content-SHA256') || '';
+  const sourceCount = Number(response.headers.get('X-OMR-Source-Count') || 0);
+  const labelCount = Number(response.headers.get('X-OMR-Label-Count') || 0);
+  const declaredBytes = Number(response.headers.get('Content-Length') || 0);
+  if (blob.type !== 'application/zip' || !/^[a-f0-9]{64}$/i.test(sha256) || sourceCount < 1 || labelCount !== pageIndexes.length || blob.size !== declaredBytes) {
+    throw new Error('La respuesta del dataset no contiene un ZIP verificable.');
+  }
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = href;
+  anchor.download = 'omr-dataset.zip';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+  return { sha256, sourceCount, labelCount };
+}
+
 export function usePlantillasOmrActions({
   avisarSinPermiso,
   puedeDescargarExamenes,
@@ -153,6 +178,17 @@ export function usePlantillasOmrActions({
       }
     },
     [avisarSinPermiso, puedeDescargarExamenes, setMensajeGeneracion]
+  );
+
+  const descargarDatasetOmr = useCallback(
+    async (jobId: string, pageIndexes: number[]) => {
+      if (!puedeAnalizarOmr) {
+        avisarSinPermiso('No tienes permiso para exportar un dataset OMR.');
+        throw new Error('Permiso OMR requerido');
+      }
+      return await solicitarDescargaDatasetOmr(jobId, pageIndexes);
+    },
+    [avisarSinPermiso, puedeAnalizarOmr]
   );
 
   const obtenerPreviewPaginaOmr = useCallback(
@@ -392,5 +428,5 @@ export function usePlantillasOmrActions({
     [avisarSinPermiso, puedeAnalizarOmr, setJobOmr, setProcesandoOmr]
   );
 
-  return { cargarAssessmentDetalle, descargarArtifact, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, resolverHojaOmr, finalizarJobOmr };
+  return { cargarAssessmentDetalle, descargarArtifact, descargarDatasetOmr, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, resolverHojaOmr, finalizarJobOmr };
 }

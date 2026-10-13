@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { createReadStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
 import { PDFDocument } from 'pdf-lib';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
@@ -18,6 +20,7 @@ import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './
 import { crearLectorPieOmr, leerReferenciaPieOmr, limitarTiempoOcrPie, type LectorPieOmr } from './infra/ocrPieOmr.js';
 import { localizarQrsEsperadosEnRaster, prepararQrsEsperados, type GeometriaQrPdf, type QrReferenciaEsperado } from './infra/qrReferenciaPdf.js';
 import { MAX_JOB_BYTES, MAX_JOB_PAGES, MAX_PDF_BYTES, MAX_PDF_PAGES } from './limitesIngestaPdfOmr.js';
+import { esPaginaDatasetOmrConfirmada, generarZipDatasetOmr } from './exportadorDatasetOmr.js';
 const PAGE_BLOCK_SIZE = 8;
 const RASTER_DPI = 144;
 
@@ -1243,4 +1246,57 @@ export async function descargarPaqueteIngestaPdfOmr(req: SolicitudDocente, res: 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${paquete.fileName.replace(/[\r\n"\\]/g, '_')}"`);
   res.send(bytes);
+}
+
+export async function exportarDatasetIngestaPdfOmr(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const job = await prisma.omrScanJob.findFirst({ where: { id: String(req.params.jobId || ''), docenteId } });
+  if (!job) throw new ErrorAplicacion('OMR_JOB_NO_ENCONTRADO', 'Job OMR no encontrado', 404);
+  if (job.estado !== 'completed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'Solo se exportan ingestas completadas', 409);
+
+  const metadata = json<MetadataIngesta>(job.metadata, { version: 1, assessmentId: '', loteId: null, status: 'failed', reference: { nombre: '', relativePath: '', sha256: '', pages: 0, pagesWithQr: 0 }, files: [], pages: [], packages: [], errors: [], startedAt: '' });
+  if (metadata.status !== 'completed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'La ingesta no tiene un estado completado válido', 409);
+  const indexes = (req.body as { pageIndexes: number[] }).pageIndexes;
+  const selected = new Set(indexes);
+  const pages = metadata.pages.filter((page) => selected.has(page.pageIndex));
+  if (pages.length !== selected.size) throw new ErrorAplicacion('OMR_DATASET_PAGINA_INVALIDA', 'La selección contiene páginas que no pertenecen al job', 422);
+  if (pages.some((page) => !esPaginaDatasetOmrConfirmada(page))) {
+    throw new ErrorAplicacion('OMR_DATASET_PAGINA_SIN_CONFIRMAR', 'Solo se exportan páginas con identidad y respuestas revisadas y guardadas manualmente', 422);
+  }
+
+  const examenes = await buscarExamenesLote(metadata.assessmentId, docenteId);
+  for (const page of pages) {
+    const exam = examenes.find((candidate) => candidate.id === page.examId);
+    const map = exam ? json<{ paginas?: Array<{ numeroPagina?: number; tipoPagina?: string }> }>(exam.mapaOmr, {}) : {};
+    const pageExists = map.paginas?.some((candidate) => Number(candidate.numeroPagina) === page.examPage && candidate.tipoPagina !== 'reverso-vacio');
+    if (!exam || exam.folio !== page.folio || !pageExists) {
+      throw new ErrorAplicacion('OMR_DATASET_IDENTIDAD_INVALIDA', 'La identidad de una página seleccionada no coincide con el lote confirmado', 422);
+    }
+  }
+  const sourceIds = new Set(pages.map((page) => page.sourceFileId));
+  const sources = metadata.files.filter((file) => sourceIds.has(file.id)).map((file) => ({
+    id: file.id,
+    path: resolverRutaIngesta(job.id, file.relativePath),
+    sha256: file.sha256,
+    bytes: file.bytes,
+    pages: file.pages
+  }));
+  if (sources.length !== sourceIds.size || sources.reduce((total, source) => total + source.bytes, 0) > MAX_JOB_BYTES) {
+    throw new ErrorAplicacion('OMR_DATASET_ORIGEN_INVALIDO', 'Una fuente seleccionada no está disponible para exportación', 409);
+  }
+
+  const archivo = await generarZipDatasetOmr({ sources, pages, pageIndexes: indexes });
+  res.status(200);
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="omr-dataset.zip"');
+  res.setHeader('Content-Length', String(archivo.bytes));
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Content-SHA256', archivo.sha256);
+  res.setHeader('X-OMR-Source-Count', String(archivo.sourceCount));
+  res.setHeader('X-OMR-Label-Count', String(archivo.labelCount));
+  try {
+    await pipeline(createReadStream(archivo.path), res);
+  } finally {
+    await archivo.cleanup().catch(() => undefined);
+  }
 }

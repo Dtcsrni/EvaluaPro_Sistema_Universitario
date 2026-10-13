@@ -12,6 +12,17 @@ describe('construirInicialesAlumno', () => {
     expect(construirInicialesAlumno('')).toBe('');
   });
 
+  it('omite la conjunción y al calcular iniciales sin perder iniciales de padrones invertidos', () => {
+    expect(construirInicialesAlumno('Juan Pérez y Gómez')).toBe('JPG');
+    const encabezado = construirEncabezadoPdf({
+      periodo: { nombre: 'Periodo' },
+      docenteDb: { nombreCompleto: 'Docente' },
+      instrucciones: '',
+      alumno: { nombreCompleto: 'S V Mario A' }
+    });
+    expect(encabezado.alumno).toMatchObject({ primerNombre: 'Mario', iniciales: 'MASV' });
+  });
+
   it('ordena las iniciales del nombre antes de los apellidos si el padrón trae apellidos primero', () => {
     const encabezado = construirEncabezadoPdf({
       periodo: { nombre: 'Legalidad y Marketing' },

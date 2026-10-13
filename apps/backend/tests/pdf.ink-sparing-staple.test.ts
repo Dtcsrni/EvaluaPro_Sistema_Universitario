@@ -265,6 +265,7 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
     expect(pagina.preguntas[0]?.textRuns?.length).toBeGreaterThan(0);
     expect(pagina.preguntas[0]?.textRuns?.every((run) => run.fuente === 'Ecofont Vera Sans')).toBe(true);
 
+    const ladosConGrapa = new Set<string>();
     for (const [indicePagina, paginaDuplex] of resultado.mapaOmr.paginas.entries()) {
       const zonaReserva = paginaDuplex.layoutDebug?.bindingKeepOutZone;
       expect(zonaReserva).toBeDefined();
@@ -273,10 +274,34 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
       expect(zonaReserva!.height).toBeCloseTo(zona!.height + (expandida ? despejeGrapa * 2 : 0), 5);
       if (expandida) expect(zonaReserva!.y).toBeCloseTo(zona!.y - despejeGrapa, 5);
       const esReverso = paginaDuplex.duplex?.lado === 'reverso';
+      ladosConGrapa.add(esReverso ? 'reverso' : 'frente');
       expect(zonaReserva!.x).toBeCloseTo(
         (esReverso ? 612 - zona!.x - zona!.width : zona!.x) - (expandida ? despejeGrapa : 0),
         5
       );
+      const marcasPagina = paginaDuplex.marcasPagina;
+      expect(marcasPagina).toBeDefined();
+      const margenQuiet = Number(marcasPagina!.quietZone) + (2 * 72) / 25.4;
+      const margenGrapa = paginaDuplex.numeroPagina === 1 ? (3 * 72) / 25.4 : 0;
+      const zonaGrapaSegura = {
+        x: zonaReserva!.x - margenGrapa,
+        y: zonaReserva!.y - margenGrapa,
+        width: zonaReserva!.width + margenGrapa * 2,
+        height: zonaReserva!.height + margenGrapa * 2
+      };
+      for (const esquina of ['tl', 'tr', 'bl', 'br'] as const) {
+        const marca = marcasPagina![esquina];
+        const izquierda = esquina.endsWith('l');
+        const superior = esquina.startsWith('t');
+        const quietZone = {
+          x: (izquierda ? marca.x : marca.x - marcasPagina!.size) - margenQuiet,
+          y: (superior ? marca.y - marcasPagina!.size : marca.y) - margenQuiet,
+          width: marcasPagina!.size + margenQuiet * 2,
+          height: marcasPagina!.size + margenQuiet * 2
+        };
+        expect(interseca(zonaGrapaSegura, quietZone), `la grapa de ${paginaDuplex.duplex?.lado} invade ${esquina}`)
+          .toBe(false);
+      }
       const reservaQr = paginaDuplex.layoutDebug?.qr;
       expect(reservaQr).toBeDefined();
       const despejeQrGrapa = (12.5 * 72) / 25.4;
@@ -303,6 +328,7 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
         }
       }
     }
+    expect(ladosConGrapa).toEqual(new Set(['frente', 'reverso']));
 
     const parser = new PDFParse({ data: resultado.pdfBytes });
     try {

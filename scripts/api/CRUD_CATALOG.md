@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 246 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 247 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -166,6 +166,7 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | OMR | `/omr/analizar` | POST | Bearer | omr:analizar | esquemaAnalizarOmr |
 | OMR | `/omr/ingestas` | POST | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}` | GET | Bearer | omr:analizar | — |
+| OMR | `/omr/ingestas/{jobId}/dataset-export` | POST | Bearer | omr:analizar | esquemaExportarDatasetIngestaOmr |
 | OMR | `/omr/ingestas/{jobId}/manifiesto` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}/originales/{fileId}` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}/paginas/{pageIndex}/preview` | GET | Bearer | omr:analizar | — |
