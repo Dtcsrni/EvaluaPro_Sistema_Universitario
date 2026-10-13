@@ -171,10 +171,25 @@ jobs:
           $proc = $null
           try {
             $proc = Start-Process -FilePath $exe.FullName -PassThru
-            Start-Sleep -Seconds 2
-            $proc.Refresh()
-            if ($proc.HasExited) { throw 'El Installer Hub empaquetado se cerro antes del smoke timeout.' }
+            $startupDeadline = (Get-Date).AddSeconds(15)
+            $uiProcesses = @()
+            do {
+              $uiProcesses = @(Get-ActiveInstallerHubProcess | Where-Object {
+                $_.Name -eq 'EvaluaPro.BurnBootstrapperApp.exe' -and $_.ProcessId -notin @($preexistingProcesses | ForEach-Object { $_.ProcessId })
+              })
+              if ($uiProcesses.Count -gt 0) { break }
+              Start-Sleep -Milliseconds 500
+            } while ((Get-Date) -lt $startupDeadline)
+            if ($uiProcesses.Count -eq 0) {
+              $proc.Refresh()
+              $exitDetail = if ($proc.HasExited) { " código=$($proc.ExitCode)" } else { ' sigue activo sin iniciar su BA WPF' }
+              throw "El bundle Burn no mantuvo activo EvaluaPro.BurnBootstrapperApp.exe tras el arranque.$exitDetail"
+            }
             Start-Sleep -Seconds 3
+            $uiProcesses = @(Get-ActiveInstallerHubProcess | Where-Object {
+              $_.Name -eq 'EvaluaPro.BurnBootstrapperApp.exe' -and $_.ProcessId -notin @($preexistingProcesses | ForEach-Object { $_.ProcessId })
+            })
+            if ($uiProcesses.Count -eq 0) { throw 'La interfaz WPF del Installer Hub se cerró antes del smoke timeout.' }
           } finally {
             if ($proc) {
               try {

@@ -132,6 +132,10 @@ test('smoke GUI cierra y confirma la salida de todo proceso Installer Hub que é
   assert.match(smoke, /EvaluaPro-InstallerHub\*\.exe/);
   assert.match(smoke, /EvaluaPro\.BurnBootstrapperApp\.exe/);
   assert.match(smoke, /runner ya tenía procesos Installer Hub antes del smoke/);
+  assert.match(smoke, /\$startupDeadline = \(Get-Date\)\.AddSeconds\(15\)/);
+  assert.match(smoke, /EvaluaPro\.BurnBootstrapperApp\.exe' -and \$_.ProcessId -notin/);
+  assert.match(smoke, /no mantuvo activo EvaluaPro\.BurnBootstrapperApp\.exe tras el arranque/);
+  assert.match(smoke, /La interfaz WPF del Installer Hub se cerró antes del smoke timeout/);
   assert.match(smoke, /taskkill\.exe \/PID \$\(\$proc\.Id\) \/T \/F/);
   assert.match(smoke, /\$deadline = \(Get-Date\)\.AddSeconds\(30\)/);
   assert.match(smoke, /taskkill\.exe \/PID \$\(\$smokeProcess\.ProcessId\) \/T \/F/);
