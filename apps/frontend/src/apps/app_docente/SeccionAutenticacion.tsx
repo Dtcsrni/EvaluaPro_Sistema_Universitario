@@ -154,6 +154,7 @@ export function SeccionAutenticacion({
   }
 
   async function copiarDiagnosticoAcceso() {
+    if (!import.meta.env.DEV) return;
     try {
       await navigator.clipboard.writeText(exportarTrazaAutenticacion());
       setEstadoDiagnostico('Diagnóstico local copiado. No incluye credenciales ni datos personales.');
@@ -771,13 +772,15 @@ export function SeccionAutenticacion({
                 }}
                 onFallback={informarGoogleNoDisponible}
               />
-              <div className="acciones acciones--mt">
-                <button type="button" className="chip" onClick={() => void copiarDiagnosticoAcceso()}>
-                  Copiar diagnóstico de acceso
-                </button>
-                {estadoDiagnostico && <span role="status" aria-live="polite">{estadoDiagnostico}</span>}
-              </div>
-              {googleBackendNoDisponible && (
+              {esDev && (
+                <div className="acciones acciones--mt">
+                  <button type="button" className="chip" onClick={() => void copiarDiagnosticoAcceso()}>
+                    Copiar diagnóstico de acceso
+                  </button>
+                  {estadoDiagnostico && <span role="status" aria-live="polite">{estadoDiagnostico}</span>}
+                </div>
+              )}
+              {esDev && googleBackendNoDisponible && (
                 <p className="nota nota--mt" role="status">
                   Google está visible, pero el servicio local no reporta su configuración OAuth. Revisa el archivo de configuración instalado y reinicia EvaluaPro.
                 </p>

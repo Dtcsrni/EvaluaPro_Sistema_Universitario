@@ -6,7 +6,7 @@
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SeccionAutenticacion } from '../src/apps/app_docente/SeccionAutenticacion';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import { ErrorRemoto } from '../src/servicios_api/clienteComun';
@@ -82,6 +82,10 @@ describe('SeccionAutenticacion', () => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('configura el boton oficial de Google con tema y texto de alto contraste', () => {
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
 
@@ -90,7 +94,8 @@ describe('SeccionAutenticacion', () => {
     expect(googleLogin).toHaveAttribute('data-google-text', 'signin_with');
   });
 
-  it('no oculta Google si el backend pierde su configuración y conserva un diagnóstico visible', () => {
+  it('en desarrollo no oculta Google si el backend pierde su configuración y muestra el diagnóstico', () => {
+    vi.stubEnv('DEV', true);
     render(
       <SeccionAutenticacion
         onIngresar={() => {}}
@@ -101,6 +106,23 @@ describe('SeccionAutenticacion', () => {
 
     expect(screen.getByTestId('mock-google-login')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/no reporta su configuración OAuth/i);
+    expect(screen.getByRole('button', { name: /copiar diagnóstico de acceso/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Correo')).toBeInTheDocument();
+  });
+
+  it('en producción oculta diagnósticos de configuración y copia sin ocultar los accesos', () => {
+    vi.stubEnv('DEV', false);
+    render(
+      <SeccionAutenticacion
+        onIngresar={() => {}}
+        oauthGoogleDisponible
+        oauthGoogleBackendDisponible={false}
+      />
+    );
+
+    expect(screen.getByTestId('mock-google-login')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /copiar diagnóstico de acceso/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/no reporta su configuración OAuth/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText('Correo')).toBeInTheDocument();
   });
 
