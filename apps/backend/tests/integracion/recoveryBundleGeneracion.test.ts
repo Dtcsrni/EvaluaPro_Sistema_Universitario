@@ -217,6 +217,35 @@ describe('generación PDF: recovery manifest y bundle', () => {
       totalPaginas,
       totalExamenes: 2
     });
+    const historialLotes = await request(app)
+      .get(`/api/examenes/generados/lotes?plantillaId=${encodeURIComponent(base.plantillaId)}&limite=100`)
+      .set(base.auth)
+      .expect(200);
+    expect(historialLotes.body.lotes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        loteId: 'LOTREC01',
+        plantillaId: base.plantillaId,
+        sha256: lote.body.pdfSha256,
+        totalPaginas,
+        totalExamenes: 2,
+        archivado: false
+      })
+    ]));
+    const progresoPersistido = await consultarProgresoLote(base.auth, 'LOTREC01', {
+      plantillaId: base.plantillaId,
+      totalEsperado: '2'
+    });
+    expect(progresoPersistido.body).toMatchObject({
+      loteId: 'LOTREC01',
+      totalEsperado: 2,
+      generados: 2,
+      completado: true,
+      estado: 'completado',
+      loteRegistrado: true,
+      artefactoVerificado: true,
+      pdfSha256: lote.body.pdfSha256,
+      totalPaginas
+    });
     const bundleDoc = await ExamenRecoveryBundle.findOne({ loteId: 'LOTREC01' }).lean();
     expect(bundleDoc).toBeTruthy();
     expect(verificarRecoveryBundle((bundleDoc as { bundle?: unknown }).bundle as never)).toBe(true);
@@ -284,6 +313,13 @@ describe('generación PDF: recovery manifest y bundle', () => {
     for (let pagina = 0; pagina < totalPaginas; pagina += 1) pdfAlterado.addPage([612, 792]);
     await writeFile(rutaPaquete, await pdfAlterado.save());
     try {
+      const progresoCorrupto = await consultarProgresoLote(base.auth, 'LOTREC01', { plantillaId: base.plantillaId });
+      expect(progresoCorrupto.body).toMatchObject({
+        completado: false,
+        estado: 'fallido',
+        loteRegistrado: true,
+        artefactoVerificado: false
+      });
       const descargaCorrupta = await descargarPdfLote(base.auth, 'LOTREC01');
       expect(descargaCorrupta.status).toBe(409);
       expect(JSON.parse((descargaCorrupta.body as Buffer).toString('utf8')).error.codigo).toBe('LOTE_PDF_INTEGRIDAD_INVALIDA');
@@ -400,8 +436,40 @@ describe('generación PDF: recovery manifest y bundle', () => {
       totalEsperado: 2,
       generados: 2,
       porcentaje: 100,
+      completado: false,
+      estado: 'fallido',
+      loteRegistrado: false,
+      artefactoVerificado: false
+    });
+
+    const pdf = await PDFDocument.create();
+    pdf.addPage([612, 792]);
+    pdf.addPage([612, 792]);
+    const pdfBytes = Buffer.from(await pdf.save());
+    const archivoNombre = `progreso-${loteId}.pdf`;
+    await writeFile(resolverRutaPdfExamen(archivoNombre), pdfBytes);
+    await prisma.examenLoteArtefactoPdf.create({
+      data: {
+        docenteId: String(plantilla?.docenteId),
+        loteId,
+        plantillaId: base.plantillaId,
+        archivoNombre,
+        sha256: createHash('sha256').update(pdfBytes).digest('hex'),
+        totalPaginas: 2,
+        totalExamenes: 2
+      }
+    });
+    const progresoConArtefactoVerificado = await consultarProgresoLote(base.auth, loteId, { plantillaId: base.plantillaId, grupo: 'A' });
+    expect(progresoConArtefactoVerificado.body).toMatchObject({
+      loteId,
+      totalEsperado: 2,
+      generados: 2,
+      porcentaje: 100,
       completado: true,
-      estado: 'completado'
+      estado: 'completado',
+      loteRegistrado: true,
+      artefactoVerificado: true,
+      totalPaginas: 2
     });
 
     await ExamenGenerado.updateOne({ loteId, folio: 'LOTGEN01' }, { $set: { estado: 'fallido' } });
