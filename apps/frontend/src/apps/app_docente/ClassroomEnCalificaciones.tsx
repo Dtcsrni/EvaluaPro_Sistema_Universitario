@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
@@ -30,6 +31,8 @@ type ResultadoImportacionClassroom = {
       vencida?: boolean;
       puedeConfirmarFaltante?: boolean;
       faltanteExplicito?: boolean;
+      revisionPendiente?: boolean;
+      reentregaConfirmada?: boolean;
     }>;
   }>;
   promediosEvaluacionContinuaTercerParcial?: Array<{
@@ -56,11 +59,27 @@ type EvidenciaClassroom = {
   classroom?: {
     courseId?: string;
     courseWorkId?: string;
+    submissionId?: string;
     courseWorkTitle?: string;
     assignedGrade?: number;
     maxPoints?: number;
     submissionState?: string;
   } | null;
+};
+type EventoEntregaClassroom = {
+  id: string; corte: number | null; puntosObtenidos: number | null; puntosPosibles: number | null;
+  calificacionSobre10: number | null; estado: string; estadoClassroom: string | null; importacionId: string; observadoEn: string;
+};
+type SnapshotPromedioClassroom = {
+  id: string;
+  corte: number;
+  promedioSobre10: number | null;
+  estado: string;
+  puntosObtenidos: number;
+  puntosPosibles: number;
+  capturaHash: string;
+  capturaBytes: number;
+  createdAt: string;
 };
 
 export function obtenerUrlActividadClassroom(enlace: unknown): string | null {
@@ -108,6 +127,7 @@ export function ClassroomEnCalificaciones({
   const [cortes, setCortes] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ResultadoImportacionClassroom | null>(null);
   const [faltantesConfirmados, setFaltantesConfirmados] = useState<Record<string, string[]>>({});
+  const [reentregasConfirmadas, setReentregasConfirmadas] = useState<Record<string, string[]>>({});
   const [proyeccionPendiente, setProyeccionPendiente] = useState(false);
   const [mapeoEjecutado, setMapeoEjecutado] = useState(false);
   const [alumnosCurso, setAlumnosCurso] = useState<AlumnoClassroom[]>([]);
@@ -118,9 +138,115 @@ export function ClassroomEnCalificaciones({
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [mensajeEsError, setMensajeEsError] = useState(false);
+  const [alumnoHistorialId, setAlumnoHistorialId] = useState('');
+  const [corteHistorial, setCorteHistorial] = useState('1');
+  const [snapshotsPromedio, setSnapshotsPromedio] = useState<SnapshotPromedioClassroom[]>([]);
+  const [capturasPromedio, setCapturasPromedio] = useState<Record<string, string>>({});
+  const [cursorHistorialPromedio, setCursorHistorialPromedio] = useState<string | null>(null);
+  const [cargandoHistorialPromedio, setCargandoHistorialPromedio] = useState(false);
+  const [historialEntregaAbierto, setHistorialEntregaAbierto] = useState<string | null>(null);
+  const [historialEntregaFila, setHistorialEntregaFila] = useState<EvidenciaClassroom | null>(null);
+  const [historialEntrega, setHistorialEntrega] = useState<EventoEntregaClassroom[]>([]);
+  const [cursorHistorialEntrega, setCursorHistorialEntrega] = useState<string | null>(null);
+  const [cargandoHistorialEntrega, setCargandoHistorialEntrega] = useState(false);
+  const [errorHistorialEntrega, setErrorHistorialEntrega] = useState('');
+  const capturasPromedioRef = useRef<Record<string, string>>({});
+  const solicitudHistorialIdRef = useRef(0);
+  const solicitudHistorialEntregaRef = useRef(0);
   const [previsualizando, setPrevisualizando] = useState(false);
   const [aplicandoMapeo, setAplicandoMapeo] = useState(false);
   const confirm = useConfirmDialog();
+
+  useEffect(() => () => Object.values(capturasPromedioRef.current).forEach((url) => URL.revokeObjectURL(url)), []);
+
+  async function cargarHistorialPromedio(cursor?: string) {
+    if (!periodoId || !alumnoHistorialId) return;
+    const solicitudId = ++solicitudHistorialIdRef.current;
+    setCargandoHistorialPromedio(true);
+    setMensaje('');
+    setMensajeEsError(false);
+    try {
+      const query = new URLSearchParams({ periodoId, limite: '12' });
+      if (cursor) query.set('cursor', cursor);
+      const ruta = `/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(alumnoHistorialId)}/cortes/${corteHistorial}/historial?${query}`;
+      const respuesta = await clienteApi.obtener<{ eventos?: SnapshotPromedioClassroom[]; nextCursor?: string | null }>(ruta);
+      const eventos = respuesta.eventos ?? [];
+      const capturas = await Promise.all(eventos.map(async (evento) => {
+        try {
+          const imagen = await clienteApi.obtenerBinario(`/evaluaciones/v2/classroom/historial-cortes/${encodeURIComponent(evento.id)}/captura`);
+          return { id: evento.id, url: URL.createObjectURL(await imagen.blob()) };
+        } catch {
+          return { id: evento.id, url: '' };
+        }
+      }));
+      if (solicitudId !== solicitudHistorialIdRef.current) {
+        capturas.forEach(({ url }) => { if (url) URL.revokeObjectURL(url); });
+        return;
+      }
+      if (!cursor) Object.values(capturasPromedioRef.current).forEach((url) => URL.revokeObjectURL(url));
+      const capturasNuevas = { ...(cursor ? capturasPromedioRef.current : {}), ...Object.fromEntries(capturas.filter(({ url }) => url).map(({ id, url }) => [id, url])) };
+      capturasPromedioRef.current = capturasNuevas;
+      setSnapshotsPromedio((actuales) => cursor ? [...actuales, ...eventos] : eventos);
+      setCapturasPromedio(capturasNuevas);
+      setCursorHistorialPromedio(respuesta.nextCursor ?? null);
+    } catch (error) {
+      if (solicitudId !== solicitudHistorialIdRef.current) return;
+      if (!cursor) {
+        Object.values(capturasPromedioRef.current).forEach((url) => URL.revokeObjectURL(url));
+        capturasPromedioRef.current = {};
+        setSnapshotsPromedio([]);
+        setCapturasPromedio({});
+        setCursorHistorialPromedio(null);
+      }
+      setMensaje(error instanceof Error ? error.message : 'No se pudo consultar el historial del promedio.');
+      setMensajeEsError(true);
+    } finally {
+      if (solicitudId === solicitudHistorialIdRef.current) setCargandoHistorialPromedio(false);
+    }
+  }
+
+  async function consultarHistorialEntrega(fila: EvidenciaClassroom, cursor?: string) {
+    const classroom = fila.classroom;
+    if (!fila.alumnoId || !classroom?.courseId || !classroom.courseWorkId || !classroom.submissionId) return;
+    const clave = `${fila.alumnoId}:${classroom.courseId}:${classroom.courseWorkId}:${classroom.submissionId}`;
+    const solicitudId = ++solicitudHistorialEntregaRef.current;
+    setHistorialEntregaAbierto(clave);
+    setCargandoHistorialEntrega(true);
+    setErrorHistorialEntrega('');
+    try {
+      const query = new URLSearchParams({ periodoId, courseId: classroom.courseId, courseWorkId: classroom.courseWorkId, limite: '20' });
+      if (cursor) query.set('cursor', cursor);
+      const ruta = `/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(fila.alumnoId)}/entregas/${encodeURIComponent(classroom.submissionId)}/historial?${query}`;
+      const respuesta = await clienteApi.obtener<{ eventos?: EventoEntregaClassroom[]; nextCursor?: string | null }>(ruta);
+      if (solicitudId !== solicitudHistorialEntregaRef.current) return;
+      setHistorialEntrega((actual) => cursor ? [...actual, ...(respuesta.eventos ?? [])] : respuesta.eventos ?? []);
+      setCursorHistorialEntrega(respuesta.nextCursor ?? null);
+    } catch (error) {
+      if (solicitudId !== solicitudHistorialEntregaRef.current) return;
+      setErrorHistorialEntrega(error instanceof Error ? error.message : 'No se pudo consultar el historial de esta entrega.');
+      if (!cursor) setHistorialEntrega([]);
+    } finally {
+      if (solicitudId === solicitudHistorialEntregaRef.current) setCargandoHistorialEntrega(false);
+    }
+  }
+
+  useEffect(() => {
+    solicitudHistorialEntregaRef.current += 1;
+    setHistorialEntregaAbierto(null);
+    setHistorialEntregaFila(null);
+    setHistorialEntrega([]);
+    setCursorHistorialEntrega(null);
+    setCargandoHistorialEntrega(false);
+    setErrorHistorialEntrega('');
+  }, [periodoId]);
+  function limpiarHistorialPromedio() {
+    solicitudHistorialIdRef.current += 1;
+    Object.values(capturasPromedioRef.current).forEach((url) => URL.revokeObjectURL(url));
+    capturasPromedioRef.current = {};
+    setSnapshotsPromedio([]);
+    setCapturasPromedio({});
+    setCursorHistorialPromedio(null);
+  }
   const periodoExiste = periodos.some((periodo) => periodo._id === periodoId);
   const alumnosPorId = useMemo(() => new Map(alumnos.map((alumno) => [alumno._id, alumno])), [alumnos]);
   const alumnosCursoFiltrados = useMemo(() => {
@@ -323,7 +449,10 @@ export function ClassroomEnCalificaciones({
       corte: Number(cortes[actividad.id]),
       ...(incluirConfirmaciones && (preview?.actividades ?? []).some((fila) =>
         fila.courseWorkId === actividad.id && (fila.submissions ?? []).some((submission) => submission.puedeConfirmarFaltante)
-      ) ? { faltantesConfirmados: faltantesConfirmados[actividad.id] ?? [] } : {})
+      ) ? { faltantesConfirmados: faltantesConfirmados[actividad.id] ?? [] } : {}),
+      ...(incluirConfirmaciones && (preview?.actividades ?? []).some((fila) =>
+        fila.courseWorkId === actividad.id && (fila.submissions ?? []).some((submission) => submission.revisionPendiente)
+      ) ? { reentregasConfirmadas: reentregasConfirmadas[actividad.id] ?? [] } : {})
     }));
   }
 
@@ -349,6 +478,10 @@ export function ClassroomEnCalificaciones({
         actividad.courseWorkId,
         (actividad.submissions ?? []).filter((submission) => submission.faltanteExplicito).map((submission) => submission.submissionId)
       ])));
+      setReentregasConfirmadas(Object.fromEntries((respuesta.actividades ?? []).map((actividad) => [
+        actividad.courseWorkId,
+        (actividad.submissions ?? []).filter((submission) => submission.reentregaConfirmada).map((submission) => submission.submissionId)
+      ])));
       setProyeccionPendiente(false);
       setMapeoEjecutado(false);
     } catch (error) {
@@ -363,7 +496,7 @@ export function ClassroomEnCalificaciones({
     if (!preview) return;
     const confirmado = await confirm({
       title: 'Actualizar evaluación continua',
-      message: 'Se sincronizarán las calificaciones ya asignadas en Classroom para las actividades y parciales seleccionados. No se crearán actividades ni se editarán notas en Classroom.',
+      message: 'Se sincronizarán las calificaciones ya asignadas. Solo se aceptarán reentregas de alumnos marcadas explícitamente por ti; las demás conservarán la calificación e historial vigentes.',
       confirmLabel: 'Sincronizar selección',
       tone: 'warning'
     });
@@ -507,6 +640,27 @@ export function ClassroomEnCalificaciones({
                   </label>;
                 })}
               </fieldset>}
+              {(preview.actividades ?? []).flatMap((actividad) => (actividad.submissions ?? [])
+                .filter((submission) => submission.revisionPendiente)
+                .map((submission) => ({ actividad, submission }))).length > 0 && <fieldset className="cuenta-subpanel">
+                <legend>Reentregas que requieren autorización docente</legend>
+                <p className="nota">La sincronización detectó una reentrega después de que Classroom devolvió la actividad. No se reemplazará la evidencia aceptada a menos que marques cada cambio que deseas aplicar.</p>
+                {(preview.actividades ?? []).flatMap((actividad) => (actividad.submissions ?? [])
+                  .filter((submission) => submission.revisionPendiente)
+                  .map((submission) => ({ actividad, submission }))).map(({ actividad, submission }) => {
+                  const seleccionados = reentregasConfirmadas[actividad.courseWorkId] ?? [];
+                  const marcada = seleccionados.includes(submission.submissionId);
+                  return <label className="campo" key={`${actividad.courseWorkId}:${submission.submissionId}`}>
+                    <input type="checkbox" checked={marcada} onChange={(event) => setReentregasConfirmadas((actual) => {
+                      const ids = new Set(actual[actividad.courseWorkId] ?? []);
+                      if (event.target.checked) ids.add(submission.submissionId);
+                      else ids.delete(submission.submissionId);
+                      return { ...actual, [actividad.courseWorkId]: [...ids] };
+                    })} />
+                    <span>Actualizar solo por solicitud docente · {submission.alumnoNombre || submission.alumnoId || 'Alumno sin vincular'} · {actividad.courseWorkTitle || actividad.courseWorkId}</span>
+                  </label>;
+                })}
+              </fieldset>}
               {proyeccionPendiente && <>
                 <InlineMensaje tipo="warning">Cambiaste las faltas seleccionadas. Actualiza la proyección para ver el efecto exacto antes de sincronizar.</InlineMensaje>
                 <Boton type="button" variante="secundario" disabled={aplicandoMapeo || previsualizando} cargando={previsualizando} onClick={() => void previsualizarMapeo(true)}>Actualizar proyección</Boton>
@@ -521,6 +675,31 @@ export function ClassroomEnCalificaciones({
         <h4>Evidencias sincronizadas</h4>
         <p className="nota">Las notas se consultan desde la última sincronización. Usa el enlace de cada actividad para revisar o calificar en Google Classroom.</p>
       </div>
+      <section className="cuenta-subpanel classroom-grade-history" aria-label="Historial del promedio Classroom por parcial">
+        <h4><Icono nombre="evaluaciones" size={19} /> Historial del promedio por alumno y parcial</h4>
+        <p className="nota">Consulta la ficha comprimida que corresponde a cada snapshot aceptado. Las reentregas pendientes no cambian este historial hasta que el docente las confirme.</p>
+        <div className="calificaciones-consulta__filters">
+          <label className="campo"><span>Alumno</span><select value={alumnoHistorialId} onChange={(event) => { limpiarHistorialPromedio(); setAlumnoHistorialId(event.target.value); }}>
+            <option value="">Selecciona alumno</option>{alumnos.filter((alumno) => alumno.periodoId === periodoId).map((alumno) => <option key={alumno._id} value={alumno._id}>{alumno.matricula ? `${alumno.matricula} · ` : ''}{alumno.nombreCompleto}</option>)}
+          </select></label>
+          <label className="campo"><span>Parcial</span><select value={corteHistorial} onChange={(event) => { limpiarHistorialPromedio(); setCorteHistorial(event.target.value); }}>
+            <option value="1">Primer parcial</option><option value="2">Segundo parcial</option><option value="3">Tercer parcial</option>
+          </select></label>
+          <Boton type="button" variante="secundario" disabled={!alumnoHistorialId || cargandoHistorialPromedio} cargando={cargandoHistorialPromedio} onClick={() => void cargarHistorialPromedio()}>Consultar historial</Boton>
+        </div>
+        {snapshotsPromedio.length > 0 && <p className="nota" aria-live="polite">Mostrando {snapshotsPromedio.length} capturas del historial.</p>}
+        {snapshotsPromedio.map((snapshot) => <article className="cuenta-subpanel classroom-grade-history__card" key={snapshot.id}>
+          <h5><Icono nombre={snapshot.estado === 'calculado' ? 'ok' : 'alerta'} size={18} />
+            {snapshot.estado === 'calculado' ? `${snapshot.promedioSobre10?.toLocaleString('es-MX', { maximumFractionDigits: 2 })} / 10` : 'Promedio pendiente'}
+            <time dateTime={snapshot.createdAt}>{new Date(snapshot.createdAt).toLocaleString('es-MX')}</time>
+          </h5>
+          <p className="nota">{snapshot.puntosObtenidos} / {snapshot.puntosPosibles} puntos · WebP {Math.ceil(snapshot.capturaBytes / 1024)} KiB · hash {snapshot.capturaHash.slice(0, 12)}</p>
+          {capturasPromedio[snapshot.id] && <img src={capturasPromedio[snapshot.id]} alt={`Ficha del promedio del ${snapshot.corte}° parcial para ${alumnosPorId.get(alumnoHistorialId)?.nombreCompleto ?? 'alumno'}`} loading="lazy" />}
+          {!capturasPromedio[snapshot.id] && <p role="status" aria-label="No se pudo cargar la imagen de la ficha" className="classroom-grade-history__image-error"><Icono nombre="alerta" size={16} /> La ficha está en el historial, pero no se pudo cargar su imagen. Vuelve a consultar para reintentar.</p>}
+        </article>)}
+        {cursorHistorialPromedio && <Boton type="button" variante="secundario" disabled={cargandoHistorialPromedio} cargando={cargandoHistorialPromedio} onClick={() => void cargarHistorialPromedio(cursorHistorialPromedio)}>Cargar más capturas</Boton>}
+        {!cargandoHistorialPromedio && alumnoHistorialId && snapshotsPromedio.length === 0 && <p role="status">No hay snapshots de promedio registrados para este alumno y parcial.</p>}
+      </section>
       <label className="campo">
         <span>Buscar evidencias</span>
         <input type="search" value={busquedaEvidencias} onChange={(event) => setBusquedaEvidencias(event.target.value)} placeholder="Alumno, matrícula, actividad, nota o estado" />
@@ -529,11 +708,14 @@ export function ClassroomEnCalificaciones({
       <div className="calificaciones-consulta__table-wrap">
         <table className="calificaciones-consulta__table">
           <caption className="sr-only">Evidencias y calificaciones Classroom de la materia seleccionada</caption>
-          <thead><tr><th scope="col">Alumno</th><th scope="col">Actividad</th><th scope="col">Calificación Classroom</th><th scope="col">Estado</th><th scope="col">Actualizada</th><th scope="col">Revisar en Classroom</th></tr></thead>
+          <thead><tr><th scope="col">Alumno</th><th scope="col">Actividad</th><th scope="col">Calificación Classroom</th><th scope="col">Estado</th><th scope="col">Actualizada</th><th scope="col">Revisar en Classroom</th><th scope="col">Historial de entrega</th></tr></thead>
           <tbody>
             {evidenciasFiltradas.map((fila) => {
               const alumno = alumnosPorId.get(fila.alumnoId);
               const urlActividad = obtenerUrlActividadClassroom(fila.metadata?.alternateLink);
+              const classroom = fila.classroom;
+              const historialKey = `${fila.alumnoId}:${classroom?.courseId}:${classroom?.courseWorkId}:${classroom?.submissionId}`;
+              const tieneIdentidadEntrega = Boolean(classroom?.courseId && classroom.courseWorkId && classroom.submissionId);
               return <tr key={fila.id}>
                 <th scope="row" data-label="Alumno">{alumno?.nombreCompleto || 'Alumno no disponible'}</th>
                 <td data-label="Actividad">{fila.classroom?.courseWorkTitle || fila.titulo}</td>
@@ -541,10 +723,35 @@ export function ClassroomEnCalificaciones({
                 <td data-label="Estado">{fila.estadoCaptura === 'calificada' ? 'Calificada' : fila.classroom?.submissionState || 'Pendiente'}</td>
                 <td data-label="Actualizada">{new Date(fila.fechaEvidencia).toLocaleDateString('es-MX')}</td>
                 <td data-label="Revisar en Classroom">{urlActividad ? <a href={urlActividad} target="_blank" rel="noopener noreferrer" aria-label={`Abrir en Google Classroom: ${fila.classroom?.courseWorkTitle || fila.titulo}`}>Abrir actividad</a> : '—'}</td>
+                <td data-label="Historial de entrega">{tieneIdentidadEntrega ? <Boton type="button" variante="secundario" onClick={() => {
+                  if (historialEntregaAbierto === historialKey) {
+                    solicitudHistorialEntregaRef.current += 1;
+                    setHistorialEntregaAbierto(null); setHistorialEntregaFila(null); setHistorialEntrega([]); setCursorHistorialEntrega(null); setErrorHistorialEntrega('');
+                  } else {
+                    setHistorialEntregaFila(fila); setHistorialEntrega([]); setCursorHistorialEntrega(null); void consultarHistorialEntrega(fila);
+                  }
+                }}>{historialEntregaAbierto === historialKey ? 'Ocultar historial' : 'Ver historial'}</Boton> : 'Sin ID de entrega'}</td>
               </tr>;
             })}
-            {!cargando && periodoId && evidencias.length === 0 && <tr><td colSpan={6}>No hay calificaciones Classroom sincronizadas para esta materia.</td></tr>}
-            {!cargando && evidencias.length > 0 && evidenciasFiltradas.length === 0 && <tr><td colSpan={6}>Ninguna evidencia coincide con la búsqueda.</td></tr>}
+            {historialEntregaAbierto && <tr><td colSpan={7}>
+              <section aria-label="Historial de la entrega" className="classroom-grade-history__delivery">
+                <h5>Versiones observadas de esta entrega</h5>
+                <p className="nota">Cada sincronización distinta queda registrada. Una reentrega pendiente no sustituye la calificación aceptada.</p>
+                {cargandoHistorialEntrega && <InlineMensaje tipo="info">Consultando historial…</InlineMensaje>}
+                {errorHistorialEntrega && <InlineMensaje tipo="error">{errorHistorialEntrega}</InlineMensaje>}
+                {!cargandoHistorialEntrega && !errorHistorialEntrega && historialEntrega.length === 0 && <p role="status">Aún no hay versiones registradas de esta entrega.</p>}
+                {historialEntrega.map((evento) => <article key={evento.id}>
+                  <strong>{evento.estado === 'revision_pendiente' ? 'Reentrega pendiente de autorización' : evento.estado === 'calificada' ? 'Calificación sincronizada' : evento.estado === 'faltante_confirmado' ? 'Faltante confirmado por el docente' : 'Entrega sincronizada'}</strong>
+                  <time dateTime={evento.observadoEn}>{new Date(evento.observadoEn).toLocaleString('es-MX')}</time>
+                  <span>{evento.puntosObtenidos === null ? 'Sin puntaje' : `${evento.puntosObtenidos} / ${evento.puntosPosibles ?? '—'} puntos`}</span>
+                  {evento.calificacionSobre10 !== null && <span>{evento.calificacionSobre10.toFixed(2)} / 10</span>}
+                  <span>{evento.estadoClassroom ?? 'Estado de Classroom sin informar'} · {evento.corte ? `Parcial ${evento.corte}` : 'Sin parcial asignado'}</span>
+                </article>)}
+                {cursorHistorialEntrega && historialEntregaFila && <Boton type="button" variante="secundario" disabled={cargandoHistorialEntrega} cargando={cargandoHistorialEntrega} onClick={() => void consultarHistorialEntrega(historialEntregaFila, cursorHistorialEntrega)}>Cargar versiones anteriores</Boton>}
+              </section>
+            </td></tr>}
+            {!cargando && periodoId && evidencias.length === 0 && <tr><td colSpan={7}>No hay calificaciones Classroom sincronizadas para esta materia.</td></tr>}
+            {!cargando && evidencias.length > 0 && evidenciasFiltradas.length === 0 && <tr><td colSpan={7}>Ninguna evidencia coincide con la búsqueda.</td></tr>}
           </tbody>
         </table>
       </div>

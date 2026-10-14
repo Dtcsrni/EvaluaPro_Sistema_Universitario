@@ -555,43 +555,96 @@ internal static class NativeInstallerHelper
     {
         var nodePath = Path.GetFullPath(Path.Combine(root, "runtime", "node", "node.exe"));
         if (!File.Exists(nodePath)) return;
-        var owned = new List<int>();
+        var owned = new List<(int ProcessId, long StartTimeUtcTicks)>();
         foreach (var process in Process.GetProcessesByName("node"))
         {
             using (process)
             {
                 string executable;
-                try { executable = process.MainModule?.FileName ?? throw new InvalidOperationException($"No se pudo leer la imagen del proceso Node PID={process.Id}."); }
+                long startTimeUtcTicks;
+                try
+                {
+                    executable = process.MainModule?.FileName ?? throw new InvalidOperationException($"No se pudo leer la imagen del proceso Node PID={process.Id}.");
+                    startTimeUtcTicks = process.StartTime.ToUniversalTime().Ticks;
+                }
+                catch (InvalidOperationException) when (process.HasExited)
+                {
+                    Console.WriteLine($"El proceso Node PID={process.Id} terminó durante el inventario; se omite.");
+                    continue;
+                }
                 catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException)
                 {
                     throw new InvalidOperationException($"No se pudo verificar de forma segura un proceso Node PID={process.Id}; se cancela la actualización.", ex);
                 }
-                if (Path.GetFullPath(executable).Equals(nodePath, StringComparison.OrdinalIgnoreCase)) owned.Add(process.Id);
+                if (Path.GetFullPath(executable).Equals(nodePath, StringComparison.OrdinalIgnoreCase)) owned.Add((process.Id, startTimeUtcTicks));
             }
         }
 
-        foreach (var processId in owned)
+        foreach (var processIdentity in owned)
         {
-            using var process = Process.GetProcessById(processId);
-            var executable = process.MainModule?.FileName;
-            if (string.IsNullOrWhiteSpace(executable) || !Path.GetFullPath(executable).Equals(nodePath, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"La identidad del proceso cambió antes de detener PID={processId}.");
-            process.Kill(entireProcessTree: true);
+            Process process;
+            try { process = Process.GetProcessById(processIdentity.ProcessId); }
+            catch (ArgumentException)
+            {
+                Console.WriteLine($"El proceso Node propio PID={processIdentity.ProcessId} ya terminó; se continúa con la actualización.");
+                continue;
+            }
+
+            using (process)
+            {
+                if (process.HasExited)
+                {
+                    Console.WriteLine($"El proceso Node propio PID={processIdentity.ProcessId} ya terminó; se continúa con la actualización.");
+                    continue;
+                }
+
+                long currentStartTimeUtcTicks;
+                string? executable;
+                try
+                {
+                    currentStartTimeUtcTicks = process.StartTime.ToUniversalTime().Ticks;
+                    executable = process.MainModule?.FileName;
+                }
+                catch (InvalidOperationException) when (process.HasExited)
+                {
+                    Console.WriteLine($"El proceso Node propio PID={processIdentity.ProcessId} terminó durante la validación; se continúa con la actualización.");
+                    continue;
+                }
+                catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException)
+                {
+                    throw new InvalidOperationException($"No se pudo verificar de forma segura el proceso Node PID={processIdentity.ProcessId}; se cancela la actualización.", ex);
+                }
+
+                if (currentStartTimeUtcTicks != processIdentity.StartTimeUtcTicks || string.IsNullOrWhiteSpace(executable) || !Path.GetFullPath(executable).Equals(nodePath, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"La identidad del proceso cambió antes de detener PID={processIdentity.ProcessId}.");
+
+                try { process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) when (process.HasExited)
+                {
+                    Console.WriteLine($"El proceso Node propio PID={processIdentity.ProcessId} terminó antes de detenerse; se continúa con la actualización.");
+                }
+            }
         }
 
         var deadline = DateTime.UtcNow.AddSeconds(15);
         while (DateTime.UtcNow < deadline)
         {
-            var remaining = owned.Where(IsProcessRunning).ToArray();
+            var remaining = owned.Where(process => IsProcessRunning(process.ProcessId, process.StartTimeUtcTicks)).ToArray();
             if (remaining.Length == 0) return;
             Thread.Sleep(250);
         }
         throw new TimeoutException("No se detuvieron todos los procesos Node propios dentro de 15 segundos; el payload no se modificó.");
     }
 
-    private static bool IsProcessRunning(int pid)
+    private static bool IsProcessRunning(int pid, long expectedStartTimeUtcTicks)
     {
-        try { using var process = Process.GetProcessById(pid); return !process.HasExited; }
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            if (process.HasExited) return false;
+            try { return process.StartTime.ToUniversalTime().Ticks == expectedStartTimeUtcTicks; }
+            catch (InvalidOperationException) when (process.HasExited) { return false; }
+        }
         catch (ArgumentException) { return false; }
     }
 

@@ -137,6 +137,35 @@ test('lecturas Classroom tipan curso, actividad y roster como los consume Califi
   assert.ok(actividades.parameters.some((parameter) => parameter.name === 'periodoId' && !parameter.required));
 });
 
+test('documenta el historial por alumno/corte y la captura WebP privada', () => {
+  const historial = openapi.paths?.['/evaluaciones/v2/classroom/alumnos/{alumnoId}/cortes/{corte}/historial']?.get;
+  assert.ok(historial);
+  assert.ok(historial.security?.some(({ bearerAuth }) => bearerAuth));
+  assert.ok(historial.parameters?.some((parameter) => parameter.name === 'periodoId' && parameter.in === 'query' && parameter.required));
+  assert.ok(historial.parameters?.some((parameter) => parameter.name === 'limite' && parameter.schema.maximum === 100));
+  assert.deepEqual(historial.parameters?.find((parameter) => parameter.name === 'corte')?.schema.enum, [1, 2, 3]);
+
+  const captura = openapi.paths?.['/evaluaciones/v2/classroom/historial-cortes/{snapshotId}/captura']?.get;
+  assert.ok(captura);
+  assert.equal(captura.responses['200'].content['image/webp'].schema.format, 'binary');
+  assert.equal(captura.responses['200'].headers['Cache-Control'].schema.const, 'private, no-store');
+});
+
+test('documenta el historial paginado por entrega sin copiar datos de la entrega', () => {
+  const historial = openapi.paths?.['/evaluaciones/v2/classroom/alumnos/{alumnoId}/entregas/{submissionId}/historial']?.get;
+  assert.ok(historial);
+  assert.ok(historial.security?.some(({ bearerAuth }) => bearerAuth));
+  for (const nombre of ['alumnoId', 'submissionId', 'periodoId', 'courseId', 'courseWorkId']) {
+    assert.ok(historial.parameters?.some((parameter) => parameter.name === nombre && parameter.required));
+  }
+  assert.equal(historial.parameters?.find((parameter) => parameter.name === 'limite')?.schema.maximum, 100);
+  const evento = historial.responses['200'].content['application/json'].schema.properties.eventos.items;
+  assert.equal(evento.additionalProperties, false);
+  assert.ok(evento.properties.estado.enum.includes('revision_pendiente'));
+  assert.equal(evento.properties.emailAddress, undefined);
+  assert.equal(evento.properties.adjunto, undefined);
+});
+
 test('el generador vuelve a aplicar los contratos Classroom sin alterar otras rutas', () => {
   const copia = structuredClone(openapi);
   aplicarContratosClassroomGrades(copia);

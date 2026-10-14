@@ -5,6 +5,7 @@
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { randomUUID } from 'node:crypto';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { Alumno } from '../modulo_alumnos/index.js';
 import { EvidenciaEvaluacion } from '../modulo_evaluaciones/index.js';
@@ -13,6 +14,7 @@ import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia.js';
 import { MapeoClassroomAlumnoCurso } from './modeloMapeoClassroomAlumnoCurso.js';
 import { BitacoraSyncClassroom } from './modeloBitacoraSyncClassroom.js';
 import { calcularAcumuladoTareasPonderadoPorPuntos } from './calculoAcumuladoTareas.js';
+import { registrarEventoEntregaClassroom, registrarSnapshotsClassroomCortes } from './servicioHistorialClassroom.js';
 import {
   classroomGet,
   listarActividadesClassroom,
@@ -44,6 +46,32 @@ function normalizarTexto(valor: unknown): string {
 function fechaSegura(valor: unknown): Date | null {
   const fecha = new Date(String(valor || ''));
   return Number.isFinite(fecha.getTime()) ? fecha : null;
+}
+
+function detectarReentregaTrasDevolucion(params: {
+  submission: Record<string, unknown>;
+  classroomAnterior: Record<string, unknown>;
+  estadoActual: string;
+}): boolean {
+  const estadoAnterior = normalizarTexto(params.classroomAnterior.submissionState).toUpperCase();
+  const estadoActual = params.estadoActual.toUpperCase();
+  if (estadoAnterior === 'RETURNED' && estadoActual === 'TURNED_IN') return true;
+
+  // Classroom expone el historial de estados; se usa para no perder la
+  // reentrega si el docente ya la calificó/devolvió antes de la siguiente
+  // sincronización. Solo cuentan cambios posteriores a la última captura
+  // aceptada en EvaluaPro.
+  const capturaAnterior = fechaSegura(params.classroomAnterior.pulledAt)
+    ?? fechaSegura(params.classroomAnterior.updateTime);
+  if (!capturaAnterior || !Array.isArray(params.submission.submissionHistory)) return false;
+  const estados = params.submission.submissionHistory.flatMap((entrada) => {
+    const stateHistory = leerMetadata(entrada).stateHistory;
+    if (!stateHistory || typeof stateHistory !== 'object') return [];
+    const evento = stateHistory as Record<string, unknown>;
+    const fecha = fechaSegura(evento.stateTimestamp);
+    return fecha ? [{ estado: normalizarTexto(evento.state).toUpperCase(), fecha }] : [];
+  }).sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+  return estados.some((evento) => evento.estado === 'TURNED_IN' && evento.fecha > capturaAnterior);
 }
 
 function fechaLimiteUtc(courseWork: Record<string, unknown>): Date | null {
@@ -103,6 +131,9 @@ function normalizarActividadSeleccionada(actividad: ActividadClassroomSelecciona
     ...(typeof actividad.activo === 'boolean' ? { activo: actividad.activo } : {}),
     ...(Array.isArray(actividad.faltantesConfirmados)
       ? { faltantesConfirmados: [...new Set(actividad.faltantesConfirmados.map(normalizarTexto).filter(Boolean))] }
+      : {}),
+    ...(Array.isArray(actividad.reentregasConfirmadas)
+      ? { reentregasConfirmadas: [...new Set(actividad.reentregasConfirmadas.map(normalizarTexto).filter(Boolean))] }
       : {})
   };
 }
@@ -131,6 +162,7 @@ export type ActividadClassroomSeleccionada = {
   destinoColumna?: 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir' | null;
   activo?: boolean;
   faltantesConfirmados?: string[];
+  reentregasConfirmadas?: string[];
 };
 
 type EstudianteClassroom = {
@@ -178,6 +210,8 @@ type PreviewSubmission = {
   vencida: boolean;
   puedeConfirmarFaltante: boolean;
   faltanteExplicito: boolean;
+  revisionPendiente?: boolean;
+  reentregaConfirmada?: boolean;
   estadoClassroom?: string;
   fechaVencimiento?: string;
 };
@@ -596,6 +630,7 @@ export async function sincronizarImportacionClassroom(params: {
   limiteSubmissions?: number;
   persistir: boolean;
 }) {
+  const importacionId = randomUUID();
   const actividades = params.actividades.map(normalizarActividadSeleccionada).filter((actividad) => Boolean(actividad.courseId && actividad.courseWorkId));
   if (actividades.length === 0) {
     throw new ErrorAplicacion('CLASSROOM_ACTIVIDADES_INVALIDAS', 'No se recibieron actividades válidas para importar', 400);
@@ -722,14 +757,17 @@ export async function sincronizarImportacionClassroom(params: {
             'classroom.courseWorkId': actividad.courseWorkId,
             'classroom.submissionId': submissionId
           })
-            .select({ _id: 1, metadata: 1 })
+            .select({ _id: 1, metadata: 1, classroomData: 1, calificacionDecimal: 1 })
             .lean();
 
           const metadataExistente = leerMetadata(existente?.metadata);
+          const classroomAnterior = leerMetadata(existente?.classroomData ?? existente?.classroom);
           const faltantePersistido = Boolean(metadataExistente.faltanteClassroomConfirmado);
           const faltanteSolicitado = actividad.faltantesConfirmados?.includes(submissionId) === true;
           const tieneCalificacionClassroom = calificacionCalculada !== null;
           const estadoClassroom = normalizarTexto(submission.state);
+          const esReentrega = detectarReentregaTrasDevolucion({ submission, classroomAnterior, estadoActual: estadoClassroom });
+          const reentregaConfirmada = esReentrega && actividad.reentregasConfirmadas?.includes(submissionId) === true;
           const candidatoFaltante = Boolean(
             vencida &&
             (numeroOpcional(courseWorkPayload.maxPoints) ?? 0) > 0 &&
@@ -788,6 +826,7 @@ export async function sincronizarImportacionClassroom(params: {
             vencida,
             puedeConfirmarFaltante,
             faltanteExplicito,
+            ...(esReentrega ? { revisionPendiente: !reentregaConfirmada, reentregaConfirmada } : {}),
             ...(estadoClassroom ? { estadoClassroom } : {}),
             ...(fechaVencimiento ? { fechaVencimiento: fechaVencimiento.toISOString() } : {})
           };
@@ -896,6 +935,21 @@ export async function sincronizarImportacionClassroom(params: {
             evidenciaPayload.calificacionDecimal = calificacionFinal;
           }
 
+          if (esReentrega && !reentregaConfirmada) {
+            await registrarEventoEntregaClassroom({
+              docenteId: params.docenteId, periodoId: params.periodoId, alumnoId: resolucionAlumno.alumnoId,
+              courseId: actividad.courseId, courseWorkId: actividad.courseWorkId, submissionId,
+              corte: Number.isInteger(Number(actividad.corte)) ? Number(actividad.corte) : null,
+              puntosObtenidos: numeroOpcional(submission.assignedGrade),
+              puntosPosibles: numeroOpcional(courseWorkPayload.maxPoints), calificacionSobre10: calificacionCalculada,
+              estado: 'revision_pendiente', estadoClassroom: estadoClassroom || null,
+              importacionId, capturadoPor: params.docenteId, observadoEn: new Date()
+            });
+            resultadoActividad.pending += 1;
+            resultadoActividad.omitidas += 1;
+            continue;
+          }
+
           await EvidenciaEvaluacion.updateOne(
             {
               docenteId: params.docenteId,
@@ -909,6 +963,17 @@ export async function sincronizarImportacionClassroom(params: {
             },
             { upsert: true }
           );
+
+          await registrarEventoEntregaClassroom({
+            docenteId: params.docenteId, periodoId: params.periodoId, alumnoId: resolucionAlumno.alumnoId,
+            courseId: actividad.courseId, courseWorkId: actividad.courseWorkId, submissionId,
+            corte: Number.isInteger(Number(actividad.corte)) ? Number(actividad.corte) : null,
+            puntosObtenidos: numeroOpcional(submission.assignedGrade),
+            puntosPosibles: numeroOpcional(courseWorkPayload.maxPoints), calificacionSobre10: calificacionCalculada,
+            estado: faltanteExplicito ? 'faltante_confirmado' : estadoCaptura,
+            estadoClassroom: estadoClassroom || null,
+            importacionId, capturadoPor: params.docenteId, observadoEn: new Date()
+          });
 
           if (existente?._id) {
             resultadoActividad.actualizadas += 1;
@@ -1036,6 +1101,11 @@ export async function sincronizarImportacionClassroom(params: {
     errores
   };
 
+  const snapshotsGuardados = params.persistir
+    ? await registrarSnapshotsClassroomCortes({ docenteId: params.docenteId, periodoId: params.periodoId, importacionId })
+    : 0;
+  Object.assign(payload, { importacionId, snapshotsClassroomGuardados: snapshotsGuardados });
+
   await BitacoraSyncClassroom.create({
     docenteId: params.docenteId,
     periodoId: params.periodoId,
@@ -1054,6 +1124,8 @@ export async function sincronizarImportacionClassroom(params: {
       importadas: payload.importadas,
       actualizadas: payload.actualizadas,
       omitidas: payload.omitidas,
+      importacionId,
+      snapshotsClassroomGuardados: snapshotsGuardados,
       acumuladoTareasSegundoParcial: payload.acumuladoTareasSegundoParcial
     },
     actividades: payload.actividades,

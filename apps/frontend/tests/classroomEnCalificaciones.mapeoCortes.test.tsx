@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmDialogProvider } from '../src/ui/feedback/ConfirmDialogProvider';
@@ -46,8 +46,9 @@ describe('ClassroomEnCalificaciones: asignación de actividades a cortes', () =>
     /></ConfirmDialogProvider>);
 
     await user.selectOptions(await screen.findByRole('combobox', { name: 'Curso de Classroom' }), 'course-1');
-    await screen.findByRole('option', { name: 'Tercer parcial' });
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Parcial destino' }), '3');
+    const parcialDestino = await screen.findByRole('combobox', { name: 'Parcial destino' });
+    await within(parcialDestino).findByRole('option', { name: 'Tercer parcial' });
+    await user.selectOptions(parcialDestino, '3');
     await user.click(screen.getByRole('button', { name: 'Previsualizar evaluación continua' }));
 
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/evaluaciones/v2/classroom/importaciones/preview', {

@@ -69,7 +69,8 @@ export const esquemaActividadClassroomSeleccionada = z
     destinoColumna: z.enum(['Tareas y Ejercicios 2do Parcial', 'Practica 2do Parcial', 'Excluir']).nullable().optional(),
     activo: z.boolean().optional(),
     incluirEnPromedio: z.boolean().optional(),
-    faltantesConfirmados: z.array(z.string().trim().min(1).max(128)).max(500).optional()
+    faltantesConfirmados: z.array(z.string().trim().min(1).max(128)).max(500).optional(),
+    reentregasConfirmadas: z.array(z.string().trim().min(1).max(128)).max(500).optional()
   })
   .strict();
 

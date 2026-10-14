@@ -278,6 +278,37 @@ describe('classroom v2', () => {
     expect(evidencias.find((item) => item.classroom?.submissionId === 'submission-1')?.calificacionDecimal).toBe(9);
     expect(evidencias.find((item) => item.classroom?.submissionId === 'submission-1')?.descripcion).toBe(descripcionOriginal);
 
+    const historialEntregaInicial = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/entregas/submission-1/historial?periodoId=${encodeURIComponent(String(periodo._id))}&courseId=course-1&courseWorkId=cw-1`)
+      .set(auth)
+      .expect(200);
+    expect(historialEntregaInicial.body?.eventos).toHaveLength(1);
+    expect(historialEntregaInicial.body?.eventos?.[0]).toEqual(expect.objectContaining({
+      puntosObtenidos: 90, puntosPosibles: 100, calificacionSobre10: 9, estado: 'calificada', corte: 2,
+      importacionId: ejecucion.body.importacionId, capturadoPor: String(docente._id)
+    }));
+    expect(JSON.stringify(historialEntregaInicial.body)).not.toContain('uno@classroom.test');
+    await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/entregas/submission-1/historial?periodoId=${encodeURIComponent(String(periodo._id))}&courseId=course-1&courseWorkId=cw-1&cursor=invalido`)
+      .set(auth)
+      .expect(400);
+
+    const historialCorte = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/cortes/2/historial?periodoId=${encodeURIComponent(String(periodo._id))}`)
+      .set(auth)
+      .expect(200);
+    expect(historialCorte.body?.eventos).toHaveLength(1);
+    expect(historialCorte.body?.eventos?.[0]).toEqual(expect.objectContaining({
+      corte: 2, promedioSobre10: 9, estado: 'calculado', capturaBytes: expect.any(Number), capturaHash: expect.any(String)
+    }));
+    const captura = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/historial-cortes/${encodeURIComponent(historialCorte.body.eventos[0].id)}/captura`)
+      .set(auth)
+      .expect(200);
+    expect(captura.headers['content-type']).toContain('image/webp');
+    expect(captura.headers['cache-control']).toContain('no-store');
+    expect(Buffer.from(captura.body).subarray(0, 4).toString()).toBe('RIFF');
+
     asignadaCalificacionUno = false;
     const reejecucion = await request(app)
       .post('/api/evaluaciones/v2/classroom/importaciones/ejecutar')
@@ -290,6 +321,35 @@ describe('classroom v2', () => {
     expect(reejecucion.body?.importadas).toBe(0);
     expect(reejecucion.body?.actualizadas).toBe(3);
     expect(await EvidenciaEvaluacion.countDocuments({ docenteId: docente._id, periodoId: periodo._id })).toBe(3);
+    const historialTrasCambio = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/entregas/submission-1/historial?periodoId=${encodeURIComponent(String(periodo._id))}&courseId=course-1&courseWorkId=cw-1`)
+      .set(auth)
+      .expect(200);
+    expect(historialTrasCambio.body?.eventos).toHaveLength(2);
+    expect(historialTrasCambio.body?.eventos?.map((evento: { estado: string }) => evento.estado)).toContain('calificada');
+    expect(historialTrasCambio.body?.eventos?.map((evento: { estado: string }) => evento.estado)).toContain('pendiente');
+    const paginado = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/entregas/submission-1/historial?periodoId=${encodeURIComponent(String(periodo._id))}&courseId=course-1&courseWorkId=cw-1&limite=1`)
+      .set(auth)
+      .expect(200);
+    expect(paginado.body?.eventos).toHaveLength(1);
+    expect(paginado.body?.nextCursor).toBeTruthy();
+    const siguientePagina = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/entregas/submission-1/historial?periodoId=${encodeURIComponent(String(periodo._id))}&courseId=course-1&courseWorkId=cw-1&limite=1&cursor=${encodeURIComponent(paginado.body.nextCursor)}`)
+      .set(auth)
+      .expect(200);
+    expect(siguientePagina.body?.eventos).toHaveLength(1);
+    expect(siguientePagina.body?.eventos?.[0].id).not.toBe(paginado.body?.eventos?.[0].id);
+    await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/ejecutar')
+      .set(auth)
+      .send({ periodoId: String(periodo._id), actividades: [{ courseId: 'course-1', courseWorkId: 'cw-1', tituloEvidencia: 'Actividad importada', ponderacion: 1, corte: 2 }] })
+      .expect(200);
+    const historialReintento = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/entregas/submission-1/historial?periodoId=${encodeURIComponent(String(periodo._id))}&courseId=course-1&courseWorkId=cw-1`)
+      .set(auth)
+      .expect(200);
+    expect(historialReintento.body?.eventos).toHaveLength(2);
     const notaRetirada = await EvidenciaEvaluacion.findOne({ docenteId: docente._id, 'classroom.submissionId': 'submission-1' }).lean();
     expect(notaRetirada?.estadoCaptura).toBe('pendiente');
     expect(notaRetirada?.calificacionDecimal).toBeNull();
@@ -406,6 +466,88 @@ describe('classroom v2', () => {
       .expect(200);
     const fila = lista.body?.filas?.find((item: { alumnoId: string }) => item.alumnoId === String(alumno1._id));
     expect(fila?.continuaTercerParcialLista).toBe('0');
+  });
+
+  it('mantiene la calificación aceptada ante reentrega y solo la reemplaza con confirmación docente', async () => {
+    const { docente, periodo, alumno1, auth } = await crearContexto();
+    vi.mocked(obtenerTokenAccesoClassroom).mockResolvedValue('token-mock');
+    let estadoActual: Record<string, unknown> = {
+      id: 'submission-reentrega', userId: 'user-1', assignedGrade: 50, state: 'RETURNED',
+      updateTime: '2026-01-10T10:00:00.000Z'
+    };
+    vi.mocked(classroomGet).mockImplementation(async (_token, path) => {
+      const ruta = String(path);
+      if (ruta === 'courses/course-1') return { id: 'course-1', name: 'Programación' };
+      if (ruta.includes('/students')) return { students: [{ userId: 'user-1', profile: { emailAddress: 'uno@classroom.test', name: { fullName: 'Alumno Uno' } } }] };
+      if (ruta.includes('/studentSubmissions')) return { studentSubmissions: [estadoActual] };
+      return { id: 'cw-reentrega', title: 'Actividad', maxPoints: 100, state: 'PUBLISHED' };
+    });
+
+    await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/ejecutar')
+      .set(auth)
+      .send({ periodoId: String(periodo._id), actividades: [{ courseId: 'course-1', courseWorkId: 'cw-reentrega', corte: 1 }] })
+      .expect(200);
+    const evidenciaInicial = await EvidenciaEvaluacion.findOne({ docenteId: docente._id, 'classroom.submissionId': 'submission-reentrega' }).lean();
+    expect(evidenciaInicial?.calificacionDecimal).toBe(5);
+    const historialInicial = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/cortes/1/historial?periodoId=${encodeURIComponent(String(periodo._id))}`)
+      .set(auth)
+      .expect(200);
+    expect(historialInicial.body?.eventos).toHaveLength(1);
+    expect(historialInicial.body?.eventos?.[0]).toEqual(expect.objectContaining({ promedioSobre10: 5, estado: 'calculado' }));
+    const hashFichaAceptada = historialInicial.body.eventos[0].capturaHash;
+
+    const base = Date.now() + 60_000;
+    estadoActual = {
+      id: 'submission-reentrega', userId: 'user-1', assignedGrade: 80, state: 'RETURNED',
+      updateTime: new Date(base + 2_000).toISOString(),
+      submissionHistory: [
+        { stateHistory: { state: 'RETURNED', stateTimestamp: new Date(base).toISOString() } },
+        { stateHistory: { state: 'TURNED_IN', stateTimestamp: new Date(base + 1_000).toISOString() } },
+        { stateHistory: { state: 'RETURNED', stateTimestamp: new Date(base + 2_000).toISOString() } }
+      ]
+    };
+
+    const preview = await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/preview')
+      .set(auth)
+      .send({ periodoId: String(periodo._id), actividades: [{ courseId: 'course-1', courseWorkId: 'cw-reentrega', corte: 1 }] })
+      .expect(200);
+    expect(preview.body?.actividades?.[0]?.submissions?.[0]).toEqual(expect.objectContaining({ revisionPendiente: true }));
+
+    await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/ejecutar')
+      .set(auth)
+      .send({ periodoId: String(periodo._id), actividades: [{ courseId: 'course-1', courseWorkId: 'cw-reentrega', corte: 1 }] })
+      .expect(200);
+    const sinConfirmar = await EvidenciaEvaluacion.findOne({ docenteId: docente._id, 'classroom.submissionId': 'submission-reentrega' }).lean();
+    expect(sinConfirmar?.alumnoId).toBe(String(alumno1._id));
+    expect(sinConfirmar?.calificacionDecimal).toBe(5);
+    expect(sinConfirmar?.classroom?.assignedGrade).toBe(50);
+    const historialSinConfirmar = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/cortes/1/historial?periodoId=${encodeURIComponent(String(periodo._id))}`)
+      .set(auth)
+      .expect(200);
+    expect(historialSinConfirmar.body?.eventos).toHaveLength(1);
+    expect(historialSinConfirmar.body?.eventos?.[0]?.capturaHash).toBe(hashFichaAceptada);
+
+    await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/ejecutar')
+      .set(auth)
+      .send({ periodoId: String(periodo._id), actividades: [{ courseId: 'course-1', courseWorkId: 'cw-reentrega', corte: 1, reentregasConfirmadas: ['submission-reentrega'] }] })
+      .expect(200);
+    const confirmada = await EvidenciaEvaluacion.findOne({ docenteId: docente._id, 'classroom.submissionId': 'submission-reentrega' }).lean();
+    expect(confirmada?.calificacionDecimal).toBe(8);
+    expect(confirmada?.classroom?.assignedGrade).toBe(80);
+    const historialConfirmado = await request(app)
+      .get(`/api/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(String(alumno1._id))}/cortes/1/historial?periodoId=${encodeURIComponent(String(periodo._id))}`)
+      .set(auth)
+      .expect(200);
+    expect(historialConfirmado.body?.eventos).toHaveLength(2);
+    expect(historialConfirmado.body?.eventos?.[0]).toEqual(expect.objectContaining({ promedioSobre10: 8, estado: 'calculado' }));
+    expect(historialConfirmado.body?.eventos?.[0]?.capturaHash).not.toBe(hashFichaAceptada);
+    expect(historialConfirmado.body?.eventos?.[1]?.capturaHash).toBe(hashFichaAceptada);
   });
 
   it('resuelve alumnos inactivos dentro de una materia archivada sin reactivarlos', async () => {

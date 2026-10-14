@@ -5,6 +5,7 @@
  * Límites: no calcula notas; consume el resumen académico del periodo.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
@@ -19,6 +20,13 @@ export type FilaConsultaCalificacion = {
   nombre: string;
   grupo: string;
   parcial1: string;
+  tareasYEjerciciosPrimerParcial: string;
+  practicaPrimerParcial: string;
+  examenPrimerParcialAutomatico: string;
+  examenPrimerParcialLista: string;
+  examenPrimerParcialListaVersion: number | null;
+  continuaPrimerParcialLista: string;
+  calificacionPrimerParcialLista: string;
   parcial2: string;
   global: string;
   final: string;
@@ -36,6 +44,11 @@ export type FilaConsultaCalificacion = {
   examenGlobalListaVersion: number | null;
   continuaTercerParcialLista: string;
   calificacionTercerParcial: string;
+  ponderacionTercerParcialLista: string;
+  subtotalPrimerSegundoParcialLista: string;
+  ponderacionPrimerSegundoParcialesLista: string;
+  calificacionFinalLibroLista: string;
+  calificacionFinalBase10Lista: string;
   practica2doParcialVersion: number | null;
   examen2doParcialVersion: number | null;
   bonoExtracurricular?: string;
@@ -82,6 +95,7 @@ export type ResumenConsultaCalificaciones = {
 
 type FiltroConsulta = 'todos' | 'calificados' | 'pendientes';
 type OrdenConsulta = 'alumno' | 'final-desc' | 'final-asc' | 'estado';
+type SeccionDetalle = 'resumen' | 'primer' | 'segundo' | 'global' | 'libro';
 
 const COMPONENTES_BONO: Array<{
   clave: NonNullable<FilaConsultaCalificacion['bonoDistribucion']> extends Record<infer K, number> ? K : never;
@@ -147,12 +161,16 @@ export function ConsultaCalificaciones({
   const [filtro, setFiltro] = useState<FiltroConsulta>('todos');
   const [orden, setOrden] = useState<OrdenConsulta>('alumno');
   const [filaSeleccionada, setFilaSeleccionada] = useState<FilaConsultaCalificacion | null>(null);
+  const [seccionDetalle, setSeccionDetalle] = useState<SeccionDetalle>('primer');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
-  const [borradores, setBorradores] = useState({ practica: '', examen: '', global: '' });
-  const [guardando, setGuardando] = useState<'practica' | 'examen' | 'global' | 'extra' | 'resultadoExtra' | null>(null);
+  const [borradores, setBorradores] = useState({ examen1: '', practica: '', examen: '', global: '' });
+  const [guardando, setGuardando] = useState<'examen1' | 'practica' | 'examen' | 'global' | 'extra' | 'resultadoExtra' | null>(null);
   const [calculandoHashExtra, setCalculandoHashExtra] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState('');
+  const [historialCapturas, setHistorialCapturas] = useState<Array<{ id: string; componente?: string | null; valorAnterior?: number | null; valorNuevo?: number | null; version?: number | null; canalCaptura: string; metodoCaptura: string; actorId: string; createdAt: string }>>([]);
+  const [cargandoHistorialCapturas, setCargandoHistorialCapturas] = useState(false);
+  const [errorHistorialCapturas, setErrorHistorialCapturas] = useState('');
   const [borradorBono, setBorradorBono] = useState('');
   const [vistaPreviaBono, setVistaPreviaBono] = useState<VistaPreviaBono | null>(null);
   const [procesandoBono, setProcesandoBono] = useState(false);
@@ -206,21 +224,23 @@ export function ConsultaCalificaciones({
   useEffect(() => {
     const fila = filaSeleccionadaRef.current;
     if (!fila || fila.alumnoId !== alumnoSeleccionadoId) return;
-    setBorradores({ practica: fila.practica2doParcial ?? '', examen: fila.examen2doParcial ?? '', global: fila.examenGlobalLista ?? '' });
+    setBorradores({ examen1: fila.examenPrimerParcialLista ?? '', practica: fila.practica2doParcial ?? '', examen: fila.examen2doParcial ?? '', global: fila.examenGlobalLista ?? '' });
     setBorradorBono(fila.bonoExtracurricularSolicitado || '');
     setVistaPreviaBono(null);
     setErrorGuardado('');
     detalleRef.current?.focus();
   }, [alumnoSeleccionadoId, periodoId]);
 
-  async function guardarComponente(componente: 'Practica 2do Parcial' | 'Exámen 2do Parcial' | 'Exámen Global') {
+  async function guardarComponente(componente: 'Practica 2do Parcial' | 'Exámen 1er Parcial' | 'Exámen 2do Parcial' | 'Exámen Global') {
     if (!filaSeleccionada || !periodoId) return;
     const esPractica = componente === 'Practica 2do Parcial';
+    const esExamen1 = componente === 'Exámen 1er Parcial';
+    const esExamen2 = componente === 'Exámen 2do Parcial';
     const esGlobal = componente === 'Exámen Global';
-    const campo = esPractica ? 'practica' : esGlobal ? 'global' : 'examen';
+    const campo = esPractica ? 'practica' : esExamen1 ? 'examen1' : esGlobal ? 'global' : 'examen';
     const valorTexto = borradores[campo].trim().replace(',', '.');
     const valor = Number(valorTexto);
-    const maximo = esPractica ? 10 : esGlobal ? 5 : 5.25;
+    const maximo = esPractica ? 10 : esExamen2 ? 5.25 : 5;
     if (!valorTexto || !Number.isFinite(valor) || valor < 0 || valor > maximo) {
       setErrorGuardado(`La calificación de “${componente}” debe estar entre 0 y ${maximo}.`);
       return;
@@ -229,7 +249,8 @@ export function ConsultaCalificaciones({
     setErrorGuardado('');
     const versionInicial = esPractica
       ? filaSeleccionada.practica2doParcialVersion
-      : esGlobal ? filaSeleccionada.examenGlobalListaVersion : filaSeleccionada.examen2doParcialVersion;
+      : esExamen1 ? filaSeleccionada.examenPrimerParcialListaVersion
+        : esGlobal ? filaSeleccionada.examenGlobalListaVersion : filaSeleccionada.examen2doParcialVersion;
     const claveSolicitud = [periodoId, filaSeleccionada.alumnoId, componente, valor, versionInicial ?? 'nueva'].join('|');
     let clientRequestId = solicitudesCalificacionPendientes.current.get(claveSolicitud);
     if (!clientRequestId) {
@@ -250,16 +271,19 @@ export function ConsultaCalificaciones({
         alumnoId: filaSeleccionada.alumnoId,
         componente,
         calificacion: valor,
+        canalCaptura: 'gui',
         clientRequestId,
         ...(versionInicial !== null ? { version: versionInicial } : {})
       });
       const filaActualizada = await actualizarDesdeApi();
       const calificacionActual = esPractica
         ? filaActualizada?.practica2doParcial
-        : esGlobal ? filaActualizada?.examenGlobalLista : filaActualizada?.examen2doParcial;
+        : esExamen1 ? filaActualizada?.examenPrimerParcialLista
+          : esGlobal ? filaActualizada?.examenGlobalLista : filaActualizada?.examen2doParcial;
       const versionActual = esPractica
         ? filaActualizada?.practica2doParcialVersion
-        : esGlobal ? filaActualizada?.examenGlobalListaVersion : filaActualizada?.examen2doParcialVersion;
+        : esExamen1 ? filaActualizada?.examenPrimerParcialListaVersion
+          : esGlobal ? filaActualizada?.examenGlobalListaVersion : filaActualizada?.examen2doParcialVersion;
       if (calificacionActual !== undefined && numeroNota(calificacionActual) === valor && (versionActual ?? 0) > (versionInicial ?? 0)) {
         solicitudesCalificacionPendientes.current.delete(claveSolicitud);
       }
@@ -268,10 +292,12 @@ export function ConsultaCalificaciones({
         const filaActualizada = await actualizarDesdeApi();
         const calificacionActual = esPractica
           ? filaActualizada?.practica2doParcial
-          : esGlobal ? filaActualizada?.examenGlobalLista : filaActualizada?.examen2doParcial;
+          : esExamen1 ? filaActualizada?.examenPrimerParcialLista
+            : esGlobal ? filaActualizada?.examenGlobalLista : filaActualizada?.examen2doParcial;
         const versionActual = esPractica
           ? filaActualizada?.practica2doParcialVersion
-          : esGlobal ? filaActualizada?.examenGlobalListaVersion : filaActualizada?.examen2doParcialVersion;
+          : esExamen1 ? filaActualizada?.examenPrimerParcialListaVersion
+            : esGlobal ? filaActualizada?.examenGlobalListaVersion : filaActualizada?.examen2doParcialVersion;
         if (calificacionActual !== undefined && numeroNota(calificacionActual) === valor && (versionActual ?? 0) > (versionInicial ?? 0)) {
           solicitudesCalificacionPendientes.current.delete(claveSolicitud);
           return;
@@ -302,6 +328,7 @@ export function ConsultaCalificaciones({
         alumnoId: filaSeleccionada.alumnoId,
         componente: 'Solicitud Extra',
         calificacion: valor,
+        canalCaptura: 'gui',
         clientRequestId,
         ...(versionInicial !== null ? { version: versionInicial } : {})
       });
@@ -471,6 +498,7 @@ export function ConsultaCalificaciones({
         alumnoId: filaSeleccionada.alumnoId,
         componente: 'Bono extracurricular',
         calificacion: bono,
+        canalCaptura: 'gui',
         clientRequestId,
         ...(versionInicial !== null ? { version: versionInicial } : {})
       });
@@ -515,6 +543,27 @@ export function ConsultaCalificaciones({
   const totalCalificados = useMemo(() => filas.filter(tieneCalificacion).length, [filas]);
   const totalPendientes = filas.length - totalCalificados;
   const resumenFiltro = filtro === 'todos' ? 'Todos los alumnos' : filtro === 'calificados' ? 'Alumnos calificados' : 'Alumnos pendientes';
+  const camposLibro = filaSeleccionada ? [
+    ['AJ', 'Tareas y Ejercicios 1er Parcial (60%)', filaSeleccionada.tareasYEjerciciosPrimerParcial, 'escala del libro'],
+    ['AK', 'Practica 1er Parcial (40%)', filaSeleccionada.practicaPrimerParcial, 'escala del libro'],
+    ['AL', 'Evaluación Continua 1er Parcial', filaSeleccionada.continuaPrimerParcialLista, '0–5'],
+    ['AM', 'Exámen 1er Parcial', filaSeleccionada.examenPrimerParcialLista, '0–5'],
+    ['AN', 'Calificación Primer Parcial', filaSeleccionada.calificacionPrimerParcialLista, '0–10'],
+    ['AO', 'Tareas y Ejercicios 2do Parcial', filaSeleccionada.tareasYEjercicios2doParcial, 'según evidencias Classroom'],
+    ['AP', 'Practica 2do Parcial', filaSeleccionada.practica2doParcial, '0–10'],
+    ['AQ', 'Evaluación Continua 2do Parcial', filaSeleccionada.evaluacionContinua2doParcial, '0–5'],
+    ['AR', 'Exámen 2do Parcial', filaSeleccionada.examen2doParcial, '0–5.25'],
+    ['AS', 'Calificación Segundo Parcial', filaSeleccionada.calificacionSegundoParcial, '0–10'],
+    ['AT', 'Exámen Global', filaSeleccionada.examenGlobalLista, '0–5'],
+    ['AU', 'Evaluación Continua 3er Parcial (Proyecto)', filaSeleccionada.continuaTercerParcialLista, '0–5'],
+    ['AV', 'Calificación Tercer Parcial', filaSeleccionada.calificacionTercerParcial, '0–10'],
+    ['AW', 'Calificación Tercer Parcial ponderada (60%)', filaSeleccionada.ponderacionTercerParcialLista, 'ponderación del libro'],
+    ['AX', 'Porcentaje 1er y Segundo Parcial (subtotal)', filaSeleccionada.subtotalPrimerSegundoParcialLista, 'fórmula del libro'],
+    ['AY', 'Porcentaje 1er y Segundo Parcial (40%)', filaSeleccionada.ponderacionPrimerSegundoParcialesLista, 'ponderación del libro'],
+    ['AZ', 'Calificación Final', filaSeleccionada.calificacionFinalLibroLista, '0–10'],
+    ['BA', 'Calificación Final (Base 10)', filaSeleccionada.calificacionFinalBase10Lista, 'escala del libro'],
+    ['BB', 'Bono extracurricular otorgado', filaSeleccionada.bonoExtracurricular ?? '', '0–1']
+  ] as const : [];
 
   useEffect(() => {
     onResumenChange?.({ total: filas.length, calificados: totalCalificados, pendientes: totalPendientes });
@@ -648,7 +697,7 @@ export function ConsultaCalificaciones({
                         variante="secundario"
                         disabled={!alumnoId}
                         aria-label={`Ver detalle de ${alumno}`}
-                        onClick={() => setFilaSeleccionada(fila)}
+                        onClick={() => { setFilaSeleccionada(fila); setSeccionDetalle('primer'); }}
                       >
                         Ver detalle
                       </Boton>
@@ -683,66 +732,100 @@ export function ConsultaCalificaciones({
             <span>Calificación final</span>
             <strong>{mostrarNota(notaFinalCurso(filaSeleccionada))}</strong>
           </div>
-          <dl className="calificaciones-consulta__detail-grid">
-            <div><dt>Parcial 1</dt><dd>{mostrarNota(filaSeleccionada.parcial1)}</dd></div>
-            <div><dt>Parcial 2</dt><dd>{mostrarNota(filaSeleccionada.parcial2)}</dd></div>
-            <div><dt>Global</dt><dd>{mostrarNota(filaSeleccionada.global)}</dd></div>
-            <div><dt>Bono extracurricular aplicado</dt><dd>{mostrarNota(filaSeleccionada.bonoExtracurricular ?? '')}</dd></div>
-            <div><dt>Final del curso</dt><dd>{mostrarNota(filaSeleccionada.calificacionFinalCurso || filaSeleccionada.final)}</dd></div>
-            {filaSeleccionada.extraDisponible && <div><dt>Final para acta (reprobatoria, hacia abajo)</dt><dd>{mostrarNota(filaSeleccionada.calificacionFinalCursoActa ?? '')}</dd></div>}
-            <div><dt>Estado</dt><dd>{tieneCalificacion(filaSeleccionada) ? 'Calificada' : 'Pendiente'}</dd></div>
-          </dl>
-          {filaSeleccionada.extraDisponible && (
-            <section aria-label="Solicitud de Extra" className="calificaciones-consulta__physical-grades">
-              <h5>Solicitud de Extra</h5>
-              <p className="nota">Disponible porque la calificación final vigente de la materia es menor que 6. La solicitud solo queda registrada cuando el docente la marca.</p>
-              <label className="campo">
-                <input
-                  type="checkbox"
-                  checked={filaSeleccionada.solicitaExtra === true}
-                  disabled={guardando !== null}
-                  onChange={(event) => void guardarSolicitudExtra(event.target.checked)}
-                />
-                <span>El docente confirma que el alumno solicita presentar Extra</span>
-              </label>
-              {filaSeleccionada.solicitaExtra && (
-                <div aria-label="Extra activado" role="group">
+          <nav className="calificaciones-consulta__detail-nav" aria-label="Secciones del detalle académico">
+            {([
+              ['resumen', 'Resumen', 'info'], ['primer', 'Primer Parcial', 'evaluaciones'],
+              ['segundo', 'Segundo Parcial', 'calificar'], ['global', 'Global y bono', 'publicar'],
+              ['libro', 'Libro completo', 'periodos']
+            ] as const).map(([id, label, icono]) => (
+              <button key={id} type="button" aria-pressed={seccionDetalle === id} className={seccionDetalle === id ? 'is-active' : ''} onClick={() => setSeccionDetalle(id)}>
+                <Icono nombre={icono} size={17} /><span>{label}</span>
+              </button>
+            ))}
+          </nav>
+          <div className="calificaciones-consulta__detail-panel" key={seccionDetalle}>
+          {seccionDetalle === 'resumen' && <>
+            <dl className="calificaciones-consulta__detail-grid">
+              <div><dt>Parcial 1</dt><dd>{mostrarNota(filaSeleccionada.parcial1)}</dd></div>
+              <div><dt>Parcial 2</dt><dd>{mostrarNota(filaSeleccionada.parcial2)}</dd></div>
+              <div><dt>Global</dt><dd>{mostrarNota(filaSeleccionada.global)}</dd></div>
+              <div><dt>Bono extracurricular aplicado</dt><dd>{mostrarNota(filaSeleccionada.bonoExtracurricular ?? '')}</dd></div>
+              <div><dt>Final del curso</dt><dd>{mostrarNota(filaSeleccionada.calificacionFinalCurso || filaSeleccionada.final)}</dd></div>
+              {filaSeleccionada.extraDisponible && <div><dt>Final para acta (reprobatoria, hacia abajo)</dt><dd>{mostrarNota(filaSeleccionada.calificacionFinalCursoActa ?? '')}</dd></div>}
+              <div><dt>Estado</dt><dd><span className={`calificaciones-consulta__status ${tieneCalificacion(filaSeleccionada) ? 'is-complete' : 'is-pending'}`}>{tieneCalificacion(filaSeleccionada) ? 'Calificada' : 'Pendiente'}</span></dd></div>
+            </dl>
+            {filaSeleccionada.extraDisponible && (
+              <section aria-label="Solicitud de Extra" className="calificaciones-consulta__physical-grades calificaciones-consulta__accent-panel--warning">
+                <h5><Icono nombre="alerta" size={18} /> Solicitud de Extra</h5>
+                <p className="nota">Disponible porque la calificación final vigente de la materia es menor que 6. La solicitud solo queda registrada cuando el docente la marca.</p>
+                <label className="campo"><input type="checkbox" checked={filaSeleccionada.solicitaExtra === true} disabled={guardando !== null} onChange={(event) => void guardarSolicitudExtra(event.target.checked)} /><span>El docente confirma que el alumno solicita presentar Extra</span></label>
+                {filaSeleccionada.solicitaExtra && <div aria-label="Extra activado" role="group">
                   <p role="status">Solicitud registrada por el docente. Apartado Extra activado.</p>
-                  {(filaSeleccionada.resultadosExtraordinarios ?? []).map((resultado) => (
-                    <article key={`${resultado.claseRegistro ?? 'interno'}-${resultado.folio}`} aria-label={`Resultado Extra folio ${resultado.folio}`}>
-                      <h6>Resultado extraordinario · {resultado.claseRegistro === 'externo' ? 'externo' : 'referencia'}</h6>
-                      <p>Calificación {mostrarNota(resultado.calificacionSobre5)} / 5 · equivalente {mostrarNota(resultado.calificacionSobre10)} / 10 · {resultado.estadoAprobatorio}</p>
-                      {resultado.claseRegistro === 'externo'
-                        ? <p>{resultado.loteId ? `Lote ${resultado.loteId} · ` : 'Lote sin verificar · '}folio {resultado.folio} · archivo {resultado.fuenteArchivo}</p>
-                        : <p>Lote {resultado.loteId} · folio {resultado.folio} · examen {resultado.examenGeneradoId}</p>}
-                      {resultado.documentoSha256 && <p className="calificaciones-extra__sha256">SHA-256: {resultado.documentoSha256}</p>}
-                      {resultado.origen && <p>Origen: {resultado.origen}</p>}
-                    </article>
-                  ))}
-                  {!(filaSeleccionada.resultadosExtraordinarios ?? []).some((resultado) => resultado.claseRegistro === 'externo') && (
-                    <div role="group" aria-label="Registrar resultado de examen Extra externo" className="calificaciones-consulta__physical-grades">
-                      <h6>Registrar examen Extra externo</h6>
-                      <p className="nota">Registra la evidencia de un examen que no pertenece a un lote generado en EvaluaPro. No inventes el lote; déjalo vacío si la hoja no lo muestra.</p>
-                      <div className="calificaciones-consulta__manual-editors">
-                        <label className="campo"><span>Folio visible</span><input value={resultadoExtraExterno.folio} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, folio: event.target.value }))} /></label>
-                        <label className="campo"><span>Lote (opcional)</span><input value={resultadoExtraExterno.loteId} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, loteId: event.target.value }))} /></label>
-                        <label className="campo"><span>PDF fuente local</span><input type="file" accept="application/pdf,.pdf" aria-describedby="extra-pdf-local-help" disabled={calculandoHashExtra || guardando !== null} onChange={(event) => void seleccionarPdfExtra(event.target.files?.[0])} /></label>
-                        <p id="extra-pdf-local-help" className="nota">El PDF se lee en este navegador para obtener el nombre y el SHA-256; no se sube ni se guarda otra copia.</p>
-                        {resultadoExtraExterno.fuenteArchivo && <p>Archivo: {resultadoExtraExterno.fuenteArchivo}{calculandoHashExtra ? ' · calculando SHA-256…' : ''}</p>}
-                        {resultadoExtraExterno.documentoSha256 && <p className="calificaciones-extra__sha256">SHA-256 calculado en este dispositivo: {resultadoExtraExterno.documentoSha256}</p>}
-                        <label className="campo"><span>Aciertos</span><input type="number" min="0" step="1" value={resultadoExtraExterno.aciertos} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, aciertos: event.target.value }))} /></label>
-                        <label className="campo"><span>Reactivos evaluables</span><input type="number" min="1" step="1" value={resultadoExtraExterno.totalReactivos} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, totalReactivos: event.target.value }))} /></label>
-                        <label className="campo"><span>Criterios aplicados</span><textarea value={resultadoExtraExterno.criteriosAplicados} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, criteriosAplicados: event.target.value }))} /></label>
-                      </div>
-                      <Boton type="button" variante="secundario" disabled={guardando !== null} onClick={() => void guardarResultadoExtraExterno()}>{guardando === 'resultadoExtra' ? 'Registrando…' : 'Registrar resultado externo'}</Boton>
-                    </div>
-                  )}
-                </div>
-              )}
-              {errorGuardado && <InlineMensaje tipo="error">{errorGuardado}</InlineMensaje>}
-            </section>
-          )}
-          <section aria-label="Columnas físicas del Segundo Parcial" className="calificaciones-consulta__physical-grades">
+                  {(filaSeleccionada.resultadosExtraordinarios ?? []).map((resultado) => <article key={`${resultado.claseRegistro ?? 'interno'}-${resultado.folio}`} aria-label={`Resultado Extra folio ${resultado.folio}`}>
+                    <h6>Resultado extraordinario · {resultado.claseRegistro === 'externo' ? 'externo' : 'referencia'}</h6>
+                    <p>Calificación {mostrarNota(resultado.calificacionSobre5)} / 5 · equivalente {mostrarNota(resultado.calificacionSobre10)} / 10 · {resultado.estadoAprobatorio}</p>
+                    {resultado.claseRegistro === 'externo' ? <p>{resultado.loteId ? `Lote ${resultado.loteId} · ` : 'Lote sin verificar · '}folio {resultado.folio} · archivo {resultado.fuenteArchivo}</p> : <p>Lote {resultado.loteId} · folio {resultado.folio} · examen {resultado.examenGeneradoId}</p>}
+                    {resultado.documentoSha256 && <p className="calificaciones-extra__sha256">SHA-256: {resultado.documentoSha256}</p>}{resultado.origen && <p>Origen: {resultado.origen}</p>}
+                  </article>)}
+                  {!(filaSeleccionada.resultadosExtraordinarios ?? []).some((resultado) => resultado.claseRegistro === 'externo') && <div role="group" aria-label="Registrar resultado de examen Extra externo" className="calificaciones-consulta__physical-grades">
+                    <h6>Registrar examen Extra externo</h6><p className="nota">Registra la evidencia de un examen que no pertenece a un lote generado en EvaluaPro. No inventes el lote; déjalo vacío si la hoja no lo muestra.</p>
+                    <div className="calificaciones-consulta__manual-editors">
+                      <label className="campo"><span>Folio visible</span><input value={resultadoExtraExterno.folio} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, folio: event.target.value }))} /></label>
+                      <label className="campo"><span>Lote (opcional)</span><input value={resultadoExtraExterno.loteId} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, loteId: event.target.value }))} /></label>
+                      <label className="campo"><span>PDF fuente local</span><input type="file" accept="application/pdf,.pdf" aria-describedby="extra-pdf-local-help" disabled={calculandoHashExtra || guardando !== null} onChange={(event) => void seleccionarPdfExtra(event.target.files?.[0])} /></label>
+                      <p id="extra-pdf-local-help" className="nota">El PDF se lee en este navegador para obtener el nombre y el SHA-256; no se sube ni se guarda otra copia.</p>
+                      {resultadoExtraExterno.fuenteArchivo && <p>Archivo: {resultadoExtraExterno.fuenteArchivo}{calculandoHashExtra ? ' · calculando SHA-256…' : ''}</p>}{resultadoExtraExterno.documentoSha256 && <p className="calificaciones-extra__sha256">SHA-256 calculado en este dispositivo: {resultadoExtraExterno.documentoSha256}</p>}
+                      <label className="campo"><span>Aciertos</span><input type="number" min="0" step="1" value={resultadoExtraExterno.aciertos} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, aciertos: event.target.value }))} /></label>
+                      <label className="campo"><span>Reactivos evaluables</span><input type="number" min="1" step="1" value={resultadoExtraExterno.totalReactivos} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, totalReactivos: event.target.value }))} /></label>
+                      <label className="campo"><span>Criterios aplicados</span><textarea value={resultadoExtraExterno.criteriosAplicados} onChange={(event) => setResultadoExtraExterno((actual) => ({ ...actual, criteriosAplicados: event.target.value }))} /></label>
+                    </div><Boton type="button" variante="secundario" disabled={guardando !== null} onClick={() => void guardarResultadoExtraExterno()}>{guardando === 'resultadoExtra' ? 'Registrando…' : 'Registrar resultado externo'}</Boton>
+                  </div>}
+                </div>}{errorGuardado && <InlineMensaje tipo="error">{errorGuardado}</InlineMensaje>}
+              </section>
+            )}
+            {texto(filaSeleccionada.observaciones) && <p className="calificaciones-consulta__detail-note"><strong>Observaciones:</strong> {filaSeleccionada.observaciones}</p>}
+            <div className="calificaciones-consulta__detail-actions"><Boton type="button" variante="primario" disabled={!texto(filaSeleccionada.alumnoId)} onClick={() => onSeleccionarAlumno(texto(filaSeleccionada.alumnoId))}>Abrir revisión manual</Boton><Boton type="button" variante="secundario" onClick={() => setFilaSeleccionada(null)}>Seguir consultando</Boton></div>
+          </>}
+          {seccionDetalle === 'primer' && <section aria-label="Columnas físicas del Primer Parcial" className="calificaciones-consulta__physical-grades calificaciones-consulta__accent-panel--primary">
+            <h5>Lista física · Primer Parcial</h5>
+            <dl className="calificaciones-consulta__detail-grid">
+              <div><dt>Exámen 1er Parcial manual · 0–5</dt><dd>{mostrarNota(filaSeleccionada.examenPrimerParcialLista)} <small>captura canónica</small></dd></div>
+              <div><dt>Exámen 1er Parcial automático · referencia</dt><dd>{mostrarNota(filaSeleccionada.examenPrimerParcialAutomatico)} <small>no sustituye la captura manual</small></dd></div>
+            </dl>
+            <div className="calificaciones-consulta__manual-editors">
+              <label className="campo"><span>Exámen 1er Parcial · 0–5</span><input type="number" min="0" max="5" step="0.01" value={borradores.examen1} onChange={(event) => setBorradores((prev) => ({ ...prev, examen1: event.target.value }))} /></label>
+              <Boton type="button" variante="secundario" disabled={guardando !== null} onClick={() => void guardarComponente('Exámen 1er Parcial')}>{guardando === 'examen1' ? 'Guardando…' : 'Guardar examen'}</Boton>
+            </div>
+            <div className="calificaciones-consulta__detail-actions">
+              <Boton type="button" variante="secundario" disabled={cargandoHistorialCapturas} cargando={cargandoHistorialCapturas} onClick={() => {
+                const cargar = async () => {
+                  setCargandoHistorialCapturas(true);
+                  setErrorHistorialCapturas('');
+                  try {
+                    const query = new URLSearchParams();
+                    query.set('periodoId', periodoId);
+                    query.set('alumnoId', filaSeleccionada.alumnoId ?? '');
+                    query.set('componente', 'Exámen 1er Parcial');
+                    query.set('limite', '100');
+                    const respuesta = await clienteApi.obtener<{ eventos?: typeof historialCapturas }>(`/analiticas/lista-academica/calificaciones/historial?${query}`);
+                    setHistorialCapturas(respuesta.eventos ?? []);
+                  } catch (error) {
+                    setErrorHistorialCapturas(error instanceof Error ? error.message : 'No se pudo consultar el historial de captura.');
+                  } finally {
+                    setCargandoHistorialCapturas(false);
+                  }
+                };
+                void cargar();
+              }}>Consultar historial de captura</Boton>
+            </div>
+            {errorHistorialCapturas && <InlineMensaje tipo="error">{errorHistorialCapturas}</InlineMensaje>}
+            {historialCapturas.length > 0 && <ol aria-label="Historial de captura del examen del primer parcial">
+              {historialCapturas.map((evento) => <li key={evento.id}>
+                {evento.valorAnterior === null ? 'Captura inicial' : `Cambio desde ${evento.valorAnterior ?? 'sin dato'}`} → {evento.valorNuevo ?? 'sin dato'} / {evento.version ?? '—'} · {evento.canalCaptura} · {new Date(evento.createdAt).toLocaleString('es-MX')}
+              </li>)}
+            </ol>}
+          </section>}
+          {seccionDetalle === 'segundo' && <section aria-label="Columnas físicas del Segundo Parcial" className="calificaciones-consulta__physical-grades calificaciones-consulta__accent-panel--secondary">
             <h5>Lista física · Segundo Parcial</h5>
             <dl className="calificaciones-consulta__detail-grid">
               <div><dt>Tareas y Ejercicios 2do Parcial</dt><dd>{mostrarNota(filaSeleccionada.tareasYEjercicios2doParcial)} <small>({filaSeleccionada.tareasPuntosObtenidos || '—'} / {filaSeleccionada.tareasPuntosPosibles || '—'} puntos)</small></dd></div>
@@ -758,8 +841,9 @@ export function ConsultaCalificaciones({
             </div>
             <p className="nota">El bono extracurricular se registra en una sola columna y se distribuye por fórmula. Prioridad: Global (tercer parcial), segundo parcial y primer parcial; dentro de cada parcial, evaluación continua primero y examen después. Ningún parcial supera 10.</p>
             {errorGuardado && <InlineMensaje tipo="error">{errorGuardado}</InlineMensaje>}
-          </section>
-          <section aria-label="Bono extracurricular" className="calificaciones-consulta__physical-grades">
+          </section>}
+          {seccionDetalle === 'global' && <>
+          <section aria-label="Bono extracurricular" className="calificaciones-consulta__physical-grades calificaciones-consulta__accent-panel--warning">
             <h5>Bono extracurricular</h5>
             <p className="nota">Captura el importe documentado (0–1). Se calcula primero una vista previa; solo se guarda al pulsar “Confirmar y guardar bono”. Si la calificación final base ya es 10, no se aplica.</p>
             <div className="calificaciones-consulta__manual-editors">
@@ -781,8 +865,9 @@ export function ConsultaCalificaciones({
                 <Boton type="button" variante="primario" disabled={procesandoBono || !vistaPreviaBono.requiereConfirmacion} onClick={() => void confirmarBono()}>{procesandoBono ? 'Guardando…' : 'Confirmar y guardar bono'}</Boton>
               </div>
             )}
+            {errorGuardado && <InlineMensaje tipo="error">{errorGuardado}</InlineMensaje>}
           </section>
-          <section aria-label="Columnas físicas del Tercer Parcial" className="calificaciones-consulta__physical-grades">
+          <section aria-label="Columnas físicas del Tercer Parcial" className="calificaciones-consulta__physical-grades calificaciones-consulta__accent-panel--success">
             <h5>Lista física · Tercer Parcial</h5>
             <p className="nota">Los dos componentes físicos se expresan en escala 0–5; su suma está limitada a 10.</p>
             <dl className="calificaciones-consulta__detail-grid">
@@ -796,21 +881,12 @@ export function ConsultaCalificaciones({
               <Boton type="button" variante="secundario" disabled={guardando !== null} onClick={() => void guardarComponente('Exámen Global')}>{guardando === 'global' ? 'Guardando…' : 'Guardar Global'}</Boton>
             </div>
           </section>
-          {texto(filaSeleccionada.observaciones) && (
-            <p className="calificaciones-consulta__detail-note"><strong>Observaciones:</strong> {filaSeleccionada.observaciones}</p>
-          )}
-          <div className="calificaciones-consulta__detail-actions">
-            <Boton
-              type="button"
-              variante="primario"
-              disabled={!texto(filaSeleccionada.alumnoId)}
-              onClick={() => onSeleccionarAlumno(texto(filaSeleccionada.alumnoId))}
-            >
-              Abrir revisión manual
-            </Boton>
-            <Boton type="button" variante="secundario" onClick={() => setFilaSeleccionada(null)}>
-              Seguir consultando
-            </Boton>
+          </>}
+          {seccionDetalle === 'libro' && <section aria-label="Lista Excel · columnas AJ a BB" className="calificaciones-consulta__physical-grades calificaciones-consulta__accent-panel--secondary">
+            <h5><Icono nombre="periodos" size={18} /> Lista Excel · columnas AJ–BB</h5>
+            <p className="nota">Campos con nombre del libro. “Sin dato” indica que EvaluaPro aún no tiene una fuente para ese componente; no equivale a cero. Las columnas genéricas sin significado no se presentan como datos académicos.</p>
+            <dl className="calificaciones-consulta__detail-grid">{camposLibro.map(([columna, nombre, valor, escala]) => <div key={columna}><dt>{columna} · {nombre}</dt><dd>{texto(valor) ? mostrarNota(valor) : 'Sin dato'} <small>{escala}</small></dd></div>)}</dl>
+          </section>}
           </div>
         </aside>
       )}

@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { aplicarContratosClassroomGrades } from './classroom-grading-openapi.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const entryPath = path.join(root, 'apps/backend/src/rutas.ts');
@@ -105,6 +106,19 @@ const responsePeriodoPortada = {
   description: 'Imagen WebP privada de la materia, normalizada y sin metadatos.',
   content: { 'image/webp': { schema: { type: 'string', format: 'binary' } } }
 };
+const responseHistorialClassroomCapture = {
+  description: 'Ficha comprimida WebP privada del promedio Classroom confirmado para el alumno y parcial.',
+  content: { 'image/webp': { schema: { type: 'string', format: 'binary' } } },
+  headers: {
+    'Cache-Control': { schema: { type: 'string', const: 'private, no-store' } },
+    ETag: { schema: { type: 'string' } }
+  }
+};
+const classroomHistoryQueryParameters = [
+  { name: 'periodoId', in: 'query', required: true, schema: { type: 'string' } },
+  { name: 'limite', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+  { name: 'cursor', in: 'query', required: false, schema: { type: 'string' } }
+];
 const responseOmrReferencePreview = {
   description: 'Imagen PNG de la página equivalente del PDF de referencia, validada por QR firmado y examen/página del lote; sin caché y protegida por docente.',
   content: { 'image/png': { schema: { type: 'string', format: 'binary' } } }
@@ -301,6 +315,15 @@ for (const mount of mounts) {
           }
         };
       }
+    }
+    if (fullPath === '/evaluaciones/v2/classroom/alumnos/{alumnoId}/cortes/{corte}/historial' && method === 'get') {
+      rutaDeclarada.parameters = mergeParameters(rutaDeclarada.parameters ?? [], [
+        { name: 'corte', in: 'path', required: true, schema: { type: 'integer', enum: [1, 2, 3] } },
+        ...classroomHistoryQueryParameters
+      ]);
+    }
+    if (fullPath === '/evaluaciones/v2/classroom/historial-cortes/{snapshotId}/captura' && method === 'get') {
+      rutaDeclarada.responses = { ...(rutaDeclarada.responses ?? {}), '200': responseHistorialClassroomCapture };
     }
     if (fullPath === '/omr/jobs' && method === 'post') {
       rutaDeclarada.responses = { ...(rutaDeclarada.responses ?? {}), '200': responseOmrJob, '201': responseOmrJob };
@@ -731,6 +754,7 @@ for (const mount of mounts) {
 }
 
 if (missingSources.length) throw new Error(`No se encontraron routers montados: ${[...new Set(missingSources)].join(', ')}`);
+aplicarContratosClassroomGrades(spec);
 const document = `${JSON.stringify(spec, null, 2)}\n`;
 const methodLabels = { get: 'GET', post: 'POST', put: 'PUT', patch: 'PATCH', delete: 'DELETE', head: 'HEAD', options: 'OPTIONS' };
 const catalogRows = [];

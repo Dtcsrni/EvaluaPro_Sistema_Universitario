@@ -15,6 +15,7 @@ import {
   previsualizarBonoExtracurricular,
   registrarResultadoExtraExterno,
   guardarCalificacionLista,
+  listarHistorialCalificacionesLista,
   listarBanderas,
   registrarEventosUso
 } from './controladorAnaliticas.js';
@@ -34,6 +35,7 @@ router.get('/lista-academica-csv', requerirPermiso('analiticas:leer'), exportarL
 router.get('/lista-academica-docx', requerirPermiso('analiticas:leer'), exportarListaAcademicaDocx);
 router.get('/lista-academica-firma', requerirPermiso('analiticas:leer'), exportarListaAcademicaFirma);
 router.get('/lista-academica', requerirPermiso('analiticas:leer'), consultarListaAcademica);
+router.get('/lista-academica/calificaciones/historial', requerirPermiso('analiticas:leer'), listarHistorialCalificacionesLista);
 router.post('/lista-academica/bono/preview', requerirPermiso('calificaciones:calificar'), validarCuerpo(esquemaPreviewBonoExtracurricular, { strict: true }), previsualizarBonoExtracurricular);
 router.post('/lista-academica/resultados-extra-externos', requerirPermiso('calificaciones:calificar'), validarCuerpo(esquemaRegistrarResultadoExtraExterno, { strict: true }), registrarResultadoExtraExterno);
 router.post('/lista-academica/calificaciones', requerirPermiso('calificaciones:calificar'), validarCuerpo(esquemaGuardarCalificacionLista, { strict: true }), guardarCalificacionLista);

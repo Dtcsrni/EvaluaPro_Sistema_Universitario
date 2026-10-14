@@ -210,6 +210,38 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
     expect(consulta.body.filas).toEqual(expect.arrayContaining([
       expect.objectContaining({ alumnoId: escenario.alumnoId, practica2doParcial: '8', practica2doParcialVersion: 2 })
     ]));
+
+    const examenP1 = await request(app).post(ruta).set(escenario.auth).send({
+      periodoId: escenario.periodoId,
+      alumnoId: escenario.alumnoId,
+      componente: 'Exámen 1er Parcial',
+      calificacion: 4.67,
+      clientRequestId: '06d901d5-268d-49c4-8593-36bacccf71cc'
+    }).expect(201);
+    expect(examenP1.body.calificacion).toMatchObject({ calificacion: 4.67, version: 1 });
+    await request(app).post(ruta).set(escenario.auth).send({
+      periodoId: escenario.periodoId,
+      alumnoId: escenario.alumnoId,
+      componente: 'Exámen 1er Parcial',
+      calificacion: 5.01,
+      clientRequestId: '9cde3317-8a9c-4798-b101-1c7989d716be'
+    }).expect(400);
+    const consultaP1 = await request(app)
+      .get(`/api/analiticas/lista-academica?periodoId=${encodeURIComponent(escenario.periodoId)}`)
+      .set(escenario.auth)
+      .expect(200);
+    expect(consultaP1.body.filas).toEqual(expect.arrayContaining([
+      expect.objectContaining({ alumnoId: escenario.alumnoId, examenPrimerParcialLista: '4.67', examenPrimerParcialListaVersion: 1 })
+    ]));
+    const historialCapturaP1 = await request(app)
+      .get(`/api/analiticas/lista-academica/calificaciones/historial?periodoId=${encodeURIComponent(escenario.periodoId)}&alumnoId=${encodeURIComponent(escenario.alumnoId)}&componente=${encodeURIComponent('Exámen 1er Parcial')}`)
+      .set(escenario.auth)
+      .expect(200);
+    expect(historialCapturaP1.body.eventos).toHaveLength(1);
+    expect(historialCapturaP1.body.eventos[0]).toMatchObject({
+      componente: 'Exámen 1er Parcial', valorAnterior: null, valorNuevo: 4.67,
+      version: 1, escalaMaxima: 5, canalCaptura: 'api', metodoCaptura: 'captura_manual'
+    });
   });
 
   it('rechaza la solicitud de Extra si la final vigente no es reprobatoria', async () => {

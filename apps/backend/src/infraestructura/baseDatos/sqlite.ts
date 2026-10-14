@@ -45,6 +45,7 @@ export async function conectarSqlite(): Promise<void> {
   ejecutarMigracionSqliteAdicional('migrate-resultados-extra-externos-sqlite.mjs');
   ejecutarMigracionCalificacionesListaManual();
   ejecutarMigracionCalificacionesListaIdempotencia();
+  await asegurarColumnasTrazabilidadCalificaciones();
   ejecutarMigracionArtefactosLotePdf();
   ejecutarMigracionCicloVidaLotesPdf();
   ejecutarMigracionTipoExamenGenerado();
@@ -117,6 +118,22 @@ function ejecutarMigracionCalificacionesListaIdempotencia() {
   const script = candidatos.find((candidate) => fs.existsSync(candidate));
   if (!script) return;
   execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
+}
+
+async function asegurarColumnasTrazabilidadCalificaciones(): Promise<void> {
+  const columnas = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info("calificaciones_lista_manual_mutaciones");');
+  if (columnas.length === 0) return;
+  const existentes = new Set(columnas.map((columna) => columna.name));
+  const requeridas: Array<[string, string]> = [
+    ['canalCaptura', 'TEXT'], ['metodoCaptura', 'TEXT'], ['actorId', 'TEXT'], ['periodoId', 'TEXT'],
+    ['alumnoId', 'TEXT'], ['componente', 'TEXT'], ['valorAnterior', 'REAL'], ['valorNuevo', 'REAL'],
+    ['version', 'INTEGER'], ['escalaMaxima', 'REAL'], ['referenciaOrigen', 'TEXT']
+  ];
+  for (const [nombre, tipo] of requeridas) {
+    if (!existentes.has(nombre)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "calificaciones_lista_manual_mutaciones" ADD COLUMN "${nombre}" ${tipo};`);
+    }
+  }
 }
 
 function ejecutarMigracionArtefactosLotePdf() {
@@ -285,6 +302,54 @@ async function asegurarEsquemaSqlite(): Promise<void> {
           FOREIGN KEY ("periodoId") REFERENCES "periodos" ("id") ON DELETE CASCADE ON UPDATE CASCADE
       );
     `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "historial_classroom_cortes" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "docenteId" TEXT NOT NULL,
+        "periodoId" TEXT NOT NULL,
+        "alumnoId" TEXT NOT NULL,
+        "corte" INTEGER NOT NULL,
+        "snapshotHash" TEXT NOT NULL,
+        "promedioSobre10" REAL,
+        "estado" TEXT NOT NULL,
+        "puntosObtenidos" REAL NOT NULL,
+        "puntosPosibles" REAL NOT NULL,
+        "actividades" TEXT NOT NULL,
+        "capturaWebp" BLOB NOT NULL,
+        "capturaHash" TEXT NOT NULL,
+        "capturaBytes" INTEGER NOT NULL,
+        "capturaWidth" INTEGER NOT NULL,
+        "capturaHeight" INTEGER NOT NULL,
+        "importacionId" TEXT,
+        "capturadoPor" TEXT NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "historial_classroom_cortes_docenteId_snapshotHash_key" ON "historial_classroom_cortes"("docenteId", "snapshotHash");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "historial_classroom_cortes_docenteId_periodoId_alumnoId_corte_createdAt_idx" ON "historial_classroom_cortes"("docenteId", "periodoId", "alumnoId", "corte", "createdAt");`);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "historial_classroom_entregas" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "docenteId" TEXT NOT NULL,
+        "periodoId" TEXT NOT NULL,
+        "alumnoId" TEXT NOT NULL,
+        "courseId" TEXT NOT NULL,
+        "courseWorkId" TEXT NOT NULL,
+        "submissionId" TEXT NOT NULL,
+        "corte" INTEGER,
+        "puntosObtenidos" REAL,
+        "puntosPosibles" REAL,
+        "calificacionSobre10" REAL,
+        "estado" TEXT NOT NULL,
+        "estadoClassroom" TEXT,
+        "estadoHash" TEXT NOT NULL,
+        "importacionId" TEXT NOT NULL,
+        "capturadoPor" TEXT NOT NULL,
+        "observadoEn" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "historial_classroom_entregas_docenteId_estadoHash_key" ON "historial_classroom_entregas"("docenteId", "estadoHash");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "historial_classroom_entregas_scope_observadoEn_idx" ON "historial_classroom_entregas"("docenteId", "periodoId", "alumnoId", "courseId", "courseWorkId", "submissionId", "observadoEn");`);
   } catch (error) {
     // Si la conexion es en memoria de tests o no permite aplicar el esquema,
     // conserva el diagnóstico para que el arranque pueda reportarlo.

@@ -30,16 +30,18 @@ export const esquemaExportarCsv = z
 export const esquemaGuardarCalificacionLista = z.object({
   periodoId: esquemaObjectId,
   alumnoId: esquemaObjectId,
-  componente: z.enum(['Practica 2do Parcial', 'Exámen 2do Parcial', 'Exámen Global', 'Bono extracurricular', 'Solicitud Extra']),
+  componente: z.enum(['Practica 2do Parcial', 'Exámen 1er Parcial', 'Exámen 2do Parcial', 'Exámen Global', 'Bono extracurricular', 'Solicitud Extra']),
   calificacion: z.number().finite().min(0).max(10),
   version: z.number().int().positive().optional(),
+  canalCaptura: z.enum(['gui', 'api']).default('api'),
+  referenciaOrigen: z.string().trim().max(200).optional(),
   clientRequestId: z.string().uuid()
 }).strict().superRefine((valor, contexto) => {
   const maximo = valor.componente === 'Bono extracurricular'
     ? 1
     : valor.componente === 'Solicitud Extra'
       ? 1
-    : valor.componente === 'Exámen Global'
+    : valor.componente === 'Exámen Global' || valor.componente === 'Exámen 1er Parcial'
       ? 5
       : valor.componente === 'Exámen 2do Parcial'
         ? 5.25

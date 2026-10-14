@@ -26,6 +26,7 @@ import {
   obtenerEstadoClassroom,
   sincronizarImportacionClassroom
 } from './servicioSyncClassroom.js';
+import { listarHistorialEntregaClassroom, listarSnapshotsClassroomCorte, obtenerCapturaHistorialClassroom } from './servicioHistorialClassroom.js';
 
 function normalizarTexto(valor: unknown): string {
   return String(valor || '').trim();
@@ -375,6 +376,7 @@ export async function previewImportacionClassroom(req: SolicitudDocente, res: Re
       destinoColumna?: 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir' | null;
       activo?: boolean;
       faltantesConfirmados?: string[];
+      reentregasConfirmadas?: string[];
     }>,
     limiteSubmissions: payload.limiteSubmissions,
     persistir: false
@@ -398,6 +400,7 @@ export async function ejecutarImportacionClassroom(req: SolicitudDocente, res: R
       destinoColumna?: 'Tareas y Ejercicios 2do Parcial' | 'Practica 2do Parcial' | 'Excluir' | null;
       activo?: boolean;
       faltantesConfirmados?: string[];
+      reentregasConfirmadas?: string[];
     }>,
     limiteSubmissions: payload.limiteSubmissions,
     persistir: true
@@ -413,6 +416,52 @@ export async function listarHistorialSyncClassroomController(req: SolicitudDocen
   }
   const historial = await listarHistorialSyncClassroom(docenteId, periodoId);
   res.json({ historial });
+}
+
+export async function listarHistorialClassroomAlumnoController(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const periodoId = normalizarTexto(req.query.periodoId);
+  const alumnoId = normalizarTexto(req.params.alumnoId);
+  const corte = Number(req.params.corte);
+  const limite = Number(req.query.limite ?? 50);
+  const cursor = normalizarTexto(req.query.cursor) || undefined;
+  if (!periodoId || ![1, 2, 3].includes(corte) || !Number.isInteger(limite) || limite < 1 || limite > 100) {
+    throw new ErrorAplicacion('DATOS_INVALIDOS', 'periodoId, corte (1–3) y limite (1–100) son obligatorios.', 400);
+  }
+  const historial = await listarSnapshotsClassroomCorte({ docenteId, periodoId, alumnoId, corte, limite, cursor });
+  if (!historial) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece al periodo seleccionado.', 404);
+  res.json(historial);
+}
+
+export async function listarHistorialEntregaClassroomController(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const periodoId = normalizarTexto(req.query.periodoId);
+  const courseId = normalizarTexto(req.query.courseId);
+  const courseWorkId = normalizarTexto(req.query.courseWorkId);
+  const alumnoId = normalizarTexto(req.params.alumnoId);
+  const submissionId = normalizarTexto(req.params.submissionId);
+  const limite = Number(req.query.limite ?? 20);
+  const cursor = normalizarTexto(req.query.cursor) || undefined;
+  if (!periodoId || !courseId || courseId.length > 128 || !courseWorkId || courseWorkId.length > 128 ||
+      !submissionId || submissionId.length > 128 || (cursor && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cursor)) ||
+      !Number.isInteger(limite) || limite < 1 || limite > 100) {
+    throw new ErrorAplicacion('DATOS_INVALIDOS', 'periodoId, courseId, courseWorkId y limite (1–100) son obligatorios.', 400);
+  }
+  const historial = await listarHistorialEntregaClassroom({ docenteId, periodoId, alumnoId, courseId, courseWorkId, submissionId, limite, cursor });
+  if (!historial) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece al periodo seleccionado.', 404);
+  res.json(historial);
+}
+
+export async function obtenerCapturaHistorialClassroomController(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const captura = await obtenerCapturaHistorialClassroom({ docenteId, snapshotId: normalizarTexto(req.params.snapshotId) });
+  if (!captura) throw new ErrorAplicacion('CAPTURA_NO_ENCONTRADA', 'La ficha histórica no existe o no está disponible.', 404);
+  res.setHeader('Content-Type', 'image/webp');
+  res.setHeader('Content-Length', String(captura.capturaBytes));
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('ETag', `"${captura.capturaHash}"`);
+  res.send(Buffer.from(captura.capturaWebp));
 }
 
 export async function mapearClassroomEvidencia(req: SolicitudDocente, res: Response) {

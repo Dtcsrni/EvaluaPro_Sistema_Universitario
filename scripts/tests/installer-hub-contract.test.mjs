@@ -3029,6 +3029,18 @@ test('SPEC-094: el helper nativo conserva la base existente y aísla instalacion
   assert.match(config, /BACKEND_DATA_DIR_PROD/);
 });
 
+test('SPEC-099 REQ-001/002/003: el helper tolera la salida concurrente y protege contra reutilización de PID', () => {
+  const helper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
+  const stopOwnedProcesses = helper.match(/private static void StopOwnedNodeProcesses\(string root\)[\s\S]*?\n    private static bool IsProcessRunning/)?.[0] || '';
+
+  assert.match(stopOwnedProcesses, /StartTimeUtcTicks/);
+  assert.match(stopOwnedProcesses, /catch \(InvalidOperationException\) when \(process\.HasExited\)[\s\S]*?continue;/);
+  assert.match(stopOwnedProcesses, /try \{ process = Process\.GetProcessById\(processIdentity\.ProcessId\); \}[\s\S]*?catch \(ArgumentException\)[\s\S]*?continue;/);
+  assert.match(stopOwnedProcesses, /currentStartTimeUtcTicks != processIdentity\.StartTimeUtcTicks/);
+  assert.match(stopOwnedProcesses, /process\.Kill\(entireProcessTree: true\);[\s\S]*?catch \(InvalidOperationException\) when \(process\.HasExited\)/);
+  assert.match(helper, /private static bool IsProcessRunning\(int pid, long expectedStartTimeUtcTicks\)/);
+});
+
 test('SPEC-050: el generador de iconos no puede crear shortcuts', () => {
   const generator = fs.readFileSync(path.join(root, 'scripts', 'icons', 'generate-all-icons.mjs'), 'utf8');
   assert.doesNotMatch(generator, /CreateShortcut|WScript\.Shell|\.lnk/i);

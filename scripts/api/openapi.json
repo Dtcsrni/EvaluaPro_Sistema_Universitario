@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EvaluaPro API docente",
-    "version": "1.2.7",
+    "version": "1.2.8",
     "description": "Contrato de las operaciones clave para automatizar autoría de reactivos, generación de exámenes, procesamiento OMR, calificación y consulta académica. Las operaciones usan los mismos servicios y persistencia que la GUI."
   },
   "servers": [
@@ -1495,7 +1495,62 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/Json"
+            "description": "Estado del vínculo Classroom y última sincronización del docente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "estado"
+                  ],
+                  "properties": {
+                    "estado": {
+                      "type": "object",
+                      "required": [
+                        "conectado",
+                        "correoGoogle",
+                        "googleUserId",
+                        "ultimaSincronizacionEn",
+                        "ultimoError"
+                      ],
+                      "properties": {
+                        "conectado": {
+                          "type": "boolean"
+                        },
+                        "correoGoogle": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "email"
+                        },
+                        "googleUserId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ultimaSincronizacionEn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "ultimoError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "403": {
             "$ref": "#/components/responses/Error"
@@ -1521,7 +1576,53 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/Json"
+            "description": "Cursos activos visibles para la integración del docente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "cursos"
+                  ],
+                  "properties": {
+                    "cursos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "courseState"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "section": {
+                            "type": "string"
+                          },
+                          "descriptionHeading": {
+                            "type": "string"
+                          },
+                          "updateTime": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "courseState": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "403": {
             "$ref": "#/components/responses/Error"
@@ -1553,11 +1654,107 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "periodoId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
           }
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/Json"
+            "description": "Actividades disponibles del curso y su asignación local por periodo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "actividades"
+                  ],
+                  "properties": {
+                    "actividades": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "title"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "maxPoints": {
+                            "type": "number"
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "updateTime": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "alternateLink": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "mapeo": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "tituloEvidencia": {
+                                    "type": "string"
+                                  },
+                                  "descripcionEvidencia": {
+                                    "type": "string"
+                                  },
+                                  "ponderacion": {
+                                    "type": "number"
+                                  },
+                                  "corte": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 3
+                                  },
+                                  "destinoColumna": {
+                                    "type": "string",
+                                    "enum": [
+                                      "Tareas y Ejercicios 2do Parcial",
+                                      "Practica 2do Parcial",
+                                      "Excluir"
+                                    ]
+                                  },
+                                  "activo": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "403": {
             "$ref": "#/components/responses/Error"
@@ -1589,11 +1786,172 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "periodoId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
           }
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/Json"
+            "description": "Roster de Classroom, lista local y coincidencias confirmadas o sugeridas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "courseId",
+                    "alumnosLocales",
+                    "alumnosClassroom"
+                  ],
+                  "properties": {
+                    "courseId": {
+                      "type": "string"
+                    },
+                    "alumnosLocales": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "_id",
+                          "nombreCompleto"
+                        ],
+                        "properties": {
+                          "_id": {
+                            "type": "string"
+                          },
+                          "nombreCompleto": {
+                            "type": "string"
+                          },
+                          "matricula": {
+                            "type": "string"
+                          },
+                          "correo": {
+                            "type": "string",
+                            "format": "email"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "alumnosClassroom": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "classroomUserId",
+                          "alumnoIdConfirmado",
+                          "alumnoConfirmado",
+                          "alumnoIdSugerido",
+                          "alumnoSugerido",
+                          "matchStrategy"
+                        ],
+                        "properties": {
+                          "classroomUserId": {
+                            "type": "string"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "emailAddress": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "alumnoIdConfirmado": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "alumnoConfirmado": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "_id",
+                                  "nombreCompleto"
+                                ],
+                                "properties": {
+                                  "_id": {
+                                    "type": "string"
+                                  },
+                                  "nombreCompleto": {
+                                    "type": "string"
+                                  },
+                                  "matricula": {
+                                    "type": "string"
+                                  },
+                                  "correo": {
+                                    "type": "string",
+                                    "format": "email"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "alumnoIdSugerido": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "alumnoSugerido": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "_id",
+                                  "nombreCompleto"
+                                ],
+                                "properties": {
+                                  "_id": {
+                                    "type": "string"
+                                  },
+                                  "nombreCompleto": {
+                                    "type": "string"
+                                  },
+                                  "matricula": {
+                                    "type": "string"
+                                  },
+                                  "correo": {
+                                    "type": "string",
+                                    "format": "email"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "matchStrategy": {
+                            "type": "string",
+                            "enum": [
+                              "manual",
+                              "email",
+                              "matricula",
+                              "none"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "403": {
             "$ref": "#/components/responses/Error"
@@ -1611,7 +1969,7 @@
           "Classroom"
         ],
         "operationId": "importClassroomStudents",
-        "summary": "Previsualizar/importar roster conforme al contrato del backend",
+        "summary": "Importar alumnos desde Classroom",
         "security": [
           {
             "bearerAuth": []
@@ -1628,11 +1986,238 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/JsonObject"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "periodoId",
+                  "alumnos"
+                ],
+                "properties": {
+                  "periodoId": {
+                    "type": "string",
+                    "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                    "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                  },
+                  "alumnos": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 500,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "classroomUserId"
+                      ],
+                      "properties": {
+                        "classroomUserId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "Identidad única dentro de alumnos en esta solicitud."
+                        },
+                        "matricula": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 64
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/Json"
+            "description": "Conteos de alumnos importados y roster resultante tras conservar vínculos anteriores.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "creados",
+                    "actualizados",
+                    "conservados",
+                    "totalProcesados",
+                    "roster"
+                  ],
+                  "properties": {
+                    "creados": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "actualizados": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "conservados": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "totalProcesados": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "roster": {
+                      "type": "object",
+                      "required": [
+                        "courseId",
+                        "alumnosLocales",
+                        "alumnosClassroom"
+                      ],
+                      "properties": {
+                        "courseId": {
+                          "type": "string"
+                        },
+                        "alumnosLocales": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "_id",
+                              "nombreCompleto"
+                            ],
+                            "properties": {
+                              "_id": {
+                                "type": "string"
+                              },
+                              "nombreCompleto": {
+                                "type": "string"
+                              },
+                              "matricula": {
+                                "type": "string"
+                              },
+                              "correo": {
+                                "type": "string",
+                                "format": "email"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "alumnosClassroom": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "classroomUserId",
+                              "alumnoIdConfirmado",
+                              "alumnoConfirmado",
+                              "alumnoIdSugerido",
+                              "alumnoSugerido",
+                              "matchStrategy"
+                            ],
+                            "properties": {
+                              "classroomUserId": {
+                                "type": "string"
+                              },
+                              "fullName": {
+                                "type": "string"
+                              },
+                              "emailAddress": {
+                                "type": "string",
+                                "format": "email"
+                              },
+                              "alumnoIdConfirmado": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "alumnoConfirmado": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "_id",
+                                      "nombreCompleto"
+                                    ],
+                                    "properties": {
+                                      "_id": {
+                                        "type": "string"
+                                      },
+                                      "nombreCompleto": {
+                                        "type": "string"
+                                      },
+                                      "matricula": {
+                                        "type": "string"
+                                      },
+                                      "correo": {
+                                        "type": "string",
+                                        "format": "email"
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "alumnoIdSugerido": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "alumnoSugerido": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "_id",
+                                      "nombreCompleto"
+                                    ],
+                                    "properties": {
+                                      "_id": {
+                                        "type": "string"
+                                      },
+                                      "nombreCompleto": {
+                                        "type": "string"
+                                      },
+                                      "matricula": {
+                                        "type": "string"
+                                      },
+                                      "correo": {
+                                        "type": "string",
+                                        "format": "email"
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "matchStrategy": {
+                                "type": "string",
+                                "enum": [
+                                  "manual",
+                                  "email",
+                                  "matricula",
+                                  "none"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "403": {
             "$ref": "#/components/responses/Error"
@@ -1646,11 +2231,13 @@
         },
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
-          "classroom:pull"
+          "classroom:pull",
+          "alumnos:gestionar"
         ],
         "x-evaluapro-validators": [
           "esquemaImportarAlumnosClassroom"
-        ]
+        ],
+        "description": "Incorpora identidades del roster actual al periodo docente. Deriva nombre y correo desde Classroom, conserva los vínculos de alumnos que no forman parte de la selección y rechaza identidades ajenas al curso o repetidas antes de escribir. Solo admite matrícula opcional y requiere gestión de alumnos."
       }
     },
     "/sincronizaciones/local/lease": {
@@ -8636,7 +9223,145 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "additionalProperties": true
+                        "required": [
+                          "id",
+                          "docenteId",
+                          "periodoId",
+                          "alumnoId",
+                          "titulo",
+                          "descripcion",
+                          "calificacionDecimal",
+                          "ponderacion",
+                          "fechaEvidencia",
+                          "corte",
+                          "fuente",
+                          "estadoCaptura",
+                          "classroomData",
+                          "classroom",
+                          "metadata",
+                          "archivadaEn",
+                          "archivadaPorDocenteId",
+                          "motivoArchivo",
+                          "auditoriaCambios",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "docenteId": {
+                            "type": "string"
+                          },
+                          "periodoId": {
+                            "type": "string",
+                            "pattern": "^[0-9a-fA-F]{24}$"
+                          },
+                          "alumnoId": {
+                            "type": "string",
+                            "pattern": "^[0-9a-fA-F]{24}$"
+                          },
+                          "titulo": {
+                            "type": "string"
+                          },
+                          "descripcion": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "calificacionDecimal": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "ponderacion": {
+                            "type": "number"
+                          },
+                          "fechaEvidencia": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "corte": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 3
+                          },
+                          "fuente": {
+                            "type": "string",
+                            "enum": [
+                              "manual",
+                              "classroom"
+                            ]
+                          },
+                          "estadoCaptura": {
+                            "type": "string",
+                            "enum": [
+                              "pendiente",
+                              "calificada"
+                            ]
+                          },
+                          "classroomData": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": true
+                          },
+                          "classroom": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": true
+                          },
+                          "metadata": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": true
+                          },
+                          "archivadaEn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "archivadaPorDocenteId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "motivoArchivo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "auditoriaCambios": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "additionalProperties": false
                       }
                     },
                     "nextCursor": {
@@ -8695,7 +9420,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -8703,7 +9429,20 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          },
+          {
+            "name": "incluirArchivadas",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
             }
           },
           {
@@ -9318,10 +10057,10 @@
     "/evaluaciones/v2/classroom/oauth/iniciar": {
       "get": {
         "tags": [
-          "Evaluaciones"
+          "Classroom"
         ],
         "operationId": "get_evaluaciones_v2_classroom_oauth_iniciar",
-        "summary": "GET /evaluaciones/v2/classroom/oauth/iniciar",
+        "summary": "Iniciar conexión con Google Classroom",
         "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
         "security": [
           {
@@ -9330,12 +10069,32 @@
         ],
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "URL de autorización OAuth y estado de conexión actual.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "url",
+                    "conectado",
+                    "correoGoogle"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "conectado": {
+                      "type": "boolean"
+                    },
+                    "correoGoogle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -9380,10 +10139,10 @@
     "/evaluaciones/v2/classroom/oauth/desconectar": {
       "post": {
         "tags": [
-          "Evaluaciones"
+          "Classroom"
         ],
         "operationId": "post_evaluaciones_v2_classroom_oauth_desconectar",
-        "summary": "POST /evaluaciones/v2/classroom/oauth/desconectar",
+        "summary": "Desconectar Google Classroom",
         "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
         "security": [
           {
@@ -9402,16 +10161,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
+          "204": {
+            "description": "Integración desconectada correctamente; no contiene cuerpo."
           },
           "401": {
             "description": "Error HTTP con envelope de aplicación, código y mensaje.",
@@ -9456,11 +10207,11 @@
     "/evaluaciones/v2/classroom/cursos/{courseId}/mapeo-alumnos": {
       "put": {
         "tags": [
-          "Evaluaciones"
+          "Classroom"
         ],
         "operationId": "put_evaluaciones_v2_classroom_cursos_courseId_mapeo_alumnos",
-        "summary": "PUT /evaluaciones/v2/classroom/cursos/{courseId}/mapeo-alumnos",
-        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "summary": "Guardar vínculo de alumnos Classroom",
+        "description": "Reemplaza el conjunto de vínculos del curso: las identidades omitidas quedan sin vincular. Cada identidad Classroom y cada alumno local solo pueden aparecer una vez.",
         "security": [
           {
             "bearerAuth": []
@@ -9477,24 +10228,210 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true
+                "required": [
+                  "periodoId",
+                  "asignaciones"
+                ],
+                "properties": {
+                  "periodoId": {
+                    "type": "string",
+                    "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                    "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                  },
+                  "asignaciones": {
+                    "type": "array",
+                    "maxItems": 500,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "classroomUserId"
+                      ],
+                      "properties": {
+                        "classroomUserId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "Identidad única dentro de alumnos en esta solicitud."
+                        },
+                        "alumnoId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                              "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Roster de Classroom, lista local y coincidencias confirmadas o sugeridas.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "courseId",
+                    "alumnosLocales",
+                    "alumnosClassroom"
+                  ],
+                  "properties": {
+                    "courseId": {
+                      "type": "string"
+                    },
+                    "alumnosLocales": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "_id",
+                          "nombreCompleto"
+                        ],
+                        "properties": {
+                          "_id": {
+                            "type": "string"
+                          },
+                          "nombreCompleto": {
+                            "type": "string"
+                          },
+                          "matricula": {
+                            "type": "string"
+                          },
+                          "correo": {
+                            "type": "string",
+                            "format": "email"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "alumnosClassroom": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "classroomUserId",
+                          "alumnoIdConfirmado",
+                          "alumnoConfirmado",
+                          "alumnoIdSugerido",
+                          "alumnoSugerido",
+                          "matchStrategy"
+                        ],
+                        "properties": {
+                          "classroomUserId": {
+                            "type": "string"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "emailAddress": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "alumnoIdConfirmado": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "alumnoConfirmado": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "_id",
+                                  "nombreCompleto"
+                                ],
+                                "properties": {
+                                  "_id": {
+                                    "type": "string"
+                                  },
+                                  "nombreCompleto": {
+                                    "type": "string"
+                                  },
+                                  "matricula": {
+                                    "type": "string"
+                                  },
+                                  "correo": {
+                                    "type": "string",
+                                    "format": "email"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "alumnoIdSugerido": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "alumnoSugerido": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "_id",
+                                  "nombreCompleto"
+                                ],
+                                "properties": {
+                                  "_id": {
+                                    "type": "string"
+                                  },
+                                  "nombreCompleto": {
+                                    "type": "string"
+                                  },
+                                  "matricula": {
+                                    "type": "string"
+                                  },
+                                  "correo": {
+                                    "type": "string",
+                                    "format": "email"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "matchStrategy": {
+                            "type": "string",
+                            "enum": [
+                              "manual",
+                              "email",
+                              "matricula",
+                              "none"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -9518,6 +10455,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
           },
           "default": {
             "description": "Error HTTP con envelope de aplicación, código y mensaje.",
@@ -9542,7 +10482,7 @@
     "/evaluaciones/v2/classroom/importaciones/historial": {
       "get": {
         "tags": [
-          "Evaluaciones"
+          "Classroom"
         ],
         "operationId": "get_evaluaciones_v2_classroom_importaciones_historial",
         "summary": "GET /evaluaciones/v2/classroom/importaciones/historial",
@@ -9554,12 +10494,136 @@
         ],
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Hasta 20 vistas previas e importaciones de la materia seleccionada, ordenadas por fecha descendente.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "historial"
+                  ],
+                  "properties": {
+                    "historial": {
+                      "type": "array",
+                      "maxItems": 20,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "_id",
+                          "tipo",
+                          "periodoId",
+                          "courseIds",
+                          "courseWorkIds",
+                          "resumen",
+                          "errores",
+                          "ejecutadoEn"
+                        ],
+                        "properties": {
+                          "_id": {
+                            "type": "string"
+                          },
+                          "tipo": {
+                            "type": "string",
+                            "enum": [
+                              "preview",
+                              "ejecucion"
+                            ]
+                          },
+                          "periodoId": {
+                            "type": "string",
+                            "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                            "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                          },
+                          "courseIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "courseWorkIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "resumen": {
+                            "type": "object",
+                            "properties": {
+                              "totalActividades": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "submissionsProcesadas": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "matched": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "unmatched": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "pending": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "graded": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "wouldCreate": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "wouldUpdate": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "importadas": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "actualizadas": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "omitidas": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "errores": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "mensaje"
+                              ],
+                              "properties": {
+                                "mensaje": {
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "ejecutadoEn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -9598,41 +10662,141 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
+        ],
+        "parameters": [
+          {
+            "name": "periodoId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+              "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+            }
+          }
         ]
       }
     },
     "/evaluaciones/v2/classroom/importaciones/preview": {
       "post": {
         "tags": [
-          "Evaluaciones"
+          "Classroom"
         ],
         "operationId": "post_evaluaciones_v2_classroom_importaciones_preview",
-        "summary": "POST /evaluaciones/v2/classroom/importaciones/preview",
-        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "summary": "Previsualizar importación de actividades Classroom",
+        "description": "Calcula la vista previa sin guardar calificaciones. Cada actividad puede asignarse al parcial 1, 2 o 3. Rechaza pares curso/actividad repetidos antes de consultar Classroom.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true
+                "required": [
+                  "periodoId",
+                  "actividades"
+                ],
+                "properties": {
+                  "periodoId": {
+                    "type": "string",
+                    "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                    "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                  },
+                  "actividades": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "courseId",
+                        "courseWorkId"
+                      ],
+                      "properties": {
+                        "courseId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "courseWorkId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "No se puede repetir junto con el mismo courseId dentro de la solicitud."
+                        },
+                        "tituloEvidencia": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 180
+                        },
+                        "descripcionEvidencia": {
+                          "type": "string",
+                          "maxLength": 600
+                        },
+                        "ponderacion": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "corte": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 3,
+                          "description": "Parcial al que se asigna la actividad."
+                        },
+                        "destinoColumna": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "Tareas y Ejercicios 2do Parcial",
+                            "Practica 2do Parcial",
+                            "Excluir",
+                            null
+                          ]
+                        },
+                        "activo": {
+                          "type": "boolean"
+                        },
+                        "incluirEnPromedio": {
+                          "type": "boolean"
+                        },
+                        "faltantesConfirmados": {
+                          "type": "array",
+                          "maxItems": 500,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "limiteSubmissions": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500
+                  }
+                },
+                "additionalProperties": false
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Resumen de actividades, entregas, vínculos, notas proyectadas y errores de sincronización.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/ClassroomGradeSyncResult"
                 }
               }
             }
@@ -9680,35 +10844,123 @@
     "/evaluaciones/v2/classroom/importaciones/ejecutar": {
       "post": {
         "tags": [
-          "Evaluaciones"
+          "Classroom"
         ],
         "operationId": "post_evaluaciones_v2_classroom_importaciones_ejecutar",
-        "summary": "POST /evaluaciones/v2/classroom/importaciones/ejecutar",
-        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "summary": "Confirmar importación de actividades Classroom",
+        "description": "Guarda la importación confirmada y conserva la asignación de parcial de cada actividad. Rechaza pares curso/actividad repetidos antes de consultar Classroom o escribir evidencias.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true
+                "required": [
+                  "periodoId",
+                  "actividades"
+                ],
+                "properties": {
+                  "periodoId": {
+                    "type": "string",
+                    "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                    "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                  },
+                  "actividades": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "courseId",
+                        "courseWorkId"
+                      ],
+                      "properties": {
+                        "courseId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "courseWorkId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "No se puede repetir junto con el mismo courseId dentro de la solicitud."
+                        },
+                        "tituloEvidencia": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 180
+                        },
+                        "descripcionEvidencia": {
+                          "type": "string",
+                          "maxLength": 600
+                        },
+                        "ponderacion": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "corte": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 3,
+                          "description": "Parcial al que se asigna la actividad."
+                        },
+                        "destinoColumna": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "Tareas y Ejercicios 2do Parcial",
+                            "Practica 2do Parcial",
+                            "Excluir",
+                            null
+                          ]
+                        },
+                        "activo": {
+                          "type": "boolean"
+                        },
+                        "incluirEnPromedio": {
+                          "type": "boolean"
+                        },
+                        "faltantesConfirmados": {
+                          "type": "array",
+                          "maxItems": 500,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "limiteSubmissions": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500
+                  }
+                },
+                "additionalProperties": false
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Resumen de actividades, entregas, vínculos, notas proyectadas y errores de sincronización.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/ClassroomGradeSyncResult"
                 }
               }
             }
@@ -9756,7 +11008,7 @@
     "/evaluaciones/v2/classroom/mapeos": {
       "get": {
         "tags": [
-          "Evaluaciones"
+          "Classroom"
         ],
         "operationId": "get_evaluaciones_v2_classroom_mapeos",
         "summary": "GET /evaluaciones/v2/classroom/mapeos",
@@ -9768,12 +11020,40 @@
         ],
         "responses": {
           "200": {
-            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "description": "Vínculos heredados de actividades Classroom; este endpoint está marcado como deprecado.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "required": [
+                    "conectado",
+                    "correoGoogle",
+                    "mapeos",
+                    "deprecado"
+                  ],
+                  "properties": {
+                    "conectado": {
+                      "type": "boolean"
+                    },
+                    "correoGoogle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mapeos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "deprecado": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -9812,6 +11092,18 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
         "x-evaluapro-permissions": [
           "classroom:pull"
+        ],
+        "parameters": [
+          {
+            "name": "periodoId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+              "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+            }
+          }
         ]
       }
     },
@@ -20447,6 +21739,463 @@
           "esquemaExportarDatasetIngestaOmr"
         ]
       }
+    },
+    "/analiticas/lista-academica/calificaciones/historial": {
+      "get": {
+        "tags": [
+          "Analíticas"
+        ],
+        "operationId": "get_analiticas_lista_academica_calificaciones_historial",
+        "summary": "GET /analiticas/lista-academica/calificaciones/historial",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts",
+        "x-evaluapro-permissions": [
+          "analiticas:leer"
+        ]
+      }
+    },
+    "/evaluaciones/v2/classroom/alumnos/{alumnoId}/cortes/{corte}/historial": {
+      "get": {
+        "tags": [
+          "Classroom"
+        ],
+        "operationId": "get_evaluaciones_v2_classroom_alumnos_alumnoId_cortes_corte_historial",
+        "summary": "GET /evaluaciones/v2/classroom/alumnos/{alumnoId}/cortes/{corte}/historial",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alumnoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "corte",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          {
+            "name": "periodoId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
+        "x-evaluapro-permissions": [
+          "classroom:pull"
+        ]
+      }
+    },
+    "/evaluaciones/v2/classroom/historial-cortes/{snapshotId}/captura": {
+      "get": {
+        "tags": [
+          "Classroom"
+        ],
+        "operationId": "get_evaluaciones_v2_classroom_historial_cortes_snapshotId_captura",
+        "summary": "GET /evaluaciones/v2/classroom/historial-cortes/{snapshotId}/captura",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "snapshotId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ficha comprimida WebP privada del promedio Classroom confirmado para el alumno y parcial.",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
+        "x-evaluapro-permissions": [
+          "classroom:pull"
+        ]
+      }
+    },
+    "/evaluaciones/v2/classroom/alumnos/{alumnoId}/entregas/{submissionId}/historial": {
+      "get": {
+        "operationId": "get_evaluaciones_v2_classroom_alumnos_alumnoId_entregas_submissionId_historial",
+        "summary": "Consultar el historial de una entrega de Classroom",
+        "description": "Devuelve versiones ligeras observadas para una entrega, incluidas reentregas pendientes de autorización. El alcance se limita al docente autenticado y a un alumno del periodo indicado.",
+        "tags": [
+          "Classroom"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alumnoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+              "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+            }
+          },
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "periodoId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+              "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "courseWorkId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historial paginado de la entrega.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "eventos",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "eventos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "corte",
+                          "puntosObtenidos",
+                          "puntosPosibles",
+                          "calificacionSobre10",
+                          "estado",
+                          "estadoClassroom",
+                          "importacionId",
+                          "observadoEn",
+                          "capturadoPor"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "corte": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "puntosObtenidos": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "puntosPosibles": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "calificacionSobre10": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "estado": {
+                            "type": "string",
+                            "enum": [
+                              "pendiente",
+                              "calificada",
+                              "revision_pendiente",
+                              "faltante_confirmado"
+                            ]
+                          },
+                          "estadoClassroom": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "importacionId": {
+                            "type": "string"
+                          },
+                          "observadoEn": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "capturadoPor": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -20964,6 +22713,728 @@
             "maxItems": 3,
             "items": {
               "$ref": "#/components/schemas/OmrReviewCandidate"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClassroomGradeSyncResult": {
+        "type": "object",
+        "required": [
+          "tipo",
+          "periodoId",
+          "totalActividades",
+          "submissionsProcesadas",
+          "matched",
+          "unmatched",
+          "pending",
+          "graded",
+          "wouldCreate",
+          "wouldUpdate",
+          "importadas",
+          "actualizadas",
+          "omitidas",
+          "actividades",
+          "promediosEvaluacionContinuaTercerParcial",
+          "acumuladoTareasSegundoParcial",
+          "errores"
+        ],
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "preview",
+              "ejecucion"
+            ]
+          },
+          "periodoId": {
+            "type": "string",
+            "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+            "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+          },
+          "totalActividades": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "submissionsProcesadas": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "matched": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unmatched": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "graded": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wouldCreate": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wouldUpdate": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "importadas": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "actualizadas": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "omitidas": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "actividades": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "courseId",
+                "courseWorkId",
+                "submissionsProcesadas",
+                "matched",
+                "unmatched",
+                "pending",
+                "graded",
+                "wouldCreate",
+                "wouldUpdate",
+                "importadas",
+                "actualizadas",
+                "omitidas",
+                "submissions",
+                "errors"
+              ],
+              "properties": {
+                "courseId": {
+                  "type": "string"
+                },
+                "courseName": {
+                  "type": "string"
+                },
+                "courseWorkId": {
+                  "type": "string"
+                },
+                "courseWorkTitle": {
+                  "type": "string"
+                },
+                "tituloEvidencia": {
+                  "type": "string"
+                },
+                "corte": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3
+                },
+                "destinoColumna": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "Tareas y Ejercicios 2do Parcial",
+                    "Practica 2do Parcial",
+                    "Excluir",
+                    null
+                  ]
+                },
+                "submissionsProcesadas": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "matched": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unmatched": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "pending": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "graded": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "wouldCreate": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "wouldUpdate": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "importadas": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "actualizadas": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "omitidas": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "submissions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "submissionId",
+                      "classroomUserId",
+                      "matchStrategy",
+                      "estadoCaptura",
+                      "graded",
+                      "pending",
+                      "wouldCreate",
+                      "wouldUpdate",
+                      "vencida",
+                      "puedeConfirmarFaltante",
+                      "faltanteExplicito"
+                    ],
+                    "properties": {
+                      "submissionId": {
+                        "type": "string"
+                      },
+                      "classroomUserId": {
+                        "type": "string"
+                      },
+                      "studentName": {
+                        "type": "string"
+                      },
+                      "studentEmail": {
+                        "type": "string"
+                      },
+                      "alumnoId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                            "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "alumnoNombre": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "matchStrategy": {
+                        "type": "string",
+                        "enum": [
+                          "manual",
+                          "email",
+                          "matricula",
+                          "none"
+                        ]
+                      },
+                      "estadoCaptura": {
+                        "type": "string",
+                        "enum": [
+                          "pendiente",
+                          "calificada"
+                        ]
+                      },
+                      "graded": {
+                        "type": "boolean"
+                      },
+                      "pending": {
+                        "type": "boolean"
+                      },
+                      "wouldCreate": {
+                        "type": "boolean"
+                      },
+                      "wouldUpdate": {
+                        "type": "boolean"
+                      },
+                      "calificacionDecimal": {
+                        "type": "number"
+                      },
+                      "puntosObtenidos": {
+                        "type": "number"
+                      },
+                      "puntosPosibles": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "vencida": {
+                        "type": "boolean"
+                      },
+                      "puedeConfirmarFaltante": {
+                        "type": "boolean"
+                      },
+                      "faltanteExplicito": {
+                        "type": "boolean"
+                      },
+                      "estadoClassroom": {
+                        "type": "string"
+                      },
+                      "fechaVencimiento": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "mensaje"
+                    ],
+                    "properties": {
+                      "mensaje": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "promediosEvaluacionContinuaTercerParcial": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "alumnoId",
+                "alumnoNombre",
+                "puntosObtenidos",
+                "puntosPosibles",
+                "actividadesCalificadas",
+                "actividadesFaltantesConfirmadas"
+              ],
+              "properties": {
+                "alumnoId": {
+                  "type": "string",
+                  "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                  "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                },
+                "alumnoNombre": {
+                  "type": "string"
+                },
+                "puntosObtenidos": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "puntosPosibles": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "promedioSobre10": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "continuaSobre5": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "promedio": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "actividadesCalificadas": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "actividadesFaltantesConfirmadas": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "acumuladoTareasSegundoParcial": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "alumnoId",
+                "alumnoNombre",
+                "puntosObtenidos",
+                "puntosPosibles",
+                "actividadesCalificadas",
+                "actividadesFaltantesConfirmadas"
+              ],
+              "properties": {
+                "alumnoId": {
+                  "type": "string",
+                  "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                  "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                },
+                "alumnoNombre": {
+                  "type": "string"
+                },
+                "puntosObtenidos": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "puntosPosibles": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "promedioSobre10": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "continuaSobre5": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "promedio": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "actividadesCalificadas": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "actividadesFaltantesConfirmadas": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "errores": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "courseId",
+                "courseWorkId",
+                "mensaje"
+              ],
+              "properties": {
+                "courseId": {
+                  "type": "string"
+                },
+                "courseWorkId": {
+                  "type": "string"
+                },
+                "mensaje": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "EvidenciaEvaluacion": {
+        "type": "object",
+        "required": [
+          "id",
+          "docenteId",
+          "periodoId",
+          "alumnoId",
+          "titulo",
+          "descripcion",
+          "calificacionDecimal",
+          "ponderacion",
+          "fechaEvidencia",
+          "corte",
+          "fuente",
+          "estadoCaptura",
+          "classroomData",
+          "classroom",
+          "metadata",
+          "archivadaEn",
+          "archivadaPorDocenteId",
+          "motivoArchivo",
+          "auditoriaCambios",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "docenteId": {
+            "type": "string"
+          },
+          "periodoId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$"
+          },
+          "alumnoId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "calificacionDecimal": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "ponderacion": {
+            "type": "number"
+          },
+          "fechaEvidencia": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "corte": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 3
+          },
+          "fuente": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "classroom"
+            ]
+          },
+          "estadoCaptura": {
+            "type": "string",
+            "enum": [
+              "pendiente",
+              "calificada"
+            ]
+          },
+          "classroomData": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          },
+          "classroom": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          },
+          "archivadaEn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "archivadaPorDocenteId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motivoArchivo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "auditoriaCambios": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClassroomRoster": {
+        "type": "object",
+        "required": [
+          "courseId",
+          "alumnosLocales",
+          "alumnosClassroom"
+        ],
+        "properties": {
+          "courseId": {
+            "type": "string"
+          },
+          "alumnosLocales": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "_id",
+                "nombreCompleto"
+              ],
+              "properties": {
+                "_id": {
+                  "type": "string"
+                },
+                "nombreCompleto": {
+                  "type": "string"
+                },
+                "matricula": {
+                  "type": "string"
+                },
+                "correo": {
+                  "type": "string",
+                  "format": "email"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "alumnosClassroom": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "classroomUserId",
+                "alumnoIdConfirmado",
+                "alumnoConfirmado",
+                "alumnoIdSugerido",
+                "alumnoSugerido",
+                "matchStrategy"
+              ],
+              "properties": {
+                "classroomUserId": {
+                  "type": "string"
+                },
+                "fullName": {
+                  "type": "string"
+                },
+                "emailAddress": {
+                  "type": "string",
+                  "format": "email"
+                },
+                "alumnoIdConfirmado": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "alumnoConfirmado": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "_id",
+                        "nombreCompleto"
+                      ],
+                      "properties": {
+                        "_id": {
+                          "type": "string"
+                        },
+                        "nombreCompleto": {
+                          "type": "string"
+                        },
+                        "matricula": {
+                          "type": "string"
+                        },
+                        "correo": {
+                          "type": "string",
+                          "format": "email"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "alumnoIdSugerido": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "alumnoSugerido": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "_id",
+                        "nombreCompleto"
+                      ],
+                      "properties": {
+                        "_id": {
+                          "type": "string"
+                        },
+                        "nombreCompleto": {
+                          "type": "string"
+                        },
+                        "matricula": {
+                          "type": "string"
+                        },
+                        "correo": {
+                          "type": "string",
+                          "format": "email"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "matchStrategy": {
+                  "type": "string",
+                  "enum": [
+                    "manual",
+                    "email",
+                    "matricula",
+                    "none"
+                  ]
+                }
+              },
+              "additionalProperties": false
             }
           }
         },

@@ -348,12 +348,58 @@ export async function previsualizarBonoExtracurricular(req: SolicitudDocente, re
   });
 }
 
+export async function listarHistorialCalificacionesLista(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const periodoId = String(req.query.periodoId ?? '').trim();
+  const alumnoId = String(req.query.alumnoId ?? '').trim();
+  const componente = String(req.query.componente ?? '').trim();
+  const cursor = String(req.query.cursor ?? '').trim();
+  const limiteSolicitado = Number(req.query.limite ?? 50);
+  if (!periodoId || !alumnoId || !Number.isInteger(limiteSolicitado) || limiteSolicitado < 1 || limiteSolicitado > 100) {
+    throw new ErrorAplicacion('DATOS_INVALIDOS', 'periodoId, alumnoId y limite (1–100) son obligatorios.', 400);
+  }
+  const alumno = await prisma.alumno.findFirst({ where: { id: alumnoId, periodoId, periodo: { docenteId } }, select: { id: true } });
+  if (!alumno) throw new ErrorAplicacion('ALUMNO_NO_ENCONTRADO', 'El alumno no pertenece al periodo seleccionado.', 404);
+  const limite = limiteSolicitado;
+  const filas = await prisma.calificacionListaMutacion.findMany({
+    where: { docenteId, periodoId, alumnoId, ...(componente ? { componente } : {}) },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: limite + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {})
+  });
+  const hayMas = filas.length > limite;
+  const eventos = filas.slice(0, limite).map((fila) => ({
+    id: fila.id,
+    componente: fila.componente,
+    valorAnterior: fila.valorAnterior,
+    valorNuevo: fila.valorNuevo,
+    version: fila.version,
+    escalaMaxima: fila.escalaMaxima,
+    canalCaptura: fila.canalCaptura ?? 'legado',
+    metodoCaptura: fila.metodoCaptura ?? 'captura_manual',
+    referenciaOrigen: fila.referenciaOrigen,
+    actorId: fila.actorId ?? fila.docenteId,
+    clientRequestId: fila.clientRequestId,
+    createdAt: fila.createdAt
+  }));
+  res.json({ eventos, nextCursor: hayMas ? filas[limite - 1]?.id ?? null : null });
+}
+
 export async function guardarCalificacionLista(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const { periodoId, alumnoId, componente, calificacion, version, clientRequestId } = req.body as {
+  const { periodoId, alumnoId, componente, calificacion, version, clientRequestId, canalCaptura, referenciaOrigen } = req.body as {
     periodoId: string; alumnoId: string; componente: string; calificacion: number; version?: number; clientRequestId: string;
+    canalCaptura: 'gui' | 'api'; referenciaOrigen?: string;
   };
+  const maximoPorComponente: Record<string, number> = {
+    'Practica 2do Parcial': 10, 'Exámen 1er Parcial': 5, 'Exámen 2do Parcial': 5.25,
+    'Exámen Global': 5, 'Bono extracurricular': 1, 'Solicitud Extra': 1
+  };
+  const payloadCanonico = { periodoId, alumnoId, componente, calificacion, version: version ?? null, canalCaptura, referenciaOrigen: referenciaOrigen ?? null };
   const payloadHash = createHash('sha256')
+    .update(JSON.stringify(payloadCanonico))
+    .digest('hex');
+  const payloadHashLegado = createHash('sha256')
     .update(JSON.stringify({ periodoId, alumnoId, componente, calificacion, version: version ?? null }))
     .digest('hex');
 
@@ -362,7 +408,7 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
       where: { docenteId_clientRequestId: { docenteId, clientRequestId: clientRequestId! } }
     });
     if (!mutacion) return null;
-    if (mutacion.payloadHash !== payloadHash) {
+    if (mutacion.payloadHash !== payloadHash && mutacion.payloadHash !== payloadHashLegado) {
       throw new ErrorAplicacion('CLAVE_IDEMPOTENCIA_REUTILIZADA', 'clientRequestId ya fue usado con otro payload.', 409);
     }
     const calificacionPersistida = await tx.calificacionListaManual.findFirst({
@@ -419,7 +465,10 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
         guardado = await tx.calificacionListaManual.findUniqueOrThrow({ where: { id: existente.id } });
       }
       await tx.calificacionListaMutacion.create({ data: {
-        docenteId, clientRequestId, payloadHash, calificacionId: guardado.id
+        docenteId, clientRequestId, payloadHash, calificacionId: guardado.id,
+        canalCaptura, metodoCaptura: 'captura_manual', actorId: docenteId, periodoId, alumnoId, componente,
+        valorAnterior: existente?.calificacion ?? null, valorNuevo: calificacion, version: guardado.version,
+        escalaMaxima: maximoPorComponente[componente], referenciaOrigen: referenciaOrigen ?? null
       } });
       return { calificacion: guardado, repetida: false, creada: !existente };
     });
