@@ -968,24 +968,31 @@ function Invoke-InstallerHubMode {
   return $true
 }
 
-function Wait-BootstrapState {
-  param(
-    [string]$RunId,
-    [string[]]$AcceptedStates,
-    [int]$TimeoutSec = 180
-  )
-  $path = Join-Path $installedRoot ("logs\bootstrap-state-{0}.json" -f ($RunId -replace '[^a-zA-Z0-9_-]', ''))
+function Wait-NativeDashboardHealth {
+  param([int]$TimeoutSec = 240)
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $lastError = 'sin respuesta HTTP'
   do {
-    if (Test-Path -LiteralPath $path) {
-      try {
-        $state = Get-Content -Raw -Path $path | ConvertFrom-Json
-        if ($AcceptedStates -contains [string]$state.state) { return $state }
-      } catch {}
+    try {
+      $web = Invoke-WebRequest -Uri 'http://127.0.0.1:4173/' -UseBasicParsing -TimeoutSec 5
+      $api = Invoke-RestMethod -Uri 'http://127.0.0.1:4000/api/salud' -TimeoutSec 5
+      if ([int]$web.StatusCode -eq 200 -and $null -ne $api) {
+        return [pscustomobject]@{
+          state = 'healthy'
+          meta = [pscustomobject]@{ base = 'http://127.0.0.1:4519' }
+          webStatus = [int]$web.StatusCode
+          apiResponding = $true
+        }
+      }
+      $lastError = "web=$($web.StatusCode) api=$($null -ne $api)"
+    } catch {
+      $lastError = $_.Exception.Message
     }
     Start-Sleep -Milliseconds 800
   } while ((Get-Date) -lt $deadline)
-  throw "Bootstrap state no alcanzo $($AcceptedStates -join ',') runId=$RunId"
+  $appHostLog = Join-Path $installedRoot 'logs\app-host.log'
+  if (Test-Path -LiteralPath $appHostLog) { Copy-ArtifactIfExists -Path $appHostLog | Out-Null }
+  throw "El App Host no dejó saludables la web y API dentro del límite ${TimeoutSec}s: $lastError"
 }
 
 function Ensure-CheckboxOn {
@@ -1089,7 +1096,8 @@ function Wait-InstalledPayload {
   param([int]$TimeoutSec = 240)
   $required = @(
     (Join-Path $installedRoot 'package.json'),
-    (Join-Path $installedRoot 'scripts\launcher-broker.ps1'),
+    (Join-Path $installedRoot 'EvaluaPro.exe'),
+    (Join-Path $installedRoot 'scripts\start-docente-native.mjs'),
     (Join-Path $installedRoot 'runtime\node\node.exe'),
     (Join-Path $installedRoot 'apps\backend\dist\index.js'),
     (Join-Path $installedRoot 'apps\frontend\dist-docente\index.html'),
@@ -1105,84 +1113,88 @@ function Wait-InstalledPayload {
   throw "Payload post-install incompleto. Faltan: $($missing -join ', ')"
 }
 
-function Invoke-InstalledBroker {
+function Get-VerifiedInstalledAppHostProcess {
+  param([Parameter(Mandatory = $true)][int]$ProcessId, [Parameter(Mandatory = $true)][datetime]$StartedAtUtc)
+  $expectedPath = [IO.Path]::GetFullPath((Join-Path $installedRoot 'EvaluaPro.exe'))
+  $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+  if (-not $process) { return $null }
+  try {
+    $process.Refresh()
+    if ($process.HasExited -or [Math]::Abs(($process.StartTime.ToUniversalTime() - $StartedAtUtc).TotalSeconds) -gt 1) {
+      throw "PID $ProcessId ya no corresponde a la instancia App Host iniciada por este E2E."
+    }
+    $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
+    if ([string]::IsNullOrWhiteSpace([string]$processInfo.ExecutablePath) -or
+        -not [string]::Equals([IO.Path]::GetFullPath([string]$processInfo.ExecutablePath), $expectedPath, [StringComparison]::OrdinalIgnoreCase)) {
+      throw "PID $ProcessId no ejecuta el App Host instalado esperado."
+    }
+    return $process
+  } catch {
+    $process.Dispose()
+    throw
+  }
+}
+
+function Invoke-InstalledAppHost {
   param(
     [string]$Action,
     [string]$RunId,
     [int]$TimeoutSec = 60
   )
-  $acceptedBootstrapStates = @('healthy', 'degraded')
-  $broker = Join-Path $installedRoot 'scripts\launcher-broker.ps1'
-  if (-not (Test-Path -LiteralPath $broker)) { throw "No existe broker instalado: $broker" }
-  $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $broker, '-Action', $Action, '-Mode', 'prod', '-Port', [string]$Port, '-RunId', $RunId, '-NoOpen')
-  $stdout = Join-Path $ReportDir ("broker-{0}-{1}.stdout.log" -f $Action, $RunId)
-  $stderr = Join-Path $ReportDir ("broker-{0}-{1}.stderr.log" -f $Action, $RunId)
-  $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $args -WorkingDirectory $installedRoot -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-  if (-not $process.WaitForExit($TimeoutSec * 1000)) {
-    if ($Action -eq 'open-dashboard') {
-      $statePath = Join-Path $installedRoot ("logs\bootstrap-state-{0}.json" -f ($RunId -replace '[^a-zA-Z0-9_-]', ''))
-      $healthyState = $false
-      $stateDeadline = (Get-Date).AddSeconds(180)
-      do {
-        if (Test-Path -LiteralPath $statePath) {
-          try { $healthyState = ((Get-Content -Raw -Path $statePath | ConvertFrom-Json).state -in $acceptedBootstrapStates) } catch {}
-        }
-        if (-not $healthyState) { Start-Sleep -Seconds 2 }
-      } while (-not $healthyState -and (Get-Date) -lt $stateDeadline)
-      if ($healthyState) {
-        Write-E2ELog "WARNING: broker open-dashboard sigue vivo como proceso persistente y supero timeout de proceso; estado JSON saludable, se conserva para validar API."
-        Copy-ArtifactIfExists -Path $stdout | Out-Null
-        Copy-ArtifactIfExists -Path $stderr | Out-Null
-        Export-BrokerDiagnostics -Action $Action -RunId $RunId
-        Add-Result -Area 'broker' -Item $Action -Ok $true -Detail "persistent-process state=healthy runId=$RunId"
-        return
-      }
-    }
-    Write-E2ELog "Timeout broker action=$Action pid=$($process.Id); deteniendo solo el árbol de esa invocación."
-    try { & taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null } catch {}
-    if ($Action -eq 'stop-all') {
-      $activeTargetNodes = @(Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$installedRoot\*" })
-      $activeTargetListeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in @(4000, 4173, $Port) })
-      if ($activeTargetNodes.Count -eq 0 -and $activeTargetListeners.Count -eq 0) {
-        Add-Result -Area 'broker' -Item $Action -Ok $true -Detail "timeout aceptado: estado detenido verificado runId=$RunId"
-        return
-      }
-    }
-    Add-Result -Area 'broker' -Item $Action -Ok $false -Detail "timeout=${TimeoutSec}s runId=$RunId"
-    throw "Broker timeout action=$Action timeout=${TimeoutSec}s"
+  if ($Action -eq 'verify-installation') {
+    Test-InstalledState -Phase 'native-host-verification'
+    Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "payload y manifiestos revisados runId=$RunId"
+    return
   }
-  $process.WaitForExit()
-  try { $process.Refresh() } catch {}
-  $exitCode = $process.ExitCode
-  if ([string]::IsNullOrWhiteSpace([string]$exitCode)) {
-    $statePath = Join-Path $installedRoot ("logs\bootstrap-state-{0}.json" -f ($RunId -replace '[^a-zA-Z0-9_-]', ''))
-    $healthyState = $false
-    if (Test-Path -LiteralPath $statePath) {
-      try { $healthyState = ((Get-Content -Raw -Path $statePath | ConvertFrom-Json).state -in $acceptedBootstrapStates) } catch {}
-    }
-    if ($healthyState) {
-      Write-E2ELog "WARNING: ExitCode nulo para broker action=$Action; se acepta estado JSON healthy/degraded como evidencia alternativa."
-      $exitCode = 0
-    } else {
-      $exitCode = -1
-    }
-  }
-  Copy-ArtifactIfExists -Path $stdout | Out-Null
-  Copy-ArtifactIfExists -Path $stderr | Out-Null
-  Export-BrokerDiagnostics -Action $Action -RunId $RunId
-  Add-Result -Area 'broker' -Item $Action -Ok ($exitCode -eq 0) -Detail "exit=$exitCode runId=$RunId"
-  if ($exitCode -ne 0) { throw "Broker fallo action=$Action exit=$exitCode" }
-}
 
-function Export-BrokerDiagnostics {
-  param(
-    [string]$Action,
-    [string]$RunId
-  )
-  $statePath = Join-Path $installedRoot ("logs\bootstrap-state-{0}.json" -f ($RunId -replace '[^a-zA-Z0-9_-]', ''))
-  if (Test-Path -LiteralPath $statePath) {
-    Copy-ArtifactIfExists -Path $statePath -Name ("broker-{0}-{1}-bootstrap-state.json" -f $Action, $RunId) | Out-Null
+  if ($Action -eq 'open-dashboard') {
+    $appHostPath = [IO.Path]::GetFullPath((Join-Path $installedRoot 'EvaluaPro.exe'))
+    if (-not (Test-Path -LiteralPath $appHostPath -PathType Leaf)) { throw "No existe el App Host instalado: $appHostPath" }
+    if ($script:activeNativeAppHost) { throw 'El App Host ya tiene una instancia propiedad de este E2E.' }
+    $process = Start-Process -FilePath $appHostPath -WorkingDirectory $installedRoot -PassThru
+    try {
+      $startedAtUtc = $process.StartTime.ToUniversalTime()
+      $script:activeNativeAppHost = [pscustomobject]@{ Id = $process.Id; StartedAtUtc = $startedAtUtc; Path = $appHostPath }
+      $null = Get-VerifiedInstalledAppHostProcess -ProcessId $process.Id -StartedAtUtc $startedAtUtc
+      $state = Wait-NativeDashboardHealth -TimeoutSec $TimeoutSec
+      Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "pid=$($process.Id) state=healthy runId=$RunId"
+      return $state
+    } catch {
+      if (Test-Path -LiteralPath (Join-Path $installedRoot 'logs\app-host.log')) {
+        Copy-ArtifactIfExists -Path (Join-Path $installedRoot 'logs\app-host.log') | Out-Null
+      }
+      throw
+    } finally {
+      $process.Dispose()
+    }
   }
+
+  if ($Action -eq 'stop-all') {
+    $identity = $script:activeNativeAppHost
+    if (-not $identity) {
+      Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "no E2E-owned host was active runId=$RunId"
+      return
+    }
+    $process = Get-VerifiedInstalledAppHostProcess -ProcessId ([int]$identity.Id) -StartedAtUtc ([datetime]$identity.StartedAtUtc)
+    if ($process) {
+      try {
+        if (-not $process.CloseMainWindow()) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
+        if (-not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s; no se forzará el cierre." }
+      } finally { $process.Dispose() }
+    }
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    do {
+      $remaining = @(Get-InstalledNodeProcesses)
+      if ($remaining.Count -eq 0) { break }
+      Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $deadline)
+    if (@(Get-InstalledNodeProcesses).Count -gt 0) { throw 'El cierre controlado del App Host dejó procesos Node del payload ejecutándose.' }
+    $script:activeNativeAppHost = $null
+    Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "closed and installed Node tree absent runId=$RunId"
+    return
+  }
+
+  throw "Acción nativa E2E no soportada: $Action"
 }
 
 function Invoke-CaptureCommand {
@@ -1209,7 +1221,7 @@ function Invoke-CaptureCommand {
   try { $process.Refresh() } catch {}
   Copy-ArtifactIfExists -Path $stdout -Name ("{0}.stdout.log" -f $Name) | Out-Null
   Copy-ArtifactIfExists -Path $stderr -Name ("{0}.stderr.log" -f $Name) | Out-Null
-  
+
   $exitCode = $process.ExitCode
   if ($null -eq $exitCode) {
     if (-not $process.HasExited) {
@@ -1239,7 +1251,7 @@ namespace EvaluaPro {
     $exitCode = [int]$nativeExitCode
     Write-E2ELog "ExitCode de $Name recuperado con GetExitCodeProcess: $exitCode"
   }
-  
+
   Add-Result -Area 'command' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
   if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
 }
@@ -1578,13 +1590,12 @@ function Invoke-UpgradeBaselineFlow {
   Add-Result -Area 'upgrade' -Item 'baseline-version' -Ok $true -Detail ([string]$baselineVersion)
 
   $baselineRunId = 'e2e-upgrade-baseline-' + [guid]::NewGuid().ToString('N')
-  Invoke-InstalledBroker -Action 'open-dashboard' -RunId $baselineRunId -TimeoutSec 240
-  $baselineState = Wait-BootstrapState -RunId $baselineRunId -AcceptedStates @('healthy', 'degraded') -TimeoutSec 240
+  $baselineState = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId $baselineRunId -TimeoutSec 240
   $baselineStateValue = if ($baselineState.PSObject.Properties.Match('state').Count -gt 0) { [string]$baselineState.state } else { 'unknown' }
   if ($baselineStateValue -notin @('healthy', 'degraded')) { throw "La app baseline no quedó saludable antes de upgrade: $baselineStateValue" }
 
   $marker = 'upgrade-' + [guid]::NewGuid().ToString('N')
-  Invoke-InstalledBroker -Action 'stop-all' -RunId ('upgrade-stop-' + [guid]::NewGuid().ToString('N'))
+  Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-' + [guid]::NewGuid().ToString('N'))
   Invoke-UpgradeDataMarker -Action 'write' -Marker $marker
   Add-Result -Area 'upgrade' -Item 'baseline-data-marker' -Ok $true -Detail 'marcador SQLite escrito en la base instalada temporal'
   try {
@@ -1902,7 +1913,8 @@ function Test-InstalledState {
   $updateConfig = Join-Path $installedRoot 'config\update-config.json'
   $required = @(
     (Join-Path $installedRoot 'package.json'),
-    (Join-Path $installedRoot 'scripts\launcher-broker.ps1'),
+    (Join-Path $installedRoot 'EvaluaPro.exe'),
+    (Join-Path $installedRoot 'scripts\start-docente-native.mjs'),
     (Join-Path $installedRoot 'runtime\node\node.exe'),
     (Join-Path $installedRoot 'apps\backend\dist\index.js'),
     (Join-Path $installedRoot 'apps\frontend\dist-docente\index.html'),
@@ -2080,10 +2092,9 @@ try {
     Invoke-UpgradeBaselineFlow -BaselinePath $BaselineBundlePath
   }
 
-  Invoke-InstalledBroker -Action 'verify-installation' -RunId ('e2e-verify-' + [guid]::NewGuid().ToString('N'))
+  Invoke-InstalledAppHost -Action 'verify-installation' -RunId ('e2e-verify-' + [guid]::NewGuid().ToString('N'))
   $openRunId = 'e2e-open-' + [guid]::NewGuid().ToString('N')
-  Invoke-InstalledBroker -Action 'open-dashboard' -RunId $openRunId -TimeoutSec 240
-  $state = Wait-BootstrapState -RunId $openRunId -AcceptedStates @('healthy', 'degraded') -TimeoutSec 240
+  $state = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId $openRunId -TimeoutSec 240
   Export-JsonArtifact -Name 'dashboard-bootstrap-state.json' -Data $state | Out-Null
   $dashboardState = if ($state.PSObject.Properties.Match('state').Count -gt 0) { [string]$state.state } else { 'unknown' }
   Add-Result -Area 'dashboard' -Item 'bootstrap-state' -Ok ($dashboardState -in @('healthy', 'degraded')) -Detail $dashboardState
@@ -2114,7 +2125,7 @@ try {
   Test-UpdateSmoke -BaseUrl $dashboardBase
 
   Write-E2ELog "Deteniendo tareas nativas antes de continuar con reparacion y desinstalacion..."
-  Invoke-InstalledBroker -Action 'stop-all' -RunId ("stop-native-{0}" -f ([Guid]::NewGuid().ToString('N')))
+  Invoke-InstalledAppHost -Action 'stop-all' -RunId ("stop-native-{0}" -f ([Guid]::NewGuid().ToString('N')))
 
   Invoke-InstallerHubMode -Mode 'repair' | Out-Null
   Test-InstalledState -Phase 'post-repair'
@@ -2188,6 +2199,13 @@ catch {
   throw
 }
 finally {
+  if ($script:activeNativeAppHost) {
+    try {
+      Invoke-InstalledAppHost -Action 'stop-all' -RunId 'finally-cleanup' -TimeoutSec 45
+    } catch {
+      Write-E2ELog ("No se pudo cerrar de forma controlada el App Host propiedad del E2E: {0}" -f $_.Exception.Message)
+    }
+  }
   foreach ($process in @($processes)) {
     try {
       if ($process -and -not $process.HasExited) {

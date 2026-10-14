@@ -1335,10 +1335,10 @@ test.skip('Legacy: Installer Hub tenía runner E2E docente con guardas remotas',
   assert.match(runner, /Invoke-InstallerHubMode -Mode 'install'/);
   assert.match(runner, /Invoke-InstallerHubMode -Mode 'repair'/);
   assert.match(runner, /Invoke-InstallerHubMode -Mode 'uninstall'/);
-  assert.match(runner, /Invoke-InstalledBroker -Action 'verify-installation'/);
-  assert.match(runner, /Invoke-InstalledBroker -Action 'open-dashboard'/);
+  assert.match(runner, /Invoke-InstalledAppHost -Action 'verify-installation'/);
+  assert.match(runner, /Invoke-InstalledAppHost -Action 'open-dashboard'/);
   assert.match(runner, /Test-UpdateSmoke -BaseUrl \$dashboardBase/);
-  assert.match(runner, /Wait-BootstrapState/);
+  assert.match(runner, /Wait-NativeDashboardHealth/);
   assert.match(runner, /\$freshWindow = Find-Window -TimeoutSec 1/);
   assert.match(runner, /\$lastText = Get-WindowTextSnapshot -Window \$Window/);
   assert.match(runner, /installation\.manifest\.json/);
@@ -2810,28 +2810,36 @@ test('runner E2E no confunde una etapa previa con "ok" con la finalización', ()
   assert.match(stableWait, /Get-LatestInstallerHelperState -Mode \$Mode -MinLastWriteTime \$OperationStartedAt/);
 });
 
-test('runner E2E ejecuta broker instalado preservando rutas con espacios', () => {
+test('SPEC-094 REQ-008: runner E2E arranca y cierra el App Host nativo por identidad', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  const start = runner.indexOf('function Invoke-InstalledAppHost');
+  const end = runner.indexOf('\nfunction Invoke-CaptureCommand', start);
+  assert.ok(start >= 0 && end > start, 'debe localizar el ciclo nativo del App Host instalado');
+  const appHost = runner.slice(start, end);
 
-  assert.match(runner, /Start-Process -FilePath 'powershell\.exe' -ArgumentList \$args/);
-  assert.match(runner, /WaitForExit\(\$TimeoutSec \* 1000\)/);
-  assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
-  assert.match(runner, /\$exitCode = \$process\.ExitCode/);
-  assert.match(runner, /Copy-ArtifactIfExists -Path \$stdout/);
-  assert.match(runner, /Export-BrokerDiagnostics -Action \$Action -RunId \$RunId/);
-  assert.match(runner, /bootstrap-state-\{0\}\.json/);
+  assert.match(runner, /function Wait-NativeDashboardHealth/);
+  assert.match(appHost, /Start-Process -FilePath \$appHostPath/);
+  assert.match(appHost, /Get-VerifiedInstalledAppHostProcess/);
+  assert.match(appHost, /CloseMainWindow\(\)/);
+  assert.match(appHost, /Get-InstalledNodeProcesses/);
+  assert.doesNotMatch(appHost, /powershell\.exe|launcher-broker\.ps1|taskkill\.exe/i);
+  assert.doesNotMatch(runner, /Wait-BootstrapState|Invoke-InstalledBroker/);
 });
 
-test('runner E2E aplica el mismo estado aceptable al timeout y al exit code nulo del broker', () => {
+test('SPEC-094 REQ-007: payload de docente-local no declara launchers retirados como requeridos', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
-  const start = runner.indexOf('function Invoke-InstalledBroker');
-  const end = runner.indexOf('function Export-BrokerDiagnostics', start);
-  assert.ok(start >= 0 && end > start, 'debe localizar la validación de estado del broker instalado');
-  const broker = runner.slice(start, end);
+  const payloadStart = runner.indexOf('function Wait-InstalledPayload');
+  const payloadEnd = runner.indexOf('\nfunction Get-VerifiedInstalledAppHostProcess', payloadStart);
+  const payload = runner.slice(payloadStart, payloadEnd);
+  const verifier = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PostInstallVerifier.psm1'), 'utf8');
+  const localBranch = verifier.match(/if \(\[string\]\$Flavor\.flavorId -eq 'docente-local'\) \{([\s\S]*?)\n    \} else \{/)?.[1] || '';
 
-  assert.match(broker, /\$acceptedBootstrapStates = @\('healthy', 'degraded'\)/);
-  assert.equal((broker.match(/\.state -in \$acceptedBootstrapStates/g) || []).length, 2);
-  assert.doesNotMatch(broker, /\.state -eq 'healthy'/);
+  assert.match(payload, /EvaluaPro\.exe/);
+  assert.match(payload, /start-docente-native\.mjs/);
+  assert.doesNotMatch(payload, /launcher-broker\.ps1|launcher-tray-hidden\.vbs/);
+  assert.match(localBranch, /EvaluaPro\.exe/);
+  assert.match(localBranch, /start-docente-native\.mjs/);
+  assert.doesNotMatch(localBranch, /launcher-broker\.ps1|launcher-tray-hidden\.vbs|launcher-dashboard-hidden\.vbs/);
 });
 
 test('runner E2E local falla temprano si memoria o pagefile no alcanzan', () => {

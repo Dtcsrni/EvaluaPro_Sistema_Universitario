@@ -112,16 +112,25 @@ function Invoke-PostInstallVerification {
       $effectiveDir = Join-Path ${env:ProgramFiles} 'EvaluaPro'
     }
 
-    $requiredFiles = @(
-      (Join-Path $effectiveDir 'package.json'),
-      (Join-Path $effectiveDir 'config\shortcuts-manifest.json'),
-      (Join-Path $effectiveDir 'scripts\\launcher-broker.ps1'),
-      (Join-Path $effectiveDir 'scripts\\launcher-tray-hidden.vbs'),
-      (Join-Path $effectiveDir 'scripts\\launcher-dashboard-hidden.vbs'),
-      (Join-Path $effectiveDir 'logs\\installation.manifest.json')
-    )
     if ([string]$Flavor.flavorId -eq 'docente-local') {
-      $requiredFiles += (Join-Path $effectiveDir 'EvaluaPro.exe')
+      $requiredFiles = @(
+        (Join-Path $effectiveDir 'package.json'),
+        (Join-Path $effectiveDir 'EvaluaPro.exe'),
+        (Join-Path $effectiveDir 'scripts\start-docente-native.mjs'),
+        (Join-Path $effectiveDir 'scripts\launcher-dashboard.mjs'),
+        (Join-Path $effectiveDir 'runtime\node\node.exe'),
+        (Join-Path $effectiveDir 'config\shortcuts-manifest.json'),
+        (Join-Path $effectiveDir 'logs\installation.manifest.json')
+      )
+    } else {
+      $requiredFiles = @(
+        (Join-Path $effectiveDir 'package.json'),
+        (Join-Path $effectiveDir 'config\shortcuts-manifest.json'),
+        (Join-Path $effectiveDir 'scripts\launcher-broker.ps1'),
+        (Join-Path $effectiveDir 'scripts\launcher-tray-hidden.vbs'),
+        (Join-Path $effectiveDir 'scripts\launcher-dashboard-hidden.vbs'),
+        (Join-Path $effectiveDir 'logs\installation.manifest.json')
+      )
     }
 
     foreach ($file in $requiredFiles) {

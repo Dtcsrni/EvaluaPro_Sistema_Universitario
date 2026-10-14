@@ -45,8 +45,8 @@ Se requiere reducir esos puntos de fallo sin retirar herramientas que sigan sien
 | REQ-004 | Delegación al bundle Burn firmado y transaccional | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Pendiente E2E |
 | REQ-005 | Timeout, cancelación, fail-closed, logging y rollback | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Implementado en helper; casos de interrupción pendientes |
 | REQ-006 | Orquestación portable con Node y excepciones Windows | `scripts/tests/native-startup.contract.test.mjs` | PowerShell limitado a tooling Windows/flavors heredados; pendiente validar CI |
-| REQ-007 | Upgrade y regeneración de shortcuts/manifiestos | `scripts/tests/installer-instance-lifecycle.test.mjs` | Contrato de WiX/MSI actualizado; upgrade real pendiente |
-| REQ-008 | Pruebas y smoke/E2E en Windows | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Pendiente smoke/E2E de instalación, reparación y desinstalación |
+| REQ-007 | Upgrade y regeneración de shortcuts/manifiestos sin exigir launchers retirados | `scripts/tests/installer-hub-contract.test.mjs` | Contrato actualizado; upgrade real pendiente |
+| REQ-008 | Pruebas y smoke/E2E en Windows usando el App Host nativo | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Runner y contratos actualizados; E2E completo pendiente |
 
 ## Alternativas y decisión
 
