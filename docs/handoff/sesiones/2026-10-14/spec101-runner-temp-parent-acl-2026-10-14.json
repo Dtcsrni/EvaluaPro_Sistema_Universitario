@@ -1,0 +1,170 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "spec101-runner-temp-parent-acl-2026-10-14",
+  "parentSessionId": "spec101-importmodule-e2e-2026-10-14",
+  "status": "draft",
+  "generatedAt": "2026-10-14T19:24:46Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Continuar el E2E de upgrade de EvaluaPro 1.2.8 tras el bloqueo correcto del guard ACL, reparar el flujo CI y verificarlo hasta la evidencia visual."
+  },
+  "objective": "Ejecutar el E2E desde main para instalar y actualizar el baseline oficial 1.2.3 a EvaluaPro 1.2.8, reparar defectos dentro de SPEC-101 y revisar evidencia UX/UI antes de concluir.",
+  "scope": [
+    "Corregir la raíz insegura RUNNER_TEMP detectada en el run #649.",
+    "Aplicar ruta privada por intento para los flujos workflow_dispatch, release draft y release público.",
+    "Ampliar contratos y SPEC-101 aprobada, registrar la traza y volver a ejecutar CI/E2E."
+  ],
+  "constraints": [
+    "No crear tag ni publicar release.",
+    "No debilitar los guardas ACL fail-closed.",
+    "Usar únicamente la pestaña integrada de Edge si se requiere GUI.",
+    "La candidata solo se considera validada tras E2E completo y revisión visual de capturas."
+  ],
+  "actions": [
+    {
+      "type": "diagnosis",
+      "summary": "Run #649 superó build, antivirus, bundle, baseline v1.2.3 y preflight; el E2E abortó antes de instalar al detectar que D:\\a\\_temp permite escritura a BUILTIN\\Users. El rechazo fue correcto y no produjo artefactos.",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Los tres flujos preparan una ruta hija de USERPROFILE, privada por validación ACL del runner y única por run_id/run_attempt; el runner y upload consumen el mismo output.",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Contrato E2E 20/20, Installer Hub 147 aprobadas/13 omitidas, pipeline 42/42, sdd:audit, ci:policy:audit, trazabilidad 7/7 y git diff --check pasaron.",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "status": "ok"
+    },
+    {
+      "type": "e2e",
+      "summary": "El E2E completo sigue pendiente: requiere enviar el fix, CI, despacho de workflow_dispatch sobre HEAD de main y revisión de capturas; no se creó tag ni release.",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "status": "pending"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/POLITICA_SDD.md",
+      "docs/specs/SPEC-101_installer_e2e_report_acl.spec.md",
+      ".github/workflows/ci-installer-windows.yml",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "docs/handoff/sesiones/2026-10-14/spec101-importmodule-e2e-2026-10-14.json"
+    ],
+    "changed": [
+      ".github/workflows/ci-installer-windows.yml",
+      "docs/specs/SPEC-101_installer_e2e_report_acl.spec.md",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "docs/handoff/sesiones/2026-10-14/spec101-runner-temp-parent-acl-2026-10-14.json",
+      "docs/handoff/sesiones/2026-10-14/spec101-runner-temp-parent-acl-2026-10-14.md"
+    ],
+    "artifacts": [
+      "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/actions/runs/38619293013"
+    ]
+  },
+  "commands": [
+    {
+      "name": "focused_e2e_contract",
+      "command": "node --test scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "status": "ok",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "exitCode": 0,
+      "durationMs": 2749,
+      "resultSummary": "20/20 aprobadas."
+    },
+    {
+      "name": "installer_hub_contract",
+      "command": "npm run test:installer-hub:contract",
+      "status": "ok",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "exitCode": 0,
+      "durationMs": 31503,
+      "resultSummary": "147 aprobadas, 13 omitidas por plataforma/opt-in, cero fallos."
+    },
+    {
+      "name": "pipeline_contract",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "exitCode": 0,
+      "durationMs": 3841,
+      "resultSummary": "42/42 aprobadas."
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "exitCode": 0,
+      "durationMs": 3698,
+      "resultSummary": "Auditoría de especificaciones exitosa."
+    },
+    {
+      "name": "ci_policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "exitCode": 0,
+      "durationMs": 11852,
+      "resultSummary": "Auditorías de contrato, políticas, SDD y trazabilidad finalizaron sin errores."
+    },
+    {
+      "name": "handoff_traceability",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "exitCode": 0,
+      "durationMs": 2809,
+      "resultSummary": "7/7 aprobadas; traza JSON/Markdown válida."
+    },
+    {
+      "name": "diff_check",
+      "command": "git diff --check",
+      "status": "ok",
+      "timestamp": "2026-10-14T19:24:46Z",
+      "exitCode": 0,
+      "durationMs": 684,
+      "resultSummary": "Sin errores de whitespace."
+    }
+  ],
+  "decisions": [
+    "Sustituir RUNNER_TEMP por un hijo nuevo de USERPROFILE, sujeto al guard ACL existente; no modificar ACL amplios ni bajar el nivel de seguridad.",
+    "Añadir run_attempt al nombre para aislar reintentos y conservar evidencia anterior.",
+    "Mantener release_tag vacío y no publicar."
+  ],
+  "assumptions": [
+    "La aprobación del usuario a SPEC-101 cubre este ajuste del padre inseguro revelado por el run #649."
+  ],
+  "risks": [
+    "No se ha verificado en GitHub Actions que USERPROFILE pase el guard y sea accesible al paso de carga de artefactos.",
+    "No existe aún evidencia de instalación, upgrade, repair, uninstall ni captura UX/UI del fix actual."
+  ],
+  "nextStep": "Revisar diff y traza; commit y push a una rama PR; esperar CI; integrar a main conforme a las protecciones del repo; despachar CI Installer Windows con source_sha=HEAD de main y release_tag vacío; descargar y revisar reporte y capturas.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "CI del arreglo y E2E completo upgrade 1.2.3 → 1.2.8",
+      "CI del arreglo y E2E completo upgrade 1.2.3 → 1.2.8",
+      "Revisión visual de UX/UI basada en capturas",
+      "Confirmación de evidencia final de candidata 1.2.8"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\spec101-runner-temp-acl",
+    "branch": "codex/spec101-runner-temp-parent-hardening",
+    "commit": "1ec4ac12597d3eb3bc52fb5b5592412f1a8d6857",
+    "workingTreeStatus": "Cambios locales sin commit; el ajuste requiere CI remota antes de aceptar el E2E."
+  }
+}

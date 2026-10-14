@@ -12,20 +12,26 @@ const workflow = fs.readFileSync(workflowPath, 'utf8');
 const installerHubContractsPath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubContracts.psm1');
 const installerHubContracts = fs.readFileSync(installerHubContractsPath, 'utf8');
 
-test('todos los flujos Installer Hub aíslan reportes en RUNNER_TEMP y publican esa misma ruta', () => {
+test('todos los flujos Installer Hub generan reportes bajo el perfil y publican la ruta calculada', () => {
   const flows = [
-    ['installer-hub-e2e-docente-ci-', 'installer-hub-e2e-${{ github.run_id }}', 'installer-hub-e2e-docente-ci-'],
-    ['installer-hub-e2e-published-ci-', 'installer-hub-published-e2e-${{ github.run_id }}', 'installer-hub-e2e-published-ci-'],
-    ['installer-hub-e2e-public-ci-', 'installer-hub-public-e2e-${{ github.run_id }}', 'installer-hub-e2e-public-ci-']
+    ['installer-hub-e2e-docente-ci-', 'installer-hub-e2e-${{ github.run_id }}'],
+    ['installer-hub-e2e-published-ci-', 'installer-hub-published-e2e-${{ github.run_id }}'],
+    ['installer-hub-e2e-public-ci-', 'installer-hub-public-e2e-${{ github.run_id }}']
   ];
 
-  for (const [folder, artifact, artifactPath] of flows) {
-    assert.ok(workflow.includes(`Join-Path $env:RUNNER_TEMP ('${folder}'`), `el flujo ${folder} crea reporte como hijo directo de RUNNER_TEMP`);
+  for (const [folder, artifact] of flows) {
+    assert.ok(workflow.includes(`Join-Path $env:USERPROFILE ('${folder}' + $env:INSTALLER_CI_RUN_ID + '-' + $env:INSTALLER_CI_RUN_ATTEMPT)`), `el flujo ${folder} prepara un reporte como hijo del perfil privado del runner y separa los reintentos`);
+    assert.ok(workflow.includes('report_dir=$reportDir'), `el flujo ${folder} expone la ruta calculada para el upload`);
     assert.ok(workflow.includes(`name: ${artifact}`), `el flujo ${folder} mantiene el nombre del artefacto`);
-    assert.ok(workflow.includes('path: ${{ runner.temp }}/' + artifactPath + '${{ github.run_id }}/'), `el upload ${folder} apunta al directorio aislado`);
+    const artifactStart = workflow.indexOf(`name: ${artifact}`);
+    const artifactBlock = workflow.slice(artifactStart, workflow.indexOf('\n      - name:', artifactStart + 1));
+    assert.ok(artifactBlock.includes('path: ${{ steps.preparar_reporte_e2e.outputs.report_dir }}/'), `el upload ${folder} apunta al reporte que preparó el flujo`);
   }
 
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*["']reports[\\/]/);
+  assert.doesNotMatch(workflow, /\$reportDir\s*=\s*Join-Path \$env:RUNNER_TEMP/);
+  assert.equal((workflow.match(/id: preparar_reporte_e2e/g) ?? []).length, 3, 'cada flujo calcula una ruta privada una sola vez');
+  assert.equal((workflow.match(/E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/g) ?? []).length, 3, 'cada runner consume el output de ruta preparado');
   assert.match(e2e, /Import-Module -Name \$reportDirectoryModule -Force -ErrorAction Stop/);
   assert.doesNotMatch(e2e, /Import-Module -LiteralPath/);
   assert.match(e2e, /Initialize-InstallerHubE2EReportDirectory -Path \$ReportDir/);
