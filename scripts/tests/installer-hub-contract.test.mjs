@@ -29,6 +29,7 @@ const dockerComposeProdBuildPath = path.join(root, 'docker-compose.prod-build.ym
 const packageWorkflowPath = path.join(root, '.github', 'workflows', 'package.yml');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
 const installerHubContractsModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubContracts.psm1');
+const installerE2EReportDirectoryModulePath = path.join(root, 'scripts', 'tests', 'installer-e2e-report-directory.psm1');
 const installerHubTransactionModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubTransaction.psm1');
 const installerHubPayloadModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubPayload.psm1');
 const installerHubVerificationModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubVerification.psm1');
@@ -92,6 +93,67 @@ function runPowerShellArgs(args, { nonInteractive = false } = {}) {
 function runPowerShell(command) {
   return runPowerShellArgs(['-Command', command]);
 }
+
+test('el directorio de reporte E2E se crea con ACL privado y rechaza rutas preexistentes', { skip: process.platform !== 'win32' }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installer-e2e-report-acl-'));
+  const privatePath = path.join(tempRoot, 'private-report');
+  const existingPath = path.join(tempRoot, 'preexisting-report');
+  const unsafeParentPath = path.join(tempRoot, 'unsafe-parent');
+  const escapedModulePath = installerE2EReportDirectoryModulePath.replace(/'/g, "''");
+  const escapedPrivatePath = privatePath.replace(/'/g, "''");
+  const escapedExistingPath = existingPath.replace(/'/g, "''");
+  const escapedUnsafeParentPath = unsafeParentPath.replace(/'/g, "''");
+  try {
+    const script = `
+Import-Module '${escapedModulePath}' -Force
+$privatePath = Initialize-InstallerHubE2EReportDirectory -Path '${escapedPrivatePath}'
+$acl = Get-Acl -LiteralPath $privatePath
+$currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$systemSid = 'S-1-5-18'
+$untrusted = @('S-1-1-0', 'S-1-5-11', 'S-1-5-32-545')
+$unsafe = @($acl.Access | Where-Object {
+  $_.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
+  $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -in $untrusted
+})
+if (-not $acl.AreAccessRulesProtected -or $unsafe.Count -gt 0) { throw 'El directorio no quedó protegido.' }
+if (@($acl.Access | Where-Object { $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -eq $currentSid }).Count -eq 0) { throw 'La identidad del runner perdió acceso.' }
+$systemAccess = @($acl.Access | Where-Object { $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -eq $systemSid -and $_.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow })
+if ($systemAccess.Count -eq 0) { throw 'SYSTEM perdió acceso al reporte.' }
+New-Item -ItemType Directory -Path '${escapedExistingPath}' | Out-Null
+$existingAcl = Get-Acl -LiteralPath '${escapedExistingPath}'
+$usersSid = [Security.Principal.SecurityIdentifier]::new('S-1-5-32-545')
+$modify = [Security.AccessControl.FileSystemRights]::Modify
+$inheritance = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+$existingAcl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($usersSid, $modify, $inheritance, [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow))
+Set-Acl -LiteralPath '${escapedExistingPath}' -AclObject $existingAcl
+try {
+  Initialize-InstallerHubE2EReportDirectory -Path '${escapedExistingPath}' | Out-Null
+  throw 'Se aceptó una ruta de reporte preexistente.'
+} catch {
+  if ($_.Exception.Message -notmatch 'ya existe') { throw }
+}
+if (@((Get-Acl -LiteralPath '${escapedExistingPath}').Access | Where-Object { $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -eq $usersSid.Value }).Count -eq 0) { throw 'Se modificó el ACL de un reporte preexistente.' }
+New-Item -ItemType Directory -Path '${escapedUnsafeParentPath}' | Out-Null
+$unsafeParentAcl = Get-Acl -LiteralPath '${escapedUnsafeParentPath}'
+$unsafeParentAcl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($usersSid, $modify, $inheritance, [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow))
+Set-Acl -LiteralPath '${escapedUnsafeParentPath}' -AclObject $unsafeParentAcl
+try {
+  Initialize-InstallerHubE2EReportDirectory -Path (Join-Path '${escapedUnsafeParentPath}' 'report') | Out-Null
+  throw 'Se aceptó un padre escribible por Users.'
+} catch {
+  if ($_.Exception.Message -notmatch 'padre.*no confiable') { throw }
+}
+if (Test-Path -LiteralPath (Join-Path '${escapedUnsafeParentPath}' 'report')) { throw 'Se creó reporte bajo un padre inseguro.' }
+Write-Output 'PRIVATE_ACL_CREATED_AND_EXISTING_PATH_REJECTED'
+`.trim();
+    const result = runPowerShell(script);
+    assert.equal(result.skipped, false, 'PowerShell 5+ está disponible en el runner Windows');
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+    assert.match(result.stdout, /PRIVATE_ACL_CREATED_AND_EXISTING_PATH_REJECTED/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
 
 test('el contrato PowerShell acepta protectedSecrets opcional y rechaza extensiones desconocidas', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-request-contract-'));

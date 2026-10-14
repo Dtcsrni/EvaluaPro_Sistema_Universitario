@@ -8,6 +8,33 @@ const e2ePath = path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.p
 const e2e = fs.readFileSync(e2ePath, 'utf8');
 const workflowPath = path.join(root, '.github', 'workflows', 'ci-installer-windows.yml');
 const workflow = fs.readFileSync(workflowPath, 'utf8');
+const installerHubContractsPath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubContracts.psm1');
+const installerHubContracts = fs.readFileSync(installerHubContractsPath, 'utf8');
+
+test('todos los flujos Installer Hub aíslan reportes en RUNNER_TEMP y publican esa misma ruta', () => {
+  const flows = [
+    ['installer-hub-e2e-docente-ci-', 'installer-hub-e2e-${{ github.run_id }}', 'installer-hub-e2e-docente-ci-'],
+    ['installer-hub-e2e-published-ci-', 'installer-hub-published-e2e-${{ github.run_id }}', 'installer-hub-e2e-published-ci-'],
+    ['installer-hub-e2e-public-ci-', 'installer-hub-public-e2e-${{ github.run_id }}', 'installer-hub-e2e-public-ci-']
+  ];
+
+  for (const [folder, artifact, artifactPath] of flows) {
+    assert.ok(workflow.includes(`Join-Path $env:RUNNER_TEMP ('${folder}'`), `el flujo ${folder} crea reporte como hijo directo de RUNNER_TEMP`);
+    assert.ok(workflow.includes(`name: ${artifact}`), `el flujo ${folder} mantiene el nombre del artefacto`);
+    assert.ok(workflow.includes('path: ${{ runner.temp }}/' + artifactPath + '${{ github.run_id }}/'), `el upload ${folder} apunta al directorio aislado`);
+  }
+
+  assert.doesNotMatch(workflow, /\$reportDir\s*=\s*["']reports[\\/]/);
+  assert.match(e2e, /Import-Module -LiteralPath \$reportDirectoryModule -Force -ErrorAction Stop/);
+  assert.match(e2e, /Initialize-InstallerHubE2EReportDirectory -Path \$ReportDir/);
+  assert.match(e2e, /GetTempPath\(\)/);
+});
+
+test('el guard del handoff conserva el rechazo de escritura para Users y grupos amplios', () => {
+  assert.match(installerHubContracts, /\$untrustedSids = @\('S-1-1-0', 'S-1-5-11', 'S-1-5-32-545'\)/);
+  assert.match(installerHubContracts, /\$rule\.AccessControlType -ne \[Security\.AccessControl\.AccessControlType\]::Allow/);
+  assert.match(installerHubContracts, /permite escritura a una identidad local no confiable/);
+});
 
 test('upgrade E2E verifica el bundle oficial v1.2.3 y prepara su MSI extraído', () => {
   assert.match(e2e, /\[string\]\$BaselineBundlePath/);
