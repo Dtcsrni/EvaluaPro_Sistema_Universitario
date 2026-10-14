@@ -80,6 +80,33 @@ test('E2E normaliza la versión MSI de cuatro componentes al SemVer de tres', ()
   assert.match(e2e, /return \(Normalize-InstallerProductVersion -Version \$parsed\)/);
 });
 
+test('upgrade baseline construye un sobre v1 válido para post-install y conserva el payload QA aislado', () => {
+  const requestPath = e2e.indexOf("$requestPath = Join-Path $ReportDir 'upgrade-baseline-post-install.request.json'");
+  const requestStart = e2e.indexOf('$request = [ordered]@{', requestPath);
+  const requestEnd = e2e.indexOf('[IO.File]::WriteAllText($requestPath', requestStart);
+  assert.ok(requestPath >= 0 && requestStart > requestPath && requestEnd > requestStart, 'el runner genera la solicitud del baseline');
+  const builder = e2e.slice(requestStart, requestEnd);
+  const payloadStart = builder.indexOf('    payload = [ordered]@{');
+  assert.ok(payloadStart > 0, 'los parámetros mutables deben quedar dentro de payload');
+  const envelope = builder.slice(0, payloadStart);
+  const payload = builder.slice(payloadStart);
+
+  assert.match(envelope, /schemaVersion = 1/);
+  assert.match(envelope, /operationId = \[guid\]::NewGuid\(\)\.ToString\('D'\)/);
+  assert.match(envelope, /command = 'post-install'/);
+  assert.match(envelope, /issuedAtUtc = \$now\.AddSeconds\(-1\)\.ToString\('o'\)/);
+  assert.match(envelope, /expiresAtUtc = \$now\.AddMinutes\(5\)\.ToString\('o'\)/);
+  assert.doesNotMatch(envelope, /^\s+(mode|flavorId|installDir|dataDir|config)\s*=/m);
+  assert.match(payload, /mode = 'install'/);
+  assert.match(payload, /flavorId = 'docente-local'/);
+  assert.match(payload, /installDir = \[IO\.Path\]::GetFullPath\(\$installedRoot\)/);
+  assert.match(payload, /dataDir = Join-Path \$installedRoot 'data'/);
+  assert.match(payload, /config = \[ordered\]@\{/);
+  assert.match(payload, /databaseUrl = 'file:C:\/ProgramData\/EvaluaPro\/data\/evaluapro\.db'/);
+  assert.match(payload, /portalAlumnoApiKey = 'portal-key-shared'/);
+  assert.match(builder, /ConvertTo-Json -Depth 8/);
+});
+
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
   const baselineInstall = e2e.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
   const stopBaseline = e2e.indexOf("Invoke-InstalledBroker -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
