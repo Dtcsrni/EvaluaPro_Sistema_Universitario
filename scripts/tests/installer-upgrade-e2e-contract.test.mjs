@@ -104,7 +104,7 @@ test('upgrade baseline construye un sobre v1 válido para post-install y conserv
   assert.match(payload, /config = \[ordered\]@\{/);
   assert.match(payload, /databaseUrl = 'file:C:\/ProgramData\/EvaluaPro\/data\/evaluapro\.db'/);
   assert.match(payload, /portalAlumnoApiKey = 'portal-key-shared'/);
-  assert.match(builder, /ConvertTo-Json -Depth 8/);
+  assert.match(e2e.slice(requestEnd, requestEnd + 200), /ConvertTo-Json -Depth 8/);
 });
 
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
