@@ -1,0 +1,150 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "spec101-importmodule-e2e-2026-10-14",
+  "parentSessionId": "spec101-installer-report-acl-2026-10-14",
+  "status": "draft",
+  "generatedAt": "2026-10-14T18:32:04Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Corregir los defectos encontrados al repetir el E2E de upgrade y verificar 1.2.8 como candidata estable con evidencia UX/UI."
+  },
+  "objective": "Completar el E2E manual desde main para actualizar la instalación oficial 1.2.3 a EvaluaPro 1.2.8, reparar defectos hasta pasar y revisar visualmente la evidencia antes de considerar estable la versión.",
+  "scope": [
+    "Diagnosticar el run #647 y reparar el contrato de importación del módulo de ACL en Windows PowerShell 5.1.",
+    "Agregar regresión estática y validación real de Import-Module en Windows.",
+    "Repetir build y E2E install/upgrade/repair/uninstall y revisar capturas UI antes de concluir.",
+    "Mantener release_tag vacío; no crear tag ni publicar una release."
+  ],
+  "constraints": [
+    "El SHA del workflow debe ser HEAD de main.",
+    "Usar solo la pestaña integrada de Edge para la GUI del navegador.",
+    "No considerar estable 1.2.8 sin pasar E2E y revisar las capturas visuales."
+  ],
+  "actions": [
+    {
+      "type": "diagnosis",
+      "summary": "Run #647 descargó y validó el baseline oficial 1.2.3; el E2E falló antes de instalar porque Import-Module recibió el parámetro inexistente -LiteralPath.",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Cambié la importación a -Name, añadí regresión de contrato más importación real PowerShell con bypass solo por proceso, y amplié SPEC-101 REQ-005.",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Contrato E2E 20/20, contrato Installer Hub 147 aprobadas/13 omitidas, pipeline contract 42/42, SDD audit y ci:policy:audit pasaron.",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "status": "ok"
+    },
+    {
+      "type": "e2e",
+      "summary": "El E2E completo de upgrade y revisión manual de capturas UI siguen pendientes; run #647 falló antes de producir evidencia visual.",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "status": "pending"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/POLITICA_SDD.md",
+      "docs/specs/SPEC-101_installer_e2e_report_acl.spec.md",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      ".github/workflows/ci-installer-windows.yml"
+    ],
+    "changed": [
+      "docs/specs/SPEC-101_installer_e2e_report_acl.spec.md",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "docs/handoff/sesiones/2026-10-14/spec101-importmodule-e2e-2026-10-14.json",
+      "docs/handoff/sesiones/2026-10-14/spec101-importmodule-e2e-2026-10-14.md"
+    ],
+    "artifacts": [
+      "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/actions/runs/38613620986"
+    ]
+  },
+  "commands": [
+    {
+      "name": "focused_e2e_contract",
+      "command": "node --test scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "status": "ok",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "exitCode": 0,
+      "durationMs": 1364,
+      "resultSummary": "20/20 aprobadas; importación PowerShell real validada."
+    },
+    {
+      "name": "installer_hub_contract",
+      "command": "npm run test:installer-hub:contract",
+      "status": "ok",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "exitCode": 0,
+      "durationMs": 29502,
+      "resultSummary": "147 aprobadas, 13 omitidas, cero fallos."
+    },
+    {
+      "name": "pipeline_contract",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "exitCode": 0,
+      "durationMs": 672,
+      "resultSummary": "42/42 aprobadas."
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "exitCode": 0,
+      "durationMs": 3000,
+      "resultSummary": "Auditoría de specs exitosa."
+    },
+    {
+      "name": "ci_policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "timestamp": "2026-10-14T18:32:04Z",
+      "exitCode": 0,
+      "durationMs": 11400,
+      "resultSummary": "Pipeline, seguridad, SDD y trazabilidad completos."
+    }
+  ],
+  "decisions": [
+    "Usar Import-Module -Name, que admite rutas en Windows PowerShell 5.1; no cambiar políticas de ejecución del sistema.",
+    "Conservar release_tag vacío y no publicar; la meta actual es validar una candidata."
+  ],
+  "assumptions": [
+    "El commit integrado de SPEC-101 es el HEAD de main al momento del despacho."
+  ],
+  "risks": [
+    "La E2E de instalación y actualización aún no ha probado la nueva corrección.",
+    "No hay capturas visuales válidas del run #647 porque el runner falló durante el binding de parámetros antes de crear el reporte."
+  ],
+  "nextStep": "Publicar el arreglo en una PR desde origin/main, esperar CI y volver a despachar CI Installer Windows sobre el HEAD de main; descargar y revisar las capturas y el reporte completo del upgrade.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "CI del arreglo",
+      "E2E completa install/upgrade/repair/uninstall",
+      "Revisión visual de UX/UI basada en las capturas generadas",
+      "Confirmación de evidencia final de versión candidata 1.2.8"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\work-v1.2.7-auto-update",
+    "branch": "codex/fix-spec101-e2e-importmodule",
+    "commit": "ed001a65d43e4aac863a267bf4889bcc63d277dd",
+    "workingTreeStatus": "Modificado; corrección de contrato PowerShell y trazabilidad pendientes de commit."
+  }
+}

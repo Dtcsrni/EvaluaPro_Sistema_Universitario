@@ -25,7 +25,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $reportDirectoryModule = Join-Path $PSScriptRoot 'installer-e2e-report-directory.psm1'
-Import-Module -LiteralPath $reportDirectoryModule -Force -ErrorAction Stop
+Import-Module -Name $reportDirectoryModule -Force -ErrorAction Stop
 
 $isWindowsHost = $true
 if (Get-Variable -Name IsWindows -Scope Global -ErrorAction SilentlyContinue) {
