@@ -24,6 +24,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$reportDirectoryModule = Join-Path $PSScriptRoot 'installer-e2e-report-directory.psm1'
+Import-Module -LiteralPath $reportDirectoryModule -Force -ErrorAction Stop
 
 $isWindowsHost = $true
 if (Get-Variable -Name IsWindows -Scope Global -ErrorAction SilentlyContinue) {
@@ -67,9 +69,10 @@ $root = (Resolve-Path $RootPath).Path
 Set-Location -LiteralPath $root
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 if ([string]::IsNullOrWhiteSpace($ReportDir)) {
-  $ReportDir = Join-Path $root ("reports\qa\installer-hub-e2e-docente\{0}" -f $stamp)
+  $reportParent = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { [IO.Path]::GetTempPath() } else { $env:RUNNER_TEMP }
+  $ReportDir = Join-Path $reportParent ("installer-hub-e2e-docente-{0}-{1}" -f $stamp, [guid]::NewGuid().ToString('N'))
 }
-New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
+$ReportDir = Initialize-InstallerHubE2EReportDirectory -Path $ReportDir
 $screenshotsDir = Join-Path $ReportDir 'screenshots'
 $nativeDir = Join-Path $ReportDir 'native'
 $logsDir = Join-Path $ReportDir 'logs'
