@@ -23,6 +23,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+$script:activeNativeAppHost = $null
 $ErrorActionPreference = 'Stop'
 $reportDirectoryModule = Join-Path $PSScriptRoot 'installer-e2e-report-directory.psm1'
 Import-Module -Name $reportDirectoryModule -Force -ErrorAction Stop

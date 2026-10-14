@@ -46,7 +46,7 @@ Se requiere reducir esos puntos de fallo sin retirar herramientas que sigan sien
 | REQ-005 | Timeout, cancelación, fail-closed, logging y rollback | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Implementado en helper; casos de interrupción pendientes |
 | REQ-006 | Orquestación portable con Node y excepciones Windows | `scripts/tests/native-startup.contract.test.mjs` | PowerShell limitado a tooling Windows/flavors heredados; pendiente validar CI |
 | REQ-007 | Upgrade y regeneración de shortcuts/manifiestos sin exigir launchers retirados | `scripts/tests/installer-hub-contract.test.mjs` | Contrato actualizado; upgrade real pendiente |
-| REQ-008 | Pruebas y smoke/E2E en Windows usando el App Host nativo | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Runner y contratos actualizados; E2E completo pendiente |
+| REQ-008 | Pruebas y smoke/E2E en Windows usando el App Host nativo; inicialización de estado bajo StrictMode y limpieza sin instancia activa | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Regresión añadida; E2E completo pendiente |
 
 ## Alternativas y decisión
 
