@@ -237,7 +237,11 @@ export function construirListaAcademica(
         : null;
     const parcial1Base = numeroLista(parcial1);
     const parcial2Base = numeroLista(columnasFisicasParcial2.calificacionSegundoParcial) ?? numeroLista(parcial2);
-    const p1Examen = limitarNumeroLista(parcial1Registro?.calificacionExamenFinalTexto, 5);
+    const examenPrimerParcialManual = (opciones.calificacionesManuales ?? []).find((registro) =>
+      limpiarTexto(registro.alumnoId) === alumnoId && limpiarTexto(registro.componente) === 'Exámen 1er Parcial'
+    );
+    const p1ExamenAutomatico = limitarNumeroLista(parcial1Registro?.calificacionExamenFinalTexto, 5);
+    const p1Examen = limitarNumeroLista(examenPrimerParcialManual?.calificacion, 5) ?? p1ExamenAutomatico;
     const p1Continua = limitarNumeroLista(parcial1Registro?.evaluacionContinuaTexto, 5);
     const calificacionFinalBase = parcial1Base !== null && parcial2Base !== null && parcial3Calculado !== null
       ? round4((parcial1Base * 0.2) + (parcial2Base * 0.2) + (parcial3Calculado * 0.6))
@@ -326,8 +330,13 @@ export function construirListaAcademica(
       nombre: nombre.nombre,
       grupo: limpiarTexto(alumno.grupo),
       parcial1: totalP1ConBono === null ? parcial1 : String(totalP1ConBono),
+      tareasYEjerciciosPrimerParcial: '',
+      practicaPrimerParcial: '',
+      examenPrimerParcialAutomatico: p1ExamenAutomatico === null ? '' : String(p1ExamenAutomatico),
       examenPrimerParcialLista: p1Examen === null ? '' : String(p1Examen),
+      examenPrimerParcialListaVersion: numeroLista(examenPrimerParcialManual?.version),
       continuaPrimerParcialLista: p1Continua === null ? '' : String(p1Continua),
+      calificacionPrimerParcialLista: totalP1ConBono === null ? parcial1 : String(totalP1ConBono),
       parcial2: totalP2ConBono === null ? parcial2 : String(totalP2ConBono),
       ...columnasFisicasParcial2,
       calificacionSegundoParcial: totalP2ConBono === null ? columnasFisicasParcial2.calificacionSegundoParcial : String(totalP2ConBono),
@@ -337,6 +346,11 @@ export function construirListaAcademica(
       examenGlobalListaVersion: numeroLista(examenGlobalManual?.version),
       continuaTercerParcialLista: continuaTercerParcialLista === null ? '' : String(round4(continuaTercerParcialLista)),
       calificacionTercerParcial: totalP3ConBono === null ? '' : String(totalP3ConBono),
+      ponderacionTercerParcialLista: totalP3ConBono === null ? '' : String(round4(totalP3ConBono * 0.6)),
+      subtotalPrimerSegundoParcialLista: totalP1ConBono === null || totalP2ConBono === null ? '' : String(round4((totalP1ConBono * 0.5) + (totalP2ConBono * 0.5))),
+      ponderacionPrimerSegundoParcialesLista: totalP1ConBono === null || totalP2ConBono === null ? '' : String(round4(((totalP1ConBono * 0.5) + (totalP2ConBono * 0.5)) * 0.4)),
+      calificacionFinalLibroLista: calificacionFinalCurso === null ? '' : String(calificacionFinalCurso),
+      calificacionFinalBase10Lista: calificacionFinalCurso === null ? '' : String(round4(calificacionFinalCurso * 0.1)),
       bonoExtracurricular: String(distribucionBono.aplicado),
       bonoExtracurricularSolicitado: String(bonoSolicitado),
       bonoExtracurricularVersion: numeroLista(bonoRegistro?.version),

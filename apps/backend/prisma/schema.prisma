@@ -697,11 +697,72 @@ model CalificacionListaMutacion {
   clientRequestId String
   payloadHash     String
   calificacionId  String
+  canalCaptura    String?
+  metodoCaptura   String?
+  actorId         String?
+  periodoId       String?
+  alumnoId        String?
+  componente      String?
+  valorAnterior   Float?
+  valorNuevo      Float?
+  version         Int?
+  escalaMaxima    Float?
+  referenciaOrigen String?
   createdAt       DateTime @default(now())
 
   @@unique([docenteId, clientRequestId])
   @@index([docenteId, calificacionId])
   @@map("calificaciones_lista_manual_mutaciones")
+}
+
+model HistorialClassroomCorte {
+  id             String   @id @default(uuid())
+  docenteId      String
+  periodoId      String
+  alumnoId       String
+  corte          Int
+  snapshotHash   String
+  promedioSobre10 Float?
+  estado         String
+  puntosObtenidos Float
+  puntosPosibles Float
+  actividades    String
+  capturaWebp    Bytes
+  capturaHash    String
+  capturaBytes   Int
+  capturaWidth   Int
+  capturaHeight  Int
+  importacionId  String?
+  capturadoPor   String
+  createdAt      DateTime @default(now())
+
+  @@unique([docenteId, snapshotHash])
+  @@index([docenteId, periodoId, alumnoId, corte, createdAt])
+  @@map("historial_classroom_cortes")
+}
+
+model HistorialClassroomEntrega {
+  id                  String   @id @default(uuid())
+  docenteId           String
+  periodoId           String
+  alumnoId            String
+  courseId            String
+  courseWorkId        String
+  submissionId        String
+  corte               Int?
+  puntosObtenidos     Float?
+  puntosPosibles      Float?
+  calificacionSobre10 Float?
+  estado              String
+  estadoClassroom     String?
+  estadoHash          String
+  importacionId       String
+  capturadoPor        String
+  observadoEn         DateTime @default(now())
+
+  @@unique([docenteId, estadoHash])
+  @@index([docenteId, periodoId, alumnoId, courseId, courseWorkId, submissionId, observadoEn])
+  @@map("historial_classroom_entregas")
 }
 
 model ResultadoExtraExterno {

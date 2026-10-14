@@ -118,6 +118,29 @@ describe('construirListaAcademica', () => {
     expect(filas[0]).toMatchObject({ parcial1: '8', parcial2: '9' });
   });
 
+  it('prioriza el examen manual del primer parcial sin alterar su total ni inventar componentes', () => {
+    const filas = construirListaAcademica(
+      [{ _id: 'alumno-1', matricula: 'A-001', nombreCompleto: 'Alumno Uno', grupo: 'A' }],
+      [{
+        alumnoId: 'alumno-1', tipoExamen: 'parcial', plantillaTitulo: 'Primer Parcial',
+        calificacionParcialTexto: '8', calificacionExamenFinalTexto: '4', evaluacionContinuaTexto: '4'
+      }],
+      [],
+      { calificacionesManuales: [{ alumnoId: 'alumno-1', componente: 'Exámen 1er Parcial', calificacion: 3.75, version: 2 }] }
+    );
+
+    expect(filas[0]).toMatchObject({
+      parcial1: '8',
+      tareasYEjerciciosPrimerParcial: '',
+      practicaPrimerParcial: '',
+      examenPrimerParcialAutomatico: '4',
+      examenPrimerParcialLista: '3.75',
+      examenPrimerParcialListaVersion: 2,
+      continuaPrimerParcialLista: '4',
+      calificacionPrimerParcialLista: '8'
+    });
+  });
+
   it('no usa el orden de inserción para reemplazar el parcial 2 en la columna final', () => {
     const filas = construirListaAcademica(
       [{ _id: 'alumno-1', matricula: 'A-001', nombreCompleto: 'Alumno Uno', grupo: 'A' }],

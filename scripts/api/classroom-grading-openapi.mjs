@@ -385,6 +385,41 @@ function aplicarContratoHistorialClassroom(spec) {
   historial.responses = { ...historial.responses, '200': structuredClone(respuestaHistorialSyncClassroom) };
 }
 
+function aplicarContratoHistorialEntregaClassroom(spec) {
+  const ruta = '/evaluaciones/v2/classroom/alumnos/{alumnoId}/entregas/{submissionId}/historial';
+  spec.paths ??= {};
+  spec.paths[ruta] ??= {};
+  spec.paths[ruta].get = {
+    operationId: 'get_evaluaciones_v2_classroom_alumnos_alumnoId_entregas_submissionId_historial',
+    summary: 'Consultar el historial de una entrega de Classroom',
+    description: 'Devuelve versiones ligeras observadas para una entrega, incluidas reentregas pendientes de autorización. El alcance se limita al docente autenticado y a un alumno del periodo indicado.',
+    tags: ['Classroom'],
+    security: [{ bearerAuth: [] }],
+    parameters: [
+      { name: 'alumnoId', in: 'path', required: true, schema: structuredClone(esquemaIdAcademicoOpenApi) },
+      { name: 'submissionId', in: 'path', required: true, schema: { type: 'string', minLength: 1, maxLength: 128 } },
+      { name: 'periodoId', in: 'query', required: true, schema: structuredClone(esquemaIdAcademicoOpenApi) },
+      { name: 'courseId', in: 'query', required: true, schema: { type: 'string', minLength: 1, maxLength: 128 } },
+      { name: 'courseWorkId', in: 'query', required: true, schema: { type: 'string', minLength: 1, maxLength: 128 } },
+      { name: 'limite', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } },
+      { name: 'cursor', in: 'query', required: false, schema: { type: 'string', maxLength: 36, pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$' } }
+    ],
+    responses: {
+      '200': { description: 'Historial paginado de la entrega.', content: { 'application/json': { schema: strictObject(['eventos', 'nextCursor'], {
+        eventos: { type: 'array', items: strictObject(['id', 'corte', 'puntosObtenidos', 'puntosPosibles', 'calificacionSobre10', 'estado', 'estadoClassroom', 'importacionId', 'observadoEn', 'capturadoPor'], {
+          id: { type: 'string' }, corte: { type: ['integer', 'null'] }, puntosObtenidos: { type: ['number', 'null'] },
+          puntosPosibles: { type: ['number', 'null'] }, calificacionSobre10: { type: ['number', 'null'] },
+          estado: { type: 'string', enum: ['pendiente', 'calificada', 'revision_pendiente', 'faltante_confirmado'] },
+          estadoClassroom: { type: ['string', 'null'] }, importacionId: { type: 'string' },
+          observadoEn: { type: 'string', format: 'date-time' }, capturadoPor: { type: 'string' }
+        }) }, nextCursor: { type: ['string', 'null'] }
+      }) } } },
+      '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' },
+      '403': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' }
+    }
+  };
+}
+
 function aplicarContratoConsultaEvidenciasEvaluacion(spec) {
   const operacion = obtenerOperacion(spec, '/evaluaciones/evidencias', 'get');
   const filtros = [
@@ -483,11 +518,18 @@ function aplicarContratosImportacionClassroom(spec) {
 export function aplicarContratosClassroomGrades(spec) {
   spec.components ??= {};
   spec.components.schemas ??= {};
+  for (const [ruta, pathItem] of Object.entries(spec.paths ?? {})) {
+    if (!ruta.startsWith('/evaluaciones/v2/classroom/')) continue;
+    for (const operation of Object.values(pathItem)) {
+      if (operation && typeof operation === 'object' && 'operationId' in operation) operation.tags = ['Classroom'];
+    }
+  }
   spec.components.schemas.ClassroomGradeSyncResult = structuredClone(esquemaResultadoSyncClassroom);
   spec.components.schemas.EvidenciaEvaluacion = structuredClone(esquemaEvidenciaEvaluacion);
   spec.components.schemas.ClassroomRoster = structuredClone(esquemaRosterClassroom);
   aplicarContratoConsultaEvidenciasEvaluacion(spec);
   aplicarContratoHistorialClassroom(spec);
+  aplicarContratoHistorialEntregaClassroom(spec);
   aplicarContratosOauthClassroom(spec);
   aplicarContratosCatalogoClassroom(spec);
   aplicarContratosImportacionClassroom(spec);

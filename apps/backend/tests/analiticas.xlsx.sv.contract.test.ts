@@ -26,6 +26,24 @@ function formulaDeCelda(valor: unknown): string | null {
 }
 
 describe('exportacion XLSX SV contractual', () => {
+  it('exporta en AM la captura canónica del examen del primer parcial', async () => {
+    const buffer = await generarXlsxCalificacionesProduccion({
+      docenteNombre: 'Docente SV',
+      nombrePeriodo: 'Sistemas Visuales',
+      cicloLectivo: 'Enero-Febrero 2026',
+      alumnos: [{ _id: 'alumno-1', matricula: 'A001', nombreCompleto: 'Alumno Uno', correo: 'a001@cuh.mx' }],
+      calificaciones: [{
+        alumnoId: 'alumno-1', tipoExamen: 'parcial', plantillaTitulo: 'Primer Parcial',
+        evaluacionContinuaTexto: '3', calificacionExamenFinalTexto: '4', calificacionParcialTexto: '7'
+      }],
+      listaAcademica: [{ alumnoId: 'alumno-1', examenPrimerParcialLista: '3.75' }]
+    });
+
+    const hoja = await cargarHojaLibro(buffer);
+    expect(hoja.getCell('AM11').value).toBe(3.75);
+    expect(hoja.getCell('AN11').value).toBe(7);
+  });
+
   it('preserva formulas contractuales AL..BA cuando faltan totales historicos', async () => {
     const buffer = await generarXlsxCalificacionesProduccion({
       docenteNombre: 'Docente SV',

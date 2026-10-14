@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "host": {
-    "version": "1.2.7",
+    "version": "1.2.8",
     "compatibility": ">=1.2.6 <2.0.0"
   },
   "persistence": {
@@ -1024,7 +1024,9 @@
         "IntegracionClassroom",
         "BitacoraSyncClassroom",
         "MapeoClassroomAlumnoCurso",
-        "MapeoClassroomEvidencia"
+        "MapeoClassroomEvidencia",
+        "HistorialClassroomCorte",
+        "HistorialClassroomEntrega"
       ],
       "publicApiHistory": [
         {

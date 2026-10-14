@@ -2,7 +2,7 @@
   "version": 1,
   "gate": "clean-architecture",
   "strict": true,
-  "generatedAt": "2026-10-11T23:46:20.929Z",
+  "generatedAt": "2026-10-14T11:47:15.505Z",
   "ok": true,
   "moduleContracts": {
     "ok": true,
@@ -176,8 +176,8 @@
       ]
     },
     "cycles": [],
-    "prismaModels": 76,
-    "declaredModelOwners": 76,
+    "prismaModels": 78,
+    "declaredModelOwners": 78,
     "persistenceOwners": {
       "Alumno": [
         "modulo_alumnos"
@@ -286,6 +286,12 @@
       ],
       "FirmaEncuadre": [
         "modulo_evaluaciones"
+      ],
+      "HistorialClassroomCorte": [
+        "modulo_integraciones_classroom"
+      ],
+      "HistorialClassroomEntrega": [
+        "modulo_integraciones_classroom"
       ],
       "IntegracionClassroom": [
         "modulo_integraciones_classroom"
@@ -413,7 +419,7 @@
     {
       "id": "modules.contracts",
       "ok": true,
-      "detail": "0 errores; 21 módulos, 39 dependencias, 76 modelos Prisma"
+      "detail": "0 errores; 21 módulos, 39 dependencias, 78 modelos Prisma"
     },
     {
       "id": "size.frontend.app_docente.files",

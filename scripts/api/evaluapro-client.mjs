@@ -1137,6 +1137,7 @@ export class EvaluaproClient {
     }
     const maximosPorComponente = new Map([
       ['Practica 2do Parcial', 10],
+      ['Exámen 1er Parcial', 5],
       ['Exámen 2do Parcial', 5.25],
       ['Exámen Global', 5],
       ['Bono extracurricular', 1],
@@ -1151,8 +1152,17 @@ export class EvaluaproClient {
       throw new RangeError(`La calificación de ${payload.componente} debe estar entre 0 y ${maximo}`);
     }
     return (await this.request('/analiticas/lista-academica/calificaciones', {
-      method: 'POST', body: payload
+      method: 'POST', body: { ...payload, canalCaptura: payload.canalCaptura ?? 'api' }
     })).data;
+  }
+
+  async listarHistorialCalificacionesLista({ periodoId, alumnoId, componente, limite = 50, cursor } = {}) {
+    if (!periodoId || !alumnoId) throw new TypeError('periodoId y alumnoId son obligatorios para consultar el historial de calificaciones');
+    if (!Number.isInteger(limite) || limite < 1 || limite > 100) throw new RangeError('limite debe estar entre 1 y 100');
+    const query = new URLSearchParams({ periodoId: String(periodoId), alumnoId: String(alumnoId), limite: String(limite) });
+    if (componente) query.set('componente', String(componente));
+    if (cursor) query.set('cursor', String(cursor));
+    return (await this.request(`/analiticas/lista-academica/calificaciones/historial?${query}`)).data;
   }
 
   async cursosClassroom() {
@@ -1187,6 +1197,20 @@ export class EvaluaproClient {
     if (!periodoId) throw new TypeError('periodoId es obligatorio para consultar el historial Classroom');
     const query = new URLSearchParams({ periodoId: String(periodoId) });
     return (await this.request(`/evaluaciones/v2/classroom/importaciones/historial?${query}`)).data;
+  }
+
+  async listarHistorialPromedioClassroom({ periodoId, alumnoId, corte, limite = 50, cursor } = {}) {
+    if (!periodoId || !alumnoId) throw new TypeError('periodoId y alumnoId son obligatorios');
+    if (![1, 2, 3].includes(Number(corte))) throw new RangeError('corte debe ser 1, 2 o 3');
+    if (!Number.isInteger(limite) || limite < 1 || limite > 100) throw new RangeError('limite debe estar entre 1 y 100');
+    const query = new URLSearchParams({ periodoId: String(periodoId), limite: String(limite) });
+    if (cursor) query.set('cursor', String(cursor));
+    return (await this.request(`/evaluaciones/v2/classroom/alumnos/${encodeURIComponent(alumnoId)}/cortes/${Number(corte)}/historial?${query}`)).data;
+  }
+
+  async descargarCapturaHistorialClassroom(snapshotId) {
+    if (!snapshotId) throw new TypeError('snapshotId es obligatorio');
+    return (await this.request(`/evaluaciones/v2/classroom/historial-cortes/${encodeURIComponent(snapshotId)}/captura`, { responseType: 'binary' })).data;
   }
 
   async previsualizarImportacionClassroom(payload) {

@@ -1026,7 +1026,7 @@ export function SeccionCalificaciones({
   }
 
   return (
-    <>
+    <div className="calificaciones-experience">
       {/* Encabezado: resultados primero; la operación queda separada. */}
       <div className="banco-panel__head calif-panel__head anim-fade-in">
         <div className="banco-panel__lead">
@@ -1039,7 +1039,7 @@ export function SeccionCalificaciones({
                 <span className="banco-pulse-dot" aria-hidden="true" />
                 <span>Resultados académicos</span>
               </span>
-              <span className="banco-counter-tag">{alumnos.length} alumnos</span>
+              <span className="banco-counter-tag">{vistaCalificaciones === 'resultados' ? resumenConsulta.total : alumnos.length} {vistaCalificaciones === 'resultados' ? 'alumnos en la materia' : 'alumnos'}</span>
             </div>
             <h2 className="banco-panel__title eyebrow"><Icono nombre="calificar" /> Calificaciones</h2>
             <p className="nota">Consulta, revisa y publica el resultado de cada alumno desde un solo lugar.</p>
@@ -1050,8 +1050,8 @@ export function SeccionCalificaciones({
         <div className="banco-header-kpis" aria-live="polite">
           <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Alumnos registrados en las materias disponibles">
             <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="pdf" /></span>
-            <span className="banco-mini-kpi__num">{alumnos.length}</span>
-            <span className="banco-mini-kpi__lbl">Alumnos</span>
+            <span className="banco-mini-kpi__num">{vistaCalificaciones === 'resultados' ? resumenConsulta.total : alumnos.length}</span>
+            <span className="banco-mini-kpi__lbl">{vistaCalificaciones === 'resultados' ? 'En la materia' : 'Alumnos'}</span>
           </div>
 
           <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip={vistaCalificaciones === 'resultados' ? 'Alumnos con una calificación registrada en la materia seleccionada' : 'Exámenes con calificación OMR confirmada'}>
@@ -1083,23 +1083,23 @@ export function SeccionCalificaciones({
       <nav className="calificaciones-workspace-nav" aria-label="Espacios de calificaciones">
         <button type="button" className={vistaCalificaciones === 'resultados' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'resultados'} onClick={() => setVistaCalificaciones('resultados')}>
           <span className="calificaciones-workspace-nav__index">01</span>
-          <span><strong>Resultados</strong><small>Consulta por alumno</small></span>
+          <Icono nombre="calificar" ariaHidden size={19} /><span><strong>Resultados</strong><small>Consulta por alumno</small></span>
         </button>
         <button type="button" className={vistaCalificaciones === 'extraordinarios' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'extraordinarios'} onClick={() => setVistaCalificaciones('extraordinarios')}>
           <span className="calificaciones-workspace-nav__index">02</span>
-          <span><strong>Extraordinarios</strong><small>Solicitud · examen · resultado</small></span>
+          <Icono nombre="evaluaciones" ariaHidden size={19} /><span><strong>Extraordinarios</strong><small>Solicitud · examen · resultado</small></span>
         </button>
         <button type="button" className={vistaCalificaciones === 'actas' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'actas'} onClick={() => setVistaCalificaciones('actas')}>
           <span className="calificaciones-workspace-nav__index">03</span>
-          <span><strong>Actas y exportación</strong><small>Prepara el resultado oficial</small></span>
+          <Icono nombre="publicar" ariaHidden size={19} /><span><strong>Actas y exportación</strong><small>Prepara el resultado oficial</small></span>
         </button>
         <button type="button" className={vistaCalificaciones === 'operacion' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'operacion'} onClick={() => setVistaCalificaciones('operacion')}>
           <span className="calificaciones-workspace-nav__index">04</span>
-          <span><strong>Revisión y captura</strong><small>OMR, manual y aclaraciones</small></span>
+          <Icono nombre="escaneo" ariaHidden size={19} /><span><strong>Revisión y captura</strong><small>OMR, manual y aclaraciones</small></span>
         </button>
         <button type="button" className={vistaCalificaciones === 'classroom' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'classroom'} onClick={() => setVistaCalificaciones('classroom')}>
           <span className="calificaciones-workspace-nav__index">05</span>
-          <span><strong>Classroom</strong><small>Vínculos · cortes · consulta</small></span>
+          <Icono nombre="classroom" ariaHidden size={19} /><span><strong>Classroom</strong><small>Vínculos · cortes · consulta</small></span>
         </button>
       </nav>
 
@@ -1656,7 +1656,7 @@ export function SeccionCalificaciones({
         </aside>
       </div>
       </div>}
-    </>
+    </div>
   );
 }
 

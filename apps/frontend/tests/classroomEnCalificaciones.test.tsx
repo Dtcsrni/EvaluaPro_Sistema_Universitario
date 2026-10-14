@@ -5,7 +5,7 @@ import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import type { Alumno, PermisosUI } from '../src/apps/app_docente/tipos';
 
 vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
-  clienteApi: { obtener: vi.fn(), enviar: vi.fn(), actualizar: vi.fn(), baseApi: 'http://localhost:4000/api' }
+  clienteApi: { obtener: vi.fn(), obtenerBinario: vi.fn(), enviar: vi.fn(), actualizar: vi.fn(), baseApi: 'http://localhost:4000/api' }
 }));
 vi.mock('../src/ui/feedback/ConfirmDialogProvider', () => ({ useConfirmDialog: () => vi.fn().mockResolvedValue(true) }));
 
@@ -18,7 +18,7 @@ const actividadClassroom = {
   id: 'evidencia-1', alumnoId: 'alumno-1', titulo: 'Entrega', fechaEvidencia: '2026-09-20T12:00:00.000Z',
   fuente: 'classroom', estadoCaptura: 'calificada', calificacionDecimal: 9,
   metadata: { alternateLink: 'https://classroom.google.com/c/course-1/a/work-1/details' },
-  classroom: { courseId: 'course-1', courseWorkTitle: 'Actividad Classroom', assignedGrade: 90, draftGrade: 50, maxPoints: 100 }
+  classroom: { courseId: 'course-1', courseWorkId: 'work-1', submissionId: 'submission-1', courseWorkTitle: 'Actividad Classroom', assignedGrade: 90, draftGrade: 50, maxPoints: 100 }
 };
 
 describe('ClassroomEnCalificaciones', () => {
@@ -30,6 +30,9 @@ describe('ClassroomEnCalificaciones', () => {
         id: 'evidencia-2', alumnoId: 'alumno-2', titulo: 'Práctica adicional', fechaEvidencia: '2026-09-21T12:00:00.000Z',
         metadata: null, classroom: { courseId: 'course-1', courseWorkTitle: 'Práctica adicional', assignedGrade: 70, maxPoints: 100 }
       }, { ...actividadClassroom, id: 'manual-1', fuente: 'manual' }], nextCursor: null };
+      if (String(ruta).includes('/entregas/submission-1/historial')) return { eventos: [
+        { id: 'evento-1', corte: 1, puntosObtenidos: 90, puntosPosibles: 100, calificacionSobre10: 9, estado: 'calificada', estadoClassroom: 'RETURNED', importacionId: 'importacion-1', observadoEn: '2026-10-14T12:00:00.000Z' }
+      ], nextCursor: null };
       if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
       if (String(ruta).includes('/alumnos?')) return { alumnosClassroom: [
         { classroomUserId: 'google-user-1', fullName: 'Ana Pérez', emailAddress: 'ana@classroom.test', alumnoIdConfirmado: 'alumno-1' },
@@ -52,6 +55,15 @@ describe('ClassroomEnCalificaciones', () => {
     expect(clienteApi.obtener).toHaveBeenCalledWith('/evaluaciones/evidencias?periodoId=per-1&limite=400');
     expect(clienteApi.actualizar).not.toHaveBeenCalled();
     expect(clienteApi.enviar).not.toHaveBeenCalled();
+  });
+
+  it('permite consultar desde cada evidencia su historial de entrega paginado', async () => {
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Ver historial' }))[0]);
+    expect(await screen.findByRole('region', { name: 'Historial de la entrega' })).toBeInTheDocument();
+    expect(screen.getByText('Calificación sincronizada')).toBeInTheDocument();
+    expect(screen.getByText('90 / 100 puntos')).toBeInTheDocument();
+    expect(clienteApi.obtener).toHaveBeenCalledWith(expect.stringContaining('/alumnos/alumno-1/entregas/submission-1/historial?'));
   });
 
   it('muestra y cambia explícitamente la materia local destino desde Classroom', () => {
@@ -154,6 +166,89 @@ describe('ClassroomEnCalificaciones', () => {
     expect(clienteApi.obtener).toHaveBeenCalledWith('/evaluaciones/evidencias?periodoId=per-1&limite=400');
     expect(clienteApi.enviar.mock.calls.every(([ruta]) => String(ruta).includes('/importaciones/'))).toBe(true);
     expect(clienteApi.actualizar.mock.calls.every(([ruta]) => String(ruta).includes('/mapeo-alumnos'))).toBe(true);
+  });
+
+  it('envía la reentrega en la solicitud de sincronización solo cuando el docente la marca', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [], nextCursor: null };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
+      if (String(ruta).includes('/actividades?')) return { actividades: [{ id: 'work-1', title: 'Actividad Classroom', state: 'PUBLISHED', maxPoints: 100 }] };
+      if (String(ruta).includes('/alumnos?')) return { alumnosClassroom: [] };
+      return {};
+    });
+    vi.mocked(clienteApi.enviar)
+      .mockResolvedValueOnce({ totalActividades: 1, actividades: [{
+        courseId: 'course-1', courseWorkId: 'work-1', courseWorkTitle: 'Actividad Classroom',
+        submissions: [{ submissionId: 'submission-returned', alumnoId: 'alumno-1', alumnoNombre: 'Ana Pérez', revisionPendiente: true }]
+      }] })
+      .mockResolvedValueOnce({ importadas: 0, actualizadas: 1 });
+
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+    fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
+    fireEvent.change(await screen.findByLabelText('Parcial destino'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Previsualizar evaluación continua' }));
+    const autorizacion = await screen.findByRole('checkbox', { name: 'Actualizar solo por solicitud docente · Ana Pérez · Actividad Classroom' });
+    expect(autorizacion).not.toBeChecked();
+    fireEvent.click(autorizacion);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar y sincronizar selección' }));
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenNthCalledWith(2, '/evaluaciones/v2/classroom/importaciones/ejecutar', {
+      periodoId: 'per-1', actividades: [{ courseId: 'course-1', courseWorkId: 'work-1', corte: 1, reentregasConfirmadas: ['submission-returned'] }]
+    }));
+  });
+
+  it('pagina todas las fichas del historial sin invalidar las capturas ya cargadas', async () => {
+    let numeroUrl = 0;
+    const revocar = vi.fn();
+    const URLNativa = URL;
+    class URLConBlob extends URLNativa {
+      static createObjectURL = vi.fn(() => `blob:historial-${++numeroUrl}`);
+      static revokeObjectURL = revocar;
+    }
+    vi.stubGlobal('URL', URLConBlob);
+    vi.mocked(clienteApi.obtenerBinario).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('snapshot-2')) throw new Error('imagen no disponible');
+      return { blob: async () => new Blob(['ficha']) } as Response;
+    });
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [], nextCursor: null };
+      if (String(ruta).includes('/cortes/1/historial') && String(ruta).includes('cursor=')) return {
+        eventos: [{ id: 'snapshot-2', corte: 1, promedioSobre10: 7, estado: 'calculado', puntosObtenidos: 70, puntosPosibles: 100, capturaHash: 'hash-2', capturaBytes: 1200, createdAt: '2026-10-13T10:00:00.000Z' }],
+        nextCursor: null
+      };
+      if (String(ruta).includes('/cortes/1/historial')) return {
+        eventos: [{ id: 'snapshot-1', corte: 1, promedioSobre10: 8, estado: 'calculado', puntosObtenidos: 80, puntosPosibles: 100, capturaHash: 'hash-1', capturaBytes: 1100, createdAt: '2026-10-14T10:00:00.000Z' }],
+        nextCursor: 'cursor-2'
+      };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [] };
+      return {};
+    });
+    const vista = render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+    fireEvent.change(screen.getByLabelText('Alumno'), { target: { value: 'alumno-1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Consultar historial' }));
+    expect(await screen.findByText(/8 \/ 10/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar más capturas' }));
+    expect(await screen.findByText(/7 \/ 10/)).toBeInTheDocument();
+    expect(screen.getByText('Mostrando 2 capturas del historial.')).toBeInTheDocument();
+    expect(clienteApi.obtenerBinario).toHaveBeenCalledWith(expect.stringContaining('snapshot-2'));
+    const avisoImagen = await screen.findByText(/La ficha está en el historial, pero no se pudo cargar su imagen/i);
+    expect(avisoImagen).toHaveAttribute('role', 'status');
+    expect(screen.getAllByRole('img', { name: /Ficha del promedio/ })).toHaveLength(1);
+    expect(revocar).not.toHaveBeenCalled();
+    expect(clienteApi.obtener).toHaveBeenCalledWith(expect.stringContaining('cursor=cursor-2'));
+    vista.unmount();
+    expect(revocar).toHaveBeenCalledTimes(1);
+  });
+
+  it('limita el selector de historial al periodo activo e identifica alumnos por matrícula', () => {
+    const alumnosDeOtroPeriodo: Alumno = {
+      _id: 'alumno-otro-periodo', nombreCompleto: 'Ana Pérez', matricula: 'A-03', correo: 'ana.otro@escuela.test', periodoId: 'per-2'
+    };
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={[...alumnos, alumnosDeOtroPeriodo]} permisos={permisos} />);
+
+    const selectorAlumno = screen.getByLabelText('Alumno');
+    expect(within(selectorAlumno).getByRole('option', { name: 'A-01 · Ana Pérez' })).toBeInTheDocument();
+    expect(within(selectorAlumno).queryByRole('option', { name: 'A-03 · Ana Pérez' })).not.toBeInTheDocument();
+    expect(within(selectorAlumno).getAllByRole('option', { name: /Ana Pérez/ })).toHaveLength(1);
   });
 
   it('distingue una sincronización completada de una relectura fallida', async () => {

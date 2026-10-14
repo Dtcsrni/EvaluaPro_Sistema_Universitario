@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 247 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 251 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -52,6 +52,7 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Analíticas | `/analiticas/lista-academica-firma` | GET | Bearer | analiticas:leer | — |
 | Analíticas | `/analiticas/lista-academica/bono/preview` | POST | Bearer | calificaciones:calificar | esquemaPreviewBonoExtracurricular |
 | Analíticas | `/analiticas/lista-academica/calificaciones` | POST | Bearer | calificaciones:calificar | esquemaGuardarCalificacionLista |
+| Analíticas | `/analiticas/lista-academica/calificaciones/historial` | GET | Bearer | analiticas:leer | — |
 | Analíticas | `/analiticas/lista-academica/resultados-extra-externos` | POST | Bearer | calificaciones:calificar | esquemaRegistrarResultadoExtraExterno |
 | API | `/comercial-publico/licencias/activar` | POST | Público | — | esquemaActivarLicencia |
 | API | `/comercial-publico/licencias/heartbeat` | POST | Público | — | esquemaHeartbeatLicencia |
@@ -89,11 +90,21 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Calificaciones | `/calificaciones/revision/solicitudes` | GET | Bearer | calificaciones:calificar | — |
 | Calificaciones | `/calificaciones/revision/solicitudes/{id}/resolver` | POST | Bearer | calificaciones:calificar | esquemaResolverSolicitudRevision |
 | Calificaciones | `/calificaciones/revision/solicitudes/sincronizar` | POST | Bearer | calificaciones:calificar | esquemaSincronizarSolicitudesRevision |
+| Classroom | `/evaluaciones/v2/classroom/alumnos/{alumnoId}/cortes/{corte}/historial` | GET | Bearer | classroom:pull | — |
+| Classroom | `/evaluaciones/v2/classroom/alumnos/{alumnoId}/entregas/{submissionId}/historial` | GET | Bearer | — | — |
 | Classroom | `/evaluaciones/v2/classroom/cursos` | GET | Bearer | classroom:pull | — |
 | Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/actividades` | GET | Bearer | classroom:pull | — |
 | Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/alumnos` | GET | Bearer | classroom:pull | — |
-| Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/importar-alumnos` | POST | Bearer | classroom:pull | esquemaImportarAlumnosClassroom |
+| Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/importar-alumnos` | POST | Bearer | classroom:pull, alumnos:gestionar | esquemaImportarAlumnosClassroom |
+| Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/mapeo-alumnos` | PUT | Bearer | classroom:pull | esquemaActualizarMapeoAlumnosCurso |
 | Classroom | `/evaluaciones/v2/classroom/estado` | GET | Bearer | classroom:pull | — |
+| Classroom | `/evaluaciones/v2/classroom/historial-cortes/{snapshotId}/captura` | GET | Bearer | classroom:pull | — |
+| Classroom | `/evaluaciones/v2/classroom/importaciones/ejecutar` | POST | Bearer | classroom:pull | esquemaEjecutarImportacionClassroom |
+| Classroom | `/evaluaciones/v2/classroom/importaciones/historial` | GET | Bearer | classroom:pull | — |
+| Classroom | `/evaluaciones/v2/classroom/importaciones/preview` | POST | Bearer | classroom:pull | esquemaPreviewImportacionClassroom |
+| Classroom | `/evaluaciones/v2/classroom/mapeos` | GET | Bearer | classroom:pull | — |
+| Classroom | `/evaluaciones/v2/classroom/oauth/desconectar` | POST | Bearer | classroom:conectar | esquemaBodyVacioOpcional |
+| Classroom | `/evaluaciones/v2/classroom/oauth/iniciar` | GET | Bearer | classroom:conectar | — |
 | Classroom | `/integraciones/classroom/mapear` | GET, POST | Bearer | classroom:pull | esquemaMapearClassroom |
 | Classroom | `/integraciones/classroom/oauth/callback` | GET | Público | — | — |
 | Classroom | `/integraciones/classroom/oauth/iniciar` | GET | Bearer | classroom:conectar | — |
@@ -124,13 +135,6 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Evaluaciones | `/evaluaciones/politicas/{codigo}/archivar` | POST | Bearer | evaluaciones:gestionar | esquemaArchivarPolitica |
 | Evaluaciones | `/evaluaciones/politicas/{codigo}/auditoria` | GET | Bearer | evaluaciones:leer | esquemaListarAuditoriaPolitica |
 | Evaluaciones | `/evaluaciones/v2/alumnos/{alumnoId}/resumen` | GET | Bearer | evaluaciones:leer | — |
-| Evaluaciones | `/evaluaciones/v2/classroom/cursos/{courseId}/mapeo-alumnos` | PUT | Bearer | classroom:pull | esquemaActualizarMapeoAlumnosCurso |
-| Evaluaciones | `/evaluaciones/v2/classroom/importaciones/ejecutar` | POST | Bearer | classroom:pull | esquemaEjecutarImportacionClassroom |
-| Evaluaciones | `/evaluaciones/v2/classroom/importaciones/historial` | GET | Bearer | classroom:pull | — |
-| Evaluaciones | `/evaluaciones/v2/classroom/importaciones/preview` | POST | Bearer | classroom:pull | esquemaPreviewImportacionClassroom |
-| Evaluaciones | `/evaluaciones/v2/classroom/mapeos` | GET | Bearer | classroom:pull | — |
-| Evaluaciones | `/evaluaciones/v2/classroom/oauth/desconectar` | POST | Bearer | classroom:conectar | esquemaBodyVacioOpcional |
-| Evaluaciones | `/evaluaciones/v2/classroom/oauth/iniciar` | GET | Bearer | classroom:conectar | — |
 | Evaluaciones | `/evaluaciones/v2/contexto` | GET | Bearer | evaluaciones:leer | — |
 | Evaluaciones | `/evaluaciones/v2/evidencias` | POST | Bearer | evaluaciones:gestionar | esquemaCrearEvidencia |
 | Evaluaciones | `/evaluaciones/v2/examenes/componentes` | POST | Bearer | evaluaciones:gestionar | esquemaComponenteExamen |

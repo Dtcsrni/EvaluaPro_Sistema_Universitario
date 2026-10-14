@@ -33,6 +33,13 @@ describe('ConsultaCalificaciones', () => {
           nombre: 'Ana',
           grupo: 'A',
           parcial1: '8',
+          tareasYEjerciciosPrimerParcial: '',
+          practicaPrimerParcial: '',
+          examenPrimerParcialAutomatico: '4',
+          examenPrimerParcialLista: '',
+          examenPrimerParcialListaVersion: null,
+          continuaPrimerParcialLista: '4',
+          calificacionPrimerParcialLista: '8',
           parcial2: '9.876',
           global: '10',
           final: '10',
@@ -41,6 +48,11 @@ describe('ConsultaCalificaciones', () => {
           examenGlobalListaVersion: 2,
           continuaTercerParcialLista: '4.25',
           calificacionTercerParcial: '8.25',
+          ponderacionTercerParcialLista: '4.95',
+          subtotalPrimerSegundoParcialLista: '8.94',
+          ponderacionPrimerSegundoParcialesLista: '3.576',
+          calificacionFinalLibroLista: '8.526',
+          calificacionFinalBase10Lista: '0.8526',
           observaciones: '',
           tareasYEjercicios2doParcial: '8.5',
           tareasPuntosObtenidos: '170',
@@ -95,6 +107,7 @@ describe('ConsultaCalificaciones', () => {
 
     await user.click(screen.getByRole('button', { name: 'Todos' }));
     await user.click(screen.getAllByRole('button', { name: /Ver detalle de/ })[0]);
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     await user.click(screen.getByRole('button', { name: 'Abrir revisión manual' }));
     expect(onSeleccionarAlumno).toHaveBeenCalledWith('alumno-1');
     expect((clienteApi as { obtener: unknown }).obtener).toBeDefined();
@@ -115,6 +128,7 @@ describe('ConsultaCalificaciones', () => {
     obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] }).mockResolvedValue({ filas: [{ ...filaExtra, solicitaExtra: true, solicitudExtraVersion: 1 }] });
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     expect(screen.queryByText(/Calificación 2.29 \/ 5 · equivalente 4.57 \/ 10 · No aprobatoria/)).not.toBeInTheDocument();
     const solicitud = screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' });
     expect(solicitud).not.toBeChecked();
@@ -146,6 +160,7 @@ describe('ConsultaCalificaciones', () => {
     obtenerMock.mockResolvedValueOnce({ filas: [filaExtra] });
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     expect(screen.getByText('Resultado extraordinario · externo')).toBeInTheDocument();
     expect(screen.getByText(/Lote sin verificar · folio 88DC8464 · archivo extra-externo-prueba.pdf/)).toBeInTheDocument();
     expect(screen.getByText(/SHA-256: a{64}/)).toBeInTheDocument();
@@ -174,8 +189,9 @@ describe('ConsultaCalificaciones', () => {
     });
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     await user.click(screen.getByRole('button', { name: 'Registrar resultado externo' }));
-    await waitFor(() => expect(screen.getAllByText(/Completa folio, archivo, SHA-256/)).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText(/Completa folio, archivo, SHA-256/)).toHaveLength(1));
     expect(enviarMock).not.toHaveBeenCalled();
 
     await user.type(screen.getByLabelText('Folio visible'), '88dc8464');
@@ -224,6 +240,7 @@ describe('ConsultaCalificaciones', () => {
     enviarMock.mockRejectedValueOnce(new Error('respuesta perdida'));
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     await user.type(screen.getByLabelText('Folio visible'), '88dc8464');
     vi.stubGlobal('crypto', {
       subtle: { digest: vi.fn(async () => new Uint8Array(32).fill(0xab).buffer) },
@@ -256,6 +273,7 @@ describe('ConsultaCalificaciones', () => {
     });
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     await user.click(screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Solicitud registrada por el docente'));
     expect(screen.queryByText('Timeout')).not.toBeInTheDocument();
@@ -277,11 +295,13 @@ describe('ConsultaCalificaciones', () => {
     expect(screen.getByRole('option', { name: /Inteligencia de Negocios .* \(Archivada\)/ })).toBeInTheDocument();
     expect(screen.getByText(/Materia archivada: estás consultando el historial/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Segundo Parcial' }));
     await user.type(screen.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }), '7.5');
     await user.click(screen.getByRole('button', { name: 'Guardar práctica' }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({
       periodoId: 'periodo-archivado', alumnoId: 'alumno-1', componente: 'Practica 2do Parcial', calificacion: 7.5
     })));
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     await user.click(screen.getByRole('button', { name: 'Abrir revisión manual' }));
     expect(onSeleccionarAlumno).toHaveBeenCalledWith('alumno-1');
   });
@@ -298,6 +318,7 @@ describe('ConsultaCalificaciones', () => {
     );
 
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Global y bono' }));
     const global = screen.getByRole('spinbutton', { name: 'Exámen Global manual · 0–5' });
     await user.clear(global);
     await user.type(global, '4.5');
@@ -312,6 +333,62 @@ describe('ConsultaCalificaciones', () => {
     })));
   });
 
+  it('captura el examen del primer parcial en escala 0–5 y presenta las columnas nombradas del Excel', async () => {
+    const user = userEvent.setup();
+    render(
+      <ConsultaCalificaciones
+        periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]}
+        periodoId="periodo-1"
+        onPeriodoChange={vi.fn()}
+        onSeleccionarAlumno={vi.fn()}
+      />
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    expect(screen.getByRole('heading', { name: 'Lista física · Primer Parcial' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Lista Excel · columnas AJ–BB' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Libro completo' }));
+    expect(screen.getByRole('heading', { name: 'Lista Excel · columnas AJ–BB' })).toBeInTheDocument();
+    expect(screen.getByText(/AJ · Tareas y Ejercicios 1er Parcial/)).toBeInTheDocument();
+    expect(screen.getByText(/AM · Exámen 1er Parcial/)).toBeInTheDocument();
+    expect(screen.getByText(/BB · Bono extracurricular otorgado/)).toBeInTheDocument();
+    expect(screen.getAllByText('Sin dato').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', { name: 'Primer Parcial' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'Exámen 1er Parcial · 0–5' }), '4.67');
+    await user.click(screen.getAllByRole('button', { name: 'Guardar examen' })[0]);
+
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({
+      periodoId: 'periodo-1',
+      alumnoId: 'alumno-1',
+      componente: 'Exámen 1er Parcial',
+      calificacion: 4.67,
+      canalCaptura: 'gui',
+      clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i)
+    })));
+  });
+
+  it('consulta el historial de captura del examen con canal, valor y versión', async () => {
+    const user = userEvent.setup();
+    obtenerMock.mockImplementation(async (ruta: string) => {
+      if (ruta.includes('/calificaciones/historial')) return { eventos: [{
+        id: 'mutacion-1', componente: 'Exámen 1er Parcial', valorAnterior: null, valorNuevo: 4.67,
+        version: 1, escalaMaxima: 5, canalCaptura: 'gui', metodoCaptura: 'captura_manual',
+        actorId: 'docente-1', createdAt: '2026-10-14T10:00:00.000Z'
+      }] };
+      return { filas: [{
+        alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
+        parcial1: '8', examenPrimerParcialLista: '4.67', examenPrimerParcialListaVersion: 1, observaciones: ''
+      }] };
+    });
+    render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Primer Parcial' }));
+    await user.click(screen.getByRole('button', { name: 'Consultar historial de captura' }));
+    await waitFor(() => expect(screen.getByText(/Captura inicial → 4\.67 \/ 1 · gui/)).toBeInTheDocument());
+    expect(obtenerMock).toHaveBeenCalledWith(expect.stringContaining('/analiticas/lista-academica/calificaciones/historial?'));
+  });
+
   it('muestra la referencia automática separada y envía práctica manual con nombre de columna', async () => {
     const user = userEvent.setup();
     render(
@@ -324,15 +401,14 @@ describe('ConsultaCalificaciones', () => {
     );
     await waitFor(() => expect(screen.getByText('Pérez López Ana')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Segundo Parcial' }));
     expect(screen.getByText('Exámen 2do Parcial automático · referencia')).toBeInTheDocument();
-    expect(screen.getByText('Exámen Global · componente fuente 0–10')).toBeInTheDocument();
-    expect(screen.getByText('Evaluación Continua 3er Parcial · 0–5')).toBeInTheDocument();
-    expect(screen.getByText('8.25')).toBeInTheDocument();
-    expect(screen.getByText(/no sustituye la captura manual/)).toBeInTheDocument();
+    expect(screen.getAllByText(/no sustituye la captura manual/).length).toBeGreaterThan(0);
     await user.type(screen.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }), '7.5');
     await user.click(screen.getByRole('button', { name: 'Guardar práctica' }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', {
       periodoId: 'periodo-1', alumnoId: 'alumno-1', componente: 'Practica 2do Parcial', calificacion: 7.5,
+      canalCaptura: 'gui',
       clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i)
     }));
   });
@@ -360,6 +436,7 @@ describe('ConsultaCalificaciones', () => {
     );
 
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Segundo Parcial' }));
     await user.clear(screen.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' }));
     await user.type(screen.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' }), '5.25');
     await user.type(screen.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }), '7.5');
@@ -400,6 +477,7 @@ describe('ConsultaCalificaciones', () => {
     );
     await waitFor(() => expect(screen.getByText('Pérez López Ana')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Segundo Parcial' }));
     await user.type(screen.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }), '7.5');
     await user.click(screen.getByRole('button', { name: 'Guardar práctica' }));
     await waitFor(() => expect(obtenerMock).toHaveBeenCalledTimes(2));
@@ -431,6 +509,7 @@ describe('ConsultaCalificaciones', () => {
     />);
     await screen.findByText('Pérez López Ana');
     await user.click(screen.getByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Segundo Parcial' }));
     await user.type(screen.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }), '7.5');
     const guardar = screen.getByRole('button', { name: 'Guardar práctica' });
     await user.click(guardar);
@@ -463,6 +542,7 @@ describe('ConsultaCalificaciones', () => {
     );
     await waitFor(() => expect(screen.getByText('Pérez López Ana')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Global y bono' }));
     await user.type(screen.getByRole('spinbutton', { name: 'Bono solicitado · 0–1' }), '0.5');
     await user.click(screen.getByRole('button', { name: 'Previsualizar bono' }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/bono/preview', {
@@ -496,6 +576,7 @@ describe('ConsultaCalificaciones', () => {
     );
     await waitFor(() => expect(screen.getByText('Pérez López Ana')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Global y bono' }));
     await user.type(screen.getByRole('spinbutton', { name: 'Bono solicitado · 0–1' }), '0.5');
     await user.click(screen.getByRole('button', { name: 'Previsualizar bono' }));
     await screen.findByText(/Vista previa: aplicado 0.5 de 0.5/);
@@ -524,11 +605,11 @@ describe('ConsultaCalificaciones', () => {
     const user = userEvent.setup();
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     await user.click(screen.getByRole('checkbox', { name: 'El docente confirma que el alumno solicita presentar Extra' }));
     expect(await screen.findAllByText('Solicitud rechazada')).not.toHaveLength(0);
     expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({ componente: 'Solicitud Extra', calificacion: 1 }));
   });
-
   it('valida el PDF local externo y presenta el error del registro conservando datos para corregir', async () => {
     const filaExtra = {
       alumnoId: 'alumno-1', matricula: 'A001', apellidoPaterno: 'Pérez', apellidoMaterno: 'López', nombre: 'Ana', grupo: 'A',
@@ -548,6 +629,7 @@ describe('ConsultaCalificaciones', () => {
     const user = userEvent.setup();
     render(<ConsultaCalificaciones periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]} periodoId="periodo-1" onPeriodoChange={vi.fn()} onSeleccionarAlumno={vi.fn()} />);
     await user.click(await screen.findByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
+    await user.click(screen.getByRole('button', { name: 'Resumen' }));
     const grupo = screen.getByRole('group', { name: 'Registrar resultado de examen Extra externo' });
     const archivoInput = within(grupo).getByLabelText('PDF fuente local');
     const txt = new File(['texto'], 'examen.txt', { type: 'text/plain' });

@@ -14,6 +14,9 @@ import {
   listarActividadesClassroomController,
   listarCursosClassroomController,
   listarHistorialSyncClassroomController,
+  listarHistorialClassroomAlumnoController,
+  listarHistorialEntregaClassroomController,
+  obtenerCapturaHistorialClassroomController,
   listarMapeosClassroom,
   obtenerAlumnosCursoClassroomController,
   obtenerEstadoClassroomController,
@@ -42,6 +45,7 @@ router.get('/v2/classroom/cursos/:courseId/alumnos', requerirPermiso('classroom:
 router.post(
   '/v2/classroom/cursos/:courseId/importar-alumnos',
   requerirPermiso('classroom:pull'),
+  requerirPermiso('alumnos:gestionar'),
   validarCuerpo(esquemaImportarAlumnosClassroom, { strict: true }),
   importarAlumnosClassroomController
 );
@@ -52,6 +56,9 @@ router.put(
   actualizarMapeoAlumnosCursoController
 );
 router.get('/v2/classroom/importaciones/historial', requerirPermiso('classroom:pull'), listarHistorialSyncClassroomController);
+router.get('/v2/classroom/alumnos/:alumnoId/cortes/:corte/historial', requerirPermiso('classroom:pull'), listarHistorialClassroomAlumnoController);
+router.get('/v2/classroom/alumnos/:alumnoId/entregas/:submissionId/historial', requerirPermiso('classroom:pull'), listarHistorialEntregaClassroomController);
+router.get('/v2/classroom/historial-cortes/:snapshotId/captura', requerirPermiso('classroom:pull'), obtenerCapturaHistorialClassroomController);
 router.post(
   '/v2/classroom/importaciones/preview',
   requerirPermiso('classroom:pull'),

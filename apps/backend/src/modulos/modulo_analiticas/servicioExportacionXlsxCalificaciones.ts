@@ -33,6 +33,7 @@ type CalificacionFila = {
 
 type ListaAcademicaExportacion = {
   alumnoId?: string;
+  examenPrimerParcialLista?: string;
   tareasYEjercicios2doParcial?: string;
   practica2doParcial?: string;
   examen2doParcial?: string;
@@ -148,7 +149,7 @@ export async function generarXlsxCalificacionesProduccion(opts: OpcionesLibro): 
     const fisica = listaPorAlumno.get(String(alumno._id));
 
     const p1Eval = numeroSeguro(grupo.parcial1?.evaluacionContinuaTexto);
-    const p1Exam = numeroSeguro(grupo.parcial1?.calificacionExamenFinalTexto);
+    const p1Exam = numeroSeguro(fisica?.examenPrimerParcialLista) ?? numeroSeguro(grupo.parcial1?.calificacionExamenFinalTexto);
     const p1Total = numeroSeguro(grupo.parcial1?.calificacionParcialTexto);
 
     const gExam = numeroSeguro(grupo.global?.calificacionExamenFinalTexto);

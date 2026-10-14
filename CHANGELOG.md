@@ -4,6 +4,15 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-10-14
+
+### Added
+- Historial ligero y consultable de entregas de Classroom por alumno y corte, con ficha de promedio y registro de cambios de entrega.
+- Rediseño de Calificaciones con consulta de campos de la lista física y captura del examen parcial en el corte correspondiente.
+
+### Fixed
+- La actualización local queda identificada como `1.2.8` para permitir un upgrade in-place desde `1.2.7` mediante el Installer Hub.
+
 ## [1.2.7] - 2026-10-12
 
 ### Added

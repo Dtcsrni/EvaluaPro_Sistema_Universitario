@@ -172,8 +172,8 @@
     ]
   },
   "cycles": [],
-  "prismaModels": 76,
-  "declaredModelOwners": 76,
+  "prismaModels": 78,
+  "declaredModelOwners": 78,
   "persistenceOwners": {
     "Alumno": [
       "modulo_alumnos"
@@ -282,6 +282,12 @@
     ],
     "FirmaEncuadre": [
       "modulo_evaluaciones"
+    ],
+    "HistorialClassroomCorte": [
+      "modulo_integraciones_classroom"
+    ],
+    "HistorialClassroomEntrega": [
+      "modulo_integraciones_classroom"
     ],
     "IntegracionClassroom": [
       "modulo_integraciones_classroom"

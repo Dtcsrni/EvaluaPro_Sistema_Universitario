@@ -14,8 +14,13 @@ export type ListaAcademicaFila = {
   nombre: string;
   grupo: string;
   parcial1: string;
+  tareasYEjerciciosPrimerParcial: string;
+  practicaPrimerParcial: string;
+  examenPrimerParcialAutomatico: string;
   examenPrimerParcialLista: string;
+  examenPrimerParcialListaVersion: number | null;
   continuaPrimerParcialLista: string;
+  calificacionPrimerParcialLista: string;
   parcial2: string;
   tareasYEjercicios2doParcial: string;
   practica2doParcial: string;
@@ -28,6 +33,11 @@ export type ListaAcademicaFila = {
   examenGlobalListaVersion: number | null;
   continuaTercerParcialLista: string;
   calificacionTercerParcial: string;
+  ponderacionTercerParcialLista: string;
+  subtotalPrimerSegundoParcialLista: string;
+  ponderacionPrimerSegundoParcialesLista: string;
+  calificacionFinalLibroLista: string;
+  calificacionFinalBase10Lista: string;
   bonoExtracurricular: string;
   bonoExtracurricularSolicitado: string;
   bonoExtracurricularVersion: number | null;
@@ -78,6 +88,12 @@ export const COLUMNAS_LISTA_ACADEMICA: Array<keyof ListaAcademicaFila> = [
   'nombre',
   'grupo',
   'parcial1',
+  'tareasYEjerciciosPrimerParcial',
+  'practicaPrimerParcial',
+  'examenPrimerParcialAutomatico',
+  'examenPrimerParcialLista',
+  'continuaPrimerParcialLista',
+  'calificacionPrimerParcialLista',
   'parcial2',
   'tareasYEjercicios2doParcial',
   'practica2doParcial',
@@ -89,6 +105,11 @@ export const COLUMNAS_LISTA_ACADEMICA: Array<keyof ListaAcademicaFila> = [
   'examenGlobalLista',
   'continuaTercerParcialLista',
   'calificacionTercerParcial',
+  'ponderacionTercerParcialLista',
+  'subtotalPrimerSegundoParcialLista',
+  'ponderacionPrimerSegundoParcialesLista',
+  'calificacionFinalLibroLista',
+  'calificacionFinalBase10Lista',
   'bonoExtracurricular',
   'global',
   'final',
