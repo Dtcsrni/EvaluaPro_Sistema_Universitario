@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -25,9 +26,30 @@ test('todos los flujos Installer Hub aíslan reportes en RUNNER_TEMP y publican 
   }
 
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*["']reports[\\/]/);
-  assert.match(e2e, /Import-Module -LiteralPath \$reportDirectoryModule -Force -ErrorAction Stop/);
+  assert.match(e2e, /Import-Module -Name \$reportDirectoryModule -Force -ErrorAction Stop/);
+  assert.doesNotMatch(e2e, /Import-Module -LiteralPath/);
   assert.match(e2e, /Initialize-InstallerHubE2EReportDirectory -Path \$ReportDir/);
   assert.match(e2e, /GetTempPath\(\)/);
+});
+
+test('el módulo de reportes se importa con el parámetro real de Windows PowerShell', (t) => {
+  if (process.platform !== 'win32') {
+    t.skip('La validación de binding de Windows PowerShell se ejecuta en runner Windows.');
+    return;
+  }
+
+  const modulePath = path.join(root, 'scripts', 'tests', 'installer-e2e-report-directory.psm1');
+  const escapedModulePath = modulePath.replaceAll("'", "''");
+  const command = [
+    `$modulePath = '${escapedModulePath}'`,
+    'Import-Module -Name $modulePath -Force -ErrorAction Stop',
+    "if (-not (Get-Command Initialize-InstallerHubE2EReportDirectory -ErrorAction SilentlyContinue)) { exit 1 }"
+  ].join('; ');
+  const powershellPath = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const result = spawnSync(powershellPath, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command], { encoding: 'utf8' });
+
+  assert.equal(result.error, undefined, `No se pudo validar Import-Module: ${result.error?.message ?? ''}`);
+  assert.equal(result.status, 0, `Windows PowerShell no pudo cargar el módulo: ${result.stderr || result.stdout}`);
 });
 
 test('el guard del handoff conserva el rechazo de escritura para Users y grupos amplios', () => {
