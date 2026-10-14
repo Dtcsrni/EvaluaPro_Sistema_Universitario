@@ -695,7 +695,7 @@ test('Installer Windows reserva el ciclo E2E completo para releases y ejecucione
   const evidenceRest = installerBuild.slice(evidenceStart);
   const evidenceEnd = evidenceRest.indexOf('\n      - name:');
   const evidence = evidenceEnd >= 0 ? evidenceRest.slice(0, evidenceEnd) : evidenceRest;
-  assert.ok(evidence.includes("if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')"));
+  assert.ok(evidence.includes("if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')"));
 
   assert.ok(installerBuild.includes("name: Verificar artefactos\n        if: github.event_name == 'pull_request'"), 'los PR conservan la verificación de MSI y bundle');
 });
