@@ -164,7 +164,7 @@ test('upgrade baseline construye un sobre v1 válido para post-install y conserv
 
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
   const baselineInstall = e2e.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
-  const stopBaseline = e2e.indexOf("Invoke-InstalledBroker -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
+  const stopBaseline = e2e.indexOf("Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
   const markerWrite = e2e.indexOf("Invoke-UpgradeDataMarker -Action 'write' -Marker $marker");
   const candidateInstall = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath");
   const versionCheck = e2e.indexOf("Get-InstalledProductVersion", candidateInstall);
@@ -180,6 +180,9 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   assert.match(e2e, /finally\s*\{\s*try \{ Invoke-UpgradeDataMarker -Action 'remove'/);
   assert.match(e2e, /if \(\[string\]::IsNullOrWhiteSpace\(\$BaselineBundlePath\)\)/);
   assert.match(e2e, /Invoke-UpgradeBaselineFlow -BaselinePath \$BaselineBundlePath/);
+  assert.match(e2e, /function Invoke-InstalledAppHost/);
+  assert.match(e2e, /Wait-NativeDashboardHealth/);
+  assert.doesNotMatch(e2e, /Invoke-InstalledBroker|launcher-broker\.ps1/);
   assert.match(e2e, /\$databasePath = Resolve-InstalledSqlitePath/);
   assert.match(e2e, /Join-Path \$installedRoot 'runtime\\node\\node\.exe'/);
   assert.match(e2e, /function Get-ConfiguredInstalledSqlitePath/);
