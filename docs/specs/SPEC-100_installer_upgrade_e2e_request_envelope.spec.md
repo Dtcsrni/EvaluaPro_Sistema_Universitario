@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-10-14
 autor: Codex
 modulo: installer_hub_e2e
-estado: draft
+estado: approved
 ---
 
 ## Contexto
