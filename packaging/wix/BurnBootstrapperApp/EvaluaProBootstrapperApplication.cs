@@ -1118,7 +1118,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 ["flavorId"] = currentRequest.FlavorId,
                 ["installDir"] = currentRequest.InstallDir,
                 ["exportData"] = currentRequest.ExportData ? "1" : "0",
-                ["dataDir"] = Path.Combine(currentRequest.InstallDir, "data"),
+                ["dataDir"] = currentRequest.DataDir,
                 ["config"] = new Dictionary<string, object?>
                 {
                     ["databaseUrl"] = currentRequest.DatabaseUrl,
@@ -2632,6 +2632,7 @@ public sealed class BootstrapperRequest
     public string FlavorId { get; set; } = "docente-local";
     public string Mode { get; set; } = "install";
     public string InstallDir { get; set; } = string.Empty;
+    public string DataDir { get; set; } = string.Empty;
     public bool InstallDesktopShortcuts { get; set; } = true;
     public bool InstallStartMenuShortcuts { get; set; } = true;
     public bool ExportData { get; set; }

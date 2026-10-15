@@ -863,6 +863,9 @@ public partial class MainWindow : Window
             suppressModeChangedEvent = false;
         }
 
+        ExportDataCheckBox.Visibility = string.Equals(normalized, "uninstall", StringComparison.OrdinalIgnoreCase)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         RefreshOperationalChrome(GetSelectedMode());
     }
 
@@ -898,6 +901,7 @@ public partial class MainWindow : Window
             FlavorId = selectedFlavor?.FlavorId ?? "docente-local",
             Mode = mode,
             InstallDir = installDir,
+            DataDir = ResolveDataDirectory(DefaultDatabaseUrl, installDir),
             InstallDesktopShortcuts = DesktopShortcutsCheckBox.IsChecked == true,
             InstallStartMenuShortcuts = StartMenuShortcutsCheckBox.IsChecked == true,
             ExportData = ExportDataCheckBox.IsChecked == true,
@@ -921,6 +925,23 @@ public partial class MainWindow : Window
             UpdateRepo = DefaultUpdateRepo,
             UpdateShaAssetName = $"{updateAssetName}.sha256"
         };
+    }
+
+    private static string ResolveDataDirectory(string databaseUrl, string installDir)
+    {
+        if (installDir.Contains("EvaluaPro-QA-Isolated-", StringComparison.OrdinalIgnoreCase))
+        {
+            return System.IO.Path.Combine(installDir, "data");
+        }
+
+        if (databaseUrl.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            var databasePath = Uri.UnescapeDataString(databaseUrl[5..]).Replace('/', System.IO.Path.DirectorySeparatorChar);
+            var directory = System.IO.Path.GetDirectoryName(databasePath);
+            if (!string.IsNullOrWhiteSpace(directory)) return System.IO.Path.GetFullPath(directory);
+        }
+
+        return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EvaluaPro", "data");
     }
 
     private void DetectButton_OnClick(object sender, RoutedEventArgs e)

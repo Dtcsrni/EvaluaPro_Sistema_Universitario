@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
@@ -306,20 +307,25 @@ internal static class NativeInstallerHelper
         var dataDir = GetString(payload, "dataDir");
         if (string.IsNullOrWhiteSpace(dataDir))
             dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EvaluaPro", "data");
+        dataDir = Path.GetFullPath(dataDir);
+        var exportData = GetBool(payload, "exportData");
+        string? exportedBackup = null;
         if (!Directory.Exists(targetDir))
         {
+            exportedBackup = exportData ? CreateDataBackup(dataDir) : null;
             return new Dictionary<string, object?>
             {
                 ["dataPreservedByDefault"] = true,
-                ["preservedDataDir"] = Directory.Exists(dataDir) ? Path.GetFullPath(dataDir) : null,
+                ["preservedDataDir"] = Directory.Exists(dataDir) ? dataDir : null,
                 ["ownedNodeProcesses"] = Array.Empty<int>(),
-                ["exportedBackup"] = null
+                ["exportedBackup"] = exportedBackup
             };
         }
 
         using var rootLock = AcquireRootLock(targetDir, TimeSpan.FromSeconds(30));
         RecoverTransaction(targetDir);
         StopOwnedNodeProcesses(targetDir);
+        exportedBackup = exportData ? CreateDataBackup(dataDir) : null;
 
         var transactionDir = Path.Combine(targetDir, ".evaluapro-payload-transaction");
         Directory.CreateDirectory(Path.Combine(transactionDir, "backup"));
@@ -360,10 +366,83 @@ internal static class NativeInstallerHelper
         return new Dictionary<string, object?>
         {
             ["dataPreservedByDefault"] = true,
-            ["preservedDataDir"] = Directory.Exists(dataDir) ? Path.GetFullPath(dataDir) : null,
+            ["preservedDataDir"] = Directory.Exists(dataDir) ? dataDir : null,
             ["ownedNodeProcesses"] = Array.Empty<int>(),
-            ["exportedBackup"] = null
+            ["exportedBackup"] = exportedBackup
         };
+    }
+
+    private static string? CreateDataBackup(string dataDir)
+    {
+        if (!Directory.Exists(dataDir)) return null;
+        AssertNoReparsePoints(dataDir);
+        if (!Directory.EnumerateFileSystemEntries(dataDir).Any()) return null;
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData)) throw new InvalidOperationException("No existe LocalAppData para guardar el respaldo privado.");
+        var appDataDir = Path.Combine(localAppData, "EvaluaPro");
+        if (Directory.Exists(appDataDir)) AssertNoReparsePoints(appDataDir);
+        Directory.CreateDirectory(appDataDir);
+        var backupDir = Path.Combine(appDataDir, "Backups");
+        if (Directory.Exists(backupDir)) AssertNoReparsePoints(backupDir);
+        Directory.CreateDirectory(backupDir);
+        ApplyPrivateBackupAcl(backupDir);
+        var backupPath = Path.Combine(backupDir, $"data_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}.zip");
+        try
+        {
+            ZipFile.CreateFromDirectory(dataDir, backupPath, CompressionLevel.Optimal, includeBaseDirectory: false);
+            using var archive = ZipFile.OpenRead(backupPath);
+            if (archive.Entries.Count == 0 || archive.Entries.Any(entry => string.IsNullOrWhiteSpace(entry.FullName) || Path.IsPathRooted(entry.FullName) || entry.FullName.Split('/', '\\').Contains("..", StringComparer.Ordinal)))
+                throw new InvalidDataException("El respaldo ZIP está vacío o contiene rutas no válidas.");
+            return backupPath;
+        }
+        catch
+        {
+            try { if (File.Exists(backupPath)) File.Delete(backupPath); } catch { }
+            throw;
+        }
+    }
+
+    private static void ApplyPrivateBackupAcl(string directory)
+    {
+        var security = new DirectorySecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        using var identity = WindowsIdentity.GetCurrent();
+        var allowedSids = new[]
+        {
+            identity.User,
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+            new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null)
+        };
+        foreach (var sid in allowedSids.Where(sid => sid is not null))
+        {
+            security.AddAccessRule(new FileSystemAccessRule(
+                sid!,
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+        }
+        new DirectoryInfo(directory).SetAccessControl(security);
+    }
+
+    private static void AssertNoReparsePoints(string root)
+    {
+        if (!Directory.Exists(root)) return;
+        var pending = new Stack<string>();
+        pending.Push(Path.GetFullPath(root));
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("El respaldo encontró un enlace simbólico y se detuvo.");
+            foreach (var entry in Directory.EnumerateFileSystemEntries(current))
+            {
+                if ((File.GetAttributes(entry) & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("El respaldo encontró un enlace simbólico y se detuvo.");
+                if (Directory.Exists(entry)) pending.Push(entry);
+            }
+        }
     }
 
     private static void ConfigureRuntime(string root, IReadOnlyDictionary<string, JsonElement> payload)

@@ -3099,6 +3099,35 @@ test('SPEC-094: el helper nativo conserva la base existente y aísla instalacion
   assert.match(config, /BACKEND_DATA_DIR_PROD/);
 });
 
+test('SPEC-102 REQ-004: el backup de desinstalación respeta la opción GUI y comprueba el ZIP privado', () => {
+  const helper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
+  const window = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
+  const requestBuilder = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
+  const bootstrapper = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
+  const e2e = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+  const uninstall = helper.match(/private static object PreserveAfterUninstall\([\s\S]*?\n    private static void ConfigureRuntime/)?.[0] || '';
+
+  assert.match(window, /AutomationProperties\.AutomationId="ExportDataCheckBox"/);
+  assert.match(window, /EvaluaPro\\Backups/);
+  assert.match(requestBuilder, /ExportDataCheckBox\.Visibility = string\.Equals\(normalized, "uninstall"[\s\S]*Visibility\.Visible/);
+  assert.match(requestBuilder, /DataDir = ResolveDataDirectory\(DefaultDatabaseUrl, installDir\)/);
+  assert.match(bootstrapper, /\["dataDir"\] = currentRequest\.DataDir/);
+  assert.match(uninstall, /var exportData = GetBool\(payload, "exportData"\)/);
+  assert.match(uninstall, /StopOwnedNodeProcesses\(targetDir\);[\s\S]*CreateDataBackup\(dataDir\)/);
+  assert.match(uninstall, /\["exportedBackup"\] = exportedBackup/);
+  assert.match(helper, /var appDataDir = Path\.Combine\(localAppData, "EvaluaPro"\)[\s\S]*var backupDir = Path\.Combine\(appDataDir, "Backups"\)/);
+  assert.match(helper, /ApplyPrivateBackupAcl\(backupDir\)/);
+  assert.match(helper, /ZipFile\.CreateFromDirectory\(dataDir, backupPath/);
+  assert.match(e2e, /ExportDataCheckBox debe estar visible y accesible/);
+  assert.match(e2e, /no expone TogglePattern/);
+  assert.match(e2e, /payload-removed-data-preserved/);
+  assert.match(e2e, /privateBackupDir/);
+  assert.match(e2e, /contains_database/);
+  assert.match(e2e, /backup-private-acl/);
+  assert.match(e2e, /broadAllowSids/);
+  assert.doesNotMatch(e2e, /C:\\\\Users\\\\Public\\\\Documents\\\\EvaluaPro_Backup/);
+});
+
 test('SPEC-099 REQ-001/002/003: el helper tolera la salida concurrente y protege contra reutilización de PID', () => {
   const helper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
   const stopOwnedProcesses = helper.match(/private static void StopOwnedNodeProcesses\(string root\)[\s\S]*?\n    private static bool IsProcessRunning/)?.[0] || '';

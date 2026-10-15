@@ -107,6 +107,12 @@ $script:sharedProgramDataSqliteSnapshotAtStart = @(
   }
 )
 $script:initialUninstallRegistryPaths = @()
+$script:privateBackupDir = Join-Path $env:LOCALAPPDATA 'EvaluaPro\Backups'
+$script:initialDataBackupPaths = @(
+  if (Test-Path -LiteralPath $script:privateBackupDir -PathType Container) {
+    Get-ChildItem -LiteralPath $script:privateBackupDir -File -Filter 'data_*.zip' -ErrorAction Stop | ForEach-Object { $_.FullName }
+  }
+)
 $script:upgradingExistingInstall = $false
 $script:existingInstalledPayloadVersion = $null
 $script:preUpgradeDatabaseBackup = $null
@@ -861,21 +867,20 @@ function Invoke-InstallerHubMode {
   if ($Mode -eq 'uninstall') {
     $exportCheckbox = Find-ById -RootElement $window -AutomationId 'ExportDataCheckBox' -TimeoutSec 10
     if (-not $exportCheckbox) {
-      Write-E2ELog 'WARNING: ExportDataCheckBox no quedó accesible en mantenimiento; se usa el valor seguro marcado por defecto y se verificará el ZIP.'
-      Add-Result -Area 'uninstall' -Item 'backup-option-default' -Ok $true -Detail 'control no accesible; default seguro=true'
+      throw 'ExportDataCheckBox debe estar visible y accesible en la GUI de desinstalación.'
     } else {
       $togglePattern = $null
-      if ($exportCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
-        if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
-          $togglePattern.Toggle()
-        }
-      } else {
-        Invoke-Control -Element $exportCheckbox
+      if (-not $exportCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
+        throw 'ExportDataCheckBox no expone TogglePattern para confirmar su estado en la GUI.'
+      }
+      if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+        $togglePattern.Toggle()
       }
       Start-Sleep -Milliseconds 250
-      if ($togglePattern -and $togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+      if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
         throw 'ExportDataCheckBox no quedó activado.'
       }
+      Add-Result -Area 'uninstall' -Item 'backup-option-enabled' -Ok $true -Detail 'la opción visible de respaldo está activada'
     }
   }
 
@@ -2213,26 +2218,52 @@ try {
     $registryClean = $newRemainingEntries.Count -eq 0 -and $preservedInitialEntries.Count -eq $script:initialUninstallRegistryPaths.Count
     Add-Result -Area 'post-uninstall' -Item 'uninstall-registry' -Ok $registryClean -Detail ("initial={0} remaining={1} new={2} preserved={3}" -f $script:initialUninstallRegistryPaths.Count, $remainingEntries.Count, $newRemainingEntries.Count, $preservedInitialEntries.Count)
     if (-not $registryClean) { throw 'El uninstall no retiró únicamente la entrada de QA o cambió entradas EvaluaPro preexistentes.' }
-    Add-Result -Area 'post-uninstall' -Item 'install-dir-removed' -Ok (-not (Test-Path -LiteralPath $installedRoot)) -Detail $installedRoot
+    $remainingInstallEntries = @()
+    if (Test-Path -LiteralPath $installedRoot -PathType Container) {
+      $remainingInstallEntries = @(Get-ChildItem -LiteralPath $installedRoot -Force -ErrorAction Stop | Select-Object -ExpandProperty Name)
+    }
+    $payloadRemoved = $remainingInstallEntries.Count -eq 1 -and $remainingInstallEntries[0] -eq 'data'
+    $localDataPreserved = Test-Path -LiteralPath (Join-Path $installedRoot 'data\evaluapro.db') -PathType Leaf
+    Add-Result -Area 'post-uninstall' -Item 'payload-removed-data-preserved' -Ok ($payloadRemoved -and $localDataPreserved) -Detail ("root={0} remaining={1} databasePreserved={2}" -f $installedRoot,($remainingInstallEntries -join ','),$localDataPreserved)
     Assert-SharedProgramDataSqliteUnchanged
 
-    $backupDir = "C:\Users\Public\Documents\EvaluaPro_Backup"
-    $backupArchives = @(Get-ChildItem -Path $backupDir -File -Filter "data_*.zip" -ErrorAction SilentlyContinue)
+    $backupArchives = @(
+      if (Test-Path -LiteralPath $script:privateBackupDir -PathType Container) {
+        Get-ChildItem -LiteralPath $script:privateBackupDir -File -Filter 'data_*.zip' -ErrorAction Stop |
+          Where-Object { $script:initialDataBackupPaths -notcontains $_.FullName }
+      }
+    )
     $restoreOk = $false
-    $restoreDetail = "backup_archives={0}" -f $backupArchives.Count
+    $restoreDetail = "new_private_archives={0}" -f $backupArchives.Count
+    $privateAclOk = $false
+    $privateAclDetail = 'no se encontró un respaldo nuevo para revisar ACL'
     if ($backupArchives.Count -gt 0) {
-      $restoreStage = Join-Path ([IO.Path]::GetTempPath()) ("evaluapro-restore-check-" + [Guid]::NewGuid().ToString('N'))
       try {
-        Expand-Archive -LiteralPath $backupArchives[-1].FullName -DestinationPath $restoreStage -Force
-        $restoreOk = Test-Path -LiteralPath (Join-Path $restoreStage 'evaluapro.db')
-        $restoreDetail = "backup_archives={0} restore_db={1}" -f $backupArchives.Count,$restoreOk
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($backupArchives[-1].FullName)
+        try {
+          $databaseEntries = @($archive.Entries | Where-Object { $_.FullName -eq 'evaluapro.db' -and $_.Length -gt 0 })
+          $restoreOk = $databaseEntries.Count -gt 0
+          $restoreDetail = "new_private_archives={0} archive={1} contains_database={2}" -f $backupArchives.Count,$backupArchives[-1].Name,$restoreOk
+        } finally { $archive.Dispose() }
+        $backupAcl = Get-Acl -LiteralPath $script:privateBackupDir -ErrorAction Stop
+        $broadAllowSids = @('S-1-1-0', 'S-1-5-11', 'S-1-5-32-545')
+        $broadAllows = @(
+          foreach ($rule in $backupAcl.Access) {
+            try {
+              $sid = $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
+              if ($rule.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and $broadAllowSids -contains $sid) { $rule.IdentityReference.Value }
+            } catch { }
+          }
+        )
+        $privateAclOk = $backupAcl.AreAccessRulesProtected -and $broadAllows.Count -eq 0
+        $privateAclDetail = "protected={0} broad_allow_rules={1}" -f $backupAcl.AreAccessRulesProtected,($broadAllows -join ',')
       } catch {
-        $restoreDetail = "backup_archives={0} restore_error={1}" -f $backupArchives.Count,$_.Exception.Message
-      } finally {
-        Remove-Item -LiteralPath $restoreStage -Recurse -Force -ErrorAction SilentlyContinue
+        $restoreDetail = "new_private_archives={0} validation_error={1}" -f $backupArchives.Count,$_.Exception.Message
       }
     }
     Add-Result -Area 'post-uninstall' -Item 'backup-created' -Ok $restoreOk -Detail $restoreDetail
+    Add-Result -Area 'post-uninstall' -Item 'backup-private-acl' -Ok $privateAclOk -Detail $privateAclDetail
   }
 
   Assert-NoActiveEvaluaProProcesses
