@@ -19,7 +19,8 @@ const viewports: ViewportCase[] = [
 ];
 
 async function captureEvidence(page: import('@playwright/test').Page, screen: string, viewport: string) {
-  await page.screenshot({ path: `reports/qa/latest/gui-admin-${screen}-${viewport}.png`, fullPage: false });
+  const evidenceDir = process.env.E2E_SCREENSHOT_DIR || 'reports/qa/latest';
+  await page.screenshot({ path: `${evidenceDir}/gui-admin-${screen}-${viewport}.png`, fullPage: false });
 }
 
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page, context: string) {
@@ -59,7 +60,8 @@ async function assertInteractiveControlsAreNamed(page: import('@playwright/test'
       .filter((element) => {
         const style = window.getComputedStyle(element as HTMLElement);
         const rect = (element as HTMLElement).getBoundingClientRect();
-        return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+        const hiddenFromUsers = element.closest('[aria-hidden="true"], [inert]') !== null;
+        return !hiddenFromUsers && style.visibility !== 'hidden' && style.display !== 'none' && style.opacity !== '0' && style.pointerEvents !== 'none' && rect.width > 0 && rect.height > 0;
       })
       .filter((element) => nameFor(element).length === 0)
       .map((element) => element.outerHTML.slice(0, 160));

@@ -688,7 +688,7 @@ button:hover svg[data-icono="ok"].icono,
 /* Toasts (UI global) */
 .toast-viewport {
   position: fixed;
-  top: 14px;
+  bottom: 14px;
   right: 14px;
   z-index: 9999;
   display: grid;

@@ -27,7 +27,7 @@ export default defineConfig({
   timeout: 90_000,
   retries: 0,
   workers: 1,
-  use: { baseURL: `http://127.0.0.1:${docenteWebPort}`, browserName: 'chromium', ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}), headless: true, viewport: { width: 1920, height: 1080 } },
+  use: { baseURL: `http://127.0.0.1:${docenteWebPort}`, browserName: 'chromium', ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}), headless: true, viewport: { width: 1920, height: 1080 }, actionTimeout: 20_000, navigationTimeout: 30_000 },
   reporter: [['list']],
   webServer: [
     {

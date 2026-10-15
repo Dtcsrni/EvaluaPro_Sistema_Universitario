@@ -15,6 +15,11 @@ on:
         description: "Directorio de evidencia versionada; por defecto docs/release/evidencias/<version>"
         required: false
         type: string
+      dispatch_release_after_gate:
+        description: "Despachar el flujo de release después de aprobar la validación estable"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: release-stable-gate-${{ inputs.source_sha }}
@@ -194,7 +199,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     needs: stable_gate
-    if: needs.stable_gate.result == 'success'
+    if: needs.stable_gate.result == 'success' && inputs.dispatch_release_after_gate == true
     permissions:
       contents: read
       actions: write

@@ -403,6 +403,10 @@ jobs:
       - name: Preparar Prisma backend
         run: npx prisma generate --config=apps/backend/prisma.config.mjs
 
+      - name: Instalar Chromium para E2E visual de GUI
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.escalation == 'full-extended' || needs.detectar_cambios.outputs.gate_ux_visual_check == 'true' || needs.detectar_cambios.outputs.gate_pdf_print_check == 'true'
+        run: npx playwright install --with-deps chromium
+
       - name: Etapa flujo-docente-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_flujo_docente_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:flujo-docente:ci
@@ -425,16 +429,38 @@ jobs:
 
       - name: Etapa pdf-print-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_pdf_print_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        env:
+          E2E_BROWSER_CHANNEL: chromium
+          E2E_REPORT_DIR: ${{ runner.temp }}/evaluapro-pdf-edge-results
         run: |
           npm run test:pdf-print:ci
           npm run test:pdf-visual:ci
 
       - name: Etapa ux-visual-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_ux_visual_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        env:
+          E2E_PLAYWRIGHT_OUTPUT_DIR: ${{ runner.temp }}/evaluapro-e2e-playwright-results
+          E2E_SCRATCH_ROOT: ${{ runner.temp }}/evaluapro-e2e-cycle
+          E2E_SCREENSHOT_DIR: ${{ runner.temp }}/evaluapro-e2e-screenshots
         run: |
           npm run test:ux-quality:ci
           npm run test:ux-visual:ci
           npm run test:e2e:journeys:ci
+
+      - name: Publicar evidencia E2E funcional y visual
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: e2e-visual-${{ github.run_id }}
+          path: |
+            reports/qa/latest/*.json
+            test-results/**
+            ${{ runner.temp }}/evaluapro-e2e-playwright-results/**
+            ${{ runner.temp }}/evaluapro-e2e-cycle/**
+            ${{ runner.temp }}/evaluapro-pdf-edge-results/**
+            ${{ runner.temp }}/evaluapro-e2e-screenshots/**
+          if-no-files-found: warn
+          retention-days: 14
 
   ext_perf_arquitectura:
     name: Extended Perf/Arquitectura

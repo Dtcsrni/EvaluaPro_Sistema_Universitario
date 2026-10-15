@@ -10,10 +10,10 @@ const startServerScript = path.join(rootDir, 'scripts', 'testing', 'start-fronte
 export default defineConfig({
   testDir: __dirname,
   testMatch: ['**/responsive-alumno.spec.ts'],
-  outputDir: path.join(rootDir, 'test-results', `gui-responsive-alumno-${process.pid}`),
+  outputDir: path.join(process.env.E2E_PLAYWRIGHT_OUTPUT_DIR || path.join(rootDir, 'test-results'), `gui-responsive-alumno-${process.pid}`),
   timeout: 45_000,
-  retries: process.env.CI ? 1 : 0,
-  use: { baseURL: `http://127.0.0.1:${port}`, browserName: 'chromium', headless: true },
+  retries: 0,
+  use: { baseURL: `http://127.0.0.1:${port}`, browserName: 'chromium', headless: true, actionTimeout: 20_000, navigationTimeout: 30_000 },
   webServer: {
     command: `node "${startServerScript}" --port ${port} --destino alumno`,
     url: `http://127.0.0.1:${port}`,

@@ -15,5 +15,5 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: [['list']],
-  use: { browserName: 'chromium', ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : { channel: 'msedge' }), headless: true, viewport: { width: 1440, height: 1000 } }
+  use: { browserName: 'chromium', ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : { channel: 'msedge' }), headless: true, viewport: { width: 1440, height: 1000 }, actionTimeout: 20_000, navigationTimeout: 30_000 }
 });

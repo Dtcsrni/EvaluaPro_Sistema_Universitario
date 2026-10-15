@@ -22,6 +22,9 @@ test('todos los recorridos GUI principales instrumentan cada screenshot con audi
   assert.match(fixture, /overflow horizontal/);
   assert.match(fixture, /controles interactivos sin nombre/);
   assert.match(fixture, /controles interactivos solapados/);
+  assert.match(fixture, /\[role="alertdialog"\]\[aria-modal="true"\]/);
+  assert.match(fixture, /focusInside/);
+  assert.match(fixture, /modal desbordado del viewport/);
   assert.match(fixture, /ancho PNG no coincide con el viewport/);
   assert.match(fixture, /encabezado PNG inválido/);
   assert.match(fixture, /createHash\('sha256'\)/);

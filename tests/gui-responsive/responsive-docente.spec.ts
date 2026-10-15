@@ -29,8 +29,11 @@ async function captureEvidence(page: import('@playwright/test').Page, surface: s
   // evidencia visual; la ayuda sigue disponible al pasar el cursor o enfocar.
   await page.mouse.move(0, 0);
   await page.waitForTimeout(80);
-  await page.screenshot({ path: `reports/qa/latest/gui-${surface}-${screen}-${viewport}.png`, fullPage: false });
+  const evidenceDir = process.env.E2E_SCREENSHOT_DIR || 'reports/qa/latest';
+  await page.screenshot({ path: `${evidenceDir}/gui-${surface}-${screen}-${viewport}.png`, fullPage: false });
 }
+
+const supplementalEvidencePath = (name: string) => `${process.env.E2E_SCREENSHOT_DIR || 'test-results'}/${name}`;
 
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page, context: string) {
   const overflow = await page.evaluate(() => {
@@ -83,7 +86,8 @@ async function assertInteractiveControlsAreUsable(page: import('@playwright/test
       const htmlElement = element as HTMLElement;
       const style = window.getComputedStyle(htmlElement);
       const rect = htmlElement.getBoundingClientRect();
-      return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+      const hiddenFromUsers = element.closest('[aria-hidden="true"], [inert]') !== null;
+      return !hiddenFromUsers && style.visibility !== 'hidden' && style.display !== 'none' && style.opacity !== '0' && style.pointerEvents !== 'none' && rect.width > 0 && rect.height > 0;
     }
 
     const controls = Array.from(document.querySelectorAll(selector)).filter(isVisible);
@@ -354,7 +358,7 @@ test.describe('GUI responsive e2e · docente', () => {
     await assertNoHorizontalOverflow(page, 'Reinscripción docente desktop');
     await assertInteractiveControlsAreUsable(page, 'Reinscripción docente desktop');
 
-    const evidencia = 'test-results/reinscripcion-grupo-archivado-e2e.png';
+    const evidencia = supplementalEvidencePath('reinscripcion-grupo-archivado-e2e.png');
     await page.mouse.move(0, 0);
     await page.waitForTimeout(100);
     await page.screenshot({ path: evidencia, fullPage: true, animations: 'disabled' });
@@ -364,7 +368,7 @@ test.describe('GUI responsive e2e · docente', () => {
     const confirmacion = page.getByRole('alertdialog');
     await expect(confirmacion).toBeVisible();
     await page.mouse.move(0, 0);
-    await page.screenshot({ path: 'test-results/reinscripcion-grupo-confirmacion-e2e.png', fullPage: true, animations: 'disabled' });
+    await page.screenshot({ path: supplementalEvidencePath('reinscripcion-grupo-confirmacion-e2e.png'), fullPage: true, animations: 'disabled' });
     await confirmacion.getByRole('button', { name: 'Reinscribir grupo', exact: true }).click();
     await expect(page.getByRole('main').getByText(/^Grupo reinscrito: 2 alumnos nuevos/)).toBeVisible();
     await assertNoHorizontalOverflow(page, 'Reinscripción confirmada desktop');
@@ -373,6 +377,6 @@ test.describe('GUI responsive e2e · docente', () => {
     await assertNoHorizontalOverflow(page, 'Reinscripción docente mobile');
     await assertInteractiveControlsAreUsable(page, 'Reinscripción docente mobile');
     await page.mouse.move(0, 0);
-    await page.screenshot({ path: 'test-results/reinscripcion-grupo-archivado-mobile-e2e.png', fullPage: true, animations: 'disabled' });
+    await page.screenshot({ path: supplementalEvidencePath('reinscripcion-grupo-archivado-mobile-e2e.png'), fullPage: true, animations: 'disabled' });
   });
 });

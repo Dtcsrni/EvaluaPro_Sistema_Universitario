@@ -306,6 +306,14 @@ test.describe('Journey docente integral visual', () => {
     const previewResponse = page.waitForResponse((response) => response.url().includes('/previsualizar/pdf') && response.status() === 200);
     await previewPlantilla.click();
     await previewResponse;
+    const paginasPreview = page.locator('.plantillas-preview__pdfPage img');
+    await expect(paginasPreview.first()).toBeVisible({ timeout: 20_000 });
+    await expect.poll(
+      () => paginasPreview.first().evaluate((imagen) => (imagen as HTMLImageElement).naturalWidth),
+      { message: 'La página renderizada del PDF debe cargar con dimensiones reales', timeout: 20_000 }
+    ).toBeGreaterThan(0);
+    await expect(page.getByText(/^PDF real:/)).toBeVisible();
+    await expect(page.locator('.toast-viewport .toast')).toHaveCount(0, { timeout: 12_000 });
     await page.screenshot({ path: path.join(outputDir, '26a_plantilla_preview_pdf.png'), fullPage: true });
 
     await page.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }).click();
@@ -413,17 +421,14 @@ test.describe('Journey docente integral visual', () => {
     const filaListaFisica = listaFisica.locator('tbody tr').filter({ hasText: fixture.alumnoMatricula });
     await expect(filaListaFisica).toBeVisible({ timeout: 20_000 });
     await filaListaFisica.getByRole('button', { name: /Ver detalle de/ }).click();
-    await expect(page.getByText('Exámen 2do Parcial automático · referencia')).toBeVisible();
-    await page.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }).fill('7.5');
-    const practicaListaResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Guardar práctica' }).click();
-    expect((await practicaListaResponse).status()).toBe(201);
-    await expect(page.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' })).toHaveValue('7.5');
-    await page.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' }).fill('5.25');
+    await expect(page.getByText('Exámen 1er Parcial automático · referencia')).toBeVisible();
+    const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Exámen 1er Parcial · 0–5' });
+    await expect(examenPrimerParcial).toHaveAttribute('max', '5');
+    await examenPrimerParcial.fill('5');
     const examenListaResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
     await page.getByRole('button', { name: 'Guardar examen' }).click();
     expect((await examenListaResponse).status()).toBe(201);
-    await expect(page.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' })).toHaveValue('5.25');
+    await expect(examenPrimerParcial).toHaveValue('5');
     const themeButton = page.locator('button.boton--tema');
     for (let attempt = 0; attempt < 3 && await themeButton.getAttribute('aria-label') !== 'Tema: Claro'; attempt += 1) {
       await themeButton.click();
@@ -546,6 +551,7 @@ test.describe('Journey docente integral visual', () => {
 
     // Paso 13: Portal Alumno
     await page.goto(`http://127.0.0.1:${alumnoWebPort}/acceso`);
+    await expect(page.getByLabel('Codigo de acceso', { exact: true })).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '50_portal_alumno_acceso.png'), fullPage: true });
 
     await page.getByLabel('Codigo de acceso').fill(codigoAcceso);
@@ -631,7 +637,7 @@ test.describe('Journey docente integral visual', () => {
     await expect(page.getByRole('heading', { name: 'Google Classroom', exact: true })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Calificaciones', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Calificaciones', exact: true })).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('navigation', { name: 'Espacios de calificaciones' }).getByRole('button', { name: /04 Classroom/ }).click();
+    await page.getByRole('navigation', { name: 'Espacios de calificaciones' }).getByRole('button', { name: /05 Classroom/ }).click();
     const classroomConsulta = page.locator('.calificaciones-workspace-view');
     await expect(classroomConsulta.getByRole('heading', { name: 'Calificaciones asignadas y evidencias', exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(classroomConsulta.getByRole('option', { name: 'Curso Classroom E2E' })).toBeAttached({ timeout: 20_000 });

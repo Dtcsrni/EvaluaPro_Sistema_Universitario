@@ -97,10 +97,15 @@ test('ext_funcionales usa el gate OMR canónico', () => {
 test('ext_funcionales ejecuta PDF print y visual juntos', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const block = extractJobBlock(workflow, 'ext_funcionales');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
   assert.match(block, /Etapa pdf-print-check/);
   assert.match(block, /npm run test:pdf-print:ci/);
   assert.match(block, /npm run test:pdf-visual:ci/);
+  assert.match(block, /E2E_BROWSER_CHANNEL: chromium/);
+  assert.match(block, /evaluapro-pdf-edge-results/);
+  assert.match(packageJson.scripts['test:pdf-visual:ci'], /test:gui:pdf:e2e:ci/);
+  assert.doesNotMatch(packageJson.scripts['test:pdf-visual:ci'], /test:pdf-print:ci/);
 });
 
 test('ext_funcionales conserva quality visual y journeys para UX', () => {
@@ -111,6 +116,27 @@ test('ext_funcionales conserva quality visual y journeys para UX', () => {
   assert.match(block, /npm run test:ux-quality:ci/);
   assert.match(block, /npm run test:ux-visual:ci/);
   assert.match(block, /npm run test:e2e:journeys:ci/);
+  assert.match(block, /Instalar Chromium para E2E visual de GUI/);
+  assert.match(block, /E2E_PLAYWRIGHT_OUTPUT_DIR/);
+  assert.match(block, /Publicar evidencia E2E funcional y visual/);
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  assert.match(packageJson.scripts['test:e2e:journeys:ci'], /test:gui:responsive:e2e:ci/);
+  assert.match(packageJson.scripts['test:e2e:journeys:ci'], /test:gui:cycle:e2e:ci/);
+  assert.doesNotMatch(packageJson.scripts['test:e2e:journeys:ci'], /test:ux-visual:ci/);
+
+  for (const config of [
+    'tests/gui-responsive/playwright.config.mjs',
+    'tests/gui-responsive/playwright.alumno.config.mjs',
+    'tests/gui-responsive/playwright.admin.config.mjs',
+    'tests/gui-responsive/playwright.ciclo.config.mjs',
+    'tests/gui-responsive/playwright.pdf-edge.config.mjs'
+  ]) {
+    const configSource = fs.readFileSync(path.join(root, config), 'utf8');
+    assert.match(configSource, /retries:\s*0/);
+    assert.match(configSource, /actionTimeout:\s*20_000/);
+    assert.match(configSource, /navigationTimeout:\s*30_000/);
+  }
 });
 
 test('core backend ejecuta auditoria focal classroom cuando el mapa la activa', () => {
@@ -486,13 +512,14 @@ test('release stable gate consume build inmutable y delega la publicación a la 
 
   assert.match(workflow, /source_sha:[\s\S]*?required: true/);
   assert.match(workflow, /candidate_run_id:[\s\S]*?required: true/);
+  assert.match(workflow, /dispatch_release_after_gate:[\s\S]*?default: false[\s\S]*?type: boolean/);
   assert.match(workflow, /run-id:\s*\$\{\{ inputs\.candidate_run_id \}\}/);
   assert.ok(downloadIndex >= 0, 'release stable gate debe descargar el artefacto del run candidato');
   assert.ok(manifestIndex > downloadIndex, 'release stable gate debe revisar el manifiesto descargado');
   assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
   assert.ok(publishIndex > validateIndex, 'el pipeline de publicación solo se despacha despues del gate');
   assert.doesNotMatch(workflow.slice(0, validateIndex), /gh release download|releases\/tags\/v/);
-  assert.match(workflow, /if: needs\.stable_gate\.result == 'success'/);
+  assert.match(workflow, /if: needs\.stable_gate\.result == 'success' && inputs\.dispatch_release_after_gate == true/);
   assert.match(workflow, /inputs\[source_sha\]=\$SOURCE_SHA/);
   assert.match(workflow, /inputs\[release_tag\]=\$TAG/);
   assert.match(workflow, /return_run_details=true/);
