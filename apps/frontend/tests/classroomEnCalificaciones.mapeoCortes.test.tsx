@@ -24,15 +24,20 @@ const permisos = {
 describe('ClassroomEnCalificaciones: asignación de actividades a cortes', () => {
   beforeEach(() => {
     obtenerMock.mockReset().mockImplementation(async (path: string) => {
+      if (path.includes('/importaciones/jobs/')) return {
+        jobId: 'job-test', estado: 'succeeded', progreso: 1, total: 1,
+        resultado: { totalActividades: 1, graded: 1, importadas: 12, actualizadas: 0 }
+      };
       if (path === '/evaluaciones/evidencias?periodoId=periodo-1&limite=400') return { evidencias: [] };
       if (path === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'BI 23A' }] };
       if (path.includes('/alumnos?')) return { alumnosClassroom: [] };
       if (path.includes('/actividades?')) return { actividades: [{ id: 'work-1', title: 'Proyecto', state: 'PUBLISHED', maxPoints: 100 }] };
       return {};
     });
+    localStorage.removeItem('evaluapro.classroom.importRequest:periodo-1');
     enviarMock.mockReset()
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, pending: 0, wouldCreate: 12, wouldUpdate: 0 })
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, importadas: 12, actualizadas: 0 });
+      .mockResolvedValueOnce({ planHash: 'a'.repeat(64), totalActividades: 1, graded: 1, pending: 0, wouldCreate: 12, wouldUpdate: 0 })
+      .mockResolvedValueOnce({ jobId: 'job-test', estado: 'queued', progreso: 0, total: 1 });
     actualizarMock.mockReset();
   });
 
@@ -58,8 +63,9 @@ describe('ClassroomEnCalificaciones: asignación de actividades a cortes', () =>
     await user.click(screen.getByRole('button', { name: 'Confirmar y sincronizar selección' }));
     expect(enviarMock).toHaveBeenCalledTimes(1);
     await user.click(await screen.findByRole('button', { name: 'Sincronizar selección' }));
-    await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/evaluaciones/v2/classroom/importaciones/ejecutar', {
-      periodoId: 'periodo-1', actividades: [{ courseId: 'course-1', courseWorkId: 'work-1', corte: 3 }]
-    }));
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/evaluaciones/v2/classroom/importaciones/jobs', expect.objectContaining({
+      periodoId: 'periodo-1', actividades: [{ courseId: 'course-1', courseWorkId: 'work-1', corte: 3 }],
+      clientRequestId: expect.any(String), planHash: 'a'.repeat(64)
+    })));
   });
 });

@@ -10,6 +10,7 @@ import type { Alumno, Periodo, PermisosUI } from './tipos';
 type CursoClassroom = { id: string; name: string; section?: string; courseState?: string };
 type ActividadClassroom = { id: string; title: string; state?: string; maxPoints?: number; mapeo?: { corte?: number } | null };
 type ResultadoImportacionClassroom = {
+  planHash?: string;
   totalActividades?: number;
   graded?: number;
   pending?: number;
@@ -19,6 +20,7 @@ type ResultadoImportacionClassroom = {
   importadas?: number;
   actualizadas?: number;
   errores?: Array<{ mensaje?: string }>;
+  importacionId?: string;
   actividades?: Array<{
     courseId: string;
     courseWorkId: string;
@@ -45,6 +47,14 @@ type ResultadoImportacionClassroom = {
     actividadesCalificadas: number;
     actividadesFaltantesConfirmadas: number;
   }>;
+};
+type JobImportacionClassroom = {
+  jobId: string;
+  estado: 'queued' | 'running' | 'succeeded' | 'partial' | 'failed';
+  progreso: number;
+  total: number;
+  resultado?: ResultadoImportacionClassroom | null;
+  error?: string | null;
 };
 type EvidenciaClassroom = {
   id: string;
@@ -505,14 +515,36 @@ export function ClassroomEnCalificaciones({
     setMensaje('');
     setMensajeEsError(false);
     try {
-      const respuesta = await clienteApi.enviar<ResultadoImportacionClassroom>('/evaluaciones/v2/classroom/importaciones/ejecutar', {
-        periodoId,
-        actividades: actividadesMapeadas(true)
+      const seleccionImportacion = { periodoId, actividades: actividadesMapeadas(true) };
+      if (!preview.planHash) throw new Error('La vista previa no tiene una huella válida. Genera una vista previa nueva antes de sincronizar.');
+      const claveSolicitud = `evaluapro.classroom.importRequest:${periodoId}`;
+      const clientRequestId = localStorage.getItem(claveSolicitud) || globalThis.crypto.randomUUID();
+      localStorage.setItem(claveSolicitud, clientRequestId);
+      const jobInicial = await clienteApi.enviar<JobImportacionClassroom>('/evaluaciones/v2/classroom/importaciones/jobs', {
+        ...seleccionImportacion,
+        clientRequestId,
+        planHash: preview.planHash
       });
+      let job = jobInicial;
+      for (let intento = 0; intento < 300 && !['succeeded', 'partial', 'failed'].includes(job.estado); intento += 1) {
+        setMensaje(`Importación Classroom en curso: ${job.progreso}/${job.total} actividades.`);
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
+        try {
+          job = await clienteApi.obtener<JobImportacionClassroom>(`/evaluaciones/v2/classroom/importaciones/jobs/${encodeURIComponent(job.jobId)}`);
+        } catch {
+          // La consulta es idempotente; se conserva el job y se vuelve a consultar.
+        }
+      }
+      if (!['succeeded', 'partial', 'failed'].includes(job.estado)) {
+        throw new Error(`La importación sigue en curso. Conserva este identificador para retomarla: ${job.jobId}`);
+      }
+      localStorage.removeItem(claveSolicitud);
+      if (job.estado === 'failed') throw new Error(job.error || 'No se pudo completar la importación Classroom.');
+      const respuesta = job.resultado ?? {};
       setPreview((actual) => actual ? { ...actual, ...respuesta } : respuesta);
       setMapeoEjecutado(true);
       const evidenciasReleidas = await cargarEvidencias();
-      const actividadesConError = respuesta.errores?.length ?? 0;
+      const actividadesConError = respuesta.errores?.length ?? (job.estado === 'partial' ? 1 : 0);
       const resumen = actividadesConError > 0
         ? `Sincronización finalizada con errores. Nuevas: ${respuesta.importadas ?? 0}; actualizadas: ${respuesta.actualizadas ?? 0}; actividades con error: ${actividadesConError}.`
         : `Sincronización completada. Nuevas: ${respuesta.importadas ?? 0}; actualizadas: ${respuesta.actualizadas ?? 0}.`;

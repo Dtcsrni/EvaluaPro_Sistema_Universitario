@@ -1,0 +1,120 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-14T18-46-05.000Z",
+  "parentSessionId": "sesion-2026-10-14T18-24-02.201Z",
+  "status": "draft",
+  "generatedAt": "2026-10-14T18:46:05.000Z",
+  "validationProfile": "quick",
+  "request": {
+    "summary": "Diseñar la experiencia Classroom para el docente y, principalmente, Codex como agente de este checkout; definir casos de uso, UX/UI, pruebas y operación API."
+  },
+  "objective": "Proponer una experiencia docente y, prioritariamente, un flujo seguro de Codex en el checkout local con API compartida, más UX/UI, casos de uso y pruebas.",
+  "scope": [
+    "Personas e hipótesis de investigación",
+    "Casos de uso de conexión, mapeo, preview, importación, recuperación e historial",
+    "Contrato API/SDK y posible adaptador MCP para agentes",
+    "Estrategia y matriz de pruebas"
+  ],
+  "constraints": [
+    "No modificar producción ni pruebas hasta aprobación SDD",
+    "No publicar notas a Google Classroom",
+    "OAuth mantiene una cuenta Google activa igual al login EvaluaPro y valida OIDC sub",
+    "Codex es el cliente agente P0; opera con API autenticada y RBAC, no navegador ni acceso directo a base de datos",
+    "La sesión/checkout de Codex no equivale a permiso académico; el docente decide y autoriza mutaciones"
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/WCAG_UI_POLICY.md",
+      "docs/specs/SPEC-046_google_classroom_sync.spec.md",
+      "docs/specs/classroom_experiencia_usuario.spec.md",
+      "docs/specs/SPEC-070_api_first_automatizacion_docente.spec.md",
+      "docs/specs/SPEC-085_reintentos-seguros-flujos-api.spec.md",
+      "docs/specs/SPEC-100_resiliencia_integracion_classroom.spec.md",
+      "apps/frontend/src/apps/app_docente/CentroClassroom.tsx",
+      "apps/frontend/src/apps/app_docente/ClassroomEnCalificaciones.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionClassroom.tsx",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/validacionesClassroom.ts",
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/api/openapi.json",
+      "scripts/api/CRUD_CATALOG.md"
+    ],
+    "changed": [
+      "docs/specs/SPEC-101_experiencia_classroom_personas_agentes.spec.md",
+      "docs/handoff/sesiones/2026-10-14/sesion-2026-10-14T18-46-05.000Z.md",
+      "docs/handoff/sesiones/2026-10-14/sesion-2026-10-14T18-46-05.000Z.json"
+    ]
+  },
+  "commands": [
+    {
+      "name": "traceability",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "7 de 7 pruebas pasaron."
+    },
+    {
+      "name": "handoff",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "11 de 11 pruebas pasaron."
+    },
+    {
+      "name": "policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "blocked",
+      "exitCode": 1,
+      "resultSummary": "No inició: npm-run-all no se reconoce; falta dependencia de desarrollo en este worktree."
+    },
+    {
+      "name": "sdd_audit_final",
+      "command": "node scripts/sdd-audit.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "SPEC-100 y SPEC-101 draft válidas; auditoría exitosa."
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "docs check ok."
+    },
+    {
+      "name": "diff_check",
+      "command": "git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "Sin errores whitespace; git reportó aviso fsmonitor IPC del checkout canónico."
+    }
+  ],
+  "decisions": [
+    "Las personas son hipótesis y no se presentan como evidencia empírica.",
+    "Codex en el checkout local es el cliente agente principal P0; el docente conserva la decisión académica y autoriza el plan exacto.",
+    "Flujo Codex: preflight/lecturas API, reporte de hechos e incertidumbre, preview, aprobación ligada a planHash, escritura idempotente y verificación por API.",
+    "Centro Classroom concentra conexión/estado; Calificaciones concentra mapeo/preview/importación/evidencias.",
+    "OpenAPI + cliente autenticado son base del flujo Codex; otros hosts y MCP quedan como compatibilidad posterior, no lógica de dominio.",
+    "Jobs REST con jobId son contrato canónico de recuperación; la extensión MCP Tasks solo se usa si host y servidor la soportan.",
+    "Toda escritura por agente requiere permiso RBAC, aprobación humana de alcance exacto y contrato de idempotencia backend."
+  ],
+  "risks": [
+    "SPEC-101 necesita aprobación junto con SPEC-100/SPEC-085 antes de implementación.",
+    "Métricas/UX y personas requieren validación con docentes.",
+    "No se pudo validar cuenta OAuth ni curso Classroom real en esta sesión.",
+    "No se implementaron ni ejecutaron pruebas del producto; solo se definió su matriz."
+  ],
+  "nextStep": "Revisar y aprobar SPEC-100/SPEC-085 y SPEC-101; después implementar cliente API autenticado e idempotente para Codex, identidad, jobs, GUI y recorrido Codex con aprobación/verificación; valorar MCP para otros hosts luego, con suites y E2E controlado.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "Aprobación de specs para implementación"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\classroom-stability-worktree",
+    "branch": "codex/classroom-stability-20261014",
+    "commit": "4b716dc7"
+  }
+}

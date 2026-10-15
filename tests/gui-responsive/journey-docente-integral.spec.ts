@@ -439,10 +439,24 @@ test.describe('Journey docente integral visual', () => {
     const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Exámen 1er Parcial · 0–5' });
     await expect(examenPrimerParcial).toHaveAttribute('max', '5');
     await examenPrimerParcial.fill('5');
-    const examenListaResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
+    const examenPrimerParcialResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
     await page.getByRole('button', { name: 'Guardar examen' }).click();
-    expect((await examenListaResponse).status()).toBe(201);
+    expect((await examenPrimerParcialResponse).status()).toBe(201);
     await expect(examenPrimerParcial).toHaveValue('5');
+
+    await page.getByRole('button', { name: 'Segundo Parcial', exact: true }).click();
+    await expect(page.getByText('Exámen 2do Parcial automático · referencia')).toBeVisible();
+    await page.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }).fill('7.5');
+    const practicaListaResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Guardar práctica' }).click();
+    expect((await practicaListaResponse).status()).toBe(201);
+    await expect(page.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' })).toHaveValue('7.5');
+    const examenSegundoParcial = page.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' });
+    await examenSegundoParcial.fill('5.25');
+    const examenSegundoParcialResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Guardar examen' }).click();
+    expect((await examenSegundoParcialResponse).status()).toBe(201);
+    await expect(examenSegundoParcial).toHaveValue('5.25');
     const themeButton = page.locator('button.boton--tema');
     for (let attempt = 0; attempt < 3 && await themeButton.getAttribute('aria-label') !== 'Tema: Claro'; attempt += 1) {
       await themeButton.click();
@@ -595,6 +609,30 @@ test.describe('Journey docente integral visual', () => {
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'Authorization, Content-Type, If-None-Match'
     };
+    let classroomImportFinished = false;
+    let classroomJobRequest: Record<string, unknown> | null = null;
+    let classroomJobPolls = 0;
+    await page.route('**/api/evaluaciones/evidencias**', async (route) => {
+      const evidencias = classroomImportFinished ? [{
+        id: 'evidencia-classroom-e2e',
+        alumnoId: fixture.alumnoId,
+        titulo: 'Ejercicios vencidos E2E',
+        fechaEvidencia: '2026-10-14T12:00:00.000Z',
+        calificacionDecimal: 9,
+        estadoCaptura: 'calificada',
+        fuente: 'classroom',
+        classroom: {
+          courseId: 'curso-classroom-e2e',
+          courseWorkId: 'cw-classroom-e2e',
+          submissionId: 'submission-classroom-e2e',
+          courseWorkTitle: 'Ejercicios vencidos E2E',
+          assignedGrade: 90,
+          maxPoints: 100,
+          submissionState: 'TURNED_IN'
+        }
+      }] : [];
+      return route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify({ evidencias }) });
+    });
     await page.route('**/api/autenticacion/capacidades-integraciones', (route) => route.fulfill({
       status: 200,
       headers: corsHeaders,
@@ -620,28 +658,47 @@ test.describe('Journey docente integral visual', () => {
       if (url.pathname.includes('/alumnos')) {
         return route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify({ alumnosLocales: [], alumnosClassroom: [] }) });
       }
-      if (url.pathname.endsWith('/importaciones/preview') || url.pathname.endsWith('/importaciones/ejecutar')) {
-        const body = request.postDataJSON() as { actividades?: Array<{ faltantesConfirmados?: string[] }> };
-        const confirmado = body.actividades?.[0]?.faltantesConfirmados?.includes('submission-classroom-e2e') === true;
+      if (url.pathname.endsWith('/importaciones/preview')) {
         const resultado = {
-          tipo: url.pathname.endsWith('/ejecutar') ? 'ejecucion' : 'preview',
-          totalActividades: 1, submissionsProcesadas: 2, importadas: confirmado && url.pathname.endsWith('/ejecutar') ? 2 : 0,
-          actualizadas: 0, omitidas: 0, errores: [],
+          planHash: 'a'.repeat(64),
+          totalActividades: 1, graded: 1, pending: 0, unmatched: 0, wouldCreate: 1, wouldUpdate: 0,
+          submissionsProcesadas: 1, importadas: 0, actualizadas: 0, omitidas: 0, errores: [],
           actividades: [{
             courseWorkId: 'cw-classroom-e2e', courseWorkTitle: 'Ejercicios vencidos E2E', corte: 2,
             destinoColumna: 'Tareas y Ejercicios 2do Parcial', submissions: [{
-              submissionId: 'submission-classroom-e2e', alumnoId: fixture.alumnoId, alumnoNombre: 'Alumno E2E',
-              estadoClassroom: 'CREATED', vencida: true, puedeConfirmarFaltante: true,
-              faltanteExplicito: confirmado, fechaVencimiento: '2026-09-20T23:59:00.000Z'
+              submissionId: 'submission-classroom-e2e', alumnoId: fixture.alumnoId, alumnoNombre: 'Alumno Integral',
+              estadoClassroom: 'TURNED_IN', vencida: false, puedeConfirmarFaltante: false,
+              faltanteExplicito: false, fechaVencimiento: '2026-09-20T23:59:00.000Z'
             }]
           }],
-          acumuladoTareasSegundoParcial: [{
-            alumnoId: fixture.alumnoId, alumnoNombre: 'Alumno E2E', puntosObtenidos: 90,
-            puntosPosibles: confirmado ? 200 : 100, promedio: confirmado ? 4.5 : 9,
-            actividadesCalificadas: 1, actividadesFaltantesConfirmadas: confirmado ? 1 : 0
-          }]
         };
         return route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify(resultado) });
+      }
+      if (url.pathname.endsWith('/importaciones/jobs') && request.method() === 'POST') {
+        classroomJobRequest = request.postDataJSON() as Record<string, unknown>;
+        return route.fulfill({ status: 202, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify({
+          jobId: 'job-classroom-e2e', estado: 'queued', progreso: 0, total: 1
+        }) });
+      }
+      if (url.pathname.endsWith('/importaciones/jobs/job-classroom-e2e') && request.method() === 'GET') {
+        classroomJobPolls += 1;
+        if (classroomJobPolls === 1) {
+          return route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify({
+            jobId: 'job-classroom-e2e', estado: 'running', progreso: 0, total: 1
+          }) });
+        }
+        classroomImportFinished = true;
+        return route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify({
+          jobId: 'job-classroom-e2e', estado: 'succeeded', progreso: 1, total: 1,
+          resultado: {
+            totalActividades: 1, submissionsProcesadas: 1, importadas: 1, actualizadas: 0, omitidas: 0, errores: [],
+            actividades: [{ courseWorkId: 'cw-classroom-e2e', courseWorkTitle: 'Ejercicios vencidos E2E', corte: 2,
+              destinoColumna: 'Tareas y Ejercicios 2do Parcial', submissions: [{
+                submissionId: 'submission-classroom-e2e', alumnoId: fixture.alumnoId, alumnoNombre: 'Alumno Integral',
+                estadoClassroom: 'TURNED_IN', assignedGrade: 90, maxPoints: 100
+              }] }]
+          }
+        }) });
       }
       return route.fulfill({ status: 404, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify({ error: 'Ruta Classroom E2E no prevista' }) });
     });
@@ -656,7 +713,18 @@ test.describe('Journey docente integral visual', () => {
     await expect(classroomConsulta.getByRole('heading', { name: 'Calificaciones asignadas y evidencias', exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(classroomConsulta.getByRole('option', { name: 'Curso Classroom E2E' })).toBeAttached({ timeout: 20_000 });
     await classroomConsulta.getByRole('combobox', { name: 'Curso de Classroom' }).selectOption('curso-classroom-e2e');
-    await expect(classroomConsulta).toContainText('No hay calificaciones Classroom sincronizadas para esta materia.');
+    await classroomConsulta.getByRole('button', { name: 'Previsualizar evaluación continua' }).click();
+    await expect(classroomConsulta).toContainText('1 actividades · 1 calificadas', { timeout: 20_000 });
+    await classroomConsulta.getByRole('button', { name: 'Confirmar y sincronizar selección' }).click();
+    const confirmacionClassroom = page.getByRole('alertdialog', { name: 'Actualizar evaluación continua' });
+    await expect(confirmacionClassroom).toBeVisible({ timeout: 10_000 });
+    await confirmacionClassroom.getByRole('button', { name: 'Sincronizar selección' }).click();
+    await expect(classroomConsulta).toContainText('Sincronización completada. Nuevas: 1; actualizadas: 0. Evidencias releídas.', { timeout: 20_000 });
+    await expect(classroomConsulta).toContainText('90 / 100', { timeout: 10_000 });
+    expect(classroomJobRequest).toMatchObject({ periodoId: fixture.periodoId, planHash: 'a'.repeat(64) });
+    expect(classroomJobRequest?.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(classroomJobPolls).toBeGreaterThanOrEqual(2);
+    expect(await page.evaluate((key) => localStorage.getItem(key), `evaluapro.classroom.importRequest:${fixture.periodoId}`)).toBeNull();
     await expect(page.locator('.toast')).toHaveCount(0, { timeout: 15_000 });
     await page.screenshot({ path: path.join(outputDir, '55_classroom_consulta_calificaciones.png'), fullPage: true, animations: 'disabled' });
     expect(reactUnknownTagWarnings, 'No deben generarse etiquetas DOM desconocidas durante el recorrido GUI').toEqual([]);

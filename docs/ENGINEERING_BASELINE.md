@@ -1,17 +1,18 @@
 # Engineering Baseline
 
-Fecha de corte documental: 2026-10-08
-Versión fuente integrada en `main`: `1.2.6` (`config/app-version.json`)
+Fecha de corte documental: 2026-10-15
+Versión fuente de la rama de trabajo: `1.2.8` (`config/app-version.json`)
 Última release pública observada: `v1.2.5` en GitHub Releases/latest al 2026-10-08
 Release `v1.2.6`: borrador, no descarga pública
 Versión visible instalada: depende del equipo; no verificada en este corte.
 
-## Estado vigente al 2026-10-08
+## Estado vigente al 2026-10-15
 
 - El producto se mantiene para distribución en Windows con el perfil `docente-local`.
-- La versión de `main` y la versión instalada desde un asset público deben verificarse por separado.
-- La landing y las guías de inicio describen el almacenamiento SQLite local, el flujo OMR asistido con revisión docente y los requisitos de respaldo/migración.
-- Esta actualización documental no verifica nuevamente los gates de CI, el instalador descargable ni la interfaz instalada. Usa `docs/RELEASE_STATUS.md` para conocer la evidencia requerida antes de declarar una release disponible.
+- La rama `codex/classroom-stability-20261014` contiene cambios candidatos a Classroom: una identidad Google activa vinculada al login docente, transporte acotado, importación local con jobs idempotentes y acceso común desde GUI y API para Codex.
+- La candidata conserva importación pull-only: no publica notas en Google Classroom. La aprobación humana autoriza el alcance del plan vigente; la API revalida `planHash` y ofrece recuperación por `jobId`.
+- La validación automatizada de Classroom se limita a servicios y GUI con datos simulados. OAuth con una cuenta docente real, sus cursos/permisos y la instalación local siguen siendo comprobaciones operativas separadas.
+- La versión fuente, la integración de esta rama, la release pública y la versión instalada son estados distintos; compruébalos por separado. Usa `docs/RELEASE_STATUS.md` antes de declarar una release disponible.
 
 ## Corte histórico 2026-09-03
 
