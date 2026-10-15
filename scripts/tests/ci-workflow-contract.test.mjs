@@ -360,7 +360,7 @@ test('publicaciones externas serializan ejecuciones en curso', () => {
   }
 
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
-  assert.match(installerWorkflow, /cancel-in-progress:[\s\S]{0,50}inputs\.release_tag == '' && !startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.match(installerWorkflow, /cancel-in-progress:[\s\S]{0,100}github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/v'\)\)/);
 });
 
 test('release beta automatica escucha CI Checks exitoso de main', () => {
@@ -527,6 +527,7 @@ test('CI central y mapa affected asignan las guardas WCAG a frontend', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
   const central = fs.readFileSync(workflowPath, 'utf8');
   const frontendMap = JSON.parse(fs.readFileSync(path.join(root, 'ci', 'affected-test-map.json'), 'utf8')).groups.frontend.paths;
+  const packageScripts = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).scripts;
   const guards = [
     'scripts/wcag-guard.mjs',
     'scripts/tests/ui-contrast-audit.mjs',
@@ -534,10 +535,11 @@ test('CI central y mapa affected asignan las guardas WCAG a frontend', () => {
     'docs/WCAG_UI_POLICY.md'
   ];
 
-  for (const guard of guards) {
-    assert.ok(central.includes(guard) || workflow.includes(guard), `CI debe revisar ${guard}`);
-    assert.ok(frontendMap.includes(guard), `el mapa affected CI debe asignar ${guard} al frontend`);
-  }
+  assert.match(central, /npm run guard:wcag/);
+  assert.match(packageScripts['guard:wcag'], /scripts\/wcag-guard\.mjs/);
+  assert.match(packageScripts['test:wcag:policy'], /scripts\/tests\/ui-contrast-audit\.mjs/);
+  assert.match(packageScripts['test:wcag:policy'], /scripts\/tests\/wcag-guard\.contract\.test\.mjs/);
+  for (const guard of guards) assert.ok(frontendMap.includes(guard), `el mapa affected CI debe asignar ${guard} al frontend`);
 });
 
 test('el gate estable deja margen suficiente para CI de instalador y QA completa', () => {
