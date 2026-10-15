@@ -688,6 +688,40 @@ function Capture-Window {
   }
 }
 
+function Assert-InstallerStepScreenshot {
+  param(
+    [System.Windows.Automation.AutomationElement]$Window,
+    [string]$Path,
+    [string]$StepLabel,
+    [string]$StageName
+  )
+  $text = Get-WindowTextSnapshot -Window $Window
+  if ($text -notmatch [regex]::Escape($StepLabel)) {
+    throw "La UI Automation no confirma el paso '$StepLabel' en $StageName."
+  }
+  $bitmap = [System.Drawing.Bitmap]::FromFile($Path)
+  $brightPixels = 0
+  try {
+    $top = [int][Math]::Floor($bitmap.Height * 0.30)
+    $bottom = [int][Math]::Ceiling($bitmap.Height * 0.82)
+    $left = [int][Math]::Floor($bitmap.Width * 0.04)
+    $right = [int][Math]::Ceiling($bitmap.Width * 0.96)
+    for ($y = $top; $y -lt $bottom; $y += 2) {
+      for ($x = $left; $x -lt $right; $x += 2) {
+        $pixel = $bitmap.GetPixel($x, $y)
+        if ($pixel.R -ge 228 -and $pixel.G -ge 228 -and $pixel.B -ge 228) { $brightPixels++ }
+      }
+    }
+  } finally {
+    $bitmap.Dispose()
+  }
+  if ($brightPixels -lt 40) {
+    Add-Result -Area 'screenshots' -Item $StageName -Ok $false -Detail "El paso $StepLabel no dibujó contenido legible en el panel central; pixeles claros=$brightPixels" | Out-Null
+    throw "La captura $StageName muestra vacío el panel del paso '$StepLabel' (pixeles claros=$brightPixels)."
+  }
+  Add-Result -Area 'screenshots' -Item $StageName -Ok $true -Detail "UIA=$StepLabel; pixeles claros del panel=$brightPixels" | Out-Null
+}
+
 function Resize-WindowForEvidence {
   param(
     [System.Windows.Automation.AutomationElement]$Window,
@@ -759,29 +793,23 @@ function Wait-InstallerStableState {
     if ($cleanTextForErrorCheck -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
-    # The Bootstrapper Application deletes its private handoff files after it
-    # consumes the helper response. When that happens, the exact terminal UI
-    # state is the durable observable contract for this E2E runner.
+    # A successful helper response proves the operation, not that the user saw
+    # the terminal state. Keep waiting until the visible wizard reaches Result.
     $uiReportsCompleted = $text -match '(?is)Estado completado' -and
       $text -match '(?is)El flujo finaliz[oó] correctamente' -and
-      $text -match '(?is)Operaci[oó]n finalizada correctamente'
+      $text -match '(?is)Operaci[oó]n finalizada correctamente' -and
+      $text -match '(?is)5 Resultado\s*[·\-]\s*activo'
     if ($uiReportsCompleted) {
       return [pscustomobject]@{ ok = $true; text = "Installer Hub UI terminal success`n$text" }
     }
-    # El texto del Hub incluye estados "ok" de etapas previas, por ejemplo
-    # "Planificación de instalación · ok". Solo la respuesta del helper prueba
-    # que terminó la operación seleccionada.
     $hubGone = $false
     try { $hubGone = $Window.Current.IsOffscreen } catch { $hubGone = $true }
     if ($hubGone) {
       $helper = Get-LatestInstallerHelperState -Mode $Mode -MinLastWriteTime $OperationStartedAt
       if ($helper -and $helper.ok) {
-        return [pscustomobject]@{ ok = $true; text = "Installer helper OK (hub cerrado)`n$text" }
+        return [pscustomobject]@{ ok = $false; text = "Installer helper OK, pero el Hub se cerró sin mostrar el resultado satisfactorio requerido.`n$text" }
       }
-    }
-    $helper = Get-LatestInstallerHelperState -Mode $Mode -MinLastWriteTime $OperationStartedAt
-    if ($helper -and $helper.ok) {
-      return [pscustomobject]@{ ok = $true; text = "Installer helper OK`n$text" }
+      return [pscustomobject]@{ ok = $false; text = "Installer Hub desapareció antes de mostrar el resultado terminal.`n$text" }
     }
     $checkForRealError = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
     $checkForRealError = $checkForRealError -replace '(?i)recuperaci[oó]n ante fallos', 'recuperacion_ante_fallos'
@@ -877,7 +905,8 @@ function Invoke-InstallerHubMode {
   $detectionTimeoutSec = 420
   $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
-  Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
+  $prepareScreenshot = Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700
+  Assert-InstallerStepScreenshot -Window $window -Path $prepareScreenshot -StepLabel '2 Preparar · activo' -StageName ("wpf-{0}-02-preparar" -f $Mode)
 
   $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
   if ($modeCombo) {
@@ -929,7 +958,8 @@ function Invoke-InstallerHubMode {
     }
   }
 
-  Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
+  $reviewScreenshot = Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700
+  Assert-InstallerStepScreenshot -Window $window -Path $reviewScreenshot -StepLabel '3 Revisar · activo' -StageName ("wpf-{0}-03-revisar" -f $Mode)
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 15
   if (-not $startButton) { throw "No se encontro StartButton mode=$Mode" }
   $expectedAction = switch ($Mode) {
@@ -1443,12 +1473,13 @@ function Capture-UrlWithPlaywright {
     [string]$Url,
     [string]$Name,
     [int]$Width = 1280,
-    [int]$Height = 820
+    [int]$Height = 820,
+    [ValidateSet('apphost', 'docente')][string]$Surface
   )
   $target = Join-Path $screenshotsDir ("{0}.png" -f $Name)
   try {
     $captureScript = Join-Path $root 'scripts\tests\capture-installer-web.mjs'
-    $args = @($captureScript, $Url, $target, [string]$Width, [string]$Height)
+    $args = @($captureScript, $Url, $target, [string]$Width, [string]$Height, $Surface)
     Invoke-CaptureCommand -Name ("playwright-{0}" -f $Name) -FilePath 'node.exe' -ArgumentList $args -TimeoutSec 75
     if (Test-Path -LiteralPath $target) {
       $screenshots.Add($target) | Out-Null
@@ -1468,9 +1499,9 @@ function Capture-UrlWithPlaywright {
 function Capture-DashboardScreenshots {
   param([string]$BaseUrl)
   if ([string]::IsNullOrWhiteSpace($BaseUrl)) { return }
-  Capture-UrlWithPlaywright -Url $BaseUrl -Name 'dashboard-status-1280x820' -Width 1280 -Height 820 | Out-Null
-  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x820' -Width 1280 -Height 820 | Out-Null
-  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x720' -Width 1280 -Height 720 | Out-Null
+  Capture-UrlWithPlaywright -Url $BaseUrl -Name 'dashboard-status-1280x820' -Width 1280 -Height 820 -Surface 'apphost' | Out-Null
+  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x820' -Width 1280 -Height 820 -Surface 'docente' | Out-Null
+  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x720' -Width 1280 -Height 720 -Surface 'docente' | Out-Null
 }
 
 function Test-UpdateSmoke {

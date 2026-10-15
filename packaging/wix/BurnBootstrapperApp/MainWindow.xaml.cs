@@ -415,6 +415,13 @@ public partial class MainWindow : Window
 
     public void UpdateState(string? statusText, int? progress, bool? isBusy)
     {
+        // Progress notifications are queued from Burn/helper threads. Ignore a
+        // late "busy" update after the terminal Result screen has been shown.
+        if (currentStep == WizardStep.Result && isBusy == true)
+        {
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(statusText))
         {
             StatusTextBlock.Text = statusText;
@@ -1502,24 +1509,16 @@ public partial class MainWindow : Window
 
         if (activePanel != null)
         {
-            AnimatePanelTransition(activePanel);
+            ShowStepPanel(activePanel);
         }
     }
 
-    private void AnimatePanelTransition(FrameworkElement panel)
+    private static void ShowStepPanel(FrameworkElement panel)
     {
-        panel.Opacity = 0.0;
-        var translate = new TranslateTransform(0, 12);
-        panel.RenderTransform = translate;
-
-        var duration = TimeSpan.FromMilliseconds(250);
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-
-        var opacityAnim = new DoubleAnimation(0.0, 1.0, duration) { EasingFunction = ease };
-        var slideAnim = new DoubleAnimation(12.0, 0.0, duration) { EasingFunction = ease };
-
-        panel.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
-        translate.BeginAnimation(TranslateTransform.YProperty, slideAnim);
+        panel.BeginAnimation(UIElement.OpacityProperty, null);
+        panel.BeginAnimation(UIElement.RenderTransformProperty, null);
+        panel.Opacity = 1.0;
+        panel.RenderTransform = Transform.Identity;
     }
 
     private void RefreshWizardNavigation()

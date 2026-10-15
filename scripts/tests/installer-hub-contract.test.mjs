@@ -2808,7 +2808,7 @@ test('runner E2E tolera estados finales sin propiedad timeout', () => {
   assert.match(runner, /stateTimedOut/);
 });
 
-test('runner E2E confirma la respuesta del helper o el estado terminal observable del Hub', () => {
+test('runner E2E exige resultado terminal visible incluso cuando el helper reporta éxito', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
   assert.match(runner, /function Get-LatestInstallerHelperState/);
@@ -2817,11 +2817,36 @@ test('runner E2E confirma la respuesta del helper o el estado terminal observabl
   assert.match(runner, /\$responsePrefix = if \(\$Mode -eq 'uninstall'\) \{ 'uninstall' \} else \{ 'post-install' \}/);
   assert.match(runner, /\$responsePrefix \+ '-\*\.response\.json'/);
   assert.match(runner, /Get-LatestInstallerHelperState -Mode \$Mode/);
-  assert.match(runner, /Installer helper OK/);
+  assert.match(runner, /Installer helper OK, pero el Hub se cerró sin mostrar el resultado satisfactorio requerido/);
   assert.match(runner, /Installer Hub UI terminal success/);
   assert.match(runner, /Estado completado/);
   assert.match(runner, /El flujo finaliz\[oó\] correctamente/);
   assert.match(runner, /Operaci\[oó\]n finalizada correctamente/);
+  assert.match(runner, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
+  const start = runner.indexOf('function Wait-InstallerStableState');
+  const end = runner.indexOf('function Get-LatestInstallerHelperState', start);
+  const stableWait = runner.slice(start, end);
+  assert.doesNotMatch(stableWait, /return \[pscustomobject\]@\{ ok = \$true; text = "Installer helper OK/);
+});
+
+test('Installer Hub mantiene visible el panel activo y bloquea progreso tardío sobre Resultado', () => {
+  const code = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
+  assert.match(code, /currentStep == WizardStep\.Result && isBusy == true/);
+  assert.match(code, /private static void ShowStepPanel\(FrameworkElement panel\)/);
+  assert.match(code, /panel\.BeginAnimation\(UIElement\.OpacityProperty, null\);/);
+  assert.match(code, /panel\.BeginAnimation\(UIElement\.RenderTransformProperty, null\);/);
+  assert.match(code, /panel\.Opacity = 1\.0;/);
+  assert.match(code, /panel\.RenderTransform = Transform\.Identity;/);
+  assert.doesNotMatch(code, /private void AnimatePanelTransition\(FrameworkElement panel\)/);
+});
+
+test('runner valida que Prepare y Review dibujan contenido antes de avanzar al siguiente paso', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  assert.match(runner, /function Assert-InstallerStepScreenshot/);
+  assert.match(runner, /\$StepLabel no dibujó contenido legible en el panel central/);
+  assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$prepareScreenshot -StepLabel '2 Preparar · activo'/);
+  assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$reviewScreenshot -StepLabel '3 Revisar · activo'/);
+  assert.match(runner, /\$pixel\.R -ge 228 -and \$pixel\.G -ge 228 -and \$pixel\.B -ge 228/);
 });
 
 test('runner E2E no confunde una etapa previa con "ok" con la finalización', () => {
@@ -2834,7 +2859,8 @@ test('runner E2E no confunde una etapa previa con "ok" con la finalización', ()
   assert.doesNotMatch(stableWait, /instalaci[oó]n\.\*ok/i);
   assert.match(stableWait, /\$uiReportsCompleted/);
   assert.match(stableWait, /Estado completado/);
-  assert.match(stableWait, /Get-LatestInstallerHelperState -Mode \$Mode -MinLastWriteTime \$OperationStartedAt/);
+  assert.match(stableWait, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
+  assert.match(stableWait, /Installer Hub desapareció antes de mostrar el resultado terminal/);
 });
 
 test('SPEC-094 REQ-008: runner E2E arranca y cierra el App Host nativo por identidad', () => {

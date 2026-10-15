@@ -44,7 +44,9 @@ const reportsDir = path.join(
 );
 const logsDir = path.join(reportsRootDir, 'backend-coverage-logs');
 const vitestEntry = path.join(rootDir, 'node_modules', 'vitest', 'vitest.mjs');
-const batchAttempts = 3;
+// Cobertura se ejecuta en una sola pasada: un retry puede ocultar un test flaky
+// y no mejora la evidencia necesaria para aceptar una corrida integral.
+const batchAttempts = 1;
 const defaultBatchConcurrency = getDefaultBatchConcurrency({
   totalMemoryBytes: os.totalmem(),
   logicalCpus: os.availableParallelism?.() ?? os.cpus().length
@@ -471,36 +473,23 @@ async function classifyAttemptFailure(batchName, attempt, exitCode) {
 
 async function runBatch(batch) {
   const attempts = [];
-  for (let attempt = 1; attempt <= batchAttempts; attempt += 1) {
-    await cleanBatchArtifacts(batch.name);
-    const startedAt = Date.now();
-    const startedAtIso = new Date(startedAt).toISOString();
-    const code = await runVitest(batch.args, `${batch.name} ${attempt}/${batchAttempts}`);
-    const durationMs = Date.now() - startedAt;
-    attempts.push({
-      attempt,
-      startedAt: startedAtIso,
-      finishedAt: new Date().toISOString(),
-      exitCode: code,
-      durationMs,
-      failureReason: code === 0 ? null : await classifyAttemptFailure(batch.name, attempt, code),
-      log: path.relative(rootDir, path.join(logsDir, `${`${batch.name} ${attempt}/${batchAttempts}`.replace(/[^a-z0-9_-]+/gi, '_')}.log`)).replaceAll(path.sep, '/')
-    });
-    if (code === 0) {
-      if (attempt > 1) {
-        process.stderr.write(`[backend-coverage] ${batch.name} se recuperó tras ${attempt - 1} intento(s) fallido(s); la ejecución no se considera estable.\n`);
-      }
-      break;
-    }
-
-    if (attempt < batchAttempts) {
-      process.stderr.write(`[backend-coverage] retry ${batch.name} tras exit ${code}\n`);
-      continue;
-    }
-
-    await emitFailureExcerpt(batch.name, attempt);
-    break;
-  }
+  const attempt = 1;
+  await cleanBatchArtifacts(batch.name);
+  const startedAt = Date.now();
+  const startedAtIso = new Date(startedAt).toISOString();
+  const code = await runVitest(batch.args, `${batch.name} ${attempt}/${batchAttempts}`);
+  const durationMs = Date.now() - startedAt;
+  const attemptLog = path.relative(rootDir, path.join(logsDir, `${`${batch.name} ${attempt}/${batchAttempts}`.replace(/[^a-z0-9_-]+/gi, '_')}.log`)).replaceAll(path.sep, '/');
+  attempts.push({
+    attempt,
+    startedAt: startedAtIso,
+    finishedAt: new Date().toISOString(),
+    exitCode: code,
+    durationMs,
+    failureReason: code === 0 ? null : await classifyAttemptFailure(batch.name, attempt, code),
+    log: attemptLog
+  });
+  if (code !== 0) await emitFailureExcerpt(batch.name, attempt);
 
   const attemptLogPath = path.join(reportsDir, `${batch.name}.attempts.json`);
   await fs.writeFile(attemptLogPath, JSON.stringify({ name: batch.name, exclusive: Boolean(batch.exclusive), attempts }, null, 2));
@@ -544,6 +533,8 @@ async function runBatches(batches, concurrency, executeBatch = runBatch) {
       }
     }
   }
+  const batchOrder = new Map(batches.map(({ name }, index) => [name, index]));
+  results.sort((left, right) => (batchOrder.get(left.name) ?? Number.MAX_SAFE_INTEGER) - (batchOrder.get(right.name) ?? Number.MAX_SAFE_INTEGER));
   return { exitCode: failureCode || (recoveredAttempt ? 1 : 0), recoveredAttempt, results };
 }
 

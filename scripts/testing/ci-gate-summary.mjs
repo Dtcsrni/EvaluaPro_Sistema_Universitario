@@ -17,6 +17,39 @@ const JOBS_BY_MODE = {
   ]
 };
 const AFFECTED_GROUPS = new Set(['shared_core', 'backend', 'frontend', 'portal', 'installer', 'release', 'docs', 'compliance']);
+const AFFECTED_GATES = new Set([
+  'flujo_docente_check', 'dataset_prodlike_check', 'omr_tv_extended_gate',
+  'docente_alumno_e2e_check', 'global_grade_check', 'pdf_print_check',
+  'classroom_audit_check', 'ux_visual_check', 'perf_check', 'perf_business_check',
+  'clean_architecture_check', 'qa_manifest', 'dsr_flow_test', 'compliance_evidence'
+]);
+const JOB_FOR_GATE = {
+  flujo_docente_check: 'ext_funcionales',
+  dataset_prodlike_check: 'ext_funcionales',
+  omr_tv_extended_gate: 'ext_funcionales',
+  docente_alumno_e2e_check: 'ext_funcionales',
+  global_grade_check: 'ext_funcionales',
+  pdf_print_check: 'ext_funcionales',
+  classroom_audit_check: 'ext_funcionales',
+  ux_visual_check: 'ext_funcionales',
+  perf_check: 'ext_perf_arquitectura',
+  perf_business_check: 'ext_perf_arquitectura',
+  clean_architecture_check: 'ext_perf_arquitectura',
+  qa_manifest: 'ext_compliance_evidencia',
+  dsr_flow_test: 'ext_compliance_evidencia',
+  compliance_evidence: 'ext_compliance_evidencia'
+};
+const AFFECTED_GROUP_OUTPUTS = new Set(AFFECTED_GROUPS);
+const CORE_JOBS_FOR_GROUP = {
+  shared_core: ['core_contract_docs_gov', 'core_backend_portal', 'core_frontend', 'core_security_compliance'],
+  backend: ['core_backend_portal', 'core_security_compliance'],
+  frontend: ['core_frontend'],
+  portal: ['core_backend_portal', 'core_security_compliance'],
+  installer: ['core_contract_docs_gov'],
+  release: ['core_contract_docs_gov'],
+  docs: ['core_contract_docs_gov', 'core_security_compliance'],
+  compliance: ['core_security_compliance']
+};
 const VALID_ESCALATIONS = new Set(['affected', 'full-core', 'full-extended']);
 
 function parseJsonEnv(name) {
@@ -45,6 +78,31 @@ export function buildGateSummary({ mode, eventName, forceFull = false, sha, need
     failures.push(`El detector de cambios terminó con ${detector?.result ?? 'estado ausente'}.`);
   }
   if (!VALID_ESCALATIONS.has(outputs.escalation)) failures.push('El plan no contiene una escalación válida.');
+
+  for (const group of AFFECTED_GROUP_OUTPUTS) {
+    if (outputs[group] !== 'true' && outputs[group] !== 'false') {
+      failures.push(`El plan no contiene un booleano válido para el grupo ${group}.`);
+      continue;
+    }
+    if (outputs[group] === 'true') {
+      for (const job of CORE_JOBS_FOR_GROUP[group] || []) {
+        if (outputs[`job_${job}`] === 'false') {
+          failures.push(`El plan selecciona el grupo ${group}, pero job_${job} está marcado como no requerido.`);
+        }
+      }
+    }
+  }
+  for (const gate of AFFECTED_GATES) {
+    const selected = outputs[`gate_${gate}`];
+    if (selected !== 'true' && selected !== 'false') {
+      failures.push(`El plan no contiene un booleano válido para gate_${gate}.`);
+      continue;
+    }
+    const job = JOB_FOR_GATE[gate];
+    if (selected === 'true' && outputs[`job_${job}`] === 'false' && outputs.escalation !== 'full-extended') {
+      failures.push(`El plan marca gate_${gate} como requerido, pero job_${job} como no requerido.`);
+    }
+  }
 
   const escalationRequiresAllJobs = mode === 'core'
     ? outputs.escalation === 'full-core' || outputs.escalation === 'full-extended'
@@ -80,8 +138,12 @@ export function buildGateSummary({ mode, eventName, forceFull = false, sha, need
     sha: sha || 'unknown',
     fullRun,
     escalation: outputs.escalation || 'unknown',
-    matchedGroups: Object.fromEntries(Object.entries(outputs).filter(([key]) => AFFECTED_GROUPS.has(key) || key.startsWith('group_'))),
-    matchedGates: Object.fromEntries(Object.entries(outputs).filter(([key]) => key.startsWith('gate_'))),
+    matchedGroups: Object.fromEntries([...AFFECTED_GROUP_OUTPUTS]
+      .filter((key) => outputs[key] === 'true' || outputs[key] === 'false')
+      .map((key) => [key, outputs[key]])),
+    matchedGates: Object.fromEntries([...AFFECTED_GATES]
+      .filter((key) => outputs[`gate_${key}`] === 'true' || outputs[`gate_${key}`] === 'false')
+      .map((key) => [key, outputs[`gate_${key}`]])),
     detector: detector?.result ?? 'missing',
     ...(mode === 'extended' ? { coreGate: needs.verificaciones_core?.result ?? 'missing' } : {}),
     requiredJobs,

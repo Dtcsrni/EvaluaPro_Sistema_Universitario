@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 
-const [url, outputPath, widthArg, heightArg] = process.argv.slice(2);
+const [url, outputPath, widthArg, heightArg, surface] = process.argv.slice(2);
 const width = Number(widthArg);
 const height = Number(heightArg);
 
-if (!url || !outputPath || !Number.isInteger(width) || !Number.isInteger(height) || width < 320 || height < 240) {
-  throw new Error('Uso: capture-installer-web.mjs <url> <salida.png> <ancho> <alto>');
+if (!url || !outputPath || !Number.isInteger(width) || !Number.isInteger(height) || width < 320 || height < 240 || !['apphost', 'docente'].includes(surface)) {
+  throw new Error('Uso: capture-installer-web.mjs <url> <salida.png> <ancho> <alto> <apphost|docente>');
 }
 
 function safeUrl(value) {
@@ -63,13 +63,22 @@ try {
     responseStatus = response?.status() ?? null;
     if (responseStatus !== 200) throw new Error(`La página respondió HTTP ${responseStatus ?? 'sin respuesta'}; se requiere HTTP 200.`);
 
-    await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 30_000 });
     const main = page.getByRole('main');
     await main.waitFor({ state: 'visible', timeout: 30_000 });
-    const heading = page.getByRole('heading', { name: 'Plataforma Docente', exact: true });
-    await heading.waitFor({ state: 'visible', timeout: 30_000 });
-    if (await main.getByRole('heading', { name: 'Plataforma Docente', exact: true }).count() === 0) {
-      throw new Error('El encabezado docente no pertenece al contenido principal.');
+    if (surface === 'docente') {
+      await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 30_000 });
+      const heading = page.getByRole('heading', { name: 'Plataforma Docente', exact: true });
+      await heading.waitFor({ state: 'visible', timeout: 30_000 });
+      if (await main.getByRole('heading', { name: 'Plataforma Docente', exact: true }).count() === 0) {
+        throw new Error('El encabezado docente no pertenece al contenido principal.');
+      }
+    } else {
+      await page.getByText('Dashboard - Sistema EvaluaPro', { exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
+      await page.getByRole('tab', { name: 'Principal', exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
+      await page.getByRole('tab', { name: 'Principal', exact: true }).evaluate((tab) => {
+        if (tab.getAttribute('aria-selected') !== 'true') throw new Error('La pestaña Principal del App Host no está activa.');
+      });
+      await page.locator('#panel-main .summary-card').first().waitFor({ state: 'visible', timeout: 30_000 });
     }
 
     const layout = await page.evaluate(() => {
@@ -109,7 +118,12 @@ try {
           };
         });
       const primaryAction = controls.find((control) => control.actionable && !control.disabled && control.name && control.inViewport) ?? null;
+      const summaryCards = Array.from(document.querySelectorAll('#panel-main .summary-card')).map((card) => {
+        const rect = card.getBoundingClientRect();
+        return { width: rect.width, label: card.querySelector('.label')?.textContent?.trim() ?? '' };
+      });
       return {
+        surface: document.querySelector('#panel-main') ? 'apphost' : document.querySelector('[data-app-destino]') ? 'docente' : 'unknown',
         mainFound: true,
         mainTextLength: main.innerText.trim().length,
         mainWithinHorizontalViewport: mainRect.left >= -1 && mainRect.right <= window.innerWidth + 1,
@@ -120,10 +134,12 @@ try {
         viewportHeight: window.innerHeight,
         unnamedVisibleControls: controls.filter((control) => !control.name).length,
         visibleControlCount: controls.length,
-        primaryActionInViewport: Boolean(primaryAction)
+        primaryActionInViewport: Boolean(primaryAction),
+        summaryCards
       };
     });
 
+    if (layout.surface !== surface) throw new Error(`Se esperaba superficie ${surface} y se detectó ${layout.surface}.`);
     diagnostics.layout = layout;
     if (!layout.mainFound || layout.mainTextLength === 0) throw new Error('El contenido principal docente está vacío o ausente.');
     if (layout.documentScrollWidth > layout.viewportWidth + 1 || layout.mainScrollWidth > layout.mainClientWidth + 1 || !layout.mainWithinHorizontalViewport) {
@@ -131,6 +147,11 @@ try {
     }
     if (layout.unnamedVisibleControls > 0) throw new Error(`Hay ${layout.unnamedVisibleControls} controles visibles sin nombre accesible.`);
     if (!layout.primaryActionInViewport) throw new Error('No hay una acción principal con nombre accesible dentro del viewport.');
+    if (surface === 'apphost') {
+      if (layout.summaryCards.length !== 4) throw new Error(`El dashboard debe mostrar cuatro indicadores de estado; visibles=${layout.summaryCards.length}.`);
+      const narrowCards = layout.summaryCards.filter((card) => card.width < 140);
+      if (narrowCards.length) throw new Error(`Los indicadores del dashboard son demasiado estrechos (<140px): ${JSON.stringify(narrowCards)}.`);
+    }
 
     await page.screenshot({ path: outputPath, fullPage: false });
   } catch (error) {
@@ -176,7 +197,7 @@ try {
       failedRequests: diagnostics.failedRequests,
       httpErrors: diagnostics.httpErrors
     };
-    throw new Error(`Falló la validación visual docente: ${diagnostics.error}; estado=${JSON.stringify(summary)}; evidencia diagnóstica: ${failurePath} y ${diagnosticsPath}`);
+    throw new Error(`Falló la validación visual ${surface}: ${diagnostics.error}; estado=${JSON.stringify(summary)}; evidencia diagnóstica: ${failurePath} y ${diagnosticsPath}`);
   }
 } finally {
   await browser.close();

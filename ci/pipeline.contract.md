@@ -126,7 +126,7 @@ Policy:
 
 ### perf-check
 - Command: `npm run perf:check`
-- Runner prerequisite (Linux CI): `npm install --no-save --include=optional --os=linux --cpu=x64 sharp`
+- Runtime dependencies, incluido `sharp`, se instalan con `npm ci` desde el lockfile raíz; el chequeo de performance sirve también como smoke de la dependencia nativa.
 - Input: `docs/perf/baseline.json`
 - Output: `reports/perf/latest.json`
 

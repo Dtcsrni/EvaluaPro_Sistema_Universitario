@@ -85,6 +85,13 @@ test('scheduler informa recuperación como inestable y mantiene el código de sa
   assert.equal(result.results.find(({ name }) => name === 'exclusive').exitCode, 0);
 });
 
+test('el runner integral limita cada lote a una pasada y conserva el diagnóstico de falla', () => {
+  const runner = fs.readFileSync(path.join(process.cwd(), 'scripts/testing/run-backend-coverage-batches.mjs'), 'utf8');
+  assert.match(runner, /const batchAttempts = 1/);
+  assert.match(runner, /failureReason: code === 0 \? null : await classifyAttemptFailure/);
+  assert.match(runner, /attemptLogPath/);
+});
+
 test('cada intento deja duración, timestamps, causa de fallo y log en el resumen auditable', () => {
   const runner = fs.readFileSync(path.join(process.cwd(), 'scripts/testing/run-backend-coverage-batches.mjs'), 'utf8');
   for (const field of ['startedAt:', 'finishedAt:', 'durationMs:', 'failureReason:', 'log:']) {

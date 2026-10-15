@@ -72,12 +72,30 @@ test('el Installer Hub ejecuta el recorrido PDF GUI en Microsoft Edge y lo conse
   assert.match(workflow, /E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/);
 });
 
-test('la captura visual del instalador valida el landmark principal sin acoplarse a una clase CSS', () => {
+test('la captura visual del instalador diferencia App Host y Web docente con contratos UX propios', () => {
   const capture = read('scripts/tests/capture-installer-web.mjs');
+  assert.match(capture, /\['apphost', 'docente'\]\.includes\(surface\)/);
   assert.match(capture, /page\.getByRole\('main'\)/);
+  assert.match(capture, /getByText\('Dashboard - Sistema EvaluaPro'/);
+  assert.match(capture, /getByRole\('tab', \{ name: 'Principal', exact: true \}\)/);
+  assert.match(capture, /layout\.summaryCards\.length !== 4/);
+  assert.match(capture, /card\.width < 140/);
+  assert.match(capture, /layout\.surface !== surface/);
   assert.match(capture, /document\.querySelector\('main, \[role="main"\]'\)/);
   assert.match(capture, /mainLandmarkCount:/);
   assert.match(capture, /mainCandidates:/);
   assert.match(capture, /iframeCount:/);
   assert.doesNotMatch(capture, /main\.page/);
+  const runner = read('scripts/tests/installer-hub-e2e-docente.ps1');
+  assert.match(runner, /-Surface 'apphost'/);
+  assert.match(runner, /-Surface 'docente'/);
+  assert.equal((runner.match(/-Surface 'apphost'/g) ?? []).length, 1);
+  assert.equal((runner.match(/-Surface 'docente'/g) ?? []).length, 2);
+});
+
+test('los indicadores del dashboard usan columnas que conservan ancho legible en contenedores estrechos', () => {
+  const dashboard = read('scripts/dashboard.html');
+  const desktopRule = dashboard.match(/\.summary-grid\s*\{\s*grid-template-columns:\s*([^;]+);/g) ?? [];
+  assert.ok(desktopRule.some((rule) => /auto-fit/.test(rule)), 'summary-grid debe adaptar las columnas a su ancho real');
+  assert.doesNotMatch(dashboard, /\.summary-grid\s*\{\s*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
 });

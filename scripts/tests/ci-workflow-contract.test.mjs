@@ -47,6 +47,9 @@ test('los jobs CI instalan dependencias desde lockfiles y sharp proviene del man
   assert.equal(backendPackage.dependencies?.sharp, '^0.35.5');
   assert.equal(backendLock.packages?.['node_modules/sharp']?.version, '0.35.5');
   assert.doesNotMatch(workflow, /npm install --no-save[^\n]*sharp/);
+  const contract = fs.readFileSync(path.join(root, 'ci', 'pipeline.contract.md'), 'utf8');
+  assert.match(contract, /incluido `sharp`, se instalan con `npm ci` desde el lockfile raíz/);
+  assert.doesNotMatch(contract, /npm install --no-save[^\n]*sharp/);
   assert.match(block, /run:\s*npm run perf:check/);
 });
 

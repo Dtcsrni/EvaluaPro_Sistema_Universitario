@@ -56,6 +56,11 @@ test('las suites de CI ejecutan una pasada y el gate OMR canónico no se duplica
   for (const key of ['test:frontend:ci', 'test:portal:ci', 'test:coverage:ci']) {
     assert.doesNotMatch(scripts[key], /scripts\/retry\.mjs/, key);
   }
+  const backendTests = read('scripts/testing/run-backend-test-batches.mjs');
+  const backendCoverage = read('scripts/testing/run-backend-coverage-batches.mjs');
+  assert.doesNotMatch(backendTests, /batchAttempts|retry \$\{batch\.name\}/);
+  assert.match(backendTests, /return runVitest\(args, batch\.name\)/);
+  assert.match(backendCoverage, /const batchAttempts = 1/);
   const backend = read('.github/workflows/ci-backend.yml');
   const gate = backend.match(/- name: Etapa gate OMR canónico[\s\S]*?(?=\n      - name:|$)/)?.[0] ?? '';
   assert.match(gate, /if: github\.event_name == 'workflow_dispatch'/);

@@ -4,6 +4,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Changed
+- CI centraliza la validación automática en `CI Checks`, valida detector, plan affected y coherencia entre grupos, gates y jobs, y limita sus reportes a salidas conocidas.
+- Las suites backend de prueba y cobertura ya no reintentan automáticamente fallos; los lotes de cobertura mantienen diagnósticos y un orden de reporte determinista.
+- `sharp` se instala desde el lockfile mediante `npm ci`, sin resolverlo aparte durante el pipeline.
+
 ## [1.2.8] - 2026-10-14
 
 ### Added
