@@ -48,6 +48,7 @@ describe('integración classroom pull', () => {
       _id: '507f1f77bcf86cd799439901',
       nombreCompleto: 'Docente Classroom',
       correo: 'classroom@test.com',
+      googleSub: 'google-sub-classroom-test',
       roles: ['docente'],
       activo: true
     });

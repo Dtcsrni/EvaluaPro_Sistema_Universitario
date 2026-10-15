@@ -241,6 +241,8 @@ type ResultadoActividad = {
 type ResultadoSync = {
   tipo: 'preview' | 'ejecucion';
   periodoId: string;
+  importacionId?: string;
+  snapshotsClassroomGuardados?: number;
   totalActividades: number;
   submissionsProcesadas: number;
   matched: number;
@@ -454,15 +456,19 @@ function sumarResultados(
 }
 
 export async function obtenerEstadoClassroom(docenteId: string) {
-  const [integracion, ultimaBitacora] = await Promise.all([
+  const [integracion, ultimaBitacora, docente] = await Promise.all([
     IntegracionClassroom.findOne({ docenteId }).lean(),
-    BitacoraSyncClassroom.findOne({ docenteId }).sort({ ejecutadoEn: -1 }).lean()
+    BitacoraSyncClassroom.findOne({ docenteId }).sort({ ejecutadoEn: -1 }).lean(),
+    prisma.docente.findUnique({ where: { id: docenteId }, select: { googleSub: true, correo: true } })
   ]);
 
+  const mismaIdentidad = Boolean(docente?.googleSub && integracion?.googleSub === docente.googleSub);
   return {
-    conectado: Boolean(integracion?.activo),
+    conectado: Boolean(integracion?.activo && mismaIdentidad),
     correoGoogle: integracion?.correoGoogle ?? null,
-    googleUserId: integracion?.googleUserId ?? null,
+    googleUserId: integracion?.googleSub ?? null,
+    identidadCoincidente: mismaIdentidad,
+    correoLogin: docente?.correo ?? null,
     ultimaSincronizacionEn: integracion?.ultimaSincronizacionEn ?? ultimaBitacora?.ejecutadoEn ?? null,
     ultimoError: integracion?.ultimoError ?? null
   };
@@ -629,9 +635,12 @@ export async function sincronizarImportacionClassroom(params: {
   actividades: ActividadClassroomSeleccionada[];
   limiteSubmissions?: number;
   persistir: boolean;
+  importacionId?: string;
+  onActividadCompletada?: (progreso: number, total: number) => Promise<void> | void;
 }) {
-  const importacionId = randomUUID();
-  const actividades = params.actividades.map(normalizarActividadSeleccionada).filter((actividad) => Boolean(actividad.courseId && actividad.courseWorkId));
+  const actividades = params.actividades.map(normalizarActividadSeleccionada)
+    .filter((actividad) => Boolean(actividad.courseId && actividad.courseWorkId));
+  const importacionId = params.importacionId || randomUUID();
   if (actividades.length === 0) {
     throw new ErrorAplicacion('CLASSROOM_ACTIVIDADES_INVALIDAS', 'No se recibieron actividades válidas para importar', 400);
   }
@@ -646,7 +655,7 @@ export async function sincronizarImportacionClassroom(params: {
   const resultados: ResultadoActividad[] = [];
   const errores: Array<{ courseId: string; courseWorkId: string; mensaje: string }> = [];
 
-  for (const actividad of actividades) {
+  for (const [indiceActividad, actividad] of actividades.entries()) {
     const resultadoActividad: ResultadoActividad = {
       courseId: actividad.courseId,
       courseWorkId: actividad.courseWorkId,
@@ -1007,6 +1016,7 @@ export async function sincronizarImportacionClassroom(params: {
     }
 
     resultados.push(resultadoActividad);
+    await params.onActividadCompletada?.(indiceActividad + 1, actividades.length);
   }
 
   const resumen = sumarResultados(resultados);

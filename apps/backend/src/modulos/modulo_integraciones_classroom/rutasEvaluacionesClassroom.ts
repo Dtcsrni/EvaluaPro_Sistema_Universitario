@@ -20,13 +20,16 @@ import {
   listarMapeosClassroom,
   obtenerAlumnosCursoClassroomController,
   obtenerEstadoClassroomController,
-  previewImportacionClassroom
+  previewImportacionClassroom,
+  iniciarJobImportacionClassroomController,
+  obtenerJobImportacionClassroomController
 } from '../modulo_integraciones_classroom/controladorIntegracionesClassroom.js';
 import {
   esquemaActualizarMapeoAlumnosCurso,
   esquemaImportarAlumnosClassroom,
   esquemaEjecutarImportacionClassroom,
-  esquemaPreviewImportacionClassroom
+  esquemaPreviewImportacionClassroom,
+  esquemaIniciarJobImportacionClassroom
 } from '../modulo_integraciones_classroom/validacionesClassroom.js';
 
 const router = Router();
@@ -64,6 +67,17 @@ router.post(
   requerirPermiso('classroom:pull'),
   validarCuerpo(esquemaPreviewImportacionClassroom, { strict: true }),
   previewImportacionClassroom
+);
+router.post(
+  '/v2/classroom/importaciones/jobs',
+  requerirPermiso('classroom:pull'),
+  validarCuerpo(esquemaIniciarJobImportacionClassroom, { strict: true }),
+  iniciarJobImportacionClassroomController
+);
+router.get(
+  '/v2/classroom/importaciones/jobs/:jobId',
+  requerirPermiso('classroom:pull'),
+  obtenerJobImportacionClassroomController
 );
 router.post(
   '/v2/classroom/importaciones/ejecutar',

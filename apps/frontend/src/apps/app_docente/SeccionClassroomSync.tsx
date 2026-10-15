@@ -6,7 +6,12 @@ import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { clienteApi } from './clienteApiDocente';
 import { mensajeDeError } from './utilidades';
 
-type ClassroomEstado = { conectado: boolean; correoGoogle?: string | null };
+type ClassroomEstado = {
+  conectado: boolean;
+  correoGoogle?: string | null;
+  correoLogin?: string | null;
+  identidadCoincidente?: boolean;
+};
 
 export function SeccionClassroom({
   puedeClassroomConectar,
@@ -124,7 +129,16 @@ export function SeccionClassroom({
           <Boton type="button" variante="secundario" disabled={cargandoEstado} cargando={cargandoEstado} onClick={() => void cargarEstado()}>Reintentar</Boton>
         </div> : (
           <div className="item-row item-glass">
-            <div><b>Cuenta Classroom no conectada</b><div className="nota">Conecta la cuenta que contiene los cursos que vas a sincronizar.</div></div>
+            <div>
+              <b>Cuenta Classroom no conectada</b>
+              <div className="nota">
+                La cuenta debe coincidir con el inicio de sesión de EvaluaPro: {estado.correoLogin || 'inicia sesión con tu cuenta Google docente'}.
+                Google sugerirá esa cuenta; EvaluaPro rechazará la autorización de otra identidad.
+              </div>
+              {estado.correoGoogle && estado.identidadCoincidente === false && (
+                <div className="nota">El vínculo previo con {estado.correoGoogle} no coincide y no se usará.</div>
+              )}
+            </div>
             <Boton type="button" variante="primario" disabled={!classroomDisponible || !puedeClassroomConectar} onClick={() => void conectar()}>Conectar Google Classroom</Boton>
           </div>
         )}
