@@ -208,7 +208,7 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
 });
 
 test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgrade', () => {
-  assert.match(workflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(workflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
   assert.match(workflow, /releases\/download\/v1\.2\.3\/' \+ \$baselineName/);
   assert.match(workflow, /\$baselineName = 'EvaluaPro-InstallerHub-docente-local-v1\.2\.3\.exe'/);
   assert.match(workflow, /\$baselineVersion = \[version\]'1\.2\.3'/);
@@ -329,6 +329,26 @@ test('las E2E del asset de borrador y público instalan WiX para extraer el base
     assert.match(job, /GITHUB_PATH/);
     assert.ok(job.indexOf('Instalar WiX CLI estable para la E2E') < job.indexOf('E2E completa'));
   }
+});
+
+test('las PR ejecutan y conservan la E2E GUI real del Installer Hub y la descarga PDF en Edge', () => {
+  const pullRequestGate = /github\.event_name\s*==\s*'pull_request'\s*\|\|\s*startsWith\(github\.ref,\s*'refs\/tags\/v'\)\s*\|\|\s*github\.event_name\s*==\s*'workflow_dispatch'/;
+  for (const stepName of [
+    'Instalar Chromium para la E2E docente completa',
+    'Instalar Microsoft Edge para validar el PDF en GUI',
+    'Determinar si aplica upgrade desde v1.2.3',
+    'Preparar ruta privada para evidencia E2E',
+    'E2E completa sobre el bundle docente que se publicará',
+    'E2E visual de vista y descarga PDF en Edge'
+  ]) {
+    const stepStart = workflow.indexOf(`- name: ${stepName}`);
+    assert.ok(stepStart >= 0, `Debe existir el paso ${stepName}`);
+    const stepEnd = workflow.indexOf('\n      - name:', stepStart + 1);
+    const step = workflow.slice(stepStart, stepEnd < 0 ? workflow.length : stepEnd);
+    assert.match(step, pullRequestGate, `La PR debe ejecutar ${stepName}`);
+  }
+  const evidenceUpload = workflow.slice(workflow.indexOf('- name: Publicar evidencia de la E2E completa'));
+  assert.match(evidenceUpload, /github\.event_name\s*==\s*'pull_request'/, 'la evidencia GUI debe conservarse para revisión del PR');
 });
 
 test('el build candidato y QA caben en la ventana del gate estable previo a publicación', () => {
