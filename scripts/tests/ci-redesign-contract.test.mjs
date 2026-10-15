@@ -65,7 +65,8 @@ test('validaciones integrales y publicaciones no se cancelan por un push ordinar
   const central = read('.github/workflows/ci.yml');
   const installer = read('.github/workflows/ci-installer-windows.yml');
   const autogen = read('.github/workflows/autogen-docs.yml');
-  for (const workflow of [central, installer]) assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
+  assert.match(central, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
+  assert.match(installer, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/v'\)\) \}\}/);
   assert.match(central, /format\('\{0\}-\{1\}', github\.event_name, github\.run_id\)/);
   assert.match(installer, /format\('dispatch-\{0\}', github\.run_id\)/);
   assert.match(autogen, /cancel-in-progress:\s*false/);
