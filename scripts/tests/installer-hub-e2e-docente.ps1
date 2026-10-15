@@ -1339,7 +1339,15 @@ namespace EvaluaPro {
   }
 
   Add-Result -Area 'command' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
-  if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
+  if ($exitCode -ne 0) {
+    if ($Name -like 'playwright-*' -and (Test-Path -LiteralPath $stderr -PathType Leaf)) {
+      $stderrTail = @(Get-Content -LiteralPath $stderr -Tail 12 -ErrorAction SilentlyContinue)
+      if ($stderrTail.Count -gt 0) {
+        Write-E2ELog ("Diagnostico visual {0}: {1}" -f $Name, ($stderrTail -join ' | '))
+      }
+    }
+    throw "Comando fallo: $Name exit=$exitCode"
+  }
 }
 
 function Test-MsiPackageFile {

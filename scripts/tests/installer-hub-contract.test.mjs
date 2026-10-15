@@ -956,6 +956,8 @@ test('captura web del Installer Hub valida UX y conserva diagnóstico de pantall
 
   assert.match(runner, /capture-installer-web\.mjs/);
   assert.match(runner, /-FilePath 'node\.exe' -ArgumentList \$args -TimeoutSec 75/);
+  assert.match(runner, /\$Name -like 'playwright-\*'.*Get-Content -LiteralPath \$stderr -Tail 12/s);
+  assert.match(runner, /Diagnostico visual \{0\}: \{1\}/);
   assert.match(capture, /\.app-loading'\)\.waitFor\(\{ state: 'hidden', timeout: 30_000 \}\)/);
   assert.match(capture, /getByRole\('heading', \{ name: 'Plataforma Docente', exact: true \}\)/);
   assert.match(capture, /responseStatus !== 200/);
