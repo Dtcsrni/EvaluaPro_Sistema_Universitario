@@ -35,6 +35,15 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
     ['tests/integracion/flujoExamen.test.ts']
   );
 
+  const omrJobsBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/omrJobsWorkflow.test.ts'));
+  assert.ok(omrJobsBatch, 'falta el lote OMR por jobs');
+  assert.equal(omrJobsBatch.exclusive, true, 'el flujo OMR intensivo debe correr sin otros lotes del scheduler');
+  assert.equal(omrJobsBatch.timeoutMs, 2_100_000, 'el límite específico debe superar la duración aislada medida con margen');
+  assert.deepEqual(
+    omrJobsBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/omrJobsWorkflow.test.ts']
+  );
+
   const pdfLayoutBatch = plan.batches.find((batch) => batch.args.includes('tests/pdf.layout.visual.guard.test.ts'));
   assert.ok(pdfLayoutBatch, 'falta la suite visual de PDF en el plan de cobertura');
   assert.equal(pdfLayoutBatch.exclusive, true, 'la suite visual costosa debe correr sin otros lotes del scheduler');
@@ -98,6 +107,9 @@ test('cada intento deja duración, timestamps, causa de fallo y log en el resume
     assert.ok(runner.includes(field), `falta registrar ${field}`);
   }
   assert.match(runner, /runBatch\(batch\)[\s\S]*?attemptLogPath[\s\S]*?JSON\.stringify\(\{ name: batch\.name, exclusive: Boolean\(batch\.exclusive\), attempts \}/);
+  assert.match(runner, /const timeoutMs = batch\.timeoutMs \?\? batchTimeoutMs/);
+  assert.match(runner, /durationMs,\s*timeoutMs,/);
+  assert.match(runner, /runVitest\(batch\.args,[\s\S]*?timeoutMs\)/);
   assert.match(runner, /recoveredAttempt \? 1 : 0/);
   assert.match(runner, /recovered: attempts\.some\(\(\{ exitCode \}\) => exitCode !== 0\)/);
 });

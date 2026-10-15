@@ -125,6 +125,13 @@ const integrationFilesNZ = [
   'tests/integracion/versionadoApiV2Contratos.test.ts'
 ];
 
+// En cobertura, esta suite OMR tardó 1,433.58 s aislada; concurrente agotó
+// los 480 s. Se ejecuta tras drenar workers y conserva el límite global para
+// todos los demás lotes.
+const integrationFilesNZExclusive = [
+  'tests/integracion/omrJobsWorkflow.test.ts'
+];
+
 // Mantener lotes pequeños evita que Vitest instrumente toda la suite raíz en
 // un único proceso y deja identificar el grupo que exceda tiempo/memoria.
 function listRootCoverageFiles() {
@@ -356,6 +363,12 @@ function buildExclusiveCoverageBatches() {
       name: 'backend-integracion-flujo-examen',
       exclusive: true,
       args: batchArgs('backend-integracion-flujo-examen', ['tests/integracion/flujoExamen.test.ts'])
+    },
+    {
+      name: 'backend-integracion-omr-jobs-workflow',
+      exclusive: true,
+      timeoutMs: 2_100_000,
+      args: batchArgs('backend-integracion-omr-jobs-workflow', integrationFilesNZExclusive)
     }
   ];
 }
@@ -369,7 +382,7 @@ function buildCoveragePlan() {
         args: batchArgs('backend-calificacion-omr-payload', ['tests/calificacion.omr.payload.test.ts'])
       },
       ...chunkFiles('backend-integracion-a-m', integrationFilesAM),
-      ...chunkFiles('backend-integracion-n-z', integrationFilesNZ),
+      ...chunkFiles('backend-integracion-n-z', integrationFilesNZ.filter((file) => !integrationFilesNZExclusive.includes(file))),
       ...buildExclusiveCoverageBatches(),
       {
         name: 'backend-aislamiento',
@@ -388,7 +401,7 @@ function buildCoveragePlan() {
   };
 }
 
-function runVitest(args, name) {
+function runVitest(args, name, timeoutMs = batchTimeoutMs) {
   return new Promise((resolve) => {
     process.stdout.write(`[backend-coverage] ${name}\n`);
     const [, ...vitestArgs] = args;
@@ -412,7 +425,7 @@ function runVitest(args, name) {
       }
       closeSync(logFd);
       resolve(124);
-    }, batchTimeoutMs);
+    }, timeoutMs);
 
     child.on('error', () => {
       if (finalizado) return;
@@ -477,7 +490,8 @@ async function runBatch(batch) {
   await cleanBatchArtifacts(batch.name);
   const startedAt = Date.now();
   const startedAtIso = new Date(startedAt).toISOString();
-  const code = await runVitest(batch.args, `${batch.name} ${attempt}/${batchAttempts}`);
+  const timeoutMs = batch.timeoutMs ?? batchTimeoutMs;
+  const code = await runVitest(batch.args, `${batch.name} ${attempt}/${batchAttempts}`, timeoutMs);
   const durationMs = Date.now() - startedAt;
   const attemptLog = path.relative(rootDir, path.join(logsDir, `${`${batch.name} ${attempt}/${batchAttempts}`.replace(/[^a-z0-9_-]+/gi, '_')}.log`)).replaceAll(path.sep, '/');
   attempts.push({
@@ -486,6 +500,7 @@ async function runBatch(batch) {
     finishedAt: new Date().toISOString(),
     exitCode: code,
     durationMs,
+    timeoutMs,
     failureReason: code === 0 ? null : await classifyAttemptFailure(batch.name, attempt, code),
     log: attemptLog
   });
