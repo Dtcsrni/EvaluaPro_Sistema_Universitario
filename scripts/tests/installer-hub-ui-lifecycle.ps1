@@ -37,8 +37,10 @@ public static class EvaluaProQaNativeWindow {
   public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
   [DllImport("user32.dll", SetLastError=true)]
   public static extern bool SetForegroundWindow(IntPtr hWnd);
-  [DllImport("user32.dll", SetLastError=true)]
-  public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
+  [DllImport("user32.dll")]
+  public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")]
+  public static extern IntPtr GetForegroundWindow();
 }
 '@
 
@@ -331,47 +333,48 @@ function Select-ComboItem {
 function Capture-Window {
   param(
     [System.Windows.Automation.AutomationElement]$Window,
-    [string]$Name
+    [string]$Name,
+    [int]$RequestedWidth = 0,
+    [int]$RequestedHeight = 0
   )
   if (-not $Window) {
-    Write-QaLog "No se pudo capturar ${Name}: la ventana UIAutomation no está disponible."
-    return ''
+    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail 'La ventana UI Automation no está disponible.'
+    throw "No se pudo capturar ${Name}: la ventana UI Automation no está disponible."
   }
   $rectangle = $Window.Current.BoundingRectangle
-  if ($rectangle.Width -le 0 -or $rectangle.Height -le 0) { return '' }
-  $x = [int]$rectangle.X
-  $y = [int]$rectangle.Y
-  $w = [int]$rectangle.Width
-  $h = [int]$rectangle.Height
-  if ($x -lt 0) { $x = 0 }
-  if ($y -lt 0) { $y = 0 }
+  if ($rectangle.Width -le 0 -or $rectangle.Height -le 0) {
+    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail 'La ventana no tiene dimensiones positivas.'
+    throw "No se pudo capturar ${Name}: la ventana no tiene dimensiones positivas."
+  }
+  $x = [int][Math]::Round($rectangle.X)
+  $y = [int][Math]::Round($rectangle.Y)
+  $w = [int][Math]::Round($rectangle.Width)
+  $h = [int][Math]::Round($rectangle.Height)
   $bitmap = New-Object System.Drawing.Bitmap($w, $h)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   try {
     $handle = [IntPtr]$Window.Current.NativeWindowHandle
-    $capturedByWindow = $false
-    if ($handle -ne [IntPtr]::Zero) {
-      [EvaluaProQaNativeWindow]::SetForegroundWindow($handle) | Out-Null
-      Start-Sleep -Milliseconds 150
-      $hdc = $graphics.GetHdc()
-      try {
-        // PrintWindow evita capturar otra aplicación cuando el Hub aún no es
-        // la ventana activa del escritorio (fallo observado en splash).
-        $capturedByWindow = [EvaluaProQaNativeWindow]::PrintWindow($handle, $hdc, 2)
-      } finally {
-        $graphics.ReleaseHdc($hdc)
-      }
-    }
-    if (-not $capturedByWindow) {
-      $graphics.CopyFromScreen($x, $y, 0, 0, $bitmap.Size)
+    if ($handle -eq [IntPtr]::Zero) { throw 'La ventana no expone un HWND para capturar su superficie visible.' }
+    if ($Window.Current.IsOffscreen) { throw 'La ventana está fuera del área visible del escritorio.' }
+    [EvaluaProQaNativeWindow]::ShowWindow($handle, 5) | Out-Null
+    [EvaluaProQaNativeWindow]::SetForegroundWindow($handle) | Out-Null
+    Start-Sleep -Milliseconds 250
+    if ([EvaluaProQaNativeWindow]::GetForegroundWindow() -ne $handle) { throw 'El Installer Hub no quedó en primer plano.' }
+    $captureRect = [System.Drawing.Rectangle]::new($x, $y, $w, $h)
+    $screen = [System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.Bounds.Contains($captureRect) } | Select-Object -First 1
+    if (-not $screen) { throw "La ventana ($($w)x$($h)) no cabe completa en un monitor conectado." }
+    $graphics.CopyFromScreen($x, $y, 0, 0, $bitmap.Size)
+    if ($RequestedWidth -gt 0 -and $RequestedHeight -gt 0 -and ($bitmap.Width -ne $RequestedWidth -or $bitmap.Height -ne $RequestedHeight)) {
+      throw "El tamaño capturado $($bitmap.Width)x$($bitmap.Height) no coincide con el viewport solicitado ${RequestedWidth}x${RequestedHeight}."
     }
     $path = Join-Path $ReportDir ("{0}.png" -f $Name)
     $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $script:screenshots.Add($path) | Out-Null
     return $path
   } catch {
-    Write-QaLog "No se pudo capturar la ventana $Name en ($x, $y, $w, $h). Posible entorno sin display. Ignorando."
-    return ''
+    Write-QaLog "No se pudo capturar la ventana visible $Name en ($x, $y, $w, $h): $($_.Exception.Message)"
+    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail $_.Exception.Message
+    throw "No se pudo capturar la ventana visible '$Name': $($_.Exception.Message)"
   } finally {
     $graphics.Dispose()
     $bitmap.Dispose()
@@ -385,9 +388,26 @@ function Resize-WindowForQa {
     [int]$Height
   )
   try {
+    $Process.Refresh()
     $handle = $Process.MainWindowHandle
     if ($handle -eq [IntPtr]::Zero) { return $false }
-    return [EvaluaProQaNativeWindow]::MoveWindow($handle, 40, 40, $Width, $Height, $true)
+    if (-not [EvaluaProQaNativeWindow]::MoveWindow($handle, 0, 0, $Width, $Height, $true)) { return $false }
+    $deadline = (Get-Date).AddSeconds(3)
+    do {
+      Start-Sleep -Milliseconds 100
+      $window = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+      if ($window) {
+        $actual = $window.Current.BoundingRectangle
+        if ([Math]::Abs([int][Math]::Round($actual.Width) - $Width) -le 1 -and [Math]::Abs([int][Math]::Round($actual.Height) - $Height) -le 1) {
+          $bounds = [System.Drawing.Rectangle]::new([int][Math]::Round($actual.X), [int][Math]::Round($actual.Y), [int][Math]::Round($actual.Width), [int][Math]::Round($actual.Height))
+          $screen = [System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.Bounds.Contains($bounds) } | Select-Object -First 1
+          if ($screen) { return $true }
+        }
+      }
+    } while ((Get-Date) -lt $deadline)
+    $actualSize = if ($window) { '{0}x{1}' -f [int][Math]::Round($actual.Width), [int][Math]::Round($actual.Height) } else { 'desconocido' }
+    Write-QaLog "No se pudo aplicar el viewport ${Width}x${Height}; actual=$actualSize"
+    return $false
   } catch {
     return $false
   }
@@ -613,10 +633,10 @@ try {
     Capture-Window -Window $window -Name '05-resultado' | Out-Null
   }
 
-  Resize-WindowForQa -Process $process -Width 980 -Height 700 | Out-Null
+  if (-not (Resize-WindowForQa -Process $process -Width 980 -Height 700)) { throw 'No se pudo ajustar el Installer Hub a su mínimo documentado de 980x700.' }
   Start-Sleep -Milliseconds 900
   $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name '07-min-1280x720' | Out-Null
+  Capture-Window -Window $window -Name '07-min-980x700' -RequestedWidth 980 -RequestedHeight 700 | Out-Null
 
   $restartButton = Find-ById -RootElement $window -AutomationId 'RestartNowButton' -TimeoutSec 5
   Add-Result -Area 'button' -Item 'RestartNowButton' -Ok $true -Detail $(if ($restartButton) { "visibleOffscreen=$($restartButton.Current.IsOffscreen); enabled=$($restartButton.Current.IsEnabled); no invocado por seguridad" } else { 'no expuesto porque no hay reinicio requerido; no invocado por seguridad' })

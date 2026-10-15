@@ -284,20 +284,39 @@ test('tutorial y capturas de una E2E fallida se quedan dentro del reporte QA', (
 });
 
 test('la evidencia visual del Installer Hub valida PNG, dimensiones, píxeles y huella', () => {
+  const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
   assert.match(e2e, /function Get-VisualScreenshotEvidence/);
   assert.match(e2e, /System\.Drawing\.Bitmap\]::FromFile\(\$Path\)/);
   assert.match(e2e, /distinctSamples\.Count -lt 8/);
   assert.match(e2e, /requestedWindowSize/);
   assert.match(e2e, /actualCaptureSize/);
   assert.match(e2e, /requestHonored/);
+  assert.match(e2e, /valid = \(-not \$requestedWindowSize -or \(\$bitmap\.Width -eq \$RequestedWidth -and \$bitmap\.Height -eq \$RequestedHeight\)\)/);
   assert.match(e2e, /Get-FileHash -LiteralPath \$Path -Algorithm SHA256/);
-  assert.match(e2e, /valid = \$true/);
   assert.match(e2e, /Where-Object \{ -not \$_\.valid \}/);
+  assert.match(e2e, /CopyFromScreen\(\$captureRect\.X, \$captureRect\.Y, 0, 0, \$bitmap\.Size\)/);
+  assert.doesNotMatch(e2e, /PrintWindow/);
   assert.match(e2e, /sha256Required = \$true/);
+  assert.match(e2e, /RequestedWidth 1040 -RequestedHeight 760/);
+  assert.match(e2e, /RequestedWidth 1280 -RequestedHeight 720/);
   assert.match(e2e, /Resize-WindowForEvidence -Process \$process -Width 1040 -Height 760/);
   assert.match(e2e, /Resize-WindowForEvidence -Process \$process -Width 1280 -Height 720/);
   assert.match(e2e, /ejecutar-solicitud-1040x760/);
   assert.match(e2e, /ejecutar-solicitud-1280x720/);
+  assert.match(xaml, /Width="1040"/);
+  assert.match(xaml, /Height="760"/);
+  assert.match(xaml, /MinWidth="980"/);
+  assert.match(xaml, /MinHeight="700"/);
+});
+
+test('E2E valida el preflight antes de instalar y reconoce la actualización aislada desde baseline', () => {
+  assert.match(e2e, /\$candidateBundleVerified = -not \[string\]::IsNullOrWhiteSpace\(\$bundlePath\)/);
+  assert.match(e2e, /\$isolatedBaselineUpgradeRun = \$candidateBundleVerified -and \$baselineBundleExists/);
+  assert.match(e2e, /\$validInstallMode = \$isolatedCandidateRun -or \$isolatedBaselineUpgradeRun -or \$script:upgradingExistingInstall/);
+  const invalidModeGuard = e2e.indexOf('if (-not $validInstallMode)');
+  const installInvocation = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install'", invalidModeGuard);
+  assert.ok(invalidModeGuard >= 0 && installInvocation > invalidModeGuard, 'un modo no reconocido debe abortar antes de cambiar la instalación');
+  assert.match(e2e, /try \{ Save-Report -Status 'failed' \} catch/);
 });
 
 test('release valida el asset descargado desde GitHub antes de hacer público el release', () => {

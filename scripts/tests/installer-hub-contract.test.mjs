@@ -830,7 +830,7 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
 test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
   const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
-  assert.match(xaml, /Width="1440"[\s\S]*Height="1020"[\s\S]*MinWidth="1180"[\s\S]*MinHeight="720"/);
+  assert.match(xaml, /Width="1040"[\s\S]*Height="760"[\s\S]*MinWidth="980"[\s\S]*MinHeight="700"/);
   assert.match(xaml, /FontFamily="Segoe UI, Segoe UI Variable Text, Aptos, Arial"/);
   assert.match(xaml, /<Style TargetType="TextBlock">[\s\S]*FontSize" Value="14"/);
   assert.match(xaml, /x:Key="HelpTextStyle"[\s\S]*FontSize" Value="14"[\s\S]*LineHeight" Value="21"/);
@@ -958,7 +958,14 @@ test('captura web del Installer Hub espera el contenido docente y no acepta el f
   assert.match(runner, /-FilePath 'node\.exe' -ArgumentList \$args -TimeoutSec 75/);
   assert.match(capture, /\.app-loading'\)\.waitFor\(\{ state: 'hidden', timeout: 30_000 \}\)/);
   assert.match(capture, /getByRole\('heading', \{ name: 'Plataforma Docente', exact: true \}\)/);
-  assert.match(capture, /locator\('main\.page'\)\.screenshot/);
+  assert.match(capture, /responseStatus !== 200/);
+  assert.match(capture, /mainScrollWidth > layout\.mainClientWidth/);
+  assert.match(capture, /unnamedVisibleControls > 0/);
+  assert.match(capture, /primaryActionInViewport/);
+  assert.match(capture, /page\.screenshot\(\{ path: outputPath, fullPage: false \}\)/);
+  assert.match(capture, /\.failure\.png/);
+  assert.match(capture, /\.failure\.json/);
+  assert.match(capture, /diagnostics\.pageErrors/);
 });
 
 test('E2E protege datos e instalaciones preexistentes y limpia solo su destino QA', () => {
@@ -985,8 +992,9 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   assert.match(runner, /\$targetHasPriorPayload = \$payloadIsBehind -or \$versionMetadataIsBehind/);
   assert.match(runner, /\$registryInventoryCompatible = \$existing\.Count -le 1/);
   assert.match(runner, /\$registeredPayloadVersion -ge \(Normalize-InstallerProductVersion/);
-  assert.match(runner, /\$validInstallMode = \$isolatedCandidateRun -or \$script:upgradingExistingInstall/);
-  assert.match(runner, /\$installMode = if \(\$script:upgradingExistingInstall\) \{ 'stable-upgrade-existing-install' \} elseif \(\$isolatedCandidateRun\) \{ 'isolated-candidate' \} else \{ 'invalid' \}/);
+  assert.match(runner, /\$validInstallMode = \$isolatedCandidateRun -or \$isolatedBaselineUpgradeRun -or \$script:upgradingExistingInstall/);
+  assert.match(runner, /\$installMode = if \(\$script:upgradingExistingInstall\)[\s\S]*?'stable-upgrade-existing-install'[\s\S]*?\$isolatedBaselineUpgradeRun[\s\S]*?'isolated-baseline-upgrade'[\s\S]*?\$isolatedCandidateRun[\s\S]*?'isolated-candidate'/);
+  assert.match(runner, /if \(-not \$validInstallMode\) \{[\s\S]*?Modo E2E de instalación inválido/);
   assert.match(runner, /-Item 'valid-install-mode' -Ok \$validInstallMode/);
   assert.match(runner, /\$singleCurrentRegistration = \$postUpgradeEntries\.Count -eq 1/);
   assert.match(runner, /-Item 'version-updated'/);
@@ -1251,7 +1259,10 @@ test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visu
   assert.match(runner, /04-ejecutar-busy/);
   assert.match(runner, /05-resultado/);
   assert.match(runner, /06-avanzado/);
-  assert.match(runner, /07-min-1280x720/);
+  assert.match(runner, /07-min-980x700/);
+  assert.match(runner, /RequestedWidth 980 -RequestedHeight 700/);
+  assert.match(runner, /CopyFromScreen\(\$x, \$y, 0, 0, \$bitmap\.Size\)/);
+  assert.doesNotMatch(runner, /PrintWindow/);
   assert.match(runner, /MoveWindow/);
   assert.match(runner, /Select-ComboItem/);
   assert.match(runner, /Test-ScrollPattern/);
