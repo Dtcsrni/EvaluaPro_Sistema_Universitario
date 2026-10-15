@@ -188,9 +188,14 @@ test.describe('Journey docente integral visual', () => {
   });
 
   test('recorre diseño, generación, entrega, evaluación, calificación y publicación', async ({ page, request }) => {
+    const reactUnknownTagWarnings: string[] = [];
     page.on('pageerror', (error) => console.error(`[E2E pageerror] ${error.stack || error.message}`));
     page.on('console', (message) => {
-      if (message.type() === 'error') console.error(`[E2E console.error] ${message.text()}`);
+      if (message.type() === 'error') {
+        const { url, lineNumber, columnNumber } = message.location();
+        console.error(`[E2E console.error @ ${url}:${lineNumber}:${columnNumber}] ${message.text()}`);
+        if (message.text().includes('is unrecognized in this browser')) reactUnknownTagWarnings.push(message.text());
+      }
     });
     const sufijo = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const outputDir = process.env.E2E_SCREENSHOT_DIR || path.join(process.cwd(), 'docs', 'assets', 'ui');
@@ -394,6 +399,15 @@ test.describe('Journey docente integral visual', () => {
 
     // Paso 8: Evaluaciones
     await page.getByRole('button', { name: 'Evaluaciones', exact: true }).click();
+    const iconoAlumnos = page.locator('.evaluaciones-panel__head .banco-mini-kpi__icon').nth(1).locator('svg');
+    await expect(iconoAlumnos).toBeVisible();
+    await expect(iconoAlumnos.locator('path, circle')).toHaveCount(2);
+    expect(await iconoAlumnos.evaluate((svg) =>
+      svg.namespaceURI === 'http://www.w3.org/2000/svg'
+      && Array.from(svg.children).every((element) => element.namespaceURI === 'http://www.w3.org/2000/svg')
+    )).toBe(true);
+    await page.mouse.move(1, 1);
+    await expect(page.locator('.toast')).toHaveCount(0, { timeout: 15_000 });
     await page.screenshot({ path: path.join(outputDir, '36_evaluaciones_seccion.png'), fullPage: true });
 
     const evaluaciones = page.locator('.evaluaciones-panel');
@@ -645,5 +659,6 @@ test.describe('Journey docente integral visual', () => {
     await expect(classroomConsulta).toContainText('No hay calificaciones Classroom sincronizadas para esta materia.');
     await expect(page.locator('.toast')).toHaveCount(0, { timeout: 15_000 });
     await page.screenshot({ path: path.join(outputDir, '55_classroom_consulta_calificaciones.png'), fullPage: true, animations: 'disabled' });
+    expect(reactUnknownTagWarnings, 'No deben generarse etiquetas DOM desconocidas durante el recorrido GUI').toEqual([]);
   });
 });

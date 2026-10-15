@@ -13,7 +13,7 @@ export default defineConfig({
   outputDir: path.join(process.env.E2E_PLAYWRIGHT_OUTPUT_DIR || path.join(rootDir, 'test-results'), `gui-responsive-admin-${process.pid}`),
   timeout: 45_000,
   retries: 0,
-  use: { baseURL: `http://127.0.0.1:${port}`, browserName: 'chromium', headless: true, actionTimeout: 20_000, navigationTimeout: 30_000 },
+  use: { baseURL: `http://127.0.0.1:${port}`, browserName: 'chromium', ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}), headless: true, actionTimeout: 20_000, navigationTimeout: 30_000 },
   webServer: {
     command: `node "${startServerScript}" --port ${port} --destino admin_negocio`,
     url: `http://127.0.0.1:${port}`,

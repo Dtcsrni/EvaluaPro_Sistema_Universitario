@@ -5,6 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { expect, test } from './visual-fixtures';
+import QRCode from 'qrcode';
 
 type ViewportCase = {
   name: string;
@@ -232,6 +233,27 @@ test.describe('GUI responsive e2e · docente', () => {
         return;
       }
 
+      if (url.includes('/api/salud/ip-local')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ips: ['192.168.1.50'], preferida: '192.168.1.50' })
+        });
+        return;
+      }
+
+      if (url.includes('/api/salud/qr')) {
+        const texto = new URL(url).searchParams.get('texto') ?? '';
+        const imagenQr = await QRCode.toBuffer(texto, {
+          margin: 1,
+          width: 360,
+          errorCorrectionLevel: 'H',
+          color: { dark: '#000000', light: '#FFFFFF' }
+        });
+        await route.fulfill({ status: 200, contentType: 'image/png', body: imagenQr });
+        return;
+      }
+
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
     });
   });
@@ -299,6 +321,14 @@ test.describe('GUI responsive e2e · docente', () => {
         await nav.getByRole('button', { name: tab.label }).click();
         await expect(nav.getByRole('button', { name: tab.label })).toHaveAttribute('aria-current', 'page');
         await page.waitForTimeout(300);
+        if (tab.slug === 'entrega') {
+          const qr = page.getByRole('img', { name: 'QR para abrir en movil' });
+          await expect(qr).toBeVisible();
+          await expect.poll(() => qr.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+          await expect(page.getByText(/No se pudo detectar la IP local|No se pudo generar el QR/)).toHaveCount(0);
+          await page.mouse.move(0, 0);
+          await page.locator('.toast').waitFor({ state: 'detached', timeout: 8_000 }).catch(() => undefined);
+        }
         await captureEvidence(page, 'docente', tab.slug, viewport.name);
       }
     });

@@ -49,6 +49,20 @@ async function auditVisualState(
         element.getAttribute('title'), element.getAttribute('placeholder'), text
       ].some((value) => value?.trim());
     }).map((element) => element.outerHTML.slice(0, 180));
+    const brokenImages = [...document.images].filter((image) => {
+      const style = getComputedStyle(image);
+      const rect = image.getBoundingClientRect();
+      const visible = !image.closest('[aria-hidden="true"], [inert]')
+        && style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && style.opacity !== '0'
+        && rect.width > 0
+        && rect.height > 0;
+      return visible && Boolean(image.currentSrc || image.src) && (!image.complete || image.naturalWidth === 0);
+    }).map((image) => image.alt?.trim() || (() => {
+      try { return new URL(image.currentSrc || image.src).pathname; }
+      catch { return image.currentSrc || image.src; }
+    })());
     const boxes = controls.map((element) => {
       const rect = element.getBoundingClientRect();
       return { element, label: element.getAttribute('aria-label') || (element as HTMLElement).innerText || element.tagName, left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, area: rect.width * rect.height };
@@ -84,6 +98,7 @@ async function auditVisualState(
         })()
       } : null,
       unnamed: unnamed.slice(0, 8),
+      brokenImages: brokenImages.slice(0, 8),
       overlaps: overlaps.slice(0, 8)
     };
   });
@@ -96,6 +111,7 @@ async function auditVisualState(
   expect(audit.overflow, `${name}: overflow horizontal`).toBeLessThanOrEqual(1);
   expect(audit.textLength, `${name}: la captura no debe corresponder a una vista vacía`).toBeGreaterThan(20);
   expect(audit.unnamed, `${name}: controles interactivos sin nombre`).toEqual([]);
+  expect(audit.brokenImages, `${name}: imágenes visibles que no cargaron`).toEqual([]);
   expect(audit.overlaps, `${name}: controles interactivos solapados`).toEqual([]);
   if (audit.modal) {
     expect(audit.modal.hasAccessibleName, `${name}: modal sin nombre accesible`).toBe(true);
