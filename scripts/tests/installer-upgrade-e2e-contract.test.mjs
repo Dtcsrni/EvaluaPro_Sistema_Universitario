@@ -299,7 +299,10 @@ test('la evidencia visual del Installer Hub valida PNG, dimensiones, píxeles y 
   assert.match(e2e, /Monitores: \$availableScreens/);
   assert.match(e2e, /sha256Required = \$true/);
   assert.match(e2e, /RequestedWidth 980 -RequestedHeight 700/);
-  assert.match(e2e, /Resize-WindowForEvidence -Process \$process -Width 980 -Height 700/);
+  assert.match(e2e, /\[System\.Windows\.Automation\.AutomationElement\]\$Window/);
+  assert.match(e2e, /\$handle = \[IntPtr\]\$Window\.Current\.NativeWindowHandle/);
+  assert.match(e2e, /Resize-WindowForEvidence -Window \$window -Width 980 -Height 700/);
+  assert.doesNotMatch(e2e, /Resize-WindowForEvidence -Process \$process/);
   assert.match(e2e, /ejecutar-solicitud-980x700/);
   assert.match(e2e, /viewport = \[ordered\]@\{ width = 980; height = 700; basis = 'minimum-documented-by-DESIGN\.md' \}/);
   assert.doesNotMatch(e2e, /Resize-WindowForEvidence -Process \$process -Width 1280 -Height 720/);

@@ -690,12 +690,16 @@ function Capture-Window {
 
 function Resize-WindowForEvidence {
   param(
-    [System.Diagnostics.Process]$Process,
+    [System.Windows.Automation.AutomationElement]$Window,
     [int]$Width,
     [int]$Height
   )
   try {
-    $handle = $Process.MainWindowHandle
+    if (-not $Window) { return $false }
+    # Resize the exact UI Automation window that will be captured. The bundle
+    # process may be a Burn parent with a different MainWindowHandle from the
+    # visible WPF Bootstrapper Application.
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
     if ($handle -eq [IntPtr]::Zero) { return $false }
     if (-not [EvaluaProE2ENativeWindow]::MoveWindow($handle, 0, 0, $Width, $Height, $true)) { return $false }
     $deadline = (Get-Date).AddSeconds(3)
@@ -858,8 +862,7 @@ function Invoke-InstallerHubMode {
   $freshWindow = Find-Window -TimeoutSec 1
   $window = if ($freshWindow) { $freshWindow } else { Find-Window -TimeoutSec 90 }
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
-  if (-not (Resize-WindowForEvidence -Process $process -Width 980 -Height 700)) { throw 'No se pudo ajustar el Installer Hub al mínimo documentado de 980x700 antes de la primera captura.' }
-  $window = Find-Window -TimeoutSec 10
+  if (-not (Resize-WindowForEvidence -Window $window -Width 980 -Height 700)) { throw 'No se pudo ajustar la ventana visible del Installer Hub al mínimo documentado de 980x700 antes de la primera captura.' }
   Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
 
   if ($Mode -eq 'install') {
@@ -945,16 +948,18 @@ function Invoke-InstallerHubMode {
   $operationStartedAt = Get-Date
   Invoke-Control -Element $startButton
   Start-Sleep -Seconds 2
-  if (-not (Resize-WindowForEvidence -Process $process -Width 980 -Height 700)) { throw 'No se pudo mantener el Installer Hub al mínimo documentado de 980x700 para su captura.' }
+  if (-not (Resize-WindowForEvidence -Window $window -Width 980 -Height 700)) { throw 'No se pudo mantener la ventana visible del Installer Hub al mínimo documentado de 980x700 para su captura.' }
   Start-Sleep -Milliseconds 300
   $window = Find-Window -TimeoutSec 10
+  if (-not $window -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Width) - 980) -gt 1 -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Height) - 700) -gt 1) { throw 'La ventana visible del Installer Hub cambió de tamaño después del ajuste; se rechaza la captura.' }
   Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-solicitud-980x700" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $state = Wait-InstallerStableState -Window $window -Mode $Mode -OperationStartedAt $operationStartedAt -TimeoutMinutes 25
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
-  if (-not (Resize-WindowForEvidence -Process $process -Width 980 -Height 700)) { throw 'No se pudo mantener el Installer Hub al mínimo documentado de 980x700 para la captura del resultado.' }
+  if (-not (Resize-WindowForEvidence -Window $window -Width 980 -Height 700)) { throw 'No se pudo mantener la ventana visible del Installer Hub al mínimo documentado de 980x700 para la captura del resultado.' }
   $window = Find-Window -TimeoutSec 10
+  if (-not $window -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Width) - 980) -gt 1 -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Height) - 700) -gt 1) { throw 'La ventana visible del Installer Hub cambió de tamaño después del ajuste; se rechaza la captura del resultado.' }
   Capture-Window -Window $window -Name ("wpf-{0}-05-resultado" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $stateTimedOut = $state.PSObject.Properties.Match('timeout').Count -gt 0 -and [bool]$state.timeout
   Add-Result -Area $Mode -Item 'final-state' -Ok ([bool]$state.ok) -Detail $(if ($stateTimedOut) { 'timeout esperando estado final' } else { 'estado final detectado' })
