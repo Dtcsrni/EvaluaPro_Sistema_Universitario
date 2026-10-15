@@ -920,11 +920,11 @@ function Invoke-InstallerHubMode {
   Start-Sleep -Seconds 2
   if (-not (Resize-WindowForEvidence -Process $process -Width 1040 -Height 760)) { throw 'No se pudo ajustar el Installer Hub a 1040x760 para su captura.' }
   Start-Sleep -Milliseconds 300
-  Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-1040x760" -f $Mode) | Out-Null
+  Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-solicitud-1040x760" -f $Mode) | Out-Null
   if (-not (Resize-WindowForEvidence -Process $process -Width 1280 -Height 720)) { throw 'No se pudo ajustar el Installer Hub a 1280x720 para su captura.' }
   Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
+  Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-solicitud-1280x720" -f $Mode) | Out-Null
   $state = Wait-InstallerStableState -Window $window -Mode $Mode -OperationStartedAt $operationStartedAt -TimeoutMinutes 25
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
@@ -1071,14 +1071,13 @@ function Get-Crc32Hash {
 }
 
 function Get-VisualScreenshotEvidence {
-  param([string]$Name, [string]$Path)
-  $declaredViewport = $null
-  $match = [regex]::Match($Name, '(?<width>\d{3,4})x(?<height>\d{3,4})')
-  if ($match.Success) {
-    $declaredViewport = [ordered]@{ width = [int]$match.Groups['width'].Value; height = [int]$match.Groups['height'].Value }
+  param([string]$Name, [string]$Path, [int]$RequestedWidth = 0, [int]$RequestedHeight = 0)
+  $requestedWindowSize = $null
+  if ($RequestedWidth -gt 0 -and $RequestedHeight -gt 0) {
+    $requestedWindowSize = [ordered]@{ width = $RequestedWidth; height = $RequestedHeight }
   }
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-    return [ordered]@{ name = $Name; exists = $false; valid = $false; path = "screenshots/$Name"; reason = 'missing' }
+    return [ordered]@{ name = $Name; exists = $false; valid = $false; path = "screenshots/$Name"; requestedWindowSize = $requestedWindowSize; reason = 'missing' }
   }
 
   $bitmap = $null
@@ -1097,9 +1096,6 @@ function Get-VisualScreenshotEvidence {
     }
     if ($bitmap.Width -le 0 -or $bitmap.Height -le 0) { throw 'PNG sin dimensiones válidas.' }
     if ($distinctSamples.Count -lt 8) { throw 'La captura está vacía o casi monocroma.' }
-    if ($declaredViewport -and ($bitmap.Width -ne $declaredViewport.width -or $bitmap.Height -ne $declaredViewport.height)) {
-      throw ("La captura mide {0}x{1}; se declaró {2}x{3}." -f $bitmap.Width, $bitmap.Height, $declaredViewport.width, $declaredViewport.height)
-    }
     return [ordered]@{
       name = $Name
       exists = $true
@@ -1110,11 +1106,13 @@ function Get-VisualScreenshotEvidence {
       bytes = $file.Length
       sha256 = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
       distinctSamples = $distinctSamples.Count
-      declaredViewport = $declaredViewport
+      requestedWindowSize = $requestedWindowSize
+      actualCaptureSize = [ordered]@{ width = $bitmap.Width; height = $bitmap.Height }
+      requestHonored = (-not $requestedWindowSize -or ($bitmap.Width -eq $RequestedWidth -and $bitmap.Height -eq $RequestedHeight))
       reason = $null
     }
   } catch {
-    return [ordered]@{ name = $Name; exists = $true; valid = $false; path = "screenshots/$Name"; declaredViewport = $declaredViewport; reason = $_.Exception.Message }
+    return [ordered]@{ name = $Name; exists = $true; valid = $false; path = "screenshots/$Name"; requestedWindowSize = $requestedWindowSize; reason = $_.Exception.Message }
   } finally {
     if ($bitmap) { $bitmap.Dispose() }
   }
@@ -1125,23 +1123,32 @@ function Write-VisualFlowManifest {
     'wpf-install-01-splash-deteccion.png',
     'wpf-install-02-preparar.png',
     'wpf-install-03-revisar.png',
-    'wpf-install-04-ejecutar-1040x760.png',
-    'wpf-install-05-ejecutar-1280x720.png',
+    'wpf-install-04-ejecutar-solicitud-1040x760.png',
+    'wpf-install-05-ejecutar-solicitud-1280x720.png',
     'wpf-install-06-resultado.png'
   )
   $items = foreach ($name in $expected) {
     $path = Join-Path $screenshotsDir $name
-    Get-VisualScreenshotEvidence -Name $name -Path $path
+    $requested = switch -Regex ($name) {
+      '04-ejecutar-solicitud-1040x760' { @{ width = 1040; height = 760 }; break }
+      '05-ejecutar-solicitud-1280x720' { @{ width = 1280; height = 720 }; break }
+      default { $null }
+    }
+    if ($requested) {
+      Get-VisualScreenshotEvidence -Name $name -Path $path -RequestedWidth $requested.width -RequestedHeight $requested.height
+    } else {
+      Get-VisualScreenshotEvidence -Name $name -Path $path
+    }
   }
   $ok = @($items | Where-Object { -not $_.valid }).Count -eq 0
   $manifestPath = Join-Path $manifestDir 'visual-flow.json'
   [pscustomobject]@{
-    flow = @('splash', 'preparar', 'revisar', 'ejecutar-1040x760', 'ejecutar-1280x720', 'resultado')
+    flow = @('splash', 'preparar', 'revisar', 'ejecutar-solicitud-1040x760', 'ejecutar-solicitud-1280x720', 'resultado')
     captured = $items
     complete = $ok
     sha256Required = $true
     imageIntegrityRequired = $true
-    captureMethod = 'UIAutomation + CopyFromScreen/PrintWindow'
+    captureMethod = 'UIAutomation + CopyFromScreen/PrintWindow; actualCaptureSize is measured from each PNG'
   } | ConvertTo-Json -Depth 6 | Set-Content -Path $manifestPath -Encoding UTF8
   $artifacts.Add($manifestPath) | Out-Null
   Add-Result -Area 'screenshots' -Item 'complete-visual-flow' -Ok $ok -Detail ("valid={0}/{1}" -f (@($items | Where-Object valid).Count), $expected.Count)

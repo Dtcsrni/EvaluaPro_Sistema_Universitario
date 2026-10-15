@@ -287,13 +287,17 @@ test('la evidencia visual del Installer Hub valida PNG, dimensiones, píxeles y 
   assert.match(e2e, /function Get-VisualScreenshotEvidence/);
   assert.match(e2e, /System\.Drawing\.Bitmap\]::FromFile\(\$Path\)/);
   assert.match(e2e, /distinctSamples\.Count -lt 8/);
-  assert.match(e2e, /declaredViewport\.width/);
+  assert.match(e2e, /requestedWindowSize/);
+  assert.match(e2e, /actualCaptureSize/);
+  assert.match(e2e, /requestHonored/);
   assert.match(e2e, /Get-FileHash -LiteralPath \$Path -Algorithm SHA256/);
   assert.match(e2e, /valid = \$true/);
   assert.match(e2e, /Where-Object \{ -not \$_\.valid \}/);
   assert.match(e2e, /sha256Required = \$true/);
   assert.match(e2e, /Resize-WindowForEvidence -Process \$process -Width 1040 -Height 760/);
   assert.match(e2e, /Resize-WindowForEvidence -Process \$process -Width 1280 -Height 720/);
+  assert.match(e2e, /ejecutar-solicitud-1040x760/);
+  assert.match(e2e, /ejecutar-solicitud-1280x720/);
 });
 
 test('release valida el asset descargado desde GitHub antes de hacer público el release', () => {

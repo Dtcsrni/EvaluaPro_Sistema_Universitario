@@ -103,11 +103,19 @@ test('dashboard repair endpoints expose status, run lock and progress', { timeou
   }
   assert.ok(port > 0, 'Dashboard no respondió en tiempo');
 
-  const dashboardStatusRes = await fetch(`http://127.0.0.1:${port}/api/status`);
+  const statusStartedAt = Date.now();
+  const dashboardStatusRes = await fetch(`http://127.0.0.1:${port}/api/status`, {
+    signal: AbortSignal.timeout(5_000)
+  });
+  const statusDurationMs = Date.now() - statusStartedAt;
   assert.equal(dashboardStatusRes.status, 200);
+  assert.ok(statusDurationMs < 5_000, `/api/status tardó ${statusDurationMs} ms`);
   const dashboardStatus = await dashboardStatusRes.json();
   assert.ok(Array.isArray(dashboardStatus.managedTasks));
   assert.ok(Array.isArray(dashboardStatus.running));
+  const dashboardSource = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+  assert.match(dashboardSource, /npm:\s*safeExecFast\('npm -v', 'No detectado'\)/);
+  assert.match(dashboardSource, /const compose = requiresDockerRuntime\(manifest\)\s*\?\s*readComposeSnapshot\(\)/);
 
   const healthRes = await fetch(`http://127.0.0.1:${port}/api/health`);
   assert.equal(healthRes.status, 200);
