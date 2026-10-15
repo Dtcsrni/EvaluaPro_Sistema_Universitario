@@ -32,6 +32,9 @@ test('todos los flujos Installer Hub generan reportes bajo el perfil y publican 
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*Join-Path \$env:RUNNER_TEMP/);
   assert.equal((workflow.match(/id: preparar_reporte_e2e/g) ?? []).length, 3, 'cada flujo calcula una ruta privada una sola vez');
   assert.equal((workflow.match(/E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/g) ?? []).length, 3, 'cada runner consume el output de ruta preparado');
+  const evidenceUploads = workflow.match(/- name: Publicar evidencia[^\n]*\n\s+if: ([^\n]*)\n\s+uses: actions\/upload-artifact[^\n]*\n\s+with:\n\s+name: installer-hub-[^\n]*\n\s+path: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}\//g) ?? [];
+  assert.equal(evidenceUploads.length, 3, 'los tres flujos conservan su upload de evidencia');
+  assert.ok(evidenceUploads.every((block) => block.includes("steps.preparar_reporte_e2e.outputs.report_dir != ''")), 'nunca se pasa una ruta vacía al uploader de artefactos');
   assert.match(e2e, /Import-Module -Name \$reportDirectoryModule -Force -ErrorAction Stop/);
   assert.doesNotMatch(e2e, /Import-Module -LiteralPath/);
   assert.match(e2e, /Initialize-InstallerHubE2EReportDirectory -Path \$ReportDir/);
@@ -87,6 +90,18 @@ test('runner E2E recupera ExitCode del handle de Windows y falla si sigue siendo
   assert.match(e2e, /handle nativo del proceso no estuvo disponible antes de esperar su finalización/);
   assert.match(e2e, /No se pudo determinar ExitCode de \$Name mediante GetExitCodeProcess/);
   assert.doesNotMatch(e2e, /Falling back to 0 \(Success\)/);
+});
+
+test('el estado del App Host se inicializa antes de las lecturas y permite limpieza sin instancia', () => {
+  const strictMode = e2e.indexOf('Set-StrictMode -Version Latest');
+  const initialization = e2e.indexOf('$script:activeNativeAppHost = $null', strictMode);
+  const firstRead = e2e.indexOf('if ($script:activeNativeAppHost)');
+  const cleanupRead = e2e.indexOf('if ($script:activeNativeAppHost)', firstRead + 1);
+
+  assert.ok(strictMode >= 0 && initialization > strictMode, 'el estado se define con StrictMode activo');
+  assert.ok(firstRead > initialization && cleanupRead > firstRead, 'ninguna ruta lee el estado antes de inicializarlo');
+  assert.match(e2e, /if \(-not \$identity\) \{\s*Add-Result -Area 'native-app-host' -Item \$Action -Ok \$true -Detail "no E2E-owned host was active/);
+  assert.match(e2e, /if \(\$script:activeNativeAppHost\) \{\s*try \{\s*Invoke-InstalledAppHost -Action 'stop-all' -RunId 'finally-cleanup'/);
 });
 
 test('baseline legado valida version ARP sin InstallLocation solo con una entrada y payload aislado', () => {

@@ -369,7 +369,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publicar evidencia de la E2E completa
-        if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+        if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-hub-e2e-${{ github.run_id }}
@@ -670,7 +670,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publicar evidencia E2E del asset descargado
-        if: always()
+        if: always() && steps.preparar_reporte_e2e.outputs.report_dir != ''
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-hub-published-e2e-${{ github.run_id }}
@@ -865,7 +865,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publicar evidencia E2E del release público
-        if: always()
+        if: always() && steps.preparar_reporte_e2e.outputs.report_dir != ''
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-hub-public-e2e-${{ github.run_id }}
