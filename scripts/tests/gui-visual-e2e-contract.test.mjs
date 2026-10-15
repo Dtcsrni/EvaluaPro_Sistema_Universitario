@@ -29,14 +29,26 @@ test('todos los recorridos GUI principales instrumentan cada screenshot con audi
   assert.match(fixture, /testInfo\.attach/);
 });
 
+test('la vista de resultados del alumno conserva sus aserciones UX activas antes de capturar', () => {
+  const alumno = read('tests/gui-responsive/responsive-alumno.spec.ts');
+  assert.match(alumno, /heading', \{ name: \/Resultados disponibles\/i \}\)\)\.toBeVisible\(\)/);
+  assert.match(alumno, /await assertNoHorizontalOverflow\(page, `Alumno resultados \$\{viewport\.name\}`\)/);
+  assert.match(alumno, /await assertInteractiveControlsAreNamed\(page, `Alumno resultados \$\{viewport\.name\}`\)/);
+  assert.doesNotMatch(alumno, /\/\/\s*await assertNoHorizontalOverflow\(page, `Alumno resultados/);
+  assert.doesNotMatch(alumno, /\/\/\s*await assertInteractiveControlsAreUsable\(page, `Alumno resultados/);
+});
+
 test('los recorridos de banco/reactivos y PDF producen evidencia visual inspeccionable', () => {
   const bank = read('tests/gui-responsive/banco-reactivos.spec.ts');
   assert.match(bank, /banco-reactivos-importar\.png/);
   assert.match(bank, /banco-reactivos-publicado\.png/);
   const pdf = read('tests/gui-responsive/plantillas-pdf-edge.spec.ts');
   assert.match(pdf, /pdf-descarga-disponible\.png/);
+  assert.match(pdf, /iframe title="Vista previa del PDF" src="\/visualizacion\.pdf"/);
+  assert.match(pdf, /respuestaInlinePromise = page\.waitForResponse/);
+  assert.match(pdf, /content-disposition'\]\)\.toContain\('inline'\)/);
+  assert.match(pdf, /await expect\(page\.getByTitle\('Vista previa del PDF'\)\)\.toBeVisible\(\)/);
   assert.match(pdf, /await expect\(enlaceDescarga\)\.toBeVisible\(\)/);
-  assert.match(pdf, /application\/pdf/);
   assert.match(pdf, /PDFDocument\.load\(bytesDescargados\)/);
 });
 

@@ -19,7 +19,7 @@ test('Edge visualiza y descarga intacto un PDF sintético de lote', async ({ pag
       await route.fulfill({
         status: 200,
         contentType: 'text/html',
-        body: '<main><h1>PDF de prueba del lote</h1><p>Documento sintético para validar vista y descarga.</p><a href="/descarga.pdf">Descargar PDF QA</a></main>'
+        body: '<main><h1>PDF de prueba del lote</h1><p>Documento sintético para validar vista y descarga.</p><section aria-labelledby="vista-pdf-titulo"><h2 id="vista-pdf-titulo">Vista previa del documento</h2><iframe title="Vista previa del PDF" src="/visualizacion.pdf" width="100%" height="640"></iframe></section><a href="/descarga.pdf">Descargar PDF QA</a></main>'
       });
       return;
     }
@@ -35,14 +35,21 @@ test('Edge visualiza y descarga intacto un PDF sintético de lote', async ({ pag
     });
   });
 
+  const respuestaInlinePromise = page.waitForResponse((response) =>
+    response.url().endsWith('/visualizacion.pdf') && response.headers()['content-type']?.includes('application/pdf') === true
+  );
   await page.goto('http://evaluapro-pdf-qa.test/');
   await expect(page.getByRole('heading', { name: 'PDF de prueba del lote' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Vista previa del documento' })).toBeVisible();
+  const respuestaInline = await respuestaInlinePromise;
+  expect(respuestaInline.status()).toBe(200);
+  expect(respuestaInline.headers()['content-disposition']).toContain('inline');
+  expect(respuestaInline.headers()['x-evaluapro-pdf-sha256']).toBe(sha256);
+  await expect(page.getByTitle('Vista previa del PDF')).toBeVisible();
+  await expect(page.getByTitle('Vista previa del PDF')).toHaveAttribute('src', '/visualizacion.pdf');
   const enlaceDescarga = page.getByRole('link', { name: 'Descargar PDF QA' });
   await expect(enlaceDescarga).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('pdf-descarga-disponible.png'), fullPage: true });
-  const respuestaPdf = await page.request.get('http://evaluapro-pdf-qa.test/visualizacion.pdf');
-  expect(respuestaPdf.status()).toBe(200);
-  expect(respuestaPdf.headers()['content-type']).toContain('application/pdf');
   const descargaPromise = page.waitForEvent('download');
   await enlaceDescarga.click();
   const descarga = await descargaPromise;

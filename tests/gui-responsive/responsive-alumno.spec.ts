@@ -181,11 +181,12 @@ test.describe('GUI responsive e2e · alumno', () => {
       await page.evaluate(() => localStorage.setItem('tokenAlumno', 'token-alumno-e2e'));
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.getByRole('button', { name: /Recargar/i }).click();
+      await expect(page.getByRole('heading', { name: /Resultados disponibles/i })).toBeVisible();
       await expect(page.getByText(/Folio F-001/i)).toBeVisible();
       await expect(page.getByText(/1 folio/i)).toBeVisible();
 
-      // await assertNoHorizontalOverflow(page, `Alumno resultados ${viewport.name}`);
-      // await assertInteractiveControlsAreUsable(page, `Alumno resultados ${viewport.name}`);
+      await assertNoHorizontalOverflow(page, `Alumno resultados ${viewport.name}`);
+      await assertInteractiveControlsAreNamed(page, `Alumno resultados ${viewport.name}`);
       if (viewport.name === 'desktop-lg' || viewport.name === 'mobile') {
         await captureEvidence(page, 'resultados', viewport.name);
       }

@@ -159,7 +159,16 @@ try {
       page.screenshot({ path: failurePath, fullPage: false }),
       fs.writeFile(diagnosticsPath, `${JSON.stringify(diagnostics, null, 2)}\n`, 'utf8')
     ]);
-    throw new Error(`Falló la validación visual docente: ${diagnostics.error}; evidencia diagnóstica: ${failurePath} y ${diagnosticsPath}`);
+    const summary = {
+      responseStatus: diagnostics.responseStatus,
+      page: diagnostics.page,
+      layout: diagnostics.layout,
+      consoleErrors: diagnostics.consoleErrors,
+      pageErrors: diagnostics.pageErrors,
+      failedRequests: diagnostics.failedRequests,
+      httpErrors: diagnostics.httpErrors
+    };
+    throw new Error(`Falló la validación visual docente: ${diagnostics.error}; estado=${JSON.stringify(summary)}; evidencia diagnóstica: ${failurePath} y ${diagnosticsPath}`);
   }
 } finally {
   await browser.close();

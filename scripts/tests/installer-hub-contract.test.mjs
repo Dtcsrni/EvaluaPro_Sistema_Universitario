@@ -950,7 +950,7 @@ test('E2E docente exige elevación solo para el destino per-machine real', () =>
   assert.match(runner, /targetMachineInstall=\{0\}/);
 });
 
-test('captura web del Installer Hub espera el contenido docente y no acepta el fallback de carga', () => {
+test('captura web del Installer Hub valida UX y conserva diagnóstico de pantalla ante fallo', () => {
   const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
   const capture = fs.readFileSync(path.join(root, 'scripts', 'tests', 'capture-installer-web.mjs'), 'utf8');
 
@@ -966,6 +966,7 @@ test('captura web del Installer Hub espera el contenido docente y no acepta el f
   assert.match(capture, /\.failure\.png/);
   assert.match(capture, /\.failure\.json/);
   assert.match(capture, /diagnostics\.pageErrors/);
+  assert.match(capture, /estado=\$\{JSON\.stringify\(summary\)\}/);
 });
 
 test('E2E protege datos e instalaciones preexistentes y limpia solo su destino QA', () => {
