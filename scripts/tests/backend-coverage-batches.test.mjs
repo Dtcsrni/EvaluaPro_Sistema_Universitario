@@ -34,6 +34,15 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
     examFlowBatch.args.filter((arg) => arg.startsWith('tests/')),
     ['tests/integracion/flujoExamen.test.ts']
   );
+
+  const pdfLayoutBatch = plan.batches.find((batch) => batch.args.includes('tests/pdf.layout.visual.guard.test.ts'));
+  assert.ok(pdfLayoutBatch, 'falta la suite visual de PDF en el plan de cobertura');
+  assert.equal(pdfLayoutBatch.exclusive, true, 'la suite visual costosa debe correr sin otros lotes del scheduler');
+  assert.deepEqual(
+    pdfLayoutBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/pdf.layout.visual.guard.test.ts']
+  );
+  assert.ok(pdfLayoutBatch.args.includes('--maxWorkers=1'), 'la suite visual exclusiva no debe competir entre workers de Vitest');
 });
 
 test('scheduler ejecuta lotes exclusivos después de drenar los workers paralelos', async () => {

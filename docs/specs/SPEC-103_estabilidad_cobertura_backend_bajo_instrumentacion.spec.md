@@ -12,6 +12,8 @@ estado: approved
 
 La validación completa de 1.2.8 en CI Checks #1399, SHA `6097ebf477d5d3e17af37e3d922ad83d4ab3dbdf`, completó lint, tipado, pruebas backend normales, portal, contratos, frontend y seguridad. La ejecución normal aprobó los 11 casos de `tests/integracion/flujoExamen.test.ts` en 89.542 s; entre ellos, los tres que luego agotaron timeout tardaron 16.780 s, 14.379 s y 53.904 s. En cobertura instrumentada, `backend-integracion-n-z-03` agotó sus tres intentos: dos casos excedieron 60 s y uno 240 s. El intento final duró 548.91 s y terminó con 23/26 pruebas aprobadas. El runner organizó 57 lotes con concurrencia 3; `flujoExamen.test.ts` comparte lote con tres archivos, mientras otros lotes corren en paralelo. La diferencia entre la ejecución normal y la instrumentada apunta a una degradación de rendimiento bajo cobertura/concurrencia, pero no demuestra aún cuál de esos factores la causa ni descarta un problema propio de esos recorridos. El worktree actual no contiene Vitest, por lo que hace falta comparar el lote aislado con el plan actual y conservar duración por caso e intento. No se permite ocultar pruebas, bajar umbrales ni tratar un reintento como éxito estable.
 
+La corrida completa #38672717462, SHA `4641e17e92afe103d55c5643219f367ea39359c8`, identificó otro lote crítico: `backend-root-31` agrupó `tests/pdf.layout.visual.guard.test.ts` con dos suites PDF mientras corría con concurrencia global 3. El caso de capacidad/QR agotó 60 s en dos intentos; el mismo lote también tuvo un timeout de 900 s en un caso de layout y pasó en el tercer intento. El artefacto `backend-coverage-diagnostics` atribuye el rechazo a recuperación inestable, no a umbrales de cobertura. El siguiente candidato ejecutará la suite visual PDF como lote exclusivo, después de drenar los workers ordinarios y con un worker Vitest, conservando la suite completa y sus límites actuales.
+
 ## Requisitos Funcionales
 
 - **REQ-001:** La cobertura completa conservará todas las suites incluidas y todos los umbrales configurados; no añadirá exclusiones ni reemplazará ejecución completa por cobertura diferencial.
@@ -33,7 +35,7 @@ La validación completa de 1.2.8 en CI Checks #1399, SHA `6097ebf477d5d3e17af37e
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001, REQ-002, REQ-005 | Plan, concurrencia, barrera exclusiva y preservación de todas las suites | `scripts/tests/backend-coverage-batches.test.mjs` | En implementación |
+| REQ-001, REQ-002, REQ-005 | Plan, concurrencia, barrera exclusiva y preservación de todas las suites intensivas PDF e integración | `scripts/tests/backend-coverage-batches.test.mjs` | En implementación |
 | REQ-003, REQ-004 | Resumen por lote/intento, timeout y salida diagnóstica | `scripts/tests/backend-coverage-batches.test.mjs` | En implementación |
 | REQ-006 | Flujo de generación de examen con instrumentación | `apps/backend/tests/integracion/flujoExamen.test.ts`; `scripts/tests/backend-coverage-batches.test.mjs` | En implementación |
 

@@ -139,7 +139,7 @@ function listRootCoverageFiles() {
 }
 
 function buildRootCoverageBatches() {
-  const files = listRootCoverageFiles();
+  const files = listRootCoverageFiles().filter((file) => file !== 'tests/pdf.layout.visual.guard.test.ts');
   const batches = [];
   let index = 0;
   while (index < files.length) {
@@ -340,11 +340,22 @@ function chunkFiles(namePrefix, files, size = integrationChunkSize) {
 }
 
 function buildExclusiveCoverageBatches() {
-  return [{
-    name: 'backend-integracion-flujo-examen',
-    exclusive: true,
-    args: batchArgs('backend-integracion-flujo-examen', ['tests/integracion/flujoExamen.test.ts'])
-  }];
+  const pdfLayoutBatch = 'backend-root-pdf-layout';
+  return [
+    {
+      name: pdfLayoutBatch,
+      exclusive: true,
+      args: [
+        ...batchArgs(pdfLayoutBatch, ['tests/pdf.layout.visual.guard.test.ts']),
+        '--maxWorkers=1'
+      ]
+    },
+    {
+      name: 'backend-integracion-flujo-examen',
+      exclusive: true,
+      args: batchArgs('backend-integracion-flujo-examen', ['tests/integracion/flujoExamen.test.ts'])
+    }
+  ];
 }
 
 function buildCoveragePlan() {
