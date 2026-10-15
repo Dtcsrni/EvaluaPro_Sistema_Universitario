@@ -25,7 +25,9 @@ describe('SeccionClassroom: conexión y estado', () => {
     vi.clearAllMocks();
     confirmarMock.mockResolvedValue(true);
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
-      if (ruta === '/evaluaciones/v2/classroom/estado') return { estado: { conectado: true, correoGoogle: 'docente@example.test' } };
+      if (ruta === '/evaluaciones/v2/classroom/estado') return { estado: {
+        conectado: true, correoGoogle: 'docente@example.test', correoLogin: 'docente@example.test', identidadCoincidente: true
+      } };
       if (ruta === '/evaluaciones/v2/classroom/oauth/iniciar') return { url: 'https://accounts.google.com/authorize' };
       return {};
     });
@@ -51,13 +53,17 @@ describe('SeccionClassroom: conexión y estado', () => {
   it('inicia OAuth cuando está desconectada y permite volver a consultar el estado', async () => {
     let conectado = false;
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
-      if (ruta === '/evaluaciones/v2/classroom/estado') return { estado: { conectado } };
+      if (ruta === '/evaluaciones/v2/classroom/estado') return { estado: {
+        conectado, correoLogin: 'docente@example.test', identidadCoincidente: conectado
+      } };
       if (ruta === '/evaluaciones/v2/classroom/oauth/iniciar') return { url: 'https://accounts.google.com/authorize' };
       return {};
     });
     const abrir = vi.spyOn(window, 'open').mockImplementation(() => null);
     renderSeccion();
 
+    expect(await screen.findByText(/debe coincidir con el inicio de sesión de EvaluaPro: docente@example.test/)).toBeInTheDocument();
+    expect(screen.getByText(/Google sugerirá esa cuenta; EvaluaPro rechazará la autorización de otra identidad/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: 'Conectar Google Classroom' }));
     await waitFor(() => expect(abrir).toHaveBeenCalledWith('https://accounts.google.com/authorize', '_blank', 'noopener,noreferrer'));
     conectado = true;

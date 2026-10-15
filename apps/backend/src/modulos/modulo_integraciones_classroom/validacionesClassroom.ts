@@ -84,6 +84,11 @@ export const esquemaPreviewImportacionClassroom = z
 
 export const esquemaEjecutarImportacionClassroom = esquemaPreviewImportacionClassroom;
 
+export const esquemaIniciarJobImportacionClassroom = esquemaPreviewImportacionClassroom.extend({
+  clientRequestId: z.string().uuid(),
+  planHash: z.string().regex(/^[a-f0-9]{64}$/i)
+}).strict();
+
 export const esquemaImportarAlumnosClassroom = z
   .object({
     periodoId: esquemaObjectId,

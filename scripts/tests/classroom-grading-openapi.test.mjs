@@ -48,6 +48,19 @@ test('preview y confirmación de Classroom documentan la selección por parcial'
   assert.equal(activity.additionalProperties, false);
 });
 
+test('la importación durable documenta idempotencia, polling y aislamiento de job', () => {
+  const inicio = openapi.paths?.['/evaluaciones/v2/classroom/importaciones/jobs']?.post;
+  const consulta = openapi.paths?.['/evaluaciones/v2/classroom/importaciones/jobs/{jobId}']?.get;
+  assert.ok(inicio);
+  assert.ok(consulta);
+  assert.ok(inicio['x-evaluapro-permissions']?.includes('classroom:pull'));
+  assert.ok(inicio['x-evaluapro-validators']?.includes('esquemaIniciarJobImportacionClassroom'));
+  assert.ok(inicio.requestBody.content['application/json'].schema.required.includes('clientRequestId'));
+  assert.equal(inicio.responses['202'].description, 'Importación en cola o en ejecución');
+  assert.deepEqual(consulta.responses['200'].content['application/json'].schema, { $ref: '#/components/schemas/ClassroomImportJob' });
+  assert.deepEqual(openapi.components.schemas.ClassroomImportJob.properties.estado.enum, ['queued', 'running', 'succeeded', 'partial', 'failed']);
+});
+
 test('importación y vínculo de alumnos Classroom publican sus cuerpos estrictos', () => {
   const importar = openapi.paths?.['/evaluaciones/v2/classroom/cursos/{courseId}/importar-alumnos']?.post;
   assert.ok(importar);

@@ -1,0 +1,308 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-15T07-28-18.488Z",
+  "status": "final",
+  "generatedAt": "2026-10-15T07:28:18.488Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Continúa y cierra los pendientes de resiliencia de Classroom, manteniendo las listas académicas reales fuera de alcance."
+  },
+  "objective": "Dejar implementada y revisable la integración Classroom resiliente para el flujo local de Codex, documentar decisiones y cerrar el análisis de seguridad de la rama.",
+  "scope": [
+    "OAuth de Classroom enlazado a la identidad Google del docente",
+    "Transporte, reintentos, paginación, renovación y manejo de errores",
+    "Jobs durables e idempotencia de importación",
+    "API/OpenAPI/SDK, interfaz docente y flujos sintéticos de prueba",
+    "Personas, casos de uso, especificaciones, validación y handoff"
+  ],
+  "constraints": [
+    "No abrir, modificar ni cotejar listas académicas reales; solo fixtures sintéticos.",
+    "No acceder a Google Classroom real ni guardar/publicar notas.",
+    "Una identidad Google Classroom activa, vinculada al mismo googleSub del login EvaluaPro.",
+    "Sin commit, push, PR ni despliegue autorizados."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-10-15T07:28:18.488Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "apps/backend/src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/servicioJobsImportacionClassroom.ts",
+      "apps/frontend/src/apps/app_docente/ClassroomEnCalificaciones.tsx",
+      "scripts/api/evaluapro-client.mjs",
+      "docs/specs/SPEC-100_resiliencia_integracion_classroom.spec.md",
+      "docs/specs/SPEC-101_experiencia_classroom_personas_agentes.spec.md"
+    ],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/prisma/schema.prisma",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/src/configuracion.ts",
+      "apps/backend/src/index.ts",
+      "apps/backend/src/infraestructura/baseDatos/sqlite.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/controladorIntegracionesClassroom.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/validacionesClassroom.ts",
+      "apps/backend/tests/configuracion.entorno.test.ts",
+      "apps/backend/tests/integracion/classroom.pull.test.ts",
+      "apps/backend/tests/integracion/classroom.v2.test.ts",
+      "apps/backend/tests/integracion/rolesPermisos.test.ts",
+      "apps/backend/tests/servicioClassroomGoogle.test.ts",
+      "apps/backend/tests/utils/sqliteTestDatabase.ts",
+      "apps/frontend/src/apps/app_docente/ClassroomEnCalificaciones.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionClassroomSync.tsx",
+      "apps/frontend/src/servicios_api/clienteComun.ts",
+      "apps/frontend/tests/classroomEnCalificaciones.mapeoCortes.test.tsx",
+      "apps/frontend/tests/classroomEnCalificaciones.test.tsx",
+      "apps/frontend/tests/clienteComun.test.ts",
+      "apps/frontend/tests/seccionClassroom.test.tsx",
+      "docs/AUTO_ENV.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/specs/SPEC-085_reintentos-seguros-flujos-api.spec.md",
+      "reports/qa/latest/evaluaciones-e2e.json",
+      "reports/qa/latest/gui-admin-dashboard-desktop-lg.png",
+      "reports/qa/latest/gui-admin-dashboard-mobile.png",
+      "reports/qa/latest/gui-admin-tenants-desktop-lg.png",
+      "reports/qa/latest/gui-admin-tenants-mobile.png",
+      "reports/qa/latest/gui-alumno-login-desktop-lg.png",
+      "reports/qa/latest/gui-alumno-login-mobile.png",
+      "reports/qa/latest/gui-alumno-resultados-desktop-lg.png",
+      "reports/qa/latest/gui-alumno-resultados-mobile.png",
+      "reports/qa/latest/gui-docente-alumnos-desktop-lg.png",
+      "reports/qa/latest/gui-docente-alumnos-mobile.png",
+      "reports/qa/latest/gui-docente-banco-desktop-lg.png",
+      "reports/qa/latest/gui-docente-banco-mobile.png",
+      "reports/qa/latest/gui-docente-calificaciones-desktop-lg.png",
+      "reports/qa/latest/gui-docente-calificaciones-mobile.png",
+      "reports/qa/latest/gui-docente-cuenta-desktop-lg.png",
+      "reports/qa/latest/gui-docente-cuenta-mobile.png",
+      "reports/qa/latest/gui-docente-entrega-desktop-lg.png",
+      "reports/qa/latest/gui-docente-entrega-mobile.png",
+      "reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png",
+      "reports/qa/latest/gui-docente-evaluaciones-mobile.png",
+      "reports/qa/latest/gui-docente-login-desktop-lg.png",
+      "reports/qa/latest/gui-docente-login-mobile.png",
+      "reports/qa/latest/gui-docente-periodos-desktop-lg.png",
+      "reports/qa/latest/gui-docente-periodos-mobile.png",
+      "reports/qa/latest/gui-docente-plantillas-desktop-lg.png",
+      "reports/qa/latest/gui-docente-plantillas-mobile.png",
+      "reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png",
+      "reports/qa/latest/gui-docente-rehidratacion-mobile.png",
+      "reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png",
+      "reports/qa/latest/gui-docente-sincronizacion-mobile.png",
+      "scripts/api/CRUD_CATALOG.md",
+      "scripts/api/README.md",
+      "scripts/api/RESOURCE_LIFECYCLE.md",
+      "scripts/api/classroom-grading-openapi.mjs",
+      "scripts/api/evaluapro-client.mjs",
+      "scripts/api/openapi.json",
+      "scripts/tests/classroom-grading-openapi.test.mjs",
+      "scripts/tests/evaluapro-client.test.mjs",
+      "tests/gui-responsive/journey-docente-integral.spec.ts",
+      ".tmp/",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/planImportacionClassroom.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/servicioJobsImportacionClassroom.ts",
+      "docs/handoff/sesiones/2026-10-14/",
+      "docs/specs/SPEC-100_resiliencia_integracion_classroom.spec.md",
+      "docs/specs/SPEC-101_experiencia_classroom_personas_agentes.spec.md",
+      "reports/qa/latest/classroom-agent-e2e.json",
+      "tests/gui-responsive/classroom-importacion.spec.ts"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-10-15/sesion-2026-10-15T07-28-18.488Z.json",
+      "docs/handoff/sesiones/2026-10-15/sesion-2026-10-15T07-28-18.488Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1739,
+      "resultSummary": "✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.1208ms) | ✔ ext_funcionales usa el gate OMR canónico (0.7202ms) | ✔ ext_funcionales ejecuta PDF print y visual juntos (0.6641ms) | ✔ ext_funcionales conserva quality visual y journeys para UX (0.6314ms) | ... | npm notice run evaluapro@1.2.8 pipeline:contract:check | npm notice run node scripts/pipeline-contract-check.mjs",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1394,
+      "resultSummary": "[docs] ok | npm notice run evaluapro@1.2.8 docs:check | npm notice run node scripts/docs.mjs --check",
+      "timestamp": "2026-10-15T07:28:18.488Z"
+    }
+  ],
+  "decisions": [
+    "Codex en el checkout local es el agente principal; toda operación usa API autenticada con RBAC y aprobación humana para mutaciones.",
+    "Se implementaron transporte resiliente, renovación concurrente segura, trabajos durables, idempotencia, validaciones de plan y UI/API de importación.",
+    "Se corrigió el uso/reuso de refresh tokens cuando googleSub no coincide con el docente y se añadieron regresiones sintéticas.",
+    "El escaneo de seguridad encontró en su instantánea previa al arreglo un defecto medio de vínculo OAuth; el arreglo está presente en el working tree actual.",
+    "No se tocaron listas ni calificaciones reales."
+  ],
+  "assumptions": [
+    "El proveedor OAuth real y la cuenta del docente siguen pendientes de validación interactiva.",
+    "La suite global de cobertura anterior alcanzó timeout en pruebas OMR, aunque CI funcional y validaciones enfocadas pasaron.",
+    "El working tree contiene cambios locales sin commit."
+  ],
+  "risks": [
+    "El informe de seguridad corresponde a una instantánea anterior al arreglo googleSub; no debe interpretarse como fallo de la versión actual.",
+    "Cobertura del escaneo de seguridad parcial: sin OAuth real, sin datos de Google y con superficies iniciales que el workbench conservó como needs_follow_up.",
+    "La prueba de cobertura global quedó limitada por timeout del lote de pruebas OMR.",
+    "Las notas de handoff no sustituyen la validación del docente con su cuenta ni la revisión de cambios antes de integrar."
+  ],
+  "nextStep": "Cuando se autorice la validación externa, comprobar el callback y la renovación OAuth con la cuenta Google usada para iniciar sesión en EvaluaPro, sin consultar ni modificar listas reales; después revisar el diff de la rama antes de integrar.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\classroom-stability-worktree",
+    "branch": "codex/classroom-stability-20261014",
+    "commit": "4b716dc7",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/prisma/schema.prisma\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/src/configuracion.ts\n M apps/backend/src/index.ts\n M apps/backend/src/infraestructura/baseDatos/sqlite.ts\n M apps/backend/src/modulos/modulo_integraciones_classroom/controladorIntegracionesClassroom.ts\n M apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts\n M apps/backend/src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.ts\n M apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts\n M apps/backend/src/modulos/modulo_integraciones_classroom/validacionesClassroom.ts\n M apps/backend/tests/configuracion.entorno.test.ts\n M apps/backend/tests/integracion/classroom.pull.test.ts\n M apps/backend/tests/integracion/classroom.v2.test.ts\n M apps/backend/tests/integracion/rolesPermisos.test.ts\n M apps/backend/tests/servicioClassroomGoogle.test.ts\n M apps/backend/tests/utils/sqliteTestDatabase.ts\n M apps/frontend/src/apps/app_docente/ClassroomEnCalificaciones.tsx\n M apps/frontend/src/apps/app_docente/SeccionClassroomSync.tsx\n M apps/frontend/src/servicios_api/clienteComun.ts\n M apps/frontend/tests/classroomEnCalificaciones.mapeoCortes.test.tsx\n M apps/frontend/tests/classroomEnCalificaciones.test.tsx\n M apps/frontend/tests/clienteComun.test.ts\n M apps/frontend/tests/seccionClassroom.test.tsx\n M docs/AUTO_ENV.md\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/specs/SPEC-085_reintentos-seguros-flujos-api.spec.md\n M reports/qa/latest/evaluaciones-e2e.json\n M reports/qa/latest/gui-admin-dashboard-desktop-lg.png\n M reports/qa/latest/gui-admin-dashboard-mobile.png\n M reports/qa/latest/gui-admin-tenants-desktop-lg.png\n M reports/qa/latest/gui-admin-tenants-mobile.png\n M reports/qa/latest/gui-alumno-login-desktop-lg.png\n M reports/qa/latest/gui-alumno-login-mobile.png\n M reports/qa/latest/gui-alumno-resultados-desktop-lg.png\n M reports/qa/latest/gui-alumno-resultados-mobile.png\n M reports/qa/latest/gui-docente-alumnos-desktop-lg.png\n M reports/qa/latest/gui-docente-alumnos-mobile.png\n M reports/qa/latest/gui-docente-banco-desktop-lg.png\n M reports/qa/latest/gui-docente-banco-mobile.png\n M reports/qa/latest/gui-docente-calificaciones-desktop-lg.png\n M reports/qa/latest/gui-docente-calificaciones-mobile.png\n M reports/qa/latest/gui-docente-cuenta-desktop-lg.png\n M reports/qa/latest/gui-docente-cuenta-mobile.png\n M reports/qa/latest/gui-docente-entrega-desktop-lg.png\n M reports/qa/latest/gui-docente-entrega-mobile.png\n M reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png\n M reports/qa/latest/gui-docente-evaluaciones-mobile.png\n M reports/qa/latest/gui-docente-login-desktop-lg.png\n M reports/qa/latest/gui-docente-login-mobile.png\n M reports/qa/latest/gui-docente-periodos-desktop-lg.png\n M reports/qa/latest/gui-docente-periodos-mobile.png\n M reports/qa/latest/gui-docente-plantillas-desktop-lg.png\n M reports/qa/latest/gui-docente-plantillas-mobile.png\n M reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png\n M reports/qa/latest/gui-docente-rehidratacion-mobile.png\n M reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png\n M reports/qa/latest/gui-docente-sincronizacion-mobile.png\n M scripts/api/CRUD_CATALOG.md\n M scripts/api/README.md\n M scripts/api/RESOURCE_LIFECYCLE.md\n M scripts/api/classroom-grading-openapi.mjs\n M scripts/api/evaluapro-client.mjs\n M scripts/api/openapi.json\n M scripts/tests/classroom-grading-openapi.test.mjs\n M scripts/tests/evaluapro-client.test.mjs\n M tests/gui-responsive/journey-docente-integral.spec.ts\n?? .tmp/\n?? apps/backend/src/modulos/modulo_integraciones_classroom/planImportacionClassroom.ts\n?? apps/backend/src/modulos/modulo_integraciones_classroom/servicioJobsImportacionClassroom.ts\n?? docs/handoff/sesiones/2026-10-14/\n?? docs/specs/SPEC-100_resiliencia_integracion_classroom.spec.md\n?? docs/specs/SPEC-101_experiencia_classroom_personas_agentes.spec.md\n?? reports/qa/latest/classroom-agent-e2e.json\n?? tests/gui-responsive/classroom-importacion.spec.ts"
+  },
+  "parentSessionId": "sesion-2026-10-14T18-46-05.000Z"
+}

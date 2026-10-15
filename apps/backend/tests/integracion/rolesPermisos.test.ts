@@ -183,7 +183,7 @@ describe('roles y permisos', () => {
       .get('/api/integraciones/classroom/oauth/iniciar')
       .set(authDocente)
       .expect((res) => {
-        expect([200, 503]).toContain(res.status);
+        expect([200, 409, 503]).toContain(res.status);
       });
 
     await request(app).get('/api/integraciones/classroom/oauth/iniciar').set(authLector).expect(403);

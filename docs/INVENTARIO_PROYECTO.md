@@ -1,15 +1,18 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de actualización del resumen: 2026-10-10
-Versión fuente en `main`: `1.2.6` (`config/app-version.json`)
+Fecha de actualización del resumen: 2026-10-15
+Versión fuente de la rama de trabajo: `1.2.8` (`config/app-version.json`)
 Release pública observada: `v1.2.5` en GitHub Releases/latest al 2026-10-08
 Release `v1.2.6`: borrador, no descarga pública
 Versión instalada: debe comprobarse en el equipo; no inferirla desde este inventario.
 
-## Resumen actual 2026-10-10
+## Resumen actual 2026-10-15
 - El alcance de distribución considerado es `docente-local` para Windows.
 - El README y las guías principales enlazan la release pública, instalación y respaldos; el manual de usuario fue retirado del contenido vigente.
 - Los detalles de capacidades, dependencias y módulos deben confirmarse en el código y los contratos correspondientes; este inventario también conserva cortes históricos.
+- La rama `codex/classroom-stability-20261014` incorpora una candidata de integración Classroom resiliente: OAuth ligado al `googleSub` del login docente, lecturas con límites de red/paginación y jobs pull-only idempotentes para importar evidencia local.
+- La candidata expone el mismo job desde la GUI y la API autenticada, con preview ligado a `planHash`, recuperación por `jobId`, estados parciales y operaciones disponibles para el flujo agente de Codex.
+- La evidencia GUI automatizada usa Classroom simulado; no acredita OAuth, curso ni permisos de una cuenta Google real. No se modificaron listas académicas reales ni se publicaron calificaciones en Classroom.
 
 ## Registro histórico 2026-09-03
 - **Purga de legado OMR/PDF:** retirados OMR V1, TV3, renderer HTML/fallback anterior,

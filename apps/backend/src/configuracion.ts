@@ -90,6 +90,16 @@ const googleOauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? '';
 const googleClassroomClientId = process.env.GOOGLE_CLASSROOM_CLIENT_ID ?? '';
 const googleClassroomClientSecret = process.env.GOOGLE_CLASSROOM_CLIENT_SECRET ?? '';
 const googleClassroomRedirectUri = process.env.GOOGLE_CLASSROOM_REDIRECT_URI ?? '';
+const classroomRequestTimeoutMs = Math.floor(parsearNumeroSeguro(
+  process.env.CLASSROOM_REQUEST_TIMEOUT_MS,
+  15_000,
+  { min: 1_000, max: 60_000 }
+));
+const classroomMaxPages = Math.floor(parsearNumeroSeguro(
+  process.env.CLASSROOM_MAX_PAGES,
+  100,
+  { min: 1, max: 1_000 }
+));
 const classroomTokenCipherKey = process.env.CLASSROOM_TOKEN_CIPHER_KEY ?? '';
 const classroomEnabledRaw = String(process.env.CLASSROOM_ENABLED ?? '').trim();
 const classroomEnabled = classroomEnabledRaw
@@ -239,6 +249,8 @@ export const configuracion = {
   googleClassroomClientId,
   googleClassroomClientSecret,
   googleClassroomRedirectUri,
+  classroomRequestTimeoutMs,
+  classroomMaxPages,
   classroomTokenCipherKey,
   classroomEnabled,
   requireGoogleOAuth,

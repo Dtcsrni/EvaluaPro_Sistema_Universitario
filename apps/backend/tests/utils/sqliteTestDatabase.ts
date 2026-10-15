@@ -106,6 +106,7 @@ export async function limpiarSqliteTest() {
       'mapeos_classroom_alumno_curso',
       'historial_classroom_cortes',
       'historial_classroom_entregas',
+      'classroom_import_jobs',
       'bitacora_sync_classroom',
       'integraciones_classroom',
       'solicitudes_dsr',

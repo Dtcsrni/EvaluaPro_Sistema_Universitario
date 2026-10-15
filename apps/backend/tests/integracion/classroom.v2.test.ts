@@ -611,4 +611,118 @@ describe('classroom v2', () => {
       })
       .expect(500); // Si obtenerToken falla fuera del try-catch de actividades, arroja error global
   });
+
+  it('ejecuta importación durable, deduplica por clientRequestId y limita el job a su docente', async () => {
+    const { docente, periodo, alumno1, auth } = await crearContexto();
+    vi.mocked(obtenerTokenAccesoClassroom).mockResolvedValue('token-mock');
+    vi.mocked(classroomGet).mockImplementation(async (_token, path) => {
+      if (String(path) === 'courses/course-1') return { id: 'course-1', name: 'Programación' };
+      if (String(path).includes('/students')) {
+        return { students: [{ userId: 'user-1', profile: { emailAddress: 'uno@classroom.test', name: { fullName: 'Alumno Uno' } } }] };
+      }
+      if (String(path).includes('/studentSubmissions')) {
+        return { studentSubmissions: [{ id: 'submission-job', userId: 'user-1', assignedGrade: 80, state: 'RETURNED' }] };
+      }
+      return { id: 'cw-1', title: 'Actividad durable', maxPoints: 100, state: 'PUBLISHED' };
+    });
+
+    const previsualizacion = await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/preview')
+      .set(auth)
+      .send({
+        periodoId: String(periodo._id),
+        actividades: [{ courseId: 'course-1', courseWorkId: 'cw-1', tituloEvidencia: 'Actividad durable', corte: 1, destinoColumna: 'Excluir' }]
+      })
+      .expect(200);
+    expect(previsualizacion.body.planHash).toMatch(/^[a-f0-9]{64}$/);
+    const payload = {
+      periodoId: String(periodo._id),
+      actividades: [{ courseId: 'course-1', courseWorkId: 'cw-1', tituloEvidencia: 'Actividad durable', corte: 1, destinoColumna: 'Excluir' }],
+      planHash: previsualizacion.body.planHash,
+      clientRequestId: 'd9736874-2790-47c0-9c64-8893af59ea86'
+    };
+    const iniciado = await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/jobs')
+      .set(auth)
+      .send(payload)
+      .expect(202);
+    expect(iniciado.body).toEqual(expect.objectContaining({ jobId: expect.any(String), estado: expect.stringMatching(/queued|running|succeeded/), total: 1 }));
+    const repetido = await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/jobs')
+      .set(auth)
+      .send(payload)
+      .expect((response) => expect([200, 202]).toContain(response.status));
+    expect(repetido.body.jobId).toBe(iniciado.body.jobId);
+    expect(repetido.body.reutilizado).toBe(true);
+    await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/jobs')
+      .set(auth)
+      .send({ ...payload, limiteSubmissions: 50 })
+      .expect(409);
+
+    let estadoFinal: any;
+    for (let intento = 0; intento < 100; intento += 1) {
+      const respuesta = await request(app)
+        .get(`/api/evaluaciones/v2/classroom/importaciones/jobs/${encodeURIComponent(iniciado.body.jobId)}`)
+        .set(auth)
+        .expect(200);
+      estadoFinal = respuesta.body;
+      if (['succeeded', 'partial', 'failed'].includes(estadoFinal.estado)) break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(estadoFinal.estado).toBe('succeeded');
+    expect(estadoFinal.resultado.importacionId).toBe(iniciado.body.jobId);
+    expect(JSON.stringify(estadoFinal)).not.toContain('uno@classroom.test');
+    expect(await prisma.classroomImportJob.count({ where: { docenteId: String(docente._id) } })).toBe(1);
+    expect(await EvidenciaEvaluacion.countDocuments({ docenteId: docente._id, periodoId: periodo._id, alumnoId: alumno1._id })).toBeGreaterThanOrEqual(1);
+
+    const otroDocente = await Docente.create({
+      _id: '507f1f77bcf86cd799439929', nombreCompleto: 'Otro docente', correo: 'otro@test.com', roles: ['docente'], activo: true
+    });
+    const tokenOtro = crearTokenDocente({ docenteId: String(otroDocente._id), roles: ['docente'] });
+    await request(app)
+      .get(`/api/evaluaciones/v2/classroom/importaciones/jobs/${encodeURIComponent(iniciado.body.jobId)}`)
+      .set({ Authorization: `Bearer ${tokenOtro}` })
+      .expect(404);
+  });
+
+  it('rechaza el job sin escribir cuando Classroom cambió después del preview aprobado', async () => {
+    const { docente, periodo, alumno1, auth } = await crearContexto();
+    let assignedGrade = 80;
+    vi.mocked(obtenerTokenAccesoClassroom).mockResolvedValue('token-mock');
+    vi.mocked(classroomGet).mockImplementation(async (_token, path) => {
+      if (String(path) === 'courses/course-1') return { id: 'course-1', name: 'Programación' };
+      if (String(path).includes('/students')) {
+        return { students: [{ userId: 'user-1', profile: { emailAddress: 'uno@classroom.test', name: { fullName: 'Alumno Uno' } } }] };
+      }
+      if (String(path).includes('/studentSubmissions')) {
+        return { studentSubmissions: [{ id: 'submission-plan', userId: 'user-1', assignedGrade, state: 'RETURNED' }] };
+      }
+      return { id: 'cw-1', title: 'Actividad plan', maxPoints: 100, state: 'PUBLISHED' };
+    });
+    const plan = {
+      periodoId: String(periodo._id),
+      actividades: [{ courseId: 'course-1', courseWorkId: 'cw-1', corte: 1, destinoColumna: 'Excluir' }]
+    };
+    const preview = await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/preview')
+      .set(auth).send(plan).expect(200);
+    assignedGrade = 70;
+    const started = await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/jobs')
+      .set(auth)
+      .send({ ...plan, planHash: preview.body.planHash, clientRequestId: 'd9736874-2790-47c0-9c64-8893af59ea87' })
+      .expect(202);
+    let status: any;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      status = (await request(app)
+        .get(`/api/evaluaciones/v2/classroom/importaciones/jobs/${started.body.jobId}`)
+        .set(auth).expect(200)).body;
+      if (['succeeded', 'partial', 'failed'].includes(status.estado)) break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(status.estado).toBe('failed');
+    expect(status.error).toMatch(/cambiaron desde la vista previa/);
+    expect(await EvidenciaEvaluacion.countDocuments({ docenteId: docente._id, periodoId: periodo._id, alumnoId: alumno1._id })).toBe(0);
+  });
 });

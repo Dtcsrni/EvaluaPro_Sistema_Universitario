@@ -1,0 +1,29 @@
+{
+  "version": "1",
+  "gate": "classroom-agent-e2e-local-mock",
+  "command": "npx playwright test -c .tmp/playwright-classroom.config.mjs --reporter=line",
+  "ok": true,
+  "exitCode": 0,
+  "durationMs": 13100,
+  "finishedAt": "2026-10-15T07:13:00.000Z",
+  "browser": "Microsoft Edge (installed channel)",
+  "environment": {
+    "application": "frontend docente local",
+    "api": "Playwright route mock with synthetic teacher/course/submission fixtures",
+    "googleOAuth": "not tested",
+    "googleClassroomProvider": "not contacted"
+  },
+  "testFile": "tests/gui-responsive/classroom-importacion.spec.ts",
+  "passedTests": 1,
+  "failedTests": 0,
+  "verifiedFlow": [
+    "select course and activity",
+    "show the signed-in EvaluaPro account as the required Classroom identity",
+    "preview plan and display counts",
+    "confirm the exact selection",
+    "start an idempotent job with planHash and clientRequestId",
+    "poll job through running to succeeded",
+    "reread and display the imported evidence"
+  ],
+  "dataBoundary": "synthetic fixtures only; no real lists, grades, Google account, or Classroom course were accessed"
+}

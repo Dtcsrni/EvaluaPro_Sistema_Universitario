@@ -11,6 +11,8 @@ este documento se actualiza automáticamente al regenerar.
 - `AUDIT_LOG_IMMUTABLE` (usado en: apps/backend/src/configuracion.ts)
 - `BACKEND_DATABASE_URL` (usado en: apps/backend/src/infraestructura/baseDatos/sqlite.ts, apps/backend/src/modulos/modulo_sincronizacion_nube/domain/instantaneaLocal.ts, apps/backend/src/modulos/modulo_sincronizacion_nube/domain/preferenciasSincronizacion.ts, apps/backend/tests/setup.ts, apps/backend/tests/sincronizacion.lease.test.ts, apps/backend/tests/sincronizacion.snapshot.test.ts, apps/backend/tests/utils/sqliteTestDatabase.ts)
 - `CLASSROOM_ENABLED` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/configuracion.produccion.test.ts)
+- `CLASSROOM_MAX_PAGES` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/configuracion.entorno.test.ts)
+- `CLASSROOM_REQUEST_TIMEOUT_MS` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/configuracion.entorno.test.ts)
 - `CLASSROOM_TOKEN_CIPHER_KEY` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/configuracion.produccion.test.ts)
 - `COBRANZA_AUTOMATICA_INTERVAL_MIN` (usado en: apps/backend/src/configuracion.ts)
 - `COBRANZA_DIAS_SUSPENSION_PARCIAL` (usado en: apps/backend/src/configuracion.ts)

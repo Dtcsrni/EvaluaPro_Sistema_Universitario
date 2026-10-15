@@ -1,5 +1,6 @@
 /** Cliente HTTP sin dependencias para automatizar flujos docentes de EvaluaPro. */
 import { Buffer } from 'node:buffer';
+import { randomUUID } from 'node:crypto';
 
 export class EvaluaproApiError extends Error {
   constructor(message, { status, code, requestId, retryAfter, details } = {}) {
@@ -1224,6 +1225,45 @@ export class EvaluaproClient {
     return (await this.request('/evaluaciones/v2/classroom/importaciones/ejecutar', {
       method: 'POST', body: payload, confirmarEscritura
     })).data;
+  }
+
+  crearClientRequestIdClassroom() {
+    return randomUUID();
+  }
+
+  async iniciarImportacionClassroom(payload, { clientRequestId, confirmarEscritura = false } = {}) {
+    if (!confirmarEscritura) throw new Error('Importar calificaciones Classroom modifica evidencias; requiere confirmarEscritura: true');
+    if (!clientRequestId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)) {
+      throw new TypeError('clientRequestId UUID es obligatorio para iniciar o recuperar una importación Classroom');
+    }
+    if (!payload?.periodoId || !Array.isArray(payload?.actividades) || payload.actividades.length === 0) {
+      throw new TypeError('periodoId y actividades son obligatorios para importar Classroom');
+    }
+    if (!/^[a-f0-9]{64}$/i.test(String(payload.planHash || ''))) {
+      throw new TypeError('planHash SHA-256 es obligatorio y debe venir de la vista previa vigente');
+    }
+    return (await this.request('/evaluaciones/v2/classroom/importaciones/jobs', {
+      method: 'POST', body: { ...payload, clientRequestId }, confirmarEscritura
+    })).data;
+  }
+
+  async obtenerJobImportacionClassroom(jobId) {
+    if (!jobId) throw new TypeError('jobId es obligatorio para consultar una importación Classroom');
+    return (await this.request(`/evaluaciones/v2/classroom/importaciones/jobs/${encodeURIComponent(jobId)}`)).data;
+  }
+
+  async esperarImportacionClassroom(jobId, { intervalMs = 1000, timeoutMs = 300000 } = {}) {
+    if (!Number.isInteger(intervalMs) || intervalMs < 100 || intervalMs > 30000) throw new RangeError('intervalMs debe estar entre 100 y 30000');
+    if (!Number.isInteger(timeoutMs) || timeoutMs < intervalMs || timeoutMs > 1800000) throw new RangeError('timeoutMs debe estar entre intervalMs y 1800000');
+    const limite = Date.now() + timeoutMs;
+    while (Date.now() < limite) {
+      const job = await this.obtenerJobImportacionClassroom(jobId);
+      if (['succeeded', 'partial', 'failed'].includes(job.estado)) return job;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+    throw new EvaluaproApiError(`La importación Classroom sigue pendiente; consulta de nuevo el job ${jobId}.`, {
+      code: 'CLASSROOM_JOB_STILL_RUNNING', details: { jobId }
+    });
   }
 
   async listarCodigosAcceso({ periodoId, estado, limite, cursor } = {}) {

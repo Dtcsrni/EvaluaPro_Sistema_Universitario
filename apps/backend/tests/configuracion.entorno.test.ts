@@ -39,6 +39,18 @@ describe('configuracion (entorno)', () => {
     expect(dotenvConfigMock).not.toHaveBeenCalled();
   });
 
+  it('aplica límites seguros a timeout y paginación configurables de Classroom', async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.CLASSROOM_REQUEST_TIMEOUT_MS = '90000';
+    process.env.CLASSROOM_MAX_PAGES = '0';
+
+    const { configuracion } = await import('../src/configuracion.js');
+
+    expect(configuracion.classroomRequestTimeoutMs).toBe(60_000);
+    expect(configuracion.classroomMaxPages).toBe(1);
+    expect(dotenvConfigMock).not.toHaveBeenCalled();
+  });
+
   it('carga dotenv en desarrollo', async () => {
     process.env.NODE_ENV = 'development';
 

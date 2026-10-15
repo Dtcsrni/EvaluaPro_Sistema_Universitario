@@ -109,6 +109,32 @@ test('SDK consulta actividades Classroom, previsualiza sin escribir y confirma l
   assert.deepEqual(JSON.parse(calls[2].init.body), seleccion);
 });
 
+test('SDK Classroom inicia el job con UUID estable y espera por GET sin repetir mutaciones', async () => {
+  const calls = [];
+  const client = new EvaluaproClient({ baseUrl: 'http://localhost', token: 'token', fetchImpl: async (url, init = {}) => {
+    calls.push({ url: new URL(url), init });
+    const body = calls.length === 1
+      ? { jobId: 'job-1', estado: 'queued', progreso: 0, total: 1 }
+      : { jobId: 'job-1', estado: 'succeeded', progreso: 1, total: 1, resultado: { importadas: 1 } };
+    return Response.json(body, { status: calls.length === 1 ? 202 : 200 });
+  } });
+  const payload = { periodoId: 'periodo-1', actividades: [{ courseId: 'course-1', courseWorkId: 'work-1' }], planHash: 'a'.repeat(64) };
+  const clientRequestId = 'd9736874-2790-47c0-9c64-8893af59ea86';
+
+  await assert.rejects(client.iniciarImportacionClassroom(payload, { clientRequestId }), /confirmarEscritura/);
+  await assert.rejects(client.iniciarImportacionClassroom(payload, { confirmarEscritura: true }), /clientRequestId UUID es obligatorio/);
+  assert.equal(calls.length, 0);
+  const job = await client.iniciarImportacionClassroom(payload, { clientRequestId, confirmarEscritura: true });
+  assert.equal(job.estado, 'queued');
+  assert.deepEqual(JSON.parse(calls[0].init.body), { ...payload, clientRequestId });
+  const terminado = await client.esperarImportacionClassroom(job.jobId, { intervalMs: 100, timeoutMs: 500 });
+  assert.equal(terminado.estado, 'succeeded');
+  assert.deepEqual(calls.map(({ url, init }) => [url.pathname, init.method]), [
+    ['/api/evaluaciones/v2/classroom/importaciones/jobs', 'POST'],
+    ['/api/evaluaciones/v2/classroom/importaciones/jobs/job-1', 'GET']
+  ]);
+});
+
 test('SDK expone roster, mapeo manual e historial Classroom con confirmación para escritura', async () => {
   const calls = [];
   const client = new EvaluaproClient({ baseUrl: 'http://localhost', token: 'token', fetchImpl: async (url, init = {}) => {

@@ -1,0 +1,194 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-14T18-24-02.201Z",
+  "status": "draft",
+  "generatedAt": "2026-10-14T18:24:02.201Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Analizar y estabilizar la integracion Google Classroom de EvaluaPro."
+  },
+  "objective": "Identificar fallas verificables y preparar un redisenio resiliente bajo SDD.",
+  "scope": [
+    "Auditoria de servicio Classroom, importacion, GUI y runtime local",
+    "Spec propuesta SPEC-100",
+    "Reintentos HTTP, timeout, errores del proveedor, paginación e importación reanudable",
+    "Igualdad obligatoria entre la identidad Google de EvaluaPro y Classroom; rechazo de otro sub"
+  ],
+  "constraints": [
+    "No consultar Classroom fuera de EvaluaPro",
+    "No publicar notas ni cambiar datos academicos",
+    "No implementar codigo hasta aprobar SPEC-100"
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de sdd_audit",
+      "timestamp": "2026-10-14T18:24:02.201Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de focal_backend_tests",
+      "timestamp": "2026-10-14T18:24:02.201Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de focal_frontend_tests",
+      "timestamp": "2026-10-14T18:24:02.201Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-10-14T18:24:02.201Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-10-14T18:24:02.201Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "README.md",
+      "docs/README.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/POLITICA_ECONOMIA_TOKENS_CODEX.md",
+      "docs/IA_SKILLS_MCP_POLICY.md",
+      "docs/specs/SPEC-046_google_classroom_sync.spec.md",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts",
+      "apps/backend/tests/servicioClassroomGoogle.test.ts",
+      "apps/frontend/src/apps/app_docente/SeccionClassroom.tsx",
+      "apps/frontend/tests/classroomEnCalificaciones.test.tsx",
+      "scripts/api/classroom-grading-openapi.mjs"
+    ],
+    "changed": [
+      "docs/handoff/sesiones/2026-10-14/",
+      "docs/specs/SPEC-100_resiliencia_integracion_classroom.spec.md"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-10-14/sesion-2026-10-14T18-24-02.201Z.json",
+      "docs/handoff/sesiones/2026-10-14/sesion-2026-10-14T18-24-02.201Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "sdd_audit",
+      "command": "node scripts/sdd-audit.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1200,
+      "resultSummary": "Auditoria SDD exitosa; SPEC-100 draft valida.",
+      "timestamp": "2026-10-14T18:24:02.201Z"
+    },
+    {
+      "name": "focal_backend_tests",
+      "command": "npm -C apps/backend test -- --run tests/servicioClassroomGoogle.test.ts tests/integracion/classroom.audit.test.ts tests/integracion/classroom.pull.test.ts tests/integracion/classroom.v2.test.ts",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 1100,
+      "resultSummary": "No inicio: vitest no se reconoce; node_modules falta en worktree.",
+      "timestamp": "2026-10-14T18:24:02.201Z"
+    },
+    {
+      "name": "focal_frontend_tests",
+      "command": "npm -C apps/frontend test -- --run tests/seccionClassroom.test.tsx tests/classroomEnCalificaciones.test.tsx",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 1100,
+      "resultSummary": "No inicio: vitest no se reconoce; node_modules falta en worktree.",
+      "timestamp": "2026-10-14T18:24:02.201Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 4419,
+      "resultSummary": "No inicio: ERR_MODULE_NOT_FOUND para typescript en scripts/testing/check-diff-coverage.mjs.",
+      "timestamp": "2026-10-14T18:24:02.201Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1271,
+      "resultSummary": "docs check ok.",
+      "timestamp": "2026-10-14T18:24:02.201Z"
+    },
+    {
+      "name": "skill_validation",
+      "command": "python quick_validate.py evaluapro-classroom-grade-audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 500,
+      "resultSummary": "Skill is valid.",
+      "timestamp": "2026-10-14T18:24:02.201Z"
+    },
+    {
+      "name": "sdd_audit_final",
+      "command": "node scripts/sdd-audit.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1300,
+      "resultSummary": "Auditoría SDD exitosa; SPEC-100 draft válida.",
+      "timestamp": "2026-10-14T18:24:02.201Z"
+    },
+    {
+      "name": "docs_check_final",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1000,
+      "resultSummary": "docs check ok.",
+      "timestamp": "2026-10-14T18:24:02.201Z"
+    }
+  ],
+  "decisions": [
+    "Separar defectos internos del runtime local detenido y de la cuenta Google sin cursos",
+    "Las lecturas externas pueden reintentar con limites; las escrituras no",
+    "Mantener SPEC-100 en draft para revision del usuario",
+    "Google identity se vincula mediante OIDC sub; el correo es etiqueta visible, no clave de identidad.",
+    "El docente confirmó que Classroom debe usar la misma identidad Google del login EvaluaPro, con una conexión activa y opción de reconexión.",
+    "La solicitud usa login_hint con el correo de la identidad de sesión y el backend valida el sub contra Docente.googleSub; otra identidad se rechaza.",
+    "El cliente compartido reintenta POST por timeout/red y 429/502/503/504; la importación usa 15 s y trabaja en serie. Es un riesgo comprobado por código de repetición tras respuesta incierta, no evidencia de duplicados reales.",
+    "SPEC-100 v1.1 recomienda alinear la política común con SPEC-085: consultas breves síncronas e importaciones como jobs locales durables con clientRequestId, huella del payload, checkpoints y recuperación tras reinicio.",
+    "Google recomienda backoff exponencial truncado con jitter para RESOURCE_EXHAUSTED; SPEC-100 agrega fuentes primarias para OAuth, OpenID Connect y errores/cuotas de Classroom.",
+    "No implementar producción hasta aprobar SPEC-100 conforme a SDD."
+  ],
+  "assumptions": [],
+  "risks": [
+    "No se pudo validar el curso real porque la cuenta de navegador no muestra cursos",
+    "Sin prueba funcional por falta de vitest en el worktree",
+    "SPEC-100 requiere aprobacion antes de refactorizar produccion",
+    "SPEC-100 y su dependencia SPEC-085 siguen en draft; requieren aprobación antes de refactorizar producción.",
+    "No se pudo validar curso/grant real en vivo: la sesión observada no mostraba cursos y el runtime docente estaba detenido."
+  ],
+  "nextStep": "El usuario revisa/aprueba SPEC-100 alineada con SPEC-085; después se implementan y ejecutan pruebas focales y gates completos.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "aprobacion del usuario para implementar SPEC-100"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\classroom-stability-worktree",
+    "branch": "codex/classroom-stability-20261014",
+    "commit": "4b716dc7",
+    "workingTreeStatus": "?? docs/handoff/sesiones/2026-10-14/\n?? docs/specs/SPEC-100_resiliencia_integracion_classroom.spec.md"
+  }
+}

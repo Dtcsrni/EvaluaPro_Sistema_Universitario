@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 251 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 253 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -101,6 +101,8 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Classroom | `/evaluaciones/v2/classroom/historial-cortes/{snapshotId}/captura` | GET | Bearer | classroom:pull | — |
 | Classroom | `/evaluaciones/v2/classroom/importaciones/ejecutar` | POST | Bearer | classroom:pull | esquemaEjecutarImportacionClassroom |
 | Classroom | `/evaluaciones/v2/classroom/importaciones/historial` | GET | Bearer | classroom:pull | — |
+| Classroom | `/evaluaciones/v2/classroom/importaciones/jobs` | POST | Bearer | classroom:pull | esquemaIniciarJobImportacionClassroom |
+| Classroom | `/evaluaciones/v2/classroom/importaciones/jobs/{jobId}` | GET | Bearer | classroom:pull | — |
 | Classroom | `/evaluaciones/v2/classroom/importaciones/preview` | POST | Bearer | classroom:pull | esquemaPreviewImportacionClassroom |
 | Classroom | `/evaluaciones/v2/classroom/mapeos` | GET | Bearer | classroom:pull | — |
 | Classroom | `/evaluaciones/v2/classroom/oauth/desconectar` | POST | Bearer | classroom:conectar | esquemaBodyVacioOpcional |

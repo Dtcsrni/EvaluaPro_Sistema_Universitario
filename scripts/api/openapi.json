@@ -22196,6 +22196,269 @@
           }
         }
       }
+    },
+    "/evaluaciones/v2/classroom/importaciones/jobs": {
+      "post": {
+        "tags": [
+          "Classroom"
+        ],
+        "operationId": "post_evaluaciones_v2_classroom_importaciones_jobs",
+        "summary": "Iniciar o recuperar importación Classroom",
+        "description": "Crea una operación durable local. El mismo clientRequestId con el mismo contenido devuelve el job existente; con contenido distinto responde 409. No publica notas en Classroom.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "clientRequestId",
+                  "planHash",
+                  "periodoId",
+                  "actividades"
+                ],
+                "properties": {
+                  "clientRequestId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Clave estable para repetir con seguridad la misma petición."
+                  },
+                  "planHash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$",
+                    "description": "Huella SHA-256 del preview que aprobó el docente; se revalida antes de escribir."
+                  },
+                  "periodoId": {
+                    "type": "string",
+                    "pattern": "^\\s*(?:[0-9a-fA-F]{24}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\s*$",
+                    "description": "ObjectId hexadecimal de 24 caracteres o UUID."
+                  },
+                  "actividades": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "courseId",
+                        "courseWorkId"
+                      ],
+                      "properties": {
+                        "courseId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "courseWorkId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "No se puede repetir junto con el mismo courseId dentro de la solicitud."
+                        },
+                        "tituloEvidencia": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 180
+                        },
+                        "descripcionEvidencia": {
+                          "type": "string",
+                          "maxLength": 600
+                        },
+                        "ponderacion": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "corte": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 3,
+                          "description": "Parcial al que se asigna la actividad."
+                        },
+                        "destinoColumna": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "Tareas y Ejercicios 2do Parcial",
+                            "Practica 2do Parcial",
+                            "Excluir",
+                            null
+                          ]
+                        },
+                        "activo": {
+                          "type": "boolean"
+                        },
+                        "incluirEnPromedio": {
+                          "type": "boolean"
+                        },
+                        "faltantesConfirmados": {
+                          "type": "array",
+                          "maxItems": 500,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "limiteSubmissions": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Job existente ya completado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassroomImportJob"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Importación en cola o en ejecución",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassroomImportJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
+        "x-evaluapro-permissions": [
+          "classroom:pull"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaIniciarJobImportacionClassroom"
+        ]
+      }
+    },
+    "/evaluaciones/v2/classroom/importaciones/jobs/{jobId}": {
+      "get": {
+        "tags": [
+          "Classroom"
+        ],
+        "operationId": "get_evaluaciones_v2_classroom_importaciones_jobs_jobId",
+        "summary": "Consultar job de importación Classroom",
+        "description": "Devuelve estado y resultado seguro del job solo al docente propietario. Las lecturas pueden repetirse; no reinician la importación.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado actual del job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassroomImportJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_integraciones_classroom/rutasEvaluacionesClassroom.ts",
+        "x-evaluapro-permissions": [
+          "classroom:pull"
+        ]
+      }
     }
   },
   "components": {
@@ -23439,6 +23702,55 @@
           }
         },
         "additionalProperties": false
+      },
+      "ClassroomImportJob": {
+        "type": "object",
+        "required": [
+          "jobId",
+          "estado",
+          "progreso",
+          "total",
+          "reutilizado"
+        ],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "partial",
+              "failed"
+            ]
+          },
+          "progreso": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reutilizado": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resultado": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
       }
     }
   }
