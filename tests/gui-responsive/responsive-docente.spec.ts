@@ -44,6 +44,18 @@ async function assertNoHorizontalOverflow(page: import('@playwright/test').Page,
   expect(overflow, `${context}: overflow horizontal detectado`).toBeLessThanOrEqual(1);
 }
 
+async function assertVisibleTabLabel(nav: import('@playwright/test').Locator, label: string) {
+  const button = nav.getByRole('button', { name: label, exact: true });
+  const layout = await button.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight
+  }));
+  expect(layout.scrollWidth, `la etiqueta de navegación "${label}" se recorta horizontalmente`).toBeLessThanOrEqual(layout.clientWidth + 1);
+  expect(layout.scrollHeight, `la etiqueta de navegación "${label}" se recorta verticalmente`).toBeLessThanOrEqual(layout.clientHeight + 1);
+}
+
 async function assertInteractiveControlsAreUsable(page: import('@playwright/test').Page, context: string) {
   const audit = await page.evaluate(() => {
     const selector = [
@@ -319,7 +331,9 @@ test.describe('GUI responsive e2e · docente', () => {
 
       for (const tab of tabs) {
         await nav.getByRole('button', { name: tab.label }).click();
-        await expect(nav.getByRole('button', { name: tab.label })).toHaveAttribute('aria-current', 'page');
+        const activeTab = nav.getByRole('button', { name: tab.label });
+        await expect(activeTab).toHaveAttribute('aria-current', 'page');
+        if (viewport.name === 'mobile') await assertVisibleTabLabel(nav, tab.label);
         await page.waitForTimeout(300);
         if (tab.slug === 'entrega') {
           const qr = page.getByRole('img', { name: 'QR para abrir en movil' });

@@ -177,7 +177,7 @@ describe('módulo encuadre integración', () => {
     // Descargar PDF público
     const resPdf = await request(app)
       .get(`/api/evaluaciones-publicas/encuadre/pdf/${docenteToken}`);
-    expect(resPdf.status).toBe(200);
+    expect(resPdf.status, JSON.stringify({ text: resPdf.text, body: resPdf.body, headers: resPdf.headers, error: resPdf.error?.message })).toBe(200);
     expect(resPdf.header['content-type']).toBe('application/pdf');
   });
 });

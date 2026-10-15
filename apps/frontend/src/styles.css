@@ -1294,6 +1294,10 @@ p {
   scrollbar-gutter: stable;
 }
 
+.tabs--scroll > .tab {
+  flex: 0 0 auto;
+}
+
 .tabs--scroll::-webkit-scrollbar {
   height: 8px;
 }
