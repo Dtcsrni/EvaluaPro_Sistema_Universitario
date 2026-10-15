@@ -32,22 +32,54 @@ function extractJobBlock(workflow, jobKey) {
   return workflow.slice(start, end);
 }
 
-test('ext_perf_arquitectura prepara sharp antes de perf:check', () => {
+test('los jobs CI instalan dependencias desde lockfiles y sharp proviene del manifest', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const block = extractJobBlock(workflow, 'ext_perf_arquitectura');
+  const setupActionPath = path.join(root, '.github', 'actions', 'setup-node-project', 'action.yml');
+  const setupAction = fs.readFileSync(setupActionPath, 'utf8');
+  const backendPackage = JSON.parse(fs.readFileSync(path.join(root, 'apps', 'backend', 'package.json'), 'utf8'));
+  const backendLock = JSON.parse(fs.readFileSync(path.join(root, 'apps', 'backend', 'package-lock.json'), 'utf8'));
 
-  assert.match(block, /run:\s*\|[\s\S]{0,120}npm ci --foreground-scripts/);
-  assert.match(block, /Preparar runtime sharp \(linux-x64\)/);
-  assert.match(block, /npm install --no-save --include=optional --os=linux --cpu=x64 sharp/);
+  assert.match(block, /uses: \.\/\.github\/actions\/setup-node-project/);
+  assert.match(setupAction, /actions\/setup-node@[^\s]+ # v6/);
+  assert.match(setupAction, /npm ci --foreground-scripts/);
+  assert.match(setupAction, /cache-dependency-path:[\s\S]*package-lock\.json/);
+  assert.equal(backendPackage.dependencies?.sharp, '^0.35.5');
+  assert.equal(backendLock.packages?.['node_modules/sharp']?.version, '0.35.5');
+  assert.doesNotMatch(workflow, /npm install --no-save[^\n]*sharp/);
   assert.match(block, /run:\s*npm run perf:check/);
+});
 
-  const setupIndex = block.indexOf('npm ci --foreground-scripts');
-  const sharpIndex = block.indexOf('npm install --no-save --include=optional --os=linux --cpu=x64 sharp');
-  const perfIndex = block.indexOf('run: npm run perf:check');
+test('CI centraliza Node y no oculta fallos de suites con reintentos generales', () => {
+  const workflows = ['ci.yml', 'ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml', 'autogen-docs.yml'];
+  for (const name of workflows) {
+    const workflow = fs.readFileSync(path.join(workflowDir, name), 'utf8');
+    assert.match(workflow, /uses: \.\/\.github\/actions\/setup-node-project/, name);
+  }
 
-  assert.ok(setupIndex >= 0, 'faltante setup npm ci');
-  assert.ok(sharpIndex > setupIndex, 'sharp debe ejecutarse despues de npm ci');
-  assert.ok(perfIndex > sharpIndex, 'perf:check debe ejecutarse despues de preparar sharp');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  for (const scriptName of ['test:frontend:ci', 'test:portal:ci', 'test:coverage:ci']) {
+    assert.doesNotMatch(packageJson.scripts[scriptName], /scripts\/retry\.mjs/, scriptName);
+  }
+});
+
+test('la suite OMR canónica tiene un único dueño automático', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const backendModule = fs.readFileSync(path.join(workflowDir, 'ci-backend.yml'), 'utf8');
+  const moduleGate = backendModule.match(/- name: Etapa gate OMR canónico[\s\S]*?(?=\n      - name:|$)/)?.[0] ?? '';
+
+  assert.match(central, /npm run test:omr:canonical:gate:ci/);
+  assert.match(moduleGate, /if: github\.event_name == 'workflow_dispatch'/);
+});
+
+test('CI integral y Installer E2E no se cancelan por pushes ordinarios', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+
+  assert.match(central, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
+  assert.match(central, /format\('\{0\}-\{1\}', github\.event_name, github\.run_id\)/);
+  assert.match(installer, /format\('dispatch-\{0\}', github\.run_id\)/);
+  assert.match(installer, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
 });
 
 test('ext_funcionales usa el gate OMR canónico', () => {
@@ -97,12 +129,13 @@ test('core contract valida installer afectado sin depender del bundle release', 
   assert.match(block, /npm run test:wix:policy/);
 });
 
-test('workflow CI unifica concurrency por repo fuente y branch fuente', () => {
+test('workflow CI cancela solo trabajo obsoleto por rama fuente', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
 
   assert.match(workflow, /concurrency:/);
-  assert.match(workflow, /github\.event\.pull_request\.head\.repo\.full_name \|\| github\.repository/);
-  assert.match(workflow, /github\.event\.pull_request\.head\.ref \|\| github\.head_ref \|\| github\.ref_name/);
+  assert.match(workflow, /github\.event\.pull_request\.head\.repo\.full_name, github\.event\.pull_request\.head\.ref/);
+  assert.match(workflow, /github\.event_name, github\.run_id/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
   assert.doesNotMatch(workflow, /group:\s*ci-\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}/);
 });
 
@@ -120,23 +153,17 @@ test('workflow CI expone force_full_ci y gating affected-only en extended', () =
   assert.match(workflow, /needs\.detectar_cambios\.outputs\.escalation == 'full-extended'/);
 });
 
-test('workflows core reservan push para main y validan ramas de trabajo mediante PR', () => {
-  const coreWorkflows = [
-    'ci.yml',
-    'ci-backend.yml',
-    'ci-docs.yml',
-    'ci-frontend.yml',
-    'ci-portal.yml'
-  ];
+test('CI Checks es dueño de validación automática; módulos quedan como diagnóstico manual', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const pushConfig = central.match(/^  push:\n([\s\S]*?)(?=^  [a-z_]+:)/m)?.[1] ?? '';
+  assert.match(pushConfig, /branches:\n\s+- "main"/s);
+  assert.doesNotMatch(pushConfig, /release\/\*\*/);
+  assert.match(central, /^  pull_request:/m);
 
-  for (const workflowName of coreWorkflows) {
+  for (const workflowName of ['ci-backend.yml', 'ci-docs.yml', 'ci-frontend.yml', 'ci-portal.yml']) {
     const workflow = fs.readFileSync(path.join(workflowDir, workflowName), 'utf8');
-    const pushConfig = workflow.match(/^  push:\n([\s\S]*?)(?=^  [a-z_]+:)/m)?.[1] ?? '';
-
-    assert.match(pushConfig, /branches:\n\s+- "main"/s, workflowName);
-    assert.doesNotMatch(pushConfig, /release\/\*\*/, workflowName);
-    assert.match(workflow, /pull_request:/, workflowName);
-    assert.doesNotMatch(workflow, /push:\s+branches:\s+- "\*\*"/s, workflowName);
+    assert.match(workflow, /^  workflow_dispatch:/m, workflowName);
+    assert.doesNotMatch(workflow, /^  (?:push|pull_request|schedule):/m, workflowName);
   }
 });
 
@@ -496,10 +523,9 @@ test('release stable gate permite evidencia posterior y genera QA desde el SHA c
   assert.match(workflow, /reports\/qa\/latest/);
 });
 
-test('CI frontend activa el mismo conjunto de guardas WCAG para push y pull request', () => {
+test('CI central y mapa affected asignan las guardas WCAG a frontend', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
-  const pushPaths = workflow.match(/  push:[\s\S]*?    paths:\n([\s\S]*?)  pull_request:/)?.[1] || '';
-  const pullRequestPaths = workflow.match(/  pull_request:\n    paths:\n([\s\S]*?)  workflow_dispatch:/)?.[1] || '';
+  const central = fs.readFileSync(workflowPath, 'utf8');
   const frontendMap = JSON.parse(fs.readFileSync(path.join(root, 'ci', 'affected-test-map.json'), 'utf8')).groups.frontend.paths;
   const guards = [
     'scripts/wcag-guard.mjs',
@@ -509,8 +535,7 @@ test('CI frontend activa el mismo conjunto de guardas WCAG para push y pull requ
   ];
 
   for (const guard of guards) {
-    assert.ok(pushPaths.includes(guard), `push debe incluir ${guard}`);
-    assert.ok(pullRequestPaths.includes(guard), `pull_request debe incluir ${guard}`);
+    assert.ok(central.includes(guard) || workflow.includes(guard), `CI debe revisar ${guard}`);
     assert.ok(frontendMap.includes(guard), `el mapa affected CI debe asignar ${guard} al frontend`);
   }
 });

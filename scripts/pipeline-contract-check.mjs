@@ -18,7 +18,7 @@ for (const relativePath of requiredFiles) {
   }
 }
 
-const testResult = spawnSync(process.execPath, ['--test', 'scripts/tests/ci-workflow-contract.test.mjs'], {
+const testResult = spawnSync(process.execPath, ['--test', 'scripts/tests/ci-workflow-contract.test.mjs', 'scripts/tests/ci-gate-summary.test.mjs', 'scripts/tests/ci-redesign-contract.test.mjs'], {
   cwd: root,
   stdio: 'inherit'
 });

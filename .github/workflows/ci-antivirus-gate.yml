@@ -23,8 +23,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-antivirus-gate-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  group: ci-antivirus-gate-${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('{0}-{1}', github.event.pull_request.head.repo.full_name, github.event.pull_request.head.ref) || github.event_name == 'push' && format('push-{0}', github.ref) || format('{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 jobs:
   antivirus_contract:

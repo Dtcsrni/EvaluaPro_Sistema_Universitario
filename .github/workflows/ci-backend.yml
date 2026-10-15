@@ -1,40 +1,14 @@
 name: CI Backend Module
 
 on:
-  push:
-    branches:
-      - "main"
-    paths:
-      - "apps/backend/**"
-      - "omr_samples_tv*/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.base.json"
-      - "vitest.base.ts"
-      - "scripts/retry.mjs"
-      - "scripts/testing/**"
-      - "scripts/security-env-check.mjs"
-      - ".github/workflows/ci-backend.yml"
-  pull_request:
-    paths:
-      - "apps/backend/**"
-      - "omr_samples_tv*/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.base.json"
-      - "vitest.base.ts"
-      - "scripts/retry.mjs"
-      - "scripts/testing/**"
-      - "scripts/security-env-check.mjs"
-      - ".github/workflows/ci-backend.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-backend-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  group: ci-backend-${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('{0}-{1}', github.event.pull_request.head.repo.full_name, github.event.pull_request.head.ref) || github.event_name == 'push' && format('push-{0}', github.ref) || format('{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 jobs:
   detectar_cambios:
@@ -73,16 +47,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
       - name: Instalar dependencias nativas de build (CV/imagen)
         run: |
@@ -95,16 +61,8 @@ jobs:
             pkg-config \
             poppler-utils
 
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
-
       - name: Generar Prisma Client para pruebas OMR
         run: npx prisma generate --config=apps/backend/prisma.config.mjs
-
-      - name: Preparar runtime CV nativo (linux-x64)
-        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa smoke OMR CV
         run: npm -C apps/backend run omr:cv:smoke
@@ -113,6 +71,7 @@ jobs:
         run: npm -C apps/backend run test -- --reporter=verbose tests/omr.cv.engine.test.ts tests/omr.etapaScoring.fallback.test.ts tests/omr.prevalidacion.test.ts tests/omr.contrato.test.ts tests/integracion/qrEscaneoOmr.test.ts tests/omr.test.ts
 
       - name: Etapa gate OMR canónico
+        if: github.event_name == 'workflow_dispatch'
         run: npm run test:omr:canonical:gate:ci
 
       - name: Publicar artefactos OMR QA

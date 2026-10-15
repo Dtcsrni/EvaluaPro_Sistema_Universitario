@@ -39,20 +39,25 @@ Define a single CI/CD contract that any runner can execute 1:1 (GitHub Actions, 
 ### Profile `package`
 1. `package`
 
-## Modular execution (independent workflows)
-Recommended module workflows:
-- `CI Backend Module` -> backend lint/typecheck/test/coverage/tdd/build
-- `CI Frontend Module` -> frontend lint/typecheck/test/ux/coverage
-- `CI Portal Module` -> portal lint/typecheck/test/coverage/tdd/build
-- `CI Docs Module` -> contract/docs/diagrams/routes checks
+## Modular execution
+`CI Checks` is the canonical automatic orchestrator for pull requests, pushes to `main`, scheduled validation, and explicit full runs. It detects affected modules, runs the selected gates, and publishes one blocking Core result plus the applicable Extended result.
+
+The module workflows remain available through `workflow_dispatch` for focused diagnosis:
+- `CI Backend Module` -> backend OMR smoke and critical regression checks
+- `CI Frontend Module` -> frontend lint/typecheck/tests/UX/build checks
+- `CI Portal Module` -> portal typecheck
+- `CI Docs Module` -> SDD audit
 
 Policy:
-- CI detects changed paths and runs the tests and build checks for affected modules; unrelated module test suites are skipped.
+- Automatic module validation runs only through `CI Checks`; the manual workflows must not duplicate automatic PR/main gates.
 - Full coverage runs only on an explicit `workflow_dispatch` with `force_full_ci=true`; it is excluded from PR and scheduled runs due to its runtime.
 - Coverage exclusion debt remains a blocking check; CI does not impose a fixed diff-coverage percentage.
-- A module failure fails that module workflow only.
-- Sibling module workflows continue and publish their own status.
-- A global integrator workflow (`CI Checks`) remains the release-gating source of truth.
+- A module failure fails the canonical gate that selected it; independent module scopes continue to publish their own status.
+- The OMR canonical real-data gate has one automatic owner (`CI Checks`). The backend module can run it manually for diagnosis.
+- Shared Node setup uses the pinned Node/npm versions, setup-node cache keyed by lockfiles, and `npm ci`; native modules must resolve from the committed lockfile.
+- Assertion failures are not retried as a way to obtain a green result. Any dedicated infrastructure retry must preserve an instability result in the gate and report.
+- Pull-request and push runs may cancel obsolete work on the same source branch. Manual full runs, schedules, and releases are isolated from that cancellation group.
+- Core and Extended aggregate jobs validate the detector result and the affected plan. A skipped job is accepted only when the successful plan marks it optional.
 
 ## Stage contract
 

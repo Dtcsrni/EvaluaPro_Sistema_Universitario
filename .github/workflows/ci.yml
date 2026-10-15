@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('{0}-{1}', github.event.pull_request.head.repo.full_name, github.event.pull_request.head.ref) || github.event_name == 'push' && format('push-{0}', github.ref) || format('{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 jobs:
   detectar_cambios:
@@ -84,21 +84,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
       - name: Resolver mapa de suites afectadas
         run: npm run test:ci:affected:resolve > reports.affected-ci.json
@@ -153,27 +140,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
-
-      - name: Preparar runtime sharp (linux-x64)
+      - name: Preparar runtime PDF (poppler)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends poppler-utils
-          npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa lint backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -271,21 +244,8 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git fetch --no-tags origin 53e0590244c55e4ff7f9104c6ea4dd1c5c2a2e12
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
 
       - name: Etapa lint frontend
@@ -340,21 +300,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
       - name: Etapa security-scan
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -394,6 +341,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs:
+      - detectar_cambios
       - core_contract_docs_gov
       - core_backend_portal
       - core_frontend
@@ -401,26 +349,29 @@ jobs:
     if: always()
 
     steps:
+      - name: Descargar código del SHA evaluado
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
       - name: Validar resultado agregado Core
         shell: bash
         env:
-          CONTRACT_DOCS: ${{ needs.core_contract_docs_gov.result }}
-          BACKEND_PORTAL: ${{ needs.core_backend_portal.result }}
-          FRONTEND: ${{ needs.core_frontend.result }}
-          SEC_COMPLIANCE: ${{ needs.core_security_compliance.result }}
-        run: |
-          set -euo pipefail
-          echo "core_contract_docs_gov=$CONTRACT_DOCS"
-          echo "core_backend_portal=$BACKEND_PORTAL"
-          echo "core_frontend=$FRONTEND"
-          echo "core_security_compliance=$SEC_COMPLIANCE"
-          for status in "$CONTRACT_DOCS" "$BACKEND_PORTAL" "$FRONTEND" "$SEC_COMPLIANCE"; do
-            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-              echo "Fallo en gate core: $status" >&2
-              exit 1
-            fi
-          done
-          echo "Core OK"
+          CI_GATE_EVENT: ${{ github.event_name }}
+          CI_GATE_FORCE_FULL: ${{ inputs.force_full_ci || false }}
+          CI_GATE_SHA: ${{ github.sha }}
+          CI_GATE_NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node scripts/testing/ci-gate-summary.mjs --mode=core --report=reports/ci-gates/core.json
+
+      - name: Publicar decisión del gate Core
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ci-gate-core
+          path: reports/ci-gates/core.json
+          if-no-files-found: error
+          retention-days: 14
 
   ext_funcionales:
     name: Extended Funcionales
@@ -446,27 +397,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
       - name: Preparar Prisma backend
         run: npx prisma generate --config=apps/backend/prisma.config.mjs
-
-      - name: Preparar runtime sharp (linux-x64)
-        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa flujo-docente-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_flujo_docente_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -530,27 +465,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
       - name: Preparar Prisma backend
         run: npx prisma generate --config=apps/backend/prisma.config.mjs
-
-      - name: Preparar runtime sharp (linux-x64)
-        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa perf-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_perf_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -599,27 +518,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
       - name: Preparar Prisma backend
         run: npx prisma generate --config=apps/backend/prisma.config.mjs
-
-      - name: Preparar runtime sharp (linux-x64)
-        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Consolidar manifiesto QA
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_qa_manifest == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -645,6 +548,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs:
+      - detectar_cambios
       - verificaciones_core
       - ext_funcionales
       - ext_perf_arquitectura
@@ -652,23 +556,26 @@ jobs:
     if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
 
     steps:
+      - name: Descargar código del SHA evaluado
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
       - name: Validar resultado agregado Extended
         shell: bash
         env:
-          CORE: ${{ needs.verificaciones_core.result }}
-          FUNC: ${{ needs.ext_funcionales.result }}
-          PERF: ${{ needs.ext_perf_arquitectura.result }}
-          COMP: ${{ needs.ext_compliance_evidencia.result }}
-        run: |
-          set -euo pipefail
-          echo "verificaciones_core=$CORE"
-          echo "ext_funcionales=$FUNC"
-          echo "ext_perf_arquitectura=$PERF"
-          echo "ext_compliance_evidencia=$COMP"
-          for status in "$CORE" "$FUNC" "$PERF" "$COMP"; do
-            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-              echo "Fallo en gate extended: $status" >&2
-              exit 1
-            fi
-          done
-          echo "Extended OK"
+          CI_GATE_EVENT: ${{ github.event_name }}
+          CI_GATE_FORCE_FULL: ${{ inputs.force_full_ci || false }}
+          CI_GATE_SHA: ${{ github.sha }}
+          CI_GATE_NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node scripts/testing/ci-gate-summary.mjs --mode=extended --report=reports/ci-gates/extended.json
+
+      - name: Publicar decisión del gate Extended
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ci-gate-extended
+          path: reports/ci-gates/extended.json
+          if-no-files-found: error
+          retention-days: 14

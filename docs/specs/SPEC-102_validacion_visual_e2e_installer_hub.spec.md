@@ -14,6 +14,8 @@ Los recorridos GUI de EvaluaPro, el Installer Hub y la Web docente instalada nec
 
 ## Requisitos Funcionales
 
+El run #38680577429 generó un PNG válido cuyo contenido aún era el fallback `Cargando EvaluaPro…`; el contrato anterior comprobaba integridad de imagen, pero no esperaba que la aplicación docente terminara de cargar antes de capturarla. La captura web debe esperar que desaparezca el estado de carga y que el encabezado accesible `Plataforma Docente` esté visible.
+
 - **REQ-001:** El E2E del Installer Hub validará las capturas PNG de cada etapa visual: formato legible, dimensiones no vacías, contenido distinto de una imagen en blanco/monocroma y correspondencia con el tamaño de ventana declarado. Un archivo faltante, corrupto, vacío o tomado de otra etapa hará fallar el E2E.
 - **REQ-002:** En la GUI del Installer Hub, cada etapa conservará evidencia asociada a su nombre de etapa y validará por UI Automation que la ventana está visible, contiene el estado/título esperado y expone su acción principal dentro del área visible y habilitada cuando corresponda. El manifiesto registrará nombre, ruta relativa, dimensiones, tamaño y SHA-256 de cada imagen.
 - **REQ-003:** El E2E del runtime docente abrirá la aplicación instalada y, para vistas de 1280×720 y 1280×820, comprobará HTTP 200, contenido principal visible, ausencia de desbordamiento horizontal, controles principales dentro del viewport y elementos interactivos con nombre accesible. Guardará capturas inspeccionables por tamaño.
@@ -44,7 +46,7 @@ Los recorridos GUI de EvaluaPro, el Installer Hub y la Web docente instalada nec
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001, REQ-002, REQ-007, REQ-009 | Contrato de capturas Installer Hub, inicialización App Host, validación de imagen y UI Automation | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/gui-visual-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | En implementación |
-| REQ-003 | Contrato actual del E2E de dashboard; ampliar comprobaciones responsive con navegador real cuando se apruebe la spec | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/gui-visual-e2e-contract.test.mjs` | En implementación |
+| REQ-003 | Captura de Web docente espera el fin del estado de carga y un encabezado accesible visible | `scripts/tests/capture-installer-web.mjs`; `scripts/tests/installer-hub-contract.test.mjs` | En implementación |
 | REQ-004, REQ-005 | Flujo CI ejecuta y conserva el gate UX visual junto con la E2E del bundle; el flujo comprueba el respaldo ZIP privado y preservación SQLite | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/gui-visual-e2e-contract.test.mjs`; `scripts/tests/installer-hub-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | En implementación |
 | REQ-006, REQ-010 | Capturas y auditoría UX/UI actuales, con límites WCAG explícitos | Artefactos `installer-hub-e2e`, resultados Playwright responsive y auditoría visual del run | En implementación |
 | REQ-007 | Primer uso, arranque fallido y limpieza bajo `Set-StrictMode` sin excepción secundaria; propiedad de App Host preservada | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | En implementación |

@@ -1420,8 +1420,9 @@ function Capture-UrlWithPlaywright {
   )
   $target = Join-Path $screenshotsDir ("{0}.png" -f $Name)
   try {
-    $args = @('playwright', 'screenshot', '--browser=chromium', '--timeout=30000', "--viewport-size=$Width,$Height", $Url, $target)
-    Invoke-CaptureCommand -Name ("playwright-{0}" -f $Name) -FilePath 'npx.cmd' -ArgumentList $args -TimeoutSec 45
+    $captureScript = Join-Path $root 'scripts\tests\capture-installer-web.mjs'
+    $args = @($captureScript, $Url, $target, [string]$Width, [string]$Height)
+    Invoke-CaptureCommand -Name ("playwright-{0}" -f $Name) -FilePath 'node.exe' -ArgumentList $args -TimeoutSec 75
     if (Test-Path -LiteralPath $target) {
       $screenshots.Add($target) | Out-Null
       Add-Result -Area 'screenshots' -Item $Name -Ok $true -Detail $Url
@@ -2097,8 +2098,9 @@ try {
     $AllowExistingInstall -and $targetInsideLocalAppData -and
     $normalizedTargetRoot -ne $defaultInstallRoot -and
     -not (Test-Path -LiteralPath $normalizedTargetRoot)
-  Add-Result -Area 'preflight' -Item 'stable-upgrade-existing-install' -Ok $script:upgradingExistingInstall -Detail ("target={0} stableCandidate={1} payloadVersion={2} priorEntries={3}" -f $normalizedTargetRoot, $stableCandidate, $script:existingInstalledPayloadVersion, $existing.Count)
-  Add-Result -Area 'preflight' -Item 'candidate-or-upgrade-target' -Ok ($isolatedCandidateRun -or $script:upgradingExistingInstall) -Detail ("isolated={0} upgrade={1} target={2}" -f $isolatedCandidateRun, $script:upgradingExistingInstall, $normalizedTargetRoot)
+  $validInstallMode = $isolatedCandidateRun -or $script:upgradingExistingInstall
+  $installMode = if ($script:upgradingExistingInstall) { 'stable-upgrade-existing-install' } elseif ($isolatedCandidateRun) { 'isolated-candidate' } else { 'invalid' }
+  Add-Result -Area 'preflight' -Item 'valid-install-mode' -Ok $validInstallMode -Detail ("mode={0} target={1} stableCandidate={2} payloadVersion={3} priorEntries={4}" -f $installMode, $normalizedTargetRoot, $stableCandidate, $script:existingInstalledPayloadVersion, $existing.Count)
   if ($script:sharedProgramDataDatabaseExistedAtStart -and -not ($isolatedCandidateRun -or $script:upgradingExistingInstall)) {
     throw "Existe SQLite previa en ProgramData. Solo se admite el E2E de candidata sin baseline en un destino de QA nuevo bajo LocalAppData: $sharedProgramDataDatabasePath"
   }

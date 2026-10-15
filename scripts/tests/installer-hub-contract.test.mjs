@@ -950,6 +950,17 @@ test('E2E docente exige elevación solo para el destino per-machine real', () =>
   assert.match(runner, /targetMachineInstall=\{0\}/);
 });
 
+test('captura web del Installer Hub espera el contenido docente y no acepta el fallback de carga', () => {
+  const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+  const capture = fs.readFileSync(path.join(root, 'scripts', 'tests', 'capture-installer-web.mjs'), 'utf8');
+
+  assert.match(runner, /capture-installer-web\.mjs/);
+  assert.match(runner, /-FilePath 'node\.exe' -ArgumentList \$args -TimeoutSec 75/);
+  assert.match(capture, /\.app-loading'\)\.waitFor\(\{ state: 'hidden', timeout: 30_000 \}\)/);
+  assert.match(capture, /getByRole\('heading', \{ name: 'Plataforma Docente', exact: true \}\)/);
+  assert.match(capture, /locator\('main\.page'\)\.screenshot/);
+});
+
 test('E2E protege datos e instalaciones preexistentes y limpia solo su destino QA', () => {
   const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
   const preflightDatabase = runner.indexOf("if ($script:sharedProgramDataDatabaseExistedAtStart -and -not ($isolatedCandidateRun -or $script:upgradingExistingInstall))");
@@ -974,7 +985,9 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   assert.match(runner, /\$targetHasPriorPayload = \$payloadIsBehind -or \$versionMetadataIsBehind/);
   assert.match(runner, /\$registryInventoryCompatible = \$existing\.Count -le 1/);
   assert.match(runner, /\$registeredPayloadVersion -ge \(Normalize-InstallerProductVersion/);
-  assert.match(runner, /candidate-or-upgrade-target' -Ok \(\$isolatedCandidateRun -or \$script:upgradingExistingInstall\)/);
+  assert.match(runner, /\$validInstallMode = \$isolatedCandidateRun -or \$script:upgradingExistingInstall/);
+  assert.match(runner, /\$installMode = if \(\$script:upgradingExistingInstall\) \{ 'stable-upgrade-existing-install' \} elseif \(\$isolatedCandidateRun\) \{ 'isolated-candidate' \} else \{ 'invalid' \}/);
+  assert.match(runner, /-Item 'valid-install-mode' -Ok \$validInstallMode/);
   assert.match(runner, /\$singleCurrentRegistration = \$postUpgradeEntries\.Count -eq 1/);
   assert.match(runner, /-Item 'version-updated'/);
   assert.match(runner, /pre-upgrade-database-backup\.json/);

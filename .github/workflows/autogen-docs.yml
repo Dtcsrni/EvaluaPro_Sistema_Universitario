@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: autogen-docs-${{ github.ref }}
-  cancel-in-progress: true
+  group: autogen-docs-publication-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   autogen_docs:
@@ -27,24 +27,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
-
-      - name: Preparar runtime sharp (linux-x64)
-        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
       - name: Generar docs y diagramas
         run: |
