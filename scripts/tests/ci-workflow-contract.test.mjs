@@ -668,14 +668,14 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   assert.equal(payload.matchedGroups.backend, true);
 });
 
-test('Installer Windows reserva el ciclo E2E completo para releases y ejecuciones manuales', () => {
+test('Installer Windows ejecuta y conserva el ciclo E2E completo para PR, releases y ejecuciones manuales', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const installerBuild = extractJobBlock(workflow, 'installer_windows_build');
   const installerGate = extractJobBlock(workflow, 'installer_windows');
   assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
   assert.match(installerGate, /if: always\(\)/);
 
-  const releaseCondition = "if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'";
+  const e2eCondition = "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'";
 
   for (const stepName of [
     'Instalar Chromium para la E2E docente completa',
@@ -687,7 +687,7 @@ test('Installer Windows reserva el ciclo E2E completo para releases y ejecucione
     const rest = installerBuild.slice(start);
     const nextStep = rest.indexOf('\n      - name:');
     const step = nextStep >= 0 ? rest.slice(0, nextStep) : rest;
-    assert.ok(step.includes(releaseCondition), stepName + ' debe correr solo para release o dispatch manual');
+    assert.ok(step.includes(e2eCondition), stepName + ' debe correr para PR, release o dispatch manual');
   }
 
   const evidenceStart = installerBuild.indexOf('- name: Publicar evidencia de la E2E completa');
@@ -695,7 +695,7 @@ test('Installer Windows reserva el ciclo E2E completo para releases y ejecucione
   const evidenceRest = installerBuild.slice(evidenceStart);
   const evidenceEnd = evidenceRest.indexOf('\n      - name:');
   const evidence = evidenceEnd >= 0 ? evidenceRest.slice(0, evidenceEnd) : evidenceRest;
-  assert.ok(evidence.includes("if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')"));
+  assert.ok(evidence.includes("if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')"));
 
   assert.ok(installerBuild.includes("name: Verificar artefactos\n        if: github.event_name == 'pull_request'"), 'los PR conservan la verificación de MSI y bundle');
 });
