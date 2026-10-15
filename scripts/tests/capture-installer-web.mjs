@@ -64,7 +64,7 @@ try {
     if (responseStatus !== 200) throw new Error(`La página respondió HTTP ${responseStatus ?? 'sin respuesta'}; se requiere HTTP 200.`);
 
     await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 30_000 });
-    const main = page.locator('main.page');
+    const main = page.getByRole('main');
     await main.waitFor({ state: 'visible', timeout: 30_000 });
     const heading = page.getByRole('heading', { name: 'Plataforma Docente', exact: true });
     await heading.waitFor({ state: 'visible', timeout: 30_000 });
@@ -93,7 +93,7 @@ try {
           || element.value?.trim()
           || '';
       };
-      const main = document.querySelector('main.page');
+      const main = document.querySelector('main, [role="main"]');
       if (!main) return { mainFound: false };
 
       const mainRect = main.getBoundingClientRect();
@@ -145,7 +145,15 @@ try {
           const rect = element.getBoundingClientRect();
           return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
         }),
-        mainCount: document.querySelectorAll('main.page').length,
+        mainLandmarkCount: document.querySelectorAll('main, [role="main"]').length,
+        mainCandidates: Array.from(document.querySelectorAll('main, [role="main"]')).slice(0, 5).map((element) => ({
+          tagName: element.tagName,
+          className: typeof element.className === 'string' ? element.className.slice(0, 160) : '',
+          role: element.getAttribute('role'),
+          appDestination: element.getAttribute('data-app-destino'),
+          textLength: element.innerText?.trim().length ?? 0
+        })),
+        iframeCount: document.querySelectorAll('iframe').length,
         headingCount: document.querySelectorAll('h1,h2,h3,h4,[role="heading"]').length,
         bodyTextLength: document.body?.innerText?.trim().length ?? 0
       }));

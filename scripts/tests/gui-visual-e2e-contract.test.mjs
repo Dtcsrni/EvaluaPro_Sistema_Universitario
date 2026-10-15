@@ -71,3 +71,13 @@ test('el Installer Hub ejecuta el recorrido PDF GUI en Microsoft Edge y lo conse
   assert.match(workflow, /E2E_BROWSER_CHANNEL: msedge/);
   assert.match(workflow, /E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/);
 });
+
+test('la captura visual del instalador valida el landmark principal sin acoplarse a una clase CSS', () => {
+  const capture = read('scripts/tests/capture-installer-web.mjs');
+  assert.match(capture, /page\.getByRole\('main'\)/);
+  assert.match(capture, /document\.querySelector\('main, \[role="main"\]'\)/);
+  assert.match(capture, /mainLandmarkCount:/);
+  assert.match(capture, /mainCandidates:/);
+  assert.match(capture, /iframeCount:/);
+  assert.doesNotMatch(capture, /main\.page/);
+});
