@@ -79,7 +79,7 @@ test('CI integral y Installer E2E no se cancelan por pushes ordinarios', () => {
   assert.match(central, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
   assert.match(central, /format\('\{0\}-\{1\}', github\.event_name, github\.run_id\)/);
   assert.match(installer, /format\('dispatch-\{0\}', github\.run_id\)/);
-  assert.match(installer, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
+  assert.match(installer, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/v'\)\) \}\}/);
 });
 
 test('ext_funcionales usa el gate OMR canónico', () => {
@@ -207,6 +207,8 @@ test('escalacion full-extended ejecuta sus gates en PR antes del merge', () => {
 
 test('jobs extended generan Prisma antes de importar backend', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const setupAction = fs.readFileSync(path.join(root, '.github', 'actions', 'setup-node-project', 'action.yml'), 'utf8');
+  const lockedInstallIndex = setupAction.indexOf('npm ci --foreground-scripts');
   const cases = [
     ['ext_funcionales', 'run: npm run test:flujo-docente:ci'],
     ['ext_perf_arquitectura', 'run: npm run perf:check'],
@@ -215,12 +217,13 @@ test('jobs extended generan Prisma antes de importar backend', () => {
 
   for (const [jobKey, firstBackendCommand] of cases) {
     const block = extractJobBlock(workflow, jobKey);
-    const setupIndex = block.indexOf('npm ci --foreground-scripts');
+    const setupIndex = block.indexOf('uses: ./.github/actions/setup-node-project');
     const prismaIndex = block.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
     const commandIndex = block.indexOf(firstBackendCommand);
 
-    assert.ok(setupIndex >= 0, `${jobKey}: faltante npm ci`);
-    assert.ok(prismaIndex > setupIndex, `${jobKey}: prisma generate debe ejecutarse despues de npm ci`);
+    assert.ok(lockedInstallIndex >= 0, 'acción compartida debe instalar desde lockfile con npm ci');
+    assert.ok(setupIndex >= 0, `${jobKey}: falta acción compartida de setup`);
+    assert.ok(prismaIndex > setupIndex, `${jobKey}: prisma generate debe ejecutarse despues del setup con npm ci`);
     assert.ok(commandIndex > prismaIndex, `${jobKey}: comandos backend deben ejecutarse despues de prisma generate`);
   }
 });
