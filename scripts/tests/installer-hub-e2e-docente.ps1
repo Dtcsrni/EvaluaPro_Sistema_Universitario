@@ -665,7 +665,10 @@ function Capture-Window {
     }
     $captureRect = [System.Drawing.Rectangle]::new([int][Math]::Round($rectangle.X), [int][Math]::Round($rectangle.Y), [int][Math]::Round($rectangle.Width), [int][Math]::Round($rectangle.Height))
     $captureScreen = [System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.Bounds.Contains($captureRect) } | Select-Object -First 1
-    if (-not $captureScreen) { throw "La ventana ($($captureRect.Width)x$($captureRect.Height)) no cabe completa en un monitor conectado." }
+    if (-not $captureScreen) {
+      $availableScreens = @([System.Windows.Forms.Screen]::AllScreens | ForEach-Object { '{0}={1}' -f $_.DeviceName, $_.Bounds }) -join '; '
+      throw "La ventana ($($captureRect.Width)x$($captureRect.Height)) no cabe completa en un monitor conectado. Monitores: $availableScreens"
+    }
     $graphics.CopyFromScreen($captureRect.X, $captureRect.Y, 0, 0, $bitmap.Size)
     if ($RequestedWidth -gt 0 -and $RequestedHeight -gt 0 -and ($bitmap.Width -ne $RequestedWidth -or $bitmap.Height -ne $RequestedHeight)) {
       throw "El tamaño capturado $($bitmap.Width)x$($bitmap.Height) no coincide con el viewport solicitado ${RequestedWidth}x${RequestedHeight}."
@@ -709,7 +712,8 @@ function Resize-WindowForEvidence {
       }
     } while ((Get-Date) -lt $deadline)
     $actualSize = if ($window) { '{0}x{1}' -f [int][Math]::Round($actual.Width), [int][Math]::Round($actual.Height) } else { 'desconocido' }
-    Write-E2ELog "No se pudo aplicar viewport solicitado ${Width}x${Height}; actual=$actualSize"
+    $availableScreens = @([System.Windows.Forms.Screen]::AllScreens | ForEach-Object { '{0}={1}' -f $_.DeviceName, $_.Bounds }) -join '; '
+    Write-E2ELog "No se pudo aplicar viewport solicitado ${Width}x${Height}; actual=$actualSize; monitores=$availableScreens"
     return $false
   } catch {
     Write-E2ELog "No se pudo medir viewport solicitado ${Width}x${Height}: $($_.Exception.Message)"
@@ -854,7 +858,9 @@ function Invoke-InstallerHubMode {
   $freshWindow = Find-Window -TimeoutSec 1
   $window = if ($freshWindow) { $freshWindow } else { Find-Window -TimeoutSec 90 }
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
-  Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) -RequestedWidth 1040 -RequestedHeight 760 | Out-Null
+  if (-not (Resize-WindowForEvidence -Process $process -Width 980 -Height 700)) { throw 'No se pudo ajustar el Installer Hub al mínimo documentado de 980x700 antes de la primera captura.' }
+  $window = Find-Window -TimeoutSec 10
+  Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
 
   if ($Mode -eq 'install') {
     $termsCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptTermsCheckBox' -TimeoutSec 30
@@ -868,7 +874,7 @@ function Invoke-InstallerHubMode {
   $detectionTimeoutSec = 420
   $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
-  Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) -RequestedWidth 1040 -RequestedHeight 760 | Out-Null
+  Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
 
   $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
   if ($modeCombo) {
@@ -920,7 +926,7 @@ function Invoke-InstallerHubMode {
     }
   }
 
-  Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) -RequestedWidth 1040 -RequestedHeight 760 | Out-Null
+  Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 15
   if (-not $startButton) { throw "No se encontro StartButton mode=$Mode" }
   $expectedAction = switch ($Mode) {
@@ -939,20 +945,17 @@ function Invoke-InstallerHubMode {
   $operationStartedAt = Get-Date
   Invoke-Control -Element $startButton
   Start-Sleep -Seconds 2
-  if (-not (Resize-WindowForEvidence -Process $process -Width 1040 -Height 760)) { throw 'No se pudo ajustar el Installer Hub a 1040x760 para su captura.' }
+  if (-not (Resize-WindowForEvidence -Process $process -Width 980 -Height 700)) { throw 'No se pudo mantener el Installer Hub al mínimo documentado de 980x700 para su captura.' }
   Start-Sleep -Milliseconds 300
-  Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-solicitud-1040x760" -f $Mode) -RequestedWidth 1040 -RequestedHeight 760 | Out-Null
-  if (-not (Resize-WindowForEvidence -Process $process -Width 1280 -Height 720)) { throw 'No se pudo ajustar el Installer Hub a 1280x720 para su captura.' }
-  Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-solicitud-1280x720" -f $Mode) -RequestedWidth 1280 -RequestedHeight 720 | Out-Null
+  Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-solicitud-980x700" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $state = Wait-InstallerStableState -Window $window -Mode $Mode -OperationStartedAt $operationStartedAt -TimeoutMinutes 25
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
-  if (-not (Resize-WindowForEvidence -Process $process -Width 1040 -Height 760)) { throw 'No se pudo restaurar el Installer Hub a 1040x760 para la captura del resultado.' }
+  if (-not (Resize-WindowForEvidence -Process $process -Width 980 -Height 700)) { throw 'No se pudo mantener el Installer Hub al mínimo documentado de 980x700 para la captura del resultado.' }
   $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name ("wpf-{0}-06-resultado" -f $Mode) -RequestedWidth 1040 -RequestedHeight 760 | Out-Null
+  Capture-Window -Window $window -Name ("wpf-{0}-05-resultado" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $stateTimedOut = $state.PSObject.Properties.Match('timeout').Count -gt 0 -and [bool]$state.timeout
   Add-Result -Area $Mode -Item 'final-state' -Ok ([bool]$state.ok) -Detail $(if ($stateTimedOut) { 'timeout esperando estado final' } else { 'estado final detectado' })
   if (-not $state.ok) { throw "Installer Hub no completo correctamente mode=$Mode" }
@@ -1148,26 +1151,18 @@ function Write-VisualFlowManifest {
     'wpf-install-01-splash-deteccion.png',
     'wpf-install-02-preparar.png',
     'wpf-install-03-revisar.png',
-    'wpf-install-04-ejecutar-solicitud-1040x760.png',
-    'wpf-install-05-ejecutar-solicitud-1280x720.png',
-    'wpf-install-06-resultado.png'
+    'wpf-install-04-ejecutar-solicitud-980x700.png',
+    'wpf-install-05-resultado.png'
   )
   $items = foreach ($name in $expected) {
     $path = Join-Path $screenshotsDir $name
-    $requested = switch -Regex ($name) {
-      '05-ejecutar-solicitud-1280x720' { @{ width = 1280; height = 720 }; break }
-      default { @{ width = 1040; height = 760 } }
-    }
-    if ($requested) {
-      Get-VisualScreenshotEvidence -Name $name -Path $path -RequestedWidth $requested.width -RequestedHeight $requested.height
-    } else {
-      Get-VisualScreenshotEvidence -Name $name -Path $path
-    }
+    Get-VisualScreenshotEvidence -Name $name -Path $path -RequestedWidth 980 -RequestedHeight 700
   }
   $ok = @($items | Where-Object { -not $_.valid }).Count -eq 0
   $manifestPath = Join-Path $manifestDir 'visual-flow.json'
   [pscustomobject]@{
-    flow = @('splash', 'preparar', 'revisar', 'ejecutar-solicitud-1040x760', 'ejecutar-solicitud-1280x720', 'resultado')
+    flow = @('splash', 'preparar', 'revisar', 'ejecutar-solicitud-980x700', 'resultado')
+    viewport = [ordered]@{ width = 980; height = 700; basis = 'minimum-documented-by-DESIGN.md' }
     captured = $items
     complete = $ok
     sha256Required = $true
