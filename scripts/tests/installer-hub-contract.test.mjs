@@ -1081,10 +1081,10 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(uxCriteria, /docs\/DESIGN\.md/);
   assert.match(installerHubDocs, /`DESIGN\.md`/);
 
-  assert.match(mainWindowXaml, /Width="1440"/);
-  assert.match(mainWindowXaml, /Height="1020"/);
-  assert.match(mainWindowXaml, /MinWidth="1180"/);
-  assert.match(mainWindowXaml, /MinHeight="720"/);
+  assert.match(mainWindowXaml, /Width="1040"/);
+  assert.match(mainWindowXaml, /Height="760"/);
+  assert.match(mainWindowXaml, /MinWidth="980"/);
+  assert.match(mainWindowXaml, /MinHeight="700"/);
   assert.match(mainWindowXaml, /x:Key="OnLightTextBrush"/);
   assert.match(mainWindowXaml, /CardShadow.*BlurRadius="56".*ShadowDepth="14".*Opacity="0\.72"/);
   assert.match(mainWindowXaml, /x:Name="ProgressPulseTransform"/);
