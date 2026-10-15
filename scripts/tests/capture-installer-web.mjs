@@ -148,7 +148,19 @@ try {
     if (layout.unnamedVisibleControls > 0) throw new Error(`Hay ${layout.unnamedVisibleControls} controles visibles sin nombre accesible.`);
     if (!layout.primaryActionInViewport) throw new Error('No hay una acción principal con nombre accesible dentro del viewport.');
     if (surface === 'apphost') {
-      if (layout.summaryCards.length !== 4) throw new Error(`El dashboard debe mostrar cuatro indicadores de estado; visibles=${layout.summaryCards.length}.`);
+      const requiredCardLabels = [
+        'Modo actual',
+        'Entornos activos',
+        'Tareas gestionadas',
+        'Última actualización',
+        'Servicios activos',
+        'Servicios caidos',
+        'Eventos recientes (inicio/detención)',
+        'Tiempo de sesion'
+      ];
+      const visibleCardLabels = new Set(layout.summaryCards.map((card) => card.label));
+      const missingCardLabels = requiredCardLabels.filter((label) => !visibleCardLabels.has(label));
+      if (missingCardLabels.length) throw new Error(`Al dashboard le faltan indicadores esenciales: ${missingCardLabels.join(', ')}.`);
       const narrowCards = layout.summaryCards.filter((card) => card.width < 140);
       if (narrowCards.length) throw new Error(`Los indicadores del dashboard son demasiado estrechos (<140px): ${JSON.stringify(narrowCards)}.`);
     }

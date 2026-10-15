@@ -78,7 +78,16 @@ test('la captura visual del instalador diferencia App Host y Web docente con con
   assert.match(capture, /page\.getByRole\('main'\)/);
   assert.match(capture, /getByText\('Dashboard - Sistema EvaluaPro'/);
   assert.match(capture, /getByRole\('tab', \{ name: 'Principal', exact: true \}\)/);
-  assert.match(capture, /layout\.summaryCards\.length !== 4/);
+  assert.match(capture, /requiredCardLabels = \[/);
+  assert.match(capture, /'Modo actual'/);
+  assert.match(capture, /'Entornos activos'/);
+  assert.match(capture, /'Tareas gestionadas'/);
+  assert.match(capture, /'Última actualización'/);
+  assert.match(capture, /'Servicios activos'/);
+  assert.match(capture, /'Servicios caidos'/);
+  assert.match(capture, /'Eventos recientes \(inicio\/detención\)'/);
+  assert.match(capture, /'Tiempo de sesion'/);
+  assert.match(capture, /missingCardLabels\.length/);
   assert.match(capture, /card\.width < 140/);
   assert.match(capture, /layout\.surface !== surface/);
   assert.match(capture, /document\.querySelector\('main, \[role="main"\]'\)/);
