@@ -5,7 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import path from 'node:path';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './visual-fixtures';
 
 test.describe('Ciclo de uso directo completo', () => {
   // Use a longer timeout for E2E flows

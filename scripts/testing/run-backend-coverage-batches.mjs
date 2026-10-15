@@ -106,7 +106,6 @@ const integrationFilesAM = [
 const integrationFilesNZ = [
   'tests/integracion/flujoDocenteGlobalE2E.test.ts',
   'tests/integracion/flujoDocenteParcialE2E.test.ts',
-  'tests/integracion/flujoExamen.test.ts',
   'tests/integracion/hidratacionCursos.test.ts',
   'tests/integracion/listaAcademicaContratos.test.ts',
   'tests/integracion/omrDatasetExportApi.test.ts',
@@ -340,6 +339,14 @@ function chunkFiles(namePrefix, files, size = integrationChunkSize) {
   return batches;
 }
 
+function buildExclusiveCoverageBatches() {
+  return [{
+    name: 'backend-integracion-flujo-examen',
+    exclusive: true,
+    args: batchArgs('backend-integracion-flujo-examen', ['tests/integracion/flujoExamen.test.ts'])
+  }];
+}
+
 function buildCoveragePlan() {
   return {
     batches: [
@@ -350,6 +357,7 @@ function buildCoveragePlan() {
       },
       ...chunkFiles('backend-integracion-a-m', integrationFilesAM),
       ...chunkFiles('backend-integracion-n-z', integrationFilesNZ),
+      ...buildExclusiveCoverageBatches(),
       {
         name: 'backend-aislamiento',
         args: batchArgs('backend-aislamiento', ['tests/integracion/aislamientoDocente.test.ts'])
@@ -437,11 +445,42 @@ async function emitFailureExcerpt(batchName, attempt, logFileName = null) {
   }
 }
 
+async function classifyAttemptFailure(batchName, attempt, exitCode) {
+  if (exitCode === 124) return 'timeout-del-runner';
+  const logPath = path.join(logsDir, `${`${batchName} ${attempt}/${batchAttempts}`.replace(/[^a-z0-9_-]+/gi, '_')}.log`);
+  try {
+    const log = await fs.readFile(logPath, 'utf8');
+    if (/\bFAIL\b|AssertionError|expected .* to/i.test(log)) return 'fallo-de-asercion';
+    if (/timed out|timeout|exceeded.*\d+ms/i.test(log)) return 'timeout-de-prueba';
+  } catch {
+    return 'infraestructura-sin-log';
+  }
+  return 'salida-no-cero';
+}
+
 async function runBatch(batch) {
+  const attempts = [];
   for (let attempt = 1; attempt <= batchAttempts; attempt += 1) {
     await cleanBatchArtifacts(batch.name);
+    const startedAt = Date.now();
+    const startedAtIso = new Date(startedAt).toISOString();
     const code = await runVitest(batch.args, `${batch.name} ${attempt}/${batchAttempts}`);
-    if (code === 0) return 0;
+    const durationMs = Date.now() - startedAt;
+    attempts.push({
+      attempt,
+      startedAt: startedAtIso,
+      finishedAt: new Date().toISOString(),
+      exitCode: code,
+      durationMs,
+      failureReason: code === 0 ? null : await classifyAttemptFailure(batch.name, attempt, code),
+      log: path.relative(rootDir, path.join(logsDir, `${`${batch.name} ${attempt}/${batchAttempts}`.replace(/[^a-z0-9_-]+/gi, '_')}.log`)).replaceAll(path.sep, '/')
+    });
+    if (code === 0) {
+      if (attempt > 1) {
+        process.stderr.write(`[backend-coverage] ${batch.name} se recuperó tras ${attempt - 1} intento(s) fallido(s); la ejecución no se considera estable.\n`);
+      }
+      break;
+    }
 
     if (attempt < batchAttempts) {
       process.stderr.write(`[backend-coverage] retry ${batch.name} tras exit ${code}\n`);
@@ -449,32 +488,52 @@ async function runBatch(batch) {
     }
 
     await emitFailureExcerpt(batch.name, attempt);
-    return code;
+    break;
   }
 
-  return 1;
+  const attemptLogPath = path.join(reportsDir, `${batch.name}.attempts.json`);
+  await fs.writeFile(attemptLogPath, JSON.stringify({ name: batch.name, exclusive: Boolean(batch.exclusive), attempts }, null, 2));
+  return { exitCode: attempts.at(-1)?.exitCode ?? 1, attempts, recovered: attempts.some(({ exitCode }) => exitCode !== 0) && attempts.at(-1)?.exitCode === 0 };
 }
 
 async function runBatches(batches, concurrency, executeBatch = runBatch) {
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > maximumBatchConcurrency) {
     throw new RangeError(`concurrency debe ser un entero entre 1 y ${maximumBatchConcurrency}`);
   }
+  const ordinaryBatches = batches.filter((batch) => !batch.exclusive);
+  const exclusiveBatches = batches.filter((batch) => batch.exclusive);
   let nextIndex = 0;
   let failureCode = 0;
-  const results = new Array(batches.length);
-  const worker = async () => {
+  let recoveredAttempt = false;
+  const results = [];
+  const worker = async (queue) => {
     while (failureCode === 0) {
       const index = nextIndex++;
-      const batch = batches[index];
+      const batch = queue[index];
       if (!batch) return;
       const startedAt = Date.now();
-      const code = await executeBatch(batch);
-      results[index] = { name: batch.name, exitCode: code, durationMs: Date.now() - startedAt };
-      if (code !== 0) failureCode = code;
+      const outcome = await executeBatch(batch);
+      const normalized = typeof outcome === 'number' ? { exitCode: outcome } : outcome;
+      results.push({ name: batch.name, ...normalized, durationMs: Date.now() - startedAt });
+      recoveredAttempt ||= Boolean(normalized.recovered);
+      if (normalized.exitCode !== 0) failureCode = normalized.exitCode;
     }
   };
-  await Promise.all(Array.from({ length: Math.min(concurrency, batches.length) }, () => worker()));
-  return { exitCode: failureCode, results: results.filter(Boolean) };
+  await Promise.all(Array.from({ length: Math.min(concurrency, ordinaryBatches.length) }, () => worker(ordinaryBatches)));
+  if (failureCode === 0) {
+    for (const batch of exclusiveBatches) {
+      const startedAt = Date.now();
+      const outcome = await executeBatch(batch);
+      const normalized = typeof outcome === 'number' ? { exitCode: outcome } : outcome;
+      results.push({ name: batch.name, ...normalized, durationMs: Date.now() - startedAt });
+      recoveredAttempt ||= Boolean(normalized.recovered);
+      if (normalized.exitCode !== 0) {
+        failureCode = normalized.exitCode;
+        break;
+      }
+    }
+  }
+  return { exitCode: failureCode || (recoveredAttempt ? 1 : 0), recoveredAttempt, results };
 }
 
 async function main() {
@@ -524,7 +583,8 @@ async function main() {
   process.stdout.write(`[backend-coverage] concurrencia=${batchConcurrency}; lotes=${plan.batches.length}\n`);
   const batches = await runBatches(plan.batches, batchConcurrency);
   if (batches.exitCode !== 0) {
-    const failedBatch = batches.results.find(({ exitCode }) => exitCode !== 0);
+    const failedBatch = batches.results.find(({ exitCode }) => exitCode !== 0)
+      ?? batches.results.find(({ recovered }) => recovered);
     await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
       startedAt,
       finishedAt: new Date().toISOString(),
@@ -535,10 +595,12 @@ async function main() {
         totalMemoryBytes: os.totalmem()
       },
       results: batches.results,
+      recoveredAttempt: batches.recoveredAttempt,
       failed: true,
       failureStage: 'batch',
       failedBatch: failedBatch?.name ?? null,
-      failureExitCode: failedBatch?.exitCode ?? null
+      failureExitCode: failedBatch?.exitCode ?? null,
+      failureReason: failedBatch?.recovered ? 'unstable-retry-recovery' : failedBatch?.attempts?.at(-1)?.failureReason ?? null
     }, null, 2));
     process.exit(batches.exitCode);
   }

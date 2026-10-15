@@ -918,8 +918,10 @@ function Invoke-InstallerHubMode {
   $operationStartedAt = Get-Date
   Invoke-Control -Element $startButton
   Start-Sleep -Seconds 2
+  if (-not (Resize-WindowForEvidence -Process $process -Width 1040 -Height 760)) { throw 'No se pudo ajustar el Installer Hub a 1040x760 para su captura.' }
+  Start-Sleep -Milliseconds 300
   Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-1040x760" -f $Mode) | Out-Null
-  Resize-WindowForEvidence -Process $process -Width 980 -Height 700 | Out-Null
+  if (-not (Resize-WindowForEvidence -Process $process -Width 1280 -Height 720)) { throw 'No se pudo ajustar el Installer Hub a 1280x720 para su captura.' }
   Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
   Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
@@ -1068,6 +1070,56 @@ function Get-Crc32Hash {
   return ('{0:X8}' -f ([uint64]($crc -bxor 4294967295))).ToLowerInvariant()
 }
 
+function Get-VisualScreenshotEvidence {
+  param([string]$Name, [string]$Path)
+  $declaredViewport = $null
+  $match = [regex]::Match($Name, '(?<width>\d{3,4})x(?<height>\d{3,4})')
+  if ($match.Success) {
+    $declaredViewport = [ordered]@{ width = [int]$match.Groups['width'].Value; height = [int]$match.Groups['height'].Value }
+  }
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return [ordered]@{ name = $Name; exists = $false; valid = $false; path = "screenshots/$Name"; reason = 'missing' }
+  }
+
+  $bitmap = $null
+  try {
+    $file = Get-Item -LiteralPath $Path
+    if ($file.Length -lt 4096) { throw 'PNG demasiado pequeño.' }
+    $bitmap = [System.Drawing.Bitmap]::FromFile($Path)
+    $distinctSamples = New-Object 'System.Collections.Generic.HashSet[string]'
+    for ($row = 0; $row -lt 9; $row++) {
+      for ($column = 0; $column -lt 9; $column++) {
+        $x = [Math]::Min($bitmap.Width - 1, [int](($bitmap.Width - 1) * $column / 8))
+        $y = [Math]::Min($bitmap.Height - 1, [int](($bitmap.Height - 1) * $row / 8))
+        $pixel = $bitmap.GetPixel($x, $y)
+        [void]$distinctSamples.Add(('{0:X2}{1:X2}{2:X2}' -f $pixel.R, $pixel.G, $pixel.B))
+      }
+    }
+    if ($bitmap.Width -le 0 -or $bitmap.Height -le 0) { throw 'PNG sin dimensiones válidas.' }
+    if ($distinctSamples.Count -lt 8) { throw 'La captura está vacía o casi monocroma.' }
+    if ($declaredViewport -and ($bitmap.Width -ne $declaredViewport.width -or $bitmap.Height -ne $declaredViewport.height)) {
+      throw ("La captura mide {0}x{1}; se declaró {2}x{3}." -f $bitmap.Width, $bitmap.Height, $declaredViewport.width, $declaredViewport.height)
+    }
+    return [ordered]@{
+      name = $Name
+      exists = $true
+      valid = $true
+      path = "screenshots/$Name"
+      width = $bitmap.Width
+      height = $bitmap.Height
+      bytes = $file.Length
+      sha256 = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+      distinctSamples = $distinctSamples.Count
+      declaredViewport = $declaredViewport
+      reason = $null
+    }
+  } catch {
+    return [ordered]@{ name = $Name; exists = $true; valid = $false; path = "screenshots/$Name"; declaredViewport = $declaredViewport; reason = $_.Exception.Message }
+  } finally {
+    if ($bitmap) { $bitmap.Dispose() }
+  }
+}
+
 function Write-VisualFlowManifest {
   $expected = @(
     'wpf-install-01-splash-deteccion.png',
@@ -1079,18 +1131,20 @@ function Write-VisualFlowManifest {
   )
   $items = foreach ($name in $expected) {
     $path = Join-Path $screenshotsDir $name
-    [pscustomobject]@{ name = $name; exists = Test-Path -LiteralPath $path; path = $path }
+    Get-VisualScreenshotEvidence -Name $name -Path $path
   }
-  $ok = @($items | Where-Object { -not $_.exists }).Count -eq 0
+  $ok = @($items | Where-Object { -not $_.valid }).Count -eq 0
   $manifestPath = Join-Path $manifestDir 'visual-flow.json'
   [pscustomobject]@{
     flow = @('splash', 'preparar', 'revisar', 'ejecutar-1040x760', 'ejecutar-1280x720', 'resultado')
     captured = $items
     complete = $ok
+    sha256Required = $true
+    imageIntegrityRequired = $true
     captureMethod = 'UIAutomation + CopyFromScreen/PrintWindow'
   } | ConvertTo-Json -Depth 6 | Set-Content -Path $manifestPath -Encoding UTF8
   $artifacts.Add($manifestPath) | Out-Null
-  Add-Result -Area 'screenshots' -Item 'complete-visual-flow' -Ok $ok -Detail ("captured={0}/{1}" -f (@($items | Where-Object exists).Count), $expected.Count)
+  Add-Result -Area 'screenshots' -Item 'complete-visual-flow' -Ok $ok -Detail ("valid={0}/{1}" -f (@($items | Where-Object valid).Count), $expected.Count)
 }
 
 function Wait-InstalledPayload {

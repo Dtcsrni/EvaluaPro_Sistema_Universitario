@@ -23,7 +23,7 @@ process.env.E2E_SCREENSHOT_DIR = e2eScreenshotRoot;
 export default defineConfig({
   testDir: __dirname,
   testMatch: ['**/ciclo-completo.spec.ts', '**/journey-docente-integral.spec.ts', '**/banco-reactivos.spec.ts'],
-  outputDir: path.join(scratchRoot, `results-${process.pid}`),
+  outputDir: process.env.E2E_PLAYWRIGHT_OUTPUT_DIR ?? path.join(scratchRoot, `results-${process.pid}`),
   timeout: 90_000,
   retries: 0,
   workers: 1,

@@ -31,7 +31,7 @@ test('todos los flujos Installer Hub generan reportes bajo el perfil y publican 
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*["']reports[\\/]/);
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*Join-Path \$env:RUNNER_TEMP/);
   assert.equal((workflow.match(/id: preparar_reporte_e2e/g) ?? []).length, 3, 'cada flujo calcula una ruta privada una sola vez');
-  assert.equal((workflow.match(/E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/g) ?? []).length, 3, 'cada runner consume el output de ruta preparado');
+  assert.equal((workflow.match(/E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/g) ?? []).length, 4, 'los tres flujos Installer Hub y el E2E PDF consumen el reporte calculado');
   const evidenceUploads = workflow.match(/- name: Publicar evidencia[^\n]*\n\s+if: ([^\n]*)\n\s+uses: actions\/upload-artifact[^\n]*\n\s+with:\n\s+name: installer-hub-[^\n]*\n\s+path: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}\//g) ?? [];
   assert.equal(evidenceUploads.length, 3, 'los tres flujos conservan su upload de evidencia');
   assert.ok(evidenceUploads.every((block) => block.includes("steps.preparar_reporte_e2e.outputs.report_dir != ''")), 'nunca se pasa una ruta vacía al uploader de artefactos');
@@ -281,6 +281,19 @@ test('runner protege ProgramData y aísla la SQLite recién creada por el baseli
 test('tutorial y capturas de una E2E fallida se quedan dentro del reporte QA', () => {
   assert.match(e2e, /Set-Content -Path \$tutorialPath/);
   assert.doesNotMatch(e2e, /Copy-Item -LiteralPath \$tutorialPath -Destination .*installer-hub-docente-e2e\.md/);
+});
+
+test('la evidencia visual del Installer Hub valida PNG, dimensiones, píxeles y huella', () => {
+  assert.match(e2e, /function Get-VisualScreenshotEvidence/);
+  assert.match(e2e, /System\.Drawing\.Bitmap\]::FromFile\(\$Path\)/);
+  assert.match(e2e, /distinctSamples\.Count -lt 8/);
+  assert.match(e2e, /declaredViewport\.width/);
+  assert.match(e2e, /Get-FileHash -LiteralPath \$Path -Algorithm SHA256/);
+  assert.match(e2e, /valid = \$true/);
+  assert.match(e2e, /Where-Object \{ -not \$_\.valid \}/);
+  assert.match(e2e, /sha256Required = \$true/);
+  assert.match(e2e, /Resize-WindowForEvidence -Process \$process -Width 1040 -Height 760/);
+  assert.match(e2e, /Resize-WindowForEvidence -Process \$process -Width 1280 -Height 720/);
 });
 
 test('release valida el asset descargado desde GitHub antes de hacer público el release', () => {

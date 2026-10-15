@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt } from '../testing/run-backend-coverage-batches.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt, runBatches } from '../testing/run-backend-coverage-batches.mjs';
 
 test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   const plan = buildCoveragePlan();
@@ -24,6 +26,64 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
     omrWorkflowBatch.args.filter((arg) => arg.startsWith('tests/')),
     ['tests/integracion/omrJobsWorkflow.test.ts']
   );
+
+  const examFlowBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/flujoExamen.test.ts'));
+  assert.ok(examFlowBatch, 'falta la suite completa de flujo de examen');
+  assert.equal(examFlowBatch.exclusive, true, 'el flujo intensivo debe correr sin otros lotes del scheduler');
+  assert.deepEqual(
+    examFlowBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/flujoExamen.test.ts']
+  );
+});
+
+test('scheduler ejecuta lotes exclusivos después de drenar los workers paralelos', async () => {
+  let activos = 0;
+  let maxActivos = 0;
+  const eventos = [];
+  const result = await runBatches([
+    { name: 'normal-a' },
+    { name: 'normal-b' },
+    { name: 'exclusive', exclusive: true }
+  ], 2, async ({ name, exclusive }) => {
+    activos += 1;
+    maxActivos = Math.max(maxActivos, activos);
+    eventos.push(`start:${name}:${activos}`);
+    await Promise.resolve();
+    activos -= 1;
+    eventos.push(`end:${name}:${activos}`);
+    if (exclusive) assert.equal(activos, 0, 'un lote exclusivo inició con otro worker activo');
+    return 0;
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(maxActivos, 2, 'los lotes ordinarios conservan su concurrencia');
+  assert.ok(eventos.indexOf('start:exclusive:1') > eventos.indexOf('end:normal-a:0'));
+  assert.ok(eventos.indexOf('start:exclusive:1') > eventos.indexOf('end:normal-b:0'));
+});
+
+test('scheduler informa recuperación como inestable y mantiene el código de salida fallido', async () => {
+  const result = await runBatches([
+    { name: 'recovered' },
+    { name: 'exclusive', exclusive: true }
+  ], 1, async ({ name }) => ({
+    exitCode: 0,
+    recovered: name === 'recovered',
+    attempts: name === 'recovered' ? [{ attempt: 1, exitCode: 124 }, { attempt: 2, exitCode: 0 }] : [{ attempt: 1, exitCode: 0 }]
+  }));
+
+  assert.equal(result.recoveredAttempt, true);
+  assert.equal(result.exitCode, 1, 'un lote que requirió retry no es una pasada estable');
+  assert.equal(result.results.find(({ name }) => name === 'exclusive').exitCode, 0);
+});
+
+test('cada intento deja duración, timestamps, causa de fallo y log en el resumen auditable', () => {
+  const runner = fs.readFileSync(path.join(process.cwd(), 'scripts/testing/run-backend-coverage-batches.mjs'), 'utf8');
+  for (const field of ['startedAt:', 'finishedAt:', 'durationMs:', 'failureReason:', 'log:']) {
+    assert.ok(runner.includes(field), `falta registrar ${field}`);
+  }
+  assert.match(runner, /runBatch\(batch\)[\s\S]*?attemptLogPath[\s\S]*?JSON\.stringify\(\{ name: batch\.name, exclusive: Boolean\(batch\.exclusive\), attempts \}/);
+  assert.match(runner, /recoveredAttempt \? 1 : 0/);
+  assert.match(runner, /recovered: attempts\.some\(\(\{ exitCode \}\) => exitCode !== 0\)/);
 });
 
 test('coverage diferencial enfoca la exportación de dataset OMR en sus pruebas directas', () => {

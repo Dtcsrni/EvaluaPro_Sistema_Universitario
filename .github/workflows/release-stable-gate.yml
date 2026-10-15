@@ -142,7 +142,13 @@ jobs:
           npx playwright install --with-deps chromium
           npm run gui:screen-matrix
           git restore -- docs/release/manual/gui-screen-matrix.md
+          npm run test:gui:visual-contract
           npm run test:gui:responsive:e2e:ci
+          export E2E_PLAYWRIGHT_OUTPUT_DIR="$RUNNER_TEMP/evaluapro-e2e-playwright-results"
+          npm run test:gui:cycle:e2e:ci
+          export E2E_REPORT_DIR="$RUNNER_TEMP/evaluapro-pdf-edge-results"
+          export E2E_BROWSER_CHANNEL=chromium
+          npm run test:gui:pdf:e2e:ci
 
       - name: Confirmar árbol fuente limpio antes de QA completa
         shell: bash
@@ -178,6 +184,9 @@ jobs:
           path: |
             reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
             candidate/reports/qa/latest/
+            candidate/test-results/**
+            ${{ runner.temp }}/evaluapro-e2e-playwright-results/**
+            ${{ runner.temp }}/evaluapro-pdf-edge-results/**
           if-no-files-found: warn
 
   publish_after_go:

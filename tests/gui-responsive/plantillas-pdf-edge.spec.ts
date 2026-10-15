@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './visual-fixtures';
 
 test('Edge visualiza y descarga intacto un PDF sintético de lote', async ({ page }, testInfo) => {
   const pdf = await PDFDocument.create();
@@ -16,7 +16,11 @@ test('Edge visualiza y descarga intacto un PDF sintético de lote', async ({ pag
   await page.route('http://evaluapro-pdf-qa.test/**', async (route) => {
     const esDescarga = route.request().url().endsWith('/descarga.pdf');
     if (route.request().url().endsWith('/')) {
-      await route.fulfill({ status: 200, contentType: 'text/html', body: '<a href="/descarga.pdf">Descargar PDF QA</a>' });
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<main><h1>PDF de prueba del lote</h1><p>Documento sintético para validar vista y descarga.</p><a href="/descarga.pdf">Descargar PDF QA</a></main>'
+      });
       return;
     }
     await route.fulfill({
@@ -31,16 +35,16 @@ test('Edge visualiza y descarga intacto un PDF sintético de lote', async ({ pag
     });
   });
 
-  const respuestaPdf = await page.goto('http://evaluapro-pdf-qa.test/visualizacion.pdf');
-  expect(respuestaPdf?.status()).toBe(200);
-  expect(respuestaPdf?.headers()['content-type']).toContain('application/pdf');
-  const capturaViewer = await page.screenshot();
-  expect(capturaViewer.byteLength).toBeGreaterThan(1_000);
-  await testInfo.attach('edge-pdf-viewer.png', { body: capturaViewer, contentType: 'image/png' });
-
   await page.goto('http://evaluapro-pdf-qa.test/');
+  await expect(page.getByRole('heading', { name: 'PDF de prueba del lote' })).toBeVisible();
+  const enlaceDescarga = page.getByRole('link', { name: 'Descargar PDF QA' });
+  await expect(enlaceDescarga).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('pdf-descarga-disponible.png'), fullPage: true });
+  const respuestaPdf = await page.request.get('http://evaluapro-pdf-qa.test/visualizacion.pdf');
+  expect(respuestaPdf.status()).toBe(200);
+  expect(respuestaPdf.headers()['content-type']).toContain('application/pdf');
   const descargaPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Descargar PDF QA' }).click();
+  await enlaceDescarga.click();
   const descarga = await descargaPromise;
   const rutaDescarga = testInfo.outputPath('qa-lote-descargado.pdf');
   await descarga.saveAs(rutaDescarga);

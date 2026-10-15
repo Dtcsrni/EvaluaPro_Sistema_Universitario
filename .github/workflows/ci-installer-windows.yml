@@ -291,6 +291,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: npx playwright install chromium
 
+      - name: Instalar Microsoft Edge para validar el PDF en GUI
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        run: npx playwright install msedge
+
       - name: Determinar si aplica upgrade desde v1.2.3
         id: upgrade_gate
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
@@ -367,6 +371,14 @@ jobs:
           }
           & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 @runnerArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: E2E visual de vista y descarga PDF en Edge
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        shell: powershell
+        env:
+          E2E_REPORT_DIR: ${{ steps.preparar_reporte_e2e.outputs.report_dir }}
+          E2E_BROWSER_CHANNEL: msedge
+        run: npx playwright test -c tests/gui-responsive/playwright.pdf-edge.config.mjs
 
       - name: Publicar evidencia de la E2E completa
         if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
