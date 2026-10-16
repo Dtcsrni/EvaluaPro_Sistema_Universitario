@@ -1,0 +1,127 @@
+{
+  "version": "1.2.8",
+  "displayVersion": "1.2.8",
+  "commit": "ab784c4c4fca0ca24d86cab8a37ceaca22d5e0d1",
+  "ciConsecutivoVerde": 2,
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.2.8/windows-release-smoke.md"
+  },
+  "gateHumanoProduccion": {
+    "version": "1.2.8",
+    "displayVersion": "1.2.8",
+    "ejecutadoEn": "2026-10-16T23:05:02Z",
+    "entorno": "main-ci-installer-e2e",
+    "docenteIdHash": "no-aplica-validacion-sintetica",
+    "periodoId": "no-aplica-sin-periodo-productivo",
+    "ventana": {
+      "startedAt": "2026-10-16T21:05:09Z",
+      "endedAt": "2026-10-16T23:02:40Z"
+    },
+    "operador": {
+      "nombre": "codex-release-audit",
+      "observaciones": "Validación automatizada sobre SHA candidato de main, con runtime local canónico Prisma/SQLite. No se ejecutó flujo humano docente en producción externa ni instalación en el equipo local."
+    },
+    "resultado": "fallo",
+    "duracionMs": 7051000,
+    "pasos": [
+      {
+        "id": "ci_full_1",
+        "nombre": "Primera corrida completa CI #1451",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "SHA candidato exacto; todos los jobs, incluidos gates extendidos, concluyeron success."
+      },
+      {
+        "id": "ci_full_2",
+        "nombre": "Segunda corrida completa CI #1452",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Mismo SHA; todos los jobs, incluidos gates extendidos, concluyeron success."
+      },
+      {
+        "id": "ci_backend_sqlite",
+        "nombre": "Backend Prisma/SQLite",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Lint, typecheck, pruebas, cobertura backend/portal y build concluyeron success en ambas corridas."
+      },
+      {
+        "id": "classroom_audit",
+        "nombre": "Auditoría Classroom",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "classroom-audit-check aprobó en ambas corridas full."
+      },
+      {
+        "id": "omr",
+        "nombre": "Gate OMR canónico",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "omr-canonical-real-gate aprobó en ambas corridas full."
+      },
+      {
+        "id": "pdf_print",
+        "nombre": "PDF e impresión",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "pdf-print-check aprobó en ambas corridas full."
+      },
+      {
+        "id": "ux_visual",
+        "nombre": "E2E visual UX/UI",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "ux-visual-check aprobó en ambas corridas full; evidencia visual publicada por CI."
+      },
+      {
+        "id": "installer_build",
+        "nombre": "Build MSI/Bundle docente-local",
+        "resultado": "ok",
+        "fuente": "CI Installer Windows",
+        "detalle": "Build, footprint, manifiesto/hash y antivirus aprobados en run #686."
+      },
+      {
+        "id": "burn_gui",
+        "nombre": "Smoke GUI de Installer Hub",
+        "resultado": "ok",
+        "fuente": "CI Installer Windows",
+        "detalle": "Smoke GUI del bundle Burn empaquetado aprobado."
+      },
+      {
+        "id": "upgrade_e2e",
+        "nombre": "E2E de actualización",
+        "resultado": "ok",
+        "fuente": "CI Installer Windows",
+        "detalle": "Actualización E2E desde v1.2.3 aprobada sobre el bundle candidato."
+      },
+      {
+        "id": "pdf_edge_e2e",
+        "nombre": "Vista y descarga PDF en Edge",
+        "resultado": "ok",
+        "fuente": "CI Installer Windows",
+        "detalle": "E2E visual de PDF aprobada."
+      },
+      {
+        "id": "artifact_integrity",
+        "nombre": "Integridad de artefactos",
+        "resultado": "ok",
+        "fuente": "CI Installer Windows",
+        "detalle": "Verificación de artefactos de release aprobada; artefactos de instalación asociados al mismo SHA."
+      },
+      {
+        "id": "prod_flow",
+        "nombre": "Flujo humano docente productivo",
+        "resultado": "fallo",
+        "fuente": "manual",
+        "detalle": "No ejecutado contra producción externa; no se usaron credenciales ni datos reales en esta sesión."
+      }
+    ]
+  },
+  "artefactos": {
+    "timeline": "docs/release/evidencias/1.2.8/timeline.md",
+    "metricas": "docs/release/evidencias/1.2.8/metrics_snapshot.txt",
+    "integridad": "docs/release/evidencias/1.2.8/integridad_sha256.json",
+    "rollback": "docs/release/evidencias/1.2.8/rollback_readiness.json",
+    "windows": "docs/release/evidencias/1.2.8/windows-release-smoke.md"
+  }
+}
