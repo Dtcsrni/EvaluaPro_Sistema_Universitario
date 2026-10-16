@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { expect, test as base } from '@playwright/test';
 import type { Page, ScreenshotOptions } from '@playwright/test';
 
 type EvidenceRecord = {
   name: string;
+  path: string;
   width: number;
   height: number;
   viewport: { width: number; height: number };
@@ -17,6 +20,7 @@ async function auditVisualState(
   page: Page,
   name: string,
   options: ScreenshotOptions,
+  relativePath: string,
   captureImage: (options: ScreenshotOptions) => Promise<Buffer>,
   attachImage: (image: Buffer) => Promise<void>
 ): Promise<{ record: EvidenceRecord; image: Buffer }> {
@@ -132,6 +136,7 @@ async function auditVisualState(
     image,
     record: {
       name,
+      path: relativePath,
       width,
       height,
       viewport: { width: audit.width, height: audit.height },
@@ -150,12 +155,20 @@ export const test = base.extend<{ page: Page }>({
     let captureIndex = 0;
     page.screenshot = async (options: ScreenshotOptions = {}) => {
       const name = `${testInfo.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${++captureIndex}`;
+      const screenshotPath = options.path
+        ? path.resolve(options.path)
+        : testInfo.outputPath(`gui-${name}.png`);
+      const evidenceRoot = process.env.E2E_SCREENSHOT_DIR
+        ? path.resolve(process.env.E2E_SCREENSHOT_DIR)
+        : testInfo.outputDir;
+      const relativePath = path.relative(evidenceRoot, screenshotPath).split(path.sep).join('/');
       const { record, image } = await auditVisualState(
         page,
         name,
-        options,
+        { ...options, path: screenshotPath },
+        relativePath,
         originalScreenshot,
-        (captured) => testInfo.attach(`gui-${name}.png`, { body: captured, contentType: 'image/png' })
+        () => testInfo.attach(`gui-${name}.png`, { path: screenshotPath, contentType: 'image/png' })
       );
       records.push(record);
       return image;
@@ -165,13 +178,16 @@ export const test = base.extend<{ page: Page }>({
       await use(page);
     } finally {
       if (records.length > 0) {
+        const manifest = Buffer.from(JSON.stringify({
+          test: testInfo.title,
+          project: testInfo.project.name,
+          viewport: testInfo.project.use.viewport ?? null,
+          captures: records
+        }, null, 2));
+        const manifestPath = testInfo.outputPath('gui-visual-evidence-manifest.json');
+        await fs.writeFile(manifestPath, manifest);
         await testInfo.attach('gui-visual-evidence-manifest.json', {
-          body: Buffer.from(JSON.stringify({
-            test: testInfo.title,
-            project: testInfo.project.name,
-            viewport: testInfo.project.use.viewport ?? null,
-            captures: records
-          }, null, 2)),
+          path: manifestPath,
           contentType: 'application/json'
         });
       }

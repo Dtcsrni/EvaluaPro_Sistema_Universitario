@@ -30,6 +30,13 @@ test('todos los recorridos GUI principales instrumentan cada screenshot con audi
   assert.match(fixture, /createHash\('sha256'\)/);
   assert.match(fixture, /gui-visual-evidence-manifest\.json/);
   assert.match(fixture, /testInfo\.attach/);
+  assert.match(fixture, /testInfo\.outputPath\('gui-visual-evidence-manifest\.json'\)/);
+  assert.match(fixture, /await fs\.writeFile\(manifestPath, manifest\)/);
+  assert.match(fixture, /path: manifestPath/);
+  assert.match(fixture, /testInfo\.outputPath\(`gui-\$\{name\}\.png`\)/);
+  assert.match(fixture, /relativePath/);
+  assert.match(fixture, /path: relativePath/);
+  assert.match(fixture, /testInfo\.attach\(`gui-\$\{name\}\.png`, \{ path: screenshotPath/);
 });
 
 test('la vista de resultados del alumno conserva sus aserciones UX activas antes de capturar', () => {
