@@ -124,6 +124,7 @@ const integrationFilesNZ = [
   'tests/integracion/temario.pdf.test.ts',
   'tests/integracion/versionadoApiV2Contratos.test.ts'
 ];
+const regenerarExamenCoverageTest = 'tests/integracion/regenerarExamenGenerado.test.ts';
 
 // En cobertura, esta suite OMR tardó 1,433.58 s aislada; concurrente agotó
 // los 480 s. Se ejecuta tras drenar workers y conserva el límite global para
@@ -131,7 +132,6 @@ const integrationFilesNZ = [
 const integrationFilesNZExclusive = [
   'tests/integracion/omrJobsWorkflow.test.ts'
 ];
-const regenerarExamenCoverageTest = 'tests/integracion/regenerarExamenGenerado.test.ts';
 
 // Mantener lotes pequeños evita que Vitest instrumente toda la suite raíz en
 // un único proceso y deja identificar el grupo que exceda tiempo/memoria.
@@ -339,7 +339,7 @@ async function runCoverageFailureDiagnostics({
 }) {
   const batchPlan = plan.batches.find((batch) => batch.args.includes(regenerarExamenCoverageTest));
   const sharedBatch = batches.results.find(({ name }) => name === batchPlan?.name);
-  if (!batchPlan || !sharedBatch) return [];
+  if (!batchPlan || batchPlan.exclusive || !sharedBatch) return [];
 
   if (!compareIsolated) {
     if (batches.exitCode === 0) return [];
@@ -427,6 +427,11 @@ function buildExclusiveCoverageBatches() {
       exclusive: true,
       timeoutMs: 2_100_000,
       args: batchArgs('backend-integracion-omr-jobs-workflow', integrationFilesNZExclusive)
+    },
+    {
+      name: 'backend-integracion-regenerar-examen',
+      exclusive: true,
+      args: [...batchArgs('backend-integracion-regenerar-examen', [regenerarExamenCoverageTest]), '--maxWorkers=1']
     }
   ];
 }
@@ -440,7 +445,9 @@ function buildCoveragePlan() {
         args: batchArgs('backend-calificacion-omr-payload', ['tests/calificacion.omr.payload.test.ts'])
       },
       ...chunkFiles('backend-integracion-a-m', integrationFilesAM),
-      ...chunkFiles('backend-integracion-n-z', integrationFilesNZ.filter((file) => !integrationFilesNZExclusive.includes(file))),
+      ...chunkFiles('backend-integracion-n-z', integrationFilesNZ.filter((file) => (
+        !integrationFilesNZExclusive.includes(file) && file !== regenerarExamenCoverageTest
+      ))),
       ...buildExclusiveCoverageBatches(),
       {
         name: 'backend-aislamiento',
@@ -717,3 +724,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   });
 }
+

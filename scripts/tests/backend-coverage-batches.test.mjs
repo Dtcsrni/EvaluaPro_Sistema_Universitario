@@ -53,6 +53,17 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
     ['tests/pdf.layout.visual.guard.test.ts']
   );
   assert.ok(pdfLayoutBatch.args.includes('--maxWorkers=1'), 'la suite visual exclusiva no debe competir entre workers de Vitest');
+
+  const regenerarBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
+  assert.ok(regenerarBatch, 'falta la suite de regeneración de examen en cobertura');
+  assert.equal(regenerarBatch.name, 'backend-integracion-regenerar-examen');
+  assert.equal(regenerarBatch.exclusive, true, 'la suite afectada por contención debe esperar a que drenen los workers');
+  assert.ok(regenerarBatch.args.includes('--coverage'));
+  assert.ok(regenerarBatch.args.includes('--maxWorkers=1'));
+  assert.deepEqual(
+    regenerarBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/regenerarExamenGenerado.test.ts']
+  );
 });
 
 test('scheduler ejecuta lotes exclusivos después de drenar los workers paralelos', async () => {
@@ -120,15 +131,26 @@ test('diagnóstico aislado de regeneración conserva cobertura y una sola suite,
 
 test('diagnóstico corre tras drenar los lotes y su aprobación nunca convierte cobertura fallida en verde', async () => {
   const plan = buildCoveragePlan();
-  const batchCompartido = plan.batches.find((batch) => batch.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
-  assert.ok(batchCompartido);
-  assert.equal(batchCompartido.exclusive, undefined);
+  const loteRegeneracion = plan.batches.find((batch) => batch.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
+  assert.ok(loteRegeneracion);
+  assert.equal(loteRegeneracion.exclusive, true);
+  assert.equal(await runCoverageFailureDiagnostics({
+    batches: { exitCode: 0, results: [{ name: loteRegeneracion.name, exitCode: 0 }] },
+    plan,
+    compareIsolated: true,
+    executeDiagnostic: async () => { throw new Error('no debe repetir una suite que ya corre aislada'); }
+  }).then((items) => items.length), 0);
+
+  const planComparativo = {
+    ...plan,
+    batches: plan.batches.map((batch) => batch === loteRegeneracion ? { ...batch, exclusive: false } : batch)
+  };
 
   let ejecuciones = 0;
   const batches = {
     exitCode: 1,
     results: [{
-      name: batchCompartido.name,
+      name: loteRegeneracion.name,
       exitCode: 1,
       attempts: [{
         failureReason: 'timeout-de-prueba',
@@ -138,7 +160,7 @@ test('diagnóstico corre tras drenar los lotes y su aprobación nunca convierte 
   };
   const diagnosticos = await runCoverageFailureDiagnostics({
     batches,
-    plan,
+    plan: planComparativo,
     readFailureLog: async () => 'tests/integracion/regenerarExamenGenerado.test.ts > regenerar examen generado > regenera PDF y recalcula paginas (requiere forzar si ya fue descargado) timed out in 60000ms',
     executeDiagnostic: async ({ name }) => {
       ejecuciones += 1;
@@ -153,21 +175,22 @@ test('diagnóstico corre tras drenar los lotes y su aprobación nunca convierte 
   assert.equal(batches.exitCode, 1);
   assert.equal((await runCoverageFailureDiagnostics({
     batches,
-    plan,
+    plan: planComparativo,
     readFailureLog: async () => 'tests/integracion/rolesPermisos.test.ts > assertion failed',
     executeDiagnostic: async () => { throw new Error('no debe diagnosticar otra suite'); }
   })).length, 0);
   assert.equal((await runCoverageFailureDiagnostics({
-    batches: { exitCode: 0, results: [] }, plan, executeDiagnostic: async () => { throw new Error('no debe correr'); }
+    batches: { exitCode: 0, results: [] }, plan: planComparativo, executeDiagnostic: async () => { throw new Error('no debe correr'); }
   })).length, 0);
 });
 
 test('comparación forzada conserva ambas mediciones y bloquea si falla cualquiera', async () => {
   const plan = buildCoveragePlan();
   const batch = plan.batches.find((item) => item.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
+  const planCompartido = { ...plan, batches: plan.batches.map((item) => item === batch ? { ...item, exclusive: false } : item) };
   const result = await runCoverageFailureDiagnostics({
     batches: { exitCode: 0, results: [{ name: batch.name, exitCode: 0, durationMs: 42_000 }] },
-    plan,
+    plan: planCompartido,
     compareIsolated: true,
     executeDiagnostic: async () => 1
   });
@@ -348,3 +371,4 @@ test('coverage diferencial cae a seleccion automatica ante fuentes sin perfil va
     'apps/backend/src/modulos/modulo_calificacion/controlador.ts'
   ]), null);
 });
+

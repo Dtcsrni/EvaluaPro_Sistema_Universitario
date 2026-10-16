@@ -14,7 +14,7 @@ En CI Checks #1443, SHA `35452d595d02f654183b80cc11478dc3bcfddaf6`, el lote `bac
 
 SPEC-103 exige demostrar con mediciones si el aislamiento elimina el timeout y establece que, si no lo hace, se necesita una spec aprobada adicional antes de cambiar el test o la producción. Esta spec cubre la comparación controlada y, solo si la medición respalda el aislamiento, la separación exclusiva del caso. Conserva el test, sus aserciones, los umbrales de cobertura y el código de salida fallido ante una corrida inestable.
 
-Como diagnóstico no concluyente, el mismo test se ejecutó aislado en Windows local con cobertura V8: pasó en 27.248 s y el proceso completo duró 60.50 s. Esta máquina y su sistema operativo difieren del runner Ubuntu de CI; por ello, el dato no sustituye la comparación A/B requerida en el mismo entorno remoto ni permite atribuir causalidad a la concurrencia. El runner ahora ejecuta el archivo aislado después de que termina el lote compartido y se drenan los workers, para todas las corridas explícitas de cobertura con `force_full_ci=true`. Registra resultado, duración, timeout y log de ambos lados en `diagnostics`; el gate falla si el lote compartido o la ejecución aislada falla. Fuera de ese modo, el diagnóstico aislado se activa solo ante el timeout exacto del caso objetivo. El diagnóstico remoto en Ubuntu continúa pendiente.
+Como diagnóstico no concluyente, el mismo test se ejecutó aislado en Windows local con cobertura V8: pasó en 27.248 s y el proceso completo duró 60.50 s. La comparación A/B de CI Checks #1446, run `38934208588`, en Ubuntu y SHA `5459bcde69d1382e7dc88d972a0bed3e82c4b72a`, confirmó la contención: el lote compartido terminó fallido a los 100.014 s después del timeout del caso a 60 s; la ejecución aislada pasó en 48.716 s (caso: 42.554 s). No se usaron retries. Con esa evidencia, el plan aprobado se implementa como un lote exclusivo permanente con cobertura y `--maxWorkers=1`, después de que drenen los workers ordinarios. El diagnóstico comparativo no se repite cuando la suite ya es exclusiva, para evitar ejecutar dos veces el mismo test en cada CI. El gate conserva el fallo estricto, los umbrales y el timeout original.
 
 ## Requisitos Funcionales
 
@@ -37,7 +37,8 @@ Como diagnóstico no concluyente, el mismo test se ejecutó aislado en Windows l
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001, REQ-002 | Registro y comparación de ejecución compartida/exclusiva | `scripts/tests/backend-coverage-batches.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | Implementado y verificado localmente; comparación CI pendiente |
-| REQ-003, REQ-005 | Exclusividad del scheduler y preservación del plan completo | `scripts/tests/backend-coverage-batches.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | Implementado y verificado localmente; comparación CI pendiente |
+| REQ-001, REQ-002 | Registro y comparación de ejecución compartida/exclusiva | `scripts/tests/backend-coverage-batches.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | Comparación A/B confirmada en CI Checks #1446; nueva planificación exclusiva pendiente de CI |
+| REQ-003, REQ-005 | Exclusividad del scheduler y preservación del plan completo | `scripts/tests/backend-coverage-batches.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | Implementación local; validación completa pendiente |
 | REQ-004 | El test de regeneración conserva resultado de timeout/fallo sin retries | `apps/backend/tests/integracion/regenerarExamenGenerado.test.ts` | Conservado; sin cambios al test |
 | REQ-006 | Gate candidato completo y comportamiento de flakiness sin aceptación por retry | `scripts/tests/ci-workflow-contract.test.mjs` | CI completo pendiente |
+
