@@ -1,0 +1,25 @@
+{
+  "version": "1.2.8",
+  "status": "ready",
+  "previousStableVersion": "1.2.6",
+  "activationCriteria": [
+    "Regresión en generación de PDF, lote o consulta del historial de exámenes.",
+    "Fallo de actualización/rollback en Installer Hub o de salud del backend local.",
+    "Regresión de UX/UI que afecte flujos docente, OMR, calificaciones o PDF."
+  ],
+  "rollbackSteps": [
+    "Pausar la promoción y el flujo de actualización automática.",
+    "Restaurar el último artefacto estable validado.",
+    "Conservar la base SQLite y los artefactos locales; no sustituir la base activa durante el rollback.",
+    "Verificar manifest, versión visible, /api/salud/live y flujos críticos."
+  ],
+  "postRollbackChecks": [
+    "Validar integridad SQLite y conectividad Prisma.",
+    "Verificar GET /api/salud/live.",
+    "Verificar login docente y consultas de calificaciones.",
+    "Verificar historial de exámenes y descargas PDF.",
+    "Confirmar que el Installer Hub reporta la versión estable anterior."
+  ],
+  "approvedBy": "codex-release-readiness",
+  "approvedAt": "2026-10-16T23:05:02Z"
+}
