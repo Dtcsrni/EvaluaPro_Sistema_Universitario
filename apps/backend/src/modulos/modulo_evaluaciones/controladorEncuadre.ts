@@ -352,16 +352,21 @@ export async function descargarPdfEncuadrePublico(req: Request, res: Response) {
     if (!pdfFullPath) {
       return res.status(400).json({ error: 'Acceso denegado a la ruta del archivo' });
     }
+    let pdfBuffer: Buffer;
     try {
-      await fs.access(pdfFullPath);
-    } catch {
-      return res.status(404).json({ error: 'El archivo físico del PDF no existe' });
+      pdfBuffer = await fs.readFile(pdfFullPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return res.status(404).json({ error: 'El archivo físico del PDF no existe' });
+      }
+      return res.status(500).json({ error: 'Error interno' });
     }
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.sendFile(pdfFullPath);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Error interno' });
+    res.setHeader('Content-Length', String(pdfBuffer.length));
+    return res.status(200).send(pdfBuffer);
+  } catch {
+    return res.status(500).json({ error: 'Error interno' });
   }
 }
 
