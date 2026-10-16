@@ -48,14 +48,16 @@ function parsearEnv(texto) {
 const envLocal = fs.existsSync(rutaEnv) ? parsearEnv(fs.readFileSync(rutaEnv, 'utf8')) : {};
 const env = { ...envLocal, ...process.env };
 
-const requeridasSiempre = estricto ? ['MONGODB_URI'] : [];
 const requeridasProduccion = ['JWT_SECRETO'];
 const advertencias = [];
 const errores = [];
 
-for (const k of requeridasSiempre) {
-  if (!String(env[k] || '').trim()) {
-    errores.push(`Variable requerida ausente: ${k}`);
+if (estricto) {
+  const databaseUrl = String(env.BACKEND_DATABASE_URL || env.DATABASE_URL || '').trim();
+  if (!databaseUrl) {
+    errores.push('Variable requerida ausente: BACKEND_DATABASE_URL o DATABASE_URL (SQLite).');
+  } else if (!databaseUrl.startsWith('file:')) {
+    errores.push('La URL de base de datos debe usar SQLite con el esquema file:.');
   }
 }
 

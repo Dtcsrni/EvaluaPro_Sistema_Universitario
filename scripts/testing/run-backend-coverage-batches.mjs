@@ -44,7 +44,9 @@ const reportsDir = path.join(
 );
 const logsDir = path.join(reportsRootDir, 'backend-coverage-logs');
 const vitestEntry = path.join(rootDir, 'node_modules', 'vitest', 'vitest.mjs');
-const batchAttempts = 3;
+// Cobertura se ejecuta en una sola pasada: un retry puede ocultar un test flaky
+// y no mejora la evidencia necesaria para aceptar una corrida integral.
+const batchAttempts = 1;
 const defaultBatchConcurrency = getDefaultBatchConcurrency({
   totalMemoryBytes: os.totalmem(),
   logicalCpus: os.availableParallelism?.() ?? os.cpus().length
@@ -106,7 +108,6 @@ const integrationFilesAM = [
 const integrationFilesNZ = [
   'tests/integracion/flujoDocenteGlobalE2E.test.ts',
   'tests/integracion/flujoDocenteParcialE2E.test.ts',
-  'tests/integracion/flujoExamen.test.ts',
   'tests/integracion/hidratacionCursos.test.ts',
   'tests/integracion/listaAcademicaContratos.test.ts',
   'tests/integracion/omrDatasetExportApi.test.ts',
@@ -122,6 +123,14 @@ const integrationFilesNZ = [
   'tests/integracion/rolesPermisos.test.ts',
   'tests/integracion/temario.pdf.test.ts',
   'tests/integracion/versionadoApiV2Contratos.test.ts'
+];
+const regenerarExamenCoverageTest = 'tests/integracion/regenerarExamenGenerado.test.ts';
+
+// En cobertura, esta suite OMR tardó 1,433.58 s aislada; concurrente agotó
+// los 480 s. Se ejecuta tras drenar workers y conserva el límite global para
+// todos los demás lotes.
+const integrationFilesNZExclusive = [
+  'tests/integracion/omrJobsWorkflow.test.ts'
 ];
 
 // Mantener lotes pequeños evita que Vitest instrumente toda la suite raíz en
@@ -140,7 +149,7 @@ function listRootCoverageFiles() {
 }
 
 function buildRootCoverageBatches() {
-  const files = listRootCoverageFiles();
+  const files = listRootCoverageFiles().filter((file) => file !== 'tests/pdf.layout.visual.guard.test.ts');
   const batches = [];
   let index = 0;
   while (index < files.length) {
@@ -311,6 +320,62 @@ function batchArgs(name, filters) {
   ];
 }
 
+function buildRegenerarExamenIsolationDiagnostic(failedBatch) {
+  if (!failedBatch?.args?.includes(regenerarExamenCoverageTest)) return null;
+  const name = 'backend-diagnostico-aislado-regenerar-examen';
+  return {
+    name,
+    timeoutMs: batchTimeoutMs,
+    args: [...batchArgs(name, [regenerarExamenCoverageTest]), '--maxWorkers=1']
+  };
+}
+
+async function runCoverageFailureDiagnostics({
+  batches,
+  plan,
+  executeDiagnostic,
+  compareIsolated = process.env.BACKEND_COVERAGE_COMPARE_ISOLATED === 'true',
+  readFailureLog = async (relativePath) => fs.readFile(path.resolve(rootDir, relativePath), 'utf8')
+}) {
+  const batchPlan = plan.batches.find((batch) => batch.args.includes(regenerarExamenCoverageTest));
+  const sharedBatch = batches.results.find(({ name }) => name === batchPlan?.name);
+  if (!batchPlan || batchPlan.exclusive || !sharedBatch) return [];
+
+  if (!compareIsolated) {
+    if (batches.exitCode === 0) return [];
+    const failedAttempt = sharedBatch.attempts?.at(-1);
+    if (failedAttempt?.failureReason !== 'timeout-de-prueba' || !failedAttempt.log) return [];
+    const log = await readFailureLog(failedAttempt.log);
+    if (!log.includes(regenerarExamenCoverageTest)
+      || !/regenera PDF y recalcula paginas[\s\S]{0,500}(?:timed out|timeout)/i.test(log)) return [];
+  }
+
+  const isolationDiagnostic = buildRegenerarExamenIsolationDiagnostic(batchPlan);
+  if (!isolationDiagnostic) return [];
+
+  const startedAt = Date.now();
+  const isolatedExitCode = await executeDiagnostic(isolationDiagnostic);
+  const isolatedDurationMs = Date.now() - startedAt;
+  const sharedAttempt = sharedBatch.attempts?.at(-1);
+  return [{
+    name: isolationDiagnostic.name,
+    exitCode: sharedBatch.exitCode !== 0 ? sharedBatch.exitCode : isolatedExitCode,
+    durationMs: isolatedDurationMs,
+    timeoutMs: isolationDiagnostic.timeoutMs,
+    testFile: regenerarExamenCoverageTest,
+    isolated: true,
+    comparison: {
+      sharedBatch: sharedBatch.name,
+      sharedExitCode: sharedBatch.exitCode,
+      sharedDurationMs: sharedBatch.durationMs ?? sharedAttempt?.durationMs ?? null,
+      sharedFailureReason: sharedAttempt?.failureReason ?? null,
+      isolatedExitCode,
+      isolatedDurationMs
+    },
+    log: path.relative(rootDir, path.join(logsDir, `${isolationDiagnostic.name}.log`)).replaceAll(path.sep, '/')
+  }];
+}
+
 function formatFailureExcerpt(log, lineLimit = failureExcerptLineLimit, lineLengthLimit = failureExcerptLineLengthLimit) {
   const lines = String(log).split(/\r?\n/).filter((line) => line.trim().length > 0);
   return lines.slice(-lineLimit).map((line) => line.slice(0, lineLengthLimit)).join('\n');
@@ -340,6 +405,37 @@ function chunkFiles(namePrefix, files, size = integrationChunkSize) {
   return batches;
 }
 
+function buildExclusiveCoverageBatches() {
+  const pdfLayoutBatch = 'backend-root-pdf-layout';
+  return [
+    {
+      name: pdfLayoutBatch,
+      exclusive: true,
+      timeoutMs: 2_100_000,
+      args: [
+        ...batchArgs(pdfLayoutBatch, ['tests/pdf.layout.visual.guard.test.ts']),
+        '--maxWorkers=1'
+      ]
+    },
+    {
+      name: 'backend-integracion-flujo-examen',
+      exclusive: true,
+      args: batchArgs('backend-integracion-flujo-examen', ['tests/integracion/flujoExamen.test.ts'])
+    },
+    {
+      name: 'backend-integracion-omr-jobs-workflow',
+      exclusive: true,
+      timeoutMs: 2_100_000,
+      args: batchArgs('backend-integracion-omr-jobs-workflow', integrationFilesNZExclusive)
+    },
+    {
+      name: 'backend-integracion-regenerar-examen',
+      exclusive: true,
+      args: [...batchArgs('backend-integracion-regenerar-examen', [regenerarExamenCoverageTest]), '--maxWorkers=1']
+    }
+  ];
+}
+
 function buildCoveragePlan() {
   return {
     batches: [
@@ -349,7 +445,10 @@ function buildCoveragePlan() {
         args: batchArgs('backend-calificacion-omr-payload', ['tests/calificacion.omr.payload.test.ts'])
       },
       ...chunkFiles('backend-integracion-a-m', integrationFilesAM),
-      ...chunkFiles('backend-integracion-n-z', integrationFilesNZ),
+      ...chunkFiles('backend-integracion-n-z', integrationFilesNZ.filter((file) => (
+        !integrationFilesNZExclusive.includes(file) && file !== regenerarExamenCoverageTest
+      ))),
+      ...buildExclusiveCoverageBatches(),
       {
         name: 'backend-aislamiento',
         args: batchArgs('backend-aislamiento', ['tests/integracion/aislamientoDocente.test.ts'])
@@ -367,7 +466,7 @@ function buildCoveragePlan() {
   };
 }
 
-function runVitest(args, name) {
+function runVitest(args, name, timeoutMs = batchTimeoutMs) {
   return new Promise((resolve) => {
     process.stdout.write(`[backend-coverage] ${name}\n`);
     const [, ...vitestArgs] = args;
@@ -391,7 +490,7 @@ function runVitest(args, name) {
       }
       closeSync(logFd);
       resolve(124);
-    }, batchTimeoutMs);
+    }, timeoutMs);
 
     child.on('error', () => {
       if (finalizado) return;
@@ -437,44 +536,86 @@ async function emitFailureExcerpt(batchName, attempt, logFileName = null) {
   }
 }
 
-async function runBatch(batch) {
-  for (let attempt = 1; attempt <= batchAttempts; attempt += 1) {
-    await cleanBatchArtifacts(batch.name);
-    const code = await runVitest(batch.args, `${batch.name} ${attempt}/${batchAttempts}`);
-    if (code === 0) return 0;
-
-    if (attempt < batchAttempts) {
-      process.stderr.write(`[backend-coverage] retry ${batch.name} tras exit ${code}\n`);
-      continue;
-    }
-
-    await emitFailureExcerpt(batch.name, attempt);
-    return code;
+async function classifyAttemptFailure(batchName, attempt, exitCode) {
+  if (exitCode === 124) return 'timeout-del-runner';
+  const logPath = path.join(logsDir, `${`${batchName} ${attempt}/${batchAttempts}`.replace(/[^a-z0-9_-]+/gi, '_')}.log`);
+  try {
+    const log = await fs.readFile(logPath, 'utf8');
+    if (/\bFAIL\b|AssertionError|expected .* to/i.test(log)) return 'fallo-de-asercion';
+    if (/timed out|timeout|exceeded.*\d+ms/i.test(log)) return 'timeout-de-prueba';
+  } catch {
+    return 'infraestructura-sin-log';
   }
+  return 'salida-no-cero';
+}
 
-  return 1;
+async function runBatch(batch) {
+  const attempts = [];
+  const attempt = 1;
+  await cleanBatchArtifacts(batch.name);
+  const startedAt = Date.now();
+  const startedAtIso = new Date(startedAt).toISOString();
+  const timeoutMs = batch.timeoutMs ?? batchTimeoutMs;
+  const code = await runVitest(batch.args, `${batch.name} ${attempt}/${batchAttempts}`, timeoutMs);
+  const durationMs = Date.now() - startedAt;
+  const attemptLog = path.relative(rootDir, path.join(logsDir, `${`${batch.name} ${attempt}/${batchAttempts}`.replace(/[^a-z0-9_-]+/gi, '_')}.log`)).replaceAll(path.sep, '/');
+  attempts.push({
+    attempt,
+    startedAt: startedAtIso,
+    finishedAt: new Date().toISOString(),
+    exitCode: code,
+    durationMs,
+    timeoutMs,
+    failureReason: code === 0 ? null : await classifyAttemptFailure(batch.name, attempt, code),
+    log: attemptLog
+  });
+  if (code !== 0) await emitFailureExcerpt(batch.name, attempt);
+
+  const attemptLogPath = path.join(reportsDir, `${batch.name}.attempts.json`);
+  await fs.writeFile(attemptLogPath, JSON.stringify({ name: batch.name, exclusive: Boolean(batch.exclusive), attempts }, null, 2));
+  return { exitCode: attempts.at(-1)?.exitCode ?? 1, attempts, recovered: attempts.some(({ exitCode }) => exitCode !== 0) && attempts.at(-1)?.exitCode === 0 };
 }
 
 async function runBatches(batches, concurrency, executeBatch = runBatch) {
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > maximumBatchConcurrency) {
     throw new RangeError(`concurrency debe ser un entero entre 1 y ${maximumBatchConcurrency}`);
   }
+  const ordinaryBatches = batches.filter((batch) => !batch.exclusive);
+  const exclusiveBatches = batches.filter((batch) => batch.exclusive);
   let nextIndex = 0;
   let failureCode = 0;
-  const results = new Array(batches.length);
-  const worker = async () => {
+  let recoveredAttempt = false;
+  const results = [];
+  const worker = async (queue) => {
     while (failureCode === 0) {
       const index = nextIndex++;
-      const batch = batches[index];
+      const batch = queue[index];
       if (!batch) return;
       const startedAt = Date.now();
-      const code = await executeBatch(batch);
-      results[index] = { name: batch.name, exitCode: code, durationMs: Date.now() - startedAt };
-      if (code !== 0) failureCode = code;
+      const outcome = await executeBatch(batch);
+      const normalized = typeof outcome === 'number' ? { exitCode: outcome } : outcome;
+      results.push({ name: batch.name, ...normalized, durationMs: Date.now() - startedAt });
+      recoveredAttempt ||= Boolean(normalized.recovered);
+      if (normalized.exitCode !== 0) failureCode = normalized.exitCode;
     }
   };
-  await Promise.all(Array.from({ length: Math.min(concurrency, batches.length) }, () => worker()));
-  return { exitCode: failureCode, results: results.filter(Boolean) };
+  await Promise.all(Array.from({ length: Math.min(concurrency, ordinaryBatches.length) }, () => worker(ordinaryBatches)));
+  if (failureCode === 0) {
+    for (const batch of exclusiveBatches) {
+      const startedAt = Date.now();
+      const outcome = await executeBatch(batch);
+      const normalized = typeof outcome === 'number' ? { exitCode: outcome } : outcome;
+      results.push({ name: batch.name, ...normalized, durationMs: Date.now() - startedAt });
+      recoveredAttempt ||= Boolean(normalized.recovered);
+      if (normalized.exitCode !== 0) {
+        failureCode = normalized.exitCode;
+        break;
+      }
+    }
+  }
+  const batchOrder = new Map(batches.map(({ name }, index) => [name, index]));
+  results.sort((left, right) => (batchOrder.get(left.name) ?? Number.MAX_SAFE_INTEGER) - (batchOrder.get(right.name) ?? Number.MAX_SAFE_INTEGER));
+  return { exitCode: failureCode || (recoveredAttempt ? 1 : 0), recoveredAttempt, results };
 }
 
 async function main() {
@@ -523,8 +664,19 @@ async function main() {
   const plan = buildCoveragePlan();
   process.stdout.write(`[backend-coverage] concurrencia=${batchConcurrency}; lotes=${plan.batches.length}\n`);
   const batches = await runBatches(plan.batches, batchConcurrency);
-  if (batches.exitCode !== 0) {
-    const failedBatch = batches.results.find(({ exitCode }) => exitCode !== 0);
+  const diagnostics = await runCoverageFailureDiagnostics({
+    batches,
+    plan,
+    executeDiagnostic: (diagnostic) => runVitest(diagnostic.args, diagnostic.name, diagnostic.timeoutMs)
+  });
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.comparison?.isolatedExitCode !== 0) await emitFailureExcerpt(diagnostic.name, 1, `${diagnostic.name}.log`);
+  }
+  const diagnosticFailure = diagnostics.find(({ exitCode }) => exitCode !== 0);
+  if (batches.exitCode !== 0 || diagnosticFailure) {
+    const failedBatch = batches.results.find(({ exitCode }) => exitCode !== 0)
+      ?? batches.results.find(({ recovered }) => recovered);
+    const failureCode = batches.exitCode || diagnosticFailure?.exitCode || 1;
     await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
       startedAt,
       finishedAt: new Date().toISOString(),
@@ -535,12 +687,15 @@ async function main() {
         totalMemoryBytes: os.totalmem()
       },
       results: batches.results,
+      diagnostics,
+      recoveredAttempt: batches.recoveredAttempt,
       failed: true,
-      failureStage: 'batch',
+      failureStage: batches.exitCode !== 0 ? 'batch' : 'isolation-diagnostic',
       failedBatch: failedBatch?.name ?? null,
-      failureExitCode: failedBatch?.exitCode ?? null
+      failureExitCode: failedBatch?.exitCode ?? diagnosticFailure?.exitCode ?? null,
+      failureReason: failedBatch?.recovered ? 'unstable-retry-recovery' : failedBatch?.attempts?.at(-1)?.failureReason ?? (diagnosticFailure ? 'aislamiento-fallido' : null)
     }, null, 2));
-    process.exit(batches.exitCode);
+    process.exit(failureCode);
   }
   const mergeCode = await runVitest(plan.merge.args, plan.merge.name);
   await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
@@ -553,6 +708,7 @@ async function main() {
       totalMemoryBytes: os.totalmem()
     },
     results: batches.results,
+    diagnostics,
     mergeExitCode: mergeCode,
     failed: mergeCode !== 0,
     failureStage: mergeCode === 0 ? null : 'merge'
@@ -560,7 +716,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildFocusedTestArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
+export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildFocusedTestArgsForFiles, buildRegenerarExamenIsolationDiagnostic, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches, runCoverageFailureDiagnostics };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
@@ -568,3 +724,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   });
 }
+

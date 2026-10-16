@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test } from './visual-fixtures';
 
 type ViewportCase = {
   name: string;
@@ -20,7 +20,8 @@ const viewports: ViewportCase[] = [
 ];
 
 async function captureEvidence(page: import('@playwright/test').Page, screen: string, viewport: string) {
-  await page.screenshot({ path: `reports/qa/latest/gui-alumno-${screen}-${viewport}.png`, fullPage: false });
+  const evidenceDir = process.env.E2E_SCREENSHOT_DIR || 'reports/qa/latest';
+  await page.screenshot({ path: `${evidenceDir}/gui-alumno-${screen}-${viewport}.png`, fullPage: false });
 }
 
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page, context: string) {
@@ -60,7 +61,8 @@ async function assertInteractiveControlsAreNamed(page: import('@playwright/test'
       .filter((element) => {
         const style = window.getComputedStyle(element as HTMLElement);
         const rect = (element as HTMLElement).getBoundingClientRect();
-        return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+        const hiddenFromUsers = element.closest('[aria-hidden="true"], [inert]') !== null;
+        return !hiddenFromUsers && style.visibility !== 'hidden' && style.display !== 'none' && style.opacity !== '0' && style.pointerEvents !== 'none' && rect.width > 0 && rect.height > 0;
       })
       .filter((element) => nameFor(element).length === 0)
       .map((element) => element.outerHTML.slice(0, 160));
@@ -181,11 +183,12 @@ test.describe('GUI responsive e2e · alumno', () => {
       await page.evaluate(() => localStorage.setItem('tokenAlumno', 'token-alumno-e2e'));
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.getByRole('button', { name: /Recargar/i }).click();
+      await expect(page.getByRole('heading', { name: /Resultados disponibles/i })).toBeVisible();
       await expect(page.getByText(/Folio F-001/i)).toBeVisible();
       await expect(page.getByText(/1 folio/i)).toBeVisible();
 
-      // await assertNoHorizontalOverflow(page, `Alumno resultados ${viewport.name}`);
-      // await assertInteractiveControlsAreUsable(page, `Alumno resultados ${viewport.name}`);
+      await assertNoHorizontalOverflow(page, `Alumno resultados ${viewport.name}`);
+      await assertInteractiveControlsAreNamed(page, `Alumno resultados ${viewport.name}`);
       if (viewport.name === 'desktop-lg' || viewport.name === 'mobile') {
         await captureEvidence(page, 'resultados', viewport.name);
       }

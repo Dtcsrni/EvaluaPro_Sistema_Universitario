@@ -6,8 +6,8 @@ on:
     - cron: "20 5 * * *"
 
 concurrency:
-  group: ci-policy-audit-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-policy-audit-${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('{0}-{1}', github.event.pull_request.head.repo.full_name, github.event.pull_request.head.ref) || github.event_name == 'push' && format('push-{0}', github.ref) || format('{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 permissions:
   contents: read

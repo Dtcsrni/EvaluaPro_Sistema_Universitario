@@ -31,7 +31,7 @@ test('todos los flujos Installer Hub generan reportes bajo el perfil y publican 
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*["']reports[\\/]/);
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*Join-Path \$env:RUNNER_TEMP/);
   assert.equal((workflow.match(/id: preparar_reporte_e2e/g) ?? []).length, 3, 'cada flujo calcula una ruta privada una sola vez');
-  assert.equal((workflow.match(/E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/g) ?? []).length, 3, 'cada runner consume el output de ruta preparado');
+  assert.equal((workflow.match(/E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/g) ?? []).length, 4, 'los tres flujos Installer Hub y el E2E PDF consumen el reporte calculado');
   const evidenceUploads = workflow.match(/- name: Publicar evidencia[^\n]*\n\s+if: ([^\n]*)\n\s+uses: actions\/upload-artifact[^\n]*\n\s+with:\n\s+name: installer-hub-[^\n]*\n\s+path: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}\//g) ?? [];
   assert.equal(evidenceUploads.length, 3, 'los tres flujos conservan su upload de evidencia');
   assert.ok(evidenceUploads.every((block) => block.includes("steps.preparar_reporte_e2e.outputs.report_dir != ''")), 'nunca se pasa una ruta vacía al uploader de artefactos');
@@ -208,7 +208,7 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
 });
 
 test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgrade', () => {
-  assert.match(workflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(workflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
   assert.match(workflow, /releases\/download\/v1\.2\.3\/' \+ \$baselineName/);
   assert.match(workflow, /\$baselineName = 'EvaluaPro-InstallerHub-docente-local-v1\.2\.3\.exe'/);
   assert.match(workflow, /\$baselineVersion = \[version\]'1\.2\.3'/);
@@ -283,6 +283,45 @@ test('tutorial y capturas de una E2E fallida se quedan dentro del reporte QA', (
   assert.doesNotMatch(e2e, /Copy-Item -LiteralPath \$tutorialPath -Destination .*installer-hub-docente-e2e\.md/);
 });
 
+test('la evidencia visual del Installer Hub valida PNG, dimensiones, píxeles y huella', () => {
+  const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
+  assert.match(e2e, /function Get-VisualScreenshotEvidence/);
+  assert.match(e2e, /System\.Drawing\.Bitmap\]::FromFile\(\$Path\)/);
+  assert.match(e2e, /distinctSamples\.Count -lt 8/);
+  assert.match(e2e, /requestedWindowSize/);
+  assert.match(e2e, /actualCaptureSize/);
+  assert.match(e2e, /requestHonored/);
+  assert.match(e2e, /valid = \(-not \$requestedWindowSize -or \(\$bitmap\.Width -eq \$RequestedWidth -and \$bitmap\.Height -eq \$RequestedHeight\)\)/);
+  assert.match(e2e, /Get-FileHash -LiteralPath \$Path -Algorithm SHA256/);
+  assert.match(e2e, /Where-Object \{ -not \$_\.valid \}/);
+  assert.match(e2e, /CopyFromScreen\(\$captureRect\.X, \$captureRect\.Y, 0, 0, \$bitmap\.Size\)/);
+  assert.doesNotMatch(e2e, /PrintWindow/);
+  assert.match(e2e, /Monitores: \$availableScreens/);
+  assert.match(e2e, /sha256Required = \$true/);
+  assert.match(e2e, /RequestedWidth 980 -RequestedHeight 700/);
+  assert.match(e2e, /\[System\.Windows\.Automation\.AutomationElement\]\$Window/);
+  assert.match(e2e, /\$handle = \[IntPtr\]\$Window\.Current\.NativeWindowHandle/);
+  assert.match(e2e, /Resize-WindowForEvidence -Window \$window -Width 980 -Height 700/);
+  assert.doesNotMatch(e2e, /Resize-WindowForEvidence -Process \$process/);
+  assert.match(e2e, /ejecutar-solicitud-980x700/);
+  assert.match(e2e, /viewport = \[ordered\]@\{ width = 980; height = 700; basis = 'minimum-documented-by-DESIGN\.md' \}/);
+  assert.doesNotMatch(e2e, /Resize-WindowForEvidence -Process \$process -Width 1280 -Height 720/);
+  assert.match(xaml, /Width="1040"/);
+  assert.match(xaml, /Height="760"/);
+  assert.match(xaml, /MinWidth="980"/);
+  assert.match(xaml, /MinHeight="700"/);
+});
+
+test('E2E valida el preflight antes de instalar y reconoce la actualización aislada desde baseline', () => {
+  assert.match(e2e, /\$candidateBundleVerified = -not \[string\]::IsNullOrWhiteSpace\(\$bundlePath\)/);
+  assert.match(e2e, /\$isolatedBaselineUpgradeRun = \$candidateBundleVerified -and \$baselineBundleExists/);
+  assert.match(e2e, /\$validInstallMode = \$isolatedCandidateRun -or \$isolatedBaselineUpgradeRun -or \$script:upgradingExistingInstall/);
+  const invalidModeGuard = e2e.indexOf('if (-not $validInstallMode)');
+  const installInvocation = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install'", invalidModeGuard);
+  assert.ok(invalidModeGuard >= 0 && installInvocation > invalidModeGuard, 'un modo no reconocido debe abortar antes de cambiar la instalación');
+  assert.match(e2e, /try \{ Save-Report -Status 'failed' \} catch/);
+});
+
 test('release valida el asset descargado desde GitHub antes de hacer público el release', () => {
   assert.match(workflow, /draft: true/);
   assert.match(workflow, /post_publish_installer_e2e:/);
@@ -312,6 +351,26 @@ test('las E2E del asset de borrador y público instalan WiX para extraer el base
     assert.match(job, /GITHUB_PATH/);
     assert.ok(job.indexOf('Instalar WiX CLI estable para la E2E') < job.indexOf('E2E completa'));
   }
+});
+
+test('las PR ejecutan y conservan la E2E GUI real del Installer Hub y la descarga PDF en Edge', () => {
+  const pullRequestGate = /github\.event_name\s*==\s*'pull_request'\s*\|\|\s*startsWith\(github\.ref,\s*'refs\/tags\/v'\)\s*\|\|\s*github\.event_name\s*==\s*'workflow_dispatch'/;
+  for (const stepName of [
+    'Instalar Chromium para la E2E docente completa',
+    'Instalar Microsoft Edge para validar el PDF en GUI',
+    'Determinar si aplica upgrade desde v1.2.3',
+    'Preparar ruta privada para evidencia E2E',
+    'E2E completa sobre el bundle docente que se publicará',
+    'E2E visual de vista y descarga PDF en Edge'
+  ]) {
+    const stepStart = workflow.indexOf(`- name: ${stepName}`);
+    assert.ok(stepStart >= 0, `Debe existir el paso ${stepName}`);
+    const stepEnd = workflow.indexOf('\n      - name:', stepStart + 1);
+    const step = workflow.slice(stepStart, stepEnd < 0 ? workflow.length : stepEnd);
+    assert.match(step, pullRequestGate, `La PR debe ejecutar ${stepName}`);
+  }
+  const evidenceUpload = workflow.slice(workflow.indexOf('- name: Publicar evidencia de la E2E completa'));
+  assert.match(evidenceUpload, /github\.event_name\s*==\s*'pull_request'/, 'la evidencia GUI debe conservarse para revisión del PR');
 });
 
 test('el build candidato y QA caben en la ventana del gate estable previo a publicación', () => {

@@ -44,13 +44,15 @@ Este tutorial se genera desde evidencia real de la PC. Muestra el flujo completo
 
 ![](./screenshots/wpf-install-03-revisar.png)
 
-### wpf-install-04-ejecutar-1040x760
+### wpf-install-04-ejecutar-solicitud-1040x760
 
-![](./screenshots/wpf-install-04-ejecutar-1040x760.png)
+![](./screenshots/wpf-install-04-ejecutar-solicitud-1040x760.png)
 
-### wpf-install-05-ejecutar-1280x720
+### wpf-install-05-ejecutar-solicitud-1280x720
 
-![](./screenshots/wpf-install-05-ejecutar-1280x720.png)
+![](./screenshots/wpf-install-05-ejecutar-solicitud-1280x720.png)
+
+Las dimensiones que aparecen en `solicitud-*` son el tamaño pedido a Windows. El manifiesto `visual-flow.json` registra por separado el tamaño real de cada PNG y si Windows respetó la solicitud.
 
 ### wpf-install-06-resultado
 
@@ -80,13 +82,13 @@ Este tutorial se genera desde evidencia real de la PC. Muestra el flujo completo
 
 ![](./screenshots/wpf-repair-03-revisar.png)
 
-### wpf-repair-04-ejecutar-1040x760
+### wpf-repair-04-ejecutar-solicitud-1040x760
 
-![](./screenshots/wpf-repair-04-ejecutar-1040x760.png)
+![](./screenshots/wpf-repair-04-ejecutar-solicitud-1040x760.png)
 
-### wpf-repair-05-ejecutar-1280x720
+### wpf-repair-05-ejecutar-solicitud-1280x720
 
-![](./screenshots/wpf-repair-05-ejecutar-1280x720.png)
+![](./screenshots/wpf-repair-05-ejecutar-solicitud-1280x720.png)
 
 ### wpf-repair-06-resultado
 
@@ -104,13 +106,13 @@ Este tutorial se genera desde evidencia real de la PC. Muestra el flujo completo
 
 ![](./screenshots/wpf-uninstall-03-revisar.png)
 
-### wpf-uninstall-04-ejecutar-1040x760
+### wpf-uninstall-04-ejecutar-solicitud-1040x760
 
-![](./screenshots/wpf-uninstall-04-ejecutar-1040x760.png)
+![](./screenshots/wpf-uninstall-04-ejecutar-solicitud-1040x760.png)
 
-### wpf-uninstall-05-ejecutar-1280x720
+### wpf-uninstall-05-ejecutar-solicitud-1280x720
 
-![](./screenshots/wpf-uninstall-05-ejecutar-1280x720.png)
+![](./screenshots/wpf-uninstall-05-ejecutar-solicitud-1280x720.png)
 
 ### wpf-uninstall-06-resultado
 

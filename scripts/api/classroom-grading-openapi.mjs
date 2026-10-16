@@ -43,6 +43,17 @@ export const contratoImportacionClassroomRequestBody = body(strictObject(
   }
 ));
 
+const contratoImportacionClassroomJobRequestBody = body(strictObject(
+  ['clientRequestId', 'planHash', 'periodoId', 'actividades'],
+  {
+    clientRequestId: { type: 'string', format: 'uuid', description: 'Clave estable para repetir con seguridad la misma petición.' },
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$', description: 'Huella SHA-256 del preview que aprobó el docente; se revalida antes de escribir.' },
+    periodoId: esquemaIdAcademicoOpenApi,
+    actividades: { type: 'array', minItems: 1, maxItems: 100, items: esquemaActividad },
+    limiteSubmissions: { type: 'integer', minimum: 1, maximum: 500 }
+  }
+));
+
 export const contratoMapeoAlumnosClassroomRequestBody = body(strictObject(
   ['periodoId', 'asignaciones'],
   {
@@ -492,6 +503,8 @@ function aplicarContratosCatalogoClassroom(spec) {
 
 function aplicarContratosImportacionClassroom(spec) {
   const contracts = [
+    ['/evaluaciones/v2/classroom/importaciones/jobs', 'post', contratoImportacionClassroomJobRequestBody,
+      'Iniciar o recuperar importación Classroom', 'Crea una operación durable local. El mismo clientRequestId con el mismo contenido devuelve el job existente; con contenido distinto responde 409. No publica notas en Classroom.'],
     ['/evaluaciones/v2/classroom/importaciones/preview', 'post', contratoImportacionClassroomRequestBody,
       'Previsualizar importación de actividades Classroom', 'Calcula la vista previa sin guardar calificaciones. Cada actividad puede asignarse al parcial 1, 2 o 3. Rechaza pares curso/actividad repetidos antes de consultar Classroom.'],
     ['/evaluaciones/v2/classroom/importaciones/ejecutar', 'post', contratoImportacionClassroomRequestBody,
@@ -509,10 +522,26 @@ function aplicarContratosImportacionClassroom(spec) {
     if (route.endsWith('/importaciones/preview') || route.endsWith('/importaciones/ejecutar')) {
       operation.responses = { ...operation.responses, '200': structuredClone(respuestaSyncClassroom) };
     }
+    if (route.endsWith('/importaciones/jobs')) {
+      operation.responses = {
+        ...operation.responses,
+        '202': { description: 'Importación en cola o en ejecución', content: { 'application/json': { schema: { $ref: '#/components/schemas/ClassroomImportJob' } } } },
+        '200': { description: 'Job existente ya completado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ClassroomImportJob' } } } },
+        '409': { $ref: '#/components/responses/Error' }
+      };
+    }
     if (route.endsWith('/mapeo-alumnos')) {
       operation.responses = { ...operation.responses, '409': { $ref: '#/components/responses/Error' } };
     }
   }
+  const consultaJob = obtenerOperacion(spec, '/evaluaciones/v2/classroom/importaciones/jobs/{jobId}', 'get');
+  consultaJob.summary = 'Consultar job de importación Classroom';
+  consultaJob.description = 'Devuelve estado y resultado seguro del job solo al docente propietario. Las lecturas pueden repetirse; no reinician la importación.';
+  consultaJob.responses = {
+    ...consultaJob.responses,
+    '200': { description: 'Estado actual del job', content: { 'application/json': { schema: { $ref: '#/components/schemas/ClassroomImportJob' } } } },
+    '404': { $ref: '#/components/responses/Error' }
+  };
 }
 
 export function aplicarContratosClassroomGrades(spec) {
@@ -527,6 +556,19 @@ export function aplicarContratosClassroomGrades(spec) {
   spec.components.schemas.ClassroomGradeSyncResult = structuredClone(esquemaResultadoSyncClassroom);
   spec.components.schemas.EvidenciaEvaluacion = structuredClone(esquemaEvidenciaEvaluacion);
   spec.components.schemas.ClassroomRoster = structuredClone(esquemaRosterClassroom);
+  spec.components.schemas.ClassroomImportJob = {
+    type: 'object',
+    required: ['jobId', 'estado', 'progreso', 'total', 'reutilizado'],
+    properties: {
+      jobId: { type: 'string', format: 'uuid' },
+      estado: { type: 'string', enum: ['queued', 'running', 'succeeded', 'partial', 'failed'] },
+      progreso: { type: 'integer', minimum: 0 },
+      total: { type: 'integer', minimum: 1 },
+      reutilizado: { type: 'boolean' },
+      error: { type: ['string', 'null'] },
+      resultado: { type: ['object', 'null'] }
+    }
+  };
   aplicarContratoConsultaEvidenciasEvaluacion(spec);
   aplicarContratoHistorialClassroom(spec);
   aplicarContratoHistorialEntregaClassroom(spec);

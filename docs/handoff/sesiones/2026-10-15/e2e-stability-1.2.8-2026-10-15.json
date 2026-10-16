@@ -1,0 +1,172 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "e2e-stability-1.2.8-2026-10-15",
+  "status": "final",
+  "generatedAt": "2026-10-15T22:37:40.962Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding-agent",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Completar E2E visual y gates de estabilidad para EvaluaPro 1.2.8; corregir defectos observados."
+  },
+  "objective": "Validar localmente el candidato 1.2.8 y dejarlo listo para ejecutar las validaciones remotas requeridas antes de release.",
+  "scope": [
+    "CI/CD y cobertura backend",
+    "E2E GUI visual docente/alumno/administración/ciclo",
+    "PDF y layout OMR",
+    "navegación móvil"
+  ],
+  "constraints": [
+    "No publicar ni hacer push sin aprobación del payload exacto",
+    "No afirmar estabilidad de release sin dos coberturas completas consecutivas en CI sobre el mismo SHA y E2E de Installer Windows sobre ese SHA"
+  ],
+  "actions": [
+    {
+      "type": "fix",
+      "summary": "Evité que las pestañas horizontales móviles se contraigan y recorten su etiqueta; añadí aserción responsive.",
+      "timestamp": "2026-10-15T22:37:40.962Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "La suite completa local de backend, cobertura, frontend, portal, contratos, accesibilidad y E2E visual pasó.",
+      "timestamp": "2026-10-15T22:37:40.962Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Pendiente ejecutar gates remotos completos sobre el SHA candidato final.",
+      "timestamp": "2026-10-15T22:37:40.962Z",
+      "status": "pending"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/handoff/trace.schema.json",
+      "apps/frontend/src/styles.css",
+      "tests/gui-responsive/responsive-docente.spec.ts"
+    ],
+    "changed": [
+      "apps/frontend/src/styles.css",
+      "tests/gui-responsive/responsive-docente.spec.ts",
+      "apps/backend/tests/integracion/encuadre.modulo.test.ts"
+    ],
+    "artifacts": [
+      "reports/qa/latest/gui-docente-calificaciones-mobile.png",
+      "reports/qa/latest/perf-check-local.json"
+    ]
+  },
+  "commands": [
+    {
+      "name": "wcag",
+      "command": "npm run guard:wcag",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "20/20 pares de contraste y revisión CSS pasaron.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    },
+    {
+      "name": "lint-typecheck",
+      "command": "npm run lint && npm run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Lint y typecheck de workspaces pasaron.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    },
+    {
+      "name": "frontend-ci",
+      "command": "npm run test:frontend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "82 archivos, 428 pruebas pasaron con TEMP/TMP dentro del checkout.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    },
+    {
+      "name": "coverage-ci",
+      "command": "npm run test:coverage:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Cobertura completa backend 59 lotes; portal y frontend; exit code 0.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    },
+    {
+      "name": "backend-ci",
+      "command": "npm run test:backend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "59 lotes completados; omrJobsWorkflow 12/12, flujoExamen 11/11, PDF layout 37/37.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    },
+    {
+      "name": "portal-ci",
+      "command": "npm run test:portal:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "11 archivos, 32 pruebas pasaron con TEMP/TMP dentro del checkout.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    },
+    {
+      "name": "perf",
+      "command": "npm run perf:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "4 presupuestos p95 y fallos pasaron; entorno de desarrollo y reporte aislado.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    },
+    {
+      "name": "gui-e2e",
+      "command": "npm run test:e2e:journeys:ci; npm run test:gui:pdf:e2e:ci; npm run test:gui:visual-contract",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "18 journeys GUI, PDF 1/1, contratos visuales 7/7; navegación móvil sin recorte.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    },
+    {
+      "name": "ci-governance",
+      "command": "npm run pipeline:contract:check; npm run ci:policy:audit; npm run test:tdd:enforcement:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Contratos/políticas y 7 exclusiones TDD pasaron.",
+      "timestamp": "2026-10-15T22:37:40.962Z"
+    }
+  ],
+  "decisions": [
+    "Mantener 1.2.8; no crear versión/tag nuevo.",
+    "Conservar screenshots/reportes de QA locales fuera del payload de código.",
+    "Requerir autorización explícita para push del SHA final."
+  ],
+  "assumptions": [
+    "Los artefactos screenshots QA del checkout corresponden al último E2E local observado."
+  ],
+  "risks": [
+    "El worker de cobertura local aprobó, pero SPEC-103 exige dos ejecuciones completas consecutivas en CI sobre el mismo SHA final.",
+    "La E2E de Installer Windows aprobó en un SHA remoto anterior; falta repetirla sobre el SHA final."
+  ],
+  "nextStep": "Solicitar autorización para publicar los commits locales exactos en origin/codex/spec102-103-visual-coverage; después ejecutar dos CI completos consecutivos y Installer Windows E2E sobre el mismo SHA y revisar artefactos visuales.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\spec094-native-e2e-main",
+    "branch": "codex/spec102-103-visual-coverage",
+    "commit": "b0660889",
+    "workingTreeStatus": "M apps/backend/reports/qa/latest/global-grade.json\n M apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/browser.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/client.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/commonInputTypes.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/enums.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/class.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/prismaNamespace.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/internal/prismaNamespaceBrowser.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/AgendaAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/AvisoAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/CodigoAcceso.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/EventoUsoAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/HistorialAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/MateriaAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/PaqueteSyncDocente.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/PerfilAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/ResultadoAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/SesionAlumno.ts\n M apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/models/SolicitudRevision.ts\n M reports/qa/latest/gui-admin-dashboard-desktop-lg.png\n M reports/qa/latest/gui-admin-dashboard-mobile.png\n M reports/qa/latest/gui-admin-tenants-desktop-lg.png\n M reports/qa/latest/gui-admin-tenants-mobile.png\n M reports/qa/latest/gui-alumno-login-desktop-lg.png\n M reports/qa/latest/gui-alumno-login-mobile.png\n M reports/qa/latest/gui-alumno-resultados-desktop-lg.png\n M reports/qa/latest/gui-alumno-resultados-mobile.png\n M reports/qa/latest/gui-docente-alumnos-desktop-lg.png\n M reports/qa/latest/gui-docente-alumnos-mobile.png\n M reports/qa/latest/gui-docente-banco-desktop-lg.png\n M reports/qa/latest/gui-docente-banco-mobile.png\n M reports/qa/latest/gui-docente-calificaciones-desktop-lg.png\n M reports/qa/latest/gui-docente-calificaciones-mobile.png\n M reports/qa/latest/gui-docente-cuenta-desktop-lg.png\n M reports/qa/latest/gui-docente-cuenta-mobile.png\n M reports/qa/latest/gui-docente-entrega-desktop-lg.png\n M reports/qa/latest/gui-docente-entrega-mobile.png\n M reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png\n M reports/qa/latest/gui-docente-evaluaciones-mobile.png\n M reports/qa/latest/gui-docente-login-desktop-lg.png\n M reports/qa/latest/gui-docente-login-mobile.png\n M reports/qa/latest/gui-docente-periodos-desktop-lg.png\n M reports/qa/latest/gui-docente-periodos-mobile.png\n M reports/qa/latest/gui-docente-plantillas-desktop-lg.png\n M reports/qa/latest/gui-docente-plantillas-mobile.png\n M reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png\n M reports/qa/latest/gui-docente-rehidratacion-mobile.png\n M reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png\n M reports/qa/latest/gui-docente-sincronizacion-mobile.png\n M reports/qa/latest/ux-visual.json\n?? .qa-artifact-38672717462/\n?? .qa-artifact-38680577429/\n?? .qa-artifact-38680799844/\n?? .qa-artifact-38689407012/\n?? .qa-artifact-38708225265.zip\n?? .qa-artifact-38708225265/\n?? .qa-artifact-installerhub-contract-temp/\n?? .tmp-coverage/\n?? apps/backend/coverage-tmp/\n?? backend-test-tmp/\n?? coverage-tmp/\n?? frontend-test-tmp/\n?? portal-test-tmp/\n?? reports/qa/latest/perf-check-local.json"
+  }
+}

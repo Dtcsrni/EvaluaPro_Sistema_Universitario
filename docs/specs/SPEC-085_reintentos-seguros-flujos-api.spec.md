@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-10-11
 autor: Codex
 modulo: cliente-api-docente
-estado: draft
+estado: approved
 ---
 
 ## Contexto
@@ -37,10 +37,10 @@ El cliente debe conservar la recuperación de lecturas sin volver implícitament
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001, REQ-002, REQ-005 | Política de reintento por método y renovación 401 | `apps/frontend/tests/clienteComun.test.ts` | Pendiente de aprobación |
-| REQ-003, REQ-004 | Clave estable y resultado incierto de mutación | `apps/frontend/tests/clienteComun.test.ts` | Pendiente de aprobación |
-| REQ-003, REQ-006 | Idempotencia del flujo de asistencia | `apps/backend/tests/integracion/asistencia.reglas.test.ts` | Pendiente de aprobación |
-| REQ-006 | Reenvío de flujo existente con clientRequestId | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | Pendiente de aprobación |
+| REQ-001, REQ-002, REQ-005 | Política de reintento por método y renovación 401 | `apps/frontend/tests/clienteComun.test.ts` | Aprobado para TDD/implementación |
+| REQ-003, REQ-004 | Clave estable y resultado incierto de mutación | `apps/frontend/tests/clienteComun.test.ts` | Aprobado para TDD/implementación |
+| REQ-003, REQ-006 | Idempotencia del flujo de asistencia | `apps/backend/tests/integracion/asistencia.reglas.test.ts` | Aprobado para TDD/implementación |
+| REQ-006 | Reenvío de flujo existente con clientRequestId | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | Aprobado para TDD/implementación |
 
 ## Riesgos y decisiones
 

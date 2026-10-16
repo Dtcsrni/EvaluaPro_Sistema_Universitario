@@ -5,7 +5,7 @@
  * interfaz: materia/tema canónicos, validación sin escritura, confirmación,
  * revisión, publicación e idempotencia observable en el banco legado.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test } from './visual-fixtures';
 import ExcelJS from 'exceljs';
 
 const docenteApiPort = process.env.E2E_DOCENTE_API_PORT || '4000';
@@ -115,6 +115,7 @@ test.describe('Banco de reactivos', () => {
     await expect(page.getByRole('heading', { name: /Banco de preguntas/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Importar reactivos', exact: true })).toBeVisible();
     const importacion = page.getByRole('region', { name: 'Importar reactivos' });
+    await page.screenshot({ path: test.info().outputPath('banco-reactivos-importar.png'), fullPage: true });
     const [plantillaXlsx] = await Promise.all([
       page.waitForEvent('download'),
       importacion.getByRole('button', { name: 'Descargar formato XLSX' }).click()
@@ -135,6 +136,7 @@ test.describe('Banco de reactivos', () => {
     await expect(page.getByText('Reactivos enviados a revisión.', { exact: true })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Publicar revisados (1)', exact: true }).click();
     await expect(page.getByText('Reactivos revisados y publicados.', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await page.screenshot({ path: test.info().outputPath('banco-reactivos-publicado.png'), fullPage: true });
 
     const listadoManual = await request.get(`${base}/banco-preguntas?periodoId=${encodeURIComponent(periodoId)}`, { headers });
     expect(listadoManual.status()).toBe(200);

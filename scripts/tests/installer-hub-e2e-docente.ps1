@@ -55,10 +55,10 @@ public static class EvaluaProE2ENativeWindow {
   public static extern IntPtr GetConsoleWindow();
   [DllImport("user32.dll")]
   public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-  [DllImport("user32.dll", SetLastError=true)]
-  public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
   [DllImport("user32.dll")]
   public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")]
+  public static extern IntPtr GetForegroundWindow();
 }
 '@
 
@@ -107,6 +107,12 @@ $script:sharedProgramDataSqliteSnapshotAtStart = @(
   }
 )
 $script:initialUninstallRegistryPaths = @()
+$script:privateBackupDir = Join-Path $env:LOCALAPPDATA 'EvaluaPro\Backups'
+$script:initialDataBackupPaths = @(
+  if (Test-Path -LiteralPath $script:privateBackupDir -PathType Container) {
+    Get-ChildItem -LiteralPath $script:privateBackupDir -File -Filter 'data_*.zip' -ErrorAction Stop | ForEach-Object { $_.FullName }
+  }
+)
 $script:upgradingExistingInstall = $false
 $script:existingInstalledPayloadVersion = $null
 $script:preUpgradeDatabaseBackup = $null
@@ -632,65 +638,123 @@ function Select-ComboItem {
 function Capture-Window {
   param(
     [System.Windows.Automation.AutomationElement]$Window,
-    [string]$Name
+    [string]$Name,
+    [int]$RequestedWidth = 0,
+    [int]$RequestedHeight = 0
   )
   if (-not $Window) {
-    Write-E2ELog "Captura omitida: ventana no disponible name=$Name"
-    return ''
+    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail 'La ventana UI Automation no está disponible.'
+    throw "No se puede capturar ${Name}: la ventana UI Automation no está disponible."
   }
   $rectangle = $Window.Current.BoundingRectangle
   if ($rectangle.Width -le 0 -or $rectangle.Height -le 0) {
-    Write-E2ELog "Captura omitida: ventana sin dimensiones name=$Name"
-    return ''
+    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail 'La ventana UI Automation no tiene dimensiones positivas.'
+    throw "No se puede capturar ${Name}: la ventana no tiene dimensiones positivas."
   }
-  $bitmap = New-Object System.Drawing.Bitmap([int]$rectangle.Width, [int]$rectangle.Height)
+  $bitmap = New-Object System.Drawing.Bitmap([int][Math]::Round($rectangle.Width), [int][Math]::Round($rectangle.Height))
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   try {
     $nativeHandle = [IntPtr]$Window.Current.NativeWindowHandle
-    $capturedByWindow = $false
-    if ($nativeHandle -ne [IntPtr]::Zero) {
-      $hdc = $graphics.GetHdc()
-      try {
-        $capturedByWindow = [EvaluaProE2ENativeWindow]::PrintWindow($nativeHandle, $hdc, 2)
-      } finally {
-        $graphics.ReleaseHdc($hdc)
-      }
+    if ($nativeHandle -eq [IntPtr]::Zero) { throw 'La ventana no expone un HWND para capturar su superficie visible.' }
+    if ($Window.Current.IsOffscreen) { throw 'La ventana está fuera del área visible del escritorio.' }
+    [EvaluaProE2ENativeWindow]::ShowWindow($nativeHandle, 5) | Out-Null
+    [EvaluaProE2ENativeWindow]::SetForegroundWindow($nativeHandle) | Out-Null
+    Start-Sleep -Milliseconds 250
+    if ([EvaluaProE2ENativeWindow]::GetForegroundWindow() -ne $nativeHandle) {
+      throw 'El Installer Hub no quedó en primer plano; no se acepta una captura fuera de la vista del usuario.'
     }
-    if (-not $capturedByWindow) {
-      if ($nativeHandle -ne [IntPtr]::Zero) {
-        [EvaluaProE2ENativeWindow]::SetForegroundWindow($nativeHandle) | Out-Null
-        Start-Sleep -Milliseconds 150
-      }
-      $graphics.CopyFromScreen([int]$rectangle.X, [int]$rectangle.Y, 0, 0, $bitmap.Size)
-      Write-E2ELog "Captura visual usando fallback CopyFromScreen name=$Name"
-    } else {
-      Write-E2ELog "Captura visual usando PrintWindow del Hub name=$Name"
+    $captureRect = [System.Drawing.Rectangle]::new([int][Math]::Round($rectangle.X), [int][Math]::Round($rectangle.Y), [int][Math]::Round($rectangle.Width), [int][Math]::Round($rectangle.Height))
+    $captureScreen = [System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.Bounds.Contains($captureRect) } | Select-Object -First 1
+    if (-not $captureScreen) {
+      $availableScreens = @([System.Windows.Forms.Screen]::AllScreens | ForEach-Object { '{0}={1}' -f $_.DeviceName, $_.Bounds }) -join '; '
+      throw "La ventana ($($captureRect.Width)x$($captureRect.Height)) no cabe completa en un monitor conectado. Monitores: $availableScreens"
     }
+    $graphics.CopyFromScreen($captureRect.X, $captureRect.Y, 0, 0, $bitmap.Size)
+    if ($RequestedWidth -gt 0 -and $RequestedHeight -gt 0 -and ($bitmap.Width -ne $RequestedWidth -or $bitmap.Height -ne $RequestedHeight)) {
+      throw "El tamaño capturado $($bitmap.Width)x$($bitmap.Height) no coincide con el viewport solicitado ${RequestedWidth}x${RequestedHeight}."
+    }
+    Write-E2ELog "Captura visual desde escritorio compuesto en primer plano name=$Name size=$($bitmap.Width)x$($bitmap.Height)"
     $path = Join-Path $screenshotsDir ("{0}.png" -f $Name)
     $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $script:screenshots.Add($path) | Out-Null
     return $path
   } catch {
-    Write-E2ELog "Advertencia: Error tomando screenshot de UI: $_"
-    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail 'No se pudo capturar la ventana WPF; el escritorio no devolvió un DC válido.'
-    return ""
+    Write-E2ELog "Error tomando screenshot visible de UI name=$Name error=$_"
+    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail $_.Exception.Message
+    throw "No se pudo capturar la ventana WPF visible '$Name': $($_.Exception.Message)"
   } finally {
     $graphics.Dispose()
     $bitmap.Dispose()
   }
 }
 
+function Assert-InstallerStepScreenshot {
+  param(
+    [System.Windows.Automation.AutomationElement]$Window,
+    [string]$Path,
+    [string]$StepLabel,
+    [string]$StageName
+  )
+  $text = Get-WindowTextSnapshot -Window $Window
+  if ($text -notmatch [regex]::Escape($StepLabel)) {
+    throw "La UI Automation no confirma el paso '$StepLabel' en $StageName."
+  }
+  $bitmap = [System.Drawing.Bitmap]::FromFile($Path)
+  $brightPixels = 0
+  try {
+    $top = [int][Math]::Floor($bitmap.Height * 0.30)
+    $bottom = [int][Math]::Ceiling($bitmap.Height * 0.82)
+    $left = [int][Math]::Floor($bitmap.Width * 0.04)
+    $right = [int][Math]::Ceiling($bitmap.Width * 0.96)
+    for ($y = $top; $y -lt $bottom; $y += 2) {
+      for ($x = $left; $x -lt $right; $x += 2) {
+        $pixel = $bitmap.GetPixel($x, $y)
+        if ($pixel.R -ge 228 -and $pixel.G -ge 228 -and $pixel.B -ge 228) { $brightPixels++ }
+      }
+    }
+  } finally {
+    $bitmap.Dispose()
+  }
+  if ($brightPixels -lt 40) {
+    Add-Result -Area 'screenshots' -Item $StageName -Ok $false -Detail "El paso $StepLabel no dibujó contenido legible en el panel central; pixeles claros=$brightPixels" | Out-Null
+    throw "La captura $StageName muestra vacío el panel del paso '$StepLabel' (pixeles claros=$brightPixels)."
+  }
+  Add-Result -Area 'screenshots' -Item $StageName -Ok $true -Detail "UIA=$StepLabel; pixeles claros del panel=$brightPixels" | Out-Null
+}
+
 function Resize-WindowForEvidence {
   param(
-    [System.Diagnostics.Process]$Process,
+    [System.Windows.Automation.AutomationElement]$Window,
     [int]$Width,
     [int]$Height
   )
   try {
-    $handle = $Process.MainWindowHandle
+    if (-not $Window) { return $false }
+    # Resize the exact UI Automation window that will be captured. The bundle
+    # process may be a Burn parent with a different MainWindowHandle from the
+    # visible WPF Bootstrapper Application.
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
     if ($handle -eq [IntPtr]::Zero) { return $false }
-    return [EvaluaProE2ENativeWindow]::MoveWindow($handle, 40, 40, $Width, $Height, $true)
+    if (-not [EvaluaProE2ENativeWindow]::MoveWindow($handle, 0, 0, $Width, $Height, $true)) { return $false }
+    $deadline = (Get-Date).AddSeconds(3)
+    do {
+      Start-Sleep -Milliseconds 100
+      $window = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+      if ($window) {
+        $actual = $window.Current.BoundingRectangle
+        if ([Math]::Abs([int][Math]::Round($actual.Width) - $Width) -le 1 -and [Math]::Abs([int][Math]::Round($actual.Height) - $Height) -le 1) {
+          $bounds = [System.Drawing.Rectangle]::new([int][Math]::Round($actual.X), [int][Math]::Round($actual.Y), [int][Math]::Round($actual.Width), [int][Math]::Round($actual.Height))
+          $screen = [System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.Bounds.Contains($bounds) } | Select-Object -First 1
+          if ($screen) { return $true }
+        }
+      }
+    } while ((Get-Date) -lt $deadline)
+    $actualSize = if ($window) { '{0}x{1}' -f [int][Math]::Round($actual.Width), [int][Math]::Round($actual.Height) } else { 'desconocido' }
+    $availableScreens = @([System.Windows.Forms.Screen]::AllScreens | ForEach-Object { '{0}={1}' -f $_.DeviceName, $_.Bounds }) -join '; '
+    Write-E2ELog "No se pudo aplicar viewport solicitado ${Width}x${Height}; actual=$actualSize; monitores=$availableScreens"
+    return $false
   } catch {
+    Write-E2ELog "No se pudo medir viewport solicitado ${Width}x${Height}: $($_.Exception.Message)"
     return $false
   }
 }
@@ -729,29 +793,23 @@ function Wait-InstallerStableState {
     if ($cleanTextForErrorCheck -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
-    # The Bootstrapper Application deletes its private handoff files after it
-    # consumes the helper response. When that happens, the exact terminal UI
-    # state is the durable observable contract for this E2E runner.
+    # A successful helper response proves the operation, not that the user saw
+    # the terminal state. Keep waiting until the visible wizard reaches Result.
     $uiReportsCompleted = $text -match '(?is)Estado completado' -and
       $text -match '(?is)El flujo finaliz[oó] correctamente' -and
-      $text -match '(?is)Operaci[oó]n finalizada correctamente'
+      $text -match '(?is)Operaci[oó]n finalizada correctamente' -and
+      $text -match '(?is)5 Resultado\s*[·\-]\s*activo'
     if ($uiReportsCompleted) {
       return [pscustomobject]@{ ok = $true; text = "Installer Hub UI terminal success`n$text" }
     }
-    # El texto del Hub incluye estados "ok" de etapas previas, por ejemplo
-    # "Planificación de instalación · ok". Solo la respuesta del helper prueba
-    # que terminó la operación seleccionada.
     $hubGone = $false
     try { $hubGone = $Window.Current.IsOffscreen } catch { $hubGone = $true }
     if ($hubGone) {
       $helper = Get-LatestInstallerHelperState -Mode $Mode -MinLastWriteTime $OperationStartedAt
       if ($helper -and $helper.ok) {
-        return [pscustomobject]@{ ok = $true; text = "Installer helper OK (hub cerrado)`n$text" }
+        return [pscustomobject]@{ ok = $false; text = "Installer helper OK, pero el Hub se cerró sin mostrar el resultado satisfactorio requerido.`n$text" }
       }
-    }
-    $helper = Get-LatestInstallerHelperState -Mode $Mode -MinLastWriteTime $OperationStartedAt
-    if ($helper -and $helper.ok) {
-      return [pscustomobject]@{ ok = $true; text = "Installer helper OK`n$text" }
+      return [pscustomobject]@{ ok = $false; text = "Installer Hub desapareció antes de mostrar el resultado terminal.`n$text" }
     }
     $checkForRealError = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
     $checkForRealError = $checkForRealError -replace '(?i)recuperaci[oó]n ante fallos', 'recuperacion_ante_fallos'
@@ -832,7 +890,8 @@ function Invoke-InstallerHubMode {
   $freshWindow = Find-Window -TimeoutSec 1
   $window = if ($freshWindow) { $freshWindow } else { Find-Window -TimeoutSec 90 }
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
-  Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) | Out-Null
+  if (-not (Resize-WindowForEvidence -Window $window -Width 980 -Height 700)) { throw 'No se pudo ajustar la ventana visible del Installer Hub al mínimo documentado de 980x700 antes de la primera captura.' }
+  Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
 
   if ($Mode -eq 'install') {
     $termsCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptTermsCheckBox' -TimeoutSec 30
@@ -846,7 +905,8 @@ function Invoke-InstallerHubMode {
   $detectionTimeoutSec = 420
   $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
-  Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) | Out-Null
+  $prepareScreenshot = Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700
+  Assert-InstallerStepScreenshot -Window $window -Path $prepareScreenshot -StepLabel '2 Preparar · activo' -StageName ("wpf-{0}-02-preparar" -f $Mode)
 
   $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
   if ($modeCombo) {
@@ -861,21 +921,20 @@ function Invoke-InstallerHubMode {
   if ($Mode -eq 'uninstall') {
     $exportCheckbox = Find-ById -RootElement $window -AutomationId 'ExportDataCheckBox' -TimeoutSec 10
     if (-not $exportCheckbox) {
-      Write-E2ELog 'WARNING: ExportDataCheckBox no quedó accesible en mantenimiento; se usa el valor seguro marcado por defecto y se verificará el ZIP.'
-      Add-Result -Area 'uninstall' -Item 'backup-option-default' -Ok $true -Detail 'control no accesible; default seguro=true'
+      throw 'ExportDataCheckBox debe estar visible y accesible en la GUI de desinstalación.'
     } else {
       $togglePattern = $null
-      if ($exportCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
-        if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
-          $togglePattern.Toggle()
-        }
-      } else {
-        Invoke-Control -Element $exportCheckbox
+      if (-not $exportCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
+        throw 'ExportDataCheckBox no expone TogglePattern para confirmar su estado en la GUI.'
+      }
+      if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+        $togglePattern.Toggle()
       }
       Start-Sleep -Milliseconds 250
-      if ($togglePattern -and $togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+      if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
         throw 'ExportDataCheckBox no quedó activado.'
       }
+      Add-Result -Area 'uninstall' -Item 'backup-option-enabled' -Ok $true -Detail 'la opción visible de respaldo está activada'
     }
   }
 
@@ -899,7 +958,8 @@ function Invoke-InstallerHubMode {
     }
   }
 
-  Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) | Out-Null
+  $reviewScreenshot = Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700
+  Assert-InstallerStepScreenshot -Window $window -Path $reviewScreenshot -StepLabel '3 Revisar · activo' -StageName ("wpf-{0}-03-revisar" -f $Mode)
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 15
   if (-not $startButton) { throw "No se encontro StartButton mode=$Mode" }
   $expectedAction = switch ($Mode) {
@@ -918,16 +978,19 @@ function Invoke-InstallerHubMode {
   $operationStartedAt = Get-Date
   Invoke-Control -Element $startButton
   Start-Sleep -Seconds 2
-  Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-1040x760" -f $Mode) | Out-Null
-  Resize-WindowForEvidence -Process $process -Width 980 -Height 700 | Out-Null
-  Start-Sleep -Milliseconds 800
+  if (-not (Resize-WindowForEvidence -Window $window -Width 980 -Height 700)) { throw 'No se pudo mantener la ventana visible del Installer Hub al mínimo documentado de 980x700 para su captura.' }
+  Start-Sleep -Milliseconds 300
   $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
+  if (-not $window -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Width) - 980) -gt 1 -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Height) - 700) -gt 1) { throw 'La ventana visible del Installer Hub cambió de tamaño después del ajuste; se rechaza la captura.' }
+  Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-solicitud-980x700" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $state = Wait-InstallerStableState -Window $window -Mode $Mode -OperationStartedAt $operationStartedAt -TimeoutMinutes 25
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
-  Capture-Window -Window $window -Name ("wpf-{0}-06-resultado" -f $Mode) | Out-Null
+  if (-not (Resize-WindowForEvidence -Window $window -Width 980 -Height 700)) { throw 'No se pudo mantener la ventana visible del Installer Hub al mínimo documentado de 980x700 para la captura del resultado.' }
+  $window = Find-Window -TimeoutSec 10
+  if (-not $window -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Width) - 980) -gt 1 -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Height) - 700) -gt 1) { throw 'La ventana visible del Installer Hub cambió de tamaño después del ajuste; se rechaza la captura del resultado.' }
+  Capture-Window -Window $window -Name ("wpf-{0}-05-resultado" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $stateTimedOut = $state.PSObject.Properties.Match('timeout').Count -gt 0 -and [bool]$state.timeout
   Add-Result -Area $Mode -Item 'final-state' -Ok ([bool]$state.ok) -Detail $(if ($stateTimedOut) { 'timeout esperando estado final' } else { 'estado final detectado' })
   if (-not $state.ok) { throw "Installer Hub no completo correctamente mode=$Mode" }
@@ -1068,29 +1131,81 @@ function Get-Crc32Hash {
   return ('{0:X8}' -f ([uint64]($crc -bxor 4294967295))).ToLowerInvariant()
 }
 
+function Get-VisualScreenshotEvidence {
+  param([string]$Name, [string]$Path, [int]$RequestedWidth = 0, [int]$RequestedHeight = 0)
+  $requestedWindowSize = $null
+  if ($RequestedWidth -gt 0 -and $RequestedHeight -gt 0) {
+    $requestedWindowSize = [ordered]@{ width = $RequestedWidth; height = $RequestedHeight }
+  }
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return [ordered]@{ name = $Name; exists = $false; valid = $false; path = "screenshots/$Name"; requestedWindowSize = $requestedWindowSize; reason = 'missing' }
+  }
+
+  $bitmap = $null
+  try {
+    $file = Get-Item -LiteralPath $Path
+    if ($file.Length -lt 4096) { throw 'PNG demasiado pequeño.' }
+    $bitmap = [System.Drawing.Bitmap]::FromFile($Path)
+    $distinctSamples = New-Object 'System.Collections.Generic.HashSet[string]'
+    for ($row = 0; $row -lt 9; $row++) {
+      for ($column = 0; $column -lt 9; $column++) {
+        $x = [Math]::Min($bitmap.Width - 1, [int](($bitmap.Width - 1) * $column / 8))
+        $y = [Math]::Min($bitmap.Height - 1, [int](($bitmap.Height - 1) * $row / 8))
+        $pixel = $bitmap.GetPixel($x, $y)
+        [void]$distinctSamples.Add(('{0:X2}{1:X2}{2:X2}' -f $pixel.R, $pixel.G, $pixel.B))
+      }
+    }
+    if ($bitmap.Width -le 0 -or $bitmap.Height -le 0) { throw 'PNG sin dimensiones válidas.' }
+    if ($distinctSamples.Count -lt 8) { throw 'La captura está vacía o casi monocroma.' }
+    return [ordered]@{
+      name = $Name
+      exists = $true
+      path = "screenshots/$Name"
+      width = $bitmap.Width
+      height = $bitmap.Height
+      bytes = $file.Length
+      sha256 = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+      distinctSamples = $distinctSamples.Count
+      requestedWindowSize = $requestedWindowSize
+      actualCaptureSize = [ordered]@{ width = $bitmap.Width; height = $bitmap.Height }
+      requestHonored = (-not $requestedWindowSize -or ($bitmap.Width -eq $RequestedWidth -and $bitmap.Height -eq $RequestedHeight))
+      reason = if ($requestedWindowSize -and ($bitmap.Width -ne $RequestedWidth -or $bitmap.Height -ne $RequestedHeight)) {
+        "requested_size_mismatch expected=${RequestedWidth}x${RequestedHeight} actual=$($bitmap.Width)x$($bitmap.Height)"
+      } else { $null }
+      valid = (-not $requestedWindowSize -or ($bitmap.Width -eq $RequestedWidth -and $bitmap.Height -eq $RequestedHeight))
+    }
+  } catch {
+    return [ordered]@{ name = $Name; exists = $true; valid = $false; path = "screenshots/$Name"; requestedWindowSize = $requestedWindowSize; reason = $_.Exception.Message }
+  } finally {
+    if ($bitmap) { $bitmap.Dispose() }
+  }
+}
+
 function Write-VisualFlowManifest {
   $expected = @(
     'wpf-install-01-splash-deteccion.png',
     'wpf-install-02-preparar.png',
     'wpf-install-03-revisar.png',
-    'wpf-install-04-ejecutar-1040x760.png',
-    'wpf-install-05-ejecutar-1280x720.png',
-    'wpf-install-06-resultado.png'
+    'wpf-install-04-ejecutar-solicitud-980x700.png',
+    'wpf-install-05-resultado.png'
   )
   $items = foreach ($name in $expected) {
     $path = Join-Path $screenshotsDir $name
-    [pscustomobject]@{ name = $name; exists = Test-Path -LiteralPath $path; path = $path }
+    Get-VisualScreenshotEvidence -Name $name -Path $path -RequestedWidth 980 -RequestedHeight 700
   }
-  $ok = @($items | Where-Object { -not $_.exists }).Count -eq 0
+  $ok = @($items | Where-Object { -not $_.valid }).Count -eq 0
   $manifestPath = Join-Path $manifestDir 'visual-flow.json'
   [pscustomobject]@{
-    flow = @('splash', 'preparar', 'revisar', 'ejecutar-1040x760', 'ejecutar-1280x720', 'resultado')
+    flow = @('splash', 'preparar', 'revisar', 'ejecutar-solicitud-980x700', 'resultado')
+    viewport = [ordered]@{ width = 980; height = 700; basis = 'minimum-documented-by-DESIGN.md' }
     captured = $items
     complete = $ok
-    captureMethod = 'UIAutomation + CopyFromScreen/PrintWindow'
+    sha256Required = $true
+    imageIntegrityRequired = $true
+    captureMethod = 'UIAutomation + CopyFromScreen of the foreground visible WPF window; each PNG is checked against the requested viewport'
   } | ConvertTo-Json -Depth 6 | Set-Content -Path $manifestPath -Encoding UTF8
   $artifacts.Add($manifestPath) | Out-Null
-  Add-Result -Area 'screenshots' -Item 'complete-visual-flow' -Ok $ok -Detail ("captured={0}/{1}" -f (@($items | Where-Object exists).Count), $expected.Count)
+  Add-Result -Area 'screenshots' -Item 'complete-visual-flow' -Ok $ok -Detail ("valid={0}/{1}" -f (@($items | Where-Object valid).Count), $expected.Count)
 }
 
 function Wait-InstalledPayload {
@@ -1254,7 +1369,15 @@ namespace EvaluaPro {
   }
 
   Add-Result -Area 'command' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
-  if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
+  if ($exitCode -ne 0) {
+    if ($Name -like 'playwright-*' -and (Test-Path -LiteralPath $stderr -PathType Leaf)) {
+      $stderrTail = @(Get-Content -LiteralPath $stderr -Tail 12 -ErrorAction SilentlyContinue)
+      if ($stderrTail.Count -gt 0) {
+        Write-E2ELog ("Diagnostico visual {0}: {1}" -f $Name, ($stderrTail -join ' | '))
+      }
+    }
+    throw "Comando fallo: $Name exit=$exitCode"
+  }
 }
 
 function Test-MsiPackageFile {
@@ -1350,12 +1473,14 @@ function Capture-UrlWithPlaywright {
     [string]$Url,
     [string]$Name,
     [int]$Width = 1280,
-    [int]$Height = 820
+    [int]$Height = 820,
+    [ValidateSet('apphost', 'docente')][string]$Surface
   )
   $target = Join-Path $screenshotsDir ("{0}.png" -f $Name)
   try {
-    $args = @('playwright', 'screenshot', '--browser=chromium', '--timeout=30000', "--viewport-size=$Width,$Height", $Url, $target)
-    Invoke-CaptureCommand -Name ("playwright-{0}" -f $Name) -FilePath 'npx.cmd' -ArgumentList $args -TimeoutSec 45
+    $captureScript = Join-Path $root 'scripts\tests\capture-installer-web.mjs'
+    $args = @($captureScript, $Url, $target, [string]$Width, [string]$Height, $Surface)
+    Invoke-CaptureCommand -Name ("playwright-{0}" -f $Name) -FilePath 'node.exe' -ArgumentList $args -TimeoutSec 75
     if (Test-Path -LiteralPath $target) {
       $screenshots.Add($target) | Out-Null
       Add-Result -Area 'screenshots' -Item $Name -Ok $true -Detail $Url
@@ -1374,9 +1499,9 @@ function Capture-UrlWithPlaywright {
 function Capture-DashboardScreenshots {
   param([string]$BaseUrl)
   if ([string]::IsNullOrWhiteSpace($BaseUrl)) { return }
-  Capture-UrlWithPlaywright -Url $BaseUrl -Name 'dashboard-status-1280x820' -Width 1280 -Height 820 | Out-Null
-  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x820' -Width 1280 -Height 820 | Out-Null
-  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x720' -Width 1280 -Height 720 | Out-Null
+  Capture-UrlWithPlaywright -Url $BaseUrl -Name 'dashboard-status-1280x820' -Width 1280 -Height 820 -Surface 'apphost' | Out-Null
+  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x820' -Width 1280 -Height 820 -Surface 'docente' | Out-Null
+  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x720' -Width 1280 -Height 720 -Surface 'docente' | Out-Null
 }
 
 function Test-UpdateSmoke {
@@ -2020,19 +2145,38 @@ try {
   # path is the expected user install; the candidate must reconcile it.
   $registryInventoryCompatible = $existing.Count -le 1 -and
     ($existing.Count -eq 0 -or $registeredPayloadVersion -ge (Normalize-InstallerProductVersion -Version $script:existingInstalledPayloadVersion))
+  $candidateBundleVerified = -not [string]::IsNullOrWhiteSpace($bundlePath) -and
+    (Test-Path -LiteralPath $bundlePath -PathType Leaf)
+  $isolatedTarget = $targetInsideLocalAppData -and
+    $normalizedTargetRoot -ne $defaultInstallRoot -and
+    -not (Test-Path -LiteralPath $normalizedTargetRoot)
+  $baselineBundleProvided = -not [string]::IsNullOrWhiteSpace($BaselineBundlePath)
+  $baselineBundleExists = $baselineBundleProvided -and
+    (Test-Path -LiteralPath $BaselineBundlePath -PathType Leaf)
   $script:upgradingExistingInstall = $registryInventoryCompatible -and $targetHasPriorPayload -and $AllowExistingInstall -and
-    -not [string]::IsNullOrWhiteSpace($CandidateBundlePath) -and
+    $candidateBundleVerified -and
     [string]::IsNullOrWhiteSpace($BaselineBundlePath) -and $stableCandidate -and
     $normalizedTargetRoot -eq $defaultInstallRoot -and
     (Test-Path -LiteralPath (Join-Path $normalizedTargetRoot 'EvaluaPro.exe') -PathType Leaf) -and
     (Test-Path -LiteralPath (Join-Path $normalizedTargetRoot '.env') -PathType Leaf)
-  $isolatedCandidateRun = -not [string]::IsNullOrWhiteSpace($CandidateBundlePath) -and
-    [string]::IsNullOrWhiteSpace($BaselineBundlePath) -and
-    $AllowExistingInstall -and $targetInsideLocalAppData -and
-    $normalizedTargetRoot -ne $defaultInstallRoot -and
-    -not (Test-Path -LiteralPath $normalizedTargetRoot)
-  Add-Result -Area 'preflight' -Item 'stable-upgrade-existing-install' -Ok $script:upgradingExistingInstall -Detail ("target={0} stableCandidate={1} payloadVersion={2} priorEntries={3}" -f $normalizedTargetRoot, $stableCandidate, $script:existingInstalledPayloadVersion, $existing.Count)
-  Add-Result -Area 'preflight' -Item 'candidate-or-upgrade-target' -Ok ($isolatedCandidateRun -or $script:upgradingExistingInstall) -Detail ("isolated={0} upgrade={1} target={2}" -f $isolatedCandidateRun, $script:upgradingExistingInstall, $normalizedTargetRoot)
+  $isolatedCandidateRun = $candidateBundleVerified -and -not $baselineBundleProvided -and
+    $isolatedTarget -and $stableCandidate -and $existing.Count -eq 0
+  $isolatedBaselineUpgradeRun = $candidateBundleVerified -and $baselineBundleExists -and
+    $isolatedTarget -and $stableCandidate -and $existing.Count -eq 0
+  $validInstallMode = $isolatedCandidateRun -or $isolatedBaselineUpgradeRun -or $script:upgradingExistingInstall
+  $installMode = if ($script:upgradingExistingInstall) {
+    'stable-upgrade-existing-install'
+  } elseif ($isolatedBaselineUpgradeRun) {
+    'isolated-baseline-upgrade'
+  } elseif ($isolatedCandidateRun) {
+    'isolated-candidate'
+  } else {
+    'invalid'
+  }
+  Add-Result -Area 'preflight' -Item 'valid-install-mode' -Ok $validInstallMode -Detail ("mode={0} target={1} stableCandidate={2} payloadVersion={3} priorEntries={4} candidateVerified={5} baselineProvided={6} baselineExists={7}" -f $installMode, $normalizedTargetRoot, $stableCandidate, $script:existingInstalledPayloadVersion, $existing.Count, $candidateBundleVerified, $baselineBundleProvided, $baselineBundleExists)
+  if (-not $validInstallMode) {
+    throw "Modo E2E de instalación inválido; se aborta antes de ejecutar cambios. mode=$installMode target=$normalizedTargetRoot candidateVerified=$candidateBundleVerified baselineProvided=$baselineBundleProvided baselineExists=$baselineBundleExists priorEntries=$($existing.Count)"
+  }
   if ($script:sharedProgramDataDatabaseExistedAtStart -and -not ($isolatedCandidateRun -or $script:upgradingExistingInstall)) {
     throw "Existe SQLite previa en ProgramData. Solo se admite el E2E de candidata sin baseline en un destino de QA nuevo bajo LocalAppData: $sharedProgramDataDatabasePath"
   }
@@ -2152,26 +2296,52 @@ try {
     $registryClean = $newRemainingEntries.Count -eq 0 -and $preservedInitialEntries.Count -eq $script:initialUninstallRegistryPaths.Count
     Add-Result -Area 'post-uninstall' -Item 'uninstall-registry' -Ok $registryClean -Detail ("initial={0} remaining={1} new={2} preserved={3}" -f $script:initialUninstallRegistryPaths.Count, $remainingEntries.Count, $newRemainingEntries.Count, $preservedInitialEntries.Count)
     if (-not $registryClean) { throw 'El uninstall no retiró únicamente la entrada de QA o cambió entradas EvaluaPro preexistentes.' }
-    Add-Result -Area 'post-uninstall' -Item 'install-dir-removed' -Ok (-not (Test-Path -LiteralPath $installedRoot)) -Detail $installedRoot
+    $remainingInstallEntries = @()
+    if (Test-Path -LiteralPath $installedRoot -PathType Container) {
+      $remainingInstallEntries = @(Get-ChildItem -LiteralPath $installedRoot -Force -ErrorAction Stop | Select-Object -ExpandProperty Name)
+    }
+    $payloadRemoved = $remainingInstallEntries.Count -eq 1 -and $remainingInstallEntries[0] -eq 'data'
+    $localDataPreserved = Test-Path -LiteralPath (Join-Path $installedRoot 'data\evaluapro.db') -PathType Leaf
+    Add-Result -Area 'post-uninstall' -Item 'payload-removed-data-preserved' -Ok ($payloadRemoved -and $localDataPreserved) -Detail ("root={0} remaining={1} databasePreserved={2}" -f $installedRoot,($remainingInstallEntries -join ','),$localDataPreserved)
     Assert-SharedProgramDataSqliteUnchanged
 
-    $backupDir = "C:\Users\Public\Documents\EvaluaPro_Backup"
-    $backupArchives = @(Get-ChildItem -Path $backupDir -File -Filter "data_*.zip" -ErrorAction SilentlyContinue)
+    $backupArchives = @(
+      if (Test-Path -LiteralPath $script:privateBackupDir -PathType Container) {
+        Get-ChildItem -LiteralPath $script:privateBackupDir -File -Filter 'data_*.zip' -ErrorAction Stop |
+          Where-Object { $script:initialDataBackupPaths -notcontains $_.FullName }
+      }
+    )
     $restoreOk = $false
-    $restoreDetail = "backup_archives={0}" -f $backupArchives.Count
+    $restoreDetail = "new_private_archives={0}" -f $backupArchives.Count
+    $privateAclOk = $false
+    $privateAclDetail = 'no se encontró un respaldo nuevo para revisar ACL'
     if ($backupArchives.Count -gt 0) {
-      $restoreStage = Join-Path ([IO.Path]::GetTempPath()) ("evaluapro-restore-check-" + [Guid]::NewGuid().ToString('N'))
       try {
-        Expand-Archive -LiteralPath $backupArchives[-1].FullName -DestinationPath $restoreStage -Force
-        $restoreOk = Test-Path -LiteralPath (Join-Path $restoreStage 'evaluapro.db')
-        $restoreDetail = "backup_archives={0} restore_db={1}" -f $backupArchives.Count,$restoreOk
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($backupArchives[-1].FullName)
+        try {
+          $databaseEntries = @($archive.Entries | Where-Object { $_.FullName -eq 'evaluapro.db' -and $_.Length -gt 0 })
+          $restoreOk = $databaseEntries.Count -gt 0
+          $restoreDetail = "new_private_archives={0} archive={1} contains_database={2}" -f $backupArchives.Count,$backupArchives[-1].Name,$restoreOk
+        } finally { $archive.Dispose() }
+        $backupAcl = Get-Acl -LiteralPath $script:privateBackupDir -ErrorAction Stop
+        $broadAllowSids = @('S-1-1-0', 'S-1-5-11', 'S-1-5-32-545')
+        $broadAllows = @(
+          foreach ($rule in $backupAcl.Access) {
+            try {
+              $sid = $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
+              if ($rule.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and $broadAllowSids -contains $sid) { $rule.IdentityReference.Value }
+            } catch { }
+          }
+        )
+        $privateAclOk = $backupAcl.AreAccessRulesProtected -and $broadAllows.Count -eq 0
+        $privateAclDetail = "protected={0} broad_allow_rules={1}" -f $backupAcl.AreAccessRulesProtected,($broadAllows -join ',')
       } catch {
-        $restoreDetail = "backup_archives={0} restore_error={1}" -f $backupArchives.Count,$_.Exception.Message
-      } finally {
-        Remove-Item -LiteralPath $restoreStage -Recurse -Force -ErrorAction SilentlyContinue
+        $restoreDetail = "new_private_archives={0} validation_error={1}" -f $backupArchives.Count,$_.Exception.Message
       }
     }
     Add-Result -Area 'post-uninstall' -Item 'backup-created' -Ok $restoreOk -Detail $restoreDetail
+    Add-Result -Area 'post-uninstall' -Item 'backup-private-acl' -Ok $privateAclOk -Detail $privateAclDetail
   }
 
   Assert-NoActiveEvaluaProProcesses
@@ -2189,14 +2359,19 @@ try {
   Write-E2ELog "E2E Installer Hub docente OK. Reporte: $reportPath"
 }
 catch {
-  Add-Result -Area 'runner' -Item 'fatal' -Ok $false -Detail ("{0}`n{1}" -f $_.Exception.ToString(), $_.ScriptStackTrace)
-  Export-NativeEvidence
-  Export-InstallerLogs
-  Export-JsonArtifact -Name 'processes-error.json' -Data (Get-ProcessSnapshot) | Out-Null
-  Write-VisualFlowManifest
-  Write-TutorialMarkdown
-  Save-Report -Status 'failed'
-  Write-E2ELog ("ERROR: {0}" -f $_.Exception.Message)
+  $fatalError = $_
+  try {
+    Add-Result -Area 'runner' -Item 'fatal' -Ok $false -Detail ("{0}`n{1}" -f $fatalError.Exception.ToString(), $fatalError.ScriptStackTrace)
+  } catch {
+    Write-E2ELog ("No se pudo anexar el error fatal al reporte: {0}" -f $_.Exception.Message)
+  }
+  try { Export-NativeEvidence } catch { Write-E2ELog ("No se pudo exportar la evidencia nativa tras el fallo: {0}" -f $_.Exception.Message) }
+  try { Export-InstallerLogs } catch { Write-E2ELog ("No se pudieron copiar los logs del instalador tras el fallo: {0}" -f $_.Exception.Message) }
+  try { Export-JsonArtifact -Name 'processes-error.json' -Data (Get-ProcessSnapshot) | Out-Null } catch { Write-E2ELog ("No se pudo guardar el snapshot de procesos tras el fallo: {0}" -f $_.Exception.Message) }
+  try { Write-VisualFlowManifest } catch { Write-E2ELog ("No se pudo guardar el manifiesto visual tras el fallo: {0}" -f $_.Exception.Message) }
+  try { Write-TutorialMarkdown } catch { Write-E2ELog ("No se pudo guardar el índice de evidencia tras el fallo: {0}" -f $_.Exception.Message) }
+  try { Save-Report -Status 'failed' } catch { Write-E2ELog ("No se pudo finalizar el reporte como failed: {0}" -f $_.Exception.Message) }
+  Write-E2ELog ("ERROR: {0}" -f $fatalError.Exception.Message)
   throw
 }
 finally {

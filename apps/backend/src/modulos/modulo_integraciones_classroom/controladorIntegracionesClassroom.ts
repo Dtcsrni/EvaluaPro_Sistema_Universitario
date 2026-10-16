@@ -8,6 +8,7 @@ import type { Request, Response } from 'express';
 import { URL } from 'node:url';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
 import { MapeoClassroomEvidencia } from './modeloMapeoClassroomEvidencia.js';
 import {
@@ -24,9 +25,12 @@ import {
   listarHistorialSyncClassroom,
   obtenerAlumnosCursoClassroom,
   obtenerEstadoClassroom,
-  sincronizarImportacionClassroom
+  sincronizarImportacionClassroom,
+  type ActividadClassroomSeleccionada
 } from './servicioSyncClassroom.js';
 import { listarHistorialEntregaClassroom, listarSnapshotsClassroomCorte, obtenerCapturaHistorialClassroom } from './servicioHistorialClassroom.js';
+import { iniciarJobImportacionClassroom, obtenerJobImportacionClassroom } from './servicioJobsImportacionClassroom.js';
+import { calcularPlanHashImportacionClassroom } from './planImportacionClassroom.js';
 
 function normalizarTexto(valor: unknown): string {
   return String(valor || '').trim();
@@ -47,7 +51,19 @@ function obtenerFrontendOrigin(req: Request): string | undefined {
 export async function iniciarOauthClassroom(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const frontendOrigin = obtenerFrontendOrigin(req);
-  const { url } = construirUrlOauthClassroom(docenteId, { frontendOrigin });
+  const docente = await prisma.docente.findUnique({ where: { id: docenteId }, select: { correo: true, googleSub: true } });
+  if (!docente?.googleSub) {
+    throw new ErrorAplicacion(
+      'CLASSROOM_LOGIN_GOOGLE_REQUIRED',
+      'Inicia sesión en EvaluaPro con la cuenta Google que vincularás a Classroom y vuelve a intentarlo.',
+      409
+    );
+  }
+  const { url } = construirUrlOauthClassroom(docenteId, {
+    frontendOrigin,
+    loginHint: docente.correo,
+    expectedGoogleSub: docente.googleSub
+  });
   const integracion = await IntegracionClassroom.findOne({ docenteId }).lean();
   res.json({
     url,
@@ -381,7 +397,14 @@ export async function previewImportacionClassroom(req: SolicitudDocente, res: Re
     limiteSubmissions: payload.limiteSubmissions,
     persistir: false
   });
-  res.json(preview);
+  res.json({
+    ...preview,
+    planHash: calcularPlanHashImportacionClassroom({
+      periodoId: normalizarTexto(payload.periodoId),
+      actividades: payload.actividades,
+      limiteSubmissions: payload.limiteSubmissions
+    }, preview)
+  });
 }
 
 export async function ejecutarImportacionClassroom(req: SolicitudDocente, res: Response) {
@@ -406,6 +429,37 @@ export async function ejecutarImportacionClassroom(req: SolicitudDocente, res: R
     persistir: true
   });
   res.json(resultado);
+}
+
+export async function iniciarJobImportacionClassroomController(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const payload = req.body as {
+    periodoId: string;
+    actividades: Array<Record<string, unknown>>;
+    limiteSubmissions?: number;
+    clientRequestId: string;
+    planHash: string;
+  };
+  const { clientRequestId, planHash, ...seleccion } = payload;
+  const job = await iniciarJobImportacionClassroom({
+    docenteId,
+    clientRequestId,
+    payload: {
+      periodoId: normalizarTexto(seleccion.periodoId),
+      actividades: seleccion.actividades as ActividadClassroomSeleccionada[],
+      limiteSubmissions: seleccion.limiteSubmissions,
+      planHash
+    }
+  });
+  res.status(job.estado === 'succeeded' || job.estado === 'partial' || job.estado === 'failed' ? 200 : 202)
+    .location(`/api/evaluaciones/v2/classroom/importaciones/jobs/${encodeURIComponent(job.jobId)}`)
+    .json(job);
+}
+
+export async function obtenerJobImportacionClassroomController(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const job = await obtenerJobImportacionClassroom(docenteId, normalizarTexto(req.params.jobId));
+  res.json(job);
 }
 
 export async function listarHistorialSyncClassroomController(req: SolicitudDocente, res: Response) {

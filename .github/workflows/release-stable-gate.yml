@@ -15,6 +15,11 @@ on:
         description: "Directorio de evidencia versionada; por defecto docs/release/evidencias/<version>"
         required: false
         type: string
+      dispatch_release_after_gate:
+        description: "Despachar el flujo de release después de aprobar la validación estable"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: release-stable-gate-${{ inputs.source_sha }}
@@ -142,7 +147,13 @@ jobs:
           npx playwright install --with-deps chromium
           npm run gui:screen-matrix
           git restore -- docs/release/manual/gui-screen-matrix.md
+          npm run test:gui:visual-contract
           npm run test:gui:responsive:e2e:ci
+          export E2E_PLAYWRIGHT_OUTPUT_DIR="$RUNNER_TEMP/evaluapro-e2e-playwright-results"
+          npm run test:gui:cycle:e2e:ci
+          export E2E_REPORT_DIR="$RUNNER_TEMP/evaluapro-pdf-edge-results"
+          export E2E_BROWSER_CHANNEL=chromium
+          npm run test:gui:pdf:e2e:ci
 
       - name: Confirmar árbol fuente limpio antes de QA completa
         shell: bash
@@ -178,6 +189,9 @@ jobs:
           path: |
             reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
             candidate/reports/qa/latest/
+            candidate/test-results/**
+            ${{ runner.temp }}/evaluapro-e2e-playwright-results/**
+            ${{ runner.temp }}/evaluapro-pdf-edge-results/**
           if-no-files-found: warn
 
   publish_after_go:
@@ -185,7 +199,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     needs: stable_gate
-    if: needs.stable_gate.result == 'success'
+    if: needs.stable_gate.result == 'success' && inputs.dispatch_release_after_gate == true
     permissions:
       contents: read
       actions: write
@@ -244,3 +258,107 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET_VERSION: ${{ needs.stable_gate.outputs.target_version }}
         run: gh release edit "v$TARGET_VERSION" --repo "$GITHUB_REPOSITORY" --latest
+
+  cleanup_same_sha_beta:
+    name: Retirar beta temporal del mismo SHA
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [stable_gate, publish_after_go, mark_latest]
+    if: needs.stable_gate.result == 'success' && needs.publish_after_go.result == 'success' && needs.mark_latest.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - name: Descargar código del gate estable
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Calcular candidatos beta removibles
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_VERSION: ${{ needs.stable_gate.outputs.target_version }}
+          CANDIDATE_SHA: ${{ needs.stable_gate.outputs.candidate_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          stable_tag="v$TARGET_VERSION"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$stable_tag" > "$RUNNER_TEMP/stable-release.json"
+          stable_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$stable_tag" --jq '.sha')"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '.[] | [.tag_name, (.draft|tostring), (.prerelease|tostring)] | @tsv' > "$RUNNER_TEMP/releases.tsv"
+          : > "$RUNNER_TEMP/betas.tsv"
+          : > "$RUNNER_TEMP/beta-tags.tsv"
+          beta_regex="^v${TARGET_VERSION//./\\.}-beta\\.(0|[1-9][0-9]*)$"
+          while IFS=$'\t' read -r tag draft prerelease; do
+            [[ "$tag" =~ $beta_regex && "$draft" == false && "$prerelease" == true ]] || continue
+            printf '%s\n' "$tag" >> "$RUNNER_TEMP/beta-tags.tsv"
+            beta_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq '.sha')"
+            printf '%s\t%s\n' "$tag" "$beta_sha" >> "$RUNNER_TEMP/betas.tsv"
+          done < "$RUNNER_TEMP/releases.tsv"
+          node --input-type=module - "$RUNNER_TEMP/stable-release.json" "$stable_sha" "$RUNNER_TEMP/beta-tags.tsv" "$RUNNER_TEMP/betas.tsv" "$RUNNER_TEMP/beta-cleanup-plan.json" <<'NODE'
+          import fs from 'node:fs';
+          import { planBetaCleanup } from './scripts/release/plan-beta-cleanup.mjs';
+          const [stablePath, stableTagSha, betaTagsPath, betaCommitsPath, outputPath] = process.argv.slice(2);
+          const betaReleases = fs.readFileSync(betaTagsPath, 'utf8').split(/\r?\n/).filter(Boolean).map((tag_name) => ({ tag_name, draft: false, prerelease: true }));
+          const tagCommits = Object.fromEntries(fs.readFileSync(betaCommitsPath, 'utf8').split(/\r?\n/).filter(Boolean).map((line) => line.split('\t')));
+          const plan = planBetaCleanup({
+            version: process.env.TARGET_VERSION,
+            candidateSha: process.env.CANDIDATE_SHA,
+            stableRelease: JSON.parse(fs.readFileSync(stablePath, 'utf8')),
+            stableTagSha,
+            betaReleases,
+            tagCommits
+          });
+          fs.writeFileSync(outputPath, `${JSON.stringify(plan, null, 2)}\n`);
+          console.log(JSON.stringify(plan));
+          NODE
+          echo "plan_file=$RUNNER_TEMP/beta-cleanup-plan.json" >> "$GITHUB_OUTPUT"
+
+      - name: Retirar exclusivamente prereleases beta del SHA publicado
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_FILE: ${{ steps.plan.outputs.plan_file }}
+          CANDIDATE_SHA: ${{ needs.stable_gate.outputs.candidate_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]] || { echo "Tag beta inesperada: $tag" >&2; exit 1; }
+            current_release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag")"
+            [[ "$(jq -r '.draft' <<<"$current_release")" == false && "$(jq -r '.prerelease' <<<"$current_release")" == true ]] || { echo "La beta $tag cambió de estado después del plan; se conserva." >&2; exit 1; }
+            current_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq '.sha')"
+            [[ "${current_sha,,}" == "${CANDIDATE_SHA,,}" ]] || { echo "La beta $tag ya no apunta al SHA estable candidato; se conserva." >&2; exit 1; }
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+            echo "Retirada beta temporal $tag del SHA estable verificado." >> "$GITHUB_STEP_SUMMARY"
+          done < <(node -e 'const p=require(process.argv[1]); for(const tag of p.remove) console.log(tag)' "$PLAN_FILE")
+          if [[ "$(node -e 'const p=require(process.argv[1]); process.stdout.write(String(p.remove.length))' "$PLAN_FILE")" == '0' ]]; then
+            echo 'No había beta temporal del SHA candidato que retirar.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          node -e 'const p=require(process.argv[1]); for(const item of p.preserve) console.log(`Conservada ${item.tag} (SHA distinto)`)' "$PLAN_FILE" >> "$GITHUB_STEP_SUMMARY"
+          node --input-type=module - "$PLAN_FILE" "$RUNNER_TEMP/beta-stable-transition.json" <<'NODE'
+          import fs from 'node:fs';
+          const [planPath, outputPath] = process.argv.slice(2);
+          const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
+          const report = {
+            schemaVersion: 1,
+            estado: 'verificado',
+            generadoEn: new Date().toISOString(),
+            version: plan.version,
+            candidateSha: plan.candidateSha,
+            stableRelease: { tag: plan.stableTag, url: plan.stableReleaseUrl, publishedAt: plan.stablePublishedAt },
+            prereleasesTemporalesRetiradas: plan.remove,
+            prereleasesConservadasShaDistinto: plan.preserve
+          };
+          fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`);
+          console.log(JSON.stringify(report));
+          NODE
+      - name: Conservar reporte de transición beta-estable
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: beta-stable-transition-${{ needs.stable_gate.outputs.target_version }}
+          path: |
+            ${{ runner.temp }}/beta-cleanup-plan.json
+            ${{ runner.temp }}/beta-stable-transition.json
+          if-no-files-found: warn

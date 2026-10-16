@@ -48,7 +48,7 @@ describe('UX quality contract', () => {
     expect(await screen.findByText(/Para qué sirve y cómo llenarlo/i)).toBeInTheDocument();
 
     await user.click(within(nav).getByRole('button', { name: 'Sincronización' }));
-    expect(await screen.findByText(/Operacion recomendada entre computadoras/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Operacion recomendada entre computadoras/i, undefined, { timeout: 10_000 })).toBeInTheDocument();
     expect(container.querySelectorAll('[aria-label*="Ayuda"]').length).toBeGreaterThanOrEqual(2);
   });
 

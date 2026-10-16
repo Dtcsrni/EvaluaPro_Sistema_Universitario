@@ -45,7 +45,7 @@ Fecha de baseline: 2026-02-13.
   - el ruleset remoto `main-v1b-minimo` esta activo sobre `~DEFAULT_BRANCH`.
   - `main` exige Pull Request, bloquea borrado/non-fast-forward y requiere `Verificaciones Core (PR bloqueante)` antes de merge.
   - `Verificaciones Extendidas (Main/Release)`, `Security CodeQL` e `Installer Windows (MSI + Bundle)` siguen como gates de endurecimiento para release/RC, no como checks minimos de estabilizacion.
-  - los workflows modulares con filtros por `paths` se mantienen como señal diagnóstica por dominio.
+  - los workflows modulares se ejecutan manualmente (`workflow_dispatch`) para diagnóstico; `CI Checks` es el único dueño automático de las validaciones de PR, `main` y schedule.
   - al acercarse a `1.0.0-rc.0`, ampliar el ruleset con los checks extendidos aprobados por el release gate.
 
 ## Fallback y resiliencia
@@ -54,8 +54,8 @@ Fecha de baseline: 2026-02-13.
   - contrato único de comandos `docker compose`;
   - sin features exclusivas de Docker Desktop;
   - networking host↔contenedor portable vía `host-gateway`.
-- Hardening de dependencias nativas en backend module:
-  - instalacion explicita de `sharp` linux-x64 antes de pruebas para evitar errores de runtime nativo en runners Linux.
+- Dependencias nativas:
+  - `sharp` se resuelve desde manifests y lockfiles con `npm ci`; las rutas que lo usan conservan smoke tests de runtime, sin instalaciones paralelas fuera del lockfile.
 - Política versionada de Dependabot:
   - `.github/dependabot.yml` analiza semanalmente `/`; npm resuelve backend, frontend y portal como workspaces del monorepo y usa el lock raíz como fuente canónica.
   - `open-pull-requests-limit: 5` limita las PR de actualizaciones de versión; cero las desactiva.
@@ -65,7 +65,8 @@ Fecha de baseline: 2026-02-13.
 
 ## Enforcements TDD activos
 - Las PR ejecutan pruebas afectadas por módulo; los reportes de cobertura son diagnósticos y la cobertura integral se solicita con `workflow_dispatch` + `force_full_ci`.
-- Los gates extendidos del mapa `ci/affected-test-map.json` se aíslan por dominio funcional; cambios de CI no ejecutan E2E de producto no relacionadas. `schedule` y `force_full_ci` conservan las suites completas.
+- Los gates extendidos del mapa `ci/affected-test-map.json` se aíslan por dominio funcional; cambios de CI no ejecutan E2E de producto no relacionadas. `schedule` y `force_full_ci` conservan las suites integrales; `force_full_ci` ejecuta cobertura completa.
+- Los runners backend de pruebas y cobertura no reintentan suites automáticamente: un fallo deja su diagnóstico y requiere una ejecución separada para confirmar estabilidad.
 - Registro de deuda temporal de exclusiones de coverage:
   - `docs/tdd-exclusions-debt.json`
 - Verificador bloqueante de deuda vencida:

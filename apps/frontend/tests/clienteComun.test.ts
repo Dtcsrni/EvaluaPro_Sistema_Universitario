@@ -232,4 +232,37 @@ describe('eventos de uso y cliente JSON', () => {
     expect((fetchMock.mock.calls[1]?.[1] as RequestInit).headers).toMatchObject({ Authorization: 'Bearer nuevo', 'X-Request': 'id' });
     vi.unstubAllGlobals();
   });
+
+  it('reintenta GET pero no repite POST/PUT/DELETE ante 503 ni error de red', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) })
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValueOnce({ ok: false, status: 429, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchMock);
+    const cliente = crearClienteJsonBase({
+      baseUrl: '/api', mensajeServicio: 'Servicio', retry: { intentos: 2, baseMs: 1, maxMs: 1, jitterMs: 0 },
+      ...toastBase, toastTimeout: { id: 'timeout', title: 'Timeout', message: 'timeout' }
+    });
+
+    await expect(cliente.enviar('/crear', { valor: 1 })).rejects.toMatchObject({ detalle: { status: 503 } });
+    await expect(cliente.actualizar('/editar', { valor: 1 })).rejects.toMatchObject({ detalle: { codigo: 'RESULTADO_INCIERTO' } });
+    await expect(cliente.eliminar('/borrar')).rejects.toMatchObject({ detalle: { status: 429 } });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    vi.unstubAllGlobals();
+  });
+
+  it('marca como incierto un POST con clientRequestId tras perder la respuesta', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('ECONNRESET'));
+    vi.stubGlobal('fetch', fetchMock);
+    const cliente = crearClienteJsonBase({
+      baseUrl: '/api', mensajeServicio: 'Servicio', retry: { intentos: 3 },
+      ...toastBase, toastTimeout: { id: 'timeout', title: 'Timeout', message: 'timeout' }
+    });
+
+    await expect(cliente.enviar('/crear', { clientRequestId: 'request-123' })).rejects.toMatchObject({
+      detalle: { codigo: 'RESULTADO_INCIERTO', clientRequestId: 'request-123' }
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
 });

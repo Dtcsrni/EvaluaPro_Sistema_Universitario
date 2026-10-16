@@ -415,6 +415,13 @@ public partial class MainWindow : Window
 
     public void UpdateState(string? statusText, int? progress, bool? isBusy)
     {
+        // Progress notifications are queued from Burn/helper threads. Ignore a
+        // late "busy" update after the terminal Result screen has been shown.
+        if (currentStep == WizardStep.Result && isBusy == true)
+        {
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(statusText))
         {
             StatusTextBlock.Text = statusText;
@@ -863,6 +870,9 @@ public partial class MainWindow : Window
             suppressModeChangedEvent = false;
         }
 
+        ExportDataCheckBox.Visibility = string.Equals(normalized, "uninstall", StringComparison.OrdinalIgnoreCase)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         RefreshOperationalChrome(GetSelectedMode());
     }
 
@@ -898,6 +908,7 @@ public partial class MainWindow : Window
             FlavorId = selectedFlavor?.FlavorId ?? "docente-local",
             Mode = mode,
             InstallDir = installDir,
+            DataDir = ResolveDataDirectory(DefaultDatabaseUrl, installDir),
             InstallDesktopShortcuts = DesktopShortcutsCheckBox.IsChecked == true,
             InstallStartMenuShortcuts = StartMenuShortcutsCheckBox.IsChecked == true,
             ExportData = ExportDataCheckBox.IsChecked == true,
@@ -921,6 +932,23 @@ public partial class MainWindow : Window
             UpdateRepo = DefaultUpdateRepo,
             UpdateShaAssetName = $"{updateAssetName}.sha256"
         };
+    }
+
+    private static string ResolveDataDirectory(string databaseUrl, string installDir)
+    {
+        if (installDir.Contains("EvaluaPro-QA-Isolated-", StringComparison.OrdinalIgnoreCase))
+        {
+            return System.IO.Path.Combine(installDir, "data");
+        }
+
+        if (databaseUrl.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            var databasePath = Uri.UnescapeDataString(databaseUrl[5..]).Replace('/', System.IO.Path.DirectorySeparatorChar);
+            var directory = System.IO.Path.GetDirectoryName(databasePath);
+            if (!string.IsNullOrWhiteSpace(directory)) return System.IO.Path.GetFullPath(directory);
+        }
+
+        return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EvaluaPro", "data");
     }
 
     private void DetectButton_OnClick(object sender, RoutedEventArgs e)
@@ -1481,24 +1509,16 @@ public partial class MainWindow : Window
 
         if (activePanel != null)
         {
-            AnimatePanelTransition(activePanel);
+            ShowStepPanel(activePanel);
         }
     }
 
-    private void AnimatePanelTransition(FrameworkElement panel)
+    private static void ShowStepPanel(FrameworkElement panel)
     {
-        panel.Opacity = 0.0;
-        var translate = new TranslateTransform(0, 12);
-        panel.RenderTransform = translate;
-
-        var duration = TimeSpan.FromMilliseconds(250);
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-
-        var opacityAnim = new DoubleAnimation(0.0, 1.0, duration) { EasingFunction = ease };
-        var slideAnim = new DoubleAnimation(12.0, 0.0, duration) { EasingFunction = ease };
-
-        panel.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
-        translate.BeginAnimation(TranslateTransform.YProperty, slideAnim);
+        panel.BeginAnimation(UIElement.OpacityProperty, null);
+        panel.BeginAnimation(UIElement.RenderTransformProperty, null);
+        panel.Opacity = 1.0;
+        panel.RenderTransform = Transform.Identity;
     }
 
     private void RefreshWizardNavigation()

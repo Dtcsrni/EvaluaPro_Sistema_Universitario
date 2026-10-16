@@ -1,0 +1,30 @@
+name: Setup Node project
+description: Configure the pinned Node/npm toolchain and install dependencies from lockfiles.
+inputs:
+  node-version:
+    description: Node.js version
+    required: false
+    default: 24.21.0
+  npm-version:
+    description: npm version
+    required: false
+    default: 12.1.0
+runs:
+  using: composite
+  steps:
+    - name: Configure Node.js and npm cache
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: |
+          package-lock.json
+          apps/backend/package-lock.json
+          apps/frontend/package-lock.json
+          apps/portal_alumno_cloud/package-lock.json
+    - name: Install pinned npm
+      shell: bash
+      run: npm install --global npm@${{ inputs.npm-version }}
+    - name: Install locked dependencies
+      shell: bash
+      run: npm ci --foreground-scripts

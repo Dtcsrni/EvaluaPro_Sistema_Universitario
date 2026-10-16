@@ -4,6 +4,22 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Changed
+- CI centraliza la validación automática en `CI Checks`, valida detector, plan affected y coherencia entre grupos, gates y jobs, y limita sus reportes a salidas conocidas.
+- Las suites backend de prueba y cobertura ya no reintentan automáticamente fallos; los lotes de cobertura mantienen diagnósticos y un orden de reporte determinista.
+- `sharp` se instala desde el lockfile mediante `npm ci`, sin resolverlo aparte durante el pipeline.
+
+### Added
+- Importación Classroom pull-only mediante jobs durables con `clientRequestId`, `planHash`, recuperación por `jobId` y reporte por actividad; la API y la GUI comparten el flujo.
+- El vínculo OAuth de Classroom usa como sugerencia y límite de identidad la cuenta Google del inicio de sesión de EvaluaPro; la GUI muestra la cuenta esperada y una identidad distinta no reemplaza la conexión existente.
+- El backend deja de usar vínculos Classroom legados sin `googleSub` coincidente y solo reutiliza refresh tokens previos cuando pertenecen a la misma identidad Google.
+- Cliente de Classroom con timeout finito, reintentos acotados para lecturas, protección de paginación y renovación de token agrupada por docente.
+- Contratos y cliente API autenticado para que Codex prepare, confirme, inicie y verifique importaciones con control de idempotencia.
+
+### Fixed
+- Las solicitudes HTTP mutables del cliente común ya no se reintentan automáticamente ante fallos transitorios sin idempotencia persistente.
+- La interfaz de importación conserva el job para reanudar consultas tras una interrupción y distingue resultados parciales de una sincronización completa.
+
 ## [1.2.8] - 2026-10-14
 
 ### Added

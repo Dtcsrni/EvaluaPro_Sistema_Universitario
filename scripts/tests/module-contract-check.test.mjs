@@ -5,10 +5,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   compareVersions,
+  normalizeResolvedHostDeclarationPath,
+  readCurrentPublicApis,
   readCurrentCompositionApis,
   inspectModuleContracts,
   parseVersion,
-  readCurrentPublicApis,
   satisfiesRange,
   validateAppendOnlyHistory,
   validatePublicApiHistory,
@@ -93,6 +94,19 @@ const inspect = (root) => inspectModuleContracts({
   manifestPath: 'contracts.json',
   prismaSchemaPath: 'apps/backend/prisma/schema.prisma',
   tsconfigPath: 'tsconfig.fixture.json'
+});
+
+test('normaliza rutas de tipos externos igual con node_modules local o junction', () => {
+  const root = path.join(os.tmpdir(), 'evaluapro-contract-root');
+  const hostSourceRoot = path.join(root, 'apps/backend/src');
+  const localPackage = path.join(root, 'node_modules/@types/express-serve-static-core/index.d.ts');
+  const junctionPackage = path.join(os.tmpdir(), 'evaluapro-dependency-store/node_modules/@types/express-serve-static-core/index.d.ts');
+
+  const local = normalizeResolvedHostDeclarationPath(localPackage, hostSourceRoot, root);
+  const throughJunction = normalizeResolvedHostDeclarationPath(junctionPackage, hostSourceRoot, root);
+
+  assert.equal(local, '../../../node_modules/@types/express-serve-static-core/index.d.ts');
+  assert.equal(throughJunction, local);
 });
 
 test('la base vigente registra todos los módulos, sin ciclos ni modelos huérfanos', () => {

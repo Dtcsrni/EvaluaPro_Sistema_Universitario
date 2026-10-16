@@ -5,7 +5,8 @@
  * Limites: Probar rutas privadas/públicas, validaciones Zod y flujos de firma.
  */
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import fs from 'node:fs/promises';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { conectarSqliteTest, cerrarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
@@ -175,9 +176,65 @@ describe('módulo encuadre integración', () => {
     expect(resFirmaRepetida.status).toBe(400);
 
     // Descargar PDF público
-    const resPdf = await request(app)
+    const lecturaPdf = vi.spyOn(fs, 'readFile');
+    try {
+      const resPdf = await request(app)
+        .get(`/api/evaluaciones-publicas/encuadre/pdf/${docenteToken}`);
+      expect(resPdf.status, JSON.stringify({ text: resPdf.text, body: resPdf.body, headers: resPdf.headers, error: resPdf.error?.message })).toBe(200);
+      expect(resPdf.header['content-type']).toBe('application/pdf');
+      expect(Number(resPdf.header['content-length'])).toBeGreaterThan(0);
+      expect(Buffer.isBuffer(resPdf.body)).toBe(true);
+      expect(resPdf.body.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(lecturaPdf).toHaveBeenCalledTimes(1);
+    } finally {
+      lecturaPdf.mockRestore();
+    }
+  });
+
+  it('responde 404 si falta el archivo PDF público del encuadre', async () => {
+    const { periodo, auth } = await crearContexto();
+    const inicializacion = await request(app)
+      .post('/api/evaluaciones/encuadre/inicializar')
+      .set(auth)
+      .send({ periodoId: periodo.id });
+    const docenteToken = inicializacion.body.docenteToken;
+    const firma = await prisma.firmaEncuadre.findFirst({
+      where: { tokenFirma: docenteToken },
+      include: { encuadre: true }
+    });
+    expect(firma?.encuadreId).toBeDefined();
+    await prisma.encuadreAcademico.update({
+      where: { id: firma!.encuadreId },
+      data: { rutaPdf: 'archivo-ausente_encuadre_base.pdf' }
+    });
+
+    const respuesta = await request(app)
       .get(`/api/evaluaciones-publicas/encuadre/pdf/${docenteToken}`);
-    expect(resPdf.status).toBe(200);
-    expect(resPdf.header['content-type']).toBe('application/pdf');
+
+    expect(respuesta.status).toBe(404);
+    expect(respuesta.body.error).toBe('El archivo físico del PDF no existe');
+  });
+
+  it('oculta detalles del sistema ante un error inesperado de lectura del PDF', async () => {
+    const { periodo, auth } = await crearContexto();
+    const inicializacion = await request(app)
+      .post('/api/evaluaciones/encuadre/inicializar')
+      .set(auth)
+      .send({ periodoId: periodo.id });
+    const token = inicializacion.body.docenteToken;
+    const errorLectura = Object.assign(new Error('EACCES: C:\\private\\encuadre.pdf'), { code: 'EACCES' });
+    const lecturaPdf = vi.spyOn(fs, 'readFile').mockRejectedValue(errorLectura);
+
+    try {
+      const respuesta = await request(app)
+        .get(`/api/evaluaciones-publicas/encuadre/pdf/${token}`);
+
+      expect(respuesta.status).toBe(500);
+      expect(respuesta.body).toEqual({ error: 'Error interno' });
+      expect(JSON.stringify(respuesta.body)).not.toContain('private');
+      expect(lecturaPdf).toHaveBeenCalledTimes(1);
+    } finally {
+      lecturaPdf.mockRestore();
+    }
   });
 });

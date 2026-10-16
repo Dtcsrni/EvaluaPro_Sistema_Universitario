@@ -1,0 +1,146 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-15-ci-cd-spec104",
+  "status": "final",
+  "generatedAt": "2026-10-15T15:07:53.493Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "agente-ia",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Implementar la SPEC-104 aprobada para hacer confiables los gates y la ejecución de CI/CD."
+  },
+  "objective": "Cerrar las brechas locales de CI/CD y dejar evidencias claras para la validación integral en GitHub Actions.",
+  "scope": [
+    "Resumen de gates Core/Extended",
+    "Retries de pruebas backend y cobertura",
+    "Contrato de dependencias nativas",
+    "Contratos y trazabilidad"
+  ],
+  "constraints": [
+    "No modificar datos operativos ni publicar una release.",
+    "No instalar dependencias fuera del lockfile.",
+    "Preservar artefactos QA preexistentes."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de ci_contract_focused",
+      "timestamp": "2026-10-15T15:07:53.493Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de gui_visual_contract",
+      "timestamp": "2026-10-15T15:07:53.493Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de sdd_audit",
+      "timestamp": "2026-10-15T15:07:53.493Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-10-15T15:07:53.493Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_generate_check",
+      "timestamp": "2026-10-15T15:07:53.493Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "ci/affected-test-map.json",
+      ".github/workflows/ci.yml",
+      ".github/actions/setup-node-project/action.yml",
+      "scripts/testing/ci-gate-summary.mjs",
+      "scripts/tests/ci-gate-summary.test.mjs",
+      "scripts/testing/run-backend-test-batches.mjs",
+      "scripts/testing/run-backend-coverage-batches.mjs"
+    ],
+    "changed": [],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "ci_contract_focused",
+      "command": "node --test scripts/tests/ci-gate-summary.test.mjs scripts/tests/ci-redesign-contract.test.mjs scripts/tests/backend-test-batches.test.mjs scripts/tests/backend-coverage-batches.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 157,
+      "resultSummary": "41 pruebas aprobadas; 0 fallidas.",
+      "timestamp": "2026-10-15T15:07:53.493Z"
+    },
+    {
+      "name": "gui_visual_contract",
+      "command": "node --test scripts/tests/gui-visual-e2e-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 74,
+      "resultSummary": "7 pruebas aprobadas; 0 fallidas.",
+      "timestamp": "2026-10-15T15:07:53.493Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2737,
+      "resultSummary": "Todas las specs cumplen la política; SPEC-104 permanece approved.",
+      "timestamp": "2026-10-15T15:07:53.493Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 6282,
+      "resultSummary": "Contratos de gate aprobados; la suite ci-workflow-contract no inicia porque no se encuentra el paquete typescript en node_modules.",
+      "timestamp": "2026-10-15T15:07:53.493Z"
+    },
+    {
+      "name": "docs_generate_check",
+      "command": "npm run docs:generate && npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3860,
+      "resultSummary": "AUTO_ENV y AUTO_DOCS_INDEX regenerados; docs:check pasó.",
+      "timestamp": "2026-10-15T15:07:53.493Z"
+    }
+  ],
+  "decisions": [
+    "Eliminar retries automáticos de suites; los fallos se confirman en una corrida separada.",
+    "Fallos de contrato por dependencias ausentes se reportan como limitación local, no como éxito."
+  ],
+  "assumptions": [
+    "El PR existente ejecutará los contratos sobre runner limpio con npm ci."
+  ],
+  "risks": [
+    "El contrato integral pipeline:contract:check no pudo completarse localmente porque falta typescript en node_modules.",
+    "Faltan dos corridas de cobertura integral consecutivas del mismo SHA para aceptar SPEC-104."
+  ],
+  "nextStep": "Ejecutar checks de PR y dos dispatch force_full_ci consecutivos sobre el mismo SHA.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\spec094-native-e2e-main",
+    "branch": "codex/spec102-103-visual-coverage",
+    "commit": "29771691",
+    "workingTreeStatus": "M  CHANGELOG.md\nM  ci/pipeline.contract.md\nM  docs/AUTO_ENV.md\nM  docs/DEVOPS_BASELINE.md\nA  docs/handoff/sesiones/2026-10-15/sesion-2026-10-15-ci-cd-spec104.json\nA  docs/handoff/sesiones/2026-10-15/sesion-2026-10-15-ci-cd-spec104.md\nM  docs/specs/SPEC-102_validacion_visual_e2e_installer_hub.spec.md\nM  packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs\n M reports/qa/latest/ux-visual.json\nM  scripts/dashboard.html\nM  scripts/testing/ci-gate-summary.mjs\nM  scripts/testing/run-backend-coverage-batches.mjs\nM  scripts/testing/run-backend-test-batches.mjs\nM  scripts/tests/backend-coverage-batches.test.mjs\nM  scripts/tests/capture-installer-web.mjs\nM  scripts/tests/ci-gate-summary.test.mjs\nM  scripts/tests/ci-redesign-contract.test.mjs\nM  scripts/tests/ci-workflow-contract.test.mjs\nM  scripts/tests/gui-visual-e2e-contract.test.mjs\nM  scripts/tests/installer-hub-contract.test.mjs\nM  scripts/tests/installer-hub-e2e-docente.ps1\n?? .qa-artifact-38672717462/\n?? .qa-artifact-38680577429/\n?? .qa-artifact-38680799844/\n?? .qa-artifact-38689407012/\n?? .qa-artifact-38708225265.zip\n?? .qa-artifact-38708225265/\n?? .qa-artifact-installerhub-contract-temp/"
+  }
+}

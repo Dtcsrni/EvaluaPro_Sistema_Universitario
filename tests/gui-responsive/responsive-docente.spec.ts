@@ -4,7 +4,8 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test } from './visual-fixtures';
+import QRCode from 'qrcode';
 
 type ViewportCase = {
   name: string;
@@ -29,8 +30,11 @@ async function captureEvidence(page: import('@playwright/test').Page, surface: s
   // evidencia visual; la ayuda sigue disponible al pasar el cursor o enfocar.
   await page.mouse.move(0, 0);
   await page.waitForTimeout(80);
-  await page.screenshot({ path: `reports/qa/latest/gui-${surface}-${screen}-${viewport}.png`, fullPage: false });
+  const evidenceDir = process.env.E2E_SCREENSHOT_DIR || 'reports/qa/latest';
+  await page.screenshot({ path: `${evidenceDir}/gui-${surface}-${screen}-${viewport}.png`, fullPage: false });
 }
+
+const supplementalEvidencePath = (name: string) => `${process.env.E2E_SCREENSHOT_DIR || 'test-results'}/${name}`;
 
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page, context: string) {
   const overflow = await page.evaluate(() => {
@@ -38,6 +42,18 @@ async function assertNoHorizontalOverflow(page: import('@playwright/test').Page,
     return Math.max(0, doc.scrollWidth - doc.clientWidth);
   });
   expect(overflow, `${context}: overflow horizontal detectado`).toBeLessThanOrEqual(1);
+}
+
+async function assertVisibleTabLabel(nav: import('@playwright/test').Locator, label: string) {
+  const button = nav.getByRole('button', { name: label, exact: true });
+  const layout = await button.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight
+  }));
+  expect(layout.scrollWidth, `la etiqueta de navegación "${label}" se recorta horizontalmente`).toBeLessThanOrEqual(layout.clientWidth + 1);
+  expect(layout.scrollHeight, `la etiqueta de navegación "${label}" se recorta verticalmente`).toBeLessThanOrEqual(layout.clientHeight + 1);
 }
 
 async function assertInteractiveControlsAreUsable(page: import('@playwright/test').Page, context: string) {
@@ -83,7 +99,8 @@ async function assertInteractiveControlsAreUsable(page: import('@playwright/test
       const htmlElement = element as HTMLElement;
       const style = window.getComputedStyle(htmlElement);
       const rect = htmlElement.getBoundingClientRect();
-      return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+      const hiddenFromUsers = element.closest('[aria-hidden="true"], [inert]') !== null;
+      return !hiddenFromUsers && style.visibility !== 'hidden' && style.display !== 'none' && style.opacity !== '0' && style.pointerEvents !== 'none' && rect.width > 0 && rect.height > 0;
     }
 
     const controls = Array.from(document.querySelectorAll(selector)).filter(isVisible);
@@ -228,6 +245,27 @@ test.describe('GUI responsive e2e · docente', () => {
         return;
       }
 
+      if (url.includes('/api/salud/ip-local')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ips: ['192.168.1.50'], preferida: '192.168.1.50' })
+        });
+        return;
+      }
+
+      if (url.includes('/api/salud/qr')) {
+        const texto = new URL(url).searchParams.get('texto') ?? '';
+        const imagenQr = await QRCode.toBuffer(texto, {
+          margin: 1,
+          width: 360,
+          errorCorrectionLevel: 'H',
+          color: { dark: '#000000', light: '#FFFFFF' }
+        });
+        await route.fulfill({ status: 200, contentType: 'image/png', body: imagenQr });
+        return;
+      }
+
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
     });
   });
@@ -293,8 +331,18 @@ test.describe('GUI responsive e2e · docente', () => {
 
       for (const tab of tabs) {
         await nav.getByRole('button', { name: tab.label }).click();
-        await expect(nav.getByRole('button', { name: tab.label })).toHaveAttribute('aria-current', 'page');
+        const activeTab = nav.getByRole('button', { name: tab.label });
+        await expect(activeTab).toHaveAttribute('aria-current', 'page');
+        if (viewport.name === 'mobile') await assertVisibleTabLabel(nav, tab.label);
         await page.waitForTimeout(300);
+        if (tab.slug === 'entrega') {
+          const qr = page.getByRole('img', { name: 'QR para abrir en movil' });
+          await expect(qr).toBeVisible();
+          await expect.poll(() => qr.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+          await expect(page.getByText(/No se pudo detectar la IP local|No se pudo generar el QR/)).toHaveCount(0);
+          await page.mouse.move(0, 0);
+          await page.locator('.toast').waitFor({ state: 'detached', timeout: 8_000 }).catch(() => undefined);
+        }
         await captureEvidence(page, 'docente', tab.slug, viewport.name);
       }
     });
@@ -354,7 +402,7 @@ test.describe('GUI responsive e2e · docente', () => {
     await assertNoHorizontalOverflow(page, 'Reinscripción docente desktop');
     await assertInteractiveControlsAreUsable(page, 'Reinscripción docente desktop');
 
-    const evidencia = 'test-results/reinscripcion-grupo-archivado-e2e.png';
+    const evidencia = supplementalEvidencePath('reinscripcion-grupo-archivado-e2e.png');
     await page.mouse.move(0, 0);
     await page.waitForTimeout(100);
     await page.screenshot({ path: evidencia, fullPage: true, animations: 'disabled' });
@@ -364,7 +412,7 @@ test.describe('GUI responsive e2e · docente', () => {
     const confirmacion = page.getByRole('alertdialog');
     await expect(confirmacion).toBeVisible();
     await page.mouse.move(0, 0);
-    await page.screenshot({ path: 'test-results/reinscripcion-grupo-confirmacion-e2e.png', fullPage: true, animations: 'disabled' });
+    await page.screenshot({ path: supplementalEvidencePath('reinscripcion-grupo-confirmacion-e2e.png'), fullPage: true, animations: 'disabled' });
     await confirmacion.getByRole('button', { name: 'Reinscribir grupo', exact: true }).click();
     await expect(page.getByRole('main').getByText(/^Grupo reinscrito: 2 alumnos nuevos/)).toBeVisible();
     await assertNoHorizontalOverflow(page, 'Reinscripción confirmada desktop');
@@ -373,6 +421,6 @@ test.describe('GUI responsive e2e · docente', () => {
     await assertNoHorizontalOverflow(page, 'Reinscripción docente mobile');
     await assertInteractiveControlsAreUsable(page, 'Reinscripción docente mobile');
     await page.mouse.move(0, 0);
-    await page.screenshot({ path: 'test-results/reinscripcion-grupo-archivado-mobile-e2e.png', fullPage: true, animations: 'disabled' });
+    await page.screenshot({ path: supplementalEvidencePath('reinscripcion-grupo-archivado-mobile-e2e.png'), fullPage: true, animations: 'disabled' });
   });
 });

@@ -29,7 +29,6 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..', '..');
 const backendDir = path.join(rootDir, 'apps', 'backend');
 const vitestEntry = path.join(rootDir, 'node_modules', 'vitest', 'vitest.mjs');
-const batchAttempts = 3;
 const defaultBatchConcurrency = 2;
 const maximumBatchConcurrency = 4;
 
@@ -95,14 +94,9 @@ function runVitest(args, name) {
 
 async function runBatch(batch) {
   const args = toTestArgs(batch);
-  for (let attempt = 1; attempt <= batchAttempts; attempt += 1) {
-    const code = await runVitest(args, `${batch.name} ${attempt}/${batchAttempts}`);
-    if (code === 0) return 0;
-    if (attempt < batchAttempts) {
-      process.stderr.write(`[backend-tests] retry ${batch.name} tras exit ${code}\n`);
-    }
-  }
-  return 1;
+  // Una falla funcional o de infraestructura permanece visible en esta pasada.
+  // Repetir manualmente conserva la evidencia original y no convierte una falla en verde.
+  return runVitest(args, batch.name);
 }
 
 async function runBatches(batches, concurrency, executeBatch = runBatch) {

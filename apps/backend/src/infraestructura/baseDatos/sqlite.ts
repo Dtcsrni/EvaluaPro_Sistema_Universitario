@@ -350,6 +350,29 @@ async function asegurarEsquemaSqlite(): Promise<void> {
     `);
     await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "historial_classroom_entregas_docenteId_estadoHash_key" ON "historial_classroom_entregas"("docenteId", "estadoHash");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "historial_classroom_entregas_scope_observadoEn_idx" ON "historial_classroom_entregas"("docenteId", "periodoId", "alumnoId", "courseId", "courseWorkId", "submissionId", "observadoEn");`);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "classroom_import_jobs" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "docenteId" TEXT NOT NULL,
+        "periodoId" TEXT NOT NULL,
+        "clientRequestId" TEXT NOT NULL,
+        "requestHash" TEXT NOT NULL,
+        "payload" TEXT NOT NULL,
+        "estado" TEXT NOT NULL DEFAULT 'queued',
+        "progreso" INTEGER NOT NULL DEFAULT 0,
+        "total" INTEGER NOT NULL,
+        "resultado" TEXT,
+        "error" TEXT,
+        "activeKey" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL,
+        "startedAt" DATETIME,
+        "completedAt" DATETIME
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "classroom_import_jobs_docenteId_clientRequestId_key" ON "classroom_import_jobs"("docenteId", "clientRequestId");`);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "classroom_import_jobs_activeKey_key" ON "classroom_import_jobs"("activeKey");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "classroom_import_jobs_docenteId_periodoId_createdAt_idx" ON "classroom_import_jobs"("docenteId", "periodoId", "createdAt");`);
   } catch (error) {
     // Si la conexion es en memoria de tests o no permite aplicar el esquema,
     // conserva el diagnóstico para que el arranque pueda reportarlo.

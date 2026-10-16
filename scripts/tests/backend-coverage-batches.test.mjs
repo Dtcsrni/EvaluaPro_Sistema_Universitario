@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt } from '../testing/run-backend-coverage-batches.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildRegenerarExamenIsolationDiagnostic, formatFailureExcerpt, runBatches, runCoverageFailureDiagnostics } from '../testing/run-backend-coverage-batches.mjs';
 
 test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   const plan = buildCoveragePlan();
@@ -24,6 +26,199 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
     omrWorkflowBatch.args.filter((arg) => arg.startsWith('tests/')),
     ['tests/integracion/omrJobsWorkflow.test.ts']
   );
+
+  const examFlowBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/flujoExamen.test.ts'));
+  assert.ok(examFlowBatch, 'falta la suite completa de flujo de examen');
+  assert.equal(examFlowBatch.exclusive, true, 'el flujo intensivo debe correr sin otros lotes del scheduler');
+  assert.deepEqual(
+    examFlowBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/flujoExamen.test.ts']
+  );
+
+  const omrJobsBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/omrJobsWorkflow.test.ts'));
+  assert.ok(omrJobsBatch, 'falta el lote OMR por jobs');
+  assert.equal(omrJobsBatch.exclusive, true, 'el flujo OMR intensivo debe correr sin otros lotes del scheduler');
+  assert.equal(omrJobsBatch.timeoutMs, 2_100_000, 'el límite específico debe superar la duración aislada medida con margen');
+  assert.deepEqual(
+    omrJobsBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/omrJobsWorkflow.test.ts']
+  );
+
+  const pdfLayoutBatch = plan.batches.find((batch) => batch.args.includes('tests/pdf.layout.visual.guard.test.ts'));
+  assert.ok(pdfLayoutBatch, 'falta la suite visual de PDF en el plan de cobertura');
+  assert.equal(pdfLayoutBatch.exclusive, true, 'la suite visual costosa debe correr sin otros lotes del scheduler');
+  assert.equal(pdfLayoutBatch.timeoutMs, 2_100_000, 'el límite específico debe dejar margen sobre la duración aislada medida');
+  assert.deepEqual(
+    pdfLayoutBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/pdf.layout.visual.guard.test.ts']
+  );
+  assert.ok(pdfLayoutBatch.args.includes('--maxWorkers=1'), 'la suite visual exclusiva no debe competir entre workers de Vitest');
+
+  const regenerarBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
+  assert.ok(regenerarBatch, 'falta la suite de regeneración de examen en cobertura');
+  assert.equal(regenerarBatch.name, 'backend-integracion-regenerar-examen');
+  assert.equal(regenerarBatch.exclusive, true, 'la suite afectada por contención debe esperar a que drenen los workers');
+  assert.ok(regenerarBatch.args.includes('--coverage'));
+  assert.ok(regenerarBatch.args.includes('--maxWorkers=1'));
+  assert.deepEqual(
+    regenerarBatch.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/regenerarExamenGenerado.test.ts']
+  );
+});
+
+test('scheduler ejecuta lotes exclusivos después de drenar los workers paralelos', async () => {
+  let activos = 0;
+  let maxActivos = 0;
+  const eventos = [];
+  const result = await runBatches([
+    { name: 'normal-a' },
+    { name: 'normal-b' },
+    { name: 'exclusive', exclusive: true }
+  ], 2, async ({ name, exclusive }) => {
+    activos += 1;
+    maxActivos = Math.max(maxActivos, activos);
+    eventos.push(`start:${name}:${activos}`);
+    await Promise.resolve();
+    activos -= 1;
+    eventos.push(`end:${name}:${activos}`);
+    if (exclusive) assert.equal(activos, 0, 'un lote exclusivo inició con otro worker activo');
+    return 0;
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(maxActivos, 2, 'los lotes ordinarios conservan su concurrencia');
+  assert.ok(eventos.indexOf('start:exclusive:1') > eventos.indexOf('end:normal-a:0'));
+  assert.ok(eventos.indexOf('start:exclusive:1') > eventos.indexOf('end:normal-b:0'));
+});
+
+test('scheduler informa recuperación como inestable y mantiene el código de salida fallido', async () => {
+  const result = await runBatches([
+    { name: 'recovered' },
+    { name: 'exclusive', exclusive: true }
+  ], 1, async ({ name }) => ({
+    exitCode: 0,
+    recovered: name === 'recovered',
+    attempts: name === 'recovered' ? [{ attempt: 1, exitCode: 124 }, { attempt: 2, exitCode: 0 }] : [{ attempt: 1, exitCode: 0 }]
+  }));
+
+  assert.equal(result.recoveredAttempt, true);
+  assert.equal(result.exitCode, 1, 'un lote que requirió retry no es una pasada estable');
+  assert.equal(result.results.find(({ name }) => name === 'exclusive').exitCode, 0);
+});
+
+test('diagnóstico aislado de regeneración conserva cobertura y una sola suite, sin ser un retry del gate', () => {
+  const diagnostic = buildRegenerarExamenIsolationDiagnostic({
+    args: [
+      'vitest', 'run', '--coverage',
+      'tests/integracion/regenerarExamenGenerado.test.ts',
+      'tests/integracion/rolesPermisos.test.ts'
+    ]
+  });
+
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.args.includes('--coverage'), true);
+  assert.equal(diagnostic.args.includes('--maxWorkers=1'), true);
+  assert.deepEqual(
+    diagnostic.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/regenerarExamenGenerado.test.ts']
+  );
+  assert.equal(buildRegenerarExamenIsolationDiagnostic({ args: ['tests/integracion/rolesPermisos.test.ts'] }), null);
+
+  const runner = fs.readFileSync(path.join(process.cwd(), 'scripts/testing/run-backend-coverage-batches.mjs'), 'utf8');
+  assert.match(runner, /diagnostics,\s*recoveredAttempt: batches\.recoveredAttempt,\s*failed: true/);
+  assert.match(runner, /process\.exit\(failureCode\)/);
+});
+
+test('diagnóstico corre tras drenar los lotes y su aprobación nunca convierte cobertura fallida en verde', async () => {
+  const plan = buildCoveragePlan();
+  const loteRegeneracion = plan.batches.find((batch) => batch.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
+  assert.ok(loteRegeneracion);
+  assert.equal(loteRegeneracion.exclusive, true);
+  assert.equal(await runCoverageFailureDiagnostics({
+    batches: { exitCode: 0, results: [{ name: loteRegeneracion.name, exitCode: 0 }] },
+    plan,
+    compareIsolated: true,
+    executeDiagnostic: async () => { throw new Error('no debe repetir una suite que ya corre aislada'); }
+  }).then((items) => items.length), 0);
+
+  const planComparativo = {
+    ...plan,
+    batches: plan.batches.map((batch) => batch === loteRegeneracion ? { ...batch, exclusive: false } : batch)
+  };
+
+  let ejecuciones = 0;
+  const batches = {
+    exitCode: 1,
+    results: [{
+      name: loteRegeneracion.name,
+      exitCode: 1,
+      attempts: [{
+        failureReason: 'timeout-de-prueba',
+        log: 'backend-integracion-n-z-09 1/1.log'
+      }]
+    }]
+  };
+  const diagnosticos = await runCoverageFailureDiagnostics({
+    batches,
+    plan: planComparativo,
+    readFailureLog: async () => 'tests/integracion/regenerarExamenGenerado.test.ts > regenerar examen generado > regenera PDF y recalcula paginas (requiere forzar si ya fue descargado) timed out in 60000ms',
+    executeDiagnostic: async ({ name }) => {
+      ejecuciones += 1;
+      assert.equal(name, 'backend-diagnostico-aislado-regenerar-examen');
+      return 0;
+    }
+  });
+
+  assert.equal(ejecuciones, 1);
+  assert.equal(diagnosticos[0].comparison.isolatedExitCode, 0);
+  assert.equal(diagnosticos[0].exitCode, 1, 'el diagnóstico aislado exitoso no puede borrar el fallo original');
+  assert.equal(batches.exitCode, 1);
+  assert.equal((await runCoverageFailureDiagnostics({
+    batches,
+    plan: planComparativo,
+    readFailureLog: async () => 'tests/integracion/rolesPermisos.test.ts > assertion failed',
+    executeDiagnostic: async () => { throw new Error('no debe diagnosticar otra suite'); }
+  })).length, 0);
+  assert.equal((await runCoverageFailureDiagnostics({
+    batches: { exitCode: 0, results: [] }, plan: planComparativo, executeDiagnostic: async () => { throw new Error('no debe correr'); }
+  })).length, 0);
+});
+
+test('comparación forzada conserva ambas mediciones y bloquea si falla cualquiera', async () => {
+  const plan = buildCoveragePlan();
+  const batch = plan.batches.find((item) => item.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
+  const planCompartido = { ...plan, batches: plan.batches.map((item) => item === batch ? { ...item, exclusive: false } : item) };
+  const result = await runCoverageFailureDiagnostics({
+    batches: { exitCode: 0, results: [{ name: batch.name, exitCode: 0, durationMs: 42_000 }] },
+    plan: planCompartido,
+    compareIsolated: true,
+    executeDiagnostic: async () => 1
+  });
+
+  assert.equal(result[0].comparison.sharedExitCode, 0);
+  assert.equal(result[0].comparison.sharedDurationMs, 42_000);
+  assert.equal(result[0].comparison.isolatedExitCode, 1);
+  assert.equal(result[0].exitCode, 1, 'el aislamiento fallido debe bloquear aunque el lote compartido pase');
+});
+
+test('el runner integral limita cada lote a una pasada y conserva el diagnóstico de falla', () => {
+  const runner = fs.readFileSync(path.join(process.cwd(), 'scripts/testing/run-backend-coverage-batches.mjs'), 'utf8');
+  assert.match(runner, /const batchAttempts = 1/);
+  assert.match(runner, /failureReason: code === 0 \? null : await classifyAttemptFailure/);
+  assert.match(runner, /attemptLogPath/);
+});
+
+test('cada intento deja duración, timestamps, causa de fallo y log en el resumen auditable', () => {
+  const runner = fs.readFileSync(path.join(process.cwd(), 'scripts/testing/run-backend-coverage-batches.mjs'), 'utf8');
+  for (const field of ['startedAt:', 'finishedAt:', 'durationMs:', 'failureReason:', 'log:']) {
+    assert.ok(runner.includes(field), `falta registrar ${field}`);
+  }
+  assert.match(runner, /runBatch\(batch\)[\s\S]*?attemptLogPath[\s\S]*?JSON\.stringify\(\{ name: batch\.name, exclusive: Boolean\(batch\.exclusive\), attempts \}/);
+  assert.match(runner, /const timeoutMs = batch\.timeoutMs \?\? batchTimeoutMs/);
+  assert.match(runner, /durationMs,\s*timeoutMs,/);
+  assert.match(runner, /runVitest\(batch\.args,[\s\S]*?timeoutMs\)/);
+  assert.match(runner, /recoveredAttempt \? 1 : 0/);
+  assert.match(runner, /recovered: attempts\.some\(\(\{ exitCode \}\) => exitCode !== 0\)/);
 });
 
 test('coverage diferencial enfoca la exportación de dataset OMR en sus pruebas directas', () => {
@@ -176,3 +371,4 @@ test('coverage diferencial cae a seleccion automatica ante fuentes sin perfil va
     'apps/backend/src/modulos/modulo_calificacion/controlador.ts'
   ]), null);
 });
+

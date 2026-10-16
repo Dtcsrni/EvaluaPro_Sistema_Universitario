@@ -38,6 +38,10 @@ describe('ClassroomEnCalificaciones', () => {
         { classroomUserId: 'google-user-1', fullName: 'Ana Pérez', emailAddress: 'ana@classroom.test', alumnoIdConfirmado: 'alumno-1' },
         { classroomUserId: 'google-user-2', fullName: 'Luis Gómez', emailAddress: 'luis@classroom.test', alumnoIdConfirmado: 'alumno-2' }
       ] };
+      if (String(ruta).includes('/importaciones/jobs/')) return {
+        jobId: 'job-test', estado: 'succeeded', progreso: 1, total: 1,
+        resultado: { totalActividades: 1, graded: 1, importadas: 1, actualizadas: 2 }
+      };
       return {};
     });
   });
@@ -116,6 +120,10 @@ describe('ClassroomEnCalificaciones', () => {
 
   it('mantiene las actividades y entregas en Google Classroom; aquí solo mapea y sincroniza datos existentes', async () => {
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/importaciones/jobs/')) return {
+        jobId: 'job-test', estado: 'succeeded', progreso: 1, total: 1,
+        resultado: { totalActividades: 1, graded: 1, importadas: 1, actualizadas: 2 }
+      };
       if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [actividadClassroom], nextCursor: null };
       if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
       if (String(ruta).includes('/alumnos?')) return { alumnosClassroom: [] };
@@ -133,12 +141,12 @@ describe('ClassroomEnCalificaciones', () => {
       promedioSobre10: 9, continuaSobre5: 4.5, actividadesCalificadas: 1, actividadesFaltantesConfirmadas: 0
     };
     vi.mocked(clienteApi.enviar)
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, actividades: [actividadPreview(false)], promediosEvaluacionContinuaTercerParcial: [proyeccionAna] })
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, actividades: [actividadPreview(true)], promediosEvaluacionContinuaTercerParcial: [proyeccionAna, {
+      .mockResolvedValueOnce({ planHash: 'a'.repeat(64), totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, actividades: [actividadPreview(false)], promediosEvaluacionContinuaTercerParcial: [proyeccionAna] })
+      .mockResolvedValueOnce({ planHash: 'a'.repeat(64), totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, actividades: [actividadPreview(true)], promediosEvaluacionContinuaTercerParcial: [proyeccionAna, {
         alumnoId: 'alumno-2', alumnoNombre: 'Luis Gómez', puntosObtenidos: 0, puntosPosibles: 100,
         promedioSobre10: 0, continuaSobre5: 0, actividadesCalificadas: 0, actividadesFaltantesConfirmadas: 1
       }] })
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 2, importadas: 1, actualizadas: 2 });
+      .mockResolvedValueOnce({ jobId: 'job-test', estado: 'queued', progreso: 0, total: 1 });
     render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
     fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
     fireEvent.change(await screen.findByLabelText('Parcial destino'), { target: { value: '3' } });
@@ -156,9 +164,10 @@ describe('ClassroomEnCalificaciones', () => {
     }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar y sincronizar selección' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar y sincronizar selección' }));
-    await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledWith('/evaluaciones/v2/classroom/importaciones/ejecutar', {
-      periodoId: 'per-1', actividades: [{ courseId: 'course-1', courseWorkId: 'work-1', corte: 3, faltantesConfirmados: ['submission-missing'] }]
-    }));
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledWith('/evaluaciones/v2/classroom/importaciones/jobs', expect.objectContaining({
+      periodoId: 'per-1', actividades: [{ courseId: 'course-1', courseWorkId: 'work-1', corte: 3, faltantesConfirmados: ['submission-missing'] }],
+      clientRequestId: expect.any(String)
+    })));
     expect(await screen.findByText('Sincronización completada. Nuevas: 1; actualizadas: 2. Evidencias releídas.')).toBeInTheDocument();
     expect(screen.getByText(/1 actividades · 1 calificadas .* 1 nuevas · 2 actualizadas/)).toBeInTheDocument();
     expect(screen.getByRole('table', { name: 'Proyección de evaluación continua del tercer parcial desde Classroom' })).toBeInTheDocument();
@@ -170,6 +179,7 @@ describe('ClassroomEnCalificaciones', () => {
 
   it('envía la reentrega en la solicitud de sincronización solo cuando el docente la marca', async () => {
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/importaciones/jobs/')) return { jobId: 'job-test', estado: 'succeeded', progreso: 1, total: 1, resultado: { importadas: 0, actualizadas: 1 } };
       if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [], nextCursor: null };
       if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
       if (String(ruta).includes('/actividades?')) return { actividades: [{ id: 'work-1', title: 'Actividad Classroom', state: 'PUBLISHED', maxPoints: 100 }] };
@@ -177,11 +187,11 @@ describe('ClassroomEnCalificaciones', () => {
       return {};
     });
     vi.mocked(clienteApi.enviar)
-      .mockResolvedValueOnce({ totalActividades: 1, actividades: [{
+      .mockResolvedValueOnce({ planHash: 'a'.repeat(64), totalActividades: 1, actividades: [{
         courseId: 'course-1', courseWorkId: 'work-1', courseWorkTitle: 'Actividad Classroom',
         submissions: [{ submissionId: 'submission-returned', alumnoId: 'alumno-1', alumnoNombre: 'Ana Pérez', revisionPendiente: true }]
       }] })
-      .mockResolvedValueOnce({ importadas: 0, actualizadas: 1 });
+      .mockResolvedValueOnce({ jobId: 'job-test', estado: 'queued', progreso: 0, total: 1 });
 
     render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
     fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
@@ -191,9 +201,10 @@ describe('ClassroomEnCalificaciones', () => {
     expect(autorizacion).not.toBeChecked();
     fireEvent.click(autorizacion);
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar y sincronizar selección' }));
-    await waitFor(() => expect(clienteApi.enviar).toHaveBeenNthCalledWith(2, '/evaluaciones/v2/classroom/importaciones/ejecutar', {
-      periodoId: 'per-1', actividades: [{ courseId: 'course-1', courseWorkId: 'work-1', corte: 1, reentregasConfirmadas: ['submission-returned'] }]
-    }));
+    await waitFor(() => expect(clienteApi.enviar).toHaveBeenNthCalledWith(2, '/evaluaciones/v2/classroom/importaciones/jobs', expect.objectContaining({
+      periodoId: 'per-1', actividades: [{ courseId: 'course-1', courseWorkId: 'work-1', corte: 1, reentregasConfirmadas: ['submission-returned'] }],
+      clientRequestId: expect.any(String)
+    })));
   });
 
   it('pagina todas las fichas del historial sin invalidar las capturas ya cargadas', async () => {
@@ -254,6 +265,7 @@ describe('ClassroomEnCalificaciones', () => {
   it('distingue una sincronización completada de una relectura fallida', async () => {
     let fallarRelectura = false;
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/importaciones/jobs/')) return { jobId: 'job-test', estado: 'succeeded', progreso: 1, total: 1, resultado: { totalActividades: 1, importadas: 0, actualizadas: 1 } };
       if (String(ruta).includes('/evaluaciones/evidencias')) {
         if (fallarRelectura) throw new Error('La relectura de evidencias falló.');
         return { evidencias: [actividadClassroom], nextCursor: null };
@@ -264,8 +276,8 @@ describe('ClassroomEnCalificaciones', () => {
       return {};
     });
     vi.mocked(clienteApi.enviar)
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 0, wouldUpdate: 1 })
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 0, wouldUpdate: 1, importadas: 0, actualizadas: 1 });
+      .mockResolvedValueOnce({ planHash: 'a'.repeat(64), totalActividades: 1, graded: 1, wouldCreate: 0, wouldUpdate: 1 })
+      .mockResolvedValueOnce({ jobId: 'job-test', estado: 'queued', progreso: 0, total: 1 });
     render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
     fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
     fireEvent.change(await screen.findByLabelText('Parcial destino'), { target: { value: '3' } });
@@ -282,6 +294,10 @@ describe('ClassroomEnCalificaciones', () => {
 
   it('advierte cuando la API termina parcialmente la sincronización', async () => {
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/importaciones/jobs/')) return { jobId: 'job-test', estado: 'partial', progreso: 1, total: 1, resultado: {
+        totalActividades: 1, importadas: 1, actualizadas: 0,
+        errores: [{ courseId: 'course-1', courseWorkId: 'work-1', mensaje: 'Error al sincronizar actividad' }]
+      } };
       if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [actividadClassroom], nextCursor: null };
       if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
       if (String(ruta).includes('/alumnos?')) return { alumnosClassroom: [] };
@@ -289,15 +305,13 @@ describe('ClassroomEnCalificaciones', () => {
       return {};
     });
     vi.mocked(clienteApi.enviar)
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, actividades: [{
+      .mockResolvedValueOnce({ planHash: 'a'.repeat(64), totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, actividades: [{
         courseId: 'course-1', courseWorkId: 'work-1', courseWorkTitle: 'Actividad Classroom', submissions: []
       }], promediosEvaluacionContinuaTercerParcial: [{
         alumnoId: 'alumno-1', alumnoNombre: 'Ana Pérez', puntosObtenidos: 90, puntosPosibles: 100,
         promedioSobre10: 9, continuaSobre5: 4.5, actividadesCalificadas: 1, actividadesFaltantesConfirmadas: 0
       }] })
-      .mockResolvedValueOnce({ totalActividades: 1, graded: 1, wouldCreate: 1, wouldUpdate: 0, importadas: 1, actualizadas: 0,
-        errores: [{ courseId: 'course-1', courseWorkId: 'work-1', mensaje: 'Error al sincronizar actividad' }]
-      });
+      .mockResolvedValueOnce({ jobId: 'job-test', estado: 'queued', progreso: 0, total: 1 });
     render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
     fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
     fireEvent.change(await screen.findByLabelText('Parcial destino'), { target: { value: '3' } });

@@ -57,6 +57,7 @@ export type DetalleErrorRemoto = {
   codigo?: string;
   mensaje?: string;
   detalles?: unknown;
+  clientRequestId?: string;
 };
 
 export class ErrorRemoto extends Error {
@@ -613,34 +614,52 @@ export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
     const includeJsonContentType = method !== 'GET' && method !== 'DELETE';
     const silenciar = opts.silenciarDuranteArranque?.() ?? false;
 
-    return fetchConManejoErrores<T>({
-      fetcher: async (signal) => {
-        const ejecutar = (activeToken: string | null) =>
-          fetch(opts.baseUrl + ruta, {
-            method,
-            credentials: opts.credentials,
-            headers: withJsonHeaders(activeToken, includeJsonContentType, requestHeaders),
-            body: payload === undefined ? undefined : JSON.stringify(payload),
-            signal
-          });
+    try {
+      return await fetchConManejoErrores<T>({
+        fetcher: async (signal) => {
+          const ejecutar = (activeToken: string | null) =>
+            fetch(opts.baseUrl + ruta, {
+              method,
+              credentials: opts.credentials,
+              headers: withJsonHeaders(activeToken, includeJsonContentType, requestHeaders),
+              body: payload === undefined ? undefined : JSON.stringify(payload),
+              signal
+            });
 
-        let respuesta = await ejecutar(token);
-        if ((respuesta as Response).status === 401 && opts.refrescarToken) {
-          const nuevoToken = await opts.refrescarToken();
-          if (nuevoToken) respuesta = await ejecutar(nuevoToken);
+          let respuesta = await ejecutar(token);
+          if ((respuesta as Response).status === 401 && opts.refrescarToken) {
+            const nuevoToken = await opts.refrescarToken();
+            if (nuevoToken) respuesta = await ejecutar(nuevoToken);
+          }
+          return respuesta;
+        },
+        mensajeServicio: opts.mensajeServicio,
+        timeoutMs,
+        toastUnreachable: opts.toastUnreachable,
+        toastTimeout: opts.toastTimeout,
+        toastServerError: opts.toastServerError,
+        retry: method === 'GET' ? opts.retry : { intentos: 0 },
+        silenciarUnreachable: silenciar,
+        silenciarTimeout: silenciar,
+        silenciarServerError: silenciar
+      });
+    } catch (error) {
+      if (method !== 'GET' && error instanceof ErrorRemoto) {
+        const status = error.detalle.status;
+        const resultadoIncierto = status === undefined || status === 0 || status === 408 || status === 429 || (status !== undefined && status >= 500);
+        if (resultadoIncierto) {
+          const clientRequestId = esObjeto(payload) && typeof payload.clientRequestId === 'string'
+            ? payload.clientRequestId
+            : undefined;
+          throw new ErrorRemoto(error.message, {
+            ...error.detalle,
+            codigo: 'RESULTADO_INCIERTO',
+            ...(clientRequestId ? { clientRequestId } : {})
+          });
         }
-        return respuesta;
-      },
-      mensajeServicio: opts.mensajeServicio,
-      timeoutMs,
-      toastUnreachable: opts.toastUnreachable,
-      toastTimeout: opts.toastTimeout,
-      toastServerError: opts.toastServerError,
-      retry: opts.retry,
-      silenciarUnreachable: silenciar,
-      silenciarTimeout: silenciar,
-      silenciarServerError: silenciar
-    });
+      }
+      throw error;
+    }
   };
 
   return {

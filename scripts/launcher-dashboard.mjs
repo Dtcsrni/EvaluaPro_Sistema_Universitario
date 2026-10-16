@@ -4021,11 +4021,21 @@ const server = http.createServer(async (req, res) => {
     const noise = noiseSnapshot();
     const noiseTotal = Object.values(noise).reduce((acc, val) => acc + val, 0);
     const managedTasks = runningTasks();
+    const manifest = readInstallationManifest();
     const dockerDisplay = dockerDisplayString();
-    const compose = readComposeSnapshot();
+    // A native docente-local installation does not depend on Docker. Avoid
+    // synchronous `docker compose ps` probes in its status request: on hosts
+    // without Docker, each probe can consume its full process timeout.
+    const compose = requiresDockerRuntime(manifest)
+      ? readComposeSnapshot()
+      : {
+          checkedAt: Date.now(),
+          dev: { mongo_local: false, api_docente_local: false },
+          prod: { mongo_local: false, api_docente_prod: false, web_docente_prod: false },
+          error: ''
+        };
     const stackDisplay = stackDisplayString(managedTasks, compose);
     const httpsState = resolveHttpsState();
-    const manifest = readInstallationManifest();
     const flavorPolicy = resolveFlavorPolicy(manifest);
     const dockerRuntime = resolveEffectiveDockerRuntime(flavorPolicy);
     const shortcutState = resolveShortcutState(manifest);
@@ -4055,7 +4065,7 @@ const server = http.createServer(async (req, res) => {
       modeConfig: mode,
       port: listeningPort,
       node: `v${process.versions.node || '0.0.0'}`,
-      npm: safeExec('npm -v', 'No detectado'),
+      npm: safeExecFast('npm -v', 'No detectado'),
       docker: dockerDisplay,
       dockerDisplay,
       stackDisplay,

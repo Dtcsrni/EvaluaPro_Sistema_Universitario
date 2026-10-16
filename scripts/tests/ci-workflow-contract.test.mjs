@@ -32,22 +32,74 @@ function extractJobBlock(workflow, jobKey) {
   return workflow.slice(start, end);
 }
 
-test('ext_perf_arquitectura prepara sharp antes de perf:check', () => {
+test('los jobs CI instalan dependencias desde lockfiles y sharp proviene del manifest', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const block = extractJobBlock(workflow, 'ext_perf_arquitectura');
+  const setupActionPath = path.join(root, '.github', 'actions', 'setup-node-project', 'action.yml');
+  const setupAction = fs.readFileSync(setupActionPath, 'utf8');
+  const backendPackage = JSON.parse(fs.readFileSync(path.join(root, 'apps', 'backend', 'package.json'), 'utf8'));
+  const backendLock = JSON.parse(fs.readFileSync(path.join(root, 'apps', 'backend', 'package-lock.json'), 'utf8'));
 
-  assert.match(block, /run:\s*\|[\s\S]{0,120}npm ci --foreground-scripts/);
-  assert.match(block, /Preparar runtime sharp \(linux-x64\)/);
-  assert.match(block, /npm install --no-save --include=optional --os=linux --cpu=x64 sharp/);
+  assert.match(block, /uses: \.\/\.github\/actions\/setup-node-project/);
+  assert.match(setupAction, /actions\/setup-node@[^\s]+ # v6/);
+  assert.match(setupAction, /npm ci --foreground-scripts/);
+  assert.match(setupAction, /cache-dependency-path:[\s\S]*package-lock\.json/);
+  assert.equal(backendPackage.dependencies?.sharp, '^0.35.5');
+  assert.equal(backendLock.packages?.['node_modules/sharp']?.version, '0.35.5');
+  assert.doesNotMatch(workflow, /npm install --no-save[^\n]*sharp/);
+  const contract = fs.readFileSync(path.join(root, 'ci', 'pipeline.contract.md'), 'utf8');
+  assert.match(contract, /incluido `sharp`, se instalan con `npm ci` desde el lockfile raíz/);
+  assert.doesNotMatch(contract, /npm install --no-save[^\n]*sharp/);
   assert.match(block, /run:\s*npm run perf:check/);
+});
 
-  const setupIndex = block.indexOf('npm ci --foreground-scripts');
-  const sharpIndex = block.indexOf('npm install --no-save --include=optional --os=linux --cpu=x64 sharp');
-  const perfIndex = block.indexOf('run: npm run perf:check');
+test('security-scan usa SQLite local y credenciales efímeras sin leer secretos del repositorio', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const start = workflow.indexOf('      - name: Etapa security-scan\n');
+  assert.ok(start >= 0, 'step security-scan no encontrado');
+  const rest = workflow.slice(start);
+  const nextStep = rest.indexOf('\n      - name:', 1);
+  const block = nextStep >= 0 ? rest.slice(0, nextStep) : rest;
 
-  assert.ok(setupIndex >= 0, 'faltante setup npm ci');
-  assert.ok(sharpIndex > setupIndex, 'sharp debe ejecutarse despues de npm ci');
-  assert.ok(perfIndex > sharpIndex, 'perf:check debe ejecutarse despues de preparar sharp');
+  assert.match(block, /BACKEND_DATABASE_URL='file:\.\/data\/evaluapro_ci\.db'/);
+  assert.match(block, /JWT_SECRETO=.*randomBytes\(48\)/);
+  assert.match(block, /PORTAL_ALUMNO_API_KEY=.*randomBytes\(32\)/);
+  assert.doesNotMatch(block, /MONGODB_URI|CI_MONGODB_URI|secrets\./);
+  assert.doesNotMatch(block, /JWT_SECRETO:.*\|\||PORTAL_ALUMNO_API_KEY:.*\|\|/);
+  assert.match(block, /npm run security:env:check/);
+  assert.match(block, /npm run security:audit/);
+});
+
+test('CI centraliza Node y no oculta fallos de suites con reintentos generales', () => {
+  const workflows = ['ci.yml', 'ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml', 'autogen-docs.yml'];
+  for (const name of workflows) {
+    const workflow = fs.readFileSync(path.join(workflowDir, name), 'utf8');
+    assert.match(workflow, /uses: \.\/\.github\/actions\/setup-node-project/, name);
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  for (const scriptName of ['test:frontend:ci', 'test:portal:ci', 'test:coverage:ci']) {
+    assert.doesNotMatch(packageJson.scripts[scriptName], /scripts\/retry\.mjs/, scriptName);
+  }
+});
+
+test('la suite OMR canónica tiene un único dueño automático', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const backendModule = fs.readFileSync(path.join(workflowDir, 'ci-backend.yml'), 'utf8');
+  const moduleGate = backendModule.match(/- name: Etapa gate OMR canónico[\s\S]*?(?=\n      - name:|$)/)?.[0] ?? '';
+
+  assert.match(central, /npm run test:omr:canonical:gate:ci/);
+  assert.match(moduleGate, /if: github\.event_name == 'workflow_dispatch'/);
+});
+
+test('CI integral y Installer E2E no se cancelan por pushes ordinarios', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+
+  assert.match(central, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
+  assert.match(central, /format\('\{0\}-\{1\}', github\.event_name, github\.run_id\)/);
+  assert.match(installer, /format\('dispatch-\{0\}', github\.run_id\)/);
+  assert.match(installer, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/v'\)\) \}\}/);
 });
 
 test('ext_funcionales usa el gate OMR canónico', () => {
@@ -62,10 +114,15 @@ test('ext_funcionales usa el gate OMR canónico', () => {
 test('ext_funcionales ejecuta PDF print y visual juntos', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const block = extractJobBlock(workflow, 'ext_funcionales');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
   assert.match(block, /Etapa pdf-print-check/);
   assert.match(block, /npm run test:pdf-print:ci/);
   assert.match(block, /npm run test:pdf-visual:ci/);
+  assert.match(block, /E2E_BROWSER_CHANNEL: chromium/);
+  assert.match(block, /evaluapro-pdf-edge-results/);
+  assert.match(packageJson.scripts['test:pdf-visual:ci'], /test:gui:pdf:e2e:ci/);
+  assert.doesNotMatch(packageJson.scripts['test:pdf-visual:ci'], /test:pdf-print:ci/);
 });
 
 test('ext_funcionales conserva quality visual y journeys para UX', () => {
@@ -76,6 +133,27 @@ test('ext_funcionales conserva quality visual y journeys para UX', () => {
   assert.match(block, /npm run test:ux-quality:ci/);
   assert.match(block, /npm run test:ux-visual:ci/);
   assert.match(block, /npm run test:e2e:journeys:ci/);
+  assert.match(block, /Instalar Chromium para E2E visual de GUI/);
+  assert.match(block, /E2E_PLAYWRIGHT_OUTPUT_DIR/);
+  assert.match(block, /Publicar evidencia E2E funcional y visual/);
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  assert.match(packageJson.scripts['test:e2e:journeys:ci'], /test:gui:responsive:e2e:ci/);
+  assert.match(packageJson.scripts['test:e2e:journeys:ci'], /test:gui:cycle:e2e:ci/);
+  assert.doesNotMatch(packageJson.scripts['test:e2e:journeys:ci'], /test:ux-visual:ci/);
+
+  for (const config of [
+    'tests/gui-responsive/playwright.config.mjs',
+    'tests/gui-responsive/playwright.alumno.config.mjs',
+    'tests/gui-responsive/playwright.admin.config.mjs',
+    'tests/gui-responsive/playwright.ciclo.config.mjs',
+    'tests/gui-responsive/playwright.pdf-edge.config.mjs'
+  ]) {
+    const configSource = fs.readFileSync(path.join(root, config), 'utf8');
+    assert.match(configSource, /retries:\s*0/);
+    assert.match(configSource, /actionTimeout:\s*20_000/);
+    assert.match(configSource, /navigationTimeout:\s*30_000/);
+  }
 });
 
 test('core backend ejecuta auditoria focal classroom cuando el mapa la activa', () => {
@@ -97,12 +175,13 @@ test('core contract valida installer afectado sin depender del bundle release', 
   assert.match(block, /npm run test:wix:policy/);
 });
 
-test('workflow CI unifica concurrency por repo fuente y branch fuente', () => {
+test('workflow CI cancela solo trabajo obsoleto por rama fuente', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
 
   assert.match(workflow, /concurrency:/);
-  assert.match(workflow, /github\.event\.pull_request\.head\.repo\.full_name \|\| github\.repository/);
-  assert.match(workflow, /github\.event\.pull_request\.head\.ref \|\| github\.head_ref \|\| github\.ref_name/);
+  assert.match(workflow, /github\.event\.pull_request\.head\.repo\.full_name, github\.event\.pull_request\.head\.ref/);
+  assert.match(workflow, /github\.event_name, github\.run_id/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
   assert.doesNotMatch(workflow, /group:\s*ci-\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}/);
 });
 
@@ -120,23 +199,17 @@ test('workflow CI expone force_full_ci y gating affected-only en extended', () =
   assert.match(workflow, /needs\.detectar_cambios\.outputs\.escalation == 'full-extended'/);
 });
 
-test('workflows core reservan push para main y validan ramas de trabajo mediante PR', () => {
-  const coreWorkflows = [
-    'ci.yml',
-    'ci-backend.yml',
-    'ci-docs.yml',
-    'ci-frontend.yml',
-    'ci-portal.yml'
-  ];
+test('CI Checks es dueño de validación automática; módulos quedan como diagnóstico manual', () => {
+  const central = fs.readFileSync(workflowPath, 'utf8');
+  const pushConfig = central.match(/^  push:\n([\s\S]*?)(?=^  [a-z_]+:)/m)?.[1] ?? '';
+  assert.match(pushConfig, /branches:\n\s+- "main"/s);
+  assert.doesNotMatch(pushConfig, /release\/\*\*/);
+  assert.match(central, /^  pull_request:/m);
 
-  for (const workflowName of coreWorkflows) {
+  for (const workflowName of ['ci-backend.yml', 'ci-docs.yml', 'ci-frontend.yml', 'ci-portal.yml']) {
     const workflow = fs.readFileSync(path.join(workflowDir, workflowName), 'utf8');
-    const pushConfig = workflow.match(/^  push:\n([\s\S]*?)(?=^  [a-z_]+:)/m)?.[1] ?? '';
-
-    assert.match(pushConfig, /branches:\n\s+- "main"/s, workflowName);
-    assert.doesNotMatch(pushConfig, /release\/\*\*/, workflowName);
-    assert.match(workflow, /pull_request:/, workflowName);
-    assert.doesNotMatch(workflow, /push:\s+branches:\s+- "\*\*"/s, workflowName);
+    assert.match(workflow, /^  workflow_dispatch:/m, workflowName);
+    assert.doesNotMatch(workflow, /^  (?:push|pull_request|schedule):/m, workflowName);
   }
 });
 
@@ -180,6 +253,8 @@ test('escalacion full-extended ejecuta sus gates en PR antes del merge', () => {
 
 test('jobs extended generan Prisma antes de importar backend', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const setupAction = fs.readFileSync(path.join(root, '.github', 'actions', 'setup-node-project', 'action.yml'), 'utf8');
+  const lockedInstallIndex = setupAction.indexOf('npm ci --foreground-scripts');
   const cases = [
     ['ext_funcionales', 'run: npm run test:flujo-docente:ci'],
     ['ext_perf_arquitectura', 'run: npm run perf:check'],
@@ -188,12 +263,13 @@ test('jobs extended generan Prisma antes de importar backend', () => {
 
   for (const [jobKey, firstBackendCommand] of cases) {
     const block = extractJobBlock(workflow, jobKey);
-    const setupIndex = block.indexOf('npm ci --foreground-scripts');
+    const setupIndex = block.indexOf('uses: ./.github/actions/setup-node-project');
     const prismaIndex = block.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
     const commandIndex = block.indexOf(firstBackendCommand);
 
-    assert.ok(setupIndex >= 0, `${jobKey}: faltante npm ci`);
-    assert.ok(prismaIndex > setupIndex, `${jobKey}: prisma generate debe ejecutarse despues de npm ci`);
+    assert.ok(lockedInstallIndex >= 0, 'acción compartida debe instalar desde lockfile con npm ci');
+    assert.ok(setupIndex >= 0, `${jobKey}: falta acción compartida de setup`);
+    assert.ok(prismaIndex > setupIndex, `${jobKey}: prisma generate debe ejecutarse despues del setup con npm ci`);
     assert.ok(commandIndex > prismaIndex, `${jobKey}: comandos backend deben ejecutarse despues de prisma generate`);
   }
 });
@@ -333,16 +409,33 @@ test('publicaciones externas serializan ejecuciones en curso', () => {
   }
 
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
-  assert.match(installerWorkflow, /cancel-in-progress:[\s\S]{0,50}inputs\.release_tag == '' && !startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.match(installerWorkflow, /cancel-in-progress:[\s\S]{0,100}github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/v'\)\)/);
 });
 
-test('release beta automatica escucha CI Checks exitoso de main', () => {
+test('release beta es manual y valida gates del SHA antes de publicar', () => {
   const beta = fs.readFileSync(path.join(workflowDir, 'release-beta.yml'), 'utf8');
   const triggers = beta.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '';
 
-  assert.match(triggers, /workflow_run:\n\s+workflows:\n\s+- ["']CI Checks["']\n\s+types:\s*\n\s+- completed\n\s+branches:\s*\n\s+- main/);
-  assert.match(beta, /github\.event\.workflow_run\.conclusion == 'success'/);
-  assert.match(beta, /github\.event\.workflow_run\.head_branch == 'main'/);
+  assert.match(triggers, /workflow_dispatch:/);
+  assert.doesNotMatch(triggers, /workflow_run:/);
+  assert.match(beta, /name: Consultar gates requeridos del SHA candidato/);
+  assert.match(beta, /gh api --paginate[\s\S]*\.workflow_runs\[\]/);
+  assert.match(beta, /--candidate-runs-file=/);
+  assert.match(beta, /name: Publicar prerelease beta[\s\S]*?prerelease: true/);
+});
+
+test('limpieza beta estable ocurre tras el E2E público y verifica versión y SHA exactos', () => {
+  const stable = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const cleanup = stable.match(/^  cleanup_same_sha_beta:[\s\S]*$/m)?.[0] ?? '';
+
+  assert.match(cleanup, /needs: \[stable_gate, publish_after_go, mark_latest\]/);
+  assert.match(cleanup, /needs\.publish_after_go\.result == 'success'/);
+  assert.match(cleanup, /plan-beta-cleanup\.mjs/);
+  assert.match(cleanup, /--cleanup-tag/);
+  assert.match(cleanup, /beta-stable-transition\.json/);
+  assert.match(cleanup, /prereleasesTemporalesRetiradas/);
+  assert.match(cleanup, /TARGET_VERSION/);
+  assert.match(cleanup, /CANDIDATE_SHA/);
 });
 
 test('runner de cobertura de módulos usa solo suites afectadas en PR y cobertura completa fuera de PR', () => {
@@ -387,6 +480,7 @@ test('CI selecciona pruebas afectadas por módulo y reserva cobertura global par
   assert.match(coreFrontend, /VITEST_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
   assert.match(coreFrontend, /--changed=\"\$VITEST_CHANGED_FROM\"/);
   assert.match(coreBackend, /Etapa coverage backend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
+  assert.match(coreBackend, /BACKEND_COVERAGE_COMPARE_ISOLATED:\s*"true"/);
   assert.match(coreBackend, /Etapa coverage portal\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
   assert.match(coreFrontend, /Etapa coverage frontend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
   assert.doesNotMatch(central, /DIFF_COVERAGE_MIN|Etapa diff-coverage-check|Preparar base para diff coverage/);
@@ -453,13 +547,14 @@ test('release stable gate consume build inmutable y delega la publicación a la 
 
   assert.match(workflow, /source_sha:[\s\S]*?required: true/);
   assert.match(workflow, /candidate_run_id:[\s\S]*?required: true/);
+  assert.match(workflow, /dispatch_release_after_gate:[\s\S]*?default: false[\s\S]*?type: boolean/);
   assert.match(workflow, /run-id:\s*\$\{\{ inputs\.candidate_run_id \}\}/);
   assert.ok(downloadIndex >= 0, 'release stable gate debe descargar el artefacto del run candidato');
   assert.ok(manifestIndex > downloadIndex, 'release stable gate debe revisar el manifiesto descargado');
   assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
   assert.ok(publishIndex > validateIndex, 'el pipeline de publicación solo se despacha despues del gate');
   assert.doesNotMatch(workflow.slice(0, validateIndex), /gh release download|releases\/tags\/v/);
-  assert.match(workflow, /if: needs\.stable_gate\.result == 'success'/);
+  assert.match(workflow, /if: needs\.stable_gate\.result == 'success' && inputs\.dispatch_release_after_gate == true/);
   assert.match(workflow, /inputs\[source_sha\]=\$SOURCE_SHA/);
   assert.match(workflow, /inputs\[release_tag\]=\$TAG/);
   assert.match(workflow, /return_run_details=true/);
@@ -496,11 +591,11 @@ test('release stable gate permite evidencia posterior y genera QA desde el SHA c
   assert.match(workflow, /reports\/qa\/latest/);
 });
 
-test('CI frontend activa el mismo conjunto de guardas WCAG para push y pull request', () => {
+test('CI central y mapa affected asignan las guardas WCAG a frontend', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
-  const pushPaths = workflow.match(/  push:[\s\S]*?    paths:\n([\s\S]*?)  pull_request:/)?.[1] || '';
-  const pullRequestPaths = workflow.match(/  pull_request:\n    paths:\n([\s\S]*?)  workflow_dispatch:/)?.[1] || '';
+  const central = fs.readFileSync(workflowPath, 'utf8');
   const frontendMap = JSON.parse(fs.readFileSync(path.join(root, 'ci', 'affected-test-map.json'), 'utf8')).groups.frontend.paths;
+  const packageScripts = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).scripts;
   const guards = [
     'scripts/wcag-guard.mjs',
     'scripts/tests/ui-contrast-audit.mjs',
@@ -508,11 +603,11 @@ test('CI frontend activa el mismo conjunto de guardas WCAG para push y pull requ
     'docs/WCAG_UI_POLICY.md'
   ];
 
-  for (const guard of guards) {
-    assert.ok(pushPaths.includes(guard), `push debe incluir ${guard}`);
-    assert.ok(pullRequestPaths.includes(guard), `pull_request debe incluir ${guard}`);
-    assert.ok(frontendMap.includes(guard), `el mapa affected CI debe asignar ${guard} al frontend`);
-  }
+  assert.match(central, /npm run guard:wcag/);
+  assert.match(packageScripts['guard:wcag'], /scripts\/wcag-guard\.mjs/);
+  assert.match(packageScripts['test:wcag:policy'], /scripts\/tests\/ui-contrast-audit\.mjs/);
+  assert.match(packageScripts['test:wcag:policy'], /scripts\/tests\/wcag-guard\.contract\.test\.mjs/);
+  for (const guard of guards) assert.ok(frontendMap.includes(guard), `el mapa affected CI debe asignar ${guard} al frontend`);
 });
 
 test('el gate estable deja margen suficiente para CI de instalador y QA completa', () => {
@@ -668,14 +763,14 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   assert.equal(payload.matchedGroups.backend, true);
 });
 
-test('Installer Windows reserva el ciclo E2E completo para releases y ejecuciones manuales', () => {
+test('Installer Windows ejecuta y conserva el ciclo E2E completo para PR, releases y ejecuciones manuales', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const installerBuild = extractJobBlock(workflow, 'installer_windows_build');
   const installerGate = extractJobBlock(workflow, 'installer_windows');
   assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
   assert.match(installerGate, /if: always\(\)/);
 
-  const releaseCondition = "if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'";
+  const e2eCondition = "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'";
 
   for (const stepName of [
     'Instalar Chromium para la E2E docente completa',
@@ -687,7 +782,7 @@ test('Installer Windows reserva el ciclo E2E completo para releases y ejecucione
     const rest = installerBuild.slice(start);
     const nextStep = rest.indexOf('\n      - name:');
     const step = nextStep >= 0 ? rest.slice(0, nextStep) : rest;
-    assert.ok(step.includes(releaseCondition), stepName + ' debe correr solo para release o dispatch manual');
+    assert.ok(step.includes(e2eCondition), stepName + ' debe correr para PR, release o dispatch manual');
   }
 
   const evidenceStart = installerBuild.indexOf('- name: Publicar evidencia de la E2E completa');
@@ -695,7 +790,7 @@ test('Installer Windows reserva el ciclo E2E completo para releases y ejecucione
   const evidenceRest = installerBuild.slice(evidenceStart);
   const evidenceEnd = evidenceRest.indexOf('\n      - name:');
   const evidence = evidenceEnd >= 0 ? evidenceRest.slice(0, evidenceEnd) : evidenceRest;
-  assert.ok(evidence.includes("if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')"));
+  assert.ok(evidence.includes("if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')"));
 
   assert.ok(installerBuild.includes("name: Verificar artefactos\n        if: github.event_name == 'pull_request'"), 'los PR conservan la verificación de MSI y bundle');
 });

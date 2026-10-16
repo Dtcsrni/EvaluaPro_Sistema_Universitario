@@ -422,8 +422,10 @@ export function SeccionEvaluaciones(params: {
 
           <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Alumnos en el curso seleccionado">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+              </svg>
             </span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{alumnosDelPeriodo.length}</span>
             <span className="banco-mini-kpi__lbl">Alumnos</span>

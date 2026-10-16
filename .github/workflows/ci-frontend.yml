@@ -1,46 +1,14 @@
 name: CI Frontend Module
 
 on:
-  push:
-    branches:
-      - "main"
-    paths:
-      - "apps/frontend/**"
-      - "client/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.base.json"
-      - "vitest.base.ts"
-      - "scripts/retry.mjs"
-      - "scripts/testing/**"
-      - "scripts/wcag-guard.mjs"
-      - "scripts/tests/ui-contrast-audit.mjs"
-      - "scripts/tests/wcag-guard.contract.test.mjs"
-      - "docs/WCAG_UI_POLICY.md"
-      - ".github/workflows/ci-frontend.yml"
-  pull_request:
-    paths:
-      - "apps/frontend/**"
-      - "client/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.base.json"
-      - "vitest.base.ts"
-      - "scripts/retry.mjs"
-      - "scripts/testing/**"
-      - "scripts/wcag-guard.mjs"
-      - "scripts/tests/ui-contrast-audit.mjs"
-      - "scripts/tests/wcag-guard.contract.test.mjs"
-      - "docs/WCAG_UI_POLICY.md"
-      - ".github/workflows/ci-frontend.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-frontend-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  group: ci-frontend-${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('{0}-{1}', github.event.pull_request.head.repo.full_name, github.event.pull_request.head.ref) || github.event_name == 'push' && format('push-{0}', github.ref) || format('{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 jobs:
   detectar_cambios:
@@ -78,21 +46,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Etapa setup
-        run: |
-          npm install --global npm@12.1.0
-          npm ci --foreground-scripts
+      - name: Configurar Node y dependencias bloqueadas
+        uses: ./.github/actions/setup-node-project
 
 
       - name: Guardrail WCAG

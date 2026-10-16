@@ -830,7 +830,7 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
 test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
   const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
-  assert.match(xaml, /Width="1440"[\s\S]*Height="1020"[\s\S]*MinWidth="1180"[\s\S]*MinHeight="720"/);
+  assert.match(xaml, /Width="1040"[\s\S]*Height="760"[\s\S]*MinWidth="980"[\s\S]*MinHeight="700"/);
   assert.match(xaml, /FontFamily="Segoe UI, Segoe UI Variable Text, Aptos, Arial"/);
   assert.match(xaml, /<Style TargetType="TextBlock">[\s\S]*FontSize" Value="14"/);
   assert.match(xaml, /x:Key="HelpTextStyle"[\s\S]*FontSize" Value="14"[\s\S]*LineHeight" Value="21"/);
@@ -950,6 +950,27 @@ test('E2E docente exige elevación solo para el destino per-machine real', () =>
   assert.match(runner, /targetMachineInstall=\{0\}/);
 });
 
+test('captura web del Installer Hub valida UX y conserva diagnóstico de pantalla ante fallo', () => {
+  const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+  const capture = fs.readFileSync(path.join(root, 'scripts', 'tests', 'capture-installer-web.mjs'), 'utf8');
+
+  assert.match(runner, /capture-installer-web\.mjs/);
+  assert.match(runner, /-FilePath 'node\.exe' -ArgumentList \$args -TimeoutSec 75/);
+  assert.match(runner, /\$Name -like 'playwright-\*'.*Get-Content -LiteralPath \$stderr -Tail 12/s);
+  assert.match(runner, /Diagnostico visual \{0\}: \{1\}/);
+  assert.match(capture, /\.app-loading'\)\.waitFor\(\{ state: 'hidden', timeout: 30_000 \}\)/);
+  assert.match(capture, /getByRole\('heading', \{ name: 'Plataforma Docente', exact: true \}\)/);
+  assert.match(capture, /responseStatus !== 200/);
+  assert.match(capture, /mainScrollWidth > layout\.mainClientWidth/);
+  assert.match(capture, /unnamedVisibleControls > 0/);
+  assert.match(capture, /primaryActionInViewport/);
+  assert.match(capture, /page\.screenshot\(\{ path: outputPath, fullPage: false \}\)/);
+  assert.match(capture, /\.failure\.png/);
+  assert.match(capture, /\.failure\.json/);
+  assert.match(capture, /diagnostics\.pageErrors/);
+  assert.match(capture, /estado=\$\{JSON\.stringify\(summary\)\}/);
+});
+
 test('E2E protege datos e instalaciones preexistentes y limpia solo su destino QA', () => {
   const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
   const preflightDatabase = runner.indexOf("if ($script:sharedProgramDataDatabaseExistedAtStart -and -not ($isolatedCandidateRun -or $script:upgradingExistingInstall))");
@@ -974,7 +995,10 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   assert.match(runner, /\$targetHasPriorPayload = \$payloadIsBehind -or \$versionMetadataIsBehind/);
   assert.match(runner, /\$registryInventoryCompatible = \$existing\.Count -le 1/);
   assert.match(runner, /\$registeredPayloadVersion -ge \(Normalize-InstallerProductVersion/);
-  assert.match(runner, /candidate-or-upgrade-target' -Ok \(\$isolatedCandidateRun -or \$script:upgradingExistingInstall\)/);
+  assert.match(runner, /\$validInstallMode = \$isolatedCandidateRun -or \$isolatedBaselineUpgradeRun -or \$script:upgradingExistingInstall/);
+  assert.match(runner, /\$installMode = if \(\$script:upgradingExistingInstall\)[\s\S]*?'stable-upgrade-existing-install'[\s\S]*?\$isolatedBaselineUpgradeRun[\s\S]*?'isolated-baseline-upgrade'[\s\S]*?\$isolatedCandidateRun[\s\S]*?'isolated-candidate'/);
+  assert.match(runner, /if \(-not \$validInstallMode\) \{[\s\S]*?Modo E2E de instalación inválido/);
+  assert.match(runner, /-Item 'valid-install-mode' -Ok \$validInstallMode/);
   assert.match(runner, /\$singleCurrentRegistration = \$postUpgradeEntries\.Count -eq 1/);
   assert.match(runner, /-Item 'version-updated'/);
   assert.match(runner, /pre-upgrade-database-backup\.json/);
@@ -1060,10 +1084,10 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(uxCriteria, /docs\/DESIGN\.md/);
   assert.match(installerHubDocs, /`DESIGN\.md`/);
 
-  assert.match(mainWindowXaml, /Width="1440"/);
-  assert.match(mainWindowXaml, /Height="1020"/);
-  assert.match(mainWindowXaml, /MinWidth="1180"/);
-  assert.match(mainWindowXaml, /MinHeight="720"/);
+  assert.match(mainWindowXaml, /Width="1040"/);
+  assert.match(mainWindowXaml, /Height="760"/);
+  assert.match(mainWindowXaml, /MinWidth="980"/);
+  assert.match(mainWindowXaml, /MinHeight="700"/);
   assert.match(mainWindowXaml, /x:Key="OnLightTextBrush"/);
   assert.match(mainWindowXaml, /CardShadow.*BlurRadius="56".*ShadowDepth="14".*Opacity="0\.72"/);
   assert.match(mainWindowXaml, /x:Name="ProgressPulseTransform"/);
@@ -1238,7 +1262,10 @@ test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visu
   assert.match(runner, /04-ejecutar-busy/);
   assert.match(runner, /05-resultado/);
   assert.match(runner, /06-avanzado/);
-  assert.match(runner, /07-min-1280x720/);
+  assert.match(runner, /07-min-980x700/);
+  assert.match(runner, /RequestedWidth 980 -RequestedHeight 700/);
+  assert.match(runner, /CopyFromScreen\(\$x, \$y, 0, 0, \$bitmap\.Size\)/);
+  assert.doesNotMatch(runner, /PrintWindow/);
   assert.match(runner, /MoveWindow/);
   assert.match(runner, /Select-ComboItem/);
   assert.match(runner, /Test-ScrollPattern/);
@@ -2781,7 +2808,7 @@ test('runner E2E tolera estados finales sin propiedad timeout', () => {
   assert.match(runner, /stateTimedOut/);
 });
 
-test('runner E2E confirma la respuesta del helper o el estado terminal observable del Hub', () => {
+test('runner E2E exige resultado terminal visible incluso cuando el helper reporta éxito', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
   assert.match(runner, /function Get-LatestInstallerHelperState/);
@@ -2790,11 +2817,36 @@ test('runner E2E confirma la respuesta del helper o el estado terminal observabl
   assert.match(runner, /\$responsePrefix = if \(\$Mode -eq 'uninstall'\) \{ 'uninstall' \} else \{ 'post-install' \}/);
   assert.match(runner, /\$responsePrefix \+ '-\*\.response\.json'/);
   assert.match(runner, /Get-LatestInstallerHelperState -Mode \$Mode/);
-  assert.match(runner, /Installer helper OK/);
+  assert.match(runner, /Installer helper OK, pero el Hub se cerró sin mostrar el resultado satisfactorio requerido/);
   assert.match(runner, /Installer Hub UI terminal success/);
   assert.match(runner, /Estado completado/);
   assert.match(runner, /El flujo finaliz\[oó\] correctamente/);
   assert.match(runner, /Operaci\[oó\]n finalizada correctamente/);
+  assert.match(runner, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
+  const start = runner.indexOf('function Wait-InstallerStableState');
+  const end = runner.indexOf('function Get-LatestInstallerHelperState', start);
+  const stableWait = runner.slice(start, end);
+  assert.doesNotMatch(stableWait, /return \[pscustomobject\]@\{ ok = \$true; text = "Installer helper OK/);
+});
+
+test('Installer Hub mantiene visible el panel activo y bloquea progreso tardío sobre Resultado', () => {
+  const code = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
+  assert.match(code, /currentStep == WizardStep\.Result && isBusy == true/);
+  assert.match(code, /private static void ShowStepPanel\(FrameworkElement panel\)/);
+  assert.match(code, /panel\.BeginAnimation\(UIElement\.OpacityProperty, null\);/);
+  assert.match(code, /panel\.BeginAnimation\(UIElement\.RenderTransformProperty, null\);/);
+  assert.match(code, /panel\.Opacity = 1\.0;/);
+  assert.match(code, /panel\.RenderTransform = Transform\.Identity;/);
+  assert.doesNotMatch(code, /private void AnimatePanelTransition\(FrameworkElement panel\)/);
+});
+
+test('runner valida que Prepare y Review dibujan contenido antes de avanzar al siguiente paso', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  assert.match(runner, /function Assert-InstallerStepScreenshot/);
+  assert.match(runner, /\$StepLabel no dibujó contenido legible en el panel central/);
+  assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$prepareScreenshot -StepLabel '2 Preparar · activo'/);
+  assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$reviewScreenshot -StepLabel '3 Revisar · activo'/);
+  assert.match(runner, /\$pixel\.R -ge 228 -and \$pixel\.G -ge 228 -and \$pixel\.B -ge 228/);
 });
 
 test('runner E2E no confunde una etapa previa con "ok" con la finalización', () => {
@@ -2807,7 +2859,8 @@ test('runner E2E no confunde una etapa previa con "ok" con la finalización', ()
   assert.doesNotMatch(stableWait, /instalaci[oó]n\.\*ok/i);
   assert.match(stableWait, /\$uiReportsCompleted/);
   assert.match(stableWait, /Estado completado/);
-  assert.match(stableWait, /Get-LatestInstallerHelperState -Mode \$Mode -MinLastWriteTime \$OperationStartedAt/);
+  assert.match(stableWait, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
+  assert.match(stableWait, /Installer Hub desapareció antes de mostrar el resultado terminal/);
 });
 
 test('SPEC-094 REQ-008: runner E2E arranca y cierra el App Host nativo por identidad', () => {
@@ -3097,6 +3150,35 @@ test('SPEC-094: el helper nativo conserva la base existente y aísla instalacion
   assert.match(config, /Path\.Combine\(Environment\.GetFolderPath\(Environment\.SpecialFolder\.CommonApplicationData\), "EvaluaPro", "data"\)/);
   assert.match(config, /BACKEND_DATA_DIR_DEV/);
   assert.match(config, /BACKEND_DATA_DIR_PROD/);
+});
+
+test('SPEC-102 REQ-004: el backup de desinstalación respeta la opción GUI y comprueba el ZIP privado', () => {
+  const helper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
+  const window = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
+  const requestBuilder = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
+  const bootstrapper = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
+  const e2e = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+  const uninstall = helper.match(/private static object PreserveAfterUninstall\([\s\S]*?\n    private static void ConfigureRuntime/)?.[0] || '';
+
+  assert.match(window, /AutomationProperties\.AutomationId="ExportDataCheckBox"/);
+  assert.match(window, /EvaluaPro\\Backups/);
+  assert.match(requestBuilder, /ExportDataCheckBox\.Visibility = string\.Equals\(normalized, "uninstall"[\s\S]*Visibility\.Visible/);
+  assert.match(requestBuilder, /DataDir = ResolveDataDirectory\(DefaultDatabaseUrl, installDir\)/);
+  assert.match(bootstrapper, /\["dataDir"\] = currentRequest\.DataDir/);
+  assert.match(uninstall, /var exportData = GetBool\(payload, "exportData"\)/);
+  assert.match(uninstall, /StopOwnedNodeProcesses\(targetDir\);[\s\S]*CreateDataBackup\(dataDir\)/);
+  assert.match(uninstall, /\["exportedBackup"\] = exportedBackup/);
+  assert.match(helper, /var appDataDir = Path\.Combine\(localAppData, "EvaluaPro"\)[\s\S]*var backupDir = Path\.Combine\(appDataDir, "Backups"\)/);
+  assert.match(helper, /ApplyPrivateBackupAcl\(backupDir\)/);
+  assert.match(helper, /ZipFile\.CreateFromDirectory\(dataDir, backupPath/);
+  assert.match(e2e, /ExportDataCheckBox debe estar visible y accesible/);
+  assert.match(e2e, /no expone TogglePattern/);
+  assert.match(e2e, /payload-removed-data-preserved/);
+  assert.match(e2e, /privateBackupDir/);
+  assert.match(e2e, /contains_database/);
+  assert.match(e2e, /backup-private-acl/);
+  assert.match(e2e, /broadAllowSids/);
+  assert.doesNotMatch(e2e, /C:\\\\Users\\\\Public\\\\Documents\\\\EvaluaPro_Backup/);
 });
 
 test('SPEC-099 REQ-001/002/003: el helper tolera la salida concurrente y protege contra reutilización de PID', () => {
