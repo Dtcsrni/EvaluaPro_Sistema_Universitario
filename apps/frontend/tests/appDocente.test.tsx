@@ -5,7 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 // Pruebas basicas de la app docente.
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AppDocente } from '../src/apps/app_docente/AppDocente';
@@ -59,13 +59,34 @@ describe('AppDocente', () => {
 
   it('actualiza el avatar cuando cambia la foto local del docente actual', async () => {
     localStorage.setItem('tokenDocente', 'token-falso');
+    (globalThis as typeof globalThis & { __TEST_DOCENTE__?: Record<string, unknown> }).__TEST_DOCENTE__ = {
+      id: '1',
+      nombreCompleto: 'Docente A'
+    };
     render(<TemaProvider><AppDocente /></TemaProvider>);
 
-    await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
-    window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
-      detail: { docenteId: '1', foto: 'data:image/png;base64,aGVsbG8=' }
-    }));
+    await screen.findByRole('button', { name: 'Abrir perfil docente de Docente A' });
+    act(() => {
+      window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
+        detail: { docenteId: '1', foto: 'data:image/png;base64,aGVsbG8=' }
+      }));
+    });
     await waitFor(() => expect(document.querySelector('.chip-docente-avatar img')).toHaveAttribute('src', 'data:image/png;base64,aGVsbG8='));
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
+        detail: { docenteId: 'otro-docente', foto: 'data:image/png;base64,b3Rybw==' }
+      }));
+    });
+    expect(document.querySelector('.chip-docente-avatar img')).toHaveAttribute('src', 'data:image/png;base64,aGVsbG8=');
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
+        detail: { docenteId: '1', foto: null }
+      }));
+    });
+    expect(document.querySelector('.chip-docente-avatar img')).toBeNull();
+    expect(document.querySelector('.chip-docente-avatar [data-icono="cuenta"]')).toBeInTheDocument();
   });
 
   it('vuelve al avatar neutral si falla la imagen local', async () => {

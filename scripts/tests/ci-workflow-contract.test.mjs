@@ -463,6 +463,7 @@ test('CI selecciona pruebas afectadas por módulo y reserva cobertura global par
   assert.match(coreFrontend, /VITEST_CHANGED_FROM:[^\n]*github\.event_name == 'pull_request'/);
   assert.match(coreFrontend, /--changed=\"\$VITEST_CHANGED_FROM\"/);
   assert.match(coreBackend, /Etapa coverage backend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
+  assert.match(coreBackend, /BACKEND_COVERAGE_COMPARE_ISOLATED:\s*"true"/);
   assert.match(coreBackend, /Etapa coverage portal\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
   assert.match(coreFrontend, /Etapa coverage frontend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
   assert.doesNotMatch(central, /DIFF_COVERAGE_MIN|Etapa diff-coverage-check|Preparar base para diff coverage/);

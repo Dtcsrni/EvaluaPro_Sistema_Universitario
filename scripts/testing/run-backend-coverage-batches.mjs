@@ -131,6 +131,7 @@ const integrationFilesNZ = [
 const integrationFilesNZExclusive = [
   'tests/integracion/omrJobsWorkflow.test.ts'
 ];
+const regenerarExamenCoverageTest = 'tests/integracion/regenerarExamenGenerado.test.ts';
 
 // Mantener lotes pequeños evita que Vitest instrumente toda la suite raíz en
 // un único proceso y deja identificar el grupo que exceda tiempo/memoria.
@@ -317,6 +318,62 @@ function batchArgs(name, filters) {
     ...zeroThresholdArgs,
     `--coverage.reportsDirectory=${path.join('coverage', 'backend-coverage-batches', name)}`
   ];
+}
+
+function buildRegenerarExamenIsolationDiagnostic(failedBatch) {
+  if (!failedBatch?.args?.includes(regenerarExamenCoverageTest)) return null;
+  const name = 'backend-diagnostico-aislado-regenerar-examen';
+  return {
+    name,
+    timeoutMs: batchTimeoutMs,
+    args: [...batchArgs(name, [regenerarExamenCoverageTest]), '--maxWorkers=1']
+  };
+}
+
+async function runCoverageFailureDiagnostics({
+  batches,
+  plan,
+  executeDiagnostic,
+  compareIsolated = process.env.BACKEND_COVERAGE_COMPARE_ISOLATED === 'true',
+  readFailureLog = async (relativePath) => fs.readFile(path.resolve(rootDir, relativePath), 'utf8')
+}) {
+  const batchPlan = plan.batches.find((batch) => batch.args.includes(regenerarExamenCoverageTest));
+  const sharedBatch = batches.results.find(({ name }) => name === batchPlan?.name);
+  if (!batchPlan || !sharedBatch) return [];
+
+  if (!compareIsolated) {
+    if (batches.exitCode === 0) return [];
+    const failedAttempt = sharedBatch.attempts?.at(-1);
+    if (failedAttempt?.failureReason !== 'timeout-de-prueba' || !failedAttempt.log) return [];
+    const log = await readFailureLog(failedAttempt.log);
+    if (!log.includes(regenerarExamenCoverageTest)
+      || !/regenera PDF y recalcula paginas[\s\S]{0,500}(?:timed out|timeout)/i.test(log)) return [];
+  }
+
+  const isolationDiagnostic = buildRegenerarExamenIsolationDiagnostic(batchPlan);
+  if (!isolationDiagnostic) return [];
+
+  const startedAt = Date.now();
+  const isolatedExitCode = await executeDiagnostic(isolationDiagnostic);
+  const isolatedDurationMs = Date.now() - startedAt;
+  const sharedAttempt = sharedBatch.attempts?.at(-1);
+  return [{
+    name: isolationDiagnostic.name,
+    exitCode: sharedBatch.exitCode !== 0 ? sharedBatch.exitCode : isolatedExitCode,
+    durationMs: isolatedDurationMs,
+    timeoutMs: isolationDiagnostic.timeoutMs,
+    testFile: regenerarExamenCoverageTest,
+    isolated: true,
+    comparison: {
+      sharedBatch: sharedBatch.name,
+      sharedExitCode: sharedBatch.exitCode,
+      sharedDurationMs: sharedBatch.durationMs ?? sharedAttempt?.durationMs ?? null,
+      sharedFailureReason: sharedAttempt?.failureReason ?? null,
+      isolatedExitCode,
+      isolatedDurationMs
+    },
+    log: path.relative(rootDir, path.join(logsDir, `${isolationDiagnostic.name}.log`)).replaceAll(path.sep, '/')
+  }];
 }
 
 function formatFailureExcerpt(log, lineLimit = failureExcerptLineLimit, lineLengthLimit = failureExcerptLineLengthLimit) {
@@ -600,9 +657,19 @@ async function main() {
   const plan = buildCoveragePlan();
   process.stdout.write(`[backend-coverage] concurrencia=${batchConcurrency}; lotes=${plan.batches.length}\n`);
   const batches = await runBatches(plan.batches, batchConcurrency);
-  if (batches.exitCode !== 0) {
+  const diagnostics = await runCoverageFailureDiagnostics({
+    batches,
+    plan,
+    executeDiagnostic: (diagnostic) => runVitest(diagnostic.args, diagnostic.name, diagnostic.timeoutMs)
+  });
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.comparison?.isolatedExitCode !== 0) await emitFailureExcerpt(diagnostic.name, 1, `${diagnostic.name}.log`);
+  }
+  const diagnosticFailure = diagnostics.find(({ exitCode }) => exitCode !== 0);
+  if (batches.exitCode !== 0 || diagnosticFailure) {
     const failedBatch = batches.results.find(({ exitCode }) => exitCode !== 0)
       ?? batches.results.find(({ recovered }) => recovered);
+    const failureCode = batches.exitCode || diagnosticFailure?.exitCode || 1;
     await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
       startedAt,
       finishedAt: new Date().toISOString(),
@@ -613,14 +680,15 @@ async function main() {
         totalMemoryBytes: os.totalmem()
       },
       results: batches.results,
+      diagnostics,
       recoveredAttempt: batches.recoveredAttempt,
       failed: true,
-      failureStage: 'batch',
+      failureStage: batches.exitCode !== 0 ? 'batch' : 'isolation-diagnostic',
       failedBatch: failedBatch?.name ?? null,
-      failureExitCode: failedBatch?.exitCode ?? null,
-      failureReason: failedBatch?.recovered ? 'unstable-retry-recovery' : failedBatch?.attempts?.at(-1)?.failureReason ?? null
+      failureExitCode: failedBatch?.exitCode ?? diagnosticFailure?.exitCode ?? null,
+      failureReason: failedBatch?.recovered ? 'unstable-retry-recovery' : failedBatch?.attempts?.at(-1)?.failureReason ?? (diagnosticFailure ? 'aislamiento-fallido' : null)
     }, null, 2));
-    process.exit(batches.exitCode);
+    process.exit(failureCode);
   }
   const mergeCode = await runVitest(plan.merge.args, plan.merge.name);
   await fs.writeFile(path.join(reportsDir, 'run-summary.json'), JSON.stringify({
@@ -633,6 +701,7 @@ async function main() {
       totalMemoryBytes: os.totalmem()
     },
     results: batches.results,
+    diagnostics,
     mergeExitCode: mergeCode,
     failed: mergeCode !== 0,
     failureStage: mergeCode === 0 ? null : 'merge'
@@ -640,7 +709,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildFocusedTestArgsForFiles, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches };
+export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildFocusedTestArgsForFiles, buildRegenerarExamenIsolationDiagnostic, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches, runCoverageFailureDiagnostics };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {

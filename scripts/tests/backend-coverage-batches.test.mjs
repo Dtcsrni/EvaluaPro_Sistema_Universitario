@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, formatFailureExcerpt, runBatches } from '../testing/run-backend-coverage-batches.mjs';
+import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildRegenerarExamenIsolationDiagnostic, formatFailureExcerpt, runBatches, runCoverageFailureDiagnostics } from '../testing/run-backend-coverage-batches.mjs';
 
 test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   const plan = buildCoveragePlan();
@@ -93,6 +93,89 @@ test('scheduler informa recuperación como inestable y mantiene el código de sa
   assert.equal(result.recoveredAttempt, true);
   assert.equal(result.exitCode, 1, 'un lote que requirió retry no es una pasada estable');
   assert.equal(result.results.find(({ name }) => name === 'exclusive').exitCode, 0);
+});
+
+test('diagnóstico aislado de regeneración conserva cobertura y una sola suite, sin ser un retry del gate', () => {
+  const diagnostic = buildRegenerarExamenIsolationDiagnostic({
+    args: [
+      'vitest', 'run', '--coverage',
+      'tests/integracion/regenerarExamenGenerado.test.ts',
+      'tests/integracion/rolesPermisos.test.ts'
+    ]
+  });
+
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.args.includes('--coverage'), true);
+  assert.equal(diagnostic.args.includes('--maxWorkers=1'), true);
+  assert.deepEqual(
+    diagnostic.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/regenerarExamenGenerado.test.ts']
+  );
+  assert.equal(buildRegenerarExamenIsolationDiagnostic({ args: ['tests/integracion/rolesPermisos.test.ts'] }), null);
+
+  const runner = fs.readFileSync(path.join(process.cwd(), 'scripts/testing/run-backend-coverage-batches.mjs'), 'utf8');
+  assert.match(runner, /diagnostics,\s*recoveredAttempt: batches\.recoveredAttempt,\s*failed: true/);
+  assert.match(runner, /process\.exit\(failureCode\)/);
+});
+
+test('diagnóstico corre tras drenar los lotes y su aprobación nunca convierte cobertura fallida en verde', async () => {
+  const plan = buildCoveragePlan();
+  const batchCompartido = plan.batches.find((batch) => batch.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
+  assert.ok(batchCompartido);
+  assert.equal(batchCompartido.exclusive, undefined);
+
+  let ejecuciones = 0;
+  const batches = {
+    exitCode: 1,
+    results: [{
+      name: batchCompartido.name,
+      exitCode: 1,
+      attempts: [{
+        failureReason: 'timeout-de-prueba',
+        log: 'backend-integracion-n-z-09 1/1.log'
+      }]
+    }]
+  };
+  const diagnosticos = await runCoverageFailureDiagnostics({
+    batches,
+    plan,
+    readFailureLog: async () => 'tests/integracion/regenerarExamenGenerado.test.ts > regenerar examen generado > regenera PDF y recalcula paginas (requiere forzar si ya fue descargado) timed out in 60000ms',
+    executeDiagnostic: async ({ name }) => {
+      ejecuciones += 1;
+      assert.equal(name, 'backend-diagnostico-aislado-regenerar-examen');
+      return 0;
+    }
+  });
+
+  assert.equal(ejecuciones, 1);
+  assert.equal(diagnosticos[0].comparison.isolatedExitCode, 0);
+  assert.equal(diagnosticos[0].exitCode, 1, 'el diagnóstico aislado exitoso no puede borrar el fallo original');
+  assert.equal(batches.exitCode, 1);
+  assert.equal((await runCoverageFailureDiagnostics({
+    batches,
+    plan,
+    readFailureLog: async () => 'tests/integracion/rolesPermisos.test.ts > assertion failed',
+    executeDiagnostic: async () => { throw new Error('no debe diagnosticar otra suite'); }
+  })).length, 0);
+  assert.equal((await runCoverageFailureDiagnostics({
+    batches: { exitCode: 0, results: [] }, plan, executeDiagnostic: async () => { throw new Error('no debe correr'); }
+  })).length, 0);
+});
+
+test('comparación forzada conserva ambas mediciones y bloquea si falla cualquiera', async () => {
+  const plan = buildCoveragePlan();
+  const batch = plan.batches.find((item) => item.args.includes('tests/integracion/regenerarExamenGenerado.test.ts'));
+  const result = await runCoverageFailureDiagnostics({
+    batches: { exitCode: 0, results: [{ name: batch.name, exitCode: 0, durationMs: 42_000 }] },
+    plan,
+    compareIsolated: true,
+    executeDiagnostic: async () => 1
+  });
+
+  assert.equal(result[0].comparison.sharedExitCode, 0);
+  assert.equal(result[0].comparison.sharedDurationMs, 42_000);
+  assert.equal(result[0].comparison.isolatedExitCode, 1);
+  assert.equal(result[0].exitCode, 1, 'el aislamiento fallido debe bloquear aunque el lote compartido pase');
 });
 
 test('el runner integral limita cada lote a una pasada y conserva el diagnóstico de falla', () => {

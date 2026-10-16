@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { Icono } from '../../ui/iconos';
 import { TemaBoton } from '../../tema/TemaBoton';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -40,13 +40,13 @@ export function ShellDocente({
       ? fotoLocal
       : null;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setFotoLocal(docente?.id ? obtenerFotoPerfilLocal(docente.id) : null);
     setFotoCuentaFallida(false);
     setFotoLocalFallida(false);
   }, [docente?.id, fotoCuentaSegura]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const actualizarFoto = (evento: Event) => {
       const detalle = (evento as CustomEvent<{ docenteId?: string; foto?: string | null }>).detail;
       if (detalle?.docenteId === docente?.id) {
