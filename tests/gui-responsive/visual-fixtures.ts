@@ -24,6 +24,25 @@ async function auditVisualState(
   captureImage: (options: ScreenshotOptions) => Promise<Buffer>,
   attachImage: (image: Buffer) => Promise<void>
 ): Promise<{ record: EvidenceRecord; image: Buffer }> {
+  try {
+    await page.waitForFunction(() => {
+      const images = [...document.images].filter((image) => {
+        const style = getComputedStyle(image);
+        const rect = image.getBoundingClientRect();
+        return !image.closest('[aria-hidden="true"], [inert]')
+          && style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && style.opacity !== '0'
+          && rect.width > 0
+          && rect.height > 0;
+      });
+      return images.every((image) => image.complete);
+    }, undefined, { timeout: 5_000 });
+  } catch (error) {
+    if (!(error instanceof Error) || error.name !== 'TimeoutError') throw error;
+    // La auditoría de abajo reporta las imágenes que siguen sin cargar.
+  }
+
   const audit = await page.evaluate(() => {
     const root = document.documentElement;
     const body = document.body;
