@@ -6,7 +6,46 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildBetaDiffSummary, buildBetaNotes, classifyBetaScope, resolveNextBetaVersion } from '../release/validate-beta-promotion.mjs';
+import { buildBetaDiffSummary, buildBetaNotes, classifyBetaScope, evaluateBetaGateState, parseCandidateRunsFile, resolveNextBetaVersion } from '../release/validate-beta-promotion.mjs';
+
+const CANDIDATE_SHA = 'a'.repeat(40);
+const gateRun = (name, status, conclusion = null, headSha = CANDIDATE_SHA) => ({ name, status, conclusion, head_sha: headSha, run_attempt: 1, created_at: '2026-10-16T00:00:00Z' });
+
+test('beta solo se permite mientras un gate del SHA exacto sigue en curso', () => {
+  const state = evaluateBetaGateState([
+    gateRun('CI Checks', 'completed', 'success'),
+    gateRun('CI Installer Windows', 'in_progress')
+  ], CANDIDATE_SHA);
+  assert.equal(state.canPublish, true);
+  assert.equal(state.state, 'gates-pending');
+});
+
+test('beta se rechaza cuando todos los gates del candidato pasaron', () => {
+  const state = evaluateBetaGateState([
+    gateRun('CI Checks', 'completed', 'success'),
+    gateRun('CI Installer Windows', 'completed', 'success')
+  ], CANDIDATE_SHA);
+  assert.equal(state.canPublish, false);
+  assert.equal(state.state, 'all-gates-passed');
+});
+
+test('beta se rechaza ante gates faltantes, fallidos o de otro SHA', () => {
+  assert.equal(evaluateBetaGateState([gateRun('CI Checks', 'in_progress')], CANDIDATE_SHA).state, 'missing-gates');
+  assert.equal(evaluateBetaGateState([
+    gateRun('CI Checks', 'completed', 'failure'),
+    gateRun('CI Installer Windows', 'in_progress')
+  ], CANDIDATE_SHA).state, 'failed-gates');
+  assert.equal(evaluateBetaGateState([
+    gateRun('CI Checks', 'in_progress', null, 'b'.repeat(40)),
+    gateRun('CI Installer Windows', 'in_progress')
+  ], CANDIDATE_SHA).state, 'missing-gates');
+});
+
+test('el parser de corridas admite JSON paginado y salida NDJSON de gh api', () => {
+  const runs = [gateRun('CI Checks', 'in_progress'), gateRun('CI Installer Windows', 'queued')];
+  assert.deepEqual(parseCandidateRunsFile(JSON.stringify({ workflow_runs: runs })), runs);
+  assert.deepEqual(parseCandidateRunsFile(runs.map((run) => JSON.stringify(run)).join('\n')), runs);
+});
 
 test('beta scope considera docs y outputs regenerables como no significativos', () => {
   const scope = classifyBetaScope([

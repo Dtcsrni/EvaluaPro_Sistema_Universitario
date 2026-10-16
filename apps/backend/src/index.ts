@@ -11,7 +11,7 @@ import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv, recuperarIngestasPdfOmr
 
 import { iniciarSchedulerCobranzaAutomatica } from './modulos/modulo_comercial_core/composition.js';
 import { iniciarSchedulerRetencionExamenes } from './modulos/modulo_generacion_pdf/composition.js';
-import { recuperarJobsImportacionClassroom } from './modulos/modulo_integraciones_classroom/servicioJobsImportacionClassroom.js';
+import { recuperarJobsImportacionClassroom } from './modulos/modulo_integraciones_classroom/composition.js';
 
 async function iniciar() {
   await conectarSqlite();

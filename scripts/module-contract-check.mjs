@@ -170,20 +170,36 @@ function moduleSpecifierNodes(sourceFile) {
   return result;
 }
 
-function normalizePublicSignature(signature, declaration, moduleId, moduleRoot, moduleIds, compilerOptions) {
-  const sourcePath = declaration.getSourceFile().fileName;
-  return signature.replace(/import\(["']([^"']+)["']\)/g, (_match, specifier) => {
-    const resolved = ts.resolveModuleName(specifier, sourcePath, compilerOptions, ts.sys).resolvedModule?.resolvedFileName;
-    if (!resolved) return `import(${JSON.stringify(specifier)})`;
-    const targetModule = moduleIdForPath(moduleRoot, path.resolve(resolved), moduleIds);
-    if (targetModule === moduleId) return 'import("#self")';
-    if (targetModule) return `import("#module/${targetModule}")`;
-    const relativeToBackend = path.relative(path.resolve(path.dirname(moduleRoot)), resolved).replaceAll(path.sep, '/');
-    return `import("#host/${relativeToBackend}")`;
-  });
+export function normalizeResolvedHostDeclarationPath(resolvedPath, hostSourceRoot, repositoryRoot) {
+  const normalizedPath = resolvedPath.replaceAll('\\', '/');
+  const segments = normalizedPath.split('/');
+  const nodeModulesIndex = segments.lastIndexOf('node_modules');
+  if (nodeModulesIndex >= 0 && nodeModulesIndex < segments.length - 1) {
+    const logicalPath = path.resolve(repositoryRoot, 'node_modules', ...segments.slice(nodeModulesIndex + 1));
+    return path.relative(hostSourceRoot, logicalPath).replaceAll(path.sep, '/');
+  }
+  return path.relative(hostSourceRoot, resolvedPath).replaceAll(path.sep, '/');
 }
 
-function extractPublicApi(program, entryPath, moduleId, moduleRoot, moduleIds, compilerOptions) {
+function normalizePublicSignature(signature, declaration, context) {
+  const sourcePath = declaration.getSourceFile().fileName;
+  const normalizedImports = signature.replace(/import\(["']([^"']+)["']\)/g, (_match, specifier) => {
+    const resolved = ts.resolveModuleName(specifier, sourcePath, context.compilerOptions, ts.sys).resolvedModule?.resolvedFileName;
+    if (!resolved) return `import(${JSON.stringify(specifier)})`;
+    const targetModule = moduleIdForPath(context.moduleRoot, path.resolve(resolved), context.moduleIds);
+    if (targetModule === context.moduleId) return 'import("#self")';
+    if (targetModule) return `import("#module/${targetModule}")`;
+    const relativeToBackend = normalizeResolvedHostDeclarationPath(
+      resolved,
+      path.resolve(path.dirname(context.moduleRoot)),
+      context.repositoryRoot
+    );
+    return `import("#host/${relativeToBackend}")`;
+  });
+  return normalizedImports;
+}
+
+function extractPublicApi(program, entryPath, context) {
   const sourceFile = program?.getSourceFile(path.resolve(entryPath));
   if (!sourceFile) return null;
   const checker = program.getTypeChecker();
@@ -198,7 +214,7 @@ function extractPublicApi(program, entryPath, moduleId, moduleRoot, moduleIds, c
     const signature = checker.typeToString(type, declaration, ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.InTypeAlias);
     return {
       name: exportedSymbol.getName(),
-      signature: normalizePublicSignature(signature, declaration, moduleId, moduleRoot, moduleIds, compilerOptions)
+      signature: normalizePublicSignature(signature, declaration, context)
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -212,8 +228,9 @@ export function readCurrentPublicApis(options = {}) {
   if (errors.length) throw new Error(`No se pudo leer tsconfig: ${errors.join('; ')}`);
   const program = createTypeScriptProgram(root, tsconfigPath, compilerOptions);
   if (!program) throw new Error('No se pudo crear el programa TypeScript');
+  const apiContext = { moduleRoot, moduleIds, compilerOptions, repositoryRoot: root };
   return Object.fromEntries([...moduleIds].sort().map((moduleId) => {
-    const api = extractPublicApi(program, path.join(moduleRoot, moduleId, 'index.ts'), moduleId, moduleRoot, moduleIds, compilerOptions);
+    const api = extractPublicApi(program, path.join(moduleRoot, moduleId, 'index.ts'), { ...apiContext, moduleId });
     if (!api) throw new Error(`No se pudo extraer la API de ${moduleId}`);
     return [moduleId, api];
   }));
@@ -228,9 +245,10 @@ export function readCurrentCompositionApis(options = {}) {
   if (errors.length) throw new Error(`No se pudo leer tsconfig: ${errors.join('; ')}`);
   const program = createTypeScriptProgram(root, tsconfigPath, compilerOptions);
   if (!program) throw new Error('No se pudo crear el programa TypeScript');
+  const apiContext = { moduleRoot, moduleIds, compilerOptions, repositoryRoot: root };
   return Object.fromEntries([...moduleIds].sort().map((moduleId) => {
     const entryPath = path.join(moduleRoot, moduleId, 'composition.ts');
-    const api = extractPublicApi(program, entryPath, moduleId, moduleRoot, moduleIds, compilerOptions);
+    const api = extractPublicApi(program, entryPath, { ...apiContext, moduleId });
     if (!api) throw new Error(`No se pudo extraer la API de composición de ${moduleId}`);
     return [moduleId, api];
   }));
@@ -474,6 +492,7 @@ export function inspectModuleContracts(options = {}) {
     descriptor._declaredDependencies = declared;
   }
 
+  const apiContext = { moduleRoot, moduleIds, compilerOptions: compilerConfig.options, repositoryRoot: root };
   const currentApis = new Map();
   for (const moduleId of moduleDirs) {
     const directory = path.join(moduleRoot, moduleId);
@@ -499,14 +518,14 @@ export function inspectModuleContracts(options = {}) {
     }
     const descriptor = descriptorsById.get(moduleId);
     if (program && descriptor) {
-      const api = extractPublicApi(program, path.join(moduleRoot, moduleId, 'index.ts'), moduleId, moduleRoot, moduleIds, compilerConfig.options);
+      const api = extractPublicApi(program, path.join(moduleRoot, moduleId, 'index.ts'), { ...apiContext, moduleId });
       if (!api) errors.push(`${moduleId}.publicApi: no se pudo leer la entrada TypeScript con el compilador`);
       else {
         currentApis.set(moduleId, api);
         errors.push(...validatePublicApiHistory(descriptor, api));
       }
       const compositionEntryPath = path.join(moduleRoot, moduleId, 'composition.ts');
-      const compositionApi = extractPublicApi(program, compositionEntryPath, moduleId, moduleRoot, moduleIds, compilerConfig.options);
+      const compositionApi = extractPublicApi(program, compositionEntryPath, { ...apiContext, moduleId });
       if (!compositionApi) errors.push(`${moduleId}.compositionApi: no se pudo leer la entrada de composición con el compilador`);
       else errors.push(...validateCompositionApiHistory(descriptor, compositionApi));
     } else if (!program) errors.push('typescript.program: no se pudo crear el programa desde tsconfig');

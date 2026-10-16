@@ -395,13 +395,30 @@ test('publicaciones externas serializan ejecuciones en curso', () => {
   assert.match(installerWorkflow, /cancel-in-progress:[\s\S]{0,100}github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/v'\)\)/);
 });
 
-test('release beta automatica escucha CI Checks exitoso de main', () => {
+test('release beta es manual y valida gates del SHA antes de publicar', () => {
   const beta = fs.readFileSync(path.join(workflowDir, 'release-beta.yml'), 'utf8');
   const triggers = beta.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '';
 
-  assert.match(triggers, /workflow_run:\n\s+workflows:\n\s+- ["']CI Checks["']\n\s+types:\s*\n\s+- completed\n\s+branches:\s*\n\s+- main/);
-  assert.match(beta, /github\.event\.workflow_run\.conclusion == 'success'/);
-  assert.match(beta, /github\.event\.workflow_run\.head_branch == 'main'/);
+  assert.match(triggers, /workflow_dispatch:/);
+  assert.doesNotMatch(triggers, /workflow_run:/);
+  assert.match(beta, /name: Consultar gates requeridos del SHA candidato/);
+  assert.match(beta, /gh api --paginate[\s\S]*\.workflow_runs\[\]/);
+  assert.match(beta, /--candidate-runs-file=/);
+  assert.match(beta, /name: Publicar prerelease beta[\s\S]*?prerelease: true/);
+});
+
+test('limpieza beta estable ocurre tras el E2E público y verifica versión y SHA exactos', () => {
+  const stable = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const cleanup = stable.match(/^  cleanup_same_sha_beta:[\s\S]*$/m)?.[0] ?? '';
+
+  assert.match(cleanup, /needs: \[stable_gate, publish_after_go, mark_latest\]/);
+  assert.match(cleanup, /needs\.publish_after_go\.result == 'success'/);
+  assert.match(cleanup, /plan-beta-cleanup\.mjs/);
+  assert.match(cleanup, /--cleanup-tag/);
+  assert.match(cleanup, /beta-stable-transition\.json/);
+  assert.match(cleanup, /prereleasesTemporalesRetiradas/);
+  assert.match(cleanup, /TARGET_VERSION/);
+  assert.match(cleanup, /CANDIDATE_SHA/);
 });
 
 test('runner de cobertura de módulos usa solo suites afectadas en PR y cobertura completa fuera de PR', () => {

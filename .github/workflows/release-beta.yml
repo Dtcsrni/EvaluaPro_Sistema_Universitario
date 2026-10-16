@@ -19,31 +19,20 @@ on:
         description: "Motivo de la publicacion manual beta"
         required: false
         type: string
-  workflow_run:
-    workflows:
-      - "CI Checks"
-    types:
-      - completed
-    branches:
-      - main
-
 concurrency:
-  group: release-beta-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', inputs.version || inputs.head_sha || github.ref_name) || format('auto-{0}', github.event.workflow_run.head_branch || github.ref_name) }}
+  group: release-beta-${{ github.workflow }}-manual-${{ inputs.version || inputs.head_sha || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   beta_gate:
     name: Evaluar publicacion beta
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main')
+    if: github.event_name == 'workflow_dispatch'
 
     outputs:
       publish: ${{ steps.beta.outputs.publish }}
@@ -57,7 +46,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ inputs.head_sha || github.sha }}
 
       - name: Configurar Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -80,21 +69,35 @@ jobs:
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
 
+      - name: Consultar gates requeridos del SHA candidato
+        id: candidate_runs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BETA_HEAD_SHA_INPUT: ${{ inputs.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$BETA_HEAD_SHA_INPUT" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'head_sha debe ser un SHA completo.' >&2; exit 1; }
+          runs_file="$RUNNER_TEMP/evaluapro-beta-candidate-runs.json"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=${BETA_HEAD_SHA_INPUT}&per_page=100" --jq '.workflow_runs[]' > "$runs_file"
+          echo "file=$runs_file" >> "$GITHUB_OUTPUT"
+
       - name: Evaluar alcance beta
         id: beta
         shell: bash
         env:
           BETA_VERSION_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
-          BETA_HEAD_SHA_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event.workflow_run.head_sha }}
+          BETA_HEAD_SHA_INPUT: ${{ inputs.head_sha || github.sha }}
           BETA_BASE_REF_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || '' }}
           BETA_REASON_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.reason || '' }}
+          BETA_CI_RUNS_FILE: ${{ steps.candidate_runs.outputs.file }}
         run: |
           set -euo pipefail
           report_dir="reports/release/beta"
           if [ -n "$BETA_VERSION_INPUT" ]; then
-            node scripts/release/validate-beta-promotion.mjs --version="$BETA_VERSION_INPUT" --head-sha="$BETA_HEAD_SHA_INPUT" --base-ref="$BETA_BASE_REF_INPUT" --reason="$BETA_REASON_INPUT" --report-dir="$report_dir" || true
+            node scripts/release/validate-beta-promotion.mjs --version="$BETA_VERSION_INPUT" --head-sha="$BETA_HEAD_SHA_INPUT" --base-ref="$BETA_BASE_REF_INPUT" --reason="$BETA_REASON_INPUT" --candidate-runs-file="$BETA_CI_RUNS_FILE" --report-dir="$report_dir" || true
           else
-            node scripts/release/validate-beta-promotion.mjs --head-sha="$BETA_HEAD_SHA_INPUT" --base-ref="$BETA_BASE_REF_INPUT" --reason="$BETA_REASON_INPUT" --report-dir="$report_dir" || true
+            node scripts/release/validate-beta-promotion.mjs --head-sha="$BETA_HEAD_SHA_INPUT" --base-ref="$BETA_BASE_REF_INPUT" --reason="$BETA_REASON_INPUT" --candidate-runs-file="$BETA_CI_RUNS_FILE" --report-dir="$report_dir" || true
           fi
 
           version_guess="${BETA_VERSION_INPUT:-$(node --input-type=module -e "import packageJson from './package.json' with { type: 'json' }; process.stdout.write(String(packageJson.version || ''))")}"

@@ -1002,7 +1002,7 @@
     },
     {
       "id": "modulo_integraciones_classroom",
-      "contractVersion": "1.1.0",
+      "contractVersion": "1.2.0",
       "entry": "apps/backend/src/modulos/modulo_integraciones_classroom/index.ts",
       "hostCompatibility": ">=1.2.6 <2.0.0",
       "purpose": "Conexión, consulta e importación de Google Classroom.",
@@ -1026,7 +1026,8 @@
         "MapeoClassroomAlumnoCurso",
         "MapeoClassroomEvidencia",
         "HistorialClassroomCorte",
-        "HistorialClassroomEntrega"
+        "HistorialClassroomEntrega",
+        "ClassroomImportJob"
       ],
       "publicApiHistory": [
         {
@@ -1036,6 +1037,10 @@
         {
           "version": "1.1.0",
           "exports": []
+        },
+        {
+          "version": "1.2.0",
+          "exports": []
         }
       ],
       "compositionEntry": "apps/backend/src/modulos/modulo_integraciones_classroom/composition.ts",
@@ -1043,6 +1048,27 @@
         {
           "version": "1.1.0",
           "exports": [
+            {
+              "name": "rutasEvaluacionesClassroom",
+              "signature": "import(\"#host/../../../node_modules/@types/express-serve-static-core/index.d.ts\").Router"
+            },
+            {
+              "name": "rutasIntegracionesClassroom",
+              "signature": "import(\"#host/../../../node_modules/@types/express-serve-static-core/index.d.ts\").Router"
+            },
+            {
+              "name": "rutasIntegracionesClassroomPublicas",
+              "signature": "import(\"#host/../../../node_modules/@types/express-serve-static-core/index.d.ts\").Router"
+            }
+          ]
+        },
+        {
+          "version": "1.2.0",
+          "exports": [
+            {
+              "name": "recuperarJobsImportacionClassroom",
+              "signature": "() => Promise<number>"
+            },
             {
               "name": "rutasEvaluacionesClassroom",
               "signature": "import(\"#host/../../../node_modules/@types/express-serve-static-core/index.d.ts\").Router"

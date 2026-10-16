@@ -127,6 +127,56 @@ export function resolveNextBetaVersion(baseVersion, existingTags = []) {
   };
 }
 
+const REQUIRED_CANDIDATE_GATES = ['CI Checks', 'CI Installer Windows'];
+const PENDING_GATE_STATUSES = new Set(['queued', 'in_progress', 'waiting', 'pending', 'requested']);
+
+export function evaluateBetaGateState(runs = [], candidateSha = '') {
+  const sha = String(candidateSha || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(sha)) {
+    return { canPublish: false, state: 'invalid-candidate', reason: 'Falta un SHA completo para comprobar los gates del candidato.' };
+  }
+
+  const candidateRuns = runs.filter((run) => String(run?.head_sha || '').trim().toLowerCase() === sha);
+  const gateRuns = REQUIRED_CANDIDATE_GATES.map((name) => {
+    const matches = candidateRuns.filter((run) => run?.name === name).sort((left, right) => {
+      const attemptDelta = Number(right.run_attempt || 0) - Number(left.run_attempt || 0);
+      return attemptDelta || String(right.created_at || '').localeCompare(String(left.created_at || ''));
+    });
+    return { name, run: matches[0] ?? null };
+  });
+  const missing = gateRuns.filter(({ run }) => !run).map(({ name }) => name);
+  if (missing.length) {
+    return { canPublish: false, state: 'missing-gates', reason: `No se encontraron corridas del SHA candidato para: ${missing.join(', ')}.` };
+  }
+
+  const failed = gateRuns.filter(({ run }) => run.status === 'completed' && run.conclusion !== 'success');
+  if (failed.length) {
+    return { canPublish: false, state: 'failed-gates', reason: `Hay gates fallidos para el SHA candidato: ${failed.map(({ name, run }) => `${name} (${run.conclusion || 'sin conclusión'})`).join(', ')}.` };
+  }
+  const unknown = gateRuns.filter(({ run }) => run.status !== 'completed' && !PENDING_GATE_STATUSES.has(run.status));
+  if (unknown.length) {
+    return { canPublish: false, state: 'unknown-gates', reason: `Estado de gate no reconocido para el SHA candidato: ${unknown.map(({ name, run }) => `${name} (${run.status || 'sin estado'})`).join(', ')}.` };
+  }
+
+  const pending = gateRuns.filter(({ run }) => run.status !== 'completed');
+  if (!pending.length) {
+    return { canPublish: false, state: 'all-gates-passed', reason: 'Todos los gates del candidato ya pasaron; corresponde promover una release estable.' };
+  }
+  return { canPublish: true, state: 'gates-pending', reason: `Publicación beta temporal: siguen en curso ${pending.map(({ name }) => name).join(', ')}.` };
+}
+
+export function parseCandidateRunsFile(contents) {
+  const source = String(contents || '').trim();
+  if (!source) return [];
+  try {
+    const parsed = JSON.parse(source);
+    if (Array.isArray(parsed)) return parsed;
+    return Array.isArray(parsed.workflow_runs) ? parsed.workflow_runs : [];
+  } catch {
+    return source.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  }
+}
+
 function resolveBaseRef(headSha) {
   const sha = String(headSha || '').trim();
   if (!sha) return '';
@@ -271,13 +321,14 @@ export async function evaluateBetaPromotion(options) {
   const versionInfo = resolveNextBetaVersion(baseVersion, existingTags);
   const changedFiles = resolveChangedFiles(baseRef, headSha);
   const scope = classifyBetaScope(changedFiles);
+  const gateState = evaluateBetaGateState(options.candidateRuns, headSha);
   const scopeReason = !scope.hasChanges
     ? 'No hay cambios detectables desde la referencia base.'
     : scope.significant
       ? 'El diff incluye cambios funcionales o de contrato relevantes para beta.'
       : 'El diff no toca superficies de release relevantes; no amerita beta automatica.';
   const releaseReason = reason || scopeReason;
-  const decision = scope.significant ? 'Go' : 'No-Go';
+  const decision = scope.significant && gateState.canPublish ? 'Go' : 'No-Go';
 
   return {
     timestamp: new Date().toISOString(),
@@ -289,6 +340,8 @@ export async function evaluateBetaPromotion(options) {
     decision,
     reason: releaseReason,
     scopeReason,
+    candidateGateState: gateState.state,
+    candidateGateReason: gateState.reason,
     significant: scope.significant,
     hasChanges: scope.hasChanges,
     docsOnly: scope.docsOnly,
@@ -303,6 +356,9 @@ export async function main() {
   const baseRefArg = getArg('base-ref', '');
   const headSha = getArg('head-sha', process.env.GITHUB_SHA || 'HEAD');
   const reportDirArg = getArg('report-dir', '');
+  const candidateRunsPath = getArg('candidate-runs-file', '');
+  if (!candidateRunsPath) throw new Error('Falta --candidate-runs-file para comprobar los gates del SHA candidato.');
+  const candidateRuns = parseCandidateRunsFile(fs.readFileSync(path.resolve(process.cwd(), candidateRunsPath), 'utf8'));
   const reportDir = reportDirArg
     ? path.resolve(process.cwd(), reportDirArg)
     : path.resolve(process.cwd(), 'reports', 'release', 'beta');
@@ -311,7 +367,8 @@ export async function main() {
     version,
     baseRef: baseRefArg,
     headSha,
-    reason: getArg('reason', process.env.RELEASE_BETA_REASON || '')
+    reason: getArg('reason', process.env.RELEASE_BETA_REASON || ''),
+    candidateRuns
   });
 
   const decisionPath = path.join(reportDir, result.betaVersion, 'decision.json');
