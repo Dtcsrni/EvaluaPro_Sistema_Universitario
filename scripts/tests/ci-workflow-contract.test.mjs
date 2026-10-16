@@ -53,6 +53,23 @@ test('los jobs CI instalan dependencias desde lockfiles y sharp proviene del man
   assert.match(block, /run:\s*npm run perf:check/);
 });
 
+test('security-scan usa SQLite local y credenciales efímeras sin leer secretos del repositorio', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const start = workflow.indexOf('      - name: Etapa security-scan\n');
+  assert.ok(start >= 0, 'step security-scan no encontrado');
+  const rest = workflow.slice(start);
+  const nextStep = rest.indexOf('\n      - name:', 1);
+  const block = nextStep >= 0 ? rest.slice(0, nextStep) : rest;
+
+  assert.match(block, /BACKEND_DATABASE_URL='file:\.\/data\/evaluapro_ci\.db'/);
+  assert.match(block, /JWT_SECRETO=.*randomBytes\(48\)/);
+  assert.match(block, /PORTAL_ALUMNO_API_KEY=.*randomBytes\(32\)/);
+  assert.doesNotMatch(block, /MONGODB_URI|CI_MONGODB_URI|secrets\./);
+  assert.doesNotMatch(block, /JWT_SECRETO:.*\|\||PORTAL_ALUMNO_API_KEY:.*\|\|/);
+  assert.match(block, /npm run security:env:check/);
+  assert.match(block, /npm run security:audit/);
+});
+
 test('CI centraliza Node y no oculta fallos de suites con reintentos generales', () => {
   const workflows = ['ci.yml', 'ci-backend.yml', 'ci-frontend.yml', 'ci-portal.yml', 'ci-docs.yml', 'autogen-docs.yml'];
   for (const name of workflows) {

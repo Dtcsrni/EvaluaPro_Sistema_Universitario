@@ -193,7 +193,7 @@ jobs:
         if: (github.event_name == 'workflow_dispatch' && inputs.force_full_ci)
         env:
           BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "5400000"
-            BACKEND_COVERAGE_COMPARE_ISOLATED: "true"
+          BACKEND_COVERAGE_COMPARE_ISOLATED: "true"
           BACKEND_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: npm -C apps/backend run test:coverage
 
@@ -309,10 +309,11 @@ jobs:
         env:
           NODE_ENV: production
           STRICT_ENV_CHECK: "1"
-          MONGODB_URI: ${{ secrets.CI_MONGODB_URI || 'mongodb://127.0.0.1:27017/evaluapro_ci' }}
-          JWT_SECRETO: ${{ secrets.CI_JWT_SECRETO || 'evaluapro_ci_jwt_2026_strong_secret_value_987654321' }}
-          PORTAL_ALUMNO_API_KEY: ${{ secrets.CI_PORTAL_ALUMNO_API_KEY || 'evaluapro_ci_portal_api_key_2026' }}
         run: |
+          set -euo pipefail
+          export BACKEND_DATABASE_URL='file:./data/evaluapro_ci.db'
+          export JWT_SECRETO="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(48).toString("hex"))')"
+          export PORTAL_ALUMNO_API_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
           npm run security:env:check
           npm audit --omit=dev --audit-level=critical --json > npm-audit-report.json
           npm run security:audit
