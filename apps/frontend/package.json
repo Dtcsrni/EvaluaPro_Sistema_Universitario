@@ -29,7 +29,7 @@
     "preview:alumno": "vite preview --configLoader runner --outDir dist-alumno",
     "preview:docente": "vite preview --configLoader runner --outDir dist-docente",
     "test": "vitest run --configLoader runner",
-    "test:coverage": "vitest run --configLoader runner --coverage --pool=forks --reporter=verbose",
+    "test:coverage": "vitest run --configLoader runner --coverage --pool=forks --maxWorkers=8 --reporter=verbose",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" vite.config.ts --max-warnings=0"
   },
   "dependencies": {

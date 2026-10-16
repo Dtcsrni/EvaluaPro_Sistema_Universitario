@@ -354,6 +354,7 @@ function buildExclusiveCoverageBatches() {
     {
       name: pdfLayoutBatch,
       exclusive: true,
+      timeoutMs: 2_100_000,
       args: [
         ...batchArgs(pdfLayoutBatch, ['tests/pdf.layout.visual.guard.test.ts']),
         '--maxWorkers=1'

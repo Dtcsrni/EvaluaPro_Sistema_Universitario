@@ -47,6 +47,7 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   const pdfLayoutBatch = plan.batches.find((batch) => batch.args.includes('tests/pdf.layout.visual.guard.test.ts'));
   assert.ok(pdfLayoutBatch, 'falta la suite visual de PDF en el plan de cobertura');
   assert.equal(pdfLayoutBatch.exclusive, true, 'la suite visual costosa debe correr sin otros lotes del scheduler');
+  assert.equal(pdfLayoutBatch.timeoutMs, 2_100_000, 'el límite específico debe dejar margen sobre la duración aislada medida');
   assert.deepEqual(
     pdfLayoutBatch.args.filter((arg) => arg.startsWith('tests/')),
     ['tests/pdf.layout.visual.guard.test.ts']
