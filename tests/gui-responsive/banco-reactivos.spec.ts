@@ -7,6 +7,8 @@
  */
 import { expect, test } from './visual-fixtures';
 import ExcelJS from 'exceljs';
+import { PDFDocument } from 'pdf-lib';
+import { randomBytes } from 'node:crypto';
 
 const docenteApiPort = process.env.E2E_DOCENTE_API_PORT || '4000';
 
@@ -77,7 +79,8 @@ test.describe('Banco de reactivos', () => {
     await page.fill('input[placeholder="Ej. Juan Carlos"]', 'Docente');
     await page.getByLabel('Apellidos', { exact: true }).fill('Banco E2E');
     await page.fill('input[type="email"]', `banco-e2e-${sufijo}@evaluapro.local`);
-    await page.fill('input[type="password"]', 'P@ssword123');
+    const passwordEfimero = `Aa1!${randomBytes(18).toString('base64url')}`;
+    await page.fill('input[type="password"]', passwordEfimero);
     await page.getByRole('button', { name: /Crear cuenta/i }).click({ noWaitAfter: true });
     await expect(page.getByRole('button', { name: 'Banco', exact: true })).toBeVisible({ timeout: 20_000 });
 
@@ -264,6 +267,21 @@ test.describe('Banco de reactivos', () => {
     expect((await snapshot.json()).totalUsados).toBe(1);
     const preview = await request.get(`${base}/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`, { headers });
     expect(preview.status()).toBe(200);
+    const previewPayload = await preview.json();
+    const previewPdf = Buffer.from(String(previewPayload.pdfBase64 ?? ''), 'base64');
+    expect(previewPdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+    const documentoPreview = await PDFDocument.load(previewPdf);
+    expect(previewPayload.paginasTotales).toBe(documentoPreview.getPageCount());
+    expect(previewPayload.paginas).toHaveLength(documentoPreview.getPageCount());
+    for (const pagina of previewPayload.paginas as Array<{ width: number; height: number; dataUrl: string }>) {
+      expect(pagina.width).toBeGreaterThan(0);
+      expect(pagina.height).toBeGreaterThan(0);
+      expect(pagina.dataUrl).toMatch(/^data:image\/png;base64,/);
+      const png = Buffer.from(pagina.dataUrl.split(',', 2)[1] ?? '', 'base64');
+      expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+      expect(png.readUInt32BE(16)).toBe(pagina.width);
+      expect(png.readUInt32BE(20)).toBe(pagina.height);
+    }
 
     const loteId = `BANCO${Date.now().toString().slice(-8)}`;
     const paquete = await request.post(`${base}/examenes/generados/lote`, {
