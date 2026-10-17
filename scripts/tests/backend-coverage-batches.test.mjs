@@ -74,6 +74,10 @@ test('CI Checks habilita la comparación recovery bundle solo por solicitud manu
   assert.match(workflow, /compare_recovery_bundle_isolation:[\s\S]{0,180}type: boolean/);
   assert.match(workflow, /BACKEND_COVERAGE_COMPARE_RECOVERY_BUNDLE:[^\n]*inputs\.compare_recovery_bundle_isolation/);
   assert.match(workflow, /BACKEND_COVERAGE_COMPARE_RECOVERY_BUNDLE:[^\n]*'false'/);
+
+  const affectedMap = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'ci/affected-test-map.json'), 'utf8'));
+  assert.ok(affectedMap.groups.backend.paths.includes('scripts/testing/run-backend-coverage-batches.mjs'));
+  assert.ok(affectedMap.groups.backend.paths.includes('scripts/tests/backend-coverage-batches.test.mjs'));
 });
 
 test('scheduler ejecuta lotes exclusivos después de drenar los workers paralelos', async () => {
