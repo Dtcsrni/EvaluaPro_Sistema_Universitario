@@ -13,10 +13,10 @@
     "bytesManifiesto": null
   },
   "installerHub": {
-    "artifactRunId": 38966875002,
+    "artifactRunId": 38994719267,
     "artifactName": "installer-windows",
-    "artifactId": 12076850310,
-    "artifactZipSha256": "c15eda99d9772340d59de8afcdaaa6cb86fda3df5f227e06da5984d12965dd82",
-    "observacion": "Digest SHA-256 publicado por GitHub para el ZIP del artefacto installer-windows. No equivale al SHA-256 del .exe; el manifiesto/hash del instalador se validó dentro del run CI #686."
+    "artifactId": 12087720511,
+    "artifactZipSha256": "571de85729b8b08d157d36fbfd86cd31e69a96e215333e3eada5cb0c6790e39a",
+    "observacion": "Digest SHA-256 publicado por GitHub para el ZIP del artefacto installer-windows. No equivale al SHA-256 del .exe; el manifiesto/hash del instalador se validó dentro del run CI #689."
   }
 }

@@ -1,7 +1,7 @@
 {
   "version": "1.2.8",
   "displayVersion": "1.2.8",
-  "commit": "ab784c4c4fca0ca24d86cab8a37ceaca22d5e0d1",
+  "commit": "7752c394dad88f671037899629ab970ec6e61f7f",
   "ciConsecutivoVerde": 2,
   "evidenciaWindows": {
     "path": "docs/release/evidencias/1.2.8/windows-release-smoke.md"
@@ -9,41 +9,41 @@
   "gateHumanoProduccion": {
     "version": "1.2.8",
     "displayVersion": "1.2.8",
-    "ejecutadoEn": "2026-10-16T23:05:02Z",
+    "ejecutadoEn": "2026-10-17T05:23:02Z",
     "entorno": "main-ci-installer-e2e",
     "docenteIdHash": "no-aplica-validacion-sintetica",
     "periodoId": "no-aplica-sin-periodo-productivo",
     "ventana": {
-      "startedAt": "2026-10-16T21:05:09Z",
-      "endedAt": "2026-10-16T23:02:40Z"
+      "startedAt": "2026-10-17T02:23:18Z",
+      "endedAt": "2026-10-17T05:23:02Z"
     },
     "operador": {
       "nombre": "codex-release-audit",
-      "observaciones": "Validación automatizada sobre SHA candidato de main, con runtime local canónico Prisma/SQLite. No se ejecutó flujo humano docente en producción externa ni instalación en el equipo local."
+      "observaciones": "Validación automatizada del SHA candidato de main con runtime Prisma/SQLite. CI full consecutivo #1458 y #1459, E2E visual de GUI y CI Installer Windows #689 aprobados. No se ejecutó flujo humano docente en producción externa ni instalación manual en el equipo local."
     },
     "resultado": "fallo",
-    "duracionMs": 7051000,
+    "duracionMs": 10784000,
     "pasos": [
       {
         "id": "ci_full_1",
-        "nombre": "Primera corrida completa CI #1451",
+        "nombre": "Primera corrida completa CI #1458",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "SHA candidato exacto; todos los jobs, incluidos gates extendidos, concluyeron success."
+        "detalle": "SHA candidato exacto 7752c394dad88f671037899629ab970ec6e61f7f; todos los jobs y gates extendidos concluyeron success."
       },
       {
         "id": "ci_full_2",
-        "nombre": "Segunda corrida completa CI #1452",
+        "nombre": "Segunda corrida completa CI #1459",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "Mismo SHA; todos los jobs, incluidos gates extendidos, concluyeron success."
+        "detalle": "Mismo SHA; todos los jobs, incluido E2E visual UX/UI y recorrido docente integral, concluyeron success."
       },
       {
         "id": "ci_backend_sqlite",
         "nombre": "Backend Prisma/SQLite",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "Lint, typecheck, pruebas, cobertura backend/portal y build concluyeron success en ambas corridas."
+        "detalle": "Lint, typecheck, pruebas, cobertura backend/portal y build concluyeron success en ambas corridas full."
       },
       {
         "id": "classroom_audit",
@@ -71,42 +71,42 @@
         "nombre": "E2E visual UX/UI",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "ux-visual-check aprobó en ambas corridas full; evidencia visual publicada por CI."
+        "detalle": "ux-visual-check, suites responsive de docente/alumno/admin y recorrido integral de 4 pruebas aprobaron en ambas corridas full; artefactos visuales publicados."
       },
       {
         "id": "installer_build",
         "nombre": "Build MSI/Bundle docente-local",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Build, footprint, manifiesto/hash y antivirus aprobados en run #686."
+        "detalle": "Build, footprint, manifiesto/hash y antivirus aprobados en run #689."
       },
       {
         "id": "burn_gui",
         "nombre": "Smoke GUI de Installer Hub",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Smoke GUI del bundle Burn empaquetado aprobado."
+        "detalle": "Smoke GUI del bundle Burn empaquetado aprobado en CI Installer Windows #689."
       },
       {
         "id": "upgrade_e2e",
         "nombre": "E2E de actualización",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Actualización E2E desde v1.2.3 aprobada sobre el bundle candidato."
+        "detalle": "Actualización E2E desde v1.2.3 aprobada sobre el bundle candidato del run #689."
       },
       {
         "id": "pdf_edge_e2e",
         "nombre": "Vista y descarga PDF en Edge",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "E2E visual de PDF aprobada."
+        "detalle": "E2E visual de PDF aprobada en el run #689."
       },
       {
         "id": "artifact_integrity",
         "nombre": "Integridad de artefactos",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Verificación de artefactos de release aprobada; artefactos de instalación asociados al mismo SHA."
+        "detalle": "Artefactos de instalación asociados al mismo SHA; installer-windows artifact ID 12087720511, digest ZIP SHA-256 571de85729b8b08d157d36fbfd86cd31e69a96e215333e3eada5cb0c6790e39a."
       },
       {
         "id": "prod_flow",
