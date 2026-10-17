@@ -23,6 +23,7 @@ SPEC-103 cubre la estabilidad de cobertura bajo instrumentación y los lotes int
 - **REQ-003:** Si el caso falla o excede 60 s de forma aislada, no aumentar límites ni introducir retries; documentar la evidencia y solicitar una spec específica para corregir el test o el comportamiento productivo responsable.
 - **REQ-004:** Preservar los cuatro casos, sus aserciones, la selección completa de suites y umbrales de cobertura. Cualquier intento fallido conserva código de salida distinto de cero, aun si una ejecución diagnóstica posterior pasa.
 - **REQ-005:** Probar el runner para que la nueva planificación no duplique suites, no reduzca cobertura y mantenga la concurrencia normal de otros lotes.
+- **REQ-007:** Los cambios del runner y su prueba contractual deben activar en el CI afectado el job backend que ejecuta `backend-coverage-batches.test.mjs`.
 - **REQ-006:** Requerir dos corridas completas de cobertura backend y dos corridas completas de CI consecutivas, sin timeouts, recuperaciones, suites omitidas ni umbrales reducidos, todas sobre el mismo SHA candidato.
 
 ## Criterios de Aceptación
@@ -31,6 +32,7 @@ SPEC-103 cubre la estabilidad de cobertura bajo instrumentación y los lotes int
 - El workflow `CI Checks` expone una entrada manual para solicitar la comparación; por defecto no duplica suites en las ejecuciones ordinarias.
 - El aislamiento se atribuye como causa solo cuando el caso deja de exceder 60 s de forma reproducible al ejecutarse sin otros lotes activos.
 - Si se agrega exclusividad, el scheduler prueba que no hay solapamiento, mantiene la concurrencia ordinaria y ejecuta cada prueba exactamente una vez en la corrida de aceptación.
+- Los cambios al runner de cobertura y a su prueba figuran en el mapa affected CI dentro del grupo backend; el test contractual se ejecuta en PR.
 - No se cambia el timeout del caso, no se agregan retries y el gate conserva estado fallido ante cualquier intento fallido.
 - Las suites y los umbrales permanecen íntegros y dos corridas consecutivas completas pasan sobre el mismo SHA.
 
@@ -42,3 +44,4 @@ SPEC-103 cubre la estabilidad de cobertura bajo instrumentación y los lotes int
 | REQ-003, REQ-004 | Mantener falla estricta, selección completa y ausencia de retry/exclusiones | `scripts/tests/backend-coverage-batches.test.mjs`; `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` | Sin cambios al caso; validación pendiente |
 | REQ-005 | Plan sin duplicados y concurrencia ordinaria intacta | `scripts/tests/backend-coverage-batches.test.mjs` | En implementación |
 | REQ-006 | Verificar el cierre de los gates en el mismo SHA | `scripts/tests/ci-workflow-contract.test.mjs` | Pendiente |
+| REQ-007 | Enrutar el cambio del runner al job backend de CI | `scripts/tests/backend-coverage-batches.test.mjs` | En implementación |
