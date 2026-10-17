@@ -116,6 +116,9 @@ test('ext_funcionales ejecuta PDF print y visual juntos', () => {
   const block = extractJobBlock(workflow, 'ext_funcionales');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
+  assert.match(block, /Preparar runtime PDF \(poppler\)/);
+  assert.match(block, /apt-get install -y --no-install-recommends poppler-utils/);
+  assert.match(block, /gate_pdf_print_check == 'true'/);
   assert.match(block, /Etapa pdf-print-check/);
   assert.match(block, /npm run test:pdf-print:ci/);
   assert.match(block, /npm run test:pdf-visual:ci/);

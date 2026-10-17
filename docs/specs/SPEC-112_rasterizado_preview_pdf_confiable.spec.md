@@ -22,6 +22,7 @@ El código actual intenta Poppler, luego Sharp y finalmente Chromium, pero el pr
 - **REQ-004:** Solicitudes concurrentes de previsualización conservarán respuestas PDF/raster válidas y no dejarán procesos ni archivos temporales huérfanos. Si se aplica coalescencia de trabajo o límite de concurrencia, las llamadas concurrentes deberán mantener el mismo resultado observable.
 - **REQ-005:** El E2E del banco comprobará respuesta dentro del límite actual, integridad del PDF y metadatos de páginas. El recorrido GUI seguirá capturando y validando la pantalla del banco con aserciones UX/UI de la SPEC-102; no habrá reintentos automáticos.
 - **REQ-006:** Se mantendrán los fallbacks compatibles para entornos Windows/Linux y se validará el comportamiento cuando cada rasterizador externo esté ausente, falle o exceda su límite.
+- **REQ-007:** El job CI que ejerce el endpoint de preview PDF instalará Poppler en su propio runner cuando ejecute el gate PDF. El E2E visual de GUI conservará Chromium instalado y ejecutará su ruta visual de forma independiente.
 
 ## Criterios de Aceptación
 
@@ -30,6 +31,7 @@ El código actual intenta Poppler, luego Sharp y finalmente Chromium, pero el pr
 - Las pruebas de fallo y expiración comprueban terminación del proceso hijo y eliminación del directorio temporal; no dejan procesos colgados.
 - Las solicitudes concurrentes del mismo PDF finalizan dentro del límite, no producen respuestas corruptas y no duplican trabajo costoso cuando la implementación use coalescencia.
 - El caso E2E no usa `retries`, no sube los timeouts y captura evidencia visual actual de la GUI con sus aserciones de estado, accesibilidad y layout.
+- El job extended de PDF instala Poppler en el mismo runner que ejecuta el endpoint; el test visual GUI usa Chromium y ambos resultados quedan en el gate.
 - Pasan las pruebas focalizadas del módulo, los E2E GUI afectados y el flujo QA establecido; la matriz SDD queda actualizada y `npm run sdd:audit` pasa.
 
 ## Matriz de Trazabilidad
@@ -39,3 +41,4 @@ El código actual intenta Poppler, luego Sharp y finalmente Chromium, pero el pr
 | REQ-001, REQ-002, REQ-006 | Medición por etapa, expiración, cierre del proceso externo, limpieza y fallbacks | `apps/backend/tests/pdf.paridad.test.ts`; `apps/backend/tests/rasterizadorPdfPreview.resiliencia.test.ts` | Implementación local; CI pendiente |
 | REQ-003, REQ-004 | Renderizado concurrente y preservación de contrato/límites | `apps/backend/tests/rasterizadorPdfPreview.resiliencia.test.ts`; `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | Implementación local; CI pendiente |
 | REQ-005 | Flujo de banco de reactivos, PDF válido y evidencia visual de GUI | `tests/gui-responsive/banco-reactivos.spec.ts` | Implementación local; CI pendiente |
+| REQ-007 | Runner extended prepara Poppler para el endpoint y Chromium para la verificación visual GUI | `scripts/tests/ci-workflow-contract.test.mjs` | Implementación local; CI pendiente |

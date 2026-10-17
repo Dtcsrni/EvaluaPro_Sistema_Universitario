@@ -407,6 +407,12 @@ jobs:
       - name: Preparar Prisma backend
         run: npx prisma generate --config=apps/backend/prisma.config.mjs
 
+      - name: Preparar runtime PDF (poppler)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_pdf_print_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+
       - name: Instalar Chromium para E2E visual de GUI
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.escalation == 'full-extended' || needs.detectar_cambios.outputs.gate_ux_visual_check == 'true' || needs.detectar_cambios.outputs.gate_pdf_print_check == 'true'
         run: npx playwright install --with-deps chromium
