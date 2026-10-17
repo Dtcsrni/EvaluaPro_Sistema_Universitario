@@ -1,12 +1,12 @@
 EvaluaPro 1.2.8 — snapshot de validación
-Fecha de captura: 2026-10-16
-SHA candidato: ab784c4c4fca0ca24d86cab8a37ceaca22d5e0d1
+Fecha de captura: 2026-10-17
+SHA candidato: 7752c394dad88f671037899629ab970ec6e61f7f
 
-CI Checks #1451: success; duración 58m34s; corrida full.
-CI Checks #1452: success; duración 56m13s; corrida full consecutiva, mismo SHA.
-CI Installer Windows #686: success; duración 29m00s; mismo SHA.
+CI Checks #1458: success; duración 56m16s; corrida full.
+CI Checks #1459: success; duración 1h33m00s; corrida full consecutiva, mismo SHA.
+CI Installer Windows #689: success; duración 25m31s; mismo SHA.
 Coverage backend/portal: success en ambas corridas full; umbrales sin cambios.
-UX/UI: ux-visual-check success en ambas corridas full.
+UX/UI: ux-visual-check success en ambas corridas full; E2E de GUI docente, alumno y admin aprobado.
 OMR/PDF: OMR canónico y pdf-print-check success en ambas corridas full.
 Installer Hub: build, footprint, smoke GUI, antivirus, upgrade E2E y Edge PDF E2E success.
 
