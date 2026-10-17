@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildRegenerarExamenIsolationDiagnostic, formatFailureExcerpt, runBatches, runCoverageFailureDiagnostics } from '../testing/run-backend-coverage-batches.mjs';
+import { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildRecoveryBundleIsolationDiagnostic, buildRegenerarExamenIsolationDiagnostic, formatFailureExcerpt, runBatches, runCoverageFailureDiagnostics } from '../testing/run-backend-coverage-batches.mjs';
 
 test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   const plan = buildCoveragePlan();
@@ -15,6 +15,9 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/flujoDocenteGlobalE2E.test.ts')), true);
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/qrEscaneoOmr.test.ts')), true);
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/omrDatasetExportApi.test.ts')), true);
+  const recoveryBundleBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/recoveryBundleGeneracion.test.ts'));
+  assert.ok(recoveryBundleBatch, 'falta recovery bundle en el plan compartido de cobertura');
+  assert.equal(recoveryBundleBatch.exclusive, undefined, 'la medición inicial debe conservar el lote compartido');
   assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/aislamientoDocente.test.ts')), true);
 
   const integrationFiles = plan.batches.flatMap((batch) => batch.args.filter((arg) => arg.startsWith('tests/integracion/')));
@@ -64,6 +67,13 @@ test('cobertura backend separa el lote pesado de aislamiento docente', () => {
     regenerarBatch.args.filter((arg) => arg.startsWith('tests/')),
     ['tests/integracion/regenerarExamenGenerado.test.ts']
   );
+});
+
+test('CI Checks habilita la comparación recovery bundle solo por solicitud manual', () => {
+  const workflow = fs.readFileSync(path.join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
+  assert.match(workflow, /compare_recovery_bundle_isolation:[\s\S]{0,180}type: boolean/);
+  assert.match(workflow, /BACKEND_COVERAGE_COMPARE_RECOVERY_BUNDLE:[^\n]*inputs\.compare_recovery_bundle_isolation/);
+  assert.match(workflow, /BACKEND_COVERAGE_COMPARE_RECOVERY_BUNDLE:[^\n]*'false'/);
 });
 
 test('scheduler ejecuta lotes exclusivos después de drenar los workers paralelos', async () => {
@@ -199,6 +209,50 @@ test('comparación forzada conserva ambas mediciones y bloquea si falla cualquie
   assert.equal(result[0].comparison.sharedDurationMs, 42_000);
   assert.equal(result[0].comparison.isolatedExitCode, 1);
   assert.equal(result[0].exitCode, 1, 'el aislamiento fallido debe bloquear aunque el lote compartido pase');
+});
+
+test('diagnóstico recovery bundle compara el mismo lote con ejecución exclusiva y no mezcla su blob de cobertura', async () => {
+  const plan = buildCoveragePlan();
+  const sharedBatch = plan.batches.find((batch) => batch.args.includes('tests/integracion/recoveryBundleGeneracion.test.ts'));
+  assert.ok(sharedBatch);
+  const diagnostic = buildRecoveryBundleIsolationDiagnostic(sharedBatch);
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.args.includes('--coverage'), true);
+  assert.equal(diagnostic.args.includes('--maxWorkers=1'), true);
+  assert.ok(diagnostic.args.some((arg) => arg.includes('backend-coverage-diagnostics')));
+  assert.deepEqual(
+    diagnostic.args.filter((arg) => arg.startsWith('tests/')),
+    ['tests/integracion/recoveryBundleGeneracion.test.ts']
+  );
+  assert.equal(buildRecoveryBundleIsolationDiagnostic({ args: ['tests/integracion/rolesPermisos.test.ts'] }), null);
+
+  let executions = 0;
+  const comparisons = await runCoverageFailureDiagnostics({
+    batches: {
+      exitCode: 1,
+      results: [{ name: sharedBatch.name, exitCode: 1, durationMs: 65_000, attempts: [{ failureReason: 'timeout-de-prueba' }] }]
+    },
+    plan,
+    compareRecoveryBundle: true,
+    executeDiagnostic: async (batch) => {
+      executions += 1;
+      assert.equal(batch.name, 'backend-diagnostico-aislado-recovery-bundle');
+      return 0;
+    }
+  });
+
+  assert.equal(executions, 1);
+  assert.equal(comparisons.length, 1);
+  assert.equal(comparisons[0].comparison.sharedExitCode, 1);
+  assert.equal(comparisons[0].comparison.sharedDurationMs, 65_000);
+  assert.equal(comparisons[0].comparison.isolatedExitCode, 0);
+  assert.ok(comparisons[0].comparison.environment.commitSha);
+  assert.ok(comparisons[0].comparison.environment.platform);
+  assert.ok(comparisons[0].comparison.environment.node);
+  assert.ok(comparisons[0].comparison.environment.v8);
+  assert.ok(comparisons[0].comparison.environment.vitest);
+  assert.equal(comparisons[0].comparison.environment.testTimeoutMs, 60_000);
+  assert.equal(comparisons[0].exitCode, 1, 'el pase aislado conserva el fallo concurrente del gate');
 });
 
 test('el runner integral limita cada lote a una pasada y conserva el diagnóstico de falla', () => {
