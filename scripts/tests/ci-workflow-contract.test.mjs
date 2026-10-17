@@ -224,6 +224,21 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(compliance, /github\.event_name == 'schedule'/);
 });
 
+test('los jobs extended ignoran dependencias de CI omitidas solo si el gate Core pasó', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const jobs = [
+    extractJobBlock(workflow, 'ext_funcionales'),
+    extractJobBlock(workflow, 'ext_perf_arquitectura'),
+    extractJobBlock(workflow, 'ext_compliance_evidencia')
+  ];
+
+  for (const job of jobs) {
+    assert.match(job, /!cancelled\\(\\) &&/);
+    assert.match(job, /needs\\.detectar_cambios\\.result == 'success'/);
+    assert.match(job, /needs\\.verificaciones_core\\.result == 'success'/);
+  }
+});
+
 test('gate estable valida CI Checks y el instalador sobre el SHA candidato, sin racha histórica', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
 
