@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-10-16
 autor: Codex
 modulo: modulo_generacion_pdf
-estado: draft
+estado: approved
 ---
 
 ## Contexto
@@ -36,7 +36,6 @@ El código actual intenta Poppler, luego Sharp y finalmente Chromium, pero el pr
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001, REQ-002, REQ-006 | Medición por etapa, expiración, cierre del proceso externo, limpieza y fallbacks | `apps/backend/tests/pdf.paridad.test.ts` | Pendiente de aprobación |
-| REQ-003, REQ-004 | Renderizado concurrente y preservación de contrato/límites | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | Pendiente de aprobación |
-| REQ-005 | Flujo de banco de reactivos, PDF válido y evidencia visual de GUI | `tests/gui-responsive/banco-reactivos.spec.ts` | Pendiente de aprobación |
-
+| REQ-001, REQ-002, REQ-006 | Medición por etapa, expiración, cierre del proceso externo, limpieza y fallbacks | `apps/backend/tests/pdf.paridad.test.ts`; `apps/backend/tests/rasterizadorPdfPreview.resiliencia.test.ts` | Implementación local; CI pendiente |
+| REQ-003, REQ-004 | Renderizado concurrente y preservación de contrato/límites | `apps/backend/tests/rasterizadorPdfPreview.resiliencia.test.ts`; `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | Implementación local; CI pendiente |
+| REQ-005 | Flujo de banco de reactivos, PDF válido y evidencia visual de GUI | `tests/gui-responsive/banco-reactivos.spec.ts` | Implementación local; CI pendiente |
