@@ -125,6 +125,7 @@ const integrationFilesNZ = [
   'tests/integracion/versionadoApiV2Contratos.test.ts'
 ];
 const regenerarExamenCoverageTest = 'tests/integracion/regenerarExamenGenerado.test.ts';
+const recoveryBundleCoverageTest = 'tests/integracion/recoveryBundleGeneracion.test.ts';
 
 // En cobertura, esta suite OMR tardó 1,433.58 s aislada; concurrente agotó
 // los 480 s. Se ejecuta tras drenar workers y conserva el límite global para
@@ -330,34 +331,102 @@ function buildRegenerarExamenIsolationDiagnostic(failedBatch) {
   };
 }
 
+function buildRecoveryBundleIsolationDiagnostic(sharedBatch) {
+  if (!sharedBatch?.args?.includes(recoveryBundleCoverageTest)) return null;
+  const name = 'backend-diagnostico-aislado-recovery-bundle';
+  const args = batchArgs(name, [recoveryBundleCoverageTest]);
+  return {
+    name,
+    timeoutMs: batchTimeoutMs,
+    args: [
+      ...args.map((arg) => arg.startsWith('--outputFile.blob=')
+        ? `--outputFile.blob=${path.join('.vitest-reports', 'backend-coverage-diagnostics', `${name}.blob.json`)}`
+        : arg),
+      '--maxWorkers=1'
+    ]
+  };
+}
+
+async function getCoverageDiagnosticEnvironment() {
+  const lockfile = JSON.parse(await fs.readFile(path.join(rootDir, 'package-lock.json'), 'utf8'));
+  let commitSha = process.env.GITHUB_SHA || null;
+  if (!commitSha) {
+    try {
+      const result = await execFile('git', ['-C', rootDir, 'rev-parse', 'HEAD']);
+      commitSha = result.stdout.trim() || null;
+    } catch {
+      commitSha = null;
+    }
+  }
+  return {
+    commitSha,
+    platform: `${os.platform()} ${os.release()}`,
+    node: process.version,
+    v8: process.versions.v8,
+    vitest: lockfile.packages?.['node_modules/vitest']?.version ?? null,
+    batchConcurrency,
+    testTimeoutMs: 60_000
+  };
+}
+
 async function runCoverageFailureDiagnostics({
   batches,
   plan,
   executeDiagnostic,
   compareIsolated = process.env.BACKEND_COVERAGE_COMPARE_ISOLATED === 'true',
+  compareRecoveryBundle = process.env.BACKEND_COVERAGE_COMPARE_RECOVERY_BUNDLE === 'true',
   readFailureLog = async (relativePath) => fs.readFile(path.resolve(rootDir, relativePath), 'utf8')
 }) {
+  const diagnostics = [];
+  const recoveryBatchPlan = plan.batches.find((batch) => batch.args.includes(recoveryBundleCoverageTest));
+  const recoverySharedBatch = batches.results.find(({ name }) => name === recoveryBatchPlan?.name);
+  if (compareRecoveryBundle && recoveryBatchPlan && !recoveryBatchPlan.exclusive && recoverySharedBatch) {
+    const environment = await getCoverageDiagnosticEnvironment();
+    const diagnostic = buildRecoveryBundleIsolationDiagnostic(recoveryBatchPlan);
+    const startedAt = Date.now();
+    const isolatedExitCode = await executeDiagnostic(diagnostic);
+    const isolatedDurationMs = Date.now() - startedAt;
+    diagnostics.push({
+      name: diagnostic.name,
+      exitCode: recoverySharedBatch.exitCode !== 0 ? recoverySharedBatch.exitCode : isolatedExitCode,
+      durationMs: isolatedDurationMs,
+      timeoutMs: diagnostic.timeoutMs,
+      testFile: recoveryBundleCoverageTest,
+      isolated: true,
+      comparison: {
+        sharedBatch: recoverySharedBatch.name,
+        sharedExitCode: recoverySharedBatch.exitCode,
+        sharedDurationMs: recoverySharedBatch.durationMs ?? recoverySharedBatch.attempts?.at(-1)?.durationMs ?? null,
+        sharedFailureReason: recoverySharedBatch.attempts?.at(-1)?.failureReason ?? null,
+        isolatedExitCode,
+        isolatedDurationMs,
+        environment
+      },
+      log: path.relative(rootDir, path.join(logsDir, `${diagnostic.name}.log`)).replaceAll(path.sep, '/')
+    });
+  }
+
   const batchPlan = plan.batches.find((batch) => batch.args.includes(regenerarExamenCoverageTest));
   const sharedBatch = batches.results.find(({ name }) => name === batchPlan?.name);
-  if (!batchPlan || batchPlan.exclusive || !sharedBatch) return [];
+  if (!batchPlan || batchPlan.exclusive || !sharedBatch) return diagnostics;
 
   if (!compareIsolated) {
     if (batches.exitCode === 0) return [];
     const failedAttempt = sharedBatch.attempts?.at(-1);
-    if (failedAttempt?.failureReason !== 'timeout-de-prueba' || !failedAttempt.log) return [];
+    if (failedAttempt?.failureReason !== 'timeout-de-prueba' || !failedAttempt.log) return diagnostics;
     const log = await readFailureLog(failedAttempt.log);
     if (!log.includes(regenerarExamenCoverageTest)
-      || !/regenera PDF y recalcula paginas[\s\S]{0,500}(?:timed out|timeout)/i.test(log)) return [];
+      || !/regenera PDF y recalcula paginas[\s\S]{0,500}(?:timed out|timeout)/i.test(log)) return diagnostics;
   }
 
   const isolationDiagnostic = buildRegenerarExamenIsolationDiagnostic(batchPlan);
-  if (!isolationDiagnostic) return [];
+  if (!isolationDiagnostic) return diagnostics;
 
   const startedAt = Date.now();
   const isolatedExitCode = await executeDiagnostic(isolationDiagnostic);
   const isolatedDurationMs = Date.now() - startedAt;
   const sharedAttempt = sharedBatch.attempts?.at(-1);
-  return [{
+  diagnostics.push({
     name: isolationDiagnostic.name,
     exitCode: sharedBatch.exitCode !== 0 ? sharedBatch.exitCode : isolatedExitCode,
     durationMs: isolatedDurationMs,
@@ -373,7 +442,8 @@ async function runCoverageFailureDiagnostics({
       isolatedDurationMs
     },
     log: path.relative(rootDir, path.join(logsDir, `${isolationDiagnostic.name}.log`)).replaceAll(path.sep, '/')
-  }];
+  });
+  return diagnostics;
 }
 
 function formatFailureExcerpt(log, lineLimit = failureExcerptLineLimit, lineLengthLimit = failureExcerptLineLengthLimit) {
@@ -716,7 +786,7 @@ async function main() {
   process.exit(mergeCode);
 }
 
-export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildFocusedTestArgsForFiles, buildRegenerarExamenIsolationDiagnostic, formatFailureExcerpt, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches, runCoverageFailureDiagnostics };
+export { buildChangedCoverageArgs, buildCoveragePlan, buildDifferentialCoveragePlan, buildFocusedCoverageArgsForFiles, buildFocusedTestArgsForFiles, buildRecoveryBundleIsolationDiagnostic, buildRegenerarExamenIsolationDiagnostic, formatFailureExcerpt, getCoverageDiagnosticEnvironment, getDefaultBatchConcurrency, resolveBatchConcurrency, runBatches, runCoverageFailureDiagnostics };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
