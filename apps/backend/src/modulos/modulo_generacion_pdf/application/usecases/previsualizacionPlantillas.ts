@@ -6,6 +6,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { log } from '../../../../infraestructura/logging/logger.js';
 import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
 import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
 import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
@@ -761,7 +762,25 @@ export async function previsualizarPlantillaPdfVisualUseCase(params: {
   paginasTotales: number;
   paginasOmitidas: number;
 }> {
-  const pdf = await previsualizarPlantillaPdfUseCase(params);
+  const inicioPdf = Date.now();
+  log('info', 'Previsualizacion PDF visual: inicia preparacion de PDF', { etapa: 'generar_pdf' });
+  let pdf: Awaited<ReturnType<typeof previsualizarPlantillaPdfUseCase>>;
+  try {
+    pdf = await previsualizarPlantillaPdfUseCase(params);
+  } catch (error) {
+    log('warn', 'Previsualizacion PDF visual: fallo preparacion de PDF', {
+      etapa: 'generar_pdf',
+      resultado: 'error',
+      duracionMs: Math.max(0, Date.now() - inicioPdf),
+      errorCode: typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : undefined
+    });
+    throw error;
+  }
+  log('info', 'Previsualizacion PDF visual: PDF preparado', {
+    etapa: 'generar_pdf',
+    duracionMs: Math.max(0, Date.now() - inicioPdf),
+    cachePermitida: !params.forzarRegeneracion
+  });
   if (!params.forzarRegeneracion) {
     const memoria = previewsVisualesMemoria.get(pdf.fileName);
     if (memoria && Date.now() < memoria.expiraEn) return memoria.payload;
