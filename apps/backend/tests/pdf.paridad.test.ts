@@ -6,10 +6,13 @@
  */
 import { PDFDocument, rgb } from 'pdf-lib';
 import { PDFParse } from 'pdf-parse';
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { detectarQrRgba } from '../scripts/omr-qr-preprint-check.js';
 import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
+import { ejecutarProcesoPdfLimitado } from '../src/modulos/modulo_generacion_pdf/infra/procesoPdfLimitado.js';
 import { rasterizarPdfParaPreview } from '../src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
 import { mapearPreguntasBase } from '../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
 import type { MapaVariante, PreguntaBase } from '../src/modulos/modulo_generacion_pdf/servicioVariantes.js';
@@ -50,6 +53,32 @@ function crearParametros(cantidadPreguntas = 12) {
 }
 
 describe('pdf OMR canónico', () => {
+  it('detiene procesos de rasterizado al vencer su límite de tiempo', async () => {
+    await expect(ejecutarProcesoPdfLimitado(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], 100))
+      .rejects.toMatchObject({ code: 'ETIMEDOUT', killed: true, signal: 'SIGTERM' });
+  });
+
+  it('coalesce previews concurrentes del mismo PDF y devuelve páginas válidas', async () => {
+    const documento = await PDFDocument.create();
+    documento.addPage([612, 792]);
+    const pdf = Buffer.from(await documento.save());
+    const inicio = await fs.readdir(os.tmpdir());
+    const temporalAntes = new Set(inicio.filter((nombre) => nombre.startsWith('evaluapro-pdf-preview-')));
+
+    const [primero, segundo] = await Promise.all([
+      rasterizarPdfParaPreview(pdf, { cantidadPaginas: 1, dpi: 144 }),
+      rasterizarPdfParaPreview(pdf, { cantidadPaginas: 1, dpi: 144 })
+    ]);
+
+    expect(primero).toBe(segundo);
+    expect(primero.paginasTotales).toBe(1);
+    expect(primero.paginas).toHaveLength(1);
+    expect(primero.paginas[0]?.width).toBeGreaterThan(0);
+    expect(primero.paginas[0]?.height).toBeGreaterThan(0);
+    const temporalDespues = await fs.readdir(os.tmpdir());
+    expect(temporalDespues.filter((nombre) => nombre.startsWith('evaluapro-pdf-preview-') && !temporalAntes.has(nombre))).toEqual([]);
+  });
+
   it('limpia prefijos del banco y mantiene todos los reactivos dentro de dos páginas', async () => {
     const etiquetas = ['HTTP', 'Express', 'API REST', 'JSON', 'MongoDB', 'Mongoose', 'CRUD', 'Node.js', 'Manejo de errores', 'Express', 'CORS', 'JSON', 'HTTP'];
     const preguntasBanco = etiquetas.map((etiqueta, indice) => ({
