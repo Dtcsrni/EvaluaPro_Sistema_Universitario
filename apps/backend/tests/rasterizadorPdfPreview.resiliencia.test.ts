@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import { PDFDocument } from 'pdf-lib';
+import sharp from 'sharp';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('../src/modulos/modulo_generacion_pdf/infra/procesoPdfLimitado.js', () => ({
@@ -15,7 +16,17 @@ const ejecutarMock = vi.mocked(ejecutarProcesoPdfLimitado);
 beforeEach(() => {
   vi.stubEnv('EVALUAPRO_PDF_RASTERIZER', 'rasterizer-ausente');
   vi.stubEnv('PDF_RASTERIZER_EXECUTABLE', 'rasterizer-ausente');
-  ejecutarMock.mockRejectedValue(Object.assign(new Error('El rasterizador agotó su tiempo límite.'), { code: 'ETIMEDOUT' }));
+  ejecutarMock.mockImplementation(async (ejecutable, args) => {
+    if (ejecutable === 'rasterizer-ausente') {
+      throw Object.assign(new Error('El rasterizador agotó su tiempo límite.'), { code: 'ETIMEDOUT' });
+    }
+    const prefijoSalida = args.at(-1);
+    if (!prefijoSalida) throw new Error('Falta prefijo de salida en la invocación del rasterizador.');
+    await sharp({ create: { width: 2, height: 2, channels: 3, background: '#ffffff' } })
+      .png()
+      .toFile(`${prefijoSalida}-1.png`);
+    return { stdout: '', stderr: '' };
+  });
 });
 
 afterEach(() => {
@@ -36,11 +47,13 @@ it('usa Sharp tras los timeout externos, coalesce concurrentes y limpia temporal
   ]);
 
   expect(primero).toBe(segundo);
-  expect(ejecutarMock).toHaveBeenCalledTimes(3);
+  expect(ejecutarMock).toHaveBeenCalledTimes(2);
   for (const llamada of ejecutarMock.mock.calls) {
     expect(llamada[2]).toBeGreaterThan(0);
     expect(llamada[2]).toBeLessThanOrEqual(6_000);
   }
+  expect(ejecutarMock.mock.calls[0]?.[0]).toBe('rasterizer-ausente');
+  expect(ejecutarMock.mock.calls[1]?.[0]).toBe('pdftoppm');
   expect(primero.paginasTotales).toBe(1);
   expect(primero.paginas).toHaveLength(1);
   expect(primero.paginas[0]?.width).toBeGreaterThan(0);
