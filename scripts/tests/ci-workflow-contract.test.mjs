@@ -544,6 +544,9 @@ test('release stable gate consume build inmutable y delega la publicación a la 
   const manifestIndex = workflow.indexOf('dist/installer/EvaluaPro-release-manifest.json');
   const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
   const publishIndex = workflow.indexOf('actions/workflows/ci-installer-windows.yml/dispatches');
+  const manifestCheckStart = workflow.indexOf('name: Comprobar manifiesto docente-local y versión antes de QA');
+  const manifestCheckEnd = workflow.indexOf('\n      - name:', manifestCheckStart + 1);
+  const manifestCheck = workflow.slice(manifestCheckStart, manifestCheckEnd);
 
   assert.match(workflow, /source_sha:[\s\S]*?required: true/);
   assert.match(workflow, /candidate_run_id:[\s\S]*?required: true/);
@@ -552,6 +555,10 @@ test('release stable gate consume build inmutable y delega la publicación a la 
   assert.ok(downloadIndex >= 0, 'release stable gate debe descargar el artefacto del run candidato');
   assert.ok(manifestIndex > downloadIndex, 'release stable gate debe revisar el manifiesto descargado');
   assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
+  assert.match(manifestCheck, /node scripts\/release\/installer-release-manifest\.mjs --manifest=dist\/installer\/EvaluaPro-release-manifest\.json/);
+  assert.match(manifestCheck, /TARGET_VERSION: \$\{\{ steps\.resolve_version\.outputs\.target \}\}/);
+  assert.match(manifestCheck, /SOURCE_SHA: \$\{\{ steps\.candidate\.outputs\.sha \}\}/);
+  assert.doesNotMatch(manifestCheck, /JSON\.parse\(fs\.readFileSync/);
   assert.ok(publishIndex > validateIndex, 'el pipeline de publicación solo se despacha despues del gate');
   assert.doesNotMatch(workflow.slice(0, validateIndex), /gh release download|releases\/tags\/v/);
   assert.match(workflow, /if: needs\.stable_gate\.result == 'success' && inputs\.dispatch_release_after_gate == true/);

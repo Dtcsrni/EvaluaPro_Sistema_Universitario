@@ -116,7 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s dist/installer/EvaluaPro-release-manifest.json
-          node -e 'const fs=require("node:fs"); const m=JSON.parse(fs.readFileSync("dist/installer/EvaluaPro-release-manifest.json","utf8")); const v=process.env.TARGET_VERSION; const sha=process.env.SOURCE_SHA; if (m.version!==v || m.build?.version!==v) throw Error("versión del manifest no coincide con package.json"); if (String(m.build?.commit).toLowerCase()!==sha.toLowerCase()) throw Error("build.commit no coincide con SHA candidato"); if (m.flavors?.length!==1 || m.flavors[0]?.flavorId!=="docente-local") throw Error("el artefacto debe contener únicamente docente-local");'
+          node scripts/release/installer-release-manifest.mjs --manifest=dist/installer/EvaluaPro-release-manifest.json
           test -s dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v"$TARGET_VERSION".exe
           test -s dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v"$TARGET_VERSION".exe.sha256
 

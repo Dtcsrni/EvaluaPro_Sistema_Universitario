@@ -5,7 +5,7 @@ version: 0.1.0
 fecha: 2026-10-16
 autor: Codex
 modulo: devops
-estado: draft
+estado: approved
 ---
 
 ## Contexto
@@ -20,7 +20,7 @@ La arquitectura local docente vigente usa Express/TypeScript, Prisma y SQLite. E
 corrección solo aborda lectura del manifiesto en automatización y no altera el producto,
 la base, el contenido del artefacto o los criterios de publicación.
 
-## Requisitos
+## Requisitos Funcionales
 
 - **REQ-001 — Normalizar BOM de forma acotada:** La lectura JSON del manifiesto de
   instalación debe aceptar UTF-8 con o sin BOM y conservar intactos los bytes/valores
@@ -33,7 +33,7 @@ la base, el contenido del artefacto o los criterios de publicación.
   firma, artefactos, cobertura QA, E2E y restricciones de publicación sin retries que
   oculten fallos.
 
-## Criterios de aceptación
+## Criterios de Aceptación
 
 - **AC-001:** Una regresión automatizada prueba el mismo manifiesto JSON en dos casos:
   UTF-8 sin BOM y UTF-8 con BOM inicial; ambos producen los mismos valores y validan.
@@ -44,14 +44,14 @@ la base, el contenido del artefacto o los criterios de publicación.
   con el mismo candidato 1.2.8 y el mismo CI Installer Windows #686. No se crea ni publica
   release hasta que el gate completo concluya correctamente.
 
-## Matriz de trazabilidad
+## Matriz de Trazabilidad
 
-| Requisito | Prueba propuesta | Estado |
-|---|---|---|
-| REQ-001 | Unit/regresión BOM presente y ausente | Pendiente de aprobación |
-| REQ-002 | Regresión JSON malformado | Pendiente de aprobación |
-| REQ-003 | Contrato del workflow y lectura de versión/SHA/flavor | Pendiente de aprobación |
-| REQ-004 | Contratos release existentes; comprobar que no se eliminan gates | Pendiente de aprobación |
+| ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
+|---|---|---|---|
+| REQ-001 | Parser acepta el mismo JSON con y sin BOM inicial | `scripts/tests/installer-release-manifest.test.mjs` | En implementación |
+| REQ-002 | JSON malformado con o sin BOM falla con diagnóstico legible | `scripts/tests/installer-release-manifest.test.mjs` | En implementación |
+| REQ-003 | El workflow usa el validador normalizado antes de comparar versión/SHA/flavor | `scripts/tests/ci-workflow-contract.test.mjs` | En implementación |
+| REQ-004 | El validador mantiene los campos y gates de publicación existentes | `scripts/tests/installer-release-manifest.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | En implementación |
 
 ## Alcance y riesgos
 
