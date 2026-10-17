@@ -233,9 +233,9 @@ test('los jobs extended ignoran dependencias de CI omitidas solo si el gate Core
   ];
 
   for (const job of jobs) {
-    assert.match(job, /!cancelled\\(\\) &&/);
-    assert.match(job, /needs\\.detectar_cambios\\.result == 'success'/);
-    assert.match(job, /needs\\.verificaciones_core\\.result == 'success'/);
+    assert.match(job, /!cancelled\(\) &&/);
+    assert.match(job, /needs\.detectar_cambios\.result == 'success'/);
+    assert.match(job, /needs\.verificaciones_core\.result == 'success'/);
   }
 });
 
