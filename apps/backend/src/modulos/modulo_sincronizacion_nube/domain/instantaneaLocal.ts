@@ -348,8 +348,8 @@ async function validarIntegridadSqlite(ruta: string, docenteIdEsperado: string, 
   } finally { await cliente.$disconnect(); }
 }
 
-async function prepararContenido(contenido: ContenidoInstantanea, correoEsperado: string) {
-  const temporal = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-local-snapshot-'));
+async function prepararContenido(contenido: ContenidoInstantanea, correoEsperado: string, directorioTemporal = os.tmpdir()) {
+  const temporal = await fs.mkdtemp(path.join(directorioTemporal, 'evaluapro-local-snapshot-'));
   const rutaDb = path.join(temporal, 'evaluapro.db');
   const rutaExamenes = path.join(temporal, 'examenes');
   try {
@@ -373,10 +373,10 @@ function conteos(contenido: ContenidoInstantanea) {
   return { baseDatosBytes: contenido.baseDatos.tamano, archivos: contenido.archivos.length, archivosBytes: contenido.archivos.reduce((suma, item) => suma + item.tamano, 0) };
 }
 
-export async function importarInstantaneaLocal(params: { docenteId: string; archivo: Buffer; metodo: MetodoDesbloqueoInstantanea; credencial?: string; dryRun: boolean; verificarAntesDeReemplazar?: () => Promise<void> }) {
+export async function importarInstantaneaLocal(params: { docenteId: string; archivo: Buffer; metodo: MetodoDesbloqueoInstantanea; credencial?: string; dryRun: boolean; verificarAntesDeReemplazar?: () => Promise<void>; opcionesInternas?: { directorioTemporal?: string } }) {
   const contexto = await obtenerContextoDocente(params.docenteId);
   const abierta = await abrirInstantanea(params.archivo, contexto, params.metodo, params.credencial);
-  const preparado = await prepararContenido(abierta.contenido, contexto.correo);
+  const preparado = await prepararContenido(abierta.contenido, contexto.correo, params.opcionesInternas?.directorioTemporal);
   if (params.dryRun) {
     await fs.rm(preparado.temporal, { recursive: true, force: true });
     return { mensaje: 'Instantánea válida', checksumSha256: abierta.checksumSha256, conteos: conteos(abierta.contenido) };

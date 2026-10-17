@@ -98,18 +98,69 @@ describe('instantanea local 1:1', () => {
     const resultado = await modulo.exportarInstantaneaLocal({ docenteId, metodo: 'contrasena', credencial: password });
     await prisma.periodo.create({ data: { id: 'periodo-guard-extra', docenteId, nombre: 'Dato local', nombreNormalizado: 'dato local', fechaInicio: new Date('2026-01-01T00:00:00.000Z'), fechaFin: new Date('2026-06-30T00:00:00.000Z'), grupos: '["B"]' } });
 
+    const directorioTemporal = await fs.mkdtemp(path.join(raiz, 'lease-perdido-'));
     await expect(modulo.importarInstantaneaLocal({
       docenteId,
       archivo: resultado.archivo,
       metodo: 'contrasena',
       credencial: password,
       dryRun: false,
+      opcionesInternas: { directorioTemporal },
       verificarAntesDeReemplazar: async () => {
         throw new ErrorAplicacion('SYNC_LEASE_REQUERIDO', 'El lease expiró antes del intercambio', 423);
       }
     })).rejects.toMatchObject({ codigo: 'SYNC_LEASE_REQUERIDO', estadoHttp: 423 });
     expect(await prisma.periodo.findUnique({ where: { id: 'periodo-guard-extra' } })).toBeTruthy();
     expect(await prisma.periodo.findUnique({ where: { id: 'periodo-guard-origen' } })).toBeTruthy();
-    expect((await fs.readdir(os.tmpdir())).filter((nombre) => nombre.startsWith('evaluapro-local-snapshot-'))).toHaveLength(0);
+    expect(await fs.readdir(directorioTemporal)).toEqual([]);
+  });
+
+  it('limpia solo su temporal si otra importacion concurrente sigue activa', async () => {
+    await prisma.periodo.create({ data: { id: 'periodo-concurrente-origen', docenteId, nombre: 'Origen', nombreNormalizado: 'origen', fechaInicio: new Date('2026-01-01T00:00:00.000Z'), fechaFin: new Date('2026-06-30T00:00:00.000Z'), grupos: '["A"]' } });
+    const resultado = await modulo.exportarInstantaneaLocal({ docenteId, metodo: 'contrasena', credencial: password });
+    const directorioPrimera = await fs.mkdtemp(path.join(raiz, 'lease-primero-'));
+    const directorioSegunda = await fs.mkdtemp(path.join(raiz, 'lease-segundo-'));
+
+    let indicarPreparacionSegunda!: () => void;
+    const segundaPreparada = new Promise<void>((resolve) => { indicarPreparacionSegunda = resolve; });
+    let liberarSegunda!: () => void;
+    const bloqueoSegunda = new Promise<void>((resolve) => { liberarSegunda = resolve; });
+    const importacionSegunda = modulo.importarInstantaneaLocal({
+      docenteId,
+      archivo: resultado.archivo,
+      metodo: 'contrasena',
+      credencial: password,
+      dryRun: false,
+      opcionesInternas: { directorioTemporal: directorioSegunda },
+      verificarAntesDeReemplazar: async () => {
+        indicarPreparacionSegunda();
+        await bloqueoSegunda;
+        throw new ErrorAplicacion('SYNC_LEASE_REQUERIDO', 'El lease expiró antes del intercambio', 423);
+      }
+    });
+    const rechazoSegunda = expect(importacionSegunda).rejects.toMatchObject({ codigo: 'SYNC_LEASE_REQUERIDO', estadoHttp: 423 });
+    await segundaPreparada;
+
+    await expect(modulo.importarInstantaneaLocal({
+      docenteId,
+      archivo: resultado.archivo,
+      metodo: 'contrasena',
+      credencial: password,
+      dryRun: false,
+      opcionesInternas: { directorioTemporal: directorioPrimera },
+      verificarAntesDeReemplazar: async () => {
+        throw new ErrorAplicacion('SYNC_LEASE_REQUERIDO', 'El lease expiró antes del intercambio', 423);
+      }
+    })).rejects.toMatchObject({ codigo: 'SYNC_LEASE_REQUERIDO', estadoHttp: 423 });
+
+    expect(await fs.readdir(directorioPrimera)).toEqual([]);
+    const temporalSegunda = (await fs.readdir(directorioSegunda)).find((nombre) => nombre.startsWith('evaluapro-local-snapshot-'));
+    expect(temporalSegunda).toBeTruthy();
+    await expect(fs.access(path.join(directorioSegunda, temporalSegunda!, 'evaluapro.db'))).resolves.toBeUndefined();
+
+    liberarSegunda();
+    await rechazoSegunda;
+    expect(await fs.readdir(directorioSegunda)).toEqual([]);
+    expect(await prisma.periodo.findUnique({ where: { id: 'periodo-concurrente-origen' } })).toBeTruthy();
   });
 });
