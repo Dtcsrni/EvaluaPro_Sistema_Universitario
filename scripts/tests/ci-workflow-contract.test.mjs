@@ -116,6 +116,9 @@ test('ext_funcionales ejecuta PDF print y visual juntos', () => {
   const block = extractJobBlock(workflow, 'ext_funcionales');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
+  assert.match(block, /Preparar runtime PDF \(poppler\)/);
+  assert.match(block, /apt-get install -y --no-install-recommends poppler-utils/);
+  assert.match(block, /gate_pdf_print_check == 'true'/);
   assert.match(block, /Etapa pdf-print-check/);
   assert.match(block, /npm run test:pdf-print:ci/);
   assert.match(block, /npm run test:pdf-visual:ci/);
@@ -222,6 +225,21 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(funcionales, /github\.event_name == 'schedule'/);
   assert.match(perf, /github\.event_name == 'schedule'/);
   assert.match(compliance, /github\.event_name == 'schedule'/);
+});
+
+test('los jobs extended ignoran dependencias de CI omitidas solo si el gate Core pasó', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const jobs = [
+    extractJobBlock(workflow, 'ext_funcionales'),
+    extractJobBlock(workflow, 'ext_perf_arquitectura'),
+    extractJobBlock(workflow, 'ext_compliance_evidencia')
+  ];
+
+  for (const job of jobs) {
+    assert.match(job, /!cancelled\(\) &&/);
+    assert.match(job, /needs\.detectar_cambios\.result == 'success'/);
+    assert.match(job, /needs\.verificaciones_core\.result == 'success'/);
+  }
 });
 
 test('gate estable valida CI Checks y el instalador sobre el SHA candidato, sin racha histórica', () => {
