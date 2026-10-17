@@ -4,6 +4,8 @@
     "backend": {
       "paths": [
         "apps/backend/**",
+        "scripts/testing/run-backend-coverage-batches.mjs",
+        "scripts/tests/backend-coverage-batches.test.mjs",
         "omr_samples_tv*/**"
       ],
       "commands": [

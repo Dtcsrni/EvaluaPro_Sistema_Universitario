@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      compare_recovery_bundle_isolation:
+        description: "Comparar recuperación de bundle con lotes concurrentes y en aislamiento"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 6 * * *"
 
@@ -194,6 +199,7 @@ jobs:
         env:
           BACKEND_COVERAGE_BATCH_TIMEOUT_MS: "5400000"
           BACKEND_COVERAGE_COMPARE_ISOLATED: "true"
+          BACKEND_COVERAGE_COMPARE_RECOVERY_BUNDLE: ${{ inputs.compare_recovery_bundle_isolation && 'true' || 'false' }}
           BACKEND_COVERAGE_CHANGED_FROM: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: npm -C apps/backend run test:coverage
 

@@ -192,6 +192,7 @@ test('workflow CI expone force_full_ci y gating affected-only en extended', () =
   const workflow = fs.readFileSync(workflowPath, 'utf8');
 
   assert.match(workflow, /workflow_dispatch:\s+inputs:\s+force_full_ci:/s);
+  assert.match(workflow, /compare_recovery_bundle_isolation:[\s\S]{0,180}type: boolean/);
   assert.match(workflow, /job_ext_funcionales/);
   assert.match(workflow, /job_ext_perf_arquitectura/);
   assert.match(workflow, /job_ext_compliance_evidencia/);
@@ -499,6 +500,7 @@ test('CI selecciona pruebas afectadas por módulo y reserva cobertura global par
   assert.match(coreFrontend, /--changed=\"\$VITEST_CHANGED_FROM\"/);
   assert.match(coreBackend, /Etapa coverage backend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
   assert.match(coreBackend, /BACKEND_COVERAGE_COMPARE_ISOLATED:\s*"true"/);
+  assert.match(coreBackend, /BACKEND_COVERAGE_COMPARE_RECOVERY_BUNDLE:[^\n]*inputs\.compare_recovery_bundle_isolation/);
   assert.match(coreBackend, /Etapa coverage portal\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
   assert.match(coreFrontend, /Etapa coverage frontend\n        if: \(github\.event_name == 'workflow_dispatch' && inputs\.force_full_ci\)/);
   assert.doesNotMatch(central, /DIFF_COVERAGE_MIN|Etapa diff-coverage-check|Preparar base para diff coverage/);
