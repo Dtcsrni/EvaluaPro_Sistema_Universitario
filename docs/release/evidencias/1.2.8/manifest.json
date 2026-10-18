@@ -1,7 +1,7 @@
 {
   "version": "1.2.8",
   "displayVersion": "1.2.8",
-  "commit": "c436b2ea87871c4843e2ad90731e45628b73e869",
+  "commit": "94bc5c881ea1bb8739911814dc7f05e52def94d6",
   "ciConsecutivoVerde": 2,
   "evidenciaWindows": {
     "path": "docs/release/evidencias/1.2.8/windows-release-smoke.md"
@@ -9,41 +9,41 @@
   "gateHumanoProduccion": {
     "version": "1.2.8",
     "displayVersion": "1.2.8",
-    "ejecutadoEn": "2026-10-18T03:51:08Z",
+    "ejecutadoEn": "2026-10-18T07:42:07Z",
     "entorno": "github-actions-main-installer-e2e",
     "docenteIdHash": "no-aplica-validacion-sintetica",
     "periodoId": "no-aplica-sin-periodo-productivo",
     "ventana": {
-      "startedAt": "2026-10-18T01:15:49Z",
-      "endedAt": "2026-10-18T03:51:08Z"
+      "startedAt": "2026-10-18T04:21:33Z",
+      "endedAt": "2026-10-18T07:42:07Z"
     },
     "operador": {
       "nombre": "codex-release-audit",
-      "observaciones": "Validación automatizada del SHA candidato de main. CI full consecutivos #1486 y #1487 aprobados sobre c436b2ea87871c4843e2ad90731e45628b73e869; CI Installer Windows #706 aprobó build, upgrade desde v1.2.3 y E2E visual PDF en Edge. No se ejecutó flujo humano docente con datos de producción externa ni instalación manual local."
+      "observaciones": "Validación automatizada del SHA candidato de main. CI full consecutivos #1495 y #1496 aprobados sobre 94bc5c881ea1bb8739911814dc7f05e52def94d6; CI Installer Windows #711 aprobó build, actualización desde v1.2.3 y E2E visual PDF en Edge. No se ejecutó flujo humano docente con producción externa ni instalación manual local."
     },
     "resultado": "fallo",
     "duracionMs": 0,
     "pasos": [
       {
         "id": "ci_full_1",
-        "nombre": "Primera corrida completa CI #1486",
+        "nombre": "Primera corrida completa CI #1495",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "Run 39085845113 (#1486) sobre SHA c436b2ea87871c4843e2ad90731e45628b73e869; ejecución full concluida success."
+        "detalle": "Run 39096808969 sobre SHA 94bc5c881ea1bb8739911814dc7f05e52def94d6; ejecución full concluida success."
       },
       {
         "id": "ci_full_2",
-        "nombre": "Segunda corrida completa CI #1487",
+        "nombre": "Segunda corrida completa CI #1496",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "Run 39091609380 (#1487) consecutiva sobre el mismo SHA; ejecución full concluida success."
+        "detalle": "Run 39102658491 consecutiva sobre el mismo SHA; ejecución full concluida success."
       },
       {
         "id": "ci_backend_sqlite",
         "nombre": "Backend Prisma/SQLite y cobertura",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "Cobertura backend/portal y gates de calidad aprobaron en ambas corridas full; la arquitectura validada usa Prisma/SQLite."
+        "detalle": "Cobertura backend/portal y gates de calidad aprobaron en ambas corridas full; arquitectura Prisma/SQLite."
       },
       {
         "id": "classroom_audit",
@@ -71,7 +71,7 @@
         "nombre": "E2E visual UX/UI",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "ux-visual-check y suites responsive de docente, alumno y administración aprobaron en ambas corridas full; artefactos visuales publicados."
+        "detalle": "E2E visual y suites responsive de docente, alumno y administración aprobaron en ambas corridas full; artefactos visuales archivados."
       },
       {
         "id": "cycle_e2e",
@@ -85,35 +85,35 @@
         "nombre": "Build MSI/Bundle y controles",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Run #706 (39086197623), SHA candidato exacto; build, footprint, manifiesto/hash y antivirus aprobados."
+        "detalle": "Run #711 (39096847674), SHA candidato exacto; build, footprint, manifiesto/hash y antivirus aprobados."
       },
       {
         "id": "burn_gui",
         "nombre": "Smoke GUI de Installer Hub",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Smoke GUI del bundle Burn aprobado en CI Installer Windows #706."
+        "detalle": "Smoke GUI del bundle Burn aprobado en CI Installer Windows #711."
       },
       {
         "id": "upgrade_e2e",
         "nombre": "E2E de actualización",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Actualización E2E desde v1.2.3 aprobada sobre el bundle del run #706."
+        "detalle": "Actualización E2E desde v1.2.3 aprobada sobre el bundle del run #711."
       },
       {
         "id": "pdf_edge_e2e",
         "nombre": "Vista/descarga PDF en Edge",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "E2E visual de lectura y descarga PDF en Edge aprobado en el run #706."
+        "detalle": "E2E visual de lectura y descarga PDF en Edge aprobado en el run #711."
       },
       {
         "id": "artifact_integrity",
         "nombre": "Integridad de artefactos",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Artefacto installer-windows ID 12121561847; digest ZIP SHA-256 9ac5deb575f95b2c98cfb1d18dea5c4300a7e7f011f0ff94f0c08fbfe52ec66e."
+        "detalle": "Artefacto installer-windows ID 12125527616; digest ZIP SHA-256 eac35a42102adedefffc12970088bef566f6a481fd05f6b0999a2ecd403584e1."
       },
       {
         "id": "prod_flow",
