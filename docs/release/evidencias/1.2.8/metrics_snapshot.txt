@@ -1,13 +1,13 @@
 EvaluaPro 1.2.8 — snapshot de validación
 Fecha de captura: 2026-10-18
-SHA candidato: c436b2ea87871c4843e2ad90731e45628b73e869
+SHA candidato: 94bc5c881ea1bb8739911814dc7f05e52def94d6
 
-CI Checks #1486 / run 39085845113: success; corrida full.
-CI Checks #1487 / run 39091609380: success; corrida full consecutiva, mismo SHA.
-CI Installer Windows #706 / run 39086197623: success; mismo SHA.
+CI Checks #1495 / run 39096808969: success; corrida full.
+CI Checks #1496 / run 39102658491: success; corrida full consecutiva, mismo SHA.
+CI Installer Windows #711 / run 39096847674: success; mismo SHA.
 Cobertura backend/portal: success en ambas corridas full; umbrales sin cambios.
 UX/UI: suites visuales y responsive de docente, alumno y administración aprobadas en ambas corridas.
-OMR/PDF: OMR canónico, pdf-print-check y E2E de ciclo aprobados en ambas corridas.
+OMR/PDF: OMR canónico, PDF/impresión y E2E de ciclo aprobados en ambas corridas.
 Installer Hub: build, footprint, smoke GUI, antivirus, actualización E2E y Edge PDF E2E aprobados.
 
 No se recolectaron métricas de rendimiento de producción ni se ejecutó un flujo docente humano externo. No se atribuyen métricas de usuarios, latencia o uso real a estas corridas.
