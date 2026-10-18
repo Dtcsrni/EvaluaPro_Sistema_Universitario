@@ -2,28 +2,28 @@
 
 Fecha de validación: 2026-10-18
 Versión: 1.2.8
-SHA candidato: c436b2ea87871c4843e2ad90731e45628b73e869
+SHA candidato: 94bc5c881ea1bb8739911814dc7f05e52def94d6
 
 ## CI Installer Windows
 
-- Workflow CI Installer Windows #706 (run ID 39086197623), rama `main`, SHA candidato exacto, resultado `success`.
+- Workflow CI Installer Windows #711 (run ID 39096847674), rama `main`, SHA candidato exacto, resultado `success`.
 - Build MSI/Bundle, footprint, manifiesto/hash, antivirus y smoke GUI del bundle Burn: aprobados.
 - E2E del bundle empaquetado, incluida actualización desde v1.2.3: aprobado.
 - E2E visual de vista y descarga PDF en Microsoft Edge: aprobado.
 - Artefactos:
-  - `installer-windows` ID 12121561847, digest ZIP SHA-256 `9ac5deb575f95b2c98cfb1d18dea5c4300a7e7f011f0ff94f0c08fbfe52ec66e`.
-  - `installer-windows-internal` ID 12121432325.
-  - `installer-hub-e2e-39086197623` ID 12121571773, digest ZIP SHA-256 `9e3c5058aacb2e03b72d65ab2b0ac356942145b4a1e87a13529848d56152f7ed`.
+  - `installer-windows` ID 12125527616, digest ZIP SHA-256 `eac35a42102adedefffc12970088bef566f6a481fd05f6b0999a2ecd403584e1`.
+  - `installer-windows-internal` ID 12125895583, digest ZIP SHA-256 `ed91b4a8a6095757476ad48ffda248d4d2cee2ab08a1640dcad9780dae761024`.
+  - `installer-hub-e2e-39096847674` ID 12125995147, digest ZIP SHA-256 `5ddef317362aca261a069ac4ac101aaabd3fe28cac11a2bfc3cff1e8d9ecb4e8`.
 
 ## CI completa y UX/UI
 
-- CI Checks #1486 (run ID 39085845113), corrida full sobre el SHA candidato: `success`.
-- CI Checks #1487 (run ID 39091609380), corrida full consecutiva sobre el mismo SHA: `success`.
-- Ambas corridas aprobaron cobertura backend/portal, Classroom audit, OMR canónico, PDF/impresión, E2E de ciclo y gates visuales UX/UI.
+- CI Checks #1495 (run ID 39096808969), corrida full sobre el SHA candidato: `success`.
+- CI Checks #1496 (run ID 39102658491), corrida full consecutiva sobre el mismo SHA: `success`.
+- Ambas corridas aprobaron cobertura backend/portal, auditoría Classroom, OMR canónico, PDF/impresión, E2E de ciclo y gates visuales UX/UI.
 - Las suites responsive de GUI docente, alumno y administración aprobaron en ambas corridas.
 - Artefactos UX/UI:
-  - #1486: `e2e-visual-39085845113` ID 12123131604, digest ZIP SHA-256 `2b13b5aa45dce3499056e17c596271a8a4e9d8e542d3bbe9aa3debf09cbcfa1a`.
-  - #1487: `e2e-visual-39091609380` ID 12124117104, digest ZIP SHA-256 `0920b28b26c81f513efd0fa7eed58369f8b5811022d7b1cd0adc639d5a2651ce`.
+  - #1495: `e2e-visual-39096808969` ID 12126559810, digest ZIP SHA-256 `87d1b64d2b66ec3e577e8ff15c49900d9b956fd6b337280f00fe876175dd6b61`.
+  - #1496: `e2e-visual-39102658491` ID 12129900265, digest ZIP SHA-256 `36a88c3a6d4f0333df92bfc6dc099d1d5a8263ef2791b67d158c2b20c08e74ee`.
 
 ## Alcance
 
