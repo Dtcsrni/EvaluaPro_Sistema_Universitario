@@ -588,7 +588,7 @@ test('release stable gate consume build inmutable y delega la publicación a la 
   assert.match(workflow, /\.workflow_run_id/);
 });
 
-test('release stable gate restaura todos los artefactos de matriz y conserva el guard de checkout limpio', () => {
+test('release stable gate aísla la preparación visual y ubica la primera etapa que ensucia el checkout', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const installIndex = workflow.indexOf('npm ci --foreground-scripts');
   const prismaIndex = workflow.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
@@ -599,10 +599,12 @@ test('release stable gate restaura todos los artefactos de matriz y conserva el 
   const responsiveIndex = workflow.indexOf('npm run test:gui:responsive:e2e:ci');
   const cycleIndex = workflow.indexOf('npm run test:gui:cycle:e2e:ci');
   const pdfIndex = workflow.indexOf('npm run test:gui:pdf:e2e:ci');
-  const cleanIndex = workflow.indexOf('status="$(git status --porcelain --untracked-files=all)"');
+  const initialCleanIndex = workflow.indexOf('Confirmar checkout candidato limpio antes de preparar QA');
+  const cleanCheckIndex = workflow.indexOf('assert_candidate_clean()');
+  const finalCleanIndex = workflow.indexOf('Confirmar árbol fuente limpio antes de QA completa');
   const qaIndex = workflow.indexOf('npm run qa:full');
   const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
-  const visualPreparation = workflow.slice(matrixIndex, cleanIndex);
+  const preparation = workflow.slice(initialCleanIndex, finalCleanIndex);
 
   assert.ok(installIndex >= 0, 'release stable gate debe instalar dependencias');
   assert.ok(prismaIndex > installIndex, 'Prisma debe generarse despues de instalar dependencias');
@@ -613,12 +615,36 @@ test('release stable gate restaura todos los artefactos de matriz y conserva el 
   assert.ok(responsiveIndex > visualIndex, 'E2E responsive debe generar capturas antes del manifiesto');
   assert.ok(cycleIndex > responsiveIndex, 'E2E de ciclo debe permanecer en la preparación visual');
   assert.ok(pdfIndex > cycleIndex, 'E2E PDF debe permanecer en la preparación visual');
-  assert.ok(cleanIndex > pdfIndex, 'la comprobación de limpieza debe ocurrir tras las E2E visuales');
-  assert.match(workflow.slice(cleanIndex, qaIndex), /git status --short >&2/);
-  assert.match(workflow.slice(cleanIndex, qaIndex), /exit 1/);
-  assert.ok(qaIndex > cleanIndex, 'QA completa debe iniciar solo con el checkout limpio');
+  assert.ok(initialCleanIndex >= 0, 'el checkout candidato debe comprobarse limpio antes de preparar QA');
+  assert.ok(cleanCheckIndex > initialCleanIndex, 'la función de guard debe definirse después de validar el checkout inicial');
+  assert.match(workflow.slice(initialCleanIndex, cleanCheckIndex), /checkout inicial/);
+  for (const stage of [
+    'npm ci',
+    'generación de Prisma',
+    'instalación de Poppler',
+    'instalación de Playwright',
+    'matriz GUI',
+    'contrato visual',
+    'E2E responsive',
+    'E2E de ciclo',
+    'E2E PDF'
+  ]) {
+    assert.ok(preparation.includes(`assert_candidate_clean '${stage}'`), `falta checkpoint para ${stage}`);
+  }
+  assert.match(preparation, /git status --porcelain --untracked-files=all/);
+  assert.match(preparation, /git status --short --untracked-files=all/);
+  assert.match(preparation, /Primera etapa que modificó el checkout candidato:/);
+  assert.match(preparation, /git restore -- docs\/release\/manual\/gui-screen-matrix\.md reports\/qa\/latest\/gui-screen-matrix\.json/);
+  assert.doesNotMatch(preparation, /git restore --(?! docs\/release\/manual\/gui-screen-matrix\.md reports\/qa\/latest\/gui-screen-matrix\.json)/);
+  assert.match(preparation, /E2E_SCREENSHOT_DIR:\s*\$\{\{ runner\.temp \}\}\/evaluapro-responsive-screenshots/);
+  assert.match(preparation, /E2E_SCRATCH_ROOT:\s*\$\{\{ runner\.temp \}\}\/evaluapro-e2e-cycle/);
+  assert.match(preparation, /E2E_PLAYWRIGHT_OUTPUT_DIR="\$RUNNER_TEMP\/evaluapro-responsive-playwright-results"/);
+  assert.match(preparation, /E2E_PLAYWRIGHT_OUTPUT_DIR="\$RUNNER_TEMP\/evaluapro-cycle-playwright-results"/);
+  assert.match(preparation, /E2E_REPORT_DIR="\$RUNNER_TEMP\/evaluapro-pdf-edge-results"/);
+  assert.ok(finalCleanIndex > pdfIndex, 'la comprobación final ocurre tras las E2E visuales');
+  assert.ok(qaIndex > finalCleanIndex, 'QA completa debe iniciar solo con el checkout limpio');
   assert.ok(validateIndex > qaIndex, 'el gate debe validar despues de generar QA del SHA actual');
-  assert.doesNotMatch(visualPreparation, /--retries|retry:|timeout-minutes:/i, 'la preparación no debe añadir retries ni elevar timeouts');
+  assert.doesNotMatch(preparation, /--retries|retry:|timeout-minutes:/i, 'la preparación no debe añadir retries ni elevar timeouts');
   assert.match(workflow, /ref:\s*\$\{\{ inputs\.source_sha \}\}[\s\S]*?path: candidate/);
   assert.match(workflow, /git rev-parse origin\/main/);
   assert.match(workflow, /git merge-base --is-ancestor/);
@@ -841,7 +867,7 @@ test('el diagnóstico smoke excluye PowerShell y solo considera Node del dashboa
 
 test('el gate estable instala Poppler en el runner que genera el preview PDF', () => {
   const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
-  const start = stableGate.indexOf('      - name: Preparar evidencias visuales para manifiesto QA\n');
+  const start = stableGate.indexOf('      - name: Preparar QA candidato y validar cada etapa de E2E visual\n');
   assert.ok(start >= 0, 'falta la preparación de evidencias visuales del candidato');
   const rest = stableGate.slice(start);
   const nextStep = rest.indexOf('\n      - name:', 1);
