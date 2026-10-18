@@ -830,10 +830,10 @@ test('el diagnóstico smoke excluye PowerShell y solo considera Node del dashboa
 
 test('el gate estable instala Poppler en el runner que genera el preview PDF', () => {
   const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
-  const start = stableGate.indexOf('      - name: Preparar evidencias visuales para manifiesto QA\\n');
+  const start = stableGate.indexOf('      - name: Preparar evidencias visuales para manifiesto QA\n');
   assert.ok(start >= 0, 'falta la preparación de evidencias visuales del candidato');
   const rest = stableGate.slice(start);
-  const nextStep = rest.indexOf('\\n      - name:', 1);
+  const nextStep = rest.indexOf('\n      - name:', 1);
   const step = nextStep >= 0 ? rest.slice(0, nextStep) : rest;
   const popplerIndex = step.indexOf('sudo apt-get install -y --no-install-recommends poppler-utils');
   const previewE2eIndex = step.indexOf('npm run test:gui:responsive:e2e:ci');
