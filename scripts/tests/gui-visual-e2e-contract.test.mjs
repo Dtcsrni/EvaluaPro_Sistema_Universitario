@@ -69,9 +69,18 @@ test('la aceptación estable ejecuta E2E visuales de ciclo completo y conserva s
   assert.match(workflow, /npm run test:gui:pdf:e2e:ci/);
   assert.match(workflow, /E2E_BROWSER_CHANNEL=chromium/);
   assert.match(workflow, /candidate\/test-results\/\*\*/);
-  assert.match(workflow, /E2E_PLAYWRIGHT_OUTPUT_DIR="\$RUNNER_TEMP\/evaluapro-e2e-playwright-results"/);
-  assert.match(workflow, /evaluapro-pdf-edge-results/);
-  assert.match(workflow, /runner\.temp \}\}\/evaluapro-e2e-playwright-results/);
+  assert.match(workflow, /E2E_SCREENSHOT_DIR:\s*\$\{\{ runner\.temp \}\}\/evaluapro-responsive-screenshots/);
+  assert.match(workflow, /E2E_SCRATCH_ROOT:\s*\$\{\{ runner\.temp \}\}\/evaluapro-e2e-cycle/);
+  assert.match(workflow, /E2E_PLAYWRIGHT_OUTPUT_DIR="\$RUNNER_TEMP\/evaluapro-responsive-playwright-results"/);
+  assert.match(workflow, /E2E_PLAYWRIGHT_OUTPUT_DIR="\$RUNNER_TEMP\/evaluapro-cycle-playwright-results"/);
+  assert.match(workflow, /E2E_REPORT_DIR="\$RUNNER_TEMP\/evaluapro-pdf-edge-results"/);
+  for (const evidencePath of [
+    '\${{ runner.temp }}/evaluapro-responsive-screenshots/**',
+    '\${{ runner.temp }}/evaluapro-e2e-cycle/screenshots/**',
+    '\${{ runner.temp }}/evaluapro-responsive-playwright-results/**',
+    '\${{ runner.temp }}/evaluapro-cycle-playwright-results/**',
+    '\${{ runner.temp }}/evaluapro-pdf-edge-results/**'
+  ]) assert.ok(workflow.includes(evidencePath), `falta publicar evidencia externa: ${evidencePath}`);
 });
 
 test('el Installer Hub ejecuta el recorrido PDF GUI en Microsoft Edge y lo conserva en su artefacto', () => {

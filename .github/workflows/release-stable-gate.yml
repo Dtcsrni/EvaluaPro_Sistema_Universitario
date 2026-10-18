@@ -90,6 +90,18 @@ jobs:
           echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
           echo "installer_run_id=$CANDIDATE_RUN_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Confirmar checkout candidato limpio antes de preparar QA
+        shell: bash
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$status" ]]; then
+            echo 'Primera etapa que modificó el checkout candidato: checkout inicial' >&2
+            git status --short --untracked-files=all >&2
+            exit 1
+          fi
+
       - name: Descargar artefacto inmutable del build candidato
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
@@ -131,31 +143,58 @@ jobs:
             apps/frontend/package-lock.json
             apps/portal_alumno_cloud/package-lock.json
 
-      - name: Instalar dependencias en el código candidato
+      - name: Preparar QA candidato y validar cada etapa de E2E visual
         working-directory: candidate
+        env:
+          E2E_SCREENSHOT_DIR: ${{ runner.temp }}/evaluapro-responsive-screenshots
+          E2E_SCRATCH_ROOT: ${{ runner.temp }}/evaluapro-e2e-cycle
         run: |
+          set -euo pipefail
+          assert_candidate_clean() {
+            local stage="$1"
+            local status
+            status="$(git status --porcelain --untracked-files=all)"
+            if [[ -n "$status" ]]; then
+              echo "Primera etapa que modificó el checkout candidato: $stage" >&2
+              git status --short --untracked-files=all >&2
+              exit 1
+            fi
+          }
+
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
+          assert_candidate_clean 'npm ci'
 
-      - name: Preparar cliente Prisma para QA candidato
-        working-directory: candidate
-        run: npx prisma generate --config=apps/backend/prisma.config.mjs
+          npx prisma generate --config=apps/backend/prisma.config.mjs
+          assert_candidate_clean 'generación de Prisma'
 
-      - name: Preparar evidencias visuales para manifiesto QA
-        working-directory: candidate
-        run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends poppler-utils
+          assert_candidate_clean 'instalación de Poppler'
+
           npx playwright install --with-deps chromium
+          assert_candidate_clean 'instalación de Playwright'
+
           npm run gui:screen-matrix
           git restore -- docs/release/manual/gui-screen-matrix.md reports/qa/latest/gui-screen-matrix.json
+          assert_candidate_clean 'matriz GUI'
+
           npm run test:gui:visual-contract
-          npm run test:gui:responsive:e2e:ci
-          export E2E_PLAYWRIGHT_OUTPUT_DIR="$RUNNER_TEMP/evaluapro-e2e-playwright-results"
-          npm run test:gui:cycle:e2e:ci
-          export E2E_REPORT_DIR="$RUNNER_TEMP/evaluapro-pdf-edge-results"
-          export E2E_BROWSER_CHANNEL=chromium
-          npm run test:gui:pdf:e2e:ci
+          assert_candidate_clean 'contrato visual'
+
+          E2E_PLAYWRIGHT_OUTPUT_DIR="$RUNNER_TEMP/evaluapro-responsive-playwright-results" \
+            npm run test:gui:responsive:e2e:ci
+          assert_candidate_clean 'E2E responsive'
+
+          E2E_SCRATCH_ROOT="$E2E_SCRATCH_ROOT" \
+            E2E_PLAYWRIGHT_OUTPUT_DIR="$RUNNER_TEMP/evaluapro-cycle-playwright-results" \
+            npm run test:gui:cycle:e2e:ci
+          assert_candidate_clean 'E2E de ciclo'
+
+          E2E_REPORT_DIR="$RUNNER_TEMP/evaluapro-pdf-edge-results" \
+            E2E_BROWSER_CHANNEL=chromium \
+            npm run test:gui:pdf:e2e:ci
+          assert_candidate_clean 'E2E PDF'
 
       - name: Confirmar árbol fuente limpio antes de QA completa
         shell: bash
@@ -164,8 +203,8 @@ jobs:
           set -euo pipefail
           status="$(git status --porcelain --untracked-files=all)"
           if [[ -n "$status" ]]; then
-            echo 'El checkout candidato sigue modificado después de la preparación visual:' >&2
-            git status --short >&2
+            echo 'Primera etapa que modificó el checkout candidato: guard final previo a QA completa' >&2
+            git status --short --untracked-files=all >&2
             exit 1
           fi
 
@@ -199,7 +238,10 @@ jobs:
             reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
             candidate/reports/qa/latest/
             candidate/test-results/**
-            ${{ runner.temp }}/evaluapro-e2e-playwright-results/**
+            ${{ runner.temp }}/evaluapro-responsive-screenshots/**
+            ${{ runner.temp }}/evaluapro-responsive-playwright-results/**
+            ${{ runner.temp }}/evaluapro-cycle-playwright-results/**
+            ${{ runner.temp }}/evaluapro-e2e-cycle/screenshots/**
             ${{ runner.temp }}/evaluapro-pdf-edge-results/**
           if-no-files-found: warn
 
