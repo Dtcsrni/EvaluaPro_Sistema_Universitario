@@ -144,6 +144,8 @@ jobs:
       - name: Preparar evidencias visuales para manifiesto QA
         working-directory: candidate
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
           npx playwright install --with-deps chromium
           npm run gui:screen-matrix
           git restore -- docs/release/manual/gui-screen-matrix.md
