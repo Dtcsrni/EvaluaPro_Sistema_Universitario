@@ -588,25 +588,37 @@ test('release stable gate consume build inmutable y delega la publicación a la 
   assert.match(workflow, /\.workflow_run_id/);
 });
 
-test('release stable gate permite evidencia posterior y genera QA desde el SHA candidato', () => {
+test('release stable gate restaura todos los artefactos de matriz y conserva el guard de checkout limpio', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const installIndex = workflow.indexOf('npm ci --foreground-scripts');
   const prismaIndex = workflow.indexOf('npx prisma generate --config=apps/backend/prisma.config.mjs');
   const playwrightIndex = workflow.indexOf('npx playwright install --with-deps chromium');
   const matrixIndex = workflow.indexOf('npm run gui:screen-matrix');
-  const restoreIndex = workflow.indexOf('git restore -- docs/release/manual/gui-screen-matrix.md');
+  const restoreIndex = workflow.indexOf('git restore -- docs/release/manual/gui-screen-matrix.md reports/qa/latest/gui-screen-matrix.json');
+  const visualIndex = workflow.indexOf('npm run test:gui:visual-contract');
   const responsiveIndex = workflow.indexOf('npm run test:gui:responsive:e2e:ci');
+  const cycleIndex = workflow.indexOf('npm run test:gui:cycle:e2e:ci');
+  const pdfIndex = workflow.indexOf('npm run test:gui:pdf:e2e:ci');
+  const cleanIndex = workflow.indexOf('status="$(git status --porcelain --untracked-files=all)"');
   const qaIndex = workflow.indexOf('npm run qa:full');
   const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
+  const visualPreparation = workflow.slice(matrixIndex, cleanIndex);
 
   assert.ok(installIndex >= 0, 'release stable gate debe instalar dependencias');
   assert.ok(prismaIndex > installIndex, 'Prisma debe generarse despues de instalar dependencias');
   assert.ok(playwrightIndex > prismaIndex, 'Playwright debe instalarse despues de generar Prisma');
   assert.ok(matrixIndex > playwrightIndex, 'la matriz GUI debe generarse despues de instalar Chromium');
-  assert.ok(restoreIndex > matrixIndex, 'el markdown generado debe restaurarse antes de medir limpieza');
-  assert.ok(responsiveIndex > restoreIndex, 'E2E responsive debe generar capturas antes del manifiesto');
-  assert.ok(qaIndex > responsiveIndex, 'QA completa debe generar manifiesto tras las capturas');
+  assert.ok(restoreIndex > matrixIndex, 'todos los productos de la matriz deben restaurarse despues de generarla');
+  assert.ok(visualIndex > restoreIndex, 'el contrato visual debe correr despues de restaurar los productos generados');
+  assert.ok(responsiveIndex > visualIndex, 'E2E responsive debe generar capturas antes del manifiesto');
+  assert.ok(cycleIndex > responsiveIndex, 'E2E de ciclo debe permanecer en la preparación visual');
+  assert.ok(pdfIndex > cycleIndex, 'E2E PDF debe permanecer en la preparación visual');
+  assert.ok(cleanIndex > pdfIndex, 'la comprobación de limpieza debe ocurrir tras las E2E visuales');
+  assert.match(workflow.slice(cleanIndex, qaIndex), /git status --short >&2/);
+  assert.match(workflow.slice(cleanIndex, qaIndex), /exit 1/);
+  assert.ok(qaIndex > cleanIndex, 'QA completa debe iniciar solo con el checkout limpio');
   assert.ok(validateIndex > qaIndex, 'el gate debe validar despues de generar QA del SHA actual');
+  assert.doesNotMatch(visualPreparation, /--retries|retry:|timeout-minutes:/i, 'la preparación no debe añadir retries ni elevar timeouts');
   assert.match(workflow, /ref:\s*\$\{\{ inputs\.source_sha \}\}[\s\S]*?path: candidate/);
   assert.match(workflow, /git rev-parse origin\/main/);
   assert.match(workflow, /git merge-base --is-ancestor/);
@@ -617,7 +629,6 @@ test('release stable gate permite evidencia posterior y genera QA desde el SHA c
   assert.match(workflow, /QA_MANIFEST: candidate\/reports\/qa\/latest\/manifest\.json/);
   assert.match(workflow, /reports\/qa\/latest/);
 });
-
 test('CI central y mapa affected asignan las guardas WCAG a frontend', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-frontend.yml'), 'utf8');
   const central = fs.readFileSync(workflowPath, 'utf8');

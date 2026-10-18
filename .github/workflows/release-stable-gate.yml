@@ -148,7 +148,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends poppler-utils
           npx playwright install --with-deps chromium
           npm run gui:screen-matrix
-          git restore -- docs/release/manual/gui-screen-matrix.md
+          git restore -- docs/release/manual/gui-screen-matrix.md reports/qa/latest/gui-screen-matrix.json
           npm run test:gui:visual-contract
           npm run test:gui:responsive:e2e:ci
           export E2E_PLAYWRIGHT_OUTPUT_DIR="$RUNNER_TEMP/evaluapro-e2e-playwright-results"
@@ -160,7 +160,14 @@ jobs:
       - name: Confirmar árbol fuente limpio antes de QA completa
         shell: bash
         working-directory: candidate
-        run: test -z "$(git status --porcelain --untracked-files=all)"
+        run: |
+          set -euo pipefail
+          status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$status" ]]; then
+            echo 'El checkout candidato sigue modificado después de la preparación visual:' >&2
+            git status --short >&2
+            exit 1
+          fi
 
       - name: Generar evidencia QA completa del SHA candidato
         working-directory: candidate
