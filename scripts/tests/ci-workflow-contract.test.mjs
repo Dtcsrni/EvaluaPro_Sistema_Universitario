@@ -826,3 +826,18 @@ test('el diagnóstico smoke excluye PowerShell y solo considera Node del dashboa
   const smoke = fs.readFileSync(path.join(root, 'scripts', 'tests', 'windows-release-smoke.test.mjs'), 'utf8');
   assert.ok(smoke.includes("Where-Object { $_.ProcessId -ne $PID -and $_.Name -ieq 'node.exe'"));
 });
+
+
+test('el gate estable instala Poppler en el runner que genera el preview PDF', () => {
+  const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const start = stableGate.indexOf('      - name: Preparar evidencias visuales para manifiesto QA\\n');
+  assert.ok(start >= 0, 'falta la preparación de evidencias visuales del candidato');
+  const rest = stableGate.slice(start);
+  const nextStep = rest.indexOf('\\n      - name:', 1);
+  const step = nextStep >= 0 ? rest.slice(0, nextStep) : rest;
+  const popplerIndex = step.indexOf('sudo apt-get install -y --no-install-recommends poppler-utils');
+  const previewE2eIndex = step.indexOf('npm run test:gui:responsive:e2e:ci');
+
+  assert.ok(popplerIndex >= 0, 'el runner debe instalar Poppler antes del E2E que llama al endpoint PDF');
+  assert.ok(previewE2eIndex > popplerIndex, 'Poppler debe estar disponible antes de iniciar el E2E del preview');
+});
