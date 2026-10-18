@@ -13,24 +13,24 @@
     "bytesManifiesto": null
   },
   "installerHub": {
-    "artifactRunId": 39082944315,
+    "artifactRunId": 39086197623,
     "artifactName": "installer-windows",
-    "artifactId": 12120710054,
-    "artifactZipSha256": "4ff54c0644bbd846a532255aa787f1f6b0c1211ee213ba6d93aa521323286720",
-    "observacion": "Digest SHA-256 del ZIP del artefacto publicado por GitHub. No equivale al SHA-256 del ejecutable; el manifiesto/hash del instalador se validó dentro del run #703."
+    "artifactId": 12121561847,
+    "artifactZipSha256": "9ac5deb575f95b2c98cfb1d18dea5c4300a7e7f011f0ff94f0c08fbfe52ec66e",
+    "observacion": "Digest SHA-256 del ZIP del artefacto publicado por GitHub. No equivale al SHA-256 del ejecutable; el manifiesto/hash del instalador se validó dentro del run #706."
   },
   "visualE2E": [
     {
-      "runId": 39071161801,
-      "artifactName": "e2e-visual-39071161801",
-      "artifactId": 12116784574,
-      "artifactZipSha256": "f9b756656d630c212499ea96a4006d44573439455cff6f3c5f8db76b883234e0"
+      "runId": 39085845113,
+      "artifactName": "e2e-visual-39085845113",
+      "artifactId": 12123131604,
+      "artifactZipSha256": "2b13b5aa45dce3499056e17c596271a8a4e9d8e542d3bbe9aa3debf09cbcfa1a"
     },
     {
-      "runId": 39076579171,
-      "artifactName": "e2e-visual-39076579171",
-      "artifactId": 12119940400,
-      "artifactZipSha256": "a273cd24184e789e17cec1d934f9e2e537fca1926a4f8e130956f7e8e572ab60"
+      "runId": 39091609380,
+      "artifactName": "e2e-visual-39091609380",
+      "artifactId": 12124117104,
+      "artifactZipSha256": "0920b28b26c81f513efd0fa7eed58369f8b5811022d7b1cd0adc639d5a2651ce"
     }
   ]
 }
