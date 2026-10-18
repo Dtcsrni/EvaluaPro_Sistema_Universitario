@@ -5,7 +5,8 @@ version: 1.0.0
 fecha: 2026-10-18
 autor: Codex / Ingeniería
 modulo: release_stable_gate
-estado: draft
+estado: approved
+aprobada: 2026-10-18 por solicitud explícita del usuario
 ---
 
 # SPEC-115: Mantener limpio el checkout del Stable Gate tras pruebas visuales
