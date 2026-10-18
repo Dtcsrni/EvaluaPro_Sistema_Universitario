@@ -1,7 +1,7 @@
 {
   "version": "1.2.8",
   "displayVersion": "1.2.8",
-  "commit": "7752c394dad88f671037899629ab970ec6e61f7f",
+  "commit": "e67e7cb41d8f39bff034432053ec634f9b8ccd93",
   "ciConsecutivoVerde": 2,
   "evidenciaWindows": {
     "path": "docs/release/evidencias/1.2.8/windows-release-smoke.md"
@@ -9,41 +9,41 @@
   "gateHumanoProduccion": {
     "version": "1.2.8",
     "displayVersion": "1.2.8",
-    "ejecutadoEn": "2026-10-17T05:23:02Z",
-    "entorno": "main-ci-installer-e2e",
+    "ejecutadoEn": "2026-10-18T00:54:45Z",
+    "entorno": "github-actions-main-installer-e2e",
     "docenteIdHash": "no-aplica-validacion-sintetica",
     "periodoId": "no-aplica-sin-periodo-productivo",
     "ventana": {
-      "startedAt": "2026-10-17T02:23:18Z",
-      "endedAt": "2026-10-17T05:23:02Z"
+      "startedAt": "2026-10-17T18:00:00Z",
+      "endedAt": "2026-10-18T00:54:45Z"
     },
     "operador": {
       "nombre": "codex-release-audit",
-      "observaciones": "Validación automatizada del SHA candidato de main con runtime Prisma/SQLite. CI full consecutivo #1458 y #1459, E2E visual de GUI y CI Installer Windows #689 aprobados. No se ejecutó flujo humano docente en producción externa ni instalación manual en el equipo local."
+      "observaciones": "Validación automatizada del SHA candidato de main. CI full consecutivos #1480 y #1481 aprobados; CI Installer Windows #703 aprobó build, upgrade desde v1.2.3 y E2E visual PDF en Edge. No se ejecutó flujo humano docente con datos de producción externa ni instalación manual local."
     },
     "resultado": "fallo",
-    "duracionMs": 10784000,
+    "duracionMs": 0,
     "pasos": [
       {
         "id": "ci_full_1",
-        "nombre": "Primera corrida completa CI #1458",
+        "nombre": "Primera corrida completa CI #1480",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "SHA candidato exacto 7752c394dad88f671037899629ab970ec6e61f7f; todos los jobs y gates extendidos concluyeron success."
+        "detalle": "Run 39071161801 sobre SHA e67e7cb41d8f39bff034432053ec634f9b8ccd93; ejecución full concluida success."
       },
       {
         "id": "ci_full_2",
-        "nombre": "Segunda corrida completa CI #1459",
+        "nombre": "Segunda corrida completa CI #1481",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "Mismo SHA; todos los jobs, incluido E2E visual UX/UI y recorrido docente integral, concluyeron success."
+        "detalle": "Run 39076579171 sobre el mismo SHA; ejecución full consecutiva concluida success."
       },
       {
         "id": "ci_backend_sqlite",
-        "nombre": "Backend Prisma/SQLite",
+        "nombre": "Backend Prisma/SQLite y cobertura",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "Lint, typecheck, pruebas, cobertura backend/portal y build concluyeron success en ambas corridas full."
+        "detalle": "Cobertura backend/portal y gates de calidad aprobados en ambas corridas full; arquitectura usa Prisma/SQLite."
       },
       {
         "id": "classroom_audit",
@@ -71,49 +71,56 @@
         "nombre": "E2E visual UX/UI",
         "resultado": "ok",
         "fuente": "github-actions",
-        "detalle": "ux-visual-check, suites responsive de docente/alumno/admin y recorrido integral de 4 pruebas aprobaron en ambas corridas full; artefactos visuales publicados."
+        "detalle": "ux-visual-check y suites responsive de docente, alumno y administración aprobaron en ambas corridas full; artefactos visuales publicados."
+      },
+      {
+        "id": "cycle_e2e",
+        "nombre": "Recorrido integral de GUI",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "E2E de ciclo completo aprobado en ambas corridas full."
       },
       {
         "id": "installer_build",
-        "nombre": "Build MSI/Bundle docente-local",
+        "nombre": "Build MSI/Bundle y controles",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Build, footprint, manifiesto/hash y antivirus aprobados en run #689."
+        "detalle": "Run #703 (39082944315), SHA candidato exacto; build, footprint, manifiesto/hash y antivirus aprobados."
       },
       {
         "id": "burn_gui",
         "nombre": "Smoke GUI de Installer Hub",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Smoke GUI del bundle Burn empaquetado aprobado en CI Installer Windows #689."
+        "detalle": "Smoke GUI del bundle Burn aprobado en CI Installer Windows #703."
       },
       {
         "id": "upgrade_e2e",
         "nombre": "E2E de actualización",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Actualización E2E desde v1.2.3 aprobada sobre el bundle candidato del run #689."
+        "detalle": "Actualización E2E desde v1.2.3 aprobada sobre el bundle del run #703."
       },
       {
         "id": "pdf_edge_e2e",
-        "nombre": "Vista y descarga PDF en Edge",
+        "nombre": "Vista/descarga PDF en Edge",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "E2E visual de PDF aprobada en el run #689."
+        "detalle": "E2E visual de lectura y descarga PDF en Edge aprobada en el run #703."
       },
       {
         "id": "artifact_integrity",
         "nombre": "Integridad de artefactos",
         "resultado": "ok",
         "fuente": "CI Installer Windows",
-        "detalle": "Artefactos de instalación asociados al mismo SHA; installer-windows artifact ID 12087720511, digest ZIP SHA-256 571de85729b8b08d157d36fbfd86cd31e69a96e215333e3eada5cb0c6790e39a."
+        "detalle": "Artefacto installer-windows ID 12120710054; digest ZIP SHA-256 4ff54c0644bbd846a532255aa787f1f6b0c1211ee213ba6d93aa521323286720."
       },
       {
         "id": "prod_flow",
         "nombre": "Flujo humano docente productivo",
         "resultado": "fallo",
         "fuente": "manual",
-        "detalle": "No ejecutado contra producción externa; no se usaron credenciales ni datos reales en esta sesión."
+        "detalle": "No ejecutado contra producción externa; no se usaron credenciales ni datos reales. Este estado documenta alcance no ejecutado y no contradice los gates automatizados."
       }
     ]
   },

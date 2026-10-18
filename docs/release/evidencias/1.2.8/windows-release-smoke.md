@@ -1,24 +1,27 @@
 # Evidencia Windows — EvaluaPro 1.2.8
 
-Fecha: 2026-10-17
+Fecha de validación: 2026-10-18
 Versión: 1.2.8
-SHA candidato: 7752c394dad88f671037899629ab970ec6e61f7f
+SHA candidato: e67e7cb41d8f39bff034432053ec634f9b8ccd93
 
 ## CI Installer Windows
 
-- Workflow run #689 (ID 38994719267), rama `main`, resultado `success`, SHA candidato exacto.
-- MSI/Bundle docente-local, gate de footprint, smoke GUI del bundle Burn, manifiesto/hash y antivirus: aprobados.
-- E2E completa sobre el bundle empaquetado, incluyendo actualización desde v1.2.3: aprobada.
+- Workflow CI Installer Windows #703 (run ID 39082944315), rama `main`, SHA candidato exacto, resultado `success`.
+- Build MSI/Bundle, footprint, manifiesto/hash, antivirus y smoke GUI del bundle Burn: aprobados.
+- E2E del bundle empaquetado, incluida actualización desde v1.2.3: aprobada.
 - E2E visual de vista y descarga PDF en Microsoft Edge: aprobada.
-- Artefactos: `installer-windows` (ID 12087720511, digest ZIP SHA-256 `571de85729b8b08d157d36fbfd86cd31e69a96e215333e3eada5cb0c6790e39a`), `installer-windows-internal` (ID 12087725600) y `installer-hub-e2e-38994719267` (ID 12087720487).
+- Artefactos:
+  - `installer-windows` ID 12120710054, digest ZIP SHA-256 `4ff54c0644bbd846a532255aa787f1f6b0c1211ee213ba6d93aa521323286720`.
+  - `installer-windows-internal` ID 12120435969.
+  - `installer-hub-e2e-39082944315` ID 12120094490.
 
 ## CI completa y UX/UI
 
-- CI Checks #1458 (ID 38996634498), corrida full, SHA candidato exacto: `success`; duración 56m16s.
-- CI Checks #1459 (ID 39000282882), corrida full consecutiva sobre el mismo SHA: `success`; duración 1h33m00s.
-- Ambas corridas completaron cobertura backend/portal, auditoría Classroom, OMR canónico, impresión PDF, recorrido docente-alumno y `ux-visual-check`.
-- En #1459, el E2E responsive de docente, alumno y administración pasó; el recorrido integral docente registró 4 pruebas aprobadas.
+- CI Checks #1480 (run ID 39071161801), corrida full sobre el SHA candidato: `success`.
+- CI Checks #1481 (run ID 39076579171), corrida full consecutiva sobre el mismo SHA: `success`.
+- Ambas corridas aprobaron cobertura backend/portal, Classroom audit, OMR canónico, PDF/impresión, E2E de ciclo y gates visuales UX/UI.
+- Suites responsive de GUI docente, alumno y administración aprobaron; sus artefactos visuales quedaron publicados.
 
-## Límite de alcance
+## Alcance
 
-La evidencia acredita los gates automatizados de CI y el E2E del instalador en Windows. No acredita una instalación manual en el equipo local ni un flujo humano con datos de producción externa; ese paso no se ejecutó en esta validación.
+La evidencia acredita los gates automatizados y el E2E del instalador Windows. No acredita un flujo humano docente en producción externa ni una instalación manual en el equipo local; esos pasos no se ejecutaron en esta validación.
