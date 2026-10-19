@@ -1,6 +1,6 @@
 # Matriz GUI Exhaustiva
 
-Fecha: 2026-09-09
+Fecha: 2026-10-19
 
 Contrato: cada pantalla debe validar componentes visibles, estados, viewports y evidencia antes de declarar cierre UX/UI.
 

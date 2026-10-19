@@ -71,7 +71,8 @@ function rutaRel(filePath) {
 }
 
 function agruparArea(relPath) {
-  if (relPath.startsWith('apps/backend/')) return 'Backend';
+  if (relPath.startsWith('apps/backend/src/')) return 'Backend';
+  if (relPath.startsWith('apps/backend/scripts/')) return 'Scripts backend';
   if (relPath.startsWith('apps/portal_alumno_cloud/')) return 'Portal alumno cloud';
   if (relPath.startsWith('apps/frontend/')) return 'Frontend';
   if (relPath.startsWith('test-utils/')) return 'Tests';
@@ -168,7 +169,7 @@ async function generarEnvDoc() {
     }
   }
 
-  const areaOrder = ['Backend', 'Portal alumno cloud', 'Frontend', 'Scripts', 'Tests', 'Root'];
+  const areaOrder = ['Backend', 'Portal alumno cloud', 'Frontend', 'Scripts backend', 'Scripts', 'Tests', 'Root'];
   const sections = [];
   for (const area of areaOrder) {
     const items = grouped.get(area);
@@ -190,6 +191,7 @@ async function generarEnvDoc() {
       '',
       'Nota: esto detecta uso por texto (regex). Si agregas una variable nueva en código,',
       'este documento se actualiza automáticamente al regenerar.',
+      'Las variables de herramientas y scripts se listan por separado y no representan configuración del runtime publicado.',
       '',
       ...sections
     ].join('\n')

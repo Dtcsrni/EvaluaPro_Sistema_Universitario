@@ -7199,6 +7199,37 @@ html[data-theme="dark"] body .empty-step__num {
   border-color: color-mix(in srgb, var(--ui-accent-primary) 42%, var(--ui-glass-border));
 }
 
+/* WCAG AA: estos colores mantienen al menos 4.5:1 frente a la superficie KPI clara #e2e8f0. */
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--preguntas .banco-mini-kpi__num,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--preguntas .banco-mini-kpi__icon {
+  color: #6b21a8 !important;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--paginas .banco-mini-kpi__num--cyan,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--paginas .banco-mini-kpi__icon {
+  color: #075985 !important;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--sintema .banco-mini-kpi__num--amber,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--sintema .banco-mini-kpi__icon {
+  color: #92400e !important;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--temaactual .banco-mini-kpi__num--emerald,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--temaactual .banco-mini-kpi__icon {
+  color: #065f46 !important;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--reactivos .banco-mini-kpi__num,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--reactivos .banco-mini-kpi__icon {
+  color: #3730a3 !important;
+  text-shadow: none;
+}
+
 .calificaciones-experience .banco-mini-kpi:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-soft);

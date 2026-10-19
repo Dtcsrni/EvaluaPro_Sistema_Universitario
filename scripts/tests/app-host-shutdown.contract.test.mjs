@@ -38,6 +38,26 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /if \(dashboardProcess == null\)[\s\S]*?return;/);
 });
 
+test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola transición final', () => {
+  const closingHandler = hostSource.match(/private async void MainWindow_Closing[\s\S]*?\n    }/)?.[0];
+  assert.ok(closingHandler, 'debe existir el manejador de cierre del App Host');
+  assert.match(hostSource, /private bool closeAuthorized;/);
+
+  const authorizeCheck = closingHandler.indexOf('if (closeAuthorized) return;');
+  const cancelRequest = closingHandler.indexOf('e.Cancel = true;');
+  const duplicateRequestCheck = closingHandler.indexOf('if (isStopping) return;');
+  const cleanup = closingHandler.indexOf('await ShutdownServicesAsync();');
+  const authorizeFinalClose = closingHandler.indexOf('closeAuthorized = true;');
+  const finalClose = closingHandler.indexOf('Close();');
+
+  assert.ok(authorizeCheck >= 0 && authorizeCheck < cancelRequest,
+    'el único cierre final autorizado debe pasar sin cancelarse');
+  assert.ok(cancelRequest >= 0 && cancelRequest < duplicateRequestCheck,
+    'cada solicitud concurrente debe cancelarse antes de omitir el trabajo duplicado');
+  assert.ok(duplicateRequestCheck < cleanup && cleanup < authorizeFinalClose && authorizeFinalClose < finalClose,
+    'el cierre final debe autorizarse después de completar la limpieza, sin reentrar durante la espera');
+});
+
 test('el host adopta servicios sanos antes del retorno temprano y solo si coinciden con la instalación', () => {
   assert.match(hostSource, /await TryAdoptDashboardAsync\(dashboardPort\);[\s\S]*?var webResponds = await ProbePortAsync\(webHealthUrl\);[\s\S]*?var apiResponds = await ProbePortAsync\(apiHealthUrl\);[\s\S]*?if \(webResponds && apiResponds\)/);
   assert.match(hostSource, /lockRoot\.TryGetProperty\("pid"/);

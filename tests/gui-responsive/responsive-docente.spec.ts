@@ -130,6 +130,30 @@ async function assertHeaderBlocksDoNotOverlap(page: import('@playwright/test').P
   }
 }
 
+async function assertCalificacionesKpiContrast(page: import('@playwright/test').Page, context: string) {
+  const ratios = await page.locator('.calificaciones-experience .banco-mini-kpi').evaluateAll((cards) => {
+    const luminance = (color: string) => {
+      const channels = color.match(/[\d.]+/g)?.slice(0, 3).map((value) => Number(value) / 255) ?? [];
+      const linear = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+    };
+    const background = luminance('rgb(226, 232, 240)');
+    return cards.flatMap((card) => [...card.querySelectorAll('.banco-mini-kpi__num, .banco-mini-kpi__icon')].map((element) => {
+      const color = getComputedStyle(element).color;
+      const foreground = luminance(color);
+      return {
+        label: (element as HTMLElement).innerText.trim() || 'ícono KPI',
+        color,
+        contrast: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05)
+      };
+    }));
+  });
+  expect(ratios.length, `${context}: se deben auditar cifras e iconos de los cinco KPI`).toBeGreaterThanOrEqual(10);
+  for (const item of ratios) {
+    expect(item.contrast, `${context}: contraste insuficiente en ${item.label} (${item.color})`).toBeGreaterThanOrEqual(4.5);
+  }
+}
+
 async function assertHeaderPartsAreNotCardSurfaces(page: import('@playwright/test').Page, context: string) {
   const themes = await page.locator('.banco-panel__head').evaluate((head) => {
     const selectors = ['.banco-panel__lead', '.banco-panel__text-block', '.banco-panel__meta-row', '.banco-panel__title'];
@@ -560,8 +584,10 @@ test.describe('GUI responsive e2e · docente', () => {
         }
         if (viewport.name === 'mobile') await assertVisibleTabLabel(nav, tab.label);
         if (tab.slug === 'calificaciones') {
+          await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
           await assertHeaderPartsAreNotCardSurfaces(page, `${viewport.name} / calificaciones`);
           await assertHeaderBlocksDoNotOverlap(page, `${viewport.name} / calificaciones`);
+          await assertCalificacionesKpiContrast(page, `${viewport.name} / calificaciones`);
         }
         await page.waitForTimeout(300);
         await assertNoHorizontalOverflow(page, `Docente ${viewport.name} / ${tab.slug}`);

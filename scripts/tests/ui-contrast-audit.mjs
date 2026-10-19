@@ -57,6 +57,11 @@ const checks = [
   { id: 'light-kpi-topics', foreground: '#0369a1', background: '#ffffff', minimum: 4.5 },
   { id: 'light-kpi-current-topic', foreground: '#047857', background: '#ffffff', minimum: 4.5 },
   { id: 'light-kpi-pages', foreground: '#4338ca', background: '#ffffff', minimum: 4.5 },
+  { id: 'calificaciones-light-kpi-primary', foreground: '#6b21a8', background: '#e2e8f0', minimum: 4.5 },
+  { id: 'calificaciones-light-kpi-info', foreground: '#075985', background: '#e2e8f0', minimum: 4.5 },
+  { id: 'calificaciones-light-kpi-warning', foreground: '#92400e', background: '#e2e8f0', minimum: 4.5 },
+  { id: 'calificaciones-light-kpi-success', foreground: '#065f46', background: '#e2e8f0', minimum: 4.5 },
+  { id: 'calificaciones-light-kpi-secondary', foreground: '#3730a3', background: '#e2e8f0', minimum: 4.5 },
   { id: 'dark-format-panel-body', foreground: '#e2e8f0', background: '#1e293b', minimum: 4.5 },
   { id: 'dark-format-panel-heading', foreground: '#f8fafc', background: '#1e293b', minimum: 4.5 },
   { id: 'dark-format-panel-supporting', foreground: '#cbd5e1', background: '#1e293b', minimum: 4.5 },
@@ -81,6 +86,11 @@ assert.match(css, /tabs \.tab\.activa[\s\S]*color:\s*#ffffff\s*!important[\s\S]*
 assert.match(css, /WCAG AA:[\s\S]{0,800}\.banco-mini-kpi--temas \.banco-mini-kpi__num/);
 assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.plantillas-formato-box\s*\{/);
 assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.plantillas-form--panoramico \.plantillas-formato-box\s*\{/);
+assert.match(css, /calificaciones-experience \.banco-mini-kpi--preguntas \.banco-mini-kpi__num[\s\S]{0,180}color:\s*#6b21a8\s*!important/);
+assert.match(css, /calificaciones-experience \.banco-mini-kpi--paginas \.banco-mini-kpi__num--cyan[\s\S]{0,180}color:\s*#075985\s*!important/);
+assert.match(css, /calificaciones-experience \.banco-mini-kpi--sintema \.banco-mini-kpi__num--amber[\s\S]{0,180}color:\s*#92400e\s*!important/);
+assert.match(css, /calificaciones-experience \.banco-mini-kpi--temaactual \.banco-mini-kpi__num--emerald[\s\S]{0,180}color:\s*#065f46\s*!important/);
+assert.match(css, /calificaciones-experience \.banco-mini-kpi--reactivos \.banco-mini-kpi__num[\s\S]{0,180}color:\s*#3730a3\s*!important/);
 
 const results = checks.map((check) => ({
   ...check,
