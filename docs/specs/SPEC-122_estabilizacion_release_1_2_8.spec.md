@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.2.0
+version: 1.3.0
 fecha: 2026-10-19
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -25,6 +25,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **REQ-009 — Texto de progreso legible:** La estimación de tiempo y su explicación completa deben permanecer visibles y accesibles durante la ejecución en el tamaño normal y el tamaño compacto soportado; el texto debe envolver o acortarse de forma semántica, sin recorte horizontal, superposición ni pérdida del nombre accesible.
 - **REQ-010 — Handoff de instalación durable y no destructivo:** Las solicitudes/respuestas privadas entre Burn y su helper deben vivir fuera de todas las carpetas administradas por MSI. Antes de planear cualquier operación se rechazan rutas de instalación que se solapen con el handoff. Ante error antes del post-install, Burn conserva el handoff para diagnóstico y no limpia una instalación que ya existía; el rollback de residuos solo puede operar sobre una instalación nueva/incompleta y nunca sobre `data`.
 - **REQ-011 — Evidencia WCAG para colores nuevos:** Cada declaración CSS de color crudo que se agregue a la rama debe tener un comentario `WCAG AA` cercano y su combinación de foreground/background debe figurar en la auditoría automatizada de contraste. El preflight local y CI deben ejecutar el mismo guard sobre el diff candidato.
+- **REQ-013 — Diagnóstico útil de drift de API:** Cuando el historial de API pública o de composición difiera de la API extraída, el reporte identifica exports agregados, eliminados o cuya firma cambió; si solo difiere la estructura, informa que debe revisarse el orden o la forma del snapshot. No oculta ni acepta el drift. Las pruebas comprueban estos casos y que el gate siga rechazando el contrato hasta registrar la evolución SemVer correspondiente.
 - **REQ-012 — Runtime PDF y diagnóstico de gates visuales:** Todo gate que invoque el preview rasterizado de PDF instala sus renderizadores del sistema antes del E2E; el workflow mantiene un contrato que detecta su omisión. Si falla arquitectura, el artefacto del job incluye el reporte JSON específico de ese gate. La aserción del E2E de preview conserva el identificador de solicitud de la respuesta para correlacionarlo con los logs sin revelar datos sensibles.
 
 ## Criterios de Aceptación
@@ -40,6 +41,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **CA-009:** Una simulación local elimina el directorio de instalación como lo haría un upgrade fallido y confirma que el request del helper sigue presente fuera de ese directorio; los paths iguales o ancestro/descendiente se bloquean antes de `Plan/Apply`; un fallo con instalación preexistente omite desinstalación/limpieza destructiva; los datos de usuario permanecen fuera de la limpieza. La prueba no accede a la instalación productiva.
 - **CA-010:** Los colores de KPI y paneles señalados por el CI tienen comentario `WCAG AA`, sus contrastes se calculan y prueban contra la superficie efectiva más clara, y la regresión falla si se quita el comentario o el par auditado.
 - **CA-011:** Seleccionar `ux-visual-check` instala Poppler antes del E2E; la prueba de contrato falla si se retira esa condición. La publicación de `perf-report` incluye `clean-architecture.json`; una respuesta HTTP fallida en el preview deja su status e identificador de solicitud en el reporte de Playwright.
+- **CA-012:** Un drift de API informa los nombres y el tipo de diferencia para exports agregados, eliminados y con firma modificada, y diagnostica diferencias estructurales sin cambio semántico; el resultado continúa siendo fallido y exige actualizar el historial versionado. La regresión cubre los cuatro casos.
 
 ## Matriz de Trazabilidad
 
@@ -57,6 +59,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 | REQ-010 | Handoff fuera del payload MSI, rechazo de rutas solapadas y preservación al fallar un upgrade | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Aprobado; implementación en curso |
 | REQ-011 | Comentarios WCAG AA y contraste calculado para colores CSS agregados | `scripts/tests/wcag-guard.contract.test.mjs`; `scripts/tests/ui-contrast-audit.mjs` | Corrección local en curso; CI pendiente |
 | REQ-012 | Runtime Poppler para E2E UX visual; publicación del reporte de arquitectura; diagnóstico acotado de error PDF | `scripts/tests/ci-workflow-contract.test.mjs`; `tests/gui-responsive/banco-reactivos.spec.ts` | Implementado localmente; CI pendiente |
+| REQ-013 | Reporte accionable de drift del historial de API pública y composición, manteniendo el fallo bloqueante | `scripts/tests/module-contract-check.test.mjs` | Implementado localmente; CI pendiente |
 
 ## Fichas consolidadas
 
