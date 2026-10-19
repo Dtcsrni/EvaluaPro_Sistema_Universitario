@@ -59,6 +59,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private bool autoRemediationAttempted;
     private bool autoResumeRequested;
     private bool applySawPackageFailure;
+    private bool hasSameVersionRelatedBundle;
+    private bool relatedBundleCleanupFailed;
     private int requestedExitCode;
     private int? lastFailedPackageStatus;
     private string currentOperation = "install";
@@ -144,6 +146,23 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         EvaluateDetectionState();
     }
 
+    protected override void OnDetectRelatedBundle(DetectRelatedBundleEventArgs args)
+    {
+        base.OnDetectRelatedBundle(args);
+
+        var candidateVersionText = ReadEngineVariableString("WixBundleVersion");
+        if (args.RelationType == RelationType.Upgrade
+            && Version.TryParse(candidateVersionText, out var candidateVersion)
+            && Version.TryParse(args.Version, out var relatedVersion)
+            && candidateVersion.Equals(relatedVersion))
+        {
+            hasSameVersionRelatedBundle = true;
+            Log(
+                "warn",
+                $"Se detectó un bundle relacionado de la misma versión; se bloqueará antes de Apply para evitar que su desinstalación retire el MSI compartido. bundle={args.ProductCode} version={args.Version}");
+        }
+    }
+
     protected override void OnDetectPackageComplete(DetectPackageCompleteEventArgs args)
     {
         base.OnDetectPackageComplete(args);
@@ -164,7 +183,16 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             return;
         }
 
+        if (hasSameVersionRelatedBundle && !string.Equals(currentOperation, "uninstall", StringComparison.OrdinalIgnoreCase))
+        {
+            const string reason = "Hay otro Installer Hub relacionado de la misma versión. Para proteger el MSI y los datos existentes, no se aplicaron cambios; cierra esta ventana y usa el bundle ya instalado para reparar, o espera una versión superior para actualizar.";
+            SetStageState(StagePlanning, InstallerStageStatus.Error, "Actualización detenida por conflicto de versión.", reason);
+            FinalizeFailure("accion_producto", 30, reason);
+            return;
+        }
+
         applySawPackageFailure = false;
+        relatedBundleCleanupFailed = false;
         lastFailedPackageStatus = null;
         lastFailedPackageId = null;
         applyInFlight = true;
@@ -192,7 +220,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         if (!string.Equals(args.PackageId, "EvaluaProMsi", StringComparison.OrdinalIgnoreCase) && (args.PackageId?.StartsWith("{") == true))
         {
-            // Limpieza de bundle previo / RelatedBundle antiguo cuyo cache temporal ya no existe (no fatal para el nuevo MSI)
+            relatedBundleCleanupFailed = true;
+            lastFailedPackageId ??= args.PackageId;
+            lastFailedPackageStatus ??= args.Status;
             Log("warn", $"ExecutePackageComplete RelatedBundle package={args.PackageId} status={args.Status} ({FormatWindowsStatus(args.Status)})");
             return;
         }
@@ -238,6 +268,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             }
             detail += $" Revisa log BA: {sessionLogPath}";
             FinalizeFailure("accion_producto", 30, detail);
+            return;
+        }
+
+        if (relatedBundleCleanupFailed)
+        {
+            const string reason = "La limpieza de un Installer Hub anterior falló. No se declara éxito; verifica el estado de la instalación y conserva los logs para recuperación.";
+            SetStageState(StageFinalize, InstallerStageStatus.Error, "No se completó la limpieza del bundle anterior.", reason);
+            FinalizeFailure("accion_producto", 30, reason);
             return;
         }
 
