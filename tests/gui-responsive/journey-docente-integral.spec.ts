@@ -366,9 +366,9 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '31_omr_job_procesando.png'), fullPage: true });
 
     const finalizarOmr = page.getByRole('button', { name: 'Finalizar job', exact: true });
-    if (await finalizarOmr.isEnabled()) await finalizarOmr.click();
-    await expect(page.getByRole('heading', { name: 'Job OMR', exact: true })).toBeVisible({ timeout: 30_000 });
-    await page.screenshot({ path: path.join(outputDir, '32_omr_job_finalizado.png'), fullPage: true });
+    await expect(historial.getByText('Estado: completed', { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(finalizarOmr).toBeDisabled();
+    await page.screenshot({ path: path.join(outputDir, '32_omr_ingesta_completada.png'), fullPage: true });
 
     const examen = await page.evaluate(async ({ plantillaTitulo, apiPort }) => {
       const token = localStorage.getItem('tokenDocente');
