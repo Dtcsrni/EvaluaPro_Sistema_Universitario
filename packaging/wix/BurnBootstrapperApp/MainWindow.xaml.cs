@@ -103,8 +103,9 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        var renderTier = ConfigureHardwareRendering();
         InitializeComponent();
-        ConfigureHardwareRendering();
+        AppendLog($"[info] WPF DirectX render tier={renderTier}; modo solicitado=SoftwareOnly para evitar superficies de ventana vacías en el Installer Hub.");
         ModeComboBox.SelectedIndex = 0;
         SetHubVersionLabel();
         RefreshOperationalChrome();
@@ -114,11 +115,11 @@ public partial class MainWindow : Window
         StartSplashCarousel();
     }
 
-    private void ConfigureHardwareRendering()
+    private static int ConfigureHardwareRendering()
     {
-        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.Default;
         var tier = System.Windows.Media.RenderCapability.Tier >> 16;
-        AppendLog($"[info] WPF DirectX render tier={tier}; GPU/DWM activo={tier > 0}.");
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+        return tier;
     }
 
     private void ApplyNativeBackdrop()

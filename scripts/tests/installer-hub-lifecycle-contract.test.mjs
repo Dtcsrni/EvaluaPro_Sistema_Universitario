@@ -80,6 +80,15 @@ test('el E2E visual del Installer Hub rechaza capturas vacías y ajusta el HWND 
   assert.match(uiLifecycle, /AutomationIdProperty,[\s\S]*?'FooterStatusTextBlock'/);
 });
 
+test('el Installer Hub configura el render seguro antes de cargar el árbol visual y deja diagnóstico visible', () => {
+  const constructor = hubWindow.slice(hubWindow.indexOf('public MainWindow()'), hubWindow.indexOf('\n    private static int ConfigureHardwareRendering()'));
+  const configure = hubWindow.slice(hubWindow.indexOf('private static int ConfigureHardwareRendering()'), hubWindow.indexOf('\n    private void ApplyNativeBackdrop()'));
+
+  assert.ok(constructor.indexOf('ConfigureHardwareRendering();') < constructor.indexOf('InitializeComponent();'));
+  assert.match(configure, /RenderOptions\.ProcessRenderMode\s*=\s*System\.Windows\.Interop\.RenderMode\.SoftwareOnly/);
+  assert.match(constructor, /AppendLog\(\$"\[info\] WPF DirectX render tier=\{renderTier\}; modo solicitado=SoftwareOnly/);
+});
+
 test('el resumen de edición del Installer Hub reutiliza la versión dinámica visible', () => {
   assert.match(hubWindowXaml, /x:Name="EditionVersionTextBlock"[^>]*AutomationProperties\.AutomationId="EditionVersionTextBlock"/);
   assert.doesNotMatch(hubWindowXaml, /EvaluaPro Docente Local \(v?\d+\.\d+\.\d+/);
@@ -339,6 +348,16 @@ test('GUI lifecycle asocia ventana y detección al proceso iniciado y cierra su 
   assert.match(uiLifecycle, /\$RootProcess\.Kill\(\)/);
   assert.match(uiLifecycle, /processStartedAt = \$bundleProcessStartedAt/);
   assert.doesNotMatch(uiLifecycle, /Stop-Process -Id \$process\.Id/);
+});
+
+test('E2E visual selecciona los nombres accesibles exactos de cada modo del Hub', () => {
+  const modeSelection = uiLifecycle.slice(uiLifecycle.indexOf("foreach ($mode in @('Instalar', 'Reparar', 'Desinstalar'))"), uiLifecycle.indexOf("Capture-Window -Window $window -Name '04-modos-validados'"));
+  assert.match(modeSelection, /'Instalar' \{ 'Instalar \/ Actualizar versión' \}/);
+  assert.match(modeSelection, /'Reparar' \{ 'Reparar componentes' \}/);
+  assert.match(modeSelection, /'Desinstalar' \{ 'Desinstalar \(con respaldo\)' \}/);
+  assert.match(modeSelection, /Select-ComboItem -Combo \$modeCombo -ItemName \$modeItemName/);
+  assert.match(uiLifecycle, /No se pudo confirmar la selección de '\$ItemName'/);
+  assert.match(modeSelection, /Add-Result -Area 'mode' -Item \$mode -Ok \(\$startName -like "\*\$mode\*"\)/);
 });
 
 test('runner limita broker y mata solo su árbol al vencer timeout', () => {

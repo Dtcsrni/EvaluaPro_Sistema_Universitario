@@ -598,6 +598,10 @@ function Select-ComboItem {
   $pattern = $null
   if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) {
     $pattern.Select()
+    Start-Sleep -Milliseconds 250
+    if (-not $pattern.Current.IsSelected) {
+      throw "No se pudo confirmar la selección de '$ItemName' en $($Combo.Current.AutomationId)."
+    }
   } else {
     Invoke-Control -Element $item
   }
@@ -921,7 +925,12 @@ try {
   foreach ($mode in @('Instalar', 'Reparar', 'Desinstalar')) {
     if (-not $modeCombo) { break }
     try {
-      Select-ComboItem -Combo $modeCombo -ItemName $mode
+      $modeItemName = switch ($mode) {
+        'Instalar' { 'Instalar / Actualizar versión' }
+        'Reparar' { 'Reparar componentes' }
+        'Desinstalar' { 'Desinstalar (con respaldo)' }
+      }
+      Select-ComboItem -Combo $modeCombo -ItemName $modeItemName
       $nextButton = Find-ById -RootElement $window -AutomationId 'NextButton' -TimeoutSec 5
       if ($nextButton -and $nextButton.Current.IsEnabled) {
         Invoke-Control -Element $nextButton
