@@ -9,7 +9,11 @@ const guardPath = path.join(root, 'scripts', 'release', 'assert-candidate-clean.
 const workflowPath = path.join(root, '.github', 'workflows', 'release-stable-gate.yml');
 const allowedPath = 'scripts/testing/run-backend-coverage-batches.mjs';
 
-async function withFixture(callback) {
+async function withFixture(
+  callback,
+  trackedPath = allowedPath,
+  initialContents = 'const first = 1;\nconst second = 2;\n'
+) {
   const tempRoot = path.join(root, 'tmp', 'candidate-clean-guard-tests');
   fs.mkdirSync(tempRoot, { recursive: true });
   const fixture = fs.mkdtempSync(path.join(tempRoot, 'fixture-'));
@@ -18,10 +22,10 @@ async function withFixture(callback) {
     execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: fixture });
     execFileSync('git', ['config', 'user.name', 'EvaluaPro Test'], { cwd: fixture });
     execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: fixture });
-    const filePath = path.join(fixture, allowedPath);
+    const filePath = path.join(fixture, trackedPath);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, 'const first = 1;\nconst second = 2;\n', 'utf8');
-    execFileSync('git', ['add', allowedPath], { cwd: fixture });
+    fs.writeFileSync(filePath, initialContents, 'utf8');
+    execFileSync('git', ['add', trackedPath], { cwd: fixture });
     execFileSync('git', ['commit', '-qm', 'baseline'], { cwd: fixture });
     await callback(fixture, filePath);
   } finally {
@@ -47,14 +51,9 @@ test('Stable Gate invoca el mismo guard para checkout inicial, checkpoints y gua
   ]) {
     assert.match(workflow, new RegExp(`assert-candidate-clean\\.mjs '${stage}'`), `falta guard en ${stage}`);
   }
-  for (const file of [
-    'docs/specs/SPEC-109_aislamiento_regeneracion_examen_en_cobertura.spec.md',
-    'scripts/testing/run-backend-coverage-batches.mjs',
-    'scripts/tests/backend-coverage-batches.test.mjs'
-  ]) assert.ok(guard.includes(`'${file}'`), `falta ruta permitida explícita: ${file}`);
   assert.match(guard, /--ignore-cr-at-eol/);
   assert.match(guard, /staged \|\| untracked/);
-  assert.match(guard, /!unstagedModification \|\| !eolOnlyAllowlist\.has\(path\)/);
+  assert.match(guard, /staged \|\| untracked \|\| !unstagedModification/);
 });
 
 test('el guard del checkout candidato solo permite EOL sin cambios semánticos', async (t) => {
@@ -63,8 +62,17 @@ test('el guard del checkout candidato solo permite EOL sin cambios semánticos',
       fs.writeFileSync(filePath, 'const first = 1;\r\nconst second = 2;\r\n', 'utf8');
       const result = runGuard(fixture);
       assert.equal(result.status, 0, result.stderr);
-      assert.match(result.stdout, /Diferencias EOL heredadas permitidas/);
+      assert.match(result.stdout, /Diferencias EOL sin cambio semántico permitidas/);
     });
+  });
+
+  await t.test('acepta EOL-only en JSON de evidencia fuera de la allowlist histórica', async () => {
+    await withFixture((fixture, filePath) => {
+      fs.writeFileSync(filePath, '{\r\n  "version": "1.2.8"\r\n}\r\n', 'utf8');
+      const result = runGuard(fixture);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /manifest\.json/);
+    }, 'docs/release/evidencias/1.2.8/manifest.json', '{\n  "version": "1.2.8"\n}\n');
   });
 
   await t.test('rechaza contenido semántico en una ruta permitida', async () => {
@@ -89,7 +97,7 @@ test('el guard del checkout candidato solo permite EOL sin cambios semánticos',
   await t.test('rechaza cambios preparados aunque su contenido sea EOL-only', async () => {
     await withFixture((fixture, filePath) => {
       fs.writeFileSync(filePath, 'const first = 1;\r\nconst second = 2;\r\n', 'utf8');
-      execFileSync('git', ['add', allowedPath], { cwd: fixture });
+      execFileSync('git', ['add', path.relative(fixture, filePath)], { cwd: fixture });
       const result = runGuard(fixture);
       assert.equal(result.status, 1);
       assert.match(result.stderr, /cambios no permitidos/);
