@@ -8767,6 +8767,9 @@ li.empty-state-card {
   margin-top: 1rem;
 }
 
+/* WCAG AA: este panel conserva una superficie oscura incluso en tema claro;
+   los pares de texto con el extremo más claro del gradiente (#1e293b) se
+   verifican en ui-contrast-audit.mjs y superan 4.5:1. */
 .plantillas-formato-box {
   margin-top: 1.25rem;
   padding: 1.25rem 1.5rem;
@@ -9187,6 +9190,8 @@ li.empty-state-card {
   margin-top: 0;
 }
 
+/* WCAG AA: el panel panorámico usa el mismo gradiente oscuro estable; las
+   combinaciones de texto se cubren en ui-contrast-audit.mjs (mínimo 4.5:1). */
 .plantillas-form--panoramico .plantillas-formato-box {
   grid-column: 1;
   grid-row: 2;

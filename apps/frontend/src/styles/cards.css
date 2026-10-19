@@ -6002,6 +6002,8 @@ html[data-theme="dark"] body .empty-step__num {
   color: #475569 !important;
 }
 
+/* WCAG AA: los cuatro valores KPI se leen sobre la superficie clara opaca; sus
+   pares con #fff se verifican en ui-contrast-audit.mjs (mínimo 4.5:1). */
 :root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--preguntas .banco-mini-kpi__num { color: #7e22ce !important; text-shadow: none; }
 :root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--temas .banco-mini-kpi__num { color: #0369a1 !important; text-shadow: none; }
 :root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--temaactual .banco-mini-kpi__num { color: #047857 !important; text-shadow: none; }

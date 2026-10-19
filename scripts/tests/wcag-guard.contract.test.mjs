@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateAddedCssColors, validatePolicyContract } from '../wcag-guard.mjs';
+import { cssDiff, validateAddedCssColors, validatePolicyContract } from '../wcag-guard.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -42,4 +42,23 @@ test('un color CSS nuevo requiere evidencia WCAG AA cercana', () => {
     '+}',
   ].join('\n');
   assert.throws(() => validateAddedCssColors(unsafeDiff), /colores CSS nuevos/);
+});
+
+test('los colores agregados en KPI y paneles de formato tienen comentario WCAG y pares auditados', () => {
+  const css = fs.readFileSync(path.join(repoRoot, 'apps', 'frontend', 'src', 'styles', 'cards.css'), 'utf8');
+  const screensCss = fs.readFileSync(path.join(repoRoot, 'apps', 'frontend', 'src', 'styles', 'screens.css'), 'utf8');
+  const contrastAudit = fs.readFileSync(path.join(repoRoot, 'scripts', 'tests', 'ui-contrast-audit.mjs'), 'utf8');
+
+  assert.match(css, /WCAG AA:[\s\S]{0,800}\.banco-mini-kpi--temas \.banco-mini-kpi__num/);
+  assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.plantillas-formato-box\s*\{/);
+  assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.plantillas-form--panoramico \.plantillas-formato-box\s*\{/);
+  for (const color of ['#7e22ce', '#0369a1', '#047857', '#4338ca', '#e2e8f0', '#f8fafc', '#cbd5e1', '#67e8f9']) {
+    assert.ok(contrastAudit.includes(`foreground: '${color}'`), `falta auditar foreground ${color}`);
+  }
+});
+
+test('el preflight valida los cambios WCAG del árbol de trabajo contra la base configurada', () => {
+  const baseSha = process.env.EVALUAPRO_WCAG_BASE_SHA || process.env.GITHUB_BASE_SHA;
+  if (!baseSha) return;
+  validateAddedCssColors(cssDiff(baseSha));
 });

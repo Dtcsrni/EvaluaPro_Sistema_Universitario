@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.1.0
+version: 1.2.0
 fecha: 2026-10-19
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -24,6 +24,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **REQ-008 — Manifiesto QA coherente con EOL:** `workingTreeClean` y `dirtyPathCount` deben usar la misma comparación semántica del guard; solo diferencias EOL unstaged son limpias. Cambios staged, semánticos o sin seguimiento siguen contando como suciedad.
 - **REQ-009 — Texto de progreso legible:** La estimación de tiempo y su explicación completa deben permanecer visibles y accesibles durante la ejecución en el tamaño normal y el tamaño compacto soportado; el texto debe envolver o acortarse de forma semántica, sin recorte horizontal, superposición ni pérdida del nombre accesible.
 - **REQ-010 — Handoff de instalación durable y no destructivo:** Las solicitudes/respuestas privadas entre Burn y su helper deben vivir fuera de todas las carpetas administradas por MSI. Antes de planear cualquier operación se rechazan rutas de instalación que se solapen con el handoff. Ante error antes del post-install, Burn conserva el handoff para diagnóstico y no limpia una instalación que ya existía; el rollback de residuos solo puede operar sobre una instalación nueva/incompleta y nunca sobre `data`.
+- **REQ-011 — Evidencia WCAG para colores nuevos:** Cada declaración CSS de color crudo que se agregue a la rama debe tener un comentario `WCAG AA` cercano y su combinación de foreground/background debe figurar en la auditoría automatizada de contraste. El preflight local y CI deben ejecutar el mismo guard sobre el diff candidato.
 
 ## Criterios de Aceptación
 
@@ -36,6 +37,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **CA-007:** Un checkout con únicamente drift CRLF/LF produce manifiesto QA limpio y no contradice el guard; cambios semánticos o staged continúan bloqueando promoción.
 - **CA-008:** Las capturas del E2E visual de ejecución en tamaño normal y compacto muestran el texto de progreso completo, sin recorte ni superposición; UI Automation expone el mismo texto legible. La regresión protege la propiedad de wrapping y la segunda validación se ejecuta sobre el bundle reconstruido.
 - **CA-009:** Una simulación local elimina el directorio de instalación como lo haría un upgrade fallido y confirma que el request del helper sigue presente fuera de ese directorio; los paths iguales o ancestro/descendiente se bloquean antes de `Plan/Apply`; un fallo con instalación preexistente omite desinstalación/limpieza destructiva; los datos de usuario permanecen fuera de la limpieza. La prueba no accede a la instalación productiva.
+- **CA-010:** Los colores de KPI y paneles señalados por el CI tienen comentario `WCAG AA`, sus contrastes se calculan y prueban contra la superficie efectiva más clara, y la regresión falla si se quita el comentario o el par auditado.
 
 ## Matriz de Trazabilidad
 
@@ -51,6 +53,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 | REQ-008 | Manifiesto QA alinea su cálculo de suciedad con el guard EOL | `scripts/tests/release-stable-promotion.test.mjs` | Aprobado; implementación en curso |
 | REQ-009 | Estimación de tiempo completa y accesible en pantalla de ejecución, incluido tamaño compacto | `scripts/tests/installer-hub-lifecycle-contract.test.mjs`; `scripts/tests/installer-hub-ui-lifecycle.ps1` | Aprobado; implementación en curso |
 | REQ-010 | Handoff fuera del payload MSI, rechazo de rutas solapadas y preservación al fallar un upgrade | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Aprobado; implementación en curso |
+| REQ-011 | Comentarios WCAG AA y contraste calculado para colores CSS agregados | `scripts/tests/wcag-guard.contract.test.mjs`; `scripts/tests/ui-contrast-audit.mjs` | Corrección local en curso; CI pendiente |
 
 ## Fichas consolidadas
 

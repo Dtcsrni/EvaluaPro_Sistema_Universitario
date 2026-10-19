@@ -84,9 +84,8 @@ function wcagCssBaselineCommit() {
   return wcagGuardIntroductionCommit();
 }
 
-function cssDiff() {
+export function cssDiff(baseSha = process.env.EVALUAPRO_WCAG_BASE_SHA || process.env.GITHUB_BASE_SHA) {
   const args = ['diff', '--unified=0'];
-  const baseSha = process.env.GITHUB_BASE_SHA;
   if (baseSha && gitAvailable(baseSha)) {
     const baselineCommit = wcagCssBaselineCommit();
     if (baselineCommit) {
@@ -94,18 +93,20 @@ function cssDiff() {
       // historia previa puede venir de otra rama, así que no se decide por
       // ascendencia respecto de GITHUB_BASE_SHA; solo se audita CSS posterior
       // al snapshot y se conserva el fallback para ramas sin ese commit.
-      args.push(baselineCommit + '...HEAD');
+      // Compara con el árbol de trabajo, no solo con HEAD. Así el preflight
+      // local analiza los mismos cambios que CI aunque aún no estén commiteados.
+      args.push(baselineCommit);
     } else if (gitContainsFile(baseSha, 'scripts/wcag-guard.mjs')) {
-      args.push(baseSha + '...HEAD');
+      args.push(baseSha);
     } else {
       // La política se incorpora durante una migración que también sincroniza
       // estilos locales. Usa el baseline de esa migración para no reauditar
       // CSS histórico; las adiciones posteriores siguen sujetas al guardrail.
-      args.push((baselineCommit || baseSha) + '...HEAD');
+      args.push(baselineCommit || baseSha);
     }
   } else if (process.env.GITHUB_SHA && gitAvailable('HEAD^')) {
     const baselineCommit = wcagCssBaselineCommit();
-    args.push(baselineCommit ? baselineCommit + '...HEAD' : 'HEAD^...HEAD');
+    args.push(baselineCommit || 'HEAD^');
   }
   args.push('--', 'apps/frontend/src/styles');
   const result = spawnSync('git', args, {
