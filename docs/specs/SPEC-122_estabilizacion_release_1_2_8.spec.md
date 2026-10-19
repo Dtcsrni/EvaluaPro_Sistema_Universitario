@@ -2,7 +2,7 @@
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
 version: 1.0.0
-fecha: 2026-10-18
+fecha: 2026-10-19
 autor: Codex / Ingeniería
 modulo: release_stable_gate
 estado: approved
@@ -10,7 +10,7 @@ estado: approved
 
 ## Contexto
 
-La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, el Stable Gate y la validación del Installer Hub. Se consolidan aquí las decisiones aprobadas en SPEC-115 a SPEC-121 para que una sola unidad de trabajo describa los gates completos y su relación. Las fichas originales se conservan como detalle del incidente, aprobación y trazabilidad; este documento no reemplaza ni reduce sus criterios.
+La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, el Stable Gate y la validación del Installer Hub. Se consolidan aquí las decisiones aprobadas en SPEC-115 a SPEC-121 para que una sola unidad de trabajo describa los gates completos y su relación. Las fichas originales se conservan como detalle del incidente, aprobación y trazabilidad; este documento no reemplaza ni reduce sus criterios. La primera inspección visual del bundle 1.2.8 detectó que la estimación de tiempo de la pantalla de ejecución se recorta en el ancho normal, por lo que se añade un criterio verificable de legibilidad antes de promover el candidato.
 
 ## Requisitos Funcionales
 
@@ -22,6 +22,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **REQ-006 — Versión visible dinámica (SPEC-121):** El resumen y encabezado del Installer Hub muestran una misma versión proveniente del bundle actual; contratos y E2E detectan versiones literales obsoletas.
 - **REQ-007 — Puerta de promoción:** Ejecutar todas las pruebas locales aplicables antes de enviar el SHA a CI/CD; después exigir los gates remotos completos, dos pasadas visuales consecutivas del mismo candidato y evidencia verificable antes de declarar estable o publicar.
 - **REQ-008 — Manifiesto QA coherente con EOL:** `workingTreeClean` y `dirtyPathCount` deben usar la misma comparación semántica del guard; solo diferencias EOL unstaged son limpias. Cambios staged, semánticos o sin seguimiento siguen contando como suciedad.
+- **REQ-009 — Texto de progreso legible:** La estimación de tiempo y su explicación completa deben permanecer visibles y accesibles durante la ejecución en el tamaño normal y el tamaño compacto soportado; el texto debe envolver o acortarse de forma semántica, sin recorte horizontal, superposición ni pérdida del nombre accesible.
 
 ## Criterios de Aceptación
 
@@ -32,6 +33,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **CA-005:** El candidato supera las suites locales relevantes antes de CI, los gates requeridos y dos ejecuciones visuales consecutivas sobre el mismo SHA; ningún `skipped` no planeado, retry oculto o evidencia vieja constituye éxito.
 - **CA-006:** La spec pasa la auditoría SDD y sus fichas de origen mantienen trazabilidad a pruebas existentes.
 - **CA-007:** Un checkout con únicamente drift CRLF/LF produce manifiesto QA limpio y no contradice el guard; cambios semánticos o staged continúan bloqueando promoción.
+- **CA-008:** Las capturas del E2E visual de ejecución en tamaño normal y compacto muestran el texto de progreso completo, sin recorte ni superposición; UI Automation expone el mismo texto legible. La regresión protege la propiedad de wrapping y la segunda validación se ejecuta sobre el bundle reconstruido.
 
 ## Matriz de Trazabilidad
 
@@ -45,6 +47,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 | REQ-006 | Contrato y visualización de versión actual del bundle | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Implementado localmente; CI pendiente |
 | REQ-007 | Aprobación estable basada en SHA y evidencia actual de gates completos | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Pendiente de gates del SHA final |
 | REQ-008 | Manifiesto QA alinea su cálculo de suciedad con el guard EOL | `scripts/tests/release-stable-promotion.test.mjs` | Aprobado; implementación en curso |
+| REQ-009 | Estimación de tiempo completa y accesible en pantalla de ejecución, incluido tamaño compacto | `scripts/tests/installer-hub-lifecycle-contract.test.mjs`; `scripts/tests/installer-hub-ui-lifecycle.ps1` | Aprobado; implementación en curso |
 
 ## Fichas consolidadas
 

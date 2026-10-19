@@ -809,7 +809,7 @@
                                             <ScaleTransform x:Name="ProgressPulseTransform" ScaleX="1" ScaleY="1" />
                                         </ProgressBar.RenderTransform>
                                     </ProgressBar>
-                                    <TextBlock x:Name="ProgressEtaTextBlock" Text="Tiempo restante: calculando…" Foreground="{StaticResource MutedTextBrush}" FontSize="13" AutomationProperties.Name="Estimación de tiempo restante" />
+                                    <TextBlock x:Name="ProgressEtaTextBlock" Text="Tiempo restante: calculando…" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="13" AutomationProperties.AutomationId="ProgressEtaTextBlock" />
                                     <Border x:Name="FailureSummaryBorder" Margin="0,10,0,0" Padding="12" CornerRadius="8" Background="#667F1D1D" BorderBrush="#80F87171" BorderThickness="1" Visibility="Collapsed">
                                         <StackPanel>
                                             <TextBlock x:Name="FailureSummaryTitleTextBlock" Text="Resumen de error" FontWeight="Bold" Foreground="#F87171" />

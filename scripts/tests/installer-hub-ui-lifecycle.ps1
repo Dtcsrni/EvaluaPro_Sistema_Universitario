@@ -957,6 +957,11 @@ try {
     Start-Sleep -Seconds 1
     $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
     Capture-Window -Window $window -Name '04-ejecutar-busy' | Out-Null
+    $etaTextBlock = Find-ById -RootElement $window -AutomationId 'ProgressEtaTextBlock' -TimeoutSec 5
+    $etaAccessibleName = if ($etaTextBlock) { [string]$etaTextBlock.Current.Name } else { '' }
+    $etaVisible = $null -ne $etaTextBlock -and -not $etaTextBlock.Current.IsOffscreen
+    $etaComplete = $etaAccessibleName -match 'Tiempo restante estimado:.*desempaquetando archivos nativos'
+    Add-Result -Area 'accessibility' -Item 'progress-eta-full-text-visible' -Ok ($etaVisible -and $etaComplete) -Detail "visible=$etaVisible; accessibleName=$etaAccessibleName"
     Add-Result -Area 'button' -Item 'StartButton' -Ok ($null -ne $window) -Detail 'Invoke respondio en modo QA no destructivo.'
     Start-Sleep -Seconds 5
     $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10

@@ -359,6 +359,13 @@ test('la ETA del Hub se deriva del avance real, se suaviza y declara verificaciÃ
   assert.match(hubWindow, /Tiempo restante estimado: \{FormatDuration\(lowerSeconds\)\} a \{FormatDuration\(upperSeconds\)\}/);
 });
 
+test('la ETA se ajusta al ancho y expone su contenido completo a UI Automation', () => {
+  assert.match(hubWindowXaml, /<TextBlock[^>]*x:Name="ProgressEtaTextBlock"[^>]*TextWrapping="Wrap"[^>]*AutomationProperties\.AutomationId="ProgressEtaTextBlock"/);
+  assert.doesNotMatch(hubWindowXaml, /x:Name="ProgressEtaTextBlock"[^>]*AutomationProperties\.Name=/);
+  assert.match(uiLifecycle, /progress-eta-full-text-visible/);
+  assert.match(uiLifecycle, /desempaquetando archivos nativos/);
+});
+
 test('matriz visual cubre lifecycle, contraste y escenarios de recuperaciÃ³n', () => {
   assert.equal(matrix.version, 2);
   assert.equal(matrix.acceptance.lifecycleScenarioCoverageRequired, true);
