@@ -5,6 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const root = process.cwd();
@@ -105,12 +106,52 @@ test('lifecycle bootstrapper normaliza operaciones peligrosas de forma explícit
 
 test('cada invocación de helper tiene correlación y respuesta aisladas', () => {
   assert.match(bootstrapper, /CreatePrivateHandoffDirectory\(requestRoot\)/);
+  assert.match(bootstrapper, /requestRoot\s*=\s*Path\.Combine\(localAppData, "EvaluaProInstaller", "installer-hub", "requests", sessionId\)/);
+  assert.match(bootstrapper, /HandoffOverlapsInstallDirectory\(requestRoot, request\.InstallDir\)/);
+  assert.match(bootstrapper, /private static bool HandoffOverlapsInstallDirectory/);
+  assert.match(bootstrapper, /return IsSameOrDescendantPath\(handoff, install\) \|\| IsSameOrDescendantPath\(install, handoff\)/);
+  assert.match(bootstrapper, /El directorio privado de solicitudes del instalador se superpone/);
+  assert.match(bootstrapper, /installationExistedBeforeOperation\s*=\s*msiInstalled \|\| HasInstalledPayloadFiles\(request\.InstallDir\)/);
   assert.match(bootstrapper, /Guid\.NewGuid\(\)/);
   assert.match(bootstrapper, /correlationId/);
   assert.match(bootstrapper, /\.request\.json/);
   assert.match(bootstrapper, /\.response\.json/);
   assert.match(bootstrapper, /\["operationId"\] = operationId/);
   assert.match(helper, /\$Payload\['operationId'\] = \$script:InstallerHubOperationId/);
+});
+
+test('el handoff sobrevive a la limpieza del destino de upgrade y los paths solapados se rechazan', (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-burn-handoff-'));
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+
+  const localAppData = path.join(tempRoot, 'LocalAppData');
+  const installDir = path.join(localAppData, 'EvaluaPro');
+  const productionDataDir = path.join(tempRoot, 'ProgramData', 'EvaluaPro', 'data');
+  const handoffRoot = path.join(localAppData, 'EvaluaProInstaller', 'installer-hub', 'requests');
+  const requestPath = path.join(handoffRoot, 'burn-test', 'post-install.request.json');
+  fs.mkdirSync(installDir, { recursive: true });
+  fs.mkdirSync(productionDataDir, { recursive: true });
+  fs.mkdirSync(path.dirname(requestPath), { recursive: true });
+  fs.writeFileSync(path.join(installDir, 'old-payload.txt'), 'old payload');
+  fs.writeFileSync(path.join(productionDataDir, 'evaluapro.db'), 'production-data');
+  fs.writeFileSync(requestPath, '{"command":"post-install"}');
+
+  fs.rmSync(installDir, { recursive: true, force: true });
+
+  assert.equal(fs.readFileSync(requestPath, 'utf8'), '{"command":"post-install"}');
+  assert.equal(fs.existsSync(installDir), false);
+  assert.equal(fs.readFileSync(path.join(productionDataDir, 'evaluapro.db'), 'utf8'), 'production-data');
+  assert.match(bootstrapper, /HandoffOverlapsInstallDirectory\(requestRoot, request\.InstallDir\)[\s\S]*?FinalizeFailure\(/);
+  assert.match(bootstrapper, /IsSameOrDescendantPath\(handoff, install\) \|\| IsSameOrDescendantPath\(install, handoff\)/);
+  assert.ok(bootstrapper.indexOf('if (handoffOverlapsInstallDirectory)') < bootstrapper.indexOf('engineHandle.Plan(action, BundleScope.Default)'), 'rutas solapadas deben fallar antes de Plan/Apply');
+
+  const rollbackStart = bootstrapper.indexOf('private void RollbackFailureResidues()');
+  const rollbackEnd = bootstrapper.indexOf('\n    /// <summary>', rollbackStart);
+  const rollback = bootstrapper.slice(rollbackStart, rollbackEnd);
+  assert.match(rollback, /if \(installationExistedBeforeOperation \|\| handoffOverlapsInstallDirectory\)[\s\S]*?return;/);
+  assert.ok(rollback.indexOf('if (installationExistedBeforeOperation || handoffOverlapsInstallDirectory)') < rollback.indexOf('Process.Start(psi)'), 'rollback debe preservar instalaciones previas y el handoff antes de cualquier efecto destructivo');
+  assert.ok(rollback.indexOf('if (installationExistedBeforeOperation || handoffOverlapsInstallDirectory)') < rollback.indexOf('Directory.Delete(dir, recursive: true)'), 'rollback no debe borrar el payload de una instalación previa');
+  assert.match(bootstrapper, /Rollback destructivo omitido: ya existía una instalación antes de esta operación/);
 });
 
 test('helper PowerShell tiene timeout por operación y cancela su árbol', () => {

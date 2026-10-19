@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.0.0
+version: 1.1.0
 fecha: 2026-10-19
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -10,7 +10,7 @@ estado: approved
 
 ## Contexto
 
-La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, el Stable Gate y la validación del Installer Hub. Se consolidan aquí las decisiones aprobadas en SPEC-115 a SPEC-121 para que una sola unidad de trabajo describa los gates completos y su relación. Las fichas originales se conservan como detalle del incidente, aprobación y trazabilidad; este documento no reemplaza ni reduce sus criterios. La primera inspección visual del bundle 1.2.8 detectó que la estimación de tiempo de la pantalla de ejecución se recorta en el ancho normal, por lo que se añade un criterio verificable de legibilidad antes de promover el candidato.
+La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, el Stable Gate y la validación del Installer Hub. Se consolidan aquí las decisiones aprobadas en SPEC-115 a SPEC-121 para que una sola unidad de trabajo describa los gates completos y su relación. Las fichas originales se conservan como detalle del incidente, aprobación y trazabilidad; este documento no reemplaza ni reduce sus criterios. La primera inspección visual del bundle 1.2.8 detectó que la estimación de tiempo de la pantalla de ejecución se recorta en el ancho normal, por lo que se añade un criterio verificable de legibilidad antes de promover el candidato. La falla local del post-install también reveló que el JSON de handoff estaba dentro del directorio de aplicación que MSI puede reemplazar; el error activaba la limpieza de fallo y podía dejar incompleta una instalación previa.
 
 ## Requisitos Funcionales
 
@@ -23,6 +23,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **REQ-007 — Puerta de promoción:** Ejecutar todas las pruebas locales aplicables antes de enviar el SHA a CI/CD; después exigir los gates remotos completos, dos pasadas visuales consecutivas del mismo candidato y evidencia verificable antes de declarar estable o publicar.
 - **REQ-008 — Manifiesto QA coherente con EOL:** `workingTreeClean` y `dirtyPathCount` deben usar la misma comparación semántica del guard; solo diferencias EOL unstaged son limpias. Cambios staged, semánticos o sin seguimiento siguen contando como suciedad.
 - **REQ-009 — Texto de progreso legible:** La estimación de tiempo y su explicación completa deben permanecer visibles y accesibles durante la ejecución en el tamaño normal y el tamaño compacto soportado; el texto debe envolver o acortarse de forma semántica, sin recorte horizontal, superposición ni pérdida del nombre accesible.
+- **REQ-010 — Handoff de instalación durable y no destructivo:** Las solicitudes/respuestas privadas entre Burn y su helper deben vivir fuera de todas las carpetas administradas por MSI. Antes de planear cualquier operación se rechazan rutas de instalación que se solapen con el handoff. Ante error antes del post-install, Burn conserva el handoff para diagnóstico y no limpia una instalación que ya existía; el rollback de residuos solo puede operar sobre una instalación nueva/incompleta y nunca sobre `data`.
 
 ## Criterios de Aceptación
 
@@ -34,6 +35,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **CA-006:** La spec pasa la auditoría SDD y sus fichas de origen mantienen trazabilidad a pruebas existentes.
 - **CA-007:** Un checkout con únicamente drift CRLF/LF produce manifiesto QA limpio y no contradice el guard; cambios semánticos o staged continúan bloqueando promoción.
 - **CA-008:** Las capturas del E2E visual de ejecución en tamaño normal y compacto muestran el texto de progreso completo, sin recorte ni superposición; UI Automation expone el mismo texto legible. La regresión protege la propiedad de wrapping y la segunda validación se ejecuta sobre el bundle reconstruido.
+- **CA-009:** Una simulación local elimina el directorio de instalación como lo haría un upgrade fallido y confirma que el request del helper sigue presente fuera de ese directorio; los paths iguales o ancestro/descendiente se bloquean antes de `Plan/Apply`; un fallo con instalación preexistente omite desinstalación/limpieza destructiva; los datos de usuario permanecen fuera de la limpieza. La prueba no accede a la instalación productiva.
 
 ## Matriz de Trazabilidad
 
@@ -48,6 +50,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 | REQ-007 | Aprobación estable basada en SHA y evidencia actual de gates completos | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Pendiente de gates del SHA final |
 | REQ-008 | Manifiesto QA alinea su cálculo de suciedad con el guard EOL | `scripts/tests/release-stable-promotion.test.mjs` | Aprobado; implementación en curso |
 | REQ-009 | Estimación de tiempo completa y accesible en pantalla de ejecución, incluido tamaño compacto | `scripts/tests/installer-hub-lifecycle-contract.test.mjs`; `scripts/tests/installer-hub-ui-lifecycle.ps1` | Aprobado; implementación en curso |
+| REQ-010 | Handoff fuera del payload MSI, rechazo de rutas solapadas y preservación al fallar un upgrade | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Aprobado; implementación en curso |
 
 ## Fichas consolidadas
 
