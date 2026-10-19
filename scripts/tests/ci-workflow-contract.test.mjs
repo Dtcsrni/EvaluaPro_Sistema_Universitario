@@ -32,6 +32,14 @@ function extractJobBlock(workflow, jobKey) {
   return workflow.slice(start, end);
 }
 
+function extractStepBlock(job, stepName) {
+  const start = job.indexOf(`      - name: ${stepName}\n`);
+  assert.ok(start >= 0, `step no encontrado: ${stepName}`);
+  const rest = job.slice(start);
+  const nextStep = rest.indexOf('\n      - name:', 1);
+  return nextStep >= 0 ? rest.slice(0, nextStep) : rest;
+}
+
 test('los jobs CI instalan dependencias desde lockfiles y sharp proviene del manifest', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const block = extractJobBlock(workflow, 'ext_perf_arquitectura');
@@ -117,8 +125,10 @@ test('ext_funcionales ejecuta PDF print y visual juntos', () => {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
   assert.match(block, /Preparar runtime PDF \(poppler\)/);
-  assert.match(block, /apt-get install -y --no-install-recommends poppler-utils/);
-  assert.match(block, /gate_pdf_print_check == 'true'/);
+  const pdfRuntime = extractStepBlock(block, 'Preparar runtime PDF (poppler)');
+  assert.match(pdfRuntime, /apt-get install -y --no-install-recommends poppler-utils/);
+  assert.match(pdfRuntime, /gate_ux_visual_check == 'true'/, 'el preview PDF del E2E UX visual también requiere Poppler');
+  assert.match(pdfRuntime, /gate_pdf_print_check == 'true'/);
   assert.match(block, /Etapa pdf-print-check/);
   assert.match(block, /npm run test:pdf-print:ci/);
   assert.match(block, /npm run test:pdf-visual:ci/);
@@ -144,6 +154,10 @@ test('ext_funcionales conserva quality visual y journeys para UX', () => {
   assert.match(packageJson.scripts['test:e2e:journeys:ci'], /test:gui:responsive:e2e:ci/);
   assert.match(packageJson.scripts['test:e2e:journeys:ci'], /test:gui:cycle:e2e:ci/);
   assert.doesNotMatch(packageJson.scripts['test:e2e:journeys:ci'], /test:ux-visual:ci/);
+
+  const performanceJob = extractJobBlock(workflow, 'ext_perf_arquitectura');
+  const performanceArtifact = extractStepBlock(performanceJob, 'Publicar reporte de performance');
+  assert.match(performanceArtifact, /reports\/qa\/latest\/clean-architecture\.json/, 'el artefacto del job debe incluir el reporte que explica un fallo de arquitectura');
 
   for (const config of [
     'tests/gui-responsive/playwright.config.mjs',
