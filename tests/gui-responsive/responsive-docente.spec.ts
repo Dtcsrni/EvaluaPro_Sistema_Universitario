@@ -44,6 +44,38 @@ async function assertNoHorizontalOverflow(page: import('@playwright/test').Page,
   expect(overflow, `${context}: overflow horizontal detectado`).toBeLessThanOrEqual(1);
 }
 
+async function assertVisibleHeadersFit(page: import('@playwright/test').Page, context: string) {
+  const clipped = await page.evaluate(() => {
+    const selectors = 'h1, h2, h3, h4, .banco-status-pill, .guia-materia-badge > span:last-child, .guia-materia-close-btn';
+    const candidates = [...document.querySelectorAll<HTMLElement>(selectors)]
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+      })
+      .map((element) => ({
+        label: (element.innerText || element.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 70),
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+        rect: element.getBoundingClientRect().toJSON()
+      }))
+      .filter((element) => element.scrollWidth > element.clientWidth + 1
+        || element.rect.left < -1
+        || element.rect.right > window.innerWidth + 1);
+    return {
+      viewport: {
+        innerWidth: window.innerWidth,
+        documentWidth: document.documentElement.clientWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        visualWidth: window.visualViewport?.width ?? null,
+        scrollX: window.scrollX
+      },
+      clipped: candidates
+    };
+  });
+  expect(clipped.clipped, `${context}: encabezados o estados visibles recortados; viewport=${JSON.stringify(clipped.viewport)}`).toEqual([]);
+}
+
 async function assertHeaderBlocksDoNotOverlap(page: import('@playwright/test').Page, context: string) {
   const overlaps = await page.locator('.banco-panel__head').evaluate((head) => {
     const selectors = ['.banco-panel__lead', '.banco-header-kpis'];
@@ -57,10 +89,95 @@ async function assertHeaderBlocksDoNotOverlap(page: import('@playwright/test').P
     const overlaps = !lead.missing && !kpis.missing
       && lead.x < kpis.right && lead.right > kpis.x
       && lead.y < kpis.bottom && lead.bottom > kpis.y;
-    return { boxes, overlaps };
+    const textSelectors = ['.banco-panel__meta-row', '.banco-panel__title', '.banco-panel__text-block > .nota'];
+    const textBoxes = textSelectors.map((selector) => {
+      const element = head.querySelector<HTMLElement>(selector);
+      if (!element) return { selector, missing: true, x: 0, y: 0, right: 0, bottom: 0, scrollWidth: 0, clientWidth: 0, scrollHeight: 0, clientHeight: 0 };
+      const rect = element.getBoundingClientRect();
+      return {
+        selector,
+        missing: false,
+        x: rect.x,
+        y: rect.y,
+        right: rect.right,
+        bottom: rect.bottom,
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight
+      };
+    });
+    const textOverlaps = [];
+    for (let index = 0; index < textBoxes.length; index += 1) {
+      for (let otherIndex = index + 1; otherIndex < textBoxes.length; otherIndex += 1) {
+        const first = textBoxes[index];
+        const second = textBoxes[otherIndex];
+        if (first.missing || second.missing) continue;
+        const width = Math.min(first.right, second.right) - Math.max(first.x, second.x);
+        const height = Math.min(first.bottom, second.bottom) - Math.max(first.y, second.y);
+        if (width > 1 && height > 1) textOverlaps.push(`${first.selector} <> ${second.selector} (${Math.round(width)}×${Math.round(height)} px)`);
+      }
+    }
+    return { boxes, overlaps, textBoxes, textOverlaps };
   });
   expect(overlaps.boxes.every((box) => !box.missing), `${context}: falta un bloque del encabezado`).toBe(true);
   expect(overlaps.overlaps, `${context}: el resumen y el encabezado se superponen`).toBe(false);
+  expect(overlaps.textBoxes.every((box) => !box.missing), `${context}: falta texto del encabezado`).toBe(true);
+  expect(overlaps.textOverlaps, `${context}: texto del encabezado o resumen académico superpuesto; cajas=${JSON.stringify(overlaps.textBoxes)}`).toEqual([]);
+  for (const box of overlaps.textBoxes) {
+    expect(box.scrollWidth, `${context}: ${box.selector} desborda horizontalmente`).toBeLessThanOrEqual(box.clientWidth + 1);
+    expect(box.scrollHeight, `${context}: ${box.selector} desborda verticalmente`).toBeLessThanOrEqual(box.clientHeight + 1);
+  }
+}
+
+async function assertHeaderPartsAreNotCardSurfaces(page: import('@playwright/test').Page, context: string) {
+  const themes = await page.locator('.banco-panel__head').evaluate((head) => {
+    const selectors = ['.banco-panel__lead', '.banco-panel__text-block', '.banco-panel__meta-row', '.banco-panel__title'];
+    const root = head.ownerDocument.documentElement;
+    const previousTheme = root.getAttribute('data-theme');
+    const snapshots = ['light', 'dark'].map((theme) => {
+      if (theme === 'dark') root.setAttribute('data-theme', 'dark');
+      else root.removeAttribute('data-theme');
+      const parts = selectors.map((selector) => {
+        const element = head.querySelector<HTMLElement>(selector);
+        if (!element) return {
+          selector,
+          missing: true,
+          borderWidth: 'unknown',
+          borderRadius: 'unknown',
+          backgroundImage: 'unknown',
+          boxShadow: 'unknown',
+          overflow: 'unknown'
+        };
+        const style = getComputedStyle(element);
+        return {
+          selector,
+          missing: false,
+          borderWidth: style.borderWidth,
+          borderRadius: style.borderRadius,
+          backgroundImage: style.backgroundImage,
+          boxShadow: style.boxShadow,
+          overflow: style.overflow
+        };
+      });
+      return { theme, parts };
+    });
+    if (previousTheme === null) root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', previousTheme);
+    return snapshots;
+  });
+
+  for (const { theme, parts } of themes) {
+    expect(parts.every((part) => !part.missing), `${context} (${theme}): falta una parte estructural del encabezado`).toBe(true);
+    for (const part of parts) {
+      const description = `${context} (${theme}): ${part.selector} se interpretó como tarjeta; ${JSON.stringify(part)}`;
+      expect(part.borderWidth, description).toBe('0px');
+      expect(part.borderRadius, description).toBe('0px');
+      expect(part.backgroundImage, description).toBe('none');
+      expect(part.boxShadow, description).toBe('none');
+      expect(part.overflow, `${context} (${theme}): ${part.selector} recorta contenido; ${JSON.stringify(part)}`).toBe('visible');
+    }
+  }
 }
 
 async function assertVisibleTabLabel(nav: import('@playwright/test').Locator, label: string) {
@@ -385,7 +502,7 @@ test.describe('GUI responsive e2e · docente', () => {
     });
   }
 
-  for (const viewport of [viewports[0], viewports[3]]) {
+  for (const viewport of viewports) {
     test(`recorre pantallas operativas en ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.addInitScript(() => {
@@ -442,8 +559,14 @@ test.describe('GUI responsive e2e · docente', () => {
           await assertPlantillasSummaryContrast(page);
         }
         if (viewport.name === 'mobile') await assertVisibleTabLabel(nav, tab.label);
-        if (tab.slug === 'calificaciones') await assertHeaderBlocksDoNotOverlap(page, `${viewport.name} / calificaciones`);
+        if (tab.slug === 'calificaciones') {
+          await assertHeaderPartsAreNotCardSurfaces(page, `${viewport.name} / calificaciones`);
+          await assertHeaderBlocksDoNotOverlap(page, `${viewport.name} / calificaciones`);
+        }
         await page.waitForTimeout(300);
+        await assertNoHorizontalOverflow(page, `Docente ${viewport.name} / ${tab.slug}`);
+        await assertVisibleHeadersFit(page, `Docente ${viewport.name} / ${tab.slug}`);
+        await assertInteractiveControlsAreUsable(page, `Docente ${viewport.name} / ${tab.slug}`);
         if (tab.slug === 'entrega') {
           const qr = page.getByRole('img', { name: 'QR para abrir en movil' });
           await expect(qr).toBeVisible();

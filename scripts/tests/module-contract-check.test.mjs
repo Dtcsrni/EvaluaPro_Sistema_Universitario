@@ -126,6 +126,17 @@ test('el contrato PDF versiona el cambio incompatible de Zod 4 y todos sus consu
   const pdf = manifest.modules.find((item) => item.id === 'modulo_generacion_pdf');
   assert.equal(pdf.contractVersion, '2.0.0');
   assert.equal(pdf.publicApiHistory.at(-1).version, '2.0.0');
+  const expectedZod4Signature = 'z.ZodOptional<z.ZodObject<{}, z.core.$strict>>';
+  const currentPdfApi = readCurrentPublicApis({ root: process.cwd() }).modulo_generacion_pdf;
+  assert.equal(
+    pdf.publicApiHistory.at(-1).exports.find((item) => item.name === 'esquemaBodyVacioOpcional')?.signature,
+    expectedZod4Signature
+  );
+  assert.equal(
+    currentPdfApi.find((item) => item.name === 'esquemaBodyVacioOpcional')?.signature,
+    expectedZod4Signature,
+    'la extracción usa las declaraciones de Zod 4 resueltas desde el workspace backend'
+  );
   for (const consumerId of [
     'modulo_calificacion',
     'modulo_escaneo_omr',

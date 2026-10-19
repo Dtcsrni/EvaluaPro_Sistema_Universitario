@@ -7,12 +7,12 @@ import { assertDocenteBundle } from '../docente-bundle-guard.mjs';
 
 const contract = 'docente-frosted-editorial-v2';
 
-function crearBundle(js) {
+function crearBundle(js, css = `:root{--docente-style-contract:${contract}}:is([class$=-card],[class*=-card\\ ]),:is([class$=-panel],[class*=-panel\\ ]){border-radius:1px}`) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-docente-bundle-'));
   fs.mkdirSync(path.join(root, 'assets'), { recursive: true });
   fs.writeFileSync(path.join(root, 'index.html'), `<meta name="evaluapro-ui-contract" content="${contract}"><script type="module" src="/assets/index.js"></script><link href="/assets/index.css" rel="stylesheet">`);
   fs.writeFileSync(path.join(root, 'assets', 'index.js'), js);
-  fs.writeFileSync(path.join(root, 'assets', 'index.css'), `:root{--docente-style-contract:${contract}}`);
+  fs.writeFileSync(path.join(root, 'assets', 'index.css'), css);
   return root;
 }
 
@@ -26,4 +26,13 @@ test('rechaza bundle docente sin el bootstrap de Google OAuth runtime', (t) => {
   const root = crearBundle('const login="Acceso docente"');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   assert.throws(() => assertDocenteBundle({ distRoot: root }), /bootstrap OAuth runtime/);
+});
+
+test('rechaza CSS compilado con selectores substring obsoletos aunque el bundle declare el contrato vigente', (t) => {
+  const root = crearBundle(
+    'fetch("/api/autenticacion/capacidades-integraciones").then(x=>x.googleOauthClientId)',
+    `:root{--docente-style-contract:${contract}}:is([class*=-card],[class*=-panel]){border-radius:1px}`
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.throws(() => assertDocenteBundle({ distRoot: root }), /selectores de superficie obsoletos/);
 });

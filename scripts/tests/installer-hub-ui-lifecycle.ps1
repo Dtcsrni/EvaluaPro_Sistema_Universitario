@@ -604,6 +604,49 @@ function Select-ComboItem {
   Start-Sleep -Milliseconds 500
 }
 
+function Wait-WindowUncovered {
+  param(
+    [System.Windows.Automation.AutomationElement]$Window,
+    [int]$TimeoutSec = 60
+  )
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
+  $lastBlocker = $null
+  do {
+    $rectangle = $Window.Current.BoundingRectangle
+    $x = [int][Math]::Round($rectangle.X)
+    $y = [int][Math]::Round($rectangle.Y)
+    $w = [int][Math]::Round($rectangle.Width)
+    $h = [int][Math]::Round($rectangle.Height)
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
+    $probeX = [Math]::Max(12, [int][Math]::Floor($w * 0.2))
+    $probeY = [Math]::Max(40, [int][Math]::Floor($h * 0.2))
+    $probePoints = @(
+      [System.Drawing.Point]::new($x + $probeX, $y + $probeY),
+      [System.Drawing.Point]::new($x + $w - $probeX, $y + $probeY),
+      [System.Drawing.Point]::new($x + $probeX, $y + $h - 20),
+      [System.Drawing.Point]::new($x + $w - $probeX, $y + $h - 20),
+      [System.Drawing.Point]::new($x + [int][Math]::Floor($w / 2), $y + [int][Math]::Floor($h / 2))
+    )
+    $blockedPoint = $null
+    foreach ($point in $probePoints) {
+      if (-not [EvaluaProQaNativeWindow]::IsWindowAtPoint($handle, $point.X, $point.Y)) {
+        $blockedPoint = $point
+        break
+      }
+    }
+    if (-not $blockedPoint) { return }
+    $blocker = [EvaluaProQaNativeWindow]::DescribeWindowAtPoint($blockedPoint.X, $blockedPoint.Y)
+    if ($blocker -ne $lastBlocker) {
+      Write-QaLog "La ventana del Hub está cubierta; ponla en primer plano manualmente para continuar. No se cambiará el foco. Punto=$($blockedPoint.X),$($blockedPoint.Y); $blocker"
+      $lastBlocker = $blocker
+    }
+    if ([DateTime]::UtcNow -ge $deadline) {
+      throw "La ventana del Hub siguió cubierta durante ${TimeoutSec}s (punto $($blockedPoint.X),$($blockedPoint.Y); $blocker); no se cambiará el foco."
+    }
+    Start-Sleep -Milliseconds 300
+  } while ($true)
+}
+
 function Capture-Window {
   param(
     [System.Windows.Automation.AutomationElement]$Window,
@@ -615,6 +658,7 @@ function Capture-Window {
     Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail 'La ventana UI Automation no está disponible.'
     throw "No se pudo capturar ${Name}: la ventana UI Automation no está disponible."
   }
+  Wait-WindowUncovered -Window $Window -TimeoutSec 60
   $rectangle = $Window.Current.BoundingRectangle
   if ($rectangle.Width -le 0 -or $rectangle.Height -le 0) {
     Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail 'La ventana no tiene dimensiones positivas.'

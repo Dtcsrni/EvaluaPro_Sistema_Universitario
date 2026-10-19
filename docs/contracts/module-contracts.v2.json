@@ -951,7 +951,7 @@
             },
             {
               "name": "esquemaBodyVacioOpcional",
-              "signature": "z.ZodOptional<z.ZodObject<{}, \"strict\", z.ZodTypeAny, {}, {}>>"
+              "signature": "z.ZodOptional<z.ZodObject<{}, z.core.$strict>>"
             },
             {
               "name": "ExamenGenerado",

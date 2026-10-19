@@ -296,18 +296,12 @@ function Add-DocenteNativeCompiledPayload {
     $frontendSource = Join-Path $RootPath 'apps/frontend/dist-docente'
     $backendSource = Join-Path $RootPath 'apps/backend/dist'
     $npmCommand = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { 'npm.cmd' } else { 'npm' }
-    if (-not (Test-Path (Join-Path $frontendSource 'index.html'))) {
-      & $npmCommand -C 'apps/frontend' run 'build:docente'
-      if ($LASTEXITCODE -ne 0) { throw "Falló build docente del frontend (exit=$LASTEXITCODE)." }
-    } else {
-      Write-Host '[msi] Reutilizando build docente existente; no se recompila innecesariamente.'
-    }
-    if (-not (Test-Path (Join-Path $backendSource 'index.js'))) {
-      & $npmCommand -C 'apps/backend' run 'build'
-      if ($LASTEXITCODE -ne 0) { throw "Falló build del backend nativo (exit=$LASTEXITCODE)." }
-    } else {
-      Write-Host '[msi] Reutilizando build backend existente; no se recompila innecesariamente.'
-    }
+    # No inferir frescura por la presencia de archivos: dist puede pertenecer a
+    # otro SHA y producir un instalador que no corresponda con las fuentes.
+    & $npmCommand -C 'apps/frontend' run 'build:docente'
+    if ($LASTEXITCODE -ne 0) { throw "Falló build docente del frontend (exit=$LASTEXITCODE)." }
+    & $npmCommand -C 'apps/backend' run 'build'
+    if ($LASTEXITCODE -ne 0) { throw "Falló build del backend nativo (exit=$LASTEXITCODE)." }
     if (-not (Test-Path (Join-Path $frontendSource 'index.html'))) {
       throw "El build docente no generó $frontendSource/index.html."
     }
@@ -317,6 +311,10 @@ function Add-DocenteNativeCompiledPayload {
 
     $frontendTarget = Join-Path $StagingRoot 'apps/frontend/dist-docente'
     $backendTarget = Join-Path $StagingRoot 'apps/backend/dist'
+    $bundleVerifierSource = Join-Path $RootPath 'scripts/verify-docente-bundle.mjs'
+    if (-not (Test-Path -LiteralPath $bundleVerifierSource)) {
+      throw "Falta la verificación del bundle docente: $bundleVerifierSource"
+    }
     $staticServerSource = Join-Path $RootPath 'scripts/serve-docente-static.mjs'
     $bundleGuardSource = Join-Path $RootPath 'scripts/docente-bundle-guard.mjs'
     if (-not (Test-Path $staticServerSource)) {
@@ -390,6 +388,8 @@ function Add-DocenteNativeCompiledPayload {
     New-Item -ItemType Directory -Path $frontendTarget,$backendTarget -Force | Out-Null
     Copy-Item -Path (Join-Path $frontendSource '*') -Destination $frontendTarget -Recurse -Force
     Copy-Item -Path (Join-Path $backendSource '*') -Destination $backendTarget -Recurse -Force
+    & $embeddedNodeTarget $bundleVerifierSource --dist $frontendTarget
+    if ($LASTEXITCODE -ne 0) { throw 'El bundle docente copiado al payload no superó la guardia de versión/estilos.' }
     New-Item -ItemType Directory -Path (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/src/modulos/modulo_analiticas/plantillas/LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx') -Destination (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package.json') -Destination $backendTarget -Force
@@ -1059,9 +1059,14 @@ function Assert-MsiAdministrativeExtractionContainsAppPayload {
       New-Item -ItemType Directory -Path $payloadCheckRoot -Force | Out-Null
       try {
         Expand-Archive -LiteralPath $nativePayloadArchive.FullName -DestinationPath $payloadCheckRoot -Force
-        foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\prepare-docente-sqlite.mjs', 'scripts\runtime-env.mjs')) {
+        foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'apps\frontend\dist-docente\index.html', 'runtime\node\node.exe', 'scripts\prepare-docente-sqlite.mjs', 'scripts\runtime-env.mjs', 'scripts\docente-bundle-guard.mjs', 'scripts\verify-docente-bundle.mjs')) {
           if (-not (Test-Path -LiteralPath (Join-Path $payloadCheckRoot $relativePath))) { throw "MSI docente sin payload nativo completo: falta $relativePath" }
         }
+        $payloadNode = Join-Path $payloadCheckRoot 'runtime/node/node.exe'
+        $bundleVerifier = Join-Path $payloadCheckRoot 'scripts/verify-docente-bundle.mjs'
+        $frontendBundle = Join-Path $payloadCheckRoot 'apps/frontend/dist-docente'
+        & $payloadNode $bundleVerifier --dist $frontendBundle
+        if ($LASTEXITCODE -ne 0) { throw 'El CSS del bundle docente dentro del MSI no superó la guardia de estilos.' }
       } finally {
         Remove-Item -LiteralPath $payloadCheckRoot -Recurse -Force -ErrorAction SilentlyContinue
       }

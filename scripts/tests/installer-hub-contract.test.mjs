@@ -661,6 +661,24 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /Reutilizando Bootstrapper Application Burn ya publicada/);
 });
 
+test('build MSI docente recompila frontend y backend antes de copiar el payload', () => {
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const match = buildMsi.match(/function Add-DocenteNativeCompiledPayload\s*\{[\s\S]*?\n\}/);
+  assert.ok(match, 'Debe existir el empaquetado compilado docente-local.');
+
+  const frontendBuild = match[0].indexOf("-C 'apps/frontend' run 'build:docente'");
+  const backendBuild = match[0].indexOf("-C 'apps/backend' run 'build'");
+  const frontendCopy = match[0].indexOf('Copy-Item -Path (Join-Path $frontendSource');
+  const backendCopy = match[0].indexOf('Copy-Item -Path (Join-Path $backendSource');
+  const payloadGuard = match[0].indexOf('& $embeddedNodeTarget $bundleVerifierSource --dist $frontendTarget');
+  assert.ok(frontendBuild >= 0 && frontendBuild < frontendCopy, 'Frontend debe compilarse antes de copiarse al staging.');
+  assert.ok(backendBuild >= 0 && backendBuild < backendCopy, 'Backend debe compilarse antes de copiarse al staging.');
+  assert.ok(payloadGuard > frontendCopy, 'La verificación debe inspeccionar el bundle ya copiado al payload.');
+  assert.match(match[0], /run 'build:docente'[\s\S]*?if \(\$LASTEXITCODE -ne 0\) \{ throw[\s\S]*?run 'build'[\s\S]*?if \(\$LASTEXITCODE -ne 0\) \{ throw/);
+  assert.doesNotMatch(match[0], /Reutilizando build (docente|backend) existente/);
+  assert.match(match[0], /No inferir frescura por la presencia de archivos/);
+});
+
 test('build-msi valida el payload por extracción y nunca registra ni desinstala MSI en el host', () => {
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   const match = buildMsi.match(/function Assert-MsiAdministrativeExtractionContainsAppPayload\s*\{[\s\S]*?\n\}/);
@@ -669,6 +687,11 @@ test('build-msi valida el payload por extracción y nunca registra ni desinstala
   assert.match(match[0], /TARGETDIR=\$extractRoot/);
   assert.match(match[0], /Get-ChildItem -LiteralPath \$extractRoot -Recurse -File/);
   assert.match(match[0], /Expand-Archive -LiteralPath \$nativePayloadArchive\.FullName/);
+  assert.match(match[0], /apps\\frontend\\dist-docente\\index\.html/);
+  assert.match(match[0], /scripts\\docente-bundle-guard\.mjs/);
+  assert.match(match[0], /scripts\\verify-docente-bundle\.mjs/);
+  assert.match(match[0], /& \$payloadNode \$bundleVerifier --dist \$frontendBundle/);
+  assert.match(match[0], /El CSS del bundle docente dentro del MSI no superó la guardia/);
   assert.match(match[0], /no se registró en el host/);
   assert.doesNotMatch(match[0], /['"]\/i['"]|['"]\/x['"]/i);
   assert.doesNotMatch(match[0], /Uninstall|Desinstal/);

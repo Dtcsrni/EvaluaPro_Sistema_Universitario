@@ -40,7 +40,16 @@ function contrast(foreground, background) {
 test('el E2E visual del Installer Hub rechaza capturas vacías y ajusta el HWND de UIA', () => {
   const resize = uiLifecycle.slice(uiLifecycle.indexOf('function Resize-WindowForQa {'), uiLifecycle.indexOf('\nfunction Test-ScrollPattern {'));
   const capture = uiLifecycle.slice(uiLifecycle.indexOf('function Capture-Window {'), uiLifecycle.indexOf('\nfunction Resize-WindowForQa {'));
+  const visibilityWait = uiLifecycle.slice(uiLifecycle.indexOf('function Wait-WindowUncovered {'), uiLifecycle.indexOf('\nfunction Capture-Window {'));
 
+  assert.match(visibilityWait, /\[int\]\$TimeoutSec = 60/);
+  assert.match(visibilityWait, /\[DateTime\]::UtcNow\.AddSeconds\(\$TimeoutSec\)/);
+  assert.match(visibilityWait, /IsWindowAtPoint\(\$handle/);
+  assert.match(visibilityWait, /ponla en primer plano manualmente/);
+  assert.match(visibilityWait, /no se cambiará el foco/);
+  assert.match(visibilityWait, /Start-Sleep -Milliseconds 300/);
+  assert.doesNotMatch(visibilityWait, /SetForegroundWindow|SetCursorPos|SendKeys/);
+  assert.match(capture, /Wait-WindowUncovered -Window \$Window -TimeoutSec 60/);
   assert.match(capture, /GetPixel\(/);
   assert.match(capture, /coloredBodySamples -lt 100/);
   assert.match(capture, /distinctBodyColors\.Count -lt 8/);
