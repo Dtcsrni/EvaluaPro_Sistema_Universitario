@@ -5980,6 +5980,33 @@ html[data-theme="dark"] body .empty-step__num {
   text-shadow: none !important;
 }
 
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-intro {
+  background: #0f172a !important;
+  color: #e2e8f0;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-intro h3 {
+  color: #f8fafc !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-intro p,
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-steps li {
+  color: #cbd5e1 !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-steps li > b {
+  color: #cbd5e1 !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi__lbl {
+  color: #475569 !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--preguntas .banco-mini-kpi__num { color: #7e22ce !important; text-shadow: none; }
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--temas .banco-mini-kpi__num { color: #0369a1 !important; text-shadow: none; }
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--temaactual .banco-mini-kpi__num { color: #047857 !important; text-shadow: none; }
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--paginas .banco-mini-kpi__num { color: #4338ca !important; text-shadow: none; }
+
 :root:not([data-theme="dark"]) .empty-step__arrow {
   color: #334155 !important;
 }

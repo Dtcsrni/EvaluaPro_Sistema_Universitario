@@ -12,6 +12,8 @@ estado: approved
 
 ## Contexto
 
+> Integrada como componente de release en [SPEC-122](SPEC-122_estabilizacion_release_1_2_8.spec.md); esta ficha conserva la aprobación y el origen del requisito.
+
 El Stable Gate #96 ejecutó las validaciones visuales en el SHA candidato `94bc5c881ea1bb8739911814dc7f05e52def94d6`, pero falló en el guard de checkout limpio. Los logs muestran 30 capturas en `reports/qa/latest/` y el directorio temporal `evaluapro-e2e-cycle/`. La configuración del flujo responsivo deja `E2E_SCREENSHOT_DIR` sin definir; la configuración del ciclo deriva su `scratchRoot` de `process.cwd()` cuando `E2E_SCRATCH_ROOT` está ausente. También aparecieron tres archivos versionados modificados: la spec de SPEC-109 y dos archivos del runner/prueba de cobertura. El log disponible no atribuye esas tres escrituras a una etapa.
 
 ## Objetivo

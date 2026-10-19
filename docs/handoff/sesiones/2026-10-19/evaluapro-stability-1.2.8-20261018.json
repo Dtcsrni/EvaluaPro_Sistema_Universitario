@@ -1,0 +1,225 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "evaluapro-stability-1.2.8-20261018",
+  "status": "draft",
+  "generatedAt": "2026-10-19T04:50:22.503Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex Desktop"
+  },
+  "request": {
+    "summary": "Continuar la validación local de la release 1.2.8 y corregir el harness hasta lograr E2E visual verificable antes de CI/CD."
+  },
+  "objective": "Demostrar que EvaluaPro 1.2.8 es estable mediante build, QA y E2E funcionales y visuales completos, corrigiendo los defectos encontrados.",
+  "scope": [
+    "QA fail-closed local SPEC-118",
+    "E2E visual del Installer Hub y proceso Burn/BA",
+    "validación local de MSI y reporte de efectos del build"
+  ],
+  "constraints": [
+    "No enviar CI/CD hasta superar validaciones locales",
+    "Preservar cambios ajenos del worktree",
+    "No forzar el primer plano de toda la PC",
+    "Usar un entorno de prueba sin producto real para la GUI"
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Añadida asociación verificada de ventana al proceso hijo EvaluaPro.BurnBootstrapperApp.exe; corregido retorno de PID y guardado diagnóstico antes de aserciones UIA.",
+      "timestamp": "2026-10-19T00:45:00.420Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "qa:full pasó; build MSI/Hub 1.2.8 y hashes pasaron; cuatro intentos de UI E2E fallaron en etapas del harness/captura, sin reportarse como aprobados.",
+      "timestamp": "2026-10-19T00:45:00.420Z",
+      "status": "falla"
+    },
+    {
+      "type": "investigation",
+      "summary": "Los registros MsiInstaller muestran install/remove MSI local; ProductState actual reporta 1.2.8, sin estado inicial para atribución causal. Se creó SPEC-120 en draft para aislar estas transacciones.",
+      "timestamp": "2026-10-19T00:45:00.420Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Dos pasadas visuales consecutivas del bundle docente-local v1.2.8 pasaron: 36 verificaciones cada una, 0 fallidas, 9 capturas y proceso cerrado. También pasaron los contratos de CI/release, QA local completa y E2E responsiva docente.",
+      "timestamp": "2026-10-19T04:50:22.503Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/POLITICA_SDD.md",
+      "scripts/tests/installer-hub-ui-lifecycle.ps1",
+      "scripts/tests/installer-hub-lifecycle-contract.test.mjs",
+      "scripts/build-msi.ps1",
+      "packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs"
+    ],
+    "changed": [
+      "scripts/tests/installer-hub-ui-lifecycle.ps1",
+      "scripts/tests/installer-hub-lifecycle-contract.test.mjs",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "docs/specs/SPEC-119_installer_hub_inicio_visible_y_deteccion_local.spec.md",
+      "docs/specs/SPEC-120_aislamiento_validacion_msi_local.spec.md",
+      ".github/workflows/release-stable-gate.yml",
+      "CHANGELOG.md",
+      "ci/affected-test-map.json",
+      "docs/specs/SPEC-117_checkout_candidato_normalizacion_eol.spec.md",
+      "docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md",
+      "scripts/release/assert-candidate-clean.mjs",
+      "scripts/tests/candidate-clean-guard.test.mjs",
+      "scripts/pipeline-contract-check.mjs",
+      "scripts/tests/ci-workflow-contract.test.mjs"
+    ],
+    "artifacts": [
+      "dist/installer/EvaluaPro-release-manifest.json",
+      "%TEMP%/EvaluaPro-1.2.8-installer-ui-pass1-20261018/installer-hub-ui-automation-report.json",
+      "%TEMP%/EvaluaPro-1.2.8-installer-ui-pass2-20261018/installer-hub-ui-automation-report.json",
+      "%TEMP%/EvaluaPro-1.2.8-installer-ui-pass3-20261018/installer-hub-ui-automation-report.json",
+      "%TEMP%/EvaluaPro-1.2.8-installer-ui-pass4-20261018/installer-hub-ui-automation-report.json",
+      "%TEMP%/EvaluaPro/qa-1.2.8-local/installer-hub-ui/resume-E-v2-pass1/installer-hub-ui-automation-report.json",
+      "%TEMP%/EvaluaPro/qa-1.2.8-local/installer-hub-ui/resume-E-v2-pass2/installer-hub-ui-automation-report.json"
+    ]
+  },
+  "commands": [
+    {
+      "name": "qa_full",
+      "command": "npm run qa:full",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Manifiesto final aprobado; 8 reportes QA requeridos validaron ok:true.",
+      "timestamp": "2026-10-19T00:45:00.420Z"
+    },
+    {
+      "name": "installer_hub_build",
+      "command": "npm run installer:hub:build",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Bundles y MSI 1.2.8 generados para saas-completo y docente-local; SHA-256 lateral verificado.",
+      "timestamp": "2026-10-19T00:45:00.420Z"
+    },
+    {
+      "name": "focused_suites",
+      "command": "node --test scripts/tests/qa-full-runner.test.mjs scripts/tests/ci-workflow-contract.test.mjs scripts/tests/installer-hub-lifecycle-contract.test.mjs scripts/tests/module-contract-check.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "106/106 pruebas pasaron con dependencias enlazadas temporalmente.",
+      "timestamp": "2026-10-19T00:45:00.420Z"
+    },
+    {
+      "name": "installer_contracts",
+      "command": "node --test scripts/tests/installer-hub-contract.test.mjs scripts/tests/installer-hub-lifecycle-contract.test.mjs scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "190 aprobadas, 18 omitidas, 0 fallidas; incluye contratos de lifecycle y de instalador.",
+      "timestamp": "2026-10-19T00:45:00.420Z"
+    },
+    {
+      "name": "ia_policy",
+      "command": "npm run sdd:audit && npm run test:ia:traceability && npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Auditoría SDD y contratos de trazabilidad/handoff aprobados.",
+      "timestamp": "2026-10-19T00:45:00.420Z"
+    },
+    {
+      "name": "installer_ui_e2e",
+      "command": "powershell -File scripts/tests/installer-hub-ui-lifecycle.ps1 -RootPath <worktree> -ReportDir <temp>",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Cuatro intentos terminaron en asociación PID, array anidado, StatusTextBlock ausente y captura denegada por primer plano. No hubo captura aprobada.",
+      "timestamp": "2026-10-19T00:45:00.420Z"
+    },
+    {
+      "name": "candidate_clean_guard",
+      "command": "node --test scripts/tests/candidate-clean-guard.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2394,
+      "resultSummary": "7/7 pruebas: EOL-only permitido; contenido semántico, cambios staged, rutas extra y untracked rechazados.",
+      "timestamp": "2026-10-19T04:50:22.503Z"
+    },
+    {
+      "name": "pipeline_contract",
+      "command": "node scripts/pipeline-contract-check.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2316,
+      "resultSummary": "73/73 contratos de workflow y seguridad pasaron.",
+      "timestamp": "2026-10-19T04:50:22.503Z"
+    },
+    {
+      "name": "release_and_installer_contracts",
+      "command": "npm run test:release:policy && npm run test:installer-hub:contract",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 23175,
+      "resultSummary": "Release: 59/59; Installer Hub: 156 aprobadas, 12 skips previstos, 0 fallidas.",
+      "timestamp": "2026-10-19T04:50:22.503Z"
+    },
+    {
+      "name": "qa_full_current_worktree",
+      "command": "npm run qa:full",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 61000,
+      "resultSummary": "8 reportes requeridos y gates locales aprobados; el manifiesto registra workingTreeClean=false, por lo que no constituye evidencia de promoción estable.",
+      "timestamp": "2026-10-19T04:50:22.503Z"
+    },
+    {
+      "name": "responsive_docente_e2e",
+      "command": "npm run test:gui:responsive:e2e:docente -- --reporter=line",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 53200,
+      "resultSummary": "7/7 pruebas docentes en desktop y mobile; grupos archivados, sesión y pantallas operativas.",
+      "timestamp": "2026-10-19T04:50:22.503Z"
+    },
+    {
+      "name": "module_contracts",
+      "command": "node --test scripts/tests/qa-full-runner.test.mjs scripts/tests/module-contract-check.test.mjs scripts/tests/clean-architecture-check.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 14772,
+      "resultSummary": "32/32 pruebas de QA runner, arquitectura y contratos modulares pasaron.",
+      "timestamp": "2026-10-19T04:50:22.503Z"
+    }
+  ],
+  "decisions": [
+    "Mantener los gates locales antes de CI/CD",
+    "No declarar estable la versión sin dos E2E visuales consecutivos sobre el mismo bundle",
+    "No forzar SetForegroundWindow para eludir el foco protegido por Windows"
+  ],
+  "assumptions": [],
+  "risks": [
+    "Aún no se han ejecutado CI Checks, CI Installer Windows ni Stable Gate sobre el SHA final comprometido y sincronizado.",
+    "El manifiesto QA generado localmente informa workingTreeClean=false porque el candidato sigue sin commit; no puede usarse para promoción estable.",
+    "La publicación estable 1.2.8 no se ha verificado ni debe declararse hasta que el Stable Gate y E2E remotos pasen."
+  ],
+  "nextStep": "Revisar el payload staged, crear un commit limpio, regenerar QA con manifest ligado al SHA comprometido, obtener aprobación explícita para el push exacto, sincronizar con main remoto y ejecutar los gates remotos completos antes de promover 1.2.8 estable.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "CI remoto y Stable Gate sobre el SHA final",
+      "promoción/publicación estable verificada"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\release-evidence-1.2.8-21ef",
+    "branch": "codex/release-evidence-1.2.8-21ef",
+    "commit": "0c6aeeb7",
+    "workingTreeStatus": "M  .github/workflows/release-stable-gate.yml\nM  CHANGELOG.md\n M apps/backend/reports/qa/latest/global-grade.json\nM  apps/backend/src/modulos/modulo_integraciones_classroom/servicioJobsImportacionClassroom.ts\nM  apps/frontend/src/styles/cards.css\nM  apps/frontend/src/styles/screens.css\nM  ci/affected-test-map.json\nM  docs/contracts/module-contracts.v2.json\nM  docs/specs/SPEC-109_aislamiento_regeneracion_examen_en_cobertura.spec.md\nM  docs/specs/SPEC-115_checkout_limpio_stable_gate.spec.md\nM  docs/specs/SPEC-116_aislamiento_salidas_e2e_gate_estable.spec.md\nA  docs/specs/SPEC-117_checkout_candidato_normalizacion_eol.spec.md\nA  docs/specs/SPEC-118_qa_local_bloquea_reportes_fallidos.spec.md\nA  docs/specs/SPEC-119_installer_hub_inicio_visible_y_deteccion_local.spec.md\nA  docs/specs/SPEC-120_aislamiento_validacion_msi_local.spec.md\nA  docs/specs/SPEC-121_version_dinamica_resumen_installer_hub.spec.md\nA  docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md\nM  package.json\nM  packaging/wix/BurnBootstrapperApp/MainWindow.xaml\nM  packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs\n M reports/qa/latest/clean-architecture.json\n M reports/qa/latest/dataset-prodlike.json\n M reports/qa/latest/e2e-docente-alumno.json\n M reports/qa/latest/evaluaciones-e2e.json\n M reports/qa/latest/evaluaciones-policy.json\n M reports/qa/latest/global-grade.json\n M reports/qa/latest/gui-docente-alumnos-desktop-lg.png\n M reports/qa/latest/gui-docente-alumnos-mobile.png\n M reports/qa/latest/gui-docente-banco-desktop-lg.png\n M reports/qa/latest/gui-docente-banco-mobile.png\n M reports/qa/latest/gui-docente-calificaciones-desktop-lg.png\n M reports/qa/latest/gui-docente-calificaciones-mobile.png\n M reports/qa/latest/gui-docente-cuenta-desktop-lg.png\n M reports/qa/latest/gui-docente-cuenta-mobile.png\n M reports/qa/latest/gui-docente-entrega-desktop-lg.png\n M reports/qa/latest/gui-docente-entrega-mobile.png\n M reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png\n M reports/qa/latest/gui-docente-evaluaciones-mobile.png\n M reports/qa/latest/gui-docente-login-desktop-lg.png\n M reports/qa/latest/gui-docente-login-mobile.png\n M reports/qa/latest/gui-docente-periodos-desktop-lg.png\n M reports/qa/latest/gui-docente-periodos-mobile.png\n M reports/qa/latest/gui-docente-plantillas-desktop-lg.png\n M reports/qa/latest/gui-docente-plantillas-mobile.png\n M reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png\n M reports/qa/latest/gui-docente-rehidratacion-mobile.png\n M reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png\n M reports/qa/latest/gui-docente-sincronizacion-mobile.png\n M reports/qa/latest/manifest.json\n M reports/qa/latest/module-contracts.json\n M reports/qa/latest/pdf-print.json\n M reports/qa/latest/ux-visual.json\nM  scripts/build-msi.ps1\nM  scripts/pipeline-contract-check.mjs\nA  scripts/release/assert-candidate-clean.mjs\nA  scripts/release/required-qa-artifacts.mjs\nM  scripts/release/validate-stable-promotion.mjs\nM  scripts/testing/run-backend-coverage-batches.mjs\nA  scripts/testing/run-qa-full.mjs\nA  scripts/testing/validate-qa-reports.mjs\nM  scripts/tests/backend-coverage-batches.test.mjs\nA  scripts/tests/candidate-clean-guard.test.mjs\nM  scripts/tests/ci-workflow-contract.test.mjs\nM  scripts/tests/installer-hub-contract.test.mjs\nM  scripts/tests/installer-hub-lifecycle-contract.test.mjs\nM  scripts/tests/installer-hub-ui-lifecycle.ps1\nM  scripts/tests/module-contract-check.test.mjs\nA  scripts/tests/qa-full-runner.test.mjs\nM  tests/gui-responsive/responsive-docente.spec.ts\n?? docs/handoff/sesiones/2026-10-19/"
+  }
+}

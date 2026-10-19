@@ -1305,6 +1305,7 @@ public partial class MainWindow : Window
             ? informationalVersion 
             : (version is null ? "vDesconocida" : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}");
         HubVersionTextBlock.Text = versionText;
+        EditionVersionTextBlock.Text = $"EvaluaPro Docente Local ({versionText})";
         BrandVersionBadgeTextBlock.Text = $"{versionText} · Burn + MSI + helper";
     }
 

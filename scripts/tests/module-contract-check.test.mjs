@@ -120,6 +120,22 @@ test('la base vigente registra todos los módulos, sin ciclos ni modelos huérfa
   assert.ok(result.transitiveConsumers.modulo_autenticacion.length > 0);
 });
 
+test('el contrato PDF versiona el cambio incompatible de Zod 4 y todos sus consumidores', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'docs/contracts/module-contracts.v2.json'), 'utf8'));
+  const pdf = manifest.modules.find((item) => item.id === 'modulo_generacion_pdf');
+  assert.equal(pdf.contractVersion, '2.0.0');
+  assert.equal(pdf.publicApiHistory.at(-1).version, '2.0.0');
+  for (const consumerId of [
+    'modulo_calificacion',
+    'modulo_escaneo_omr',
+    'modulo_recuperacion_examenes',
+    'modulo_sincronizacion_nube'
+  ]) {
+    const consumer = manifest.modules.find((item) => item.id === consumerId);
+    assert.equal(consumer.dependencies.find((item) => item.module === 'modulo_generacion_pdf')?.contractRange, '^2.0.0', consumerId);
+  }
+});
+
 test('el host del registro debe coincidir con la versión del producto', () => {
   const root = fixture();
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.2.1' }), 'utf8');

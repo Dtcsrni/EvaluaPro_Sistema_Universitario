@@ -211,7 +211,7 @@ async function procesarTrabajo(jobId: string) {
   }
 }
 
-export async function recuperarJobsImportacionClassroom() {
+export async function recuperarJobsImportacionClassroom(): Promise<number> {
   await prisma.classroomImportJob.updateMany({
     where: { estado: 'running' },
     data: { estado: 'queued', startedAt: null }

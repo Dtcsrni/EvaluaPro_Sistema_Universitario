@@ -547,15 +547,17 @@ test('package workflow usa namespace GHCR del owner y nombres de imagen de un se
   assert.doesNotMatch(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}/);
 });
 
-test('qa:full genera el manifiesto despues de todos los reportes que incluye', () => {
+test('qa:full usa el runner fail-closed que conserva diagnósticos y valida reportes', () => {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const qaFull = String(packageJson.scripts?.['qa:full'] ?? '');
-  const architectureIndex = qaFull.indexOf('qa:clean-architecture:check');
-  const manifestIndex = qaFull.indexOf('test:qa:manifest');
+  const runnerPath = path.join(root, 'scripts/testing/run-qa-full.mjs');
+  const runner = fs.readFileSync(runnerPath, 'utf8');
 
-  assert.ok(architectureIndex >= 0, 'qa:full debe ejecutar clean architecture');
-  assert.ok(manifestIndex > architectureIndex, 'qa:full debe generar manifest despues de clean architecture');
-  assert.equal(manifestIndex, qaFull.lastIndexOf('test:qa:manifest'), 'qa:full debe finalizar con el manifiesto actualizado');
+  assert.equal(qaFull, 'node scripts/testing/run-qa-full.mjs');
+  assert.match(runner, /QA_FULL_TASKS/);
+  assert.match(runner, /test:qa:manifest/);
+  assert.match(runner, /validateQaReports/);
+  assert.doesNotMatch(runner, /break;|return 1;\s*\/\/ stop/);
 });
 
 test('release stable gate consume build inmutable y delega la publicación a la E2E completa', () => {
@@ -600,7 +602,7 @@ test('release stable gate aísla la preparación visual y ubica la primera etapa
   const cycleIndex = workflow.indexOf('npm run test:gui:cycle:e2e:ci');
   const pdfIndex = workflow.indexOf('npm run test:gui:pdf:e2e:ci');
   const initialCleanIndex = workflow.indexOf('Confirmar checkout candidato limpio antes de preparar QA');
-  const cleanCheckIndex = workflow.indexOf('assert_candidate_clean()');
+  const cleanCheckIndex = workflow.indexOf("node scripts/release/assert-candidate-clean.mjs 'checkout inicial'");
   const finalCleanIndex = workflow.indexOf('Confirmar árbol fuente limpio antes de QA completa');
   const qaIndex = workflow.indexOf('npm run qa:full');
   const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
@@ -616,8 +618,7 @@ test('release stable gate aísla la preparación visual y ubica la primera etapa
   assert.ok(cycleIndex > responsiveIndex, 'E2E de ciclo debe permanecer en la preparación visual');
   assert.ok(pdfIndex > cycleIndex, 'E2E PDF debe permanecer en la preparación visual');
   assert.ok(initialCleanIndex >= 0, 'el checkout candidato debe comprobarse limpio antes de preparar QA');
-  assert.ok(cleanCheckIndex > initialCleanIndex, 'la función de guard debe definirse después de validar el checkout inicial');
-  assert.match(workflow.slice(initialCleanIndex, cleanCheckIndex), /checkout inicial/);
+  assert.ok(cleanCheckIndex > initialCleanIndex, 'el guard común debe ejecutarse en el checkout inicial');
   for (const stage of [
     'npm ci',
     'generación de Prisma',
@@ -629,11 +630,9 @@ test('release stable gate aísla la preparación visual y ubica la primera etapa
     'E2E de ciclo',
     'E2E PDF'
   ]) {
-    assert.ok(preparation.includes(`assert_candidate_clean '${stage}'`), `falta checkpoint para ${stage}`);
+    assert.ok(preparation.includes(`assert-candidate-clean.mjs '${stage}'`), `falta checkpoint para ${stage}`);
   }
-  assert.match(preparation, /git status --porcelain --untracked-files=all/);
-  assert.match(preparation, /git status --short --untracked-files=all/);
-  assert.match(preparation, /Primera etapa que modificó el checkout candidato:/);
+  assert.match(preparation, /assert-candidate-clean\.mjs/);
   assert.match(preparation, /git restore -- docs\/release\/manual\/gui-screen-matrix\.md reports\/qa\/latest\/gui-screen-matrix\.json/);
   assert.doesNotMatch(preparation, /git restore --(?! docs\/release\/manual\/gui-screen-matrix\.md reports\/qa\/latest\/gui-screen-matrix\.json)/);
   assert.match(preparation, /E2E_SCREENSHOT_DIR:\s*\$\{\{ runner\.temp \}\}\/evaluapro-responsive-screenshots/);
@@ -643,6 +642,7 @@ test('release stable gate aísla la preparación visual y ubica la primera etapa
   assert.match(preparation, /E2E_REPORT_DIR="\$RUNNER_TEMP\/evaluapro-pdf-edge-results"/);
   assert.ok(finalCleanIndex > pdfIndex, 'la comprobación final ocurre tras las E2E visuales');
   assert.ok(qaIndex > finalCleanIndex, 'QA completa debe iniciar solo con el checkout limpio');
+  assert.match(workflow.slice(finalCleanIndex, qaIndex), /assert-candidate-clean\.mjs 'guard final previo a QA completa'/);
   assert.ok(validateIndex > qaIndex, 'el gate debe validar despues de generar QA del SHA actual');
   assert.doesNotMatch(preparation, /--retries|retry:|timeout-minutes:/i, 'la preparación no debe añadir retries ni elevar timeouts');
   assert.match(workflow, /ref:\s*\$\{\{ inputs\.source_sha \}\}[\s\S]*?path: candidate/);

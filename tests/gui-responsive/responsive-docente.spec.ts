@@ -44,6 +44,25 @@ async function assertNoHorizontalOverflow(page: import('@playwright/test').Page,
   expect(overflow, `${context}: overflow horizontal detectado`).toBeLessThanOrEqual(1);
 }
 
+async function assertHeaderBlocksDoNotOverlap(page: import('@playwright/test').Page, context: string) {
+  const overlaps = await page.locator('.banco-panel__head').evaluate((head) => {
+    const selectors = ['.banco-panel__lead', '.banco-header-kpis'];
+    const boxes = selectors.map((selector) => {
+      const element = head.querySelector(selector);
+      if (!element) return { selector, missing: true, x: 0, y: 0, right: 0, bottom: 0 };
+      const rect = element.getBoundingClientRect();
+      return { selector, missing: false, x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom };
+    });
+    const [lead, kpis] = boxes;
+    const overlaps = !lead.missing && !kpis.missing
+      && lead.x < kpis.right && lead.right > kpis.x
+      && lead.y < kpis.bottom && lead.bottom > kpis.y;
+    return { boxes, overlaps };
+  });
+  expect(overlaps.boxes.every((box) => !box.missing), `${context}: falta un bloque del encabezado`).toBe(true);
+  expect(overlaps.overlaps, `${context}: el resumen y el encabezado se superponen`).toBe(false);
+}
+
 async function assertVisibleTabLabel(nav: import('@playwright/test').Locator, label: string) {
   const button = nav.getByRole('button', { name: label, exact: true });
   const layout = await button.evaluate((element) => ({
@@ -54,6 +73,87 @@ async function assertVisibleTabLabel(nav: import('@playwright/test').Locator, la
   }));
   expect(layout.scrollWidth, `la etiqueta de navegación "${label}" se recorta horizontalmente`).toBeLessThanOrEqual(layout.clientWidth + 1);
   expect(layout.scrollHeight, `la etiqueta de navegación "${label}" se recorta verticalmente`).toBeLessThanOrEqual(layout.clientHeight + 1);
+}
+
+async function assertPlantillasFormatoContrast(page: import('@playwright/test').Page) {
+  const result = await page.locator('.plantillas-formato-box').evaluate((panel) => {
+    const parse = (color: string) => color.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+    const luminance = (color: string) => {
+      const channels = parse(color).map((value) => {
+        const normalized = value / 255;
+        return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    };
+    const surface = [luminance('rgb(30, 41, 59)'), luminance('rgb(15, 23, 42)')];
+    const elements = [...panel.querySelectorAll('.plantillas-temas__title, .nota, .campo__label-row, .ayuda, .plantillas-auto-status, .plantillas-formato-box__footer, .plantillas-formato-box__badge, .plantillas-formato-box__omr')]
+      .filter((element) => (element as HTMLElement).innerText?.trim());
+    return {
+      backgroundImage: getComputedStyle(panel).backgroundImage,
+      lightTheme: !document.documentElement.matches('[data-theme="dark"]'),
+      text: elements.map((element) => {
+        const color = getComputedStyle(element).color;
+        const foreground = luminance(color);
+        const minimumContrast = Math.min(...surface.map((background) => (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05)));
+        return { label: (element as HTMLElement).innerText.trim().slice(0, 60), color, contrast: minimumContrast };
+      })
+    };
+  });
+  expect(result.lightTheme, 'la regresión debe comprobarse con tema claro activo').toBe(true);
+  expect(result.backgroundImage, 'el panel mantiene la superficie oscura declarada').toContain('rgb(30, 41, 59)');
+  expect(result.text.length, 'el panel debe mostrar textos para revisar').toBeGreaterThan(5);
+  for (const item of result.text) {
+    expect(item.contrast, `contraste insuficiente en "${item.label}" (${item.color})`).toBeGreaterThanOrEqual(4.5);
+  }
+}
+
+async function assertPlantillasStudioContrast(page: import('@playwright/test').Page) {
+  const contrast = await page.locator('.plantillas-studio-intro').evaluate((panel) => {
+    const luminance = (color: string) => {
+      const channels = color.match(/[\d.]+/g)?.slice(0, 3).map((value) => Number(value) / 255) ?? [];
+      const linear = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+    };
+    const background = luminance('rgb(15, 23, 42)');
+    const elements = [
+      ...panel.querySelectorAll('h3, p'),
+      ...panel.querySelectorAll('.plantillas-studio-steps li > b')
+    ].filter((element) => (element as HTMLElement).innerText.trim());
+    return elements.map((element) => {
+      const color = getComputedStyle(element).color;
+      const foreground = luminance(color);
+      return {
+        label: (element as HTMLElement).innerText.trim().slice(0, 48),
+        contrast: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05)
+      };
+    });
+  });
+  expect(contrast.length, 'el bloque de construcción debe contener texto y pasos visibles').toBeGreaterThan(3);
+  for (const item of contrast) {
+    expect(item.contrast, `contraste insuficiente en el bloque de construcción: "${item.label}"`).toBeGreaterThanOrEqual(4.5);
+  }
+}
+
+async function assertPlantillasSummaryContrast(page: import('@playwright/test').Page) {
+  const ratios = await page.locator('.plantillas-header-right').evaluate((header) => {
+    const luminance = (color: string) => {
+      const channels = color.match(/[\d.]+/g)?.slice(0, 3).map((value) => Number(value) / 255) ?? [];
+      const linear = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+    };
+    const background = luminance('rgb(255, 255, 255)');
+    return [...header.querySelectorAll('.banco-mini-kpi__num, .banco-mini-kpi__lbl')].map((element) => {
+      const foreground = luminance(getComputedStyle(element).color);
+      return {
+        label: (element as HTMLElement).innerText.trim(),
+        contrast: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05)
+      };
+    });
+  });
+  expect(ratios.length, 'el resumen de plantillas debe mostrar cifras y etiquetas').toBeGreaterThan(4);
+  for (const item of ratios) {
+    expect(item.contrast, `contraste insuficiente en resumen "${item.label}"`).toBeGreaterThanOrEqual(4.5);
+  }
 }
 
 async function assertInteractiveControlsAreUsable(page: import('@playwright/test').Page, context: string) {
@@ -333,7 +433,16 @@ test.describe('GUI responsive e2e · docente', () => {
         await nav.getByRole('button', { name: tab.label }).click();
         const activeTab = nav.getByRole('button', { name: tab.label });
         await expect(activeTab).toHaveAttribute('aria-current', 'page');
+        if (tab.slug === 'plantillas') {
+          await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+          await expect(page.locator('.plantillas-formato-box')).toBeVisible();
+          await expect(page.locator('.plantillas-studio-intro')).toBeVisible();
+          await assertPlantillasFormatoContrast(page);
+          await assertPlantillasStudioContrast(page);
+          await assertPlantillasSummaryContrast(page);
+        }
         if (viewport.name === 'mobile') await assertVisibleTabLabel(nav, tab.label);
+        if (tab.slug === 'calificaciones') await assertHeaderBlocksDoNotOverlap(page, `${viewport.name} / calificaciones`);
         await page.waitForTimeout(300);
         if (tab.slug === 'entrega') {
           const qr = page.getByRole('img', { name: 'QR para abrir en movil' });

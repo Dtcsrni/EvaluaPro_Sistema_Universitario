@@ -8772,8 +8772,28 @@ li.empty-state-card {
   padding: 1.25rem 1.5rem;
   border: 1px solid rgba(167, 139, 250, 0.28);
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(30, 41, 89, 0.62), rgba(15, 23, 42, 0.72));
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #e2e8f0;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 28px rgba(2, 6, 23, 0.14);
+}
+
+/* Este panel conserva su superficie oscura también en tema claro; fija aquí
+   todos los textos para que las reglas globales de .nota y .ayuda no los apaguen. */
+.page--docente .plantillas-form--panoramico .plantillas-formato-box h4.plantillas-temas__title,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .campo__label-row,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .campo__label-row span,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .plantillas-auto-status {
+  color: #f8fafc !important;
+}
+
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .nota,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .ayuda,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .plantillas-formato-box__footer {
+  color: #cbd5e1 !important;
+}
+
+.plantillas-formato-box .plantillas-formato-control .campo__label-row b {
+  color: #67e8f9;
 }
 
 .plantillas-formato-box__heading,
@@ -9175,7 +9195,8 @@ li.empty-state-card {
   margin-top: 0;
   padding: 1.1rem;
   border-color: rgba(56, 189, 248, 0.24);
-  background: rgba(8, 21, 43, 0.72);
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #e2e8f0;
 }
 
 .plantillas-form--panoramico .plantillas-formato-box__heading {

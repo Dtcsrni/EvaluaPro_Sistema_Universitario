@@ -10,7 +10,8 @@
 param(
   [string]$RootPath = '',
   [string]$ReportDir = '',
-  [int]$DetectionTimeoutSec = 75,
+  [ValidateRange(1, 300)]
+  [int]$DetectionTimeoutSec = 300,
   [switch]$AllowMissingBundle
 )
 
@@ -33,14 +34,98 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class EvaluaProQaNativeWindow {
+  [StructLayout(LayoutKind.Sequential)]
+  public struct NativePoint {
+    public int X;
+    public int Y;
+    public NativePoint(int x, int y) { X = x; Y = y; }
+  }
+
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  public struct ProcessEntry32 {
+    public uint Size;
+    public uint Usage;
+    public uint ProcessId;
+    public UIntPtr DefaultHeapId;
+    public uint ModuleId;
+    public uint ThreadCount;
+    public uint ParentProcessId;
+    public int BasePriority;
+    public uint Flags;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+    public string ExecutableName;
+  }
+
+  [DllImport("kernel32.dll", SetLastError=true)]
+  private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint processId);
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, EntryPoint="Process32FirstW", SetLastError=true)]
+  [return: MarshalAs(UnmanagedType.Bool)]
+  private static extern bool Process32First(IntPtr snapshot, ref ProcessEntry32 entry);
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, EntryPoint="Process32NextW", SetLastError=true)]
+  [return: MarshalAs(UnmanagedType.Bool)]
+  private static extern bool Process32Next(IntPtr snapshot, ref ProcessEntry32 entry);
+  [DllImport("kernel32.dll", SetLastError=true)]
+  private static extern bool CloseHandle(IntPtr handle);
+
+  public static ProcessEntry32[] GetProcessSnapshot() {
+    const uint TH32CS_SNAPPROCESS = 0x00000002;
+    const int ERROR_NO_MORE_FILES = 18;
+    IntPtr snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == new IntPtr(-1)) {
+      throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(), "No se pudo crear el snapshot de procesos.");
+    }
+    try {
+      var entries = new System.Collections.Generic.List<ProcessEntry32>();
+      var entry = new ProcessEntry32 { Size = (uint)Marshal.SizeOf(typeof(ProcessEntry32)) };
+      if (!Process32First(snapshot, ref entry)) {
+        int error = Marshal.GetLastWin32Error();
+        if (error == ERROR_NO_MORE_FILES) return entries.ToArray();
+        throw new System.ComponentModel.Win32Exception(error, "No se pudo leer el primer proceso del snapshot.");
+      }
+      do {
+        entries.Add(entry);
+        entry = new ProcessEntry32 { Size = (uint)Marshal.SizeOf(typeof(ProcessEntry32)) };
+      } while (Process32Next(snapshot, ref entry));
+
+      int lastError = Marshal.GetLastWin32Error();
+      if (lastError != ERROR_NO_MORE_FILES) {
+        throw new System.ComponentModel.Win32Exception(lastError, "No se pudo completar el snapshot de procesos.");
+      }
+      return entries.ToArray();
+    } finally {
+      CloseHandle(snapshot);
+    }
+  }
+
   [DllImport("user32.dll", SetLastError=true)]
   public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
   [DllImport("user32.dll", SetLastError=true)]
-  public static extern bool SetForegroundWindow(IntPtr hWnd);
+  public static extern bool IsWindowVisible(IntPtr hWnd);
   [DllImport("user32.dll")]
-  public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  private static extern IntPtr WindowFromPoint(NativePoint point);
   [DllImport("user32.dll")]
-  public static extern IntPtr GetForegroundWindow();
+  private static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  private static extern int GetClassNameW(IntPtr hWnd, System.Text.StringBuilder className, int maxCount);
+
+  public static bool IsWindowAtPoint(IntPtr expectedWindow, int x, int y) {
+    const uint GA_ROOT = 2;
+    IntPtr hit = WindowFromPoint(new NativePoint(x, y));
+    return hit != IntPtr.Zero && GetAncestor(hit, GA_ROOT) == expectedWindow;
+  }
+
+  public static string DescribeWindowAtPoint(int x, int y) {
+    IntPtr hit = WindowFromPoint(new NativePoint(x, y));
+    if (hit == IntPtr.Zero) return "hwnd=0";
+    uint processId;
+    GetWindowThreadProcessId(hit, out processId);
+    var className = new System.Text.StringBuilder(256);
+    GetClassNameW(hit, className, className.Capacity);
+    return string.Format("pid={0}; class={1}; root=0x{2:X}", processId, className.ToString(), GetAncestor(hit, 2).ToInt64());
+  }
+
 }
 '@
 
@@ -56,11 +141,17 @@ New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
 
 $reportPath = Join-Path $ReportDir 'installer-hub-ui-automation-report.json'
 $logPath = Join-Path $ReportDir 'installer-hub-ui-automation.log'
+$burnLogPath = Join-Path $ReportDir 'installer-hub-burn.log'
 $results = New-Object System.Collections.Generic.List[object]
 $screenshots = New-Object System.Collections.Generic.List[string]
 $processes = New-Object System.Collections.Generic.List[System.Diagnostics.Process]
 $bundlePath = ''
 $failed = $false
+$currentStage = 'setup'
+$bundleProcessId = $null
+$bundleProcessStartedAt = $null
+$bundleUiProcessId = $null
+$bundleUiProcessPath = ''
 
 Get-ChildItem -LiteralPath $ReportDir -File -ErrorAction SilentlyContinue |
   Where-Object { $_.Name -match '^(0[1-7]-.+\.png|installer-hub-ui-automation\.(json|log))$' } |
@@ -98,6 +189,14 @@ function Save-Report {
   foreach ($item in $screenshots) { $screenshotItems += [string]$item }
   $resultItems = @()
   foreach ($item in $results) { $resultItems += $item }
+  $processState = 'not-started'
+  $processExitCode = $null
+  if ($processes.Count -gt 0) {
+    $trackedProcess = $processes[$processes.Count - 1]
+    $trackedProcess.Refresh()
+    $processState = if ($trackedProcess.HasExited) { 'exited' } else { 'running' }
+    if ($trackedProcess.HasExited) { $processExitCode = $trackedProcess.ExitCode }
+  }
 
   $report = [pscustomobject]@{
     status = $Status
@@ -107,7 +206,15 @@ function Save-Report {
     rootPath = $root
     bundlePath = $bundlePath
     logPath = $logPath
+    burnLogPath = $burnLogPath
     screenshots = $screenshotItems
+    currentStage = $currentStage
+    processId = $bundleProcessId
+    processStartedAt = $bundleProcessStartedAt
+    uiProcessId = $bundleUiProcessId
+    uiProcessPath = $bundleUiProcessPath
+    processState = $processState
+    processExitCode = $processExitCode
     results = $resultItems
   }
   $report | ConvertTo-Json -Depth 8 | Set-Content -Path $reportPath -Encoding UTF8
@@ -175,22 +282,189 @@ function Resolve-BundlePath {
   throw "El manifiesto no apunta a un bundle existente: $selectedManifest"
 }
 
+function Get-LocalProcessSnapshot {
+  foreach ($instance in [EvaluaProQaNativeWindow]::GetProcessSnapshot()) {
+    [pscustomobject]@{
+      ProcessId = [int]$instance.ProcessId
+      ParentProcessId = [int]$instance.ParentProcessId
+      ExecutableName = [string]$instance.ExecutableName
+    }
+  }
+}
+
+function Get-VerifiedBundleUiProcessIds {
+  param([Parameter(Mandatory = $true)][int]$TargetPid)
+  if ($TargetPid -ne $bundleProcessId) { throw 'La raíz solicitada no es el bundle iniciado por esta corrida.' }
+
+  $rootProcess = [System.Diagnostics.Process]::GetProcessById($TargetPid)
+  try {
+    $rootProcess.Refresh()
+    $rootPath = [System.IO.Path]::GetFullPath($rootProcess.Path)
+    $expectedRootPath = [System.IO.Path]::GetFullPath($bundlePath)
+    $rootStart = $rootProcess.StartTime.ToUniversalTime()
+    $expectedRootStart = [datetime]::Parse($bundleProcessStartedAt).ToUniversalTime()
+    if (-not [string]::Equals($rootPath, $expectedRootPath, [StringComparison]::OrdinalIgnoreCase) -or
+        [math]::Abs(($rootStart - $expectedRootStart).TotalSeconds) -gt 1) {
+      throw "La identidad del bundle cambió; pid=$TargetPid."
+    }
+
+    $nativeProcesses = @(Get-LocalProcessSnapshot)
+    $ownedUiPids = New-Object System.Collections.Generic.List[int]
+    $ownedUiPids.Add($TargetPid) | Out-Null
+    $visited = New-Object 'System.Collections.Generic.HashSet[int]'
+    $frontier = New-Object 'System.Collections.Generic.Queue[int]'
+    $frontier.Enqueue($TargetPid)
+    while ($frontier.Count -gt 0) {
+      $parentPid = $frontier.Dequeue()
+      foreach ($child in @($nativeProcesses | Where-Object { [int]$_.ParentProcessId -eq $parentPid })) {
+        $childPid = [int]$child.ProcessId
+        if (-not $visited.Add($childPid)) { continue }
+        $childProcess = $null
+        try {
+          $childProcess = [System.Diagnostics.Process]::GetProcessById($childPid)
+          $childProcess.Refresh()
+          if ($childProcess.HasExited) { continue }
+          $actualPath = [System.IO.Path]::GetFullPath($childProcess.Path)
+          $actualStart = $childProcess.StartTime.ToUniversalTime()
+          if (-not [string]::Equals([System.IO.Path]::GetFileName($actualPath), [string]$child.ExecutableName, [StringComparison]::OrdinalIgnoreCase) -or
+              $actualStart -lt $rootStart) { continue }
+
+          $frontier.Enqueue($childPid)
+          if ([string]::Equals([System.IO.Path]::GetFileName($actualPath), 'EvaluaPro.BurnBootstrapperApp.exe', [StringComparison]::OrdinalIgnoreCase)) {
+            $ownedUiPids.Add($childPid) | Out-Null
+            $script:bundleUiProcessId = $childPid
+            $script:bundleUiProcessPath = $actualPath
+          }
+        } catch [System.ArgumentException] {
+          # The process exited between the native snapshot and identity check.
+        } finally {
+          if ($childProcess) { $childProcess.Dispose() }
+        }
+      }
+    }
+    return $ownedUiPids.ToArray()
+  } finally {
+    $rootProcess.Dispose()
+  }
+}
+
 function Find-Window {
-  param([int]$TimeoutSec = 45)
+  param(
+    [Parameter(Mandatory = $true)][int]$TargetPid,
+    [int]$TimeoutSec = 45
+  )
+  if (-not $TargetPid) { throw 'Find-Window requiere el PID del bundle iniciado por esta corrida.' }
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
-  $condition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
+  $nameCondition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
     [System.Windows.Automation.AutomationElement]::NameProperty,
     'EvaluaPro Installer Hub'
   )
+  $lastObservedPids = @()
   do {
-    $window = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
+    $ownedUiProcessIds = @(Get-VerifiedBundleUiProcessIds -TargetPid $TargetPid)
+    $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
       [System.Windows.Automation.TreeScope]::Children,
-      $condition
+      $nameCondition
     )
-    if ($window) { return $window }
+    foreach ($window in $windows) {
+      $windowPid = [int]$window.Current.ProcessId
+      if ($ownedUiProcessIds -notcontains $windowPid) { continue }
+      $windowProcess = [System.Diagnostics.Process]::GetProcessById($windowPid)
+      try {
+        $script:bundleUiProcessId = $windowPid
+        $script:bundleUiProcessPath = [System.IO.Path]::GetFullPath($windowProcess.Path)
+      } finally {
+        $windowProcess.Dispose()
+      }
+      return $window
+    }
+    $lastObservedPids = @($ownedUiProcessIds)
     Start-Sleep -Milliseconds 500
   } while ((Get-Date) -lt $deadline)
+  if ($lastObservedPids.Count -gt 0) {
+    Write-QaLog "Ventana no encontrada; PID raíz=$TargetPid; PIDs UI verificados=$($lastObservedPids -join ', ')."
+  }
   return $null
+}
+
+function Wait-DetectionCompletion {
+  param(
+    [System.Windows.Automation.AutomationElement]$Window,
+    [int]$TimeoutSec,
+    [System.Diagnostics.Process]$Process
+  )
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $statusCondition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
+    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+    'FooterStatusTextBlock'
+  )
+  do {
+    $Process.Refresh()
+    if ($Process.HasExited) { throw "El proceso del bundle terminó durante detección (exit=$($Process.ExitCode))." }
+    $currentWindow = Find-Window -TargetPid $bundleProcessId -TimeoutSec 0
+    if (-not $currentWindow) { throw "La ventana del Hub (PID UI=$bundleUiProcessId) desapareció durante detección." }
+    $Window = $currentWindow
+    $statusElement = $Window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $statusCondition)
+    $statusText = if ($statusElement) { [string]$statusElement.Current.Name } else { '' }
+    if ($statusText -match '^Equipo listo\.' -or $statusText -match '^Revisa prerequisitos') {
+      $ready = $statusText -match '^Equipo listo\.'
+      Add-Result -Area 'detection' -Item 'initial-detection' -Ok $ready -Detail "footerStatus='$statusText'; pid=$bundleProcessId; elapsedSeconds=$([math]::Round(($TimeoutSec - ($deadline - (Get-Date)).TotalSeconds), 1))"
+      if (-not $ready) { throw "La detección terminó en estado fallido: $statusText" }
+      return
+    }
+    Start-Sleep -Milliseconds 500
+  } while ((Get-Date) -lt $deadline)
+  $lastStatus = if ($statusElement) { [string]$statusElement.Current.Name } else { '<control no disponible>' }
+  throw "La detección no terminó en ${TimeoutSec}s; pid=$bundleProcessId; último estado='$lastStatus'."
+}
+
+function Stop-OwnedProcessTree {
+  param(
+    [System.Diagnostics.Process]$RootProcess,
+    [string]$ExpectedRootPath,
+    [string]$ExpectedRootStartTime
+  )
+  $RootProcess.Refresh()
+  $rootPath = [System.IO.Path]::GetFullPath($RootProcess.Path)
+  $rootStartTime = $RootProcess.StartTime.ToUniversalTime().ToString('o')
+  if (-not [string]::Equals($rootPath, [System.IO.Path]::GetFullPath($ExpectedRootPath), [StringComparison]::OrdinalIgnoreCase) -or
+      $rootStartTime -ne $ExpectedRootStartTime) {
+    throw "La identidad del proceso raíz cambió; pid=$($RootProcess.Id). No se detiene un PID no verificado."
+  }
+
+  $nativeProcesses = @(Get-LocalProcessSnapshot)
+  $descendants = New-Object System.Collections.Generic.List[object]
+  $parents = @([int]$RootProcess.Id)
+  do {
+    $children = @($nativeProcesses | Where-Object { $parents -contains [int]$_.ParentProcessId })
+    foreach ($child in $children) { $descendants.Add($child) | Out-Null }
+    $parents = @($children | ForEach-Object { [int]$_.ProcessId })
+  } while ($parents.Count -gt 0)
+
+  $descendantItems = $descendants.ToArray()
+  [array]::Reverse($descendantItems)
+  foreach ($child in $descendantItems) {
+    $ownedProcess = $null
+    try {
+      $ownedProcess = [System.Diagnostics.Process]::GetProcessById([int]$child.ProcessId)
+      $ownedProcess.Refresh()
+      if ($ownedProcess.HasExited) { continue }
+      $actualPath = [System.IO.Path]::GetFullPath($ownedProcess.Path)
+      $actualStart = $ownedProcess.StartTime.ToUniversalTime()
+      if (-not [string]::Equals([System.IO.Path]::GetFileName($actualPath), [string]$child.ExecutableName, [StringComparison]::OrdinalIgnoreCase) -or
+          $actualStart -lt $RootProcess.StartTime.ToUniversalTime()) { continue }
+      $ownedProcess.Kill()
+      if (-not $ownedProcess.WaitForExit(5000)) { throw "Proceso descendiente verificado no cerró; pid=$($child.ProcessId)." }
+    } finally {
+      if ($ownedProcess) { $ownedProcess.Dispose() }
+    }
+  }
+
+  $RootProcess.Refresh()
+  if (-not $RootProcess.HasExited) {
+    $RootProcess.Kill()
+    if (-not $RootProcess.WaitForExit(5000)) { throw "Proceso raíz propio no cerró; pid=$($RootProcess.Id)." }
+  }
 }
 
 function Find-ById {
@@ -352,17 +626,30 @@ function Capture-Window {
   $h = [int][Math]::Round($rectangle.Height)
   $bitmap = New-Object System.Drawing.Bitmap($w, $h)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+  $handle = [IntPtr]::Zero
   try {
     $handle = [IntPtr]$Window.Current.NativeWindowHandle
     if ($handle -eq [IntPtr]::Zero) { throw 'La ventana no expone un HWND para capturar su superficie visible.' }
     if ($Window.Current.IsOffscreen) { throw 'La ventana está fuera del área visible del escritorio.' }
-    [EvaluaProQaNativeWindow]::ShowWindow($handle, 5) | Out-Null
-    [EvaluaProQaNativeWindow]::SetForegroundWindow($handle) | Out-Null
-    Start-Sleep -Milliseconds 250
-    if ([EvaluaProQaNativeWindow]::GetForegroundWindow() -ne $handle) { throw 'El Installer Hub no quedó en primer plano.' }
+    if (-not [EvaluaProQaNativeWindow]::IsWindowVisible($handle)) { throw 'El HWND del Installer Hub no está visible.' }
     $captureRect = [System.Drawing.Rectangle]::new($x, $y, $w, $h)
     $screen = [System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.Bounds.Contains($captureRect) } | Select-Object -First 1
     if (-not $screen) { throw "La ventana ($($w)x$($h)) no cabe completa en un monitor conectado." }
+    $probeX = [Math]::Max(12, [int][Math]::Floor($w * 0.2))
+    $probeY = [Math]::Max(40, [int][Math]::Floor($h * 0.2))
+    $probePoints = @(
+      [System.Drawing.Point]::new($x + $probeX, $y + $probeY),
+      [System.Drawing.Point]::new($x + $w - $probeX, $y + $probeY),
+      [System.Drawing.Point]::new($x + $probeX, $y + $h - 20),
+      [System.Drawing.Point]::new($x + $w - $probeX, $y + $h - 20),
+      [System.Drawing.Point]::new($x + [int][Math]::Floor($w / 2), $y + [int][Math]::Floor($h / 2))
+    )
+    foreach ($point in $probePoints) {
+      if (-not [EvaluaProQaNativeWindow]::IsWindowAtPoint($handle, $point.X, $point.Y)) {
+        $cover = [EvaluaProQaNativeWindow]::DescribeWindowAtPoint($point.X, $point.Y)
+        throw "El Hub está parcialmente cubierto en el escritorio (punto $($point.X),$($point.Y); $cover); no se cambiará el foco."
+      }
+    }
     $graphics.CopyFromScreen($x, $y, 0, 0, $bitmap.Size)
     if ($RequestedWidth -gt 0 -and $RequestedHeight -gt 0 -and ($bitmap.Width -ne $RequestedWidth -or $bitmap.Height -ne $RequestedHeight)) {
       throw "El tamaño capturado $($bitmap.Width)x$($bitmap.Height) no coincide con el viewport solicitado ${RequestedWidth}x${RequestedHeight}."
@@ -370,6 +657,21 @@ function Capture-Window {
     $path = Join-Path $ReportDir ("{0}.png" -f $Name)
     $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $script:screenshots.Add($path) | Out-Null
+    $coloredBodySamples = 0
+    $distinctBodyColors = [System.Collections.Generic.HashSet[int]]::new()
+    $bodyTop = [Math]::Max(40, [int][Math]::Floor($bitmap.Height * 0.07))
+    $bodyBottom = [Math]::Max($bodyTop + 1, $bitmap.Height - 12)
+    for ($sampleY = $bodyTop; $sampleY -lt $bodyBottom; $sampleY += 8) {
+      for ($sampleX = 8; $sampleX -lt ($bitmap.Width - 8); $sampleX += 8) {
+        $pixel = $bitmap.GetPixel($sampleX, $sampleY)
+        $colorKey = ($pixel.R -shl 16) -bor ($pixel.G -shl 8) -bor $pixel.B
+        $distinctBodyColors.Add($colorKey) | Out-Null
+        if ($pixel.R -lt 245 -or $pixel.G -lt 245 -or $pixel.B -lt 245) { $coloredBodySamples++ }
+      }
+    }
+    if ($coloredBodySamples -lt 100 -or $distinctBodyColors.Count -lt 8) {
+      throw "La captura '$Name' muestra una ventana vacía o monocroma (muestras con contenido=$coloredBodySamples; colores=$($distinctBodyColors.Count))."
+    }
     return $path
   } catch {
     Write-QaLog "No se pudo capturar la ventana visible $Name en ($x, $y, $w, $h): $($_.Exception.Message)"
@@ -383,13 +685,13 @@ function Capture-Window {
 
 function Resize-WindowForQa {
   param(
-    [System.Diagnostics.Process]$Process,
+    [System.Windows.Automation.AutomationElement]$Window,
     [int]$Width,
     [int]$Height
   )
   try {
-    $Process.Refresh()
-    $handle = $Process.MainWindowHandle
+    if (-not $Window) { return $false }
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
     if ($handle -eq [IntPtr]::Zero) { return $false }
     if (-not [EvaluaProQaNativeWindow]::MoveWindow($handle, 0, 0, $Width, $Height, $true)) { return $false }
     $deadline = (Get-Date).AddSeconds(3)
@@ -447,6 +749,7 @@ function Set-SafeEnvironment {
 
 try {
   Set-Content -Path $logPath -Encoding UTF8 -Value ('{0:u} Inicio QA UI Installer Hub' -f (Get-Date))
+  $currentStage = 'resolve-bundle'
   $bundlePath = Resolve-BundlePath
   if (-not $bundlePath) {
     Add-Result -Area 'bundle' -Item 'bundle-publico' -Ok $true -Detail 'SKIP: bundle ausente con AllowMissingBundle.'
@@ -458,39 +761,65 @@ try {
   Write-QaLog "Bundle: $bundlePath"
   Set-SafeEnvironment
 
-  $process = Start-Process -FilePath $bundlePath -ArgumentList '/repair' -PassThru -WindowStyle Normal
+  $currentStage = 'launch-bundle'
+  $burnLogArgument = '"{0}"' -f $burnLogPath
+  $process = Start-Process -FilePath $bundlePath -ArgumentList @('/repair', '-l', $burnLogArgument) -PassThru -WindowStyle Normal
   $processes.Add($process) | Out-Null
-  Write-QaLog "Proceso iniciado: pid=$($process.Id)"
+  $bundleProcessId = $process.Id
+  $bundleProcessStartedAt = $process.StartTime.ToUniversalTime().ToString('o')
+  Write-QaLog "Proceso iniciado: pid=$bundleProcessId; startedAt=$bundleProcessStartedAt"
 
-  $window = Find-Window -TimeoutSec 45
+  $currentStage = 'wait-window'
+  $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 45
   if (-not $window) { throw 'No aparecio la ventana EvaluaPro Installer Hub.' }
+  if ($window.Current.ProcessId -ne $bundleUiProcessId) { throw "La ventana encontrada pertenece al PID $($window.Current.ProcessId), se esperaba el PID UI verificado $bundleUiProcessId." }
   Start-Sleep -Milliseconds 500
+  $currentStage = 'capture-splash'
   Capture-Window -Window $window -Name '01-splash' | Out-Null
 
-  Start-Sleep -Seconds ([math]::Min(18, [math]::Max(8, $DetectionTimeoutSec / 4)))
-  $window = Find-Window -TimeoutSec 10
-  if (-not $window) { throw 'La ventana desaparecio durante deteccion.' }
+  $currentStage = 'accessibility-splash'
+  foreach ($controlId in @('FooterStatusTextBlock', 'NextButton', 'CloseButton')) {
+    $element = Find-ById -RootElement $window -AutomationId $controlId -TimeoutSec 8
+    Add-Result -Area 'accessibility' -Item $controlId -Ok ($null -ne $element) -Detail $(if ($element) { "name='$($element.Current.Name)'; controlType=$($element.Current.ControlType.ProgrammaticName)" } else { 'No expuesto en el árbol UI Automation de la ventana propia.' })
+    if (-not $element) { throw "Falta el control accesible esperado '$controlId' en la ventana propia." }
+  }
+
+  $currentStage = 'detect-prereqs'
+  Wait-DetectionCompletion -Window $window -TimeoutSec $DetectionTimeoutSec -Process $process
+  $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
+  if (-not $window) { throw 'La ventana desaparecio despues de deteccion.' }
+  $currentStage = 'navigate-prepare'
   $backButton = Find-ById -RootElement $window -AutomationId 'BackButton' -TimeoutSec 5
   if ($backButton -and $backButton.Current.IsEnabled) {
     Invoke-Control -Element $backButton
     Start-Sleep -Milliseconds 600
-    $window = Find-Window -TimeoutSec 10
+    $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
   } elseif ($backButton) {
     Add-Result -Area 'navigation' -Item 'BackButton-inicial' -Ok $true -Detail 'Presente y deshabilitado en el primer paso; no se invoca.'
   }
   Capture-Window -Window $window -Name '02-preparar' | Out-Null
 
+  $currentStage = 'navigate-review'
   $nextButton = Find-ById -RootElement $window -AutomationId 'NextButton' -TimeoutSec 5
   if ($nextButton -and $nextButton.Current.IsEnabled) {
     Invoke-Control -Element $nextButton
     Start-Sleep -Milliseconds 600
-    $window = Find-Window -TimeoutSec 10
+    $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
   } elseif ($nextButton) {
     Add-Result -Area 'navigation' -Item 'NextButton-inicial' -Ok $true -Detail 'Presente y deshabilitado en este estado; no se invoca.'
   }
   Capture-Window -Window $window -Name '03-revisar' | Out-Null
 
+  $currentStage = 'verify-review-controls'
+  $hubVersion = Find-ById -RootElement $window -AutomationId 'HubVersionTextBlock' -TimeoutSec 5
+  $editionVersion = Find-ById -RootElement $window -AutomationId 'EditionVersionTextBlock' -TimeoutSec 5
+  $versionLabelsMatch = $hubVersion -and $editionVersion -and
+    $hubVersion.Current.Name -and $editionVersion.Current.Name -and
+    $editionVersion.Current.Name -eq "EvaluaPro Docente Local ($($hubVersion.Current.Name))"
+  Add-Result -Area 'version' -Item 'edition-version-matches-hub' -Ok $versionLabelsMatch -Detail $(if ($versionLabelsMatch) { "hub='$($hubVersion.Current.Name)'; edition='$($editionVersion.Current.Name)'" } else { "hub='$($hubVersion.Current.Name)'; edition='$($editionVersion.Current.Name)'" })
   foreach ($controlId in @(
+    'HubVersionTextBlock',
+    'EditionVersionTextBlock',
     'FlavorComboBox',
     'ModeComboBox',
     'InstallDirTextBox',
@@ -526,18 +855,19 @@ try {
   if ($detectButton -and $detectButton.Current.IsEnabled) {
     Invoke-Control -Element $detectButton
     Start-Sleep -Seconds 6
-    $window = Find-Window -TimeoutSec 10
+    $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
     Add-Result -Area 'button' -Item 'DetectButton' -Ok ($null -ne $window) -Detail 'Invoke respondio y la ventana siguio viva.'
   } else {
     Add-Result -Area 'button' -Item 'DetectButton' -Ok $true -Detail 'No disponible o deshabilitado en este estado; la deteccion inicial ya fue ejecutada.'
   }
   Capture-Window -Window $window -Name '03-revisar-detectado' | Out-Null
 
+  $currentStage = 'validate-modes'
   $backButton = Find-ById -RootElement $window -AutomationId 'BackButton' -TimeoutSec 5
   if ($backButton -and $backButton.Current.IsEnabled) {
     Invoke-Control -Element $backButton
     Start-Sleep -Milliseconds 500
-    $window = Find-Window -TimeoutSec 10
+    $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
   }
 
   $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
@@ -552,7 +882,7 @@ try {
       if ($nextButton -and $nextButton.Current.IsEnabled) {
         Invoke-Control -Element $nextButton
         Start-Sleep -Milliseconds 450
-        $window = Find-Window -TimeoutSec 10
+        $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
       }
       $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 5
       if ($startButton) {
@@ -565,7 +895,7 @@ try {
       if ($backButton -and $backButton.Current.IsEnabled) {
         Invoke-Control -Element $backButton
         Start-Sleep -Milliseconds 450
-        $window = Find-Window -TimeoutSec 10
+        $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
       }
       $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
     } catch {
@@ -574,6 +904,7 @@ try {
   }
   Capture-Window -Window $window -Name '04-modos-validados' | Out-Null
 
+  $currentStage = 'validate-expanders'
   foreach ($expanderId in @('AdvancedConfigExpander', 'LogExpander')) {
     $expander = Find-ById -RootElement $window -AutomationId $expanderId -TimeoutSec 2
     if ($expander) {
@@ -604,13 +935,15 @@ try {
     if ($expander) { Expand-Control -Element $expander | Out-Null }
   }
   Start-Sleep -Milliseconds 700
+  $currentStage = 'capture-advanced'
   Capture-Window -Window $window -Name '06-avanzado' | Out-Null
 
+  $currentStage = 'run-nondestructive-qa'
   $nextButton = Find-ById -RootElement $window -AutomationId 'NextButton' -TimeoutSec 5
   if ($nextButton -and $nextButton.Current.IsEnabled) {
     Invoke-Control -Element $nextButton
     Start-Sleep -Milliseconds 500
-    $window = Find-Window -TimeoutSec 10
+    $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
   } elseif ($nextButton) {
     Add-Result -Area 'navigation' -Item 'NextButton-avanzado' -Ok $true -Detail 'Presente y deshabilitado; se omite avance no aplicable.'
   }
@@ -622,25 +955,48 @@ try {
   if ($startButton -and $startButton.Current.IsEnabled) {
     Invoke-Control -Element $startButton
     Start-Sleep -Seconds 1
-    $window = Find-Window -TimeoutSec 10
+    $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
     Capture-Window -Window $window -Name '04-ejecutar-busy' | Out-Null
     Add-Result -Area 'button' -Item 'StartButton' -Ok ($null -ne $window) -Detail 'Invoke respondio en modo QA no destructivo.'
     Start-Sleep -Seconds 5
-    $window = Find-Window -TimeoutSec 10
+    $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
     Capture-Window -Window $window -Name '05-resultado' | Out-Null
   } else {
     Add-Result -Area 'button' -Item 'StartButton' -Ok $true -Detail 'Presente pero no habilitado en este estado; no se fuerza accion de producto.'
     Capture-Window -Window $window -Name '05-resultado' | Out-Null
   }
 
-  if (-not (Resize-WindowForQa -Process $process -Width 980 -Height 700)) { throw 'No se pudo ajustar el Installer Hub a su mínimo documentado de 980x700.' }
+  $currentStage = 'validate-minimum-viewport'
+  $logExpander = Find-ById -RootElement $window -AutomationId 'LogExpander' -TimeoutSec 5
+  $logCollapsed = $null -ne $logExpander -and (Collapse-Control -Element $logExpander)
+  if ($logExpander) {
+    $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 5
+    $logExpander = Find-ById -RootElement $window -AutomationId 'LogExpander' -TimeoutSec 5
+    $logExpandPattern = $null
+    $hasLogExpandPattern = $null -ne $logExpander -and $logExpander.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$logExpandPattern)
+    $logExpandState = if ($hasLogExpandPattern) { [string]$logExpandPattern.Current.ExpandCollapseState } else { 'unavailable' }
+    $logCollapsed = $logCollapsed -and $hasLogExpandPattern -and $logExpandPattern.Current.ExpandCollapseState -eq [System.Windows.Automation.ExpandCollapseState]::Collapsed
+  }
+  $logTextControl = Find-ById -RootElement $window -AutomationId 'LogTextBox' -TimeoutSec 2
+  $logTextOffscreen = if ($logTextControl) { [string]$logTextControl.Current.IsOffscreen } else { 'missing' }
+  Add-Result -Area 'viewport' -Item 'technical-log-collapsed-for-minimum-viewport' -Ok $logCollapsed -Detail "state=$logExpandState; collapseRequested=$($null -ne $logExpander); contentOffscreen=$logTextOffscreen"
+
+  if (-not (Resize-WindowForQa -Window $window -Width 980 -Height 700)) { throw 'No se pudo ajustar el Installer Hub a su mínimo documentado de 980x700.' }
   Start-Sleep -Milliseconds 900
-  $window = Find-Window -TimeoutSec 10
+  $window = Find-Window -TargetPid $bundleProcessId -TimeoutSec 10
+
+  $verificationText = Find-ById -RootElement $window -AutomationId 'InstallVerificationTextBlock' -TimeoutSec 5
+  Add-Result -Area 'viewport' -Item 'integrity-verification-visible' -Ok ($null -ne $verificationText -and -not $verificationText.Current.IsOffscreen) -Detail $(if ($verificationText) { "visibleOffscreen=$($verificationText.Current.IsOffscreen)" } else { 'No se expuso el texto de verificación de integridad.' })
+  $closeButton = Find-ById -RootElement $window -AutomationId 'CloseButton' -TimeoutSec 5
+  Add-Result -Area 'viewport' -Item 'primary-close-visible' -Ok ($null -ne $closeButton -and -not $closeButton.Current.IsOffscreen -and $closeButton.Current.IsEnabled) -Detail $(if ($closeButton) { "visibleOffscreen=$($closeButton.Current.IsOffscreen); enabled=$($closeButton.Current.IsEnabled)" } else { 'No se expuso el botón Cerrar.' })
+  Test-ScrollPattern -Element (Find-ById -RootElement $window -AutomationId 'ResultSummaryScrollViewer' -TimeoutSec 5) -Label 'ResultSummaryScrollViewer'
+  Test-ScrollPattern -Element (Find-ById -RootElement $window -AutomationId 'ResultEvidenceScrollViewer' -TimeoutSec 5) -Label 'ResultEvidenceScrollViewer'
   Capture-Window -Window $window -Name '07-min-980x700' -RequestedWidth 980 -RequestedHeight 700 | Out-Null
 
   $restartButton = Find-ById -RootElement $window -AutomationId 'RestartNowButton' -TimeoutSec 5
   Add-Result -Area 'button' -Item 'RestartNowButton' -Ok $true -Detail $(if ($restartButton) { "visibleOffscreen=$($restartButton.Current.IsOffscreen); enabled=$($restartButton.Current.IsEnabled); no invocado por seguridad" } else { 'no expuesto porque no hay reinicio requerido; no invocado por seguridad' })
 
+  $currentStage = 'close-owned-process'
   $closeButton = Find-ById -RootElement $window -AutomationId 'CloseButton' -TimeoutSec 5
   Invoke-Control -Element $closeButton
   Start-Sleep -Seconds 4
@@ -652,6 +1008,7 @@ try {
     Start-Sleep -Seconds 2
   }
 
+  $currentStage = 'finalize-report'
   Save-Report -Status $(if ($failed) { 'failed' } else { 'passed' })
   if ($failed) {
     throw "QA UI Installer Hub fallo. Reporte: $reportPath"
@@ -673,10 +1030,24 @@ finally {
   foreach ($process in @($processes)) {
     try {
       if ($process -and -not $process.HasExited) {
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        Write-QaLog "Abortando árbol de proceso propio pid=$($process.Id); etapa=$currentStage."
+        Stop-OwnedProcessTree -RootProcess $process -ExpectedRootPath $bundlePath -ExpectedRootStartTime $bundleProcessStartedAt
+        Write-QaLog "Árbol de proceso propio cerrado; pid=$($process.Id)."
       }
     } catch {
-      # best effort cleanup
+      $cleanupError = "No se pudo confirmar la limpieza del proceso propio pid=$($process.Id): $($_.Exception.Message)"
+      try {
+        Add-Result -Area 'cleanup' -Item 'owned-process-tree' -Ok $false -Detail $cleanupError
+        Save-Report -Status 'failed'
+        Write-QaLog $cleanupError
+      } catch {
+        Add-Content -Path $logPath -Encoding UTF8 -Value ("{0:u} ERROR cleanup: {1}" -f (Get-Date), $cleanupError)
+      }
     }
+  }
+  try {
+    Save-Report -Status $(if ($failed) { 'failed' } else { 'passed' })
+  } catch {
+    Add-Content -Path $logPath -Encoding UTF8 -Value ("{0:u} ERROR guardando estado final de limpieza: {1}" -f (Get-Date), $_.Exception.ToString())
   }
 }
