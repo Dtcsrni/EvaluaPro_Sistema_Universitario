@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.11.0
+version: 1.12.0
 fecha: 2026-10-19
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -57,6 +57,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **CA-018:** Los contratos App Host y WiX/MSI pasan con las aserciones compatibles con `docente-local`: no requieren reconciliación de accesos en el App Host ni módulos `.psm1` en el MSI, y sí comprueban módulos Burn donde corresponda y contratos JSON en el MSI.
 - **CA-019:** Una prueba automatizada inspecciona los scripts de instalación, empaquetado y smoke QA, y falla ante cualquier consulta a la clase `Win32_Product`; comprobaciones de estado de instalación usan fuentes de solo lectura.
 - **CA-020:** Un E2E Burn en runner Windows aislado instala una versión previa menor y aplica 1.2.8 con el mismo `BundleUpgradeCode`; tras retirar el bundle anterior, el ZIP nativo, manifiesto y cada archivo crítico siguen presentes y sus hashes coinciden, el Hub informa éxito y API/UI muestran 1.2.8. Un bundle `Upgrade` ya instalado con versión exactamente 1.2.8 debe provocar una salida explícita antes de `Apply`, sin alterar MSI, payload o datos; una reparación repetida de 1.2.8 sin bundle `Upgrade` relacionado debe pasar. Un fallo de limpieza relacionada no puede reportarse como éxito. No se consulta `Win32_Product` ni se toca la base productiva del host local.
+- **CA-021:** El E2E visual PDF genera una vista previa rasterizada del mismo PDF de prueba con Poppler; antes de guardar la captura confirma dimensiones no nulas, que el navegador terminó de decodificar la imagen, y un fondo mayoritario claro u oscuro con píxeles de texto en contraste. Descarga y vista previa deben compartir SHA-256, y el archivo descargado debe seguir siendo un PDF de una página. La regresión falla si se vuelve a usar el iframe nativo o una imagen plana que produzca una captura vacía.
 
 ## Matriz de Trazabilidad
 
@@ -73,7 +74,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 | REQ-009 | Estimación de tiempo completa y accesible en pantalla de ejecución, incluido tamaño compacto | `scripts/tests/installer-hub-lifecycle-contract.test.mjs`; `scripts/tests/installer-hub-ui-lifecycle.ps1` | Aprobado; implementación en curso |
 | REQ-010 | Handoff fuera del payload MSI, rechazo de rutas solapadas y preservación al fallar un upgrade | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Aprobado; implementación en curso |
 | REQ-011 | Comentarios WCAG AA y contraste calculado para colores CSS agregados | `scripts/tests/wcag-guard.contract.test.mjs`; `scripts/tests/ui-contrast-audit.mjs` | Corrección local en curso; CI pendiente |
-| REQ-012 | Runtime Poppler para E2E UX visual; publicación del reporte de arquitectura; diagnóstico acotado de error PDF | `scripts/tests/ci-workflow-contract.test.mjs`; `tests/gui-responsive/banco-reactivos.spec.ts` | Implementado localmente; CI pendiente |
+| REQ-012 | Runtime Poppler para E2E UX visual; publicación del reporte de arquitectura; diagnóstico acotado de error PDF y contenido visible de la captura | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/gui-visual-e2e-contract.test.mjs`; `tests/gui-responsive/banco-reactivos.spec.ts`; `tests/gui-responsive/plantillas-pdf-edge.spec.ts` | Implementado localmente; CI pendiente |
 | REQ-013 | Reporte accionable de drift del historial de API pública y composición, manteniendo el fallo bloqueante | `scripts/tests/module-contract-check.test.mjs` | Implementado localmente; CI pendiente |
 | REQ-014 | Pruebas responsive, estilos estructurales en ambos temas y capturas visuales de cada sección docente | `tests/gui-responsive/responsive-docente.spec.ts` | 9/9 E2E locales aprobados dos veces sobre el cambio final; capturas aisladas en scratch |
 | REQ-015 | Snapshot del contrato PDF alineado con la firma tipada de Zod 4 del workspace backend | `scripts/tests/module-contract-check.test.mjs` | Corregido; strict y 29/29 pasan con `npm ci` en merge local reproducido; CI pendiente |
