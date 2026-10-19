@@ -28,11 +28,13 @@ La comparación local confirmó que `git diff --ignore-cr-at-eol` no observa cam
 - **REQ-004:** Reutilizar una única función de comprobación durante los guardas inicial, intermedios y final para que `npm ci`, Prisma, Poppler, Playwright y E2E mantengan la misma política.
 - **REQ-005:** Añadir regresiones para diferencias EOL en una ruta histórica y en otra ruta no allowlisted, además de cambios semánticos, cambios preparados y archivos sin seguimiento.
 - **REQ-006:** No usar `git reset`, restauraciones amplias, retries ni aumento de timeouts. Conservar el guard estricto de checkout antes y después de QA.
+- **REQ-007:** Calcular `workingTreeClean` y `dirtyPathCount` del manifiesto QA con la misma regla semántica: EOL-only unstaged no cuenta como fuente sucia; cambios staged, contenido distinto y archivos sin seguimiento sí cuentan.
 
 ## Criterios de Aceptación
 
 - En un checkout candidato con diferencias solo CRLF/LF en archivos rastreados, incluido JSON de evidencia, el guard continúa y conserva los checkpoints por etapa.
 - Una alteración de contenido, un cambio de tipo/modo, un cambio preparado o un archivo sin seguimiento produce fallo con diagnóstico de rutas.
+- El manifiesto QA reporta árbol limpio ante EOL-only unstaged y reporta suciedad ante cambios staged, sin seguimiento o semánticos.
 - Las pruebas de contrato del workflow reproducen ambos resultados localmente antes de enviar el candidato corregido a CI.
 - El nuevo SHA candidato supera dos CI completos consecutivos y CI Installer Windows; Stable Gate solo puede producir Go si vuelve a pasar todos los requisitos y la QA visual.
 
@@ -43,3 +45,4 @@ La comparación local confirmó que `git diff --ignore-cr-at-eol` no observa cam
 | REQ-001, REQ-002, REQ-003 | Aceptar solo diferencias EOL sin cambio semántico en rutas rastreadas; rechazar cambios de contenido, staged y no rastreados | `scripts/tests/candidate-clean-guard.test.mjs` | Aprobado; implementación en curso |
 | REQ-004, REQ-006 | Aplicar el mismo guard en todos los checkpoints sin restauraciones amplias | `scripts/tests/candidate-clean-guard.test.mjs` | Aprobado; implementación en curso |
 | REQ-005 | Regresión de EOL, contenido, cambios preparados y archivos sin seguimiento | `scripts/tests/candidate-clean-guard.test.mjs` | Aprobado; implementación en curso |
+| REQ-007 | Conteo semántico del árbol fuente en el manifiesto QA | `scripts/tests/release-stable-promotion.test.mjs` | Aprobado; implementación en curso |

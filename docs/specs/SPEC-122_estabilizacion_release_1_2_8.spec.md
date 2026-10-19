@@ -21,6 +21,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **REQ-005 — Validación MSI no destructiva local (SPEC-120):** El build local extrae y comprueba el MSI sin registrar o retirar producto en el host. Las transacciones MSI se prueban en runner Windows efímero con limpieza verificada.
 - **REQ-006 — Versión visible dinámica (SPEC-121):** El resumen y encabezado del Installer Hub muestran una misma versión proveniente del bundle actual; contratos y E2E detectan versiones literales obsoletas.
 - **REQ-007 — Puerta de promoción:** Ejecutar todas las pruebas locales aplicables antes de enviar el SHA a CI/CD; después exigir los gates remotos completos, dos pasadas visuales consecutivas del mismo candidato y evidencia verificable antes de declarar estable o publicar.
+- **REQ-008 — Manifiesto QA coherente con EOL:** `workingTreeClean` y `dirtyPathCount` deben usar la misma comparación semántica del guard; solo diferencias EOL unstaged son limpias. Cambios staged, semánticos o sin seguimiento siguen contando como suciedad.
 
 ## Criterios de Aceptación
 
@@ -30,6 +31,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 - **CA-004:** Las pruebas locales del Hub producen capturas válidas y verifican proceso/estado/versión; no ejecutan transacciones MSI en el host local.
 - **CA-005:** El candidato supera las suites locales relevantes antes de CI, los gates requeridos y dos ejecuciones visuales consecutivas sobre el mismo SHA; ningún `skipped` no planeado, retry oculto o evidencia vieja constituye éxito.
 - **CA-006:** La spec pasa la auditoría SDD y sus fichas de origen mantienen trazabilidad a pruebas existentes.
+- **CA-007:** Un checkout con únicamente drift CRLF/LF produce manifiesto QA limpio y no contradice el guard; cambios semánticos o staged continúan bloqueando promoción.
 
 ## Matriz de Trazabilidad
 
@@ -42,6 +44,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 | REQ-005 | Extracción local sin transacción MSI y lifecycle en runner desechable | `scripts/tests/installer-hub-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Validación local parcial; CI MSI pendiente |
 | REQ-006 | Contrato y visualización de versión actual del bundle | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Implementado localmente; CI pendiente |
 | REQ-007 | Aprobación estable basada en SHA y evidencia actual de gates completos | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Pendiente de gates del SHA final |
+| REQ-008 | Manifiesto QA alinea su cálculo de suciedad con el guard EOL | `scripts/tests/release-stable-promotion.test.mjs` | Aprobado; implementación en curso |
 
 ## Fichas consolidadas
 
