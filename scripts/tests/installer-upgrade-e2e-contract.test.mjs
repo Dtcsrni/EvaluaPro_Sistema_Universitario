@@ -34,12 +34,12 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
   assert.match(e2e, /\[string\]\$SameVersionRelatedBundlePath\s*=\s*''/);
   assert.match(e2e, /Actualización detenida por conflicto de versión/);
   assert.match(e2e, /no se aplicaron cambios/);
-  assert.match(mainWindowXaml, /AutomationId="FailureSummaryTitleTextBlock"/,
-    'el título específico del error debe poder localizarse por UI Automation');
-  assert.match(mainWindowXaml, /AutomationProperties\.Name="\{Binding Text, RelativeSource=\{RelativeSource Self\}\}"/,
-    'el nombre accesible del título debe reflejar el texto visible dinámico');
-  assert.match(mainWindowCode, /FailureSummaryTitleTextBlock\.Text\s*=\s*workflow\.FailureTitle;\s*AutomationProperties\.SetName\(FailureSummaryTitleTextBlock,\s*workflow\.FailureTitle\);/,
-    'el nombre UIA debe actualizarse explícitamente al renderizar el título dinámico');
+  assert.match(mainWindowXaml, /<Label\s+x:Name="FailureSummaryTitleTextBlock"[^>]*AutomationProperties\.AutomationId="FailureSummaryTitleTextBlock"/,
+    'el título de error debe usar un control Label localizable directamente por UI Automation');
+  assert.doesNotMatch(mainWindowXaml, /AutomationProperties\.Name="\{Binding Text, RelativeSource=\{RelativeSource Self\}\}"/,
+    'el nombre accesible no debe depender de un binding de TextBlock que el runtime no expone');
+  assert.match(mainWindowCode, /FailureSummaryTitleTextBlock\.Content\s*=\s*workflow\.FailureTitle;\s*AutomationProperties\.SetName\(FailureSummaryTitleTextBlock,\s*workflow\.FailureTitle\);/,
+    'el contenido y nombre UIA deben actualizarse explícitamente al renderizar el título dinámico');
   const conflictWaitStart = e2e.indexOf('function Wait-InstallerSameVersionConflictState');
   const conflictWaitEnd = e2e.indexOf('\nfunction Get-LatestInstallerHelperState', conflictWaitStart);
   assert.ok(conflictWaitStart >= 0 && conflictWaitEnd > conflictWaitStart, 'el runner debe tener una espera terminal dedicada al conflicto');
@@ -512,4 +512,3 @@ test('el build candidato y QA caben en la ventana del gate estable previo a publ
   assert.match(stableGate, /run-id:\s*\$\{\{ inputs\.candidate_run_id \}\}/);
   assert.doesNotMatch(stableGate.slice(0, stableGate.indexOf('validate-stable-promotion.mjs')), /gh release download/);
 });
-

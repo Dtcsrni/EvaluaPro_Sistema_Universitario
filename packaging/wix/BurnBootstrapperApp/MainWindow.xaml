@@ -812,7 +812,7 @@
                                     <TextBlock x:Name="ProgressEtaTextBlock" Text="Tiempo restante: calculando…" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="13" AutomationProperties.AutomationId="ProgressEtaTextBlock" />
                                     <Border x:Name="FailureSummaryBorder" Margin="0,10,0,0" Padding="12" CornerRadius="8" Background="#667F1D1D" BorderBrush="#80F87171" BorderThickness="1" Visibility="Collapsed">
                                         <StackPanel>
-                                            <TextBlock x:Name="FailureSummaryTitleTextBlock" Text="Resumen de error" FontWeight="Bold" Foreground="#F87171" AutomationProperties.AutomationId="FailureSummaryTitleTextBlock" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                                            <Label x:Name="FailureSummaryTitleTextBlock" Content="Resumen de error" FontWeight="Bold" Foreground="#F87171" Padding="0" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Left" VerticalContentAlignment="Center" AutomationProperties.AutomationId="FailureSummaryTitleTextBlock" />
                                             <TextBlock x:Name="FailureSummaryTextBlock" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#F87171" />
                                         </StackPanel>
                                     </Border>

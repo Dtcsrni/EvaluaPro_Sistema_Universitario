@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.18.0
+version: 1.19.0
 fecha: 2026-10-20
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -16,7 +16,7 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 
 La E2E del SHA `dbfa3ffe` confirmó que Burn sí detecta el bundle relacionado y detiene antes de `Apply`, conserva la instalación y muestra el mensaje de que no aplicó cambios. El timeout restante se debía a que el panel de error conservaba el título genérico `Resumen de error`, aunque el título de la etapa era específico. Esta revisión asigna el título del conflicto al resumen visible y expone su nombre dinámico a UI Automation, manteniendo la validación del título, explicación y stepper en el E2E.
 
-La E2E visual del SHA `16d700226a5b6befc441913e84c5ad109ab401b5` volvió a confirmar el bloqueo seguro antes de `Apply`, el texto explicativo y `5 Resultado · error`, pero agotó la espera porque el título específico no apareció en la snapshot UI Automation pese a existir un binding XAML a `Text`. El render ahora asigna también de forma explícita el nombre accesible con `AutomationProperties.SetName` cuando actualiza el título. La regresión de contrato exige esa asignación; debe confirmarse en una nueva E2E visual del bundle reconstruido.
+La E2E visual del SHA `16d700226a5b6befc441913e84c5ad109ab401b5` volvió a confirmar el bloqueo seguro antes de `Apply`, el texto explicativo y `5 Resultado · error`, pero agotó la espera porque el título específico no apareció en la snapshot UI Automation pese a existir un binding XAML a `Text`. El render también asignaba explícitamente `AutomationProperties.SetName`, pero el nuevo run `39364006894` reprodujo la ausencia del título en el árbol UIA. El título se cambia a un control `Label`, cuyo contenido y nombre accesible se asignan juntos durante el render; la E2E debe confirmar el título, la explicación y el stepper en el bundle reconstruido.
 
 ## Requisitos Funcionales
 
@@ -109,4 +109,3 @@ La E2E visual del SHA `16d700226a5b6befc441913e84c5ad109ab401b5` volvió a confi
 - SPEC-119: inicio visible y diagnóstico local del Installer Hub.
 - SPEC-120: aislamiento de validación MSI local.
 - SPEC-121: versión dinámica del Installer Hub.
-
