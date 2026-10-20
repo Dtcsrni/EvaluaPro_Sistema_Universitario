@@ -13,6 +13,8 @@ const installerHubContractsPath = path.join(root, 'scripts', 'installer-burn', '
 const installerHubContracts = fs.readFileSync(installerHubContractsPath, 'utf8');
 const bootstrapperPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs');
 const bootstrapper = fs.readFileSync(bootstrapperPath, 'utf8');
+const mainWindowXamlPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml');
+const mainWindowXaml = fs.readFileSync(mainWindowXamlPath, 'utf8');
 const sameVersionFixturePath = path.join(root, 'packaging', 'wix', 'tests', 'SameVersionRelatedBundleFixture.wxs');
 const sameVersionFixture = fs.readFileSync(sameVersionFixturePath, 'utf8');
 const fixtureBuilderPath = path.join(root, 'scripts', 'tests', 'build-same-version-related-bundle-fixture.ps1');
@@ -30,6 +32,10 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
   assert.match(e2e, /\[string\]\$SameVersionRelatedBundlePath\s*=\s*''/);
   assert.match(e2e, /Actualización detenida por conflicto de versión/);
   assert.match(e2e, /no se aplicaron cambios/);
+  assert.match(mainWindowXaml, /AutomationId="FailureSummaryTitleTextBlock"/,
+    'el título específico del error debe poder localizarse por UI Automation');
+  assert.match(mainWindowXaml, /AutomationProperties\.Name="\{Binding Text, RelativeSource=\{RelativeSource Self\}\}"/,
+    'el nombre accesible del título debe reflejar el texto visible dinámico');
   const conflictWaitStart = e2e.indexOf('function Wait-InstallerSameVersionConflictState');
   const conflictWaitEnd = e2e.indexOf('\nfunction Get-LatestInstallerHelperState', conflictWaitStart);
   assert.ok(conflictWaitStart >= 0 && conflictWaitEnd > conflictWaitStart, 'el runner debe tener una espera terminal dedicada al conflicto');
@@ -101,6 +107,8 @@ test('Burn detiene antes de Apply si otro bundle relacionado tiene la misma vers
   assert.match(planHandler.slice(conflictGuard, apply), /currentOperation,\s*"uninstall"/);
   assert.match(planHandler.slice(conflictGuard, apply), /FinalizeFailure/);
   assert.match(planHandler.slice(conflictGuard, apply), /no se aplicaron cambios/);
+  assert.match(planHandler.slice(conflictGuard, apply), /failureDisplay\s*=\s*BuildFailureDisplay\("Actualización detenida por conflicto de versión"/,
+    'el resumen de error visible debe mostrar el título semántico del conflicto');
 });
 
 test('Burn no lanza el helper post-install si falla la limpieza de un bundle relacionado', () => {

@@ -187,6 +187,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             const string reason = "Hay otro Installer Hub relacionado de la misma versión. Para proteger el MSI y los datos existentes, no se aplicaron cambios; cierra esta ventana y usa el bundle ya instalado para reparar, o espera una versión superior para actualizar.";
             SetStageState(StagePlanning, InstallerStageStatus.Error, "Actualización detenida por conflicto de versión.", reason);
+            failureDisplay = BuildFailureDisplay("Actualización detenida por conflicto de versión", null, null, null, sessionLogPath, reason);
             FinalizeFailure("accion_producto", 30, reason);
             return;
         }
