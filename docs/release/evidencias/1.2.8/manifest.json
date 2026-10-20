@@ -1,37 +1,119 @@
 {
   "version": "1.2.8",
   "displayVersion": "1.2.8",
-  "commit": "84a89c0df5e7ae542dba11ff45e55ea3c7c40638",
-  "evidenciaWindows": { "path": "docs/release/evidencias/1.2.8/windows-release-smoke.md" },
+  "commit": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117",
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.2.8/windows-release-smoke.md"
+  },
   "gateHumanoProduccion": {
     "version": "1.2.8",
     "displayVersion": "1.2.8",
-    "ejecutadoEn": "2026-10-20T07:12:41Z",
+    "ejecutadoEn": "2026-10-20T10:09:29Z",
     "entorno": "github-actions-main-ci-installer-e2e",
     "docenteIdHash": "no-aplica-validacion-sintetica",
     "periodoId": "no-aplica-sin-periodo-productivo",
-    "ventana": { "startedAt": "2026-10-20T06:39:38Z", "endedAt": "2026-10-20T07:12:41Z" },
+    "ventana": {
+      "startedAt": "2026-10-20T09:13:55Z",
+      "endedAt": "2026-10-20T10:09:29Z"
+    },
     "operador": {
       "nombre": "codex-release-audit",
-      "observaciones": "CI Checks #1527 (run 39381668637), Security CodeQL #894 (run 39381668632), CI Antivirus Gate #350 (run 39381668664) y CI Installer Windows #741 (run 39382108606) concluyeron success sobre el SHA exacto. Coverage por impacto fue omitido; backend tests, quality gates y E2E visuales aplicables pasaron. No se ejecutó flujo humano contra producción ni instalación manual local."
+      "observaciones": "Candidato main 0d97e29e5755e4fc22fcc1a2f9d1af462353c117. CI Checks #1537 (run 39398384778) y Security CodeQL #904 (run 39398384754) concluyeron success. CI Installer Windows #745 (run 39399161350) y #746 (run 39402733656) concluyeron success sobre el mismo SHA; ambos incluyeron E2E GUI del Installer Hub, actualización desde v1.2.3 y validación visual del PDF en Edge. El mapa de impacto omitió suites no afectadas, incluidas coverage, frontend UX visual y Classroom audit; no se consideran ejecutadas en #1537. No se ejecutó flujo humano contra producción ni instalación local."
     },
     "resultado": "fallo",
     "duracionMs": 0,
     "pasos": [
-      { "id": "ci_main", "nombre": "CI Checks en main", "resultado": "ok", "fuente": "github-actions", "detalle": "Run #1527 (39381668637), SHA 84a89c0df5e7ae542dba11ff45e55ea3c7c40638; gates Core, Extendidos y UX visual concluyeron success." },
-      { "id": "backend_tests", "nombre": "Pruebas backend y auditoría Classroom", "resultado": "ok", "fuente": "github-actions", "detalle": "Core Backend/Portal concluyó success; test backend y classroom-audit-check pasaron. Coverage backend/portal fue skipped por el mapa de impacto." },
-      { "id": "frontend_quality", "nombre": "Calidad frontend y accesibilidad", "resultado": "ok", "fuente": "github-actions", "detalle": "Lint, typecheck, tests frontend, guardrail WCAG, ux-quality-check y build concluyeron success; coverage frontend fue skipped por impacto." },
-      { "id": "security", "nombre": "Security CodeQL", "resultado": "ok", "fuente": "github-actions", "detalle": "Run #894 (39381668632) sobre el SHA candidato exacto concluyó success." },
-      { "id": "antivirus", "nombre": "Gate antivirus", "resultado": "ok", "fuente": "github-actions", "detalle": "CI Antivirus Gate #350 (39381668664) sobre el SHA candidato exacto concluyó success." },
-      { "id": "ux_visual", "nombre": "E2E visual UX/UI", "resultado": "ok", "fuente": "github-actions", "detalle": "Etapa ux-visual-check y publicación de evidencia visual aprobaron en CI Checks #1527; artefacto e2e-visual-39381668637 ID 12246991944." },
-      { "id": "installer_build", "nombre": "Build MSI y Bundle docente-local", "resultado": "ok", "fuente": "CI Installer Windows", "detalle": "Run #741 (39382108606), SHA candidato exacto; build MSI/Bundle, contratos del Hub, footprint, manifiesto/hash y gates concluyeron success." },
-      { "id": "installer_antivirus", "nombre": "Antivirus del Installer Hub", "resultado": "ok", "fuente": "CI Installer Windows", "detalle": "Paso Antivirus gate del Installer Hub en el run #741 concluyó success." },
-      { "id": "burn_gui", "nombre": "E2E GUI del bundle Burn", "resultado": "ok", "fuente": "CI Installer Windows", "detalle": "E2E completa sobre el bundle docente candidato, incluido el flujo GUI, concluyó success en el run #741." },
-      { "id": "upgrade_e2e", "nombre": "E2E de actualización desde v1.2.3", "resultado": "ok", "fuente": "CI Installer Windows", "detalle": "Baseline v1.2.3 verificado y E2E completa de actualización sobre el bundle del run #741 concluyó success." },
-      { "id": "pdf_edge_e2e", "nombre": "E2E visual de vista y descarga PDF en Edge", "resultado": "ok", "fuente": "CI Installer Windows", "detalle": "Paso E2E visual de vista y descarga PDF en Edge concluyó success en el run #741." },
-      { "id": "artifact_integrity", "nombre": "Integridad de artefactos del instalador", "resultado": "ok", "fuente": "GitHub Actions", "detalle": "installer-windows ID 12246976717, digest ZIP SHA-256 785f89b8464f2097f1a1fbc67a9f870a7e52a7e48be2f865b57856b8c350d404." },
-      { "id": "prod_flow", "nombre": "Flujo humano docente productivo", "resultado": "fallo", "fuente": "manual", "detalle": "No ejecutado contra producción externa; no se usaron credenciales ni datos reales. No forma parte de los gates automatizados de esta promoción." },
-      { "id": "local_install", "nombre": "Instalación manual en equipo local", "resultado": "fallo", "fuente": "manual", "detalle": "No ejecutada en esta validación; la evidencia disponible corresponde a CI E2E del bundle y actualización aislada." }
+      {
+        "id": "ci_main",
+        "nombre": "CI Checks en main",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Run #1537 (39398384778), rama main, SHA 0d97e29e5755e4fc22fcc1a2f9d1af462353c117: gate Core y Extended en success."
+      },
+      {
+        "id": "backend_quality",
+        "nombre": "Calidad y pruebas backend",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "En CI Checks #1537 pasaron lint backend, typecheck backend, tests backend, build backend, contrato de cobertura, security scan, legal docs y contract-check. Coverage, portal/Classroom audit y suites no afectadas se omitieron por el mapa de impacto."
+      },
+      {
+        "id": "frontend_ux",
+        "nombre": "Calidad frontend y E2E UX visual",
+        "resultado": "fallo",
+        "fuente": "github-actions",
+        "detalle": "CI Checks #1537 omitió Core Frontend y ux-visual-check por el mapa de impacto; no se atribuye una ejecución a este SHA. La validación GUI del instalador y del PDF en Edge sí pasó en los runs #745 y #746."
+      },
+      {
+        "id": "security",
+        "nombre": "Security CodeQL",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Run #904 (39398384754), rama main y SHA candidato exacto, concluyó success."
+      },
+      {
+        "id": "policy_audit",
+        "nombre": "Auditoría remota de políticas CI",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "CI Policy Audit #232 (39405868975), SHA candidato exacto, concluyó success."
+      },
+      {
+        "id": "installer_build_1",
+        "nombre": "Build y E2E Installer Hub — primera pasada",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "CI Installer Windows #745 (39399161350), rama main, SHA exacto; build MSI/Bundle, contratos, footprint, smoke GUI, manifiesto/hash, antivirus y E2E completa pasaron."
+      },
+      {
+        "id": "installer_build_2",
+        "nombre": "Build y E2E Installer Hub — segunda pasada consecutiva",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "CI Installer Windows #746 (39402733656), mismo SHA; build MSI/Bundle, contratos, footprint, smoke GUI, manifiesto/hash, antivirus y E2E completa pasaron."
+      },
+      {
+        "id": "upgrade_e2e",
+        "nombre": "E2E de actualización desde v1.2.3",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Baseline oficial v1.2.3 verificado y actualización GUI probada en los runs #745 y #746."
+      },
+      {
+        "id": "pdf_edge_e2e",
+        "nombre": "E2E visual de vista y descarga PDF en Edge",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Paso E2E visual de vista/descarga PDF en Microsoft Edge concluyó success en los runs #745 y #746."
+      },
+      {
+        "id": "artifact_integrity",
+        "nombre": "Integridad de artefactos del instalador",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Artefactos installer-windows e installer-hub-e2e de #745 y #746 tienen SHA-256 ZIP publicados por GitHub y asociados al SHA candidato; ver integridad_sha256.json."
+      },
+      {
+        "id": "prod_flow",
+        "nombre": "Flujo humano docente productivo",
+        "resultado": "fallo",
+        "fuente": "manual",
+        "detalle": "No ejecutado contra producción; no se usaron credenciales ni datos reales. No forma parte de los gates automatizados."
+      },
+      {
+        "id": "local_install",
+        "nombre": "Instalación en el equipo local",
+        "resultado": "fallo",
+        "fuente": "manual",
+        "detalle": "No ejecutada. Los E2E de instalación ocurrieron en runners de CI aislados; no se acredita actualización del equipo ni acceso a la base productiva."
+      },
+      {
+        "id": "stable_release",
+        "nombre": "Promoción estable y validación del asset público",
+        "resultado": "fallo",
+        "fuente": "github-actions",
+        "detalle": "Pendiente de ejecutar Release Stable Gate con evidencia de este candidato. No existe todavía publicación estable v1.2.8."
+      }
     ]
   },
   "artefactos": {
@@ -42,4 +124,3 @@
     "windows": "docs/release/evidencias/1.2.8/windows-release-smoke.md"
   }
 }
-

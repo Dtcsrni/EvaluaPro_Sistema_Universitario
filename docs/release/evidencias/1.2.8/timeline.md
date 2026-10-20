@@ -1,28 +1,27 @@
 # Timeline Gate Estable 1.2.8
 
-- SHA candidato: `84a89c0df5e7ae542dba11ff45e55ea3c7c40638`
+- SHA candidato: `0d97e29e5755e4fc22fcc1a2f9d1af462353c117`
 - Rama evaluada: `main`
 - Fecha: 2026-10-20
-- Resultado: CI Checks, seguridad, antivirus y E2E Windows/UX visual aprobaron sobre el mismo SHA. Falta ejecutar Release Stable Gate para promover y publicar.
+- Resultado: CI Checks, CodeQL, auditoría de políticas y dos corridas consecutivas de CI Installer Windows aprobaron en el SHA candidato. Falta el Release Stable Gate y la E2E del asset público.
 
 ## Pasos
 
-1. [OK] CI Checks #1527 (run 39381668637), main y SHA candidato exacto; Core, verificaciones extendidas y ux-visual-check concluyeron success.
-2. [OK] Backend tests, auditoría Classroom, lint/typecheck frontend, WCAG, UX quality, build, arquitectura y seguridad concluyeron success.
-3. [OMITIDO POR IMPACTO] Coverage backend/frontend no se ejecutó en esta corrida; no se contabiliza como aprobado.
-4. [OK] Security CodeQL #894 (run 39381668632) sobre el mismo SHA.
-5. [OK] CI Antivirus Gate #350 (run 39381668664) sobre el mismo SHA.
-6. [OK] E2E UX/UI visual y publicación de evidencia en CI Checks #1527; artefacto e2e-visual-39381668637 ID 12246991944.
-7. [OK] Build MSI/Bundle, contratos del Hub, footprint, manifiesto/hash y antivirus en CI Installer Windows #741 (run 39382108606).
-8. [OK] E2E completa de GUI sobre el bundle docente candidato en CI Installer Windows #741.
-9. [OK] E2E de actualización desde baseline oficial v1.2.3 en CI Installer Windows #741.
-10. [OK] E2E visual de vista y descarga PDF en Microsoft Edge en CI Installer Windows #741.
-11. [OK] Artefacto installer-windows ID 12246976717; 272084140 bytes; digest ZIP SHA-256 `785f89b8464f2097f1a1fbc67a9f870a7e52a7e48be2f865b57856b8c350d404`.
-12. [NO EJECUTADO] Flujo docente humano con producción externa; no se usaron credenciales ni datos reales.
-13. [NO EJECUTADO] Instalación manual en el equipo local; se ejecutó E2E aislado en CI.
-14. [PENDIENTE] Release Stable Gate, promoción del release v1.2.8, E2E del asset draft y validación del asset público.
+1. [OK] CI Checks #1537 (run 39398384778) sobre el SHA candidato: Core y Extended concluyeron success.
+2. [OK] En CI Checks #1537 pasaron lint/typecheck/tests/build backend, security scan, legal-docs-check, contract-check y los gates agregados.
+3. [OMITIDO POR IMPACTO] Coverage, portal/Classroom audit, Core Frontend, UX visual y suites no afectadas no se ejecutaron en #1537; no se cuentan como aprobados por esa corrida.
+4. [OK] Security CodeQL #904 (run 39398384754), mismo SHA, success.
+5. [OK] CI Policy Audit #232 (run 39405868975), mismo SHA, success.
+6. [OK] Primera pasada CI Installer Windows #745 (run 39399161350), mismo SHA, success: build, contratos, footprint, smoke GUI, hashes, antivirus, E2E completa y artefactos.
+7. [OK] Segunda pasada consecutiva CI Installer Windows #746 (run 39402733656), mismo SHA, success: build, contratos, footprint, smoke GUI, hashes, antivirus, E2E completa y artefactos.
+8. [OK] En #745 y #746, E2E GUI del Installer Hub cubrió instalación, reparación y desinstalación en un entorno QA aislado.
+9. [OK] Baseline oficial v1.2.3 verificado y E2E de actualización aprobada en #745 y #746.
+10. [OK] E2E visual de vista y descarga de PDF en Microsoft Edge aprobada en #745 y #746.
+11. [OK] Artefactos MSI/Bundle y E2E publicados y con digest ZIP SHA-256; IDs y hashes en `integridad_sha256.json`.
+12. [NO EJECUTADO] Flujo docente humano contra producción; no se usaron credenciales ni datos reales.
+13. [NO EJECUTADO] Actualización en el equipo local; se conservan sin tocar los datos productivos.
+14. [PENDIENTE] Stable Gate, promoción de v1.2.8, E2E del asset draft, E2E del asset público y verificación de que quede una sola release estable.
 
 ## Resultado
 
-El candidato `84a89c0df5e7ae542dba11ff45e55ea3c7c40638` superó CI Checks, CodeQL, antivirus y el E2E del bundle Windows, incluido UX/UI y PDF en Edge. La corrida de CI omitió coverage por impacto. Aún no es una release estable: falta el Stable Gate, que volverá a ejecutar QA y validará la promoción y el asset público.
-
+Las dos corridas Installer Windows #745 y #746 aprobaron para el mismo SHA candidato. Sus artefactos se generaron por separado y tienen digests distintos; cada corrida completó sus propios E2E. El candidato todavía no es una release estable. El Stable Gate debe evaluar la evidencia versionada; solo después se despachará el flujo que valida el asset draft y el público.
