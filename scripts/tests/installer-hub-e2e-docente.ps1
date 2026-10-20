@@ -723,6 +723,43 @@ function Assert-InstallerStepScreenshot {
   Add-Result -Area 'screenshots' -Item $StageName -Ok $true -Detail "UIA=$StepLabel; pixeles claros del panel=$brightPixels" | Out-Null
 }
 
+function Wait-InstallerStepStableForCapture {
+  param(
+    [System.Windows.Automation.AutomationElement]$Window,
+    [string]$StepLabel,
+    [int]$TimeoutSec = 15
+  )
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $stableReads = 0
+  do {
+    $freshWindow = Find-Window -TimeoutSec 1
+    if ($freshWindow) { $Window = $freshWindow }
+
+    $snapshot = Get-WindowTextSnapshot -Window $Window
+    if ($snapshot -match [regex]::Escape($StepLabel)) {
+      $stableReads++
+      if ($stableReads -ge 2) {
+        # UI Automation can expose the new step before WPF has presented its
+        # visual tree. Let one additional render interval elapse before the
+        # single fail-closed screenshot assertion.
+        Start-Sleep -Milliseconds 500
+        $confirmedSnapshot = Get-WindowTextSnapshot -Window $Window
+        if ($confirmedSnapshot -match [regex]::Escape($StepLabel)) {
+          Add-Result -Area 'screenshots' -Item 'step-render-ready' -Ok $true -Detail "UIA estable: $StepLabel"
+          return $Window
+        }
+        $stableReads = 0
+      }
+    } else {
+      $stableReads = 0
+    }
+    Start-Sleep -Milliseconds 150
+  } while ((Get-Date) -lt $deadline)
+
+  Add-Result -Area 'screenshots' -Item 'step-render-ready' -Ok $false -Detail "UIA no estabilizó el paso $StepLabel en $TimeoutSec segundos." | Out-Null
+  throw "La UI Automation no mantuvo el paso '$StepLabel' estable antes de capturar la pantalla."
+}
+
 function Resize-WindowForEvidence {
   param(
     [System.Windows.Automation.AutomationElement]$Window,
@@ -931,6 +968,7 @@ function Invoke-InstallerHubMode {
   $detectionTimeoutSec = 420
   $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
+  $window = Wait-InstallerStepStableForCapture -Window $window -StepLabel '2 Preparar · activo' -TimeoutSec 15
   $prepareScreenshot = Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700
   Assert-InstallerStepScreenshot -Window $window -Path $prepareScreenshot -StepLabel '2 Preparar · activo' -StageName ("wpf-{0}-02-preparar" -f $Mode)
 
@@ -984,6 +1022,7 @@ function Invoke-InstallerHubMode {
     }
   }
 
+  $window = Wait-InstallerStepStableForCapture -Window $window -StepLabel '3 Revisar · activo' -TimeoutSec 15
   $reviewScreenshot = Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700
   Assert-InstallerStepScreenshot -Window $window -Path $reviewScreenshot -StepLabel '3 Revisar · activo' -StageName ("wpf-{0}-03-revisar" -f $Mode)
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 15

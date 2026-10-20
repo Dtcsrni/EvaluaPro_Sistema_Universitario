@@ -2888,6 +2888,11 @@ test('Installer Hub mantiene visible el panel activo y bloquea progreso tardío 
 test('runner valida que Prepare y Review dibujan contenido antes de avanzar al siguiente paso', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
   assert.match(runner, /function Assert-InstallerStepScreenshot/);
+  assert.match(runner, /function Wait-InstallerStepStableForCapture/);
+  assert.match(runner, /\$stableReads -ge 2/);
+  assert.match(runner, /Start-Sleep -Milliseconds 500/);
+  assert.match(runner, /Wait-InstallerStepStableForCapture -Window \$window -StepLabel '2 Preparar · activo'/);
+  assert.match(runner, /Wait-InstallerStepStableForCapture -Window \$window -StepLabel '3 Revisar · activo'/);
   assert.match(runner, /\$StepLabel no dibujó contenido legible en el panel central/);
   assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$prepareScreenshot -StepLabel '2 Preparar · activo'/);
   assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$reviewScreenshot -StepLabel '3 Revisar · activo'/);
