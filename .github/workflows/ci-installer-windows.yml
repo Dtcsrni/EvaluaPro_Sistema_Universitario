@@ -305,6 +305,32 @@ jobs:
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: npx playwright install msedge
 
+      - name: Instalar Poppler fijado para renderizar la vista previa PDF
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        shell: powershell
+        run: |
+          $version = '26.09.0-0'
+          $archivePath = Join-Path $env:RUNNER_TEMP "poppler-windows-$version.zip"
+          $extractPath = Join-Path $env:RUNNER_TEMP "poppler-windows-$version"
+          $downloadUri = "https://github.com/oschwartz10612/poppler-windows/releases/download/v$version/Release-$version.zip"
+          $expectedSha256 = '7a6f256a0ddf7536182246a5733331bf4677cbcc34f4663774947ad34556c8d0'
+
+          Invoke-WebRequest -Uri $downloadUri -OutFile $archivePath
+          $actualSha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $expectedSha256) { throw "El archivo Poppler $version no coincide con el SHA-256 fijado." }
+
+          Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath -Force
+          $pdftoppmMatches = @(Get-ChildItem -LiteralPath $extractPath -Filter 'pdftoppm.exe' -File -Recurse)
+          if ($pdftoppmMatches.Count -ne 1) { throw "Se esperaba un pdftoppm.exe en Poppler $version; encontrados: $($pdftoppmMatches.Count)." }
+
+          $pdftoppmPath = $pdftoppmMatches[0].FullName
+          $popplerBin = Split-Path -Parent $pdftoppmPath
+          $versionOutput = (& $pdftoppmPath -v 2>&1 | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch 'pdftoppm version') { throw "No se pudo ejecutar el pdftoppm fijado: $versionOutput" }
+
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $popplerBin
+          Write-Host "Poppler $version listo: $versionOutput"
+
       - name: Determinar si aplica upgrade desde v1.2.3
         id: upgrade_gate
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'

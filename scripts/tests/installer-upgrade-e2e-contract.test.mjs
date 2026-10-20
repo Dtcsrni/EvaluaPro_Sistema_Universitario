@@ -507,6 +507,26 @@ test('las PR ejecutan y conservan la E2E GUI real del Installer Hub y la descarg
   assert.match(evidenceUpload, /github\.event_name\s*==\s*'pull_request'/, 'la evidencia GUI debe conservarse para revisión del PR');
 });
 
+test('el E2E PDF instala Poppler fijado y valida pdftoppm antes de abrir Edge', () => {
+  const stepName = 'Instalar Poppler fijado para renderizar la vista previa PDF';
+  const stepStart = workflow.indexOf(`- name: ${stepName}`);
+  assert.ok(stepStart >= 0, 'la E2E PDF debe instalar explícitamente su renderizador');
+  const stepEnd = workflow.indexOf('\n      - name:', stepStart + 1);
+  const step = workflow.slice(stepStart, stepEnd < 0 ? workflow.length : stepEnd);
+  const visualStep = workflow.indexOf('- name: E2E visual de vista y descarga PDF en Edge');
+
+  assert.ok(stepStart < visualStep, 'Poppler debe estar disponible antes de invocar Playwright');
+  assert.match(step, /event_name\s*==\s*'pull_request'[\s\S]*workflow_dispatch/);
+  assert.match(step, /26\.09\.0-0/);
+  assert.match(step, /\$downloadUri\s*=\s*"https:\/\/github\.com\/oschwartz10612\/poppler-windows\/releases\/download\/v\$version\/Release-\$version\.zip"/);
+  assert.match(step, /7a6f256a0ddf7536182246a5733331bf4677cbcc34f4663774947ad34556c8d0/);
+  assert.match(step, /Get-FileHash[\s\S]*SHA256/);
+  assert.match(step, /Expand-Archive/);
+  assert.match(step, /pdftoppm\.exe/);
+  assert.match(step, /-v/);
+  assert.match(step, /GITHUB_PATH/);
+});
+
 test('el build candidato y QA caben en la ventana del gate estable previo a publicación', () => {
   const tagGuard = fs.readFileSync(path.join(root, '.github', 'workflows', 'tag-release-guard.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
