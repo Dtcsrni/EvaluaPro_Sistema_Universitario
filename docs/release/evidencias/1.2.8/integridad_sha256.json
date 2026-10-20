@@ -13,76 +13,78 @@
     "bytesManifiesto": null
   },
   "installerHub": {
-    "runId": 39402733656,
-    "runNumber": 746,
+    "runId": 39508287194,
+    "runNumber": 755,
     "artifactName": "installer-windows",
-    "artifactId": 12257460745,
-    "artifactSizeBytes": 272112806,
-    "artifactZipSha256": "af694795bc5ddd056a052dfc1ceaf65ed189e7d7ef1f27e225b50176aff6a4c4",
+    "artifactId": 12305963466,
+    "artifactSizeBytes": 272071975,
+    "artifactZipSha256": "12da3eff9b3d1ce383b4fd1f6f6aa8d0d0d2651a96b4b52d852f7dd86d4159bd",
     "observacion": "Digest SHA-256 del ZIP de artefacto publicado por GitHub; no equivale al SHA-256 del ejecutable extraído. El manifiesto y los hashes internos del payload fueron validados por el workflow."
   },
   "installerHubE2E": {
-    "runId": 39402733656,
-    "artifactName": "installer-hub-e2e-39402733656",
-    "artifactId": 12257740310,
-    "artifactSizeBytes": 279801935,
-    "artifactZipSha256": "33d212237e6730837f12ae41ac1383c3ab9d4f811e1fbf0b9923a724a2860519"
+    "runId": 39508287194,
+    "artifactName": "installer-hub-e2e-39508287194",
+    "artifactId": 12306471525,
+    "artifactSizeBytes": 280038086,
+    "artifactZipSha256": "8aafe184496b064a1c9923bf7e043dd49138418ce7f1279edc10a9616cd94aa8"
   },
   "installerHubPasses": [
     {
-      "runId": 39399161350,
-      "runNumber": 745,
-      "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117",
+      "runId": 39504605928,
+      "runNumber": 749,
+      "candidateSha": "841c04ca4d24b884ab8970b7c33fae18e2a3ac6c",
       "conclusion": "success",
       "installerArtifact": {
         "name": "installer-windows",
-        "id": 12255450849,
-        "sizeBytes": 272112221,
-        "artifactZipSha256": "e9905f7c7342a062efd4bcdfdc2d174bb2484e2bd65a26c6fcf93c57555377f1"
+        "id": 12304077948,
+        "sizeBytes": 272073066,
+        "artifactZipSha256": "554579bd354e8ddd5f7466be2fd011e4e6e5a563bc4305273fa4d938fec34a00"
       },
       "e2eArtifact": {
-        "name": "installer-hub-e2e-39399161350",
-        "id": 12255995719,
-        "sizeBytes": 279663720,
-        "artifactZipSha256": "b9ca6af32696a1aa2ab4889258f84d043cbca341721bed80c57a7388e0039934"
+        "name": "installer-hub-e2e-39504605928",
+        "id": 12303473539,
+        "sizeBytes": 280010894,
+        "artifactZipSha256": "45189adbc188b40b6cb94158ce5dfba9d1ce67e16ddef285f875a5d5fee497df"
       }
     },
     {
-      "runId": 39402733656,
-      "runNumber": 746,
-      "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117",
+      "runId": 39508287194,
+      "runNumber": 755,
+      "candidateSha": "841c04ca4d24b884ab8970b7c33fae18e2a3ac6c",
       "conclusion": "success",
       "installerArtifact": {
         "name": "installer-windows",
-        "id": 12257460745,
-        "sizeBytes": 272112806,
-        "artifactZipSha256": "af694795bc5ddd056a052dfc1ceaf65ed189e7d7ef1f27e225b50176aff6a4c4"
+        "id": 12305963466,
+        "sizeBytes": 272071975,
+        "artifactZipSha256": "12da3eff9b3d1ce383b4fd1f6f6aa8d0d0d2651a96b4b52d852f7dd86d4159bd"
       },
       "e2eArtifact": {
-        "name": "installer-hub-e2e-39402733656",
-        "id": 12257740310,
-        "sizeBytes": 279801935,
-        "artifactZipSha256": "33d212237e6730837f12ae41ac1383c3ab9d4f811e1fbf0b9923a724a2860519"
+        "name": "installer-hub-e2e-39508287194",
+        "id": 12306471525,
+        "sizeBytes": 280038086,
+        "artifactZipSha256": "8aafe184496b064a1c9923bf7e043dd49138418ce7f1279edc10a9616cd94aa8"
       }
     }
   ],
   "ciChecks": {
-    "runId": 39398384778,
-    "runNumber": 1537,
+    "runId": 39504346353,
+    "runNumber": 1542,
     "conclusion": "success",
-    "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117"
+    "candidateSha": "841c04ca4d24b884ab8970b7c33fae18e2a3ac6c"
   },
   "securityCodeQL": {
-    "runId": 39398384754,
-    "runNumber": 904,
+    "runId": 39504346298,
+    "runNumber": 908,
     "conclusion": "success",
-    "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117"
+    "candidateSha": "841c04ca4d24b884ab8970b7c33fae18e2a3ac6c"
   },
   "ciPolicyAudit": {
     "runId": 39405868975,
     "runNumber": 232,
     "conclusion": "success",
-    "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117"
+    "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117",
+    "applicableToCandidate": false,
+    "nota": "Run exitoso del SHA anterior; no es evidencia vigente para el candidato 841c04ca4d24b884ab8970b7c33fae18e2a3ac6c."
   },
-  "nota": "Los digests arriba identifican ZIPs de artifacts de GitHub y no deben presentarse como hashes de ejecutables extraídos."
+  "nota": "Los digests identifican ZIPs de artifacts de GitHub, no hashes de ejecutables extraídos. CI Checks y CodeQL corresponden al SHA candidato; CI Policy Audit registrado pertenece a un SHA anterior y no se toma como gate vigente."
 }

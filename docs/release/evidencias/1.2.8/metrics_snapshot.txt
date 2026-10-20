@@ -1,15 +1,15 @@
 EvaluaPro 1.2.8 — snapshot de validación
 Fecha de captura: 2026-10-20
-SHA candidato: 0d97e29e5755e4fc22fcc1a2f9d1af462353c117
+SHA candidato: 841c04ca4d24b884ab8970b7c33fae18e2a3ac6c
 
-CI Checks #1537 / run 39398384778: success en Core y Extended para el SHA candidato.
-CodeQL #904 / run 39398384754: success para el mismo SHA.
-CI Policy Audit #232 / run 39405868975: success para el mismo SHA.
-CI Installer Windows #745 / run 39399161350: success para el mismo SHA.
-CI Installer Windows #746 / run 39402733656: success para el mismo SHA.
+CI Checks #1542 / run 39504346353: success en los gates Core y Extended del SHA candidato.
+CodeQL #908 / run 39504346298: success en el mismo SHA.
+CI Policy Audit #232 / run 39405868975: success en SHA anterior 0d97e29e5755e4fc22fcc1a2f9d1af462353c117; no aplica al candidato actual.
+CI Installer Windows #749 / run 39504605928: success en el SHA candidato.
+CI Installer Windows #755 / run 39508287194: success en el mismo SHA candidato.
 
-CI Checks #1537 pasó lint, typecheck, tests y build backend, security scan, legal docs y contract check. Coverage, portal/Classroom audit, Core Frontend, UX visual y suites no afectadas se omitieron por el mapa de impacto; no se atribuye cobertura completa ni ejecución de UI tests a esa corrida.
+CI Checks #1542 omitió Core Backend/Portal, Core Frontend y otras suites por mapa de impacto. No se atribuye cobertura completa ni ejecución de pruebas de backend o frontend a esa corrida.
 
-Los dos runs Installer Windows aprobaron build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifiesto/hash, antivirus y artefactos. Ambos completaron E2E GUI de instalación/reparación/desinstalación, actualización desde baseline v1.2.3 y E2E visual PDF en Edge. Los dos artefactos de instalador son builds separados del mismo SHA; sus digests son distintos y están registrados en integridad_sha256.json.
+Los dos runs Installer Windows aprobaron build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, hashes/manifiesto, antivirus y artefactos. Ambos completaron E2E GUI de instalación, reparación y desinstalación, actualización desde baseline v1.2.3 y E2E visual PDF en Edge. Los artifacts de cada run tienen digests ZIP independientes registrados en integridad_sha256.json.
 
-No se recolectaron métricas de producción. No se ejecutó flujo humano externo ni instalación en el equipo local. La base productiva no se modificó. Stable Gate y las E2E de los assets draft/público permanecen pendientes.
+No se recolectaron métricas de producción. No se ejecutó flujo humano externo ni instalación en equipo local. La base SQLite productiva no se leyó ni modificó. Stable Gate y las E2E de los assets draft/público permanecen pendientes.
