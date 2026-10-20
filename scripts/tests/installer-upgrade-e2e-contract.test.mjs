@@ -11,6 +11,121 @@ const workflowPath = path.join(root, '.github', 'workflows', 'ci-installer-windo
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const installerHubContractsPath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubContracts.psm1');
 const installerHubContracts = fs.readFileSync(installerHubContractsPath, 'utf8');
+const bootstrapperPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs');
+const bootstrapper = fs.readFileSync(bootstrapperPath, 'utf8');
+const mainWindowXamlPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml');
+const mainWindowXaml = fs.readFileSync(mainWindowXamlPath, 'utf8');
+const sameVersionFixturePath = path.join(root, 'packaging', 'wix', 'tests', 'SameVersionRelatedBundleFixture.wxs');
+const sameVersionFixture = fs.readFileSync(sameVersionFixturePath, 'utf8');
+const fixtureBuilderPath = path.join(root, 'scripts', 'tests', 'build-same-version-related-bundle-fixture.ps1');
+const fixtureBuilder = fs.readFileSync(fixtureBuilderPath, 'utf8');
+
+test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de igual versión', () => {
+  assert.match(sameVersionFixture, /Name="QA Bundle Relation Fixture"/);
+  assert.match(sameVersionFixture, /UpgradeCode="\$\(var\.BundleUpgradeCode\)"/);
+  assert.match(sameVersionFixture, /DetectCondition="0"/);
+  assert.match(sameVersionFixture, /Permanent="no"/);
+  assert.doesNotMatch(sameVersionFixture, /Permanent="yes"/, 'Burn debe conservar una relación registrable para el paquete inerte');
+  assert.match(sameVersionFixture, /InstallArguments="\/c exit 0"/);
+  assert.doesNotMatch(sameVersionFixture, /DetectCondition="1"/, 'el fixture no debe declarar detectado el paquete inerte');
+
+  assert.match(e2e, /\[string\]\$SameVersionRelatedBundlePath\s*=\s*''/);
+  assert.match(e2e, /Actualización detenida por conflicto de versión/);
+  assert.match(e2e, /no se aplicaron cambios/);
+  assert.match(mainWindowXaml, /AutomationId="FailureSummaryTitleTextBlock"/,
+    'el título específico del error debe poder localizarse por UI Automation');
+  assert.match(mainWindowXaml, /AutomationProperties\.Name="\{Binding Text, RelativeSource=\{RelativeSource Self\}\}"/,
+    'el nombre accesible del título debe reflejar el texto visible dinámico');
+  const conflictWaitStart = e2e.indexOf('function Wait-InstallerSameVersionConflictState');
+  const conflictWaitEnd = e2e.indexOf('\nfunction Get-LatestInstallerHelperState', conflictWaitStart);
+  assert.ok(conflictWaitStart >= 0 && conflictWaitEnd > conflictWaitStart, 'el runner debe tener una espera terminal dedicada al conflicto');
+  assert.match(e2e.slice(conflictWaitStart, conflictWaitEnd), /5 Resultado\\s\*\[·\\-\]\\s\*error/,
+    'un resultado de error confirmado debe usar el estado semántico error del stepper');
+  assert.doesNotMatch(e2e.slice(conflictWaitStart, conflictWaitEnd), /5 Resultado\\s\*\[·\\-\]\\s\*activo/,
+    'el test no debe confundir la etapa de error con una etapa activa');
+  assert.match(e2e, /stateTextForDiagnostics\s*=\s*\[regex\]::Replace\(\[string\]\$state\.text/,
+    'una espera agotada debe conservar texto UIA acotado para diagnosticar el estado real');
+  assert.match(e2e, /stateTextForDiagnostics\.Length\s+-gt\s+2400/,
+    'el texto UIA que se imprime en CI debe tener un límite explícito');
+  assert.match(e2e, /Write-E2ELog .*UIA=\$stateTextForDiagnostics/,
+    'el texto UIA debe quedar visible en el log del job cuando falla el estado terminal');
+  assert.match(e2e, /burn-conflict-session-\{0\}\.log/,
+    'el reporte conserva el log de sesión Burn de la operación de conflicto');
+  assert.match(e2e, /LastWriteTime\s+-ge\s+\$operationStartedAt\.AddSeconds\(-2\)/,
+    'el diagnóstico solo debe tomar logs escritos por la operación observada');
+  assert.match(e2e, /Select-Object -First 3/,
+    'el artefacto limita la cantidad de logs Burn copiados');
+  assert.match(e2e, /Burn conflict trace: \$line/,
+    'el job emite líneas Burn de detección y planificación para distinguir detección de UI');
+  assert.match(e2e, /wpf-install-05-resultado-conflicto-version/);
+  assert.match(e2e, /Invoke-BurnBundleQuiet -BundlePath \$fixturePath -Action '\/install'/);
+  assert.match(e2e, /same-version-fixture-\{0\}-\{1\}\.log/);
+  assert.match(e2e, /\$registeredCodes\s*=\s*@\(/);
+  assert.match(e2e, /\$value\s+in\s+\@\(\$entry\.BundleUpgradeCode\)/);
+  assert.match(e2e, /\$normalized\s*=\s*\$candidate\.Trim\(\)\.Trim\('\{', '\}'\)/);
+  assert.match(e2e, /Invoke-InstallerHubMode -Mode 'install' -BundlePath \$script:bundlePath -ExpectSameVersionConflict/);
+  assert.match(e2e, /msi-payload-and-data-unchanged-before-apply/);
+  assert.match(e2e, /fixture-cleanup/);
+
+  const baselineStart = e2e.indexOf('function Invoke-UpgradeBaselineFlow {');
+  const baselineEnd = e2e.indexOf('\nfunction Resolve-InstalledSqlitePath {', baselineStart);
+  const baselineFlow = e2e.slice(baselineStart, baselineEnd);
+  assert.match(baselineFlow, /Invoke-SameVersionRelatedBundleConflict -DatabaseMarker \$marker/);
+  assert.ok(baselineFlow.indexOf('Invoke-SameVersionRelatedBundleConflict') < baselineFlow.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath \$script:bundlePath"), 'el conflicto se comprueba antes del upgrade del candidato');
+
+  const cleanInstallIndex = e2e.lastIndexOf('Backup-ExistingInstallDatabase');
+  const cleanInstallFlow = e2e.slice(cleanInstallIndex, cleanInstallIndex + 900);
+  assert.match(cleanInstallFlow, /Invoke-SameVersionRelatedBundleConflict\s*\n\s*Invoke-InstallerHubMode -Mode 'install'/);
+
+  assert.match(fixtureBuilder, /WixToolset\.Bal\.wixext\/7\.0\.0/);
+  assert.match(fixtureBuilder, /SameVersionRelatedBundleFixture\.wxs/);
+  assert.match(fixtureBuilder, /FixtureExePath=\$comSpec/);
+  assert.match(fixtureBuilder, /SAME_VERSION_RELATED_BUNDLE_PATH=\$output/);
+  assert.equal((workflow.match(/build-same-version-related-bundle-fixture\.ps1/g) ?? []).length, 3, 'fixture compilado desde el candidato se repite para los assets local, draft y público');
+  assert.equal((workflow.match(/'-SameVersionRelatedBundlePath', \$env:SAME_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 3, 'los flujos local, draft y público prueban el conflicto');
+  assert.match(workflow, /\$runnerArgs \+= @\('-SameVersionRelatedBundlePath', \$env:SAME_VERSION_RELATED_BUNDLE_PATH\)/);
+});
+
+test('Burn detiene antes de Apply si otro bundle relacionado tiene la misma versión', () => {
+  const detectStart = bootstrapper.indexOf('protected override void OnDetectRelatedBundle(');
+  const detectEnd = bootstrapper.indexOf('\n    protected override void OnDetectPackageComplete(', detectStart);
+  const detectHandler = bootstrapper.slice(detectStart, detectEnd);
+  const planStart = bootstrapper.indexOf('protected override void OnPlanComplete(');
+  const planEnd = bootstrapper.indexOf('\n    protected override void OnProgress(', planStart);
+  const planHandler = bootstrapper.slice(planStart, planEnd);
+
+  assert.ok(detectStart >= 0 && detectEnd > detectStart, 'Burn inspecciona el bundle relacionado detectado');
+  assert.match(detectHandler, /args\.RelationType\s*==\s*RelationType\.Upgrade/);
+  assert.match(detectHandler, /ReadEngineVariableString\("WixBundleVersion"\)/);
+  assert.match(detectHandler, /Version\.TryParse\(args\.Version/);
+  assert.match(detectHandler, /candidateVersion\.Equals\(relatedVersion\)/);
+  assert.match(detectHandler, /hasSameVersionRelatedBundle\s*=\s*true/);
+  assert.ok(planStart >= 0 && planEnd > planStart, 'el guard ocurre durante la planificación');
+  const conflictGuard = planHandler.indexOf('if (hasSameVersionRelatedBundle');
+  const apply = planHandler.indexOf('engineHandle?.Apply(');
+  assert.ok(conflictGuard >= 0 && conflictGuard < apply, 'un bundle duplicado de igual versión se rechaza antes de Apply');
+  assert.match(planHandler.slice(conflictGuard, apply), /currentOperation,\s*"uninstall"/);
+  assert.match(planHandler.slice(conflictGuard, apply), /FinalizeFailure/);
+  assert.match(planHandler.slice(conflictGuard, apply), /no se aplicaron cambios/);
+  assert.match(planHandler.slice(conflictGuard, apply), /failureDisplay\s*=\s*BuildFailureDisplay\("Actualización detenida por conflicto de versión"/,
+    'el resumen de error visible debe mostrar el título semántico del conflicto');
+});
+
+test('Burn no lanza el helper post-install si falla la limpieza de un bundle relacionado', () => {
+  const executeStart = bootstrapper.indexOf('protected override void OnExecutePackageComplete(');
+  const executeEnd = bootstrapper.indexOf('\n    protected override void OnApplyComplete(', executeStart);
+  const executeHandler = bootstrapper.slice(executeStart, executeEnd);
+  const applyStart = bootstrapper.indexOf('protected override void OnApplyComplete(');
+  const applyEnd = bootstrapper.indexOf('\n    protected override void ', applyStart + 1);
+  const applyHandler = bootstrapper.slice(applyStart, applyEnd);
+
+  assert.match(executeHandler, /relatedBundleCleanupFailed\s*=\s*true/);
+  assert.match(executeHandler, /lastFailedPackageId\s*\?\?=/);
+  const cleanupGuard = applyHandler.indexOf('if (relatedBundleCleanupFailed)');
+  const postInstall = applyHandler.indexOf('RunPostInstallHelperAsync()');
+  assert.ok(cleanupGuard >= 0 && cleanupGuard < postInstall, 'el cleanup fallido bloquea la declaración de éxito y el helper');
+  assert.match(applyHandler.slice(cleanupGuard, postInstall), /FinalizeFailure/);
+});
 
 test('todos los flujos Installer Hub generan reportes bajo el perfil y publican la ruta calculada', () => {
   const flows = [
@@ -178,12 +293,15 @@ test('upgrade baseline construye un sobre v1 válido para post-install y conserv
 });
 
 test('upgrade E2E prueba instalación baseline → versión candidata → datos SQLite conservados', () => {
-  const baselineInstall = e2e.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
-  const stopBaseline = e2e.indexOf("Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
-  const markerWrite = e2e.indexOf("Invoke-UpgradeDataMarker -Action 'write' -Marker $marker");
-  const candidateInstall = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath");
-  const versionCheck = e2e.indexOf("Get-InstalledProductVersion", candidateInstall);
-  const markerVerify = e2e.indexOf("Invoke-UpgradeDataMarker -Action 'verify' -Marker $marker", candidateInstall);
+  const baselineStart = e2e.indexOf('function Invoke-UpgradeBaselineFlow {');
+  const baselineEnd = e2e.indexOf('\nfunction Resolve-InstalledSqlitePath {', baselineStart);
+  const baselineFlow = e2e.slice(baselineStart, baselineEnd);
+  const baselineInstall = baselineFlow.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
+  const stopBaseline = baselineFlow.indexOf("Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
+  const markerWrite = baselineFlow.indexOf("Invoke-UpgradeDataMarker -Action 'write' -Marker $marker");
+  const candidateInstall = baselineFlow.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath");
+  const versionCheck = baselineFlow.indexOf("Get-InstalledProductVersion", candidateInstall);
+  const markerVerify = baselineFlow.indexOf("Invoke-UpgradeDataMarker -Action 'verify' -Marker $marker", candidateInstall);
   assert.ok(baselineInstall >= 0 && baselineInstall < markerWrite);
   assert.match(e2e, /upgrade-baseline-post-install\.request\.json/);
   assert.match(e2e, /response\.ok/);

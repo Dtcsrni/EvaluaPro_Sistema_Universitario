@@ -95,12 +95,7 @@ jobs:
         working-directory: candidate
         run: |
           set -euo pipefail
-          status="$(git status --porcelain --untracked-files=all)"
-          if [[ -n "$status" ]]; then
-            echo 'Primera etapa que modificó el checkout candidato: checkout inicial' >&2
-            git status --short --untracked-files=all >&2
-            exit 1
-          fi
+          node scripts/release/assert-candidate-clean.mjs 'checkout inicial'
 
       - name: Descargar artefacto inmutable del build candidato
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
@@ -150,63 +145,47 @@ jobs:
           E2E_SCRATCH_ROOT: ${{ runner.temp }}/evaluapro-e2e-cycle
         run: |
           set -euo pipefail
-          assert_candidate_clean() {
-            local stage="$1"
-            local status
-            status="$(git status --porcelain --untracked-files=all)"
-            if [[ -n "$status" ]]; then
-              echo "Primera etapa que modificó el checkout candidato: $stage" >&2
-              git status --short --untracked-files=all >&2
-              exit 1
-            fi
-          }
-
           npm install --global npm@12.1.0
           npm ci --foreground-scripts
-          assert_candidate_clean 'npm ci'
+          node scripts/release/assert-candidate-clean.mjs 'npm ci'
 
           npx prisma generate --config=apps/backend/prisma.config.mjs
-          assert_candidate_clean 'generación de Prisma'
+          node scripts/release/assert-candidate-clean.mjs 'generación de Prisma'
 
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends poppler-utils
-          assert_candidate_clean 'instalación de Poppler'
+          node scripts/release/assert-candidate-clean.mjs 'instalación de Poppler'
 
           npx playwright install --with-deps chromium
-          assert_candidate_clean 'instalación de Playwright'
+          node scripts/release/assert-candidate-clean.mjs 'instalación de Playwright'
 
           npm run gui:screen-matrix
           git restore -- docs/release/manual/gui-screen-matrix.md reports/qa/latest/gui-screen-matrix.json
-          assert_candidate_clean 'matriz GUI'
+          node scripts/release/assert-candidate-clean.mjs 'matriz GUI'
 
           npm run test:gui:visual-contract
-          assert_candidate_clean 'contrato visual'
+          node scripts/release/assert-candidate-clean.mjs 'contrato visual'
 
           E2E_PLAYWRIGHT_OUTPUT_DIR="$RUNNER_TEMP/evaluapro-responsive-playwright-results" \
             npm run test:gui:responsive:e2e:ci
-          assert_candidate_clean 'E2E responsive'
+          node scripts/release/assert-candidate-clean.mjs 'E2E responsive'
 
           E2E_SCRATCH_ROOT="$E2E_SCRATCH_ROOT" \
             E2E_PLAYWRIGHT_OUTPUT_DIR="$RUNNER_TEMP/evaluapro-cycle-playwright-results" \
             npm run test:gui:cycle:e2e:ci
-          assert_candidate_clean 'E2E de ciclo'
+          node scripts/release/assert-candidate-clean.mjs 'E2E de ciclo'
 
           E2E_REPORT_DIR="$RUNNER_TEMP/evaluapro-pdf-edge-results" \
             E2E_BROWSER_CHANNEL=chromium \
             npm run test:gui:pdf:e2e:ci
-          assert_candidate_clean 'E2E PDF'
+          node scripts/release/assert-candidate-clean.mjs 'E2E PDF'
 
       - name: Confirmar árbol fuente limpio antes de QA completa
         shell: bash
         working-directory: candidate
         run: |
           set -euo pipefail
-          status="$(git status --porcelain --untracked-files=all)"
-          if [[ -n "$status" ]]; then
-            echo 'Primera etapa que modificó el checkout candidato: guard final previo a QA completa' >&2
-            git status --short --untracked-files=all >&2
-            exit 1
-          fi
+          node scripts/release/assert-candidate-clean.mjs 'guard final previo a QA completa'
 
       - name: Generar evidencia QA completa del SHA candidato
         working-directory: candidate

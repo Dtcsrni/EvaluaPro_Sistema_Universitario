@@ -296,18 +296,12 @@ function Add-DocenteNativeCompiledPayload {
     $frontendSource = Join-Path $RootPath 'apps/frontend/dist-docente'
     $backendSource = Join-Path $RootPath 'apps/backend/dist'
     $npmCommand = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { 'npm.cmd' } else { 'npm' }
-    if (-not (Test-Path (Join-Path $frontendSource 'index.html'))) {
-      & $npmCommand -C 'apps/frontend' run 'build:docente'
-      if ($LASTEXITCODE -ne 0) { throw "Falló build docente del frontend (exit=$LASTEXITCODE)." }
-    } else {
-      Write-Host '[msi] Reutilizando build docente existente; no se recompila innecesariamente.'
-    }
-    if (-not (Test-Path (Join-Path $backendSource 'index.js'))) {
-      & $npmCommand -C 'apps/backend' run 'build'
-      if ($LASTEXITCODE -ne 0) { throw "Falló build del backend nativo (exit=$LASTEXITCODE)." }
-    } else {
-      Write-Host '[msi] Reutilizando build backend existente; no se recompila innecesariamente.'
-    }
+    # No inferir frescura por la presencia de archivos: dist puede pertenecer a
+    # otro SHA y producir un instalador que no corresponda con las fuentes.
+    & $npmCommand -C 'apps/frontend' run 'build:docente'
+    if ($LASTEXITCODE -ne 0) { throw "Falló build docente del frontend (exit=$LASTEXITCODE)." }
+    & $npmCommand -C 'apps/backend' run 'build'
+    if ($LASTEXITCODE -ne 0) { throw "Falló build del backend nativo (exit=$LASTEXITCODE)." }
     if (-not (Test-Path (Join-Path $frontendSource 'index.html'))) {
       throw "El build docente no generó $frontendSource/index.html."
     }
@@ -317,6 +311,10 @@ function Add-DocenteNativeCompiledPayload {
 
     $frontendTarget = Join-Path $StagingRoot 'apps/frontend/dist-docente'
     $backendTarget = Join-Path $StagingRoot 'apps/backend/dist'
+    $bundleVerifierSource = Join-Path $RootPath 'scripts/verify-docente-bundle.mjs'
+    if (-not (Test-Path -LiteralPath $bundleVerifierSource)) {
+      throw "Falta la verificación del bundle docente: $bundleVerifierSource"
+    }
     $staticServerSource = Join-Path $RootPath 'scripts/serve-docente-static.mjs'
     $bundleGuardSource = Join-Path $RootPath 'scripts/docente-bundle-guard.mjs'
     if (-not (Test-Path $staticServerSource)) {
@@ -390,6 +388,8 @@ function Add-DocenteNativeCompiledPayload {
     New-Item -ItemType Directory -Path $frontendTarget,$backendTarget -Force | Out-Null
     Copy-Item -Path (Join-Path $frontendSource '*') -Destination $frontendTarget -Recurse -Force
     Copy-Item -Path (Join-Path $backendSource '*') -Destination $backendTarget -Recurse -Force
+    & $embeddedNodeTarget $bundleVerifierSource --dist $frontendTarget
+    if ($LASTEXITCODE -ne 0) { throw 'El bundle docente copiado al payload no superó la guardia de versión/estilos.' }
     New-Item -ItemType Directory -Path (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/src/modulos/modulo_analiticas/plantillas/LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx') -Destination (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package.json') -Destination $backendTarget -Force
@@ -1004,7 +1004,7 @@ function Assert-InstallerHubBundleVersion {
   }
 }
 
-function Assert-MsiInstallsAppPayload {
+function Assert-MsiAdministrativeExtractionContainsAppPayload {
   param(
     [Parameter(Mandatory = $true)]
     [string]$MsiPath,
@@ -1015,80 +1015,73 @@ function Assert-MsiInstallsAppPayload {
   if (-not (Test-Path -LiteralPath $MsiPath)) {
     throw "MSI no existe para validar payload instalado: $MsiPath"
   }
-  $extractRoot = Join-Path $env:TEMP ("evaluapro-msi-install-{0}" -f [Guid]::NewGuid().ToString('N'))
-  $msiLog = Join-Path $env:TEMP ("evaluapro-msi-install-{0}.log" -f [Guid]::NewGuid().ToString('N'))
+  $extractRoot = Join-Path $env:TEMP ("evaluapro-msi-admin-extract-{0}" -f [Guid]::NewGuid().ToString('N'))
+  $msiLog = "$extractRoot.log"
   New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
-  $installed = $false
+  $payloadCheckRoot = $null
+  $validated = $false
   try {
-    # El flavor docente se valida con instalación real per-user. Los flavors
-    # per-machine se extraen administrativamente para que el gate sea ejecutable
-    # también en hosts sin elevación interactiva.
-    $installMode = if ($RequireDocenteNativePayload) { '/i' } else { '/a' }
-    $installProperty = if ($installMode -eq '/a') { "TARGETDIR=$extractRoot" } else { "INSTALLFOLDER=$extractRoot" }
-    $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @($installMode, $MsiPath, $installProperty, 'REQUIRE_INSTALLER_HUB=1', 'BURNMSIINSTALL=1', 'INSTALL_DESKTOP_SHORTCUTS=0', 'INSTALL_STARTMENU_SHORTCUTS=0', '/qn', '/norestart', '/L*v', $msiLog) -NoNewWindow -PassThru
+    # El build comprueba contenido mediante instalación administrativa: /a
+    # extrae al staging temporal y evita registrar/desinstalar el producto MSI
+    # en el host. Las transacciones /i, repair y /x se reservan al E2E de CI
+    # en un runner Windows desechable.
+    $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $MsiPath, "TARGETDIR=$extractRoot", 'REQUIRE_INSTALLER_HUB=1', 'BURNMSIINSTALL=1', 'INSTALL_DESKTOP_SHORTCUTS=0', 'INSTALL_STARTMENU_SHORTCUTS=0', '/qn', '/norestart', '/L*v', $msiLog) -NoNewWindow -PassThru
     if (-not $proc.WaitForExit(300000)) {
       & taskkill.exe /PID $proc.Id /T /F | Out-Null
-      throw "Instalacion MSI aislada excedio 300 segundos y se canceló: $MsiPath"
+      throw "Extracción administrativa MSI excedió 300 segundos y se canceló: $MsiPath. Evidencia: $msiLog"
     }
     $proc.Refresh()
     if (-not $proc.HasExited) {
-      throw "Instalacion MSI aislada no confirmó su terminación: $MsiPath"
+      throw "Extracción administrativa MSI no confirmó su terminación: $MsiPath. Evidencia: $msiLog"
     }
     $installExitCode = [int]$proc.ExitCode
-    $adminExitCode = $installExitCode # compatibilidad con contrato histórico; gate ahora usa instalación real /i
     if ($installExitCode -ne 0) {
-      throw "Instalacion MSI aislada fallo (exit=$installExitCode). Log: $msiLog"
+      throw "Extracción administrativa MSI falló (exit=$installExitCode). Log: $msiLog"
     }
-    $installed = $installMode -eq '/i'
-    $packageCandidates = @(
-      (Join-Path $extractRoot 'package.json'),
-      (Join-Path $extractRoot 'evaluapro-native-dist.zip')
+    # La extracción administrativa puede conservar el INSTALLFOLDER original
+    # debajo de TARGETDIR; recoge rutas completas para validar el mismo archivo
+    # que MSI colocó realmente, no una ruta supuesta en la raíz temporal.
+    $packageArtifacts = @(
+      Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -in @('package.json', 'evaluapro-native-dist.zip') }
     )
-    $packageOk = $false
-    foreach ($candidate in $packageCandidates) {
-      if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-        $packageOk = $true
-        break
-      }
-    }
-    if (-not $packageOk) {
-      # Los flavors per-machine quedan bajo INSTALLFOLDER dentro de la raíz
-      # temporal; validar recursivamente evita confundir esa estructura con
-      # un MSI sin payload.
-      $packageOk = @(
-        Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue |
-          Where-Object { $_.Name -in @('package.json', 'evaluapro-native-dist.zip') } |
-          Select-Object -First 1
-      ).Count -gt 0
-    }
+    $packageOk = $packageArtifacts.Count -gt 0
     if (-not $packageOk) {
       $sample = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 20 -ExpandProperty FullName)
       throw "MSI no instala bootstrap/payload bajo carpeta de producto '$InstallFolderName'. Muestras: $($sample -join ' | ')"
     }
     if ($RequireDocenteNativePayload) {
+      $nativePayloadArchive = $packageArtifacts | Where-Object { $_.Name -eq 'evaluapro-native-dist.zip' } | Select-Object -First 1
+      if (-not $nativePayloadArchive) {
+        throw "MSI docente sin payload nativo completo: falta evaluapro-native-dist.zip bajo '$extractRoot'."
+      }
       $payloadCheckRoot = Join-Path $env:TEMP ("evaluapro-msi-payload-check-{0}" -f [Guid]::NewGuid().ToString('N'))
       New-Item -ItemType Directory -Path $payloadCheckRoot -Force | Out-Null
       try {
-        Expand-Archive -LiteralPath (Join-Path $extractRoot 'evaluapro-native-dist.zip') -DestinationPath $payloadCheckRoot -Force
-        foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\prepare-docente-sqlite.mjs', 'scripts\runtime-env.mjs')) {
+        Expand-Archive -LiteralPath $nativePayloadArchive.FullName -DestinationPath $payloadCheckRoot -Force
+        foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'apps\frontend\dist-docente\index.html', 'runtime\node\node.exe', 'scripts\prepare-docente-sqlite.mjs', 'scripts\runtime-env.mjs', 'scripts\docente-bundle-guard.mjs', 'scripts\verify-docente-bundle.mjs')) {
           if (-not (Test-Path -LiteralPath (Join-Path $payloadCheckRoot $relativePath))) { throw "MSI docente sin payload nativo completo: falta $relativePath" }
         }
+        $payloadNode = Join-Path $payloadCheckRoot 'runtime/node/node.exe'
+        $bundleVerifier = Join-Path $payloadCheckRoot 'scripts/verify-docente-bundle.mjs'
+        $frontendBundle = Join-Path $payloadCheckRoot 'apps/frontend/dist-docente'
+        & $payloadNode $bundleVerifier --dist $frontendBundle
+        if ($LASTEXITCODE -ne 0) { throw 'El CSS del bundle docente dentro del MSI no superó la guardia de estilos.' }
       } finally {
         Remove-Item -LiteralPath $payloadCheckRoot -Recurse -Force -ErrorAction SilentlyContinue
       }
     }
-    Write-Host "[msi] Instalacion MSI aislada validada: bootstrap + payload docente íntegro."
+    $validated = $true
+    Write-Host "[msi] Extracción administrativa validada: bootstrap + payload íntegro; el producto MSI no se registró en el host."
   } finally {
-    if ($installed) {
-      $uninstall = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $MsiPath, '/qn', '/norestart') -NoNewWindow -PassThru
-      if (-not $uninstall.WaitForExit(300000)) { & taskkill.exe /PID $uninstall.Id /T /F | Out-Null; throw "Desinstalacion MSI aislada excedio 300 segundos: $MsiPath" }
-      $uninstall.Refresh()
-      if ([int]$uninstall.ExitCode -ne 0) { throw "Desinstalacion MSI aislada fallo (exit=$($uninstall.ExitCode)): $MsiPath" }
-    }
-    if (Test-Path -LiteralPath $extractRoot) {
+    if ($validated -and (Test-Path -LiteralPath $extractRoot)) {
       Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Remove-Item -LiteralPath $msiLog -Force -ErrorAction SilentlyContinue
+    if ($validated) {
+      Remove-Item -LiteralPath $msiLog -Force -ErrorAction SilentlyContinue
+    } else {
+      Write-Warning "Se conserva la extracción parcial y el log para diagnóstico: $extractRoot; $msiLog"
+    }
   }
 }
 
@@ -1554,7 +1547,8 @@ try {
   if ([string]::IsNullOrWhiteSpace([string]$wixVersionOutput) -and (Test-Path -LiteralPath $wixVersionStdErr)) {
     $wixVersionOutput = Get-Content -LiteralPath $wixVersionStdErr -Raw -ErrorAction SilentlyContinue
   }
-  $wixVersionRaw = @([string]$wixVersionOutput -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1)
+  $wixVersionRaw = @([string]$wixVersionOutput -split "`r?
+" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1)
 } finally {
   if (Test-Path -LiteralPath $wixVersionStdOut) { Remove-Item -LiteralPath $wixVersionStdOut -Force -ErrorAction SilentlyContinue }
   if (Test-Path -LiteralPath $wixVersionStdErr) { Remove-Item -LiteralPath $wixVersionStdErr -Force -ErrorAction SilentlyContinue }
@@ -1743,7 +1737,7 @@ if ($buildBundle) {
     if (-not (Test-Path -LiteralPath $productOut)) {
       throw "Build de Product.wxs para $flavorId no genero MSI esperado: $productOut"
     }
-    Assert-MsiInstallsAppPayload -MsiPath $productOut -InstallFolderName $installFolderName -RequireDocenteNativePayload:($flavorId -eq 'docente-local')
+    Assert-MsiAdministrativeExtractionContainsAppPayload -MsiPath $productOut -InstallFolderName $installFolderName -RequireDocenteNativePayload:($flavorId -eq 'docente-local')
     $idx += 1
 
     if ($buildBundle) {

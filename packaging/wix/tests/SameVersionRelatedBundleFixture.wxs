@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+  <Bundle
+    Name="QA Bundle Relation Fixture"
+    Manufacturer="EvaluaPro QA"
+    Version="$(var.Version)"
+    UpgradeCode="$(var.BundleUpgradeCode)">
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication LicenseUrl="" Theme="hyperlinkLicense" />
+    </BootstrapperApplication>
+    <Chain>
+      <ExePackage
+        Id="NoOpPackage"
+        SourceFile="$(var.FixtureExePath)"
+        DetectCondition="0"
+        Permanent="no"
+        InstallArguments="/c exit 0"
+        UninstallArguments="/c exit 0" />
+    </Chain>
+  </Bundle>
+</Wix>

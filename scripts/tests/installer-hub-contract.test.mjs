@@ -649,8 +649,8 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(bundleGuard, /\^\{0\}\(\$\|\[\.\+-\]\)/);
   assert.match(bundleGuard, /WixExecutable/);
   assert.match(bundleGuard, /'burn', 'extract'/);
-  assert.match(buildMsi, /function Assert-MsiInstallsAppPayload/);
-  assert.match(buildMsi, /Assert-MsiInstallsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
+  assert.match(buildMsi, /function Assert-MsiAdministrativeExtractionContainsAppPayload/);
+  assert.match(buildMsi, /Assert-MsiAdministrativeExtractionContainsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
   assert.match(buildMsi, /'docker-compose\.yml'/);
   assert.match(buildMsi, /'docker-compose\.prod-build\.yml'/);
   assert.match(buildMsi, /-p:AssemblyVersion=\$dotNetNumericVersion/);
@@ -659,6 +659,44 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /Bootstrapper Application Burn publicada con version invalida/);
   assert.match(buildMsi, /Compilando Bootstrapper Application con versión/);
   assert.match(buildMsi, /Reutilizando Bootstrapper Application Burn ya publicada/);
+});
+
+test('build MSI docente recompila frontend y backend antes de copiar el payload', () => {
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const match = buildMsi.match(/function Add-DocenteNativeCompiledPayload\s*\{[\s\S]*?\n\}/);
+  assert.ok(match, 'Debe existir el empaquetado compilado docente-local.');
+
+  const frontendBuild = match[0].indexOf("-C 'apps/frontend' run 'build:docente'");
+  const backendBuild = match[0].indexOf("-C 'apps/backend' run 'build'");
+  const frontendCopy = match[0].indexOf('Copy-Item -Path (Join-Path $frontendSource');
+  const backendCopy = match[0].indexOf('Copy-Item -Path (Join-Path $backendSource');
+  const payloadGuard = match[0].indexOf('& $embeddedNodeTarget $bundleVerifierSource --dist $frontendTarget');
+  assert.ok(frontendBuild >= 0 && frontendBuild < frontendCopy, 'Frontend debe compilarse antes de copiarse al staging.');
+  assert.ok(backendBuild >= 0 && backendBuild < backendCopy, 'Backend debe compilarse antes de copiarse al staging.');
+  assert.ok(payloadGuard > frontendCopy, 'La verificación debe inspeccionar el bundle ya copiado al payload.');
+  assert.match(match[0], /run 'build:docente'[\s\S]*?if \(\$LASTEXITCODE -ne 0\) \{ throw[\s\S]*?run 'build'[\s\S]*?if \(\$LASTEXITCODE -ne 0\) \{ throw/);
+  assert.doesNotMatch(match[0], /Reutilizando build (docente|backend) existente/);
+  assert.match(match[0], /No inferir frescura por la presencia de archivos/);
+});
+
+test('build-msi valida el payload por extracción y nunca registra ni desinstala MSI en el host', () => {
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const match = buildMsi.match(/function Assert-MsiAdministrativeExtractionContainsAppPayload\s*\{[\s\S]*?\n\}/);
+  assert.ok(match, 'Debe existir la validación de MSI mediante extracción administrativa.');
+  assert.match(match[0], /Start-Process -FilePath 'msiexec\.exe' -ArgumentList @\('\/a'/);
+  assert.match(match[0], /TARGETDIR=\$extractRoot/);
+  assert.match(match[0], /Get-ChildItem -LiteralPath \$extractRoot -Recurse -File/);
+  assert.match(match[0], /Expand-Archive -LiteralPath \$nativePayloadArchive\.FullName/);
+  assert.match(match[0], /apps\\frontend\\dist-docente\\index\.html/);
+  assert.match(match[0], /scripts\\docente-bundle-guard\.mjs/);
+  assert.match(match[0], /scripts\\verify-docente-bundle\.mjs/);
+  assert.match(match[0], /& \$payloadNode \$bundleVerifier --dist \$frontendBundle/);
+  assert.match(match[0], /El CSS del bundle docente dentro del MSI no superó la guardia/);
+  assert.match(match[0], /no se registró en el host/);
+  assert.doesNotMatch(match[0], /['"]\/i['"]|['"]\/x['"]/i);
+  assert.doesNotMatch(match[0], /Uninstall|Desinstal/);
+  assert.match(match[0], /if \(\$validated -and \(Test-Path -LiteralPath \$extractRoot\)\)/);
+  assert.match(match[0], /Se conserva la extracción parcial y el log para diagnóstico/);
 });
 
 test('ConvertTo-DotNetNumericVersion convierte versiones semver y prerelease a cuadruplete numerico .NET', () => {
@@ -1250,6 +1288,9 @@ test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visu
   assert.match(runner, /reports\\qa\\installer-hub-ui/);
   assert.match(runner, /installer-hub-ui-automation-report\.json/);
   assert.match(runner, /installer-hub-ui-automation\.log/);
+  assert.match(runner, /installer-hub-burn\.log/);
+  assert.match(runner, /ArgumentList @\('\/repair', '-l', \$burnLogArgument\)/);
+  assert.match(runner, /burnLogPath = \$burnLogPath/);
   assert.match(runner, /EVALUAPRO_INSTALLER_UI_QA_NO_PRODUCT_ACTION/);
   assert.match(runner, /EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP/);
   assert.match(runner, /EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP/);
@@ -1264,15 +1305,19 @@ test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visu
   assert.match(runner, /06-avanzado/);
   assert.match(runner, /07-min-980x700/);
   assert.match(runner, /RequestedWidth 980 -RequestedHeight 700/);
+  assert.match(runner, /IsWindowAtPoint\(IntPtr expectedWindow, int x, int y\)/);
+  assert.match(runner, /\[EvaluaProQaNativeWindow\]::IsWindowAtPoint\(\$handle/);
   assert.match(runner, /CopyFromScreen\(\$x, \$y, 0, 0, \$bitmap\.Size\)/);
-  assert.doesNotMatch(runner, /PrintWindow/);
+  assert.match(runner, /IsWindowVisible\(\$handle\)/);
+  assert.doesNotMatch(runner, /SetForegroundWindow|GetForegroundWindow|PrintWindow|SetCursorPos/);
   assert.match(runner, /MoveWindow/);
   assert.match(runner, /Select-ComboItem/);
   assert.match(runner, /Test-ScrollPattern/);
   assert.match(runner, /StartButton/);
   assert.match(runner, /RestartNowButton/);
   assert.match(runner, /CloseButton/);
-  assert.match(runner, /Stop-Process -Id \$process\.Id -Force/);
+  assert.match(runner, /Stop-OwnedProcessTree -RootProcess \$process -ExpectedRootPath \$bundlePath/);
+  assert.doesNotMatch(runner, /Stop-Process -Id \$process\.Id -Force/);
 
   assert.match(bootstrapper, /EVALUAPRO_INSTALLER_UI_QA_NO_PRODUCT_ACTION/);
   assert.match(bootstrapper, /SimulateUiQaProductActionAsync/);

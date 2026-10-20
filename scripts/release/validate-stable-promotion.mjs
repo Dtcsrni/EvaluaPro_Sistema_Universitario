@@ -24,17 +24,7 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { fetchCandidateWorkflowRuns, fetchWorkflowRun, validateCiCandidate } from './check-ci-candidate.mjs';
 import { validateEvidenceContract } from './check-release-evidence.mjs';
-
-const REQUIRED_QA_ARTIFACTS = [
-  'dataset-prodlike',
-  'e2e-docente-alumno',
-  'global-grade',
-  'evaluaciones-policy',
-  'evaluaciones-e2e',
-  'pdf-print',
-  'ux-visual',
-  'clean-architecture'
-];
+import { REQUIRED_QA_ARTIFACTS } from './required-qa-artifacts.mjs';
 const QA_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const QA_CLOCK_SKEW_MS = 5 * 60 * 1000;
 

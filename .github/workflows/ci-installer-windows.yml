@@ -150,6 +150,16 @@ jobs:
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local
 
+      - name: Compilar fixture Burn relacionado de la misma versión
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        shell: powershell
+        run: |
+          $candidate = Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $candidate) { throw 'No existe el bundle candidato docente-local para derivar su versión.' }
+          $fixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-SameVersionRelatedBundle.exe'
+          & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $candidate.FullName -OutputPath $fixtureOutput
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Gate footprint bundle docente
         run: npm run installer:docente:baseline:enforce
 
@@ -369,6 +379,8 @@ jobs:
           if (-not [string]::IsNullOrWhiteSpace($env:BASELINE_BUNDLE_PATH)) {
             $runnerArgs += @('-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH)
           }
+          if ([string]::IsNullOrWhiteSpace($env:SAME_VERSION_RELATED_BUNDLE_PATH)) { throw 'Falta el fixture Burn relacionado de la misma versión.' }
+          $runnerArgs += @('-SameVersionRelatedBundlePath', $env:SAME_VERSION_RELATED_BUNDLE_PATH)
           & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 @runnerArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -643,6 +655,15 @@ jobs:
           }
           "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
 
+      - name: Compilar fixture Burn para el asset del release draft
+        shell: powershell
+        env:
+          CANDIDATE_BUNDLE_PATH: ${{ steps.draft_asset.outputs.candidate_path }}
+        run: |
+          $fixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-SameVersionRelatedBundle.exe'
+          & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $env:CANDIDATE_BUNDLE_PATH -OutputPath $fixtureOutput
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Preparar ruta privada para evidencia E2E del borrador
         id: preparar_reporte_e2e
         shell: powershell
@@ -674,6 +695,7 @@ jobs:
             '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-published-e2e'),
             '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
             '-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH,
+            '-SameVersionRelatedBundlePath', $env:SAME_VERSION_RELATED_BUNDLE_PATH,
             '-Port', '4519',
             '-IUnderstandThisMutatesPc',
             '-SeedDummyData'
@@ -838,6 +860,15 @@ jobs:
           if (-not $sidecar.Success -or $sidecar.Groups[1].Value.ToLowerInvariant() -ne $expectedHash -or $actualHash -ne $expectedHash) { throw 'El baseline oficial v1.2.3 no coincide con el SHA-256 fijado.' }
           "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
 
+      - name: Compilar fixture Burn para el asset público
+        shell: powershell
+        env:
+          CANDIDATE_BUNDLE_PATH: ${{ steps.public_asset.outputs.candidate_path }}
+        run: |
+          $fixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-SameVersionRelatedBundle.exe'
+          & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $env:CANDIDATE_BUNDLE_PATH -OutputPath $fixtureOutput
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Preparar ruta privada para evidencia E2E pública
         id: preparar_reporte_e2e
         shell: powershell
@@ -869,6 +900,7 @@ jobs:
             '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-public-release-e2e'),
             '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
             '-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH,
+            '-SameVersionRelatedBundlePath', $env:SAME_VERSION_RELATED_BUNDLE_PATH,
             '-Port', '4521',
             '-IUnderstandThisMutatesPc',
             '-SeedDummyData'

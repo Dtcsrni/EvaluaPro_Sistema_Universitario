@@ -2801,6 +2801,7 @@ p {
 
 .calificaciones-human-review-panel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.8rem;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--campoBorde) 78%, rgba(56, 189, 248, 0.22));
@@ -2814,14 +2815,32 @@ p {
 .calificaciones-human-review-panel__head {
   display: flex;
   justify-content: space-between;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
   gap: 0.85rem;
   align-items: flex-start;
   flex-wrap: wrap;
 }
 
+.calificaciones-human-review-panel__head > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .calificaciones-human-review-panel__title {
   display: grid;
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: 100%;
   gap: 0.3rem;
+}
+
+.calificaciones-human-review-panel__title h3 {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .calificaciones-human-review-panel__summary {

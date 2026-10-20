@@ -31,7 +31,7 @@ flowchart TB
 
   subgraph CloudRun["Nube (Cloud Run / similar)"]
     portal_api[API Portal Alumno Cloud<br/>portal_alumno_cloud]:::svc
-    mongo_cloud[(MongoDB Cloud<br/>resultados)]:::db
+    sqlite_portal[(SQLite del portal<br/>read-model derivado)]:::db
   end
 
   subgraph Static["Hosting estatico"]
@@ -41,7 +41,7 @@ flowchart TB
   alumno[Alumno]:::user --> web_alumno
   web_alumno --> portal_api
   api_docente_local -->|sync + API Key| portal_api
-  portal_api --> mongo_cloud
+  portal_api --> sqlite_portal
 
 %% LEYENDA_COLOR
   subgraph Leyenda["Leyenda de color"]

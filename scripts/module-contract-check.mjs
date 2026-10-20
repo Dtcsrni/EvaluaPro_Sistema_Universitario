@@ -258,6 +258,20 @@ function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function describeApiDrift(expectedExports, actualExports) {
+  const expectedByName = new Map(expectedExports.map((item) => [item.name, item.signature]));
+  const actualByName = new Map(actualExports.map((item) => [item.name, item.signature]));
+  const changes = [];
+  for (const [name, signature] of expectedByName) {
+    if (!actualByName.has(name)) changes.push(`${name} (eliminado)`);
+    else if (actualByName.get(name) !== signature) changes.push(`${name} (firma modificada)`);
+  }
+  for (const name of actualByName.keys()) {
+    if (!expectedByName.has(name)) changes.push(`${name} (agregado)`);
+  }
+  return changes.sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
+}
+
 export function compareApiSnapshots(previous, current, currentVersion) {
   const previousByName = new Map(previous.exports.map((item) => [item.name, item.signature]));
   const currentByName = new Map(current.exports.map((item) => [item.name, item.signature]));
@@ -311,7 +325,11 @@ export function validatePublicApiHistory(descriptor, currentExports) {
     errors.push(`${descriptor.id}.publicApiHistory.latest: ${latest?.version ?? 'missing'} debe coincidir con contractVersion ${descriptor.contractVersion}`);
   }
   if (latest && !sameJson(latest.exports, currentExports)) {
-    errors.push(`${descriptor.id}.publicApiHistory.drift: exports actuales no coinciden con el snapshot ${latest.version}; incremente contractVersion y agregue historial`);
+    const drift = describeApiDrift(latest.exports, currentExports);
+    const detail = drift.length
+      ? `; diferencias: ${drift.join(', ')}`
+      : '; diferencia estructural sin altas, bajas ni firmas distintas (revisar orden o forma del snapshot)';
+    errors.push(`${descriptor.id}.publicApiHistory.drift: exports actuales no coinciden con el snapshot ${latest.version}${detail}; incremente contractVersion y agregue historial`);
   }
   return errors;
 }
@@ -343,7 +361,11 @@ export function validateCompositionApiHistory(descriptor, currentExports) {
     errors.push(`${descriptor.id}.compositionApiHistory.latest: ${latest?.version ?? 'missing'} debe coincidir con contractVersion ${descriptor.contractVersion}`);
   }
   if (latest && !sameJson(latest.exports, currentExports)) {
-    errors.push(`${descriptor.id}.compositionApiHistory.drift: exports de composición actuales no coinciden con el snapshot ${latest.version}; incremente contractVersion y agregue historial`);
+    const drift = describeApiDrift(latest.exports, currentExports);
+    const detail = drift.length
+      ? `; diferencias: ${drift.join(', ')}`
+      : '; diferencia estructural sin altas, bajas ni firmas distintas (revisar orden o forma del snapshot)';
+    errors.push(`${descriptor.id}.compositionApiHistory.drift: exports de composición actuales no coinciden con el snapshot ${latest.version}${detail}; incremente contractVersion y agregue historial`);
   }
   return errors;
 }

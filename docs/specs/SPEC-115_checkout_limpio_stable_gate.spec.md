@@ -11,6 +11,8 @@ aprobada: 2026-10-18 por solicitud explícita del usuario
 
 # SPEC-115: Mantener limpio el checkout del Stable Gate tras pruebas visuales
 
+> Integrada como componente de release en [SPEC-122](SPEC-122_estabilizacion_release_1_2_8.spec.md); esta ficha conserva la aprobación y el origen del requisito.
+
 ## Contexto
 
 El Stable Gate #95, sobre el candidato `c436b2ea87871c4843e2ad90731e45628b73e869`, validó el SHA, descargó el instalador y pasó las pruebas visuales. Falló antes de QA completa porque `npm run gui:screen-matrix` actualizó dos archivos versionados y el flujo solo restaura el Markdown. El JSON `reports/qa/latest/gui-screen-matrix.json` permanece modificado y hace fallar `git status --porcelain`.

@@ -266,7 +266,10 @@ test.describe('Banco de reactivos', () => {
     expect(snapshot.status()).toBe(200);
     expect((await snapshot.json()).totalUsados).toBe(1);
     const preview = await request.get(`${base}/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`, { headers });
-    expect(preview.status()).toBe(200);
+    expect(
+      preview.status(),
+      `preview PDF devolvió HTTP ${preview.status()} (requestId ${preview.headers()['x-request-id'] ?? 'sin request-id'})`
+    ).toBe(200);
     const previewPayload = await preview.json();
     const previewPdf = Buffer.from(String(previewPayload.pdfBase64 ?? ''), 'base64');
     expect(previewPdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');

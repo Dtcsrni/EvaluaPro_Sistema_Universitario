@@ -371,7 +371,7 @@
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                          <Button x:Name="ShowIntroButton" Content="Funciones" Style="{StaticResource SecondaryButtonStyle}" MinWidth="80" Margin="0,0,8,0" Visibility="Collapsed" Click="ShowIntroButton_OnClick" ToolTip="El carrusel de funciones permanece visible en el encabezado." AutomationProperties.Name="Mostrar funciones principales" />
                         <Border Style="{StaticResource StatusBadgeStyle}">
-                            <TextBlock x:Name="HubVersionTextBlock" Text="v-" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                            <TextBlock x:Name="HubVersionTextBlock" AutomationProperties.AutomationId="HubVersionTextBlock" Text="v-" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                         </Border>
                         <Border Style="{StaticResource StatusBadgeStyle}" Visibility="Collapsed">
                             <TextBlock x:Name="BrandVersionBadgeTextBlock" Text="Burn + MSI + helper" />
@@ -458,7 +458,7 @@
                             </Grid>
                             <TextBlock x:Name="StatusBadgeTextBlock" Grid.Column="2" Text="Estado activo" FontWeight="Bold" FontSize="13" Foreground="{StaticResource AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="3" VerticalAlignment="Center">
-                                <TextBlock x:Name="StatusTextBlock" Text="Analizando prerequisitos..." Foreground="{StaticResource TextBrush}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock x:Name="StatusTextBlock" AutomationProperties.AutomationId="StatusTextBlock" Text="Analizando prerequisitos..." Foreground="{StaticResource TextBrush}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
                                 <TextBlock x:Name="StatusHintTextBlock" Text="La operación todavía no termina." Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,1,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
@@ -762,7 +762,7 @@
                                         <Border Margin="0,0,0,8" Padding="12,10" CornerRadius="8" Background="#7D10304C" BorderBrush="#8038DDF5" BorderThickness="1">
                                             <StackPanel>
                                                 <TextBlock Text="• EDICIÓN SELECCIONADA" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
-                                                <TextBlock Text="EvaluaPro Docente Local (v1.1.1)" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,2,0,6" />
+                                                <TextBlock x:Name="EditionVersionTextBlock" AutomationProperties.AutomationId="EditionVersionTextBlock" Text="EvaluaPro Docente Local" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,2,0,6" />
 
                                                 <TextBlock Text="• BASE DE DATOS LOCAL" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
                                                 <TextBlock Text="SQLite Aislada (evaluapro.db)" FontSize="12.5" Foreground="{StaticResource TextBrush}" Margin="0,2,0,6" />
@@ -791,10 +791,10 @@
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
-                                </Border>
-                            </Grid>
-                        </ScrollViewer>
+                            </Border>
+                        </Grid>
 
+                        </ScrollViewer>
                         <Grid x:Name="ExecuteStepPanel" Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="0.92*" />
@@ -809,10 +809,10 @@
                                             <ScaleTransform x:Name="ProgressPulseTransform" ScaleX="1" ScaleY="1" />
                                         </ProgressBar.RenderTransform>
                                     </ProgressBar>
-                                    <TextBlock x:Name="ProgressEtaTextBlock" Text="Tiempo restante: calculando…" Foreground="{StaticResource MutedTextBrush}" FontSize="13" AutomationProperties.Name="Estimación de tiempo restante" />
+                                    <TextBlock x:Name="ProgressEtaTextBlock" Text="Tiempo restante: calculando…" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="13" AutomationProperties.AutomationId="ProgressEtaTextBlock" />
                                     <Border x:Name="FailureSummaryBorder" Margin="0,10,0,0" Padding="12" CornerRadius="8" Background="#667F1D1D" BorderBrush="#80F87171" BorderThickness="1" Visibility="Collapsed">
                                         <StackPanel>
-                                            <TextBlock x:Name="FailureSummaryTitleTextBlock" Text="Resumen de error" FontWeight="Bold" Foreground="#F87171" />
+                                            <TextBlock x:Name="FailureSummaryTitleTextBlock" Text="Resumen de error" FontWeight="Bold" Foreground="#F87171" AutomationProperties.AutomationId="FailureSummaryTitleTextBlock" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" />
                                             <TextBlock x:Name="FailureSummaryTextBlock" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#F87171" />
                                         </StackPanel>
                                     </Border>
@@ -841,6 +841,7 @@
                                 <ColumnDefinition Width="1.1*" />
                             </Grid.ColumnDefinitions>
                             <Border Style="{StaticResource PanelCardStyle}" Margin="0,0,12,0">
+                                <ScrollViewer x:Name="ResultSummaryScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Desplazamiento del resumen del resultado">
                                 <StackPanel>
                                     <TextBlock Text="Resultado de la operación" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Text="Estado final, verificación de integridad y siguientes pasos." Style="{StaticResource HelpTextStyle}" FontSize="12.5" Margin="0,2,0,0" />
@@ -862,8 +863,10 @@
                                         <TextBlock Text="Gracias por elegir EvaluaPro." FontSize="14.5" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{StaticResource TextBrush}" />
                                     </StackPanel>
                                 </StackPanel>
+                                </ScrollViewer>
                             </Border>
                             <Border Style="{StaticResource PanelCardStyle}" Grid.Column="1">
+                                <ScrollViewer x:Name="ResultEvidenceScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Desplazamiento de la evidencia técnica">
                                 <StackPanel>
                                     <TextBlock Text="Evidencia técnica" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Text="Rutas y bitácoras para soporte técnico docente." Style="{StaticResource HelpTextStyle}" FontSize="12.5" Margin="0,2,0,6" />
@@ -890,6 +893,7 @@
                                     </Border>
                                     <Button x:Name="LaunchEvaluaProButton" Content="_Iniciar EvaluaPro ahora" Style="{StaticResource PrimaryButtonStyle}" MinWidth="200" Padding="16,8" Visibility="Collapsed" Click="LaunchEvaluaProButton_OnClick" AutomationProperties.Name="Iniciar EvaluaPro" AutomationProperties.HelpText="Inicia la plataforma nativa EvaluaPro." />
                                 </StackPanel>
+                                </ScrollViewer>
                             </Border>
                         </Grid>
                     </Grid>
@@ -927,7 +931,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                        <TextBlock x:Name="FooterStatusTextBlock" Text="Listo para guiar la operación." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="FooterStatusTextBlock" AutomationProperties.AutomationId="FooterStatusTextBlock" Text="Listo para guiar la operación." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
                         <TextBlock x:Name="FooterNextActionTextBlock" Text="Acepta términos para continuar." Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" Margin="0,4,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

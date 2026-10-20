@@ -5,6 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const root = process.cwd();
@@ -16,10 +17,12 @@ const verificationModule = fs.readFileSync(path.join(root, 'scripts', 'installer
 const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
 const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
 const hubWindow = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
+const hubWindowXaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
 const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
 const msiBuild = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
 const installerWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
 const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+const uiLifecycle = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-ui-lifecycle.ps1'), 'utf8');
 const matrix = JSON.parse(fs.readFileSync(path.join(root, 'reports', 'qa', 'latest', 'gui-screen-matrix.json'), 'utf8'));
 
 function luminance(hex) {
@@ -33,6 +36,66 @@ function contrast(foreground, background) {
   const dark = Math.min(luminance(foreground), luminance(background));
   return (light + 0.05) / (dark + 0.05);
 }
+
+test('el E2E visual del Installer Hub rechaza capturas vacías y ajusta el HWND de UIA', () => {
+  const resize = uiLifecycle.slice(uiLifecycle.indexOf('function Resize-WindowForQa {'), uiLifecycle.indexOf('\nfunction Test-ScrollPattern {'));
+  const capture = uiLifecycle.slice(uiLifecycle.indexOf('function Capture-Window {'), uiLifecycle.indexOf('\nfunction Resize-WindowForQa {'));
+  const visibilityWait = uiLifecycle.slice(uiLifecycle.indexOf('function Wait-WindowUncovered {'), uiLifecycle.indexOf('\nfunction Capture-Window {'));
+
+  assert.match(visibilityWait, /\[int\]\$TimeoutSec = 60/);
+  assert.match(visibilityWait, /\[DateTime\]::UtcNow\.AddSeconds\(\$TimeoutSec\)/);
+  assert.match(visibilityWait, /IsWindowAtPoint\(\$handle/);
+  assert.match(visibilityWait, /ponla en primer plano manualmente/);
+  assert.match(visibilityWait, /no se cambiará el foco/);
+  assert.match(visibilityWait, /Start-Sleep -Milliseconds 300/);
+  assert.doesNotMatch(visibilityWait, /SetForegroundWindow|SetCursorPos|SendKeys/);
+  assert.match(capture, /Wait-WindowUncovered -Window \$Window -TimeoutSec 60/);
+  assert.match(capture, /GetPixel\(/);
+  assert.match(capture, /coloredBodySamples -lt 100/);
+  assert.match(capture, /distinctBodyColors\.Count -lt 8/);
+  assert.match(capture, /ventana vacía o monocroma/);
+  assert.match(capture, /\[EvaluaProQaNativeWindow\]::IsWindowVisible\(\$handle\)/);
+  assert.match(capture, /\[EvaluaProQaNativeWindow\]::IsWindowAtPoint\(\$handle/);
+  assert.match(capture, /DescribeWindowAtPoint\(\$point\.X, \$point\.Y\)/);
+  assert.match(uiLifecycle, /DescribeWindowAtPoint\(int x, int y\)/);
+  assert.match(capture, /no se cambiará el foco/);
+  assert.match(capture, /CopyFromScreen\(\$x, \$y, 0, 0, \$bitmap\.Size\)/);
+  assert.doesNotMatch(capture, /SetForegroundWindow|GetForegroundWindow|PrintWindow|SetCursorPos/);
+  assert.match(resize, /\[System\.Windows\.Automation\.AutomationElement\]\$Window/);
+  assert.match(resize, /\$Window\.Current\.NativeWindowHandle/);
+  assert.doesNotMatch(resize, /\$Process\.MainWindowHandle/);
+  assert.match(uiLifecycle, /Resize-WindowForQa -Window \$window -Width 980 -Height 700/);
+  assert.match(uiLifecycle, /Collapse-Control -Element \$logExpander/);
+  assert.match(uiLifecycle, /\$logExpandPattern\.Current\.ExpandCollapseState -eq \[System\.Windows\.Automation\.ExpandCollapseState\]::Collapsed/);
+  for (const stage of ['navigate-prepare', 'navigate-review', 'verify-review-controls', 'validate-modes', 'validate-expanders', 'capture-advanced', 'run-nondestructive-qa', 'validate-minimum-viewport', 'close-owned-process', 'finalize-report']) {
+    assert.match(uiLifecycle, new RegExp(`\\$currentStage = '${stage}'`), `falta el marcador de etapa ${stage}`);
+  }
+  assert.match(uiLifecycle, /integrity-verification-visible/);
+  assert.match(uiLifecycle, /primary-close-visible/);
+  assert.match(uiLifecycle, /ResultSummaryScrollViewer/);
+  assert.match(uiLifecycle, /ResultEvidenceScrollViewer/);
+  const splashCapture = uiLifecycle.indexOf("Capture-Window -Window $window -Name '01-splash'");
+  const splashAccessibility = uiLifecycle.indexOf("foreach ($controlId in @('FooterStatusTextBlock'");
+  assert.ok(splashCapture >= 0 && splashAccessibility > splashCapture, 'captura diagnóstica antes de validar controles UIA');
+  assert.match(uiLifecycle, /AutomationIdProperty,[\s\S]*?'FooterStatusTextBlock'/);
+});
+
+test('el Installer Hub configura el render seguro antes de cargar el árbol visual y deja diagnóstico visible', () => {
+  const constructor = hubWindow.slice(hubWindow.indexOf('public MainWindow()'), hubWindow.indexOf('\n    private static int ConfigureHardwareRendering()'));
+  const configure = hubWindow.slice(hubWindow.indexOf('private static int ConfigureHardwareRendering()'), hubWindow.indexOf('\n    private void ApplyNativeBackdrop()'));
+
+  assert.ok(constructor.indexOf('ConfigureHardwareRendering();') < constructor.indexOf('InitializeComponent();'));
+  assert.match(configure, /RenderOptions\.ProcessRenderMode\s*=\s*System\.Windows\.Interop\.RenderMode\.SoftwareOnly/);
+  assert.match(constructor, /AppendLog\(\$"\[info\] WPF DirectX render tier=\{renderTier\}; modo solicitado=SoftwareOnly/);
+});
+
+test('el resumen de edición del Installer Hub reutiliza la versión dinámica visible', () => {
+  assert.match(hubWindowXaml, /x:Name="EditionVersionTextBlock"[^>]*AutomationProperties\.AutomationId="EditionVersionTextBlock"/);
+  assert.doesNotMatch(hubWindowXaml, /EvaluaPro Docente Local \(v?\d+\.\d+\.\d+/);
+  assert.match(hubWindow, /HubVersionTextBlock\.Text\s*=\s*versionText/);
+  assert.match(hubWindow, /EditionVersionTextBlock\.Text\s*=\s*\$"EvaluaPro Docente Local \(\{versionText\}\)"/);
+  assert.match(hubWindowXaml, /x:Name="HubVersionTextBlock"[^>]*AutomationProperties\.AutomationId="HubVersionTextBlock"/);
+});
 
 test('lifecycle helper expone todos los modos implementados', () => {
   assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install', 'license-heartbeat', 'update', 'uninstall'\)/);
@@ -61,12 +124,52 @@ test('lifecycle bootstrapper normaliza operaciones peligrosas de forma explícit
 
 test('cada invocación de helper tiene correlación y respuesta aisladas', () => {
   assert.match(bootstrapper, /CreatePrivateHandoffDirectory\(requestRoot\)/);
+  assert.match(bootstrapper, /requestRoot\s*=\s*Path\.Combine\(localAppData, "EvaluaProInstaller", "installer-hub", "requests", sessionId\)/);
+  assert.match(bootstrapper, /HandoffOverlapsInstallDirectory\(requestRoot, request\.InstallDir\)/);
+  assert.match(bootstrapper, /private static bool HandoffOverlapsInstallDirectory/);
+  assert.match(bootstrapper, /return IsSameOrDescendantPath\(handoff, install\) \|\| IsSameOrDescendantPath\(install, handoff\)/);
+  assert.match(bootstrapper, /El directorio privado de solicitudes del instalador se superpone/);
+  assert.match(bootstrapper, /installationExistedBeforeOperation\s*=\s*msiInstalled \|\| HasInstalledPayloadFiles\(request\.InstallDir\)/);
   assert.match(bootstrapper, /Guid\.NewGuid\(\)/);
   assert.match(bootstrapper, /correlationId/);
   assert.match(bootstrapper, /\.request\.json/);
   assert.match(bootstrapper, /\.response\.json/);
   assert.match(bootstrapper, /\["operationId"\] = operationId/);
   assert.match(helper, /\$Payload\['operationId'\] = \$script:InstallerHubOperationId/);
+});
+
+test('el handoff sobrevive a la limpieza del destino de upgrade y los paths solapados se rechazan', (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-burn-handoff-'));
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+
+  const localAppData = path.join(tempRoot, 'LocalAppData');
+  const installDir = path.join(localAppData, 'EvaluaPro');
+  const productionDataDir = path.join(tempRoot, 'ProgramData', 'EvaluaPro', 'data');
+  const handoffRoot = path.join(localAppData, 'EvaluaProInstaller', 'installer-hub', 'requests');
+  const requestPath = path.join(handoffRoot, 'burn-test', 'post-install.request.json');
+  fs.mkdirSync(installDir, { recursive: true });
+  fs.mkdirSync(productionDataDir, { recursive: true });
+  fs.mkdirSync(path.dirname(requestPath), { recursive: true });
+  fs.writeFileSync(path.join(installDir, 'old-payload.txt'), 'old payload');
+  fs.writeFileSync(path.join(productionDataDir, 'evaluapro.db'), 'production-data');
+  fs.writeFileSync(requestPath, '{"command":"post-install"}');
+
+  fs.rmSync(installDir, { recursive: true, force: true });
+
+  assert.equal(fs.readFileSync(requestPath, 'utf8'), '{"command":"post-install"}');
+  assert.equal(fs.existsSync(installDir), false);
+  assert.equal(fs.readFileSync(path.join(productionDataDir, 'evaluapro.db'), 'utf8'), 'production-data');
+  assert.match(bootstrapper, /HandoffOverlapsInstallDirectory\(requestRoot, request\.InstallDir\)[\s\S]*?FinalizeFailure\(/);
+  assert.match(bootstrapper, /IsSameOrDescendantPath\(handoff, install\) \|\| IsSameOrDescendantPath\(install, handoff\)/);
+  assert.ok(bootstrapper.indexOf('if (handoffOverlapsInstallDirectory)') < bootstrapper.indexOf('engineHandle.Plan(action, BundleScope.Default)'), 'rutas solapadas deben fallar antes de Plan/Apply');
+
+  const rollbackStart = bootstrapper.indexOf('private void RollbackFailureResidues()');
+  const rollbackEnd = bootstrapper.indexOf('\n    /// <summary>', rollbackStart);
+  const rollback = bootstrapper.slice(rollbackStart, rollbackEnd);
+  assert.match(rollback, /if \(installationExistedBeforeOperation \|\| handoffOverlapsInstallDirectory\)[\s\S]*?return;/);
+  assert.ok(rollback.indexOf('if (installationExistedBeforeOperation || handoffOverlapsInstallDirectory)') < rollback.indexOf('Process.Start(psi)'), 'rollback debe preservar instalaciones previas y el handoff antes de cualquier efecto destructivo');
+  assert.ok(rollback.indexOf('if (installationExistedBeforeOperation || handoffOverlapsInstallDirectory)') < rollback.indexOf('Directory.Delete(dir, recursive: true)'), 'rollback no debe borrar el payload de una instalación previa');
+  assert.match(bootstrapper, /Rollback destructivo omitido: ya existía una instalación antes de esta operación/);
 });
 
 test('helper PowerShell tiene timeout por operación y cancela su árbol', () => {
@@ -90,7 +193,7 @@ test('post-install informa etapas, conserva salida al vencer timeout y no depend
   assert.doesNotMatch(helper, /Invoke-WebRequest\s+-Uri\s+\$nodeUrl/);
   assert.match(bootstrapper, /stdout-at-timeout/);
   assert.match(bootstrapper, /stderr-at-timeout/);
-  assert.match(bootstrapper, /\[helper:\{mode\}:progress\]/);
+  assert.match(bootstrapper, /\[native-helper:\{mode\}:progress\]/);
 });
 
 test('payload nativo usa extracción rápida y publica desde staging sin copiar el árbol completo', () => {
@@ -149,10 +252,10 @@ test('elevated helper consumes el snapshot validado y no reabre la ruta de usuar
 
 test('el workflow de release bloquea la publicación si falla la E2E completa del bundle', () => {
   assert.match(installerWorkflow, /E2E completa sobre el bundle docente que se publicará/);
-  assert.match(installerWorkflow, /- name: Instalar Chromium para la E2E docente completa\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
-  assert.match(installerWorkflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
-  assert.match(installerWorkflow, /- name: E2E completa sobre el bundle docente que se publicará\s+if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
-  assert.match(installerWorkflow, /- name: Publicar evidencia de la E2E completa\s+if: always\(\) && \(startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'\)/);
+  assert.match(installerWorkflow, /- name: Instalar Chromium para la E2E docente completa\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: E2E completa sobre el bundle docente que se publicará\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: Publicar evidencia de la E2E completa\s+if: always\(\) && steps\.preparar_reporte_e2e\.outputs\.report_dir != '' && \(github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'\)/);
   assert.match(installerWorkflow, /scripts\/tests\/installer-hub-e2e-docente\.ps1/);
   assert.match(installerWorkflow, /-SeedDummyData/);
   assert.match(installerWorkflow, /Publicar evidencia de la E2E completa/);
@@ -219,26 +322,67 @@ test('runner selecciona opciones del combo solo con SelectionItemPattern', () =>
   assert.doesNotMatch(runner, /Invoke-Control -Element \$item/);
 });
 
+test('GUI lifecycle asocia ventana y detección al proceso iniciado y cierra su árbol', () => {
+  assert.match(uiLifecycle, /\[Parameter\(Mandatory = \$true\)\]\[int\]\$TargetPid/);
+  assert.match(uiLifecycle, /window\.Current\.ProcessId/);
+  assert.match(uiLifecycle, /function Get-VerifiedBundleUiProcessIds/);
+  assert.match(uiLifecycle, /function Get-LocalProcessSnapshot/);
+  assert.match(uiLifecycle, /CreateToolhelp32Snapshot/);
+  assert.match(uiLifecycle, /Process32FirstW/);
+  assert.match(uiLifecycle, /Process32NextW/);
+  assert.match(uiLifecycle, /GetProcessSnapshot\(\)/);
+  assert.doesNotMatch(uiLifecycle, /Get-CimInstance -ClassName Win32_Process|Get-WmiObject -Class Win32_Process/);
+  assert.equal((uiLifecycle.match(/Get-LocalProcessSnapshot\)/g) ?? []).length, 2);
+  assert.match(uiLifecycle, /EvaluaPro\.BurnBootstrapperApp\.exe/);
+  assert.match(uiLifecycle, /return \$ownedUiPids\.ToArray\(\)/);
+  assert.match(uiLifecycle, /\$ownedUiProcessIds -notcontains \$windowPid/);
+  assert.match(uiLifecycle, /Find-Window -TargetPid \$bundleProcessId/);
+  assert.match(uiLifecycle, /uiProcessId = \$bundleUiProcessId/);
+  assert.match(uiLifecycle, /Wait-DetectionCompletion -Window \$window -TimeoutSec \$DetectionTimeoutSec/);
+  assert.match(uiLifecycle, /AutomationIdProperty,[\s\S]*?'FooterStatusTextBlock'/);
+  assert.match(uiLifecycle, /function Stop-OwnedProcessTree/);
+  const cleanup = uiLifecycle.slice(uiLifecycle.lastIndexOf('\nfinally {'));
+  assert.match(cleanup, /Save-Report -Status \$\(if \(\$failed\) \{ 'failed' \} else \{ 'passed' \}\)/);
+  assert.match(uiLifecycle, /GetProcessSnapshot\(\)/);
+  assert.match(uiLifecycle, /\$ownedProcess\.Kill\(\)/);
+  assert.match(uiLifecycle, /\$RootProcess\.Kill\(\)/);
+  assert.match(uiLifecycle, /processStartedAt = \$bundleProcessStartedAt/);
+  assert.doesNotMatch(uiLifecycle, /Stop-Process -Id \$process\.Id/);
+});
+
+test('E2E visual selecciona los nombres accesibles exactos de cada modo del Hub', () => {
+  const modeSelection = uiLifecycle.slice(uiLifecycle.indexOf("foreach ($mode in @('Instalar', 'Reparar', 'Desinstalar'))"), uiLifecycle.indexOf("Capture-Window -Window $window -Name '04-modos-validados'"));
+  assert.match(modeSelection, /'Instalar' \{ 'Instalar \/ Actualizar versión' \}/);
+  assert.match(modeSelection, /'Reparar' \{ 'Reparar componentes' \}/);
+  assert.match(modeSelection, /'Desinstalar' \{ 'Desinstalar \(con respaldo\)' \}/);
+  assert.match(modeSelection, /Select-ComboItem -Combo \$modeCombo -ItemName \$modeItemName/);
+  assert.match(uiLifecycle, /No se pudo confirmar la selección de '\$ItemName'/);
+  assert.match(modeSelection, /Add-Result -Area 'mode' -Item \$mode -Ok \(\$startName -like "\*\$mode\*"\)/);
+});
+
 test('runner limita broker y mata solo su árbol al vencer timeout', () => {
   assert.match(runner, /\$TimeoutSec = 60/);
   assert.match(runner, /WaitForExit\(\$TimeoutSec \* 1000\)/);
   assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
   assert.match(runner, /timeout=\$\{TimeoutSec\}s/);
   assert.match(runner, /EvaluaPro\.BurnBootstrapperApp/);
-  assert.match(runner, /MainWindowHandle/);
+  assert.match(runner, /\$Window\.Current\.NativeWindowHandle/);
   assert.match(runner, /AutomationElement\]::FromHandle/);
-  assert.match(runner, /PrintWindow/);
-  assert.match(runner, /estado JSON healthy/);
-  assert.match(runner, /open-dashboard sigue vivo como proceso persistente/);
+  assert.match(runner, /CopyFromScreen/);
+  assert.match(runner, /state = 'healthy'/);
+  assert.match(runner, /closed and installed Node tree absent/);
 });
 
-test('MSI docente usa un CAB embebido y el build valida su extracción con límite', () => {
+test('MSI docente usa un CAB embebido y el build valida su extracción administrativa con límite', () => {
   assert.match(productWxs, /<MediaTemplate EmbedCab="yes" CompressionLevel="mszip" MaximumUncompressedMediaSize="2048" \/>/);
   assert.match(msiBuild, /WaitForExit\(300000\)/);
   assert.match(msiBuild, /\$proc\.Refresh\(\)/);
-  assert.match(msiBuild, /WiX no confirmó la terminación del proceso/);
+  assert.match(msiBuild, /Extracción administrativa MSI no confirmó su terminación/);
   assert.match(msiBuild, /\$installExitCode = \[int\]\$proc\.ExitCode/);
-  assert.match(msiBuild, /Instalacion MSI aislada excedio 300 segundos/);
+  assert.match(msiBuild, /Extracción administrativa MSI excedió 300 segundos/);
+  assert.match(msiBuild, /@\('\/a', \$MsiPath/);
+  assert.doesNotMatch(msiBuild, /@\('\/i', \$MsiPath|@\('\/x', \$MsiPath/);
+  assert.match(msiBuild, /evaluapro-native-dist\.zip[\s\S]*?\$nativePayloadArchive\.FullName/);
   assert.match(msiBuild, /Remove-Item -LiteralPath \$productOut -Force/);
   assert.match(msiBuild, /"-intermediatefolder", \$wixProductWorkRoot/);
   assert.match(msiBuild, /"-cabcache", \$wixCabCache/);
@@ -282,6 +426,13 @@ test('la ETA del Hub se deriva del avance real, se suaviza y declara verificaci�
   assert.match(hubWindow, /\(previousEstimate\.Value \* 0\.70\) \+ \(rawSecondsRemaining \* 0\.30\)/);
   assert.match(hubWindow, /Tiempo restante: verificando etapa actual/);
   assert.match(hubWindow, /Tiempo restante estimado: \{FormatDuration\(lowerSeconds\)\} a \{FormatDuration\(upperSeconds\)\}/);
+});
+
+test('la ETA se ajusta al ancho y expone su contenido completo a UI Automation', () => {
+  assert.match(hubWindowXaml, /<TextBlock[^>]*x:Name="ProgressEtaTextBlock"[^>]*TextWrapping="Wrap"[^>]*AutomationProperties\.AutomationId="ProgressEtaTextBlock"/);
+  assert.doesNotMatch(hubWindowXaml, /x:Name="ProgressEtaTextBlock"[^>]*AutomationProperties\.Name=/);
+  assert.match(uiLifecycle, /progress-eta-full-text-visible/);
+  assert.match(uiLifecycle, /desempaquetando archivos nativos/);
 });
 
 test('matriz visual cubre lifecycle, contraste y escenarios de recuperación', () => {

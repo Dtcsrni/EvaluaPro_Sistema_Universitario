@@ -16,6 +16,7 @@ param(
   [string]$InstallDir = '',
   [string]$CandidateBundlePath = '',
   [string]$BaselineBundlePath = '',
+  [string]$SameVersionRelatedBundlePath = '',
   [int]$Port = 4519,
   [switch]$IUnderstandThisMutatesPc,
   [switch]$AllowExistingInstall,
@@ -820,6 +821,30 @@ function Wait-InstallerStableState {
   return [pscustomobject]@{ ok = $false; text = $lastText; timeout = $true }
 }
 
+function Wait-InstallerSameVersionConflictState {
+  param(
+    [System.Windows.Automation.AutomationElement]$Window,
+    [int]$TimeoutSec = 90
+  )
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $lastText = ''
+  do {
+    Start-Sleep -Milliseconds 750
+    $freshWindow = Find-Window -TimeoutSec 1
+    if ($freshWindow) { $Window = $freshWindow }
+    $lastText = Get-WindowTextSnapshot -Window $Window
+    if ($lastText -match '(?is)Actualización detenida por conflicto de versión' -and
+        $lastText -match '(?is)no se aplicaron cambios' -and
+        $lastText -match '(?is)5 Resultado\s*[·\-]\s*error') {
+      return [pscustomobject]@{ ok = $true; text = $lastText; timeout = $false }
+    }
+    if ($lastText -match '(?is)Operación nativa completada|Operación finalizada correctamente') {
+      return [pscustomobject]@{ ok = $false; text = $lastText; timeout = $false; unexpectedSuccess = $true }
+    }
+  } while ((Get-Date) -lt $deadline)
+  return [pscustomobject]@{ ok = $false; text = $lastText; timeout = $true }
+}
+
 function Get-LatestInstallerHelperState {
   param(
     [ValidateSet('install', 'repair', 'uninstall')]
@@ -850,7 +875,8 @@ function Invoke-InstallerHubMode {
   param(
     [ValidateSet('install', 'repair', 'uninstall')]
     [string]$Mode,
-    [string]$BundlePath = $script:bundlePath
+    [string]$BundlePath = $script:bundlePath,
+    [switch]$ExpectSameVersionConflict
   )
   $arguments = switch ($Mode) {
     'repair' { '/repair' }
@@ -983,17 +1009,42 @@ function Invoke-InstallerHubMode {
   $window = Find-Window -TimeoutSec 10
   if (-not $window -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Width) - 980) -gt 1 -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Height) - 700) -gt 1) { throw 'La ventana visible del Installer Hub cambió de tamaño después del ajuste; se rechaza la captura.' }
   Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-solicitud-980x700" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
-  $state = Wait-InstallerStableState -Window $window -Mode $Mode -OperationStartedAt $operationStartedAt -TimeoutMinutes 25
+  $state = if ($ExpectSameVersionConflict) {
+    Wait-InstallerSameVersionConflictState -Window $window -TimeoutSec 90
+  } else {
+    Wait-InstallerStableState -Window $window -Mode $Mode -OperationStartedAt $operationStartedAt -TimeoutMinutes 25
+  }
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
   if (-not (Resize-WindowForEvidence -Window $window -Width 980 -Height 700)) { throw 'No se pudo mantener la ventana visible del Installer Hub al mínimo documentado de 980x700 para la captura del resultado.' }
   $window = Find-Window -TimeoutSec 10
   if (-not $window -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Width) - 980) -gt 1 -or [Math]::Abs([int][Math]::Round($window.Current.BoundingRectangle.Height) - 700) -gt 1) { throw 'La ventana visible del Installer Hub cambió de tamaño después del ajuste; se rechaza la captura del resultado.' }
-  Capture-Window -Window $window -Name ("wpf-{0}-05-resultado" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
+  $resultCaptureName = if ($ExpectSameVersionConflict) { 'wpf-install-05-resultado-conflicto-version' } else { ("wpf-{0}-05-resultado" -f $Mode) }
+  Capture-Window -Window $window -Name $resultCaptureName -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $stateTimedOut = $state.PSObject.Properties.Match('timeout').Count -gt 0 -and [bool]$state.timeout
-  Add-Result -Area $Mode -Item 'final-state' -Ok ([bool]$state.ok) -Detail $(if ($stateTimedOut) { 'timeout esperando estado final' } else { 'estado final detectado' })
-  if (-not $state.ok) { throw "Installer Hub no completo correctamente mode=$Mode" }
+  $stateTextForDiagnostics = [regex]::Replace([string]$state.text, '\s+', ' ').Trim()
+  if ($stateTextForDiagnostics.Length -gt 2400) { $stateTextForDiagnostics = $stateTextForDiagnostics.Substring(0, 2400) + '…' }
+  if ($ExpectSameVersionConflict -and (-not $state.ok)) {
+    Write-E2ELog "El estado terminal de conflicto no fue confirmado; timeout=$stateTimedOut; UIA=$stateTextForDiagnostics"
+    $baLogRoot = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+    $baLogs = @(Get-ChildItem -LiteralPath $baLogRoot -Filter 'burn-bootstrapper.log' -File -Recurse -ErrorAction SilentlyContinue |
+      Where-Object { $_.LastWriteTime -ge $operationStartedAt.AddSeconds(-2) } |
+      Sort-Object LastWriteTime -Descending | Select-Object -First 3)
+    foreach ($baLog in $baLogs) {
+      $target = Copy-ArtifactIfExists -Path $baLog.FullName -Name ("burn-conflict-session-{0}.log" -f [IO.Path]::GetFileName((Split-Path -Parent $baLog.FullName)))
+      $diagnosticLines = @(Get-Content -LiteralPath $target -ErrorAction SilentlyContinue |
+        Where-Object { $_ -match '(?i)related bundle|bundle relacionado|same.version|misma versión|OnPlanComplete|Apply|conflicto' } |
+        Select-Object -Last 30)
+      foreach ($line in $diagnosticLines) { Write-E2ELog "Burn conflict trace: $line" }
+    }
+  }
+  $finalStateDetail = if ($ExpectSameVersionConflict) { 'conflicto de misma versión visible antes de Apply; resultado capturado' } elseif ($stateTimedOut) { 'timeout esperando estado final' } else { 'estado final detectado' }
+  Add-Result -Area $(if ($ExpectSameVersionConflict) { 'same-version-related-bundle' } else { $Mode }) -Item 'final-state' -Ok ([bool]$state.ok) -Detail $finalStateDetail
+  if (-not $state.ok) {
+    if ($ExpectSameVersionConflict -and $stateTimedOut) { throw 'El Installer Hub no mostró a tiempo el resultado esperado de conflicto de versión.' }
+    throw "Installer Hub no completo correctamente mode=$Mode"
+  }
 
   $restartButton = Find-ById -RootElement $window -AutomationId 'RestartNowButton' -TimeoutSec 2
   if ($restartButton) {
@@ -1030,6 +1081,140 @@ function Invoke-InstallerHubMode {
   }
   Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "after-$Mode"
   return $true
+}
+
+function Get-BurnBundleRegistryEntriesByUpgradeCode {
+  param([Parameter(Mandatory = $true)][string]$UpgradeCode)
+  $expected = $UpgradeCode.Trim().Trim('{', '}')
+  $roots = @(
+    'Registry::HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+    'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+    'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+  )
+  foreach ($rootKey in $roots) {
+    if (-not (Test-Path -LiteralPath $rootKey)) { continue }
+    foreach ($key in Get-ChildItem -LiteralPath $rootKey -ErrorAction SilentlyContinue) {
+      try {
+        $entry = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction Stop
+        $registeredCodes = @(
+          foreach ($value in @($entry.BundleUpgradeCode)) {
+            foreach ($candidate in ([string]$value -split '[\r\n,;\s]+')) {
+              $normalized = $candidate.Trim().Trim('{', '}')
+              if ($normalized) { $normalized }
+            }
+          }
+        )
+        if ($registeredCodes | Where-Object { $_.Equals($expected, [StringComparison]::OrdinalIgnoreCase) }) {
+          [pscustomobject]@{
+            registryPath = [string]$key.Name
+            providerKey = [string]$entry.BundleProviderKey
+            displayName = [string]$entry.DisplayName
+            version = [string]$entry.DisplayVersion
+            upgradeCode = ($registeredCodes -join ';')
+            cachePath = [string]$entry.BundleCachePath
+            uninstallString = [string]$entry.UninstallString
+          }
+        }
+      } catch { }
+    }
+  }
+}
+
+function Invoke-BurnBundleQuiet {
+  param(
+    [Parameter(Mandatory = $true)][string]$BundlePath,
+    [Parameter(Mandatory = $true)][ValidateSet('/install', '/uninstall')][string]$Action
+  )
+  if (-not (Test-Path -LiteralPath $BundlePath -PathType Leaf)) { throw "No existe el bundle fixture: $BundlePath" }
+  $operation = $Action.TrimStart('/')
+  $bundleLogPath = Join-Path $logsDir ("same-version-fixture-{0}-{1}.log" -f $operation, [guid]::NewGuid().ToString('N'))
+  $process = Start-Process -FilePath $BundlePath -ArgumentList @($Action, '/quiet', '/log', "`"$bundleLogPath`"") -PassThru -Wait -WindowStyle Hidden
+  if (Test-Path -LiteralPath $bundleLogPath -PathType Leaf) {
+    Copy-ArtifactIfExists -Path $bundleLogPath | Out-Null
+  }
+  if ([int]$process.ExitCode -ne 0) { throw "El bundle fixture terminó con exit=$($process.ExitCode), acción=$Action" }
+  Wait-WindowsInstallerIdle -TimeoutSec 120 -Context "same-version-fixture-$($Action.TrimStart('/'))"
+}
+
+function Invoke-SameVersionRelatedBundleConflict {
+  param([string]$DatabaseMarker = '')
+  if ([string]::IsNullOrWhiteSpace($SameVersionRelatedBundlePath)) { return }
+  $fixturePath = (Resolve-Path -LiteralPath $SameVersionRelatedBundlePath -ErrorAction Stop).Path
+  if ([IO.Path]::GetExtension($fixturePath) -ne '.exe') { throw 'El fixture Burn debe ser un EXE.' }
+
+  $flavorCatalog = Get-Content -LiteralPath (Join-Path $root 'config\installer-flavors.json') -Raw -Encoding utf8 | ConvertFrom-Json
+  $docenteFlavor = @($flavorCatalog.flavors | Where-Object { [string]$_.flavorId -eq 'docente-local' })
+  if ($docenteFlavor.Count -ne 1) { throw 'No se pudo resolver un único docente-local para comprobar el UpgradeCode del fixture.' }
+  $bundleUpgradeCode = [string]$docenteFlavor[0].bundleUpgradeCode
+  $candidateBundle = Get-Item -LiteralPath $script:bundlePath -ErrorAction Stop
+  $candidateVersion = $null
+  if (-not [version]::TryParse([string]$candidateBundle.VersionInfo.ProductVersion, [ref]$candidateVersion)) {
+    throw "No se pudo leer la versión del bundle candidato: $($candidateBundle.VersionInfo.ProductVersion)"
+  }
+  $expectedVersion = $candidateVersion
+  $fixtureFile = Get-Item -LiteralPath $fixturePath
+  $fixtureVersion = $null
+  if (-not [version]::TryParse([string]$fixtureFile.VersionInfo.ProductVersion, [ref]$fixtureVersion) -or $fixtureVersion -ne $expectedVersion) {
+    throw "La versión del bundle fixture debe ser igual al candidato: expected=$expectedVersion actual=$($fixtureFile.VersionInfo.ProductVersion)"
+  }
+  $fixtureHash = (Get-FileHash -LiteralPath $fixturePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  Copy-ArtifactIfExists -Path $fixturePath -Name 'same-version-related-bundle-fixture.exe' | Out-Null
+  Add-Result -Area 'same-version-related-bundle' -Item 'fixture-verified' -Ok $true -Detail "version=$fixtureVersion upgradeCode=$bundleUpgradeCode sha256=$fixtureHash"
+
+  $databasePath = Join-Path $installedRoot 'data\evaluapro.db'
+  $databaseExistedBefore = Test-Path -LiteralPath $databasePath -PathType Leaf
+  $databaseHashBefore = if ($databaseExistedBefore) { (Get-FileHash -LiteralPath $databasePath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+  $appPath = Join-Path $installedRoot 'EvaluaPro.exe'
+  $appExistedBefore = Test-Path -LiteralPath $appPath -PathType Leaf
+  $appHashBefore = if ($appExistedBefore) { (Get-FileHash -LiteralPath $appPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+  $registeredProductsBefore = @(
+    Get-EvaluaProUninstallEntries | ForEach-Object { '{0}|{1}|{2}' -f $_.registryPath, $_.displayVersion, $_.installLocation } | Sort-Object
+  )
+  $fixtureProviderKey = ''
+
+  $fixtureInstallAttempted = $false
+  try {
+    $fixtureInstallAttempted = $true
+    Invoke-BurnBundleQuiet -BundlePath $fixturePath -Action '/install'
+    $relatedEntries = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode)
+    $fixtureEntries = @($relatedEntries | Where-Object { $_.displayName -eq 'QA Bundle Relation Fixture' -and [version]::Parse($_.version) -eq $expectedVersion })
+    if ($relatedEntries.Count -ne 1 -or $fixtureEntries.Count -ne 1 -or [string]::IsNullOrWhiteSpace($fixtureEntries[0].providerKey)) {
+      $observed = @($relatedEntries | ForEach-Object { '{0}|{1}|{2}|{3}' -f $_.displayName, $_.version, $_.providerKey, $_.upgradeCode }) -join '; '
+      throw "El fixture debe quedar registrado como único bundle relacionado de la misma versión. count=$($relatedEntries.Count) fixtureCount=$($fixtureEntries.Count) observed=[$observed]"
+    }
+    $fixtureProviderKey = [string]$fixtureEntries[0].providerKey
+    Add-Result -Area 'same-version-related-bundle' -Item 'related-bundle-registered' -Ok $true -Detail "providerKey=$fixtureProviderKey version=$($fixtureEntries[0].version)"
+
+    Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath -ExpectSameVersionConflict | Out-Null
+    $conflictEntries = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode)
+    $fixtureStillRegistered = $conflictEntries.Count -eq 1 -and [string]$conflictEntries[0].providerKey -eq $fixtureProviderKey
+    $registeredProductsAfter = @(
+      Get-EvaluaProUninstallEntries | ForEach-Object { '{0}|{1}|{2}' -f $_.registryPath, $_.displayVersion, $_.installLocation } | Sort-Object
+    )
+    $productsUnchanged = ($registeredProductsBefore -join "`n") -ceq ($registeredProductsAfter -join "`n")
+    $appExistedAfter = Test-Path -LiteralPath $appPath -PathType Leaf
+    $appHashAfter = if ($appExistedAfter) { (Get-FileHash -LiteralPath $appPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+    $databaseExistedAfter = Test-Path -LiteralPath $databasePath -PathType Leaf
+    $databaseHashAfter = if ($databaseExistedAfter) { (Get-FileHash -LiteralPath $databasePath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+    $installStateUnchanged = $productsUnchanged -and $appExistedBefore -eq $appExistedAfter -and $appHashBefore -ceq $appHashAfter -and
+      $databaseExistedBefore -eq $databaseExistedAfter -and $databaseHashBefore -ceq $databaseHashAfter -and $fixtureStillRegistered
+    if ($DatabaseMarker) {
+      Invoke-UpgradeDataMarker -Action 'verify' -Marker $DatabaseMarker
+    }
+    Add-Result -Area 'same-version-related-bundle' -Item 'msi-payload-and-data-unchanged-before-apply' -Ok $installStateUnchanged -Detail "productsUnchanged=$productsUnchanged app=$appExistedBefore->$appExistedAfter database=$databaseExistedBefore->$databaseExistedAfter fixtureStillRegistered=$fixtureStillRegistered"
+    if (-not $installStateUnchanged) { throw 'El conflicto de versión cambió el MSI, el payload, la SQLite QA o el bundle fixture.' }
+    Assert-SharedProgramDataSqliteUnchanged
+  } finally {
+    $remainingFixture = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode | Where-Object { [string]$_.providerKey -eq $fixtureProviderKey })
+    if ($remainingFixture.Count -gt 0 -or ($fixtureInstallAttempted -and [string]::IsNullOrWhiteSpace($fixtureProviderKey))) {
+      Invoke-BurnBundleQuiet -BundlePath $fixturePath -Action '/uninstall'
+    }
+  }
+  $fixtureRemoved = @(
+    Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode | Where-Object { [string]$_.providerKey -eq $fixtureProviderKey }
+  ).Count -eq 0
+  Add-Result -Area 'same-version-related-bundle' -Item 'fixture-cleanup' -Ok $fixtureRemoved -Detail 'el bundle fixture se retiró después de validar que Burn bloqueó Apply'
+  if (-not $fixtureRemoved) { throw 'El E2E no pudo retirar su bundle fixture aislado.' }
 }
 
 function Wait-NativeDashboardHealth {
@@ -1725,6 +1910,7 @@ function Invoke-UpgradeBaselineFlow {
   Invoke-UpgradeDataMarker -Action 'write' -Marker $marker
   Add-Result -Area 'upgrade' -Item 'baseline-data-marker' -Ok $true -Detail 'marcador SQLite escrito en la base instalada temporal'
   try {
+    Invoke-SameVersionRelatedBundleConflict -DatabaseMarker $marker
     Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath | Out-Null
     Wait-InstalledPayload -TimeoutSec 240
     $candidateVersion = Get-InstalledProductVersion
@@ -2229,6 +2415,7 @@ try {
   $script:qaMutationStarted = $true
   Backup-ExistingInstallDatabase
   if ([string]::IsNullOrWhiteSpace($BaselineBundlePath)) {
+    Invoke-SameVersionRelatedBundleConflict
     Invoke-InstallerHubMode -Mode 'install' | Out-Null
     Wait-InstalledPayload -TimeoutSec 240
     Set-QAIsolatedSqlite | Out-Null
