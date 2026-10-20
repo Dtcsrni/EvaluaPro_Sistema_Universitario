@@ -13,7 +13,7 @@
         Id="NoOpPackage"
         SourceFile="$(var.FixtureExePath)"
         DetectCondition="0"
-        Permanent="yes"
+        Permanent="no"
         InstallArguments="/c exit 0"
         UninstallArguments="/c exit 0" />
     </Chain>

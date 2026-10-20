@@ -22,7 +22,8 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
   assert.match(sameVersionFixture, /Name="QA Bundle Relation Fixture"/);
   assert.match(sameVersionFixture, /UpgradeCode="\$\(var\.BundleUpgradeCode\)"/);
   assert.match(sameVersionFixture, /DetectCondition="0"/);
-  assert.match(sameVersionFixture, /Permanent="yes"/);
+  assert.match(sameVersionFixture, /Permanent="no"/);
+  assert.doesNotMatch(sameVersionFixture, /Permanent="yes"/, 'Burn debe conservar una relación registrable para el paquete inerte');
   assert.match(sameVersionFixture, /InstallArguments="\/c exit 0"/);
   assert.doesNotMatch(sameVersionFixture, /DetectCondition="1"/, 'el fixture no debe declarar detectado el paquete inerte');
 
