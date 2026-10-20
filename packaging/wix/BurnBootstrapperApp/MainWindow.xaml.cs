@@ -725,6 +725,10 @@ public partial class MainWindow : Window
         FailureSummaryTitleTextBlock.Content = workflow.FailureTitle;
         AutomationProperties.SetName(FailureSummaryTitleTextBlock, workflow.FailureTitle);
         FailureSummaryTextBlock.Text = workflow.FailureText;
+        ResultFailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
+        ResultFailureTitleTextBlock.Text = workflow.FailureTitle;
+        AutomationProperties.SetName(ResultFailureTitleTextBlock, workflow.FailureTitle);
+        ResultFailureTextBlock.Text = workflow.FailureText;
         if (workflow.ShowFailureSummary)
         {
             LogExpander.IsExpanded = true;

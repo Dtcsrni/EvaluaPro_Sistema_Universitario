@@ -845,6 +845,12 @@
                                 <StackPanel>
                                     <TextBlock Text="Resultado de la operación" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Text="Estado final, verificación de integridad y siguientes pasos." Style="{StaticResource HelpTextStyle}" FontSize="12.5" Margin="0,2,0,0" />
+                                    <Border x:Name="ResultFailureSummaryBorder" Margin="0,12,0,0" Padding="12" CornerRadius="8" Background="#664A1D2B" BorderBrush="#80F08AA7" BorderThickness="1" Visibility="Collapsed">
+                                        <StackPanel>
+                                            <TextBlock x:Name="ResultFailureTitleTextBlock" FontSize="14" FontWeight="Bold" Foreground="#FFE8EE" TextWrapping="Wrap" AutomationProperties.AutomationId="ResultFailureTitleTextBlock" />
+                                            <TextBlock x:Name="ResultFailureTextBlock" Margin="0,5,0,0" FontSize="12.5" Foreground="#FFD6E2" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
                                     <Border Margin="0,12,0,0" Padding="14,12" CornerRadius="8" Background="#66064E3B" BorderBrush="#8034D399" BorderThickness="1">
                                         <StackPanel>
                                             <TextBlock Text="{Binding ElementName=StatusBadgeTextBlock, Path=Text}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource PrimaryBrush}" />

@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.19.0
+version: 1.20.0
 fecha: 2026-10-20
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -17,6 +17,8 @@ La promoción estable de 1.2.8 reúne defectos encontrados en CI local/remoto, e
 La E2E del SHA `dbfa3ffe` confirmó que Burn sí detecta el bundle relacionado y detiene antes de `Apply`, conserva la instalación y muestra el mensaje de que no aplicó cambios. El timeout restante se debía a que el panel de error conservaba el título genérico `Resumen de error`, aunque el título de la etapa era específico. Esta revisión asigna el título del conflicto al resumen visible y expone su nombre dinámico a UI Automation, manteniendo la validación del título, explicación y stepper en el E2E.
 
 La E2E visual del SHA `16d700226a5b6befc441913e84c5ad109ab401b5` volvió a confirmar el bloqueo seguro antes de `Apply`, el texto explicativo y `5 Resultado · error`, pero agotó la espera porque el título específico no apareció en la snapshot UI Automation pese a existir un binding XAML a `Text`. El render también asignaba explícitamente `AutomationProperties.SetName`, pero el nuevo run `39364006894` reprodujo la ausencia del título en el árbol UIA. El título se cambia a un control `Label`, cuyo contenido y nombre accesible se asignan juntos durante el render; la E2E debe confirmar el título, la explicación y el stepper en el bundle reconstruido.
+
+El run `39366354878` confirmó que el título seguía ausente tras navegar al paso final: la vista de progreso ocultaba su resumen al mostrar `ResultStepPanel`. La vista final ahora incluye una tarjeta de error con título y explicación vinculados al estado, visible solo cuando existe un fallo; así el usuario y UI Automation reciben el contexto completo en el resultado que realmente se presenta. La regresión verifica que los campos estén en el panel final, se actualicen desde el modelo y la espera E2E confirme el título junto con la explicación y el stepper.
 
 ## Requisitos Funcionales
 
@@ -96,7 +98,7 @@ La E2E visual del SHA `16d700226a5b6befc441913e84c5ad109ab401b5` volvió a confi
 | REQ-019 | Contratos de instalación alineados con arquitectura docente-local | `scripts/tests/app-host-health.contract.test.mjs`; `scripts/tests/installer-hub-architecture.contract.test.mjs` | Borrador; requiere aprobación |
 | REQ-020 | Bloqueo de consultas Win32_Product en QA y empaquetado | `scripts/tests/installer-hub-contract.test.mjs` | Borrador; requiere aprobación |
 | REQ-021 | Upgrade y repair Burn; rechazo pre-Apply de bundle relacionado de igual versión | `scripts/tests/installer-hub-contract.test.mjs`; `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1`; `scripts/tests/build-same-version-related-bundle-fixture.ps1`; `packaging/wix/tests/SameVersionRelatedBundleFixture.wxs` | El runner confirmó el fixture y Burn reportó el bloqueo antes de `Apply`; la GUI mostró que no se aplicaron cambios. La comprobación posterior del payload no alcanzó a ejecutarse porque la espera del título UIA agotó el tiempo. La E2E debe repetirse tras corregirlo |
-| REQ-022 | Título, explicación, stepper y nombre UIA del conflicto de versión | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1`; `packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs` | UIA mostró que el binding XAML no expuso el título dinámico; nombre accesible asignado explícitamente; 27/27 contratos locales aprobados y build WPF aprobado. Revalidación visual CI pendiente |
+| REQ-022 | Título, explicación y stepper de conflicto visibles y accesibles en la vista final | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1`; `packaging/wix/BurnBootstrapperApp/MainWindow.xaml`; `packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs` | El run `39366354878` encontró que el resumen del paso de ejecución quedaba oculto al navegar al resultado. Tarjeta de error añadida al panel final; contratos/build locales y E2E visual del bundle reconstruido pendientes |
 | REQ-023 | Mantener banco de 20 reactivos y acotar el examen de generación/OMR a 1 página y 5 preguntas | `tests/gui-responsive/journey-docente-integral.spec.ts` | Cambio local; validación E2E y CI pendientes |
 | REQ-024 | Exponer diagnóstico acotado de UIA y Burn ante timeout del conflicto de versión | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Contrato local aprobado; CI debe revelar el estado runtime |
 

@@ -40,6 +40,18 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
     'el nombre accesible no debe depender de un binding de TextBlock que el runtime no expone');
   assert.match(mainWindowCode, /FailureSummaryTitleTextBlock\.Content\s*=\s*workflow\.FailureTitle;\s*AutomationProperties\.SetName\(FailureSummaryTitleTextBlock,\s*workflow\.FailureTitle\);/,
     'el contenido y nombre UIA deben actualizarse explícitamente al renderizar el título dinámico');
+  const resultPanelStart = mainWindowXaml.indexOf('x:Name="ResultStepPanel"');
+  const resultPanelEnd = mainWindowXaml.indexOf('</Grid>', resultPanelStart);
+  assert.ok(resultPanelStart >= 0 && resultPanelEnd > resultPanelStart, 'el resultado final debe tener un panel identificable');
+  const resultPanel = mainWindowXaml.slice(resultPanelStart, resultPanelEnd);
+  assert.match(resultPanel, /x:Name="ResultFailureSummaryBorder"[^>]*Visibility="Collapsed"/,
+    'el resumen de error debe mostrarse solo para un resultado fallido');
+  assert.match(resultPanel, /<TextBlock\s+x:Name="ResultFailureTitleTextBlock"[^>]*AutomationProperties\.AutomationId="ResultFailureTitleTextBlock"/,
+    'el resultado final debe exponer el título específico del error en el contenido accesible');
+  assert.match(resultPanel, /<TextBlock\s+x:Name="ResultFailureTextBlock"/,
+    'el resultado final debe mostrar la explicación detallada del error');
+  assert.match(mainWindowCode, /ResultFailureSummaryBorder\.Visibility\s*=\s*workflow\.ShowFailureSummary\s*\?\s*Visibility\.Visible\s*:\s*Visibility\.Collapsed;\s*ResultFailureTitleTextBlock\.Text\s*=\s*workflow\.FailureTitle;\s*AutomationProperties\.SetName\(ResultFailureTitleTextBlock,\s*workflow\.FailureTitle\);\s*ResultFailureTextBlock\.Text\s*=\s*workflow\.FailureText;/,
+    'el resultado debe exponer título y explicación actualizados a UI Automation');
   const conflictWaitStart = e2e.indexOf('function Wait-InstallerSameVersionConflictState');
   const conflictWaitEnd = e2e.indexOf('\nfunction Get-LatestInstallerHelperState', conflictWaitStart);
   assert.ok(conflictWaitStart >= 0 && conflictWaitEnd > conflictWaitStart, 'el runner debe tener una espera terminal dedicada al conflicto');
