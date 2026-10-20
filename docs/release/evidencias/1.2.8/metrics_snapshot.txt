@@ -1,15 +1,17 @@
 EvaluaPro 1.2.8 — snapshot de validación
-Fecha de captura: 2026-10-18
-SHA candidato: 21ef1ef414a765cfff83851a841686812b4cd795
+Fecha de captura: 2026-10-20
+SHA candidato: 84a89c0df5e7ae542dba11ff45e55ea3c7c40638
 
-CI Checks #1502 / run 39144073253: success; corrida full.
-CI Checks #1503 / run 39155029767: success; corrida full consecutiva, mismo SHA.
-CI Installer Windows #714 / run 39113401895: success; mismo SHA.
-Cobertura backend/portal: success en ambas corridas full; umbrales sin cambios.
-UX/UI: suites visuales y responsive de docente, alumno y administración aprobadas en ambas corridas.
-OMR/PDF: OMR canónico, PDF/impresión y E2E de ciclo aprobados en ambas corridas.
-Installer Hub: build, footprint, smoke GUI, antivirus, actualización E2E y Edge PDF E2E aprobados.
+CI Checks #1527 / run 39381668637: success; Core y verificaciones extendidas en main.
+Security CodeQL #894 / run 39381668632: success sobre el mismo SHA.
+CI Antivirus Gate #350 / run 39381668664: success sobre el mismo SHA.
+CI Installer Windows #741 / run 39382108606: success sobre el mismo SHA.
 
-Cobertura backend local: `npm -C apps/backend run test:coverage`, exit code 0; 60 lotes, 0 fallos, 0 recuperaciones, 0 diagnósticos y merge de cobertura exitoso. El primer intento encontró inestabilidad del directorio temporal del sandbox; al fijar `TEMP`/`TMP` en el worktree, la corrida completa pasó. El checkout local usado para QA tiene un SHA distinto, pero árbol Git idéntico al candidato: `f4e172c6d788845ac59164642082abebd5e7490c`.
+Pruebas backend, auditoría Classroom, calidad frontend, WCAG, UX quality, build, arquitectura, seguridad y verificaciones extendidas: success. La matriz por impacto omitió coverage backend/frontend y algunas suites no afectadas; no se atribuye cobertura completa a esta corrida.
+UX/UI: etapa ux-visual-check exitosa en CI Checks #1527; evidencia e2e-visual-39381668637 (artifact ID 12246991944, SHA-256 ZIP 30842f3dd220b8b7e1b4bc1bd5590f688955182bf2e00726c00321ac025e9038).
+Windows: build MSI/Bundle, E2E completa del bundle docente y E2E visual de vista/descarga PDF en Edge exitosas en CI Installer Windows #741.
+Artefacto installer-windows ID 12246976717: 272084140 bytes; SHA-256 ZIP 785f89b8464f2097f1a1fbc67a9f870a7e52a7e48be2f865b57856b8c350d404.
+Artefacto E2E Hub ID 12246594648: SHA-256 ZIP 260d3a1bbe12977150071eff29828d5568f3ffac122a1b885266fd66edb8d90a.
 
-No se recolectaron métricas de rendimiento de producción ni se ejecutó un flujo docente humano externo. No se atribuyen métricas de usuarios, latencia o uso real a estas corridas.
+No se recolectaron métricas de rendimiento de producción ni se ejecutó un flujo docente humano externo. No se acreditan uso con datos reales ni instalación manual local.
+
