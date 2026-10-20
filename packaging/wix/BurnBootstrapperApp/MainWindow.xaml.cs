@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -722,6 +723,7 @@ public partial class MainWindow : Window
 
         FailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
         FailureSummaryTitleTextBlock.Text = workflow.FailureTitle;
+        AutomationProperties.SetName(FailureSummaryTitleTextBlock, workflow.FailureTitle);
         FailureSummaryTextBlock.Text = workflow.FailureText;
         if (workflow.ShowFailureSummary)
         {
@@ -1820,3 +1822,4 @@ internal sealed class InstallerStageView
     public string Border { get; set; } = "#D7DEE5";
     public string Foreground { get; set; } = "#0F172A";
 }
+
