@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.24.0
+version: 1.25.0
 fecha: 2026-10-20
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -25,6 +25,8 @@ El run de Installer Windows `39368283159` completó correctamente el build y la 
 El primer intento de la instalación fijada de Poppler en Windows descargó el archivo correcto, comprobó el SHA-256 y localizó `pdftoppm.exe`; falló porque Windows PowerShell 5 trata el `stderr` que `pdftoppm -v` usa para imprimir su versión como `NativeCommandError`. La comprobación ahora ejecuta el proceso con `Start-Process`, captura `stdout` y `stderr` en archivos separados y valida el código de salida y la versión sin convertir la salida diagnóstica válida en error de PowerShell. La regresión de contrato protege este mecanismo; la siguiente E2E Windows debe confirmar la instalación real y continuar hasta captura y descarga.
 
 El run de Windows `39372851883` pasó build, firma de manifiesto, smoke Burn, Chromium, Edge y la instalación fijada de Poppler; la E2E falló al capturar «2 Preparar · activo» durante reparación, aunque UI Automation ya reportaba ese paso. Los logs sitúan la captura 439 ms después de la captura inicial de la ventana y el análisis registró cero píxeles claros. El runner ahora exige dos observaciones UIA consecutivas del paso y espera 500 ms antes de la única captura visual; mantiene bloqueante la verificación de contenido visible, sin reintentar la operación ni ampliar sus timeouts.
+
+El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo fuente modificado. El log confirma que `test:dataset-prodlike:ci` exportaba directamente a `tests/fixtures/prodlike/prodlike-anon.json.gz`, la salida predeterminada del exportador y un archivo versionado. La causa queda reproducida por el contrato de rutas; el nuevo runner usa `reports/qa/generated/`, y una prueba de integración calcula el SHA-256 del fixture canónico antes y después de exportar, validar e importar para proteger su contenido en Linux y Windows.
 
 ## Requisitos Funcionales
 
@@ -51,6 +53,7 @@ El run de Windows `39372851883` pasó build, firma de manifiesto, smoke Burn, Ch
 - **REQ-022 — Estado semántico accesible del conflicto en E2E:** Al bloquearse antes de `Apply`, el resumen del Installer Hub muestra `Actualización detenida por conflicto de versión`, su nombre de UI Automation refleja el mismo texto dinámico, la explicación confirma `no se aplicaron cambios` y el stepper muestra `5 Resultado · error`. El runner de Windows espera ese estado terminal y conserva la captura; no debe exigir `activo` para una pantalla que correctamente indica error. Las pruebas de contrato protegen el contenido visual y el nombre accesible.
 - **REQ-023 — Carga OMR acotada en el journey integral:** El fixture conserva la creación, confirmación, revisión y publicación de los 20 reactivos del banco. El examen generado para PDF/OMR usa explícitamente una página y cinco preguntas, validando ambos valores en la GUI antes de guardar la plantilla. Se mantienen los pasos del flujo integral y el timeout actual; no se permiten reintentos que oculten lentitud.
 - **REQ-024 — Diagnóstico de conflicto Burn en CI:** Si la GUI no llega al estado terminal de conflicto, el runner imprime una snapshot UIA de hasta 2,400 caracteres y copia el log Burn de la operación al artefacto; el log del job filtra líneas por detección de bundles relacionados, planificación, `Apply` y conflicto, sin volcar logs MSI completos.
+- **REQ-026 — Fixture prodlike inmutable durante CI:** El paso `test:dataset-prodlike:ci` genera, valida e importa una copia bajo `reports/qa/generated/`, y Git ignora esa ruta; no escribe ni reescribe el fixture versionado `tests/fixtures/prodlike/prodlike-anon.json.gz`. Una prueba calcula el hash del fixture antes y después de las tres etapas y comprueba que se conserve idéntico. El runner propaga cualquier error de proceso o etapa y no continúa con importación parcial.
 
 ## Criterios de Aceptación
 
@@ -79,6 +82,7 @@ El run de Windows `39372851883` pasó build, firma de manifiesto, smoke Burn, Ch
 - **CA-024:** Si el E2E de conflicto de versión no alcanza un estado terminal, el reporte/log de CI conserva hasta 2,400 caracteres de texto UIA y copia el log de sesión Burn más reciente iniciado durante la operación; el log de CI muestra solo líneas de diagnóstico de detección, planificación, `Apply` y conflicto. Una prueba de contrato protege la emisión acotada y la captura de esos logs para identificar si Burn no detectó el bundle o si el desacuerdo está en la GUI/UIA.
 - **CA-025:** Antes de capturar `Prepare` o `Review`, el runner observa el paso UIA esperado en dos lecturas consecutivas, espera 500 ms y vuelve a confirmarlo. Después realiza una sola captura y mantiene el umbral visual bloqueante; si el paso no se estabiliza o el panel sigue vacío, la E2E falla y conserva evidencia.
 - **CA-021:** El E2E visual PDF genera una vista previa rasterizada del mismo PDF de prueba con Poppler; antes de guardar la captura confirma dimensiones no nulas, que el navegador terminó de decodificar la imagen, y un fondo mayoritario claro u oscuro con píxeles de texto en contraste. Descarga y vista previa deben compartir SHA-256, y el archivo descargado debe seguir siendo un PDF de una página. La regresión falla si se vuelve a usar el iframe nativo o una imagen plana que produzca una captura vacía.
+- **CA-026:** `npm run test:dataset-prodlike:ci` pasa su regresión y después usa `reports/qa/generated/prodlike-anon.json.gz` como entrada y salida temporal; `git check-ignore` confirma que Git excluye la ruta. La regresión ejecuta exportación, validación e importación en un checkout temporal, demuestra que el fixture canónico conserva su SHA-256 y verifica que cualquier error de spawn/etapa termine con código distinto de cero sin ejecutar pasos posteriores.
 
 ## Matriz de Trazabilidad
 
@@ -109,6 +113,7 @@ El run de Windows `39372851883` pasó build, firma de manifiesto, smoke Burn, Ch
 | REQ-023 | Mantener banco de 20 reactivos y acotar el examen de generación/OMR a 1 página y 5 preguntas | `tests/gui-responsive/journey-docente-integral.spec.ts` | Cambio local; validación E2E y CI pendientes |
 | REQ-024 | Exponer diagnóstico acotado de UIA y Burn ante timeout del conflicto de versión | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Contrato local aprobado; CI debe revelar el estado runtime |
 | REQ-025 | Ubicar reporte de calificación global en el directorio QA raíz desde cualquier cwd | `apps/backend/tests/calificacion.global.reglas.test.ts` | Implementado; test enfocado 3/3 y contratos QA/promoción 28/28 aprobados en el worktree local |
+| REQ-026 | Generar, validar e importar el fixture prodlike en ruta temporal ignorada sin mutar el fixture canónico; fallar cerrado ante errores | `scripts/tests/prodlike-dataset-ci.test.mjs` | Regresión 4/4 y `qa:full` local aprobados; CI del SHA final pendiente |
 
 ## Fichas consolidadas
 

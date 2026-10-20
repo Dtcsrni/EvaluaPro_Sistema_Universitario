@@ -124,7 +124,7 @@
     "test:omr:version-policy": "node --test scripts/tests/omr-version-policy.test.mjs",
     "test:ux-quality:ci": "npm -C apps/frontend run test -- --reporter=verbose tests/ux.quality.test.tsx",
     "test:e2e:journeys:ci": "npm-run-all -s test:gui:responsive:e2e:ci test:gui:cycle:e2e:ci",
-    "test:dataset-prodlike:ci": "node scripts/testing/export-anon-fixture.mjs && node scripts/testing/validate-anon-fixture.mjs && node scripts/testing/import-anon-fixture.mjs",
+    "test:dataset-prodlike:ci": "node --test scripts/tests/prodlike-dataset-ci.test.mjs && node scripts/testing/run-dataset-prodlike-ci.mjs",
     "test:qa:manifest": "node scripts/testing/generar-qa-manifest.mjs",
     "test:qa:runner": "node --test scripts/tests/qa-full-runner.test.mjs",
     "qa:evidence:quick": "npm-run-all -s test:dataset-prodlike:ci test:e2e:docente-alumno:ci test:global-grade:ci test:evaluaciones:policy:ci test:evaluaciones:e2e:ci test:pdf-print:ci test:ux-visual:ci test:qa:manifest",
