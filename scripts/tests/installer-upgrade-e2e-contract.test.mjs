@@ -37,6 +37,20 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
     'un resultado de error confirmado debe usar el estado semántico error del stepper');
   assert.doesNotMatch(e2e.slice(conflictWaitStart, conflictWaitEnd), /5 Resultado\\s\*\[·\\-\]\\s\*activo/,
     'el test no debe confundir la etapa de error con una etapa activa');
+  assert.match(e2e, /stateTextForDiagnostics\s*=\s*\[regex\]::Replace\(\[string\]\$state\.text/,
+    'una espera agotada debe conservar texto UIA acotado para diagnosticar el estado real');
+  assert.match(e2e, /stateTextForDiagnostics\.Length\s+-gt\s+2400/,
+    'el texto UIA que se imprime en CI debe tener un límite explícito');
+  assert.match(e2e, /Write-E2ELog .*UIA=\$stateTextForDiagnostics/,
+    'el texto UIA debe quedar visible en el log del job cuando falla el estado terminal');
+  assert.match(e2e, /burn-conflict-session-\{0\}\.log/,
+    'el reporte conserva el log de sesión Burn de la operación de conflicto');
+  assert.match(e2e, /LastWriteTime\s+-ge\s+\$operationStartedAt\.AddSeconds\(-2\)/,
+    'el diagnóstico solo debe tomar logs escritos por la operación observada');
+  assert.match(e2e, /Select-Object -First 3/,
+    'el artefacto limita la cantidad de logs Burn copiados');
+  assert.match(e2e, /Burn conflict trace: \$line/,
+    'el job emite líneas Burn de detección y planificación para distinguir detección de UI');
   assert.match(e2e, /wpf-install-05-resultado-conflicto-version/);
   assert.match(e2e, /Invoke-BurnBundleQuiet -BundlePath \$fixturePath -Action '\/install'/);
   assert.match(e2e, /same-version-fixture-\{0\}-\{1\}\.log/);

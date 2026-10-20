@@ -1023,6 +1023,22 @@ function Invoke-InstallerHubMode {
   $resultCaptureName = if ($ExpectSameVersionConflict) { 'wpf-install-05-resultado-conflicto-version' } else { ("wpf-{0}-05-resultado" -f $Mode) }
   Capture-Window -Window $window -Name $resultCaptureName -RequestedWidth 980 -RequestedHeight 700 | Out-Null
   $stateTimedOut = $state.PSObject.Properties.Match('timeout').Count -gt 0 -and [bool]$state.timeout
+  $stateTextForDiagnostics = [regex]::Replace([string]$state.text, '\s+', ' ').Trim()
+  if ($stateTextForDiagnostics.Length -gt 2400) { $stateTextForDiagnostics = $stateTextForDiagnostics.Substring(0, 2400) + '…' }
+  if ($ExpectSameVersionConflict -and (-not $state.ok)) {
+    Write-E2ELog "El estado terminal de conflicto no fue confirmado; timeout=$stateTimedOut; UIA=$stateTextForDiagnostics"
+    $baLogRoot = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+    $baLogs = @(Get-ChildItem -LiteralPath $baLogRoot -Filter 'burn-bootstrapper.log' -File -Recurse -ErrorAction SilentlyContinue |
+      Where-Object { $_.LastWriteTime -ge $operationStartedAt.AddSeconds(-2) } |
+      Sort-Object LastWriteTime -Descending | Select-Object -First 3)
+    foreach ($baLog in $baLogs) {
+      $target = Copy-ArtifactIfExists -Path $baLog.FullName -Name ("burn-conflict-session-{0}.log" -f [IO.Path]::GetFileName((Split-Path -Parent $baLog.FullName)))
+      $diagnosticLines = @(Get-Content -LiteralPath $target -ErrorAction SilentlyContinue |
+        Where-Object { $_ -match '(?i)related bundle|bundle relacionado|same.version|misma versión|OnPlanComplete|Apply|conflicto' } |
+        Select-Object -Last 30)
+      foreach ($line in $diagnosticLines) { Write-E2ELog "Burn conflict trace: $line" }
+    }
+  }
   $finalStateDetail = if ($ExpectSameVersionConflict) { 'conflicto de misma versión visible antes de Apply; resultado capturado' } elseif ($stateTimedOut) { 'timeout esperando estado final' } else { 'estado final detectado' }
   Add-Result -Area $(if ($ExpectSameVersionConflict) { 'same-version-related-bundle' } else { $Mode }) -Item 'final-state' -Ok ([bool]$state.ok) -Detail $finalStateDetail
   if (-not $state.ok) {
