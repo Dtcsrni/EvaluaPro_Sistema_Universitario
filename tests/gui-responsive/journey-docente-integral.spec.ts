@@ -300,6 +300,12 @@ test.describe('Journey docente integral visual', () => {
     await expect(temaIntegral).toBeVisible({ timeout: 20_000 });
     await temaIntegral.click();
     await expect(temaIntegral).toHaveClass(/plantillas-tema-chip--selected/);
+    // El banco se valida con 20 reactivos arriba; el tramo PDF/OMR usa un fixture
+    // deliberadamente pequeño para medir el flujo completo sin saturar el runner.
+    await formularioPlantilla.getByLabel('Cantidad de páginas').fill('1');
+    await formularioPlantilla.getByLabel('Preguntas del examen').fill('5');
+    await expect(formularioPlantilla.getByLabel('Cantidad de páginas')).toHaveValue('1');
+    await expect(formularioPlantilla.getByLabel('Preguntas del examen')).toHaveValue('5');
     await page.screenshot({ path: path.join(outputDir, '25_plantilla_formulario.png'), fullPage: true });
 
     await formularioPlantilla.getByRole('button', { name: 'Crear plantilla', exact: true }).click();

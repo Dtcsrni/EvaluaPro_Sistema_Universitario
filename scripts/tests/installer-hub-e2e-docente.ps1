@@ -835,7 +835,7 @@ function Wait-InstallerSameVersionConflictState {
     $lastText = Get-WindowTextSnapshot -Window $Window
     if ($lastText -match '(?is)Actualización detenida por conflicto de versión' -and
         $lastText -match '(?is)no se aplicaron cambios' -and
-        $lastText -match '(?is)5 Resultado\s*[·\-]\s*activo') {
+        $lastText -match '(?is)5 Resultado\s*[·\-]\s*error') {
       return [pscustomobject]@{ ok = $true; text = $lastText; timeout = $false }
     }
     if ($lastText -match '(?is)Operación nativa completada|Operación finalizada correctamente') {
