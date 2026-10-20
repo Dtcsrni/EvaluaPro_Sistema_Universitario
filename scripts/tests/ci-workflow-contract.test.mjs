@@ -787,8 +787,12 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(rollback, /needs\.verify_public_installer_e2e\.result != 'success'/);
   assert.match(rollback, /contents:\s*write/);
   assert.match(rollback, /-F draft=true/);
-  assert.match(stableGate, /existing_tag_commit" != "\$SOURCE_SHA"/);
-  assert.doesNotMatch(stableGate, /existing_tag_commit" != "\$GATE_SHA"/);
+  assert.match(stableGate, /gh api --include "repos\/\$GITHUB_REPOSITORY\/releases\/tags\/\$TAG"/);
+  assert.match(stableGate, /gh api --include "repos\/\$GITHUB_REPOSITORY\/commits\/\$TAG"/);
+  assert.match(stableGate, /validate-existing-stable-draft\.mjs/);
+  assert.match(stableGate, /publish_after_go:[\s\S]*?uses: actions\/checkout@[a-f0-9]{40}[\s\S]*?ref: \$\{\{ github\.sha \}\}[\s\S]*?validate-existing-stable-draft\.mjs/);
+  assert.doesNotMatch(stableGate, /existing_tag_commit/);
+  assert.doesNotMatch(stableGate, /releases\/tags\/\$TAG.*DELETE|git\/refs\/tags\/\$TAG/);
   assert.match(installer, /inputs\.release_tag != ''/);
   assert.match(installer, /tag_name: \$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
   assert.match(installer, /target_commitish: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/);

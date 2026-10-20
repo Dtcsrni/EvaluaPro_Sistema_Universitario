@@ -12,8 +12,60 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { contarCambiosFuente, crearQaManifest, inspectSourceTree } from '../testing/generar-qa-manifest.mjs';
 import { evaluateStablePromotion as evaluateStablePromotionImpl } from '../release/validate-stable-promotion.mjs';
+import { validateExistingStableDraft } from '../release/validate-existing-stable-draft.mjs';
 
 const CANDIDATE_SHA = 'a'.repeat(40);
+const OTHER_SHA = 'b'.repeat(40);
+
+function ghResponse(status, payload) {
+  return `HTTP/2.0 ${status} ${status === 200 ? 'OK' : 'Not Found'}\r\ncontent-type: application/json\r\n\r\n${payload === null ? '' : JSON.stringify(payload)}`;
+}
+
+function stableDraftDecision({ release, tagSha, sourceSha = CANDIDATE_SHA, tag = 'v1.2.8' }) {
+  return validateExistingStableDraft({
+    releaseResponse: ghResponse(release === null ? 404 : 200, release),
+    tagResponse: ghResponse(tagSha === null ? 404 : 200, tagSha === null ? null : { sha: tagSha }),
+    expectedTag: tag,
+    sourceSha
+  });
+}
+
+test('guard estable reutiliza borrador con referencia de tag del candidato', () => {
+  assert.deepEqual(stableDraftDecision({
+    release: { tag_name: 'v1.2.8', draft: true, target_commitish: 'main' },
+    tagSha: CANDIDATE_SHA
+  }), { action: 'reuse-draft', sha: CANDIDATE_SHA });
+});
+
+test('guard estable reutiliza borrador sin tag cuando target_commitish fija el SHA candidato', () => {
+  assert.deepEqual(stableDraftDecision({
+    release: { tag_name: 'v1.2.8', draft: true, target_commitish: CANDIDATE_SHA },
+    tagSha: null
+  }), { action: 'reuse-draft', sha: CANDIDATE_SHA });
+});
+
+test('guard estable rechaza releases publicados, tags y SHA discrepantes', () => {
+  const cases = [
+    { release: { tag_name: 'v1.2.8', draft: false, target_commitish: CANDIDATE_SHA }, tagSha: null },
+    { release: { tag_name: 'v1.2.7', draft: true, target_commitish: CANDIDATE_SHA }, tagSha: null },
+    { release: { tag_name: 'v1.2.8', draft: true, target_commitish: CANDIDATE_SHA }, tagSha: OTHER_SHA },
+    { release: { tag_name: 'v1.2.8', draft: true, target_commitish: OTHER_SHA }, tagSha: null },
+    { release: null, tagSha: OTHER_SHA }
+  ];
+  for (const input of cases) assert.throws(() => stableDraftDecision(input));
+});
+
+test('guard estable permite crear cuando release y tag no existen y falla cerrado ante errores API', () => {
+  assert.deepEqual(stableDraftDecision({ release: null, tagSha: null }), {
+    action: 'create-or-continue', tagSha: null
+  });
+  assert.throws(() => validateExistingStableDraft({
+    releaseResponse: 'HTTP/2.0 500 Internal Server Error\r\n\r\n{}',
+    tagResponse: ghResponse(404, null),
+    expectedTag: 'v1.2.8',
+    sourceSha: CANDIDATE_SHA
+  }), /HTTP 500/);
+});
 
 function candidateRun(id, name, sha = CANDIDATE_SHA) {
   return {
