@@ -523,7 +523,8 @@ test('el E2E PDF instala Poppler fijado y valida pdftoppm antes de abrir Edge', 
   assert.match(step, /Get-FileHash[\s\S]*SHA256/);
   assert.match(step, /Expand-Archive/);
   assert.match(step, /pdftoppm\.exe/);
-  assert.match(step, /-v/);
+  assert.match(step, /Start-Process[\s\S]*-ArgumentList\s*'-v'[\s\S]*-RedirectStandardOutput[\s\S]*-RedirectStandardError/);
+  assert.match(step, /versionProcess\.ExitCode[\s\S]*pdftoppm version/);
   assert.match(step, /GITHUB_PATH/);
 });
 

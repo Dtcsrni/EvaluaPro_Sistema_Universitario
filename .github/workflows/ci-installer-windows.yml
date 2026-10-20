@@ -325,8 +325,14 @@ jobs:
 
           $pdftoppmPath = $pdftoppmMatches[0].FullName
           $popplerBin = Split-Path -Parent $pdftoppmPath
-          $versionOutput = (& $pdftoppmPath -v 2>&1 | Out-String).Trim()
-          if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch 'pdftoppm version') { throw "No se pudo ejecutar el pdftoppm fijado: $versionOutput" }
+          $versionStdout = Join-Path $env:RUNNER_TEMP "poppler-version-$version.stdout.txt"
+          $versionStderr = Join-Path $env:RUNNER_TEMP "poppler-version-$version.stderr.txt"
+          $versionProcess = Start-Process -FilePath $pdftoppmPath -ArgumentList '-v' -NoNewWindow -Wait -PassThru -RedirectStandardOutput $versionStdout -RedirectStandardError $versionStderr
+          $versionOutput = @(
+            Get-Content -LiteralPath $versionStdout -ErrorAction SilentlyContinue
+            Get-Content -LiteralPath $versionStderr -ErrorAction SilentlyContinue
+          ) -join [Environment]::NewLine
+          if ($versionProcess.ExitCode -ne 0 -or $versionOutput -notmatch 'pdftoppm version') { throw "No se pudo ejecutar el pdftoppm fijado: $versionOutput" }
 
           Add-Content -LiteralPath $env:GITHUB_PATH -Value $popplerBin
           Write-Host "Poppler $version listo: $versionOutput"
