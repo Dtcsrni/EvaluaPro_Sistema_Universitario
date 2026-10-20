@@ -1080,14 +1080,21 @@ function Get-BurnBundleRegistryEntriesByUpgradeCode {
     foreach ($key in Get-ChildItem -LiteralPath $rootKey -ErrorAction SilentlyContinue) {
       try {
         $entry = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction Stop
-        $registered = ([string]$entry.BundleUpgradeCode).Trim().Trim('{', '}')
-        if ($registered -and $registered.Equals($expected, [StringComparison]::OrdinalIgnoreCase)) {
+        $registeredCodes = @(
+          foreach ($value in @($entry.BundleUpgradeCode)) {
+            foreach ($candidate in ([string]$value -split '[\r\n,;\s]+')) {
+              $normalized = $candidate.Trim().Trim('{', '}')
+              if ($normalized) { $normalized }
+            }
+          }
+        )
+        if ($registeredCodes | Where-Object { $_.Equals($expected, [StringComparison]::OrdinalIgnoreCase) }) {
           [pscustomobject]@{
             registryPath = [string]$key.Name
             providerKey = [string]$entry.BundleProviderKey
             displayName = [string]$entry.DisplayName
             version = [string]$entry.DisplayVersion
-            upgradeCode = [string]$entry.BundleUpgradeCode
+            upgradeCode = ($registeredCodes -join ';')
             cachePath = [string]$entry.BundleCachePath
             uninstallString = [string]$entry.UninstallString
           }
@@ -1103,7 +1110,12 @@ function Invoke-BurnBundleQuiet {
     [Parameter(Mandatory = $true)][ValidateSet('/install', '/uninstall')][string]$Action
   )
   if (-not (Test-Path -LiteralPath $BundlePath -PathType Leaf)) { throw "No existe el bundle fixture: $BundlePath" }
-  $process = Start-Process -FilePath $BundlePath -ArgumentList @($Action, '/quiet') -PassThru -Wait -WindowStyle Hidden
+  $operation = $Action.TrimStart('/')
+  $bundleLogPath = Join-Path $logsDir ("same-version-fixture-{0}-{1}.log" -f $operation, [guid]::NewGuid().ToString('N'))
+  $process = Start-Process -FilePath $BundlePath -ArgumentList @($Action, '/quiet', '/log', "`"$bundleLogPath`"") -PassThru -Wait -WindowStyle Hidden
+  if (Test-Path -LiteralPath $bundleLogPath -PathType Leaf) {
+    Copy-ArtifactIfExists -Path $bundleLogPath | Out-Null
+  }
   if ([int]$process.ExitCode -ne 0) { throw "El bundle fixture terminó con exit=$($process.ExitCode), acción=$Action" }
   Wait-WindowsInstallerIdle -TimeoutSec 120 -Context "same-version-fixture-$($Action.TrimStart('/'))"
 }
@@ -1151,7 +1163,8 @@ function Invoke-SameVersionRelatedBundleConflict {
     $relatedEntries = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode)
     $fixtureEntries = @($relatedEntries | Where-Object { $_.displayName -eq 'QA Bundle Relation Fixture' -and [version]::Parse($_.version) -eq $expectedVersion })
     if ($relatedEntries.Count -ne 1 -or $fixtureEntries.Count -ne 1 -or [string]::IsNullOrWhiteSpace($fixtureEntries[0].providerKey)) {
-      throw "El fixture debe quedar registrado como único bundle relacionado de la misma versión. count=$($relatedEntries.Count)"
+      $observed = @($relatedEntries | ForEach-Object { '{0}|{1}|{2}|{3}' -f $_.displayName, $_.version, $_.providerKey, $_.upgradeCode }) -join '; '
+      throw "El fixture debe quedar registrado como único bundle relacionado de la misma versión. count=$($relatedEntries.Count) fixtureCount=$($fixtureEntries.Count) observed=[$observed]"
     }
     $fixtureProviderKey = [string]$fixtureEntries[0].providerKey
     Add-Result -Area 'same-version-related-bundle' -Item 'related-bundle-registered' -Ok $true -Detail "providerKey=$fixtureProviderKey version=$($fixtureEntries[0].version)"

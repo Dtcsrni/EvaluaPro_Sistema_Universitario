@@ -21,14 +21,20 @@ const fixtureBuilder = fs.readFileSync(fixtureBuilderPath, 'utf8');
 test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de igual versión', () => {
   assert.match(sameVersionFixture, /Name="QA Bundle Relation Fixture"/);
   assert.match(sameVersionFixture, /UpgradeCode="\$\(var\.BundleUpgradeCode\)"/);
-  assert.match(sameVersionFixture, /DetectCondition="1"/);
+  assert.match(sameVersionFixture, /DetectCondition="0"/);
   assert.match(sameVersionFixture, /Permanent="yes"/);
+  assert.match(sameVersionFixture, /InstallArguments="\/c exit 0"/);
+  assert.doesNotMatch(sameVersionFixture, /DetectCondition="1"/, 'el fixture no debe declarar detectado el paquete inerte');
 
   assert.match(e2e, /\[string\]\$SameVersionRelatedBundlePath\s*=\s*''/);
   assert.match(e2e, /Actualización detenida por conflicto de versión/);
   assert.match(e2e, /no se aplicaron cambios/);
   assert.match(e2e, /wpf-install-05-resultado-conflicto-version/);
   assert.match(e2e, /Invoke-BurnBundleQuiet -BundlePath \$fixturePath -Action '\/install'/);
+  assert.match(e2e, /same-version-fixture-\{0\}-\{1\}\.log/);
+  assert.match(e2e, /\$registeredCodes\s*=\s*@\(/);
+  assert.match(e2e, /\$value\s+in\s+\@\(\$entry\.BundleUpgradeCode\)/);
+  assert.match(e2e, /\$normalized\s*=\s*\$candidate\.Trim\(\)\.Trim\('\{', '\}'\)/);
   assert.match(e2e, /Invoke-InstallerHubMode -Mode 'install' -BundlePath \$script:bundlePath -ExpectSameVersionConflict/);
   assert.match(e2e, /msi-payload-and-data-unchanged-before-apply/);
   assert.match(e2e, /fixture-cleanup/);
