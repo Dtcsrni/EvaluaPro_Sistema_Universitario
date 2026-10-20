@@ -1,29 +1,88 @@
 {
   "algoritmo": "sha256",
-  "csv": { "hashCalculado": "no-aplica-no-se-generaron-exportaciones-csv-en-esta-validacion", "hashManifiesto": null, "bytesCalculados": 0, "bytesManifiesto": null },
-  "docx": { "hashCalculado": "no-aplica-no-se-generaron-exportaciones-docx-en-esta-validacion", "hashManifiesto": null, "bytesCalculados": 0, "bytesManifiesto": null },
+  "csv": {
+    "hashCalculado": "no-aplica-no-se-generaron-exportaciones-csv-en-esta-validacion",
+    "hashManifiesto": null,
+    "bytesCalculados": 0,
+    "bytesManifiesto": null
+  },
+  "docx": {
+    "hashCalculado": "no-aplica-no-se-generaron-exportaciones-docx-en-esta-validacion",
+    "hashManifiesto": null,
+    "bytesCalculados": 0,
+    "bytesManifiesto": null
+  },
   "installerHub": {
-    "runId": 39382108606,
-    "runNumber": 741,
+    "runId": 39402733656,
+    "runNumber": 746,
     "artifactName": "installer-windows",
-    "artifactId": 12246976717,
-    "artifactSizeBytes": 272084140,
-    "artifactZipSha256": "785f89b8464f2097f1a1fbc67a9f870a7e52a7e48be2f865b57856b8c350d404",
-    "observacion": "Digest SHA-256 del ZIP de artefacto publicado por GitHub; no equivale al SHA-256 de un ejecutable extraído. El workflow validó manifiesto y hashes del payload."
+    "artifactId": 12257460745,
+    "artifactSizeBytes": 272112806,
+    "artifactZipSha256": "af694795bc5ddd056a052dfc1ceaf65ed189e7d7ef1f27e225b50176aff6a4c4",
+    "observacion": "Digest SHA-256 del ZIP de artefacto publicado por GitHub; no equivale al SHA-256 del ejecutable extraído. El manifiesto y los hashes internos del payload fueron validados por el workflow."
   },
   "installerHubE2E": {
-    "runId": 39382108606,
-    "artifactName": "installer-hub-e2e-39382108606",
-    "artifactId": 12246594648,
-    "artifactZipSha256": "260d3a1bbe12977150071eff29828d5568f3ffac122a1b885266fd66edb8d90a"
+    "runId": 39402733656,
+    "artifactName": "installer-hub-e2e-39402733656",
+    "artifactId": 12257740310,
+    "artifactSizeBytes": 279801935,
+    "artifactZipSha256": "33d212237e6730837f12ae41ac1383c3ab9d4f811e1fbf0b9923a724a2860519"
   },
-  "visualE2E": [{
-    "runId": 39381668637,
-    "runNumber": 1527,
-    "artifactName": "e2e-visual-39381668637",
-    "artifactId": 12246991944,
-    "artifactSizeBytes": 158162992,
-    "artifactZipSha256": "30842f3dd220b8b7e1b4bc1bd5590f688955182bf2e00726c00321ac025e9038"
-  }]
+  "installerHubPasses": [
+    {
+      "runId": 39399161350,
+      "runNumber": 745,
+      "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117",
+      "conclusion": "success",
+      "installerArtifact": {
+        "name": "installer-windows",
+        "id": 12255450849,
+        "sizeBytes": 272112221,
+        "artifactZipSha256": "e9905f7c7342a062efd4bcdfdc2d174bb2484e2bd65a26c6fcf93c57555377f1"
+      },
+      "e2eArtifact": {
+        "name": "installer-hub-e2e-39399161350",
+        "id": 12255995719,
+        "sizeBytes": 279663720,
+        "artifactZipSha256": "b9ca6af32696a1aa2ab4889258f84d043cbca341721bed80c57a7388e0039934"
+      }
+    },
+    {
+      "runId": 39402733656,
+      "runNumber": 746,
+      "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117",
+      "conclusion": "success",
+      "installerArtifact": {
+        "name": "installer-windows",
+        "id": 12257460745,
+        "sizeBytes": 272112806,
+        "artifactZipSha256": "af694795bc5ddd056a052dfc1ceaf65ed189e7d7ef1f27e225b50176aff6a4c4"
+      },
+      "e2eArtifact": {
+        "name": "installer-hub-e2e-39402733656",
+        "id": 12257740310,
+        "sizeBytes": 279801935,
+        "artifactZipSha256": "33d212237e6730837f12ae41ac1383c3ab9d4f811e1fbf0b9923a724a2860519"
+      }
+    }
+  ],
+  "ciChecks": {
+    "runId": 39398384778,
+    "runNumber": 1537,
+    "conclusion": "success",
+    "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117"
+  },
+  "securityCodeQL": {
+    "runId": 39398384754,
+    "runNumber": 904,
+    "conclusion": "success",
+    "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117"
+  },
+  "ciPolicyAudit": {
+    "runId": 39405868975,
+    "runNumber": 232,
+    "conclusion": "success",
+    "candidateSha": "0d97e29e5755e4fc22fcc1a2f9d1af462353c117"
+  },
+  "nota": "Los digests arriba identifican ZIPs de artifacts de GitHub y no deben presentarse como hashes de ejecutables extraídos."
 }
-
