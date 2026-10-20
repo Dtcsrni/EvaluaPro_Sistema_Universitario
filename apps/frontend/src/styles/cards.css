@@ -662,7 +662,7 @@
 
 /* Cascada final de 1.9: se mantiene al final del archivo para prevalecer sobre
    los estilos históricos específicos de cada módulo. */
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) {
   --ui-card-radius: 12px;
   border-color: var(--ui-card-border) !important;
   border-top-color: var(--ui-card-border) !important;
@@ -674,12 +674,12 @@
   box-shadow: var(--ui-card-shadow) !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::before {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::before {
   content: none !important;
   display: none !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::after {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::after {
   content: '';
   position: absolute;
   inset: 1px;
@@ -1975,7 +1975,7 @@ button.chip-docente-sesion:active {
 
 /* Última capa deliberada: algunos módulos conservan overrides históricos con
    mayor especificidad. Este bloque mantiene una única salida visual efectiva. */
-:root:not([data-theme="dark"]) :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+:root:not([data-theme="dark"]) :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) {
   border-color: var(--ui-card-border) !important;
   border-top-color: var(--ui-card-border) !important;
   background:
@@ -1985,7 +1985,7 @@ button.chip-docente-sesion:active {
   box-shadow: var(--ui-card-shadow) !important;
 }
 
-:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) {
   border-color: var(--ui-card-border) !important;
   border-top-color: var(--ui-card-border) !important;
   background:
@@ -1995,12 +1995,12 @@ button.chip-docente-sesion:active {
   box-shadow: var(--ui-card-shadow) !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::before {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::before {
   content: none !important;
   display: none !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::after {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::after {
   content: '';
   position: absolute;
   inset: 1px;
@@ -2027,11 +2027,11 @@ button.chip-docente-sesion:active {
   border-color: var(--ui-glass-border) !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) :is(h1, h2, h3, h4, h5, h6, strong, b, label, .item-title, .ui-card-text-title) {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(h1, h2, h3, h4, h5, h6, strong, b, label, .item-title, .ui-card-text-title) {
   color: var(--ui-text-primary) !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) :is(p, small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(p, small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
   color: var(--ui-text-secondary) !important;
 }
 
@@ -2053,7 +2053,9 @@ button.chip-docente-sesion:active {
   --ui-card-shadow-hover: 0 30px 68px -28px rgba(8, 101, 143, 0.38), 0 0 0 1px rgba(67, 217, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.30);
 }
 
-:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+/* Los sufijos con límite de token seleccionan superficies raíz. Evitan que
+   una subparte BEM como `banco-panel__head` herede borde, sombra y recorte. */
+:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -2073,12 +2075,12 @@ button.chip-docente-sesion:active {
 /* Neutraliza el trazo histórico y conserva un reflejo contenido dentro del
    borde de la superficie. */
 :is(.ui-card, .item-glass)::before,
-:is(.card, .panel, .subpanel, .glass-card, [class*='-card'], [class*='-panel'])::before {
+:is(.card, .panel, .subpanel, .glass-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::before {
   content: none !important;
   display: none !important;
 }
 
-:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::after {
+:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::after {
   content: '';
   position: absolute;
   inset: 1px;
@@ -2090,7 +2092,7 @@ button.chip-docente-sesion:active {
   clip-path: inset(0 round calc(var(--ui-card-radius) - 1px));
 }
 
-:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) > * {
+:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) > * {
   position: relative;
   z-index: 1;
 }
@@ -2101,15 +2103,15 @@ button.chip-docente-sesion:active {
   transform: translateY(-3px);
 }
 
-:is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel']) :is(h1, h2, h3, h4, h5, h6, strong, b, label, .item-title, .ui-card-text-title) {
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(h1, h2, h3, h4, h5, h6, strong, b, label, .item-title, .ui-card-text-title) {
   color: var(--ui-text-primary) !important;
 }
 
-:is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel']) :is(p, small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(p, small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
   color: var(--ui-text-secondary) !important;
 }
 
-:is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel']) :is(input, textarea, select) {
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(input, textarea, select) {
   border-color: var(--ui-glass-border) !important;
   background: color-mix(in srgb, var(--ui-canvas) 42%, transparent) !important;
   color: var(--ui-text-primary) !important;
@@ -2153,7 +2155,7 @@ button.chip-docente-sesion:active {
   box-shadow: none !important;
 }
 
-:is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel']):focus-within {
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])):focus-within {
   outline: 2px solid color-mix(in srgb, var(--ui-accent-primary) 80%, white 20%);
   outline-offset: 3px;
 }
@@ -2163,14 +2165,14 @@ button.chip-docente-sesion:active {
     min-height: 46px;
   }
 
-  :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+  :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) {
     border-radius: 16px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel'], .boton, .btn, button.btn, a.btn),
-  :is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel'])::after {
+  :is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']), .boton, .btn, button.btn, a.btn),
+  :is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::after {
     transition: none !important;
   }
 
@@ -4166,7 +4168,7 @@ button.chip-docente-sesion:active {
 
 /* Última capa efectiva del sistema visual: se declara después de los
    overrides específicos para conservar una única lectura transversal. */
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) {
   border-color: var(--ui-card-border) !important;
   border-top-color: var(--ui-card-border) !important;
   background:
@@ -4176,12 +4178,12 @@ button.chip-docente-sesion:active {
   box-shadow: var(--ui-card-shadow) !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::before {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::before {
   content: none !important;
   display: none !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::after {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel ']))::after {
   content: '';
   position: absolute;
   inset: 1px;
@@ -5980,6 +5982,35 @@ html[data-theme="dark"] body .empty-step__num {
   text-shadow: none !important;
 }
 
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-intro {
+  background: #0f172a !important;
+  color: #e2e8f0;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-intro h3 {
+  color: #f8fafc !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-intro p,
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-steps li {
+  color: #cbd5e1 !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-diseno-tab .plantillas-studio-steps li > b {
+  color: #cbd5e1 !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi__lbl {
+  color: #475569 !important;
+}
+
+/* WCAG AA: los cuatro valores KPI se leen sobre la superficie clara opaca; sus
+   pares con #fff se verifican en ui-contrast-audit.mjs (mínimo 4.5:1). */
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--preguntas .banco-mini-kpi__num { color: #7e22ce !important; text-shadow: none; }
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--temas .banco-mini-kpi__num { color: #0369a1 !important; text-shadow: none; }
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--temaactual .banco-mini-kpi__num { color: #047857 !important; text-shadow: none; }
+:root:not([data-theme="dark"]) .page--docente .plantillas-header-right .banco-mini-kpi--paginas .banco-mini-kpi__num { color: #4338ca !important; text-shadow: none; }
+
 :root:not([data-theme="dark"]) .empty-step__arrow {
   color: #334155 !important;
 }
@@ -7166,6 +7197,37 @@ html[data-theme="dark"] body .empty-step__num {
 
 .calificaciones-experience .banco-mini-kpi:nth-child(5) {
   border-color: color-mix(in srgb, var(--ui-accent-primary) 42%, var(--ui-glass-border));
+}
+
+/* WCAG AA: estos colores mantienen al menos 4.5:1 frente a la superficie KPI clara #e2e8f0. */
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--preguntas .banco-mini-kpi__num,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--preguntas .banco-mini-kpi__icon {
+  color: #6b21a8 !important;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--paginas .banco-mini-kpi__num--cyan,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--paginas .banco-mini-kpi__icon {
+  color: #075985 !important;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--sintema .banco-mini-kpi__num--amber,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--sintema .banco-mini-kpi__icon {
+  color: #92400e !important;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--temaactual .banco-mini-kpi__num--emerald,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--temaactual .banco-mini-kpi__icon {
+  color: #065f46 !important;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--reactivos .banco-mini-kpi__num,
+:root:not([data-theme="dark"]) .calificaciones-experience .banco-mini-kpi--reactivos .banco-mini-kpi__icon {
+  color: #3730a3 !important;
+  text-shadow: none;
 }
 
 .calificaciones-experience .banco-mini-kpi:hover {

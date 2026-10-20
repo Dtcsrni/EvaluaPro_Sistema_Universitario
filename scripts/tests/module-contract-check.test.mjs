@@ -12,6 +12,7 @@ import {
   parseVersion,
   satisfiesRange,
   validateAppendOnlyHistory,
+  validateCompositionApiHistory,
   validatePublicApiHistory,
   writeModuleContractReport
 } from '../module-contract-check.mjs';
@@ -118,6 +119,33 @@ test('la base vigente registra todos los módulos, sin ciclos ni modelos huérfa
   assert.equal(result.declaredModelOwners, result.prismaModels);
   assert.ok(result.dependencyGraph.modulo_admin_docentes.includes('modulo_autenticacion'));
   assert.ok(result.transitiveConsumers.modulo_autenticacion.length > 0);
+});
+
+test('el contrato PDF versiona el cambio incompatible de Zod 4 y todos sus consumidores', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'docs/contracts/module-contracts.v2.json'), 'utf8'));
+  const pdf = manifest.modules.find((item) => item.id === 'modulo_generacion_pdf');
+  assert.equal(pdf.contractVersion, '2.0.0');
+  assert.equal(pdf.publicApiHistory.at(-1).version, '2.0.0');
+  const expectedZod4Signature = 'z.ZodOptional<z.ZodObject<{}, z.core.$strict>>';
+  const currentPdfApi = readCurrentPublicApis({ root: process.cwd() }).modulo_generacion_pdf;
+  assert.equal(
+    pdf.publicApiHistory.at(-1).exports.find((item) => item.name === 'esquemaBodyVacioOpcional')?.signature,
+    expectedZod4Signature
+  );
+  assert.equal(
+    currentPdfApi.find((item) => item.name === 'esquemaBodyVacioOpcional')?.signature,
+    expectedZod4Signature,
+    'la extracción usa las declaraciones de Zod 4 resueltas desde el workspace backend'
+  );
+  for (const consumerId of [
+    'modulo_calificacion',
+    'modulo_escaneo_omr',
+    'modulo_recuperacion_examenes',
+    'modulo_sincronizacion_nube'
+  ]) {
+    const consumer = manifest.modules.find((item) => item.id === consumerId);
+    assert.equal(consumer.dependencies.find((item) => item.module === 'modulo_generacion_pdf')?.contractRange, '^2.0.0', consumerId);
+  }
 });
 
 test('el host del registro debe coincidir con la versión del producto', () => {
@@ -298,6 +326,65 @@ test('requiere bump major para cambios/remociones y minor para adiciones', () =>
   additive.contractVersion = '1.1.0';
   additive.publicApiHistory.push({ version: '1.1.0', exports: [{ name: 'newApi', signature: '() => void' }] });
   assert.deepEqual(validatePublicApiHistory(additive, additive.publicApiHistory[1].exports), []);
+});
+
+test('el drift del contrato identifica exports agregados, eliminados y con firma modificada', () => {
+  const descriptor = {
+    id: 'pdf',
+    contractVersion: '1.0.0',
+    publicApiHistory: [{
+      version: '1.0.0',
+      exports: [
+        { name: 'keepButChanged', signature: '() => string' },
+        { name: 'removeMe', signature: '() => number' }
+      ]
+    }]
+  };
+  const errors = validatePublicApiHistory(descriptor, [
+    { name: 'keepButChanged', signature: '() => boolean' },
+    { name: 'newApi', signature: '() => void' }
+  ]);
+  const drift = errors.find((error) => error.includes('.publicApiHistory.drift'));
+  assert.match(drift, /keepButChanged \(firma modificada\)/);
+  assert.match(drift, /removeMe \(eliminado\)/);
+  assert.match(drift, /newApi \(agregado\)/);
+  assert.match(drift, /keepButChanged \(firma modificada\), newApi \(agregado\), removeMe \(eliminado\)/);
+  assert.match(drift, /incremente contractVersion y agregue historial/);
+});
+
+test('el drift sin cambios por nombre o firma informa diferencias de orden o forma', () => {
+  const descriptor = {
+    id: 'a',
+    contractVersion: '1.0.0',
+    publicApiHistory: [{
+      version: '1.0.0',
+      exports: [
+        { name: 'zeta', signature: '() => void' },
+        { name: 'alfa', signature: '() => void' }
+      ]
+    }]
+  };
+  const errors = validatePublicApiHistory(descriptor, [
+    { name: 'alfa', signature: '() => void' },
+    { name: 'zeta', signature: '() => void' }
+  ]);
+  assert.ok(errors.some((error) => error.includes('.publicApiHistory.drift') && error.includes('orden o forma')));
+  assert.ok(errors.some((error) => error.includes('.exports: ordene por nombre')));
+});
+
+test('el drift de composición comparte el diagnóstico detallado y sigue bloqueando', () => {
+  const descriptor = {
+    id: 'a',
+    contractVersion: '1.0.0',
+    compositionApiHistory: [{
+      version: '1.0.0',
+      exports: [{ name: 'mount', signature: '() => string' }]
+    }]
+  };
+  const errors = validateCompositionApiHistory(descriptor, [
+    { name: 'mount', signature: '() => number' }
+  ]);
+  assert.ok(errors.some((error) => error.includes('.compositionApiHistory.drift') && error.includes('mount (firma modificada)')));
 });
 
 test('protege snapshots del branch base y permite solo agregar nuevos', () => {

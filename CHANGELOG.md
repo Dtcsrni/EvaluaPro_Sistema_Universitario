@@ -19,6 +19,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ### Fixed
 - Las solicitudes HTTP mutables del cliente común ya no se reintentan automáticamente ante fallos transitorios sin idempotencia persistente.
 - La interfaz de importación conserva el job para reanudar consultas tras una interrupción y distingue resultados parciales de una sincronización completa.
+- El Stable Gate permite únicamente la normalización EOL heredada de tres rutas explícitas; los cambios staged, semánticos, no seguidos o fuera de esa lista siguen bloqueando.
+- La QA local y la preparación del Installer Hub se consolidan bajo criterios de promoción fail-closed y sus especificaciones aprobadas se agrupan en SPEC-122.
 
 ## [1.2.8] - 2026-10-14
 

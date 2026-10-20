@@ -54,11 +54,17 @@ test('los recorridos de banco/reactivos y PDF producen evidencia visual inspecci
   assert.match(bank, /banco-reactivos-publicado\.png/);
   const pdf = read('tests/gui-responsive/plantillas-pdf-edge.spec.ts');
   assert.match(pdf, /pdf-descarga-disponible\.png/);
-  assert.match(pdf, /iframe title="Vista previa del PDF" src="\/visualizacion\.pdf"/);
-  assert.match(pdf, /respuestaInlinePromise = page\.waitForResponse/);
-  assert.match(pdf, /content-disposition'\]\)\.toContain\('inline'\)/);
-  assert.match(pdf, /await expect\(page\.getByTitle\('Vista previa del PDF'\)\)\.toBeVisible\(\)/);
+  assert.doesNotMatch(pdf, /<iframe[^>]+visualizacion\.pdf/);
+  assert.match(pdf, /execFileSync\('pdftoppm'/);
+  assert.match(pdf, /naturalWidth/);
+  assert.match(pdf, /naturalHeight/);
+  assert.match(pdf, /pixelsConTinta/);
+  assert.match(pdf, /await image\.decode\(\)/);
+  assert.match(pdf, /evidenciaDeTextoEnFondoClaro/);
+  assert.match(pdf, /evidenciaDeTextoEnFondoOscuro/);
+  assert.match(pdf, /x-evaluapro-pdf-sha256/);
   assert.match(pdf, /await expect\(enlaceDescarga\)\.toBeVisible\(\)/);
+  assert.match(pdf, /createHash\('sha256'\)\.update\(bytesDescargados\)/);
   assert.match(pdf, /PDFDocument\.load\(bytesDescargados\)/);
 });
 

@@ -9,7 +9,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { contarCambiosFuente, crearQaManifest } from '../testing/generar-qa-manifest.mjs';
+import { execFileSync } from 'node:child_process';
+import { contarCambiosFuente, crearQaManifest, inspectSourceTree } from '../testing/generar-qa-manifest.mjs';
 import { evaluateStablePromotion as evaluateStablePromotionImpl } from '../release/validate-stable-promotion.mjs';
 
 const CANDIDATE_SHA = 'a'.repeat(40);
@@ -143,6 +144,29 @@ test('el manifiesto QA conserva commit candidato y fecha de generación', () => 
     'output/qa/generated.pdf',
     'storage/omr_debug/folio/image.jpg'
   ]), 1);
+});
+
+test('el manifiesto considera limpio el checkout con diferencias solo EOL y detecta cambios staged o semánticos', () => {
+  const fixture = mkTempDir('evaluapro-qa-source-tree-');
+  const sourceFile = path.join(fixture, 'docs', 'release', 'evidencia.json');
+  fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
+  execFileSync('git', ['init', '-q'], { cwd: fixture });
+  execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: fixture });
+  execFileSync('git', ['config', 'user.name', 'EvaluaPro Test'], { cwd: fixture });
+  execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: fixture });
+  fs.writeFileSync(sourceFile, '{\n  "version": "1.2.8"\n}\n', 'utf8');
+  execFileSync('git', ['add', '.'], { cwd: fixture });
+  execFileSync('git', ['commit', '-qm', 'baseline'], { cwd: fixture });
+
+  fs.writeFileSync(sourceFile, '{\r\n  "version": "1.2.8"\r\n}\r\n', 'utf8');
+  assert.deepEqual(inspectSourceTree(fixture), { workingTreeClean: true, dirtyPathCount: 0 });
+
+  fs.writeFileSync(sourceFile, '{\r\n  "version": "1.2.9"\r\n}\r\n', 'utf8');
+  assert.deepEqual(inspectSourceTree(fixture), { workingTreeClean: false, dirtyPathCount: 1 });
+
+  execFileSync('git', ['add', 'docs/release/evidencia.json'], { cwd: fixture });
+  assert.deepEqual(inspectSourceTree(fixture), { workingTreeClean: false, dirtyPathCount: 1 });
+  fs.rmSync(fixture, { recursive: true, force: true });
 });
 
 function writeInstallerManifest(baseDir, overrides = {}) {

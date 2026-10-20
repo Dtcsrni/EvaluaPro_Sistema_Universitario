@@ -300,6 +300,12 @@ test.describe('Journey docente integral visual', () => {
     await expect(temaIntegral).toBeVisible({ timeout: 20_000 });
     await temaIntegral.click();
     await expect(temaIntegral).toHaveClass(/plantillas-tema-chip--selected/);
+    // El banco se valida con 20 reactivos arriba; el tramo PDF/OMR usa un fixture
+    // deliberadamente pequeño para medir el flujo completo sin saturar el runner.
+    await formularioPlantilla.getByLabel('Cantidad de páginas').fill('1');
+    await formularioPlantilla.getByLabel('Preguntas del examen').fill('5');
+    await expect(formularioPlantilla.getByLabel('Cantidad de páginas')).toHaveValue('1');
+    await expect(formularioPlantilla.getByLabel('Preguntas del examen')).toHaveValue('5');
     await page.screenshot({ path: path.join(outputDir, '25_plantilla_formulario.png'), fullPage: true });
 
     await formularioPlantilla.getByRole('button', { name: 'Crear plantilla', exact: true }).click();
@@ -366,9 +372,9 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '31_omr_job_procesando.png'), fullPage: true });
 
     const finalizarOmr = page.getByRole('button', { name: 'Finalizar job', exact: true });
-    if (await finalizarOmr.isEnabled()) await finalizarOmr.click();
-    await expect(page.getByRole('heading', { name: 'Job OMR', exact: true })).toBeVisible({ timeout: 30_000 });
-    await page.screenshot({ path: path.join(outputDir, '32_omr_job_finalizado.png'), fullPage: true });
+    await expect(historial.getByText('Estado: completed', { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(finalizarOmr).toBeDisabled();
+    await page.screenshot({ path: path.join(outputDir, '32_omr_ingesta_completada.png'), fullPage: true });
 
     const examen = await page.evaluate(async ({ plantillaTitulo, apiPort }) => {
       const token = localStorage.getItem('tokenDocente');

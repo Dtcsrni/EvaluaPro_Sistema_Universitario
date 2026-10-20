@@ -21,7 +21,7 @@ flowchart LR
     userDoc[Docente]:::user
     webDoc[Web Docente Local<br/>React app_docente]:::svc
     apiDoc[API Docente Local<br/>Express + TS<br/>apps backend]:::svc
-    mongo[(MongoDB Local<br/>docentes y examenes)]:::db
+    sqliteLocal[(SQLite local<br/>fuente canónica docente)]:::db
     pdfStore[[Repositorio PDFs locales<br/>data/examenes]]:::repo
     omr[Servicio OMR + PDF + QR<br/>sharp + pdf-lib + qrcode]:::svc
   end
@@ -30,17 +30,17 @@ flowchart LR
     userAlu[Alumno]:::user
     webAlu[Web Alumno Portal<br/>React app_alumno]:::svc
     apiPortal[API Portal Alumno Cloud<br/>Express + TS<br/>portal_alumno_cloud]:::svc
-    mongoCloud[(MongoDB Cloud<br/>resultados y sesiones)]:::db
+    sqlitePortal[(SQLite portal<br/>read-model derivado)]:::db
   end
 
   userDoc --> webDoc
   webDoc -->|HTTP JSON| apiDoc
-  apiDoc -->|CRUD| mongo
+  apiDoc -->|CRUD académico| sqliteLocal
   apiDoc -->|genera PDF + QR| pdfStore
   apiDoc -->|procesa imagenes OMR| omr
 
   apiDoc -->|publica calificaciones + PDF<br/>API Key| apiPortal
-  apiPortal -->|persistencia| mongoCloud
+  apiPortal -->|persistencia de proyección| sqlitePortal
 
   userAlu --> webAlu
   webAlu -->|HTTP JSON| apiPortal

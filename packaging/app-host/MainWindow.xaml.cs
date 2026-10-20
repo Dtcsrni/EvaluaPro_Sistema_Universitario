@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private Process? dashboardProcess;
     private DateTime? dashboardProcessStartTimeUtc;
     private bool isStopping;
+    private bool closeAuthorized;
     private string appRoot = string.Empty;
     private const int DashboardPortFallback = 4519;
     private static readonly TimeSpan ServiceStartupTimeout = TimeSpan.FromSeconds(60);
@@ -1050,11 +1051,24 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        if (closeAuthorized) return;
+
+        // Cancel every close request until the owned services finish stopping.
+        // This keeps a second click or system close from closing the window while
+        // the first Closing handler is suspended at its await.
+        e.Cancel = true;
         if (isStopping) return;
         isStopping = true;
-        e.Cancel = true;
 
-        await ShutdownServicesAsync();
-        Close();
+        try
+        {
+            await ShutdownServicesAsync();
+        }
+        finally
+        {
+            // The next Closing event is the single authorized final transition.
+            closeAuthorized = true;
+            Close();
+        }
     }
 }

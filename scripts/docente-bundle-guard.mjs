@@ -68,5 +68,21 @@ export function assertDocenteBundle({ distRoot }) {
     );
   }
 
+  // Acepta solo selectores de superficie limitados al token de clase. El
+  // selector substring anterior también alcanzaba subpartes BEM como
+  // `banco-panel__head` y reapareció en un bundle reutilizado del disco.
+  const safePanelRoot = /\[class\$=-panel\].*\[class\*=-panel\\? \]/;
+  const safeCardRoot = /\[class\$=-card\].*\[class\*=-card\\? \]/;
+  if (!safePanelRoot.test(css) || !safeCardRoot.test(css)) {
+    throw new Error(
+      'Bundle docente con selectores de superficie obsoletos: se requieren límites de token para paneles y tarjetas.'
+    );
+  }
+  if (/\[class\*=-panel\](?!\\? )|\[class\*=-card\](?!\\? )/.test(css)) {
+    throw new Error(
+      'Bundle docente contiene selectores substring que pueden aplicar estilos de tarjeta a subpartes BEM.'
+    );
+  }
+
   return Object.freeze({ root, indexPath, references, cssFiles, contract: DOCENTE_UI_CONTRACT, googleRuntimeBootstrap: true });
 }

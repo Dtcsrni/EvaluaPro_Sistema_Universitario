@@ -108,16 +108,17 @@ export function contarCambiosFuente(paths) {
   }).length;
 }
 
-function inspectSourceTree() {
-  const tracked = spawnSync('git', ['diff', '--name-only', '-z', 'HEAD', '--'], { encoding: 'utf8' });
-  const untracked = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' });
-  if (tracked.status !== 0 || untracked.status !== 0) {
+export function inspectSourceTree(cwd = process.cwd()) {
+  const staged = spawnSync('git', ['diff', '--cached', '--name-only', '-z', 'HEAD', '--'], { cwd, encoding: 'utf8' });
+  const unstagedSemantic = spawnSync('git', ['diff', '--ignore-cr-at-eol', '--name-only', '-z'], { cwd, encoding: 'utf8' });
+  const untracked = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd, encoding: 'utf8' });
+  if (staged.status !== 0 || unstagedSemantic.status !== 0 || untracked.status !== 0) {
     return { workingTreeClean: false, dirtyPathCount: null };
   }
-  const changedPaths = [tracked.stdout || '', untracked.stdout || '']
+  const changedPaths = [staged.stdout || '', unstagedSemantic.stdout || '', untracked.stdout || '']
     .flatMap((output) => output.split('\0'))
     .filter(Boolean);
-  const dirtyPathCount = contarCambiosFuente(changedPaths);
+  const dirtyPathCount = contarCambiosFuente([...new Set(changedPaths)]);
   return { workingTreeClean: dirtyPathCount === 0, dirtyPathCount };
 }
 

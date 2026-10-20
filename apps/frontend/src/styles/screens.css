@@ -129,13 +129,21 @@
 
 .shell-docente__content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 1rem;
+}
+
+.shell-docente__main-col {
+  min-width: 0;
+  width: 100%;
 }
 
 @media (min-width: 1024px) {
   .shell-docente__content > .panel {
     display: grid;
     grid-template-columns: 240px 1fr;
+    min-width: 0;
     align-items: start;
     gap: 1.5rem;
     background: transparent;
@@ -2709,6 +2717,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -2717,6 +2726,7 @@
 .guia-materia-badge {
   display: inline-flex;
   align-items: center;
+  min-width: 0;
   gap: 0.5rem;
   font-size: 0.75rem;
   font-weight: 700;
@@ -2759,6 +2769,34 @@
 @media (max-width: 900px) {
   .guia-materia-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .guia-materia-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .guia-materia-badge {
+    flex: 1 1 12rem;
+    align-items: flex-start;
+  }
+
+  .guia-materia-badge > span:last-child {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .guia-materia-close-btn {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .guia-step-card {
+    min-width: 0;
   }
 }
 
@@ -2819,6 +2857,8 @@
 .guia-step-card__body {
   display: flex;
   flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
   gap: 0.25rem;
 }
 
@@ -2836,6 +2876,7 @@
   margin: 0;
   color: var(--texto);
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .guia-step-card__body p {
@@ -5882,11 +5923,14 @@
 .banco-section-title__wrap {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: 0.35rem;
 }
 
 .banco-section-title__wrap h2,
 .banco-section-title__wrap h3 {
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
   display: flex;
   align-items: center;
@@ -5894,6 +5938,7 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary, #f8fafc);
+  overflow-wrap: anywhere;
 }
 
 .banco-section-pill {
@@ -8767,13 +8812,36 @@ li.empty-state-card {
   margin-top: 1rem;
 }
 
+/* WCAG AA: este panel conserva una superficie oscura incluso en tema claro;
+   los pares de texto con el extremo más claro del gradiente (#1e293b) se
+   verifican en ui-contrast-audit.mjs y superan 4.5:1. */
 .plantillas-formato-box {
   margin-top: 1.25rem;
   padding: 1.25rem 1.5rem;
   border: 1px solid rgba(167, 139, 250, 0.28);
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(30, 41, 89, 0.62), rgba(15, 23, 42, 0.72));
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #e2e8f0;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 28px rgba(2, 6, 23, 0.14);
+}
+
+/* Este panel conserva su superficie oscura también en tema claro; fija aquí
+   todos los textos para que las reglas globales de .nota y .ayuda no los apaguen. */
+.page--docente .plantillas-form--panoramico .plantillas-formato-box h4.plantillas-temas__title,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .campo__label-row,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .campo__label-row span,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .plantillas-auto-status {
+  color: #f8fafc !important;
+}
+
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .nota,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .ayuda,
+.page--docente .plantillas-form--panoramico .plantillas-formato-box .plantillas-formato-box__footer {
+  color: #cbd5e1 !important;
+}
+
+.plantillas-formato-box .plantillas-formato-control .campo__label-row b {
+  color: #67e8f9;
 }
 
 .plantillas-formato-box__heading,
@@ -9167,6 +9235,8 @@ li.empty-state-card {
   margin-top: 0;
 }
 
+/* WCAG AA: el panel panorámico usa el mismo gradiente oscuro estable; las
+   combinaciones de texto se cubren en ui-contrast-audit.mjs (mínimo 4.5:1). */
 .plantillas-form--panoramico .plantillas-formato-box {
   grid-column: 1;
   grid-row: 2;
@@ -9175,7 +9245,8 @@ li.empty-state-card {
   margin-top: 0;
   padding: 1.1rem;
   border-color: rgba(56, 189, 248, 0.24);
-  background: rgba(8, 21, 43, 0.72);
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #e2e8f0;
 }
 
 .plantillas-form--panoramico .plantillas-formato-box__heading {
@@ -9517,12 +9588,35 @@ li.empty-state-card {
 }
 
 @media (max-width: 720px) {
+  .banco-section-title {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .banco-section-title__wrap {
+    width: 100%;
+  }
+
   .banco-panel,
   .banco-panel__head,
   .banco-panel__lead,
-  .banco-panel__text-block {
+  .banco-panel__text-block,
+  .banco-form,
+  .banco-form__surface,
+  .banco-listado,
+  .banco-panel__split {
     min-width: 0;
+    max-width: 100%;
     width: 100%;
+    box-sizing: border-box;
+  }
+
+  .banco-form__surface {
+    padding: 1rem;
+  }
+
+  .banco-form__grid--2 {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .banco-panel__lead {

@@ -59,6 +59,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private bool autoRemediationAttempted;
     private bool autoResumeRequested;
     private bool applySawPackageFailure;
+    private bool hasSameVersionRelatedBundle;
+    private bool relatedBundleCleanupFailed;
     private int requestedExitCode;
     private int? lastFailedPackageStatus;
     private string currentOperation = "install";
@@ -69,6 +71,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private FailureDisplay? failureDisplay;
     private ResumeState? resumeState;
     private bool msiInstalled;
+    private bool installationExistedBeforeOperation;
+    private bool handoffOverlapsInstallDirectory;
     private bool msiAppliedOk;
     private string? msiProductCodeAfterApply;
 
@@ -142,6 +146,23 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         EvaluateDetectionState();
     }
 
+    protected override void OnDetectRelatedBundle(DetectRelatedBundleEventArgs args)
+    {
+        base.OnDetectRelatedBundle(args);
+
+        var candidateVersionText = ReadEngineVariableString("WixBundleVersion");
+        if (args.RelationType == RelationType.Upgrade
+            && Version.TryParse(candidateVersionText, out var candidateVersion)
+            && Version.TryParse(args.Version, out var relatedVersion)
+            && candidateVersion.Equals(relatedVersion))
+        {
+            hasSameVersionRelatedBundle = true;
+            Log(
+                "warn",
+                $"Se detectó un bundle relacionado de la misma versión; se bloqueará antes de Apply para evitar que su desinstalación retire el MSI compartido. bundle={args.ProductCode} version={args.Version}");
+        }
+    }
+
     protected override void OnDetectPackageComplete(DetectPackageCompleteEventArgs args)
     {
         base.OnDetectPackageComplete(args);
@@ -162,7 +183,17 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             return;
         }
 
+        if (hasSameVersionRelatedBundle && !string.Equals(currentOperation, "uninstall", StringComparison.OrdinalIgnoreCase))
+        {
+            const string reason = "Hay otro Installer Hub relacionado de la misma versión. Para proteger el MSI y los datos existentes, no se aplicaron cambios; cierra esta ventana y usa el bundle ya instalado para reparar, o espera una versión superior para actualizar.";
+            SetStageState(StagePlanning, InstallerStageStatus.Error, "Actualización detenida por conflicto de versión.", reason);
+            failureDisplay = BuildFailureDisplay("Actualización detenida por conflicto de versión", null, null, null, sessionLogPath, reason);
+            FinalizeFailure("accion_producto", 30, reason);
+            return;
+        }
+
         applySawPackageFailure = false;
+        relatedBundleCleanupFailed = false;
         lastFailedPackageStatus = null;
         lastFailedPackageId = null;
         applyInFlight = true;
@@ -190,7 +221,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         if (!string.Equals(args.PackageId, "EvaluaProMsi", StringComparison.OrdinalIgnoreCase) && (args.PackageId?.StartsWith("{") == true))
         {
-            // Limpieza de bundle previo / RelatedBundle antiguo cuyo cache temporal ya no existe (no fatal para el nuevo MSI)
+            relatedBundleCleanupFailed = true;
+            lastFailedPackageId ??= args.PackageId;
+            lastFailedPackageStatus ??= args.Status;
             Log("warn", $"ExecutePackageComplete RelatedBundle package={args.PackageId} status={args.Status} ({FormatWindowsStatus(args.Status)})");
             return;
         }
@@ -239,6 +272,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             return;
         }
 
+        if (relatedBundleCleanupFailed)
+        {
+            const string reason = "La limpieza de un Installer Hub anterior falló. No se declara éxito; verifica el estado de la instalación y conserva los logs para recuperación.";
+            SetStageState(StageFinalize, InstallerStageStatus.Error, "No se completó la limpieza del bundle anterior.", reason);
+            FinalizeFailure("accion_producto", 30, reason);
+            return;
+        }
+
         // Marcar que el MSI fue instalado exitosamente por este Apply.
         // Capturar el ProductCode desde el registro ARP para poder desinstalarlo
         // limpiamente si el post-install falla (evitar residuos en Windows).
@@ -271,7 +312,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             throw new InvalidOperationException("Windows no proporcionó LocalApplicationData para el handoff privado del helper.");
         }
-        requestRoot = Path.Combine(localAppData, "EvaluaPro", "installer-hub", "requests", sessionId);
+        // Keep Burn/helper handoff outside the MSI-owned application directory. During
+        // a major upgrade the MSI may remove files below LocalAppData\EvaluaPro
+        // before post-install starts; putting this request there makes the operation
+        // delete its own input and can trigger a destructive failure cleanup.
+        requestRoot = Path.Combine(localAppData, "EvaluaProInstaller", "installer-hub", "requests", sessionId);
         CreatePrivateHandoffDirectory(requestRoot);
         sessionLogPath = Path.Combine(sessionRoot, "burn-bootstrapper.log");
     }
@@ -791,11 +836,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 payload.Flavor?.InstallFolderName ?? payload.Flavor?.ProductName ?? "EvaluaPro");
         }
 
-        var manifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
-        var hasInstalledFiles = File.Exists(manifestPath)
-            || File.Exists(Path.Combine(installDir, "EvaluaPro.exe"))
-            || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
-        var isGenuinelyInstalled = msiInstalled || hasInstalledFiles;
+        var isGenuinelyInstalled = msiInstalled || HasInstalledPayloadFiles(installDir);
 
         return NormalizeMode(command?.Action switch
         {
@@ -803,6 +844,13 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
             _ => isGenuinelyInstalled ? "repair" : payload.RecommendedMode
         });
+    }
+
+    private static bool HasInstalledPayloadFiles(string installDir)
+    {
+        return File.Exists(Path.Combine(installDir, "logs", "installation.manifest.json"))
+            || File.Exists(Path.Combine(installDir, "EvaluaPro.exe"))
+            || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
     }
 
     private BootstrapperRequest BuildHeadlessRequest(DetectionPayload payload)
@@ -851,11 +899,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         // Validar si la instalación previa está genuinamente completa
-        var headlessManifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
-        var hasHeadlessInstalledFiles = File.Exists(headlessManifestPath)
-            || File.Exists(Path.Combine(installDir, "EvaluaPro.exe"))
-            || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
-        var isGenuinelyInstalledHeadless = msiInstalled || hasHeadlessInstalledFiles;
+        var isGenuinelyInstalledHeadless = msiInstalled || HasInstalledPayloadFiles(installDir);
 
         return new BootstrapperRequest
         {
@@ -917,6 +961,18 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         startRequested = true;
         currentRequest = request;
         currentOperation = normalizedOperation;
+        installationExistedBeforeOperation = msiInstalled || HasInstalledPayloadFiles(request.InstallDir);
+
+        handoffOverlapsInstallDirectory = HandoffOverlapsInstallDirectory(requestRoot, request.InstallDir);
+        if (handoffOverlapsInstallDirectory)
+        {
+            FinalizeFailure(
+                "handoff",
+                11,
+                "El directorio privado de solicitudes del instalador se superpone con la carpeta de instalación. " +
+                "Cambia la carpeta de destino para que una actualización no elimine el handoff del helper.");
+            return;
+        }
 
         SetStageState(StagePlanning, InstallerStageStatus.Running, "Planificando la transacción del bundle.", "Preparando variables MSI y acción solicitada.");
         UpdateUiState(statusText: $"Planificando {GetOperationNoun()}...", progress: 0, busy: true);
@@ -945,6 +1001,26 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         };
 
         engineHandle.Plan(action, BundleScope.Default);
+    }
+
+    private static bool HandoffOverlapsInstallDirectory(string handoffDirectory, string installDirectory)
+    {
+        var handoff = Path.GetFullPath(handoffDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var install = Path.GetFullPath(installDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return IsSameOrDescendantPath(handoff, install) || IsSameOrDescendantPath(install, handoff);
+    }
+
+    private static bool IsSameOrDescendantPath(string candidate, string parent)
+    {
+        if (string.Equals(candidate, parent, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var parentPrefix = parent + Path.DirectorySeparatorChar;
+        var alternateParentPrefix = parent + Path.AltDirectorySeparatorChar;
+        return candidate.StartsWith(parentPrefix, StringComparison.OrdinalIgnoreCase)
+            || candidate.StartsWith(alternateParentPrefix, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task SimulateUiQaProductActionAsync()
@@ -1772,11 +1848,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 payload.Flavor?.InstallFolderName ?? payload.Flavor?.ProductName ?? "EvaluaPro");
         }
 
-        var manifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
-        var hasInstalledFiles = File.Exists(manifestPath)
-            || File.Exists(Path.Combine(installDir, "EvaluaPro.exe"))
-            || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
-        var isGenuinelyInstalled = msiInstalled || hasInstalledFiles;
+        var isGenuinelyInstalled = msiInstalled || HasInstalledPayloadFiles(installDir);
 
         if (payload.Installation is null)
         {
@@ -2236,6 +2308,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
     private void RollbackFailureResidues()
     {
+        if (installationExistedBeforeOperation || handoffOverlapsInstallDirectory)
+        {
+            Log("warn", handoffOverlapsInstallDirectory
+                ? "Rollback destructivo omitido: la carpeta destino se superpone con el handoff privado. Se conserva toda la evidencia para recuperación controlada."
+                : "Rollback destructivo omitido: ya existía una instalación antes de esta operación. Se conserva el payload disponible y los datos para reparación o recuperación controlada.");
+            return;
+        }
+
         // --- 1. Desinstalar el MSI si fue instalado en esta sesión y el post-install falló ---
         // Cuando el Apply termina OK pero el helper post-install falla, el MSI queda registrado
         // en ARP de Windows. Lo desinstalamos silenciosamente para no dejar residuos.

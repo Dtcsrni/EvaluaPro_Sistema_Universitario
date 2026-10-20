@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -103,8 +104,9 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        var renderTier = ConfigureHardwareRendering();
         InitializeComponent();
-        ConfigureHardwareRendering();
+        AppendLog($"[info] WPF DirectX render tier={renderTier}; modo solicitado=SoftwareOnly para evitar superficies de ventana vacías en el Installer Hub.");
         ModeComboBox.SelectedIndex = 0;
         SetHubVersionLabel();
         RefreshOperationalChrome();
@@ -114,11 +116,11 @@ public partial class MainWindow : Window
         StartSplashCarousel();
     }
 
-    private void ConfigureHardwareRendering()
+    private static int ConfigureHardwareRendering()
     {
-        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.Default;
         var tier = System.Windows.Media.RenderCapability.Tier >> 16;
-        AppendLog($"[info] WPF DirectX render tier={tier}; GPU/DWM activo={tier > 0}.");
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+        return tier;
     }
 
     private void ApplyNativeBackdrop()
@@ -720,8 +722,13 @@ public partial class MainWindow : Window
         }
 
         FailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
-        FailureSummaryTitleTextBlock.Text = workflow.FailureTitle;
+        FailureSummaryTitleTextBlock.Content = workflow.FailureTitle;
+        AutomationProperties.SetName(FailureSummaryTitleTextBlock, workflow.FailureTitle);
         FailureSummaryTextBlock.Text = workflow.FailureText;
+        ResultFailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
+        ResultFailureTitleTextBlock.Text = workflow.FailureTitle;
+        AutomationProperties.SetName(ResultFailureTitleTextBlock, workflow.FailureTitle);
+        ResultFailureTextBlock.Text = workflow.FailureText;
         if (workflow.ShowFailureSummary)
         {
             LogExpander.IsExpanded = true;
@@ -1305,6 +1312,7 @@ public partial class MainWindow : Window
             ? informationalVersion 
             : (version is null ? "vDesconocida" : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}");
         HubVersionTextBlock.Text = versionText;
+        EditionVersionTextBlock.Text = $"EvaluaPro Docente Local ({versionText})";
         BrandVersionBadgeTextBlock.Text = $"{versionText} · Burn + MSI + helper";
     }
 
