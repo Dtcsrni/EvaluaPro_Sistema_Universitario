@@ -1,30 +1,30 @@
 # Evidencia Windows — EvaluaPro 1.2.8
 
-Fecha de validación: 2026-10-18
-Versión: 1.2.8
-SHA candidato: 21ef1ef414a765cfff83851a841686812b4cd795
+Fecha de validación: 2026-10-20  
+Versión: 1.2.8  
+SHA candidato: `84a89c0df5e7ae542dba11ff45e55ea3c7c40638`
 
 ## CI Installer Windows
 
-- Workflow CI Installer Windows #714 (run ID 39113401895), rama `main`, SHA candidato exacto, resultado `success`.
-- Build MSI/Bundle, footprint, manifiesto/hash, antivirus y smoke GUI del bundle Burn: aprobados.
-- E2E del bundle empaquetado, incluida actualización desde v1.2.3: aprobado.
-- E2E visual de vista y descarga PDF en Microsoft Edge: aprobado.
+- Workflow CI Installer Windows #741 (run ID 39382108606), rama `main`, SHA candidato exacto: `success`.
+- Build MSI/Bundle, contrato Installer Hub, footprint, manifiesto/hash y antivirus: aprobados.
+- E2E completa sobre el bundle docente candidato: aprobada.
+- Baseline oficial v1.2.3 y E2E de actualización: aprobados.
+- E2E visual de vista/descarga PDF en Microsoft Edge: aprobada.
 - Artefactos:
-  - `installer-windows` ID 12131808550, digest ZIP SHA-256 `50fd7251a9fee4ca8e265f916006cfb59a2a34c0de84e5405493f09e7de1b2f5`.
-  - `installer-windows-internal` ID 12131549321, digest ZIP SHA-256 `007dfdcc996cc3550e57f3a530594f037dcfde8cadd9be10aa422ca9e3661d5a`.
-  - `installer-hub-e2e-39113401895` ID 12131808530, digest ZIP SHA-256 `76e657402fcbafeca739f0450e8c6721f7a353137b468e0435ed4fa43caded3d`.
+  - `installer-windows` ID 12246976717, 272084140 bytes, digest ZIP SHA-256 `785f89b8464f2097f1a1fbc67a9f870a7e52a7e48be2f865b57856b8c350d404`.
+  - `installer-windows-internal` ID 12246584697, digest ZIP SHA-256 `62140fbadb088ec75a0f3dd51cf6eab1e4ae501f6b520ede9b9bc93d7ef13b83`.
+  - `installer-hub-e2e-39382108606` ID 12246594648, digest ZIP SHA-256 `260d3a1bbe12977150071eff29828d5568f3ffac122a1b885266fd66edb8d90a`.
 
-## CI completa y UX/UI
+## CI y UX/UI
 
-- CI Checks #1502 (run ID 39144073253), corrida full sobre el SHA candidato: `success`.
-- CI Checks #1503 (run ID 39155029767), corrida full consecutiva sobre el mismo SHA: `success`.
-- Ambas corridas aprobaron cobertura backend/portal, auditoría Classroom, OMR canónico, PDF/impresión, E2E de ciclo y gates visuales UX/UI.
-- Las suites responsive de GUI docente, alumno y administración aprobaron en ambas corridas.
-- Artefactos UX/UI:
-  - #1502: `e2e-visual-39144073253` ID 12145840381, digest ZIP SHA-256 `0089c02b711f9e83f13148762dbe292af79fae0f57911c36916c3f89fde1f4fb`.
-  - #1503: `e2e-visual-39155029767` ID 12148588273, digest ZIP SHA-256 `c9043ed993874d3d45b64d022c8cd7de9ebe8a463c419e341a7125d2f4d9308a`.
+- CI Checks #1527 (run ID 39381668637), sobre el SHA candidato: `success`; etapa UX visual y publicación de evidencia: aprobadas.
+- Coverage backend/frontend se omitió por el mapa de impacto y no se considera ejecutado.
+- Security CodeQL #894 (run ID 39381668632): `success`.
+- CI Antivirus Gate #350 (run ID 39381668664): `success`.
+- Evidencia UX/UI: `e2e-visual-39381668637` ID 12246991944, digest ZIP SHA-256 `30842f3dd220b8b7e1b4bc1bd5590f688955182bf2e00726c00321ac025e9038`.
 
-## Alcance
+## Alcance pendiente
 
-La evidencia acredita los gates automatizados y el E2E del instalador Windows. No acredita un flujo humano docente en producción externa ni una instalación manual en el equipo local; esos pasos no se ejecutaron en esta validación.
+La evidencia acredita los gates automatizados indicados y el E2E del instalador Windows. No acredita un flujo humano docente en producción externa ni instalación manual en el equipo local. La promoción estable requiere completar Release Stable Gate y verificar el asset público.
+

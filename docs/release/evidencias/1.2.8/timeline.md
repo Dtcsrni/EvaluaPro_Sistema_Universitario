@@ -1,26 +1,28 @@
 # Timeline Gate Estable 1.2.8
 
-- SHA candidato: `21ef1ef414a765cfff83851a841686812b4cd795`
+- SHA candidato: `84a89c0df5e7ae542dba11ff45e55ea3c7c40638`
 - Rama evaluada: `main`
-- Fecha: 2026-10-18
-- Resultado: CI full consecutiva, UX/UI visual y E2E Installer Windows aprobados. El flujo humano externo y la instalación manual local no forman parte de esta evidencia automatizada.
+- Fecha: 2026-10-20
+- Resultado: CI Checks, seguridad, antivirus y E2E Windows/UX visual aprobaron sobre el mismo SHA. Falta ejecutar Release Stable Gate para promover y publicar.
 
 ## Pasos
 
-1. [OK] CI Checks full #1502 (run 39144073253) en el SHA candidato exacto.
-2. [OK] CI Checks full #1503 (run 39155029767), consecutiva, sobre el mismo SHA.
-3. [OK] Cobertura backend/portal y auditoría Classroom en ambas corridas.
-4. [OK] Gate OMR canónico en ambas corridas.
-5. [OK] PDF/impresión y E2E de ciclo completo en ambas corridas.
-6. [OK] E2E visual UX/UI y recorridos responsive de docente, alumno y administración en ambas corridas.
-7. [OK] Build MSI/Bundle, footprint, manifiesto/hash y antivirus en CI Installer Windows #714 (run 39113401895).
-8. [OK] Smoke GUI del bundle Burn en Installer Windows #714.
-9. [OK] E2E de actualización desde v1.2.3 en Installer Windows #714.
-10. [OK] E2E visual de vista/descarga PDF en Microsoft Edge.
-11. [OK] Artefacto `installer-windows` ID 12131808550; digest ZIP SHA-256 `50fd7251a9fee4ca8e265f916006cfb59a2a34c0de84e5405493f09e7de1b2f5`.
-12. [NO EJECUTADO] Flujo docente humano con producción externa; la política de Stable Gate lo define como opcional y no se usaron datos reales.
-13. [NO EJECUTADO] Instalación manual en el equipo local; la evidencia disponible es CI E2E de actualización, no una instalación física local.
+1. [OK] CI Checks #1527 (run 39381668637), main y SHA candidato exacto; Core, verificaciones extendidas y ux-visual-check concluyeron success.
+2. [OK] Backend tests, auditoría Classroom, lint/typecheck frontend, WCAG, UX quality, build, arquitectura y seguridad concluyeron success.
+3. [OMITIDO POR IMPACTO] Coverage backend/frontend no se ejecutó en esta corrida; no se contabiliza como aprobado.
+4. [OK] Security CodeQL #894 (run 39381668632) sobre el mismo SHA.
+5. [OK] CI Antivirus Gate #350 (run 39381668664) sobre el mismo SHA.
+6. [OK] E2E UX/UI visual y publicación de evidencia en CI Checks #1527; artefacto e2e-visual-39381668637 ID 12246991944.
+7. [OK] Build MSI/Bundle, contratos del Hub, footprint, manifiesto/hash y antivirus en CI Installer Windows #741 (run 39382108606).
+8. [OK] E2E completa de GUI sobre el bundle docente candidato en CI Installer Windows #741.
+9. [OK] E2E de actualización desde baseline oficial v1.2.3 en CI Installer Windows #741.
+10. [OK] E2E visual de vista y descarga PDF en Microsoft Edge en CI Installer Windows #741.
+11. [OK] Artefacto installer-windows ID 12246976717; 272084140 bytes; digest ZIP SHA-256 `785f89b8464f2097f1a1fbc67a9f870a7e52a7e48be2f865b57856b8c350d404`.
+12. [NO EJECUTADO] Flujo docente humano con producción externa; no se usaron credenciales ni datos reales.
+13. [NO EJECUTADO] Instalación manual en el equipo local; se ejecutó E2E aislado en CI.
+14. [PENDIENTE] Release Stable Gate, promoción del release v1.2.8, E2E del asset draft y validación del asset público.
 
 ## Resultado
 
-El SHA candidato `21ef1ef414a765cfff83851a841686812b4cd795` superó dos corridas full consecutivas y el E2E completo del instalador Windows. La cobertura backend local también pasó: 60 lotes, 0 fallos, sobre un árbol Git idéntico al candidato (`f4e172c6d788845ac59164642082abebd5e7490c`). Los gates automatizados no acreditan uso con datos reales ni una instalación manual local.
+El candidato `84a89c0df5e7ae542dba11ff45e55ea3c7c40638` superó CI Checks, CodeQL, antivirus y el E2E del bundle Windows, incluido UX/UI y PDF en Edge. La corrida de CI omitió coverage por impacto. Aún no es una release estable: falta el Stable Gate, que volverá a ejecutar QA y validará la promoción y el asset público.
+
