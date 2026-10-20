@@ -6,8 +6,14 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacion.js';
+
+function rutaReporteCalificacionGlobalQa() {
+  const raizRepositorio = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+  return path.join(raizRepositorio, 'reports', 'qa', 'latest', 'global-grade.json');
+}
 
 function numeroSeguro(texto: unknown) {
   const n = Number(String(texto ?? '0'));
@@ -46,6 +52,14 @@ async function escribirReporteQa(ruta: string, contenido: string) {
 }
 
 describe('calificacion global (reglas)', () => {
+  it('escribe el reporte QA global en el directorio canónico del repositorio', () => {
+    const ruta = rutaReporteCalificacionGlobalQa();
+    const raizRepositorio = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+    expect(ruta).toBe(path.join(raizRepositorio, 'reports', 'qa', 'latest', 'global-grade.json'));
+    expect(ruta).not.toContain(path.join('apps', 'backend', 'reports'));
+  });
+
   it('respeta topes y consistencia para valores tipicos', () => {
     const resultado = calcularCalificacion(20, 20, 0.5, 5, 5, 'global');
     expect(resultado.calificacionFinalTexto).toBe('5');
@@ -78,7 +92,7 @@ describe('calificacion global (reglas)', () => {
       estado: 'ok',
       totalMuestras: muestras.length
     };
-    const out = path.resolve(process.cwd(), 'reports/qa/latest/global-grade.json');
+    const out = rutaReporteCalificacionGlobalQa();
     await fs.mkdir(path.dirname(out), { recursive: true });
     await escribirReporteQa(out, `${JSON.stringify(reporte, null, 2)}\n`);
   });
