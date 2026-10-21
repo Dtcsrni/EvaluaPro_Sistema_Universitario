@@ -877,8 +877,9 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   assert.match(installerBuild, /needs\.detectar_cambios\.outputs\.run_installer == 'true'/);
   assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
   assert.match(installerGate, /if: always\(\)/);
-  assert.match(installerGate, /needs: \[detectar_cambios, installer_windows_build\]/);
+  assert.match(installerGate, /needs: \[detectar_cambios, installer_windows_build, reuse_installer_candidate\]/);
   assert.match(installerGate, /BUILD_RESULT: \$\{\{ needs\.installer_windows_build\.result \}\}/);
+  assert.match(installerGate, /REUSE_RESULT: \$\{\{ needs\.reuse_installer_candidate\.result \}\}/);
   assert.match(installerGate, /Sin cambios de payload: build MSI\/Bundle omitido/);
 
   const docsOnly = evaluateAffectedChangeSet(affectedMap, ['docs/README.md']);
