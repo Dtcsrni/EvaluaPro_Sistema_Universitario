@@ -253,7 +253,16 @@ jobs:
           response_dir="$(mktemp -d)"
           trap 'rm -rf "$response_dir"' EXIT
           gh api --include "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" >"$response_dir/release.txt" 2>/dev/null || true
-          gh api --include "repos/$GITHUB_REPOSITORY/commits/$TAG" >"$response_dir/tag.txt" 2>/dev/null || true
+          gh api --include "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >"$response_dir/tag-ref.txt" 2>/dev/null || true
+          if grep -qE '^HTTP/[0-9.]+ 2[0-9]{2} ' "$response_dir/tag-ref.txt"; then
+            gh api --include "repos/$GITHUB_REPOSITORY/commits/$TAG" >"$response_dir/tag.txt" 2>/dev/null || true
+            if ! grep -qE '^HTTP/[0-9.]+ 2[0-9]{2} ' "$response_dir/tag.txt"; then
+              echo 'La tag estable existe, pero no se pudo resolver a un commit.' >&2
+              exit 1
+            fi
+          else
+            cp "$response_dir/tag-ref.txt" "$response_dir/tag.txt"
+          fi
           node scripts/release/validate-existing-stable-draft.mjs \
             "--release-response=$response_dir/release.txt" \
             "--tag-response=$response_dir/tag.txt" \
