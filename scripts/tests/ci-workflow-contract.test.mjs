@@ -350,6 +350,19 @@ test('E2E del release draft delimita variable PowerShell seguida de dos puntos',
   assert.match(draftAssetBlock, /\$release\.tag_name -ne \$tag -or -not \$release\.draft/);
   assert.doesNotMatch(draftAssetBlock, /releases\?per_page=/);
   assert.match(draftAssetBlock, /\$\{candidateName\}:/);
+  assert.match(draftAssetJob, /Verificar assets candidato y fijar target del borrador/);
+  const releaseBuildJob = workflow.match(/publish_installer_release:[\s\S]*?(?=\n  [a-z][a-z0-9_]+:|$)/)?.[0] ?? '';
+  const uploadIndex = releaseBuildJob.indexOf('uses: softprops/action-gh-release');
+  const retargetIndex = releaseBuildJob.indexOf('gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"');
+  assert.ok(uploadIndex >= 0 && retargetIndex > uploadIndex, 'el target solo se fija después de subir los assets candidatos');
+  const retargetBlock = releaseBuildJob.slice(retargetIndex - 5000, retargetIndex + 1800);
+  assert.match(retargetBlock, /published_at == null/);
+  assert.match(retargetBlock, /prerelease == false/);
+  assert.match(retargetBlock, /git\/ref\/tags\/\$RELEASE_TAG/);
+  assert.match(retargetBlock, /check_asset\s+.*exe_hash/);
+  assert.match(retargetBlock, /check_asset\s+.*manifest_hash/);
+  assert.match(retargetBlock, /target_commitish=\$\{SOURCE_SHA,,\}/);
+  assert.match(retargetBlock, /reconsultarlo/);
   assert.doesNotMatch(draftAssetBlock, /\$candidateName:/);
 });
 
