@@ -23,7 +23,7 @@ function ghResponse(status, payload) {
 
 function stableDraftDecision({ release, tagSha, sourceSha = CANDIDATE_SHA, tag = 'v1.2.8' }) {
   return validateExistingStableDraft({
-    releaseResponse: ghResponse(release === null ? 404 : 200, release),
+    releaseResponse: ghResponse(release === null ? 404 : 200, release === null ? null : { prerelease: false, published_at: null, ...release }),
     tagResponse: ghResponse(tagSha === null ? 404 : 200, tagSha === null ? null : { sha: tagSha }),
     expectedTag: tag,
     sourceSha
@@ -49,10 +49,22 @@ test('guard estable rechaza releases publicados, tags y SHA discrepantes', () =>
     { release: { tag_name: 'v1.2.8', draft: false, target_commitish: CANDIDATE_SHA }, tagSha: null },
     { release: { tag_name: 'v1.2.7', draft: true, target_commitish: CANDIDATE_SHA }, tagSha: null },
     { release: { tag_name: 'v1.2.8', draft: true, target_commitish: CANDIDATE_SHA }, tagSha: OTHER_SHA },
-    { release: { tag_name: 'v1.2.8', draft: true, target_commitish: OTHER_SHA }, tagSha: null },
+    { release: { tag_name: 'v1.2.8', draft: true, target_commitish: CANDIDATE_SHA, prerelease: true }, tagSha: null },
+    { release: { tag_name: 'v1.2.8', draft: true, target_commitish: CANDIDATE_SHA, published_at: '2026-10-20T00:00:00Z' }, tagSha: null },
     { release: null, tagSha: OTHER_SHA }
   ];
   for (const input of cases) assert.throws(() => stableDraftDecision(input));
+});
+
+test('guard estable habilita recuperar solo el target de un borrador estable sin tag', () => {
+  assert.deepEqual(stableDraftDecision({
+    release: { tag_name: 'v1.2.8', draft: true, target_commitish: OTHER_SHA },
+    tagSha: null
+  }), {
+    action: 'retarget-draft-after-asset-validation',
+    from: OTHER_SHA,
+    sha: CANDIDATE_SHA
+  });
 });
 
 test('guard estable permite crear cuando release y tag no existen y falla cerrado ante errores API', () => {
