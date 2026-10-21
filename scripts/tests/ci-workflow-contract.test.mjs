@@ -822,9 +822,12 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   const rollbackIndex = installer.indexOf('redraft_failed_public_installer_release:');
   const publicE2e = installer.slice(publicE2eIndex, rollbackIndex);
   const rollback = installer.slice(rollbackIndex);
+  const finalize = installer.slice(finalizeIndex, publicE2eIndex);
 
   assert.ok(finalizeIndex >= 0, 'debe existir el job que hace público el release');
   assert.ok(publicE2eIndex > finalizeIndex, 'la E2E debe correr despues de que el release sea público');
+  assert.match(finalize, /if:\s*\$\{\{\s*always\(\)\s*&&\s*!cancelled\(\)[\s\S]*needs\.publish_installer_release\.result == 'success'[\s\S]*needs\.post_publish_installer_e2e\.result == 'success'/, 'la promoción debe ejecutarse al reutilizar el candidato, solo tras publicar y validar el draft');
+  assert.match(publicE2e, /if:\s*\$\{\{\s*always\(\)\s*&&\s*!cancelled\(\)[\s\S]*needs\.finalize_installer_release\.result == 'success'[\s\S]*needs\.post_publish_installer_e2e\.result == 'success'/, 'la E2E pública debe ejecutarse tras promoción exitosa aun con build omitido');
   assert.match(publicE2e, /needs:\s*\[?finalize_installer_release/);
   assert.match(publicE2e, /contents:\s*read/);
   assert.match(publicE2e, /\.browser_download_url/);

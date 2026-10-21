@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.34.0
+version: 1.35.0
 fecha: 2026-10-21
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -126,6 +126,7 @@ El último run del borrador falló antes de instalar: el checkout de la tag no c
 | REQ-026 | Generar, validar e importar el fixture prodlike en ruta temporal ignorada sin mutar el fixture canónico; fallar cerrado ante errores | `scripts/tests/prodlike-dataset-ci.test.mjs` | Regresión 4/4 y `qa:full` local aprobados; CI del SHA final pendiente |
 | REQ-027 | Reutilizar solo el borrador vinculado exactamente al SHA candidato; confirmar existencia del tag antes de resolverlo y bloquear errores o discrepancias sin mutar releases | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Corrección y regresión pendientes de validación local y CI remoto |
 | REQ-028 | Descargar y validar el manifiesto del release antes del runner de asset E2E | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Regresión local 25/25 aprobada; CI remoto pendiente |
+| REQ-032 | Promoción y verificación pública continúan con candidato reutilizado y build omitido; ambos validan explícitamente dependencias exitosas | `scripts/tests/ci-workflow-contract.test.mjs` | Regresión local aprobada; CI afectado pendiente |
 
 ## Fichas consolidadas
 
@@ -228,3 +229,21 @@ El run 39609025958 reutilizó correctamente el bundle del run 39569392976: SHA f
 La condición del job de E2E del draft usará `always()` junto con `!cancelled()` y validará explícitamente que el gate de instalador, la publicación del draft y una de las dos rutas de artefacto (reutilización aprobada o build) hayan concluido con éxito. Así, un build omitido solo se acepta cuando la reutilización aprobada tuvo éxito; los fallos y cancelaciones siguen bloqueando la promoción. El job descargará y verificará manifiesto, sidecar, digest y tamaño del asset. La E2E de instalación solo se omite si el digest descargado coincide exactamente con el candidato previamente probado; la verificación del asset público conserva la misma regla.
 
 Se agregan aserciones al contrato de workflow para fijar el comportamiento ante build omitido. La validación local ejecutará el contrato afectado y la comprobación YAML; CI ejecutará gates de control y seguridad. No se reconstruye ni se repite la E2E de producto porque el bundle candidato permanece idéntico y ya cuenta con evidencia exitosa.
+
+
+## Enmienda aprobada v1.35.0 — completar promoción con build omitido
+
+### Hallazgo y causa
+
+El run #801 sobre `main` reutilizó el bundle aprobado del run #39569392976 y verificó en el borrador `v1.2.8` los cuatro assets; el EXE descargado coincidió con el SHA-256 `af79ee7d98359759dd641aca3f5948933c731989af9e4164ffe2b058852a11f2`. La prueba del producto se omitió de forma correcta porque el digest era idéntico al binario cuya instalación ya pasó E2E. Sin embargo, aunque el job de comprobación del draft terminó sus pasos, los jobs de promoción y E2E pública quedaron `skipped`: su condición conservaba el `success()` implícito y la cadena incluía el build omitido intencionalmente.
+
+### Requisitos
+
+- **REQ-032 — Promoción del candidato reutilizado:** El job de promoción del release debe ejecutar la condición de workflow_dispatch/tag pese a dependencias omitidas en la cadena, usando `always()` y `!cancelled()`; solo continúa si la publicación del draft y la validación del asset draft concluyeron `success`.
+- La E2E pública también debe ignorar el `skipped` ancestral del build y continuar solo si la promoción y la verificación del draft concluyeron `success`. La ruta de producto sigue omitiéndose únicamente por coincidencia exacta del SHA-256 con evidencia previa válida.
+
+### Criterios de aceptación
+
+- **CA-034:** La regresión de contrato rechaza las condiciones implícitas en los jobs de promoción y E2E pública; exige `always()`, `!cancelled()` y resultados explícitos exitosos de sus dependencias requeridas. Las condiciones siguen limitadas a tag estable o workflow_dispatch con release_tag.
+- **CA-035:** La validación local enfocada falla contra el workflow anterior y pasa con las condiciones corregidas. El CI de control prueba las dos condiciones; el flujo de release debe finalizar el draft y comprobar su URL pública. No reconstruye ni reinstala el binario cuando su SHA-256 es el mismo.
+
