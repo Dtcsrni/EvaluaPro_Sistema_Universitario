@@ -338,6 +338,40 @@ test('release stable gate expone GH_TOKEN para gh cli', () => {
   assert.match(workflow, /validate-stable-promotion\.mjs/);
 });
 
+test('CI reutiliza evidencia de instalador solo cuando SHA, versión y digest coinciden', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const build = extractJobBlock(workflow, 'installer_windows_build');
+  const reuse = extractJobBlock(workflow, 'reuse_installer_candidate');
+  const gate = extractJobBlock(workflow, 'installer_windows');
+  const publisher = extractJobBlock(workflow, 'publish_installer_release');
+  const draft = extractJobBlock(workflow, 'post_publish_installer_e2e');
+  const publicE2e = extractJobBlock(workflow, 'verify_public_installer_e2e');
+
+  assert.match(workflow, /candidate_run_id:[\s\S]*?required: false/);
+  assert.match(build, /inputs\.candidate_run_id != ''/);
+  assert.match(build, /bundle_sha256: \$\{\{ steps\.candidate_digest\.outputs\.bundle_sha256 \}\}/);
+  assert.match(build, /id: candidate_digest/);
+  assert.match(reuse, /git merge-base --is-ancestor/);
+  assert.match(reuse, /CANDIDATE_RUN_ID/);
+  assert.match(reuse, /\.head_branch == \"main\"/);
+  assert.match(reuse, /E2E completa sobre el bundle docente que se publicará/);
+  assert.match(reuse, /E2E visual de vista y descarga PDF en Edge/);
+  assert.match(reuse, /Publicar evidencia de la E2E completa/);
+  assert.match(reuse, /actions\/download-artifact/);
+  assert.match(reuse, /run-id: \$\{\{ inputs\.candidate_run_id \}\}/);
+  assert.match(reuse, /sidecar no coincide con el bundle reutilizado/);
+  assert.match(gate, /needs\.reuse_installer_candidate\.result/);
+  assert.match(publisher, /needs: \[installer_windows_build, reuse_installer_candidate\]/);
+  assert.match(publisher, /inputs\.candidate_run_id \|\| github\.run_id/);
+  assert.match(draft, /actualHash -eq \$env:CANDIDATE_SHA256/);
+  assert.match(draft, /needs\.reuse_installer_candidate\.outputs\.bundle_sha256 \|\| needs\.installer_windows_build\.outputs\.bundle_sha256/);
+  assert.match(draft, /if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(publicE2e, /actualHash -eq \$env:VERIFIED_DRAFT_SHA256/);
+  assert.match(publicE2e, /if: steps\.public_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(draft, /sha256=\$actualHash/);
+  assert.match(publicE2e, /sha256=\$actualHash/);
+});
+
 test('E2E del release draft delimita variable PowerShell seguida de dos puntos', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const draftAssetBlock = workflow.match(/id: draft_asset[\s\S]*?run:\s*\|([\s\S]*?)(?=\n\s{6}- name:)/)?.[1] ?? '';
@@ -787,7 +821,7 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
 
   assert.ok(finalizeIndex >= 0, 'debe existir el job que hace público el release');
   assert.ok(publicE2eIndex > finalizeIndex, 'la E2E debe correr despues de que el release sea público');
-  assert.match(publicE2e, /needs:\s*finalize_installer_release/);
+  assert.match(publicE2e, /needs:\s*\[?finalize_installer_release/);
   assert.match(publicE2e, /contents:\s*read/);
   assert.match(publicE2e, /\.browser_download_url/);
   assert.match(publicE2e, /releases\/download\/\$tag\/\$candidateName/);
@@ -839,12 +873,20 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   assert.match(detector, /resolve-affected-ci\.mjs --github-output=/);
   assert.match(detector, /group_\(installer\|backend\|frontend\|portal\|shared\)=true/);
   assert.match(detector, /run_installer:.*steps\.resolve\.outputs\.run_installer.*steps\.resolve_non_pr\.outputs\.run_installer/);
+  const nonPrResolver = extractStepBlock(detector, 'Habilitar build fuera de PR');
+  assert.match(nonPrResolver, /PUSH_BEFORE_SHA/);
+  assert.match(nonPrResolver, /PUSH_REF.*refs\/heads\/main|refs\/heads\/main/);
+  assert.match(nonPrResolver, /git diff --name-only "\$PUSH_BEFORE_SHA\.\.\.\$\{GITHUB_SHA\}"/);
+  assert.match(nonPrResolver, /EVIDENCE_PREFIX/);
+  assert.match(nonPrResolver, /run_installer=false/);
+  assert.match(nonPrResolver, /No se pudo clasificar el push; se conserva la validación completa/);
   assert.match(installerBuild, /needs: detectar_cambios/);
   assert.match(installerBuild, /needs\.detectar_cambios\.outputs\.run_installer == 'true'/);
   assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
   assert.match(installerGate, /if: always\(\)/);
-  assert.match(installerGate, /needs: \[detectar_cambios, installer_windows_build\]/);
+  assert.match(installerGate, /needs: \[detectar_cambios, installer_windows_build, reuse_installer_candidate\]/);
   assert.match(installerGate, /BUILD_RESULT: \$\{\{ needs\.installer_windows_build\.result \}\}/);
+  assert.match(installerGate, /REUSE_RESULT: \$\{\{ needs\.reuse_installer_candidate\.result \}\}/);
   assert.match(installerGate, /Sin cambios de payload: build MSI\/Bundle omitido/);
 
   const docsOnly = evaluateAffectedChangeSet(affectedMap, ['docs/README.md']);

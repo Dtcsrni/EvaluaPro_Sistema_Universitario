@@ -12,7 +12,11 @@ on:
         required: true
         type: string
       release_tag:
-        description: "Tag estable; al establecerla se publica solo después de E2E draft y pública"
+        description: "Tag estable; al establecerla se publica solo después de verificar assets"
+        required: false
+        type: string
+      candidate_run_id:
+        description: "Run exitoso del mismo SHA con bundle y E2E completos para reutilizar por digest"
         required: false
         type: string
 
@@ -80,12 +84,58 @@ jobs:
       - name: Habilitar build fuera de PR
         id: resolve_non_pr
         if: github.event_name != 'pull_request'
-        run: echo 'run_installer=true' >> "$GITHUB_OUTPUT"
+        env:
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME:-}" == "push" && "$PUSH_REF" == "refs/heads/main" && "$PUSH_BEFORE_SHA" =~ ^[0-9a-fA-F]{40}$ && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            if ! CHANGED_PATHS_OUTPUT="$(git diff --name-only "$PUSH_BEFORE_SHA...${GITHUB_SHA}")"; then
+              echo 'run_installer=true' >> "$GITHUB_OUTPUT"
+              echo 'No se pudo clasificar el push; se conserva la validación completa de Installer Windows.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            if [[ -n "$CHANGED_PATHS_OUTPUT" ]]; then
+              mapfile -t CHANGED_PATHS <<< "$CHANGED_PATHS_OUTPUT"
+              VERSION="$(node -p "require('./package.json').version")"
+              EVIDENCE_PREFIX="docs/release/evidencias/$VERSION/"
+              RELEASE_CONTROL_PATHS=(
+                '.github/workflows/ci-installer-windows.yml'
+                '.github/workflows/release-stable-gate.yml'
+                'scripts/tests/ci-workflow-contract.test.mjs'
+                'scripts/tests/installer-upgrade-e2e-contract.test.mjs'
+                'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
+              )
+              RELEASE_CONTROL_ONLY=true
+              for changed_path in "${CHANGED_PATHS[@]}"; do
+                allowed=false
+                if [[ "$changed_path" == "$EVIDENCE_PREFIX"* ]]; then
+                  allowed=true
+                else
+                  for allowed_path in "${RELEASE_CONTROL_PATHS[@]}"; do
+                    [[ "$changed_path" == "$allowed_path" ]] && allowed=true && break
+                  done
+                fi
+                if [[ "$allowed" != true ]]; then
+                  RELEASE_CONTROL_ONLY=false
+                  break
+                fi
+              done
+              if [[ "$RELEASE_CONTROL_ONLY" == true ]]; then
+                echo 'run_installer=false' >> "$GITHUB_OUTPUT"
+                echo 'Push de main limitado a controles/evidencia de release; se omiten build y E2E de Windows.' >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+            fi
+          fi
+          echo 'run_installer=true' >> "$GITHUB_OUTPUT"
 
   installer_windows_build:
     name: Installer Windows Build (MSI + Bundle)
     needs: detectar_cambios
-    if: github.event_name != 'pull_request' || needs.detectar_cambios.outputs.run_installer == 'true'
+    outputs:
+      bundle_sha256: ${{ steps.candidate_digest.outputs.bundle_sha256 }}
+    if: ${{ (github.event_name != 'pull_request' || needs.detectar_cambios.outputs.run_installer == 'true') && !(github.event_name == 'workflow_dispatch' && inputs.candidate_run_id != '') }}
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
@@ -506,6 +556,16 @@ jobs:
           if (-not (Test-Path "dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi")) { throw "No existe dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi" }
           if (Test-Path "dist/installer/EvaluaPro-docente-local.msi") { throw "MSI tecnico no debe quedar en raiz publica: dist/installer/EvaluaPro-docente-local.msi" }
 
+      - name: Calcular digest del bundle candidato validado
+        id: candidate_digest
+        shell: powershell
+        run: |
+          $bundles = @(Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File)
+          if ($bundles.Count -ne 1) { throw "Se esperaba un bundle docente-local, encontrados: $($bundles.Count)." }
+          $hash = (Get-FileHash -LiteralPath $bundles[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -notmatch '^[0-9a-f]{64}$') { throw 'No se pudo calcular un SHA-256 válido para el bundle.' }
+          "bundle_sha256=$hash" >> $env:GITHUB_OUTPUT
+
       - name: Publicar artefactos instalador
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
@@ -525,11 +585,115 @@ jobs:
           path: |
             dist/installer/_internal/**
 
+  reuse_installer_candidate:
+    name: Reutilizar bundle y E2E verificados
+    needs: detectar_cambios
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_run_id != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      bundle_sha256: ${{ steps.verify_candidate.outputs.bundle_sha256 }}
+    steps:
+      - name: Descargar código para validar el candidato
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validar fuente, allowlist y evidencia E2E previa
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'source_sha debe ser SHA completo.' >&2; exit 1; }
+          [[ "$CANDIDATE_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'candidate_run_id debe ser numérico.' >&2; exit 1; }
+          SOURCE_SHA="$(printf '%s' "$SOURCE_SHA" | tr '[:upper:]' '[:lower:]')"
+          MAIN_SHA="$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$SOURCE_SHA" "$MAIN_SHA" || { echo 'El SHA candidato no es ancestro de main.' >&2; exit 1; }
+          CANDIDATE_VERSION="$(git show "$SOURCE_SHA:package.json" | jq -r '.version')"
+          MAIN_VERSION="$(node -p "require('./package.json').version")"
+          [[ "$CANDIDATE_VERSION" == "$MAIN_VERSION" ]] || { echo 'La versión candidata difiere de main.' >&2; exit 1; }
+          [[ -z "$RELEASE_TAG" || "$RELEASE_TAG" == "v$CANDIDATE_VERSION" ]] || { echo 'release_tag no coincide con la versión candidata.' >&2; exit 1; }
+          EVIDENCE_PREFIX="docs/release/evidencias/$CANDIDATE_VERSION/"
+          ALLOWED_RELEASE_CONTROL_PATHS=(
+            '.github/workflows/ci-installer-windows.yml'
+            '.github/workflows/release-stable-gate.yml'
+            'scripts/tests/ci-workflow-contract.test.mjs'
+            'scripts/tests/installer-upgrade-e2e-contract.test.mjs'
+            'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
+          )
+          while IFS= read -r changed_path; do
+            [[ -z "$changed_path" ]] && continue
+            allowed=false
+            if [[ "$changed_path" == "$EVIDENCE_PREFIX"* ]]; then
+              allowed=true
+            else
+              for allowed_path in "${ALLOWED_RELEASE_CONTROL_PATHS[@]}"; do
+                [[ "$changed_path" == "$allowed_path" ]] && allowed=true && break
+              done
+            fi
+            [[ "$allowed" == true ]] || { echo "Drift no permitido después del candidato: $changed_path" >&2; exit 1; }
+          done < <(git diff --name-only "$SOURCE_SHA..$MAIN_SHA")
+          RUN="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID")"
+          jq -e --arg sha "$SOURCE_SHA" '.name == "CI Installer Windows" and .head_branch == "main" and (.head_sha | ascii_downcase) == $sha' <<<"$RUN" >/dev/null || {
+            echo 'El run de evidencia debe pertenecer a CI Installer Windows en main y al mismo SHA candidato.' >&2; exit 1;
+          }
+          JOBS="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID/jobs?per_page=100")"
+          BUILD_JOB="$(jq -c '[.jobs[] | select(.name == "Installer Windows Build (MSI + Bundle)")] | if length == 1 then .[0] else empty end' <<<"$JOBS")"
+          [[ -n "$BUILD_JOB" ]] || { echo 'No existe un único job de build candidato.' >&2; exit 1; }
+          [[ "$(jq -r '.conclusion' <<<"$BUILD_JOB")" == success ]] || { echo 'El job que contiene build y E2E previas no concluyó success.' >&2; exit 1; }
+          for required_step in 'E2E completa sobre el bundle docente que se publicará' 'E2E visual de vista y descarga PDF en Edge' 'Publicar evidencia de la E2E completa'; do
+            jq -e --arg name "$required_step" '.steps[] | select(.name == $name and .conclusion == "success")' <<<"$BUILD_JOB" >/dev/null || {
+              echo "Falta evidencia E2E exitosa del paso: $required_step" >&2; exit 1;
+            }
+          done
+          echo "Run candidato verificado: $CANDIDATE_RUN_ID ($SOURCE_SHA), con E2E de instalador y PDF aprobadas." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Descargar artefacto del run candidato validado
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: installer-windows
+          path: dist/installer
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Validar manifiesto y digest del candidato reutilizado
+        id: verify_candidate
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_VERSION="$(node -p "require('./package.json').version")"
+          test -s dist/installer/EvaluaPro-release-manifest.json
+          TARGET_VERSION="$TARGET_VERSION" SOURCE_SHA="$SOURCE_SHA" node scripts/release/installer-release-manifest.mjs --manifest=dist/installer/EvaluaPro-release-manifest.json
+          bundle="$(find dist/installer/docente-local -maxdepth 1 -type f -name 'EvaluaPro-InstallerHub-docente-local-v*.exe' -print -quit)"
+          test -n "$bundle"
+          bundle_count="$(find dist/installer/docente-local -maxdepth 1 -type f -name 'EvaluaPro-InstallerHub-docente-local-v*.exe' | wc -l)"
+          [[ "$bundle_count" == 1 ]] || { echo "Se esperaba un solo bundle; encontrados: $bundle_count" >&2; exit 1; }
+          test -s "$bundle.sha256"
+          test -s dist/installer/antivirus-scan-report.txt
+          jq -e '.flavors | length == 1 and .[0].flavorId == "docente-local"' dist/installer/EvaluaPro-release-manifest.json >/dev/null || { echo 'El manifiesto no describe un único flavor docente-local.' >&2; exit 1; }
+          bundle_sha256="$(sha256sum "$bundle" | awk '{print tolower($1)}')"
+          sidecar_sha256="$(awk 'NR == 1 {print tolower($1)}' "$bundle.sha256")"
+          [[ "$sidecar_sha256" =~ ^[0-9a-f]{64}$ && "$sidecar_sha256" == "$bundle_sha256" ]] || { echo 'El sidecar no coincide con el bundle reutilizado.' >&2; exit 1; }
+          echo "bundle_sha256=$bundle_sha256" >> "$GITHUB_OUTPUT"
+          echo "Bundle reutilizado con digest verificado: $bundle_sha256" >> "$GITHUB_STEP_SUMMARY"
+
   installer_windows:
     name: Installer Windows (MSI + Bundle)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [detectar_cambios, installer_windows_build]
+    needs: [detectar_cambios, installer_windows_build, reuse_installer_candidate]
     if: always()
     steps:
       - name: Validar resultado del build o aceptar PR sin payload afectado
@@ -538,11 +702,16 @@ jobs:
           DETECTOR_RESULT: ${{ needs.detectar_cambios.result }}
           RUN_INSTALLER: ${{ needs.detectar_cambios.outputs.run_installer }}
           BUILD_RESULT: ${{ needs.installer_windows_build.result }}
+          REUSE_RESULT: ${{ needs.reuse_installer_candidate.result }}
         run: |
           set -euo pipefail
           if [[ "$DETECTOR_RESULT" != "success" ]]; then
             echo "No se pudo determinar si el payload del instalador cambió." >&2
             exit 1
+          fi
+          if [[ "$REUSE_RESULT" == "success" ]]; then
+            echo "Bundle reutilizado desde un run previamente validado por SHA y digest."
+            exit 0
           fi
           if [[ "$RUN_INSTALLER" != "true" ]]; then
             echo "Sin cambios de payload: build MSI/Bundle omitido."
@@ -560,11 +729,12 @@ jobs:
 
   publish_installer_release:
     name: Publicar release del instalador
-    needs: installer_windows_build
-    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
+    needs: [installer_windows_build, reuse_installer_candidate]
+    if: ${{ always() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && (needs.installer_windows_build.result == 'success' || needs.reuse_installer_candidate.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      actions: read
       contents: write
     outputs:
       release_id: ${{ steps.publish_release.outputs.id }}
@@ -573,7 +743,7 @@ jobs:
       - name: Descargar código para validar el release
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
 
       - name: Descargar artefactos del build validado
@@ -581,6 +751,9 @@ jobs:
         with:
           name: installer-windows
           path: dist/installer
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.candidate_run_id || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Verificar assets de publicación
         shell: bash
@@ -667,7 +840,9 @@ jobs:
 
   post_publish_installer_e2e:
     name: E2E del asset descargado desde el release draft
-    needs: [installer_windows, publish_installer_release]
+    needs: [installer_windows, publish_installer_release, reuse_installer_candidate, installer_windows_build]
+    outputs:
+      draft_sha256: ${{ steps.draft_asset.outputs.sha256 }}
     if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
     runs-on: windows-latest
     timeout-minutes: 180
@@ -729,6 +904,7 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
           RELEASE_ID: ${{ needs.publish_installer_release.outputs.release_id }}
+          CANDIDATE_SHA256: ${{ needs.reuse_installer_candidate.outputs.bundle_sha256 || needs.installer_windows_build.outputs.bundle_sha256 }}
         run: |
           $repository = $env:RELEASE_REPOSITORY
           $tag = $env:RELEASE_TAG
@@ -778,11 +954,19 @@ jobs:
           $apiHash = $digestMatch.Groups[1].Value.ToLowerInvariant()
           if ($sidecarHash -ne $actualHash) { throw 'El SHA-256 del EXE descargado no coincide con el sidecar publicado.' }
           if ($apiHash -ne $actualHash) { throw 'SHA-256 del EXE no coincide con el digest de GitHub.' }
+          $runE2E = 'true'
+          if (-not [string]::IsNullOrWhiteSpace($env:CANDIDATE_SHA256)) {
+            if ($env:CANDIDATE_SHA256 -notmatch '^(?i)[0-9a-f]{64}$') { throw 'El digest candidato no es válido.' }
+            if ($actualHash -eq $env:CANDIDATE_SHA256.ToLowerInvariant()) { $runE2E = 'false' }
+          }
+          "sha256=$actualHash" >> $env:GITHUB_OUTPUT
+          "run_e2e=$runE2E" >> $env:GITHUB_OUTPUT
           "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
           "release_id=$($release.id)" >> $env:GITHUB_OUTPUT
           Write-Host "EXE publicado verificado; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
 
       - name: Descargar y verificar baseline oficial v1.2.3
+        if: steps.draft_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           BASELINE_BUNDLE_NAME: EvaluaPro-InstallerHub-docente-local-v1.2.3.exe
@@ -803,6 +987,7 @@ jobs:
           "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
 
       - name: Compilar fixture Burn para el asset del release draft
+        if: steps.draft_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           CANDIDATE_BUNDLE_PATH: ${{ steps.draft_asset.outputs.candidate_path }}
@@ -812,6 +997,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Preparar ruta privada para evidencia E2E del borrador
+        if: steps.draft_asset.outputs.run_e2e == 'true'
         id: preparar_reporte_e2e
         shell: powershell
         env:
@@ -824,6 +1010,7 @@ jobs:
           "report_dir=$reportDir" >> $env:GITHUB_OUTPUT
 
       - name: E2E completa con el EXE descargado del release
+        if: steps.draft_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
@@ -899,7 +1086,7 @@ jobs:
 
   verify_public_installer_e2e:
     name: E2E del asset público descargado desde GitHub
-    needs: finalize_installer_release
+    needs: [finalize_installer_release, post_publish_installer_e2e]
     if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
     runs-on: windows-latest
     timeout-minutes: 180
@@ -958,6 +1145,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          VERIFIED_DRAFT_SHA256: ${{ needs.post_publish_installer_e2e.outputs.draft_sha256 }}
         run: |
           $repository = $env:RELEASE_REPOSITORY
           $tag = $env:RELEASE_TAG
@@ -1003,10 +1191,18 @@ jobs:
           $actualHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
           if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con su sidecar.' }
           if ($digestMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con el digest de GitHub.' }
+          $runE2E = 'true'
+          if (-not [string]::IsNullOrWhiteSpace($env:VERIFIED_DRAFT_SHA256)) {
+            if ($env:VERIFIED_DRAFT_SHA256 -notmatch '^(?i)[0-9a-f]{64}$') { throw 'El digest del asset draft no es válido.' }
+            if ($actualHash -eq $env:VERIFIED_DRAFT_SHA256.ToLowerInvariant()) { $runE2E = 'false' }
+          }
+          "sha256=$actualHash" >> $env:GITHUB_OUTPUT
+          "run_e2e=$runE2E" >> $env:GITHUB_OUTPUT
           "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
           Write-Host "Asset público descargado por browser_download_url; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
 
       - name: Descargar y verificar baseline oficial v1.2.3
+        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           BASELINE_BUNDLE_NAME: EvaluaPro-InstallerHub-docente-local-v1.2.3.exe
@@ -1025,6 +1221,7 @@ jobs:
           "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
 
       - name: Compilar fixture Burn para el asset público
+        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           CANDIDATE_BUNDLE_PATH: ${{ steps.public_asset.outputs.candidate_path }}
@@ -1034,6 +1231,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Preparar ruta privada para evidencia E2E pública
+        if: steps.public_asset.outputs.run_e2e == 'true'
         id: preparar_reporte_e2e
         shell: powershell
         env:
@@ -1046,6 +1244,7 @@ jobs:
           "report_dir=$reportDir" >> $env:GITHUB_OUTPUT
 
       - name: E2E completa sobre el instalador descargado del release público
+        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
