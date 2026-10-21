@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.26.0
+version: 1.27.0
 fecha: 2026-10-20
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -28,7 +28,7 @@ El run de Windows `39372851883` pasó build, firma de manifiesto, smoke Burn, Ch
 
 El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo fuente modificado. El log confirma que `test:dataset-prodlike:ci` exportaba directamente a `tests/fixtures/prodlike/prodlike-anon.json.gz`, la salida predeterminada del exportador y un archivo versionado. La causa queda reproducida por el contrato de rutas; el nuevo runner usa `reports/qa/generated/`, y una prueba de integración calcula el SHA-256 del fixture canónico antes y después de exportar, validar e importar para proteger su contenido en Linux y Windows.
 
-El Stable Gate #100 completó la promoción del candidato, pero el job posterior de publicación se detuvo antes de despachar `CI Installer Windows`. El log identifica un borrador `v1.2.8` no recuperable porque el gate exige una tag Git que apunte al candidato. Sin embargo, el workflow de instalación crea el borrador con `target_commitish` igual al SHA validado y GitHub puede no crear la tag hasta publicar. El guard debe verificar el SHA exacto mediante la referencia de tag cuando exista o, únicamente si no existe, mediante `target_commitish` del borrador; cualquier discrepancia, release publicado o borrador con otra tag debe seguir bloqueando la publicación. No se elimina ni se retargetea un borrador discrepante.
+El Stable Gate #100 completó la promoción del candidato, pero el job posterior de publicación se detuvo antes de despachar `CI Installer Windows`. El log identifica un borrador `v1.2.8` no recuperable porque el gate exige una tag Git que apunte al candidato. Sin embargo, el workflow de instalación crea el borrador con `target_commitish` igual al SHA validado y GitHub puede no crear la tag hasta publicar. El guard debe verificar el SHA exacto mediante la referencia de tag cuando exista o, únicamente si no existe, mediante `target_commitish` del borrador; cualquier discrepancia, release publicado o borrador con otra tag debe seguir bloqueando la publicación. No se elimina ni se retargetea un borrador discrepante. El Stable Gate #102 confirmó que `GET /commits/v1.2.8` devuelve HTTP 422 cuando el tag aún no existe, antes de poder despachar el instalador. El preflight consulta primero `GET /git/ref/tags/v1.2.8`: solo si devuelve 2xx resuelve el commit con `GET /commits/v1.2.8`; un ref ausente conserva el 404 verificable y cualquier otro error, incluido un fallo al resolver un ref existente, bloquea la publicación.
 
 ## Requisitos Funcionales
 
@@ -86,7 +86,7 @@ El Stable Gate #100 completó la promoción del candidato, pero el job posterior
 - **CA-025:** Antes de capturar `Prepare` o `Review`, el runner observa el paso UIA esperado en dos lecturas consecutivas, espera 500 ms y vuelve a confirmarlo. Después realiza una sola captura y mantiene el umbral visual bloqueante; si el paso no se estabiliza o el panel sigue vacío, la E2E falla y conserva evidencia.
 - **CA-021:** El E2E visual PDF genera una vista previa rasterizada del mismo PDF de prueba con Poppler; antes de guardar la captura confirma dimensiones no nulas, que el navegador terminó de decodificar la imagen, y un fondo mayoritario claro u oscuro con píxeles de texto en contraste. Descarga y vista previa deben compartir SHA-256, y el archivo descargado debe seguir siendo un PDF de una página. La regresión falla si se vuelve a usar el iframe nativo o una imagen plana que produzca una captura vacía.
 - **CA-026:** `npm run test:dataset-prodlike:ci` pasa su regresión y después usa `reports/qa/generated/prodlike-anon.json.gz` como entrada y salida temporal; `git check-ignore` confirma que Git excluye la ruta. La regresión ejecuta exportación, validación e importación en un checkout temporal, demuestra que el fixture canónico conserva su SHA-256 y verifica que cualquier error de spawn/etapa termine con código distinto de cero sin ejecutar pasos posteriores.
-- **CA-027:** Pruebas locales deterministas demuestran que el gate permite reusar solo un borrador `v1.2.8` fijado al `SOURCE_SHA`, tanto si su tag existe y resuelve al mismo SHA como si no existe y `target_commitish` coincide exactamente. Rechazan release publicado, tag del release incorrecta, tag existente en otro SHA, `target_commitish` distinto y ausencia de release con una tag ajena. La regresión verifica que el workflow no elimina ni retargetea borradores y conserva el despacho del instalador seguido de E2E draft y E2E pública.
+- **CA-027:** Pruebas locales deterministas demuestran que el gate permite reusar solo un borrador `v1.2.8` fijado al `SOURCE_SHA`, tanto si su tag existe y resuelve al mismo SHA como si no existe y `target_commitish` coincide exactamente. Rechazan release publicado, tag del release incorrecta, tag existente en otro SHA, `target_commitish` distinto y ausencia de release con una tag ajena. El workflow confirma primero la referencia `git/ref/tags`; solo resuelve `commits/{tag}` si el ref existe, y falla cerrado ante errores HTTP distintos de ausencia confirmada o ante fallo de resolución del ref existente. La regresión verifica que el workflow no elimina ni retargetea borradores y conserva el despacho del instalador seguido de E2E draft y E2E pública.
 
 ## Matriz de Trazabilidad
 
@@ -118,7 +118,7 @@ El Stable Gate #100 completó la promoción del candidato, pero el job posterior
 | REQ-024 | Exponer diagnóstico acotado de UIA y Burn ante timeout del conflicto de versión | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Contrato local aprobado; CI debe revelar el estado runtime |
 | REQ-025 | Ubicar reporte de calificación global en el directorio QA raíz desde cualquier cwd | `apps/backend/tests/calificacion.global.reglas.test.ts` | Implementado; test enfocado 3/3 y contratos QA/promoción 28/28 aprobados en el worktree local |
 | REQ-026 | Generar, validar e importar el fixture prodlike en ruta temporal ignorada sin mutar el fixture canónico; fallar cerrado ante errores | `scripts/tests/prodlike-dataset-ci.test.mjs` | Regresión 4/4 y `qa:full` local aprobados; CI del SHA final pendiente |
-| REQ-027 | Reutilizar solo el borrador vinculado exactamente al SHA candidato y bloquear releases/tag discrepantes sin mutarlos | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Implementado; 49 contratos de workflow y 66 pruebas release pasan localmente; CI remoto pendiente |
+| REQ-027 | Reutilizar solo el borrador vinculado exactamente al SHA candidato; confirmar existencia del tag antes de resolverlo y bloquear errores o discrepancias sin mutar releases | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Corrección y regresión pendientes de validación local y CI remoto |
 
 ## Fichas consolidadas
 
