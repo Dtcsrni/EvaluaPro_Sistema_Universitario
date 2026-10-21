@@ -85,7 +85,9 @@ try {
 if ($null -eq $releaseManifest -or $releaseManifest -is [array] -or
     $releaseManifest.PSObject.Properties.Match('version').Count -ne 1 -or
     $releaseManifest.PSObject.Properties.Match('build').Count -ne 1 -or
-    $releaseManifest.PSObject.Properties.Match('flavors').Count -ne 1) {
+    $releaseManifest.PSObject.Properties.Match('flavors').Count -ne 1 -or
+    $null -eq $releaseManifest.build -or $releaseManifest.build -is [array] -or
+    $releaseManifest.build.PSObject.Properties.Match('version').Count -ne 1) {
   throw "El manifiesto de release no cumple el esquema esperado (version/build/flavors): $releaseManifestPath"
 }
 if ([string]::IsNullOrWhiteSpace([string]$releaseManifest.version) -or
