@@ -498,11 +498,11 @@ test('release valida el asset descargado desde GitHub antes de hacer público el
   const artifactDownloadIndex = releaseJob.indexOf('uses: actions/download-artifact@');
   const manifestValidationIndex = releaseJob.indexOf('node scripts/release/installer-release-manifest.mjs');
   assert.ok(checkoutIndex >= 0 && checkoutIndex < artifactDownloadIndex, 'el publisher prepara el checkout antes de descargar artifacts');
-  assert.match(releaseJob, /ref:\s*\$\{\{\s*github\.sha\s*\}\}/, 'el checkout corresponde al SHA del workflow que contiene el guard');
+  assert.match(releaseJob, /ref:\s*\$\{\{\s*inputs\.source_sha\s*\|\|\s*github\.sha\s*\}\}/, 'el checkout corresponde al SHA candidato explícito o al SHA del workflow');
   assert.ok(artifactDownloadIndex > checkoutIndex && manifestValidationIndex > artifactDownloadIndex, 'la validación usa script del checkout y manifest del artefacto');
   assert.match(workflow, /draft: true/);
   assert.match(workflow, /post_publish_installer_e2e:/);
-  assert.match(workflow, /needs: \[installer_windows, publish_installer_release\]/);
+  assert.match(workflow, /needs: \[installer_windows, publish_installer_release, reuse_installer_candidate, installer_windows_build\]/);
   assert.match(workflow, /outputs:\s+release_id: \$\{\{ steps\.publish_release\.outputs\.id \}\}/);
   assert.match(workflow, /if \("v\$packageVersion" -ne \$tag\)/);
   assert.match(workflow, /CandidateBundlePath/);

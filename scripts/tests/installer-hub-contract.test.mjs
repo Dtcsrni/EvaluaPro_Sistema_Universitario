@@ -569,7 +569,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
-  assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*installer_windows/);
+  assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*\[installer_windows_build, reuse_installer_candidate\]/);
   assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@[0-9a-f]{40} # v6/);
   assert.match(workflow, /name: Preparar release como borrador hasta validar el asset descargado[\s\S]*?softprops\/action-gh-release@[0-9a-f]{40} # v2/);
   assert.match(workflow, /make_latest:\s*false/);
