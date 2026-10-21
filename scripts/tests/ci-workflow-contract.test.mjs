@@ -365,6 +365,9 @@ test('CI reutiliza evidencia de instalador solo cuando SHA, versión y digest co
   assert.match(publisher, /inputs\.candidate_run_id \|\| github\.run_id/);
   assert.match(draft, /actualHash -eq \$env:CANDIDATE_SHA256/);
   assert.match(draft, /needs\.reuse_installer_candidate\.outputs\.bundle_sha256 \|\| needs\.installer_windows_build\.outputs\.bundle_sha256/);
+  assert.match(draft, /if: \$\{\{ always\(\) && !cancelled\(\)[\s\S]*needs\.publish_installer_release\.result == 'success'/);
+  assert.match(draft, /needs\.installer_windows\.result == 'success'/);
+  assert.match(draft, /needs\.reuse_installer_candidate\.result == 'success' \|\| needs\.installer_windows_build\.result == 'success'/);
   assert.match(draft, /if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
   assert.match(publicE2e, /actualHash -eq \$env:VERIFIED_DRAFT_SHA256/);
   assert.match(publicE2e, /if: steps\.public_asset\.outputs\.run_e2e == 'true'/);
