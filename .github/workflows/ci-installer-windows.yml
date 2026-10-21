@@ -38,9 +38,40 @@ jobs:
       - name: Resolver cambios de PR
         id: resolve
         if: github.event_name == 'pull_request'
+        env:
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          set -euo pipefail
           node scripts/testing/resolve-affected-ci.mjs --github-output="$GITHUB_OUTPUT" > affected-ci.json
-          if grep -Eq '^group_(installer|backend|frontend|portal|shared)=true$' "$GITHUB_OUTPUT"; then
+          PR_CHANGED_PATHS_OUTPUT="$(git diff --name-only "$PULL_REQUEST_BASE_SHA...$PULL_REQUEST_HEAD_SHA")"
+          mapfile -t PR_CHANGED_PATHS <<< "$PR_CHANGED_PATHS_OUTPUT"
+          RELEASE_CONTROL_ONLY=true
+          RELEASE_CONTROL_PATHS=(
+            '.github/workflows/ci-installer-windows.yml'
+            '.github/workflows/release-stable-gate.yml'
+            'scripts/tests/ci-workflow-contract.test.mjs'
+            'scripts/tests/installer-upgrade-e2e-contract.test.mjs'
+            'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
+          )
+          if [[ ${#PR_CHANGED_PATHS[@]} -eq 0 ]]; then
+            RELEASE_CONTROL_ONLY=false
+          else
+            for changed_path in "${PR_CHANGED_PATHS[@]}"; do
+              allowed=false
+              for allowed_path in "${RELEASE_CONTROL_PATHS[@]}"; do
+                [[ "$changed_path" == "$allowed_path" ]] && allowed=true && break
+              done
+              if [[ "$allowed" != true ]]; then
+                RELEASE_CONTROL_ONLY=false
+                break
+              fi
+            done
+          fi
+          if [[ "$RELEASE_CONTROL_ONLY" == true ]]; then
+            echo 'run_installer=false' >> "$GITHUB_OUTPUT"
+            echo 'Solo cambiaron controles del release; se omiten build y E2E de Windows.' >> "$GITHUB_STEP_SUMMARY"
+          elif grep -Eq '^group_(installer|backend|frontend|portal|shared)=true$' "$GITHUB_OUTPUT"; then
             echo 'run_installer=true' >> "$GITHUB_OUTPUT"
           else
             echo 'run_installer=false' >> "$GITHUB_OUTPUT"
@@ -87,8 +118,18 @@ jobs:
             $changed = @(& git diff --name-only "$checkedOut..$mainSha")
             if ($LASTEXITCODE -ne 0) { throw 'No se pudo comparar el SHA candidato con main.' }
             $expectedPrefix = "docs/release/evidencias/$version/"
-            if (@($changed | Where-Object { -not $_.StartsWith($expectedPrefix, [System.StringComparison]::Ordinal) }).Count -gt 0) {
-              throw 'Después del SHA candidato solo se permiten archivos de evidencia de esta versión.'
+            $allowedPostCandidatePaths = @(
+              '.github/workflows/ci-installer-windows.yml',
+              '.github/workflows/release-stable-gate.yml',
+              'scripts/tests/ci-workflow-contract.test.mjs',
+              'scripts/tests/installer-upgrade-e2e-contract.test.mjs',
+              'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
+            )
+            $unexpectedChangedPaths = @($changed | Where-Object {
+              -not ($_.StartsWith($expectedPrefix, [System.StringComparison]::Ordinal) -or $allowedPostCandidatePaths -ccontains $_)
+            })
+            if ($unexpectedChangedPaths.Count -gt 0) {
+              throw "Después del SHA candidato solo se permiten evidencias de esta versión y controles acotados de release: $($unexpectedChangedPaths -join ', ')"
             }
           } elseif ($mainSha -ne $checkedOut) { throw 'El SHA candidato debe ser el HEAD actual de main.' }
 
