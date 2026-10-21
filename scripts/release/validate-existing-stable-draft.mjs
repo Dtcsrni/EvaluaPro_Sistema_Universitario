@@ -42,6 +42,9 @@ export function validateExistingStableDraft({ releaseResponse, tagResponse, expe
   const release = releaseResult.payload;
   if (release?.tag_name !== expectedTag) throw new Error(`El release existente no corresponde a ${expectedTag}.`);
   if (release?.draft !== true) throw new Error(`El release ${expectedTag} ya está publicado.`);
+  if (release?.prerelease !== false || release?.published_at !== null) {
+    throw new Error(`El borrador ${expectedTag} debe ser estable y no publicado.`);
+  }
 
   if (tagSha) {
     if (tagSha !== candidateSha) throw new Error(`La tag ${expectedTag} apunta a un SHA distinto del candidato.`);
@@ -50,7 +53,7 @@ export function validateExistingStableDraft({ releaseResponse, tagResponse, expe
 
   const targetSha = String(release.target_commitish || '').toLowerCase();
   if (targetSha !== candidateSha) {
-    throw new Error(`El borrador ${expectedTag} no está fijado al SHA candidato.`);
+    return { action: 'retarget-draft-after-asset-validation', from: targetSha, sha: candidateSha };
   }
   return { action: 'reuse-draft', sha: targetSha };
 }

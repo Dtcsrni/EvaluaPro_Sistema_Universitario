@@ -385,6 +385,16 @@ test('preflight E2E identifica nombre y PID cuando detecta un Installer Hub acti
   assert.match(e2e, /Hay procesos Installer Hub activos: \$activeInstallerHubProcessDetails/);
 });
 
+test('runner consume la ruta exacta del manifiesto validado y rechaza ausencia o esquema inválido', () => {
+  assert.match(e2e, /\[string\]\$ReleaseManifestPath\s*=\s*''/);
+  assert.match(e2e, /Resolve-Path -LiteralPath \$ReleaseManifestPath -ErrorAction Stop/);
+  assert.match(e2e, /No existe el manifiesto de release validado/);
+  assert.match(e2e, /no cumple el esquema esperado \(version\/build\/flavors\)/);
+  assert.match(workflow, /'-ReleaseManifestPath', \(Join-Path \$env:GITHUB_WORKSPACE 'dist\\installer\\EvaluaPro-release-manifest\.json'\)/);
+  assert.equal((workflow.match(/'-ReleaseManifestPath', \(Join-Path \$env:GITHUB_WORKSPACE/g) ?? []).length, 3,
+    'los tres E2E consumen la ruta única del manifiesto del bundle probado');
+});
+
 test('runner acepta el EXE publicado con SHA obligatorio y CRC32 opcional', () => {
   assert.match(e2e, /\[string\]\$CandidateBundlePath/);
   assert.match(e2e, /Resolve-Path -LiteralPath \$CandidateBundlePath/);

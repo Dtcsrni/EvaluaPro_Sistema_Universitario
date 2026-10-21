@@ -136,3 +136,30 @@ El último run del borrador falló antes de instalar: el checkout de la tag no c
 - SPEC-119: inicio visible y diagnóstico local del Installer Hub.
 - SPEC-120: aislamiento de validación MSI local.
 - SPEC-121: versión dinámica del Installer Hub.
+
+
+## Enmienda aprobada v1.29.0 — recuperación verificada del borrador estable
+
+### Contexto
+
+Evidencia adicional del run #39530939924: la validación de descarga, manifiesto y sidecar concluyó correctamente; el runner E2E falló después en `installer-hub-e2e-docente.ps1:2359` al acceder a `releaseManifest.version`. El fallo observó `releaseManifest.version` ausente dentro del runner aunque el paso previo terminó las comprobaciones del manifiesto. La corrección pasa la ruta exacta al runner, carga y valida el esquema una sola vez y emite diagnóstico de ruta/esquema ante ausencia o forma inválida; la regresión cubre ese contrato sin silenciar errores.
+
+En CI #770, el bundle candidato `7af46bb4a864e774e2dbfd987c43efe49b4100c4` pasó build, E2E de instalación/repair/upgrade/uninstall y validación visual PDF en Edge. La descarga posterior del mismo EXE desde el borrador `v1.2.8` verificó HTTP, longitud y SHA-256, pero el job se detuvo antes de instalar al comparar el manifiesto candidato con `target_commitish=4ccde020b85906dba340d8473977b0fc027afc92`. No hay tag Git `v1.2.8`; el borrador conserva assets del candidato y apunta a un SHA anterior. El commit `40c6c0b` contiene solo actualizaciones de evidencia documental después del candidato.
+
+La regla vigente de REQ-027 bloquea cualquier borrador cuyo SHA no coincida con el candidato y prohíbe retargetearlo. Esta propuesta agrega una excepción de recuperación estricta para el caso de un borrador aún privado, sin tag Git y con todos los assets demostrablemente vinculados al candidato; no permite recuperar releases publicados, tags existentes ni assets ambiguos.
+
+### Requisitos propuestos
+
+- **REQ-029 — Recuperación verificada de borrador sin tag:** El gate puede actualizar `target_commitish` al `SOURCE_SHA` solo si el release existente tiene exactamente la `RELEASE_TAG` esperada, `draft=true`, `prerelease=false`, `published_at=null`, y la referencia Git de esa tag está ausente por un 404 confirmado. Errores HTTP distintos de ausencia bloquean.
+- Antes de cambiar metadata, el gate valida que `SOURCE_SHA` sea ancestro de `main` y que versión/tag coincidan. El job de publicación reemplaza los assets solo con el bundle del SHA candidato ya probado; antes de ajustar el target verifica versión, commit, flavor `docente-local`, longitudes y SHA-256 tanto local como en los assets remotos. La recuperación falla cerrada si falta un asset, hay duplicados, los hashes no coinciden o el manifiesto refiere otro SHA.
+- La acción no crea una segunda release ni elimina ni publica el borrador. El pipeline puede reemplazar únicamente los assets esperados mediante el flujo normal de publicación, después de que el bundle candidato haya pasado su E2E; valida que el manifiesto, sidecar, digest y tamaño remoto coincidan antes de modificar `target_commitish`. Ante cualquier discrepancia, conserva la metadata del borrador y falla cerrado.
+- Tras actualizar el target, el gate vuelve a consultar y comprobar la metadata. La validación del asset descargado debe pasar antes de permitir publicación.
+- **REQ-030 — Reutilización trazable de E2E del mismo binario:** No se repite el E2E visual/runtime del instalador si el EXE descargado tiene el mismo SHA-256, versión, commit y flavor que un bundle del mismo `SOURCE_SHA` cuyo E2E visual/runtime completo ya pasó. En ese caso se exige descargar de nuevo el asset, verificar sidecar/manifiesto/hash y asociar explícitamente la evidencia E2E existente con el mismo digest. Si cambia cualquier dato de identidad o no existe evidencia visual/runtime para ese digest, se ejecuta el E2E del asset descargado y se inspecciona visualmente su evidencia antes de publicar.
+
+### Criterios de aceptación
+
+- **CA-029:** Pruebas de contrato cubren la única recuperación permitida (borrador exacto, sin tag, assets/manifiesto candidatos válidos) y rechazan release publicado, prerelease, tag distinta, tag existente, error de API, SHA ajeno o inconsistente, versión/flavor incorrectos, digest/longitud incorrectos, assets ausentes/duplicados y manifiesto ausente.
+- **CA-030:** Una regresión verifica que la revalidación posterior confirma `target_commitish=SOURCE_SHA` y que no hay llamadas de eliminación, reemplazo ni publicación en la ruta de recuperación.
+- **CA-031:** La rama de recuperación ejecuta solo los contratos del gate/manifest y la E2E del asset fallida. El E2E visual/runtime se reutiliza únicamente con igualdad byte-a-byte (SHA-256) y coincidencia de SHA candidato; el reporte muestra la referencia exacta de la corrida y la inspección de sus capturas.
+
+La enmienda fue aprobada por el usuario el 2026-10-21. Se autoriza cambiar workflows, código y pruebas dentro del alcance, y modificar metadata del borrador únicamente tras verificar las precondiciones de REQ-029. No se autoriza borrar ni publicar antes de que todos los gates pasen.
