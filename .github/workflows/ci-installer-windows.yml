@@ -529,6 +529,12 @@ jobs:
       release_id: ${{ steps.publish_release.outputs.id }}
 
     steps:
+      - name: Descargar código para validar el release
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
       - name: Descargar artefactos del build validado
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
