@@ -3,7 +3,7 @@
 - traceSchemaVersion: 1.0.0
 - sessionId: installer-related-bundle-20261021
 - parentSessionId: -
-- status: final
+- status: draft
 - generatedAt: 2026-10-21T19:59:42.539Z
 - validationProfile: quick
 
@@ -36,6 +36,7 @@
 - [ok] implementation: Deduplicación por identidad durante PlanRelatedBundle, tolerancia acotada del HRESULT tras uninstall exitoso, preservación de payload/datos si solo falla limpieza, y E2E de bundle anterior PerUser. (2026-10-21T19:58:10.466Z)
 - [ok] validation: CI Windows run `39670608579` pasó build, fixture Burn relacionada de versión anterior `1.2.0.0`, E2E completa, visual PDF en Edge y publicación de evidencia. Confirmado candidate `1.2.8.0`; artefacto E2E SHA-256 `4aea6a76d20324ccb8cc2313766f0fea48aba4903a91e0c4994538852715a4a9`. (2026-10-21T20:56:52Z)
 - [ok] fixture regression: Se preservó `$FixtureVersion` antes de asignar `$fixtureVersion`; el contrato focalizado, el parseo PowerShell y el fixture runtime pasan. (2026-10-21T20:56:52Z)
+- [pending] CI reliability: El CI Checks del commit documental 874e07f falló en `scripts/tests/security-env-check.test.mjs`: el JWT hexadecimal aleatorio coincidió con `1234`, una secuencia rechazada por el validador. Se agregó rechazo/re-sorteo y una regresión determinista que fuerza la colisión; pruebas 5/5 y SDD audit pasan localmente. Requiere CI remoto del nuevo commit. (2026-10-21T21:01:47Z)
 
 ## Archivos leidos
 - AGENTS.md
@@ -43,6 +44,7 @@
 - docs/POLITICA_SDD.md
 - docs/handoff/CONTRATO_TRAZABILIDAD_IA.md
 - docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md
+- docs/specs/ci_cd_integrity.spec.md
 - docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.md
 - docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.json
 - packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs
@@ -60,6 +62,7 @@
 - scripts/tests/installer-hub-e2e-docente.ps1
 - scripts/tests/installer-upgrade-e2e-contract.test.mjs
 - docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md
+- docs/specs/ci_cd_integrity.spec.md
 - docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.md
 - docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.json
 
@@ -94,13 +97,14 @@
 - Windows 11 es el sistema objetivo y fue confirmado tanto por el usuario como por Win32_OperatingSystem.
 
 ## Riesgos abiertos
+- La corrección del test de CI requiere confirmación remota; el run 807 actual evalúa el commit anterior.
 - El PR #254 queda en borrador hasta revisión; no se integró ni se publicó un release.
 
 ## Estado del arbol
 _arbol limpio_
 
 ## Siguiente paso recomendado
-- Revisar e integrar el PR #254 según el flujo habitual del repositorio.
+- Publicar el re-sorteo acotado del secreto aleatorio, esperar CI Checks/CI Installer Windows y mantener el PR en borrador hasta revisión.
 
 ## Artefactos generados
 - EvaluaPro-informe-fallo-2026-10-21.zip: manifiesto SHA-256 verificado, 12/12 archivos coinciden.
