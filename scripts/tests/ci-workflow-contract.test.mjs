@@ -862,6 +862,45 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   assert.equal(payload.matchedGroups.backend, true);
 });
 
+test('la deriva posterior al candidato se limita a controles exactos y omite E2E solo en PR de control', () => {
+  const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const releaseControlPaths = [
+    '.github/workflows/ci-installer-windows.yml',
+    '.github/workflows/release-stable-gate.yml',
+    'scripts/tests/ci-workflow-contract.test.mjs',
+    'scripts/tests/installer-upgrade-e2e-contract.test.mjs',
+    'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
+  ];
+  const extractQuotedPaths = (block) => [...block.matchAll(/^\s*'([^']+)'\s*,?\s*$/gm)].map((match) => match[1]);
+  const installerAllowlist = installerWorkflow.match(/\$allowedPostCandidatePaths = @\(([\s\S]*?)\n\s*\)/);
+  const stableAllowlist = stableGate.match(/ALLOWED_RELEASE_CONTROL_PATHS=\(([\s\S]*?)\n\s*\)/);
+  const prAllowlist = installerWorkflow.match(/RELEASE_CONTROL_PATHS=\(([\s\S]*?)\n\s*\)/);
+
+  assert.ok(installerAllowlist, 'Installer Windows debe declarar su allowlist exacta');
+  assert.ok(stableAllowlist, 'Stable Gate debe declarar su allowlist exacta');
+  assert.ok(prAllowlist, 'el detector de PR debe declarar la allowlist exacta para omitir E2E');
+  assert.deepEqual(extractQuotedPaths(installerAllowlist[1]), releaseControlPaths);
+  assert.deepEqual(extractQuotedPaths(stableAllowlist[1]), releaseControlPaths);
+  assert.deepEqual(extractQuotedPaths(prAllowlist[1]), releaseControlPaths);
+
+  assert.match(installerWorkflow, /\$allowedPostCandidatePaths -ccontains \$_/);
+  assert.match(installerWorkflow, /\$expectedPrefix = "docs\/release\/evidencias\/\$version\/"[\s\S]*?StartsWith\(\$expectedPrefix/);
+  assert.match(installerWorkflow, /PULL_REQUEST_BASE_SHA:[\s\S]*?PULL_REQUEST_HEAD_SHA:/);
+  assert.match(installerWorkflow, /git diff --name-only "\$PULL_REQUEST_BASE_SHA\.\.\.\$PULL_REQUEST_HEAD_SHA"/);
+  assert.match(installerWorkflow, /if \[\[ "\$allowed" != true \]\]; then[\s\S]*?RELEASE_CONTROL_ONLY=false/);
+  assert.match(installerWorkflow, /if \[\[ "\$RELEASE_CONTROL_ONLY" == true \]\]; then[\s\S]*?run_installer=false[\s\S]*?elif grep -Eq/);
+  assert.match(stableGate, /Cambio posterior al candidato fuera de las rutas permitidas/);
+  assert.match(stableGate, /EVIDENCE_PREFIX="docs\/release\/evidencias\/\$VERSION\/"[\s\S]*?\[\[ "\$changed_path" == "\$EVIDENCE_PREFIX"\* \]\]/);
+  assert.match(stableGate, /\[\[ "\$allowed" == true \]\] \|\|/);
+
+  const acceptsCandidateDrift = (changedPath) => changedPath.startsWith('docs/release/evidencias/1.2.8/')
+    || releaseControlPaths.includes(changedPath);
+  assert.equal(acceptsCandidateDrift('docs/release/evidencias/1.2.8/manifest.json'), true);
+  assert.equal(acceptsCandidateDrift('docs/release/evidencias/1.2.80/manifest.json'), false);
+  assert.equal(acceptsCandidateDrift('apps/backend/src/app.ts'), false);
+});
+
 test('Installer Windows ejecuta y conserva el ciclo E2E completo para PR, releases y ejecuciones manuales', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const installerBuild = extractJobBlock(workflow, 'installer_windows_build');
