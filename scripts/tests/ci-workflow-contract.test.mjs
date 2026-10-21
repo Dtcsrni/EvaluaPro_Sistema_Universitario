@@ -873,6 +873,13 @@ test('Installer Windows omite PR sin cambios de payload y conserva la E2E para c
   assert.match(detector, /resolve-affected-ci\.mjs --github-output=/);
   assert.match(detector, /group_\(installer\|backend\|frontend\|portal\|shared\)=true/);
   assert.match(detector, /run_installer:.*steps\.resolve\.outputs\.run_installer.*steps\.resolve_non_pr\.outputs\.run_installer/);
+  const nonPrResolver = extractStepBlock(detector, 'Habilitar build fuera de PR');
+  assert.match(nonPrResolver, /PUSH_BEFORE_SHA/);
+  assert.match(nonPrResolver, /PUSH_REF.*refs\/heads\/main|refs\/heads\/main/);
+  assert.match(nonPrResolver, /git diff --name-only "\$PUSH_BEFORE_SHA\.\.\.\$\{GITHUB_SHA\}"/);
+  assert.match(nonPrResolver, /EVIDENCE_PREFIX/);
+  assert.match(nonPrResolver, /run_installer=false/);
+  assert.match(nonPrResolver, /No se pudo clasificar el push; se conserva la validación completa/);
   assert.match(installerBuild, /needs: detectar_cambios/);
   assert.match(installerBuild, /needs\.detectar_cambios\.outputs\.run_installer == 'true'/);
   assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);

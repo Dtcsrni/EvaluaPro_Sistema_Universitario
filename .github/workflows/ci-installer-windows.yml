@@ -84,7 +84,51 @@ jobs:
       - name: Habilitar build fuera de PR
         id: resolve_non_pr
         if: github.event_name != 'pull_request'
-        run: echo 'run_installer=true' >> "$GITHUB_OUTPUT"
+        env:
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME:-}" == "push" && "$PUSH_REF" == "refs/heads/main" && "$PUSH_BEFORE_SHA" =~ ^[0-9a-fA-F]{40}$ && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            if ! CHANGED_PATHS_OUTPUT="$(git diff --name-only "$PUSH_BEFORE_SHA...${GITHUB_SHA}")"; then
+              echo 'run_installer=true' >> "$GITHUB_OUTPUT"
+              echo 'No se pudo clasificar el push; se conserva la validación completa de Installer Windows.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            if [[ -n "$CHANGED_PATHS_OUTPUT" ]]; then
+              mapfile -t CHANGED_PATHS <<< "$CHANGED_PATHS_OUTPUT"
+              VERSION="$(node -p "require('./package.json').version")"
+              EVIDENCE_PREFIX="docs/release/evidencias/$VERSION/"
+              RELEASE_CONTROL_PATHS=(
+                '.github/workflows/ci-installer-windows.yml'
+                '.github/workflows/release-stable-gate.yml'
+                'scripts/tests/ci-workflow-contract.test.mjs'
+                'scripts/tests/installer-upgrade-e2e-contract.test.mjs'
+                'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
+              )
+              RELEASE_CONTROL_ONLY=true
+              for changed_path in "${CHANGED_PATHS[@]}"; do
+                allowed=false
+                if [[ "$changed_path" == "$EVIDENCE_PREFIX"* ]]; then
+                  allowed=true
+                else
+                  for allowed_path in "${RELEASE_CONTROL_PATHS[@]}"; do
+                    [[ "$changed_path" == "$allowed_path" ]] && allowed=true && break
+                  done
+                fi
+                if [[ "$allowed" != true ]]; then
+                  RELEASE_CONTROL_ONLY=false
+                  break
+                fi
+              done
+              if [[ "$RELEASE_CONTROL_ONLY" == true ]]; then
+                echo 'run_installer=false' >> "$GITHUB_OUTPUT"
+                echo 'Push de main limitado a controles/evidencia de release; se omiten build y E2E de Windows.' >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+            fi
+          fi
+          echo 'run_installer=true' >> "$GITHUB_OUTPUT"
 
   installer_windows_build:
     name: Installer Windows Build (MSI + Bundle)

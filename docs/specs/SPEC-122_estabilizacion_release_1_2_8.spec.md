@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.31.0
+version: 1.32.0
 fecha: 2026-10-21
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -197,3 +197,8 @@ El despacho manual de publicación puede recibir `candidate_run_id` para reutili
 El build de Windows se omite solo cuando se solicita explícitamente esa reutilización. Al descargar el asset del borrador se repiten la comprobación de manifiesto, sidecar y digest. La E2E de instalación del borrador se omite solo si el digest del EXE coincide exactamente con el artefacto candidato cuya E2E pasó; la descarga pública se verifica de nuevo y su E2E solo se omite si su digest coincide con el digest ya verificado en el borrador. Cualquier diferencia de digest conserva la ruta completa de E2E de esa etapa. De esta forma se evita volver a instalar y probar bytes idénticos, a la vez que se prueban los límites de distribución y la identidad del asset.
 
 Las pruebas de contrato comprueban la selección del run, la evidencia de pasos requerida, la procedencia del artefacto y el comportamiento de comparación/fallback por digest. No reemplazan las E2E del producto ante cambios de payload.
+
+
+## Pushes de control a main sin E2E redundantes
+
+La resolución de cambios en `push` a `main` aplica la misma allowlist estricta de controles de release, más la carpeta de evidencia de la versión activa. Solo si el diff está disponible, no vacío y todos sus paths pertenecen a ese alcance, el resolver omite el build y las E2E del instalador. Ante SHA base inválido, diff vacío/no clasificable o cualquier path fuera del alcance, conserva la ejecución completa. Los push de tags y los cambios de payload siguen el flujo normal. Se añaden aserciones de contrato para la clasificación del push y el fallback fail-closed.
