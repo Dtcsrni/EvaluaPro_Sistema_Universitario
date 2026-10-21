@@ -402,6 +402,7 @@ jobs:
           if ($env:INSTALLER_CI_RUN_ID -notmatch '^[0-9]+$') { throw "GitHub run ID inválido." }
           $runnerArgs = @(
             '-RootPath', $env:GITHUB_WORKSPACE,
+            '-ReleaseManifestPath', (Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'),
             '-ReportDir', $env:E2E_REPORT_DIR,
             '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-installer-hub-e2e'),
             '-Port', '4519',
@@ -563,6 +564,59 @@ jobs:
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
             dist/installer/EvaluaPro-release-manifest.json
             dist/installer/antivirus-scan-report.txt
+
+      - name: Verificar assets candidato y fijar target del borrador
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.publish_release.outputs.id }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_ID" =~ ^[0-9]+$ ]] || { echo 'ID de release inválido.' >&2; exit 1; }
+          [[ "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'SOURCE_SHA debe ser un SHA completo.' >&2; exit 1; }
+          VERSION="${RELEASE_TAG#v}"
+          [[ "$RELEASE_TAG" == "v$VERSION" ]] || { echo 'La tag no tiene formato vX.Y.Z.' >&2; exit 1; }
+          manifest="dist/installer/EvaluaPro-release-manifest.json"
+          exe="dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-$RELEASE_TAG.exe"
+          sidecar="$exe.sha256"
+          test -s "$manifest" && test -s "$exe" && test -s "$sidecar"
+          TARGET_VERSION="$VERSION" SOURCE_SHA="${SOURCE_SHA,,}" node scripts/release/installer-release-manifest.mjs "--manifest=$manifest"
+          exe_hash="$(sha256sum "$exe" | awk '{print tolower($1)}')"
+          manifest_hash="$(sha256sum "$manifest" | awk '{print tolower($1)}')"
+          sidecar_hash="$(awk 'NR == 1 {print tolower($1)}' "$sidecar")"
+          [[ "$sidecar_hash" =~ ^[0-9a-f]{64}$ && "$sidecar_hash" == "$exe_hash" ]] || { echo 'Sidecar local no coincide con el bundle candidato.' >&2; exit 1; }
+          api_status="$(gh api --include "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" 2>/dev/null | head -n 1 || true)"
+          [[ "$api_status" =~ ^HTTP/[0-9.]+[[:space:]]404[[:space:]] ]] || { echo "La tag $RELEASE_TAG existe o la API no confirmó su ausencia; no se retargetea." >&2; exit 1; }
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+          jq -e --arg tag "$RELEASE_TAG" '.tag_name == $tag and .draft == true and .prerelease == false and .published_at == null' <<<"$release_json" >/dev/null || {
+            echo 'El release no es el borrador estable esperado y no publicado.' >&2; exit 1;
+          }
+          check_asset() {
+            local name="$1" digest="$2" bytes="$3"
+            local remote_digest remote_bytes count
+            count="$(jq --arg name "$name" '[.assets[] | select(.name == $name)] | length' <<<"$release_json")"
+            [[ "$count" == 1 ]] || { echo "Se esperaba exactamente un asset $name; encontrados: $count" >&2; exit 1; }
+            remote_digest="$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .digest // empty' <<<"$release_json")"
+            remote_bytes="$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .size' <<<"$release_json")"
+            [[ "$remote_digest" == "sha256:$digest" && "$remote_bytes" == "$bytes" ]] || {
+              echo "El asset remoto $name no coincide en SHA-256 o longitud." >&2; exit 1;
+            }
+          }
+          check_asset "$(basename "$exe")" "$exe_hash" "$(stat -c '%s' "$exe")"
+          check_asset "$(basename "$sidecar")" "$(sha256sum "$sidecar" | awk '{print tolower($1)}')" "$(stat -c '%s' "$sidecar")"
+          check_asset "$(basename "$manifest")" "$manifest_hash" "$(stat -c '%s' "$manifest")"
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f "target_commitish=${SOURCE_SHA,,}" >/dev/null
+          verified_release="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+          jq -e --arg tag "$RELEASE_TAG" --arg sha "${SOURCE_SHA,,}" '.tag_name == $tag and .target_commitish == $sha and .draft == true and .prerelease == false and .published_at == null' <<<"$verified_release" >/dev/null || {
+            echo 'El borrador no quedó fijado al SHA candidato después de reconsultarlo.' >&2; exit 1;
+          }
+          release_json="$verified_release"
+          check_asset "$(basename "$exe")" "$exe_hash" "$(stat -c '%s' "$exe")"
+          check_asset "$(basename "$sidecar")" "$(sha256sum "$sidecar" | awk '{print tolower($1)}')" "$(stat -c '%s' "$sidecar")"
+          check_asset "$(basename "$manifest")" "$manifest_hash" "$(stat -c '%s' "$manifest")"
+          echo "Borrador verificado y fijado: $RELEASE_TAG -> ${SOURCE_SHA,,}; assets candidatos coinciden."
 
   post_publish_installer_e2e:
     name: E2E del asset descargado desde el release draft
@@ -737,6 +791,7 @@ jobs:
           if (-not (Test-Path -LiteralPath $env:BASELINE_BUNDLE_PATH)) { throw 'Falta el baseline oficial v1.2.3.' }
           $runnerArgs = @(
             '-RootPath', $env:GITHUB_WORKSPACE,
+            '-ReleaseManifestPath', (Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'),
             '-ReportDir', $env:E2E_REPORT_DIR,
             '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-published-e2e'),
             '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
@@ -958,6 +1013,7 @@ jobs:
           if (-not (Test-Path -LiteralPath $env:BASELINE_BUNDLE_PATH)) { throw 'Falta el baseline oficial v1.2.3.' }
           $runnerArgs = @(
             '-RootPath', $env:GITHUB_WORKSPACE,
+            '-ReleaseManifestPath', (Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'),
             '-ReportDir', $env:E2E_REPORT_DIR,
             '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-public-release-e2e'),
             '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
