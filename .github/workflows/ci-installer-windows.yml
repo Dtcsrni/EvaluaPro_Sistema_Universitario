@@ -827,7 +827,7 @@ jobs:
           check_asset "$(basename "$exe")" "$exe_hash" "$(stat -c '%s' "$exe")"
           check_asset "$(basename "$sidecar")" "$(sha256sum "$sidecar" | awk '{print tolower($1)}')" "$(stat -c '%s' "$sidecar")"
           check_asset "$(basename "$manifest")" "$manifest_hash" "$(stat -c '%s' "$manifest")"
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f "target_commitish=${SOURCE_SHA,,}" >/dev/null
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f "tag_name=$RELEASE_TAG" -f "target_commitish=${SOURCE_SHA,,}" >/dev/null
           verified_release="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
           jq -e --arg tag "$RELEASE_TAG" --arg sha "${SOURCE_SHA,,}" '.tag_name == $tag and .target_commitish == $sha and .draft == true and .prerelease == false and .published_at == null' <<<"$verified_release" >/dev/null || {
             echo 'El borrador no quedó fijado al SHA candidato después de reconsultarlo.' >&2; exit 1;

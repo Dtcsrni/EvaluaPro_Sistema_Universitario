@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.32.0
+version: 1.33.0
 fecha: 2026-10-21
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -202,3 +202,16 @@ Las pruebas de contrato comprueban la selección del run, la evidencia de pasos 
 ## Pushes de control a main sin E2E redundantes
 
 La resolución de cambios en `push` a `main` aplica la misma allowlist estricta de controles de release, más la carpeta de evidencia de la versión activa. Solo si el diff está disponible, no vacío y todos sus paths pertenecen a ese alcance, el resolver omite el build y las E2E del instalador. Ante SHA base inválido, diff vacío/no clasificable o cualquier path fuera del alcance, conserva la ejecución completa. Los push de tags y los cambios de payload siguen el flujo normal. Se añaden aserciones de contrato para la clasificación del push y el fallback fail-closed.
+
+
+## Enmienda aprobada v1.33.0 — fijar etiqueta del borrador recuperado
+
+### Hallazgo y causa
+
+El run 39606510998 validó y reutilizó el artefacto de instalador cuyo SHA y E2E ya habían pasado. El publicador encontró un único borrador que GitHub aún representaba con `tag_name=untagged-…`. Actualizó `target_commitish` al SHA candidato y subió los cuatro assets verificados, pero el guard falló al comprobar que `tag_name` fuera `v1.2.8`: el PATCH no enviaba ese campo.
+
+### Corrección y alcance de validación
+
+El PATCH del borrador incluirá tanto `tag_name=$RELEASE_TAG` como `target_commitish=$SOURCE_SHA`, únicamente después de verificar versión, ausencia de la tag previa, estado de borrador y hashes/tamaños de los assets. La respuesta se volverá a consultar y deberá confirmar tag, SHA, borrador no publicado y no prerelease; luego se verificarán de nuevo los assets. Si falla cualquier condición, no se ejecutan las etapas de hacer público ni marcar Latest.
+
+Se añade una aserción al contrato del publicador para fijar que ambos campos se actualicen. La validación local ejecutará ese contrato específico; CI ejecutará solo gates afectados por las rutas de control. El build y las E2E de instalador se reutilizarán desde el run candidato ya aprobado; no se repetirán si el digest sigue igual.
