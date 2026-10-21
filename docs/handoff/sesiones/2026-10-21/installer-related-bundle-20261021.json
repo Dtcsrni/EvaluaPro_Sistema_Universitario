@@ -1,0 +1,193 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "installer-related-bundle-20261021",
+  "status": "final",
+  "generatedAt": "2026-10-21T19:59:42.539Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex Desktop"
+  },
+  "request": {
+    "summary": "Revisar el informe y las evidencias del fallo del Installer Hub en Windows 11, corregir el defecto reproducible y preparar regresión para la siguiente versión."
+  },
+  "objective": "Evitar que un upgrade se marque como fallido o limpie residuos después de que el MSI se instaló correctamente cuando Burn planifica dos veces la desinstalación de un bundle relacionado.",
+  "scope": [
+    "Análisis del informe ZIP y logs Burn/MSI/BA",
+    "Bootstrapper Application y manejo de related bundles",
+    "Fixture Burn PerUser de versión previa",
+    "CI Installer Windows y pruebas de contrato"
+  ],
+  "constraints": [
+    "No alterar la instalación local existente ni su base de datos compartida.",
+    "No publicar el branch sin aprobación que identifique SHA, remote y branch.",
+    "La validación E2E final debe ejecutarse en Windows 11 limpio o runner Windows."
+  ],
+  "actions": [
+    {
+      "type": "investigation",
+      "summary": "Correlacionados los logs del MSI, del bundle candidato y del bundle anterior; el checksum del manifiesto coincide con los 12 artefactos del ZIP.",
+      "timestamp": "2026-10-21T19:58:10.466Z",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Deduplicación por identidad durante PlanRelatedBundle, tolerancia acotada del HRESULT tras uninstall exitoso, preservación de payload/datos si solo falla limpieza, y E2E de bundle anterior PerUser.",
+      "timestamp": "2026-10-21T19:58:10.466Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Contratos enfocados, suite Installer Hub, auditoría de políticas y build .NET pasaron; runtime E2E Windows permanece pendiente.",
+      "timestamp": "2026-10-21T19:58:10.466Z",
+      "status": "pending"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/handoff/CONTRATO_TRAZABILIDAD_IA.md",
+      "docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md",
+      "packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "EvaluaPro-informe-fallo-2026-10-21.zip (12/12 hashes verificados)"
+    ],
+    "changed": [
+      "CHANGELOG.md",
+      ".github/workflows/ci-installer-windows.yml",
+      "packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs",
+      "packaging/wix/tests/SameVersionRelatedBundleFixture.wxs",
+      "scripts/tests/build-same-version-related-bundle-fixture.ps1",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md"
+    ],
+    "artifacts": [
+      "EvaluaPro-informe-fallo-2026-10-21.zip: manifiesto SHA-256 verificado, 12/12 archivos coinciden.",
+      "E2E de Windows 11 runtime pendiente; no se generó candidato local."
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3439,
+      "resultSummary": "✔ Stable Gate invoca el mismo guard para checkout inicial, checkpoints y guard final (1.8754ms) | ▶ el guard del checkout candidato solo permite EOL sin cambios semánticos | ✔ acepta diferencias CRLF/LF sin contenido distinto (505.7087ms) | ✔ acepta EOL-only en JSON de evidencia fuera de la allowlist histórica (470.6435ms) | ... | npm notice run evaluapro@1.2.8 pipeline:contract:check | npm notice run node scripts/pipeline-contract-check.mjs",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1161,
+      "resultSummary": "[docs] ok | npm notice run evaluapro@1.2.8 docs:check | npm notice run node scripts/docs.mjs --check",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    }
+  ],
+  "decisions": [
+    "El defecto inmediato se reproduce con dos detecciones y dos planes Uninstall del mismo GUID; el primero termina 0 y el segundo falla al abrir una ruta de Package Cache ya eliminada.",
+    "La causa original de la duplicación no está demostrada; el fix evita ejecutar dos uninstall y conserva el estado si otra limpieza falla.",
+    "No ejecutar el instalador E2E en esta PC: está instalada EvaluaPro 1.2.8 y el runner requiere entorno QA aislado."
+  ],
+  "assumptions": [
+    "Windows 11 es el sistema objetivo y fue confirmado tanto por el usuario como por Win32_OperatingSystem."
+  ],
+  "risks": [
+    "Falta E2E runtime en windows-latest para confirmar fixture, alcance PerUser, registro, UI, payload y preservación SQLite en ejecución real.",
+    "No hay bundle candidato EXE en el checkout local.",
+    "El push del commit feature sigue pendiente de autorización exacta."
+  ],
+  "nextStep": "Con autorización, publicar el commit exacto 1ef58823e87d4c23ac3e3c45157c2bac0c16bdab en origin/codex/installerhub-related-bundle-main, abrir PR para ejecutar CI Installer Windows y revisar el reporte E2E antes de integrar o liberar.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\fix-installerhub-related-bundle\\fix-installerhub-related-bundle-main",
+    "branch": "codex/installerhub-related-bundle-main",
+    "commit": "59941f4d7f371785bdbc11bff94ff88d631e3502",
+    "workingTreeStatus": ""
+  }
+}

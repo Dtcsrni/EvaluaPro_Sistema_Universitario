@@ -2,6 +2,8 @@
 param(
   [Parameter(Mandatory = $true)][string]$CandidateBundlePath,
   [Parameter(Mandatory = $true)][string]$OutputPath,
+  [string]$FixtureVersion = '',
+  [string]$EnvironmentVariableName = 'SAME_VERSION_RELATED_BUNDLE_PATH',
   [string]$RootPath = ''
 )
 
@@ -13,6 +15,18 @@ $candidate = Get-Item -LiteralPath $candidatePath -ErrorAction Stop
 $candidateVersion = $null
 if (-not [version]::TryParse([string]$candidate.VersionInfo.ProductVersion, [ref]$candidateVersion)) {
   throw "No se pudo leer la versión del bundle candidato: $($candidate.VersionInfo.ProductVersion)"
+}
+$fixtureVersion = $candidateVersion
+if (-not [string]::IsNullOrWhiteSpace($FixtureVersion)) {
+  if (-not [version]::TryParse($FixtureVersion, [ref]$fixtureVersion)) {
+    throw "La versión del bundle fixture no es válida: $FixtureVersion"
+  }
+  if ($fixtureVersion -ge $candidateVersion) {
+    throw "El fixture previo debe ser menor que el candidato: fixture=$fixtureVersion candidate=$candidateVersion"
+  }
+}
+if ($EnvironmentVariableName -notmatch '^[A-Z][A-Z0-9_]*$') {
+  throw "Nombre de variable de entorno inválido: $EnvironmentVariableName"
 }
 $comSpec = [Environment]::GetEnvironmentVariable('ComSpec')
 if ([string]::IsNullOrWhiteSpace($comSpec) -or -not (Test-Path -LiteralPath $comSpec -PathType Leaf)) {
@@ -45,7 +59,7 @@ try {
   & $wixPath build (Join-Path $root 'packaging\wix\tests\SameVersionRelatedBundleFixture.wxs') `
     -arch x64 `
     -ext $balExtension.FullName `
-    -d "Version=$candidateVersion" `
+    -d "Version=$fixtureVersion" `
     -d "BundleUpgradeCode=$($flavor[0].bundleUpgradeCode)" `
     -d "FixtureExePath=$comSpec" `
     -o $output
@@ -55,12 +69,12 @@ try {
 }
 
 $fixture = Get-Item -LiteralPath $output -ErrorAction Stop
-$fixtureVersion = $null
-if (-not [version]::TryParse([string]$fixture.VersionInfo.ProductVersion, [ref]$fixtureVersion) -or $fixtureVersion -ne $candidateVersion) {
-  throw "El fixture no quedó con la versión del candidato: expected=$candidateVersion actual=$($fixture.VersionInfo.ProductVersion)"
+$actualFixtureVersion = $null
+if (-not [version]::TryParse([string]$fixture.VersionInfo.ProductVersion, [ref]$actualFixtureVersion) -or $actualFixtureVersion -ne $fixtureVersion) {
+  throw "El fixture no quedó con la versión solicitada: expected=$fixtureVersion actual=$($fixture.VersionInfo.ProductVersion)"
 }
 $fixtureHash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
-Write-Host "Fixture Burn listo: version=$fixtureVersion; bundleUpgradeCode=$($flavor[0].bundleUpgradeCode); bytes=$($fixture.Length); sha256=$fixtureHash"
+Write-Host "Fixture Burn listo: version=$actualFixtureVersion candidate=$candidateVersion; bundleUpgradeCode=$($flavor[0].bundleUpgradeCode); bytes=$($fixture.Length); sha256=$fixtureHash"
 if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_ENV)) {
-  [IO.File]::AppendAllText($env:GITHUB_ENV, "SAME_VERSION_RELATED_BUNDLE_PATH=$output`n", [Text.UTF8Encoding]::new($false))
+  [IO.File]::AppendAllText($env:GITHUB_ENV, "$EnvironmentVariableName=$output`n", [Text.UTF8Encoding]::new($false))
 }

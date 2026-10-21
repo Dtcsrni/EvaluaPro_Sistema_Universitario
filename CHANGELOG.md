@@ -17,6 +17,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Contratos y cliente API autenticado para que Codex prepare, confirme, inicie y verifique importaciones con control de idempotencia.
 
 ### Fixed
+- Burn evita planificar más de una vez la desinstalación del mismo bundle relacionado y conserva payload y datos si falla únicamente la limpieza posterior al MSI.
 - Las solicitudes HTTP mutables del cliente común ya no se reintentan automáticamente ante fallos transitorios sin idempotencia persistente.
 - La interfaz de importación conserva el job para reanudar consultas tras una interrupción y distingue resultados parciales de una sincronización completa.
 - El Stable Gate permite únicamente la normalización EOL heredada de tres rutas explícitas; los cambios staged, semánticos, no seguidos o fuera de esa lista siguen bloqueando.

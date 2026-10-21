@@ -12,6 +12,7 @@
       <ExePackage
         Id="NoOpPackage"
         SourceFile="$(var.FixtureExePath)"
+        PerMachine="no"
         DetectCondition="0"
         Permanent="no"
         InstallArguments="/c exit 0"

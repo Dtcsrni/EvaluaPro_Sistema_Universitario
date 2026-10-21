@@ -17,6 +17,7 @@ param(
   [string]$CandidateBundlePath = '',
   [string]$BaselineBundlePath = '',
   [string]$SameVersionRelatedBundlePath = '',
+  [string]$PreviousVersionRelatedBundlePath = '',
   [int]$Port = 4519,
   [switch]$IUnderstandThisMutatesPc,
   [switch]$AllowExistingInstall,
@@ -1256,6 +1257,86 @@ function Invoke-SameVersionRelatedBundleConflict {
   if (-not $fixtureRemoved) { throw 'El E2E no pudo retirar su bundle fixture aislado.' }
 }
 
+function Invoke-PreviousVersionRelatedBundleUpgrade {
+  if ([string]::IsNullOrWhiteSpace($PreviousVersionRelatedBundlePath)) {
+    Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath | Out-Null
+    return
+  }
+
+  $fixturePath = (Resolve-Path -LiteralPath $PreviousVersionRelatedBundlePath -ErrorAction Stop).Path
+  if ([IO.Path]::GetExtension($fixturePath) -ne '.exe') { throw 'El fixture Burn previo debe ser un EXE.' }
+  $flavorCatalog = Get-Content -LiteralPath (Join-Path $root 'config\installer-flavors.json') -Raw -Encoding utf8 | ConvertFrom-Json
+  $docenteFlavor = @($flavorCatalog.flavors | Where-Object { [string]$_.flavorId -eq 'docente-local' })
+  if ($docenteFlavor.Count -ne 1) { throw 'No se pudo resolver un único docente-local para el UpgradeCode del fixture previo.' }
+  $bundleUpgradeCode = [string]$docenteFlavor[0].bundleUpgradeCode
+  $candidateBundle = Get-Item -LiteralPath $script:bundlePath -ErrorAction Stop
+  $candidateVersion = $null
+  $fixtureVersion = $null
+  $fixtureFile = Get-Item -LiteralPath $fixturePath -ErrorAction Stop
+  if (-not [version]::TryParse([string]$candidateBundle.VersionInfo.ProductVersion, [ref]$candidateVersion) -or
+      -not [version]::TryParse([string]$fixtureFile.VersionInfo.ProductVersion, [ref]$fixtureVersion) -or
+      $fixtureVersion -ge $candidateVersion) {
+    throw "El bundle relacionado debe tener versión menor que el candidato: fixture=$($fixtureFile.VersionInfo.ProductVersion) candidate=$($candidateBundle.VersionInfo.ProductVersion)"
+  }
+
+  $fixtureHash = (Get-FileHash -LiteralPath $fixturePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  Copy-ArtifactIfExists -Path $fixturePath -Name 'previous-version-related-bundle-fixture.exe' | Out-Null
+  Add-Result -Area 'previous-version-related-bundle' -Item 'fixture-verified' -Ok $true -Detail "version=$fixtureVersion candidate=$candidateVersion upgradeCode=$bundleUpgradeCode sha256=$fixtureHash"
+  $existingRelated = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode)
+  if ($existingRelated.Count -gt 0) { throw 'El runner ya tiene bundles relacionados registrados antes de instalar el fixture QA; se detiene sin cambiarlos.' }
+
+  $fixtureInstallAttempted = $false
+  $fixtureProviderKey = ''
+  try {
+    $fixtureInstallAttempted = $true
+    Invoke-BurnBundleQuiet -BundlePath $fixturePath -Action '/install'
+    $relatedEntries = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode)
+    $fixtureEntries = @($relatedEntries | Where-Object { $_.displayName -eq 'QA Bundle Relation Fixture' -and [version]::Parse($_.version) -eq $fixtureVersion })
+    if ($relatedEntries.Count -ne 1 -or $fixtureEntries.Count -ne 1 -or [string]::IsNullOrWhiteSpace($fixtureEntries[0].providerKey)) {
+      throw "El fixture previo debe quedar como único bundle relacionado registrado. count=$($relatedEntries.Count) fixtureCount=$($fixtureEntries.Count)"
+    }
+    $fixtureProviderKey = [string]$fixtureEntries[0].providerKey
+    $operationStartedAt = Get-Date
+    Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath | Out-Null
+    $remainingRelated = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode)
+    $oldBundleRemoved = @($remainingRelated | Where-Object { [string]$_.providerKey -eq $fixtureProviderKey }).Count -eq 0
+    if (-not $oldBundleRemoved) { throw 'El upgrade terminó, pero el fixture relacionado anterior sigue registrado.' }
+
+    $baLogRoot = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+    $fixtureBundleCode = [guid]::Empty
+    if (-not [guid]::TryParse($fixtureProviderKey, [ref]$fixtureBundleCode)) { throw "La identidad registrada del fixture no es un GUID válido: $fixtureProviderKey" }
+    $fixtureCodePattern = [regex]::Escape($fixtureBundleCode.ToString('B'))
+    $baLogs = @(Get-ChildItem -LiteralPath $baLogRoot -Filter 'burn-bootstrapper.log' -File -Recurse -ErrorAction SilentlyContinue |
+      Where-Object { $_.LastWriteTime -ge $operationStartedAt.AddSeconds(-2) } |
+      Sort-Object LastWriteTime -Descending | Select-Object -First 3)
+    $baLines = @()
+    $logIndex = 0
+    foreach ($baLog in $baLogs) {
+      $logIndex++
+      $reportLog = Copy-ArtifactIfExists -Path $baLog.FullName -Name ("previous-version-related-bundle-session-{0}.log" -f $logIndex)
+      if ($reportLog) { $baLines += @(Get-Content -LiteralPath $reportLog -ErrorAction SilentlyContinue) }
+    }
+    $detectLines = @($baLines | Where-Object { $_ -match "(?i)DetectRelatedBundle bundle=$fixtureCodePattern\s" })
+    $perUserDetectLines = @($detectLines | Where-Object { $_ -match '(?i)\bscope=PerUser\b' })
+    $duplicatePlanLines = @($baLines | Where-Object { $_ -match "(?i)Burn volvió a planificar el mismo bundle relacionado.*bundle=$fixtureCodePattern.*effectiveState=Present" })
+    $ignoredDuplicateLines = @($baLines | Where-Object { $_ -match "(?i)Se ignoró el segundo inicio fallido.*bundle=$fixtureCodePattern" })
+    if ($detectLines.Count -lt 2) { throw "El fixture no reprodujo detección duplicada del bundle previo: detections=$($detectLines.Count)" }
+    if ($perUserDetectLines.Count -lt 2) { throw "El fixture no reprodujo detección doble con alcance PerUser: detections=$($perUserDetectLines.Count)" }
+    if ($duplicatePlanLines.Count -lt 1) { throw 'El log BA no confirma que Burn omitió la desinstalación planificada por segunda vez.' }
+    if ($ignoredDuplicateLines.Count -gt 0) { throw 'Burn intentó iniciar el bundle después de suprimir la segunda desinstalación.' }
+    Add-Result -Area 'previous-version-related-bundle' -Item 'duplicate-detection-handled' -Ok $true -Detail "perUserDetections=$($perUserDetectLines.Count) suppressedDuplicatePlans=$($duplicatePlanLines.Count) oldBundleRemoved=$oldBundleRemoved"
+  } finally {
+    if ($fixtureInstallAttempted) {
+      $matchesFixture = { param($entry); if ($fixtureProviderKey) { return [string]$entry.providerKey -eq $fixtureProviderKey }; return $entry.displayName -eq 'QA Bundle Relation Fixture' -and [version]::Parse([string]$entry.version) -eq $fixtureVersion }
+      $stillRegistered = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode | Where-Object { & $matchesFixture $_ })
+      if ($stillRegistered.Count -gt 0) { Invoke-BurnBundleQuiet -BundlePath $fixturePath -Action '/uninstall' }
+      $remainingFixture = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode | Where-Object { & $matchesFixture $_ })
+      Add-Result -Area 'previous-version-related-bundle' -Item 'fixture-cleanup' -Ok ($remainingFixture.Count -eq 0) -Detail "registeredAfterCleanup=$($remainingFixture.Count)"
+      if ($remainingFixture.Count -gt 0) { throw 'El E2E no pudo retirar el fixture Burn previo tras intentar instalarlo.' }
+    }
+  }
+}
+
 function Wait-NativeDashboardHealth {
   param([int]$TimeoutSec = 240)
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
@@ -1950,7 +2031,7 @@ function Invoke-UpgradeBaselineFlow {
   Add-Result -Area 'upgrade' -Item 'baseline-data-marker' -Ok $true -Detail 'marcador SQLite escrito en la base instalada temporal'
   try {
     Invoke-SameVersionRelatedBundleConflict -DatabaseMarker $marker
-    Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath | Out-Null
+    Invoke-PreviousVersionRelatedBundleUpgrade
     Wait-InstalledPayload -TimeoutSec 240
     $candidateVersion = Get-InstalledProductVersion
     $versionAdvanced = $candidateVersion -gt $baselineVersion
@@ -2455,7 +2536,7 @@ try {
   Backup-ExistingInstallDatabase
   if ([string]::IsNullOrWhiteSpace($BaselineBundlePath)) {
     Invoke-SameVersionRelatedBundleConflict
-    Invoke-InstallerHubMode -Mode 'install' | Out-Null
+    Invoke-PreviousVersionRelatedBundleUpgrade
     Wait-InstalledPayload -TimeoutSec 240
     Set-QAIsolatedSqlite | Out-Null
     Test-InstalledState -Phase 'post-install'

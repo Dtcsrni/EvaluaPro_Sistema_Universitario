@@ -26,6 +26,7 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
   assert.match(sameVersionFixture, /Name="QA Bundle Relation Fixture"/);
   assert.match(sameVersionFixture, /UpgradeCode="\$\(var\.BundleUpgradeCode\)"/);
   assert.match(sameVersionFixture, /DetectCondition="0"/);
+  assert.match(sameVersionFixture, /PerMachine="no"/, 'el fixture relacionado debe instalarse sin requerir elevación');
   assert.match(sameVersionFixture, /Permanent="no"/);
   assert.doesNotMatch(sameVersionFixture, /Permanent="yes"/, 'Burn debe conservar una relación registrable para el paquete inerte');
   assert.match(sameVersionFixture, /InstallArguments="\/c exit 0"/);
@@ -87,19 +88,44 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
   const baselineEnd = e2e.indexOf('\nfunction Resolve-InstalledSqlitePath {', baselineStart);
   const baselineFlow = e2e.slice(baselineStart, baselineEnd);
   assert.match(baselineFlow, /Invoke-SameVersionRelatedBundleConflict -DatabaseMarker \$marker/);
-  assert.ok(baselineFlow.indexOf('Invoke-SameVersionRelatedBundleConflict') < baselineFlow.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath \$script:bundlePath"), 'el conflicto se comprueba antes del upgrade del candidato');
+  assert.ok(baselineFlow.indexOf('Invoke-SameVersionRelatedBundleConflict') < baselineFlow.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade'), 'los conflictos y la actualización con bundle previo se prueban antes de validar el candidato');
 
   const cleanInstallIndex = e2e.lastIndexOf('Backup-ExistingInstallDatabase');
   const cleanInstallFlow = e2e.slice(cleanInstallIndex, cleanInstallIndex + 900);
-  assert.match(cleanInstallFlow, /Invoke-SameVersionRelatedBundleConflict\s*\n\s*Invoke-InstallerHubMode -Mode 'install'/);
+  assert.match(cleanInstallFlow, /Invoke-SameVersionRelatedBundleConflict\s*\n\s*Invoke-PreviousVersionRelatedBundleUpgrade/);
 
   assert.match(fixtureBuilder, /WixToolset\.Bal\.wixext\/7\.0\.0/);
   assert.match(fixtureBuilder, /SameVersionRelatedBundleFixture\.wxs/);
   assert.match(fixtureBuilder, /FixtureExePath=\$comSpec/);
-  assert.match(fixtureBuilder, /SAME_VERSION_RELATED_BUNDLE_PATH=\$output/);
-  assert.equal((workflow.match(/build-same-version-related-bundle-fixture\.ps1/g) ?? []).length, 3, 'fixture compilado desde el candidato se repite para los assets local, draft y público');
+  assert.match(fixtureBuilder, /EnvironmentVariableName = 'SAME_VERSION_RELATED_BUNDLE_PATH'/);
+  assert.equal((workflow.match(/build-same-version-related-bundle-fixture\.ps1/g) ?? []).length, 6, 'fixtures de misma versión y versión previa se compilan para los assets local, draft y público');
   assert.equal((workflow.match(/'-SameVersionRelatedBundlePath', \$env:SAME_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 3, 'los flujos local, draft y público prueban el conflicto');
+  assert.equal((workflow.match(/'-PreviousVersionRelatedBundlePath', \$env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 3, 'los flujos local, draft y público prueban el bundle anterior');
+  assert.equal((workflow.match(/Falta el fixture Burn relacionado de versión previa/g) ?? []).length, 3, 'cada flujo falla cerrado si no recibe el fixture previo');
   assert.match(workflow, /\$runnerArgs \+= @\('-SameVersionRelatedBundlePath', \$env:SAME_VERSION_RELATED_BUNDLE_PATH\)/);
+  assert.match(e2e, /\[string\]\$PreviousVersionRelatedBundlePath\s*=\s*''/);
+  assert.match(e2e, /function Invoke-PreviousVersionRelatedBundleUpgrade/);
+  assert.match(fixtureBuilder, /\[string\]\$FixtureVersion/);
+  assert.match(fixtureBuilder, /\[string\]\$EnvironmentVariableName/);
+  assert.match(fixtureBuilder, /-d "Version=\$fixtureVersion"/);
+  assert.match(fixtureBuilder, /\$EnvironmentVariableName=\$output/);
+  assert.match(e2e, /perUserDetectLines\s*=\s*@\(\$detectLines[\s\S]*?scope=PerUser/);
+});
+
+test('Burn deduplica la desinstalación de bundles relacionados y conserva instalación si limpieza falla', () => {
+  assert.match(bootstrapper, /observedPlannedRelatedBundleCodes\s*=\s*new\(StringComparer\.OrdinalIgnoreCase\)/);
+  assert.match(bootstrapper, /protected override void OnPlanBegin\(PlanBeginEventArgs args\)[\s\S]*?observedPlannedRelatedBundleCodes\.Clear\(\)/);
+  const planStart = bootstrapper.indexOf('protected override void OnPlanRelatedBundle(');
+  const planEnd = bootstrapper.indexOf('\n    protected override void ', planStart + 1);
+  assert.ok(planStart >= 0 && planEnd > planStart, 'Burn debe interceptar la planificación de bundles relacionados');
+  const planHandler = bootstrapper.slice(planStart, planEnd);
+  assert.match(planHandler, /observedPlannedRelatedBundleCodes\.Add\(args\.BundleCode\)/);
+  assert.match(planHandler, /args\.State = RequestState\.Present/);
+  assert.match(planHandler, /effectiveState=\{args\.State\}/);
+  assert.match(bootstrapper, /successfullyUninstalledRelatedBundleCodes\.Add\(successfulPackageId\)/);
+  assert.match(bootstrapper, /0x80070003[\s\S]*?relatedBundleCodesPlannedForUninstall\.Contains\(failedPackageId\)[\s\S]*?successfullyUninstalledRelatedBundleCodes\.Contains\(failedPackageId\)/);
+  assert.match(bootstrapper, /preserveInstallPayloadOnFailure: relatedBundleCleanupFailed && !applySawPackageFailure/);
+  assert.match(bootstrapper, /RollbackFailureResidues\(bool preserveInstallPayload = false\)/);
 });
 
 test('Burn detiene antes de Apply si otro bundle relacionado tiene la misma versión', () => {
@@ -315,7 +341,7 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   const baselineInstall = baselineFlow.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
   const stopBaseline = baselineFlow.indexOf("Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
   const markerWrite = baselineFlow.indexOf("Invoke-UpgradeDataMarker -Action 'write' -Marker $marker");
-  const candidateInstall = baselineFlow.indexOf("Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath");
+  const candidateInstall = baselineFlow.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade');
   const versionCheck = baselineFlow.indexOf("Get-InstalledProductVersion", candidateInstall);
   const markerVerify = baselineFlow.indexOf("Invoke-UpgradeDataMarker -Action 'verify' -Marker $marker", candidateInstall);
   assert.ok(baselineInstall >= 0 && baselineInstall < markerWrite);
@@ -451,7 +477,7 @@ test('E2E valida el preflight antes de instalar y reconoce la actualización ais
   assert.match(e2e, /\$isolatedBaselineUpgradeRun = \$candidateBundleVerified -and \$baselineBundleExists/);
   assert.match(e2e, /\$validInstallMode = \$isolatedCandidateRun -or \$isolatedBaselineUpgradeRun -or \$script:upgradingExistingInstall/);
   const invalidModeGuard = e2e.indexOf('if (-not $validInstallMode)');
-  const installInvocation = e2e.indexOf("Invoke-InstallerHubMode -Mode 'install'", invalidModeGuard);
+  const installInvocation = e2e.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade', invalidModeGuard);
   assert.ok(invalidModeGuard >= 0 && installInvocation > invalidModeGuard, 'un modo no reconocido debe abortar antes de cambiar la instalación');
   assert.match(e2e, /try \{ Save-Report -Status 'failed' \} catch/);
 });

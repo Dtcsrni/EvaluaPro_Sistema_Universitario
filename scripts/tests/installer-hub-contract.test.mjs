@@ -1015,7 +1015,7 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   const preflightInstall = runner.indexOf("if (-not $AllowExistingInstall -and $existing.Count -gt 0)");
   const activeProcessGuard = runner.indexOf("$activeInstallerHubProcesses = @(");
   const installFlow = runner.indexOf("if ([string]::IsNullOrWhiteSpace($BaselineBundlePath))");
-  const startInstaller = runner.indexOf("Invoke-InstallerHubMode -Mode 'install' | Out-Null", installFlow);
+  const startInstaller = runner.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade', installFlow);
 
   assert.ok(preflightDatabase >= 0 && preflightInstall > preflightDatabase);
   assert.ok(activeProcessGuard > preflightInstall, 'primero se deben validar base e instalaciones existentes');
@@ -1045,7 +1045,8 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
   assert.match(runner, /Hay procesos Installer Hub activos(?:: [^\r\n]+)?\. El runner no los cerrará/);
   assert.match(runner, /\$script:qaMutationStarted = \$false/);
-  assert.match(runner, /\$script:qaMutationStarted = \$true[\s\S]*?Invoke-InstallerHubMode -Mode 'install'/);
+  assert.match(runner, /\$script:qaMutationStarted = \$true[\s\S]*?Invoke-PreviousVersionRelatedBundleUpgrade/);
+  assert.match(runner, /function Invoke-PreviousVersionRelatedBundleUpgrade[\s\S]*?Invoke-InstallerHubMode -Mode 'install' -BundlePath/);
   assert.match(runner, /if \(\$script:qaMutationStarted -and -not \$script:upgradingExistingInstall\) \{\s*try \{\s*\$currentProfileExists/);
 });
 

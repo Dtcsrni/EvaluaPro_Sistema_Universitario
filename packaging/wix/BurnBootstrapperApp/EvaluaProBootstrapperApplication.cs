@@ -36,6 +36,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private readonly TaskCompletionSource<bool> uiReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<int> operationFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly List<InstallerStageState> workflowStages = CreateDefaultWorkflowStages();
+    private readonly HashSet<string> observedPlannedRelatedBundleCodes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> relatedBundleCodesPlannedForUninstall = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> successfullyUninstalledRelatedBundleCodes = new(StringComparer.OrdinalIgnoreCase);
 
     private IEngine? engineHandle;
     private IBootstrapperCommand? command;
@@ -149,6 +152,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     protected override void OnDetectRelatedBundle(DetectRelatedBundleEventArgs args)
     {
         base.OnDetectRelatedBundle(args);
+        Log("info", $"DetectRelatedBundle bundle={args.ProductCode} relation={args.RelationType} scope={(args.PerMachine ? "PerMachine" : "PerUser")} version={args.Version}");
 
         var candidateVersionText = ReadEngineVariableString("WixBundleVersion");
         if (args.RelationType == RelationType.Upgrade
@@ -161,6 +165,39 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 "warn",
                 $"Se detectó un bundle relacionado de la misma versión; se bloqueará antes de Apply para evitar que su desinstalación retire el MSI compartido. bundle={args.ProductCode} version={args.Version}");
         }
+    }
+
+    protected override void OnPlanBegin(PlanBeginEventArgs args)
+    {
+        base.OnPlanBegin(args);
+        observedPlannedRelatedBundleCodes.Clear();
+        relatedBundleCodesPlannedForUninstall.Clear();
+        successfullyUninstalledRelatedBundleCodes.Clear();
+    }
+
+    protected override void OnPlanRelatedBundle(PlanRelatedBundleEventArgs args)
+    {
+        base.OnPlanRelatedBundle(args);
+
+        if (!string.IsNullOrWhiteSpace(args.BundleCode)
+            && args.State is RequestState.Absent or RequestState.ForceAbsent)
+        {
+            relatedBundleCodesPlannedForUninstall.Add(args.BundleCode);
+        }
+
+        if (string.IsNullOrWhiteSpace(args.BundleCode) || observedPlannedRelatedBundleCodes.Add(args.BundleCode))
+        {
+            Log("info", $"PlanRelatedBundle bundle={args.BundleCode} requestedState={args.State}");
+            return;
+        }
+
+        var duplicateRequestedState = args.State;
+        if (duplicateRequestedState is RequestState.Absent or RequestState.ForceAbsent)
+        {
+            args.State = RequestState.Present;
+        }
+
+        Log("warn", $"Burn volvió a planificar el mismo bundle relacionado; se conserva la primera desinstalación y se omite la repetida. bundle={args.BundleCode} requestedState={duplicateRequestedState} effectiveState={args.State}");
     }
 
     protected override void OnDetectPackageComplete(DetectPackageCompleteEventArgs args)
@@ -215,12 +252,26 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         base.OnExecutePackageComplete(args);
         if (IsSuccessStatus(args.Status))
         {
+            if (args.PackageId is { } successfulPackageId
+                && IsRelatedBundlePackageId(successfulPackageId)
+                && relatedBundleCodesPlannedForUninstall.Contains(successfulPackageId))
+            {
+                successfullyUninstalledRelatedBundleCodes.Add(successfulPackageId);
+            }
             Log("info", $"ExecutePackageComplete package={args.PackageId} status={args.Status}");
             return;
         }
 
-        if (!string.Equals(args.PackageId, "EvaluaProMsi", StringComparison.OrdinalIgnoreCase) && (args.PackageId?.StartsWith("{") == true))
+        if (args.PackageId is { } failedPackageId && IsRelatedBundlePackageId(failedPackageId))
         {
+            if (args.Status == unchecked((int)0x80070003)
+                && relatedBundleCodesPlannedForUninstall.Contains(failedPackageId)
+                && successfullyUninstalledRelatedBundleCodes.Contains(failedPackageId))
+            {
+                Log("warn", $"Se ignoró el segundo inicio fallido de un bundle relacionado ya desinstalado correctamente; HRESULT=0x80070003 esperado por la caché retirada. bundle={failedPackageId}");
+                return;
+            }
+
             relatedBundleCleanupFailed = true;
             lastFailedPackageId ??= args.PackageId;
             lastFailedPackageStatus ??= args.Status;
@@ -268,7 +319,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 detail += $" Motivo visible: {parsedReason}.";
             }
             detail += $" Revisa log BA: {sessionLogPath}";
-            FinalizeFailure("accion_producto", 30, detail);
+            FinalizeFailure(
+                "accion_producto",
+                30,
+                detail,
+                preserveInstallPayloadOnFailure: relatedBundleCleanupFailed && !applySawPackageFailure);
             return;
         }
 
@@ -276,7 +331,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             const string reason = "La limpieza de un Installer Hub anterior falló. No se declara éxito; verifica el estado de la instalación y conserva los logs para recuperación.";
             SetStageState(StageFinalize, InstallerStageStatus.Error, "No se completó la limpieza del bundle anterior.", reason);
-            FinalizeFailure("accion_producto", 30, reason);
+            FinalizeFailure("accion_producto", 30, reason, preserveInstallPayloadOnFailure: true);
             return;
         }
 
@@ -2306,8 +2361,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
     }
 
-    private void RollbackFailureResidues()
+    private void RollbackFailureResidues(bool preserveInstallPayload = false)
     {
+        if (preserveInstallPayload)
+        {
+            Log("warn", "Se conserva el payload y los datos existentes porque falló solo la limpieza de un bundle relacionado.");
+            return;
+        }
+
         if (installationExistedBeforeOperation || handoffOverlapsInstallDirectory)
         {
             Log("warn", handoffOverlapsInstallDirectory
@@ -2421,7 +2482,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         return null;
     }
 
-    private void FinalizeFailure(string phase, int exitCode, string message)
+    private void FinalizeFailure(string phase, int exitCode, string message, bool preserveInstallPayloadOnFailure = false)
     {
         requestedExitCode = exitCode;
         helperInFlight = false;
@@ -2432,7 +2493,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
         if (string.Equals(currentOperation, "install", StringComparison.OrdinalIgnoreCase))
         {
-            RollbackFailureResidues();
+            RollbackFailureResidues(preserveInstallPayloadOnFailure);
         }
         var mappedStage = MapPhaseToStage(phase);
         if (!string.IsNullOrWhiteSpace(mappedStage))
@@ -2668,6 +2729,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private static bool IsSuccessStatus(int status)
     {
         return status == 0 || status == 3010 || status == 1641;
+    }
+
+    private static bool IsRelatedBundlePackageId(string? packageId)
+    {
+        return Guid.TryParse(packageId, out _);
     }
 
     private static string FormatWindowsStatus(int status)
