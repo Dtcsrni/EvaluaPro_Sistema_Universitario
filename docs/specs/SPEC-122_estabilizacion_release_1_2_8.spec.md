@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.33.0
+version: 1.34.0
 fecha: 2026-10-21
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -215,3 +215,16 @@ El run 39606510998 validó y reutilizó el artefacto de instalador cuyo SHA y E2
 El PATCH del borrador incluirá tanto `tag_name=$RELEASE_TAG` como `target_commitish=$SOURCE_SHA`, únicamente después de verificar versión, ausencia de la tag previa, estado de borrador y hashes/tamaños de los assets. La respuesta se volverá a consultar y deberá confirmar tag, SHA, borrador no publicado y no prerelease; luego se verificarán de nuevo los assets. Si falla cualquier condición, no se ejecutan las etapas de hacer público ni marcar Latest.
 
 Se añade una aserción al contrato del publicador para fijar que ambos campos se actualicen. La validación local ejecutará ese contrato específico; CI ejecutará solo gates afectados por las rutas de control. El build y las E2E de instalador se reutilizarán desde el run candidato ya aprobado; no se repetirán si el digest sigue igual.
+
+
+## Enmienda aprobada v1.34.0 — ejecutar la verificación del draft al reutilizar el candidato
+
+### Hallazgo y causa
+
+El run 39609025958 reutilizó correctamente el bundle del run 39569392976: SHA fuente, manifiesto, assets y digest coincidieron. El build se omitió como se diseñó, pero GitHub también omitió por completo el job de E2E del draft. La condición de ese job usaba el chequeo implícito `success()`; una dependencia con resultado `skipped` hizo falsa la condición, aunque el job de reutilización y los gates requeridos hubieran terminado correctamente. Por ello tampoco se ejecutaron la promoción del draft ni la verificación posterior.
+
+### Corrección y alcance de validación
+
+La condición del job de E2E del draft usará `always()` junto con `!cancelled()` y validará explícitamente que el gate de instalador, la publicación del draft y una de las dos rutas de artefacto (reutilización aprobada o build) hayan concluido con éxito. Así, un build omitido solo se acepta cuando la reutilización aprobada tuvo éxito; los fallos y cancelaciones siguen bloqueando la promoción. El job descargará y verificará manifiesto, sidecar, digest y tamaño del asset. La E2E de instalación solo se omite si el digest descargado coincide exactamente con el candidato previamente probado; la verificación del asset público conserva la misma regla.
+
+Se agregan aserciones al contrato de workflow para fijar el comportamiento ante build omitido. La validación local ejecutará el contrato afectado y la comprobación YAML; CI ejecutará gates de control y seguridad. No se reconstruye ni se repite la E2E de producto porque el bundle candidato permanece idéntico y ya cuenta con evidencia exitosa.

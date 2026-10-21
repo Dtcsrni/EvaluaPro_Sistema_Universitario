@@ -843,7 +843,7 @@ jobs:
     needs: [installer_windows, publish_installer_release, reuse_installer_candidate, installer_windows_build]
     outputs:
       draft_sha256: ${{ steps.draft_asset.outputs.sha256 }}
-    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') }}
+    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.publish_installer_release.result == 'success' && needs.installer_windows.result == 'success' && (needs.reuse_installer_candidate.result == 'success' || needs.installer_windows_build.result == 'success') }}
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
