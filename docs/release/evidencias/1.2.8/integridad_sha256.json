@@ -13,52 +13,52 @@
     "bytesManifiesto": null
   },
   "installerHub": {
-    "runId": 39520497900,
-    "runNumber": 758,
+    "runId": 39526873990,
+    "runNumber": 763,
     "artifactName": "installer-windows",
-    "artifactId": 12312502041,
-    "artifactSizeBytes": 272086670,
-    "artifactZipSha256": "51e5c9874bbd64386765694b7df55fd5f2edf1f94e4eafc9b1c0767e0abb4769",
+    "artifactId": 12314112491,
+    "artifactSizeBytes": 272084786,
+    "artifactZipSha256": "8aa0ef0a709f89a260dce77827114dc71f1f26ad323c3fa8f488b13471051f66",
     "observacion": "Digest SHA-256 del ZIP de artifact GitHub; no equivale al SHA-256 del ejecutable extraído."
   },
   "installerHubE2E": {
-    "runId": 39520497900,
-    "artifactName": "installer-hub-e2e-39520497900",
-    "artifactId": 12311812422,
-    "artifactSizeBytes": 280118747,
-    "artifactZipSha256": "a18d7698289a5073c8da507488f272844f8e27afa2e1714f96076a020cf98e0d"
+    "runId": 39526873990,
+    "artifactName": "installer-hub-e2e-39526873990",
+    "artifactId": 12314497221,
+    "artifactSizeBytes": 279990701,
+    "artifactZipSha256": "5b901731b1ac3a40733f852203c5d701a25c70fc72e3f813f5c1b8431314a7b7"
   },
   "installerHubPasses": [
     {
-      "runId": 39520497900,
-      "runNumber": 758,
-      "candidateSha": "d44212a5869fc7162180e981307c0163cc42ba1f",
+      "runId": 39526873990,
+      "runNumber": 763,
+      "candidateSha": "4ccde020b85906dba340d8473977b0fc027afc92",
       "conclusion": "success",
       "installerArtifact": {
         "name": "installer-windows",
-        "id": 12312502041,
-        "sizeBytes": 272086670,
-        "artifactZipSha256": "51e5c9874bbd64386765694b7df55fd5f2edf1f94e4eafc9b1c0767e0abb4769"
+        "id": 12314112491,
+        "sizeBytes": 272084786,
+        "artifactZipSha256": "8aa0ef0a709f89a260dce77827114dc71f1f26ad323c3fa8f488b13471051f66"
       },
       "e2eArtifact": {
-        "name": "installer-hub-e2e-39520497900",
-        "id": 12311812422,
-        "sizeBytes": 280118747,
-        "artifactZipSha256": "a18d7698289a5073c8da507488f272844f8e27afa2e1714f96076a020cf98e0d"
+        "name": "installer-hub-e2e-39526873990",
+        "id": 12314497221,
+        "sizeBytes": 279990701,
+        "artifactZipSha256": "5b901731b1ac3a40733f852203c5d701a25c70fc72e3f813f5c1b8431314a7b7"
       }
     }
   ],
   "ciChecks": {
-    "runId": 39520388769,
-    "runNumber": 1551,
+    "runId": 39526501274,
+    "runNumber": 1556,
     "conclusion": "success",
-    "candidateSha": "d44212a5869fc7162180e981307c0163cc42ba1f"
+    "candidateSha": "4ccde020b85906dba340d8473977b0fc027afc92"
   },
   "securityCodeQL": {
-    "runId": 39520388807,
-    "runNumber": 917,
+    "runId": 39526501412,
+    "runNumber": 922,
     "conclusion": "success",
-    "candidateSha": "d44212a5869fc7162180e981307c0163cc42ba1f"
+    "candidateSha": "4ccde020b85906dba340d8473977b0fc027afc92"
   },
   "antivirus": {
     "runId": 39520388754,
@@ -67,11 +67,18 @@
     "candidateSha": "d44212a5869fc7162180e981307c0163cc42ba1f"
   },
   "stableGate": {
-    "runId": 39523371654,
-    "runNumber": 101,
+    "runId": 39526576612,
+    "runNumber": 103,
     "conclusion": "failure",
-    "candidateSha": "d44212a5869fc7162180e981307c0163cc42ba1f",
-    "failure": "Missing post-candidate evidence commit; gate stopped before QA and publication."
+    "candidateSha": "4ccde020b85906dba340d8473977b0fc027afc92",
+    "failure": "Prevalidación detenida: el manifiesto de evidencia apuntaba al SHA anterior d44212a; no descargó instalador, no ejecutó QA y no publicó release."
   },
-  "nota": "Artifacts y checks corresponden al SHA candidato d442... Los digests identifican ZIPs de GitHub, no hashes de ejecutables extraídos."
+  "nota": "Evidencia del candidato 4ccde020... Los digests identifican ZIPs de artifacts de GitHub, no hashes de ejecutables extraídos. La promoción estable está pendiente de Stable Gate y E2E del asset draft/público.",
+  "installerHubInternal": {
+    "runId": 39526873990,
+    "artifactName": "installer-windows-internal",
+    "artifactId": 12314112515,
+    "artifactSizeBytes": 273472409,
+    "artifactZipSha256": "9cc20f3ca2a0e4956f6190e6a35bb9175a04b07ee868c0856eadd06b836e6090"
+  }
 }
