@@ -1,8 +1,8 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.25.0
-fecha: 2026-10-20
+version: 1.35.0
+fecha: 2026-10-21
 autor: Codex / Ingeniería
 modulo: release_stable_gate
 estado: approved
@@ -28,7 +28,13 @@ El run de Windows `39372851883` pasó build, firma de manifiesto, smoke Burn, Ch
 
 El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo fuente modificado. El log confirma que `test:dataset-prodlike:ci` exportaba directamente a `tests/fixtures/prodlike/prodlike-anon.json.gz`, la salida predeterminada del exportador y un archivo versionado. La causa queda reproducida por el contrato de rutas; el nuevo runner usa `reports/qa/generated/`, y una prueba de integración calcula el SHA-256 del fixture canónico antes y después de exportar, validar e importar para proteger su contenido en Linux y Windows.
 
+El Stable Gate #100 completó la promoción del candidato, pero el job posterior de publicación se detuvo antes de despachar `CI Installer Windows`. El log identifica un borrador `v1.2.8` no recuperable porque el gate exige una tag Git que apunte al candidato. Sin embargo, el workflow de instalación crea el borrador con `target_commitish` igual al SHA validado y GitHub puede no crear la tag hasta publicar. El guard debe verificar el SHA exacto mediante la referencia de tag cuando exista o, únicamente si no existe, mediante `target_commitish` del borrador; cualquier discrepancia, release publicado o borrador con otra tag debe seguir bloqueando la publicación. No se elimina ni se retargetea un borrador discrepante. El Stable Gate #102 confirmó que `GET /commits/v1.2.8` devuelve HTTP 422 cuando el tag aún no existe, antes de poder despachar el instalador. El preflight consulta primero `GET /git/ref/tags/v1.2.8`: solo si devuelve 2xx resuelve el commit con `GET /commits/v1.2.8`; un ref ausente conserva el 404 verificable y cualquier otro error, incluido un fallo al resolver un ref existente, bloquea la publicación.
+
+El último run del borrador falló antes de instalar: el checkout de la tag no contiene artefactos generados y el workflow descargaba solo el EXE y el sidecar, aunque el runner lee `dist/installer/EvaluaPro-release-manifest.json`. Se corrige de forma unificada para los flujos draft y público, descargando el manifiesto oficial, verificando digest/longitud y validando versión, commit y flavor antes de iniciar cualquier instalación. La regresión se limita al contrato de ambos pasos y a la E2E del asset afectada.
+
 ## Requisitos Funcionales
+
+- **REQ-028 — E2E del asset usa manifiesto de release verificado:** El flujo draft/público descarga el manifiesto publicado en la ruta que consume el runner, valida digest, versión, commit candidato y flavor `docente-local`; falla antes de instalación cuando falta o no coincide.
 
 - **REQ-001 — Checkout candidato estricto (SPEC-115, SPEC-117):** Mantener bloqueantes los controles de limpieza iniciales, intermedios y finales. Se toleran exclusivamente diferencias CRLF/LF sin cambios semánticos en archivos rastreados y sin preparar; incluye manifests JSON históricos incompatibles con `.gitattributes`. Se rechazan modificaciones preparadas, archivos sin seguimiento, cambios de tipo/modo y cambios de contenido; reportar etapa y rutas.
 - **REQ-002 — Aislamiento de E2E y evidencia (SPEC-116):** Ejecutar capturas, scratch y resultados fuera del checkout candidato; preservar evidencia útil como artefactos y señalar la primera etapa que altere fuentes. No restaurar fuentes ni ampliar retries/timeouts.
@@ -54,8 +60,11 @@ El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo 
 - **REQ-023 — Carga OMR acotada en el journey integral:** El fixture conserva la creación, confirmación, revisión y publicación de los 20 reactivos del banco. El examen generado para PDF/OMR usa explícitamente una página y cinco preguntas, validando ambos valores en la GUI antes de guardar la plantilla. Se mantienen los pasos del flujo integral y el timeout actual; no se permiten reintentos que oculten lentitud.
 - **REQ-024 — Diagnóstico de conflicto Burn en CI:** Si la GUI no llega al estado terminal de conflicto, el runner imprime una snapshot UIA de hasta 2,400 caracteres y copia el log Burn de la operación al artefacto; el log del job filtra líneas por detección de bundles relacionados, planificación, `Apply` y conflicto, sin volcar logs MSI completos.
 - **REQ-026 — Fixture prodlike inmutable durante CI:** El paso `test:dataset-prodlike:ci` genera, valida e importa una copia bajo `reports/qa/generated/`, y Git ignora esa ruta; no escribe ni reescribe el fixture versionado `tests/fixtures/prodlike/prodlike-anon.json.gz`. Una prueba calcula el hash del fixture antes y después de las tres etapas y comprueba que se conserve idéntico. El runner propaga cualquier error de proceso o etapa y no continúa con importación parcial.
+- **REQ-027 — Recuperación fail-closed del borrador estable:** Antes de despachar publicación, el Stable Gate valida que un release existente sea un borrador con la tag esperada. Si existe una referencia Git para la tag, su commit debe ser exactamente `SOURCE_SHA`; si no existe, `target_commitish` del borrador debe ser exactamente `SOURCE_SHA`. Un release publicado, una tag distinta o un SHA distinto bloquean el flujo. Si no hay release, una tag existente solo se acepta cuando apunta al mismo `SOURCE_SHA`. El gate no elimina, publica ni retargetea borradores; la publicación y las E2E del asset draft y público siguen siendo pasos separados y bloqueantes.
 
 ## Criterios de Aceptación
+
+- **CA-028:** La E2E del asset draft y público valida que el workflow descarga `EvaluaPro-release-manifest.json` desde los assets del release, verifica SHA-256 y longitud, lo deja en `dist/installer/` y confirma `version`, `build.version`, `build.commit` y el único flavor `docente-local` antes de ejecutar el runner. El test de contrato falla si se omite la descarga, la verificación o el orden previo a la instalación.
 
 - **CA-001:** El guard compartido admite cualquier normalización EOL que no cambie el contenido de archivos rastreados sin preparar y falla ante todo cambio material, staged, sin seguimiento o de tipo/modo.
 - **CA-002:** Todas las salidas E2E del Stable Gate quedan fuera del checkout y siguen adjuntas al run para auditoría.
@@ -83,6 +92,7 @@ El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo 
 - **CA-025:** Antes de capturar `Prepare` o `Review`, el runner observa el paso UIA esperado en dos lecturas consecutivas, espera 500 ms y vuelve a confirmarlo. Después realiza una sola captura y mantiene el umbral visual bloqueante; si el paso no se estabiliza o el panel sigue vacío, la E2E falla y conserva evidencia.
 - **CA-021:** El E2E visual PDF genera una vista previa rasterizada del mismo PDF de prueba con Poppler; antes de guardar la captura confirma dimensiones no nulas, que el navegador terminó de decodificar la imagen, y un fondo mayoritario claro u oscuro con píxeles de texto en contraste. Descarga y vista previa deben compartir SHA-256, y el archivo descargado debe seguir siendo un PDF de una página. La regresión falla si se vuelve a usar el iframe nativo o una imagen plana que produzca una captura vacía.
 - **CA-026:** `npm run test:dataset-prodlike:ci` pasa su regresión y después usa `reports/qa/generated/prodlike-anon.json.gz` como entrada y salida temporal; `git check-ignore` confirma que Git excluye la ruta. La regresión ejecuta exportación, validación e importación en un checkout temporal, demuestra que el fixture canónico conserva su SHA-256 y verifica que cualquier error de spawn/etapa termine con código distinto de cero sin ejecutar pasos posteriores.
+- **CA-027:** Pruebas locales deterministas demuestran que el gate permite reusar solo un borrador `v1.2.8` fijado al `SOURCE_SHA`, tanto si su tag existe y resuelve al mismo SHA como si no existe y `target_commitish` coincide exactamente. Rechazan release publicado, tag del release incorrecta, tag existente en otro SHA, `target_commitish` distinto y ausencia de release con una tag ajena. El workflow confirma primero la referencia `git/ref/tags`; solo resuelve `commits/{tag}` si el ref existe, y falla cerrado ante errores HTTP distintos de ausencia confirmada o ante fallo de resolución del ref existente. La regresión verifica que el workflow no elimina ni retargetea borradores y conserva el despacho del instalador seguido de E2E draft y E2E pública.
 
 ## Matriz de Trazabilidad
 
@@ -114,6 +124,9 @@ El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo 
 | REQ-024 | Exponer diagnóstico acotado de UIA y Burn ante timeout del conflicto de versión | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Contrato local aprobado; CI debe revelar el estado runtime |
 | REQ-025 | Ubicar reporte de calificación global en el directorio QA raíz desde cualquier cwd | `apps/backend/tests/calificacion.global.reglas.test.ts` | Implementado; test enfocado 3/3 y contratos QA/promoción 28/28 aprobados en el worktree local |
 | REQ-026 | Generar, validar e importar el fixture prodlike en ruta temporal ignorada sin mutar el fixture canónico; fallar cerrado ante errores | `scripts/tests/prodlike-dataset-ci.test.mjs` | Regresión 4/4 y `qa:full` local aprobados; CI del SHA final pendiente |
+| REQ-027 | Reutilizar solo el borrador vinculado exactamente al SHA candidato; confirmar existencia del tag antes de resolverlo y bloquear errores o discrepancias sin mutar releases | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Corrección y regresión pendientes de validación local y CI remoto |
+| REQ-028 | Descargar y validar el manifiesto del release antes del runner de asset E2E | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Regresión local 25/25 aprobada; CI remoto pendiente |
+| REQ-032 | Promoción y verificación pública continúan con candidato reutilizado y build omitido; ambos validan explícitamente dependencias exitosas | `scripts/tests/ci-workflow-contract.test.mjs` | Regresión local aprobada; CI afectado pendiente |
 
 ## Fichas consolidadas
 
@@ -124,3 +137,113 @@ El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo 
 - SPEC-119: inicio visible y diagnóstico local del Installer Hub.
 - SPEC-120: aislamiento de validación MSI local.
 - SPEC-121: versión dinámica del Installer Hub.
+
+
+## Enmienda aprobada v1.29.0 — recuperación verificada del borrador estable
+
+### Contexto
+
+Evidencia adicional del run #39530939924: la validación de descarga, manifiesto y sidecar concluyó correctamente; el runner E2E falló después en `installer-hub-e2e-docente.ps1:2359` al acceder a `releaseManifest.version`. El fallo observó `releaseManifest.version` ausente dentro del runner aunque el paso previo terminó las comprobaciones del manifiesto. La corrección pasa la ruta exacta al runner, carga y valida el esquema una sola vez y emite diagnóstico de ruta/esquema ante ausencia o forma inválida; la regresión cubre ese contrato sin silenciar errores.
+
+En CI #770, el bundle candidato `7af46bb4a864e774e2dbfd987c43efe49b4100c4` pasó build, E2E de instalación/repair/upgrade/uninstall y validación visual PDF en Edge. La descarga posterior del mismo EXE desde el borrador `v1.2.8` verificó HTTP, longitud y SHA-256, pero el job se detuvo antes de instalar al comparar el manifiesto candidato con `target_commitish=4ccde020b85906dba340d8473977b0fc027afc92`. No hay tag Git `v1.2.8`; el borrador conserva assets del candidato y apunta a un SHA anterior. El commit `40c6c0b` contiene solo actualizaciones de evidencia documental después del candidato.
+
+La regla vigente de REQ-027 bloquea cualquier borrador cuyo SHA no coincida con el candidato y prohíbe retargetearlo. Esta propuesta agrega una excepción de recuperación estricta para el caso de un borrador aún privado, sin tag Git y con todos los assets demostrablemente vinculados al candidato; no permite recuperar releases publicados, tags existentes ni assets ambiguos.
+
+### Requisitos propuestos
+
+- **REQ-029 — Recuperación verificada de borrador sin tag:** El gate puede actualizar `target_commitish` al `SOURCE_SHA` solo si el release existente tiene exactamente la `RELEASE_TAG` esperada, `draft=true`, `prerelease=false`, `published_at=null`, y la referencia Git de esa tag está ausente por un 404 confirmado. Errores HTTP distintos de ausencia bloquean.
+- Antes de cambiar metadata, el gate valida que `SOURCE_SHA` sea ancestro de `main` y que versión/tag coincidan. El job de publicación reemplaza los assets solo con el bundle del SHA candidato ya probado; antes de ajustar el target verifica versión, commit, flavor `docente-local`, longitudes y SHA-256 tanto local como en los assets remotos. La recuperación falla cerrada si falta un asset, hay duplicados, los hashes no coinciden o el manifiesto refiere otro SHA.
+- La acción no crea una segunda release ni elimina ni publica el borrador. El pipeline puede reemplazar únicamente los assets esperados mediante el flujo normal de publicación, después de que el bundle candidato haya pasado su E2E; valida que el manifiesto, sidecar, digest y tamaño remoto coincidan antes de modificar `target_commitish`. Ante cualquier discrepancia, conserva la metadata del borrador y falla cerrado.
+- Tras actualizar el target, el gate vuelve a consultar y comprobar la metadata. La validación del asset descargado debe pasar antes de permitir publicación.
+- **REQ-030 — Reutilización trazable de E2E del mismo binario:** No se repite el E2E visual/runtime del instalador si el EXE descargado tiene el mismo SHA-256, versión, commit y flavor que un bundle del mismo `SOURCE_SHA` cuyo E2E visual/runtime completo ya pasó. En ese caso se exige descargar de nuevo el asset, verificar sidecar/manifiesto/hash y asociar explícitamente la evidencia E2E existente con el mismo digest. Si cambia cualquier dato de identidad o no existe evidencia visual/runtime para ese digest, se ejecuta el E2E del asset descargado y se inspecciona visualmente su evidencia antes de publicar.
+
+### Criterios de aceptación
+
+- **CA-029:** Pruebas de contrato cubren la única recuperación permitida (borrador exacto, sin tag, assets/manifiesto candidatos válidos) y rechazan release publicado, prerelease, tag distinta, tag existente, error de API, SHA ajeno o inconsistente, versión/flavor incorrectos, digest/longitud incorrectos, assets ausentes/duplicados y manifiesto ausente.
+- **CA-030:** Una regresión verifica que la revalidación posterior confirma `target_commitish=SOURCE_SHA` y que no hay llamadas de eliminación, reemplazo ni publicación en la ruta de recuperación.
+- **CA-031:** La rama de recuperación ejecuta solo los contratos del gate/manifest y la E2E del asset fallida. El E2E visual/runtime se reutiliza únicamente con igualdad byte-a-byte (SHA-256) y coincidencia de SHA candidato; el reporte muestra la referencia exacta de la corrida y la inspección de sus capturas.
+
+La enmienda fue aprobada por el usuario el 2026-10-21. Se autoriza cambiar workflows, código y pruebas dentro del alcance, y modificar metadata del borrador únicamente tras verificar las precondiciones de REQ-029. No se autoriza borrar ni publicar antes de que todos los gates pasen.
+
+
+
+## Enmienda aprobada v1.30.0 — drift controlado de archivos de release
+
+### Contexto
+
+El candidato estable `153de55dac869a736396cb5c9f4caf9803c8bd6f` ya tiene evidencia aprobada de build y E2E. Tras fusionar la reparación del publicador en PR #248, el despacho de release rechazó el candidato antes de compilar: el guard solo aceptaba archivos de evidencia y clasificó los cambios de workflow y contrato, que no alteran el bundle, como drift no permitido. Repetir el build y la E2E del instalador por esos cambios de control de release no aporta validación nueva del producto. Se preservan la identidad del candidato, su manifiesto y sus gates; todo cambio fuera de un conjunto exacto de rutas sigue siendo bloqueante.
+
+### Requisitos
+
+- **REQ-031 — Drift acotado de control de release:** Los guards de CI Installer Windows y Stable Promotion Gate aceptan, además de `docs/release/evidencias/<versión>/**`, solo estas rutas exactas después del SHA candidato:
+  - `.github/workflows/ci-installer-windows.yml`
+  - `.github/workflows/release-stable-gate.yml`
+  - `scripts/tests/ci-workflow-contract.test.mjs`
+  - `scripts/tests/installer-upgrade-e2e-contract.test.mjs`
+  - `docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md`
+- Cualquier otro archivo posterior al candidato bloquea la promoción. Los controles de versión/tag, ancestro, SHA y manifiesto se mantienen.
+- En un PR cuyos cambios sean exclusivamente las rutas exactas anteriores, CI Installer Windows omite el build de payload y la E2E del instalador. Si existe cualquier archivo distinto, la decisión vuelve al mapa normal de cambios afectados; los cambios de producto siguen ejecutando sus validaciones.
+- Las pruebas de contrato fijan la misma lista exacta en ambos guards, comprueban el fallo cerrado ante ruta adicional y verifican la omisión del build solo para el cambio de control puro. No se repiten E2E de producto ya aprobadas para el mismo SHA y binario.
+
+### Criterios de aceptación
+
+- **CA-032:** Las dos guardas contienen la misma allowlist de cinco rutas y mantienen la excepción de evidencia versionada; las pruebas rechazan rutas adicionales, distinguen el PR de control del que incluye código de producto y confirman que la lógica normal de cambios afectados sigue activa en este último.
+- **CA-033:** Los contratos locales de workflow pasan antes del CI. El PR ejecuta gates de control/seguridad aplicables y no ejecuta build ni E2E Windows por cambios únicamente de control. Después de integrar, el flujo de release acepta el SHA candidato original y conserva sus requisitos de manifiesto, versión, etiqueta y E2E existente.
+
+
+## Reutilización de evidencia del instalador candidato
+
+El despacho manual de publicación puede recibir `candidate_run_id` para reutilizar el artefacto inmutable del run del instalador. Antes de aceptarlo, el flujo verifica que el run pertenece a `CI Installer Windows` en `main`, corresponde al SHA completo candidato y contiene un único job exitoso con los pasos de E2E completa del bundle, E2E visual de PDF y publicación de evidencia aprobados. La validación comprueba que el SHA candidato siga siendo ancestro de `main`, la versión y flavor docente-local, el manifiesto, el sidecar y el SHA-256 del artefacto descargado. Si falta una condición, falla cerrado.
+
+El build de Windows se omite solo cuando se solicita explícitamente esa reutilización. Al descargar el asset del borrador se repiten la comprobación de manifiesto, sidecar y digest. La E2E de instalación del borrador se omite solo si el digest del EXE coincide exactamente con el artefacto candidato cuya E2E pasó; la descarga pública se verifica de nuevo y su E2E solo se omite si su digest coincide con el digest ya verificado en el borrador. Cualquier diferencia de digest conserva la ruta completa de E2E de esa etapa. De esta forma se evita volver a instalar y probar bytes idénticos, a la vez que se prueban los límites de distribución y la identidad del asset.
+
+Las pruebas de contrato comprueban la selección del run, la evidencia de pasos requerida, la procedencia del artefacto y el comportamiento de comparación/fallback por digest. No reemplazan las E2E del producto ante cambios de payload.
+
+
+## Pushes de control a main sin E2E redundantes
+
+La resolución de cambios en `push` a `main` aplica la misma allowlist estricta de controles de release, más la carpeta de evidencia de la versión activa. Solo si el diff está disponible, no vacío y todos sus paths pertenecen a ese alcance, el resolver omite el build y las E2E del instalador. Ante SHA base inválido, diff vacío/no clasificable o cualquier path fuera del alcance, conserva la ejecución completa. Los push de tags y los cambios de payload siguen el flujo normal. Se añaden aserciones de contrato para la clasificación del push y el fallback fail-closed.
+
+
+## Enmienda aprobada v1.33.0 — fijar etiqueta del borrador recuperado
+
+### Hallazgo y causa
+
+El run 39606510998 validó y reutilizó el artefacto de instalador cuyo SHA y E2E ya habían pasado. El publicador encontró un único borrador que GitHub aún representaba con `tag_name=untagged-…`. Actualizó `target_commitish` al SHA candidato y subió los cuatro assets verificados, pero el guard falló al comprobar que `tag_name` fuera `v1.2.8`: el PATCH no enviaba ese campo.
+
+### Corrección y alcance de validación
+
+El PATCH del borrador incluirá tanto `tag_name=$RELEASE_TAG` como `target_commitish=$SOURCE_SHA`, únicamente después de verificar versión, ausencia de la tag previa, estado de borrador y hashes/tamaños de los assets. La respuesta se volverá a consultar y deberá confirmar tag, SHA, borrador no publicado y no prerelease; luego se verificarán de nuevo los assets. Si falla cualquier condición, no se ejecutan las etapas de hacer público ni marcar Latest.
+
+Se añade una aserción al contrato del publicador para fijar que ambos campos se actualicen. La validación local ejecutará ese contrato específico; CI ejecutará solo gates afectados por las rutas de control. El build y las E2E de instalador se reutilizarán desde el run candidato ya aprobado; no se repetirán si el digest sigue igual.
+
+
+## Enmienda aprobada v1.34.0 — ejecutar la verificación del draft al reutilizar el candidato
+
+### Hallazgo y causa
+
+El run 39609025958 reutilizó correctamente el bundle del run 39569392976: SHA fuente, manifiesto, assets y digest coincidieron. El build se omitió como se diseñó, pero GitHub también omitió por completo el job de E2E del draft. La condición de ese job usaba el chequeo implícito `success()`; una dependencia con resultado `skipped` hizo falsa la condición, aunque el job de reutilización y los gates requeridos hubieran terminado correctamente. Por ello tampoco se ejecutaron la promoción del draft ni la verificación posterior.
+
+### Corrección y alcance de validación
+
+La condición del job de E2E del draft usará `always()` junto con `!cancelled()` y validará explícitamente que el gate de instalador, la publicación del draft y una de las dos rutas de artefacto (reutilización aprobada o build) hayan concluido con éxito. Así, un build omitido solo se acepta cuando la reutilización aprobada tuvo éxito; los fallos y cancelaciones siguen bloqueando la promoción. El job descargará y verificará manifiesto, sidecar, digest y tamaño del asset. La E2E de instalación solo se omite si el digest descargado coincide exactamente con el candidato previamente probado; la verificación del asset público conserva la misma regla.
+
+Se agregan aserciones al contrato de workflow para fijar el comportamiento ante build omitido. La validación local ejecutará el contrato afectado y la comprobación YAML; CI ejecutará gates de control y seguridad. No se reconstruye ni se repite la E2E de producto porque el bundle candidato permanece idéntico y ya cuenta con evidencia exitosa.
+
+
+## Enmienda aprobada v1.35.0 — completar promoción con build omitido
+
+### Hallazgo y causa
+
+El run #801 sobre `main` reutilizó el bundle aprobado del run #39569392976 y verificó en el borrador `v1.2.8` los cuatro assets; el EXE descargado coincidió con el SHA-256 `af79ee7d98359759dd641aca3f5948933c731989af9e4164ffe2b058852a11f2`. La prueba del producto se omitió de forma correcta porque el digest era idéntico al binario cuya instalación ya pasó E2E. Sin embargo, aunque el job de comprobación del draft terminó sus pasos, los jobs de promoción y E2E pública quedaron `skipped`: su condición conservaba el `success()` implícito y la cadena incluía el build omitido intencionalmente.
+
+### Requisitos
+
+- **REQ-032 — Promoción del candidato reutilizado:** El job de promoción del release debe ejecutar la condición de workflow_dispatch/tag pese a dependencias omitidas en la cadena, usando `always()` y `!cancelled()`; solo continúa si la publicación del draft y la validación del asset draft concluyeron `success`.
+- La E2E pública también debe ignorar el `skipped` ancestral del build y continuar solo si la promoción y la verificación del draft concluyeron `success`. La ruta de producto sigue omitiéndose únicamente por coincidencia exacta del SHA-256 con evidencia previa válida.
+
+### Criterios de aceptación
+
+- **CA-034:** La regresión de contrato rechaza las condiciones implícitas en los jobs de promoción y E2E pública; exige `always()`, `!cancelled()` y resultados explícitos exitosos de sus dependencias requeridas. Las condiciones siguen limitadas a tag estable o workflow_dispatch con release_tag.
+- **CA-035:** La validación local enfocada falla contra el workflow anterior y pasa con las condiciones corregidas. El CI de control prueba las dos condiciones; el flujo de release debe finalizar el draft y comprobar su URL pública. No reconstruye ni reinstala el binario cuando su SHA-256 es el mismo.
+

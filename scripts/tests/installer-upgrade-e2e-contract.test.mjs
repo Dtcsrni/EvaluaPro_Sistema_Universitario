@@ -411,6 +411,16 @@ test('preflight E2E identifica nombre y PID cuando detecta un Installer Hub acti
   assert.match(e2e, /Hay procesos Installer Hub activos: \$activeInstallerHubProcessDetails/);
 });
 
+test('runner consume la ruta exacta del manifiesto validado y rechaza ausencia o esquema inválido', () => {
+  assert.match(e2e, /\[string\]\$ReleaseManifestPath\s*=\s*''/);
+  assert.match(e2e, /Resolve-Path -LiteralPath \$ReleaseManifestPath -ErrorAction Stop/);
+  assert.match(e2e, /No existe el manifiesto de release validado/);
+  assert.match(e2e, /no cumple el esquema esperado \(version\/build\/flavors\)/);
+  assert.match(workflow, /'-ReleaseManifestPath', \(Join-Path \$env:GITHUB_WORKSPACE 'dist\\installer\\EvaluaPro-release-manifest\.json'\)/);
+  assert.equal((workflow.match(/'-ReleaseManifestPath', \(Join-Path \$env:GITHUB_WORKSPACE/g) ?? []).length, 3,
+    'los tres E2E consumen la ruta única del manifiesto del bundle probado');
+});
+
 test('runner acepta el EXE publicado con SHA obligatorio y CRC32 opcional', () => {
   assert.match(e2e, /\[string\]\$CandidateBundlePath/);
   assert.match(e2e, /Resolve-Path -LiteralPath \$CandidateBundlePath/);
@@ -483,6 +493,13 @@ test('E2E valida el preflight antes de instalar y reconoce la actualización ais
 });
 
 test('release valida el asset descargado desde GitHub antes de hacer público el release', () => {
+  const releaseJob = workflow.match(/publish_installer_release:[\s\S]*?(?=\n  [a-z0-9_]+:|$)/)?.[0] ?? '';
+  const checkoutIndex = releaseJob.indexOf('uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803');
+  const artifactDownloadIndex = releaseJob.indexOf('uses: actions/download-artifact@');
+  const manifestValidationIndex = releaseJob.indexOf('node scripts/release/installer-release-manifest.mjs');
+  assert.ok(checkoutIndex >= 0 && checkoutIndex < artifactDownloadIndex, 'el publisher prepara el checkout antes de descargar artifacts');
+  assert.match(releaseJob, /ref:\s*\$\{\{\s*github\.sha\s*\}\}/, 'el checkout corresponde al SHA del workflow que contiene el guard');
+  assert.ok(artifactDownloadIndex > checkoutIndex && manifestValidationIndex > artifactDownloadIndex, 'la validación usa script del checkout y manifest del artefacto');
   assert.match(workflow, /draft: true/);
   assert.match(workflow, /post_publish_installer_e2e:/);
   assert.match(workflow, /needs: \[installer_windows, publish_installer_release\]/);
@@ -497,6 +514,31 @@ test('release valida el asset descargado desde GitHub antes de hacer público el
   assert.match(workflow, /finalize_installer_release:/);
   assert.match(workflow, /needs: \[publish_installer_release, post_publish_installer_e2e\]/);
   assert.match(workflow, /Publicar evidencia E2E del asset descargado/);
+});
+
+test('las E2E de release descargan y validan el manifiesto antes de invocar el runner', () => {
+  const jobs = workflow.split(/(?=^  [a-z0-9_]+:)/m);
+  const cases = [
+    ['post_publish_installer_e2e', 'Descargar y verificar EXE y sidecar desde el release draft'],
+    ['verify_public_installer_e2e', 'Descargar y verificar el asset público por su URL de release']
+  ];
+
+  for (const [jobName, stepName] of cases) {
+    const job = jobs.find((section) => section.startsWith(`  ${jobName}:`));
+    assert.ok(job, `Debe existir el job ${jobName}`);
+    const downloadStepStart = job.indexOf(`- name: ${stepName}`);
+    const downloadStepEnd = job.indexOf('\n      - name:', downloadStepStart + 1);
+    const downloadStep = job.slice(downloadStepStart, downloadStepEnd < 0 ? job.length : downloadStepEnd);
+    const runnerStep = job.indexOf('E2E completa');
+
+    assert.ok(downloadStepStart >= 0 && runnerStep > downloadStepStart, `${jobName} prepara manifiesto antes del E2E`);
+    assert.match(downloadStep, /\$manifestAsset\s*=\s*@\(\$release\.assets\s*\|\s*Where-Object\s*\{\s*\$_.name\s*-eq\s*'EvaluaPro-release-manifest\.json'/);
+    assert.match(downloadStep, /\$releaseManifestPath\s*=\s*Join-Path\s+\$env:GITHUB_WORKSPACE\s+'dist\\installer\\EvaluaPro-release-manifest\.json'/);
+    assert.match(downloadStep, /-Destination\s+\$releaseManifestPath\s+-ExpectedLength\s+\(\[long\]\$manifestAsset\.size\)\s+-ExpectedSha256\s+\$manifestDigest\.Groups\[1\]\.Value/);
+    assert.match(downloadStep, /\$releaseManifest\.version\s*-ne\s*\$packageVersion/);
+    assert.match(downloadStep, /\$releaseManifest\.build\.commit\s*-ne\s*\[string\]\$release\.target_commitish/);
+    assert.match(downloadStep, /\$releaseManifest\.flavors\[0\]\.flavorId\s*-ne\s*'docente-local'/);
+  }
 });
 
 test('las E2E del asset de borrador y público instalan WiX para extraer el baseline', () => {

@@ -1,27 +1,28 @@
 # Evidencia Windows — EvaluaPro 1.2.8
 
-Fecha de validación: 2026-10-20  
+Fecha de validación: 2026-10-21 (America/Mexico_City)  
 Versión: 1.2.8  
-SHA candidato: `841c04ca4d24b884ab8970b7c33fae18e2a3ac6c`
+SHA candidato: `e8832846e5786ac5da219db30176501cc2ef46a1`
 
 ## CI Installer Windows
 
-- Primera pasada: #749 (run ID 39504605928), rama `main`, SHA exacto: `success`.
-- Segunda pasada: #755 (run ID 39508287194), rama `main`, mismo SHA: `success`.
-- Ambas pasaron build MSI/Bundle docente-local, contratos, fixture Burn, footprint, smoke GUI, manifiesto/hash, antivirus y verificación de artefactos.
-- Ambas completaron E2E GUI de instalación, reparación y desinstalación en runner QA aislado.
-- En ambas se verificó baseline oficial v1.2.3 y la E2E de actualización.
-- En ambas pasó la E2E visual de vista y descarga PDF en Microsoft Edge.
-- Los artefactos de cada corrida se generaron por separado. Sus digests ZIP y tamaños están en `integridad_sha256.json`; no son hashes de los ejecutables individuales.
+- CI Installer Windows #782 (run ID 39569392976), rama `main`, SHA exacto: `success`.
+- Pasaron build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifiesto/hash, antivirus y publicación de artifacts.
+- E2E cubrió instalación/reparación, actualización desde baseline oficial v1.2.3 y vista/descarga PDF en Edge.
+- IDs, tamaños y SHA-256 ZIP de artifacts están en `integridad_sha256.json`. Son hashes de ZIPs de GitHub, no hashes de los EXE extraídos.
+- E2E de publicación draft/público no se ejecutó en el run candidato, que se despachó sin `release_tag`.
 
 ## CI, seguridad y UX/UI
 
-- CI Checks #1542 (run ID 39504346353), mismo SHA: gates Core y Extended `success`.
-- Security CodeQL #908 (run ID 39504346298), mismo SHA: `success`.
-- CI Policy Audit #232 (run ID 39405868975) fue exitoso en otro SHA (`0d97e29e5755e4fc22fcc1a2f9d1af462353c117`); no se atribuye al candidato actual.
-- En #1542 se omitieron Core Backend/Portal, Core Frontend, Extended Compliance/Evidencia, Extended Funcionales y Extended Perf/Arquitectura por el mapa de impacto. No se reportan como ejecutadas.
-- La GUI del Installer Hub y la validación visual del PDF en Edge están cubiertas por las E2E de #749 y #755. El Stable Gate repetirá QA y la matriz/E2E visuales GUI antes de promoción.
+- CI Checks #1573 (run 39569029218), mismo SHA: `success`.
+- Security CodeQL #939 (run 39569029170), mismo SHA: `success`.
+- CI Antivirus Gate #363 (run 39569029187), mismo SHA: `success`.
+- CI Checks omitió Core Frontend y Core Backend/Portal por mapa de impacto; no se reportan como ejecutados.
+- Installer GUI y PDF visual pasaron en #782. Matriz responsive y ciclo docente permanecen pendientes del Stable Gate.
 
-## Alcance pendiente
+## Promoción pendiente
 
-Esta evidencia acredita las corridas automatizadas descritas. No acredita un flujo humano docente contra producción ni instalación en el equipo local. La base SQLite productiva no fue leída ni modificada. Sigue pendiente Release Stable Gate y E2E del asset draft/público.
+Stable Gate #105 (run 39573177258) se detuvo antes de QA: no existía todavía un commit posterior al candidato limitado a este directorio de evidencia. El workflow no publicó ni cambió el borrador.
+El candidato evaluado es `e8832846e5786ac5da219db30176501cc2ef46a1`; tras integrar esta actualización, repetir el gate sobre el mismo candidato.
+
+No acredita flujo docente contra producción ni instalación local. No se usaron credenciales ni datos reales y la base SQLite productiva no se leyó ni modificó. La versión aún no es estable.
