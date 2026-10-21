@@ -1,8 +1,8 @@
 {
   "traceSchemaVersion": "1.0.0",
   "sessionId": "installer-related-bundle-20261021",
-  "status": "draft",
-  "generatedAt": "2026-10-21T21:01:47Z",
+  "status": "final",
+  "generatedAt": "2026-10-21T21:36:18Z",
   "validationProfile": "quick",
   "agent": {
     "name": "Codex",
@@ -56,6 +56,12 @@
       "summary": "CI Checks falló en el test preexistente security-env-check porque un JWT aleatorio hexadecimal incluyó 1234, secuencia que el validador rechaza. Se añadió re-sorteo de valores bloqueados y una regresión determinista que fuerza esa colisión; 5/5 pruebas del archivo y sdd:audit pasan localmente. CI remoto pendiente.",
       "timestamp": "2026-10-21T21:01:47Z",
       "status": "pending"
+    },
+    {
+      "type": "final_validation",
+      "summary": "Head ecc9bcf: CI Checks run 39675447515, CodeQL run 39675447523, Antivirus Gate run 39675447743 y CI Installer Windows run 39675447553 concluyeron success. MSI/bundle compiló; fixture PerUser 1.2.0.0 frente a 1.2.8.0; E2E completa y artefactos publicados.",
+      "timestamp": "2026-10-21T21:36:18Z",
+      "status": "ok"
     }
   ],
   "files": {
@@ -87,7 +93,8 @@
     ],
     "artifacts": [
       "EvaluaPro-informe-fallo-2026-10-21.zip: manifiesto SHA-256 verificado, 12/12 archivos coinciden.",
-      "CI Installer Windows run 39670608579: build y E2E completos aprobados; artifact installer-hub-e2e-39670608579, SHA-256 4aea6a76d20324ccb8cc2313766f0fea48aba4903a91e0c4994538852715a4a9."
+      "CI Installer Windows run 39675447553: build y E2E completos aprobados; artifact installer-hub-e2e-39675447553, SHA-256 08d4e8ccdcd91e9b714857489badece2b21861d414ab97aaa8fe2beeb1f16f09.",
+      "Fixture PerUser generada: 1.2.0.0 frente a candidato 1.2.8.0; SHA-256 24de74ff316f708f5ea4e4da28d840a454187b064f3d113694b4943945ead387."
     ]
   },
   "commands": [
@@ -216,6 +223,15 @@
       "durationMs": 3000,
       "resultSummary": "Todas las especificaciones cumplen la política.",
       "timestamp": "2026-10-21T21:01:47Z"
+    },
+    {
+      "name": "ci_head_validation",
+      "command": "GitHub Actions CI Checks, CodeQL, Antivirus Gate y CI Installer Windows para ecc9bcf",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": null,
+      "resultSummary": "Los cuatro workflows terminaron en success. CI Installer Windows ejecutó build, fixture PerUser, E2E completa y publicó los artefactos de instalador y evidencia.",
+      "timestamp": "2026-10-21T21:36:18Z"
     }
   ],
   "decisions": [
@@ -226,23 +242,21 @@
     "El fallo security-env-check era una flake del test: un JWT hexadecimal de 48 bytes puede contener la secuencia 1234 que la política marca como insegura. Se conserva la política de producción y se hace determinista la selección de secreto de prueba."
   ],
   "assumptions": [
-    "Windows 11 es el sistema objetivo y fue confirmado tanto por el usuario como por Win32_OperatingSystem."
+    "Windows 11 es el sistema objetivo confirmado por el usuario; la E2E final corrió en un runner hospedado Windows Server 2025."
   ],
   "risks": [
-    "La corrección del test de CI requiere confirmación remota; el run 807 actual evalúa el commit anterior.",
-    "El PR #254 queda en borrador hasta revisión; no se integró ni publicó un release."
+    "Runtime probado en runner Windows Server 2025 hospedado; no se ejecutó una instalación destructiva en una PC física Windows 11 porque la PC disponible ya tiene EvaluaPro 1.2.8.",
+    "El PR #254 permanece en borrador hasta revisión; no se integró ni se publicó un release."
   ],
-  "nextStep": "Publicar el re-sorteo acotado del secreto aleatorio, esperar CI Checks y CI Installer Windows y mantener el PR en borrador hasta revisión.",
+  "nextStep": "Revisar el PR #254 según el flujo habitual del repositorio.",
   "completion": {
-    "isComplete": false,
-    "pendingFields": [
-      "CI remoto del nuevo commit"
-    ]
+    "isComplete": true,
+    "pendingFields": []
   },
   "repo": {
     "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\fix-installerhub-related-bundle\\fix-installerhub-related-bundle-main",
     "branch": "codex/installerhub-related-bundle-main",
-    "commit": "0128fb221c8d28dd4e8e5c592895dac4c57fb1d2",
-    "workingTreeStatus": "corrección del test de CI y traza pendientes de commit"
+    "commit": "ecc9bcfea2a30556b3575c8dd781c2a83de93d3f",
+    "workingTreeStatus": "traza documental final incluida en commit posterior al head validado"
   }
 }

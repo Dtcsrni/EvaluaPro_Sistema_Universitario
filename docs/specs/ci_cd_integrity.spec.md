@@ -1,11 +1,11 @@
 ---
 id: SPEC-CI-CD-INTEGRITY
 titulo: Integridad y seguridad de ciclos CI/CD
-version: 1.2.4
+version: 1.2.5
 fecha: 2026-10-21
 autor: Codex / Agente IA
 modulo: devops
-estado: approved
+estado: implemented
 ---
 
 # Integridad y seguridad de ciclos CI/CD
@@ -56,4 +56,4 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 | REQ-009 | Copiar configuración Prisma antes del build Docker backend | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
 | REQ-010 | Cobertura diagnóstica sin umbral universal; umbral únicamente explícito | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
 | REQ-011 | Ejecutar gates extendidos solo para módulos afectados y mantener full-core en runtime compartido | `scripts/tests/affected-ci-resolver.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
-| REQ-012 | Evitar falsos fallos aleatorios al generar JWT de prueba de producción | `scripts/tests/security-env-check.test.mjs` | Implementado localmente; CI pendiente |
+| REQ-012 | Evitar falsos fallos aleatorios al generar JWT de prueba de producción | `scripts/tests/security-env-check.test.mjs` | Validado en CI Checks run `39675447515` |

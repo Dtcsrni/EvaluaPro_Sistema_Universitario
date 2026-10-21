@@ -3,8 +3,8 @@
 - traceSchemaVersion: 1.0.0
 - sessionId: installer-related-bundle-20261021
 - parentSessionId: -
-- status: draft
-- generatedAt: 2026-10-21T19:59:42.539Z
+- status: final
+- generatedAt: 2026-10-21T21:36:18Z
 - validationProfile: quick
 
 ## Agente
@@ -36,7 +36,7 @@
 - [ok] implementation: Deduplicación por identidad durante PlanRelatedBundle, tolerancia acotada del HRESULT tras uninstall exitoso, preservación de payload/datos si solo falla limpieza, y E2E de bundle anterior PerUser. (2026-10-21T19:58:10.466Z)
 - [ok] validation: CI Windows run `39670608579` pasó build, fixture Burn relacionada de versión anterior `1.2.0.0`, E2E completa, visual PDF en Edge y publicación de evidencia. Confirmado candidate `1.2.8.0`; artefacto E2E SHA-256 `4aea6a76d20324ccb8cc2313766f0fea48aba4903a91e0c4994538852715a4a9`. (2026-10-21T20:56:52Z)
 - [ok] fixture regression: Se preservó `$FixtureVersion` antes de asignar `$fixtureVersion`; el contrato focalizado, el parseo PowerShell y el fixture runtime pasan. (2026-10-21T20:56:52Z)
-- [pending] CI reliability: El CI Checks del commit documental 874e07f falló en `scripts/tests/security-env-check.test.mjs`: el JWT hexadecimal aleatorio coincidió con `1234`, una secuencia rechazada por el validador. Se agregó rechazo/re-sorteo y una regresión determinista que fuerza la colisión; pruebas 5/5 y SDD audit pasan localmente. Requiere CI remoto del nuevo commit. (2026-10-21T21:01:47Z)
+- [ok] CI reliability: CI Checks run `39675447515` pasó en el head `ecc9bcf`; el test determinista cubre la colisión y el re-sorteo. CI Installer Windows run `39675447553` pasó E2E completa con fixture `1.2.0.0` frente a candidato `1.2.8.0`. (2026-10-21T21:36:18Z)
 
 ## Archivos leidos
 - AGENTS.md
@@ -97,18 +97,18 @@
 - Windows 11 es el sistema objetivo y fue confirmado tanto por el usuario como por Win32_OperatingSystem.
 
 ## Riesgos abiertos
-- La corrección del test de CI requiere confirmación remota; el run 807 actual evalúa el commit anterior.
+- CI ejecutó Windows Server 2025 hospedado; no se hizo instalación destructiva en una PC física Windows 11 porque allí está instalado EvaluaPro 1.2.8.
 - El PR #254 queda en borrador hasta revisión; no se integró ni se publicó un release.
 
 ## Estado del arbol
 _arbol limpio_
 
 ## Siguiente paso recomendado
-- Publicar el re-sorteo acotado del secreto aleatorio, esperar CI Checks/CI Installer Windows y mantener el PR en borrador hasta revisión.
+- Revisar el PR #254 según el flujo habitual del repositorio.
 
 ## Artefactos generados
 - EvaluaPro-informe-fallo-2026-10-21.zip: manifiesto SHA-256 verificado, 12/12 archivos coinciden.
-- CI Installer Windows run `39670608579`: build + E2E completos aprobados; evidencia `installer-hub-e2e-39670608579` con digest SHA-256 `4aea6a76d20324ccb8cc2313766f0fea48aba4903a91e0c4994538852715a4a9`.
+- CI Installer Windows run `39675447553`: build + E2E completos aprobados; evidencia `installer-hub-e2e-39675447553` con digest SHA-256 `08d4e8ccdcd91e9b714857489badece2b21861d414ab97aaa8fe2beeb1f16f09`.
 
 ## Completitud semantica
 - isComplete: true
