@@ -13,72 +13,72 @@
     "bytesManifiesto": null
   },
   "installerHub": {
-    "runId": 39526873990,
-    "runNumber": 763,
+    "runId": 39537882649,
+    "runNumber": 768,
     "artifactName": "installer-windows",
-    "artifactId": 12314112491,
-    "artifactSizeBytes": 272084786,
-    "artifactZipSha256": "8aa0ef0a709f89a260dce77827114dc71f1f26ad323c3fa8f488b13471051f66",
+    "artifactId": 12319201563,
+    "artifactSizeBytes": 272077349,
+    "artifactZipSha256": "67358bb7bcfcf71f8f01a86dd7cf5afd6604035a012f4fca25da67e4c65cd19b",
     "observacion": "Digest SHA-256 del ZIP de artifact GitHub; no equivale al SHA-256 del ejecutable extraído."
   },
   "installerHubE2E": {
-    "runId": 39526873990,
-    "artifactName": "installer-hub-e2e-39526873990",
-    "artifactId": 12314497221,
-    "artifactSizeBytes": 279990701,
-    "artifactZipSha256": "5b901731b1ac3a40733f852203c5d701a25c70fc72e3f813f5c1b8431314a7b7"
+    "runId": 39537882649,
+    "artifactName": "installer-hub-e2e-39537882649",
+    "artifactId": 12319486346,
+    "artifactSizeBytes": 280013465,
+    "artifactZipSha256": "fc7c52351fb088d555d153ab5f994448d5062268b01b0d3b433d96e4f64e7fe0"
   },
   "installerHubPasses": [
     {
-      "runId": 39526873990,
-      "runNumber": 763,
-      "candidateSha": "4ccde020b85906dba340d8473977b0fc027afc92",
+      "runId": 39537882649,
+      "runNumber": 768,
+      "candidateSha": "7af46bb4a864e774e2dbfd987c43efe49b4100c4",
       "conclusion": "success",
       "installerArtifact": {
         "name": "installer-windows",
-        "id": 12314112491,
-        "sizeBytes": 272084786,
-        "artifactZipSha256": "8aa0ef0a709f89a260dce77827114dc71f1f26ad323c3fa8f488b13471051f66"
+        "id": 12319201563,
+        "sizeBytes": 272077349,
+        "artifactZipSha256": "67358bb7bcfcf71f8f01a86dd7cf5afd6604035a012f4fca25da67e4c65cd19b"
       },
       "e2eArtifact": {
-        "name": "installer-hub-e2e-39526873990",
-        "id": 12314497221,
-        "sizeBytes": 279990701,
-        "artifactZipSha256": "5b901731b1ac3a40733f852203c5d701a25c70fc72e3f813f5c1b8431314a7b7"
+        "name": "installer-hub-e2e-39537882649",
+        "id": 12319486346,
+        "sizeBytes": 280013465,
+        "artifactZipSha256": "fc7c52351fb088d555d153ab5f994448d5062268b01b0d3b433d96e4f64e7fe0"
       }
     }
   ],
   "ciChecks": {
-    "runId": 39526501274,
-    "runNumber": 1556,
+    "runId": 39537231762,
+    "runNumber": 1560,
     "conclusion": "success",
-    "candidateSha": "4ccde020b85906dba340d8473977b0fc027afc92"
+    "candidateSha": "7af46bb4a864e774e2dbfd987c43efe49b4100c4"
   },
   "securityCodeQL": {
-    "runId": 39526501412,
-    "runNumber": 922,
+    "runId": 39537231779,
+    "runNumber": 926,
     "conclusion": "success",
-    "candidateSha": "4ccde020b85906dba340d8473977b0fc027afc92"
+    "candidateSha": "7af46bb4a864e774e2dbfd987c43efe49b4100c4"
   },
   "antivirus": {
-    "runId": 39520388754,
-    "runNumber": 352,
+    "runId": 39537231744,
+    "runNumber": 354,
     "conclusion": "success",
-    "candidateSha": "d44212a5869fc7162180e981307c0163cc42ba1f"
+    "candidateSha": "7af46bb4a864e774e2dbfd987c43efe49b4100c4"
   },
   "stableGate": {
     "runId": 39526576612,
     "runNumber": 103,
     "conclusion": "failure",
     "candidateSha": "4ccde020b85906dba340d8473977b0fc027afc92",
-    "failure": "Prevalidación detenida: el manifiesto de evidencia apuntaba al SHA anterior d44212a; no descargó instalador, no ejecutó QA y no publicó release."
+    "failure": "Gate anterior detenido en prevalidación porque la evidencia apuntaba a un SHA previo; no ejecutó QA ni publicó. Debe repetirse sobre el candidato actual tras integrar esta evidencia."
   },
-  "nota": "Evidencia del candidato 4ccde020... Los digests identifican ZIPs de artifacts de GitHub, no hashes de ejecutables extraídos. La promoción estable está pendiente de Stable Gate y E2E del asset draft/público.",
+  "nota": "Evidencia del candidato 7af46bb4a864e774e2dbfd987c43efe49b4100c4. Los digests identifican ZIPs de artifacts GitHub, no hashes de ejecutables extraídos. QA diferencial del Stable Gate, E2E de assets draft/público, promoción estable y validación local pendientes.",
   "installerHubInternal": {
-    "runId": 39526873990,
+    "runId": 39537882649,
     "artifactName": "installer-windows-internal",
-    "artifactId": 12314112515,
+    "artifactId": 12319356388,
     "artifactSizeBytes": 273472409,
-    "artifactZipSha256": "9cc20f3ca2a0e4956f6190e6a35bb9175a04b07ee868c0856eadd06b836e6090"
+    "artifactZipSha256": "b994d065d8cb2cb5ced78198063f2e3b4dc24608719f5d8d6963c85fc6fb5f83"
   }
 }
