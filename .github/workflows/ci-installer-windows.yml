@@ -644,7 +644,8 @@ jobs:
           $candidateName = "EvaluaPro-InstallerHub-docente-local-$tag.exe"
           $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
           $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
-          if (-not $candidateAsset -or -not $sidecarAsset) { throw "El release draft no contiene el EXE y sidecar esperados para $tag." }
+          $manifestAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-release-manifest.json' }) | Select-Object -First 1
+          if (-not $candidateAsset -or -not $sidecarAsset -or -not $manifestAsset) { throw "El release draft no contiene el EXE, sidecar y manifiesto esperados para $tag." }
           $assetDigest = [string]$candidateAsset.digest
           $digestMatch = [regex]::Match($assetDigest, '(?i)^sha256:([0-9a-f]{64})$')
           if (-not $digestMatch.Success) { throw "La API de GitHub no reportó digest SHA-256 válido para ${candidateName}: '$assetDigest'." }
@@ -652,9 +653,22 @@ jobs:
           New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
           $candidatePath = Join-Path $downloadDir $candidateName
           $sidecarPath = $candidatePath + '.sha256'
+          $releaseManifestPath = Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'
+          $manifestDigest = [regex]::Match([string]$manifestAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          if (-not $manifestDigest.Success) { throw 'La API de GitHub no reportó digest SHA-256 válido para el manifiesto del release.' }
+          New-Item -ItemType Directory -Path (Split-Path -Parent $releaseManifestPath) -Force | Out-Null
           $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
           & $downloadScript -Uri ([uri][string]$candidateAsset.url) -Destination $candidatePath -ExpectedLength ([long]$candidateAsset.size) -ExpectedSha256 $digestMatch.Groups[1].Value -GitHubApiAsset
           & $downloadScript -Uri ([uri][string]$sidecarAsset.url) -Destination $sidecarPath -ExpectedLength ([long]$sidecarAsset.size) -GitHubApiAsset
+          & $downloadScript -Uri ([uri][string]$manifestAsset.url) -Destination $releaseManifestPath -ExpectedLength ([long]$manifestAsset.size) -ExpectedSha256 $manifestDigest.Groups[1].Value -GitHubApiAsset
+          $releaseManifest = Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json
+          if ([string]$releaseManifest.version -ne $packageVersion -or
+              [string]$releaseManifest.build.version -ne $packageVersion -or
+              [string]$releaseManifest.build.commit -ne [string]$release.target_commitish -or
+              @($releaseManifest.flavors).Count -ne 1 -or
+              [string]$releaseManifest.flavors[0].flavorId -ne 'docente-local') {
+            throw 'El manifiesto descargado no corresponde a la versión, SHA y flavor del release draft.'
+          }
           $sidecarText = Get-Content -Raw -LiteralPath $sidecarPath
           $sidecarMatch = [regex]::Match($sidecarText, '(?i)^\s*([0-9a-f]{64})\s+')
           if (-not $sidecarMatch.Success) { throw 'El sidecar SHA-256 publicado no tiene el formato esperado.' }
@@ -854,19 +868,35 @@ jobs:
           $candidateName = "EvaluaPro-InstallerHub-docente-local-$tag.exe"
           $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
           $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
-          if (-not $candidateAsset -or -not $sidecarAsset) { throw "El release público no contiene el EXE y sidecar esperados para $tag." }
+          $manifestAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-release-manifest.json' }) | Select-Object -First 1
+          if (-not $candidateAsset -or -not $sidecarAsset -or -not $manifestAsset) { throw "El release público no contiene el EXE, sidecar y manifiesto esperados para $tag." }
           $expectedUrl = "https://github.com/$repository/releases/download/$tag/$candidateName"
           if ([string]$candidateAsset.browser_download_url -ne $expectedUrl) { throw 'La URL pública del asset no coincide con la ruta canónica del release.' }
           if ([string]$sidecarAsset.browser_download_url -ne ($expectedUrl + '.sha256')) { throw 'La URL pública del sidecar no coincide con el instalador.' }
+          $expectedManifestUrl = "https://github.com/$repository/releases/download/$tag/EvaluaPro-release-manifest.json"
+          if ([string]$manifestAsset.browser_download_url -ne $expectedManifestUrl) { throw 'La URL pública del manifiesto no coincide con la ruta canónica del release.' }
           $digestMatch = [regex]::Match([string]$candidateAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
           if (-not $digestMatch.Success) { throw "GitHub no reportó digest SHA-256 válido para $candidateName." }
           $downloadDir = Join-Path $env:RUNNER_TEMP ('public-installer-' + [guid]::NewGuid().ToString('N'))
           New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
           $candidatePath = Join-Path $downloadDir $candidateName
           $sidecarPath = $candidatePath + '.sha256'
+          $releaseManifestPath = Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'
+          $manifestDigest = [regex]::Match([string]$manifestAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          if (-not $manifestDigest.Success) { throw 'GitHub no reportó digest SHA-256 válido para el manifiesto público.' }
+          New-Item -ItemType Directory -Path (Split-Path -Parent $releaseManifestPath) -Force | Out-Null
           $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
           & $downloadScript -Uri ([uri]$expectedUrl) -Destination $candidatePath -ExpectedLength ([long]$candidateAsset.size) -ExpectedSha256 $digestMatch.Groups[1].Value
           & $downloadScript -Uri ([uri][string]$sidecarAsset.browser_download_url) -Destination $sidecarPath -ExpectedLength ([long]$sidecarAsset.size)
+          & $downloadScript -Uri ([uri][string]$manifestAsset.browser_download_url) -Destination $releaseManifestPath -ExpectedLength ([long]$manifestAsset.size) -ExpectedSha256 $manifestDigest.Groups[1].Value
+          $releaseManifest = Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json
+          if ([string]$releaseManifest.version -ne $packageVersion -or
+              [string]$releaseManifest.build.version -ne $packageVersion -or
+              [string]$releaseManifest.build.commit -ne [string]$release.target_commitish -or
+              @($releaseManifest.flavors).Count -ne 1 -or
+              [string]$releaseManifest.flavors[0].flavorId -ne 'docente-local') {
+            throw 'El manifiesto descargado no corresponde a la versión, SHA y flavor del release público.'
+          }
           $sidecarMatch = [regex]::Match((Get-Content -Raw -LiteralPath $sidecarPath), '(?i)^\s*([0-9a-f]{64})\s+')
           $actualHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
           if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con su sidecar.' }

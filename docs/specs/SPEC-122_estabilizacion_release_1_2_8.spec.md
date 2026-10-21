@@ -1,8 +1,8 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.27.0
-fecha: 2026-10-20
+version: 1.28.0
+fecha: 2026-10-21
 autor: Codex / Ingeniería
 modulo: release_stable_gate
 estado: approved
@@ -30,7 +30,11 @@ El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo 
 
 El Stable Gate #100 completó la promoción del candidato, pero el job posterior de publicación se detuvo antes de despachar `CI Installer Windows`. El log identifica un borrador `v1.2.8` no recuperable porque el gate exige una tag Git que apunte al candidato. Sin embargo, el workflow de instalación crea el borrador con `target_commitish` igual al SHA validado y GitHub puede no crear la tag hasta publicar. El guard debe verificar el SHA exacto mediante la referencia de tag cuando exista o, únicamente si no existe, mediante `target_commitish` del borrador; cualquier discrepancia, release publicado o borrador con otra tag debe seguir bloqueando la publicación. No se elimina ni se retargetea un borrador discrepante. El Stable Gate #102 confirmó que `GET /commits/v1.2.8` devuelve HTTP 422 cuando el tag aún no existe, antes de poder despachar el instalador. El preflight consulta primero `GET /git/ref/tags/v1.2.8`: solo si devuelve 2xx resuelve el commit con `GET /commits/v1.2.8`; un ref ausente conserva el 404 verificable y cualquier otro error, incluido un fallo al resolver un ref existente, bloquea la publicación.
 
+El último run del borrador falló antes de instalar: el checkout de la tag no contiene artefactos generados y el workflow descargaba solo el EXE y el sidecar, aunque el runner lee `dist/installer/EvaluaPro-release-manifest.json`. Se corrige de forma unificada para los flujos draft y público, descargando el manifiesto oficial, verificando digest/longitud y validando versión, commit y flavor antes de iniciar cualquier instalación. La regresión se limita al contrato de ambos pasos y a la E2E del asset afectada.
+
 ## Requisitos Funcionales
+
+- **REQ-028 — E2E del asset usa manifiesto de release verificado:** El flujo draft/público descarga el manifiesto publicado en la ruta que consume el runner, valida digest, versión, commit candidato y flavor `docente-local`; falla antes de instalación cuando falta o no coincide.
 
 - **REQ-001 — Checkout candidato estricto (SPEC-115, SPEC-117):** Mantener bloqueantes los controles de limpieza iniciales, intermedios y finales. Se toleran exclusivamente diferencias CRLF/LF sin cambios semánticos en archivos rastreados y sin preparar; incluye manifests JSON históricos incompatibles con `.gitattributes`. Se rechazan modificaciones preparadas, archivos sin seguimiento, cambios de tipo/modo y cambios de contenido; reportar etapa y rutas.
 - **REQ-002 — Aislamiento de E2E y evidencia (SPEC-116):** Ejecutar capturas, scratch y resultados fuera del checkout candidato; preservar evidencia útil como artefactos y señalar la primera etapa que altere fuentes. No restaurar fuentes ni ampliar retries/timeouts.
@@ -59,6 +63,8 @@ El Stable Gate #100 completó la promoción del candidato, pero el job posterior
 - **REQ-027 — Recuperación fail-closed del borrador estable:** Antes de despachar publicación, el Stable Gate valida que un release existente sea un borrador con la tag esperada. Si existe una referencia Git para la tag, su commit debe ser exactamente `SOURCE_SHA`; si no existe, `target_commitish` del borrador debe ser exactamente `SOURCE_SHA`. Un release publicado, una tag distinta o un SHA distinto bloquean el flujo. Si no hay release, una tag existente solo se acepta cuando apunta al mismo `SOURCE_SHA`. El gate no elimina, publica ni retargetea borradores; la publicación y las E2E del asset draft y público siguen siendo pasos separados y bloqueantes.
 
 ## Criterios de Aceptación
+
+- **CA-028:** La E2E del asset draft y público valida que el workflow descarga `EvaluaPro-release-manifest.json` desde los assets del release, verifica SHA-256 y longitud, lo deja en `dist/installer/` y confirma `version`, `build.version`, `build.commit` y el único flavor `docente-local` antes de ejecutar el runner. El test de contrato falla si se omite la descarga, la verificación o el orden previo a la instalación.
 
 - **CA-001:** El guard compartido admite cualquier normalización EOL que no cambie el contenido de archivos rastreados sin preparar y falla ante todo cambio material, staged, sin seguimiento o de tipo/modo.
 - **CA-002:** Todas las salidas E2E del Stable Gate quedan fuera del checkout y siguen adjuntas al run para auditoría.
@@ -119,6 +125,7 @@ El Stable Gate #100 completó la promoción del candidato, pero el job posterior
 | REQ-025 | Ubicar reporte de calificación global en el directorio QA raíz desde cualquier cwd | `apps/backend/tests/calificacion.global.reglas.test.ts` | Implementado; test enfocado 3/3 y contratos QA/promoción 28/28 aprobados en el worktree local |
 | REQ-026 | Generar, validar e importar el fixture prodlike en ruta temporal ignorada sin mutar el fixture canónico; fallar cerrado ante errores | `scripts/tests/prodlike-dataset-ci.test.mjs` | Regresión 4/4 y `qa:full` local aprobados; CI del SHA final pendiente |
 | REQ-027 | Reutilizar solo el borrador vinculado exactamente al SHA candidato; confirmar existencia del tag antes de resolverlo y bloquear errores o discrepancias sin mutar releases | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Corrección y regresión pendientes de validación local y CI remoto |
+| REQ-028 | Descargar y validar el manifiesto del release antes del runner de asset E2E | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Regresión local 25/25 aprobada; CI remoto pendiente |
 
 ## Fichas consolidadas
 
