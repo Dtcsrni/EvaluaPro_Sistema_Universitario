@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.30.0
+version: 1.31.0
 fecha: 2026-10-21
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -188,3 +188,12 @@ El candidato estable `153de55dac869a736396cb5c9f4caf9803c8bd6f` ya tiene evidenc
 
 - **CA-032:** Las dos guardas contienen la misma allowlist de cinco rutas y mantienen la excepción de evidencia versionada; las pruebas rechazan rutas adicionales, distinguen el PR de control del que incluye código de producto y confirman que la lógica normal de cambios afectados sigue activa en este último.
 - **CA-033:** Los contratos locales de workflow pasan antes del CI. El PR ejecuta gates de control/seguridad aplicables y no ejecuta build ni E2E Windows por cambios únicamente de control. Después de integrar, el flujo de release acepta el SHA candidato original y conserva sus requisitos de manifiesto, versión, etiqueta y E2E existente.
+
+
+## Reutilización de evidencia del instalador candidato
+
+El despacho manual de publicación puede recibir `candidate_run_id` para reutilizar el artefacto inmutable del run del instalador. Antes de aceptarlo, el flujo verifica que el run pertenece a `CI Installer Windows` en `main`, corresponde al SHA completo candidato y contiene un único job exitoso con los pasos de E2E completa del bundle, E2E visual de PDF y publicación de evidencia aprobados. La validación comprueba que el SHA candidato siga siendo ancestro de `main`, la versión y flavor docente-local, el manifiesto, el sidecar y el SHA-256 del artefacto descargado. Si falta una condición, falla cerrado.
+
+El build de Windows se omite solo cuando se solicita explícitamente esa reutilización. Al descargar el asset del borrador se repiten la comprobación de manifiesto, sidecar y digest. La E2E de instalación del borrador se omite solo si el digest del EXE coincide exactamente con el artefacto candidato cuya E2E pasó; la descarga pública se verifica de nuevo y su E2E solo se omite si su digest coincide con el digest ya verificado en el borrador. Cualquier diferencia de digest conserva la ruta completa de E2E de esa etapa. De esta forma se evita volver a instalar y probar bytes idénticos, a la vez que se prueban los límites de distribución y la identidad del asset.
+
+Las pruebas de contrato comprueban la selección del run, la evidencia de pasos requerida, la procedencia del artefacto y el comportamiento de comparación/fallback por digest. No reemplazan las E2E del producto ante cambios de payload.
