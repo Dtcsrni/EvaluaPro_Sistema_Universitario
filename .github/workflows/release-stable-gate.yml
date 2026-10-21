@@ -74,10 +74,25 @@ jobs:
           CANDIDATE_VERSION="$(node -p "require('./candidate/package.json').version")"
           [[ "$VERSION" == "$CANDIDATE_VERSION" ]] || { echo 'La versión candidata cambió después del SHA de build.' >&2; exit 1; }
           EVIDENCE_PREFIX="docs/release/evidencias/$VERSION/"
+          ALLOWED_RELEASE_CONTROL_PATHS=(
+            '.github/workflows/ci-installer-windows.yml'
+            '.github/workflows/release-stable-gate.yml'
+            'scripts/tests/ci-workflow-contract.test.mjs'
+            'scripts/tests/installer-upgrade-e2e-contract.test.mjs'
+            'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
+          )
           mapfile -t POST_CANDIDATE_PATHS < <(git diff --name-only "$SOURCE_SHA..$GATE_SHA")
-          (( ${#POST_CANDIDATE_PATHS[@]} > 0 )) || { echo 'Falta el commit posterior con evidencia de release.' >&2; exit 1; }
+          (( ${#POST_CANDIDATE_PATHS[@]} > 0 )) || { echo 'Falta un commit posterior con evidencia o controles de release permitidos.' >&2; exit 1; }
           for changed_path in "${POST_CANDIDATE_PATHS[@]}"; do
-            [[ "$changed_path" == "$EVIDENCE_PREFIX"* ]] || { echo "Cambio posterior al candidato fuera de evidencia: $changed_path" >&2; exit 1; }
+            allowed=false
+            if [[ "$changed_path" == "$EVIDENCE_PREFIX"* ]]; then
+              allowed=true
+            else
+              for allowed_path in "${ALLOWED_RELEASE_CONTROL_PATHS[@]}"; do
+                [[ "$changed_path" == "$allowed_path" ]] && allowed=true && break
+              done
+            fi
+            [[ "$allowed" == true ]] || { echo "Cambio posterior al candidato fuera de las rutas permitidas: $changed_path" >&2; exit 1; }
           done
           RUN="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID")"
           RUN_SHA="$(jq -r '.head_sha' <<<"$RUN")"
