@@ -15,6 +15,7 @@ param(
   [string]$ReportDir = '',
   [string]$InstallDir = '',
   [string]$CandidateBundlePath = '',
+  [string]$ReleaseManifestPath = '',
   [string]$BaselineBundlePath = '',
   [string]$SameVersionRelatedBundlePath = '',
   [int]$Port = 4519,
@@ -69,6 +70,28 @@ if ([string]::IsNullOrWhiteSpace($RootPath)) {
 }
 $root = (Resolve-Path $RootPath).Path
 Set-Location -LiteralPath $root
+$releaseManifestPath = Join-Path $root 'dist\installer\EvaluaPro-release-manifest.json'
+if (-not [string]::IsNullOrWhiteSpace($ReleaseManifestPath)) {
+  $releaseManifestPath = (Resolve-Path -LiteralPath $ReleaseManifestPath -ErrorAction Stop).Path
+}
+if (-not (Test-Path -LiteralPath $releaseManifestPath -PathType Leaf)) {
+  throw "No existe el manifiesto de release validado: $releaseManifestPath"
+}
+try {
+  $releaseManifest = Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json -ErrorAction Stop
+} catch {
+  throw "No se pudo leer el manifiesto de release '$releaseManifestPath': $($_.Exception.Message)"
+}
+if ($null -eq $releaseManifest -or $releaseManifest -is [array] -or
+    $releaseManifest.PSObject.Properties.Match('version').Count -ne 1 -or
+    $releaseManifest.PSObject.Properties.Match('build').Count -ne 1 -or
+    $releaseManifest.PSObject.Properties.Match('flavors').Count -ne 1) {
+  throw "El manifiesto de release no cumple el esquema esperado (version/build/flavors): $releaseManifestPath"
+}
+if ([string]::IsNullOrWhiteSpace([string]$releaseManifest.version) -or
+    [string]::IsNullOrWhiteSpace([string]$releaseManifest.build.version)) {
+  throw "El manifiesto de release no contiene version y build.version: $releaseManifestPath"
+}
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 if ([string]::IsNullOrWhiteSpace($ReportDir)) {
   $reportParent = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { [IO.Path]::GetTempPath() } else { $env:RUNNER_TEMP }
@@ -2324,8 +2347,6 @@ try {
   $normalizedTargetRoot = [IO.Path]::GetFullPath($installedRoot).TrimEnd('\')
   $targetInsideLocalAppData = $normalizedTargetRoot.StartsWith($localAppDataRoot + '\', [StringComparison]::OrdinalIgnoreCase)
   $defaultInstallRoot = [IO.Path]::GetFullPath((Join-Path ${env:LOCALAPPDATA} 'EvaluaPro')).TrimEnd('\')
-  $releaseManifestPath = Join-Path $root 'dist\installer\EvaluaPro-release-manifest.json'
-  $releaseManifest = if (Test-Path -LiteralPath $releaseManifestPath -PathType Leaf) { Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json } else { $null }
   $manifestFlavor = @()
   if ($releaseManifest -and $releaseManifest.PSObject.Properties.Match('flavors').Count -gt 0) {
     $manifestFlavor = @($releaseManifest.flavors | Where-Object { [string]$_.flavorId -eq 'docente-local' } | Select-Object -First 1)
