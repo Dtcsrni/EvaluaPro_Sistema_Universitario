@@ -473,6 +473,31 @@ test('release valida el asset descargado desde GitHub antes de hacer público el
   assert.match(workflow, /Publicar evidencia E2E del asset descargado/);
 });
 
+test('las E2E de release descargan y validan el manifiesto antes de invocar el runner', () => {
+  const jobs = workflow.split(/(?=^  [a-z0-9_]+:)/m);
+  const cases = [
+    ['post_publish_installer_e2e', 'Descargar y verificar EXE y sidecar desde el release draft'],
+    ['verify_public_installer_e2e', 'Descargar y verificar el asset público por su URL de release']
+  ];
+
+  for (const [jobName, stepName] of cases) {
+    const job = jobs.find((section) => section.startsWith(`  ${jobName}:`));
+    assert.ok(job, `Debe existir el job ${jobName}`);
+    const downloadStepStart = job.indexOf(`- name: ${stepName}`);
+    const downloadStepEnd = job.indexOf('\n      - name:', downloadStepStart + 1);
+    const downloadStep = job.slice(downloadStepStart, downloadStepEnd < 0 ? job.length : downloadStepEnd);
+    const runnerStep = job.indexOf('E2E completa');
+
+    assert.ok(downloadStepStart >= 0 && runnerStep > downloadStepStart, `${jobName} prepara manifiesto antes del E2E`);
+    assert.match(downloadStep, /\$manifestAsset\s*=\s*@\(\$release\.assets\s*\|\s*Where-Object\s*\{\s*\$_.name\s*-eq\s*'EvaluaPro-release-manifest\.json'/);
+    assert.match(downloadStep, /\$releaseManifestPath\s*=\s*Join-Path\s+\$env:GITHUB_WORKSPACE\s+'dist\\installer\\EvaluaPro-release-manifest\.json'/);
+    assert.match(downloadStep, /-Destination\s+\$releaseManifestPath\s+-ExpectedLength\s+\(\[long\]\$manifestAsset\.size\)\s+-ExpectedSha256\s+\$manifestDigest\.Groups\[1\]\.Value/);
+    assert.match(downloadStep, /\$releaseManifest\.version\s*-ne\s*\$packageVersion/);
+    assert.match(downloadStep, /\$releaseManifest\.build\.commit\s*-ne\s*\[string\]\$release\.target_commitish/);
+    assert.match(downloadStep, /\$releaseManifest\.flavors\[0\]\.flavorId\s*-ne\s*'docente-local'/);
+  }
+});
+
 test('las E2E del asset de borrador y público instalan WiX para extraer el baseline', () => {
   const jobs = workflow.split(/(?=^  [a-z0-9_]+:)/m);
   for (const jobName of ['post_publish_installer_e2e', 'verify_public_installer_e2e']) {
