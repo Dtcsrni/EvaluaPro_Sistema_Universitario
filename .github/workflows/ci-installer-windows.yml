@@ -42,8 +42,10 @@ jobs:
           PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          set -euo pipefail
           node scripts/testing/resolve-affected-ci.mjs --github-output="$GITHUB_OUTPUT" > affected-ci.json
-          mapfile -t PR_CHANGED_PATHS < <(git diff --name-only "$PULL_REQUEST_BASE_SHA...$PULL_REQUEST_HEAD_SHA")
+          PR_CHANGED_PATHS_OUTPUT="$(git diff --name-only "$PULL_REQUEST_BASE_SHA...$PULL_REQUEST_HEAD_SHA")"
+          mapfile -t PR_CHANGED_PATHS <<< "$PR_CHANGED_PATHS_OUTPUT"
           RELEASE_CONTROL_ONLY=true
           RELEASE_CONTROL_PATHS=(
             '.github/workflows/ci-installer-windows.yml'
