@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.25.0
+version: 1.26.0
 fecha: 2026-10-20
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -27,6 +27,8 @@ El primer intento de la instalación fijada de Poppler en Windows descargó el a
 El run de Windows `39372851883` pasó build, firma de manifiesto, smoke Burn, Chromium, Edge y la instalación fijada de Poppler; la E2E falló al capturar «2 Preparar · activo» durante reparación, aunque UI Automation ya reportaba ese paso. Los logs sitúan la captura 439 ms después de la captura inicial de la ventana y el análisis registró cero píxeles claros. El runner ahora exige dos observaciones UIA consecutivas del paso y espera 500 ms antes de la única captura visual; mantiene bloqueante la verificación de contenido visible, sin reintentar la operación ni ampliar sus timeouts.
 
 El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo fuente modificado. El log confirma que `test:dataset-prodlike:ci` exportaba directamente a `tests/fixtures/prodlike/prodlike-anon.json.gz`, la salida predeterminada del exportador y un archivo versionado. La causa queda reproducida por el contrato de rutas; el nuevo runner usa `reports/qa/generated/`, y una prueba de integración calcula el SHA-256 del fixture canónico antes y después de exportar, validar e importar para proteger su contenido en Linux y Windows.
+
+El Stable Gate #100 completó la promoción del candidato, pero el job posterior de publicación se detuvo antes de despachar `CI Installer Windows`. El log identifica un borrador `v1.2.8` no recuperable porque el gate exige una tag Git que apunte al candidato. Sin embargo, el workflow de instalación crea el borrador con `target_commitish` igual al SHA validado y GitHub puede no crear la tag hasta publicar. El guard debe verificar el SHA exacto mediante la referencia de tag cuando exista o, únicamente si no existe, mediante `target_commitish` del borrador; cualquier discrepancia, release publicado o borrador con otra tag debe seguir bloqueando la publicación. No se elimina ni se retargetea un borrador discrepante.
 
 ## Requisitos Funcionales
 
@@ -54,6 +56,7 @@ El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo 
 - **REQ-023 — Carga OMR acotada en el journey integral:** El fixture conserva la creación, confirmación, revisión y publicación de los 20 reactivos del banco. El examen generado para PDF/OMR usa explícitamente una página y cinco preguntas, validando ambos valores en la GUI antes de guardar la plantilla. Se mantienen los pasos del flujo integral y el timeout actual; no se permiten reintentos que oculten lentitud.
 - **REQ-024 — Diagnóstico de conflicto Burn en CI:** Si la GUI no llega al estado terminal de conflicto, el runner imprime una snapshot UIA de hasta 2,400 caracteres y copia el log Burn de la operación al artefacto; el log del job filtra líneas por detección de bundles relacionados, planificación, `Apply` y conflicto, sin volcar logs MSI completos.
 - **REQ-026 — Fixture prodlike inmutable durante CI:** El paso `test:dataset-prodlike:ci` genera, valida e importa una copia bajo `reports/qa/generated/`, y Git ignora esa ruta; no escribe ni reescribe el fixture versionado `tests/fixtures/prodlike/prodlike-anon.json.gz`. Una prueba calcula el hash del fixture antes y después de las tres etapas y comprueba que se conserve idéntico. El runner propaga cualquier error de proceso o etapa y no continúa con importación parcial.
+- **REQ-027 — Recuperación fail-closed del borrador estable:** Antes de despachar publicación, el Stable Gate valida que un release existente sea un borrador con la tag esperada. Si existe una referencia Git para la tag, su commit debe ser exactamente `SOURCE_SHA`; si no existe, `target_commitish` del borrador debe ser exactamente `SOURCE_SHA`. Un release publicado, una tag distinta o un SHA distinto bloquean el flujo. Si no hay release, una tag existente solo se acepta cuando apunta al mismo `SOURCE_SHA`. El gate no elimina, publica ni retargetea borradores; la publicación y las E2E del asset draft y público siguen siendo pasos separados y bloqueantes.
 
 ## Criterios de Aceptación
 
@@ -83,6 +86,7 @@ El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo 
 - **CA-025:** Antes de capturar `Prepare` o `Review`, el runner observa el paso UIA esperado en dos lecturas consecutivas, espera 500 ms y vuelve a confirmarlo. Después realiza una sola captura y mantiene el umbral visual bloqueante; si el paso no se estabiliza o el panel sigue vacío, la E2E falla y conserva evidencia.
 - **CA-021:** El E2E visual PDF genera una vista previa rasterizada del mismo PDF de prueba con Poppler; antes de guardar la captura confirma dimensiones no nulas, que el navegador terminó de decodificar la imagen, y un fondo mayoritario claro u oscuro con píxeles de texto en contraste. Descarga y vista previa deben compartir SHA-256, y el archivo descargado debe seguir siendo un PDF de una página. La regresión falla si se vuelve a usar el iframe nativo o una imagen plana que produzca una captura vacía.
 - **CA-026:** `npm run test:dataset-prodlike:ci` pasa su regresión y después usa `reports/qa/generated/prodlike-anon.json.gz` como entrada y salida temporal; `git check-ignore` confirma que Git excluye la ruta. La regresión ejecuta exportación, validación e importación en un checkout temporal, demuestra que el fixture canónico conserva su SHA-256 y verifica que cualquier error de spawn/etapa termine con código distinto de cero sin ejecutar pasos posteriores.
+- **CA-027:** Pruebas locales deterministas demuestran que el gate permite reusar solo un borrador `v1.2.8` fijado al `SOURCE_SHA`, tanto si su tag existe y resuelve al mismo SHA como si no existe y `target_commitish` coincide exactamente. Rechazan release publicado, tag del release incorrecta, tag existente en otro SHA, `target_commitish` distinto y ausencia de release con una tag ajena. La regresión verifica que el workflow no elimina ni retargetea borradores y conserva el despacho del instalador seguido de E2E draft y E2E pública.
 
 ## Matriz de Trazabilidad
 
@@ -114,6 +118,7 @@ El Stable Gate #99 completó los gates funcionales, pero QA informó un archivo 
 | REQ-024 | Exponer diagnóstico acotado de UIA y Burn ante timeout del conflicto de versión | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Contrato local aprobado; CI debe revelar el estado runtime |
 | REQ-025 | Ubicar reporte de calificación global en el directorio QA raíz desde cualquier cwd | `apps/backend/tests/calificacion.global.reglas.test.ts` | Implementado; test enfocado 3/3 y contratos QA/promoción 28/28 aprobados en el worktree local |
 | REQ-026 | Generar, validar e importar el fixture prodlike en ruta temporal ignorada sin mutar el fixture canónico; fallar cerrado ante errores | `scripts/tests/prodlike-dataset-ci.test.mjs` | Regresión 4/4 y `qa:full` local aprobados; CI del SHA final pendiente |
+| REQ-027 | Reutilizar solo el borrador vinculado exactamente al SHA candidato y bloquear releases/tag discrepantes sin mutarlos | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/release-stable-promotion.test.mjs` | Implementado; 49 contratos de workflow y 66 pruebas release pasan localmente; CI remoto pendiente |
 
 ## Fichas consolidadas
 
