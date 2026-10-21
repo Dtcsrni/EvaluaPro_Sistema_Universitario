@@ -1,7 +1,7 @@
 ---
 id: SPEC-122
 titulo: Estabilización integrada de CI, QA y release 1.2.8
-version: 1.28.0
+version: 1.30.0
 fecha: 2026-10-21
 autor: Codex / Ingeniería
 modulo: release_stable_gate
@@ -163,3 +163,28 @@ La regla vigente de REQ-027 bloquea cualquier borrador cuyo SHA no coincida con 
 - **CA-031:** La rama de recuperación ejecuta solo los contratos del gate/manifest y la E2E del asset fallida. El E2E visual/runtime se reutiliza únicamente con igualdad byte-a-byte (SHA-256) y coincidencia de SHA candidato; el reporte muestra la referencia exacta de la corrida y la inspección de sus capturas.
 
 La enmienda fue aprobada por el usuario el 2026-10-21. Se autoriza cambiar workflows, código y pruebas dentro del alcance, y modificar metadata del borrador únicamente tras verificar las precondiciones de REQ-029. No se autoriza borrar ni publicar antes de que todos los gates pasen.
+
+
+
+## Enmienda aprobada v1.30.0 — drift controlado de archivos de release
+
+### Contexto
+
+El candidato estable `153de55dac869a736396cb5c9f4caf9803c8bd6f` ya tiene evidencia aprobada de build y E2E. Tras fusionar la reparación del publicador en PR #248, el despacho de release rechazó el candidato antes de compilar: el guard solo aceptaba archivos de evidencia y clasificó los cambios de workflow y contrato, que no alteran el bundle, como drift no permitido. Repetir el build y la E2E del instalador por esos cambios de control de release no aporta validación nueva del producto. Se preservan la identidad del candidato, su manifiesto y sus gates; todo cambio fuera de un conjunto exacto de rutas sigue siendo bloqueante.
+
+### Requisitos
+
+- **REQ-031 — Drift acotado de control de release:** Los guards de CI Installer Windows y Stable Promotion Gate aceptan, además de `docs/release/evidencias/<versión>/**`, solo estas rutas exactas después del SHA candidato:
+  - `.github/workflows/ci-installer-windows.yml`
+  - `.github/workflows/release-stable-gate.yml`
+  - `scripts/tests/ci-workflow-contract.test.mjs`
+  - `scripts/tests/installer-upgrade-e2e-contract.test.mjs`
+  - `docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md`
+- Cualquier otro archivo posterior al candidato bloquea la promoción. Los controles de versión/tag, ancestro, SHA y manifiesto se mantienen.
+- En un PR cuyos cambios sean exclusivamente las rutas exactas anteriores, CI Installer Windows omite el build de payload y la E2E del instalador. Si existe cualquier archivo distinto, la decisión vuelve al mapa normal de cambios afectados; los cambios de producto siguen ejecutando sus validaciones.
+- Las pruebas de contrato fijan la misma lista exacta en ambos guards, comprueban el fallo cerrado ante ruta adicional y verifican la omisión del build solo para el cambio de control puro. No se repiten E2E de producto ya aprobadas para el mismo SHA y binario.
+
+### Criterios de aceptación
+
+- **CA-032:** Las dos guardas contienen la misma allowlist de cinco rutas y mantienen la excepción de evidencia versionada; las pruebas rechazan rutas adicionales, distinguen el PR de control del que incluye código de producto y confirman que la lógica normal de cambios afectados sigue activa en este último.
+- **CA-033:** Los contratos locales de workflow pasan antes del CI. El PR ejecuta gates de control/seguridad aplicables y no ejecuta build ni E2E Windows por cambios únicamente de control. Después de integrar, el flujo de release acepta el SHA candidato original y conserva sus requisitos de manifiesto, versión, etiqueta y E2E existente.
