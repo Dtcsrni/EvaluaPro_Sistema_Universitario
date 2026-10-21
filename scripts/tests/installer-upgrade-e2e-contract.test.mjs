@@ -467,6 +467,13 @@ test('E2E valida el preflight antes de instalar y reconoce la actualización ais
 });
 
 test('release valida el asset descargado desde GitHub antes de hacer público el release', () => {
+  const releaseJob = workflow.match(/publish_installer_release:[\s\S]*?(?=\n  [a-z0-9_]+:|$)/)?.[0] ?? '';
+  const checkoutIndex = releaseJob.indexOf('uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803');
+  const artifactDownloadIndex = releaseJob.indexOf('uses: actions/download-artifact@');
+  const manifestValidationIndex = releaseJob.indexOf('node scripts/release/installer-release-manifest.mjs');
+  assert.ok(checkoutIndex >= 0 && checkoutIndex < artifactDownloadIndex, 'el publisher prepara el checkout antes de descargar artifacts');
+  assert.match(releaseJob, /ref:\s*\$\{\{\s*github\.sha\s*\}\}/, 'el checkout corresponde al SHA del workflow que contiene el guard');
+  assert.ok(artifactDownloadIndex > checkoutIndex && manifestValidationIndex > artifactDownloadIndex, 'la validación usa script del checkout y manifest del artefacto');
   assert.match(workflow, /draft: true/);
   assert.match(workflow, /post_publish_installer_e2e:/);
   assert.match(workflow, /needs: \[installer_windows, publish_installer_release\]/);
