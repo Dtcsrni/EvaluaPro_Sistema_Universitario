@@ -19,10 +19,12 @@ El incidente de Windows 11 del 21-oct-2026 confirmó que Burn detectó y planifi
 - **REQ-003:** Tolerar `0x80070003` únicamente cuando la misma identidad fue solicitada para uninstall y un callback previo confirmó éxito de uninstall dentro del mismo Apply. Los demás fallos de limpieza mantienen el resultado fallido.
 - **REQ-004:** Si falla la limpieza relacionada después de aplicar el MSI, preservar payload y datos; no ejecutar el rollback de archivos que puede dejar el producto incompleto.
 - **REQ-005:** La E2E Windows instala un fixture Burn PerUser de versión previa, confirma que la detección duplicada se reprodujo, verifica el estado repetido `Present`, la retirada del fixture y la instalación candidata; limpia el fixture incluso si el escenario falla.
+- **REQ-006:** El generador de fixture debe respetar explícitamente la versión previa solicitada, aunque el parámetro y la variable local de versión difieran solo por mayúsculas/minúsculas en PowerShell.
 
 ## Criterios de Aceptación
 
 - El contrato enfocado verifica las reglas de planificación, tolerancia acotada y preservación.
+- El contrato de fixture detecta regresiones donde `-FixtureVersion` se pierde antes de compilar el bundle anterior.
 - La BA compila para `net8.0-windows`.
 - La E2E Windows falla si no se reproduce la detección duplicada, si falta la evidencia `effectiveState=Present`, si queda registrado el fixture o si Burn vuelve a intentar iniciar la ruta eliminada.
 - La E2E corre en el job Windows de Installer Hub y conserva su reporte habitual.
@@ -36,3 +38,4 @@ El incidente de Windows 11 del 21-oct-2026 confirmó que Burn detectó y planifi
 | REQ-003 | Solo se tolera el path error después del éxito previo de la misma identidad | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Implementado localmente |
 | REQ-004 | Fallo de limpieza relacionada conserva payload/datos | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Implementado localmente |
 | REQ-005 | Fixture de versión previa se verifica y retira en E2E Windows | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1`; `.github/workflows/ci-installer-windows.yml` | Validación runtime Windows pendiente |
+| REQ-006 | Versión solicitada se preserva al preparar la fixture | `scripts/tests/installer-upgrade-e2e-contract.test.mjs`; `scripts/tests/build-same-version-related-bundle-fixture.ps1` | Implementado; runtime Windows pendiente |

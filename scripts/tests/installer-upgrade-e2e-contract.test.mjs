@@ -98,6 +98,7 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
   assert.match(fixtureBuilder, /SameVersionRelatedBundleFixture\.wxs/);
   assert.match(fixtureBuilder, /FixtureExePath=\$comSpec/);
   assert.match(fixtureBuilder, /EnvironmentVariableName = 'SAME_VERSION_RELATED_BUNDLE_PATH'/);
+  assert.match(fixtureBuilder, /\$requestedFixtureVersion\s*=\s*\$FixtureVersion[\s\S]*?IsNullOrWhiteSpace\(\$requestedFixtureVersion\)[\s\S]*?TryParse\(\$requestedFixtureVersion/);
   assert.equal((workflow.match(/build-same-version-related-bundle-fixture\.ps1/g) ?? []).length, 6, 'fixtures de misma versión y versión previa se compilan para los assets local, draft y público');
   assert.equal((workflow.match(/'-SameVersionRelatedBundlePath', \$env:SAME_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 3, 'los flujos local, draft y público prueban el conflicto');
   assert.equal((workflow.match(/'-PreviousVersionRelatedBundlePath', \$env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 3, 'los flujos local, draft y público prueban el bundle anterior');

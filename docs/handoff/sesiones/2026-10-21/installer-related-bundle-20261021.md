@@ -3,7 +3,7 @@
 - traceSchemaVersion: 1.0.0
 - sessionId: installer-related-bundle-20261021
 - parentSessionId: -
-- status: final
+- status: draft
 - generatedAt: 2026-10-21T19:59:42.539Z
 - validationProfile: quick
 
@@ -34,7 +34,7 @@
 ## Acciones
 - [ok] investigation: Correlacionados los logs del MSI, del bundle candidato y del bundle anterior; el checksum del manifiesto coincide con los 12 artefactos del ZIP. (2026-10-21T19:58:10.466Z)
 - [ok] implementation: Deduplicación por identidad durante PlanRelatedBundle, tolerancia acotada del HRESULT tras uninstall exitoso, preservación de payload/datos si solo falla limpieza, y E2E de bundle anterior PerUser. (2026-10-21T19:58:10.466Z)
-- [pending] validation: Contratos enfocados, suite Installer Hub, auditoría de políticas y build .NET pasaron; runtime E2E Windows permanece pendiente. (2026-10-21T19:58:10.466Z)
+- [pending] validation: CI Windows compiló el bundle y pasó los contract-checks, pero la fixture PerUser falló antes de ejecutar la E2E porque PowerShell trató `$FixtureVersion` y `$fixtureVersion` como la misma variable. Se aisló y corrigió el bug guardando primero la versión solicitada; hay un nuevo contract-check. Requiere repetir CI Windows para validar instalación runtime. (2026-10-21T20:26:12Z)
 
 ## Archivos leidos
 - AGENTS.md
@@ -89,9 +89,9 @@
 - Windows 11 es el sistema objetivo y fue confirmado tanto por el usuario como por Win32_OperatingSystem.
 
 ## Riesgos abiertos
-- Falta E2E runtime en windows-latest para confirmar fixture, alcance PerUser, registro, UI, payload y preservación SQLite en ejecución real.
+- Falta E2E runtime en windows-latest para confirmar fixture corregida, alcance PerUser, registro, UI, payload y preservación SQLite en ejecución real.
 - No hay bundle candidato EXE en el checkout local.
-- El push del commit feature sigue pendiente de autorización exacta.
+- El PR #254 está abierto; el commit de corrección del generador de fixture debe publicarse y someterse a otra ejecución CI.
 
 ## Estado del arbol
 _arbol limpio_

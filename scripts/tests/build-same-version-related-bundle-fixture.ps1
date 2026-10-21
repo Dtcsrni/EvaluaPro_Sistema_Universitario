@@ -16,10 +16,11 @@ $candidateVersion = $null
 if (-not [version]::TryParse([string]$candidate.VersionInfo.ProductVersion, [ref]$candidateVersion)) {
   throw "No se pudo leer la versión del bundle candidato: $($candidate.VersionInfo.ProductVersion)"
 }
+$requestedFixtureVersion = $FixtureVersion
 $fixtureVersion = $candidateVersion
-if (-not [string]::IsNullOrWhiteSpace($FixtureVersion)) {
-  if (-not [version]::TryParse($FixtureVersion, [ref]$fixtureVersion)) {
-    throw "La versión del bundle fixture no es válida: $FixtureVersion"
+if (-not [string]::IsNullOrWhiteSpace($requestedFixtureVersion)) {
+  if (-not [version]::TryParse($requestedFixtureVersion, [ref]$fixtureVersion)) {
+    throw "La versión del bundle fixture no es válida: $requestedFixtureVersion"
   }
   if ($fixtureVersion -ge $candidateVersion) {
     throw "El fixture previo debe ser menor que el candidato: fixture=$fixtureVersion candidate=$candidateVersion"
