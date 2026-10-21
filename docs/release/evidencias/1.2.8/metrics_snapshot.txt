@@ -1,15 +1,16 @@
 EvaluaPro 1.2.8 — snapshot de validación
-Fecha de captura: 2026-10-20
-SHA candidato: 841c04ca4d24b884ab8970b7c33fae18e2a3ac6c
+Fecha local: 2026-10-20
+SHA candidato: d44212a5869fc7162180e981307c0163cc42ba1f
 
-CI Checks #1542 / run 39504346353: success en los gates Core y Extended del SHA candidato.
-CodeQL #908 / run 39504346298: success en el mismo SHA.
-CI Policy Audit #232 / run 39405868975: success en SHA anterior 0d97e29e5755e4fc22fcc1a2f9d1af462353c117; no aplica al candidato actual.
-CI Installer Windows #749 / run 39504605928: success en el SHA candidato.
-CI Installer Windows #755 / run 39508287194: success en el mismo SHA candidato.
+CI Checks #1551 / run 39520388769: success en agregados Core/Extended. Core Frontend, Core Backend/Portal y varias suites extendidas se omitieron por mapa de impacto.
+CodeQL #917 / run 39520388807: success en el mismo SHA.
+CI Antivirus Gate #352 / run 39520388754: success en el mismo SHA.
+CI Installer Windows #758 / run 39520497900: success en el mismo SHA; build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifest/hash, antivirus, E2E del Installer Hub, upgrade desde v1.2.3 y validación visual PDF en Edge.
 
-CI Checks #1542 omitió Core Backend/Portal, Core Frontend y otras suites por mapa de impacto. No se atribuye cobertura completa ni ejecución de pruebas de backend o frontend a esa corrida.
+Artifacts de #758:
+- installer-windows: ID 12312502041; 272086670 bytes; SHA-256 ZIP 51e5c9874bbd64386765694b7df55fd5f2edf1f94e4eafc9b1c0767e0abb4769.
+- installer-hub-e2e-39520497900: ID 12311812422; 280118747 bytes; SHA-256 ZIP a18d7698289a5073c8da507488f272844f8e27afa2e1714f96076a020cf98e0d.
 
-Los dos runs Installer Windows aprobaron build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, hashes/manifiesto, antivirus y artefactos. Ambos completaron E2E GUI de instalación, reparación y desinstalación, actualización desde baseline v1.2.3 y E2E visual PDF en Edge. Los artifacts de cada run tienen digests ZIP independientes registrados en integridad_sha256.json.
-
-No se recolectaron métricas de producción. No se ejecutó flujo humano externo ni instalación en equipo local. La base SQLite productiva no se leyó ni modificó. Stable Gate y las E2E de los assets draft/público permanecen pendientes.
+Stable Gate #101 / run 39523371654: falló en prevalidación por ausencia de commit posterior de evidencia y terminó antes de QA. No publicó ni modificó una release.
+Pendiente: QA completa, matriz visual, E2E responsive/ciclo/PDF del Stable Gate; E2E de assets draft/público y promoción estable.
+No se ejecutó flujo productivo ni instalación local. La base SQLite productiva no fue leída ni modificada.
