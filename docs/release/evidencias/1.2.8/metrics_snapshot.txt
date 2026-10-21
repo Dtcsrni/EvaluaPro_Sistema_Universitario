@@ -1,16 +1,18 @@
 EvaluaPro 1.2.8 — snapshot de validación
 Fecha local: 2026-10-20
-SHA candidato: 4ccde020b85906dba340d8473977b0fc027afc92
+SHA candidato: 7af46bb4a864e774e2dbfd987c43efe49b4100c4
 
-CI Checks #1556 / run 39526501274: success en el mismo SHA.
-Security CodeQL #922 / run 39526501412: success en el mismo SHA.
-CI Installer Windows #763 / run 39526873990: success en el mismo SHA; build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifest/hash, antivirus, E2E instalación/upgrade desde v1.2.3, vista/descarga PDF en Edge.
+CI Checks #1560 / run 39537231762: success en el mismo SHA.
+Security CodeQL #926 / run 39537231779: success en el mismo SHA.
+CI Antivirus Gate #354 / run 39537231744: success en el mismo SHA.
+CI Installer Windows #768 / run 39537882649: success en el mismo SHA; build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifest/hash, antivirus, E2E instalación/upgrade desde v1.2.3 y vista/descarga PDF en Edge.
 
-Artifacts de #763:
-- installer-windows: ID 12314112491; 272084786 bytes; SHA-256 ZIP 8aa0ef0a709f89a260dce77827114dc71f1f26ad323c3fa8f488b13471051f66.
-- installer-windows-internal: ID 12314112515; 273472409 bytes; SHA-256 ZIP 9cc20f3ca2a0e4956f6190e6a35bb9175a04b07ee868c0856eadd06b836e6090.
-- installer-hub-e2e-39526873990: ID 12314497221; 279990701 bytes; SHA-256 ZIP 5b901731b1ac3a40733f852203c5d701a25c70fc72e3f813f5c1b8431314a7b7.
+Artifacts de #768:
+- installer-windows: ID 12319201563; 272077349 bytes; SHA-256 ZIP 67358bb7bcfcf71f8f01a86dd7cf5afd6604035a012f4fca25da67e4c65cd19b.
+- installer-windows-internal: ID 12319356388; 273472409 bytes; SHA-256 ZIP b994d065d8cb2cb5ced78198063f2e3b4dc24608719f5d8d6963c85fc6fb5f83.
+- installer-hub-e2e-39537882649: ID 12319486346; 280013465 bytes; SHA-256 ZIP fc7c52351fb088d555d153ab5f994448d5062268b01b0d3b433d96e4f64e7fe0.
 
-Stable Gate #103 / run 39526576612: fallo de prevalidación por manifiesto desactualizado; no corrió QA ni publicó. Se corregirá la evidencia y se relanzará.
-Pendiente: QA completa, matriz responsive/ciclo/PDF del Stable Gate; E2E del asset draft/público y promoción.
+Los jobs de publicación y E2E de assets quedaron omitidos porque #768 se ejecutó sin release_tag.
+Stable Gate #103 / run 39526576612: fallo de prevalidación sobre evidencia obsoleta; no ejecutó QA ni publicó.
+Pendiente: actualizar evidencia en main, ejecutar validación diferencial del gate, E2E de descarga del asset draft y público, y promoción.
 No se ejecutó flujo productivo ni instalación local. La SQLite productiva permanece intacta.
