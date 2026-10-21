@@ -1,18 +1,18 @@
 EvaluaPro 1.2.8 — snapshot de validación
-Fecha local: 2026-10-20
-SHA candidato: 7af46bb4a864e774e2dbfd987c43efe49b4100c4
+Fecha local: 2026-10-21
+SHA candidato: e8832846e5786ac5da219db30176501cc2ef46a1
 
-CI Checks #1560 / run 39537231762: success en el mismo SHA.
-Security CodeQL #926 / run 39537231779: success en el mismo SHA.
-CI Antivirus Gate #354 / run 39537231744: success en el mismo SHA.
-CI Installer Windows #768 / run 39537882649: success en el mismo SHA; build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifest/hash, antivirus, E2E instalación/upgrade desde v1.2.3 y vista/descarga PDF en Edge.
+CI Checks #1573 / run 39569029218: success en el mismo SHA.
+Security CodeQL #939 / run 39569029170: success en el mismo SHA.
+CI Antivirus Gate #363 / run 39569029187: success en el mismo SHA.
+CI Installer Windows #782 / run 39569392976: success en el mismo SHA; build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifest/hash, antivirus, instalación/actualización desde v1.2.3 y vista/descarga PDF en Edge.
 
-Artifacts de #768:
-- installer-windows: ID 12319201563; 272077349 bytes; SHA-256 ZIP 67358bb7bcfcf71f8f01a86dd7cf5afd6604035a012f4fca25da67e4c65cd19b.
-- installer-windows-internal: ID 12319356388; 273472409 bytes; SHA-256 ZIP b994d065d8cb2cb5ced78198063f2e3b4dc24608719f5d8d6963c85fc6fb5f83.
-- installer-hub-e2e-39537882649: ID 12319486346; 280013465 bytes; SHA-256 ZIP fc7c52351fb088d555d153ab5f994448d5062268b01b0d3b433d96e4f64e7fe0.
+Artifacts de #782:
+- installer-windows: ID 12332614070; 272085012 bytes; SHA-256 ZIP 18747f69e8a7d3342238fbaa1ce47186eec7104ed3fabaeceb0764c1f9faf73c.
+- installer-windows-internal: ID 12332169553; 273472335 bytes; SHA-256 ZIP f021312a00150175ac783b5f671b0bd7c57eae41c591164e89886cadeab87718.
+- installer-hub-e2e-39569392976: ID 12332094673; 279815029 bytes; SHA-256 ZIP 03324c8447ae105112060b766676e6e3aee704008085871685e69daf98349862.
 
-Los jobs de publicación y E2E de assets quedaron omitidos porque #768 se ejecutó sin release_tag.
-Stable Gate #103 / run 39526576612: fallo de prevalidación sobre evidencia obsoleta; no ejecutó QA ni publicó.
-Pendiente: actualizar evidencia en main, ejecutar validación diferencial del gate, E2E de descarga del asset draft y público, y promoción.
-No se ejecutó flujo productivo ni instalación local. La SQLite productiva permanece intacta.
+Los hashes anteriores son digests de ZIPs de artifact de GitHub, no hashes del ejecutable extraído.
+Stable Gate #105 / run 39573177258: fallo de prevalidación porque faltaba un commit posterior limitado al directorio de evidencia; no ejecutó QA ni publicó.
+Pendiente: integrar esta evidencia en main, repetir el Stable Gate con CI Installer Windows #782, completar E2E de assets draft/público y promoción.
+No se ejecutó flujo docente productivo ni instalación local. La SQLite productiva permanece intacta.
