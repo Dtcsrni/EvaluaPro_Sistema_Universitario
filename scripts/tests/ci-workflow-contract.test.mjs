@@ -788,7 +788,11 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(rollback, /contents:\s*write/);
   assert.match(rollback, /-F draft=true/);
   assert.match(stableGate, /gh api --include "repos\/\$GITHUB_REPOSITORY\/releases\/tags\/\$TAG"/);
-  assert.match(stableGate, /gh api --include "repos\/\$GITHUB_REPOSITORY\/commits\/\$TAG"/);
+  const tagRefIndex = stableGate.indexOf('git/ref/tags/$TAG');
+  const resolveTagIndex = stableGate.indexOf('commits/$TAG');
+  assert.ok(tagRefIndex >= 0 && resolveTagIndex > tagRefIndex, 'el gate confirma la existencia del ref antes de resolver el commit');
+  assert.match(stableGate, /if grep -qE '\\^HTTP\\/\\[0-9.\\]\\+ 2\\[0-9\\]\\{2\\} '/);
+  assert.match(stableGate, /La tag estable existe, pero no se pudo resolver a un commit/);
   assert.match(stableGate, /validate-existing-stable-draft\.mjs/);
   assert.match(stableGate, /publish_after_go:[\s\S]*?uses: actions\/checkout@[a-f0-9]{40}[\s\S]*?ref: \$\{\{ github\.sha \}\}[\s\S]*?validate-existing-stable-draft\.mjs/);
   assert.doesNotMatch(stableGate, /existing_tag_commit/);
