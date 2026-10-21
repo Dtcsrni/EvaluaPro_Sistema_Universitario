@@ -67,7 +67,7 @@ test('guard estable permite crear cuando release y tag no existen y falla cerrad
   }), /HTTP 500/);
   assert.throws(() => validateExistingStableDraft({
     releaseResponse: ghResponse(404, null),
-    tagResponse: 'HTTP/2.0 422 Unprocessable Entity\\r\\ncontent-type: application/json\\r\\n\\r\\n{"message":"No commit found"}',
+    tagResponse: 'HTTP/2.0 422 Unprocessable Entity\r\ncontent-type: application/json\r\n\r\n{"message":"No commit found"}',
     expectedTag: 'v1.2.8',
     sourceSha: CANDIDATE_SHA
   }), /HTTP 422/);
