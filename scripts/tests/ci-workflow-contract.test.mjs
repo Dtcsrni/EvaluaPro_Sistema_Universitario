@@ -887,7 +887,7 @@ test('la deriva posterior al candidato se limita a controles exactos y omite E2E
   assert.match(installerWorkflow, /\$allowedPostCandidatePaths -ccontains \$_/);
   assert.match(installerWorkflow, /\$expectedPrefix = "docs\/release\/evidencias\/\$version\/"[\s\S]*?StartsWith\(\$expectedPrefix/);
   assert.match(installerWorkflow, /PULL_REQUEST_BASE_SHA:[\s\S]*?PULL_REQUEST_HEAD_SHA:/);
-  assert.match(installerWorkflow, /git diff --name-only "\$PULL_REQUEST_BASE_SHA\.\.\.\$PULL_REQUEST_HEAD_SHA"/);
+  assert.match(installerWorkflow, /set -euo pipefail[\s\S]*?PR_CHANGED_PATHS_OUTPUT="\$\(git diff --name-only "\$PULL_REQUEST_BASE_SHA\.\.\.\$PULL_REQUEST_HEAD_SHA"\)"/);
   assert.match(installerWorkflow, /if \[\[ "\$allowed" != true \]\]; then[\s\S]*?RELEASE_CONTROL_ONLY=false/);
   assert.match(installerWorkflow, /if \[\[ "\$RELEASE_CONTROL_ONLY" == true \]\]; then[\s\S]*?run_installer=false[\s\S]*?elif grep -Eq/);
   assert.match(stableGate, /Cambio posterior al candidato fuera de las rutas permitidas/);
