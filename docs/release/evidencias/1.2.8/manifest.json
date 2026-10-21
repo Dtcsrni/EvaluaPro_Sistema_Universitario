@@ -18,8 +18,9 @@
     },
     "operador": {
       "nombre": "codex-release-audit",
-      "observaciones": "Candidato main e8832846e5786ac5da219db30176501cc2ef46a1. CI Checks #1573 (39569029218), Security CodeQL #939 (39569029170), CI Antivirus Gate #363 (39569029187) y CI Installer Windows #782 (39569392976) concluyeron success en el SHA exacto. #782 aprobó build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifest/hash, antivirus, instalación/actualización desde v1.2.3, E2E visual PDF Edge y artifacts. Stable Gate #105 falló solo en prevalidación por ausencia de un commit de evidencia posterior; no inició QA ni publicó. Flujos productivos y actualización local no ejecutados; SQLite productiva intacta."
-    }
+      "observaciones": "Candidato main e8832846e5786ac5da219db30176501cc2ef46a1. CI Checks #1573 (39569029218), Security CodeQL #939 (39569029170), CI Antivirus Gate #363 (39569029187) y CI Installer Windows #782 (39569392976) concluyeron success en el SHA exacto. #782 aprobó build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifest/hash, antivirus, instalación/actualización desde v1.2.3, E2E visual PDF Edge y artifacts. Stable Gate #105 falló solo en prevalidación por ausencia de un commit de evidencia posterior; no inició QA ni publicó. Flujos productivos y actualización local no ejecutados; SQLite productiva intacta. El resultado fallo se usa porque este contrato solo admite ok/fallo y el gate humano/productivo no está aprobado; no significa que se haya probado con datos productivos."
+    },
+    "resultado": "fallo"
   },
   "resultado": "pendiente",
   "duracionMs": 0,
