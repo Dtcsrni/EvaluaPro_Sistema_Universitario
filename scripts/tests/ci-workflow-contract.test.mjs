@@ -395,6 +395,7 @@ test('E2E del release draft delimita variable PowerShell seguida de dos puntos',
   assert.match(retargetBlock, /git\/ref\/tags\/\$RELEASE_TAG/);
   assert.match(retargetBlock, /check_asset\s+.*exe_hash/);
   assert.match(retargetBlock, /check_asset\s+.*manifest_hash/);
+  assert.match(retargetBlock, /tag_name=\$RELEASE_TAG/);
   assert.match(retargetBlock, /target_commitish=\$\{SOURCE_SHA,,\}/);
   assert.match(retargetBlock, /reconsultarlo/);
   assert.doesNotMatch(draftAssetBlock, /\$candidateName:/);
