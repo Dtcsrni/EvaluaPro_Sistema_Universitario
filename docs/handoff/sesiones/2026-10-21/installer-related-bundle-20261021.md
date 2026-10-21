@@ -3,7 +3,7 @@
 - traceSchemaVersion: 1.0.0
 - sessionId: installer-related-bundle-20261021
 - parentSessionId: -
-- status: draft
+- status: final
 - generatedAt: 2026-10-21T19:59:42.539Z
 - validationProfile: quick
 
@@ -34,7 +34,8 @@
 ## Acciones
 - [ok] investigation: Correlacionados los logs del MSI, del bundle candidato y del bundle anterior; el checksum del manifiesto coincide con los 12 artefactos del ZIP. (2026-10-21T19:58:10.466Z)
 - [ok] implementation: Deduplicación por identidad durante PlanRelatedBundle, tolerancia acotada del HRESULT tras uninstall exitoso, preservación de payload/datos si solo falla limpieza, y E2E de bundle anterior PerUser. (2026-10-21T19:58:10.466Z)
-- [pending] validation: CI Windows compiló el bundle y pasó los contract-checks, pero la fixture PerUser falló antes de ejecutar la E2E porque PowerShell trató `$FixtureVersion` y `$fixtureVersion` como la misma variable. Se aisló y corrigió el bug guardando primero la versión solicitada; hay un nuevo contract-check. Requiere repetir CI Windows para validar instalación runtime. (2026-10-21T20:26:12Z)
+- [ok] validation: CI Windows run `39670608579` pasó build, fixture Burn relacionada de versión anterior `1.2.0.0`, E2E completa, visual PDF en Edge y publicación de evidencia. Confirmado candidate `1.2.8.0`; artefacto E2E SHA-256 `4aea6a76d20324ccb8cc2313766f0fea48aba4903a91e0c4994538852715a4a9`. (2026-10-21T20:56:52Z)
+- [ok] fixture regression: Se preservó `$FixtureVersion` antes de asignar `$fixtureVersion`; el contrato focalizado, el parseo PowerShell y el fixture runtime pasan. (2026-10-21T20:56:52Z)
 
 ## Archivos leidos
 - AGENTS.md
@@ -42,6 +43,8 @@
 - docs/POLITICA_SDD.md
 - docs/handoff/CONTRATO_TRAZABILIDAD_IA.md
 - docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md
+- docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.md
+- docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.json
 - packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs
 - scripts/tests/installer-hub-e2e-docente.ps1
 - scripts/tests/installer-upgrade-e2e-contract.test.mjs
@@ -57,6 +60,8 @@
 - scripts/tests/installer-hub-e2e-docente.ps1
 - scripts/tests/installer-upgrade-e2e-contract.test.mjs
 - docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md
+- docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.md
+- docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.json
 
 ## Validacion ejecutada
 - lint: `npm run lint` -> omitido (exitCode=-, duracionMs=0)
@@ -89,19 +94,17 @@
 - Windows 11 es el sistema objetivo y fue confirmado tanto por el usuario como por Win32_OperatingSystem.
 
 ## Riesgos abiertos
-- Falta E2E runtime en windows-latest para confirmar fixture corregida, alcance PerUser, registro, UI, payload y preservación SQLite en ejecución real.
-- No hay bundle candidato EXE en el checkout local.
-- El PR #254 está abierto; el commit de corrección del generador de fixture debe publicarse y someterse a otra ejecución CI.
+- El PR #254 queda en borrador hasta revisión; no se integró ni se publicó un release.
 
 ## Estado del arbol
 _arbol limpio_
 
 ## Siguiente paso recomendado
-- Con autorización, publicar el commit exacto 1ef58823e87d4c23ac3e3c45157c2bac0c16bdab en origin/codex/installerhub-related-bundle-main, abrir PR para ejecutar CI Installer Windows y revisar el reporte E2E antes de integrar o liberar.
+- Revisar e integrar el PR #254 según el flujo habitual del repositorio.
 
 ## Artefactos generados
 - EvaluaPro-informe-fallo-2026-10-21.zip: manifiesto SHA-256 verificado, 12/12 archivos coinciden.
-- E2E de Windows 11 runtime pendiente; no se generó candidato local.
+- CI Installer Windows run `39670608579`: build + E2E completos aprobados; evidencia `installer-hub-e2e-39670608579` con digest SHA-256 `4aea6a76d20324ccb8cc2313766f0fea48aba4903a91e0c4994538852715a4a9`.
 
 ## Completitud semantica
 - isComplete: true

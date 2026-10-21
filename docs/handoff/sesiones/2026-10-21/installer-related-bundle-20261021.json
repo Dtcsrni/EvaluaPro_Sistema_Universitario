@@ -2,7 +2,7 @@
   "traceSchemaVersion": "1.0.0",
   "sessionId": "installer-related-bundle-20261021",
   "status": "final",
-  "generatedAt": "2026-10-21T19:59:42.539Z",
+  "generatedAt": "2026-10-21T20:56:52Z",
   "validationProfile": "quick",
   "agent": {
     "name": "Codex",
@@ -41,9 +41,15 @@
     },
     {
       "type": "validation",
-      "summary": "Contratos enfocados, suite Installer Hub, auditoría de políticas y build .NET pasaron; runtime E2E Windows permanece pendiente.",
-      "timestamp": "2026-10-21T19:58:10.466Z",
-      "status": "pending"
+      "summary": "CI Installer Windows run 39670608579 pasó build MSI/bundle, fixture Burn relacionada 1.2.0.0, E2E completa y validación visual PDF en Edge; evidencia publicada como artifact installer-hub-e2e-39670608579.",
+      "timestamp": "2026-10-21T20:56:52Z",
+      "status": "ok"
+    },
+    {
+      "type": "regression_fix",
+      "summary": "Se preservó el valor del parámetro FixtureVersion antes de asignar la variable local, evitando colisión de identificadores en PowerShell case-insensitive; contract-check focalizado y parseo PowerShell aprobados.",
+      "timestamp": "2026-10-21T20:56:52Z",
+      "status": "ok"
     }
   ],
   "files": {
@@ -67,11 +73,13 @@
       "scripts/tests/installer-hub-contract.test.mjs",
       "scripts/tests/installer-hub-e2e-docente.ps1",
       "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
-      "docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md"
+      "docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md",
+      "docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.md",
+      "docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.json"
     ],
     "artifacts": [
       "EvaluaPro-informe-fallo-2026-10-21.zip: manifiesto SHA-256 verificado, 12/12 archivos coinciden.",
-      "E2E de Windows 11 runtime pendiente; no se generó candidato local."
+      "CI Installer Windows run 39670608579: build y E2E completos aprobados; artifact installer-hub-e2e-39670608579, SHA-256 4aea6a76d20324ccb8cc2313766f0fea48aba4903a91e0c4994538852715a4a9."
     ]
   },
   "commands": [
@@ -164,22 +172,39 @@
       "durationMs": 1161,
       "resultSummary": "[docs] ok | npm notice run evaluapro@1.2.8 docs:check | npm notice run node scripts/docs.mjs --check",
       "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "installer_fixture_regression_contract",
+      "command": "node --test --test-name-pattern=\"el E2E aislado reproduce y valida el conflicto\" scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 79,
+      "resultSummary": "1/1 pass; PowerShell parser validó build-same-version-related-bundle-fixture.ps1; git diff --check pasó.",
+      "timestamp": "2026-10-21T20:56:52Z"
+    },
+    {
+      "name": "ci_installer_windows",
+      "command": "GitHub Actions run 39670608579 (CI Installer Windows)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": null,
+      "resultSummary": "Fixture 1.2.0.0 generada frente al candidato 1.2.8.0; E2E completa y visual PDF aprobadas; evidencia publicada.",
+      "timestamp": "2026-10-21T20:56:52Z"
     }
   ],
   "decisions": [
     "El defecto inmediato se reproduce con dos detecciones y dos planes Uninstall del mismo GUID; el primero termina 0 y el segundo falla al abrir una ruta de Package Cache ya eliminada.",
     "La causa original de la duplicación no está demostrada; el fix evita ejecutar dos uninstall y conserva el estado si otra limpieza falla.",
-    "No ejecutar el instalador E2E en esta PC: está instalada EvaluaPro 1.2.8 y el runner requiere entorno QA aislado."
+    "No ejecutar el instalador E2E en esta PC: está instalada EvaluaPro 1.2.8 y el runner requiere entorno QA aislado.",
+    "El primer CI aisló un defecto de fixture: PowerShell no distingue mayúsculas/minúsculas, por lo que FixtureVersion y fixtureVersion colisionaban. Se corrigió preservando el argumento antes de la asignación local; el rerun Windows generó el fixture 1.2.0.0."
   ],
   "assumptions": [
     "Windows 11 es el sistema objetivo y fue confirmado tanto por el usuario como por Win32_OperatingSystem."
   ],
   "risks": [
-    "Falta E2E runtime en windows-latest para confirmar fixture, alcance PerUser, registro, UI, payload y preservación SQLite en ejecución real.",
-    "No hay bundle candidato EXE en el checkout local.",
-    "El push del commit feature sigue pendiente de autorización exacta."
+    "El PR #254 queda en borrador hasta revisión; no se integró ni se publicó un release."
   ],
-  "nextStep": "Con autorización, publicar el commit exacto 1ef58823e87d4c23ac3e3c45157c2bac0c16bdab en origin/codex/installerhub-related-bundle-main, abrir PR para ejecutar CI Installer Windows y revisar el reporte E2E antes de integrar o liberar.",
+  "nextStep": "Revisar e integrar el PR #254 según el flujo habitual del repositorio.",
   "completion": {
     "isComplete": true,
     "pendingFields": []
@@ -187,7 +212,7 @@
   "repo": {
     "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\fix-installerhub-related-bundle\\fix-installerhub-related-bundle-main",
     "branch": "codex/installerhub-related-bundle-main",
-    "commit": "59941f4d7f371785bdbc11bff94ff88d631e3502",
-    "workingTreeStatus": ""
+    "commit": "0128fb221c8d28dd4e8e5c592895dac4c57fb1d2",
+    "workingTreeStatus": "docs de traza actualizados; pendientes de commit"
   }
 }
