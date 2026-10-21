@@ -138,9 +138,11 @@ El último run del borrador falló antes de instalar: el checkout de la tag no c
 - SPEC-121: versión dinámica del Installer Hub.
 
 
-## Propuesta de enmienda v1.29.0 — recuperación del borrador estable (pendiente de aprobación)
+## Enmienda aprobada v1.29.0 — recuperación verificada del borrador estable
 
 ### Contexto
+
+Evidencia adicional del run #39530939924: la validación de descarga, manifiesto y sidecar concluyó correctamente; el runner E2E falló después en `installer-hub-e2e-docente.ps1:2359` al acceder a `releaseManifest.version`. La corrección debe preservar validación estricta y garantizar que el runner recibe la misma ruta/manifiesto ya validado; agregar diagnóstico de ruta/esquema y regresión para ausencia o forma inválida, sin silenciar errores.
 
 En CI #770, el bundle candidato `7af46bb4a864e774e2dbfd987c43efe49b4100c4` pasó build, E2E de instalación/repair/upgrade/uninstall y validación visual PDF en Edge. La descarga posterior del mismo EXE desde el borrador `v1.2.8` verificó HTTP, longitud y SHA-256, pero el job se detuvo antes de instalar al comparar el manifiesto candidato con `target_commitish=4ccde020b85906dba340d8473977b0fc027afc92`. No hay tag Git `v1.2.8`; el borrador conserva assets del candidato y apunta a un SHA anterior. El commit `40c6c0b` contiene solo actualizaciones de evidencia documental después del candidato.
 
@@ -154,10 +156,10 @@ La regla vigente de REQ-027 bloquea cualquier borrador cuyo SHA no coincida con 
 - Tras actualizar el target, el gate vuelve a consultar y comprobar la metadata. La validación del asset descargado debe pasar antes de permitir publicación.
 - **REQ-030 — Reutilización trazable de E2E del mismo binario:** No se repite el E2E visual/runtime del instalador si el EXE descargado tiene el mismo SHA-256, versión, commit y flavor que un bundle del mismo `SOURCE_SHA` cuyo E2E visual/runtime completo ya pasó. En ese caso se exige descargar de nuevo el asset, verificar sidecar/manifiesto/hash y asociar explícitamente la evidencia E2E existente con el mismo digest. Si cambia cualquier dato de identidad o no existe evidencia visual/runtime para ese digest, se ejecuta el E2E del asset descargado y se inspecciona visualmente su evidencia antes de publicar.
 
-### Criterios de aceptación propuestos
+### Criterios de aceptación
 
 - **CA-029:** Pruebas de contrato cubren la única recuperación permitida (borrador exacto, sin tag, assets/manifiesto candidatos válidos) y rechazan release publicado, prerelease, tag distinta, tag existente, error de API, SHA ajeno o inconsistente, versión/flavor incorrectos, digest/longitud incorrectos, assets ausentes/duplicados y manifiesto ausente.
 - **CA-030:** Una regresión verifica que la revalidación posterior confirma `target_commitish=SOURCE_SHA` y que no hay llamadas de eliminación, reemplazo ni publicación en la ruta de recuperación.
 - **CA-031:** La rama de recuperación ejecuta solo los contratos del gate/manifest y la E2E del asset fallida. El E2E visual/runtime se reutiliza únicamente con igualdad byte-a-byte (SHA-256) y coincidencia de SHA candidato; el reporte muestra la referencia exacta de la corrida y la inspección de sus capturas.
 
-Esta sección es una propuesta y no cambia REQ-027 ni autoriza modificaciones a código, pruebas o metadata del release hasta recibir aprobación del usuario.
+La enmienda fue aprobada por el usuario el 2026-10-21. Se autoriza cambiar workflows, código y pruebas dentro del alcance, y modificar metadata del borrador únicamente tras verificar las precondiciones de REQ-029. No se autoriza borrar ni publicar antes de que todos los gates pasen.
