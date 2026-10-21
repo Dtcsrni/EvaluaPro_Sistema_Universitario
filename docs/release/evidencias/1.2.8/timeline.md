@@ -1,26 +1,25 @@
 # Timeline Gate Estable 1.2.8
 
-- SHA candidato: `841c04ca4d24b884ab8970b7c33fae18e2a3ac6c`
+- SHA candidato: `d44212a5869fc7162180e981307c0163cc42ba1f`
 - Rama evaluada: `main`
-- Fecha: 2026-10-20
-- Resultado: dos corridas consecutivas de CI Installer Windows aprobaron sobre el SHA candidato. CI Checks y CodeQL también aprobaron. El Stable Gate y la E2E del asset público siguen pendientes.
+- Fecha local: 2026-10-20 (America/Mexico_City)
+- Resultado: No-Go temporal; falta correr el Stable Gate después de este commit de evidencia.
 
-## Pasos
+## Evidencia por etapa
 
-1. [OK] CI Checks #1542 (run 39504346353) sobre el SHA candidato: gates Core y Extended concluyeron success.
-2. [OMITIDO POR IMPACTO] CI Checks #1542 omitió Core Backend/Portal, Core Frontend y suites extendidas funcionales/evidencia/performance; no se cuentan como ejecutadas.
-3. [OK] Security CodeQL #908 (run 39504346298), mismo SHA, success.
-4. [NO APLICA AL CANDIDATO] CI Policy Audit #232 (run 39405868975) fue success sobre SHA anterior `0d97e29e5755e4fc22fcc1a2f9d1af462353c117`; no se considera vigente para este candidato.
-5. [OK] Primera pasada CI Installer Windows #749 (run 39504605928), SHA exacto, success: build, contratos, footprint, smoke GUI, hashes, antivirus, E2E completa y artefactos.
-6. [OK] Segunda pasada CI Installer Windows #755 (run 39508287194), mismo SHA, success: build, contratos, footprint, smoke GUI, hashes, antivirus, E2E completa y artefactos.
-7. [OK] En #749 y #755, E2E GUI del Installer Hub cubrió instalación, reparación y desinstalación en runner QA aislado.
-8. [OK] Baseline oficial v1.2.3 verificado y E2E de actualización aprobada en #749 y #755.
-9. [OK] E2E visual de vista y descarga PDF en Microsoft Edge aprobada en #749 y #755.
-10. [OK] Artefactos MSI/Bundle y E2E publicados; IDs y digests ZIP SHA-256 están en `integridad_sha256.json`.
-11. [NO EJECUTADO] Flujo docente humano contra producción; no se usaron credenciales ni datos reales.
-12. [NO EJECUTADO] Actualización en el equipo local; se conserva la base SQLite productiva sin leer ni modificar.
-13. [PENDIENTE] Stable Gate, promoción estable de v1.2.8, E2E del asset draft y del asset público, y verificación final del inventario de releases.
+1. [OK] CI Checks #1551 (run 39520388769), SHA exacto: agregados Core/Extended, Contract/Docs/Gov y Security/Compliance aprobaron.
+2. [OMITIDO POR IMPACTO] #1551 omitió Core Frontend, Core Backend/Portal y algunas suites extendidas. No se consideran ejecutadas.
+3. [OK] CodeQL #917 (run 39520388807), SHA exacto.
+4. [OK] CI Antivirus Gate #352 (run 39520388754), SHA exacto.
+5. [OK] CI Installer Windows #758 (run 39520497900), SHA exacto: build MSI/Bundle docente-local, fixture Burn, footprint, smoke GUI, manifest/hash, antivirus y E2E completa.
+6. [OK] En #758 pasó upgrade GUI desde baseline oficial v1.2.3.
+7. [OK] En #758 pasó E2E visual de vista/descarga PDF en Microsoft Edge.
+8. [OK] IDs, tamaños y SHA-256 ZIP de artifacts de #758 en `integridad_sha256.json`.
+9. [FALLO PREVALIDACIÓN] Stable Gate #101 (run 39523371654) se detuvo antes de QA: faltaba el commit posterior con evidencia. No descargó el artefacto; publicación, Latest y limpieza quedaron skipped.
+10. [PENDIENTE] Stable Gate completo: QA, matriz visual, E2E responsive/ciclo/PDF.
+11. [PENDIENTE] E2E del asset draft y del asset público, promoción estable e inventario final de releases.
+12. [NO EJECUTADO] Flujo docente productivo e instalación local. No se usaron datos reales y la base SQLite productiva no fue leída ni modificada.
 
 ## Resultado
 
-Las dos corridas Installer Windows #749 y #755 aprobaron para el mismo SHA candidato. Cada una generó sus propios artefactos y completó E2E de instalación, reparación, desinstalación, actualización y PDF. CI Checks omitió suites backend/portal y frontend por el mapa de impacto. El candidato todavía no es una release estable.
+No hay release estable v1.2.8. El inventario consultado muestra la beta `v1.2.8-beta.7`; el intento #101 no alteró releases. Esta evidencia refleja el candidato d442... y no presenta suites omitidas como aprobadas.
