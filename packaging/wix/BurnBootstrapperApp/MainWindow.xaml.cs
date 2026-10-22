@@ -1373,6 +1373,9 @@ public partial class MainWindow : Window
         }
 
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
+        NextButton.Visibility = currentStep == WizardStep.Review && readyToStart
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
         StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isNewInstall || accepted);
 

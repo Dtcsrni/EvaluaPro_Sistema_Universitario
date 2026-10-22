@@ -2916,6 +2916,7 @@ test('runner E2E exige resultado terminal visible incluso cuando el helper repor
 test('Installer Hub mantiene visible el panel activo y bloquea progreso tardío sobre Resultado', () => {
   const code = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
   assert.match(code, /currentStep == WizardStep\.Result && isBusy == true/);
+  assert.match(code, /NextButton\.Visibility = currentStep == WizardStep\.Review && readyToStart\s*\? Visibility\.Collapsed\s*:\s*Visibility\.Visible;/);
   assert.match(code, /private static void ShowStepPanel\(FrameworkElement panel\)/);
   assert.match(code, /panel\.BeginAnimation\(UIElement\.OpacityProperty, null\);/);
   assert.match(code, /panel\.BeginAnimation\(UIElement\.RenderTransformProperty, null\);/);
