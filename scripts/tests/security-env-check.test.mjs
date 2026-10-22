@@ -13,6 +13,26 @@ import { randomBytes } from 'node:crypto';
 
 const root = process.cwd();
 const checker = path.join(root, 'scripts', 'security-env-check.mjs');
+const insecureProductionSecret = /cambia-este-secreto|admin|1234|test/i;
+
+function createProductionJwtSecret(generateRandomBytes = () => randomBytes(48)) {
+  let secret;
+  do {
+    secret = generateRandomBytes().toString('hex');
+  } while (insecureProductionSecret.test(secret));
+  return secret;
+}
+
+test('el secreto JWT de prueba vuelve a sortear secuencias que producción rechaza', () => {
+  const generated = [
+    Buffer.from(`1234${'a'.repeat(92)}`, 'hex'),
+    Buffer.from('b'.repeat(96), 'hex')
+  ];
+  const secret = createProductionJwtSecret(() => generated.shift());
+
+  assert.equal(secret, 'b'.repeat(96));
+  assert.equal(generated.length, 0);
+});
 
 function runChecker(databaseEnv) {
   const cwd = mkdtempSync(path.join(os.tmpdir(), 'evaluapro-security-env-'));
@@ -21,7 +41,7 @@ function runChecker(databaseEnv) {
       ...process.env,
       NODE_ENV: 'production',
       STRICT_ENV_CHECK: '1',
-      JWT_SECRETO: randomBytes(48).toString('hex'),
+      JWT_SECRETO: createProductionJwtSecret(),
       PORTAL_ALUMNO_API_KEY: randomBytes(32).toString('hex'),
       CORS_ORIGENES: 'http://127.0.0.1:4173',
       DATABASE_URL: '',

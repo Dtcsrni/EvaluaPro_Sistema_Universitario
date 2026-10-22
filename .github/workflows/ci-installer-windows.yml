@@ -250,6 +250,9 @@ jobs:
           $fixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-SameVersionRelatedBundle.exe'
           & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $candidate.FullName -OutputPath $fixtureOutput
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $previousFixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-PreviousVersionRelatedBundle.exe'
+          & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $candidate.FullName -OutputPath $previousFixtureOutput -FixtureVersion '1.2.0.0' -EnvironmentVariableName 'PREVIOUS_VERSION_RELATED_BUNDLE_PATH'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Gate footprint bundle docente
         run: npm run installer:docente:baseline:enforce
@@ -505,6 +508,8 @@ jobs:
           }
           if ([string]::IsNullOrWhiteSpace($env:SAME_VERSION_RELATED_BUNDLE_PATH)) { throw 'Falta el fixture Burn relacionado de la misma versión.' }
           $runnerArgs += @('-SameVersionRelatedBundlePath', $env:SAME_VERSION_RELATED_BUNDLE_PATH)
+          if ([string]::IsNullOrWhiteSpace($env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH)) { throw 'Falta el fixture Burn relacionado de versión previa.' }
+          $runnerArgs += @('-PreviousVersionRelatedBundlePath', $env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH)
           & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 @runnerArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -995,6 +1000,9 @@ jobs:
           $fixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-SameVersionRelatedBundle.exe'
           & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $env:CANDIDATE_BUNDLE_PATH -OutputPath $fixtureOutput
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $previousFixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-PreviousVersionRelatedBundle.exe'
+          & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $env:CANDIDATE_BUNDLE_PATH -OutputPath $previousFixtureOutput -FixtureVersion '1.2.0.0' -EnvironmentVariableName 'PREVIOUS_VERSION_RELATED_BUNDLE_PATH'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Preparar ruta privada para evidencia E2E del borrador
         if: steps.draft_asset.outputs.run_e2e == 'true'
@@ -1023,6 +1031,7 @@ jobs:
         run: |
           if (-not (Test-Path -LiteralPath $env:CANDIDATE_BUNDLE_PATH)) { throw 'Falta el EXE descargado del release draft.' }
           if (-not (Test-Path -LiteralPath $env:BASELINE_BUNDLE_PATH)) { throw 'Falta el baseline oficial v1.2.3.' }
+          if ([string]::IsNullOrWhiteSpace($env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH)) { throw 'Falta el fixture Burn relacionado de versión previa.' }
           $runnerArgs = @(
             '-RootPath', $env:GITHUB_WORKSPACE,
             '-ReleaseManifestPath', (Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'),
@@ -1031,6 +1040,7 @@ jobs:
             '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
             '-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH,
             '-SameVersionRelatedBundlePath', $env:SAME_VERSION_RELATED_BUNDLE_PATH,
+            '-PreviousVersionRelatedBundlePath', $env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH,
             '-Port', '4519',
             '-IUnderstandThisMutatesPc',
             '-SeedDummyData'
@@ -1229,6 +1239,9 @@ jobs:
           $fixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-SameVersionRelatedBundle.exe'
           & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $env:CANDIDATE_BUNDLE_PATH -OutputPath $fixtureOutput
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $previousFixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-PreviousVersionRelatedBundle.exe'
+          & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $env:CANDIDATE_BUNDLE_PATH -OutputPath $previousFixtureOutput -FixtureVersion '1.2.0.0' -EnvironmentVariableName 'PREVIOUS_VERSION_RELATED_BUNDLE_PATH'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Preparar ruta privada para evidencia E2E pública
         if: steps.public_asset.outputs.run_e2e == 'true'
@@ -1257,6 +1270,7 @@ jobs:
         run: |
           if (-not (Test-Path -LiteralPath $env:CANDIDATE_BUNDLE_PATH)) { throw 'Falta el EXE descargado del release público.' }
           if (-not (Test-Path -LiteralPath $env:BASELINE_BUNDLE_PATH)) { throw 'Falta el baseline oficial v1.2.3.' }
+          if ([string]::IsNullOrWhiteSpace($env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH)) { throw 'Falta el fixture Burn relacionado de versión previa.' }
           $runnerArgs = @(
             '-RootPath', $env:GITHUB_WORKSPACE,
             '-ReleaseManifestPath', (Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'),
@@ -1265,6 +1279,7 @@ jobs:
             '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
             '-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH,
             '-SameVersionRelatedBundlePath', $env:SAME_VERSION_RELATED_BUNDLE_PATH,
+            '-PreviousVersionRelatedBundlePath', $env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH,
             '-Port', '4521',
             '-IUnderstandThisMutatesPc',
             '-SeedDummyData'

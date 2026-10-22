@@ -1,11 +1,11 @@
 ---
 id: SPEC-CI-CD-INTEGRITY
 titulo: Integridad y seguridad de ciclos CI/CD
-version: 1.2.3
-fecha: 2026-10-09
+version: 1.2.5
+fecha: 2026-10-21
 autor: Codex / Agente IA
 modulo: devops
-estado: approved
+estado: implemented
 ---
 
 # Integridad y seguridad de ciclos CI/CD
@@ -25,6 +25,7 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 - **REQ-009:** El Dockerfile del backend copia `apps/backend/prisma.config.mjs` dentro de la etapa `builder` antes de ejecutar `npm --workspace apps/backend run build`, que invoca `prisma generate --config prisma.config.mjs`.
 - **REQ-010:** La cobertura porcentual de diff se informa solo como diagnóstico salvo que una invocación declare explícitamente un umbral; ningún umbral global arbitrario bloquea PR. Las suites completas permanecen en schedule/dispatch completo; los reportes integrales de cobertura quedan solo en dispatch completo explícito.
 - **REQ-011:** En PR, los gates funcionales extendidos se activan por grupo de rutas que corresponda al comportamiento modificado; cambios de CI/política ejecutan contratos de CI sin escalar automáticamente a toda la suite. OMR, calificación, PDF, privacidad, rendimiento y arquitectura deben tener grupos independientes. Los cambios de runtime compartido conservan la escalación `full-core`; schedule y `force_full_ci` conservan la validación integral.
+- **REQ-012:** Las pruebas de configuración de producción deben generar secretos JWT válidos para su propia política; al usar valores aleatorios, repetir el sorteo si contienen alguna secuencia que el validador clasifica como insegura.
 
 ## Criterios de Aceptación
 - **AC-001 (REQ-001):** Las pruebas de contrato enumeran workflows read-only y fallan si pierden `contents: read` o habilitan permisos de escritura.
@@ -38,6 +39,7 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 - **AC-009 (REQ-009):** La prueba de contrato falla si el Dockerfile backend omite la copia del archivo de configuración Prisma o si esa copia aparece después del build.
 - **AC-010 (REQ-010):** Los contratos comprueban que la cobertura del diff corre sin umbral por defecto y que el workflow de PR no define un gate porcentual; los umbrales solo se aplican cuando se pasan explícitamente.
 - **AC-011 (REQ-011):** Pruebas del mapa affected verifican que CI/release y backend no relacionado no activan gates funcionales globales, que cada grupo especializado ejecuta sus gates y que runtime compartido/schedule retienen escalación completa.
+- **AC-012 (REQ-012):** `scripts/tests/security-env-check.test.mjs` pasa incluso cuando un secreto hexadecimal aleatorio contiene `1234`; el proceso de selección vuelve a sortear antes de invocar el validador.
 
 ## Matriz de Trazabilidad
 
@@ -54,3 +56,4 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 | REQ-009 | Copiar configuración Prisma antes del build Docker backend | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
 | REQ-010 | Cobertura diagnóstica sin umbral universal; umbral únicamente explícito | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
 | REQ-011 | Ejecutar gates extendidos solo para módulos afectados y mantener full-core en runtime compartido | `scripts/tests/affected-ci-resolver.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
+| REQ-012 | Evitar falsos fallos aleatorios al generar JWT de prueba de producción | `scripts/tests/security-env-check.test.mjs` | Validado en CI Checks run `39675447515` |

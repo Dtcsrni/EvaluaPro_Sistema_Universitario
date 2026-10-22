@@ -33,6 +33,17 @@ const installerE2EReportDirectoryModulePath = path.join(root, 'scripts', 'tests'
 const installerHubTransactionModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubTransaction.psm1');
 const installerHubPayloadModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubPayload.psm1');
 const installerHubVerificationModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubVerification.psm1');
+
+function contrastRatio(foreground, background) {
+  const luminance = (color) => {
+    const hex = color.slice(1);
+    const channels = (hex.length === 8 ? hex.slice(2) : hex).match(/.{2}/g).map((channel) => parseInt(channel, 16) / 255);
+    const linear = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+  };
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
 const installerHubBundleGuardPath = path.join(root, 'scripts', 'assert-installer-hub-bundle.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
@@ -569,7 +580,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
-  assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*installer_windows/);
+  assert.match(workflow, /publish_installer_release:[\s\S]*?needs:\s*\[installer_windows_build, reuse_installer_candidate\]/);
   assert.match(workflow, /name: Descargar artefactos del build validado[\s\S]*?actions\/download-artifact@[0-9a-f]{40} # v6/);
   assert.match(workflow, /name: Preparar release como borrador hasta validar el asset descargado[\s\S]*?softprops\/action-gh-release@[0-9a-f]{40} # v2/);
   assert.match(workflow, /make_latest:\s*false/);
@@ -868,16 +879,16 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
 test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
   const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
-  assert.match(xaml, /Width="1040"[\s\S]*Height="760"[\s\S]*MinWidth="980"[\s\S]*MinHeight="700"/);
+  assert.match(xaml, /Width="1200"[\s\S]*Height="840"[\s\S]*MinWidth="980"[\s\S]*MinHeight="700"/);
   assert.match(xaml, /FontFamily="Segoe UI, Segoe UI Variable Text, Aptos, Arial"/);
-  assert.match(xaml, /<Style TargetType="TextBlock">[\s\S]*FontSize" Value="14"/);
-  assert.match(xaml, /x:Key="HelpTextStyle"[\s\S]*FontSize" Value="14"[\s\S]*LineHeight" Value="21"/);
+  assert.match(xaml, /<Style TargetType="TextBlock">[\s\S]*FontSize" Value="14\.5"/);
+  assert.match(xaml, /x:Key="HelpTextStyle"[\s\S]*FontSize" Value="13\.5"[\s\S]*LineHeight" Value="20"/);
   assert.match(code, /MinimumScreenWidth = 1024/);
   assert.match(code, /MinimumScreenHeight = 576/);
   assert.match(code, /1920×1080/);
-  assert.match(xaml, /x:Name="HeaderFeatureTitleTextBlock"/);
-  assert.match(xaml, /x:Name="HeaderFeatureIndexTextBlock"/);
-  assert.match(xaml, /x:Name="ShowIntroButton"[\s\S]*Visibility="Collapsed"/);
+  assert.match(xaml, /x:Name="BrandStatementTextBlock"[^>]*Text="Instala, actualiza, repara o desinstala EvaluaPro\."/);
+  assert.doesNotMatch(xaml, /HeaderFeature|ShowIntroButton|SplashOverlay|SplashPreviousButton|SplashNextButton|SplashCloseButton/);
+  assert.match(xaml, /x:Name="TermsStepPanel" Visibility="Visible"/);
 });
 
 test('Installer Hub separa aceptación de licencia y privacidad', () => {
@@ -890,14 +901,40 @@ test('Installer Hub separa aceptación de licencia y privacidad', () => {
   assert.match(code, /AcceptPrivacyCheckBox\?\.IsChecked ===? true/);
 });
 
-test('Installer Hub mantiene legibilidad en timeline, carrusel y bitácora', () => {
+test('Installer Hub usa superficies legibles, controles accesibles y estados anunciables', () => {
+  const xaml = fs.readFileSync(burnBootstrapperWindowPath, 'utf8');
+  const tokenColor = (key) => {
+    const match = xaml.match(new RegExp(`x:Key="${key}" Color="(#[0-9A-Fa-f]{6,8})"`));
+    assert.ok(match, `Falta el token visual ${key}`);
+    return match[1];
+  };
+  const surface = tokenColor('SurfaceBrush');
+  const text = tokenColor('TextBrush');
+  const muted = tokenColor('MutedTextBrush');
+  const focus = tokenColor('FocusBrush');
+  const primaryButton = tokenColor('PrimaryButtonBrush');
+
+  assert.ok(contrastRatio(text, surface) >= 4.5, 'Texto principal: contraste AA mínimo');
+  assert.ok(contrastRatio(muted, surface) >= 4.5, 'Texto secundario: contraste AA mínimo');
+  assert.ok(contrastRatio('#FFFFFF', primaryButton) >= 4.5, 'Texto del botón primario: contraste AA mínimo');
+  assert.ok(contrastRatio(focus, surface) >= 3, 'Foco de teclado: contraste no textual mínimo');
+  assert.match(xaml, /x:Key="SecondaryButtonStyle"[\s\S]*?MinHeight" Value="40"/);
+  assert.match(xaml, /<Style TargetType="CheckBox">[\s\S]*?MinHeight" Value="40"/);
+  assert.match(xaml, /<Style TargetType="TextBox">[\s\S]*?IsKeyboardFocused[\s\S]*?FocusBrush/);
+  assert.match(xaml, /<Style TargetType="ComboBox">[\s\S]*?IsKeyboardFocusWithin[\s\S]*?FocusBrush/);
+  assert.doesNotMatch(xaml, /GlassPatternBrush|GlassAtmosphereBrush|BlurEffect|LinearGradientBrush/);
+  assert.doesNotMatch(xaml, /[\u{1F300}-\u{1FAFF}]/u, 'La iconografía no usa emoji');
+  assert.doesNotMatch(xaml, /HeaderFeature|ShowIntroButton|SplashOverlay|SplashPreviousButton|SplashNextButton|SplashCloseButton/);
+  assert.ok((xaml.match(/AutomationProperties\.LiveSetting="Polite"/g) ?? []).length >= 7);
+});
+
+test('Installer Hub mantiene legibilidad en timeline y bitácora', () => {
   const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
   const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
 
   assert.doesNotMatch(code, /#49616F/);
   assert.match(code, /FontSize = 12,[\s\S]*LineHeight = 18,[\s\S]*Foreground = ToBrush\("#D7E8F5"\),[\s\S]*TextWrapping = TextWrapping\.Wrap/);
   assert.match(code, /Text = stage\.Summary,[\s\S]*FontSize = 13,[\s\S]*TextWrapping = TextWrapping\.Wrap/);
-  assert.match(xaml, /HeaderFeatureIndexTextBlock[^>]*FontSize="14"/);
   assert.match(xaml, /x:Name="HardwareOsTextBlock"[\s\S]*FontSize="12"/);
   assert.match(xaml, /x:Name="LogTextBox"[\s\S]*FontSize="12"/);
 });
@@ -1015,7 +1052,7 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   const preflightInstall = runner.indexOf("if (-not $AllowExistingInstall -and $existing.Count -gt 0)");
   const activeProcessGuard = runner.indexOf("$activeInstallerHubProcesses = @(");
   const installFlow = runner.indexOf("if ([string]::IsNullOrWhiteSpace($BaselineBundlePath))");
-  const startInstaller = runner.indexOf("Invoke-InstallerHubMode -Mode 'install' | Out-Null", installFlow);
+  const startInstaller = runner.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade', installFlow);
 
   assert.ok(preflightDatabase >= 0 && preflightInstall > preflightDatabase);
   assert.ok(activeProcessGuard > preflightInstall, 'primero se deben validar base e instalaciones existentes');
@@ -1045,7 +1082,8 @@ test('E2E protege datos e instalaciones preexistentes y limpia solo su destino Q
   assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
   assert.match(runner, /Hay procesos Installer Hub activos(?:: [^\r\n]+)?\. El runner no los cerrará/);
   assert.match(runner, /\$script:qaMutationStarted = \$false/);
-  assert.match(runner, /\$script:qaMutationStarted = \$true[\s\S]*?Invoke-InstallerHubMode -Mode 'install'/);
+  assert.match(runner, /\$script:qaMutationStarted = \$true[\s\S]*?Invoke-PreviousVersionRelatedBundleUpgrade/);
+  assert.match(runner, /function Invoke-PreviousVersionRelatedBundleUpgrade[\s\S]*?Invoke-InstallerHubMode -Mode 'install' -BundlePath/);
   assert.match(runner, /if \(\$script:qaMutationStarted -and -not \$script:upgradingExistingInstall\) \{\s*try \{\s*\$currentProfileExists/);
 });
 
@@ -1122,22 +1160,21 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(uxCriteria, /docs\/DESIGN\.md/);
   assert.match(installerHubDocs, /`DESIGN\.md`/);
 
-  assert.match(mainWindowXaml, /Width="1040"/);
-  assert.match(mainWindowXaml, /Height="760"/);
+  assert.match(mainWindowXaml, /Width="1200"/);
+  assert.match(mainWindowXaml, /Height="840"/);
   assert.match(mainWindowXaml, /MinWidth="980"/);
   assert.match(mainWindowXaml, /MinHeight="700"/);
-  assert.match(mainWindowXaml, /x:Key="OnLightTextBrush"/);
-  assert.match(mainWindowXaml, /CardShadow.*BlurRadius="56".*ShadowDepth="14".*Opacity="0\.72"/);
+  assert.match(mainWindowXaml, /CardShadow.*BlurRadius="24".*ShadowDepth="4".*Opacity="0\.24"/);
   assert.match(mainWindowXaml, /x:Name="ProgressPulseTransform"/);
   assert.match(mainWindowCode, /StartProgressPulseAnimation/);
   assert.match(mainWindowCode, /StopProgressPulseAnimation/);
   assert.doesNotMatch(mainWindowXaml, /Canvas IsHitTestVisible="False"/);
-  // El Hub nativo usa radios de 10-18 px para jerarquía y superficies de vidrio.
-  // Se conserva un límite superior para evitar cápsulas excesivas o superficies blandas.
+  // El Hub nativo conserva radios contenidos para distinguir paneles y controles.
   assert.doesNotMatch(mainWindowXaml, /CornerRadius="(?:1[9]|[2-9][0-9])"/);
   assert.match(mainWindowXaml, /KeyboardNavigation\.TabNavigation="Cycle"/);
   assert.match(mainWindowXaml, /x:Name="StepperHost"/);
   assert.match(mainWindowXaml, /x:Name="StepHost"/);
+  assert.match(mainWindowCode, /textBlock\.Text = label;\s*AutomationProperties\.SetName\(textBlock, \$"\{label\} · \{state\}"\);/);
   assert.match(mainWindowXaml, /x:Name="PrepareStepPanel"/);
   assert.match(mainWindowXaml, /<ScrollViewer x:Name="ReviewStepPanel"[\s\S]*?VerticalScrollBarVisibility="Auto"/);
   assert.match(mainWindowXaml, /x:Name="ExecuteStepPanel"/);
@@ -1149,13 +1186,14 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /HelpTextStyle/);
   assert.match(mainWindowXaml, /StepCardStyle/);
   assert.match(mainWindowXaml, /StatusBadgeStyle/);
-  assert.match(mainWindowXaml, /#0F766E/);
-  assert.match(mainWindowXaml, /#2563EB/);
+  assert.match(mainWindowXaml, /#(?:FF)?0F766E/);
+  assert.match(mainWindowXaml, /#(?:FF)?2563EB/);
   assert.match(mainWindowXaml, /#B45309/);
   assert.match(mainWindowXaml, /#B42318/);
   assert.match(mainWindowXaml, /#15803D/);
   assert.doesNotMatch(mainWindowXaml, /#F3EFE7|#F7F2E9|#F4F1EA/);
-  assert.match(mainWindowXaml, /LinearGradientBrush/);
+  assert.match(mainWindowXaml, /x:Key="SurfaceBrush" Color="#FF142237"/);
+  assert.doesNotMatch(mainWindowXaml, /GlassPatternBrush|GlassAtmosphereBrush|BlurEffect|LinearGradientBrush/);
   assert.match(bootstrapperCode, /Guid\.NewGuid\(\)/);
   assert.match(bootstrapperCode, /correlationId/);
   assert.doesNotMatch(mainWindowXaml, /x:Name="AdvancedConfigExpander"/);
@@ -1178,11 +1216,15 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /x:Name="ModeImpactChecklistTextBlock"/);
   assert.match(mainWindowXaml, /x:Name="PrereqSummaryBorder"/);
   assert.match(mainWindowXaml, /x:Name="PrereqSummaryTextBlock"/);
+  assert.match(mainWindowCode, /Listo: requisitos cubiertos para EvaluaPro/);
+  assert.doesNotMatch(mainWindowCode, /100% optimizado/);
   assert.match(mainWindowXaml, /x:Name="PrereqSummaryHintTextBlock"/);
+  assert.match(mainWindowXaml, /AutomationProperties\.HelpText="Carpeta destino donde se instalará EvaluaPro\. Mantén el puntero para consultar la ruta completa\.[^"]*"/);
+  assert.match(mainWindowXaml, /PlacementTarget\.Text, RelativeSource=\{RelativeSource AncestorType=ToolTip\}/);
   assert.match(mainWindowXaml, /x:Name="FooterNextActionTextBlock"/);
   assert.match(mainWindowXaml, /x:Name="InstallerLogoFrame"/);
   assert.match(mainWindowXaml, /x:Name="InstallerLogoImage"[\s\S]*?evaluapro-installer-logo\.png[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
-  assert.match(mainWindowXaml, /x:Name="SplashInstallerLogoImage"[\s\S]*?evaluapro-installer-logo\.png[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
+  assert.doesNotMatch(mainWindowXaml, /SplashInstallerLogoImage/);
   assert.doesNotMatch(mainWindowXaml, /x:Name="OfficialLogoFrame"/);
   assert.doesNotMatch(mainWindowXaml, /x:Name="OfficialLogoImage"/);
   assert.doesNotMatch(mainWindowXaml, /x:Name="BrandGraphicStrip"/);
@@ -1197,22 +1239,18 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.doesNotMatch(mainWindowXaml, />Docente local</);
   assert.doesNotMatch(mainWindowXaml, />Evidencia</);
   assert.doesNotMatch(mainWindowXaml, />Guiado</);
-  assert.match(mainWindowXaml, /x:Name="SplashGraphicIndicators"/);
-  assert.doesNotMatch(mainWindowXaml, /x:Name="HeaderFeatureImage"/);
-  assert.doesNotMatch(mainWindowXaml, /HeaderFeatureImageFrame/);
-  assert.match(mainWindowXaml, /x:Name="HeaderFeatureIcon"/);
-  assert.match(mainWindowXaml, /x:Name="SplashFeatureIcon"/);
-  const headerCarousel = mainWindowXaml.match(/<Border x:Name="HeaderFeatureIconPlate"[\s\S]*?<\/Border>/)?.[0] ?? '';
-  assert.doesNotMatch(headerCarousel, /<Image\b|evaluapro-(?:installer|official)|logo/i, 'El carrusel embebido no debe repetir el logo oficial.');
-  assert.match(mainWindowXaml, /x:Key="TermsTextBrush" Color="(?:#17324D|#F1F5F9)"/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="SplashGraphicIndicators"/);
+  assert.doesNotMatch(mainWindowXaml, /HeaderFeature|SplashFeature|SplashOverlay|ShowIntroButton/);
+  assert.match(mainWindowXaml, /x:Key="TermsTextBrush" Color="#FFE6EDF5"/);
   assert.match(mainWindowXaml, /x:Name="TermsText"[\s\S]*Foreground="\{StaticResource TermsTextBrush\}"/);
-  assert.match(mainWindowXaml, /x:Name="SplashOverlay"[\s\S]*Background="#E6111827"/);
+  assert.match(mainWindowXaml, /x:Name="TermsStepPanel" Visibility="Visible"/);
+  assert.match(mainWindowXaml, /x:Name="TermsStepPanel"[\s\S]*?<RowDefinition Height="\*" \/>[\s\S]*?<RowDefinition Height="Auto" \/>[\s\S]*?<RowDefinition Height="Auto" \/>[\s\S]*?x:Name="AcceptTermsCheckBox" Grid.Row="1"[\s\S]*?x:Name="AcceptPrivacyCheckBox" Grid.Row="2"/);
   assert.match(mainWindowXaml, /BrandTileStyle/);
   assert.match(mainWindowXaml, /x:Name="StepConnectorTermsPrepare"/);
   assert.match(mainWindowXaml, /x:Name="StepConnectorExecuteResult"/);
   assert.match(mainWindowXaml, /x:Name="StatusVisualPlate"/);
   assert.match(mainWindowXaml, /x:Name="StatusVisualIcon"/);
-  assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?Background="#18324A"[\s\S]*?BorderBrush="#4C7894"/);
+  assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?Background="#FF18324A"[\s\S]*?BorderBrush="#4C7894"/);
   assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?Header="Bitácora técnica"[\s\S]*?HeaderTemplate/);
   assert.match(mainWindowXaml, /HeaderTemplate[\s\S]*?Text="\{Binding\}"[\s\S]*?Foreground="\{StaticResource TextBrush\}"/);
   assert.match(mainWindowXaml, /x:Name="ModeImpactIconPlate"/);
@@ -1773,7 +1811,7 @@ test.skip('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-in
   assert.match(windowXaml, /Analizando prerequisitos\.\.\./);
   assert.doesNotMatch(windowXaml, /Configuración avanzada|Mongo URI|MongoDB/i);
   assert.doesNotMatch(windowXaml, /Requerir activación de licencia/);
-  assert.match(windowXaml, /SplashOverlay/);
+  assert.doesNotMatch(windowXaml, /SplashOverlay|SplashCloseButton|ShowIntroButton/);
   assert.match(windowXaml, /RestartNowButton/);
   assert.match(windowXaml, /evaluapro-installer-logo\.png/);
   assert.doesNotMatch(windowXaml, /evaluapro-official-(hero|imagotipo)\.png/);
@@ -1783,7 +1821,7 @@ test.skip('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-in
   assert.match(windowCode, /RestartRequested/);
   assert.match(windowCode, /ModeChanged/);
   assert.match(windowCode, /RefreshOperationalChrome/);
-  assert.match(windowCode, /StartSplashFallbackWatcher/);
+  assert.doesNotMatch(windowCode, /StartSplashFallbackWatcher|DismissSplashOverlay|ShowIntroButton_OnClick|SplashNextButton_OnClick/);
   assert.match(windowXaml, /WorkflowHeaderTitleTextBlock/);
 
   assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install', 'update', 'uninstall'\)/);
@@ -2865,7 +2903,8 @@ test('runner E2E exige resultado terminal visible incluso cuando el helper repor
   assert.match(runner, /Installer helper OK, pero el Hub se cerró sin mostrar el resultado satisfactorio requerido/);
   assert.match(runner, /Installer Hub UI terminal success/);
   assert.match(runner, /Estado completado/);
-  assert.match(runner, /El flujo finaliz\[oó\] correctamente/);
+  assert.match(runner, /La operaci\[oó\]n termin\[oó\] y el resultado queda disponible para revisi\[oó\]n/);
+  assert.doesNotMatch(runner, /\$uiReportsCompleted[\s\S]{0,260}El flujo finaliz\[oó\] correctamente/);
   assert.match(runner, /Operaci\[oó\]n finalizada correctamente/);
   assert.match(runner, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
   const start = runner.indexOf('function Wait-InstallerStableState');
@@ -2877,6 +2916,7 @@ test('runner E2E exige resultado terminal visible incluso cuando el helper repor
 test('Installer Hub mantiene visible el panel activo y bloquea progreso tardío sobre Resultado', () => {
   const code = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
   assert.match(code, /currentStep == WizardStep\.Result && isBusy == true/);
+  assert.match(code, /NextButton\.Visibility = currentStep == WizardStep\.Review && readyToStart\s*\? Visibility\.Collapsed\s*:\s*Visibility\.Visible;/);
   assert.match(code, /private static void ShowStepPanel\(FrameworkElement panel\)/);
   assert.match(code, /panel\.BeginAnimation\(UIElement\.OpacityProperty, null\);/);
   assert.match(code, /panel\.BeginAnimation\(UIElement\.RenderTransformProperty, null\);/);

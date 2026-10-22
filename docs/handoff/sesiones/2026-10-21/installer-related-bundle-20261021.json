@@ -1,0 +1,262 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "installer-related-bundle-20261021",
+  "status": "final",
+  "generatedAt": "2026-10-21T21:36:18Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex Desktop"
+  },
+  "request": {
+    "summary": "Revisar el informe y las evidencias del fallo del Installer Hub en Windows 11, corregir el defecto reproducible y preparar regresión para la siguiente versión."
+  },
+  "objective": "Evitar que un upgrade se marque como fallido o limpie residuos después de que el MSI se instaló correctamente cuando Burn planifica dos veces la desinstalación de un bundle relacionado.",
+  "scope": [
+    "Análisis del informe ZIP y logs Burn/MSI/BA",
+    "Bootstrapper Application y manejo de related bundles",
+    "Fixture Burn PerUser de versión previa",
+    "CI Installer Windows y pruebas de contrato"
+  ],
+  "constraints": [
+    "No alterar la instalación local existente ni su base de datos compartida.",
+    "No publicar el branch sin aprobación que identifique SHA, remote y branch.",
+    "La validación E2E final debe ejecutarse en Windows 11 limpio o runner Windows."
+  ],
+  "actions": [
+    {
+      "type": "investigation",
+      "summary": "Correlacionados los logs del MSI, del bundle candidato y del bundle anterior; el checksum del manifiesto coincide con los 12 artefactos del ZIP.",
+      "timestamp": "2026-10-21T19:58:10.466Z",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Deduplicación por identidad durante PlanRelatedBundle, tolerancia acotada del HRESULT tras uninstall exitoso, preservación de payload/datos si solo falla limpieza, y E2E de bundle anterior PerUser.",
+      "timestamp": "2026-10-21T19:58:10.466Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "CI Installer Windows run 39670608579 pasó build MSI/bundle, fixture Burn relacionada 1.2.0.0, E2E completa y validación visual PDF en Edge; evidencia publicada como artifact installer-hub-e2e-39670608579.",
+      "timestamp": "2026-10-21T20:56:52Z",
+      "status": "ok"
+    },
+    {
+      "type": "regression_fix",
+      "summary": "Se preservó el valor del parámetro FixtureVersion antes de asignar la variable local, evitando colisión de identificadores en PowerShell case-insensitive; contract-check focalizado y parseo PowerShell aprobados.",
+      "timestamp": "2026-10-21T20:56:52Z",
+      "status": "ok"
+    },
+    {
+      "type": "ci_reliability",
+      "summary": "CI Checks falló en el test preexistente security-env-check porque un JWT aleatorio hexadecimal incluyó 1234, secuencia que el validador rechaza. Se añadió re-sorteo de valores bloqueados y una regresión determinista que fuerza esa colisión; 5/5 pruebas del archivo y sdd:audit pasan localmente. CI remoto pendiente.",
+      "timestamp": "2026-10-21T21:01:47Z",
+      "status": "pending"
+    },
+    {
+      "type": "final_validation",
+      "summary": "Head ecc9bcf: CI Checks run 39675447515, CodeQL run 39675447523, Antivirus Gate run 39675447743 y CI Installer Windows run 39675447553 concluyeron success. MSI/bundle compiló; fixture PerUser 1.2.0.0 frente a 1.2.8.0; E2E completa y artefactos publicados.",
+      "timestamp": "2026-10-21T21:36:18Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/handoff/CONTRATO_TRAZABILIDAD_IA.md",
+      "docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md",
+      "packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "EvaluaPro-informe-fallo-2026-10-21.zip (12/12 hashes verificados)"
+    ],
+    "changed": [
+      "CHANGELOG.md",
+      ".github/workflows/ci-installer-windows.yml",
+      "packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs",
+      "packaging/wix/tests/SameVersionRelatedBundleFixture.wxs",
+      "scripts/tests/build-same-version-related-bundle-fixture.ps1",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "docs/specs/SPEC-123_installer_related_bundle_idempotence.spec.md",
+      "docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.md",
+      "docs/handoff/sesiones/2026-10-21/installer-related-bundle-20261021.json",
+      "scripts/tests/security-env-check.test.mjs",
+      "docs/specs/ci_cd_integrity.spec.md"
+    ],
+    "artifacts": [
+      "EvaluaPro-informe-fallo-2026-10-21.zip: manifiesto SHA-256 verificado, 12/12 archivos coinciden.",
+      "CI Installer Windows run 39675447553: build y E2E completos aprobados; artifact installer-hub-e2e-39675447553, SHA-256 08d4e8ccdcd91e9b714857489badece2b21861d414ab97aaa8fe2beeb1f16f09.",
+      "Fixture PerUser generada: 1.2.0.0 frente a candidato 1.2.8.0; SHA-256 24de74ff316f708f5ea4e4da28d840a454187b064f3d113694b4943945ead387."
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3439,
+      "resultSummary": "✔ Stable Gate invoca el mismo guard para checkout inicial, checkpoints y guard final (1.8754ms) | ▶ el guard del checkout candidato solo permite EOL sin cambios semánticos | ✔ acepta diferencias CRLF/LF sin contenido distinto (505.7087ms) | ✔ acepta EOL-only en JSON de evidencia fuera de la allowlist histórica (470.6435ms) | ... | npm notice run evaluapro@1.2.8 pipeline:contract:check | npm notice run node scripts/pipeline-contract-check.mjs",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1161,
+      "resultSummary": "[docs] ok | npm notice run evaluapro@1.2.8 docs:check | npm notice run node scripts/docs.mjs --check",
+      "timestamp": "2026-10-21T19:59:42.539Z"
+    },
+    {
+      "name": "installer_fixture_regression_contract",
+      "command": "node --test --test-name-pattern=\"el E2E aislado reproduce y valida el conflicto\" scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 79,
+      "resultSummary": "1/1 pass; PowerShell parser validó build-same-version-related-bundle-fixture.ps1; git diff --check pasó.",
+      "timestamp": "2026-10-21T20:56:52Z"
+    },
+    {
+      "name": "ci_installer_windows",
+      "command": "GitHub Actions run 39670608579 (CI Installer Windows)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": null,
+      "resultSummary": "Fixture 1.2.0.0 generada frente al candidato 1.2.8.0; E2E completa y visual PDF aprobadas; evidencia publicada.",
+      "timestamp": "2026-10-21T20:56:52Z"
+    },
+    {
+      "name": "security_env_check_tests",
+      "command": "node --test scripts/tests/security-env-check.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 325,
+      "resultSummary": "5/5 pass, incluida colisión determinista 1234 y re-sorteo.",
+      "timestamp": "2026-10-21T21:01:47Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3000,
+      "resultSummary": "Todas las especificaciones cumplen la política.",
+      "timestamp": "2026-10-21T21:01:47Z"
+    },
+    {
+      "name": "ci_head_validation",
+      "command": "GitHub Actions CI Checks, CodeQL, Antivirus Gate y CI Installer Windows para ecc9bcf",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": null,
+      "resultSummary": "Los cuatro workflows terminaron en success. CI Installer Windows ejecutó build, fixture PerUser, E2E completa y publicó los artefactos de instalador y evidencia.",
+      "timestamp": "2026-10-21T21:36:18Z"
+    }
+  ],
+  "decisions": [
+    "El defecto inmediato se reproduce con dos detecciones y dos planes Uninstall del mismo GUID; el primero termina 0 y el segundo falla al abrir una ruta de Package Cache ya eliminada.",
+    "La causa original de la duplicación no está demostrada; el fix evita ejecutar dos uninstall y conserva el estado si otra limpieza falla.",
+    "No ejecutar el instalador E2E en esta PC: está instalada EvaluaPro 1.2.8 y el runner requiere entorno QA aislado.",
+    "El primer CI aisló un defecto de fixture: PowerShell no distingue mayúsculas/minúsculas, por lo que FixtureVersion y fixtureVersion colisionaban. Se corrigió preservando el argumento antes de la asignación local; el rerun Windows generó el fixture 1.2.0.0.",
+    "El fallo security-env-check era una flake del test: un JWT hexadecimal de 48 bytes puede contener la secuencia 1234 que la política marca como insegura. Se conserva la política de producción y se hace determinista la selección de secreto de prueba."
+  ],
+  "assumptions": [
+    "Windows 11 es el sistema objetivo confirmado por el usuario; la E2E final corrió en un runner hospedado Windows Server 2025."
+  ],
+  "risks": [
+    "Runtime probado en runner Windows Server 2025 hospedado; no se ejecutó una instalación destructiva en una PC física Windows 11 porque la PC disponible ya tiene EvaluaPro 1.2.8.",
+    "El PR #254 permanece en borrador hasta revisión; no se integró ni se publicó un release."
+  ],
+  "nextStep": "Revisar el PR #254 según el flujo habitual del repositorio.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\fix-installerhub-related-bundle\\fix-installerhub-related-bundle-main",
+    "branch": "codex/installerhub-related-bundle-main",
+    "commit": "ecc9bcfea2a30556b3575c8dd781c2a83de93d3f",
+    "workingTreeStatus": "traza documental final incluida en commit posterior al head validado"
+  }
+}

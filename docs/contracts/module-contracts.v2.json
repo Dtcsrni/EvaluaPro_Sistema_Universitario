@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "host": {
-    "version": "1.2.8",
+    "version": "1.2.9",
     "compatibility": ">=1.2.6 <2.0.0"
   },
   "persistence": {

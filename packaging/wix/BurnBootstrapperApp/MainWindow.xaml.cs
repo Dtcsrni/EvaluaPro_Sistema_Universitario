@@ -36,13 +36,6 @@ public partial class MainWindow : Window
     private static readonly Geometry RepairGeometry = Geometry.Parse("M10,12 L16,6 L22,12 L18,16 L30,28 L26,32 L14,20 L10,24 L6,20");
     private static readonly Geometry UninstallGeometry = Geometry.Parse("M10,10 L34,34 M34,10 L10,34");
     private static readonly Geometry DocumentGeometry = Geometry.Parse("M11,6 L27,6 L33,12 L33,36 L11,36 Z M27,6 L27,12 L33,12 M15,20 L29,20 M15,26 L29,26 M15,32 L24,32");
-    private static readonly Geometry FeatureInstallGeometry = Geometry.Parse("M12,2 L21,6 V12 C21,18 17,22 12,24 C7,22 3,18 3,12 V6 Z M7,12 L10,15 L17,8");
-    private static readonly Geometry FeatureTeacherGeometry = Geometry.Parse("M2,9 L12,3 L22,9 L12,15 Z M6,12 V17 C9,20 15,20 18,17 V12");
-    private static readonly Geometry FeatureEvaluateGeometry = Geometry.Parse("M6,3 H18 V6 H20 V22 H4 V6 H6 Z M8,10 H16 M8,14 H16 M8,18 H13");
-    private static readonly Geometry FeatureScanGeometry = Geometry.Parse("M4,4 H9 M15,4 H20 M4,20 H9 M15,20 H20 M5,12 H19");
-    private static readonly Geometry FeatureFeedbackGeometry = Geometry.Parse("M4,20 V6 M4,20 H20 M7,16 L11,12 L14,15 L19,9");
-    private static readonly Geometry FeatureRepairGeometry = Geometry.Parse("M6,7 A7,7 0 0 1 18,8 L21,5 M21,5 V10 H16 M18,17 A7,7 0 0 1 6,16 L3,19 M3,19 V14 H8");
-
     private void StartPulseAnimation(UIElement element)
     {
         var animation = new DoubleAnimation
@@ -90,10 +83,6 @@ public partial class MainWindow : Window
     private bool pendingCloseRequest;
     private bool hasDeterminateProgress;
     private bool readyToStart;
-    private bool splashDismissed;
-    private DispatcherTimer? splashFallbackTimer;
-    private DispatcherTimer? splashCarouselTimer;
-    private int splashFeatureIndex;
     private bool suppressModeChangedEvent;
     private bool isInstallationDetected;
     private WizardStep currentStep = WizardStep.Terms;
@@ -113,7 +102,6 @@ public partial class MainWindow : Window
         SetWizardStep(WizardStep.Terms);
         Loaded += (_, _) => ApplyResolutionGuard();
         SourceInitialized += (_, _) => ApplyNativeBackdrop();
-        StartSplashCarousel();
     }
 
     private static int ConfigureHardwareRendering()
@@ -347,7 +335,7 @@ public partial class MainWindow : Window
                 PrereqSummaryIconPlate.Background = ToBrush("#99065F46");
                 PrereqSummaryIconPlate.BorderBrush = ToBrush("#8034D399");
                 PrereqSummaryIcon.Stroke = ToBrush("#34D399");
-                PrereqSummaryTextBlock.Text = "Listo: Tu equipo está 100% optimizado para EvaluaPro";
+                PrereqSummaryTextBlock.Text = "Listo: requisitos cubiertos para EvaluaPro";
                 PrereqSummaryTextBlock.Foreground = ToBrush("#34D399");
                 PrereqSummaryHintTextBlock.Text = "Todos los requisitos mínimos y recomendados están cubiertos.";
                 HardwareWarningsBorder.Visibility = Visibility.Collapsed;
@@ -399,7 +387,6 @@ public partial class MainWindow : Window
 
     public void NotifyInitialDetectionCompleted()
     {
-        DismissSplashOverlay();
         if (isInstallationDetected)
         {
             SetWizardStep(WizardStep.Prepare);
@@ -1076,22 +1063,6 @@ public partial class MainWindow : Window
         ModePanel.Margin = hasMultipleFlavors ? new Thickness(12, 0, 0, 0) : new Thickness(0);
     }
 
-    private void StartSplashFallbackWatcher()
-    {
-        splashFallbackTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(30)
-        };
-
-        splashFallbackTimer.Tick += (_, _) =>
-        {
-            splashFallbackTimer?.Stop();
-            DismissSplashOverlay();
-        };
-
-        splashFallbackTimer.Start();
-    }
-
     private void LaunchEvaluaProButton_OnClick(object sender, RoutedEventArgs e)
     {
         LaunchEvaluaProButton.IsEnabled = false;
@@ -1152,138 +1123,6 @@ public partial class MainWindow : Window
         }
 
         return $"CRC32 {~crc:X8} · SHA-256 {Convert.ToHexString(sha.GetHashAndReset())[..16]}… ({files.Length} archivos críticos verificados).";
-    }
-
-    private void ShowIntroButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        splashDismissed = false;
-        UpdateSplashFeature();
-        SplashOverlay.Visibility = Visibility.Visible;
-    }
-
-    private void SplashCloseButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        DismissSplashOverlay();
-    }
-
-    private static readonly (string Title, string Description, Geometry Icon)[] SplashFeatures =
-    {
-        ("Instala con confianza", "Comprueba requisitos, verifica el paquete y conserva evidencia de cada etapa.", FeatureInstallGeometry),
-        ("Diseñado para docentes", "Trabaja en tu equipo, sin máquinas virtuales, con un flujo claro y tus datos bajo control.", FeatureTeacherGeometry),
-        ("Evalúa y califica", "Organiza materias, aplica evaluaciones y conserva resultados consistentes y trazables.", FeatureEvaluateGeometry),
-        ("Escaneo OMR", "Digitaliza hojas de respuesta, revisa lecturas dudosas y convierte marcas en resultados útiles.", FeatureScanGeometry),
-        ("Retroalimentación útil", "Identifica áreas de oportunidad y comunica avances con reportes claros para cada grupo.", FeatureFeedbackGeometry),
-        ("Siempre puedes volver", "Repara, actualiza o desinstala con estados visibles, datos protegidos y pasos reversibles.", FeatureRepairGeometry),
-        ("Materias y periodos", "Organiza ciclos, grupos y materias una sola vez para reutilizar su estructura durante el curso.", DocumentGeometry),
-        ("Alumnos", "Registra o importa alumnos, consulta sus datos y trabaja con listas académicas ordenadas.", FeatureTeacherGeometry),
-        ("Banco de reactivos", "Construye preguntas reutilizables por tema, dificultad y competencia para evaluar mejor.", FeatureEvaluateGeometry),
-        ("Plantillas de examen", "Crea formatos consistentes y genera evaluaciones repetibles sin rehacer tu trabajo.", DocumentGeometry),
-        ("Calificación automática", "Reduce la captura manual, aplica criterios uniformes y conserva la revisión docente.", FeatureEvaluateGeometry),
-        ("Resultados por grupo", "Analiza el desempeño individual, grupal y por periodo para decidir el siguiente paso.", FeatureFeedbackGeometry),
-        ("Reportes PDF", "Genera documentos listos para revisar, archivar, imprimir o compartir con tu comunidad escolar.", DocumentGeometry),
-        ("Exportación", "Lleva calificaciones y reportes a formatos compatibles con tu flujo escolar y tus respaldos.", FeatureScanGeometry),
-        ("Historial trazable", "Consulta qué ocurrió, quién realizó cada acción y cuándo, con evidencia operativa.", FeatureFeedbackGeometry),
-        ("Privacidad local", "Mantén la información académica en tu equipo y controla qué datos se comparten.", FeatureRepairGeometry),
-        ("Copia de seguridad", "Protege tu trabajo con respaldos cifrados y recupera la operación ante incidentes.", FeatureRepairGeometry),
-        ("Actualizaciones seguras", "Valida hashes, conserva tus datos y aplica cambios con recuperación ante fallos.", FeatureInstallGeometry),
-        ("Diagnóstico", "Detecta requisitos, explica los problemas y orienta la corrección antes de continuar.", FeatureScanGeometry),
-        ("Accesibilidad", "Usa textos legibles, navegación por teclado, contraste adecuado y estados comprensibles.", FeatureFeedbackGeometry),
-        ("Primeros pasos", "Crea una materia, registra tus primeros alumnos y prepara tu primera evaluación paso a paso.", FeatureTeacherGeometry)
-    };
-
-    private void StartSplashCarousel()
-    {
-        UpdateSplashFeature();
-        splashCarouselTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
-        splashCarouselTimer.Tick += (_, _) =>
-        {
-            splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
-            UpdateSplashFeature();
-        };
-        splashCarouselTimer.Start();
-    }
-
-    private void UpdateSplashFeature()
-    {
-        var feature = SplashFeatures[splashFeatureIndex];
-        SplashFeatureTitleTextBlock.Text = feature.Title;
-        SplashFeatureDescriptionTextBlock.Text = feature.Description;
-        SplashFeatureIcon.Data = feature.Icon;
-        SplashFeatureIndexTextBlock.Text = $"{splashFeatureIndex + 1} de {SplashFeatures.Length}";
-        SplashNextButton.Content = splashFeatureIndex == SplashFeatures.Length - 1 ? "Comenzar" : "Siguiente";
-        HeaderFeatureTitleTextBlock.Text = feature.Title;
-        HeaderFeatureDescriptionTextBlock.Text = feature.Description;
-        HeaderFeatureIcon.Data = feature.Icon;
-        HeaderFeatureIndexTextBlock.Text = $"{splashFeatureIndex + 1} de {SplashFeatures.Length}";
-        AnimateCarouselText(SplashFeatureTitleTextBlock, SplashFeatureDescriptionTextBlock,
-            HeaderFeatureTitleTextBlock, HeaderFeatureDescriptionTextBlock,
-            SplashFeatureIcon, HeaderFeatureIcon);
-    }
-
-    private static void AnimateCarouselText(params UIElement[] elements)
-    {
-        foreach (var element in elements)
-        {
-            element.BeginAnimation(UIElement.OpacityProperty, null);
-            element.Opacity = 0.35;
-            element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation
-            {
-                From = 0.35,
-                To = 1,
-                Duration = new Duration(TimeSpan.FromMilliseconds(280)),
-                EasingFunction = new QuadraticEase()
-            });
-        }
-    }
-
-    private void SplashPreviousButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        splashCarouselTimer?.Stop();
-        splashFeatureIndex = (splashFeatureIndex + SplashFeatures.Length - 1) % SplashFeatures.Length;
-        UpdateSplashFeature();
-        splashCarouselTimer?.Start();
-    }
-
-    private void SplashNextButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        splashCarouselTimer?.Stop();
-        if (splashFeatureIndex == SplashFeatures.Length - 1)
-        {
-            DismissSplashOverlay();
-            return;
-        }
-
-        splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
-        UpdateSplashFeature();
-        splashCarouselTimer?.Start();
-    }
-
-    private void HeaderPreviousButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        splashCarouselTimer?.Stop();
-        splashFeatureIndex = (splashFeatureIndex + SplashFeatures.Length - 1) % SplashFeatures.Length;
-        UpdateSplashFeature();
-        splashCarouselTimer?.Start();
-    }
-
-    private void HeaderNextButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        splashCarouselTimer?.Stop();
-        splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
-        UpdateSplashFeature();
-        splashCarouselTimer?.Start();
-    }
-
-    private void DismissSplashOverlay()
-    {
-        if (splashDismissed)
-        {
-            return;
-        }
-
-        splashDismissed = true;
-        splashFallbackTimer?.Stop();
-        SplashOverlay.Visibility = Visibility.Collapsed;
     }
 
     private void SetHubVersionLabel()
@@ -1481,25 +1320,11 @@ public partial class MainWindow : Window
         ExecuteStepPanel.Visibility = step == WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
         ResultStepPanel.Visibility = step == WizardStep.Result ? Visibility.Visible : Visibility.Collapsed;
 
-        // Ocultar franjas de diagnóstico y carrusel en pasos iniciales para estética minimalista y limpia
-        if (step == WizardStep.Terms)
-        {
-            StatusCardBorder.Visibility = Visibility.Collapsed;
-            LiveExplanationBorder.Visibility = Visibility.Collapsed;
-            HeaderFeatureBorder.Visibility = Visibility.Collapsed;
-        }
-        else if (step is WizardStep.Prepare or WizardStep.Review)
-        {
-            StatusCardBorder.Visibility = Visibility.Collapsed;
-            LiveExplanationBorder.Visibility = Visibility.Collapsed;
-            HeaderFeatureBorder.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            StatusCardBorder.Visibility = Visibility.Visible;
-            LiveExplanationBorder.Visibility = Visibility.Visible;
-            HeaderFeatureBorder.Visibility = Visibility.Visible;
-        }
+        // Reservar el espacio principal para el paso activo y su información accionable.
+        StatusCardBorder.Visibility = step is WizardStep.Terms or WizardStep.Prepare or WizardStep.Review
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        LiveExplanationBorder.Visibility = Visibility.Collapsed;
 
         RefreshWizardNavigation();
         UpdateStepperState(FailureSummaryBorder.Visibility == Visibility.Visible);
@@ -1548,6 +1373,9 @@ public partial class MainWindow : Window
         }
 
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
+        NextButton.Visibility = currentStep == WizardStep.Review && readyToStart
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
         StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isNewInstall || accepted);
 
@@ -1620,13 +1448,13 @@ public partial class MainWindow : Window
     {
         FooterNextActionTextBlock.Text = currentStep switch
         {
-            WizardStep.Terms => "Qué sigue: acepta términos para continuar con instalación o configuración.",
-            WizardStep.Prepare => "Qué sigue: confirma modo, ruta y accesos; luego avanza a revisión.",
-            WizardStep.Review when readyToStart => "Qué sigue: equipo listo; ejecuta la acción primaria.",
-            WizardStep.Review => "Qué sigue: pulsa Revisar equipo o corrige prerequisitos pendientes.",
-            WizardStep.Execute => "Qué sigue: mantén esta ventana abierta mientras termina la operación.",
-            WizardStep.Result => "Qué sigue: revisa resultado, reinicio pendiente y bitácora técnica.",
-            _ => "Sigue el paso activo del asistente."
+            WizardStep.Terms => "Acepta los términos para continuar.",
+            WizardStep.Prepare => "Confirma modo y destino; luego revisa el equipo.",
+            WizardStep.Review when readyToStart => "Equipo listo. Inicia la operación.",
+            WizardStep.Review => "Revisa el equipo o corrige los requisitos pendientes.",
+            WizardStep.Execute => "Mantén abierto el asistente hasta terminar.",
+            WizardStep.Result => "Consulta el resultado y las acciones pendientes.",
+            _ => "Continúa con el paso activo."
         };
     }
 
@@ -1719,7 +1547,8 @@ public partial class MainWindow : Window
         var active = step == activeStep;
         var failedResult = hasFailure && step == WizardStep.Result;
         var state = failedResult ? "error" : active ? "activo" : completed ? "correcto" : "pendiente";
-        textBlock.Text = $"{label} · {state}";
+        textBlock.Text = label;
+        AutomationProperties.SetName(textBlock, $"{label} · {state}");
         border.Background = ToBrush(failedResult ? "#667F1D1D" : active ? "#730C4A6E" : completed ? "#66064E3B" : "#400F253E");
         border.BorderBrush = ToBrush(failedResult ? "#80F87171" : active ? "#9938BDF8" : completed ? "#8034D399" : "#5038DDF5");
         textBlock.Foreground = ToBrush(failedResult ? "#F87171" : active ? "#38BDF8" : completed ? "#34D399" : "#94A3B8");

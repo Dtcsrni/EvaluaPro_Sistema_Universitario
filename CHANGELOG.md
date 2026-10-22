@@ -17,10 +17,21 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Contratos y cliente API autenticado para que Codex prepare, confirme, inicie y verifique importaciones con control de idempotencia.
 
 ### Fixed
+- Burn evita planificar más de una vez la desinstalación del mismo bundle relacionado y conserva payload y datos si falla únicamente la limpieza posterior al MSI.
 - Las solicitudes HTTP mutables del cliente común ya no se reintentan automáticamente ante fallos transitorios sin idempotencia persistente.
 - La interfaz de importación conserva el job para reanudar consultas tras una interrupción y distingue resultados parciales de una sincronización completa.
 - El Stable Gate permite únicamente la normalización EOL heredada de tres rutas explícitas; los cambios staged, semánticos, no seguidos o fuera de esa lista siguen bloqueando.
 - La QA local y la preparación del Installer Hub se consolidan bajo criterios de promoción fail-closed y sus especificaciones aprobadas se agrupan en SPEC-122.
+
+## [1.2.9] - 2026-10-22
+
+### Changed
+- Installer Hub: entrada directa a Términos, ventana inicial de 1200×840, navegación más compacta y aceptación legal siempre visible con scroll independiente.
+- Installer Hub: superficies opacas, foco de teclado visible y estados de etapas expuestos a UI Automation con menos texto en pantalla.
+
+### Fixed
+- Se elimina el carrusel de bienvenida que duplicaba la orientación del asistente y podía mostrar controles sin formato.
+- Se corrige el layout que podía comprimir las aceptaciones de licencia y privacidad o recortar la quinta etapa a 980×700.
 
 ## [1.2.8] - 2026-10-14
 

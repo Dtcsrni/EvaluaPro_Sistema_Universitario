@@ -163,8 +163,8 @@ test('el handoff sobrevive a la limpieza del destino de upgrade y los paths sola
   assert.match(bootstrapper, /IsSameOrDescendantPath\(handoff, install\) \|\| IsSameOrDescendantPath\(install, handoff\)/);
   assert.ok(bootstrapper.indexOf('if (handoffOverlapsInstallDirectory)') < bootstrapper.indexOf('engineHandle.Plan(action, BundleScope.Default)'), 'rutas solapadas deben fallar antes de Plan/Apply');
 
-  const rollbackStart = bootstrapper.indexOf('private void RollbackFailureResidues()');
-  const rollbackEnd = bootstrapper.indexOf('\n    /// <summary>', rollbackStart);
+  const rollbackStart = bootstrapper.indexOf('private void RollbackFailureResidues(');
+  const rollbackEnd = bootstrapper.indexOf('\n    private ', rollbackStart + 1);
   const rollback = bootstrapper.slice(rollbackStart, rollbackEnd);
   assert.match(rollback, /if \(installationExistedBeforeOperation \|\| handoffOverlapsInstallDirectory\)[\s\S]*?return;/);
   assert.ok(rollback.indexOf('if (installationExistedBeforeOperation || handoffOverlapsInstallDirectory)') < rollback.indexOf('Process.Start(psi)'), 'rollback debe preservar instalaciones previas y el handoff antes de cualquier efecto destructivo');
