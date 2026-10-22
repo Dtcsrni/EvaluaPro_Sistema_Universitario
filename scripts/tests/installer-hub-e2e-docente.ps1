@@ -862,7 +862,7 @@ function Wait-InstallerStableState {
     $uiReportsCompleted = $text -match '(?is)Estado completado' -and
       $text -match '(?is)La operaci[oó]n termin[oó] y el resultado queda disponible para revisi[oó]n' -and
       $text -match '(?is)Operaci[oó]n finalizada correctamente' -and
-      $text -match '(?is)5 Resultado\s*[·\-]\s*activo'
+      $text -match '(?is)Paso\s+5\s+de\s+5\s*[·\-]\s*Resultado'
     if ($uiReportsCompleted) {
       return [pscustomobject]@{ ok = $true; text = "Installer Hub UI terminal success`n$text" }
     }

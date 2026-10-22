@@ -2909,7 +2909,8 @@ test('runner E2E exige resultado terminal visible incluso cuando el helper repor
   assert.match(runner, /La operaci\[oó\]n termin\[oó\] y el resultado queda disponible para revisi\[oó\]n/);
   assert.doesNotMatch(runner, /\$uiReportsCompleted[\s\S]{0,260}El flujo finaliz\[oó\] correctamente/);
   assert.match(runner, /Operaci\[oó\]n finalizada correctamente/);
-  assert.match(runner, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
+  assert.match(runner, /Paso\\s\+5\\s\+de\\s\+5\\s\*\[·\\-\]\\s\*Resultado/);
+  assert.doesNotMatch(runner, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
   const start = runner.indexOf('function Wait-InstallerStableState');
   const end = runner.indexOf('function Get-LatestInstallerHelperState', start);
   const stableWait = runner.slice(start, end);
@@ -2953,7 +2954,7 @@ test('runner E2E no confunde una etapa previa con "ok" con la finalización', ()
   assert.doesNotMatch(stableWait, /instalaci[oó]n\.\*ok/i);
   assert.match(stableWait, /\$uiReportsCompleted/);
   assert.match(stableWait, /Estado completado/);
-  assert.match(stableWait, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
+  assert.match(stableWait, /Paso\\s\+5\\s\+de\\s\+5\\s\*\[·\\-\]\\s\*Resultado/);
   assert.match(stableWait, /Installer Hub desapareció antes de mostrar el resultado terminal/);
 });
 
