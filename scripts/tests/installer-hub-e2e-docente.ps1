@@ -860,7 +860,7 @@ function Wait-InstallerStableState {
     # A successful helper response proves the operation, not that the user saw
     # the terminal state. Keep waiting until the visible wizard reaches Result.
     $uiReportsCompleted = $text -match '(?is)Estado completado' -and
-      $text -match '(?is)El flujo finaliz[oó] correctamente' -and
+      $text -match '(?is)La operaci[oó]n termin[oó] y el resultado queda disponible para revisi[oó]n' -and
       $text -match '(?is)Operaci[oó]n finalizada correctamente' -and
       $text -match '(?is)5 Resultado\s*[·\-]\s*activo'
     if ($uiReportsCompleted) {

@@ -2903,7 +2903,8 @@ test('runner E2E exige resultado terminal visible incluso cuando el helper repor
   assert.match(runner, /Installer helper OK, pero el Hub se cerró sin mostrar el resultado satisfactorio requerido/);
   assert.match(runner, /Installer Hub UI terminal success/);
   assert.match(runner, /Estado completado/);
-  assert.match(runner, /El flujo finaliz\[oó\] correctamente/);
+  assert.match(runner, /La operaci\[oó\]n termin\[oó\] y el resultado queda disponible para revisi\[oó\]n/);
+  assert.doesNotMatch(runner, /\$uiReportsCompleted[\s\S]{0,260}El flujo finaliz\[oó\] correctamente/);
   assert.match(runner, /Operaci\[oó\]n finalizada correctamente/);
   assert.match(runner, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
   const start = runner.indexOf('function Wait-InstallerStableState');
