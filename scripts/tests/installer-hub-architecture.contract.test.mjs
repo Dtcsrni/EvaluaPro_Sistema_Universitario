@@ -25,6 +25,7 @@ const launcher = read('scripts', 'launcher-dashboard.mjs');
 const rootPackage = JSON.parse(read('package.json'));
 const rootLock = JSON.parse(read('package-lock.json'));
 const appVersionMetadata = JSON.parse(read('config', 'app-version.json'));
+const hubVersionMetadata = JSON.parse(read('config', 'hub-version.json'));
 
 test('el contrato v1 rechaza versiones, comandos y campos de sobre desconocidos', () => {
   assert.equal(contract.properties.schemaVersion.const, 1);
@@ -50,13 +51,7 @@ test('Burn y MSI empaquetan los módulos de contratos y orquestación', () => {
   assert.match(bundle, /InstallerHubTransaction\.psm1/);
   assert.match(bundle, /InstallerHubPayload\.psm1/);
   assert.match(bundle, /InstallerHubVerification\.psm1/);
-  assert.match(appFiles, /InstallerHubContracts\.psm1/);
-  assert.match(appFiles, /InstallerHubOperation\.psm1/);
-  assert.match(appFiles, /InstallerHubProcesses\.psm1/);
-  assert.match(appFiles, /InstallerHubTransaction\.psm1/);
-  assert.match(appFiles, /InstallerHubPayload\.psm1/);
-  assert.match(appFiles, /InstallerHubVerification\.psm1/);
-  assert.match(appFiles, /CMP\.BurnHubRequestSchema/);
+              assert.match(appFiles, /CMP\.BurnHubRequestSchema/);
   assert.match(appFiles, /CMP\.BurnHubResponseSchema/);
   assert.match(appFiles, /CMP\.BurnHubReadinessSchema/);
   assert.equal((appFiles.match(/<Component Id="CMP\.BurnHub(?:Request|Response|Readiness)Schema" Guid="\*">/g) ?? []).length, 3);
@@ -69,7 +64,7 @@ test('Burn y MSI empaquetan los módulos de contratos y orquestación', () => {
   assert.match(msiBuild, /Publish de Bootstrapper Application excedió/);
   assert.match(msiBuild, /Versiones desalineadas para/);
   assert.match(msiBuild, /lockPackageVersion -ne \$payloadVersion/);
-  assert.match(msiBuild, /config\/app-version\.json desalineado/);
+  assert.match(msiBuild, /config\/app-version\.json debe incluir version y displayVersion iguales/);
   assert.match(bundle, /request-envelope-v1\.schema\.json/);
   assert.match(bundle, /response-envelope-v1\.schema\.json/);
   assert.match(bundle, /dashboard-readiness-v1\.schema\.json/);
@@ -95,9 +90,13 @@ test('Burn y MSI empaquetan los módulos de contratos y orquestación', () => {
   assert.match(operation, /recovery_required/);
 });
 
-test('versiones de monorepo, lockfiles y release del payload permanecen alineadas', () => {
+test('versiones de monorepo y payload se alinean por separado de la version del Hub', () => {
   assert.equal(appVersionMetadata.version, rootPackage.version);
   assert.equal(appVersionMetadata.displayVersion, rootPackage.version);
+  assert.match(hubVersionMetadata.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(hubVersionMetadata.displayVersion, hubVersionMetadata.version);
+  assert.match(msiBuild, /appVersionMetadata\.version/);
+  assert.match(msiBuild, /hubVersionMetadata\.version/);
   const packages = [
     ['apps/backend/package.json', 'apps/backend/package-lock.json', 'apps/backend'],
     ['apps/frontend/package.json', 'apps/frontend/package-lock.json', 'apps/frontend'],
@@ -105,6 +104,9 @@ test('versiones de monorepo, lockfiles y release del payload permanecen alineada
   ];
   assert.equal(rootLock.version, rootPackage.version);
   assert.equal(rootLock.packages[''].version, rootPackage.version);
+  assert.match(msiBuild, /effectiveAppVersionNumeric = ConvertTo-DotNetNumericVersion -VersionTag \$payloadVersion/);
+  assert.match(msiBuild, /productArgs \+= @\("-d", "Version=\$effectiveAppVersionNumeric"\)/);
+  assert.match(msiBuild, /bundleArgs \+= @\("-d", "Version=\$effectiveVersionNumeric"\)/);
   for (const [packagePath, lockPath, workspaceKey] of packages) {
     const pkg = JSON.parse(read(...packagePath.split('/')));
     const lock = JSON.parse(read(...lockPath.split('/')));

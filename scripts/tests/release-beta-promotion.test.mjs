@@ -89,11 +89,11 @@ test('beta scope ignora cambios fuera de superficies relevantes aunque no sean d
 });
 
 test('next beta version incrementa el sufijo existente', () => {
-  const next = resolveNextBetaVersion('1.0.0', ['v1.0.0-beta.1', 'v1.0.0-beta.2']);
+  const next = resolveNextBetaVersion('1.0.0', ['app-v1.0.0-beta.1', 'app-v1.0.0-beta.2']);
 
   assert.equal(next.baseVersion, '1.0.0');
   assert.equal(next.betaVersion, '1.0.0-beta.3');
-  assert.equal(next.tagName, 'v1.0.0-beta.3');
+  assert.equal(next.tagName, 'app-v1.0.0-beta.3');
 });
 
 test('beta decision puede conservar un motivo manual explicito', async () => {
@@ -112,7 +112,7 @@ test('beta notes resumen el diff y los archivos relevantes', () => {
   const notes = buildBetaNotes({
     betaVersion: '1.0.0-beta.1',
     baseVersion: '1.0.0',
-    tagName: 'v1.0.0-beta.1',
+    tagName: 'app-v1.0.0-beta.1',
     baseRef: 'v1.0.0',
     headSha: 'abc123',
     decision: 'Go',
@@ -131,7 +131,7 @@ test('beta diff summary es estructurado y estable', () => {
   const summary = buildBetaDiffSummary({
     betaVersion: '1.0.0-beta.1',
     baseVersion: '1.0.0',
-    tagName: 'v1.0.0-beta.1',
+    tagName: 'app-v1.0.0-beta.1',
     baseRef: 'v1.0.0',
     headSha: 'abc123',
     decision: 'Go',

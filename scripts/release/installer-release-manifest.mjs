@@ -27,8 +27,15 @@ export function validateInstallerReleaseManifest(manifest, { targetVersion, sour
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
     throw new Error('El manifiesto de release debe ser un objeto JSON.');
   }
-  if (!targetVersion || manifest.version !== targetVersion || manifest.build?.version !== targetVersion) {
+  if (!targetVersion
+      || manifest.version !== targetVersion
+      || manifest.hubVersion !== targetVersion
+      || manifest.build?.version !== targetVersion) {
     throw new Error('La versión del manifiesto no coincide con la versión objetivo.');
+  }
+  if (typeof manifest.appVersion !== 'string'
+      || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(manifest.appVersion)) {
+    throw new Error('appVersion del manifiesto debe ser una versión SemVer estable X.Y.Z.');
   }
   if (!/^[0-9a-f]{40}$/i.test(String(sourceSha || ''))
       || String(manifest.build?.commit || '').toLowerCase() !== sourceSha.toLowerCase()) {
@@ -54,7 +61,7 @@ export function main() {
   const sourceSha = process.env.SOURCE_SHA || '';
   const manifest = readInstallerReleaseManifest(manifestPath);
   validateInstallerReleaseManifest(manifest, { targetVersion, sourceSha });
-  process.stdout.write(`[installer-manifest] válido: versión=${targetVersion}, flavor=docente-local\n`);
+  process.stdout.write(`[installer-manifest] válido: hub=${targetVersion}, app=${manifest.appVersion}, flavor=docente-local\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

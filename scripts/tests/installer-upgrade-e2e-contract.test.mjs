@@ -369,7 +369,7 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
 });
 
 test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgrade', () => {
-  assert.match(workflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(workflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/hub-v'\) \|\| github\.event_name == 'workflow_dispatch'/);
   assert.match(workflow, /releases\/download\/v1\.2\.3\/' \+ \$baselineName/);
   assert.match(workflow, /\$baselineName = 'EvaluaPro-InstallerHub-docente-local-v1\.2\.3\.exe'/);
   assert.match(workflow, /\$baselineVersion = \[version\]'1\.2\.3'/);
@@ -505,7 +505,7 @@ test('release valida el asset descargado desde GitHub antes de hacer público el
   assert.match(workflow, /post_publish_installer_e2e:/);
   assert.match(workflow, /needs: \[installer_windows, publish_installer_release, reuse_installer_candidate, installer_windows_build\]/);
   assert.match(workflow, /outputs:\s+release_id: \$\{\{ steps\.publish_release\.outputs\.id \}\}/);
-  assert.match(workflow, /if \("v\$packageVersion" -ne \$tag\)/);
+  assert.match(workflow, /if \("hub-v\$packageVersion" -ne \$tag\)/);
   assert.match(workflow, /CandidateBundlePath/);
   assert.match(workflow, /\$candidateAsset\.url/);
   assert.match(workflow, /-ExpectedLength \(\[long\]\$candidateAsset\.size\) -ExpectedSha256 \$digestMatch\.Groups\[1\]\.Value -GitHubApiAsset/);
@@ -537,6 +537,8 @@ test('las E2E de release descargan y validan el manifiesto antes de invocar el r
     assert.match(downloadStep, /\$releaseManifestPath\s*=\s*Join-Path\s+\$env:GITHUB_WORKSPACE\s+'dist\\installer\\EvaluaPro-release-manifest\.json'/);
     assert.match(downloadStep, /-Destination\s+\$releaseManifestPath\s+-ExpectedLength\s+\(\[long\]\$manifestAsset\.size\)\s+-ExpectedSha256\s+\$manifestDigest\.Groups\[1\]\.Value/);
     assert.match(downloadStep, /\$releaseManifest\.version\s*-ne\s*\$packageVersion/);
+    assert.match(downloadStep, /\$releaseManifest\.hubVersion\s*-ne\s*\$packageVersion/);
+    assert.match(downloadStep, /\$releaseManifest\.appVersion\s*-ne\s*\[string\]\(Get-Content -Raw -LiteralPath 'config\/app-version\.json' \| ConvertFrom-Json\)\.version/);
     assert.match(downloadStep, /\$releaseManifest\.build\.commit\s*-ne\s*\[string\]\$release\.target_commitish/);
     assert.match(downloadStep, /\$releaseManifest\.flavors\[0\]\.flavorId\s*-ne\s*'docente-local'/);
   }
@@ -557,7 +559,7 @@ test('las E2E del asset de borrador y público instalan WiX para extraer el base
 });
 
 test('las PR ejecutan y conservan la E2E GUI real del Installer Hub y la descarga PDF en Edge', () => {
-  const pullRequestGate = /github\.event_name\s*==\s*'pull_request'\s*\|\|\s*startsWith\(github\.ref,\s*'refs\/tags\/v'\)\s*\|\|\s*github\.event_name\s*==\s*'workflow_dispatch'/;
+  const pullRequestGate = /github\.event_name\s*==\s*'pull_request'\s*\|\|\s*startsWith\(github\.ref,\s*'refs\/tags\/hub-v'\)\s*\|\|\s*github\.event_name\s*==\s*'workflow_dispatch'/;
   for (const stepName of [
     'Instalar Chromium para la E2E docente completa',
     'Instalar Microsoft Edge para validar el PDF en GUI',

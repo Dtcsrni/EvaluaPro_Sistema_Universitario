@@ -4,6 +4,7 @@
 # Limites: Mantener contrato y comportamiento observable del modulo.
 param(
   [string]$Version = '',
+  [string]$AppVersion = '',
   [string]$Channel = 'stable',
   [string]$OutputPath = '',
   [string]$DeploymentTarget = '',
@@ -142,10 +143,16 @@ function Get-VersionedArtifactName {
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $Version) {
-  $pkgPath = Join-Path $root 'package.json'
-  $pkg = Get-Content -Path $pkgPath -Raw | ConvertFrom-Json
-  $Version = [string]$pkg.version
+  $hubVersionPath = Join-Path $root 'config\hub-version.json'
+  $hubVersion = Get-Content -Path $hubVersionPath -Raw -Encoding utf8 | ConvertFrom-Json
+  $Version = [string]$hubVersion.version
 }
+if (-not $AppVersion) {
+  $appVersionPath = Join-Path $root 'config\app-version.json'
+  $appVersionMetadata = Get-Content -Path $appVersionPath -Raw -Encoding utf8 | ConvertFrom-Json
+  $AppVersion = [string]$appVersionMetadata.version
+}
+if ([string]::IsNullOrWhiteSpace($AppVersion)) { throw 'No se pudo resolver la versión de EvaluaPro desde config/app-version.json.' }
 $versionTag = Resolve-VersionTag -RootPath $root -RequestedVersion $Version
 
 if (-not $OutputPath) {
@@ -323,6 +330,8 @@ foreach ($flavor in $selectedFlavors) {
 
 $payload = [ordered]@{
   version = $Version
+  hubVersion = $Version
+  appVersion = $AppVersion
   channel = $Channel
   publishedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
   build = [ordered]@{

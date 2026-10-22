@@ -3,7 +3,7 @@ name: Package Images
 on:
   push:
     tags:
-      - "v*"
+      - "app-v*"
   workflow_dispatch:
 
 concurrency:
@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           VERSION="$(node --input-type=module -e "import packageJson from './package.json' with { type: 'json' }; process.stdout.write(String(packageJson.version))")"
-          if [[ "$GITHUB_REF" == refs/tags/* && "${GITHUB_REF_NAME#v}" != "$VERSION" ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/* && "${GITHUB_REF_NAME#app-v}" != "$VERSION" ]]; then
             echo "La tag $GITHUB_REF_NAME no coincide con package.json ($VERSION)." >&2
             exit 1
           fi

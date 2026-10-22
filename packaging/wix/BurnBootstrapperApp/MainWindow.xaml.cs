@@ -1140,31 +1140,26 @@ public partial class MainWindow : Window
     private void SetHubVersionLabel()
     {
         var assembly = typeof(MainWindow).Assembly;
-        string? informationalVersion = null;
-        try
+        var informationalVersion = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informationalVersion))
         {
-            informationalVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString();
-        }
-        catch
-        {
-            // Fallback en caso de que la ruta sea inválida u ocurra un error de acceso
-        }
-
-        if (string.IsNullOrWhiteSpace(informationalVersion))
-        {
-            var infoVersionAttr = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
-                .FirstOrDefault();
-            informationalVersion = infoVersionAttr?.InformationalVersion;
+            var metadataSeparator = informationalVersion.IndexOf('+');
+            if (metadataSeparator >= 0) informationalVersion = informationalVersion[..metadataSeparator];
         }
 
         var version = assembly.GetName().Version;
-        var versionText = !string.IsNullOrWhiteSpace(informationalVersion) 
-            ? informationalVersion 
-            : (version is null ? "vDesconocida" : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}");
-        HubVersionTextBlock.Text = versionText;
-        EditionVersionTextBlock.Text = $"EvaluaPro Docente Local ({versionText})";
-        BrandVersionBadgeTextBlock.Text = $"{versionText} · Burn + MSI + helper";
+        var versionText = !string.IsNullOrWhiteSpace(informationalVersion)
+            ? informationalVersion
+            : (version is null ? "desconocida" : $"{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}");
+        var appVersion = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+            .OfType<System.Reflection.AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => attribute.Key == "EvaluaProAppVersion")?.Value;
+        if (string.IsNullOrWhiteSpace(appVersion)) appVersion = "versión no disponible";
+        HubVersionTextBlock.Text = $"Hub v{versionText.TrimStart('v')}";
+        EditionVersionTextBlock.Text = $"EvaluaPro Docente Local (v{appVersion})";
+        BrandVersionBadgeTextBlock.Text = $"Hub v{versionText.TrimStart('v')} · App v{appVersion}";
     }
 
     private string GetSelectedMode()

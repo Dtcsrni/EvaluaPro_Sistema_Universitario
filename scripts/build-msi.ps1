@@ -1207,10 +1207,10 @@ function Resolve-InstallerVersionTag {
 
   $resolved = [string]$RequestedVersion
   if ([string]::IsNullOrWhiteSpace($resolved)) {
-    $pkgPath = Join-Path $RootPath 'package.json'
-    if (Test-Path -LiteralPath $pkgPath) {
-      $pkg = Get-Content -LiteralPath $pkgPath -Raw -Encoding utf8 | ConvertFrom-Json
-      $resolved = [string]$pkg.version
+    $hubVersionPath = Join-Path $RootPath 'config\hub-version.json'
+    if (Test-Path -LiteralPath $hubVersionPath) {
+      $hubVersion = Get-Content -LiteralPath $hubVersionPath -Raw -Encoding utf8 | ConvertFrom-Json
+      $resolved = [string]$hubVersion.version
     }
   }
   if ([string]::IsNullOrWhiteSpace($resolved)) {
@@ -1274,7 +1274,8 @@ function Publish-BurnBootstrapperApp {
     [Parameter(Mandatory = $true)]
     [string]$OutputDirectory,
     [string]$ConfigurationName = 'Release',
-    [string]$VersionTag
+    [string]$VersionTag,
+    [string]$AppVersion
   )
 
   if (-not (Test-Path $ProjectPath)) {
@@ -1303,7 +1304,8 @@ function Publish-BurnBootstrapperApp {
       "-p:Version=$VersionTag",
       "-p:AssemblyVersion=$dotNetNumericVersion",
       "-p:FileVersion=$dotNetNumericVersion",
-      "-p:InformationalVersion=$VersionTag"
+      "-p:InformationalVersion=$VersionTag",
+      "-p:EvaluaProAppVersion=$AppVersion"
     )
   }
   $publishArgs += @('-o', $OutputDirectory)
@@ -1358,7 +1360,8 @@ function Resolve-BurnBootstrapperAppExe {
     [Parameter(Mandatory = $true)]
     [string]$RootPath,
     [string]$ConfigurationName = 'Release',
-    [string]$VersionTag
+    [string]$VersionTag,
+    [string]$AppVersion
   )
 
   $dotnetExe = Resolve-DotNetExecutable
@@ -1369,7 +1372,7 @@ function Resolve-BurnBootstrapperAppExe {
   # que podria tener una versión anterior hardcodeada en sus atributos de ensamblado.
   if (-not [string]::IsNullOrWhiteSpace($VersionTag)) {
     Write-Host "[msi] Compilando Bootstrapper Application con versión: $VersionTag"
-    return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName -VersionTag $VersionTag)
+    return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName -VersionTag $VersionTag -AppVersion $AppVersion)
   }
 
   # Sin VersionTag (desarrollo local): reutilizar binario pre-existente si hay uno
@@ -1387,7 +1390,7 @@ function Resolve-BurnBootstrapperAppExe {
     }
   }
 
-  return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName -VersionTag $VersionTag)
+  return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName -VersionTag $VersionTag -AppVersion $AppVersion)
 }
 
 function Get-SelectedFlavors {
@@ -1479,6 +1482,7 @@ function Invoke-InstallerHashesGeneration {
     [Parameter(Mandatory = $true)]
     [string]$RootPath,
     [string]$RequestedVersion = '',
+    [string]$RequestedAppVersion = '',
     [string]$Channel = 'stable',
     [string]$FlavorId = ''
   )
@@ -1491,6 +1495,9 @@ function Invoke-InstallerHashesGeneration {
   $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $hashScript)
   if (-not [string]::IsNullOrWhiteSpace($RequestedVersion)) {
     $args += @('-Version', $RequestedVersion)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($RequestedAppVersion)) {
+    $args += @('-AppVersion', $RequestedAppVersion)
   }
   if (-not [string]::IsNullOrWhiteSpace($Channel)) {
     $args += @('-Channel', $Channel)
@@ -1608,9 +1615,25 @@ $selectedFlavors = @(Get-SelectedFlavors -CatalogPath $flavorCatalogPath -Reques
 if ($selectedFlavors.Count -eq 0) {
   throw "No se resolvieron flavors para '$Flavor'."
 }
+$appVersionPath = Join-Path $root 'config\app-version.json'
+$hubVersionPath = Join-Path $root 'config\hub-version.json'
+try {
+  $appVersionMetadata = Get-Content -LiteralPath $appVersionPath -Raw -Encoding utf8 | ConvertFrom-Json -ErrorAction Stop
+  $hubVersionMetadata = Get-Content -LiteralPath $hubVersionPath -Raw -Encoding utf8 | ConvertFrom-Json -ErrorAction Stop
+} catch {
+  throw "No se pudieron leer las versiones separadas de aplicación y Hub: $($_.Exception.Message)"
+}
+$payloadVersion = [string]$appVersionMetadata.version
+if ([string]::IsNullOrWhiteSpace($payloadVersion) -or [string]$appVersionMetadata.displayVersion -ne $payloadVersion) {
+  throw 'config/app-version.json debe incluir version y displayVersion iguales.'
+}
 $effectiveVersionTag = Resolve-InstallerVersionTag -RootPath $root -RequestedVersion $Version
+if ([string]::IsNullOrWhiteSpace($effectiveVersionTag)) { $effectiveVersionTag = [string]$hubVersionMetadata.version }
+if ($effectiveVersionTag -ne [string]$hubVersionMetadata.version) {
+  throw "La versión solicitada del Hub ($effectiveVersionTag) no coincide con config/hub-version.json ($($hubVersionMetadata.version))."
+}
 $effectiveVersionNumeric = ConvertTo-DotNetNumericVersion -VersionTag $effectiveVersionTag
-$payloadVersion = ([Regex]::Replace($effectiveVersionTag, '[-+].*$', '')).Trim()
+$effectiveAppVersionNumeric = ConvertTo-DotNetNumericVersion -VersionTag $payloadVersion
 $workspacePackages = @(
   @{ Path = 'package.json'; Lock = 'package-lock.json'; LockKey = ''; Name = 'root' },
   @{ Path = 'apps/backend/package.json'; Lock = 'apps/backend/package-lock.json'; LockKey = 'apps/backend'; Name = 'backend' },
@@ -1637,14 +1660,9 @@ foreach ($workspacePackage in $workspacePackages) {
     throw "Versiones desalineadas para $($workspacePackage.Name): bundle=$effectiveVersionTag payload esperado=$payloadVersion package=$($packageMetadata.version) lock=$lockPackageVersion. Alinea package.json y package-lock.json antes de empaquetar."
   }
 }
-$appVersionPath = Join-Path $root 'config\app-version.json'
-try {
-  $appVersionMetadata = Get-Content -LiteralPath $appVersionPath -Raw -Encoding utf8 | ConvertFrom-Json -ErrorAction Stop
-} catch {
-  throw "No se pudo leer config/app-version.json: $($_.Exception.Message)"
-}
-if ([string]$appVersionMetadata.version -ne $payloadVersion -or [string]$appVersionMetadata.displayVersion -ne $payloadVersion) {
-  throw "config/app-version.json desalineado: bundle=$effectiveVersionTag payload esperado=$payloadVersion appVersion=$($appVersionMetadata.version) displayVersion=$($appVersionMetadata.displayVersion)."
+$hubDisplayVersion = [string]$hubVersionMetadata.displayVersion
+if ([string]::IsNullOrWhiteSpace($hubDisplayVersion) -or $hubDisplayVersion -ne $effectiveVersionTag) {
+  throw 'config/hub-version.json debe incluir version y displayVersion iguales a la versión del Hub.'
 }
 $effectiveBundleNamesByFlavor = @{}
 
@@ -1679,7 +1697,7 @@ if ($buildBundle) {
   Write-Host "[msi] Extension BAL resuelta: $balExtDll"
   Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Publicar Bootstrapper Application Burn" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
   Write-Host "[msi][step $idx/$totalSteps] Publicar Bootstrapper Application Burn"
-  $bootstrapperAppExe = Resolve-BurnBootstrapperAppExe -RootPath $root -ConfigurationName $Configuration -VersionTag $effectiveVersionTag
+  $bootstrapperAppExe = Resolve-BurnBootstrapperAppExe -RootPath $root -ConfigurationName $Configuration -VersionTag $effectiveVersionTag -AppVersion $payloadVersion
   Write-Host "[msi] Bootstrapper Application Burn resuelta: $bootstrapperAppExe"
   $idx += 1
 }
@@ -1731,7 +1749,7 @@ if ($buildBundle) {
       "-cabthreads", "1",
       "-o", (Join-Path $internalFlavorOut $msiName)
     )
-    $productArgs += @("-d", "Version=$effectiveVersionNumeric")
+    $productArgs += @("-d", "Version=$effectiveAppVersionNumeric")
     $productExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $productArgs
     if ($productExit -ne 0) { throw "Falló build de Product.wxs para $flavorId (exit=$productExit)" }
     if (-not (Test-Path -LiteralPath $productOut)) {
@@ -1801,7 +1819,7 @@ if ($buildBundle) {
   Remove-OptionalInstallerArtifacts -OutputDirectory $out
   $manifestChannel = if ($IsolateBundleIdentity) { 'qa' } else { 'stable' }
   $manifestFlavorId = if (@($selectedFlavors).Count -eq 1) { [string]$selectedFlavors[0].flavorId } else { '' }
-  Invoke-InstallerHashesGeneration -RootPath $root -RequestedVersion $Version -Channel $manifestChannel -FlavorId $manifestFlavorId
+  Invoke-InstallerHashesGeneration -RootPath $root -RequestedVersion $effectiveVersionTag -RequestedAppVersion $payloadVersion -Channel $manifestChannel -FlavorId $manifestFlavorId
 
   Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Completado" -PercentComplete 100
   Write-Host "[msi] Artefactos generados en $out para flavors: $($selectedFlavors.flavorId -join ', ')"

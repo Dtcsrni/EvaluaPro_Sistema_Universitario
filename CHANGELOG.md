@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- El versionado de EvaluaPro y del Installer Hub queda independiente: `app-vX.Y.Z` para la aplicación e imágenes Docker; `hub-vX.Y.Z` para el instalador Windows.
 - CI centraliza la validación automática en `CI Checks`, valida detector, plan affected y coherencia entre grupos, gates y jobs, y limita sus reportes a salidas conocidas.
 - Las suites backend de prueba y cobertura ya no reintentan automáticamente fallos; los lotes de cobertura mantienen diagnósticos y un orden de reporte determinista.
 - `sharp` se instala desde el lockfile mediante `npm ci`, sin resolverlo aparte durante el pipeline.
@@ -23,7 +24,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - El Stable Gate permite únicamente la normalización EOL heredada de tres rutas explícitas; los cambios staged, semánticos, no seguidos o fuera de esa lista siguen bloqueando.
 - La QA local y la preparación del Installer Hub se consolidan bajo criterios de promoción fail-closed y sus especificaciones aprobadas se agrupan en SPEC-122.
 
-## [1.2.10] - 2026-10-22
+## [Hub 1.2.10] - 2026-10-22
 
 ### Changed
 - Installer Hub: ventana inicial de 1320×880 DIP que se ajusta al área útil del monitor; progreso reducido a una sola etapa visible y acciones limitadas a las aplicables al paso actual.

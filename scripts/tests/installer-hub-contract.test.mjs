@@ -573,9 +573,9 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local/);
   assert.match(workflow, /-FlavorId docente-local/);
   assert.match(workflow, /retention-days: 90/);
-  assert.match(workflow.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '', /push:\s*\n\s+tags:\s*\n\s+- ["']?v\*["']?/);
-  assert.match(workflow, /github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
-  assert.match(workflow, /RELEASE_IS_CANDIDATE:[\s\S]*?github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.match(workflow.match(/^on:\n([\s\S]*?)^concurrency:/m)?.[1] ?? '', /push:\s*\n\s+tags:\s*\n\s+- ["']?hub-v\*["']?/);
+  assert.match(workflow, /github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/hub-v'\)/);
+  assert.match(workflow, /RELEASE_IS_CANDIDATE:[\s\S]*?github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/hub-v'\)/);
   assert.match(workflow, /github\.event_name == 'workflow_dispatch' && inputs\.release_tag != ''/);
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
@@ -589,7 +589,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.doesNotMatch(workflow, /stable_release_assets/);
   assert.match(stableGateWorkflow, /publish_after_go:[\s\S]*?if: needs\.stable_gate\.result == 'success'/);
   assert.match(stableGateWorkflow, /mark_latest:[\s\S]*?permissions:\s*\n\s*contents:\s*write/);
-  assert.match(stableGateWorkflow, /gh release edit "v\$TARGET_VERSION" --repo "\$GITHUB_REPOSITORY" --latest/);
+  assert.match(stableGateWorkflow, /gh release edit "hub-v\$TARGET_VERSION" --repo "\$GITHUB_REPOSITORY" --latest/);
   assert.match(workflow, /RELEASE_TAG:\s*\$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
   assert.match(workflow, /RELEASE_REPOSITORY:\s*\$\{\{ github\.repository \}\}/);
   assert.match(workflow, /INSTALLER_CI_RUN_ID:\s*\$\{\{ github\.run_id \}\}/);
@@ -788,10 +788,10 @@ test('tag guard solo permite versiones semver estables o prerelease canonicas', 
   const canonicalPattern = guardPattern.split(' || ')[0];
   assert.equal(cleanupPattern.split(' || ')[0], canonicalPattern, 'el cleanup debe reconocer la misma versión canónica');
   const canonicalTag = new RegExp(canonicalPattern);
-  for (const tag of ['v0.0.0', 'v1.2.3', 'v1.2.3-alpha.1', 'v1.2.3-beta.2', 'v1.2.3-rc.3']) {
+  for (const tag of ['hub-v0.0.0', 'hub-v1.2.3', 'hub-v1.2.3-alpha.1', 'hub-v1.2.3-beta.2', 'hub-v1.2.3-rc.3']) {
     assert.equal(canonicalTag.test(tag), true, `${tag} debe ser válida`);
   }
-  for (const tag of ['v01.2.3', 'v1.02.3', 'v1.2.03', 'v1.2.3-beta.01', 'v1.2.3-preview.1']) {
+  for (const tag of ['hub-v01.2.3', 'hub-v1.02.3', 'hub-v1.2.03', 'hub-v1.2.3-beta.01', 'hub-v1.2.3-preview.1']) {
     assert.equal(canonicalTag.test(tag), false, `${tag} debe ser rechazada`);
   }
   const cleanupCondition = guard.match(/cleanup_invalid_tag:[\s\S]*?if \[\[ (.+?) \]\]; then/)?.[1] ?? '';
@@ -1580,7 +1580,7 @@ test('build-msi publica BA personalizada y conserva contrato de asset publico po
   assert.match(buildScript, /BootstrapperApp/);
   assert.match(buildScript, /Invoke-InstallerHashesGeneration/);
   assert.match(buildScript, /\$manifestChannel\s*=\s*if \(\$IsolateBundleIdentity\) \{ 'qa' \} else \{ 'stable' \}/);
-  assert.match(buildScript, /-RequestedVersion \$Version -Channel \$manifestChannel -FlavorId \$manifestFlavorId/);
+  assert.match(buildScript, /-RequestedVersion \$effectiveVersionTag -RequestedAppVersion \$payloadVersion -Channel \$manifestChannel -FlavorId \$manifestFlavorId/);
   assert.match(buildScript, /\$args \+= @\('-Channel', \$Channel\)/);
   assert.match(buildScript, /\$args \+= @\('-FlavorId', \$FlavorId\)/);
   assert.equal(catalog.flavors.every((flavor) => flavor.bundleName === flavor.installerHubExeName), true);
@@ -2935,11 +2935,11 @@ test('runner valida que Prepare y Review dibujan contenido antes de avanzar al s
   assert.match(runner, /function Wait-InstallerStepStableForCapture/);
   assert.match(runner, /\$stableReads -ge 2/);
   assert.match(runner, /Start-Sleep -Milliseconds 500/);
-  assert.match(runner, /Wait-InstallerStepStableForCapture -Window \$window -StepLabel '2 Preparar · activo'/);
-  assert.match(runner, /Wait-InstallerStepStableForCapture -Window \$window -StepLabel '3 Revisar · activo'/);
+  assert.match(runner, /Wait-InstallerStepStableForCapture -Window \$window -StepLabel 'Paso 2 de 5 · Preparar'/);
+  assert.match(runner, /Wait-InstallerStepStableForCapture -Window \$window -StepLabel 'Paso 3 de 5 · Revisar'/);
   assert.match(runner, /\$StepLabel no dibujó contenido legible en el panel central/);
-  assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$prepareScreenshot -StepLabel '2 Preparar · activo'/);
-  assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$reviewScreenshot -StepLabel '3 Revisar · activo'/);
+  assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$prepareScreenshot -StepLabel 'Paso 2 de 5 · Preparar'/);
+  assert.match(runner, /Assert-InstallerStepScreenshot -Window \$window -Path \$reviewScreenshot -StepLabel 'Paso 3 de 5 · Revisar'/);
   assert.match(runner, /\$pixel\.R -ge 228 -and \$pixel\.G -ge 228 -and \$pixel\.B -ge 228/);
 });
 
