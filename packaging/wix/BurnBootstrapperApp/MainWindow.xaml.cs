@@ -129,7 +129,9 @@ public partial class MainWindow : Window
     private void ApplyResolutionGuard()
     {
         var workArea = SystemParameters.WorkArea;
-        const double windowMargin = 32;
+        // Keep enough of the taskbar-safe work area for the documented 980×700
+        // viewport on 1024×768 displays (the work area is already taskbar-excluded).
+        const double windowMargin = 16;
         var availableWidth = Math.Max(640, workArea.Width - windowMargin);
         var availableHeight = Math.Max(520, workArea.Height - windowMargin);
         MinWidth = Math.Min(980, availableWidth);
