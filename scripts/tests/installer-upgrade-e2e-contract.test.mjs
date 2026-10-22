@@ -56,10 +56,10 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
   const conflictWaitStart = e2e.indexOf('function Wait-InstallerSameVersionConflictState');
   const conflictWaitEnd = e2e.indexOf('\nfunction Get-LatestInstallerHelperState', conflictWaitStart);
   assert.ok(conflictWaitStart >= 0 && conflictWaitEnd > conflictWaitStart, 'el runner debe tener una espera terminal dedicada al conflicto');
-  assert.match(e2e.slice(conflictWaitStart, conflictWaitEnd), /5 Resultado\\s\*\[·\\-\]\\s\*error/,
-    'un resultado de error confirmado debe usar el estado semántico error del stepper');
-  assert.doesNotMatch(e2e.slice(conflictWaitStart, conflictWaitEnd), /5 Resultado\\s\*\[·\\-\]\\s\*activo/,
-    'el test no debe confundir la etapa de error con una etapa activa');
+  assert.match(e2e.slice(conflictWaitStart, conflictWaitEnd), /Estado con error/,
+    'el conflicto debe estar en estado de error visible');
+  assert.match(e2e.slice(conflictWaitStart, conflictWaitEnd), /Paso\\s\+5\\s\+de\\s\+5\\s\*\[·\\-\]\\s\*Resultado\\s\*\[·\\-\]\\s\*requiere atención/,
+    'el runner debe reconocer la etiqueta accesible real del resultado con atención requerida');
   assert.match(e2e, /stateTextForDiagnostics\s*=\s*\[regex\]::Replace\(\[string\]\$state\.text/,
     'una espera agotada debe conservar texto UIA acotado para diagnosticar el estado real');
   assert.match(e2e, /stateTextForDiagnostics\.Length\s+-gt\s+2400/,
