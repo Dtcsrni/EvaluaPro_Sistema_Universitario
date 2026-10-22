@@ -1,0 +1,147 @@
+{
+  "version": "1.2.9",
+  "displayVersion": "1.2.9",
+  "commit": "f624dcbd211f1fb87d578995918b69bf6112f4b5",
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.2.9/windows-release-smoke.md"
+  },
+  "gateHumanoProduccion": {
+    "version": "1.2.9",
+    "displayVersion": "1.2.9",
+    "ejecutadoEn": "2026-10-22T09:49:58Z",
+    "entorno": "github-actions-main-ci-installer-e2e",
+    "docenteIdHash": "no-aplica-validacion-sintetica",
+    "periodoId": "no-aplica-sin-periodo-productivo",
+    "ventana": {
+      "startedAt": "2026-10-22T09:18:26Z",
+      "endedAt": "2026-10-22T09:47:02Z"
+    },
+    "operador": {
+      "nombre": "codex-release-audit",
+      "observaciones": "CI Installer Windows #819 (39754392480) pasó sobre SHA exacto. CI Checks #1606 (39753480909), Security CodeQL #971 (39753481003) y CI Antivirus Gate #389 (39753480993) también pasaron para ese SHA. Windows Sandbox local cerró con 0x80370106; no se acredita E2E local aislada ni instalación local. No se usaron datos productivos ni se leyó/modificó SQLite. Stable Gate y su matriz UX/UI siguen pendientes."
+    },
+    "resultado": "fallo",
+    "duracionMs": 0,
+    "pasos": [
+      {
+        "id": "ci",
+        "nombre": "CI Checks #1606",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "CI Checks #1606; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "security",
+        "nombre": "Security CodeQL #971",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Security CodeQL #971; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "antivirus",
+        "nombre": "CI Antivirus Gate #389",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "CI Antivirus Gate #389; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "installer",
+        "nombre": "Build MSI y Bundle #819",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Build MSI y Bundle #819; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "burn",
+        "nombre": "Fixture Burn y footprint",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Fixture Burn y footprint; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "smoke",
+        "nombre": "Smoke GUI Burn",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Smoke GUI Burn; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "manifest",
+        "nombre": "Manifest, hash sidecar y artifacts",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Manifest, hash sidecar y artifacts; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "e2e",
+        "nombre": "E2E bundle docente-local",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "E2E bundle docente-local; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "upgrade",
+        "nombre": "Upgrade desde baseline oficial v1.2.3",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Upgrade desde baseline oficial v1.2.3; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "pdf",
+        "nombre": "PDF en Edge; 1 test passed",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "PDF en Edge; 1 test passed; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "wcag",
+        "nombre": "WCAG guard; contraste 33/33",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "WCAG guard; contraste 33/33; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "stable",
+        "nombre": "Stable Promotion Gate",
+        "resultado": "pendiente",
+        "fuente": "github-actions",
+        "detalle": "Stable Promotion Gate; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "prod",
+        "nombre": "Flujo productivo con datos reales",
+        "resultado": "pendiente",
+        "fuente": "manual",
+        "detalle": "Flujo productivo con datos reales; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "sandbox",
+        "nombre": "Windows Sandbox local 0x80370106",
+        "resultado": "fallo",
+        "fuente": "manual",
+        "detalle": "Windows Sandbox local 0x80370106; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "local",
+        "nombre": "Instalación en host local",
+        "resultado": "pendiente",
+        "fuente": "manual",
+        "detalle": "Instalación en host local; ver evidencia Windows y artifacts referenciados."
+      },
+      {
+        "id": "release",
+        "nombre": "E2E asset draft/público y promoción",
+        "resultado": "pendiente",
+        "fuente": "github-actions",
+        "detalle": "E2E asset draft/público y promoción; ver evidencia Windows y artifacts referenciados."
+      }
+    ]
+  },
+  "artefactos": {
+    "timeline": "docs/release/evidencias/1.2.9/timeline.md",
+    "metricas": "docs/release/evidencias/1.2.9/metrics_snapshot.txt",
+    "integridad": "docs/release/evidencias/1.2.9/integridad_sha256.json",
+    "rollback": "docs/release/evidencias/1.2.9/rollback_readiness.json",
+    "windows": "docs/release/evidencias/1.2.9/windows-release-smoke.md"
+  }
+}
