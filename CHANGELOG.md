@@ -23,7 +23,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - El Stable Gate permite únicamente la normalización EOL heredada de tres rutas explícitas; los cambios staged, semánticos, no seguidos o fuera de esa lista siguen bloqueando.
 - La QA local y la preparación del Installer Hub se consolidan bajo criterios de promoción fail-closed y sus especificaciones aprobadas se agrupan en SPEC-122.
 
-## [1.2.9] - 2026-10-21
+## [1.2.9] - 2026-10-22
 
 ### Changed
 - Installer Hub: entrada directa a Términos, ventana inicial de 1200×840, navegación más compacta y aceptación legal siempre visible con scroll independiente.

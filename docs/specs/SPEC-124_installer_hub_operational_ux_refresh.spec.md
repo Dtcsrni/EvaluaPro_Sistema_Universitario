@@ -2,7 +2,7 @@
 id: SPEC-124
 titulo: Mejora UX y accesibilidad del Installer Hub
 version: 1.0.0
-fecha: 2026-10-21
+fecha: 2026-10-22
 autor: Codex
 modulo: modulo_installer_windows
 estado: approved
