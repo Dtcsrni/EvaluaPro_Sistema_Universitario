@@ -92,8 +92,8 @@ test('el Installer Hub configura el render seguro antes de cargar el árbol visu
 test('el resumen de edición del Installer Hub reutiliza la versión dinámica visible', () => {
   assert.match(hubWindowXaml, /x:Name="EditionVersionTextBlock"[^>]*AutomationProperties\.AutomationId="EditionVersionTextBlock"/);
   assert.doesNotMatch(hubWindowXaml, /EvaluaPro Docente Local \(v?\d+\.\d+\.\d+/);
-  assert.match(hubWindow, /HubVersionTextBlock\.Text\s*=\s*versionText/);
-  assert.match(hubWindow, /EditionVersionTextBlock\.Text\s*=\s*\$"EvaluaPro Docente Local \(\{versionText\}\)"/);
+  assert.match(hubWindow, /HubVersionTextBlock\.Text\s*=\s*\$"Hub v\{versionText\.TrimStart\('v'\)\}"/);
+  assert.match(hubWindow, /EditionVersionTextBlock\.Text\s*=\s*\$"EvaluaPro Docente Local \(v\{appVersion\}\)"/);
   assert.match(hubWindowXaml, /x:Name="HubVersionTextBlock"[^>]*AutomationProperties\.AutomationId="HubVersionTextBlock"/);
 });
 
@@ -103,7 +103,6 @@ test('lifecycle helper expone todos los modos implementados', () => {
     assert.match(helper, new RegExp(`Mode -eq '${mode}'`));
   }
 });
-
 test('post-install ejecuta activacion comercial solo cuando el flavor la requiere y conserva grace local', () => {
   assert.match(helper, /Invoke-EvaluaProLicenseActivationSecure/);
   assert.match(helper, /Get-EvaluaProCommercialLicenseState/);
@@ -252,10 +251,10 @@ test('elevated helper consumes el snapshot validado y no reabre la ruta de usuar
 
 test('el workflow de release bloquea la publicación si falla la E2E completa del bundle', () => {
   assert.match(installerWorkflow, /E2E completa sobre el bundle docente que se publicará/);
-  assert.match(installerWorkflow, /- name: Instalar Chromium para la E2E docente completa\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
-  assert.match(installerWorkflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
-  assert.match(installerWorkflow, /- name: E2E completa sobre el bundle docente que se publicará\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'/);
-  assert.match(installerWorkflow, /- name: Publicar evidencia de la E2E completa\s+if: always\(\) && steps\.preparar_reporte_e2e\.outputs\.report_dir != '' && \(github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'\)/);
+  assert.match(installerWorkflow, /- name: Instalar Chromium para la E2E docente completa\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/hub-v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: Determinar si aplica upgrade desde v1\.2\.3\s+id: upgrade_gate\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/hub-v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: E2E completa sobre el bundle docente que se publicará\s+if: github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/hub-v'\) \|\| github\.event_name == 'workflow_dispatch'/);
+  assert.match(installerWorkflow, /- name: Publicar evidencia de la E2E completa\s+if: always\(\) && steps\.preparar_reporte_e2e\.outputs\.report_dir != '' && \(github\.event_name == 'pull_request' \|\| startsWith\(github\.ref, 'refs\/tags\/hub-v'\) \|\| github\.event_name == 'workflow_dispatch'\)/);
   assert.match(installerWorkflow, /scripts\/tests\/installer-hub-e2e-docente\.ps1/);
   assert.match(installerWorkflow, /-SeedDummyData/);
   assert.match(installerWorkflow, /Publicar evidencia de la E2E completa/);

@@ -107,7 +107,7 @@ test('CI integral y Installer E2E no se cancelan por pushes ordinarios', () => {
   assert.match(central, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| github\.event_name == 'push' \}\}/);
   assert.match(central, /format\('\{0\}-\{1\}', github\.event_name, github\.run_id\)/);
   assert.match(installer, /format\('dispatch-\{0\}', github\.run_id\)/);
-  assert.match(installer, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/v'\)\) \}\}/);
+  assert.match(installer, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/hub-v'\)\) \}\}/);
 });
 
 test('ext_funcionales usa el gate OMR canónico', () => {
@@ -369,8 +369,11 @@ test('CI reutiliza evidencia de instalador solo cuando SHA, versión y digest co
   assert.match(draft, /needs\.installer_windows\.result == 'success'/);
   assert.match(draft, /needs\.reuse_installer_candidate\.result == 'success' \|\| needs\.installer_windows_build\.result == 'success'/);
   assert.match(draft, /if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
-  assert.match(publicE2e, /actualHash -eq \$env:VERIFIED_DRAFT_SHA256/);
-  assert.match(publicE2e, /if: steps\.public_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(publicE2e, /VERIFIED_DRAFT_SHA256: \$\{\{\s*needs\.post_publish_installer_e2e\.outputs\.draft_sha256\s*\}\}/);
+  assert.match(publicE2e, /actualHash -ne \$env:VERIFIED_DRAFT_SHA256\.ToLowerInvariant\(\)/);
+  assert.doesNotMatch(publicE2e, /run_e2e|if: steps\.public_asset\.outputs/);
+  assert.match(publicE2e, /E2E completa sobre el instalador descargado del release público/);
+  assert.match(publicE2e, /installer-hub-e2e-docente\.ps1 @runnerArgs/);
   assert.match(draft, /sha256=\$actualHash/);
   assert.match(publicE2e, /sha256=\$actualHash/);
 });
@@ -493,7 +496,7 @@ test('publicaciones externas serializan ejecuciones en curso', () => {
   }
 
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
-  assert.match(installerWorkflow, /cancel-in-progress:[\s\S]{0,100}github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/v'\)\)/);
+  assert.match(installerWorkflow, /cancel-in-progress:[\s\S]{0,100}github\.event_name == 'pull_request' \|\| \(github\.event_name == 'push' && !startsWith\(github\.ref, 'refs\/tags\/hub-v'\)\)/);
 });
 
 test('release beta es manual y valida gates del SHA antes de publicar', () => {
@@ -595,7 +598,7 @@ test('CI publica diagnósticos de cobertura aunque el runner escriba bajo .vites
 
 test('package workflow rechaza tag que no coincide con package.json antes de publicar', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
-  const validationIndex = workflow.indexOf('${GITHUB_REF_NAME#v}');
+  const validationIndex = workflow.indexOf('${GITHUB_REF_NAME#app-v}');
   const pushIndex = workflow.indexOf('docker push');
 
   assert.ok(validationIndex >= 0, 'falta validación de versión de tag');
@@ -759,7 +762,7 @@ test('release stable gate es el unico que promueve Latest despues de validar', (
   const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const stableGateWorkflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const validateIndex = stableGateWorkflow.indexOf('validate-stable-promotion.mjs');
-  const latestIndex = stableGateWorkflow.indexOf('gh release edit "v$TARGET_VERSION"');
+  const latestIndex = stableGateWorkflow.indexOf('gh release edit "hub-v$TARGET_VERSION"');
 
   assert.match(installerWorkflow, /make_latest:\s*false/);
   assert.doesNotMatch(installerWorkflow, /make_latest:\s*\$\{\{[^}]*!\(/);
@@ -771,13 +774,13 @@ test('release stable gate es el unico que promueve Latest despues de validar', (
 
 test('release stable gate resuelve SemVer del commit candidato y pasa argumentos con array sin interpolación shell', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
-  const resolveIndex = workflow.indexOf("require('./package.json').version");
+  const resolveIndex = workflow.indexOf("require('./config/hub-version.json').version");
   const semverIndex = workflow.indexOf('La versión estable debe ser SemVer X.Y.Z');
-  const tagIndex = workflow.indexOf('TAG="v$TARGET_VERSION"');
+  const tagIndex = workflow.indexOf('TAG="hub-v$TARGET_VERSION"');
   const argsIndex = workflow.indexOf('args=(');
   const invokeIndex = workflow.indexOf('node scripts/release/validate-stable-promotion.mjs "${args[@]}"');
 
-  assert.ok(resolveIndex >= 0, 'la versión debe obtenerse del package.json del SHA candidato');
+  assert.ok(resolveIndex >= 0, 'la versión del Hub debe obtenerse del SHA candidato');
   assert.ok(semverIndex > resolveIndex, 'SemVer numérico debe validarse antes de usar la versión');
   assert.ok(tagIndex > semverIndex, 'la tag del release debe construirse despues del gate');
   assert.ok(argsIndex >= 0, 'los argumentos deben componerse en un array Bash');
@@ -957,7 +960,7 @@ test('Installer Windows ejecuta y conserva el ciclo E2E completo para PR, releas
   assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
   assert.match(installerGate, /if: always\(\)/);
 
-  const e2eCondition = "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'";
+  const e2eCondition = "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'";
 
   for (const stepName of [
     'Instalar Chromium para la E2E docente completa',
@@ -977,7 +980,7 @@ test('Installer Windows ejecuta y conserva el ciclo E2E completo para PR, releas
   const evidenceRest = installerBuild.slice(evidenceStart);
   const evidenceEnd = evidenceRest.indexOf('\n      - name:');
   const evidence = evidenceEnd >= 0 ? evidenceRest.slice(0, evidenceEnd) : evidenceRest;
-  assert.ok(evidence.includes("if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')"));
+  assert.ok(evidence.includes("if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch')"));
 
   assert.ok(installerBuild.includes("name: Verificar artefactos\n        if: github.event_name == 'pull_request'"), 'los PR conservan la verificación de MSI y bundle');
 });

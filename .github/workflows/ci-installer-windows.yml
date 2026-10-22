@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     tags:
-      - "v*"
+      - "hub-v*"
   workflow_dispatch:
     inputs:
       source_sha:
@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       release_tag:
-        description: "Tag estable; al establecerla se publica solo después de verificar assets"
+        description: "Tag del Installer Hub (hub-vX.Y.Z), se publica después de verificar assets"
         required: false
         type: string
       candidate_run_id:
@@ -21,8 +21,8 @@ on:
         type: string
 
 concurrency:
-  group: ci-installer-windows-${{ inputs.release_tag != '' && format('release-{0}', inputs.release_tag) || startsWith(github.ref, 'refs/tags/v') && format('release-{0}', github.ref) || github.event_name == 'pull_request' && format('pr-{0}-{1}', github.event.pull_request.head.repo.full_name, github.event.pull_request.head.ref) || github.event_name == 'push' && format('push-{0}', github.ref) || format('dispatch-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')) }}
+  group: ci-installer-windows-${{ inputs.release_tag != '' && format('release-{0}', inputs.release_tag) || startsWith(github.ref, 'refs/tags/hub-v') && format('release-{0}', github.ref) || github.event_name == 'pull_request' && format('pr-{0}-{1}', github.event.pull_request.head.repo.full_name, github.event.pull_request.head.ref) || github.event_name == 'push' && format('push-{0}', github.ref) || format('dispatch-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/hub-v')) }}
 
 permissions:
   contents: read
@@ -97,7 +97,7 @@ jobs:
             fi
             if [[ -n "$CHANGED_PATHS_OUTPUT" ]]; then
               mapfile -t CHANGED_PATHS <<< "$CHANGED_PATHS_OUTPUT"
-              VERSION="$(node -p "require('./package.json').version")"
+              VERSION="$(node -p "require('./config/hub-version.json').version")"
               EVIDENCE_PREFIX="docs/release/evidencias/$VERSION/"
               RELEASE_CONTROL_PATHS=(
                 '.github/workflows/ci-installer-windows.yml'
@@ -160,9 +160,9 @@ jobs:
           if ($checkedOut -ne $env:SOURCE_SHA.ToLowerInvariant()) { throw 'El checkout no coincide con source_sha.' }
           $mainSha = (& git rev-parse origin/main).Trim()
           if ($env:RELEASE_TAG) {
-            if ($env:RELEASE_TAG -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'release_tag debe ser SemVer estable vX.Y.Z.' }
-            $version = [string](Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
-            if ($env:RELEASE_TAG -ne "v$version") { throw 'release_tag no coincide con la versión del SHA candidato.' }
+            if ($env:RELEASE_TAG -notmatch '^hub-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'release_tag debe ser SemVer estable hub-vX.Y.Z.' }
+            $version = [string](Get-Content -Raw -LiteralPath 'config/hub-version.json' | ConvertFrom-Json).version
+            if ($env:RELEASE_TAG -ne "hub-v$version") { throw 'release_tag no coincide con la versión del SHA candidato.' }
             & git merge-base --is-ancestor $checkedOut $mainSha
             if ($LASTEXITCODE -ne 0) { throw 'El SHA candidato no es ancestro del HEAD actual de main.' }
             $changed = @(& git diff --name-only "$checkedOut..$mainSha")
@@ -242,7 +242,7 @@ jobs:
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local
 
       - name: Compilar fixture Burn relacionado de la misma versión
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'
         shell: powershell
         run: |
           $candidate = Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -366,7 +366,7 @@ jobs:
       - name: Etapa hash/manifest de release instalador
         shell: powershell
         env:
-          RELEASE_IS_CANDIDATE: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
+          RELEASE_IS_CANDIDATE: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) }}
           CANDIDATE_SHA: ${{ inputs.source_sha || github.sha }}
         run: |
           if ($env:RELEASE_IS_CANDIDATE -eq "true") {
@@ -384,7 +384,7 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: powershell
         env:
-          EVALUAPRO_RELEASE_FLAVOR: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'docente-local' || '' }}
+          EVALUAPRO_RELEASE_FLAVOR: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v'))) && 'docente-local' || '' }}
           EVALUAPRO_RELEASE_COMMIT: ${{ inputs.source_sha || github.sha }}
           EVALUAPRO_SIGN_CERT_BASE64: ${{ secrets.EVALUAPRO_SIGN_CERT_BASE64 }}
           EVALUAPRO_SIGN_CERT_PASSWORD: ${{ secrets.EVALUAPRO_SIGN_CERT_PASSWORD }}
@@ -392,15 +392,15 @@ jobs:
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-installer-artifacts.ps1
 
       - name: Instalar Chromium para la E2E docente completa
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'
         run: npx playwright install chromium
 
       - name: Instalar Microsoft Edge para validar el PDF en GUI
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'
         run: npx playwright install msedge
 
       - name: Instalar Poppler fijado para renderizar la vista previa PDF
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'
         shell: powershell
         run: |
           $version = '26.09.0-0'
@@ -433,10 +433,10 @@ jobs:
 
       - name: Determinar si aplica upgrade desde v1.2.3
         id: upgrade_gate
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'
         shell: powershell
         run: |
-          $candidateRaw = (Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
+          $candidateRaw = (Get-Content -Raw -LiteralPath 'config/hub-version.json' | ConvertFrom-Json).version
           $candidateStable = ([string]$candidateRaw).Split('-')[0]
           $candidateVersion = $null
           if (-not [version]::TryParse($candidateStable, [ref]$candidateVersion)) { throw "Versión candidata inválida: $candidateRaw" }
@@ -471,7 +471,7 @@ jobs:
 
       - name: Preparar ruta privada para evidencia E2E
         id: preparar_reporte_e2e
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'
         shell: powershell
         env:
           INSTALLER_CI_RUN_ID: ${{ github.run_id }}
@@ -483,7 +483,7 @@ jobs:
           "report_dir=$reportDir" >> $env:GITHUB_OUTPUT
 
       - name: E2E completa sobre el bundle docente que se publicará
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'
         shell: powershell
         env:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
@@ -514,7 +514,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: E2E visual de vista y descarga PDF en Edge
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch'
         shell: powershell
         env:
           E2E_REPORT_DIR: ${{ steps.preparar_reporte_e2e.outputs.report_dir }}
@@ -522,7 +522,7 @@ jobs:
         run: npx playwright test -c tests/gui-responsive/playwright.pdf-edge.config.mjs
 
       - name: Publicar evidencia de la E2E completa
-        if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+        if: always() && steps.preparar_reporte_e2e.outputs.report_dir != '' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/hub-v') || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installer-hub-e2e-${{ github.run_id }}
@@ -623,10 +623,10 @@ jobs:
           SOURCE_SHA="$(printf '%s' "$SOURCE_SHA" | tr '[:upper:]' '[:lower:]')"
           MAIN_SHA="$(git rev-parse HEAD)"
           git merge-base --is-ancestor "$SOURCE_SHA" "$MAIN_SHA" || { echo 'El SHA candidato no es ancestro de main.' >&2; exit 1; }
-          CANDIDATE_VERSION="$(git show "$SOURCE_SHA:package.json" | jq -r '.version')"
-          MAIN_VERSION="$(node -p "require('./package.json').version")"
+          CANDIDATE_VERSION="$(git show "$SOURCE_SHA:config/hub-version.json" | jq -r '.version')"
+          MAIN_VERSION="$(node -p "require('./config/hub-version.json').version")"
           [[ "$CANDIDATE_VERSION" == "$MAIN_VERSION" ]] || { echo 'La versión candidata difiere de main.' >&2; exit 1; }
-          [[ -z "$RELEASE_TAG" || "$RELEASE_TAG" == "v$CANDIDATE_VERSION" ]] || { echo 'release_tag no coincide con la versión candidata.' >&2; exit 1; }
+          [[ -z "$RELEASE_TAG" || "$RELEASE_TAG" == "hub-v$CANDIDATE_VERSION" ]] || { echo 'release_tag no coincide con la versión candidata.' >&2; exit 1; }
           EVIDENCE_PREFIX="docs/release/evidencias/$CANDIDATE_VERSION/"
           ALLOWED_RELEASE_CONTROL_PATHS=(
             '.github/workflows/ci-installer-windows.yml'
@@ -678,7 +678,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TARGET_VERSION="$(node -p "require('./package.json').version")"
+          TARGET_VERSION="$(node -p "require('./config/hub-version.json').version")"
           test -s dist/installer/EvaluaPro-release-manifest.json
           TARGET_VERSION="$TARGET_VERSION" SOURCE_SHA="$SOURCE_SHA" node scripts/release/installer-release-manifest.mjs --manifest=dist/installer/EvaluaPro-release-manifest.json
           bundle="$(find dist/installer/docente-local -maxdepth 1 -type f -name 'EvaluaPro-InstallerHub-docente-local-v*.exe' -print -quit)"
@@ -735,7 +735,7 @@ jobs:
   publish_installer_release:
     name: Publicar release del instalador
     needs: [installer_windows_build, reuse_installer_candidate]
-    if: ${{ always() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && (needs.installer_windows_build.result == 'success' || needs.reuse_installer_candidate.result == 'success') }}
+    if: ${{ always() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && (needs.installer_windows_build.result == 'success' || needs.reuse_installer_candidate.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -801,8 +801,8 @@ jobs:
           set -euo pipefail
           [[ "$RELEASE_ID" =~ ^[0-9]+$ ]] || { echo 'ID de release inválido.' >&2; exit 1; }
           [[ "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'SOURCE_SHA debe ser un SHA completo.' >&2; exit 1; }
-          VERSION="${RELEASE_TAG#v}"
-          [[ "$RELEASE_TAG" == "v$VERSION" ]] || { echo 'La tag no tiene formato vX.Y.Z.' >&2; exit 1; }
+          VERSION="${RELEASE_TAG#hub-v}"
+          [[ "$RELEASE_TAG" == "hub-v$VERSION" ]] || { echo 'La tag no tiene formato hub-vX.Y.Z.' >&2; exit 1; }
           manifest="dist/installer/EvaluaPro-release-manifest.json"
           exe="dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-$RELEASE_TAG.exe"
           sidecar="$exe.sha256"
@@ -848,7 +848,7 @@ jobs:
     needs: [installer_windows, publish_installer_release, reuse_installer_candidate, installer_windows_build]
     outputs:
       draft_sha256: ${{ steps.draft_asset.outputs.sha256 }}
-    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.publish_installer_release.result == 'success' && needs.installer_windows.result == 'success' && (needs.reuse_installer_candidate.result == 'success' || needs.installer_windows_build.result == 'success') }}
+    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.publish_installer_release.result == 'success' && needs.installer_windows.result == 'success' && (needs.reuse_installer_candidate.result == 'success' || needs.installer_windows_build.result == 'success') }}
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
@@ -915,15 +915,15 @@ jobs:
           $tag = $env:RELEASE_TAG
           $releaseId = $env:RELEASE_ID
           if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Repositorio inválido.' }
-          if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') { throw 'Tag de release inválida.' }
+          if ($tag -notmatch '^hub-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') { throw 'Tag de release inválida.' }
           if ($releaseId -notmatch '^[0-9]+$') { throw 'ID del release draft inválido.' }
-          $packageVersion = [string](Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
-          if ("v$packageVersion" -ne $tag) { throw "La versión del paquete ($packageVersion) no coincide con la tag ($tag)." }
+          $packageVersion = [string](Get-Content -Raw -LiteralPath 'config/hub-version.json' | ConvertFrom-Json).version
+          if ("hub-v$packageVersion" -ne $tag) { throw "La versión del Hub ($packageVersion) no coincide con la tag ($tag)." }
           $release = gh api "repos/$repository/releases/$releaseId" | ConvertFrom-Json
           if ([string]$release.id -ne $releaseId -or $release.tag_name -ne $tag -or -not $release.draft) {
             throw "El release $releaseId no es el borrador esperado para $tag."
           }
-          $candidateName = "EvaluaPro-InstallerHub-docente-local-$tag.exe"
+          $candidateName = "EvaluaPro-InstallerHub-docente-local-v$packageVersion.exe"
           $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
           $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
           $manifestAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-release-manifest.json' }) | Select-Object -First 1
@@ -945,6 +945,8 @@ jobs:
           & $downloadScript -Uri ([uri][string]$manifestAsset.url) -Destination $releaseManifestPath -ExpectedLength ([long]$manifestAsset.size) -ExpectedSha256 $manifestDigest.Groups[1].Value -GitHubApiAsset
           $releaseManifest = Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json
           if ([string]$releaseManifest.version -ne $packageVersion -or
+              [string]$releaseManifest.hubVersion -ne $packageVersion -or
+              [string]$releaseManifest.appVersion -ne [string](Get-Content -Raw -LiteralPath 'config/app-version.json' | ConvertFrom-Json).version -or
               [string]$releaseManifest.build.version -ne $packageVersion -or
               [string]$releaseManifest.build.commit -ne [string]$release.target_commitish -or
               @($releaseManifest.flavors).Count -ne 1 -or
@@ -1061,7 +1063,7 @@ jobs:
   finalize_installer_release:
     name: Hacer público el release tras E2E aprobada
     needs: [publish_installer_release, post_publish_installer_e2e]
-    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.publish_installer_release.result == 'success' && needs.post_publish_installer_e2e.result == 'success' }}
+    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.publish_installer_release.result == 'success' && needs.post_publish_installer_e2e.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -1082,7 +1084,7 @@ jobs:
           gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false
 
       - name: Retirar release estable anterior v1.1.5
-        if: github.ref == 'refs/tags/v1.1.6'
+        if: github.ref == 'refs/tags/hub-v1.1.6'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -1097,7 +1099,7 @@ jobs:
   verify_public_installer_e2e:
     name: E2E del asset público descargado desde GitHub
     needs: [finalize_installer_release, post_publish_installer_e2e]
-    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.finalize_installer_release.result == 'success' && needs.post_publish_installer_e2e.result == 'success' }}
+    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.finalize_installer_release.result == 'success' && needs.post_publish_installer_e2e.result == 'success' }}
     runs-on: windows-latest
     timeout-minutes: 180
     permissions:
@@ -1160,12 +1162,12 @@ jobs:
           $repository = $env:RELEASE_REPOSITORY
           $tag = $env:RELEASE_TAG
           if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Repositorio inválido.' }
-          if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') { throw 'Tag de release inválida.' }
-          $packageVersion = [string](Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version
-          if ("v$packageVersion" -ne $tag) { throw "La versión del paquete ($packageVersion) no coincide con la tag ($tag)." }
+          if ($tag -notmatch '^hub-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') { throw 'Tag de release inválida.' }
+          $packageVersion = [string](Get-Content -Raw -LiteralPath 'config/hub-version.json' | ConvertFrom-Json).version
+          if ("hub-v$packageVersion" -ne $tag) { throw "La versión del Hub ($packageVersion) no coincide con la tag ($tag)." }
           $release = gh api "repos/$repository/releases/tags/$tag" | ConvertFrom-Json
           if ($release.draft -or $release.tag_name -ne $tag) { throw "El release $tag no está publicado." }
-          $candidateName = "EvaluaPro-InstallerHub-docente-local-$tag.exe"
+          $candidateName = "EvaluaPro-InstallerHub-docente-local-v$packageVersion.exe"
           $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
           $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
           $manifestAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-release-manifest.json' }) | Select-Object -First 1
@@ -1191,6 +1193,8 @@ jobs:
           & $downloadScript -Uri ([uri][string]$manifestAsset.browser_download_url) -Destination $releaseManifestPath -ExpectedLength ([long]$manifestAsset.size) -ExpectedSha256 $manifestDigest.Groups[1].Value
           $releaseManifest = Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json
           if ([string]$releaseManifest.version -ne $packageVersion -or
+              [string]$releaseManifest.hubVersion -ne $packageVersion -or
+              [string]$releaseManifest.appVersion -ne [string](Get-Content -Raw -LiteralPath 'config/app-version.json' | ConvertFrom-Json).version -or
               [string]$releaseManifest.build.version -ne $packageVersion -or
               [string]$releaseManifest.build.commit -ne [string]$release.target_commitish -or
               @($releaseManifest.flavors).Count -ne 1 -or
@@ -1201,18 +1205,13 @@ jobs:
           $actualHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
           if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con su sidecar.' }
           if ($digestMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con el digest de GitHub.' }
-          $runE2E = 'true'
-          if (-not [string]::IsNullOrWhiteSpace($env:VERIFIED_DRAFT_SHA256)) {
-            if ($env:VERIFIED_DRAFT_SHA256 -notmatch '^(?i)[0-9a-f]{64}$') { throw 'El digest del asset draft no es válido.' }
-            if ($actualHash -eq $env:VERIFIED_DRAFT_SHA256.ToLowerInvariant()) { $runE2E = 'false' }
-          }
+          if ($env:VERIFIED_DRAFT_SHA256 -notmatch '^(?i)[0-9a-f]{64}$') { throw 'El digest del asset draft no es válido.' }
+          if ($actualHash -ne $env:VERIFIED_DRAFT_SHA256.ToLowerInvariant()) { throw 'El EXE público no coincide con el asset draft previamente verificado.' }
           "sha256=$actualHash" >> $env:GITHUB_OUTPUT
-          "run_e2e=$runE2E" >> $env:GITHUB_OUTPUT
           "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
           Write-Host "Asset público descargado por browser_download_url; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
 
       - name: Descargar y verificar baseline oficial v1.2.3
-        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           BASELINE_BUNDLE_NAME: EvaluaPro-InstallerHub-docente-local-v1.2.3.exe
@@ -1231,7 +1230,6 @@ jobs:
           "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
 
       - name: Compilar fixture Burn para el asset público
-        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           CANDIDATE_BUNDLE_PATH: ${{ steps.public_asset.outputs.candidate_path }}
@@ -1244,7 +1242,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Preparar ruta privada para evidencia E2E pública
-        if: steps.public_asset.outputs.run_e2e == 'true'
         id: preparar_reporte_e2e
         shell: powershell
         env:
@@ -1257,7 +1254,6 @@ jobs:
           "report_dir=$reportDir" >> $env:GITHUB_OUTPUT
 
       - name: E2E completa sobre el instalador descargado del release público
-        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
@@ -1299,7 +1295,7 @@ jobs:
   redraft_failed_public_installer_release:
     name: Ocultar release si falla la E2E del asset público
     needs: verify_public_installer_e2e
-    if: ${{ always() && needs.verify_public_installer_e2e.result != 'success' && needs.verify_public_installer_e2e.result != 'skipped' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) }}
+    if: ${{ always() && needs.verify_public_installer_e2e.result != 'success' && needs.verify_public_installer_e2e.result != 'skipped' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

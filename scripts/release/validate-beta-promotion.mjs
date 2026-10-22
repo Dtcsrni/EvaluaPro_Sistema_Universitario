@@ -112,7 +112,7 @@ export function classifyBetaScope(changedFiles = []) {
 
 export function resolveNextBetaVersion(baseVersion, existingTags = []) {
   const normalizedBase = normalizeVersion(baseVersion);
-  const betaRegex = new RegExp(`^v?${escapeRegex(normalizedBase)}-beta\\.(\\d+)$`, 'i');
+  const betaRegex = new RegExp(`^(?:app-v|v)?${escapeRegex(normalizedBase)}-beta\\.(\\d+)$`, 'i');
   let maxSuffix = 0;
   for (const tag of existingTags) {
     const match = String(tag || '').trim().match(betaRegex);
@@ -123,7 +123,7 @@ export function resolveNextBetaVersion(baseVersion, existingTags = []) {
   return {
     baseVersion: normalizedBase,
     betaVersion: `${normalizedBase}-beta.${nextSuffix}`,
-    tagName: `v${normalizedBase}-beta.${nextSuffix}`
+    tagName: `app-v${normalizedBase}-beta.${nextSuffix}`
   };
 }
 
@@ -310,7 +310,7 @@ export async function evaluateBetaPromotion(options) {
     ? options.existingTags
     : (() => {
         try {
-          return runGit(['tag', '--list', `v${baseVersion}-beta.*`])
+          return runGit(['tag', '--list', `app-v${baseVersion}-beta.*`])
             .split(/\r?\n/)
             .map((line) => line.trim())
             .filter(Boolean);

@@ -2,20 +2,19 @@
 
 EvaluaPro usa versiones SemVer (`MAJOR.MINOR.PATCH`). La versión del repositorio, el tag de Git, la release pública y la versión instalada son estados diferentes; no se deben inferir unos de otros.
 
-## Estado observado
+## Versiones independientes
 
-- Código integrado en `main`: `1.2.6`, según `config/app-version.json` en este corte.
-- Última release pública observada el 2026-10-08: `v1.2.5`, según [GitHub Releases/latest](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest).
-- `v1.2.6` estaba en borrador en ese corte; no se trata como descarga pública.
+- EvaluaPro (aplicación): `config/app-version.json` y versiones de paquetes/lockfiles. Se etiqueta `app-vX.Y.Z`; esas tags activan la publicación de imágenes Docker.
+- Installer Hub: `config/hub-version.json`. Se etiqueta `hub-vX.Y.Z`; esas tags activan el build y la release del instalador Windows.
+- Las versiones beta de la aplicación usan `app-vX.Y.Z-beta.N`.
+- El MSI informa la versión de la aplicación; el bundle Burn y la GUI del Hub informan la versión del Hub. El manifiesto del instalador registra ambas (`appVersion` y `hubVersion`).
+- No se reutiliza una tag ni se cambia el asset ya publicado de `v1.2.9`; el siguiente candidato usa Hub `1.2.10` sobre la aplicación `1.2.9`.
 - La versión instalada solo se confirma desde EvaluaPro en el equipo.
-- El perfil considerado para distribución es `docente-local` en Windows.
-
-En este corte, `v1.2.6` aparece como borrador, no como release pública. Estos datos pueden cambiar al publicar otra release. Antes de instalar, confirma el tag, el asset del instalador y el checksum en GitHub.
 
 ## Fuentes de versión
 
-- Versión de producto: `config/app-version.json`.
-- Versiones de paquetes y lockfiles: raíz y workspaces; actualizarlas con los scripts oficiales del repositorio.
+- Versión de producto y runtime: `config/app-version.json`, paquetes y lockfiles de raíz y workspaces.
+- Versión del Installer Hub: `config/hub-version.json`.
 - Registro de cambios: `CHANGELOG.md`.
 - Artefacto instalado y su checksum: página y manifiesto de la release correspondiente.
 
@@ -25,7 +24,7 @@ Una versión solo se describe como pública o estable cuando su release aparece 
 
 El flujo de release debe verificar:
 
-1. Estado y versión de `main`, tag y manifiesto del artefacto.
+1. Estado y versión Hub de `main`, tag `hub-vX.Y.Z` y manifiesto que separa Hub y aplicación.
 2. Checksums de instalador y archivos publicados.
 3. E2E del instalador descargado desde la release, incluyendo actualización y conservación de datos en un entorno aislado.
 4. Gates de CI y políticas aplicables al cambio.

@@ -70,8 +70,8 @@ jobs:
           MAIN_SHA="$(git rev-parse origin/main)"
           [[ "$GATE_SHA" == "$GITHUB_SHA" && "$MAIN_SHA" == "$GATE_SHA" ]] || { echo 'El gate debe ejecutarse desde el HEAD actual de main.' >&2; exit 1; }
           git merge-base --is-ancestor "$SOURCE_SHA" "$GATE_SHA" || { echo 'source_sha debe ser ancestro del main actual.' >&2; exit 1; }
-          VERSION="$(node -p "require('./package.json').version")"
-          CANDIDATE_VERSION="$(node -p "require('./candidate/package.json').version")"
+          VERSION="$(node -p "require('./config/hub-version.json').version")"
+          CANDIDATE_VERSION="$(node -p "require('./candidate/config/hub-version.json').version")"
           [[ "$VERSION" == "$CANDIDATE_VERSION" ]] || { echo 'La versión candidata cambió después del SHA de build.' >&2; exit 1; }
           EVIDENCE_PREFIX="docs/release/evidencias/$VERSION/"
           ALLOWED_RELEASE_CONTROL_PATHS=(
@@ -126,7 +126,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TARGET="$(node -p "require('./package.json').version")"
+          TARGET="$(node -p "require('./config/hub-version.json').version")"
           [[ "$TARGET" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "La versión estable debe ser SemVer X.Y.Z: $TARGET" >&2; exit 1; }
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
@@ -264,7 +264,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="v$TARGET_VERSION"
+          TAG="hub-v$TARGET_VERSION"
           response_dir="$(mktemp -d)"
           trap 'rm -rf "$response_dir"' EXIT
           gh api --include "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" >"$response_dir/release.txt" 2>/dev/null || true
@@ -316,7 +316,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_VERSION: ${{ needs.stable_gate.outputs.target_version }}
-        run: gh release edit "v$TARGET_VERSION" --repo "$GITHUB_REPOSITORY" --latest
+        run: gh release edit "hub-v$TARGET_VERSION" --repo "$GITHUB_REPOSITORY" --latest
 
   cleanup_same_sha_beta:
     name: Retirar beta temporal del mismo SHA
@@ -342,13 +342,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          stable_tag="v$TARGET_VERSION"
+          stable_tag="hub-v$TARGET_VERSION"
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$stable_tag" > "$RUNNER_TEMP/stable-release.json"
           stable_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$stable_tag" --jq '.sha')"
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '.[] | [.tag_name, (.draft|tostring), (.prerelease|tostring)] | @tsv' > "$RUNNER_TEMP/releases.tsv"
           : > "$RUNNER_TEMP/betas.tsv"
           : > "$RUNNER_TEMP/beta-tags.tsv"
-          beta_regex="^v${TARGET_VERSION//./\\.}-beta\\.(0|[1-9][0-9]*)$"
+          beta_regex="^hub-v${TARGET_VERSION//./\\.}-beta\\.(0|[1-9][0-9]*)$"
           while IFS=$'\t' read -r tag draft prerelease; do
             [[ "$tag" =~ $beta_regex && "$draft" == false && "$prerelease" == true ]] || continue
             printf '%s\n' "$tag" >> "$RUNNER_TEMP/beta-tags.tsv"

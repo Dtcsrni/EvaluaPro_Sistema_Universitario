@@ -5,6 +5,7 @@
 param(
   [string]$InstallerDir = '',
   [string]$Version = '',
+  [string]$AppVersion = '',
   [string]$Channel = 'stable',
   [string]$ReleaseBaseUrl = '',
   [string]$FlavorId = '',
@@ -103,10 +104,10 @@ function Resolve-VersionTag {
 
   $resolved = [string]$RequestedVersion
   if ([string]::IsNullOrWhiteSpace($resolved)) {
-    $pkgPath = Join-Path $RootPath 'package.json'
-    if (Test-Path -LiteralPath $pkgPath) {
-      $pkg = Get-Content -LiteralPath $pkgPath -Raw -Encoding utf8 | ConvertFrom-Json
-      $resolved = [string]$pkg.version
+    $hubVersionPath = Join-Path $RootPath 'config\hub-version.json'
+    if (Test-Path -LiteralPath $hubVersionPath) {
+      $hubVersion = Get-Content -LiteralPath $hubVersionPath -Raw -Encoding utf8 | ConvertFrom-Json
+      $resolved = [string]$hubVersion.version
     }
   }
   if ([string]::IsNullOrWhiteSpace($resolved)) {
@@ -231,6 +232,7 @@ $manifestParams = @{
   OutputPath = $manifestPath
 }
 if ($Version) { $manifestParams.Version = $Version }
+if ($AppVersion) { $manifestParams.AppVersion = $AppVersion }
 if ($ReleaseBaseUrl) { $manifestParams.ReleaseBaseUrl = $ReleaseBaseUrl }
 if ($requestedFlavorId) { $manifestParams.FlavorId = $requestedFlavorId }
 if ($CommitSha) { $manifestParams.CommitSha = $CommitSha }

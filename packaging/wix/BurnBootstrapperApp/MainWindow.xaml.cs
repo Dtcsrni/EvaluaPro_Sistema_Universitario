@@ -129,6 +129,18 @@ public partial class MainWindow : Window
     private void ApplyResolutionGuard()
     {
         var workArea = SystemParameters.WorkArea;
+        // Keep enough of the taskbar-safe work area for the documented 980×700
+        // viewport on 1024×768 displays (the work area is already taskbar-excluded).
+        const double windowMargin = 16;
+        var availableWidth = Math.Max(640, workArea.Width - windowMargin);
+        var availableHeight = Math.Max(520, workArea.Height - windowMargin);
+        MinWidth = Math.Min(980, availableWidth);
+        MinHeight = Math.Min(700, availableHeight);
+        MaxWidth = availableWidth;
+        MaxHeight = availableHeight;
+        Width = Math.Min(Width, availableWidth);
+        Height = Math.Min(Height, availableHeight);
+
         var supported = workArea.Width >= MinimumScreenWidth && workArea.Height >= MinimumScreenHeight;
         if (!supported)
         {
@@ -1128,31 +1140,26 @@ public partial class MainWindow : Window
     private void SetHubVersionLabel()
     {
         var assembly = typeof(MainWindow).Assembly;
-        string? informationalVersion = null;
-        try
+        var informationalVersion = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informationalVersion))
         {
-            informationalVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString();
-        }
-        catch
-        {
-            // Fallback en caso de que la ruta sea inválida u ocurra un error de acceso
-        }
-
-        if (string.IsNullOrWhiteSpace(informationalVersion))
-        {
-            var infoVersionAttr = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
-                .FirstOrDefault();
-            informationalVersion = infoVersionAttr?.InformationalVersion;
+            var metadataSeparator = informationalVersion.IndexOf('+');
+            if (metadataSeparator >= 0) informationalVersion = informationalVersion[..metadataSeparator];
         }
 
         var version = assembly.GetName().Version;
-        var versionText = !string.IsNullOrWhiteSpace(informationalVersion) 
-            ? informationalVersion 
-            : (version is null ? "vDesconocida" : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}");
-        HubVersionTextBlock.Text = versionText;
-        EditionVersionTextBlock.Text = $"EvaluaPro Docente Local ({versionText})";
-        BrandVersionBadgeTextBlock.Text = $"{versionText} · Burn + MSI + helper";
+        var versionText = !string.IsNullOrWhiteSpace(informationalVersion)
+            ? informationalVersion
+            : (version is null ? "desconocida" : $"{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}");
+        var appVersion = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+            .OfType<System.Reflection.AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => attribute.Key == "EvaluaProAppVersion")?.Value;
+        if (string.IsNullOrWhiteSpace(appVersion)) appVersion = "versión no disponible";
+        HubVersionTextBlock.Text = $"Hub v{versionText.TrimStart('v')}";
+        EditionVersionTextBlock.Text = $"EvaluaPro Docente Local (v{appVersion})";
+        BrandVersionBadgeTextBlock.Text = $"Hub v{versionText.TrimStart('v')} · App v{appVersion}";
     }
 
     private string GetSelectedMode()
@@ -1361,6 +1368,9 @@ public partial class MainWindow : Window
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
         var accepted = AreTermsAccepted();
 
+        BackButton.Visibility = currentStep == WizardStep.Review || (currentStep == WizardStep.Prepare && isNewInstall)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isNewInstall);
         
         if (currentStep == WizardStep.Terms)
@@ -1373,10 +1383,10 @@ public partial class MainWindow : Window
         }
 
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
-        NextButton.Visibility = currentStep == WizardStep.Review && readyToStart
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-        StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
+        NextButton.Visibility = currentStep is WizardStep.Terms or WizardStep.Prepare ? Visibility.Visible : Visibility.Collapsed;
+        StartButton.Visibility = currentStep == WizardStep.Review || (currentStep == WizardStep.Execute && !busy)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isNewInstall || accepted);
 
         if (TryFindResource("PrimaryButtonStyle") is Style primaryStyle &&
@@ -1514,6 +1524,19 @@ public partial class MainWindow : Window
 
     private void UpdateStepperState(bool hasFailure = false)
     {
+        var stepNumber = (int)currentStep + 1;
+        var stepLabel = currentStep switch
+        {
+            WizardStep.Terms => "Términos",
+            WizardStep.Prepare => "Preparar",
+            WizardStep.Review => "Revisar",
+            WizardStep.Execute => "Ejecutar",
+            WizardStep.Result => hasFailure ? "Resultado · requiere atención" : "Resultado",
+            _ => "Continuar"
+        };
+        WorkflowProgressTextBlock.Text = $"Paso {stepNumber} de 5 · {stepLabel}";
+        WorkflowProgressBar.Value = stepNumber;
+
         SetStepBadge(TermsStepBorder, TermsStepTextBlock, TermsStepIcon, "1 Términos", currentStep, WizardStep.Terms, hasFailure);
         SetStepBadge(PrepareStepBorder, PrepareStepTextBlock, PrepareStepIcon, "2 Preparar", currentStep, WizardStep.Prepare, hasFailure);
         SetStepBadge(ReviewStepBorder, ReviewStepTextBlock, ReviewStepIcon, "3 Revisar", currentStep, WizardStep.Review, hasFailure);

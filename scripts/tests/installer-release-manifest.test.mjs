@@ -14,6 +14,8 @@ import {
 const SOURCE_SHA = 'a'.repeat(40);
 const MANIFEST = {
   version: '1.2.8',
+  hubVersion: '1.2.8',
+  appVersion: '1.2.7',
   build: { version: '1.2.8', commit: SOURCE_SHA },
   flavors: [{ flavorId: 'docente-local' }]
 };
@@ -74,6 +76,20 @@ test('el manifiesto rechaza una versión, SHA o flavor distinto al candidato', (
     targetVersion: '1.2.8',
     sourceSha: SOURCE_SHA
   }), /únicamente el flavor docente-local/);
+  assert.throws(() => validateInstallerReleaseManifest({
+    ...MANIFEST,
+    hubVersion: '1.2.7'
+  }, {
+    targetVersion: '1.2.8',
+    sourceSha: SOURCE_SHA
+  }), /versión del manifiesto/i);
+  assert.throws(() => validateInstallerReleaseManifest({
+    ...MANIFEST,
+    appVersion: '1.2.7-beta.1'
+  }, {
+    targetVersion: '1.2.8',
+    sourceSha: SOURCE_SHA
+  }), /appVersion.*SemVer/i);
 });
 
 test('el CLI valida el manifiesto BOM y rechaza versiones o JSON inválidos', () => {
@@ -89,7 +105,7 @@ test('el CLI valida el manifiesto BOM y rechaza versiones o JSON inválidos', ()
     fs.writeFileSync(manifestPath, Buffer.from(`\uFEFF${JSON_TEXT}`, 'utf8'));
     const success = spawnSync(process.execPath, [scriptPath, `--manifest=${manifestPath}`], { encoding: 'utf8', env });
     assert.equal(success.status, 0, success.stderr);
-    assert.match(success.stdout, /versión=1\.2\.8, flavor=docente-local/);
+    assert.match(success.stdout, /hub=1\.2\.8, app=1\.2\.7, flavor=docente-local/);
 
     const wrongVersion = spawnSync(process.execPath, [scriptPath, `--manifest=${manifestPath}`], {
       encoding: 'utf8',

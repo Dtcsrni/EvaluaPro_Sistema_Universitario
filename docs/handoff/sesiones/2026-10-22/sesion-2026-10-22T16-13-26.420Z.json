@@ -1,0 +1,175 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-22T16-13-26.420Z",
+  "status": "final",
+  "generatedAt": "2026-10-22T16:25:29.287Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "GPT-6",
+    "provider": "OpenAI",
+    "kind": "asistente de ingeniería",
+    "channel": "local"
+  },
+  "request": {
+    "summary": "Validar y preparar la siguiente release estable; mejorar Installer Hub, reducir texto y controles confusos, ajustar el tamaño de ventana y entregar capturas verificadas."
+  },
+  "objective": "Preparar EvaluaPro 1.2.10 con una E2E pública obligatoria y una interfaz WPF más clara, accesible y adaptable.",
+  "scope": [
+    "Corregir el gate para que valide la E2E completa del asset público aun cuando coincida con el borrador.",
+    "Simplificar el indicador de cinco etapas y la navegación contextual del Installer Hub.",
+    "Aumentar la ventana inicial y ajustarla al área útil del monitor.",
+    "Actualizar versión, changelog, especificaciones y pruebas de contrato."
+  ],
+  "constraints": [
+    "Conservar los colores existentes, términos, contratos Burn/MSI, destinos de datos e identificadores consumidos por la automatización.",
+    "No publicar la release hasta que el gate estable y la E2E pública completa terminen correctamente.",
+    "Windows Sandbox local muestra el error 0x80370106; las capturas visuales de runtime siguen pendientes."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de installer_hub_contract",
+      "timestamp": "2026-10-22T16:25:29.287Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de installer_hub_lifecycle",
+      "timestamp": "2026-10-22T16:25:29.287Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de ci_workflow_contract",
+      "timestamp": "2026-10-22T16:25:29.287Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de wpf_release_build",
+      "timestamp": "2026-10-22T16:25:29.287Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de ci_policy_audit",
+      "timestamp": "2026-10-22T16:25:29.287Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de git_diff_check",
+      "timestamp": "2026-10-22T16:25:29.287Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      ".github/workflows/ci-installer-windows.yml",
+      "CHANGELOG.md",
+      "apps/backend/package-lock.json",
+      "apps/backend/package.json",
+      "apps/frontend/package-lock.json",
+      "apps/frontend/package.json",
+      "apps/portal_alumno_cloud/package-lock.json",
+      "apps/portal_alumno_cloud/package.json",
+      "config/app-version.json",
+      "docs/specs/SPEC-124_installer_hub_operational_ux_refresh.spec.md",
+      "docs/specs/ci_cd_integrity.spec.md",
+      "package-lock.json",
+      "package.json",
+      "packaging/wix/BurnBootstrapperApp/MainWindow.xaml",
+      "packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs",
+      "scripts/tests/ci-workflow-contract.test.mjs",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
+      ".tmp/"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-10-22/sesion-2026-10-22T16-13-26.420Z.json",
+      "docs/handoff/sesiones/2026-10-22/sesion-2026-10-22T16-13-26.420Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "installer_hub_contract",
+      "command": "npm run test:installer-hub:contract",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 21047,
+      "resultSummary": "165 passed, 0 failed, 13 skipped.",
+      "timestamp": "2026-10-22T16:25:29.287Z"
+    },
+    {
+      "name": "installer_hub_lifecycle",
+      "command": "npm run test:installer-hub:lifecycle",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 966,
+      "resultSummary": "31 passed, 0 failed.",
+      "timestamp": "2026-10-22T16:25:29.287Z"
+    },
+    {
+      "name": "ci_workflow_contract",
+      "command": "node --test scripts/tests/ci-workflow-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 355,
+      "resultSummary": "51 passed, 0 failed.",
+      "timestamp": "2026-10-22T16:25:29.287Z"
+    },
+    {
+      "name": "wpf_release_build",
+      "command": "dotnet build packaging/wix/BurnBootstrapperApp/EvaluaPro.BurnBootstrapperApp.csproj --configuration Release --no-restore",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 23850,
+      "resultSummary": "Compilación correcta; 0 advertencias y 0 errores.",
+      "timestamp": "2026-10-22T16:25:29.287Z"
+    },
+    {
+      "name": "ci_policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 9912,
+      "resultSummary": "Auditoría exitosa; pipeline, release, políticas y especificaciones válidas.",
+      "timestamp": "2026-10-22T16:25:29.287Z"
+    },
+    {
+      "name": "git_diff_check",
+      "command": "git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 565,
+      "resultSummary": "Sin errores de whitespace.",
+      "timestamp": "2026-10-22T16:25:29.287Z"
+    }
+  ],
+  "decisions": [
+    "El siguiente patch estable es 1.2.10 porque el repositorio usa SemVer X.Y.Z y la versión actual confirmada era 1.2.9.",
+    "Se reemplaza el stepper de cinco tarjetas por un texto de etapa y una barra compacta.",
+    "Se ocultan las acciones de navegación que no corresponden; Revisar ya no ofrece Siguiente y no permite saltar requisitos.",
+    "La ventana abre a 1320×880 DIP y reduce sus límites al área útil disponible."
+  ],
+  "assumptions": [
+    "La E2E de Windows en GitHub Actions producirá evidencia de runtime y capturas que no se pudieron obtener por Windows Sandbox local."
+  ],
+  "risks": [
+    "No se logró la captura WPF local: Windows Sandbox informa 0x80370106.",
+    "La imagen proporcionada del asistente de 21 pasos no aparece en los archivos del checkout inspeccionado; el Hub nativo implementa cinco pasos."
+  ],
+  "nextStep": "Enviar la rama a PR, revisar la CI de Windows y sus capturas, corregir cualquier defecto y ejecutar Stable Gate hasta publicar v1.2.10 con E2E pública completa.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\release-v1.2.10-public-e2e",
+    "branch": "codex/release-public-e2e-always-20261022",
+    "commit": "392802eb",
+    "workingTreeStatus": "M .github/workflows/ci-installer-windows.yml\n M CHANGELOG.md\n M apps/backend/package-lock.json\n M apps/backend/package.json\n M apps/frontend/package-lock.json\n M apps/frontend/package.json\n M apps/portal_alumno_cloud/package-lock.json\n M apps/portal_alumno_cloud/package.json\n M config/app-version.json\n M docs/specs/SPEC-124_installer_hub_operational_ux_refresh.spec.md\n M docs/specs/ci_cd_integrity.spec.md\n M package-lock.json\n M package.json\n M packaging/wix/BurnBootstrapperApp/MainWindow.xaml\n M packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs\n M scripts/tests/ci-workflow-contract.test.mjs\n M scripts/tests/installer-hub-contract.test.mjs\n M scripts/tests/installer-upgrade-e2e-contract.test.mjs\n?? .tmp/\n?? docs/handoff/sesiones/2026-10-22/"
+  }
+}

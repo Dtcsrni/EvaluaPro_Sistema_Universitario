@@ -19,6 +19,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AssemblyMetadata Include="EvaluaProAppVersion" Value="$(EvaluaProAppVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="WixToolset.BootstrapperApplicationApi" Version="7.0.0" />
   </ItemGroup>
 

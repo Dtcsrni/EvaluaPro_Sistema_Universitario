@@ -862,7 +862,7 @@ function Wait-InstallerStableState {
     $uiReportsCompleted = $text -match '(?is)Estado completado' -and
       $text -match '(?is)La operaci[oó]n termin[oó] y el resultado queda disponible para revisi[oó]n' -and
       $text -match '(?is)Operaci[oó]n finalizada correctamente' -and
-      $text -match '(?is)5 Resultado\s*[·\-]\s*activo'
+      $text -match '(?is)Paso\s+5\s+de\s+5\s*[·\-]\s*Resultado'
     if ($uiReportsCompleted) {
       return [pscustomobject]@{ ok = $true; text = "Installer Hub UI terminal success`n$text" }
     }
@@ -898,7 +898,8 @@ function Wait-InstallerSameVersionConflictState {
     $lastText = Get-WindowTextSnapshot -Window $Window
     if ($lastText -match '(?is)Actualización detenida por conflicto de versión' -and
         $lastText -match '(?is)no se aplicaron cambios' -and
-        $lastText -match '(?is)5 Resultado\s*[·\-]\s*error') {
+        $lastText -match '(?is)Estado con error' -and
+        $lastText -match '(?is)Paso\s+5\s+de\s+5\s*[·\-]\s*Resultado\s*[·\-]\s*requiere atención') {
       return [pscustomobject]@{ ok = $true; text = $lastText; timeout = $false }
     }
     if ($lastText -match '(?is)Operación nativa completada|Operación finalizada correctamente') {
@@ -994,9 +995,9 @@ function Invoke-InstallerHubMode {
   $detectionTimeoutSec = 420
   $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
-  $window = Wait-InstallerStepStableForCapture -Window $window -StepLabel '2 Preparar · activo' -TimeoutSec 15
+  $window = Wait-InstallerStepStableForCapture -Window $window -StepLabel 'Paso 2 de 5 · Preparar' -TimeoutSec 15
   $prepareScreenshot = Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700
-  Assert-InstallerStepScreenshot -Window $window -Path $prepareScreenshot -StepLabel '2 Preparar · activo' -StageName ("wpf-{0}-02-preparar" -f $Mode)
+  Assert-InstallerStepScreenshot -Window $window -Path $prepareScreenshot -StepLabel 'Paso 2 de 5 · Preparar' -StageName ("wpf-{0}-02-preparar" -f $Mode)
 
   $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
   if ($modeCombo) {
@@ -1048,9 +1049,9 @@ function Invoke-InstallerHubMode {
     }
   }
 
-  $window = Wait-InstallerStepStableForCapture -Window $window -StepLabel '3 Revisar · activo' -TimeoutSec 15
+  $window = Wait-InstallerStepStableForCapture -Window $window -StepLabel 'Paso 3 de 5 · Revisar' -TimeoutSec 15
   $reviewScreenshot = Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) -RequestedWidth 980 -RequestedHeight 700
-  Assert-InstallerStepScreenshot -Window $window -Path $reviewScreenshot -StepLabel '3 Revisar · activo' -StageName ("wpf-{0}-03-revisar" -f $Mode)
+  Assert-InstallerStepScreenshot -Window $window -Path $reviewScreenshot -StepLabel 'Paso 3 de 5 · Revisar' -StageName ("wpf-{0}-03-revisar" -f $Mode)
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 15
   if (-not $startButton) { throw "No se encontro StartButton mode=$Mode" }
   $expectedAction = switch ($Mode) {
