@@ -111,7 +111,7 @@ test('CI modular no descarga la base solo para cobertura y valida refs de public
   const installerWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
   assert.match(installerWorkflow, /RELEASE_TAG:\s*\$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
   assert.match(installerWorkflow, /RELEASE_REPOSITORY:\s*\$\{\{ github\.repository \}\}/);
-  assert.match(installerWorkflow, /\$tag -notmatch '\^v\(0\|\[1-9\]\[0-9\]\*\)/);
+  assert.match(installerWorkflow, /\$tag -notmatch '\^hub-v\(0\|\[1-9\]\[0-9\]\*\)/);
   assert.match(installerWorkflow, /https:\/\/github\.com\/\$repository\/releases\/download\/\$tag/);
 });
 
