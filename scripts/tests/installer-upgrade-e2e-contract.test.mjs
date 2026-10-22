@@ -477,8 +477,8 @@ test('la evidencia visual del Installer Hub valida PNG, dimensiones, píxeles y 
   assert.match(e2e, /ejecutar-solicitud-980x700/);
   assert.match(e2e, /viewport = \[ordered\]@\{ width = 980; height = 700; basis = 'minimum-documented-by-DESIGN\.md' \}/);
   assert.doesNotMatch(e2e, /Resize-WindowForEvidence -Process \$process -Width 1280 -Height 720/);
-  assert.match(xaml, /Width="1200"/);
-  assert.match(xaml, /Height="840"/);
+  assert.match(xaml, /Width="1320"/);
+  assert.match(xaml, /Height="880"/);
   assert.match(xaml, /MinWidth="980"/);
   assert.match(xaml, /MinHeight="700"/);
 });

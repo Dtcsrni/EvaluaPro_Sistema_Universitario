@@ -879,7 +879,7 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
 test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
   const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
-  assert.match(xaml, /Width="1200"[\s\S]*Height="840"[\s\S]*MinWidth="980"[\s\S]*MinHeight="700"/);
+  assert.match(xaml, /Width="1320"[\s\S]*Height="880"[\s\S]*MinWidth="980"[\s\S]*MinHeight="700"/);
   assert.match(xaml, /FontFamily="Segoe UI, Segoe UI Variable Text, Aptos, Arial"/);
   assert.match(xaml, /<Style TargetType="TextBlock">[\s\S]*FontSize" Value="14\.5"/);
   assert.match(xaml, /x:Key="HelpTextStyle"[\s\S]*FontSize" Value="13\.5"[\s\S]*LineHeight" Value="20"/);
@@ -889,6 +889,9 @@ test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   assert.match(xaml, /x:Name="BrandStatementTextBlock"[^>]*Text="Instala, actualiza, repara o desinstala EvaluaPro\."/);
   assert.doesNotMatch(xaml, /HeaderFeature|ShowIntroButton|SplashOverlay|SplashPreviousButton|SplashNextButton|SplashCloseButton/);
   assert.match(xaml, /x:Name="TermsStepPanel" Visibility="Visible"/);
+  assert.match(xaml, /x:Name="WorkflowProgressTextBlock"/);
+  assert.match(xaml, /x:Name="WorkflowProgressBar"/);
+  assert.match(code, /MinWidth = Math\.Min\(980, availableWidth\);[\s\S]*MinHeight = Math\.Min\(700, availableHeight\);[\s\S]*Width = Math\.Min\(Width, availableWidth\);[\s\S]*Height = Math\.Min\(Height, availableHeight\);/);
 });
 
 test('Installer Hub separa aceptación de licencia y privacidad', () => {
@@ -1160,8 +1163,8 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(uxCriteria, /docs\/DESIGN\.md/);
   assert.match(installerHubDocs, /`DESIGN\.md`/);
 
-  assert.match(mainWindowXaml, /Width="1200"/);
-  assert.match(mainWindowXaml, /Height="840"/);
+  assert.match(mainWindowXaml, /Width="1320"/);
+  assert.match(mainWindowXaml, /Height="880"/);
   assert.match(mainWindowXaml, /MinWidth="980"/);
   assert.match(mainWindowXaml, /MinHeight="700"/);
   assert.match(mainWindowXaml, /CardShadow.*BlurRadius="24".*ShadowDepth="4".*Opacity="0\.24"/);
@@ -2916,7 +2919,8 @@ test('runner E2E exige resultado terminal visible incluso cuando el helper repor
 test('Installer Hub mantiene visible el panel activo y bloquea progreso tardío sobre Resultado', () => {
   const code = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
   assert.match(code, /currentStep == WizardStep\.Result && isBusy == true/);
-  assert.match(code, /NextButton\.Visibility = currentStep == WizardStep\.Review && readyToStart\s*\? Visibility\.Collapsed\s*:\s*Visibility\.Visible;/);
+  assert.match(code, /NextButton\.Visibility = currentStep is WizardStep\.Terms or WizardStep\.Prepare \? Visibility\.Visible : Visibility\.Collapsed;/);
+  assert.match(code, /WorkflowProgressTextBlock\.Text = \$"Paso \{stepNumber\} de 5 · \{stepLabel\}";/);
   assert.match(code, /private static void ShowStepPanel\(FrameworkElement panel\)/);
   assert.match(code, /panel\.BeginAnimation\(UIElement\.OpacityProperty, null\);/);
   assert.match(code, /panel\.BeginAnimation\(UIElement\.RenderTransformProperty, null\);/);

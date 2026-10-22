@@ -10,8 +10,8 @@
         mc:Ignorable="d"
         Title="EvaluaPro Installer Hub"
         Icon="pack://application:,,,/assets/evaluapro-installer-logo.png"
-        Width="1200"
-        Height="840"
+        Width="1320"
+        Height="880"
         MinWidth="980"
         MinHeight="700"
         WindowStartupLocation="CenterScreen"
@@ -359,7 +359,17 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel x:Name="StepperHost" Orientation="Horizontal" Margin="0,0,0,6" AutomationProperties.Name="Progreso del asistente">
+                    <Grid x:Name="StepperHost" Margin="0,0,0,10" AutomationProperties.Name="Progreso del asistente" AutomationProperties.LiveSetting="Polite">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="WorkflowProgressTextBlock" Text="Paso 1 de 5 · Términos" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" AutomationProperties.LiveSetting="Polite" />
+                        <ProgressBar x:Name="WorkflowProgressBar" Grid.Row="1" Minimum="0" Maximum="5" Value="1" Height="4" Margin="0,6,0,0" AutomationProperties.Name="Progreso del asistente" AutomationProperties.HelpText="Indica la etapa actual de cinco." />
+                    </Grid>
+
+                    <!-- Estados internos conservados para la lógica y las pruebas de contrato; el indicador visible es compacto. -->
+                    <StackPanel x:Name="LegacyStepperStateHost" Grid.Row="0" Visibility="Collapsed" KeyboardNavigation.IsTabStop="False">
                         <Border x:Name="TermsStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="TermsStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />

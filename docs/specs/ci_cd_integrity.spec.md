@@ -1,8 +1,8 @@
 ---
 id: SPEC-CI-CD-INTEGRITY
 titulo: Integridad y seguridad de ciclos CI/CD
-version: 1.2.5
-fecha: 2026-10-21
+version: 1.2.6
+fecha: 2026-10-22
 autor: Codex / Agente IA
 modulo: devops
 estado: implemented
@@ -35,7 +35,7 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 - **AC-005 (REQ-005):** La prueba de contrato ejecuta la expresión del guard contra versiones válidas y casos con ceros iniciales/sufijos no admitidos; confirma que cleanup rechaza una tag válida o repositorio inválido y permite limpiar tags de formato inválido.
 - **AC-006 (REQ-006):** La prueba de contrato confirma el trigger `workflow_run` de `CI Checks` completado sobre `main` y la defensa adicional por conclusión exitosa y rama `main`.
 - **AC-007 (REQ-007):** Las pruebas confirman selección backend desde perfiles fuente→tests, `--changed` para módulos sin mapa, fallback seguro a suite completa y cobertura instrumentada solo en dispatch completo explícito.
-- **AC-008 (REQ-008):** La prueba de contrato confirma que el job E2E depende del job que publica el release, usa `browser_download_url`/la URL canónica pública, valida hashes, descarga el baseline v1.2.3, ejecuta el runner E2E completo y vuelve a borrador el release ante fallo.
+- **AC-008 (REQ-008):** La prueba de contrato confirma que el job E2E depende del job que publica el release, usa `browser_download_url`/la URL canónica pública, valida hashes, exige que el EXE público coincida con el borrador verificado, descarga el baseline v1.2.3 y ejecuta siempre el runner E2E completo sobre el asset público, incluso cuando los hashes del borrador y del release coinciden; ante fallo, vuelve a borrador el release.
 - **AC-009 (REQ-009):** La prueba de contrato falla si el Dockerfile backend omite la copia del archivo de configuración Prisma o si esa copia aparece después del build.
 - **AC-010 (REQ-010):** Los contratos comprueban que la cobertura del diff corre sin umbral por defecto y que el workflow de PR no define un gate porcentual; los umbrales solo se aplican cuando se pasan explícitamente.
 - **AC-011 (REQ-011):** Pruebas del mapa affected verifican que CI/release y backend no relacionado no activan gates funcionales globales, que cada grupo especializado ejecuta sus gates y que runtime compartido/schedule retienen escalación completa.

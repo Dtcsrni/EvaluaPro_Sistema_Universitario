@@ -369,8 +369,11 @@ test('CI reutiliza evidencia de instalador solo cuando SHA, versión y digest co
   assert.match(draft, /needs\.installer_windows\.result == 'success'/);
   assert.match(draft, /needs\.reuse_installer_candidate\.result == 'success' \|\| needs\.installer_windows_build\.result == 'success'/);
   assert.match(draft, /if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
-  assert.match(publicE2e, /actualHash -eq \$env:VERIFIED_DRAFT_SHA256/);
-  assert.match(publicE2e, /if: steps\.public_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(publicE2e, /VERIFIED_DRAFT_SHA256: \$\{\{\s*needs\.post_publish_installer_e2e\.outputs\.draft_sha256\s*\}\}/);
+  assert.match(publicE2e, /actualHash -ne \$env:VERIFIED_DRAFT_SHA256\.ToLowerInvariant\(\)/);
+  assert.doesNotMatch(publicE2e, /run_e2e|if: steps\.public_asset\.outputs/);
+  assert.match(publicE2e, /E2E completa sobre el instalador descargado del release público/);
+  assert.match(publicE2e, /installer-hub-e2e-docente\.ps1 @runnerArgs/);
   assert.match(draft, /sha256=\$actualHash/);
   assert.match(publicE2e, /sha256=\$actualHash/);
 });

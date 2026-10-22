@@ -1201,18 +1201,13 @@ jobs:
           $actualHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
           if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con su sidecar.' }
           if ($digestMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con el digest de GitHub.' }
-          $runE2E = 'true'
-          if (-not [string]::IsNullOrWhiteSpace($env:VERIFIED_DRAFT_SHA256)) {
-            if ($env:VERIFIED_DRAFT_SHA256 -notmatch '^(?i)[0-9a-f]{64}$') { throw 'El digest del asset draft no es válido.' }
-            if ($actualHash -eq $env:VERIFIED_DRAFT_SHA256.ToLowerInvariant()) { $runE2E = 'false' }
-          }
+          if ($env:VERIFIED_DRAFT_SHA256 -notmatch '^(?i)[0-9a-f]{64}$') { throw 'El digest del asset draft no es válido.' }
+          if ($actualHash -ne $env:VERIFIED_DRAFT_SHA256.ToLowerInvariant()) { throw 'El EXE público no coincide con el asset draft previamente verificado.' }
           "sha256=$actualHash" >> $env:GITHUB_OUTPUT
-          "run_e2e=$runE2E" >> $env:GITHUB_OUTPUT
           "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
           Write-Host "Asset público descargado por browser_download_url; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
 
       - name: Descargar y verificar baseline oficial v1.2.3
-        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           BASELINE_BUNDLE_NAME: EvaluaPro-InstallerHub-docente-local-v1.2.3.exe
@@ -1231,7 +1226,6 @@ jobs:
           "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
 
       - name: Compilar fixture Burn para el asset público
-        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           CANDIDATE_BUNDLE_PATH: ${{ steps.public_asset.outputs.candidate_path }}
@@ -1244,7 +1238,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Preparar ruta privada para evidencia E2E pública
-        if: steps.public_asset.outputs.run_e2e == 'true'
         id: preparar_reporte_e2e
         shell: powershell
         env:
@@ -1257,7 +1250,6 @@ jobs:
           "report_dir=$reportDir" >> $env:GITHUB_OUTPUT
 
       - name: E2E completa sobre el instalador descargado del release público
-        if: steps.public_asset.outputs.run_e2e == 'true'
         shell: powershell
         env:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
