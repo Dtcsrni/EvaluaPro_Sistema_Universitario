@@ -1,0 +1,12 @@
+EvaluaPro 1.2.9 — snapshot de validación
+Fecha: 2026-10-22
+SHA candidato: f624dcbd211f1fb87d578995918b69bf6112f4b5
+
+CI Installer Windows #819 / run 39754392480: success; duración job 28m 03s.
+E2E completa del bundle docente-local: success; duración 7m 28s.
+E2E visual PDF Edge: 1 test passed en 5.1s; vista/descarga completadas.
+wcag-guard: OK; pares de contraste verificados: 33/33 PASS.
+Artifacts publicados por #819: installer-windows, installer-windows-internal e installer-hub-e2e-39754392480.
+Stable Gate y publicación final: pendientes en este corte.
+Flujo productivo e instalación local: no ejecutados.
+Windows Sandbox local: cierre inesperado 0x80370106; E2E local no iniciada.

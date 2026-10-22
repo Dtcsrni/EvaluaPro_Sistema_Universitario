@@ -1,0 +1,25 @@
+{
+  "version": "1.2.9",
+  "status": "ready",
+  "previousStableVersion": "1.2.8",
+  "activationCriteria": [
+    "Regresión en instalación, actualización, reparación o desinstalación de Installer Hub.",
+    "Falla en el arranque local, backend o integridad de datos después de actualizar.",
+    "Regresión UX/UI que impida completar los flujos docentes, OMR, calificaciones o PDF."
+  ],
+  "rollbackSteps": [
+    "Pausar promoción y actualizaciones automáticas.",
+    "Publicar/restaurar el último instalador estable validado (1.2.8).",
+    "Conservar SQLite y los artefactos locales; no sustituir la base activa.",
+    "Verificar manifest, versión visible, /api/salud/live y flujos críticos."
+  ],
+  "postRollbackChecks": [
+    "Validar integridad SQLite y conectividad Prisma.",
+    "Verificar GET /api/salud/live.",
+    "Verificar login docente y consultas de calificaciones.",
+    "Verificar historial de exámenes y descargas PDF.",
+    "Confirmar que Installer Hub reporta la versión 1.2.8."
+  ],
+  "approvedBy": "codex-release-readiness",
+  "approvedAt": "2026-10-22T09:49:58Z"
+}
