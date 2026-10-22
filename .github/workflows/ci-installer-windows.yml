@@ -648,8 +648,10 @@ jobs:
             [[ "$allowed" == true ]] || { echo "Drift no permitido después del candidato: $changed_path" >&2; exit 1; }
           done < <(git diff --name-only "$SOURCE_SHA..$MAIN_SHA")
           RUN="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID")"
-          jq -e --arg sha "$SOURCE_SHA" '.name == "CI Installer Windows" and .head_branch == "main" and (.head_sha | ascii_downcase) == $sha' <<<"$RUN" >/dev/null || {
-            echo 'El run de evidencia debe pertenecer a CI Installer Windows en main y al mismo SHA candidato.' >&2; exit 1;
+          CANDIDATE_IS_MAIN="$(jq -r --arg sha "$SOURCE_SHA" '.name == "CI Installer Windows" and .event == "workflow_dispatch" and .head_branch == "main" and (.head_sha | ascii_downcase) == $sha' <<<"$RUN")"
+          CANDIDATE_IS_RELEASE_TAG="$(jq -r --arg sha "$SOURCE_SHA" --arg tag "$RELEASE_TAG" '.name == "CI Installer Windows" and .event == "push" and .head_branch == $tag and (.head_sha | ascii_downcase) == $sha' <<<"$RUN")"
+          [[ "$CANDIDATE_IS_MAIN" == true || ( "$RELEASE_TAG" != '' && "$CANDIDATE_IS_RELEASE_TAG" == true ) ]] || {
+            echo 'El run candidato debe ser una E2E validada en main o en su tag Hub correspondiente y usar el mismo SHA.' >&2; exit 1;
           }
           JOBS="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID/jobs?per_page=100")"
           BUILD_JOB="$(jq -c '[.jobs[] | select(.name == "Installer Windows Build (MSI + Bundle)")] | if length == 1 then .[0] else empty end' <<<"$JOBS")"
@@ -804,7 +806,7 @@ jobs:
           VERSION="${RELEASE_TAG#hub-v}"
           [[ "$RELEASE_TAG" == "hub-v$VERSION" ]] || { echo 'La tag no tiene formato hub-vX.Y.Z.' >&2; exit 1; }
           manifest="dist/installer/EvaluaPro-release-manifest.json"
-          exe="dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-$RELEASE_TAG.exe"
+          exe="dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v$VERSION.exe"
           sidecar="$exe.sha256"
           test -s "$manifest" && test -s "$exe" && test -s "$sidecar"
           TARGET_VERSION="$VERSION" SOURCE_SHA="${SOURCE_SHA,,}" node scripts/release/installer-release-manifest.mjs "--manifest=$manifest"
@@ -812,8 +814,23 @@ jobs:
           manifest_hash="$(sha256sum "$manifest" | awk '{print tolower($1)}')"
           sidecar_hash="$(awk 'NR == 1 {print tolower($1)}' "$sidecar")"
           [[ "$sidecar_hash" =~ ^[0-9a-f]{64}$ && "$sidecar_hash" == "$exe_hash" ]] || { echo 'Sidecar local no coincide con el bundle candidato.' >&2; exit 1; }
-          api_status="$(gh api --include "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" 2>/dev/null | head -n 1 || true)"
-          [[ "$api_status" =~ ^HTTP/[0-9.]+[[:space:]]404[[:space:]] ]] || { echo "La tag $RELEASE_TAG existe o la API no confirmó su ausencia; no se retargetea." >&2; exit 1; }
+          tag_preexisting=false
+          if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" 2>/dev/null)"; then
+            tag_object_type="$(jq -r '.object.type' <<<"$tag_ref")"
+            tag_object_sha="$(jq -r '.object.sha' <<<"$tag_ref")"
+            while [[ "$tag_object_type" == tag ]]; do
+              tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
+              tag_object_type="$(jq -r '.object.type' <<<"$tag_object")"
+              tag_object_sha="$(jq -r '.object.sha' <<<"$tag_object")"
+            done
+            [[ "$tag_object_type" == commit && "${tag_object_sha,,}" == "${SOURCE_SHA,,}" ]] || {
+              echo "La tag $RELEASE_TAG ya existe y no apunta al SHA candidato; no se retargetea." >&2; exit 1;
+            }
+            tag_preexisting=true
+          else
+            api_status="$(gh api --include "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" 2>/dev/null | head -n 1 || true)"
+            [[ "$api_status" =~ ^HTTP/[0-9.]+[[:space:]]404[[:space:]] ]] || { echo "No se pudo confirmar la ausencia de $RELEASE_TAG; no se crea ni retargetea la tag." >&2; exit 1; }
+          fi
           release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
           jq -e --arg tag "$RELEASE_TAG" '.tag_name == $tag and .draft == true and .prerelease == false and .published_at == null' <<<"$release_json" >/dev/null || {
             echo 'El release no es el borrador estable esperado y no publicado.' >&2; exit 1;
@@ -832,7 +849,13 @@ jobs:
           check_asset "$(basename "$exe")" "$exe_hash" "$(stat -c '%s' "$exe")"
           check_asset "$(basename "$sidecar")" "$(sha256sum "$sidecar" | awk '{print tolower($1)}')" "$(stat -c '%s' "$sidecar")"
           check_asset "$(basename "$manifest")" "$manifest_hash" "$(stat -c '%s' "$manifest")"
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f "tag_name=$RELEASE_TAG" -f "target_commitish=${SOURCE_SHA,,}" >/dev/null
+          if [[ "$tag_preexisting" == true ]]; then
+            jq -e --arg tag "$RELEASE_TAG" --arg sha "${SOURCE_SHA,,}" '(.tag_name == $tag) and ((.target_commitish | ascii_downcase) == $sha)' <<<"$release_json" >/dev/null || {
+              echo 'El borrador no coincide con la tag existente y el SHA candidato; no se retargetea.' >&2; exit 1;
+            }
+          else
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f "tag_name=$RELEASE_TAG" -f "target_commitish=${SOURCE_SHA,,}" >/dev/null
+          fi
           verified_release="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
           jq -e --arg tag "$RELEASE_TAG" --arg sha "${SOURCE_SHA,,}" '.tag_name == $tag and .target_commitish == $sha and .draft == true and .prerelease == false and .published_at == null' <<<"$verified_release" >/dev/null || {
             echo 'El borrador no quedó fijado al SHA candidato después de reconsultarlo.' >&2; exit 1;

@@ -353,7 +353,9 @@ test('CI reutiliza evidencia de instalador solo cuando SHA, versión y digest co
   assert.match(build, /id: candidate_digest/);
   assert.match(reuse, /git merge-base --is-ancestor/);
   assert.match(reuse, /CANDIDATE_RUN_ID/);
-  assert.match(reuse, /\.head_branch == \"main\"/);
+  assert.match(reuse, /\.event == \"workflow_dispatch\" and \.head_branch == \"main\"/);
+  assert.match(reuse, /\.event == \"push\" and \.head_branch == \$tag/);
+  assert.match(reuse, /\.name == \"CI Installer Windows\"/);
   assert.match(reuse, /E2E completa sobre el bundle docente que se publicará/);
   assert.match(reuse, /E2E visual de vista y descarga PDF en Edge/);
   assert.match(reuse, /Publicar evidencia de la E2E completa/);
@@ -399,6 +401,11 @@ test('E2E del release draft delimita variable PowerShell seguida de dos puntos',
   assert.match(retargetBlock, /published_at == null/);
   assert.match(retargetBlock, /prerelease == false/);
   assert.match(retargetBlock, /git\/ref\/tags\/\$RELEASE_TAG/);
+  assert.match(releaseBuildJob, /git\/tags\/\$tag_object_sha/);
+  assert.match(releaseBuildJob, /EvaluaPro-InstallerHub-docente-local-v\$VERSION\.exe/);
+  assert.match(releaseBuildJob, /tag_preexisting=true/);
+  assert.match(releaseBuildJob, /\[\[ "\$tag_preexisting" == true \]\]/);
+  assert.match(releaseBuildJob, /no se retargetea/);
   assert.match(retargetBlock, /check_asset\s+.*exe_hash/);
   assert.match(retargetBlock, /check_asset\s+.*manifest_hash/);
   assert.match(retargetBlock, /tag_name=\$RELEASE_TAG/);
