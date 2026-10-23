@@ -772,6 +772,7 @@ public partial class MainWindow : Window
                 "EvaluaPro · Actualización disponible",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
+        WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
             if (answer != MessageBoxResult.Yes) return false;
 
             Directory.CreateDirectory(updateRoot);
@@ -1088,11 +1089,13 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        WriteStartupDiagnostic($"Solicitud Closing: closeAuthorized={closeAuthorized}, isStopping={isStopping}, isVisible={IsVisible}, installerHub={App.IsInstallerHubInvocation}.");
         if (closeAuthorized) return;
 
         // Cancel every close request until the user chooses what to do with services.
         e.Cancel = true;
         if (isStopping) return;
+        WriteStartupDiagnostic("Se va a mostrar la confirmación de cierre.");
         var choice = WpfMessageBox.Show(
             this,
             "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
