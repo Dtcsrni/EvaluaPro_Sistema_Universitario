@@ -602,7 +602,8 @@ function Get-AppHostTopLevelWindows {
       $matches += [pscustomobject]@{
         Element = $element
         Name = $name
-        Handle = [int]$window.Handle
+        NativeTitle = [string]$window.Title
+        Handle = [int64]$window.Handle.ToInt64()
         Enabled = [bool]$window.Enabled
       }
     }
@@ -624,7 +625,7 @@ function Wait-AppHostCloseConfirmation {
       if ($Process.HasExited) { return $null }
       $script:lastAppHostTopLevelWindows = @(Get-AppHostTopLevelWindows -ProcessId $ProcessId)
       $dialog = $script:lastAppHostTopLevelWindows |
-        Where-Object { $_.Name -eq 'EvaluaPro · Cerrar' } |
+        Where-Object { $_.Name -eq 'EvaluaPro · Cerrar' -or $_.NativeTitle -eq 'EvaluaPro · Cerrar' } |
         Select-Object -First 1
       if ($dialog) { return $dialog.Element }
     } catch {}
