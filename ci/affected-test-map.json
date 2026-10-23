@@ -150,6 +150,19 @@
         "npm run test:wix:policy"
       ]
     },
+    "updater": {
+      "paths": [
+        "scripts/update-manager.mjs",
+        "scripts/launcher-dashboard.mjs",
+        "scripts/launcher-tray.ps1",
+        "scripts/tests/update-manager.test.mjs",
+        "scripts/tests/update-api.test.mjs",
+        "scripts/tests/tray-update-action.test.mjs"
+      ],
+      "commands": [
+        "npm run test:update"
+      ]
+    },
     "release": {
       "paths": [
         "scripts/release/**",
@@ -266,60 +279,113 @@
   },
   "gates": {
     "flujo-docente-check": {
-      "groups": ["backend_docente_flow"]
+      "groups": [
+        "backend_docente_flow"
+      ]
     },
     "dataset-prodlike-check": {
-      "groups": ["backend_docente_flow", "backend_grade"]
+      "groups": [
+        "backend_docente_flow",
+        "backend_grade"
+      ]
     },
     "omr-tv-extended-gate": {
-      "groups": ["backend_omr"]
+      "groups": [
+        "backend_omr"
+      ]
     },
     "docente-alumno-e2e-check": {
-      "groups": ["backend_docente_flow"]
+      "groups": [
+        "backend_docente_flow"
+      ]
     },
     "global-grade-check": {
-      "groups": ["backend_grade"]
+      "groups": [
+        "backend_grade"
+      ]
     },
     "pdf-print-check": {
-      "groups": ["backend_pdf"]
+      "groups": [
+        "backend_pdf"
+      ]
     },
     "classroom-audit-check": {
-      "groups": ["classroom"]
+      "groups": [
+        "classroom"
+      ]
     },
     "perf-check": {
-      "groups": ["performance"]
+      "groups": [
+        "performance"
+      ]
     },
     "perf-business-check": {
-      "groups": ["performance"]
+      "groups": [
+        "performance"
+      ]
     },
     "clean-architecture-check": {
-      "groups": ["architecture"]
+      "groups": [
+        "architecture"
+      ]
     },
     "ux-visual-check": {
-      "groups": ["frontend"]
+      "groups": [
+        "frontend"
+      ]
     },
     "qa-manifest": {
-      "groups": ["qa_manifest"]
+      "groups": [
+        "qa_manifest"
+      ]
     },
     "dsr-flow-test": {
-      "groups": ["backend_privacy", "compliance"]
+      "groups": [
+        "backend_privacy",
+        "compliance"
+      ]
     },
     "compliance-evidence": {
-      "groups": ["backend_privacy", "compliance", "portal"]
+      "groups": [
+        "backend_privacy",
+        "compliance",
+        "portal"
+      ]
     }
   },
   "jobs": {
     "core_contract_docs_gov": {
-      "groups": ["docs", "installer", "release", "shared", "ci_tooling"]
+      "groups": [
+        "docs",
+        "installer",
+        "release",
+        "shared",
+        "ci_tooling",
+        "updater"
+      ]
     },
     "core_backend_portal": {
-      "groups": ["backend", "portal", "classroom", "shared"]
+      "groups": [
+        "backend",
+        "portal",
+        "classroom",
+        "shared"
+      ]
     },
     "core_frontend": {
-      "groups": ["frontend", "shared"]
+      "groups": [
+        "frontend",
+        "shared"
+      ]
     },
     "core_security_compliance": {
-      "groups": ["backend", "portal", "compliance", "docs", "shared"]
+      "groups": [
+        "backend",
+        "portal",
+        "compliance",
+        "docs",
+        "shared"
+      ]
     },
     "ext_funcionales": {
       "gates": [
