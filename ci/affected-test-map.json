@@ -135,6 +135,7 @@
         "scripts/runtime-env.mjs",
         "scripts/start-docente-native.mjs",
         "scripts/tests/installer-hub-contract.test.mjs",
+        "scripts/tests/installer-hub-e2e-docente.ps1",
         "scripts/tests/installer-upgrade-e2e-contract.test.mjs",
         "scripts/tests/github-release-asset-download.test.mjs",
         "scripts/tests/windows-release-smoke-ownership.test.mjs",
