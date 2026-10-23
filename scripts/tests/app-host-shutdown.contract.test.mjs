@@ -63,6 +63,15 @@ test('la E2E nativa enumera diálogos propiedad del App Host al confirmar el cie
   assert.match(installerE2ESource, /NativeTitle -eq 'EvaluaPro · Cerrar'/);
   assert.match(installerE2ESource, /SendMessageTimeout/);
   assert.match(installerE2ESource, /ClickButton\(\$buttonHandle, 5000\)/);
+  const closeButtonActivation = installerE2ESource.match(
+    /function Invoke-AppHostCloseConfirmationYes \{[\s\S]*?\n\}/
+  )?.[0];
+  assert.ok(closeButtonActivation, 'debe existir el activador del botón de confirmación');
+  assert.ok(
+    closeButtonActivation.indexOf('ClickButton') < closeButtonActivation.indexOf('Invoke-Control'),
+    'debe intentar el clic nativo antes del fallback de UI Automation'
+  );
+  assert.doesNotMatch(closeButtonActivation, /LegacyIAccessiblePattern/);
   assert.doesNotMatch(windowEnumerator, /RootElement\.FindAll/);
 });
 
