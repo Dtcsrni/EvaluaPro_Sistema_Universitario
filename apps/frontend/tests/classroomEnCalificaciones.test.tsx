@@ -76,6 +76,28 @@ describe('ClassroomEnCalificaciones', () => {
     expect(within(screen.getByRole('region', { name: 'Revisar actividades por tema' })).queryByText('Actividad de otro tema')).not.toBeInTheDocument();
   });
 
+  it('no presenta una consulta incompleta como si el curso no tuviera actividades', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [], nextCursor: null };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
+      if (String(ruta).includes('/alumnos?')) return { alumnosClassroom: [] };
+      if (String(ruta).includes('/actividades?')) return {
+        completa: false,
+        temas: [],
+        errores: [{ recurso: 'actividades', codigo: 'CLASSROOM_API_ERROR' }],
+        actividades: []
+      };
+      return {};
+    });
+
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+    fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
+
+    expect(await screen.findByText('La consulta de actividades está incompleta. Se conservan los datos recibidos; revisa los recursos con error y vuelve a cargar.')).toBeInTheDocument();
+    expect(screen.getByText('No hay actividades en el tema seleccionado.')).toBeInTheDocument();
+    expect(screen.queryByText('No hay actividades publicadas para mapear en este curso.')).not.toBeInTheDocument();
+  });
+
   it('filtra la materia, muestra solo evidencias Classroom y mantiene las notas como solo lectura', async () => {
     render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
     expect(await screen.findByRole('cell', { name: 'Actividad Classroom' })).toBeInTheDocument();
@@ -376,3 +398,4 @@ describe('ClassroomEnCalificaciones', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No fue posible consultar las evidencias.');
   });
 });
+
