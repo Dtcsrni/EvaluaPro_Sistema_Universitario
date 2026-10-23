@@ -52,8 +52,8 @@ test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola 
   const cancelRequest = closingHandler.indexOf('e.Cancel = true;');
   const duplicateRequestCheck = closingHandler.indexOf('if (isStopping) return;');
   const cleanup = closingHandler.indexOf('await ShutdownServicesAsync();');
-  const authorizeFinalClose = closingHandler.indexOf('closeAuthorized = true;');
-  const finalClose = closingHandler.indexOf('Close();');
+  const authorizeFinalClose = closingHandler.lastIndexOf('closeAuthorized = true;');
+  const finalClose = closingHandler.lastIndexOf('Close();');
 
   assert.ok(authorizeCheck >= 0 && authorizeCheck < cancelRequest,
     'el único cierre final autorizado debe pasar sin cancelarse');
