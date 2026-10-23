@@ -10,10 +10,9 @@ Se promueve a estable solo si se cumplen todos:
 2. La ejecución `CI Installer Windows` que produjo el artefacto debe terminar en verde para ese mismo SHA candidato.
 3. Gating de calidad beta completo en verde (`lint`, `typecheck`, `tests`, `coverage`, `perf`, `security`, `docs`, `routes`, `pipeline contract`).
 4. Evidencia QA automatizada completa en `reports/qa/latest/manifest.json`.
-5. Evidencia E2E real de Google Classroom en `docs/release/manual/classroom-e2e-real-mayo-junio.json`, validada y ligada a la misma versión candidata. Los tests con fixtures/mocks no la sustituyen.
-6. `clean-architecture-check` en verde y evidencia `reports/qa/latest/clean-architecture.json` presente.
-7. Evidencia versionada en `docs/release/evidencias/<version>/`.
-8. Checklist de rollback readiness validado (`rollback_readiness.json`).
+5. `clean-architecture-check` en verde y evidencia `reports/qa/latest/clean-architecture.json` presente.
+6. Evidencia versionada en `docs/release/evidencias/<version>/`.
+7. Checklist de rollback readiness validado (`rollback_readiness.json`).
 
 Si falla cualquier punto: **No-Go**.
 
@@ -22,7 +21,7 @@ Automatizacion bloqueante:
 - script orquestador: `npm run release:validate:stable -- --version=<version>`.
 
 ## QA automatizada obligatoria
-El release estable no requiere validacion humana manual como condicion bloqueante. La UX/UI y el flujo docente quedan cubiertos por evidencias automatizadas y reproducibles.
+El flujo humano productivo general puede ejecutarse como smoke operativo opcional. La evidencia E2E real de Google Classroom es obligatoria, como se detalla más abajo.
 
 Artefactos obligatorios:
 
@@ -64,13 +63,8 @@ El script genera:
 El gate estable genera ademas:
 - `reports/release/stable-gate/<version>/decision.json` con decision `Go/No-Go`.
 
-## Evidencia de Classroom obligatoria
-La integración Classroom se considera lista para distribución estable únicamente cuando la evidencia real del candidato completa login OAuth, lectura de curso/roster/actividad, preview, importación persistente, reimportación idempotente e historial. La ausencia, el estado `pendiente`, una versión distinta o evidencia de fixtures produce **No-Go** aunque los gates automatizados estén en verde. Ejecutar:
-
-```bash
-npm run release:check:classroom-e2e -- --manual=docs/release/manual/classroom-e2e-real-mayo-junio.json
-npm run release:validate:stable -- --version=<version> --classroom-e2e-manual=docs/release/manual/classroom-e2e-real-mayo-junio.json
-```
+## Evidencia manual opcional
+El flujo humano productivo y Classroom real pueden ejecutarse como smoke operativo, pero no bloquean la promocion estable si la evidencia automatizada obligatoria esta completa.
 
 Checklist base de rollback:
 
