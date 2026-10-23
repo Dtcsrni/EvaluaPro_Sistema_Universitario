@@ -665,7 +665,7 @@ export function ClassroomEnCalificaciones({
                 </details>)}
               </div>}
             </section>}
-            {actividades.length === 0 && !cargandoActividades ? <p className="nota">No hay actividades publicadas para mapear en este curso.</p> : <div className="lista lista--compacta">
+            {actividades.length === 0 && consultaActividadesCompleta && !cargandoActividades ? <p className="nota">No hay actividades publicadas para mapear en este curso.</p> : <div className="lista lista--compacta">
               {actividadesFiltradas.map((actividad) => <div className="item-row item-glass" key={actividad.id}>
                 <div><b>{actividad.title}</b><div className="nota">{typeof actividad.maxPoints === 'number' ? `${actividad.maxPoints} puntos posibles` : 'Puntos posibles no especificados'}</div></div>
                 <label className="campo"><span>Parcial destino</span><select disabled={previsualizando || aplicandoMapeo} value={cortes[actividad.id] ?? ''} onChange={(event) => {
@@ -848,3 +848,4 @@ export function ClassroomEnCalificaciones({
     </section>
   );
 }
+
