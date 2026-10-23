@@ -1056,6 +1056,12 @@ public partial class MainWindow : Window
         // Cancel every close request until the user chooses what to do with services.
         e.Cancel = true;
         if (isStopping) return;
+        if (dashboardProcess == null || dashboardProcess.HasExited)
+        {
+            closeAuthorized = true;
+            Close();
+            return;
+        }
 
         var choice = WpfMessageBox.Show(
             this,
