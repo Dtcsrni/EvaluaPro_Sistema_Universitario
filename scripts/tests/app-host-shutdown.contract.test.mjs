@@ -36,6 +36,11 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /e\.Cancel = true/);
   assert.match(hostSource, /dashboardProcess\.Kill\(entireProcessTree: true\)/);
   assert.match(hostSource, /if \(dashboardProcess == null\)[\s\S]*?return;/);
+  assert.match(hostSource, /WpfMessageBox\.Show\([\s\S]*?MessageBoxButton\.YesNoCancel/);
+  assert.match(hostSource, /Sí: detener API e interfaz y cerrar/);
+  assert.match(hostSource, /No: dejar los servicios activos en segundo plano y cerrar solo la ventana/);
+  assert.match(hostSource, /if \(choice == MessageBoxResult\.Cancel\) return;/);
+  assert.match(hostSource, /if \(choice == MessageBoxResult\.No\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);[\s\S]*?return;[\s\S]*?isStopping = true;[\s\S]*?await ShutdownServicesAsync\(\);/);
 });
 
 test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola transición final', () => {
