@@ -75,6 +75,14 @@ public static class EvaluaProE2ENativeWindow {
   private static extern bool IsWindowVisible(IntPtr hWnd);
   [DllImport("user32.dll")]
   private static extern bool IsWindowEnabled(IntPtr hWnd);
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern IntPtr SendMessageTimeout(
+    IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeoutMs, out IntPtr result);
+  public static bool ClickButton(IntPtr hWnd, uint timeoutMs) {
+    if (hWnd == IntPtr.Zero) return false;
+    IntPtr result;
+    return SendMessageTimeout(hWnd, 0x00F5, IntPtr.Zero, IntPtr.Zero, 0x0002, timeoutMs, out result) != IntPtr.Zero;
+  }
   [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
   public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
@@ -639,8 +647,30 @@ function Invoke-AppHostCloseConfirmationYes {
   foreach ($name in @('Sí', 'Yes')) {
     $button = Find-ByName -RootElement $Dialog -Name $name -TimeoutSec 1
     if ($button) {
-      Invoke-Control -Element $button
-      return $name
+      $legacyPattern = $null
+      if ($button.TryGetCurrentPattern(
+        [System.Windows.Automation.LegacyIAccessiblePattern]::Pattern,
+        [ref]$legacyPattern
+      )) {
+        try {
+          $legacyPattern.DoDefaultAction()
+          return $name
+        } catch {}
+      }
+
+      $buttonHandle = [IntPtr]([int]$button.Current.NativeWindowHandle)
+      if ($buttonHandle -ne [IntPtr]::Zero -and
+          [EvaluaProE2ENativeWindow]::ClickButton($buttonHandle, 5000)) {
+        return $name
+      }
+
+      try {
+        Invoke-Control -Element $button
+        return $name
+      } catch {
+        throw ("No se pudo activar la opción de cierre '{0}'; HWND=0x{1:X}: {2}" -f
+          $name, $button.Current.NativeWindowHandle, $_.Exception.Message)
+      }
     }
   }
   throw 'La confirmación de cierre no expuso el botón Sí/Yes mediante UI Automation.'
