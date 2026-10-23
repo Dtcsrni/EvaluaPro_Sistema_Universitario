@@ -22,6 +22,19 @@ const sameVersionFixture = fs.readFileSync(sameVersionFixturePath, 'utf8');
 const fixtureBuilderPath = path.join(root, 'scripts', 'tests', 'build-same-version-related-bundle-fixture.ps1');
 const fixtureBuilder = fs.readFileSync(fixtureBuilderPath, 'utf8');
 
+test('el runner E2E docente conserva sintaxis válida de Windows PowerShell', { skip: process.platform !== 'win32' }, () => {
+  const escapedPath = e2ePath.replace(/'/g, "''");
+  const command = \`$tokens = $null; $parseErrors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile('\${escapedPath}', [ref]$tokens, [ref]$parseErrors); if ($parseErrors.Count -gt 0) { $parseErrors | ForEach-Object { $_.ToString() }; exit 1 }\`;
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
+    encoding: 'utf8',
+    timeout: 20_000,
+    windowsHide: true
+  });
+
+  assert.equal(result.error, undefined, result.error?.message);
+  assert.equal(result.status, 0, result.stderr || result.stdout || 'PowerShell no pudo parsear el runner E2E.');
+});
+
 test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de igual versión', () => {
   assert.match(sameVersionFixture, /Name="QA Bundle Relation Fixture"/);
   assert.match(sameVersionFixture, /UpgradeCode="\$\(var\.BundleUpgradeCode\)"/);
