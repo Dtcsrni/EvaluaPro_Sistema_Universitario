@@ -186,6 +186,10 @@ jobs:
             npm run test:portal:ci
           fi
 
+      - name: Preparar Prisma para classroom-audit-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_classroom_audit_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        run: npx prisma generate --config=apps/backend/prisma.config.mjs
+
       - name: Etapa classroom-audit-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_classroom_audit_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:classroom:audit:ci
