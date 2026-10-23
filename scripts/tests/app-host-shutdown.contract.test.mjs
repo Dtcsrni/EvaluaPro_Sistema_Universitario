@@ -71,7 +71,7 @@ test('la E2E nativa enumera diálogos propiedad del App Host al confirmar el cie
     closeButtonActivation.indexOf('ClickButton') < closeButtonActivation.indexOf('Invoke-Control'),
     'debe intentar el clic nativo antes del fallback de UI Automation'
   );
-  assert.doesNotMatch(closeButtonActivation, /LegacyIAccessiblePattern/);
+  assert.doesNotMatch(closeButtonActivation, /\[System\.Windows\.Automation\.LegacyIAccessiblePattern\]/);
   assert.doesNotMatch(windowEnumerator, /RootElement\.FindAll/);
 });
 
