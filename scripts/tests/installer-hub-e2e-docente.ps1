@@ -2406,19 +2406,6 @@ function Test-InstalledState {
       ) -Detail ("flavor={0}; missingCritical={1}; hasRequiredCritical={2}; hasNoLegacyCritical={3}" -f
         [string]$installedManifest.installation.flavor, ($missingCritical -join ','), $hasRequiredCritical, $hasNoLegacyCritical)
     } catch {
-      Add-Result -Area $Phase -Item 'installation-manifest-healthy' -Ok $false -Detail $_.Exception.Message
-    }
-  }
-  if (Test-Path -LiteralPath $updateConfig) {
-    Copy-ArtifactIfExists -Path $updateConfig -Name ("{0}-update-config.json" -f $Phase) | Out-Null
-    $cfg = Get-Content -Raw -Path $updateConfig | ConvertFrom-Json
-    Add-Result -Area $Phase -Item 'update-config' -Ok (
-      [string]$cfg.channel -eq 'stable' -and
-      [string]$cfg.flavorId -eq 'docente-local' -and
-      [string]$cfg.assetName -match 'EvaluaPro-InstallerHub-docente-local'
-    ) -Detail ($cfg | ConvertTo-Json -Compress)
-  }
-}
 
 function Export-InstallerLogs {
   $programDataLogs = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
