@@ -1,19 +1,22 @@
 {
-  "displayVersion": "1.1.0",
+  "displayVersion": "<version-candidata>",
+  "candidateSha": "<sha-completo-de-40-caracteres>",
   "operatorName": "responsable-classroom",
-  "windowStartedAt": "2026-06-27T00:00:00.000-06:00",
-  "windowEndedAt": "2026-06-27T00:30:00.000-06:00",
-  "notes": "Completar solo despues de operar Google Classroom real con credenciales validas, redirect URI registrado, curso real mayo-junio y actividad real con submissions. No incluir secretos, tokens ni correos sensibles completos si el archivo se va a versionar.",
+  "windowStartedAt": "<inicio-iso>",
+  "windowEndedAt": "<fin-iso>",
+  "notes": "Completar solo despues del E2E real de la instalacion candidata. No incluir secretos, codigos OAuth, tokens, correos completos ni nombres de estudiantes.",
   "entorno": "google-classroom-real",
   "periodoLabel": "mayo-junio",
   "apiBase": "<api-base-real-sin-token>",
   "docenteIdHash": "<hash-o-identificador-no-sensible>",
   "googleWorkspace": {
     "dominio": "<dominio-o-institucion>",
-    "oauthClientConfigurado": false,
-    "redirectUriRegistrado": false,
-    "classroomTokenCipherKeyPresente": false,
-    "scopesClassroomAprobados": false
+    "clientIdDesktopVerificado": false,
+    "pkceS256Verificado": false,
+    "callbackLoopbackValidado": false,
+    "dpapiCurrentUserVerificado": false,
+    "scopesClassroomAprobados": false,
+    "consentimientoDisponibleParaDocentes": false
   },
   "curso": {
     "courseId": "<course-id-real>",
@@ -25,6 +28,9 @@
   "actividad": {
     "courseWorkId": "<coursework-id-real>",
     "titulo": "<actividad-real>",
+    "topicId": "<topic-id-real>",
+    "tema": "<tema-real>",
+    "fechaLimite": null,
     "submissionsTotal": 0,
     "submissionsConCalificacion": 0,
     "submissionsImportadas": 0,

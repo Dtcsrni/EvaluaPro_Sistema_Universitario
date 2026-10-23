@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { execFileSync } from 'node:child_process';
 import { contarCambiosFuente, crearQaManifest, inspectSourceTree } from '../testing/generar-qa-manifest.mjs';
 import { evaluateStablePromotion as evaluateStablePromotionImpl } from '../release/validate-stable-promotion.mjs';
@@ -101,7 +102,7 @@ function candidateRun(id, name, sha = CANDIDATE_SHA) {
 function evaluateStablePromotion(options) {
   const candidateSha = options.candidateSha || CANDIDATE_SHA;
   const classroomE2eManualPath = options.classroomE2eManualPath
-    || writeClassroomEvidence(mkTempDir('evaluapro-stable-classroom-e2e-'));
+    || writeClassroomEvidence(mkTempDir('evaluapro-stable-classroom-e2e-'), { candidateSha });
   const previousCandidateSha = process.env.RELEASE_CANDIDATE_SHA;
   process.env.RELEASE_CANDIDATE_SHA = candidateSha;
   try {
@@ -280,6 +281,7 @@ function writeInstallerManifest(baseDir, overrides = {}) {
 function writeClassroomEvidence(baseDir, overrides = {}) {
   const evidence = {
     displayVersion: '1.0.0',
+    candidateSha: 'a'.repeat(40),
     operatorName: 'qa-classroom',
     windowStartedAt: '2026-06-27T00:00:00.000-06:00',
     windowEndedAt: '2026-06-27T00:30:00.000-06:00',
@@ -289,10 +291,12 @@ function writeClassroomEvidence(baseDir, overrides = {}) {
     docenteIdHash: 'docente-hash',
     googleWorkspace: {
       dominio: 'example.edu',
-      oauthClientConfigurado: true,
-      redirectUriRegistrado: true,
-      classroomTokenCipherKeyPresente: true,
-      scopesClassroomAprobados: true
+      clientIdDesktopVerificado: true,
+      pkceS256Verificado: true,
+      callbackLoopbackValidado: true,
+      dpapiCurrentUserVerificado: true,
+      scopesClassroomAprobados: true,
+      consentimientoDisponibleParaDocentes: true
     },
     curso: {
       courseId: 'course-123',
@@ -304,6 +308,9 @@ function writeClassroomEvidence(baseDir, overrides = {}) {
     actividad: {
       courseWorkId: 'work-123',
       titulo: 'Primer parcial',
+      topicId: 'topic-123',
+      tema: 'Segundo Parcial',
+      fechaLimite: '2026-10-20T09:00:00-06:00',
       submissionsTotal: 2,
       submissionsConCalificacion: 2,
       submissionsImportadas: 2,
@@ -398,6 +405,28 @@ test('stable promotion falla si evidencia E2E real de Classroom pertenece a otra
 
   assert.equal(result.ok, false);
   assert.equal(result.checks.some((item) => item.id === 'classroom-e2e' && item.ok === false), true);
+});
+
+test('stable promotion falla si evidencia E2E real de Classroom pertenece a otro SHA', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-classroom-sha-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-classroom-sha-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-classroom-sha-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const classroomE2eManualPath = writeClassroomEvidence(qaDir, { candidateSha: OTHER_SHA });
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath,
+    classroomE2eManualPath
+  });
+
+  assert.equal(result.ok, false);
+  const classroomCheck = result.checks.find((item) => item.id === 'classroom-e2e');
+  assert.equal(classroomCheck?.ok, false);
+  assert.match(classroomCheck?.detail || '', /candidateSha no coincide/i);
 });
 
 test('stable promotion falla si el manifest release es incompleto aunque tenga flavors requeridos', () => {
@@ -710,6 +739,7 @@ test('stable promotion acepta evidencia comprometida después y ligada al SHA in
   installerManifest.build.commit = candidateSha;
   fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
   const qaManifestPath = writeQaEvidence(qaDir, { commit: candidateSha });
+  const classroomE2eManualPath = writeClassroomEvidence(qaDir, { candidateSha });
   const previous = process.env.RELEASE_CANDIDATE_SHA;
   process.env.RELEASE_CANDIDATE_SHA = candidateSha;
   try {
@@ -718,7 +748,8 @@ test('stable promotion acepta evidencia comprometida después y ligada al SHA in
       candidateSha,
       evidenceDir,
       installerManifestPath,
-      qaManifestPath
+      qaManifestPath,
+      classroomE2eManualPath
     });
     assert.equal(result.checks.find((item) => item.id === 'release-evidence')?.ok, true);
     assert.equal(result.checks.find((item) => item.id === 'automated-qa-evidence')?.ok, true);
