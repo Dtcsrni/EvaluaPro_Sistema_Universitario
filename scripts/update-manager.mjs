@@ -184,7 +184,8 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
   const list = Array.isArray(releases) ? releases : [];
   const candidates = list
     .map((release) => {
-      const version = String(release?.tag_name || '').trim().replace(/^v/i, '');
+      const tagName = String(release?.tag_name || '').trim();
+      const version = tagName.replace(/^(?:hub-)?v/i, '');
       const parsed = parseSemver(version);
       return { release, version, parsed };
     })
