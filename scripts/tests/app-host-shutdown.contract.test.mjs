@@ -61,6 +61,8 @@ test('la E2E nativa enumera diálogos propiedad del App Host al confirmar el cie
   assert.ok(windowEnumerator, 'debe existir el enumerador Win32 de ventanas App Host');
   assert.match(windowEnumerator, /GetProcessWindows\(\$ProcessId\)/);
   assert.match(installerE2ESource, /NativeTitle -eq 'EvaluaPro · Cerrar'/);
+  assert.match(installerE2ESource, /SendMessageTimeout/);
+  assert.match(installerE2ESource, /ClickButton\(\$buttonHandle, 5000\)/);
   assert.doesNotMatch(windowEnumerator, /RootElement\.FindAll/);
 });
 
