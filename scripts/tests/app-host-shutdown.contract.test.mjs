@@ -54,7 +54,7 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
 test('la E2E nativa enumera diálogos propiedad del App Host al confirmar el cierre', () => {
   assert.match(installerE2ESource, /private static extern bool EnumWindows\(/);
   assert.match(installerE2ESource, /GetWindowThreadProcessId\(hWnd, out ownerProcessId\)/);
-  assert.match(installerE2ESource, /FromHandle\(window\.Handle\)/);
+  assert.match(installerE2ESource, /FromHandle\(\$window\.Handle\)/);
   const windowEnumerator = installerE2ESource.match(
     /function Get-AppHostTopLevelWindows \{[\s\S]*?\n\}/
   )?.[0];
