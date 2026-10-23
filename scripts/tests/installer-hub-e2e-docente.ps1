@@ -564,7 +564,7 @@ function Get-AppHostTopLevelWindows {
       } catch {}
     }
   } catch {}
-  return ,$matches
+  return $matches
 }
 
 function Wait-AppHostCloseConfirmation {
@@ -1698,7 +1698,7 @@ function Invoke-InstalledAppHost {
           if ($installedVersion -ne [version]'1.2.3') { throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion." }
           Add-Result -Area 'native-app-host' -Item 'legacy-close-without-confirmation' -Ok $true -Detail "version=$installedVersion pid=$($identity.Id) runId=$RunId"
         } else {
-          $windowDetails = @($script:lastAppHostTopLevelWindows | ForEach-Object { "'$($_.Name)' hwnd=0x$('{0:X}' -f $_.Handle) enabled=$($_.Enabled)" }) -join '; '
+          $windowDetails = @($script:lastAppHostTopLevelWindows | ForEach-Object { "'{0}' hwnd=0x{1:X} enabled={2}" -f $_.Name, $_.Handle, $_.Enabled }) -join '; '
           if ([string]::IsNullOrWhiteSpace($windowDetails)) { $windowDetails = 'ninguna ventana accesible del proceso' }
           throw "El App Host PID $($identity.Id) no terminó ni mostró la confirmación de cierre; ventanas detectadas: $windowDetails."
         }
