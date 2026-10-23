@@ -541,6 +541,42 @@ function Invoke-Control {
   }
 }
 
+function Wait-AppHostCloseConfirmation {
+  param([int]$TimeoutSec = 15)
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  do {
+    try {
+      $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+        [System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.Condition]::TrueCondition
+      )
+      foreach ($window in $windows) {
+        try {
+          if ([string]::Equals([string]$window.Current.Name, 'EvaluaPro · Cerrar', [StringComparison]::Ordinal)) {
+            return $window
+          }
+        } catch {}
+      }
+    } catch {}
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+  return $null
+}
+
+function Invoke-AppHostCloseConfirmationYes {
+  $dialog = Wait-AppHostCloseConfirmation -TimeoutSec 15
+  if (-not $dialog) { throw 'El App Host no mostró la confirmación al solicitar su cierre.' }
+
+  foreach ($name in @('Sí', 'Yes')) {
+    $button = Find-ByName -RootElement $dialog -Name $name -TimeoutSec 1
+    if ($button) {
+      Invoke-Control -Element $button
+      return $name
+    }
+  }
+  throw 'La confirmación de cierre no expuso el botón Sí/Yes mediante UI Automation.'
+}
+
 function Wait-ControlEnabled {
   param(
     [System.Windows.Automation.AutomationElement]$RootElement,
@@ -1626,7 +1662,9 @@ function Invoke-InstalledAppHost {
     if ($process) {
       try {
         if (-not $process.CloseMainWindow()) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
-        if (-not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s; no se forzará el cierre." }
+        $confirmedChoice = Invoke-AppHostCloseConfirmationYes
+        Add-Result -Area 'native-app-host' -Item 'close-confirmation-yes' -Ok $true -Detail "choice=$confirmedChoice pid=$($identity.Id) runId=$RunId"
+        if (-not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
       } finally { $process.Dispose() }
     }
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
