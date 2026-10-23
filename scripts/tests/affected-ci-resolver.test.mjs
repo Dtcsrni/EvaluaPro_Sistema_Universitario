@@ -92,6 +92,19 @@ test('workflow Package Images y contratos de workflows activan las suites que va
   assert.equal(rootScriptPolicy.matchedJobs.ext_funcionales, false);
 });
 
+test('cambios del actualizador activan su suite enfocada en Core', () => {
+  for (const file of [
+    'scripts/update-manager.mjs',
+    'scripts/tests/update-manager.test.mjs'
+  ]) {
+    const result = evaluateAffectedChangeSet(config, [file]);
+    assert.equal(result.matchedGroups.updater, true, `${file} debe activar el grupo updater`);
+    assert.ok(result.commands.includes('npm run test:update'), `${file} debe ejecutar test:update`);
+    assert.equal(result.matchedJobs.core_contract_docs_gov, true, `${file} debe ejecutar el trabajo Core correspondiente`);
+    assert.equal(result.escalation, 'affected');
+  }
+});
+
 test('los gates OMR solo corren cuando cambia OMR o su dataset', () => {
   const unrelatedBackend = evaluateAffectedChangeSet(config, [
     'apps/backend/src/modulos/modulo_asistencias/servicioAsistencia.ts'
