@@ -47,6 +47,12 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /isStopping = true;[\s\S]*?if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);/);
 });
 
+test('el modo de invocación del Installer Hub autoriza su cierre interno oculto', () => {
+  const launcherFlow = hostSource.match(/if \(App\.IsInstallerHubInvocation\)[\s\S]*?return;/)?.[0];
+  assert.ok(launcherFlow, 'debe existir el flujo de inicio del Installer Hub');
+  assert.match(launcherFlow, /await OpenInstallerHubFromShortcutAsync\(\);[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);/);
+});
+
 test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola transición final', () => {
   const closingHandler = hostSource.match(/private async void MainWindow_Closing[\s\S]*?\n    }/)?.[0];
   assert.ok(closingHandler, 'debe existir el manejador de cierre del App Host');
