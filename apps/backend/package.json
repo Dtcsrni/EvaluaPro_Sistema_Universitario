@@ -81,13 +81,20 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.5",
     "@types/node": "^26.6.5",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.3.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/qrcode": "^1.5.6",
     "prisma": "^7.10.1"
+  },
+  "allowScripts": {
+    "@primno/dpapi@2.0.1": true,
+    "@prisma/engines@7.10.1": true,
+    "better-sqlite3@12.11.1": true,
+    "prisma@7.10.1": true,
+    "tesseract.js@7.0.0": false
   },
   "overrides": {
     "proxy-addr": "2.0.8",
