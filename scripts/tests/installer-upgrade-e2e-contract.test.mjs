@@ -24,7 +24,7 @@ const fixtureBuilder = fs.readFileSync(fixtureBuilderPath, 'utf8');
 
 test('el runner E2E docente conserva sintaxis válida de Windows PowerShell', { skip: process.platform !== 'win32' }, () => {
   const escapedPath = e2ePath.replace(/'/g, "''");
-  const command = \`$tokens = $null; $parseErrors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile('\${escapedPath}', [ref]$tokens, [ref]$parseErrors); if ($parseErrors.Count -gt 0) { $parseErrors | ForEach-Object { $_.ToString() }; exit 1 }\`;
+  const command = `$tokens = $null; $parseErrors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile('${escapedPath}', [ref]$tokens, [ref]$parseErrors); if ($parseErrors.Count -gt 0) { $parseErrors | ForEach-Object { $_.ToString() }; exit 1 }`;
   const result = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
     encoding: 'utf8',
     timeout: 20_000,
