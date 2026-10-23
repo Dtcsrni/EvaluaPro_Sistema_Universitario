@@ -2777,7 +2777,6 @@ finally {
     }
   }
 }
- }).Count -eq 0
       Add-Result -Area $Phase -Item 'installation-manifest-healthy' -Ok (
         [string]$installedManifest.installation.flavor -eq 'docente-local' -and
         $missingCritical.Count -eq 0 -and $hasRequiredCritical -and $hasNoLegacyCritical
