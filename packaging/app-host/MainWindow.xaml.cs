@@ -773,6 +773,7 @@ public partial class MainWindow : Window
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
         WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
+        WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
             if (answer != MessageBoxResult.Yes) return false;
 
             Directory.CreateDirectory(updateRoot);
