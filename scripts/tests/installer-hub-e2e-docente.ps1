@@ -1698,11 +1698,23 @@ function Invoke-InstalledAppHost {
           if ($installedVersion -ne [version]'1.2.3') { throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion." }
           Add-Result -Area 'native-app-host' -Item 'legacy-close-without-confirmation' -Ok $true -Detail "version=$installedVersion pid=$($identity.Id) runId=$RunId"
         } else {
-          $hostLog = Join-Path $installedRoot 'logs\app-host.log'
-          if (Test-Path -LiteralPath $hostLog -PathType Leaf) { Copy-ArtifactIfExists -Path $hostLog | Out-Null }
+          $hostLogPaths = @(
+            (Join-Path $installedRoot 'logs\app-host.log'),
+            (Join-Path (Join-Path $env:LOCALAPPDATA 'EvaluaPro') 'logs\app-host.log')
+          ) | Select-Object -Unique
+          $hostLogEvidence = @()
+          foreach ($hostLogPath in $hostLogPaths) {
+            if (-not (Test-Path -LiteralPath $hostLogPath -PathType Leaf)) { continue }
+            $copiedLog = Copy-ArtifactIfExists -Path $hostLogPath
+            $hostLogEvidence += @(Get-Content -LiteralPath $hostLogPath -Tail 40 -ErrorAction SilentlyContinue)
+          }
+          $process.Refresh()
+          $responding = try { [bool]$process.Responding } catch { $false }
           $windowDetails = @($script:lastAppHostTopLevelWindows | ForEach-Object { "'{0}' hwnd=0x{1:X} enabled={2}" -f $_.Name, $_.Handle, $_.Enabled }) -join '; '
           if ([string]::IsNullOrWhiteSpace($windowDetails)) { $windowDetails = 'ninguna ventana accesible del proceso' }
-          throw "El App Host PID $($identity.Id) no terminó ni mostró la confirmación de cierre; ventanas detectadas: $windowDetails."
+          $logDetails = ($hostLogEvidence -join ' | ')
+          if ($logDetails.Length -gt 4000) { $logDetails = $logDetails.Substring($logDetails.Length - 4000) }
+          throw "El App Host PID $($identity.Id) no terminó ni mostró la confirmación de cierre; responding=$responding; ventanas detectadas: $windowDetails; app-host.log tail: $logDetails."
         }
         $process.Refresh()
         if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
