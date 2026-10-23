@@ -772,8 +772,7 @@ public partial class MainWindow : Window
                 "EvaluaPro · Actualización disponible",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
-        WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
-        WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
+
             if (answer != MessageBoxResult.Yes) return false;
 
             Directory.CreateDirectory(updateRoot);
@@ -1103,6 +1102,7 @@ public partial class MainWindow : Window
             "EvaluaPro · Cerrar",
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
+        WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
 
         if (choice == MessageBoxResult.Cancel) return;
         if (choice == MessageBoxResult.No)
