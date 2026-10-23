@@ -546,29 +546,34 @@ function Invoke-Control {
 }
 
 function Wait-AppHostCloseConfirmation {
-  param([Parameter(Mandatory = $true)][int]$ProcessId, [int]$TimeoutSec = 15)
+  param(
+    [Parameter(Mandatory = $true)][int]$ProcessId,
+    [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
+    [int]$TimeoutSec = 15
+  )
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
-  $lastWindowProcessId = 0
   do {
-    $handle = [EvaluaProE2ENativeWindow]::FindWindow($null, 'EvaluaPro · Cerrar')
-    if ($handle -ne [IntPtr]::Zero) {
-      [uint32]$windowProcessId = 0
-      [void][EvaluaProE2ENativeWindow]::GetWindowThreadProcessId($handle, [ref]$windowProcessId)
-      $lastWindowProcessId = [int]$windowProcessId
-      if ($lastWindowProcessId -eq $ProcessId) {
-        return [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+    try {
+      $Process.Refresh()
+      if ($Process.HasExited) { return $null }
+      $handle = [EvaluaProE2ENativeWindow]::FindWindow($null, 'EvaluaPro · Cerrar')
+      if ($handle -ne [IntPtr]::Zero) {
+        [uint32]$windowProcessId = 0
+        [void][EvaluaProE2ENativeWindow]::GetWindowThreadProcessId($handle, [ref]$windowProcessId)
+        if ([int]$windowProcessId -eq $ProcessId) {
+          return [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+        }
       }
-    }
+    } catch {}
     Start-Sleep -Milliseconds 250
   } while ((Get-Date) -lt $deadline)
-  throw "No se encontró la ventana Win32 de confirmación de cierre para App Host PID $ProcessId; PID con ese título=$lastWindowProcessId."
+  return $null
 }
 
 function Invoke-AppHostCloseConfirmationYes {
-  param([Parameter(Mandatory = $true)][int]$ProcessId)
-  $dialog = Wait-AppHostCloseConfirmation -ProcessId $ProcessId -TimeoutSec 15
+  param([Parameter(Mandatory = $true)][System.Windows.Automation.AutomationElement]$Dialog)
   foreach ($name in @('Sí', 'Yes')) {
-    $button = Find-ByName -RootElement $dialog -Name $name -TimeoutSec 1
+    $button = Find-ByName -RootElement $Dialog -Name $name -TimeoutSec 1
     if ($button) {
       Invoke-Control -Element $button
       return $name
@@ -1662,9 +1667,21 @@ function Invoke-InstalledAppHost {
     if ($process) {
       try {
         if (-not $process.CloseMainWindow()) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
-        $confirmedChoice = Invoke-AppHostCloseConfirmationYes -ProcessId ([int]$identity.Id)
-        Add-Result -Area 'native-app-host' -Item 'close-confirmation-yes' -Ok $true -Detail "choice=$confirmedChoice pid=$($identity.Id) runId=$RunId"
-        if (-not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
+        $dialog = Wait-AppHostCloseConfirmation -ProcessId ([int]$identity.Id) -Process $process -TimeoutSec 15
+        $process.Refresh()
+        if ($dialog) {
+          $confirmedChoice = Invoke-AppHostCloseConfirmationYes -Dialog $dialog
+          Add-Result -Area 'native-app-host' -Item 'close-confirmation-yes' -Ok $true -Detail "choice=$confirmedChoice pid=$($identity.Id) runId=$RunId"
+        } elseif ($process.HasExited) {
+          # The v1.2.3 upgrade baseline predates the close dialog; it must still exit cleanly.
+          $installedVersion = [version](Get-InstalledProductVersion)
+          if ($installedVersion -ne [version]'1.2.3') { throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion." }
+          Add-Result -Area 'native-app-host' -Item 'legacy-close-without-confirmation' -Ok $true -Detail "version=$installedVersion pid=$($identity.Id) runId=$RunId"
+        } else {
+          throw "El App Host PID $($identity.Id) no terminó ni mostró la confirmación de cierre."
+        }
+        $process.Refresh()
+        if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
       } finally { $process.Dispose() }
     }
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
