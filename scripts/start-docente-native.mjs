@@ -240,7 +240,7 @@ function buildE2EBackend() {
   if (process.env.EVALUAPRO_E2E_BUILD !== '1' || process.env.E2E_SKIP_BACKEND_BUILD === '1') return Promise.resolve();
   return new Promise((resolve, reject) => {
     const build = spawn(process.execPath, [
-      path.join(root, 'node_modules', 'typescript', 'bin', 'tsc'),
+      path.join(root, 'node_modules', '@typescript', 'native', 'bin', 'tsc'),
       '--project',
       path.join(root, 'apps', 'backend', 'tsconfig.json')
     ], {

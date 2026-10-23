@@ -21,10 +21,10 @@
     "dev": "vite --configLoader runner",
     "dev:alumno": "node --input-type=module -e \"import {spawnSync} from 'node:child_process';const env={...process.env,VITE_APP_DESTINO:'alumno'};const r=spawnSync('vite',['--configLoader','runner'],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
     "dev:docente": "node --input-type=module -e \"import {spawnSync} from 'node:child_process';const env={...process.env,VITE_APP_DESTINO:'docente'};const r=spawnSync('vite',['--configLoader','runner'],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
-    "build": "tsc --noEmit --composite false --incremental false -p tsconfig.json --pretty false && node ../../scripts/vite-build-safe.mjs --configLoader runner",
+    "build": "node ../../node_modules/@typescript/native/bin/tsc --noEmit --composite false --incremental false -p tsconfig.json --pretty false && node ../../scripts/vite-build-safe.mjs --configLoader runner",
     "build:alumno": "node --input-type=module -e \"import {spawnSync} from 'node:child_process';const env={...process.env,VITE_APP_DESTINO:'alumno'};const r=spawnSync('npm',['run','build','--','--outDir','dist-alumno'],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
     "build:docente": "node --input-type=module -e \"import {spawnSync} from 'node:child_process';const env={...process.env,VITE_APP_DESTINO:'docente'};const r=spawnSync('npm',['run','build','--','--outDir','dist-docente'],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\" && node ../../scripts/verify-docente-bundle.mjs --dist dist-docente && node ../../scripts/wcag-guard.mjs",
-    "typecheck": "tsc --noEmit --composite false --incremental false -p tsconfig.json --pretty false",
+    "typecheck": "node ../../node_modules/@typescript/native/bin/tsc --noEmit --composite false --incremental false -p tsconfig.json --pretty false",
     "preview": "vite preview --configLoader runner",
     "preview:alumno": "vite preview --configLoader runner --outDir dist-alumno",
     "preview:docente": "vite preview --configLoader runner --outDir dist-docente",
@@ -41,6 +41,7 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@eslint/compat": "^2.1.1",
     "@eslint/eslintrc": "^3.3.7",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
@@ -49,7 +50,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "eslint": "^9.39.5",
+    "eslint": "^10.13.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -57,8 +58,5 @@
     "typescript": "^6.0.3",
     "vite": "^8.3.5",
     "vite-plugin-mkcert": "^2.1.0"
-  },
-  "allowScripts": {
-    "tesseract.js@7.0.0": false
   }
 }

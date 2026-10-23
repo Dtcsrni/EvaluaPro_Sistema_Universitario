@@ -20,8 +20,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "node scripts/clean-dist.mjs && prisma generate --config prisma.config.mjs && tsc --project tsconfig.json && node scripts/copy-prisma-generated.mjs",
-    "typecheck": "prisma generate --config prisma.config.mjs && tsc --noEmit --project tsconfig.json --pretty false",
+    "build": "node scripts/clean-dist.mjs && prisma generate --config prisma.config.mjs && node ../../node_modules/@typescript/native/bin/tsc --project tsconfig.json && node scripts/copy-prisma-generated.mjs",
+    "typecheck": "prisma generate --config prisma.config.mjs && node ../../node_modules/@typescript/native/bin/tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -44,11 +44,6 @@
     "@types/node": "^26.6.5",
     "prisma": "^7.10.1",
     "typescript": "^6.0.3"
-  },
-  "allowScripts": {
-    "@prisma/engines@7.10.1": true,
-    "better-sqlite3@12.11.1": true,
-    "prisma@7.10.1": true
   },
   "overrides": {
     "proxy-addr": "2.0.8",
