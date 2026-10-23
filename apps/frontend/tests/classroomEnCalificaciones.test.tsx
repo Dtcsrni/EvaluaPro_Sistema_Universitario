@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClassroomEnCalificaciones } from '../src/apps/app_docente/ClassroomEnCalificaciones';
+import { ErrorRemoto } from '../src/servicios_api/clienteApi';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import type { Alumno, PermisosUI } from '../src/apps/app_docente/tipos';
 
@@ -338,6 +339,21 @@ describe('ClassroomEnCalificaciones', () => {
     render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
     await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(3));
     expect(screen.queryByRole('link', { name: /Abrir en Google Classroom/ })).not.toBeInTheDocument();
+  });
+
+  it('explica que Classroom requiere OAuth y no muestra el estado vacío si falla la consulta de cursos', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [], nextCursor: null };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') {
+        throw new ErrorRemoto('API no disponible', { status: 503, codigo: 'CLASSROOM_NO_CONFIG' });
+      }
+      return {};
+    });
+
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Google Classroom no esta configurado en el backend/i);
+    expect(screen.queryByText(/No hay cursos activos disponibles/i)).not.toBeInTheDocument();
   });
 
   it('anuncia errores de consulta como alerta accesible', async () => {
