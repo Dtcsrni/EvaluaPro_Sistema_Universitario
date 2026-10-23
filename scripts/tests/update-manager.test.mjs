@@ -18,6 +18,28 @@ test('compareSemver respeta precedence con prerelease', () => {
   assert.equal(compareSemver('2.0.0-alpha.2', '2.0.0-alpha.10') < 0, true);
 });
 
+test('selectLatestRelease acepta tags hub-v y omite tags app-v', () => {
+  const pick = selectLatestRelease([
+    {
+      tag_name: 'app-v1.2.11',
+      prerelease: false,
+      assets: [{ name: 'EvaluaPro-InstallerHub-docente-local-v1.2.11.exe', browser_download_url: 'https://example/app.exe' }]
+    },
+    {
+      tag_name: 'hub-v1.2.10',
+      prerelease: false,
+      assets: [
+        { name: 'EvaluaPro-InstallerHub-docente-local-v1.2.10.exe', browser_download_url: 'https://example/hub.exe' },
+        { name: 'EvaluaPro-InstallerHub-docente-local-v1.2.10.exe.sha256', browser_download_url: 'https://example/hub.exe.sha256' }
+      ]
+    }
+  ], '1.2.8', { channel: 'stable', includePrerelease: false, flavorId: 'docente-local' });
+
+  assert.equal(pick.found, true);
+  assert.equal(pick.candidate.version, '1.2.10');
+  assert.equal(pick.candidate.installerUrl, 'https://example/hub.exe');
+});
+
 test('selectLatestRelease detecta error por asset faltante', () => {
   const pick = selectLatestRelease([{
     tag_name: 'v1.1.0',
