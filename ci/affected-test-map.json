@@ -141,6 +141,7 @@
         "scripts/tests/windows-release-smoke.test.mjs",
         "scripts/tests/runtime-env.test.mjs",
         "scripts/tests/installer-flavor-contract-scope.test.mjs",
+        "scripts/tests/app-host-shutdown.contract.test.mjs",
         "packaging/**",
         "config/installer-*.json",
         "config/update-config.json"
