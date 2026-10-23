@@ -43,6 +43,7 @@ jobs:
       release: ${{ steps.affected.outputs.group_release }}
       docs: ${{ steps.affected.outputs.group_docs }}
       compliance: ${{ steps.affected.outputs.group_compliance }}
+      updater: ${{ steps.affected.outputs.group_updater }}
       gate_flujo_docente_check: ${{ steps.affected.outputs.gate_flujo_docente_check }}
       gate_dataset_prodlike_check: ${{ steps.affected.outputs.gate_dataset_prodlike_check }}
       gate_omr_tv_extended_gate: ${{ steps.affected.outputs.gate_omr_tv_extended_gate }}
@@ -97,6 +98,10 @@ jobs:
 
       - name: Etapa contract-check
         run: npm run pipeline:contract:check
+
+      - name: Etapa test updater
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.updater == 'true'
+        run: npm run test:update
 
       - name: Etapa governance-policy-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.release == 'true' || needs.detectar_cambios.outputs.installer == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
