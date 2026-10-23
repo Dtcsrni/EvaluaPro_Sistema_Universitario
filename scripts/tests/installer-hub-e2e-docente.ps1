@@ -647,17 +647,8 @@ function Invoke-AppHostCloseConfirmationYes {
   foreach ($name in @('Sí', 'Yes')) {
     $button = Find-ByName -RootElement $Dialog -Name $name -TimeoutSec 1
     if ($button) {
-      $legacyPattern = $null
-      if ($button.TryGetCurrentPattern(
-        [System.Windows.Automation.LegacyIAccessiblePattern]::Pattern,
-        [ref]$legacyPattern
-      )) {
-        try {
-          $legacyPattern.DoDefaultAction()
-          return $name
-        } catch {}
-      }
-
+      # MessageBox buttons in the hosted runner do not expose LegacyIAccessiblePattern.
+      # Use a bounded native click first, then retain UIA as a fallback.
       $buttonHandle = [IntPtr]([int]$button.Current.NativeWindowHandle)
       if ($buttonHandle -ne [IntPtr]::Zero -and
           [EvaluaProE2ENativeWindow]::ClickButton($buttonHandle, 5000)) {
