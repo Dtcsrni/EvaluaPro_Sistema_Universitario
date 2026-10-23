@@ -151,6 +151,7 @@ export function validateClassroomE2eEvidence(filePath) {
 
   return {
     filePath,
+    displayVersion: String(evidence.displayVersion || '').trim(),
     courseId: curso.courseId,
     courseWorkId: actividad.courseWorkId,
     submissionsImportadas: Number(actividad.submissionsImportadas)
