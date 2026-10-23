@@ -1,4 +1,4 @@
-# installer-hub-e2e-docente.ps1
+﻿# installer-hub-e2e-docente.ps1
 #
 # Responsabilidad: Modulo interno del sistema.
 # Limites: Mantener contrato y comportamiento observable del modulo.
