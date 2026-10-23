@@ -8,7 +8,8 @@ EvaluaPro usa versiones SemVer (`MAJOR.MINOR.PATCH`). La versión del repositori
 - Installer Hub: `config/hub-version.json`. Se etiqueta `hub-vX.Y.Z`; esas tags activan el build y la release del instalador Windows.
 - Las versiones beta de la aplicación usan `app-vX.Y.Z-beta.N`.
 - El MSI informa la versión de la aplicación; el bundle Burn y la GUI del Hub informan la versión del Hub. El manifiesto del instalador registra ambas (`appVersion` y `hubVersion`).
-- No se reutiliza una tag ni se cambia el asset ya publicado de `v1.2.9`; el siguiente candidato usa Hub `1.2.10` sobre la aplicación `1.2.9`.
+- Corte verificado el 2026-10-22: GitHub publicó `hub-v1.2.10` desde `95219caa731eff7c1b079be6580292b804132447`; el código fuente declara aplicación `1.2.9` y Hub `1.2.10`. No reutilices esos números para un payload distinto.
+- Según ese corte, el siguiente candidato es Hub `1.2.11` sobre aplicación `1.2.9`, a menos que se publique otra versión antes de prepararlo. Reconsulta GitHub y actualiza `config/hub-version.json`, changelog y manifiesto antes de crear el tag.
 - La versión instalada solo se confirma desde EvaluaPro en el equipo.
 
 ## Fuentes de versión
@@ -27,10 +28,11 @@ El flujo de release debe verificar:
 1. Estado y versión Hub de `main`, tag `hub-vX.Y.Z` y manifiesto que separa Hub y aplicación.
 2. Checksums de instalador y archivos publicados.
 3. E2E del instalador descargado desde la release, incluyendo actualización y conservación de datos en un entorno aislado.
-4. Gates de CI y políticas aplicables al cambio.
-5. Publicación final y disponibilidad de la release y sus assets desde GitHub.
+4. E2E real de Google Classroom, con evidencia para la misma versión candidata; fixtures y mocks no satisfacen este requisito.
+5. Gates de CI y políticas aplicables al cambio.
+6. Publicación final y disponibilidad de la release y sus assets desde GitHub.
 
-Consulta [estado de releases](RELEASE_STATUS.md), [release gate estable](RELEASE_GATE_STABLE.md) y [changelog](../CHANGELOG.md).
+Consulta [estado de releases](RELEASE_STATUS.md), [política de tags](TAGGING_POLICY.md), [release gate estable](RELEASE_GATE_STABLE.md) y [changelog](../CHANGELOG.md).
 
 ## Compatibilidad
 
