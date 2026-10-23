@@ -23,6 +23,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { fetchCandidateWorkflowRuns, fetchWorkflowRun, validateCiCandidate } from './check-ci-candidate.mjs';
+import { validateClassroomE2eEvidence } from './check-classroom-e2e-evidence.mjs';
 import { validateEvidenceContract } from './check-release-evidence.mjs';
 import { REQUIRED_QA_ARTIFACTS } from './required-qa-artifacts.mjs';
 const QA_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -296,6 +297,21 @@ export function evaluateStablePromotion(options) {
   }
 
   try {
+    if (!options.version) throw new Error('Falta la versión candidata para validar Classroom');
+    const classroomEvidencePath = path.resolve(
+      process.cwd(),
+      options.classroomE2eManualPath || 'docs/release/manual/classroom-e2e-real-mayo-junio.json'
+    );
+    const classroomEvidence = validateClassroomE2eEvidence(classroomEvidencePath);
+    if (classroomEvidence.displayVersion !== options.version) {
+      throw new Error(`Evidencia Classroom corresponde a ${classroomEvidence.displayVersion || 'versión ausente'}, esperada ${options.version}`);
+    }
+    checks.push({ id: 'classroom-e2e', ok: true, detail: classroomEvidencePath });
+  } catch (error) {
+    checks.push({ id: 'classroom-e2e', ok: false, detail: String(error?.message || error) });
+  }
+
+  try {
     const manifestPath = validateInstallerReleaseManifest(options.installerManifestPath, options.version || '');
     checks.push({ id: 'installer-multi-flavor', ok: true, detail: manifestPath });
   } catch (error) {
@@ -336,6 +352,7 @@ export async function main() {
   const candidateSha = getArg('candidate-sha', process.env.RELEASE_CANDIDATE_SHA || '').trim().toLowerCase();
   const installerRunId = getArg('installer-run-id', process.env.RELEASE_INSTALLER_RUN_ID || '').trim();
   const evidenceDirArg = getArg('evidence-dir', '');
+  const classroomE2eManualPath = getArg('classroom-e2e-manual', '');
   const runProdFlow = getArg('run-prod-flow', '0') === '1';
   const reportDirArg = getArg('report-dir', '');
 
@@ -373,6 +390,7 @@ export async function main() {
     evidenceDir,
     prodFlowResult,
     installerManifestPath: getArg('installer-manifest', ''),
+    classroomE2eManualPath,
     candidateSha,
     qaManifestPath: getArg('qa-manifest', process.env.RELEASE_GATE_QA_MANIFEST || '')
   });
