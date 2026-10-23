@@ -26,6 +26,10 @@ const windowSource = fs.readFileSync(
   path.join(root, 'packaging', 'app-host', 'MainWindow.xaml'),
   'utf8'
 );
+const installerE2ESource = fs.readFileSync(
+  path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'),
+  'utf8'
+);
 
 test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(dashboardSource, /pathName === '\/api\/shutdown'/);
@@ -45,6 +49,18 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /if \(choice == MessageBoxResult\.Cancel\) return;/);
   assert.match(hostSource, /if \(choice == MessageBoxResult\.No\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);[\s\S]*?return;/);
   assert.match(hostSource, /isStopping = true;[\s\S]*?if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);/);
+});
+
+test('la E2E nativa enumera diálogos propiedad del App Host al confirmar el cierre', () => {
+  assert.match(installerE2ESource, /public static extern bool EnumWindows\(/);
+  assert.match(installerE2ESource, /GetWindowThreadProcessId\(hWnd, out ownerProcessId\)/);
+  assert.match(installerE2ESource, /FromHandle\(window\.Handle\)/);
+  const windowEnumerator = installerE2ESource.match(
+    /function Get-AppHostTopLevelWindows \{[\s\S]*?\n\}/
+  )?.[0];
+  assert.ok(windowEnumerator, 'debe existir el enumerador Win32 de ventanas App Host');
+  assert.match(windowEnumerator, /GetProcessWindows\(\$ProcessId\)/);
+  assert.doesNotMatch(windowEnumerator, /RootElement\.FindAll/);
 });
 
 test('el modo de invocación del Installer Hub autoriza su cierre interno oculto', () => {
