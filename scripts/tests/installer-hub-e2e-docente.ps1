@@ -64,6 +64,8 @@ public static class EvaluaProE2ENativeWindow {
   public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll", SetLastError=true)]
   public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 }
 '@
 
@@ -546,27 +548,20 @@ function Invoke-Control {
 function Wait-AppHostCloseConfirmation {
   param([Parameter(Mandatory = $true)][int]$ProcessId, [int]$TimeoutSec = 15)
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
-  $lastWindowName = ''
   $lastWindowProcessId = 0
   do {
-    try {
-      $handle = [EvaluaProE2ENativeWindow]::GetForegroundWindow()
-      if ($handle -ne [IntPtr]::Zero) {
-        [uint32]$activeProcessId = 0
-        [void][EvaluaProE2ENativeWindow]::GetWindowThreadProcessId($handle, [ref]$activeProcessId)
-        $lastWindowProcessId = [int]$activeProcessId
-        if ($lastWindowProcessId -eq $ProcessId) {
-          $window = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
-          $lastWindowName = [string]$window.Current.Name
-          if ([string]::Equals($lastWindowName, 'EvaluaPro · Cerrar', [StringComparison]::Ordinal)) {
-            return $window
-          }
-        }
+    $handle = [EvaluaProE2ENativeWindow]::FindWindow($null, 'EvaluaPro · Cerrar')
+    if ($handle -ne [IntPtr]::Zero) {
+      [uint32]$windowProcessId = 0
+      [void][EvaluaProE2ENativeWindow]::GetWindowThreadProcessId($handle, [ref]$windowProcessId)
+      $lastWindowProcessId = [int]$windowProcessId
+      if ($lastWindowProcessId -eq $ProcessId) {
+        return [System.Windows.Automation.AutomationElement]::FromHandle($handle)
       }
-    } catch {}
+    }
     Start-Sleep -Milliseconds 250
   } while ((Get-Date) -lt $deadline)
-  throw "No se encontró la confirmación de cierre en primer plano para App Host PID $ProcessId; ventana='$lastWindowName' PID=$lastWindowProcessId."
+  throw "No se encontró la ventana Win32 de confirmación de cierre para App Host PID $ProcessId; PID con ese título=$lastWindowProcessId."
 }
 
 function Invoke-AppHostCloseConfirmationYes {
