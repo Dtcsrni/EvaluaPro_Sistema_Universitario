@@ -35,12 +35,16 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /\/api\/shutdown/);
   assert.match(hostSource, /e\.Cancel = true/);
   assert.match(hostSource, /process\.Kill\(entireProcessTree: true\)/);
-  assert.match(hostSource, /private async Task<bool> EnsureDashboardProcessForShutdownAsync\(\)/);\n  assert.match(hostSource, /await TryAdoptDashboardAsync\(dashboardPort\)/);\n  assert.match(hostSource, /if \(webResponds \|\| apiResponds\)[\s\S]*?return false;/);\n  assert.match(hostSource, /if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?isStopping = false;[\s\S]*?La ventana permanece abierta/);
+  assert.match(hostSource, /private async Task<bool> EnsureDashboardProcessForShutdownAsync\(\)/);
+  assert.match(hostSource, /await TryAdoptDashboardAsync\(dashboardPort\)/);
+  assert.match(hostSource, /if \(webResponds \|\| apiResponds\)[\s\S]*?return false;/);
+  assert.match(hostSource, /if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?isStopping = false;[\s\S]*?La ventana permanece abierta/);
   assert.match(hostSource, /WpfMessageBox\.Show\([\s\S]*?MessageBoxButton\.YesNoCancel/);
   assert.match(hostSource, /Sí: detener API e interfaz y cerrar/);
   assert.match(hostSource, /No: dejar los servicios activos en segundo plano y cerrar solo la ventana/);
   assert.match(hostSource, /if \(choice == MessageBoxResult\.Cancel\) return;/);
-  assert.match(hostSource, /if \(choice == MessageBoxResult\.No\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);[\s\S]*?return;/);\n  assert.match(hostSource, /isStopping = true;[\s\S]*?if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);/);
+  assert.match(hostSource, /if \(choice == MessageBoxResult\.No\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);[\s\S]*?return;/);
+  assert.match(hostSource, /isStopping = true;[\s\S]*?if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);/);
 });
 
 test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola transición final', () => {
