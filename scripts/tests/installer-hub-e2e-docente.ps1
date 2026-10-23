@@ -2399,7 +2399,7 @@ function Test-InstalledState {
       $missingCritical = @($critical | Where-Object { -not [bool]$_.exists } | ForEach-Object { [string]$_.path })
       $criticalPathSet = @($critical | ForEach-Object { ([string]$_.path).Replace('/', '\').ToLowerInvariant() })
       $hasRequiredCritical = @($requiredCriticalPaths | Where-Object { $criticalPathSet -notcontains $_.ToLowerInvariant() }).Count -eq 0
-      $hasNoLegacyCritical = @($criticalPathSet | Where-Object { $_ -match '\\.(ps1|vbs)
+      $hasNoLegacyCritical = @($criticalPathSet | Where-Object { $_ -match '\.(ps1|vbs)$' }).Count -eq 0
       Add-Result -Area $Phase -Item 'installation-manifest-healthy' -Ok (
         [string]$installedManifest.installation.flavor -eq 'docente-local' -and
         $missingCritical.Count -eq 0 -and $hasRequiredCritical -and $hasNoLegacyCritical
