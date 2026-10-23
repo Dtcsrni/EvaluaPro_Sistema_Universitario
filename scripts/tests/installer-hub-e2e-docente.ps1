@@ -545,6 +545,28 @@ function Invoke-Control {
   }
 }
 
+function Get-AppHostTopLevelWindows {
+  param([Parameter(Mandatory = $true)][int]$ProcessId)
+  $matches = @()
+  try {
+    $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+      [System.Windows.Automation.TreeScope]::Children,
+      [System.Windows.Automation.Condition]::TrueCondition)
+    foreach ($window in $windows) {
+      try {
+        if ($window.Current.ProcessId -ne $ProcessId) { continue }
+        $matches += [pscustomobject]@{
+          Element = $window
+          Name = [string]$window.Current.Name
+          Handle = [int]$window.Current.NativeWindowHandle
+          Enabled = [bool]$window.Current.IsEnabled
+        }
+      } catch {}
+    }
+  } catch {}
+  return ,$matches
+}
+
 function Wait-AppHostCloseConfirmation {
   param(
     [Parameter(Mandatory = $true)][int]$ProcessId,
@@ -552,18 +574,16 @@ function Wait-AppHostCloseConfirmation {
     [int]$TimeoutSec = 15
   )
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $script:lastAppHostTopLevelWindows = @()
   do {
     try {
       $Process.Refresh()
       if ($Process.HasExited) { return $null }
-      $handle = [EvaluaProE2ENativeWindow]::FindWindow($null, 'EvaluaPro · Cerrar')
-      if ($handle -ne [IntPtr]::Zero) {
-        [uint32]$windowProcessId = 0
-        [void][EvaluaProE2ENativeWindow]::GetWindowThreadProcessId($handle, [ref]$windowProcessId)
-        if ([int]$windowProcessId -eq $ProcessId) {
-          return [System.Windows.Automation.AutomationElement]::FromHandle($handle)
-        }
-      }
+      $script:lastAppHostTopLevelWindows = @(Get-AppHostTopLevelWindows -ProcessId $ProcessId)
+      $dialog = $script:lastAppHostTopLevelWindows |
+        Where-Object { $_.Name -eq 'EvaluaPro · Cerrar' } |
+        Select-Object -First 1
+      if ($dialog) { return $dialog.Element }
     } catch {}
     Start-Sleep -Milliseconds 250
   } while ((Get-Date) -lt $deadline)
@@ -1678,7 +1698,9 @@ function Invoke-InstalledAppHost {
           if ($installedVersion -ne [version]'1.2.3') { throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion." }
           Add-Result -Area 'native-app-host' -Item 'legacy-close-without-confirmation' -Ok $true -Detail "version=$installedVersion pid=$($identity.Id) runId=$RunId"
         } else {
-          throw "El App Host PID $($identity.Id) no terminó ni mostró la confirmación de cierre."
+          $windowDetails = @($script:lastAppHostTopLevelWindows | ForEach-Object { "'$($_.Name)' hwnd=0x$('{0:X}' -f $_.Handle) enabled=$($_.Enabled)" }) -join '; '
+          if ([string]::IsNullOrWhiteSpace($windowDetails)) { $windowDetails = 'ninguna ventana accesible del proceso' }
+          throw "El App Host PID $($identity.Id) no terminó ni mostró la confirmación de cierre; ventanas detectadas: $windowDetails."
         }
         $process.Refresh()
         if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
