@@ -2389,9 +2389,12 @@ function Test-InstalledState {
       $critical = @($installedManifest.criticalFiles)
       $requiredCriticalPaths = @(
         'EvaluaPro.exe',
-        'config\shortcuts-manifest.json',
-        'scripts\launcher-dashboard.mjs',
-        'scripts\dashboard.html'
+        'apps\backend\dist\index.js',
+        'apps\backend\dist\prisma\schema.sql',
+        'runtime\node\node.exe',
+        'scripts\start-docente-native.mjs',
+        'scripts\prepare-docente-sqlite.mjs',
+        'config\update-config.json'
       )
       $missingCritical = @($critical | Where-Object { -not [bool]$_.exists } | ForEach-Object { [string]$_.path })
       $criticalPathSet = @($critical | ForEach-Object { ([string]$_.path).Replace('/', '\').ToLowerInvariant() })

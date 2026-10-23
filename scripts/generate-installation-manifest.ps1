@@ -377,9 +377,12 @@ if ($flavorId -eq 'docente-local') {
   # PowerShell/WSH launchers are intentionally excluded from its payload.
   $criticalFiles = @(
     'EvaluaPro.exe',
-    'config\shortcuts-manifest.json',
-    'scripts\launcher-dashboard.mjs',
-    'scripts\dashboard.html'
+    'apps\backend\dist\index.js',
+    'apps\backend\dist\prisma\schema.sql',
+    'runtime\node\node.exe',
+    'scripts\start-docente-native.mjs',
+    'scripts\prepare-docente-sqlite.mjs',
+    'config\update-config.json'
   )
 } else {
   $criticalFiles = @(

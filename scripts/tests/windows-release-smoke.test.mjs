@@ -610,7 +610,7 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   ]) {
     assert.equal(criticalPaths.includes(legacyPath), false, `${legacyPath} no es requerido en docente-local.`);
   }
-  assert.equal(criticalPaths.includes('evaluaPro.exe'), true);
+  assert.equal(criticalPaths.includes('evaluapro.exe'), true);
   assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path).includes('scripts/installer-hub/InstallerHub.ps1')), false);
   assert.equal(typeof manifest.runtime, 'object');
   assert.equal(typeof manifest.runtime.embeddedNode, 'object');
