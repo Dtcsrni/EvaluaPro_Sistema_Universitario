@@ -201,7 +201,7 @@ jobs:
 
       - name: Etapa setup
         run: |
-          npm install --global npm@12.1.0
+          npm install --global npm@12.2.1
           npm ci --foreground-scripts
 
       - name: Instalar WiX CLI estable (v7.0.0)
@@ -917,7 +917,7 @@ jobs:
       - name: Instalar dependencias de la E2E
         shell: powershell
         run: |
-          npm install --global npm@12.1.0
+          npm install --global npm@12.2.1
           npm ci --foreground-scripts
           npx prisma generate --config=apps/backend/prisma.config.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -1166,7 +1166,7 @@ jobs:
       - name: Instalar dependencias de la E2E
         shell: powershell
         run: |
-          npm install --global npm@12.1.0
+          npm install --global npm@12.2.1
           npm ci --foreground-scripts
           npx prisma generate --config=apps/backend/prisma.config.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

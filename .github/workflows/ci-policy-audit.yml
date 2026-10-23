@@ -38,7 +38,7 @@ jobs:
 
       - name: Etapa setup
         run: |
-          npm install --global npm@12.1.0
+          npm install --global npm@12.2.1
           npm ci --foreground-scripts
 
       - name: Ejecutar auditoría consolidada remota

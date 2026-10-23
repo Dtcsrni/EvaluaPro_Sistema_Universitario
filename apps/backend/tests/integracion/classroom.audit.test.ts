@@ -29,6 +29,8 @@ vi.mock('../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogl
   classroomGetAll: vi.fn(),
   listarCursosClassroom: vi.fn(async () => []),
   listarActividadesClassroom: vi.fn(async () => []),
+  listarActividadesClassroomConEstado: vi.fn(async () => ({ completa: true, items: [] })),
+  listarTemasClassroomConEstado: vi.fn(async () => ({ completa: true, items: [] })),
   desconectarOauthClassroom: vi.fn(async () => undefined)
 }));
 

@@ -15,9 +15,9 @@ import { MapeoClassroomAlumnoCurso } from './modeloMapeoClassroomAlumnoCurso.js'
 import { BitacoraSyncClassroom } from './modeloBitacoraSyncClassroom.js';
 import { calcularAcumuladoTareasPonderadoPorPuntos } from './calculoAcumuladoTareas.js';
 import { registrarEventoEntregaClassroom, registrarSnapshotsClassroomCortes } from './servicioHistorialClassroom.js';
+import { consultarActividadesClassroomPorTema } from './servicioConsultaActividadesClassroom.js';
 import {
   classroomGet,
-  listarActividadesClassroom,
   listarCursosClassroom,
   obtenerTokenAccesoClassroom
 } from './servicioClassroomGoogle.js';
@@ -491,8 +491,8 @@ export async function listarCursosParaDocente(docenteId: string) {
 
 export async function listarActividadesPorCurso(docenteId: string, courseId: string, periodoId?: string) {
   const accessToken = await obtenerTokenAccesoClassroom(docenteId);
-  const [courseWork, mapeos] = await Promise.all([
-    listarActividadesClassroom(accessToken, courseId),
+  const [consulta, mapeos] = await Promise.all([
+    consultarActividadesClassroomPorTema(docenteId, courseId, accessToken),
     periodoId
       ? MapeoClassroomEvidencia.find({ docenteId, periodoId, courseId }).lean()
       : Promise.resolve([])
@@ -501,17 +501,13 @@ export async function listarActividadesPorCurso(docenteId: string, courseId: str
     mapeos.map((mapeo: any) => [normalizarTexto(mapeo.courseWorkId), mapeo])
   );
 
-  return courseWork.map((actividad) => {
+  return {
+    ...consulta,
+    actividades: consulta.actividades.map((actividad) => {
     const id = normalizarTexto(actividad.id);
     const mapeo = mapeosPorActividad.get(id) as Record<string, unknown> | undefined;
     return {
-      id,
-      title: normalizarTexto(actividad.title),
-      description: normalizarTexto(actividad.description) || undefined,
-      maxPoints: numeroSeguro(actividad.maxPoints),
-      state: normalizarTexto(actividad.state) || undefined,
-      updateTime: normalizarTexto(actividad.updateTime) || undefined,
-      alternateLink: normalizarTexto(actividad.alternateLink) || undefined,
+      ...actividad,
       mapeo: mapeo
         ? {
             tituloEvidencia: normalizarTexto(mapeo.tituloEvidencia) || undefined,
@@ -528,7 +524,8 @@ export async function listarActividadesPorCurso(docenteId: string, courseId: str
           }
         : null
     };
-  });
+    })
+  };
 }
 
 export async function obtenerAlumnosCursoClassroom(docenteId: string, periodoId: string, courseId: string) {

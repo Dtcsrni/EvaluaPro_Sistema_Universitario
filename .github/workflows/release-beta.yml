@@ -66,7 +66,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          npm install --global npm@12.1.0
+          npm install --global npm@12.2.1
           npm ci --foreground-scripts
 
       - name: Consultar gates requeridos del SHA candidato
@@ -166,7 +166,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          npm install --global npm@12.1.0
+          npm install --global npm@12.2.1
           npm ci --foreground-scripts
 
       - name: Instalar WiX CLI estable (v7.0.0)

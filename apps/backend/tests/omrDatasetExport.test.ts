@@ -97,4 +97,22 @@ describe('exportador de datasets OMR', () => {
     })).rejects.toThrow('OMR_DATASET_SOURCE_HASH_MISMATCH');
     await fs.rm(root, { recursive: true, force: true });
   });
+
+  it('propaga el error de lectura de la fuente y limpia el ZIP parcial', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-dataset-source-error-'));
+    const source = path.join(root, 'ausente.pdf');
+
+    try {
+      await expect(generarZipDatasetOmr({
+        tempRoot: root,
+        sources: [{ id: 'source-id', path: source, sha256: '0'.repeat(64), bytes: 0, pages: 1 }],
+        pages: [paginaConfirmada],
+        pageIndexes: [2]
+      })).rejects.toMatchObject({ code: 'ENOENT' });
+
+      expect(await fs.readdir(root)).toEqual([]);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 });

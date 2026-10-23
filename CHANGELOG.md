@@ -10,6 +10,24 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Las suites backend de prueba y cobertura ya no reintentan automáticamente fallos; los lotes de cobertura mantienen diagnósticos y un orden de reporte determinista.
 - `sharp` se instala desde el lockfile mediante `npm ci`, sin resolverlo aparte durante el pipeline.
 
+## [1.2.10] - 2026-10-23
+
+### Changed
+- Actualizadas las dependencias de raiz y los tres workspaces, incluidas versiones mayores compatibles; cada instalacion independiente declara su allowlist de scripts.
+- Classroom muestra y permite analizar actividades del tema elegido, con materiales, enlaces y fechas limite consultados desde Google Classroom.
+
+### Added
+- OAuth de escritorio para Classroom con PKCE, callback loopback y tokens protegidos con DPAPI CurrentUser en `docente-local`.
+- La instalacion docente puede habilitar Classroom sin copiar client secrets ni llaves de cifrado entre equipos.
+
+### Fixed
+- El guardrail de toolchain y los workflows de CI usan npm 12.2.1 y las versiones actuales de Prisma y scripts permitidos.
+
+## [Hub 1.2.11] - 2026-10-23
+
+### Changed
+- El Installer Hub incluye el runtime docente actualizado con la integración Classroom de escritorio y la protección local de tokens.
+
 ### Added
 - Importación Classroom pull-only mediante jobs durables con `clientRequestId`, `planHash`, recuperación por `jobId` y reporte por actividad; la API y la GUI comparten el flujo.
 - El vínculo OAuth de Classroom usa como sugerencia y límite de identidad la cuenta Google del inicio de sesión de EvaluaPro; la GUI muestra la cuenta esperada y una identidad distinta no reemplaza la conexión existente.

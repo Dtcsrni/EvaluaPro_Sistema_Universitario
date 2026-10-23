@@ -14,7 +14,6 @@ import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servic
 import { EvidenciaEvaluacion } from '../../src/modulos/modulo_evaluaciones/modeloEvidenciaEvaluacion.js';
 import {
   classroomGet,
-  completarOauthClassroom,
   construirUrlOauthClassroom,
   obtenerTokenAccesoClassroom
 } from '../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.js';
@@ -22,9 +21,10 @@ import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../util
 
 vi.mock('../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle', () => ({
   construirUrlOauthClassroom: vi.fn(),
-  completarOauthClassroom: vi.fn(),
   obtenerTokenAccesoClassroom: vi.fn(),
-  classroomGet: vi.fn()
+  classroomGet: vi.fn(),
+  listarActividadesClassroomConEstado: vi.fn(async () => ({ completa: true, items: [] })),
+  listarTemasClassroomConEstado: vi.fn(async () => ({ completa: true, items: [] }))
 }));
 
 describe('integración classroom pull', () => {
@@ -56,32 +56,22 @@ describe('integración classroom pull', () => {
     return { docente, auth: { Authorization: `Bearer ${token}` } };
   }
 
-  it('inicia oauth y procesa callback', async () => {
+  it('inicia OAuth de escritorio y rechaza el callback web obsoleto', async () => {
     const { auth } = await crearDocenteConAuth();
 
-    vi.mocked(construirUrlOauthClassroom).mockReturnValue({
+    vi.mocked(construirUrlOauthClassroom).mockResolvedValue({
       url: 'https://accounts.google.com/o/oauth2/v2/auth?mock=1',
-      state: 'mock-state'
+      state: 'mock-state',
+      redirectUri: 'http://127.0.0.1:12345/oauth2callback'
     });
 
     const iniciar = await request(app).get('/api/integraciones/classroom/oauth/iniciar').set(auth).expect(200);
     expect(iniciar.body?.url).toContain('accounts.google.com');
 
-    vi.mocked(completarOauthClassroom).mockResolvedValue({
-      docenteId: '507f1f77bcf86cd799439901',
-      correoGoogle: 'classroom@test.com',
-      conectado: true
-    });
-
-    const callbackOk = await request(app)
+    const callbackWeb = await request(app)
       .get('/api/integraciones/classroom/oauth/callback?code=ok-code&state=ok-state')
-      .expect(200);
-    expect(String(callbackOk.text)).toContain('classroom-oauth');
-
-    const callbackError = await request(app)
-      .get('/api/integraciones/classroom/oauth/callback?error=access_denied')
-      .expect(400);
-    expect(String(callbackError.text)).toContain('error OAuth');
+      .expect(410);
+    expect(String(callbackWeb.text)).toContain('callback web ya no está activo');
   });
 
   it('mapea coursework y ejecuta pull idempotente', async () => {

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 
 export type FuenteDatasetOmr = {
   id: string;
@@ -107,20 +107,29 @@ export async function generarZipDatasetOmr(args: {
 
   const tempDir = await fs.mkdtemp(path.join(args.tempRoot ?? os.tmpdir(), 'evaluapro-omr-dataset-'));
   const archivePath = path.join(tempDir, 'dataset.zip');
-  const archive = archiver('zip', { store: true });
+  const archive = new ZipArchive({ store: true });
   const writer = createWriteStream(archivePath, { flags: 'wx' });
   const writing = pipeline(archive, writer);
+  let rejectSourceError!: (error: Error) => void;
+  const sourceFailure = new Promise<never>((_resolve, reject) => {
+    rejectSourceError = reject;
+  });
+  void sourceFailure.catch(() => undefined);
 
   try {
     for (const [index, source] of usedSources.entries()) {
       if (!/^[a-f0-9]{64}$/i.test(source.sha256) || !Number.isSafeInteger(source.bytes) || source.bytes < 0) {
         throw new Error('OMR_DATASET_SOURCE_METADATA_INVALID');
       }
-      const stream = createReadStream(source.path).pipe(crearVerificadorStream(source.sha256, source.bytes));
+      const sourceStream = createReadStream(source.path);
+      const verifiedStream = crearVerificadorStream(source.sha256, source.bytes);
+      sourceStream.once('error', rejectSourceError);
+      verifiedStream.once('error', rejectSourceError);
+      const stream = sourceStream.pipe(verifiedStream);
       archive.append(stream, { name: `sources/source-${String(index + 1).padStart(3, '0')}.pdf` });
     }
     archive.append(Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8'), { name: 'labels.json' });
-    await Promise.race([archive.finalize(), writing]);
+    await Promise.race([archive.finalize(), writing, sourceFailure]);
     await writing;
     const stat = await fs.stat(archivePath);
     const zipHash = createHash('sha256');
@@ -135,7 +144,8 @@ export async function generarZipDatasetOmr(args: {
       cleanup: () => fs.rm(tempDir, { recursive: true, force: true })
     };
   } catch (error) {
-    archive.destroy(error instanceof Error ? error : new Error('OMR_DATASET_ARCHIVE_FAILED'));
+    archive.abort();
+    archive.destroy();
     await writing.catch(() => undefined);
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
     throw error;

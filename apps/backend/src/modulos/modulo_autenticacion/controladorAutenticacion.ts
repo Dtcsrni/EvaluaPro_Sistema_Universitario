@@ -158,10 +158,7 @@ function obtenerCapacidadesOauthClassroom() {
   const oauthGoogleBackend = Boolean(String(configuracion.googleOauthClientId || '').trim());
   const classroomBackend = Boolean(
     configuracion.classroomEnabled &&
-    String(configuracion.googleClassroomClientId || '').trim() &&
-      String(configuracion.googleClassroomClientSecret || '').trim() &&
-      String(configuracion.googleClassroomRedirectUri || '').trim() &&
-      String(configuracion.classroomTokenCipherKey || '').trim()
+    String(configuracion.googleClassroomClientId || '').trim()
   );
   const smtpBackend = Boolean(
     configuracion.correoModuloActivo &&

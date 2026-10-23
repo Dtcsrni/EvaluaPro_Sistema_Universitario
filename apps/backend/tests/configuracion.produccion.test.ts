@@ -141,15 +141,16 @@ describe('configuracion (produccion)', () => {
     expect(configuracion.portalSyncRequired).toBe(true);
   });
 
-  it('respeta CLASSROOM_ENABLED y conserva compatibilidad sin la bandera', async () => {
+  it('habilita Classroom con el cliente Desktop incluido y respeta una desactivación explícita', async () => {
     process.env.NODE_ENV = 'test';
-    process.env.GOOGLE_CLASSROOM_CLIENT_ID = 'classroom-client';
-    process.env.GOOGLE_CLASSROOM_CLIENT_SECRET = 'classroom-secret';
-    process.env.GOOGLE_CLASSROOM_REDIRECT_URI = 'http://localhost:4000/callback';
-    process.env.CLASSROOM_TOKEN_CIPHER_KEY = 'cipher-key';
+    delete process.env.GOOGLE_CLASSROOM_CLIENT_ID;
+    delete process.env.GOOGLE_CLASSROOM_CLIENT_SECRET;
+    delete process.env.GOOGLE_CLASSROOM_REDIRECT_URI;
+    delete process.env.CLASSROOM_TOKEN_CIPHER_KEY;
 
     const enabled = await import('../src/configuracion.js');
     expect(enabled.configuracion.classroomEnabled).toBe(true);
+    expect(enabled.configuracion.googleClassroomClientId).toMatch(/\.apps\.googleusercontent\.com$/);
 
     vi.resetModules();
     process.env.CLASSROOM_ENABLED = '0';
@@ -157,7 +158,7 @@ describe('configuracion (produccion)', () => {
     expect(disabled.configuracion.classroomEnabled).toBe(false);
   });
 
-  it('no deriva la configuracion de Classroom desde el client id del login Google', async () => {
+  it('no deriva Classroom del login y usa su cliente Desktop propio', async () => {
     process.env.NODE_ENV = 'test';
     process.env.GOOGLE_OAUTH_CLIENT_ID = 'login-client';
     delete process.env.GOOGLE_CLASSROOM_CLIENT_ID;
@@ -169,7 +170,8 @@ describe('configuracion (produccion)', () => {
     const { configuracion } = await import('../src/configuracion.js');
 
     expect(configuracion.googleOauthClientId).toBe('login-client');
-    expect(configuracion.googleClassroomClientId).toBe('');
-    expect(configuracion.classroomEnabled).toBe(false);
+    expect(configuracion.googleClassroomClientId).not.toBe('login-client');
+    expect(configuracion.googleClassroomClientId).toMatch(/\.apps\.googleusercontent\.com$/);
+    expect(configuracion.classroomEnabled).toBe(true);
   });
 });
