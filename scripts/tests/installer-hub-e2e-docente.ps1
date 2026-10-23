@@ -64,8 +64,46 @@ public static class EvaluaProE2ENativeWindow {
   public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll", SetLastError=true)]
   public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  private static extern int GetWindowTextLength(IntPtr hWnd);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int maxCount);
+  [DllImport("user32.dll")]
+  private static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")]
+  private static extern bool IsWindowEnabled(IntPtr hWnd);
   [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
   public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+  public sealed class WindowInfo {
+    public IntPtr Handle { get; set; }
+    public string Title { get; set; }
+    public bool Visible { get; set; }
+    public bool Enabled { get; set; }
+  }
+
+  public static WindowInfo[] GetProcessWindows(int processId) {
+    var found = new System.Collections.Generic.List<WindowInfo>();
+    EnumWindows((hWnd, lParam) => {
+      uint ownerProcessId;
+      GetWindowThreadProcessId(hWnd, out ownerProcessId);
+      if (ownerProcessId != (uint)processId) return true;
+      int length = Math.Max(1, GetWindowTextLength(hWnd) + 1);
+      var title = new System.Text.StringBuilder(length);
+      GetWindowText(hWnd, title, title.Capacity);
+      found.Add(new WindowInfo {
+        Handle = hWnd,
+        Title = title.ToString(),
+        Visible = IsWindowVisible(hWnd),
+        Enabled = IsWindowEnabled(hWnd)
+      });
+      return true;
+    }, IntPtr.Zero);
+    return found.ToArray();
+  }
 }
 '@
 
@@ -549,19 +587,24 @@ function Get-AppHostTopLevelWindows {
   param([Parameter(Mandatory = $true)][int]$ProcessId)
   $matches = @()
   try {
-    $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-      [System.Windows.Automation.TreeScope]::Children,
-      [System.Windows.Automation.Condition]::TrueCondition)
-    foreach ($window in $windows) {
+    # UIA desktop children can omit owned modal windows. Enumerate native
+    # top-level HWNDs for this PID, then bind each HWND back to UI Automation.
+    foreach ($window in [EvaluaProE2ENativeWindow]::GetProcessWindows($ProcessId)) {
+      if (-not $window.Visible) { continue }
+      $element = $null
+      $name = [string]$window.Title
       try {
-        if ($window.Current.ProcessId -ne $ProcessId) { continue }
-        $matches += [pscustomobject]@{
-          Element = $window
-          Name = [string]$window.Current.Name
-          Handle = [int]$window.Current.NativeWindowHandle
-          Enabled = [bool]$window.Current.IsEnabled
+        $element = [System.Windows.Automation.AutomationElement]::FromHandle($window.Handle)
+        if ($element -and -not [string]::IsNullOrWhiteSpace([string]$element.Current.Name)) {
+          $name = [string]$element.Current.Name
         }
       } catch {}
+      $matches += [pscustomobject]@{
+        Element = $element
+        Name = $name
+        Handle = [int]$window.Handle
+        Enabled = [bool]$window.Enabled
+      }
     }
   } catch {}
   return $matches
