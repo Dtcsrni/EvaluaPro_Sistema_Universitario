@@ -1053,13 +1053,26 @@ public partial class MainWindow : Window
     {
         if (closeAuthorized) return;
 
-        // Cancel every close request until the owned services finish stopping.
-        // This keeps a second click or system close from closing the window while
-        // the first Closing handler is suspended at its await.
+        // Cancel every close request until the user chooses what to do with services.
         e.Cancel = true;
         if (isStopping) return;
-        isStopping = true;
 
+        var choice = WpfMessageBox.Show(
+            this,
+            "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
+            "EvaluaPro · Cerrar",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+
+        if (choice == MessageBoxResult.Cancel) return;
+        if (choice == MessageBoxResult.No)
+        {
+            closeAuthorized = true;
+            Close();
+            return;
+        }
+
+        isStopping = true;
         try
         {
             await ShutdownServicesAsync();
