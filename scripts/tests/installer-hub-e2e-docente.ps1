@@ -62,6 +62,8 @@ public static class EvaluaProE2ENativeWindow {
   public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")]
   public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll", SetLastError=true)]
+  public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 }
 '@
 
@@ -542,31 +544,34 @@ function Invoke-Control {
 }
 
 function Wait-AppHostCloseConfirmation {
-  param([int]$TimeoutSec = 15)
+  param([Parameter(Mandatory = $true)][int]$ProcessId, [int]$TimeoutSec = 15)
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $lastWindowName = ''
+  $lastWindowProcessId = 0
   do {
     try {
-      $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-        [System.Windows.Automation.TreeScope]::Children,
-        [System.Windows.Automation.Condition]::TrueCondition
-      )
-      foreach ($window in $windows) {
-        try {
-          if ([string]::Equals([string]$window.Current.Name, 'EvaluaPro · Cerrar', [StringComparison]::Ordinal)) {
+      $handle = [EvaluaProE2ENativeWindow]::GetForegroundWindow()
+      if ($handle -ne [IntPtr]::Zero) {
+        [uint32]$activeProcessId = 0
+        [void][EvaluaProE2ENativeWindow]::GetWindowThreadProcessId($handle, [ref]$activeProcessId)
+        $lastWindowProcessId = [int]$activeProcessId
+        if ($lastWindowProcessId -eq $ProcessId) {
+          $window = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+          $lastWindowName = [string]$window.Current.Name
+          if ([string]::Equals($lastWindowName, 'EvaluaPro · Cerrar', [StringComparison]::Ordinal)) {
             return $window
           }
-        } catch {}
+        }
       }
     } catch {}
     Start-Sleep -Milliseconds 250
   } while ((Get-Date) -lt $deadline)
-  return $null
+  throw "No se encontró la confirmación de cierre en primer plano para App Host PID $ProcessId; ventana='$lastWindowName' PID=$lastWindowProcessId."
 }
 
 function Invoke-AppHostCloseConfirmationYes {
-  $dialog = Wait-AppHostCloseConfirmation -TimeoutSec 15
-  if (-not $dialog) { throw 'El App Host no mostró la confirmación al solicitar su cierre.' }
-
+  param([Parameter(Mandatory = $true)][int]$ProcessId)
+  $dialog = Wait-AppHostCloseConfirmation -ProcessId $ProcessId -TimeoutSec 15
   foreach ($name in @('Sí', 'Yes')) {
     $button = Find-ByName -RootElement $dialog -Name $name -TimeoutSec 1
     if ($button) {
@@ -1662,7 +1667,7 @@ function Invoke-InstalledAppHost {
     if ($process) {
       try {
         if (-not $process.CloseMainWindow()) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
-        $confirmedChoice = Invoke-AppHostCloseConfirmationYes
+        $confirmedChoice = Invoke-AppHostCloseConfirmationYes -ProcessId ([int]$identity.Id)
         Add-Result -Area 'native-app-host' -Item 'close-confirmation-yes' -Ok $true -Detail "choice=$confirmedChoice pid=$($identity.Id) runId=$RunId"
         if (-not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
       } finally { $process.Dispose() }
