@@ -3043,9 +3043,9 @@ test('baseline docente publica solo el runtime nativo y los límites del bundle'
   const baseline = fs.readFileSync(path.join(root, 'scripts', 'installer-docente-baseline.mjs'), 'utf8');
   assert.match(baseline, /runtimeTarget: 'native-node-sqlite'/);
   assert.doesNotMatch(baseline, /docker|compose|requiresDockerRuntime/i);
-  assert.match(baseline, /const maxPayloadBytes = 200 \* 1024 \* 1024/);
+  assert.match(baseline, /const maxPayloadBytes = 205 \* 1024 \* 1024/);
   assert.match(baseline, /const maxBundleBytes = 270 \* 1024 \* 1024/);
-  assert.match(baseline, /Calibrado con el build v1\.2\.6 anclado al lock raíz/);
+  assert.match(baseline, /Baseline histórica v1\.2\.6/);
 });
 
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {
