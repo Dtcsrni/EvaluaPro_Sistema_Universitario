@@ -21,7 +21,7 @@ Automatizacion bloqueante:
 - script orquestador: `npm run release:validate:stable -- --version=<version>`.
 
 ## QA automatizada obligatoria
-El release estable no requiere validacion humana manual como condicion bloqueante. La UX/UI y el flujo docente quedan cubiertos por evidencias automatizadas y reproducibles.
+El flujo humano productivo general puede ejecutarse como smoke operativo opcional. La evidencia E2E real de Google Classroom es obligatoria, como se detalla más abajo.
 
 Artefactos obligatorios:
 

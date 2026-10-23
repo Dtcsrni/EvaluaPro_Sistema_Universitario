@@ -100,11 +100,14 @@ function candidateRun(id, name, sha = CANDIDATE_SHA) {
 
 function evaluateStablePromotion(options) {
   const candidateSha = options.candidateSha || CANDIDATE_SHA;
+  const classroomE2eManualPath = options.classroomE2eManualPath
+    || writeClassroomEvidence(mkTempDir('evaluapro-stable-classroom-e2e-'));
   const previousCandidateSha = process.env.RELEASE_CANDIDATE_SHA;
   process.env.RELEASE_CANDIDATE_SHA = candidateSha;
   try {
     return evaluateStablePromotionImpl({
       ...options,
+      classroomE2eManualPath,
       candidateSha,
       ciRuns: [candidateRun(101, 'CI Checks', candidateSha)],
       installerRun: candidateRun(102, 'CI Installer Windows', candidateSha)
@@ -353,7 +356,7 @@ test('stable promotion pasa con evidencia completa y CI ligado al SHA candidato'
   assert.equal(result.checks.every((item) => item.ok), true);
 });
 
-test('stable promotion no exige gate humano ni Classroom manual cuando QA automatizada esta completa', () => {
+test('stable promotion falla si falta evidencia E2E real de Classroom aunque QA automatizada este completa', () => {
   const evidenceDir = mkTempDir('evaluapro-stable-evidence-failed-');
   const installerDir = mkTempDir('evaluapro-installer-manifest-failed-');
   const qaDir = mkTempDir('evaluapro-qa-evidence-failed-');
@@ -372,8 +375,29 @@ test('stable promotion no exige gate humano ni Classroom manual cuando QA automa
     classroomE2eManualPath: path.join(qaDir, 'missing-classroom.json')
   });
 
-  assert.equal(result.ok, true);
+  assert.equal(result.ok, false);
   assert.equal(result.checks.some((item) => item.id === 'automated-qa-evidence' && item.ok === true), true);
+  assert.equal(result.checks.some((item) => item.id === 'classroom-e2e' && item.ok === false), true);
+});
+
+test('stable promotion falla si evidencia E2E real de Classroom pertenece a otra version', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-classroom-version-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-classroom-version-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-classroom-version-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const classroomE2eManualPath = writeClassroomEvidence(qaDir, { displayVersion: '0.9.9' });
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath,
+    classroomE2eManualPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.checks.some((item) => item.id === 'classroom-e2e' && item.ok === false), true);
 });
 
 test('stable promotion falla si el manifest release es incompleto aunque tenga flavors requeridos', () => {

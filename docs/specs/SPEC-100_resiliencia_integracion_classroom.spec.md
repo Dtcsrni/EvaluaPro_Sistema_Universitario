@@ -1,8 +1,8 @@
 ---
 id: SPEC-100
 titulo: Resiliencia operativa de la integración Google Classroom
-version: 1.1.0
-fecha: 2026-10-14
+version: 1.2.0
+fecha: 2026-10-22
 autor: Codex / EvaluaPro
 modulo: modulo_integraciones_classroom
 estado: approved
@@ -103,6 +103,13 @@ petición HTTP permanezca abierta.
   sustitución es atómica tras validar OAuth y `sub`; cancelación, mismatch o error conserva
   el vínculo anterior. Sin `googleSub` verificable no inicia el vínculo y explica cómo
   autenticar la cuenta correcta.
+- **REQ-012 (Promoción estable con Classroom verificado):** Una promoción a estable de
+  EvaluaPro debe incluir evidencia E2E real de Classroom, además de los gates automatizados.
+  La evidencia debe validar configuración OAuth, identidad docente, lectura de curso,
+  roster y actividad, preview, importación persistente, reimportación idempotente e
+  historial; la plantilla o una prueba con fixtures/mock no satisface este gate. La
+  evidencia se valida con `release:check:classroom-e2e` y el resultado forma parte de la
+  decisión `Go/No-Go` del gate estable. Ausencia o evidencia incompleta produce `No-Go`.
 
 ## Diagnóstico Verificado
 
@@ -155,6 +162,8 @@ snapshots deduplicados; tras reinicio se vuelven a consultar actividades ya comp
 - OAuth usa `login_hint` de la sesión; cualquier `sub` distinto de `Docente.googleSub`
   falla sin reemplazar/desactivar el vínculo vigente.
 - GUI y API concuerdan; no se modifica Classroom.
+- La promoción estable falla si falta la evidencia E2E real o si su versión no coincide
+  con la versión candidata; el gate no acepta evidencia generada solo con fixtures.
 
 ## Matriz de Trazabilidad
 
@@ -170,6 +179,7 @@ snapshots deduplicados; tras reinicio se vuelven a consultar actividades ya comp
 | REQ-009 | GUI/API usan servicio y job común | `apps/backend/tests/integracion/classroom.v2.test.ts`; `apps/frontend/tests/classroomEnCalificaciones.test.tsx` | Implementado; suites focales pasan |
 | REQ-010 | OAuth y uso del token exigen el `sub` de login; refresh legado solo si se verificó el mismo sujeto | `apps/backend/tests/servicioClassroomGoogle.test.ts`; `apps/backend/tests/integracion/classroom.v2.test.ts` | Implementado; servicio Classroom 21/21, typecheck y lint backend pasan |
 | REQ-011 | UI de identidad y reconexión | `apps/frontend/tests/seccionClassroom.test.tsx`; `apps/backend/tests/integracion/classroom.v2.test.ts`; `tests/gui-responsive/classroom-importacion.spec.ts` | Implementación local verificada: frontend 18/18 y E2E simulado 1/1; OAuth Google real pendiente |
+| REQ-012 | La promoción estable exige evidencia real de Classroom correspondiente a la versión candidata | `scripts/tests/release-stable-promotion.test.mjs`; `scripts/tests/classroom-e2e-evidence.test.mjs` | Aprobado; pendiente de implementación y validación |
 
 La cobertura global se intentó con concurrencia 1 y timeout de 20 min por lote; el
 lote OMR `backend-integracion-n-z-04` excedió ese límite en el caso pesado
