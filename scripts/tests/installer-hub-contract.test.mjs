@@ -3150,7 +3150,7 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /EnsureBackendRunningAsync/);
   assert.match(cs, /EnsureCoreWebView2Async/);
   assert.match(cs, /http:\/\/127\.0\.0\.1:4173\//);
-  assert.match(cs, /dashboardProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
+  assert.match(cs, /process\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
 });
 
 test('SPEC-050: create-shortcuts usa el manifiesto y falla cerrado sin host nativo', () => {

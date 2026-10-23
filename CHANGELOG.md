@@ -18,6 +18,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Contratos y cliente API autenticado para que Codex prepare, confirme, inicie y verifique importaciones con control de idempotencia.
 
 ### Fixed
+- App Host: confirma el cierre antes de detener API e interfaz, valida la identidad del dashboard y mantiene la ventana abierta si no puede confirmar la detención.
+- Classroom: expone el error de configuración OAuth en Calificaciones en vez de presentar una lista de cursos vacía sin explicación.
 - Burn evita planificar más de una vez la desinstalación del mismo bundle relacionado y conserva payload y datos si falla únicamente la limpieza posterior al MSI.
 - Las solicitudes HTTP mutables del cliente común ya no se reintentan automáticamente ante fallos transitorios sin idempotencia persistente.
 - La interfaz de importación conserva el job para reanudar consultas tras una interrupción y distingue resultados parciales de una sincronización completa.

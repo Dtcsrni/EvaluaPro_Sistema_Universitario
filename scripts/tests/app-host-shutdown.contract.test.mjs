@@ -26,6 +26,10 @@ const windowSource = fs.readFileSync(
   path.join(root, 'packaging', 'app-host', 'MainWindow.xaml'),
   'utf8'
 );
+const installerE2ESource = fs.readFileSync(
+  path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'),
+  'utf8'
+);
 
 test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(dashboardSource, /pathName === '\/api\/shutdown'/);
@@ -34,8 +38,47 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /PostAsync\(/);
   assert.match(hostSource, /\/api\/shutdown/);
   assert.match(hostSource, /e\.Cancel = true/);
-  assert.match(hostSource, /dashboardProcess\.Kill\(entireProcessTree: true\)/);
-  assert.match(hostSource, /if \(dashboardProcess == null\)[\s\S]*?return;/);
+  assert.match(hostSource, /process\.Kill\(entireProcessTree: true\)/);
+  assert.match(hostSource, /private async Task<bool> EnsureDashboardProcessForShutdownAsync\(\)/);
+  assert.match(hostSource, /await TryAdoptDashboardAsync\(dashboardPort\)/);
+  assert.match(hostSource, /if \(webResponds \|\| apiResponds\)[\s\S]*?return false;/);
+  assert.match(hostSource, /if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?isStopping = false;[\s\S]*?La ventana permanece abierta/);
+  assert.match(hostSource, /WpfMessageBox\.Show\([\s\S]*?MessageBoxButton\.YesNoCancel/);
+  assert.match(hostSource, /Sí: detener API e interfaz y cerrar/);
+  assert.match(hostSource, /No: dejar los servicios activos en segundo plano y cerrar solo la ventana/);
+  assert.match(hostSource, /if \(choice == MessageBoxResult\.Cancel\) return;/);
+  assert.match(hostSource, /if \(choice == MessageBoxResult\.No\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);[\s\S]*?return;/);
+  assert.match(hostSource, /isStopping = true;[\s\S]*?if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);/);
+});
+
+test('la E2E nativa enumera diálogos propiedad del App Host al confirmar el cierre', () => {
+  assert.match(installerE2ESource, /private static extern bool EnumWindows\(/);
+  assert.match(installerE2ESource, /GetWindowThreadProcessId\(hWnd, out ownerProcessId\)/);
+  assert.match(installerE2ESource, /FromHandle\(\$window\.Handle\)/);
+  const windowEnumerator = installerE2ESource.match(
+    /function Get-AppHostTopLevelWindows \{[\s\S]*?\n\}/
+  )?.[0];
+  assert.ok(windowEnumerator, 'debe existir el enumerador Win32 de ventanas App Host');
+  assert.match(windowEnumerator, /GetProcessWindows\(\$ProcessId\)/);
+  assert.match(installerE2ESource, /NativeTitle -eq 'EvaluaPro · Cerrar'/);
+  assert.match(installerE2ESource, /SendMessageTimeout/);
+  assert.match(installerE2ESource, /ClickButton\(\$buttonHandle, 5000\)/);
+  const closeButtonActivation = installerE2ESource.match(
+    /function Invoke-AppHostCloseConfirmationYes \{[\s\S]*?\n\}/
+  )?.[0];
+  assert.ok(closeButtonActivation, 'debe existir el activador del botón de confirmación');
+  assert.ok(
+    closeButtonActivation.indexOf('ClickButton') < closeButtonActivation.indexOf('Invoke-Control'),
+    'debe intentar el clic nativo antes del fallback de UI Automation'
+  );
+  assert.doesNotMatch(closeButtonActivation, /\[System\.Windows\.Automation\.LegacyIAccessiblePattern\]/);
+  assert.doesNotMatch(windowEnumerator, /RootElement\.FindAll/);
+});
+
+test('el modo de invocación del Installer Hub autoriza su cierre interno oculto', () => {
+  const launcherFlow = hostSource.match(/if \(App\.IsInstallerHubInvocation\)[\s\S]*?return;/)?.[0];
+  assert.ok(launcherFlow, 'debe existir el flujo de inicio del Installer Hub');
+  assert.match(launcherFlow, /await OpenInstallerHubFromShortcutAsync\(\);[\s\S]*?closeAuthorized = true;[\s\S]*?Close\(\);/);
 });
 
 test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola transición final', () => {
@@ -46,9 +89,9 @@ test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola 
   const authorizeCheck = closingHandler.indexOf('if (closeAuthorized) return;');
   const cancelRequest = closingHandler.indexOf('e.Cancel = true;');
   const duplicateRequestCheck = closingHandler.indexOf('if (isStopping) return;');
-  const cleanup = closingHandler.indexOf('await ShutdownServicesAsync();');
-  const authorizeFinalClose = closingHandler.indexOf('closeAuthorized = true;');
-  const finalClose = closingHandler.indexOf('Close();');
+  const cleanup = closingHandler.indexOf('await ShutdownServicesAsync()');
+  const authorizeFinalClose = closingHandler.lastIndexOf('closeAuthorized = true;');
+  const finalClose = closingHandler.lastIndexOf('Close();');
 
   assert.ok(authorizeCheck >= 0 && authorizeCheck < cancelRequest,
     'el único cierre final autorizado debe pasar sin cancelarse');
