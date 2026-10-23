@@ -56,6 +56,7 @@ public partial class MainWindow : Window
             ShowInTaskbar = false;
             Hide();
             await OpenInstallerHubFromShortcutAsync();
+            closeAuthorized = true;
             Close();
             return;
         }
