@@ -291,10 +291,10 @@
   "allowScripts": {
     "puppeteer@25.16.0": false,
     "tesseract.js@7.0.0": false,
-    "@primno/dpapi": true,
-    "@prisma/engines": true,
-    "better-sqlite3": true,
-    "esbuild": true,
-    "prisma": true
+    "@primno/dpapi@2.0.1": true,
+    "@prisma/engines@7.10.1": true,
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.1": true
   }
 }
