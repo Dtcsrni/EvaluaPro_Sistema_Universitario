@@ -2382,7 +2382,48 @@ function Test-InstalledState {
   foreach ($path in $required) {
     Add-Result -Area $Phase -Item ("file:{0}" -f (Split-Path -Leaf $path)) -Ok (Test-Path -LiteralPath $path) -Detail $path
   }
-  if (Test-Path -LiteralPath $manifest) { Copy-ArtifactIfExists -Path $manifest -Name ("{0}-installation.manifest.json" -f $Phase) | Out-Null }
+  if (Test-Path -LiteralPath $manifest) {
+    Copy-ArtifactIfExists -Path $manifest -Name ("{0}-installation.manifest.json" -f $Phase) | Out-Null
+    try {
+      $installedManifest = Get-Content -Raw -LiteralPath $manifest | ConvertFrom-Json -ErrorAction Stop
+      $critical = @($installedManifest.criticalFiles)
+      $isLegacyBaseline = $Phase -eq 'post-baseline-install'
+      $requiredCriticalPaths = if ($isLegacyBaseline) {
+        @(
+          'scripts\launcher-broker.ps1',
+          'scripts\launcher-tray.ps1',
+          'scripts\launcher-tray-hidden.vbs',
+          'scripts\create-shortcuts.ps1',
+          'config\shortcuts-manifest.json',
+          'scripts\shortcut-op-hidden.vbs',
+          'scripts\launcher-dashboard.mjs',
+          'scripts\dashboard.html',
+          'EvaluaPro.exe'
+        )
+      } else {
+        @(
+          'EvaluaPro.exe',
+          'apps\backend\dist\index.js',
+          'apps\backend\dist\prisma\schema.sql',
+          'runtime\node\node.exe',
+          'scripts\start-docente-native.mjs',
+          'scripts\prepare-docente-sqlite.mjs',
+          'config\update-config.json'
+        )
+      }
+      $missingCritical = @($critical | Where-Object { -not [bool]$_.exists } | ForEach-Object { [string]$_.path })
+      $criticalPathSet = @($critical | ForEach-Object { ([string]$_.path).Replace('/', '\').ToLowerInvariant() })
+      $hasRequiredCritical = @($requiredCriticalPaths | Where-Object { $criticalPathSet -notcontains $_.ToLowerInvariant() }).Count -eq 0
+      $hasNoLegacyCritical = $isLegacyBaseline -or @($criticalPathSet | Where-Object { $_ -match '\.(ps1|vbs)$' }).Count -eq 0
+      Add-Result -Area $Phase -Item 'installation-manifest-healthy' -Ok (
+        [string]$installedManifest.installation.flavor -eq 'docente-local' -and
+        $missingCritical.Count -eq 0 -and $hasRequiredCritical -and $hasNoLegacyCritical
+      ) -Detail ("flavor={0}; expectation={1}; missingCritical={2}; hasRequiredCritical={3}; hasNoLegacyCritical={4}" -f
+        [string]$installedManifest.installation.flavor, $(if ($isLegacyBaseline) { 'legacy-baseline' } else { 'native-current' }), ($missingCritical -join ','), $hasRequiredCritical, $hasNoLegacyCritical)
+    } catch {
+      Add-Result -Area $Phase -Item 'installation-manifest-healthy' -Ok $false -Detail $_.Exception.Message
+    }
+  }
   if (Test-Path -LiteralPath $updateConfig) {
     Copy-ArtifactIfExists -Path $updateConfig -Name ("{0}-update-config.json" -f $Phase) | Out-Null
     $cfg = Get-Content -Raw -Path $updateConfig | ConvertFrom-Json

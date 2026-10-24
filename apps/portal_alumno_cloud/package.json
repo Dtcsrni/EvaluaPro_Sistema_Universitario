@@ -1,7 +1,7 @@
 {
   "name": "portal-alumno-cloud",
   "description": "API del portal alumno (solo lectura) para consulta de información y resultados; diseñada para despliegue cloud o local.",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
@@ -20,34 +20,39 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "node scripts/clean-dist.mjs && prisma generate --config prisma.config.mjs && tsc --project tsconfig.json && node scripts/copy-prisma-generated.mjs",
-    "typecheck": "prisma generate --config prisma.config.mjs && tsc --noEmit --project tsconfig.json --pretty false",
+    "build": "node scripts/clean-dist.mjs && prisma generate --config prisma.config.mjs && node ../../node_modules/@typescript/native/bin/tsc --project tsconfig.json && node scripts/copy-prisma-generated.mjs",
+    "typecheck": "prisma generate --config prisma.config.mjs && node ../../node_modules/@typescript/native/bin/tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --max-warnings=0"
   },
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "^7.10.0",
-    "@prisma/client": "^7.10.0",
+    "@prisma/adapter-better-sqlite3": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "cors": "^2.8.6",
-    "dotenv": "^18.0.7",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.7.0",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.5",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/node": "^24.19.1",
-    "prisma": "^7.10.0",
+    "@types/node": "^26.6.5",
+    "prisma": "^7.10.1",
     "typescript": "^6.0.3"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.1": true,
+    "better-sqlite3@12.11.1": true,
+    "prisma@7.10.1": true
   },
   "overrides": {
     "proxy-addr": "2.0.8",
     "deepmerge-ts": "^8.0.2",
-    "mysql2": "^3.24.4"
+    "mysql2": "^3.24.6"
   }
 }

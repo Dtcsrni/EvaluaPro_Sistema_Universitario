@@ -125,6 +125,9 @@ function Normalize-OperationalConfig {
     $cfg.jwtSecreto = New-GeneratedSecret
   }
   $cfg.flavorId = $cfg.flavorId.Trim().ToLowerInvariant()
+  if ((-not $InputConfig.ContainsKey('classroomEnabled') -or [string]::IsNullOrWhiteSpace([string]$InputConfig['classroomEnabled'])) -and $cfg.flavorId -eq 'docente-local') {
+    $cfg.classroomEnabled = $true
+  }
   $cfg['deferPortalIntegration'] = ([string]$cfg.flavorId -eq 'docente-local' -and [string]::IsNullOrWhiteSpace($cfg.portalAlumnoUrl))
   if ([string]::IsNullOrWhiteSpace($cfg.portalAlumnoApiKey) -and -not [string]::IsNullOrWhiteSpace($cfg.portalApiKey)) {
     $cfg.portalAlumnoApiKey = $cfg.portalApiKey
@@ -154,49 +157,9 @@ function Test-InstallerOAuthValues {
     $errors += 'Google OAuth requerido: falta googleOauthClientId.'
   }
 
-  $classroomConfigured = $ClassroomEnabled
-  foreach ($value in @($GoogleClassroomClientId, $GoogleClassroomClientSecret, $GoogleClassroomRedirectUri, $ClassroomTokenCipherKey)) {
-    if (-not [string]::IsNullOrWhiteSpace($value)) {
-      $classroomConfigured = $true
-      break
-    }
-  }
-
-  if ($classroomConfigured) {
-    $required = @(
-      @{ key = 'googleClassroomClientId'; value = $GoogleClassroomClientId },
-      @{ key = 'googleClassroomClientSecret'; value = $GoogleClassroomClientSecret },
-      @{ key = 'googleClassroomRedirectUri'; value = $GoogleClassroomRedirectUri },
-      @{ key = 'classroomTokenCipherKey'; value = $ClassroomTokenCipherKey }
-    )
-    foreach ($item in $required) {
-      if ([string]::IsNullOrWhiteSpace([string]$item.value)) {
-        $errors += "Classroom habilitado: falta $($item.key)."
-      }
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($GoogleClassroomRedirectUri)) {
-      try {
-        $redirectUri = [Uri]::new($GoogleClassroomRedirectUri.Trim())
-        if ($redirectUri.Scheme -notin @('http', 'https') -or [string]::IsNullOrWhiteSpace($redirectUri.Host)) {
-          $errors += 'Classroom habilitado: googleClassroomRedirectUri no es HTTP/HTTPS valido.'
-        }
-      } catch {
-        $errors += 'Classroom habilitado: googleClassroomRedirectUri no es HTTP/HTTPS valido.'
-      }
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($ClassroomTokenCipherKey)) {
-      try {
-        $decodedKey = [Convert]::FromBase64String($ClassroomTokenCipherKey.Trim())
-        if ($decodedKey.Length -ne 32 -or [Convert]::ToBase64String($decodedKey) -ne $ClassroomTokenCipherKey.Trim()) {
-          $errors += 'Classroom habilitado: classroomTokenCipherKey debe ser Base64 canonico de 32 bytes.'
-        }
-      } catch {
-        $errors += 'Classroom habilitado: classroomTokenCipherKey debe ser Base64 canonico de 32 bytes.'
-      }
-    }
-  }
+  # Classroom de escritorio usa un client ID público incluido en el producto,
+  # PKCE y DPAPI. La llave antigua solo se valida en classroom-doctor cuando se
+  # conserva para migrar tokens existentes.
 
   return [pscustomobject]@{
     ok = ($errors.Count -eq 0)

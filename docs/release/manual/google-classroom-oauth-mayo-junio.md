@@ -1,84 +1,79 @@
-# OAuth Google Classroom - mayo-junio
+# Classroom OAuth de escritorio y E2E real
 
-Esta guia cierra la parte que no puede generarse desde el repo: `client_id`, `client_secret` y autorizacion OAuth real de Google Classroom.
+Guía para validar la integración distribuida con `docente-local`. Cada docente
+vincula su propia cuenta Google desde EvaluaPro. El producto usa el OAuth Client
+de escritorio compartido, PKCE `S256`, callback loopback y DPAPI `CurrentUser`;
+no se copia `.env`, `client_secret` ni `CLASSROOM_TOKEN_CIPHER_KEY` a cada equipo.
 
-## Datos que debes obtener en Google Cloud
+## Configuración de Google Cloud
 
-1. Entrar a Google Cloud Console con una cuenta administradora o docente autorizada.
-2. Crear o seleccionar un proyecto para EvaluaPro.
-3. Habilitar APIs:
-   - Google Classroom API.
-   - Google Identity Services / OAuth consent screen.
-4. Configurar OAuth consent screen:
-   - Tipo: interno si el dominio Google Workspace pertenece a la institucion; externo solo si aplica.
-   - Scopes minimos Classroom requeridos por el flujo real de la app.
-   - Usuarios de prueba: agregar la cuenta docente que ejecutara mayo-junio si el consentimiento no esta publicado.
-5. Crear credencial OAuth:
-   - Tipo: Web application.
-   - Authorized redirect URI:
+El cliente OAuth creado para EvaluaPro es de tipo **Escritorio** y su Client ID
+público versionado por el producto se valida en la spec
+[`SPEC-103`](../../specs/SPEC-103_classroom_oauth_distribuido_y_multinstalacion.spec.md).
+No reemplazarlo por un cliente web ni añadir redirect URI fijo. Google describe
+el flujo instalado con PKCE y callback loopback para aplicaciones de escritorio:
+<https://developers.google.com/identity/protocols/oauth2/native-app>.
 
-```text
-http://localhost:4000/api/integraciones/classroom/oauth/callback
-```
+En Google Auth Platform:
 
-Si se valida contra dominio productivo, registrar tambien:
+1. Verificar que Google Classroom API esté habilitada y que el Client ID sea de
+   escritorio en el proyecto EvaluaPro.
+2. Declarar únicamente los scopes que solicita la versión de EvaluaPro: identidad
+   básica (`openid`, `email`, `profile`) y lectura de cursos, temas, actividades,
+   roster y entregas. No añadir scopes de Drive ni permisos de escritura para
+   este flujo.
+3. Completar marca, correo de soporte y URLs públicas de inicio, privacidad y
+   términos. Los dominios deben pertenecer al responsable de la aplicación.
+4. Para pruebas controladas, usar estado `Testing` y agregar explícitamente las
+   cuentas de prueba. Esta condición limita el acceso y Google indica que las
+   autorizaciones de apps externas en pruebas caducan a los siete días.
+5. Para permitir que docentes fuera de la lista de prueba conecten sus cuentas,
+   preparar la publicación `In production` y completar la verificación OAuth que
+   aplique a los scopes sensibles. La documentación oficial requiere declarar los
+   scopes usados y someter los sensibles/restringidos a verificación antes de
+   ofrecerlos en producción:
+   <https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance?hl=en>.
 
-```text
-https://<dominio>/api/integraciones/classroom/oauth/callback
-```
+La pantalla `In production` no demuestra por sí sola que la verificación de
+scopes esté aprobada ni que la política institucional de Workspace permita la
+conexión. Registrar el resultado comprobado en la evidencia; no marcarlo por
+inferencias.
 
-6. Copiar estos valores sin pegarlos en chat:
-   - `GOOGLE_OAUTH_CLIENT_ID`
-   - `GOOGLE_CLASSROOM_CLIENT_ID`
-   - `GOOGLE_CLASSROOM_CLIENT_SECRET`
-   - `GOOGLE_CLASSROOM_REDIRECT_URI`
+## Validación en la instalación candidata
 
-## Aplicar en EvaluaPro
-
-Ejecutar desde `V:\Software\EvaluaPro`:
-
-```powershell
-pwsh -File scripts\configurar-oauth-classroom.ps1 `
-  -GoogleOauthClientId "<oauth-client-id>" `
-  -GoogleClassroomClientId "<classroom-client-id>" `
-  -GoogleClassroomClientSecret "<classroom-client-secret>" `
-  -GoogleClassroomRedirectUri "http://localhost:4000/api/integraciones/classroom/oauth/callback" `
-  -AlsoSetViteGoogleClientId
-```
-
-El script genera o conserva `CLASSROOM_TOKEN_CIPHER_KEY` en `.env`. No versionar `.env`.
-
-Validar:
-
-```powershell
-& "C:\Program Files\nodejs\npm.cmd" run classroom:doctor
-```
-
-Debe devolver `"ok": true`.
+1. Instalar el bundle `docente-local` que corresponde al SHA candidato en un
+   perfil Windows de prueba aislado.
+2. Ejecutar `npm run classroom:doctor`. Debe identificar el Client ID de
+   escritorio, DPAPI disponible y el flujo OAuth listo; la ausencia de vínculo
+   debe indicar que el docente conecte su cuenta, no pedir editar `.env`.
+3. Desde EvaluaPro, completar la vinculación Google y comprobar identidad,
+   consulta de cursos, temas, actividades, fechas límite, roster y entregas.
+   Confirmar que las actividades se filtran por el tema elegido y que fechas
+   publicadas/límite se muestran correctamente, incluida una actividad sin fecha
+   límite si existe.
+4. Revisar el preview de importación, ejecutar una importación autorizada en el
+   entorno docente controlado y repetirla para comprobar idempotencia. Verificar
+   historial y ausencia de tokens o datos personales en logs.
+5. Cerrar/reiniciar la aplicación y comprobar que DPAPI permite recuperar el
+   vínculo bajo la misma cuenta Windows. Probar el estado de reconexión en una
+   instalación/perfil distinto sin copiar el token.
 
 ## Evidencia de release
 
-Despues de operar la UI docente con el curso real mayo-junio:
-
-1. Completar `docs\release\manual\classroom-e2e-real-mayo-junio.json`.
-2. No incluir tokens, secrets ni correos completos.
-3. Ejecutar:
-
-```powershell
-& "C:\Program Files\nodejs\npm.cmd" run release:check:classroom-e2e -- `
-  --manual=docs/release/manual/classroom-e2e-real-mayo-junio.json
-```
-
-4. Cerrar stable:
+Después de completar el E2E real, copiar
+`docs/release/manual/classroom-e2e-real-mayo-junio.template.json` al archivo
+`docs/release/manual/classroom-e2e-real-mayo-junio.json` y registrar hechos
+comprobados: versión, SHA completo de la candidata, ventana, hashes no reversibles, curso/actividad, `topicId`,
+tema, fecha límite ISO (o `null` si Google no reporta una), cuentas vinculadas,
+resultados y referencias de capturas sanitizadas. No guardar tokens, códigos OAuth,
+correos completos ni nombres reales de estudiantes. El gate exige Client ID Desktop,
+PKCE, callback loopback, DPAPI, scopes y consentimiento disponible para docentes.
 
 ```powershell
-& "C:\Program Files\nodejs\npm.cmd" run release:validate:stable -- `
-  --version=1.1.0 `
-  --repo=Dtcsrni/EvaluaPro_Sistema_Universitario `
-  --candidate-sha=<sha-completo-de-main> `
-  --installer-run-id=<run-exitoso-de-CI-Installer-Windows>
+npm run release:check:classroom-e2e -- --manual=docs/release/manual/classroom-e2e-real-mayo-junio.json --candidate-sha=<sha-completo>
+npm run release:validate:stable -- --version=1.2.10 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario --candidate-sha=<sha-completo> --installer-run-id=<run-exitoso>
 ```
 
-## Limite real
-
-El repo puede generar llave de cifrado, `.env`, plantillas y validadores. No puede generar `client_secret` ni conceder scopes de Classroom sin acceso a Google Cloud Console y a una cuenta Google autorizada.
+El validador documental no ejecuta Google APIs: solo certifica la evidencia
+manual que se registró. La evidencia debe provenir de la instalación candidata
+y corresponder exactamente a su versión/SHA.

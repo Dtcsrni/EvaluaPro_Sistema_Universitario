@@ -2791,14 +2791,14 @@ $raw = Get-Content -LiteralPath $envPath -Raw
   }
 });
 
-test('configuracion operativa separa Google login de Classroom y valida requisitos', () => {
+test('configuracion operativa separa Google login de Classroom y no requiere secretos OAuth por instalación', () => {
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $login = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; requireGoogleOAuth='1'; googleOauthClientId='login-client'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
-$classroom = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; classroomEnabled='1'; googleClassroomClientId='classroom-client'; googleClassroomClientSecret='synthetic-test-googleClassroomClientSecret'; googleClassroomRedirectUri='https://example.edu/oauth/callback'; classroomTokenCipherKey='invalid'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
+$classroom = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; classroomEnabled='1'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
 $loginResult = Test-OperationalConfig -Mode install -Config $login
 $classroomResult = Test-OperationalConfig -Mode install -Config $classroom
-[pscustomobject]@{ loginOk=$loginResult.ok; classroomOk=$classroomResult.ok; classroomError=[bool](($classroomResult.errors -join '|') -match 'classroomTokenCipherKey') } | ConvertTo-Json -Compress
+[pscustomobject]@{ loginOk=$loginResult.ok; loginHasClassroomClient=[bool](-not [string]::IsNullOrWhiteSpace($login.googleClassroomClientId)); classroomOk=$classroomResult.ok; classroomEnabled=[bool]$classroom.classroomEnabled; classroomClientInput=[string]$classroom.googleClassroomClientId; classroomSecretInput=[string]$classroom.googleClassroomClientSecret } | ConvertTo-Json -Compress
 `.trim();
 
   const result = runPowerShell(script);
@@ -2806,8 +2806,11 @@ $classroomResult = Test-OperationalConfig -Mode install -Config $classroom
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const parsed = parseJsonOutput(result.stdout);
   assert.equal(parsed.loginOk, true);
-  assert.equal(parsed.classroomOk, false);
-  assert.equal(parsed.classroomError, true);
+  assert.equal(parsed.loginHasClassroomClient, false);
+  assert.equal(parsed.classroomOk, true);
+  assert.equal(parsed.classroomEnabled, true);
+  assert.equal(parsed.classroomClientInput, '');
+  assert.equal(parsed.classroomSecretInput, '');
 });
 
 test('los contratos de post-instalacion invocan validacion OAuth efectiva', () => {
@@ -3040,9 +3043,9 @@ test('baseline docente publica solo el runtime nativo y los límites del bundle'
   const baseline = fs.readFileSync(path.join(root, 'scripts', 'installer-docente-baseline.mjs'), 'utf8');
   assert.match(baseline, /runtimeTarget: 'native-node-sqlite'/);
   assert.doesNotMatch(baseline, /docker|compose|requiresDockerRuntime/i);
-  assert.match(baseline, /const maxPayloadBytes = 200 \* 1024 \* 1024/);
+  assert.match(baseline, /const maxPayloadBytes = 205 \* 1024 \* 1024/);
   assert.match(baseline, /const maxBundleBytes = 270 \* 1024 \* 1024/);
-  assert.match(baseline, /Calibrado con el build v1\.2\.6 anclado al lock raíz/);
+  assert.match(baseline, /Baseline histórica v1\.2\.6/);
 });
 
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {

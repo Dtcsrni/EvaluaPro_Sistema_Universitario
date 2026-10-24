@@ -74,9 +74,8 @@ Backend docente local:
 - `GOOGLE_OAUTH_CLIENT_ID` (si se habilita login Google)
 - `REQUIRE_GOOGLE_OAUTH` (`0`/`1`, exige claves Google/Classroom cuando esta en `1`)
 - `EVALUAPRO_BACKUP_CIFRADO_SECRETO` (secreto compartido entre instalaciones que usen snapshots locales con Google; nunca publicarlo)
-- `GOOGLE_CLASSROOM_CLIENT_ID` (si se habilita Classroom)
-- `GOOGLE_CLASSROOM_CLIENT_SECRET` (si se habilita Classroom)
-- `GOOGLE_CLASSROOM_REDIRECT_URI` (si se habilita Classroom)
+- Classroom en `docente-local` usa un OAuth Client ID Desktop público incluido en el producto y DPAPI `CurrentUser`; no copies credenciales OAuth al `.env`.
+- `CLASSROOM_TOKEN_CIPHER_KEY` solo se conserva durante la migración de tokens de instalaciones anteriores; los tokens nuevos no dependen de esta llave.
 - `LICENCIA_ACCOUNT_EMAIL` (cuando se exige activacion de licencia)
 
 Portal cloud:

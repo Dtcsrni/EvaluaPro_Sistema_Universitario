@@ -8,7 +8,18 @@ import { etiquetaMateria } from './utilidades';
 import type { Alumno, Periodo, PermisosUI } from './tipos';
 
 type CursoClassroom = { id: string; name: string; section?: string; courseState?: string };
-type ActividadClassroom = { id: string; title: string; state?: string; maxPoints?: number; mapeo?: { corte?: number } | null };
+type TemaClassroom = { id: string; name: string };
+type MetadatosCursoClassroom = { id: string; name: string | null; section: string | null; courseState: string | null; updateTime: string | null; alternateLink: string | null };
+type MaterialClassroom = { tipo: string; nombre: string | null; enlace: string | null };
+type ActividadClassroom = {
+  id: string; courseId?: string; courseName?: string | null; title: string; description?: string | null; topicId?: string | null;
+  topicName?: string | null; workType?: string; state?: string; scheduledTime?: string | null;
+  dueDate?: { year?: number; month?: number; day?: number } | null;
+  dueTime?: { hours?: number; minutes?: number; seconds?: number; nanos?: number } | null;
+  dueAtUtc?: string | null; creationTime?: string | null; updateTime?: string | null; maxPoints?: number | null;
+  gradingPeriodId?: string | null; gradeCategory?: { id?: string | null; name?: string | null; weight?: number | null } | null;
+  materials?: MaterialClassroom[]; alternateLink?: string | null; mapeo?: { corte?: number } | null;
+};
 type ResultadoImportacionClassroom = {
   planHash?: string;
   totalActividades?: number;
@@ -132,6 +143,11 @@ export function ClassroomEnCalificaciones({
   const [cargandoCursos, setCargandoCursos] = useState(false);
   const [courseId, setCourseId] = useState('');
   const [actividades, setActividades] = useState<ActividadClassroom[]>([]);
+  const [cursoConsultado, setCursoConsultado] = useState<MetadatosCursoClassroom | null>(null);
+  const [temas, setTemas] = useState<TemaClassroom[]>([]);
+  const [temaSeleccionado, setTemaSeleccionado] = useState('');
+  const [consultaActividadesCompleta, setConsultaActividadesCompleta] = useState(true);
+  const [erroresConsultaActividades, setErroresConsultaActividades] = useState<Array<{ recurso: string; codigo: string }>>([]);
   const [busquedaActividades, setBusquedaActividades] = useState('');
   const [cargandoActividades, setCargandoActividades] = useState(false);
   const [cortes, setCortes] = useState<Record<string, string>>({});
@@ -294,10 +310,13 @@ export function ClassroomEnCalificaciones({
   }, [alumnosPorId, busquedaEvidencias, evidencias]);
   const actividadesFiltradas = useMemo(() => {
     const busqueda = normalizarBusquedaClassroom(busquedaActividades);
-    return busqueda
-      ? actividades.filter((actividad) => normalizarBusquedaClassroom(actividad.title).includes(busqueda))
-      : actividades;
+    return actividades.filter((actividad) => String(actividad.state ?? '').toUpperCase() === 'PUBLISHED' &&
+      (!busqueda || normalizarBusquedaClassroom(actividad.title).includes(busqueda)));
   }, [actividades, busquedaActividades]);
+  const actividadesPorTema = useMemo(() => actividades.filter((actividad) => {
+    if (temaSeleccionado === '__sin_tema__') return !actividad.topicId;
+    return !temaSeleccionado || actividad.topicId === temaSeleccionado;
+  }), [actividades, temaSeleccionado]);
   const faltantesRevisables = useMemo(() => (preview?.actividades ?? []).flatMap((actividad) =>
     (actividad.submissions ?? [])
       .filter((submission) => submission.puedeConfirmarFaltante)
@@ -405,22 +424,32 @@ export function ClassroomEnCalificaciones({
     setMapeoEjecutado(false);
     if (!periodoId || !courseId || !permisos.classroom.pull) {
       setActividades([]);
+      setCursoConsultado(null);
       setCortes({});
       setCargandoActividades(false);
       return () => { cancelado = true; };
     }
     setCargandoActividades(true);
     const query = new URLSearchParams({ periodoId });
-    void clienteApi.obtener<{ actividades?: ActividadClassroom[] }>(
+    void clienteApi.obtener<{ curso?: MetadatosCursoClassroom; actividades?: ActividadClassroom[]; temas?: TemaClassroom[]; completa?: boolean; errores?: Array<{ recurso: string; codigo: string }> }>(
       `/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/actividades?${query}`
     ).then((respuesta) => {
       if (cancelado) return;
-      const publicadas = (respuesta.actividades ?? []).filter((actividad) => String(actividad.state ?? '').toUpperCase() === 'PUBLISHED');
-      setActividades(publicadas);
+      const recibidas = respuesta.actividades ?? [];
+      setActividades(recibidas);
+      setCursoConsultado(respuesta.curso ?? null);
+      setTemas(respuesta.temas ?? []);
+      setConsultaActividadesCompleta(respuesta.completa !== false);
+      setErroresConsultaActividades(respuesta.errores ?? []);
+      const publicadas = recibidas.filter((actividad) => String(actividad.state ?? '').toUpperCase() === 'PUBLISHED');
       setCortes(Object.fromEntries(publicadas.map((actividad) => [actividad.id, actividad.mapeo?.corte ? String(actividad.mapeo.corte) : ''])));
     }).catch((error) => {
       if (cancelado) return;
       setActividades([]);
+      setCursoConsultado(null);
+      setTemas([]);
+      setConsultaActividadesCompleta(false);
+      setErroresConsultaActividades([]);
       setCortes({});
       setMensaje(error instanceof Error ? error.message : 'No se pudieron consultar las actividades Classroom.');
       setMensajeEsError(true);
@@ -607,8 +636,36 @@ export function ClassroomEnCalificaciones({
           <div className="cuenta-subpanel" aria-labelledby="classroom-cortes-heading">
             <h4 id="classroom-cortes-heading">Vincular actividades a evaluación continua</h4>
             <p className="nota">Selecciona el parcial de cada actividad ya existente. EvaluaPro conservará la nota asignada y la evidencia de origen; no crea actividades ni permite editarlas aquí. La previsualización no cambia notas ni evidencias, pero queda registrada en el historial de sincronización.</p>
-            {cargandoActividades && <InlineMensaje tipo="info">Cargando actividades publicadas…</InlineMensaje>}
-            {actividades.length === 0 && !cargandoActividades ? <p className="nota">No hay actividades publicadas para mapear en este curso.</p> : <div className="lista lista--compacta">
+            {cargandoActividades && <InlineMensaje tipo="info">Cargando actividades de Classroom…</InlineMensaje>}
+            {courseId && !cargandoActividades && <section aria-labelledby="classroom-revision-heading" className="cuenta-subpanel">
+              <h4 id="classroom-revision-heading">Revisar actividades por tema</h4>
+              <p className="nota">Consulta descripciones, materiales y fechas del curso. Las horas de entrega se muestran en UTC porque Classroom entrega esos campos en UTC.</p>
+              <p><b>Curso:</b> {cursoConsultado?.name || cursos.find((curso) => curso.id === courseId)?.name || 'Nombre no proporcionado'}{cursoConsultado?.section ? ` · ${cursoConsultado.section}` : ''}</p>
+              {!consultaActividadesCompleta && <InlineMensaje tipo="warning">La consulta de actividades está incompleta. Se conservan los datos recibidos; revisa los recursos con error y vuelve a cargar.</InlineMensaje>}
+              {erroresConsultaActividades.map((error, indice) => <InlineMensaje key={`${error.recurso}-${indice}`} tipo="warning">{error.recurso}: {error.codigo}</InlineMensaje>)}
+              <label className="campo"><span>Filtrar por tema de Classroom</span><select value={temaSeleccionado} onChange={(event) => setTemaSeleccionado(event.target.value)}>
+                <option value="">Todos los temas</option><option value="__sin_tema__">Sin tema</option>
+                {temas.map((tema) => <option key={tema.id} value={tema.id}>{tema.name}</option>)}
+              </select></label>
+              {actividadesPorTema.length === 0 ? <p className="nota">No hay actividades en el tema seleccionado.</p> : <div className="lista lista--compacta">
+                {actividadesPorTema.map((actividad) => <details className="item-row item-glass" key={actividad.id}>
+                  <summary><b>{actividad.title || 'Actividad sin título'}</b> · {actividad.topicName || 'Tema no disponible'} · {actividad.state || 'Estado no proporcionado'}</summary>
+                  <div>
+                    <p><b>Tipo:</b> {actividad.workType || 'No proporcionado'} · <b>Puntos:</b> {actividad.maxPoints ?? 'No proporcionados'}</p>
+                    <p><b>Descripción:</b> {actividad.description || 'No proporcionada'}</p>
+                    <p><b>Fecha de publicación programada:</b> {actividad.scheduledTime ? `${new Date(actividad.scheduledTime).toLocaleString('es-MX', { timeZone: 'UTC' })} UTC` : 'No proporcionada'}</p>
+                    <p><b>Fecha de entrega:</b> {actividad.dueAtUtc ? `${new Date(actividad.dueAtUtc).toLocaleString('es-MX', { timeZone: 'UTC' })} UTC` : actividad.dueDate ? `${String(actividad.dueDate.year).padStart(4, '0')}-${String(actividad.dueDate.month).padStart(2, '0')}-${String(actividad.dueDate.day).padStart(2, '0')} (sin hora)` : 'Sin fecha de entrega'}</p>
+                    <p><b>Creación:</b> {actividad.creationTime ? `${new Date(actividad.creationTime).toLocaleString('es-MX', { timeZone: 'UTC' })} UTC` : 'No proporcionada'} · <b>Última modificación:</b> {actividad.updateTime ? `${new Date(actividad.updateTime).toLocaleString('es-MX', { timeZone: 'UTC' })} UTC` : 'No proporcionada'}</p>
+                    <p><b>Categoría:</b> {actividad.gradeCategory?.name || actividad.gradingPeriodId || 'No proporcionada'}</p>
+                    {(actividad.materials ?? []).length > 0 && <ul>{actividad.materials?.map((material, indice) => <li key={`${material.tipo}-${indice}`}>
+                      {material.nombre || material.tipo}{material.enlace ? <> · <a href={material.enlace} target="_blank" rel="noopener noreferrer">Abrir material</a></> : ' · Enlace no disponible o no permitido'}
+                    </li>)}</ul>}
+                    {obtenerUrlActividadClassroom(actividad.alternateLink) && <a href={obtenerUrlActividadClassroom(actividad.alternateLink)!} target="_blank" rel="noopener noreferrer">Abrir actividad en Google Classroom</a>}
+                  </div>
+                </details>)}
+              </div>}
+            </section>}
+            {actividades.length === 0 && consultaActividadesCompleta && !cargandoActividades ? <p className="nota">No hay actividades publicadas para mapear en este curso.</p> : <div className="lista lista--compacta">
               {actividadesFiltradas.map((actividad) => <div className="item-row item-glass" key={actividad.id}>
                 <div><b>{actividad.title}</b><div className="nota">{typeof actividad.maxPoints === 'number' ? `${actividad.maxPoints} puntos posibles` : 'Puntos posibles no especificados'}</div></div>
                 <label className="campo"><span>Parcial destino</span><select disabled={previsualizando || aplicandoMapeo} value={cortes[actividad.id] ?? ''} onChange={(event) => {
@@ -791,3 +848,4 @@ export function ClassroomEnCalificaciones({
     </section>
   );
 }
+

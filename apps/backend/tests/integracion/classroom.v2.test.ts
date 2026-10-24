@@ -28,6 +28,10 @@ vi.mock('../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogl
   listarActividadesClassroom: vi.fn(async () => [
     { id: 'cw-1', title: 'Actividad 1', description: 'Desc', maxPoints: 100, state: 'PUBLISHED' }
   ]),
+  listarActividadesClassroomConEstado: vi.fn(async () => ({ completa: true, items: [
+    { id: 'cw-1', title: 'Actividad 1', description: 'Desc', maxPoints: 100, state: 'PUBLISHED' }
+  ] })),
+  listarTemasClassroomConEstado: vi.fn(async () => ({ completa: true, items: [] })),
   desconectarOauthClassroom: vi.fn(async () => undefined)
 }));
 

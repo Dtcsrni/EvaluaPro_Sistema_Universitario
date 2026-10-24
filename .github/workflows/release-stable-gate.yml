@@ -160,7 +160,7 @@ jobs:
           E2E_SCRATCH_ROOT: ${{ runner.temp }}/evaluapro-e2e-cycle
         run: |
           set -euo pipefail
-          npm install --global npm@12.1.0
+          npm install --global npm@12.2.1
           npm ci --foreground-scripts
           node scripts/release/assert-candidate-clean.mjs 'npm ci'
 

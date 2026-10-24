@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const backendDirectory = path.resolve(scriptDirectory, '..');
 const repositoryDirectory = path.resolve(backendDirectory, '..', '..');
-const typescriptEntrypoint = path.join(repositoryDirectory, 'node_modules', 'typescript', 'bin', 'tsc');
+const typescriptEntrypoint = path.join(repositoryDirectory, 'node_modules', '@typescript', 'native', 'bin', 'tsc');
 
 function resolverEntrada(argv) {
   const argumentos = [...argv];

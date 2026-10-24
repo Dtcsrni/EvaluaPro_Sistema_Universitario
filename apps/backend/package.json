@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "description": "API docente (Express + TypeScript + SQLite nativo/Prisma) para gestión de evaluaciones, autenticación y flujo de examen OMR.",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
@@ -22,8 +22,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate --config prisma.config.mjs && tsc --project tsconfig.json",
-    "typecheck": "prisma generate --config prisma.config.mjs && tsc --noEmit --project tsconfig.json --pretty false",
+    "build": "prisma generate --config prisma.config.mjs && node ../../node_modules/@typescript/native/bin/tsc --project tsconfig.json",
+    "typecheck": "prisma generate --config prisma.config.mjs && node ../../node_modules/@typescript/native/bin/tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "node ../../scripts/testing/run-backend-coverage-batches.mjs",
@@ -52,45 +52,54 @@
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
-    "@prisma/adapter-better-sqlite3": "^7.10.0",
-    "@prisma/client": "^7.10.0",
+    "@primno/dpapi": "2.0.1",
+    "@prisma/adapter-better-sqlite3": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@tesseract.js-data/spa": "^1.0.0",
     "@zxing/library": "^0.23.0",
-    "archiver": "5.3.2",
+    "archiver": "8.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "decimal.js": "^10.6.0",
-    "docx": "^9.8.1",
-    "dotenv": "^18.0.7",
+    "docx": "^9.14.0",
+    "dotenv": "^18.0.9",
     "exceljs": "^4.4.0",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.7.0",
-    "google-auth-library": "^11.2.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "google-auth-library": "^11.3.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "jsqr": "^1.4.0",
-    "multer": "^2.4.0",
+    "multer": "^2.5.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
-    "playwright": "^1.64.0",
+    "playwright": "^1.64.1",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.5",
     "tesseract.js": "^7.0.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^26.6.5",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.3.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/qrcode": "^1.5.6",
-    "prisma": "^7.10.0"
+    "prisma": "^7.10.1"
+  },
+  "allowScripts": {
+    "@primno/dpapi@2.0.1": true,
+    "@prisma/engines@7.10.1": true,
+    "better-sqlite3@12.11.1": true,
+    "prisma@7.10.1": true,
+    "tesseract.js@7.0.0": false
   },
   "overrides": {
     "proxy-addr": "2.0.8",
     "deepmerge-ts": "^8.0.2",
-    "mysql2": "^3.24.4",
+    "mysql2": "^3.24.6",
     "exceljs": {
       "uuid": "^11.1.1"
     }

@@ -43,7 +43,7 @@ describe('VersionInfoPage', () => {
     expect(repo).toHaveAttribute('href', 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario');
     expect(screen.getByText('1.0.0b')).toBeInTheDocument();
     expect(screen.getByText(/Versión técnica 1\.0\.0/i)).toBeInTheDocument();
-    expect(screen.getByText('React 19.3.0')).toBeInTheDocument();
+    expect(screen.getByText('React 19.3.1')).toBeInTheDocument();
     expect(screen.getByText('TypeScript 6.0.3')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Licencias' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'AGPL-3.0-or-later' })).toHaveAttribute(

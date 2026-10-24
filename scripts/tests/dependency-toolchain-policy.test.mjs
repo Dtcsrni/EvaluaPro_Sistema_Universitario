@@ -9,20 +9,36 @@ const readJson = (file) => JSON.parse(fs.readFileSync(path.join(root, file), 'ut
 test('Node, npm y .NET tienen versiones estables fijadas y compatibles', () => {
   const pkg = readJson('package.json');
   const sdk = readJson('global.json');
-  assert.equal(pkg.packageManager, 'npm@12.1.0');
+  assert.equal(pkg.packageManager, 'npm@12.2.1');
   assert.equal(pkg.engines.node, '>=24.15.0');
   assert.equal(pkg.engines.npm, '>=12.1.0');
+  assert.equal(pkg.devDependencies['@types/node'], '^26.6.5');
+  for (const app of ['apps/backend', 'apps/frontend', 'apps/portal_alumno_cloud']) {
+    assert.equal(readJson(`${app}/package.json`).devDependencies['@types/node'], '^26.6.5');
+  }
   assert.equal(sdk.sdk.version, '10.0.401');
   assert.equal(sdk.sdk.allowPrerelease, false);
 });
 
 test('npm 12 permite solo scripts requeridos y fijados, niega descargas opcionales', () => {
   const scripts = readJson('package.json').allowScripts;
-  for (const key of ['@prisma/engines@7.10.0', 'better-sqlite3@12.11.1', 'esbuild@0.28.1', 'prisma@7.10.0']) {
+  for (const key of ['@prisma/engines@7.10.1', 'better-sqlite3@12.11.1', 'esbuild@0.28.2', 'prisma@7.10.1']) {
     assert.equal(scripts[key], true, `falta aprobación explícita para ${key}`);
   }
-  assert.equal(scripts['puppeteer@25.3.0'], false);
+  assert.equal(scripts['puppeteer@25.16.0'], false);
   assert.equal(scripts['tesseract.js@7.0.0'], false);
+
+  const backendScripts = readJson('apps/backend/package.json').allowScripts;
+  for (const key of ['@primno/dpapi@2.0.1', '@prisma/engines@7.10.1', 'better-sqlite3@12.11.1', 'prisma@7.10.1']) {
+    assert.equal(backendScripts[key], true, `falta aprobación explícita para backend: ${key}`);
+  }
+  assert.equal(backendScripts['tesseract.js@7.0.0'], false);
+
+  assert.equal(readJson('apps/frontend/package.json').allowScripts['tesseract.js@7.0.0'], false);
+  const portalScripts = readJson('apps/portal_alumno_cloud/package.json').allowScripts;
+  for (const key of ['@prisma/engines@7.10.1', 'better-sqlite3@12.11.1', 'prisma@7.10.1']) {
+    assert.equal(portalScripts[key], true, `falta aprobación explícita para portal: ${key}`);
+  }
 });
 
 test('Prisma 7 SQLite usa adapter y URLs externas a los schemas', () => {
@@ -30,9 +46,9 @@ test('Prisma 7 SQLite usa adapter y URLs externas a los schemas', () => {
     const pkg = readJson(`${app}/package.json`);
     const schema = fs.readFileSync(path.join(root, app, 'prisma/schema.prisma'), 'utf8');
     const config = fs.readFileSync(path.join(root, app, 'prisma.config.mjs'), 'utf8');
-    assert.equal(pkg.dependencies['@prisma/client'], '^7.10.0');
-    assert.equal(pkg.dependencies['@prisma/adapter-better-sqlite3'], '^7.10.0');
-    assert.equal(pkg.devDependencies.prisma, '^7.10.0');
+    assert.equal(pkg.dependencies['@prisma/client'], '^7.10.1');
+    assert.equal(pkg.dependencies['@prisma/adapter-better-sqlite3'], '^7.10.1');
+    assert.equal(pkg.devDependencies.prisma, '^7.10.1');
     assert.match(config, /datasource:\s*\{\s*url:/);
     assert.doesNotMatch(schema, /url\s*=\s*env\(/);
   }
