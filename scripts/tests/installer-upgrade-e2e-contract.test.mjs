@@ -371,7 +371,7 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   assert.match(e2e, /Invoke-UpgradeBaselineFlow -BaselinePath \$BaselineBundlePath/);
   assert.match(e2e, /function Invoke-InstalledAppHost/);
   assert.match(e2e, /Wait-NativeDashboardHealth/);
-  assert.doesNotMatch(e2e, /Invoke-InstalledBroker|launcher-broker\.ps1/);
+  assert.doesNotMatch(baselineFlow, /Invoke-InstalledBroker/);
   assert.match(e2e, /\$databasePath = Resolve-InstalledSqlitePath/);
   assert.match(e2e, /Join-Path \$installedRoot 'runtime\\node\\node\.exe'/);
   assert.match(e2e, /function Get-ConfiguredInstalledSqlitePath/);
@@ -379,6 +379,16 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   assert.match(e2e, /Join-Path \$installedRoot 'data\\evaluapro\.db'/);
   assert.match(e2e, /La ruta SQLite del instalador está fuera de los destinos QA permitidos/);
   assert.match(e2e, /if \(\$databasePath -ne \$localDatabase\)/);
+});
+
+test('upgrade E2E acepta manifiesto legado solo antes de actualizar el baseline', () => {
+  const installedStateStart = e2e.indexOf('function Test-InstalledState {');
+  const installedStateEnd = e2e.indexOf('\nfunction ', installedStateStart + 1);
+  const installedState = e2e.slice(installedStateStart, installedStateEnd);
+  assert.match(installedState, /\$isLegacyBaseline = \$Phase -eq 'post-baseline-install'/);
+  assert.match(installedState, /if \(\$isLegacyBaseline\) \{[\s\S]*?'scripts\\launcher-broker\.ps1'[\s\S]*?'EvaluaPro\.exe'[\s\S]*?\} else \{[\s\S]*?'apps\\backend\\dist\\index\.js'[\s\S]*?'scripts\\start-docente-native\.mjs'/);
+  assert.match(installedState, /\$hasNoLegacyCritical = \$isLegacyBaseline -or/);
+  assert.match(installedState, /expectation=\{1\}/);
 });
 
 test('CI descarga y verifica el baseline v1.2.3 oficial y lo pasa al runner upgrade', () => {
