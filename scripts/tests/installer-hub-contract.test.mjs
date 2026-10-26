@@ -3155,8 +3155,23 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /http:\/\/127\.0\.0\.1:4173\//);
   assert.match(cs, /EVALUAPRO_OPEN_EXTERNAL_URL/);
   assert.match(cs, /accounts\.google\.com/);
+  assert.match(cs, /EsAutorizacionGoogleDesktopConfiable\(rawUrl\)/);
+  assert.match(cs, /GoogleDesktopClientId/);
+  assert.match(cs, /redirectUri\.Host, "127\.0\.0\.1"/);
+  assert.match(cs, /code_challenge_method/);
+  assert.match(cs, /SetEquals\(\["openid", "email", "profile"\]\)/);
   assert.match(cs, /UseShellExecute\s*=\s*true/);
   assert.match(cs, /dashboardProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
+});
+
+test('OAuth Desktop del host solo admite el mismo Client ID que el backend', () => {
+  const cs = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
+  const backendConfig = fs.readFileSync(path.join(root, 'apps', 'backend', 'src', 'configuracion.ts'), 'utf8');
+  const hostClientId = cs.match(/GoogleDesktopClientId\s*=\s*"([^"]+)"/)?.[1];
+  const backendClientId = backendConfig.match(/googleDesktopClientId\s*=\s*'([^']+)'/)?.[1];
+
+  assert.ok(hostClientId, 'el host debe fijar el Client ID Desktop autorizado');
+  assert.equal(hostClientId, backendClientId, 'host y backend deben aceptar el mismo Client ID');
 });
 
 test('SPEC-050: create-shortcuts usa el manifiesto y falla cerrado sin host nativo', () => {

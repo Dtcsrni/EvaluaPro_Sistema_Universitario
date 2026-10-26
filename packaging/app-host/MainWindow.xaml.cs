@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -30,6 +31,7 @@ public partial class MainWindow : Window
     private string appRoot = string.Empty;
     private const int DashboardPortFallback = 4519;
     private static readonly TimeSpan ServiceStartupTimeout = TimeSpan.FromSeconds(60);
+    private const string GoogleDesktopClientId = "1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com";
     public MainWindow()
     {
         InitializeComponent();
@@ -695,16 +697,12 @@ public partial class MainWindow : Window
                 var rawUrl = documento.RootElement.TryGetProperty("url", out var urlElement)
                     ? urlElement.GetString()
                     : null;
-                if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var externalUri) ||
-                    externalUri.Scheme != Uri.UriSchemeHttps ||
-                    !string.Equals(externalUri.Host, "accounts.google.com", StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(externalUri.AbsolutePath, "/o/oauth2/v2/auth", StringComparison.Ordinal) ||
-                    !string.IsNullOrEmpty(externalUri.UserInfo))
+                if (!EsAutorizacionGoogleDesktopConfiable(rawUrl))
                 {
-                    Debug.WriteLine("Se rechazó una URL externa fuera del endpoint OAuth Desktop de Google.");
+                    Debug.WriteLine("Se rechazó una solicitud OAuth Desktop externa que no cumple la política local.");
                     return;
                 }
-                Process.Start(new ProcessStartInfo(externalUri.AbsoluteUri) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(rawUrl!) { UseShellExecute = true });
                 return;
             }
             if (tipo.GetString() == "EVALUAPRO_UPDATE_HUB")
@@ -736,6 +734,64 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"Error al seleccionar la carpeta de sincronización: {ex.Message}");
         }
+    }
+
+    private static bool EsAutorizacionGoogleDesktopConfiable(string? rawUrl)
+    {
+        if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps ||
+            uri.Port != 443 ||
+            !string.Equals(uri.Host, "accounts.google.com", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(uri.AbsolutePath, "/o/oauth2/v2/auth", StringComparison.Ordinal) ||
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            !string.IsNullOrEmpty(uri.Fragment))
+        {
+            return false;
+        }
+
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        string? Unico(string key)
+        {
+            var values = query.GetValues(key);
+            return values is { Length: 1 } ? values[0] : null;
+        }
+
+        var parametrosPermitidos = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "access_type", "prompt", "scope", "state", "redirect_uri",
+            "code_challenge", "code_challenge_method", "response_type", "client_id"
+        };
+        var claves = query.AllKeys;
+        if (claves.Length != parametrosPermitidos.Count) return false;
+        foreach (var clave in claves)
+        {
+            if (clave is null || !parametrosPermitidos.Contains(clave)) return false;
+        }
+
+        var clientId = Unico("client_id");
+        var redirectUriValue = Unico("redirect_uri");
+        var redirectUriValida = Uri.TryCreate(redirectUriValue, UriKind.Absolute, out var redirectUri) &&
+            redirectUri.Scheme == Uri.UriSchemeHttp &&
+            string.Equals(redirectUri.Host, "127.0.0.1", StringComparison.Ordinal) &&
+            redirectUri.Port is > 0 and <= 65535 &&
+            string.Equals(redirectUri.AbsolutePath, "/oauth2callback", StringComparison.Ordinal) &&
+            string.IsNullOrEmpty(redirectUri.UserInfo) &&
+            string.IsNullOrEmpty(redirectUri.Query) &&
+            string.IsNullOrEmpty(redirectUri.Fragment);
+
+        var scopes = Unico("scope")?.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var scopesValidos = scopes is { Length: 3 } &&
+            new HashSet<string>(scopes, StringComparer.Ordinal).SetEquals(["openid", "email", "profile"]);
+
+        return string.Equals(clientId, GoogleDesktopClientId, StringComparison.Ordinal) &&
+            redirectUriValida &&
+            string.Equals(Unico("response_type"), "code", StringComparison.Ordinal) &&
+            string.Equals(Unico("code_challenge_method"), "S256", StringComparison.Ordinal) &&
+            Regex.IsMatch(Unico("code_challenge") ?? string.Empty, "^[A-Za-z0-9_-]{43}$", RegexOptions.CultureInvariant) &&
+            Regex.IsMatch(Unico("state") ?? string.Empty, "^[A-Za-z0-9_-]{43}$", RegexOptions.CultureInvariant) &&
+            string.Equals(Unico("access_type"), "online", StringComparison.Ordinal) &&
+            string.Equals(Unico("prompt"), "select_account", StringComparison.Ordinal) &&
+            scopesValidos;
     }
 
     private async Task<bool> DownloadAndOpenLatestInstallerHubAsync(string requestedVersion)
