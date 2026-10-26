@@ -269,7 +269,7 @@ export function SeccionAutenticacion({
     try {
       const recuperado = await onReintentarGoogle?.();
       if (!recuperado) {
-        setDiagnosticoGoogle('Google todavía no está disponible. Verifica que el backend tenga configurado su Client ID e inténtalo de nuevo.');
+        setDiagnosticoGoogle('No se pudo confirmar la disponibilidad del inicio de sesión con Google. Revisa la conexión con EvaluaPro e inténtalo de nuevo.');
       }
     } catch {
       setDiagnosticoGoogle('No se pudo consultar la configuración de Google. Verifica la conexión con el backend e inténtalo de nuevo.');

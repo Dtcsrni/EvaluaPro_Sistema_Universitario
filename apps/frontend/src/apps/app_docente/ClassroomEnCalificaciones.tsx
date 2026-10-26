@@ -4,7 +4,7 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { clienteApi } from './clienteApiDocente';
-import { etiquetaMateria } from './utilidades';
+import { etiquetaMateria, mensajeDeError } from './utilidades';
 import type { Alumno, Periodo, PermisosUI } from './tipos';
 
 type CursoClassroom = { id: string; name: string; section?: string; courseState?: string };
@@ -141,6 +141,7 @@ export function ClassroomEnCalificaciones({
   const [busquedaEvidencias, setBusquedaEvidencias] = useState('');
   const [cursos, setCursos] = useState<CursoClassroom[]>([]);
   const [cargandoCursos, setCargandoCursos] = useState(false);
+  const [errorCursos, setErrorCursos] = useState('');
   const [courseId, setCourseId] = useState('');
   const [actividades, setActividades] = useState<ActividadClassroom[]>([]);
   const [cursoConsultado, setCursoConsultado] = useState<MetadatosCursoClassroom | null>(null);
@@ -365,9 +366,11 @@ export function ClassroomEnCalificaciones({
     if (!permisos.classroom.pull) {
       setCursos([]);
       setCourseId('');
+      setErrorCursos('');
       setCargandoCursos(false);
       return () => { cancelado = true; };
     }
+    setErrorCursos('');
     setCargandoCursos(true);
     void clienteApi.obtener<{ cursos?: CursoClassroom[] }>('/evaluaciones/v2/classroom/cursos')
       .then((respuesta) => {
@@ -375,13 +378,14 @@ export function ClassroomEnCalificaciones({
         const activos = (respuesta.cursos ?? []).filter((curso) => !curso.courseState || curso.courseState.toUpperCase() === 'ACTIVE');
         setCursos(activos);
         setCourseId((actual) => activos.some((curso) => curso.id === actual) ? actual : '');
+        setErrorCursos('');
         setCargandoCursos(false);
       })
       .catch((error) => {
         if (cancelado) return;
         setCursos([]);
-        setMensaje(error instanceof Error ? error.message : 'No se pudieron consultar los cursos de Google Classroom.');
-        setMensajeEsError(true);
+        setCourseId('');
+        setErrorCursos(mensajeDeError(error, 'No se pudieron consultar los cursos de Google Classroom.'));
       })
       .finally(() => {
         if (!cancelado) setCargandoCursos(false);
@@ -611,7 +615,8 @@ export function ClassroomEnCalificaciones({
             <option value="">Selecciona un curso…</option>{cursos.map((curso) => <option key={curso.id} value={curso.id}>{curso.name}{curso.section ? ` · ${curso.section}` : ''}</option>)}
           </select></label>
           {cargandoCursos && <InlineMensaje tipo="info">Cargando cursos de Google Classroom…</InlineMensaje>}
-          {!cargandoCursos && cursos.length === 0 && <InlineMensaje tipo="info">No hay cursos activos disponibles. Revisa la conexión en Classroom o vuelve a cargar la sección.</InlineMensaje>}
+          {errorCursos && <InlineMensaje tipo="error">{errorCursos}</InlineMensaje>}
+          {!cargandoCursos && !errorCursos && cursos.length === 0 && <InlineMensaje tipo="info">No hay cursos activos disponibles. Revisa la conexión en Classroom o vuelve a cargar la sección.</InlineMensaje>}
           {courseId && <label className="campo">
             <span>Buscar actividad para asignar parcial</span>
             <input type="search" value={busquedaActividades} onChange={(event) => setBusquedaActividades(event.target.value)} placeholder="Nombre de actividad" />

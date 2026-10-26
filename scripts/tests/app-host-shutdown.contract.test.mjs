@@ -26,6 +26,10 @@ const windowSource = fs.readFileSync(
   path.join(root, 'packaging', 'app-host', 'MainWindow.xaml'),
   'utf8'
 );
+const installerE2ESource = fs.readFileSync(
+  path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'),
+  'utf8'
+);
 
 test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(dashboardSource, /pathName === '\/api\/shutdown'/);
@@ -34,8 +38,8 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /PostAsync\(/);
   assert.match(hostSource, /\/api\/shutdown/);
   assert.match(hostSource, /e\.Cancel = true/);
-  assert.match(hostSource, /dashboardProcess\.Kill\(entireProcessTree: true\)/);
-  assert.match(hostSource, /if \(dashboardProcess == null\)[\s\S]*?return;/);
+  assert.match(hostSource, /process\.Kill\(entireProcessTree: true\)/);
+  assert.match(hostSource, /if \(dashboardProcess == null\) return true;/);
 });
 
 test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola transición final', () => {
@@ -46,16 +50,32 @@ test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola 
   const authorizeCheck = closingHandler.indexOf('if (closeAuthorized) return;');
   const cancelRequest = closingHandler.indexOf('e.Cancel = true;');
   const duplicateRequestCheck = closingHandler.indexOf('if (isStopping) return;');
-  const cleanup = closingHandler.indexOf('await ShutdownServicesAsync();');
-  const authorizeFinalClose = closingHandler.indexOf('closeAuthorized = true;');
-  const finalClose = closingHandler.indexOf('Close();');
+  const confirm = closingHandler.indexOf('var choice = WpfMessageBox.Show(');
+  const cancelChoice = closingHandler.indexOf('if (choice == MessageBoxResult.Cancel) return;');
+  const noChoice = closingHandler.indexOf('if (choice == MessageBoxResult.No)');
+  const cleanup = closingHandler.indexOf('if (!await ShutdownServicesAsync())');
+  const authorizeFinalClose = closingHandler.lastIndexOf('closeAuthorized = true;');
+  const finalClose = closingHandler.lastIndexOf('Close();');
 
   assert.ok(authorizeCheck >= 0 && authorizeCheck < cancelRequest,
     'el único cierre final autorizado debe pasar sin cancelarse');
   assert.ok(cancelRequest >= 0 && cancelRequest < duplicateRequestCheck,
     'cada solicitud concurrente debe cancelarse antes de omitir el trabajo duplicado');
-  assert.ok(duplicateRequestCheck < cleanup && cleanup < authorizeFinalClose && authorizeFinalClose < finalClose,
-    'el cierre final debe autorizarse después de completar la limpieza, sin reentrar durante la espera');
+  assert.ok(duplicateRequestCheck < confirm && confirm < cancelChoice && cancelChoice < noChoice && noChoice < cleanup,
+    'la ventana debe ofrecer cancelar, cerrar sin detener servicios o solicitar la detención');
+  assert.ok(cleanup < authorizeFinalClose && authorizeFinalClose < finalClose,
+    'solo se autoriza el cierre final después de confirmar la detención de los servicios');
+  assert.match(closingHandler, /if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?return;/,
+    'si la identidad de los servicios no puede verificarse, la ventana debe permanecer abierta');
+});
+
+test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
+  assert.match(installerE2ESource, /function Get-AppHostTopLevelWindows/);
+  assert.match(installerE2ESource, /function Wait-AppHostCloseConfirmation/);
+  assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationYes/);
+  assert.match(installerE2ESource, /Wait-AppHostCloseConfirmation -ProcessId/);
+  assert.match(installerE2ESource, /close-confirmation-yes/);
+  assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
 });
 
 test('el host adopta servicios sanos antes del retorno temprano y solo si coinciden con la instalación', () => {

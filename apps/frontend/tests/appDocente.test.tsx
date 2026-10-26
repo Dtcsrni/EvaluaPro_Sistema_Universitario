@@ -25,6 +25,29 @@ describe('AppDocente', () => {
     expect(screen.getByText('Plataforma Docente')).toBeInTheDocument();
   });
 
+  it('recupera OAuth Desktop al reintentar si la primera consulta de capacidades falla', async () => {
+    localStorage.removeItem('tokenDocente');
+    let consultasCapacidades = 0;
+    const fetchMock = vi.mocked(global.fetch);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const json = (payload: unknown, ok = true, status = 200) => ({ ok, status, json: async () => payload, blob: async () => new Blob() });
+      if (url.includes('/autenticacion/capacidades-integraciones')) {
+        consultasCapacidades += 1;
+        if (consultasCapacidades === 1) return json({ error: 'API iniciando' }, false, 503);
+        return json({ capacidadesIntegraciones: { oauthGoogleDesktopBackend: true, passwordLoginAllowed: false, requireGoogleOAuth: true } });
+      }
+      return json({});
+    });
+
+    const user = userEvent.setup();
+    render(<TemaProvider><AppDocente /></TemaProvider>);
+    await user.click(await screen.findByRole('button', { name: /Reintentar acceso con Google/i }));
+
+    expect(await screen.findByRole('button', { name: 'Acceder con Google' })).toBeInTheDocument();
+    expect(consultasCapacidades).toBeGreaterThanOrEqual(2);
+  });
+
   it('muestra panel docente cuando existe token', async () => {
     localStorage.setItem('tokenDocente', 'token-falso');
     render(

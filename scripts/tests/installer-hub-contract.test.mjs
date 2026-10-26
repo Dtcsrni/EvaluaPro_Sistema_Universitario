@@ -3161,7 +3161,7 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /code_challenge_method/);
   assert.match(cs, /SetEquals\(\["openid", "email", "profile"\]\)/);
   assert.match(cs, /UseShellExecute\s*=\s*true/);
-  assert.match(cs, /dashboardProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
+  assert.match(cs, /process\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
 });
 
 test('OAuth Desktop del host solo admite el mismo Client ID que el backend', () => {
