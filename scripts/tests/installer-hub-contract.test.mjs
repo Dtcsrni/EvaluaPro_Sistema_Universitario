@@ -3169,9 +3169,11 @@ test('OAuth Desktop del host solo admite el mismo Client ID que el backend', () 
   const backendConfig = fs.readFileSync(path.join(root, 'apps', 'backend', 'src', 'configuracion.ts'), 'utf8');
   const hostClientId = cs.match(/GoogleDesktopClientId\s*=\s*"([^"]+)"/)?.[1];
   const backendClientId = backendConfig.match(/googleDesktopClientId\s*=\s*'([^']+)'/)?.[1];
+  const classroomClientId = backendConfig.match(/googleClassroomClientId\s*=\s*'([^']+)'/)?.[1];
 
   assert.ok(hostClientId, 'el host debe fijar el Client ID Desktop autorizado');
   assert.equal(hostClientId, backendClientId, 'host y backend deben aceptar el mismo Client ID');
+  assert.equal(classroomClientId, backendClientId, 'Classroom y el login docente deben usar el mismo Client ID Desktop');
 });
 
 test('SPEC-050: create-shortcuts usa el manifiesto y falla cerrado sin host nativo', () => {
