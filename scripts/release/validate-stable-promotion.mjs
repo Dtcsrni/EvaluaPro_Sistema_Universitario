@@ -302,7 +302,7 @@ export function evaluateStablePromotion(options) {
       process.cwd(),
       options.classroomE2eManualPath || 'docs/release/manual/classroom-e2e-real-mayo-junio.json'
     );
-    const classroomEvidence = validateClassroomE2eEvidence(classroomEvidencePath);
+    const classroomEvidence = validateClassroomE2eEvidence(classroomEvidencePath, options.candidateSha);
     if (classroomEvidence.displayVersion !== options.version) {
       throw new Error(`Evidencia Classroom corresponde a ${classroomEvidence.displayVersion || 'versión ausente'}, esperada ${options.version}`);
     }

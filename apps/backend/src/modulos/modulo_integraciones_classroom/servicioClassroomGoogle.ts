@@ -4,22 +4,24 @@
  * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
-import jwt from 'jsonwebtoken';
-import { OAuth2Client } from 'google-auth-library';
-import { randomUUID } from 'node:crypto';
+import { ClientAuthentication, CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { createServer, type Server } from 'node:http';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { cifrarTexto, descifrarTexto } from '../../compartido/seguridad/cifrado.js';
 import { configuracion } from '../../configuracion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { log } from '../../infraestructura/logging/logger.js';
 import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
+import { descifrarTokenClassroom, protegerTokenClassroom } from './proteccionTokensClassroom.js';
 
 const CLASSROOM_SCOPES = [
   'openid',
   'email',
   'profile',
   'https://www.googleapis.com/auth/classroom.courses.readonly',
+  'https://www.googleapis.com/auth/classroom.topics.readonly',
   'https://www.googleapis.com/auth/classroom.coursework.students.readonly',
+  'https://www.googleapis.com/auth/classroom.student-submissions.students.readonly',
   'https://www.googleapis.com/auth/classroom.rosters.readonly'
 ];
 
@@ -28,7 +30,19 @@ const CLASSROOM_REQUEST_TIMEOUT_MS = configuracion.classroomRequestTimeoutMs ?? 
 const CLASSROOM_MAX_ATTEMPTS = 3;
 const CLASSROOM_MAX_PAGES = configuracion.classroomMaxPages ?? 100;
 const CLASSROOM_MAX_RETRY_AFTER_MS = 30_000;
+const MAX_OAUTH_PENDIENTE = 8;
 const renovacionesEnCurso = new Map<string, Promise<string>>();
+const oauthPendiente = new Map<string, {
+  docenteId: string;
+  expectedGoogleSub: string;
+  loginHint: string;
+  frontendOrigin?: string;
+  codeVerifier: string;
+  clientId: string;
+  redirectUri: string;
+  server: Server;
+  expiracion: NodeJS.Timeout;
+}>();
 const COLECCIONES_CLASSROOM = new Set([
   'courses', 'courseWork', 'studentSubmissions', 'students', 'teachers', 'invitations',
   'announcements', 'topics', 'guardians', 'courseWorkMaterials'
@@ -74,35 +88,25 @@ function demoraReintento(attempt: number, retryAfterMs?: number): number {
 
 function obtenerConfigClassroom() {
   const clientId = String(configuracion.googleClassroomClientId || '').trim();
-  const clientSecret = String(configuracion.googleClassroomClientSecret || '').trim();
-  const redirectUri = String(configuracion.googleClassroomRedirectUri || '').trim();
-  const llaveCifrado = String(configuracion.classroomTokenCipherKey || '').trim();
-
-  if (!configuracion.classroomEnabled || !clientId || !clientSecret || !redirectUri) {
+  const llaveLegacy = String(configuracion.classroomTokenCipherKey || '').trim();
+  if (!configuracion.classroomEnabled || !clientId) {
     throw new ErrorAplicacion(
       'CLASSROOM_NO_CONFIG',
-      'Google Classroom no está configurado (clientId/clientSecret/redirectUri)',
+      'Google Classroom no está disponible en esta instalación docente. Actualiza EvaluaPro o contacta al administrador.',
       503
     );
   }
-  if (!llaveCifrado) {
-    throw new ErrorAplicacion('CLASSROOM_NO_CONFIG', 'Google Classroom no está configurado (llave de cifrado)', 503);
-  }
-  return { clientId, clientSecret, redirectUri, llaveCifrado };
+  return { clientId, llaveLegacy };
 }
 
-function crearClienteOauth() {
-  const { clientId, clientSecret, redirectUri } = obtenerConfigClassroom();
-  return new OAuth2Client(clientId, clientSecret, redirectUri);
+function crearClienteOauth(clientId: string, redirectUri?: string) {
+  // Desktop es cliente público: PKCE protege el código y no se envía client_secret.
+  return new OAuth2Client({
+    clientId,
+    redirectUri,
+    clientAuthentication: ClientAuthentication.None
+  });
 }
-
-type EstadoOauthPayload = {
-  docenteId: string;
-  purpose: 'classroom_oauth';
-  frontendOrigin?: string;
-  loginHint: string;
-  expectedGoogleSub: string;
-};
 
 function normalizarOrigin(valor: unknown): string | undefined {
   try {
@@ -124,53 +128,120 @@ function validarOriginFrontend(frontendOrigin: string | undefined) {
   return undefined;
 }
 
-function crearEstadoOauth(docenteId: string, opciones: { frontendOrigin?: string; loginHint: string; expectedGoogleSub: string }) {
-  const payload: EstadoOauthPayload = {
-    docenteId,
-    purpose: 'classroom_oauth',
-    ...(validarOriginFrontend(opciones.frontendOrigin) ? { frontendOrigin: validarOriginFrontend(opciones.frontendOrigin) } : {}),
-    loginHint: opciones.loginHint.trim().toLowerCase(),
-    expectedGoogleSub: opciones.expectedGoogleSub.trim()
+function responderCallbackLoopback(res: import('node:http').ServerResponse, exito: boolean, mensaje: string) {
+  const seguro = String(mensaje || '').replace(/[&<>"']/g, (caracter) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[caracter] || '');
+  res.writeHead(exito ? 200 : 400, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+  res.end(`<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Google Classroom · EvaluaPro</title><body><main><h1>${exito ? 'Classroom conectado' : 'No se pudo conectar Classroom'}</h1><p>${seguro}</p><p>Esta ventana se cerrará en un momento.</p></main><script>setTimeout(()=>{try{window.close()}catch{}},900)</script></body></html>`);
+}
+
+function cerrarOAuthPendiente(state: string) {
+  const pendiente = oauthPendiente.get(state);
+  if (!pendiente) return undefined;
+  oauthPendiente.delete(state);
+  clearTimeout(pendiente.expiracion);
+  pendiente.server.close();
+  return pendiente;
+}
+
+function esLoopback(address: string | undefined) {
+  return address === '127.0.0.1' || address === '::ffff:127.0.0.1' || address === '::1';
+}
+
+async function completarOAuthDesktop(pendiente: NonNullable<ReturnType<typeof oauthPendiente.get>>, code: string) {
+  const cliente = crearClienteOauth(pendiente.clientId, pendiente.redirectUri);
+  const tokenRespuesta = await cliente.getToken({ code, codeVerifier: pendiente.codeVerifier, redirect_uri: pendiente.redirectUri });
+  const tokens = tokenRespuesta.tokens || {};
+  const idToken = typeof tokens.id_token === 'string' ? tokens.id_token : '';
+  if (!idToken) throw new ErrorAplicacion('CLASSROOM_OAUTH_IDENTIDAD_AUSENTE', 'Google no devolvió una identidad verificable. Intenta conectar de nuevo.', 401);
+  const ticket = await cliente.verifyIdToken({ idToken, audience: pendiente.clientId });
+  const payload = ticket.getPayload();
+  if (!payload?.email_verified || !payload.sub || payload.sub !== pendiente.expectedGoogleSub) {
+    throw new ErrorAplicacion('CLASSROOM_GOOGLE_SUB_MISMATCH', 'La cuenta Google autorizada no coincide con la cuenta usada para iniciar sesión en EvaluaPro. La conexión anterior se conservó.', 403);
+  }
+
+  const existente = await IntegracionClassroom.findOne({ docenteId: pendiente.docenteId }).lean();
+  const { llaveLegacy } = obtenerConfigClassroom();
+  const refreshTokenPlano = typeof tokens.refresh_token === 'string' && tokens.refresh_token.trim()
+    ? tokens.refresh_token.trim()
+    : existente?.googleSub === pendiente.expectedGoogleSub && typeof existente?.refreshTokenCifrado === 'string'
+      ? descifrarTokenClassroom(existente.refreshTokenCifrado, llaveLegacy).token
+      : '';
+  if (!refreshTokenPlano) {
+    throw new ErrorAplicacion('CLASSROOM_OAUTH_REFRESH_TOKEN', 'Google no devolvió un refresh token. Reintenta conectando de nuevo y acepta el consentimiento solicitado.', 409);
+  }
+
+  const update: Record<string, unknown> = {
+    docenteId: pendiente.docenteId,
+    refreshTokenCifrado: protegerTokenClassroom(refreshTokenPlano),
+    scope: typeof tokens.scope === 'string' ? tokens.scope : existente?.scope,
+    correoGoogle: typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : existente?.correoGoogle,
+    googleSub: payload.sub,
+    activo: true,
+    ultimoError: null
   };
-  return jwt.sign(payload, configuracion.jwtSecreto, { expiresIn: STATE_EXPIRA_SEGUNDOS });
-}
-
-function validarEstadoOauth(state: string): EstadoOauthPayload {
-  try {
-    const payload = jwt.verify(state, configuracion.jwtSecreto) as Partial<EstadoOauthPayload>;
-    if (!payload || payload.purpose !== 'classroom_oauth' || !payload.docenteId ||
-        typeof payload.loginHint !== 'string' || !payload.loginHint ||
-        typeof payload.expectedGoogleSub !== 'string' || !payload.expectedGoogleSub) {
-      throw new ErrorAplicacion('CLASSROOM_OAUTH_ESTADO_INVALIDO', 'Estado OAuth inválido', 400);
-    }
-    return {
-      docenteId: payload.docenteId,
-      purpose: 'classroom_oauth',
-      loginHint: payload.loginHint,
-      expectedGoogleSub: payload.expectedGoogleSub,
-      ...(validarOriginFrontend(payload.frontendOrigin) ? { frontendOrigin: validarOriginFrontend(payload.frontendOrigin) } : {})
-    };
-  } catch {
-    throw new ErrorAplicacion('CLASSROOM_OAUTH_ESTADO_INVALIDO', 'Estado OAuth inválido o expirado', 400);
+  if (typeof tokens.access_token === 'string' && tokens.access_token) {
+    update.accessTokenUltimoCifrado = protegerTokenClassroom(tokens.access_token);
   }
-}
-
-async function obtenerPerfilGoogle(accessToken: string): Promise<{ email?: string; sub?: string }> {
-  const respuesta = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    signal: AbortSignal.timeout(CLASSROOM_REQUEST_TIMEOUT_MS)
-  });
-  if (!respuesta.ok) {
-    return {};
+  if (typeof tokens.expiry_date === 'number' && Number.isFinite(tokens.expiry_date)) {
+    update.accessTokenExpiraEn = new Date(tokens.expiry_date);
   }
-  const payload = (await respuesta.json().catch(() => ({}))) as { email?: unknown; sub?: unknown };
+  await IntegracionClassroom.updateOne({ docenteId: pendiente.docenteId }, { $set: update }, { upsert: true });
   return {
-    email: typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : undefined,
-    sub: typeof payload.sub === 'string' ? payload.sub.trim() : undefined
+    docenteId: pendiente.docenteId,
+    correoGoogle: typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : existente?.correoGoogle || null,
+    conectado: true,
+    frontendOrigin: pendiente.frontendOrigin || null
   };
 }
 
-export function construirUrlOauthClassroom(
+async function procesarCallbackLoopback(server: Server, req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) {
+  if (req.method !== 'GET' || !esLoopback(req.socket.remoteAddress)) {
+    responderCallbackLoopback(res, false, 'Solicitud de callback no permitida.');
+    return;
+  }
+  let url: URL;
+  try {
+    url = new URL(req.url || '/', 'http://127.0.0.1');
+  } catch {
+    responderCallbackLoopback(res, false, 'Callback OAuth inválido.');
+    return;
+  }
+  if (url.pathname !== '/oauth2callback') {
+    responderCallbackLoopback(res, false, 'Ruta de callback inválida.');
+    return;
+  }
+  const estados = url.searchParams.getAll('state');
+  const codigos = url.searchParams.getAll('code');
+  const erroresOauth = url.searchParams.getAll('error');
+  const emisores = url.searchParams.getAll('iss');
+  const respuestaCancelada = erroresOauth.length === 1 && codigos.length === 0;
+  const respuestaConCodigo = erroresOauth.length === 0 && codigos.length === 1;
+  if (estados.length !== 1 || emisores.length !== 1 || emisores[0] !== 'https://accounts.google.com' ||
+      !(respuestaCancelada || respuestaConCodigo)) {
+    responderCallbackLoopback(res, false, 'La respuesta de Google no contiene un state, código o emisor válido.');
+    return;
+  }
+  const state = estados[0] || '';
+  const pendiente = oauthPendiente.get(state);
+  if (!pendiente || pendiente.server !== server) {
+    responderCallbackLoopback(res, false, 'La solicitud OAuth venció, ya fue usada o no pertenece a esta instalación.');
+    return;
+  }
+  cerrarOAuthPendiente(state);
+  if (erroresOauth.length === 1) {
+    responderCallbackLoopback(res, false, 'Google canceló la autorización. Puedes volver a intentarlo desde EvaluaPro.');
+    return;
+  }
+  try {
+    const resultado = await completarOAuthDesktop(pendiente, codigos[0] || '');
+    responderCallbackLoopback(res, true, `Cuenta Classroom conectada: ${resultado.correoGoogle || 'cuenta Google verificada'}. Regresa a EvaluaPro.`);
+  } catch (error) {
+    const mensaje = error instanceof ErrorAplicacion ? error.message : 'No se pudo completar la conexión OAuth. Vuelve a intentarlo desde EvaluaPro.';
+    responderCallbackLoopback(res, false, mensaje);
+  }
+}
+
+export async function construirUrlOauthClassroom(
   docenteId: string,
   opciones: { frontendOrigin?: string; loginHint: string; expectedGoogleSub: string }
 ) {
@@ -179,87 +250,57 @@ export function construirUrlOauthClassroom(
   if (!loginHint || !expectedGoogleSub) {
     throw new ErrorAplicacion('CLASSROOM_LOGIN_GOOGLE_REQUIRED', 'Inicia sesión en EvaluaPro con la cuenta Google que se vinculará a Classroom.', 409);
   }
-  const cliente = crearClienteOauth();
-  const state = crearEstadoOauth(docenteId, { ...opciones, loginHint, expectedGoogleSub });
+  if (oauthPendiente.size >= MAX_OAUTH_PENDIENTE) {
+    throw new ErrorAplicacion('CLASSROOM_OAUTH_LIMITE', 'Ya hay varias solicitudes OAuth pendientes. Cierra sus ventanas y vuelve a intentar.', 429);
+  }
+  const { clientId } = obtenerConfigClassroom();
+  const server = createServer((req, res) => { void procesarCallbackLoopback(server, req, res); });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => { server.removeListener('error', reject); resolve(); });
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    server.close();
+    throw new ErrorAplicacion('CLASSROOM_OAUTH_LOOPBACK_ERROR', 'No se pudo abrir el callback local seguro de Google Classroom.', 503);
+  }
+  const redirectUri = `http://127.0.0.1:${address.port}/oauth2callback`;
+  const state = randomBytes(32).toString('base64url');
+  const cliente = crearClienteOauth(clientId, redirectUri);
+  const { codeVerifier, codeChallenge } = await cliente.generateCodeVerifierAsync();
+  if (!codeChallenge) {
+    server.close();
+    throw new ErrorAplicacion('CLASSROOM_OAUTH_PKCE_ERROR', 'No se pudo preparar PKCE para Google Classroom.', 503);
+  }
+  const expiracion = setTimeout(() => { cerrarOAuthPendiente(state); }, STATE_EXPIRA_SEGUNDOS * 1000);
+  expiracion.unref?.();
+  oauthPendiente.set(state, {
+    docenteId,
+    expectedGoogleSub,
+    loginHint,
+    ...(validarOriginFrontend(opciones.frontendOrigin) ? { frontendOrigin: validarOriginFrontend(opciones.frontendOrigin) } : {}),
+    codeVerifier,
+    clientId,
+    redirectUri,
+    server,
+    expiracion
+  });
   const url = cliente.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
     include_granted_scopes: true,
     scope: CLASSROOM_SCOPES,
     login_hint: loginHint,
-    state
+    state,
+    redirect_uri: redirectUri,
+    code_challenge: codeChallenge,
+    code_challenge_method: CodeChallengeMethod.S256
   });
-  return { url, state };
-}
-
-export async function completarOauthClassroom(params: { code: string; state: string }) {
-  const code = String(params.code || '').trim();
-  const state = String(params.state || '').trim();
-  if (!code || !state) {
-    throw new ErrorAplicacion('CLASSROOM_OAUTH_CODIGO_INVALIDO', 'OAuth callback incompleto', 400);
-  }
-
-  const { docenteId, frontendOrigin, expectedGoogleSub } = validarEstadoOauth(state);
-  const cliente = crearClienteOauth();
-  const tokensRespuesta = await cliente.getToken(code);
-  const tokens = tokensRespuesta.tokens || {};
-
-  const existente = await IntegracionClassroom.findOne({ docenteId }).lean();
-  const { llaveCifrado } = obtenerConfigClassroom();
-
-  const refreshTokenPlano =
-    typeof tokens.refresh_token === 'string' && tokens.refresh_token.trim()
-      ? tokens.refresh_token.trim()
-      : existente?.googleSub === expectedGoogleSub &&
-          typeof existente?.refreshTokenCifrado === 'string' && existente.refreshTokenCifrado.trim()
-        ? descifrarTexto(existente.refreshTokenCifrado, llaveCifrado)
-        : '';
-
-  if (!refreshTokenPlano) {
-    throw new ErrorAplicacion(
-      'CLASSROOM_OAUTH_REFRESH_TOKEN',
-      'No fue posible obtener refresh token. Reintenta conectando de nuevo.',
-      409
-    );
-  }
-
-  const accessToken = typeof tokens.access_token === 'string' ? tokens.access_token : '';
-  const perfil = accessToken ? await obtenerPerfilGoogle(accessToken) : {};
-  if (!perfil.sub || perfil.sub !== expectedGoogleSub) {
-    throw new ErrorAplicacion(
-      'CLASSROOM_GOOGLE_SUB_MISMATCH',
-      'La cuenta Google autorizada no coincide con la cuenta usada para iniciar sesión en EvaluaPro. La conexión anterior se conservó.',
-      403
-    );
-  }
-
-  const update: Record<string, unknown> = {
-    docenteId,
-    refreshTokenCifrado: cifrarTexto(refreshTokenPlano, llaveCifrado),
-    scope: typeof tokens.scope === 'string' ? tokens.scope : existente?.scope,
-    correoGoogle: perfil.email || existente?.correoGoogle,
-    googleSub: perfil.sub,
-    activo: true,
-    ultimoError: undefined
-  };
-  if (accessToken) {
-    update.accessTokenUltimoCifrado = cifrarTexto(accessToken, llaveCifrado);
-  }
-  if (typeof tokens.expiry_date === 'number' && Number.isFinite(tokens.expiry_date)) {
-    update.accessTokenExpiraEn = new Date(tokens.expiry_date);
-  }
-
-  await IntegracionClassroom.updateOne({ docenteId }, { $set: update }, { upsert: true });
-  return {
-    docenteId,
-    correoGoogle: perfil.email || existente?.correoGoogle || null,
-    conectado: true,
-    frontendOrigin: frontendOrigin || null
-  };
+  return { url, state, redirectUri };
 }
 
 async function renovarTokenAccesoClassroom(docenteId: string): Promise<string> {
-  const { llaveCifrado } = obtenerConfigClassroom();
+  const { clientId, llaveLegacy } = obtenerConfigClassroom();
   const [integracion, docente] = await Promise.all([
     IntegracionClassroom.findOne({ docenteId, activo: true }),
     prisma.docente.findUnique({ where: { id: docenteId }, select: { googleSub: true } })
@@ -275,8 +316,29 @@ async function renovarTokenAccesoClassroom(docenteId: string): Promise<string> {
     );
   }
 
-  const refreshTokenPlano = descifrarTexto(String(integracion.refreshTokenCifrado || ''), llaveCifrado);
-  const cliente = crearClienteOauth();
+  const refreshAlmacenado = descifrarTokenClassroom(String(integracion.refreshTokenCifrado || ''), llaveLegacy);
+  const refreshTokenPlano = refreshAlmacenado.token;
+  if (refreshAlmacenado.migrado) {
+    const cifradoAnterior = String(integracion.refreshTokenCifrado || '');
+    const refreshTokenCifrado = protegerTokenClassroom(refreshTokenPlano);
+    await IntegracionClassroom.updateOne(
+      { _id: integracion._id, refreshTokenCifrado: cifradoAnterior },
+      { $set: { refreshTokenCifrado } }
+    );
+    try {
+      const verificado = await IntegracionClassroom.findOne({ _id: integracion._id }).lean();
+      if (descifrarTokenClassroom(String(verificado?.refreshTokenCifrado || '')).token !== refreshTokenPlano) {
+        throw new Error('token migration readback mismatch');
+      }
+    } catch {
+      await IntegracionClassroom.updateOne(
+        { _id: integracion._id, refreshTokenCifrado },
+        { $set: { refreshTokenCifrado: cifradoAnterior } }
+      );
+      throw new ErrorAplicacion('CLASSROOM_MIGRACION_TOKEN_ERROR', 'No se pudo verificar la migración segura del token. La conexión anterior se conservó; vuelve a vincular Classroom si persiste.', 503);
+    }
+  }
+  const cliente = crearClienteOauth(clientId);
   cliente.setCredentials({ refresh_token: refreshTokenPlano });
 
   let tokenAcceso: { token?: string | null };
@@ -306,7 +368,7 @@ async function renovarTokenAccesoClassroom(docenteId: string): Promise<string> {
     { _id: integracion._id },
     {
       $set: {
-        accessTokenUltimoCifrado: cifrarTexto(accessToken, llaveCifrado),
+        accessTokenUltimoCifrado: protegerTokenClassroom(accessToken),
         ultimoError: undefined
       }
     }
@@ -415,13 +477,21 @@ export async function classroomGet(
   throw new ErrorAplicacion('CLASSROOM_PROVEEDOR_ERROR', 'Google Classroom no respondió después de varios intentos.', status);
 }
 
-export async function classroomGetAll<T extends Record<string, unknown>>(
+export type ResultadoPaginacionClassroom<T> = {
+  items: T[];
+  completa: boolean;
+  errorCode?: string;
+};
+
+export async function classroomGetAllConEstado<T extends Record<string, unknown>>(
   accessToken: string,
   path: string,
   listKey: string,
-  query?: Record<string, string | number | undefined>
-): Promise<T[]> {
+  query?: Record<string, string | number | undefined>,
+  permitirResultadoParcial = true
+): Promise<ResultadoPaginacionClassroom<T>> {
   const out: T[] = [];
+  const idsRecibidos = new Set<string>();
   let pageToken: string | undefined;
   const vistos = new Set<string>();
   let pages = 0;
@@ -434,7 +504,14 @@ export async function classroomGetAll<T extends Record<string, unknown>>(
         correlationId, ruta, paginas: pages, resultadosAcumulados: out.length,
         classification: 'repeated_page_token'
       });
-      throw new ErrorAplicacion('CLASSROOM_PAGINACION_INVALIDA', 'Google Classroom repitió un token de página; se detuvo la consulta.', 502);
+      log('warn', 'Paginación Classroom incompleta por token repetido', {
+        correlationId, ruta, paginas: pages, resultadosAcumulados: out.length,
+        classification: 'repeated_page_token'
+      });
+      if (!permitirResultadoParcial) {
+        throw new ErrorAplicacion('CLASSROOM_PAGINACION_INVALIDA', 'Google Classroom repitió un token de página; se detuvo la consulta.', 502);
+      }
+      return { items: out, completa: false, errorCode: 'CLASSROOM_PAGINACION_INVALIDA' };
     }
     if (pageToken) vistos.add(pageToken);
     if (pages >= CLASSROOM_MAX_PAGES) {
@@ -442,22 +519,53 @@ export async function classroomGetAll<T extends Record<string, unknown>>(
         correlationId, ruta, paginas: pages, resultadosAcumulados: out.length,
         classification: 'page_limit'
       });
-      throw new ErrorAplicacion('CLASSROOM_PAGINACION_LIMITE', `La consulta excedió el límite de ${CLASSROOM_MAX_PAGES} páginas.`, 502);
+      if (!permitirResultadoParcial) {
+        throw new ErrorAplicacion('CLASSROOM_PAGINACION_LIMITE', `La consulta excedió el límite de ${CLASSROOM_MAX_PAGES} páginas.`, 502);
+      }
+      return { items: out, completa: false, errorCode: 'CLASSROOM_PAGINACION_LIMITE' };
     }
     pages += 1;
-    const payload = await classroomGet(accessToken, path, {
-      ...(query || {}),
-      ...(pageToken ? { pageToken } : {})
-    }, { correlationId, pagina: pages });
+    let payload: Record<string, unknown>;
+    try {
+      payload = await classroomGet(accessToken, path, {
+        ...(query || {}),
+        ...(pageToken ? { pageToken } : {})
+      }, { correlationId, pagina: pages });
+    } catch (error) {
+      if (!permitirResultadoParcial || out.length === 0) throw error;
+      const errorCode = error instanceof ErrorAplicacion ? error.codigo : 'CLASSROOM_PAGINACION_PARCIAL';
+      return { items: out, completa: false, errorCode };
+    }
     const items = Array.isArray(payload[listKey]) ? (payload[listKey] as T[]) : [];
-    out.push(...items);
+    for (const item of items) {
+      const id = typeof item.id === 'string' ? item.id.trim() : '';
+      if (id && idsRecibidos.has(id)) continue;
+      if (id) idsRecibidos.add(id);
+      out.push(item);
+    }
     pageToken = typeof payload.nextPageToken === 'string' && payload.nextPageToken.trim() ? payload.nextPageToken.trim() : undefined;
   } while (pageToken);
 
   log('info', 'Paginación Classroom completada', {
     correlationId, ruta, paginas: pages, resultadosAcumulados: out.length
   });
-  return out;
+  return { items: out, completa: true };
+}
+
+export async function classroomGetAll<T extends Record<string, unknown>>(
+  accessToken: string,
+  path: string,
+  listKey: string,
+  query?: Record<string, string | number | undefined>
+): Promise<T[]> {
+  const resultado = await classroomGetAllConEstado<T>(accessToken, path, listKey, query, false);
+  if (!resultado.completa) {
+    const message = resultado.errorCode === 'CLASSROOM_PAGINACION_LIMITE'
+      ? `La consulta excedió el límite de ${CLASSROOM_MAX_PAGES} páginas.`
+      : 'Google Classroom no permitió completar todas las páginas de resultados.';
+    throw new ErrorAplicacion(resultado.errorCode || 'CLASSROOM_PAGINACION_PARCIAL', message, 502);
+  }
+  return resultado.items;
 }
 
 export async function listarCursosClassroom(accessToken: string): Promise<Array<Record<string, unknown>>> {
@@ -473,6 +581,30 @@ export async function listarActividadesClassroom(accessToken: string, courseId: 
     accessToken,
     `courses/${encodeURIComponent(courseId)}/courseWork`,
     'courseWork',
+    { pageSize: 100 }
+  );
+}
+
+export async function listarActividadesClassroomConEstado(
+  accessToken: string,
+  courseId: string
+): Promise<ResultadoPaginacionClassroom<Record<string, unknown>>> {
+  return classroomGetAllConEstado<Record<string, unknown>>(
+    accessToken,
+    `courses/${encodeURIComponent(courseId)}/courseWork`,
+    'courseWork',
+    { pageSize: 100 }
+  );
+}
+
+export async function listarTemasClassroomConEstado(
+  accessToken: string,
+  courseId: string
+): Promise<ResultadoPaginacionClassroom<Record<string, unknown>>> {
+  return classroomGetAllConEstado<Record<string, unknown>>(
+    accessToken,
+    `courses/${encodeURIComponent(courseId)}/topics`,
+    'topic',
     { pageSize: 100 }
   );
 }

@@ -1,11 +1,10 @@
 declare module 'archiver' {
-  import type { Readable } from 'node:stream';
+  import { Readable, Transform } from 'node:stream';
 
-  type Archive = Readable & {
-    append(source: Buffer | Readable, options: { name: string }): Archive;
+  export class ZipArchive extends Transform {
+    constructor(options: { store: boolean });
+    append(source: Buffer | Readable, options: { name: string }): this;
     finalize(): Promise<void>;
-  };
-
-  function archiver(format: 'zip', options: { store: boolean }): Archive;
-  export default archiver;
+    abort(): this;
+  }
 }

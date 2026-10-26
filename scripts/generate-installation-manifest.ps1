@@ -372,18 +372,29 @@ try {
 } catch {}
 
 $flavorId = Resolve-FlavorId
-$criticalFiles = @(
-  'scripts\launcher-broker.ps1',
-  'scripts\launcher-tray.ps1',
-  'scripts\launcher-tray-hidden.vbs',
-  'scripts\create-shortcuts.ps1',
-  'config\shortcuts-manifest.json',
-  'scripts\shortcut-op-hidden.vbs',
-  'scripts\launcher-dashboard.mjs',
-  'scripts\dashboard.html'
-)
 if ($flavorId -eq 'docente-local') {
-  $criticalFiles += 'EvaluaPro.exe'
+  # This flavor ships a native AppHost and WiX-owned shortcuts. Legacy
+  # PowerShell/WSH launchers are intentionally excluded from its payload.
+  $criticalFiles = @(
+    'EvaluaPro.exe',
+    'apps\backend\dist\index.js',
+    'apps\backend\dist\prisma\schema.sql',
+    'runtime\node\node.exe',
+    'scripts\start-docente-native.mjs',
+    'scripts\prepare-docente-sqlite.mjs',
+    'config\update-config.json'
+  )
+} else {
+  $criticalFiles = @(
+    'scripts\launcher-broker.ps1',
+    'scripts\launcher-tray.ps1',
+    'scripts\launcher-tray-hidden.vbs',
+    'scripts\create-shortcuts.ps1',
+    'config\shortcuts-manifest.json',
+    'scripts\shortcut-op-hidden.vbs',
+    'scripts\launcher-dashboard.mjs',
+    'scripts\dashboard.html'
+  )
 }
 
 $critical = @()

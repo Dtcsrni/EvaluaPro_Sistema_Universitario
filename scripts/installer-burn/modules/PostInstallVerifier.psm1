@@ -53,12 +53,9 @@ function Invoke-InstalledClassroomDoctor {
     [bool]$UseEmbeddedNode
   )
 
-  $classroomConfigured = ConvertTo-InstallerHubBool -Value ([string]$EnvMap['CLASSROOM_ENABLED'])
-  foreach ($key in @('GOOGLE_CLASSROOM_CLIENT_ID', 'GOOGLE_CLASSROOM_CLIENT_SECRET', 'GOOGLE_CLASSROOM_REDIRECT_URI', 'CLASSROOM_TOKEN_CIPHER_KEY')) {
-    if (-not [string]::IsNullOrWhiteSpace([string]$EnvMap[$key])) {
-      $classroomConfigured = $true
-      break
-    }
+  $classroomConfigured = $true
+  if ($EnvMap.ContainsKey('CLASSROOM_ENABLED')) {
+    $classroomConfigured = ConvertTo-InstallerHubBool -Value ([string]$EnvMap['CLASSROOM_ENABLED'])
   }
   if (-not $classroomConfigured) { return $null }
 

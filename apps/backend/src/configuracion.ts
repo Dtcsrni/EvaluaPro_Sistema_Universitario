@@ -85,11 +85,11 @@ const refreshTokenDias = Number(process.env.REFRESH_TOKEN_DIAS ?? 30);
 const passwordResetTokenMinutes = parsearNumeroSeguro(process.env.PASSWORD_RESET_TOKEN_MINUTES, 30, { min: 5, max: 180 });
 const passwordResetUrlBase = String(process.env.PASSWORD_RESET_URL_BASE ?? '').trim();
 const googleOauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? '';
-// Classroom utiliza un OAuth client independiente del inicio de sesión.
-// No reutilizar GOOGLE_OAUTH_CLIENT_ID: son audiencias y consentimientos distintos.
-const googleClassroomClientId = process.env.GOOGLE_CLASSROOM_CLIENT_ID ?? '';
-const googleClassroomClientSecret = process.env.GOOGLE_CLASSROOM_CLIENT_SECRET ?? '';
-const googleClassroomRedirectUri = process.env.GOOGLE_CLASSROOM_REDIRECT_URI ?? '';
+// Cliente OAuth público Desktop para login docente; no requiere origen JavaScript.
+const googleDesktopClientId = '1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com';
+// Identificador público del cliente OAuth instalado de EvaluaPro docente-local.
+// No es un secreto y no debe sustituirse por el cliente web ni por el OAuth de login.
+const googleClassroomClientId = '1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com';
 const classroomRequestTimeoutMs = Math.floor(parsearNumeroSeguro(
   process.env.CLASSROOM_REQUEST_TIMEOUT_MS,
   15_000,
@@ -104,12 +104,7 @@ const classroomTokenCipherKey = process.env.CLASSROOM_TOKEN_CIPHER_KEY ?? '';
 const classroomEnabledRaw = String(process.env.CLASSROOM_ENABLED ?? '').trim();
 const classroomEnabled = classroomEnabledRaw
   ? esBanderaActiva(classroomEnabledRaw)
-  : Boolean(
-      String(googleClassroomClientId).trim() &&
-        String(googleClassroomClientSecret).trim() &&
-        String(googleClassroomRedirectUri).trim() &&
-        String(classroomTokenCipherKey).trim()
-    );
+  : Boolean(String(googleClassroomClientId).trim());
 const requireGoogleOAuth = esBanderaActiva(process.env.REQUIRE_GOOGLE_OAUTH);
 const codigoAccesoHoras = Number(process.env.CODIGO_ACCESO_HORAS ?? 12);
 const portalAlumnoUrl = process.env.PORTAL_ALUMNO_URL ?? '';
@@ -246,9 +241,8 @@ export const configuracion = {
   passwordResetUrlBase,
   passwordResetEnabled,
   googleOauthClientId,
+  googleDesktopClientId,
   googleClassroomClientId,
-  googleClassroomClientSecret,
-  googleClassroomRedirectUri,
   classroomRequestTimeoutMs,
   classroomMaxPages,
   classroomTokenCipherKey,

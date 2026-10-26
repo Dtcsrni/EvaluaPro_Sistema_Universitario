@@ -1,0 +1,114 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-26T14-45-49Z",
+  "status": "draft",
+  "generatedAt": "2026-10-26T14:45:49Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "Codex",
+    "version": "GPT-6",
+    "provider": "OpenAI",
+    "kind": "asistente de ingeniería",
+    "channel": "local"
+  },
+  "request": {
+    "summary": "Implementar y validar OAuth Desktop + PKCE para Classroom en docente-local y continuar estabilización del release."
+  },
+  "objective": "Permitir el login Google en instalaciones limpias docente-local sin depender de secretos OAuth copiados desde .env, y preparar evidencia verificable para el release.",
+  "scope": [
+    "OAuth Desktop con PKCE S256, callback loopback, rutas de flujo y UI docente.",
+    "Abrir el consentimiento en navegador de sistema desde WebView2 con validación de URL.",
+    "Pruebas de backend, frontend, contratos OpenAPI y políticas de release."
+  ],
+  "constraints": [
+    "Solo flavor docente-local.",
+    "No distribuir ni depender de client_secret; cada docente completa OAuth con su cuenta.",
+    "No promover a release estable sin prueba Classroom real ligada al SHA exacto.",
+    "No escribir en cursos Classroom existentes durante validación."
+  ],
+  "actions": [
+    { "type": "implementation", "summary": "Agrega OAuth Desktop PKCE, callback loopback, rutas protegidas, login/register UI y puente WebView2 con allowlist de Google.", "timestamp": "2026-10-26T14:45:49Z", "status": "ok" },
+    { "type": "validation", "summary": "Pruebas backend OAuth e integración de autenticación: 8/8 pasaron usando la invocación del workspace backend y acceso de loopback.", "timestamp": "2026-10-26T14:45:49Z", "status": "ok" },
+    { "type": "validation", "summary": "Pruebas frontend OAuth: 3/3; typecheck y lint backend/frontend; build docente y guardia WCAG 33/33.", "timestamp": "2026-10-26T14:45:49Z", "status": "ok" },
+    { "type": "validation", "summary": "Contratos OpenAPI, SDD, auditoría de políticas y 73 tests de release pasaron; Installer Hub 167 pasaron y 13 omitidos.", "timestamp": "2026-10-26T14:45:49Z", "status": "ok" },
+    { "type": "validation", "summary": "Build del host Windows pasó con dos avisos NU1900 porque NuGet no pudo consultar el índice de vulnerabilidades.", "timestamp": "2026-10-26T14:45:49Z", "status": "ok" },
+    { "type": "external-evidence", "summary": "E2E real de Classroom y comprobación GUI de Sandbox pendientes; no hay evidencia de release para el SHA candidato.", "timestamp": "2026-10-26T14:45:49Z", "status": "pending" }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "apps/backend/src/modulos/modulo_autenticacion/servicioGoogleDesktop.ts",
+      "docs/specs/SPEC-126_google_desktop_login_docente_local.spec.md",
+      "docs/handoff/trace.schema.json"
+    ],
+    "changed": [
+      "apps/backend/src/configuracion.ts",
+      "apps/backend/src/modulos/modulo_autenticacion/README.md",
+      "apps/backend/src/modulos/modulo_autenticacion/controladorAutenticacion.ts",
+      "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+      "apps/backend/src/modulos/modulo_autenticacion/servicioGoogle.ts",
+      "apps/backend/src/modulos/modulo_autenticacion/validacionesAutenticacion.ts",
+      "apps/backend/src/modulos/modulo_autenticacion/servicioGoogleDesktop.ts",
+      "apps/backend/tests/integracion/autenticacion.googleOnly.test.ts",
+      "apps/backend/tests/servicioGoogleDesktop.test.ts",
+      "apps/frontend/src/apps/app_docente/AppDocente.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx",
+      "apps/frontend/tests/seccionAutenticacion.desktopOAuth.test.tsx",
+      "docs/specs/SPEC-053_guardrails_google_oauth_runtime.spec.md",
+      "docs/specs/SPEC-126_google_desktop_login_docente_local.spec.md",
+      "docs/handoff/sesiones/2026-10-26/sesion-2026-10-26T14-45-49Z.json",
+      "packaging/app-host/MainWindow.xaml.cs",
+      "scripts/api/CRUD_CATALOG.md",
+      "scripts/api/openapi.json",
+      "scripts/installer-burn/modules/OperationalConfig.psm1",
+      "scripts/tests/installer-hub-contract.test.mjs"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    { "name": "backend_typecheck", "command": "npm -C apps/backend run typecheck", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "Prisma Client generado y TypeScript sin errores." },
+    { "name": "backend_lint", "command": "npm -C apps/backend run lint", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "ESLint sin advertencias." },
+    { "name": "backend_oauth_tests", "command": "npm -C apps/backend run test -- tests/servicioGoogleDesktop.test.ts", "status": "ok", "exitCode": 0, "durationMs": 1540, "resultSummary": "4/4 tests OAuth pasaron; se ejecutó con acceso a loopback." },
+    { "name": "backend_integration_test", "command": "npm -C apps/backend run test -- tests/integracion/autenticacion.googleOnly.test.ts", "status": "ok", "exitCode": 0, "durationMs": 36480, "resultSummary": "4/4 tests de integración pasaron." },
+    { "name": "frontend_typecheck", "command": "npm -C apps/frontend run typecheck", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "TypeScript sin errores." },
+    { "name": "frontend_lint", "command": "npm -C apps/frontend run lint", "status": "ok", "exitCode": 0, "durationMs": 0, "resultSummary": "ESLint sin advertencias." },
+    { "name": "frontend_oauth_test", "command": "npm -C apps/frontend run test -- tests/seccionAutenticacion.desktopOAuth.test.tsx", "status": "ok", "exitCode": 0, "durationMs": 6242, "resultSummary": "3/3 tests de UI pasaron." },
+    { "name": "frontend_build", "command": "npm run build:frontend:docente", "status": "ok", "exitCode": 0, "durationMs": 15000, "resultSummary": "Bundle docente y guardia WCAG: 33/33 contrastes." },
+    { "name": "api_contract", "command": "npm run api:contract:check", "status": "ok", "exitCode": 0, "durationMs": 4071, "resultSummary": "257 rutas, 294 operaciones, 79/79 modelos y 2 tests de contrato." },
+    { "name": "release_policy", "command": "npm run test:release:policy", "status": "ok", "exitCode": 0, "durationMs": 2762, "resultSummary": "73/73 tests pasaron fuera del sandbox de comandos." },
+    { "name": "installer_contracts", "command": "npm run test:installer-hub:contract", "status": "ok", "exitCode": 0, "durationMs": 29300, "resultSummary": "167 pasaron, 0 fallaron, 13 omitidos." },
+    { "name": "sdd_audit", "command": "npm run sdd:audit", "status": "ok", "exitCode": 0, "durationMs": 3410, "resultSummary": "Todas las especificaciones cumplen SDD." },
+    { "name": "ci_policy_audit", "command": "npm run ci:policy:audit", "status": "ok", "exitCode": 0, "durationMs": 14000, "resultSummary": "Auditoría integral ejecutada con elevación; pipeline, release, seguridad, SDD y trazabilidad pasaron." },
+    { "name": "traceability_test", "command": "npm run test:ia:traceability", "status": "ok", "exitCode": 0, "durationMs": 3822, "resultSummary": "7/7 tests de trazabilidad pasaron." },
+    { "name": "app_host_build", "command": "dotnet build packaging/app-host/EvaluaPro.AppHost.csproj", "status": "ok", "exitCode": 0, "durationMs": 3394, "resultSummary": "Compilación correcta; 2 avisos NU1900 por índice NuGet inaccesible." },
+    { "name": "git_diff_check", "command": "git diff --check", "status": "ok", "exitCode": 0, "durationMs": 1000, "resultSummary": "Sin errores de whitespace." }
+  ],
+  "decisions": [
+    "Autorizado OAuth de escritorio con PKCE para el único flavor actualmente soportado, docente-local.",
+    "No se usa client_secret para canjear códigos del cliente Desktop.",
+    "El PR 264 permanece en borrador hasta completar gates y evidencia Classroom real del SHA candidato."
+  ],
+  "assumptions": [],
+  "risks": [
+    "La GUI de Windows Sandbox no pudo activarse con computer-use; se requiere recuperar una superficie GUI compatible para completar inicio OAuth manual.",
+    "No se ha construido ni instalado un MSI para validar la experiencia en una instalación limpia.",
+    "La prueba real de Classroom de solo lectura debe pertenecer al SHA exacto que se publique; datos sintéticos no califican."
+  ],
+  "nextStep": "Registrar estos cambios en PR #264, ejecutar CI sobre el SHA final y reanudar la prueba manual de Classroom cuando Sandbox esté accesible; no publicar release estable hasta pasar esa evidencia.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "PR actualizado al commit final y CI completo",
+      "Instalador candidato instalado y verificado en Windows Sandbox",
+      "OAuth Desktop y lectura real de actividades/roster/entregas Classroom en solo lectura",
+      "Evidencia Classroom ligada al SHA final",
+      "Gates de promoción estable y publicación del release"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\classroom-oauth-secret-fix",
+    "branch": "codex/classroom-oauth-secret-fix",
+    "commit": "d395f5a32b9eb236a375347ad2f1380d128ff341",
+    "workingTreeStatus": "Cambios OAuth Desktop sin commit; .qa-installer-d395f5a es un artefacto previo preservado."
+  }
+}

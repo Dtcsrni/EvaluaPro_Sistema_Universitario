@@ -5,6 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { FlatCompat } from '@eslint/eslintrc';
+import { fixupConfigRules } from '@eslint/compat';
 import js from '@eslint/js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +18,7 @@ const compat = new FlatCompat({
   allConfig: js.configs.all
 });
 
-export default [...compat.config({
+export default fixupConfigRules(compat.config({
   ...baseConfig,
   extends: [...baseConfig.extends, 'plugin:react/recommended', 'plugin:react-hooks/recommended', 'plugin:jsx-a11y/recommended'],
   plugins: [...baseConfig.plugins, 'react', 'jsx-a11y'],
@@ -45,4 +46,4 @@ export default [...compat.config({
     { files: ['src/apps/app_docente/**/*.tsx'], rules: { 'max-lines': ['error', { max: 1600, skipBlankLines: true, skipComments: true }] } },
     { files: ['src/apps/app_docente/AppDocente.tsx'], rules: { 'max-lines': ['error', { max: 8000, skipBlankLines: true, skipComments: true }] } }
   ]
-})];
+}));

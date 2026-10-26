@@ -597,7 +597,20 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   assert.equal(manifest.installation.flavor, 'docente-local');
   assert.equal(manifest.installation.runtimeTarget, 'native-node-sqlite');
   assert.equal(typeof manifest.shortcuts, 'object');
-  assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path) === 'scripts/launcher-broker.ps1'), true);
+  const criticalPaths = manifest.criticalFiles.map((entry) => normalizeManifestPath(entry.path));
+  assert.ok(criticalPaths.length > 0);
+  assert.equal(criticalPaths.every((criticalPath) => manifest.criticalFiles.find((entry) => normalizeManifestPath(entry.path) === criticalPath)?.exists === true), true,
+    'Los archivos críticos publicados deben existir para el flavor instalado.');
+  for (const legacyPath of [
+    'scripts/launcher-broker.ps1',
+    'scripts/launcher-tray.ps1',
+    'scripts/launcher-tray-hidden.vbs',
+    'scripts/create-shortcuts.ps1',
+    'scripts/shortcut-op-hidden.vbs'
+  ]) {
+    assert.equal(criticalPaths.includes(legacyPath), false, `${legacyPath} no es requerido en docente-local.`);
+  }
+  assert.equal(criticalPaths.includes('evaluapro.exe'), true);
   assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path).includes('scripts/installer-hub/InstallerHub.ps1')), false);
   assert.equal(typeof manifest.runtime, 'object');
   assert.equal(typeof manifest.runtime.embeddedNode, 'object');

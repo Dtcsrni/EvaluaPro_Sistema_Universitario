@@ -9,7 +9,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 type ConfigParcial = Partial<{
   googleClassroomClientId: string;
   googleOauthClientId: string;
-  googleClassroomClientSecret: string;
   googleClassroomRedirectUri: string;
   classroomTokenCipherKey: string;
   classroomEnabled: boolean;
@@ -20,7 +19,9 @@ type ConfigParcial = Partial<{
 
 type OauthMock = {
   generateAuthUrl: ReturnType<typeof vi.fn>;
+  generateCodeVerifierAsync: ReturnType<typeof vi.fn>;
   getToken: ReturnType<typeof vi.fn>;
+  verifyIdToken: ReturnType<typeof vi.fn>;
   setCredentials: ReturnType<typeof vi.fn>;
   getAccessToken: ReturnType<typeof vi.fn>;
 };
@@ -37,7 +38,6 @@ type PrismaMock = {
 const configBase = {
   googleClassroomClientId: 'classroom-client-id',
   googleOauthClientId: 'oauth-client-id',
-  googleClassroomClientSecret: 'classroom-secret',
   googleClassroomRedirectUri: 'https://localhost/classroom/callback',
   classroomTokenCipherKey: 'k'.repeat(32),
   classroomEnabled: true,
@@ -60,8 +60,14 @@ async function cargarModulo(opciones?: {
   vi.resetModules();
 
   const oauth: OauthMock = {
-    generateAuthUrl: vi.fn().mockReturnValue('https://accounts.google.com/o/oauth2/v2/auth?mock=1'),
+    generateAuthUrl: vi.fn((params: Record<string, unknown>) => {
+      const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, Array.isArray(value) ? value.join(' ') : String(value)));
+      return url.toString();
+    }),
+    generateCodeVerifierAsync: vi.fn().mockResolvedValue({ codeVerifier: 'pkce-verifier', codeChallenge: 'pkce-challenge' }),
     getToken: vi.fn().mockResolvedValue({ tokens: {} }),
+    verifyIdToken: vi.fn().mockResolvedValue({ getPayload: () => ({ email: 'docente@cuh.mx', email_verified: true, sub: 'google-user-77' }) }),
     setCredentials: vi.fn(),
     getAccessToken: vi.fn().mockResolvedValue({ token: 'access-token-123' }),
     ...opciones?.oauth
@@ -81,7 +87,7 @@ async function cargarModulo(opciones?: {
     });
 
   const integracion: IntegracionMock = {
-    findOne: vi.fn(),
+    findOne: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) }),
     updateOne: vi.fn().mockResolvedValue({ acknowledged: true }),
     ...opciones?.integracion
   };
@@ -91,15 +97,26 @@ async function cargarModulo(opciones?: {
 
   const cifrarTexto = opciones?.cifrarTexto ?? vi.fn((valor: string) => `enc:${valor}`);
   const descifrarTexto = opciones?.descifrarTexto ?? vi.fn((valor: string) => String(valor).replace(/^enc:/, ''));
+  const protegerTokenClassroom = vi.fn((valor: string) => `dpapi:test:${valor}`);
+  const descifrarTokenClassroom = vi.fn((valor: string, llave?: string) => {
+    if (String(valor).startsWith('dpapi:test:')) return { token: String(valor).slice('dpapi:test:'.length), migrado: false };
+    if (llave) return { token: descifrarTexto(valor, llave), migrado: true };
+    throw new Error('legacy token without key');
+  });
   const logMock = opciones?.log ?? vi.fn();
 
-  vi.doMock('google-auth-library', () => ({ OAuth2Client }));
+  vi.doMock('google-auth-library', () => ({
+    OAuth2Client,
+    CodeChallengeMethod: { S256: 'S256' },
+    ClientAuthentication: { None: 'None' }
+  }));
   vi.doMock('jsonwebtoken', () => ({ default: { sign: jwtSign, verify: jwtVerify } }));
   vi.doMock('../src/modulos/modulo_integraciones_classroom/modeloIntegracionClassroom', () => ({
     IntegracionClassroom: integracion
   }));
   vi.doMock('../src/infraestructura/baseDatos/sqlite', () => ({ prisma }));
   vi.doMock('../src/compartido/seguridad/cifrado', () => ({ cifrarTexto, descifrarTexto }));
+  vi.doMock('../src/modulos/modulo_integraciones_classroom/proteccionTokensClassroom.js', () => ({ protegerTokenClassroom, descifrarTokenClassroom }));
   vi.doMock('../src/infraestructura/logging/logger', () => ({ log: logMock }));
   vi.doMock('../src/configuracion', () => ({
     configuracion: {
@@ -109,7 +126,7 @@ async function cargarModulo(opciones?: {
   }));
 
   const mod = await import('../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.js');
-  return { mod, oauth, OAuth2Client, jwtSign, jwtVerify, integracion, prisma, cifrarTexto, descifrarTexto, logMock };
+  return { mod, oauth, OAuth2Client, jwtSign, jwtVerify, integracion, prisma, cifrarTexto, descifrarTexto, protegerTokenClassroom, descifrarTokenClassroom, logMock };
 }
 
 describe('servicioClassroomGoogle', () => {
@@ -119,176 +136,74 @@ describe('servicioClassroomGoogle', () => {
     vi.restoreAllMocks();
   });
 
-  it('construye URL OAuth con estado firmado', async () => {
-    const { mod, oauth, OAuth2Client, jwtSign } = await cargarModulo();
-    const resultado = mod.construirUrlOauthClassroom('docente-42', {
+  it('construye autorización PKCE con callback loopback y cliente público', async () => {
+    const { mod, oauth, OAuth2Client } = await cargarModulo();
+    const resultado = await mod.construirUrlOauthClassroom('docente-42', {
       loginHint: 'Docente@CUH.MX', expectedGoogleSub: 'google-user-77'
     });
-
-    expect(resultado.url).toContain('accounts.google.com');
-    expect(resultado.state).toBe('jwt-state-ok');
-    expect(OAuth2Client).toHaveBeenCalledWith(
-      configBase.googleClassroomClientId,
-      configBase.googleClassroomClientSecret,
-      configBase.googleClassroomRedirectUri
-    );
-    expect(jwtSign).toHaveBeenCalled();
-    expect(oauth.generateAuthUrl).toHaveBeenCalled();
-    expect(oauth.generateAuthUrl).toHaveBeenCalledWith(expect.objectContaining({ login_hint: 'docente@cuh.mx' }));
-  });
-
-  it('falla si la configuracion de classroom es incompleta', async () => {
-    const { mod } = await cargarModulo({
-      config: { googleClassroomClientSecret: '' }
+    const auth = new URL(resultado.url);
+    expect(resultado.redirectUri).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/oauth2callback$/);
+    expect(OAuth2Client).toHaveBeenCalledWith({
+      clientId: configBase.googleClassroomClientId,
+      redirectUri: resultado.redirectUri,
+      clientAuthentication: 'None'
     });
-    await expect(() => mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' })).toThrow(
-      'Google Classroom no está configurado (clientId/clientSecret/redirectUri)'
-    );
-  });
-
-  it('no reutiliza el client id del login cuando falta el client id propio de classroom', async () => {
-    const { mod } = await cargarModulo({
-      config: { googleClassroomClientId: '' }
-    });
-
-    await expect(() => mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' })).toThrow(
-      'Google Classroom no está configurado (clientId/clientSecret/redirectUri)'
-    );
-  });
-
-  it('respeta CLASSROOM_ENABLED=0 aunque existan credenciales completas', async () => {
-    const { mod } = await cargarModulo({
-      config: { classroomEnabled: false }
-    });
-
-    await expect(() => mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' })).toThrow(
-      'Google Classroom no está configurado (clientId/clientSecret/redirectUri)'
-    );
-  });
-
-  it('falla callback OAuth si faltan code/state', async () => {
-    const { mod } = await cargarModulo();
-    await expect(mod.completarOauthClassroom({ code: '', state: '' })).rejects.toMatchObject({
-      codigo: 'CLASSROOM_OAUTH_CODIGO_INVALIDO',
-      estadoHttp: 400
-    });
-  });
-
-  it('falla callback OAuth con estado invalido', async () => {
-    const { mod } = await cargarModulo({
-      jwtVerify: vi.fn(() => {
-        throw new Error('invalid');
-      })
-    });
-
-    await expect(mod.completarOauthClassroom({ code: 'abc', state: 'bad' })).rejects.toMatchObject({
-      codigo: 'CLASSROOM_OAUTH_ESTADO_INVALIDO',
-      estadoHttp: 400
-    });
-  });
-
-  it('falla callback OAuth si no se obtiene refresh token', async () => {
-    const { mod } = await cargarModulo({
-      oauth: {
-        getToken: vi.fn().mockResolvedValue({ tokens: { access_token: 'at-1' } })
-      },
-      integracion: {
-        findOne: vi.fn().mockReturnValue({
-          lean: vi.fn().mockResolvedValue(null)
-        })
-      }
-    });
-
-    await expect(mod.completarOauthClassroom({ code: 'ok', state: 'jwt-state-ok' })).rejects.toMatchObject({
-      codigo: 'CLASSROOM_OAUTH_REFRESH_TOKEN',
-      estadoHttp: 409
-    });
-  });
-
-  it('no reutiliza refresh token si la integración previa pertenece a otra identidad Google', async () => {
-    const { mod, integracion, descifrarTexto } = await cargarModulo({
-      oauth: { getToken: vi.fn().mockResolvedValue({ tokens: { access_token: 'access-current' } }) },
-      integracion: {
-        findOne: vi.fn().mockReturnValue({
-          lean: vi.fn().mockResolvedValue({ googleSub: 'google-user-other', refreshTokenCifrado: 'enc:refresh-other' })
-        })
-      }
-    });
-
-    await expect(mod.completarOauthClassroom({ code: 'ok', state: 'jwt-state-ok' })).rejects.toMatchObject({
-      codigo: 'CLASSROOM_OAUTH_REFRESH_TOKEN', estadoHttp: 409
-    });
-    expect(descifrarTexto).not.toHaveBeenCalled();
-    expect(integracion.updateOne).not.toHaveBeenCalled();
-  });
-
-  it('completa callback OAuth usando refresh token de respuesta y perfil Google', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ email: 'Docente@CUH.MX', sub: 'google-user-77' })
-      })
-    );
-    const { mod, integracion, cifrarTexto } = await cargarModulo({
-      oauth: {
-        getToken: vi.fn().mockResolvedValue({
-          tokens: {
-            refresh_token: 'refresh-xyz',
-            access_token: 'access-xyz',
-            scope: 'scope-a scope-b',
-            expiry_date: 1730000000000
-          }
-        })
-      },
-      integracion: {
-        findOne: vi.fn().mockReturnValue({
-          lean: vi.fn().mockResolvedValue({
-            docenteId: 'docente-1',
-            correoGoogle: 'previo@cuh.mx',
-            googleUserId: 'sub-prev'
-          })
-        })
-      }
-    });
-
-    const resultado = await mod.completarOauthClassroom({ code: 'ok', state: 'jwt-state-ok' });
-
-    expect(resultado).toMatchObject({
-      docenteId: 'docente-1',
-      correoGoogle: 'docente@cuh.mx',
-      conectado: true
-    });
-    expect(cifrarTexto).toHaveBeenCalledWith('refresh-xyz', configBase.classroomTokenCipherKey);
-    expect(cifrarTexto).toHaveBeenCalledWith('access-xyz', configBase.classroomTokenCipherKey);
-    expect(integracion.updateOne).toHaveBeenCalledWith({ docenteId: 'docente-1' }, expect.objectContaining({
-      $set: expect.objectContaining({ googleSub: 'google-user-77' })
-    }), { upsert: true });
-  });
-
-  it('rechaza una identidad OAuth distinta y conserva la integración activa previa', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({ email: 'otra@cuh.mx', sub: 'google-user-other' })
+    expect(auth.searchParams.get('state')).toBe(resultado.state);
+    expect(oauth.generateCodeVerifierAsync).toHaveBeenCalledOnce();
+    expect(oauth.generateAuthUrl).toHaveBeenCalledWith(expect.objectContaining({
+      login_hint: 'docente@cuh.mx', code_challenge: 'pkce-challenge', code_challenge_method: 'S256', redirect_uri: resultado.redirectUri
     }));
-    const { mod, integracion } = await cargarModulo({
-      oauth: { getToken: vi.fn().mockResolvedValue({ tokens: { access_token: 'access-new', refresh_token: 'refresh-new' } }) },
-      integracion: { findOne: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ activo: true, googleSub: 'google-user-77' }) }) }
-    });
-
-    await expect(mod.completarOauthClassroom({ code: 'ok', state: 'jwt-state-ok' })).rejects.toMatchObject({
-      codigo: 'CLASSROOM_GOOGLE_SUB_MISMATCH', estadoHttp: 403
-    });
-    expect(integracion.updateOne).not.toHaveBeenCalled();
+    const requestedScopes = oauth.generateAuthUrl.mock.calls[0]?.[0]?.scope as string[];
+    expect(requestedScopes).toContain('https://www.googleapis.com/auth/classroom.student-submissions.students.readonly');
+    const callback = new URL(resultado.redirectUri);
+    callback.searchParams.set('state', resultado.state);
+    callback.searchParams.set('error', 'access_denied');
+    callback.searchParams.set('iss', 'https://accounts.google.com');
+    expect((await fetch(callback)).status).toBe(400);
   });
 
+  it('requiere el client ID específico de Classroom y respeta CLASSROOM_ENABLED=0', async () => {
+    const sinClientId = await cargarModulo({ config: { googleClassroomClientId: '' } });
+    await expect(sinClientId.mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' }))
+      .rejects.toMatchObject({ codigo: 'CLASSROOM_NO_CONFIG' });
+    const deshabilitado = await cargarModulo({ config: { classroomEnabled: false } });
+    await expect(deshabilitado.mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' }))
+      .rejects.toMatchObject({ codigo: 'CLASSROOM_NO_CONFIG' });
+  });
+
+  it('completa callback loopback con PKCE, state de un solo uso e identidad verificada', async () => {
+    const { mod, oauth, integracion, protegerTokenClassroom } = await cargarModulo({
+      oauth: { getToken: vi.fn().mockResolvedValue({ tokens: {
+        id_token: 'verified-id-token', refresh_token: 'refresh-xyz', access_token: 'access-xyz',
+        scope: 'scope-a scope-b', expiry_date: 1730000000000
+      } }) }
+    });
+    const resultado = await mod.construirUrlOauthClassroom('docente-42', {
+      loginHint: 'docente@cuh.mx', expectedGoogleSub: 'google-user-77'
+    });
+    const auth = new URL(resultado.url);
+    const callback = new URL(resultado.redirectUri);
+    callback.searchParams.set('state', auth.searchParams.get('state') || '');
+    callback.searchParams.set('code', 'oauth-code');
+    callback.searchParams.set('iss', 'https://accounts.google.com');
+    const response = await fetch(callback);
+    expect(response.status, await response.text()).toBe(200);
+    expect(oauth.getToken).toHaveBeenCalledWith({ code: 'oauth-code', codeVerifier: 'pkce-verifier', redirect_uri: resultado.redirectUri });
+    expect(oauth.verifyIdToken).toHaveBeenCalledWith({ idToken: 'verified-id-token', audience: configBase.googleClassroomClientId });
+    expect(protegerTokenClassroom).toHaveBeenCalledWith('refresh-xyz');
+    expect(protegerTokenClassroom).toHaveBeenCalledWith('access-xyz');
+    expect(integracion.updateOne).toHaveBeenCalledWith({ docenteId: 'docente-42' }, expect.objectContaining({
+      $set: expect.objectContaining({ googleSub: 'google-user-77', correoGoogle: 'docente@cuh.mx' })
+    }), { upsert: true });
+    await expect(fetch(callback)).rejects.toThrow();
+  });
   it('obtiene token de acceso y actualiza integracion', async () => {
-    const { mod, integracion, descifrarTexto, oauth, cifrarTexto } = await cargarModulo({
+    const { mod, integracion, oauth, protegerTokenClassroom } = await cargarModulo({
       integracion: {
         findOne: vi.fn().mockResolvedValue({
           _id: 'int-1',
           googleSub: 'google-user-77',
-          refreshTokenCifrado: 'enc:refresh-ok',
+          refreshTokenCifrado: 'dpapi:test:refresh-ok',
           activo: true
         })
       }
@@ -297,9 +212,8 @@ describe('servicioClassroomGoogle', () => {
     const token = await mod.obtenerTokenAccesoClassroom('docente-9');
 
     expect(token).toBe('access-token-123');
-    expect(descifrarTexto).toHaveBeenCalledWith('enc:refresh-ok', configBase.classroomTokenCipherKey);
     expect(oauth.setCredentials).toHaveBeenCalledWith({ refresh_token: 'refresh-ok' });
-    expect(cifrarTexto).toHaveBeenCalledWith('access-token-123', configBase.classroomTokenCipherKey);
+    expect(protegerTokenClassroom).toHaveBeenCalledWith('access-token-123');
     expect(integracion.updateOne).toHaveBeenCalled();
   });
 
@@ -309,7 +223,7 @@ describe('servicioClassroomGoogle', () => {
         findOne: vi.fn().mockResolvedValue({
           _id: 'int-legacy',
           googleSub: 'google-user-other',
-          refreshTokenCifrado: 'enc:refresh-other',
+          refreshTokenCifrado: 'dpapi:test:refresh-other',
           activo: true
         })
       }
@@ -343,7 +257,7 @@ describe('servicioClassroomGoogle', () => {
         findOne: vi.fn().mockResolvedValue({
           _id: 'int-2',
           googleSub: 'google-user-77',
-          refreshTokenCifrado: 'enc:refresh-ok',
+          refreshTokenCifrado: 'dpapi:test:refresh-ok',
           activo: true
         })
       }
@@ -362,7 +276,7 @@ describe('servicioClassroomGoogle', () => {
     const { mod, oauth } = await cargarModulo({
       oauth: { getAccessToken: getAccessToken as OauthMock['getAccessToken'] },
       integracion: {
-        findOne: vi.fn().mockResolvedValue({ _id: 'int-1', googleSub: 'google-user-77', refreshTokenCifrado: 'enc:refresh', activo: true })
+        findOne: vi.fn().mockResolvedValue({ _id: 'int-1', googleSub: 'google-user-77', refreshTokenCifrado: 'dpapi:test:refresh', activo: true })
       }
     });
     const primera = mod.obtenerTokenAccesoClassroom('docente-concurrente');
@@ -378,7 +292,7 @@ describe('servicioClassroomGoogle', () => {
     const { mod, integracion } = await cargarModulo({
       oauth: { getAccessToken: vi.fn().mockRejectedValue({ response: { data: { error: 'invalid_grant' } } }) },
       integracion: {
-        findOne: vi.fn().mockResolvedValue({ _id: 'int-revoked', googleSub: 'google-user-77', refreshTokenCifrado: 'enc:refresh', activo: true })
+        findOne: vi.fn().mockResolvedValue({ _id: 'int-revoked', googleSub: 'google-user-77', refreshTokenCifrado: 'dpapi:test:refresh', activo: true })
       }
     });
 
@@ -499,5 +413,23 @@ describe('servicioClassroomGoogle', () => {
     expect(logs).not.toContain('token-secret');
     expect(logs).not.toContain('course-private');
     expect(logs).not.toContain('page-secret');
+  });
+
+  it('elimina duplicados de recurso entre páginas sin perder filas sin ID', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200, headers: new Headers(),
+        json: vi.fn().mockResolvedValue({ courseWork: [{ id: 'activity-1', title: 'A' }, { title: 'sin id' }], nextPageToken: 'page-2' })
+      })
+      .mockResolvedValueOnce({
+        ok: true, status: 200, headers: new Headers(),
+        json: vi.fn().mockResolvedValue({ courseWork: [{ id: 'activity-1', title: 'A duplicada' }, { id: 'activity-2', title: 'B' }] })
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const { mod } = await cargarModulo();
+
+    await expect(mod.classroomGetAll('token', 'courses/course-1/courseWork', 'courseWork')).resolves.toEqual([
+      { id: 'activity-1', title: 'A' }, { title: 'sin id' }, { id: 'activity-2', title: 'B' }
+    ]);
   });
 });

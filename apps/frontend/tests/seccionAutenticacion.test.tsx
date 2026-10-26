@@ -134,7 +134,7 @@ describe('SeccionAutenticacion', () => {
     await user.click(screen.getByRole('button', { name: /Reintentar acceso con Google/i }));
 
     expect(onReintentarGoogle).toHaveBeenCalledOnce();
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Google todavía no está disponible/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo confirmar la disponibilidad del inicio de sesión con Google/i);
     expect(screen.getByLabelText('Correo')).toBeInTheDocument();
   });
 

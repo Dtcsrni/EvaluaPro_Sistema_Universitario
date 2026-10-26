@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -30,6 +31,7 @@ public partial class MainWindow : Window
     private string appRoot = string.Empty;
     private const int DashboardPortFallback = 4519;
     private static readonly TimeSpan ServiceStartupTimeout = TimeSpan.FromSeconds(60);
+    private const string GoogleDesktopClientId = "1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com";
     public MainWindow()
     {
         InitializeComponent();
@@ -56,6 +58,7 @@ public partial class MainWindow : Window
             ShowInTaskbar = false;
             Hide();
             await OpenInstallerHubFromShortcutAsync();
+            closeAuthorized = true;
             Close();
             return;
         }
@@ -690,6 +693,19 @@ public partial class MainWindow : Window
         {
             using var documento = JsonDocument.Parse(e.WebMessageAsJson);
             if (!documento.RootElement.TryGetProperty("type", out var tipo)) return;
+            if (tipo.GetString() == "EVALUAPRO_OPEN_EXTERNAL_URL")
+            {
+                var rawUrl = documento.RootElement.TryGetProperty("url", out var urlElement)
+                    ? urlElement.GetString()
+                    : null;
+                if (!EsAutorizacionGoogleDesktopConfiable(rawUrl))
+                {
+                    Debug.WriteLine("Se rechazó una solicitud OAuth Desktop externa que no cumple la política local.");
+                    return;
+                }
+                Process.Start(new ProcessStartInfo(rawUrl!) { UseShellExecute = true });
+                return;
+            }
             if (tipo.GetString() == "EVALUAPRO_UPDATE_HUB")
             {
                 var version = documento.RootElement.TryGetProperty("version", out var versionElement)
@@ -719,6 +735,64 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"Error al seleccionar la carpeta de sincronización: {ex.Message}");
         }
+    }
+
+    private static bool EsAutorizacionGoogleDesktopConfiable(string? rawUrl)
+    {
+        if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps ||
+            uri.Port != 443 ||
+            !string.Equals(uri.Host, "accounts.google.com", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(uri.AbsolutePath, "/o/oauth2/v2/auth", StringComparison.Ordinal) ||
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            !string.IsNullOrEmpty(uri.Fragment))
+        {
+            return false;
+        }
+
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        string? Unico(string key)
+        {
+            var values = query.GetValues(key);
+            return values is { Length: 1 } ? values[0] : null;
+        }
+
+        var parametrosPermitidos = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "access_type", "prompt", "scope", "state", "redirect_uri",
+            "code_challenge", "code_challenge_method", "response_type", "client_id"
+        };
+        var claves = query.AllKeys;
+        if (claves.Length != parametrosPermitidos.Count) return false;
+        foreach (var clave in claves)
+        {
+            if (clave is null || !parametrosPermitidos.Contains(clave)) return false;
+        }
+
+        var clientId = Unico("client_id");
+        var redirectUriValue = Unico("redirect_uri");
+        var redirectUriValida = Uri.TryCreate(redirectUriValue, UriKind.Absolute, out var redirectUri) &&
+            redirectUri.Scheme == Uri.UriSchemeHttp &&
+            string.Equals(redirectUri.Host, "127.0.0.1", StringComparison.Ordinal) &&
+            redirectUri.Port is > 0 and <= 65535 &&
+            string.Equals(redirectUri.AbsolutePath, "/oauth2callback", StringComparison.Ordinal) &&
+            string.IsNullOrEmpty(redirectUri.UserInfo) &&
+            string.IsNullOrEmpty(redirectUri.Query) &&
+            string.IsNullOrEmpty(redirectUri.Fragment);
+
+        var scopes = Unico("scope")?.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var scopesValidos = scopes is { Length: 3 } &&
+            new HashSet<string>(scopes, StringComparer.Ordinal).SetEquals(["openid", "email", "profile"]);
+
+        return string.Equals(clientId, GoogleDesktopClientId, StringComparison.Ordinal) &&
+            redirectUriValida &&
+            string.Equals(Unico("response_type"), "code", StringComparison.Ordinal) &&
+            string.Equals(Unico("code_challenge_method"), "S256", StringComparison.Ordinal) &&
+            Regex.IsMatch(Unico("code_challenge") ?? string.Empty, "^[A-Za-z0-9_-]{43}$", RegexOptions.CultureInvariant) &&
+            Regex.IsMatch(Unico("state") ?? string.Empty, "^[A-Za-z0-9_-]{43}$", RegexOptions.CultureInvariant) &&
+            string.Equals(Unico("access_type"), "online", StringComparison.Ordinal) &&
+            string.Equals(Unico("prompt"), "select_account", StringComparison.Ordinal) &&
+            scopesValidos;
     }
 
     private async Task<bool> DownloadAndOpenLatestInstallerHubAsync(string requestedVersion)
@@ -999,76 +1073,132 @@ public partial class MainWindow : Window
         return DashboardPortFallback;
     }
 
-    private async Task ShutdownServicesAsync()
+    private async Task<bool> ShutdownServicesAsync()
     {
-        if (dashboardProcess == null)
-        {
-            WriteStartupDiagnostic("No se detienen servicios: esta ventana no inició ni pudo identificar el dashboard de la instalación.");
-            return;
-        }
+        if (!await EnsureDashboardProcessForShutdownAsync()) return false;
+        if (dashboardProcess == null) return true;
 
+        var process = dashboardProcess;
         var dashboardPort = ReadDashboardPort();
+        if (!await VerifyDashboardIdentityAsync(process, dashboardPort))
+        {
+            WriteStartupDiagnostic("Se cancela el cierre: no se pudo volver a verificar la identidad del dashboard.");
+            return false;
+        }
 
         try
         {
-            if (await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort))
-            {
-                using var response = await HttpClient.PostAsync(
-                    $"http://127.0.0.1:{dashboardPort}/api/shutdown",
-                    content: null);
+            using var response = await HttpClient.PostAsync(
+                $"http://127.0.0.1:{dashboardPort}/api/shutdown",
+                content: null);
+            if (response.IsSuccessStatusCode) await Task.Delay(500);
+        }
+        catch (Exception ex)
+        {
+            // El cierre del árbol verificado sigue siendo el respaldo determinista.
+            WriteStartupDiagnostic($"Falló la solicitud ordenada de cierre del dashboard: {ex.GetType().Name}.");
+        }
 
-                if (response.IsSuccessStatusCode)
+        try
+        {
+            if (!process.HasExited && IsExpectedDashboardProcess(process) && dashboardProcessStartTimeUtc is not null &&
+                Math.Abs((process.StartTime.ToUniversalTime() - dashboardProcessStartTimeUtc.Value).TotalSeconds) <= 1)
+            {
+                process.Kill(entireProcessTree: true);
+                if (!await Task.Run(() => process.WaitForExit(8_000)))
                 {
-                    await Task.Delay(500);
+                    WriteStartupDiagnostic($"El dashboard verificado PID {process.Id} no terminó después de detener su árbol.");
+                    return false;
                 }
             }
-            else
-            {
-                WriteStartupDiagnostic("Se omitió /api/shutdown porque la identidad del dashboard ya no coincide.");
-            }
         }
-        catch
+        catch (Exception ex)
         {
-            // The owned-process fallback below handles a dashboard started by this host.
+            WriteStartupDiagnostic($"No se pudo detener el árbol verificado del dashboard: {ex.GetType().Name}.");
+            return false;
         }
 
-        try
+        return process.HasExited;
+    }
+
+    private async Task<bool> EnsureDashboardProcessForShutdownAsync()
+    {
+        var dashboardPort = ReadDashboardPort();
+        if (dashboardProcess != null)
         {
-            if (!dashboardProcess.HasExited && IsExpectedDashboardProcess(dashboardProcess) && dashboardProcessStartTimeUtc is not null &&
-                Math.Abs((dashboardProcess.StartTime.ToUniversalTime() - dashboardProcessStartTimeUtc.Value).TotalSeconds) <= 1)
+            try
             {
-                // La petición anterior es un cierre ordenado; el kill del árbol
-                // es el respaldo determinista contra hijos que sobrevivan.
-                dashboardProcess.Kill(entireProcessTree: true);
-                await Task.Run(() => dashboardProcess.WaitForExit(3_000));
+                if (!dashboardProcess.HasExited && await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort))
+                    return true;
             }
+            catch (Exception ex)
+            {
+                WriteStartupDiagnostic($"No se pudo revalidar el dashboard antes del cierre: {ex.GetType().Name}.");
+            }
+
+            dashboardProcess.Dispose();
+            dashboardProcess = null;
+            dashboardProcessStartTimeUtc = null;
         }
-        catch
+
+        await TryAdoptDashboardAsync(dashboardPort);
+        if (dashboardProcess != null && !dashboardProcess.HasExited &&
+            await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort))
         {
-            // Closing the desktop window must not be blocked by a stale child process.
+            return true;
         }
+
+        var webResponds = await ProbePortAsync("http://127.0.0.1:4173/");
+        var apiResponds = await ProbePortAsync("http://127.0.0.1:4000/api/salud");
+        if (webResponds || apiResponds)
+        {
+            WriteStartupDiagnostic("No se cerrará la ventana: hay servicios locales respondiendo, pero su identidad no se pudo verificar para detenerlos.");
+            return false;
+        }
+
+        return true;
     }
 
     private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        WriteStartupDiagnostic($"Solicitud Closing: closeAuthorized={closeAuthorized}, isStopping={isStopping}, isVisible={IsVisible}, installerHub={App.IsInstallerHubInvocation}.");
         if (closeAuthorized) return;
 
-        // Cancel every close request until the owned services finish stopping.
-        // This keeps a second click or system close from closing the window while
-        // the first Closing handler is suspended at its await.
+        // Cancel every close request until the user chooses what to do with services.
         e.Cancel = true;
         if (isStopping) return;
-        isStopping = true;
+        WriteStartupDiagnostic("Se va a mostrar la confirmación de cierre.");
+        var choice = WpfMessageBox.Show(
+            this,
+            "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
+            "EvaluaPro · Cerrar",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+        WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
 
-        try
+        if (choice == MessageBoxResult.Cancel) return;
+        if (choice == MessageBoxResult.No)
         {
-            await ShutdownServicesAsync();
-        }
-        finally
-        {
-            // The next Closing event is the single authorized final transition.
             closeAuthorized = true;
             Close();
+            return;
         }
+
+        isStopping = true;
+        if (!await ShutdownServicesAsync())
+        {
+            isStopping = false;
+            WpfMessageBox.Show(
+                this,
+                "No pude verificar que los servicios de EvaluaPro se detuvieran. La ventana permanece abierta para evitar dejar servicios activos sin control.",
+                "EvaluaPro · No se pudo detener",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        // The next Closing event is the single authorized final transition.
+        closeAuthorized = true;
+        Close();
     }
 }

@@ -9,40 +9,40 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { evaluateClassroomConfig, loadEnvForDoctor } from '../classroom-doctor.mjs';
+import { evaluateClassroomConfig, isDpapiCurrentUserSupported, loadEnvForDoctor } from '../classroom-doctor.mjs';
 
 function validEnv() {
   return {
-    GOOGLE_CLASSROOM_CLIENT_ID: 'client-id',
-    GOOGLE_CLASSROOM_CLIENT_SECRET: 'client-secret',
-    GOOGLE_CLASSROOM_REDIRECT_URI: 'https://example.edu/api/integraciones/classroom/oauth/callback',
-    CLASSROOM_TOKEN_CIPHER_KEY: crypto.randomBytes(32).toString('base64')
+    CLASSROOM_ENABLED: '1'
   };
 }
 
-test('classroom doctor pasa con prerequisitos presentes y formatos validos', () => {
+test('classroom doctor pasa con OAuth Desktop y DPAPI sin secretos por instalación', () => {
   const result = evaluateClassroomConfig(validEnv());
   assert.equal(result.ok, true);
   assert.equal(result.checks.every((check) => check.ok), true);
 });
 
-test('classroom doctor falla si falta client secret', () => {
-  const env = validEnv();
-  delete env.GOOGLE_CLASSROOM_CLIENT_SECRET;
-  const result = evaluateClassroomConfig(env);
+test('classroom doctor falla si DPAPI CurrentUser no está disponible', () => {
+  const result = evaluateClassroomConfig(validEnv(), { dpapiSupported: false });
   assert.equal(result.ok, false);
-  assert.equal(result.checks.some((check) => check.id === 'GOOGLE_CLASSROOM_CLIENT_SECRET' && check.detail === 'faltante'), true);
+  assert.equal(result.checks.some((check) => check.id === 'DPAPI_CURRENT_USER' && check.ok === false), true);
+});
+
+test('classroom doctor resuelve DPAPI desde el paquete backend instalado', () => {
+  assert.equal(isDpapiCurrentUserSupported(), process.platform === 'win32');
 });
 
 test('classroom doctor no expone valores sensibles en detalles', () => {
-  const env = validEnv();
+  const env = { ...validEnv(), GOOGLE_CLASSROOM_CLIENT_SECRET: 'client-secret', CLASSROOM_TOKEN_CIPHER_KEY: crypto.randomBytes(32).toString('base64') };
   const result = evaluateClassroomConfig(env);
   const serialized = JSON.stringify(result);
   assert.equal(serialized.includes(env.GOOGLE_CLASSROOM_CLIENT_SECRET), false);
   assert.equal(serialized.includes(env.CLASSROOM_TOKEN_CIPHER_KEY), false);
+  assert.equal(serialized.includes(env.GOOGLE_CLASSROOM_CLIENT_SECRET), false);
 });
 
-test('classroom doctor rechaza llave de cifrado con longitud invalida', () => {
+test('classroom doctor rechaza llave heredada invalida si se conserva para migración', () => {
   const env = { ...validEnv(), CLASSROOM_TOKEN_CIPHER_KEY: Buffer.from('short').toString('base64') };
   const result = evaluateClassroomConfig(env);
   assert.equal(result.ok, false);

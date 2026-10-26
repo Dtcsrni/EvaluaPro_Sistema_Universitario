@@ -14,6 +14,7 @@ function mkEvidenceFile(overrides = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-classroom-e2e-'));
   const evidence = {
     displayVersion: '1.1.0',
+    candidateSha: 'a'.repeat(40),
     operatorName: 'qa-classroom',
     windowStartedAt: '2026-06-27T00:00:00.000-06:00',
     windowEndedAt: '2026-06-27T00:30:00.000-06:00',
@@ -24,10 +25,12 @@ function mkEvidenceFile(overrides = {}) {
     docenteIdHash: 'docente-hash',
     googleWorkspace: {
       dominio: 'example.edu',
-      oauthClientConfigurado: true,
-      redirectUriRegistrado: true,
-      classroomTokenCipherKeyPresente: true,
-      scopesClassroomAprobados: true
+      clientIdDesktopVerificado: true,
+      pkceS256Verificado: true,
+      callbackLoopbackValidado: true,
+      dpapiCurrentUserVerificado: true,
+      scopesClassroomAprobados: true,
+      consentimientoDisponibleParaDocentes: true
     },
     curso: {
       courseId: 'course-123',
@@ -39,6 +42,9 @@ function mkEvidenceFile(overrides = {}) {
     actividad: {
       courseWorkId: 'work-123',
       titulo: 'Primer parcial',
+      topicId: 'topic-123',
+      tema: 'Segundo Parcial',
+      fechaLimite: '2026-10-20T09:00:00-06:00',
       submissionsTotal: 3,
       submissionsConCalificacion: 3,
       submissionsImportadas: 3,
@@ -100,4 +106,57 @@ test('classroom e2e evidence rechaza pasos incompletos', () => {
     }
   });
   assert.throws(() => validateClassroomE2eEvidence(file), /pasos\.loginDocenteValidado/i);
+});
+
+test('classroom e2e evidence exige tema y fecha limite verificables', () => {
+  const invalidText = mkEvidenceFile({
+    actividad: {
+      courseWorkId: 'work-123',
+      titulo: 'Primer parcial',
+      topicId: 'topic-123',
+      tema: 'Segundo Parcial',
+      fechaLimite: 'fecha-invalida',
+      submissionsTotal: 3,
+      submissionsConCalificacion: 3,
+      submissionsImportadas: 3,
+      submissionsSinMatch: 0
+    }
+  });
+  assert.throws(() => validateClassroomE2eEvidence(invalidText), /actividad\.fechaLimite/i);
+
+  const invalidCalendarDate = mkEvidenceFile({
+    actividad: {
+      courseWorkId: 'work-123',
+      titulo: 'Primer parcial',
+      topicId: 'topic-123',
+      tema: 'Segundo Parcial',
+      fechaLimite: '2026-02-31',
+      submissionsTotal: 3,
+      submissionsConCalificacion: 3,
+      submissionsImportadas: 3,
+      submissionsSinMatch: 0
+    }
+  });
+  assert.throws(() => validateClassroomE2eEvidence(invalidCalendarDate), /actividad\.fechaLimite/i);
+});
+
+test('classroom e2e evidence bloquea un consentimiento limitado a cuentas de prueba', () => {
+  const file = mkEvidenceFile({
+    googleWorkspace: {
+      dominio: 'example.edu',
+      clientIdDesktopVerificado: true,
+      pkceS256Verificado: true,
+      callbackLoopbackValidado: true,
+      dpapiCurrentUserVerificado: true,
+      scopesClassroomAprobados: true,
+      consentimientoDisponibleParaDocentes: false
+    }
+  });
+  assert.throws(() => validateClassroomE2eEvidence(file), /consentimientoDisponibleParaDocentes/i);
+});
+
+test('classroom e2e evidence exige el SHA exacto de la candidata', () => {
+  const file = mkEvidenceFile();
+  assert.equal(validateClassroomE2eEvidence(file, 'a'.repeat(40)).candidateSha, 'a'.repeat(40));
+  assert.throws(() => validateClassroomE2eEvidence(file, 'b'.repeat(40)), /candidateSha no coincide/i);
 });

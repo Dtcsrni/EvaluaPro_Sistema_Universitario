@@ -83,6 +83,10 @@ export const esquemaIngresarDocenteGoogle = z.object({
   credential: z.string().min(10)
 });
 
+export const esquemaFlujoGoogleDesktop = z.object({
+  flowId: z.string().regex(/^[A-Za-z0-9_-]{43}$/)
+}).strict();
+
 export const esquemaRegistrarDocenteGoogle = z
   .object({
     // ID token (credential) emitido por Google Identity Services.

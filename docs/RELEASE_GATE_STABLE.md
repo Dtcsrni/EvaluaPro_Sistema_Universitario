@@ -64,7 +64,7 @@ El gate estable genera ademas:
 - `reports/release/stable-gate/<version>/decision.json` con decision `Go/No-Go`.
 
 ## Evidencia manual opcional
-El flujo humano productivo y Classroom real pueden ejecutarse como smoke operativo, pero no bloquean la promocion estable si la evidencia automatizada obligatoria esta completa.
+El flujo humano productivo general puede ejecutarse como smoke operativo opcional. La evidencia E2E real de Google Classroom es obligatoria para promover una versión estable y debe estar ligada a la misma versión candidata; las pruebas con mocks o fixtures no la sustituyen.
 
 Checklist base de rollback:
 

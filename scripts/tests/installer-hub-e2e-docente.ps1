@@ -62,6 +62,56 @@ public static class EvaluaProE2ENativeWindow {
   public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")]
   public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll", SetLastError=true)]
+  public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  private static extern int GetWindowTextLength(IntPtr hWnd);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int maxCount);
+  [DllImport("user32.dll")]
+  private static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")]
+  private static extern bool IsWindowEnabled(IntPtr hWnd);
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern IntPtr SendMessageTimeout(
+    IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeoutMs, out IntPtr result);
+  public static bool ClickButton(IntPtr hWnd, uint timeoutMs) {
+    if (hWnd == IntPtr.Zero) return false;
+    IntPtr result;
+    return SendMessageTimeout(hWnd, 0x00F5, IntPtr.Zero, IntPtr.Zero, 0x0002, timeoutMs, out result) != IntPtr.Zero;
+  }
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+  public sealed class WindowInfo {
+    public IntPtr Handle { get; set; }
+    public string Title { get; set; }
+    public bool Visible { get; set; }
+    public bool Enabled { get; set; }
+  }
+
+  public static WindowInfo[] GetProcessWindows(int processId) {
+    var found = new System.Collections.Generic.List<WindowInfo>();
+    EnumWindows((hWnd, lParam) => {
+      uint ownerProcessId;
+      GetWindowThreadProcessId(hWnd, out ownerProcessId);
+      if (ownerProcessId != (uint)processId) return true;
+      int length = Math.Max(1, GetWindowTextLength(hWnd) + 1);
+      var title = new System.Text.StringBuilder(length);
+      GetWindowText(hWnd, title, title.Capacity);
+      found.Add(new WindowInfo {
+        Handle = hWnd,
+        Title = title.ToString(),
+        Visible = IsWindowVisible(hWnd),
+        Enabled = IsWindowEnabled(hWnd)
+      });
+      return true;
+    }, IntPtr.Zero);
+    return found.ToArray();
+  }
 }
 '@
 
@@ -539,6 +589,80 @@ function Invoke-Control {
   } catch {
     throw ("Control sin InvokePattern: {0} / {1}" -f $Element.Current.AutomationId, $Element.Current.Name)
   }
+}
+
+function Get-AppHostTopLevelWindows {
+  param([Parameter(Mandatory = $true)][int]$ProcessId)
+  $matches = @()
+  try {
+    # UIA can omit owned modal windows; enumerate native windows for this PID,
+    # then bind each handle back to UI Automation.
+    foreach ($window in [EvaluaProE2ENativeWindow]::GetProcessWindows($ProcessId)) {
+      if (-not $window.Visible) { continue }
+      $element = $null
+      $name = [string]$window.Title
+      try {
+        $element = [System.Windows.Automation.AutomationElement]::FromHandle($window.Handle)
+        if ($element -and -not [string]::IsNullOrWhiteSpace([string]$element.Current.Name)) {
+          $name = [string]$element.Current.Name
+        }
+      } catch {}
+      $matches += [pscustomobject]@{
+        Element = $element
+        Name = $name
+        NativeTitle = [string]$window.Title
+        Handle = [int64]$window.Handle.ToInt64()
+        Enabled = [bool]$window.Enabled
+      }
+    }
+  } catch {}
+  return $matches
+}
+
+function Wait-AppHostCloseConfirmation {
+  param(
+    [Parameter(Mandatory = $true)][int]$ProcessId,
+    [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
+    [int]$TimeoutSec = 15
+  )
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $script:lastAppHostTopLevelWindows = @()
+  do {
+    try {
+      $Process.Refresh()
+      if ($Process.HasExited) { return $null }
+      $script:lastAppHostTopLevelWindows = @(Get-AppHostTopLevelWindows -ProcessId $ProcessId)
+      $dialog = $script:lastAppHostTopLevelWindows |
+        Where-Object { $_.Name -eq 'EvaluaPro · Cerrar' -or $_.NativeTitle -eq 'EvaluaPro · Cerrar' } |
+        Select-Object -First 1
+      if ($dialog) { return $dialog.Element }
+    } catch {}
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+  return $null
+}
+
+function Invoke-AppHostCloseConfirmationYes {
+  param([Parameter(Mandatory = $true)][System.Windows.Automation.AutomationElement]$Dialog)
+  foreach ($name in @('Sí', 'Yes')) {
+    $button = Find-ByName -RootElement $Dialog -Name $name -TimeoutSec 1
+    if ($button) {
+      # Hosted MessageBox buttons may not expose LegacyIAccessiblePattern.
+      $buttonHandle = [IntPtr]([int]$button.Current.NativeWindowHandle)
+      if ($buttonHandle -ne [IntPtr]::Zero -and
+          [EvaluaProE2ENativeWindow]::ClickButton($buttonHandle, 5000)) {
+        return $name
+      }
+      try {
+        Invoke-Control -Element $button
+        return $name
+      } catch {
+        throw ("No se pudo activar la opción de cierre '{0}'; HWND=0x{1:X}: {2}" -f
+          $name, $button.Current.NativeWindowHandle, $_.Exception.Message)
+      }
+    }
+  }
+  throw 'La confirmación de cierre no expuso el botón Sí/Yes mediante UI Automation.'
 }
 
 function Wait-ControlEnabled {
@@ -1626,7 +1750,37 @@ function Invoke-InstalledAppHost {
     if ($process) {
       try {
         if (-not $process.CloseMainWindow()) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
-        if (-not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s; no se forzará el cierre." }
+        $dialog = Wait-AppHostCloseConfirmation -ProcessId ([int]$identity.Id) -Process $process -TimeoutSec 15
+        $process.Refresh()
+        if ($dialog) {
+          $confirmedChoice = Invoke-AppHostCloseConfirmationYes -Dialog $dialog
+          Add-Result -Area 'native-app-host' -Item 'close-confirmation-yes' -Ok $true -Detail "choice=$confirmedChoice pid=$($identity.Id) runId=$RunId"
+        } elseif ($process.HasExited) {
+          # The v1.2.3 upgrade baseline predates the close dialog; it must exit cleanly.
+          $installedVersion = [version](Get-InstalledProductVersion)
+          if ($installedVersion -ne [version]'1.2.3') { throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion." }
+          Add-Result -Area 'native-app-host' -Item 'legacy-close-without-confirmation' -Ok $true -Detail "version=$installedVersion pid=$($identity.Id) runId=$RunId"
+        } else {
+          $hostLogPaths = @(
+            (Join-Path $installedRoot 'logs\app-host.log'),
+            (Join-Path (Join-Path $env:LOCALAPPDATA 'EvaluaPro') 'logs\app-host.log')
+          ) | Select-Object -Unique
+          $hostLogEvidence = @()
+          foreach ($hostLogPath in $hostLogPaths) {
+            if (-not (Test-Path -LiteralPath $hostLogPath -PathType Leaf)) { continue }
+            Copy-ArtifactIfExists -Path $hostLogPath | Out-Null
+            $hostLogEvidence += @(Get-Content -LiteralPath $hostLogPath -Tail 40 -ErrorAction SilentlyContinue)
+          }
+          $process.Refresh()
+          $responding = try { [bool]$process.Responding } catch { $false }
+          $windowDetails = @($script:lastAppHostTopLevelWindows | ForEach-Object { "'{0}' hwnd=0x{1:X} enabled={2}" -f $_.Name, $_.Handle, $_.Enabled }) -join '; '
+          if ([string]::IsNullOrWhiteSpace($windowDetails)) { $windowDetails = 'ninguna ventana accesible del proceso' }
+          $logDetails = ($hostLogEvidence -join ' | ')
+          if ($logDetails.Length -gt 4000) { $logDetails = $logDetails.Substring($logDetails.Length - 4000) }
+          throw "El App Host PID $($identity.Id) no terminó ni mostró la confirmación de cierre; responding=$responding; ventanas detectadas: $windowDetails; app-host.log tail: $logDetails."
+        }
+        $process.Refresh()
+        if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
       } finally { $process.Dispose() }
     }
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
@@ -2382,7 +2536,48 @@ function Test-InstalledState {
   foreach ($path in $required) {
     Add-Result -Area $Phase -Item ("file:{0}" -f (Split-Path -Leaf $path)) -Ok (Test-Path -LiteralPath $path) -Detail $path
   }
-  if (Test-Path -LiteralPath $manifest) { Copy-ArtifactIfExists -Path $manifest -Name ("{0}-installation.manifest.json" -f $Phase) | Out-Null }
+  if (Test-Path -LiteralPath $manifest) {
+    Copy-ArtifactIfExists -Path $manifest -Name ("{0}-installation.manifest.json" -f $Phase) | Out-Null
+    try {
+      $installedManifest = Get-Content -Raw -LiteralPath $manifest | ConvertFrom-Json -ErrorAction Stop
+      $critical = @($installedManifest.criticalFiles)
+      $isLegacyBaseline = $Phase -eq 'post-baseline-install'
+      $requiredCriticalPaths = if ($isLegacyBaseline) {
+        @(
+          'scripts\launcher-broker.ps1',
+          'scripts\launcher-tray.ps1',
+          'scripts\launcher-tray-hidden.vbs',
+          'scripts\create-shortcuts.ps1',
+          'config\shortcuts-manifest.json',
+          'scripts\shortcut-op-hidden.vbs',
+          'scripts\launcher-dashboard.mjs',
+          'scripts\dashboard.html',
+          'EvaluaPro.exe'
+        )
+      } else {
+        @(
+          'EvaluaPro.exe',
+          'apps\backend\dist\index.js',
+          'apps\backend\dist\prisma\schema.sql',
+          'runtime\node\node.exe',
+          'scripts\start-docente-native.mjs',
+          'scripts\prepare-docente-sqlite.mjs',
+          'config\update-config.json'
+        )
+      }
+      $missingCritical = @($critical | Where-Object { -not [bool]$_.exists } | ForEach-Object { [string]$_.path })
+      $criticalPathSet = @($critical | ForEach-Object { ([string]$_.path).Replace('/', '\').ToLowerInvariant() })
+      $hasRequiredCritical = @($requiredCriticalPaths | Where-Object { $criticalPathSet -notcontains $_.ToLowerInvariant() }).Count -eq 0
+      $hasNoLegacyCritical = $isLegacyBaseline -or @($criticalPathSet | Where-Object { $_ -match '\.(ps1|vbs)$' }).Count -eq 0
+      Add-Result -Area $Phase -Item 'installation-manifest-healthy' -Ok (
+        [string]$installedManifest.installation.flavor -eq 'docente-local' -and
+        $missingCritical.Count -eq 0 -and $hasRequiredCritical -and $hasNoLegacyCritical
+      ) -Detail ("flavor={0}; expectation={1}; missingCritical={2}; hasRequiredCritical={3}; hasNoLegacyCritical={4}" -f
+        [string]$installedManifest.installation.flavor, $(if ($isLegacyBaseline) { 'legacy-baseline' } else { 'native-current' }), ($missingCritical -join ','), $hasRequiredCritical, $hasNoLegacyCritical)
+    } catch {
+      Add-Result -Area $Phase -Item 'installation-manifest-healthy' -Ok $false -Detail $_.Exception.Message
+    }
+  }
   if (Test-Path -LiteralPath $updateConfig) {
     Copy-ArtifactIfExists -Path $updateConfig -Name ("{0}-update-config.json" -f $Phase) | Out-Null
     $cfg = Get-Content -Raw -Path $updateConfig | ConvertFrom-Json

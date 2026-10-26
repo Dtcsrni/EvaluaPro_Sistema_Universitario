@@ -658,6 +658,26 @@ try {
         }
       }
 
+      $dpapiPackagePath = Join-Path $runtimeNodeModules '@primno/dpapi/package.json'
+      $dpapiNativeAddon = Join-Path $runtimeNodeModules '@primno/dpapi/prebuilds/win32-x64/@primno+dpapi.node'
+      if (-not (Test-Path -LiteralPath $dpapiPackagePath) -or -not (Test-Path -LiteralPath $dpapiNativeAddon)) {
+        throw 'Falta @primno/dpapi o su binario Windows x64 en las dependencias de producción del payload.'
+      }
+      $dpapiRuntimeSmoke = @'
+import { Dpapi, isPlatformSupported } from '@primno/dpapi';
+if (process.platform !== 'win32' || !isPlatformSupported) throw new Error('DPAPI CurrentUser is unavailable.');
+const original = Buffer.from('EvaluaPro-Classroom-DPAPI-smoke', 'utf8');
+const entropy = Buffer.from('EvaluaPro/Classroom/OAuthToken/v1', 'utf8');
+const protectedValue = Dpapi.protectData(original, entropy, 'CurrentUser');
+const restored = Dpapi.unprotectData(protectedValue, entropy, 'CurrentUser');
+if (Buffer.compare(original, Buffer.from(restored)) !== 0) throw new Error('DPAPI roundtrip mismatch.');
+'@
+      $dpapiSmokeOutput = @(& $nodeForBuild --input-type=module -e $dpapiRuntimeSmoke 2>&1 | ForEach-Object { [string]$_ })
+      if ($LASTEXITCODE -ne 0) {
+        throw "@primno/dpapi no pudo cifrar/descifrar como CurrentUser en el payload: $($dpapiSmokeOutput -join ' ')"
+      }
+      Write-Host '[msi] Runtime DPAPI CurrentUser validado con roundtrip efimero.'
+
       # npm ci se ejecuta con scripts deshabilitados en el staging. Reutilizar
       # el addon que npm preparó para el mismo Node Windows del build para que
       # el runtime SQLite no dependa de compilar código C++ en el equipo destino.

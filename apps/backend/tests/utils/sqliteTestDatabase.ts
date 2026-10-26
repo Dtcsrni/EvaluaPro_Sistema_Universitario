@@ -54,7 +54,8 @@ export async function conectarSqliteTest() {
     schemaPath = path.resolve(process.cwd(), 'prisma', 'schema.prisma');
   }
 
-  const cmd = `"${prismaBin}" db push --schema="${schemaPath}"`;
+  const prismaConfigPath = path.resolve(__dirname, '..', '..', 'prisma.config.mjs');
+  const cmd = `"${prismaBin}" db push --config="${prismaConfigPath}" --schema="${schemaPath}"`;
   
   try {
     execSync(cmd, {

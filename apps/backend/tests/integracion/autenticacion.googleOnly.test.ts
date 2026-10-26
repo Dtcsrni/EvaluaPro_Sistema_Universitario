@@ -53,6 +53,7 @@ describe('autenticacion google-only', () => {
       requireGoogleOAuth: true,
       passwordLoginAllowed: false,
       oauthGoogleBackend: true,
+      oauthGoogleDesktopBackend: true,
       googleOauthClientId: 'google-client-id-test',
       snapshotGoogleDisponible: true
     });
@@ -66,6 +67,44 @@ describe('autenticacion google-only', () => {
       })
       .expect(403);
     expect(registro.body?.error?.codigo).toBe('GOOGLE_OAUTH_REQUIRED');
+  });
+
+  it('expone y protege el flujo OAuth Desktop con origen permitido y cuerpo estricto', async () => {
+    const app = await crearAppGoogleOnly();
+    const sinOrigen = await request(app)
+      .post('/api/autenticacion/google-desktop/iniciar')
+      .send({})
+      .expect(403);
+    expect(sinOrigen.body?.error?.codigo).toBe('ORIGEN_NO_AUTORIZADO');
+
+    const origen = 'http://localhost:5173';
+    const inicio = await request(app)
+      .post('/api/autenticacion/google-desktop/iniciar')
+      .set('Origin', origen)
+      .send({ extra: true })
+      .expect(400);
+    expect(inicio.body?.error?.codigo).toBeTruthy();
+
+    const flujo = await request(app)
+      .post('/api/autenticacion/google-desktop/iniciar')
+      .set('Origin', origen)
+      .send({})
+      .expect(201);
+    expect(flujo.body?.flowId).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(flujo.body?.url).toContain('accounts.google.com');
+
+    const resultado = await request(app)
+      .post('/api/autenticacion/google-desktop/resultado')
+      .set('Origin', origen)
+      .send({ flowId: flujo.body.flowId })
+      .expect(200);
+    expect(resultado.body).toEqual({ estado: 'pendiente' });
+
+    await request(app)
+      .post('/api/autenticacion/google-desktop/cancelar')
+      .set('Origin', origen)
+      .send({ flowId: flujo.body.flowId })
+      .expect(200);
   });
 
   it('autovincula por correo verificado en el primer login Google', async () => {

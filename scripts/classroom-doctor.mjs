@@ -19,14 +19,10 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const REQUIRED_KEYS = [
-  'GOOGLE_CLASSROOM_CLIENT_ID',
-  'GOOGLE_CLASSROOM_CLIENT_SECRET',
-  'GOOGLE_CLASSROOM_REDIRECT_URI',
-  'CLASSROOM_TOKEN_CIPHER_KEY'
-];
+const LEGACY_KEYS = ['GOOGLE_CLASSROOM_CLIENT_SECRET', 'GOOGLE_CLASSROOM_REDIRECT_URI'];
 
 function getArg(name, fallback = '') {
   const prefix = `--${name}=`;
@@ -60,25 +56,17 @@ function isBase64Key32(value) {
   }
 }
 
-function isHttpUrl(value) {
-  try {
-    const parsed = new URL(String(value || ''));
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-export function evaluateClassroomConfig(env) {
+export function evaluateClassroomConfig(env, { dpapiSupported = true } = {}) {
   const checks = [];
-  for (const key of REQUIRED_KEYS) {
-    const present = Boolean(String(env[key] || '').trim());
-    checks.push({ id: key, ok: present, detail: present ? 'presente' : 'faltante' });
-  }
+  const enabledRaw = String(env.CLASSROOM_ENABLED || '').trim().toLowerCase();
+  const enabled = enabledRaw ? ['1', 'true', 'yes', 'on'].includes(enabledRaw) : true;
+  checks.push({ id: 'CLASSROOM_DESKTOP_OAUTH', ok: true, detail: enabled ? 'habilitado-en-el-producto' : 'deshabilitado-por-configuracion' });
+  if (enabled) checks.push({ id: 'DPAPI_CURRENT_USER', ok: dpapiSupported, detail: dpapiSupported ? 'disponible' : 'no-disponible' });
 
-  if (String(env.GOOGLE_CLASSROOM_REDIRECT_URI || '').trim()) {
-    const ok = isHttpUrl(env.GOOGLE_CLASSROOM_REDIRECT_URI);
-    checks.push({ id: 'GOOGLE_CLASSROOM_REDIRECT_URI_FORMAT', ok, detail: ok ? 'url-valida' : 'url-invalida' });
+  for (const key of LEGACY_KEYS) {
+    if (String(env[key] || '').trim()) {
+      checks.push({ id: `${key}_LEGACY_IGNORED`, ok: true, detail: 'no-se-usa-en-oauth-desktop' });
+    }
   }
   if (String(env.CLASSROOM_TOKEN_CIPHER_KEY || '').trim()) {
     const ok = isBase64Key32(env.CLASSROOM_TOKEN_CIPHER_KEY);
@@ -102,9 +90,16 @@ export function loadEnvForDoctor(envPath = '') {
   };
 }
 
+export function isDpapiCurrentUserSupported() {
+  if (process.platform !== 'win32') return false;
+  const backendPackage = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'apps/backend/package.json');
+  return createRequire(backendPackage)('@primno/dpapi').isPlatformSupported === true;
+}
+
 export async function main() {
   const { envPath, env } = loadEnvForDoctor(getArg('env', ''));
-  const result = evaluateClassroomConfig(env);
+  const dpapiSupported = isDpapiCurrentUserSupported();
+  const result = evaluateClassroomConfig(env, { dpapiSupported });
   const output = { envPath, ...result };
   process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
   if (!result.ok) process.exit(1);

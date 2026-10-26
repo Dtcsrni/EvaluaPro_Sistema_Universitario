@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClassroomEnCalificaciones } from '../src/apps/app_docente/ClassroomEnCalificaciones';
+import { ErrorRemoto } from '../src/servicios_api/clienteApi';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import type { Alumno, PermisosUI } from '../src/apps/app_docente/tipos';
 
@@ -44,6 +45,58 @@ describe('ClassroomEnCalificaciones', () => {
       };
       return {};
     });
+  });
+
+  it('permite filtrar por tema y revisar texto, fechas y materiales sin usar datos inferidos', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [], nextCursor: null };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
+      if (String(ruta).includes('/alumnos?')) return { alumnosClassroom: [] };
+      if (String(ruta).includes('/actividades?')) return {
+        completa: false,
+        temas: [{ id: 'topic-2', name: 'Segundo Parcial' }, { id: 'topic-3', name: 'Tercer Parcial' }],
+        errores: [{ recurso: 'temas', codigo: 'CLASSROOM_API_ERROR' }],
+        actividades: [
+          { id: 'work-1', title: 'Debate empresarial', description: 'Descripción completa para analizar.', topicId: 'topic-2', topicName: 'Segundo Parcial', state: 'DRAFT', workType: 'ASSIGNMENT', dueAtUtc: '2026-10-23T15:30:00.000Z', maxPoints: 20, materials: [{ tipo: 'Enlace', nombre: 'Lectura base', enlace: 'https://docs.google.com/document/d/abc' }], alternateLink: 'https://classroom.google.com/c/course-1/a/work-1/details' },
+          { id: 'work-2', title: 'Actividad de otro tema', description: 'No corresponde al filtro.', topicId: 'topic-3', topicName: 'Tercer Parcial', state: 'PUBLISHED' }
+        ]
+      };
+      return {};
+    });
+
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+    fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
+    expect(await screen.findByText('La consulta de actividades está incompleta. Se conservan los datos recibidos; revisa los recursos con error y vuelve a cargar.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Filtrar por tema de Classroom'), { target: { value: 'topic-2' } });
+    const resumen = await screen.findByText(/Debate empresarial/);
+    fireEvent.click(resumen);
+
+    expect(await screen.findByText('Descripción completa para analizar.')).toBeInTheDocument();
+    expect(screen.getByText('Descripción completa para analizar.').closest('details')).toHaveTextContent(/Fecha de entrega:.*UTC/);
+    expect(screen.getByRole('link', { name: 'Abrir material' })).toHaveAttribute('href', 'https://docs.google.com/document/d/abc');
+    expect(within(screen.getByRole('region', { name: 'Revisar actividades por tema' })).queryByText('Actividad de otro tema')).not.toBeInTheDocument();
+  });
+
+  it('no presenta una consulta incompleta como si el curso no tuviera actividades', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [], nextCursor: null };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Ingeniería de Software' }] };
+      if (String(ruta).includes('/alumnos?')) return { alumnosClassroom: [] };
+      if (String(ruta).includes('/actividades?')) return {
+        completa: false,
+        temas: [],
+        errores: [{ recurso: 'actividades', codigo: 'CLASSROOM_API_ERROR' }],
+        actividades: []
+      };
+      return {};
+    });
+
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+    fireEvent.change(await screen.findByLabelText('Curso de Classroom'), { target: { value: 'course-1' } });
+
+    expect(await screen.findByText('La consulta de actividades está incompleta. Se conservan los datos recibidos; revisa los recursos con error y vuelve a cargar.')).toBeInTheDocument();
+    expect(screen.getByText('No hay actividades en el tema seleccionado.')).toBeInTheDocument();
+    expect(screen.queryByText('No hay actividades publicadas para mapear en este curso.')).not.toBeInTheDocument();
   });
 
   it('filtra la materia, muestra solo evidencias Classroom y mantiene las notas como solo lectura', async () => {
@@ -324,6 +377,21 @@ describe('ClassroomEnCalificaciones', () => {
     expect(screen.queryByText('Sincronización completada. Nuevas: 0; actualizadas: 0. Evidencias releídas.')).not.toBeInTheDocument();
   });
 
+  it('explica que Classroom requiere OAuth y no muestra el estado vacío si falla la consulta de cursos', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
+      if (String(ruta).includes('/evaluaciones/evidencias')) return { evidencias: [], nextCursor: null };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') {
+        throw new ErrorRemoto('Classroom requiere conexión OAuth.', { status: 503, codigo: 'CLASSROOM_NO_CONFIG' });
+      }
+      return {};
+    });
+
+    render(<ClassroomEnCalificaciones periodoId="per-1" periodos={[{ _id: 'per-1', nombre: 'Ingeniería' }]} onPeriodoChange={vi.fn()} alumnos={alumnos} permisos={permisos} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Google Classroom no está disponible en esta instalación.');
+    expect(screen.queryByText(/No hay cursos activos disponibles/)).not.toBeInTheDocument();
+  });
+
   it('no convierte metadata con destino externo o protocolo inseguro en enlaces', async () => {
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta) => {
       if (String(ruta).includes('/evaluaciones/evidencias')) return {
@@ -346,3 +414,4 @@ describe('ClassroomEnCalificaciones', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No fue posible consultar las evidencias.');
   });
 });
+

@@ -54,10 +54,12 @@ const SeccionPlantillas = lazy(() => import('./SeccionPlantillas').then(({ Secci
 const SeccionSincronizacion = lazy(() => import('./SeccionSincronizacion').then(({ SeccionSincronizacion: modulo }) => ({ default: modulo })));
 export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClientId?: string; onReintentarGoogle?: () => Promise<boolean> } = {}) {
   const montadoRef = useRef(true);
+  const recargarCapacidadesRef = useRef<(() => Promise<boolean>) | null>(null);
   const [docente, setDocente] = useState<Docente | null>(null);
   const [estadoLease, setEstadoLease] = useState<EstadoLeaseUI | null>(null);
   const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{
     oauthGoogleBackend: boolean;
+    oauthGoogleDesktopBackend: boolean;
     snapshotGoogleDisponible: boolean;
     classroomBackend: boolean;
     smtpBackend: boolean;
@@ -195,9 +197,9 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   }, []);
   useEffect(() => {
     let activo = true;
-    let temporizador: number | null = null;
     const fallback = {
       oauthGoogleBackend: false,
+      oauthGoogleDesktopBackend: false,
       snapshotGoogleDisponible: false,
       classroomBackend: false,
       smtpBackend: false,
@@ -207,11 +209,12 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
       requiereRegistroInicial: true
     };
 
-    const cargarCapacidades = async (intento = 0): Promise<void> => {
+    const cargarCapacidades = async (intento = 0): Promise<boolean> => {
       try {
         const respuesta = await clienteApi.obtener<{
           capacidadesIntegraciones?: {
             oauthGoogleBackend?: boolean;
+            oauthGoogleDesktopBackend?: boolean;
             snapshotGoogleDisponible?: boolean;
             classroomBackend?: boolean;
             smtpBackend?: boolean;
@@ -221,10 +224,11 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             requiereRegistroInicial?: boolean;
           };
         }>('/autenticacion/capacidades-integraciones');
-        if (!activo) return;
+        if (!activo) return false;
         const caps = respuesta?.capacidadesIntegraciones;
         setCapacidadesIntegraciones({
           oauthGoogleBackend: Boolean(caps?.oauthGoogleBackend),
+          oauthGoogleDesktopBackend: Boolean(caps?.oauthGoogleDesktopBackend),
           snapshotGoogleDisponible: Boolean(caps?.snapshotGoogleDisponible),
           classroomBackend: Boolean(caps?.classroomBackend),
           smtpBackend: Boolean(caps?.smtpBackend),
@@ -233,26 +237,34 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           primerUso: Boolean(caps?.primerUso),
           requiereRegistroInicial: Boolean(caps?.requiereRegistroInicial)
         });
-        return;
+        return Boolean(caps?.oauthGoogleBackend || caps?.oauthGoogleDesktopBackend);
       } catch {
-        if (!activo) return;
+        if (!activo) return false;
         if (intento < 5) {
           const esperaMs = Math.min(500 * (intento + 1), 2500);
-          temporizador = window.setTimeout(() => {
-            void cargarCapacidades(intento + 1);
-          }, esperaMs);
-          return;
+          await new Promise((resolve) => window.setTimeout(resolve, esperaMs));
+          return cargarCapacidades(intento + 1);
         }
         setCapacidadesIntegraciones(fallback);
+        return false;
       }
     };
 
+    recargarCapacidadesRef.current = () => cargarCapacidades();
     void cargarCapacidades();
     return () => {
       activo = false;
-      if (temporizador !== null) window.clearTimeout(temporizador);
+      recargarCapacidadesRef.current = null;
     };
   }, []);
+  const reintentarGoogle = useCallback(async () => {
+    const [clientId, capacidades] = await Promise.allSettled([
+      onReintentarGoogle?.() ?? Promise.resolve(false),
+      recargarCapacidadesRef.current?.() ?? Promise.resolve(false)
+    ]);
+    return (clientId.status === 'fulfilled' && clientId.value) ||
+      (capacidades.status === 'fulfilled' && capacidades.value);
+  }, [onReintentarGoogle]);
   useEffect(() => {
     if (!docenteIdSincronizacion || !sesionComprobada) {
       setEstadoLease(null);
@@ -307,6 +319,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   const oauthGoogleBackendDisponible = capacidadesIntegraciones === null
     ? undefined
     : Boolean(capacidadesIntegraciones.oauthGoogleBackend);
+  const oauthGoogleDesktopDisponible = Boolean(capacidadesIntegraciones?.oauthGoogleDesktopBackend);
   // `undefined` means the backend capability contract has not resolved yet.
   // Keep actions gated, but let the Classroom section distinguish loading from
   // a confirmed unavailable integration.
@@ -425,7 +438,8 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
       <SeccionAutenticacion
         oauthGoogleDisponible={oauthGoogleDisponible}
         oauthGoogleBackendDisponible={oauthGoogleBackendDisponible}
-        onReintentarGoogle={onReintentarGoogle}
+        oauthGoogleDesktopDisponible={oauthGoogleDesktopDisponible}
+        onReintentarGoogle={reintentarGoogle}
         smtpDisponible={smtpDisponible}
         requireGoogleOAuth={requireGoogleOAuth}
         passwordLoginAllowed={passwordLoginAllowed}
