@@ -690,6 +690,23 @@ public partial class MainWindow : Window
         {
             using var documento = JsonDocument.Parse(e.WebMessageAsJson);
             if (!documento.RootElement.TryGetProperty("type", out var tipo)) return;
+            if (tipo.GetString() == "EVALUAPRO_OPEN_EXTERNAL_URL")
+            {
+                var rawUrl = documento.RootElement.TryGetProperty("url", out var urlElement)
+                    ? urlElement.GetString()
+                    : null;
+                if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var externalUri) ||
+                    externalUri.Scheme != Uri.UriSchemeHttps ||
+                    !string.Equals(externalUri.Host, "accounts.google.com", StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(externalUri.AbsolutePath, "/o/oauth2/v2/auth", StringComparison.Ordinal) ||
+                    !string.IsNullOrEmpty(externalUri.UserInfo))
+                {
+                    Debug.WriteLine("Se rechazó una URL externa fuera del endpoint OAuth Desktop de Google.");
+                    return;
+                }
+                Process.Start(new ProcessStartInfo(externalUri.AbsoluteUri) { UseShellExecute = true });
+                return;
+            }
             if (tipo.GetString() == "EVALUAPRO_UPDATE_HUB")
             {
                 var version = documento.RootElement.TryGetProperty("version", out var versionElement)

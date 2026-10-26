@@ -80,11 +80,100 @@ function GoogleLoginConRespaldo({
   );
 }
 
+function GoogleDesktopLogin({ onCredential }: { onCredential: (credential: string) => void }) {
+  const [ocupado, setOcupado] = useState(false);
+  const [estado, setEstado] = useState('');
+  const flujoRef = useRef('');
+  const cancelarRef = useRef(false);
+  const popupRef = useRef<Window | null>(null);
+
+  useEffect(() => () => {
+    const flowId = flujoRef.current;
+    if (flowId) void clienteApi.enviar('/autenticacion/google-desktop/cancelar', { flowId }).catch(() => undefined);
+    try { popupRef.current?.close(); } catch { /* ventana ya cerrada */ }
+  }, []);
+
+  async function iniciar() {
+    if (ocupado) return;
+    const webview = (window as Window & { chrome?: { webview?: { postMessage: (message: unknown) => void } } }).chrome?.webview;
+    // El host WebView2 abre Google en el navegador del sistema; la versión web
+    // abre una pestaña durante el gesto para evitar el bloqueo de popups.
+    const popup = webview ? null : window.open('about:blank', '_blank', 'popup,width=520,height=720');
+    if (!webview && !popup) {
+      setEstado('Permite las ventanas emergentes para continuar con Google.');
+      return;
+    }
+    cancelarRef.current = false;
+    popupRef.current = popup;
+    setOcupado(true);
+    setEstado('Conectando con Google…');
+    let flowId = '';
+    try {
+      const inicio = await clienteApi.enviar<{ flowId: string; url: string }>('/autenticacion/google-desktop/iniciar', {});
+      flowId = inicio.flowId;
+      flujoRef.current = flowId;
+      if (webview) webview.postMessage({ type: 'EVALUAPRO_OPEN_EXTERNAL_URL', url: inicio.url });
+      else popup?.location.replace(inicio.url);
+      setEstado('Completa el acceso en la ventana de Google.');
+      const limite = Date.now() + 10 * 60_000;
+      while (Date.now() < limite) {
+        if (cancelarRef.current) {
+          setEstado('Acceso con Google cancelado.');
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+        const resultado = await clienteApi.enviar<{ estado: string; credential?: string; codigo?: string }>(
+          '/autenticacion/google-desktop/resultado', { flowId }
+        );
+        if (resultado.estado === 'pendiente') continue;
+        if (resultado.estado === 'listo' && resultado.credential) {
+          onCredential(resultado.credential);
+          await clienteApi.enviar('/autenticacion/google-desktop/confirmar', { flowId });
+          flujoRef.current = '';
+          setEstado('Identidad de Google verificada.');
+          return;
+        }
+        const mensajes: Record<string, string> = {
+          GOOGLE_OAUTH_CANCELLED: 'Se canceló el acceso de Google. Puedes intentarlo de nuevo.',
+          GOOGLE_EMAIL_NO_VERIFICADO: 'Google no confirmó este correo. Verifica la cuenta e inténtalo otra vez.',
+          GOOGLE_DESKTOP_OAUTH_FAILED: 'No se pudo verificar la identidad con Google.'
+        };
+        setEstado(mensajes[resultado.codigo || ''] || 'El acceso de Google venció o no pudo completarse.');
+        flujoRef.current = '';
+        return;
+      }
+      setEstado('El acceso de Google tardó demasiado. Inicia uno nuevo.');
+    } catch {
+      setEstado('No se pudo iniciar el acceso con Google. Comprueba que EvaluaPro esté conectado e inténtalo otra vez.');
+    } finally {
+      if (flowId) {
+        void clienteApi.enviar('/autenticacion/google-desktop/cancelar', { flowId }).catch(() => undefined);
+      }
+      flujoRef.current = '';
+      setOcupado(false);
+      try { if (popupRef.current && !popupRef.current.closed) popupRef.current.close(); } catch { /* noop */ }
+      popupRef.current = null;
+    }
+  }
+
+  return (
+    <div className="auth-google-control">
+      <button type="button" className="auth-google-fallback" onClick={() => void iniciar()} disabled={ocupado}>
+        <span className="auth-google-fallback__mark" aria-hidden="true">G</span>
+        {ocupado ? 'Esperando a Google…' : 'Acceder con Google'}
+      </button>
+      {ocupado && <button type="button" className="chip" onClick={() => { cancelarRef.current = true; setEstado('Cancelando acceso…'); }}>Cancelar</button>}
+      {estado && <p role="status" aria-live="polite" className="nota">{estado}</p>}
+    </div>
+  );
+}
+
 export function SeccionAutenticacion({
   onIngresar,
   onReintentarGoogle,
   oauthGoogleDisponible,
   oauthGoogleBackendDisponible,
+  oauthGoogleDesktopDisponible,
   requireGoogleOAuth,
   passwordLoginAllowed,
   primerUso,
@@ -94,6 +183,7 @@ export function SeccionAutenticacion({
   onReintentarGoogle?: () => Promise<boolean>;
   oauthGoogleDisponible?: boolean;
   oauthGoogleBackendDisponible?: boolean;
+  oauthGoogleDesktopDisponible?: boolean;
   smtpDisponible?: boolean;
   requireGoogleOAuth?: boolean;
   passwordLoginAllowed?: boolean;
@@ -189,6 +279,7 @@ export function SeccionAutenticacion({
   }
 
   const googleDisponible = typeof oauthGoogleDisponible === 'boolean' ? oauthGoogleDisponible : hayGoogleConfigurado();
+  const googleLoginDisponible = googleDisponible || Boolean(oauthGoogleDesktopDisponible);
   const googleBackendNoDisponible = googleDisponible && oauthGoogleBackendDisponible === false;
   const esDev = import.meta.env.DEV;
   const googleOnly = Boolean(requireGoogleOAuth);
@@ -696,13 +787,13 @@ export function SeccionAutenticacion({
             </InlineMensaje>
           )}
 
-          {!googleDisponible && esDev && (
+          {!googleLoginDisponible && esDev && (
             <InlineMensaje tipo="info">
               Inicio de sesión con Google deshabilitado en este entorno.
             </InlineMensaje>
           )}
 
-          {!googleDisponible && modo === 'ingresar' && (
+          {!googleLoginDisponible && modo === 'ingresar' && (
             <div className="auth-google-wrapper">
               <div className="auth-google-control">
                 <button
@@ -720,7 +811,7 @@ export function SeccionAutenticacion({
             </div>
           )}
 
-          {googleDisponible && modo === 'ingresar' && (
+          {googleLoginDisponible && modo === 'ingresar' && (
             <div className="auth-google-wrapper">
               {errorGoogleOauth && (
                 <div className="cuenta-toggle-card anim-fade-in mb-15" role="alert">
@@ -754,7 +845,8 @@ export function SeccionAutenticacion({
                   </div>
                 </div>
               )}
-              <GoogleLoginConRespaldo
+              {oauthGoogleDesktopDisponible && <GoogleDesktopLogin onCredential={(credential) => void ingresarConGoogle(credential, nuevoIdFlujoAutenticacion())} />}
+              {googleDisponible && <GoogleLoginConRespaldo
                 instrumentar
                 onSuccess={(cred, flowId) => {
                   const token = cred.credential;
@@ -771,7 +863,7 @@ export function SeccionAutenticacion({
                   setMensaje('Error de autorización con Google. Verifica los orígenes autorizados de JavaScript en Google Cloud Console.');
                 }}
                 onFallback={informarGoogleNoDisponible}
-              />
+              />}
               {esDev && (
                 <div className="acciones acciones--mt">
                   <button type="button" className="chip" onClick={() => void copiarDiagnosticoAcceso()}>
@@ -852,9 +944,16 @@ export function SeccionAutenticacion({
             </div>
           )}
 
-          {googleDisponible && modo === 'registrar' && !(mostrarFormularioRegistrar && passwordDisponible) && (
+          {googleLoginDisponible && modo === 'registrar' && !(mostrarFormularioRegistrar && passwordDisponible) && (
             <div className="auth-google-wrapper">
-              <GoogleLoginConRespaldo
+              {oauthGoogleDesktopDisponible && <GoogleDesktopLogin onCredential={(credential) => {
+                const payload = decodificarPayloadJwt(credential);
+                setCredentialRegistroGoogle(credential);
+                setCrearContrasenaAhora(false);
+                if (typeof payload?.email === 'string') setCorreo(payload.email);
+                setMensaje('Google verificó tu identidad. Completa tus datos y registra la cuenta.');
+              }} />}
+              {googleDisponible && <GoogleLoginConRespaldo
                 onSuccess={(cred) => {
                   const token = cred.credential;
                   if (!token) {
@@ -895,7 +994,7 @@ export function SeccionAutenticacion({
                 onError={() => setMensaje('No se pudo obtener datos de Google.')}
                 onFallback={informarGoogleNoDisponible}
                 etiqueta="Continuar con Google"
-              />
+              />}
               <div className="auth-divider-row">
                 <button
                   className="chip"

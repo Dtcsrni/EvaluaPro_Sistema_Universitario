@@ -18,13 +18,14 @@ export type PerfilGoogle = {
 let client: OAuth2Client | null = null;
 
 function obtenerClient() {
-  if (!configuracion.googleOauthClientId) {
+  const audiences = [configuracion.googleOauthClientId, configuracion.googleDesktopClientId].filter(Boolean);
+  if (audiences.length === 0) {
     throw new ErrorAplicacion('GOOGLE_NO_CONFIG', 'Acceso con Google no configurado', 501);
   }
   if (!client) {
-    client = new OAuth2Client(configuracion.googleOauthClientId);
+    client = new OAuth2Client(audiences[0]);
   }
-  return client;
+  return { client, audiences };
 }
 
 export async function verificarCredencialGoogle(credential: string): Promise<PerfilGoogle> {
@@ -32,10 +33,10 @@ export async function verificarCredencialGoogle(credential: string): Promise<Per
     throw new ErrorAplicacion('GOOGLE_CREDENCIAL_INVALIDA', 'Credencial invalida', 401);
   }
 
-  const c = obtenerClient();
+  const { client: c, audiences } = obtenerClient();
   const ticket = await c.verifyIdToken({
     idToken: credential,
-    audience: configuracion.googleOauthClientId
+    audience: audiences.length === 1 ? audiences[0] : audiences
   });
 
   const payload = ticket.getPayload();

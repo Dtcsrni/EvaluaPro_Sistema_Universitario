@@ -10,6 +10,10 @@ import {
 	actualizarPreferenciasPdfDocente,
 	actualizarPreferenciaRetencionParciales,
 	capacidadesIntegracionesPublicas,
+	iniciarLoginGoogleDesktop,
+	obtenerResultadoLoginGoogleDesktop,
+	confirmarLoginGoogleDesktop,
+	cancelarLoginGoogleDesktop,
 	ingresarDocente,
 	ingresarDocenteGoogle,
 	perfilDocente,
@@ -30,6 +34,7 @@ import {
 	esquemaDefinirContrasenaDocente,
 	esquemaIngresarDocente,
 	esquemaIngresarDocenteGoogle,
+	esquemaFlujoGoogleDesktop,
 	esquemaRecuperarContrasenaGoogle,
 	esquemaSolicitarRecuperacionContrasena,
 	esquemaRestablecerContrasena,
@@ -39,6 +44,15 @@ import {
 import { requerirPermiso } from './middlewarePermisos.js';
 
 const router = Router();
+
+const requerirOrigenAutorizado: RequestHandler = (req, res, next) => {
+	const origin = req.get('origin');
+	if (!origin || !configuracion.corsOrigenes.includes(origin)) {
+		res.status(403).json({ error: { codigo: 'ORIGEN_NO_AUTORIZADO', mensaje: 'Origen de aplicación no autorizado.' } });
+		return;
+	}
+	next();
+};
 
 const esTest = process.env.NODE_ENV === 'test';
 const esProduccion = configuracion.entorno === 'production';
@@ -81,6 +95,10 @@ const limiterRefresco: RequestHandler = esProduccion
 
 router.post('/registrar', limiterCredenciales, validarCuerpo(esquemaRegistrarDocente, { strict: true }), registrarDocente);
 router.get('/capacidades-integraciones', capacidadesIntegracionesPublicas);
+router.post('/google-desktop/iniciar', requerirOrigenAutorizado, limiterCredenciales, validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), iniciarLoginGoogleDesktop);
+router.post('/google-desktop/resultado', requerirOrigenAutorizado, limiterCredenciales, validarCuerpo(esquemaFlujoGoogleDesktop, { strict: true }), obtenerResultadoLoginGoogleDesktop);
+router.post('/google-desktop/confirmar', requerirOrigenAutorizado, limiterCredenciales, validarCuerpo(esquemaFlujoGoogleDesktop, { strict: true }), confirmarLoginGoogleDesktop);
+router.post('/google-desktop/cancelar', requerirOrigenAutorizado, limiterCredenciales, validarCuerpo(esquemaFlujoGoogleDesktop, { strict: true }), cancelarLoginGoogleDesktop);
 router.post('/registrar-google', limiterCredenciales, validarCuerpo(esquemaRegistrarDocenteGoogle, { strict: true }), registrarDocenteGoogle);
 router.post('/ingresar', limiterCredenciales, validarCuerpo(esquemaIngresarDocente, { strict: true }), ingresarDocente);
 router.post('/google', limiterCredenciales, validarCuerpo(esquemaIngresarDocenteGoogle, { strict: true }), ingresarDocenteGoogle);

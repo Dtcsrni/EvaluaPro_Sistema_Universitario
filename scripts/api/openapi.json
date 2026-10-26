@@ -22459,6 +22459,198 @@
           "classroom:pull"
         ]
       }
+    },
+    "/autenticacion/google-desktop/iniciar": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_google_desktop_iniciar",
+        "summary": "POST /autenticacion/google-desktop/iniciar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-validators": [
+          "esquemaBodyVacioOpcional"
+        ]
+      }
+    },
+    "/autenticacion/google-desktop/resultado": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_google_desktop_resultado",
+        "summary": "POST /autenticacion/google-desktop/resultado",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-validators": [
+          "esquemaFlujoGoogleDesktop"
+        ]
+      }
+    },
+    "/autenticacion/google-desktop/confirmar": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_google_desktop_confirmar",
+        "summary": "POST /autenticacion/google-desktop/confirmar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-validators": [
+          "esquemaFlujoGoogleDesktop"
+        ]
+      }
+    },
+    "/autenticacion/google-desktop/cancelar": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_google_desktop_cancelar",
+        "summary": "POST /autenticacion/google-desktop/cancelar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-validators": [
+          "esquemaFlujoGoogleDesktop"
+        ]
+      }
     }
   },
   "components": {

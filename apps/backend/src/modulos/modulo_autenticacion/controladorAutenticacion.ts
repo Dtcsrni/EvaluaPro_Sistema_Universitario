@@ -15,6 +15,12 @@ import { crearTokenDocente } from './servicioTokens.js';
 import { obtenerDocenteId, type SolicitudDocente } from './middlewareAutenticacion.js';
 import { cerrarSesionDocente, emitirSesionDocente, refrescarSesionDocente, revocarSesionesDocente } from './servicioSesiones.js';
 import { verificarCredencialGoogle, type PerfilGoogle } from './servicioGoogle.js';
+import {
+  cancelarFlujoOAuthGoogleDesktop,
+  confirmarResultadoOAuthGoogleDesktop,
+  iniciarOAuthGoogleDesktop,
+  obtenerResultadoOAuthGoogleDesktop
+} from './servicioGoogleDesktop.js';
 import { permisosComoLista, normalizarRoles } from '../../infraestructura/seguridad/rbac.js';
 import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo.js';
 import { aTituloPropio } from '../../compartido/utilidades/texto.js';
@@ -156,6 +162,7 @@ function assertPasswordAuthDisponible() {
 
 function obtenerCapacidadesOauthClassroom() {
   const oauthGoogleBackend = Boolean(String(configuracion.googleOauthClientId || '').trim());
+  const oauthGoogleDesktopBackend = Boolean(String(configuracion.googleDesktopClientId || '').trim());
   const classroomBackend = Boolean(
     configuracion.classroomEnabled &&
     String(configuracion.googleClassroomClientId || '').trim()
@@ -173,6 +180,7 @@ function obtenerCapacidadesOauthClassroom() {
 
   return {
     oauthGoogleBackend,
+    oauthGoogleDesktopBackend,
     ...(oauthGoogleBackend ? { googleOauthClientId: String(configuracion.googleOauthClientId).trim() } : {}),
     snapshotGoogleDisponible,
     classroomBackend,
@@ -180,6 +188,22 @@ function obtenerCapacidadesOauthClassroom() {
     requireGoogleOAuth: configuracion.requireGoogleOAuth,
     passwordLoginAllowed: !configuracion.requireGoogleOAuth
   };
+}
+
+export async function iniciarLoginGoogleDesktop(_req: Request, res: Response) {
+  res.status(201).json(await iniciarOAuthGoogleDesktop());
+}
+
+export function obtenerResultadoLoginGoogleDesktop(req: Request, res: Response) {
+  res.json(obtenerResultadoOAuthGoogleDesktop(String(req.body?.flowId ?? '')));
+}
+
+export function confirmarLoginGoogleDesktop(req: Request, res: Response) {
+  res.json({ confirmado: confirmarResultadoOAuthGoogleDesktop(String(req.body?.flowId ?? '')) });
+}
+
+export function cancelarLoginGoogleDesktop(req: Request, res: Response) {
+  res.json({ cancelado: cancelarFlujoOAuthGoogleDesktop(String(req.body?.flowId ?? '')) });
 }
 
 async function responderSesionDocente(

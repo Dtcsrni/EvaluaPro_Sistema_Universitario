@@ -58,6 +58,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   const [estadoLease, setEstadoLease] = useState<EstadoLeaseUI | null>(null);
   const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{
     oauthGoogleBackend: boolean;
+    oauthGoogleDesktopBackend: boolean;
     snapshotGoogleDisponible: boolean;
     classroomBackend: boolean;
     smtpBackend: boolean;
@@ -198,6 +199,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
     let temporizador: number | null = null;
     const fallback = {
       oauthGoogleBackend: false,
+      oauthGoogleDesktopBackend: false,
       snapshotGoogleDisponible: false,
       classroomBackend: false,
       smtpBackend: false,
@@ -212,6 +214,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
         const respuesta = await clienteApi.obtener<{
           capacidadesIntegraciones?: {
             oauthGoogleBackend?: boolean;
+            oauthGoogleDesktopBackend?: boolean;
             snapshotGoogleDisponible?: boolean;
             classroomBackend?: boolean;
             smtpBackend?: boolean;
@@ -225,6 +228,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
         const caps = respuesta?.capacidadesIntegraciones;
         setCapacidadesIntegraciones({
           oauthGoogleBackend: Boolean(caps?.oauthGoogleBackend),
+          oauthGoogleDesktopBackend: Boolean(caps?.oauthGoogleDesktopBackend),
           snapshotGoogleDisponible: Boolean(caps?.snapshotGoogleDisponible),
           classroomBackend: Boolean(caps?.classroomBackend),
           smtpBackend: Boolean(caps?.smtpBackend),
@@ -307,6 +311,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   const oauthGoogleBackendDisponible = capacidadesIntegraciones === null
     ? undefined
     : Boolean(capacidadesIntegraciones.oauthGoogleBackend);
+  const oauthGoogleDesktopDisponible = Boolean(capacidadesIntegraciones?.oauthGoogleDesktopBackend);
   // `undefined` means the backend capability contract has not resolved yet.
   // Keep actions gated, but let the Classroom section distinguish loading from
   // a confirmed unavailable integration.
@@ -425,6 +430,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
       <SeccionAutenticacion
         oauthGoogleDisponible={oauthGoogleDisponible}
         oauthGoogleBackendDisponible={oauthGoogleBackendDisponible}
+        oauthGoogleDesktopDisponible={oauthGoogleDesktopDisponible}
         onReintentarGoogle={onReintentarGoogle}
         smtpDisponible={smtpDisponible}
         requireGoogleOAuth={requireGoogleOAuth}

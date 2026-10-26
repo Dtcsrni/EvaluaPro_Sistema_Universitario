@@ -2794,7 +2794,7 @@ $raw = Get-Content -LiteralPath $envPath -Raw
 test('configuracion operativa separa Google login de Classroom y no requiere secretos OAuth por instalación', () => {
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
-$login = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; requireGoogleOAuth='1'; googleOauthClientId='login-client'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
+$login = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; requireGoogleOAuth='1'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
 $classroom = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; classroomEnabled='1'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
 $loginResult = Test-OperationalConfig -Mode install -Config $login
 $classroomResult = Test-OperationalConfig -Mode install -Config $classroom
@@ -3153,6 +3153,9 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /EnsureBackendRunningAsync/);
   assert.match(cs, /EnsureCoreWebView2Async/);
   assert.match(cs, /http:\/\/127\.0\.0\.1:4173\//);
+  assert.match(cs, /EVALUAPRO_OPEN_EXTERNAL_URL/);
+  assert.match(cs, /accounts\.google\.com/);
+  assert.match(cs, /UseShellExecute\s*=\s*true/);
   assert.match(cs, /dashboardProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
 });
 

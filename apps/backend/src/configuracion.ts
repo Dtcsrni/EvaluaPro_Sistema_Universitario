@@ -85,6 +85,8 @@ const refreshTokenDias = Number(process.env.REFRESH_TOKEN_DIAS ?? 30);
 const passwordResetTokenMinutes = parsearNumeroSeguro(process.env.PASSWORD_RESET_TOKEN_MINUTES, 30, { min: 5, max: 180 });
 const passwordResetUrlBase = String(process.env.PASSWORD_RESET_URL_BASE ?? '').trim();
 const googleOauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? '';
+// Cliente OAuth público Desktop para login docente; no requiere origen JavaScript.
+const googleDesktopClientId = '1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com';
 // Identificador público del cliente OAuth instalado de EvaluaPro docente-local.
 // No es un secreto y no debe sustituirse por el cliente web ni por el OAuth de login.
 const googleClassroomClientId = '1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com';
@@ -239,6 +241,7 @@ export const configuracion = {
   passwordResetUrlBase,
   passwordResetEnabled,
   googleOauthClientId,
+  googleDesktopClientId,
   googleClassroomClientId,
   classroomRequestTimeoutMs,
   classroomMaxPages,

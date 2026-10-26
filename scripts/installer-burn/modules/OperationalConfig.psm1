@@ -145,6 +145,7 @@ function Test-InstallerOAuthValues {
   param(
     [bool]$RequireGoogleOAuth,
     [string]$GoogleOauthClientId,
+    [bool]$GoogleDesktopLoginAvailable = $false,
     [bool]$ClassroomEnabled,
     [string]$GoogleClassroomClientId,
     [string]$GoogleClassroomClientSecret,
@@ -153,7 +154,7 @@ function Test-InstallerOAuthValues {
   )
 
   $errors = @()
-  if ($RequireGoogleOAuth -and [string]::IsNullOrWhiteSpace($GoogleOauthClientId)) {
+  if ($RequireGoogleOAuth -and -not $GoogleDesktopLoginAvailable -and [string]::IsNullOrWhiteSpace($GoogleOauthClientId)) {
     $errors += 'Google OAuth requerido: falta googleOauthClientId.'
   }
 
@@ -173,6 +174,7 @@ function Test-InstallerOAuthEnv {
   return Test-InstallerOAuthValues `
     -RequireGoogleOAuth (ConvertTo-InstallerHubBool -Value ([string]$EnvMap['REQUIRE_GOOGLE_OAUTH'])) `
     -GoogleOauthClientId ([string]$EnvMap['GOOGLE_OAUTH_CLIENT_ID']) `
+    -GoogleDesktopLoginAvailable ([string]$EnvMap['EVALUAPRO_FLAVOR'] -eq 'docente-local') `
     -ClassroomEnabled (ConvertTo-InstallerHubBool -Value ([string]$EnvMap['CLASSROOM_ENABLED'])) `
     -GoogleClassroomClientId ([string]$EnvMap['GOOGLE_CLASSROOM_CLIENT_ID']) `
     -GoogleClassroomClientSecret ([string]$EnvMap['GOOGLE_CLASSROOM_CLIENT_SECRET']) `
@@ -232,6 +234,7 @@ function Test-OperationalConfig {
   $oauthValidation = Test-InstallerOAuthValues `
     -RequireGoogleOAuth ([bool]$Config.requireGoogleOAuth) `
     -GoogleOauthClientId ([string]$Config.googleOauthClientId) `
+    -GoogleDesktopLoginAvailable ([string]$Config.flavorId -eq 'docente-local') `
     -ClassroomEnabled ([bool]$Config.classroomEnabled) `
     -GoogleClassroomClientId ([string]$Config.googleClassroomClientId) `
     -GoogleClassroomClientSecret ([string]$Config.googleClassroomClientSecret) `

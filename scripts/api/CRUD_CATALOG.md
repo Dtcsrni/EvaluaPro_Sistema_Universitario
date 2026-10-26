@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 253 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 257 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -74,6 +74,10 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Autenticación | `/autenticacion/capacidades-integraciones` | GET | Público | — | — |
 | Autenticación | `/autenticacion/definir-contrasena` | POST | Bearer | cuenta:actualizar | esquemaDefinirContrasenaDocente |
 | Autenticación | `/autenticacion/google` | POST | Público | — | esquemaIngresarDocenteGoogle |
+| Autenticación | `/autenticacion/google-desktop/cancelar` | POST | Público | — | esquemaFlujoGoogleDesktop |
+| Autenticación | `/autenticacion/google-desktop/confirmar` | POST | Público | — | esquemaFlujoGoogleDesktop |
+| Autenticación | `/autenticacion/google-desktop/iniciar` | POST | Público | — | esquemaBodyVacioOpcional |
+| Autenticación | `/autenticacion/google-desktop/resultado` | POST | Público | — | esquemaFlujoGoogleDesktop |
 | Autenticación | `/autenticacion/ingresar` | POST | Público | — | esquemaIngresarDocente |
 | Autenticación | `/autenticacion/perfil` | GET | Bearer | cuenta:leer | — |
 | Autenticación | `/autenticacion/preferencias/pdf` | POST | Bearer | cuenta:actualizar | esquemaActualizarPreferenciasPdf |
