@@ -88,6 +88,10 @@ const googleOauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? '';
 // Identificador público del cliente OAuth instalado de EvaluaPro docente-local.
 // No es un secreto y no debe sustituirse por el cliente web ni por el OAuth de login.
 const googleClassroomClientId = '1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com';
+// En clientes OAuth de escritorio Google exige este valor durante el canje.
+// Se distribuye con el instalador; PKCE protege el flujo y el secreto del
+// cliente Desktop no puede mantenerse confidencial en una app instalada.
+const googleClassroomClientSecret = process.env.GOOGLE_CLASSROOM_CLIENT_SECRET ?? '';
 const classroomRequestTimeoutMs = Math.floor(parsearNumeroSeguro(
   process.env.CLASSROOM_REQUEST_TIMEOUT_MS,
   15_000,
@@ -240,6 +244,7 @@ export const configuracion = {
   passwordResetEnabled,
   googleOauthClientId,
   googleClassroomClientId,
+  googleClassroomClientSecret,
   classroomRequestTimeoutMs,
   classroomMaxPages,
   classroomTokenCipherKey,

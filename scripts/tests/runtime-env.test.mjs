@@ -39,7 +39,7 @@ test('permite que el launcher nativo priorice las URLs SQLite del .env instalado
   assert.equal(target.DATABASE_URL, 'file:C:/Users/evega/AppData/Local/EvaluaPro/data/evaluapro.db');
 });
 
-test('el runtime docente local recarga solo el interruptor y la llave legado de Classroom', () => {
+test('el runtime docente local recarga interruptores y credenciales Desktop de Classroom', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-runtime-env-'));
   const envPath = path.join(tempRoot, '.env');
   fs.writeFileSync(envPath, [
@@ -67,7 +67,7 @@ test('el runtime docente local recarga solo el interruptor y la llave legado de 
 
   assert.equal(target.CLASSROOM_ENABLED, '1');
   assert.equal(target.GOOGLE_CLASSROOM_CLIENT_ID, 'stale-client');
-  assert.equal(target.GOOGLE_CLASSROOM_CLIENT_SECRET, 'stale-secret');
+  assert.equal(target.GOOGLE_CLASSROOM_CLIENT_SECRET, 'secret-current');
   assert.equal(target.GOOGLE_CLASSROOM_REDIRECT_URI, 'http://127.0.0.1:3999/stale');
   assert.equal(target.CLASSROOM_TOKEN_CIPHER_KEY, 'cipher-current');
 });

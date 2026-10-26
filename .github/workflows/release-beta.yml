@@ -208,6 +208,9 @@ jobs:
 
       - name: Etapa build MSI + Bundle
         shell: powershell
+        env:
+          EVALUAPRO_GOOGLE_CLASSROOM_CLIENT_SECRET: ${{ secrets.GOOGLE_CLASSROOM_DESKTOP_CLIENT_SECRET }}
+          EVALUAPRO_REQUIRE_GOOGLE_CLASSROOM_CLIENT_SECRET: '1'
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local
 
       - name: Gate footprint bundle docente

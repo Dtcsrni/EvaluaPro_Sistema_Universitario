@@ -239,6 +239,8 @@ jobs:
 
       - name: Etapa build MSI + Bundle docente-local
         shell: powershell
+        env:
+          EVALUAPRO_GOOGLE_CLASSROOM_CLIENT_SECRET: ${{ secrets.GOOGLE_CLASSROOM_DESKTOP_CLIENT_SECRET }}
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local
 
       - name: Compilar fixture Burn relacionado de la misma versión

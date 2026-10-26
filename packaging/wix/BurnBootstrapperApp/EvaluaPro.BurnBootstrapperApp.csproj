@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <AssemblyMetadata Include="EvaluaProAppVersion" Value="$(EvaluaProAppVersion)" />
+    <EmbeddedResource Include="obj\classroom-oauth-defaults.json" LogicalName="EvaluaPro.BurnBootstrapperApp.classroom-oauth-defaults.json" Condition="Exists('obj\classroom-oauth-defaults.json')" />
   </ItemGroup>
 
   <ItemGroup>

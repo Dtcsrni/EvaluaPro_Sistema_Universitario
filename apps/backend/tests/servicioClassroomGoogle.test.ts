@@ -141,7 +141,7 @@ describe('servicioClassroomGoogle', () => {
     });
     const auth = new URL(resultado.url);
     expect(resultado.redirectUri).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/oauth2callback$/);
-    expect(OAuth2Client).toHaveBeenCalledWith(configBase.googleClassroomClientId, undefined, resultado.redirectUri);
+    expect(OAuth2Client).toHaveBeenCalledWith(configBase.googleClassroomClientId, configBase.googleClassroomClientSecret, resultado.redirectUri);
     expect(auth.searchParams.get('state')).toBe(resultado.state);
     expect(oauth.generateCodeVerifierAsync).toHaveBeenCalledOnce();
     expect(oauth.generateAuthUrl).toHaveBeenCalledWith(expect.objectContaining({
@@ -159,6 +159,9 @@ describe('servicioClassroomGoogle', () => {
   it('requiere el client ID específico de Classroom y respeta CLASSROOM_ENABLED=0', async () => {
     const sinClientId = await cargarModulo({ config: { googleClassroomClientId: '' } });
     await expect(sinClientId.mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' }))
+      .rejects.toMatchObject({ codigo: 'CLASSROOM_NO_CONFIG' });
+    const sinClientSecret = await cargarModulo({ config: { googleClassroomClientSecret: '' } });
+    await expect(sinClientSecret.mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' }))
       .rejects.toMatchObject({ codigo: 'CLASSROOM_NO_CONFIG' });
     const deshabilitado = await cargarModulo({ config: { classroomEnabled: false } });
     await expect(deshabilitado.mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' }))
@@ -192,7 +195,7 @@ describe('servicioClassroomGoogle', () => {
     await expect(fetch(callback)).rejects.toThrow();
   });
   it('obtiene token de acceso y actualiza integracion', async () => {
-    const { mod, integracion, oauth, protegerTokenClassroom } = await cargarModulo({
+    const { mod, integracion, oauth, protegerTokenClassroom, OAuth2Client } = await cargarModulo({
       integracion: {
         findOne: vi.fn().mockResolvedValue({
           _id: 'int-1',
@@ -206,6 +209,7 @@ describe('servicioClassroomGoogle', () => {
     const token = await mod.obtenerTokenAccesoClassroom('docente-9');
 
     expect(token).toBe('access-token-123');
+    expect(OAuth2Client).toHaveBeenCalledWith(configBase.googleClassroomClientId, configBase.googleClassroomClientSecret, undefined);
     expect(oauth.setCredentials).toHaveBeenCalledWith({ refresh_token: 'refresh-ok' });
     expect(protegerTokenClassroom).toHaveBeenCalledWith('access-token-123');
     expect(integracion.updateOne).toHaveBeenCalled();
