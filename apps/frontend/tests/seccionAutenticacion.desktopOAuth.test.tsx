@@ -3,10 +3,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SeccionAutenticacion } from '../src/apps/app_docente/SeccionAutenticacion';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 
+vi.mock('@react-oauth/google', () => ({
+  GoogleLogin: () => <button type="button">Web GIS Login</button>
+}));
+
 describe('login docente OAuth Desktop', () => {
   afterEach(() => {
     delete (window as Window & { chrome?: unknown }).chrome;
     vi.restoreAllMocks();
+  });
+
+  it('prioriza OAuth Desktop y no monta GIS web aunque exista un Client ID web compilado', () => {
+    render(
+      <SeccionAutenticacion
+        onIngresar={() => {}}
+        oauthGoogleDisponible
+        oauthGoogleDesktopDisponible
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Acceder con Google' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Web GIS Login' })).not.toBeInTheDocument();
   });
 
   it('permite obtener la credencial por Desktop aunque GIS web no esté configurado', async () => {

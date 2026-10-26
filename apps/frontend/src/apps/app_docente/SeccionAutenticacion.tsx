@@ -846,7 +846,7 @@ export function SeccionAutenticacion({
                 </div>
               )}
               {oauthGoogleDesktopDisponible && <GoogleDesktopLogin onCredential={(credential) => void ingresarConGoogle(credential, nuevoIdFlujoAutenticacion())} />}
-              {googleDisponible && <GoogleLoginConRespaldo
+              {googleDisponible && !oauthGoogleDesktopDisponible && <GoogleLoginConRespaldo
                 instrumentar
                 onSuccess={(cred, flowId) => {
                   const token = cred.credential;
