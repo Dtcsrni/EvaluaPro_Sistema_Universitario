@@ -2791,7 +2791,7 @@ $raw = Get-Content -LiteralPath $envPath -Raw
   }
 });
 
-test('configuracion operativa separa Google login de Classroom y el cliente Desktop llega desde el instalador', () => {
+test('configuracion operativa separa Google login de Classroom y no requiere secretos OAuth por instalación', () => {
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $login = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; requireGoogleOAuth='1'; googleOauthClientId='login-client'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
@@ -2811,24 +2811,6 @@ $classroomResult = Test-OperationalConfig -Mode install -Config $classroom
   assert.equal(parsed.classroomEnabled, true);
   assert.equal(parsed.classroomClientInput, '');
   assert.equal(parsed.classroomSecretInput, '');
-});
-
-test('el cliente Desktop viaja protegido del Bootstrapper al helper y se empaqueta desde CI', () => {
-  const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
-  const nativeHelper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
-  const project = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaPro.BurnBootstrapperApp.csproj'), 'utf8');
-  const builder = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
-  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
-
-  assert.match(bootstrapper, /ReadBundledClassroomClientSecret\(\)/);
-  assert.match(bootstrapper, /"googleClassroomClientSecret"/);
-  assert.match(bootstrapper, /ProtectedData\.Protect\(secretBytes/);
-  assert.match(nativeHelper, /"googleClassroomClientSecret"/);
-  assert.match(project, /EmbeddedResource Include=.*classroom-oauth-defaults\.json/);
-  assert.match(builder, /EVALUAPRO_GOOGLE_CLASSROOM_CLIENT_SECRET/);
-  assert.match(builder, /EVALUAPRO_REQUIRE_GOOGLE_CLASSROOM_CLIENT_SECRET/);
-  assert.match(builder, /Remove-Item -LiteralPath \$classroomSecretPath/);
-  assert.match(workflow, /GOOGLE_CLASSROOM_DESKTOP_CLIENT_SECRET/);
 });
 
 test('los contratos de post-instalacion invocan validacion OAuth efectiva', () => {

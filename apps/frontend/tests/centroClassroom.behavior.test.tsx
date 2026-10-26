@@ -63,7 +63,7 @@ describe('CentroClassroom behavior', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Google Classroom no esta configurado en el backend/i)).toBeInTheDocument();
+      expect(screen.getByText(/Google Classroom no está disponible en esta instalación/i)).toBeInTheDocument();
     });
   });
 

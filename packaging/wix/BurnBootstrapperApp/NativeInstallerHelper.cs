@@ -121,7 +121,7 @@ internal static class NativeInstallerHelper
                     : new(StringComparer.OrdinalIgnoreCase);
                 foreach (var property in secretsDocument.RootElement.EnumerateObject())
                 {
-                    if (property.Name is not ("portalAlumnoApiKey" or "portalApiKey" or "codigoActivacion" or "googleClassroomClientSecret"))
+                    if (property.Name is not ("portalAlumnoApiKey" or "portalApiKey" or "codigoActivacion"))
                         throw new InvalidOperationException("La solicitud contiene un secreto no permitido.");
                     config[property.Name] = JsonSerializer.SerializeToElement(property.Value.GetString() ?? string.Empty);
                 }

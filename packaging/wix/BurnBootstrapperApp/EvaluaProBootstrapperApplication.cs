@@ -1260,7 +1260,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     ["portalAlumnoUrl"] = currentRequest.PortalAlumnoUrl,
                     ["portalAlumnoApiKey"] = currentRequest.PortalApiKey,
                     ["portalApiKey"] = currentRequest.PortalApiKey,
-                    ["googleClassroomClientSecret"] = ReadBundledClassroomClientSecret(),
                     ["passwordResetEnabled"] = currentRequest.PasswordResetEnabled ? "1" : "0",
                     ["passwordResetUrlBase"] = currentRequest.PasswordResetUrlBase,
                     ["requireLicenseActivation"] = currentRequest.RequireLicenseActivation ? "1" : "0",
@@ -1633,7 +1632,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private static (Dictionary<string, object?> Payload, string? ProtectedSecrets) ProtectHelperRequestPayload(Dictionary<string, object?> request)
     {
         var payload = new Dictionary<string, object?>(request, StringComparer.OrdinalIgnoreCase);
-        var secretNames = new[] { "portalAlumnoApiKey", "portalApiKey", "codigoActivacion", "googleClassroomClientSecret" };
+        var secretNames = new[] { "portalAlumnoApiKey", "portalApiKey", "codigoActivacion" };
         var secrets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (payload.TryGetValue("config", out var configObject) && configObject is Dictionary<string, object?> config)
         {
@@ -1667,21 +1666,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
     }
 
-    private static string ReadBundledClassroomClientSecret()
-    {
-        using var stream = typeof(EvaluaProBootstrapperApplication).Assembly.GetManifestResourceStream(
-            "EvaluaPro.BurnBootstrapperApp.classroom-oauth-defaults.json");
-        if (stream is null) return string.Empty;
-        using var document = JsonDocument.Parse(stream);
-        return document.RootElement.TryGetProperty("googleClassroomClientSecret", out var value)
-            ? value.GetString() ?? string.Empty
-            : string.Empty;
-    }
-
     private static IReadOnlyList<string> GetHelperSensitiveValues(Dictionary<string, object?> request)
     {
         if (!request.TryGetValue("config", out var configObject) || configObject is not Dictionary<string, object?> config) return [];
-        return new[] { "portalAlumnoApiKey", "portalApiKey", "codigoActivacion", "googleClassroomClientSecret" }
+        return new[] { "portalAlumnoApiKey", "portalApiKey", "codigoActivacion" }
             .Where(config.ContainsKey)
             .Select(name => Convert.ToString(config[name], System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
             .Where(value => !string.IsNullOrEmpty(value))

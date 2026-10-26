@@ -28,7 +28,7 @@ test('el launcher nativo recarga configuración Classroom del .env frente a un s
   assert.match(nativeLauncher, /overrideKeys:\s*obtenerClavesEnvAutoritativas\(/);
   assert.match(runtimeEnv, /'CLASSROOM_ENABLED'/);
   assert.match(runtimeEnv, /'CLASSROOM_TOKEN_CIPHER_KEY'/);
-  assert.match(runtimeEnv, /'GOOGLE_CLASSROOM_CLIENT_SECRET'/);
+  assert.doesNotMatch(runtimeEnv, /'GOOGLE_CLASSROOM_CLIENT_SECRET'/);
   assert.doesNotMatch(runtimeEnv, /'GOOGLE_CLASSROOM_REDIRECT_URI'/);
   assert.match(runtimeEnv, /nodeEnv[\s\S]*production[\s\S]*flavor[\s\S]*docente-local/);
   assert.match(msiBuilder, /@primno\/dpapi\/prebuilds\/win32-x64/);

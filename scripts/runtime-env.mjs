@@ -8,8 +8,7 @@ import fs from 'node:fs';
 
 const CLAVES_CLASSROOM_RUNTIME = [
   'CLASSROOM_ENABLED',
-  'CLASSROOM_TOKEN_CIPHER_KEY',
-  'GOOGLE_CLASSROOM_CLIENT_SECRET'
+  'CLASSROOM_TOKEN_CIPHER_KEY'
 ];
 
 export function obtenerClavesEnvAutoritativas({ nodeEnv, flavor } = {}) {

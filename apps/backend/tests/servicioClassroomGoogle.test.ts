@@ -9,7 +9,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 type ConfigParcial = Partial<{
   googleClassroomClientId: string;
   googleOauthClientId: string;
-  googleClassroomClientSecret: string;
   googleClassroomRedirectUri: string;
   classroomTokenCipherKey: string;
   classroomEnabled: boolean;
@@ -39,7 +38,6 @@ type PrismaMock = {
 const configBase = {
   googleClassroomClientId: 'classroom-client-id',
   googleOauthClientId: 'oauth-client-id',
-  googleClassroomClientSecret: 'classroom-secret',
   googleClassroomRedirectUri: 'https://localhost/classroom/callback',
   classroomTokenCipherKey: 'k'.repeat(32),
   classroomEnabled: true,
@@ -107,7 +105,11 @@ async function cargarModulo(opciones?: {
   });
   const logMock = opciones?.log ?? vi.fn();
 
-  vi.doMock('google-auth-library', () => ({ OAuth2Client, CodeChallengeMethod: { S256: 'S256' } }));
+  vi.doMock('google-auth-library', () => ({
+    OAuth2Client,
+    CodeChallengeMethod: { S256: 'S256' },
+    ClientAuthentication: { None: 'None' }
+  }));
   vi.doMock('jsonwebtoken', () => ({ default: { sign: jwtSign, verify: jwtVerify } }));
   vi.doMock('../src/modulos/modulo_integraciones_classroom/modeloIntegracionClassroom', () => ({
     IntegracionClassroom: integracion
@@ -141,7 +143,11 @@ describe('servicioClassroomGoogle', () => {
     });
     const auth = new URL(resultado.url);
     expect(resultado.redirectUri).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/oauth2callback$/);
-    expect(OAuth2Client).toHaveBeenCalledWith(configBase.googleClassroomClientId, configBase.googleClassroomClientSecret, resultado.redirectUri);
+    expect(OAuth2Client).toHaveBeenCalledWith({
+      clientId: configBase.googleClassroomClientId,
+      redirectUri: resultado.redirectUri,
+      clientAuthentication: 'None'
+    });
     expect(auth.searchParams.get('state')).toBe(resultado.state);
     expect(oauth.generateCodeVerifierAsync).toHaveBeenCalledOnce();
     expect(oauth.generateAuthUrl).toHaveBeenCalledWith(expect.objectContaining({
@@ -159,9 +165,6 @@ describe('servicioClassroomGoogle', () => {
   it('requiere el client ID específico de Classroom y respeta CLASSROOM_ENABLED=0', async () => {
     const sinClientId = await cargarModulo({ config: { googleClassroomClientId: '' } });
     await expect(sinClientId.mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' }))
-      .rejects.toMatchObject({ codigo: 'CLASSROOM_NO_CONFIG' });
-    const sinClientSecret = await cargarModulo({ config: { googleClassroomClientSecret: '' } });
-    await expect(sinClientSecret.mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' }))
       .rejects.toMatchObject({ codigo: 'CLASSROOM_NO_CONFIG' });
     const deshabilitado = await cargarModulo({ config: { classroomEnabled: false } });
     await expect(deshabilitado.mod.construirUrlOauthClassroom('docente-1', { loginHint: 'd@cuh.mx', expectedGoogleSub: 'sub-1' }))
@@ -195,7 +198,7 @@ describe('servicioClassroomGoogle', () => {
     await expect(fetch(callback)).rejects.toThrow();
   });
   it('obtiene token de acceso y actualiza integracion', async () => {
-    const { mod, integracion, oauth, protegerTokenClassroom, OAuth2Client } = await cargarModulo({
+    const { mod, integracion, oauth, protegerTokenClassroom } = await cargarModulo({
       integracion: {
         findOne: vi.fn().mockResolvedValue({
           _id: 'int-1',
@@ -209,7 +212,6 @@ describe('servicioClassroomGoogle', () => {
     const token = await mod.obtenerTokenAccesoClassroom('docente-9');
 
     expect(token).toBe('access-token-123');
-    expect(OAuth2Client).toHaveBeenCalledWith(configBase.googleClassroomClientId, configBase.googleClassroomClientSecret, undefined);
     expect(oauth.setCredentials).toHaveBeenCalledWith({ refresh_token: 'refresh-ok' });
     expect(protegerTokenClassroom).toHaveBeenCalledWith('access-token-123');
     expect(integracion.updateOne).toHaveBeenCalled();

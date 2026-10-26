@@ -13,23 +13,14 @@ import { evaluateClassroomConfig, isDpapiCurrentUserSupported, loadEnvForDoctor 
 
 function validEnv() {
   return {
-    CLASSROOM_ENABLED: '1',
-    GOOGLE_CLASSROOM_CLIENT_SECRET: 'desktop-client-secret'
+    CLASSROOM_ENABLED: '1'
   };
 }
 
-test('classroom doctor pasa con OAuth Desktop y DPAPI con client secret de escritorio distribuido', () => {
+test('classroom doctor pasa con OAuth Desktop y DPAPI sin secretos por instalación', () => {
   const result = evaluateClassroomConfig(validEnv());
   assert.equal(result.ok, true);
   assert.equal(result.checks.every((check) => check.ok), true);
-});
-
-test('classroom doctor detecta client secret Desktop ausente sin imprimir su valor', () => {
-  const result = evaluateClassroomConfig({ CLASSROOM_ENABLED: '1' });
-  assert.equal(result.ok, false);
-  assert.deepEqual(result.checks.find((check) => check.id === 'GOOGLE_CLASSROOM_DESKTOP_CLIENT_SECRET'), {
-    id: 'GOOGLE_CLASSROOM_DESKTOP_CLIENT_SECRET', ok: false, detail: 'falta-en-runtime'
-  });
 });
 
 test('classroom doctor falla si DPAPI CurrentUser no está disponible', () => {

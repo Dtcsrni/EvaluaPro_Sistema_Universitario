@@ -4,7 +4,7 @@
  * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
-import { CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
+import { ClientAuthentication, CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
@@ -88,20 +88,24 @@ function demoraReintento(attempt: number, retryAfterMs?: number): number {
 
 function obtenerConfigClassroom() {
   const clientId = String(configuracion.googleClassroomClientId || '').trim();
-  const clientSecret = String(configuracion.googleClassroomClientSecret || '').trim();
   const llaveLegacy = String(configuracion.classroomTokenCipherKey || '').trim();
-  if (!configuracion.classroomEnabled || !clientId || !clientSecret) {
+  if (!configuracion.classroomEnabled || !clientId) {
     throw new ErrorAplicacion(
       'CLASSROOM_NO_CONFIG',
-      'Google Classroom no está configurado en esta instalación docente. Actualiza EvaluaPro o contacta al administrador.',
+      'Google Classroom no está disponible en esta instalación docente. Actualiza EvaluaPro o contacta al administrador.',
       503
     );
   }
-  return { clientId, clientSecret, llaveLegacy };
+  return { clientId, llaveLegacy };
 }
 
-function crearClienteOauth(clientId: string, clientSecret: string, redirectUri?: string) {
-  return new OAuth2Client(clientId, clientSecret, redirectUri);
+function crearClienteOauth(clientId: string, redirectUri?: string) {
+  // Desktop es cliente público: PKCE protege el código y no se envía client_secret.
+  return new OAuth2Client({
+    clientId,
+    redirectUri,
+    clientAuthentication: ClientAuthentication.None
+  });
 }
 
 function normalizarOrigin(valor: unknown): string | undefined {
@@ -144,7 +148,7 @@ function esLoopback(address: string | undefined) {
 }
 
 async function completarOAuthDesktop(pendiente: NonNullable<ReturnType<typeof oauthPendiente.get>>, code: string) {
-  const cliente = crearClienteOauth(pendiente.clientId, obtenerConfigClassroom().clientSecret, pendiente.redirectUri);
+  const cliente = crearClienteOauth(pendiente.clientId, pendiente.redirectUri);
   const tokenRespuesta = await cliente.getToken({ code, codeVerifier: pendiente.codeVerifier, redirect_uri: pendiente.redirectUri });
   const tokens = tokenRespuesta.tokens || {};
   const idToken = typeof tokens.id_token === 'string' ? tokens.id_token : '';
@@ -249,7 +253,7 @@ export async function construirUrlOauthClassroom(
   if (oauthPendiente.size >= MAX_OAUTH_PENDIENTE) {
     throw new ErrorAplicacion('CLASSROOM_OAUTH_LIMITE', 'Ya hay varias solicitudes OAuth pendientes. Cierra sus ventanas y vuelve a intentar.', 429);
   }
-  const { clientId, clientSecret } = obtenerConfigClassroom();
+  const { clientId } = obtenerConfigClassroom();
   const server = createServer((req, res) => { void procesarCallbackLoopback(server, req, res); });
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
@@ -262,7 +266,7 @@ export async function construirUrlOauthClassroom(
   }
   const redirectUri = `http://127.0.0.1:${address.port}/oauth2callback`;
   const state = randomBytes(32).toString('base64url');
-  const cliente = crearClienteOauth(clientId, clientSecret, redirectUri);
+  const cliente = crearClienteOauth(clientId, redirectUri);
   const { codeVerifier, codeChallenge } = await cliente.generateCodeVerifierAsync();
   if (!codeChallenge) {
     server.close();
@@ -296,7 +300,7 @@ export async function construirUrlOauthClassroom(
 }
 
 async function renovarTokenAccesoClassroom(docenteId: string): Promise<string> {
-  const { clientId, clientSecret, llaveLegacy } = obtenerConfigClassroom();
+  const { clientId, llaveLegacy } = obtenerConfigClassroom();
   const [integracion, docente] = await Promise.all([
     IntegracionClassroom.findOne({ docenteId, activo: true }),
     prisma.docente.findUnique({ where: { id: docenteId }, select: { googleSub: true } })
@@ -334,7 +338,7 @@ async function renovarTokenAccesoClassroom(docenteId: string): Promise<string> {
       throw new ErrorAplicacion('CLASSROOM_MIGRACION_TOKEN_ERROR', 'No se pudo verificar la migración segura del token. La conexión anterior se conservó; vuelve a vincular Classroom si persiste.', 503);
     }
   }
-  const cliente = crearClienteOauth(clientId, clientSecret);
+  const cliente = crearClienteOauth(clientId);
   cliente.setCredentials({ refresh_token: refreshTokenPlano });
 
   let tokenAcceso: { token?: string | null };

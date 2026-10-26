@@ -293,7 +293,7 @@ function mensajeAmigablePorCodigo(codigo?: string): string | undefined {
     return 'Adquiere o renueva el control de edición antes de guardar cambios.';
   }
   if (c.includes('CLASSROOM_NO_CONFIG')) {
-    return 'Google Classroom no esta configurado en el backend. Define GOOGLE_CLASSROOM_CLIENT_ID, GOOGLE_CLASSROOM_CLIENT_SECRET, GOOGLE_CLASSROOM_REDIRECT_URI y CLASSROOM_TOKEN_CIPHER_KEY.';
+    return 'Google Classroom no está disponible en esta instalación. Actualiza EvaluaPro o contacta al administrador.';
   }
   if (c.includes('EXAMEN_NO_ENCONTR')) return 'No se encontro el examen solicitado.';
   if (c.includes('EXAMEN_YA_ENTREGAD')) return 'Este examen ya fue entregado.';

@@ -1309,21 +1309,6 @@ function Publish-BurnBootstrapperApp {
 
   $dotNetNumericVersion = ConvertTo-DotNetNumericVersion -VersionTag $VersionTag
 
-  # OAuth Desktop exige client_secret durante el canje. El valor se empaqueta
-  # desde CI y nunca se guarda en el repositorio ni se imprime en el log.
-  $classroomSecretPath = Join-Path (Split-Path -Parent $ProjectPath) 'obj\classroom-oauth-defaults.json'
-  $classroomSecret = [string]$env:EVALUAPRO_GOOGLE_CLASSROOM_CLIENT_SECRET
-  if ($env:EVALUAPRO_REQUIRE_GOOGLE_CLASSROOM_CLIENT_SECRET -eq '1' -and [string]::IsNullOrWhiteSpace($classroomSecret)) {
-    throw 'El release requiere el secreto OAuth Desktop de Classroom; configura GOOGLE_CLASSROOM_DESKTOP_CLIENT_SECRET en Actions.'
-  }
-  if (-not [string]::IsNullOrWhiteSpace($classroomSecret)) {
-    New-Item -ItemType Directory -Path (Split-Path -Parent $classroomSecretPath) -Force | Out-Null
-    $classroomDefaults = @{ googleClassroomClientSecret = $classroomSecret } | ConvertTo-Json -Compress
-    [IO.File]::WriteAllText($classroomSecretPath, $classroomDefaults, [Text.UTF8Encoding]::new($false))
-  } else {
-    Remove-Item -LiteralPath $classroomSecretPath -Force -ErrorAction SilentlyContinue
-  }
-
   $publishArgs = @(
     'publish',
     $ProjectPath,
@@ -1370,7 +1355,6 @@ function Publish-BurnBootstrapperApp {
     }
   } finally {
     Remove-Item -LiteralPath $publishOut,$publishErr -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $classroomSecretPath -Force -ErrorAction SilentlyContinue
   }
 
   $exePath = Join-Path $OutputDirectory 'EvaluaPro.BurnBootstrapperApp.exe'
