@@ -13,10 +13,16 @@ import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion
 import { resolverRutaPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { obtenerRutaTemporalOmr, retirarRutaTemporalOmr } from './archivoTemporalOmr.js';
-import { extraerResumenQrExamen } from '../modulo_generacion_pdf/index.js';
-import { rasterizarPdfParaPreview } from '../modulo_generacion_pdf/index.js';
-import { descargarPdfLoteUseCase, verificarRecoveryManifest, type RecoveryManifest } from '../modulo_generacion_pdf/index.js';
-import { construirFirmaClave, construirFirmaVariante } from '../modulo_generacion_pdf/domain/qrExamen.js';
+import {
+  construirFirmaClave,
+  construirFirmaVariante,
+  descargarPdfLoteUseCase,
+  extraerResumenQrExamen,
+  rasterizarPdfParaPreview,
+  type MapaOmr,
+  type RecoveryManifest,
+  verificarRecoveryManifest
+} from '../modulo_generacion_pdf/index.js';
 import { analizarImagen } from './controladorEscaneoOmr.js';
 import { analizarOmr, leerQrDesdeImagen } from './servicioOmr.js';
 import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './omr/decision/respuestaRevision.js';
@@ -26,10 +32,16 @@ import { MAX_JOB_BYTES, MAX_JOB_PAGES, MAX_PDF_BYTES, MAX_PDF_PAGES } from './li
 import { esPaginaDatasetOmrConfirmada, generarZipDatasetOmr } from './exportadorDatasetOmr.js';
 import { construirGroundTruthManualOmr, construirMapaOmrPaginaPilotoReal, extraerClaveCompletaRecoveryManifest } from './construirImportPilotoReal.js';
 import { recuperarQrIngestaPorGeometria } from './recuperarQrIngesta.js';
-import { calificarExamen } from '../modulo_calificacion/controladorCalificacion.js';
 import { OMR_TV4_REAL_PILOT_GATE_PASSED } from './politicaAutoCalificacionOmr.js';
 const PAGE_BLOCK_SIZE = 8;
 const RASTER_DPI = 144;
+
+type CalificadorExamenOmr = (req: SolicitudDocente, res: Response) => Promise<void>;
+let calificadorExamenOmr: CalificadorExamenOmr | undefined;
+
+export function configurarCalificadorExamenOmr(calificador: CalificadorExamenOmr) {
+  calificadorExamenOmr = calificador;
+}
 
 type ArchivoCargado = Express.Multer.File;
 type ExamenConRelaciones = Awaited<ReturnType<typeof buscarExamenesLote>>[number];
@@ -1460,7 +1472,10 @@ export async function calificarIngestaPdfOmr(req: SolicitudDocente, res: Respons
           status(code: number) { statusCode = code; return this; },
           json(payload: unknown) { body = payload; return this; }
         } as unknown as Response;
-        await calificarExamen({
+        if (!calificadorExamenOmr) {
+          throw new ErrorAplicacion('OMR_CALIFICADOR_NO_CONFIGURADO', 'El host no registró el servicio de calificación para la ingesta OMR.', 500);
+        }
+        await calificadorExamenOmr({
           docenteId,
           params: {},
           body: {
@@ -1895,7 +1910,7 @@ export async function exportarDatasetIngestaPdfOmr(req: SolicitudDocente, res: R
     const captures = [];
     for (const page of pages) {
       const exam = examenes.find((candidate) => candidate.id === page.examId)!;
-      const mapaOmr = json<import('../modulo_generacion_pdf/shared/tiposPdf.js').MapaOmr>(exam.mapaOmr, null as never);
+      const mapaOmr = json<MapaOmr>(exam.mapaOmr, null as never);
       const recovery = json<RecoveryManifest>(exam.recoveryManifest, null as never);
       if (!mapaOmr || !recovery || !verificarRecoveryManifest(recovery)
         || recovery.examId !== exam.id

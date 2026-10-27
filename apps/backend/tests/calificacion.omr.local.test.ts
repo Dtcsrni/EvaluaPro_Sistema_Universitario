@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { construirTextoQrExamenPagina } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
 import type { ResultadoOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
-import { analizarPaginasOmrParaCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacionOmrLocal.js';
+import { analizarPaginasOmrParaCalificacion } from '../src/modulos/modulo_escaneo_omr/index.js';
 
 const FOLIO = 'FOL-OMR-LOCAL-01';
 const TEMPLATE_ID = 'omr-canonical-v4';

@@ -17,7 +17,7 @@ import { extraerResumenQrExamen, hashContenidoPregunta, type ResumenQrExamen } f
 import { evaluarAutoCalificableOmr, leerQrDesdeImagen, OMR_TV4_REAL_PILOT_GATE_PASSED } from '../modulo_escaneo_omr/index.js';
 import { leerCapturasOmrParaPortal } from '../modulo_escaneo_omr/index.js';
 import { calcularCalificacion, presentarCalificacionExtraordinaria } from './servicioCalificacion.js';
-import { analizarPaginasOmrParaCalificacion } from './servicioCalificacionOmrLocal.js';
+import { analizarPaginasOmrParaCalificacion } from '../modulo_escaneo_omr/index.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 const comprimirGzip = promisify(gzip);

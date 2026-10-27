@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { extraerResumenQrExamen } from '../modulo_generacion_pdf/index.js';
-import { analizarOmr, type ResultadoOmr } from '../modulo_escaneo_omr/servicioOmr.js';
-import { leerBonoVisibleOmr } from '../modulo_escaneo_omr/infra/ocrPieOmr.js';
+import { analizarOmr, type ResultadoOmr } from './servicioOmr.js';
+import { leerBonoVisibleOmr } from './infra/ocrPieOmr.js';
 
 type PaginaCapturadaOmr = { numeroPagina: number; imagenBase64: string };
 type PaginaMapaOmr = {

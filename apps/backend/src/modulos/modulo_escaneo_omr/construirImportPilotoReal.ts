@@ -1,5 +1,4 @@
-import type { RecoveryManifest } from '../modulo_generacion_pdf/domain/recoveryManifest.js';
-import type { MapaOmr } from '../modulo_generacion_pdf/shared/tiposPdf.js';
+import type { MapaOmr, RecoveryManifest } from '../modulo_generacion_pdf/index.js';
 import type { GroundTruthRowPorFolio, MapaOmrPaginaPorFolio, OpcionOmr } from './porFolioDataset.js';
 
 const OPCIONES = new Set<OpcionOmr>(['A', 'B', 'C', 'D', 'E']);
