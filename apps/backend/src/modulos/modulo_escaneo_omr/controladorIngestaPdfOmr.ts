@@ -15,12 +15,13 @@ import { extraerResumenQrExamen } from '../modulo_generacion_pdf/index.js';
 import { rasterizarPdfParaPreview } from '../modulo_generacion_pdf/index.js';
 import { descargarPdfLoteUseCase } from '../modulo_generacion_pdf/index.js';
 import { analizarImagen } from './controladorEscaneoOmr.js';
-import { leerQrDesdeImagen } from './servicioOmr.js';
+import { analizarOmr, leerQrDesdeImagen } from './servicioOmr.js';
 import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './omr/decision/respuestaRevision.js';
 import { crearLectorPieOmr, leerReferenciaPieOmr, limitarTiempoOcrPie, type LectorPieOmr } from './infra/ocrPieOmr.js';
 import { localizarQrsEsperadosEnRaster, prepararQrsEsperados, type GeometriaQrPdf, type QrReferenciaEsperado } from './infra/qrReferenciaPdf.js';
 import { MAX_JOB_BYTES, MAX_JOB_PAGES, MAX_PDF_BYTES, MAX_PDF_PAGES } from './limitesIngestaPdfOmr.js';
 import { esPaginaDatasetOmrConfirmada, generarZipDatasetOmr } from './exportadorDatasetOmr.js';
+import { recuperarQrIngestaPorGeometria } from './recuperarQrIngesta.js';
 const PAGE_BLOCK_SIZE = 8;
 const RASTER_DPI = 144;
 
@@ -752,8 +753,25 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
       const raster = await rasterizarPdfParaPreview(original, { dpi: RASTER_DPI, desdePagina: start, cantidadPaginas: PAGE_BLOCK_SIZE });
       for (const image of raster.paginas) {
         globalIndex += 1;
-        const { qr, grados: gradosQr } = await leerQrEnOrientacionExacta(image.dataUrl, examenesPorId, examenesPorFolio, referenciaQr);
-        const exam = qr?.examId ? examenesPorId.get(qr.examId.toUpperCase()) : qr ? examenesPorFolio.get(qr.folio.toUpperCase()) : undefined;
+        const lecturaInicial = await leerQrEnOrientacionExacta(image.dataUrl, examenesPorId, examenesPorFolio, referenciaQr);
+        let qr = lecturaInicial.qr;
+        let gradosQr = lecturaInicial.grados;
+        let exam = qr?.examId ? examenesPorId.get(qr.examId.toUpperCase()) : qr ? examenesPorFolio.get(qr.folio.toUpperCase()) : undefined;
+        let qrRescatadoGeometria = false;
+        if (!qr || qr.payloadSignatureValid !== true || !exam || exam.folio.toUpperCase() !== qr.folio.toUpperCase()) {
+          const recuperacion = await recuperarQrIngestaPorGeometria({
+            imagenBase64: image.dataUrl,
+            examenes,
+            qrsRegistrados: referenciaQr,
+            analizar: analizarOmr
+          });
+          if (recuperacion) {
+            qr = recuperacion.qr;
+            exam = examenesPorId.get(recuperacion.examenId.toUpperCase());
+            gradosQr = 0;
+            qrRescatadoGeometria = true;
+          }
+        }
         if (!qr || qr.payloadSignatureValid !== true || !exam || exam.folio.toUpperCase() !== qr.folio.toUpperCase()) {
           const paginaPendiente = errorPage(globalIndex, file.id, file.nombre, image.numero, 'OMR_QR_NO_VALIDO_O_FUERA_DE_LOTE', 'El QR no se validó dentro del lote seleccionado; clasificar manualmente.');
           try {
@@ -844,6 +862,7 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
                 identityResult: { studentId: exam.alumnoId ?? null, studentName: exam.alumno?.nombreCompleto ?? null },
                 responses,
                 exceptions: [
+                  ...(qrRescatadoGeometria ? [{ code: 'OMR_QR_GEOMETRIA_RESCATADA', severity: 'warning' as const, message: 'La identidad se recuperó en una geometría QR registrada y coincide exactamente con el payload firmado y el PDF de referencia del lote; el OCR no intervino en la selección.' }] : []),
                   ...(duplicate ? [{ code: 'OMR_QR_DUPLICADO', severity: 'blocking' as const, message: 'La misma página del examen aparece más de una vez en el ingreso.' }] : []),
                   ...(gradosQr !== 0 ? [{ code: 'OMR_QR_ORIENTACION_REVISAR', severity: 'blocking' as const, message: `El QR solo coincide con el PDF de referencia al girar ${gradosQr} grados; el análisis OMR se ejecutó sobre el original y la hoja requiere revisión.` }] : []),
                   ...motivos.map((message: string) => ({ code: 'OMR_REVIEW', severity: 'warning' as const, message }))
