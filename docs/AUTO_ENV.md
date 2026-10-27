@@ -63,6 +63,7 @@ Las variables de herramientas y scripts se listan por separado y no representan 
 - `LICENCIA_JWT_PERMITIR_LEGACY_HS256` (usado en: apps/backend/src/configuracion.ts)
 - `LICENCIA_JWT_SECRETO` (usado en: apps/backend/src/configuracion.ts)
 - `LIMITE_JSON` (usado en: apps/backend/src/configuracion.ts)
+- `LOCALAPPDATA` (usado en: apps/backend/src/modulos/modulo_autenticacion/controladorAutenticacion.ts)
 - `MERCADOPAGO_ACCESS_TOKEN` (usado en: apps/backend/src/configuracion.ts)
 - `MERCADOPAGO_WEBHOOK_FIRMA_ESTRICTA` (usado en: apps/backend/src/configuracion.ts)
 - `MERCADOPAGO_WEBHOOK_MAX_EDAD_SEGUNDOS` (usado en: apps/backend/src/configuracion.ts)
