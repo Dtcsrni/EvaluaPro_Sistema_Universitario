@@ -54,7 +54,7 @@ describe('OCR local del bono de examen', () => {
   });
 
   it('inicializa Tesseract con assets locales y lee el literal dentro de la caja PDF', async () => {
-    const texto = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="40"><text x="4" y="31" font-family="Arial, sans-serif" font-size="32" fill="black">+0.25</text></svg>');
+    const texto = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="40"><text x="4" y="35" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="black">+0.25</text></svg>');
     const pagina = await sharp({ create: { width: 1275, height: 1650, channels: 3, background: '#ffffff' } })
       .composite([{ input: texto, left: 220, top: 270 }])
       .png()
