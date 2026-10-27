@@ -1,8 +1,8 @@
 ---
 id: SPEC-RELEASE-STABLE-INSTALLER-FIRMA
 titulo: Gate estable exige instaladores firmados
-version: 1.3.0
-fecha: 2026-10-06
+version: 1.4.0
+fecha: 2026-10-27
 autor: Codex / Agente IA
 modulo: release
 estado: approved
@@ -11,11 +11,11 @@ estado: approved
 # SPEC-RELEASE-STABLE-INSTALLER-FIRMA: Gate estable exige instaladores firmados
 
 ## Contexto
-Una promocion estable para usuarios finales de Windows no debe aprobarse si los artefactos del instalador se generaron sin firma de codigo, con version incorrecta o con una Bootstrapper Application Burn embebida obsoleta. El manifest release ya registra `signed`; el gate estable debe tratar cualquier artefacto no firmado, stale o versionado contra otra release como No-Go para evitar publicar instaladores no confiables o visualmente inconsistentes.
+Una promocion estable para usuarios finales de Windows no debe aprobarse si los artefactos del instalador se generaron sin una firma Authenticode cuya cadena sea valida y confiable para Windows, con version incorrecta o con una Bootstrapper Application Burn embebida obsoleta. El manifest release ya registra `signed`; ese campo debe ser `true` unicamente cuando `Get-AuthenticodeSignature` devuelve `Status = Valid`. La mera presencia de un certificado firmante, incluidos certificados autofirmados cuya raiz no sea confiable, no satisface el requisito y produce No-Go.
 
 ## Requisitos Funcionales
 - **REQ-001:** `release:validate:stable` debe validar que el manifest estable contenga únicamente el flavor `docente-local`.
-- **REQ-002:** `release:validate:stable` debe fallar si cualquier artefacto del manifest tiene `signed` distinto de `true`.
+- **REQ-002:** `release:validate:stable` debe fallar si cualquier artefacto del manifest tiene `signed` distinto de `true`; para artefactos ejecutables y MSI, `signed` representa una cadena Authenticode confiable en Windows, no solo la presencia de una firma.
 - **REQ-003:** El detalle del check debe indicar que hay artefactos sin firma cuando aplique.
 - **REQ-004:** El flujo `installer:sign` debe regenerar hashes y manifest despues de firmar, porque la firma cambia los binarios.
 - **REQ-005:** `release:validate:stable` debe fallar si un artefacto del manifest no contiene `name`, `path` y `sha256`.
@@ -34,8 +34,8 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **REQ-018:** La validación y publicación estable de esta versión solo considera `docente-local`; no debe incluir ni requerir artefactos SaaS.
 
 ## Criterios de Aceptación
-- **AC-001 (REQ-001):** Un manifest con exactamente `docente-local` y artefactos firmados permite aprobar el check de instalador; la inclusión de otro flavor produce No-Go.
-- **AC-002 (REQ-002):** Un manifest con `signed:false` en cualquier artefacto produce `No-Go`.
+- **AC-001 (REQ-001):** Un manifest con exactamente `docente-local` y artefactos con cadena Authenticode confiable permite aprobar el check de instalador; la inclusión de otro flavor produce No-Go.
+- **AC-002 (REQ-002):** Un manifest con `signed:false` en cualquier artefacto produce `No-Go`; un archivo firmado con certificado autofirmado no confiable se registra como `signed:false` y el job de release falla antes de publicar el artefacto.
 - **AC-003 (REQ-003):** El resultado del check `installer-multi-flavor` contiene un mensaje accionable sobre artefactos no firmados.
 - **AC-004 (REQ-004):** `sign-installer-artifacts.ps1` invoca `generate-installer-hashes.ps1` despues de completar la firma.
 - **AC-005 (REQ-005):** Un manifest con artefactos firmados pero sin `path` verificable produce `No-Go`.
@@ -66,7 +66,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 | ID Requisito | Descripcion del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001 | Manifest contiene únicamente docente-local | scripts/tests/release-stable-promotion.test.mjs | Completado |
-| REQ-002 | Rechazo de artefactos no firmados | scripts/tests/release-stable-promotion.test.mjs | Completado |
+| REQ-002 | Rechazo de artefactos no firmados o con cadena Authenticode no confiable | scripts/tests/release-stable-promotion.test.mjs; scripts/tests/installer-hub-contract.test.mjs | En validación CI |
 | REQ-003 | Mensaje de No-Go por firma faltante | scripts/tests/release-stable-promotion.test.mjs | Completado |
 | REQ-004 | Hashes y manifest regenerados despues de firma | scripts/tests/installer-hub-contract.test.mjs | Completado |
 | REQ-005 | Artefactos firmados requieren path y sha256 | scripts/tests/release-stable-promotion.test.mjs | Completado |
