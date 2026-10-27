@@ -83,6 +83,23 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
 });
 
+test('el App Host omite candidatos obsoletos y busca un Hub local registrado por hash', () => {
+  const resolver = hostSource.match(/private string ResolveHubPathForLaunch\(\)[\s\S]*?\n    \}/)?.[0];
+  assert.ok(resolver, 'debe existir el resolver del Installer Hub');
+  assert.match(resolver, /GetTrustedStagedHubPaths\(\)/);
+  assert.match(resolver, /EnumerateInstalledHubPaths\(\)/);
+  const trustCheck = resolver.indexOf('if (IsTrustedInstallerHub(fullPath)) return fullPath;');
+  const rejectedCandidateDiagnostic = resolver.indexOf('Se omitió un candidato de Hub sin confianza');
+  assert.ok(trustCheck >= 0 && rejectedCandidateDiagnostic > trustCheck,
+    'cada ruta debe validarse antes de elegirla y los candidatos no confiables deben permitir continuar');
+  assert.match(resolver, /Se omitió un candidato de Hub sin confianza/);
+  assert.doesNotMatch(resolver, /File\.Exists\(candidate\)\) return Path\.GetFullPath\(candidate\)/);
+  assert.match(hostSource, /"installer-hub", "trusted-bundle\.json"/);
+  assert.match(hostSource, /repository\.ValueKind != JsonValueKind\.String/);
+  assert.match(hostSource, /File\.Exists\(candidate\) && HashMatches\(candidate, sha256\)/);
+  assert.match(hostSource, /throw new InvalidOperationException\("No se encontró un Installer Hub existente que coincida con firma o SHA-256 oficial registrado\."\)/);
+});
+
 test('el host adopta servicios sanos antes del retorno temprano y solo si coinciden con la instalación', () => {
   assert.match(hostSource, /await TryAdoptDashboardAsync\(dashboardPort\);[\s\S]*?var webResponds = await ProbePortAsync\(webHealthUrl\);[\s\S]*?var apiResponds = await ProbePortAsync\(apiHealthUrl\);[\s\S]*?if \(webResponds && apiResponds\)/);
   assert.match(hostSource, /lockRoot\.TryGetProperty\("pid"/);
@@ -129,3 +146,4 @@ test('la ventana nativa inicia grande, centrada y redimensionable para cubrir el
   assert.match(hostSource, /1040/);
   assert.match(windowSource, /WindowStyle="SingleBorderWindow"/);
 });
+

@@ -179,6 +179,8 @@ public partial class MainWindow : Window
 
     private string ResolveHubPathForLaunch()
     {
+        var candidates = new List<string>();
+        candidates.AddRange(GetTrustedStagedHubPaths());
         foreach (var manifestPath in new[]
         {
             Path.Combine(appRoot, "dist", "installer", "installer-local-paths.json"),
@@ -194,7 +196,7 @@ public partial class MainWindow : Window
                 var root = manifest.RootElement;
                 foreach (var candidate in EnumerateHubManifestPaths(root))
                 {
-                    if (Path.IsPathFullyQualified(candidate) && File.Exists(candidate)) return Path.GetFullPath(candidate);
+                    if (Path.IsPathFullyQualified(candidate) && File.Exists(candidate)) candidates.Add(candidate);
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -203,12 +205,73 @@ public partial class MainWindow : Window
             }
         }
 
-        return ResolveInstalledHubPath();
+        candidates.AddRange(EnumerateInstalledHubPaths());
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!Path.IsPathFullyQualified(candidate) || !File.Exists(candidate)) continue;
+            var fullPath = Path.GetFullPath(candidate);
+            if (IsTrustedInstallerHub(fullPath)) return fullPath;
+            WriteStartupDiagnostic($"Se omitió un candidato de Hub sin confianza: {Path.GetFileName(fullPath)}.");
+        }
+
+        throw new InvalidOperationException("No se encontró un Installer Hub existente que coincida con firma o SHA-256 oficial registrado.");
     }
 
     private static string TrustedHubRecordPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "EvaluaPro", "trusted-hub-bundle.json");
+
+    private static IReadOnlyList<string> TrustedHubRecordPaths => new[]
+    {
+        TrustedHubRecordPath,
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "EvaluaPro", "installer-hub", "trusted-bundle.json")
+    };
+
+    private static bool TryReadTrustedHubRecord(string recordPath, out string sha256, out Version? version)
+    {
+        sha256 = string.Empty;
+        version = null;
+        try
+        {
+            using var record = JsonDocument.Parse(File.ReadAllText(recordPath));
+            var root = record.RootElement;
+            if (!root.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.String ||
+                repository.GetString() != "Dtcsrni/EvaluaPro_Sistema_Universitario" ||
+                !root.TryGetProperty("sha256", out var hash) || hash.ValueKind != JsonValueKind.String)
+                return false;
+
+            var candidateHash = hash.GetString() ?? string.Empty;
+            if (candidateHash.Length != 64 || !candidateHash.All(Uri.IsHexDigit)) return false;
+            sha256 = candidateHash;
+            version = root.TryGetProperty("version", out var versionElement) &&
+                versionElement.ValueKind == JsonValueKind.String &&
+                Version.TryParse(versionElement.GetString(), out var parsedVersion) && parsedVersion.Build >= 0
+                    ? parsedVersion
+                    : null;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<string> GetTrustedStagedHubPaths()
+    {
+        var candidates = new List<string>();
+        var updateRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "EvaluaPro", "updates");
+        foreach (var recordPath in TrustedHubRecordPaths)
+        {
+            if (!TryReadTrustedHubRecord(recordPath, out var sha256, out var version) || version is null) continue;
+            var canonicalVersion = version.ToString(3);
+            var candidate = Path.Combine(updateRoot, canonicalVersion,
+                $"EvaluaPro-InstallerHub-docente-local-v{canonicalVersion}.exe");
+            if (File.Exists(candidate) && HashMatches(candidate, sha256)) candidates.Add(candidate);
+        }
+        return candidates;
+    }
 
     private static void RegisterTrustedInstallerHub(string path, Version version, string expectedHash)
     {
@@ -227,39 +290,21 @@ public partial class MainWindow : Window
     private static bool IsTrustedInstallerHub(string path)
     {
         if (VerifyAuthenticode(path)) return true;
-        try
+        foreach (var recordPath in TrustedHubRecordPaths)
         {
-            using var record = JsonDocument.Parse(File.ReadAllText(TrustedHubRecordPath));
-            var root = record.RootElement;
-            return root.TryGetProperty("repository", out var repository) &&
-                repository.GetString() == "Dtcsrni/EvaluaPro_Sistema_Universitario" &&
-                root.TryGetProperty("sha256", out var sha256) &&
-                sha256.ValueKind == JsonValueKind.String && HashMatches(path, sha256.GetString()!);
+            if (TryReadTrustedHubRecord(recordPath, out var sha256, out _) && HashMatches(path, sha256)) return true;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return false;
-        }
+        return false;
     }
 
     private static Version? ReadTrustedHubVersion(string path)
     {
-        try
+        foreach (var recordPath in TrustedHubRecordPaths)
         {
-            using var record = JsonDocument.Parse(File.ReadAllText(TrustedHubRecordPath));
-            var root = record.RootElement;
-            if (!root.TryGetProperty("repository", out var repository) ||
-                repository.GetString() != "Dtcsrni/EvaluaPro_Sistema_Universitario" ||
-                !root.TryGetProperty("sha256", out var sha256) || sha256.ValueKind != JsonValueKind.String ||
-                !HashMatches(path, sha256.GetString()!)) return null;
-            return root.TryGetProperty("version", out var version) && Version.TryParse(version.GetString(), out var parsed)
-                ? parsed
-                : null;
+            if (TryReadTrustedHubRecord(recordPath, out var sha256, out var version) &&
+                version is not null && HashMatches(path, sha256)) return version;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return null;
-        }
+        return null;
     }
 
     private string? TryResolveHubPathForLaunch()
@@ -1024,9 +1069,16 @@ public partial class MainWindow : Window
 
     private static bool HashMatches(string path, string expectedHash)
     {
-        if (!File.Exists(path)) return false;
-        using var stream = File.OpenRead(path);
-        return string.Equals(Convert.ToHexString(SHA256.HashData(stream)), expectedHash, StringComparison.OrdinalIgnoreCase);
+        try
+        {
+            if (!File.Exists(path)) return false;
+            using var stream = File.OpenRead(path);
+            return string.Equals(Convert.ToHexString(SHA256.HashData(stream)), expectedHash, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static bool IsAllowedReleaseHost(string host) =>
@@ -1047,6 +1099,13 @@ public partial class MainWindow : Window
 
     private static string ResolveInstalledHubPath()
     {
+        var candidate = EnumerateInstalledHubPaths().FirstOrDefault();
+        return candidate ?? throw new InvalidOperationException("No se encontró en el registro el Installer Hub instalado para fijar la identidad del editor.");
+    }
+
+    private static IReadOnlyList<string> EnumerateInstalledHubPaths()
+    {
+        var candidates = new List<string>();
         foreach (var registryRoot in new[] { Registry.CurrentUser, Registry.LocalMachine })
         {
             try
@@ -1066,7 +1125,7 @@ public partial class MainWindow : Window
                         var fileName = Path.GetFileName(cachedBundle);
                         if (!fileName.StartsWith("EvaluaPro-InstallerHub-docente-local", StringComparison.OrdinalIgnoreCase) ||
                             !fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
-                        return cachedBundle;
+                        candidates.Add(cachedBundle);
                     }
                     catch (IOException) { }
                     catch (UnauthorizedAccessException) { }
@@ -1076,7 +1135,7 @@ public partial class MainWindow : Window
             catch (UnauthorizedAccessException) { }
         }
 
-        throw new InvalidOperationException("No se encontró en el registro el Installer Hub instalado para fijar la identidad del editor.");
+        return candidates.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     private static bool VerifyAuthenticode(string path)
