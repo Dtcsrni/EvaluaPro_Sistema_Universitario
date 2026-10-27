@@ -85,6 +85,7 @@ describe('qr examen enriquecido', () => {
     const resumen = extraerResumenQrExamen(qr);
     expect(resumen).not.toBeNull();
     expect(resumen?.folio).toBe('FOLIO-TV4-001');
+    expect(resumen?.loteId).toBeUndefined();
     expect(resumen?.numeroPagina).toBe(2);
     expect(resumen?.templateVersion).toBe(4);
     expect(resumen?.keyId).toBeTruthy();
@@ -120,10 +121,38 @@ describe('qr examen enriquecido', () => {
     const resumen = extraerResumenQrExamen(construirQrCompactoHistorico());
 
     expect(resumen?.qrPayloadMode).toBe('self-contained');
+    expect(resumen?.loteId).toBeUndefined();
     expect(resumen?.payloadSignatureValid).toBe(true);
     expect(resumen?.variantHash).toBe('001122334455');
     expect(resumen?.answerKeyHash).toBe('AABBCCDDEEFF');
     expect(resumen?.pageAnswerKey).toBe('ABC');
+  });
+
+  it('incluye loteId como campo independiente dentro de la firma HMAC', () => {
+    const qr = construirTextoQrExamenPagina({
+      folio: 'FOLIO-001',
+      numeroPagina: 2,
+      templateVersion: 4,
+      compacto: false,
+      examId: 'EXAMEN-UUID-001',
+      loteId: '0AFF2B75',
+      totalPreguntas: 2,
+      questionIdsPagina: ['q1', 'q2'],
+      mapaVariante: { ordenPreguntas: ['q1', 'q2'], ordenOpcionesPorPregunta: {} },
+      preguntas: []
+    });
+    const resumen = extraerResumenQrExamen(qr);
+
+    expect(qr).toContain(':LI:0AFF2B75:');
+    expect(qr).toMatch(/:SG:H1[A-Z0-9]{24}$/);
+    expect(resumen).toMatchObject({
+      loteId: '0AFF2B75',
+      folio: 'FOLIO-001',
+      examId: 'EXAMEN-UUID-001',
+      numeroPagina: 2,
+      payloadSignatureMode: 'hmac-v1',
+      payloadSignatureValid: true
+    });
   });
 
   it('emite un QR corto firmado para resolver la clave desde el manifiesto local', () => {
@@ -151,6 +180,53 @@ describe('qr examen enriquecido', () => {
     expect(qr).not.toContain(':C:');
     expect(qr).toContain(':S:');
     expect(qr.length).toBeLessThan(70);
+  });
+
+  it('mantiene el QR compacto con lote ligado al manifiesto y firmado con SG:H1', () => {
+    const qr = construirTextoQrExamenPagina({
+      folio: 'FOLIO-LOTE-COMPACTO',
+      numeroPagina: 1,
+      templateVersion: 4,
+      compacto: true,
+      examId: 'EXAMEN-CON-UUID-LARGO-001',
+      loteId: 'LOTE-20261026-01',
+      totalPreguntas: 12,
+      questionIdsPagina: ['q1', 'q2'],
+      mapaVariante: { ordenPreguntas: ['q1', 'q2'], ordenOpcionesPorPregunta: {} },
+      preguntas: []
+    });
+
+    const resumen = extraerResumenQrExamen(qr);
+    expect(qr).toContain(':LI:LOTE-20261026-01:');
+    expect(qr).toMatch(/:SG:H1[A-Z0-9]{24}$/);
+    expect(qr).not.toContain(':C:');
+    expect(qr).not.toContain(':ID:');
+    expect(resumen).toMatchObject({
+      loteId: 'LOTE-20261026-01',
+      examId: undefined,
+      qrPayloadMode: 'manifest-bound',
+      payloadSignatureMode: 'hmac-v1',
+      payloadSignatureValid: true
+    });
+    expect(resumen?.variantHash).toBeUndefined();
+    expect(resumen?.answerKeyHash).toBeUndefined();
+    expect(resumen?.pageAnswerKey).toBeUndefined();
+  });
+
+  it('detecta cambios al loteId en el QR compacto manifest-bound', () => {
+    const qr = construirTextoQrExamenPagina({
+      folio: 'FOLIO-LOTE-COMPACTO',
+      numeroPagina: 1,
+      templateVersion: 4,
+      compacto: true,
+      loteId: 'LOTE-ORIGINAL',
+      mapaVariante: { ordenPreguntas: [], ordenOpcionesPorPregunta: {} },
+      preguntas: []
+    });
+
+    const resumen = extraerResumenQrExamen(qr.replace('LI:LOTE-ORIGINAL', 'LI:LOTE-ALTERADO'));
+    expect(resumen?.qrPayloadMode).toBe('manifest-bound');
+    expect(resumen?.payloadSignatureValid).toBe(false);
   });
 
   it('reduce bytes y módulos respecto del QR autocontenido equivalente', () => {

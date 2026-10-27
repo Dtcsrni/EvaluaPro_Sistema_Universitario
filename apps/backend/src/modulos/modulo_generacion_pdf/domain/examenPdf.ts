@@ -79,6 +79,7 @@ export class ExamenPdf {
       templateId: this.layout.templateId,
       compacto: true,
       examId: this.examIdNormalizado || undefined,
+      loteId: this.loteId,
       totalPreguntas: this.totalPreguntas,
       mapaVariante: this.mapaVariante,
       preguntas: this.preguntas,
