@@ -14,6 +14,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - El acceso Google Desktop recupera las capacidades OAuth cuando el backend responde tarde o falla la consulta inicial, y evita diagnosticar falsamente un Client ID ausente.
 - Classroom expone los errores de configuración OAuth en Calificaciones en vez de presentar una lista de cursos vacía sin explicación.
 - App Host confirma el cierre antes de detener API e interfaz, valida la identidad del dashboard y mantiene la ventana abierta si no puede confirmar la detención.
+- App Host omite manifiestos y entradas de registro obsoletos sin confianza y puede abrir un Installer Hub local cuyo SHA-256 fue registrado tras su descarga oficial.
 
 ## [1.2.10] - 2026-10-23
 
