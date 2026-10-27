@@ -76,6 +76,27 @@ describe('SeccionCuenta', () => {
     expect(screen.getByDisplayValue('Excelencia y Rigor')).toBeInTheDocument();
   });
 
+  it('permite regenerar los accesos e iconos desde el perfil', async () => {
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+        oauthGoogleDisponible={true}
+        classroomDisponible={false}
+        smtpDisponible={true}
+        requireGoogleOAuth={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Regenerar accesos e iconos/ }));
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/accesos-directos/regenerar', {});
+      expect(emitToast).toHaveBeenCalledWith(expect.objectContaining({ level: 'ok', title: 'Accesos directos' }));
+    });
+  });
+
   it('vuelve al avatar genérico si la foto vinculada a la cuenta no carga', () => {
     const { container } = renderConOAuth(
       <SeccionCuenta
