@@ -14,9 +14,20 @@ import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../src/compartido/errores/errorAplicacion.js';
 import { crearCargadorArchivosPdfOmr } from '../../src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.js';
 import { recuperarIngestasPdfOmrInterrumpidas } from '../../src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.js';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
+
+const controlLectorQr = vi.hoisted(() => ({ forzarFalloLecturaDirecta: false }));
+vi.mock('../../src/modulos/modulo_escaneo_omr/servicioOmr.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/modulos/modulo_escaneo_omr/servicioOmr.js')>();
+  return {
+    ...actual,
+    leerQrDesdeImagen: vi.fn(async (imagenBase64: string) => (
+      controlLectorQr.forzarFalloLecturaDirecta ? undefined : actual.leerQrDesdeImagen(imagenBase64)
+    ))
+  };
+});
 
 describe('límite agregado multipart OMR', () => {
   it('corta la escritura al superar el tamaño total y limpia los temporales', async () => {
@@ -87,7 +98,12 @@ describe('workflow OMR por jobs', () => {
   });
 
   beforeEach(async () => {
+    controlLectorQr.forzarFalloLecturaDirecta = false;
     await limpiarSqliteTest();
+  });
+
+  afterEach(() => {
+    controlLectorQr.forzarFalloLecturaDirecta = false;
   });
 
   afterAll(async () => {
@@ -328,6 +344,7 @@ describe('workflow OMR por jobs', () => {
     const scanPaginaVacia = Buffer.from(await documentoPaginaVacia.save());
     const calificacionesAntes = await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } });
 
+    controlLectorQr.forzarFalloLecturaDirecta = true;
     const creado = await request(app)
       .post('/api/omr/ingestas')
       .set(auth)
@@ -347,6 +364,7 @@ describe('workflow OMR por jobs', () => {
       job = estado.body.job;
     }
 
+    controlLectorQr.forzarFalloLecturaDirecta = false;
     expect(job.status).toBe('completed');
     expect(job.pagesTotal).toBe(2);
     expect(job.pages).toHaveLength(2);
@@ -363,6 +381,7 @@ describe('workflow OMR por jobs', () => {
     expect(historial.body.jobs[0]).not.toHaveProperty('student');
     expect(job.pages[0].examId).toBe(escenario.examenId);
     expect(job.pages[0].exceptions.map((item: { code: string }) => item.code)).not.toContain('OMR_QR_NO_VALIDO_O_FUERA_DE_LOTE');
+    expect(job.pages[0].exceptions.map((item: { code: string }) => item.code)).toContain('OMR_QR_GEOMETRIA_RESCATADA');
     expect(job.pages[0].scanStatus).toBe('needs_review');
     expect(job.pages[1].exceptions.map((item: { code: string }) => item.code)).toContain('OMR_QR_NO_VALIDO_O_FUERA_DE_LOTE');
     expect(job.packages).toHaveLength(1);
