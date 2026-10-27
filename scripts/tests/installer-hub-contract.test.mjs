@@ -3121,8 +3121,8 @@ test('script de release manifest incluye contrato extendido de build/deployment/
 test('firma de release exige cadena Authenticode confiable para cada artefacto después de firmar', () => {
   const script = fs.readFileSync(path.join(root, 'scripts', 'sign-installer-artifacts.ps1'), 'utf8');
   assert.match(script, /function Assert-ReleaseArtifactTrusted/);
-  assert.match(script, /Get-AuthenticodeSignature\\s+-FilePath\\s+\\$TargetPath\\s+-ErrorAction Stop/);
-  assert.match(script, /\\$signature\\.Status\\s+-ne\\s+'Valid'/);
+  assert.match(script, /Get-AuthenticodeSignature\s+-FilePath\s+\$TargetPath\s+-ErrorAction Stop/);
+  assert.match(script, /\$signature\.Status\s+-ne\s+'Valid'/);
   assert.match(script, /Assert-ReleaseArtifactTrusted\\s+-TargetPath\\s+\\$target/);
 });
 
