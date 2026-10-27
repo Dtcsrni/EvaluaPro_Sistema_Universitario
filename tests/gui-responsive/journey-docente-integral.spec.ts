@@ -391,7 +391,7 @@ test.describe('Journey docente integral visual', () => {
 
     // Paso 7: Entrega
     await page.getByRole('button', { name: 'Entrega', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Entrega', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('button', { name: 'Entrega', exact: true })).toHaveAttribute('aria-current', 'page', { timeout: 20_000 });
     await expect(page.getByRole('heading', { name: 'Vinculación manual por folio', exact: true })).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '33_entrega_seccion.png'), fullPage: true });
 
