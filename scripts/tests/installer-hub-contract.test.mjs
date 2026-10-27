@@ -3113,8 +3113,17 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /Join-UrlPath -BaseUrl \$ReleaseBaseUrl -RelativePath \$publishedAssetShaPath/);
   assert.match(script, /deployment\s*=\s*\[ordered\]@{/);
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
-  assert.match(script, /SignerCertificate/);
-  assert.match(script, /NotSigned/);
+  assert.match(script, /\$status\s+-eq\s+'Valid'/);
+  assert.match(script, /if \(\$status -eq 'Valid'\) \{\s*return \$true\s*\}\s*return \$false/s);
+  assert.doesNotMatch(script, /\$null\s+-ne\s+\$signature\.SignerCertificate[\s\S]{0,160}\$status\s+-ne\s+'NotSigned'/);
+});
+
+test('firma de release exige cadena Authenticode confiable para cada artefacto después de firmar', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'sign-installer-artifacts.ps1'), 'utf8');
+  assert.match(script, /function Assert-ReleaseArtifactTrusted/);
+  assert.match(script, /Get-AuthenticodeSignature\\s+-FilePath\\s+\\$TargetPath\\s+-ErrorAction Stop/);
+  assert.match(script, /\\$signature\\.Status\\s+-ne\\s+'Valid'/);
+  assert.match(script, /Assert-ReleaseArtifactTrusted\\s+-TargetPath\\s+\\$target/);
 });
 
 test('generador de hashes conserva el FlavorId solicitado durante el ciclo del catálogo', () => {
