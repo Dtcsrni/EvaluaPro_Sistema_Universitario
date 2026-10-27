@@ -376,7 +376,7 @@ export function PlantillasGenerados({
                         <div className="item-title">Paquete: {pkg.loteId}</div>
                         <div className="item-meta">
                           <span>Total: {pkg.total} folios</span>
-                          <span>Descargados: {pkg.descargados}</span>
+                          <span title="Cuenta exámenes incluidos en PDF o ZIP respondidos por EvaluaPro; no confirma que el navegador guardó el archivo.">Exámenes con descarga registrada: {pkg.descargados}/{pkg.total}</span>
                           <span>Fecha: {formatearFechaHora(pkg.generadoEn)}</span>
                         </div>
                       </div>
@@ -385,8 +385,8 @@ export function PlantillasGenerados({
                           type="button"
                           variante="secundario"
                           icono={<Icono nombre="pdf" />}
-                          cargando={descargandoLoteId === pkg.loteId}
-                          disabled={!puedeDescargarExamenes}
+                          cargando={descargandoLoteId === `${pkg.loteId}:pdf`}
+                          disabled={!puedeDescargarExamenes || Boolean(descargandoLoteId && descargandoLoteId !== `${pkg.loteId}:pdf`)}
                           onClick={() => void onDescargarPaquete(pkg.loteId, pkg.items)}
                           data-tooltip="Descarga el PDF consolidado del lote."
                         >

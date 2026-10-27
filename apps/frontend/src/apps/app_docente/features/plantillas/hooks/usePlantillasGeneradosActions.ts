@@ -35,6 +35,24 @@ function liberarUrlDescargaPosteriormente(url: string) {
   globalThis.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+function iniciarDescargaEnNavegador(blob: Blob, nombre: string, formato: 'PDF consolidado' | 'ZIP de exámenes individuales') {
+  if (blob.size === 0) throw new Error(`El ${formato} llegó vacío; vuelve a intentar la descarga.`);
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  liberarUrlDescargaPosteriormente(url);
+  emitToast({
+    level: 'ok',
+    title: 'Descarga iniciada',
+    message: `EvaluaPro preparó el ${formato} y solicitó la descarga al navegador. Revisa Descargas si no aparece.`,
+    durationMs: 4200
+  });
+}
+
 async function solicitarPdfLote(url: string, token: string) {
   const intentar = (authToken: string) => fetch(`${clienteApi.baseApi}${url}`, {
     credentials: 'include',
@@ -252,14 +270,8 @@ export function usePlantillasGeneradosActions({
       const nombreDesdeHeader = match
         ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, ''))
         : '';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = nombreDesdeHeader || `paquete_examenes.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      liberarUrlDescargaPosteriormente(url);
+      iniciarDescargaEnNavegador(blob, nombreDesdeHeader || 'paquete_examenes.pdf', 'PDF consolidado');
+      await cargarExamenesGenerados();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo descargar el PDF de lote');
       setMensajeGeneracion(msg);
@@ -271,7 +283,7 @@ export function usePlantillasGeneradosActions({
         action: accionToastSesionParaError(error, 'docente')
       });
     }
-  }, [avisarSinPermiso, lotePdfUrl, puedeDescargarExamenes, setMensajeGeneracion]);
+  }, [avisarSinPermiso, cargarExamenesGenerados, lotePdfUrl, puedeDescargarExamenes, setMensajeGeneracion]);
 
   const descargarPdfLotePorId = useCallback(
     async (loteId: string) => {
@@ -296,14 +308,8 @@ export function usePlantillasGeneradosActions({
         const nombreDesdeHeader = match
           ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, ''))
           : '';
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nombreDesdeHeader || `paquete_examenes_${lote}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        liberarUrlDescargaPosteriormente(url);
+        iniciarDescargaEnNavegador(blob, nombreDesdeHeader || `paquete_examenes_${lote}.pdf`, 'PDF consolidado');
+        await cargarExamenesGenerados();
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo descargar el PDF del paquete');
         setMensajeGeneracion(msg);
@@ -316,7 +322,7 @@ export function usePlantillasGeneradosActions({
         });
       }
     },
-    [avisarSinPermiso, puedeDescargarExamenes, setMensajeGeneracion]
+    [avisarSinPermiso, cargarExamenesGenerados, puedeDescargarExamenes, setMensajeGeneracion]
   );
 
   const descargarZipLote = useCallback(async () => {
@@ -343,20 +349,14 @@ export function usePlantillasGeneradosActions({
       const cd = resp.headers.get('Content-Disposition') || '';
       const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
       const nombre = match ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, '')) : '';
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl;
-      anchor.download = nombre || 'examenes_individuales.zip';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      liberarUrlDescargaPosteriormente(objectUrl);
+      iniciarDescargaEnNavegador(blob, nombre || 'examenes_individuales.zip', 'ZIP de exámenes individuales');
+      await cargarExamenesGenerados();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo descargar el ZIP de exámenes individuales');
       setMensajeGeneracion(msg);
       emitToast({ level: 'error', title: 'No se pudo descargar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
     }
-  }, [avisarSinPermiso, lotePdfUrl, puedeDescargarExamenes, setMensajeGeneracion]);
+  }, [avisarSinPermiso, cargarExamenesGenerados, lotePdfUrl, puedeDescargarExamenes, setMensajeGeneracion]);
 
   const descargarZipLotePorId = useCallback(async (loteId: string) => {
     const lote = String(loteId || '').trim();
@@ -378,20 +378,14 @@ export function usePlantillasGeneradosActions({
       const cd = resp.headers.get('Content-Disposition') || '';
       const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
       const nombre = match ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, '')) : '';
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl;
-      anchor.download = nombre || `examenes_individuales_${lote}.zip`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      liberarUrlDescargaPosteriormente(objectUrl);
+      iniciarDescargaEnNavegador(blob, nombre || `examenes_individuales_${lote}.zip`, 'ZIP de exámenes individuales');
+      await cargarExamenesGenerados();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo descargar el ZIP de exámenes individuales');
       setMensajeGeneracion(msg);
       emitToast({ level: 'error', title: 'No se pudo descargar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
     }
-  }, [avisarSinPermiso, puedeDescargarExamenes, setMensajeGeneracion]);
+  }, [avisarSinPermiso, cargarExamenesGenerados, puedeDescargarExamenes, setMensajeGeneracion]);
 
   const eliminarExamenGenerado = useCallback(
     async (examen: ExamenGeneradoResumen) => {

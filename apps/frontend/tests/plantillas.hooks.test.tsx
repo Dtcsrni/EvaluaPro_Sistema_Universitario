@@ -11,6 +11,7 @@ import { usePlantillasGeneradosActions } from '../src/apps/app_docente/features/
 import { usePlantillasOmrActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions';
 import { usePlantillasPreviewActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
+import * as toastBus from '../src/ui/toast/toastBus';
 
 describe('hooks de plantillas', () => {
   it('verifica el hash del PDF de lote y difiere la liberación del Object URL', async () => {
@@ -27,6 +28,8 @@ describe('hooks de plantillas', () => {
     const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:lote-qa');
     const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const cargarExamenesGenerados = vi.fn().mockResolvedValue(undefined);
+    const toastSpy = vi.spyOn(toastBus, 'emitToast');
     const { result } = renderHook(() => usePlantillasGeneradosActions({
       avisarSinPermiso: vi.fn(),
       puedeDescargarExamenes: true,
@@ -39,7 +42,7 @@ describe('hooks de plantillas', () => {
       setRegenerandoExamenId: vi.fn(),
       setArchivandoExamenId: vi.fn(),
       setMensajeGeneracion: vi.fn(),
-      cargarExamenesGenerados: async () => {},
+      cargarExamenesGenerados,
       enviarConPermiso: async () => ({}),
       lotePdfUrl: null
     }));
@@ -48,6 +51,12 @@ describe('hooks de plantillas', () => {
     expect(createObjectUrl).toHaveBeenCalledWith(bytes);
     expect(revokeObjectUrl).not.toHaveBeenCalled();
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
+    expect(cargarExamenesGenerados).toHaveBeenCalledOnce();
+    expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({
+      level: 'ok',
+      title: 'Descarga iniciada',
+      message: expect.stringContaining('PDF consolidado')
+    }));
   });
 
   it('rechaza un PDF de lote cuyo hash no coincide antes de iniciar la descarga', async () => {

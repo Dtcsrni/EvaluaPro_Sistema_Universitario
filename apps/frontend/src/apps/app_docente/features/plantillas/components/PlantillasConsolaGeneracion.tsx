@@ -77,6 +77,7 @@ export function PlantillasConsolaGeneracion({
 }) {
   const [modoGeneracion, setModoGeneracion] = useState<'lote' | 'individual'>('lote');
   const [formatoSalidaLote, setFormatoSalidaLote] = useState<'zip' | 'pdf'>('pdf');
+  const [descargandoFormato, setDescargandoFormato] = useState<'zip' | 'pdf' | null>(null);
   const [tipoExamen, setTipoExamen] = useState<'ordinario' | 'extraordinario'>('ordinario');
   const [grupoLote, setGrupoLote] = useState('');
   const [alumnoIdsExtraordinario, setAlumnoIdsExtraordinario] = useState<string[]>([]);
@@ -92,6 +93,16 @@ export function PlantillasConsolaGeneracion({
     preguntasOmitidasPorFormato?: number;
     preguntasOmitidasPorOmr?: Array<{ id: string; enunciado: string; problemas: string[] }>;
   } | null>(null);
+
+  const iniciarDescargaLote = async (formato: 'zip' | 'pdf') => {
+    if (descargandoFormato) return;
+    setDescargandoFormato(formato);
+    try {
+      await (formato === 'zip' ? descargarZipLote() : descargarPdfLote());
+    } finally {
+      setDescargandoFormato(null);
+    }
+  };
   const [previewExtraordinarioConfirmado, setPreviewExtraordinarioConfirmado] = useState(false);
   const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
   const listaPeriodos = Array.isArray(periodos) ? periodos : [];
@@ -298,10 +309,10 @@ export function PlantillasConsolaGeneracion({
                 </div>
               </div>
               <div className="plantillas-modo-toggle mt-10" role="group" aria-label="Formato de salida del lote">
-                <button type="button" className={`boton ${formatoSalidaLote === 'zip' ? 'boton--primario' : 'boton--secundario'}`} aria-pressed={formatoSalidaLote === 'zip'} onClick={() => setFormatoSalidaLote('zip')} disabled={generandoLote}>
+                <button type="button" className={`boton ${formatoSalidaLote === 'zip' ? 'boton--primario' : 'boton--secundario'}`} aria-pressed={formatoSalidaLote === 'zip'} onClick={() => setFormatoSalidaLote('zip')} disabled={generandoLote || Boolean(descargandoFormato)}>
                   ZIP · PDFs individuales
                 </button>
-                <button type="button" className={`boton ${formatoSalidaLote === 'pdf' ? 'boton--primario' : 'boton--secundario'}`} aria-pressed={formatoSalidaLote === 'pdf'} onClick={() => setFormatoSalidaLote('pdf')} disabled={generandoLote}>
+                <button type="button" className={`boton ${formatoSalidaLote === 'pdf' ? 'boton--primario' : 'boton--secundario'}`} aria-pressed={formatoSalidaLote === 'pdf'} onClick={() => setFormatoSalidaLote('pdf')} disabled={generandoLote || Boolean(descargandoFormato)}>
                   PDF · lote consolidado
                 </button>
               </div>
@@ -502,10 +513,10 @@ export function PlantillasConsolaGeneracion({
 
             {lotePdfUrl && (
               <>
-                <Boton type="button" variante="secundario" onClick={formatoSalidaLote === 'zip' ? descargarZipLote : descargarPdfLote}>
+                <Boton type="button" variante="secundario" cargando={descargandoFormato === formatoSalidaLote} disabled={Boolean(descargandoFormato)} onClick={() => void iniciarDescargaLote(formatoSalidaLote)}>
                   {formatoSalidaLote === 'zip' ? '📥 Descargar ZIP de PDFs individuales' : '📥 Descargar PDF consolidado'}
                 </Boton>
-                <Boton type="button" variante="secundario" onClick={formatoSalidaLote === 'zip' ? descargarPdfLote : descargarZipLote}>
+                <Boton type="button" variante="secundario" cargando={descargandoFormato === (formatoSalidaLote === 'zip' ? 'pdf' : 'zip')} disabled={Boolean(descargandoFormato)} onClick={() => void iniciarDescargaLote(formatoSalidaLote === 'zip' ? 'pdf' : 'zip')}>
                   {formatoSalidaLote === 'zip' ? 'Descargar PDF consolidado' : 'Descargar ZIP de individuales'}
                 </Boton>
               </>
