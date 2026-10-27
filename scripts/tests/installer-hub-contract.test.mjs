@@ -3229,7 +3229,8 @@ test('SPEC-094 REQ-005: el launcher Hub nativo usa timeout y fallback verificado
   assert.match(appHost, /File\.Exists\(fallbackPath\) && IsTrustedInstallerHub\(fallbackPath\)/);
   const trustVerifier = appHost.slice(appHost.indexOf('private static bool IsTrustedInstallerHub'), appHost.indexOf('private static Version? ReadTrustedHubVersion'));
   assert.match(trustVerifier, /VerifyAuthenticode\(path\)/);
-  assert.match(trustVerifier, /HashMatches\(path, sha256\.GetString\(\)!\)/);
+  assert.match(trustVerifier, /foreach \(var recordPath in TrustedHubRecordPaths\)/);
+  assert.match(trustVerifier, /TryReadTrustedHubRecord\(recordPath, out var sha256, out _\) && HashMatches\(path, sha256\)/);
   assert.match(appHost, /No se pudo comprobar si hay una actualización/);
 });
 
