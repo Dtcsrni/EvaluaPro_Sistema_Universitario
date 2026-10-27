@@ -69,10 +69,10 @@ test.describe('Ciclo de uso directo completo', () => {
     // 4. "Carga alumnos"
     await page.waitForLoadState('networkidle');
     
-    await page.click('text="Alumnos"');
+    await page.getByRole('button', { name: 'Alumnos', exact: true }).click();
     
     // Create new alumno
-    await page.locator('label:has-text("Matricula") >> input').fill(`CUH${Math.floor(100000000 + Math.random() * 900000000)}`);
+    await page.getByLabel('Matrícula').fill(`CUH${Math.floor(100000000 + Math.random() * 900000000)}`);
     await page.locator('label:has-text("Nombres") >> input').fill('Juan');
     await page.locator('label:has-text("Apellidos") >> input').fill('Pérez');
     await page.locator('label:has-text("Materia") >> select').first().selectOption({ index: 1 });

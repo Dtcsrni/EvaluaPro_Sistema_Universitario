@@ -101,7 +101,7 @@ test.describe('Journey docente integral visual', () => {
     await expect(page.getByRole('button', { name: /Abrir grupo Grupo A de Materia E2e Asistencias/i })).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: 'Alumnos', exact: true }).click();
-    await page.locator('label:has-text("Matricula") >> input').fill(matricula);
+    await page.getByLabel('Matrícula').fill(matricula);
     await page.locator('label:has-text("Nombres") >> input').fill(nombreAlumno);
     await page.locator('label:has-text("Apellidos") >> input').fill('E2E');
     await page.locator('label:has-text("Materia") >> select').first().selectOption({ index: 1 });
@@ -253,7 +253,7 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '15_alumno_seccion.png'), fullPage: true });
 
     const matricula = `CUH${Math.floor(100000000 + Math.random() * 899999999)}`;
-    await page.locator('label:has-text("Matricula") >> input').fill(matricula);
+    await page.getByLabel('Matrícula').fill(matricula);
     await page.locator('label:has-text("Nombres") >> input').fill('Alumno');
     await page.locator('label:has-text("Apellidos") >> input').fill('Integral');
     await page.locator('label:has-text("Materia") >> select').first().selectOption({ index: 1 });
