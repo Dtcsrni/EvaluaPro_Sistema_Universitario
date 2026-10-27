@@ -13,9 +13,9 @@ import { pipeline } from 'node:stream/promises';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { analizarImagen, prevalidarLoteCapturas } from './controladorEscaneoOmr.js';
 import { crearJobOmr, finalizarJobOmr, listarJobsOmr, obtenerJobOmr, resolverHojaOmr } from './controladorJobsOmr.js';
-import { crearIngestaPdfOmr, descargarManifiestoIngestaPdfOmr, descargarOriginalIngestaPdfOmr, descargarPaqueteIngestaPdfOmr, exportarDatasetIngestaPdfOmr, obtenerIngestaPdfOmr, prevalidarReferenciaIngestaPdfOmr, previsualizarPaginaIngestaPdfOmr, previsualizarReferenciaIngestaPdfOmr, recuperarIngestaPdfOmrPorClave, resolverPaginaIngestaPdfOmr, reintentarIngestaPdfOmr } from './controladorIngestaPdfOmr.js';
+import { calificarIngestaPdfOmr, crearIngestaPdfOmr, descargarManifiestoIngestaPdfOmr, descargarOriginalIngestaPdfOmr, descargarPaqueteIngestaPdfOmr, exportarDatasetIngestaPdfOmr, obtenerIngestaPdfOmr, prevalidarReferenciaIngestaPdfOmr, previsualizarPaginaIngestaPdfOmr, previsualizarReferenciaIngestaPdfOmr, recuperarIngestaPdfOmrPorClave, registrarVerdadTerrenoPaginaOmr, resolverPaginaIngestaPdfOmr, reintentarIngestaPdfOmr } from './controladorIngestaPdfOmr.js';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
-import { esquemaAnalizarOmr, esquemaCrearIngestaPdfOmr, esquemaCrearJobOmr, esquemaExportarDatasetIngestaOmr, esquemaPrevalidarLoteOmr, esquemaPrevalidarReferenciaIngestaOmr, esquemaResolverJobOmr, esquemaResolverPaginaIngestaOmr, esquemaReintentarIngestaOmr } from './validacionesOmr.js';
+import { esquemaAnalizarOmr, esquemaCalificarIngestaPdfOmr, esquemaCrearIngestaPdfOmr, esquemaCrearJobOmr, esquemaExportarDatasetIngestaOmr, esquemaPrevalidarLoteOmr, esquemaPrevalidarReferenciaIngestaOmr, esquemaRegistrarVerdadTerrenoOmr, esquemaResolverJobOmr, esquemaResolverPaginaIngestaOmr, esquemaReintentarIngestaOmr } from './validacionesOmr.js';
 import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/index.js';
 import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import { MAX_JOB_BYTES, MAX_PDF_BYTES } from './limitesIngestaPdfOmr.js';
@@ -135,6 +135,14 @@ router.post(
   prevalidarReferenciaIngestaPdfOmr
 );
 router.post('/ingestas', requerirPermiso('omr:analizar'), cargarArchivosPdf, limpiarCargaSiFalla, validarIngestaPdf, crearIngestaPdfOmr);
+router.post(
+  '/ingestas/:jobId/calificar',
+  requerirPermiso('omr:analizar'),
+  requerirPermiso('banco:leer'),
+  requerirPermiso('calificaciones:calificar'),
+  validarCuerpo(esquemaCalificarIngestaPdfOmr, { strict: true }),
+  calificarIngestaPdfOmr
+);
 router.post('/ingestas/:jobId/dataset-export', requerirPermiso('omr:analizar'), validarCuerpo(esquemaExportarDatasetIngestaOmr, { strict: true }), exportarDatasetIngestaPdfOmr);
 router.get('/ingestas/por-clave/:clientRequestId', requerirPermiso('omr:analizar'), recuperarIngestaPdfOmrPorClave);
 router.post('/ingestas/:jobId/reintentar', requerirPermiso('omr:analizar'), validarCuerpo(esquemaReintentarIngestaOmr, { strict: true }), reintentarIngestaPdfOmr);
@@ -142,6 +150,7 @@ router.get('/ingestas/:jobId', requerirPermiso('omr:analizar'), obtenerIngestaPd
 router.get('/ingestas/:jobId/paginas/:pageIndex/preview', requerirPermiso('omr:analizar'), previsualizarPaginaIngestaPdfOmr);
 router.get('/ingestas/:jobId/paginas/:pageIndex/reference-preview', requerirPermiso('omr:analizar'), previsualizarReferenciaIngestaPdfOmr);
 router.post('/ingestas/:jobId/paginas/:pageIndex/resolver', requerirPermiso('omr:analizar'), validarCuerpo(esquemaResolverPaginaIngestaOmr, { strict: true }), resolverPaginaIngestaPdfOmr);
+router.post('/ingestas/:jobId/paginas/:pageIndex/verdad-terreno', requerirPermiso('omr:analizar'), validarCuerpo(esquemaRegistrarVerdadTerrenoOmr, { strict: true }), registrarVerdadTerrenoPaginaOmr);
 router.get('/ingestas/:jobId/originales/:fileId', requerirPermiso('omr:analizar'), descargarOriginalIngestaPdfOmr);
 router.get('/ingestas/:jobId/manifiesto', requerirPermiso('omr:analizar'), descargarManifiestoIngestaPdfOmr);
 router.get('/ingestas/:jobId/paquetes/:packageId', requerirPermiso('omr:analizar'), descargarPaqueteIngestaPdfOmr);

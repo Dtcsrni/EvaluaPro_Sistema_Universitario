@@ -8,6 +8,7 @@ export {
   calcularRegionQrFocalizada,
   calcularIntegral,
   coincidePayloadQrExacto,
+  detectarQrDetalleZxing,
   detectarOpcion,
   detectarQrEnRecorteNativo,
   detectarQrEnRecorteRealzado,

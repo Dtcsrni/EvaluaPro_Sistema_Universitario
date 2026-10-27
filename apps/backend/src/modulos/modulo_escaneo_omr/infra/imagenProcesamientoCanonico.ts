@@ -215,8 +215,10 @@ export function calcularRegionQrFocalizada(
   anchoCarta: number
 ) {
   const expectedQr = Math.max(80, Math.round((qrSizePts / Math.max(1, anchoCarta)) * width));
-  const lado = Math.min(Math.round(expectedQr * 1.75), Math.floor(Math.min(width, height) * 0.28));
-  const centroX = width * 0.8875;
+  const lado = Math.min(Math.round(expectedQr * 2), Math.floor(Math.min(width, height) * 0.28));
+  // La cabecera de plantillas recientes mueve el QR hacia el centro. Mantener
+  // la ROI amplia incluye también la ubicación histórica cercana a 0.8875.
+  const centroX = width * 0.83;
   const centroY = height * 0.107;
   return {
     left: Math.max(0, Math.min(width - lado, Math.round(centroX - lado / 2))),
@@ -694,6 +696,41 @@ export function detectarQrEnRecorteNativo(
   return null;
 }
 
+/** Binariza con Otsu como respaldo para capturas con fondo moteado o sombras. */
+function binarizarEscalaGrisesOtsu(gray: Uint8ClampedArray) {
+  if (gray.length === 0) return null;
+  const histograma = new Uint32Array(256);
+  let sumaTotal = 0;
+  for (const valor of gray) {
+    histograma[valor] += 1;
+    sumaTotal += valor;
+  }
+
+  let pesoFondo = 0;
+  let sumaFondo = 0;
+  let varianzaMaxima = -1;
+  let umbral = -1;
+  const total = gray.length;
+  for (let candidato = 0; candidato < histograma.length; candidato += 1) {
+    pesoFondo += histograma[candidato]!;
+    if (pesoFondo === 0) continue;
+    const pesoFrente = total - pesoFondo;
+    if (pesoFrente === 0) break;
+    sumaFondo += candidato * histograma[candidato]!;
+    const mediaFondo = sumaFondo / pesoFondo;
+    const mediaFrente = (sumaTotal - sumaFondo) / pesoFrente;
+    const proporcionEntreClases = (pesoFondo / total) * (pesoFrente / total);
+    const varianza = proporcionEntreClases * (mediaFondo - mediaFrente) ** 2;
+    if (varianza > varianzaMaxima) {
+      varianzaMaxima = varianza;
+      umbral = candidato;
+    }
+  }
+
+  if (umbral <= 0 || umbral >= 255 || varianzaMaxima <= 0) return null;
+  return Uint8ClampedArray.from(gray, (valor) => valor < umbral ? 0 : 255);
+}
+
 /** Lee una imagen completa en gris a resolución fuente y conserva el filtro geométrico QR. */
 export function detectarQrZxingPaginaFuente(
   gray: Uint8ClampedArray,
@@ -706,7 +743,21 @@ export function detectarQrZxingPaginaFuente(
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || gray.length !== width * height) {
     return null;
   }
-  const detectado = detectarQrDetalleZxing(gray, width, height);
+  let detectado = detectarQrDetalleZxing(gray, width, height);
+  const requiereRespaldo = !detectado || Boolean(
+    opciones.payloadsEsperados?.length && !opciones.payloadsEsperados.includes(detectado.data)
+  );
+  if (requiereRespaldo) {
+    const binarioOtsu = binarizarEscalaGrisesOtsu(gray);
+    const candidatoOtsu = binarioOtsu
+      ? detectarQrDetalleZxing(binarioOtsu, width, height)
+      : null;
+    if (candidatoOtsu && (
+      opciones.payloadsEsperados?.length
+        ? opciones.payloadsEsperados.includes(candidatoOtsu.data)
+        : !detectado
+    )) detectado = candidatoOtsu;
+  }
   if (!detectado) return null;
   if (opciones.payloadsEsperados?.length && !opciones.payloadsEsperados.includes(detectado.data)) return null;
   const tamanoExteriorEsperado = (qrSizePts / Math.max(1, anchoCarta)) * width;

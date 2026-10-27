@@ -165,8 +165,8 @@ describe('cobertura dominios docente', () => {
     );
 
     expect(screen.getByText(/Calificación final: 5\.00 \/ 5\.00/i)).toBeInTheDocument();
-    expect(screen.getByRole('checkbox')).toBeDisabled();
-    expect(screen.getByText(/Bonus deshabilitado: la calificación del examen ya es 5\.00\./i)).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByText(/El resultado final nunca supera 5\.00/i)).toBeInTheDocument();
   });
 
   it('renderiza SeccionCalificaciones', () => {

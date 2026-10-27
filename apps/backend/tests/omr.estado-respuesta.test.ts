@@ -117,6 +117,22 @@ describe('estado de respuesta OMR', () => {
     expect(resumen.examenVacioProbable).toBe(false);
   });
 
+  it('marca vacío probable si predominan respuestas débiles y hay blancos inequívocos', () => {
+    const resumen = resumirRespuestasOmr([
+      ...Array.from({ length: 20 }, () => ({ opcion: null, flags: ['bajo_contraste', 'parcial_detectada'] })),
+      ...Array.from({ length: 2 }, () => respuestaVacia)
+    ], 0.83, 0.87);
+
+    expect(resumen).toMatchObject({
+      reactivosRespondidos: 0,
+      reactivosSinMarca: 2,
+      reactivosAmbiguos: 20,
+      examenVacio: false,
+      examenVacioProbable: true,
+      estadoExamen: 'vacio_probable'
+    });
+  });
+
   it('abstiene una señal parcial débil aunque domine relativamente a las otras opciones', () => {
     const lecturaParcial = {
       score: 0.134,
@@ -135,6 +151,25 @@ describe('estado de respuesta OMR', () => {
 
     expect(debeAbstenerseMarcaParcialOmr(lecturaParcial)).toBe(true);
     expect(debeAbstenerseMarcaParcialOmr({ ...lecturaParcial, score: 0.18 })).toBe(false);
+  });
+
+  it('no publica una señal central oscura cuando es muy irregular y está desplazada', () => {
+    const manchaDesplazada = {
+      score: 0.415,
+      fillRatioCore: 0.846,
+      shapeCompactness: 0.192,
+      centerDarknessDelta: 0.189,
+      contrasteCromaticoLocal: 0,
+      margenCromatico: 0,
+      centroidOffsetRatio: 0.379,
+      softCoreContrast: 0.215,
+      markConfidence: 1,
+      permitirConfianzaMarcada: true,
+      fillCoreMargin: 0.18,
+      fillCoreCompetitorScore: 0.03
+    };
+
+    expect(debeAbstenerseMarcaParcialOmr(manchaDesplazada)).toBe(true);
   });
 
   it('distingue un intento tenue de una burbuja vacia sin publicar letra', () => {

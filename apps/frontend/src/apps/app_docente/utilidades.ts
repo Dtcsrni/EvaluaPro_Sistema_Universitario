@@ -12,6 +12,7 @@ import type {
   ExamenGeneradoClave,
   FlagRespuestaOmr,
   Pregunta,
+  PermisosUI,
   RespuestaDetectadaOmr,
   ResultadoOmr,
   RevisionPaginaOmr
@@ -197,6 +198,21 @@ export function construirClaveCorrectaExamen(
   examen: ExamenGeneradoClave | null | undefined,
   bancoPreguntas: Pregunta[]
 ): ClaveConstruida {
+  if (examen?.answerKeySnapshotStatus === 'unavailable') {
+    return { claveCorrectaPorNumero: {}, ordenPreguntas: [] };
+  }
+  if (examen?.answerKeySnapshotStatus === 'verified') {
+    const clave = clavePersistida(examen);
+    const totalEsperado = Array.isArray(examen.mapaVariante?.ordenPreguntas)
+      ? examen.mapaVariante.ordenPreguntas.length
+      : Array.isArray(examen.preguntasIds) ? examen.preguntasIds.length : 0;
+    const numeros = clave?.ordenPreguntas ?? [];
+    const completa = Boolean(clave) && totalEsperado > 0 && numeros.length === totalEsperado
+      && new Set(numeros).size === totalEsperado
+      && numeros.every((numero) => Number.isInteger(numero) && numero >= 1 && numero <= totalEsperado)
+      && Array.from({ length: totalEsperado }, (_item, index) => index + 1).every((numero) => numero in (clave?.claveCorrectaPorNumero ?? {}));
+    return completa && clave ? clave : { claveCorrectaPorNumero: {}, ordenPreguntas: [] };
+  }
   return clavePersistida(examen) ?? claveDesdeBanco(examen, bancoPreguntas);
 }
 
@@ -265,8 +281,17 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
 
   return {
     respuestasDetectadas: respuestasConEstado,
+    autoCalificableOmr: paginas.every((pagina) => pagina.resultado.autoCalificableOmr === true),
     advertencias,
     qrTexto: qrTextos[0],
+    engineVersion: paginas.every((pagina) => pagina.resultado.engineVersion === paginas[0]?.resultado.engineVersion)
+      ? paginas[0]?.resultado.engineVersion
+      : 'omr-cv-mixed',
+    geomQuality: Math.min(...paginas.map((pagina) => numeroSeguro(pagina.resultado.geomQuality))),
+    photoQuality: Math.min(...paginas.map((pagina) => numeroSeguro(pagina.resultado.photoQuality))),
+    decisionPolicy: paginas.every((pagina) => pagina.resultado.decisionPolicy === paginas[0]?.resultado.decisionPolicy)
+      ? paginas[0]?.resultado.decisionPolicy
+      : 'mixed',
     calidadPagina,
     estadoAnalisis,
     motivosRevision,
@@ -339,6 +364,7 @@ export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | u
   const respuestasDetectadas = normalizarRespuestasDetectadas(entrada?.respuestasDetectadas);
   return {
     respuestasDetectadas,
+    ...normalizarMetadatosCalificacionOmr(entrada),
     advertencias: Array.isArray(entrada?.advertencias) ? entrada.advertencias : [],
     qrTexto: typeof entrada?.qrTexto === 'string' ? entrada.qrTexto : undefined,
     calidadPagina: numeroSeguro(entrada?.calidadPagina),
@@ -351,12 +377,26 @@ export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | u
   };
 }
 
+function normalizarMetadatosCalificacionOmr(entrada: Partial<ResultadoOmr> | null | undefined) {
+  return {
+    autoCalificableOmr: entrada?.autoCalificableOmr === true,
+    engineVersion: typeof entrada?.engineVersion === 'string' ? entrada.engineVersion : undefined,
+    geomQuality: numeroSeguro(entrada?.geomQuality),
+    photoQuality: numeroSeguro(entrada?.photoQuality),
+    decisionPolicy: typeof entrada?.decisionPolicy === 'string' ? entrada.decisionPolicy : undefined
+  };
+}
+
 export function obtenerSesionDocenteId(): string {
   return obtenerSessionId('sesionDocenteId');
 }
 
 export function mensajeDeError(error: unknown, fallback: string) {
   return mensajeUsuarioDeErrorConSugerencia(error, fallback);
+}
+
+export function tienePermisosCalificacionOmr(permisos: Pick<PermisosUI, 'omr' | 'banco' | 'calificaciones'>): boolean {
+  return permisos.omr.analizar && permisos.banco.leer && permisos.calificaciones.calificar;
 }
 
 export function esMensajeError(texto: string): boolean {

@@ -115,7 +115,7 @@ describe('historial de paquetes archivados', () => {
           archivado: true,
           archivadoEn: '2026-09-28T00:00:00.000Z'
         }]}
-        cantidadLotesOmrArchivados={0}
+        cantidadLotesOmrDisponibles={0}
         cargandoLotesArchivados={false}
         hayMasLotesArchivados
         onCargarMasLotesArchivados={cargarMas}
@@ -131,7 +131,7 @@ describe('historial de paquetes archivados', () => {
     expect(cargarMas).toHaveBeenCalledOnce();
   });
 
-  it('distingue la ausencia de paquetes activos cuando hay lotes archivados disponibles para OMR', () => {
+  it('distingue la ausencia de paquetes activos cuando hay lotes disponibles para cotejo OMR', () => {
     render(
       <PlantillasHistorialLotes
         cargandoExamenesGenerados={false}
@@ -154,7 +154,7 @@ describe('historial de paquetes archivados', () => {
         onRegenerarPaquete={async () => {}}
         onEliminarPaquete={async () => {}}
         lotesArchivados={[]}
-        cantidadLotesOmrArchivados={12}
+        cantidadLotesOmrDisponibles={12}
         cargandoLotesArchivados={false}
         hayMasLotesArchivados={false}
         onCargarMasLotesArchivados={async () => {}}
@@ -164,6 +164,6 @@ describe('historial de paquetes archivados', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'No hay paquetes activos' })).toBeInTheDocument();
-    expect(screen.getByText(/Hay 12 lotes archivados disponibles en el panel OMR inferior/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hay 12 lotes registrados \(activos y archivados\) disponibles para el cotejo OMR/i)).toBeInTheDocument();
   });
 });

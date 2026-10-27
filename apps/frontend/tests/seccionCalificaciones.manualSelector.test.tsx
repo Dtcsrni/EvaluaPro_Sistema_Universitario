@@ -64,11 +64,20 @@ describe('SeccionCalificaciones manual selector', () => {
               _id: 'ex-1',
               folio: 'FOL-1',
               alumnoId: 'alu-1',
-              estado: 'entregado',
+              estado: 'generado',
               plantillaId: 'pla-1',
               tipoExamen: 'parcial',
               plantillaTitulo: 'Primer Parcial · Plantilla Algebra',
-              entregadoEn: '2026-02-16T00:00:00.000Z'
+              generadoEn: '2026-02-16T00:00:00.000Z'
+            },
+            {
+              _id: 'ex-2',
+              folio: 'FOL-2',
+              alumnoId: 'alu-1',
+              estado: 'entregado',
+              plantillaId: 'pla-1',
+              tipoExamen: 'parcial',
+              plantillaTitulo: 'Primer Parcial · Plantilla Algebra'
             }
           ]
         };
@@ -80,7 +89,8 @@ describe('SeccionCalificaciones manual selector', () => {
             folio: 'FOL-1',
             alumnoId: 'alu-1',
             periodoId: 'per-1',
-            mapaVariante: { ordenPreguntas: ['p1'] }
+            mapaVariante: { ordenPreguntas: ['p1'] },
+            paginas: [{ numero: 1, preguntasDel: 1, preguntasAl: 1 }]
           }
         };
       }
@@ -114,6 +124,7 @@ describe('SeccionCalificaciones manual selector', () => {
   it('muestra tipo en selector y en encabezado al activar modo manual', async () => {
     const user = userEvent.setup();
     const abrirLotesPdfOmr = vi.fn();
+    const calificar = vi.fn().mockResolvedValue({});
 
     render(
       <SeccionCalificaciones
@@ -125,7 +136,31 @@ describe('SeccionCalificaciones manual selector', () => {
         onActualizarPregunta={() => {}}
         revisionOmrConfirmada={false}
         onConfirmarRevisionOmr={() => {}}
-        revisionesOmr={[]}
+        revisionesOmr={[{
+          examenId: 'ex-1',
+          folio: 'FOL-1',
+          alumnoId: 'alu-1',
+          paginas: [{
+            numeroPagina: 1,
+            imagenBase64: 'data:image/png;base64,AA==',
+            respuestas: [],
+            resultado: {
+              estadoAnalisis: 'ok',
+              calidadPagina: 1,
+              confianzaPromedioPagina: 1,
+              ratioAmbiguas: 0,
+              templateVersionDetectada: 4,
+              motivosRevision: [],
+              qrTexto: 'QR_FOL-1_P1'
+            },
+            actualizadoEn: Date.now()
+          }],
+          claveCorrectaPorNumero: { 1: 'A' },
+          ordenPreguntas: [1],
+          revisionConfirmada: false,
+          actualizadoEn: Date.now(),
+          creadoEn: Date.now()
+        }]}
         examenIdActivo={null}
         paginaActiva={null}
         onSeleccionarRevision={() => {}}
@@ -135,7 +170,7 @@ describe('SeccionCalificaciones manual selector', () => {
         alumnoId={null}
         resultadoParaCalificar={null}
         respuestasParaCalificar={[]}
-        onCalificar={async () => ({})}
+        onCalificar={calificar}
         permisos={permisos}
         onAbrirLotesPdfOmr={abrirLotesPdfOmr}
         avisarSinPermiso={() => {}}
@@ -148,10 +183,11 @@ describe('SeccionCalificaciones manual selector', () => {
     await user.selectOptions(screen.getByLabelText('Alumno'), 'alu-1');
 
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /FOL-1 · Parcial 1 · Primer Parcial · Plantilla Algebra · entregado/i })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /FOL-1 · Parcial 1 · Primer Parcial · Plantilla Algebra · captura vinculada/i })).toBeInTheDocument();
     });
+    expect(screen.queryByRole('option', { name: /FOL-2/i })).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText('Examen entregado'), 'ex-1');
+    await user.selectOptions(screen.getByLabelText('Examen con captura vinculada'), 'ex-1');
     await user.click(screen.getByRole('button', { name: /Usar examen para calificación manual/i }));
 
     await waitFor(() => {
@@ -159,6 +195,22 @@ describe('SeccionCalificaciones manual selector', () => {
     });
 
     expect(screen.getByText(/Modo manual activo · Folio FOL-1 · Tipo Parcial 1 · Plantilla Primer Parcial · Plantilla Algebra/i)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Captura original del examen, página 1' })).toHaveAttribute('src', 'data:image/png;base64,AA==');
+    expect(screen.getByText('Clave correcta')).toBeInTheDocument();
+    const guardar = screen.getByRole('button', { name: /Guardar calificación/i });
+    expect(guardar).toBeDisabled();
+    await user.selectOptions(screen.getByLabelText('Marca observada en la captura, pregunta 1'), 'A');
+    expect(screen.getByText('Correcta')).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /No aparece/ }));
+    expect(guardar).toBeEnabled();
+    await user.click(guardar);
+    await waitFor(() => expect(calificar).toHaveBeenCalledWith(expect.objectContaining({
+      aciertos: 1,
+      totalReactivos: 1,
+      respuestasDetectadas: [expect.objectContaining({ numeroPregunta: 1, opcion: 'A', estadoRespuesta: 'respondida' })],
+      paginasCaptura: [{ numeroPagina: 1, imagenBase64: 'data:image/png;base64,AA==' }],
+      omrAnalisis: expect.objectContaining({ revisionConfirmada: true, qrTexto: 'QR_FOL-1_P1' })
+    })));
     expect((clienteApi as { obtener: unknown }).obtener).toBeDefined();
 
     await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));

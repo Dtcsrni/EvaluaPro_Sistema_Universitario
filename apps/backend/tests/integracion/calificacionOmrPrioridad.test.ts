@@ -37,7 +37,7 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
   }
 
   it.each(['sin_marca', 'doble_marca'] as const)(
-    'califica una marca vacía legible y bloquea %s hasta revisión humana',
+    'exige lectura local original y bloquea %s hasta revisión humana',
     async (estadoRespuesta) => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };
@@ -176,23 +176,11 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
           qrTexto
         }
       })
-      .expect(estadoRespuesta === 'sin_marca' ? 201 : 422);
+      .expect(422);
 
-    if (estadoRespuesta === 'doble_marca') {
-      expect(calificacionResp.body.error.codigo).toBe('OMR_REQUIERE_REVISION_MANUAL');
-      return;
-    }
-
-    expect(calificacionResp.body.calificacion.aciertos).toBe(0);
-    expect(calificacionResp.body.calificacion.totalReactivos).toBe(1);
-    expect(calificacionResp.body.calificacion.calificacionExamenFinalTexto).toBe('0');
-    expect(calificacionResp.body.calificacion.respuestasDetectadas).toEqual([
-      expect.objectContaining({
-        opcion: null,
-        estadoRespuesta,
-        ...(estadoRespuesta === 'doble_marca' ? { flags: ['doble_marca'] } : {})
-      })
-    ]);
+    expect(calificacionResp.body.error.codigo).toBe(
+      estadoRespuesta === 'sin_marca' ? 'OMR_CAPTURAS_ORIGINALES_REQUERIDAS' : 'OMR_REQUIERE_REVISION_MANUAL'
+    );
     }
   );
 });

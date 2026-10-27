@@ -11,8 +11,9 @@ import { emitToast } from '../../../../../ui/toast/toastBus';
 import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 import { useConfirmDialog } from '../../../../../ui/feedback/ConfirmDialogProvider';
 import type { GeneratedAssessmentDetalle, OmrJobDetalle } from '../../../tipos';
+import { asociarPaginasIngestaParaManual, type CalificacionManualDesdeIngesta } from '../../../capturasRevisionManual';
 
-export type ArchivoOmrLote = { assessmentId: string; loteId: string; etiqueta: string; cantidad: number };
+export type ArchivoOmrLote = { assessmentId: string; loteId: string; etiqueta: string; cantidad: number; archivado?: boolean | null };
 export type TrabajoOmrResumen = {
   jobId: string;
   workflow: 'scan' | 'pdf_ingesta';
@@ -43,8 +44,18 @@ type Props = {
   onReintentarCargaLotesArchivadosOmr?: () => void;
   onSeleccionarLoteArchivado: (assessmentId: string) => Promise<void>;
   prevalidarReferenciaOmr?: (args: { assessmentIds: string[]; referencePdf: File }) => Promise<{
-    reference: { pages: number; pagesWithSignedQr: number };
+    reference: {
+      pages: number;
+      pagesWithSignedQr: number;
+      pagesWithExpectedQrPattern?: number;
+      pagesWithAmbiguousExpectedQrPatterns?: number;
+      pagesWithInvalidSignature?: number;
+    };
     candidatesEvaluated: number;
+    candidateDiagnostics?: Array<{
+      structureValid: boolean;
+      reasons: { firmaInvalida: number; geometriaAusente: number; qrAusente: number; qrMalformado: number };
+    }>;
     matches: Array<{ assessmentId: string; loteId: string; examCount: number; expectedPages: number; matchedPages: number }>;
   }>;
   jobOmr: OmrJobDetalle | null;
@@ -53,6 +64,14 @@ type Props = {
   descargarArtifact: (url: string | undefined, fileName: string) => Promise<void>;
   descargarDatasetOmr?: (jobId: string, pageIndexes: number[]) => Promise<{ sha256: string; sourceCount: number; labelCount: number }>;
   puedeAnalizarOmr?: boolean;
+  puedeCalificarOmr?: boolean;
+  calificarLoteOmr?: (jobId: string) => Promise<NonNullable<OmrJobDetalle['autoGrading']>>;
+  registrarVerdadTerrenoOmr?: (args: {
+    jobId: string;
+    pageIndex: number;
+    finalResponses: Array<{ numeroPregunta: number; opcion: string | null; tipoMarcaManual: 'valid' | 'blank' | 'double' | 'smudge'; selectedOptions: Array<'A' | 'B' | 'C' | 'D' | 'E'> }>;
+    bonusVisible?: boolean;
+  }) => Promise<void>;
   obtenerPreviewPaginaOmr: (jobId: string, pageIndex: number) => Promise<Blob>;
   obtenerPreviewReferenciaOmr: (jobId: string, pageIndex: number, generatedAssessmentId: string, examPage: number) => Promise<Blob>;
   crearJobOmr: (args: { assessmentId: string; files: File[]; sourceType: 'image_batch' | 'camera_capture' | 'pdf'; referencePdf?: File }) => Promise<void>;
@@ -61,34 +80,64 @@ type Props = {
     jobId: string;
     sheetSerial: string;
     resolutionReason: string;
+    confirmOriginalVisualReview?: boolean;
+    confirmBlindOmrReview?: boolean;
     ingestionResolution?: { pageIndex: number; generatedAssessmentId?: string; examPage?: number };
     finalIdentity?: Record<string, unknown>;
-    finalResponses?: Array<{ numeroPregunta: number; opcion: string | null }>;
+    finalResponses?: Array<{
+      numeroPregunta: number;
+      opcion: string | null;
+      tipoMarcaManual?: 'valid' | 'blank' | 'double' | 'smudge';
+      selectedOptions?: Array<'A' | 'B' | 'C' | 'D' | 'E'>;
+    }>;
     overrides?: Record<string, unknown>;
   }) => Promise<void>;
   finalizarJobOmr: (jobId: string) => Promise<void>;
+  onPrepararCalificacionManual?: (captura: CalificacionManualDesdeIngesta) => Promise<void>;
 };
+
+function blobComoDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('La captura no pudo convertirse a imagen.'));
+    reader.onerror = () => reject(reader.error ?? new Error('No se pudo leer la captura original.'));
+    reader.readAsDataURL(blob);
+  });
+}
 
 type DraftHoja = {
   studentId: string;
   versionCode: string;
-  responses: Array<{ numeroPregunta: number; opcion: string | null }>;
+  bonusVisible: boolean | null;
+  responses: Array<{
+    numeroPregunta: number;
+    opcion: string | null;
+    tipoMarcaManual: 'valid' | 'blank' | 'double' | 'smudge' | null;
+    selectedOptions: Array<'A' | 'B' | 'C' | 'D' | 'E'>;
+  }>;
 };
 
-function construirDraftHoja(pagina: OmrJobDetalle['pages'][number] | null): DraftHoja {
+function construirDraftHoja(pagina: OmrJobDetalle['pages'][number] | null, ocultarPredicciones = false): DraftHoja {
   if (!pagina) {
-    return { studentId: '', versionCode: '', responses: [] };
+    return { studentId: '', versionCode: '', bonusVisible: null, responses: [] };
   }
+
+  const respuestasPagina = Array.isArray(pagina.responses)
+    ? pagina.responses.filter((item): item is NonNullable<typeof item> => Boolean(item && typeof item === 'object'))
+    : [];
 
   return {
     studentId: String(pagina.identityResult?.studentId ?? ''),
     versionCode: String(pagina.versionResult?.versionCode ?? ''),
-    responses: Array.isArray(pagina.responses)
-      ? pagina.responses.map((item) => ({
+    bonusVisible: null,
+    responses: respuestasPagina
+      .filter((item) => Number.isSafeInteger(Number(item.numeroPregunta)) && Number(item.numeroPregunta) > 0)
+      .map((item) => ({
           numeroPregunta: Number(item.numeroPregunta),
-          opcion: typeof item.opcion === 'string' ? item.opcion : null
+          opcion: ocultarPredicciones ? null : (typeof item.opcion === 'string' ? item.opcion : null),
+          tipoMarcaManual: ocultarPredicciones ? null : (item.tipoMarcaManual ?? null),
+          selectedOptions: ocultarPredicciones ? [] : (item.selectedOptions ?? [])
         }))
-      : []
   };
 }
 
@@ -102,6 +151,58 @@ function etiquetaEstadoRespuesta(estado?: string) {
     case 'manual_review': return 'Corregida manualmente';
     default: return 'Estado OMR no disponible';
   }
+}
+
+function respuestaManualCompleta(response: DraftHoja['responses'][number]) {
+  const seleccionadas = response.selectedOptions;
+  switch (response.tipoMarcaManual) {
+    case 'valid': return /^[A-E]$/.test(response.opcion ?? '') && seleccionadas.length === 1 && seleccionadas[0] === response.opcion;
+    case 'blank': return response.opcion === null && seleccionadas.length === 0;
+    case 'double': return response.opcion === null && seleccionadas.length >= 2;
+    case 'smudge': return response.opcion === null;
+    default: return false;
+  }
+}
+
+type ResultadoSecuenciaMarcas =
+  | { ok: true; responses: DraftHoja['responses'] }
+  | { ok: false; error: string };
+
+function parsearSecuenciaMarcas(responses: DraftHoja['responses'], value: string): ResultadoSecuenciaMarcas {
+  const tokens = value.trim().split(/[\s,;]+/).filter(Boolean);
+  if (!tokens.length) return { ok: false, error: 'Escribe una marca por reactivo.' };
+  if (tokens.length !== responses.length) {
+    return { ok: false, error: `La secuencia tiene ${tokens.length} marcas y esta página requiere ${responses.length}.` };
+  }
+  const parsed: DraftHoja['responses'] = [];
+  for (const [index, token] of tokens.entries()) {
+    const numeroPregunta = responses[index]!.numeroPregunta;
+    const normalized = token.toUpperCase();
+    if (/^[A-E]$/.test(normalized)) {
+      parsed.push({ numeroPregunta, opcion: normalized, tipoMarcaManual: 'valid', selectedOptions: [normalized as 'A' | 'B' | 'C' | 'D' | 'E'] });
+      continue;
+    }
+    if (normalized === '-') {
+      parsed.push({ numeroPregunta, opcion: null, tipoMarcaManual: 'blank', selectedOptions: [] });
+      continue;
+    }
+    if (normalized === '?') {
+      parsed.push({ numeroPregunta, opcion: null, tipoMarcaManual: 'smudge', selectedOptions: [] });
+      continue;
+    }
+    const doble = /^!([A-E]{2,5})$/.exec(normalized);
+    if (doble && new Set(doble[1]).size === doble[1]!.length) {
+      parsed.push({
+        numeroPregunta,
+        opcion: null,
+        tipoMarcaManual: 'double',
+        selectedOptions: [...doble[1]!].sort() as DraftHoja['responses'][number]['selectedOptions']
+      });
+      continue;
+    }
+    return { ok: false, error: `Marca ${index + 1} («${token}») no válida. Usa A–E, -, ?, o !AB para doble marca.` };
+  }
+  return { ok: true, responses: parsed };
 }
 
 function etiquetaEstadoMarca(estado: string) {
@@ -170,12 +271,16 @@ export function PlantillasOmrWorkflow({
   descargarArtifact,
   descargarDatasetOmr,
   puedeAnalizarOmr = true,
+  puedeCalificarOmr = false,
+  calificarLoteOmr,
+  registrarVerdadTerrenoOmr,
   obtenerPreviewPaginaOmr,
   obtenerPreviewReferenciaOmr,
   crearJobOmr,
   onReintentarIngestaPdf = async () => {},
   resolverHojaOmr,
-  finalizarJobOmr
+  finalizarJobOmr,
+  onPrepararCalificacionManual
 }: Props) {
   const versionesAssessment = useMemo(
     () => resumirVersionesAssessment(assessmentDetalle?.assessment.versionSet ?? []),
@@ -196,6 +301,10 @@ export function PlantillasOmrWorkflow({
   const [ingestaExamPage, setIngestaExamPage] = useState<number | ''>('');
   const [pagePreview, setPagePreview] = useState<{ pageIndex: number; url: string } | null>(null);
   const [referencePreview, setReferencePreview] = useState<{ pageIndex: number; examId: string; examPage: number; url: string } | null>(null);
+  const [confirmacionVisualPageIndex, setConfirmacionVisualPageIndex] = useState<number | null>(null);
+  const [secuenciaMarcas, setSecuenciaMarcas] = useState('');
+  const [errorSecuenciaMarcas, setErrorSecuenciaMarcas] = useState('');
+  const [mensajeSecuenciaMarcas, setMensajeSecuenciaMarcas] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [loteArchivadoSeleccionado, setLoteArchivadoSeleccionado] = useState('');
@@ -203,6 +312,14 @@ export function PlantillasOmrWorkflow({
   const [prevalidandoReferencia, setPrevalidandoReferencia] = useState(false);
   const [paginasDatasetSeleccionadas, setPaginasDatasetSeleccionadas] = useState<number[]>([]);
   const [exportandoDataset, setExportandoDataset] = useState(false);
+  const [calificandoLote, setCalificandoLote] = useState(false);
+  const [preparandoCalificacionManualId, setPreparandoCalificacionManualId] = useState<string | null>(null);
+  const [errorCalificacionManual, setErrorCalificacionManual] = useState('');
+  useEffect(() => {
+    setSecuenciaMarcas('');
+    setErrorSecuenciaMarcas('');
+    setMensajeSecuenciaMarcas('');
+  }, [jobOmr?.jobId, paginaActiva?.pageIndex]);
   const loteArchivadoActivo = useMemo(
     () => lotesArchivadosOmr.find((lote) => lote.assessmentId === loteArchivadoSeleccionado) ?? null,
     [loteArchivadoSeleccionado, lotesArchivadosOmr]
@@ -217,11 +334,11 @@ export function PlantillasOmrWorkflow({
       return;
     }
     if (lotesArchivadosOmr.length === 0) {
-      setMensajePrevalidacion({ tipo: 'warning', texto: 'No hay lotes archivados disponibles para cotejar.' });
+      setMensajePrevalidacion({ tipo: 'warning', texto: 'No hay lotes generados disponibles para cotejar.' });
       return;
     }
     setPrevalidandoReferencia(true);
-    setMensajePrevalidacion({ tipo: 'info', texto: 'Validando los QR firmados del PDF contra los lotes archivados…' });
+    setMensajePrevalidacion({ tipo: 'info', texto: 'Validando los QR firmados del PDF contra los lotes activos y archivados…' });
     try {
       if (!prevalidarReferenciaOmr) throw new Error('La prevalidación de referencias no está disponible en este momento.');
       const resultado = await prevalidarReferenciaOmr({
@@ -239,9 +356,18 @@ export function PlantillasOmrWorkflow({
       } else if (resultado.matches.length > 1) {
         setMensajePrevalidacion({ tipo: 'warning', texto: `El PDF coincide con ${resultado.matches.length} lotes. Selecciona el lote correcto manualmente; no se creó un job.` });
       } else {
+        const diagnosticos = resultado.candidateDiagnostics ?? [];
+        const lotesFirmaInvalida = diagnosticos.filter((lote) => lote.reasons.firmaInvalida > 0).length;
+        const lotesGeometriaAusente = diagnosticos.filter((lote) => lote.reasons.geometriaAusente > 0).length;
+        const patronesEsperados = resultado.reference.pagesWithExpectedQrPattern ?? 0;
+        const patronesAmbiguos = resultado.reference.pagesWithAmbiguousExpectedQrPatterns ?? 0;
+        const firmasReferenciaInvalidas = resultado.reference.pagesWithInvalidSignature ?? 0;
+        const detalle = resultado.candidateDiagnostics
+          ? ` Diagnóstico: ${patronesEsperados}/${resultado.reference.pages} patrones QR esperados localizados; ${firmasReferenciaInvalidas} ${firmasReferenciaInvalidas === 1 ? 'página' : 'páginas'} con firma inválida; ${lotesFirmaInvalida} lotes candidatos con firmas inválidas y ${lotesGeometriaAusente} con geometría incompleta${patronesAmbiguos ? `; ${patronesAmbiguos} páginas con coincidencias QR ambiguas` : ''}.`
+          : '';
         setMensajePrevalidacion({
           tipo: 'error',
-          texto: `Ninguno de los ${resultado.candidatesEvaluated} lotes tuvo coincidencia completa: ${resultado.reference.pagesWithSignedQr}/${resultado.reference.pages} páginas tienen QR firmado válido. No se creó un job.`
+          texto: `Ninguno de los ${resultado.candidatesEvaluated} lotes tuvo coincidencia completa: ${resultado.reference.pagesWithSignedQr}/${resultado.reference.pages} páginas tienen QR firmado válido.${detalle} No se creó un job.`
         });
       }
     } catch (error) {
@@ -256,13 +382,6 @@ export function PlantillasOmrWorkflow({
   useEffect(() => () => {
     if (referencePreview && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(referencePreview.url);
   }, [referencePreview]);
-  const draftActivo = useMemo(() => {
-    if (!paginaActiva) return construirDraftHoja(null);
-    const sheetSerial = String(paginaActiva.sheetSerial || '').trim();
-    const existente = draftsPorHoja[sheetSerial];
-    return existente ?? construirDraftHoja(paginaActiva);
-  }, [draftsPorHoja, paginaActiva]);
-  const jobOmrTerminal = ['completed', 'finalized', 'closed'].includes(String(jobOmr?.status ?? '').toLowerCase());
   const jobOmrIngesta = jobOmr as (OmrJobDetalle & {
     packages?: Array<{ id: string; fileName: string; status: string; pageCount: number; course: string; subject: string; partial: string; teacher: string; student: string; group: string; folio: string }>;
     files?: Array<{ id: string; nombre: string; bytes: number; pages: number; sha256: string }>;
@@ -270,13 +389,43 @@ export function PlantillasOmrWorkflow({
   const paquetesOmr = jobOmrIngesta?.packages ?? [];
   const originalesOmr = jobOmrIngesta?.files ?? [];
   const esIngestaOmr = Boolean(jobOmrIngesta && Array.isArray(jobOmrIngesta.packages) && Array.isArray(jobOmrIngesta.files));
-  const paginasDatasetElegibles = useMemo(() => (jobOmr?.pages ?? []).filter((page) =>
-    esIngestaOmr
-    && page.scanStatus === 'needs_review'
-    && Boolean(page.examId && page.examPage && page.folio && page.identitySource && page.resolutionReason?.trim())
-    && page.responses.length > 0
-    && page.responses.every((answer) => answer.estadoRespuesta === 'manual_review')
-  ), [esIngestaOmr, jobOmr?.pages]);
+  const paginaEnRevisionCiega = Boolean(esIngestaOmr && paginaActiva && paginaActiva.scanStatus !== 'rejected');
+  const paginaPuedeEtiquetarseCiega = Boolean(paginaEnRevisionCiega && paginaActiva?.examId && paginaActiva.examPage && paginaActiva.folio && paginaActiva.identitySource);
+  const respuestasPaginaActiva = Array.isArray(paginaActiva?.responses) ? paginaActiva.responses : [];
+  const draftActivo = useMemo(() => {
+    if (!paginaActiva) return construirDraftHoja(null);
+    const sheetSerial = String(paginaActiva.sheetSerial || '').trim();
+    const existente = draftsPorHoja[sheetSerial];
+    return existente ?? construirDraftHoja(paginaActiva, paginaEnRevisionCiega);
+  }, [draftsPorHoja, paginaEnRevisionCiega, paginaActiva]);
+  const jobOmrTerminal = ['completed', 'finalized', 'closed'].includes(String(jobOmr?.status ?? '').toLowerCase());
+  const paginasDatasetElegibles = useMemo(() => (jobOmr?.pages ?? []).filter((page) => {
+    if (!esIngestaOmr || !page || typeof page !== 'object') return false;
+    const respuestasEtiquetadas = Array.isArray(page.groundTruthReview?.responses)
+      ? page.groundTruthReview.responses
+      : Array.isArray(page.responses) ? page.responses : [];
+    return (page.groundTruthReview?.humanReview?.reviewerAttested === true || page.humanReview?.reviewerAttested === true)
+      && (page.groundTruthReview?.humanReview?.omrPredictionsHidden === true || page.humanReview?.omrPredictionsHidden === true)
+      && Boolean(page.examId && page.examPage && page.folio && page.identitySource)
+      && (Boolean(page.groundTruthReview) || Boolean(page.resolutionReason?.trim()))
+      && respuestasEtiquetadas.length > 0
+      && (page.examPage !== 1 || typeof page.groundTruthReview?.bonusVisible === 'boolean')
+      && respuestasEtiquetadas.every((answer) => answer?.estadoRespuesta === 'manual_review');
+  }), [esIngestaOmr, jobOmr?.pages]);
+  const candidatosCalificacion = jobOmrIngesta?.candidateExams ?? [];
+  const paginasEsperadasVerdadTerreno = candidatosCalificacion.reduce((total, exam) => total + exam.pages.length, 0);
+  const paginasEtiquetadasVerdadTerreno = paginasDatasetElegibles.filter((page) =>
+    candidatosCalificacion.some((exam) => exam.id === page.examId && exam.pages.includes(Number(page.examPage)))
+  ).length;
+  const examenesConVerdadTerrenoCompleta = candidatosCalificacion.filter((exam) =>
+    exam.pages.length > 0 && exam.pages.every((examPage) => paginasDatasetElegibles.some((page) => page.examId === exam.id && page.examPage === examPage))
+  ).length;
+  const paquetesCompletosCalificacion = paquetesOmr.filter((paquete) => paquete.status === 'complete').length;
+  const variantesCalificacion = [...new Set(candidatosCalificacion.flatMap((exam) => exam.variantHashes ?? []))];
+  const snapshotsClaveVerificados = candidatosCalificacion.filter((exam) => exam.answerKeySnapshotVerified === true).length;
+  const totalExamenesCalificacion = candidatosCalificacion.length;
+  const etiquetaExamenesCalificacion = totalExamenesCalificacion === 1 ? 'examen' : 'exámenes';
+  const etiquetaVariantesCalificacion = variantesCalificacion.length === 1 ? '1 huella registrada' : `${variantesCalificacion.length} huellas registradas`;
   useEffect(() => setPaginasDatasetSeleccionadas([]), [jobOmr?.jobId]);
   const exportarDataset = async () => {
     if (!jobOmr || !descargarDatasetOmr || paginasDatasetSeleccionadas.length === 0) return;
@@ -305,6 +454,87 @@ export function PlantillasOmrWorkflow({
       emitToast({ level: 'error', title: 'Exportación OMR', message: error instanceof Error ? error.message : 'No se pudo generar el dataset. Puedes reintentar sin modificar el job.', durationMs: 7000 });
     } finally {
       setExportandoDataset(false);
+    }
+  };
+  const aplicarSecuenciaMarcas = () => {
+    if (!paginaActiva || !paginaPuedeEtiquetarseCiega) return;
+    const resultado = parsearSecuenciaMarcas(draftActivo.responses, secuenciaMarcas);
+    if (!resultado.ok) {
+      setErrorSecuenciaMarcas(resultado.error);
+      setMensajeSecuenciaMarcas('');
+      return;
+    }
+    const serial = String(paginaActiva.sheetSerial || '').trim();
+    if (!serial) return;
+    setDraftsPorHoja((current) => ({
+      ...current,
+      [serial]: { ...draftActivo, responses: resultado.responses }
+    }));
+    setConfirmacionVisualPageIndex(null);
+    setErrorSecuenciaMarcas('');
+    setMensajeSecuenciaMarcas(`Se aplicaron ${resultado.responses.length} marcas en el orden de preguntas mostrado. Revísalas en la captura antes de guardar.`);
+  };
+  const iniciarCalificacionLote = async () => {
+    if (!jobOmr || !esIngestaOmr || !calificarLoteOmr || !puedeCalificarOmr) return;
+    const paquetesCompletos = paquetesOmr.filter((paquete) => paquete.status === 'complete').length;
+    const aceptado = await confirm({
+      title: 'Calificar lote con OMR local',
+      message: 'EvaluaPro volverá a leer las páginas originales y registrará solo las notas que pasen todas las verificaciones.',
+      confirmLabel: 'Calificar elegibles',
+      tone: 'warning',
+      details: [
+        `${paquetesCompletos} paquetes completos se evaluarán; los que tengan dudas quedarán para revisión.`,
+        'No se reemplazarán notas existentes ni se publicarán resultados en Classroom.',
+        'La nota máxima es 5 y solo se aplica +0.25 si el OCR local confirma ese texto en el área de calificación.'
+      ]
+    });
+    if (!aceptado) return;
+    setCalificandoLote(true);
+    try {
+      await calificarLoteOmr(jobOmr.jobId);
+    } catch {
+      // El hook presenta el error y conserva el ID para un reintento idempotente.
+    } finally {
+      setCalificandoLote(false);
+    }
+  };
+  const iniciarRevisionManualDesdeIngesta = async (examId: string) => {
+    if (!jobOmr || jobOmr.status !== 'completed' || !onPrepararCalificacionManual) return;
+    const exam = candidatosCalificacion.find((item) => item.id === examId);
+    if (!exam) {
+      setErrorCalificacionManual('No se encontró el examen dentro de esta ingesta.');
+      return;
+    }
+    const asociacion = asociarPaginasIngestaParaManual(exam, jobOmr.pages);
+    if (!asociacion.ok) {
+      setErrorCalificacionManual(asociacion.motivo);
+      return;
+    }
+    setPreparandoCalificacionManualId(exam.id);
+    setErrorCalificacionManual('');
+    try {
+      const paginas = [] as CalificacionManualDesdeIngesta['paginas'];
+      for (const pagina of asociacion.paginas) {
+        const blob = await obtenerPreviewPaginaOmr(jobOmr.jobId, pagina.pageIndex);
+        if (blob.type !== 'image/png' || blob.size === 0) {
+          throw new Error(`La captura original de la página ${pagina.numeroPagina} no está disponible como PNG.`);
+        }
+        paginas.push({
+          numeroPagina: pagina.numeroPagina,
+          imagenBase64: await blobComoDataUrl(blob),
+          ...(pagina.nombreArchivo ? { nombreArchivo: pagina.nombreArchivo } : {})
+        });
+      }
+      await onPrepararCalificacionManual({
+        examenId: asociacion.examenId,
+        folio: asociacion.folio,
+        alumnoId: asociacion.alumnoId,
+        paginas
+      });
+    } catch (error) {
+      setErrorCalificacionManual(error instanceof Error ? error.message : 'No se pudo preparar la revisión manual del examen.');
+    } finally {
+      setPreparandoCalificacionManualId(null);
     }
   };
   const panelHistorialOmr = (
@@ -355,19 +585,19 @@ export function PlantillasOmrWorkflow({
     return (
       <div className="resultado plantillas-omr">
         <h4>{OMR_CANONICAL_DISPLAY_LABEL}</h4>
-        <p className="nota">Selecciona un lote generado para vincular capturas con su referencia OMR. Los lotes archivados siguen protegidos; esta selección no los restaura.</p>
+        <p className="nota">Se consultan lotes activos y archivados. Seleccionar uno archivado permite revisar capturas y no lo restaura.</p>
         {panelHistorialOmr}
-        {cargandoLotesArchivadosOmr ? <InlineMensaje tipo="info">Cargando lotes archivados…</InlineMensaje> : (
+        {cargandoLotesArchivadosOmr ? <InlineMensaje tipo="info">Cargando lotes generados…</InlineMensaje> : (
           <>
-          {!puedeLeerLotesArchivadosOmr && <InlineMensaje tipo="error">Tu perfil no tiene permiso para consultar los exámenes archivados.</InlineMensaje>}
+          {!puedeLeerLotesArchivadosOmr && <InlineMensaje tipo="error">Tu perfil no tiene permiso para consultar los exámenes generados.</InlineMensaje>}
           {errorCargaLotesArchivadosOmr && (
             <div className="acciones">
-              <InlineMensaje tipo="error">No se pudo cargar el archivo de lotes: {errorCargaLotesArchivadosOmr}</InlineMensaje>
+              <InlineMensaje tipo="error">No se pudieron cargar los lotes generados: {errorCargaLotesArchivadosOmr}</InlineMensaje>
               {puedeLeerLotesArchivadosOmr && <Boton type="button" variante="secundario" onClick={onReintentarCargaLotesArchivadosOmr}>Reintentar carga</Boton>}
             </div>
           )}
           {puedeLeerLotesArchivadosOmr && !errorCargaLotesArchivadosOmr && lotesArchivadosOmr.length === 0 && (
-            <InlineMensaje tipo="info">No se encontraron lotes archivados con exámenes disponibles para OMR.</InlineMensaje>
+            <InlineMensaje tipo="info">No se encontraron lotes generados con exámenes disponibles para OMR.</InlineMensaje>
           )}
           <section className="resultado plantillas-omr__prevalidacion" aria-labelledby="omr-prevalidar-referencia-titulo">
             <h4 id="omr-prevalidar-referencia-titulo">Primero, coteja el PDF generado</h4>
@@ -409,9 +639,11 @@ export function PlantillasOmrWorkflow({
                 if (assessmentId) void onSeleccionarLoteArchivado(assessmentId);
               }}
             >
-              <option value="">{lotesArchivadosOmr.length ? 'Selecciona un lote…' : 'No hay lotes archivados disponibles'}</option>
+              <option value="">{lotesArchivadosOmr.length ? 'Selecciona un lote…' : 'No hay lotes generados disponibles'}</option>
               {lotesArchivadosOmr.map((lote) => (
-                <option key={lote.loteId} value={lote.assessmentId}>{lote.etiqueta} · {lote.cantidad} exámenes</option>
+                <option key={lote.loteId} value={lote.assessmentId}>
+                  {lote.etiqueta} · {lote.cantidad} exámenes · {lote.archivado === true ? 'Archivado' : lote.archivado === false ? 'Activo' : 'Estado mixto'}
+                </option>
               ))}
             </select>
           </div>
@@ -433,7 +665,7 @@ export function PlantillasOmrWorkflow({
       {cargandoAssessmentId && <InlineMensaje tipo="info">Cargando detalle de assessment…</InlineMensaje>}
       {loteArchivadoActivo && (
         <p className="nota" role="status">
-          Lote archivado seleccionado: {loteArchivadoActivo.etiqueta} · {loteArchivadoActivo.cantidad} exámenes. El archivo permanece sin restaurar.
+          Lote {loteArchivadoActivo.archivado === true ? 'archivado' : loteArchivadoActivo.archivado === false ? 'activo' : 'con estado mixto'} seleccionado: {loteArchivadoActivo.etiqueta} · {loteArchivadoActivo.cantidad} exámenes.{loteArchivadoActivo.archivado === true ? ' El archivo permanece sin restaurar.' : ''}
         </p>
       )}
       <div className="item-meta">
@@ -561,11 +793,20 @@ export function PlantillasOmrWorkflow({
             <h4>Job OMR</h4>
             <div className="item-meta">
               <span>Estado: {jobOmr.status}</span>
-              <span>Aceptadas: {jobOmr.summary?.accepted ?? 0}</span>
-              <span>Revisión: {jobOmr.summary?.needsReview ?? 0}</span>
-              <span>Rechazadas: {jobOmr.summary?.rejected ?? 0}</span>
-              <span>Auto: {jobOmr.summary?.autoGradable ?? 0}</span>
-              <span>Promedio: {jobOmr.summary?.averageScore ?? 0}%</span>
+              {esIngestaOmr ? (
+                <>
+                  <span>Etiquetas ciegas pendientes: {jobOmr.summary?.blindReviewRequired ?? 0}</span>
+                  <span>Paquetes: {jobOmr.summary?.packages ?? 0}</span>
+                </>
+              ) : (
+                <>
+                  <span>Aceptadas: {jobOmr.summary?.accepted ?? 0}</span>
+                  <span>Revisión: {jobOmr.summary?.needsReview ?? 0}</span>
+                  <span>Rechazadas: {jobOmr.summary?.rejected ?? 0}</span>
+                  <span>Auto: {jobOmr.summary?.autoGradable ?? 0}</span>
+                  <span>Promedio: {jobOmr.summary?.averageScore ?? 0}%</span>
+                </>
+              )}
             </div>
             {jobOmr.status === 'failed' && (jobOmr.errors?.length ?? 0) > 0 && (
               <InlineMensaje tipo="error">
@@ -579,6 +820,7 @@ export function PlantillasOmrWorkflow({
                   type="button"
                   className={`badge ${sheetSerialActivo === page.sheetSerial ? 'badge-activo' : ''}`}
                   onClick={() => {
+                    setConfirmacionVisualPageIndex(null);
                     setSheetSerialActivo(page.sheetSerial);
                     const sugerenciaOcrRedundante = page.ocrSuggestion?.source === 'ocr_two_position_consensus'
                       && page.ocrSuggestion.matchingPositions === 2;
@@ -628,7 +870,11 @@ export function PlantillasOmrWorkflow({
               <h4>Archivos originales conservados</h4>
               <section aria-label="Selección de páginas para dataset OMR">
                 <h5>Dataset de QA con etiquetas confirmadas</h5>
-                <p>Solo aparecen páginas con identidad y respuestas guardadas mediante revisión manual. Las páginas automáticas o pendientes no se etiquetan.</p>
+                <p>Se pueden etiquetar a ciegas páginas aceptadas o pendientes, sin alterar las predicciones OMR originales.</p>
+                <p role="status">
+                  Verdad terreno ciega en este job: {paginasEtiquetadasVerdadTerreno} de {paginasEsperadasVerdadTerreno} páginas y {examenesConVerdadTerrenoCompleta} de {candidatosCalificacion.length} exámenes completos.
+                </p>
+                <p>Las casillas solo seleccionan páginas ya etiquetadas para preparar el ZIP QA; no capturan respuestas ni habilitan la autocalificación.</p>
                 {paginasDatasetElegibles.length > 0 ? (
                   <ul className="lista">
                     {paginasDatasetElegibles.map((page) => (
@@ -681,6 +927,81 @@ export function PlantillasOmrWorkflow({
             <div className="resultado plantillas-omr__packages">
               <h4>Paquetes por alumno</h4>
 
+              {esIngestaOmr && jobOmr.status === 'completed' && (
+                <section className="resultado" aria-label="Vista previa de calificación OMR">
+                  <h5>Vista previa de calificación OMR</h5>
+                  <p>
+                    Lote {jobOmrIngesta?.loteId ?? 'sin identificador'} · {totalExamenesCalificacion} {etiquetaExamenesCalificacion} · {jobOmr.pagesTotal} páginas procesadas · {paquetesCompletosCalificacion} paquetes completos de {paquetesOmr.length}.
+                  </p>
+                  <p>
+                    Escala 0–5 · omisión confirmada cuenta como incorrecta · bono +0.25 solo con OCR local visible en el área de calificaciones · tope 5.
+                  </p>
+                  <p>
+                    Variante TV4: {variantesCalificacion.length > 0 ? etiquetaVariantesCalificacion : 'huella pendiente'} · snapshot de clave firmado verificado en {snapshotsClaveVerificados}/{totalExamenesCalificacion} exámenes. El servidor vuelve a validar QR, variante, snapshot de clave e identidad antes de guardar.
+                  </p>
+                  <ul className="lista">
+                    {candidatosCalificacion.map((exam) => (
+                      <li key={exam.id}>
+                        {exam.folio} · {exam.pages.length} páginas · {exam.totalQuestions ?? 0} reactivos · TV{exam.templateVersion ?? '—'} · variante {(exam.variantHashes ?? []).join(', ') || 'pendiente'} ({exam.variantVerified ? 'verificada' : 'sin verificar'}) · clave {(exam.answerKeyHashes ?? []).join(', ') || 'pendiente'} · snapshot {exam.answerKeySnapshotVerified ? 'verificado' : 'sin verificar'} {exam.answerKeySnapshotQuestions ?? 0}/{exam.totalQuestions ?? 0}
+                        {onPrepararCalificacionManual && (() => {
+                          const asociacion = asociarPaginasIngestaParaManual(exam, jobOmr.pages);
+                          return (
+                            <div className="acciones acciones--mt">
+                              <Boton
+                                type="button"
+                                variante="secundario"
+                                cargando={preparandoCalificacionManualId === exam.id}
+                                disabled={!asociacion.ok || Boolean(preparandoCalificacionManualId)}
+                                aria-describedby={!asociacion.ok ? `manual-ingesta-${exam.id}` : undefined}
+                                onClick={() => void iniciarRevisionManualDesdeIngesta(exam.id)}
+                              >
+                                Revisar manualmente con captura y clave
+                              </Boton>
+                              {!asociacion.ok && <small id={`manual-ingesta-${exam.id}`}>{asociacion.motivo}</small>}
+                            </div>
+                          );
+                        })()}
+                      </li>
+                    ))}
+                  </ul>
+                  {errorCalificacionManual && <InlineMensaje tipo="error">{errorCalificacionManual}</InlineMensaje>}
+                  <p>Se reanalizarán los paquetes completos. La cantidad definitiva de elegibles se determina después de la lectura local; cualquier incertidumbre queda para revisión y no genera nota automática.</p>
+                </section>
+              )}
+
+              {esIngestaOmr && jobOmr.status === 'completed' && !jobOmrIngesta?.autoGradingAvailable && (
+                <InlineMensaje tipo="info">Autocalificación deshabilitada: {jobOmrIngesta?.autoGradingGateReason || 'falta aprobar el piloto OMR TV4 con capturas reales y etiquetas independientes.'}</InlineMensaje>
+              )}
+              {esIngestaOmr && jobOmr.status === 'completed' && jobOmrIngesta?.autoGradingAvailable && puedeCalificarOmr && calificarLoteOmr && (
+                <div className="acciones acciones--mt">
+                  <Boton
+                    type="button"
+                    variante="primario"
+                    cargando={calificandoLote || procesandoOmr}
+                    disabled={calificandoLote || procesandoOmr || jobOmrIngesta?.autoGrading?.status === 'processing'}
+                    onClick={() => void iniciarCalificacionLote()}
+                  >
+                    Calificar automáticamente los elegibles
+                  </Boton>
+                </div>
+              )}
+              {jobOmrIngesta?.autoGrading && (
+                <section aria-label="Resultado de calificación automática">
+                  <p>
+                    Estado: {jobOmrIngesta.autoGrading.status} · {jobOmrIngesta.autoGrading.results.filter((result) => result.status === 'graded').length} registradas y verificadas · {jobOmrIngesta.autoGrading.results.filter((result) => result.status === 'requires_review').length} requieren revisión · {jobOmrIngesta.autoGrading.results.filter((result) => result.status === 'already_graded').length} ya tenían nota.
+                  </p>
+                  <ul className="lista">
+                    {jobOmrIngesta.autoGrading.results.map((result) => (
+                      <li key={`${result.examId ?? 'batch'}-${result.status}`}>
+                        <b>{result.folio ?? result.examId ?? 'Lote'}</b> · {result.status}
+                        {result.status === 'graded' && ` · ${result.correct}/${result.total} · bono ${result.bonusText ?? '0'} · nota ${result.gradeText ?? '—'}`}
+                        {result.message && ` · ${result.message}`}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
               <ul className="lista">
                 {paquetesOmr.map((paquete) => (
                   <li key={paquete.id}>
@@ -698,14 +1019,20 @@ export function PlantillasOmrWorkflow({
 
           {paginaActiva && (
             <div className="resultado plantillas-omr__review">
-              <h4>Review & Fix: {paginaActiva.sheetSerial}</h4>
+              <h4>Revisión de página: {paginaActiva.sheetSerial}</h4>
               <div className="item-meta">
-                <span>Estado: {paginaActiva.scanStatus}</span>
-                <span>Confianza: {(paginaActiva.confidence * 100).toFixed(1)}%</span>
-                <span>Auto: {paginaActiva.autoGradable ? 'Sí' : 'No'}</span>
+                <span>Estado: {paginaEnRevisionCiega ? 'Revisión visual ciega' : paginaActiva.scanStatus}</span>
+                {!paginaEnRevisionCiega && <span>Confianza: {(paginaActiva.confidence * 100).toFixed(1)}%</span>}
+                {!paginaEnRevisionCiega && <span>Auto: {paginaActiva.autoGradable ? 'Sí' : 'No'}</span>}
                 {paginaActiva.sourceFileName && <span>Origen: {paginaActiva.sourceFileName} · página {paginaActiva.sourcePage}</span>}
               </div>
-              {paginaActiva.exceptions.length > 0 && (
+              {paginaEnRevisionCiega && (
+                <InlineMensaje tipo="info">Las respuestas sugeridas, candidatas y señales del lector OMR están ocultas. Registra cada marca únicamente desde la captura original; la etiqueta independiente no modifica el resultado OMR.</InlineMensaje>
+              )}
+              {paginaActiva.groundTruthReview && (paginaActiva.groundTruthReview.humanReview?.reviewerAttested === true
+                ? <InlineMensaje tipo="ok">Etiqueta ciega confirmada y guardada. La página no se puede volver a etiquetar en esta ingesta.</InlineMensaje>
+                : <InlineMensaje tipo="warning">Etiqueta histórica sin constancia de revisión ciega; no cuenta para el piloto. Como esta etiqueta es inmutable, vuelve a cargar el original en una ingesta nueva para revisarla.</InlineMensaje>)}
+              {!paginaEnRevisionCiega && Array.isArray(paginaActiva.exceptions) && paginaActiva.exceptions.length > 0 && (
                 <ul className="lista">
                   {paginaActiva.exceptions.map((exception, index) => (
                     <li key={`${paginaActiva.sheetSerial}-${exception.code}-${index}`}>
@@ -714,7 +1041,7 @@ export function PlantillasOmrWorkflow({
                   ))}
                 </ul>
               )}
-              {paginaActiva.ocrSuggestion && (
+              {!paginaEnRevisionCiega && paginaActiva.ocrSuggestion && (
                 <InlineMensaje tipo="info">
                   {paginaActiva.ocrSuggestion.source === 'ocr_two_position_consensus' && paginaActiva.ocrSuggestion.matchingPositions === 2
                     ? `OCR coincide en 2 posiciones: folio ${paginaActiva.ocrSuggestion.folio}, página ${paginaActiva.ocrSuggestion.examPage} (confianza mínima ${paginaActiva.ocrSuggestion.confidence}%). Confirma visualmente esta sugerencia; el QR no quedó validado.`
@@ -844,66 +1171,249 @@ export function PlantillasOmrWorkflow({
                 </label>
               </div>
               <div className="plantillas-omr__responses">
+                {draftActivo.responses.length === 0 && (
+                  <InlineMensaje tipo="warning">Este registro no contiene respuestas por reactivo. No se puede confirmar ni etiquetar desde esta página hasta recuperar el detalle del job.</InlineMensaje>
+                )}
+                {paginaPuedeEtiquetarseCiega && (
+                  <section className="resultado" aria-label="Captura rápida ciega de respuestas">
+                    <h5>Captura rápida</h5>
+                    <p>Una marca por reactivo, en el orden mostrado: A–E = opción; - = blanco; ? = tachadura/borrón; !AB = doble marca en A y B. Separa tokens con espacios o comas.</p>
+                    <label className="campo">
+                      Secuencia de marcas observadas
+                      <input
+                        type="text"
+                        aria-label="Secuencia de marcas observadas"
+                        value={secuenciaMarcas}
+                        onChange={(event) => {
+                          setSecuenciaMarcas(event.target.value);
+                          setErrorSecuenciaMarcas('');
+                          setMensajeSecuenciaMarcas('');
+                        }}
+                        placeholder="A B - C !DE ?"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </label>
+                    <Boton type="button" variante="secundario" onClick={aplicarSecuenciaMarcas} disabled={!secuenciaMarcas.trim()}>
+                      Aplicar secuencia
+                    </Boton>
+                    {errorSecuenciaMarcas && <InlineMensaje tipo="error">{errorSecuenciaMarcas}</InlineMensaje>}
+                    {mensajeSecuenciaMarcas && <InlineMensaje tipo="info">{mensajeSecuenciaMarcas}</InlineMensaje>}
+                  </section>
+                )}
+                {paginaEnRevisionCiega && <p>También puedes capturar cada reactivo por separado. Revisa siempre la captura original antes de confirmar la etiqueta.</p>}
                 {draftActivo.responses.map((response, index) => (
                   (() => {
-                    const evidencia = paginaActiva.responses.find((item) => item.numeroPregunta === response.numeroPregunta);
+                    const evidencia = respuestasPaginaActiva.find((item) => item.numeroPregunta === response.numeroPregunta);
                     return (
                       <div key={`${paginaActiva.sheetSerial}-${response.numeroPregunta}`} className="resultado">
-                        <label className="campo">
-                          P{response.numeroPregunta}
-                          <select
-                            value={response.opcion ?? ''}
-                            onChange={(event) => {
-                              const serial = String(paginaActiva.sheetSerial || '').trim();
-                              if (!serial) return;
-                              const siguiente = draftActivo.responses.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, opcion: event.target.value || null } : item
-                              );
-                              setDraftsPorHoja((prev) => ({
-                                ...prev,
-                                [serial]: { ...draftActivo, responses: siguiente }
-                              }));
-                            }}
-                          >
-                            <option value="">Sin marca</option>
-                            {['A', 'B', 'C', 'D', 'E'].map((option) => (
-                              <option key={option} value={option}>{option}</option>
+                        {paginaEnRevisionCiega ? (
+                          <label className="campo">
+                            Marca observada P{response.numeroPregunta}
+                            <select
+                              value={response.tipoMarcaManual === 'valid' && response.opcion ? `valid:${response.opcion}` : response.tipoMarcaManual ?? ''}
+                              onChange={(event) => {
+                                const serial = String(paginaActiva.sheetSerial || '').trim();
+                                if (!serial) return;
+                                const valor = event.target.value;
+                                const esRespuestaValida = /^valid:[A-E]$/.test(valor);
+                                const opcion = esRespuestaValida ? valor.slice(-1) as 'A' | 'B' | 'C' | 'D' | 'E' : null;
+                                const tipoMarcaManual: DraftHoja['responses'][number]['tipoMarcaManual'] = esRespuestaValida
+                                  ? 'valid'
+                                  : valor === 'blank' ? 'blank'
+                                    : valor === 'double' ? 'double'
+                                      : valor === 'smudge' ? 'smudge' : null;
+                                const siguiente = draftActivo.responses.map((item, itemIndex) => itemIndex !== index ? item : ({
+                                  ...item,
+                                  tipoMarcaManual,
+                                  opcion,
+                                  selectedOptions: opcion ? [opcion] : []
+                                }));
+                                setDraftsPorHoja((prev) => ({ ...prev, [serial]: { ...draftActivo, responses: siguiente } }));
+                                setConfirmacionVisualPageIndex(null);
+                              }}
+                            >
+                              <option value="">Selecciona la marca observada</option>
+                              {(['A', 'B', 'C', 'D', 'E'] as const).map((option) => (
+                                <option key={option} value={`valid:${option}`}>{option} — una marca válida</option>
+                              ))}
+                              <option value="blank">En blanco</option>
+                              <option value="double">Doble marca</option>
+                              <option value="smudge">Tachadura o borrón</option>
+                            </select>
+                          </label>
+                        ) : (
+                          <>
+                            <label className="campo">
+                              P{response.numeroPregunta}
+                              <select
+                                value={response.opcion ?? ''}
+                                disabled={response.tipoMarcaManual !== 'valid'}
+                                onChange={(event) => {
+                                  const serial = String(paginaActiva.sheetSerial || '').trim();
+                                  if (!serial) return;
+                                  const opcion = (event.target.value || null) as 'A' | 'B' | 'C' | 'D' | 'E' | null;
+                                  const siguiente = draftActivo.responses.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, opcion, selectedOptions: item.tipoMarcaManual === 'valid' && opcion ? [opcion] : item.selectedOptions } : item
+                                  );
+                                  setDraftsPorHoja((prev) => ({ ...prev, [serial]: { ...draftActivo, responses: siguiente } }));
+                                  setConfirmacionVisualPageIndex(null);
+                                }}
+                              >
+                                <option value="">Sin marca</option>
+                                {['A', 'B', 'C', 'D', 'E'].map((option) => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="campo">
+                              Tipo de marca observada
+                              <select
+                                value={response.tipoMarcaManual ?? ''}
+                                onChange={(event) => {
+                                  const serial = String(paginaActiva.sheetSerial || '').trim();
+                                  if (!serial) return;
+                                  const tipoMarcaManual = (event.target.value || null) as DraftHoja['responses'][number]['tipoMarcaManual'];
+                                  const siguiente = draftActivo.responses.map((item, itemIndex) => itemIndex !== index ? item : ({
+                                    ...item,
+                                    tipoMarcaManual,
+                                    opcion: tipoMarcaManual === 'valid' ? item.opcion : null,
+                                    selectedOptions: tipoMarcaManual === 'valid' && item.opcion ? [item.opcion as 'A' | 'B' | 'C' | 'D' | 'E'] : []
+                                  }));
+                                  setDraftsPorHoja((prev) => ({ ...prev, [serial]: { ...draftActivo, responses: siguiente } }));
+                                  setConfirmacionVisualPageIndex(null);
+                                }}
+                              >
+                                <option value="">Selecciona tras revisar</option>
+                                <option value="valid">Una marca válida</option>
+                                <option value="blank">En blanco</option>
+                                <option value="double">Doble marca</option>
+                                <option value="smudge">Tachadura o borrón</option>
+                              </select>
+                            </label>
+                          </>
+                        )}
+                        {response.tipoMarcaManual === 'double' && (
+                          <fieldset className="campo">
+                            <legend>Opciones marcadas</legend>
+                            {(['A', 'B', 'C', 'D', 'E'] as const).map((option) => (
+                              <label key={option}>
+                                <input
+                                  type="checkbox"
+                                  checked={response.selectedOptions.includes(option)}
+                                  onChange={(event) => {
+                                    const serial = String(paginaActiva.sheetSerial || '').trim();
+                                    if (!serial) return;
+                                    const selectedOptions: DraftHoja['responses'][number]['selectedOptions'] = event.target.checked
+                                      ? [...new Set([...response.selectedOptions, option])]
+                                      : response.selectedOptions.filter((selected) => selected !== option);
+                                    const siguiente = draftActivo.responses.map((item, itemIndex) => itemIndex === index ? { ...item, selectedOptions } : item);
+                                    setDraftsPorHoja((prev) => ({ ...prev, [serial]: { ...draftActivo, responses: siguiente } }));
+                                    setConfirmacionVisualPageIndex(null);
+                                  }}
+                                />
+                                {option}
+                              </label>
                             ))}
-                          </select>
-                        </label>
-                        <p>Estado: {etiquetaEstadoRespuesta(evidencia?.estadoRespuesta)}</p>
-                        <p>Opción detectada: {evidencia?.opcionDetectada ?? 'Ninguna'}</p>
-                        <p>
-                          Candidatas OMR:{' '}
-                          {evidencia?.candidatas?.length
-                            ? evidencia.candidatas.map((candidata) => `${candidata.opcion} (${Math.round(candidata.score * 100)}%, ${etiquetaEstadoMarca(candidata.estadoMarca)})`).join(' · ')
-                            : 'sin evidencia candidata conservada'}
-                        </p>
-                        {evidencia?.flags?.length ? <p>Señales: {evidencia.flags.join(', ')}</p> : null}
+                          </fieldset>
+                        )}
+                        {paginaEnRevisionCiega ? (
+                          <p>Predicción automática oculta hasta terminar esta revisión.</p>
+                        ) : (
+                          <>
+                            <p>Estado: {etiquetaEstadoRespuesta(evidencia?.estadoRespuesta)}</p>
+                            <p>Opción detectada: {evidencia?.opcionDetectada ?? 'Ninguna'}</p>
+                            <p>
+                              Candidatas OMR:{' '}
+                              {evidencia?.candidatas?.length
+                                ? evidencia.candidatas.map((candidata) => `${candidata.opcion} (${Math.round(candidata.score * 100)}%, ${etiquetaEstadoMarca(candidata.estadoMarca)})`).join(' · ')
+                                : 'sin evidencia candidata conservada'}
+                            </p>
+                            {evidencia?.flags?.length ? <p>Señales: {evidencia.flags.join(', ')}</p> : null}
+                          </>
+                        )}
                       </div>
                     );
                   })()
                 ))}
               </div>
+              {paginaPuedeEtiquetarseCiega && paginaActiva.examPage === 1 && (
+                <fieldset className="plantillas-omr__bonus-label">
+                  <legend>En el área de calificaciones de esta página, ¿aparece “+0.25”?</legend>
+                  <label className="campo">
+                    <input
+                      type="radio"
+                      name={`bonus-visible-${paginaActiva.pageIndex}`}
+                      checked={draftActivo.bonusVisible === false}
+                      onChange={() => {
+                        const serial = String(paginaActiva.sheetSerial || '').trim();
+                        if (serial) setDraftsPorHoja((prev) => ({ ...prev, [serial]: { ...draftActivo, bonusVisible: false } }));
+                      }}
+                    />
+                    No aparece
+                  </label>
+                  <label className="campo">
+                    <input
+                      type="radio"
+                      name={`bonus-visible-${paginaActiva.pageIndex}`}
+                      checked={draftActivo.bonusVisible === true}
+                      onChange={() => {
+                        const serial = String(paginaActiva.sheetSerial || '').trim();
+                        if (serial) setDraftsPorHoja((prev) => ({ ...prev, [serial]: { ...draftActivo, bonusVisible: true } }));
+                      }}
+                    />
+                    Sí, aparece “+0.25”
+                  </label>
+                </fieldset>
+              )}
+              {esIngestaOmr && (
+                <label className="campo">
+                  <input
+                    type="checkbox"
+                    checked={confirmacionVisualPageIndex === paginaActiva.pageIndex}
+                    disabled={pagePreview?.pageIndex !== paginaActiva.pageIndex}
+                    onChange={(event) => setConfirmacionVisualPageIndex(event.target.checked ? paginaActiva.pageIndex : null)}
+                  />
+                  {paginaEnRevisionCiega
+                    ? 'Confirmo que registré cada respuesta desde la captura original mostrada sin ver las predicciones ni candidatas OMR.'
+                    : 'Confirmo que cotejé visualmente cada respuesta con la captura original mostrada. Esta revisión se registrará con un identificador seudónimo y fecha.'}
+                </label>
+              )}
               <div className="acciones acciones--mt">
                 <Boton
                   type="button"
                   variante="secundario"
                   cargando={procesandoOmr}
-                  onClick={() =>
+                  onClick={() => {
+                    if (paginaPuedeEtiquetarseCiega && registrarVerdadTerrenoOmr) {
+                      void registrarVerdadTerrenoOmr({
+                        jobId: jobOmr.jobId,
+                        pageIndex: paginaActiva.pageIndex,
+                        ...(paginaActiva.examPage === 1 ? { bonusVisible: draftActivo.bonusVisible === true } : {}),
+                        finalResponses: draftActivo.responses.map(({ numeroPregunta, opcion, tipoMarcaManual, selectedOptions }) => ({
+                          numeroPregunta,
+                          opcion,
+                          tipoMarcaManual: tipoMarcaManual!,
+                          selectedOptions
+                        }))
+                      });
+                      return;
+                    }
                     void resolverHojaOmr({
                       jobId: jobOmr.jobId,
                       sheetSerial: paginaActiva.sheetSerial,
                       resolutionReason,
+                      ...(esIngestaOmr ? { confirmOriginalVisualReview: confirmacionVisualPageIndex === paginaActiva.pageIndex } : {}),
+                      ...(paginaEnRevisionCiega && confirmacionVisualPageIndex === paginaActiva.pageIndex ? { confirmBlindOmrReview: true } : {}),
                       ...(esIngestaOmr ? { ingestionResolution: { pageIndex: paginaActiva.pageIndex, ...(!paginaActiva.examId ? { generatedAssessmentId: ingestaExamId, examPage: Number(ingestaExamPage) } : {}) } } : {}),
                       finalIdentity: { studentId: draftActivo.studentId },
-                      finalResponses: draftActivo.responses,
+                      finalResponses: draftActivo.responses.map(({ numeroPregunta, opcion, tipoMarcaManual, selectedOptions }) => ({ numeroPregunta, opcion, tipoMarcaManual: tipoMarcaManual ?? undefined, selectedOptions })),
                       overrides: { versionCode: draftActivo.versionCode }
-                    })
-                  }
-                  disabled={!resolutionReason.trim() || (esIngestaOmr && !paginaActiva.examId && (!ingestaExamId || !ingestaExamPage))}
+                    });
+                  }}
+                  disabled={(!paginaPuedeEtiquetarseCiega && !resolutionReason.trim()) || (paginaPuedeEtiquetarseCiega && !registrarVerdadTerrenoOmr) || (esIngestaOmr && paginaPuedeEtiquetarseCiega && paginaActiva.examPage === 1 && draftActivo.bonusVisible === null) || (esIngestaOmr && (!draftActivo.responses.every(respuestaManualCompleta) || confirmacionVisualPageIndex !== paginaActiva.pageIndex)) || (esIngestaOmr && !paginaPuedeEtiquetarseCiega && !paginaActiva.examId && (!ingestaExamId || !ingestaExamPage)) || Boolean(paginaActiva.groundTruthReview)}
                 >
-                  Guardar resolución
+                  {paginaPuedeEtiquetarseCiega ? 'Guardar etiqueta ciega' : 'Guardar resolución'}
                 </Boton>
               </div>
             </div>

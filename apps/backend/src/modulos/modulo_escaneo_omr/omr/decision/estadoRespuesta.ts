@@ -81,11 +81,18 @@ export function resumirRespuestasOmr(
     reactivosInvalidos <= Math.max(1, Math.ceil(totalReactivos * 0.05)) &&
     calidadApta &&
     geometriaApta;
+  const predominanAmbiguosSinRespuesta =
+    reactivosRespondidos === 0 &&
+    reactivosSinMarca >= Math.max(2, Math.ceil(totalReactivos * 0.05)) &&
+    reactivosAmbiguos >= Math.ceil(totalReactivos * 0.5) &&
+    reactivosInvalidos <= Math.max(1, Math.ceil(totalReactivos * 0.05)) &&
+    calidadApta &&
+    geometriaApta;
   const examenVacioProbable =
     !examenVacio &&
     totalReactivos > 0 &&
     !tieneRespuestaFuerte &&
-    (predominanBlancosSinLetraEmitida || (
+    (predominanBlancosSinLetraEmitida || predominanAmbiguosSinRespuesta || (
       reactivosRespondidos > 0 &&
       reactivosSinMarca >= Math.ceil(totalReactivos * 0.5) &&
       reactivosRespondidos <= Math.max(1, Math.ceil(totalReactivos * 0.1))

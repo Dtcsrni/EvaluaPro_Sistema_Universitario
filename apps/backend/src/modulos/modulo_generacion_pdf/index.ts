@@ -5,6 +5,7 @@ export { rasterizarPdfParaPreview } from './infra/rasterizadorPdfPreview.js';
 export { ExamenGenerado } from './modeloExamenGenerado.js';
 export { ExamenPlantilla, normalizarTituloPlantilla } from './modeloExamenPlantilla.js';
 export { generarPdfExamen } from './servicioGeneracionPdf.js';
+export { hashContenidoPregunta } from './shared/controladorGeneracionPdfShared.js';
 export { type MapaVariante, type PreguntaBase } from './servicioVariantes.js';
 export { type TemplateVersion } from './shared/tiposPdf.js';
 export { esquemaBodyVacioOpcional } from './validacionesExamenes.js';

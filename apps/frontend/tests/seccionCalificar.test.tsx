@@ -50,7 +50,7 @@ describe('SeccionCalificar', () => {
     expect(screen.getByRole('button', { name: /Guardar calificación/i })).toBeDisabled();
   });
 
-  it('calcula aciertos sobre 5.00 y aplica exactamente +0.25 por guía al seleccionarlo', async () => {
+  it('calcula la nota base sobre 5.00 y deja el bono sujeto al OCR del examen', async () => {
     const mockCalificar = vi.fn().mockResolvedValue({});
 
     const respuestas = [
@@ -87,12 +87,8 @@ describe('SeccionCalificar', () => {
     );
 
     expect(screen.getByText(/Aciertos: 4\/5/i)).toBeInTheDocument();
-    expect(screen.getByText(/Calificación final: 4.00 \/ 5.00/i)).toBeInTheDocument();
-
-    const checkboxBonus = screen.getByRole('checkbox', { name: /Bono por guía de estudio \(\+0\.25\)/i });
-    fireEvent.click(checkboxBonus);
-
-    expect(screen.getByText(/Calificación final: 4.25 \/ 5.00/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nota base \(bono OCR pendiente\): 4.00 \/ 5.00/i)).toBeInTheDocument();
+    expect(screen.getByText(/solo agrega \+0\.25 si el OCR local confirma ese texto/i)).toBeInTheDocument();
 
     const botonGuardar = screen.getByRole('button', { name: /Guardar calificación/i });
     expect(botonGuardar).not.toBeDisabled();
@@ -105,8 +101,7 @@ describe('SeccionCalificar', () => {
           examenGeneradoId: 'ex-101',
           alumnoId: 'alu-202',
           aciertos: 4,
-          totalReactivos: 5,
-          bonoSolicitado: 0.25
+          totalReactivos: 5
         })
       );
     });
@@ -116,7 +111,7 @@ describe('SeccionCalificar', () => {
     );
   });
 
-  it('cuenta blancos y dobles marcas no resueltas como incorrectas y conserva sus estados al guardar', async () => {
+  it('bloquea el guardado si una doble marca sigue sin resolverse aunque la revisión general esté confirmada', async () => {
     const mockCalificar = vi.fn().mockResolvedValue({});
     const respuestas = [
       { numeroPregunta: 1, opcion: 'A', confianza: 0.95, estadoRespuesta: 'respondida' as const },
@@ -145,29 +140,113 @@ describe('SeccionCalificar', () => {
       />
     );
 
-    expect(screen.getByText(/Aciertos: 1\/3/i)).toBeInTheDocument();
-    expect(screen.getByText(/Calificación final: 1\.67 \/ 5\.00/i)).toBeInTheDocument();
+    expect(screen.getByText(/calificación bloqueada: resuelve visualmente 1 pregunta/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar calificación/i })).toBeDisabled();
+    expect(mockCalificar).not.toHaveBeenCalled();
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: /Guardar calificación/i }));
+  it('muestra captura y clave, y solo permite guardar tras resolver cada pregunta', async () => {
+    const actualizarRespuesta = vi.fn();
+    const mockCalificar = vi.fn().mockResolvedValue({});
+    const props = {
+      examenId: 'ex-manual',
+      alumnoId: 'alu-manual',
+      resultadoOmr: omrResultadoMock,
+      revisionOmrConfirmada: true,
+      modoManual: true,
+      paginasCapturaManual: [{ numeroPagina: 1, imagenBase64: 'data:image/png;base64,AQ==', preguntas: [1] }],
+      onActualizarRespuestaManual: actualizarRespuesta,
+      claveCorrectaPorNumero: { 1: 'C' },
+      ordenPreguntasClave: [1],
+      onCalificar: mockCalificar,
+      puedeCalificar: true,
+      avisarSinPermiso: vi.fn()
+    };
+    const { rerender } = render(
+      <SeccionCalificar
+        {...props}
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: null, confianza: 0, estadoRespuesta: 'manual_review' }]}
+      />
+    );
 
-    await waitFor(() => {
-      expect(mockCalificar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          aciertos: 1,
-          totalReactivos: 3,
-          respuestasDetectadas: [
-            expect.objectContaining({ numeroPregunta: 1, opcion: 'A', estadoRespuesta: 'respondida' }),
-            expect.objectContaining({ numeroPregunta: 2, opcion: null, estadoRespuesta: 'sin_marca' }),
-            expect.objectContaining({
-              numeroPregunta: 3,
-              opcion: null,
-              estadoRespuesta: 'doble_marca',
-              flags: ['doble_marca']
-            })
-          ]
-        })
-      );
-    });
+    const captura = screen.getByRole('img', { name: /captura original del examen, página 1/i });
+    expect(captura).toBeInTheDocument();
+    expect(screen.getByText('Clave correcta')).toBeInTheDocument();
+    expect(screen.getByText('C', { selector: 'strong' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar calificación/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Aumentar zoom de la captura/i }));
+    expect(captura).toHaveStyle({ width: '125%' });
+    fireEvent.click(screen.getByRole('button', { name: /Ajustar captura al ancho/i }));
+    expect(captura).toHaveStyle({ width: '100%' });
+
+    expect(screen.getByRole('region', { name: /revisión manual con captura y clave/i })).toBeInTheDocument();
+    expect(screen.getByText('Marca observada')).toBeInTheDocument();
+    expect(screen.getByText('Clave correcta')).toBeInTheDocument();
+    const respuesta = screen.getByRole('combobox', { name: /marca observada en la captura, pregunta 1/i });
+    fireEvent.change(respuesta, { target: { value: '' } });
+    expect(actualizarRespuesta).toHaveBeenLastCalledWith(1, undefined);
+    fireEvent.change(respuesta, { target: { value: '__BLANCO__' } });
+    expect(actualizarRespuesta).toHaveBeenLastCalledWith(1, null);
+    expect(screen.getByRole('button', { name: /Guardar calificación/i })).toBeDisabled();
+
+    fireEvent.change(respuesta, { target: { value: 'C' } });
+    expect(actualizarRespuesta).toHaveBeenLastCalledWith(1, 'C');
+    fireEvent.change(respuesta, { target: { value: 'B' } });
+    rerender(
+      <SeccionCalificar
+        {...props}
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: 'B', confianza: 0, estadoRespuesta: 'respondida' }]}
+      />
+    );
+    expect(screen.getByText('Incorrecta')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: /marca observada en la captura, pregunta 1/i }), { target: { value: 'C' } });
+    rerender(
+      <SeccionCalificar
+        {...props}
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: 'C', confianza: 0, estadoRespuesta: 'respondida' }]}
+      />
+    );
+    expect(screen.getByText('Correcta')).toBeInTheDocument();
+
+    rerender(
+      <SeccionCalificar
+        {...props}
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: 'C', confianza: 0, estadoRespuesta: 'respondida' }]}
+      />
+    );
+    fireEvent.click(screen.getByRole('radio', { name: /no aparece/i }));
+    const botonGuardar = screen.getByRole('button', { name: /Guardar calificación/i });
+    expect(botonGuardar).toBeEnabled();
+    fireEvent.click(botonGuardar);
+    await waitFor(() => expect(mockCalificar).toHaveBeenCalledWith(expect.objectContaining({ aciertos: 1, totalReactivos: 1 })));
+    expect(mockCalificar).toHaveBeenCalledWith(expect.objectContaining({
+      respuestasDetectadas: [expect.objectContaining({ numeroPregunta: 1, opcion: 'C', estadoRespuesta: 'respondida' })],
+      paginasCaptura: [{ numeroPagina: 1, imagenBase64: 'data:image/png;base64,AQ==' }],
+      omrAnalisis: expect.objectContaining({ qrTexto: omrResultadoMock.qrTexto, revisionConfirmada: true, bonoVisibleConfirmado: false })
+    }));
+  });
+
+  it('bloquea el guardado manual si falta el QR analizado necesario para validar la captura', () => {
+    render(
+      <SeccionCalificar
+        examenId="ex-manual"
+        alumnoId="alu-manual"
+        resultadoOmr={null}
+        revisionOmrConfirmada={true}
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: 'C', confianza: 0.9, estadoRespuesta: 'respondida' }]}
+        modoManual={true}
+        paginasCapturaManual={[{ numeroPagina: 1, imagenBase64: 'data:image/png;base64,AQ==', preguntas: [1] }]}
+        claveCorrectaPorNumero={{ 1: 'C' }}
+        ordenPreguntasClave={[1]}
+        onCalificar={vi.fn()}
+        puedeCalificar={true}
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /Guardar calificación/i })).toBeDisabled();
+    expect(screen.getByText(/falta una captura original, el vínculo de alguna pregunta con su página o el QR/i)).toBeInTheDocument();
   });
 
   it('renderiza en modo solo lectura para exámenes ya calificados', () => {

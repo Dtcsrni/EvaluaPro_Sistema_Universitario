@@ -21,7 +21,8 @@ export function limitarTiempoOcrPie<T>(operacion: Promise<T>, timeoutMs = 15_000
 const require = createRequire(import.meta.url);
 const UMBRAL_CONFIANZA_OCR_PIE = 75;
 const ESCALA_OCR_PIE = 4;
-const PATRON_REFERENCIA_PIE = /\b(?:FOLIO\s+)?([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:PAGINA|P)\.?\s*(\d{1,2}|[IL|Z])(?:\s+DE\s+\d{1,2})?(?=$|[\s.,;])/g;
+const LISTA_CARACTERES_OCR_PIE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-.:·•+/|';
+const PATRON_REFERENCIA_PIE = /\b(?:FOLIO\s+)?([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:P\s*A\s*G?\s*I\s*N\s*A|P)\.?\s*(\d{1,2}|[IL|Z])(?:\s*DE\s*\d{1,2})?(?=$|[\s.,;])/g;
 
 /** Construye el worker desde los assets locales para que el OCR no requiera red. */
 export async function crearLectorPieOmr(): Promise<LectorPieOmr> {
@@ -29,7 +30,7 @@ export async function crearLectorPieOmr(): Promise<LectorPieOmr> {
   const worker = await createWorker('spa', 1, { langPath: rutaDatosSpa, gzip: true });
   await worker.setParameters({
     tessedit_pageseg_mode: PSM.SINGLE_LINE,
-    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-.:·•+/|'
+    tessedit_char_whitelist: LISTA_CARACTERES_OCR_PIE
   });
   return worker;
 }
@@ -78,6 +79,7 @@ export async function leerReferenciaPieOmr(
   const gradosCandidatos = alto >= ancho ? [0, 180] : [90, 270];
   const resultados: ReferenciaPieOmr[] = [];
   for (const grados of gradosCandidatos) {
+    const resultadosAntesOrientacion = resultados.length;
     const pagina = grados === 0
       ? normalizada
       : await sharp(normalizada).rotate(grados).png().toBuffer();
@@ -89,44 +91,165 @@ export async function leerReferenciaPieOmr(
       { left: 0.1, width: 0.38 },
       { left: 0.52, width: 0.38 }
     ] as const;
-    const lecturas: Array<ReferenciaPieOmr | null> = [];
-    for (const posicion of posiciones) {
-      const left = Math.floor(paginaAncho * posicion.left);
-      const top = Math.floor(paginaAlto * 0.94);
-      const width = Math.floor(paginaAncho * posicion.width);
-      const height = Math.floor(paginaAlto * 0.055);
-      if (width < 3 || height < 3 || left + width > paginaAncho || top + height > paginaAlto) {
-        lecturas.push(null);
-        continue;
-      }
-      const recorte = sharp(pagina)
-        .extract({ left, top, width, height })
-        .greyscale()
-        .normalise();
-      const preparaciones = [
-        () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
-        () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
-        () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer()
-      ];
-      let lecturaValida: ReferenciaPieOmr | undefined;
-      for (const preparar of preparaciones) {
-        const variante = await preparar();
-        const { data } = await worker.recognize(variante);
-        const confianza = Number(data.confidence ?? 0);
-        const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
-          ? extraerReferenciasPieOmr(String(data.text ?? ''))
-          : [];
-        if (referencias.length === 1) {
-          lecturaValida = { ...referencias[0]!, confianza };
-          break;
+    // Los escáneres móviles agregan márgenes blancos y desplazan el pie hacia
+    // arriba respecto al PDF canónico. Conserva primero la banda original y
+    // prueba una banda superior solo si no logra consenso.
+    for (const topRatio of [0.94, 0.88]) {
+      const lecturas: Array<ReferenciaPieOmr | null> = [];
+      for (const posicion of posiciones) {
+        const left = Math.floor(paginaAncho * posicion.left);
+        const top = Math.floor(paginaAlto * topRatio);
+        const width = Math.floor(paginaAncho * posicion.width);
+        const height = Math.floor(paginaAlto * 0.055);
+        if (width < 3 || height < 3 || left + width > paginaAncho || top + height > paginaAlto) {
+          lecturas.push(null);
+          continue;
         }
+        const recorte = sharp(pagina)
+          .extract({ left, top, width, height })
+          .greyscale()
+          .normalise();
+        const preparaciones = [
+          () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
+          () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
+          () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer()
+        ];
+        let lecturaValida: ReferenciaPieOmr | undefined;
+        for (const preparar of preparaciones) {
+          const variante = await preparar();
+          const { data } = await worker.recognize(variante);
+          const confianza = Number(data.confidence ?? 0);
+          const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
+            ? extraerReferenciasPieOmr(String(data.text ?? ''))
+            : [];
+          if (referencias.length === 1) {
+            lecturaValida = { ...referencias[0]!, confianza };
+            break;
+          }
+        }
+        lecturas.push(lecturaValida ?? null);
       }
-      lecturas.push(lecturaValida ?? null);
+      const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
+      if (consenso) {
+        resultados.push(consenso);
+        break;
+      }
     }
-    const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
-    if (consenso) resultados.push(consenso);
+
+    // CamScanner agrega una banda blanca bajo la hoja y desplaza el pie
+    // impreso. En ese formato, los dos rótulos no caen dentro de las ventanas
+    // horizontales canónicas. Lee dos bandas verticales del rótulo derecho;
+    // solo acepta referencias exactas si ambas superan el umbral y coinciden.
+    if (resultados.length === resultadosAntesOrientacion) {
+      const perfilCamScanner = [
+        { top: 0.908, alto: 0.02, umbral: 155 },
+        { top: 0.912, alto: 0.018, umbral: 165 }
+      ] as const;
+      const lecturas: Array<ReferenciaPieOmr | null> = [];
+      await worker.setParameters({ tessedit_char_whitelist: '' });
+      try {
+        for (const perfil of perfilCamScanner) {
+          const left = Math.floor(paginaAncho * 0.61);
+          const top = Math.floor(paginaAlto * perfil.top);
+          const width = Math.floor(paginaAncho * 0.29);
+          const height = Math.floor(paginaAlto * perfil.alto);
+          if (width < 3 || height < 3 || left + width > paginaAncho || top + height > paginaAlto) {
+            lecturas.push(null);
+            continue;
+          }
+          const variante = await sharp(pagina)
+            .extract({ left, top, width, height })
+            .greyscale()
+            .normalise()
+            .threshold(perfil.umbral)
+            .resize({ width: width * 8 })
+            .png()
+            .toBuffer();
+          const { data } = await worker.recognize(variante);
+          const confianza = Number(data.confidence ?? 0);
+          const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
+            ? extraerReferenciasPieOmr(String(data.text ?? ''))
+            : [];
+          lecturas.push(referencias.length === 1
+            ? { ...referencias[0]!, confianza }
+            : null);
+        }
+      } finally {
+        await worker.setParameters({ tessedit_char_whitelist: LISTA_CARACTERES_OCR_PIE });
+      }
+      const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
+      if (consenso) resultados.push(consenso);
+    }
   }
 
   const identidades = new Map(resultados.map((resultado) => [`${resultado.folio}:${resultado.numeroPagina}`, resultado]));
   return identidades.size === 1 ? [...identidades.values()][0] ?? null : null;
+}
+
+export type CajaCampoPdfOmr = { x: number; y: number; width: number; height: number };
+
+/**
+ * Reconoce el bono solo si dos preparaciones independientes leen literalmente
+ * `+0.25` dentro de la caja de calificación indicada por el mapa del PDF.
+ * Una lectura negativa no demuestra que el campo esté vacío: ante ausencia de
+ * caja, baja confianza o error de OCR devuelve null para forzar revisión.
+ */
+export async function leerBonoVisibleOmr(
+  dataUrl: string,
+  cajaPdf: CajaCampoPdfOmr,
+  opciones: { crearWorker?: typeof crearLectorPieOmr; umbralConfianza?: number } = {}
+) : Promise<{ bono: 0 | 0.25 | null; confianza: number }> {
+  const separador = dataUrl.indexOf(',');
+  if (!dataUrl.startsWith('data:image/') || separador < 0) return { bono: null, confianza: 0 };
+  if (![cajaPdf.x, cajaPdf.y, cajaPdf.width, cajaPdf.height].every(Number.isFinite) || cajaPdf.width <= 0 || cajaPdf.height <= 0) {
+    return { bono: null, confianza: 0 };
+  }
+
+  const imagen = Buffer.from(dataUrl.slice(separador + 1), 'base64');
+  const rotada = await sharp(imagen).rotate().png().toBuffer();
+  const metadata = await sharp(rotada).metadata();
+  const width = Number(metadata.width ?? 0);
+  const height = Number(metadata.height ?? 0);
+  if (width < 160 || height < 160) return { bono: null, confianza: 0 };
+
+  // `layoutDebug` usa puntos PDF con origen inferior izquierdo; sharp usa
+  // píxeles desde arriba a la izquierda. Se amplía la línea de escritura 7 pt.
+  const escalaX = width / 612;
+  const escalaY = height / 792;
+  const pad = Math.round(7 * escalaY);
+  const left = Math.max(0, Math.floor(cajaPdf.x * escalaX));
+  const top = Math.max(0, Math.floor((792 - cajaPdf.y - cajaPdf.height) * escalaY) - pad);
+  const right = Math.min(width, Math.ceil((cajaPdf.x + cajaPdf.width) * escalaX));
+  const bottom = Math.min(height, Math.ceil((792 - cajaPdf.y) * escalaY) + pad);
+  if (right <= left || bottom <= top) return { bono: null, confianza: 0 };
+
+  const ancho = right - left;
+  const alto = bottom - top;
+  let worker: LectorPieOmr | undefined;
+  try {
+    worker = await (opciones.crearWorker ?? crearLectorPieOmr)();
+    const lectorActivo = worker;
+    await lectorActivo.setParameters({
+      tessedit_pageseg_mode: PSM.SINGLE_LINE,
+      tessedit_char_whitelist: '+0123456789.'
+    });
+    const base = sharp(rotada).extract({ left, top, width: ancho, height: alto }).greyscale().normalise();
+    const variantes = await Promise.all([
+      base.clone().threshold(165).resize({ width: Math.max(400, ancho * 5) }).withMetadata({ density: 300 }).png().toBuffer(),
+      base.clone().threshold(210).resize({ width: Math.max(400, ancho * 5) }).withMetadata({ density: 300 }).png().toBuffer()
+    ]);
+    const lecturas = await Promise.all(variantes.map((variante) => lectorActivo.recognize(variante)));
+    const umbral = opciones.umbralConfianza ?? UMBRAL_CONFIANZA_OCR_PIE;
+    const lecturasValidas = lecturas.map(({ data }) => ({
+      coincide: /(?:^|\s)\+\s*0\.25(?:\s|$)/.test(String(data.text ?? '').replace(/\s+/g, ' ').trim()),
+      confianza: Number(data.confidence ?? 0)
+    }));
+    const confianza = Math.min(...lecturasValidas.map((lectura) => Number.isFinite(lectura.confianza) ? lectura.confianza : 0));
+    const confirmado = lecturasValidas.length === 2 && lecturasValidas.every((lectura) => lectura.coincide && lectura.confianza >= umbral);
+    return { bono: confirmado ? 0.25 : null, confianza: confirmado ? confianza : 0 };
+  } catch {
+    return { bono: null, confianza: 0 };
+  } finally {
+    if (worker) await worker.terminate().catch(() => undefined);
+  }
 }
