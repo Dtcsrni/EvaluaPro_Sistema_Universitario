@@ -39,6 +39,8 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     expect(consensuarReferenciasPieOmr([lectura, { ...lectura, folio: '589010BO' }])).toBeNull();
     expect(consensuarReferenciasPieOmr([lectura, { ...lectura, numeroPagina: 3 }])).toBeNull();
     expect(consensuarReferenciasPieOmr([lectura, { ...lectura, confianza: 74 }])).toBeNull();
+    expect(consensuarReferenciasPieOmr([lectura, { ...lectura, confianza: 50 }], 50))
+      .toEqual({ ...lectura, confianza: 50 });
   });
 
   it.each([

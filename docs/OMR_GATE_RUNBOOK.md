@@ -57,6 +57,8 @@ Si el lote contiene variantes, agrega `answerKeyByFolioPath` al manifest y propo
 
 El exportador QA conserva el PDF de origen sin recomprimir y un manifiesto de etiquetas sin nombres, folios ni IDs de examen. Verifica el SHA-256 del ZIP exportado antes de procesarlo. No edites el original ni marques como revisado un resultado derivado solo del detector. Las etiquetas guardadas por versiones anteriores de la UI no acreditan revisión ciega y deben volver a capturarse antes de usarse como verdad terreno.
 
+Si no se lee el QR de una página CamScanner, el consenso OCR de los dos rótulos del pie puede proponer folio y página para revisión; no valida la firma ni cambia por sí mismo la página a aceptada. El docente debe confirmar la captura original contra el examen y la página de referencia y guardar un motivo de resolución manual. Se conserva el archivo/página fuente, su hash, el folio/página propuestos y la confianza mínima de las dos regiones OCR. Sin confirmación o ante una discrepancia, la página permanece en revisión y no cuenta como página identificada ni como verdad terreno.
+
 El ZIP también contiene `pilot-real/` listo para el builder: páginas fuente rasterizadas a 300 dpi, mapas TV4 extraídos del manifiesto de recuperación firmado, etiquetas manuales por reactivo y claves completas por folio. Extrae el ZIP a una carpeta temporal y ejecuta:
 
 ```bash

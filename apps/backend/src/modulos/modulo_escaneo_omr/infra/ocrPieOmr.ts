@@ -53,11 +53,12 @@ export function extraerReferenciasPieOmr(texto: string): Array<{ folio: string; 
 
 /** Acepta identidad OCR únicamente con dos lecturas independientes exactas. */
 export function consensuarReferenciasPieOmr(
-  lecturas: [ReferenciaPieOmr | null, ReferenciaPieOmr | null]
+  lecturas: [ReferenciaPieOmr | null, ReferenciaPieOmr | null],
+  umbralConfianza = UMBRAL_CONFIANZA_OCR_PIE
 ): ReferenciaPieOmr | null {
   const [primera, segunda] = lecturas;
   if (!primera || !segunda) return null;
-  if (primera.confianza < UMBRAL_CONFIANZA_OCR_PIE || segunda.confianza < UMBRAL_CONFIANZA_OCR_PIE) return null;
+  if (primera.confianza < umbralConfianza || segunda.confianza < umbralConfianza) return null;
   if (primera.folio !== segunda.folio || primera.numeroPagina !== segunda.numeroPagina) return null;
   return { ...primera, confianza: Math.min(primera.confianza, segunda.confianza) };
 }
@@ -178,6 +179,46 @@ export async function leerReferenciaPieOmr(
         await worker.setParameters({ tessedit_char_whitelist: LISTA_CARACTERES_OCR_PIE });
       }
       const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
+      if (consenso) resultados.push(consenso);
+    }
+
+    // CamScanner puede estirar el pie y mover las dos referencias a la misma
+    // banda. Lee sus mitades por separado: un consenso moderado solo genera
+    // una sugerencia para confirmación visual, nunca valida el QR ni autoriza
+    // la calificación.
+    if (resultados.length === resultadosAntesOrientacion) {
+      const posicionesPie = [
+        { left: 0.05, top: 0.915, width: 0.45, height: 0.03 },
+        { left: 0.5, top: 0.91, width: 0.45, height: 0.025 }
+      ] as const;
+      const lecturas: Array<ReferenciaPieOmr | null> = [];
+      for (const posicion of posicionesPie) {
+        const left = Math.floor(paginaAncho * posicion.left);
+        const top = Math.floor(paginaAlto * posicion.top);
+        const width = Math.floor(paginaAncho * posicion.width);
+        const height = Math.floor(paginaAlto * posicion.height);
+        if (width < 3 || height < 3 || left + width > paginaAncho || top + height > paginaAlto) {
+          lecturas.push(null);
+          continue;
+        }
+        const variante = await sharp(pagina)
+          .extract({ left, top, width, height })
+          .greyscale()
+          .normalise()
+          .resize({ width: width * 7 })
+          .png()
+          .toBuffer();
+        const { data } = await worker.recognize(variante);
+        const confianza = Number(data.confidence ?? 0);
+        const referencias = Number.isFinite(confianza) && confianza >= 50
+          ? extraerReferenciasPieOmr(String(data.text ?? ''))
+          : [];
+        lecturas.push(referencias.length === 1 ? { ...referencias[0]!, confianza } : null);
+      }
+      const consenso = consensuarReferenciasPieOmr(
+        [lecturas[0] ?? null, lecturas[1] ?? null],
+        50
+      );
       if (consenso) resultados.push(consenso);
     }
   }
