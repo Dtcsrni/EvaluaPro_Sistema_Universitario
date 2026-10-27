@@ -1313,11 +1313,11 @@ export async function descargarPdfLoteUseCase(params: {
       examenesRegistrados: artefactoPersistido.totalExamenes
     });
   }
-  const nombreVisible = construirNombreVisibleExamenLote(plantilla?.titulo);
-  const fileNameDescarga = nombreVisible
-    ? `${normalizarParaNombreArchivo(nombreVisible, { maxLen: 48 }) || 'examen'}.pdf`
-    : fileName;
-  return { buffer, fileName: fileNameDescarga, pdfSha256: artefactoPersistido?.sha256 ?? resumenPdf.sha256, totalPaginas: resumenPdf.paginas };
+  await prisma.examenGenerado.updateMany({
+    where: { docenteId: docId, loteId: lote, id: { in: examenesDelLote.map((examen) => examen.id) } },
+    data: { descargadoEn: new Date() }
+  });
+  return { buffer, fileName, pdfSha256: artefactoPersistido?.sha256 ?? resumenPdf.sha256, totalPaginas: resumenPdf.paginas };
 }
 
 export async function descargarZipLoteUseCase(params: { docenteId: unknown; loteId: string }) {
@@ -1327,7 +1327,7 @@ export async function descargarZipLoteUseCase(params: { docenteId: unknown; lote
 
   const artefacto = await prisma.examenLoteArtefactoPdf.findFirst({
     where: { docenteId: docId, loteId: lote },
-    select: { archivadoEn: true, totalExamenes: true }
+    select: { archivadoEn: true, totalExamenes: true, archivoNombre: true }
   });
   if (artefacto?.archivadoEn) {
     throw new ErrorAplicacion('LOTE_ARCHIVADO', 'El lote está archivado; restáuralo antes de descargar.', 410, { loteId: lote });
@@ -1440,14 +1440,17 @@ export async function descargarZipLoteUseCase(params: { docenteId: unknown; lote
     examenes[0]?.plantillaId ? prisma.examenPlantilla.findUnique({ where: { id: String(examenes[0].plantillaId) } }) : null,
     examenes[0]?.periodoId ? prisma.periodo.findUnique({ where: { id: String(examenes[0].periodoId) } }) : null
   ]);
-  const nombreVisible = construirNombreVisibleExamenLote(plantilla?.titulo);
-  const nombreBase = nombreVisible || construirNombrePdfLote({
+  const nombrePaquetePdf = artefacto?.archivoNombre || construirNombrePdfLote({
     loteId: lote,
     materiaNombre: String(periodo?.nombre ?? ''),
     plantillaTitulo: String(plantilla?.titulo ?? ''),
     totalExamenes: examenes.length
-  }).replace(/\.pdf$/i, '');
-  const fileName = `${normalizarParaNombreArchivo(nombreBase, { maxLen: 48 }) || 'examenes'}.zip`;
+  });
+  const fileName = nombrePaquetePdf.replace(/\.pdf$/i, '.zip');
   const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+  await prisma.examenGenerado.updateMany({
+    where: { docenteId: docId, loteId: lote, id: { in: examenes.map((examen) => examen.id) } },
+    data: { descargadoEn: new Date() }
+  });
   return { buffer, fileName, totalExamenes: examenes.length, totalPaginas: examenes.length * (paginasPorExamen ?? 0), paginasPorExamen };
 }

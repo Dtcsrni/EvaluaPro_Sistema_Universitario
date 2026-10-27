@@ -158,6 +158,18 @@ describe('generación PDF: recovery manifest y bundle', () => {
       });
   }
 
+  async function descargarZipLote(auth: Record<string, string>, loteId: string) {
+    return request(app)
+      .get(`/api/examenes/generados/lote/${encodeURIComponent(loteId)}/zip`)
+      .set(auth)
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+  }
+
   async function consultarProgresoLote(auth: Record<string, string>, loteId: string, query?: Record<string, string>, expectedStatus = 200) {
     const req = request(app)
       .get(`/api/examenes/generados/lote/${encodeURIComponent(loteId)}/progreso`)
@@ -262,8 +274,8 @@ describe('generación PDF: recovery manifest y bundle', () => {
     expect(descargaUpper.status).toBe(200);
     expect(descargaLower.status).toBe(200);
     expect(String(descargaUpper.headers['content-type'] || '')).toContain('application/pdf');
-    expect(String(descargaUpper.headers['content-disposition'] || '')).toContain('filename="Primer_Parcial.pdf"');
-    expect(String(artefactoPersistido[0]?.archivoNombre)).not.toBe('Primer_Parcial.pdf');
+    expect(String(descargaUpper.headers['content-disposition'] || '')).toContain(`filename="${artefactoPersistido[0]?.archivoNombre}"`);
+    expect(String(artefactoPersistido[0]?.archivoNombre)).toMatch(/^evaluapro_paquete_examenes_.*_lote-LOTREC01\.pdf$/i);
     expect(String(descargaLower.headers['content-type'] || '')).toContain('application/pdf');
     expect(Buffer.compare(descargaUpper.body as Buffer, descargaLower.body as Buffer)).toBe(0);
     const pdfBytes = descargaUpper.body as Buffer;
@@ -271,6 +283,19 @@ describe('generación PDF: recovery manifest y bundle', () => {
     expect(descargaUpper.headers['x-evaluapro-pdf-pages']).toBe(String(totalPaginas));
     const pdf = await PDFDocument.load(pdfBytes);
     expect(pdf.getPageCount()).toBe(totalPaginas);
+    const examenesTrasPdf = await ExamenGenerado.find({ loteId: 'LOTREC01' }).lean();
+    expect(examenesTrasPdf).toHaveLength(2);
+    expect(examenesTrasPdf.every((examen) => Boolean(examen.descargadoEn))).toBe(true);
+
+    await prisma.examenGenerado.updateMany({ where: { loteId: 'LOTREC01' }, data: { descargadoEn: null } });
+    const descargaZip = await descargarZipLote(base.auth, 'LOTREC01');
+    expect(descargaZip.status).toBe(200);
+    expect(String(descargaZip.headers['content-type'] || '')).toContain('application/zip');
+    expect(String(descargaZip.headers['content-disposition'] || '')).toContain(`filename="${String(artefactoPersistido[0]?.archivoNombre).replace(/\.pdf$/i, '.zip')}"`);
+    const examenesTrasZip = await ExamenGenerado.find({ loteId: 'LOTREC01' }).lean();
+    expect(examenesTrasZip).toHaveLength(2);
+    expect(examenesTrasZip.every((examen) => Boolean(examen.descargadoEn))).toBe(true);
+    await prisma.examenGenerado.updateMany({ where: { loteId: 'LOTREC01' }, data: { descargadoEn: null } });
 
     const foliosOriginales = (examenes as Array<{ _id: unknown; folio: string }>).map(({ _id, folio }) => [String(_id), folio]).sort();
     await prisma.$executeRawUnsafe(`
@@ -292,6 +317,8 @@ describe('generación PDF: recovery manifest y bundle', () => {
     expect(progresoTrasFallo.body).toMatchObject({ fallidos: 2, completado: false, estado: 'fallido' });
     const descargaDuranteFallo = await descargarPdfLote(base.auth, 'LOTREC01');
     expect(descargaDuranteFallo.status).toBe(409);
+    const examenesDuranteFallo = await ExamenGenerado.find({ loteId: 'LOTREC01' }).lean();
+    expect(examenesDuranteFallo.every((examen) => !examen.descargadoEn)).toBe(true);
 
     const reanudado = await request(app)
       .post('/api/examenes/generados/lote')
@@ -306,6 +333,7 @@ describe('generación PDF: recovery manifest y bundle', () => {
     const descargaReanudada = await descargarPdfLote(base.auth, 'LOTREC01');
     expect(descargaReanudada.status).toBe(200);
     expect(descargaReanudada.headers['x-evaluapro-pdf-sha256']).toBe(reanudado.body.pdfSha256);
+    await prisma.examenGenerado.updateMany({ where: { loteId: 'LOTREC01' }, data: { descargadoEn: null } });
 
     const rutaPaquete = resolverRutaPdfExamen(artefactoPersistido[0]!.archivoNombre);
     const paqueteOriginal = await readFile(rutaPaquete);
@@ -323,6 +351,8 @@ describe('generación PDF: recovery manifest y bundle', () => {
       const descargaCorrupta = await descargarPdfLote(base.auth, 'LOTREC01');
       expect(descargaCorrupta.status).toBe(409);
       expect(JSON.parse((descargaCorrupta.body as Buffer).toString('utf8')).error.codigo).toBe('LOTE_PDF_INTEGRIDAD_INVALIDA');
+      const examenesCorruptos = await ExamenGenerado.find({ loteId: 'LOTREC01' }).lean();
+      expect(examenesCorruptos.every((examen) => !examen.descargadoEn)).toBe(true);
     } finally {
       await writeFile(rutaPaquete, paqueteOriginal);
     }
