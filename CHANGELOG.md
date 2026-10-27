@@ -6,6 +6,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 - El piloto de calificación OMR exige etiquetas humanas ciegas y atestadas, informa abstenciones de bono y estratos de concordancia, y mantiene cerrado el gate hasta cumplir la evidencia estadística.
+- Se separa la validación empírica del lote (12 exámenes perfectos) del gate global (límite inferior Clopper–Pearson unilateral al 95% ≥0.98 para nota y bono; 149 casos sin discordancias como mínimo).
 
 - El versionado de EvaluaPro y del Installer Hub queda independiente: `app-vX.Y.Z` para la aplicación e imágenes Docker; `hub-vX.Y.Z` para el instalador Windows.
 - CI centraliza la validación automática en `CI Checks`, valida detector, plan affected y coherencia entre grupos, gates y jobs, y limita sus reportes a salidas conocidas.

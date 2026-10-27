@@ -31,15 +31,28 @@ async function escribirReportePiloto(overrides: Record<string, unknown> = {}) {
       totalCaptures: 24,
       pagePassRate: 1,
       autoGradeTrustRate: 1,
-      gradeComparisons: 12,
-      bonusComparisons: 12,
+      gradeComparisons: 149,
+      bonusComparisons: 149,
       gradeConsistency: 1,
       bonusConsistency: 1,
-      gradeConsistencyLower95: 0.779078,
-      bonusConsistencyLower95: 0.779078,
+      automaticGradeDiscordances: 0,
+      bonusDiscordances: 0,
+      gradeConsistencyLower95: 0.980095,
+      bonusConsistencyLower95: 0.980095,
       autoCoverageRate: 1,
       humanReviewedRows: 24,
       humanReviewerCount: 2
+    },
+    batchGate: { status: 'passed', minimumIndependentExams: 12, gradeComparisons: 149, bonusComparisons: 149, passed: true },
+    populationGate: {
+      status: 'passed',
+      method: 'clopper_pearson_one_sided_exact_binomial_lower_bound',
+      confidenceLevel: 0.95,
+      minimumLowerBound: 0.98,
+      minimumIndependentExamsAtZeroDiscordances: 149,
+      grade: { independentExams: 149, discordances: 0, lowerBound: 0.980095 },
+      bonus: { independentExams: 149, discordances: 0, lowerBound: 0.980095 },
+      passed: true
     },
     evidenceHashes: {
       manifestSha256: 'a'.repeat(64),
@@ -92,6 +105,84 @@ describe('gate real TV4 de autocalificación', () => {
     vi.resetModules();
     const policy = await import('../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
     expect(policy.OMR_TV4_REAL_PILOT_GATE_PASSED).toBe(true);
+  });
+
+  it('un lote perfecto de 12 exámenes pasa su gate de lote, pero no el gate poblacional global', async () => {
+    vi.stubEnv(REPORT_ENV, '');
+    vi.resetModules();
+    const reportePath = await escribirReportePiloto({
+      metrics: {
+        totalCaptures: 24,
+        pagePassRate: 1,
+        autoGradeTrustRate: 1,
+        gradeComparisons: 12,
+        bonusComparisons: 12,
+        gradeConsistency: 1,
+        bonusConsistency: 1,
+        gradeConsistencyLower95: 0.779078,
+        bonusConsistencyLower95: 0.779078,
+        automaticGradeDiscordances: 0,
+        bonusDiscordances: 0,
+        autoCoverageRate: 1,
+        humanReviewedRows: 24,
+        humanReviewerCount: 2
+      },
+      batchGate: { status: 'passed', minimumIndependentExams: 12, gradeComparisons: 12, bonusComparisons: 12, passed: true },
+      populationGate: {
+        status: 'failed',
+        method: 'clopper_pearson_one_sided_exact_binomial_lower_bound',
+        confidenceLevel: 0.95,
+        minimumLowerBound: 0.98,
+        minimumIndependentExamsAtZeroDiscordances: 149,
+        grade: { independentExams: 12, discordances: 0, lowerBound: 0.779078 },
+        bonus: { independentExams: 12, discordances: 0, lowerBound: 0.779078 },
+        passed: false
+      }
+    });
+    vi.stubEnv(REPORT_ENV, reportePath);
+    vi.resetModules();
+    const policy = await import('../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
+    expect(policy.OMR_TV4_REAL_PILOT_GATE_PASSED).toBe(false);
+  });
+
+  it.each([
+    { exams: 148, discordances: 0, lowerBound: 0.9799 },
+    { exams: 149, discordances: 1, lowerBound: 0.97 }
+  ])('mantiene cerrado el runtime con $exams exámenes y $discordances discordancias bajo el límite poblacional', async ({ exams, discordances, lowerBound }) => {
+    vi.stubEnv(REPORT_ENV, '');
+    vi.resetModules();
+    const reportePath = await escribirReportePiloto({
+      metrics: {
+        totalCaptures: 24,
+        pagePassRate: 1,
+        autoGradeTrustRate: 1,
+        gradeComparisons: exams,
+        bonusComparisons: exams,
+        gradeConsistency: (exams - discordances) / exams,
+        bonusConsistency: (exams - discordances) / exams,
+        gradeConsistencyLower95: lowerBound,
+        bonusConsistencyLower95: lowerBound,
+        automaticGradeDiscordances: discordances,
+        bonusDiscordances: discordances,
+        autoCoverageRate: 1,
+        humanReviewedRows: 24,
+        humanReviewerCount: 2
+      },
+      populationGate: {
+        status: 'failed',
+        method: 'clopper_pearson_one_sided_exact_binomial_lower_bound',
+        confidenceLevel: 0.95,
+        minimumLowerBound: 0.98,
+        minimumIndependentExamsAtZeroDiscordances: 149,
+        grade: { independentExams: exams, discordances, lowerBound },
+        bonus: { independentExams: exams, discordances, lowerBound },
+        passed: false
+      }
+    });
+    vi.stubEnv(REPORT_ENV, reportePath);
+    vi.resetModules();
+    const policy = await import('../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
+    expect(policy.OMR_TV4_REAL_PILOT_GATE_PASSED).toBe(false);
   });
 
   it.each([

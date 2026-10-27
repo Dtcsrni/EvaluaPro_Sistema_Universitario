@@ -49,6 +49,9 @@ type ManifestDataset = {
 type OpcionClave = 'A' | 'B' | 'C' | 'D' | 'E';
 export type AnswerKey = Record<number, OpcionClave>;
 const MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE = 12;
+const MINIMUM_EXAMS_FOR_POPULATION_GATE = 149;
+const POPULATION_GATE_CONFIDENCE_LEVEL = 0.95;
+const POPULATION_GATE_MINIMUM_LOWER_BOUND = 0.98;
 
 export type CandidateExamGrade = {
   fullCoverage: boolean;
@@ -554,7 +557,7 @@ export async function runTv4PilotRealValidation(args: {
           independentExams: 0,
           automaticGradeDiscordances: 0,
           minimumExamsForEmpiricalBatchGate: MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE,
-          lowerBoundIsDiagnosticOnly: true,
+          lowerBoundIsPopulationGateCriterion: true,
           lowerBound: null
         },
         capturePassRate: null,
@@ -566,6 +569,23 @@ export async function runTv4PilotRealValidation(args: {
         bonusComparisons: 0,
         bonusDiscordances: 0,
         bonusAbstentions: 0
+      },
+      batchGate: {
+        status: 'not_applicable',
+        minimumIndependentExams: MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE,
+        gradeComparisons: 0,
+        bonusComparisons: 0,
+        passed: false
+      },
+      populationGate: {
+        status: 'not_applicable',
+        method: 'clopper_pearson_one_sided_exact_binomial_lower_bound',
+        confidenceLevel: POPULATION_GATE_CONFIDENCE_LEVEL,
+        minimumLowerBound: POPULATION_GATE_MINIMUM_LOWER_BOUND,
+        minimumIndependentExamsAtZeroDiscordances: MINIMUM_EXAMS_FOR_POPULATION_GATE,
+        grade: { independentExams: 0, discordances: 0, lowerBound: null },
+        bonus: { independentExams: 0, discordances: 0, lowerBound: null },
+        passed: false
       },
       checks: {
         precision: false,
@@ -954,6 +974,12 @@ export async function runTv4PilotRealValidation(args: {
     bonusConsistencyObserved: bonusComparisons >= MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE && bonusConsistency === 1
   };
   const ok = Object.values(checks).every(Boolean);
+  const batchGatePassed = checks.gradeConsistencyObserved && checks.bonusConsistencyObserved;
+  const populationGatePassed =
+    gradeComparisons >= MINIMUM_EXAMS_FOR_POPULATION_GATE &&
+    bonusComparisons >= MINIMUM_EXAMS_FOR_POPULATION_GATE &&
+    gradeConsistencyLower95 !== null && gradeConsistencyLower95 >= POPULATION_GATE_MINIMUM_LOWER_BOUND &&
+    bonusConsistencyLower95 !== null && bonusConsistencyLower95 >= POPULATION_GATE_MINIMUM_LOWER_BOUND;
   const runId = `omr-tv4-pilot-real-${Date.now()}`;
   const report = {
     runId,
@@ -980,7 +1006,7 @@ export async function runTv4PilotRealValidation(args: {
         independentExams: gradeComparisons,
         automaticGradeDiscordances,
         minimumExamsForEmpiricalBatchGate: MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE,
-        lowerBoundIsDiagnosticOnly: true,
+        lowerBoundIsPopulationGateCriterion: true,
         lowerBound: gradeConsistencyLower95 === null ? null : round6(gradeConsistencyLower95)
       },
       capturePassRate: round6(capturePassRate),
@@ -995,6 +1021,33 @@ export async function runTv4PilotRealValidation(args: {
       humanReviewedRows: humanReview.reviewedRows,
       humanReviewerCount: humanReview.reviewerCount,
       concordanceByCondition: concordanciaPorCondicion
+    },
+    batchGate: {
+      status: batchGatePassed ? 'passed' : 'failed',
+      minimumIndependentExams: MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE,
+      gradeComparisons,
+      bonusComparisons,
+      gradeConsistencyObserved: gradeConsistency === 1,
+      bonusConsistencyObserved: bonusConsistency === 1,
+      passed: batchGatePassed
+    },
+    populationGate: {
+      status: populationGatePassed ? 'passed' : 'failed',
+      method: 'clopper_pearson_one_sided_exact_binomial_lower_bound',
+      confidenceLevel: POPULATION_GATE_CONFIDENCE_LEVEL,
+      minimumLowerBound: POPULATION_GATE_MINIMUM_LOWER_BOUND,
+      minimumIndependentExamsAtZeroDiscordances: MINIMUM_EXAMS_FOR_POPULATION_GATE,
+      grade: {
+        independentExams: gradeComparisons,
+        discordances: automaticGradeDiscordances,
+        lowerBound: gradeConsistencyLower95 === null ? null : round6(gradeConsistencyLower95)
+      },
+      bonus: {
+        independentExams: bonusComparisons,
+        discordances: bonusDiscordances,
+        lowerBound: bonusConsistencyLower95 === null ? null : round6(bonusConsistencyLower95)
+      },
+      passed: populationGatePassed
     },
     checks,
     ok,

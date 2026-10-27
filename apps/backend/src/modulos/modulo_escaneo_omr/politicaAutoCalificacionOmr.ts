@@ -106,6 +106,9 @@ const CHECKS_PILOTO_REQUERIDOS = [
 ] as const;
 
 const MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE = 12;
+const MINIMUM_EXAMS_FOR_POPULATION_GATE = 149;
+const POPULATION_GATE_CONFIDENCE_LEVEL = 0.95;
+const POPULATION_GATE_MINIMUM_LOWER_BOUND = 0.98;
 
 function reportePilotoRealApruebaRuntime() {
   const reportPath = process.env.EVALUAPRO_OMR_TV4_REAL_PILOT_REPORT?.trim();
@@ -120,10 +123,13 @@ function reportePilotoRealApruebaRuntime() {
       thresholds?: Record<string, unknown>;
       metrics?: Record<string, unknown>;
       evidenceHashes?: Record<string, unknown>;
+      batchGate?: Record<string, unknown>;
+      populationGate?: Record<string, unknown>;
     };
     const metrics = report.metrics;
     const thresholds = report.thresholds;
     const evidenceHashes = report.evidenceHashes;
+    const populationGate = report.populationGate;
     const hashSha256 = (value: unknown) => typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value);
     const numeric = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
     const hashesRequeridos = [
@@ -137,6 +143,8 @@ function reportePilotoRealApruebaRuntime() {
     if (!(report.datasetType === 'tv4_pilot_real' &&
       report.status === 'passed' &&
       report.ok === true &&
+      report.batchGate?.status === 'passed' && report.batchGate?.passed === true &&
+      report.batchGate?.minimumIndependentExams === MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE &&
       CHECKS_PILOTO_REQUERIDOS.every((check) => report.checks?.[check] === true) &&
       report.evidenceHashes?.omrRuntimeConfigSha256 === OMR_RUNTIME_CONFIG_SHA256 &&
       hashesRequeridos.every((key) => hashSha256(evidenceHashes?.[key])))) return false;
@@ -153,6 +161,30 @@ function reportePilotoRealApruebaRuntime() {
     const autoCoverageRate = metrics?.autoCoverageRate;
     const humanReviewedRows = metrics?.humanReviewedRows;
     const humanReviewerCount = metrics?.humanReviewerCount;
+    const gradeDiscordances = metrics?.automaticGradeDiscordances;
+    const bonusDiscordances = metrics?.bonusDiscordances;
+    const populationGrade = populationGate?.grade as Record<string, unknown> | undefined;
+    const populationBonus = populationGate?.bonus as Record<string, unknown> | undefined;
+    const populationEvidenceMatches =
+      populationGate?.status === 'passed' && populationGate.passed === true &&
+      populationGate.method === 'clopper_pearson_one_sided_exact_binomial_lower_bound' &&
+      populationGate.confidenceLevel === POPULATION_GATE_CONFIDENCE_LEVEL &&
+      populationGate.minimumLowerBound === POPULATION_GATE_MINIMUM_LOWER_BOUND &&
+      populationGate.minimumIndependentExamsAtZeroDiscordances === MINIMUM_EXAMS_FOR_POPULATION_GATE &&
+      numeric(gradeComparisons) && gradeComparisons >= MINIMUM_EXAMS_FOR_POPULATION_GATE &&
+      numeric(bonusComparisons) && bonusComparisons >= MINIMUM_EXAMS_FOR_POPULATION_GATE &&
+      Number.isInteger(gradeDiscordances) && Number(gradeDiscordances) >= 0 &&
+      Number.isInteger(bonusDiscordances) && Number(bonusDiscordances) >= 0 &&
+      report.batchGate?.gradeComparisons === gradeComparisons &&
+      report.batchGate?.bonusComparisons === bonusComparisons &&
+      numeric(populationGrade?.independentExams) && populationGrade.independentExams === gradeComparisons &&
+      populationGrade.discordances === gradeDiscordances &&
+      populationGrade.lowerBound === metrics?.gradeConsistencyLower95 &&
+      numeric(populationGrade.lowerBound) && populationGrade.lowerBound >= POPULATION_GATE_MINIMUM_LOWER_BOUND &&
+      numeric(populationBonus?.independentExams) && populationBonus.independentExams === bonusComparisons &&
+      populationBonus.discordances === bonusDiscordances &&
+      populationBonus.lowerBound === metrics?.bonusConsistencyLower95 &&
+      numeric(populationBonus.lowerBound) && populationBonus.lowerBound >= POPULATION_GATE_MINIMUM_LOWER_BOUND;
     return numeric(gradeConsistencyMinimum) && gradeConsistencyMinimum === 1 &&
       numeric(coverageMinimum) && coverageMinimum === 1 &&
       numeric(totalCaptures) && totalCaptures > 0 &&
@@ -164,7 +196,8 @@ function reportePilotoRealApruebaRuntime() {
       numeric(autoGradeTrustRate) && autoGradeTrustRate === 1 &&
       numeric(autoCoverageRate) && autoCoverageRate === 1 &&
       numeric(humanReviewedRows) && humanReviewedRows > 0 &&
-      numeric(humanReviewerCount) && humanReviewerCount > 0;
+      numeric(humanReviewerCount) && humanReviewerCount > 0 &&
+      populationEvidenceMatches;
   } catch {
     return false;
   }

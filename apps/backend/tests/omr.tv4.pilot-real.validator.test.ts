@@ -255,6 +255,14 @@ describe('validador piloto real TV4', () => {
       expect(resultado.report.metrics.gradeConsistencyLower95).toBeNull();
       expect(resultado.report.metrics.bonusConsistencyLower95).toBeNull();
       expect(resultado.report.metrics.gradeConsistencyEvidence.minimumExamsForEmpiricalBatchGate).toBe(12);
+      expect(resultado.report.batchGate).toMatchObject({ status: 'not_applicable', passed: false });
+      expect(resultado.report.populationGate).toMatchObject({
+        status: 'not_applicable',
+        confidenceLevel: 0.95,
+        minimumLowerBound: 0.98,
+        minimumIndependentExamsAtZeroDiscordances: 149,
+        passed: false
+      });
       expect(resultado.report.checks.pagePassRate).toBe(false);
       expect(resultado.report.checks.gradeConsistencyObserved).toBe(false);
       expect(resultado.report.checks.bonusConsistencyObserved).toBe(false);
