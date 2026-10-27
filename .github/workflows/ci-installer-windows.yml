@@ -380,7 +380,7 @@ jobs:
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer' -ReportPath 'dist/installer/antivirus-scan-report.txt'
 
-      - name: Etapa signing gate (opcional)
+      - name: Etapa signing gate
         if: github.event_name != 'pull_request'
         shell: powershell
         env:

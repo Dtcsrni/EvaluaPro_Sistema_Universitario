@@ -26,13 +26,15 @@ $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 function Resolve-VersionTag {
   param([string]$RootPath)
 
-  $pkgPath = Join-Path $RootPath 'package.json'
-  if (-not (Test-Path -LiteralPath $pkgPath)) {
-    return '0.0.0'
+  $hubVersionPath = Join-Path $RootPath 'config\hub-version.json'
+  if (-not (Test-Path -LiteralPath $hubVersionPath)) {
+    throw 'No existe config/hub-version.json para resolver la version del Installer Hub.'
   }
-  $pkg = Get-Content -Path $pkgPath -Raw -Encoding utf8 | ConvertFrom-Json
-  $resolved = [string]$pkg.version
-  if ([string]::IsNullOrWhiteSpace($resolved)) { $resolved = '0.0.0' }
+  $hubVersion = Get-Content -LiteralPath $hubVersionPath -Raw -Encoding utf8 | ConvertFrom-Json
+  $resolved = [string]$hubVersion.version
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    throw 'config/hub-version.json no contiene una version valida del Installer Hub.'
+  }
   return (($resolved -replace '[^0-9A-Za-z\.-]', '-').Trim())
 }
 function Get-VersionedArtifactName {
@@ -61,8 +63,13 @@ if (-not $timestampUrl -and -not $localOnlySigning) {
 }
 
 $markerPath = Join-Path $InstallerDir 'SIGNING-NOT-PRODUCTION.txt'
+$releaseFlavorId = [string]$env:EVALUAPRO_RELEASE_FLAVOR
 
 if (([string]::IsNullOrWhiteSpace($certBase64) -or [string]::IsNullOrWhiteSpace($certPassword)) -and [string]::IsNullOrWhiteSpace($certThumbprint)) {
+  if (-not [string]::IsNullOrWhiteSpace($releaseFlavorId)) {
+    throw "No se puede publicar el release '$releaseFlavorId' sin certificado de firma configurado."
+  }
+
   $marker = @(
     'NO_PRODUCTION_SIGNATURE',
     'Installer artifacts were generated without code-signing certificate.',
@@ -271,11 +278,10 @@ try {
   $versionTag = Resolve-VersionTag -RootPath $root
 
   $targets = @()
-  $flavorId = [string]$env:EVALUAPRO_RELEASE_FLAVOR
   $signingFlavors = @($catalog.flavors)
-  if (-not [string]::IsNullOrWhiteSpace($flavorId)) {
-    $signingFlavors = @($signingFlavors | Where-Object { [string]$_.flavorId -eq $flavorId })
-    if ($signingFlavors.Count -ne 1) { throw "Flavor no reconocido para la firma de release: $flavorId" }
+  if (-not [string]::IsNullOrWhiteSpace($releaseFlavorId)) {
+    $signingFlavors = @($signingFlavors | Where-Object { [string]$_.flavorId -eq $releaseFlavorId })
+    if ($signingFlavors.Count -ne 1) { throw "Flavor no reconocido para la firma de release: $releaseFlavorId" }
   }
   foreach ($flavor in $signingFlavors) {
     $flavorId = [string]$flavor.flavorId
@@ -288,7 +294,11 @@ try {
     )) {
       $artifactName = [string]$artifact.name
       $resolved = Resolve-InstallerArtifactPath -ArtifactName $artifactName -FlavorId $flavorId -PreferInternal:([bool]$artifact.preferInternal)
-      if ($resolved) { $targets += $resolved }
+      if ($resolved) {
+        $targets += $resolved
+      } elseif (-not [string]::IsNullOrWhiteSpace($releaseFlavorId)) {
+        throw "Falta artefacto requerido para firmar el release '$releaseFlavorId': $artifactName"
+      }
     }
   }
   $targets = @($targets | Select-Object -Unique | Where-Object { Test-Path $_ })
@@ -325,7 +335,7 @@ try {
     '-InstallerDir',
     $InstallerDir
   )
-  if (-not [string]::IsNullOrWhiteSpace($flavorId)) { $hashArgs += @('-FlavorId', $flavorId) }
+  if (-not [string]::IsNullOrWhiteSpace($releaseFlavorId)) { $hashArgs += @('-FlavorId', $releaseFlavorId) }
   $releaseCommit = [string]$env:EVALUAPRO_RELEASE_COMMIT
   if (-not [string]::IsNullOrWhiteSpace($releaseCommit)) { $hashArgs += @('-CommitSha', $releaseCommit) }
   $hashProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList $hashArgs -NoNewWindow -Wait -PassThru

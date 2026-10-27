@@ -567,7 +567,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /dotnet-version:\s*10\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
-  assert.match(workflow, /name: Etapa signing gate \(opcional\)\s+if: github\.event_name != 'pull_request'/);
+  assert.match(workflow, /name: Etapa signing gate\s+if: github\.event_name != 'pull_request'/);
   assert.match(workflow, /pull_request:/);
   assert.match(workflow, /source_sha:[\s\S]*?required: true/);
   assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local/);
@@ -1610,6 +1610,10 @@ test('firma de instaladores regenera hashes y manifest despues de mutar binarios
   assert.match(signScript, /\$hashProcess\.ExitCode/);
   assert.match(signScript, /EVALUAPRO_RELEASE_FLAVOR/);
   assert.match(signScript, /EVALUAPRO_RELEASE_COMMIT/);
+  assert.match(signScript, /config\\hub-version\.json/);
+  assert.doesNotMatch(signScript, /package\.json/);
+  assert.match(signScript, /sin certificado de firma configurado/);
+  assert.match(signScript, /Falta artefacto requerido para firmar el release/);
   assert.doesNotMatch(signScript, /& \$hashScript -InstallerDir \$InstallerDir\s+if \(\$LASTEXITCODE -ne 0\)/);
   assert.match(signScript, /post-firma/);
 });
