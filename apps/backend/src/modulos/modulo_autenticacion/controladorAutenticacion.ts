@@ -4,7 +4,6 @@
 import type { Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
@@ -26,7 +25,6 @@ import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo.js';
 import { aTituloPropio } from '../../compartido/utilidades/texto.js';
 import { log } from '../../infraestructura/logging/logger.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UUID_FLUJO_AUTENTICACION = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function resolverPaginasPreferidas(valor: unknown, predeterminado: number): number {
@@ -81,30 +79,24 @@ function fusionarRolesGoogleConSuperadmin(rolesActuales: unknown, correoGoogle: 
   return rolesParaToken(Array.from(base));
 }
 
-function resolverScriptAccesosDirectos(): string {
-  const posibles = [
-    path.resolve(process.cwd(), 'scripts', 'create-shortcuts.ps1'),
-    path.resolve(process.cwd(), '..', '..', 'scripts', 'create-shortcuts.ps1'),
-    path.resolve(__dirname, '..', '..', '..', '..', '..', 'scripts', 'create-shortcuts.ps1')
-  ];
-  const unico = new Set(posibles.map((ruta) => path.normalize(ruta)));
-  for (const ruta of unico) {
-    if (fs.existsSync(ruta)) return ruta;
-  }
+function resolverHostNativo(): string {
+  const localAppData = process.env.LOCALAPPDATA;
+  const hostPath = localAppData ? path.join(localAppData, 'EvaluaPro', 'EvaluaPro.exe') : '';
+  if (hostPath && fs.existsSync(hostPath)) return hostPath;
   throw new ErrorAplicacion(
-    'SHORTCUT_SCRIPT_NOT_FOUND',
-    'No se encontro scripts/create-shortcuts.ps1 en este entorno.',
+    'NATIVE_HOST_NOT_FOUND',
+    'No se encontró el AppHost nativo de EvaluaPro en la instalación local.',
     404
   );
 }
 
-function ejecutarRegeneracionAccesos(scriptPath: string): Promise<{ ok: boolean; code: number; stdout: string; stderr: string }> {
+function ejecutarRegeneracionAccesos(hostPath: string): Promise<{ ok: boolean; code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const proceso = spawn(
-      'powershell',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, '-Force'],
+      hostPath,
+      ['--regenerate-shortcuts'],
       {
-        cwd: path.resolve(path.dirname(scriptPath), '..'),
+        cwd: path.dirname(hostPath),
         windowsHide: true
       }
     );
@@ -120,7 +112,7 @@ function ejecutarRegeneracionAccesos(scriptPath: string): Promise<{ ok: boolean;
         // noop
       }
       resolve({ ok: false, code: 124, stdout, stderr: `${stderr}\nTimeout` });
-    }, 90_000);
+    }, 30_000);
 
     proceso.stdout.on('data', (chunk) => { stdout += String(chunk ?? ''); });
     proceso.stderr.on('data', (chunk) => { stderr += String(chunk ?? ''); });
@@ -798,8 +790,8 @@ export async function regenerarAccesosDirectosDocente(_req: SolicitudDocente, re
       400
     );
   }
-  const scriptPath = resolverScriptAccesosDirectos();
-  const resultado = await ejecutarRegeneracionAccesos(scriptPath);
+  const hostPath = resolverHostNativo();
+  const resultado = await ejecutarRegeneracionAccesos(hostPath);
   if (!resultado.ok) {
     throw new ErrorAplicacion(
       'SHORTCUTS_REGEN_FAILED',
@@ -809,7 +801,6 @@ export async function regenerarAccesosDirectosDocente(_req: SolicitudDocente, re
   }
   res.json({
     ok: true,
-    message: 'Accesos directos regenerados en Escritorio y Menu Inicio.',
-    scriptPath
+    message: 'Accesos directos e iconos regenerados en Escritorio y Menú Inicio.'
   });
 }

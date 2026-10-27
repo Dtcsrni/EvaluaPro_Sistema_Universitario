@@ -316,7 +316,7 @@ export function SeccionCuenta({
       setRegenerandoAccesos(true);
       setMensaje('');
       await clienteApi.enviar('/autenticacion/accesos-directos/regenerar', {});
-      setMensaje('Accesos directos regenerados en el escritorio.');
+      setMensaje('Accesos directos de EvaluaPro y Hub actualizados en Escritorio y Menú Inicio.');
       emitToast({
         level: 'ok',
         title: 'Accesos directos',
@@ -924,7 +924,7 @@ export function SeccionCuenta({
             <h3 className="entregas-title-heading">
               <Icono nombre="recargar" /> Accesos directos
             </h3>
-            <p className="nota">Regenera los accesos directos de EvaluaPro en Escritorio y Menú Inicio, actualizando iconos de alta resolución.</p>
+            <p className="nota">Reconstruye los accesos directos de EvaluaPro y Hub en Escritorio y Menú Inicio, y solicita a Windows actualizar sus iconos.</p>
           </div>
         </div>
 

@@ -42,31 +42,36 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
   assert.match(hostSource, /if \(dashboardProcess == null\) return true;/);
 });
 
-test('el cierre asíncrono cancela solicitudes concurrentes y autoriza una sola transición final', () => {
+test('el cierre asíncrono evita reentrada y cierra después de limpiar servicios', () => {
   const closingHandler = hostSource.match(/private async void MainWindow_Closing[\s\S]*?\n    }/)?.[0];
   assert.ok(closingHandler, 'debe existir el manejador de cierre del App Host');
   assert.match(hostSource, /private bool closeAuthorized;/);
 
+  const shutdownReentryCheck = closingHandler.indexOf('if (shutdownCompleted) return;');
+  const hubCloseCheck = closingHandler.indexOf('if (App.IsInstallerHubInvocation) return;');
   const authorizeCheck = closingHandler.indexOf('if (closeAuthorized) return;');
   const cancelRequest = closingHandler.indexOf('e.Cancel = true;');
   const duplicateRequestCheck = closingHandler.indexOf('if (isStopping) return;');
   const confirm = closingHandler.indexOf('var choice = WpfMessageBox.Show(');
   const cancelChoice = closingHandler.indexOf('if (choice == MessageBoxResult.Cancel) return;');
   const noChoice = closingHandler.indexOf('if (choice == MessageBoxResult.No)');
-  const cleanup = closingHandler.indexOf('if (!await ShutdownServicesAsync())');
-  const authorizeFinalClose = closingHandler.lastIndexOf('closeAuthorized = true;');
-  const finalClose = closingHandler.lastIndexOf('Close();');
+  const cleanup = closingHandler.indexOf('stopped = await ShutdownServicesAsync();');
+  const cleanupFailure = closingHandler.indexOf('if (!stopped)');
+  const finalClose = closingHandler.indexOf('Dispatcher.BeginInvoke(new Action(Close))');
 
+  assert.ok(shutdownReentryCheck >= 0 && shutdownReentryCheck < hubCloseCheck && hubCloseCheck < authorizeCheck,
+    'el cierre repetido y el modo Hub oculto deben terminar sin abrir la confirmación docente');
   assert.ok(authorizeCheck >= 0 && authorizeCheck < cancelRequest,
-    'el único cierre final autorizado debe pasar sin cancelarse');
+    'el cierre final autorizado debe pasar sin cancelarse');
   assert.ok(cancelRequest >= 0 && cancelRequest < duplicateRequestCheck,
     'cada solicitud concurrente debe cancelarse antes de omitir el trabajo duplicado');
   assert.ok(duplicateRequestCheck < confirm && confirm < cancelChoice && cancelChoice < noChoice && noChoice < cleanup,
     'la ventana debe ofrecer cancelar, cerrar sin detener servicios o solicitar la detención');
-  assert.ok(cleanup < authorizeFinalClose && authorizeFinalClose < finalClose,
-    'solo se autoriza el cierre final después de confirmar la detención de los servicios');
-  assert.match(closingHandler, /if \(!await ShutdownServicesAsync\(\)\)[\s\S]*?return;/,
+  assert.ok(cleanup < cleanupFailure && cleanupFailure < finalClose,
+    'el cierre final se difiere al Dispatcher después de limpiar servicios');
+  assert.match(closingHandler, /if \(!stopped\)[\s\S]*?return;/,
     'si la identidad de los servicios no puede verificarse, la ventana debe permanecer abierta');
+  assert.doesNotMatch(closingHandler, /await ShutdownServicesAsync\(\);\s*Close\(\);/);
 });
 
 test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
