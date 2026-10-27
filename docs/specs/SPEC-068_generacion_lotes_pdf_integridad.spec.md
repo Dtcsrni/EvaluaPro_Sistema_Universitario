@@ -1,7 +1,7 @@
 ---
 id: SPEC-068
 titulo: Integridad y recuperación de lotes de exámenes PDF
-version: 1.1.1
+version: 1.2.0
 fecha: 2026-10-06
 autor: Erick Vega / Codex
 modulo: modulo_generacion_pdf
@@ -25,6 +25,9 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 - REQ-009: La descarga de Blob debe conservar los bytes hasta que el navegador haya iniciado la descarga, renovar una sesión 401 cuando sea posible, verificar SHA-256 y no presentar como listo un lote incompleto o alterado.
 - REQ-010: Prueba de interoperabilidad de Edge usa un artefacto sintético de prueba y verifica render/descarga sin alterar ni volver a generar lotes reales. Si Edge difiere, registrar navegador/versión, hash y páginas afectadas antes de clasificarlo como defecto del PDF.
 - REQ-011: El artefacto consolidado admite archivo/restauración atómica por API y GUI con auditoría idempotente. Archivar conserva los exámenes y sus entregas, calificaciones y referencias OMR; restaurar valida archivo, SHA-256 y estructura PDF, y un lote archivado no puede regenerarse con el mismo ID.
+- REQ-012: Al servir correctamente el PDF consolidado o el ZIP de un lote, registrar `descargadoEn` para todos los exámenes incluidos, de modo que el historial refleje los artefactos enviados al navegador y proteja la regeneración accidental.
+- REQ-013: La vista de generación y el historial identifican por separado PDF consolidado y ZIP de individuales; mientras se procesa una descarga muestran progreso solo para el formato activo, evitan solicitudes duplicadas y confirman cuándo EvaluaPro respondió el archivo y solicitó su descarga al navegador. El texto del historial aclara que la cifra cuenta exámenes con descarga registrada y no confirma que el navegador guardó el archivo.
+- REQ-014: La descarga PDF y ZIP conserva el nombre canónico descriptivo del lote (`evaluapro_paquete_examenes_..._lote-<ID>`); el ZIP reutiliza el nombre del PDF del artefacto persistido y cambia únicamente la extensión. No sustituir este nombre por el título breve de la plantilla.
 
 ## Criterios de Aceptación
 
@@ -36,6 +39,9 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 - Un lote con textos largos conserva escala tipográfica uniforme, no invade campos manuscritos ni reserva de engrapado y no degrada el mapa OMR.
 - La etiqueta «GRAPA» es vertical, queda dentro de su reserva con margen, y la zona conserva separación mínima de la quiet zone del fiducial superior izquierdo.
 - Las pruebas del cliente verifican la descarga de bytes, expiración/liberación del Object URL y presentación de errores; la prueba Edge automatizada usa únicamente fixtures de QA, no datos o PDFs reales del usuario.
+- Al descargar PDF consolidado o ZIP, todos los exámenes del lote quedan con fecha de servicio; una respuesta rechazada o un artefacto inválido no marca exámenes como descargados.
+- En generación e historial, PDF y ZIP tienen etiquetas separadas; el formato activo muestra el estado de carga, el otro formato evita doble envío y un mensaje final distingue respuesta servida de guardado local.
+- Las respuestas de descarga PDF y ZIP incluyen en `Content-Disposition` el nombre canónico descriptivo del artefacto, preservando materia, plantilla, cantidad y lote; ambos nombres comparten la misma base.
 
 ## Matriz de Trazabilidad
 
@@ -52,3 +58,6 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 | REQ-009 | Descarga de Blob, SHA-256, liberación diferida y sesión | `apps/frontend/tests/plantillas.hooks.test.tsx` | Parcial: SHA y liberación validados; renovación 401 no cubierta |
 | REQ-010 | Render/descarga Edge con fixture sintético | `tests/gui-responsive/plantillas-pdf-edge.spec.ts` | Validado en Edge headless |
 | REQ-011 | Archivo/restauración de lote, preservación de referencias, idempotencia, auditoría y paridad API/GUI | `apps/backend/tests/integracion/examenesLotesApi.test.ts`; `apps/frontend/tests/plantillasHistorialLotes.archivo.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-examen-lotes-ciclo-vida-sqlite.test.mjs` | Validado en pruebas focales |
+| REQ-012 | Marcar exámenes del lote cuando se sirve PDF consolidado o ZIP | `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` | Validado |
+| REQ-013 | Formatos, estado, feedback y explicación del conteo en generación e historial | `apps/frontend/tests/plantillasHistorialLotes.archivo.test.tsx`; `apps/frontend/tests/plantillas.hooks.test.tsx` | Validado |
+| REQ-014 | Nombre canónico consistente para descarga PDF y ZIP | `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` | Validado |

@@ -501,14 +501,14 @@ export function SeccionPlantillas({
     lotePdfUrl
   });
   const descargarPaquete = useCallback(async (loteId: string) => {
-    const lote = String(loteId || '').trim(); if (!lote || descargandoLoteId === lote) return;
-    setDescargandoLoteId(lote);
+    const lote = String(loteId || '').trim(); if (!lote || descargandoLoteId) return;
+    setDescargandoLoteId(`${lote}:pdf`);
     try { await descargarPdfLotePorId(lote); } finally { setDescargandoLoteId(null); }
   }, [descargandoLoteId, descargarPdfLotePorId]);
   const descargarZipPaquete = useCallback(async (loteId: string) => {
     const lote = String(loteId || '').trim();
-    if (!lote || descargandoLoteId === lote) return;
-    setDescargandoLoteId(lote);
+    if (!lote || descargandoLoteId) return;
+    setDescargandoLoteId(`${lote}:zip`);
     try { await descargarZipLotePorId(lote); } finally { setDescargandoLoteId(null); }
   }, [descargandoLoteId, descargarZipLotePorId]);
   const regenerarPaquete = useCallback(

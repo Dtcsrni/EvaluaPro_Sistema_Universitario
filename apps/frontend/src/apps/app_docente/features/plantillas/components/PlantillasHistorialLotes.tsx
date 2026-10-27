@@ -186,15 +186,20 @@ export function PlantillasHistorialLotes({
                           <div className="item-title">Paquete: {p.loteId}</div>
                           <div className="item-meta">
                             <span className="badge badge-meta">Exámenes: {p.total}</span>
-                            <span className="badge badge-meta">Descargas: {p.descargados}</span>
+                            <span
+                              className="badge badge-meta"
+                              title="Cuenta exámenes incluidos en PDF o ZIP respondidos por EvaluaPro; no confirma que el navegador guardó el archivo."
+                            >
+                              Exámenes con descarga registrada: {p.descargados}/{p.total}
+                            </span>
                             <span className="badge badge-meta">Generado: {formatearFechaHora(p.generadoEn)}</span>
                           </div>
                         </div>
                         <div className="plantillas-item__actions">
-                          <Boton type="button" variante="primario" tamano="sm" cargando={descargandoLoteId === p.loteId} disabled={!puedeDescargarExamenes} onClick={() => void onDescargarZipPaquete(p.loteId)}>
+                          <Boton type="button" variante="primario" tamano="sm" cargando={descargandoLoteId === `${p.loteId}:zip`} disabled={!puedeDescargarExamenes || Boolean(descargandoLoteId && descargandoLoteId !== `${p.loteId}:zip`)} onClick={() => void onDescargarZipPaquete(p.loteId)}>
                             📦 Descargar ZIP de individuales
                           </Boton>
-                          <Boton type="button" variante="secundario" tamano="sm" cargando={descargandoLoteId === p.loteId} disabled={!puedeDescargarExamenes} onClick={() => void onDescargarPaquete(p.loteId)}>
+                          <Boton type="button" variante="secundario" tamano="sm" cargando={descargandoLoteId === `${p.loteId}:pdf`} disabled={!puedeDescargarExamenes || Boolean(descargandoLoteId && descargandoLoteId !== `${p.loteId}:pdf`)} onClick={() => void onDescargarPaquete(p.loteId)}>
                             📄 Descargar PDF consolidado
                           </Boton>
                           <Boton
