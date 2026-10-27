@@ -104,7 +104,7 @@ test.describe('Journey docente integral visual', () => {
     await page.getByLabel('Matrícula').fill(matricula);
     await page.locator('label:has-text("Nombres") >> input').fill(nombreAlumno);
     await page.locator('label:has-text("Apellidos") >> input').fill('E2E');
-    await page.locator('label:has-text("Materia") >> select').first().selectOption({ index: 1 });
+    await page.getByRole('combobox', { name: 'Materia', exact: true }).selectOption({ index: 1 });
     await page.locator('label:has-text("Grupo") >> input').fill('Grupo A');
     await page.getByRole('button', { name: /Crear alumno/i }).click();
     await expect(page.getByText(nombreAlumno, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
@@ -256,7 +256,7 @@ test.describe('Journey docente integral visual', () => {
     await page.getByLabel('Matrícula').fill(matricula);
     await page.locator('label:has-text("Nombres") >> input').fill('Alumno');
     await page.locator('label:has-text("Apellidos") >> input').fill('Integral');
-    await page.locator('label:has-text("Materia") >> select').first().selectOption({ index: 1 });
+    await page.getByRole('combobox', { name: 'Materia', exact: true }).selectOption({ index: 1 });
     await page.locator('label:has-text("Grupo") >> input').fill('Grupo A');
     await page.screenshot({ path: path.join(outputDir, '16_alumno_datos_llenados.png'), fullPage: true });
 
@@ -390,9 +390,19 @@ test.describe('Journey docente integral visual', () => {
     }, { plantillaTitulo: `Plantilla E2E Integral ${sufijo}`, apiPort: docenteApiPort });
 
     // Paso 7: Entrega
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.getByRole('button', { name: 'Entrega', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Entrega', exact: true })).toHaveAttribute('aria-current', 'page', { timeout: 20_000 });
     await expect(page.getByRole('heading', { name: 'Vinculación manual por folio', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect.poll(async () => {
+      const imagen = page.getByRole('img', { name: 'QR para abrir en movil', exact: true });
+      if (await page.getByText(/QR no disponible\. Abre este enlace manualmente/i).isVisible().catch(() => false)) return true;
+      if (await imagen.count() === 0) return false;
+      return imagen.evaluate((element) => {
+        const image = element as HTMLImageElement;
+        return image.complete && image.naturalWidth > 0;
+      });
+    }, { message: 'El QR de Entrega debe decodificarse o mostrar su fallback textual', timeout: 10_000 }).toBe(true);
     await page.screenshot({ path: path.join(outputDir, '33_entrega_seccion.png'), fullPage: true });
 
     await expect(page.getByLabel('Folio impreso del examen', { exact: true })).toBeVisible();

@@ -75,7 +75,7 @@ test.describe('Ciclo de uso directo completo', () => {
     await page.getByLabel('Matrícula').fill(`CUH${Math.floor(100000000 + Math.random() * 900000000)}`);
     await page.locator('label:has-text("Nombres") >> input').fill('Juan');
     await page.locator('label:has-text("Apellidos") >> input').fill('Pérez');
-    await page.locator('label:has-text("Materia") >> select').first().selectOption({ index: 1 });
+    await page.getByRole('combobox', { name: 'Materia', exact: true }).selectOption({ index: 1 });
     await page.locator('label:has-text("Grupo") >> input').fill('Grupo A');
 
     // Screenshot 4: Formulario de creación de alumno

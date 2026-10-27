@@ -41,6 +41,8 @@ describe('QrAccesoMovil', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText(/IP o host del PC para QR/i)).toBeInTheDocument();
+      expect(screen.queryByAltText(/QR para abrir en movil/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/QR no disponible\. Abre este enlace manualmente/i)).toBeInTheDocument();
     });
 
     const inputHost = screen.getByLabelText(/IP o host del PC para QR/i);
