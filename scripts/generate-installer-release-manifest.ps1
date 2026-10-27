@@ -52,7 +52,7 @@ function Test-ArtifactSigned {
       if ($status -eq 'Valid') {
         return $true
       }
-      return ($null -ne $signature.SignerCertificate -and $status -ne 'NotSigned')
+      return $false
     } catch {
       return $false
     }
