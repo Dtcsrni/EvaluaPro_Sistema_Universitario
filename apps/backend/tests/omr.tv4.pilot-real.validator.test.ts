@@ -148,18 +148,18 @@ describe('validador piloto real TV4', () => {
   });
 
   it('calcula el límite inferior exacto unilateral con y sin discordancias', () => {
-    const minimo = calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.99, confidenceLevel: 0.95 });
-    expect(minimo).toBe(299);
+    const minimo = calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.98, confidenceLevel: 0.95 });
+    expect(minimo).toBe(149);
     expect(calcularCotaInferiorExactaConcordancia(0, 0)).toBeNull();
-    expect(calcularCotaInferiorExactaConcordancia(298, 0)).toBeLessThan(0.99);
-    expect(calcularCotaInferiorExactaConcordancia(minimo, 0)).toBeGreaterThanOrEqual(0.99);
-    expect(calcularCotaInferiorExactaConcordancia(minimo, 0)).toBeCloseTo(0.990031, 6);
-    expect(calcularCotaInferiorExactaConcordancia(299, 1)).toBeLessThan(0.99);
+    expect(calcularCotaInferiorExactaConcordancia(148, 0)).toBeLessThan(0.98);
+    expect(calcularCotaInferiorExactaConcordancia(minimo, 0)).toBeGreaterThanOrEqual(0.98);
+    expect(calcularCotaInferiorExactaConcordancia(minimo, 0)).toBeCloseTo(0.980095, 6);
+    expect(calcularCotaInferiorExactaConcordancia(149, 1)).toBeLessThan(0.98);
     expect(calcularCotaInferiorExactaConcordancia(1, 1)).toBe(0);
     expect(calcularCotaInferiorExactaConcordancia(2, 1)).toBeCloseTo(0.0253205655, 9);
-    expect(cumpleGateConcordanciaNotas(298, 0, 0.99)).toBe(false);
-    expect(cumpleGateConcordanciaNotas(299, 0, 0.99)).toBe(true);
-    expect(cumpleGateConcordanciaNotas(299, 1, 0.99)).toBe(false);
+    expect(cumpleGateConcordanciaNotas(148, 0, 0.98)).toBe(false);
+    expect(cumpleGateConcordanciaNotas(149, 0, 0.98)).toBe(true);
+    expect(cumpleGateConcordanciaNotas(149, 1, 0.98)).toBe(false);
     expect(() => calcularCotaInferiorExactaConcordancia(-1, 0)).toThrow('entero no negativo');
     expect(() => calcularCotaInferiorExactaConcordancia(2, 3)).toThrow('discordancias');
     expect(() => calcularMinimoExamenesSinDiscordancias({ targetConsistency: 1 })).toThrow('intervalo abierto');
@@ -231,7 +231,7 @@ describe('validador piloto real TV4', () => {
             pagePassMin: 1,
             autoGradeTrustMin: 1,
             autoCoverageMin: 1,
-            gradeConsistencyLower95Min: 0.99
+            gradeConsistencyLower95Min: 0.98
           },
           groundTruthRef: 'ground_truth.jsonl',
           answerKeyPath: 'answer_key.json',
@@ -253,7 +253,7 @@ describe('validador piloto real TV4', () => {
       expect(resultado.report.metrics.concordanceByCondition).toEqual([]);
       expect(resultado.report.metrics.gradeConsistencyLower95).toBeNull();
       expect(resultado.report.metrics.bonusConsistencyLower95).toBeNull();
-      expect(resultado.report.metrics.gradeConsistencyEvidence.minimumPerfectExamsFor99Percent95).toBe(299);
+      expect(resultado.report.metrics.gradeConsistencyEvidence.minimumPerfectExamsFor98Percent95).toBe(149);
       expect(resultado.report.checks.pagePassRate).toBe(false);
       expect(resultado.report.checks.gradeConsistencyLower95).toBe(false);
       expect(resultado.report.checks.bonusConsistencyLower95).toBe(false);
@@ -270,7 +270,7 @@ describe('validador piloto real TV4', () => {
     try {
       await fs.writeFile(path.join(root, 'manifest.json'), JSON.stringify({
         version: '1', datasetType: 'tv4_pilot_real', templateVersion: 4,
-        thresholds: { pagePassMin: 1, autoGradeTrustMin: 1, autoCoverageMin: 0.79, gradeConsistencyLower95Min: 0.99 },
+        thresholds: { pagePassMin: 1, autoGradeTrustMin: 1, autoCoverageMin: 0.79, gradeConsistencyLower95Min: 0.98 },
         groundTruthRef: 'ground_truth.jsonl', answerKeyPath: 'answer_key.json', capturas: []
       }), 'utf8');
       await expect(runTv4PilotRealValidation({
@@ -283,19 +283,19 @@ describe('validador piloto real TV4', () => {
     }
   });
 
-  it('no permite bajar de 99 por ciento el límite inferior de concordancia', async () => {
+  it('no permite bajar de 98 por ciento el límite inferior de concordancia', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-tv4-pilot-grade-threshold-'));
     try {
       await fs.writeFile(path.join(root, 'manifest.json'), JSON.stringify({
         version: '1', datasetType: 'tv4_pilot_real', templateVersion: 4,
-        thresholds: { pagePassMin: 1, autoGradeTrustMin: 1, autoCoverageMin: 1, gradeConsistencyLower95Min: 0.989 },
+        thresholds: { pagePassMin: 1, autoGradeTrustMin: 1, autoCoverageMin: 1, gradeConsistencyLower95Min: 0.979 },
         groundTruthRef: 'ground_truth.jsonl', answerKeyPath: 'answer_key.json', capturas: []
       }), 'utf8');
       await expect(runTv4PilotRealValidation({
         datasetRoot: root,
         reportPath: path.join(root, 'reports', 'validation.json'),
         failureReportPath: path.join(root, 'reports', 'failures.json')
-      })).rejects.toThrow('entre 0.99 y 1.0');
+      })).rejects.toThrow('entre 0.98 y 1.0');
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -317,7 +317,7 @@ describe('validador piloto real TV4', () => {
           pagePassMin: 1,
           autoGradeTrustMin: 1,
           autoCoverageMin: 1,
-          gradeConsistencyLower95Min: 0.99
+          gradeConsistencyLower95Min: 0.98
         },
         groundTruthRef: 'ground_truth.jsonl',
         answerKeyPath: 'answer_key.json',

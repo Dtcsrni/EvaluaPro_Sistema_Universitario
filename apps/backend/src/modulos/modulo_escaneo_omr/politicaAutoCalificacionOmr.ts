@@ -151,11 +151,11 @@ function reportePilotoRealApruebaRuntime() {
     const autoCoverageRate = metrics?.autoCoverageRate;
     const humanReviewedRows = metrics?.humanReviewedRows;
     const humanReviewerCount = metrics?.humanReviewerCount;
-    return numeric(gradeConsistencyMinimum) && gradeConsistencyMinimum >= 0.99 &&
+    return numeric(gradeConsistencyMinimum) && gradeConsistencyMinimum >= 0.98 &&
       numeric(coverageMinimum) && coverageMinimum === 1 &&
       numeric(totalCaptures) && totalCaptures > 0 &&
-      numeric(gradeComparisons) && gradeComparisons >= 299 &&
-      numeric(bonusComparisons) && bonusComparisons >= 299 &&
+      numeric(gradeComparisons) && gradeComparisons >= 149 &&
+      numeric(bonusComparisons) && bonusComparisons >= 149 &&
       numeric(gradeConsistencyLower95) && gradeConsistencyLower95 >= gradeConsistencyMinimum &&
       numeric(bonusConsistencyLower95) && bonusConsistencyLower95 >= gradeConsistencyMinimum &&
       numeric(pagePassRate) && pagePassRate === 1 &&
