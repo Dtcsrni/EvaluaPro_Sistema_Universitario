@@ -5,12 +5,36 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { AppDocente } from '../src/apps/app_docente/AppDocente';
 import { ConfirmDialogProvider } from '../src/ui/feedback/ConfirmDialogProvider';
 import { TemaProvider } from '../src/tema/TemaProvider';
 
 describe('AppDocente secciones (refactor)', () => {
+  it('ofrece una navegación móvil completa y sincroniza la sección elegida', async () => {
+    localStorage.setItem('tokenDocente', 'token-falso');
+    const user = userEvent.setup();
+    render(
+      <TemaProvider>
+        <ConfirmDialogProvider>
+          <AppDocente />
+        </ConfirmDialogProvider>
+      </TemaProvider>
+    );
+
+    const nav = await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
+    const selector = within(nav).getByLabelText('Ir a sección');
+    const opciones = Array.from(selector.querySelectorAll('option')).map((opcion) => opcion.textContent);
+    expect(opciones).toEqual(expect.arrayContaining(['Materias', 'Calificaciones', 'Cuenta']));
+    expect(selector).toHaveValue('periodos');
+
+    await user.selectOptions(selector, 'cuenta');
+
+    expect(await screen.findByRole('heading', { name: /Cuenta/i }, { timeout: 5000 })).toBeInTheDocument();
+    expect(selector).toHaveValue('cuenta');
+  });
+
   it('muestra tabs principales con token', async () => {
     localStorage.setItem('tokenDocente', 'token-falso');
     // La pestaña interna se conserva durante la sesión real, pero cada caso

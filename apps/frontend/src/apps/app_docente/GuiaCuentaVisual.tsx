@@ -4,12 +4,13 @@
  * Responsabilidad: Guía interactiva Bento Step Cards para Centro de Cuenta y Licenciamiento.
  */
 import { useState } from 'react';
+import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 
 export function GuiaCuentaVisual() {
   const [visible, setVisible] = useState(() => {
     try {
-      return localStorage.getItem('ep.guia.cuenta.oculta') !== 'true';
+      return localStorage.getItem('ep.guia.cuenta.oculta') === 'false';
     } catch {
       return true;
     }
@@ -34,9 +35,11 @@ export function GuiaCuentaVisual() {
           variante="secundario"
           type="button"
           onClick={toggleGuia}
+          aria-expanded={visible}
           data-tooltip="Ver explicación visual de tu cuenta docente y licencias"
         >
-          💡 Ver guía rápida de cuenta y seguridad
+          <Icono nombre="info" size={16} />
+          Ver guía rápida de cuenta y seguridad
         </Boton>
       </div>
     );
@@ -55,6 +58,7 @@ export function GuiaCuentaVisual() {
           onClick={toggleGuia}
           title="Ocultar guía"
           aria-label="Ocultar guía rápida"
+          aria-expanded={visible}
         >
           ✕ Ocultar guía
         </button>

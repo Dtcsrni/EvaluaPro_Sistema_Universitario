@@ -65,8 +65,8 @@ describe('SeccionPeriodos portada', () => {
     renderSeccion({ enviarConPermiso });
     fireEvent.click(screen.getByRole('button', { name: /Mostrar formulario/i }));
     fireEvent.change(screen.getByLabelText('Nombre de la materia'), { target: { value: 'Materia de prueba' } });
-    fireEvent.change(screen.getByLabelText('Fecha inicio'), { target: { value: '2026-09-28' } });
-    fireEvent.change(screen.getByLabelText('Fecha fin'), { target: { value: '2026-11-06' } });
+    fireEvent.change(screen.getByLabelText('Fecha de inicio'), { target: { value: '2026-09-28' } });
+    fireEvent.change(screen.getByLabelText('Fecha de término'), { target: { value: '2026-11-06' } });
     const file = new File(['imagen'], 'portada.webp', { type: 'image/webp' });
     fireEvent.change(screen.getByLabelText('Seleccionar portada para la nueva materia'), { target: { files: [file] } });
     expect(screen.getByAltText('Vista previa de la portada seleccionada')).toBeInTheDocument();
@@ -84,8 +84,8 @@ describe('SeccionPeriodos portada', () => {
     renderSeccion({ enviarConPermiso });
     fireEvent.click(screen.getByRole('button', { name: /Mostrar formulario/i }));
     fireEvent.change(screen.getByLabelText('Nombre de la materia'), { target: { value: 'Materia de prueba' } });
-    fireEvent.change(screen.getByLabelText('Fecha inicio'), { target: { value: '2026-09-28' } });
-    fireEvent.change(screen.getByLabelText('Fecha fin'), { target: { value: '2026-11-06' } });
+    fireEvent.change(screen.getByLabelText('Fecha de inicio'), { target: { value: '2026-09-28' } });
+    fireEvent.change(screen.getByLabelText('Fecha de término'), { target: { value: '2026-11-06' } });
     fireEvent.change(screen.getByLabelText('Seleccionar portada para la nueva materia'), {
       target: { files: [new File(['imagen'], 'portada.webp', { type: 'image/webp' })] }
     });
@@ -106,7 +106,7 @@ describe('SeccionPeriodos portada', () => {
     await waitFor(() => expect(tarjeta.querySelector('.materia-avatar__imagen')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: /Mostrar acciones/i }));
-    fireEvent.change(screen.getByLabelText('Seleccionar imagen de portada para Materia con portada (ID: eriodo-1)'), {
+    fireEvent.change(screen.getByLabelText('Seleccionar imagen de portada para Materia con portada'), {
       target: { files: [new File(['imagen'], 'nueva.png', { type: 'image/png' })] }
     });
     expect(screen.getByAltText('Vista previa de la portada seleccionada')).toBeInTheDocument();

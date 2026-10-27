@@ -66,10 +66,14 @@ function App() {
         cache: 'no-store'
       });
       if (!respuesta.ok) return false;
-      const payload = await respuesta.json() as {
-        capacidadesIntegraciones?: { googleOauthClientId?: string };
-      };
-      const clientId = String(payload?.capacidadesIntegraciones?.googleOauthClientId || '').trim();
+      let payload: { capacidadesIntegraciones?: { oauthGoogleBackend?: boolean; googleOauthClientId?: string } };
+      try {
+        payload = await respuesta.json() as typeof payload;
+      } catch {
+        return false;
+      }
+      const capacidades = payload?.capacidadesIntegraciones;
+      const clientId = String(capacidades?.googleOauthClientId || '').trim();
       if (!clientId) return false;
       setGoogleClientId(clientId);
       return true;

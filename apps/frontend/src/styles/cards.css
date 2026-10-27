@@ -7092,6 +7092,10 @@ html[data-theme="dark"] body .empty-step__num {
     text-align: left;
   }
 
+  .calificaciones-consulta__table tbody td[colspan] {
+    grid-column: 1 / -1;
+  }
+
   .calificaciones-consulta__table tbody td::before {
     content: attr(data-label);
     color: var(--ui-ink-muted, var(--text-secondary));

@@ -32,6 +32,11 @@ function esDataUrlImagen(valor: string) {
   return /^data:image\//i.test(String(valor || '').trim());
 }
 
+function anchoBotonGoogleCuenta() {
+  if (typeof document === 'undefined') return 228;
+  return Math.max(120, Math.min(228, document.documentElement.clientWidth - 128));
+}
+
 export function SeccionCuenta({
   docente,
   onDocenteActualizado,
@@ -41,6 +46,8 @@ export function SeccionCuenta({
   smtpDisponible,
   requireGoogleOAuth,
   estadoLease,
+  errorConsultaLease,
+  onReintentarConsultaLease,
   onConfigurarCarpeta
 }: {
   docente: Docente;
@@ -52,6 +59,8 @@ export function SeccionCuenta({
   smtpDisponible?: boolean;
   requireGoogleOAuth?: boolean;
   estadoLease: EstadoLeaseUI | null;
+  errorConsultaLease?: boolean;
+  onReintentarConsultaLease?: () => Promise<boolean>;
   onConfigurarCarpeta: (directorio: string) => Promise<EstadoLeaseUI>;
 }) {
   const [contrasenaNueva, setContrasenaNueva] = useState('');
@@ -64,6 +73,13 @@ export function SeccionCuenta({
   const [fotoLocalFallida, setFotoLocalFallida] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [regenerandoAccesos, setRegenerandoAccesos] = useState(false);
+  const [anchoGoogle, setAnchoGoogle] = useState(anchoBotonGoogleCuenta);
+
+  useEffect(() => {
+    const actualizarAnchoGoogle = () => setAnchoGoogle(anchoBotonGoogleCuenta());
+    window.addEventListener('resize', actualizarAnchoGoogle);
+    return () => window.removeEventListener('resize', actualizarAnchoGoogle);
+  }, []);
 
   const [institucionPdf, setInstitucionPdf] = useState(docente.preferenciasPdf?.institucion ?? '');
   const [lemaPdf, setLemaPdf] = useState(docente.preferenciasPdf?.lema ?? '');
@@ -171,15 +187,15 @@ export function SeccionCuenta({
       if (credentialReauth) cuerpo.credential = credentialReauth;
 
       await clienteApi.enviar('/autenticacion/definir-contrasena', cuerpo);
-      setMensaje('Contrasena actualizada');
-      emitToast({ level: 'ok', title: 'Cuenta', message: 'Contrasena actualizada', durationMs: 2400 });
+      setMensaje('Contraseña actualizada.');
+      emitToast({ level: 'ok', title: 'Cuenta', message: 'Contraseña actualizada.', durationMs: 2400 });
       registrarAccionDocente('definir_contrasena', true, Date.now() - inicio);
       setContrasenaNueva('');
       setContrasenaNueva2('');
       setContrasenaActual('');
       setCredentialReauth(null);
     } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo actualizar la contrasena');
+      const msg = mensajeDeError(error, 'No se pudo actualizar la contraseña.');
       setMensaje(msg);
       emitToast({
         level: 'error',
@@ -475,7 +491,7 @@ export function SeccionCuenta({
           <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Estado de vinculación con Google">
             <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10" /></svg></span>
             <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${docente.tieneGoogle ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--slate"}`}>
-              {docente.tieneGoogle ? 'Vinculado' : 'Manual'}
+              {docente.tieneGoogle ? 'Vinculado' : 'Sin vínculo'}
             </span>
             <span className="banco-mini-kpi__lbl">Google</span>
           </div>
@@ -483,7 +499,7 @@ export function SeccionCuenta({
           <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Seguridad de contraseña local">
             <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /></svg></span>
             <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${docente.tieneContrasena ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--amber"}`}>
-              {docente.tieneContrasena ? 'Definida' : 'Sin clave'}
+              {docente.tieneContrasena ? 'Definida' : 'No definida'}
             </span>
             <span className="banco-mini-kpi__lbl">Contraseña</span>
           </div>
@@ -491,12 +507,12 @@ export function SeccionCuenta({
           <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Encabezado institucional configurado">
             <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /></svg></span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--sm banco-mini-kpi__num--sky">
-              {institucionPdf.trim() ? 'Activo' : 'Default'}
+              {institucionPdf.trim() ? 'Personalizado' : 'Predeterminado'}
             </span>
-            <span className="banco-mini-kpi__lbl">PDF Header</span>
+            <span className="banco-mini-kpi__lbl">Membrete PDF</span>
           </div>
 
-          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Servicio de correo SMTP">
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Servicio de correo saliente para notificaciones (SMTP)">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
@@ -506,7 +522,7 @@ export function SeccionCuenta({
             <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${smtpDisponible ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--slate"}`}>
               {smtpDisponible ? 'Disponible' : 'No configurado'}
             </span>
-            <span className="banco-mini-kpi__lbl">SMTP</span>
+            <span className="banco-mini-kpi__lbl">Correo</span>
           </div>
         </div>
       </div>
@@ -556,6 +572,8 @@ export function SeccionCuenta({
       {/* 3. Configuracion de sincronizacion */}
       <SeccionConfiguracionSincronizacion
         estado={estadoLease}
+        errorConsulta={errorConsultaLease}
+        onReintentarConsulta={onReintentarConsultaLease}
         onConfigurar={onConfigurarCarpeta}
       />
 
@@ -565,12 +583,12 @@ export function SeccionCuenta({
           <div className="banco-section-title__wrap">
             <span className="banco-section-pill">
               <span className="banco-section-pill__dot" aria-hidden="true" />
-              <span>Seguridad & Credenciales</span>
+              <span>Seguridad y credenciales</span>
             </span>
             <h3 className="entregas-title-heading">
               <Icono nombre="ok" /> Seguridad de acceso
             </h3>
-            <p className="nota">Gestiona tu contraseña local y la sincronización de credenciales con Google OAuth.</p>
+            <p className="nota">Gestiona tu contraseña local y las cuentas vinculadas para acceder a EvaluaPro.</p>
           </div>
           <div className="banco-section-side-meta">
             <span className={docente.tieneGoogle ? 'banco-counter-tag banco-counter-tag--emerald' : 'banco-counter-tag'}>
@@ -584,28 +602,29 @@ export function SeccionCuenta({
 
         {googleOnly && (
           <InlineMensaje tipo="info">
-            Modo Google-only activo: la contraseña local está deshabilitada mientras `REQUIRE_GOOGLE_OAUTH=1`.
+            El acceso está configurado solo con Google; no puedes establecer una contraseña local en esta instalación.
           </InlineMensaje>
         )}
 
         {Boolean(!googleOnly && docente.tieneGoogle && googleDisponible) && (
           <div className="auth-google auth-google--mb">
-            <p className="nota">Reautenticacion con Google (recomendado).</p>
+            <p className="nota">Vuelve a autenticarte con Google para confirmar el cambio de contraseña.</p>
             <GoogleLogin
+              width={anchoGoogle}
               onSuccess={(cred) => {
                 const credencialGoogle = cred.credential;
                 if (!credencialGoogle) {
-                  setMensaje('No se recibio credencial de Google.');
+                  setMensaje('No se recibió la credencial de Google.');
                   return;
                 }
                 setCredentialReauth(credencialGoogle);
-                setMensaje('Reautenticacion con Google lista.');
+                setMensaje('Reautenticación con Google lista.');
               }}
               onError={() => setMensaje('No se pudo reautenticar con Google.')}
             />
             <div className="acciones acciones--mt">
               <button type="button" className="chip" disabled={!credentialReauth} onClick={() => setCredentialReauth(null)}>
-                Limpiar reauth
+                Limpiar verificación
               </button>
             </div>
           </div>
@@ -615,7 +634,7 @@ export function SeccionCuenta({
           <div className="cuenta-seguridad__form">
             {docente.tieneContrasena && (
               <label className="campo">
-                <span>Contrasena actual</span>
+                <span>Contraseña actual</span>
                 <input
                   type="password"
                   value={contrasenaActual}
@@ -626,18 +645,18 @@ export function SeccionCuenta({
             )}
 
             <label className="campo">
-              <span>Nueva contrasena</span>
+              <span>Nueva contraseña</span>
               <input
                 type="password"
                 value={contrasenaNueva}
                 onChange={(event) => setContrasenaNueva(event.target.value)}
                 autoComplete="new-password"
               />
-              <span className="ayuda">Minimo 8 caracteres.</span>
+              <span className="ayuda">Usa al menos 8 caracteres.</span>
             </label>
 
             <label className="campo">
-              <span>Confirmar contrasena</span>
+              <span>Confirmar contraseña</span>
               {contrasenaNueva2 && !coincide ? (
                 <input
                   type="password"
@@ -654,7 +673,7 @@ export function SeccionCuenta({
                   autoComplete="new-password"
                 />
               )}
-              {contrasenaNueva2 && !coincide && <span className="ayuda error">Las contrasenas no coinciden.</span>}
+              {contrasenaNueva2 && !coincide && <span className="ayuda error">Las contraseñas no coinciden. Revísalas.</span>}
             </label>
           </div>
         )}
@@ -662,7 +681,7 @@ export function SeccionCuenta({
         {!googleOnly && (
           <div className="acciones acciones--mt">
             <Boton type="button" icono={<Icono nombre="ok" />} cargando={guardando} disabled={!puedeGuardar} onClick={guardar}>
-              {guardando ? 'Guardando…' : 'Guardar contrasena'}
+              {guardando ? 'Guardando…' : 'Guardar contraseña'}
             </Boton>
           </div>
         )}
@@ -796,16 +815,16 @@ export function SeccionCuenta({
         </div>
       </div>
 
-      {/* 5. Actualizaciones del Sistema & Hub */}
+      {/* 5. Actualizaciones de EvaluaPro e Installer Hub */}
       <div className="cuenta-subpanel cuenta-actualizaciones anim-fade-in">
         <div className="banco-section-title">
           <div className="banco-section-title__wrap">
             <span className="banco-section-pill banco-section-pill--sky">
               <span className="banco-section-pill__dot" aria-hidden="true" />
-              <span>Mantenimiento & Ciclo de Vida</span>
+              <span>Mantenimiento y actualizaciones</span>
             </span>
             <h3 className="entregas-title-heading">
-              <Icono nombre="recargar" /> Actualizaciones del Sistema & Installer Hub
+              <Icono nombre="recargar" /> Actualizaciones de EvaluaPro e Installer Hub
             </h3>
             <p className="nota">
               Consulta versiones disponibles, descarga el paquete oficial y actualiza con validación criptográfica SHA-256 y respaldo automático de tu base de datos.
@@ -842,7 +861,7 @@ export function SeccionCuenta({
                 <div className="cuenta-actualizaciones__banner">
                   <div>
                     <strong className="texto-base">
-                      🚀 {resultadoActualizacion.mensaje}
+                      {resultadoActualizacion.mensaje}
                     </strong>
                     <div className="nota">
                       Instalador firmado con verificación criptográfica SHA-256 e integración directa con el Installer Hub.
@@ -884,12 +903,12 @@ export function SeccionCuenta({
           <Boton
             type="button"
             variante="primario"
-            icono={<Icono nombre="recargar" />}
+            icono={<Icono nombre="buscar" />}
             cargando={buscandoActualizaciones}
             disabled={buscandoActualizaciones}
             onClick={verificarActualizaciones}
           >
-            {buscandoActualizaciones ? 'Consultando releases...' : '🔍 Buscar actualizaciones ahora'}
+            {buscandoActualizaciones ? 'Consultando releases...' : 'Buscar actualizaciones ahora'}
           </Boton>
         </div>
       </div>

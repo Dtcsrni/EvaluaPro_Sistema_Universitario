@@ -135,7 +135,7 @@ describe('ClassroomEnCalificaciones', () => {
 
     const destino = screen.getByLabelText('Materia local destino');
     expect(destino).toHaveValue('per-1');
-    expect(within(destino).getByRole('option', { name: 'Inteligencia de Negocios (ID: per-2) (Archivada)' })).toBeInTheDocument();
+    expect(within(destino).getByRole('option', { name: 'Inteligencia de Negocios · Archivada' })).toBeInTheDocument();
     fireEvent.change(destino, { target: { value: 'per-2' } });
     expect(onPeriodoChange).toHaveBeenCalledWith('per-2');
   });

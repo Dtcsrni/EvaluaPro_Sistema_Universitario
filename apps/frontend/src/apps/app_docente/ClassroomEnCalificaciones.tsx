@@ -4,7 +4,7 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { clienteApi } from './clienteApiDocente';
-import { etiquetaMateria, mensajeDeError } from './utilidades';
+import { etiquetaMateriaParaSelector, mensajeDeError } from './utilidades';
 import type { Alumno, Periodo, PermisosUI } from './tipos';
 
 type CursoClassroom = { id: string; name: string; section?: string; courseState?: string };
@@ -608,7 +608,7 @@ export function ClassroomEnCalificaciones({
           <p className="nota">Relaciona cuentas del curso con alumnos existentes en la materia. Esta vinculación no crea alumnos ni cambia calificaciones.</p>
           <label className="campo"><span>Materia local destino</span><select value={periodoId} onChange={(event) => onPeriodoChange(event.target.value)}>
             <option value="">Selecciona materia...</option>{periodos.map((periodo) => <option key={periodo._id} value={periodo._id}>
-              {etiquetaMateria(periodo)}{periodo.activo === false ? ' (Archivada)' : ''}
+              {etiquetaMateriaParaSelector(periodo)}{periodo.activo === false ? ' · Archivada' : ''}
             </option>)}
           </select></label>
           <label className="campo"><span>Curso de Classroom</span><select value={courseId} disabled={cargandoCursos} onChange={(event) => setCourseId(event.target.value)}>

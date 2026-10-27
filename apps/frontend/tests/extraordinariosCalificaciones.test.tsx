@@ -43,8 +43,8 @@ describe('ExtraordinariosCalificaciones', () => {
     expect(screen.getByText('5.99')).toBeInTheDocument();
     expect(screen.getAllByText('6.00').length).toBeGreaterThan(0);
     expect(screen.getByText('Resultado externo · folio FOLIO-1')).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'Seleccionar para generar Extra: Pérez Ana' })).not.toBeChecked();
-    expect(screen.queryByRole('checkbox', { name: 'Seleccionar para generar Extra: Soto Luis' })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Seleccionar para generar examen extraordinario: Pérez Ana' })).not.toBeChecked();
+    expect(screen.queryByRole('checkbox', { name: 'Seleccionar para generar examen extraordinario: Soto Luis' })).not.toBeInTheDocument();
     await waitFor(() => expect(obtenerMock).toHaveBeenCalledWith('/examenes/plantillas?periodoId=p-1&archivado=true'));
   });
 
@@ -140,13 +140,13 @@ describe('ExtraordinariosCalificaciones', () => {
     const clickDescarga = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     render(<ExtraordinariosCalificaciones periodos={[{ _id: 'p-1', nombre: 'Materia' }]} periodoId="p-1" onPeriodoChange={vi.fn()} puedeCalificar puedeGenerar onAbrirRevision={vi.fn()} />);
 
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar para generar Extra: Pérez Ana' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar para generar examen extraordinario: Pérez Ana' }));
     fireEvent.change(screen.getByLabelText('Plantilla de examen'), { target: { value: 'tpl-1' } });
     tokenMock.mockReturnValue('token-docente');
     fireEvent.click(screen.getByRole('button', { name: 'Revisar vista previa' }));
     expect(await screen.findByText(/Vista previa validada · 2 páginas/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Revisé el diseño y las páginas de la vista previa' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Generar lote Extra' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generar exámenes extraordinarios' }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/examenes/generados/lote', expect.objectContaining({ plantillaId: 'tpl-1', tipoExamen: 'extraordinario', alumnoIds: ['a-1'], loteId: '12345678' })));
     expect(await screen.findByText(/Lote L-EXTRA-1 · 1 exámenes · 2 páginas/)).toBeInTheDocument();
     expect(localStorage.getItem('evaluapro.plantillas.lote-pendiente.v1:tpl-1:extraordinario:a-1')).toBe('12345678');
@@ -171,7 +171,7 @@ describe('ExtraordinariosCalificaciones', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ paginas: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AA==' }] }) })));
     render(<ExtraordinariosCalificaciones periodos={[{ _id: 'p-1', nombre: 'Materia' }]} periodoId="p-1" onPeriodoChange={vi.fn()} puedeCalificar puedeGenerar onAbrirRevision={vi.fn()} />);
 
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar para generar Extra: Pérez Ana' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar para generar examen extraordinario: Pérez Ana' }));
     fireEvent.change(screen.getByLabelText('Plantilla de examen'), { target: { value: 'tpl-1' } });
     tokenMock.mockReturnValueOnce(null);
     fireEvent.click(screen.getByRole('button', { name: 'Revisar vista previa' }));
@@ -179,7 +179,7 @@ describe('ExtraordinariosCalificaciones', () => {
     tokenMock.mockReturnValue('token-docente');
     fireEvent.click(screen.getByRole('button', { name: 'Revisar vista previa' }));
     expect(await screen.findByText('El diseño de la plantilla aún no está confirmado; revisa la plantilla antes de generar.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Generar lote Extra' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Generar exámenes extraordinarios' })).toBeDisabled();
     expect(enviarMock).not.toHaveBeenCalled();
   });
 

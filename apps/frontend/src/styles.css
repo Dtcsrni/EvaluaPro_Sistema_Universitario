@@ -4335,7 +4335,7 @@ p {
   left: 50%;
   top: 0;
   width: var(--tooltip-w, 220px);
-  pointer-events: none;
+  pointer-events: auto;
   z-index: 9999;
   transform: translate(-50%, calc(-100% - 12px));
   display: grid;
