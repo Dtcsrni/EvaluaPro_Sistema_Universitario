@@ -571,7 +571,11 @@ test.describe('GUI responsive e2e · docente', () => {
       ];
 
       for (const tab of tabs) {
-        await nav.getByRole('button', { name: tab.label }).click();
+        if (viewport.name === 'mobile') {
+          await nav.locator('#navegacion-docente-movil').selectOption(tab.slug);
+        } else {
+          await nav.getByRole('button', { name: tab.label }).click();
+        }
         const activeTab = nav.getByRole('button', { name: tab.label });
         await expect(activeTab).toHaveAttribute('aria-current', 'page');
         if (tab.slug === 'plantillas') {
