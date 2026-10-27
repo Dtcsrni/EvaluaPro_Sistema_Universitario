@@ -211,6 +211,24 @@ function Test-AlreadySignedValid {
   }
 }
 
+function Assert-ReleaseArtifactTrusted {
+  param([Parameter(Mandatory = $true)][string]$TargetPath)
+
+  if ([string]::IsNullOrWhiteSpace($releaseFlavorId)) { return }
+
+  try {
+    $signature = Get-AuthenticodeSignature -FilePath $TargetPath -ErrorAction Stop
+  } catch {
+    throw "No se pudo validar la firma Authenticode del artefacto de release '$TargetPath': $($_.Exception.Message)"
+  }
+
+  if ([string]$signature.Status -ne 'Valid') {
+    $status = [string]$signature.Status
+    $message = [string]$signature.StatusMessage
+    throw "El artefacto de release '$TargetPath' no tiene una cadena Authenticode confiable en Windows (Status=$status). $message"
+  }
+}
+
 function Test-IsBurnBundle {
   param([Parameter(Mandatory = $true)][string]$TargetPath)
 
@@ -310,6 +328,7 @@ try {
   foreach ($target in $targets) {
     if (Test-AlreadySignedValid -TargetPath $target) {
       Write-Host "[signing] Ya firmado y valido; se omite $target"
+      Assert-ReleaseArtifactTrusted -TargetPath $target
       continue
     }
 
@@ -319,6 +338,7 @@ try {
     } else {
       Invoke-SignTool -TargetPath $target -PfxPath $pfxPath -PfxPassword $certPassword -Thumbprint $certThumbprint -TimestampUrl $timestampUrl
     }
+    Assert-ReleaseArtifactTrusted -TargetPath $target
   }
 
   if (Test-Path $markerPath) {
