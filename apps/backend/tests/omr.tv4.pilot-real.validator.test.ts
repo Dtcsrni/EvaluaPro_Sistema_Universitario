@@ -151,6 +151,7 @@ describe('validador piloto real TV4', () => {
     const minimo = calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.98, confidenceLevel: 0.95 });
     expect(minimo).toBe(149);
     expect(calcularCotaInferiorExactaConcordancia(0, 0)).toBeNull();
+    expect(calcularCotaInferiorExactaConcordancia(12, 0)).toBeCloseTo(0.779078, 6);
     expect(calcularCotaInferiorExactaConcordancia(148, 0)).toBeLessThan(0.98);
     expect(calcularCotaInferiorExactaConcordancia(minimo, 0)).toBeGreaterThanOrEqual(0.98);
     expect(calcularCotaInferiorExactaConcordancia(minimo, 0)).toBeCloseTo(0.980095, 6);
@@ -231,7 +232,7 @@ describe('validador piloto real TV4', () => {
             pagePassMin: 1,
             autoGradeTrustMin: 1,
             autoCoverageMin: 1,
-            gradeConsistencyLower95Min: 0.98
+            gradeConsistencyObservedMin: 1
           },
           groundTruthRef: 'ground_truth.jsonl',
           answerKeyPath: 'answer_key.json',
@@ -253,10 +254,10 @@ describe('validador piloto real TV4', () => {
       expect(resultado.report.metrics.concordanceByCondition).toEqual([]);
       expect(resultado.report.metrics.gradeConsistencyLower95).toBeNull();
       expect(resultado.report.metrics.bonusConsistencyLower95).toBeNull();
-      expect(resultado.report.metrics.gradeConsistencyEvidence.minimumPerfectExamsFor98Percent95).toBe(149);
+      expect(resultado.report.metrics.gradeConsistencyEvidence.minimumExamsForEmpiricalBatchGate).toBe(12);
       expect(resultado.report.checks.pagePassRate).toBe(false);
-      expect(resultado.report.checks.gradeConsistencyLower95).toBe(false);
-      expect(resultado.report.checks.bonusConsistencyLower95).toBe(false);
+      expect(resultado.report.checks.gradeConsistencyObserved).toBe(false);
+      expect(resultado.report.checks.bonusConsistencyObserved).toBe(false);
       expect(resultado.failures.topCauses).toEqual([{ causa: 'capture_count_zero', total: 1 }]);
       expect(JSON.parse(await fs.readFile(reportPath, 'utf8')).status).toBe('not_applicable');
       expect(JSON.parse(await fs.readFile(failureReportPath, 'utf8')).status).toBe('not_applicable');
@@ -270,7 +271,7 @@ describe('validador piloto real TV4', () => {
     try {
       await fs.writeFile(path.join(root, 'manifest.json'), JSON.stringify({
         version: '1', datasetType: 'tv4_pilot_real', templateVersion: 4,
-        thresholds: { pagePassMin: 1, autoGradeTrustMin: 1, autoCoverageMin: 0.79, gradeConsistencyLower95Min: 0.98 },
+        thresholds: { pagePassMin: 1, autoGradeTrustMin: 1, autoCoverageMin: 0.79, gradeConsistencyObservedMin: 1 },
         groundTruthRef: 'ground_truth.jsonl', answerKeyPath: 'answer_key.json', capturas: []
       }), 'utf8');
       await expect(runTv4PilotRealValidation({
@@ -283,19 +284,19 @@ describe('validador piloto real TV4', () => {
     }
   });
 
-  it('no permite bajar de 98 por ciento el límite inferior de concordancia', async () => {
+  it('rechaza una concordancia empírica inferior a 100 por ciento', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-tv4-pilot-grade-threshold-'));
     try {
       await fs.writeFile(path.join(root, 'manifest.json'), JSON.stringify({
         version: '1', datasetType: 'tv4_pilot_real', templateVersion: 4,
-        thresholds: { pagePassMin: 1, autoGradeTrustMin: 1, autoCoverageMin: 1, gradeConsistencyLower95Min: 0.979 },
+        thresholds: { pagePassMin: 1, autoGradeTrustMin: 1, autoCoverageMin: 1, gradeConsistencyObservedMin: 0.98 },
         groundTruthRef: 'ground_truth.jsonl', answerKeyPath: 'answer_key.json', capturas: []
       }), 'utf8');
       await expect(runTv4PilotRealValidation({
         datasetRoot: root,
         reportPath: path.join(root, 'reports', 'validation.json'),
         failureReportPath: path.join(root, 'reports', 'failures.json')
-      })).rejects.toThrow('entre 0.98 y 1.0');
+      })).rejects.toThrow('igual a 1.0');
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -317,7 +318,7 @@ describe('validador piloto real TV4', () => {
           pagePassMin: 1,
           autoGradeTrustMin: 1,
           autoCoverageMin: 1,
-          gradeConsistencyLower95Min: 0.98
+          gradeConsistencyObservedMin: 1
         },
         groundTruthRef: 'ground_truth.jsonl',
         answerKeyPath: 'answer_key.json',

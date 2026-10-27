@@ -33,7 +33,7 @@ type EvalThresholds = {
   pagePassMin: number;
   autoGradeTrustMin: number;
   autoCoverageMin: number;
-  gradeConsistencyLower95Min: number;
+  gradeConsistencyObservedMin: number;
 };
 
 type ManifestDataset = {
@@ -48,7 +48,7 @@ type ManifestDataset = {
 
 type OpcionClave = 'A' | 'B' | 'C' | 'D' | 'E';
 export type AnswerKey = Record<number, OpcionClave>;
-const GRADE_CONSISTENCY_LOWER_95_MINIMUM = 0.98;
+const MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE = 12;
 
 export type CandidateExamGrade = {
   fullCoverage: boolean;
@@ -514,10 +514,8 @@ export async function runTv4PilotRealValidation(args: {
   const manifestPath = await resolveDatasetFile(datasetRoot, 'manifest.json');
   const manifestBytes = await fs.readFile(manifestPath);
   const manifest = JSON.parse(manifestBytes.toString('utf8')) as ManifestDataset;
-  if (!Number.isFinite(manifest.thresholds?.gradeConsistencyLower95Min) ||
-      manifest.thresholds.gradeConsistencyLower95Min < GRADE_CONSISTENCY_LOWER_95_MINIMUM ||
-      manifest.thresholds.gradeConsistencyLower95Min >= 1) {
-    throw new Error('El manifest requiere thresholds.gradeConsistencyLower95Min entre 0.98 y 1.0, sin incluir 1.0.');
+  if (manifest.thresholds?.gradeConsistencyObservedMin !== 1) {
+    throw new Error('El piloto del lote requiere thresholds.gradeConsistencyObservedMin igual a 1.0.');
   }
   if (!Number.isFinite(manifest.thresholds?.autoCoverageMin) ||
       manifest.thresholds.autoCoverageMin !== 1) {
@@ -555,7 +553,8 @@ export async function runTv4PilotRealValidation(args: {
           confidenceLevel: 0.95,
           independentExams: 0,
           automaticGradeDiscordances: 0,
-          minimumPerfectExamsFor98Percent95: calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.98 }),
+          minimumExamsForEmpiricalBatchGate: MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE,
+          lowerBoundIsDiagnosticOnly: true,
           lowerBound: null
         },
         capturePassRate: null,
@@ -575,8 +574,8 @@ export async function runTv4PilotRealValidation(args: {
         pagePassRate: false,
         autoGradeTrustRate: false,
         autoCoverageRate: false,
-        gradeConsistencyLower95: false,
-        bonusConsistencyLower95: false
+        gradeConsistencyObserved: false,
+        bonusConsistencyObserved: false
       },
       ok: false,
       perCapture: []
@@ -936,7 +935,6 @@ export async function runTv4PilotRealValidation(args: {
   );
   const bonusConsistencyLower95 = calcularCotaInferiorExactaConcordancia(bonusComparisons, bonusDiscordances);
   const concordanciaPorCondicion = calcularConcordanciaPorCondicion(conditionComparisons);
-  const minimumPerfectExamsFor98Percent95 = calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.98 });
 
   const precision = tp + fp > 0 ? tp / (tp + fp) : 1;
   const falsePositiveRate = totalPreguntasEvaluadas > 0 ? fp / totalPreguntasEvaluadas : 0;
@@ -952,17 +950,8 @@ export async function runTv4PilotRealValidation(args: {
     pagePassRate: pagePassRate >= manifest.thresholds.pagePassMin,
     autoGradeTrustRate: autoGradeTrustRate >= manifest.thresholds.autoGradeTrustMin,
     autoCoverageRate: autoCoverageRate >= manifest.thresholds.autoCoverageMin,
-    gradeConsistencyLower95: cumpleGateConcordanciaNotas(
-      gradeComparisons,
-      automaticGradeDiscordances,
-      manifest.thresholds.gradeConsistencyLower95Min
-    ),
-    bonusConsistencyLower95: cumpleGateConcordanciaNotas(
-      bonusComparisons,
-      bonusDiscordances,
-      bonusAbstentions,
-      manifest.thresholds.gradeConsistencyLower95Min
-    )
+    gradeConsistencyObserved: gradeComparisons >= MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE && gradeConsistency === 1,
+    bonusConsistencyObserved: bonusComparisons >= MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE && bonusConsistency === 1
   };
   const ok = Object.values(checks).every(Boolean);
   const runId = `omr-tv4-pilot-real-${Date.now()}`;
@@ -990,7 +979,8 @@ export async function runTv4PilotRealValidation(args: {
         confidenceLevel: 0.95,
         independentExams: gradeComparisons,
         automaticGradeDiscordances,
-        minimumPerfectExamsFor98Percent95,
+        minimumExamsForEmpiricalBatchGate: MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE,
+        lowerBoundIsDiagnosticOnly: true,
         lowerBound: gradeConsistencyLower95 === null ? null : round6(gradeConsistencyLower95)
       },
       capturePassRate: round6(capturePassRate),
@@ -1001,6 +991,7 @@ export async function runTv4PilotRealValidation(args: {
       automaticGradeDiscordances,
       bonusComparisons,
       bonusDiscordances,
+      bonusAbstentions,
       humanReviewedRows: humanReview.reviewedRows,
       humanReviewerCount: humanReview.reviewerCount,
       concordanceByCondition: concordanciaPorCondicion

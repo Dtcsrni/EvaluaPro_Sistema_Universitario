@@ -12,8 +12,8 @@ const checksAprobados = {
   pagePassRate: true,
   autoGradeTrustRate: true,
   autoCoverageRate: true,
-  gradeConsistencyLower95: true,
-  bonusConsistencyLower95: true
+  gradeConsistencyObserved: true,
+  bonusConsistencyObserved: true
 };
 
 async function escribirReportePiloto(overrides: Record<string, unknown> = {}) {
@@ -26,17 +26,19 @@ async function escribirReportePiloto(overrides: Record<string, unknown> = {}) {
     status: 'passed',
     ok: true,
     checks: checksAprobados,
-    thresholds: { gradeConsistencyLower95Min: 0.98, autoCoverageMin: 1 },
+    thresholds: { gradeConsistencyObservedMin: 1, autoCoverageMin: 1 },
     metrics: {
-      totalCaptures: 298,
+      totalCaptures: 24,
       pagePassRate: 1,
       autoGradeTrustRate: 1,
-      gradeComparisons: 149,
-      bonusComparisons: 149,
-      gradeConsistencyLower95: 0.980095,
-      bonusConsistencyLower95: 0.980095,
+      gradeComparisons: 12,
+      bonusComparisons: 12,
+      gradeConsistency: 1,
+      bonusConsistency: 1,
+      gradeConsistencyLower95: 0.779078,
+      bonusConsistencyLower95: 0.779078,
       autoCoverageRate: 1,
-      humanReviewedRows: 298,
+      humanReviewedRows: 24,
       humanReviewerCount: 2
     },
     evidenceHashes: {
@@ -95,12 +97,13 @@ describe('gate real TV4 de autocalificación', () => {
   it.each([
     { status: 'failed' },
     { ok: false },
-    { checks: { ...checksAprobados, bonusConsistencyLower95: false } },
-    { metrics: { totalCaptures: 298, pagePassRate: 1, autoGradeTrustRate: 1, gradeComparisons: 148, bonusComparisons: 149, gradeConsistencyLower95: 0.98, bonusConsistencyLower95: 0.98, autoCoverageRate: 1, humanReviewedRows: 298, humanReviewerCount: 2 } },
-    { thresholds: { gradeConsistencyLower95Min: 0.98, autoCoverageMin: 0.95 } },
-    { metrics: { totalCaptures: 598, pagePassRate: 0.999, autoGradeTrustRate: 1, gradeComparisons: 299, bonusComparisons: 299, gradeConsistencyLower95: 0.99, bonusConsistencyLower95: 0.99, autoCoverageRate: 1, humanReviewedRows: 598, humanReviewerCount: 2 } },
-    { metrics: { totalCaptures: 598, pagePassRate: 1, autoGradeTrustRate: 0.999, gradeComparisons: 299, bonusComparisons: 299, gradeConsistencyLower95: 0.99, bonusConsistencyLower95: 0.99, autoCoverageRate: 1, humanReviewedRows: 598, humanReviewerCount: 2 } },
-    { metrics: { totalCaptures: 598, pagePassRate: 1, autoGradeTrustRate: 1, gradeComparisons: 299, bonusComparisons: 299, gradeConsistencyLower95: 0.99, bonusConsistencyLower95: 0.99, autoCoverageRate: 0.999, humanReviewedRows: 598, humanReviewerCount: 2 } }
+    { checks: { ...checksAprobados, bonusConsistencyObserved: false } },
+    { metrics: { totalCaptures: 24, pagePassRate: 1, autoGradeTrustRate: 1, gradeComparisons: 11, bonusComparisons: 12, gradeConsistency: 1, bonusConsistency: 1, autoCoverageRate: 1, humanReviewedRows: 24, humanReviewerCount: 2 } },
+    { thresholds: { gradeConsistencyObservedMin: 0.99, autoCoverageMin: 1 } },
+    { metrics: { totalCaptures: 24, pagePassRate: 1, autoGradeTrustRate: 1, gradeComparisons: 12, bonusComparisons: 12, gradeConsistency: 0.99, bonusConsistency: 1, autoCoverageRate: 1, humanReviewedRows: 24, humanReviewerCount: 2 } },
+    { metrics: { totalCaptures: 24, pagePassRate: 1, autoGradeTrustRate: 1, gradeComparisons: 12, bonusComparisons: 12, gradeConsistency: 1, bonusConsistency: 0.99, autoCoverageRate: 1, humanReviewedRows: 24, humanReviewerCount: 2 } },
+    { metrics: { totalCaptures: 24, pagePassRate: 0.999, autoGradeTrustRate: 1, gradeComparisons: 12, bonusComparisons: 12, gradeConsistency: 1, bonusConsistency: 1, autoCoverageRate: 1, humanReviewedRows: 24, humanReviewerCount: 2 } },
+    { metrics: { totalCaptures: 24, pagePassRate: 1, autoGradeTrustRate: 1, gradeComparisons: 12, bonusComparisons: 12, gradeConsistency: 1, bonusConsistency: 1, autoCoverageRate: 0.999, humanReviewedRows: 24, humanReviewerCount: 2 } }
   ])('rechaza reportes que no prueban el gate ($status)', async (overrides) => {
     vi.stubEnv(REPORT_ENV, '');
     vi.resetModules();

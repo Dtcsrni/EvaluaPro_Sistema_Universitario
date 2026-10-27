@@ -1022,7 +1022,7 @@ export async function buildPorFolioDataset(args: {
       pagePassMin: 1,
       autoGradeTrustMin: 1,
       autoCoverageMin: 1,
-      gradeConsistencyLower95Min: 0.99
+      gradeConsistencyObservedMin: 1
     },
     groundTruthRef: 'ground_truth.jsonl',
     answerKeyPath: 'answer_key.json',

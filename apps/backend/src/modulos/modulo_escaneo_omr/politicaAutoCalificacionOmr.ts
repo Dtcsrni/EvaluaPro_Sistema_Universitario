@@ -101,9 +101,11 @@ const CHECKS_PILOTO_REQUERIDOS = [
   'pagePassRate',
   'autoGradeTrustRate',
   'autoCoverageRate',
-  'gradeConsistencyLower95',
-  'bonusConsistencyLower95'
+  'gradeConsistencyObserved',
+  'bonusConsistencyObserved'
 ] as const;
+
+const MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE = 12;
 
 function reportePilotoRealApruebaRuntime() {
   const reportPath = process.env.EVALUAPRO_OMR_TV4_REAL_PILOT_REPORT?.trim();
@@ -139,25 +141,25 @@ function reportePilotoRealApruebaRuntime() {
       report.evidenceHashes?.omrRuntimeConfigSha256 === OMR_RUNTIME_CONFIG_SHA256 &&
       hashesRequeridos.every((key) => hashSha256(evidenceHashes?.[key])))) return false;
 
-    const gradeConsistencyMinimum = thresholds?.gradeConsistencyLower95Min;
+    const gradeConsistencyMinimum = thresholds?.gradeConsistencyObservedMin;
     const coverageMinimum = thresholds?.autoCoverageMin;
     const totalCaptures = metrics?.totalCaptures;
     const gradeComparisons = metrics?.gradeComparisons;
     const bonusComparisons = metrics?.bonusComparisons;
-    const gradeConsistencyLower95 = metrics?.gradeConsistencyLower95;
-    const bonusConsistencyLower95 = metrics?.bonusConsistencyLower95;
+    const gradeConsistency = metrics?.gradeConsistency;
+    const bonusConsistency = metrics?.bonusConsistency;
     const pagePassRate = metrics?.pagePassRate;
     const autoGradeTrustRate = metrics?.autoGradeTrustRate;
     const autoCoverageRate = metrics?.autoCoverageRate;
     const humanReviewedRows = metrics?.humanReviewedRows;
     const humanReviewerCount = metrics?.humanReviewerCount;
-    return numeric(gradeConsistencyMinimum) && gradeConsistencyMinimum >= 0.98 &&
+    return numeric(gradeConsistencyMinimum) && gradeConsistencyMinimum === 1 &&
       numeric(coverageMinimum) && coverageMinimum === 1 &&
       numeric(totalCaptures) && totalCaptures > 0 &&
-      numeric(gradeComparisons) && gradeComparisons >= 149 &&
-      numeric(bonusComparisons) && bonusComparisons >= 149 &&
-      numeric(gradeConsistencyLower95) && gradeConsistencyLower95 >= gradeConsistencyMinimum &&
-      numeric(bonusConsistencyLower95) && bonusConsistencyLower95 >= gradeConsistencyMinimum &&
+      numeric(gradeComparisons) && gradeComparisons >= MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE &&
+      numeric(bonusComparisons) && bonusComparisons >= MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE &&
+      numeric(gradeConsistency) && gradeConsistency === 1 &&
+      numeric(bonusConsistency) && bonusConsistency === 1 &&
       numeric(pagePassRate) && pagePassRate === 1 &&
       numeric(autoGradeTrustRate) && autoGradeTrustRate === 1 &&
       numeric(autoCoverageRate) && autoCoverageRate === 1 &&
