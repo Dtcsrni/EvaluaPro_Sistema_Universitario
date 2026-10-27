@@ -94,8 +94,8 @@ test.describe('Journey docente integral visual', () => {
     if (await mostrarFormularioMateria.isVisible().catch(() => false)) await mostrarFormularioMateria.click();
     await expect(page.getByRole('button', { name: 'Crear materia', exact: true })).toBeVisible({ timeout: 15_000 });
     await page.locator('label:has-text("Nombre de la materia") >> input').fill(nombreMateria);
-    await page.locator('label:has-text("Fecha inicio") >> input').fill('2026-01-01');
-    await page.locator('label:has-text("Fecha fin") >> input').fill('2026-12-31');
+    await page.locator('label:has-text("Fecha de inicio") >> input').fill('2026-01-01');
+    await page.locator('label:has-text("Fecha de término") >> input').fill('2026-12-31');
     await page.locator('label:has-text("Grupos") >> input').fill('Grupo A');
     await page.getByRole('button', { name: 'Crear materia', exact: true }).click();
     await expect(page.getByRole('button', { name: /Abrir grupo Grupo A de Materia E2e Asistencias/i })).toBeVisible({ timeout: 20_000 });
@@ -231,8 +231,8 @@ test.describe('Journey docente integral visual', () => {
     }
     await expect(page.getByRole('button', { name: 'Crear materia', exact: true })).toBeVisible({ timeout: 15_000 });
     await page.locator('label:has-text("Nombre de la materia") >> input').fill(nombreMateria);
-    await page.locator('label:has-text("Fecha inicio") >> input').fill('2026-01-01');
-    await page.locator('label:has-text("Fecha fin") >> input').fill('2026-12-31');
+    await page.locator('label:has-text("Fecha de inicio") >> input').fill('2026-01-01');
+    await page.locator('label:has-text("Fecha de término") >> input').fill('2026-12-31');
     await page.locator('label:has-text("Grupos") >> input').fill('Grupo A');
     await page.screenshot({ path: path.join(outputDir, '12_materia_formulario_llenado.png'), fullPage: true });
 

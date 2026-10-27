@@ -51,8 +51,8 @@ test.describe('Ciclo de uso directo completo', () => {
     // Click inside modal to close any datepicker
     await page.mouse.click(0,0);
     await page.locator('label:has-text("Nombre de la materia") >> input').fill(`Matemáticas Discretas ${randomSuffix}`);
-    await page.locator('label:has-text("Fecha inicio") >> input').fill('2026-01-01');
-    await page.locator('label:has-text("Fecha fin") >> input').fill('2026-12-31');
+    await page.locator('label:has-text("Fecha de inicio") >> input').fill('2026-01-01');
+    await page.locator('label:has-text("Fecha de término") >> input').fill('2026-12-31');
     await page.locator('label:has-text("Grupos") >> input').fill('Grupo A');
     // Screenshot 2: Formulario de creación de materia
     await page.waitForTimeout(500);
