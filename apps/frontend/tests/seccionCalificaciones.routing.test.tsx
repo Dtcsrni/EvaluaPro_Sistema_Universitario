@@ -70,13 +70,13 @@ describe('ruta Classroom desde Calificaciones', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /ClassroomVínculos/ }));
     expect(await screen.findByText('Contenido de sincronización Classroom')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /ClassroomVínculos/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /ClassroomVínculos/ })).toHaveAttribute('aria-current', 'page');
   });
 
   it('mantiene Resultados como entrada normal a Calificaciones', async () => {
     render(<SeccionCalificaciones {...propsBase} />);
 
     expect(await screen.findByText('Contenido de resultados')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /ResultadosConsulta por alumno/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /ResultadosConsulta por alumno/ })).toHaveAttribute('aria-current', 'page');
   });
 });

@@ -18,13 +18,18 @@ function obtenerPuenteWebView2(): WebView2Bridge | undefined {
 
 export function SeccionConfiguracionSincronizacion({
   estado,
+  errorConsulta = false,
+  onReintentarConsulta,
   onConfigurar
 }: {
   estado: EstadoLeaseUI | null;
+  errorConsulta?: boolean;
+  onReintentarConsulta?: () => Promise<boolean>;
   onConfigurar: (directorio: string) => Promise<EstadoLeaseUI>;
 }) {
   const [directorio, setDirectorio] = useState(estado?.directorio || '');
   const [ocupado, setOcupado] = useState(false);
+  const [reintentandoConsulta, setReintentandoConsulta] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
   useEffect(() => {
@@ -58,6 +63,16 @@ export function SeccionConfiguracionSincronizacion({
     puente.postMessage({ type: 'EVALUAPRO_SELECT_SYNC_FOLDER' });
   }
 
+  async function reintentarConsulta() {
+    if (!onReintentarConsulta) return;
+    setReintentandoConsulta(true);
+    try {
+      await onReintentarConsulta();
+    } finally {
+      setReintentandoConsulta(false);
+    }
+  }
+
   async function guardarCarpeta() {
     const valor = directorio.trim();
     if (!valor) {
@@ -85,12 +100,19 @@ export function SeccionConfiguracionSincronizacion({
             <span>Datos y sincronización</span>
           </span>
           <h3 className="entregas-title-heading"><Icono nombre="recargar" /> Carpeta de sincronización</h3>
-          <p className="nota" id="sincronizacion-carpeta-ayuda">Define una sola carpeta local por cuenta. OneDrive se encarga de sincronizarla entre tus equipos; EvaluaPro solo guarda allí snapshots cifrados y metadatos de coordinación.</p>
+          <p className="nota" id="sincronizacion-carpeta-ayuda">Define una carpeta local por cuenta. OneDrive la sincroniza entre tus equipos; EvaluaPro guarda allí copias cifradas y datos necesarios para coordinar la sincronización.</p>
         </div>
-        <span className={`estado-chip ${estado?.configurado ? 'ok' : 'info'}`}>{estado?.configurado ? 'Configurada' : 'Pendiente'}</span>
+        <span className={`estado-chip ${estado?.configurado ? 'ok' : errorConsulta ? 'error' : estado ? 'info' : 'warn'}`}>
+          {estado?.configurado ? 'Configurada' : errorConsulta ? 'Sin conexión' : estado ? 'Sin configurar' : 'Consultando'}
+        </span>
       </div>
 
-      {!estado ? <InlineMensaje tipo="info">Consultando la configuración de sincronización…</InlineMensaje> : (
+      {!estado && errorConsulta ? (
+        <>
+          <InlineMensaje tipo="error">No se pudo consultar el estado de sincronización. Revisa la conexión con el servidor e inténtalo de nuevo.</InlineMensaje>
+          {onReintentarConsulta && <Boton type="button" variante="secundario" cargando={reintentandoConsulta} onClick={() => void reintentarConsulta()}>Reintentar consulta</Boton>}
+        </>
+      ) : !estado ? <InlineMensaje tipo="info">Consultando la configuración de sincronización…</InlineMensaje> : (
         <>
           <div className="cuenta-sincronizacion__form">
             <label className="campo">Carpeta local sincronizada por OneDrive

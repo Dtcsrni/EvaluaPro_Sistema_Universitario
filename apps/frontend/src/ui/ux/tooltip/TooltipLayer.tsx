@@ -4,7 +4,7 @@
  * Responsabilidad: Componente/utilidad de UI reutilizable.
  * Limites: Preservar accesibilidad y contratos de props existentes.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 type TooltipState = {
   visible: boolean;
@@ -98,20 +98,8 @@ function tooltipDesdeElemento(target: HTMLElement) {
   return candidato;
 }
 
-function aplicarPlaceholders(root: ParentNode) {
-  root.querySelectorAll('input, textarea').forEach((node) => {
-    if (!(node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement)) return;
-    if (node.placeholder) return;
-    const tipo = node.getAttribute('type') || '';
-    if (node instanceof HTMLInputElement && SKIP_TYPES.has(tipo)) return;
-    if (obtenerAyudas(node).length > 0) return;
-    const texto = buscarTextoLabel(node);
-    if (!texto) return;
-    node.placeholder = texto;
-  });
-}
-
 export function TooltipLayer() {
+  const tooltipId = useId();
   const [state, setState] = useState<TooltipState>({
     visible: false,
     text: '',
@@ -120,20 +108,8 @@ export function TooltipLayer() {
     placement: 'top'
   });
   const targetRef = useRef<HTMLElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    aplicarPlaceholders(document);
-    const observer = new MutationObserver((entries) => {
-      for (const entry of entries) {
-        entry.addedNodes.forEach((node) => {
-          if (node instanceof HTMLElement) aplicarPlaceholders(node);
-        });
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     const clamp = (valor: number, min: number, max: number) => Math.min(max, Math.max(min, valor));
@@ -165,13 +141,28 @@ export function TooltipLayer() {
       return { x, y, placement: 'cursor' as const, width: anchoPorTexto(texto) };
     };
 
+    const desvincular = (target: HTMLElement) => {
+      const ids = (target.getAttribute('aria-describedby') || '')
+        .split(/\s+/)
+        .filter((id) => id && id !== tooltipId);
+      if (ids.length) target.setAttribute('aria-describedby', ids.join(' '));
+      else target.removeAttribute('aria-describedby');
+      if (target.hasAttribute('data-ep-title')) {
+        const tVal = target.getAttribute('data-ep-title') || '';
+        target.setAttribute('title', tVal);
+        target.removeAttribute('data-ep-title');
+      }
+    };
+
     const mostrar = (target: HTMLElement, preferCursor: boolean) => {
       const texto = tooltipDesdeElemento(target);
       if (!texto) {
-        setState((prev) => ({ ...prev, visible: false }));
+        if (targetRef.current) desvincular(targetRef.current);
         targetRef.current = null;
+        setState((prev) => ({ ...prev, visible: false }));
         return;
       }
+      if (targetRef.current && targetRef.current !== target) desvincular(targetRef.current);
       // Suprimir tooltip nativo del navegador para que no se duplique
       if (target.hasAttribute('title')) {
         const tVal = target.getAttribute('title') || '';
@@ -179,6 +170,8 @@ export function TooltipLayer() {
         target.removeAttribute('title');
       }
       targetRef.current = target;
+      const ids = (target.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+      if (!ids.includes(tooltipId)) target.setAttribute('aria-describedby', [...ids, tooltipId].join(' '));
       const info = preferCursor ? posicionPorCursor(texto) : posicionPorElemento(target);
       setState((prev) => ({
         ...prev,
@@ -192,11 +185,7 @@ export function TooltipLayer() {
     };
 
     const ocultar = () => {
-      if (targetRef.current && targetRef.current.hasAttribute('data-ep-title')) {
-        const tVal = targetRef.current.getAttribute('data-ep-title') || '';
-        targetRef.current.setAttribute('title', tVal);
-        targetRef.current.removeAttribute('data-ep-title');
-      }
+      if (targetRef.current) desvincular(targetRef.current);
       targetRef.current = null;
       setState((prev) => ({ ...prev, visible: false }));
     };
@@ -220,7 +209,12 @@ export function TooltipLayer() {
 
     const onOut = (event: Event) => {
       const related = (event as MouseEvent).relatedTarget as HTMLElement | null;
-      if (related && targetRef.current && targetRef.current.contains(related)) return;
+      if (
+        related && (
+          targetRef.current?.contains(related) ||
+          tooltipRef.current?.contains(related)
+        )
+      ) return;
       ocultar();
     };
 
@@ -232,6 +226,13 @@ export function TooltipLayer() {
     };
 
     const onBlur = () => ocultar();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !targetRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      ocultar();
+    };
 
     const onScroll = () => {
       if (!targetRef.current) return;
@@ -246,6 +247,7 @@ export function TooltipLayer() {
     document.addEventListener('mouseout', onOut);
     document.addEventListener('focusin', onFocus);
     document.addEventListener('focusout', onBlur);
+    document.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onScroll);
 
@@ -255,15 +257,18 @@ export function TooltipLayer() {
       document.removeEventListener('mouseout', onOut);
       document.removeEventListener('focusin', onFocus);
       document.removeEventListener('focusout', onBlur);
+      document.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onScroll);
     };
-  }, [state.visible, state.placement, state.text]);
+  }, [state.visible, state.placement, state.text, tooltipId]);
 
   if (!state.visible) return null;
 
   return (
     <div
+      ref={tooltipRef}
+      id={tooltipId}
       className={`tooltip-layer tooltip-${state.placement}`}
       role="tooltip"
       aria-hidden={!state.visible}

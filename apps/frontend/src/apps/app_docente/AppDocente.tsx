@@ -57,6 +57,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   const recargarCapacidadesRef = useRef<(() => Promise<boolean>) | null>(null);
   const [docente, setDocente] = useState<Docente | null>(null);
   const [estadoLease, setEstadoLease] = useState<EstadoLeaseUI | null>(null);
+  const [errorConsultaLease, setErrorConsultaLease] = useState(false);
   const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{
     oauthGoogleBackend: boolean;
     oauthGoogleDesktopBackend: boolean;
@@ -268,9 +269,12 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   useEffect(() => {
     if (!docenteIdSincronizacion || !sesionComprobada) {
       setEstadoLease(null);
+      setErrorConsultaLease(false);
       return;
     }
     let activo = true;
+    setEstadoLease(null);
+    setErrorConsultaLease(false);
     const sincronizarEstado = async () => {
       try {
         const estado = await clienteApi.obtener<EstadoLeaseUI>('/sincronizaciones/local/lease');
@@ -287,12 +291,27 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           if (activo) setEstadoLease(actualizado);
         }
       } catch {
-        if (activo) setEstadoLease(null);
+        if (activo) {
+          setEstadoLease(null);
+          setErrorConsultaLease(true);
+        }
       }
     };
     void sincronizarEstado();
     return () => { activo = false; };
   }, [docenteIdSincronizacion, equipoIdSincronizacion, sesionComprobada]);
+
+  async function reintentarConsultaLease(): Promise<boolean> {
+    try {
+      const estado = await clienteApi.obtener<EstadoLeaseUI>('/sincronizaciones/local/lease');
+      setEstadoLease(estado);
+      setErrorConsultaLease(false);
+      return true;
+    } catch {
+      setErrorConsultaLease(true);
+      return false;
+    }
+  }
   useEffect(() => {
     const leaseId = estadoLease?.lease?.leaseId;
     const leasePropio = estadoLease?.lease?.propio;
@@ -488,9 +507,28 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
     <Suspense fallback={<div className="panel app-loading" role="status" aria-live="polite">Cargando módulo…</div>}>
       <div className="panel">
       <nav
-        className="tabs tabs--scroll tabs--sticky"
+        className="tabs tabs--scroll tabs--sticky tabs--docente-responsive"
         aria-label="Secciones del portal docente"
       >
+        <label className="tabs__mobile-picker" htmlFor="navegacion-docente-movil">
+          <span>Ir a sección</span>
+          <select
+            id="navegacion-docente-movil"
+            value={vista === 'periodos_archivados' ? 'periodos' : vista}
+            onChange={(event) => setVista(event.currentTarget.value)}
+          >
+            {(['academia', 'evaluacion', 'operacion'] as const).map((grupo) => {
+              const opciones = itemsVista.filter((item) => item.grupo === grupo);
+              if (opciones.length === 0) return null;
+              const etiqueta = grupo === 'academia' ? 'Academia' : grupo === 'evaluacion' ? 'Evaluación' : 'Operación';
+              return (
+                <optgroup key={grupo} label={etiqueta}>
+                  {opciones.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                </optgroup>
+              );
+            })}
+          </select>
+        </label>
         {itemsVista.map((item, idx) => (
           (() => {
             const activa = vista === item.id || (vista === 'periodos_archivados' && item.id === 'periodos');
@@ -1228,6 +1266,8 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             smtpDisponible={smtpDisponible}
             requireGoogleOAuth={requireGoogleOAuth}
             estadoLease={estadoLease}
+            errorConsultaLease={errorConsultaLease}
+            onReintentarConsultaLease={reintentarConsultaLease}
             onConfigurarCarpeta={configurarCarpetaSincronizacionDocente}
           />
         </div>

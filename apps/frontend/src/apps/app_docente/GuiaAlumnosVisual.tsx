@@ -4,12 +4,13 @@
  * Responsabilidad: Guía interactiva moderna con Bento Step Cards para gestión de alumnos y matrículas.
  */
 import { useState } from 'react';
+import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 
 export function GuiaAlumnosVisual() {
   const [visible, setVisible] = useState(() => {
     try {
-      return localStorage.getItem('ep.guia.alumnos.oculta') !== 'true';
+      return localStorage.getItem('ep.guia.alumnos.oculta') === 'false';
     } catch {
       return true;
     }
@@ -34,9 +35,11 @@ export function GuiaAlumnosVisual() {
           variante="secundario"
           type="button"
           onClick={toggleGuia}
+          aria-expanded={visible}
           data-tooltip="Ver guía de 3 pasos para matrícula y expedientes de alumnos"
+          icono={<Icono nombre="info" />}
         >
-          💡 Ver guía rápida de gestión de alumnos
+          Ver guía rápida de gestión de alumnos
         </Boton>
       </div>
     );
@@ -55,6 +58,7 @@ export function GuiaAlumnosVisual() {
           onClick={toggleGuia}
           title="Ocultar guía"
           aria-label="Ocultar guía rápida"
+          aria-expanded={visible}
         >
           ✕ Ocultar guía
         </button>

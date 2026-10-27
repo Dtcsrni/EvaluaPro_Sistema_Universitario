@@ -8,6 +8,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionCuenta } from '../src/apps/app_docente/SeccionCuenta';
+import { GuiaCuentaVisual } from '../src/apps/app_docente/GuiaCuentaVisual';
 import { MAX_FOTO_PERFIL_BYTES, obtenerFotoPerfilLocal } from '../src/apps/app_docente/fotoPerfilDocente';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import { emitToast } from '../src/ui/toast/toastBus';
@@ -72,8 +73,28 @@ describe('SeccionCuenta', () => {
     expect(screen.getByText('Vinculado')).toBeInTheDocument();
     expect(screen.getByText('Definida')).toBeInTheDocument();
     expect(screen.getByText('Disponible')).toBeInTheDocument();
+    expect(screen.getByText('Membrete PDF')).toBeInTheDocument();
+    expect(screen.getByText('Correo')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Universidad EvaluaPro')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Excelencia y Rigor')).toBeInTheDocument();
+  });
+
+  it('prioriza los ajustes al cargar y conserva la preferencia de mostrar la guía', () => {
+    localStorage.removeItem('ep.guia.cuenta.oculta');
+    render(<GuiaCuentaVisual />);
+
+    const mostrar = screen.getByRole('button', { name: /Ver guía rápida de cuenta y seguridad/i });
+    expect(mostrar).toHaveAttribute('aria-expanded', 'false');
+    expect(mostrar).not.toHaveTextContent('💡');
+    expect(screen.queryByRole('region', { name: 'Ayuda: Cuenta y licencias' })).not.toBeInTheDocument();
+
+    fireEvent.click(mostrar);
+    expect(screen.getByRole('region', { name: 'Ayuda: Cuenta y licencias' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ocultar guía rápida' })).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar guía rápida' }));
+    expect(localStorage.getItem('ep.guia.cuenta.oculta')).toBe('true');
+    expect(screen.queryByRole('region', { name: 'Ayuda: Cuenta y licencias' })).not.toBeInTheDocument();
   });
 
   it('permite regenerar los accesos e iconos desde el perfil', async () => {
@@ -221,10 +242,10 @@ describe('SeccionCuenta', () => {
       />
     );
 
-    const inputActual = screen.getByLabelText(/Contrasena actual/i, { selector: 'input' });
-    const inputNueva = screen.getByLabelText(/^Nueva contrasena/i, { selector: 'input' });
-    const inputConfirmar = screen.getByLabelText(/Confirmar contrasena/i, { selector: 'input' });
-    const botonGuardar = screen.getByRole('button', { name: /Guardar contrasena/i });
+    const inputActual = screen.getByLabelText(/Contraseña actual/i, { selector: 'input' });
+    const inputNueva = screen.getByLabelText(/^Nueva contraseña/i, { selector: 'input' });
+    const inputConfirmar = screen.getByLabelText(/Confirmar contraseña/i, { selector: 'input' });
+    const botonGuardar = screen.getByRole('button', { name: /Guardar contraseña/i });
 
     expect(botonGuardar).toBeDisabled();
 
@@ -418,10 +439,11 @@ describe('SeccionCuenta', () => {
       />
     );
 
-    expect(screen.getByText(/Actualizaciones del Sistema & Installer Hub/i)).toBeInTheDocument();
+    expect(screen.getByText(/Actualizaciones de EvaluaPro e Installer Hub/i)).toBeInTheDocument();
     expect(screen.getAllByText(/v1.1.1 Estable/i).length).toBeGreaterThanOrEqual(1);
 
     const botonBuscar = screen.getByRole('button', { name: /Buscar actualizaciones ahora/i });
+    expect(botonBuscar).not.toHaveTextContent('🔍');
     fireEvent.click(botonBuscar);
 
     await waitFor(() => {

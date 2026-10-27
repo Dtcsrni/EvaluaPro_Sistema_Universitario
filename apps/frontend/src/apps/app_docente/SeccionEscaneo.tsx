@@ -709,7 +709,7 @@ export function SeccionEscaneo({
               />
             </label>
             <label className="campo">
-              <span>Página</span>
+              <span id="calif-pagina-label">Página</span>
               <input
                 type="number"
                 min={0}
@@ -717,7 +717,12 @@ export function SeccionEscaneo({
                 onChange={(event) => setNumeroPagina(Number(event.target.value))}
                 placeholder="0 = detectar QR"
                 disabled={bloqueoManual || bloqueoAnalisis}
+                aria-labelledby="calif-pagina-label"
+                aria-describedby="calif-pagina-instrucciones"
               />
+              <span id="calif-pagina-instrucciones" className="nota">
+                0 intenta detectar el número con el QR. Para escribirlo manualmente, usa el número impreso en la hoja (desde 1).
+              </span>
             </label>
           </div>
           {bloqueoManual && (

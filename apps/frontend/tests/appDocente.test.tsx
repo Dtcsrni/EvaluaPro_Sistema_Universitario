@@ -240,8 +240,8 @@ describe('AppDocente', () => {
     await user.click(screen.getByRole('button', { name: /Mostrar formulario/i }));
 
     fireEvent.change(screen.getByLabelText('Nombre de la materia'), { target: { value: 'Algebra I' } });
-    fireEvent.change(screen.getByLabelText('Fecha inicio'), { target: { value: '2026-01-01' } });
-    fireEvent.change(screen.getByLabelText('Fecha fin'), { target: { value: '2026-01-30' } });
+    fireEvent.change(screen.getByLabelText('Fecha de inicio'), { target: { value: '2026-01-01' } });
+    fireEvent.change(screen.getByLabelText('Fecha de término'), { target: { value: '2026-01-30' } });
 
     await user.click(screen.getByRole('button', { name: 'Crear materia' }));
 

@@ -51,8 +51,8 @@ test.describe('Ciclo de uso directo completo', () => {
     // Click inside modal to close any datepicker
     await page.mouse.click(0,0);
     await page.locator('label:has-text("Nombre de la materia") >> input').fill(`Matemáticas Discretas ${randomSuffix}`);
-    await page.locator('label:has-text("Fecha inicio") >> input').fill('2026-01-01');
-    await page.locator('label:has-text("Fecha fin") >> input').fill('2026-12-31');
+    await page.locator('label:has-text("Fecha de inicio") >> input').fill('2026-01-01');
+    await page.locator('label:has-text("Fecha de término") >> input').fill('2026-12-31');
     await page.locator('label:has-text("Grupos") >> input').fill('Grupo A');
     // Screenshot 2: Formulario de creación de materia
     await page.waitForTimeout(500);
@@ -69,13 +69,13 @@ test.describe('Ciclo de uso directo completo', () => {
     // 4. "Carga alumnos"
     await page.waitForLoadState('networkidle');
     
-    await page.click('text="Alumnos"');
+    await page.getByRole('button', { name: 'Alumnos', exact: true }).click();
     
     // Create new alumno
-    await page.locator('label:has-text("Matricula") >> input').fill(`CUH${Math.floor(100000000 + Math.random() * 900000000)}`);
+    await page.getByLabel('Matrícula').fill(`CUH${Math.floor(100000000 + Math.random() * 900000000)}`);
     await page.locator('label:has-text("Nombres") >> input').fill('Juan');
     await page.locator('label:has-text("Apellidos") >> input').fill('Pérez');
-    await page.locator('label:has-text("Materia") >> select').first().selectOption({ index: 1 });
+    await page.getByRole('combobox', { name: 'Materia', exact: true }).selectOption({ index: 1 });
     await page.locator('label:has-text("Grupo") >> input').fill('Grupo A');
 
     // Screenshot 4: Formulario de creación de alumno
