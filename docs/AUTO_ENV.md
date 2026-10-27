@@ -443,6 +443,7 @@ Las variables de herramientas y scripts se listan por separado y no representan 
 - `OMR_IMAGEN_BASE64_MAX_CHARS` (usado en: apps/backend/tests/contrato/limitesPayload.test.ts)
 - `OMR_QA_BANK_SAMPLE_JSON` (usado en: apps/backend/tests/pdf.canonico.test.ts)
 - `OMR_QA_OUTPUT_DIR` (usado en: apps/backend/tests/pdf.ink-sparing-staple.test.ts)
+- `OMR_QA_RENDER_OUTPUT_DIR` (usado en: apps/backend/tests/pdf.canonico.test.ts)
 - `OMR_QA_WRITE_CONTROL_ARTIFACTS` (usado en: apps/backend/tests/pdf.canonico.test.ts, apps/backend/tests/pdf.ink-sparing-staple.test.ts)
 - `PORTAL_ALUMNO_API_KEY` (usado en: apps/backend/tests/configuracion.entorno.test.ts, apps/backend/tests/configuracion.produccion.test.ts, apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts)
 - `PORTAL_ALUMNO_URL` (usado en: apps/backend/tests/configuracion.entorno.test.ts, apps/backend/tests/configuracion.produccion.test.ts, apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts)
