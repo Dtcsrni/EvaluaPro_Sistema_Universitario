@@ -572,7 +572,10 @@ test.describe('GUI responsive e2e · docente', () => {
 
       for (const tab of tabs) {
         if (viewport.name === 'mobile') {
-          await nav.locator('#navegacion-docente-movil').selectOption(tab.slug);
+          const mobilePicker = nav.locator('#navegacion-docente-movil');
+          const mobileOption = mobilePicker.getByRole('option', { name: tab.label, exact: true });
+          await expect(mobileOption, `falta la opción móvil "${tab.label}"`).toHaveCount(1);
+          await mobilePicker.selectOption({ label: tab.label });
         } else {
           await nav.getByRole('button', { name: tab.label }).click();
         }
