@@ -482,10 +482,10 @@ describe('pdf layout visual guard', () => {
     expect(detectarColisionesDuplexOmr(resultado.mapaOmr)).toHaveLength(0);
   });
 
-  it('imprime dos referencias OCR por página con el total real y sin serial compuesto', async () => {
+  it('imprime lote, folio y total real en dos referencias OCR separadas', async () => {
     const resultado = await generarPdfExamen({
       ...crearParametros(24),
-      folio: 'OCR-SERIAL-TEST-01',
+      folio: 'D7E8B86B',
       loteId: 'LOTE-COMPOUND-QA',
       encabezado: { institucion: 'Centro de prueba', materia: 'Identificación de hoja' }
     });
@@ -495,10 +495,10 @@ describe('pdf layout visual guard', () => {
       const totalPaginas = resultado.paginas.filter((pagina) => pagina.tipoPagina === 'examen').length;
       expect(totalPaginas).toBeGreaterThan(1);
       for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
-        expect(texto.match(new RegExp(`FOLIO\\s+OCR-SERIAL-TEST-01\\s*[·•]\\s*Pagina\\s*${pagina}\\s+de\\s+${totalPaginas}`, 'gi')))
+        expect(texto.match(new RegExp(`LOTE\\s+LOTE-COMPOUND-QA\\s*[·•]\\s*FOLIO\\s+D7E8B86B\\s*[·•]\\s*Pagina\\s*${pagina}\\s+de\\s+${totalPaginas}`, 'gi')))
           .toHaveLength(2);
       }
-      expect(texto).not.toContain('LOTE-COMPOUND-QA-OCR-SERIAL-TEST-01');
+      expect(texto).not.toContain('LOTE-COMPOUND-QA-D7E8B86B');
     } finally {
       await parser.destroy();
     }

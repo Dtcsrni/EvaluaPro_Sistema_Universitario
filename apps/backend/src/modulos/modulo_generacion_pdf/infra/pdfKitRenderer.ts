@@ -5047,7 +5047,8 @@ export class PdfKitRenderer {
     const totalPaginasExamen = paginasExamen.length;
     const posicionesPie = [ANCHO_CARTA * 0.1, ANCHO_CARTA * 0.52];
     const anchoZonaPie = ANCHO_CARTA * 0.38;
-    const pieSize = 8.5;
+    const pieSizePreferido = 8.5;
+    const pieSizeReducido = 7.5;
     const pieY = margen + 2.5;
     const piePanel: RectBox = {
       x: posicionesPie[0]!,
@@ -5088,8 +5089,15 @@ export class PdfKitRenderer {
         throw new Error(`Layout invalido: el pie invade contenido OMR en la pagina ${paginaMeta.numero}: ${diagnostico.join('; ')}`);
       }
       const numeroPaginaExamen = indicePagina + 1;
-      const pieTexto = `FOLIO ${examen.folioNormalizado} · Pagina ${numeroPaginaExamen} de ${totalPaginasExamen}`;
-      const pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
+      const loteReferencia = String(examen.loteId ?? '').trim();
+      const prefijoLote = loteReferencia ? `LOTE ${loteReferencia} · ` : '';
+      const pieTexto = `${prefijoLote}FOLIO ${examen.folioNormalizado} · Pagina ${numeroPaginaExamen} de ${totalPaginasExamen}`;
+      let pieSize = pieSizePreferido;
+      let pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
+      if (loteReferencia && pieWidth > anchoZonaPie) {
+        pieSize = pieSizeReducido;
+        pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
+      }
       if (pieWidth > anchoZonaPie) {
         throw new Error(`Layout invalido: la referencia OCR de la pagina ${numeroPaginaExamen} excede el ancho permitido a ${pieSize} pt`);
       }

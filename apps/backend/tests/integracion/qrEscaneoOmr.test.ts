@@ -13,7 +13,9 @@ import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
 function invalidarFirmaQr(textoQr: string) {
-  return String(textoQr).replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA');
+  return String(textoQr)
+    .replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA')
+    .replace(/:SG:H1[A-Z0-9]{24}$/i, ':SG:H1AAAAAAAAAAAAAAAAAAAAAAAA');
 }
 
 describe('escaneo OMR: QR asociado a examen', () => {

@@ -124,8 +124,13 @@ test('la base vigente registra todos los módulos, sin ciclos ni modelos huérfa
 test('el contrato PDF versiona el cambio incompatible de Zod 4 y todos sus consumidores', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'docs/contracts/module-contracts.v2.json'), 'utf8'));
   const pdf = manifest.modules.find((item) => item.id === 'modulo_generacion_pdf');
-  assert.equal(pdf.contractVersion, '2.0.0');
-  assert.equal(pdf.publicApiHistory.at(-1).version, '2.0.0');
+  assert.equal(pdf.contractVersion, '3.0.0');
+  assert.equal(pdf.publicApiHistory.at(-1).version, '3.0.0');
+  assert.match(
+    pdf.publicApiHistory.at(-1).exports.find((item) => item.name === 'ResumenQrExamen')?.signature ?? '',
+    /loteId\?: string/,
+    'el contrato expone el loteId que devuelve el parser QR'
+  );
   const expectedZod4Signature = 'z.ZodOptional<z.ZodObject<{}, z.core.$strict>>';
   const currentPdfApi = readCurrentPublicApis({ root: process.cwd() }).modulo_generacion_pdf;
   assert.equal(
@@ -144,7 +149,7 @@ test('el contrato PDF versiona el cambio incompatible de Zod 4 y todos sus consu
     'modulo_sincronizacion_nube'
   ]) {
     const consumer = manifest.modules.find((item) => item.id === consumerId);
-    assert.equal(consumer.dependencies.find((item) => item.module === 'modulo_generacion_pdf')?.contractRange, '^2.0.0', consumerId);
+    assert.equal(consumer.dependencies.find((item) => item.module === 'modulo_generacion_pdf')?.contractRange, '^3.0.0', consumerId);
   }
 });
 
