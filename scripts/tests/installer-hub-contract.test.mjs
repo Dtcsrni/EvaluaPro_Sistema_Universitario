@@ -3123,7 +3123,7 @@ test('firma de release exige cadena Authenticode confiable para cada artefacto d
   assert.match(script, /function Assert-ReleaseArtifactTrusted/);
   assert.match(script, /Get-AuthenticodeSignature\s+-FilePath\s+\$TargetPath\s+-ErrorAction Stop/);
   assert.match(script, /\$signature\.Status\s+-ne\s+'Valid'/);
-  assert.match(script, /Assert-ReleaseArtifactTrusted\\s+-TargetPath\\s+\\$target/);
+  assert.match(script, /Assert-ReleaseArtifactTrusted\s+-TargetPath\s+\$target/);
 });
 
 test('generador de hashes conserva el FlavorId solicitado durante el ciclo del catálogo', () => {
