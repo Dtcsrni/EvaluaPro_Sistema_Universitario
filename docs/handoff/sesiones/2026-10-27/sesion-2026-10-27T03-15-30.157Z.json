@@ -1,0 +1,204 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-27T03-15-30.157Z",
+  "status": "final",
+  "generatedAt": "2026-10-27T03:15:44.968Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Portar el cambio QR y pie PDF con loteId desde el worktree anterior a la main remota vigente y dejar un commit local revisable."
+  },
+  "objective": "Integrar únicamente los cambios estables de loteId QR/PDF sobre origin/main vigente, ejecutar las regresiones pertinentes y dejar SPEC y traza validados.",
+  "scope": [
+    "Generacion PDF y QR firmado",
+    "Pruebas PDF/QR/OMR/OCR y compatibilidad de PDF archivado",
+    "SPEC-104 y traza de sesion"
+  ],
+  "constraints": [
+    "No fusionar a main ni publicar release.",
+    "No modificar calificaciones, datos productivos ni PDFs archivados.",
+    "No incluir WIP ajeno del worktree anterior."
+  ],
+  "actions": [
+    {
+      "type": "base",
+      "summary": "Consultado origin/main en remoto y creado worktree aparte sobre a526faed74ba57dc27cf315d607e0fa3024aadcb.",
+      "timestamp": "2026-10-27T03:15:29.975Z",
+      "status": "ok"
+    },
+    {
+      "type": "port",
+      "summary": "Portados seis archivos de codigo/prueba y SPEC-104; diff --check sin errores.",
+      "timestamp": "2026-10-27T03:15:29.975Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Pasaron pruebas focales, regresiones QR/OCR/PDF archivado, typecheck, lint, politica y perf check local.",
+      "timestamp": "2026-10-27T03:15:29.975Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts",
+      "apps/backend/tests/qr.examen.test.ts",
+      "apps/backend/tests/pdf.canonico.test.ts",
+      "apps/backend/tests/pdf.layout.visual.guard.test.ts",
+      "apps/backend/tests/pdf.lote.integridad.test.ts",
+      "apps/backend/tests/omr.qrReferenciaPdf.test.ts",
+      "apps/backend/tests/omr.ocrPie.test.ts",
+      "apps/backend/tests/pdf.previewArchivado.test.ts",
+      "apps/backend/tests/pdf.paridad.test.ts"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts",
+      "apps/backend/tests/pdf.canonico.test.ts",
+      "apps/backend/tests/pdf.layout.visual.guard.test.ts",
+      "apps/backend/tests/qr.examen.test.ts",
+      "docs/specs/SPEC-104_loteid_qr_y_pie_pdf.spec.md"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-10-27/sesion-2026-10-27T03-15-30.157Z.json",
+      "docs/handoff/sesiones/2026-10-27/sesion-2026-10-27T03-15-30.157Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "qr_pdf_focal",
+      "command": "npm run test --workspace=apps/backend -- tests/qr.examen.test.ts tests/pdf.canonico.test.ts --pool=threads --maxWorkers=2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "2 archivos; 16/16 pruebas pasaron en origin/main actual.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "pdf_layout_guard",
+      "command": "npm run test --workspace=apps/backend -- tests/pdf.layout.visual.guard.test.ts --pool=threads --maxWorkers=2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 280990,
+      "resultSummary": "37/37 pruebas pasaron; suite completa de rasterizado visual.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "pdf_lote_integridad",
+      "command": "npm run test --workspace=apps/backend -- tests/pdf.lote.integridad.test.ts --pool=threads --maxWorkers=2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "4/4 pruebas pasaron.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "omr_pdf_regressions",
+      "command": "npm run test --workspace=apps/backend -- tests/omr.qrReferenciaPdf.test.ts tests/omr.ocrPie.test.ts tests/pdf.previewArchivado.test.ts tests/pdf.paridad.test.ts --pool=threads --maxWorkers=2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "4 archivos; 29/29 pruebas pasaron.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "visual_target",
+      "command": "npm run test --workspace=apps/backend -- tests/pdf.layout.visual.guard.test.ts -t 'imprime lote, folio y total real en dos referencias OCR separadas' --pool=threads --maxWorkers=2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "1 prueba del nuevo pie con lote paso.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "paperera_regression",
+      "command": "npm run test --workspace=apps/backend -- tests/papelera.controlador.test.ts --pool=threads --maxWorkers=2",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "7/7 pruebas pasaron; resuelto en la base actual el bloqueo categoryId observado en la base anterior.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "typecheck_backend",
+      "command": "npm exec --workspace=apps/backend -- tsc --noEmit --project tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "TypeScript backend: OK, usando cliente Prisma y dependencia dpapi compatibles con la base actual.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Lint de backend, frontend y portal: OK.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "policy_audit",
+      "command": "npm run ci:policy:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Contratos y auditoria SDD/politica pasaron; SPEC-104 reconocida con cuatro pruebas enlazadas.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "perf-collect genero reporte local y perf-check aprobo 4 presupuestos.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "Reporta docs/AUTO_ENV.md desactualizado; no se regenero inventario fuera del alcance.",
+      "timestamp": "2026-10-27T03:15:44.968Z"
+    }
+  ],
+  "decisions": [
+    "La base confirmada por git ls-remote es a526faed74ba57dc27cf315d607e0fa3024aadcb; el diff de main no toca los seis archivos de codigo/prueba cambiados.",
+    "LI se firma junto al payload SG:H1 y las firmas historicas sin LI mantienen su ruta.",
+    "No se modifica el algoritmo OMR ni se editan artefactos de examenes existentes.",
+    "Los cambios se mantienen en codex/lote-qr-current-main-20261026 para proponer revision sin fusion."
+  ],
+  "assumptions": [
+    "Las duraciones de pruebas no se registraron; durationMs=0 indica dato no disponible.",
+    "perf:check se ejecuta en memoria con JWT efimero y configuracion URL/CORS local; el reporte va a tmp/perf-lote-qr.json."
+  ],
+  "risks": [
+    "npm run docs:check sigue reportando docs/AUTO_ENV.md desactualizado; queda fuera de este cambio.",
+    "No se ejecuto el conjunto completo test:backend:ci/test:coverage:ci; se ejecutaron las suites focales y adyacentes enumeradas.",
+    "No se valido impresion fisica ni instalacion real; los PDF probados son sinteticos."
+  ],
+  "nextStep": "Revisar el commit local en la rama codex/lote-qr-current-main-20261026 y decidir si se abre PR; no se ha fusionado ni publicado.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\worktrees\\lote-qr-current-main",
+    "branch": "codex/lote-qr-current-main-20261026",
+    "commit": "a526faed",
+    "workingTreeStatus": "M apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts\n M apps/backend/tests/pdf.canonico.test.ts\n M apps/backend/tests/pdf.layout.visual.guard.test.ts\n M apps/backend/tests/qr.examen.test.ts\n?? docs/handoff/sesiones/2026-10-27/\n?? docs/specs/SPEC-104_loteid_qr_y_pie_pdf.spec.md"
+  },
+  "parentSessionId": "01a1660d-cd0e-7c62-b2c1-7657128d81f1"
+}

@@ -158,6 +158,75 @@ describe('pdf OMR canónico', () => {
     }
   });
 
+  it('genera dos examenes de lote y verifica QR y pie en todas sus paginas', async () => {
+    const loteId = '0AFF2B75';
+    const preguntas = ['q1', 'q2'].map((id) => ({
+      id,
+      enunciado: `Reactivo sintetico ${id} para verificar un examen multipagina de lote.`,
+      opciones: ['A', 'B', 'C', 'D', 'E'].map((letra) => ({ texto: `Opcion ${letra}`, esCorrecta: letra === 'C' }))
+    }));
+    for (const [folio, examId] of [['D7E8B86B', 'EXAMEN-UUID-1'], ['A1B2C3D4', 'EXAMEN-UUID-2']]) {
+      const resultado = await generarPdfExamen({
+        titulo: 'Lote sintetico',
+        folio,
+        loteId,
+        examId,
+        preguntas,
+        mapaVariante: { ordenPreguntas: ['q1', 'q2'], ordenOpcionesPorPregunta: { q1: [0, 1, 2, 3, 4], q2: [0, 1, 2, 3, 4] } },
+        tipoExamen: 'parcial',
+        totalPaginas: 2,
+        margenMm: 10,
+        templateVersion: 4,
+        bookletConfig: { targetPages: 2, distribuirEnPaginasObjetivo: true }
+      });
+      expect(resultado.paginas).toHaveLength(2);
+
+      const parser = new PDFParse({ data: resultado.pdfBytes });
+      try {
+        const capturas = await parser.getScreenshot({ partial: [1, 2], desiredWidth: 2550, imageBuffer: true, imageDataUrl: false });
+        const textoPdf = (await parser.getText()).text.replace(/\s+/g, ' ');
+        expect(capturas.pages).toHaveLength(2);
+
+        for (const indice of [0, 1]) {
+          const numeroPagina = indice + 1;
+          const qrTexto = String(resultado.paginas[indice]?.qrTexto ?? '');
+          const qrResumen = extraerResumenQrExamen(qrTexto);
+          expect(qrResumen).toMatchObject({
+            loteId,
+            folio,
+            numeroPagina,
+            payloadSignatureMode: 'hmac-v1',
+            payloadSignatureValid: true
+          });
+          expect(qrResumen?.examId).toBeUndefined();
+
+          const captura = capturas.pages[indice]!;
+          const cajaQr = cajaQrDesdeManifiesto({ mapaOmr: resultado.mapaOmr }, numeroPagina, 792);
+          expect(cajaQr).toBeTruthy();
+          const escala = captura.width / 612;
+          const margen = 12;
+          const left = Math.max(0, Math.round((cajaQr!.x - margen) * escala));
+          const top = Math.max(0, Math.round((cajaQr!.yTop - margen) * escala));
+          const lado = Math.round((cajaQr!.size + margen * 2) * escala);
+          const rasterQr = await sharp(captura.data)
+            .extract({ left, top, width: lado, height: lado })
+            .ensureAlpha()
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          expect(detectarQrRgba(rasterQr.data, rasterQr.info.width, rasterQr.info.height)).toBe(qrTexto);
+          expect(textoPdf).toContain(`LOTE ${loteId} · FOLIO ${folio} · Pagina ${numeroPagina} de 2`);
+          const directorioQa = process.env.OMR_QA_RENDER_OUTPUT_DIR;
+          if (directorioQa && folio === 'D7E8B86B' && numeroPagina === 1) {
+            await mkdir(directorioQa, { recursive: true });
+            await writeFile(path.join(directorioQa, 'lote-qr-footer-page-1.png'), captura.data);
+          }
+        }
+      } finally {
+        await parser.destroy();
+      }
+    }
+  });
+
   it('reduce la redundancia solo para payloads que exceden la densidad fotografica', () => {
     expect(resolverNivelCorreccionQr('X'.repeat(100))).toBe('H');
     const payloadFotograficoReal =
