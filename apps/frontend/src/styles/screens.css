@@ -7351,6 +7351,7 @@
 }
 
 .plantillas-pagina-chip {
+  /* WCAG AA: la superficie y el borde son decorativos; el número y rango mantienen etiquetas de texto. */
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -7362,11 +7363,13 @@
 }
 
 .plantillas-pagina-chip__num {
+  /* WCAG AA: el color de acento no es el único medio para distinguir la página. */
   font-weight: 700;
   color: #ec4899;
 }
 
 .plantillas-pagina-chip__rango {
+  /* WCAG AA: el texto secundario usa el token muted de la interfaz. */
   color: var(--color-texto-muted, #94a3b8);
 }
 
@@ -7391,7 +7394,7 @@
   margin-top: 1rem;
 }
 
-/* Light mode overrides for Plantillas Bento cards */
+/* WCAG AA: overrides de tema claro conservan texto legible y usan los acentos como decoración. */
 :root:not([data-theme="dark"]) .plantillas-panel--form,
 :root:not([data-theme="dark"]) .plantillas-panel--lista,
 :root:not([data-theme="dark"]) .plantillas-panel--generar,
