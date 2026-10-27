@@ -267,4 +267,34 @@ describe('GUI responsive contract', () => {
       /\.banco-panel__title\s*\{[\s\S]*?overflow-wrap:\s*anywhere;/
     );
   });
+
+  it('mantiene el selector de navegación docente visible y ancho completo hasta 1023 px', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const mobileNavCss = css.slice(css.lastIndexOf('@media (max-width: 1023px)'));
+    const desktopNavCss = css.slice(css.lastIndexOf('@media (min-width: 1024px)'));
+
+    expect(mobileNavCss).toMatch(
+      /\.shell-docente__content\s*>\s*\.panel\s*>\s*\.tabs--docente-responsive\s*\{[^}]*display:\s*grid;[^}]*overflow:\s*visible;/
+    );
+    expect(mobileNavCss).toMatch(
+      /\.tabs--docente-responsive \.tabs__mobile-picker select\s*\{[^}]*width:\s*100%;[^}]*min-height:\s*44px;/
+    );
+    expect(mobileNavCss).toMatch(
+      /\.tabs--docente-responsive\s*>\s*\.tab\s*\{\s*display:\s*none;/
+    );
+    expect(desktopNavCss).toMatch(
+      /\.tabs--docente-responsive \.tabs__mobile-picker\s*\{\s*display:\s*none;/
+    );
+  });
+
+  it('refluye las métricas de Calificaciones a columnas legibles en móvil', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const mobileCss = css.slice(css.lastIndexOf('@media (max-width: 720px)'));
+
+    expect(mobileCss).toMatch(
+      /\.calificaciones-experience \.banco-header-kpis\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*8rem\),\s*1fr\)\);/
+    );
+  });
 });

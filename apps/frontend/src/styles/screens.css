@@ -9976,6 +9976,13 @@ li.empty-state-card {
   .materias-header-kpis {
     flex-wrap: wrap;
   }
+
+  .calificaciones-experience .banco-header-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+    gap: 0.5rem;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 360px) {
@@ -10163,4 +10170,52 @@ li.empty-state-card {
 }
 @media (prefers-reduced-motion: reduce) {
   .version-timeline__chevron, .version-changelog-source__chevron { transition: none; }
+}
+
+/* En pantallas estrechas, mantener la navegación completa siempre visible.
+   El selector no debe desplazarse junto con las pestañas fuera del viewport. */
+@media (max-width: 1023px) {
+  .shell-docente__content > .panel > .tabs--docente-responsive {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
+    overflow: visible;
+    min-width: 0;
+  }
+
+  .tabs--docente-responsive .tabs__mobile-picker {
+    display: grid;
+    gap: 0.35rem;
+    width: 100%;
+    min-width: 0;
+    color: var(--ui-text-primary);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .tabs--docente-responsive .tabs__mobile-picker select {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--ui-card-border);
+    border-radius: 10px;
+    background: var(--ui-card-surface);
+    color: var(--ui-text-primary);
+    font: inherit;
+  }
+
+  .tabs--docente-responsive > .tabs__group-label,
+  .tabs--docente-responsive > .tab {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .tabs--docente-responsive .tabs__mobile-picker {
+    display: none;
+  }
 }
