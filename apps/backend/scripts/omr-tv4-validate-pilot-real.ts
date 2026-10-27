@@ -48,7 +48,7 @@ type ManifestDataset = {
 
 type OpcionClave = 'A' | 'B' | 'C' | 'D' | 'E';
 export type AnswerKey = Record<number, OpcionClave>;
-const GRADE_CONSISTENCY_LOWER_95_MINIMUM = 0.98;
+const GRADE_CONSISTENCY_LOWER_95_MINIMUM = 0.99;
 
 export type CandidateExamGrade = {
   fullCoverage: boolean;
@@ -517,12 +517,14 @@ export async function runTv4PilotRealValidation(args: {
   if (!Number.isFinite(manifest.thresholds?.gradeConsistencyLower95Min) ||
       manifest.thresholds.gradeConsistencyLower95Min < GRADE_CONSISTENCY_LOWER_95_MINIMUM ||
       manifest.thresholds.gradeConsistencyLower95Min >= 1) {
-    throw new Error('El manifest requiere thresholds.gradeConsistencyLower95Min entre 0.98 y 1.0, sin incluir 1.0.');
+    throw new Error('El manifest requiere thresholds.gradeConsistencyLower95Min entre 0.99 y 1.0, sin incluir 1.0.');
   }
   if (!Number.isFinite(manifest.thresholds?.autoCoverageMin) ||
-      manifest.thresholds.autoCoverageMin < 0.8 ||
-      manifest.thresholds.autoCoverageMin > 1) {
-    throw new Error('El manifest requiere thresholds.autoCoverageMin entre 0.8 y 1.0.');
+      manifest.thresholds.autoCoverageMin !== 1) {
+    throw new Error('El piloto de liberación requiere thresholds.autoCoverageMin igual a 1.0.');
+  }
+  if (manifest.thresholds.pagePassMin !== 1 || manifest.thresholds.autoGradeTrustMin !== 1) {
+    throw new Error('El piloto de liberación requiere thresholds.pagePassMin y autoGradeTrustMin iguales a 1.0.');
   }
   if (!Array.isArray(manifest.capturas) || manifest.capturas.length === 0) {
     const runId = `omr-tv4-pilot-real-${Date.now()}`;
@@ -553,7 +555,7 @@ export async function runTv4PilotRealValidation(args: {
           confidenceLevel: 0.95,
           independentExams: 0,
           automaticGradeDiscordances: 0,
-          minimumPerfectExamsFor98Percent95: calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.98 }),
+          minimumPerfectExamsFor99Percent95: calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.99 }),
           lowerBound: null
         },
         capturePassRate: null,
@@ -934,7 +936,7 @@ export async function runTv4PilotRealValidation(args: {
   );
   const bonusConsistencyLower95 = calcularCotaInferiorExactaConcordancia(bonusComparisons, bonusDiscordances);
   const concordanciaPorCondicion = calcularConcordanciaPorCondicion(conditionComparisons);
-  const minimumPerfectExamsFor98Percent95 = calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.98 });
+  const minimumPerfectExamsFor99Percent95 = calcularMinimoExamenesSinDiscordancias({ targetConsistency: 0.99 });
 
   const precision = tp + fp > 0 ? tp / (tp + fp) : 1;
   const falsePositiveRate = totalPreguntasEvaluadas > 0 ? fp / totalPreguntasEvaluadas : 0;
@@ -988,7 +990,7 @@ export async function runTv4PilotRealValidation(args: {
         confidenceLevel: 0.95,
         independentExams: gradeComparisons,
         automaticGradeDiscordances,
-        minimumPerfectExamsFor98Percent95,
+        minimumPerfectExamsFor99Percent95,
         lowerBound: gradeConsistencyLower95 === null ? null : round6(gradeConsistencyLower95)
       },
       capturePassRate: round6(capturePassRate),

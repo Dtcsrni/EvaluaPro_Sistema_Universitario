@@ -146,17 +146,21 @@ function reportePilotoRealApruebaRuntime() {
     const bonusComparisons = metrics?.bonusComparisons;
     const gradeConsistencyLower95 = metrics?.gradeConsistencyLower95;
     const bonusConsistencyLower95 = metrics?.bonusConsistencyLower95;
+    const pagePassRate = metrics?.pagePassRate;
+    const autoGradeTrustRate = metrics?.autoGradeTrustRate;
     const autoCoverageRate = metrics?.autoCoverageRate;
     const humanReviewedRows = metrics?.humanReviewedRows;
     const humanReviewerCount = metrics?.humanReviewerCount;
-    return numeric(gradeConsistencyMinimum) && gradeConsistencyMinimum >= 0.98 &&
-      numeric(coverageMinimum) && coverageMinimum >= 0.95 &&
+    return numeric(gradeConsistencyMinimum) && gradeConsistencyMinimum >= 0.99 &&
+      numeric(coverageMinimum) && coverageMinimum === 1 &&
       numeric(totalCaptures) && totalCaptures > 0 &&
-      numeric(gradeComparisons) && gradeComparisons >= 149 &&
-      numeric(bonusComparisons) && bonusComparisons >= 149 &&
+      numeric(gradeComparisons) && gradeComparisons >= 299 &&
+      numeric(bonusComparisons) && bonusComparisons >= 299 &&
       numeric(gradeConsistencyLower95) && gradeConsistencyLower95 >= gradeConsistencyMinimum &&
       numeric(bonusConsistencyLower95) && bonusConsistencyLower95 >= gradeConsistencyMinimum &&
-      numeric(autoCoverageRate) && autoCoverageRate >= coverageMinimum &&
+      numeric(pagePassRate) && pagePassRate === 1 &&
+      numeric(autoGradeTrustRate) && autoGradeTrustRate === 1 &&
+      numeric(autoCoverageRate) && autoCoverageRate === 1 &&
       numeric(humanReviewedRows) && humanReviewedRows > 0 &&
       numeric(humanReviewerCount) && humanReviewerCount > 0;
   } catch {

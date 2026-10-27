@@ -6,9 +6,10 @@
     "precisionMin": 0.98,
     "falsePositiveMax": 0.01,
     "invalidDetectionMin": 0.95,
-    "pagePassMin": 0.95,
-    "autoGradeTrustMin": 0.95,
-    "autoCoverageMin": 0.95
+    "pagePassMin": 1,
+    "autoGradeTrustMin": 1,
+    "autoCoverageMin": 1,
+    "gradeConsistencyLower95Min": 0.99
   },
   "groundTruthRef": "ground_truth.jsonl",
   "answerKeyPath": "answer_key.json",

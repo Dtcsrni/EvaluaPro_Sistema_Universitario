@@ -138,15 +138,17 @@ describe('workflow OMR por jobs', () => {
         gradeConsistencyLower95: true,
         bonusConsistencyLower95: true
       },
-      thresholds: { gradeConsistencyLower95Min: 0.98, autoCoverageMin: 0.95 },
+      thresholds: { gradeConsistencyLower95Min: 0.99, autoCoverageMin: 1 },
       metrics: {
-        totalCaptures: 298,
-        gradeComparisons: 149,
-        bonusComparisons: 149,
-        gradeConsistencyLower95: 0.98,
-        bonusConsistencyLower95: 0.98,
-        autoCoverageRate: 0.96,
-        humanReviewedRows: 298,
+        totalCaptures: 598,
+        pagePassRate: 1,
+        autoGradeTrustRate: 1,
+        gradeComparisons: 299,
+        bonusComparisons: 299,
+        gradeConsistencyLower95: 0.990031,
+        bonusConsistencyLower95: 0.990031,
+        autoCoverageRate: 1,
+        humanReviewedRows: 598,
         humanReviewerCount: 2
       },
       evidenceHashes: {
