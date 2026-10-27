@@ -556,7 +556,9 @@ describe('calificación OMR payload estricto', () => {
           photoQuality: 0.96,
           decisionPolicy: 'conservadora_v1',
           motivosRevision: [],
-          qrTexto: String(base.qrTexto).replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA')
+          qrTexto: String(base.qrTexto)
+            .replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA')
+            .replace(/:SG:H1[A-Z0-9]{24}$/i, ':SG:H1AAAAAAAAAAAAAAAAAAAAAAAA')
         }
       })
       .expect(409);

@@ -182,6 +182,53 @@ describe('qr examen enriquecido', () => {
     expect(qr.length).toBeLessThan(70);
   });
 
+  it('mantiene el QR compacto con lote ligado al manifiesto y firmado con SG:H1', () => {
+    const qr = construirTextoQrExamenPagina({
+      folio: 'FOLIO-LOTE-COMPACTO',
+      numeroPagina: 1,
+      templateVersion: 4,
+      compacto: true,
+      examId: 'EXAMEN-CON-UUID-LARGO-001',
+      loteId: 'LOTE-20261026-01',
+      totalPreguntas: 12,
+      questionIdsPagina: ['q1', 'q2'],
+      mapaVariante: { ordenPreguntas: ['q1', 'q2'], ordenOpcionesPorPregunta: {} },
+      preguntas: []
+    });
+
+    const resumen = extraerResumenQrExamen(qr);
+    expect(qr).toContain(':LI:LOTE-20261026-01:');
+    expect(qr).toMatch(/:SG:H1[A-Z0-9]{24}$/);
+    expect(qr).not.toContain(':C:');
+    expect(qr).not.toContain(':ID:');
+    expect(resumen).toMatchObject({
+      loteId: 'LOTE-20261026-01',
+      examId: undefined,
+      qrPayloadMode: 'manifest-bound',
+      payloadSignatureMode: 'hmac-v1',
+      payloadSignatureValid: true
+    });
+    expect(resumen?.variantHash).toBeUndefined();
+    expect(resumen?.answerKeyHash).toBeUndefined();
+    expect(resumen?.pageAnswerKey).toBeUndefined();
+  });
+
+  it('detecta cambios al loteId en el QR compacto manifest-bound', () => {
+    const qr = construirTextoQrExamenPagina({
+      folio: 'FOLIO-LOTE-COMPACTO',
+      numeroPagina: 1,
+      templateVersion: 4,
+      compacto: true,
+      loteId: 'LOTE-ORIGINAL',
+      mapaVariante: { ordenPreguntas: [], ordenOpcionesPorPregunta: {} },
+      preguntas: []
+    });
+
+    const resumen = extraerResumenQrExamen(qr.replace('LI:LOTE-ORIGINAL', 'LI:LOTE-ALTERADO'));
+    expect(resumen?.qrPayloadMode).toBe('manifest-bound');
+    expect(resumen?.payloadSignatureValid).toBe(false);
+  });
+
   it('reduce bytes y módulos respecto del QR autocontenido equivalente', () => {
     const preguntas = Array.from({ length: 25 }, (_, indice) => ({
       id: `q${indice + 1}`,

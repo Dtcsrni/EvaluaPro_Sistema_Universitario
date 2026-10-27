@@ -230,6 +230,10 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
   const answerKeyHash = construirFirmaClave(payload.preguntas, payload.mapaVariante);
   const pageAnswerKey = construirClaveVisiblePagina(payload.preguntas, payload.mapaVariante, payload.questionIdsPagina);
   const keyId = normalizarToken(configuracion.omrQrHmacKeyId).slice(0, 20);
+  if (payload.compacto && loteId && templateVersion === 4 && templateId === 'omr-canonical-v4') {
+    const segmentosLigadosAManifiesto = [identidad, `LI:${loteId}`, keyId ? `KI:${keyId}` : ''].filter(Boolean);
+    return `${segmentosLigadosAManifiesto.join(':')}:SG:H1${hmacCorto(segmentosLigadosAManifiesto.join(':'), 24, keyId)}`;
+  }
   const totalPreguntas = Math.max(0, Number(payload.totalPreguntas) || 0);
   const preguntaDesde = Math.max(0, Number(payload.preguntaDesde) || 0);
   const preguntaHasta = Math.max(0, Number(payload.preguntaHasta) || 0);
@@ -438,7 +442,9 @@ export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null
     payloadSignature: firmaPayload.payloadSignature,
     payloadSignatureMode: firmaPayload.payloadSignatureMode,
     payloadSignatureValid: firmaPayload.payloadSignatureValid,
-    qrPayloadMode: firmaCorta || templateId === 'omr-inline-exam-v1' ? 'manifest-bound' : 'self-contained',
+    qrPayloadMode: firmaCorta || templateId === 'omr-inline-exam-v1' || (loteId && !compacto && !campos.has('ID') && !campos.has('VH') && !campos.has('AK') && !campos.has('K'))
+      ? 'manifest-bound'
+      : 'self-contained',
     questionRefs: campos.get('QV') ? campos.get('QV')!.split('.').filter(Boolean) : undefined,
     optionOrders: campos.get('OV') ? campos.get('OV')!.split('.').filter(Boolean) : undefined,
     raw: limpio
