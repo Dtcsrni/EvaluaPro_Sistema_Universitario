@@ -17,13 +17,14 @@ Se requiere reducir esos puntos de fallo sin retirar herramientas que sigan sien
 ## Requisitos Funcionales
 
 - REQ-001: Inventariar cada invocación de PowerShell/Windows Script Host que forme parte del payload instalado o de un flujo ejecutado por el usuario. Cada uso restante debe clasificarse como eliminado, sustituido o justificado por una limitación concreta de Windows/toolchain.
-- REQ-002: Los accesos directos instalados y regenerados deben iniciar ejecutables nativos de EvaluaPro. No deben invocar `powershell.exe`, `pwsh.exe`, `wscript.exe`, `cscript.exe`, scripts `.ps1` ni `.vbs` para abrir la aplicación/Hub, reparar, detener, reiniciar, actualizar o desinstalar.
+- REQ-002: Los accesos directos instalados y regenerados deben iniciar ejecutables nativos de EvaluaPro. No deben invocar `powershell.exe`, `pwsh.exe`, `wscript.exe`, `cscript.exe`, scripts `.ps1` ni `.vbs` para abrir la aplicación/Hub, reparar, detener, reiniciar, actualizar o desinstalar. La regeneración debe usar el AppHost y notificar a Explorer para actualizar los iconos.
 - REQ-003: Sustituir las operaciones de runtime del helper PowerShell de Burn por código C#/.NET mantenible, integrado en la BA .NET 8 existente o en un helper WinExe autocontenido y versionado con ella. No agregar servicios Windows ni procesos privilegiados persistentes.
-- REQ-004: Mantener Burn/MSI como único dueño de instalación, elevación UAC, upgrade, rollback y desinstalación. El Hub solicita confirmación, descarga y valida hash SHA-256 y Authenticode antes de delegar al bundle firmado; no reemplaza archivos en ejecución ni crea un segundo mecanismo de instalación.
+- REQ-004: Mantener Burn/MSI como único dueño de instalación, elevación UAC, upgrade, rollback y desinstalación. El Hub solicita confirmación y valida el SHA-256 oficial antes de delegar al bundle; conserva la continuidad Authenticode cuando se actualiza desde un Hub firmado, y permite el bootstrap por SHA-256 oficial cuando no hay Hub previo. No reemplaza archivos en ejecución ni crea un segundo mecanismo de instalación.
 - REQ-005: El runtime nativo debe aplicar límites de tiempo, cancelación del árbol de procesos, inventario fail-closed, logs estructurados sanitizados, códigos de salida estables y errores recuperables con indicación accionable. Un fallo al enumerar procesos, comprobar prerequisitos, verificar el paquete o recuperar el estado previo debe impedir reportar éxito.
 - REQ-006: Usar Node.js para orquestación de build/CI portable cuando reduzca dependencias y preserve la semántica. Mantener solo las tareas PowerShell de build/CI que requieran explícitamente APIs/herramientas Windows sin alternativa equivalente; documentar cada excepción y evitar empaquetarlas o ejecutarlas al abrir la app.
 - REQ-007: Actualizar contratos, manifiestos, documentación y detección de instalación para que el payload no declare scripts de runtime retirados como archivos críticos; mantener compatibilidad de upgrade desde instalaciones previas sin romper accesos directos ni eliminar datos.
-- REQ-008: Añadir cobertura automatizada para invocaciones runtime ausentes, instalación y actualización, cancelación, errores de permisos, verificación de firma/hash, fallos de proceso, rollback, regeneración de accesos directos y upgrade desde una versión con launchers PowerShell. Ejecutar smoke/E2E en Windows antes de declarar el runtime migrado.
+- REQ-008: Añadir cobertura automatizada para invocaciones runtime ausentes, instalación y actualización, cancelación, errores de permisos, verificación de firma/hash, fallos de proceso, rollback, regeneración de accesos directos desde Cuenta y upgrade desde una versión con launchers PowerShell. Ejecutar smoke/E2E en Windows antes de declarar el runtime migrado.
+- REQ-009: Serializar los arranques del bootstrap Hub y usar temporales de descarga únicos para evitar colisiones entre clicks/procesos; un fallo no debe dejar un `.partial` compartido que bloquee los siguientes intentos.
 
 ## Criterios de Aceptación
 
@@ -34,19 +35,21 @@ Se requiere reducir esos puntos de fallo sin retirar herramientas que sigan sien
 5. En errores de permisos, red, firma, timeout o enumeración, la operación termina de forma explícita, no altera datos ni reemplaza payload parcialmente, y deja diagnóstico sanitizado.
 6. La actualización conserva los datos docentes, migra accesos directos y completa el flujo desde una instalación previa con los launchers actuales.
 7. CI Windows compila BA/helper/MSI/bundle y ejecuta pruebas de contrato más el smoke/E2E de instalación/actualización aplicable.
+8. Dos invocaciones simultáneas del acceso Hub no compiten por la misma descarga parcial y el cierre de la ventana oculta no abre diálogos de cierre docente.
 
 ## Matriz de Trazabilidad
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001 | Inventario y clasificación de invocaciones runtime | `docs/installer/windows-runtime-inventory.md` | Implementado; validar exhaustividad en release |
-| REQ-002 | Accesos directos nativos y ausencia de WSH/PowerShell | `scripts/tests/installer-hub-contract.test.mjs` | Contrato docente-local aprobado |
+| REQ-002 | Accesos directos nativos, iconos de Explorer y ausencia de WSH/PowerShell | `scripts/tests/app-host-health.contract.test.mjs` | Contrato actualizado; smoke visual pendiente |
 | REQ-003 | Helper nativo para operaciones Burn | `scripts/tests/installer-hub-contract.test.mjs` | BA compila; smoke Windows pendiente |
 | REQ-004 | Delegación al bundle Burn firmado y transaccional | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Pendiente E2E |
 | REQ-005 | Timeout, cancelación, fail-closed, logging y rollback | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Implementado en helper; casos de interrupción pendientes |
 | REQ-006 | Orquestación portable con Node y excepciones Windows | `scripts/tests/native-startup.contract.test.mjs` | PowerShell limitado a tooling Windows/flavors heredados; pendiente validar CI |
 | REQ-007 | Upgrade y regeneración de shortcuts/manifiestos sin exigir launchers retirados | `scripts/tests/installer-hub-contract.test.mjs` | Contrato actualizado; upgrade real pendiente |
-| REQ-008 | Pruebas y smoke/E2E en Windows usando el App Host nativo; inicialización de estado bajo StrictMode y limpieza sin instancia activa | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Regresión añadida; E2E completo pendiente |
+| REQ-008 | Pruebas de regeneración desde Cuenta, AppHost nativo y smoke/E2E Windows | `scripts/tests/app-host-health.contract.test.mjs` | Contrato actualizado; ejecución real del botón pendiente |
+| REQ-009 | Instancia única, temporales de descarga aislados y cierre del bootstrap Hub | `scripts/tests/app-host-health.contract.test.mjs` | Contrato actualizado; E2E concurrente pendiente |
 
 ## Alternativas y decisión
 

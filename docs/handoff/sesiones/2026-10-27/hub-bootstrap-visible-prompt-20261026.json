@@ -1,0 +1,223 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "hub-bootstrap-visible-prompt-20261026",
+  "status": "final",
+  "generatedAt": "2026-10-27T02:14:47.139Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "Codex desktop"
+  },
+  "request": {
+    "summary": "Corregir el acceso Hub que sigue sin arrancar y renovar accesos e iconos."
+  },
+  "objective": "Preparar un cambio revisable sobre main para el bootstrap Hub, cierre WPF y reconciliación nativa de accesos directos.",
+  "scope": [
+    "packaging/app-host",
+    "perfil docente y endpoint local de regeneración",
+    "contratos de regresión y SPEC-094"
+  ],
+  "constraints": [
+    "No modificar datos de producción.",
+    "No fusionar a main ni publicar una release.",
+    "Conservar SHA-256 oficial y Authenticode de actualizaciones firmadas."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-10-27T02:14:47.139Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "apps/backend/src/modulos/modulo_autenticacion/controladorAutenticacion.ts",
+      "apps/frontend/src/apps/app_docente/SeccionCuenta.tsx",
+      "apps/frontend/tests/seccionCuenta.test.tsx",
+      "docs/specs/SPEC-094_runtime_windows_nativo_sin_powershell.spec.md",
+      "packaging/app-host/App.xaml.cs",
+      "packaging/app-host/MainWindow.xaml.cs",
+      "scripts/tests/app-host-health.contract.test.mjs",
+      "docs/handoff/sesiones/2026-10-27/",
+      "packaging/app-host/ShortcutReconciler.cs"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-10-27/hub-bootstrap-visible-prompt-20261026.json",
+      "docs/handoff/sesiones/2026-10-27/hub-bootstrap-visible-prompt-20261026.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 15847,
+      "resultSummary": "✔ Stable Gate invoca el mismo guard para checkout inicial, checkpoints y guard final (37.2208ms) | ▶ el guard del checkout candidato solo permite EOL sin cambios semánticos | ✔ acepta diferencias CRLF/LF sin contenido distinto (2567.0039ms) | ✔ acepta EOL-only en JSON de evidencia fuera de la allowlist histórica (2730.9773ms) | ... | at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) | Node.js v24.18.0",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 12901,
+      "resultSummary": "npm notice run evaluapro@1.2.10 docs:check | npm notice run node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-10-27T02:14:47.139Z"
+    }
+  ],
+  "decisions": [
+    "Permitir bootstrap por SHA-256 oficial cuando no hay Hub firmado previo; conservar Authenticode para actualización desde un Hub firmado.",
+    "Usar instancia única del bootstrap y temporales únicos para evitar colisiones.",
+    "Reconstruir accesos mediante Shell Link nativo y notificación SHChangeNotify."
+  ],
+  "assumptions": [
+    "El AppHost instalado permanece en %LOCALAPPDATA%\\EvaluaPro\\EvaluaPro.exe."
+  ],
+  "risks": [
+    "Falta validar UI real de Windows; pruebas de React y WCAG se bloquearon por dependencias ausentes en el worktree.",
+    "El SHA-256 procede de la release oficial y depende de la seguridad del repositorio/distribución."
+  ],
+  "nextStep": "Revisar diff y gates focales, crear commit en la rama aislada y abrir PR revisable sin fusionar ni publicar release.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\worktrees\\hub-bootstrap-visible-prompt-20261026",
+    "branch": "codex/hub-bootstrap-visible-prompt-20261026",
+    "commit": "a526faed",
+    "workingTreeStatus": "M apps/backend/src/modulos/modulo_autenticacion/controladorAutenticacion.ts\n M apps/frontend/src/apps/app_docente/SeccionCuenta.tsx\n M apps/frontend/tests/seccionCuenta.test.tsx\n M docs/specs/SPEC-094_runtime_windows_nativo_sin_powershell.spec.md\n M packaging/app-host/App.xaml.cs\n M packaging/app-host/MainWindow.xaml.cs\n M scripts/tests/app-host-health.contract.test.mjs\n?? docs/handoff/sesiones/2026-10-27/\n?? packaging/app-host/ShortcutReconciler.cs"
+  }
+}

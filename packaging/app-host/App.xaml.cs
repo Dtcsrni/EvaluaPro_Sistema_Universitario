@@ -11,16 +11,31 @@ namespace EvaluaPro.AppHost;
 public partial class App : System.Windows.Application
 {
     private const string DesktopSingletonMutexName = @"Local\EvaluaProDesktopSingleton";
+    private const string HubBootstrapSingletonMutexName = @"Local\EvaluaProHubBootstrapSingleton";
     private const int SwRestore = 9;
     private static readonly TimeSpan OrphanedInstanceMinimumAge = TimeSpan.FromSeconds(30);
     private static Mutex? desktopSingletonMutex;
+    private static Mutex? hubBootstrapSingletonMutex;
     private static bool ownsDesktopSingleton;
     internal static bool IsInstallerHubInvocation { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Any(argument =>
+            string.Equals(argument, "--regenerate-shortcuts", StringComparison.OrdinalIgnoreCase)))
+        {
+            Shutdown(ShortcutReconciler.Regenerate());
+            return;
+        }
+
         IsInstallerHubInvocation = e.Args.Any(argument =>
             string.Equals(argument, "--installer-hub", StringComparison.OrdinalIgnoreCase));
+
+        if (IsInstallerHubInvocation && !TryAcquireHubBootstrapSingleton())
+        {
+            Shutdown();
+            return;
+        }
 
         if (!IsInstallerHubInvocation && !TryAcquireDesktopSingleton())
         {
@@ -28,6 +43,9 @@ public partial class App : System.Windows.Application
             Shutdown();
             return;
         }
+
+        if (!IsInstallerHubInvocation)
+            ShortcutReconciler.EnsureCurrent();
 
         base.OnStartup(e);
         Exit += App_Exit;
@@ -87,6 +105,23 @@ public partial class App : System.Windows.Application
         }
 
         return false;
+    }
+
+    private static bool TryAcquireHubBootstrapSingleton()
+    {
+        try
+        {
+            hubBootstrapSingletonMutex = new Mutex(initiallyOwned: true, HubBootstrapSingletonMutexName, out var createdNew);
+            if (createdNew) return true;
+            hubBootstrapSingletonMutex.Dispose();
+            hubBootstrapSingletonMutex = null;
+            return false;
+        }
+        catch (Exception ex)
+        {
+            LogException("HubBootstrapSingleton.Acquire", ex);
+            return false;
+        }
     }
 
     private static bool TryRecoverOrphanedInstance()
@@ -232,6 +267,18 @@ public partial class App : System.Windows.Application
     private void App_Exit(object? sender, ExitEventArgs e)
     {
         ReleaseDesktopSingleton();
+        ReleaseHubBootstrapSingleton();
+    }
+
+    private static void ReleaseHubBootstrapSingleton()
+    {
+        try
+        {
+            hubBootstrapSingletonMutex?.ReleaseMutex();
+            hubBootstrapSingletonMutex?.Dispose();
+        }
+        catch (Exception ex) { LogException("HubBootstrapSingleton.Release", ex); }
+        finally { hubBootstrapSingletonMutex = null; }
     }
 
     private static void ReleaseDesktopSingleton()
