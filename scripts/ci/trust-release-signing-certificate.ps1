@@ -111,25 +111,9 @@ $isSelfSigned = [string]$certificate.Subject -eq [string]$certificate.Issuer
 $mode = if ($isSelfSigned) { 'autofirma: requiere confianza manual por el usuario' } else { 'certificado con cadena de confianza de Windows' }
 
 if ($isSelfSigned) {
-  $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
-    [System.Security.Cryptography.X509Certificates.StoreName]::Root,
-    [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
-  )
-  $storeOpened = $false
-  Write-Host '[trust] Añadiendo certificado autofirmado al almacén CurrentUser\Root del runner efímero.'
-  try {
-    $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-    $storeOpened = $true
-    $alreadyTrusted = @($store.Certificates | Where-Object { ([string]$_.Thumbprint -replace '\s', '').ToUpperInvariant() -eq $thumbprint }).Count -gt 0
-    if (-not $alreadyTrusted) {
-      $store.Add($certificate)
-      if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_ENV)) {
-        Add-Content -LiteralPath $env:GITHUB_ENV -Value "EVALUAPRO_TEMP_TRUST_THUMBPRINT=$thumbprint"
-      }
-    }
-  } finally {
-    if ($storeOpened) { $store.Close() }
-  }
+  $storeManager = Join-Path $PSScriptRoot 'manage-temporary-root-certificate.ps1'
+  Write-Host '[trust] Añadiendo certificado autofirmado al almacén CurrentUser\Root del runner efímero (límite: 45 s).'
+  & $storeManager -Action Add -CertificatePath $CertificatePath -Thumbprint $thumbprint -TimeoutSeconds 45
 } elseif (-not $certificate.Verify()) {
   throw 'El certificado no es autofirmado y su cadena no es confiable en el runner; no se añadirá una CA desconocida.'
 }
