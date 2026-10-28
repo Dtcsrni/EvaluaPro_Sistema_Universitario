@@ -1,8 +1,8 @@
 ---
 id: SPEC-RELEASE-STABLE-INSTALLER-FIRMA
 titulo: Gate estable exige instaladores firmados
-version: 1.4.0
-fecha: 2026-10-27
+version: 1.5.0
+fecha: 2026-10-28
 autor: Codex / Agente IA
 modulo: release
 estado: approved
@@ -11,11 +11,11 @@ estado: approved
 # SPEC-RELEASE-STABLE-INSTALLER-FIRMA: Gate estable exige instaladores firmados
 
 ## Contexto
-Una promocion estable para usuarios finales de Windows no debe aprobarse si los artefactos del instalador se generaron sin una firma Authenticode cuya cadena sea valida y confiable para Windows, con version incorrecta o con una Bootstrapper Application Burn embebida obsoleta. El manifest release ya registra `signed`; ese campo debe ser `true` unicamente cuando `Get-AuthenticodeSignature` devuelve `Status = Valid`. La mera presencia de un certificado firmante, incluidos certificados autofirmados cuya raiz no sea confiable, no satisface el requisito y produce No-Go.
+Una promocion estable para usuarios finales de Windows no debe aprobarse si los artefactos del instalador se generaron sin firma Authenticode, con version incorrecta o con una Bootstrapper Application Burn embebida obsoleta. Para la autofirma autorizada, CI agrega temporalmente el certificado publico al almacen `CurrentUser\\Root` del runner efimero, verifica `Status = Valid` y retira esa confianza al terminar. El release debe publicar el certificado CER, su SHA-256 y las instrucciones de confianza manual. Esto no implica confianza predeterminada de Windows y App Control puede seguir bloqueando la ejecucion.
 
 ## Requisitos Funcionales
 - **REQ-001:** `release:validate:stable` debe validar que el manifest estable contenga únicamente el flavor `docente-local`.
-- **REQ-002:** `release:validate:stable` debe fallar si cualquier artefacto del manifest tiene `signed` distinto de `true`; para artefactos ejecutables y MSI, `signed` representa una cadena Authenticode confiable en Windows, no solo la presencia de una firma.
+- **REQ-002:** `release:validate:stable` debe fallar si cualquier artefacto del manifest tiene `signed` distinto de `true`; para una autofirma, `signed=true` solo se registra despues de importar temporalmente el certificado exacto al almacen de raices CurrentUser del runner efimero y volver a verificar `Status = Valid`.
 - **REQ-003:** El detalle del check debe indicar que hay artefactos sin firma cuando aplique.
 - **REQ-004:** El flujo `installer:sign` debe regenerar hashes y manifest despues de firmar, porque la firma cambia los binarios.
 - **REQ-005:** `release:validate:stable` debe fallar si un artefacto del manifest no contiene `name`, `path` y `sha256`.
@@ -33,10 +33,11 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **REQ-017:** El manifiesto del instalador, la evidencia QA, la evidencia de release y la decisión del gate deben identificar el mismo SHA candidato, aunque el commit de evidencia sea posterior.
 - **REQ-018:** La validación y publicación estable de esta versión solo considera `docente-local`; no debe incluir ni requerir artefactos SaaS.
 - **REQ-019:** La firma de release debe ser local y no contactar un servicio TSA externo. El workflow debe activar `EVALUAPRO_SIGN_LOCAL_ONLY=1` y el script debe fallar si recibe una URL TSA para un release. Al no usar sello de tiempo, la vigencia de validación de la firma queda limitada por la vigencia del certificado firmante.
+- **REQ-020:** El release debe incluir el certificado público del firmante, su SHA-256 y una guía de confianza manual. No debe instalar confianza automáticamente en el equipo destino; la guía debe advertir que SmartScreen puede mostrar alertas, App Control puede bloquear la ejecución y, sin TSA, la firma deja de validar al vencer el certificado.
 
 ## Criterios de Aceptación
 - **AC-001 (REQ-001):** Un manifest con exactamente `docente-local` y artefactos con cadena Authenticode confiable permite aprobar el check de instalador; la inclusión de otro flavor produce No-Go.
-- **AC-002 (REQ-002):** Un manifest con `signed:false` en cualquier artefacto produce `No-Go`; un archivo firmado con certificado autofirmado no confiable se registra como `signed:false` y el job de release falla antes de publicar el artefacto.
+- **AC-002 (REQ-002):** Un manifest con `signed:false` produce `No-Go`; un archivo firmado con autofirma solo pasa despues de que el runner efimero confie temporalmente el certificado exacto y `Get-AuthenticodeSignature` devuelva `Valid`.
 - **AC-003 (REQ-003):** El resultado del check `installer-multi-flavor` contiene un mensaje accionable sobre artefactos no firmados.
 - **AC-004 (REQ-004):** `sign-installer-artifacts.ps1` invoca `generate-installer-hashes.ps1` despues de completar la firma.
 - **AC-005 (REQ-005):** Un manifest con artefactos firmados pero sin `path` verificable produce `No-Go`.
@@ -54,6 +55,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-017 (REQ-017):** Un `build.commit` distinto al SHA candidato produce No-Go.
 - **AC-018 (REQ-018):** El contrato del workflow y del validador rechaza sabores distintos de `docente-local`.
 - **AC-019 (REQ-019):** El workflow configura firma local explícita; un release falla ante URL TSA o falta de modo local, y el script no aplica un TSA externo por defecto. La documentación informa que la validación sin sello de tiempo depende de que el certificado firmante siga vigente.
+- **AC-020 (REQ-020):** El borrador del release incluye CER, sidecar SHA-256 y `FIRMA-LEEME.md`; las E2E de borrador y asset público verifican el certificado y solo agregan confianza temporal a `CurrentUser\Root` del runner efímero, con limpieza posterior. La guía no afirma confianza automática ni cambia políticas del host.
 
 ## Procedimiento operativo
 
@@ -86,3 +88,4 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 | REQ-017 | Release manifest y evidencia versionada ligados al mismo SHA | scripts/tests/release-stable-promotion.test.mjs | En validación CI |
 | REQ-018 | Publicación docente-local sin flavor SaaS | scripts/tests/ci-workflow-contract.test.mjs | En validación CI |
 | REQ-019 | Firma local de release sin servicio TSA externo | scripts/tests/installer-hub-contract.test.mjs | En validación CI |
+| REQ-020 | Publicación y confianza manual explícita de la autofirma, sin alterar App Control | scripts/tests/installer-hub-contract.test.mjs; scripts/tests/ci-workflow-contract.test.mjs | En validación CI |

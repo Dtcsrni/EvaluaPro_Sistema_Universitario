@@ -558,6 +558,9 @@ jobs:
           if (Test-Path "dist/installer/EvaluaPro-InstallerHub-docente-local.exe") { throw "No debe existir nombre legacy sin version: dist/installer/EvaluaPro-InstallerHub-docente-local.exe" }
           if (-not (Test-Path "dist/installer/EvaluaPro-release-manifest.json")) { throw "No existe dist/installer/EvaluaPro-release-manifest.json" }
           if (-not (Test-Path "dist/installer/antivirus-scan-report.txt")) { throw "No existe dist/installer/antivirus-scan-report.txt" }
+          foreach ($required in @('dist/installer/EvaluaPro-CodeSigning-Certificate.cer', 'dist/installer/EvaluaPro-CodeSigning-Certificate.cer.sha256', 'dist/installer/FIRMA-LEEME.md')) {
+            if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Falta material de confianza manual: $required" }
+          }
           if (-not (Test-Path "dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi")) { throw "No existe dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi" }
           if (Test-Path "dist/installer/EvaluaPro-docente-local.msi") { throw "MSI tecnico no debe quedar en raiz publica: dist/installer/EvaluaPro-docente-local.msi" }
 
@@ -580,6 +583,9 @@ jobs:
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
             dist/installer/antivirus-scan-report.txt
             dist/installer/EvaluaPro-release-manifest.json
+            dist/installer/EvaluaPro-CodeSigning-Certificate.cer
+            dist/installer/EvaluaPro-CodeSigning-Certificate.cer.sha256
+            dist/installer/FIRMA-LEEME.md
             dist/installer/SIGNING-NOT-PRODUCTION.txt
           retention-days: 90
 
@@ -589,6 +595,15 @@ jobs:
           name: installer-windows-internal
           path: |
             dist/installer/_internal/**
+
+      - name: Limpiar confianza temporal de firma en runner
+        if: ${{ always() && env.EVALUAPRO_TEMP_TRUST_THUMBPRINT != '' }}
+        shell: powershell
+        run: |
+          $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
+          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
+          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
+          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
 
   reuse_installer_candidate:
     name: Reutilizar bundle y E2E verificados
@@ -790,6 +805,9 @@ jobs:
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
             dist/installer/EvaluaPro-release-manifest.json
+            dist/installer/EvaluaPro-CodeSigning-Certificate.cer
+            dist/installer/EvaluaPro-CodeSigning-Certificate.cer.sha256
+            dist/installer/FIRMA-LEEME.md
             dist/installer/antivirus-scan-report.txt
 
       - name: Verificar assets candidato y fijar target del borrador
@@ -849,6 +867,11 @@ jobs:
           check_asset "$(basename "$exe")" "$exe_hash" "$(stat -c '%s' "$exe")"
           check_asset "$(basename "$sidecar")" "$(sha256sum "$sidecar" | awk '{print tolower($1)}')" "$(stat -c '%s' "$sidecar")"
           check_asset "$(basename "$manifest")" "$manifest_hash" "$(stat -c '%s' "$manifest")"
+          for trust_asset in dist/installer/EvaluaPro-CodeSigning-Certificate.cer dist/installer/EvaluaPro-CodeSigning-Certificate.cer.sha256 dist/installer/FIRMA-LEEME.md; do
+            test -s "$trust_asset" || { echo "Falta el asset de confianza manual: $trust_asset" >&2; exit 1; }
+            trust_hash="$(sha256sum "$trust_asset" | awk '{print tolower($1)}')"
+            check_asset "$(basename "$trust_asset")" "$trust_hash" "$(stat -c '%s' "$trust_asset")"
+          done
           if [[ "$tag_preexisting" == true ]]; then
             jq -e --arg tag "$RELEASE_TAG" --arg sha "${SOURCE_SHA,,}" '(.tag_name == $tag) and ((.target_commitish | ascii_downcase) == $sha)' <<<"$release_json" >/dev/null || {
               echo 'El borrador no coincide con la tag existente y el SHA candidato; no se retargetea.' >&2; exit 1;
@@ -864,6 +887,11 @@ jobs:
           check_asset "$(basename "$exe")" "$exe_hash" "$(stat -c '%s' "$exe")"
           check_asset "$(basename "$sidecar")" "$(sha256sum "$sidecar" | awk '{print tolower($1)}')" "$(stat -c '%s' "$sidecar")"
           check_asset "$(basename "$manifest")" "$manifest_hash" "$(stat -c '%s' "$manifest")"
+          for trust_asset in dist/installer/EvaluaPro-CodeSigning-Certificate.cer dist/installer/EvaluaPro-CodeSigning-Certificate.cer.sha256 dist/installer/FIRMA-LEEME.md; do
+            test -s "$trust_asset" || { echo "Falta el asset de confianza manual: $trust_asset" >&2; exit 1; }
+            trust_hash="$(sha256sum "$trust_asset" | awk '{print tolower($1)}')"
+            check_asset "$(basename "$trust_asset")" "$trust_hash" "$(stat -c '%s' "$trust_asset")"
+          done
           echo "Borrador verificado y fijado: $RELEASE_TAG -> ${SOURCE_SHA,,}; assets candidatos coinciden."
 
   post_publish_installer_e2e:
@@ -950,7 +978,12 @@ jobs:
           $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
           $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
           $manifestAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-release-manifest.json' }) | Select-Object -First 1
-          if (-not $candidateAsset -or -not $sidecarAsset -or -not $manifestAsset) { throw "El release draft no contiene el EXE, sidecar y manifiesto esperados para $tag." }
+          $certificateAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-CodeSigning-Certificate.cer' }) | Select-Object -First 1
+          $certificateShaAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-CodeSigning-Certificate.cer.sha256' }) | Select-Object -First 1
+          $trustGuideAsset = @($release.assets | Where-Object { $_.name -eq 'FIRMA-LEEME.md' }) | Select-Object -First 1
+          if (-not $candidateAsset -or -not $sidecarAsset -or -not $manifestAsset -or -not $certificateAsset -or -not $certificateShaAsset -or -not $trustGuideAsset) {
+            throw "El release draft no contiene el EXE, sidecar, manifiesto y material de confianza manual esperado para $tag."
+          }
           $assetDigest = [string]$candidateAsset.digest
           $digestMatch = [regex]::Match($assetDigest, '(?i)^sha256:([0-9a-f]{64})$')
           if (-not $digestMatch.Success) { throw "La API de GitHub no reportó digest SHA-256 válido para ${candidateName}: '$assetDigest'." }
@@ -960,12 +993,29 @@ jobs:
           $sidecarPath = $candidatePath + '.sha256'
           $releaseManifestPath = Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'
           $manifestDigest = [regex]::Match([string]$manifestAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
-          if (-not $manifestDigest.Success) { throw 'La API de GitHub no reportó digest SHA-256 válido para el manifiesto del release.' }
+          $certificateDigest = [regex]::Match([string]$certificateAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          $certificateShaDigest = [regex]::Match([string]$certificateShaAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          $trustGuideDigest = [regex]::Match([string]$trustGuideAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          if (-not $manifestDigest.Success -or -not $certificateDigest.Success -or -not $certificateShaDigest.Success -or -not $trustGuideDigest.Success) {
+            throw 'La API de GitHub no reportó digest SHA-256 válido para alguno de los assets de release.'
+          }
           New-Item -ItemType Directory -Path (Split-Path -Parent $releaseManifestPath) -Force | Out-Null
+          $certificatePath = Join-Path $downloadDir 'EvaluaPro-CodeSigning-Certificate.cer'
+          $certificateShaPath = $certificatePath + '.sha256'
+          $trustGuidePath = Join-Path $downloadDir 'FIRMA-LEEME.md'
           $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
           & $downloadScript -Uri ([uri][string]$candidateAsset.url) -Destination $candidatePath -ExpectedLength ([long]$candidateAsset.size) -ExpectedSha256 $digestMatch.Groups[1].Value -GitHubApiAsset
           & $downloadScript -Uri ([uri][string]$sidecarAsset.url) -Destination $sidecarPath -ExpectedLength ([long]$sidecarAsset.size) -GitHubApiAsset
           & $downloadScript -Uri ([uri][string]$manifestAsset.url) -Destination $releaseManifestPath -ExpectedLength ([long]$manifestAsset.size) -ExpectedSha256 $manifestDigest.Groups[1].Value -GitHubApiAsset
+          & $downloadScript -Uri ([uri][string]$certificateAsset.url) -Destination $certificatePath -ExpectedLength ([long]$certificateAsset.size) -ExpectedSha256 $certificateDigest.Groups[1].Value -GitHubApiAsset
+          & $downloadScript -Uri ([uri][string]$certificateShaAsset.url) -Destination $certificateShaPath -ExpectedLength ([long]$certificateShaAsset.size) -ExpectedSha256 $certificateShaDigest.Groups[1].Value -GitHubApiAsset
+          & $downloadScript -Uri ([uri][string]$trustGuideAsset.url) -Destination $trustGuidePath -ExpectedLength ([long]$trustGuideAsset.size) -ExpectedSha256 $trustGuideDigest.Groups[1].Value -GitHubApiAsset
+          $certificateSidecar = [regex]::Match((Get-Content -Raw -LiteralPath $certificateShaPath), '(?i)^\s*([0-9a-f]{64})\s+')
+          if (-not $certificateSidecar.Success -or $certificateSidecar.Groups[1].Value.ToLowerInvariant() -ne $certificateDigest.Groups[1].Value.ToLowerInvariant()) {
+            throw 'El sidecar del certificado no coincide con el digest publicado.'
+          }
+          $trustHelper = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/trust-release-signing-certificate.ps1'
+          & $trustHelper -TargetPath $candidatePath -CertificatePath $certificatePath -ExpectedCertificateSha256 $certificateDigest.Groups[1].Value
           $releaseManifest = Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json
           if ([string]$releaseManifest.version -ne $packageVersion -or
               [string]$releaseManifest.hubVersion -ne $packageVersion -or
@@ -991,6 +1041,7 @@ jobs:
           }
           "sha256=$actualHash" >> $env:GITHUB_OUTPUT
           "run_e2e=$runE2E" >> $env:GITHUB_OUTPUT
+          "certificate_path=$certificatePath" >> $env:GITHUB_OUTPUT
           "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
           "release_id=$($release.id)" >> $env:GITHUB_OUTPUT
           Write-Host "EXE publicado verificado; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
@@ -1081,6 +1132,15 @@ jobs:
           path: ${{ steps.preparar_reporte_e2e.outputs.report_dir }}/
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Limpiar confianza temporal de firma en runner
+        if: ${{ always() && env.EVALUAPRO_TEMP_TRUST_THUMBPRINT != '' }}
+        shell: powershell
+        run: |
+          $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
+          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
+          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
+          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
 
 
   finalize_installer_release:
@@ -1194,12 +1254,19 @@ jobs:
           $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
           $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
           $manifestAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-release-manifest.json' }) | Select-Object -First 1
-          if (-not $candidateAsset -or -not $sidecarAsset -or -not $manifestAsset) { throw "El release público no contiene el EXE, sidecar y manifiesto esperados para $tag." }
+          $certificateAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-CodeSigning-Certificate.cer' }) | Select-Object -First 1
+          $certificateShaAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-CodeSigning-Certificate.cer.sha256' }) | Select-Object -First 1
+          $trustGuideAsset = @($release.assets | Where-Object { $_.name -eq 'FIRMA-LEEME.md' }) | Select-Object -First 1
+          if (-not $candidateAsset -or -not $sidecarAsset -or -not $manifestAsset -or -not $certificateAsset -or -not $certificateShaAsset -or -not $trustGuideAsset) {
+            throw "El release público no contiene el EXE, sidecar, manifiesto y material de confianza manual esperado para $tag."
+          }
           $expectedUrl = "https://github.com/$repository/releases/download/$tag/$candidateName"
           if ([string]$candidateAsset.browser_download_url -ne $expectedUrl) { throw 'La URL pública del asset no coincide con la ruta canónica del release.' }
           if ([string]$sidecarAsset.browser_download_url -ne ($expectedUrl + '.sha256')) { throw 'La URL pública del sidecar no coincide con el instalador.' }
           $expectedManifestUrl = "https://github.com/$repository/releases/download/$tag/EvaluaPro-release-manifest.json"
           if ([string]$manifestAsset.browser_download_url -ne $expectedManifestUrl) { throw 'La URL pública del manifiesto no coincide con la ruta canónica del release.' }
+          $expectedCertificateUrl = "https://github.com/$repository/releases/download/$tag/EvaluaPro-CodeSigning-Certificate.cer"
+          if ([string]$certificateAsset.browser_download_url -ne $expectedCertificateUrl) { throw 'La URL pública del certificado no coincide con la ruta canónica del release.' }
           $digestMatch = [regex]::Match([string]$candidateAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
           if (-not $digestMatch.Success) { throw "GitHub no reportó digest SHA-256 válido para $candidateName." }
           $downloadDir = Join-Path $env:RUNNER_TEMP ('public-installer-' + [guid]::NewGuid().ToString('N'))
@@ -1208,12 +1275,29 @@ jobs:
           $sidecarPath = $candidatePath + '.sha256'
           $releaseManifestPath = Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'
           $manifestDigest = [regex]::Match([string]$manifestAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
-          if (-not $manifestDigest.Success) { throw 'GitHub no reportó digest SHA-256 válido para el manifiesto público.' }
+          $certificateDigest = [regex]::Match([string]$certificateAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          $certificateShaDigest = [regex]::Match([string]$certificateShaAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          $trustGuideDigest = [regex]::Match([string]$trustGuideAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          if (-not $manifestDigest.Success -or -not $certificateDigest.Success -or -not $certificateShaDigest.Success -or -not $trustGuideDigest.Success) {
+            throw 'La API de GitHub no reportó digest SHA-256 válido para alguno de los assets públicos.'
+          }
           New-Item -ItemType Directory -Path (Split-Path -Parent $releaseManifestPath) -Force | Out-Null
+          $certificatePath = Join-Path $downloadDir 'EvaluaPro-CodeSigning-Certificate.cer'
+          $certificateShaPath = $certificatePath + '.sha256'
+          $trustGuidePath = Join-Path $downloadDir 'FIRMA-LEEME.md'
           $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
           & $downloadScript -Uri ([uri]$expectedUrl) -Destination $candidatePath -ExpectedLength ([long]$candidateAsset.size) -ExpectedSha256 $digestMatch.Groups[1].Value
           & $downloadScript -Uri ([uri][string]$sidecarAsset.browser_download_url) -Destination $sidecarPath -ExpectedLength ([long]$sidecarAsset.size)
           & $downloadScript -Uri ([uri][string]$manifestAsset.browser_download_url) -Destination $releaseManifestPath -ExpectedLength ([long]$manifestAsset.size) -ExpectedSha256 $manifestDigest.Groups[1].Value
+          & $downloadScript -Uri ([uri][string]$certificateAsset.browser_download_url) -Destination $certificatePath -ExpectedLength ([long]$certificateAsset.size) -ExpectedSha256 $certificateDigest.Groups[1].Value
+          & $downloadScript -Uri ([uri][string]$certificateShaAsset.browser_download_url) -Destination $certificateShaPath -ExpectedLength ([long]$certificateShaAsset.size) -ExpectedSha256 $certificateShaDigest.Groups[1].Value
+          & $downloadScript -Uri ([uri][string]$trustGuideAsset.browser_download_url) -Destination $trustGuidePath -ExpectedLength ([long]$trustGuideAsset.size) -ExpectedSha256 $trustGuideDigest.Groups[1].Value
+          $certificateSidecar = [regex]::Match((Get-Content -Raw -LiteralPath $certificateShaPath), '(?i)^\s*([0-9a-f]{64})\s+')
+          if (-not $certificateSidecar.Success -or $certificateSidecar.Groups[1].Value.ToLowerInvariant() -ne $certificateDigest.Groups[1].Value.ToLowerInvariant()) {
+            throw 'El sidecar del certificado público no coincide con el digest publicado.'
+          }
+          $trustHelper = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/trust-release-signing-certificate.ps1'
+          & $trustHelper -TargetPath $candidatePath -CertificatePath $certificatePath -ExpectedCertificateSha256 $certificateDigest.Groups[1].Value
           $releaseManifest = Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json
           if ([string]$releaseManifest.version -ne $packageVersion -or
               [string]$releaseManifest.hubVersion -ne $packageVersion -or
@@ -1314,6 +1398,15 @@ jobs:
           path: ${{ steps.preparar_reporte_e2e.outputs.report_dir }}/
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Limpiar confianza temporal de firma en runner
+        if: ${{ always() && env.EVALUAPRO_TEMP_TRUST_THUMBPRINT != '' }}
+        shell: powershell
+        run: |
+          $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
+          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
+          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
+          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
 
   redraft_failed_public_installer_release:
     name: Ocultar release si falla la E2E del asset público

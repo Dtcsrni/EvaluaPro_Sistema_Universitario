@@ -221,17 +221,11 @@ function Assert-ReleaseArtifactTrusted {
 
   if ([string]::IsNullOrWhiteSpace($releaseFlavorId)) { return }
 
-  try {
-    $signature = Get-AuthenticodeSignature -FilePath $TargetPath -ErrorAction Stop
-  } catch {
-    throw "No se pudo validar la firma Authenticode del artefacto de release '$TargetPath': $($_.Exception.Message)"
+  $trustHelper = Join-Path $root 'scripts\ci\trust-release-signing-certificate.ps1'
+  if (-not (Test-Path -LiteralPath $trustHelper -PathType Leaf)) {
+    throw "Falta el helper de confianza manual: $trustHelper"
   }
-
-  if ([string]$signature.Status -ne 'Valid') {
-    $status = [string]$signature.Status
-    $message = [string]$signature.StatusMessage
-    throw "El artefacto de release '$TargetPath' no tiene una cadena Authenticode confiable en Windows (Status=$status). $message"
-  }
+  & $trustHelper -TargetPath $TargetPath -OutputDir $InstallerDir
 }
 
 function Test-IsBurnBundle {
