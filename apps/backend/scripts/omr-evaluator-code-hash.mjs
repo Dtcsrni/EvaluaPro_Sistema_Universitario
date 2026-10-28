@@ -40,10 +40,13 @@ export async function calcularHuellaCodigoEvaluador() {
     ...await listTypeScriptFiles(path.join(backendRoot, 'src', 'modulos', 'modulo_calificacion'))
   ].filter((filePath) => path.resolve(filePath) !== fingerprintModulePath).sort();
 
-  const codeHashes = await Promise.all(codeFiles.map(async (filePath) => ({
-    file: path.relative(backendRoot, filePath).replaceAll('\\', '/'),
-    sha256: sha256(await fs.readFile(filePath))
-  })));
+  const codeHashes = await Promise.all(codeFiles.map(async (filePath) => {
+    const source = await fs.readFile(filePath, 'utf8');
+    return {
+      file: path.relative(backendRoot, filePath).replaceAll('\\', '/'),
+      sha256: sha256(source.replace(/\r\n?/g, '\n'))
+    };
+  }));
   return sha256(JSON.stringify(codeHashes));
 }
 
