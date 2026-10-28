@@ -8,6 +8,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { calcularHuellaCodigoEvaluador } from './omr-evaluator-code-hash.mjs';
 import { calcularCalificacionExacta } from '../src/compartido/utilidades/calculoCalificacion.js';
 import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/index.js';
 import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
@@ -248,16 +249,6 @@ async function resolveDatasetFile(datasetRoot: string, relativePath: string) {
   return realPath;
 }
 
-async function listTypeScriptFiles(directory: string): Promise<string[]> {
-  const files: string[] = [];
-  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await listTypeScriptFiles(entryPath));
-    else if (entry.isFile() && entry.name.endsWith('.ts')) files.push(entryPath);
-  }
-  return files;
-}
-
 async function hashPilotEvidence(args: {
   datasetRoot: string;
   manifestBytes: Buffer;
@@ -278,24 +269,13 @@ async function hashPilotEvidence(args: {
       assets.set(relativePath.replaceAll('\\', '/'), sha256(await fs.readFile(absolutePath)));
     }
   }
-  const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const codeFiles = [
-    fileURLToPath(import.meta.url),
-    path.join(backendRoot, 'src', 'compartido', 'utilidades', 'calculoCalificacion.ts'),
-    ...await listTypeScriptFiles(path.join(backendRoot, 'src', 'modulos', 'modulo_escaneo_omr')),
-    ...await listTypeScriptFiles(path.join(backendRoot, 'src', 'modulos', 'modulo_calificacion'))
-  ].sort();
-  const codeHashes = await Promise.all(codeFiles.map(async (filePath) => ({
-    file: path.relative(backendRoot, filePath).replaceAll('\\', '/'),
-    sha256: sha256(await fs.readFile(filePath))
-  })));
   return {
     manifestSha256: sha256(args.manifestBytes),
     groundTruthSha256: sha256(groundTruthBytes),
     answerKeySha256: sha256(answerKeyBytes),
     answerKeyByFolioSha256: answerKeyByFolioBytes.length ? sha256(answerKeyByFolioBytes) : null,
     captureAssetsSha256: sha256(JSON.stringify([...assets.entries()].sort(([a], [b]) => a.localeCompare(b)))),
-    evaluatorCodeSha256: sha256(JSON.stringify(codeHashes)),
+    evaluatorCodeSha256: await calcularHuellaCodigoEvaluador(),
     omrRuntimeConfigSha256: OMR_RUNTIME_CONFIG_SHA256
   };
 }

@@ -131,6 +131,7 @@ describe('workflow OMR por jobs', () => {
     vi.stubEnv('EVALUAPRO_OMR_TV4_REAL_PILOT_REPORT', '');
     vi.resetModules();
     const { OMR_RUNTIME_CONFIG_SHA256 } = await import('../../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
+    const { EVALUAPRO_OMR_EVALUATOR_CODE_SHA256 } = await import('../../src/modulos/modulo_escaneo_omr/evaluatorCodeFingerprint.js');
     directorioGatePiloto = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-omr-test-gate-'));
     const reporteGatePath = path.join(directorioGatePiloto, 'pilot-report.json');
     // Reporte sintético de fixture para habilitar las rutas de integración; nunca se usa en runtime.
@@ -181,7 +182,7 @@ describe('workflow OMR por jobs', () => {
         groundTruthSha256: 'b'.repeat(64),
         answerKeySha256: 'c'.repeat(64),
         captureAssetsSha256: 'd'.repeat(64),
-        evaluatorCodeSha256: 'e'.repeat(64),
+        evaluatorCodeSha256: EVALUAPRO_OMR_EVALUATOR_CODE_SHA256,
         omrRuntimeConfigSha256: OMR_RUNTIME_CONFIG_SHA256
       }
     }), 'utf8');

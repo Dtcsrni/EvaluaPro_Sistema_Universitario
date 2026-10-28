@@ -67,7 +67,7 @@
     "typecheck": "npm run --workspaces --if-present typecheck",
     "test": "npm -C apps/backend run test",
     "test:backend": "npm -C apps/backend run test",
-    "test:backend:ci": "node scripts/testing/run-backend-test-batches.mjs",
+    "test:backend:ci": "npm -C apps/backend run omr:fingerprint:check && node scripts/testing/run-backend-test-batches.mjs",
     "benchmark:backend:concurrency": "node scripts/testing/benchmark-backend-concurrency.mjs",
     "test:portal": "npm -C apps/portal_alumno_cloud run test",
     "test:portal:ci": "npm -C apps/portal_alumno_cloud run test",

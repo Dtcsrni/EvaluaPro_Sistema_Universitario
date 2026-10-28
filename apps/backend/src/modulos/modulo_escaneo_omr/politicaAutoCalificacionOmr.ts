@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { EVALUAPRO_OMR_EVALUATOR_CODE_SHA256 } from './evaluatorCodeFingerprint.js';
 
 /**
  * politicaAutoCalificacionOmr
@@ -143,6 +144,7 @@ function reportePilotoRealApruebaRuntime() {
     if (!(report.datasetType === 'tv4_pilot_real' &&
       report.status === 'passed' &&
       report.ok === true &&
+      evidenceHashes?.evaluatorCodeSha256 === EVALUAPRO_OMR_EVALUATOR_CODE_SHA256 &&
       report.batchGate?.status === 'passed' && report.batchGate?.passed === true &&
       report.batchGate?.minimumIndependentExams === MINIMUM_EXAMS_FOR_EMPIRICAL_BATCH_GATE &&
       CHECKS_PILOTO_REQUERIDOS.every((check) => report.checks?.[check] === true) &&

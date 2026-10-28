@@ -21,6 +21,7 @@ async function escribirReportePiloto(overrides: Record<string, unknown> = {}) {
   directoriosTemporales.push(directorio);
   const reportePath = path.join(directorio, 'pilot-report.json');
   const { OMR_RUNTIME_CONFIG_SHA256 } = await import('../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
+  const { EVALUAPRO_OMR_EVALUATOR_CODE_SHA256 } = await import('../src/modulos/modulo_escaneo_omr/evaluatorCodeFingerprint.js');
   const reporte = {
     datasetType: 'tv4_pilot_real',
     status: 'passed',
@@ -59,7 +60,7 @@ async function escribirReportePiloto(overrides: Record<string, unknown> = {}) {
       groundTruthSha256: 'b'.repeat(64),
       answerKeySha256: 'c'.repeat(64),
       captureAssetsSha256: 'd'.repeat(64),
-      evaluatorCodeSha256: 'e'.repeat(64),
+      evaluatorCodeSha256: EVALUAPRO_OMR_EVALUATOR_CODE_SHA256,
       omrRuntimeConfigSha256: OMR_RUNTIME_CONFIG_SHA256
     },
     ...overrides
@@ -105,6 +106,25 @@ describe('gate real TV4 de autocalificación', () => {
     vi.resetModules();
     const policy = await import('../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
     expect(policy.OMR_TV4_REAL_PILOT_GATE_PASSED).toBe(true);
+  });
+
+  it('mantiene cerrado el gate si el reporte fue evaluado con otro código OMR', async () => {
+    vi.stubEnv(REPORT_ENV, '');
+    vi.resetModules();
+    const reportePath = await escribirReportePiloto({
+      evidenceHashes: {
+        manifestSha256: 'a'.repeat(64),
+        groundTruthSha256: 'b'.repeat(64),
+        answerKeySha256: 'c'.repeat(64),
+        captureAssetsSha256: 'd'.repeat(64),
+        evaluatorCodeSha256: 'e'.repeat(64),
+        omrRuntimeConfigSha256: (await import('../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js')).OMR_RUNTIME_CONFIG_SHA256
+      }
+    });
+    vi.stubEnv(REPORT_ENV, reportePath);
+    vi.resetModules();
+    const policy = await import('../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
+    expect(policy.OMR_TV4_REAL_PILOT_GATE_PASSED).toBe(false);
   });
 
   it('un lote perfecto de 12 exámenes pasa su gate de lote, pero no el gate poblacional global', async () => {
