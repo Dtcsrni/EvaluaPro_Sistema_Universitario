@@ -1,0 +1,27 @@
+name: Authenticode trust validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ci-authenticode-trust.yml'
+      - 'scripts/ci/trust-release-signing-certificate.ps1'
+      - 'scripts/tests/authenticode-trust-validation.test.ps1'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-self-signed-authenticode:
+    name: Verify self-signed Authenticode without root-store changes
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Sign test script, verify signer, and reject tampering
+        shell: powershell
+        run: '& .\scripts\tests\authenticode-trust-validation.test.ps1'
