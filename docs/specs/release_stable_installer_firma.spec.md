@@ -32,6 +32,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **REQ-016:** El gate estable debe consumir un artefacto de instalador inmutable de una ejecución identificada por `run_id`, ligado al SHA candidato de `main`. La evidencia de release se registra en un commit posterior que solo modifica `docs/release/evidencias/<version>/`; debe referir el SHA candidato sin autoincluir su propio SHA. Solo se inicia publicación después de Go y no se depende de una tag o release pública para decidir.
 - **REQ-017:** El manifiesto del instalador, la evidencia QA, la evidencia de release y la decisión del gate deben identificar el mismo SHA candidato, aunque el commit de evidencia sea posterior.
 - **REQ-018:** La validación y publicación estable de esta versión solo considera `docente-local`; no debe incluir ni requerir artefactos SaaS.
+- **REQ-019:** La firma de release debe ser local y no contactar un servicio TSA externo. El workflow debe activar `EVALUAPRO_SIGN_LOCAL_ONLY=1` y el script debe fallar si recibe una URL TSA para un release. Al no usar sello de tiempo, la vigencia de validación de la firma queda limitada por la vigencia del certificado firmante.
 
 ## Criterios de Aceptación
 - **AC-001 (REQ-001):** Un manifest con exactamente `docente-local` y artefactos con cadena Authenticode confiable permite aprobar el check de instalador; la inclusión de otro flavor produce No-Go.
@@ -52,6 +53,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-016 (REQ-016):** El contrato exige `source_sha` y `candidate_run_id`, descarga el artefacto por `run_id`, valida que los cambios posteriores a ese SHA sean solo evidencia versionada y no consulta releases/tags antes de validar; después de Go despacha el pipeline de release que conserva el draft hasta que aprueban la E2E draft y la E2E del asset público descargado.
 - **AC-017 (REQ-017):** Un `build.commit` distinto al SHA candidato produce No-Go.
 - **AC-018 (REQ-018):** El contrato del workflow y del validador rechaza sabores distintos de `docente-local`.
+- **AC-019 (REQ-019):** El workflow configura firma local explícita; un release falla ante URL TSA o falta de modo local, y el script no aplica un TSA externo por defecto. La documentación informa que la validación sin sello de tiempo depende de que el certificado firmante siga vigente.
 
 ## Procedimiento operativo
 
@@ -83,3 +85,4 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 | REQ-016 | Artefacto inmutable ligado al SHA, evidencia en commit posterior y publicación tras doble E2E | scripts/tests/ci-workflow-contract.test.mjs | En validación CI |
 | REQ-017 | Release manifest y evidencia versionada ligados al mismo SHA | scripts/tests/release-stable-promotion.test.mjs | En validación CI |
 | REQ-018 | Publicación docente-local sin flavor SaaS | scripts/tests/ci-workflow-contract.test.mjs | En validación CI |
+| REQ-019 | Firma local de release sin servicio TSA externo | scripts/tests/installer-hub-contract.test.mjs | En validación CI |
