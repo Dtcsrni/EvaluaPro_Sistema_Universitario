@@ -17,8 +17,10 @@ import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { clienteApi } from './clienteApiDocente';
 import {
   esMensajeError,
-  etiquetaMateria,
+  etiquetaMateriaParaSelector,
+  fechaMateriaVisible,
   mensajeDeError,
+  nombreMateriaVisible,
   obtenerInicialesAlumno
 } from './utilidades';
 
@@ -95,7 +97,7 @@ export function SeccionAlumnos({
   const matriculaNormalizada = useMemo(() => normalizarMatricula(matricula), [matricula]);
   const matriculaValida = useMemo(() => {
     if (!matricula.trim()) return true;
-    return /^CUH\d+$/i.test(matriculaNormalizada) || /^[\w\-.]{3,30}$/.test(matriculaNormalizada);
+    return /^CUH\d{9}$/i.test(matriculaNormalizada);
   }, [matricula, matriculaNormalizada]);
 
   const dominioCorreoPredeterminado = 'cuh.mx';
@@ -145,7 +147,7 @@ export function SeccionAlumnos({
 
   const gruposArchivados = useMemo(() => {
     const periodosPorId = new Map((periodosTodos || []).filter((periodo) => periodo.activo === false).map((periodo) => [periodo._id, periodo]));
-    const grupos = new Map<string, { periodoId: string; grupo: string; cantidad: number; materia: string }>();
+    const grupos = new Map<string, { periodoId: string; grupo: string; cantidad: number; materia: string; inicio?: string }>();
     for (const alumno of Array.isArray(alumnos) ? alumnos : []) {
       const periodoId = String(alumno.periodoId || '');
       const periodo = periodosPorId.get(periodoId);
@@ -154,7 +156,7 @@ export function SeccionAlumnos({
       const clave = JSON.stringify([periodoId, nombreGrupo.toLocaleLowerCase('es')]);
       const existente = grupos.get(clave);
       if (existente) existente.cantidad += 1;
-      else grupos.set(clave, { periodoId, grupo: nombreGrupo, cantidad: 1, materia: etiquetaMateria(periodo) });
+      else grupos.set(clave, { periodoId, grupo: nombreGrupo, cantidad: 1, materia: nombreMateriaVisible(periodo), inicio: fechaMateriaVisible(periodo.fechaInicio) });
     }
     return Array.from(grupos, ([clave, valor]) => ({ clave, ...valor })).sort((a, b) =>
       a.materia.localeCompare(b.materia, 'es') || a.grupo.localeCompare(b.grupo, 'es')
@@ -171,7 +173,7 @@ export function SeccionAlumnos({
     const destino = periodosActivos.find((periodo) => periodo._id === periodoIdNuevo);
     const confirmado = await confirm({
       title: 'Reinscribir grupo en otra materia',
-      message: `Se copiarán los alumnos del grupo ${origenSeleccionado.grupo} de ${origenSeleccionado.materia} a ${destino ? etiquetaMateria(destino) : 'la materia seleccionada'}.`,
+      message: `Se copiarán los alumnos del grupo ${origenSeleccionado.grupo} de ${origenSeleccionado.materia}${origenSeleccionado.inicio ? ` (inicio ${origenSeleccionado.inicio})` : ''} a ${destino ? etiquetaMateriaParaSelector(destino) : 'la materia seleccionada'}.`,
       details: ['La materia archivada y su historial se conservarán.', 'Los alumnos que ya estén inscritos en la materia destino no se duplicarán.'],
       confirmLabel: 'Reinscribir grupo',
       tone: 'warning'
@@ -273,7 +275,7 @@ export function SeccionAlumnos({
 
   const nombreMateriaSeleccionada = useMemo(() => {
     const p = (periodosTodos || []).find((item) => item._id === periodoIdLista);
-    return p ? etiquetaMateria(p) : '';
+    return p ? nombreMateriaVisible(p) : '';
   }, [periodosTodos, periodoIdLista]);
 
   async function crearAlumno() {
@@ -468,7 +470,7 @@ export function SeccionAlumnos({
                 <span>Control Escolar y Matrículas</span>
               </span>
               <span className="alumnos-counter-tag">
-                {resumenAlumnos.totalGeneral} {resumenAlumnos.totalGeneral === 1 ? 'alumno registrado' : 'alumnos registrados'}
+                Total de alumnos: {resumenAlumnos.totalGeneral}
               </span>
             </div>
             <h2 className="alumnos-panel__title">
@@ -512,7 +514,7 @@ export function SeccionAlumnos({
                 </svg>
               </span>
               <span className="materia-mini-kpi__num">{resumenAlumnos.sinDerecho}</span>
-              <span className="materia-mini-kpi__lbl">Sin Derecho</span>
+              <span className="materia-mini-kpi__lbl">4+ inasistencias</span>
             </div>
           )}
         </div>
@@ -534,7 +536,7 @@ export function SeccionAlumnos({
                 <select value={grupoArchivadoSeleccionado} onChange={(event) => setGrupoArchivadoSeleccionado(event.target.value)} disabled={bloqueoEdicion || reinscribiendoGrupo}>
                   <option value="">Selecciona grupo y materia de origen</option>
                   {gruposArchivados.map((item) => (
-                    <option key={item.clave} value={item.clave}>{item.grupo} · {item.materia} · {item.cantidad} alumnos</option>
+                    <option key={item.clave} value={item.clave}>{item.grupo} · {item.materia}{item.inicio ? ` · inicio ${item.inicio}` : ''} · {item.cantidad} alumnos</option>
                   ))}
                 </select>
               </div>
@@ -544,7 +546,7 @@ export function SeccionAlumnos({
               <div className="auth-input-box auth-input-box--select auth-input-box--animated">
                 <select value={periodoIdNuevo} onChange={(event) => setPeriodoIdNuevo(event.target.value)} disabled={bloqueoEdicion || reinscribiendoGrupo || periodosActivos.length === 0}>
                   <option value="">Selecciona materia activa</option>
-                  {periodosActivos.map((periodo) => <option key={periodo._id} value={periodo._id}>{etiquetaMateria(periodo)}</option>)}
+                  {periodosActivos.map((periodo) => <option key={periodo._id} value={periodo._id}>{etiquetaMateriaParaSelector(periodo)}</option>)}
                 </select>
               </div>
             </label>
@@ -557,7 +559,7 @@ export function SeccionAlumnos({
 
       {editandoId && (
         <InlineMensaje tipo="info">
-          ✏️ Editando alumno. Modifica los campos y pulsa &quot;Guardar cambios&quot;.
+          Editas este expediente. Actualiza los campos y selecciona «Guardar cambios».
         </InlineMensaje>
       )}
 
@@ -565,10 +567,10 @@ export function SeccionAlumnos({
       <section ref={formularioRef} className="alumnos-form alumnos-form--glass alumnos-form--panoramico anim-form-card">
         <div className="alumnos-form__header">
           <h3 className="alumnos-form__title">
-            {editandoId ? '✏️ Modificar Alumno Seleccionado' : '✨ Registrar Nuevo Alumno'}
+            {editandoId ? 'Modificar alumno seleccionado' : 'Registrar alumno'}
           </h3>
           <p className="alumnos-form__subtitle">
-            Captura la matrícula oficial CUH, nombres, grupo y materia correspondiente.
+            Obligatorios: matrícula, nombres, apellidos y materia. Correo y grupo son opcionales.
           </p>
         </div>
 
@@ -577,16 +579,17 @@ export function SeccionAlumnos({
           <div className="alumnos-form__row alumnos-form__row--top">
             <label className="campo campo--matricula">
               <span className="campo__label-row">
-                <span>Matricula</span>
+                <span>Matrícula</span>
                 {matricula.trim() && (
                   <span className={`badge-matricula-live anim-badge-in ${matriculaValida ? 'badge-matricula-live--ok' : 'badge-matricula-live--err'}`}>
-                    {matriculaValida ? '✓ Válida' : 'Formato CUH#########'}
+                    {matriculaValida ? '✓ Válida' : 'Usa 9 dígitos después de CUH'}
                   </span>
                 )}
               </span>
               <div className="auth-input-box auth-input-box--id auth-input-box--animated">
                 <input
                   ref={matriculaInputRef}
+                  required
                   value={matricula}
                   onChange={(event) => {
                     const valor = event.target.value;
@@ -598,10 +601,12 @@ export function SeccionAlumnos({
                   }}
                   disabled={bloqueoEdicion}
                   placeholder="Ej. CUH512410168"
-                  data-tooltip="Formato oficial: CUH seguido de 9 dígitos"
+                  aria-invalid={Boolean(matricula.trim() && !matriculaValida)}
+                  aria-describedby="alumnos-matricula-ayuda"
+                  data-tooltip="Escribe CUH seguido de exactamente 9 dígitos"
                 />
               </div>
-              <span className="ayuda">Formato oficial: CUH######### (ej. CUH512410168).</span>
+              <span className="ayuda" id="alumnos-matricula-ayuda">Formato: CUH seguido de exactamente 9 dígitos (ej. CUH512410168).</span>
             </label>
 
             <label className="campo campo--nombres">
@@ -611,6 +616,8 @@ export function SeccionAlumnos({
                   value={nombres}
                   onChange={(event) => setNombres(event.target.value)}
                   disabled={bloqueoEdicion}
+                  required
+                  autoComplete="given-name"
                   placeholder="Ej. Ana María, Carlos Roberto…"
                 />
               </div>
@@ -623,6 +630,8 @@ export function SeccionAlumnos({
                   value={apellidos}
                   onChange={(event) => setApellidos(event.target.value)}
                   disabled={bloqueoEdicion}
+                  required
+                  autoComplete="family-name"
                   placeholder="Ej. Gómez Ruiz, López Hernández…"
                 />
               </div>
@@ -632,9 +641,11 @@ export function SeccionAlumnos({
           {/* Fila 2: Contacto y Asignación Académica */}
           <div className="alumnos-form__row alumnos-form__row--bottom">
             <label className="campo campo--correo">
-              <span>Correo</span>
+              <span>Correo (opcional)</span>
               <div className="auth-input-box auth-input-box--mail auth-input-box--animated">
                 <input
+                  type="email"
+                  autoComplete="email"
                   value={correo}
                   onChange={(event) => {
                     setCorreoAuto(false);
@@ -650,7 +661,7 @@ export function SeccionAlumnos({
             </label>
 
             <label className="campo campo--grupo">
-              <span>Grupo</span>
+              <span>Grupo (opcional)</span>
               <div className="auth-input-box auth-input-box--group auth-input-box--animated">
                 <input
                   value={grupo}
@@ -670,6 +681,7 @@ export function SeccionAlumnos({
               <div className="auth-input-box auth-input-box--select auth-input-box--animated">
                 <select
                   value={periodoIdNuevo}
+                  required
                   onChange={(event) => {
                     const nuevoPeriodoId = event.target.value;
                     setPeriodoIdNuevo(nuevoPeriodoId);
@@ -679,8 +691,8 @@ export function SeccionAlumnos({
                 >
                   <option value="">Selecciona</option>
                   {periodosActivos.map((periodo) => (
-                    <option key={periodo._id} value={periodo._id} title={periodo._id}>
-                      {etiquetaMateria(periodo)}
+                    <option key={periodo._id} value={periodo._id}>
+                      {etiquetaMateriaParaSelector(periodo)}
                     </option>
                   ))}
                 </select>
@@ -690,7 +702,7 @@ export function SeccionAlumnos({
         </div>
 
         {matricula.trim() && !matriculaValida && (
-          <InlineMensaje tipo="error">Matricula invalida. Usa el formato CUH#########.</InlineMensaje>
+          <InlineMensaje tipo="error">La matrícula debe tener el formato CUH seguido de exactamente 9 dígitos (ej. CUH512410168).</InlineMensaje>
         )}
 
         <div className="alumnos-form__footer">
@@ -704,7 +716,7 @@ export function SeccionAlumnos({
                 disabled={!puedeCrear || bloqueoEdicion}
                 onClick={crearAlumno}
               >
-                {creando ? 'Creando alumno…' : '✨ Crear Alumno'}
+                {creando ? 'Creando alumno…' : 'Crear alumno'}
               </Boton>
           ) : (
             <>
@@ -724,7 +736,8 @@ export function SeccionAlumnos({
           )}
           </div>
           <div className="alumnos-form__hint">
-            <span>💡 Los alumnos registrados estarán disponibles de inmediato para el pase de lista y evaluación OMR.</span>
+            <Icono nombre="info" />
+            <span>Los alumnos registrados estarán disponibles de inmediato para el pase de lista y evaluación OMR.</span>
           </div>
         </div>
       </section>
@@ -759,8 +772,8 @@ export function SeccionAlumnos({
                 {periodosTodos
                   .filter((p) => p.activo !== false)
                   .map((periodo) => (
-                    <option key={periodo._id} value={periodo._id} title={periodo._id}>
-                      {etiquetaMateria(periodo)}
+                    <option key={periodo._id} value={periodo._id}>
+                      {etiquetaMateriaParaSelector(periodo)}
                     </option>
                   ))}
               </select>
@@ -849,7 +862,7 @@ export function SeccionAlumnos({
                         <Icono nombre="periodos" />
                       </div>
                       <div className="alumnos-materia-pick-info">
-                        <strong>{etiquetaMateria(p)}</strong>
+                        <strong>{nombreMateriaVisible(p)}</strong>
                         <span>Grupos: {Array.isArray(p.grupos) && p.grupos.length > 0 ? p.grupos.join(', ') : 'General'}</span>
                       </div>
                       <div className="alumnos-materia-pick-arrow">➔</div>
@@ -921,13 +934,14 @@ export function SeccionAlumnos({
                       {/* Información Principal */}
                       <div className="alumno-info">
                         <div className="item-title alumnos-lista-title-container">
-                          <span className="alumno-nombre">
-                            {alumno.matricula && !/^\d{15,}$/.test(alumno.matricula) ? `${alumno.matricula} - ` : ''}
-                            {alumno.nombreCompleto}
-                          </span>
+                          <span className="alumno-nombre">{alumno.nombreCompleto}</span>
                           {sinDerecho && (
-                            <span className="badge badge-alerta badge-alerta-sin-derecho anim-pulse-fast">
-                              ⚠️ SIN DERECHO (4 O MÁS FALTAS)
+                            <span
+                              className="badge badge-alerta badge-alerta-inasistencias"
+                              aria-label="Alumno con cuatro o más inasistencias"
+                              title="Cuatro o más inasistencias en el periodo"
+                            >
+                              4+ inasistencias
                             </span>
                           )}
                         </div>

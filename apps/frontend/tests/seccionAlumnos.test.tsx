@@ -89,8 +89,124 @@ describe('SeccionAlumnos', () => {
     expect(screen.getByRole('heading', { name: /Alumnos de la materia/i })).toBeInTheDocument();
     expect(screen.getByText(/Ana María Gómez Ruiz/i)).toBeInTheDocument();
     expect(screen.getByText(/Carlos López Hernández/i)).toBeInTheDocument();
+    expect(screen.getByText('Total de alumnos: 2')).toBeInTheDocument();
+    expect(screen.getByText('Correo (opcional)')).toBeInTheDocument();
     expect(screen.getByText('AMGR')).toBeInTheDocument();
     expect(screen.getByText('CLH')).toBeInTheDocument();
+  });
+
+  it('muestra la matrícula una sola vez en cada tarjeta, junto a su etiqueta', () => {
+    const { container } = render(
+      <SeccionAlumnos
+        alumnos={alumnosMock}
+        periodosActivos={periodosMock}
+        periodosTodos={periodosMock}
+        onRefrescar={() => {}}
+        permisos={permisosCompletos}
+        puedeEliminarAlumnoDev={false}
+        enviarConPermiso={async () => ({})}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    const nombre = Array.from(container.querySelectorAll('.alumno-nombre'))
+      .map((elemento) => elemento.textContent?.trim());
+    expect(nombre).toContain('Ana María Gómez Ruiz');
+    expect(nombre).not.toContain('CUH123456789 - Ana María Gómez Ruiz');
+    expect(screen.getAllByText('CUH123456789')).toHaveLength(1);
+  });
+
+  it('expone el propósito de nombres, apellidos y correo para autocompletado', () => {
+    render(
+      <SeccionAlumnos
+        alumnos={alumnosMock}
+        periodosActivos={periodosMock}
+        periodosTodos={periodosMock}
+        onRefrescar={() => {}}
+        permisos={permisosCompletos}
+        puedeEliminarAlumnoDev={false}
+        enviarConPermiso={async () => ({})}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(screen.getByLabelText(/^Nombres/i, { selector: 'input' })).toHaveAttribute('autocomplete', 'given-name');
+    expect(screen.getByLabelText(/^Apellidos/i, { selector: 'input' })).toHaveAttribute('autocomplete', 'family-name');
+    expect(screen.getByLabelText(/^Matrícula/i, { selector: 'input' })).toBeRequired();
+    expect(screen.getByLabelText(/^Nombres/i, { selector: 'input' })).toBeRequired();
+    expect(screen.getByLabelText(/^Apellidos/i, { selector: 'input' })).toBeRequired();
+    expect(screen.getByLabelText('Materia', { selector: 'select' })).toBeRequired();
+    expect(screen.getByText('Obligatorios: matrícula, nombres, apellidos y materia. Correo y grupo son opcionales.')).toBeInTheDocument();
+    const correo = screen.getByLabelText(/^Correo \(opcional\)/i, { selector: 'input' });
+    expect(correo).toHaveAttribute('type', 'email');
+    expect(correo).toHaveAttribute('autocomplete', 'email');
+    expect(correo).not.toBeRequired();
+    expect(screen.getByLabelText(/^Grupo/i, { selector: 'input' })).not.toBeRequired();
+  });
+
+  it('identifica materias por nombre y fecha legible sin mostrar IDs internos', () => {
+    const periodo = { ...periodosMock[0]!, _id: 'periodo-interno-12345678', fechaInicio: '2026-09-27' };
+    render(
+      <SeccionAlumnos
+        alumnos={alumnosMock.map((alumno) => ({ ...alumno, periodoId: periodo._id }))}
+        periodosActivos={[periodo]}
+        periodosTodos={[periodo]}
+        onRefrescar={() => {}}
+        permisos={permisosCompletos}
+        puedeEliminarAlumnoDev={false}
+        enviarConPermiso={async () => ({})}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    const opcionesMateria = screen.getAllByRole('option', { name: /Cálculo Diferencial/ });
+    expect(opcionesMateria.length).toBeGreaterThan(0);
+    for (const opcion of opcionesMateria) {
+      expect(opcion).toHaveTextContent('Cálculo Diferencial · inicia 27/09/2026');
+      expect(opcion).not.toHaveTextContent('periodo-interno-12345678');
+      expect(opcion).not.toHaveAttribute('title');
+      expect(opcion).toHaveAttribute('value', periodo._id);
+    }
+  });
+
+  it('describe el umbral de inasistencias sin presentar una decisión de elegibilidad', async () => {
+    vi.mocked(clienteApi.obtener).mockResolvedValue({ resumen: [{ alumnoId: 'alu-1', faltas: 4 }] });
+
+    render(
+      <SeccionAlumnos
+        alumnos={alumnosMock}
+        periodosActivos={periodosMock}
+        periodosTodos={periodosMock}
+        onRefrescar={() => {}}
+        permisos={permisosCompletos}
+        puedeEliminarAlumnoDev={false}
+        enviarConPermiso={async () => ({})}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(await screen.findAllByText('4+ inasistencias')).toHaveLength(2);
+    expect(screen.getByText('4+ inasistencias', { selector: '.badge-alerta-inasistencias' })).toHaveAccessibleName('Alumno con cuatro o más inasistencias');
+    expect(screen.queryByText(/sin derecho/i)).not.toBeInTheDocument();
+  });
+
+  it('usa títulos y acciones sin emoji decorativo', () => {
+    render(
+      <SeccionAlumnos
+        alumnos={alumnosMock}
+        periodosActivos={periodosMock}
+        periodosTodos={periodosMock}
+        onRefrescar={() => {}}
+        permisos={permisosCompletos}
+        puedeEliminarAlumnoDev={false}
+        enviarConPermiso={async () => ({})}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: 'Registrar alumno' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Crear alumno' })).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('💡');
   });
 
   it('aplica la materia y el grupo recibidos desde una tarjeta', async () => {
@@ -132,7 +248,7 @@ describe('SeccionAlumnos', () => {
       />
     );
 
-    const inputMatricula = screen.getByLabelText(/^Matricula/i, { selector: 'input' });
+    const inputMatricula = screen.getByLabelText(/^Matrícula/i, { selector: 'input' });
     fireEvent.change(inputMatricula, { target: { value: 'CUH555444333' } });
 
     const inputNombres = screen.getByLabelText(/^Nombres/i, { selector: 'input' });
@@ -141,7 +257,7 @@ describe('SeccionAlumnos', () => {
     const inputApellidos = screen.getByLabelText(/^Apellidos/i, { selector: 'input' });
     fireEvent.change(inputApellidos, { target: { value: 'Martínez Soto' } });
 
-    const inputGrupo = screen.getByRole('textbox', { name: /^Grupo$/i });
+    const inputGrupo = screen.getByRole('textbox', { name: /^Grupo \(opcional\)$/i });
     fireEvent.change(inputGrupo, { target: { value: '3A' } });
 
     const botonCrear = screen.getByRole('button', { name: /Crear alumno/i });
@@ -168,6 +284,29 @@ describe('SeccionAlumnos', () => {
     );
   });
 
+  it('explica el formato requerido por el servidor y evita enviar una matrícula inválida', () => {
+    render(
+      <SeccionAlumnos
+        alumnos={alumnosMock}
+        periodosActivos={periodosMock}
+        periodosTodos={periodosMock}
+        onRefrescar={() => {}}
+        permisos={permisosCompletos}
+        puedeEliminarAlumnoDev={false}
+        enviarConPermiso={vi.fn()}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    const inputMatricula = screen.getByLabelText(/^Matrícula/i, { selector: 'input' });
+    fireEvent.change(inputMatricula, { target: { value: 'CUH12345678' } });
+
+    expect(inputMatricula).toHaveAttribute('aria-invalid', 'true');
+    expect(inputMatricula).toHaveAttribute('aria-describedby', 'alumnos-matricula-ayuda');
+    expect(screen.getByRole('alert')).toHaveTextContent(/CUH seguido de exactamente 9 dígitos/i);
+    expect(screen.getByRole('button', { name: /Crear alumno/i })).toBeDisabled();
+  });
+
   it('permite iniciar y cancelar la edición de un alumno', () => {
     render(
       <SeccionAlumnos
@@ -185,7 +324,7 @@ describe('SeccionAlumnos', () => {
     const botonesEditar = screen.getAllByRole('button', { name: /Editar/i });
     fireEvent.click(botonesEditar[0]!);
 
-    expect(screen.getByText(/Editando alumno/i)).toBeInTheDocument();
+    expect(screen.getByText(/Editas este expediente/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Guardar cambios/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Cancelar/i })).toBeInTheDocument();
 

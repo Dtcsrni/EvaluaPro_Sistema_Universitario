@@ -128,7 +128,11 @@ describe('SeccionCalificaciones manual selector', () => {
 
     render(
       <SeccionCalificaciones
-        alumnos={[alumno]}
+        alumnos={[alumno, { ...alumno, _id: 'alu-2', periodoId: 'per-2', grupo: 'B' }]}
+        periodos={[
+          { _id: 'per-1', nombre: 'Materia Uno' },
+          { _id: 'per-2', nombre: 'Materia Dos' }
+        ]}
         onAnalizar={async () => ({})}
         onPrevisualizar={async () => ({ preview: { aciertos: 0, totalReactivos: 0 } as never })}
         resultado={null}
@@ -179,6 +183,9 @@ describe('SeccionCalificaciones manual selector', () => {
 
     await waitFor(() => expect(obtenerMock).toHaveBeenCalledWith('/examenes/plantillas'));
     await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
+
+    expect(screen.getByRole('option', { name: 'A001 - Alumno Uno · Materia Uno (ID: per-1) · Grupo A' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'A001 - Alumno Uno · Materia Dos (ID: per-2) · Grupo B' })).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText('Alumno'), 'alu-1');
 

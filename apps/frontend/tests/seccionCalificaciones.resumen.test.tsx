@@ -82,6 +82,21 @@ describe('ConsultaCalificaciones', () => {
     });
   });
 
+  it('identifica la materia por nombre y fecha sin mostrar el ID interno', () => {
+    const periodoId = 'periodo-interno-12345678';
+    render(<ConsultaCalificaciones
+      periodos={[{ _id: periodoId, nombre: 'Materia de prueba', fechaInicio: '2026-09-27' }]}
+      periodoId={periodoId}
+      onPeriodoChange={vi.fn()}
+      onSeleccionarAlumno={vi.fn()}
+    />);
+
+    const selector = screen.getByLabelText('Materia');
+    const opcion = within(selector).getByRole('option', { name: 'Materia de prueba · inicia 27/09/2026' });
+    expect(opcion).toHaveValue(periodoId);
+    expect(opcion).not.toHaveTextContent(periodoId);
+  });
+
   it('muestra las notas por examen, permite filtrar y abre el detalle del alumno', async () => {
     const user = userEvent.setup();
     const onSeleccionarAlumno = vi.fn();
@@ -111,6 +126,28 @@ describe('ConsultaCalificaciones', () => {
     await user.click(screen.getByRole('button', { name: 'Abrir revisión manual' }));
     expect(onSeleccionarAlumno).toHaveBeenCalledWith('alumno-1');
     expect((clienteApi as { obtener: unknown }).obtener).toBeDefined();
+  });
+
+  it('permite recuperar los resultados después de una búsqueda sin coincidencias', async () => {
+    const user = userEvent.setup();
+    render(<ConsultaCalificaciones
+      periodos={[{ _id: 'periodo-1', nombre: 'Materia de prueba' }]}
+      periodoId="periodo-1"
+      onPeriodoChange={vi.fn()}
+      onSeleccionarAlumno={vi.fn()}
+    />);
+
+    await waitFor(() => expect(screen.getByText('Pérez López Ana')).toBeInTheDocument());
+    const busqueda = screen.getByRole('searchbox', { name: 'Buscar alumno' });
+    await user.type(busqueda, 'sin-coincidencias');
+
+    expect(await screen.findByText('No hay alumnos que coincidan con los filtros aplicados.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }));
+
+    expect(busqueda).toHaveValue('');
+    expect(await screen.findByText('Pérez López Ana')).toBeInTheDocument();
   });
 
   it('muestra Extra solo con final reprobatoria y persiste la solicitud explícita del docente', async () => {
@@ -292,7 +329,7 @@ describe('ConsultaCalificaciones', () => {
     );
 
     await waitFor(() => expect(obtenerMock).toHaveBeenCalledWith('/analiticas/lista-academica?periodoId=periodo-archivado'));
-    expect(screen.getByRole('option', { name: /Inteligencia de Negocios .* \(Archivada\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Inteligencia de Negocios · Archivada/ })).toBeInTheDocument();
     expect(screen.getByText(/Materia archivada: estás consultando el historial/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Ver detalle de Pérez López Ana' }));
     await user.click(screen.getByRole('button', { name: 'Segundo Parcial' }));

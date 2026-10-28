@@ -166,10 +166,11 @@ export function QrAccesoMovil({ vista }: { vista: 'entrega' | 'calificaciones' }
       )}
       {!cargando && urlQr && (
         <div className="guia-qr">
-          <img className="guia-qr__img" src={urlQr} alt="QR para abrir en movil" onError={() => setQrFallo(true)} />
+          {!qrFallo && <img className="guia-qr__img" src={urlQr} alt="QR para abrir en movil" onError={() => setQrFallo(true)} />}
           {mostrarFallback && (
             <div className="nota">
-              Fallback manual: <span className="guia-qr__url">{urlMovil}</span>
+              {qrFallo ? 'QR no disponible. Abre este enlace manualmente: ' : 'Fallback manual: '}
+              <span className="guia-qr__url">{urlMovil}</span>
             </div>
           )}
         </div>

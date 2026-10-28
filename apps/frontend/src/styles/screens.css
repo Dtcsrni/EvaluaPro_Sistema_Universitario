@@ -1726,15 +1726,7 @@
   }
 }
 
-/* En Materias, el catálogo es la tarea principal y el alta queda después.
-   Se conserva la estructura existente para no alterar acciones ni estados del formulario. */
-.materias-panel > .materias-seccion-activas {
-  order: 1;
-}
-
-.materias-panel > .materias-form {
-  order: 2;
-}
+/* La secuencia visual coincide con el DOM: contexto, alta y catálogo. */
 
 .materias-seccion-activas__head {
   display: flex;
@@ -2970,9 +2962,13 @@
 }
 
 .archivadas-info-card__icon {
-  font-size: 2rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
   line-height: 1;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  color: var(--materia-warning);
 }
 
 .archivadas-info-card__text {
@@ -3012,6 +3008,10 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--texto);
+}
+
+.archivada-chip > svg {
+  flex: 0 0 auto;
 }
 
 .chip--archivado {
@@ -7352,6 +7352,7 @@
 }
 
 .plantillas-pagina-chip {
+  /* WCAG AA: la superficie y el borde son decorativos; el número y rango mantienen etiquetas de texto. */
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -7363,11 +7364,13 @@
 }
 
 .plantillas-pagina-chip__num {
+  /* WCAG AA: el color de acento no es el único medio para distinguir la página. */
   font-weight: 700;
   color: #ec4899;
 }
 
 .plantillas-pagina-chip__rango {
+  /* WCAG AA: el texto secundario usa el token muted de la interfaz. */
   color: var(--color-texto-muted, #94a3b8);
 }
 
@@ -7392,7 +7395,7 @@
   margin-top: 1rem;
 }
 
-/* Light mode overrides for Plantillas Bento cards */
+/* WCAG AA: overrides de tema claro conservan texto legible y usan los acentos como decoración. */
 :root:not([data-theme="dark"]) .plantillas-panel--form,
 :root:not([data-theme="dark"]) .plantillas-panel--lista,
 :root:not([data-theme="dark"]) .plantillas-panel--generar,
@@ -9664,6 +9667,265 @@ li.empty-state-card {
     line-height: 1.45;
   }
 
+  .alumnos-panel > :is(.alumnos-panel__head, .alumnos-form, .alumnos-explorador, .alumnos-lista) {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .alumnos-panel__head {
+    align-items: flex-start;
+  }
+
+  .alumnos-panel__lead {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 0.75rem;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .alumnos-panel__text-block,
+  .alumnos-panel__meta-row {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .alumnos-panel__title,
+  .alumnos-panel__text-block p {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .alumnos-header-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .alumnos-panel .materia-mini-kpi {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .alumnos-form--glass,
+  .alumnos-filtros--glass {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem;
+  }
+
+  .alumnos-form__header,
+  .alumnos-form__fields,
+  .alumnos-form__row,
+  .alumnos-form__footer {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .alumnos-form__row--top,
+  .alumnos-form__row--bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .alumnos-explorador__header,
+  .alumnos-explorador__title-box,
+  .alumnos-group-chips-bar {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .alumnos-explorador__title-box h3,
+  .alumnos-materia-badge,
+  .alumnos-group-chips-label {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .alumnos-lista {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 0;
+  }
+
+  .alumnos-lista > li,
+  .alumnos-lista > li > .item-glass {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .alumnos-card__body,
+  .alumnos-card__meta,
+  .alumno-info,
+  .alumnos-lista-title-container {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .alumno-avatar {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+  }
+
+  .alumno-nombre,
+  .alumno-correo {
+    overflow-wrap: anywhere;
+  }
+
+  .cuenta-panel {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .cuenta-panel__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .cuenta-panel .banco-panel__lead,
+  .cuenta-panel .banco-panel__text-block,
+  .cuenta-panel .banco-panel__meta-row,
+  .cuenta-panel .banco-header-kpis {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .cuenta-panel .banco-counter-tag {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .cuenta-panel .banco-header-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+    gap: 0.5rem;
+  }
+
+  .cuenta-panel .banco-mini-kpi {
+    min-width: 0;
+    max-width: 100%;
+    padding-inline: 0.5rem;
+    overflow-wrap: anywhere;
+  }
+
+  .cuenta-panel .banco-mini-kpi__num,
+  .cuenta-panel .banco-mini-kpi__lbl {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .cuenta-panel .cuenta-subpanel {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    max-width: 100%;
+    padding: 1rem;
+  }
+
+  .cuenta-panel .banco-section-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .cuenta-panel .banco-section-title__wrap,
+  .cuenta-panel .banco-section-side-meta,
+  .cuenta-panel .banco-section-title .entregas-title-heading,
+  .cuenta-panel .banco-section-title .nota {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .cuenta-panel .banco-section-side-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .cuenta-panel .acciones {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .cuenta-panel .acciones > :is(button, a, .boton, .btn, .chip) {
+    flex: 1 1 12rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .calificaciones-experience > * {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .calificaciones-experience > .calif-panel__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calificaciones-experience .calif-panel__head .banco-panel__meta-row {
+    flex-wrap: wrap;
+  }
+
+  .calificaciones-experience .calificaciones-workspace-nav {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .calificaciones-workspace-view > * {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .calif-action-deck {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .calif-action-deck > .calif-deck-card {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .calif-deck-card__field {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .plantillas-shell .plantillas-tabs-bar {
     flex-wrap: wrap;
     overflow: visible;
@@ -9683,6 +9945,50 @@ li.empty-state-card {
 
   .plantillas-shell .plantillas-header-actions {
     justify-content: flex-start;
+  }
+
+  .materias-panel {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .materias-panel > :is(.materias-panel__head, .guia-materia-compact, .materias-form, .materias-seccion-activas) {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .materias-panel__head,
+  .materias-panel__lead,
+  .materias-panel__text-block,
+  .materias-form--panoramico,
+  .materias-seccion-activas {
+    min-width: 0;
+  }
+
+  .materias-panel__lead,
+  .materias-panel__text-block {
+    max-width: 100%;
+  }
+
+  .materias-panel__meta-row,
+  .materias-header-actions,
+  .materias-header-kpis {
+    flex-wrap: wrap;
+  }
+
+  .calificaciones-experience .banco-header-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+    gap: 0.5rem;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .cuenta-panel .banco-header-kpis {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -9865,4 +10171,52 @@ li.empty-state-card {
 }
 @media (prefers-reduced-motion: reduce) {
   .version-timeline__chevron, .version-changelog-source__chevron { transition: none; }
+}
+
+/* En pantallas estrechas, mantener la navegación completa siempre visible.
+   El selector no debe desplazarse junto con las pestañas fuera del viewport. */
+@media (max-width: 1023px) {
+  .shell-docente__content > .panel > .tabs--docente-responsive {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
+    overflow: visible;
+    min-width: 0;
+  }
+
+  .tabs--docente-responsive .tabs__mobile-picker {
+    display: grid;
+    gap: 0.35rem;
+    width: 100%;
+    min-width: 0;
+    color: var(--ui-text-primary);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .tabs--docente-responsive .tabs__mobile-picker select {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--ui-card-border);
+    border-radius: 10px;
+    background: var(--ui-card-surface);
+    color: var(--ui-text-primary);
+    font: inherit;
+  }
+
+  .tabs--docente-responsive > .tabs__group-label,
+  .tabs--docente-responsive > .tab {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .tabs--docente-responsive .tabs__mobile-picker {
+    display: none;
+  }
 }

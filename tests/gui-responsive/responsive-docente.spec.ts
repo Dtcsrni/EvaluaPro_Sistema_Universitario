@@ -204,18 +204,6 @@ async function assertHeaderPartsAreNotCardSurfaces(page: import('@playwright/tes
   }
 }
 
-async function assertVisibleTabLabel(nav: import('@playwright/test').Locator, label: string) {
-  const button = nav.getByRole('button', { name: label, exact: true });
-  const layout = await button.evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-    clientHeight: element.clientHeight,
-    scrollHeight: element.scrollHeight
-  }));
-  expect(layout.scrollWidth, `la etiqueta de navegación "${label}" se recorta horizontalmente`).toBeLessThanOrEqual(layout.clientWidth + 1);
-  expect(layout.scrollHeight, `la etiqueta de navegación "${label}" se recorta verticalmente`).toBeLessThanOrEqual(layout.clientHeight + 1);
-}
-
 async function assertPlantillasFormatoContrast(page: import('@playwright/test').Page) {
   const result = await page.locator('.plantillas-formato-box').evaluate((panel) => {
     const parse = (color: string) => color.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
@@ -571,9 +559,22 @@ test.describe('GUI responsive e2e · docente', () => {
       ];
 
       for (const tab of tabs) {
-        await nav.getByRole('button', { name: tab.label }).click();
-        const activeTab = nav.getByRole('button', { name: tab.label });
-        await expect(activeTab).toHaveAttribute('aria-current', 'page');
+        if (viewport.width <= 1023) {
+          const mobilePicker = nav.locator('#navegacion-docente-movil');
+          const mobileOption = mobilePicker.getByRole('option', { name: tab.label, exact: true });
+          await expect(mobilePicker).toBeVisible();
+          await expect(mobilePicker).toHaveAccessibleName('Ir a sección');
+          await expect(mobileOption, `falta la opción móvil "${tab.label}"`).toHaveCount(1);
+          await mobilePicker.selectOption({ label: tab.label });
+          await expect(mobilePicker.locator('option:checked')).toHaveText(tab.label);
+          const activeTab = nav.locator('button.tab[aria-current="page"]');
+          await expect(activeTab).toHaveCount(1);
+          await expect(activeTab).toHaveText(tab.label);
+        } else {
+          await nav.getByRole('button', { name: tab.label }).click();
+          const activeTab = nav.getByRole('button', { name: tab.label });
+          await expect(activeTab).toHaveAttribute('aria-current', 'page');
+        }
         if (tab.slug === 'plantillas') {
           await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
           await expect(page.locator('.plantillas-formato-box')).toBeVisible();
@@ -582,7 +583,6 @@ test.describe('GUI responsive e2e · docente', () => {
           await assertPlantillasStudioContrast(page);
           await assertPlantillasSummaryContrast(page);
         }
-        if (viewport.name === 'mobile') await assertVisibleTabLabel(nav, tab.label);
         if (tab.slug === 'calificaciones') {
           await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
           await assertHeaderPartsAreNotCardSurfaces(page, `${viewport.name} / calificaciones`);

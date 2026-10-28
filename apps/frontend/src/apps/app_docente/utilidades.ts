@@ -8,10 +8,12 @@ import { mensajeUsuarioDeErrorConSugerencia } from '../../servicios_api/clienteC
 import { obtenerSessionId } from '../../ui/ux/sesion';
 import { tipoMensajeInline } from './mensajeInline';
 import type {
+  Alumno,
   EstadoRespuestaOmr,
   ExamenGeneradoClave,
   FlagRespuestaOmr,
   Pregunta,
+  Periodo,
   PermisosUI,
   RespuestaDetectadaOmr,
   ResultadoOmr,
@@ -422,5 +424,37 @@ function etiquetaMateriaConId(nombre?: string, id?: string): string {
 
 export function etiquetaMateria(periodo?: { _id?: string; nombre?: string } | null): string {
   return etiquetaMateriaConId(periodo?.nombre, periodo?._id);
+}
+
+export function nombreMateriaVisible(periodo?: Pick<Periodo, 'nombre'> | null): string {
+  return String(periodo?.nombre || '').trim() || 'Materia sin nombre';
+}
+
+export function fechaMateriaVisible(fecha?: string): string {
+  const partes = String(fecha || '').slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return partes ? `${partes[3]}/${partes[2]}/${partes[1]}` : '';
+}
+
+export function etiquetaMateriaParaSelector(periodo?: Pick<Periodo, 'nombre' | 'fechaInicio'> | null): string {
+  const nombre = nombreMateriaVisible(periodo);
+  const inicio = fechaMateriaVisible(periodo?.fechaInicio);
+  return inicio ? `${nombre} · inicia ${inicio}` : nombre;
+}
+
+export function etiquetarAlumnosParaSelectorManual(
+  alumnos: Alumno[],
+  periodos: Periodo[]
+): Array<{ alumno: Alumno; etiqueta: string }> {
+  const frecuencias = new Map<string, number>();
+  const clave = (alumno: Alumno) => `${alumno.matricula.trim()}|${alumno.nombreCompleto.trim().toLocaleLowerCase('es-MX')}`;
+  for (const alumno of alumnos) frecuencias.set(clave(alumno), (frecuencias.get(clave(alumno)) ?? 0) + 1);
+
+  return alumnos.map((alumno) => {
+    const etiquetaBase = `${alumno.matricula} - ${alumno.nombreCompleto}`;
+    if ((frecuencias.get(clave(alumno)) ?? 0) < 2) return { alumno, etiqueta: etiquetaBase };
+    const periodo = periodos.find((item) => item._id === alumno.periodoId);
+    const contexto = [periodo ? etiquetaMateria(periodo) : '', alumno.grupo ? `Grupo ${alumno.grupo}` : ''].filter(Boolean).join(' · ');
+    return { alumno, etiqueta: `${etiquetaBase} · ${contexto || 'Materia o grupo sin identificar'}` };
+  });
 }
 

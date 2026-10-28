@@ -10,7 +10,7 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
 import type { Periodo } from './tipos';
-import { etiquetaMateria } from './utilidades';
+import { etiquetaMateriaParaSelector } from './utilidades';
 
 export type FilaConsultaCalificacion = {
   alumnoId?: string;
@@ -591,7 +591,7 @@ export function ConsultaCalificaciones({
             <option value="">Selecciona materia...</option>
             {periodos.map((periodo) => (
               <option key={periodo._id} value={periodo._id}>
-                {etiquetaMateria(periodo)}{periodo.activo === false ? ' (Archivada)' : ''}
+                {etiquetaMateriaParaSelector(periodo)}{periodo.activo === false ? ' · Archivada' : ''}
               </option>
             ))}
           </select>
@@ -599,6 +599,7 @@ export function ConsultaCalificaciones({
         <label className="campo calificaciones-consulta__search">
           <span>Buscar alumno</span>
           <input
+            type="search"
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
             placeholder="Nombre, matrícula o grupo"
@@ -645,7 +646,16 @@ export function ConsultaCalificaciones({
       {!cargando && error && <InlineMensaje tipo="error">No se pudo cargar la consulta: {error}</InlineMensaje>}
       {!cargando && !error && !periodoId && <InlineMensaje tipo="info">Selecciona una materia para consultar sus calificaciones.</InlineMensaje>}
       {!cargando && !error && periodoId && filas.length === 0 && <InlineMensaje tipo="info">No hay alumnos registrados en esta materia.</InlineMensaje>}
-      {!cargando && !error && periodoId && filas.length > 0 && filasFiltradas.length === 0 && <InlineMensaje tipo="info">No hay alumnos que coincidan con el filtro.</InlineMensaje>}
+      {!cargando && !error && periodoId && filas.length > 0 && filasFiltradas.length === 0 && (
+        <div className="calificaciones-consulta__no-results">
+          <InlineMensaje tipo="info">No hay alumnos que coincidan con los filtros aplicados.</InlineMensaje>
+          {busqueda.trim() && (
+            <Boton type="button" variante="secundario" onClick={() => setBusqueda('')}>
+              Limpiar búsqueda
+            </Boton>
+          )}
+        </div>
+      )}
 
       {filasFiltradas.length > 0 && (
         <div className="calificaciones-consulta__table-wrap">

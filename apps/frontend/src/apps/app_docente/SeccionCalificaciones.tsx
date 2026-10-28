@@ -40,7 +40,8 @@ import {
   construirClaveCorrectaExamen,
   consolidarResultadoOmrExamen,
   esMensajeError,
-  etiquetaMateria,
+  etiquetaMateriaParaSelector,
+  etiquetarAlumnosParaSelectorManual,
   mensajeDeError,
   normalizarTemplateVersionOmrDetectada
 } from './utilidades';
@@ -228,6 +229,10 @@ export function SeccionCalificaciones({
     const idsActivos = new Set(periodos.map((periodo) => String(periodo._id ?? '').trim()));
     return [...periodos, ...periodosArchivados.filter((periodo) => !idsActivos.has(String(periodo._id ?? '').trim()))];
   }, [periodos, periodosArchivados]);
+  const alumnosParaSelectorManual = useMemo(
+    () => etiquetarAlumnosParaSelectorManual(alumnos, periodosConsulta),
+    [alumnos, periodosConsulta]
+  );
 
   useEffect(() => {
     if (!periodoReporteId && periodosConsulta.length > 0) {
@@ -1090,23 +1095,23 @@ export function SeccionCalificaciones({
       </div>
 
       <nav className="calificaciones-workspace-nav" aria-label="Espacios de calificaciones">
-        <button type="button" className={vistaCalificaciones === 'resultados' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'resultados'} onClick={() => setVistaCalificaciones('resultados')}>
+        <button type="button" className={vistaCalificaciones === 'resultados' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'resultados' ? 'page' : undefined} onClick={() => setVistaCalificaciones('resultados')}>
           <span className="calificaciones-workspace-nav__index">01</span>
           <Icono nombre="calificar" ariaHidden size={19} /><span><strong>Resultados</strong><small>Consulta por alumno</small></span>
         </button>
-        <button type="button" className={vistaCalificaciones === 'extraordinarios' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'extraordinarios'} onClick={() => setVistaCalificaciones('extraordinarios')}>
+        <button type="button" className={vistaCalificaciones === 'extraordinarios' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'extraordinarios' ? 'page' : undefined} onClick={() => setVistaCalificaciones('extraordinarios')}>
           <span className="calificaciones-workspace-nav__index">02</span>
           <Icono nombre="evaluaciones" ariaHidden size={19} /><span><strong>Extraordinarios</strong><small>Solicitud · examen · resultado</small></span>
         </button>
-        <button type="button" className={vistaCalificaciones === 'actas' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'actas'} onClick={() => setVistaCalificaciones('actas')}>
+        <button type="button" className={vistaCalificaciones === 'actas' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'actas' ? 'page' : undefined} onClick={() => setVistaCalificaciones('actas')}>
           <span className="calificaciones-workspace-nav__index">03</span>
           <Icono nombre="publicar" ariaHidden size={19} /><span><strong>Actas y exportación</strong><small>Prepara el resultado oficial</small></span>
         </button>
-        <button type="button" className={vistaCalificaciones === 'operacion' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'operacion'} onClick={() => setVistaCalificaciones('operacion')}>
+        <button type="button" className={vistaCalificaciones === 'operacion' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'operacion' ? 'page' : undefined} onClick={() => setVistaCalificaciones('operacion')}>
           <span className="calificaciones-workspace-nav__index">04</span>
           <Icono nombre="escaneo" ariaHidden size={19} /><span><strong>Revisión y captura</strong><small>OMR, manual y aclaraciones</small></span>
         </button>
-        <button type="button" className={vistaCalificaciones === 'classroom' ? 'is-active' : ''} aria-pressed={vistaCalificaciones === 'classroom'} onClick={() => setVistaCalificaciones('classroom')}>
+        <button type="button" className={vistaCalificaciones === 'classroom' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'classroom' ? 'page' : undefined} onClick={() => setVistaCalificaciones('classroom')}>
           <span className="calificaciones-workspace-nav__index">05</span>
           <Icono nombre="classroom" ariaHidden size={19} /><span><strong>Classroom</strong><small>Vínculos · cortes · consulta</small></span>
         </button>
@@ -1175,7 +1180,7 @@ export function SeccionCalificaciones({
                 <option value="">Selecciona materia...</option>
                 {periodosConsulta.map((periodo) => (
                   <option key={periodo._id} value={periodo._id}>
-                    {etiquetaMateria(periodo)}{periodo.activo === false ? ' (Archivada)' : ''}
+                    {etiquetaMateriaParaSelector(periodo)}{periodo.activo === false ? ' · Archivada' : ''}
                   </option>
                 ))}
               </select>
@@ -1331,7 +1336,7 @@ export function SeccionCalificaciones({
                 <option value="">Selecciona materia</option>
                 {periodos.map((p) => (
                   <option key={p._id} value={p._id}>
-                    {p.nombre}
+                    {etiquetaMateriaParaSelector(p)}
                   </option>
                 ))}
               </select>
@@ -1527,9 +1532,9 @@ export function SeccionCalificaciones({
               Alumno
               <select value={alumnoManualId} onChange={(event) => seleccionarAlumnoManual(event.target.value)}>
                 <option value="">Selecciona</option>
-                {(Array.isArray(alumnos) ? alumnos : []).map((alumno) => (
+                {alumnosParaSelectorManual.map(({ alumno, etiqueta }) => (
                   <option key={alumno._id} value={alumno._id}>
-                    {alumno.matricula} - {alumno.nombreCompleto}
+                    {etiqueta}
                   </option>
                 ))}
               </select>

@@ -5,7 +5,7 @@ import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
 import { crearClaveLoteGeneracion, guardarLotePendiente, leerLotePendiente, validarResumenLoteGenerado } from './features/plantillas/loteGeneracionSesion';
 import type { Periodo } from './tipos';
-import { etiquetaMateria, mensajeDeError } from './utilidades';
+import { etiquetaMateriaParaSelector, mensajeDeError } from './utilidades';
 import type { FilaConsultaCalificacion } from './ConsultaCalificaciones';
 
 type PlantillaExtra = { _id: string; periodoId?: string; titulo: string; tipo?: string; numeroPaginas?: number; archivadoEn?: string };
@@ -19,6 +19,7 @@ function nombreAlumno(fila: FilaConsultaCalificacion) {
 }
 
 function decimal(valor?: string) {
+  if (valor == null || String(valor).trim() === '') return '—';
   const numero = Number(String(valor ?? '').replace(',', '.'));
   return Number.isFinite(numero) ? new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 4, useGrouping: false }).format(numero) : '—';
 }
@@ -277,14 +278,14 @@ export function ExtraordinariosCalificaciones({
       <header className="calificaciones-view-heading">
         <span className="calificaciones-kicker">Elegibilidad · generación · aplicación · resultado</span>
         <h3 id="extraordinarios-heading">Extraordinarios</h3>
-        <p className="nota">Final menor que 6 habilita Extra. El redondeo para acta se presenta por separado; generar requiere solicitud explícita del docente.</p>
+        <p className="nota">Una calificación final menor que 6 permite solicitar un examen extraordinario. El redondeo del acta se presenta por separado; el docente debe solicitarlo antes de generarlo.</p>
       </header>
 
       <label className="campo calificaciones-extra__periodo">
         <span>Materia y periodo</span>
         <select value={periodoId} onChange={(event) => onPeriodoChange(event.target.value)}>
           <option value="">Selecciona materia…</option>
-          {periodos.map((item) => <option key={item._id} value={item._id}>{etiquetaMateria(item)}{item.activo === false ? ' (Archivada)' : ''}</option>)}
+          {periodos.map((item) => <option key={item._id} value={item._id}>{etiquetaMateriaParaSelector(item)}{item.activo === false ? ' · Archivada' : ''}</option>)}
         </select>
       </label>
 
@@ -309,7 +310,7 @@ export function ExtraordinariosCalificaciones({
                   const id = String(fila.alumnoId ?? ''); const elegible = fila.extraDisponible === true; const solicita = fila.solicitaExtra === true;
                   return <li key={id} className="calificaciones-extra__student">
                     <div className="calificaciones-extra__student-main">
-                      {elegible && solicita && <input aria-label={`Seleccionar para generar Extra: ${nombreAlumno(fila)}`} type="checkbox" checked={seleccionados.includes(id)} onChange={(event) => setSeleccionados((actuales) => event.target.checked ? [...new Set([...actuales, id])] : actuales.filter((actual) => actual !== id))} />}
+                      {elegible && solicita && <input aria-label={`Seleccionar para generar examen extraordinario: ${nombreAlumno(fila)}`} type="checkbox" checked={seleccionados.includes(id)} onChange={(event) => setSeleccionados((actuales) => event.target.checked ? [...new Set([...actuales, id])] : actuales.filter((actual) => actual !== id))} />}
                       <div><strong>{nombreAlumno(fila)}</strong><small>{fila.matricula}{fila.grupo ? ` · Grupo ${fila.grupo}` : ''}</small></div>
                     </div>
                     <dl className="calificaciones-extra__metrics">
@@ -321,7 +322,7 @@ export function ExtraordinariosCalificaciones({
                       <label className="campo-checkbox"><input type="checkbox" checked={solicita} disabled={!puedeCalificar || (!elegible && !solicita)} onChange={(event) => void guardarSolicitud(fila, event.target.checked)} /><span>Solicitud docente</span></label>
                       {id && <button type="button" className="calificaciones-extra__link" onClick={() => { setAlumnoExternoId(id); onAbrirRevision(id); }}>Abrir revisión OMR</button>}
                     </div>
-                    {(fila.resultadosExtraordinarios ?? []).length > 0 && <div className="calificaciones-extra__history" aria-label={`Historial Extra de ${nombreAlumno(fila)}`}>
+                    {(fila.resultadosExtraordinarios ?? []).length > 0 && <div className="calificaciones-extra__history" aria-label={`Historial de exámenes extraordinarios de ${nombreAlumno(fila)}`}>
                       {(fila.resultadosExtraordinarios ?? []).map((resultado) => <article key={`${resultado.claseRegistro}-${resultado.folio}`}>
                         <strong>Resultado {resultado.claseRegistro === 'externo' ? 'externo' : 'interno'} · folio {resultado.folio}</strong>
                         <span>{decimal(resultado.calificacionSobre5)} / 5 · {decimal(resultado.calificacionSobre10)} / 10 · {resultado.estadoAprobatorio} (solo si supera 6)</span>
@@ -351,7 +352,7 @@ export function ExtraordinariosCalificaciones({
               <label className="campo-checkbox"><input type="checkbox" checked={confirmoPreview} onChange={(event) => setConfirmoPreview(event.target.checked)} /><span>Revisé el diseño y las páginas de la vista previa</span></label>
             </div>}
             <Boton type="button" variante="primario" cargando={generando} disabled={!puedeGenerar || generando || !seleccionados.length || !preview || !confirmoPreview} onClick={() => void generarLote()}>
-              {generando ? 'Validando y generando…' : 'Generar lote Extra'}
+              {generando ? 'Validando y generando…' : 'Generar exámenes extraordinarios'}
             </Boton>
             {resultadoLote && <div className="calificaciones-extra__batch" role="status">
               <strong>Lote {resultadoLote.loteId} · {resultadoLote.totalAlumnos} exámenes · {resultadoLote.totalPaginas} páginas</strong>
@@ -362,8 +363,8 @@ export function ExtraordinariosCalificaciones({
           </section>
 
           <section className="calificaciones-extra__section" aria-labelledby="extra-historial-heading">
-            <div className="calificaciones-extra__section-head"><div><h4 id="extra-historial-heading">Exámenes Extra generados</h4><p>Incluye pendientes de aplicación o captura, además de los que ya tienen resultado.</p></div><span>{examenesHistoricos.length} cargados</span></div>
-            {examenesHistoricos.length === 0 ? <p>No hay exámenes Extra generados en este periodo.</p> : <ul className="calificaciones-extra__history-list">
+            <div className="calificaciones-extra__section-head"><div><h4 id="extra-historial-heading">Exámenes extraordinarios generados</h4><p>Incluye exámenes pendientes de aplicación o captura y los que ya tienen resultado.</p></div><span>{examenesHistoricos.length} cargados</span></div>
+            {examenesHistoricos.length === 0 ? <p>No hay exámenes extraordinarios generados en este periodo.</p> : <ul className="calificaciones-extra__history-list">
               {examenesHistoricos.map((examen) => <li key={examen._id ?? examen.id}>
                 <strong>{examen.alumnoNombre || filas.find((fila) => fila.alumnoId === examen.alumnoId)?.matricula || 'Alumno'}</strong>
                 <span>{examen.loteId ? `Lote ${examen.loteId} · ` : ''}folio {examen.folio}</span>

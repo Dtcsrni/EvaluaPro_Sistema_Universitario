@@ -9,6 +9,7 @@ import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
+import { Archive, Award, FileText, IconoLucide, ListChecks, ShieldCheck, Users } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaMateriaVisual } from './GuiaMateriaVisual';
@@ -17,7 +18,7 @@ import { registrarAccionDocente } from './telemetriaDocente';
 import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { clienteApi } from './clienteApiDocente';
 import { obtenerTokenDocente } from '../../servicios_api/clienteApi';
-import { esMensajeError, etiquetaMateria, idCortoMateria, mensajeDeError, patronNombreMateria } from './utilidades';
+import { esMensajeError, idCortoMateria, mensajeDeError, nombreMateriaVisible, patronNombreMateria } from './utilidades';
 
 export function SeccionPeriodos({
   periodos,
@@ -413,7 +414,7 @@ export function SeccionPeriodos({
     }
     const confirmado = await confirm({
       title: 'Archivar materia',
-      message: `La materia "${etiquetaMateria(periodo)}" dejará de mostrarse en la lista activa.`,
+      message: `La materia "${nombreMateriaVisible(periodo)}" dejará de mostrarse en la lista activa.`,
       details: ['Los datos se conservarán.', 'Seguirá disponible en “Materias archivadas”.'],
       confirmLabel: 'Sí, archivar',
       tone: 'warning'
@@ -457,7 +458,7 @@ export function SeccionPeriodos({
     }
     const confirmado = await confirm({
       title: 'Eliminar materia en desarrollo',
-      message: `Se eliminará "${etiquetaMateria(periodo)}" con su información relacionada.`,
+      message: `Se eliminará "${nombreMateriaVisible(periodo)}" con su información relacionada.`,
       details: ['Se borrarán alumnos, banco, plantillas y exámenes asociados.', 'No uses esta acción en operación normal.'],
       confirmLabel: 'Sí, eliminar materia',
       tone: 'danger'
@@ -641,8 +642,10 @@ export function SeccionPeriodos({
       <section className={`ui-card ui-card--form materias-form materias-form--glass materias-form--panoramico anim-form-card${registroMateriaAbierto ? ' materias-form--open' : ' materias-form--collapsed'}`}>
         <div className="materias-form__header">
           <div className="materias-form__header-copy">
-            <h3 className="materias-form__title">✨ Registrar Nueva Materia</h3>
-            <p className="materias-form__subtitle">Ingresa la asignatura, grupos y periodo lectivo para habilitar alumnos y evaluaciones.</p>
+            <h3 className="materias-form__title">Nueva materia</h3>
+            <p className="materias-form__subtitle" id="nueva-materia-instrucciones">
+              El nombre y las fechas son obligatorios. Los grupos y la portada son opcionales.
+            </p>
           </div>
           <button
             type="button"
@@ -669,6 +672,10 @@ export function SeccionPeriodos({
               <span>Nombre de la materia</span>
               <div className="auth-input-box auth-input-box--book auth-input-box--animated">
                 <input
+                  type="text"
+                  autoComplete="off"
+                  required
+                  aria-describedby="nueva-materia-instrucciones"
                   value={nombre}
                   onChange={(event) => setNombre(event.target.value)}
                   disabled={bloqueoEdicion}
@@ -679,16 +686,20 @@ export function SeccionPeriodos({
             </label>
 
             <label className="campo campo--grupos">
-              <span>Grupos asignados</span>
+              <span id="grupos-materia-label">Grupos asignados</span>
               <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
                 <input
+                  type="text"
+                  autoComplete="off"
                   value={grupos}
                   onChange={(event) => setGrupos(event.target.value)}
                   disabled={bloqueoEdicion}
                   placeholder="Ej. 1A, 1B, 2A"
-                  data-tooltip="Lista de grupos separados por coma (ej. 1A, 1B, 2C)"
+                  aria-labelledby="grupos-materia-label"
+                  aria-describedby="grupos-materia-ayuda"
                 />
               </div>
+              <span className="ayuda" id="grupos-materia-ayuda">Separa cada grupo con comas; por ejemplo: 1A, 1B y 2A.</span>
             </label>
           </div>
 
@@ -723,10 +734,12 @@ export function SeccionPeriodos({
           {/* Fila 2: Fechas y Botón de Creación */}
           <div className="materias-form__row materias-form__row--bottom">
             <label className="campo campo--fecha">
-              <span>Fecha inicio</span>
+              <span>Fecha de inicio</span>
               <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
                 <input
                   type="date"
+                  required
+                  aria-describedby="nueva-materia-instrucciones"
                   value={fechaInicio}
                   onChange={(event) => setFechaInicio(event.target.value)}
                   disabled={bloqueoEdicion}
@@ -736,10 +749,12 @@ export function SeccionPeriodos({
             </label>
 
             <label className="campo campo--fecha">
-              <span>Fecha fin</span>
+              <span>Fecha de término</span>
               <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
                 <input
                   type="date"
+                  required
+                  aria-describedby="nueva-materia-instrucciones"
                   value={fechaFin}
                   onChange={(event) => setFechaFin(event.target.value)}
                   disabled={bloqueoEdicion}
@@ -800,22 +815,22 @@ export function SeccionPeriodos({
         </div>
         {periodos.length === 0 ? (
           <div className="ui-card ui-card--empty empty-state-card anim-fade-in">
-            <div className="empty-state-card__icon anim-icon-pulse">
-              <span aria-hidden="true">🎓</span>
+            <div className="empty-state-card__icon anim-icon-pulse" aria-hidden="true">
+              <Icono nombre="periodos" size={28} />
             </div>
-            <h4>Comienza configurando tu primera materia</h4>
-            <p>Usa el formulario inferior para crear tu primer curso y desbloquear la gestión de alumnos, el banco de preguntas y la calificación de exámenes.</p>
+            <h4>Aún no hay materias</h4>
+            <p>Registra una materia para empezar a organizar sus grupos, alumnos y calificaciones.</p>
             <div className="empty-state-steps" aria-hidden="true">
               <div className="empty-step">
                 <span className="empty-step__num">1</span>
                 <span>Registra tu materia y fechas</span>
               </div>
-              <div className="empty-step__arrow">➔</div>
+              <div className="empty-step__arrow"><Icono nombre="chevron" size={14} /></div>
               <div className="empty-step">
                 <span className="empty-step__num">2</span>
                 <span>Inscribe a tus alumnos</span>
               </div>
-              <div className="empty-step__arrow">➔</div>
+              <div className="empty-step__arrow"><Icono nombre="chevron" size={14} /></div>
               <div className="empty-step">
                 <span className="empty-step__num">3</span>
                 <span>Califica exámenes con OMR</span>
@@ -837,10 +852,17 @@ export function SeccionPeriodos({
                       <div>
                         {editandoId === periodo._id ? (
                           <div className="lista materias-edicion anim-fade-in">
+                            <p className="nota" id={`edicion-materia-instrucciones-${periodo._id}`}>
+                              El nombre y las fechas son obligatorios. Los grupos son opcionales.
+                            </p>
                             <label className="campo">
                               <span>Nombre de la materia</span>
                               <div className="auth-input-box auth-input-box--book auth-input-box--animated">
                                 <input
+                                  type="text"
+                                  autoComplete="off"
+                                  required
+                                  aria-describedby={`edicion-materia-instrucciones-${periodo._id}`}
                                   value={edicionNombre}
                                   onChange={(event) => setEdicionNombre(event.target.value)}
                                   disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
@@ -855,18 +877,22 @@ export function SeccionPeriodos({
                             )}
                             <div className="materias-fechas-grid">
                               <label className="campo">
-                                <span>Fecha inicio</span>
+                                <span>Fecha de inicio</span>
                                 <input
                                   type="date"
+                                  required
+                                  aria-describedby={`edicion-materia-instrucciones-${periodo._id}`}
                                   value={edicionFechaInicio}
                                   onChange={(event) => setEdicionFechaInicio(event.target.value)}
                                   disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
                                 />
                               </label>
                               <label className="campo">
-                                <span>Fecha fin</span>
+                                <span>Fecha de término</span>
                                 <input
                                   type="date"
+                                  required
+                                  aria-describedby={`edicion-materia-instrucciones-${periodo._id}`}
                                   value={edicionFechaFin}
                                   onChange={(event) => setEdicionFechaFin(event.target.value)}
                                   disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
@@ -880,6 +906,8 @@ export function SeccionPeriodos({
                               <span>Grupos (separados por coma)</span>
                               <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
                                 <input
+                                  type="text"
+                                  autoComplete="off"
                                   value={edicionGrupos}
                                   onChange={(event) => setEdicionGrupos(event.target.value)}
                                   disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
@@ -896,14 +924,14 @@ export function SeccionPeriodos({
                             type="button"
                             className="materia-card-surface"
                             onClick={() => onAbrirGrupo?.(periodo._id, periodo.grupos?.[0])}
-                            aria-label={`Abrir grupo ${periodo.grupos?.[0] || 'general'} de ${etiquetaMateria(periodo)}`}
+                            aria-label={`Abrir grupo ${periodo.grupos?.[0] || 'general'} de ${nombreMateriaVisible(periodo)}`}
                           >
                             <div className="materia-card-header">
                               <div className="materia-title-group">
                                 <ImagenPortadaMateria periodoId={periodo._id} tienePortada={periodo.tienePortada} />
                                 <div>
-                                  <div className="item-title" title={periodo._id}>
-                                    {etiquetaMateria(periodo)}
+                                  <div className="item-title">
+                                    {nombreMateriaVisible(periodo)}
                                   </div>
                                   <span className={`chip chip--sm chip--${progreso.estado} anim-badge-in`}>
                                     {progreso.etiquetaEstado}
@@ -912,7 +940,7 @@ export function SeccionPeriodos({
                                     className="materia-progress-bar"
                                     max={100}
                                     value={progreso.porcentaje}
-                                    aria-label={`Avance de ${etiquetaMateria(periodo)}: ${progreso.porcentaje}%`}
+                                    aria-label={`Avance de ${nombreMateriaVisible(periodo)}: ${progreso.porcentaje}%`}
                                   />
                                 </div>
                               </div>
@@ -947,7 +975,7 @@ export function SeccionPeriodos({
                                 </span>
                               </span>
                             </div>
-                            <div className="materia-card-alumnos" aria-label={`Alumnos de ${etiquetaMateria(periodo)}`}>
+                            <div className="materia-card-alumnos" aria-label={`Alumnos de ${nombreMateriaVisible(periodo)}`}>
                               <div className="materia-card-alumnos__header">
                                 <span className="materia-meta-lbl">Alumnos</span>
                                 <strong>{alumnosMateria.length}</strong>
@@ -1003,7 +1031,7 @@ export function SeccionPeriodos({
                       >
                         <GestionPortadaMateria
                           periodoId={periodo._id}
-                          nombreMateria={etiquetaMateria(periodo)}
+                          nombreMateria={nombreMateriaVisible(periodo)}
                           tienePortada={periodo.tienePortada}
                           onCambio={onRefrescar}
                           disabled={!puedeGestionar}
@@ -1176,7 +1204,9 @@ export function SeccionPeriodosArchivados({
 
       {/* Tarjeta Informativa Glassmorphism */}
       <div className="archivadas-info-card anim-fade-in" role="region" aria-label="Información sobre archivo de materias">
-        <div className="archivadas-info-card__icon" aria-hidden="true">🛡️</div>
+        <div className="archivadas-info-card__icon" aria-hidden="true">
+          <IconoLucide icon={ShieldCheck} size={28} />
+        </div>
         <div className="archivadas-info-card__text">
           <strong>¿Qué ocurre con las materias archivadas?</strong>
           <p>
@@ -1195,7 +1225,7 @@ export function SeccionPeriodosArchivados({
         {periodos.length === 0 ? (
           <div className="ui-card ui-card--empty empty-state-card anim-fade-in">
             <div className="empty-state-card__icon anim-icon-pulse">
-              <span aria-hidden="true">📦</span>
+              <IconoLucide icon={Archive} size={28} />
             </div>
             <h4>No hay materias archivadas</h4>
             <p>Cuando concluyas un periodo lectivo y lo archives desde la sección de materias activas, aparecerá aquí resguardado con todos sus datos y exámenes.</p>
@@ -1209,8 +1239,8 @@ export function SeccionPeriodosArchivados({
                     <div>
                       <div className="materia-card-header">
                         <div>
-                          <div className="item-title" title={periodo._id}>
-                            {etiquetaMateria(periodo)}
+                          <div className="item-title">
+                            {nombreMateriaVisible(periodo)}
                           </div>
                           <span className="chip chip--sm chip--archivado anim-badge-in">Archivada</span>
                         </div>
@@ -1231,10 +1261,10 @@ export function SeccionPeriodosArchivados({
                       </div>
                       {periodo.resumenArchivado && (
                         <div className="archivadas-chips-row">
-                          <span className="archivada-chip">👥 {periodo.resumenArchivado.alumnos ?? 0} alumnos</span>
-                          <span className="archivada-chip">📝 {periodo.resumenArchivado.bancoPreguntas ?? 0} reactivos</span>
-                          <span className="archivada-chip">📄 {periodo.resumenArchivado.plantillas ?? 0} plantillas</span>
-                          <span className="archivada-chip">🎖️ {periodo.resumenArchivado.calificaciones ?? 0} calificaciones</span>
+                          <span className="archivada-chip"><IconoLucide icon={Users} size={14} /> {periodo.resumenArchivado.alumnos ?? 0} alumnos</span>
+                          <span className="archivada-chip"><IconoLucide icon={ListChecks} size={14} /> {periodo.resumenArchivado.bancoPreguntas ?? 0} reactivos</span>
+                          <span className="archivada-chip"><IconoLucide icon={FileText} size={14} /> {periodo.resumenArchivado.plantillas ?? 0} plantillas</span>
+                          <span className="archivada-chip"><IconoLucide icon={Award} size={14} /> {periodo.resumenArchivado.calificaciones ?? 0} calificaciones</span>
                         </div>
                       )}
                     </div>
