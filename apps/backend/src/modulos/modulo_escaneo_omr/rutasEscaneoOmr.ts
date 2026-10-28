@@ -13,9 +13,9 @@ import { pipeline } from 'node:stream/promises';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { analizarImagen, prevalidarLoteCapturas } from './controladorEscaneoOmr.js';
 import { crearJobOmr, finalizarJobOmr, listarJobsOmr, obtenerJobOmr, resolverHojaOmr } from './controladorJobsOmr.js';
-import { calificarIngestaPdfOmr, crearIngestaPdfOmr, descargarManifiestoIngestaPdfOmr, descargarOriginalIngestaPdfOmr, descargarPaqueteIngestaPdfOmr, exportarDatasetIngestaPdfOmr, obtenerIngestaPdfOmr, prevalidarReferenciaIngestaPdfOmr, previsualizarPaginaIngestaPdfOmr, previsualizarReferenciaIngestaPdfOmr, recuperarIngestaPdfOmrPorClave, registrarVerdadTerrenoPaginaOmr, resolverPaginaIngestaPdfOmr, reintentarIngestaPdfOmr } from './controladorIngestaPdfOmr.js';
+import { asignarAlumnoCopiaIngestaOmr, calificarIngestaPdfOmr, crearIngestaPdfOmr, descargarManifiestoIngestaPdfOmr, descargarOriginalIngestaPdfOmr, descargarPaqueteIngestaPdfOmr, exportarDatasetIngestaPdfOmr, listarAlumnosCopiaIngestaOmr, obtenerIngestaPdfOmr, prevalidarReferenciaIngestaPdfOmr, previsualizarPaginaIngestaPdfOmr, previsualizarReferenciaIngestaPdfOmr, recuperarIngestaPdfOmrPorClave, registrarVerdadTerrenoPaginaOmr, resolverPaginaIngestaPdfOmr, reintentarIngestaPdfOmr } from './controladorIngestaPdfOmr.js';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
-import { esquemaAnalizarOmr, esquemaCalificarIngestaPdfOmr, esquemaCrearIngestaPdfOmr, esquemaCrearJobOmr, esquemaExportarDatasetIngestaOmr, esquemaPrevalidarLoteOmr, esquemaPrevalidarReferenciaIngestaOmr, esquemaRegistrarVerdadTerrenoOmr, esquemaResolverJobOmr, esquemaResolverPaginaIngestaOmr, esquemaReintentarIngestaOmr } from './validacionesOmr.js';
+import { esquemaAnalizarOmr, esquemaAsignarAlumnoCopiaOmr, esquemaCalificarIngestaPdfOmr, esquemaCrearIngestaPdfOmr, esquemaCrearJobOmr, esquemaExportarDatasetIngestaOmr, esquemaPrevalidarLoteOmr, esquemaPrevalidarReferenciaIngestaOmr, esquemaRegistrarVerdadTerrenoOmr, esquemaResolverJobOmr, esquemaResolverPaginaIngestaOmr, esquemaReintentarIngestaOmr } from './validacionesOmr.js';
 import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/index.js';
 import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import { MAX_JOB_BYTES, MAX_PDF_BYTES } from './limitesIngestaPdfOmr.js';
@@ -69,7 +69,7 @@ export function crearCargadorArchivosPdfOmr(maxJobBytes = MAX_JOB_BYTES, tempRoo
   };
   const cargaPdfOmr = multer({
     storage: almacenamiento,
-    limits: { files: 11, fileSize: MAX_PDF_BYTES, fields: 2, fieldSize: MAX_ASSESSMENT_IDS_FIELD_BYTES },
+    limits: { files: 11, fileSize: MAX_PDF_BYTES, fields: 3, fieldSize: MAX_ASSESSMENT_IDS_FIELD_BYTES },
     fileFilter: (_req, file, callback) => {
       const filenameIsPdf = path.extname(file.originalname).toLowerCase() === '.pdf';
       callback(null, file.mimetype === 'application/pdf' && filenameIsPdf);
@@ -135,6 +135,8 @@ router.post(
   prevalidarReferenciaIngestaPdfOmr
 );
 router.post('/ingestas', requerirPermiso('omr:analizar'), cargarArchivosPdf, limpiarCargaSiFalla, validarIngestaPdf, crearIngestaPdfOmr);
+router.get('/ingestas/:jobId/shared-candidates', requerirPermiso('omr:analizar'), requerirPermiso('alumnos:leer'), listarAlumnosCopiaIngestaOmr);
+router.post('/ingestas/:jobId/submissions/:submissionId/assign', requerirPermiso('omr:analizar'), requerirPermiso('alumnos:leer'), validarCuerpo(esquemaAsignarAlumnoCopiaOmr, { strict: true }), asignarAlumnoCopiaIngestaOmr);
 router.post(
   '/ingestas/:jobId/calificar',
   requerirPermiso('omr:analizar'),

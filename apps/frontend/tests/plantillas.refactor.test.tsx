@@ -191,6 +191,33 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumnos\)/i })).toBeEnabled();
   });
 
+  it('advierte y exige confirmación específica antes de generar un lote con variante común', async () => {
+    const enviarConPermiso = vi.fn(async () => ({}));
+    render(
+      <ConfirmDialogProvider>
+        <HarnessPlantillas
+          plantillas={[{ _id: 'pla-1', titulo: 'Segundo Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1' } as Plantilla]}
+          alumnos={[{ _id: 'al-1', matricula: 'MAT-1', nombreCompleto: 'Ana Uno', periodoId: 'per-1', grupo: 'A', activo: true }]}
+          enviarConPermiso={enviarConPermiso}
+        />
+      </ConfirmDialogProvider>
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Plantilla base para el examen/i }), { target: { value: 'pla-1' } });
+    fireEvent.click(screen.getByRole('radio', { name: /Una variante común para todo el grupo/i }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/mismo orden de preguntas y opciones/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/Cada examen conservará su QR y folio propios/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumnos\)/i }));
+    const dialogo = await screen.findByRole('alertdialog', { name: /Confirmar variante común del lote/i });
+    expect(dialogo).toHaveTextContent(/también compartir respuestas/i);
+    expect(within(dialogo).getByRole('button', { name: /Sí, generar variante común/i })).toBeInTheDocument();
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(enviarConPermiso).not.toHaveBeenCalled();
+  });
+
   it('permite seleccionar destinatarios al elegir el tipo extraordinario', () => {
     render(
       <HarnessPlantillas

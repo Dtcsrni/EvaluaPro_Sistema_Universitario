@@ -176,9 +176,12 @@ describe('SeccionCalificar', () => {
     expect(screen.getByRole('button', { name: /Guardar calificación/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: /Aumentar zoom de la captura/i }));
-    expect(captura).toHaveStyle({ width: '125%' });
+    expect(captura).toHaveClass('omr-review-card__image--zoom-125');
     fireEvent.click(screen.getByRole('button', { name: /Ajustar captura al ancho/i }));
-    expect(captura).toHaveStyle({ width: '100%' });
+    expect(captura).toHaveClass('omr-review-card__image--zoom-100');
+    fireEvent.click(screen.getByRole('button', { name: /Reducir zoom de la captura/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Reducir zoom de la captura/i }));
+    expect(captura).toHaveClass('omr-review-card__image--zoom-50');
 
     expect(screen.getByRole('region', { name: /revisión manual con captura y clave/i })).toBeInTheDocument();
     expect(screen.getByText('Marca observada')).toBeInTheDocument();

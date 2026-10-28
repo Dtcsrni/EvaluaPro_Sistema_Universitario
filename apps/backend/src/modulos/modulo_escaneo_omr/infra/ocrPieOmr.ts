@@ -42,7 +42,9 @@ export function extraerReferenciasPieOmr(texto: string): Array<{ folio: string; 
     .toUpperCase();
   PATRON_REFERENCIA_PIE.lastIndex = 0;
   return Array.from(normalizado.matchAll(PATRON_REFERENCIA_PIE)).flatMap((coincidencia) => {
-    const folio = String(coincidencia[1] ?? '').replace(/[^A-Z0-9_-]/g, '');
+    const folio = String(coincidencia[1] ?? '')
+      .replace(/[^A-Z0-9_-]/g, '')
+      .replace(/^[-_]+|[-_]+$/g, '');
     const paginaLeida = String(coincidencia[2] ?? '');
     const numeroPagina = /^[IL|]$/.test(paginaLeida) ? 1 : paginaLeida === 'Z' ? 2 : Number(paginaLeida);
     return folio.length >= 4 && numeroPagina >= 1 && numeroPagina <= 50
@@ -61,6 +63,24 @@ export function consensuarReferenciasPieOmr(
   if (primera.confianza < umbralConfianza || segunda.confianza < umbralConfianza) return null;
   if (primera.folio !== segunda.folio || primera.numeroPagina !== segunda.numeroPagina) return null;
   return { ...primera, confianza: Math.min(primera.confianza, segunda.confianza) };
+}
+
+/** Recupera un folio leído con una sustitución OCR solo si el lote tiene un único candidato. */
+export function sugerirFolioCercanoOmr(folioLeido: string, foliosEsperados: readonly string[]): string | null {
+  const lectura = folioLeido.toUpperCase();
+  if (!/^[A-Z0-9_-]{4,48}$/.test(lectura)) return null;
+  if (foliosEsperados.some((folio) => folio.toUpperCase() === lectura)) return null;
+  const candidatos = new Set(foliosEsperados
+    .map((folio) => folio.toUpperCase())
+    .filter((folio) => {
+      if (folio.length !== lectura.length) return false;
+      let diferencias = 0;
+      for (let index = 0; index < lectura.length; index += 1) {
+        if (lectura[index] !== folio[index] && ++diferencias > 1) return false;
+      }
+      return diferencias === 1;
+    }));
+  return candidatos.size === 1 ? [...candidatos][0]! : null;
 }
 
 /** Devuelve identidad solo si dos posiciones distintas del pie coinciden tras orientar la página. */
@@ -88,6 +108,7 @@ export async function leerReferenciaPieOmr(
     const paginaAncho = Number(info.width ?? 0);
     const paginaAlto = Number(info.height ?? 0);
     if (paginaAncho < 160 || paginaAlto < paginaAncho) continue;
+
     const posiciones = [
       { left: 0.1, width: 0.38 },
       { left: 0.52, width: 0.38 }
@@ -95,45 +116,122 @@ export async function leerReferenciaPieOmr(
     // Los escáneres móviles agregan márgenes blancos y desplazan el pie hacia
     // arriba respecto al PDF canónico. Conserva primero la banda original y
     // prueba una banda superior solo si no logra consenso.
-    for (const topRatio of [0.94, 0.88]) {
-      const lecturas: Array<ReferenciaPieOmr | null> = [];
-      for (const posicion of posiciones) {
-        const left = Math.floor(paginaAncho * posicion.left);
-        const top = Math.floor(paginaAlto * topRatio);
-        const width = Math.floor(paginaAncho * posicion.width);
-        const height = Math.floor(paginaAlto * 0.055);
-        if (width < 3 || height < 3 || left + width > paginaAncho || top + height > paginaAlto) {
-          lecturas.push(null);
-          continue;
-        }
-        const recorte = sharp(pagina)
-          .extract({ left, top, width, height })
-          .greyscale()
-          .normalise();
-        const preparaciones = [
-          () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
-          () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
-          () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer()
-        ];
-        let lecturaValida: ReferenciaPieOmr | undefined;
-        for (const preparar of preparaciones) {
-          const variante = await preparar();
-          const { data } = await worker.recognize(variante);
-          const confianza = Number(data.confidence ?? 0);
-          const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
-            ? extraerReferenciasPieOmr(String(data.text ?? ''))
-            : [];
-          if (referencias.length === 1) {
-            lecturaValida = { ...referencias[0]!, confianza };
-            break;
+    if (resultados.length === resultadosAntesOrientacion) {
+      for (const topRatio of [0.94, 0.88]) {
+        const lecturas: Array<ReferenciaPieOmr | null> = [];
+        for (const posicion of posiciones) {
+          const left = Math.floor(paginaAncho * posicion.left);
+          const top = Math.floor(paginaAlto * topRatio);
+          const width = Math.floor(paginaAncho * posicion.width);
+          const height = Math.floor(paginaAlto * 0.055);
+          if (width < 3 || height < 3 || left + width > paginaAncho || top + height > paginaAlto) {
+            lecturas.push(null);
+            continue;
           }
+          const recorte = sharp(pagina)
+            .extract({ left, top, width, height })
+            .greyscale()
+            .normalise();
+          const preparaciones = [
+            () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
+            () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
+            () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer()
+          ];
+          let lecturaValida: ReferenciaPieOmr | undefined;
+          for (const preparar of preparaciones) {
+            const variante = await preparar();
+            const { data } = await worker.recognize(variante);
+            const confianza = Number(data.confidence ?? 0);
+            const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
+              ? extraerReferenciasPieOmr(String(data.text ?? ''))
+              : [];
+            if (referencias.length === 1) {
+              lecturaValida = { ...referencias[0]!, confianza };
+              break;
+            }
+          }
+          lecturas.push(lecturaValida ?? null);
         }
-        lecturas.push(lecturaValida ?? null);
+        const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
+        if (consenso) {
+          resultados.push(consenso);
+          break;
+        }
       }
-      const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
-      if (consenso) {
-        resultados.push(consenso);
-        break;
+    }
+
+    // Último recurso para márgenes variables de CamScanner: compara las dos
+    // mitades físicas del pie. Cada candidato requiere dos votos exactos entre
+    // umbrales. Se acepta una sola mitad únicamente si la otra no ofrece un
+    // candidato completo; dos identidades completas distintas causan abstención.
+    // La confianza sigue siendo orientativa y esta ruta nunca valida el QR.
+    if (resultados.length === resultadosAntesOrientacion) {
+      const bandaTop = Math.floor(paginaAlto * 0.82);
+      const bandaHeight = Math.floor(paginaAlto * 0.15);
+      const regiones = [
+        { left: 0.04, width: 0.44 },
+        { left: 0.52, width: 0.45 }
+      ] as const;
+      if (bandaHeight >= 3 && bandaTop + bandaHeight <= paginaAlto) {
+        const votosPorRegion: Array<Map<string, { referencia: { folio: string; numeroPagina: number }; confianzas: number[] }>> = [];
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
+        try {
+          for (const region of regiones) {
+            const bandaLeft = Math.floor(paginaAncho * region.left);
+            const bandaWidth = Math.floor(paginaAncho * region.width);
+            if (bandaWidth < 3 || bandaLeft + bandaWidth > paginaAncho) {
+              votosPorRegion.push(new Map());
+              continue;
+            }
+            const banda = sharp(pagina)
+              .extract({ left: bandaLeft, top: bandaTop, width: bandaWidth, height: bandaHeight })
+              .greyscale()
+              .normalise();
+            const votos = new Map<string, { referencia: { folio: string; numeroPagina: number }; confianzas: number[] }>();
+            for (const umbral of [145, 155, 165, 175]) {
+              const variante = await banda.clone().threshold(umbral).resize({ width: bandaWidth * 3 }).png().toBuffer();
+              const { data } = await worker.recognize(variante);
+              const confianza = Number(data.confidence ?? 0);
+              if (!Number.isFinite(confianza) || confianza < 10) continue;
+              const referencias = extraerReferenciasPieOmr(String(data.text ?? ''));
+              const identidadesLeidas = new Map(referencias.map((referencia) => [
+                `${referencia.folio}:${referencia.numeroPagina}`,
+                referencia
+              ]));
+              if (identidadesLeidas.size !== 1) continue;
+              const referencia = [...identidadesLeidas.values()][0]!;
+              const clave = `${referencia.folio}:${referencia.numeroPagina}`;
+              const voto = votos.get(clave);
+              votos.set(clave, {
+                referencia,
+                confianzas: [...(voto?.confianzas ?? []), confianza]
+              });
+            }
+            votosPorRegion.push(votos);
+          }
+        } finally {
+          await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
+        }
+        const ganadores = votosPorRegion.map((votos) => [...votos.values()].filter((voto) => voto.confianzas.length >= 2));
+        const izquierda = ganadores[0] ?? [];
+        const derecha = ganadores[1] ?? [];
+        if (izquierda.length === 1 && derecha.length === 1) {
+          const lecturaIzquierda = izquierda[0]!;
+          const lecturaDerecha = derecha[0]!;
+          if (lecturaIzquierda.referencia.folio === lecturaDerecha.referencia.folio
+            && lecturaIzquierda.referencia.numeroPagina === lecturaDerecha.referencia.numeroPagina) {
+            resultados.push({
+              ...lecturaIzquierda.referencia,
+              confianza: Math.min(...lecturaIzquierda.confianzas, ...lecturaDerecha.confianzas)
+            });
+          }
+        } else if (izquierda.length === 1 && derecha.length === 0) {
+          const lectura = izquierda[0]!;
+          resultados.push({ ...lectura.referencia, confianza: Math.min(...lectura.confianzas) });
+        } else if (derecha.length === 1 && izquierda.length === 0) {
+          const lectura = derecha[0]!;
+          resultados.push({ ...lectura.referencia, confianza: Math.min(...lectura.confianzas) });
+        }
       }
     }
 
@@ -210,17 +308,16 @@ export async function leerReferenciaPieOmr(
           .toBuffer();
         const { data } = await worker.recognize(variante);
         const confianza = Number(data.confidence ?? 0);
-        const referencias = Number.isFinite(confianza) && confianza >= 50
+        const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
           ? extraerReferenciasPieOmr(String(data.text ?? ''))
           : [];
         lecturas.push(referencias.length === 1 ? { ...referencias[0]!, confianza } : null);
       }
-      const consenso = consensuarReferenciasPieOmr(
-        [lecturas[0] ?? null, lecturas[1] ?? null],
-        50
-      );
+      const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
       if (consenso) resultados.push(consenso);
     }
+
+    if (resultados.length > resultadosAntesOrientacion) break;
   }
 
   const identidades = new Map(resultados.map((resultado) => [`${resultado.folio}:${resultado.numeroPagina}`, resultado]));

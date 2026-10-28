@@ -4460,6 +4460,48 @@ export async function analizarOmr(
       qrFuenteDeteccion = qrRectificado.fuenteDeteccionQr ?? 'known_geometry_rescue';
     }
   }
+  // El preprocesado geométrico normaliza y redimensiona la imagen; esa
+  // transformación puede borrar módulos débiles de un QR parcialmente tapado.
+  // Si el rescate anterior no lo resolvió, vuelve a la captura fuente, calcula
+  // su propia homografía y compara solo contra los payloads registrados.
+  if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && mapaPagina.qr && qrEsperados.length > 0) {
+    try {
+      const fuente = await sharp(buffer).rotate().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const fuenteWidth = fuente.info.width;
+      const fuenteHeight = fuente.info.height;
+      const fuenteRgba = Uint8ClampedArray.from(fuente.data);
+      const fuenteGray = new Uint8ClampedArray(fuenteWidth * fuenteHeight);
+      for (let byte = 0, pixel = 0; byte < fuente.data.length; byte += 4, pixel += 1) {
+        fuenteGray[pixel] = Math.round(
+          fuente.data[byte]! * 0.299 + fuente.data[byte + 1]! * 0.587 + fuente.data[byte + 2]! * 0.114
+        );
+      }
+      const transformacionFuente = obtenerTransformacion(fuenteGray, fuenteWidth, fuenteHeight, [], undefined, {
+        margenMm,
+        qrSizePts: perfil.qrSizePts,
+        qrGeometry: { ...mapaPagina.qr, textoEsperado: qrEsperado },
+        marcasPagina: mapaPagina.marcasPagina,
+        anchoCarta: ANCHO_CARTA,
+        altoCarta: ALTO_CARTA,
+        mmAPuntos: MM_A_PUNTOS
+      });
+      const qrFuente = detectarQrPorGeometriaConocida(
+        fuenteRgba,
+        fuenteWidth,
+        fuenteHeight,
+        mapaPagina.qr,
+        transformacionFuente.transformar,
+        { altoCarta: ALTO_CARTA, payloadsEsperados: qrEsperados }
+      );
+      if (qrFuente && coincideQrEsperado(qrFuente.data)) {
+        qrDetalle = qrFuente;
+        qrTexto = qrFuente.data;
+        qrFuenteDeteccion = 'known_geometry_rescue';
+      }
+    } catch {
+      // La ruta de rescate fuente es opcional; conserva la abstención normal.
+    }
+  }
   if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && qrEsperados.length > 0) {
     const qrRotado = await detectarQrConRotacionPagina(
       data,

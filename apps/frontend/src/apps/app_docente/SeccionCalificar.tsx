@@ -469,10 +469,9 @@ export function SeccionCalificar({
             <div className="omr-review-card__image-wrap omr-review-card__image-viewport">
               {paginaCapturaSeleccionada ? (
                 <img
-                  className="preview omr-review-card__image--zoomable omr-review-card__image--zoom-100"
+                  className={`preview omr-review-card__image--zoomable omr-review-card__image--zoom-${zoomCaptura}`}
                   src={paginaCapturaSeleccionada.imagenBase64}
                   alt={`Captura original del examen, página ${paginaCapturaSeleccionada.numeroPagina}`}
-                  style={{ width: `${zoomCaptura}%`, maxWidth: 'none' }}
                 />
               ) : (
                 <InlineMensaje tipo="error">No hay captura original vinculada a este examen. No se puede iniciar la calificación manual.</InlineMensaje>

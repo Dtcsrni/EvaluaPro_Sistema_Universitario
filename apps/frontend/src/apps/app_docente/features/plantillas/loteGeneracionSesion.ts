@@ -31,9 +31,13 @@ export function crearClaveLoteGeneracion(
   plantillaId: string,
   tipoExamen?: 'extraordinario',
   alumnoIds: string[] = [],
-  grupo?: string
+  grupo?: string,
+  varianteCompartida = false
 ) {
-  if (tipoExamen !== 'extraordinario') return grupo ? `${plantillaId}:grupo:${encodeURIComponent(grupo.trim())}` : plantillaId;
+  if (tipoExamen !== 'extraordinario') {
+    const clave = grupo ? `${plantillaId}:grupo:${encodeURIComponent(grupo.trim())}` : plantillaId;
+    return varianteCompartida ? `${clave}:variant:shared` : clave;
+  }
   return `${plantillaId}:extraordinario:${[...alumnoIds].sort().join(',')}`;
 }
 
@@ -91,6 +95,7 @@ export function validarLoteListoParaDescarga(
     paginasPorExamen?: unknown;
     pdfSha256?: unknown;
     lotePdfUrl?: unknown;
+    variantPolicy?: unknown;
     examenesGenerados?: unknown[];
   },
   progreso: {
@@ -104,7 +109,7 @@ export function validarLoteListoParaDescarga(
     totalPaginas?: unknown;
     pdfSha256?: unknown;
   },
-  esperado: { loteId: string; totalAlumnos: number; paginasMaximasPorExamen: number }
+  esperado: { loteId: string; totalAlumnos: number; paginasMaximasPorExamen: number; variantPolicy?: 'unique' | 'shared' }
 ) {
   const loteRespuesta = String(respuesta.loteId ?? '').trim();
   if (loteRespuesta.toUpperCase() !== esperado.loteId.toUpperCase()) {
@@ -113,20 +118,31 @@ export function validarLoteListoParaDescarga(
   if (Number(respuesta.totalAlumnos) !== esperado.totalAlumnos) {
     throw new Error(`El servidor reportó ${String(respuesta.totalAlumnos ?? 'sin dato')} exámenes para un grupo de ${esperado.totalAlumnos} alumnos. No se marcará como listo.`);
   }
+  if (esperado.variantPolicy && respuesta.variantPolicy !== esperado.variantPolicy) {
+    throw new Error('El servidor no confirmó la política de variantes seleccionada para este lote.');
+  }
   validarResumenLoteGenerado(respuesta, esperado.totalAlumnos, esperado.paginasMaximasPorExamen);
-  if (
-    String(progreso.loteId ?? '').toUpperCase() !== esperado.loteId.toUpperCase() ||
-    progreso.estado !== 'completado' ||
-    progreso.completado !== true ||
-    progreso.loteRegistrado !== true ||
-    progreso.artefactoVerificado !== true ||
-    Number(progreso.totalEsperado) !== esperado.totalAlumnos ||
-    Number(progreso.generados) !== esperado.totalAlumnos ||
-    Number(progreso.totalPaginas) !== Number(respuesta.totalPaginas) ||
-    String(progreso.pdfSha256 ?? '').toLowerCase() !== String(respuesta.pdfSha256 ?? '').toLowerCase()
-  ) {
+  if (!progresoConfirmaArtefactoCompleto(progreso, respuesta, esperado)) {
     throw new Error('La API no confirmó el estado completo, el artefacto íntegro y la huella del mismo lote. Se conserva el ID para recuperar; no se ofrecerá la descarga.');
   }
+}
+
+function progresoConfirmaArtefactoCompleto(
+  progreso: { loteId?: unknown; estado?: unknown; completado?: unknown; loteRegistrado?: unknown; artefactoVerificado?: unknown; totalEsperado?: unknown; generados?: unknown; totalPaginas?: unknown; pdfSha256?: unknown },
+  respuesta: { totalPaginas?: unknown; pdfSha256?: unknown },
+  esperado: { loteId: string; totalAlumnos: number }
+) {
+  return [
+    String(progreso.loteId ?? '').toUpperCase() === esperado.loteId.toUpperCase(),
+    progreso.estado === 'completado',
+    progreso.completado === true,
+    progreso.loteRegistrado === true,
+    progreso.artefactoVerificado === true,
+    Number(progreso.totalEsperado) === esperado.totalAlumnos,
+    Number(progreso.generados) === esperado.totalAlumnos,
+    Number(progreso.totalPaginas) === Number(respuesta.totalPaginas),
+    String(progreso.pdfSha256 ?? '').toLowerCase() === String(respuesta.pdfSha256 ?? '').toLowerCase()
+  ].every(Boolean);
 }
 
 export function validarRegistroLoteEnHistorial(

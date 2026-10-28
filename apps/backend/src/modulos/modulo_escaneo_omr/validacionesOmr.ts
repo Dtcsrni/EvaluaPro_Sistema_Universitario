@@ -27,8 +27,11 @@ export const esquemaPrevalidarLoteOmr = z.object({
 
 export const esquemaCrearIngestaPdfOmr = z.object({
   generatedAssessmentId: z.string().trim().min(1).max(200),
-  clientRequestId: z.string().uuid()
+  clientRequestId: z.string().uuid(),
+  sharedFormCopies: z.enum(['true', 'false']).optional()
 }).strict();
+
+export const esquemaAsignarAlumnoCopiaOmr = z.object({ studentId: z.string().trim().min(1).max(200) }).strict();
 
 export const esquemaReintentarIngestaOmr = z.object({ clientRequestId: z.string().uuid() }).strict();
 export const esquemaCalificarIngestaPdfOmr = z.object({ clientRequestId: z.string().uuid() }).strict();

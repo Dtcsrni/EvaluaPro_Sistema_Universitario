@@ -6,7 +6,7 @@
 import request from 'supertest';
 import express from 'express';
 import QRCode from 'qrcode';
-import { degrees, PDFDocument } from 'pdf-lib';
+import { degrees, PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -18,13 +18,23 @@ import { crearCargadorArchivosPdfOmr } from '../../src/modulos/modulo_escaneo_om
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
-const controlLectorQr = vi.hoisted(() => ({ forzarFalloLecturaDirecta: false }));
+const controlLectorQr = vi.hoisted(() => ({ forzarFalloLecturaDirecta: false, confirmarSinBonoEnPrueba: false }));
 vi.mock('../../src/modulos/modulo_escaneo_omr/servicioOmr.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/modulos/modulo_escaneo_omr/servicioOmr.js')>();
   return {
     ...actual,
     leerQrDesdeImagen: vi.fn(async (imagenBase64: string) => (
       controlLectorQr.forzarFalloLecturaDirecta ? undefined : actual.leerQrDesdeImagen(imagenBase64)
+    ))
+  };
+});
+
+vi.mock('../../src/modulos/modulo_escaneo_omr/infra/ocrPieOmr.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/modulos/modulo_escaneo_omr/infra/ocrPieOmr.js')>();
+  return {
+    ...actual,
+    leerBonoVisibleOmr: vi.fn(async (...args: Parameters<typeof actual.leerBonoVisibleOmr>) => (
+      controlLectorQr.confirmarSinBonoEnPrueba ? { bono: 0 as const, confianza: 100 } : actual.leerBonoVisibleOmr(...args)
     ))
   };
 });
@@ -188,11 +198,13 @@ describe('workflow OMR por jobs', () => {
 
   beforeEach(async () => {
     controlLectorQr.forzarFalloLecturaDirecta = false;
+    controlLectorQr.confirmarSinBonoEnPrueba = false;
     await limpiarSqliteTest();
   });
 
   afterEach(() => {
     controlLectorQr.forzarFalloLecturaDirecta = false;
+    controlLectorQr.confirmarSinBonoEnPrueba = false;
   });
 
   afterAll(async () => {
@@ -781,6 +793,270 @@ describe('workflow OMR por jobs', () => {
     expect(await prisma.omrScanJob.count()).toBe(jobsAntes);
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } })).toBe(calificacionesAntes);
   }, 180_000);
+
+  it('separa copias del mismo formulario, exige identidad y califica cada intento por separado', async () => {
+    const token = await registrar('omr-copias-compartidas@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const base = await prepararExamen(auth);
+    const alumnos = [] as Array<{ id: string; nombreCompleto: string }>;
+    for (const [index, matricula] of ['CUH513001001', 'CUH513001002'].entries()) {
+      const creado = await request(app)
+        .post('/api/alumnos')
+        .set(auth)
+        .send({ periodoId: base.periodoId, matricula, nombreCompleto: `Alumno Copia ${index + 1}`, grupo: 'A' })
+        .expect(201);
+      alumnos.push({ id: String(creado.body.alumno._id), nombreCompleto: `Alumno Copia ${index + 1}` });
+    }
+    const loteId = `OMRCOP${Date.now().toString().slice(-8)}`;
+    const lote = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId: base.plantillaId, loteId, confirmarMasivo: true, variantPolicy: 'shared' })
+      .expect(201);
+    const examenes = lote.body.examenesGenerados as Array<{ _id: string }>;
+    expect(examenes).toHaveLength(2);
+    expect(lote.body.variantPolicy).toBe('shared');
+    const examenesDeVarianteCompartida = await prisma.examenGenerado.findMany({
+      where: { id: { in: examenes.map((examen) => examen._id) } },
+      select: { id: true, folio: true, mapaVariante: true, recoveryManifest: true }
+    });
+    expect(new Set(examenesDeVarianteCompartida.map((examen) => examen.mapaVariante)).size).toBe(1);
+    const manifiestosCompartidos = examenesDeVarianteCompartida.map((examen) => JSON.parse(String(examen.recoveryManifest)) as {
+      answerKeySnapshot: { hash: string };
+      pages: Array<{ qrTexto: string }>;
+    });
+    expect(new Set(manifiestosCompartidos.map((manifest) => manifest.answerKeySnapshot.hash)).size).toBe(1);
+    expect(new Set(manifiestosCompartidos.map((manifest) => manifest.pages[0]?.qrTexto)).size).toBe(2);
+    expect(new Set(examenesDeVarianteCompartida.map((examen) => examen.folio)).size).toBe(2);
+    const reanudarConPoliticaDistinta = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId: base.plantillaId, loteId, confirmarMasivo: true })
+      .expect(409);
+    expect(reanudarConPoliticaDistinta.body.error.codigo).toBe('LOTE_REANUDACION_INCOMPATIBLE');
+    const referencia = await request(app)
+      .get(`/api/examenes/generados/${examenes[0]!._id}/pdf`)
+      .set(auth)
+      .buffer(true)
+      .parse(parsearBinario)
+      .expect(200);
+    const pdfOrigen = await PDFDocument.load(referencia.body as Buffer);
+    expect(pdfOrigen.getPageCount()).toBe(1);
+    const examenFormulario = await prisma.examenGenerado.findUniqueOrThrow({ where: { id: examenes[0]!._id } });
+    const mapaOmrFormulario = JSON.parse(String(examenFormulario.mapaOmr)) as {
+      paginas: Array<{
+        numeroPagina: number;
+        preguntas: Array<{ numeroPregunta: number; opciones: Array<{ letra: string; x: number; y: number; radio?: number }> }>;
+        layoutDebug?: { headerFieldBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }> };
+      }>;
+    };
+    const manifestFormulario = JSON.parse(String(examenFormulario.recoveryManifest)) as {
+      answerKeySnapshot: { entries: Array<{ visibleNumber: number; correctLetterVisible: string }> };
+    };
+    const clavePorPregunta = new Map(manifestFormulario.answerKeySnapshot.entries.map((entry) => [entry.visibleNumber, entry.correctLetterVisible]));
+    const copias = await PDFDocument.create();
+    const [primera] = await copias.copyPages(pdfOrigen, [0]);
+    const [segunda] = await copias.copyPages(pdfOrigen, [0]);
+    const fuente = await copias.embedFont(StandardFonts.Helvetica);
+    primera!.drawText('copia A', { x: 12, y: 5, size: 4, font: fuente });
+    segunda!.drawText('copia B', { x: 12, y: 5, size: 4, font: fuente });
+    for (const paginaOmr of mapaOmrFormulario.paginas) {
+      for (const pregunta of paginaOmr.preguntas) {
+        const letraCorrecta = clavePorPregunta.get(pregunta.numeroPregunta);
+        const opcionCorrecta = pregunta.opciones.find((opcion) => opcion.letra === letraCorrecta);
+        const opcionIncorrecta = pregunta.opciones.find((opcion) => opcion.letra !== letraCorrecta);
+        expect(opcionCorrecta, `falta la opción de clave para el reactivo ${pregunta.numeroPregunta}`).toBeDefined();
+        expect(opcionIncorrecta, `falta una opción incorrecta para el reactivo ${pregunta.numeroPregunta}`).toBeDefined();
+        primera!.drawCircle({
+          x: opcionCorrecta!.x, y: opcionCorrecta!.y, size: Number(opcionCorrecta!.radio ?? 3) * 0.72,
+          color: rgb(0.08, 0.08, 0.08)
+        });
+        segunda!.drawCircle({
+          x: opcionIncorrecta!.x, y: opcionIncorrecta!.y, size: Number(opcionIncorrecta!.radio ?? 3) * 0.72,
+          color: rgb(0.08, 0.08, 0.08)
+        });
+      }
+    }
+    const campoBono = mapaOmrFormulario.paginas[0]?.layoutDebug?.headerFieldBoxes?.find((field) => field.id === 'calificacion-linea');
+    expect(campoBono, 'el mapa debe exponer el área de calificación de la primera página').toBeDefined();
+    copias.addPage(primera!);
+    copias.addPage(segunda!);
+    const scan = Buffer.from(await copias.save());
+    const calificacionesAntes = await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } });
+    const creado = await request(app)
+      .post('/api/omr/ingestas')
+      .set(auth)
+      .field('generatedAssessmentId', examenes[0]!._id)
+      .field('clientRequestId', '57c3f88b-6c50-4b7b-bfde-b82cc89031ae')
+      .field('sharedFormCopies', 'true')
+      .attach('archivos', scan, { filename: 'dos-copias.pdf', contentType: 'application/pdf' })
+      .expect((response) => expect(response.status, JSON.stringify(response.body)).toBe(202));
+    const jobId = String(creado.body.job.jobId);
+    let job = creado.body.job;
+    const limite = Date.now() + 600_000;
+    while (job.status === 'processing' && Date.now() < limite) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      job = (await request(app).get(`/api/omr/ingestas/${jobId}`).set(auth).expect(200)).body.job;
+    }
+    expect(job.status).toBe('completed');
+    expect(job.sharedFormCopies).toBe(true);
+    expect(job.sharedSubmissions).toHaveLength(2);
+    expect(job.sharedSubmissions.map((copy: { pageIndexes: number[] }) => copy.pageIndexes)).toEqual([[1], [2]]);
+    expect(new Set(job.sharedSubmissions.map((copy: { submissionId: string }) => copy.submissionId)).size).toBe(2);
+    expect(job.pages.map((page: { submissionId: string }) => page.submissionId)).toEqual(job.sharedSubmissions.map((copy: { submissionId: string }) => copy.submissionId));
+    expect(job.pages.every((page: Record<string, unknown>) => !Object.hasOwn(page, 'identityResult'))).toBe(true);
+    const metadataCompartida = JSON.parse(String((await prisma.omrScanJob.findUniqueOrThrow({ where: { id: jobId } })).metadata)) as {
+      pages: Array<{ identityResult?: { studentId: string | null; studentName: string | null }; submissionId?: string }>;
+    };
+    expect(metadataCompartida.pages.every((page) => page.identityResult?.studentId === null && page.identityResult?.studentName === null)).toBe(true);
+    const candidatos = await request(app).get(`/api/omr/ingestas/${jobId}/shared-candidates`).set(auth).expect(200);
+    expect(candidatos.body.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: alumnos[0]!.id }),
+      expect.objectContaining({ id: alumnos[1]!.id })
+    ]));
+
+    const calificarSinAsignar = await request(app)
+      .post(`/api/omr/ingestas/${jobId}/calificar`)
+      .set(auth)
+      .send({ clientRequestId: 'c6cebb15-5c3c-4c32-83dd-607b1f02224b' })
+      .expect(409);
+    expect(calificarSinAsignar.body.error.codigo).toBe('OMR_COPIAS_NO_LISTAS');
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } })).toBe(calificacionesAntes);
+
+    // Prepara dos excepciones distintas y resuélvelas con el endpoint canónico.
+    // La misma página del formulario debe poder corregirse una vez por copia,
+    // y cada corrección debe reconstruir solo el paquete de su submissionId.
+    const metadataAntesDeResoluciones = JSON.parse(String((await prisma.omrScanJob.findUniqueOrThrow({ where: { id: jobId } })).metadata)) as {
+      pages: Array<{ pageIndex: number; submissionId?: string; scanStatus: string; manualReviewRequired: boolean; examPage?: number }>;
+      sharedSubmissions: Array<{ submissionId: string; status: string }>;
+      packages: Array<Record<string, unknown>>;
+    };
+    metadataAntesDeResoluciones.pages.forEach((page) => {
+      page.scanStatus = 'needs_review';
+      page.manualReviewRequired = true;
+    });
+    metadataAntesDeResoluciones.sharedSubmissions.forEach((copy) => { copy.status = 'needs_review'; });
+    await prisma.omrScanJob.update({ where: { id: jobId }, data: { metadata: JSON.stringify(metadataAntesDeResoluciones) } });
+    const paginasParaResolver = [...metadataAntesDeResoluciones.pages].sort((a, b) => a.pageIndex - b.pageIndex);
+    for (const [copyIndex, page] of paginasParaResolver.entries()) {
+      const paginaMapa = mapaOmrFormulario.paginas.find((item) => item.numeroPagina === page.examPage);
+      expect(paginaMapa).toBeDefined();
+      const finalResponses = paginaMapa!.preguntas.map((question) => {
+        const correcta = clavePorPregunta.get(question.numeroPregunta);
+        const marcada = copyIndex === 0 ? correcta : question.opciones.find((option) => option.letra !== correcta)?.letra;
+        expect(marcada, `falta respuesta sintética para P${question.numeroPregunta}`).toBeDefined();
+        return { numeroPregunta: question.numeroPregunta, opcion: marcada!, tipoMarcaManual: 'valid', selectedOptions: [marcada!] };
+      });
+      await request(app)
+        .post(`/api/omr/ingestas/${jobId}/paginas/${page.pageIndex}/resolver`)
+        .set(auth)
+        .send({
+          generatedAssessmentId: examenes[0]!._id,
+          examPage: page.examPage,
+          resolutionReason: 'Fixture de revisión humana ciega para probar copias independientes.',
+          confirmOriginalVisualReview: true,
+          confirmBlindOmrReview: true,
+          finalResponses
+        })
+        .expect(200);
+    }
+    const metadataTrasResoluciones = JSON.parse(String((await prisma.omrScanJob.findUniqueOrThrow({ where: { id: jobId } })).metadata)) as {
+      packages: Array<{ submissionId?: string; status: string; pageCount: number; relativePath: string }>;
+      pages: Array<{ submissionId?: string; responses: Array<{ numeroPregunta: number; opcion: string | null }> }>;
+    };
+    expect(metadataTrasResoluciones.packages).toHaveLength(2);
+    expect(new Set(metadataTrasResoluciones.packages.map((pkg) => pkg.submissionId))).toEqual(new Set(metadataAntesDeResoluciones.sharedSubmissions.map((copy) => copy.submissionId)));
+    expect(metadataTrasResoluciones.packages.every((pkg) => pkg.status === 'needs_review' && pkg.pageCount === 1)).toBe(true);
+    expect(new Set(metadataTrasResoluciones.packages.map((pkg) => pkg.relativePath)).size).toBe(2);
+    expect(metadataTrasResoluciones.pages[0]?.responses[0]?.opcion).toBe(clavePorPregunta.get(1));
+    expect(metadataTrasResoluciones.pages[1]?.responses[0]?.opcion).not.toBe(clavePorPregunta.get(1));
+
+    // Aísla las invariantes de identidad: simula el estado posterior a una revisión humana,
+    // sin afirmar que este fixture haya sido aceptado por el motor OMR.
+    const metadataListaParaAsignar = JSON.parse(String((await prisma.omrScanJob.findUniqueOrThrow({ where: { id: jobId } })).metadata)) as {
+      sharedSubmissions: Array<{ submissionId: string; status: string }>;
+      pages: Array<{ submissionId?: string; scanStatus: string; manualReviewRequired?: boolean }>;
+      packages: Array<{ status: string }>;
+    };
+    metadataListaParaAsignar.sharedSubmissions.forEach((copy) => { copy.status = 'ready'; });
+    metadataListaParaAsignar.pages.forEach((page) => {
+      page.scanStatus = 'accepted';
+      page.manualReviewRequired = false;
+    });
+    metadataListaParaAsignar.packages.forEach((pkg) => { pkg.status = 'complete'; });
+    await prisma.omrScanJob.update({ where: { id: jobId }, data: { metadata: JSON.stringify(metadataListaParaAsignar) } });
+    const [primeraCopia, segundaCopia] = metadataListaParaAsignar.sharedSubmissions;
+    const asignacionesConcurrentes = await Promise.all([primeraCopia!, segundaCopia!].map((copy) => request(app)
+      .post(`/api/omr/ingestas/${jobId}/submissions/${copy.submissionId}/assign`)
+      .set(auth)
+      .send({ studentId: alumnos[0]!.id })));
+    expect(asignacionesConcurrentes.map((response) => response.status).sort()).toEqual([200, 409]);
+    const errorConflictoIdentidad = asignacionesConcurrentes.find((response) => response.status === 409);
+    expect(['OMR_ALUMNO_COPIA_DUPLICADA', 'OMR_JOB_CAMBIO_CONCURRENTE']).toContain(errorConflictoIdentidad?.body.error.codigo);
+    const metadataTrasConcurrencia = JSON.parse(String((await prisma.omrScanJob.findUniqueOrThrow({ where: { id: jobId } })).metadata)) as {
+      sharedSubmissions: Array<{ submissionId: string; studentId: string | null }>;
+    };
+    expect(metadataTrasConcurrencia.sharedSubmissions.filter((copy) => copy.studentId === alumnos[0]!.id)).toHaveLength(1);
+    const copiaSinAlumno = metadataTrasConcurrencia.sharedSubmissions.find((copy) => !copy.studentId)!;
+    await request(app)
+      .post(`/api/omr/ingestas/${jobId}/submissions/${copiaSinAlumno.submissionId}/assign`)
+      .set(auth)
+      .send({ studentId: alumnos[1]!.id })
+      .expect(200);
+    const metadataAsignada = JSON.parse(String((await prisma.omrScanJob.findUniqueOrThrow({ where: { id: jobId } })).metadata)) as {
+      sharedSubmissions: Array<{ submissionId: string; studentId: string | null }>;
+      pages: Array<{ submissionId?: string; identityResult?: { studentId: string | null } }>;
+    };
+    expect(new Set(metadataAsignada.sharedSubmissions.map((copy) => copy.studentId))).toEqual(new Set([alumnos[0]!.id, alumnos[1]!.id]));
+    expect(metadataAsignada.pages.every((page) => page.identityResult?.studentId === metadataAsignada.sharedSubmissions.find((copy) => copy.submissionId === page.submissionId)?.studentId)).toBe(true);
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } })).toBe(calificacionesAntes);
+
+    const bonoIncierto = await request(app)
+      .post(`/api/omr/ingestas/${jobId}/calificar`)
+      .set(auth)
+      .send({ clientRequestId: 'c9164882-b4d4-4dd0-b424-edf096750264' })
+      .expect(200);
+    expect(bonoIncierto.body.autoGrading.status).toBe('partial');
+    expect(bonoIncierto.body.autoGrading.results).toEqual(expect.arrayContaining([
+      expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[0]?.submissionId, alumnoId: alumnos[0]!.id, status: 'requires_review', code: 'OMR_BONO_REQUIERE_REVISION_MANUAL' }),
+      expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[1]?.submissionId, alumnoId: alumnos[1]!.id, status: 'requires_review', code: 'OMR_BONO_REQUIERE_REVISION_MANUAL' })
+    ]));
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } })).toBe(calificacionesAntes);
+
+    // La costura solo fija la respuesta del lector de bono para probar el flujo de cálculo;
+    // las respuestas siguen viniendo del reanálisis CV de las imágenes sintéticas.
+    controlLectorQr.confirmarSinBonoEnPrueba = true;
+    let calificacionCompartida: any;
+    try {
+      calificacionCompartida = await request(app)
+        .post(`/api/omr/ingestas/${jobId}/calificar`)
+        .set(auth)
+        .send({ clientRequestId: '04e7597b-e92e-485b-9b93-29125306ef48' })
+        .expect(200);
+    } finally {
+      controlLectorQr.confirmarSinBonoEnPrueba = false;
+    }
+    expect(calificacionCompartida.body.autoGrading.status).toBe('completed');
+    expect(calificacionCompartida.body.autoGrading.results).toHaveLength(2);
+    expect(calificacionCompartida.body.autoGrading.results).toEqual(expect.arrayContaining([
+      expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[0]?.submissionId, alumnoId: alumnos[0]!.id, status: 'graded', correct: preguntasPorEscenario, total: preguntasPorEscenario, readBackVerified: true }),
+      expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[1]?.submissionId, alumnoId: alumnos[1]!.id, status: 'graded', correct: 0, total: preguntasPorEscenario, readBackVerified: true })
+    ]));
+    const calificacionesSeparadas = await prisma.calificacion.findMany({
+      where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) }, alumnoId: { in: alumnos.map((alumno) => alumno.id) } }
+    });
+    expect(calificacionesSeparadas).toHaveLength(2);
+    expect(new Set(calificacionesSeparadas.map((calificacion) => calificacion.alumnoId))).toEqual(new Set(alumnos.map((alumno) => alumno.id)));
+    expect(calificacionesSeparadas.every((calificacion) => calificacion.omrAuditoria?.includes('reanalisis-local-en-servidor'))).toBe(true);
+    const calificacionCorrecta = calificacionesSeparadas.find((calificacion) => calificacion.alumnoId === alumnos[0]!.id)!;
+    const calificacionIncorrecta = calificacionesSeparadas.find((calificacion) => calificacion.alumnoId === alumnos[1]!.id)!;
+    expect(calificacionCorrecta.aciertos).toBe(preguntasPorEscenario);
+    expect(calificacionIncorrecta.aciertos).toBe(0);
+    expect(Number(calificacionCorrecta.bonoTexto)).toBe(0);
+    expect(Number(calificacionIncorrecta.bonoTexto)).toBe(0);
+    expect(Number(calificacionCorrecta.calificacionExamenFinalTexto)).toBe(5);
+    expect(Number(calificacionIncorrecta.calificacionExamenFinalTexto)).toBe(0);
+  }, 600_000);
 
   it('usa el PDF consolidado del lote cuando falta el manifiesto del artefacto', async () => {
     const token = await registrar('omr-jobs-lote-sin-manifiesto@prueba.test');

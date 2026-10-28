@@ -57,9 +57,9 @@ async function leerArchivoComoDataUrl(file: File) {
   });
 }
 
-function claveIdempotenciaIngesta(assessmentId: string, files: File[], referencePdf?: File) {
+function claveIdempotenciaIngesta(assessmentId: string, files: File[], referencePdf?: File, sharedFormCopies = false) {
   const fingerprint = [...files, ...(referencePdf ? [referencePdf] : [])].map((file) => `${file.name}:${file.size}:${file.lastModified}`).join('|');
-  return `evaluapro:omr-ingesta:${assessmentId}:${fingerprint}`;
+  return `evaluapro:omr-ingesta:${assessmentId}:${sharedFormCopies ? 'shared' : 'individual'}:${fingerprint}`;
 }
 
 function requestIdIngesta(key: string) {
@@ -289,7 +289,7 @@ export function usePlantillasOmrActions({
   );
 
   const crearJobOmr = useCallback(
-    async (args: { assessmentId: string; files: File[]; sourceType: 'image_batch' | 'camera_capture' | 'pdf'; referencePdf?: File }) => {
+    async (args: { assessmentId: string; files: File[]; sourceType: 'image_batch' | 'camera_capture' | 'pdf'; referencePdf?: File; sharedFormCopies?: boolean }) => {
       if (!puedeAnalizarOmr) {
         avisarSinPermiso('No tienes permiso para analizar OMR.');
         return;
@@ -305,17 +305,25 @@ export function usePlantillasOmrActions({
           }
           const form = new FormData();
           form.set('generatedAssessmentId', args.assessmentId);
-          const storageKey = claveIdempotenciaIngesta(args.assessmentId, files, args.referencePdf);
+          form.set('sharedFormCopies', args.sharedFormCopies ? 'true' : 'false');
+          const storageKey = claveIdempotenciaIngesta(args.assessmentId, files, args.referencePdf, args.sharedFormCopies);
           form.set('clientRequestId', requestIdIngesta(storageKey));
           files.forEach((file) => form.append('archivos', file, file.name));
           if (args.referencePdf) form.append('referencia', args.referencePdf, args.referencePdf.name);
           const enviado = await fetchApiAutenticado('/omr/ingestas', { method: 'POST', body: form });
           window.sessionStorage.removeItem(storageKey);
           const payload = await enviado.json() as { job: OmrJobDetalle & { packages?: Array<{ id: string; fileName: string; status: string; pageCount: number; course: string; subject: string; partial: string; teacher: string; student: string; group: string; folio: string }> } };
+          let sharedCandidatesCache: OmrJobDetalle['sharedCandidates'];
           const leerEstado = async (jobId: string) => {
             const estado = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}`);
             const detalle = await estado.json() as { job: OmrJobDetalle; candidateExams?: OmrJobDetalle['candidateExams'] };
             detalle.job.candidateExams = detalle.candidateExams ?? [];
+            if (detalle.job.sharedFormCopies && sharedCandidatesCache === undefined) {
+              const candidatesResponse = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}/shared-candidates`);
+              const candidatesPayload = await candidatesResponse.json() as { candidates?: OmrJobDetalle['sharedCandidates'] };
+              sharedCandidatesCache = candidatesPayload.candidates ?? [];
+            }
+            if (detalle.job.sharedFormCopies) detalle.job.sharedCandidates = sharedCandidatesCache ?? [];
             return detalle.job;
           };
           payload.job = await leerEstado(payload.job.jobId);
@@ -330,6 +338,7 @@ export function usePlantillasOmrActions({
           if (payload.job.status === 'failed') throw new Error('El job OMR falló; revisa sus páginas y errores.');
           emitToast({ level: 'ok', title: OMR_CANONICAL_DISPLAY_LABEL, message: `Procesadas ${payload.job.pagesProcessed} páginas; ${payload.job.packages?.length ?? 0} paquetes preparados. No se guardaron calificaciones.`, durationMs: 4200 });
         } else {
+          if (args.sharedFormCopies) throw new Error('Las copias compartidas requieren archivos PDF para conservar el orden de páginas fuente.');
           const capturas = await Promise.all(files.map(async (file) => ({ nombreArchivo: file.name, imagenBase64: await leerArchivoComoDataUrl(file) })));
           const payload = await clienteApi.enviar<{ job: OmrJobDetalle }>(`/omr/jobs`, {
             generatedAssessmentId: args.assessmentId,
@@ -428,6 +437,25 @@ export function usePlantillasOmrActions({
     }
   }, [avisarSinPermiso, puedeAnalizarOmr, puedeCalificarOmr, setJobOmr, setProcesandoOmr]);
 
+  const asignarAlumnoCopiaOmr = useCallback(async (jobId: string, submissionId: string, studentId: string) => {
+    try {
+      await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}/submissions/${encodeURIComponent(submissionId)}/assign`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId })
+      });
+      const estado = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}`);
+      const detalle = await estado.json() as { job: OmrJobDetalle };
+      const candidatesResponse = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}/shared-candidates`);
+      const candidatesPayload = await candidatesResponse.json() as { candidates?: OmrJobDetalle['sharedCandidates'] };
+      detalle.job.sharedCandidates = candidatesPayload.candidates ?? [];
+      setJobOmr(detalle.job);
+      emitToast({ level: 'ok', title: 'Copia OMR asignada', message: 'El alumno quedó asignado a esta copia.', durationMs: 2200 });
+    } catch (error) {
+      const message = mensajeDeError(error, 'No se pudo asignar el alumno a la copia OMR.');
+      emitToast({ level: 'error', title: 'Asignación de copia OMR', message, durationMs: 5000, action: accionToastSesionParaError(error, 'docente') });
+      throw error;
+    }
+  }, [setJobOmr]);
+
   const resolverHojaOmr = useCallback(
     async (args: {
       jobId: string;
@@ -513,5 +541,5 @@ export function usePlantillasOmrActions({
     [avisarSinPermiso, puedeAnalizarOmr, setJobOmr, setProcesandoOmr]
   );
 
-  return { cargarAssessmentDetalle, descargarArtifact, descargarDatasetOmr, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, calificarLoteOmr, resolverHojaOmr, registrarVerdadTerrenoOmr, finalizarJobOmr };
+  return { cargarAssessmentDetalle, descargarArtifact, descargarDatasetOmr, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, calificarLoteOmr, asignarAlumnoCopiaOmr, resolverHojaOmr, registrarVerdadTerrenoOmr, finalizarJobOmr };
 }

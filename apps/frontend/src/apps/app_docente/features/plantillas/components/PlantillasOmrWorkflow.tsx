@@ -64,6 +64,7 @@ type Props = {
   descargarArtifact: (url: string | undefined, fileName: string) => Promise<void>;
   descargarDatasetOmr?: (jobId: string, pageIndexes: number[]) => Promise<{ sha256: string; sourceCount: number; labelCount: number }>;
   puedeAnalizarOmr?: boolean;
+  puedeAsignarAlumnoCopia?: boolean;
   puedeCalificarOmr?: boolean;
   calificarLoteOmr?: (jobId: string) => Promise<NonNullable<OmrJobDetalle['autoGrading']>>;
   registrarVerdadTerrenoOmr?: (args: {
@@ -74,7 +75,8 @@ type Props = {
   }) => Promise<void>;
   obtenerPreviewPaginaOmr: (jobId: string, pageIndex: number) => Promise<Blob>;
   obtenerPreviewReferenciaOmr: (jobId: string, pageIndex: number, generatedAssessmentId: string, examPage: number) => Promise<Blob>;
-  crearJobOmr: (args: { assessmentId: string; files: File[]; sourceType: 'image_batch' | 'camera_capture' | 'pdf'; referencePdf?: File }) => Promise<void>;
+  crearJobOmr: (args: { assessmentId: string; files: File[]; sourceType: 'image_batch' | 'camera_capture' | 'pdf'; referencePdf?: File; sharedFormCopies?: boolean }) => Promise<void>;
+  asignarAlumnoCopiaOmr?: (jobId: string, submissionId: string, studentId: string) => Promise<void>;
   onReintentarIngestaPdf?: (jobId: string) => Promise<void>;
   resolverHojaOmr: (args: {
     jobId: string;
@@ -271,12 +273,14 @@ export function PlantillasOmrWorkflow({
   descargarArtifact,
   descargarDatasetOmr,
   puedeAnalizarOmr = true,
+  puedeAsignarAlumnoCopia = false,
   puedeCalificarOmr = false,
   calificarLoteOmr,
   registrarVerdadTerrenoOmr,
   obtenerPreviewPaginaOmr,
   obtenerPreviewReferenciaOmr,
   crearJobOmr,
+  asignarAlumnoCopiaOmr,
   onReintentarIngestaPdf = async () => {},
   resolverHojaOmr,
   finalizarJobOmr,
@@ -289,6 +293,7 @@ export function PlantillasOmrWorkflow({
   const confirm = useConfirmDialog();
   const [files, setFiles] = useState<File[]>([]);
   const [referencePdf, setReferencePdf] = useState<File | undefined>();
+  const [sharedFormCopies, setSharedFormCopies] = useState(false);
   const [selectionError, setSelectionError] = useState('');
   const [sheetSerialActivo, setSheetSerialActivo] = useState<string | null>(null);
   const paginaActiva = useMemo(
@@ -383,7 +388,7 @@ export function PlantillasOmrWorkflow({
     if (referencePreview && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(referencePreview.url);
   }, [referencePreview]);
   const jobOmrIngesta = jobOmr as (OmrJobDetalle & {
-    packages?: Array<{ id: string; fileName: string; status: string; pageCount: number; course: string; subject: string; partial: string; teacher: string; student: string; group: string; folio: string }>;
+    packages?: Array<{ id: string; fileName: string; status: string; pageCount: number; course: string; subject: string; partial: string; teacher: string; student: string; group: string; folio: string; submissionId?: string }>;
     files?: Array<{ id: string; nombre: string; bytes: number; pages: number; sha256: string }>;
   }) | null;
   const paquetesOmr = jobOmrIngesta?.packages ?? [];
@@ -697,6 +702,10 @@ export function PlantillasOmrWorkflow({
         </div>
       )}
       <div className="acciones acciones--mt">
+        <label className="campo">
+          <input type="checkbox" checked={sharedFormCopies} disabled={!puedeAsignarAlumnoCopia} onChange={(event) => setSharedFormCopies(event.target.checked)} />
+          Varias copias físicas del mismo formulario para alumnos distintos
+        </label>
         <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.bookletPdfUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.bookletPdfUrl, `${assessmentDetalle.assessment.folio}_booklet.pdf`)}>
           Descargar cuadernillo
         </Boton>
@@ -774,6 +783,7 @@ export function PlantillasOmrWorkflow({
               assessmentId: assessmentDetalle.assessment._id,
               files,
               sourceType: files.every(esArchivoPdf) ? 'pdf' : 'image_batch',
+              sharedFormCopies,
               ...(referencePdf ? { referencePdf } : {})
             });
           }}
@@ -978,7 +988,7 @@ export function PlantillasOmrWorkflow({
                     type="button"
                     variante="primario"
                     cargando={calificandoLote || procesandoOmr}
-                    disabled={calificandoLote || procesandoOmr || jobOmrIngesta?.autoGrading?.status === 'processing'}
+                    disabled={calificandoLote || procesandoOmr || jobOmrIngesta?.autoGrading?.status === 'processing' || Boolean(jobOmrIngesta?.sharedFormCopies && (!jobOmrIngesta.sharedSubmissions?.length || jobOmrIngesta.sharedSubmissions.some((submission) => submission.status !== 'ready' || !submission.studentId)))}
                     onClick={() => void iniciarCalificacionLote()}
                   >
                     Calificar automáticamente los elegibles
@@ -1003,6 +1013,20 @@ export function PlantillasOmrWorkflow({
               )}
 
               <ul className="lista">
+                {jobOmrIngesta?.sharedFormCopies && (jobOmrIngesta.sharedSubmissions ?? []).map((submission) => (
+                  <li key={submission.submissionId}>
+                    <b>{submission.formFolio}</b> · Páginas fuente {submission.pageIndexes.join(', ')} · {submission.status === 'ready' ? 'Completa' : 'Revisión requerida'} · {submission.studentName || 'Alumno sin confirmar'}
+                    {submission.status === 'ready' && asignarAlumnoCopiaOmr && puedeAsignarAlumnoCopia && (
+                      <label className="campo">
+                        Alumno de esta copia
+                        <select value={submission.studentId ?? ''} onChange={(event) => { const studentId = event.target.value; if (studentId) void asignarAlumnoCopiaOmr(jobOmr.jobId, submission.submissionId, studentId); }}>
+                          <option value="">Selecciona un alumno</option>
+                          {(jobOmrIngesta.sharedCandidates ?? []).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.nombreCompleto} · {candidate.matricula}</option>)}
+                        </select>
+                      </label>
+                    )}
+                  </li>
+                ))}
                 {paquetesOmr.map((paquete) => (
                   <li key={paquete.id}>
                     <b>{paquete.folio}</b> · {paquete.course} · {paquete.subject} · {paquete.partial} · {paquete.teacher} · {paquete.student} · {paquete.group || 'Sin grupo'} · {paquete.pageCount} páginas · {paquete.status === 'complete' ? 'Completo' : 'Revisión requerida'}

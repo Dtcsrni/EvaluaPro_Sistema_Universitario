@@ -14,6 +14,7 @@ import { PlantillasHistorialLotes } from './features/plantillas/components/Plant
 import { PlantillasFormulario } from './features/plantillas/components/PlantillasFormulario';
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
 import { PlantillasOmrWorkflow, type ArchivoOmrLote, type TrabajoOmrResumen } from './features/plantillas/components/PlantillasOmrWorkflow';
+import { crearContenidoConfirmacionGeneracionLote } from './features/plantillas/confirmacionGeneracionLote';
 import type { CalificacionManualDesdeIngesta } from './capturasRevisionManual';
 import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabajoOmr';
 import { agruparLotesOmr, cargarCandidatosOmr } from './features/plantillas/archivoOmr';
@@ -419,6 +420,10 @@ export function SeccionPlantillas({
       if (trabajo.workflow === 'pdf_ingesta') {
         const detalle = await clienteApi.obtener<{ job: OmrJobDetalle; candidateExams?: OmrJobDetalle['candidateExams'] }>(`/omr/ingestas/${encodeURIComponent(trabajo.jobId)}`);
         trabajoDetalle = { ...detalle.job, candidateExams: detalle.candidateExams ?? [] };
+        if (trabajoDetalle.sharedFormCopies && permisos.alumnos.leer) {
+          const candidates = await clienteApi.obtener<{ candidates?: OmrJobDetalle['sharedCandidates'] }>(`/omr/ingestas/${encodeURIComponent(trabajo.jobId)}/shared-candidates`);
+          trabajoDetalle.sharedCandidates = candidates.candidates ?? [];
+        }
       } else {
         const detalle = await clienteApi.obtener<{ job: OmrJobDetalle }>(`/omr/jobs/${encodeURIComponent(trabajo.jobId)}`);
         trabajoDetalle = detalle.job;
@@ -432,7 +437,7 @@ export function SeccionPlantillas({
     } finally {
       setCargandoAssessmentId(null);
     }
-  }, [puedeAnalizarOmr, setJobOmrYResumen]);
+  }, [puedeAnalizarOmr, permisos.alumnos.leer, setJobOmrYResumen]);
 
   const cargarMasLotesArchivados = useCallback(async () => {
     if (!plantillaId || !cursorLotesArchivados || cargandoLotesArchivados) return;
@@ -672,7 +677,7 @@ export function SeccionPlantillas({
     if (!plantillaEditandoId) return;
     await cargarPreviewPdfPlantilla(plantillaEditandoId, 'booklet');
   }
-  const { cargarAssessmentDetalle, descargarArtifact, descargarDatasetOmr, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, calificarLoteOmr, resolverHojaOmr, registrarVerdadTerrenoOmr, finalizarJobOmr } = usePlantillasOmrActions({
+  const { cargarAssessmentDetalle, descargarArtifact, descargarDatasetOmr, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, calificarLoteOmr, asignarAlumnoCopiaOmr, resolverHojaOmr, registrarVerdadTerrenoOmr, finalizarJobOmr } = usePlantillasOmrActions({
     avisarSinPermiso,
     puedeDescargarExamenes,
     puedeAnalizarOmr, puedeCalificarOmr: tienePermisosCalificacionOmr(permisos),
@@ -1149,8 +1154,10 @@ export function SeccionPlantillas({
     puedeGenerarExamenes
   ]);
 
-  const generarExamenesLote = useCallback(async (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[]; grupo?: string }) => {
+  const generarExamenesLote = useCallback(async (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[]; grupo?: string; variantPolicy?: 'unique' | 'shared' }) => {
     const tipoExamen = opciones?.tipoExamen;
+    const variantPolicy = opciones?.variantPolicy === 'shared' && tipoExamen !== 'extraordinario' ? 'shared' : 'unique';
+    const varianteComun = variantPolicy === 'shared';
     const alumnosSolicitados = opciones?.alumnoIds ?? [];
     const grupoSolicitado = String(opciones?.grupo ?? '').trim();
     const alumnoIds = tipoExamen === 'extraordinario' ? [...new Set(alumnosSolicitados)].sort() : undefined;
@@ -1171,7 +1178,7 @@ export function SeccionPlantillas({
         : 'No hay un grupo con alumnos activos para la plantilla seleccionada.');
       return;
     }
-    const claveRecuperacion = crearClaveLoteGeneracion(plantillaId, tipoExamen, alumnoIds, grupoEfectivo);
+    const claveRecuperacion = crearClaveLoteGeneracion(plantillaId, tipoExamen, alumnoIds, grupoEfectivo, varianteComun);
     const lotePendiente = leerLotePendiente(claveRecuperacion) ??
       (progresoLoteGeneracion?.estado === 'fallido' && progresoLoteGeneracion.claveRecuperacion === claveRecuperacion
         ? progresoLoteGeneracion.loteId
@@ -1179,21 +1186,13 @@ export function SeccionPlantillas({
     const cantidadAlumnos = tipoExamen === 'extraordinario'
       ? alumnoIds?.length ?? 0
       : alumnosActivosPeriodo.filter((alumno) => String(alumno.grupo ?? '').trim() === grupoEfectivo).length;
-    const ok = await confirm({
-      title: lotePendiente
-        ? tipoExamen === 'extraordinario' ? 'Reanudar extraordinarios' : 'Reanudar paquete incompleto'
-        : tipoExamen === 'extraordinario' ? 'Generar exámenes extraordinarios' : 'Generar paquete masivo',
-      message: lotePendiente
-        ? 'Se reanudará el mismo lote, conservando los exámenes ya generados y verificados.'
-        : tipoExamen === 'extraordinario'
-          ? `Se generarán exámenes extraordinarios únicamente para los ${cantidadAlumnos} alumnos seleccionados. Sus calificaciones quedarán separadas de parciales y globales.`
-          : `Se generarán ${cantidadAlumnos} exámenes para el grupo ${grupoEfectivo}.`,
-      details: ['Asegúrate de que plantilla, alumnos y banco estén listos antes de continuar.'],
-      confirmLabel: lotePendiente
-        ? 'Sí, reanudar lote'
-        : tipoExamen === 'extraordinario' ? 'Sí, generar extraordinarios' : 'Sí, generar paquete',
-      tone: 'default'
-    });
+    const ok = await confirm(crearContenidoConfirmacionGeneracionLote({
+      variantPolicy,
+      lotePendiente: Boolean(lotePendiente),
+      tipoExamen,
+      cantidadAlumnos,
+      grupo: grupoEfectivo
+    }));
     if (!ok) return;
     const loteCliente = lotePendiente ?? (
       typeof globalThis.crypto?.randomUUID === 'function'
@@ -1262,6 +1261,7 @@ export function SeccionPlantillas({
         pdfSha256?: string;
         examenesGenerados?: Array<{ _id: string; folio: string; generadoEn?: string }>;
         lotePdfUrl?: string;
+        variantPolicy?: 'unique' | 'shared';
       }>(
         'examenes:generar',
         '/examenes/generados/lote',
@@ -1269,6 +1269,7 @@ export function SeccionPlantillas({
           plantillaId,
           confirmarMasivo: true,
           loteId: loteCliente,
+          variantPolicy,
           ...(tipoExamen === 'extraordinario' ? { tipoExamen, alumnoIds } : { grupo: grupoEfectivo })
         },
         'No tienes permiso para generar examenes.',
@@ -1295,7 +1296,8 @@ export function SeccionPlantillas({
       validarLoteListoParaDescarga(payload ?? {}, progresoPersistido, {
         loteId: loteCliente,
         totalAlumnos: totalEsperadoInicial,
-        paginasMaximasPorExamen
+        paginasMaximasPorExamen,
+        variantPolicy
       });
       await confirmarLoteEnHistorial({
         loteId: loteRespuesta,
@@ -1653,10 +1655,11 @@ export function SeccionPlantillas({
             procesandoOmr={procesandoOmr}
             descargarArtifact={descargarArtifact}
             descargarDatasetOmr={descargarDatasetOmr}
-            puedeAnalizarOmr={puedeAnalizarOmr} puedeCalificarOmr={tienePermisosCalificacionOmr(permisos)} calificarLoteOmr={calificarLoteOmr}
+            puedeAnalizarOmr={puedeAnalizarOmr} puedeAsignarAlumnoCopia={permisos.alumnos.leer} puedeCalificarOmr={tienePermisosCalificacionOmr(permisos)} calificarLoteOmr={calificarLoteOmr}
             obtenerPreviewPaginaOmr={obtenerPreviewPaginaOmr}
             obtenerPreviewReferenciaOmr={obtenerPreviewReferenciaOmr}
             crearJobOmr={crearJobOmr}
+            asignarAlumnoCopiaOmr={asignarAlumnoCopiaOmr}
             onReintentarIngestaPdf={reintentarIngestaPdfOmr}
             resolverHojaOmr={resolverHojaOmr} registrarVerdadTerrenoOmr={registrarVerdadTerrenoOmr}
             finalizarJobOmr={finalizarJobOmr}

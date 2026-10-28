@@ -1,0 +1,133 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-source-dedup-2026-10-27",
+  "status": "final",
+  "generatedAt": "2026-10-27T22:29:22.824Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Mejorar la precisión local del flujo OMR y evitar calificar copias duplicadas."
+  },
+  "objective": "Implementar en EvaluaPro una detección local y auditable de páginas fuente duplicadas en copias compartidas, sin abrir el gate global de autocalificación.",
+  "scope": [
+    "SPEC-128: asociar hashes de páginas rasterizadas a su posición fuente.",
+    "Rechazar copias que reutilicen hash, índice global o posición fuente.",
+    "Validar segmentación, ingesta, tipos y lint."
+  ],
+  "constraints": [
+    "No escribir calificaciones ni desplegar el build local.",
+    "Mantener el gate OMR global cerrado mientras falte verdad terreno independiente.",
+    "Conservar los cambios previos y no incluirlos en una publicación."
+  ],
+  "actions": [
+    {
+      "type": "inspection",
+      "summary": "Revisé CI del PR 271; el gate extendido falla porque el dataset OMR real está vacío.",
+      "timestamp": "2026-10-27T22:29:22.823Z",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Añadí SHA-256 de página rasterizada y cuarentena de páginas fuente repetidas en la segmentación de copias.",
+      "timestamp": "2026-10-27T22:29:22.824Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Pasaron pruebas focalizadas, integración de ingesta, typecheck backend, lint focalizado y sdd:audit.",
+      "timestamp": "2026-10-27T22:29:22.824Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/POLITICA_SDD.md",
+      "docs/specs/SPEC-128_omr_copias_multiples_mismo_formulario.spec.md",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/copiasFormularioOmr.ts"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/copiasFormularioOmr.ts",
+      "apps/backend/tests/copiasFormularioOmr.test.ts"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "copias_unitarias",
+      "command": "npm -C apps/backend run test -- tests/copiasFormularioOmr.test.ts tests/rasterizadorIngestaPdfOmr.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 931,
+      "resultSummary": "2 archivos, 8 pruebas aprobadas.",
+      "timestamp": "2026-10-27T22:29:22.824Z"
+    },
+    {
+      "name": "ingesta_integracion",
+      "command": "npm -C apps/backend run test -- -t \"ingresa PDFs grandes\" tests/integracion/omrJobsWorkflow.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 69970,
+      "resultSummary": "1 prueba aprobada, 13 omitidas por filtro.",
+      "timestamp": "2026-10-27T22:29:22.824Z"
+    },
+    {
+      "name": "typecheck_backend",
+      "command": "npm -C apps/backend run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 6155,
+      "resultSummary": "TypeScript sin errores; Prisma Client generado.",
+      "timestamp": "2026-10-27T22:29:22.824Z"
+    },
+    {
+      "name": "lint_focalizado",
+      "command": "npx eslint <5 archivos OMR> --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Sin errores ni warnings.",
+      "timestamp": "2026-10-27T22:29:22.824Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Auditoría de specs exitosa.",
+      "timestamp": "2026-10-27T22:29:22.824Z"
+    }
+  ],
+  "decisions": [
+    "Una imagen rasterizada repetida se considera ambigua y bloquea todas las apariciones para calificación.",
+    "Las páginas con errores previos al rasterizado no tienen hash; se aplica deduplicación por archivo y posición.",
+    "Las etiquetas existentes sin confirmación visual ciega no cuentan como verdad terreno."
+  ],
+  "assumptions": [
+    "La igualdad byte a byte de la página rasterizada es evidencia conservadora de reutilización; no prueba que dos páginas distintas con contenido idéntico sean el mismo intento."
+  ],
+  "risks": [
+    "SPEC-128 continúa sin E2E completo del modo de formulario compartido.",
+    "El gate poblacional OMR permanece cerrado: el CI informó dataset real vacío y se requieren etiquetas humanas ciegas independientes."
+  ],
+  "nextStep": "Completar E2E de copias compartidas y reunir revisiones humanas ciegas de exámenes independientes; después revalidar el gate OMR sin reducir umbrales.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\worktrees\\omr-pilot-draft-20261027",
+    "branch": "codex/omr-pilot-hardening-draft",
+    "commit": "55e6e6df",
+    "workingTreeStatus": "M apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts\n M apps/backend/tests/omr.geometry.reference.test.ts\n M apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts\n M apps/frontend/src/apps/app_docente/tipos.ts\n M apps/frontend/tests/plantillasOmrWorkflow.test.tsx\n M scripts/tests/app-host-shutdown.contract.test.mjs\n?? apps/backend/src/modulos/modulo_escaneo_omr/copiasFormularioOmr.ts\n?? apps/backend/src/modulos/modulo_escaneo_omr/infra/rasterizadorIngestaPdfOmr.ts\n?? apps/backend/tests/copiasFormularioOmr.test.ts\n?? apps/backend/tests/rasterizadorIngestaPdfOmr.test.ts\n?? docs/specs/SPEC-128_omr_copias_multiples_mismo_formulario.spec.md"
+  }
+}

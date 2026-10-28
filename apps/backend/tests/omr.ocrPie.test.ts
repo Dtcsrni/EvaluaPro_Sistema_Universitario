@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
-import { consensuarReferenciasPieOmr, extraerReferenciasPieOmr, leerReferenciaPieOmr, limitarTiempoOcrPie } from '../src/modulos/modulo_escaneo_omr/infra/ocrPieOmr.js';
+import { consensuarReferenciasPieOmr, extraerReferenciasPieOmr, leerReferenciaPieOmr, limitarTiempoOcrPie, sugerirFolioCercanoOmr } from '../src/modulos/modulo_escaneo_omr/infra/ocrPieOmr.js';
 
 describe('OCR de identidad impresa en el pie OMR', () => {
   it('extrae folio y página explícitos sin depender del QR', () => {
@@ -43,6 +43,68 @@ describe('OCR de identidad impresa en el pie OMR', () => {
       .toEqual({ ...lectura, confianza: 50 });
   });
 
+  it('corrige una sustitución de carácter solo si el folio del lote es único', () => {
+    expect(sugerirFolioCercanoOmr('19533762', ['19F33762'])).toBe('19F33762');
+    expect(sugerirFolioCercanoOmr('19533762', ['19F33762', '19533762'])).toBeNull();
+    expect(sugerirFolioCercanoOmr('19533762', ['19F33762', '19533763'])).toBeNull();
+    expect(sugerirFolioCercanoOmr('3762', ['19F33762'])).toBeNull();
+    expect(sugerirFolioCercanoOmr('19F33762', ['19F33762'])).toBeNull();
+  });
+
+  it('recupera una banda inferior desplazada con mayoría exacta de umbrales y conserva la confianza mínima', async () => {
+    const imagen = await sharp({ create: { width: 612, height: 792, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    const lecturas = [
+      { text: '19F33762 · Pagina 1', confidence: 63 },
+      { text: '19F33762- P 1', confidence: 44 },
+      { text: '19633762 - P 1', confidence: 75 },
+      { text: '', confidence: 0 },
+      { text: '19F33762 - P 1', confidence: 51 },
+      { text: '19F33762 - P 1', confidence: 49 },
+      { text: '19533762 - P 1', confidence: 60 },
+      { text: '', confidence: 0 }
+    ];
+    let llamadas = 0;
+    const worker = {
+      async setParameters() {},
+      async recognize() {
+        const llamada = llamadas++;
+        return { data: llamada < 12 ? { text: '', confidence: 0 } : lecturas[llamada - 12] };
+      }
+    } as any;
+
+    const referencia = await leerReferenciaPieOmr(`data:image/png;base64,${imagen.toString('base64')}`, worker);
+
+    expect(referencia).toEqual({ folio: '19F33762', numeroPagina: 1, confianza: 44 });
+    expect(llamadas).toBe(20);
+  });
+
+  it('acepta una mitad del pie cuando la otra solo produce fragmentos sin candidato rival', async () => {
+    const imagen = await sharp({ create: { width: 612, height: 792, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    const lecturas = [
+      { text: '19F33762 - P 2', confidence: 67 },
+      { text: '19F33762- P 2', confidence: 59 },
+      { text: '19F33762 - P I 2', confidence: 49 },
+      { text: '', confidence: 0 },
+      { text: '33762 - P 2', confidence: 50 },
+      { text: '1F33762 - P 2', confidence: 56 },
+      { text: '633762 - P 2', confidence: 75 },
+      { text: 'F33762 - P 2', confidence: 72 }
+    ];
+    let llamadas = 0;
+    const worker = {
+      async setParameters() {},
+      async recognize() {
+        const llamada = llamadas++;
+        return { data: llamada < 12 ? { text: '', confidence: 0 } : lecturas[llamada - 12] };
+      }
+    } as any;
+
+    const referencia = await leerReferenciaPieOmr(`data:image/png;base64,${imagen.toString('base64')}`, worker);
+
+    expect(referencia).toEqual({ folio: '19F33762', numeroPagina: 2, confianza: 59 });
+    expect(llamadas).toBe(20);
+  });
+
   it.each([
     ['portrait', 612, 792],
     ['sideways', 792, 612]
@@ -50,6 +112,7 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     const imagen = await sharp({ create: { width, height, channels: 3, background: '#ffffff' } }).png().toBuffer();
     let llamadas = 0;
     const worker = {
+      async setParameters() {},
       async recognize() {
         llamadas += 1;
         return { data: { text: '24681357 · Pagina 2', confidence: 90 } };
@@ -57,7 +120,7 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     } as any;
     const referencia = await leerReferenciaPieOmr(`data:image/png;base64,${imagen.toString('base64')}`, worker);
     expect(referencia).toEqual({ folio: '24681357', numeroPagina: 2, confianza: 90 });
-    expect(llamadas).toBe(4);
+    expect(llamadas).toBe(2);
   });
 
   it('corta un reconocimiento que no responde con un código de timeout estable', async () => {

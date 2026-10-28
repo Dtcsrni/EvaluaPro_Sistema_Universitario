@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { confirmarLoteEnHistorial, guardarLotePendiente, leerLotePendiente, validarLoteListoParaDescarga, validarRegistroLoteEnHistorial, validarResumenLoteGenerado } from '../src/apps/app_docente/features/plantillas/loteGeneracionSesion';
+import { confirmarLoteEnHistorial, crearClaveLoteGeneracion, guardarLotePendiente, leerLotePendiente, validarLoteListoParaDescarga, validarRegistroLoteEnHistorial, validarResumenLoteGenerado } from '../src/apps/app_docente/features/plantillas/loteGeneracionSesion';
 
 describe('persistencia de lote reanudable por plantilla', () => {
+  it('mantiene claves de recuperación distintas para variantes únicas y comunes', () => {
+    expect(crearClaveLoteGeneracion('pla-1', undefined, [], 'A')).toBe('pla-1:grupo:A');
+    expect(crearClaveLoteGeneracion('pla-1', undefined, [], 'A', true)).toBe('pla-1:grupo:A:variant:shared');
+    expect(crearClaveLoteGeneracion('pla-1', 'extraordinario', ['al-1'], undefined, true)).toBe('pla-1:extraordinario:al-1');
+  });
+
   it('conserva el identificador al cambiar de plantilla y lo borra al completar', () => {
     const almacenamiento = new Map<string, string>();
     const storage = {
@@ -112,6 +118,7 @@ describe('persistencia de lote reanudable por plantilla', () => {
     const esperado = { loteId: 'LOT-123', totalAlumnos: 2, paginasMaximasPorExamen: 4 };
 
     expect(() => validarLoteListoParaDescarga(respuesta, progreso, esperado)).not.toThrow();
+    expect(() => validarLoteListoParaDescarga({ ...respuesta, variantPolicy: 'unique' }, progreso, { ...esperado, variantPolicy: 'shared' })).toThrow(/no confirmó la política de variantes/i);
     expect(() => validarLoteListoParaDescarga(respuesta, { ...progreso, completado: false }, esperado)).toThrow(/no confirmó/);
     expect(() => validarLoteListoParaDescarga({ ...respuesta, totalPaginas: 7 }, progreso, esperado)).toThrow(/páginas/);
     expect(() => validarLoteListoParaDescarga({ ...respuesta, loteId: 'otro' }, progreso, esperado)).toThrow(/identificador/);

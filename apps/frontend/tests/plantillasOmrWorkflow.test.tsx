@@ -160,12 +160,12 @@ describe('PlantillasOmrWorkflow', () => {
     expect(screen.queryByText(/Separa los PDF y las imágenes en jobs distintos/i)).not.toBeInTheDocument();
     expect(botonProcesar).toBeEnabled();
     fireEvent.click(botonProcesar);
-    expect(crearJobOmr).toHaveBeenCalledWith({ assessmentId: 'ass-multi-pdf', files: [pdfUno, pdfDos], sourceType: 'pdf' });
+    expect(crearJobOmr).toHaveBeenCalledWith({ assessmentId: 'ass-multi-pdf', files: [pdfUno, pdfDos], sourceType: 'pdf', sharedFormCopies: false });
 
     const referencia = new File(['referencia'], 'lote-generado.pdf', { type: 'application/pdf' });
     fireEvent.change(screen.getByLabelText('PDF generado del lote (opcional si EvaluaPro no conserva el original)'), { target: { files: [referencia] } });
     fireEvent.click(botonProcesar);
-    expect(crearJobOmr).toHaveBeenLastCalledWith({ assessmentId: 'ass-multi-pdf', files: [pdfUno, pdfDos], sourceType: 'pdf', referencePdf: referencia });
+    expect(crearJobOmr).toHaveBeenLastCalledWith({ assessmentId: 'ass-multi-pdf', files: [pdfUno, pdfDos], sourceType: 'pdf', referencePdf: referencia, sharedFormCopies: false });
 
     const pdfsPorEncimaDelLimite = Array.from({ length: 11 }, (_, index) => new File(['pdf'], `${index + 1}.pdf`, { type: 'application/pdf' }));
     fireEvent.change(input, { target: { files: pdfsPorEncimaDelLimite } });

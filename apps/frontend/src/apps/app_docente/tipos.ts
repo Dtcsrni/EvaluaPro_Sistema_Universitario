@@ -220,6 +220,9 @@ export type OmrJobDetalle = {
   pagesTotal: number;
   pagesProcessed: number;
   blindReviewMode?: boolean;
+  sharedFormCopies?: boolean;
+  sharedSubmissions?: Array<{ submissionId: string; formExamId: string; formFolio: string; sourceFileId: string; pageIndexes: number[]; status: 'ready' | 'needs_review'; studentId: string | null; studentName: string | null }>;
+  sharedCandidates?: Array<{ id: string; nombreCompleto: string; matricula: string; grupo: string | null }>;
   summary?: {
     blindReviewRequired?: number;
     packages?: number;
@@ -258,6 +261,7 @@ export type OmrJobDetalle = {
     examId?: string;
     folio?: string;
     examPage?: number;
+    submissionId?: string;
     identitySource?: 'qr' | 'manual';
     resolutionReason?: string;
     humanReview?: {
@@ -326,6 +330,7 @@ export type OmrJobDetalle = {
     student: string;
     group: string;
     folio: string;
+    submissionId?: string;
   }>;
   autoGrading?: {
     clientRequestId: string;

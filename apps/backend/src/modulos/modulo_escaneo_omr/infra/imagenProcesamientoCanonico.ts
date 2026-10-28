@@ -19,6 +19,8 @@ export type QrDetalle = {
     bottomLeftCorner: Punto;
   };
   calidadGeometrica?: number;
+  calidadCoincidenciaMatriz?: number;
+  margenCoincidenciaMatriz?: number;
   fuenteDeteccionQr?: 'jsqr' | 'zxing' | 'preprocesado' | 'resolucion_fuente' | 'known_geometry_rescue' | 'rotacion_pagina';
 };
 
@@ -849,6 +851,7 @@ export function detectarQrPorGeometriaConocida(
     size: number;
     marginModules?: number;
     matrixModules?: number;
+    errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H';
   },
   transformar: (punto: Punto) => Punto,
   opciones: { altoCarta: number; outputSize?: number; payloadsEsperados?: readonly string[] }
@@ -957,6 +960,79 @@ export function detectarQrPorGeometriaConocida(
         data: detalle.data,
         location: matrix,
         calidadGeometrica: calidad?.calidadGeometrica ?? 0.82
+      };
+    }
+  }
+
+  // Si el QR quedó tapado, comparar la matriz rectificada con las matrices
+  // firmadas que ya existen en el mapa del lote. Solo se recupera identidad si
+  // el mejor candidato supera umbral absoluto y aventaja claramente al resto.
+  if (payloadsEsperados.length > 0 && matrixModules >= 21 && marginModules >= 4) {
+    const nivel = qrGeometry.errorCorrectionLevel ?? 'H';
+    const qrCreate = (QRCode as unknown as {
+      create: (text: string, options: { errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H' }) => { modules: { size: number; data: Uint8Array } };
+    }).create;
+    const scores = new Map<string, number>();
+    const quietInset = Math.round(outputSize * quietFraction);
+    const modulePixels = (outputSize - quietInset * 2) / matrixModules;
+    if (modulePixels >= 2) {
+      for (const payload of new Set(payloadsEsperados)) {
+        let expectedModules: { size: number; data: Uint8Array };
+        try {
+          expectedModules = qrCreate(payload, { errorCorrectionLevel: nivel }).modules;
+        } catch {
+          continue;
+        }
+        if (expectedModules.size !== matrixModules) continue;
+        const samples = new Uint8Array(matrixModules * matrixModules);
+        for (let row = 0; row < matrixModules; row += 1) {
+          for (let column = 0; column < matrixModules; column += 1) {
+            let sum = 0;
+            let count = 0;
+            const x0 = Math.floor(quietInset + (column + 0.25) * modulePixels);
+            const x1 = Math.ceil(quietInset + (column + 0.75) * modulePixels);
+            const y0 = Math.floor(quietInset + (row + 0.25) * modulePixels);
+            const y1 = Math.ceil(quietInset + (row + 0.75) * modulePixels);
+            for (let y = y0; y < y1; y += 1) {
+              for (let x = x0; x < x1; x += 1) {
+                sum += gray[y * outputSize + x] ?? 255;
+                count += 1;
+              }
+            }
+            samples[row * matrixModules + column] = count ? Math.round(sum / count) : 255;
+          }
+        }
+        let bestScore = 0;
+        for (const threshold of [100, 120, 140, 160, 180, 200, 220]) {
+          let matches = 0;
+          for (let index = 0; index < samples.length; index += 1) {
+            const capturedDark = samples[index]! < threshold;
+            const expectedDark = expectedModules.data[index] !== 0;
+            if (capturedDark === expectedDark) matches += 1;
+          }
+          bestScore = Math.max(bestScore, matches / samples.length);
+        }
+        scores.set(payload, bestScore);
+      }
+    }
+    const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
+    const [payload, score] = ranked[0] ?? [];
+    const margin = score === undefined ? 0 : score - (ranked[1]?.[1] ?? 0);
+    if (payload && score >= 0.82 && margin >= 0.12) {
+      const quality = puntuarQrCandidato(
+        { data: payload, location: matrix },
+        width,
+        height,
+        qrSize,
+        612
+      );
+      return {
+        data: payload,
+        location: matrix,
+        calidadGeometrica: quality?.calidadGeometrica ?? 0.82,
+        calidadCoincidenciaMatriz: score,
+        margenCoincidenciaMatriz: margin,
+        fuenteDeteccionQr: 'known_geometry_rescue'
       };
     }
   }
