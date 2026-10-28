@@ -121,8 +121,13 @@ if ($hasTarget) {
   $signatureStatus = [string]$signature.Status
   $signatureThumbprint = ([string]$signature.Thumbprint -replace '\s', '').ToUpperInvariant()
   $expectedThumbprint = ([string]$certificate.Thumbprint -replace '\s', '').ToUpperInvariant()
+  $expectedUntrustedSelfSignedChain = $isSelfSigned -and
+    $signatureStatus -eq 'UnknownError' -and
+    [string]$signature.StatusMessage -match '(?i)terminated in a root certificate which is not trusted by the trust provider'
   $acceptedStatuses = if ($isSelfSigned) { @('Valid', 'NotTrusted') } else { @('Valid') }
-  if ($signatureStatus -notin $acceptedStatuses) {
+  # Windows may surface an untrusted self-signed root as UnknownError instead
+  # of NotTrusted. Accept only that precise chain message with the pinned signer.
+  if ($signatureStatus -notin $acceptedStatuses -and -not $expectedUntrustedSelfSignedChain) {
     throw "La firma Authenticode no es válida o no es verificable (Status=$signatureStatus). $($signature.StatusMessage)"
   }
   if ([string]::IsNullOrWhiteSpace($signatureThumbprint) -or $signatureThumbprint -ne $expectedThumbprint) {
