@@ -3118,7 +3118,7 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.doesNotMatch(script, /\$null\s+-ne\s+\$signature\.SignerCertificate[\s\S]{0,160}\$status\s+-ne\s+'NotSigned'/);
 });
 
-test('firma de release valida la confianza manual del certificado solo en el runner efímero', () => {
+test('firma de release valida integridad y certificado firmante sin modificar almacenes', () => {
   const script = fs.readFileSync(path.join(root, 'scripts', 'sign-installer-artifacts.ps1'), 'utf8');
   const helper = fs.readFileSync(path.join(root, 'scripts', 'ci', 'trust-release-signing-certificate.ps1'), 'utf8');
   assert.match(script, /function Assert-ReleaseArtifactTrusted/);
@@ -3130,11 +3130,13 @@ test('firma de release valida la confianza manual del certificado solo en el run
   assert.match(helper, /WaitForExit\(\$TimeoutSeconds \* 1000\)/);
   assert.match(helper, /Timeout de \$TimeoutSeconds s al inspeccionar/);
   assert.match(helper, /Get-AuthenticodeSignature -FilePath \$targetPath -ErrorAction Stop/);
-  assert.match(helper, /Write-Host '\[trust\] Verificación Authenticode posterior a confianza/);
-  assert.match(helper, /\[string\]\$signature\.Status -ne 'Valid'/);
-  assert.match(helper, /StoreName\]::Root[\s\S]{0,180}StoreLocation\]::CurrentUser/);
+  assert.match(helper, /Write-Host '\[trust\] Verificación Authenticode y del certificado esperado/);
+  assert.match(helper, /\$signatureStatus -notin \$acceptedStatuses -and -not \$expectedUntrustedSelfSignedChain/);
+  assert.match(helper, /@\('Valid', 'NotTrusted'\)/);
+  assert.match(helper, /\$signatureThumbprint -ne \$expectedThumbprint/);
+  assert.doesNotMatch(helper, /StoreName\]::Root[\s\S]{0,180}StoreLocation\]::CurrentUser/);
   assert.match(helper, /GITHUB_ACTIONS/);
-  assert.match(helper, /EVALUAPRO_TEMP_TRUST_THUMBPRINT/);
+  assert.doesNotMatch(helper, /EVALUAPRO_TEMP_TRUST_THUMBPRINT/);
   assert.match(helper, /EvaluaPro-CodeSigning-Certificate\.cer/);
   assert.match(helper, /FIRMA-LEEME\.md/);
   assert.match(helper, /App Control puede bloquear/);
