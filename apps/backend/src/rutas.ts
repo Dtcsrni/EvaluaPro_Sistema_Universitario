@@ -14,8 +14,8 @@ import { rutasAlumnos, rutasPeriodos } from './modulos/modulo_alumnos/compositio
 import { rutasBancoPreguntas } from './modulos/modulo_banco_preguntas/composition.js';
 import { rutasGeneracionPdf } from './modulos/modulo_generacion_pdf/composition.js';
 import { rutasVinculacionEntrega } from './modulos/modulo_vinculacion_entrega/composition.js';
-import { rutasEscaneoOmr } from './modulos/modulo_escaneo_omr/composition.js';
-import { rutasCalificaciones } from './modulos/modulo_calificacion/composition.js';
+import { configurarCalificadorExamenOmr, rutasEscaneoOmr } from './modulos/modulo_escaneo_omr/composition.js';
+import { calificarExamen, rutasCalificaciones } from './modulos/modulo_calificacion/composition.js';
 import { rutasAnaliticas } from './modulos/modulo_analiticas/composition.js';
 import { rutasSincronizacionNube, requerirLeaseEscritura } from './modulos/modulo_sincronizacion_nube/composition.js';
 import { rutasAdminDocentes } from './modulos/modulo_admin_docentes/composition.js';
@@ -35,6 +35,7 @@ import { obtenerPreflight } from './compartido/preflight/controladorPreflight.js
 
 export function crearRouterApi() {
   const router = Router();
+  configurarCalificadorExamenOmr(calificarExamen);
 
   // Endpoints sin autenticacion (usados por health checks y login).
   router.use('/salud', rutasSalud);

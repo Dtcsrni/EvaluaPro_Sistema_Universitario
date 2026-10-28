@@ -36,6 +36,7 @@ Las variables de herramientas y scripts se listan por separado y no representan 
 - `EVALUAPRO_FLAVOR` (usado en: apps/backend/src/configuracion.ts)
 - `EVALUAPRO_LOG_SILENT` (usado en: apps/backend/src/infraestructura/logging/logger.ts)
 - `EVALUAPRO_NATIVE_STATIC_DIR` (usado en: apps/backend/src/app.ts)
+- `EVALUAPRO_OMR_TV4_REAL_PILOT_REPORT` (usado en: apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts)
 - `EVALUAPRO_PDF_RASTERIZER` (usado en: apps/backend/src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.ts)
 - `EVALUAPRO_SILENT_LOGS` (usado en: apps/backend/src/infraestructura/logging/logger.ts)
 - `EVALUAPRO_SYNC_CLOUD_DIR` (usado en: apps/backend/src/configuracion.ts)

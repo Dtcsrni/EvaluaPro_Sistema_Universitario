@@ -68,6 +68,9 @@ export function SeccionCalificar({
   resultadoOmr,
   revisionOmrConfirmada,
   respuestasDetectadas,
+  modoManual = false,
+  paginasCapturaManual = [],
+  onActualizarRespuestaManual,
   claveCorrectaPorNumero,
   ordenPreguntasClave,
   contextoManual,
@@ -85,6 +88,9 @@ export function SeccionCalificar({
   resultadoOmr: ResultadoOmr | null;
   revisionOmrConfirmada: boolean;
   respuestasDetectadas: RespuestaDetectadaOmr[];
+  modoManual?: boolean;
+  paginasCapturaManual?: Array<{ numeroPagina: number; imagenBase64: string; preguntas: number[] }>;
+  onActualizarRespuestaManual?: (numeroPregunta: number, opcion: string | null | undefined) => void;
   claveCorrectaPorNumero: Record<number, string>;
   ordenPreguntasClave: number[];
   contextoManual?: string | null;
@@ -106,6 +112,7 @@ export function SeccionCalificar({
     bonoSolicitado?: number;
     retroalimentacion?: string;
     respuestasDetectadas?: RespuestaDetectadaOmr[];
+    paginasCaptura?: Array<{ numeroPagina: number; imagenBase64: string }>;
     omrAnalisis?: {
       estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
       calidadPagina: number;
@@ -114,7 +121,12 @@ export function SeccionCalificar({
       templateVersionDetectada: 4;
       motivosRevision: string[];
       revisionConfirmada: boolean;
+      bonoVisibleConfirmado?: boolean;
       qrTexto?: string;
+      engineVersion: string;
+      geomQuality: number;
+      photoQuality: number;
+      decisionPolicy: string;
       resumenRespuestas?: {
         totalReactivos: number;
         reactivosRespondidos: number;
@@ -134,9 +146,17 @@ export function SeccionCalificar({
     const limpio = String(valor ?? '').trim().toUpperCase();
     return limpio.length > 0 ? limpio : null;
   };
-  const [bonusActivo, setBonusActivo] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [paginaCapturaActiva, setPaginaCapturaActiva] = useState<number | null>(null);
+  const [zoomCaptura, setZoomCaptura] = useState(100);
+  const [bonoVisibleConfirmado, setBonoVisibleConfirmado] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setPaginaCapturaActiva(null);
+    setZoomCaptura(100);
+    setBonoVisibleConfirmado(null);
+  }, [examenId]);
 
   const respuestasSeguras = useMemo(
     () => (Array.isArray(respuestasDetectadas) ? respuestasDetectadas : []),
@@ -204,28 +224,23 @@ export function SeccionCalificar({
     const notaExamenSobre5 = total > 0 && aciertos === total ? 5 : Number(((aciertos / Math.max(1, total)) * 5).toFixed(2));
     return { total, aciertos, contestadas, notaExamenSobre5 };
   }, [claveCorrectaPorNumero, ordenPreguntas, ordenPreguntasClave, respuestasTrabajoPorNumero]);
-  const bonusBloqueadoPorMaximo = resumenDinamico.notaExamenSobre5 >= 5;
-  useEffect(() => {
-    if (!bonusBloqueadoPorMaximo) return;
-    if (bonusActivo) setBonusActivo(false);
-  }, [bonusActivo, bonusBloqueadoPorMaximo]);
-  const notaFinalSobre5 = useMemo(() => {
-    const bonusAplicado = bonusActivo && !bonusBloqueadoPorMaximo ? 0.25 : 0;
-    const final = Math.min(5, resumenDinamico.notaExamenSobre5 + bonusAplicado);
-    return Number(final.toFixed(2));
-  }, [bonusActivo, bonusBloqueadoPorMaximo, resumenDinamico.notaExamenSobre5]);
   const aciertosMostrados = soloLectura && resumenPersistido ? Number(resumenPersistido.aciertos || 0) : resumenDinamico.aciertos;
   const totalMostrado = soloLectura && resumenPersistido ? Number(resumenPersistido.totalReactivos || 0) : resumenDinamico.total;
   const notaFinalMostrada = soloLectura && resumenPersistido
     ? Number(Number(resumenPersistido.calificacionFinalSobre5 || 0).toFixed(2))
-    : notaFinalSobre5;
+    : resumenDinamico.notaExamenSobre5;
+  const bonoPendiente = !soloLectura && (
+    (modoManual && bonoVisibleConfirmado === null) || (!modoManual && Boolean(resultadoOmr))
+  );
+  const notaFinalProyectada = soloLectura
+    ? notaFinalMostrada
+    : Math.min(5, notaFinalMostrada + (modoManual && bonoVisibleConfirmado === true ? 0.25 : 0));
   const notaFinalSobre5Exacta =
     soloLectura && resumenPersistido
       ? Number(resumenPersistido.calificacionFinalSobre5 || 0)
       : Math.min(
           5,
-          (resumenDinamico.total > 0 ? (resumenDinamico.aciertos * 5) / resumenDinamico.total : 0) +
-            (bonusActivo && !bonusBloqueadoPorMaximo ? 0.25 : 0)
+          (resumenDinamico.total > 0 ? (resumenDinamico.aciertos * 5) / resumenDinamico.total : 0)
         );
   const notaEquivalenteSobre10 =
     soloLectura && resumenPersistido?.calificacionEquivalenteSobre10Texto
@@ -235,9 +250,7 @@ export function SeccionCalificar({
     soloLectura && resumenPersistido?.estadoAprobatorio
       ? resumenPersistido.estadoAprobatorio === 'Aprobatoria'
       : totalMostrado > 0 &&
-        20 * aciertosMostrados +
-          (bonusActivo && !bonusBloqueadoPorMaximo ? totalMostrado : 0) >
-          12 * totalMostrado;
+        20 * aciertosMostrados > 12 * totalMostrado;
   const esExtraordinario = String(etiquetaTipoExamen ?? '').trim().toLowerCase().includes('extraordinario');
 
   const estadoOmrEtiqueta = useMemo(() => {
@@ -255,7 +268,6 @@ export function SeccionCalificar({
         : 'En revisión';
   const estadoOmrClase = estadoOmrEtiqueta === 'ok' ? 'ok' : 'warning';
 
-  const requiereRevisionConfirmacion = Boolean(resultadoOmr && !revisionOmrConfirmada);
   const reactivosOficiales = useMemo(
     () =>
       (Array.isArray(ordenPreguntasClave) ? ordenPreguntasClave : [])
@@ -274,11 +286,55 @@ export function SeccionCalificar({
   const bloqueoPorSeleccionIncompleta = !examenId || !alumnoId;
   const bloqueoPorClaveIncompleta = reactivosOficiales.length === 0 || reactivosSinClave.length > 0;
   const bloqueoPorSoloLectura = Boolean(soloLectura);
+  const respuestasCompletas =
+    reactivosOficiales.length > 0 &&
+    respuestasTrabajo.length === reactivosOficiales.length &&
+    new Set(respuestasTrabajo.map((respuesta) => respuesta.numeroPregunta)).size === reactivosOficiales.length &&
+    respuestasTrabajo.every((respuesta) => reactivosOficiales.includes(respuesta.numeroPregunta));
+  const respuestasOmrSinResolver = resultadoOmr
+    ? reactivosOficiales.filter((numero) => {
+        const respuesta = respuestasTrabajoPorNumero.get(numero);
+        if (!respuesta) return true;
+        if (respuesta.estadoRespuesta === 'respondida') return !respuesta.opcion;
+        if (respuesta.estadoRespuesta === 'sin_marca') return respuesta.opcion !== null;
+        if (respuesta.estadoRespuesta) return true;
+        return !respuesta.opcion || Boolean(respuesta.flags?.length);
+      })
+    : [];
+  const revisionOmrRespuestasCompleta = respuestasOmrSinResolver.length === 0;
+  const revisionManualCompleta = !modoManual || reactivosOficiales.every((numero) => {
+    const respuesta = respuestasTrabajoPorNumero.get(numero);
+    return respuesta?.estadoRespuesta === 'respondida' || respuesta?.estadoRespuesta === 'sin_marca';
+  });
+  const paginaCapturaSeleccionada = paginasCapturaManual.find((pagina) => pagina.numeroPagina === paginaCapturaActiva)
+    ?? paginasCapturaManual[0];
+  const preguntasPaginaCaptura = paginaCapturaSeleccionada?.preguntas.length
+    ? reactivosOficiales.filter((numero) => paginaCapturaSeleccionada.preguntas.includes(numero))
+    : reactivosOficiales;
+  const capturasManualesPorReactivo = new Map<number, number>();
+  for (const pagina of paginasCapturaManual) {
+    for (const numeroPregunta of pagina.preguntas) {
+      capturasManualesPorReactivo.set(numeroPregunta, (capturasManualesPorReactivo.get(numeroPregunta) ?? 0) + 1);
+    }
+  }
+  const lecturaAutomaticaApta = Boolean(resultadoOmr?.autoCalificableOmr && respuestasCompletas);
+  const requiereRevisionConfirmacion = Boolean(resultadoOmr && !revisionOmrConfirmada && !lecturaAutomaticaApta);
+  const capturasManualesCompletas = !modoManual || (
+    paginasCapturaManual.length > 0 &&
+    paginasCapturaManual.every((pagina) => Number.isInteger(pagina.numeroPagina) && pagina.numeroPagina > 0 && pagina.imagenBase64.trim().length > 0) &&
+    reactivosOficiales.every((numeroPregunta) => capturasManualesPorReactivo.get(numeroPregunta) === 1) &&
+    String(resultadoOmr?.qrTexto ?? '').trim().length > 0
+  );
   const puedeCalificarLocal =
     !bloqueoPorSeleccionIncompleta &&
     !requiereRevisionConfirmacion &&
     !bloqueoPorSoloLectura &&
-    !bloqueoPorClaveIncompleta;
+    !bloqueoPorClaveIncompleta &&
+    respuestasCompletas &&
+    revisionOmrRespuestasCompleta &&
+    revisionManualCompleta &&
+    (!modoManual || bonoVisibleConfirmado !== null) &&
+    capturasManualesCompletas;
   const bloqueoCalificar = !puedeCalificar;
 
   async function calificar() {
@@ -303,8 +359,10 @@ export function SeccionCalificar({
         alumnoId,
         aciertos: resumenDinamico.aciertos,
         totalReactivos: resumenDinamico.total,
-        bonoSolicitado: bonusActivo ? 0.25 : 0,
-        ...(resultadoOmr ? { respuestasDetectadas: respuestasTrabajo } : {}),
+        ...(modoManual || resultadoOmr ? { respuestasDetectadas: respuestasTrabajo } : {}),
+        ...(modoManual
+          ? { paginasCaptura: paginasCapturaManual.map(({ numeroPagina, imagenBase64 }) => ({ numeroPagina, imagenBase64 })) }
+          : {}),
         omrAnalisis: resultadoOmr
           ? {
               estadoAnalisis: resultadoOmr.estadoAnalisis,
@@ -314,7 +372,12 @@ export function SeccionCalificar({
               templateVersionDetectada: resultadoOmr.templateVersionDetectada,
               motivosRevision: Array.isArray(resultadoOmr.motivosRevision) ? resultadoOmr.motivosRevision : [],
               revisionConfirmada: revisionOmrConfirmada,
+              ...(modoManual && bonoVisibleConfirmado !== null ? { bonoVisibleConfirmado } : {}),
               qrTexto: typeof resultadoOmr.qrTexto === 'string' ? resultadoOmr.qrTexto : undefined,
+              engineVersion: String(resultadoOmr.engineVersion ?? 'omr-cv-ui'),
+              geomQuality: Number(resultadoOmr.geomQuality ?? 0),
+              photoQuality: Number(resultadoOmr.photoQuality ?? 0),
+              decisionPolicy: String(resultadoOmr.decisionPolicy ?? 'omr-ui-request-v1'),
               resumenRespuestas: resultadoOmr.resumenRespuestas
             }
           : undefined
@@ -349,18 +412,149 @@ export function SeccionCalificar({
           <h2 className="entregas-title-heading">
             <Icono nombre="calificar" /> Calificar examen{etiquetaTipoExamen ? ` · ${etiquetaTipoExamen}` : ''}
           </h2>
-          <p className="nota">Consolida resultado OMR, validaciones y ajuste final de calificación en una sola tarjeta de decisión.</p>
+          <p className="nota">{modoManual
+            ? 'Compara la captura del examen con la clave oficial, revisa cada respuesta y confirma si fue correcta o incorrecta.'
+            : 'Consolida resultado OMR, validaciones y ajuste final de calificación en una sola tarjeta de decisión.'}</p>
         </div>
       </div>
       <div className="item-sub">Examen: {examenEtiqueta ?? examenId ?? 'Sin examen'}</div>
       <div className="item-sub">Alumno: {alumnoNombre ?? alumnoId ?? 'Sin alumno'}</div>
       {contextoManual && <InlineMensaje tipo="info">{contextoManual}</InlineMensaje>}
+      {modoManual && (
+        <section className="omr-review-grid omr-review-grid--visual" aria-label="Revisión manual con captura y clave">
+          <div className="item-glass omr-review-card omr-review-card--imagen">
+            <div className="omr-review-card__heading">
+              <div>
+                <span className="omr-review-card__eyebrow">Evidencia vinculada al folio</span>
+                <h3>Captura del examen</h3>
+              </div>
+              {paginasCapturaManual.length > 1 && (
+                <label className="campo manual-review-grid__page-picker">
+                  Página
+                  <select
+                    aria-label="Página de captura para revisar"
+                    value={paginaCapturaSeleccionada?.numeroPagina ?? ''}
+                    onChange={(event) => setPaginaCapturaActiva(Number(event.target.value))}
+                  >
+                    {paginasCapturaManual.map((pagina) => (
+                      <option key={pagina.numeroPagina} value={pagina.numeroPagina}>Página {pagina.numeroPagina}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+            <div className="omr-image-controls" aria-label="Controles de visualización de captura">
+              <button
+                type="button"
+                className="omr-image-control"
+                aria-label="Reducir zoom de la captura"
+                disabled={zoomCaptura <= 50}
+                onClick={() => setZoomCaptura((actual) => Math.max(50, actual - 25))}
+              >−</button>
+              <span className="omr-image-zoom" aria-live="polite">{zoomCaptura}%</span>
+              <button
+                type="button"
+                className="omr-image-control"
+                aria-label="Aumentar zoom de la captura"
+                disabled={zoomCaptura >= 200}
+                onClick={() => setZoomCaptura((actual) => Math.min(200, actual + 25))}
+              >+</button>
+              <button
+                type="button"
+                className="omr-image-reset"
+                aria-label="Ajustar captura al ancho"
+                onClick={() => setZoomCaptura(100)}
+              >Ajustar al ancho</button>
+            </div>
+            <div className="omr-review-card__image-wrap omr-review-card__image-viewport">
+              {paginaCapturaSeleccionada ? (
+                <img
+                  className={`preview omr-review-card__image--zoomable omr-review-card__image--zoom-${zoomCaptura}`}
+                  src={paginaCapturaSeleccionada.imagenBase64}
+                  alt={`Captura original del examen, página ${paginaCapturaSeleccionada.numeroPagina}`}
+                />
+              ) : (
+                <InlineMensaje tipo="error">No hay captura original vinculada a este examen. No se puede iniciar la calificación manual.</InlineMensaje>
+              )}
+            </div>
+            <p className="omr-review-card__hint">Compara las marcas de esta captura con la clave de cada reactivo. Cambiar página no modifica las respuestas.</p>
+          </div>
+          <div className="item-glass omr-review-card omr-review-card--panel omr-review-card--comparador">
+            <div className="omr-review-card__heading">
+              <div>
+                <span className="omr-review-card__eyebrow">Corrección docente por reactivo</span>
+                <h3>Cotejo pregunta por pregunta</h3>
+              </div>
+              <span className="badge">{respuestasTrabajo.filter((respuesta) => respuesta.estadoRespuesta === 'respondida' || respuesta.estadoRespuesta === 'sin_marca').length}/{reactivosOficiales.length} revisadas</span>
+            </div>
+            <p className="omr-review-card__hint">Por cada pregunta, identifica en la captura la opción marcada o confirma que está en blanco. EvaluaPro la compara con la clave oficial.</p>
+            <ol className="omr-respuesta-lista" aria-label="Respuestas observadas comparadas con la clave oficial">
+              {preguntasPaginaCaptura.map((numero) => {
+                const respuesta = respuestasTrabajoPorNumero.get(numero);
+                const opcion = respuesta?.estadoRespuesta === 'sin_marca' ? '__BLANCO__' : respuesta?.opcion ?? '';
+                const correcta = normalizarOpcion(claveCorrectaPorNumero[numero]);
+                const revisada = respuesta?.estadoRespuesta === 'respondida' || respuesta?.estadoRespuesta === 'sin_marca';
+                const esCorrecta = Boolean(opcion && correcta && opcion === correcta);
+                const estado = !revisada ? 'Pendiente de revisar' : esCorrecta ? 'Correcta' : 'Incorrecta';
+                const claseEstado = !revisada ? 'warning' : esCorrecta ? 'ok' : 'error';
+                return (
+                  <li className={`omr-answer-row omr-answer-row--${claseEstado}`} key={`manual-${numero}`}>
+                    <div className="omr-answer-row__question"><strong>Pregunta {numero}</strong></div>
+                    <label className="omr-answer-row__choice">
+                      <span className="omr-answer-row__label">Marca observada</span>
+                      <select
+                        aria-label={`Marca observada en la captura, pregunta ${numero}`}
+                        value={opcion}
+                        onChange={(event) => {
+                          const seleccion = event.target.value;
+                          onActualizarRespuestaManual?.(
+                            numero,
+                            seleccion === '' ? undefined : seleccion === '__BLANCO__' ? null : seleccion
+                          );
+                        }}
+                      >
+                        <option value="">Pendiente de revisar</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                        <option value="__BLANCO__">En blanco</option>
+                      </select>
+                    </label>
+                    <div className="omr-answer-row__choice omr-answer-row__key"><span className="omr-answer-row__label">Clave correcta</span><strong>{correcta ?? 'Sin clave'}</strong></div>
+                    <div className="omr-answer-row__status"><span className="omr-answer-row__label">Resultado del cotejo</span><span className={`badge ${claseEstado}`} aria-live="polite">{estado}</span></div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </section>
+      )}
+      {modoManual && (
+        <fieldset className="item-glass omr-bonus-confirmation">
+          <legend>Revisión del bono · primera página</legend>
+          <p className="omr-review-card__hint">Revisa la página 1 de la captura. El bono solo se agrega si aparece escrito literalmente “+0.25”.</p>
+          {paginasCapturaManual.some((pagina) => pagina.numeroPagina === 1) && (
+            <button type="button" className="omr-image-reset" onClick={() => setPaginaCapturaActiva(1)}>Mostrar página 1</button>
+          )}
+          <label className="omr-bonus-confirmation__choice">
+            <input type="radio" name={`bono-visible-${examenId ?? 'examen'}`} checked={bonoVisibleConfirmado === true} onChange={() => setBonoVisibleConfirmado(true)} />
+            Sí, aparece “+0.25”
+          </label>
+          <label className="omr-bonus-confirmation__choice">
+            <input type="radio" name={`bono-visible-${examenId ?? 'examen'}`} checked={bonoVisibleConfirmado === false} onChange={() => setBonoVisibleConfirmado(false)} />
+            No aparece
+          </label>
+          {bonoVisibleConfirmado === null && <InlineMensaje tipo="warning">Confirma el área de calificaciones para habilitar el guardado.</InlineMensaje>}
+        </fieldset>
+      )}
       <div className="item-meta calif-grade-card__stats">
         <span>Respuestas listas: {respuestasSeguras.length}</span>
         <span>
           Aciertos: {aciertosMostrados}/{totalMostrado}
         </span>
-        <span>Calificación final: {notaFinalMostrada.toFixed(2)} / 5.00</span>
+        <span>{bonoPendiente ? 'Nota base (bono OCR pendiente)' : 'Calificación final'}: {notaFinalProyectada.toFixed(2)} / 5.00</span>
         {esExtraordinario && totalMostrado > 0 ? (
           <>
             <span>Equivalente: {notaEquivalenteSobre10.toFixed(2)} / 10.00</span>
@@ -393,12 +587,30 @@ export function SeccionCalificar({
           Revisión sugerida: {resultadoOmr.resumenRespuestas.reactivosSinMarca} sin marca, {resultadoOmr.resumenRespuestas.reactivosAmbiguos} ambiguos y {resultadoOmr.resumenRespuestas.reactivosInvalidos} inválidos.
         </InlineMensaje>
       ) : null}
-      <InlineMensaje tipo="info">La calificación se calcula automáticamente a partir de resultados OMR confirmados.</InlineMensaje>
+      <InlineMensaje tipo="info">
+        {modoManual
+          ? 'EvaluaPro guardará tus respuestas por reactivo junto con la captura original. Revisa la primera página y confirma si aparece +0.25; el resultado final no supera 5.00.'
+          : 'La calificación se calcula automáticamente a partir de resultados OMR confirmados. EvaluaPro solo agrega +0.25 si el OCR local confirma ese texto en el área de calificaciones; la captura del examen por sí sola no concede bono. El resultado final nunca supera 5.00.'}
+      </InlineMensaje>
       {bloqueoPorSoloLectura ? (
         <InlineMensaje tipo="info">Examen calificado cargado en modo solo lectura.</InlineMensaje>
       ) : null}
       {requiereRevisionConfirmacion && (
         <InlineMensaje tipo="warning">Debes confirmar la revisión OMR para habilitar el cálculo y guardado de la calificación.</InlineMensaje>
+      )}
+      {modoManual && !revisionManualCompleta && (
+        <InlineMensaje tipo="warning">Revisa cada pregunta: selecciona A–E o confirma explícitamente «En blanco». Las pendientes no se califican.</InlineMensaje>
+      )}
+      {modoManual && bonoVisibleConfirmado === null && (
+        <InlineMensaje tipo="warning">Revisa visualmente la primera página y confirma si aparece +0.25; sin esa decisión no se guarda la nota.</InlineMensaje>
+      )}
+      {modoManual && !capturasManualesCompletas && (
+        <InlineMensaje tipo="error">Calificación bloqueada: falta una captura original, el vínculo de alguna pregunta con su página o el QR analizado del examen.</InlineMensaje>
+      )}
+      {resultadoOmr && respuestasOmrSinResolver.length > 0 && (
+        <InlineMensaje tipo="warning">
+          Calificación bloqueada: resuelve visualmente {respuestasOmrSinResolver.length} pregunta(s) pendiente(s) o con marca ambigua, doble o tachada antes de confirmar.
+        </InlineMensaje>
       )}
       {bloqueoPorSeleccionIncompleta ? (
         <InlineMensaje tipo="warning">Calificación bloqueada: selecciona primero examen y alumno.</InlineMensaje>
@@ -410,22 +622,6 @@ export function SeccionCalificar({
             : `Calificación bloqueada: faltan claves correctas en ${reactivosSinClave.length} reactivo(s) (${reactivosSinClave.slice(0, 8).join(', ')}${reactivosSinClave.length > 8 ? ', …' : ''}).`}
         </InlineMensaje>
       )}
-      <div className="calif-grade-grid">
-        <label className="campo">
-          <span>Bono por guía de estudio (+0.25)</span>
-          <input
-            type="checkbox"
-            checked={bonusActivo}
-            onChange={(event) => {
-              setBonusActivo(event.target.checked);
-            }}
-            disabled={bloqueoCalificar || bloqueoPorSoloLectura || bonusBloqueadoPorMaximo}
-          />
-        </label>
-      </div>
-      {bonusBloqueadoPorMaximo ? (
-        <InlineMensaje tipo="info">Bonus deshabilitado: la calificación del examen ya es 5.00.</InlineMensaje>
-      ) : null}
       <Boton
         type="button"
         icono={<Icono nombre="calificar" />}
@@ -441,7 +637,7 @@ export function SeccionCalificar({
       <details className="colapsable">
         <summary>Ayuda para calificar</summary>
         <ul className="lista nota">
-          <li>La calificación final se recalcula automáticamente sobre 5.00 e incluye bonus si está activo.</li>
+          <li>La nota final se recalcula en el servidor sobre 5.00; el bono de +0.25 requiere detección OCR confirmada en el examen.</li>
           <li>
             Si el estado es <code>requiere_revision</code>, confirma la revisión manual antes de guardar.
           </li>

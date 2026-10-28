@@ -65,22 +65,40 @@ export type GroundTruthRowPorFolio = {
   opcionEsperada: OpcionOmr | null;
   markType: MarkTypePorFolio;
   selectedOptions: OpcionOmr[];
-  sourceEvidence: {
-    detector: 'panel_darkness_v1';
-    panelIndex: number;
-    panelBounds: { x: number; y: number; width: number; height: number };
-    rawScores: Record<OpcionOmr, number>;
-    dominantGap: number;
+  bonusVisible?: boolean;
+  humanReview?: {
+    method: 'visual_original_capture';
+    reviewerIdHash: string;
+    reviewedAt: string;
+    reviewerAttested: true;
+    independentOfOmr: true;
+    omrPredictionsHidden: true;
   };
+  sourceEvidence:
+    | {
+        detector: 'panel_darkness_v1';
+        panelIndex: number;
+        panelBounds: { x: number; y: number; width: number; height: number };
+        rawScores: Record<OpcionOmr, number>;
+        dominantGap: number;
+      }
+    | {
+        detector: 'manual_visual_review';
+        sourcePage: number;
+        pageImageSha256: string;
+      };
 };
 
 export type MapaOmrPaginaPorFolio = {
   numeroPagina: number;
   templateVersion: 4;
+  layoutDebug?: {
+    headerFieldBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
+  };
   markerSpec: {
     family: 'solid_square_4pt_v1';
-    sizeMm: 1.5;
-    quietZoneMm: 0.5;
+    sizeMm: number;
+    quietZoneMm: number;
   };
   engineHints?: {
     preferredEngine?: 'cv';
@@ -1003,7 +1021,8 @@ export async function buildPorFolioDataset(args: {
       invalidDetectionMin: 1,
       pagePassMin: 1,
       autoGradeTrustMin: 1,
-      autoCoverageMin: 1
+      autoCoverageMin: 1,
+      gradeConsistencyObservedMin: 1
     },
     groundTruthRef: 'ground_truth.jsonl',
     answerKeyPath: 'answer_key.json',

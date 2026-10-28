@@ -19,9 +19,11 @@ import { GuiaCalificacionesVisual } from './GuiaCalificacionesVisual';
 import { ConsultaCalificaciones, type ResumenConsultaCalificaciones } from './ConsultaCalificaciones';
 import { SolicitudesRevisionPanel } from './SolicitudesRevisionPanel';
 import { ClassroomEnCalificaciones } from './ClassroomEnCalificaciones';
+import { asociarCapturasRevisionManual, actualizarRespuestaManual as actualizarEstadoRespuestaManual, etiquetaExamenParaSelectorManual, etiquetarTipoExamenManual, identidadExamenManual, paginasExamenManual, filtrarExamenesConCapturaManual } from './capturasRevisionManual';
 import { ExtraordinariosCalificaciones } from './ExtraordinariosCalificaciones';
 import type {
   Alumno,
+  ContextoCalificacionManual,
   ExamenGeneradoClave,
   Periodo,
   PermisosUI,
@@ -36,6 +38,7 @@ import type {
 } from './tipos';
 import {
   construirClaveCorrectaExamen,
+  consolidarResultadoOmrExamen,
   esMensajeError,
   etiquetaMateriaParaSelector,
   etiquetarAlumnosParaSelectorManual,
@@ -80,6 +83,8 @@ export function SeccionCalificaciones({
   onLimpiarColaEscaneos = () => {},
   onCargarRevisionHistoricaCalificada,
   onAbrirLotesPdfOmr,
+  seleccionManualInicial = null,
+  onConsumirSeleccionManualInicial,
   permisos,
   avisarSinPermiso
 }: {
@@ -134,6 +139,7 @@ export function SeccionCalificaciones({
     proyecto?: number;
     retroalimentacion?: string;
     respuestasDetectadas?: RespuestaDetectadaOmr[];
+    paginasCaptura?: Array<{ numeroPagina: number; imagenBase64: string }>;
     omrAnalisis?: {
       estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
       calidadPagina: number;
@@ -142,7 +148,12 @@ export function SeccionCalificaciones({
       templateVersionDetectada: 4;
       motivosRevision: string[];
       revisionConfirmada: boolean;
+      bonoVisibleConfirmado?: boolean;
       qrTexto?: string;
+      engineVersion: string;
+      geomQuality: number;
+      photoQuality: number;
+      decisionPolicy: string;
       resumenRespuestas?: {
         totalReactivos: number;
         reactivosRespondidos: number;
@@ -176,10 +187,12 @@ export function SeccionCalificaciones({
     resultado: ResultadoOmr;
   }) => void;
   onAbrirLotesPdfOmr?: () => void;
+  seleccionManualInicial?: { alumnoId: string; examenId: string } | null;
+  onConsumirSeleccionManualInicial?: () => void;
   permisos: PermisosUI;
   avisarSinPermiso: (mensaje: string) => void;
 }) {
-  type ExamenEntregado = {
+  type ExamenGeneradoResumen = {
     _id: string;
     folio: string;
     alumnoId?: string | null;
@@ -205,10 +218,10 @@ export function SeccionCalificaciones({
     () => revisionesSeguras.filter((examen) => examen.revisionConfirmada && Array.isArray(examen.paginas) && examen.paginas.length > 0),
     [revisionesSeguras]
   );
-  const [examenesCalificadosPersistidos, setExamenesCalificadosPersistidos] = useState<ExamenEntregado[]>([]);
-  const [examenesPorId, setExamenesPorId] = useState<Map<string, ExamenEntregado>>(new Map());
+  const [examenesCalificadosPersistidos, setExamenesCalificadosPersistidos] = useState<ExamenGeneradoResumen[]>([]);
+  const [examenesPorId, setExamenesPorId] = useState<Map<string, ExamenGeneradoResumen>>(new Map());
   const [periodoReporteId, setPeriodoReporteId] = useState('');
-  const [vistaCalificaciones, setVistaCalificaciones] = useState<VistaCalificaciones>('resultados');
+  const [vistaCalificaciones, setVistaCalificaciones] = useState<VistaCalificaciones>(() => seleccionManualInicial ? 'operacion' : 'resultados');
   const [resumenConsulta, setResumenConsulta] = useState<ResumenConsultaCalificaciones>({ total: 0, calificados: 0, pendientes: 0 });
   const [reporteDescargando, setReporteDescargando] = useState<'csv' | 'xlsx' | null>(null);
   const [mensajeReporte, setMensajeReporte] = useState('');
@@ -293,12 +306,12 @@ export function SeccionCalificaciones({
   );
   const [examenRevisadoSeleccionadoId, setExamenRevisadoSeleccionadoId] = useState('');
   const [respuestaPorSolicitudId, setRespuestaPorSolicitudId] = useState<Record<string, string>>({});
-  const [alumnoManualId, setAlumnoManualId] = useState('');
-  const [examenesManual, setExamenesManual] = useState<ExamenEntregado[]>([]);
+  const [alumnoManualId, setAlumnoManualId] = useState(() => String(seleccionManualInicial?.alumnoId ?? '').trim());
+  const [examenesGeneradosManual, setExamenesGeneradosManual] = useState<ExamenGeneradoResumen[]>([]);
   const [plantillasPorId, setPlantillasPorId] = useState<Map<string, Plantilla>>(new Map());
   const [filtroFolioManual, setFiltroFolioManual] = useState('');
-  const [examenManualId, setExamenManualId] = useState('');
-  const [cargandoExamenesManual, setCargandoExamenesManual] = useState(false);
+  const [examenManualId, setExamenManualId] = useState(() => String(seleccionManualInicial?.examenId ?? '').trim());
+  const [cargandoExamenesManual, setCargandoExamenesManual] = useState(() => Boolean(seleccionManualInicial?.alumnoId));
   const [activandoManual, setActivandoManual] = useState(false);
   const [manualMensaje, setManualMensaje] = useState('');
   const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false);
@@ -309,6 +322,10 @@ export function SeccionCalificaciones({
   const [errorEncuadre, setErrorEncuadre] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [guardandoEncuadre, setGuardandoEncuadre] = useState(false);
+
+  useEffect(() => {
+    if (seleccionManualInicial) onConsumirSeleccionManualInicial?.();
+  }, [onConsumirSeleccionManualInicial, seleccionManualInicial]);
 
   // Form fields for Encuadre
   const [instNombre, setInstNombre] = useState('Centro Universitario Hidalguense');
@@ -420,25 +437,7 @@ export function SeccionCalificaciones({
   const cargasCalificacionEnCursoRef = useRef<Set<string>>(new Set());
   const examenesSinCalificacionRef = useRef<Set<string>>(new Set());
   const ultimoIntentoCalificacionRef = useRef<Map<string, number>>(new Map());
-  const [manualContexto, setManualContexto] = useState<{
-    examenId: string;
-    alumnoId: string;
-    folio: string;
-    tipoExamenEtiqueta?: string;
-    plantillaTitulo?: string;
-    soloLectura?: boolean;
-    resumenPersistido?: {
-      aciertos: number;
-      totalReactivos: number;
-      calificacionFinalSobre5: number;
-      calificacionEquivalenteSobre10Texto?: string;
-      estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
-      origen?: string;
-    };
-    claveCorrectaPorNumero: Record<number, string>;
-    ordenPreguntas: number[];
-    respuestasDetectadas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
-  } | null>(null);
+  const [manualContexto, setManualContexto] = useState<ContextoCalificacionManual | null>(null);
   const mostrarSeccionCalificar = Boolean(
     manualContexto || (revisionOmrConfirmada && examenId && alumnoId)
   );
@@ -446,24 +445,21 @@ export function SeccionCalificaciones({
     if (valor === alumnoManualId) return;
     setAlumnoManualId(valor);
     setCargandoExamenesManual(Boolean(valor));
-    setExamenesManual([]);
+    setExamenesGeneradosManual([]);
     setFiltroFolioManual('');
     setExamenManualId('');
     setManualMensaje('');
     setManualContexto(null);
   }
 
-  function etiquetarTipoExamen(tipo?: string | null, titulo?: string | null) {
-    const valor = String(tipo ?? '').trim().toLowerCase();
-    if (valor === 'extraordinario') return 'Extraordinario';
-    const etiqueta = String(titulo ?? '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    const texto = `${etiqueta} ${valor}`.trim();
-    if (texto.includes('global') || texto.includes('final') || valor === 'global') return 'Global final';
-    if (/(?:parcial|p)\s*(?:2|ii)\b/.test(texto) || /\b(?:segundo|segunda|dos)\s+parcial\b/.test(texto) || /\b2(?:do|da|ndo|nda)\s+parcial\b/.test(texto)) return 'Parcial 2';
-    if (/(?:parcial|p)\s*(?:1|i)\b/.test(texto) || /\b(?:primer|primero|primera|uno)\s+parcial\b/.test(texto) || /\b1(?:er|ro|ra)\s+parcial\b/.test(texto)) return 'Parcial 1';
-    if (valor === 'parcial') return 'Parcial';
-    return '';
+  function actualizarRespuestaManual(numeroPregunta: number, opcion: string | null | undefined) {
+    setManualContexto((actual) => actualizarEstadoRespuestaManual(actual, numeroPregunta, opcion));
   }
+
+  const examenesManual = useMemo(
+    () => filtrarExamenesConCapturaManual(examenesGeneradosManual, revisionesSeguras, alumnoManualId),
+    [alumnoManualId, examenesGeneradosManual, revisionesSeguras]
+  );
 
   const examenManualSeleccionado = useMemo(
     () => examenesManual.find((item) => item._id === examenManualId) ?? null,
@@ -476,15 +472,14 @@ export function SeccionCalificaciones({
     }
     const plantilla = plantillasPorId.get(String(examenManualSeleccionado.plantillaId ?? '').trim());
     const tipo =
-      etiquetarTipoExamen(String(examenManualSeleccionado.tipoExamen ?? '').trim(), plantilla?.titulo) ||
-      etiquetarTipoExamen(String(plantilla?.tipo ?? '').trim(), plantilla?.titulo) ||
+      etiquetarTipoExamenManual(String(examenManualSeleccionado.tipoExamen ?? '').trim(), plantilla?.titulo) ||
+      etiquetarTipoExamenManual(String(plantilla?.tipo ?? '').trim(), plantilla?.titulo) ||
       '-';
     const plantillaTitulo =
       String(examenManualSeleccionado.plantillaTitulo ?? '').trim() ||
       String(plantilla?.titulo ?? '').trim() ||
       '-';
-    const estado = String(examenManualSeleccionado.estado ?? 'entregado').trim() || 'entregado';
-    return { tipo, plantilla: plantillaTitulo, estado };
+    return { tipo, plantilla: plantillaTitulo, estado: 'Captura vinculada' };
   }, [examenManualSeleccionado, plantillasPorId]);
   const mapaAlumnos = useMemo(
     () => new Map((Array.isArray(alumnos) ? alumnos : []).map((item) => [String(item._id), String(item.nombreCompleto ?? '').trim()])),
@@ -520,7 +515,7 @@ export function SeccionCalificaciones({
   const tipoExamenActivoEtiqueta = useMemo(() => {
     const tipo = String(examenActivoMeta?.tipoExamen ?? '').trim();
     const plantilla = plantillasPorId.get(String(examenActivoMeta?.plantillaId ?? '').trim());
-    return etiquetarTipoExamen(tipo, plantilla?.titulo) || etiquetarTipoExamen(String(plantilla?.tipo ?? '').trim(), plantilla?.titulo) || null;
+    return etiquetarTipoExamenManual(tipo, plantilla?.titulo) || etiquetarTipoExamenManual(String(plantilla?.tipo ?? '').trim(), plantilla?.titulo) || null;
   }, [examenActivoMeta, plantillasPorId]);
   const examenActivoEtiqueta = useMemo(() => {
     const folio = String(examenActivoMeta?.folio ?? '').trim();
@@ -599,11 +594,11 @@ export function SeccionCalificaciones({
     examenesSinCalificacionRef.current.clear();
     ultimoIntentoCalificacionRef.current.clear();
     void clienteApi
-      .obtener<{ examenes?: ExamenEntregado[] }>('/examenes/generados?limite=200')
+      .obtener<{ examenes?: ExamenGeneradoResumen[] }>('/examenes/generados?limite=200')
       .then((payload) => {
         if (cancelado) return;
         const lista = Array.isArray(payload?.examenes) ? payload.examenes : [];
-        const mapa = new Map<string, ExamenEntregado>();
+        const mapa = new Map<string, ExamenGeneradoResumen>();
         for (const examen of lista) {
           const id = String(examen?._id ?? '').trim();
           if (!id) continue;
@@ -644,10 +639,10 @@ export function SeccionCalificaciones({
   }, [examenRevisadoSeleccionadoId, opcionesExamenesRevisados]);
 
   useEffect(() => {
-    if (!examenManualId) return;
+    if (!examenManualId || cargandoExamenesManual) return;
     if (examenesManualFiltrados.some((item) => item._id === examenManualId)) return;
     setExamenManualId('');
-  }, [examenManualId, examenesManualFiltrados]);
+  }, [cargandoExamenesManual, examenManualId, examenesManualFiltrados]);
 
   useEffect(() => {
     if (!alumnoManualId) {
@@ -656,30 +651,26 @@ export function SeccionCalificaciones({
     }
     let cancelado = false;
     void clienteApi
-      .obtener<{ examenes?: ExamenEntregado[] }>(
+      .obtener<{ examenes?: ExamenGeneradoResumen[] }>(
         `/examenes/generados?alumnoId=${encodeURIComponent(alumnoManualId)}&limite=200`
       )
       .then((payload) => {
         if (cancelado) return;
         const lista = Array.isArray(payload?.examenes) ? payload.examenes : [];
-        const entregados = lista.filter((item) => {
-          const estado = String(item?.estado ?? '').toLowerCase();
-          return estado === 'entregado' || estado === 'calificado';
-        });
-        entregados.sort((a, b) => {
+        const noCalificados = lista.filter((item) => String(item?.estado ?? '').trim().toLowerCase() !== 'calificado');
+        noCalificados.sort((a, b) => {
           const aTime = a.entregadoEn ? new Date(a.entregadoEn).getTime() : 0;
           const bTime = b.entregadoEn ? new Date(b.entregadoEn).getTime() : 0;
           return bTime - aTime;
         });
-        setExamenesManual(entregados);
-        setExamenManualId((prev) => (entregados.some((item) => item._id === prev) ? prev : ''));
-        setManualMensaje(entregados.length === 0 ? 'No hay exámenes entregados para el alumno seleccionado.' : '');
+        setExamenesGeneradosManual(noCalificados);
+        setManualMensaje('');
       })
       .catch((error) => {
         if (cancelado) return;
-        setExamenesManual([]);
+        setExamenesGeneradosManual([]);
         setExamenManualId('');
-        setManualMensaje(mensajeDeError(error, 'No se pudo cargar la lista de exámenes entregados'));
+        setManualMensaje(mensajeDeError(error, 'No se pudo cargar la lista de exámenes generados'));
       })
       .finally(() => {
         if (!cancelado) setCargandoExamenesManual(false);
@@ -705,10 +696,10 @@ export function SeccionCalificaciones({
     return preguntas;
   }, []);
 
-  async function activarManualDesdeEntregado() {
+  async function activarManualDesdeCaptura() {
     if (activandoManual) return;
     if (!examenManualId) {
-      setManualMensaje('Selecciona un examen entregado.');
+      setManualMensaje('Selecciona un examen con captura vinculada.');
       return;
     }
     const examenSeleccionado = examenesManual.find((item) => item._id === examenManualId);
@@ -727,7 +718,6 @@ export function SeccionCalificaciones({
         setManualMensaje('No se pudo cargar el detalle del examen.');
         return;
       }
-
       const periodoId = String((examenDetalle as { periodoId?: unknown })?.periodoId ?? '').trim();
       const preguntasBanco = await obtenerBancoPreguntas(periodoId);
       const clave = construirClaveCorrectaExamen(examenDetalle, preguntasBanco);
@@ -735,17 +725,31 @@ export function SeccionCalificaciones({
         setManualMensaje('No se pudo construir la clave del examen para calificación manual.');
         return;
       }
-
+      const { examenId: examenIdCanonico, folio: folioCanonico, alumnoId: alumnoIdCanonico } = identidadExamenManual(examenDetalle, examenSeleccionado, alumnoManualId);
+      const numerosPaginasExamen = paginasExamenManual(examenDetalle);
+      const evidenciaCaptura = asociarCapturasRevisionManual(revisionesSeguras, {
+        examenId: examenIdCanonico,
+        folio: folioCanonico,
+        alumnoId: alumnoIdCanonico
+      }, numerosPaginasExamen);
+      if (!evidenciaCaptura.identidadEncontrada || evidenciaCaptura.paginas.length === 0 || evidenciaCaptura.faltantes.length > 0) {
+        setManualMensaje(
+          evidenciaCaptura.faltantes.length > 0
+            ? `Falta la captura de la(s) página(s) ${evidenciaCaptura.faltantes.join(', ')} para el folio ${folioCanonico}. No se activó la calificación manual.`
+            : `No hay capturas vinculadas exactamente con el examen, folio y alumno seleccionados (${folioCanonico}). Carga y asocia sus páginas en la revisión OMR antes de calificar.`
+        );
+        return;
+      }
       setManualContexto({
-        examenId: String(examenDetalle._id ?? examenSeleccionado._id),
-        alumnoId: String(examenDetalle.alumnoId ?? examenSeleccionado.alumnoId ?? alumnoManualId),
-        folio: String(examenDetalle.folio ?? examenSeleccionado.folio),
+        examenId: examenIdCanonico,
+        alumnoId: alumnoIdCanonico,
+        folio: folioCanonico,
         tipoExamenEtiqueta:
-          etiquetarTipoExamen(
+          etiquetarTipoExamenManual(
             String(examenSeleccionado.tipoExamen ?? '').trim(),
             String(examenSeleccionado.plantillaTitulo ?? '').trim() || plantillasPorId.get(String(examenSeleccionado.plantillaId ?? '').trim())?.titulo
           ) ||
-          etiquetarTipoExamen(
+          etiquetarTipoExamenManual(
             String(plantillasPorId.get(String(examenSeleccionado.plantillaId ?? '').trim())?.tipo ?? '').trim(),
             plantillasPorId.get(String(examenSeleccionado.plantillaId ?? '').trim())?.titulo
           ) ||
@@ -757,7 +761,11 @@ export function SeccionCalificaciones({
         soloLectura: false,
         claveCorrectaPorNumero: clave.claveCorrectaPorNumero,
         ordenPreguntas: clave.ordenPreguntas,
-        respuestasDetectadas: clave.ordenPreguntas.map((numeroPregunta) => ({ numeroPregunta, opcion: null, confianza: 0 }))
+        respuestasDetectadas: clave.ordenPreguntas.map((numeroPregunta) => ({ numeroPregunta, opcion: null, confianza: 0 })),
+        paginasCaptura: evidenciaCaptura.paginas,
+        resultadoOmr: evidenciaCaptura.revision?.paginas.some((pagina) => pagina.origenCaptura !== 'ingesta_pdf_manual')
+          ? consolidarResultadoOmrExamen(evidenciaCaptura.revision.paginas)
+          : null
       });
       setManualMensaje('Modo manual activado para el examen seleccionado.');
     } catch (error) {
@@ -916,11 +924,11 @@ export function SeccionCalificaciones({
         alumnoId: String(examenDetalle.alumnoId ?? examenPersistido.alumnoId ?? ''),
         folio: String(examenDetalle.folio ?? examenPersistido.folio),
         tipoExamenEtiqueta:
-          etiquetarTipoExamen(
+          etiquetarTipoExamenManual(
             String(examenPersistido.tipoExamen ?? '').trim(),
             String(examenPersistido.plantillaTitulo ?? '').trim() || plantillasPorId.get(String(examenPersistido.plantillaId ?? '').trim())?.titulo
           ) ||
-          etiquetarTipoExamen(
+          etiquetarTipoExamenManual(
             String(plantillasPorId.get(String(examenPersistido.plantillaId ?? '').trim())?.tipo ?? '').trim(),
             plantillasPorId.get(String(examenPersistido.plantillaId ?? '').trim())?.titulo
           ) ||
@@ -940,7 +948,8 @@ export function SeccionCalificaciones({
         },
         claveCorrectaPorNumero: clave.claveCorrectaPorNumero,
         ordenPreguntas: clave.ordenPreguntas,
-        respuestasDetectadas: respuestasCompletas
+        respuestasDetectadas: respuestasCompletas,
+        paginasCaptura: Array.from(imagenesPorPagina, ([numeroPagina, imagenBase64]) => ({ numeroPagina, imagenBase64, preguntas: [] }))
       });
       const promedioConfianza =
         respuestasCompletas.length > 0
@@ -1506,18 +1515,18 @@ export function SeccionCalificaciones({
                   <span>Calificación Directa</span>
                 </span>
                 <h3 className="entregas-title-heading">
-                  <Icono nombre="alumno" /> Selección manual por entregado
+                  <Icono nombre="alumno" /> Revisión manual por captura
                 </h3>
-                <p className="nota">Selecciona alumno y examen entregado para calificar manualmente cada pregunta.</p>
+                <p className="nota">Compara la captura original con la clave correcta y confirma cada respuesta antes de guardar.</p>
               </div>
               <div className="banco-section-side-meta">
-                <span className="banco-counter-tag">Entregados: {examenesManual.length}</span>
-                <span className="banco-counter-tag banco-counter-tag--cyan">Filtrados: {examenesManualFiltrados.length}</span>
+                <span className="banco-counter-tag">Con captura: {examenesManual.length}</span>
+                <span className="banco-counter-tag banco-counter-tag--cyan">Coinciden: {examenesManualFiltrados.length}</span>
               </div>
             </div>
             <div className="item-meta">
-              <span>Exámenes entregados del alumno: {examenesManual.length}</span>
-              <span>Filtrados: {examenesManualFiltrados.length}</span>
+              <span>Exámenes con captura original vinculada: {examenesManual.length}</span>
+              <span>Coinciden con el folio: {examenesManualFiltrados.length}</span>
             </div>
             <label className="campo">
               Alumno
@@ -1540,7 +1549,7 @@ export function SeccionCalificaciones({
               />
             </label>
             <label className="campo">
-              Examen entregado
+              Examen con captura vinculada
               <select
                 value={examenManualId}
                 onChange={(event) => setExamenManualId(event.target.value)}
@@ -1549,21 +1558,11 @@ export function SeccionCalificaciones({
                 <option value="">Selecciona</option>
                 {examenesManualFiltrados.map((examen) => (
                   <option key={examen._id} value={examen._id}>
-                    {[
-                      examen.folio,
-                      etiquetarTipoExamen(
-                        examen.tipoExamen,
-                        String(examen.plantillaTitulo ?? '').trim() || plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo
-                      ) ||
-                        etiquetarTipoExamen(
-                          plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.tipo,
-                          plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo
-                        ),
-                      String(examen.plantillaTitulo ?? '').trim() || String(plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo ?? '').trim(),
-                      String(examen.estado ?? 'entregado')
-                    ]
-                      .filter((valor) => String(valor ?? '').trim().length > 0)
-                      .join(' · ')}
+                    {etiquetaExamenParaSelectorManual(
+                      examen,
+                      plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.tipo,
+                      plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo
+                    )}
                   </option>
                 ))}
               </select>
@@ -1588,7 +1587,7 @@ export function SeccionCalificaciones({
                     avisarSinPermiso('No tienes permiso para calificar manualmente.');
                     return;
                   }
-                  void activarManualDesdeEntregado();
+                  void activarManualDesdeCaptura();
                 }}
               >
                 {activandoManual ? 'Activando modo manual...' : cargandoExamenesManual ? 'Cargando...' : 'Usar examen para calificación manual'}
@@ -1609,6 +1608,7 @@ export function SeccionCalificaciones({
             {manualMensaje && (
               <InlineMensaje tipo={esMensajeError(manualMensaje) ? 'error' : 'info'}>{manualMensaje}</InlineMensaje>
             )}
+            {!manualMensaje && !cargandoExamenesManual && alumnoManualId && examenesManual.length === 0 && <InlineMensaje tipo="info">{examenesGeneradosManual.length ? 'No hay captura original asociada exactamente por examen, folio y alumno. Procesa y asocia las páginas antes de calificar.' : 'No hay exámenes generados disponibles para este alumno.'}</InlineMensaje>}
           </section>
           {mostrarSeccionCalificar ? (
             <SeccionCalificar
@@ -1616,9 +1616,12 @@ export function SeccionCalificaciones({
               alumnoId={manualContexto?.alumnoId ?? alumnoId}
               examenEtiqueta={manualContexto ? `Folio ${manualContexto.folio}${manualContexto.plantillaTitulo ? ` · ${manualContexto.plantillaTitulo}` : ''}` : examenActivoEtiqueta}
               alumnoNombre={manualContexto ? (mapaAlumnos.get(String(manualContexto.alumnoId ?? '').trim()) ?? null) : alumnoActivoNombre}
-              resultadoOmr={manualContexto ? null : resultadoParaCalificar}
+              resultadoOmr={manualContexto ? manualContexto.resultadoOmr ?? null : resultadoParaCalificar}
               revisionOmrConfirmada={manualContexto ? true : revisionOmrConfirmada}
               respuestasDetectadas={manualContexto?.respuestasDetectadas ?? respuestasParaCalificar}
+              modoManual={Boolean(manualContexto && !manualContexto.soloLectura)}
+              paginasCapturaManual={manualContexto?.paginasCaptura ?? []}
+              onActualizarRespuestaManual={actualizarRespuestaManual}
               claveCorrectaPorNumero={manualContexto?.claveCorrectaPorNumero ?? claveCorrectaParaCalificar ?? claveCorrectaPorNumero}
               ordenPreguntasClave={manualContexto?.ordenPreguntas ?? ordenPreguntasParaCalificar ?? ordenPreguntasClave}
               etiquetaTipoExamen={manualContexto?.tipoExamenEtiqueta ?? tipoExamenActivoEtiqueta}

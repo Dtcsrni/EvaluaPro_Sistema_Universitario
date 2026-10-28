@@ -17,6 +17,7 @@ type Params = {
   avisarSinPermiso: (mensaje: string) => void;
   puedeDescargarExamenes: boolean;
   puedeAnalizarOmr: boolean;
+  puedeCalificarOmr: boolean;
   setCargandoAssessmentId: (value: string | null) => void;
   setAssessmentDetalle: (value: GeneratedAssessmentDetalle | null) => void;
   setProcesandoOmr: (value: boolean) => void;
@@ -56,9 +57,9 @@ async function leerArchivoComoDataUrl(file: File) {
   });
 }
 
-function claveIdempotenciaIngesta(assessmentId: string, files: File[], referencePdf?: File) {
+function claveIdempotenciaIngesta(assessmentId: string, files: File[], referencePdf?: File, sharedFormCopies = false) {
   const fingerprint = [...files, ...(referencePdf ? [referencePdf] : [])].map((file) => `${file.name}:${file.size}:${file.lastModified}`).join('|');
-  return `evaluapro:omr-ingesta:${assessmentId}:${fingerprint}`;
+  return `evaluapro:omr-ingesta:${assessmentId}:${sharedFormCopies ? 'shared' : 'individual'}:${fingerprint}`;
 }
 
 function requestIdIngesta(key: string) {
@@ -126,6 +127,7 @@ export function usePlantillasOmrActions({
   avisarSinPermiso,
   puedeDescargarExamenes,
   puedeAnalizarOmr,
+  puedeCalificarOmr,
   setCargandoAssessmentId,
   setAssessmentDetalle,
   setProcesandoOmr,
@@ -235,7 +237,7 @@ export function usePlantillasOmrActions({
         throw new Error('Permiso OMR requerido');
       }
       const ids = [...new Set(args.assessmentIds.map((id) => String(id).trim()).filter(Boolean))];
-      if (ids.length === 0) throw new Error('No hay lotes archivados disponibles para cotejar.');
+      if (ids.length === 0) throw new Error('No hay lotes generados disponibles para cotejar.');
       if (args.referencePdf.type !== 'application/pdf' && !args.referencePdf.name.toLowerCase().endsWith('.pdf')) {
         throw new Error('Selecciona un PDF generado como referencia.');
       }
@@ -246,8 +248,18 @@ export function usePlantillasOmrActions({
         form.append('referencia', args.referencePdf, args.referencePdf.name);
         const response = await fetchApiAutenticado('/omr/ingestas/prevalidar-referencia', { method: 'POST', body: form });
         const payload = await response.json().catch(() => null) as {
-          reference?: { pages?: number; pagesWithSignedQr?: number };
+          reference?: {
+            pages?: number;
+            pagesWithSignedQr?: number;
+            pagesWithExpectedQrPattern?: number;
+            pagesWithAmbiguousExpectedQrPatterns?: number;
+            pagesWithInvalidSignature?: number;
+          };
           candidatesEvaluated?: number;
+          candidateDiagnostics?: Array<{
+            structureValid: boolean;
+            reasons: { firmaInvalida: number; geometriaAusente: number; qrAusente: number; qrMalformado: number };
+          }>;
           matches?: Array<{ assessmentId: string; loteId: string; examCount: number; expectedPages: number; matchedPages: number }>;
           error?: { mensaje?: string; message?: string };
         } | null;
@@ -255,8 +267,18 @@ export function usePlantillasOmrActions({
           throw new Error(payload?.error?.mensaje || payload?.error?.message || 'No se pudo cotejar el PDF de referencia.');
         }
         return payload as {
-          reference: { pages: number; pagesWithSignedQr: number };
+          reference: {
+            pages: number;
+            pagesWithSignedQr: number;
+            pagesWithExpectedQrPattern?: number;
+            pagesWithAmbiguousExpectedQrPatterns?: number;
+            pagesWithInvalidSignature?: number;
+          };
           candidatesEvaluated: number;
+          candidateDiagnostics?: Array<{
+            structureValid: boolean;
+            reasons: { firmaInvalida: number; geometriaAusente: number; qrAusente: number; qrMalformado: number };
+          }>;
           matches: Array<{ assessmentId: string; loteId: string; examCount: number; expectedPages: number; matchedPages: number }>;
         };
       } finally {
@@ -267,7 +289,7 @@ export function usePlantillasOmrActions({
   );
 
   const crearJobOmr = useCallback(
-    async (args: { assessmentId: string; files: File[]; sourceType: 'image_batch' | 'camera_capture' | 'pdf'; referencePdf?: File }) => {
+    async (args: { assessmentId: string; files: File[]; sourceType: 'image_batch' | 'camera_capture' | 'pdf'; referencePdf?: File; sharedFormCopies?: boolean }) => {
       if (!puedeAnalizarOmr) {
         avisarSinPermiso('No tienes permiso para analizar OMR.');
         return;
@@ -283,17 +305,25 @@ export function usePlantillasOmrActions({
           }
           const form = new FormData();
           form.set('generatedAssessmentId', args.assessmentId);
-          const storageKey = claveIdempotenciaIngesta(args.assessmentId, files, args.referencePdf);
+          form.set('sharedFormCopies', args.sharedFormCopies ? 'true' : 'false');
+          const storageKey = claveIdempotenciaIngesta(args.assessmentId, files, args.referencePdf, args.sharedFormCopies);
           form.set('clientRequestId', requestIdIngesta(storageKey));
           files.forEach((file) => form.append('archivos', file, file.name));
           if (args.referencePdf) form.append('referencia', args.referencePdf, args.referencePdf.name);
           const enviado = await fetchApiAutenticado('/omr/ingestas', { method: 'POST', body: form });
           window.sessionStorage.removeItem(storageKey);
           const payload = await enviado.json() as { job: OmrJobDetalle & { packages?: Array<{ id: string; fileName: string; status: string; pageCount: number; course: string; subject: string; partial: string; teacher: string; student: string; group: string; folio: string }> } };
+          let sharedCandidatesCache: OmrJobDetalle['sharedCandidates'];
           const leerEstado = async (jobId: string) => {
             const estado = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}`);
             const detalle = await estado.json() as { job: OmrJobDetalle; candidateExams?: OmrJobDetalle['candidateExams'] };
             detalle.job.candidateExams = detalle.candidateExams ?? [];
+            if (detalle.job.sharedFormCopies && sharedCandidatesCache === undefined) {
+              const candidatesResponse = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}/shared-candidates`);
+              const candidatesPayload = await candidatesResponse.json() as { candidates?: OmrJobDetalle['sharedCandidates'] };
+              sharedCandidatesCache = candidatesPayload.candidates ?? [];
+            }
+            if (detalle.job.sharedFormCopies) detalle.job.sharedCandidates = sharedCandidatesCache ?? [];
             return detalle.job;
           };
           payload.job = await leerEstado(payload.job.jobId);
@@ -308,6 +338,7 @@ export function usePlantillasOmrActions({
           if (payload.job.status === 'failed') throw new Error('El job OMR falló; revisa sus páginas y errores.');
           emitToast({ level: 'ok', title: OMR_CANONICAL_DISPLAY_LABEL, message: `Procesadas ${payload.job.pagesProcessed} páginas; ${payload.job.packages?.length ?? 0} paquetes preparados. No se guardaron calificaciones.`, durationMs: 4200 });
         } else {
+          if (args.sharedFormCopies) throw new Error('Las copias compartidas requieren archivos PDF para conservar el orden de páginas fuente.');
           const capturas = await Promise.all(files.map(async (file) => ({ nombreArchivo: file.name, imagenBase64: await leerArchivoComoDataUrl(file) })));
           const payload = await clienteApi.enviar<{ job: OmrJobDetalle }>(`/omr/jobs`, {
             generatedAssessmentId: args.assessmentId,
@@ -371,11 +402,67 @@ export function usePlantillasOmrActions({
     }
   }, [avisarSinPermiso, puedeAnalizarOmr, setJobOmr, setProcesandoOmr]);
 
+  const calificarLoteOmr = useCallback(async (jobId: string) => {
+    if (!puedeAnalizarOmr || !puedeCalificarOmr) {
+      avisarSinPermiso('Se requieren permisos de OMR, lectura del banco y calificación para calificar el lote.');
+      throw new Error('Permisos insuficientes para calificar OMR');
+    }
+    const storageKey = `evaluapro:omr:calificar:${jobId}`;
+    try {
+      setProcesandoOmr(true);
+      const clientRequestId = requestIdIngesta(storageKey);
+      const enviado = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}/calificar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientRequestId })
+      });
+      const respuesta = await enviado.json() as { autoGrading?: OmrJobDetalle['autoGrading']; job?: OmrJobDetalle; candidateExams?: OmrJobDetalle['candidateExams'] };
+      if (!respuesta.autoGrading || !respuesta.job) throw new Error('La API no devolvió el resultado y estado del lote.');
+      setJobOmr({ ...respuesta.job, candidateExams: respuesta.candidateExams ?? [] });
+      const calificados = respuesta.autoGrading.results.filter((result) => result.status === 'graded').length;
+      const revision = respuesta.autoGrading.results.filter((result) => result.status === 'requires_review').length;
+      emitToast({
+        level: revision > 0 ? 'warn' : 'ok',
+        title: 'Calificación OMR local',
+        message: `${calificados} registradas y verificadas · ${revision} requieren revisión · existentes se conservaron.`,
+        durationMs: 6500
+      });
+      return respuesta.autoGrading;
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo calificar el lote OMR');
+      emitToast({ level: 'error', title: 'Calificación OMR local', message: msg, durationMs: 6500, action: accionToastSesionParaError(error, 'docente') });
+      throw error;
+    } finally {
+      setProcesandoOmr(false);
+    }
+  }, [avisarSinPermiso, puedeAnalizarOmr, puedeCalificarOmr, setJobOmr, setProcesandoOmr]);
+
+  const asignarAlumnoCopiaOmr = useCallback(async (jobId: string, submissionId: string, studentId: string) => {
+    try {
+      await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}/submissions/${encodeURIComponent(submissionId)}/assign`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId })
+      });
+      const estado = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}`);
+      const detalle = await estado.json() as { job: OmrJobDetalle };
+      const candidatesResponse = await fetchApiAutenticado(`/omr/ingestas/${encodeURIComponent(jobId)}/shared-candidates`);
+      const candidatesPayload = await candidatesResponse.json() as { candidates?: OmrJobDetalle['sharedCandidates'] };
+      detalle.job.sharedCandidates = candidatesPayload.candidates ?? [];
+      setJobOmr(detalle.job);
+      emitToast({ level: 'ok', title: 'Copia OMR asignada', message: 'El alumno quedó asignado a esta copia.', durationMs: 2200 });
+    } catch (error) {
+      const message = mensajeDeError(error, 'No se pudo asignar el alumno a la copia OMR.');
+      emitToast({ level: 'error', title: 'Asignación de copia OMR', message, durationMs: 5000, action: accionToastSesionParaError(error, 'docente') });
+      throw error;
+    }
+  }, [setJobOmr]);
+
   const resolverHojaOmr = useCallback(
     async (args: {
       jobId: string;
       sheetSerial: string;
       resolutionReason: string;
+      confirmOriginalVisualReview?: boolean;
+      confirmBlindOmrReview?: boolean;
       ingestionResolution?: { pageIndex: number; generatedAssessmentId?: string; examPage?: number };
       finalIdentity?: Record<string, unknown>;
       finalResponses?: Array<{ numeroPregunta: number; opcion: string | null }>;
@@ -393,7 +480,7 @@ export function usePlantillasOmrActions({
             ? `/omr/ingestas/${encodeURIComponent(args.jobId)}/paginas/${encodeURIComponent(String(ingestion.pageIndex))}/resolver`
             : `/omr/jobs/${encodeURIComponent(args.jobId)}/exceptions/${encodeURIComponent(args.sheetSerial)}/resolve`,
           ingestion
-            ? { ...(ingestion.generatedAssessmentId ? { generatedAssessmentId: ingestion.generatedAssessmentId } : {}), ...(ingestion.examPage ? { examPage: ingestion.examPage } : {}), resolutionReason: args.resolutionReason, ...(args.finalResponses ? { finalResponses: args.finalResponses } : {}) }
+            ? { ...(ingestion.generatedAssessmentId ? { generatedAssessmentId: ingestion.generatedAssessmentId } : {}), ...(ingestion.examPage ? { examPage: ingestion.examPage } : {}), resolutionReason: args.resolutionReason, ...(args.finalResponses ? { finalResponses: args.finalResponses } : {}), ...(args.confirmOriginalVisualReview ? { confirmOriginalVisualReview: true } : {}), ...(args.confirmBlindOmrReview ? { confirmBlindOmrReview: true } : {}) }
             : {
                 resolutionReason: args.resolutionReason,
                 ...(args.finalIdentity ? { finalIdentity: args.finalIdentity } : {}),
@@ -403,6 +490,32 @@ export function usePlantillasOmrActions({
         );
         setJobOmr(payload.job);
         emitToast({ level: 'ok', title: 'Revision OMR', message: 'Hoja actualizada', durationMs: 2200 });
+      } finally {
+        setProcesandoOmr(false);
+      }
+    },
+    [avisarSinPermiso, puedeAnalizarOmr, setJobOmr, setProcesandoOmr]
+  );
+
+  const registrarVerdadTerrenoOmr = useCallback(
+    async (args: {
+      jobId: string;
+      pageIndex: number;
+      finalResponses: Array<{ numeroPregunta: number; opcion: string | null; tipoMarcaManual: 'valid' | 'blank' | 'double' | 'smudge'; selectedOptions: Array<'A' | 'B' | 'C' | 'D' | 'E'> }>;
+      bonusVisible?: boolean;
+    }) => {
+      if (!puedeAnalizarOmr) {
+        avisarSinPermiso('No tienes permiso para etiquetar páginas OMR.');
+        return;
+      }
+      setProcesandoOmr(true);
+      try {
+        const payload = await clienteApi.enviar<{ job: OmrJobDetalle }>(
+          `/omr/ingestas/${encodeURIComponent(args.jobId)}/paginas/${encodeURIComponent(String(args.pageIndex))}/verdad-terreno`,
+          { finalResponses: args.finalResponses, ...(args.bonusVisible === undefined ? {} : { bonusVisible: args.bonusVisible }), confirmOriginalVisualReview: true, confirmBlindOmrReview: true }
+        );
+        setJobOmr(payload.job);
+        emitToast({ level: 'ok', title: 'Etiqueta independiente guardada', message: 'Las predicciones y el estado OMR originales se conservaron.', durationMs: 3200 });
       } finally {
         setProcesandoOmr(false);
       }
@@ -428,5 +541,5 @@ export function usePlantillasOmrActions({
     [avisarSinPermiso, puedeAnalizarOmr, setJobOmr, setProcesandoOmr]
   );
 
-  return { cargarAssessmentDetalle, descargarArtifact, descargarDatasetOmr, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, resolverHojaOmr, finalizarJobOmr };
+  return { cargarAssessmentDetalle, descargarArtifact, descargarDatasetOmr, obtenerPreviewPaginaOmr, obtenerPreviewReferenciaOmr, prevalidarReferenciaOmr, crearJobOmr, reintentarIngestaPdfOmr, calificarLoteOmr, asignarAlumnoCopiaOmr, resolverHojaOmr, registrarVerdadTerrenoOmr, finalizarJobOmr };
 }

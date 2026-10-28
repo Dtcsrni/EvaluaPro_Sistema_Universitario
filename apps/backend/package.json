@@ -23,6 +23,10 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate --config prisma.config.mjs && node ../../node_modules/@typescript/native/bin/tsc --project tsconfig.json",
+    "prebuild": "npm run omr:fingerprint:write",
+    "pretest": "npm run omr:fingerprint:check",
+    "omr:fingerprint:write": "node scripts/omr-evaluator-code-hash.mjs --write",
+    "omr:fingerprint:check": "node scripts/omr-evaluator-code-hash.mjs --check",
     "typecheck": "prisma generate --config prisma.config.mjs && node ../../node_modules/@typescript/native/bin/tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",

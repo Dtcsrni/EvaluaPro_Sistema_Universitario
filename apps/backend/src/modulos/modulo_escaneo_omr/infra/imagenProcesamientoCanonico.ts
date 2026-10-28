@@ -19,6 +19,8 @@ export type QrDetalle = {
     bottomLeftCorner: Punto;
   };
   calidadGeometrica?: number;
+  calidadCoincidenciaMatriz?: number;
+  margenCoincidenciaMatriz?: number;
   fuenteDeteccionQr?: 'jsqr' | 'zxing' | 'preprocesado' | 'resolucion_fuente' | 'known_geometry_rescue' | 'rotacion_pagina';
 };
 
@@ -215,8 +217,10 @@ export function calcularRegionQrFocalizada(
   anchoCarta: number
 ) {
   const expectedQr = Math.max(80, Math.round((qrSizePts / Math.max(1, anchoCarta)) * width));
-  const lado = Math.min(Math.round(expectedQr * 1.75), Math.floor(Math.min(width, height) * 0.28));
-  const centroX = width * 0.8875;
+  const lado = Math.min(Math.round(expectedQr * 2), Math.floor(Math.min(width, height) * 0.28));
+  // La cabecera de plantillas recientes mueve el QR hacia el centro. Mantener
+  // la ROI amplia incluye también la ubicación histórica cercana a 0.8875.
+  const centroX = width * 0.83;
   const centroY = height * 0.107;
   return {
     left: Math.max(0, Math.min(width - lado, Math.round(centroX - lado / 2))),
@@ -694,6 +698,41 @@ export function detectarQrEnRecorteNativo(
   return null;
 }
 
+/** Binariza con Otsu como respaldo para capturas con fondo moteado o sombras. */
+function binarizarEscalaGrisesOtsu(gray: Uint8ClampedArray) {
+  if (gray.length === 0) return null;
+  const histograma = new Uint32Array(256);
+  let sumaTotal = 0;
+  for (const valor of gray) {
+    histograma[valor] += 1;
+    sumaTotal += valor;
+  }
+
+  let pesoFondo = 0;
+  let sumaFondo = 0;
+  let varianzaMaxima = -1;
+  let umbral = -1;
+  const total = gray.length;
+  for (let candidato = 0; candidato < histograma.length; candidato += 1) {
+    pesoFondo += histograma[candidato]!;
+    if (pesoFondo === 0) continue;
+    const pesoFrente = total - pesoFondo;
+    if (pesoFrente === 0) break;
+    sumaFondo += candidato * histograma[candidato]!;
+    const mediaFondo = sumaFondo / pesoFondo;
+    const mediaFrente = (sumaTotal - sumaFondo) / pesoFrente;
+    const proporcionEntreClases = (pesoFondo / total) * (pesoFrente / total);
+    const varianza = proporcionEntreClases * (mediaFondo - mediaFrente) ** 2;
+    if (varianza > varianzaMaxima) {
+      varianzaMaxima = varianza;
+      umbral = candidato;
+    }
+  }
+
+  if (umbral <= 0 || umbral >= 255 || varianzaMaxima <= 0) return null;
+  return Uint8ClampedArray.from(gray, (valor) => valor < umbral ? 0 : 255);
+}
+
 /** Lee una imagen completa en gris a resolución fuente y conserva el filtro geométrico QR. */
 export function detectarQrZxingPaginaFuente(
   gray: Uint8ClampedArray,
@@ -706,7 +745,21 @@ export function detectarQrZxingPaginaFuente(
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || gray.length !== width * height) {
     return null;
   }
-  const detectado = detectarQrDetalleZxing(gray, width, height);
+  let detectado = detectarQrDetalleZxing(gray, width, height);
+  const requiereRespaldo = !detectado || Boolean(
+    opciones.payloadsEsperados?.length && !opciones.payloadsEsperados.includes(detectado.data)
+  );
+  if (requiereRespaldo) {
+    const binarioOtsu = binarizarEscalaGrisesOtsu(gray);
+    const candidatoOtsu = binarioOtsu
+      ? detectarQrDetalleZxing(binarioOtsu, width, height)
+      : null;
+    if (candidatoOtsu && (
+      opciones.payloadsEsperados?.length
+        ? opciones.payloadsEsperados.includes(candidatoOtsu.data)
+        : !detectado
+    )) detectado = candidatoOtsu;
+  }
   if (!detectado) return null;
   if (opciones.payloadsEsperados?.length && !opciones.payloadsEsperados.includes(detectado.data)) return null;
   const tamanoExteriorEsperado = (qrSizePts / Math.max(1, anchoCarta)) * width;
@@ -798,6 +851,7 @@ export function detectarQrPorGeometriaConocida(
     size: number;
     marginModules?: number;
     matrixModules?: number;
+    errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H';
   },
   transformar: (punto: Punto) => Punto,
   opciones: { altoCarta: number; outputSize?: number; payloadsEsperados?: readonly string[] }
@@ -906,6 +960,79 @@ export function detectarQrPorGeometriaConocida(
         data: detalle.data,
         location: matrix,
         calidadGeometrica: calidad?.calidadGeometrica ?? 0.82
+      };
+    }
+  }
+
+  // Si el QR quedó tapado, comparar la matriz rectificada con las matrices
+  // firmadas que ya existen en el mapa del lote. Solo se recupera identidad si
+  // el mejor candidato supera umbral absoluto y aventaja claramente al resto.
+  if (payloadsEsperados.length > 0 && matrixModules >= 21 && marginModules >= 4) {
+    const nivel = qrGeometry.errorCorrectionLevel ?? 'H';
+    const qrCreate = (QRCode as unknown as {
+      create: (text: string, options: { errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H' }) => { modules: { size: number; data: Uint8Array } };
+    }).create;
+    const scores = new Map<string, number>();
+    const quietInset = Math.round(outputSize * quietFraction);
+    const modulePixels = (outputSize - quietInset * 2) / matrixModules;
+    if (modulePixels >= 2) {
+      for (const payload of new Set(payloadsEsperados)) {
+        let expectedModules: { size: number; data: Uint8Array };
+        try {
+          expectedModules = qrCreate(payload, { errorCorrectionLevel: nivel }).modules;
+        } catch {
+          continue;
+        }
+        if (expectedModules.size !== matrixModules) continue;
+        const samples = new Uint8Array(matrixModules * matrixModules);
+        for (let row = 0; row < matrixModules; row += 1) {
+          for (let column = 0; column < matrixModules; column += 1) {
+            let sum = 0;
+            let count = 0;
+            const x0 = Math.floor(quietInset + (column + 0.25) * modulePixels);
+            const x1 = Math.ceil(quietInset + (column + 0.75) * modulePixels);
+            const y0 = Math.floor(quietInset + (row + 0.25) * modulePixels);
+            const y1 = Math.ceil(quietInset + (row + 0.75) * modulePixels);
+            for (let y = y0; y < y1; y += 1) {
+              for (let x = x0; x < x1; x += 1) {
+                sum += gray[y * outputSize + x] ?? 255;
+                count += 1;
+              }
+            }
+            samples[row * matrixModules + column] = count ? Math.round(sum / count) : 255;
+          }
+        }
+        let bestScore = 0;
+        for (const threshold of [100, 120, 140, 160, 180, 200, 220]) {
+          let matches = 0;
+          for (let index = 0; index < samples.length; index += 1) {
+            const capturedDark = samples[index]! < threshold;
+            const expectedDark = expectedModules.data[index] !== 0;
+            if (capturedDark === expectedDark) matches += 1;
+          }
+          bestScore = Math.max(bestScore, matches / samples.length);
+        }
+        scores.set(payload, bestScore);
+      }
+    }
+    const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
+    const [payload, score] = ranked[0] ?? [];
+    const margin = score === undefined ? 0 : score - (ranked[1]?.[1] ?? 0);
+    if (payload && score >= 0.82 && margin >= 0.12) {
+      const quality = puntuarQrCandidato(
+        { data: payload, location: matrix },
+        width,
+        height,
+        qrSize,
+        612
+      );
+      return {
+        data: payload,
+        location: matrix,
+        calidadGeometrica: quality?.calidadGeometrica ?? 0.82,
+        calidadCoincidenciaMatriz: score,
+        margenCoincidenciaMatriz: margin,
+        fuenteDeteccionQr: 'known_geometry_rescue'
       };
     }
   }

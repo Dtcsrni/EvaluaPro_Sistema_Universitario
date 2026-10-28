@@ -4,11 +4,15 @@
  * Responsabilidad: Verificar la persistencia de calificaciones usando Prisma y SQLite.
  */
 import type { Response } from 'express';
+import QRCode from 'qrcode';
+import sharp from 'sharp';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { conectarSqliteTest, cerrarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
 import { calificarExamen, obtenerCalificacionPorExamen } from '../src/modulos/modulo_calificacion/controladorCalificacion.js';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
+import { construirTextoQrExamenPagina } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
+import { hashContenidoPregunta } from '../src/modulos/modulo_generacion_pdf/index.js';
 
 function crearRespuesta() {
   return {
@@ -17,19 +21,20 @@ function crearRespuesta() {
   } as unknown as Response;
 }
 
-function crearAnalisisOmrOk(revisionConfirmada = false) {
+function crearAnalisisOmrOk(revisionConfirmada = false, qrTexto?: string) {
   return {
     estadoAnalisis: 'ok' as const,
     calidadPagina: 0.95,
     confianzaPromedioPagina: 0.93,
     ratioAmbiguas: 0,
-    ...(revisionConfirmada ? { revisionConfirmada: true } : {}),
+    ...(revisionConfirmada ? { revisionConfirmada: true, bonoVisibleConfirmado: false } : {}),
     templateVersionDetectada: 4 as const,
     motivosRevision: [],
     engineVersion: 'omr-cv',
     geomQuality: 0.91,
     photoQuality: 0.92,
-    decisionPolicy: 'conservadora_v1'
+    decisionPolicy: 'conservadora_v1',
+    ...(qrTexto ? { qrTexto } : {})
   };
 }
 
@@ -77,6 +82,86 @@ describe('calificaciones persistencia', () => {
         grupo: 'A'
       }
     });
+  }
+
+  async function crearSnapshotVersionSet(preguntaId: string) {
+    const pregunta = await prisma.bancoPregunta.findUnique({
+      where: { id: preguntaId },
+      include: { versiones: { include: { opciones: true } } }
+    });
+    if (!pregunta) throw new Error(`No se encontró el reactivo fixture ${preguntaId}.`);
+    const version = Number(pregunta.versionActual);
+    return JSON.stringify([{
+      preguntaId,
+      version,
+      contentHash: hashContenidoPregunta(pregunta as Parameters<typeof hashContenidoPregunta>[0], version),
+      source: 'legacy'
+    }]);
+  }
+
+  async function prepararQrVerificado(examenId: string, preguntaId: string, numeroPaginas = 1) {
+    const examen = await prisma.examenGenerado.findUnique({ where: { id: examenId } });
+    const preguntaDb = await prisma.bancoPregunta.findUnique({
+      where: { id: preguntaId },
+      include: { versiones: { include: { opciones: true } } }
+    });
+    if (!examen || !preguntaDb) throw new Error('Falta el examen o reactivo fixture para generar el QR verificado.');
+
+    const version = Number(preguntaDb.versionActual);
+    const pregunta = {
+      id: preguntaDb.id,
+      opciones: preguntaDb.versiones.find((item) => item.numeroVersion === version)?.opciones.map((opcion) => ({
+        texto: opcion.texto,
+        esCorrecta: opcion.esCorrecta
+      })) ?? []
+    };
+    const mapaVariante = JSON.parse(String(examen.mapaVariante ?? '{}')) as {
+      ordenPreguntas: string[];
+      ordenOpcionesPorPregunta: Record<string, number[]>;
+    };
+    const preguntas = [pregunta];
+    const codigosQr = Array.from({ length: numeroPaginas }, (_item, indice) => {
+      const numeroPagina = indice + 1;
+      const qrTexto = construirTextoQrExamenPagina({
+        folio: String(examen.folio),
+        numeroPagina,
+        templateVersion: 4,
+        templateId: 'omr-canonical-v4',
+        examId: examen.id,
+        mapaVariante,
+        preguntas,
+        totalPreguntas: mapaVariante.ordenPreguntas.length,
+        preguntaDesde: 1,
+        preguntaHasta: mapaVariante.ordenPreguntas.length,
+        questionIdsPagina: [preguntaId]
+      });
+      return { numeroPagina, qrTexto };
+    });
+    const mapaOmr = JSON.parse(String(examen.mapaOmr ?? '{}')) as Record<string, unknown>;
+    const capturas = await Promise.all(codigosQr.map(async ({ qrTexto }, indice) => {
+      const png = await QRCode.toDataURL(qrTexto, { width: 512, margin: 1 });
+      if (indice === 0) return png;
+      const jpeg = await sharp(Buffer.from(png.split(',')[1] ?? '', 'base64')).jpeg().toBuffer();
+      return `data:image/jpeg;base64,${jpeg.toString('base64')}`;
+    }));
+    await prisma.examenGenerado.update({
+      where: { id: examenId },
+      data: {
+        versionSet: await crearSnapshotVersionSet(preguntaId),
+        paginas: JSON.stringify(codigosQr.map(({ numeroPagina, qrTexto }) => ({ numero: numeroPagina, qrTexto }))),
+        mapaOmr: JSON.stringify({
+          ...mapaOmr,
+          templateId: 'omr-canonical-v4',
+          paginas: codigosQr.map(({ numeroPagina, qrTexto }) => ({
+            numeroPagina,
+            templateId: 'omr-canonical-v4',
+            templateVersion: 4,
+            qr: { texto: qrTexto }
+          }))
+        })
+      }
+    });
+    return { qrTexto: codigosQr[0]!.qrTexto, capturas };
   }
 
   it('guarda calificación y luego la recupera por examen', async () => {
@@ -155,9 +240,11 @@ describe('calificaciones persistencia', () => {
         mapaOmr: JSON.stringify({
           templateVersion: 4,
           paginas: []
-        })
+        }),
+        versionSet: await crearSnapshotVersionSet(pregunta.id)
       }
     });
+    const evidenciaQr = await prepararQrVerificado(examen.id, pregunta.id);
 
     const reqGuardar = {
       docenteId,
@@ -166,7 +253,8 @@ describe('calificaciones persistencia', () => {
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
         // Las respuestas de este fixture no incluyen confianza por reactivo;
         // la persistencia se prueba con revisión humana explícita.
-        omrAnalisis: crearAnalisisOmrOk(true),
+        omrAnalisis: crearAnalisisOmrOk(true, evidenciaQr.qrTexto),
+        paginasOmr: [{ numeroPagina: 1, imagenBase64: evidenciaQr.capturas[0]! }],
         bonoSolicitado: 0,
         retroalimentacion: 'Correcto',
         versionPolitica: 1,
@@ -292,9 +380,11 @@ describe('calificaciones persistencia', () => {
         mapaOmr: JSON.stringify({
           templateVersion: 4,
           paginas: []
-        })
+        }),
+        versionSet: await crearSnapshotVersionSet(pregunta.id)
       }
     });
+    const evidenciaQr = await prepararQrVerificado(examen.id, pregunta.id, 2);
 
     const reqGuardar = {
       docenteId,
@@ -303,15 +393,15 @@ describe('calificaciones persistencia', () => {
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
         // Las respuestas de este fixture no incluyen confianza por reactivo;
         // la persistencia se prueba con revisión humana explícita.
-        omrAnalisis: crearAnalisisOmrOk(true),
+        omrAnalisis: crearAnalisisOmrOk(true, evidenciaQr.qrTexto),
         paginasOmr: [
           {
             numeroPagina: 1,
-            imagenBase64: 'data:image/png;base64,AQIDBA=='
+            imagenBase64: evidenciaQr.capturas[0]!
           },
           {
             numeroPagina: 2,
-            imagenBase64: 'data:image/jpeg;base64,BQYHCA=='
+            imagenBase64: evidenciaQr.capturas[1]!
           }
         ]
       }
@@ -432,15 +522,17 @@ describe('calificaciones persistencia', () => {
         mapaOmr: JSON.stringify({
           templateVersion: 4,
           paginas: []
-        })
+        }),
+        versionSet: await crearSnapshotVersionSet(pregunta.id)
       }
     });
+    const evidenciaQr = await prepararQrVerificado(examen.id, pregunta.id);
 
     const cuerpoBase = {
       examenGeneradoId: examen.id,
       respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
       // Capturas legacy sin confianza por reactivo: revisión humana confirmada.
-      omrAnalisis: crearAnalisisOmrOk(true)
+      omrAnalisis: crearAnalisisOmrOk(true, evidenciaQr.qrTexto)
     };
 
     await calificarExamen(
@@ -448,7 +540,7 @@ describe('calificaciones persistencia', () => {
         docenteId,
         body: {
           ...cuerpoBase,
-          paginasOmr: [{ numeroPagina: 1, imagenBase64: 'data:image/png;base64,AQIDBA==' }]
+          paginasOmr: [{ numeroPagina: 1, imagenBase64: evidenciaQr.capturas[0]! }]
         }
       } as unknown as SolicitudDocente,
       crearRespuesta()
@@ -459,7 +551,7 @@ describe('calificaciones persistencia', () => {
         docenteId,
         body: {
           ...cuerpoBase,
-          paginasOmr: [{ numeroPagina: 1, imagenBase64: 'data:image/png;base64,BQYHCA==' }]
+          paginasOmr: [{ numeroPagina: 1, imagenBase64: evidenciaQr.capturas[0]! }]
         }
       } as unknown as SolicitudDocente,
       crearRespuesta()

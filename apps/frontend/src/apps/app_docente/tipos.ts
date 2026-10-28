@@ -214,11 +214,18 @@ export type GeneratedAssessmentDetalle = {
 
 export type OmrJobDetalle = {
   jobId: string;
+  loteId?: string | null;
   sourceType: 'pdf' | 'image_batch' | 'camera_capture';
   status: 'queued' | 'processing' | 'completed' | 'failed' | 'finalized';
   pagesTotal: number;
   pagesProcessed: number;
+  blindReviewMode?: boolean;
+  sharedFormCopies?: boolean;
+  sharedSubmissions?: Array<{ submissionId: string; formExamId: string; formFolio: string; sourceFileId: string; pageIndexes: number[]; status: 'ready' | 'needs_review'; studentId: string | null; studentName: string | null }>;
+  sharedCandidates?: Array<{ id: string; nombreCompleto: string; matricula: string; grupo: string | null }>;
   summary?: {
+    blindReviewRequired?: number;
+    packages?: number;
     accepted?: number;
     needsReview?: number;
     rejected?: number;
@@ -254,8 +261,33 @@ export type OmrJobDetalle = {
     examId?: string;
     folio?: string;
     examPage?: number;
+    submissionId?: string;
     identitySource?: 'qr' | 'manual';
     resolutionReason?: string;
+    humanReview?: {
+      method: 'visual_original_capture';
+      reviewedAt: string;
+      reviewerAttested?: true;
+      independentOfOmr: true;
+      omrPredictionsHidden: true;
+    };
+    groundTruthReview?: {
+      humanReview: {
+        method: 'visual_original_capture';
+        reviewedAt: string;
+        reviewerAttested?: true;
+        independentOfOmr: true;
+        omrPredictionsHidden: true;
+      };
+      bonusVisible?: boolean;
+      responses: Array<{
+        numeroPregunta: number;
+        opcion: string | null;
+        tipoMarcaManual: 'valid' | 'blank' | 'double' | 'smudge';
+        selectedOptions: Array<'A' | 'B' | 'C' | 'D' | 'E'>;
+        estadoRespuesta: 'manual_review';
+      }>;
+    };
     ocrSuggestion?: {
       generatedAssessmentId: string;
       folio: string;
@@ -279,7 +311,7 @@ export type OmrJobDetalle = {
       versionCode?: string | null;
     };
     responses: RespuestaRevisionOmr[];
-    exceptions: Array<{
+    exceptions?: Array<{
       code: string;
       severity: 'info' | 'warning' | 'blocking';
       message: string;
@@ -298,9 +330,45 @@ export type OmrJobDetalle = {
     student: string;
     group: string;
     folio: string;
+    submissionId?: string;
   }>;
+  autoGrading?: {
+    clientRequestId: string;
+    status: 'processing' | 'completed' | 'partial';
+    startedAt: string;
+    completedAt?: string;
+    results: Array<{
+      examId?: string;
+      folio?: string;
+      alumnoId?: string | null;
+      status: 'graded' | 'already_graded' | 'requires_review' | 'batch_error' | string;
+      gradeId?: string;
+      correct?: number;
+      total?: number;
+      bonusText?: string;
+      gradeText?: string;
+      readBackVerified?: boolean;
+      code?: string;
+      message?: string;
+    }>;
+  };
+  autoGradingAvailable?: boolean;
+  autoGradingGateReason?: string | null;
   files?: Array<{ id: string; nombre: string; bytes: number; pages: number; sha256: string }>;
-  candidateExams?: Array<{ id: string; folio: string; studentName: string; group: string; pages: number[] }>;
+  candidateExams?: Array<{
+    id: string;
+    folio: string;
+    studentName: string;
+    group: string;
+    pages: number[];
+    totalQuestions?: number;
+    templateVersion?: number;
+    variantHashes?: string[];
+    answerKeyHashes?: string[];
+    variantVerified?: boolean;
+    answerKeySnapshotVerified?: boolean;
+    answerKeySnapshotQuestions?: number;
+  }>;
   errors?: Array<{ fileName?: string; code: string }>;
   reviewResolutions?: Array<{
     sheetSerial: string;
@@ -379,6 +447,8 @@ export type CandidataRespuestaOmr = {
 export type RespuestaRevisionOmr = {
   numeroPregunta: number;
   opcion: string | null;
+  tipoMarcaManual?: 'valid' | 'blank' | 'double' | 'smudge';
+  selectedOptions?: Array<'A' | 'B' | 'C' | 'D' | 'E'>;
   opcionDetectada?: string | null;
   confianza?: number;
   estadoRespuesta?: EstadoRespuestaOmr;
@@ -388,8 +458,13 @@ export type RespuestaRevisionOmr = {
 
 export type ResultadoOmr = {
   respuestasDetectadas: RespuestaDetectadaOmr[];
+  autoCalificableOmr?: boolean;
   advertencias: string[];
   qrTexto?: string;
+  engineVersion?: string;
+  geomQuality?: number;
+  photoQuality?: number;
+  decisionPolicy?: string;
   calidadPagina: number;
   estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
   motivosRevision: string[];
@@ -563,6 +638,7 @@ export type RevisionPaginaOmr = {
   respuestas: RespuestaDetectadaOmr[];
   imagenBase64?: string;
   nombreArchivo?: string;
+  origenCaptura?: 'omr' | 'ingesta_pdf_manual';
   actualizadoEn: number;
 };
 
@@ -576,6 +652,28 @@ export type RevisionExamenOmr = {
   revisionConfirmada: boolean;
   actualizadoEn: number;
   creadoEn: number;
+};
+
+export type ContextoCalificacionManual = {
+  examenId: string;
+  alumnoId: string;
+  folio: string;
+  tipoExamenEtiqueta?: string;
+  plantillaTitulo?: string;
+  soloLectura?: boolean;
+  resumenPersistido?: {
+    aciertos: number;
+    totalReactivos: number;
+    calificacionFinalSobre5: number;
+    calificacionEquivalenteSobre10Texto?: string;
+    estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
+    origen?: string;
+  };
+  claveCorrectaPorNumero: Record<number, string>;
+  ordenPreguntas: number[];
+  respuestasDetectadas: RespuestaDetectadaOmr[];
+  paginasCaptura: Array<{ numeroPagina: number; imagenBase64: string; preguntas: number[] }>;
+  resultadoOmr?: ResultadoOmr | null;
 };
 
 export type ExamenGeneradoClave = {
@@ -595,6 +693,7 @@ export type ExamenGeneradoClave = {
     idPregunta?: string;
     correcta?: string | null;
   }>>;
+  answerKeySnapshotStatus?: 'verified' | 'unavailable';
 };
 
 export type SolicitudRevisionAlumno = {
