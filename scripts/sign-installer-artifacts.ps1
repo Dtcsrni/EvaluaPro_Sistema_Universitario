@@ -58,12 +58,17 @@ $certPassword = [string]$env:EVALUAPRO_SIGN_CERT_PASSWORD
 $certThumbprint = [string]$env:EVALUAPRO_SIGN_CERT_THUMBPRINT
 $timestampUrl = [string]$env:EVALUAPRO_SIGN_TIMESTAMP_URL
 $localOnlySigning = $env:EVALUAPRO_SIGN_LOCAL_ONLY -match '^(1|true|yes|si)$'
-if (-not $timestampUrl -and -not $localOnlySigning) {
-  $timestampUrl = 'http://timestamp.digicert.com'
-}
-
-$markerPath = Join-Path $InstallerDir 'SIGNING-NOT-PRODUCTION.txt'
 $releaseFlavorId = [string]$env:EVALUAPRO_RELEASE_FLAVOR
+
+if (-not [string]::IsNullOrWhiteSpace($releaseFlavorId)) {
+  if (-not $localOnlySigning) {
+    throw 'El release requiere EVALUAPRO_SIGN_LOCAL_ONLY=1; no se permite un TSA externo.'
+  }
+  if (-not [string]::IsNullOrWhiteSpace($timestampUrl)) {
+    throw 'El release no permite EVALUAPRO_SIGN_TIMESTAMP_URL; la firma debe ser local.'
+  }
+}
+$markerPath = Join-Path $InstallerDir 'SIGNING-NOT-PRODUCTION.txt'
 
 if (([string]::IsNullOrWhiteSpace($certBase64) -or [string]::IsNullOrWhiteSpace($certPassword)) -and [string]::IsNullOrWhiteSpace($certThumbprint)) {
   if (-not [string]::IsNullOrWhiteSpace($releaseFlavorId)) {
@@ -211,6 +216,18 @@ function Test-AlreadySignedValid {
   }
 }
 
+function Assert-ReleaseArtifactTrusted {
+  param([Parameter(Mandatory = $true)][string]$TargetPath)
+
+  if ([string]::IsNullOrWhiteSpace($releaseFlavorId)) { return }
+
+  $trustHelper = Join-Path $root 'scripts\ci\trust-release-signing-certificate.ps1'
+  if (-not (Test-Path -LiteralPath $trustHelper -PathType Leaf)) {
+    throw "Falta el helper de confianza manual: $trustHelper"
+  }
+  & $trustHelper -TargetPath $TargetPath -OutputDir $InstallerDir
+}
+
 function Test-IsBurnBundle {
   param([Parameter(Mandatory = $true)][string]$TargetPath)
 
@@ -310,6 +327,7 @@ try {
   foreach ($target in $targets) {
     if (Test-AlreadySignedValid -TargetPath $target) {
       Write-Host "[signing] Ya firmado y valido; se omite $target"
+      Assert-ReleaseArtifactTrusted -TargetPath $target
       continue
     }
 
@@ -319,6 +337,7 @@ try {
     } else {
       Invoke-SignTool -TargetPath $target -PfxPath $pfxPath -PfxPassword $certPassword -Thumbprint $certThumbprint -TimestampUrl $timestampUrl
     }
+    Assert-ReleaseArtifactTrusted -TargetPath $target
   }
 
   if (Test-Path $markerPath) {
@@ -343,7 +362,7 @@ try {
     throw "Fallo regeneracion de hashes/manifest post-firma (exit=$($hashProcess.ExitCode))."
   }
 
-  Write-Host '[signing] Firma completada con timestamp.'
+  Write-Host '[signing] Firma Authenticode completada; no se usó TSA externo.'
 } finally {
   if (-not [string]::IsNullOrWhiteSpace($pfxPath) -and (Test-Path $pfxPath)) {
     Remove-Item -LiteralPath $pfxPath -Force -ErrorAction SilentlyContinue

@@ -3113,8 +3113,48 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /Join-UrlPath -BaseUrl \$ReleaseBaseUrl -RelativePath \$publishedAssetShaPath/);
   assert.match(script, /deployment\s*=\s*\[ordered\]@{/);
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
-  assert.match(script, /SignerCertificate/);
-  assert.match(script, /NotSigned/);
+  assert.match(script, /\$status\s+-eq\s+'Valid'/);
+  assert.match(script, /if \(\$status -eq 'Valid'\) \{\s*return \$true\s*\}\s*return \$false/s);
+  assert.doesNotMatch(script, /\$null\s+-ne\s+\$signature\.SignerCertificate[\s\S]{0,160}\$status\s+-ne\s+'NotSigned'/);
+});
+
+test('firma de release valida la confianza manual del certificado solo en el runner efímero', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'sign-installer-artifacts.ps1'), 'utf8');
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'ci', 'trust-release-signing-certificate.ps1'), 'utf8');
+  assert.match(script, /function Assert-ReleaseArtifactTrusted/);
+  assert.match(script, /trust-release-signing-certificate\.ps1/);
+  assert.match(script, /Assert-ReleaseArtifactTrusted\s+-TargetPath\s+\$target/);
+  assert.match(helper, /Get-AuthenticodeSignature\s+-FilePath\s+\$TargetPath\s+-ErrorAction Stop/);
+  assert.match(helper, /\$signature\.Status\s+-ne\s+'Valid'/);
+  assert.match(helper, /StoreName\]::Root[\s\S]{0,180}StoreLocation\]::CurrentUser/);
+  assert.match(helper, /GITHUB_ACTIONS/);
+  assert.match(helper, /EVALUAPRO_TEMP_TRUST_THUMBPRINT/);
+  assert.match(helper, /EvaluaPro-CodeSigning-Certificate\.cer/);
+  assert.match(helper, /FIRMA-LEEME\.md/);
+  assert.match(helper, /App Control puede bloquear/);
+});
+
+test('workflow adjunta certificado público, hash e instrucciones y limpia la confianza temporal', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
+  assert.match(workflow, /dist\/installer\/EvaluaPro-CodeSigning-Certificate\.cer/);
+  assert.match(workflow, /dist\/installer\/EvaluaPro-CodeSigning-Certificate\.cer\.sha256/);
+  assert.match(workflow, /dist\/installer\/FIRMA-LEEME\.md/);
+  assert.equal((workflow.match(/Limpiar confianza temporal de firma en runner/g) || []).length, 3);
+  assert.match(workflow, /\$trustHelper -TargetPath \$candidatePath -CertificatePath \$certificatePath/);
+});
+
+
+test('firma de release usa Authenticode local y no recurre a un TSA externo', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'sign-installer-artifacts.ps1'), 'utf8');
+  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
+  const signingStep = workflow.slice(workflow.indexOf('- name: Etapa signing gate'));
+
+  assert.match(script, /EVALUAPRO_SIGN_LOCAL_ONLY/);
+  assert.match(script, /El release requiere EVALUAPRO_SIGN_LOCAL_ONLY=1/);
+  assert.match(script, /El release no permite EVALUAPRO_SIGN_TIMESTAMP_URL/);
+  assert.doesNotMatch(script, /timestamp\.digicert\.com/);
+  assert.match(signingStep, /EVALUAPRO_SIGN_LOCAL_ONLY:\s*'1'/);
+  assert.doesNotMatch(signingStep.split('        run:')[0], /EVALUAPRO_SIGN_TIMESTAMP_URL/);
 });
 
 test('generador de hashes conserva el FlavorId solicitado durante el ciclo del catálogo', () => {
