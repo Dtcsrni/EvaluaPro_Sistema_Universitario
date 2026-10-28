@@ -62,8 +62,9 @@ try {
   $stderrTask = $process.StandardError.ReadToEndAsync()
   if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
     try { $process.Kill() } catch {}
-    $process.WaitForExit()
+    $stopped = $process.WaitForExit(5000)
     $process.Dispose()
+    if (-not $stopped) { throw "La inspección Authenticode excedió $TimeoutSeconds s y el proceso no terminó después de solicitar su cierre: $Path" }
     throw "Timeout de $TimeoutSeconds s al inspeccionar la firma Authenticode: $Path"
   }
   $stdout = $stdoutTask.Result.Trim()
