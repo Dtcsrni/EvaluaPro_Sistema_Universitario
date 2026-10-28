@@ -1,7 +1,7 @@
 # trust-release-signing-certificate.ps1
 #
-# Valida una firma Authenticode con autofirma usando confianza manual explícita.
-# En CI, agrega la raíz solo al almacén CurrentUser del runner efímero.
+# Verifica la integridad Authenticode y el certificado firmante esperado.
+# Para autofirmas, no modifica almacenes: la confianza del usuario sigue siendo manual.
 param(
   [string]$TargetPath = '',
   [string]$CertificatePath = '',
@@ -110,22 +110,26 @@ if ($thumbprint -notmatch '^[0-9A-F]{40}$') { throw 'Thumbprint SHA-1 del certif
 $isSelfSigned = [string]$certificate.Subject -eq [string]$certificate.Issuer
 $mode = if ($isSelfSigned) { 'autofirma: requiere confianza manual por el usuario' } else { 'certificado con cadena de confianza de Windows' }
 
-if ($isSelfSigned) {
-  $storeManager = Join-Path $PSScriptRoot 'manage-temporary-root-certificate.ps1'
-  Write-Host '[trust] Añadiendo certificado autofirmado al almacén CurrentUser\Root del runner efímero (límite: 45 s).'
-  & $storeManager -Action Add -CertificatePath $CertificatePath -Thumbprint $thumbprint -TimeoutSeconds 45
-} elseif (-not $certificate.Verify()) {
+if (-not $isSelfSigned -and -not $certificate.Verify()) {
   throw 'El certificado no es autofirmado y su cadena no es confiable en el runner; no se añadirá una CA desconocida.'
 }
 
+$signatureStatus = 'not-checked'
 if ($hasTarget) {
-  Write-Host '[trust] Verificación Authenticode posterior a confianza (límite: 60 s).'
+  Write-Host '[trust] Verificación Authenticode y del certificado esperado (límite: 60 s).'
   $signature = Invoke-AuthenticodeSignatureBounded -Path $TargetPath
-  if ([string]$signature.Status -ne 'Valid') {
-    throw "La firma sigue sin validarse después de aplicar confianza manual en el runner (Status=$($signature.Status)). $($signature.StatusMessage)"
+  $signatureStatus = [string]$signature.Status
+  $signatureThumbprint = ([string]$signature.Thumbprint -replace '\s', '').ToUpperInvariant()
+  $expectedThumbprint = ([string]$certificate.Thumbprint -replace '\s', '').ToUpperInvariant()
+  $acceptedStatuses = if ($isSelfSigned) { @('Valid', 'NotTrusted') } else { @('Valid') }
+  if ($signatureStatus -notin $acceptedStatuses) {
+    throw "La firma Authenticode no es válida o no es verificable (Status=$signatureStatus). $($signature.StatusMessage)"
   }
-  if ([string]$signature.Thumbprint -ne [string]$certificate.Thumbprint) {
-    throw 'El certificado de firma no coincide con el certificado del artefacto.'
+  if ([string]::IsNullOrWhiteSpace($signatureThumbprint) -or $signatureThumbprint -ne $expectedThumbprint) {
+    throw 'El certificado firmante no coincide con el certificado esperado.'
+  }
+  if ($isSelfSigned -and $signatureStatus -eq 'NotTrusted') {
+    Write-Host 'Firma y certificado esperado verificados; Windows aún requiere confianza manual para este firmante autofirmado.'
   }
 }
 
@@ -175,6 +179,6 @@ SmartScreen puede mostrar advertencias para una autofirma. App Control puede blo
   Set-Content -LiteralPath (Join-Path $OutputDir 'FIRMA-LEEME.md') -Value $guide -Encoding utf8
 }
 if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
-  Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Firma Authenticode validada. Modo de confianza: $mode; thumbprint: $thumbprint; la autofirma requiere confianza manual y App Control puede bloquearla."
+  Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Firma Integridad Authenticode y certificado firmante verificados. Estado: $signatureStatus; modo: $mode; thumbprint: $thumbprint; la autofirma requiere confianza manual y App Control puede bloquearla."
 }
-Write-Host "Firma Authenticode validada; thumbprint=$thumbprint; selfSigned=$isSelfSigned"
+Write-Host "Firma Authenticode y certificado esperado verificados; status=$signatureStatus; thumbprint=$thumbprint; selfSigned=$isSelfSigned"
