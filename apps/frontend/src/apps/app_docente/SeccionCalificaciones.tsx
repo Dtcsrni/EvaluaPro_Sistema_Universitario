@@ -19,7 +19,7 @@ import { GuiaCalificacionesVisual } from './GuiaCalificacionesVisual';
 import { ConsultaCalificaciones, type ResumenConsultaCalificaciones } from './ConsultaCalificaciones';
 import { SolicitudesRevisionPanel } from './SolicitudesRevisionPanel';
 import { ClassroomEnCalificaciones } from './ClassroomEnCalificaciones';
-import { asociarCapturasRevisionManual, actualizarRespuestaManual as actualizarEstadoRespuestaManual, etiquetarTipoExamenManual, identidadExamenManual, paginasExamenManual, filtrarExamenesConCapturaManual } from './capturasRevisionManual';
+import { asociarCapturasRevisionManual, actualizarRespuestaManual as actualizarEstadoRespuestaManual, etiquetaExamenParaSelectorManual, etiquetarTipoExamenManual, identidadExamenManual, paginasExamenManual, filtrarExamenesConCapturaManual } from './capturasRevisionManual';
 import { ExtraordinariosCalificaciones } from './ExtraordinariosCalificaciones';
 import type {
   Alumno,
@@ -1558,21 +1558,11 @@ export function SeccionCalificaciones({
                 <option value="">Selecciona</option>
                 {examenesManualFiltrados.map((examen) => (
                   <option key={examen._id} value={examen._id}>
-                    {[
-                      examen.folio,
-                      etiquetarTipoExamenManual(
-                        examen.tipoExamen,
-                        String(examen.plantillaTitulo ?? '').trim() || plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo
-                      ) ||
-                        etiquetarTipoExamenManual(
-                          plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.tipo,
-                          plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo
-                        ),
-                      String(examen.plantillaTitulo ?? '').trim() || String(plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo ?? '').trim(),
-                      'captura vinculada'
-                    ]
-                      .filter((valor) => String(valor ?? '').trim().length > 0)
-                      .join(' · ')}
+                    {etiquetaExamenParaSelectorManual(
+                      examen,
+                      plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.tipo,
+                      plantillasPorId.get(String(examen.plantillaId ?? '').trim())?.titulo
+                    )}
                   </option>
                 ))}
               </select>

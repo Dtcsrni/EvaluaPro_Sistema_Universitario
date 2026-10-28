@@ -163,6 +163,21 @@ export function etiquetarTipoExamenManual(tipo?: string | null, titulo?: string 
   return '';
 }
 
+export function etiquetaExamenParaSelectorManual(
+  examen: { folio?: string | null; tipoExamen?: string | null; plantillaTitulo?: string | null },
+  tipoPlantilla?: string | null,
+  tituloPlantilla?: string | null
+) {
+  const titulo = String(examen.plantillaTitulo ?? '').trim() || String(tituloPlantilla ?? '').trim();
+  const tipoExamen = String(examen.tipoExamen ?? '').trim() || String(tipoPlantilla ?? '').trim();
+  const tipo = etiquetarTipoExamenManual(tipoExamen, titulo)
+    || etiquetarTipoExamenManual(tipoPlantilla, tituloPlantilla);
+  return [examen.folio, tipo, titulo, 'captura vinculada']
+    .map((valor) => String(valor ?? '').trim())
+    .filter(Boolean)
+    .join(' · ');
+}
+
 function coincideIdentidadExamenManual(
   item: RevisionExamenOmr,
   identidad: { examenId: string; folio: string; alumnoId: string }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asociarCapturasRevisionManual, asociarPaginasIngestaParaManual, actualizarRespuestaManual, identidadExamenManual, paginasExamenManual, tieneCapturaManualVinculada, filtrarExamenesConCapturaManual } from '../src/apps/app_docente/capturasRevisionManual';
+import { asociarCapturasRevisionManual, asociarPaginasIngestaParaManual, actualizarRespuestaManual, identidadExamenManual, paginasExamenManual, tieneCapturaManualVinculada, filtrarExamenesConCapturaManual, etiquetaExamenParaSelectorManual } from '../src/apps/app_docente/capturasRevisionManual';
 import type { RevisionExamenOmr } from '../src/apps/app_docente/tipos';
 
 const revision = (overrides: Partial<RevisionExamenOmr> = {}): RevisionExamenOmr => ({
@@ -19,6 +19,20 @@ const revision = (overrides: Partial<RevisionExamenOmr> = {}): RevisionExamenOmr
 });
 
 describe('asociarCapturasRevisionManual', () => {
+  it('construye una etiqueta inequívoca para el selector de examen manual', () => {
+    expect(etiquetaExamenParaSelectorManual(
+      { folio: 'FOL-1', tipoExamen: 'parcial', plantillaTitulo: 'Segundo Parcial' },
+      'global',
+      'Plantilla Global'
+    )).toBe('FOL-1 · Parcial 2 · Segundo Parcial · captura vinculada');
+
+    expect(etiquetaExamenParaSelectorManual(
+      { folio: 'FOL-2' },
+      'extraordinario',
+      'Extraordinario final'
+    )).toBe('FOL-2 · Extraordinario · Extraordinario final · captura vinculada');
+  });
+
   it('normaliza la identidad y los rangos de página del examen', () => {
     expect(identidadExamenManual(
       { _id: ' ex-1 ', folio: 'fol-1', alumnoId: null },
