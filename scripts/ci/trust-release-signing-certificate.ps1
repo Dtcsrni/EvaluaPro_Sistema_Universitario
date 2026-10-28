@@ -32,13 +32,15 @@ try {
   $targetPath = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('__PATH_BASE64__'))
   $result = Get-AuthenticodeSignature -FilePath $targetPath -ErrorAction Stop
   $certificateBase64 = ''
+  $thumbprint = ''
   if ($null -ne $result.SignerCertificate) {
     $certificateBase64 = [Convert]::ToBase64String($result.SignerCertificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+    $thumbprint = [string]$result.SignerCertificate.Thumbprint
   }
   [pscustomobject]@{
     Status = [string]$result.Status
     StatusMessage = [string]$result.StatusMessage
-    Thumbprint = [string]$result.SignerCertificate.Thumbprint
+    Thumbprint = $thumbprint
     CertificateBase64 = $certificateBase64
   } | ConvertTo-Json -Compress
 } catch {
