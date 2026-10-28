@@ -601,9 +601,8 @@ jobs:
         shell: powershell
         run: |
           $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
-          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
-          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
-          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
+          $storeManager = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/manage-temporary-root-certificate.ps1'
+          & $storeManager -Action Remove -Thumbprint $thumbprint -TimeoutSeconds 45
 
   reuse_installer_candidate:
     name: Reutilizar bundle y E2E verificados
@@ -1138,9 +1137,8 @@ jobs:
         shell: powershell
         run: |
           $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
-          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
-          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
-          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
+          $storeManager = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/manage-temporary-root-certificate.ps1'
+          & $storeManager -Action Remove -Thumbprint $thumbprint -TimeoutSeconds 45
 
 
   finalize_installer_release:
@@ -1404,9 +1402,8 @@ jobs:
         shell: powershell
         run: |
           $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
-          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
-          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
-          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
+          $storeManager = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/manage-temporary-root-certificate.ps1'
+          & $storeManager -Action Remove -Thumbprint $thumbprint -TimeoutSeconds 45
 
   redraft_failed_public_installer_release:
     name: Ocultar release si falla la E2E del asset público
