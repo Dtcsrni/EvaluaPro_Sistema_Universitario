@@ -210,9 +210,11 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/Cada examen conservará su QR y folio propios/i);
 
     fireEvent.click(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumnos\)/i }));
-    const dialogo = await screen.findByRole('alertdialog', { name: /Confirmar variante común del lote/i });
-    expect(dialogo).toHaveTextContent(/también compartir respuestas/i);
-    expect(within(dialogo).getByRole('button', { name: /Sí, generar variante común/i })).toBeInTheDocument();
+    const dialogo = await screen.findByRole('alertdialog', { name: /Confirmar formulario compartido para el grupo/i });
+    expect(dialogo).toHaveClass('confirm-dialog--warning');
+    expect(dialogo).toHaveTextContent(/misma clave de respuestas/i);
+    expect(dialogo).toHaveTextContent(/riesgo de copiar respuestas/i);
+    expect(within(dialogo).getByRole('button', { name: /Sí, generar formulario compartido/i })).toBeInTheDocument();
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(enviarConPermiso).not.toHaveBeenCalled();
