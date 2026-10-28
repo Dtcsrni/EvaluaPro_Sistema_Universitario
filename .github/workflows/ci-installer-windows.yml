@@ -388,7 +388,7 @@ jobs:
           EVALUAPRO_RELEASE_COMMIT: ${{ inputs.source_sha || github.sha }}
           EVALUAPRO_SIGN_CERT_BASE64: ${{ secrets.EVALUAPRO_SIGN_CERT_BASE64 }}
           EVALUAPRO_SIGN_CERT_PASSWORD: ${{ secrets.EVALUAPRO_SIGN_CERT_PASSWORD }}
-          EVALUAPRO_SIGN_TIMESTAMP_URL: ${{ secrets.EVALUAPRO_SIGN_TIMESTAMP_URL }}
+          EVALUAPRO_SIGN_LOCAL_ONLY: '1'
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-installer-artifacts.ps1
 
       - name: Instalar Chromium para la E2E docente completa
