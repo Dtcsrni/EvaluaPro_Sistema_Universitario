@@ -3126,6 +3126,20 @@ test('firma de release exige cadena Authenticode confiable para cada artefacto d
   assert.match(script, /Assert-ReleaseArtifactTrusted\s+-TargetPath\s+\$target/);
 });
 
+
+test('firma de release usa Authenticode local y no recurre a un TSA externo', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'sign-installer-artifacts.ps1'), 'utf8');
+  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
+  const signingStep = workflow.slice(workflow.indexOf('- name: Etapa signing gate'));
+
+  assert.match(script, /EVALUAPRO_SIGN_LOCAL_ONLY/);
+  assert.match(script, /El release requiere EVALUAPRO_SIGN_LOCAL_ONLY=1/);
+  assert.match(script, /El release no permite EVALUAPRO_SIGN_TIMESTAMP_URL/);
+  assert.doesNotMatch(script, /timestamp\.digicert\.com/);
+  assert.match(signingStep, /EVALUAPRO_SIGN_LOCAL_ONLY:\s*'1'/);
+  assert.doesNotMatch(signingStep.split('        run:')[0], /EVALUAPRO_SIGN_TIMESTAMP_URL/);
+});
+
 test('generador de hashes conserva el FlavorId solicitado durante el ciclo del catálogo', () => {
   const script = fs.readFileSync(path.join(root, 'scripts', 'generate-installer-hashes.ps1'), 'utf8');
   assert.match(script, /\$requestedFlavorId\s*=\s*\$FlavorId/);
