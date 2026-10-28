@@ -835,7 +835,7 @@
     },
     {
       "id": "modulo_generacion_pdf",
-      "contractVersion": "3.1.0",
+      "contractVersion": "3.2.0",
       "entry": "apps/backend/src/modulos/modulo_generacion_pdf/index.ts",
       "hostCompatibility": ">=1.2.6 <2.0.0",
       "purpose": "Plantillas, lotes, PDFs y artefactos de examen.",
@@ -1292,6 +1292,115 @@
               "signature": "(manifest: RecoveryManifest) => boolean"
             }
           ]
+        },
+        {
+          "version": "3.2.0",
+          "exports": [
+            {
+              "name": "construirFirmaClave",
+              "signature": "(preguntas: PreguntaBase[] | undefined, mapaVariante?: MapaVariante) => string"
+            },
+            {
+              "name": "construirFirmaVariante",
+              "signature": "(mapaVariante?: MapaVariante) => string"
+            },
+            {
+              "name": "descargarPdfLoteUseCase",
+              "signature": "(params: { docenteId: unknown; loteId: string; }) => Promise<{ buffer: Buffer<ArrayBufferLike>; fileName: string; pdfSha256: string; totalPaginas: number; }>"
+            },
+            {
+              "name": "esquemaBodyVacioOpcional",
+              "signature": "z.ZodOptional<z.ZodObject<{}, z.core.$strict>>"
+            },
+            {
+              "name": "ExamenGenerado",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "ExamenPlantilla",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "extraerResumenQrExamen",
+              "signature": "(textoQr?: string) => ResumenQrExamen | null"
+            },
+            {
+              "name": "generarPdfExamen",
+              "signature": "({ titulo, folio, loteId, examId, preguntas, mapaVariante, tipoExamen, totalPaginas, margenMm, encabezado, bookletConfig, templateVersion, omrTemplateId }: { titulo: string; folio: string; loteId?: string; examId?: string; preguntas: PreguntaBase[]; mapaVariante: MapaVariante; tipoExamen: TipoExamen; totalPaginas: number; margenMm?: number; templateVersion?: TemplateVersion; omrTemplateId?: OmrTemplateId; bookletConfig?: { densityMode?: \"balanced\" | \"compact\" | \"relaxed\"; autoFitPages?: boolean; autoFitTypography?: boolean; fontScale?: number; lineSpacing?: number; distribuirEnPaginasObjetivo?: boolean; logos?: { izquierdaPath?: string; derechaPath?: string; }; }; encabezado?: { institucion?: string; lema?: string; materia?: string; docente?: string; instrucciones?: string; alumno?: { nombre?: string; grupo?: string; iniciales?: string; }; mostrarInstrucciones?: boolean; mostrarMarcaInstitucional?: boolean; logos?: { izquierdaPath?: string; derechaPath?: string; }; }; }) => Promise<import(\"#self\").ResultadoGeneracionPdf>"
+            },
+            {
+              "name": "hashContenidoPregunta",
+              "signature": "(pregunta: BancoPreguntaLean, numeroVersion: number) => string"
+            },
+            {
+              "name": "MapaOmr",
+              "signature": "MapaOmr"
+            },
+            {
+              "name": "MapaVariante",
+              "signature": "{ ordenPreguntas: string[]; ordenOpcionesPorPregunta: Record<string, number[]>; }"
+            },
+            {
+              "name": "normalizarTituloPlantilla",
+              "signature": "(titulo: string) => string"
+            },
+            {
+              "name": "OMR_CANONICAL_CONTRACT_ID",
+              "signature": "\"omr-canonical-v4\""
+            },
+            {
+              "name": "OMR_CANONICAL_DISPLAY_LABEL",
+              "signature": "\"OMR canónico · v4\""
+            },
+            {
+              "name": "OpcionesRasterizadoPdf",
+              "signature": "{ dpi?: number; desdePagina?: number; cantidadPaginas?: number; }"
+            },
+            {
+              "name": "PaginaPdfPreviewVisual",
+              "signature": "{ numero: number; width: number; height: number; dataUrl: string; }"
+            },
+            {
+              "name": "PreguntaBase",
+              "signature": "{ id: string; enunciado: string; imagenUrl?: string; opciones: OpcionPregunta[]; }"
+            },
+            {
+              "name": "rasterizarPdfParaPreview",
+              "signature": "(buffer: Buffer, opciones?: OpcionesRasterizadoPdf) => Promise<{ paginas: PaginaPdfPreviewVisual[]; paginasTotales: number; paginasOmitidas: number; }>"
+            },
+            {
+              "name": "RecoveryBundle",
+              "signature": "{ version: 1; kind: \"lot-recovery\"; keyId: string; generatedAt: string; loteId: string; docenteId?: string; periodoId?: string; plantillaId?: string; templateVersion: TemplateVersion; totalExamenes: number; questionBankHash: string; questionBank: Array<{ questionId: string; questionRef: string; enunciado: string; opcionesBase: Array<{ index: number; texto: string; esCorrecta: boolean; }>; sourceExamIds: string[]; sourceFolios: string[]; }>; examenes: Array<{ examId: string; folio: string; manifestHash: string; variantHash?: string; answerKeyHash?: string; answerKeySnapshotHash: string; totalPreguntas: number; totalPaginas: number; }>; manifests: RecoveryManifest[]; signature: string; bundleHash: string; }"
+            },
+            {
+              "name": "RecoveryManifest",
+              "signature": "{ version: 1; kind: \"exam-recovery\"; keyId: string; generatedAt: string; examId: string; docenteId?: string; periodoId?: string; plantillaId?: string; loteId?: string; folio: string; templateVersion: TemplateVersion; totalPreguntas: number; totalPaginas: number; variantHash?: string; answerKeyHash?: string; qrKeyId?: string; questionBankHash: string; answerKeySnapshot: RecoveryAnswerKeySnapshot; traceability: RecoveryTraceability; mapaOmrSnapshot: MapaOmr; pages: Array<{ numeroPagina: number; qrTexto: string; preguntaDesde?: number; preguntaHasta?: number; questionRefs: string[]; optionOrders: string[]; questionIds: string[]; }>; questions: RecoveryQuestionSnapshot[]; signature: string; manifestHash: string; }"
+            },
+            {
+              "name": "RecoveryQuestionSnapshot",
+              "signature": "{ questionId: string; questionRef: string; pageNumber: number; visibleNumber: number; variantOrder: number[]; correctLetterVisible: string; enunciado: string; opcionesBase: Array<{ index: number; texto: string; esCorrecta: boolean; }>; opcionesVisibles: Array<{ letra: string; originalIndex: number; texto: string; esCorrecta: boolean; }>; }"
+            },
+            {
+              "name": "ResumenQrExamen",
+              "signature": "{ folio: string; numeroPagina: number; templateVersion?: TemplateVersion; templateId?: OmrTemplateId; keyId?: string; examId?: string; loteId?: string; totalPreguntas?: number; preguntaDesde?: number; preguntaHasta?: number; variantHash?: string; answerKeyHash?: string; pageAnswerKey?: string; payloadSignature?: string; payloadSignatureMode?: \"hmac-v1\" | \"unsupported\" | \"none\"; payloadSignatureValid?: boolean; qrPayloadMode?: \"self-contained\" | \"manifest-bound\"; validatedAgainstManifest?: boolean; questionRefs?: string[]; optionOrders?: string[]; raw: string; }"
+            },
+            {
+              "name": "TEMPLATE_VERSION_CANONICA",
+              "signature": "4"
+            },
+            {
+              "name": "TemplateVersion",
+              "signature": "4"
+            },
+            {
+              "name": "verificarRecoveryBundle",
+              "signature": "(bundle: RecoveryBundle) => boolean"
+            },
+            {
+              "name": "verificarRecoveryManifest",
+              "signature": "(manifest: RecoveryManifest) => boolean"
+            }
+          ]
         }
       ],
       "compositionEntry": "apps/backend/src/modulos/modulo_generacion_pdf/composition.ts",
@@ -1337,6 +1446,19 @@
         },
         {
           "version": "3.1.0",
+          "exports": [
+            {
+              "name": "iniciarSchedulerRetencionExamenes",
+              "signature": "() => void"
+            },
+            {
+              "name": "rutasGeneracionPdf",
+              "signature": "import(\"#host/../../../node_modules/@types/express-serve-static-core/index.d.ts\").Router"
+            }
+          ]
+        },
+        {
+          "version": "3.2.0",
           "exports": [
             {
               "name": "iniciarSchedulerRetencionExamenes",

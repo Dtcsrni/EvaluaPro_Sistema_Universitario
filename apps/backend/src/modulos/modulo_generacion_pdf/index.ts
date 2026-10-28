@@ -2,7 +2,7 @@ export { descargarPdfLoteUseCase } from './application/usecases/generacionPlanti
 export { extraerResumenQrExamen, type ResumenQrExamen } from './domain/qrExamen.js';
 export { construirFirmaClave, construirFirmaVariante } from './domain/qrExamen.js';
 export { type RecoveryBundle, type RecoveryManifest, type RecoveryQuestionSnapshot, verificarRecoveryBundle, verificarRecoveryManifest } from './domain/recoveryManifest.js';
-export { rasterizarPdfParaPreview } from './infra/rasterizadorPdfPreview.js';
+export { rasterizarPdfParaPreview, type OpcionesRasterizadoPdf, type PaginaPdfPreviewVisual } from './infra/rasterizadorPdfPreview.js';
 export { ExamenGenerado } from './modeloExamenGenerado.js';
 export { ExamenPlantilla, normalizarTituloPlantilla } from './modeloExamenPlantilla.js';
 export { generarPdfExamen } from './servicioGeneracionPdf.js';

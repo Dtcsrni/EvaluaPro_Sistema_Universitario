@@ -1,4 +1,4 @@
-import { rasterizarPdfParaPreview, type OpcionesRasterizadoPdf, type PaginaPdfPreviewVisual } from '../../modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
+import { rasterizarPdfParaPreview, type OpcionesRasterizadoPdf, type PaginaPdfPreviewVisual } from '../../modulo_generacion_pdf/index.js';
 
 type RasterPdf = { paginas: PaginaPdfPreviewVisual[]; paginasTotales: number; paginasOmitidas: number };
 type RasterizarPdf = (buffer: Buffer, opciones: OpcionesRasterizadoPdf) => Promise<RasterPdf>;

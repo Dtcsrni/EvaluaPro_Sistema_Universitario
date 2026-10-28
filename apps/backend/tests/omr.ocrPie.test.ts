@@ -47,6 +47,10 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     expect(sugerirFolioCercanoOmr('19533762', ['19F33762'])).toBe('19F33762');
     expect(sugerirFolioCercanoOmr('19533762', ['19F33762', '19533762'])).toBeNull();
     expect(sugerirFolioCercanoOmr('19533762', ['19F33762', '19533763'])).toBeNull();
+    expect(sugerirFolioCercanoOmr('13762', ['19F33762'])).toBe('19F33762');
+    expect(sugerirFolioCercanoOmr('13762', ['19F33762', 'AB13762X'])).toBeNull();
+    expect(sugerirFolioCercanoOmr('633762', ['19F33762'])).toBe('19F33762');
+    expect(sugerirFolioCercanoOmr('633762', ['19F33762', 'AB33762Q'])).toBeNull();
     expect(sugerirFolioCercanoOmr('3762', ['19F33762'])).toBeNull();
     expect(sugerirFolioCercanoOmr('19F33762', ['19F33762'])).toBeNull();
   });
@@ -74,7 +78,7 @@ describe('OCR de identidad impresa en el pie OMR', () => {
 
     const referencia = await leerReferenciaPieOmr(`data:image/png;base64,${imagen.toString('base64')}`, worker);
 
-    expect(referencia).toEqual({ folio: '19F33762', numeroPagina: 1, confianza: 44 });
+    expect(referencia).toEqual({ folio: '19F33762', numeroPagina: 1, confianza: 44, posicionesCoincidentes: 2 });
     expect(llamadas).toBe(20);
   });
 
@@ -101,8 +105,34 @@ describe('OCR de identidad impresa en el pie OMR', () => {
 
     const referencia = await leerReferenciaPieOmr(`data:image/png;base64,${imagen.toString('base64')}`, worker);
 
-    expect(referencia).toEqual({ folio: '19F33762', numeroPagina: 2, confianza: 59 });
+    expect(referencia).toEqual({ folio: '19F33762', numeroPagina: 2, confianza: 59, posicionesCoincidentes: 1 });
     expect(llamadas).toBe(20);
+  });
+
+  it('concilia las referencias repetidas de una banda completa contra el folio único del lote', async () => {
+    const imagen = await sharp({ create: { width: 792, height: 612, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    const lecturas = [
+      { text: '19533762 + Pagina 2', confidence: 59 },
+      { text: '19533762 - Pagina 2\n19F33762 - Pagina 2', confidence: 73 }
+    ];
+    let llamadas = 0;
+    const worker = {
+      async setParameters() {},
+      async recognize() {
+        const llamada = llamadas++;
+        return { data: llamada < 20 ? { text: '', confidence: 0 } : lecturas[llamada - 20] };
+      }
+    } as any;
+
+    const referencia = await leerReferenciaPieOmr(
+      `data:image/png;base64,${imagen.toString('base64')}`,
+      worker,
+      ['19F33762']
+    );
+
+    expect(referencia).toEqual({ folio: '19533762', numeroPagina: 2, confianza: 59, posicionesCoincidentes: 2 });
+    expect(sugerirFolioCercanoOmr(referencia!.folio, ['19F33762'])).toBe('19F33762');
+    expect(llamadas).toBe(22);
   });
 
   it.each([
@@ -119,7 +149,7 @@ describe('OCR de identidad impresa en el pie OMR', () => {
       }
     } as any;
     const referencia = await leerReferenciaPieOmr(`data:image/png;base64,${imagen.toString('base64')}`, worker);
-    expect(referencia).toEqual({ folio: '24681357', numeroPagina: 2, confianza: 90 });
+    expect(referencia).toEqual({ folio: '24681357', numeroPagina: 2, confianza: 90, posicionesCoincidentes: 2 });
     expect(llamadas).toBe(2);
   });
 

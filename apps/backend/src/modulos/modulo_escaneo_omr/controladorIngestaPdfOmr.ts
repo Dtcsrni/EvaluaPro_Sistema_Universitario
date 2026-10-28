@@ -37,6 +37,7 @@ import { rasterizarBloqueIngestaOmr } from './infra/rasterizadorIngestaPdfOmr.js
 import { OMR_TV4_REAL_PILOT_GATE_PASSED } from './politicaAutoCalificacionOmr.js';
 const PAGE_BLOCK_SIZE = 4;
 const RASTER_DPI = 144;
+const UMBRAL_CONFIANZA_RECUPERACION_FOLIO_OCR = 30;
 
 type CalificadorExamenOmr = (req: SolicitudDocente, res: Response) => Promise<void>;
 let calificadorExamenOmr: CalificadorExamenOmr | undefined;
@@ -76,8 +77,8 @@ type PaginaProcesada = {
     folio: string;
     examPage: number;
     confidence: number;
-    source: 'ocr_two_position_consensus' | 'ocr_single_character_recovery';
-    matchingPositions: 2;
+    source: 'ocr_two_position_consensus' | 'ocr_single_position_consensus' | 'ocr_single_character_recovery' | 'ocr_partial_folio_recovery';
+    matchingPositions: 1 | 2;
     ocrFolioLeido?: string;
   };
   resolutionReason?: string;
@@ -1073,11 +1074,15 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
               continue;
             }
             lectorOcr ??= await crearLectorPieOmr();
-            const referenciaOcr = await limitarTiempoOcrPie(leerReferenciaPieOmr(image.dataUrl, lectorOcr));
+            const referenciaOcr = await limitarTiempoOcrPie(leerReferenciaPieOmr(
+              image.dataUrl,
+              lectorOcr,
+              [...examenesPorFolio.keys()]
+            ));
             const examenExacto = referenciaOcr
               ? examenesPorFolio.get(referenciaOcr.folio.toUpperCase())
               : undefined;
-            const folioCercano = referenciaOcr && !examenExacto && referenciaOcr.confianza >= 50
+            const folioCercano = referenciaOcr && !examenExacto && referenciaOcr.confianza >= UMBRAL_CONFIANZA_RECUPERACION_FOLIO_OCR
               ? sugerirFolioCercanoOmr(referenciaOcr.folio, [...examenesPorFolio.keys()])
               : null;
             const examenSugerido = examenExacto ?? (folioCercano ? examenesPorFolio.get(folioCercano) : undefined);
@@ -1091,7 +1096,9 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
             if (
               referenciaOcr
               && examenSugerido
-              && examenSugerido.folio.toUpperCase() === referenciaOcr.folio.toUpperCase()
+              && (examenExacto
+                ? examenSugerido.folio.toUpperCase() === referenciaOcr.folio.toUpperCase()
+                : examenSugerido.folio.toUpperCase() === folioCercano)
               && paginaMapaSugerida
               && paginaExamenSugerida
             ) {
@@ -1100,8 +1107,12 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
                 folio: examenSugerido.folio,
                 examPage: referenciaOcr.numeroPagina,
                 confidence: referenciaOcr.confianza,
-                source: examenExacto ? 'ocr_two_position_consensus' : 'ocr_single_character_recovery',
-                matchingPositions: 2,
+                source: examenExacto
+                  ? referenciaOcr.posicionesCoincidentes === 1 ? 'ocr_single_position_consensus' : 'ocr_two_position_consensus'
+                  : referenciaOcr.folio.length === folioCercano?.length
+                    ? 'ocr_single_character_recovery'
+                    : 'ocr_partial_folio_recovery',
+                matchingPositions: referenciaOcr.posicionesCoincidentes ?? 2,
                 ...(!examenExacto ? { ocrFolioLeido: referenciaOcr.folio } : {})
               } as const;
               paginaPendiente.ocrSuggestion = propuesta;
@@ -1109,8 +1120,10 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
                 code: 'OMR_OCR_IDENTIDAD_SUGERIDA',
                 severity: 'warning',
                 message: examenExacto
-                  ? `Dos lecturas OCR coinciden en el folio ${examenSugerido.folio}, página ${referenciaOcr.numeroPagina}; el OCR no valida la identidad ni sustituye el QR firmado.`
-                  : `El OCR leyó ${referenciaOcr.folio}; el único folio del lote a una sustitución de distancia es ${examenSugerido.folio}, página ${referenciaOcr.numeroPagina}. Es una sugerencia para revisión y no sustituye el QR firmado.`
+                  ? `El OCR coincide en el folio ${examenSugerido.folio}, página ${referenciaOcr.numeroPagina}, usando ${referenciaOcr.posicionesCoincidentes ?? 2} posiciones; no valida la identidad ni sustituye el QR firmado.`
+                  : referenciaOcr.folio.length === folioCercano?.length
+                    ? `El OCR leyó ${referenciaOcr.folio}; el único folio del lote a una sustitución de distancia es ${examenSugerido.folio}, página ${referenciaOcr.numeroPagina}. Es una sugerencia para revisión y no sustituye el QR firmado.`
+                    : `El OCR leyó el fragmento ${referenciaOcr.folio}; es el único fragmento de al menos cinco caracteres contenido en un folio del lote (${examenSugerido.folio}), página ${referenciaOcr.numeroPagina}. Requiere revisión y no sustituye el QR firmado.`
               });
             }
           } catch (error) {

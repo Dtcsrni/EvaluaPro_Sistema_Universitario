@@ -1567,6 +1567,58 @@ describe('workflow OMR por jobs', () => {
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(calificacionesAntes);
   }, 180_000);
 
+  it('sugiere el folio único del lote ante sustitución o fragmento OCR, sin asignar identidad', async () => {
+    const token = await registrar('omr-jobs-ocr-fuzzy@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const escenario = await prepararExamen(auth);
+    const folioPrueba = Date.now().toString();
+    const folioLeido = `${folioPrueba[0] === '1' ? '2' : '1'}${folioPrueba.slice(1)}`;
+    await prisma.examenGenerado.update({ where: { id: escenario.examenId }, data: { folio: folioPrueba } });
+    escenario.folio = folioPrueba;
+    const calificacionesAntes = await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } });
+    const casos = [
+      { folio: folioLeido, source: 'ocr_single_character_recovery', clientRequestId: 'ee315f73-ae80-4224-b888-5bc7d37506bc' },
+      { folio: folioPrueba.slice(-10), source: 'ocr_partial_folio_recovery', clientRequestId: 'ea94a1f5-415b-4b88-b1d5-3a1d1c6c203d' }
+    ] as const;
+    for (let index = 0; index < casos.length; index += 1) {
+      const caso = casos[index]!;
+      const pdfSinQr = await PDFDocument.create();
+      const pagina = pdfSinQr.addPage([612, 792]);
+      pagina.drawText(`${caso.folio} · Pagina 1`, { x: 61, y: 27, size: 7 });
+      pagina.drawText(`${caso.folio} · Pagina 1`, { x: 318, y: 27, size: 7 });
+      const creado = await request(app)
+        .post('/api/omr/ingestas')
+        .set(auth)
+        .field('generatedAssessmentId', escenario.examenId)
+        .field('clientRequestId', caso.clientRequestId)
+        .attach('archivos', Buffer.from(await pdfSinQr.save()), { filename: `pagina-sin-qr-folio-caso-${index + 1}.pdf`, contentType: 'application/pdf' })
+        .expect(202);
+      const jobId = String(creado.body.job.jobId);
+      let job = creado.body.job;
+      const limite = Date.now() + 120_000;
+      while (job.status === 'processing' && Date.now() < limite) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        job = (await request(app).get(`/api/omr/ingestas/${jobId}`).set(auth).expect(200)).body.job;
+      }
+      expect(job.status).toBe('completed');
+      expect(job.pages[0]).not.toHaveProperty('ocrSuggestion');
+      const estado = await prisma.omrScanJob.findUniqueOrThrow({ where: { id: jobId } });
+      const metadata = JSON.parse(String(estado.metadata)) as { pages: Array<{ ocrSuggestion?: Record<string, unknown> }> };
+      expect(metadata.pages[0]?.ocrSuggestion).toMatchObject({
+        generatedAssessmentId: escenario.examenId,
+        folio: folioPrueba,
+        ocrFolioLeido: caso.folio,
+        examPage: 1,
+        source: caso.source,
+        matchingPositions: 2,
+        confidence: expect.any(Number)
+      });
+      expect(job.pages[0]?.examId).toBeUndefined();
+      expect(job.pages[0]?.examPage).toBeUndefined();
+    }
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(calificacionesAntes);
+  }, 180_000);
+
   it('rechaza los límites de cantidad de PDF y páginas antes de crear un job', async () => {
     const token = await registrar('omr-jobs-limites@prueba.test');
     const auth = { Authorization: `Bearer ${token}` };

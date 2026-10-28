@@ -3,7 +3,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { createWorker, PSM } from 'tesseract.js';
 
-export type ReferenciaPieOmr = { folio: string; numeroPagina: number; confianza: number };
+export type ReferenciaPieOmr = { folio: string; numeroPagina: number; confianza: number; posicionesCoincidentes?: 1 | 2 };
 export type LectorPieOmr = Awaited<ReturnType<typeof createWorker>>;
 
 export function limitarTiempoOcrPie<T>(operacion: Promise<T>, timeoutMs = 15_000): Promise<T> {
@@ -20,6 +20,7 @@ export function limitarTiempoOcrPie<T>(operacion: Promise<T>, timeoutMs = 15_000
 
 const require = createRequire(import.meta.url);
 const UMBRAL_CONFIANZA_OCR_PIE = 75;
+const UMBRAL_CONFIANZA_BANDA_COMPLETA_OCR_PIE = 30;
 const ESCALA_OCR_PIE = 4;
 const LISTA_CARACTERES_OCR_PIE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-.:·•+/|';
 const PATRON_REFERENCIA_PIE = /\b(?:FOLIO\s+)?([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:P\s*A\s*G?\s*I\s*N\s*A|P)\.?\s*(\d{1,2}|[IL|Z])(?:\s*DE\s*\d{1,2})?(?=$|[\s.,;])/g;
@@ -65,7 +66,7 @@ export function consensuarReferenciasPieOmr(
   return { ...primera, confianza: Math.min(primera.confianza, segunda.confianza) };
 }
 
-/** Recupera un folio leído con una sustitución OCR solo si el lote tiene un único candidato. */
+/** Recupera una sustitución o un fragmento OCR solo si el lote tiene un único candidato. */
 export function sugerirFolioCercanoOmr(folioLeido: string, foliosEsperados: readonly string[]): string | null {
   const lectura = folioLeido.toUpperCase();
   if (!/^[A-Z0-9_-]{4,48}$/.test(lectura)) return null;
@@ -73,12 +74,25 @@ export function sugerirFolioCercanoOmr(folioLeido: string, foliosEsperados: read
   const candidatos = new Set(foliosEsperados
     .map((folio) => folio.toUpperCase())
     .filter((folio) => {
-      if (folio.length !== lectura.length) return false;
-      let diferencias = 0;
-      for (let index = 0; index < lectura.length; index += 1) {
-        if (lectura[index] !== folio[index] && ++diferencias > 1) return false;
+      if (folio.length === lectura.length) {
+        let diferencias = 0;
+        for (let index = 0; index < lectura.length; index += 1) {
+          if (lectura[index] !== folio[index] && ++diferencias > 1) return false;
+        }
+        return diferencias === 1;
       }
-      return diferencias === 1;
+      const caracteresOmitidos = folio.length - lectura.length;
+      if (caracteresOmitidos < 0 || caracteresOmitidos > 4) return false;
+      const fragmentos = [lectura, lectura.slice(1), lectura.slice(0, -1)]
+        .filter((fragmento) => fragmento.length >= 5 && folio.length - fragmento.length >= 1 && folio.length - fragmento.length <= 3);
+      return fragmentos.some((fragmento) => {
+        let siguiente = 0;
+        for (const caracter of folio) {
+          if (caracter === fragmento[siguiente]) siguiente += 1;
+          if (siguiente === fragmento.length) return true;
+        }
+        return false;
+      });
     }));
   return candidatos.size === 1 ? [...candidatos][0]! : null;
 }
@@ -86,7 +100,8 @@ export function sugerirFolioCercanoOmr(folioLeido: string, foliosEsperados: read
 /** Devuelve identidad solo si dos posiciones distintas del pie coinciden tras orientar la página. */
 export async function leerReferenciaPieOmr(
   dataUrl: string,
-  worker: LectorPieOmr
+  worker: LectorPieOmr,
+  foliosEsperados?: readonly string[]
 ): Promise<ReferenciaPieOmr | null> {
   const separador = dataUrl.indexOf(',');
   if (!dataUrl.startsWith('data:image/') || separador < 0) return null;
@@ -97,6 +112,8 @@ export async function leerReferenciaPieOmr(
   const alto = Number(metadata.height ?? 0);
   if (ancho < 160 || alto < 160) return null;
 
+  // CamScanner puede incrustar el examen girado dentro de una página PDF vertical.
+  // Prueba los dos giros que lo ponen derecho según las dimensiones de la página.
   const gradosCandidatos = alto >= ancho ? [0, 180] : [90, 270];
   const resultados: ReferenciaPieOmr[] = [];
   for (const grados of gradosCandidatos) {
@@ -154,7 +171,7 @@ export async function leerReferenciaPieOmr(
         }
         const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
         if (consenso) {
-          resultados.push(consenso);
+          resultados.push({ ...consenso, posicionesCoincidentes: 2 });
           break;
         }
       }
@@ -222,15 +239,84 @@ export async function leerReferenciaPieOmr(
             && lecturaIzquierda.referencia.numeroPagina === lecturaDerecha.referencia.numeroPagina) {
             resultados.push({
               ...lecturaIzquierda.referencia,
-              confianza: Math.min(...lecturaIzquierda.confianzas, ...lecturaDerecha.confianzas)
+              confianza: Math.min(...lecturaIzquierda.confianzas, ...lecturaDerecha.confianzas),
+              posicionesCoincidentes: 2
             });
           }
         } else if (izquierda.length === 1 && derecha.length === 0) {
           const lectura = izquierda[0]!;
-          resultados.push({ ...lectura.referencia, confianza: Math.min(...lectura.confianzas) });
+          resultados.push({ ...lectura.referencia, confianza: Math.min(...lectura.confianzas), posicionesCoincidentes: 1 });
         } else if (derecha.length === 1 && izquierda.length === 0) {
           const lectura = derecha[0]!;
-          resultados.push({ ...lectura.referencia, confianza: Math.min(...lectura.confianzas) });
+          resultados.push({ ...lectura.referencia, confianza: Math.min(...lectura.confianzas), posicionesCoincidentes: 1 });
+        }
+      }
+    }
+
+    // Algunas copias CamScanner repiten el folio y la página varias veces en
+    // una sola línea inferior. Lee la banda completa con dos binarizaciones;
+    // solo acepta si ambas producen la misma identidad única.
+    if (resultados.length === resultadosAntesOrientacion) {
+      const top = Math.floor(paginaAlto * 0.82);
+      const height = Math.floor(paginaAlto * 0.16);
+      if (height >= 3 && top + height <= paginaAlto) {
+        const banda = sharp(pagina)
+          .extract({ left: 0, top, width: paginaAncho, height })
+          .greyscale()
+          .normalise();
+        const variantes = [
+          () => banda.clone().resize({ width: paginaAncho * 3 }).png().toBuffer(),
+          () => banda.clone().threshold(165).resize({ width: paginaAncho * 3 }).png().toBuffer()
+        ];
+        const identidadesLeidas: Array<{ referencia: { folio: string; numeroPagina: number }; folioCandidato: string; confianza: number } | null> = [];
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, tessedit_char_whitelist: '' });
+        try {
+          for (const preparar of variantes) {
+            const { data } = await worker.recognize(await preparar());
+            const confianza = Number(data.confidence ?? 0);
+            const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_BANDA_COMPLETA_OCR_PIE
+              ? extraerReferenciasPieOmr(String(data.text ?? ''))
+              : [];
+            const candidatas = new Map<string, { referencia: { folio: string; numeroPagina: number }; folioCandidato: string }>();
+            for (const referencia of referencias) {
+              const folioLeido = referencia.folio.toUpperCase();
+              const folioExacto = foliosEsperados?.find((folio) => folio.toUpperCase() === folioLeido);
+              const folioCandidato = folioExacto ?? (foliosEsperados
+                ? sugerirFolioCercanoOmr(folioLeido, foliosEsperados)
+                : folioLeido);
+              if (!folioCandidato) continue;
+              const clave = `${folioCandidato}:${referencia.numeroPagina}`;
+              const anterior = candidatas.get(clave);
+              const esLecturaCercana = folioLeido !== folioCandidato.toUpperCase();
+              if (!anterior || (esLecturaCercana && anterior.referencia.folio.toUpperCase() === folioCandidato.toUpperCase())) {
+                candidatas.set(clave, { referencia, folioCandidato });
+              }
+            }
+            const candidata = candidatas.size === 1 ? [...candidatas.values()][0]! : null;
+            identidadesLeidas.push(candidata
+              ? { referencia: candidata.referencia, folioCandidato: candidata.folioCandidato, confianza }
+              : null);
+          }
+        } finally {
+          await worker.setParameters({
+            tessedit_pageseg_mode: PSM.SINGLE_LINE,
+            tessedit_char_whitelist: LISTA_CARACTERES_OCR_PIE
+          });
+        }
+        const primera = identidadesLeidas[0];
+        const segunda = identidadesLeidas[1];
+        if (primera && segunda
+          && primera.folioCandidato === segunda.folioCandidato
+          && primera.referencia.numeroPagina === segunda.referencia.numeroPagina) {
+          const lecturaRecuperada = [primera, segunda].find((lectura) =>
+            lectura.referencia.folio.toUpperCase() !== lectura.folioCandidato.toUpperCase()
+          ) ?? primera;
+          resultados.push({
+            folio: lecturaRecuperada.referencia.folio,
+            numeroPagina: primera.referencia.numeroPagina,
+            confianza: Math.min(primera.confianza, segunda.confianza),
+            posicionesCoincidentes: 2
+          });
         }
       }
     }
@@ -277,7 +363,7 @@ export async function leerReferenciaPieOmr(
         await worker.setParameters({ tessedit_char_whitelist: LISTA_CARACTERES_OCR_PIE });
       }
       const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
-      if (consenso) resultados.push(consenso);
+      if (consenso) resultados.push({ ...consenso, posicionesCoincidentes: 2 });
     }
 
     // CamScanner puede estirar el pie y mover las dos referencias a la misma
@@ -314,7 +400,7 @@ export async function leerReferenciaPieOmr(
         lecturas.push(referencias.length === 1 ? { ...referencias[0]!, confianza } : null);
       }
       const consenso = consensuarReferenciasPieOmr([lecturas[0] ?? null, lecturas[1] ?? null]);
-      if (consenso) resultados.push(consenso);
+      if (consenso) resultados.push({ ...consenso, posicionesCoincidentes: 2 });
     }
 
     if (resultados.length > resultadosAntesOrientacion) break;
