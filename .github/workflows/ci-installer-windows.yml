@@ -33,7 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       run_installer: ${{ steps.resolve.outputs.run_installer || steps.resolve_non_pr.outputs.run_installer }}
-      run_signing_store_test: ${{ steps.resolve.outputs.run_signing_store_test || 'false' }}
     steps:
       - name: Descargar código
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -51,15 +50,6 @@ jobs:
           node scripts/testing/resolve-affected-ci.mjs --github-output="$GITHUB_OUTPUT" > affected-ci.json
           PR_CHANGED_PATHS_OUTPUT="$(git diff --name-only "$PULL_REQUEST_BASE_SHA...$PULL_REQUEST_HEAD_SHA")"
           mapfile -t PR_CHANGED_PATHS <<< "$PR_CHANGED_PATHS_OUTPUT"
-          SIGNING_STORE_TEST=false
-          for changed_path in "${PR_CHANGED_PATHS[@]}"; do
-            case "$changed_path" in
-              'scripts/ci/manage-temporary-root-certificate.ps1'|'scripts/ci/trust-release-signing-certificate.ps1'|'scripts/tests/signing-cert-store-helper.test.ps1')
-                SIGNING_STORE_TEST=true
-                ;;
-            esac
-          done
-          echo "run_signing_store_test=$SIGNING_STORE_TEST" >> "$GITHUB_OUTPUT"
           RELEASE_CONTROL_ONLY=true
           RELEASE_CONTROL_PATHS=(
             '.github/workflows/ci-installer-windows.yml'
@@ -67,9 +57,6 @@ jobs:
             'scripts/tests/ci-workflow-contract.test.mjs'
             'scripts/tests/installer-upgrade-e2e-contract.test.mjs'
             'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
-            'scripts/ci/manage-temporary-root-certificate.ps1'
-            'scripts/ci/trust-release-signing-certificate.ps1'
-            'scripts/tests/signing-cert-store-helper.test.ps1'
           )
           if [[ ${#PR_CHANGED_PATHS[@]} -eq 0 ]]; then
             RELEASE_CONTROL_ONLY=false
@@ -118,9 +105,6 @@ jobs:
                 'scripts/tests/ci-workflow-contract.test.mjs'
                 'scripts/tests/installer-upgrade-e2e-contract.test.mjs'
                 'docs/specs/SPEC-122_estabilizacion_release_1_2_8.spec.md'
-                'scripts/ci/manage-temporary-root-certificate.ps1'
-                'scripts/ci/trust-release-signing-certificate.ps1'
-                'scripts/tests/signing-cert-store-helper.test.ps1'
               )
               RELEASE_CONTROL_ONLY=true
               for changed_path in "${CHANGED_PATHS[@]}"; do
@@ -145,25 +129,6 @@ jobs:
             fi
           fi
           echo 'run_installer=true' >> "$GITHUB_OUTPUT"
-
-  test_signing_certificate_store:
-    name: Signing certificate store operations (Windows)
-    needs: detectar_cambios
-    if: ${{ github.event_name == 'pull_request' && needs.detectar_cambios.outputs.run_signing_store_test == 'true' }}
-    runs-on: windows-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - name: Descargar código del PR
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
-
-      - name: Probar operaciones acotadas de CurrentUser Root
-        shell: powershell
-        run: '& .\scripts\tests\signing-cert-store-helper.test.ps1'
 
   installer_windows_build:
     name: Installer Windows Build (MSI + Bundle)
@@ -636,8 +601,9 @@ jobs:
         shell: powershell
         run: |
           $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
-          $storeManager = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/manage-temporary-root-certificate.ps1'
-          & $storeManager -Action Remove -Thumbprint $thumbprint -TimeoutSeconds 45
+          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
+          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
+          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
 
   reuse_installer_candidate:
     name: Reutilizar bundle y E2E verificados
@@ -1172,8 +1138,9 @@ jobs:
         shell: powershell
         run: |
           $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
-          $storeManager = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/manage-temporary-root-certificate.ps1'
-          & $storeManager -Action Remove -Thumbprint $thumbprint -TimeoutSeconds 45
+          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
+          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
+          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
 
 
   finalize_installer_release:
@@ -1437,8 +1404,9 @@ jobs:
         shell: powershell
         run: |
           $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
-          $storeManager = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/manage-temporary-root-certificate.ps1'
-          & $storeManager -Action Remove -Thumbprint $thumbprint -TimeoutSeconds 45
+          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
+          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
+          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
 
   redraft_failed_public_installer_release:
     name: Ocultar release si falla la E2E del asset público
