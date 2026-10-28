@@ -19,14 +19,76 @@ if ($env:GITHUB_ACTIONS -ne 'true') {
   throw 'La instalación temporal de confianza se limita a runners efímeros de GitHub Actions.'
 }
 
+function Invoke-AuthenticodeSignatureBounded {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [int]$TimeoutSeconds = 60
+  )
+
+  $pathBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Path))
+  $childScript = @'
+$ErrorActionPreference = 'Stop'
+try {
+  $targetPath = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('__PATH_BASE64__'))
+  $result = Get-AuthenticodeSignature -FilePath $targetPath -ErrorAction Stop
+  $certificateBase64 = ''
+  $thumbprint = ''
+  if ($null -ne $result.SignerCertificate) {
+    $certificateBase64 = [Convert]::ToBase64String($result.SignerCertificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+    $thumbprint = [string]$result.SignerCertificate.Thumbprint
+  }
+  [pscustomobject]@{
+    Status = [string]$result.Status
+    StatusMessage = [string]$result.StatusMessage
+    Thumbprint = $thumbprint
+    CertificateBase64 = $certificateBase64
+  } | ConvertTo-Json -Compress
+} catch {
+  [Console]::Error.WriteLine($_.Exception.Message)
+  exit 1
+}
+'@
+  $childScript = $childScript.Replace('__PATH_BASE64__', $pathBase64)
+  $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childScript))
+  $powershellPath = (Get-Process -Id $PID).Path
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $process.StartInfo.FileName = $powershellPath
+  $process.StartInfo.Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
+  $process.StartInfo.UseShellExecute = $false
+  $process.StartInfo.CreateNoWindow = $true
+  $process.StartInfo.RedirectStandardOutput = $true
+  $process.StartInfo.RedirectStandardError = $true
+  if (-not $process.Start()) { throw "No se pudo iniciar la inspección Authenticode: $Path" }
+  $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+  $stderrTask = $process.StandardError.ReadToEndAsync()
+  if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+    try { $process.Kill() } catch {}
+    $stopped = $process.WaitForExit(5000)
+    $process.Dispose()
+    if (-not $stopped) { throw "La inspección Authenticode excedió $TimeoutSeconds s y el proceso no terminó después de solicitar su cierre: $Path" }
+    throw "Timeout de $TimeoutSeconds s al inspeccionar la firma Authenticode: $Path"
+  }
+  $stdout = $stdoutTask.Result.Trim()
+  $stderr = $stderrTask.Result.Trim()
+  $exitCode = $process.ExitCode
+  $process.Dispose()
+  if ($exitCode -ne 0) { throw "La inspección Authenticode terminó con código $exitCode para $Path. $stderr" }
+  if ([string]::IsNullOrWhiteSpace($stdout)) { throw "La inspección Authenticode no produjo resultado para $Path." }
+  try { return ($stdout | ConvertFrom-Json -ErrorAction Stop) } catch {
+    throw "La inspección Authenticode produjo una respuesta inválida para $Path."
+  }
+}
 $signature = $null
 $certificate = $null
 if ($hasTarget) {
   if (-not (Test-Path -LiteralPath $TargetPath -PathType Leaf)) { throw "No existe el ejecutable firmado: $TargetPath" }
-  $signature = Get-AuthenticodeSignature -FilePath $TargetPath -ErrorAction Stop
   if (-not $hasCertificate) {
-    $certificate = $signature.SignerCertificate
-    if ($null -eq $certificate) { throw "El artefacto no expone certificado firmante: $TargetPath (Status=$($signature.Status))." }
+    Write-Host '[trust] Inspección inicial de firma (límite: 60 s).'
+    $signature = Invoke-AuthenticodeSignatureBounded -Path $TargetPath
+    if ([string]::IsNullOrWhiteSpace([string]$signature.CertificateBase64)) { throw "El artefacto no expone certificado firmante: $TargetPath (Status=$($signature.Status))." }
+    $certificateBytes = [Convert]::FromBase64String([string]$signature.CertificateBase64)
+    $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @(,$certificateBytes)
   }
 }
 if ($hasCertificate) {
@@ -54,6 +116,7 @@ if ($isSelfSigned) {
     [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
   )
   $storeOpened = $false
+  Write-Host '[trust] Añadiendo certificado autofirmado al almacén CurrentUser\Root del runner efímero.'
   try {
     $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
     $storeOpened = $true
@@ -72,11 +135,12 @@ if ($isSelfSigned) {
 }
 
 if ($hasTarget) {
-  $signature = Get-AuthenticodeSignature -FilePath $TargetPath -ErrorAction Stop
+  Write-Host '[trust] Verificación Authenticode posterior a confianza (límite: 60 s).'
+  $signature = Invoke-AuthenticodeSignatureBounded -Path $TargetPath
   if ([string]$signature.Status -ne 'Valid') {
     throw "La firma sigue sin validarse después de aplicar confianza manual en el runner (Status=$($signature.Status)). $($signature.StatusMessage)"
   }
-  if ([string]$signature.SignerCertificate.Thumbprint -ne [string]$certificate.Thumbprint) {
+  if ([string]$signature.Thumbprint -ne [string]$certificate.Thumbprint) {
     throw 'El certificado de firma no coincide con el certificado del artefacto.'
   }
 }

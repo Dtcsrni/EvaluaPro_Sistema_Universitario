@@ -133,6 +133,47 @@ function ConvertFrom-PossiblyWrappedBase64 {
     return [Convert]::FromBase64String($urlSafe)
   }
 }
+function Export-ReleaseSigningCertificate {
+  param([Parameter(Mandatory = $true)][string]$DestinationPath)
+
+  $certificate = $null
+  $collection = $null
+  if (-not [string]::IsNullOrWhiteSpace($pfxPath)) {
+    $collection = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+    $flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet
+    $collection.Import($pfxPath, $certPassword, $flags)
+    $privateCertificates = @($collection | Where-Object { $_.HasPrivateKey })
+    if ($privateCertificates.Count -ne 1) {
+      foreach ($item in $collection) { $item.Dispose() }
+      throw "El PFX debe contener exactamente un certificado con llave privada; encontrados=$($privateCertificates.Count)."
+    }
+    $certificate = $privateCertificates[0]
+  } elseif (-not [string]::IsNullOrWhiteSpace($certThumbprint)) {
+    $normalizedThumbprint = ($certThumbprint -replace '\s', '').ToUpperInvariant()
+    $certificate = Get-ChildItem -Path 'Cert:\CurrentUser\My','Cert:\LocalMachine\My' -ErrorAction SilentlyContinue |
+      Where-Object { ([string]$_.Thumbprint -replace '\s', '').ToUpperInvariant() -eq $normalizedThumbprint } |
+      Select-Object -First 1
+    if ($null -eq $certificate) { throw 'No se encontró el certificado de firma configurado en los almacenes My.' }
+  } else {
+    throw 'No se puede validar la confianza manual sin el certificado de firma.'
+  }
+
+  try {
+    if (-not [string]::IsNullOrWhiteSpace($certThumbprint)) {
+      $configuredThumbprint = ($certThumbprint -replace '\s', '').ToUpperInvariant()
+      $actualThumbprint = ([string]$certificate.Thumbprint -replace '\s', '').ToUpperInvariant()
+      if ($actualThumbprint -ne $configuredThumbprint) { throw 'El certificado extraído no coincide con EVALUAPRO_SIGN_CERT_THUMBPRINT.' }
+    }
+    [System.IO.File]::WriteAllBytes($DestinationPath, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+  } finally {
+    if ($collection) {
+      foreach ($item in $collection) { $item.Dispose() }
+    } elseif ($certificate -is [System.Security.Cryptography.X509Certificates.X509Certificate2]) {
+      $certificate.Dispose()
+    }
+  }
+}
+
 function Resolve-InstallerArtifactPath {
   param(
     [Parameter(Mandatory = $true)]
@@ -225,7 +266,11 @@ function Assert-ReleaseArtifactTrusted {
   if (-not (Test-Path -LiteralPath $trustHelper -PathType Leaf)) {
     throw "Falta el helper de confianza manual: $trustHelper"
   }
-  & $trustHelper -TargetPath $TargetPath -OutputDir $InstallerDir
+  if ([string]::IsNullOrWhiteSpace($releaseCertificatePath)) {
+    throw 'Falta el certificado público extraído para validar la confianza del artefacto.'
+  }
+  Write-Host "[signing] Validando confianza manual de $TargetPath"
+  & $trustHelper -TargetPath $TargetPath -CertificatePath $releaseCertificatePath -OutputDir $InstallerDir
 }
 
 function Test-IsBurnBundle {
@@ -287,10 +332,15 @@ if (-not $signtool) {
 $wixtool = Find-WixTool
 
 $pfxPath = ''
+$releaseCertificatePath = ''
 try {
   if (-not [string]::IsNullOrWhiteSpace($certBase64)) {
     $pfxPath = Join-Path $env:TEMP ('evaluapro-sign-' + [Guid]::NewGuid().ToString('N') + '.pfx')
     [IO.File]::WriteAllBytes($pfxPath, (ConvertFrom-PossiblyWrappedBase64 -RawValue $certBase64))
+  }
+  if (-not [string]::IsNullOrWhiteSpace($releaseFlavorId)) {
+    $releaseCertificatePath = Join-Path $env:TEMP ('evaluapro-release-signer-' + [Guid]::NewGuid().ToString('N') + '.cer')
+    Export-ReleaseSigningCertificate -DestinationPath $releaseCertificatePath
   }
   $versionTag = Resolve-VersionTag -RootPath $root
 
@@ -364,6 +414,9 @@ try {
 
   Write-Host '[signing] Firma Authenticode completada; no se usó TSA externo.'
 } finally {
+  if (-not [string]::IsNullOrWhiteSpace($releaseCertificatePath) -and (Test-Path -LiteralPath $releaseCertificatePath)) {
+    Remove-Item -LiteralPath $releaseCertificatePath -Force -ErrorAction SilentlyContinue
+  }
   if (-not [string]::IsNullOrWhiteSpace($pfxPath) -and (Test-Path $pfxPath)) {
     Remove-Item -LiteralPath $pfxPath -Force -ErrorAction SilentlyContinue
   }
