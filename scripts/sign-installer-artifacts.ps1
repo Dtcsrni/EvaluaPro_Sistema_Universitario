@@ -166,8 +166,11 @@ function Export-ReleaseSigningCertificate {
     }
     [System.IO.File]::WriteAllBytes($DestinationPath, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
   } finally {
-    if ($certificate -is [System.Security.Cryptography.X509Certificates.X509Certificate2]) { $certificate.Dispose() }
-    if ($collection) { foreach ($item in $collection) { $item.Dispose() } }
+    if ($collection) {
+      foreach ($item in $collection) { $item.Dispose() }
+    } elseif ($certificate -is [System.Security.Cryptography.X509Certificates.X509Certificate2]) {
+      $certificate.Dispose()
+    }
   }
 }
 
@@ -329,12 +332,12 @@ if (-not $signtool) {
 $wixtool = Find-WixTool
 
 $pfxPath = ''
+$releaseCertificatePath = ''
 try {
   if (-not [string]::IsNullOrWhiteSpace($certBase64)) {
     $pfxPath = Join-Path $env:TEMP ('evaluapro-sign-' + [Guid]::NewGuid().ToString('N') + '.pfx')
     [IO.File]::WriteAllBytes($pfxPath, (ConvertFrom-PossiblyWrappedBase64 -RawValue $certBase64))
   }
-  $releaseCertificatePath = ''
   if (-not [string]::IsNullOrWhiteSpace($releaseFlavorId)) {
     $releaseCertificatePath = Join-Path $env:TEMP ('evaluapro-release-signer-' + [Guid]::NewGuid().ToString('N') + '.cer')
     Export-ReleaseSigningCertificate -DestinationPath $releaseCertificatePath
