@@ -3124,8 +3124,14 @@ test('firma de release valida la confianza manual del certificado solo en el run
   assert.match(script, /function Assert-ReleaseArtifactTrusted/);
   assert.match(script, /trust-release-signing-certificate\.ps1/);
   assert.match(script, /Assert-ReleaseArtifactTrusted\s+-TargetPath\s+\$target/);
-  assert.match(helper, /Get-AuthenticodeSignature\s+-FilePath\s+\$TargetPath\s+-ErrorAction Stop/);
-  assert.match(helper, /\$signature\.Status\s+-ne\s+'Valid'/);
+  assert.match(script, /-CertificatePath \$releaseCertificatePath/);
+  assert.match(script, /X509KeyStorageFlags\]::EphemeralKeySet/);
+  assert.match(helper, /function Invoke-AuthenticodeSignatureBounded/);
+  assert.match(helper, /WaitForExit\(\$TimeoutSeconds \* 1000\)/);
+  assert.match(helper, /Timeout de \$TimeoutSeconds s al inspeccionar/);
+  assert.match(helper, /Get-AuthenticodeSignature -FilePath \$targetPath -ErrorAction Stop/);
+  assert.match(helper, /Write-Host '\[trust\] Verificación Authenticode posterior a confianza/);
+  assert.match(helper, /\[string\]\$signature\.Status -ne 'Valid'/);
   assert.match(helper, /StoreName\]::Root[\s\S]{0,180}StoreLocation\]::CurrentUser/);
   assert.match(helper, /GITHUB_ACTIONS/);
   assert.match(helper, /EVALUAPRO_TEMP_TRUST_THUMBPRINT/);
