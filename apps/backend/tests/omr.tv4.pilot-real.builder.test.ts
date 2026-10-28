@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { normalizarClavePilotoReal } from '../src/modulos/modulo_escaneo_omr/clavePilotoReal.js';
 import { buildTemplateImportManifest } from '../scripts/omr-tv4-build-pilot-real.js';
@@ -13,6 +14,17 @@ describe('plantilla del piloto real TV4', () => {
     });
     expect(template).not.toHaveProperty('answerKey');
     expect(template).not.toHaveProperty('answerKeyByFolio');
+  });
+
+  it('mantiene vacía la plantilla versionada para no presentar predicciones como verdad terreno', async () => {
+    const checkedInTemplate = JSON.parse(await readFile(
+      new URL('../../../omr_samples_tv4_pilot_real/source/pilot_import.template.json', import.meta.url),
+      'utf8'
+    ));
+
+    expect(checkedInTemplate).toEqual(buildTemplateImportManifest());
+    expect(checkedInTemplate.captures).toEqual([]);
+    expect(checkedInTemplate).not.toHaveProperty('answerKey');
   });
 });
 
