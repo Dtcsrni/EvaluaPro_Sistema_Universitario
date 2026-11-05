@@ -61,7 +61,7 @@ exports[`UX visual regression > admin negocio mantiene layout principal 1`] = `
       <div
         class="badge"
       >
-        Vista activa: Dashboard
+        Vista activa: Resumen
       </div>
     </div>
     <div
