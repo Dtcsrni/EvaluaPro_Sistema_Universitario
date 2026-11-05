@@ -4,14 +4,19 @@
  * Responsabilidad: Guía interactiva Bento Step Cards para el pase de lista y control de asistencias.
  */
 import { useState } from 'react';
+import { BookOpenText, CircleCheck, CircleX, ClipboardCheck, Clock3, FileCheck2, Lightbulb, ShieldCheck, IconoLucide } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 
 export function GuiaAsistenciasVisual() {
   const [visible, setVisible] = useState(() => {
+    const viewportMovil = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)').matches === true;
     try {
-      return localStorage.getItem('ep.guia.asistencias.oculta') !== 'true';
+      const preferencia = localStorage.getItem('ep.guia.asistencias.oculta');
+      if (preferencia === 'true') return false;
+      if (preferencia === 'false') return true;
+      return !viewportMovil;
     } catch {
-      return true;
+      return !viewportMovil;
     }
   });
 
@@ -27,51 +32,40 @@ export function GuiaAsistenciasVisual() {
     });
   }
 
-  if (!visible) {
-    return (
-      <div className="guia-asistencias-compact anim-fade-in" aria-label="Ayuda rápida de asistencias">
+  return (
+    <>
+      <div className="guia-plegable-control">
         <Boton
+          id="toggle-guia-asistencias"
           variante="secundario"
           type="button"
           onClick={toggleGuia}
-          data-tooltip="Ver explicación visual de los 3 pasos para el control de asistencia"
+          aria-expanded={visible}
+          aria-controls="guia-asistencias-panel"
+          icono={<IconoLucide icon={Lightbulb} size={16} />}
         >
-          💡 Ver guía rápida de pase de lista
+          {visible ? 'Ocultar guía rápida de asistencias' : 'Ver guía rápida de asistencias'}
         </Boton>
       </div>
-    );
-  }
 
-  return (
+    <div id="guia-asistencias-panel" hidden={!visible}>
     <div className="guia-materia-card anim-fade-in" role="region" aria-label="Ayuda: Control de asistencias y pase de lista">
       <div className="guia-materia-header">
         <div className="guia-materia-badge">
           <span className="guia-pulse-dot" aria-hidden="true" />
           <span>GUÍA RÁPIDA · Pase de Lista y Control de Asistencias</span>
         </div>
-        <button
-          type="button"
-          className="guia-materia-close-btn"
-          onClick={toggleGuia}
-          title="Ocultar guía"
-          aria-label="Ocultar guía rápida"
-        >
-          ✕ Ocultar guía
-        </button>
       </div>
 
       <div className="guia-materia-grid">
         {/* Paso 1: Seleccionar Materia y Grupo */}
         <div className="guia-step-card guia-step-card--blue anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M6 6h10M6 10h10" />
-            </svg>
+            <IconoLucide icon={BookOpenText} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 01</span>
-            <h4>Selecciona Materia y Grupo</h4>
+            <h4>Selecciona materia y grupo</h4>
             <p>Elige el curso lectivo y el grupo para cargar la lista oficial de estudiantes inscritos.</p>
             <div className="guia-step-examples">
               <span className="guia-chip-sample">Cálculo Integral</span>
@@ -80,22 +74,20 @@ export function GuiaAsistenciasVisual() {
           </div>
         </div>
 
-        {/* Paso 2: Fast-Check 1-Click */}
+        {/* Paso 2: Registro de estados */}
         <div className="guia-step-card guia-step-card--emerald anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
+            <IconoLucide icon={ClipboardCheck} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 02</span>
-            <h4>Fast-Check con 1 Clic</h4>
-            <p>Cicla el estado de cada estudiante con un clic o presiona <strong>Todos Presentes</strong> para acelerar.</p>
+            <h4>Marca la asistencia</h4>
+            <p>Elige uno de los cuatro estados en cada fila. <strong>Todos presentes</strong> marca a toda la lista como presente; revisa después ausencias, retardos y justificantes.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample guia-chip-sample--date">🟢 Presente</span>
-              <span className="guia-chip-sample">🔴 Falta</span>
-              <span className="guia-chip-sample">🟡 Retardo</span>
+              <span className="guia-chip-sample guia-chip-sample--date"><IconoLucide icon={CircleCheck} size={14} /> Presente</span>
+              <span className="guia-chip-sample"><IconoLucide icon={CircleX} size={14} /> Falta</span>
+              <span className="guia-chip-sample"><IconoLucide icon={Clock3} size={14} /> Retardo</span>
+              <span className="guia-chip-sample"><IconoLucide icon={FileCheck2} size={14} /> Justificado</span>
             </div>
           </div>
         </div>
@@ -103,21 +95,21 @@ export function GuiaAsistenciasVisual() {
         {/* Paso 3: Semáforo y Derecho a Examen */}
         <div className="guia-step-card guia-step-card--purple anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
+            <IconoLucide icon={ShieldCheck} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 03</span>
-            <h4>Semáforo y Derecho a Examen</h4>
-            <p>El sistema calcula el porcentaje de asistencia en tiempo real y alerta alumnos sin derecho.</p>
+            <h4>Revisa el derecho a examen</h4>
+            <p>Consulta el porcentaje de asistencia y el estado de derecho a examen calculados para cada alumno.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">✅ Con Derecho</span>
-              <span className="guia-chip-sample">🚫 Sin Derecho</span>
+              <span className="guia-chip-sample"><IconoLucide icon={CircleCheck} size={14} /> Sin bloqueo</span>
+              <span className="guia-chip-sample"><IconoLucide icon={CircleX} size={14} /> Examen bloqueado</span>
             </div>
           </div>
         </div>
       </div>
     </div>
+    </div>
+    </>
   );
 }

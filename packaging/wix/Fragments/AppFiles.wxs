@@ -5,7 +5,7 @@
       <?if $(var.FlavorId) = docente-local ?>
       <!-- Bootstrap explícito + payload único. No cosechar el repositorio. -->
       <Component Id="CMP.AppPayloadArchive" Guid="*">
-        <File Id="F.AppPayloadArchive" Source="$(var.PayloadArchive)" Name="evaluapro-native-dist.zip" KeyPath="yes" />
+        <File Id="F.AppPayloadArchive" Source="$(var.PayloadArchive)" Name="$(var.PayloadArchiveFileName)" KeyPath="yes" />
       </Component>
       <Component Id="CMP.RootPackageJson" Guid="*">
         <File Id="F.RootPackageJson" Source="$(var.SourceRoot)/package.json" KeyPath="yes" />

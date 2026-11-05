@@ -74,9 +74,11 @@ describe('AppAdminNegocio navigation', () => {
 
     expect(await screen.findByText(/Panel de Negocio EvaluaPro/i)).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: /Vistas del panel de negocio/i });
-    expect(screen.getByText(/Control Maestro Superadmin/i)).toBeInTheDocument();
+    expect(screen.getByText(/Resumen comercial/i)).toBeInTheDocument();
+    expect(screen.getByText('Suscripciones activas')).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: /Resumen\s*Vista ejecutiva/i })).toHaveAttribute('aria-current', 'page');
     expect(within(nav).getByText(/Vista ejecutiva/i)).toBeInTheDocument();
-    expect(within(nav).getByText(/Pricing/i)).toBeInTheDocument();
+    expect(within(nav).getByText(/Precios/i)).toBeInTheDocument();
     expect(within(nav).getByText(/Recuperación/i)).toBeInTheDocument();
     expect(within(nav).getByText(/Evidencia/i)).toBeInTheDocument();
     await user.click(within(nav).getByRole('button', { name: /Tenants\s*Operación base/i }));
@@ -84,6 +86,11 @@ describe('AppAdminNegocio navigation', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Recargar\s*Sincroniza esta vista/i })).toBeInTheDocument();
     });
+    expect(within(nav).getByRole('button', { name: /Tenants\s*Operación base/i })).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByText('Suscripciones activas')).not.toBeInTheDocument();
+    const detalleTecnico = screen.getByText('Datos de respuesta (JSON)');
+    await user.click(detalleTecnico);
+    expect(document.querySelector('.admin-negocio__payload-json')).toHaveTextContent('"tenants": []');
 
     const llamadasTenantsAntes = vi
       .mocked(global.fetch)
@@ -98,4 +105,26 @@ describe('AppAdminNegocio navigation', () => {
       expect(llamadasTenantsDespues).toBeGreaterThan(llamadasTenantsAntes);
     });
   });
+
+  it('muestra los KPI ausentes como no disponibles en vez de convertirlos en cero', async () => {
+    vi.mocked(global.fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes('/autenticacion/perfil')) {
+        return respuestaJson({ docente: { nombreCompleto: 'Comercial Test', correo: 'comercial@test.dev', permisos: ['comercial:metricas:leer'] } });
+      }
+      if (url.includes('/autenticacion/capacidades-integraciones')) return respuestaJson({ capacidadesIntegraciones: {} });
+      if (url.includes('/admin-negocio/dashboard/resumen')) return respuestaJson({ resumen: {} });
+      return respuestaJson({});
+    });
+
+    render(
+      <TemaProvider>
+        <AppAdminNegocio />
+      </TemaProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Resumen comercial' })).toBeInTheDocument();
+    expect(await screen.findAllByText('—')).toHaveLength(8);
+  });
+
 });

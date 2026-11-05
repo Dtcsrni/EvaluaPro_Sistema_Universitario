@@ -10,11 +10,12 @@ import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
+import { DatabaseBackup, IconoLucide } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { limpiarTokenDocente } from '../../servicios_api/clienteApi';
 import { registrarAccionDocente } from './telemetriaDocente';
-import { esMensajeError, mensajeDeError } from './utilidades';
+import { mensajeDeError } from './utilidades';
 
 export type MetodoInstantaneaLocal = 'contrasena' | 'google';
 
@@ -55,6 +56,7 @@ export function SeccionInstantaneaLocal({
   const [exportando, setExportando] = useState(false);
   const [importando, setImportando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [mensajeEsError, setMensajeEsError] = useState(false);
   const [ultimoArchivo, setUltimoArchivo] = useState('');
   const [ultimoChecksum, setUltimoChecksum] = useState('');
   const [ultimoResumen, setUltimoResumen] = useState<ConteosInstantanea | null>(null);
@@ -81,11 +83,13 @@ export function SeccionInstantaneaLocal({
     const credencialActual = metodo === 'google' ? credencialGoogle : credencial;
     if (!credencialActual) {
       setMensaje(metodo === 'google' ? 'Reautentica la cuenta Google para proteger el archivo.' : 'Escribe la contraseña actual de tu cuenta docente.');
+      setMensajeEsError(true);
       return;
     }
     const inicio = Date.now();
     setExportando(true);
     setMensaje('');
+    setMensajeEsError(false);
     try {
       const resultado = await onExportar({ metodo, ...(credencialActual ? { credencial: credencialActual } : {}) });
       descargar(resultado.archivo, resultado.nombreArchivo);
@@ -93,12 +97,16 @@ export function SeccionInstantaneaLocal({
       setUltimoChecksum(resultado.checksumSha256);
       setUltimoResumen(resultado.conteos);
       setMensaje(`Instantánea exportada (${formatearBytes(resultado.conteos.baseDatosBytes)} de SQLite y ${resultado.conteos.archivos} archivos).`);
-      emitToast({ level: 'ok', title: 'Sincronización local', message: 'Archivo .ep-snapshot descargado', durationMs: 2800 });
+      setMensajeEsError(false);
       registrarAccionDocente('sync_instantanea_local_exportar', true, Date.now() - inicio);
     } catch (error) {
       const texto = mensajeDeError(error, 'No se pudo exportar la instantánea');
       setMensaje(texto);
-      emitToast({ level: 'error', title: 'No se pudo exportar', message: texto, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      setMensajeEsError(true);
+      const accionSesion = accionToastSesionParaError(error, 'docente');
+      if (accionSesion) {
+        emitToast({ level: 'error', title: 'Renueva tu sesión', message: 'La sesión debe renovarse para continuar.', durationMs: 5200, action: accionSesion });
+      }
       registrarAccionDocente('sync_instantanea_local_exportar', false);
     } finally {
       setCredencial('');
@@ -113,13 +121,16 @@ export function SeccionInstantaneaLocal({
     if (!archivo) return;
     const credencialActual = metodo === 'google' ? credencialGoogle : credencial;
     if (!credencialActual) {
-      setMensaje(metodo === 'google' ? 'Reautentica la cuenta Google antes de importar.' : 'Escribe la contraseña actual de tu cuenta docente antes de importar.');
+      setMensaje(metodo === 'google'
+        ? 'Reautentica la cuenta Google y vuelve a seleccionar el archivo para importar.'
+        : 'Escribe la contraseña actual de tu cuenta docente y vuelve a seleccionar el archivo para importar.');
+      setMensajeEsError(true);
       return;
     }
     const inicio = Date.now();
     setImportando(true);
     setMensaje('');
-    setUltimoArchivo(archivo.name);
+    setMensajeEsError(false);
     try {
       const bytes = await archivo.arrayBuffer();
       const validar = await onImportar({ cuerpo: construirSolicitud(bytes, metodo, credencialActual, true) });
@@ -128,20 +139,25 @@ export function SeccionInstantaneaLocal({
       const aceptado = await confirmar({
         title: 'Reemplazar datos locales',
         message: 'La importación reemplazará la base SQLite y los archivos generados de esta computadora.',
-        details: [detalle, 'Se creará un respaldo automático antes del reemplazo.', 'Después deberás iniciar sesión nuevamente.'],
+        details: [`Archivo seleccionado: ${archivo.name}`, detalle, 'Se creará un respaldo automático antes del reemplazo.', 'Después deberás iniciar sesión nuevamente.'],
         confirmLabel: 'Sí, reemplazar e importar',
         tone: 'warning'
       });
       if (!aceptado) {
         setMensaje('Importación cancelada. No se modificaron datos.');
+        setMensajeEsError(false);
         registrarAccionDocente('sync_instantanea_local_importar_cancelado', true, Date.now() - inicio);
         return;
       }
       const resultado = await onImportar({ cuerpo: construirSolicitud(bytes, metodo, credencialActual, false) });
+      setUltimoArchivo(archivo.name);
       setUltimoChecksum(resultado.checksumSha256 || '');
       setUltimoResumen(resultado.conteos || conteos || null);
-      setMensaje(resultado.mensaje || 'Instantánea importada 1:1.');
-      emitToast({ level: 'ok', title: 'Sincronización local', message: 'Datos importados; inicia sesión nuevamente', durationMs: 3200 });
+      setMensaje([
+        resultado.mensaje || 'Instantánea importada 1:1.',
+        ...(resultado.requiereReinicioSesion ? ['La sesión se reiniciará para cargar los datos importados.'] : [])
+      ].join(' '));
+      setMensajeEsError(false);
       registrarAccionDocente('sync_instantanea_local_importar', true, Date.now() - inicio);
       if (resultado.requiereReinicioSesion) {
         limpiarTokenDocente();
@@ -150,7 +166,11 @@ export function SeccionInstantaneaLocal({
     } catch (error) {
       const texto = mensajeDeError(error, 'No se pudo importar la instantánea');
       setMensaje(texto);
-      emitToast({ level: 'error', title: 'No se pudo importar', message: texto, durationMs: 5600, action: accionToastSesionParaError(error, 'docente') });
+      setMensajeEsError(true);
+      const accionSesion = accionToastSesionParaError(error, 'docente');
+      if (accionSesion) {
+        emitToast({ level: 'error', title: 'Renueva tu sesión', message: 'La sesión debe renovarse para continuar.', durationMs: 5600, action: accionSesion });
+      }
       registrarAccionDocente('sync_instantanea_local_importar', false);
     } finally {
       setCredencial('');
@@ -161,17 +181,19 @@ export function SeccionInstantaneaLocal({
 
   return (
     <div className="panel paquete-sincronizacion-panel">
-      <h2><Icono nombre="recargar" /> Sincronización local 1:1</h2>
-      <p className="nota">Mueve todos los datos docentes de esta instalación mediante un único archivo cifrado. OneDrive, USB o cualquier carpeta solo transportan el archivo; no se sincroniza la SQLite en vivo.</p>
+      <h2 id="sync-respaldo-heading" tabIndex={-1}><IconoLucide icon={DatabaseBackup} /> Respaldo completo del equipo</h2>
+      <p className="nota">
+        Crea un archivo cifrado (.ep-snapshot) con la base de datos y los archivos de esta instalación. Importarlo reemplaza los datos de este equipo después de validar el contenido y pedir confirmación. OneDrive y USB solo transportan el archivo; no sincronizan la base en vivo.
+      </p>
 
-      {!hayMetodoDisponible && <InlineMensaje tipo="warning">No hay un método de desbloqueo configurado para esta instalación. Un administrador debe configurar Google OAuth y el secreto compartido de snapshots, o habilitar el acceso mediante contraseña.</InlineMensaje>}
+      {!hayMetodoDisponible && <InlineMensaje tipo="warning">No puedes exportar ni importar respaldos completos todavía: falta configurar cómo se protege el archivo. Pide al administrador local que habilite el acceso con contraseña o configure Google OAuth y la clave compartida de respaldos.</InlineMensaje>}
 
       {hayMetodoDisponible && <>
       <div className="grid">
         <label className="campo">
           Protección del archivo
           <select value={metodo} onChange={(event) => setMetodo(event.target.value as MetodoInstantaneaLocal)}>
-            {puedeUsarContrasena && <option value="contrasena">Contraseña de la cuenta docente</option>}
+            {puedeUsarContrasena && <option value="contrasena">Contraseña de cuenta</option>}
             {puedeUsarGoogle && <option value="google">Cuenta Google vinculada</option>}
           </select>
         </label>
@@ -188,7 +210,10 @@ export function SeccionInstantaneaLocal({
           <span>Reautenticación para desbloqueo</span>
           <GoogleLogin
             onSuccess={(respuesta) => setCredencialGoogle(respuesta.credential || '')}
-            onError={() => setMensaje('No se pudo validar la cuenta Google. Revisa la conexión e inténtalo nuevamente.')}
+            onError={() => {
+              setMensaje('No se pudo validar la cuenta Google. Revisa la conexión e inténtalo nuevamente.');
+              setMensajeEsError(true);
+            }}
             useOneTap={false}
             theme="filled_blue"
             size="medium"
@@ -200,16 +225,16 @@ export function SeccionInstantaneaLocal({
 
       <div className="acciones">
         <Boton type="button" icono={<Icono nombre="publicar" />} cargando={exportando} onClick={exportar}>
-          {exportando ? 'Preparando...' : 'Exportar archivo cifrado'}
+          {exportando ? 'Preparando respaldo...' : 'Exportar respaldo completo'}
         </Boton>
         <label className={importando ? 'boton boton--secundario boton--disabled' : 'boton boton--secundario'}>
-          <Icono nombre="entrar" /> {importando ? 'Validando...' : 'Importar archivo 1:1'}
+          <Icono nombre="entrar" /> {importando ? 'Validando respaldo...' : 'Importar respaldo completo (.ep-snapshot)'}
           <input type="file" accept=".ep-snapshot,application/octet-stream" onChange={importar} disabled={importando} className="input-file-oculto" />
         </label>
       </div>
 
-      {ultimoResumen && <InlineMensaje tipo="info">Último archivo: {ultimoArchivo || '-'} · SQLite {formatearBytes(ultimoResumen.baseDatosBytes)} · {ultimoResumen.archivos} archivos · checksum {ultimoChecksum ? `${ultimoChecksum.slice(0, 12)}…` : '-'}</InlineMensaje>}
-      {mensaje && <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">{mensaje}</p>}
+      {ultimoResumen && <InlineMensaje tipo="info">Último archivo completado: {ultimoArchivo || '-'} · SQLite {formatearBytes(ultimoResumen.baseDatosBytes)} · {ultimoResumen.archivos} archivos · checksum {ultimoChecksum ? `${ultimoChecksum.slice(0, 12)}…` : '-'}</InlineMensaje>}
+      {mensaje && <p className={mensajeEsError ? 'mensaje error' : 'mensaje ok'} role={mensajeEsError ? 'alert' : 'status'}>{mensaje}</p>}
       </>}
     </div>
   );

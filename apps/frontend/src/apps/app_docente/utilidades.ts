@@ -61,7 +61,7 @@ const VISTAS_VALIDAS = new Set([
   'cuenta'
 ]);
 
-export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\-_.()#&/]*$/u;
+export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\p{Pd}_.()#&/]*$/u;
 
 /** Iniciales consistentes con las que se imprimen en los exámenes masivos. */
 export function obtenerInicialesAlumno(nombreCompleto?: string): string {
@@ -78,6 +78,13 @@ export function obtenerInicialesAlumno(nombreCompleto?: string): string {
     .toUpperCase();
   if (iniciales.length <= 6) return iniciales;
   return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
+}
+
+/** Iniciales compactas para el avatar de una tarjeta de alumno. */
+export function obtenerInicialesAvatarAlumno(nombreCompleto?: string): string {
+  const iniciales = obtenerInicialesAlumno(nombreCompleto);
+  if (iniciales.length <= 2) return iniciales;
+  return `${iniciales[0]}${iniciales[iniciales.length - 1]}`;
 }
 
 export function obtenerVistaInicial(): string {
@@ -413,7 +420,7 @@ export function etiquetarAlumnosParaSelectorManual(
     const etiquetaBase = `${alumno.matricula} - ${alumno.nombreCompleto}`;
     if ((frecuencias.get(clave(alumno)) ?? 0) < 2) return { alumno, etiqueta: etiquetaBase };
     const periodo = periodos.find((item) => item._id === alumno.periodoId);
-    const contexto = [periodo ? etiquetaMateria(periodo) : '', alumno.grupo ? `Grupo ${alumno.grupo}` : ''].filter(Boolean).join(' · ');
+    const contexto = [periodo ? etiquetaMateriaParaSelector(periodo) : '', alumno.grupo ? `Grupo ${alumno.grupo}` : ''].filter(Boolean).join(' · ');
     return { alumno, etiqueta: `${etiquetaBase} · ${contexto || 'Materia o grupo sin identificar'}` };
   });
 }

@@ -5,14 +5,29 @@
  */
 import { useState } from 'react';
 import { Boton } from '../../ui/ux/componentes/Boton';
+import {
+  ChartNoAxesColumnIncreasing,
+  Keyboard,
+  Lightbulb,
+  ScanLine,
+  X,
+  IconoLucide
+} from '../../ui/iconosCatalogo';
 
 export function GuiaCalificacionesVisual() {
   const [visible, setVisible] = useState(() => {
+    let preferencia: string | null = null;
     try {
-      return localStorage.getItem('ep.guia.calificaciones.oculta') !== 'true';
+      preferencia = localStorage.getItem('ep.guia.calificaciones.oculta');
     } catch {
-      return true;
+      // Si el navegador bloquea el almacenamiento, se decide con el viewport.
     }
+
+    if (preferencia === 'true') return false;
+    if (preferencia === 'false') return true;
+    return !(typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 700px)').matches);
   });
 
   function toggleGuia() {
@@ -27,99 +42,81 @@ export function GuiaCalificacionesVisual() {
     });
   }
 
-  if (!visible) {
-    return (
-      <div className="guia-temarios-compact anim-fade-in" aria-label="Ayuda rápida de calificaciones">
+  return (
+    <div
+      className={`${visible ? 'guia-materia-card' : 'guia-temarios-compact'} anim-fade-in`}
+      role={visible ? 'region' : undefined}
+      aria-label={visible ? 'Ayuda: Captura, revisión y calificación' : undefined}
+    >
+      <div className="guia-materia-header">
+        <div className="guia-materia-badge" hidden={!visible}>
+          <span className="guia-pulse-dot" aria-hidden="true" />
+          <span>GUÍA RÁPIDA · Captura y revisión de calificaciones</span>
+        </div>
         <Boton
           variante="secundario"
           type="button"
+          className={visible ? 'guia-materia-close-btn' : undefined}
           onClick={toggleGuia}
-          data-tooltip="Ver explicación visual de los 3 pasos para calificación OMR"
+          title={visible ? 'Ocultar guía' : undefined}
+          aria-label={visible ? 'Ocultar guía rápida' : 'Ver guía rápida de calificaciones'}
+          aria-expanded={visible}
+          data-tooltip={visible ? undefined : 'Ver explicación visual de los 3 pasos para calificación OMR'}
+          icono={<IconoLucide icon={visible ? X : Lightbulb} size={16} />}
         >
-          💡 Ver guía rápida de calificación OMR y actas
+          {visible ? 'Ocultar guía' : 'Ver guía rápida de calificaciones'}
         </Boton>
       </div>
-    );
-  }
 
-  return (
-    <div className="guia-materia-card anim-fade-in" role="region" aria-label="Ayuda: Calificación y escrutinio OMR">
-      <div className="guia-materia-header">
-        <div className="guia-materia-badge">
-          <span className="guia-pulse-dot" aria-hidden="true" />
-          <span>GUÍA RÁPIDA · Mesa de Calificación y Escrutinio OMR</span>
-        </div>
-        <button
-          type="button"
-          className="guia-materia-close-btn"
-          onClick={toggleGuia}
-          title="Ocultar guía"
-          aria-label="Ocultar guía rápida"
-        >
-          ✕ Ocultar guía
-        </button>
-      </div>
-
-      <div className="guia-materia-grid">
-        {/* Paso 01: Lectura Óptica OMR */}
+      {visible && <div className="guia-materia-grid">
+        {/* Paso 01: Lectura de exámenes */}
         <div className="guia-step-card guia-step-card--purple anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M4 7V4h3" />
-              <path d="M20 7V4h-3" />
-              <path d="M4 17v3h3" />
-              <path d="M20 17v3h-3" />
-              <line x1="9" y1="12" x2="15" y2="12" />
-            </svg>
+            <IconoLucide icon={ScanLine} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 01</span>
-            <h4>Lectura Óptica OMR</h4>
-            <p>Procesa fotos o escaneos individuales o en lote con alineación milimétrica por esquinas.</p>
+            <h4>Leer exámenes</h4>
+            <p>Carga imágenes de exámenes individuales o en lote y revisa la lectura detectada.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">Visión Artificial</span>
-              <span className="guia-chip-sample">Confianza &gt; 98%</span>
+              <span className="guia-chip-sample">Captura individual o lote</span>
+              <span className="guia-chip-sample">Lectura de marcas OMR</span>
             </div>
           </div>
         </div>
 
-        {/* Paso 02: Resolución Rápida */}
+        {/* Paso 02: Revisión de respuestas */}
         <div className="guia-step-card guia-step-card--blue anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
+            <IconoLucide icon={Keyboard} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 02</span>
-            <h4>Resolución Rápida</h4>
-            <p>Atiende marcas dudosas o dobles con atajos ultra rápidos (A–E o 0 para anular).</p>
+            <h4>Revisar respuestas dudosas</h4>
+            <p>Corrige cada respuesta detectada: usa A–E para asignar una opción y 0, Supr o Retroceso para dejarla sin respuesta.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">Atajos de Teclado</span>
-              <span className="guia-chip-sample">Resolución Instantánea</span>
+              <span className="guia-chip-sample">A–E asigna respuesta</span>
+              <span className="guia-chip-sample">0 borra respuesta</span>
             </div>
           </div>
         </div>
 
-        {/* Paso 03: Cálculo y Publicación */}
+        {/* Paso 03: Calificación y exportación */}
         <div className="guia-step-card guia-step-card--emerald anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
+            <IconoLucide icon={ChartNoAxesColumnIncreasing} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 03</span>
-            <h4>Cálculo y Publicación</h4>
-            <p>Aplica bonos, calcula notas sobre escala oficial y exporta actas en CSV y XLSX.</p>
+            <h4>Calificar y exportar resultados</h4>
+            <p>Consulta las calificaciones calculadas y descarga los resultados en CSV o XLSX.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">Escala 0–10</span>
-              <span className="guia-chip-sample">Acta Oficial</span>
+              <span className="guia-chip-sample">CSV</span>
+              <span className="guia-chip-sample">XLSX</span>
             </div>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

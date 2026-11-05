@@ -244,7 +244,8 @@ export type OmrJobDetalle = {
   pages: Array<{
     sheetSerial: string;
     pageIndex: number;
-    scanStatus: 'accepted' | 'needs_review' | 'rejected';
+    pageType?: 'examen' | 'reverso-vacio';
+    scanStatus: 'accepted' | 'needs_review' | 'rejected' | 'ignored';
     confidence: number;
     autoGradable?: boolean;
     manualReviewRequired?: boolean;

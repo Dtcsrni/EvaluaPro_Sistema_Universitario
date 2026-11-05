@@ -4,7 +4,7 @@
  * Cubre el selector de shell principal por destino y el wrapping opcional
  * de Google OAuth para evitar regresiones de cobertura difusa en App.tsx.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -28,7 +28,12 @@ vi.mock('../src/apps/app_admin_negocio/AppAdminNegocio', () => ({
 }));
 
 vi.mock('../src/apps/app_docente/AppDocente', () => ({
-  AppDocente: ({ googleClientId }: { googleClientId?: string }) => <div data-testid="app-docente-mock" data-google-client-id={googleClientId}>App Docente Mock</div>
+  AppDocente: ({ googleClientId, onReintentarGoogle }: { googleClientId?: string; onReintentarGoogle?: () => Promise<boolean> }) => (
+    <div data-testid="app-docente-mock" data-google-client-id={googleClientId}>
+      <button type="button" onClick={() => void onReintentarGoogle?.()}>mock-reintentar-google</button>
+      App Docente Mock
+    </div>
+  )
 }));
 
 vi.mock('../src/ui/version/VersionInfoPage', () => ({
@@ -100,6 +105,32 @@ describe('App selector', () => {
       cache: 'no-store',
       credentials: 'include'
     }));
+  });
+
+  it('recupera el acceso con Google si falla la consulta inicial y el backend vuelve', async () => {
+    vi.stubEnv('VITE_APP_DESTINO', 'docente');
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '');
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ capacidadesIntegraciones: { googleOauthClientId: 'runtime-google-client-id' } })
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByText('App Docente Mock')).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(screen.getByTestId('google-provider')).toHaveAttribute('data-client-id', '');
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-reintentar-google' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('google-provider')).toHaveAttribute('data-client-id', 'runtime-google-client-id');
+      expect(screen.getByTestId('app-docente-mock')).toHaveAttribute('data-google-client-id', 'runtime-google-client-id');
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('muestra version info sin tooltip cuando la ruta hash apunta a esa vista', async () => {

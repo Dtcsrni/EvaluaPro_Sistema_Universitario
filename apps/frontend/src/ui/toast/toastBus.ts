@@ -8,12 +8,12 @@ export type ToastLevel = 'info' | 'ok' | 'warn' | 'error';
 
 export type ToastAction = {
   label: string;
-  onClick?: () => void;
+  onClick?: () => void | Promise<unknown>;
 };
 
 export type ToastSecondaryAction = {
   label: string;
-  onClick?: () => void;
+  onClick?: () => void | Promise<unknown>;
 };
 
 export type ToastPayload = {
@@ -25,6 +25,8 @@ export type ToastPayload = {
   action?: ToastAction;
   secondaryAction?: ToastSecondaryAction;
   eyebrow?: string;
+  /** Mantiene el aviso hasta que la persona lo cierre o use una acción. */
+  persistent?: boolean;
 };
 
 const EVENT_NAME = 'app:toast';

@@ -5,6 +5,7 @@
  */
 import { useState } from 'react';
 import { Boton } from '../../ui/ux/componentes/Boton';
+import { BookOpenText, ClipboardCheck, FileText, Lightbulb, X, IconoLucide } from '../../ui/iconosCatalogo';
 
 export function GuiaPlantillasVisual() {
   const [visible, setVisible] = useState(() => {
@@ -36,7 +37,7 @@ export function GuiaPlantillasVisual() {
           onClick={toggleGuia}
           data-tooltip="Ver explicación visual de los 3 pasos para maquetar y generar exámenes"
         >
-          💡 Ver guía rápida de diseño de plantillas
+          <IconoLucide icon={Lightbulb} size={16} /> Ver guía rápida de diseño de plantillas
         </Boton>
       </div>
     );
@@ -56,7 +57,7 @@ export function GuiaPlantillasVisual() {
           title="Ocultar guía"
           aria-label="Ocultar guía rápida"
         >
-          ✕ Ocultar guía
+          <IconoLucide icon={X} size={16} aria-hidden="true" /> Ocultar guía
         </button>
       </div>
 
@@ -64,12 +65,7 @@ export function GuiaPlantillasVisual() {
         {/* Paso 01: Estructura & Asignatura */}
         <div className="guia-step-card guia-step-card--rose anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
+            <IconoLucide icon={FileText} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 01</span>
@@ -85,10 +81,7 @@ export function GuiaPlantillasVisual() {
         {/* Paso 02: Composición Temática */}
         <div className="guia-step-card guia-step-card--purple anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M6 6h10M6 10h10" />
-            </svg>
+            <IconoLucide icon={BookOpenText} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 02</span>
@@ -104,11 +97,7 @@ export function GuiaPlantillasVisual() {
         {/* Paso 03: Generación Masiva OMR */}
         <div className="guia-step-card guia-step-card--blue anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <polyline points="9 11 12 14 22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
+            <IconoLucide icon={ClipboardCheck} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 03</span>

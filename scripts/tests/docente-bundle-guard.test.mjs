@@ -28,6 +28,14 @@ test('rechaza bundle docente sin el bootstrap de Google OAuth runtime', (t) => {
   assert.throws(() => assertDocenteBundle({ distRoot: root }), /bootstrap OAuth runtime/);
 });
 
+test('rechaza artefactos docente que incluyen módulos de alumno o administración', (t) => {
+  const root = crearBundle('fetch("/api/autenticacion/capacidades-integraciones").then(x=>x.googleOauthClientId)');
+  fs.writeFileSync(path.join(root, 'assets', 'AppAlumno-obsoleto.js'), 'export{}');
+  fs.writeFileSync(path.join(root, 'assets', 'AppAdminNegocio-ajeno.js'), 'export{}');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.throws(() => assertDocenteBundle({ distRoot: root }), /módulos de otros destinos/);
+});
+
 test('rechaza CSS compilado con selectores substring obsoletos aunque el bundle declare el contrato vigente', (t) => {
   const root = crearBundle(
     'fetch("/api/autenticacion/capacidades-integraciones").then(x=>x.googleOauthClientId)',

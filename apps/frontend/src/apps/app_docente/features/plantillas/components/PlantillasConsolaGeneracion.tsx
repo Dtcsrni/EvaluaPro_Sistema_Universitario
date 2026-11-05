@@ -4,11 +4,12 @@
  * Responsabilidad: Consola de producción OMR para generación de exámenes masivos e individuales.
  */
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
-import { emitToast } from '../../../../../ui/toast/toastBus';
+import { IconoCampo } from '../../../../../ui/IconoLucide';
+import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
 import { useEffect, useMemo, useState } from 'react';
 import type { Alumno, Periodo, Plantilla } from '../../../tipos';
-import { esMensajeError, idCortoMateria } from '../../../utilidades';
 import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
+import { CircleAlert, Download, FileText, Lightbulb, Package, Search, ShieldCheck, Zap, IconoLucide } from '../../../../../ui/iconosCatalogo';
 import { crearClaveLoteGeneracion, leerLotePendiente } from '../loteGeneracionSesion';
 import type { PreviewPdfPage } from '../hooks/usePlantillasPreviewActions';
 
@@ -36,6 +37,7 @@ export function PlantillasConsolaGeneracion({
   puedeGenerarExamenes,
   onGenerarExamenesLote,
   mensajeGeneracion,
+  mensajeGeneracionEsError,
   lotePdfUrl,
   descargarPdfLote,
   descargarZipLote,
@@ -58,6 +60,7 @@ export function PlantillasConsolaGeneracion({
   puedeGenerarExamenes: boolean;
   onGenerarExamenesLote: (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[]; grupo?: string }) => Promise<void>;
   mensajeGeneracion: string;
+  mensajeGeneracionEsError: boolean;
   lotePdfUrl: string | null;
   descargarPdfLote: () => Promise<void>;
   descargarZipLote: () => Promise<void>;
@@ -156,13 +159,14 @@ export function PlantillasConsolaGeneracion({
     if (esPeriodoArchivado && modoGeneracion !== 'lote') setModoGeneracion('lote');
   }, [esPeriodoArchivado, modoGeneracion]);
 
+  const textoCantidadAlumnos = (cantidad: number) => `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`;
   const textoBotonGenerar =
     esExtraordinario
       ? generandoLote
         ? 'Generando extraordinarios…'
         : hayLoteReanudable
           ? 'Reintentar generación extraordinaria'
-          : `Generar extraordinarios (${alumnosExtraordinariosSeleccionados.length} alumnos)`
+          : `Generar extraordinarios (${textoCantidadAlumnos(alumnosExtraordinariosSeleccionados.length)})`
       : modoGeneracion === 'individual'
       ? generando
         ? 'Generando examen…'
@@ -171,7 +175,7 @@ export function PlantillasConsolaGeneracion({
         ? 'Generando paquete masivo…'
         : hayLoteReanudable
           ? 'Reintentar paquete incompleto'
-        : `Generar lote ${formatoSalidaLote === 'zip' ? 'ZIP de individuales' : 'PDF consolidado'} (${alumnosMateria.length} alumnos)`;
+        : `Generar lote ${formatoSalidaLote === 'zip' ? 'ZIP de individuales' : 'PDF consolidado'} (${textoCantidadAlumnos(alumnosMateria.length)})`;
   const progresoEnAlcance = progresoLoteGeneracion?.claveRecuperacion === claveRecuperacionLote
     ? progresoLoteGeneracion
     : null;
@@ -213,7 +217,9 @@ export function PlantillasConsolaGeneracion({
             {OMR_CANONICAL_DISPLAY_LABEL}
           </span>
           <span className="banco-tag-preguntas">Plantillas: {listaPlantillas.length}</span>
-          <span className="banco-tag-paginas">{esExtraordinario ? 'Alumnos en materia' : 'Alumnos del grupo'}: {alumnosMateria.length}</span>
+          <span className="banco-tag-paginas">{esExtraordinario
+            ? `${alumnosMateria.length === 1 ? 'Alumno' : 'Alumnos'} en materia`
+            : `${alumnosMateria.length === 1 ? 'Alumno' : 'Alumnos'} del grupo`}: {textoCantidadAlumnos(alumnosMateria.length)}</span>
         </div>
       </div>
 
@@ -225,6 +231,7 @@ export function PlantillasConsolaGeneracion({
               <span>Plantilla base para el examen</span>
             </span>
             <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+              <IconoCampo nombre="select" />
               <select
                 value={plantillaId}
                 onChange={(e) => setPlantillaId(e.target.value)}
@@ -237,13 +244,18 @@ export function PlantillasConsolaGeneracion({
                   const archivada = periodo?.activo === false;
                   return (
                   <option key={p._id} value={p._id}>
-                    {periodo?.nombre ?? 'Materia no identificada'}{archivada ? ' · Periodo cerrado, solo extraordinario' : ''} · {p.titulo} (ID: {idCortoMateria(p._id)})
+                    {periodo?.nombre ?? 'Materia no identificada'}{archivada ? ' · Periodo cerrado, solo extraordinario' : ''} · {p.titulo}
                   </option>
                   );
                 })}
               </select>
             </div>
             <span className="ayuda">Estructura temática y banco que se usará para construir las preguntas.</span>
+            {plantillaSeleccionada && (
+              <span className="ayuda">
+                Plantilla seleccionada: {periodoPlantilla?.nombre ?? 'Materia no identificada'} · {plantillaSeleccionada.titulo}
+              </span>
+            )}
           </label>
         </div>
 
@@ -256,28 +268,28 @@ export function PlantillasConsolaGeneracion({
             </div>
           </div>
 
-          <div className="plantillas-modo-toggle mt-10">
+          <div className="plantillas-modo-toggle plantillas-modo-toggle--stack-narrow mt-10" role="group" aria-label="Modalidad de generación">
             <button
               type="button"
               className={`boton ${modoGeneracion === 'lote' ? 'boton--primario' : 'boton--secundario'}`}
+              aria-pressed={modoGeneracion === 'lote'}
               onClick={() => {
                 setModoGeneracion('lote');
-                emitToast({ level: 'info', title: 'Modalidad', message: 'Paquete masivo seleccionado', durationMs: 1600 });
               }}
               disabled={!puedeGenerarExamenes}
             >
-              📦 Paquete Masivo por Grupo ({alumnosMateria.length} alumnos)
+              <IconoLucide icon={Package} size={16} /> Paquete por grupo ({textoCantidadAlumnos(alumnosMateria.length)})
             </button>
             <button
               type="button"
               className={`boton ${modoGeneracion === 'individual' ? 'boton--primario' : 'boton--secundario'}`}
+              aria-pressed={modoGeneracion === 'individual'}
               onClick={() => {
                 setModoGeneracion('individual');
-                emitToast({ level: 'info', title: 'Modalidad', message: 'Examen individual seleccionado', durationMs: 1600 });
               }}
               disabled={!puedeGenerarExamenes || esPeriodoArchivado}
             >
-              📄 Examen Individual de Muestra
+              <IconoLucide icon={FileText} size={16} /> Examen individual de muestra
             </button>
           </div>
 
@@ -285,6 +297,7 @@ export function PlantillasConsolaGeneracion({
             <label className="campo mt-10">
               <span className="campo__label-row"><span>Grupo destinatario del lote</span></span>
               <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+                <IconoCampo nombre="select" />
                 <select
                   aria-label="Grupo destinatario del lote"
                   value={grupoLote}
@@ -295,20 +308,24 @@ export function PlantillasConsolaGeneracion({
                   {gruposMateria.map((grupo) => <option key={grupo} value={grupo}>{grupo}</option>)}
                 </select>
               </div>
-              {gruposMateria.length === 0 && <p role="alert" className="nota">No hay alumnos activos con grupo asignado en la materia de esta plantilla.</p>}
+              {gruposMateria.length === 0 && (
+                <InlineMensaje tipo="info">
+                  No hay alumnos activos con grupo asignado en esta materia. Registra alumnos o asígnales un grupo en Alumnos para habilitar la generación por lote.
+                </InlineMensaje>
+              )}
               {gruposMateria.length > 1 && !grupoLote && <p className="nota">Selecciona un grupo para limitar el lote a su padrón activo.</p>}
             </label>
           )}
 
           {modoGeneracion === 'lote' && !esExtraordinario && (
-            <div className="plantillas-temas-box mt-10">
+            <div className="plantillas-formato-entrega mt-10">
               <div className="plantillas-temas__header">
                 <div>
                   <h4 className="plantillas-temas__title">Formato de entrega del lote</h4>
                   <p className="nota">Elige qué paquete descargarás al terminar. Los dos formatos también estarán en el historial.</p>
                 </div>
               </div>
-              <div className="plantillas-modo-toggle mt-10" role="group" aria-label="Formato de salida del lote">
+              <div className="plantillas-modo-toggle plantillas-modo-toggle--stack-narrow mt-10" role="group" aria-label="Formato de salida del lote">
                 <button type="button" className={`boton ${formatoSalidaLote === 'zip' ? 'boton--primario' : 'boton--secundario'}`} aria-pressed={formatoSalidaLote === 'zip'} onClick={() => setFormatoSalidaLote('zip')} disabled={generandoLote || Boolean(descargandoFormato)}>
                   ZIP · PDFs individuales
                 </button>
@@ -322,6 +339,7 @@ export function PlantillasConsolaGeneracion({
           <label className="campo">
             <span className="campo__label-row"><span>Tipo de examen</span></span>
             <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+              <IconoCampo nombre="select" />
               <select
                 aria-label="Tipo de examen"
                 value={esPeriodoArchivado ? 'extraordinario' : tipoExamen}
@@ -332,6 +350,7 @@ export function PlantillasConsolaGeneracion({
                 <option value="extraordinario">Extraordinario</option>
               </select>
             </div>
+            <span className="ayuda">Tipo seleccionado: {esExtraordinario ? 'Extraordinario' : `Ordinario · ${plantillaSeleccionada?.tipo === 'global' ? 'Global' : 'Parcial'}`}</span>
           </label>
 
           {esExtraordinario ? (
@@ -456,7 +475,7 @@ export function PlantillasConsolaGeneracion({
 
           {!esExtraordinario && modoGeneracion === 'lote' && (
             <div className="ayuda mt-10">
-              💡 Se generará un examen con código QR personalizado y folio único para cada uno de los <b>{alumnosMateria.length} alumnos</b> inscritos en esta materia.
+              <IconoLucide icon={Lightbulb} size={16} /> Se generará un examen con código QR personalizado y folio único para cada estudiante inscrito en esta materia. Total de destinatarios: <b>{textoCantidadAlumnos(alumnosMateria.length)}</b>.
             </div>
           )}
         </div>
@@ -467,10 +486,10 @@ export function PlantillasConsolaGeneracion({
             <div className="progreso-lote-card__header">
               <span>
                 {progresoVisible.estado === 'fallido'
-                  ? '⚠️ Lote incompleto. Puedes reanudarlo con el mismo ID y conservará los exámenes verificados.'
+                  ? <><IconoLucide icon={CircleAlert} size={16} /> Lote incompleto. Puedes reanudarlo con el mismo ID y conservará los exámenes verificados.</>
                   : progresoVisible.estado === 'validando'
-                    ? '🔎 Validando las variantes de todos los alumnos antes de guardar el lote…'
-                    : '⚡ Generando paquete masivo en el servidor...'}
+                    ? <><IconoLucide icon={Search} size={16} /> Validando las variantes de todos los alumnos antes de guardar el lote…</>
+                    : <><IconoLucide icon={Zap} size={16} /> Generando paquete masivo en el servidor…</>}
               </span>
               <span><b>{progresoVisible.generados}</b> / {progresoVisible.totalEsperado} ({progresoVisible.porcentaje}%)</span>
             </div>
@@ -514,7 +533,7 @@ export function PlantillasConsolaGeneracion({
             {lotePdfUrl && (
               <>
                 <Boton type="button" variante="secundario" cargando={descargandoFormato === formatoSalidaLote} disabled={Boolean(descargandoFormato)} onClick={() => void iniciarDescargaLote(formatoSalidaLote)}>
-                  {formatoSalidaLote === 'zip' ? '📥 Descargar ZIP de PDFs individuales' : '📥 Descargar PDF consolidado'}
+                  <><IconoLucide icon={Download} size={16} /> {formatoSalidaLote === 'zip' ? 'Descargar ZIP de PDFs individuales' : 'Descargar PDF consolidado'}</>
                 </Boton>
                 <Boton type="button" variante="secundario" cargando={descargandoFormato === (formatoSalidaLote === 'zip' ? 'pdf' : 'zip')} disabled={Boolean(descargandoFormato)} onClick={() => void iniciarDescargaLote(formatoSalidaLote === 'zip' ? 'pdf' : 'zip')}>
                   {formatoSalidaLote === 'zip' ? 'Descargar PDF consolidado' : 'Descargar ZIP de individuales'}
@@ -526,22 +545,19 @@ export function PlantillasConsolaGeneracion({
               <Boton
                 type="button"
                 variante="secundario"
-                onClick={() => {
-                  onIrAHistorial();
-                  emitToast({ level: 'info', title: 'Sección', message: 'Mostrando historial de lotes', durationMs: 1800 });
-                }}
+                onClick={onIrAHistorial}
               >
-                📦 Ver historial de lotes
+                <><IconoLucide icon={Package} size={16} /> Ver historial de lotes</>
               </Boton>
             )}
           </div>
           <div className="alumnos-form__hint">
-            <span>🔒 Cada examen incluye firma criptográfica institucional y códigos de barras ópticos OMR.</span>
+            <span><IconoLucide icon={ShieldCheck} size={16} /> Cada examen incluye firma criptográfica institucional y códigos de barras ópticos OMR.</span>
           </div>
         </div>
 
         {mensajeGeneracion && (
-          <p className={esMensajeError(mensajeGeneracion) ? 'mensaje error anim-fade-in mt-15' : 'mensaje ok anim-fade-in mt-15'} role="status">
+          <p className={mensajeGeneracionEsError ? 'mensaje error anim-fade-in mt-15' : 'mensaje ok anim-fade-in mt-15'} role={mensajeGeneracionEsError ? 'alert' : 'status'}>
             {mensajeGeneracion}
           </p>
         )}

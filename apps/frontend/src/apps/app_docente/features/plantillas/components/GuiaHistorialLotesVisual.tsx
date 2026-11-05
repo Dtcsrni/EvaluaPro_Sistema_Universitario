@@ -3,42 +3,25 @@
  *
  * Responsabilidad: Guía interactiva Bento para la pestaña 3: Historial de Lotes.
  */
-import { useState } from 'react';
+import { useGuiaContextual } from '../hooks/useGuiaContextual';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
-import { emitToast } from '../../../../../ui/toast/toastBus';
+import { Lightbulb, X, IconoLucide } from '../../../../../ui/iconosCatalogo';
 
 export function GuiaHistorialLotesVisual() {
-  const [visible, setVisible] = useState(() => {
-    try {
-      return localStorage.getItem('ep.guia.historial.oculta') !== 'true';
-    } catch {
-      return true;
-    }
-  });
-
-  function toggleGuia() {
-    setVisible((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('ep.guia.historial.oculta', next ? 'false' : 'true');
-      } catch {
-        // noop
-      }
-      return next;
-    });
-    emitToast({ level: 'info', title: 'Guía de historial', message: visible ? 'Guía oculta' : 'Guía visible', durationMs: 1600 });
-  }
+  const { visible, toggleGuia } = useGuiaContextual('ep.guia.historial.oculta', 'guia-historial-toggle');
 
   if (!visible) {
     return (
       <div className="guia-temarios-compact anim-fade-in mb-15" aria-label="Ayuda de historial de lotes">
         <Boton
+          id="guia-historial-toggle"
           variante="secundario"
           type="button"
+          aria-expanded={visible}
           onClick={toggleGuia}
           data-tooltip="Ver guía de custodia y descargas"
         >
-          💡 Ver guía rápida de historial y custodia
+          <IconoLucide icon={Lightbulb} size={16} /> Ver guía rápida de historial y custodia
         </Boton>
       </div>
     );
@@ -52,13 +35,15 @@ export function GuiaHistorialLotesVisual() {
           <span>GUÍA RÁPIDA · Custodia, Descargas y Trazabilidad OMR</span>
         </div>
         <button
+          id="guia-historial-toggle"
           type="button"
           className="guia-materia-close-btn"
           onClick={toggleGuia}
           title="Ocultar guía"
           aria-label="Ocultar guía rápida"
+          aria-expanded={visible}
         >
-          ✕ Ocultar guía
+          <IconoLucide icon={X} size={16} aria-hidden="true" /> Ocultar guía
         </button>
       </div>
 

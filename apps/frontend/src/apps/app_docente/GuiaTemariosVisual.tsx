@@ -5,13 +5,28 @@
  */
 import { useState } from 'react';
 import { Boton } from '../../ui/ux/componentes/Boton';
+import {
+  BookOpenText,
+  ChartNoAxesColumnIncreasing,
+  Circle,
+  CircleCheck,
+  Clock3,
+  FileText,
+  Lightbulb,
+  Upload,
+  IconoLucide
+} from '../../ui/iconosCatalogo';
 
 export function GuiaTemariosVisual() {
   const [visible, setVisible] = useState(() => {
+    const viewportMovil = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)').matches === true;
     try {
-      return localStorage.getItem('ep.guia.temarios.oculta') !== 'true';
+      const preferencia = localStorage.getItem('ep.guia.temarios.oculta');
+      if (preferencia === 'true') return false;
+      if (preferencia === 'false') return true;
+      return !viewportMovil;
     } catch {
-      return true;
+      return !viewportMovil;
     }
   });
 
@@ -27,47 +42,35 @@ export function GuiaTemariosVisual() {
     });
   }
 
-  if (!visible) {
-    return (
-      <div className="guia-temarios-compact anim-fade-in" aria-label="Ayuda rápida de temarios">
+  return (
+    <>
+      <div className="guia-plegable-control">
         <Boton
+          id="toggle-guia-temarios"
           variante="secundario"
           type="button"
           onClick={toggleGuia}
-          data-tooltip="Ver explicación visual de los 3 pasos para la gestión de temarios"
+          aria-expanded={visible}
+          aria-controls="guia-temarios-panel"
         >
-          💡 Ver guía rápida de temarios
+          <IconoLucide icon={Lightbulb} size={16} /> {visible ? 'Ocultar guía rápida de temarios' : 'Ver guía rápida de temarios'}
         </Boton>
       </div>
-    );
-  }
 
-  return (
-    <div className="guia-materia-card anim-fade-in" role="region" aria-label="Ayuda: Estructura y seguimiento de temarios">
+      <div id="guia-temarios-panel" hidden={!visible}>
+        <div className="guia-materia-card anim-fade-in" role="region" aria-label="Ayuda: Estructura y seguimiento de temarios">
       <div className="guia-materia-header">
         <div className="guia-materia-badge">
           <span className="guia-pulse-dot" aria-hidden="true" />
           <span>GUÍA RÁPIDA · Estructura Curricular y Temarios</span>
         </div>
-        <button
-          type="button"
-          className="guia-materia-close-btn"
-          onClick={toggleGuia}
-          title="Ocultar guía"
-          aria-label="Ocultar guía rápida"
-        >
-          ✕ Ocultar guía
-        </button>
       </div>
 
       <div className="guia-materia-grid">
         {/* Paso 1: Selecciona la Asignatura */}
         <div className="guia-step-card guia-step-card--amber anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M6 6h10M6 10h10" />
-            </svg>
+            <IconoLucide icon={BookOpenText} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 01</span>
@@ -83,18 +86,14 @@ export function GuiaTemariosVisual() {
         {/* Paso 2: Carga en PDF o Texto */}
         <div className="guia-step-card guia-step-card--blue anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
+            <IconoLucide icon={Upload} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 02</span>
             <h4>Carga Inteligente o Jerárquica</h4>
             <p>Arrastra tu programa oficial en PDF o escribe el árbol con numeración jerárquica.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample guia-chip-sample--date">📄 Programa.pdf</span>
+              <span className="guia-chip-sample guia-chip-sample--date"><IconoLucide icon={FileText} size={14} /> Programa.pdf</span>
               <span className="guia-chip-sample">1.1 Subtema</span>
             </div>
           </div>
@@ -103,23 +102,22 @@ export function GuiaTemariosVisual() {
         {/* Paso 3: Seguimiento y Avance */}
         <div className="guia-step-card guia-step-card--emerald anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
+            <IconoLucide icon={ChartNoAxesColumnIncreasing} size={24} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 03</span>
             <h4>Seguimiento y Avance de Clase</h4>
             <p>Haz clic en los temas para actualizar su estatus en tiempo real y calcular el avance del curso.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">○ Pendiente</span>
-              <span className="guia-chip-sample">🔄 En progreso</span>
-              <span className="guia-chip-sample">✅ Cubierto</span>
+              <span className="guia-chip-sample"><IconoLucide icon={Circle} size={14} /> Pendiente</span>
+              <span className="guia-chip-sample"><IconoLucide icon={Clock3} size={14} /> En progreso</span>
+              <span className="guia-chip-sample"><IconoLucide icon={CircleCheck} size={14} /> Cubierto</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }

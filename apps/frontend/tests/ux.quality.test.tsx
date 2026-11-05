@@ -11,10 +11,13 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppAdminNegocio } from '../src/apps/app_admin_negocio/AppAdminNegocio';
 import { AppAlumno } from '../src/apps/app_alumno/AppAlumno';
 import { AppDocente } from '../src/apps/app_docente/AppDocente';
+import { SeccionAlumnos } from '../src/apps/app_docente/SeccionAlumnos';
+import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
+import type { PermisosUI } from '../src/apps/app_docente/tipos';
 import { TemaProvider } from '../src/tema/TemaProvider';
 import { TooltipLayer } from '../src/ui/ux/tooltip/TooltipLayer';
 
@@ -23,6 +26,8 @@ function renderConTema(ui: ReactNode) {
 }
 
 describe('UX quality contract', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('docente sin token muestra acceso guiado y navegacion comprensible', async () => {
     const { container } = renderConTema(<AppDocente />);
 
@@ -30,6 +35,26 @@ describe('UX quality contract', () => {
     expect(await screen.findByText(/Plataforma Docente/i)).toBeInTheDocument();
     expect(await screen.findByRole('list', { name: /Beneficios/i })).toBeInTheDocument();
     expect(container.querySelectorAll('svg[data-icono]').length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('alumnos informa y permite recuperar el resumen de inasistencias no disponible', async () => {
+    vi.spyOn(clienteApi, 'obtener').mockRejectedValue(new Error('Servicio no disponible'));
+
+    renderConTema(
+      <SeccionAlumnos
+        alumnos={[]}
+        periodosActivos={[{ _id: 'periodo-ux', nombre: 'Materia de prueba', activo: true }]}
+        periodosTodos={[{ _id: 'periodo-ux', nombre: 'Materia de prueba', activo: true }]}
+        onRefrescar={() => {}}
+        permisos={{ alumnos: { gestionar: true } } as PermisosUI}
+        puedeEliminarAlumnoDev={false}
+        enviarConPermiso={async () => ({})}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/el indicador no está disponible/i);
+    expect(screen.getByRole('button', { name: 'Reintentar resumen' })).toBeVisible();
   });
 
   it('docente con token mantiene tabs con iconografia y ayudas por seccion critica', async () => {
@@ -49,7 +74,7 @@ describe('UX quality contract', () => {
     expect(await screen.findByText(/Para qué sirve y cómo llenarlo/i)).toBeInTheDocument();
 
     await user.click(within(nav).getByRole('button', { name: 'Sincronización' }));
-    expect(await screen.findByText(/Operacion recomendada entre computadoras/i, undefined, { timeout: 10_000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Operaci[oó]n recomendada entre computadoras/i, undefined, { timeout: 10_000 })).toBeInTheDocument();
     expect(container.querySelectorAll('[aria-label*="Ayuda"]').length).toBeGreaterThanOrEqual(2);
   });
 
@@ -115,9 +140,10 @@ describe('UX quality contract', () => {
     const { container } = renderConTema(<AppAlumno />);
 
     expect(screen.getByText(/Portal Alumno/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Codigo de acceso/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Matricula/i)).toBeInTheDocument();
-    expect(screen.getByText(/Como consultar sin errores/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Código de acceso/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Matrícula/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Consulta tus resultados/i })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: /Qué puedes consultar/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Consultar/i })).toBeInTheDocument();
     expect(container.querySelectorAll('svg[data-icono]').length).toBeGreaterThanOrEqual(4);
   });

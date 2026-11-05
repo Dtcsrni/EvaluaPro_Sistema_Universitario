@@ -19,7 +19,7 @@ import { clienteApi } from './clienteApiDocente';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { EnviarConPermiso, Periodo, PermisosUI, Pregunta } from './tipos';
 import {
-  esMensajeError,  mensajeDeError,
+  mensajeDeError,
   obtenerVersionPregunta
 } from './utilidades';
 import { BancoFormularioPregunta } from './features/banco/components/BancoFormularioPregunta';
@@ -61,6 +61,9 @@ function nuevaClaveManual() {
 
 export function SeccionBanco({
   preguntas,
+  cargandoPreguntas,
+  errorCargaPreguntas,
+  onReintentarCargaPreguntas,
   periodos,
   permisos,
   enviarConPermiso,
@@ -70,6 +73,9 @@ export function SeccionBanco({
   paginasEstimadasBackendPorTema
 }: {
   preguntas: Pregunta[];
+  cargandoPreguntas?: boolean;
+  errorCargaPreguntas?: boolean;
+  onReintentarCargaPreguntas?: () => void;
   periodos: Periodo[];
   permisos: PermisosUI;
   enviarConPermiso: EnviarConPermiso;
@@ -91,6 +97,7 @@ export function SeccionBanco({
     { texto: '', esCorrecta: false }
   ]);
   const [mensaje, setMensaje] = useState('');
+  const [mensajeEsError, setMensajeEsError] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editEnunciado, setEditEnunciado] = useState('');
@@ -110,6 +117,8 @@ export function SeccionBanco({
   const [archivandoPreguntaId, setArchivandoPreguntaId] = useState<string | null>(null);
   const [cargandoHistorialReactivo, setCargandoHistorialReactivo] = useState(false);
   const [historialReactivo, setHistorialReactivo] = useState<HistorialReactivo | null>(null);
+  const [reactivoHistorialSolicitado, setReactivoHistorialSolicitado] = useState<Pregunta | null>(null);
+  const [errorHistorialReactivo, setErrorHistorialReactivo] = useState('');
   const [versionBase, setVersionBase] = useState<number | null>(null);
   const [versionComparada, setVersionComparada] = useState<number | null>(null);
   const claveManualRef = useRef(nuevaClaveManual());
@@ -118,6 +127,9 @@ export function SeccionBanco({
 
   const [temasBanco, setTemasBanco] = useState<TemaBanco[]>([]);
   const [cargandoTemas, setCargandoTemas] = useState(false);
+  const [errorCargaTemas, setErrorCargaTemas] = useState('');
+  const solicitudTemasRef = useRef(0);
+  const periodoTemasRef = useRef('');
   const [temaNuevo, setTemaNuevo] = useState('');
   const [creandoTema, setCreandoTema] = useState(false);
   const [temaEditandoId, setTemaEditandoId] = useState<string | null>(null);
@@ -130,6 +142,27 @@ export function SeccionBanco({
   const puedeGestionar = permisos.banco.gestionar;
   const puedeArchivar = permisos.banco.archivar;
   const bloqueoEdicion = !puedeGestionar;
+
+  function mostrarMensajeBanco(texto: string, esError = false) {
+    setMensaje(texto);
+    setMensajeEsError(esError);
+  }
+
+  function limpiarMensajeBanco() {
+    mostrarMensajeBanco('');
+  }
+
+  function notificarRecuperacionSesion(error: unknown) {
+    const action = accionToastSesionParaError(error, 'docente');
+    if (!action) return;
+    emitToast({
+      level: 'warn',
+      title: 'Recupera tu sesión',
+      message: 'Recupera el acceso y vuelve a intentar la operación.',
+      durationMs: 5200,
+      action
+    });
+  }
 
   function obtenerClientRequestIdTema(clave: string): string {
     const actual = requestIdsMutacionTemaRef.current.get(clave);
@@ -163,25 +196,38 @@ export function SeccionBanco({
   }, [periodoId, puedeLeer]);
 
   const refrescarTemas = useCallback(async () => {
+    const solicitud = ++solicitudTemasRef.current;
+    if (periodoTemasRef.current !== periodoId) {
+      periodoTemasRef.current = periodoId;
+      setTemasBanco([]);
+      setErrorCargaTemas('');
+    }
     if (!periodoId) {
       setTemasBanco([]);
+      setErrorCargaTemas('');
+      setCargandoTemas(false);
       return;
     }
     if (!puedeLeer) {
       setTemasBanco([]);
+      setErrorCargaTemas('');
+      setCargandoTemas(false);
       return;
     }
     try {
       setCargandoTemas(true);
+      setErrorCargaTemas('');
       const payload = await clienteApi.obtener<{ temas: TemaBanco[] }>(
         `/banco-preguntas/temas?periodoId=${encodeURIComponent(periodoId)}`
       );
+      if (solicitud !== solicitudTemasRef.current) return;
       setTemasBanco(Array.isArray(payload.temas) ? payload.temas : []);
     } catch (error) {
+      if (solicitud !== solicitudTemasRef.current) return;
       const msg = mensajeDeError(error, 'No se pudieron cargar temas');
-      setMensaje(msg);
+      setErrorCargaTemas(msg);
     } finally {
-      setCargandoTemas(false);
+      if (solicitud === solicitudTemasRef.current) setCargandoTemas(false);
     }
   }, [periodoId, puedeLeer]);
 
@@ -315,7 +361,7 @@ export function SeccionBanco({
     }
     try {
       setMoviendoTema(true);
-      setMensaje('');
+      limpiarMensajeBanco();
 
       if (ajusteAccion === 'mover') {
         await enviarConPermiso(
@@ -346,14 +392,8 @@ export function SeccionBanco({
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, ajusteAccion === 'mover' ? 'No se pudieron mover las preguntas' : 'No se pudo quitar el tema');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: ajusteAccion === 'mover' ? 'No se pudo mover' : 'No se pudo actualizar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      mostrarMensajeBanco(msg, true);
+      notificarRecuperacionSesion(error);
     } finally {
       setMoviendoTema(false);
     }
@@ -370,7 +410,7 @@ export function SeccionBanco({
     }
     try {
       setMoviendoSinTema(true);
-      setMensaje('');
+      limpiarMensajeBanco();
       await enviarConPermiso(
         'banco:gestionar',
         '/banco-preguntas/mover-tema',
@@ -386,8 +426,8 @@ export function SeccionBanco({
       await Promise.resolve().then(() => onRefrescar());
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudieron asignar las preguntas');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo asignar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      mostrarMensajeBanco(msg, true);
+      notificarRecuperacionSesion(error);
     } finally {
       setMoviendoSinTema(false);
     }
@@ -498,7 +538,7 @@ export function SeccionBanco({
     }
     try {
       setCreandoTema(true);
-      setMensaje('');
+      limpiarMensajeBanco();
       const claveSolicitud = `crear:${periodoId}:${normalizarNombreTema(nombre).toLowerCase()}`;
       await enviarConPermiso('banco:gestionar', '/banco-preguntas/temas', {
         periodoId, nombre, clientRequestId: obtenerClientRequestIdTema(claveSolicitud)
@@ -509,8 +549,8 @@ export function SeccionBanco({
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema creado', durationMs: 1800 });
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear el tema');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      mostrarMensajeBanco(msg, true);
+      notificarRecuperacionSesion(error);
     } finally {
       setCreandoTema(false);
     }
@@ -536,7 +576,7 @@ export function SeccionBanco({
     }
     try {
       setGuardandoTema(true);
-      setMensaje('');
+      limpiarMensajeBanco();
       const claveSolicitud = `actualizar:${temaEditandoId}:${normalizarNombreTema(nombre).toLowerCase()}`;
       await enviarConPermiso(
         'banco:gestionar',
@@ -550,8 +590,8 @@ export function SeccionBanco({
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema actualizado', durationMs: 1800 });
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar el tema');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo actualizar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      mostrarMensajeBanco(msg, true);
+      notificarRecuperacionSesion(error);
     } finally {
       setGuardandoTema(false);
     }
@@ -572,7 +612,7 @@ export function SeccionBanco({
     if (!ok) return;
     try {
       setArchivandoTemaId(item._id);
-      setMensaje('');
+      limpiarMensajeBanco();
       const claveSolicitud = `archivar:${item._id}`;
       await enviarConPermiso(
         'banco:archivar',
@@ -590,8 +630,8 @@ export function SeccionBanco({
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema archivado', durationMs: 1800 });
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo archivar el tema');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo archivar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      mostrarMensajeBanco(msg, true);
+      notificarRecuperacionSesion(error);
     } finally {
       setArchivandoTemaId(null);
     }
@@ -613,6 +653,9 @@ export function SeccionBanco({
 
   async function verVersiones(pregunta: Pregunta) {
     if (!pregunta.reactivoId) return;
+    setReactivoHistorialSolicitado(pregunta);
+    setErrorHistorialReactivo('');
+    setHistorialReactivo(null);
     try {
       setCargandoHistorialReactivo(true);
       const historial = await clienteApi.obtener<HistorialReactivo>(`/banco-preguntas/reactivos/${encodeURIComponent(pregunta.reactivoId)}/versiones`);
@@ -621,7 +664,8 @@ export function SeccionBanco({
       setVersionBase(versiones.at(-2)?.numeroVersion ?? versiones.at(-1)?.numeroVersion ?? null);
       setVersionComparada(versiones.at(-1)?.numeroVersion ?? null);
     } catch (error) {
-      emitToast({ level: 'error', title: 'Historial no disponible', message: mensajeDeError(error, 'No se pudieron cargar las versiones.'), durationMs: 4500 });
+      setErrorHistorialReactivo(mensajeDeError(error, 'No se pudieron cargar las versiones. Revisa tu conexión e intenta de nuevo.'));
+      notificarRecuperacionSesion(error);
     } finally {
       setCargandoHistorialReactivo(false);
     }
@@ -635,7 +679,7 @@ export function SeccionBanco({
         return;
       }
       setGuardando(true);
-      setMensaje('');
+      limpiarMensajeBanco();
       const temaCanonico = temasBanco.find((item) => item._id === temaId);
       if (!temaCanonico) {
         throw new Error('Selecciona un tema activo y canónico antes de guardar el reactivo.');
@@ -688,8 +732,7 @@ export function SeccionBanco({
       const reactivoIds = confirmado.draftReactivoIds ?? [];
 
       setReactivosManualesPendientes((actuales) => [...new Set([...actuales, ...reactivoIds])]);
-      setMensaje(reactivoIds.length > 0 ? 'Reactivo validado y guardado como borrador. Envíalo a revisión antes de publicarlo.' : 'Reactivo sin cambios: el contenido ya existía.');
-      emitToast({ level: 'ok', title: 'Banco', message: reactivoIds.length > 0 ? 'Borrador guardado; falta revisión' : 'Reactivo sin cambios', durationMs: 2200 });
+      mostrarMensajeBanco(reactivoIds.length > 0 ? 'Reactivo validado y guardado como borrador. Envíalo a revisión antes de publicarlo.' : 'Reactivo sin cambios: el contenido ya existía.');
       registrarAccionDocente('crear_pregunta', true, Date.now() - inicio);
       setEnunciado('');
       setImagenUrl('');
@@ -706,14 +749,8 @@ export function SeccionBanco({
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo guardar');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo guardar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      mostrarMensajeBanco(msg, true);
+      notificarRecuperacionSesion(error);
       registrarAccionDocente('crear_pregunta', false);
     } finally {
       setGuardando(false);
@@ -729,7 +766,7 @@ export function SeccionBanco({
         return;
       }
       setEditando(true);
-      setMensaje('');
+      limpiarMensajeBanco();
       const preguntaActual = preguntas.find((item) => item._id === editandoId);
       const temaCanonico = temasBanco.find((item) => item.nombre.trim().toLocaleLowerCase() === editTema.trim().toLocaleLowerCase());
       if (preguntaActual?.reactivoId) {
@@ -784,21 +821,14 @@ export function SeccionBanco({
           'No tienes permiso para editar preguntas.'
         );
       }
-      setMensaje('Nueva versión guardada como borrador; requiere revisión antes de publicarse.');
-      emitToast({ level: 'ok', title: 'Banco', message: 'Nueva versión en borrador', durationMs: 2200 });
+      mostrarMensajeBanco('Nueva versión guardada como borrador; requiere revisión antes de publicarse.');
       registrarAccionDocente('actualizar_pregunta', true, Date.now() - inicio);
       cancelarEdicion();
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo actualizar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      mostrarMensajeBanco(msg, true);
+      notificarRecuperacionSesion(error);
       registrarAccionDocente('actualizar_pregunta', false);
     } finally {
       setEditando(false);
@@ -826,9 +856,9 @@ export function SeccionBanco({
       } else {
         setReactivosManualesRevision(fallidos);
       }
-      setMensaje(fallidos.length > 0
+      mostrarMensajeBanco(fallidos.length > 0
         ? `${fallidos.length} reactivo(s) no pudieron cambiar de estado; puedes reintentar.`
-        : estado === 'revisar' ? 'Reactivos enviados a revisión.' : 'Reactivos revisados y publicados.');
+        : estado === 'revisar' ? 'Reactivos enviados a revisión.' : 'Reactivos revisados y publicados.', fallidos.length > 0);
       onRefrescar();
     } finally {
       setTransicionManual(false);
@@ -855,7 +885,7 @@ export function SeccionBanco({
     try {
       const inicio = Date.now();
       setArchivandoPreguntaId(preguntaId);
-      setMensaje('');
+      limpiarMensajeBanco();
       if (retirarCanonico && pregunta?.reactivoId) {
         await enviarConPermiso(
           'banco:publicar',
@@ -871,21 +901,14 @@ export function SeccionBanco({
           'No tienes permiso para eliminar preguntas.'
         );
       }
-      setMensaje(retirarCanonico ? 'Reactivo retirado; se conservaron sus versiones históricas.' : 'Pregunta eliminada');
-      emitToast({ level: 'ok', title: 'Banco', message: retirarCanonico ? 'Reactivo retirado' : 'Pregunta eliminada', durationMs: 2200 });
+      mostrarMensajeBanco(retirarCanonico ? 'Reactivo retirado; se conservaron sus versiones históricas.' : 'Pregunta eliminada');
       registrarAccionDocente('eliminar_pregunta', true, Date.now() - inicio);
       if (editandoId === preguntaId) cancelarEdicion();
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo eliminar');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo eliminar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      mostrarMensajeBanco(msg, true);
+      notificarRecuperacionSesion(error);
       registrarAccionDocente('eliminar_pregunta', false);
     } finally {
       setArchivandoPreguntaId(null);
@@ -895,10 +918,20 @@ export function SeccionBanco({
   return (
     <div className="panel banco-panel">
       <BancoFormularioPregunta
+        navegacionTareas={(
+          <nav className="banco-task-nav" aria-label="Tareas del banco de reactivos">
+            <span className="banco-task-nav__label">Ir a:</span>
+            <a className="boton secundario" href="#banco-captura">Capturar</a>
+            {puedeGestionar && <a className="boton secundario" href="#banco-importacion">Importar</a>}
+            <a className="boton secundario" href="#banco-temas">Gestionar temas</a>
+            <a className="boton secundario" href="#banco-listado">Consultar reactivos</a>
+          </nav>
+        )}
         periodoId={periodoId}
         setPeriodoId={setPeriodoId}
         periodos={periodos}
         bloqueoEdicion={bloqueoEdicion}
+        mostrarAvisoPermisoGestion={puedeLeer && !puedeGestionar}
         enunciado={enunciado}
         setEnunciado={setEnunciado}
         imagenUrl={imagenUrl}
@@ -910,6 +943,7 @@ export function SeccionBanco({
         setTemaId={setTemaId}
         temasBanco={temasBanco}
         cargandoTemas={cargandoTemas}
+        errorCargaTemas={errorCargaTemas}
         preguntasTemaActualCantidad={preguntasTemaActual.length}
         paginasTemaActual={paginasTemaActual}
         preguntasMateriaCantidad={preguntasMateria.length}
@@ -921,7 +955,7 @@ export function SeccionBanco({
         guardando={guardando}
         guardar={guardar}
         mensaje={mensaje}
-        esMensajeError={esMensajeError}
+        mensajeEsError={mensajeEsError}
         editandoId={editandoId}
         editEnunciado={editEnunciado}
         setEditEnunciado={setEditEnunciado}
@@ -938,7 +972,7 @@ export function SeccionBanco({
       />
 
       {(reactivosManualesPendientes.length > 0 || reactivosManualesRevision.length > 0) && (
-        <section className="banco-reactivos-import__queue" aria-label="Flujo de revisión manual" aria-live="polite">
+        <section id="banco-revision" tabIndex={-1} className="banco-reactivos-import__queue" aria-label="Flujo de revisión manual">
           <div>
             <p className="banco-reactivos-import__eyebrow">Flujo manual</p>
             <h3>Revisión y publicación</h3>
@@ -973,6 +1007,8 @@ export function SeccionBanco({
           bloqueoEdicion={bloqueoEdicion}
           crearTemaBanco={crearTemaBanco}
           cargandoTemas={cargandoTemas}
+          errorCargaTemas={errorCargaTemas}
+          onReintentarCargaTemas={() => void refrescarTemas()}
           conteoPorTema={conteoPorTema}
           paginasPorTema={paginasPorTema}
           paginasEstimadasBackendPorTema={paginasEstimadasBackendPorTema}
@@ -987,6 +1023,9 @@ export function SeccionBanco({
           temaEditando={puedeGestionar}
           archivandoTemaId={archivandoTemaId}
           archivarTemaBanco={archivarTemaBanco}
+          cargandoPreguntas={cargandoPreguntas}
+          errorCargaPreguntas={errorCargaPreguntas}
+          hayPreguntasPrevias={preguntasMateria.length > 0}
           ajusteProps={{
             ajusteTemaId,
             ajustePaginasObjetivo,
@@ -1016,6 +1055,9 @@ export function SeccionBanco({
         <BancoListadoPreguntas
           periodoId={periodoId}
           preguntasMateria={preguntasMateria}
+          cargandoPreguntas={cargandoPreguntas}
+          errorCargaPreguntas={errorCargaPreguntas}
+          onReintentarCargaPreguntas={onReintentarCargaPreguntas}
           bloqueoEdicion={bloqueoEdicion}
           archivandoPreguntaId={archivandoPreguntaId}
           puedeArchivar={puedeArchivar}
@@ -1027,6 +1069,21 @@ export function SeccionBanco({
       </div>
 
       {cargandoHistorialReactivo && <p className="banco-history-loading" role="status">Cargando versiones del reactivo…</p>}
+      {errorHistorialReactivo && (
+        <div className="banco-history-error">
+          <p className="mensaje error" role="alert">{errorHistorialReactivo}</p>
+          {reactivoHistorialSolicitado && (
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => void verVersiones(reactivoHistorialSolicitado)}
+              disabled={cargandoHistorialReactivo}
+            >
+              Reintentar carga del historial
+            </button>
+          )}
+        </div>
+      )}
       {historialReactivo && (
         <section className="banco-versiones-comparador" aria-labelledby="banco-versiones-title">
           <div className="banco-versiones-comparador__head">
@@ -1035,7 +1092,17 @@ export function SeccionBanco({
               <h3 id="banco-versiones-title">Comparar versiones</h3>
               <p>{historialReactivo.reactivo.externalKey} · estado {historialReactivo.reactivo.estado} · versión actual {historialReactivo.reactivo.versionActual}</p>
             </div>
-            <button type="button" className="button button-secondary" onClick={() => setHistorialReactivo(null)}>Cerrar historial</button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => {
+                setHistorialReactivo(null);
+                setReactivoHistorialSolicitado(null);
+                setErrorHistorialReactivo('');
+              }}
+            >
+              Cerrar historial
+            </button>
           </div>
           <div className="banco-versiones-comparador__selects">
             <label>Versión anterior

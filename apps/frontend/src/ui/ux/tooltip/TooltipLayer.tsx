@@ -119,17 +119,45 @@ export function TooltipLayer() {
       return base;
     };
 
-    const posicionPorElemento = (target: HTMLElement) => {
+    const alturaEstimada = (texto: string, width: number) => {
+      const caracteresPorLinea = Math.max(1, Math.floor((width - 28) / 7));
+      const lineas = Math.ceil(texto.length / caracteresPorLinea);
+      return lineas * 18 + 30;
+    };
+
+    const anchoPorElemento = (target: HTMLElement, rect: DOMRect) => {
+      const base = rect.width + 40;
+      const tarjetaAlumno = target.closest('.alumnos-lista__item');
+      const disponible = tarjetaAlumno ? Math.max(base, window.innerWidth - 24) : base;
+      return Math.max(180, Math.min(320, disponible));
+    };
+
+    const posicionPorElemento = (target: HTMLElement, texto: string) => {
       const rect = target.getBoundingClientRect();
-      const ancho = Math.max(180, Math.min(320, rect.width + 40));
+      const ancho = anchoPorElemento(target, rect);
       const x = rect.left + rect.width / 2;
+      const alto = alturaEstimada(texto, ancho) + 12;
+      const cabeArriba = rect.top >= alto;
+      const cabeAbajo = window.innerHeight - rect.bottom >= alto;
       let y = rect.top;
       let placement: TooltipState['placement'] = 'top';
-      if (rect.top < 70) {
+      const prefiereAbajo = rect.top > window.innerHeight / 2;
+      if ((rect.top < 70 || prefiereAbajo || !cabeArriba) && cabeAbajo) {
         placement = 'bottom';
         y = rect.bottom;
       }
       return { x, y, placement, width: ancho };
+    };
+
+    const asegurarEspacioInferior = (target: HTMLElement, texto: string) => {
+      if (!target.closest('.alumnos-lista__item')) return;
+      const rect = target.getBoundingClientRect();
+      const ancho = anchoPorElemento(target, rect);
+      const alto = alturaEstimada(texto, ancho) + 12;
+      const espacioAbajo = window.innerHeight - rect.bottom;
+      if (rect.top > window.innerHeight / 2 && espacioAbajo < alto) {
+        window.scrollBy(0, alto - espacioAbajo + 8);
+      }
     };
 
     const posicionPorCursor = (texto: string) => {
@@ -172,7 +200,8 @@ export function TooltipLayer() {
       targetRef.current = target;
       const ids = (target.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
       if (!ids.includes(tooltipId)) target.setAttribute('aria-describedby', [...ids, tooltipId].join(' '));
-      const info = preferCursor ? posicionPorCursor(texto) : posicionPorElemento(target);
+      if (!preferCursor) asegurarEspacioInferior(target, texto);
+      const info = preferCursor ? posicionPorCursor(texto) : posicionPorElemento(target, texto);
       setState((prev) => ({
         ...prev,
         visible: true,
@@ -237,10 +266,44 @@ export function TooltipLayer() {
     const onScroll = () => {
       if (!targetRef.current) return;
       if (state.placement === 'cursor') return;
-      const info = posicionPorElemento(targetRef.current);
+      const info = posicionPorElemento(targetRef.current, state.text);
       setState((prev) => ({ ...prev, x: info.x, y: info.y, placement: info.placement }));
       document.documentElement.style.setProperty('--tooltip-w', `${info.width}px`);
     };
+
+    const onResize = () => {
+      if (targetRef.current && state.placement !== 'cursor') {
+        asegurarEspacioInferior(targetRef.current, state.text);
+      }
+      onScroll();
+    };
+
+    const target = targetRef.current;
+    const targetObserver = state.visible && target
+      ? new MutationObserver(() => {
+        if (targetRef.current !== target || !target.isConnected) return;
+        const texto = tooltipDesdeElemento(target);
+        if (!texto) {
+          ocultar();
+          return;
+        }
+        setState((prev) => {
+          if (prev.text === texto) return prev;
+          const info = prev.placement === 'cursor' ? posicionPorCursor(texto) : posicionPorElemento(target, texto);
+          document.documentElement.style.setProperty('--tooltip-w', `${info.width}px`);
+          return { ...prev, text: texto, x: info.x, y: info.y, placement: info.placement };
+        });
+      })
+      : null;
+    if (targetObserver && target) {
+      targetObserver.observe(target, {
+        attributes: true,
+        attributeFilter: ['aria-label', 'data-tooltip', 'title', 'data-ep-title', 'placeholder'],
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
+    }
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseover', onOver);
@@ -249,9 +312,10 @@ export function TooltipLayer() {
     document.addEventListener('focusout', onBlur);
     document.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onResize);
 
     return () => {
+      targetObserver?.disconnect();
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseover', onOver);
       document.removeEventListener('mouseout', onOut);
@@ -259,7 +323,7 @@ export function TooltipLayer() {
       document.removeEventListener('focusout', onBlur);
       document.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onResize);
     };
   }, [state.visible, state.placement, state.text, tooltipId]);
 

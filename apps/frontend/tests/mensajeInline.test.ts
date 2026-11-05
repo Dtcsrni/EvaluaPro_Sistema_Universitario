@@ -12,6 +12,10 @@ describe('tipoMensajeInline', () => {
     expect(tipoMensajeInline('Correo o contrasena incorrectos.')).toBe('error');
   });
 
+  it('clasifica expiracion de sesion como error accionable', () => {
+    expect(tipoMensajeInline('Tu sesion expiro. Inicia sesion de nuevo.')).toBe('error');
+  });
+
   it('clasifica invitacion a registrar como info', () => {
     expect(tipoMensajeInline('No existe una cuenta para ese correo. Completa tus datos para registrarte.')).toBe('info');
   });

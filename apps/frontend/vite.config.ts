@@ -165,9 +165,8 @@ export default defineConfig(({ mode }) => {
       https: httpsConfig
     },
     build: {
-      // En Windows un host estático puede mantener abierto el directorio de salida.
-      // Los assets tienen hash y el index nuevo deja sin referencia los anteriores.
-      emptyOutDir: process.platform !== 'win32',
+      // vite-build-safe compila en staging cuando detecta un host activo o un bloqueo Windows.
+      emptyOutDir: true,
       copyPublicDir: process.platform !== 'win32',
       chunkSizeWarningLimit: 600,
       rollupOptions: {

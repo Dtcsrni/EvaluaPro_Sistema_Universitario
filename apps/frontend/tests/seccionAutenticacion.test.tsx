@@ -4,7 +4,7 @@
  * Responsabilidad: Pruebas unitarias de SeccionAutenticacion.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SeccionAutenticacion } from '../src/apps/app_docente/SeccionAutenticacion';
@@ -86,6 +86,50 @@ describe('SeccionAutenticacion', () => {
     vi.unstubAllEnvs();
   });
 
+  it('nombra el grupo de modos y expone cuál está activo', async () => {
+    const user = userEvent.setup();
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+
+    const grupoModoAcceso = screen.getByRole('group', { name: 'Modo de acceso' });
+    const ingresar = within(grupoModoAcceso).getByRole('button', { name: /Ingresar/i });
+    const registrar = within(grupoModoAcceso).getByRole('button', { name: /Registrar/i });
+
+    expect(ingresar).toHaveAttribute('aria-pressed', 'true');
+    expect(registrar).toHaveAttribute('aria-pressed', 'false');
+    await user.click(registrar);
+    expect(ingresar).toHaveAttribute('aria-pressed', 'false');
+    expect(registrar).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('evita mostrar Google Web duplicado en Registro cuando Google Desktop está disponible', () => {
+    render(
+      <SeccionAutenticacion
+        onIngresar={() => {}}
+        oauthGoogleDisponible
+        oauthGoogleDesktopDisponible
+        modoInicial="registrar"
+      />
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Acceder con Google' })).toHaveLength(1);
+    expect(screen.queryByTestId('mock-google-login')).not.toBeInTheDocument();
+  });
+
+  it('describe las funciones de acceso sin prometer latencias ni privacidad absoluta', () => {
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+
+    expect(screen.getByRole('heading', { name: 'Evaluación docente y calificación OMR' })).toBeInTheDocument();
+    expect(screen.getByText('Organiza tus materias, genera exámenes impresos con QR y revisa hojas ópticas con ayuda de OMR.')).toBeInTheDocument();
+    expect(screen.getByText('Procesa lotes de hojas escaneadas y revisa sus resultados.')).toBeInTheDocument();
+    expect(screen.getByText('La base de datos de EvaluaPro se guarda en SQLite en este equipo.')).toBeInTheDocument();
+    expect(screen.getByText('Base de datos SQLite en este equipo')).toBeInTheDocument();
+    expect(screen.queryByText(/instantánea|en segundos|al instante|privacidad local total|100% locales/i)).not.toBeInTheDocument();
+    const ilustracionOmr = document.querySelector('.auth-omr-mockup-card');
+    expect(ilustracionOmr).toHaveTextContent('Leída');
+    expect(ilustracionOmr).toHaveTextContent('Procesa las hojas y revisa los resultados.');
+    expect(ilustracionOmr).not.toHaveTextContent(/100%|precisa|<\s*1\s*seg/i);
+  });
+
   it('configura el boton oficial de Google con tema y texto de alto contraste', () => {
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
 
@@ -107,7 +151,7 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByTestId('mock-google-login')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/no reporta su configuración OAuth/i);
     expect(screen.getByRole('button', { name: /copiar diagnóstico de acceso/i })).toBeInTheDocument();
-    expect(screen.getByLabelText('Correo')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Correo/)).toBeInTheDocument();
   });
 
   it('en producción oculta diagnósticos de configuración y copia sin ocultar los accesos', () => {
@@ -123,19 +167,131 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByTestId('mock-google-login')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /copiar diagnóstico de acceso/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/no reporta su configuración OAuth/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Correo')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Correo/)).toBeInTheDocument();
   });
 
   it('mantiene un acceso de recuperación visible si falta el Client ID y reintenta cargarlo', async () => {
     const user = userEvent.setup();
     const onReintentarGoogle = vi.fn().mockResolvedValue(false);
-    render(<SeccionAutenticacion onIngresar={() => {}} onReintentarGoogle={onReintentarGoogle} oauthGoogleDisponible={false} />);
+    render(<SeccionAutenticacion onIngresar={() => {}} onReintentarGoogle={onReintentarGoogle} oauthGoogleDisponible={false} oauthGoogleConsultaFallida />);
 
-    await user.click(screen.getByRole('button', { name: /Reintentar acceso con Google/i }));
+    await user.click(screen.getByRole('button', { name: /Volver a consultar Google/i }));
 
     expect(onReintentarGoogle).toHaveBeenCalledOnce();
-    expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo confirmar la disponibilidad del inicio de sesión con Google/i);
-    expect(screen.getByLabelText('Correo')).toBeInTheDocument();
+    expect(await screen.findByText(/No se pudo confirmar la disponibilidad del inicio de sesión con Google/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Correo/)).toBeInTheDocument();
+  });
+
+  it('anuncia el reintento de Google y retira el error anterior mientras consulta', async () => {
+    const user = userEvent.setup();
+    let resolverReintento: (recuperado: boolean) => void = () => {};
+    const reintentoPendiente = new Promise<boolean>((resolve) => {
+      resolverReintento = resolve;
+    });
+    const onReintentarGoogle = vi.fn(() => reintentoPendiente);
+
+    render(
+      <SeccionAutenticacion
+        onIngresar={() => {}}
+        onReintentarGoogle={onReintentarGoogle}
+        oauthGoogleDisponible={false}
+        oauthGoogleConsultaFallida
+      />
+    );
+
+    const estadoConsulta = screen.getByRole('status', { name: 'Estado de consulta de Google' });
+    expect(estadoConsulta).toBeEmptyDOMElement();
+    const botonReintento = screen.getByRole('button', { name: /Volver a consultar Google/i });
+    await user.click(botonReintento);
+
+    expect(estadoConsulta).toHaveTextContent('Consultando la disponibilidad de Google.');
+    expect(estadoConsulta.closest('.auth-google-status')).toHaveAttribute('data-state', 'loading');
+    expect(screen.queryByText(/No fue posible consultar la disponibilidad de Google/i)).not.toBeInTheDocument();
+    const botonOcupado = screen.getByRole('button', { name: /Consultando Google/i });
+    expect(botonOcupado).toHaveAttribute('aria-busy', 'true');
+    expect(botonOcupado).toHaveFocus();
+
+    resolverReintento(false);
+
+    expect(await screen.findByText(/No se pudo confirmar la disponibilidad del inicio de sesión con Google/i)).toBeInTheDocument();
+    expect(estadoConsulta).toBeEmptyDOMElement();
+  });
+
+  it('explica cuando Google está deshabilitado y no muestra una acción de reintento contradictoria', () => {
+    render(
+      <SeccionAutenticacion
+        onIngresar={() => {}}
+        oauthGoogleDisponible={false}
+        oauthGoogleBackendDisponible={false}
+      />
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(/Google no está habilitado/i);
+    expect(screen.getByRole('status')).toHaveTextContent(/formulario para ingresar/i);
+    expect(screen.queryByRole('button', { name: /consultar Google/i })).not.toBeInTheDocument();
+  });
+
+  it('no ofrece abrir el formulario de correo cuando ya está visible como alternativa a Google Desktop', () => {
+    render(
+      <SeccionAutenticacion
+        onIngresar={() => {}}
+        oauthGoogleDisponible={false}
+        oauthGoogleDesktopDisponible
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Acceder con Google' })).toBeVisible();
+    expect(screen.getByLabelText(/^Correo/)).toBeVisible();
+    expect(screen.getByLabelText(/^Contraseña/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Ingresar con correo y contraseña' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restablecer contraseña' })).toBeVisible();
+  });
+
+  it('mantiene las etiquetas visibles sin placeholders que parezcan credenciales capturadas', () => {
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible={false} />);
+
+    const email = screen.getByLabelText(/^Correo/);
+    const password = screen.getByLabelText(/^Contraseña/);
+    expect(email).toBeRequired();
+    expect(password).toBeRequired();
+    expect(screen.getByText('(obligatorio)')).toBeVisible();
+    expect(screen.getByText('(obligatoria)')).toBeVisible();
+    expect(email).not.toHaveAttribute('placeholder');
+    expect(password).not.toHaveAttribute('placeholder');
+    expect(email).toHaveAttribute('autocomplete', 'email');
+    expect(password).toHaveAttribute('autocomplete', 'current-password');
+    expect(screen.getByRole('button', { name: /Mostrar contraseña/i })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('anuncia el nivel textual de fortaleza de contraseña durante el registro', () => {
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible={false} modoInicial="registrar" />);
+
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: 'abcdefgh' } });
+
+    const nivel = screen.getByText('Aceptable');
+    expect(nivel).toHaveAttribute('role', 'status');
+    expect(nivel).toHaveAttribute('aria-live', 'polite');
+    expect(nivel.closest('.auth-pwd-meter')).not.toHaveAttribute('aria-hidden');
+    expect(nivel.parentElement).not.toHaveAttribute('aria-hidden');
+    expect(nivel.previousElementSibling).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('representa el nivel del medidor con el número correspondiente de segmentos activos', () => {
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible={false} modoInicial="registrar" />);
+    const password = screen.getByLabelText(/^Contraseña/);
+
+    for (const [valor, nivel, etiqueta] of [
+      ['abcde', '1', 'Muy corta'],
+      ['abcdefg', '2', 'Mínimo 8 caracteres'],
+      ['abcdefg1', '3', 'Buena seguridad'],
+      ['Abcdefgh1!', '4', 'Excelente y segura']
+    ]) {
+      fireEvent.change(password, { target: { value: valor } });
+      const medidor = screen.getByText(etiqueta).closest('.auth-pwd-meter');
+      expect(medidor?.querySelector('.auth-pwd-meter-label')).toHaveAttribute('role', 'status');
+      expect(medidor).toHaveAttribute('data-nivel', nivel);
+      expect(medidor?.querySelectorAll('.auth-pwd-bar--active')).toHaveLength(Number(nivel));
+    }
   });
 
   it('ingresa con correo/contrasena y notifica token', async () => {
@@ -145,8 +301,8 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={onIngresar} />);
 
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'docente@local.test' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: '12345678' } });
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);
 
@@ -163,8 +319,8 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible={false} />);
 
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@externo.test' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'docente@externo.test' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: '12345678' } });
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);
 
@@ -186,9 +342,9 @@ describe('SeccionAutenticacion', () => {
 
     fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Gomez' } });
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@local.test' } });
+    fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'ana@local.test' } });
     fireEvent.change(screen.getByLabelText(/Clave o Código de Licencia/i), { target: { value: 'LIC-2026-DOC-TEST' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'segura123' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: 'segura123' } });
     await user.click(screen.getByRole('button', { name: /Crear cuenta/i }));
 
     expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/registrar', {
@@ -213,14 +369,77 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={() => {}} />);
 
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'docente@local.test' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: '12345678' } });
 
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);
 
     expect(screen.getByText(/Demasiadas solicitudes/i)).toBeInTheDocument();
+    const form = screen.getByRole('form', { name: 'Acceso docente' });
+    expect(form).toHaveAttribute('aria-describedby', 'auth-form-feedback');
+    expect(document.getElementById('auth-form-feedback')).toHaveTextContent(/Demasiadas solicitudes/i);
     expect(botonesIngresar[botonesIngresar.length - 1]).toBeDisabled();
+  });
+
+  it('mantiene el error de credenciales en el formulario sin repetirlo en un toast', async () => {
+    const user = userEvent.setup();
+    const errorCredenciales = new ErrorRemoto('Correo o contraseña incorrectos.', {
+      status: 401,
+      codigo: 'CREDENCIALES_INVALIDAS'
+    });
+    const toasts: { message?: string }[] = [];
+    const listener = (event: Event) => {
+      toasts.push((event as CustomEvent<{ message?: string }>).detail);
+    };
+    window.addEventListener('app:toast', listener);
+    vi.spyOn(clienteApi, 'enviar').mockRejectedValueOnce(errorCredenciales);
+
+    try {
+      render(<SeccionAutenticacion onIngresar={() => {}} />);
+      fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'docente@local.test' } });
+      fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: 'incorrecta' } });
+      await user.click(screen.getAllByRole('button', { name: /^Ingresar$/i }).at(-1)!);
+
+      const alerta = await screen.findByRole('alert');
+      expect(alerta).toHaveTextContent('Correo o contrasena incorrectos.');
+      expect(screen.getByLabelText(/^Correo/)).toHaveValue('docente@local.test');
+      expect(toasts).toEqual([]);
+    } finally {
+      window.removeEventListener('app:toast', listener);
+    }
+  });
+
+  it('conserva solo el toast persistente que aporta una acción distinta para una sesión expirada', async () => {
+    const user = userEvent.setup();
+    const errorSesion = new ErrorRemoto('La sesión expiró.', { status: 401, codigo: 'TOKEN_EXPIRADO' });
+    type ToastCapturado = { title?: string; message?: string; persistent?: boolean; action?: { label?: string } };
+    const toasts: ToastCapturado[] = [];
+    const listener = (event: Event) => {
+      toasts.push((event as CustomEvent<ToastCapturado>).detail);
+    };
+    window.addEventListener('app:toast', listener);
+    vi.spyOn(clienteApi, 'enviar').mockRejectedValueOnce(errorSesion);
+
+    try {
+      render(<SeccionAutenticacion onIngresar={() => {}} />);
+      fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'docente@local.test' } });
+      fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: 'contraseña' } });
+      await user.click(screen.getAllByRole('button', { name: /^Ingresar$/i }).at(-1)!);
+
+      const alerta = await screen.findByRole('alert');
+      await waitFor(() => expect(toasts).toHaveLength(1));
+      expect(alerta).toHaveTextContent('Tu sesion expiro. Inicia sesion de nuevo.');
+      expect(toasts[0]).toMatchObject({
+        title: 'Sesión anterior activa',
+        message: 'Cierra la sesión actual para volver a intentarlo.',
+        persistent: true,
+        action: { label: 'Cerrar sesión' }
+      });
+      expect(toasts[0]?.message).not.toBe(alerta.textContent?.trim());
+    } finally {
+      window.removeEventListener('app:toast', listener);
+    }
   });
 
   it('invita a registrar cuando el docente no está registrado', async () => {
@@ -230,8 +449,8 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={() => {}} />);
 
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'docente@local.test' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: '12345678' } });
 
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);
@@ -261,14 +480,23 @@ describe('SeccionAutenticacion', () => {
     expect(onIngresar).toHaveBeenCalledWith('token-google', true, expect.stringMatching(/^[0-9a-f-]{36}$/i));
   });
 
-  it('registra el error reportado por Google y permite copiar un diagnóstico sin credenciales', async () => {
+  it('presenta el error genérico de Google sin atribuir una causa y permite copiar un diagnóstico seguro', async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
 
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
     await user.click(screen.getByTestId('mock-google-error'));
-    expect(screen.getByText(/Error de autorización con Google/i)).toBeInTheDocument();
+    const alertaOAuth = await screen.findByRole('alert');
+    expect(alertaOAuth).toHaveTextContent('No se pudo completar el acceso con Google');
+    expect(alertaOAuth).toHaveTextContent('Inténtalo de nuevo con Google o usa tu correo y contraseña.');
+    expect(alertaOAuth).not.toHaveTextContent(/origin_mismatch|Google Cloud/i);
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.queryByRole('link', { name: /Credenciales en Google Cloud/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Usar correo y contraseña/i })).toBeInTheDocument();
+    expect(alertaOAuth?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    const textoPantalla = document.body.textContent ?? '';
+    ['⚠️', '🔗', '✉️', '⚡', '🔒', '✓'].forEach((glifo) => expect(textoPantalla).not.toContain(glifo));
 
     await user.click(screen.getByRole('button', { name: /copiar diagnóstico de acceso/i }));
     await waitFor(() => expect(screen.getByText(/Diagnóstico local copiado/i)).toBeInTheDocument());
@@ -347,9 +575,9 @@ describe('SeccionAutenticacion', () => {
 
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[0]);
-    await user.click(screen.getByRole('button', { name: /Recuperar contrase[nñ]a con Google/i }));
+    await user.click(screen.getByRole('button', { name: /Restablecer contraseña/i }));
 
-    expect(screen.getByText(/Si tu cuenta tiene Google vinculado/i)).toBeInTheDocument();
+    expect(screen.getByText(/Verifica con Google la cuenta vinculada para establecer una contraseña nueva/i)).toBeInTheDocument();
 
     const googleBtns = screen.getAllByTestId('mock-google-login');
     await user.click(googleBtns[googleBtns.length - 1]);
@@ -411,8 +639,8 @@ describe('SeccionAutenticacion', () => {
 
     fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Gomez' } });
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@local.test' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'segura123' } });
+    fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'ana@local.test' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: 'segura123' } });
 
     await user.click(screen.getByRole('button', { name: /Crear cuenta/i }));
     expect(screen.getByText(/Demasiadas solicitudes/i)).toBeInTheDocument();
@@ -433,15 +661,109 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByText(/No se pudo obtener datos de Google/i)).toBeInTheDocument();
   });
 
+  it('no atribuye el fallo genérico de Google a una causa técnica y ofrece la alternativa de correo', async () => {
+    const user = userEvent.setup();
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+
+    const alternarCorreo = screen.getByRole('button', { name: 'Ingresar con correo y contraseña' });
+    expect(alternarCorreo).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(screen.getByTestId('mock-google-error'));
+
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent('No se pudo completar el acceso con Google');
+    expect(alerta).toHaveTextContent('Inténtalo de nuevo con Google o usa tu correo y contraseña.');
+    expect(alerta).not.toHaveTextContent(/origin_mismatch|Google Cloud Console/i);
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.queryByRole('link', { name: /Credenciales en Google Cloud/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Usar correo y contraseña/i }));
+    expect(screen.getByLabelText(/^Correo/)).toBeVisible();
+    expect(screen.getByLabelText(/^Contraseña/)).toBeVisible();
+    const ocultarCorreo = screen.getByRole('button', { name: 'Ocultar formulario' });
+    expect(ocultarCorreo).toHaveAttribute('aria-expanded', 'true');
+    await user.click(ocultarCorreo);
+    expect(screen.getByRole('button', { name: 'Ingresar con correo y contraseña' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText(/^Correo/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ingresar con correo y contraseña' }));
+    expect(screen.getByLabelText(/^Correo/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Ocultar formulario' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Restablecer contraseña' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Recuperar contraseña con Google/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Restablecer contraseña' }));
+    expect(screen.getByText(/Verifica con Google la cuenta vinculada para establecer una contraseña nueva/i)).toBeVisible();
+  });
+
+  it('presenta el fallo de Google Desktop como error y ofrece reintentar', async () => {
+    const user = userEvent.setup();
+    const popup = {
+      location: { replace: vi.fn() },
+      closed: false,
+      close: vi.fn()
+    } as unknown as Window;
+    vi.spyOn(window, 'open').mockReturnValue(popup);
+    vi.spyOn(clienteApi, 'enviar')
+      .mockResolvedValueOnce({ flowId: 'flow-google-dummy', url: 'https://accounts.google.com/dummy' } as never)
+      .mockResolvedValueOnce({ estado: 'error', codigo: 'GOOGLE_DESKTOP_OAUTH_FAILED' } as never)
+      .mockResolvedValueOnce({} as never);
+
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDesktopDisponible />);
+    await user.click(screen.getByRole('button', { name: 'Acceder con Google' }));
+
+    const alerta = await screen.findByRole('alert', {}, { timeout: 4000 });
+    expect(alerta).toHaveTextContent('Google no pudo confirmar tu identidad. Inténtalo de nuevo.');
+    expect(screen.getByRole('button', { name: 'Reintentar con Google' })).toBeVisible();
+    expect(screen.getByLabelText(/^Correo/)).toBeVisible();
+    expect(screen.getByLabelText(/^Contraseña/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Ingresar con correo y contraseña' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restablecer contraseña' })).toBeVisible();
+  });
+
+  it('retira el error anterior de contraseña cuando comienza Google Desktop', async () => {
+    const user = userEvent.setup();
+    const popup = {
+      location: { replace: vi.fn() },
+      closed: false,
+      close: vi.fn()
+    } as unknown as Window;
+    vi.spyOn(window, 'open').mockReturnValue(popup);
+    vi.spyOn(clienteApi, 'enviar')
+      .mockRejectedValueOnce(new ErrorRemoto('Correo o contraseña incorrectos.', {
+        status: 401,
+        codigo: 'CREDENCIALES_INVALIDAS'
+      }))
+      .mockResolvedValueOnce({ flowId: 'flow-google-after-password', url: 'https://accounts.google.com/dummy' } as never)
+      .mockResolvedValueOnce({ estado: 'error', codigo: 'GOOGLE_DESKTOP_OAUTH_FAILED' } as never)
+      .mockResolvedValueOnce({} as never);
+
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDesktopDisponible />);
+    fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'docente@example.invalid' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: 'dummy-password' } });
+    await user.click(screen.getAllByRole('button', { name: /^Ingresar$/i }).at(-1)!);
+    expect(await screen.findByText('Correo o contrasena incorrectos.')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Acceder con Google' }));
+    expect(await screen.findByText(
+      'Google no pudo confirmar tu identidad. Inténtalo de nuevo.',
+      {},
+      { timeout: 3000 }
+    )).toBeVisible();
+    expect(screen.queryByText('Correo o contrasena incorrectos.')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
   it('alterna la visibilidad de contraseña y el estado de sesión recordada', async () => {
     const user = userEvent.setup();
     render(<SeccionAutenticacion onIngresar={() => {}} />);
     await user.click(screen.getAllByRole('button', { name: /^Ingresar$/i })[0]!);
-    const contrasena = screen.getByLabelText(/Contrase[nñ]a/i);
+    const contrasena = screen.getByLabelText(/^Contraseña/);
     expect(contrasena).toHaveAttribute('type', 'password');
-    await user.click(screen.getByRole('button', { name: 'Mostrar' }));
+    await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }));
     expect(contrasena).toHaveAttribute('type', 'text');
     const recordar = screen.getByRole('checkbox', { name: /Mantener sesión iniciada/i });
+    expect(recordar).toBeChecked();
+    expect(recordar).toHaveAccessibleDescription('Si lo compartes, desactívala.');
+    expect(screen.getByText('Si lo compartes, desactívala.')).toBeVisible();
     await user.click(recordar);
     expect(recordar).not.toBeChecked();
   });
@@ -450,7 +772,7 @@ describe('SeccionAutenticacion', () => {
     const user = userEvent.setup();
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
-    await user.click(screen.getByRole('button', { name: /Recuperar contraseña con Google/i }));
+    await user.click(screen.getByRole('button', { name: /Restablecer contraseña/i }));
     const vacios = screen.getAllByTestId('mock-google-login-empty');
     await user.click(vacios[vacios.length - 1]!);
     expect(await screen.findByText(/No se recibió credencial de Google/i)).toBeInTheDocument();
@@ -465,7 +787,7 @@ describe('SeccionAutenticacion', () => {
 
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[0]);
-    await user.click(screen.getByRole('button', { name: /Recuperar contrase[nñ]a con Google/i }));
+    await user.click(screen.getByRole('button', { name: /Restablecer contraseña/i }));
 
     const googleBtns = screen.getAllByTestId('mock-google-login');
     await user.click(googleBtns[googleBtns.length - 1]);
@@ -481,18 +803,18 @@ describe('SeccionAutenticacion', () => {
 
     fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Docente' } });
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Prueba' } });
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@test.com' } });
+    fireEvent.change(screen.getByLabelText(/^Correo/), { target: { value: 'docente@test.com' } });
     fireEvent.change(screen.getByLabelText(/Clave o Código de Licencia/i), { target: { value: 'LIC-123' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'password123' } });
-    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'docente-input@test.com' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: 'password123' } });
+    fireEvent.input(screen.getByLabelText(/^Correo/), { target: { value: 'docente-input@test.com' } });
     fireEvent.input(screen.getByLabelText(/Clave o Código de Licencia/i), { target: { value: 'LIC-INPUT-123' } });
-    fireEvent.input(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'password-input-123' } });
+    fireEvent.input(screen.getByLabelText(/^Contraseña/), { target: { value: 'password-input-123' } });
 
     expect(screen.getByLabelText('Nombres')).toHaveValue('Docente');
     expect(screen.getByLabelText('Apellidos')).toHaveValue('Prueba');
-    expect(screen.getByLabelText('Correo')).toHaveValue('docente-input@test.com');
+    expect(screen.getByLabelText(/^Correo/)).toHaveValue('docente-input@test.com');
     expect(screen.getByLabelText(/Clave o Código de Licencia/i)).toHaveValue('LIC-INPUT-123');
-    expect(screen.getByLabelText(/Contrase[nñ]a/i)).toHaveValue('password-input-123');
+    expect(screen.getByLabelText(/^Contraseña/)).toHaveValue('password-input-123');
   });
 
   it('permite editar nombres y clave de licencia tras registro con Google', async () => {

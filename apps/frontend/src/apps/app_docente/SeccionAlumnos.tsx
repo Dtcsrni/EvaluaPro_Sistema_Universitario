@@ -4,11 +4,23 @@
  * Responsabilidad: Seccion funcional del shell docente con diseno Bento Glassmorphic, iconografia rica y animaciones fluidas.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { IconoCampo } from '../../ui/IconoLucide';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
+import {
+  ArrowRight,
+  CircleAlert,
+  Check,
+  IconoLucide,
+  Pencil,
+  Search,
+  Tags,
+  Trash2,
+  UsersRound
+} from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaAlumnosVisual } from './GuiaAlumnosVisual';
@@ -21,11 +33,25 @@ import {
   fechaMateriaVisible,
   mensajeDeError,
   nombreMateriaVisible,
-  obtenerInicialesAlumno
+  obtenerInicialesAvatarAlumno
 } from './utilidades';
+
+function normalizarBusquedaAlumno(valor: unknown): string {
+  return String(valor ?? '')
+    .trim()
+    .toLocaleLowerCase('es-MX')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
 
 export function SeccionAlumnos({
   alumnos,
+  cargandoAlumnos = false,
+  errorCargaAlumnos = false,
+  onReintentarCargaAlumnos,
+  cargandoMaterias = false,
+  errorMaterias = false,
+  onReintentarMaterias,
   periodosActivos,
   periodosTodos,
   destinoInicial,
@@ -36,6 +62,12 @@ export function SeccionAlumnos({
   avisarSinPermiso
 }: {
   alumnos: Alumno[];
+  cargandoAlumnos?: boolean;
+  errorCargaAlumnos?: boolean;
+  onReintentarCargaAlumnos?: () => void;
+  cargandoMaterias?: boolean;
+  errorMaterias?: boolean;
+  onReintentarMaterias?: () => void;
   periodosActivos: Periodo[];
   periodosTodos: Periodo[];
   destinoInicial?: { periodoId: string; grupo?: string } | null;
@@ -63,29 +95,70 @@ export function SeccionAlumnos({
   const [filtroAlumno, setFiltroAlumno] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const [resumenAsistencias, setResumenAsistencias] = useState<any[]>([]);
+  const [estadoResumenAsistencias, setEstadoResumenAsistencias] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [reintentoResumenAsistencias, setReintentoResumenAsistencias] = useState(0);
   const [grupoArchivadoSeleccionado, setGrupoArchivadoSeleccionado] = useState('');
   const [reinscribiendoGrupo, setReinscribiendoGrupo] = useState(false);
+  const [preferenciaFormularioAlta, setPreferenciaFormularioAlta] = useState<boolean | null>(null);
+  const [viewportMovil, setViewportMovil] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 720);
 
-  const formularioRef = useRef<HTMLElement>(null);
+  const formularioRef = useRef<HTMLFormElement>(null);
   const matriculaInputRef = useRef<HTMLInputElement>(null);
+  const botonEditarInvocadorRef = useRef<HTMLButtonElement | null>(null);
+  const encabezadoListaRef = useRef<HTMLHeadingElement>(null);
+  const idEditandoAnteriorRef = useRef<string | null>(null);
+  const focoEdicionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (focoEdicionTimerRef.current !== null) clearTimeout(focoEdicionTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const actualizarViewport = () => setViewportMovil(window.innerWidth <= 720);
+    window.addEventListener('resize', actualizarViewport);
+    return () => window.removeEventListener('resize', actualizarViewport);
+  }, []);
+
+  useEffect(() => {
+    if (idEditandoAnteriorRef.current && !editandoId) {
+      if (botonEditarInvocadorRef.current?.isConnected) botonEditarInvocadorRef.current.focus();
+      else encabezadoListaRef.current?.focus();
+      botonEditarInvocadorRef.current = null;
+    }
+    idEditandoAnteriorRef.current = editandoId;
+  }, [editandoId]);
 
   useEffect(() => {
     if (!periodoIdLista) {
       setResumenAsistencias([]);
+      setEstadoResumenAsistencias('idle');
       return;
     }
+
+    let vigente = true;
+    setResumenAsistencias([]);
+    setEstadoResumenAsistencias('loading');
     clienteApi.obtener<{ resumen: any[] }>(`/asistencias/resumen?periodoId=${periodoIdLista}`)
       .then((res: any) => {
+        if (!vigente) return;
         setResumenAsistencias(res?.resumen || []);
+        setEstadoResumenAsistencias('ready');
       })
       .catch(() => {
+        if (!vigente) return;
         setResumenAsistencias([]);
+        setEstadoResumenAsistencias('error');
       });
-  }, [periodoIdLista]);
+
+    return () => {
+      vigente = false;
+    };
+  }, [periodoIdLista, reintentoResumenAsistencias]);
 
   const confirm = useConfirmDialog();
   const puedeGestionar = permisos.alumnos.gestionar;
   const bloqueoEdicion = !puedeGestionar;
+  const formularioAltaAbierto = Boolean(editandoId) || (preferenciaFormularioAlta ?? (alumnos.length === 0 || !viewportMovil));
 
   function normalizarMatricula(valor: string): string {
     return String(valor || '')
@@ -94,11 +167,18 @@ export function SeccionAlumnos({
       .toUpperCase();
   }
 
+  function cambiarMateriaDeLista(periodoId: string) {
+    setPeriodoIdLista(periodoId);
+    setFiltroAlumno('');
+    setFiltroGrupo('');
+  }
+
   const matriculaNormalizada = useMemo(() => normalizarMatricula(matricula), [matricula]);
   const matriculaValida = useMemo(() => {
     if (!matricula.trim()) return true;
     return /^CUH\d{9}$/i.test(matriculaNormalizada);
   }, [matricula, matriculaNormalizada]);
+  const errorMatriculaVisible = Boolean(matricula.trim() && !matriculaValida);
 
   const dominioCorreoPredeterminado = 'cuh.mx';
 
@@ -120,6 +200,7 @@ export function SeccionAlumnos({
   useEffect(() => {
     if (!destinoInicial?.periodoId) return;
     setPeriodoIdLista(destinoInicial.periodoId);
+    setFiltroAlumno('');
     setFiltroGrupo(destinoInicial.grupo || '');
   }, [destinoInicial]);
 
@@ -144,6 +225,8 @@ export function SeccionAlumnos({
       if (!grupo) setGrupo(grupoReciente);
     }
   }, [alumnos, grupo, ultimoGrupoUsado, ultimoPeriodoIdUsado, periodoIdNuevo, periodosActivos]);
+
+  const materiaNuevaSeleccionada = periodosActivos.find((periodo) => periodo._id === periodoIdNuevo) ?? null;
 
   const gruposArchivados = useMemo(() => {
     const periodosPorId = new Map((periodosTodos || []).filter((periodo) => periodo.activo === false).map((periodo) => [periodo._id, periodo]));
@@ -193,14 +276,11 @@ export function SeccionAlumnos({
       const existentes = Number(resultado?.yaInscritos || 0);
       const texto = `Grupo reinscrito: ${nuevos} ${nuevos === 1 ? 'alumno nuevo' : 'alumnos nuevos'}; ${existentes} ya ${existentes === 1 ? 'estaba inscrito' : 'estaban inscritos'}.`;
       setMensaje(texto);
-      emitToast({ level: 'ok', title: 'Alumnos', message: texto, durationMs: 3500 });
       registrarAccionDocente('reinscribir_grupo_archivado', true);
-      setPeriodoIdLista(periodoIdNuevo);
+      cambiarMateriaDeLista(periodoIdNuevo);
       onRefrescar();
     } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo reinscribir el grupo');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo reinscribir', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      informarErrorDeOperacion(error, 'No se pudo reinscribir el grupo');
       registrarAccionDocente('reinscribir_grupo_archivado', false);
     } finally {
       setReinscribiendoGrupo(false);
@@ -233,21 +313,35 @@ export function SeccionAlumnos({
   }, [alumnos, periodoIdLista]);
 
   const gruposDisponibles = useMemo(() => {
-    const set = new Set<string>();
+    const grupos = new Map<string, string>();
     for (const a of alumnosDeMateria) {
       const g = String(a.grupo || '').trim();
-      if (g) set.add(g);
+      const clave = g.toLowerCase();
+      if (clave && !grupos.has(clave)) grupos.set(clave, g);
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+    return Array.from(grupos.values()).sort((a, b) => a.localeCompare(b, 'es'));
   }, [alumnosDeMateria]);
+  const mostrarChipsGrupo = gruposDisponibles.length > 0 && gruposDisponibles.length <= 3;
+  const mostrarSelectorGrupo = gruposDisponibles.length > 3;
+  const busquedaSinResultados = filtroAlumno.trim();
+  const grupoSinResultados = gruposDisponibles.find((grupoDisponible) =>
+    grupoDisponible.toLocaleLowerCase('es') === filtroGrupo.trim().toLocaleLowerCase('es')
+  ) ?? filtroGrupo.trim();
+  const descripcionSinCoincidencias = busquedaSinResultados && grupoSinResultados
+    ? `No hay alumnos para «${busquedaSinResultados}» en el grupo «${grupoSinResultados}».`
+    : busquedaSinResultados
+      ? `No hay alumnos para «${busquedaSinResultados}».`
+      : grupoSinResultados
+        ? `No hay alumnos en el grupo «${grupoSinResultados}».`
+        : 'No hay alumnos para los filtros actuales.';
 
   const alumnosFiltrados = useMemo(() => {
-    const txt = filtroAlumno.trim().toLowerCase();
+    const txt = normalizarBusquedaAlumno(filtroAlumno);
     const grp = filtroGrupo.trim().toLowerCase();
     return alumnosDeMateria.filter((alumno) => {
-      const nombre = String(alumno.nombreCompleto || '').toLowerCase();
-      const matriculaAlumno = String(alumno.matricula || '').toLowerCase();
-      const correoAlumno = String(alumno.correo || '').toLowerCase();
+      const nombre = normalizarBusquedaAlumno(alumno.nombreCompleto);
+      const matriculaAlumno = normalizarBusquedaAlumno(alumno.matricula);
+      const correoAlumno = normalizarBusquedaAlumno(alumno.correo);
       const grupoAlumno = String(alumno.grupo || '').trim().toLowerCase();
       const byText = !txt || nombre.includes(txt) || matriculaAlumno.includes(txt) || correoAlumno.includes(txt);
       const byGroup = !grp || grupoAlumno === grp;
@@ -272,11 +366,27 @@ export function SeccionAlumnos({
       totalGeneral: (Array.isArray(alumnos) ? alumnos : []).length
     };
   }, [alumnosDeMateria, gruposDisponibles.length, totalSinDerecho, alumnos]);
+  const padrónVacioNoConfirmado = alumnos.length === 0 && (cargandoAlumnos || errorCargaAlumnos);
+  const listaMateriaVaciaNoConfirmada = !periodoIdLista
+    || (alumnosDeMateria.length === 0 && (cargandoAlumnos || errorCargaAlumnos));
 
   const nombreMateriaSeleccionada = useMemo(() => {
     const p = (periodosTodos || []).find((item) => item._id === periodoIdLista);
     return p ? nombreMateriaVisible(p) : '';
   }, [periodosTodos, periodoIdLista]);
+
+  function informarErrorDeOperacion(error: unknown, fallback: string) {
+    setMensaje(mensajeDeError(error, fallback));
+    const accionSesion = accionToastSesionParaError(error, 'docente');
+    if (accionSesion) {
+      emitToast({
+        level: 'warn',
+        title: 'Renueva tu sesión docente',
+        message: 'El detalle está en la sección Alumnos. Cierra sesión y vuelve a entrar para renovar el acceso.',
+        action: accionSesion
+      });
+    }
+  }
 
   async function crearAlumno() {
     try {
@@ -286,6 +396,7 @@ export function SeccionAlumnos({
         return;
       }
       if (!puedeCrear) return;
+      const nombreCompletoRegistrado = `${nombres.trim()} ${apellidos.trim()}`.trim();
       setCreando(true);
       setMensaje('');
       await enviarConPermiso(
@@ -301,33 +412,26 @@ export function SeccionAlumnos({
         },
         'No tienes permiso para registrar alumnos.'
       );
-      setMensaje('Alumno registrado');
-      emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno registrado correctamente', durationMs: 2200 });
+      setMensaje(`Se registró a «${nombreCompletoRegistrado}».`);
       registrarAccionDocente('crear_alumno', true, Date.now() - inicio);
       setMatricula('');
       setNombres('');
       setApellidos('');
       setCorreo('');
       setCorreoAuto(true);
-      setPeriodoIdLista(periodoIdNuevo);
+      cambiarMateriaDeLista(periodoIdNuevo);
       onRefrescar();
     } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo registrar el alumno');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo registrar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      informarErrorDeOperacion(error, 'No se pudo registrar el alumno');
       registrarAccionDocente('crear_alumno', false);
     } finally {
       setCreando(false);
     }
   }
 
-  function iniciarEdicion(alumno: Alumno) {
+  function iniciarEdicion(alumno: Alumno, botonInvocador: HTMLButtonElement) {
+    if (focoEdicionTimerRef.current !== null) clearTimeout(focoEdicionTimerRef.current);
+    botonEditarInvocadorRef.current = botonInvocador;
     setEditandoId(alumno._id);
     setMatricula(alumno.matricula || '');
     setNombres(alumno.nombres || '');
@@ -337,20 +441,19 @@ export function SeccionAlumnos({
     setGrupo(alumno.grupo || '');
     setPeriodoIdNuevo(alumno.periodoId || '');
     setMensaje('');
-    emitToast({
-      level: 'info',
-      title: 'Modificando Alumno',
-      message: `Editando datos de ${alumno.nombreCompleto || 'alumno'}. Modifica los campos en el formulario.`,
-      durationMs: 3000
-    });
     registrarAccionDocente('iniciar_edicion_alumno', true);
-    setTimeout(() => {
+    focoEdicionTimerRef.current = setTimeout(() => {
+      focoEdicionTimerRef.current = null;
       formularioRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       matriculaInputRef.current?.focus();
     }, 60);
   }
 
   function cancelarEdicion() {
+    if (focoEdicionTimerRef.current !== null) {
+      clearTimeout(focoEdicionTimerRef.current);
+      focoEdicionTimerRef.current = null;
+    }
     setEditandoId(null);
     setMatricula('');
     setNombres('');
@@ -369,11 +472,12 @@ export function SeccionAlumnos({
         return;
       }
       if (!puedeGuardarEdicion) return;
+      const nombreCompletoActualizado = `${nombres.trim()} ${apellidos.trim()}`.trim();
       setGuardandoEdicion(true);
       setMensaje('');
       await enviarConPermiso(
         'alumnos:gestionar',
-        `/alumnos/${editandoId}`,
+        `/alumnos/${editandoId}/actualizar`,
         {
           periodoId: periodoIdNuevo,
           matricula: matriculaNormalizada,
@@ -384,21 +488,12 @@ export function SeccionAlumnos({
         },
         'No tienes permiso para editar alumnos.'
       );
-      setMensaje('Alumno actualizado');
-      emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno actualizado correctamente', durationMs: 2200 });
       registrarAccionDocente('actualizar_alumno', true, Date.now() - inicio);
       cancelarEdicion();
+      setMensaje(`Cambios guardados para «${nombreCompletoActualizado}».`);
       onRefrescar();
     } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo actualizar el alumno');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo actualizar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      informarErrorDeOperacion(error, 'No se pudo actualizar el alumno');
       registrarAccionDocente('actualizar_alumno', false);
     } finally {
       setGuardandoEdicion(false);
@@ -429,21 +524,12 @@ export function SeccionAlumnos({
         {},
         'No tienes permiso para eliminar alumnos en desarrollo.'
       );
-      setMensaje('Alumno eliminado');
-      emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno eliminado', durationMs: 2200 });
       registrarAccionDocente('eliminar_alumno', true, Date.now() - inicio);
       if (editandoId === alumno._id) cancelarEdicion();
+      setMensaje('Alumno eliminado');
       onRefrescar();
     } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo eliminar el alumno');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo eliminar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      informarErrorDeOperacion(error, 'No se pudo eliminar el alumno');
       registrarAccionDocente('eliminar_alumno', false);
     } finally {
       setEliminandoAlumnoId(null);
@@ -455,63 +541,53 @@ export function SeccionAlumnos({
       {/* Cabecera Ejecutiva Principal con Mini-KPIs animados */}
       <div className="alumnos-panel__head">
         <div className="alumnos-panel__lead">
-          <div className="alumnos-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
+          <div className="icono-seccion-orb alumnos-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <IconoLucide icon={UsersRound} size={28} />
           </div>
           <div className="alumnos-panel__text-block">
             <div className="alumnos-panel__meta-row">
-              <span className="alumnos-status-pill">
-                <span className="alumnos-pulse-dot" aria-hidden="true" />
-                <span>Control Escolar y Matrículas</span>
-              </span>
               <span className="alumnos-counter-tag">
-                Total de alumnos: {resumenAlumnos.totalGeneral}
+                Padrón general: {padrónVacioNoConfirmado ? '—' : resumenAlumnos.totalGeneral}
               </span>
             </div>
             <h2 className="alumnos-panel__title">
-              <Icono nombre="alumnos" /> Alumnos
+              Alumnos
             </h2>
             <p className="nota">Administra expedientes de estudiantes, matrículas institucionales CUH y asignación por grupos.</p>
+            <a
+              className="boton secundario alumnos-panel__list-shortcut"
+              href="#alumnos-lista-heading"
+              onClick={(event) => {
+                event.preventDefault();
+                encabezadoListaRef.current?.focus();
+              }}
+            >
+              Ver lista de alumnos
+            </a>
           </div>
         </div>
 
-        <div className="alumnos-header-kpis" aria-live="polite">
+        <div className="alumnos-header-kpis">
           <div className="materia-mini-kpi materia-mini-kpi--active anim-kpi-hover" data-tooltip="Total de alumnos matriculados en la materia seleccionada">
             <span className="materia-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              </svg>
+              <IconoLucide icon={UsersRound} size={16} />
             </span>
-            <span className="materia-mini-kpi__num">{resumenAlumnos.total}</span>
+            <span className="materia-mini-kpi__num">{listaMateriaVaciaNoConfirmada ? '—' : resumenAlumnos.total}</span>
             <span className="materia-mini-kpi__lbl">En Materia</span>
           </div>
 
           <div className="materia-mini-kpi materia-mini-kpi--groups anim-kpi-hover" data-tooltip="Grupos académicos detectados en la materia seleccionada">
             <span className="materia-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-                <line x1="7" y1="7" x2="7.01" y2="7" strokeWidth="3" />
-              </svg>
+              <IconoLucide icon={Tags} size={16} />
             </span>
-            <span className="materia-mini-kpi__num">{resumenAlumnos.grupos}</span>
-            <span className="materia-mini-kpi__lbl">Grupos</span>
+            <span className="materia-mini-kpi__num">{listaMateriaVaciaNoConfirmada ? '—' : resumenAlumnos.grupos}</span>
+            <span className="materia-mini-kpi__lbl">{resumenAlumnos.grupos === 1 ? 'grupo' : 'grupos'}</span>
           </div>
 
-          {resumenAlumnos.sinDerecho > 0 && (
+          {estadoResumenAsistencias === 'ready' && resumenAlumnos.sinDerecho > 0 && (
             <div className="materia-mini-kpi materia-mini-kpi--closing anim-kpi-hover" data-tooltip="Alumnos con 4 o más inasistencias en el periodo">
               <span className="materia-mini-kpi__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
+                <IconoLucide icon={CircleAlert} size={16} />
               </span>
               <span className="materia-mini-kpi__num">{resumenAlumnos.sinDerecho}</span>
               <span className="materia-mini-kpi__lbl">4+ inasistencias</span>
@@ -519,6 +595,25 @@ export function SeccionAlumnos({
           )}
         </div>
       </div>
+
+      {estadoResumenAsistencias === 'loading' && (
+        <InlineMensaje tipo="info">Cargando resumen de inasistencias…</InlineMensaje>
+      )}
+      {estadoResumenAsistencias === 'error' && (
+        <div className="alumnos-resumen-asistencias-error">
+          <InlineMensaje tipo="error">
+            No se pudo cargar el resumen de inasistencias. El indicador no está disponible.
+          </InlineMensaje>
+          <Boton
+            type="button"
+            variante="secundario"
+            tamano="sm"
+            onClick={() => setReintentoResumenAsistencias((intento) => intento + 1)}
+          >
+            Reintentar resumen
+          </Boton>
+        </div>
+      )}
 
       {/* Guía Rápida Bento Interactiva */}
       <GuiaAlumnosVisual />
@@ -533,6 +628,7 @@ export function SeccionAlumnos({
             <label className="campo campo--materia-select">
               <span>Grupo archivado</span>
               <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+                <IconoCampo nombre="select" />
                 <select value={grupoArchivadoSeleccionado} onChange={(event) => setGrupoArchivadoSeleccionado(event.target.value)} disabled={bloqueoEdicion || reinscribiendoGrupo}>
                   <option value="">Selecciona grupo y materia de origen</option>
                   {gruposArchivados.map((item) => (
@@ -544,6 +640,7 @@ export function SeccionAlumnos({
             <label className="campo campo--materia-select">
               <span>Materia activa de destino</span>
               <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+                <IconoCampo nombre="select" />
                 <select value={periodoIdNuevo} onChange={(event) => setPeriodoIdNuevo(event.target.value)} disabled={bloqueoEdicion || reinscribiendoGrupo || periodosActivos.length === 0}>
                   <option value="">Selecciona materia activa</option>
                   {periodosActivos.map((periodo) => <option key={periodo._id} value={periodo._id}>{etiquetaMateriaParaSelector(periodo)}</option>)}
@@ -564,16 +661,45 @@ export function SeccionAlumnos({
       )}
 
       {/* Formulario Estructurado Panoramico de 2 Filas Claras */}
-      <section ref={formularioRef} className="alumnos-form alumnos-form--glass alumnos-form--panoramico anim-form-card">
+      <form
+        ref={formularioRef}
+        className={`alumnos-form alumnos-form--glass alumnos-form--panoramico anim-form-card${editandoId ? ' alumnos-form--editando' : ''}${formularioAltaAbierto ? '' : ' alumnos-form--colapsado'}`}
+        aria-labelledby="alumnos-form-title"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (bloqueoEdicion || creando || guardandoEdicion) return;
+          if (editandoId) {
+            if (puedeGuardarEdicion) void guardarEdicion();
+            return;
+          }
+          if (puedeCrear) void crearAlumno();
+        }}
+      >
         <div className="alumnos-form__header">
-          <h3 className="alumnos-form__title">
-            {editandoId ? 'Modificar alumno seleccionado' : 'Registrar alumno'}
-          </h3>
-          <p className="alumnos-form__subtitle">
-            Obligatorios: matrícula, nombres, apellidos y materia. Correo y grupo son opcionales.
-          </p>
+          <div className="alumnos-form__header-copy">
+            <h3 className="alumnos-form__title" id="alumnos-form-title">
+              {editandoId ? 'Modificar alumno seleccionado' : 'Registrar alumno'}
+            </h3>
+            <p className="alumnos-form__subtitle">
+              Obligatorios: matrícula, nombres, apellidos y materia. Correo y grupo son opcionales.
+            </p>
+          </div>
+          {!editandoId && (
+            <button
+              className="boton boton--secundario alumnos-form__toggle"
+              type="button"
+              aria-expanded={formularioAltaAbierto}
+              aria-controls="alumnos-form-body"
+              onClick={() => setPreferenciaFormularioAlta(!formularioAltaAbierto)}
+            >
+              <Icono nombre="chevron" size={16} className="alumnos-form__toggle-icon" />
+              {formularioAltaAbierto ? 'Ocultar formulario' : 'Mostrar formulario'}
+            </button>
+          )}
         </div>
 
+        <div id="alumnos-form-body" hidden={!formularioAltaAbierto}>
         <div className="alumnos-form__fields">
           {/* Fila 1: Identidad del Alumno */}
           <div className="alumnos-form__row alumnos-form__row--top">
@@ -582,11 +708,12 @@ export function SeccionAlumnos({
                 <span>Matrícula</span>
                 {matricula.trim() && (
                   <span className={`badge-matricula-live anim-badge-in ${matriculaValida ? 'badge-matricula-live--ok' : 'badge-matricula-live--err'}`}>
-                    {matriculaValida ? '✓ Válida' : 'Usa 9 dígitos después de CUH'}
+                    {matriculaValida ? <><IconoLucide icon={Check} size={14} /> Válida</> : 'Usa 9 dígitos después de CUH'}
                   </span>
                 )}
               </span>
               <div className="auth-input-box auth-input-box--id auth-input-box--animated">
+                <IconoCampo nombre="id" />
                 <input
                   ref={matriculaInputRef}
                   required
@@ -600,9 +727,12 @@ export function SeccionAlumnos({
                     }
                   }}
                   disabled={bloqueoEdicion}
-                  placeholder="Ej. CUH512410168"
-                  aria-invalid={Boolean(matricula.trim() && !matriculaValida)}
-                  aria-describedby="alumnos-matricula-ayuda"
+                  placeholder="CUH + 9 cifras"
+                  aria-invalid={errorMatriculaVisible}
+                  aria-describedby={[
+                    'alumnos-matricula-ayuda',
+                    errorMatriculaVisible && 'alumnos-matricula-error'
+                  ].filter(Boolean).join(' ')}
                   data-tooltip="Escribe CUH seguido de exactamente 9 dígitos"
                 />
               </div>
@@ -612,13 +742,14 @@ export function SeccionAlumnos({
             <label className="campo campo--nombres">
               <span>Nombres</span>
               <div className="auth-input-box auth-input-box--user auth-input-box--animated">
+                <IconoCampo nombre="user" />
                 <input
                   value={nombres}
                   onChange={(event) => setNombres(event.target.value)}
                   disabled={bloqueoEdicion}
                   required
                   autoComplete="given-name"
-                  placeholder="Ej. Ana María, Carlos Roberto…"
+                  placeholder="Ej. Ana María"
                 />
               </div>
             </label>
@@ -626,13 +757,14 @@ export function SeccionAlumnos({
             <label className="campo campo--apellidos">
               <span>Apellidos</span>
               <div className="auth-input-box auth-input-box--user auth-input-box--animated">
+                <IconoCampo nombre="user" />
                 <input
                   value={apellidos}
                   onChange={(event) => setApellidos(event.target.value)}
                   disabled={bloqueoEdicion}
                   required
                   autoComplete="family-name"
-                  placeholder="Ej. Gómez Ruiz, López Hernández…"
+                  placeholder="Ej. Gómez Ruiz"
                 />
               </div>
             </label>
@@ -643,6 +775,7 @@ export function SeccionAlumnos({
             <label className="campo campo--correo">
               <span>Correo (opcional)</span>
               <div className="auth-input-box auth-input-box--mail auth-input-box--animated">
+                <IconoCampo nombre="mail" />
                 <input
                   type="email"
                   autoComplete="email"
@@ -653,16 +786,23 @@ export function SeccionAlumnos({
                   }}
                   disabled={bloqueoEdicion}
                   placeholder={`alumno@${dominioCorreoPredeterminado}`}
+                  aria-describedby={correoAuto && matriculaNormalizada
+                    ? 'alumnos-correo-sugerido'
+                    : editandoId && correo.trim() ? 'alumnos-correo-completo' : undefined}
                 />
               </div>
               {correoAuto && matriculaNormalizada && (
-                <span className="ayuda">Sugerido automáticamente: {matriculaNormalizada}@{dominioCorreoPredeterminado}</span>
+                <span className="ayuda" id="alumnos-correo-sugerido">Sugerido automáticamente: {matriculaNormalizada}@{dominioCorreoPredeterminado}</span>
+              )}
+              {editandoId && correo.trim() && (
+                <span className="ayuda alumnos-form__correo-completo" id="alumnos-correo-completo">Correo completo: {correo}</span>
               )}
             </label>
 
             <label className="campo campo--grupo">
               <span>Grupo (opcional)</span>
               <div className="auth-input-box auth-input-box--group auth-input-box--animated">
+                <IconoCampo nombre="group" />
                 <input
                   value={grupo}
                   onChange={(event) => {
@@ -677,11 +817,14 @@ export function SeccionAlumnos({
             </label>
 
             <label className="campo campo--materia">
-              <span>Materia</span>
+              <span id="alumnos-form-materia-label">Materia del alumno</span>
               <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+                <IconoCampo nombre="select" />
                 <select
                   value={periodoIdNuevo}
                   required
+                  aria-labelledby="alumnos-form-materia-label"
+                  aria-describedby="alumnos-form-materia-ayuda"
                   onChange={(event) => {
                     const nuevoPeriodoId = event.target.value;
                     setPeriodoIdNuevo(nuevoPeriodoId);
@@ -697,35 +840,46 @@ export function SeccionAlumnos({
                   ))}
                 </select>
               </div>
+              <span className="ayuda" id="alumnos-form-materia-ayuda">
+                {editandoId ? 'Define la materia asignada.' : 'Asigna al alumno a esta materia.'} No cambia la lista inferior.
+              </span>
+              {materiaNuevaSeleccionada && (
+                <span className="nota alumnos-form__materia-contexto">
+                  Materia seleccionada: {etiquetaMateriaParaSelector(materiaNuevaSeleccionada)}
+                </span>
+              )}
             </label>
           </div>
         </div>
 
         {matricula.trim() && !matriculaValida && (
-          <InlineMensaje tipo="error">La matrícula debe tener el formato CUH seguido de exactamente 9 dígitos (ej. CUH512410168).</InlineMensaje>
+          <p className="mensaje error" role="status">
+            <span className="mensaje__icono"><Icono nombre="alerta" /></span>
+            <span className="mensaje__contenido">
+              <span id="alumnos-matricula-error">La matrícula debe tener el formato CUH seguido de exactamente 9 dígitos (ej. CUH512410168).</span>
+            </span>
+          </p>
         )}
 
         <div className="alumnos-form__footer">
           <div className="acciones alumnos-form__actions">
             {!editandoId ? (
               <Boton
-                type="button"
+                type="submit"
                 variante="primario"
                 icono={<Icono nombre="nuevo" />}
                 cargando={creando}
                 disabled={!puedeCrear || bloqueoEdicion}
-                onClick={crearAlumno}
               >
                 {creando ? 'Creando alumno…' : 'Crear alumno'}
               </Boton>
           ) : (
             <>
               <Boton
-                type="button"
+                type="submit"
                 icono={<Icono nombre="ok" />}
                 cargando={guardandoEdicion}
                 disabled={!puedeGuardarEdicion || bloqueoEdicion}
-                onClick={guardarEdicion}
               >
                 {guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}
               </Boton>
@@ -740,22 +894,70 @@ export function SeccionAlumnos({
             <span>Los alumnos registrados estarán disponibles de inmediato para el pase de lista y evaluación OMR.</span>
           </div>
         </div>
-      </section>
+        </div>
+      </form>
 
-      {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error anim-fade-in' : 'mensaje ok anim-fade-in'} role="status">
-          {mensaje}
-        </p>
+      {mensaje && <InlineMensaje tipo={esMensajeError(mensaje) ? 'error' : 'ok'}>{mensaje}</InlineMensaje>}
+
+      {cargandoAlumnos && (
+        <InlineMensaje tipo="info">
+          {alumnos.length > 0 ? 'Actualizando lista de alumnos… Se conserva la información cargada.' : 'Cargando lista de alumnos…'}
+        </InlineMensaje>
+      )}
+      {errorCargaAlumnos && (
+        <div className="alumnos-resumen-asistencias-error">
+          <InlineMensaje tipo="error">
+            {alumnos.length > 0
+              ? 'No se pudo actualizar la lista de alumnos. Se conserva la información cargada; puede estar desactualizada.'
+              : 'No se pudo cargar la lista de alumnos. Reintenta la consulta.'}
+          </InlineMensaje>
+          {onReintentarCargaAlumnos && (
+            <Boton
+              type="button"
+              variante="secundario"
+              tamano="sm"
+              disabled={cargandoAlumnos}
+              onClick={onReintentarCargaAlumnos}
+            >
+              Reintentar carga de alumnos
+            </Boton>
+          )}
+        </div>
+      )}
+      {cargandoMaterias && (
+        <InlineMensaje tipo="info">
+          {periodosActivos.length > 0
+            ? 'Actualizando el catálogo de materias. La lista anterior sigue disponible.'
+            : 'Cargando materias disponibles…'}
+        </InlineMensaje>
+      )}
+      {errorMaterias && !cargandoMaterias && (
+        <div className="alumnos-resumen-asistencias-error alumnos-catalogo-error">
+          <InlineMensaje tipo="error">
+            {periodosActivos.length > 0
+              ? 'No se pudo actualizar el catálogo. Se conserva la lista anterior; puede estar desactualizada.'
+              : 'No se pudo cargar el catálogo de materias. Reintenta la consulta para elegir una materia.'}
+          </InlineMensaje>
+          {onReintentarMaterias && (
+            <Boton
+              type="button"
+              variante="secundario"
+              tamano="sm"
+              onClick={onReintentarMaterias}
+            >
+              Reintentar carga de materias
+            </Boton>
+          )}
+        </div>
       )}
 
       {/* Explorador de Alumnos por Materia */}
       <section className="alumnos-explorador anim-fade-in" aria-label="Explorador de Alumnos">
         <div className="alumnos-explorador__header">
           <div className="alumnos-explorador__title-box">
-            <h3>Alumnos de la materia</h3>
+            <h3 id="alumnos-lista-heading" ref={encabezadoListaRef} tabIndex={-1}>Alumnos de la materia</h3>
             {Boolean(nombreMateriaSeleccionada) && (
               <span className="alumnos-materia-badge anim-badge-in">
-                <span className="alumnos-pulse-dot" aria-hidden="true" />
                 {nombreMateriaSeleccionada}
               </span>
             )}
@@ -763,11 +965,17 @@ export function SeccionAlumnos({
         </div>
 
         {/* Barra de Filtros y Búsqueda Glass con Chips Rápidos */}
-        <div className="alumnos-filtros alumnos-filtros--glass">
+        <div className={`alumnos-filtros alumnos-filtros--glass ${mostrarSelectorGrupo ? '' : 'alumnos-filtros--busqueda-compacta'}`}>
           <label className="campo campo--materia-select">
-            <span>Materia seleccionada</span>
+            <span id="alumnos-lista-materia-label">Materia de la lista</span>
             <div className="auth-input-box auth-input-box--select auth-input-box--animated">
-              <select value={periodoIdLista} onChange={(event) => setPeriodoIdLista(event.target.value)}>
+              <IconoCampo nombre="select" />
+              <select
+                value={periodoIdLista}
+                aria-labelledby="alumnos-lista-materia-label"
+                aria-describedby="alumnos-lista-materia-ayuda"
+                onChange={(event) => cambiarMateriaDeLista(event.target.value)}
+              >
                 <option value="">Selecciona</option>
                 {periodosTodos
                   .filter((p) => p.activo !== false)
@@ -778,57 +986,69 @@ export function SeccionAlumnos({
                   ))}
               </select>
             </div>
-            {Boolean(nombreMateriaSeleccionada) && (
-              <span className="ayuda">Mostrando alumnos de: {nombreMateriaSeleccionada}</span>
-            )}
+            <span className="ayuda" id="alumnos-lista-materia-ayuda">
+              {nombreMateriaSeleccionada
+                ? `Lista actual: ${nombreMateriaSeleccionada}. Cambia solo la lista de abajo; no cambia el formulario.`
+                : 'Selecciona una materia para ver su lista; esto no cambia la materia del formulario.'}
+            </span>
           </label>
 
           <label className="campo campo--search">
-            <span>Buscar alumno</span>
+            <span id="alumnos-busqueda-label">Buscar alumno</span>
             <div className="auth-input-box auth-input-box--search auth-input-box--animated">
+              <IconoCampo nombre="search" />
               <input
+                aria-labelledby="alumnos-busqueda-label"
                 type="search"
                 value={filtroAlumno}
                 onChange={(event) => setFiltroAlumno(event.target.value)}
-                placeholder="Nombre, matrícula o correo"
+                aria-describedby="alumnos-busqueda-ayuda"
+                placeholder="Nombre"
               />
             </div>
+            <small className="ayuda" id="alumnos-busqueda-ayuda">Busca por nombre, matrícula o correo.</small>
           </label>
 
-          <label className="campo campo--grupo-select">
-            <span>Grupo</span>
-            <div className="auth-input-box auth-input-box--group auth-input-box--animated">
-              <select value={filtroGrupo} onChange={(event) => setFiltroGrupo(event.target.value)}>
-                <option value="">Todos</option>
-                {gruposDisponibles.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </label>
+          {mostrarSelectorGrupo && (
+            <label className="campo campo--grupo-select">
+              <span>Grupo</span>
+              <div className="auth-input-box auth-input-box--group auth-input-box--animated">
+                <IconoCampo nombre="group" />
+                <select value={filtroGrupo} onChange={(event) => setFiltroGrupo(event.target.value)}>
+                  <option value="">Todos</option>
+                  {gruposDisponibles.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+          )}
         </div>
 
         {/* Quick Group Filter Chips */}
-        {gruposDisponibles.length > 0 && (
-          <div className="alumnos-group-chips-bar" aria-label="Filtro rápido por grupo">
-            <span className="alumnos-group-chips-label">Filtrar por grupo:</span>
+        {mostrarChipsGrupo && (
+          <div className="alumnos-group-chips-bar" role="group" aria-labelledby="alumnos-filtro-grupo-rapido-label">
+            <span className="alumnos-group-chips-label" id="alumnos-filtro-grupo-rapido-label">Filtrar por grupo:</span>
             <button
               type="button"
               className={`alumnos-group-chip ${!filtroGrupo ? 'alumnos-group-chip--active' : ''}`}
+              aria-pressed={!filtroGrupo}
               onClick={() => setFiltroGrupo('')}
             >
               Todos ({alumnosDeMateria.length})
             </button>
             {gruposDisponibles.map((grp) => {
-              const conteo = alumnosDeMateria.filter((a) => String(a.grupo || '').trim() === grp).length;
+              const grupoNormalizado = grp.toLowerCase();
+              const conteo = alumnosDeMateria.filter((a) => String(a.grupo || '').trim().toLowerCase() === grupoNormalizado).length;
               const activo = filtroGrupo.toLowerCase() === grp.toLowerCase();
               return (
                 <button
                   key={grp}
                   type="button"
                   className={`alumnos-group-chip ${activo ? 'alumnos-group-chip--active' : ''}`}
+                  aria-pressed={activo}
                   onClick={() => setFiltroGrupo(activo ? '' : grp)}
                 >
                   <span className={`badge badge-grupo ${claseBadgeGrupo(grp)}`}>{grp}</span>
@@ -839,15 +1059,21 @@ export function SeccionAlumnos({
           </div>
         )}
 
+        {periodoIdLista && alumnosDeMateria.length > 0 && (
+          <p className="nota alumnos-resultados-count" role="status">
+            Se muestran {alumnosFiltrados.length} de {alumnosDeMateria.length} alumnos.
+          </p>
+        )}
+
         {/* Lista / Grid de Alumnos */}
         <ul className="lista lista-items alumnos-lista">
-          {!periodoIdLista && (
+          {!periodoIdLista && !cargandoMaterias && !errorMaterias && (
             <li className="empty-state-card alumnos-empty-hero anim-fade-in">
               <div className="empty-state-card__icon anim-icon-pulse">
                 <Icono nombre="alumnos" />
               </div>
               <h4>Comienza seleccionando una materia</h4>
-              <p>Elige una de tus asignaturas activas para cargar la lista de alumnos, o sincroniza tu roster oficial desde Google Classroom.</p>
+              <p>Elige una asignatura activa para consultar su lista. La conexión con Google Classroom se administra en la sección Classroom.</p>
 
               {periodosActivos.length > 0 ? (
                 <div className="alumnos-quick-periodos-grid">
@@ -856,7 +1082,7 @@ export function SeccionAlumnos({
                       key={p._id}
                       type="button"
                       className="alumnos-materia-pick-card anim-card-hover"
-                      onClick={() => setPeriodoIdLista(p._id)}
+                      onClick={() => cambiarMateriaDeLista(p._id)}
                     >
                       <div className="alumnos-materia-pick-avatar">
                         <Icono nombre="periodos" />
@@ -865,7 +1091,9 @@ export function SeccionAlumnos({
                         <strong>{nombreMateriaVisible(p)}</strong>
                         <span>Grupos: {Array.isArray(p.grupos) && p.grupos.length > 0 ? p.grupos.join(', ') : 'General'}</span>
                       </div>
-                      <div className="alumnos-materia-pick-arrow">➔</div>
+                      <div className="alumnos-materia-pick-arrow" aria-hidden="true">
+                        <IconoLucide icon={ArrowRight} size={16} />
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -875,12 +1103,16 @@ export function SeccionAlumnos({
                     <span className="empty-step__num">1</span>
                     <span>Configura tu materia</span>
                   </div>
-                  <div className="empty-step__arrow">➔</div>
+                  <div className="empty-step__arrow">
+                    <IconoLucide icon={ArrowRight} size={14} />
+                  </div>
                   <div className="empty-step">
                     <span className="empty-step__num">2</span>
                     <span>Registra tus alumnos</span>
                   </div>
-                  <div className="empty-step__arrow">➔</div>
+                  <div className="empty-step__arrow">
+                    <IconoLucide icon={ArrowRight} size={14} />
+                  </div>
                   <div className="empty-step">
                     <span className="empty-step__num">3</span>
                     <span>Pasa lista y califica</span>
@@ -890,26 +1122,34 @@ export function SeccionAlumnos({
             </li>
           )}
 
-          {periodoIdLista && alumnosDeMateria.length === 0 && (
+          {periodoIdLista && !cargandoAlumnos && !errorCargaAlumnos && alumnosDeMateria.length === 0 && (
             <li className="empty-state-card anim-fade-in">
               <div className="empty-state-card__icon anim-icon-pulse">
                 <Icono nombre="nuevo" />
               </div>
               <h4>No hay alumnos registrados en esta materia</h4>
-              <p>Utiliza el formulario superior para registrar alumnos individualmente o importa tu lista oficial.</p>
+              <p>Registra alumnos con el formulario superior. La conexión con Google Classroom se administra en la sección Classroom.</p>
             </li>
           )}
 
           {periodoIdLista && alumnosDeMateria.length > 0 && alumnosFiltrados.length === 0 && (
             <li className="empty-state-card anim-fade-in">
               <div className="empty-state-card__icon anim-icon-pulse">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.3-4.3" />
-                </svg>
+                <IconoLucide icon={Search} size={24} />
               </div>
-              <h4>No hay alumnos que coincidan con los filtros</h4>
-              <p>Intenta ajustar el texto de búsqueda o el grupo seleccionado.</p>
+              <h4>Sin coincidencias</h4>
+              <p>{descripcionSinCoincidencias}</p>
+              <Boton
+                type="button"
+                variante="secundario"
+                tamano="sm"
+                onClick={() => {
+                  setFiltroAlumno('');
+                  setFiltroGrupo('');
+                }}
+              >
+                Limpiar filtros
+              </Boton>
             </li>
           )}
 
@@ -917,7 +1157,7 @@ export function SeccionAlumnos({
             alumnosFiltrados.map((alumno) => {
               const faltas = resumenAsistencias.find((r) => r.alumnoId === alumno._id)?.faltas ?? 0;
               const sinDerecho = faltas >= 4;
-              const iniciales = obtenerInicialesAlumno(alumno.nombreCompleto);
+              const iniciales = obtenerInicialesAvatarAlumno(alumno.nombreCompleto);
 
               return (
                 <li
@@ -961,7 +1201,16 @@ export function SeccionAlumnos({
                           </span>
                           <span className="alumno-meta-tag alumno-meta-tag--correo" data-tooltip="Correo institucional para recepción de folios y calificaciones">
                             <span className="alumno-meta-lbl">Correo:</span>{' '}
-                            <span className="alumno-correo">{alumno.correo ? alumno.correo : '-'}</span>
+                            <span className="alumno-correo">
+                              {alumno.correo
+                                ? Array.from(alumno.correo).map((caracter, indice) => (
+                                    <Fragment key={`${indice}-${caracter}`}>
+                                      {caracter}
+                                      {'.@_-'.includes(caracter) && <wbr />}
+                                    </Fragment>
+                                  ))
+                                : '-'}
+                            </span>
                           </span>
                         </div>
                       </div>
@@ -971,12 +1220,12 @@ export function SeccionAlumnos({
                         <Boton
                           variante="secundario"
                           type="button"
-                          onClick={() => iniciarEdicion(alumno)}
+                          aria-label={`Editar ${alumno.nombreCompleto || alumno.matricula || 'alumno'}`}
+                          data-tooltip="Editar"
+                          onClick={(event) => iniciarEdicion(alumno, event.currentTarget)}
                           disabled={bloqueoEdicion}
                           icono={
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                            </svg>
+                            <IconoLucide icon={Pencil} size={14} />
                           }
                         >
                           Editar
@@ -985,14 +1234,12 @@ export function SeccionAlumnos({
                           <Boton
                             variante="secundario"
                             type="button"
+                            aria-label={`Eliminar ${alumno.nombreCompleto || alumno.matricula || 'alumno'} (DEV)`}
                             cargando={eliminandoAlumnoId === alumno._id}
                             onClick={() => void eliminarAlumnoDev(alumno)}
                             disabled={!puedeEliminarAlumnoDev}
                             icono={
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                              </svg>
+                              <IconoLucide icon={Trash2} size={14} />
                             }
                           >
                             Eliminar (DEV)

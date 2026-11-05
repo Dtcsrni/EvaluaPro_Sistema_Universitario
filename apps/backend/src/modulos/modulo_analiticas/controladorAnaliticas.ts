@@ -18,6 +18,7 @@ import { presentarCalificacionExtraordinaria } from '../modulo_calificacion/inde
 import { COLUMNAS_LISTA_ACADEMICA, ListaAcademicaFila } from './tiposListaAcademica.js';
 import { generarDocxListaAcademica } from './servicioExportacionDocx.js';
 import { generarXlsxCalificacionesProduccion } from './servicioExportacionXlsxCalificaciones.js';
+import { generarHtmlCalificaciones } from './servicioExportacionHtmlCalificaciones.js';
 import { construirManifiestoIntegridadLista, serializarManifiestoEstable } from './servicioFirmaIntegridad.js';
 import { registrarExportacionLista } from '../../compartido/observabilidad/metrics.js';
 import { log } from '../../infraestructura/logging/logger.js';
@@ -307,6 +308,35 @@ export async function exportarXlsxCalificaciones(req: SolicitudDocente, res: Res
   );
   res.setHeader('Content-Disposition', 'attachment; filename="calificaciones-produccion.xlsx"');
   res.send(xlsx);
+}
+
+export async function exportarHtmlCalificaciones(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const entrada = req.method === 'POST' ? req.body as { periodoId?: string; modo?: 'grupo' | 'individual'; secretoCiclo?: string } : { periodoId: req.query.periodoId as string, modo: 'grupo' as const };
+  const periodoId = String(entrada.periodoId || '').trim();
+  if (!periodoId) throw new ErrorAplicacion('DATOS_INVALIDOS', 'periodoId requerido', 400);
+  const modo = entrada.modo ?? 'grupo';
+  if (modo === 'individual' && (!entrada.secretoCiclo?.trim() || entrada.secretoCiclo.length < 20)) throw new ErrorAplicacion('DATOS_INVALIDOS', 'El secreto maestro del ciclo debe tener al menos 20 caracteres', 400);
+
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, docenteId } });
+  if (!periodo) throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
+
+  const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
+  const reporte = generarHtmlCalificaciones({
+    nombrePeriodo: String(periodo.nombre || ''),
+    cicloLectivo: cicloLectivo(periodo.fechaInicio, periodo.fechaFin),
+    filas,
+    modo,
+    secretoCiclo: entrada.secretoCiclo
+  });
+  res.setHeader('Cache-Control', 'no-store, private');
+  res.setHeader('Content-Disposition', 'attachment; filename="reporte-calificaciones.html"');
+  if (req.method === 'POST') {
+    res.json(reporte);
+    return;
+  }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(reporte.html);
 }
 
 export async function obtenerListaAcademicaPorPeriodo(docenteId: string, periodoId: string, bonoExtracurricularPorAlumno?: ReadonlyMap<string, number>) {

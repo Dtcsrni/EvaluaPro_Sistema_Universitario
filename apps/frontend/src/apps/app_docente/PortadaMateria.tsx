@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { clienteApi } from './clienteApiDocente';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -66,24 +66,29 @@ export function GestionPortadaMateria({
   disabled?: boolean;
 }) {
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [error, setError] = useState('');
+  const [errorArchivo, setErrorArchivo] = useState('');
+  const [errorOperacion, setErrorOperacion] = useState('');
   const [guardando, setGuardando] = useState(false);
   const vistaPrevia = useVistaPrevia(archivo);
+  const ayudaId = `portada-materia-ayuda-${useId()}`;
+  const errorArchivoId = `portada-materia-error-${useId()}`;
+  const estadoId = `portada-materia-estado-${useId()}`;
 
   function seleccionarArchivo(file?: File) {
-    setError('');
+    setErrorArchivo('');
+    setErrorOperacion('');
     if (!file) {
       setArchivo(null);
       return;
     }
     if (!MIME_PORTADA.has(file.type.toLowerCase())) {
       setArchivo(null);
-      setError('Selecciona una imagen JPG/JPEG, PNG o WebP.');
+      setErrorArchivo('Selecciona una imagen JPG/JPEG, PNG o WebP.');
       return;
     }
     if (file.size > LIMITE_BYTES) {
       setArchivo(null);
-      setError('La imagen no debe superar 20 MiB.');
+      setErrorArchivo('La imagen no debe superar 20 MiB.');
       return;
     }
     setArchivo(file);
@@ -92,7 +97,7 @@ export function GestionPortadaMateria({
   async function guardar() {
     if (!archivo || disabled || guardando) return;
     setGuardando(true);
-    setError('');
+    setErrorOperacion('');
     try {
       const formData = new FormData();
       formData.append('archivo', archivo);
@@ -100,7 +105,7 @@ export function GestionPortadaMateria({
       setArchivo(null);
       onCambio();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo guardar la portada.');
+      setErrorOperacion(cause instanceof Error ? cause.message : 'No se pudo guardar la portada.');
     } finally {
       setGuardando(false);
     }
@@ -109,13 +114,13 @@ export function GestionPortadaMateria({
   async function quitar() {
     if (disabled || guardando) return;
     setGuardando(true);
-    setError('');
+    setErrorOperacion('');
     try {
       await clienteApi.eliminar(`/periodos/${encodeURIComponent(periodoId)}/portada`);
       setArchivo(null);
       onCambio();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo retirar la portada.');
+      setErrorOperacion(cause instanceof Error ? cause.message : 'No se pudo retirar la portada.');
     } finally {
       setGuardando(false);
     }
@@ -125,13 +130,22 @@ export function GestionPortadaMateria({
     <div className="materia-portada-editor">
       <label className="campo">
         <span>Portada de la materia</span>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-          aria-label={`Seleccionar imagen de portada para ${nombreMateria}`}
-          onChange={(event) => seleccionarArchivo(event.currentTarget.files?.[0])}
-          disabled={disabled || guardando}
-        />
+        <span className="materia-portada-editor__selector">
+          <span className="materia-portada-editor__selector-accion" aria-hidden="true">Elegir imagen</span>
+          <span className="materia-portada-editor__selector-estado" id={estadoId} role="status" aria-live="polite" aria-atomic="true">
+            {archivo?.name || (tienePortada ? 'Portada actual. Elige una imagen para reemplazarla.' : 'Ningún archivo seleccionado')}
+          </span>
+          <input
+            className="materia-portada-editor__selector-input"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+            aria-label={`Seleccionar imagen de portada para ${nombreMateria}`}
+            aria-invalid={errorArchivo ? true : undefined}
+            aria-describedby={errorArchivo ? `${estadoId} ${ayudaId} ${errorArchivoId}` : `${estadoId} ${ayudaId}`}
+            onChange={(event) => seleccionarArchivo(event.currentTarget.files?.[0])}
+            disabled={disabled || guardando}
+          />
+        </span>
       </label>
       {vistaPrevia && <img className="materia-portada-editor__preview" src={vistaPrevia} alt="Vista previa de la portada seleccionada" />}
       <div className="materia-portada-editor__acciones">
@@ -157,8 +171,9 @@ export function GestionPortadaMateria({
           </Boton>
         )}
       </div>
-      {error && <p className="materia-portada-editor__error" role="alert">{error}</p>}
-      {!error && <p className="materia-portada-editor__ayuda">JPG/JPEG, PNG o WebP; máximo 20 MiB.</p>}
+      {errorOperacion && <p className="materia-portada-editor__error" role="alert">{errorOperacion}</p>}
+      {errorArchivo && <p className="materia-portada-editor__error" id={errorArchivoId} role="alert">{errorArchivo}</p>}
+      <p className="materia-portada-editor__ayuda" id={ayudaId}>JPG/JPEG, PNG o WebP; máximo 20 MiB.</p>
     </div>
   );
 }

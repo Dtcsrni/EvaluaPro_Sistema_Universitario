@@ -71,6 +71,7 @@ export function SeccionCalificar({
   claveCorrectaPorNumero,
   ordenPreguntasClave,
   contextoManual,
+  capturaManualAciertos = false,
   etiquetaTipoExamen,
   soloLectura = false,
   resumenPersistido,
@@ -88,6 +89,7 @@ export function SeccionCalificar({
   claveCorrectaPorNumero: Record<number, string>;
   ordenPreguntasClave: number[];
   contextoManual?: string | null;
+  capturaManualAciertos?: boolean;
   etiquetaTipoExamen?: string | null;
   soloLectura?: boolean;
   resumenPersistido?: {
@@ -137,6 +139,11 @@ export function SeccionCalificar({
   const [bonusActivo, setBonusActivo] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [confirmacionSinRespuestas, setConfirmacionSinRespuestas] = useState(false);
+  const [aciertosManualesTexto, setAciertosManualesTexto] = useState('');
+  const edicionManualAciertos = Boolean(capturaManualAciertos && !resultadoOmr && !soloLectura);
+  const examenVisible = String(examenEtiqueta ?? '').trim() || (examenId ? 'Examen sin folio disponible' : 'Sin examen');
+  const alumnoVisible = String(alumnoNombre ?? '').trim() || (alumnoId ? 'Alumno no disponible' : 'Sin alumno');
 
   const respuestasSeguras = useMemo(
     () => (Array.isArray(respuestasDetectadas) ? respuestasDetectadas : []),
@@ -204,17 +211,36 @@ export function SeccionCalificar({
     const notaExamenSobre5 = total > 0 && aciertos === total ? 5 : Number(((aciertos / Math.max(1, total)) * 5).toFixed(2));
     return { total, aciertos, contestadas, notaExamenSobre5 };
   }, [claveCorrectaPorNumero, ordenPreguntas, ordenPreguntasClave, respuestasTrabajoPorNumero]);
-  const bonusBloqueadoPorMaximo = resumenDinamico.notaExamenSobre5 >= 5;
+  const aciertosManualesNumero = aciertosManualesTexto.trim() === '' ? null : Number(aciertosManualesTexto);
+  const aciertosManualesValidos = Boolean(
+    aciertosManualesNumero !== null
+      && Number.isInteger(aciertosManualesNumero)
+      && aciertosManualesNumero >= 0
+      && aciertosManualesNumero <= resumenDinamico.total
+  );
+  const bloqueoPorAciertosManuales = edicionManualAciertos && !aciertosManualesValidos;
+  const errorAciertosManuales = aciertosManualesTexto.trim() !== '' && !aciertosManualesValidos;
+  const aciertosParaCalificar = edicionManualAciertos && aciertosManualesValidos
+    ? Number(aciertosManualesNumero)
+    : resumenDinamico.aciertos;
+  const notaBaseParaCalificar = edicionManualAciertos && !aciertosManualesValidos
+    ? null
+    : Number(((aciertosParaCalificar * 5) / Math.max(1, resumenDinamico.total)).toFixed(2));
+  useEffect(() => {
+    setAciertosManualesTexto('');
+    setConfirmacionSinRespuestas(false);
+  }, [capturaManualAciertos, examenId, alumnoId, resumenDinamico.total]);
+  const bonusBloqueadoPorMaximo = (notaBaseParaCalificar ?? resumenDinamico.notaExamenSobre5) >= 5;
   useEffect(() => {
     if (!bonusBloqueadoPorMaximo) return;
     if (bonusActivo) setBonusActivo(false);
   }, [bonusActivo, bonusBloqueadoPorMaximo]);
   const notaFinalSobre5 = useMemo(() => {
     const bonusAplicado = bonusActivo && !bonusBloqueadoPorMaximo ? 0.25 : 0;
-    const final = Math.min(5, resumenDinamico.notaExamenSobre5 + bonusAplicado);
+    const final = Math.min(5, (notaBaseParaCalificar ?? resumenDinamico.notaExamenSobre5) + bonusAplicado);
     return Number(final.toFixed(2));
-  }, [bonusActivo, bonusBloqueadoPorMaximo, resumenDinamico.notaExamenSobre5]);
-  const aciertosMostrados = soloLectura && resumenPersistido ? Number(resumenPersistido.aciertos || 0) : resumenDinamico.aciertos;
+  }, [bonusActivo, bonusBloqueadoPorMaximo, notaBaseParaCalificar, resumenDinamico.notaExamenSobre5]);
+  const aciertosMostrados = soloLectura && resumenPersistido ? Number(resumenPersistido.aciertos || 0) : aciertosParaCalificar;
   const totalMostrado = soloLectura && resumenPersistido ? Number(resumenPersistido.totalReactivos || 0) : resumenDinamico.total;
   const notaFinalMostrada = soloLectura && resumenPersistido
     ? Number(Number(resumenPersistido.calificacionFinalSobre5 || 0).toFixed(2))
@@ -224,7 +250,7 @@ export function SeccionCalificar({
       ? Number(resumenPersistido.calificacionFinalSobre5 || 0)
       : Math.min(
           5,
-          (resumenDinamico.total > 0 ? (resumenDinamico.aciertos * 5) / resumenDinamico.total : 0) +
+          (resumenDinamico.total > 0 ? (aciertosParaCalificar * 5) / resumenDinamico.total : 0) +
             (bonusActivo && !bonusBloqueadoPorMaximo ? 0.25 : 0)
         );
   const notaEquivalenteSobre10 =
@@ -274,11 +300,37 @@ export function SeccionCalificar({
   const bloqueoPorSeleccionIncompleta = !examenId || !alumnoId;
   const bloqueoPorClaveIncompleta = reactivosOficiales.length === 0 || reactivosSinClave.length > 0;
   const bloqueoPorSoloLectura = Boolean(soloLectura);
+  const calificacionCeroManual = Boolean(edicionManualAciertos && aciertosManualesValidos && aciertosManualesNumero === 0);
+  const calificacionSinRespuestas = Boolean(
+    !resultadoOmr
+      && !edicionManualAciertos
+      && !bloqueoPorSoloLectura
+      && reactivosOficiales.length > 0
+      && respuestasTrabajo.every((respuesta) => !respuesta.opcion)
+  );
+  const firmaActualSinRespuestas = [
+    examenId ?? '',
+    alumnoId ?? '',
+    notaFinalSobre5.toFixed(2),
+    respuestasTrabajo.map((respuesta) => `${respuesta.numeroPregunta}:${respuesta.opcion ?? ''}`).join(','),
+    aciertosManualesTexto
+  ].join('|');
+  useEffect(() => setConfirmacionSinRespuestas(false), [firmaActualSinRespuestas]);
+  const confirmacionSinRespuestasVigente = confirmacionSinRespuestas;
+  const requiereConfirmacionSinRespuestas = (calificacionSinRespuestas || calificacionCeroManual) && !confirmacionSinRespuestasVigente;
+  const descripcionBotonGuardar = [
+    !puedeCalificar ? 'calificar-permiso-ayuda' : null,
+    requiereConfirmacionSinRespuestas ? 'calificacion-sin-respuestas-ayuda' : null,
+    bloqueoPorAciertosManuales ? 'calificacion-aciertos-manuales-ayuda' : null,
+    errorAciertosManuales ? 'calificacion-aciertos-manuales-error' : null
+  ].filter(Boolean).join(' ') || undefined;
   const puedeCalificarLocal =
     !bloqueoPorSeleccionIncompleta &&
     !requiereRevisionConfirmacion &&
     !bloqueoPorSoloLectura &&
-    !bloqueoPorClaveIncompleta;
+    !bloqueoPorClaveIncompleta &&
+    !bloqueoPorAciertosManuales &&
+    !requiereConfirmacionSinRespuestas;
   const bloqueoCalificar = !puedeCalificar;
 
   async function calificar() {
@@ -290,6 +342,10 @@ export function SeccionCalificar({
       setMensaje('Falta examen o alumno');
       return;
     }
+      if (edicionManualAciertos && !aciertosManualesValidos) {
+        setMensaje('Registra un número entero de aciertos entre cero y el total de reactivos.');
+        return;
+      }
     try {
       const inicio = Date.now();
       if (!puedeCalificar) {
@@ -301,7 +357,7 @@ export function SeccionCalificar({
       await onCalificar({
         examenGeneradoId: examenId,
         alumnoId,
-        aciertos: resumenDinamico.aciertos,
+        aciertos: aciertosParaCalificar,
         totalReactivos: resumenDinamico.total,
         bonoSolicitado: bonusActivo ? 0.25 : 0,
         ...(resultadoOmr ? { respuestasDetectadas: respuestasTrabajo } : {}),
@@ -319,19 +375,20 @@ export function SeccionCalificar({
             }
           : undefined
       });
-      setMensaje('Calificacion guardada');
-      emitToast({ level: 'ok', title: 'Calificacion', message: 'Calificacion guardada', durationMs: 2200 });
+      setMensaje('Calificación guardada');
       registrarAccionDocente('calificar', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo calificar');
       setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo calificar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      const accionSesion = accionToastSesionParaError(error, 'docente');
+      if (accionSesion) {
+        emitToast({
+          level: 'warn',
+          title: 'Renueva tu sesión docente',
+          message: 'El detalle está en «Revisión y calificación». Cierra sesión y vuelve a entrar para renovar el acceso.',
+          action: accionSesion
+        });
+      }
       registrarAccionDocente('calificar', false);
     } finally {
       setGuardando(false);
@@ -344,24 +401,30 @@ export function SeccionCalificar({
         <div className="banco-section-title__wrap">
           <span className="banco-section-pill">
             <span className="banco-section-pill__dot" aria-hidden="true" />
-            <span>Mesa de Decisión & Rúbrica</span>
+            <span>Revisión y calificación</span>
           </span>
           <h2 className="entregas-title-heading">
             <Icono nombre="calificar" /> Calificar examen{etiquetaTipoExamen ? ` · ${etiquetaTipoExamen}` : ''}
           </h2>
-          <p className="nota">Consolida resultado OMR, validaciones y ajuste final de calificación en una sola tarjeta de decisión.</p>
+          <p className="nota">
+            {resultadoOmr
+              ? 'Consolida resultado OMR, validaciones y ajuste final de calificación en una sola tarjeta de decisión.'
+              : edicionManualAciertos
+                ? 'Registra los aciertos de la revisión física y revisa la nota antes de guardar.'
+                : 'Revisa las respuestas cargadas y el cálculo antes de guardar.'}
+          </p>
         </div>
       </div>
-      <div className="item-sub">Examen: {examenEtiqueta ?? examenId ?? 'Sin examen'}</div>
-      <div className="item-sub">Alumno: {alumnoNombre ?? alumnoId ?? 'Sin alumno'}</div>
+      <div className="item-sub">Examen: {examenVisible}</div>
+      <div className="item-sub">Alumno: {alumnoVisible}</div>
       {contextoManual && <InlineMensaje tipo="info">{contextoManual}</InlineMensaje>}
       <div className="item-meta calif-grade-card__stats">
-        <span>Respuestas listas: {respuestasSeguras.length}</span>
+        <span>{edicionManualAciertos ? 'Reactivos del examen' : 'Respuestas disponibles'}: {edicionManualAciertos ? reactivosOficiales.length : respuestasSeguras.length}</span>
         <span>
-          Aciertos: {aciertosMostrados}/{totalMostrado}
+          Aciertos: {edicionManualAciertos && !aciertosManualesValidos ? 'pendiente' : edicionManualAciertos ? aciertosParaCalificar : aciertosMostrados}/{totalMostrado}
         </span>
-        <span>Calificación final: {notaFinalMostrada.toFixed(2)} / 5.00</span>
-        {esExtraordinario && totalMostrado > 0 ? (
+        <span>Calificación final: {edicionManualAciertos && !aciertosManualesValidos ? 'pendiente' : edicionManualAciertos ? notaFinalSobre5.toFixed(2) : notaFinalMostrada.toFixed(2)} / 5.00</span>
+        {esExtraordinario && totalMostrado > 0 && !(edicionManualAciertos && !aciertosManualesValidos) ? (
           <>
             <span>Equivalente: {notaEquivalenteSobre10.toFixed(2)} / 10.00</span>
             <span>{esAprobatoriaExtraordinario ? 'Aprobatoria' : 'No aprobatoria'}</span>
@@ -393,7 +456,60 @@ export function SeccionCalificar({
           Revisión sugerida: {resultadoOmr.resumenRespuestas.reactivosSinMarca} sin marca, {resultadoOmr.resumenRespuestas.reactivosAmbiguos} ambiguos y {resultadoOmr.resumenRespuestas.reactivosInvalidos} inválidos.
         </InlineMensaje>
       ) : null}
-      <InlineMensaje tipo="info">La calificación se calcula automáticamente a partir de resultados OMR confirmados.</InlineMensaje>
+      {edicionManualAciertos && (
+        <div className="calif-manual-aciertos">
+          <label className="campo" htmlFor="calificacion-aciertos-manuales">
+            <span>Aciertos obtenidos</span>
+            <input
+              id="calificacion-aciertos-manuales"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={reactivosOficiales.length}
+              step={1}
+              value={aciertosManualesTexto}
+              aria-invalid={errorAciertosManuales || undefined}
+              aria-describedby={[
+                'calificacion-aciertos-manuales-ayuda',
+                errorAciertosManuales ? 'calificacion-aciertos-manuales-error' : null
+              ].filter(Boolean).join(' ')}
+              onChange={(event) => setAciertosManualesTexto(event.target.value)}
+            />
+          </label>
+          <p id="calificacion-aciertos-manuales-ayuda" className="nota">
+            Cuenta los reactivos correctos en la revisión física. La nota se calcula con aciertos ÷ {reactivosOficiales.length} × 5.
+          </p>
+          {errorAciertosManuales && (
+            <p id="calificacion-aciertos-manuales-error" className="mensaje error" role="alert">
+              Captura un número entero entre 0 y {reactivosOficiales.length}.
+            </p>
+          )}
+        </div>
+      )}
+      {(calificacionSinRespuestas || calificacionCeroManual) && (
+        <div id="calificacion-sin-respuestas-ayuda">
+          <InlineMensaje tipo="warning">
+            {calificacionCeroManual
+              ? `Registraste 0 aciertos. Se guardará ${notaFinalSobre5.toFixed(2)} / 5.00. Confirma que revisaste el examen.`
+              : `No hay respuestas cargadas. Se guardará ${notaFinalSobre5.toFixed(2)} / 5.00. Confirma que ese es el resultado esperado.`}
+          </InlineMensaje>
+          <label className="campo calif-grade-card__checkbox-field calif-grade-card__checkbox-field--confirm">
+            <input
+              type="checkbox"
+              checked={confirmacionSinRespuestasVigente}
+              onChange={(event) => setConfirmacionSinRespuestas(event.target.checked)}
+            />
+            {calificacionCeroManual ? 'Confirmo guardar 0 aciertos' : 'Confirmo guardar la calificación calculada sin respuestas'}
+          </label>
+        </div>
+      )}
+      <InlineMensaje tipo="info">
+        {resultadoOmr
+          ? 'La calificación se calcula automáticamente a partir de resultados OMR confirmados.'
+          : edicionManualAciertos
+            ? 'La nota usa los aciertos que registres sobre el total de reactivos.'
+            : 'La calificación se calcula según las respuestas cargadas y la clave del examen.'}
+      </InlineMensaje>
       {bloqueoPorSoloLectura ? (
         <InlineMensaje tipo="info">Examen calificado cargado en modo solo lectura.</InlineMensaje>
       ) : null}
@@ -411,7 +527,7 @@ export function SeccionCalificar({
         </InlineMensaje>
       )}
       <div className="calif-grade-grid">
-        <label className="campo">
+        <label className="campo calif-grade-card__checkbox-field">
           <span>Bono por guía de estudio (+0.25)</span>
           <input
             type="checkbox"
@@ -426,11 +542,17 @@ export function SeccionCalificar({
       {bonusBloqueadoPorMaximo ? (
         <InlineMensaje tipo="info">Bonus deshabilitado: la calificación del examen ya es 5.00.</InlineMensaje>
       ) : null}
+      {!puedeCalificar ? (
+        <div id="calificar-permiso-ayuda" className="calif-grade-card__permission-help">
+          <InlineMensaje tipo="warning">Tu perfil no tiene permiso para guardar esta calificación.</InlineMensaje>
+        </div>
+      ) : null}
       <Boton
         type="button"
         icono={<Icono nombre="calificar" />}
         cargando={guardando}
         disabled={!puedeCalificarLocal || bloqueoCalificar || bloqueoPorSoloLectura}
+        aria-describedby={descripcionBotonGuardar}
         onClick={calificar}
       >
         {guardando ? 'Guardando…' : bloqueoPorSoloLectura ? 'Calificación registrada (solo lectura)' : 'Guardar calificación'}
@@ -442,9 +564,10 @@ export function SeccionCalificar({
         <summary>Ayuda para calificar</summary>
         <ul className="lista nota">
           <li>La calificación final se recalcula automáticamente sobre 5.00 e incluye bonus si está activo.</li>
-          <li>
-            Si el estado es <code>requiere_revision</code>, confirma la revisión manual antes de guardar.
-          </li>
+          {edicionManualAciertos ? <li>En la revisión manual registra el total de aciertos, no las opciones de cada reactivo.</li> : null}
+          {resultadoOmr ? (
+            <li>Si se requiere revisión OMR, confirma las respuestas detectadas antes de guardar.</li>
+          ) : null}
         </ul>
       </details>
     </div>

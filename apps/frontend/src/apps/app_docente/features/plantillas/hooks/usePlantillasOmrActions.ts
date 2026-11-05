@@ -22,6 +22,7 @@ type Params = {
   setProcesandoOmr: (value: boolean) => void;
   setJobOmr: (value: OmrJobDetalle | null) => void;
   setMensajeGeneracion: (value: string) => void;
+  setMensajeGeneracionError?: (value: string) => void;
 };
 
 async function esperar(ms: number) {
@@ -130,8 +131,22 @@ export function usePlantillasOmrActions({
   setAssessmentDetalle,
   setProcesandoOmr,
   setJobOmr,
-  setMensajeGeneracion
+  setMensajeGeneracion,
+  setMensajeGeneracionError
 }: Params) {
+  const informarErrorGeneracion = useCallback((mensaje: string) => {
+    (setMensajeGeneracionError ?? setMensajeGeneracion)(mensaje);
+  }, [setMensajeGeneracion, setMensajeGeneracionError]);
+  const notificarRecuperacionSesion = useCallback((error: unknown) => {
+    const action = accionToastSesionParaError(error, 'docente');
+    if (!action) return;
+    emitToast({
+      level: 'warn',
+      title: 'Recupera tu sesión',
+      message: 'Recupera el acceso y vuelve a intentar la operación.',
+      action
+    });
+  }, []);
   const cargarAssessmentDetalle = useCallback(
     async (assessmentId: string) => {
       try {
@@ -140,19 +155,13 @@ export function usePlantillasOmrActions({
         setAssessmentDetalle(payload);
       } catch (error) {
         const msg = mensajeDeError(error, `No se pudo cargar el detalle ${OMR_CANONICAL_DISPLAY_LABEL}`);
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: OMR_CANONICAL_DISPLAY_LABEL,
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        informarErrorGeneracion(msg);
+        notificarRecuperacionSesion(error);
       } finally {
         setCargandoAssessmentId(null);
       }
     },
-    [setAssessmentDetalle, setCargandoAssessmentId, setMensajeGeneracion]
+    [setAssessmentDetalle, setCargandoAssessmentId, informarErrorGeneracion, notificarRecuperacionSesion]
   );
 
   const descargarArtifact = useCallback(
@@ -167,17 +176,11 @@ export function usePlantillasOmrActions({
         await descargarArchivoProtegido(clean, fileName);
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo descargar el artefacto');
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: 'Descarga',
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        informarErrorGeneracion(msg);
+        notificarRecuperacionSesion(error);
       }
     },
-    [avisarSinPermiso, puedeDescargarExamenes, setMensajeGeneracion]
+    [avisarSinPermiso, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]
   );
 
   const descargarDatasetOmr = useCallback(
@@ -306,7 +309,6 @@ export function usePlantillasOmrActions({
           }
           if (payload.job.status === 'processing') throw new Error('El job sigue procesándose. Puedes volver a consultar su estado.');
           if (payload.job.status === 'failed') throw new Error('El job OMR falló; revisa sus páginas y errores.');
-          emitToast({ level: 'ok', title: OMR_CANONICAL_DISPLAY_LABEL, message: `Procesadas ${payload.job.pagesProcessed} páginas; ${payload.job.packages?.length ?? 0} paquetes preparados. No se guardaron calificaciones.`, durationMs: 4200 });
         } else {
           const capturas = await Promise.all(files.map(async (file) => ({ nombreArchivo: file.name, imagenBase64: await leerArchivoComoDataUrl(file) })));
           const payload = await clienteApi.enviar<{ job: OmrJobDetalle }>(`/omr/jobs`, {
@@ -315,7 +317,6 @@ export function usePlantillasOmrActions({
             capturas
           });
           setJobOmr(payload.job);
-          emitToast({ level: 'ok', title: OMR_CANONICAL_DISPLAY_LABEL, message: 'Capturas procesadas', durationMs: 2200 });
         }
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo procesar el job OMR');
@@ -361,7 +362,6 @@ export function usePlantillasOmrActions({
       if (job.status === 'processing') throw new Error('El job sigue procesándose. Puedes volver a consultar su estado.');
       window.sessionStorage.removeItem(storageKey);
       if (job.status === 'failed') throw new Error('El reproceso falló; revisa sus páginas y errores.');
-      emitToast({ level: 'ok', title: OMR_CANONICAL_DISPLAY_LABEL, message: `Reprocesadas ${job.pagesProcessed} páginas y preparados ${job.packages?.length ?? 0} paquetes. No se guardaron calificaciones.`, durationMs: 4200 });
     } catch (error) {
       window.sessionStorage.removeItem(storageKey);
       const msg = mensajeDeError(error, 'No se pudo reintentar la ingesta OMR');
@@ -402,7 +402,6 @@ export function usePlantillasOmrActions({
               }
         );
         setJobOmr(payload.job);
-        emitToast({ level: 'ok', title: 'Revision OMR', message: 'Hoja actualizada', durationMs: 2200 });
       } finally {
         setProcesandoOmr(false);
       }
@@ -420,7 +419,6 @@ export function usePlantillasOmrActions({
       try {
         const payload = await clienteApi.enviar<{ job: OmrJobDetalle }>(`/omr/jobs/${encodeURIComponent(jobId)}/finalize`, {});
         setJobOmr(payload.job);
-        emitToast({ level: 'ok', title: OMR_CANONICAL_DISPLAY_LABEL, message: 'Job finalizado', durationMs: 2200 });
       } finally {
         setProcesandoOmr(false);
       }

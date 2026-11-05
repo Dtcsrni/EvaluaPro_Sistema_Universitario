@@ -58,21 +58,21 @@ type DashboardResumen = {
 };
 
 const VISTAS: Array<{ id: Vista; label: string; grupo: string }> = [
-  { id: 'dashboard', label: 'Dashboard', grupo: 'Resumen' },
+  { id: 'dashboard', label: 'Resumen', grupo: 'Resumen' },
   { id: 'tenants', label: 'Tenants', grupo: 'Catálogo comercial' },
   { id: 'planes', label: 'Planes', grupo: 'Catálogo comercial' },
   { id: 'suscripciones', label: 'Suscripciones', grupo: 'Catálogo comercial' },
   { id: 'licencias', label: 'Licencias', grupo: 'Catálogo comercial' },
   { id: 'cupones', label: 'Cupones', grupo: 'Comunicación' },
-  { id: 'campanas', label: 'Campanas', grupo: 'Comunicación' },
-  { id: 'plantillas_notificacion', label: 'Plantillas Msg', grupo: 'Comunicación' },
+  { id: 'campanas', label: 'Campañas', grupo: 'Comunicación' },
+  { id: 'plantillas_notificacion', label: 'Plantillas de notificación', grupo: 'Comunicación' },
   { id: 'cobranza', label: 'Cobranza', grupo: 'Cobranza y soporte' },
-  { id: 'auditoria', label: 'Auditoria', grupo: 'Cobranza y soporte' }
+  { id: 'auditoria', label: 'Auditoría', grupo: 'Cobranza y soporte' }
 ];
 
 const AYUDAS_VISTA: Record<Vista, { descripcion: string; pasos: string[] }> = {
   dashboard: {
-    descripcion: 'Monitorea salud comercial, cobranza y desempeño del portafolio antes de ejecutar cambios.',
+    descripcion: 'Monitorea la salud comercial, la cobranza y el desempeño del portafolio antes de ejecutar cambios.',
     pasos: ['Revisa KPIs críticos.', 'Entra a la capacidad que necesites ajustar.', 'Recarga después de una operación sensible.']
   },
   tenants: {
@@ -116,11 +116,11 @@ const AYUDAS_VISTA: Record<Vista, { descripcion: string; pasos: string[] }> = {
 const ETIQUETAS_VISTA: Record<Vista, string> = {
   dashboard: 'Vista ejecutiva',
   tenants: 'Operación base',
-  planes: 'Pricing',
+  planes: 'Precios',
   suscripciones: 'Ingresos',
   licencias: 'Activación',
   cupones: 'Promoción',
-  campanas: 'Adquisición',
+  campanas: 'Difusión',
   plantillas_notificacion: 'Comunicaciones',
   cobranza: 'Recuperación',
   auditoria: 'Evidencia'
@@ -283,11 +283,18 @@ export function AppAdminNegocio() {
   }, []);
 
   const formatearMoneda = useCallback((valor: number | undefined) => {
-    const numero = Number(valor || 0);
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(numero);
+    if (typeof valor !== 'number' || !Number.isFinite(valor)) return '—';
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(valor);
   }, []);
 
-  const formatearPct = useCallback((valor: number | undefined) => `${(Number(valor || 0) * 100).toFixed(1)}%`, []);
+  const formatearPct = useCallback((valor: number | undefined) => (
+    typeof valor === 'number' && Number.isFinite(valor) ? `${(valor * 100).toFixed(1)}%` : '—'
+  ), []);
+  const formatearConteo = useCallback((valor: number | undefined) => (
+    typeof valor === 'number' && Number.isFinite(valor)
+      ? new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 }).format(valor)
+      : '—'
+  ), []);
 
   async function crearTenant() {
     try {
@@ -546,12 +553,13 @@ export function AppAdminNegocio() {
               titulo={`Cómo operar ${VISTAS.find((item) => item.id === vista)?.label || vista}`}
               descripcion={ayudaVista.descripcion}
               pasos={ayudaVista.pasos}
-              notas={<span className="ayuda">Usa los datos crudos como evidencia operativa y recarga después de cada acción crítica.</span>}
+              notas={<span className="ayuda">Abre los datos de respuesta (JSON) cuando necesites revisar el detalle técnico; recarga después de cada acción crítica.</span>}
             />
+          {vista === 'dashboard' && (
           <div className="subpanel glass-card superadmin-overview">
             <div className="superadmin-overview__head">
               <div>
-                <h3>Control Maestro Superadmin</h3>
+                <h3>Resumen comercial</h3>
                 <p className="nota">
                   Esta vista amplía el dashboard operativo con poderes comerciales, licenciamiento, cobranza y auditoría.
                 </p>
@@ -559,29 +567,31 @@ export function AppAdminNegocio() {
               <button
                 type="button"
                 className="chip scale-hover"
+                disabled={cargando}
+                aria-busy={cargando}
                 onClick={() => {
                   void cargarResumenDashboard();
                   void cargarVistaActual(vista);
                 }}
               >
-                Actualizar todo
+                {cargando ? 'Actualizando…' : 'Actualizar todo'}
               </button>
             </div>
             <div className="superadmin-kpis">
               <article className="superadmin-kpi glass-card scale-hover">
-                <span>Tenants</span>
-                <b>{resumenDashboard?.totalTenants ?? 0}</b>
+                <span>Instituciones (tenants)</span>
+                <b>{formatearConteo(resumenDashboard?.totalTenants)}</b>
               </article>
               <article className="superadmin-kpi glass-card scale-hover">
                 <span>Suscripciones activas</span>
-                <b>{resumenDashboard?.suscripcionesActivas ?? 0}</b>
+                <b>{formatearConteo(resumenDashboard?.suscripcionesActivas)}</b>
               </article>
               <article className="superadmin-kpi glass-card scale-hover">
-                <span>Past due</span>
-                <b>{resumenDashboard?.suscripcionesPastDue ?? 0}</b>
+                <span>Suscripciones vencidas</span>
+                <b>{formatearConteo(resumenDashboard?.suscripcionesPastDue)}</b>
               </article>
               <article className="superadmin-kpi glass-card scale-hover">
-                <span>MRR</span>
+                <span>Ingreso mensual recurrente (MRR)</span>
                 <b>{formatearMoneda(resumenDashboard?.mrrMxn)}</b>
               </article>
               <article className="superadmin-kpi glass-card scale-hover">
@@ -589,11 +599,11 @@ export function AppAdminNegocio() {
                 <b>{formatearMoneda(resumenDashboard?.cobranzaPendienteMxn)}</b>
               </article>
               <article className="superadmin-kpi glass-card scale-hover">
-                <span>Conversión trial</span>
+                <span>Tasa de conversión de prueba</span>
                 <b>{formatearPct(resumenDashboard?.conversionTrial)}</b>
               </article>
               <article className="superadmin-kpi glass-card scale-hover">
-                <span>Churn mensual</span>
+                <span>Tasa de cancelación mensual</span>
                 <b>{formatearPct(resumenDashboard?.churnMensual)}</b>
               </article>
               <article className="superadmin-kpi glass-card scale-hover">
@@ -606,16 +616,17 @@ export function AppAdminNegocio() {
                 Vista ejecutiva
               </button>
               <button type="button" className="chip scale-hover" onClick={() => setVista('licencias')}>
-                Poder: licencias
+                Abrir licencias
               </button>
               <button type="button" className="chip scale-hover" onClick={() => setVista('cobranza')}>
-                Poder: cobranza
+                Abrir cobranza
               </button>
               <button type="button" className="chip scale-hover" onClick={() => setVista('auditoria')}>
-                Poder: auditoría
+                Abrir auditoría
               </button>
             </div>
           </div>
+          )}
 
           <div className="admin-negocio-nav" role="navigation" aria-label="Vistas del panel de negocio">
             {VISTAS.map((item, indice) => (
@@ -624,6 +635,7 @@ export function AppAdminNegocio() {
                 <button
                   type="button"
                   className={`admin-negocio-nav__item scale-hover${vista === item.id ? ' admin-negocio-nav__item--activo' : ''}`}
+                  aria-current={vista === item.id ? 'page' : undefined}
                   disabled={cargando}
                   data-tooltip={`Abrir ${item.label}`}
                   onClick={() => setVista(item.id)}
@@ -843,8 +855,16 @@ export function AppAdminNegocio() {
           )}
 
           <div className="subpanel glass-card">
-            <h3>Datos</h3>
-            {cargando ? <p className="nota">Cargando...</p> : <pre className="admin-negocio__payload-json">{JSON.stringify(data, null, 2)}</pre>}
+            <h3>Datos técnicos de la vista</h3>
+            {cargando ? <p className="nota" role="status">Cargando datos de {VISTAS.find((item) => item.id === vista)?.label || vista}…</p> : null}
+            {data !== null ? (
+              <details className="admin-negocio__payload-details">
+                <summary>Datos de respuesta (JSON)</summary>
+                <pre className="admin-negocio__payload-json">{JSON.stringify(data, null, 2)}</pre>
+              </details>
+            ) : !cargando ? (
+              <p className="nota">No hay datos cargados para esta vista.</p>
+            ) : null}
           </div>
           </div>
         </>

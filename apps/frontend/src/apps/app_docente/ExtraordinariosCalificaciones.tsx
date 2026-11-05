@@ -14,8 +14,21 @@ type PaginaPreview = { numero: number; width: number; height: number; dataUrl: s
 type PreviewExtra = { layoutConfirmado?: boolean; numeroPaginas?: number; paginas?: PaginaPreview[]; totalUsados?: number; totalDisponibles?: number };
 type ResumenLoteExtra = { loteId: string; totalAlumnos: number; totalPaginas: number; paginasPorExamen: number; pdfSha256: string; lotePdfUrl: string };
 
+function HuellaSha256({ resumen, prefijo, valor }: { resumen: string; prefijo: string; valor: string }) {
+  return (
+    <details className="calificaciones-extra__disclosure calificaciones-extra__hash-details">
+      <summary className="calificaciones-extra__disclosure-summary">Ver huella SHA-256 {resumen}</summary>
+      <code className="calificaciones-extra__sha256">SHA-256{prefijo ? ` ${prefijo}` : ''}: {valor}</code>
+    </details>
+  );
+}
+
 function nombreAlumno(fila: FilaConsultaCalificacion) {
   return [fila.apellidoPaterno, fila.apellidoMaterno, fila.nombre].filter(Boolean).join(' ') || 'Alumno sin nombre';
+}
+
+function identidadAccesibleAlumno(fila: FilaConsultaCalificacion) {
+  return `${nombreAlumno(fila)} · matrícula ${fila.matricula || 'sin matrícula'} · grupo ${fila.grupo || 'sin grupo'}`;
 }
 
 function decimal(valor?: string) {
@@ -30,7 +43,7 @@ function uuid() {
 }
 
 export function ExtraordinariosCalificaciones({
-  periodos, periodoId, onPeriodoChange, puedeCalificar, puedeGenerar, onAbrirRevision
+  periodos, periodoId, onPeriodoChange, puedeCalificar, puedeGenerar, onAbrirRevision, onResumenChange
 }: {
   periodos: Periodo[];
   periodoId: string;
@@ -38,6 +51,7 @@ export function ExtraordinariosCalificaciones({
   puedeCalificar: boolean;
   puedeGenerar: boolean;
   onAbrirRevision: (alumnoId: string) => void;
+  onResumenChange?: (resumen: { periodoId: string; total: number | null }) => void;
 }) {
   const [filas, setFilas] = useState<FilaConsultaCalificacion[]>([]);
   const [plantillas, setPlantillas] = useState<PlantillaExtra[]>([]);
@@ -45,9 +59,13 @@ export function ExtraordinariosCalificaciones({
   const [cursorExamenes, setCursorExamenes] = useState<string | null>(null);
   const [cargandoMasExamenes, setCargandoMasExamenes] = useState(false);
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
-  const [plantillaId, setPlantillaId] = useState('');
+  const [seleccionPlantilla, setSeleccionPlantilla] = useState({ periodoId, plantillaId: '' });
+  const plantillaId = seleccionPlantilla.periodoId === periodoId ? seleccionPlantilla.plantillaId : '';
   const [cargando, setCargando] = useState(false);
+  const [errorCargaFilas, setErrorCargaFilas] = useState('');
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
+  const [errorPlantillas, setErrorPlantillas] = useState('');
+  const [intentoCargaPlantillas, setIntentoCargaPlantillas] = useState(0);
   const [previsualizando, setPrevisualizando] = useState(false);
   const [generando, setGenerando] = useState(false);
   const [descargandoPdf, setDescargandoPdf] = useState(false);
@@ -63,46 +81,87 @@ export function ExtraordinariosCalificaciones({
   const [externo, setExterno] = useState({ folio: '', loteId: '', aciertos: '', totalReactivos: '', criteriosAplicados: '' });
   const claveExternoPendiente = useRef<{ payload: string; id: string } | null>(null);
   const solicitudesPendientes = useRef(new Map<string, { payload: string; id: string }>());
+  const periodoIdActualRef = useRef(periodoId);
+  periodoIdActualRef.current = periodoId;
+  const solicitudFilasIdRef = useRef(0);
+  const solicitudHistorialIdRef = useRef(0);
   const cargarFilas = useCallback(async () => {
-    if (!periodoId) { setFilas([]); return; }
-    setCargando(true);
-    setError('');
-    try {
-      const [respuesta, historial] = await Promise.all([
-        clienteApi.obtener<{ filas?: FilaConsultaCalificacion[] }>(`/analiticas/lista-academica?periodoId=${encodeURIComponent(periodoId)}`),
-        clienteApi.obtener<{ examenes?: ExamenHistoricoExtra[]; nextCursor?: string | null }>(`/examenes/generados?periodoId=${encodeURIComponent(periodoId)}&limite=100`)
-      ]);
-      setFilas(Array.isArray(respuesta?.filas) ? respuesta.filas : []);
-      setExamenesHistoricos((Array.isArray(historial?.examenes) ? historial.examenes : []).filter((examen) => examen.tipoExamen === 'extraordinario'));
-      setCursorExamenes(historial?.nextCursor ?? null);
-    } catch (razon) {
-      setError(mensajeDeError(razon, 'No se pudo cargar la elegibilidad extraordinaria.'));
+    const solicitudId = ++solicitudFilasIdRef.current;
+    solicitudHistorialIdRef.current += 1;
+    const periodoSolicitado = periodoId;
+    onResumenChange?.({ periodoId: periodoSolicitado, total: null });
+    if (!periodoSolicitado) {
       setFilas([]);
       setExamenesHistoricos([]);
       setCursorExamenes(null);
-    } finally {
+      setError('');
+      setErrorCargaFilas('');
       setCargando(false);
+      setCargandoMasExamenes(false);
+      return;
     }
-  }, [periodoId]);
+    setCargando(true);
+    setErrorCargaFilas('');
+    setError('');
+    try {
+      const [respuesta, historial] = await Promise.all([
+        clienteApi.obtener<{ filas?: FilaConsultaCalificacion[] }>(`/analiticas/lista-academica?periodoId=${encodeURIComponent(periodoSolicitado)}`),
+        clienteApi.obtener<{ examenes?: ExamenHistoricoExtra[]; nextCursor?: string | null }>(`/examenes/generados?periodoId=${encodeURIComponent(periodoSolicitado)}&limite=100`)
+      ]);
+      if (solicitudId !== solicitudFilasIdRef.current || periodoSolicitado !== periodoIdActualRef.current) return;
+      setFilas(Array.isArray(respuesta?.filas) ? respuesta.filas : []);
+      onResumenChange?.({ periodoId: periodoSolicitado, total: Array.isArray(respuesta?.filas) ? respuesta.filas.length : 0 });
+      setExamenesHistoricos((Array.isArray(historial?.examenes) ? historial.examenes : []).filter((examen) => examen.tipoExamen === 'extraordinario'));
+      setCursorExamenes(historial?.nextCursor ?? null);
+    } catch (razon) {
+      if (solicitudId !== solicitudFilasIdRef.current || periodoSolicitado !== periodoIdActualRef.current) return;
+      setErrorCargaFilas(mensajeDeError(razon, 'No se pudo cargar la elegibilidad extraordinaria.'));
+      setFilas([]);
+      onResumenChange?.({ periodoId: periodoSolicitado, total: null });
+      setExamenesHistoricos([]);
+      setCursorExamenes(null);
+    } finally {
+      if (solicitudId === solicitudFilasIdRef.current && periodoSolicitado === periodoIdActualRef.current) setCargando(false);
+    }
+  }, [onResumenChange, periodoId]);
 
   async function cargarMasExamenes() {
     if (!periodoId || !cursorExamenes || cargandoMasExamenes) return;
+    const periodoSolicitado = periodoId;
+    const solicitudId = ++solicitudHistorialIdRef.current;
     setCargandoMasExamenes(true);
     try {
       const pagina = await clienteApi.obtener<{ examenes?: ExamenHistoricoExtra[]; nextCursor?: string | null }>(
-        `/examenes/generados?periodoId=${encodeURIComponent(periodoId)}&limite=100&cursor=${encodeURIComponent(cursorExamenes)}`
+        `/examenes/generados?periodoId=${encodeURIComponent(periodoSolicitado)}&limite=100&cursor=${encodeURIComponent(cursorExamenes)}`
       );
+      if (solicitudId !== solicitudHistorialIdRef.current || periodoSolicitado !== periodoIdActualRef.current) return;
       setExamenesHistoricos((actuales) => [...actuales, ...(pagina.examenes ?? []).filter((examen) => examen.tipoExamen === 'extraordinario')]);
       setCursorExamenes(pagina.nextCursor ?? null);
-    } catch (razon) { setError(mensajeDeError(razon, 'No se pudo cargar la siguiente página del historial.')); }
-    finally { setCargandoMasExamenes(false); }
+    } catch (razon) {
+      if (solicitudId === solicitudHistorialIdRef.current && periodoSolicitado === periodoIdActualRef.current) {
+        setError(mensajeDeError(razon, 'No se pudo cargar la siguiente página del historial.'));
+      }
+    } finally {
+      if (solicitudId === solicitudHistorialIdRef.current && periodoSolicitado === periodoIdActualRef.current) setCargandoMasExamenes(false);
+    }
   }
 
   useEffect(() => { void cargarFilas(); }, [cargarFilas]);
 
+  useEffect(() => () => {
+    solicitudFilasIdRef.current += 1;
+    solicitudHistorialIdRef.current += 1;
+  }, []);
+
   useEffect(() => {
     let cancelado = false;
-    if (!periodoId) { setPlantillas([]); return () => { cancelado = true; }; }
+    setPlantillas([]);
+    setErrorPlantillas('');
+    setSeleccionPlantilla((actual) => actual.periodoId === periodoId ? actual : { periodoId, plantillaId: '' });
+    if (!periodoId) {
+      setCargandoPlantillas(false);
+      return () => { cancelado = true; };
+    }
     setCargandoPlantillas(true);
     const query = `periodoId=${encodeURIComponent(periodoId)}`;
     void Promise.allSettled([
@@ -114,10 +173,16 @@ export function ExtraordinariosCalificaciones({
       const archivadas = resultados[1].status === 'fulfilled' ? resultados[1].value.plantillas ?? [] : [];
       const unicas = new Map([...activas, ...archivadas].map((item) => [item._id, item]));
       setPlantillas([...unicas.values()].filter((item) => item.periodoId === periodoId));
+      const rechazadas = resultados.filter((resultado) => resultado.status === 'rejected').length;
+      if (rechazadas === resultados.length) {
+        setErrorPlantillas('No se pudieron cargar las plantillas de esta materia. Reintenta la consulta.');
+      } else if (rechazadas > 0) {
+        setErrorPlantillas('No se pudieron cargar todas las plantillas; la lista podría estar incompleta. Reintenta la consulta.');
+      }
       setCargandoPlantillas(false);
     });
     return () => { cancelado = true; };
-  }, [periodoId]);
+  }, [intentoCargaPlantillas, periodoId]);
 
   const elegibles = useMemo(() => filas.filter((fila) => fila.extraDisponible === true), [filas]);
   const solicitados = useMemo(() => elegibles.filter((fila) => fila.solicitaExtra === true), [elegibles]);
@@ -130,6 +195,11 @@ export function ExtraordinariosCalificaciones({
     setPreview(null);
     setConfirmoPreview(false);
     setResultadoLote(null);
+    setFilas([]);
+    setExamenesHistoricos([]);
+    setCursorExamenes(null);
+    setCargandoMasExamenes(false);
+    setError('');
   }, [periodoId]);
 
   useEffect(() => {
@@ -291,43 +361,58 @@ export function ExtraordinariosCalificaciones({
 
       {error && <InlineMensaje tipo="error">{error}</InlineMensaje>}
       {estado && <p className="calificaciones-extra__status" role="status">{estado}</p>}
-      {cargando ? <p role="status">Cargando lista académica…</p> : !periodoId ? <InlineMensaje tipo="info">Selecciona una materia para consultar elegibilidad y resultados.</InlineMensaje> : (
+      {cargando ? <p role="status">Cargando lista académica…</p> : !periodoId ? <InlineMensaje tipo="info">Selecciona una materia para consultar elegibilidad y resultados.</InlineMensaje> : errorCargaFilas ? (
+        <div className="calificaciones-extra__load-error">
+          <InlineMensaje tipo="error">{errorCargaFilas}</InlineMensaje>
+          <Boton type="button" variante="secundario" onClick={() => void cargarFilas()} cargando={cargando}>
+            Reintentar carga académica
+          </Boton>
+        </div>
+      ) : (
         <>
           <div className="calificaciones-extra__summary" aria-live="polite">
-            <span><strong>{elegibles.length}</strong> elegibles de {filas.length}</span>
-            <span><strong>{solicitados.length}</strong> con solicitud</span>
-            <span><strong>{resultadosHistoricos.length}</strong> resultados históricos</span>
+            <span><strong>{elegibles.length}</strong> {elegibles.length === 1 ? 'elegible' : 'elegibles'} de {filas.length} {filas.length === 1 ? 'alumno' : 'alumnos'}</span>
+            <span><strong>{solicitados.length}</strong> {solicitados.length === 1 ? 'alumno' : 'alumnos'} con solicitud</span>
+            <span><strong>{resultadosHistoricos.length}</strong> {resultadosHistoricos.length === 1 ? 'resultado histórico' : 'resultados históricos'}</span>
           </div>
 
           <section className="calificaciones-extra__section" aria-labelledby="extra-alumnos-heading">
             <div className="calificaciones-extra__section-head">
-              <div><h4 id="extra-alumnos-heading">Elegibilidad y solicitud</h4><p>La elegibilidad se calcula con la final exacta vigente.</p></div>
-              <span>{seleccionados.length} seleccionados</span>
+              <div><h4 id="extra-alumnos-heading">Elegibilidad y solicitud</h4><p>El cálculo usa la final del curso antes del redondeo; «Final para acta» muestra el valor por separado.</p></div>
+              <span className="calificaciones-extra__selection-count" aria-live="polite">
+                {seleccionados.length} {seleccionados.length === 1 ? 'alumno seleccionado' : 'alumnos seleccionados'}
+              </span>
             </div>
             {filas.length === 0 ? <InlineMensaje tipo="info">No hay alumnos registrados en este periodo.</InlineMensaje> : (
               <ul className="calificaciones-extra__roster">
                 {filas.map((fila) => {
                   const id = String(fila.alumnoId ?? ''); const elegible = fila.extraDisponible === true; const solicita = fila.solicitaExtra === true;
+                  const identidadAlumno = identidadAccesibleAlumno(fila);
                   return <li key={id} className="calificaciones-extra__student">
                     <div className="calificaciones-extra__student-main">
-                      {elegible && solicita && <input aria-label={`Seleccionar para generar examen extraordinario: ${nombreAlumno(fila)}`} type="checkbox" checked={seleccionados.includes(id)} onChange={(event) => setSeleccionados((actuales) => event.target.checked ? [...new Set([...actuales, id])] : actuales.filter((actual) => actual !== id))} />}
+                      {elegible && solicita && <label className="calificaciones-extra__batch-select">
+                        <input type="checkbox" checked={seleccionados.includes(id)} onChange={(event) => setSeleccionados((actuales) => event.target.checked ? [...new Set([...actuales, id])] : actuales.filter((actual) => actual !== id))} />
+                        <span>Incluir en el lote</span>
+                        {' '}
+                        <span className="sr-only">{identidadAlumno}</span>
+                      </label>}
                       <div><strong>{nombreAlumno(fila)}</strong><small>{fila.matricula}{fila.grupo ? ` · Grupo ${fila.grupo}` : ''}</small></div>
                     </div>
                     <dl className="calificaciones-extra__metrics">
-                      <div><dt>Final exacta</dt><dd>{decimal(fila.calificacionFinalCurso)}</dd></div>
-                      <div><dt>Acta</dt><dd>{decimal(fila.calificacionFinalCursoActa)}</dd></div>
-                      <div><dt>Elegibilidad</dt><dd>{elegible ? 'Elegible · < 6' : 'No elegible'}</dd></div>
+                      <div><dt>Final del curso</dt><dd>{decimal(fila.calificacionFinalCurso)}</dd></div>
+                      <div><dt>Final para acta</dt><dd>{decimal(fila.calificacionFinalCursoActa)}</dd></div>
+                      <div><dt>Elegibilidad</dt><dd>{elegible ? 'Elegible' : 'No elegible'}</dd></div>
                     </dl>
                     <div className="calificaciones-extra__actions">
-                      <label className="campo-checkbox"><input type="checkbox" checked={solicita} disabled={!puedeCalificar || (!elegible && !solicita)} onChange={(event) => void guardarSolicitud(fila, event.target.checked)} /><span>Solicitud docente</span></label>
-                      {id && <button type="button" className="calificaciones-extra__link" onClick={() => { setAlumnoExternoId(id); onAbrirRevision(id); }}>Abrir revisión OMR</button>}
+                      <label className="campo-checkbox"><input type="checkbox" aria-label={`Solicitud docente para ${identidadAlumno}`} checked={solicita} disabled={!puedeCalificar || (!elegible && !solicita)} onChange={(event) => void guardarSolicitud(fila, event.target.checked)} /><span>Solicitud docente</span></label>
+                      {id && <button type="button" className="calificaciones-extra__link" aria-label={`Abrir revisión OMR de ${identidadAlumno}`} onClick={() => { setAlumnoExternoId(id); onAbrirRevision(id); }}>Abrir revisión OMR</button>}
                     </div>
-                    {(fila.resultadosExtraordinarios ?? []).length > 0 && <div className="calificaciones-extra__history" aria-label={`Historial de exámenes extraordinarios de ${nombreAlumno(fila)}`}>
+                    {(fila.resultadosExtraordinarios ?? []).length > 0 && <div className="calificaciones-extra__history" aria-label={`Historial de exámenes extraordinarios de ${identidadAlumno}`}>
                       {(fila.resultadosExtraordinarios ?? []).map((resultado) => <article key={`${resultado.claseRegistro}-${resultado.folio}`}>
                         <strong>Resultado {resultado.claseRegistro === 'externo' ? 'externo' : 'interno'} · folio {resultado.folio}</strong>
                         <span>{decimal(resultado.calificacionSobre5)} / 5 · {decimal(resultado.calificacionSobre10)} / 10 · {resultado.estadoAprobatorio} (solo si supera 6)</span>
                         <small>{resultado.loteId ? `Lote ${resultado.loteId}` : 'Lote no verificado'} · origen: {resultado.origen || 'sin dato registrado'}</small>
-                        {resultado.documentoSha256 && <code className="calificaciones-extra__sha256">SHA-256: {resultado.documentoSha256}</code>}
+                        {resultado.documentoSha256 && <HuellaSha256 resumen="del documento" prefijo="" valor={resultado.documentoSha256} />}
                       </article>)}
                     </div>}
                   </li>;
@@ -338,10 +423,19 @@ export function ExtraordinariosCalificaciones({
 
           <section className="calificaciones-extra__section" aria-labelledby="extra-generacion-heading">
             <div className="calificaciones-extra__section-head"><div><h4 id="extra-generacion-heading">Preparar y generar</h4><p>La solicitud y elegibilidad se vuelven a comprobar en el servidor al enviar el lote.</p></div></div>
-            <label className="campo"><span>Plantilla de examen</span><select value={plantillaId} disabled={cargandoPlantillas || generando} onChange={(event) => { setPlantillaId(event.target.value); setPreview(null); setConfirmoPreview(false); }}>
-              <option value="">{cargandoPlantillas ? 'Cargando plantillas…' : 'Selecciona plantilla…'}</option>
+            <label className="campo"><span>Plantilla de examen</span><select value={plantillaId} disabled={cargandoPlantillas || generando} onChange={(event) => { setSeleccionPlantilla({ periodoId, plantillaId: event.target.value }); setPreview(null); setConfirmoPreview(false); }}>
+              <option value="">{cargandoPlantillas ? 'Cargando plantillas…' : errorPlantillas ? 'No se pudieron cargar las plantillas' : plantillas.length === 0 ? 'No hay plantillas disponibles' : 'Selecciona plantilla…'}</option>
               {plantillas.map((item) => <option key={item._id} value={item._id}>{item.titulo}{item.archivadoEn ? ' (Archivada)' : ''}</option>)}
             </select></label>
+            {errorPlantillas && <div className="calificaciones-extra__load-error">
+              <InlineMensaje tipo="error">{errorPlantillas}</InlineMensaje>
+              <Boton type="button" variante="secundario" cargando={cargandoPlantillas} disabled={cargandoPlantillas} onClick={() => setIntentoCargaPlantillas((intento) => intento + 1)}>
+                Reintentar carga de plantillas
+              </Boton>
+            </div>}
+            {!cargandoPlantillas && !errorPlantillas && plantillas.length === 0 && (
+              <InlineMensaje tipo="info">No hay plantillas disponibles para generar un extraordinario en esta materia.</InlineMensaje>
+            )}
             <div className="calificaciones-extra__actions">
               <Boton type="button" variante="secundario" cargando={previsualizando} disabled={!plantillaId || !puedeGenerar || previsualizando} onClick={() => void cargarPreview()}>{preview ? 'Actualizar vista previa' : 'Revisar vista previa'}</Boton>
               <span>{seleccionados.length} alumnos elegibles y solicitantes seleccionados</span>
@@ -354,42 +448,100 @@ export function ExtraordinariosCalificaciones({
             <Boton type="button" variante="primario" cargando={generando} disabled={!puedeGenerar || generando || !seleccionados.length || !preview || !confirmoPreview} onClick={() => void generarLote()}>
               {generando ? 'Validando y generando…' : 'Generar exámenes extraordinarios'}
             </Boton>
-            {resultadoLote && <div className="calificaciones-extra__batch" role="status">
-              <strong>Lote {resultadoLote.loteId} · {resultadoLote.totalAlumnos} exámenes · {resultadoLote.totalPaginas} páginas</strong>
-              <code className="calificaciones-extra__sha256">SHA-256 PDF: {resultadoLote.pdfSha256}</code>
+            {resultadoLote && <div className="calificaciones-extra__batch">
+              <div role="status">
+                <strong>Lote {resultadoLote.loteId} · {resultadoLote.totalAlumnos} exámenes · {resultadoLote.totalPaginas} páginas</strong>
+              </div>
+              <HuellaSha256 resumen="del PDF generado" prefijo="PDF" valor={resultadoLote.pdfSha256} />
               <Boton type="button" variante="secundario" cargando={descargandoPdf} onClick={() => void descargarPdfLote()}>Descargar PDF del lote</Boton>
               <button type="button" onClick={() => onAbrirRevision(seleccionados[0])}>Continuar a captura y revisión OMR</button>
             </div>}
           </section>
 
-          <section className="calificaciones-extra__section" aria-labelledby="extra-historial-heading">
-            <div className="calificaciones-extra__section-head"><div><h4 id="extra-historial-heading">Exámenes extraordinarios generados</h4><p>Incluye exámenes pendientes de aplicación o captura y los que ya tienen resultado.</p></div><span>{examenesHistoricos.length} cargados</span></div>
+          <details id="extra-historial-disclosure" className="calificaciones-extra__section calificaciones-extra__disclosure">
+            <summary className="calificaciones-extra__disclosure-summary">
+              <span className="calificaciones-extra__disclosure-row">
+                <span className="calificaciones-extra__disclosure-main">
+                  <strong>Exámenes extraordinarios generados</strong>
+                  <small>Consulta pendientes de aplicación y resultados registrados.</small>
+                </span>
+                <span className="calificaciones-extra__disclosure-count">{examenesHistoricos.length} {examenesHistoricos.length === 1 ? 'cargado' : 'cargados'}</span>
+              </span>
+            </summary>
+            <div className="calificaciones-extra__disclosure-content">
             {examenesHistoricos.length === 0 ? <p>No hay exámenes extraordinarios generados en este periodo.</p> : <ul className="calificaciones-extra__history-list">
-              {examenesHistoricos.map((examen) => <li key={examen._id ?? examen.id}>
-                <strong>{examen.alumnoNombre || filas.find((fila) => fila.alumnoId === examen.alumnoId)?.matricula || 'Alumno'}</strong>
-                <span>{examen.loteId ? `Lote ${examen.loteId} · ` : ''}folio {examen.folio}</span>
-                <small>Estado: {examen.estado || 'sin estado registrado'}{examen.generadoEn ? ` · ${new Date(examen.generadoEn).toLocaleDateString('es-MX')}` : ''}</small>
-                {examen.alumnoId && <button type="button" className="calificaciones-extra__link" onClick={() => onAbrirRevision(examen.alumnoId!)}>Abrir revisión del alumno</button>}
-              </li>)}
+              {examenesHistoricos.map((examen) => {
+                const filaAlumno = filas.find((fila) => fila.alumnoId === examen.alumnoId);
+                const identidadAlumno = filaAlumno
+                  ? identidadAccesibleAlumno(filaAlumno)
+                  : `${examen.alumnoNombre || 'Alumno sin nombre'} · matrícula sin matrícula · grupo sin grupo`;
+                return <li key={examen._id ?? examen.id}>
+                  <strong>{examen.alumnoNombre || filaAlumno?.matricula || 'Alumno'}</strong>
+                  <span>{examen.loteId ? `Lote ${examen.loteId} · ` : ''}folio {examen.folio}</span>
+                  <small>Estado: {examen.estado || 'sin estado registrado'}{examen.generadoEn ? ` · ${new Date(examen.generadoEn).toLocaleDateString('es-MX')}` : ''}</small>
+                  {examen.alumnoId && <button type="button" className="calificaciones-extra__link" aria-label={`Abrir revisión del alumno ${identidadAlumno} · folio ${examen.folio || 'sin folio'}`} onClick={() => onAbrirRevision(examen.alumnoId!)}>Abrir revisión del alumno</button>}
+                </li>;
+              })}
             </ul>}
             {cursorExamenes && <Boton type="button" variante="secundario" cargando={cargandoMasExamenes} onClick={() => void cargarMasExamenes()}>Cargar más exámenes</Boton>}
-          </section>
+            </div>
+          </details>
 
-          <section className="calificaciones-extra__section" aria-labelledby="extra-externo-heading">
-            <div className="calificaciones-extra__section-head"><div><h4 id="extra-externo-heading">Registrar examen externo</h4><p>Elige el PDF local solo para calcular su SHA-256. Confirma manualmente los datos visibles; no se leen respuestas del archivo.</p></div></div>
-            <label className="campo"><span>Alumno solicitante elegible</span><select value={alumnoExternoId} onChange={(event) => setAlumnoExternoId(event.target.value)}><option value="">Selecciona alumno…</option>{alumnosExternosDisponibles.map((fila) => <option key={fila.alumnoId} value={fila.alumnoId}>{nombreAlumno(fila)}</option>)}</select></label>
+          <details id="extra-externo-disclosure" className="calificaciones-extra__section calificaciones-extra__disclosure">
+            <summary className="calificaciones-extra__disclosure-summary">
+              <span className="calificaciones-extra__disclosure-row">
+                <span className="calificaciones-extra__disclosure-main">
+                  <strong>Registrar examen externo</strong>
+                  <small>Captura manual con un PDF local como referencia.</small>
+                </span>
+              </span>
+            </summary>
+            <div className="calificaciones-extra__disclosure-content">
+            <p className="nota">Revisa el examen y captura los datos visibles. El PDF se lee solo en este dispositivo para calcular SHA-256; no se envía ni se interpretan sus respuestas.</p>
+            <label className="campo"><span>Alumno solicitante elegible (obligatorio)</span><select required value={alumnoExternoId} onChange={(event) => setAlumnoExternoId(event.target.value)}><option value="">Selecciona alumno…</option>{alumnosExternosDisponibles.map((fila) => <option key={fila.alumnoId} value={fila.alumnoId}>{identidadAccesibleAlumno(fila)}</option>)}</select></label>
+            {alumnosExternosDisponibles.length === 0 && <InlineMensaje tipo="info">
+              {!puedeCalificar
+                ? 'No tienes permiso para registrar resultados externos en esta materia.'
+                : elegibles.length > 0
+                  ? 'No hay solicitudes docentes vigentes. Marca «Solicitud docente» en la sección «Elegibilidad y solicitud» para un alumno elegible.'
+                  : 'No hay alumnos con calificación final menor que 6. Revisa la sección «Elegibilidad y solicitud».'}
+            </InlineMensaje>}
             <div className="calificaciones-extra__form">
-              <label className="campo"><span>PDF local</span><input type="file" accept="application/pdf,.pdf" disabled={calculandoHash || guardandoExterno} onChange={(event) => void elegirPdf(event.target.files?.[0])} /></label>
-              {archivoHash.nombre && <p>Archivo: {archivoHash.nombre}{calculandoHash ? ' · calculando SHA-256…' : ''}</p>}
-              {archivoHash.sha256 && <code className="calificaciones-extra__sha256">SHA-256 local: {archivoHash.sha256}</code>}
-              <label className="campo"><span>Folio visible</span><input value={externo.folio} onChange={(event) => setExterno((actual) => ({ ...actual, folio: event.target.value }))} /></label>
+              <div className="campo calificaciones-extra__file-picker">
+                <span id="extra-externo-pdf-label">PDF local (obligatorio)</span>
+                <input
+                  id="extra-externo-pdf"
+                  className="sr-only"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  required
+                  aria-labelledby="extra-externo-pdf-label"
+                  aria-describedby="extra-externo-pdf-help extra-externo-pdf-status"
+                  disabled={calculandoHash || guardandoExterno}
+                  onChange={(event) => void elegirPdf(event.target.files?.[0])}
+                />
+                <label className="calificaciones-extra__file-control" htmlFor="extra-externo-pdf">
+                  <span className="calificaciones-extra__file-button">{archivoHash.nombre ? 'Cambiar PDF' : 'Elegir PDF'}</span>
+                  <span id="extra-externo-pdf-status" className="calificaciones-extra__file-name" role="status" aria-live="polite">
+                    {calculandoHash
+                      ? 'Calculando SHA-256 del PDF…'
+                      : archivoHash.nombre
+                        ? `Archivo: ${archivoHash.nombre}${archivoHash.sha256 ? ' · SHA-256 calculado' : ''}`
+                        : 'Sin PDF seleccionado.'}
+                  </span>
+                </label>
+                <span className="ayuda" id="extra-externo-pdf-help">Solo se calcula su SHA-256 localmente; no se leen respuestas del archivo.</span>
+              </div>
+              {archivoHash.sha256 && <HuellaSha256 resumen="del archivo seleccionado" prefijo="local" valor={archivoHash.sha256} />}
+              <div className="campo"><label className="campo__label-text" htmlFor="extra-externo-folio">Folio visible (obligatorio)</label><input id="extra-externo-folio" required value={externo.folio} onChange={(event) => setExterno((actual) => ({ ...actual, folio: event.target.value }))} /></div>
               <label className="campo"><span>Lote documentado (opcional)</span><input value={externo.loteId} onChange={(event) => setExterno((actual) => ({ ...actual, loteId: event.target.value }))} /></label>
-              <label className="campo"><span>Aciertos confirmados</span><input type="number" min="0" step="1" value={externo.aciertos} onChange={(event) => setExterno((actual) => ({ ...actual, aciertos: event.target.value }))} /></label>
-              <label className="campo"><span>Reactivos evaluables</span><input type="number" min="1" step="1" value={externo.totalReactivos} onChange={(event) => setExterno((actual) => ({ ...actual, totalReactivos: event.target.value }))} /></label>
-              <label className="campo"><span>Criterios aplicados</span><textarea value={externo.criteriosAplicados} onChange={(event) => setExterno((actual) => ({ ...actual, criteriosAplicados: event.target.value }))} /></label>
+              <div className="campo"><label className="campo__label-text" htmlFor="extra-externo-aciertos">Aciertos confirmados (obligatorio)</label><input id="extra-externo-aciertos" type="number" min="0" step="1" required aria-describedby="extra-externo-aciertos-help" value={externo.aciertos} onChange={(event) => setExterno((actual) => ({ ...actual, aciertos: event.target.value }))} /><span className="ayuda" id="extra-externo-aciertos-help">Número entero de 0 hasta el total de reactivos evaluables.</span></div>
+              <div className="campo"><label className="campo__label-text" htmlFor="extra-externo-reactivos">Reactivos evaluables (obligatorio)</label><input id="extra-externo-reactivos" type="number" min="1" step="1" required aria-describedby="extra-externo-reactivos-help" value={externo.totalReactivos} onChange={(event) => setExterno((actual) => ({ ...actual, totalReactivos: event.target.value }))} /><span className="ayuda" id="extra-externo-reactivos-help">Número entero mayor que cero.</span></div>
+              <div className="campo"><label className="campo__label-text" htmlFor="extra-externo-criterios">Criterios aplicados (obligatorio)</label><textarea id="extra-externo-criterios" required minLength={12} aria-describedby="extra-externo-criterios-help" value={externo.criteriosAplicados} onChange={(event) => setExterno((actual) => ({ ...actual, criteriosAplicados: event.target.value }))} /><span className="ayuda" id="extra-externo-criterios-help">Describe el criterio de revisión en al menos 12 caracteres.</span></div>
             </div>
             <Boton type="button" variante="secundario" cargando={guardandoExterno} disabled={!puedeCalificar || guardandoExterno || !alumnoExternoId || !archivoHash.sha256} onClick={() => void registrarExterno()}>Registrar resultado externo</Boton>
-          </section>
+            </div>
+          </details>
         </>
       )}
     </section>

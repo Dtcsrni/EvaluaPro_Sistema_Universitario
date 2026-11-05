@@ -4,14 +4,18 @@
  * Regresion visual ligera por snapshots de pantallas criticas.
  */
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppAdminNegocio } from '../src/apps/app_admin_negocio/AppAdminNegocio';
 import { AppAlumno } from '../src/apps/app_alumno/AppAlumno';
 import { AppDocente } from '../src/apps/app_docente/AppDocente';
+import { SeccionAlumnos } from '../src/apps/app_docente/SeccionAlumnos';
+import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
+import type { PermisosUI } from '../src/apps/app_docente/tipos';
 import { TemaProvider } from '../src/tema/TemaProvider';
 
 describe('UX visual regression', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     localStorage.clear();
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -38,13 +42,35 @@ describe('UX visual regression', () => {
     expect(asFragment()).toMatchSnapshot();
   });
 
+  it('alumnos muestra recuperacion explícita cuando falla el resumen de inasistencias', async () => {
+    vi.spyOn(clienteApi, 'obtener').mockRejectedValue(new Error('Servicio no disponible'));
+    const { container } = render(
+      <TemaProvider>
+        <SeccionAlumnos
+          alumnos={[]}
+          periodosActivos={[{ _id: 'periodo-ux', nombre: 'Materia de prueba', activo: true }]}
+          periodosTodos={[{ _id: 'periodo-ux', nombre: 'Materia de prueba', activo: true }]}
+          onRefrescar={() => {}}
+          permisos={{ alumnos: { gestionar: true } } as PermisosUI}
+          puedeEliminarAlumnoDev={false}
+          enviarConPermiso={async () => ({})}
+          avisarSinPermiso={() => {}}
+        />
+      </TemaProvider>
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/el indicador no está disponible/i);
+    const panelError = container.querySelector('.alumnos-resumen-asistencias-error');
+    expect(panelError).toMatchSnapshot();
+  });
+
   it('alumno sin token mantiene layout de acceso', () => {
     const { asFragment } = render(
       <TemaProvider>
         <AppAlumno />
       </TemaProvider>
     );
-    expect(screen.getByLabelText(/Codigo de acceso/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Código de acceso$/i)).toBeInTheDocument();
     expect(asFragment()).toMatchSnapshot();
   });
 
