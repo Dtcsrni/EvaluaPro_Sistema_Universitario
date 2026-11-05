@@ -13,20 +13,28 @@ import { ErrorRemoto } from '../src/servicios_api/clienteComun';
 import * as versionInfoModule from '../src/ui/version/versionInfo';
 
 vi.mock('@react-oauth/google', () => ({
-  GoogleLogin: ({ onSuccess, onError, theme, text }: {
+  GoogleLogin: ({ onSuccess, onError, theme, text, login_hint }: {
     onSuccess: (cred: { credential?: string }) => void;
     onError?: () => void;
     theme?: string;
     text?: string;
+    login_hint?: string;
   }) => {
     return (
-      <div data-google-theme={theme} data-google-text={text}>
+      <div data-google-theme={theme} data-google-text={text} data-google-login-hint={login_hint || ''}>
         <button
           type="button"
           data-testid="mock-google-login"
           onClick={() => onSuccess({ credential: 'mock.eyJlbWFpbCI6Imdvb2dsZUBsb2NhbC50ZXN0IiwibmFtZSI6Ikp1YW4gUGVyZXogTG9wZXoiLCJnaXZlbl9uYW1lIjoiSnVhbiIsImZhbWlseV9uYW1lIjoiUGVyZXoifQ.sig' })}
         >
           Google Login Mock
+        </button>
+        <button
+          type="button"
+          data-testid="mock-google-login-institutional"
+          onClick={() => onSuccess({ credential: 'mock.eyJlbWFpbCI6IkVyaWNrLnZlZ2FAY3VoLm14IiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJFcmljayBWZWdhIn0.sig' })}
+        >
+          Google Institutional Mock
         </button>
         <button
           type="button"
@@ -92,6 +100,20 @@ describe('SeccionAutenticacion', () => {
     const googleLogin = screen.getByTestId('mock-google-login').parentElement;
     expect(googleLogin).toHaveAttribute('data-google-theme', 'filled_blue');
     expect(googleLogin).toHaveAttribute('data-google-text', 'signin_with');
+    expect(googleLogin).toHaveAttribute('data-google-login-hint', 'Erick.vega@cuh.mx');
+  });
+
+  it('sugiere la cuenta institucional y permite abrir el selector de otra cuenta', async () => {
+    const user = userEvent.setup();
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+
+    expect(screen.getByText(/Cuenta institucional sugerida:/i)).toHaveTextContent('Erick.vega@cuh.mx');
+    expect(screen.getByTestId('mock-google-login').parentElement).toHaveAttribute('data-google-login-hint', 'Erick.vega@cuh.mx');
+
+    await user.click(screen.getByRole('button', { name: 'Usar otra cuenta' }));
+
+    expect(screen.getByRole('button', { name: 'Volver a mi cuenta institucional' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('mock-google-login').parentElement).toHaveAttribute('data-google-login-hint', '');
   });
 
   it('en desarrollo no oculta Google si el backend pierde su configuración y muestra el diagnóstico', () => {
@@ -259,6 +281,37 @@ describe('SeccionAutenticacion', () => {
       { headers: { 'X-Auth-Flow-ID': expect.stringMatching(/^[0-9a-f-]{36}$/i) } }
     );
     expect(onIngresar).toHaveBeenCalledWith('token-google', true, expect.stringMatching(/^[0-9a-f-]{36}$/i));
+  });
+
+  it('recuerda una cuenta institucional solo después de que la API acepta el login', async () => {
+    const user = userEvent.setup();
+    const onIngresar = vi.fn();
+    vi.spyOn(clienteApi, 'enviar').mockResolvedValueOnce({ token: 'token-google' });
+
+    render(<SeccionAutenticacion onIngresar={onIngresar} oauthGoogleDisponible />);
+    await user.click(screen.getByTestId('mock-google-login-institutional'));
+
+    await waitFor(() => expect(onIngresar).toHaveBeenCalledWith('token-google', true, expect.any(String)));
+    expect(localStorage.getItem('ep.auth.google.last-institutional-email')).toBe('Erick.vega@cuh.mx');
+    expect(screen.getByText(/Cuenta institucional sugerida:/i)).toHaveTextContent('Erick.vega@cuh.mx');
+  });
+
+  it('no reemplaza la cuenta institucional guardada cuando el API rechaza el login', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('ep.auth.google.last-institutional-email', 'docente@cuh.mx');
+    vi.spyOn(clienteApi, 'enviar').mockRejectedValueOnce(new ErrorRemoto('Sin conexión', { status: 503, codigo: 'SERVICIO_NO_DISPONIBLE' }));
+
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    await user.click(screen.getByTestId('mock-google-login-institutional'));
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith(
+        '/autenticacion/google',
+        expect.objectContaining({ credential: expect.any(String) }),
+        expect.any(Object)
+      );
+      expect(localStorage.getItem('ep.auth.google.last-institutional-email')).toBe('docente@cuh.mx');
+    });
   });
 
   it('registra el error reportado por Google y permite copiar un diagnóstico sin credenciales', async () => {

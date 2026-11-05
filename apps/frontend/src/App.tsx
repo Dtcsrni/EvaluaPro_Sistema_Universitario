@@ -5,6 +5,8 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { TemaProvider } from './tema/TemaProvider';
 import { TooltipLayer } from './ui/ux/tooltip/TooltipLayer';
+import { RuntimeEnvironmentRibbon } from './ui/version/RuntimeEnvironmentRibbon';
+import { obtenerModoApp } from './ui/version/versionInfo';
 
 const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
 
@@ -198,11 +200,14 @@ function App() {
 
   return (
     <TemaProvider>
-      <main className={`page page--${destino}`} data-app-destino={destino}>
-        <Suspense fallback={<div className="panel app-loading" role="status" aria-live="polite">Cargando EvaluaPro…</div>}>
-          {contenidoProtegido}
-        </Suspense>
-      </main>
+      <div className="app-runtime-frame" data-runtime-profile={obtenerModoApp()}>
+        <RuntimeEnvironmentRibbon />
+        <main className={`page page--${destino}`} data-app-destino={destino}>
+          <Suspense fallback={<div className="panel app-loading" role="status" aria-live="polite">Cargando EvaluaPro…</div>}>
+            {contenidoProtegido}
+          </Suspense>
+        </main>
+      </div>
       {!esVersionInfo ? <TooltipLayer /> : null}
     </TemaProvider>
   );
