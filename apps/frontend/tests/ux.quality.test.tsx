@@ -140,7 +140,7 @@ describe('UX quality contract', () => {
     const { container } = renderConTema(<AppAlumno />);
 
     expect(screen.getByText(/Portal Alumno/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Código de acceso/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Código de acceso$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Matrícula/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Consulta tus resultados/i })).toBeInTheDocument();
     expect(screen.getByRole('list', { name: /Qué puedes consultar/i })).toBeInTheDocument();
