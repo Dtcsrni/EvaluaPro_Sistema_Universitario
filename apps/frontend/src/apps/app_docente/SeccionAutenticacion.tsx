@@ -16,6 +16,7 @@ import { abrirVentanaVersion, obtenerVersionApp } from '../../ui/version/version
 import { clienteApi } from './clienteApiDocente';
 import { tipoMensajeInline } from './mensajeInline';
 import { registrarAccionDocente } from './telemetriaDocente';
+import { obtenerLoginHintGoogle, recordarLoginGoogleInstitucional } from './googleLoginHint';
 import {
   exportarTrazaAutenticacion,
   nuevoIdFlujoAutenticacion,
@@ -30,13 +31,15 @@ function GoogleLoginConRespaldo({
   onError,
   onFallback,
   etiqueta = 'Acceder con Google',
-  instrumentar = false
+  instrumentar = false,
+  loginHint
 }: {
   onSuccess: (cred: { credential?: string }, flowId: string) => void;
   onError?: (flowId: string) => void;
   onFallback: () => void;
   etiqueta?: string;
   instrumentar?: boolean;
+  loginHint?: string;
 }) {
   const flowIdRef = useRef<string>('');
   if (!flowIdRef.current) flowIdRef.current = nuevoIdFlujoAutenticacion();
@@ -70,6 +73,7 @@ function GoogleLoginConRespaldo({
           text="signin_with"
           shape="rectangular"
           logo_alignment="left"
+          login_hint={loginHint}
         />
       </div>
       <button type="button" className="auth-google-fallback" onClick={onFallback}>
@@ -215,6 +219,8 @@ export function SeccionAutenticacion({
   const [reintentandoGoogle, setReintentandoGoogle] = useState(false);
   const [diagnosticoGoogle, setDiagnosticoGoogle] = useState('');
   const [estadoDiagnostico, setEstadoDiagnostico] = useState('');
+  const [cuentaGoogleSugerida, setCuentaGoogleSugerida] = useState(obtenerLoginHintGoogle);
+  const [usarOtraCuentaGoogle, setUsarOtraCuentaGoogle] = useState(false);
 
   function calcularFortalezaPassword(pwd: string) {
     if (!pwd) return { nivel: 0, texto: '', color: '#94a3b8' };
@@ -449,6 +455,14 @@ export function SeccionAutenticacion({
         { headers: { 'X-Auth-Flow-ID': flowId } }
       );
       registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'solicitud_api', resultado: 'exito', duracionMs: Date.now() - inicio });
+      const perfilGoogle = decodificarPayloadJwt(credential);
+      if (perfilGoogle?.email_verified === true) {
+        const cuentaInstitucional = recordarLoginGoogleInstitucional(perfilGoogle.email);
+        if (cuentaInstitucional) {
+          setCuentaGoogleSugerida(cuentaInstitucional);
+          setUsarOtraCuentaGoogle(false);
+        }
+      }
       onIngresar(respuesta.token, mantenerSesion, flowId);
       emitToast({ level: 'ok', title: 'Sesion', message: 'Bienvenido/a', durationMs: 2200 });
       registrarAccionDocente('login_google', true, Date.now() - inicio);
@@ -846,24 +860,43 @@ export function SeccionAutenticacion({
                 </div>
               )}
               {oauthGoogleDesktopDisponible && <GoogleDesktopLogin onCredential={(credential) => void ingresarConGoogle(credential, nuevoIdFlujoAutenticacion())} />}
-              {googleDisponible && !oauthGoogleDesktopDisponible && <GoogleLoginConRespaldo
-                instrumentar
-                onSuccess={(cred, flowId) => {
-                  const token = cred.credential;
-                  if (!token) {
-                    registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'callback_google', resultado: 'error', codigo: 'CREDENTIAL_MISSING' });
-                    setMensaje('No se recibió credencial de Google.');
-                    return;
-                  }
-                  void ingresarConGoogle(token, flowId);
-                }}
-                onError={(flowId) => {
-                  registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'callback_google', resultado: 'error', codigo: 'PROVIDER_ERROR' });
-                  setErrorGoogleOauth(true);
-                  setMensaje('Error de autorización con Google. Verifica los orígenes autorizados de JavaScript en Google Cloud Console.');
-                }}
-                onFallback={informarGoogleNoDisponible}
-              />}
+              {googleDisponible && !oauthGoogleDesktopDisponible && (
+                <>
+                  <GoogleLoginConRespaldo
+                    key={usarOtraCuentaGoogle ? 'google-otra-cuenta' : 'google-cuenta-institucional'}
+                    instrumentar
+                    loginHint={usarOtraCuentaGoogle ? undefined : cuentaGoogleSugerida}
+                    onSuccess={(cred, flowId) => {
+                      const token = cred.credential;
+                      if (!token) {
+                        registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'callback_google', resultado: 'error', codigo: 'CREDENTIAL_MISSING' });
+                        setMensaje('No se recibió credencial de Google.');
+                        return;
+                      }
+                      void ingresarConGoogle(token, flowId);
+                    }}
+                    onError={(flowId) => {
+                      registrarEventoTrazabilidadAutenticacion({ flowId, canal: 'google', etapa: 'callback_google', resultado: 'error', codigo: 'PROVIDER_ERROR' });
+                      setErrorGoogleOauth(true);
+                      setMensaje('Error de autorización con Google. Verifica los orígenes autorizados de JavaScript en Google Cloud Console.');
+                    }}
+                    onFallback={informarGoogleNoDisponible}
+                  />
+                  <p className="nota auth-google-account-hint" aria-live="polite">
+                    {usarOtraCuentaGoogle
+                      ? 'Selecciona otra cuenta de Google.'
+                      : <>Cuenta institucional sugerida: <strong>{cuentaGoogleSugerida}</strong></>}
+                  </p>
+                  <button
+                    type="button"
+                    className="chip"
+                    aria-pressed={usarOtraCuentaGoogle}
+                    onClick={() => setUsarOtraCuentaGoogle((actual) => !actual)}
+                  >
+                    {usarOtraCuentaGoogle ? 'Volver a mi cuenta institucional' : 'Usar otra cuenta'}
+                  </button>
+                </>
+              )}
               {esDev && (
                 <div className="acciones acciones--mt">
                   <button type="button" className="chip" onClick={() => void copiarDiagnosticoAcceso()}>

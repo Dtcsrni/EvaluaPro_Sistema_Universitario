@@ -5363,3 +5363,77 @@ p {
   .version-page { animation: none; }
   .version-tech-item { transition: none; }
 }
+
+/* WCAG AA: texto blanco y amarillo sobre #24123f/#31205a/#172554; el borde es decorativo. */
+.app-runtime-frame {
+  min-height: 100vh;
+}
+
+.runtime-ribbon {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  display: flex;
+  min-height: 34px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 0.28rem 0.75rem;
+  border-bottom: 2px solid #fbbf24;
+  background: linear-gradient(100deg, #24123f 0%, #31205a 54%, #172554 100%);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1.2;
+  text-align: center;
+  box-shadow: 0 3px 16px rgba(12, 10, 28, 0.26);
+}
+
+.runtime-ribbon--test {
+  border-bottom-color: #fb7185;
+  background: linear-gradient(100deg, #3b1029 0%, #5b1e44 54%, #31205a 100%);
+}
+
+.runtime-ribbon__mark {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.62rem;
+  letter-spacing: 0;
+}
+
+.runtime-ribbon__version {
+  padding: 0.16rem 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(9, 10, 24, 0.3);
+  letter-spacing: 0.025em;
+}
+
+.runtime-ribbon__note {
+  color: #fde68a;
+  font-size: 0.62rem;
+}
+
+.runtime-ribbon--test .runtime-ribbon__note {
+  color: #fecdd3;
+}
+
+@media (max-width: 480px) {
+  .runtime-ribbon {
+    min-height: 32px;
+    gap: 0.4rem;
+    padding-inline: 0.4rem;
+    font-size: 0.65rem;
+  }
+
+  .runtime-ribbon__note {
+    font-size: 0.55rem;
+  }
+}
