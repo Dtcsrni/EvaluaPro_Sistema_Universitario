@@ -1,10 +1,11 @@
 /**
  * GuiaCuentaVisual
  *
- * Responsabilidad: Guía interactiva Bento Step Cards para Centro de Cuenta y Licenciamiento.
+ * Responsabilidad: guía breve de las opciones disponibles en Cuenta docente.
  */
 import { useState } from 'react';
 import { Icono } from '../../ui/iconos';
+import { FileText, ShieldCheck, UserRound, IconoLucide, X } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 
 export function GuiaCuentaVisual() {
@@ -36,7 +37,6 @@ export function GuiaCuentaVisual() {
           type="button"
           onClick={toggleGuia}
           aria-expanded={visible}
-          data-tooltip="Ver explicación visual de tu cuenta docente y licencias"
         >
           <Icono nombre="info" size={16} />
           Ver guía rápida de cuenta y seguridad
@@ -46,11 +46,11 @@ export function GuiaCuentaVisual() {
   }
 
   return (
-    <div className="guia-materia-card anim-fade-in" role="region" aria-label="Ayuda: Cuenta y licencias">
+    <div className="guia-materia-card anim-fade-in" role="region" aria-label="Ayuda: Cuenta docente">
       <div className="guia-materia-header">
         <div className="guia-materia-badge">
           <span className="guia-pulse-dot" aria-hidden="true" />
-          <span>GUÍA RÁPIDA · Perfil Docente, Licenciamiento y Seguridad</span>
+          <span>GUÍA RÁPIDA · Cuenta docente</span>
         </div>
         <button
           type="button"
@@ -60,63 +60,56 @@ export function GuiaCuentaVisual() {
           aria-label="Ocultar guía rápida"
           aria-expanded={visible}
         >
-          ✕ Ocultar guía
+          <IconoLucide icon={X} size={16} aria-hidden="true" />
+          Ocultar guía
         </button>
       </div>
 
       <div className="guia-materia-grid">
-        {/* Paso 01: Perfil e Institución */}
+        {/* Paso 01: Perfil docente */}
         <div className="guia-step-card guia-step-card--blue anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+            <IconoLucide icon={UserRound} size={24} />
           </div>
           <div className="guia-step-card__body">
-            <span className="guia-step-chip">PASO 01</span>
-            <h4>Perfil e Institución</h4>
-            <p>Revisa tus datos de identidad académica y vinculación institucional con Google Workspace.</p>
+            <span className="guia-step-chip">PERFIL</span>
+            <h4>Cuenta y foto de perfil</h4>
+            <p>Revisa los datos de tu cuenta. La foto se guarda en este equipo y no se envía al servidor.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">Cuenta Institucional</span>
-              <span className="guia-chip-sample">Google OAuth</span>
+              <span className="guia-chip-sample">Datos de cuenta</span>
+              <span className="guia-chip-sample">Foto local</span>
             </div>
           </div>
         </div>
 
-        {/* Paso 02: Licencia Offline */}
+        {/* Paso 02: Preferencias de PDF */}
         <div className="guia-step-card guia-step-card--emerald anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
+            <IconoLucide icon={FileText} size={24} />
           </div>
           <div className="guia-step-card__body">
-            <span className="guia-step-chip">PASO 02</span>
-            <h4>Licencia Institucional</h4>
-            <p>Gestiona tu clave de licencia institucional con vigencia offline y soporte multisede.</p>
+            <span className="guia-step-chip">DOCUMENTOS</span>
+            <h4>PDF institucional</h4>
+            <p>Personaliza el nombre de la institución, el lema, los logotipos y las páginas predeterminadas.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample guia-chip-sample--date">Plan Pro Multisede</span>
-              <span className="guia-chip-sample">Firma RSA</span>
+              <span className="guia-chip-sample">Membrete y logotipos</span>
+              <span className="guia-chip-sample">Páginas por documento</span>
             </div>
           </div>
         </div>
 
-        {/* Paso 03: Seguridad y Sesiones */}
+        {/* Paso 03: Sincronización y acceso */}
         <div className="guia-step-card guia-step-card--purple anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
+            <IconoLucide icon={ShieldCheck} size={24} />
           </div>
           <div className="guia-step-card__body">
-            <span className="guia-step-chip">PASO 03</span>
-            <h4>Seguridad & Criptografía</h4>
-            <p>Tokens cifrados en reposo, verificación de permisos y cierre seguro de sesiones activas.</p>
+            <span className="guia-step-chip">ACCESO</span>
+            <h4>Sincronización y seguridad</h4>
+            <p>Elige la carpeta local sincronizada por OneDrive y revisa tus métodos disponibles para iniciar sesión.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">AES-256 GCM</span>
-              <span className="guia-chip-sample">Auditoría Activa</span>
+              <span className="guia-chip-sample">Carpeta local</span>
+              <span className="guia-chip-sample">Contraseña o Google</span>
             </div>
           </div>
         </div>

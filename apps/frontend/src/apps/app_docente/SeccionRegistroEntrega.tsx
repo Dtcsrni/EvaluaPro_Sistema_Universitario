@@ -14,7 +14,7 @@ import { QrAccesoMovil } from './SeccionEscaneo';
 import { clienteApi } from './clienteApiDocente';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Alumno } from './tipos';
-import { esMensajeError, mensajeDeError } from './utilidades';
+import { mensajeDeError } from './utilidades';
 
 
 
@@ -56,6 +56,7 @@ export function SeccionRegistroEntrega({
   const [folio, setFolio] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [mensajeEsError, setMensajeEsError] = useState(false);
   const [vinculando, setVinculando] = useState(false);
   const [procesandoLote, setProcesandoLote] = useState(false);
   const [resultadosLote, setResultadosLote] = useState<ResultadoLote[]>([]);
@@ -79,6 +80,18 @@ export function SeccionRegistroEntrega({
   const bloqueoEdicion = !puedeGestionar;
   const inputCarpetaRef = useRef<HTMLInputElement | null>(null);
   const ocrModuloRef = useRef<unknown>(null);
+  const alumnosPorId = useMemo(
+    () => new Map(alumnos.map((alumno) => [String(alumno._id), alumno])),
+    [alumnos]
+  );
+
+  function etiquetaAlumno(alumnoIdRegistro: string) {
+    const alumno = alumnosPorId.get(alumnoIdRegistro);
+    if (!alumno) return 'Alumno no disponible';
+    const nombre = String(alumno.nombreCompleto || '').trim() || 'Nombre no disponible';
+    const matricula = String(alumno.matricula || '').trim();
+    return matricula ? `${nombre} · Matrícula ${matricula}` : nombre;
+  }
 
   function prepararAudio() {
     if (typeof window === 'undefined') return;
@@ -130,7 +143,7 @@ export function SeccionRegistroEntrega({
     }
   }, [alumnoId, examenesPorFolio, folio]);
 
-  async function ejecutarVinculacion(folioValor: string, alumnoValor: string, origen: 'manual' | 'auto') {
+  async function ejecutarVinculacion(folioValor: string, alumnoValor: string) {
     if (!folioValor || !alumnoValor) return;
     try {
       const inicio = Date.now();
@@ -140,21 +153,25 @@ export function SeccionRegistroEntrega({
       }
       setVinculando(true);
       setMensaje('');
+      setMensajeEsError(false);
       await onVincular(folioValor.trim(), alumnoValor);
       setMensaje('Entrega vinculada');
-      emitToast({ level: 'ok', title: 'Entrega', message: origen === 'auto' ? 'Entrega vinculada automaticamente' : 'Entrega vinculada', durationMs: 2200 });
+      setMensajeEsError(false);
       reproducirSonido('ok');
       registrarAccionDocente('vincular_entrega', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo vincular');
       setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo vincular',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setMensajeEsError(true);
+      const action = accionToastSesionParaError(error, 'docente');
+      if (action) {
+        emitToast({
+          level: 'warn',
+          title: 'Renueva tu sesión docente',
+          message: 'Cierra sesión y vuelve a entrar para renovar el acceso; después reintenta la vinculación.',
+          action
+        });
+      }
       registrarAccionDocente('vincular_entrega', false);
     } finally {
       setVinculando(false);
@@ -168,7 +185,7 @@ export function SeccionRegistroEntrega({
     const alumnoDetectado = await resolverAlumnoPorFolio(folioDetectado);
     if (alumnoDetectado) {
       setAlumnoId(alumnoDetectado);
-      await ejecutarVinculacion(folioDetectado, alumnoDetectado, 'auto');
+      await ejecutarVinculacion(folioDetectado, alumnoDetectado);
       return;
     }
     emitToast({ level: 'ok', title: 'QR', message: 'Folio capturado. Selecciona el alumno para vincular.', durationMs: 2400 });
@@ -406,12 +423,12 @@ export function SeccionRegistroEntrega({
   async function iniciarCamara() {
     setScanError('');
     if (!navigator?.mediaDevices?.getUserMedia) {
-      setScanError('Este navegador no permite camara en vivo. Usa foto.');
+      setScanError('Este navegador no permite usar la cámara en vivo. Selecciona una imagen para leer el código QR.');
       inputCamRef.current?.click();
       return;
     }
     if (typeof window !== 'undefined' && !window.isSecureContext) {
-      setScanError('La camara en vivo suele requerir HTTPS. Si falla, usa foto.');
+      setScanError('La cámara en vivo puede requerir una conexión segura (HTTPS). Si no inicia, selecciona una imagen.');
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -420,7 +437,7 @@ export function SeccionRegistroEntrega({
       const video = await esperarVideoRef();
       if (!video) {
         detenerCamara();
-        setScanError('No se pudo iniciar la vista previa de la camara. Usa foto.');
+        setScanError('No se pudo iniciar la vista previa de la cámara. Selecciona una imagen para continuar.');
         inputCamRef.current?.click();
         return;
       }
@@ -467,7 +484,7 @@ export function SeccionRegistroEntrega({
       rafRef.current = window.requestAnimationFrame(scan);
     } catch (error) {
       detenerCamara();
-      const msg = mensajeUsuarioDeErrorConSugerencia(error, 'No se pudo abrir la camara. Usa foto.');
+      const msg = mensajeUsuarioDeErrorConSugerencia(error, 'No se pudo abrir la cámara. Selecciona una imagen o captura el folio manualmente.');
       setScanError(msg);
       inputCamRef.current?.click();
     }
@@ -481,15 +498,15 @@ export function SeccionRegistroEntrega({
         valor = await leerQrConJsQr(file);
       }
       if (!valor) {
-        setScanError('No se detecto ningun QR. Intenta de nuevo con buena luz.');
+        setScanError('No se detectó ningún código QR. Intenta de nuevo con mejor iluminación.');
         return;
       }
       const folioDetectado = extraerFolioDesdeQr(valor);
       if (!folioDetectado) {
         const esUrl = /^https?:\/\//i.test(valor);
         setScanError(esUrl
-          ? 'Se detecto un enlace (QR de acceso). Escanea el QR del examen.'
-          : 'No se detecto un folio valido. Escanea el QR del examen.');
+          ? 'Se detectó un enlace de acceso. Escanea el código QR impreso en el examen.'
+          : 'No se detectó un folio válido. Escanea el código QR impreso en el examen.');
         return;
       }
       await manejarFolioDetectado(folioDetectado);
@@ -533,7 +550,7 @@ export function SeccionRegistroEntrega({
           conError += 1;
           setResultadosLote((prev) => prev.map((item, idx) => (
             idx === indice
-              ? { ...item, estado: 'error', mensaje: 'No se detecto ningun QR' }
+              ? { ...item, estado: 'error', mensaje: 'No se detectó ningún código QR' }
               : item
           )));
           continue;
@@ -544,7 +561,7 @@ export function SeccionRegistroEntrega({
           conError += 1;
           setResultadosLote((prev) => prev.map((item, idx) => (
             idx === indice
-              ? { ...item, estado: 'error', mensaje: 'QR sin folio valido' }
+              ? { ...item, estado: 'error', mensaje: 'El código QR no contiene un folio válido' }
               : item
           )));
           continue;
@@ -565,7 +582,7 @@ export function SeccionRegistroEntrega({
                   alumnoId: sugerencia.alumnoId || undefined,
                   mensaje: sugerencia.alumnoId
                     ? `${sugerencia.motivo} · confirma manualmente`
-                    : 'Selecciona alumno manualmente'
+                    : 'Folio reconocido. Selecciona un alumno para habilitar «Vincular y continuar».'
                 }
               : item
           )));
@@ -582,7 +599,7 @@ export function SeccionRegistroEntrega({
                 estado: 'pendiente_alumno',
                 folio: folioDetectado,
                 alumnoId: alumnoDetectado,
-                mensaje: 'Alumno preseleccionado por folio; confirma en mesa de trabajo'
+                mensaje: 'Alumno asignado por el folio. Confirma la selección antes de vincular.'
               }
             : item
         )));
@@ -633,7 +650,7 @@ export function SeccionRegistroEntrega({
         if (!valor) {
           conError += 1;
           setResultadosLote((prev) => prev.map((item) => (
-            item.id === itemError.id ? { ...item, estado: 'error', mensaje: 'No se detecto ningun QR' } : item
+            item.id === itemError.id ? { ...item, estado: 'error', mensaje: 'No se detectó ningún código QR' } : item
           )));
           continue;
         }
@@ -642,7 +659,7 @@ export function SeccionRegistroEntrega({
         if (!folioDetectado) {
           conError += 1;
           setResultadosLote((prev) => prev.map((item) => (
-            item.id === itemError.id ? { ...item, estado: 'error', mensaje: 'QR sin folio valido' } : item
+            item.id === itemError.id ? { ...item, estado: 'error', mensaje: 'El código QR no contiene un folio válido' } : item
           )));
           continue;
         }
@@ -662,7 +679,7 @@ export function SeccionRegistroEntrega({
                   sugerenciaAlumnoId: sugerencia.alumnoId || undefined,
                   mensaje: sugerencia.alumnoId
                     ? `${sugerencia.motivo} · confirma manualmente`
-                    : 'Selecciona alumno manualmente'
+                    : 'Folio reconocido. Selecciona un alumno para habilitar «Vincular y continuar».'
                 }
               : item
           )));
@@ -679,7 +696,7 @@ export function SeccionRegistroEntrega({
                 estado: 'pendiente_alumno',
                 folio: folioDetectado,
                 alumnoId: alumnoDetectado,
-                mensaje: 'Alumno preseleccionado por folio; confirma en mesa de trabajo'
+                mensaje: 'Alumno asignado por el folio. Confirma la selección antes de vincular.'
               }
             : item
         )));
@@ -728,6 +745,9 @@ export function SeccionRegistroEntrega({
     () => resultadosLote.find((item) => item.id === idsPendientesMesa[indiceMesaTrabajo]) ?? null,
     [resultadosLote, idsPendientesMesa, indiceMesaTrabajo]
   );
+  const ayudaAlumnoMesaId = itemMesaActual
+    ? `entregas-alumno-mesa-${encodeURIComponent(itemMesaActual.id)}`
+    : undefined;
 
   useEffect(() => {
     setVerHojaCompletaMesa(false);
@@ -797,18 +817,21 @@ export function SeccionRegistroEntrega({
           ? `Vinculado con acordeón (+${Number(itemMesaActual.bonoAcordeon || BONUS_ACORDEON).toFixed(2)})`
           : 'Vinculado'
       });
-      emitToast({ level: 'ok', title: 'Entrega', message: 'Ítem vinculado', durationMs: 1800 });
     } catch (error) {
+      const mensaje = mensajeDeError(error, 'No se pudo vincular este ítem.');
       actualizarItemLote(itemMesaActual.id, {
         estado: 'error',
-        mensaje: mensajeDeError(error, 'No se pudo vincular este ítem')
+        mensaje
       });
-      emitToast({
-        level: 'error',
-        title: 'Entrega',
-        message: mensajeDeError(error, 'No se pudo vincular este ítem'),
-        durationMs: 4200
-      });
+      const action = accionToastSesionParaError(error, 'docente');
+      if (action) {
+        emitToast({
+          level: 'warn',
+          title: 'Renueva tu sesión docente',
+          message: 'Cierra sesión y vuelve a entrar para renovar el acceso; después reintenta la vinculación.',
+          action
+        });
+      }
     }
   }
 
@@ -825,7 +848,7 @@ export function SeccionRegistroEntrega({
   }, []);
 
   async function vincular() {
-    await ejecutarVinculacion(folio.trim(), alumnoId, 'manual');
+    await ejecutarVinculacion(folio.trim(), alumnoId);
   }
 
   return (
@@ -834,7 +857,7 @@ export function SeccionRegistroEntrega({
         <div className="banco-section-title__wrap">
           <span className="banco-section-pill">
             <span className="banco-section-pill__dot" aria-hidden="true" />
-            <span>Mesa de Recepción & Custodia</span>
+            <span>Recepción y custodia</span>
           </span>
           <h2 className="entregas-title-heading"><Icono nombre="recepcion" /> Registro de entrega</h2>
           <p className="nota">Vincula el folio físico del examen impreso con el alumno correspondiente mediante escaneo QR, lote de imágenes o captura directa.</p>
@@ -847,22 +870,26 @@ export function SeccionRegistroEntrega({
       {/* Bento Grid: QR Móvil y Métodos de Captura */}
       <div className="entregas-grid-layout">
         {/* Tarjeta 1: QR Móvil de Acceso Rápido */}
-        <div className="item-glass entregas-qr-companion anim-card-hover">
-          <div className="entregas-qr-companion__header">
-            <span className="banco-section-pill">
-              <Icono nombre="escaneo" /> Conexión Móvil
+        <details className="item-glass entregas-qr-companion anim-card-hover">
+          <summary className="entregas-qr-companion__summary">
+            <span className="entregas-qr-companion__summary-title">
+              <Icono nombre="escaneo" /> Conexión móvil (opcional)
             </span>
-          </div>
+            <span className="entregas-qr-companion__summary-copy">
+              Captura códigos QR desde un teléfono conectado a la misma red.
+            </span>
+            <Icono nombre="chevron" className="entregas-qr-companion__chevron" />
+          </summary>
           <div className="entregas-qr-companion__body">
             <QrAccesoMovil vista="entrega" />
             <div className="entregas-qr-companion__info">
-              <h4 className="entregas-qr-companion__title">Escaneo desde Smartphone</h4>
+              <h4 className="entregas-qr-companion__title">Escaneo desde el teléfono</h4>
               <p className="nota">
-                Abre esta pantalla en tu dispositivo móvil escaneando el código QR para usar la cámara del teléfono como lector de códigos de alta velocidad.
+                Abre la captura móvil con el QR de acceso y apunta la cámara del teléfono al código impreso en cada examen.
               </p>
             </div>
           </div>
-        </div>
+        </details>
 
         {/* Tarjeta 2: Escaneo y Captura de Archivos */}
         <div className="item-glass entregas-scan-box anim-card-hover">
@@ -872,7 +899,7 @@ export function SeccionRegistroEntrega({
                 <Icono nombre="escaneo" /> Captura Digital
               </span>
               <h3>Escaneo y carga de imágenes</h3>
-              <p className="nota">Usa la cámara en vivo del equipo o procesa lotes de imágenes escaneadas.</p>
+              <p className="nota">Usa la cámara del equipo o selecciona imágenes para leer los códigos QR de varios exámenes.</p>
             </div>
           </div>
 
@@ -928,11 +955,17 @@ export function SeccionRegistroEntrega({
           <div className="entregas-dropzones-row">
             <label className="campo entregas-dropzone">
               <span className="entregas-dropzone__label">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Lote de imágenes (bulk)
+                <Icono nombre="publicar" size={18} />
+                Seleccionar varias imágenes
+              </span>
+              <span id="entregas-lote-imagenes-ayuda" className="entregas-dropzone__hint">
+                Elige varias hojas para procesarlas juntas.
               </span>
               <input
                 type="file"
+                className="input-file-oculto entregas-dropzone__input"
+                aria-label="Seleccionar varias imágenes"
+                aria-describedby="entregas-lote-imagenes-ayuda"
                 accept="image/*"
                 multiple
                 disabled={bloqueoEdicion || procesandoLote}
@@ -948,20 +981,32 @@ export function SeccionRegistroEntrega({
 
             <label className="campo entregas-dropzone">
               <span className="entregas-dropzone__label">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <Icono nombre="publicar" size={18} />
                 Carpeta completa de imágenes
+              </span>
+              <span id="entregas-carpeta-imagenes-ayuda" className="entregas-dropzone__hint">
+                Elige una carpeta que contenga las hojas del lote.
               </span>
               <input
                 ref={inputCarpetaRef}
                 type="file"
+                className="input-file-oculto entregas-dropzone__input"
+                aria-label="Seleccionar carpeta completa de imágenes"
+                aria-describedby="entregas-carpeta-imagenes-ayuda"
                 accept="image/*"
                 multiple
                 disabled={bloqueoEdicion || procesandoLote}
                 {...({ webkitdirectory: 'true', directory: 'true' } as unknown as Record<string, string>)}
                 onChange={(event) => {
-                  const archivos = Array.from(event.currentTarget.files ?? []).filter((f) => /^image\//i.test(String(f.type || '')));
+                  const seleccionados = Array.from(event.currentTarget.files ?? []);
+                  const archivos = seleccionados.filter((file) => {
+                    const tipo = String(file.type || '').trim();
+                    return !tipo || /^image\//i.test(tipo);
+                  });
                   if (archivos.length > 0) {
                     void procesarLoteImagenes(archivos);
+                  } else if (seleccionados.length > 0) {
+                    setScanError('No se reconocieron imágenes de examen. Elige otra carpeta o selecciona imágenes manualmente.');
                   }
                   event.currentTarget.value = '';
                 }}
@@ -971,7 +1016,7 @@ export function SeccionRegistroEntrega({
 
           {procesandoLote && (
             <p className="mensaje anim-pulse" role="status">
-              <Spinner /> Procesando lote de imágenes y reconociendo QR/OCR…
+              <Spinner /> Procesando imágenes y leyendo códigos QR…
             </p>
           )}
         </div>
@@ -984,15 +1029,20 @@ export function SeccionRegistroEntrega({
             <div className="banco-section-meta">
               <span className="banco-section-pill">
                 <span className="banco-pulse-dot" aria-hidden="true" />
-                <span>Mesa de Trabajo OMR</span>
+                <span>Revisión y asignación del lote</span>
               </span>
               <span className="banco-counter-tag">Total: {resultadosLote.length}</span>
               <span className="banco-counter-tag banco-counter-tag--emerald">
                 Vinculados: {resultadosLote.filter((r) => r.estado === 'vinculado').length}
               </span>
               <span className="banco-counter-tag banco-counter-tag--amber">
-                Pendientes: {idsPendientesMesa.length}
+                Por confirmar: {idsPendientesMesa.length}
               </span>
+              {resultadosLote.some((item) => item.estado === 'error') && (
+                <span className="banco-counter-tag banco-counter-tag--red">
+                  Con errores: {resultadosLote.filter((item) => item.estado === 'error').length}
+                </span>
+              )}
             </div>
             <h3 className="banco-section-title">Resultados del lote de escaneo</h3>
           </div>
@@ -1006,7 +1056,7 @@ export function SeccionRegistroEntrega({
                   </div>
                   <div className="item-sub">Archivo: <strong>{itemMesaActual.nombre}</strong></div>
                   {itemMesaActual.folio && <div className="item-sub">Folio detectado: <span className="chip chip-static">{itemMesaActual.folio}</span></div>}
-                  {itemMesaActual.mensaje && <div className="item-sub">{itemMesaActual.mensaje}</div>}
+                  {itemMesaActual.mensaje && <div id={ayudaAlumnoMesaId} className="item-sub" role={itemMesaActual.estado === 'error' ? 'alert' : 'status'}>{itemMesaActual.mensaje}</div>}
                 </div>
               </div>
 
@@ -1041,7 +1091,16 @@ export function SeccionRegistroEntrega({
                   Alumno asignado
                   <select
                     value={String(itemMesaActual.alumnoId ?? '')}
-                    onChange={(event) => actualizarItemLote(itemMesaActual.id, { alumnoId: event.target.value })}
+                    aria-describedby={ayudaAlumnoMesaId}
+                    onChange={(event) => {
+                      const alumnoIdSeleccionado = event.target.value;
+                      actualizarItemLote(itemMesaActual.id, {
+                        alumnoId: alumnoIdSeleccionado,
+                        mensaje: alumnoIdSeleccionado
+                          ? 'Alumno seleccionado. Verifica que corresponda con el folio antes de vincular.'
+                          : 'Folio reconocido. Selecciona un alumno para habilitar «Vincular y continuar».'
+                      });
+                    }}
                     disabled={bloqueoEdicion || procesandoLote}
                   >
                     <option value="">Selecciona un alumno...</option>
@@ -1053,7 +1112,7 @@ export function SeccionRegistroEntrega({
                   </select>
                 </label>
 
-                <label className="campo entregas-vinculacion__checkbox-field">
+                <div className="campo entregas-vinculacion__checkbox-field">
                   <span>Bono de acordeón de estudio</span>
                   <label className="entregas-vinculacion__checkbox-label">
                     <input
@@ -1069,7 +1128,7 @@ export function SeccionRegistroEntrega({
                     />
                     <span>Aplicar bono de +{BONUS_ACORDEON.toFixed(2)} en calificación oficial</span>
                   </label>
-                </label>
+                </div>
               </div>
 
               <div className="item-actions entregas-vinculacion__nav">
@@ -1079,16 +1138,17 @@ export function SeccionRegistroEntrega({
                   disabled={bloqueoEdicion || procesandoLote || indiceMesaTrabajo <= 0}
                   onClick={() => setIndiceMesaTrabajo((actual) => Math.max(0, actual - 1))}
                 >
-                  ◀ Anterior
+                  Anterior
                 </Boton>
                 <Boton
                   type="button"
                   icono={<Icono nombre="recepcion" />}
                   className="boton--glow"
                   disabled={bloqueoEdicion || procesandoLote || !itemMesaActual.folio || !itemMesaActual.alumnoId}
+                  aria-describedby={ayudaAlumnoMesaId}
                   onClick={() => void vincularItemMesaTrabajoActual()}
                 >
-                  Vincular y continuar ▶
+                  Vincular y continuar
                 </Boton>
                 <Boton
                   type="button"
@@ -1096,7 +1156,7 @@ export function SeccionRegistroEntrega({
                   disabled={bloqueoEdicion || procesandoLote || indiceMesaTrabajo >= idsPendientesMesa.length - 1}
                   onClick={() => setIndiceMesaTrabajo((actual) => Math.min(idsPendientesMesa.length - 1, actual + 1))}
                 >
-                  Siguiente ▶
+                  Siguiente
                 </Boton>
               </div>
             </div>
@@ -1134,14 +1194,14 @@ export function SeccionRegistroEntrega({
                       <div className="item-meta">
                         <span className={`chip chip-static ${item.estado === 'vinculado' ? 'chip--emerald' : item.estado === 'error' ? 'chip--red' : 'chip--amber'}`}>
                           {item.estado === 'procesando' && 'Procesando…'}
-                          {item.estado === 'vinculado' && '✓ Vinculado'}
-                          {item.estado === 'pendiente_alumno' && '⏳ Pendiente de alumno'}
-                          {item.estado === 'error' && '✕ Error'}
+                          {item.estado === 'vinculado' && <><Icono nombre="ok" size={16} /> Vinculado</>}
+                          {item.estado === 'pendiente_alumno' && 'Por confirmar'}
+                          {item.estado === 'error' && <><Icono nombre="alerta" size={16} /> Error</>}
                         </span>
                         {item.folio && <span>Folio: <strong>{item.folio}</strong></span>}
-                        {item.alumnoId && <span>Alumno: {item.alumnoId}</span>}
+                        {item.alumnoId && <span>Alumno asignado: {etiquetaAlumno(item.alumnoId)}</span>}
                         {item.acordeonEntregado && <span className="chip chip-static">Acordeón: +{Number(item.bonoAcordeon || BONUS_ACORDEON).toFixed(2)}</span>}
-                        {item.mensaje && <span>{item.mensaje}</span>}
+                        {item.mensaje && <span role={item.estado === 'error' ? 'alert' : 'status'}>{item.mensaje}</span>}
                       </div>
                     </div>
                   </div>
@@ -1208,7 +1268,7 @@ export function SeccionRegistroEntrega({
       </div>
 
       {mensaje && (
-        <InlineMensaje tipo={esMensajeError(mensaje) ? 'error' : 'ok'}>
+        <InlineMensaje tipo={mensajeEsError ? 'error' : 'ok'}>
           {mensaje}
         </InlineMensaje>
       )}

@@ -3,6 +3,7 @@ import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } fr
 import { guardarTokenDocente, limpiarTokenDocente, obtenerIdEquipoSincronizacion } from '../../servicios_api/clienteApi';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
+import { IconoLucide, X } from '../../ui/iconosCatalogo';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
 import { ShellDocente } from './ShellDocente';
@@ -20,7 +21,6 @@ import { registrarAccionDocente } from './telemetriaDocente';
 import { registrarEventoTrazabilidadAutenticacion } from './trazaAutenticacion';
 import { guardarTabPlantillas } from './features/plantillas/tabPlantillasState';
 import type {
-  Alumno,
   Docente,
   ExamenGeneradoClave,
   Plantilla,
@@ -38,7 +38,8 @@ import {
   normalizarResultadoOmr,
   normalizarTemplateVersionOmrDetectada,
   obtenerVistaInicial,
-  normalizarRespuestasDetectadas
+  normalizarRespuestasDetectadas,
+  mensajeDeError
 } from './utilidades';
 
 const SeccionBanco = lazy(() => import('./SeccionBanco').then(({ SeccionBanco: modulo }) => ({ default: modulo })));
@@ -55,6 +56,9 @@ const SeccionSincronizacion = lazy(() => import('./SeccionSincronizacion').then(
 export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClientId?: string; onReintentarGoogle?: () => Promise<boolean> } = {}) {
   const montadoRef = useRef(true);
   const recargarCapacidadesRef = useRef<(() => Promise<boolean>) | null>(null);
+  const solicitudSolicitudesRef = useRef(0);
+  const docenteSolicitudesRef = useRef('');
+  const solicitudesCargadasRef = useRef(false);
   const [docente, setDocente] = useState<Docente | null>(null);
   const [estadoLease, setEstadoLease] = useState<EstadoLeaseUI | null>(null);
   const [errorConsultaLease, setErrorConsultaLease] = useState(false);
@@ -69,7 +73,11 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
     primerUso?: boolean;
     requiereRegistroInicial?: boolean;
   } | null>(null);
+  const [errorConsultaCapacidades, setErrorConsultaCapacidades] = useState(false);
   const [vista, setVista] = useState(obtenerVistaInicial());
+  const [estadoCargaSolicitudes, setEstadoCargaSolicitudes] = useState<'inactivo' | 'cargando' | 'error' | 'listo'>('inactivo');
+  const [solicitudesCargadas, setSolicitudesCargadas] = useState(false);
+  const [errorCargaSolicitudes, setErrorCargaSolicitudes] = useState('');
   const [destinoAlumnos, setDestinoAlumnos] = useState<{ periodoId: string; grupo?: string } | null>(null);
   const {
     puede,
@@ -101,15 +109,22 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   );
   const {
     alumnos,
-    setAlumnos,
     periodos,
     periodosArchivados,
     plantillas,
     setPlantillas,
     preguntas,
-    setPreguntas,
+    cargandoBanco,
+    errorCargaBanco,
+    refrescarPreguntas,
     cargandoDatos,
+    cargandoAlumnos,
+    errorCargaAlumnos,
+    cargandoMaterias,
+    errorMaterias,
+    errorMateriasArchivadas,
     ultimaActualizacionDatos,
+    refrescarAlumnos,
     refrescarMaterias,
     refrescarDatos
   } = useRecursosAcademicosDocente({
@@ -227,6 +242,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
         }>('/autenticacion/capacidades-integraciones');
         if (!activo) return false;
         const caps = respuesta?.capacidadesIntegraciones;
+        setErrorConsultaCapacidades(false);
         setCapacidadesIntegraciones({
           oauthGoogleBackend: Boolean(caps?.oauthGoogleBackend),
           oauthGoogleDesktopBackend: Boolean(caps?.oauthGoogleDesktopBackend),
@@ -246,6 +262,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           await new Promise((resolve) => window.setTimeout(resolve, esperaMs));
           return cargarCapacidades(intento + 1);
         }
+        setErrorConsultaCapacidades(true);
         setCapacidadesIntegraciones(fallback);
         return false;
       }
@@ -349,17 +366,58 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   const snapshotGoogleDisponible = Boolean(capacidadesIntegraciones?.snapshotGoogleDisponible);
   const requireGoogleOAuth = Boolean(capacidadesIntegraciones?.requireGoogleOAuth);
   const passwordLoginAllowed = capacidadesIntegraciones?.passwordLoginAllowed !== false;
+  const cargarSolicitudesRevision = useCallback(async (sincronizacionCompletada = false) => {
+    if (!docente || !permisosUI.calificaciones.calificar) return;
+    const solicitudId = ++solicitudSolicitudesRef.current;
+    setEstadoCargaSolicitudes('cargando');
+    setErrorCargaSolicitudes('');
+    try {
+      const respuesta = await clienteApi.obtener<{ solicitudes: SolicitudRevisionAlumno[] }>('/calificaciones/revision/solicitudes');
+      if (solicitudId !== solicitudSolicitudesRef.current) return;
+      setSolicitudesRevision(Array.isArray(respuesta.solicitudes) ? respuesta.solicitudes : []);
+      solicitudesCargadasRef.current = true;
+      setSolicitudesCargadas(true);
+      setEstadoCargaSolicitudes('listo');
+    } catch (error) {
+      if (solicitudId !== solicitudSolicitudesRef.current) return;
+      const mensaje = mensajeDeError(error, 'No se pudieron cargar las solicitudes de revisión.');
+      setErrorCargaSolicitudes(solicitudesCargadasRef.current
+        ? sincronizacionCompletada
+          ? 'Solicitudes sincronizadas, pero no se pudo actualizar la lista. Se conserva la última lista cargada.'
+          : 'No se pudieron actualizar las solicitudes. Se conserva la última lista cargada.'
+        : sincronizacionCompletada
+          ? 'Solicitudes sincronizadas, pero no se pudo cargar la lista. Reintenta la lectura.'
+          : mensaje);
+      setEstadoCargaSolicitudes(solicitudesCargadasRef.current ? 'listo' : 'error');
+      throw error;
+    }
+  }, [docente, permisosUI.calificaciones.calificar, setSolicitudesRevision]);
+
   useEffect(() => {
-    if (!docente || vista !== 'calificaciones' || !permisosUI.calificaciones.calificar) return;
-    void clienteApi
-      .obtener<{ solicitudes: SolicitudRevisionAlumno[] }>('/calificaciones/revision/solicitudes')
-      .then((respuesta) => {
-        setSolicitudesRevision(Array.isArray(respuesta.solicitudes) ? respuesta.solicitudes : []);
-      })
-      .catch(() => {
+    if (!docente || vista !== 'calificaciones' || !permisosUI.calificaciones.calificar) {
+      solicitudSolicitudesRef.current += 1;
+      if (!docente) {
+        docenteSolicitudesRef.current = '';
+        solicitudesCargadasRef.current = false;
         setSolicitudesRevision([]);
-      });
-  }, [docente, permisosUI.calificaciones.calificar, setSolicitudesRevision, vista]);
+        setSolicitudesCargadas(false);
+        setErrorCargaSolicitudes('');
+      }
+      setEstadoCargaSolicitudes('inactivo');
+      return;
+    }
+
+    const docenteId = String(docente.id ?? '').trim();
+    if (docenteSolicitudesRef.current !== docenteId) {
+      docenteSolicitudesRef.current = docenteId;
+      solicitudesCargadasRef.current = false;
+      setSolicitudesRevision([]);
+      setSolicitudesCargadas(false);
+      setErrorCargaSolicitudes('');
+    }
+    void cargarSolicitudesRevision().catch(() => undefined);
+    return () => { solicitudSolicitudesRef.current += 1; };
+  }, [cargarSolicitudesRevision, docente, permisosUI.calificaciones.calificar, setSolicitudesRevision, vista]);
 
   const limpiarColaEscaneosOmr = useCallback(() => {
     const habiaElementos = revisionesOmr.length > 0 || Boolean(resultadoOmr);
@@ -458,6 +516,8 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
         oauthGoogleDisponible={oauthGoogleDisponible}
         oauthGoogleBackendDisponible={oauthGoogleBackendDisponible}
         oauthGoogleDesktopDisponible={oauthGoogleDesktopDisponible}
+        oauthGoogleConsultando={capacidadesIntegraciones === null}
+        oauthGoogleConsultaFallida={errorConsultaCapacidades}
         onReintentarGoogle={reintentarGoogle}
         smtpDisponible={smtpDisponible}
         requireGoogleOAuth={requireGoogleOAuth}
@@ -543,7 +603,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
               banco: 'Banco reactivo de preguntas y dificultad',
               plantillas: 'Diseña exámenes impresos con códigos QR y burbujas OMR',
               entrega: 'Control de entrega de exámenes impresos',
-              calificaciones: 'Escaneo óptico OMR de alta velocidad y notas',
+              calificaciones: 'Consulta resultados, captura calificaciones y revisa exámenes OMR',
               evaluaciones: 'Criterios y rúbricas de evaluación continua',
               classroom: 'Conexión de Google Classroom; consulta de datos en Calificaciones',
               sincronizacion: 'Sincronización y respaldo local / nube',
@@ -552,7 +612,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             const tooltipTexto = tooltipsMap[item.id] || `Ir a ${item.label}`;
             return (
           <Fragment key={item.id}>
-            {grupoAnterior !== item.grupo ? <span className="tabs__group-label" aria-hidden="true">{etiquetaGrupo}</span> : null}
+            {grupoAnterior !== item.grupo ? <span className="tabs__group-label">{etiquetaGrupo}</span> : null}
             <button
               ref={(el) => {
                 tabsRef.current[idx] = el;
@@ -589,7 +649,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           })()
         ))}
       </nav>
-      <div className="shell-docente__main-col">
+      <div id="contenido-principal" className="shell-docente__main-col" tabIndex={-1}>
       {cargandoDatos && (
         <div className="panel" aria-live="polite">
           <InlineMensaje tipo="info" leading={<Spinner />}>
@@ -605,26 +665,28 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
       {/* ── Banner recordatorio pase de lista ── */}
       {recordatorioPaseLista && (
         <div
-          role="alert"
-          aria-live="polite"
           className="banner-recordatorio-asistencia anim-fade-in"
         >
-          <span className="banner-recordatorio-asistencia__icon pulse-glow"><Icono nombre="asistencias" size={20} /></span>
-          <span className="banner-recordatorio-asistencia__text">
-            <strong>Recordatorio de Asistencia:</strong> Aún no has registrado el pase de lista de hoy.
+          <span className="banner-recordatorio-asistencia__icon"><Icono nombre="asistencias" size={20} /></span>
+          <span role="status" className="banner-recordatorio-asistencia__text">
+            {vista === 'asistencias' ? (
+              <><strong>Pase de lista pendiente.</strong> Aún no has pasado lista hoy.</>
+            ) : (
+              <strong>Pase de lista pendiente hoy.</strong>
+            )}
           </span>
           <button
             onClick={() => { cerrarRecordatorioPaseLista(); setVista('asistencias'); }}
-            className="asistencias-btn-primario pulse-glow"
+            className="asistencias-btn-primario"
           >
             Pasar lista
           </button>
           <button
             onClick={cerrarRecordatorioPaseLista}
-            aria-label="Cerrar recordatorio"
             className="banner-recordatorio-asistencia__close scale-hover"
           >
-            ×
+            <IconoLucide icon={X} size={18} />
+            <span className="sr-only">Cerrar recordatorio</span>
           </button>
         </div>
       )}
@@ -632,6 +694,9 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
         <div className="anim-fade-in">
           <SeccionBanco
             preguntas={preguntas}
+            cargandoPreguntas={cargandoBanco}
+            errorCargaPreguntas={errorCargaBanco}
+            onReintentarCargaPreguntas={() => void refrescarPreguntas().catch(() => undefined)}
             periodos={periodos}
             permisos={permisosUI}
             enviarConPermiso={enviarConPermiso}
@@ -642,7 +707,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
                 avisarSinPermiso('No tienes permiso para ver el banco.');
                 return Promise.reject(new Error('SIN_PERMISO'));
               }
-              return clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas').then((p) => setPreguntas(p.preguntas));
+              return refrescarPreguntas();
             }}
             onRefrescarPlantillas={() => {
               if (!permisosUI.plantillas.leer) {
@@ -659,6 +724,8 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           <SeccionPeriodos
             periodos={periodos}
             alumnos={alumnos}
+            cargandoMaterias={cargandoMaterias}
+            errorMaterias={errorMaterias}
             onRefrescar={refrescarMaterias}
             onVerArchivadas={() => setVista('periodos_archivados')}
             onAbrirGrupo={(periodoId, grupo) => {
@@ -676,6 +743,9 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
         <div className="anim-fade-in">
           <SeccionPeriodosArchivados
             periodos={periodosArchivados}
+            cargando={cargandoMaterias}
+            errorCarga={errorMateriasArchivadas}
+            onReintentar={refrescarMaterias}
             onVerActivas={() => setVista('periodos')}
           />
         </div>
@@ -684,6 +754,12 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
         <div className="anim-fade-in">
           <SeccionAlumnos
             alumnos={alumnos}
+            cargandoAlumnos={cargandoAlumnos}
+            errorCargaAlumnos={errorCargaAlumnos}
+            onReintentarCargaAlumnos={() => { void refrescarAlumnos(); }}
+            cargandoMaterias={cargandoMaterias}
+            errorMaterias={errorMaterias}
+            onReintentarMaterias={() => { void refrescarMaterias(); }}
             periodosActivos={periodos}
             periodosTodos={[...periodos, ...periodosArchivados]}
             destinoInicial={destinoAlumnos}
@@ -696,7 +772,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
                 avisarSinPermiso('No tienes permiso para ver alumnos.');
                 return Promise.reject(new Error('SIN_PERMISO'));
               }
-              return clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos').then((p) => setAlumnos(p.alumnos));
+              return refrescarAlumnos();
             }}
           />
         </div>
@@ -780,6 +856,9 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           periodos={periodos}
           periodosArchivados={periodosArchivados}
           alumnos={alumnos}
+          cargandoMaterias={cargandoMaterias}
+          errorMaterias={errorMaterias}
+          onReintentarMaterias={() => { void refrescarMaterias(); }}
           permisos={permisosUI}
           avisarSinPermiso={avisarSinPermiso}
           onAbrirLotesPdfOmr={() => {
@@ -1071,28 +1150,43 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             return respuesta;
           }}
           solicitudesRevision={solicitudesRevision}
+          estadoCargaSolicitudesRevision={estadoCargaSolicitudes}
+          solicitudesRevisionCargadas={solicitudesCargadas}
+          errorCargaSolicitudesRevision={errorCargaSolicitudes}
+          onReintentarCargaSolicitudesRevision={() => { void cargarSolicitudesRevision().catch(() => undefined); }}
           onSincronizarSolicitudesRevision={async () => {
             if (!permisosUI.calificaciones.calificar) {
               avisarSinPermiso('No tienes permiso para revisar solicitudes.');
               throw new Error('SIN_PERMISO');
             }
             await clienteApi.enviar('/calificaciones/revision/solicitudes/sincronizar', {});
-            const respuesta = await clienteApi.obtener<{ solicitudes: SolicitudRevisionAlumno[] }>('/calificaciones/revision/solicitudes');
-            setSolicitudesRevision(Array.isArray(respuesta.solicitudes) ? respuesta.solicitudes : []);
-            return respuesta;
+            try {
+              await cargarSolicitudesRevision(true);
+              return 'actualizada' as const;
+            } catch {
+              return 'lista_no_actualizada' as const;
+            }
           }}
           onResolverSolicitudRevision={async (id, estado, respuestaDocente) => {
             if (!permisosUI.calificaciones.calificar) {
               avisarSinPermiso('No tienes permiso para resolver solicitudes.');
               throw new Error('SIN_PERMISO');
             }
-            await clienteApi.enviar(`/calificaciones/revision/solicitudes/${encodeURIComponent(id)}/resolver`, {
+            const resultado = await clienteApi.enviar<{ solicitud?: SolicitudRevisionAlumno }>(`/calificaciones/revision/solicitudes/${encodeURIComponent(id)}/resolver`, {
               estado,
               ...(respuestaDocente ? { respuestaDocente } : {})
             });
-            const respuesta = await clienteApi.obtener<{ solicitudes: SolicitudRevisionAlumno[] }>('/calificaciones/revision/solicitudes');
-            setSolicitudesRevision(Array.isArray(respuesta.solicitudes) ? respuesta.solicitudes : []);
-            return respuesta;
+            if (resultado.solicitud) {
+              setSolicitudesRevision((actuales) => actuales.map((solicitud) =>
+                solicitud._id === id ? { ...solicitud, ...resultado.solicitud } : solicitud
+              ));
+            }
+            try {
+              await cargarSolicitudesRevision();
+            } catch {
+              // La resolución ya fue confirmada; el estado y aviso de lectura se gestionan por separado.
+            }
+            return resultado;
           }}
           onLimpiarColaEscaneos={limpiarColaEscaneosOmr}
           onCargarRevisionHistoricaCalificada={cargarRevisionHistoricaCalificada}
@@ -1114,6 +1208,9 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             periodos={periodos}
             alumnos={alumnos}
             puedeGestionar={permisosUI.evaluaciones.gestionar}
+            cargandoPeriodos={cargandoMaterias}
+            errorPeriodos={errorMaterias}
+            onReintentarPeriodos={() => void refrescarMaterias()}
           />
         </div>
       )}
@@ -1132,6 +1229,10 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
         <div className="anim-fade-in">
           <SeccionSincronizacion
           periodos={periodos}
+          cargandoMaterias={cargandoMaterias}
+          errorMaterias={errorMaterias}
+          puedeLeerMaterias={permisosUI.periodos.leer}
+          onReintentarMaterias={refrescarMaterias}
           periodosArchivados={periodosArchivados}
           alumnos={alumnos}
           plantillas={plantillas}
@@ -1229,6 +1330,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           }}
           estadoLease={estadoLease}
           onAdquirirLease={adquirirLeaseDocente}
+          onActualizarEstadoLease={reintentarConsultaLease}
           onLiberarLease={liberarLeaseDocente}
           onPublicarNube={publicarNubeDocente}
           onImportarNube={importarNubeDocente}

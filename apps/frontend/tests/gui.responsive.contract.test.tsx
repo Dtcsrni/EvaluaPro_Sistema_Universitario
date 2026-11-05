@@ -30,6 +30,27 @@ const permisos: PermisosUI = {
 };
 
 describe('GUI responsive contract', () => {
+  it('login prioriza el formulario en móvil y conserva el bloque informativo después', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const mobileAuth = css.slice(css.indexOf('@media (max-width: 960px)'));
+
+    expect(mobileAuth).toMatch(/\.auth-stage-layout\s*\{[^}]*grid-template-areas:\s*"login"\s+"showcase";/);
+    expect(mobileAuth).toMatch(/\.auth-showcase\s*\{[^}]*display:\s*flex;[^}]*grid-area:\s*showcase;/);
+    expect(mobileAuth).toMatch(/\.auth-card-wrapper\s*\{[^}]*grid-area:\s*login;/);
+    expect(mobileAuth).toMatch(/\.auth-showcase\s+\.auth-omr-mockup-card\s*\{[^}]*display:\s*none;/);
+  });
+
+  it('login compacta marca y formulario en 320 px para conservar visible la acción principal', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const narrowAuth = css.slice(css.indexOf('@media (max-width: 360px)'));
+
+    expect(narrowAuth).toMatch(/\.auth-portal__subtitle\s*\{[^}]*display:\s*none;/);
+    expect(narrowAuth).toMatch(/\.auth-card-clean\s*\{[^}]*padding:\s*0\.8rem;[^}]*gap:\s*0\.58rem;/);
+    expect(narrowAuth).toMatch(/\.auth-google-status\s*\{[^}]*padding:\s*0\.45rem;/);
+  });
+
   it('materias reduce la columna implícita y encoge sus bloques en móvil', async () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
     const css = await fs.readFile(cssPath, 'utf8');
@@ -45,15 +66,33 @@ describe('GUI responsive contract', () => {
     );
   });
 
-  it('recordatorio de asistencia conserva un objetivo táctil de al menos 24 por 24 px', async () => {
+  it('evaluaciones adapta la guía de cuatro vistas a una columna en móvil', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+
+    expect(css).toMatch(/\.guia-materia-grid\.evaluaciones-guide-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
+    expect(css).toMatch(/@media\s*\(max-width:\s*720px\)\s*\{\s*\.guia-materia-grid\.evaluaciones-guide-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+  });
+
+  it('recordatorio de asistencia ofrece un objetivo táctil de 44 por 44 px en móvil', async () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/components.css');
     const css = await fs.readFile(cssPath, 'utf8');
-    const closeButton = css.match(/\.banner-recordatorio-asistencia__close\s*\{([^}]*)\}/)?.[1] ?? '';
+    const mobileRules = css.split('@media (max-width: 480px)')[1] ?? '';
+    const closeButton = mobileRules.match(/\.banner-recordatorio-asistencia__close\s*\{([^}]*)\}/)?.[1] ?? '';
+    const primaryAction = mobileRules.match(/\.banner-recordatorio-asistencia\s*>\s*\.asistencias-btn-primario\s*\{([^}]*)\}/)?.[1] ?? '';
 
-    expect(closeButton).toMatch(/width:\s*2rem;/);
-    expect(closeButton).toMatch(/height:\s*2rem;/);
-    expect(closeButton).toMatch(/min-width:\s*24px;/);
-    expect(closeButton).toMatch(/min-height:\s*24px;/);
+    expect(closeButton).toMatch(/width:\s*44px;/);
+    expect(closeButton).toMatch(/height:\s*44px;/);
+    expect(primaryAction).toMatch(/min-height:\s*44px;/);
+  });
+
+  it('recordatorio de asistencia alinea texto y acciones en una fila compacta móvil', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/components.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+
+    expect(css).toMatch(/@media\s*\(max-width:\s*480px\)\s*\{[^}]*\.banner-recordatorio-asistencia\s*\{[^}]*display:\s*grid;[^}]*grid-template-areas:\s*"text action close"/);
+    expect(css).toMatch(/\.banner-recordatorio-asistencia__text\s*\{[^}]*grid-area:\s*text;[^}]*min-width:\s*0;/);
+    expect(css).toMatch(/\.banner-recordatorio-asistencia\s*>\s*\.asistencias-btn-primario\s*\{[^}]*grid-area:\s*action;/);
   });
 
   it('calificaciones conserva contenedores responsive críticos', async () => {
@@ -121,13 +160,20 @@ describe('GUI responsive contract', () => {
   it('calificaciones muestra las filas como fichas antes de comprimir columnas en móvil', async () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/cards.css');
     const css = await fs.readFile(cssPath, 'utf8');
-    const mobileCardsCss = css.slice(css.lastIndexOf('@media (max-width: 860px)'));
+    const mobileCardsCss = css;
 
     expect(mobileCardsCss).toMatch(
       /\.calificaciones-consulta__table tbody tr\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/
     );
     expect(mobileCardsCss).toMatch(/\.calificaciones-consulta__table tbody td\[colspan\]\s*\{\s*grid-column:\s*1\s*\/\s*-1;/);
-    expect(css).toMatch(/@media\s*\(max-width:\s*860px\)\s*\{\s*\.calificaciones-workspace-nav\s*\{\s*grid-template-columns:\s*1fr;/);
+    expect(css).toMatch(/\.calificaciones-workspace-nav strong,\s*\.calificaciones-workspace-nav small\s*\{[^}]*overflow-wrap:\s*normal;[^}]*word-break:\s*normal;/);
+    expect(css).toMatch(/@media\s*\(max-width:\s*860px\)\s*\{\s*\.calificaciones-workspace-nav\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
+    expect(css).toMatch(/@media\s*\(min-width:\s*861px\)\s*and\s*\(max-width:\s*1440px\)\s*\{\s*\.calificaciones-workspace-nav\s*\{\s*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/);
+    expect(css).toMatch(/@media\s*\(max-width:\s*480px\)\s*\{\s*\.calificaciones-workspace-nav\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/@media\s*\(min-width:\s*361px\)\s*and\s*\(max-width:\s*480px\)\s*\{\s*\.calificaciones-workspace-nav\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);\s*\}\s*\.calificaciones-workspace-nav button:last-child\s*\{\s*grid-column:\s*1\s*\/\s*-1;/);
+    expect(css).toMatch(/@media\s*\(max-width:\s*360px\)\s*\{[\s\S]*?\.calificaciones-workspace-nav__mobile-label\s*\{\s*display:\s*block;/);
+    expect(css).toMatch(/\.calificaciones-workspace-nav__mobile-select\s*\{[\s\S]*?min-height:\s*44px;[\s\S]*?\}/);
+    expect(css).toMatch(/\.calificaciones-workspace-nav__desktop\s*\{\s*display:\s*none;/);
   });
 
   it('oculta visualmente el caption sin quitarlo del árbol accesible en tablas de calificaciones', async () => {
@@ -143,9 +189,15 @@ describe('GUI responsive contract', () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
     const css = await fs.readFile(cssPath, 'utf8');
     const desktopOverride = css.slice(css.indexOf('@media (min-width: 1024px)'));
+    const cardCssPath = path.resolve(process.cwd(), 'src/styles/cards.css');
+    const cardCss = await fs.readFile(cardCssPath, 'utf8');
+    const desktopHeader = cardCss.slice(cardCss.indexOf('@media (min-width: 1180px)'));
 
     expect(css).toMatch(/\.shell-docente__content\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);[^}]*min-width:\s*0;/);
     expect(desktopOverride).toMatch(/\.shell-docente__content\s*>\s*\.panel\s*\{[^}]*grid-template-columns:\s*240px\s+1fr;/);
+    expect(desktopHeader).toMatch(/\.shell-docente__header\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*max-content\);/);
+    expect(desktopHeader).toMatch(/\.shell-docente__acciones\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*flex-wrap:\s*nowrap;/);
+    expect(desktopHeader).toMatch(/\.shell-docente__controles\s*\{[^}]*flex:\s*0\s+0\s+auto;/);
   });
 
   it('repliega el resumen de Cuenta sin ancho mínimo que recorte su contenido', async () => {
@@ -176,14 +228,67 @@ describe('GUI responsive contract', () => {
     );
   });
 
-  it('apila los indicadores de Cuenta en anchos de 360 px o menos', async () => {
+  it('conserva indicadores legibles a 320 px y equilibra el resumen en móviles mayores', async () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
     const css = await fs.readFile(cssPath, 'utf8');
-    const narrowAccountCss = css.slice(css.lastIndexOf('@media (max-width: 360px)'));
+    const narrowAccountCss = css.slice(css.lastIndexOf('@media (max-width: 340px)'));
+    const compactAccountCss = css.slice(css.lastIndexOf('@media (min-width: 341px) and (max-width: 720px)'));
 
-    expect(narrowAccountCss).toMatch(
-      /\.cuenta-panel \.banco-header-kpis\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/
-    );
+    expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-header-kpis\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
+    expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi:last-child\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/);
+    expect(compactAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi:nth-child\(5\)\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/);
+  });
+
+  it('mantiene contraste legible para los indicadores de Cuenta en tema claro', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const lightThemeCss = css.slice(css.indexOf('/* WCAG AA: texto de KPI de Cuenta'));
+    const accountOverrides = lightThemeCss.slice(0, lightThemeCss.indexOf('/* Mini KPI color & font modifiers'));
+
+    expect(accountOverrides).toMatch(/\.cuenta-panel \.banco-mini-kpi__lbl\s*\{[^}]*color:\s*#334155;/);
+    expect(accountOverrides).toMatch(/\.cuenta-panel \.banco-mini-kpi--preguntas \.banco-mini-kpi__num\s*\{[^}]*color:\s*#6b21a8 !important;/);
+    expect(accountOverrides).toMatch(/\.cuenta-panel \.banco-mini-kpi__num--emerald\s*\{[^}]*color:\s*#065f46 !important;/);
+    expect(accountOverrides).toMatch(/\.cuenta-panel \.banco-mini-kpi__num--amber\s*\{[^}]*color:\s*#92400e !important;/);
+    expect(accountOverrides).toMatch(/\.cuenta-panel \.banco-mini-kpi__num--sky\s*\{[^}]*color:\s*#075985 !important;/);
+    expect(accountOverrides).toMatch(/\.cuenta-panel \.banco-mini-kpi__num--slate\s*\{[^}]*color:\s*#475569 !important;/);
+  });
+
+  it('usa el token semántico de texto para rótulos compartidos de KPI', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const kpiLabel = css.match(/\.banco-mini-kpi__lbl\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(kpiLabel).toMatch(/color:\s*var\(--ui-text-secondary\);/);
+    expect(kpiLabel).not.toMatch(/#94a3b8/);
+  });
+
+  it('mantiene contraste en valores KPI de Sincronización sin quitar los acentos de icono', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const syncKpi = css.match(/\.sincronizacion-shell \.sincronizacion-header-kpis \.banco-mini-kpi__num\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(syncKpi).toMatch(/color:\s*var\(--ui-text-primary\) !important;/);
+    expect(syncKpi).toMatch(/text-shadow:\s*none;/);
+    expect(css).toMatch(/\.banco-mini-kpi--(?:preguntas|temas|temaactual|paginas) \.banco-mini-kpi__icon\s*\{\s*color:/);
+  });
+
+  it('apila los controles de logotipo PDF para conservar ancho legible en sus campos', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const logoField = css.match(/\.cuenta-pdf__logo-field\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(logoField).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+    expect(logoField).toMatch(/align-items:\s*stretch;/);
+  });
+
+  it('mantiene el error de resumen y su reintento usables en pantallas pequeñas', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+
+    expect(css).toMatch(/\.alumnos-resumen-asistencias-error\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;[^}]*align-items:\s*center;/);
+    expect(css).toMatch(/\.alumnos-resumen-asistencias-error \.mensaje\s*\{[^}]*flex:\s*1\s+1\s+24rem;/);
+    expect(css).toMatch(/@media\s*\(max-width:\s*480px\)\s*\{[\s\S]*?\.alumnos-resumen-asistencias-error \.boton\s*\{\s*width:\s*100%;/);
+    expect(css).toMatch(/\.alumnos-panel \.materia-mini-kpi__lbl\s*\{[^}]*overflow-wrap:\s*normal;[^}]*word-break:\s*normal;/);
   });
 
   it('repliega Alumnos, formularios y filtros dentro del ancho del shell en móvil', async () => {
@@ -250,6 +355,25 @@ describe('GUI responsive contract', () => {
     expect(css).toContain('.calificaciones-layout');
   });
 
+  it('toast usa superficie opaca del tema y evita efectos de orbe', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    const toast = css.slice(css.indexOf('.toast {'), css.indexOf('.toast.ok'));
+    const toastMobile = css.slice(css.indexOf('@media (max-width: 520px)'));
+    const cardsCss = await fs.readFile(path.resolve(process.cwd(), 'src/styles/cards.css'), 'utf8');
+
+    expect(toast).toContain('background: var(--superficieSolida);');
+    expect(toast).toContain('border-radius: 8px;');
+    expect(toast).not.toMatch(/radial-gradient|backdrop-filter/);
+    expect(cardsCss).not.toMatch(/\.toast-icon/);
+    expect(toastMobile).toMatch(
+      /\.toast-viewport:not\(\[data-placement="flow"\]\)\s*\{[^}]*max-height:\s*min\(50dvh, calc\(100dvh - 20px\)\);/
+    );
+    expect(toastMobile).toMatch(
+      /\.toast-viewport\[data-placement="flow"\]\s*\{[^}]*position:\s*relative;[^}]*inset:\s*auto;/
+    );
+  });
+
   it('plantillas evita cortar tabs en mobile y permite que sus etiquetas envuelvan', async () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
     const css = await fs.readFile(cssPath, 'utf8');
@@ -294,7 +418,19 @@ describe('GUI responsive contract', () => {
     const mobileCss = css.slice(css.lastIndexOf('@media (max-width: 720px)'));
 
     expect(mobileCss).toMatch(
-      /\.calificaciones-experience \.banco-header-kpis\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*8rem\),\s*1fr\)\);/
+      /\.calificaciones-experience \.banco-header-kpis\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/
+    );
+    expect(mobileCss).toMatch(
+      /\.calificaciones-experience \.banco-mini-kpi--reactivos\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;[^}]*grid-template-columns:\s*auto auto minmax\(0,\s*1fr\);/
+    );
+  });
+
+  it('mantiene contraste y forma de insignia en la guía de módulos en tema claro', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/cards.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+
+    expect(css).toMatch(
+      /:root:not\(\[data-theme="dark"\]\) \.guia-materia-badge\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--screen-accent, #38bdf8\) 14%, white\) !important;[^}]*color:\s*#0f172a !important;/
     );
   });
 });

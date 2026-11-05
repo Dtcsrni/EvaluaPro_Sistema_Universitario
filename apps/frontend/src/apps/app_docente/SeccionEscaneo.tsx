@@ -144,12 +144,19 @@ export function SeccionEscaneo({
   const [folio, setFolio] = useState('');
   const [numeroPagina, setNumeroPagina] = useState(0);
   const [imagenBase64, setImagenBase64] = useState('');
+  const [archivoCapturaNombre, setArchivoCapturaNombre] = useState('');
   const [calidadCaptura, setCalidadCaptura] = useState<CalidadCaptura | null>(null);
+  const [cargandoCaptura, setCargandoCaptura] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [analizando, setAnalizando] = useState(false);
   const [bloqueoManual, setBloqueoManual] = useState(false);
   const [fuenteIdentificacion, setFuenteIdentificacion] = useState<'qr' | 'ocr' | null>(null);
   const [procesandoLote, setProcesandoLote] = useState(false);
+  const [progresoPreparacionLote, setProgresoPreparacionLote] = useState<{
+    procesados: number;
+    total: number;
+    completado: boolean;
+  } | null>(null);
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [lote, setLote] = useState<
     Array<{
@@ -182,8 +189,24 @@ export function SeccionEscaneo({
   const motivosCaptura = Array.isArray(calidadCaptura?.motivos) ? calidadCaptura!.motivos : [];
   const puedeAnalizarImagen = Boolean(imagenBase64) && Boolean(calidadCaptura?.aprobada);
   const bloqueoAnalisis = !puedeAnalizar;
+  const preparandoLote = Boolean(progresoPreparacionLote && !progresoPreparacionLote.completado);
+  const ayudaAnalizarImagen = !puedeAnalizar
+    ? 'Tu perfil no tiene permiso para analizar exámenes. Pide a quien administra EvaluaPro que habilite el permiso de análisis OMR.'
+    : !archivoCapturaNombre
+      ? 'Carga una imagen para habilitar el análisis.'
+      : null;
+  const ayudaAnalizarLote = !puedeAnalizar
+    ? 'Tu perfil no tiene permiso para analizar exámenes. Pide a quien administra EvaluaPro que habilite el permiso de análisis OMR.'
+    : !puedeCalificar
+      ? 'Tu perfil no tiene permiso para procesar calificaciones en lote. Pide a quien administra EvaluaPro que habilite el permiso de calificación.'
+      : lote.length === 0 && !preparandoLote
+        ? 'Carga uno o más archivos para habilitar el análisis del lote.'
+        : null;
   const paginaManual = Number.isFinite(numeroPagina) ? Math.max(0, Math.floor(numeroPagina)) : 0;
-  const mapaAlumnos = useMemo(() => new Map(alumnos.map((item) => [item._id, item.nombreCompleto])), [alumnos]);
+  const mapaAlumnos = useMemo(
+    () => new Map(alumnos.map((item) => [item._id, [item.nombreCompleto, item.matricula].filter(Boolean).join(' · ')])),
+    [alumnos]
+  );
   const paginaDetectadaQr = useMemo(() => {
     const qrTexto = String(resultado?.qrTexto ?? '').trim();
     if (!qrTexto) return null;
@@ -437,6 +460,10 @@ export function SeccionEscaneo({
     () => revisionesOrdenadas.reduce((acumulado, examen) => acumulado + examen.paginas.length, 0),
     [revisionesOrdenadas]
   );
+  const totalArchivosProcesados = useMemo(
+    () => lote.filter((item) => item.estado === 'listo' || item.estado === 'error').length,
+    [lote]
+  );
 
   async function leerArchivoBase64(archivo: File): Promise<string> {
     const leer = () =>
@@ -504,20 +531,29 @@ export function SeccionEscaneo({
   async function cargarArchivo(event: ChangeEvent<HTMLInputElement>) {
     const archivo = event.target.files?.[0];
     if (!archivo) return;
+    event.target.value = '';
+    setArchivoCapturaNombre(archivo.name);
+    setCargandoCaptura(true);
+    setImagenBase64('');
+    setCalidadCaptura(null);
+    setMensaje('');
     setBloqueoManual(false);
     setFuenteIdentificacion(null);
     onConfirmarRevisionOmr(false);
-    const base64 = await leerArchivoBase64(archivo);
-    setImagenBase64(base64);
     try {
+      const base64 = await leerArchivoBase64(archivo);
+      setImagenBase64(base64);
       const calidad = await evaluarCalidadCaptura(base64);
       setCalidadCaptura(calidad);
       if (!calidad.aprobada) {
-        setMensaje('La imagen no cumple calidad minima. Corrige y vuelve a capturar.');
+        setMensaje('La imagen necesita ajustes de enfoque, iluminación o encuadre. Corrige y vuelve a cargarla.');
       }
     } catch {
+      setImagenBase64('');
       setCalidadCaptura(null);
-      setMensaje('No se pudo evaluar la calidad de la imagen.');
+      setMensaje('No se pudo cargar o revisar la imagen. Elige otro archivo compatible e inténtalo de nuevo.');
+    } finally {
+      setCargandoCaptura(false);
     }
   }
 
@@ -525,28 +561,43 @@ export function SeccionEscaneo({
     const archivos = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (archivos.length === 0) return;
+    setProgresoPreparacionLote({ procesados: 0, total: archivos.length, completado: false });
     const nuevos: typeof lote = [];
-    for (const archivo of archivos) {
-      const base64 = await leerArchivoBase64(archivo);
-      let calidad: CalidadCaptura | undefined;
+    for (const [indice, archivo] of archivos.entries()) {
+      const id = `${archivo.name}-${archivo.size}-${archivo.lastModified}-${Math.random().toString(16).slice(2)}`;
       try {
-        calidad = await evaluarCalidadCaptura(base64);
+        const base64 = await leerArchivoBase64(archivo);
+        let calidad: CalidadCaptura | undefined;
+        try {
+          calidad = await evaluarCalidadCaptura(base64);
+        } catch {
+          calidad = undefined;
+        }
+        const aprobada = Boolean(calidad?.aprobada);
+        nuevos.push({
+          id,
+          nombre: archivo.name,
+          imagenBase64: base64,
+          estado: 'pendiente',
+          mensaje: aprobada ? '' : `Advertencia de calidad: ${calidad?.motivos.join(' ') || 'Revisar enfoque e iluminación.'}`,
+          preview: null,
+          calidad
+        });
       } catch {
-        calidad = undefined;
+        nuevos.push({
+          id,
+          nombre: archivo.name,
+          imagenBase64: '',
+          estado: 'error',
+          mensaje: 'No se pudo cargar el archivo. Elige otro archivo compatible e inténtalo de nuevo.',
+          preview: null
+        });
       }
-      const aprobada = Boolean(calidad?.aprobada);
-      nuevos.push({
-        id: `${archivo.name}-${archivo.size}-${archivo.lastModified}-${Math.random().toString(16).slice(2)}`,
-        nombre: archivo.name,
-        imagenBase64: base64,
-        estado: 'pendiente',
-        mensaje: aprobada ? '' : `Advertencia de calidad: ${calidad?.motivos.join(' ') || 'Revisar enfoque/iluminacion.'}`,
-        preview: null,
-        calidad
-      });
+      setProgresoPreparacionLote({ procesados: indice + 1, total: archivos.length, completado: false });
     }
     setLote((prev) => [...nuevos, ...prev]);
     autoAnalisisLotePendienteRef.current = true;
+    setProgresoPreparacionLote({ procesados: archivos.length, total: archivos.length, completado: true });
   }
 
   async function analizar() {
@@ -576,8 +627,7 @@ export function SeccionEscaneo({
       }
       setMensaje(referenciaPie
         ? `El QR no validó la identidad; folio ${referenciaPie.folio} y página ${referenciaPie.numeroPagina} recuperados del pie por OCR. Verifica la hoja antes de confirmar.`
-        : 'Analisis completado');
-      emitToast({ level: 'ok', title: 'Escaneo', message: 'Analisis completado', durationMs: 2200 });
+        : 'Análisis completado');
       registrarAccionDocente('analizar_omr', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo analizar');
@@ -607,7 +657,7 @@ export function SeccionEscaneo({
     }
     setProcesandoLote(true);
     for (const item of lote) {
-      if (item.estado === 'listo') continue;
+      if (item.estado === 'listo' || !item.imagenBase64) continue;
       setLote((prev) => prev.map((i) => (i.id === item.id ? { ...i, estado: 'analizando', mensaje: '' } : i)));
       try {
         const folioEnvio = folio.trim();
@@ -675,7 +725,7 @@ export function SeccionEscaneo({
             <span className="banco-section-pill__dot" aria-hidden="true" />
             <span>Motor Óptico OMR</span>
           </span>
-          <h2 className="entregas-title-heading">
+          <h2 id="calificaciones-omr-heading" tabIndex={-1} className="entregas-title-heading">
             <Icono nombre="escaneo" /> Escaneo y revisión OMR
           </h2>
           <p className="nota">Captura por página, revisa por examen y confirma manualmente sólo los casos dudosos.</p>
@@ -694,7 +744,7 @@ export function SeccionEscaneo({
               <span className="banco-section-pill__dot" aria-hidden="true" />
               <span>Escaneo Individual</span>
             </span>
-            <span className="banco-counter-tag">Cámara / Archivo</span>
+            <span className="banco-counter-tag">Archivo</span>
           </div>
           <h3>Captura individual</h3>
           <div className="grid grid--2">
@@ -703,7 +753,7 @@ export function SeccionEscaneo({
               <input
                 value={folio}
                 onChange={(event) => setFolio(event.target.value)}
-                placeholder="Auto por QR o escribir..."
+                placeholder="Auto QR o manual"
                 disabled={bloqueoManual || bloqueoAnalisis}
                 className="calif-folio-input"
               />
@@ -740,24 +790,36 @@ export function SeccionEscaneo({
               <span className="calif-dropzone__icon">
                 <Icono nombre="escaneo" />
               </span>
-              <span className="calif-dropzone__title">Cargar imagen o foto del examen</span>
+              <span className="calif-dropzone__title">
+                {archivoCapturaNombre ? 'Elegir otra imagen' : 'Cargar imagen o foto del examen'}
+              </span>
               <span className="calif-dropzone__sub">Formatos JPG, PNG, WEBP de alta resolución</span>
-              <input type="file" accept="image/*" onChange={cargarArchivo} disabled={bloqueoAnalisis} className="calif-dropzone__input" />
+              <input type="file" accept="image/*" onChange={cargarArchivo} disabled={bloqueoAnalisis || cargandoCaptura} className="calif-dropzone__input" />
             </label>
           </div>
+          {archivoCapturaNombre && (
+            <p className="calif-dropzone__filename">Archivo seleccionado: {archivoCapturaNombre}</p>
+          )}
+          {cargandoCaptura && <InlineMensaje tipo="info">Cargando la imagen y revisando su calidad…</InlineMensaje>}
           {calidadCaptura && (
             <InlineMensaje tipo={calidadCaptura.aprobada ? 'ok' : 'warning'}>
-              Calidad captura: nitidez {Math.round(calidadCaptura.blurVar)} · brillo {Math.round(calidadCaptura.brilloMedio)} · hoja{' '}
-              {(calidadCaptura.areaHojaRatio * 100).toFixed(0)}%.
-              {motivosCaptura.length > 0 ? ` ${motivosCaptura.join(' ')}` : ' Lista para analizar.'}
+              {calidadCaptura.aprobada
+                ? 'La imagen está lista para analizar.'
+                : `Ajusta la imagen antes de analizarla. ${motivosCaptura.join(' ')}`}
             </InlineMensaje>
+          )}
+          {ayudaAnalizarImagen && (
+            <p id="calif-captura-analizar-ayuda" className="calif-captura-action-help">
+              {ayudaAnalizarImagen}
+            </p>
           )}
           <div className="item-actions">
             <Boton
               type="button"
               icono={<Icono nombre="escaneo" />}
               cargando={analizando}
-              disabled={!puedeAnalizar || !puedeAnalizarImagen}
+              disabled={!puedeAnalizar || !puedeAnalizarImagen || cargandoCaptura}
+              aria-describedby={ayudaAnalizarImagen ? 'calif-captura-analizar-ayuda' : undefined}
               onClick={analizar}
             >
               {analizando ? 'Analizando…' : 'Analizar página'}
@@ -773,7 +835,7 @@ export function SeccionEscaneo({
             </span>
             <span className="banco-counter-tag">Lote ({lote.length})</span>
           </div>
-          <h3>Lote de imagenes</h3>
+          <h3>Lote de imágenes</h3>
           <div className="calif-dropzone-wrap">
             <label className="calif-dropzone">
               <span className="calif-dropzone__icon">
@@ -781,25 +843,51 @@ export function SeccionEscaneo({
               </span>
               <span className="calif-dropzone__title">Cargar lote de imágenes escaneadas</span>
               <span className="calif-dropzone__sub">Selecciona múltiples archivos a la vez</span>
-              <input type="file" accept="image/*" multiple onChange={cargarLote} disabled={bloqueoAnalisis} className="calif-dropzone__input" />
+              <input type="file" accept="image/*" multiple onChange={cargarLote} disabled={bloqueoAnalisis || preparandoLote} className="calif-dropzone__input" />
             </label>
           </div>
+          {progresoPreparacionLote && (
+            <div className="resultado calif-lote-preparacion">
+              <span id="calif-lote-preparacion-label" role="status" aria-live="polite" aria-atomic="true">
+                {progresoPreparacionLote.completado
+                  ? `Preparación terminada: ${progresoPreparacionLote.total} archivos procesados; revisa los estados del lote.`
+                  : `Preparando lote: ${progresoPreparacionLote.procesados} de ${progresoPreparacionLote.total} archivos.`}
+              </span>
+              {!progresoPreparacionLote.completado && (
+                <progress
+                  aria-labelledby="calif-lote-preparacion-label"
+                  value={progresoPreparacionLote.procesados}
+                  max={progresoPreparacionLote.total}
+                />
+              )}
+            </div>
+          )}
+          {ayudaAnalizarLote && (
+            <p id="calif-lote-analizar-ayuda" className="calif-captura-action-help">
+              {ayudaAnalizarLote}
+            </p>
+          )}
           <div className="item-actions">
             <Boton
               type="button"
               icono={<Icono nombre="escaneo" />}
               cargando={procesandoLote}
-              disabled={lote.length === 0 || bloqueoAnalisis || !puedeCalificar}
+              disabled={lote.length === 0 || bloqueoAnalisis || !puedeCalificar || preparandoLote}
+              aria-describedby={ayudaAnalizarLote ? 'calif-lote-analizar-ayuda' : undefined}
               onClick={analizarLote}
             >
-              {procesandoLote ? 'Analizando lote…' : `Analizar lote (${lote.length})`}
+              {preparandoLote ? 'Preparando lote…' : procesandoLote ? 'Analizando lote…' : `Analizar lote (${lote.length})`}
             </Boton>
           </div>
           {lote.length > 0 && (
             <div className="resultado">
               <h3>Procesamiento en lote</h3>
+              <span id="calif-lote-progreso-label" className="nota" role="status" aria-live="polite" aria-atomic="true">
+                {totalArchivosProcesados} de {lote.length} archivos procesados
+              </span>
               <progress
-                value={lote.filter((i) => i.estado === 'listo' || i.estado === 'error').length}
+                aria-labelledby="calif-lote-progreso-label"
+                value={totalArchivosProcesados}
                 max={lote.length}
               />
               <ul className="lista lista-items">
@@ -820,7 +908,7 @@ export function SeccionEscaneo({
                           {item.folio && (
                             <div className="item-sub">
                               Folio {item.folio} · P{item.numeroPagina ?? '-'} ·{' '}
-                              {item.alumnoId ? mapaAlumnos.get(item.alumnoId) ?? item.alumnoId : 'Alumno sin vincular'}
+                              {item.alumnoId ? mapaAlumnos.get(item.alumnoId) || 'Alumno no disponible' : 'Alumno sin vincular'}
                             </div>
                           )}
                           {item.preview && (
@@ -832,7 +920,7 @@ export function SeccionEscaneo({
                         <div className="item-actions calif-lote-item__preview-wrap">
                           <img
                             src={item.imagenBase64}
-                            alt={`preview ${item.nombre}`}
+                            alt={`Vista previa de ${item.nombre}`}
                             className="calif-lote-item__preview"
                           />
                         </div>
@@ -860,7 +948,7 @@ export function SeccionEscaneo({
                       <div>
                         <div className="item-title">Folio {examen.folio}</div>
                         <div className="item-sub">
-                          {examen.alumnoId ? (mapaAlumnos.get(examen.alumnoId) ?? examen.alumnoId) : 'Alumno sin vincular'}
+                          {examen.alumnoId ? mapaAlumnos.get(examen.alumnoId) || 'Alumno no disponible' : 'Alumno sin vincular'}
                         </div>
                         <div className="item-meta">
                           <span>{paginasOrdenadas.length} página(s)</span>
@@ -869,15 +957,18 @@ export function SeccionEscaneo({
                           {esActivo && hayCambiosPendientesExamen ? <span className="badge warning">Cambios pendientes</span> : null}
                         </div>
                       </div>
-                      <div className="item-actions revision-pills-wrap">
+                      <div className="item-actions revision-pills-wrap" role="group" aria-label={`Páginas del folio ${examen.folio}`}>
                         {paginasOrdenadas.map((pagina) => {
                           const activa = esActivo && Number(paginaActiva) === Number(pagina.numeroPagina);
                           const estado = pagina.resultado.estadoAnalisis === 'ok' ? 'ok' : 'revision';
+                          const estadoAccesible = estado === 'ok' ? 'análisis completado' : 'requiere revisión';
                           return (
                             <button
                               key={`${examen.examenId}-${pagina.numeroPagina}`}
                               type="button"
                               className={`revision-pill revision-pill--${estado}${activa ? ' activa' : ''}`}
+                              aria-label={`Folio ${examen.folio}, página ${pagina.numeroPagina}, ${estadoAccesible}`}
+                              aria-current={activa ? 'page' : undefined}
                               onClick={() => onSeleccionarRevision(examen.examenId, Number(pagina.numeroPagina))}
                             >
                               P{pagina.numeroPagina}
@@ -906,9 +997,6 @@ export function SeccionEscaneo({
             </div>
           </div>
           <div className="item-actions">
-            <span className={`badge ${hayCambiosPendientesExamen ? 'warning' : 'ok'}`}>
-              {hayCambiosPendientesExamen ? 'Cambios pendientes sin confirmar' : 'Sin cambios pendientes'}
-            </span>
             <Boton
               type="button"
               variante="secundario"
@@ -946,34 +1034,9 @@ export function SeccionEscaneo({
                 Restablecer página
               </Boton>
             )}
-            <Boton
-              type="button"
-              variante={revisionOmrConfirmada ? 'secundario' : 'primario'}
-              onClick={async () => {
-                if (revisionOmrConfirmada && !hayCambiosPendientesExamen) {
-                  const confirmarModificacion = await confirm({
-                    title: 'Habilitar edición de revisión',
-                    message: 'La revisión ya estaba confirmada.',
-                    details: ['Si continúas, se reabrirá la edición y luego tendrás que confirmar otra vez.'],
-                    confirmLabel: 'Sí, editar revisión',
-                    tone: 'warning'
-                  });
-                  if (!confirmarModificacion) return;
-                  onConfirmarRevisionOmr(false);
-                  return;
-                }
-                onConfirmarRevisionOmr(true);
-              }}
-            >
-              {revisionOmrConfirmada
-                ? hayCambiosPendientesExamen
-                  ? 'Guardar cambios pendientes'
-                  : 'Revisión confirmada'
-                : 'Confirmar revisión'}
-            </Boton>
           </div>
           <div className="item-sub">
-            Examen activo: <b>{examenIdActivo ?? '-'}</b> · Página activa: <b>{paginaActiva ?? '-'}</b>
+            Folio activo: <b>{examenRevisionActivo?.folio ?? 'Sin folio disponible'}</b> · Página activa: <b>{paginaActiva ?? '-'}</b>
             {totalPaginasExamenActivo > 0 ? (
               <>
                 {' '}
@@ -1008,7 +1071,7 @@ export function SeccionEscaneo({
             <span>Contestadas: {resumenCalificacionDinamica.contestadas}</span>
             <span>Calificación final: {resumenCalificacionDinamica.notaSobre5.toFixed(2)} / 5.00</span>
           </div>
-          <div className="omr-review-toolbar" aria-label="Herramientas de revisión visual">
+          <div className="omr-review-toolbar" role="group" aria-label="Herramientas de revisión visual">
             <div className="omr-review-toolbar__summary">
               <span className="omr-review-toolbar__eyebrow">Comparación visual</span>
               <strong>{resumenRevision.pendientes} pregunta(s) requieren atención</strong>
@@ -1054,6 +1117,36 @@ export function SeccionEscaneo({
               ))}
             </div>
           )}
+          <div className="item-actions omr-review-confirmation">
+            <span className={`badge ${hayCambiosPendientesExamen ? 'warning' : 'ok'}`}>
+              {hayCambiosPendientesExamen ? 'Cambios pendientes sin confirmar' : 'Sin cambios pendientes'}
+            </span>
+            <Boton
+              type="button"
+              variante={revisionOmrConfirmada ? 'secundario' : 'primario'}
+              onClick={async () => {
+                if (revisionOmrConfirmada && !hayCambiosPendientesExamen) {
+                  const confirmarModificacion = await confirm({
+                    title: 'Habilitar edición de revisión',
+                    message: 'La revisión ya estaba confirmada.',
+                    details: ['Si continúas, se reabrirá la edición y luego tendrás que confirmar otra vez.'],
+                    confirmLabel: 'Sí, editar revisión',
+                    tone: 'warning'
+                  });
+                  if (!confirmarModificacion) return;
+                  onConfirmarRevisionOmr(false);
+                  return;
+                }
+                onConfirmarRevisionOmr(true);
+              }}
+            >
+              {revisionOmrConfirmada
+                ? hayCambiosPendientesExamen
+                  ? 'Guardar cambios pendientes'
+                  : 'Revisión confirmada'
+                : 'Confirmar revisión'}
+            </Boton>
+          </div>
         </div>
       )}
     </div>

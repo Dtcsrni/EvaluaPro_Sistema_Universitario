@@ -149,28 +149,253 @@ describe('SeccionCalificaciones manual selector', () => {
     await waitFor(() => expect(obtenerMock).toHaveBeenCalledWith('/examenes/plantillas'));
     await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
 
-    expect(screen.getByRole('option', { name: 'A001 - Alumno Uno · Materia Uno (ID: per-1) · Grupo A' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'A001 - Alumno Uno · Materia Dos (ID: per-2) · Grupo B' })).toBeInTheDocument();
+    const opcionMateriaUno = screen.getByRole('option', { name: 'A001 - Alumno Uno · Materia Uno · Grupo A' });
+    const opcionMateriaDos = screen.getByRole('option', { name: 'A001 - Alumno Uno · Materia Dos · Grupo B' });
+    expect(opcionMateriaUno).toHaveValue('alu-1');
+    expect(opcionMateriaDos).toHaveValue('alu-2');
+    expect(opcionMateriaUno).not.toHaveTextContent('(ID:');
+    expect(opcionMateriaDos).not.toHaveTextContent('(ID:');
+    expect(screen.getByText('Selecciona un alumno')).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText('Alumno'), 'alu-1');
+    const selectorAlumno = screen.getByLabelText('Alumno');
+    const identidadSeleccionada = screen.getByText('Alumno seleccionado: A001 - Alumno Uno · Materia Uno · Grupo A');
+    expect(selectorAlumno).toHaveAttribute('aria-describedby', 'calificacion-manual-alumno-seleccionado');
+    expect(identidadSeleccionada).toHaveAttribute('id', 'calificacion-manual-alumno-seleccionado');
 
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /FOL-1 · Parcial 1 · Primer Parcial · Plantilla Algebra · entregado/i })).toBeInTheDocument();
     });
+    expect(screen.getByText('Exámenes cargados: 1')).toBeInTheDocument();
+    expect(screen.getByText('Coincidencias de folio: 1')).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText('Examen entregado'), 'ex-1');
+    const buscarFolio = screen.getByLabelText('Buscar folio');
+    expect(buscarFolio).toHaveAttribute('type', 'search');
+    await user.type(buscarFolio, 'inexistente');
+    expect(screen.getByText('No hay exámenes que coincidan con el folio buscado.')).toBeInTheDocument();
+    expect(screen.getByText('Coincidencias de folio: 0')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }));
+    expect(screen.getByRole('option', { name: /FOL-1 · Parcial 1 · Primer Parcial · Plantilla Algebra · entregado/i })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Examen entregado o calificado'), 'ex-1');
+    expect(screen.queryByText('Tu perfil no tiene permiso para calificar manualmente.')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Usar examen para calificación manual/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /Calificar examen · Parcial 1/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Modo manual activo · Folio FOL-1 · Tipo Parcial 1 · Plantilla Primer Parcial · Plantilla Algebra/i)).toBeInTheDocument();
+    expect(screen.getByText(/Captura manual de aciertos · Folio FOL-1 · Tipo Parcial 1 · Plantilla Primer Parcial · Plantilla Algebra/i)).toBeInTheDocument();
     expect((clienteApi as { obtener: unknown }).obtener).toBeDefined();
 
     await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
     await user.click(screen.getByRole('button', { name: 'Procesar PDFs de un lote generado' }));
     expect(abrirLotesPdfOmr).toHaveBeenCalledOnce();
+  });
+
+  it('explica el permiso faltante al seleccionar un examen para calificación manual', async () => {
+    const user = userEvent.setup();
+    const permisosSinCalificar: PermisosUI = {
+      ...permisos,
+      calificaciones: { calificar: false }
+    };
+
+    render(
+      <SeccionCalificaciones
+        alumnos={[alumno]}
+        periodos={[{ _id: 'per-1', nombre: 'Materia Uno' }]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ preview: {} as never })}
+        resultado={null}
+        onActualizar={() => {}}
+        onActualizarPregunta={() => {}}
+        revisionOmrConfirmada={false}
+        onConfirmarRevisionOmr={() => {}}
+        revisionesOmr={[]}
+        examenIdActivo={null}
+        paginaActiva={null}
+        onSeleccionarRevision={() => {}}
+        claveCorrectaPorNumero={{}}
+        ordenPreguntasClave={[]}
+        examenId={null}
+        alumnoId={null}
+        resultadoParaCalificar={null}
+        respuestasParaCalificar={[]}
+        onCalificar={async () => ({})}
+        permisos={permisosSinCalificar}
+        onAbrirLotesPdfOmr={() => {}}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
+    expect(screen.queryByText('Tu perfil no tiene permiso para calificar manualmente.')).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Alumno'), 'alu-1');
+    const opcionExamen = await screen.findByRole('option', { name: /FOL-1 · Parcial 1/i });
+    expect(screen.queryByText('Tu perfil no tiene permiso para calificar manualmente.')).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Examen entregado o calificado'), opcionExamen);
+
+    const activarManual = screen.getByRole('button', { name: 'Usar examen para calificación manual' });
+    const aviso = screen.getByText('Tu perfil no tiene permiso para calificar manualmente.');
+    expect(activarManual).toBeDisabled();
+    expect(activarManual).toHaveAttribute('aria-describedby', 'calificar-manual-permiso-ayuda');
+    expect(aviso.closest('#calificar-manual-permiso-ayuda')).toContainElement(aviso);
+    expect(aviso.closest('[role="status"]')).toContainElement(aviso);
+  });
+
+  it('permite buscar en páginas posteriores y conserva lo cargado si una página falla', async () => {
+    const user = userEvent.setup();
+    let intentosPaginaSiguiente = 0;
+    obtenerMock.mockImplementation(async (ruta: string) => {
+      if (ruta === '/examenes/plantillas') return { plantillas: [] };
+      if (ruta.startsWith('/examenes/generados?alumnoId=')) {
+        if (ruta.includes('&cursor=')) {
+          intentosPaginaSiguiente += 1;
+          if (intentosPaginaSiguiente === 1) throw new Error('Error temporal');
+          return {
+            examenes: [{
+              _id: 'ex-2',
+              folio: 'FOL-ANTIGUO',
+              alumnoId: 'alu-1',
+              estado: 'entregado',
+              plantillaId: 'pla-1',
+              entregadoEn: '2025-01-10T00:00:00.000Z'
+            }],
+            nextCursor: null
+          };
+        }
+        return {
+          examenes: [{
+            _id: 'ex-1',
+            folio: 'FOL-RECIENTE',
+            alumnoId: 'alu-1',
+            estado: 'calificado',
+            plantillaId: 'pla-1',
+            entregadoEn: '2026-02-16T00:00:00.000Z'
+          }],
+          nextCursor: 'cursor-siguiente'
+        };
+      }
+      return {};
+    });
+
+    render(
+      <SeccionCalificaciones
+        alumnos={[alumno]}
+        periodos={[{ _id: 'per-1', nombre: 'Materia Uno' }]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ preview: {} as never })}
+        resultado={null}
+        onActualizar={() => {}}
+        onActualizarPregunta={() => {}}
+        revisionOmrConfirmada={false}
+        onConfirmarRevisionOmr={() => {}}
+        revisionesOmr={[]}
+        examenIdActivo={null}
+        paginaActiva={null}
+        onSeleccionarRevision={() => {}}
+        claveCorrectaPorNumero={{}}
+        ordenPreguntasClave={[]}
+        examenId={null}
+        alumnoId={null}
+        resultadoParaCalificar={null}
+        respuestasParaCalificar={[]}
+        onCalificar={async () => ({})}
+        permisos={permisos}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
+    await user.selectOptions(screen.getByLabelText('Alumno'), 'alu-1');
+    expect(await screen.findByRole('option', { name: /FOL-RECIENTE.*calificado/i })).toBeInTheDocument();
+    expect(screen.getByText(/Hay más exámenes por cargar/)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Buscar folio'), 'FOL-ANTIGUO');
+    expect(screen.getByText(/No hay coincidencias entre los exámenes cargados \(1\)/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cargar más exámenes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo cargar la página siguiente/);
+
+    expect(screen.getByText('Exámenes cargados: 1')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }));
+    expect(screen.getByRole('option', { name: /FOL-RECIENTE.*calificado/i })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Buscar folio'), 'FOL-ANTIGUO');
+    await user.click(screen.getByRole('button', { name: 'Reintentar carga' }));
+    expect(await screen.findByRole('option', { name: /FOL-ANTIGUO.*entregado/i })).toBeInTheDocument();
+    expect(screen.getByText('Se cargó 1 examen más.')).toBeInTheDocument();
+    expect(screen.getByText('Exámenes cargados: 2')).toBeInTheDocument();
+    expect(obtenerMock).toHaveBeenCalledWith('/examenes/generados?alumnoId=alu-1&limite=200&cursor=cursor-siguiente');
+  });
+
+  it('permite reintentar la carga fallida de exámenes del alumno', async () => {
+    const user = userEvent.setup();
+    let intentos = 0;
+    obtenerMock.mockImplementation(async (ruta: string) => {
+      if (ruta === '/examenes/plantillas') return { plantillas: [] };
+      if (ruta.startsWith('/examenes/generados?alumnoId=')) {
+        intentos += 1;
+        if (intentos === 1) throw new Error('Error temporal de red');
+        return {
+          examenes: [{
+            _id: 'ex-reintento',
+            folio: 'FOL-REINTENTO',
+            alumnoId: 'alu-1',
+            estado: 'calificado',
+            plantillaId: 'pla-1',
+            tipoExamen: 'parcial',
+            plantillaTitulo: 'Parcial calificado',
+            entregadoEn: '2026-02-16T00:00:00.000Z'
+          }]
+        };
+      }
+      return {};
+    });
+
+    render(
+      <SeccionCalificaciones
+        alumnos={[alumno]}
+        periodos={[{ _id: 'per-1', nombre: 'Materia Uno' }]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ preview: {} as never })}
+        resultado={null}
+        onActualizar={() => {}}
+        onActualizarPregunta={() => {}}
+        revisionOmrConfirmada={false}
+        onConfirmarRevisionOmr={() => {}}
+        revisionesOmr={[]}
+        examenIdActivo={null}
+        paginaActiva={null}
+        onSeleccionarRevision={() => {}}
+        claveCorrectaPorNumero={{}}
+        ordenPreguntasClave={[]}
+        examenId={null}
+        alumnoId={null}
+        resultadoParaCalificar={null}
+        respuestasParaCalificar={[]}
+        onCalificar={async () => ({})}
+        permisos={permisos}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /Revisión y captura/i }));
+    await user.selectOptions(screen.getByLabelText('Alumno'), 'alu-1');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudieron cargar los exámenes de este alumno. Selecciona «Reintentar carga de exámenes» para volver a consultar.'
+    );
+    expect(screen.getByText('Lista no disponible')).toBeInTheDocument();
+    expect(screen.queryByText(/Exámenes cargados:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Coincidencias de folio:/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Buscar folio')).toBeDisabled();
+    expect(screen.getByLabelText('Examen entregado o calificado')).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Reintentar carga de exámenes' }));
+
+    expect(await screen.findByRole('option', { name: /FOL-REINTENTO.*calificado/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Examen entregado o calificado')).toBeEnabled();
+    expect(screen.getByText('Exámenes cargados: 1')).toBeInTheDocument();
+    expect(intentos).toBe(2);
   });
 
   it('evita bucle de reintentos cuando /calificaciones/examen responde 404', async () => {
@@ -487,7 +712,7 @@ describe('SeccionCalificaciones manual selector', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: /Actas y exportación/i }));
+    await user.click(screen.getByRole('button', { name: /Reportes y exportación/i }));
     await waitFor(() => expect(screen.getByRole('button', { name: /Descargar CSV/i })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: /Descargar CSV/i }));
 
@@ -515,6 +740,6 @@ describe('SeccionCalificaciones manual selector', () => {
 
     localStorage.removeItem('tokenDocente');
     await user.click(screen.getByRole('button', { name: /Descargar CSV/i }));
-    await waitFor(() => expect(screen.getByText(/Sesión no válida/i)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Sesión no válida/i));
   });
 });

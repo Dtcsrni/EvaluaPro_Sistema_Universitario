@@ -1030,6 +1030,7 @@ function Assert-MsiAdministrativeExtractionContainsAppPayload {
     [string]$MsiPath,
     [Parameter(Mandatory = $true)]
     [string]$InstallFolderName,
+    [string]$ExpectedNativePayloadArchiveName,
     [switch]$RequireDocenteNativePayload
   )
   if (-not (Test-Path -LiteralPath $MsiPath)) {
@@ -1063,7 +1064,7 @@ function Assert-MsiAdministrativeExtractionContainsAppPayload {
     # que MSI colocó realmente, no una ruta supuesta en la raíz temporal.
     $packageArtifacts = @(
       Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -in @('package.json', 'evaluapro-native-dist.zip') }
+        Where-Object { $_.Name -eq 'package.json' -or $_.Name -eq $ExpectedNativePayloadArchiveName }
     )
     $packageOk = $packageArtifacts.Count -gt 0
     if (-not $packageOk) {
@@ -1071,9 +1072,9 @@ function Assert-MsiAdministrativeExtractionContainsAppPayload {
       throw "MSI no instala bootstrap/payload bajo carpeta de producto '$InstallFolderName'. Muestras: $($sample -join ' | ')"
     }
     if ($RequireDocenteNativePayload) {
-      $nativePayloadArchive = $packageArtifacts | Where-Object { $_.Name -eq 'evaluapro-native-dist.zip' } | Select-Object -First 1
+      $nativePayloadArchive = $packageArtifacts | Where-Object { $_.Name -eq $ExpectedNativePayloadArchiveName } | Select-Object -First 1
       if (-not $nativePayloadArchive) {
-        throw "MSI docente sin payload nativo completo: falta evaluapro-native-dist.zip bajo '$extractRoot'."
+        throw "MSI docente sin payload nativo versionado: falta '$ExpectedNativePayloadArchiveName' bajo '$extractRoot'."
       }
       $payloadCheckRoot = Join-Path $env:TEMP ("evaluapro-msi-payload-check-{0}" -f [Guid]::NewGuid().ToString('N'))
       New-Item -ItemType Directory -Path $payloadCheckRoot -Force | Out-Null
@@ -1707,6 +1708,7 @@ if (@($selectedFlavors.flavorId) -contains 'docente-local') {
 }
 
 $docentePayloadArchive = $null
+$docentePayloadArchiveFileName = "evaluapro-native-dist-{0}-{1}.zip" -f $payloadVersion, $effectiveVersionTag
 if (@($selectedFlavors.flavorId) -contains 'docente-local') {
   $docentePayloadArchive = New-DocentePayloadArchive -StagingRoot $buildRoot -OutputPath (Join-Path (Split-Path -Parent $buildRoot) 'evaluapro-native-dist.zip')
 }
@@ -1769,13 +1771,16 @@ if ($buildBundle) {
       "-cabthreads", "1",
       "-o", (Join-Path $internalFlavorOut $msiName)
     )
+    if ($flavorId -eq 'docente-local') {
+      $productArgs += @('-d', ("PayloadArchiveFileName={0}" -f $docentePayloadArchiveFileName))
+    }
     $productArgs += @("-d", "Version=$effectiveAppVersionNumeric")
     $productExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $productArgs
     if ($productExit -ne 0) { throw "Falló build de Product.wxs para $flavorId (exit=$productExit)" }
     if (-not (Test-Path -LiteralPath $productOut)) {
       throw "Build de Product.wxs para $flavorId no genero MSI esperado: $productOut"
     }
-    Assert-MsiAdministrativeExtractionContainsAppPayload -MsiPath $productOut -InstallFolderName $installFolderName -RequireDocenteNativePayload:($flavorId -eq 'docente-local')
+    Assert-MsiAdministrativeExtractionContainsAppPayload -MsiPath $productOut -InstallFolderName $installFolderName -ExpectedNativePayloadArchiveName $docentePayloadArchiveFileName -RequireDocenteNativePayload:($flavorId -eq 'docente-local')
     $idx += 1
 
     if ($buildBundle) {

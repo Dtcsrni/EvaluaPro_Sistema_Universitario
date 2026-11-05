@@ -64,7 +64,6 @@ export function usePlantillasPreviewActions({
           `/examenes/plantillas/${encodeURIComponent(id)}/previsualizar`
         );
         setPreviewPorPlantillaId((prev) => ({ ...prev, [id]: payload }));
-        emitToast({ level: 'ok', title: 'Previsualización', message: 'Boceto actualizado', durationMs: 1800 });
         return payload;
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo generar la previsualizacion de la plantilla');
@@ -124,7 +123,6 @@ export function usePlantillasPreviewActions({
 
       try {
         setCargandoPreviewPdfPlantillaId(id);
-        emitToast({ level: 'info', title: 'Previsualización PDF', message: 'Renderizando PDF…', durationMs: 1800 });
         let resp = await intentar(token);
         if (resp.status === 401) {
           const nuevo = await clienteApi.intentarRefrescarToken();
@@ -160,7 +158,6 @@ export function usePlantillasPreviewActions({
             }
           };
         });
-        emitToast({ level: 'ok', title: 'Previsualización PDF', message: 'PDF actualizado', durationMs: 2200 });
         return paginas;
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo generar el PDF de previsualizacion');
@@ -187,7 +184,6 @@ export function usePlantillasPreviewActions({
 
   const cerrarPreviewPdfPlantilla = useCallback(
     (id: string, kind?: PreviewPdfKind) => {
-      emitToast({ level: 'info', title: 'Previsualización PDF', message: 'PDF cerrado', durationMs: 1600 });
       setPreviewPdfUrlPorPlantillaId((prev) => {
         const actual = prev[id];
         if (!actual) return prev;

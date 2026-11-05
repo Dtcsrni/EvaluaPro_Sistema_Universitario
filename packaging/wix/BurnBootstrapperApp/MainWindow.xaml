@@ -157,7 +157,7 @@
                     <Setter Property="Background" Value="#FF263B52" />
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#FF0F766E" />
+                    <Setter Property="Background" Value="{StaticResource PrimaryButtonBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>

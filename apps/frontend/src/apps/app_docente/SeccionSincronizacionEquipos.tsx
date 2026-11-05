@@ -1,7 +1,7 @@
 /**
  * SeccionSincronizacionEquipos
  *
- * Operacion de sincronizacion entre computadoras via servidor intermedio.
+ * Operación de sincronización entre computadoras mediante un servidor intermedio.
  */
 import { useMemo, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
@@ -17,6 +17,7 @@ import { mensajeDeError } from './utilidades';
 
 type ReporteOperacion = {
   tipo: 'push' | 'pull';
+  estado: 'info' | 'ok' | 'error';
   mensaje: string;
   ejecutadoEn: number;
   duracionMs: number;
@@ -45,7 +46,7 @@ export function SeccionSincronizacionEquipos({
 
   const limiteNormalizado = useMemo(() => {
     if (!Number.isFinite(limitePull)) return 20;
-    return Math.max(1, Math.min(200, Math.floor(limitePull)));
+    return Math.max(1, Math.min(20, Math.floor(limitePull)));
   }, [limitePull]);
 
   async function enviarCambios() {
@@ -53,36 +54,43 @@ export function SeccionSincronizacionEquipos({
     try {
       setEnviando(true);
       setMensaje('');
+      setTipoMensaje('info');
+      setReporte(null);
       const desdeIso = convertirFechaLocalAISO(desde);
       const respuesta = await onPushServidor({
         incluirPdfs: incluyePdfs,
         ...(desdeIso ? { desde: desdeIso } : {})
       });
       const msg = respuesta.mensaje || 'Paquete enviado';
+      const estado = msg.toLowerCase().includes('sin cambios') ? 'info' : 'ok';
       setMensaje(msg);
-      setTipoMensaje(msg.toLowerCase().includes('sin cambios') ? 'info' : 'ok');
+      setTipoMensaje(estado);
       setUltimoCursor(respuesta.cursor || respuesta.exportadoEn || null);
       setReporte({
         tipo: 'push',
+        estado,
         mensaje: msg,
         ejecutadoEn: Date.now(),
         duracionMs: Date.now() - inicio,
         conteos: respuesta.conteos,
         cursor: respuesta.cursor || respuesta.exportadoEn || null
       });
-      emitToast({ level: 'ok', title: 'Sincronizacion', message: msg, durationMs: 2400 });
       registrarAccionDocente('sync_push_servidor', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo enviar');
       setMensaje(msg);
       setTipoMensaje('error');
-      emitToast({
-        level: 'error',
-        title: 'No se pudo enviar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setReporte({ tipo: 'push', estado: 'error', mensaje: msg, ejecutadoEn: Date.now(), duracionMs: Date.now() - inicio });
+      const accionSesion = accionToastSesionParaError(error, 'docente');
+      if (accionSesion) {
+        emitToast({
+          level: 'error',
+          title: 'Renueva tu sesión',
+          message: 'La sesión debe renovarse para enviar cambios.',
+          durationMs: 5200,
+          action: accionSesion
+        });
+      }
       registrarAccionDocente('sync_push_servidor', false);
     } finally {
       setEnviando(false);
@@ -94,19 +102,23 @@ export function SeccionSincronizacionEquipos({
     try {
       setTrayendo(true);
       setMensaje('');
+      setTipoMensaje('info');
+      setReporte(null);
       const desdeIso = convertirFechaLocalAISO(desde);
       const respuesta = await onPullServidor({
         ...(desdeIso ? { desde: desdeIso } : {}),
         limite: limiteNormalizado
       });
       const msg = respuesta.mensaje || 'Paquetes aplicados';
+      const estado = msg.toLowerCase().includes('sin cambios') ? 'info' : 'ok';
       setMensaje(msg);
-      setTipoMensaje(msg.toLowerCase().includes('sin cambios') ? 'info' : 'ok');
+      setTipoMensaje(estado);
       if (respuesta.ultimoCursor) {
         setUltimoCursor(respuesta.ultimoCursor);
       }
       setReporte({
         tipo: 'pull',
+        estado,
         mensaje: msg,
         ejecutadoEn: Date.now(),
         duracionMs: Date.now() - inicio,
@@ -114,19 +126,22 @@ export function SeccionSincronizacionEquipos({
         paquetesRecibidos: respuesta.paquetesRecibidos,
         pdfsGuardados: respuesta.pdfsGuardados
       });
-      emitToast({ level: 'ok', title: 'Sincronizacion', message: msg, durationMs: 2400 });
       registrarAccionDocente('sync_pull_servidor', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudieron traer cambios');
       setMensaje(msg);
       setTipoMensaje('error');
-      emitToast({
-        level: 'error',
-        title: 'No se pudo traer cambios',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setReporte({ tipo: 'pull', estado: 'error', mensaje: msg, ejecutadoEn: Date.now(), duracionMs: Date.now() - inicio });
+      const accionSesion = accionToastSesionParaError(error, 'docente');
+      if (accionSesion) {
+        emitToast({
+          level: 'error',
+          title: 'Renueva tu sesión',
+          message: 'La sesión debe renovarse para recibir cambios.',
+          durationMs: 5200,
+          action: accionSesion
+        });
+      }
       registrarAccionDocente('sync_pull_servidor', false);
     } finally {
       setTrayendo(false);
@@ -136,55 +151,69 @@ export function SeccionSincronizacionEquipos({
   return (
     <div className="shell">
       <div className="panel shell-main shell-main--sync-equipos">
-        <h2>
-          <Icono nombre="recargar" /> Sincronizacion entre equipos
+        <h2 id="sync-equipos-heading" tabIndex={-1}>
+          <Icono nombre="sincronizacion" /> Sincronización entre equipos
         </h2>
         <p className="nota">
-          Usa un servidor intermedio para mantener una sola fuente de verdad por docente, sin requerir que los equipos esten en linea al mismo tiempo.
+          El servidor conserva los cambios para que los demás equipos puedan recibirlos después; no es necesario que estén conectados al mismo tiempo.
         </p>
 
-        <div className="estado-datos-grid" role="group" aria-label="Parametros de sincronizacion entre equipos">
+        <div className="estado-datos-grid" role="group" aria-label="Parámetros de sincronización entre equipos">
           <label className="campo campo--checkbox">
             <input type="checkbox" checked={incluyePdfs} onChange={(e) => setIncluyePdfs(e.target.checked)} />
-            Incluir PDFs en push (mas pesado)
+            Incluir PDFs en el envío (aumenta el tamaño)
           </label>
-          <label className="campo">
-            Desde (opcional)
-            <input type="datetime-local" value={desde} onChange={(e) => setDesde(e.target.value)} />
-          </label>
-          <label className="campo">
-            Limite de paquetes pull
+          <div className="campo">
+            <label htmlFor="sync-equipos-desde">Cambios desde (opcional)</label>
             <input
+              id="sync-equipos-desde"
+              type="datetime-local"
+              value={desde}
+              aria-describedby="sync-equipos-desde-ayuda"
+              onChange={(e) => setDesde(e.target.value)}
+            />
+            <small id="sync-equipos-desde-ayuda" className="ayuda">
+              Usa la hora local del equipo. Se aplica al enviar y traer; si queda vacío, cada operación continúa desde su último cursor guardado.
+            </small>
+          </div>
+          <div className="campo">
+            <label htmlFor="sync-equipos-limite">Máximo de paquetes por recibir</label>
+            <input
+              id="sync-equipos-limite"
               type="number"
               min={1}
-              max={200}
+              max={20}
               step={1}
               value={limiteNormalizado}
+              aria-describedby="sync-equipos-limite-ayuda"
               onChange={(e) => setLimitePull(Number(e.target.value || 20))}
             />
-          </label>
+            <small id="sync-equipos-limite-ayuda" className="ayuda">
+              Solo para «Traer cambios»: de 1 a 20 paquetes por consulta. El valor inicial es 20.
+            </small>
+          </div>
         </div>
 
         <div className="acciones">
-          <Boton type="button" icono={<Icono nombre="publicar" />} cargando={enviando} onClick={enviarCambios}>
+          <Boton type="button" icono={<Icono nombre="publicar" />} cargando={enviando} disabled={trayendo} onClick={enviarCambios}>
             {enviando ? 'Enviando...' : 'Enviar cambios (push)'}
           </Boton>
-          <Boton type="button" variante="secundario" icono={<Icono nombre="recargar" />} cargando={trayendo} onClick={traerCambios}>
+          <Boton type="button" variante="secundario" icono={<Icono nombre="recargar" />} cargando={trayendo} disabled={enviando} onClick={traerCambios}>
             {trayendo ? 'Trayendo...' : 'Traer cambios (pull)'}
           </Boton>
         </div>
 
-        {ultimoCursor && <div className="nota">Ultima marca de sincronizacion: {formatearFechaSincronizacion(ultimoCursor)}</div>}
+        {ultimoCursor && <div className="nota">Última marca de sincronización: {formatearFechaSincronizacion(ultimoCursor)}</div>}
 
         {reporte && (
-          <div className="item-glass" aria-live="polite">
+          <div className="item-glass">
             <div className="estado-datos-header">
               <div>
-                <div className="estado-datos-titulo">Ultima operacion: {reporte.tipo.toUpperCase()}</div>
+                <div className="estado-datos-titulo">Última operación: {reporte.tipo.toUpperCase()}</div>
                 <div className="nota">{formatearFechaSincronizacion(reporte.ejecutadoEn)} · {reporte.duracionMs} ms</div>
               </div>
-              <span className={`estado-chip ${tipoMensaje === 'error' ? 'error' : tipoMensaje === 'ok' ? 'ok' : 'info'}`}>
-                {tipoMensaje === 'error' ? 'Error' : tipoMensaje === 'ok' ? 'Ok' : 'Info'}
+              <span className={`estado-chip ${reporte.estado === 'error' ? 'error' : reporte.estado === 'ok' ? 'ok' : 'info'}`}>
+                {reporte.estado === 'error' ? 'Error' : reporte.estado === 'ok' ? 'Completado' : 'Sin cambios'}
               </span>
             </div>
             {reporte.tipo === 'push' && reporte.conteos && (
@@ -205,19 +234,19 @@ export function SeccionSincronizacionEquipos({
         {mensaje && <InlineMensaje tipo={tipoMensaje}>{mensaje}</InlineMensaje>}
       </div>
 
-      <aside className="shell-aside" aria-label="Ayuda de sincronizacion entre equipos">
+      <aside className="shell-aside" aria-label="Ayuda de sincronización entre equipos">
         <div className="shell-asideCard">
-          <AyudaFormulario titulo="Operacion recomendada entre computadoras">
+          <AyudaFormulario titulo="Operación recomendada entre computadoras">
             <p>
-              <b>Push:</b> ejecutalo en la computadora que tiene los cambios mas recientes.
+              <b>Push (enviar):</b> ejecútalo en la computadora que tiene los cambios más recientes.
             </p>
             <p>
-              <b>Pull:</b> ejecutalo en las computadoras restantes para aplicar cambios pendientes.
+              <b>Pull (traer):</b> ejecútalo en las demás computadoras para aplicar los cambios pendientes.
             </p>
             <ul className="lista">
               <li>Usa la misma cuenta docente en todos los equipos.</li>
               <li>Si hay lotes grandes, primero push sin PDFs y luego una corrida con PDFs.</li>
-              <li>Antes de sesiones criticas, exporta backup local por archivo.</li>
+              <li>Antes de sesiones críticas, exporta una instantánea local completa (.ep-snapshot).</li>
             </ul>
           </AyudaFormulario>
         </div>

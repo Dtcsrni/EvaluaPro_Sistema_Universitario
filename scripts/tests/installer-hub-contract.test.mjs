@@ -921,10 +921,18 @@ test('Installer Hub usa superficies legibles, controles accesibles y estados anu
   assert.ok(contrastRatio(muted, surface) >= 4.5, 'Texto secundario: contraste AA mínimo');
   assert.ok(contrastRatio('#FFFFFF', primaryButton) >= 4.5, 'Texto del botón primario: contraste AA mínimo');
   assert.ok(contrastRatio(focus, surface) >= 3, 'Foco de teclado: contraste no textual mínimo');
+  const comboBackground = '#FF0C1728';
+  const comboHighlighted = '#FF263B52';
+  assert.ok(contrastRatio(text, comboBackground) >= 4.5, 'Selector cerrado: texto con contraste AA mínimo');
+  assert.ok(contrastRatio(text, comboHighlighted) >= 4.5, 'Opción enfocada: texto con contraste AA mínimo');
+  assert.ok(contrastRatio(text, primaryButton) >= 4.5, 'Opción seleccionada: texto con contraste AA mínimo');
+  assert.ok(contrastRatio(focus, comboBackground) >= 3, 'Selector: indicador de foco con contraste no textual mínimo');
   assert.match(xaml, /x:Key="SecondaryButtonStyle"[\s\S]*?MinHeight" Value="40"/);
   assert.match(xaml, /<Style TargetType="CheckBox">[\s\S]*?MinHeight" Value="40"/);
   assert.match(xaml, /<Style TargetType="TextBox">[\s\S]*?IsKeyboardFocused[\s\S]*?FocusBrush/);
   assert.match(xaml, /<Style TargetType="ComboBox">[\s\S]*?IsKeyboardFocusWithin[\s\S]*?FocusBrush/);
+  assert.match(xaml, /<Style TargetType="ComboBox">[\s\S]*?Background" Value="#FF0C1728"[\s\S]*?Foreground" Value="\{StaticResource TextBrush\}"/);
+  assert.match(xaml, /<Style TargetType="ComboBoxItem">[\s\S]*?Background" Value="#FF0C1728"[\s\S]*?Foreground" Value="\{StaticResource TextBrush\}"[\s\S]*?IsHighlighted[\s\S]*?Background" Value="#FF263B52"[\s\S]*?IsSelected[\s\S]*?Background" Value="\{StaticResource PrimaryButtonBrush\}"/);
   assert.doesNotMatch(xaml, /GlassPatternBrush|GlassAtmosphereBrush|BlurEffect|LinearGradientBrush/);
   assert.doesNotMatch(xaml, /[\u{1F300}-\u{1FAFF}]/u, 'La iconografía no usa emoji');
   assert.doesNotMatch(xaml, /HeaderFeature|ShowIntroButton|SplashOverlay|SplashPreviousButton|SplashNextButton|SplashCloseButton/);

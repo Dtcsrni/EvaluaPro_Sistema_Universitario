@@ -287,7 +287,7 @@ export async function evaluarCalidadCaptura(dataUrl: string): Promise<CalidadCap
   const areaHojaRatio = bboxArea / Math.max(1, width * height);
 
   const motivos: string[] = [];
-  if (blurVar < UMBRAL_BLUR) motivos.push('Enfoca mejor la camara (imagen borrosa).');
+  if (blurVar < UMBRAL_BLUR) motivos.push('La imagen está borrosa. Usa una imagen más nítida.');
   if (brilloMedio < UMBRAL_BRILLO_MIN) motivos.push('Mejora la iluminacion (imagen oscura).');
   if (brilloMedio > UMBRAL_BRILLO_MAX) motivos.push('Reduce el brillo o evita reflejos.');
   if (areaHojaRatio < UMBRAL_AREA_HOJA) motivos.push('Ajusta el encuadre para incluir toda la hoja.');

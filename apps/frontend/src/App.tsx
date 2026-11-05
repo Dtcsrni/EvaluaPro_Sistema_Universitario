@@ -10,9 +10,16 @@ import { obtenerModoApp } from './ui/version/versionInfo';
 
 const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
 
-const AppAlumno = lazy(() => import('./apps/app_alumno/AppAlumno').then(({ AppAlumno: modulo }) => ({ default: modulo })));
-const AppAdminNegocio = lazy(() => import('./apps/app_admin_negocio/AppAdminNegocio').then(({ AppAdminNegocio: modulo }) => ({ default: modulo })));
-const AppDocente = lazy(() => import('./apps/app_docente/AppDocente').then(({ AppDocente: modulo }) => ({ default: modulo })));
+const destinoCompilado = import.meta.env.VITE_APP_DESTINO || 'docente';
+const AppAlumno = import.meta.env.DEV || destinoCompilado === 'alumno'
+  ? lazy(() => import('./apps/app_alumno/AppAlumno').then(({ AppAlumno: modulo }) => ({ default: modulo })))
+  : null;
+const AppAdminNegocio = import.meta.env.DEV || destinoCompilado === 'admin_negocio'
+  ? lazy(() => import('./apps/app_admin_negocio/AppAdminNegocio').then(({ AppAdminNegocio: modulo }) => ({ default: modulo })))
+  : null;
+const AppDocente = import.meta.env.DEV || destinoCompilado === 'docente'
+  ? lazy(() => import('./apps/app_docente/AppDocente').then(({ AppDocente: modulo }) => ({ default: modulo })))
+  : null;
 const VersionInfoPage = lazy(() => import('./ui/version/VersionInfoPage').then(({ VersionInfoPage: modulo }) => ({ default: modulo })));
 const PaginaFirmaEncuadre = lazy(() => import('./ui/encuadre/PaginaFirmaEncuadre').then(({ PaginaFirmaEncuadre: modulo }) => ({ default: modulo })));
 
@@ -187,11 +194,16 @@ function App() {
     };
   }, []);
 
+  const contenidoDestino = destino === 'alumno'
+    ? (AppAlumno ? <AppAlumno /> : null)
+    : destino === 'admin_negocio'
+      ? (AppAdminNegocio ? <AppAdminNegocio /> : null)
+      : (AppDocente ? <AppDocente googleClientId={googleClientId} onReintentarGoogle={cargarClientIdGoogle} /> : null);
   const contenido = esVersionInfo
     ? <VersionInfoPage />
     : esFirmaEncuadre
       ? <PaginaFirmaEncuadre token={tokenFirma} />
-      : (destino === 'alumno' ? <AppAlumno /> : destino === 'admin_negocio' ? <AppAdminNegocio /> : <AppDocente googleClientId={googleClientId} onReintentarGoogle={cargarClientIdGoogle} />);
+      : contenidoDestino;
   const contenidoProtegido = destino === 'docente'
     ? <GoogleOAuthProvider clientId={googleClientId}>{contenido}</GoogleOAuthProvider>
     : (googleClientId && destino !== 'alumno'

@@ -52,7 +52,10 @@ async function auditVisualState(
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       const hiddenFromUsers = element.closest('[aria-hidden="true"], [inert]') !== null;
+      const closedDisclosure = element.closest('details:not([open])');
+      const hiddenInClosedDisclosure = Boolean(closedDisclosure && !element.closest('summary'));
       return !hiddenFromUsers
+        && !hiddenInClosedDisclosure
         && style.display !== 'none'
         && style.visibility !== 'hidden'
         && style.opacity !== '0'
@@ -96,7 +99,9 @@ async function auditVisualState(
         const first = boxes[index];
         const second = boxes[otherIndex];
         const passwordToggle = (first.element.matches('.auth-pwd-toggle') && second.element.matches('.auth-input-box--key input'))
-          || (second.element.matches('.auth-pwd-toggle') && first.element.matches('.auth-input-box--key input'));
+          || (second.element.matches('.auth-pwd-toggle') && first.element.matches('.auth-input-box--key input'))
+          || (first.element.matches('.cuenta-seguridad__password-toggle') && second.element.matches('.cuenta-seguridad__password-control input') && first.element.parentElement === second.element.parentElement)
+          || (second.element.matches('.cuenta-seguridad__password-toggle') && first.element.matches('.cuenta-seguridad__password-control input') && first.element.parentElement === second.element.parentElement);
         if (passwordToggle) continue;
         const width = Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left));
         const height = Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top));

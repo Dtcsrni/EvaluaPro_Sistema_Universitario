@@ -4,7 +4,7 @@
  * Responsabilidad: Componente de UI del dominio docente (presentacion y eventos de vista).
  * Limites: Evitar acoplar IO directo; preferir hooks/services del feature.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
 import { emitToast } from '../../../../../ui/toast/toastBus';
@@ -104,6 +104,53 @@ function etiquetaEstadoRespuesta(estado?: string) {
   }
 }
 
+function etiquetaSenalOmr(senal: string) {
+  const etiquetas: Record<string, string> = {
+    bajo_contraste: 'Bajo contraste',
+    doble_marca: 'Varias marcas',
+    fuera_roi: 'Fuera del área de respuesta',
+    parcial_detectada: 'Marca parcial',
+    tachada_detectada: 'Respuesta tachada'
+  };
+  return etiquetas[senal] ?? `Señal técnica: ${senal}`;
+}
+
+function etiquetaEstadoJobOmr(estado: string) {
+  const etiquetas: Record<string, string> = {
+    queued: 'En cola',
+    processing: 'En proceso',
+    completed: 'Completado',
+    failed: 'Fallido',
+    finalized: 'Finalizado',
+    review_pending: 'Revisión pendiente',
+    pending: 'Pendiente',
+    pendiente: 'Pendiente'
+  };
+  return etiquetas[estado.trim().toLowerCase()] ?? estado;
+}
+
+function etiquetaEstadoPaginaOmr(estado: string) {
+  const etiquetas: Record<string, string> = {
+    accepted: 'Aceptada',
+    needs_review: 'Requiere revisión',
+    rejected: 'Rechazada',
+    ignored: 'Omitida'
+  };
+  return etiquetas[estado.trim().toLowerCase()] ?? estado;
+}
+
+function mensajeErrorTrabajoOmr(job: OmrJobDetalle, esIngestaOmr: boolean, folio?: string) {
+  if (esIngestaOmr) {
+    return 'No se pudo completar la ingesta OMR. Los archivos originales se conservan; puedes reprocesarlos con el botón inferior.';
+  }
+  const hayCodigoTecnico = job.errors?.some((error) => typeof error.code === 'string' && error.code.trim().length > 0);
+  if (hayCodigoTecnico) {
+    return 'No se pudo completar el procesamiento OMR. Si el problema continúa, comparte el código técnico con soporte.';
+  }
+  const referenciaSoporte = folio?.trim() ? `el folio ${folio.trim()}` : 'la fecha aproximada de este trabajo';
+  return `No se pudo completar el procesamiento OMR. El servicio no devolvió un código técnico; si necesitas ayuda, comparte ${referenciaSoporte} con soporte.`;
+}
+
 function etiquetaEstadoMarca(estado: string) {
   switch (estado) {
     case 'marcada': return 'marcada';
@@ -148,6 +195,44 @@ function validarSeleccionOmr(files: File[], referencePdf?: File) {
   return 'Selecciona únicamente archivos PDF o imágenes compatibles.';
 }
 
+function formatearTamanoArchivo(bytes: number): string {
+  if (bytes === 0) return '0 KB';
+  if (bytes < 1024) return 'menos de 1 KB';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
+}
+
+type BotonDescargaArtefactoProps = {
+  folio: string;
+  etiqueta: string;
+  etiquetaNoDisponible: string;
+  url?: string;
+  nombreArchivo: string;
+  onDescargar: (url: string | undefined, nombreArchivo: string) => Promise<void>;
+};
+
+function BotonDescargaArtefacto({
+  folio,
+  etiqueta,
+  etiquetaNoDisponible,
+  url,
+  nombreArchivo,
+  onDescargar
+}: BotonDescargaArtefactoProps) {
+  const disponible = Boolean(url);
+  return (
+    <Boton
+      type="button"
+      variante="secundario"
+      aria-label={disponible ? `${etiqueta} del folio ${folio}` : `${etiquetaNoDisponible} para el folio ${folio}`}
+      disabled={!disponible}
+      onClick={() => void onDescargar(url, nombreArchivo)}
+    >
+      {disponible ? etiqueta : etiquetaNoDisponible}
+    </Boton>
+  );
+}
+
 export function PlantillasOmrWorkflow({
   assessmentDetalle,
   trabajosOmr = [],
@@ -184,6 +269,9 @@ export function PlantillasOmrWorkflow({
   const confirm = useConfirmDialog();
   const [files, setFiles] = useState<File[]>([]);
   const [referencePdf, setReferencePdf] = useState<File | undefined>();
+  const omrFilesInputRef = useRef<HTMLInputElement>(null);
+  const omrReferenceInputRef = useRef<HTMLInputElement>(null);
+  const referencePdfInputRef = useRef<HTMLInputElement>(null);
   const [selectionError, setSelectionError] = useState('');
   const [sheetSerialActivo, setSheetSerialActivo] = useState<string | null>(null);
   const paginaActiva = useMemo(
@@ -270,6 +358,20 @@ export function PlantillasOmrWorkflow({
   const paquetesOmr = jobOmrIngesta?.packages ?? [];
   const originalesOmr = jobOmrIngesta?.files ?? [];
   const esIngestaOmr = Boolean(jobOmrIngesta && Array.isArray(jobOmrIngesta.packages) && Array.isArray(jobOmrIngesta.files));
+  const estadoJobOmr = String(jobOmr?.status ?? '').trim().toLowerCase();
+  const ingestaEnCurso = esIngestaOmr && ['queued', 'processing'].includes(estadoJobOmr);
+  const paginasOmrTotales = jobOmr && Number.isFinite(jobOmr.pagesTotal)
+    ? Math.max(0, Math.trunc(jobOmr.pagesTotal))
+    : 0;
+  const paginasOmrProcesadas = jobOmr && Number.isFinite(jobOmr.pagesProcessed)
+    ? Math.max(0, Math.trunc(jobOmr.pagesProcessed))
+    : 0;
+  const paginaPuedeResolverse = Boolean(
+    paginaActiva
+    && paginaActiva.pageType !== 'reverso-vacio'
+    && paginaActiva.scanStatus !== 'ignored'
+    && (!esIngestaOmr || paginaActiva.scanStatus === 'needs_review')
+  );
   const paginasDatasetElegibles = useMemo(() => (jobOmr?.pages ?? []).filter((page) =>
     esIngestaOmr
     && page.scanStatus === 'needs_review'
@@ -318,33 +420,41 @@ export function PlantillasOmrWorkflow({
       </div>
       {errorTrabajosOmr && <InlineMensaje tipo="error">{errorTrabajosOmr}</InlineMensaje>}
       {cargandoTrabajosOmr && trabajosOmr.length === 0 && <InlineMensaje tipo="info">Cargando historial OMR…</InlineMensaje>}
-      {!cargandoTrabajosOmr && !errorTrabajosOmr && trabajosOmr.length === 0 && <InlineMensaje tipo="info">Aún no hay trabajos OMR guardados.</InlineMensaje>}
+      {!cargandoTrabajosOmr && !errorTrabajosOmr && trabajosOmr.length === 0 && <InlineMensaje tipo="info">Aún no hay trabajos OMR guardados. Para iniciar uno, abre Generación y carga un PDF o capturas de páginas.</InlineMensaje>}
       {trabajosOmr.length > 0 && (
         <ul className="lista plantillas-omr__history-list" aria-label="Historial de trabajos OMR">
-          {trabajosOmr.map((trabajo) => (
-            <li key={trabajo.jobId}>
-              <div>
-                <strong>{trabajo.folio ? `Folio: ${trabajo.folio}` : `Evaluación: ${trabajo.assessmentId}`}</strong>
-                <span> · Job OMR: {trabajo.jobId}</span>
-                <span> · {trabajo.workflow === 'pdf_ingesta' ? 'PDF clasificado' : trabajo.sourceType === 'pdf' ? 'PDF' : 'Capturas de imagen'}</span>
-                <div className="item-meta">
-                  <span>Estado: {trabajo.status}</span>
-                  <span>Páginas: {trabajo.pagesProcessed}/{trabajo.pagesTotal}</span>
-                  <span>Revisión: {trabajo.summary?.needsReview ?? 0}</span>
-                  <span>{Number.isFinite(Date.parse(trabajo.createdAt)) ? new Date(trabajo.createdAt).toLocaleString() : 'Fecha no disponible'}</span>
+          {trabajosOmr.map((trabajo) => {
+            const fechaCreacion = Number.isFinite(Date.parse(trabajo.createdAt))
+              ? new Date(trabajo.createdAt).toLocaleString()
+              : 'fecha no disponible';
+            const contextoTrabajo = trabajo.folio
+              ? `folio ${trabajo.folio}`
+              : `trabajo OMR sin folio, creado ${fechaCreacion}`;
+            return (
+              <li key={trabajo.jobId}>
+                <div>
+                  <strong>{trabajo.folio ? `Folio: ${trabajo.folio}` : 'Trabajo OMR sin folio'}</strong>
+                  <span> · {trabajo.workflow === 'pdf_ingesta' ? 'PDF clasificado' : trabajo.sourceType === 'pdf' ? 'PDF' : 'Capturas de imagen'}</span>
+                  <div className="item-meta">
+                    <span>Estado: {etiquetaEstadoJobOmr(trabajo.status)}</span>
+                    <span>Páginas: {trabajo.pagesProcessed}/{trabajo.pagesTotal}</span>
+                    <span>Revisión: {trabajo.summary?.needsReview ?? 0}</span>
+                    <span>{fechaCreacion}</span>
+                  </div>
                 </div>
-              </div>
-              <Boton
-                type="button"
-                variante="secundario"
-                cargando={cargandoAssessmentId === trabajo.assessmentId}
-                disabled={!trabajo.assessmentId || Boolean(cargandoAssessmentId)}
-                onClick={() => void onAbrirTrabajoOmr(trabajo)}
-              >
-                Reabrir revisión
-              </Boton>
-            </li>
-          ))}
+                <Boton
+                  type="button"
+                  variante="secundario"
+                  aria-label={`Reabrir revisión: ${contextoTrabajo}`}
+                  cargando={cargandoAssessmentId === trabajo.assessmentId}
+                  disabled={!trabajo.assessmentId || Boolean(cargandoAssessmentId)}
+                  onClick={() => void onAbrirTrabajoOmr(trabajo)}
+                >
+                  Reabrir revisión
+                </Boton>
+              </li>
+            );
+          })}
         </ul>
       )}
       {hayMasTrabajosOmr && <Boton type="button" variante="secundario" cargando={cargandoTrabajosOmr} disabled={cargandoTrabajosOmr} onClick={onCargarMasTrabajosOmr}>Cargar más trabajos</Boton>}
@@ -372,20 +482,40 @@ export function PlantillasOmrWorkflow({
           <section className="resultado plantillas-omr__prevalidacion" aria-labelledby="omr-prevalidar-referencia-titulo">
             <h4 id="omr-prevalidar-referencia-titulo">Primero, coteja el PDF generado</h4>
             <p className="nota">Puedes localizar el lote por los QR firmados de cada examen antes de cargar las capturas. Esta consulta no guarda archivos, crea jobs ni escribe calificaciones.</p>
-            <label className="campo" htmlFor="omr-referencia-lote">
-              PDF de referencia
-              <input
-                id="omr-referencia-lote"
-                type="file"
-                accept="application/pdf,.pdf"
-                disabled={!puedeLeerLotesArchivadosOmr || prevalidandoReferencia || procesandoOmr}
-                onChange={(event) => {
-                  setReferencePdf(event.target.files?.[0] || undefined);
-                  setMensajePrevalidacion(null);
-                }}
-              />
-            </label>
-            {referencePdf && <p className="nota">Seleccionado: {referencePdf.name} · {(referencePdf.size / (1024 * 1024)).toFixed(2)} MiB</p>}
+            <div className="campo">
+              <span>PDF de referencia</span>
+              <div className="plantillas-archivo-selector">
+                <input
+                  ref={referencePdfInputRef}
+                  id="omr-referencia-lote"
+                  className="input-file-oculto"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  disabled={!puedeLeerLotesArchivadosOmr || prevalidandoReferencia || procesandoOmr}
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  onChange={(event) => {
+                    setReferencePdf(event.target.files?.[0] || undefined);
+                    setMensajePrevalidacion(null);
+                  }}
+                />
+                <Boton
+                  type="button"
+                  variante="secundario"
+                  aria-label="Seleccionar PDF de referencia"
+                  aria-describedby="omr-referencia-lote-estado"
+                  disabled={!puedeLeerLotesArchivadosOmr || prevalidandoReferencia || procesandoOmr}
+                  onClick={() => referencePdfInputRef.current?.click()}
+                >
+                  Seleccionar PDF
+                </Boton>
+                <p id="omr-referencia-lote-estado" className="plantillas-archivo-selector__estado" role="status" aria-atomic="true">
+                  {referencePdf
+                    ? `Seleccionado: ${referencePdf.name} (${formatearTamanoArchivo(referencePdf.size)}).`
+                    : 'Sin PDF seleccionado.'}
+                </p>
+              </div>
+            </div>
             <Boton
               type="button"
               variante="secundario"
@@ -397,24 +527,26 @@ export function PlantillasOmrWorkflow({
             </Boton>
             {mensajePrevalidacion && <InlineMensaje tipo={mensajePrevalidacion.tipo}>{mensajePrevalidacion.texto}</InlineMensaje>}
           </section>
-          <div className="campo-formulario">
-            <label htmlFor="omr-lote-archivado">Lote de examen</label>
-            <select
-              id="omr-lote-archivado"
-              value={loteArchivadoSeleccionado}
-              disabled={!puedeLeerLotesArchivadosOmr || Boolean(errorCargaLotesArchivadosOmr) || lotesArchivadosOmr.length === 0 || Boolean(cargandoAssessmentId)}
-              onChange={(event) => {
-                const assessmentId = event.currentTarget.value;
-                setLoteArchivadoSeleccionado(assessmentId);
-                if (assessmentId) void onSeleccionarLoteArchivado(assessmentId);
-              }}
-            >
-              <option value="">{lotesArchivadosOmr.length ? 'Selecciona un lote…' : 'No hay lotes archivados disponibles'}</option>
-              {lotesArchivadosOmr.map((lote) => (
-                <option key={lote.loteId} value={lote.assessmentId}>{lote.etiqueta} · {lote.cantidad} exámenes</option>
-              ))}
-            </select>
-          </div>
+          {lotesArchivadosOmr.length > 0 && (
+            <div className="campo-formulario">
+              <label htmlFor="omr-lote-archivado">Lote de examen</label>
+              <select
+                id="omr-lote-archivado"
+                value={loteArchivadoSeleccionado}
+                disabled={!puedeLeerLotesArchivadosOmr || Boolean(errorCargaLotesArchivadosOmr) || Boolean(cargandoAssessmentId)}
+                onChange={(event) => {
+                  const assessmentId = event.currentTarget.value;
+                  setLoteArchivadoSeleccionado(assessmentId);
+                  if (assessmentId) void onSeleccionarLoteArchivado(assessmentId);
+                }}
+              >
+                <option value="">Selecciona un lote…</option>
+                {lotesArchivadosOmr.map((lote) => (
+                  <option key={lote.loteId} value={lote.assessmentId}>{lote.etiqueta} · {lote.cantidad} exámenes</option>
+                ))}
+              </select>
+            </div>
+          )}
           </>
         )}
         {cargandoAssessmentId && <InlineMensaje tipo="info">Cargando detalle del lote…</InlineMensaje>}
@@ -441,7 +573,11 @@ export function PlantillasOmrWorkflow({
         <span>Seed: {assessmentDetalle.assessment.generationSeed || '-'}</span>
         <span>Versiones: {versionesAssessment.length || assessmentDetalle.assessment.statisticsSummary.versionCount}</span>
         <span>Hojas: {assessmentDetalle.assessment.statisticsSummary.sheetCount}</span>
-        <span>Packets: {assessmentDetalle.assessment.statisticsSummary.studentPacketCount}</span>
+        <span>
+          Paquetes de alumno: {Number.isFinite(assessmentDetalle.assessment.statisticsSummary.studentPacketCount)
+            ? assessmentDetalle.assessment.statisticsSummary.studentPacketCount
+            : 'No disponible'}
+        </span>
       </div>
       {versionesAssessment.length > 0 && (
         <div className="item-meta">
@@ -454,7 +590,7 @@ export function PlantillasOmrWorkflow({
       )}
       {Array.isArray(assessmentDetalle.studentPacketArtifacts) && assessmentDetalle.studentPacketArtifacts.length > 0 && (
         <div className="resultado">
-          <h4>Packets emitidos</h4>
+          <h4>Paquetes de alumno emitidos</h4>
           <ul className="lista">
             {assessmentDetalle.studentPacketArtifacts.map((packet) => (
               <li key={`${packet.sheetSerial}-${packet.studentId || 'na'}`}>
@@ -464,68 +600,125 @@ export function PlantillasOmrWorkflow({
           </ul>
         </div>
       )}
-      <div className="acciones acciones--mt">
-        <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.bookletPdfUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.bookletPdfUrl, `${assessmentDetalle.assessment.folio}_booklet.pdf`)}>
-          Descargar cuadernillo
-        </Boton>
-        <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.omrSheetPdfUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.omrSheetPdfUrl, `${assessmentDetalle.assessment.folio}_omr_sheet.pdf`)}>
-          Descargar hoja OMR
-        </Boton>
-        <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.answerKeyUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.answerKeyUrl, `${assessmentDetalle.assessment.folio}_answer_key.json`)}>
-          Descargar answer key
-        </Boton>
-        <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.manifestUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.manifestUrl, `${assessmentDetalle.assessment.folio}_manifest.json`)}>
-          Descargar manifest
-        </Boton>
-        <Boton
-          type="button"
-          variante="secundario"
-          disabled={!assessmentDetalle.assessment.studentPacketZipUrl}
-          onClick={() => void descargarArtifact(assessmentDetalle.assessment.studentPacketZipUrl, `${assessmentDetalle.assessment.folio}_student_packets.zip`)}
-        >
-          Descargar packets ZIP
-        </Boton>
+      <div className="acciones acciones--mt plantillas-omr__artifact-actions" role="group" aria-label={`Archivos del folio ${assessmentDetalle.assessment.folio}`}>
+        <BotonDescargaArtefacto
+          folio={assessmentDetalle.assessment.folio}
+          etiqueta="Descargar cuadernillo"
+          etiquetaNoDisponible="Cuadernillo no disponible"
+          url={assessmentDetalle.assessment.bookletPdfUrl}
+          nombreArchivo={`${assessmentDetalle.assessment.folio}_booklet.pdf`}
+          onDescargar={descargarArtifact}
+        />
+        <BotonDescargaArtefacto
+          folio={assessmentDetalle.assessment.folio}
+          etiqueta="Descargar hoja OMR"
+          etiquetaNoDisponible="Hoja OMR no disponible"
+          url={assessmentDetalle.assessment.omrSheetPdfUrl}
+          nombreArchivo={`${assessmentDetalle.assessment.folio}_omr_sheet.pdf`}
+          onDescargar={descargarArtifact}
+        />
+        <BotonDescargaArtefacto
+          folio={assessmentDetalle.assessment.folio}
+          etiqueta="Descargar clave de respuestas"
+          etiquetaNoDisponible="Clave de respuestas no disponible"
+          url={assessmentDetalle.assessment.answerKeyUrl}
+          nombreArchivo={`${assessmentDetalle.assessment.folio}_answer_key.json`}
+          onDescargar={descargarArtifact}
+        />
+        <BotonDescargaArtefacto
+          folio={assessmentDetalle.assessment.folio}
+          etiqueta="Descargar manifiesto"
+          etiquetaNoDisponible="Manifiesto no disponible"
+          url={assessmentDetalle.assessment.manifestUrl}
+          nombreArchivo={`${assessmentDetalle.assessment.folio}_manifest.json`}
+          onDescargar={descargarArtifact}
+        />
+        <BotonDescargaArtefacto
+          folio={assessmentDetalle.assessment.folio}
+          etiqueta="Descargar paquetes de alumno (ZIP)"
+          etiquetaNoDisponible="Paquetes de alumno (ZIP) no disponibles"
+          url={assessmentDetalle.assessment.studentPacketZipUrl}
+          nombreArchivo={`${assessmentDetalle.assessment.folio}_student_packets.zip`}
+          onDescargar={descargarArtifact}
+        />
       </div>
 
       <div className="acciones acciones--mt">
-        <label className="campo">
-          Capturas o PDF
-          <input
-            type="file"
-            multiple
-            accept="image/*,application/pdf"
-            onChange={(event) => {
-              const seleccionados = Array.from(event.target.files ?? []);
-              const error = validarSeleccionOmr(seleccionados, referencePdf);
-              setFiles(seleccionados);
-              setSelectionError(error);
-              if (!error) {
-                emitToast({
-                  level: seleccionados.length > 0 ? 'ok' : 'info',
-                  title: 'OMR',
-                  message: seleccionados.length > 0
-                    ? `${seleccionados.length} archivo${seleccionados.length === 1 ? '' : 's'} seleccionado${seleccionados.length === 1 ? '' : 's'}`
-                    : 'Selección de archivos cancelada',
-                  durationMs: 1600
-                });
-              }
-            }}
-          />
-        </label>
-        <label className="campo">
-          PDF generado del lote (opcional si EvaluaPro no conserva el original)
-          {referencePdf && <span>Referencia seleccionada: {referencePdf.name}</span>}
-          <input
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={(event) => {
-              const seleccionado = event.target.files?.[0];
-              const siguiente = seleccionado || undefined;
-              setReferencePdf(siguiente);
-              setSelectionError(validarSeleccionOmr(files, siguiente));
-            }}
-          />
-        </label>
+        <div className="campo" role="group" aria-labelledby="omr-capturas-lote-label">
+          <span id="omr-capturas-lote-label">Capturas o PDF</span>
+          <div className="plantillas-archivo-selector">
+            <input
+              ref={omrFilesInputRef}
+              id="omr-capturas-lote"
+              className="input-file-oculto"
+              type="file"
+              multiple
+              accept="image/*,application/pdf"
+              aria-hidden="true"
+              tabIndex={-1}
+              onChange={(event) => {
+                const seleccionados = Array.from(event.target.files ?? []);
+                const error = validarSeleccionOmr(seleccionados, referencePdf);
+                setFiles(seleccionados);
+                setSelectionError(error);
+              }}
+            />
+            <Boton
+              type="button"
+              variante="secundario"
+              aria-label="Seleccionar capturas o PDF"
+              aria-describedby="omr-capturas-lote-ayuda omr-capturas-lote-estado"
+              onClick={() => omrFilesInputRef.current?.click()}
+            >
+              Seleccionar archivos
+            </Boton>
+            <p id="omr-capturas-lote-ayuda" className="plantillas-archivo-selector__estado">
+              Imágenes o PDF; puedes seleccionar varios archivos.
+            </p>
+            <p id="omr-capturas-lote-estado" className="plantillas-archivo-selector__estado" role="status" aria-atomic="true">
+              {files.length > 0
+                ? `Seleccionados (${files.length}): ${files.map((file) => `${file.name} (${formatearTamanoArchivo(file.size)})`).join(', ')}. Total: ${formatearTamanoArchivo(files.reduce((total, file) => total + file.size, referencePdf?.size ?? 0))}.`
+                : 'Sin archivos seleccionados.'}
+            </p>
+          </div>
+        </div>
+        <div className="campo" role="group" aria-labelledby="omr-referencia-job-lote-label">
+          <span id="omr-referencia-job-lote-label">PDF generado del lote (opcional si EvaluaPro no conserva el original)</span>
+          <div className="plantillas-archivo-selector">
+            <input
+              ref={omrReferenceInputRef}
+              id="omr-referencia-job-lote"
+              className="input-file-oculto"
+              type="file"
+              accept="application/pdf,.pdf"
+              aria-hidden="true"
+              tabIndex={-1}
+              onChange={(event) => {
+                const seleccionado = event.target.files?.[0];
+                const siguiente = seleccionado || undefined;
+                setReferencePdf(siguiente);
+                setSelectionError(validarSeleccionOmr(files, siguiente));
+              }}
+            />
+            <Boton
+              type="button"
+              variante="secundario"
+              aria-label="Seleccionar PDF generado del lote"
+              aria-describedby="omr-referencia-job-lote-ayuda omr-referencia-job-lote-estado"
+              onClick={() => omrReferenceInputRef.current?.click()}
+            >
+              Seleccionar PDF
+            </Boton>
+            <p id="omr-referencia-job-lote-ayuda" className="plantillas-archivo-selector__estado">
+              Opcional. Permite cotejar las capturas cuando EvaluaPro no conserva el PDF original.
+            </p>
+            <p id="omr-referencia-job-lote-estado" className="plantillas-archivo-selector__estado" role="status" aria-atomic="true">
+              {referencePdf
+                ? `Seleccionado: ${referencePdf.name} (${formatearTamanoArchivo(referencePdf.size)}).`
+                : 'Sin PDF de referencia seleccionado.'}
+            </p>
+          </div>
+        </div>
         <Boton
           type="button"
           variante="secundario"
@@ -537,7 +730,6 @@ export function PlantillasOmrWorkflow({
               setSelectionError(error);
               return;
             }
-            emitToast({ level: 'info', title: 'OMR', message: `Procesando ${files.length} archivo${files.length === 1 ? '' : 's'}…`, durationMs: 1800 });
             void crearJobOmr({
               assessmentId: assessmentDetalle.assessment._id,
               files,
@@ -558,19 +750,49 @@ export function PlantillasOmrWorkflow({
       {jobOmr && (
         <>
           <div className="resultado plantillas-omr__job">
-            <h4>Job OMR</h4>
-            <div className="item-meta">
-              <span>Estado: {jobOmr.status}</span>
-              <span>Aceptadas: {jobOmr.summary?.accepted ?? 0}</span>
-              <span>Revisión: {jobOmr.summary?.needsReview ?? 0}</span>
-              <span>Rechazadas: {jobOmr.summary?.rejected ?? 0}</span>
-              <span>Auto: {jobOmr.summary?.autoGradable ?? 0}</span>
-              <span>Promedio: {jobOmr.summary?.averageScore ?? 0}%</span>
+            <h4>Trabajo OMR</h4>
+            <div className="item-meta" role="status">
+              <span>Estado: {etiquetaEstadoJobOmr(jobOmr.status)}</span>
             </div>
-            {jobOmr.status === 'failed' && (jobOmr.errors?.length ?? 0) > 0 && (
-              <InlineMensaje tipo="error">
-                Falló el procesamiento. Código(s): {jobOmr.errors!.map((error) => error.code).join(', ')}
-              </InlineMensaje>
+            <div className="item-meta">
+              <span>Aceptadas: {jobOmr.summary?.accepted ?? 'No disponible'}</span>
+              <span>Revisión: {jobOmr.summary?.needsReview ?? 'No disponible'}</span>
+              <span>Rechazadas: {jobOmr.summary?.rejected ?? 'No disponible'}</span>
+              <span>Calificables automáticamente: {jobOmr.summary?.autoGradable ?? 'No disponible'}</span>
+              <span>
+                Promedio: {jobOmr.summary?.averageScore == null ? 'No disponible' : `${jobOmr.summary.averageScore}%`}
+              </span>
+            </div>
+            {ingestaEnCurso && (
+              <div className="plantillas-omr__progress">
+                <div className="plantillas-omr__progress-label">
+                  <span>{estadoJobOmr === 'queued' ? 'En cola para procesar' : 'Procesando páginas del PDF'}</span>
+                  <span>
+                    {paginasOmrTotales > 0
+                      ? `${Math.min(paginasOmrProcesadas, paginasOmrTotales)} de ${paginasOmrTotales} páginas`
+                      : 'Preparando páginas…'}
+                  </span>
+                </div>
+                <progress
+                  max={paginasOmrTotales > 0 ? paginasOmrTotales : undefined}
+                  value={paginasOmrTotales > 0 ? Math.min(paginasOmrProcesadas, paginasOmrTotales) : undefined}
+                  aria-label="Avance de ingesta PDF OMR"
+                />
+              </div>
+            )}
+            <p className="ayuda">Este proceso OMR no guarda ni modifica calificaciones.</p>
+            {jobOmr.status === 'failed' && (
+              <>
+                <InlineMensaje tipo="error">
+                  {mensajeErrorTrabajoOmr(jobOmr, esIngestaOmr, assessmentDetalle?.assessment.folio)}
+                </InlineMensaje>
+                {(jobOmr.errors?.length ?? 0) > 0 && (
+                  <details className="ayuda">
+                    <summary>Ver código técnico para soporte</summary>
+                    <code>{jobOmr.errors!.map((error) => error.code).join(', ')}</code>
+                  </details>
+                )}
+              </>
             )}
             <div className="plantillas-omr__pages">
               {jobOmr.pages.map((page) => (
@@ -578,16 +800,16 @@ export function PlantillasOmrWorkflow({
                   key={`${page.sheetSerial}-${page.pageIndex}`}
                   type="button"
                   className={`badge ${sheetSerialActivo === page.sheetSerial ? 'badge-activo' : ''}`}
+                  aria-pressed={sheetSerialActivo === page.sheetSerial}
                   onClick={() => {
                     setSheetSerialActivo(page.sheetSerial);
                     const sugerenciaOcrRedundante = page.ocrSuggestion?.source === 'ocr_two_position_consensus'
                       && page.ocrSuggestion.matchingPositions === 2;
                     setIngestaExamId(sugerenciaOcrRedundante ? page.ocrSuggestion?.generatedAssessmentId ?? '' : '');
                     setIngestaExamPage(sugerenciaOcrRedundante ? page.ocrSuggestion?.examPage ?? '' : '');
-                    emitToast({ level: 'info', title: 'Hoja OMR', message: `Hoja ${page.sheetSerial} seleccionada`, durationMs: 1400 });
                   }}
                 >
-                  {page.sheetSerial} · P{page.pageIndex} · {page.scanStatus}
+                  {page.sheetSerial} · P{page.pageIndex} · {etiquetaEstadoPaginaOmr(page.scanStatus)}
                 </button>
               ))}
             </div>
@@ -612,15 +834,17 @@ export function PlantillasOmrWorkflow({
                   Reprocesar desde originales
                 </Boton>
               )}
-              <Boton
-                type="button"
-                variante="secundario"
-                cargando={procesandoOmr}
-                disabled={!jobOmr.jobId || jobOmrTerminal || esIngestaOmr || jobOmr.status === 'processing'}
-                onClick={() => void finalizarJobOmr(jobOmr.jobId)}
-              >
-                Finalizar job
-              </Boton>
+              {!esIngestaOmr && (
+                <Boton
+                  type="button"
+                  variante="secundario"
+                  cargando={procesandoOmr}
+                  disabled={!jobOmr.jobId || jobOmrTerminal || jobOmr.status === 'processing'}
+                  onClick={() => void finalizarJobOmr(jobOmr.jobId)}
+                >
+                  Finalizar trabajo
+                </Boton>
+              )}
             </div>
           </div>
           {esIngestaOmr && (
@@ -698,18 +922,29 @@ export function PlantillasOmrWorkflow({
 
           {paginaActiva && (
             <div className="resultado plantillas-omr__review">
-              <h4>Review & Fix: {paginaActiva.sheetSerial}</h4>
+              <h4>{paginaPuedeResolverse ? 'Revisión y ajuste' : 'Detalle de página'}: {paginaActiva.sheetSerial}</h4>
               <div className="item-meta">
-                <span>Estado: {paginaActiva.scanStatus}</span>
-                <span>Confianza: {(paginaActiva.confidence * 100).toFixed(1)}%</span>
-                <span>Auto: {paginaActiva.autoGradable ? 'Sí' : 'No'}</span>
+                <span>Estado: {etiquetaEstadoPaginaOmr(paginaActiva.scanStatus)}</span>
+                {paginaActiva.scanStatus !== 'ignored' && paginaActiva.pageType !== 'reverso-vacio' && (
+                  <span>Confianza de lectura: {(paginaActiva.confidence * 100).toFixed(1)}%</span>
+                )}
+                <span>Calificable automáticamente: {paginaActiva.autoGradable ? 'Sí' : 'No'}</span>
                 {paginaActiva.sourceFileName && <span>Origen: {paginaActiva.sourceFileName} · página {paginaActiva.sourcePage}</span>}
               </div>
+              {paginaActiva.scanStatus !== 'ignored' && paginaActiva.pageType !== 'reverso-vacio' && (
+                <p role="note">
+                  La confianza resume la lectura. La decisión automática también evalúa calidad de imagen, cobertura y respuestas ambiguas. Si aparece «No», verifica las respuestas contra la captura.
+                </p>
+              )}
               {paginaActiva.exceptions.length > 0 && (
                 <ul className="lista">
                   {paginaActiva.exceptions.map((exception, index) => (
                     <li key={`${paginaActiva.sheetSerial}-${exception.code}-${index}`}>
-                      <b>{exception.code}</b>: {exception.message}
+                      {exception.message}
+                      <details className="ayuda">
+                        <summary>Ver código técnico para soporte</summary>
+                        <code>{exception.code}</code>
+                      </details>
                     </li>
                   ))}
                 </ul>
@@ -783,12 +1018,16 @@ export function PlantillasOmrWorkflow({
                       <figcaption>PDF generado · {referencePreview?.examId === (paginaActiva.examId ?? ingestaExamId) ? `página ${referencePreview.examPage}` : 'referencia'}</figcaption>
                       {referencePreview?.pageIndex === paginaActiva.pageIndex && referencePreview.examId === (paginaActiva.examId ?? ingestaExamId) && referencePreview.examPage === Number(paginaActiva.examPage ?? ingestaExamPage)
                         ? <img className="plantillas-omr__page-preview-image" src={referencePreview.url} alt={`Página ${referencePreview.examPage} del examen generado ${referencePreview.examId}`} />
-                        : <p>Selecciona examen y página si hace falta, luego carga la página de referencia.</p>}
+                        : <p>{paginaActiva.examId && paginaActiva.examPage
+                          ? `Carga la página ${paginaActiva.examPage} ya asociada a este examen para compararla con el escaneo.`
+                          : 'Selecciona examen y página si hace falta, luego carga la página de referencia.'}</p>}
                     </figure>
                   </div>
                 </section>
               )}
-              <div className="plantillas-omr__review-grid">
+              {paginaPuedeResolverse ? (
+                <>
+                  <div className="plantillas-omr__review-grid">
                 {esIngestaOmr && paginaActiva.scanStatus === 'needs_review' && !paginaActiva.examId && (
                   <>
                     <label className="campo">
@@ -810,7 +1049,7 @@ export function PlantillasOmrWorkflow({
                   </>
                 )}
                 <label className="campo">
-                  Student ID
+                  Identificador del alumno
                   <input
                     value={draftActivo.studentId}
                     onChange={(event) => {
@@ -850,7 +1089,7 @@ export function PlantillasOmrWorkflow({
                     return (
                       <div key={`${paginaActiva.sheetSerial}-${response.numeroPregunta}`} className="resultado">
                         <label className="campo">
-                          P{response.numeroPregunta}
+                          Reactivo {response.numeroPregunta}
                           <select
                             value={response.opcion ?? ''}
                             onChange={(event) => {
@@ -874,38 +1113,48 @@ export function PlantillasOmrWorkflow({
                         <p>Estado: {etiquetaEstadoRespuesta(evidencia?.estadoRespuesta)}</p>
                         <p>Opción detectada: {evidencia?.opcionDetectada ?? 'Ninguna'}</p>
                         <p>
-                          Candidatas OMR:{' '}
+                          Marcas candidatas del análisis:{' '}
                           {evidencia?.candidatas?.length
                             ? evidencia.candidatas.map((candidata) => `${candidata.opcion} (${Math.round(candidata.score * 100)}%, ${etiquetaEstadoMarca(candidata.estadoMarca)})`).join(' · ')
-                            : 'sin evidencia candidata conservada'}
+                            : 'No hay marcas candidatas disponibles'}
                         </p>
-                        {evidencia?.flags?.length ? <p>Señales: {evidencia.flags.join(', ')}</p> : null}
+                        {evidencia?.flags?.length ? <p>Señales: {evidencia.flags.map(etiquetaSenalOmr).join(' · ')}</p> : null}
                       </div>
                     );
                   })()
                 ))}
-              </div>
-              <div className="acciones acciones--mt">
-                <Boton
-                  type="button"
-                  variante="secundario"
-                  cargando={procesandoOmr}
-                  onClick={() =>
-                    void resolverHojaOmr({
-                      jobId: jobOmr.jobId,
-                      sheetSerial: paginaActiva.sheetSerial,
-                      resolutionReason,
-                      ...(esIngestaOmr ? { ingestionResolution: { pageIndex: paginaActiva.pageIndex, ...(!paginaActiva.examId ? { generatedAssessmentId: ingestaExamId, examPage: Number(ingestaExamPage) } : {}) } } : {}),
-                      finalIdentity: { studentId: draftActivo.studentId },
-                      finalResponses: draftActivo.responses,
-                      overrides: { versionCode: draftActivo.versionCode }
-                    })
-                  }
-                  disabled={!resolutionReason.trim() || (esIngestaOmr && !paginaActiva.examId && (!ingestaExamId || !ingestaExamPage))}
-                >
-                  Guardar resolución
-                </Boton>
-              </div>
+                  </div>
+                  <div className="acciones acciones--mt">
+                    <Boton
+                      type="button"
+                      variante="secundario"
+                      cargando={procesandoOmr}
+                      onClick={() =>
+                        void resolverHojaOmr({
+                          jobId: jobOmr.jobId,
+                          sheetSerial: paginaActiva.sheetSerial,
+                          resolutionReason,
+                          ...(esIngestaOmr ? { ingestionResolution: { pageIndex: paginaActiva.pageIndex, ...(!paginaActiva.examId ? { generatedAssessmentId: ingestaExamId, examPage: Number(ingestaExamPage) } : {}) } } : {}),
+                          finalIdentity: { studentId: draftActivo.studentId },
+                          finalResponses: draftActivo.responses,
+                          overrides: { versionCode: draftActivo.versionCode }
+                        })
+                      }
+                      disabled={!resolutionReason.trim() || (esIngestaOmr && !paginaActiva.examId && (!ingestaExamId || !ingestaExamPage))}
+                    >
+                      Guardar resolución
+                    </Boton>
+                  </div>
+                </>
+              ) : (
+                <InlineMensaje tipo="info">
+                  {paginaActiva.pageType === 'reverso-vacio'
+                    ? 'No requiere resolución manual: es un reverso vacío sin respuestas OMR.'
+                    : paginaActiva.scanStatus === 'ignored'
+                      ? 'Esta página fue omitida por el análisis y no admite resolución manual.'
+                      : `Esta página está ${etiquetaEstadoPaginaOmr(paginaActiva.scanStatus).toLowerCase()}. La ingesta PDF solo permite guardar resoluciones para páginas que requieren revisión.`}
+                </InlineMensaje>
+              )}
             </div>
           )}
         </>

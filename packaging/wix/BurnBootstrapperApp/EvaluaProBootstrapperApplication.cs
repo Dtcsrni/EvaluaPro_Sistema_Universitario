@@ -39,6 +39,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private readonly HashSet<string> observedPlannedRelatedBundleCodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> relatedBundleCodesPlannedForUninstall = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> successfullyUninstalledRelatedBundleCodes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> sameVersionRelatedBundleCodes = new(StringComparer.OrdinalIgnoreCase);
 
     private IEngine? engineHandle;
     private IBootstrapperCommand? command;
@@ -63,6 +64,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private bool autoResumeRequested;
     private bool applySawPackageFailure;
     private bool hasSameVersionRelatedBundle;
+    private Version? newerRelatedBundleVersion;
     private bool relatedBundleCleanupFailed;
     private int requestedExitCode;
     private int? lastFailedPackageStatus;
@@ -137,6 +139,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             StartUiThread();
         }
 
+        sameVersionRelatedBundleCodes.Clear();
         _ = RunHelperDetectionAsync();
         engineHandle?.Detect();
     }
@@ -157,13 +160,27 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         var candidateVersionText = ReadEngineVariableString("WixBundleVersion");
         if (args.RelationType == RelationType.Upgrade
             && Version.TryParse(candidateVersionText, out var candidateVersion)
-            && Version.TryParse(args.Version, out var relatedVersion)
-            && candidateVersion.Equals(relatedVersion))
+            && Version.TryParse(args.Version, out var relatedVersion))
         {
-            hasSameVersionRelatedBundle = true;
-            Log(
-                "warn",
-                $"Se detectó un bundle relacionado de la misma versión; se bloqueará antes de Apply para evitar que su desinstalación retire el MSI compartido. bundle={args.ProductCode} version={args.Version}");
+            if (candidateVersion.Equals(relatedVersion))
+            {
+                hasSameVersionRelatedBundle = true;
+                if (!string.IsNullOrWhiteSpace(args.ProductCode)) sameVersionRelatedBundleCodes.Add(args.ProductCode);
+                Log(
+                    "warn",
+                    $"Se detectó un bundle relacionado de la misma versión; instalar/actualizar se bloqueará antes de Apply y reparar conservará el bundle para proteger el MSI compartido. bundle={args.ProductCode} version={args.Version}");
+            }
+            else if (relatedVersion > candidateVersion)
+            {
+                if (newerRelatedBundleVersion is null || relatedVersion > newerRelatedBundleVersion)
+                {
+                    newerRelatedBundleVersion = relatedVersion;
+                }
+
+                Log(
+                    "warn",
+                    $"Se detectó un bundle relacionado más reciente; no se permitirá instalar ni reparar desde este paquete anterior. bundle={args.ProductCode} candidate={candidateVersion} installed={relatedVersion}");
+            }
         }
     }
 
@@ -178,6 +195,26 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     protected override void OnPlanRelatedBundle(PlanRelatedBundleEventArgs args)
     {
         base.OnPlanRelatedBundle(args);
+
+        if ((string.Equals(currentOperation, "install", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(currentOperation, "repair", StringComparison.OrdinalIgnoreCase))
+            && !string.IsNullOrWhiteSpace(args.BundleCode)
+            && args.State is RequestState.Absent or RequestState.ForceAbsent)
+        {
+            var requestedState = args.State;
+            args.State = RequestState.Present;
+            Log("info", $"La operación conserva el bundle relacionado durante instalar/reparar para evitar que su helper de desinstalación limpie el directorio compartido antes de consumir el payload candidato. bundle={args.BundleCode} requestedState={requestedState} effectiveState={args.State}");
+        }
+
+        if (string.Equals(currentOperation, "repair", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(args.BundleCode)
+            && sameVersionRelatedBundleCodes.Contains(args.BundleCode)
+            && args.State is RequestState.Absent or RequestState.ForceAbsent)
+        {
+            var requestedState = args.State;
+            args.State = RequestState.Present;
+            Log("info", $"La reparación conserva el bundle relacionado de la misma versión para evitar retirar el MSI o su payload. bundle={args.BundleCode} requestedState={requestedState} effectiveState={args.State}");
+        }
 
         if (!string.IsNullOrWhiteSpace(args.BundleCode)
             && args.State is RequestState.Absent or RequestState.ForceAbsent)
@@ -220,11 +257,24 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             return;
         }
 
-        if (hasSameVersionRelatedBundle && !string.Equals(currentOperation, "uninstall", StringComparison.OrdinalIgnoreCase))
+        if (hasSameVersionRelatedBundle
+            && !string.Equals(currentOperation, "uninstall", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(currentOperation, "repair", StringComparison.OrdinalIgnoreCase))
         {
             const string reason = "Hay otro Installer Hub relacionado de la misma versión. Para proteger el MSI y los datos existentes, no se aplicaron cambios; cierra esta ventana y usa el bundle ya instalado para reparar, o espera una versión superior para actualizar.";
             SetStageState(StagePlanning, InstallerStageStatus.Error, "Actualización detenida por conflicto de versión.", reason);
             failureDisplay = BuildFailureDisplay("Actualización detenida por conflicto de versión", null, null, null, sessionLogPath, reason);
+            FinalizeFailure("accion_producto", 30, reason);
+            return;
+        }
+
+        if (newerRelatedBundleVersion is not null
+            && !string.Equals(currentOperation, "uninstall", StringComparison.OrdinalIgnoreCase))
+        {
+            var candidateVersion = ReadEngineVariableString("WixBundleVersion");
+            var reason = $"Este Installer Hub ({candidateVersion}) es anterior a la versión relacionada instalada ({newerRelatedBundleVersion}). No se ejecutó el MSI. Cierra esta ventana y abre el Installer Hub más reciente desde el menú Inicio para reparar o actualizar EvaluaPro.";
+            SetStageState(StagePlanning, InstallerStageStatus.Error, "Paquete anterior detectado.", reason);
+            failureDisplay = BuildFailureDisplay("No se puede usar un Installer Hub anterior", null, null, null, sessionLogPath, reason);
             FinalizeFailure("accion_producto", 30, reason);
             return;
         }
@@ -1920,6 +1970,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
             _ => isGenuinelyInstalled ? "repair" : (string.IsNullOrWhiteSpace(payload.RecommendedMode) ? "install" : payload.RecommendedMode)
         };
+        var blockedByOlderBundle = newerRelatedBundleVersion is not null;
 
         var model = new WindowDetectionModel
         {
@@ -1928,7 +1979,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             InstallDir = installDir,
             Mode = NormalizeMode(detectedMode),
             IsInstalled = isGenuinelyInstalled,
-            Summary = payload.Remediation?.RequiresRestart == true
+            Summary = blockedByOlderBundle
+                ? $"Este Installer Hub ({ReadEngineVariableString("WixBundleVersion")}) es anterior a la versión relacionada instalada ({newerRelatedBundleVersion}). Usa el Hub más reciente para reparar o actualizar EvaluaPro."
+                : payload.Remediation?.RequiresRestart == true
                 ? (string.IsNullOrWhiteSpace(payload.Remediation.RestartReason)
                     ? "La remediación automática requiere reinicio de Windows para continuar."
                     : payload.Remediation.RestartReason)
@@ -1939,8 +1992,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     : isGenuinelyInstalled
                         ? "EvaluaPro ya está instalado. El asistente se iniciará en modo de gestión."
                         : (payload.Runtime?.Reason ?? "Equipo listo para continuar."),
-            Ready = payload.Ready,
-            LifecycleState = payload.Lifecycle?.State ?? "unknown",
+            Ready = payload.Ready && !blockedByOlderBundle,
+            LifecycleState = blockedByOlderBundle ? "conflict" : payload.Lifecycle?.State ?? "unknown",
             AssetName = payload.Flavor?.InstallerHubExeName ?? "EvaluaPro-InstallerHub-docente-local.exe",
             Prerequisites = payload.Prerequisites ?? [],
             AvailableFlavors = LoadFlavorItems()
@@ -1950,10 +2003,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         DispatchToUi(() => window?.SetRestartActionVisible(payload.Remediation?.RequiresRestart == true, payload.Remediation?.RestartReason));
         SetStageState(
             StageDetection,
-            InstallerStageStatus.Ok,
-            payload.Ready ? "Prerequisitos verificados." : "Detección completada con observaciones.",
+            blockedByOlderBundle ? InstallerStageStatus.Error : InstallerStageStatus.Ok,
+            blockedByOlderBundle ? "Paquete anterior detectado." : payload.Ready ? "Prerequisitos verificados." : "Detección completada con observaciones.",
             model.Summary);
-        UpdateUiState(statusText: payload.Ready ? "Prerequisitos verificados." : "El equipo requiere atencion antes de instalar.", busy: false);
+        UpdateUiState(
+            statusText: blockedByOlderBundle
+                ? "Operación bloqueada: el Installer Hub abierto es anterior al instalado."
+                : payload.Ready ? "Prerequisitos verificados." : "El equipo requiere atencion antes de instalar.",
+            busy: false);
     }
 
     private IReadOnlyList<FlavorItem> LoadFlavorItems()

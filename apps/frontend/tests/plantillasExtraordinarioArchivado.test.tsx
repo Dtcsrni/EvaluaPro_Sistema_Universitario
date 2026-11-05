@@ -67,6 +67,7 @@ describe('generación extraordinaria desde periodo archivado', () => {
         puedeGenerarExamenes
         onGenerarExamenesLote={generarLote}
         mensajeGeneracion=""
+        mensajeGeneracionEsError={false}
         lotePdfUrl={null}
         descargarPdfLote={async () => {}}
         progresoLoteGeneracion={null}

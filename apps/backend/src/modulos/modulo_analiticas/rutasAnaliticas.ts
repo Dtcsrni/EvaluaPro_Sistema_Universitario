@@ -8,6 +8,7 @@ import {
   exportarCsv,
   exportarCsvCalificaciones,
   exportarXlsxCalificaciones,
+  exportarHtmlCalificaciones,
   exportarListaAcademicaCsv,
   exportarListaAcademicaDocx,
   exportarListaAcademicaFirma,
@@ -19,7 +20,7 @@ import {
   listarBanderas,
   registrarEventosUso
 } from './controladorAnaliticas.js';
-import { esquemaCrearBandera, esquemaExportarCsv, esquemaGuardarCalificacionLista, esquemaPreviewBonoExtracurricular, esquemaRegistrarResultadoExtraExterno } from './validacionesAnaliticas.js';
+import { esquemaCrearBandera, esquemaExportarCsv, esquemaExportarHtmlCalificaciones, esquemaGuardarCalificacionLista, esquemaPreviewBonoExtracurricular, esquemaRegistrarResultadoExtraExterno } from './validacionesAnaliticas.js';
 import { esquemaRegistrarEventosUso } from './validacionesEventosUso.js';
 import { requerirPermiso } from '../modulo_autenticacion/index.js';
 
@@ -31,6 +32,8 @@ router.post('/eventos-uso', requerirPermiso('analiticas:leer'), validarCuerpo(es
 router.post('/exportar-csv', requerirPermiso('analiticas:leer'), validarCuerpo(esquemaExportarCsv, { strict: true }), exportarCsv);
 router.get('/calificaciones-csv', requerirPermiso('analiticas:leer'), exportarCsvCalificaciones);
 router.get('/calificaciones-xlsx', requerirPermiso('analiticas:leer'), exportarXlsxCalificaciones);
+router.get('/calificaciones-html', requerirPermiso('analiticas:leer'), exportarHtmlCalificaciones);
+router.post('/calificaciones-html', requerirPermiso('analiticas:leer'), validarCuerpo(esquemaExportarHtmlCalificaciones, { strict: true }), exportarHtmlCalificaciones);
 router.get('/lista-academica-csv', requerirPermiso('analiticas:leer'), exportarListaAcademicaCsv);
 router.get('/lista-academica-docx', requerirPermiso('analiticas:leer'), exportarListaAcademicaDocx);
 router.get('/lista-academica-firma', requerirPermiso('analiticas:leer'), exportarListaAcademicaFirma);

@@ -106,7 +106,9 @@ describe('acciones de sesión para errores HTTP', () => {
   it('crea acción de cierre de sesión para el tipo solicitado', () => {
     const listener = vi.fn();
     window.addEventListener('app:sesion-invalidada', listener);
-    accionCerrarSesion('alumno').onClick();
+    const accion = accionCerrarSesion('alumno');
+    expect(accion.label).toBe('Cerrar sesión');
+    accion.onClick();
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ detail: { tipo: 'alumno' } }));
     window.removeEventListener('app:sesion-invalidada', listener);
   });

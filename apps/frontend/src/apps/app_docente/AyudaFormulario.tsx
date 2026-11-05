@@ -6,6 +6,7 @@
  */
 import type { ReactNode } from 'react';
 import { Icono } from '../../ui/iconos';
+import { ChevronDown, IconoLucide } from '../../ui/iconosCatalogo';
 
 export function AyudaFormulario({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
@@ -22,7 +23,7 @@ export function AyudaFormulario({ titulo, children }: { titulo: string; children
             <Icono nombre="ok" /> Guía
           </span>
           <span className="ayuda-chip">
-            <Icono nombre="info" /> Ver detalles ▾
+            <Icono nombre="info" /> Ver detalles <IconoLucide icon={ChevronDown} size={14} />
           </span>
         </div>
       </summary>

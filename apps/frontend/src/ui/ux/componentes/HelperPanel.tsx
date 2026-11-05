@@ -25,7 +25,7 @@ export function HelperPanel({
     <aside className="panel helper-panel" aria-label={`Ayuda: ${titulo}`}>
       <div className="helper-panel__header">
         <p className="eyebrow">
-          <Icono nombre="info" /> Guia rapida
+          <Icono nombre="info" /> Guía rápida
         </p>
         <h3>{titulo}</h3>
         <p className="nota">{descripcion}</p>

@@ -45,7 +45,7 @@ describe('PlantillasGenerados', () => {
         mensajeGeneracion=""
         lotePdfUrl={null}
         descargarPdfLote={vi.fn().mockResolvedValue(undefined)}
-        ultimoGenerado={null}
+        ultimoGenerado={{ _id: 'EXAMEN-DUMMY', folio: 'FOLIO-DUMMY', plantillaId: 'plan-1', generadoEn: '2026-10-28T10:00:00Z' }}
         formatearFechaHora={vi.fn().mockReturnValue('2026-08-20')}
         cargandoExamenesGenerados={false}
         examenesGenerados={[]}
@@ -70,9 +70,12 @@ describe('PlantillasGenerados', () => {
     );
 
     expect(screen.getByRole('heading', { name: /^Generación de exámenes$/i })).toBeInTheDocument();
+    const resumenUltimoExamen = screen.getByLabelText('Detalle del último examen generado');
+    expect(resumenUltimoExamen).toHaveTextContent('Folio: FOLIO-DUMMY');
+    expect(resumenUltimoExamen).not.toHaveTextContent('ID:');
 
     // En modo paquete inicial
-    const botonGenerarPaquete = screen.getByRole('button', { name: /Generar paquete de examenes/i });
+    const botonGenerarPaquete = screen.getByRole('button', { name: /Generar paquete de exámenes/i });
     expect(botonGenerarPaquete).not.toBeDisabled();
     fireEvent.click(botonGenerarPaquete);
     expect(mockGenerarExamenesLote).toHaveBeenCalledTimes(1);

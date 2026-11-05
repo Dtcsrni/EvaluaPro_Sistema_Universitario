@@ -25,7 +25,14 @@ describe('VersionInfoPage', () => {
         repositoryUrl: 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario',
         technologies: [
           { id: 'react', label: 'React', website: 'https://react.dev' },
-          { id: 'typescript', label: 'TypeScript', website: 'https://www.typescriptlang.org' }
+          { id: 'typescript', label: 'TypeScript', website: 'https://www.typescriptlang.org' },
+          { id: 'vite', label: 'Vite' },
+          { id: 'nodejs', label: 'Node.js' },
+          { id: 'sqlite', label: 'SQLite' },
+          { id: 'prisma', label: 'Prisma' },
+          { id: 'omr', label: 'OMR' },
+          { id: 'crypto', label: 'Criptografía' },
+          { id: 'custom', label: 'Tecnología adicional' }
         ],
         developer: { nombre: 'I.S.C. Erick Renato Vega Ceron', rol: 'Desarrollo' },
         system: { node: 'v24.0.0', generatedAt: new Date().toISOString() },
@@ -33,7 +40,7 @@ describe('VersionInfoPage', () => {
       })
     } as Response);
 
-    render(<VersionInfoPage />);
+    const { container } = render(<VersionInfoPage />);
 
     await waitFor(() => {
       expect(screen.getByText('Versión y novedades')).toBeInTheDocument();
@@ -45,6 +52,16 @@ describe('VersionInfoPage', () => {
     expect(screen.getByText(/Versión técnica 1\.0\.0/i)).toBeInTheDocument();
     expect(screen.getByText('React 19.3.1')).toBeInTheDocument();
     expect(screen.getByText('TypeScript 6.0.3')).toBeInTheDocument();
+    const iconosTecnologia = [...container.querySelectorAll('.version-tech-icon-box svg')];
+    expect(iconosTecnologia).toHaveLength(9);
+    for (const icono of iconosTecnologia) {
+      expect(icono.classList.contains('icono-lucide')).toBe(true);
+      expect(icono.getAttribute('width')).toBe('20');
+      expect(icono.getAttribute('height')).toBe('20');
+      expect(icono.getAttribute('stroke')).toBe('currentColor');
+      expect(icono.getAttribute('stroke-width')).toBe('2');
+      expect(icono.getAttribute('aria-hidden')).toBe('true');
+    }
     expect(screen.getByRole('heading', { name: 'Licencias' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'AGPL-3.0-or-later' })).toHaveAttribute(
       'href',
