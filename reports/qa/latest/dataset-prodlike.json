@@ -1,7 +1,7 @@
 {
   "version": "1",
-  "ejecutadoEn": "2026-09-09T07:35:30.385Z",
-  "archivo": "tests\\fixtures\\prodlike\\prodlike-anon.json.gz",
+  "ejecutadoEn": "2026-11-06T00:52:25.048Z",
+  "archivo": "reports\\qa\\generated\\prodlike-anon.json.gz",
   "conteos": {
     "periodos": 1,
     "alumnos": 1,
