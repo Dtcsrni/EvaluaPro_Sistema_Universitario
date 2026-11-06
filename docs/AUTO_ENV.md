@@ -172,7 +172,7 @@ Las variables de herramientas y scripts se listan por separado y no representan 
 - `VITEST_WORKER_ID` (usado en: apps/portal_alumno_cloud/tests/setup.ts, apps/portal_alumno_cloud/tests/utils/sqliteTestDatabase.ts)
 
 ## Frontend
-- `DEV` (usado en: apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx, apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts, apps/frontend/src/ui/errores/ErrorBoundary.tsx)
+- `DEV` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx, apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts, apps/frontend/src/ui/errores/ErrorBoundary.tsx)
 - `PROD` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/pwa.ts)
 - `VITE_API_BASE_URL` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/servicios_api/clienteApi.ts, apps/frontend/src/ui/encuadre/PaginaFirmaEncuadre.tsx)
 - `VITE_APP_DESTINO` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/pwa.ts)
@@ -182,6 +182,7 @@ Las variables de herramientas y scripts se listan por separado y no representan 
 - `VITE_DEVELOPER_NAME` (usado en: apps/frontend/src/ui/version/VersionInfoPage.tsx, apps/frontend/vite.config.ts)
 - `VITE_DEVELOPER_ROLE` (usado en: apps/frontend/src/ui/version/VersionInfoPage.tsx, apps/frontend/vite.config.ts)
 - `VITE_DISABLE_PWA` (usado en: apps/frontend/src/pwa.ts)
+- `VITE_EVALUAPRO_MODE` (usado en: apps/frontend/src/ui/version/versionInfo.ts, apps/frontend/vite.config.ts)
 - `VITE_GOOGLE_CLIENT_ID` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/apps/app_docente/AppDocente.tsx, apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx, apps/frontend/src/apps/app_docente/SeccionCuenta.tsx)
 - `VITE_HTTPS` (usado en: apps/frontend/src/apps/app_docente/QrAccesoMovil.tsx)
 - `VITE_OMR_CANONICAL_CONTRACT_ID` (usado en: apps/frontend/src/ui/version/versionInfo.ts, apps/frontend/vite.config.ts)

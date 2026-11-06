@@ -1,8 +1,8 @@
 ---
 id: SPEC-124
 titulo: Mejora UX y accesibilidad del Installer Hub
-version: 1.1.0
-fecha: 2026-10-22
+version: 1.1.2
+fecha: 2026-10-29
 autor: Codex
 modulo: modulo_installer_windows
 estado: approved
@@ -53,6 +53,28 @@ El asistente WPF del Installer Hub ya guía instalación, reparación, actualiza
 - El smoke UI no destructivo del host no encontró la ventana WPF esperada y abortó en `wait-window`, antes de iniciar acciones de producto.
 - Revalidación 1.2.10: compilación Release del proyecto WPF correcta (0 advertencias); contrato del Installer Hub 165 pass, 0 fail, 13 omitidos; lifecycle 31/31 pass; contrato CI 51/51 pass; auditoría de políticas correcta.
 - La captura runtime permanece pendiente: la captura recibida muestra Windows Sandbox cerrando con `0x80370106`. El worktree no contiene la pantalla de visita guiada de 21 pasos de esa imagen; la aplicación nativa revisada aquí tiene cinco etapas.
+
+## Contraste de los selectores WPF (2026-10-29)
+
+- Revisión focal: el texto del selector cerrado y las opciones usa `TextBrush` (`#F8FAFC`)
+  sobre `#0C1728`; la opción resaltada usa `#263B52`; la selección usa el verde azulado
+  `PrimaryButtonBrush` (`#0F766E`). El indicador de foco usa `FocusBrush` (`#2563EB`).
+- La prueba de contrato ahora calcula los pares del selector: texto normal mínimo 4.5:1 y
+  foco no textual mínimo 3:1, además de verificar que XAML conserve esos fondos y estados.
+- Validación runtime WPF pendiente; esta pasada verifica código y ratios declarados, no la
+  composición final del tema nativo en pantalla.
+
+## Revalidación focal del selector y estado runtime (2026-10-29)
+
+- Recalculé con la fórmula WCAG de luminancia sRGB los pares usados por el selector:
+  texto `#F8FAFC`/fondo `#0C1728` = 17.17:1; texto/fondo resaltado `#263B52` = 10.97:1;
+  texto/fondo seleccionado `#0F766E` = 5.23:1; foco `#2563EB`/fondo del selector =
+  3.48:1; borde `#70849A`/fondo = 4.67:1. Todos superan el umbral AA aplicable de
+  texto (4.5:1) o componente/foco no textual (3:1).
+- `node --test --test-name-pattern="Installer Hub usa superficies legibles|Installer Hub cumple contrato DESIGN" scripts/tests/installer-hub-contract.test.mjs`: 2/2 PASS.
+- `dotnet build packaging/wix/BurnBootstrapperApp/EvaluaPro.BurnBootstrapperApp.csproj --no-restore -c Release`: PASS, 0 errores; NU1900 advierte que NuGet no pudo consultar el índice de vulnerabilidades por falta de acceso de red.
+- La inspección visual/UIA no se cerró: el acceso registrado como «EvaluaPro - Hub» abrió una ventana de actualización de EvaluaPro, no una ventana WPF del Hub. No acepté ni rechacé la actualización. No se encontró un ejecutable Hub dentro de `%LOCALAPPDATA%\\EvaluaPro`; el resultado de código y build no demuestra la composición visual en runtime.
+- Siguen pendientes la captura visual nativa, recorrido por teclado y verificación UI Automation en una ventana Hub disponible.
 
 ## Riesgos y Decisiones
 

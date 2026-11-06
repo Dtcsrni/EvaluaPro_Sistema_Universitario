@@ -1267,184 +1267,104 @@ async function intentarEmbedImagen(pdfDoc: PDFDocument, src?: string): Promise<L
 }
 
 function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: ReturnType<typeof rgb>) {
-  // Composición vectorial experimental: retícula de rombos, órbitas
-  // concéntricas, abanicos radiales y polígonos angulares. La combinación
-  // ofrece variedad visual sin depender de una imagen raster y conserva una
-  // opacidad baja para que el patrón no compita con identidad, QR ni texto.
-  const margen = 9;
-  const xMin = rect.x + margen;
-  const xMax = rect.x + rect.width - margen;
-  const yMin = rect.y + margen;
-  const yMax = rect.y + rect.height - margen;
-  const dentro = (punto: { x: number; y: number }) =>
-    punto.x >= xMin && punto.x <= xMax && punto.y >= yMin && punto.y <= yMax;
-  const linea = (inicio: { x: number; y: number }, fin: { x: number; y: number }, thickness: number, opacity: number) => {
-    if (dentro(inicio) && dentro(fin)) page.drawLine({ start: inicio, end: fin, color, thickness, opacity });
-  };
-  const circuloPunteado = (
-    centroCirculo: { x: number; y: number },
-    radio: number,
-    radioPunto: number,
-    opacity: number,
-    paso = 8
-  ) => {
-    const puntos = Math.max(12, Math.ceil((2 * Math.PI * radio) / paso));
-    for (let indice = 0; indice < puntos; indice += 1) {
-      const angulo = (Math.PI * 2 * indice) / puntos;
-      const punto = {
-        x: centroCirculo.x + Math.cos(angulo) * radio,
-        y: centroCirculo.y + Math.sin(angulo) * radio
-      };
-      if (dentro(punto)) page.drawCircle({ x: punto.x, y: punto.y, size: radioPunto, color, opacity });
-    }
-  };
-  const poligono = (vertices: Array<{ x: number; y: number }>, thickness: number, opacity: number) => {
-    for (let indice = 0; indice < vertices.length; indice += 1) {
-      linea(vertices[indice]!, vertices[(indice + 1) % vertices.length]!, thickness, opacity);
-    }
-  };
+  // La referencia combina una retícula ligera de rombos/nodos con una red
+  // diagonal extendida. Mantener ambas capas por debajo del contenido preserva
+  // contraste y zonas funcionales, sin rasterizar ni sombrear el papel.
+  const margenX = Math.min(10, rect.width * 0.04);
+  const margenY = Math.min(10, rect.height * 0.08);
+  const xMin = rect.x + margenX;
+  const xMax = rect.x + rect.width - margenX;
+  const yMin = rect.y + margenY;
+  const yMax = rect.y + rect.height - margenY;
+  const ancho = Math.max(1, xMax - xMin);
+  const alto = Math.max(1, yMax - yMin);
+  const columnas = Math.max(5, Math.ceil(ancho / 34));
+  const filas = Math.max(3, Math.ceil(alto / 30));
+  const nodos: Array<Array<{ x: number; y: number }>> = [];
 
-  // Retícula base de rombos, con alternancia de escala para evitar una
-  // textura monótona y mantener una firma geométrica reconocible.
-  const pasoX = 31;
-  const pasoY = 24;
-  for (let fila = 0, y = yMin; y <= yMax; fila += 1, y += pasoY) {
-    const desplazamiento = fila % 2 === 0 ? 0 : pasoX / 2;
-    for (let columna = 0, x = xMin + desplazamiento; x <= xMax; columna += 1, x += pasoX) {
-      const radio = columna % 3 === 0 ? 7 : 5;
-      const vertices = [
-        { x, y: y + radio },
-        { x: x + radio, y },
-        { x, y: y - radio },
-        { x: x - radio, y }
-      ];
-      poligono(vertices, 0.58, columna % 3 === 0 ? 0.09 : 0.065);
-      if (dentro({ x, y })) page.drawCircle({ x, y, size: columna % 3 === 0 ? 0.9 : 0.62, color, opacity: 0.1 });
-    }
+  for (let fila = 0; fila < filas; fila += 1) {
+    const offset = fila % 2 === 0 ? 0 : 0.5;
+    const inicioX = xMin + offset * (ancho / (columnas - 1));
+    const finX = xMax - (fila % 2 === 0 ? 0 : ancho / (columnas - 1) * 0.5);
+    const pasoX = (finX - inicioX) / (columnas - 1);
+    const y = yMin + (alto * fila) / (filas - 1);
+    nodos.push(Array.from({ length: columnas }, (_, columna) => ({
+      x: inicioX + pasoX * columna,
+      y
+    })));
   }
 
-  // Mandala lineal central: los anillos y radios quedan suficientemente
-  // claros para percibirse, pero su opacidad es menor detrás del título.
-  const centro = { x: rect.x + rect.width * 0.52, y: rect.y + rect.height * 0.62 };
-  const anchos = [148, 118, 88, 58];
-  for (let indice = 0; indice < anchos.length; indice += 1) {
-    const ancho = anchos[indice]!;
-    const alto = ancho * 0.58;
-    poligono([
-      { x: centro.x, y: centro.y + alto },
-      { x: centro.x + ancho, y: centro.y },
-      { x: centro.x, y: centro.y - alto },
-      { x: centro.x - ancho, y: centro.y }
-    ], 0.72, 0.065 + indice * 0.012);
-  }
-  for (let indice = 0; indice < 12; indice += 1) {
-    const angulo = (Math.PI * 2 * indice) / 12;
-    const radio = 154;
-    linea(
-      centro,
-      { x: centro.x + Math.cos(angulo) * radio, y: centro.y + Math.sin(angulo) * radio * 0.58 },
-      0.52,
-      0.052
-    );
-  }
-
-  // Segundo nivel de geometria visionaria: roseta radial, triangulos
-  // concentricos y un contorno bilateral tipo ojo. Es una interpretacion
-  // abstracta de geometria sagrada y anatomia espiritual, no una imagen
-  // raster ni una reproduccion de obra ajena.
-  const radioRosetaMax = Math.max(
-    1,
-    Math.min(
-      42,
-      centro.x - xMin - 4,
-      xMax - centro.x - 4,
-      centro.y - yMin - 4,
-      yMax - centro.y - 4
-    )
-  );
-  const radiosRoseta = [0.34, 0.5, 0.66, 0.83, 1].map((factor) => radioRosetaMax * factor);
-  for (let indice = 0; indice < radiosRoseta.length; indice += 1) {
-    const radio = radiosRoseta[indice]!;
-    circuloPunteado(centro, radio, indice % 2 === 0 ? 0.76 : 0.64, 0.068 + (indice % 2) * 0.008, 5.5);
-  }
-  for (let indice = 0; indice < 12; indice += 1) {
-    const angulo = (Math.PI * 2 * indice) / 12 + Math.PI / 12;
-    const radioInterior = indice % 2 === 0 ? 22 : 34;
-    const radioExterior = indice % 2 === 0 ? 64 : 82;
-    linea(
-      { x: centro.x + Math.cos(angulo) * radioInterior, y: centro.y + Math.sin(angulo) * radioInterior },
-      { x: centro.x + Math.cos(angulo) * radioExterior, y: centro.y + Math.sin(angulo) * radioExterior },
-      0.6,
-      0.06
-    );
-  }
-  const ojoAlto = Math.min(12, radioRosetaMax * 0.48);
-  const ojoAncho = Math.min(38, radioRosetaMax * 1.75);
-  const ojoSuperior = [
-    { x: centro.x - ojoAncho, y: centro.y },
-    { x: centro.x - ojoAncho * 0.62, y: centro.y + ojoAlto * 0.72 },
-    { x: centro.x, y: centro.y + ojoAlto },
-    { x: centro.x + ojoAncho * 0.62, y: centro.y + ojoAlto * 0.72 },
-    { x: centro.x + ojoAncho, y: centro.y }
-  ];
-  const ojoInferior = ojoSuperior.map((punto) => ({ x: punto.x, y: centro.y - (punto.y - centro.y) }));
-  poligono(ojoSuperior, 0.72, 0.075);
-  poligono(ojoInferior.reverse(), 0.72, 0.075);
-  circuloPunteado(centro, 8, 0.68, 0.075, 4.8);
-  page.drawCircle({ x: centro.x, y: centro.y, size: 2.2, color, opacity: 0.08 });
-
-  // Nodos organicos simetricos en los laterales: aumentan la percepcion del
-  // patron sin competir con la identidad institucional ni el texto.
-  for (const direccion of [-1, 1]) {
-    const nodo = { x: centro.x + direccion * 132, y: centro.y - 4 };
-    if (!dentro(nodo)) continue;
-    const radioNodoMax = Math.min(
-      16,
-      nodo.x - xMin - 3,
-      xMax - nodo.x - 3,
-      nodo.y - yMin - 3,
-      yMax - nodo.y - 3
-    );
-    if (radioNodoMax > 0) {
-      for (let indice = 0; indice < 5; indice += 1) {
-        const radio = Math.max(0.6, radioNodoMax * (0.25 + indice * 0.18));
-        circuloPunteado(nodo, radio, 0.56, 0.058 + indice * 0.007, 5);
+  // Malla facetada: diagonales vecinas y diagonales largas alternadas crean
+  // los cruces asimétricos visibles en el patrón original, con pocos trazos.
+  for (let fila = 0; fila < filas - 1; fila += 1) {
+    for (let columna = 0; columna < columnas; columna += 1) {
+      const nodo = nodos[fila]![columna]!;
+      const siguienteFila = nodos[fila + 1]!;
+      const vecinoDiagonal = columna + ((fila + columna) % 2 === 0 ? 1 : -1);
+      const vecinos = [siguienteFila[columna], siguienteFila[vecinoDiagonal]];
+      for (const vecino of vecinos) {
+        if (vecino) page.drawLine({ start: nodo, end: vecino, color, thickness: 0.46, opacity: 0.064 });
+      }
+      if ((fila + columna) % 4 === 0 && siguienteFila[columna + 2]) {
+        page.drawLine({ start: nodo, end: siguienteFila[columna + 2]!, color, thickness: 0.38, opacity: 0.046 });
       }
     }
-    linea(
-      { x: nodo.x - direccion * 32, y: nodo.y },
-      { x: nodo.x + direccion * 32, y: nodo.y },
-      0.55,
-      0.08
-    );
   }
 
-  // Abanicos laterales y polígonos quebrados: añaden el carácter angular y
-  // orgánico solicitado sin crear rectángulos de fondo ni marcos artificiales.
-  const lados = [xMin + 18, xMax - 18];
-  for (const [indice, x] of lados.entries()) {
-    const direccion = indice === 0 ? 1 : -1;
-    const origen = { x, y: yMax - 8 };
-    const puntas = [0, 24, 48, 72, 96].map((desplazamiento, indicePunta) => ({
-      x: x + direccion * (34 + desplazamiento),
-      y: yMin + 20 + indicePunta * 17
-    }));
-    for (const [indicePunta, punta] of puntas.entries()) {
-      linea(origen, punta, indicePunta % 2 === 0 ? 0.9 : 0.55, indicePunta % 2 === 0 ? 0.14 : 0.09);
-    }
-    poligono([
-      { x: x, y: yMin + 8 },
-      { x: x + direccion * 42, y: yMin + 38 },
-      { x: x + direccion * 15, y: yMin + 68 },
-      { x: x + direccion * 60, y: yMin + 92 }
-    ], 0.7, 0.075);
+  // Trazos extendidos enlazan varios módulos para evitar el aspecto de un
+  // mosaico aislado y reproducen la red diagonal amplia de la cabecera.
+  const diagonalesLargas = [
+    [nodos[0]![0]!, nodos[Math.floor((filas - 1) / 2)]![Math.floor(columnas * 0.72)]!],
+    [nodos[Math.floor((filas - 1) / 2)]![0]!, nodos[filas - 1]![Math.floor(columnas * 0.86)]!],
+    [nodos[filas - 1]![Math.floor(columnas * 0.14)]!, nodos[Math.floor((filas - 1) / 2)]![columnas - 1]!],
+    [nodos[0]![Math.floor(columnas * 0.3)]!, nodos[filas - 1]![columnas - 1]!]
+  ];
+  for (const [inicio, fin] of diagonalesLargas) {
+    page.drawLine({ start: inicio, end: fin, color, thickness: 0.58, opacity: 0.052 });
   }
 
-  // Micro-puntos de apoyo para conservar textura al imprimir, separados de
-  // las líneas principales para que no parezca ruido ni degrade la lectura.
-  for (let y = yMin + 4; y <= yMax; y += 9) {
-    for (let x = xMin + 4; x <= xMax; x += 9) {
-      if ((Math.round(x + y) / 9) % 3 !== 0) page.drawCircle({ x, y, size: 0.35, color, opacity: 0.05 });
+  // Rombos abiertos en todos los nodos; algunos reciben un segundo contorno
+  // fino para recuperar el detalle del patrón sin añadir un emblema central.
+  for (let fila = 0; fila < filas; fila += 1) {
+    for (let columna = 0; columna < columnas; columna += 1) {
+      const centro = nodos[fila]![columna]!;
+      const destacado = (fila * 2 + columna) % 5 === 0;
+      const radioX = destacado ? 8.6 : 5.4;
+      const radioY = destacado ? 7.2 : 4.6;
+      const vertices = [
+        { x: centro.x, y: centro.y + radioY },
+        { x: centro.x + radioX, y: centro.y },
+        { x: centro.x, y: centro.y - radioY },
+        { x: centro.x - radioX, y: centro.y }
+      ];
+      for (let lado = 0; lado < vertices.length; lado += 1) {
+        page.drawLine({
+          start: vertices[lado]!,
+          end: vertices[(lado + 1) % vertices.length]!,
+          color,
+          thickness: destacado ? 0.55 : 0.4,
+          opacity: destacado ? 0.12 : 0.088
+        });
+      }
+      if (destacado) {
+        const radioInterior = 2.6;
+        const interior = [
+          { x: centro.x, y: centro.y + radioInterior },
+          { x: centro.x + radioInterior, y: centro.y },
+          { x: centro.x, y: centro.y - radioInterior },
+          { x: centro.x - radioInterior, y: centro.y }
+        ];
+        for (let lado = 0; lado < interior.length; lado += 1) {
+          page.drawLine({
+            start: interior[lado]!,
+            end: interior[(lado + 1) % interior.length]!,
+            color,
+            thickness: 0.35,
+            opacity: 0.085
+          });
+        }
+      }
+      page.drawCircle({ x: centro.x, y: centro.y, size: destacado ? 1.05 : 0.66, color, opacity: 0.14 });
     }
   }
 }

@@ -10,6 +10,7 @@ EvaluaPro usa versiones SemVer (`MAJOR.MINOR.PATCH`). La versión del repositori
 - El MSI informa la versión de la aplicación; el bundle Burn y la GUI del Hub informan la versión del Hub. El manifiesto del instalador registra ambas (`appVersion` y `hubVersion`).
 - Corte verificado el 2026-10-22: GitHub publicó `hub-v1.2.10` desde `95219caa731eff7c1b079be6580292b804132447`; el código fuente declara aplicación `1.2.9` y Hub `1.2.10`. No reutilices esos números para un payload distinto.
 - Según ese corte, el siguiente candidato es Hub `1.2.11` sobre aplicación `1.2.9`, a menos que se publique otra versión antes de prepararlo. Reconsulta GitHub y actualiza `config/hub-version.json`, changelog y manifiesto antes de crear el tag.
+- Candidato local del 2026-11-06: aplicación `1.2.11` y Hub `1.2.18`. El Hub se avanzó por separado para superar las instalaciones locales 1.2.17; esto no equivale a una release pública ni a una promoción estable.
 - La versión instalada solo se confirma desde EvaluaPro en el equipo.
 
 ## Fuentes de versión

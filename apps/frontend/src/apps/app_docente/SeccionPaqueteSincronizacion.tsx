@@ -8,13 +8,14 @@ import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
+import { IconoLucide, PackageOpen } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { AyudaFormulario } from './AyudaFormulario';
 import { convertirFechaLocalAISO } from './sincronizacionUtils';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Periodo } from './tipos';
-import { esMensajeError, etiquetaMateria, mensajeDeError } from './utilidades';
+import { etiquetaMateria, mensajeDeError } from './utilidades';
 
 const BACKUP_FORMAT_VERSION = 2;
 const BACKUP_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -58,20 +59,20 @@ function validarBackupMeta(metaRaw: unknown): string | null {
   const fingerprint = String(meta.businessLogicFingerprint || '').trim();
 
   if (!expiresAtRaw) {
-    return 'Backup invalido: falta backupMeta.expiresAt';
+    return 'El paquete no es válido: falta su fecha de vencimiento.';
   }
 
   const expiresAtMs = new Date(expiresAtRaw).getTime();
   if (!Number.isFinite(expiresAtMs)) {
-    return 'Backup invalido: backupMeta.expiresAt no es una fecha valida';
+    return 'El paquete no es válido: la fecha de vencimiento no tiene un formato válido.';
   }
 
   if (Date.now() > expiresAtMs) {
-    return 'Backup expirado: genera un nuevo backup antes de importar';
+    return 'Este paquete venció. Exporta uno nuevo antes de importarlo.';
   }
 
   if (fingerprint && fingerprint !== BACKUP_LOGIC_FINGERPRINT) {
-    return 'Backup invalidado: cambio de logica de negocio detectado; exporta un backup nuevo';
+    return 'Este paquete ya no es compatible con las reglas actuales. Exporta uno nuevo antes de importarlo.';
   }
 
   return null;
@@ -104,6 +105,7 @@ export function SeccionPaqueteSincronizacion({
   const [exportando, setExportando] = useState(false);
   const [importando, setImportando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [mensajeEsError, setMensajeEsError] = useState(false);
   const [ultimoResumen, setUltimoResumen] = useState<Record<string, number> | null>(null);
   const [ultimoExportEn, setUltimoExportEn] = useState<string | null>(null);
   const [ultimoArchivoExportado, setUltimoArchivoExportado] = useState<string | null>(null);
@@ -134,6 +136,7 @@ export function SeccionPaqueteSincronizacion({
       const inicio = Date.now();
       setExportando(true);
       setMensaje('');
+      setMensajeEsError(false);
       setUltimoResumen(null);
 
       const payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean } = { incluirPdfs };
@@ -163,18 +166,22 @@ export function SeccionPaqueteSincronizacion({
       setUltimoArchivoExportado(nombre);
 
       setMensaje('Paquete exportado (descarga iniciada)');
-      emitToast({ level: 'ok', title: 'Sincronizacion', message: 'Paquete exportado', durationMs: 2400 });
+      setMensajeEsError(false);
       registrarAccionDocente('sync_paquete_exportar', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo exportar el paquete');
       setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo exportar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setMensajeEsError(true);
+      const accionSesion = accionToastSesionParaError(error, 'docente');
+      if (accionSesion) {
+        emitToast({
+          level: 'error',
+          title: 'Renueva tu sesión',
+          message: 'La sesión debe renovarse para continuar.',
+          durationMs: 5200,
+          action: accionSesion
+        });
+      }
       registrarAccionDocente('sync_paquete_exportar', false);
     } finally {
       setExportando(false);
@@ -190,8 +197,7 @@ export function SeccionPaqueteSincronizacion({
       const inicio = Date.now();
       setImportando(true);
       setMensaje('');
-      setUltimoArchivoImportado(archivo.name);
-      setUltimoTamanoImportadoKb(Math.max(1, Math.round(archivo.size / 1024)));
+      setMensajeEsError(false);
 
       const texto = await archivo.text();
       const json = JSON.parse(texto) as {
@@ -207,7 +213,7 @@ export function SeccionPaqueteSincronizacion({
       const correoArchivo = typeof json?.docenteCorreo === 'string' ? json.docenteCorreo.trim() : '';
       const correoFinal = correoArchivo || docenteCorreo || '';
       if (!paqueteBase64) {
-        throw new Error('Archivo invalido: no contiene paqueteBase64');
+        throw new Error('El archivo no es válido: falta el paquete de datos esperado.');
       }
 
       const errorMeta = validarBackupMeta(json?.backupMeta);
@@ -231,18 +237,19 @@ export function SeccionPaqueteSincronizacion({
         : '';
       const confirmado = await confirm({
         title: 'Importar paquete de sincronización',
-        message: 'El paquete es válido y está listo para aplicarse en esta computadora.',
+        message: 'El paquete pasó la validación y está listo para aplicarse en esta computadora.',
         details: resumen
           ? resumen
               .split('\n')
               .map((linea) => linea.trim())
               .filter(Boolean)
-          : ['Se aplicarán los cambios detectados en el respaldo.'],
+          : ['Se aplicarán en esta computadora los cambios detectados en el paquete.'],
         confirmLabel: 'Sí, importar paquete',
         tone: 'warning'
       });
       if (!confirmado) {
-        setMensaje('Importacion cancelada');
+        setMensaje('Importación cancelada');
+        setMensajeEsError(false);
         registrarAccionDocente('sync_paquete_importar_cancelado', true, Date.now() - inicio);
         return;
       }
@@ -253,19 +260,25 @@ export function SeccionPaqueteSincronizacion({
         ...(json?.backupMeta ? { backupMeta: json.backupMeta } : {}),
         ...(correoFinal ? { docenteCorreo: correoFinal } : {})
       });
+      setUltimoArchivoImportado(archivo.name);
+      setUltimoTamanoImportadoKb(Math.max(1, Math.round(archivo.size / 1024)));
       setMensaje((resp as { mensaje?: string })?.mensaje || 'Paquete importado');
-      emitToast({ level: 'ok', title: 'Sincronizacion', message: 'Paquete importado', durationMs: 2600 });
+      setMensajeEsError(false);
       registrarAccionDocente('sync_paquete_importar', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo importar el paquete');
       setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo importar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setMensajeEsError(true);
+      const accionSesion = accionToastSesionParaError(error, 'docente');
+      if (accionSesion) {
+        emitToast({
+          level: 'error',
+          title: 'Renueva tu sesión',
+          message: 'La sesión debe renovarse para continuar.',
+          durationMs: 5200,
+          action: accionSesion
+        });
+      }
       registrarAccionDocente('sync_paquete_importar', false);
     } finally {
       setImportando(false);
@@ -274,33 +287,33 @@ export function SeccionPaqueteSincronizacion({
 
   return (
     <div className="panel paquete-sincronizacion-panel">
-      <h2>
-        <Icono nombre="recargar" /> Backups y exportaciones
+      <h2 id="sync-paquetes-heading" tabIndex={-1}>
+        <IconoLucide icon={PackageOpen} /> Paquetes entre equipos
       </h2>
-      <AyudaFormulario titulo="Como funciona">
+      <AyudaFormulario titulo="Cómo funciona">
         <p>
-          <b>Objetivo:</b> mover materias, alumnos, banco, plantillas y examenes entre computadoras por archivo.
+          <b>Objetivo:</b> mover materias, alumnos, reactivos y plantillas entre computadoras mediante un archivo.
         </p>
         <ul className="lista">
           <li>
-            <b>Exportar:</b> genera un archivo <code>.ep-sync.json</code> compatible entre instalaciones.
+            <b>Exportar:</b> genera un paquete <code>.ep-sync.json</code> compatible entre instalaciones.
           </li>
           <li>
-            <b>Importar:</b> valida checksum en <code>dry-run</code> antes de aplicar.
+            <b>Importar:</b> verifica la integridad y muestra un resumen antes de aplicar los cambios.
           </li>
           <li>
-            <b>Conflictos:</b> se usa LWW por <code>updatedAt</code> (el registro mas nuevo prevalece).
+            <b>Conflictos:</b> prevalece el registro con la fecha de modificación más reciente (<code>updatedAt</code>).
           </li>
         </ul>
       </AyudaFormulario>
 
       {(ultimoExportEn || ultimoArchivoExportado || ultimoArchivoImportado) && (
         <div className="subpanel">
-          <h3>Resumen de backup</h3>
+          <h3>Resumen del paquete</h3>
           <div className="item-glass">
             <div className="estado-datos-lista">
               <div className="estado-datos-item">
-                <span className="estado-chip info">Ultimo export</span>
+                <span className="estado-chip info">Última exportación</span>
                 <div className="nota">{ultimoExportEn ? new Date(ultimoExportEn).toLocaleString() : '-'}</div>
               </div>
               <div className="estado-datos-item">
@@ -312,12 +325,12 @@ export function SeccionPaqueteSincronizacion({
                 <div className="nota">{ultimoArchivoImportado || '-'}</div>
               </div>
               <div className="estado-datos-item">
-                <span className="estado-chip info">Checksum</span>
+                <span className="estado-chip info">Verificación SHA-256</span>
                 <div className="nota">{ultimoChecksum ? `${ultimoChecksum.slice(0, 12)}...` : '-'}</div>
               </div>
               <div className="estado-datos-item">
                 <span className="estado-chip info">Protección</span>
-                <div className="nota">{ultimoBackupCifrado === null ? '-' : ultimoBackupCifrado ? 'Cifrado autenticado' : 'Legado sin cifrar'}</div>
+                <div className="nota">{ultimoBackupCifrado === null ? '-' : ultimoBackupCifrado ? 'Cifrado autenticado' : 'Formato anterior sin cifrar'}</div>
               </div>
               <div className="estado-datos-item">
                 <span className="estado-chip info">Tamaño importado</span>
@@ -342,21 +355,29 @@ export function SeccionPaqueteSincronizacion({
 
       <div className="grid">
         <label className="campo">
-          Desde (opcional)
-          <input type="datetime-local" value={desde} onChange={(event) => setDesde(event.target.value)} placeholder="YYYY-MM-DDThh:mm" />
+          Cambios desde (opcional)
+          <input
+            type="datetime-local"
+            value={desde}
+            aria-describedby="sync-paquete-desde-ayuda"
+            onChange={(event) => setDesde(event.target.value)}
+          />
+          <small id="sync-paquete-desde-ayuda" className="ayuda">
+            Incluye cambios modificados desde esta fecha y hora, según la hora local del equipo. Déjalo vacío para no filtrar por fecha.
+          </small>
         </label>
         <label className="campo campo--checkbox">
           <input type="checkbox" checked={incluirPdfs} onChange={(e) => setIncluirPdfs(e.target.checked)} />
-          Incluir PDFs (mas pesado)
+          Incluir archivos PDF (aumenta el tamaño del paquete)
         </label>
       </div>
 
       <div className="acciones">
         <Boton type="button" icono={<Icono nombre="publicar" />} cargando={exportando} onClick={exportar}>
-          {exportando ? 'Exportando...' : 'Exportar backup'}
+          {exportando ? 'Exportando paquete…' : 'Exportar paquete'}
         </Boton>
         <label className={importando ? 'boton boton--secundario boton--disabled' : 'boton boton--secundario'}>
-          <Icono nombre="entrar" /> {importando ? 'Importando...' : 'Importar backup'}
+          <Icono nombre="entrar" /> {importando ? 'Importando paquete…' : 'Importar paquete'}
           <input
             type="file"
             accept="application/json,.json,.ep-sync.json,.seu-sync.json"
@@ -369,7 +390,7 @@ export function SeccionPaqueteSincronizacion({
 
       {ultimoResumen && (
         <InlineMensaje tipo="info">
-          Registros en ultimo export ({conteoTotalUltimoResumen} total):{' '}
+          Registros en el último paquete exportado ({conteoTotalUltimoResumen} en total):{' '}
           {Object.entries(ultimoResumen)
             .map(([k, v]) => `${k}: ${v}`)
             .join(' | ')}
@@ -377,7 +398,7 @@ export function SeccionPaqueteSincronizacion({
       )}
 
       {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
+        <p className={mensajeEsError ? 'mensaje error' : 'mensaje ok'} role={mensajeEsError ? 'alert' : 'status'}>
           {mensaje}
         </p>
       )}

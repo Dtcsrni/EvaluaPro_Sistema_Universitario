@@ -88,6 +88,9 @@
 
 /* ── Botón principal con brillo glass ── */
 .boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.7rem;
   min-height: 46px;
   padding-inline: 1.15rem 1.35rem;
@@ -1274,7 +1277,7 @@ table tbody tr:last-child td,
 .temarios-node-nivel-1 { font-size: 0.95rem; font-weight: 700; }
 .temarios-node-nivel-2 { font-size: 0.88rem; font-weight: 500; }
 .temarios-node-nivel-3 { font-size: 0.82rem; font-weight: 400; }
-.temarios-node-cubierto { color: var(--muted); text-decoration: line-through; }
+.temarios-node-cubierto { color: var(--muted); }
 .temarios-node-date { font-size: 0.72rem; color: var(--exitoTexto); }
 
 .temarios-grid {
@@ -1382,6 +1385,39 @@ table tbody tr:last-child td,
 
 .banner-recordatorio-asistencia__close:hover {
   color: var(--texto);
+}
+
+@media (max-width: 480px) {
+  .banner-recordatorio-asistencia {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 44px;
+    grid-template-areas: "text action close";
+    align-items: center;
+    gap: 0.25rem;
+    margin-inline: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  .banner-recordatorio-asistencia__text { grid-area: text; min-width: 0; }
+  .banner-recordatorio-asistencia__icon { display: none; }
+  .banner-recordatorio-asistencia > .asistencias-btn-primario {
+    grid-area: action;
+    justify-self: end;
+    max-width: 100%;
+    margin: 0;
+    min-height: 44px;
+    padding-inline: 0.4rem;
+    white-space: nowrap;
+  }
+  .banner-recordatorio-asistencia__close {
+    grid-area: close;
+    justify-self: end;
+    align-self: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 /* ── Tablas Sticky y Scroll Ergonomico ── */

@@ -207,7 +207,7 @@ internal static class NativeInstallerHelper
         ReportProgress(3, "Comprobando procesos de EvaluaPro antes de actualizar.");
         StopOwnedNodeProcesses(targetDir);
 
-        var archivePath = Path.Combine(targetDir, "evaluapro-native-dist.zip");
+        var archivePath = Path.Combine(targetDir, GetVersionedPayloadArchiveName());
         if (!File.Exists(archivePath)) throw new FileNotFoundException("El MSI no instaló el archivo de payload nativo requerido.");
         if ((File.GetAttributes(archivePath) & FileAttributes.ReparsePoint) != 0) throw new InvalidOperationException("El archivo de payload es un enlace y se rechaza.");
 
@@ -954,6 +954,31 @@ internal static class NativeInstallerHelper
     {
         if (!payload.TryGetValue(name, out var value) || value.ValueKind != JsonValueKind.Object) return new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
         return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(value.GetRawText(), JsonOptions) ?? new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string GetVersionedPayloadArchiveName()
+    {
+        var assembly = typeof(NativeInstallerHelper).Assembly;
+        var appVersion = assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+            .OfType<System.Reflection.AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => attribute.Key == "EvaluaProAppVersion")?.Value;
+        var hubVersion = assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion;
+        if (hubVersion is not null)
+        {
+            var metadataSeparator = hubVersion.IndexOf('+');
+            if (metadataSeparator >= 0) hubVersion = hubVersion[..metadataSeparator];
+            hubVersion = hubVersion.TrimStart('v');
+        }
+        if (string.IsNullOrWhiteSpace(appVersion)
+            || !Regex.IsMatch(appVersion, @"^\d+\.\d+\.\d+$", RegexOptions.CultureInvariant)
+            || string.IsNullOrWhiteSpace(hubVersion)
+            || !Regex.IsMatch(hubVersion, @"^\d+\.\d+\.\d+$", RegexOptions.CultureInvariant))
+            throw new InvalidOperationException("Las versiones de app y Hub para el payload nativo no están configuradas correctamente.");
+        return $"evaluapro-native-dist-{appVersion}-{hubVersion}.zip";
     }
 
     private static string GetString(IReadOnlyDictionary<string, JsonElement> values, params string[] names)

@@ -4,12 +4,13 @@
  * Responsabilidad: Catálogo panorámico Bento de plantillas existentes con previsualización OMR.
  */
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
-import { emitToast } from '../../../../../ui/toast/toastBus';
+import { IconoCampo } from '../../../../../ui/IconoLucide';
 import { Fragment, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Periodo, Plantilla } from '../../../tipos';
-import { etiquetaMateria, idCortoMateria } from '../../../utilidades';
+import { etiquetaMateriaParaSelector } from '../../../utilidades';
 import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
+import { ArrowRight, GraduationCap, IconoLucide } from '../../../../../ui/iconosCatalogo';
 import {
   calcularEstimacionDensidadPlantilla,
   textoEstimacionDensidadPlantilla
@@ -97,7 +98,7 @@ export function PlantillasListado({
       </div>
 
       <div className="plantillas-preview__pdf-actions">
-        <a href={pdfUrl} target="_blank" rel="noreferrer" className="boton boton--secundario boton--pequeno" onClick={() => emitToast({ level: 'info', title: 'Vista previa', message: 'Abriendo PDF en una pestaña nueva', durationMs: 1600 })}>
+        <a href={pdfUrl} target="_blank" rel="noreferrer" className="boton boton--secundario boton--pequeno">
           Abrir en pestaña
         </a>
         <Boton type="button" variante="secundario" tamano="sm" onClick={() => abrirPdfFullscreen(pdfUrl, pdfPages)}>
@@ -155,11 +156,12 @@ export function PlantillasListado({
         <label className="campo campo--search flex-1">
           <span>Buscar</span>
           <div className="auth-input-box auth-input-box--search auth-input-box--animated">
+            <IconoCampo nombre="search" />
             <input
               value={filtroPlantillas}
               onChange={(e) => setFiltroPlantillas(e.target.value)}
-              placeholder="Titulo, tema o ID…"
-              data-tooltip="Filtra por titulo, tema o ID."
+              placeholder="Título o tema de la plantilla…"
+              data-tooltip="Busca plantillas por título o tema."
             />
           </div>
         </label>
@@ -170,8 +172,8 @@ export function PlantillasListado({
 
       {plantillasFiltradas.length === 0 ? (
         <div className="empty-state-card anim-fade-in">
-          <div className="empty-state-card__icon anim-icon-pulse">
-            🎓
+          <div className="empty-state-card__icon anim-icon-pulse" aria-hidden="true">
+            <IconoLucide icon={GraduationCap} size={26} />
           </div>
           <h4>Comienza configurando tu primera plantilla</h4>
           <p>
@@ -183,11 +185,11 @@ export function PlantillasListado({
             <div className="empty-step">
               <span className="empty-step__num">1</span> Define título y materia
             </div>
-            <span className="empty-step__arrow">→</span>
+            <span className="empty-step__arrow" aria-hidden="true"><IconoLucide icon={ArrowRight} size={16} /></span>
             <div className="empty-step">
               <span className="empty-step__num">2</span> Selecciona temas del banco
             </div>
-            <span className="empty-step__arrow">→</span>
+            <span className="empty-step__arrow" aria-hidden="true"><IconoLucide icon={ArrowRight} size={16} /></span>
             <div className="empty-step">
               <span className="empty-step__num">3</span> Previsualiza y genera exámenes
             </div>
@@ -199,7 +201,7 @@ export function PlantillasListado({
             const editando = plantillaEditandoId === plantilla._id;
             const materia = periodos.find((p) => p._id === plantilla.periodoId);
             const temas = Array.isArray(plantilla.temas) ? plantilla.temas : [];
-            const modo = temas.length > 0 ? `Temas: ${temas.join(', ')}` : 'Modo preguntasIds';
+            const modo = temas.length > 0 ? `Temas: ${temas.join(', ')}` : 'Selección directa de preguntas';
             const pdfUrls = previewPdfUrlPorPlantillaId[plantilla._id] ?? {};
             const pdfUrl = pdfUrls.booklet;
             const pdfPages = pdfUrls.bookletPages ?? [];
@@ -221,11 +223,10 @@ export function PlantillasListado({
                     <div className="plantillas-item__content">
                       <div className="item-title">{plantilla.titulo}</div>
                       <div className="item-meta">
-                        <span className="badge badge-meta">ID: {idCortoMateria(plantilla._id)}</span>
                         <span className="badge badge-meta">Tipo: {plantilla.tipo}</span>
                         <span className="badge badge-meta">Páginas: {Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 0) || '-'}</span>
                         <span className="badge badge-meta">Creada: {formatearFechaHora(plantilla.createdAt)}</span>
-                        <span className="badge badge-materia">Materia: {materia ? etiquetaMateria(materia) : '-'}</span>
+                        <span className="badge badge-materia">Materia: {materia ? etiquetaMateriaParaSelector(materia) : 'No identificada'}</span>
                         <span className="badge badge-densidad">{textoEstimacionDensidadPlantilla(estimacionDensidad)}</span>
                       </div>
                       <div className="item-sub plantillas-item__sub">{modo}</div>

@@ -918,7 +918,7 @@ public partial class MainWindow : Window
             redirectUri.Scheme == Uri.UriSchemeHttp &&
             string.Equals(redirectUri.Host, "127.0.0.1", StringComparison.Ordinal) &&
             redirectUri.Port is > 0 and <= 65535 &&
-            string.Equals(redirectUri.AbsolutePath, "/oauth2callback", StringComparison.Ordinal) &&
+            string.Equals(redirectUri.AbsolutePath, "/", StringComparison.Ordinal) &&
             string.IsNullOrEmpty(redirectUri.UserInfo) &&
             string.IsNullOrEmpty(redirectUri.Query) &&
             string.IsNullOrEmpty(redirectUri.Fragment);

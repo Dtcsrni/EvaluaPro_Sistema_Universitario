@@ -27,6 +27,19 @@ export const esquemaExportarCsv = z
   })
   .strict();
 
+export const esquemaExportarHtmlCalificaciones = z.object({
+  periodoId: esquemaObjectId,
+  modo: z.enum(['grupo', 'individual']).default('grupo'),
+  secretoCiclo: z.string().min(20).max(256).optional()
+}).strict().superRefine((valor, contexto) => {
+  if (valor.modo === 'individual' && !valor.secretoCiclo?.trim()) {
+    contexto.addIssue({ code: 'custom', path: ['secretoCiclo'], message: 'El secreto maestro del ciclo es obligatorio para generar claves individuales.' });
+  }
+  if (valor.modo === 'grupo' && valor.secretoCiclo !== undefined) {
+    contexto.addIssue({ code: 'custom', path: ['secretoCiclo'], message: 'El modo grupal no acepta secreto maestro.' });
+  }
+});
+
 export const esquemaGuardarCalificacionLista = z.object({
   periodoId: esquemaObjectId,
   alumnoId: esquemaObjectId,

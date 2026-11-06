@@ -112,3 +112,21 @@ test('el sistema visual de tarjetas es reutilizable y accesible', () => {
   assert.match(fs.readFileSync(path.join(repoRoot, 'apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx'), 'utf8'), /GoogleLoginConRespaldo/);
   assert.match(fs.readFileSync(path.join(repoRoot, 'apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx'), 'utf8'), /className="auth-input-icon"/);
 });
+
+test('la cascada global reserva 8 px para controles y 12 px para tarjetas', () => {
+  const reglasBoton = [...cardsCss.matchAll(/:root\[data-theme\] :is\(\.boton, \.btn, button\.btn, a\.btn\)\s*\{([^}]*)\}/g)];
+  const ultimaReglaBoton = reglasBoton.at(-1)?.[1] ?? '';
+
+  assert.notEqual(ultimaReglaBoton, '');
+  assert.match(ultimaReglaBoton, /border-radius:\s*8px\s*;/);
+  assert.match(cardsCss, /\.campo input,\s*\.campo textarea,\s*\.campo select\s*\{\s*border-radius:\s*8px !important;/);
+  assert.match(cardsCss, /--ui-card-radius:\s*12px\s*;/);
+});
+
+test('los tokens de radio siguen la jerarquía visual aprobada', () => {
+  const foundationsCss = fs.readFileSync(path.join(repoRoot, 'apps/frontend/src/styles/foundations.css'), 'utf8');
+
+  assert.match(foundationsCss, /--radius-sm:\s*8px\s*;/);
+  assert.match(foundationsCss, /--radius-md:\s*12px\s*;/);
+  assert.match(foundationsCss, /--radius-lg:\s*16px\s*;/);
+});

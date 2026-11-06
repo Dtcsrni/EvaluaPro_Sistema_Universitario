@@ -17,11 +17,13 @@ function obtenerPuenteWebView2(): WebView2Bridge | undefined {
 }
 
 export function SeccionConfiguracionSincronizacion({
+  headingId,
   estado,
   errorConsulta = false,
   onReintentarConsulta,
   onConfigurar
 }: {
+  headingId?: string;
   estado: EstadoLeaseUI | null;
   errorConsulta?: boolean;
   onReintentarConsulta?: () => Promise<boolean>;
@@ -31,6 +33,24 @@ export function SeccionConfiguracionSincronizacion({
   const [ocupado, setOcupado] = useState(false);
   const [reintentandoConsulta, setReintentandoConsulta] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [errorDirectorio, setErrorDirectorio] = useState('');
+  const errorDirectorioId = 'sincronizacion-carpeta-error';
+  const directorioGuardado = estado?.configurado ? (estado.directorio ?? '').trim() : '';
+  const hayCambiosSinGuardar = Boolean(estado) && directorio.trim() !== directorioGuardado;
+  const etiquetaEstado = estado?.configurado
+    ? hayCambiosSinGuardar ? 'Cambios sin guardar' : 'Configurada'
+    : errorConsulta
+      ? 'Sin conexión'
+      : estado
+        ? hayCambiosSinGuardar ? 'Ruta sin guardar' : 'Sin configurar'
+        : 'Consultando';
+  const claseEstado = estado?.configurado && !hayCambiosSinGuardar
+    ? 'ok'
+    : errorConsulta && !estado
+      ? 'error'
+      : estado
+        ? 'info'
+        : 'warn';
 
   useEffect(() => {
     setDirectorio(estado?.directorio || '');
@@ -47,6 +67,7 @@ export function SeccionConfiguracionSincronizacion({
       }
       if (evento.data.path) {
         setDirectorio(evento.data.path);
+        setErrorDirectorio('');
         setMensaje('Carpeta seleccionada. Confirma para guardarla.');
       }
     };
@@ -76,9 +97,11 @@ export function SeccionConfiguracionSincronizacion({
   async function guardarCarpeta() {
     const valor = directorio.trim();
     if (!valor) {
-      setMensaje('Selecciona o escribe la carpeta local que OneDrive sincroniza.');
+      setMensaje('');
+      setErrorDirectorio('Escribe o elige una carpeta local sincronizada por OneDrive.');
       return;
     }
+    setErrorDirectorio('');
     setOcupado(true);
     setMensaje('');
     try {
@@ -99,11 +122,11 @@ export function SeccionConfiguracionSincronizacion({
             <span className="banco-section-pill__dot" aria-hidden="true" />
             <span>Datos y sincronización</span>
           </span>
-          <h3 className="entregas-title-heading"><Icono nombre="recargar" /> Carpeta de sincronización</h3>
+          <h3 id={headingId} tabIndex={headingId ? -1 : undefined} className="entregas-title-heading"><Icono nombre="recargar" /> Carpeta de sincronización</h3>
           <p className="nota" id="sincronizacion-carpeta-ayuda">Define una carpeta local por cuenta. OneDrive la sincroniza entre tus equipos; EvaluaPro guarda allí copias cifradas y datos necesarios para coordinar la sincronización.</p>
         </div>
-        <span className={`estado-chip ${estado?.configurado ? 'ok' : errorConsulta ? 'error' : estado ? 'info' : 'warn'}`}>
-          {estado?.configurado ? 'Configurada' : errorConsulta ? 'Sin conexión' : estado ? 'Sin configurar' : 'Consultando'}
+        <span className={`estado-chip ${claseEstado}`} role="status">
+          {etiquetaEstado}
         </span>
       </div>
 
@@ -116,7 +139,19 @@ export function SeccionConfiguracionSincronizacion({
         <>
           <div className="cuenta-sincronizacion__form">
             <label className="campo">Carpeta local sincronizada por OneDrive
-              <input aria-describedby="sincronizacion-carpeta-ayuda sincronizacion-carpeta-nota" value={directorio} onChange={(event) => setDirectorio(event.target.value)} placeholder="C:\\Users\\tu_usuario\\OneDrive\\EvaluaPro" autoComplete="off" />
+              <input
+                aria-invalid={errorDirectorio ? 'true' : undefined}
+                aria-describedby={`sincronizacion-carpeta-ayuda sincronizacion-carpeta-nota${errorDirectorio ? ` ${errorDirectorioId}` : ''}`}
+                value={directorio}
+                onChange={(event) => {
+                  const valor = event.target.value;
+                  setDirectorio(valor);
+                  if (valor.trim()) setErrorDirectorio('');
+                }}
+                placeholder="Ruta local de OneDrive"
+                autoComplete="off"
+              />
+              {errorDirectorio && <span className="ayuda error" id={errorDirectorioId} role="alert">{errorDirectorio}</span>}
             </label>
             <div className="acciones cuenta-sincronizacion__acciones">
               <Boton type="button" variante="secundario" onClick={seleccionarCarpeta}>Elegir carpeta…</Boton>
@@ -126,7 +161,14 @@ export function SeccionConfiguracionSincronizacion({
           <p className="cuenta-sincronizacion__nota" id="sincronizacion-carpeta-nota">
             {estado.configurado ? <>Carpeta activa: <code>{estado.directorio}</code>{estado.origen === 'entorno' ? ' · configuración de entorno' : ' · seleccionada por el docente'}</> : 'Selecciona la misma carpeta sincronizada en cada equipo donde uses esta cuenta.'}
           </p>
-          {mensaje && <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">{mensaje}</p>}
+          {mensaje && (
+            <p
+              className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'}
+              role={esMensajeError(mensaje) ? 'alert' : 'status'}
+            >
+              {mensaje}
+            </p>
+          )}
         </>
       )}
     </div>

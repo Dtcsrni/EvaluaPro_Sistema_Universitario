@@ -3,42 +3,25 @@
  *
  * Responsabilidad: Guía interactiva Bento para la pestaña 2: Generar Paquete PDF/OMR.
  */
-import { useState } from 'react';
+import { useGuiaContextual } from '../hooks/useGuiaContextual';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
-import { emitToast } from '../../../../../ui/toast/toastBus';
+import { Lightbulb, X, IconoLucide } from '../../../../../ui/iconosCatalogo';
 
 export function GuiaGeneracionExamenesVisual() {
-  const [visible, setVisible] = useState(() => {
-    try {
-      return localStorage.getItem('ep.guia.generacion.oculta') !== 'true';
-    } catch {
-      return true;
-    }
-  });
-
-  function toggleGuia() {
-    setVisible((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('ep.guia.generacion.oculta', next ? 'false' : 'true');
-      } catch {
-        // noop
-      }
-      return next;
-    });
-    emitToast({ level: 'info', title: 'Guía de generación', message: visible ? 'Guía oculta' : 'Guía visible', durationMs: 1600 });
-  }
+  const { visible, toggleGuia } = useGuiaContextual('ep.guia.generacion.oculta', 'guia-generacion-toggle');
 
   if (!visible) {
     return (
       <div className="guia-temarios-compact anim-fade-in mb-15" aria-label="Ayuda de generación de exámenes">
         <Boton
+          id="guia-generacion-toggle"
           variante="secundario"
           type="button"
+          aria-expanded={visible}
           onClick={toggleGuia}
           data-tooltip="Ver guía de generación masiva con códigos QR"
         >
-          💡 Ver guía rápida de generación de exámenes
+          <IconoLucide icon={Lightbulb} size={16} /> Ver guía rápida de generación de exámenes
         </Boton>
       </div>
     );
@@ -52,13 +35,15 @@ export function GuiaGeneracionExamenesVisual() {
           <span>GUÍA RÁPIDA · Producción OMR, Folios Únicos y Códigos QR</span>
         </div>
         <button
+          id="guia-generacion-toggle"
           type="button"
           className="guia-materia-close-btn"
           onClick={toggleGuia}
           title="Ocultar guía"
           aria-label="Ocultar guía rápida"
+          aria-expanded={visible}
         >
-          ✕ Ocultar guía
+          <IconoLucide icon={X} size={16} aria-hidden="true" /> Ocultar guía
         </button>
       </div>
 

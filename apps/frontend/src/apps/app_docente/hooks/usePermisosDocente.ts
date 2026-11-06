@@ -146,7 +146,7 @@ export function usePermisosDocente(docente: Docente | null) {
       { id: 'entrega', grupo: 'evaluacion', label: 'Entrega', icono: 'recepcion' as const, mostrar: puede('entregas:gestionar') },
       { id: 'calificaciones', grupo: 'evaluacion', label: 'Calificaciones', icono: 'calificar' as const, mostrar: puedeCalificar },
       { id: 'evaluaciones', grupo: 'evaluacion', label: 'Evaluaciones', icono: 'evaluaciones' as const, mostrar: puede('evaluaciones:leer') },
-      { id: 'rehidratacion', grupo: 'operacion', label: 'Rehidratacion', icono: 'pdf' as const, mostrar: puedeRehidratarLotes },
+      { id: 'rehidratacion', grupo: 'operacion', label: 'Rehidratación', icono: 'pdf' as const, mostrar: puedeRehidratarLotes },
       { id: 'classroom', grupo: 'operacion', label: 'Classroom', icono: 'classroom' as const, mostrar: Boolean(puede('classroom:conectar') || puede('classroom:pull') || puede('periodos:leer')) },
       { id: 'publicar', grupo: 'operacion', label: 'Sincronización', icono: 'sincronizacion' as const, mostrar: puedePublicar },
       { id: 'cuenta', grupo: 'operacion', label: 'Cuenta', icono: 'cuenta' as const, mostrar: puede('cuenta:leer') }

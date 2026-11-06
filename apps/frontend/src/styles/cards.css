@@ -244,6 +244,12 @@
   outline-offset: 3px;
 }
 
+:root[data-theme] :is(.page--docente, .page--alumno)
+  :where(.ui-card, .item-glass, .guia-step-card, .banco-opcion-card, .plantillas-item):focus-within:not(:focus) {
+  outline: none;
+  outline-offset: 0;
+}
+
 .ui-card--featured,
 .materias-form--glass,
 .guia-materia-card {
@@ -714,7 +720,7 @@
   .auth-card-desc,
   .auth-card-footer,
   [class*='-card__'],
-  [class*='-panel__']
+  [class*='-panel__']:not(.icono-seccion-orb)
 ) {
   background-color: transparent !important;
   background-image: none !important;
@@ -1200,21 +1206,25 @@
 }
 
 .materia-title-group .chip {
-  color: #172329 !important;
+  color: var(--texto) !important;
   border-color: transparent !important;
-  background: var(--materia-success) !important;
+  background: var(--exitoBg) !important;
   box-shadow: none !important;
 }
 
-.materia-title-group .chip--por_iniciar,
+.materia-title-group .chip--por_iniciar {
+  color: var(--texto) !important;
+  background: var(--chipBg) !important;
+}
+
 .materia-title-group .chip--por_finalizar {
-  color: #2e2415 !important;
-  background: var(--materia-warning) !important;
+  color: var(--texto) !important;
+  background: var(--avisoBg) !important;
 }
 
 .materia-title-group .chip--concluido {
-  color: #251b1b !important;
-  background: var(--materia-danger) !important;
+  color: var(--texto) !important;
+  background: var(--exitoBg) !important;
 }
 
 .materia-avatar {
@@ -1237,6 +1247,15 @@
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   background: rgba(8, 16, 23, 0.46);
+}
+
+.materia-progress-caption {
+  display: block;
+  margin-top: 0.22rem;
+  color: var(--materia-text-secondary);
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.35;
 }
 
 .materia-progress-bar::-webkit-progress-bar {
@@ -1575,9 +1594,20 @@
 }
 
 @media (min-width: 1180px) {
-  .shell-docente__header,
+  .shell-docente__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
+    align-items: center;
+  }
+
   .shell-docente__acciones {
+    min-width: 0;
+    max-width: 100%;
     flex-wrap: nowrap;
+  }
+
+  .shell-docente__controles {
+    flex: 0 0 auto;
   }
 }
 
@@ -1853,7 +1883,7 @@ button.chip-docente-sesion:active {
   .auth-card-desc,
   .auth-card-footer,
   [class*='-card__'],
-  [class*='-panel__']
+  [class*='-panel__']:not(.icono-seccion-orb)
 ) {
   border: 0 !important;
   border-top: 0 !important;
@@ -1897,7 +1927,7 @@ button.chip-docente-sesion:active {
   .auth-card-desc,
   .auth-card-footer,
   [class*='-card__'],
-  [class*='-panel__']
+  [class*='-panel__']:not(.icono-seccion-orb)
 ) {
   background-color: transparent !important;
   background-image: none !important;
@@ -2014,7 +2044,7 @@ button.chip-docente-sesion:active {
 
 :root[data-theme] :is(.boton, .btn, button.btn, a.btn) {
   min-height: 44px;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--ui-button-primary-bg) !important;
   color: var(--ui-button-primary-fg) !important;
   border-color: color-mix(in srgb, var(--ui-accent-primary) 58%, transparent) !important;
@@ -2031,7 +2061,7 @@ button.chip-docente-sesion:active {
   color: var(--ui-text-primary) !important;
 }
 
-:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(p, small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(p:not(.mensaje), small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
   color: var(--ui-text-secondary) !important;
 }
 
@@ -2107,7 +2137,7 @@ button.chip-docente-sesion:active {
   color: var(--ui-text-primary) !important;
 }
 
-:is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(p, small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])) :is(p:not(.mensaje), small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
   color: var(--ui-text-secondary) !important;
 }
 
@@ -2155,8 +2185,40 @@ button.chip-docente-sesion:active {
   box-shadow: none !important;
 }
 
-:is(.ui-card, .item-glass, .card, .panel, .subpanel, :is([class$='-card'], [class*='-card ']), :is([class$='-panel'], [class*='-panel '])):focus-within {
-  outline: 2px solid color-mix(in srgb, var(--ui-accent-primary) 80%, white 20%);
+/* Mantiene legibles las acciones inactivas del flavor docente sin ocultar que
+   siguen deshabilitadas. Usa tokens opacos de tema; no cambia su activación. */
+:root[data-theme] .page--docente :is(.boton, .btn, button.btn, a.btn):disabled,
+:root[data-theme] .page--docente :is(.boton, .btn, button.btn, a.btn):disabled:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled) {
+  opacity: 1 !important;
+  background-color: var(--ui-canvas) !important;
+  background-image: none !important;
+  color: var(--ui-text-secondary) !important;
+  border-color: var(--ui-text-muted) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  transform: none !important;
+}
+
+:root[data-theme] .page--docente :is(.boton, .btn, button.btn, a.btn):disabled :is(.boton__texto, .boton__icono),
+:root[data-theme] .page--docente :is(.boton, .btn, button.btn, a.btn):disabled:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled) :is(.boton__texto, .boton__icono) {
+  color: var(--ui-text-secondary) !important;
+}
+
+/* En Docente y Alumno el foco se indica en el control activo o en su wrapper
+   específico. Se conserva el estilo existente de Administración, fuera del alcance. */
+:root[data-theme] .page--admin_negocio :is(
+  .ui-card,
+  .item-glass,
+  .card,
+  .panel,
+  .subpanel,
+  [class$='-card'],
+  [class*='-card '],
+  [class$='-panel'],
+  [class*='-panel ']
+):focus-within {
+  outline: 2px solid color-mix(in srgb, var(--ui-accent-primary) 80%, var(--ui-glass-highlight) 20%);
   outline-offset: 3px;
 }
 
@@ -2193,7 +2255,7 @@ button.chip-docente-sesion:active {
   .auth-card-desc,
   .auth-card-footer,
   [class*='-card__'],
-  [class*='-panel__']
+  [class*='-panel__']:not(.icono-seccion-orb)
 ) {
   border: 0 !important;
   border-top: 0 !important;
@@ -2511,7 +2573,7 @@ button.chip-docente-sesion:active {
   .materias-form--glass,
   .alumnos-form--glass,
   .alumnos-filtros--glass
-) :is(p, small, span, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+) :is(p:not(.mensaje), small, span, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
   color: #d9e8f5 !important;
 }
 
@@ -2689,6 +2751,13 @@ button.chip-docente-sesion:active {
 .paquete-sincronizacion-panel,
 .shell-main--sync-equipos {
   --screen-accent: #2dd4bf;
+}
+
+.paquete-sincronizacion-panel {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: clamp(0.8rem, 2.5vw, 1.15rem);
 }
 
 .shell-main--publicar {
@@ -2995,17 +3064,9 @@ button.chip-docente-sesion:active {
 }
 
 /* El icono vive dentro del control; se elimina el pseudoemoji heredado. */
-.auth-input-box::before {
-  content: none !important;
-  display: none !important;
-}
-
 .auth-input-icon {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  color: #71d7ff;
-  filter: drop-shadow(0 2px 5px rgba(56, 189, 248, 0.35));
+  color: var(--muted);
 }
 
 .auth-pwd-toggle {
@@ -3029,11 +3090,19 @@ button.chip-docente-sesion:active {
   color: var(--ui-ink-soft);
 }
 
-:is(.materia-meta-tag, .alumno-meta-tag, .badge, .banco-counter-tag, .banco-section-pill, .asistencia-grupo-pill, .asistencias-badge-pill, .guia-materia-badge) {
+:root[data-theme="dark"] :is(.materia-meta-tag, .alumno-meta-tag, .badge:not(.ok):not(.warning):not(.error), .banco-counter-tag, .banco-section-pill, .asistencia-grupo-pill, .asistencias-badge-pill, .guia-materia-badge) {
   border-color: color-mix(in srgb, var(--screen-accent, #38bdf8) 44%, rgba(255, 255, 255, 0.2)) !important;
   background: color-mix(in srgb, var(--screen-accent, #38bdf8) 13%, rgba(12, 31, 56, 0.78)) !important;
   color: var(--ui-ink-soft) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 8px 16px -14px rgba(0, 0, 0, 0.9);
+}
+
+:root:not([data-theme="dark"]) .guia-materia-badge {
+  /* WCAG AA: #0f172a sobre acento al 14% mezclado con blanco mantiene al menos 15:1 en los acentos de sección. */
+  border-color: color-mix(in srgb, var(--screen-accent, #38bdf8) 42%, white) !important;
+  background: color-mix(in srgb, var(--screen-accent, #38bdf8) 14%, white) !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
 }
 
 /* Responsive: conservar ritmo y evitar que el rediseño introduzca overflow. */
@@ -3863,18 +3932,6 @@ button.chip-docente-sesion:active {
   background-size: auto;
 }
 
-/* Iconografía global: nitidez, peso óptico y superficies consistentes. */
-.icono {
-  overflow: visible;
-  shape-rendering: geometricPrecision;
-  filter: drop-shadow(0 2px 5px color-mix(in srgb, currentColor 28%, transparent));
-}
-
-.icono :is(path, circle, line, polyline, polygon, rect) {
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 :is(
   .materia-avatar,
   .alumno-avatar,
@@ -3887,8 +3944,7 @@ button.chip-docente-sesion:active {
   .empty-state-card__icon,
   .portal-card-icon,
   .version-tech-icon-box,
-  .confirm-dialog__icon,
-  .toast-icon
+  .confirm-dialog__icon
  ) {
   position: relative;
   isolation: isolate;
@@ -3916,8 +3972,7 @@ button.chip-docente-sesion:active {
   .empty-state-card__icon,
   .portal-card-icon,
   .version-tech-icon-box,
-  .confirm-dialog__icon,
-  .toast-icon
+  .confirm-dialog__icon
 )::before {
   content: '';
   position: absolute;
@@ -3942,8 +3997,7 @@ button.chip-docente-sesion:active {
   .empty-state-card__icon,
   .portal-card-icon,
   .version-tech-icon-box,
-  .confirm-dialog__icon,
-  .toast-icon
+  .confirm-dialog__icon
 ) > :is(svg, .icono) {
   position: relative;
   z-index: 1;
@@ -3962,8 +4016,7 @@ button.chip-docente-sesion:active {
   .empty-state-card__icon,
   .portal-card-icon,
   .version-tech-icon-box,
-  .confirm-dialog__icon,
-  .toast-icon
+  .confirm-dialog__icon
 ):hover {
   transform: translateY(-2px) scale(1.04);
   border-color: color-mix(in srgb, currentColor 78%, #ffffff 22%);
@@ -3985,8 +4038,7 @@ button.chip-docente-sesion:active {
   .empty-state-card__icon,
   .portal-card-icon,
   .version-tech-icon-box,
-  .confirm-dialog__icon,
-  .toast-icon
+  .confirm-dialog__icon
 ) {
   background:
     linear-gradient(145deg, color-mix(in srgb, currentColor 12%, transparent), transparent 62%),
@@ -4010,8 +4062,7 @@ button.chip-docente-sesion:active {
     .empty-state-card__icon,
     .portal-card-icon,
     .version-tech-icon-box,
-    .confirm-dialog__icon,
-    .toast-icon
+    .confirm-dialog__icon
   ) {
     transition: none !important;
   }
@@ -4028,8 +4079,7 @@ button.chip-docente-sesion:active {
     .empty-state-card__icon,
     .portal-card-icon,
     .version-tech-icon-box,
-    .confirm-dialog__icon,
-    .toast-icon
+    .confirm-dialog__icon
   ):hover {
     transform: none !important;
   }
@@ -4068,7 +4118,7 @@ button.chip-docente-sesion:active {
   color: #f8fbff !important;
 }
 
-:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card) :is(p, small, span, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card) :is(p:not(.mensaje), small, span, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
   color: #d9e8f5 !important;
 }
 
@@ -4197,7 +4247,7 @@ button.chip-docente-sesion:active {
 
 :root[data-theme] :is(.boton, .btn, button.btn, a.btn) {
   min-height: 44px;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--ui-button-primary-bg) !important;
   color: var(--ui-button-primary-fg) !important;
   border-color: color-mix(in srgb, var(--ui-accent-primary) 58%, transparent) !important;
@@ -4218,7 +4268,7 @@ button.chip-docente-sesion:active {
   .auth-card-desc,
   .auth-card-footer,
   [class*='-card__'],
-  [class*='-panel__']
+  [class*='-panel__']:not(.icono-seccion-orb)
 ) {
   background-color: transparent !important;
   background-image: none !important;
@@ -4830,38 +4880,42 @@ button.chip-docente-sesion:active {
     color 160ms ease;
 }
 
-:root[data-theme] :is(
+/* WCAG AA: los fallbacks de texto #fff sobre #0b6fa8 (5.45:1) y #075e91 (6.96:1) superan 4.5:1; las sombras son decorativas. */
+:root[data-theme] .page--docente :is(
   .boton,
   .asistencias-btn-primario
-):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled) {
-  background:
-    linear-gradient(145deg, rgba(142, 199, 190, 0.86), rgba(78, 145, 143, 0.88) 54%, rgba(53, 111, 114, 0.92)) !important;
-  color: #102b2e !important;
-  border-color: rgba(205, 235, 226, 0.62) !important;
-  box-shadow:
-    0 14px 26px -18px rgba(2, 10, 14, 0.92),
-    inset 0 1px 0 rgba(255, 255, 255, 0.48),
-    inset 0 -1px 0 rgba(9, 40, 44, 0.26) !important;
+):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(.classroom-sync__primary-action):not(:disabled) {
+  background: var(--ui-button-primary-bg, #0b6fa8) !important;
+  background-image: none !important;
+  color: var(--ui-button-primary-fg, #fff) !important;
+  border-color: var(--ui-button-primary-bg, #0b6fa8) !important;
+  box-shadow: 0 8px 18px -12px rgba(2, 10, 14, 0.72) !important;
 }
 
-:root[data-theme] :is(
+:root[data-theme] .page--docente :is(.boton, .asistencias-btn-primario):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(.classroom-sync__primary-action):not(:disabled) :is(.boton__texto, .boton__icono) {
+  color: var(--ui-button-primary-fg, #fff) !important;
+}
+
+:root[data-theme] .page--docente :is(
   .boton,
   .asistencias-btn-primario
-):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):hover {
+):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(.classroom-sync__primary-action):not(:disabled):hover {
   transform: translateY(-2px);
-  background:
-    linear-gradient(145deg, rgba(161, 211, 201, 0.94), rgba(91, 163, 158, 0.94) 54%, rgba(66, 127, 127, 0.96)) !important;
-  border-color: rgba(226, 246, 238, 0.82) !important;
-  box-shadow:
-    0 18px 30px -18px rgba(2, 10, 14, 0.96),
-    inset 0 1px 0 rgba(255, 255, 255, 0.58),
-    inset 0 -1px 0 rgba(9, 40, 44, 0.22) !important;
+  background: var(--ui-button-primary-hover, #075e91) !important;
+  background-image: none !important;
+  color: var(--ui-button-primary-fg, #fff) !important;
+  border-color: var(--ui-button-primary-hover, #075e91) !important;
+  box-shadow: 0 10px 22px -12px rgba(2, 10, 14, 0.78) !important;
 }
 
-:root[data-theme] :is(
+:root[data-theme] .page--docente :is(.boton, .asistencias-btn-primario):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(.classroom-sync__primary-action):not(:disabled):hover :is(.boton__texto, .boton__icono) {
+  color: var(--ui-button-primary-fg, #fff) !important;
+}
+
+:root[data-theme] .page--docente :is(
   .boton,
   .asistencias-btn-primario
-):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):active {
+):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(:disabled):active {
   transform: translateY(1px) scale(0.985);
   box-shadow:
     0 6px 12px -10px rgba(2, 10, 14, 0.88),
@@ -4924,6 +4978,9 @@ button.chip-docente-sesion:active {
 :root[data-theme] :is(.chip, .badge):not(.chip-docente-sesion) {
   min-height: 40px;
   border-radius: 11px;
+}
+
+:root[data-theme="dark"] :is(.chip, .badge:not(.ok):not(.warning):not(.error)):not(.chip-docente-sesion) {
   border-color: rgba(185, 220, 213, 0.30) !important;
   background: rgba(59, 91, 97, 0.34) !important;
   color: #e8f5f1 !important;
@@ -4932,7 +4989,7 @@ button.chip-docente-sesion:active {
     inset 0 -1px 0 rgba(5, 18, 24, 0.24) !important;
 }
 
-:root[data-theme] :is(.chip, .badge):not(.chip-docente-sesion):hover {
+:root[data-theme="dark"] :is(.chip, .badge:not(.ok):not(.warning):not(.error)):not(.chip-docente-sesion):hover {
   transform: translateY(-1px);
   border-color: rgba(215, 237, 229, 0.52) !important;
   background: rgba(79, 119, 121, 0.46) !important;
@@ -5171,6 +5228,12 @@ button.chip-docente-sesion:active {
   animation: none !important;
 }
 
+:root:not([data-theme="dark"]) :is(.page--docente, .portal-alumno-shell) button.chip-version {
+  border-color: var(--ui-glass-border) !important;
+  background: var(--ui-glass-surface-strong) !important;
+  color: var(--ui-text-secondary) !important;
+}
+
 /* SPEC-062: Frosted Editorial.
    Reduce la sensación de "cajas sobre cajas": la materia conserva una sola
    superficie de vidrio, mientras que sus datos se leen como composición
@@ -5400,8 +5463,14 @@ button.chip-docente-sesion:active {
 }
 
 :root[data-theme="dark"] .materias-pulse-dot {
-  width: 0.38rem;
-  height: 0.38rem;
+  display: inline-block;
+  flex: 0 0 0.45rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  clip-path: circle(50% at 50% 50%);
+  background-color: currentColor;
   box-shadow: 0 0 0 3px rgba(159, 202, 189, 0.1), 0 0 9px rgba(159, 202, 189, 0.7);
 }
 
@@ -5444,7 +5513,7 @@ button.chip-docente-sesion:active {
   }
 
   :root[data-theme="dark"] .materias-panel__title {
-    font-size: clamp(1.85rem, 8vw, 2.3rem);
+    font-size: clamp(1.7rem, 8vw, 2.3rem);
   }
 }
 
@@ -5634,27 +5703,56 @@ button.chip-docente-sesion:active {
   color: var(--docente-ink-soft) !important;
 }
 
-:root[data-theme="dark"] .page--docente :is(.boton:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled), .asistencias-btn-primario) {
-  border-color: rgba(198, 224, 215, 0.4) !important;
+/* WCAG AA: la sombra oscura solo da profundidad; el texto usa el token de contraste del tema y el control conserva su nombre visible. */
+:root[data-theme="dark"] .page--docente :is(.boton:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(.classroom-sync__primary-action):not(:disabled), .asistencias-btn-primario:not(:disabled)) {
+  border-color: var(--ui-button-primary-bg) !important;
   border-radius: 11px;
-  color: #122326 !important;
-  background:
-    linear-gradient(135deg, rgba(119, 181, 174, 0.96), rgba(159, 202, 189, 0.92)) !important;
-  box-shadow:
-    0 16px 28px -24px rgba(159, 202, 189, 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.48) !important;
+  color: var(--ui-button-primary-fg) !important;
+  background: var(--ui-button-primary-bg) !important;
+  background-image: none !important;
+  box-shadow: 0 8px 18px -12px rgba(2, 10, 14, 0.72) !important;
 }
 
-:root[data-theme="dark"] .page--docente :is(.boton:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):hover, .asistencias-btn-primario:hover) {
-  filter: brightness(1.06);
+:root[data-theme="dark"] .page--docente :is(.boton:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(.classroom-sync__primary-action):not(:disabled), .asistencias-btn-primario:not(:disabled)) :is(.boton__texto, .boton__icono) {
+  color: var(--ui-button-primary-fg) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(.boton:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(.classroom-sync__primary-action):not(:disabled):hover, .asistencias-btn-primario:not(:disabled):hover) {
+  background: var(--ui-button-primary-hover) !important;
+  background-image: none !important;
+  border-color: var(--ui-button-primary-hover) !important;
+  color: var(--ui-button-primary-fg) !important;
   transform: translateY(-1px);
 }
 
-:root[data-theme="dark"] .page--docente :is(.boton.secundario, .boton--secundario, .chip, .badge) {
+:root[data-theme="dark"] .page--docente :is(.boton:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):not(.classroom-sync__primary-action):not(:disabled):hover, .asistencias-btn-primario:not(:disabled):hover) :is(.boton__texto, .boton__icono) {
+  color: var(--ui-button-primary-fg) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(.boton.secundario, .boton--secundario, .chip, .badge:not(.ok):not(.warning):not(.error)) {
   color: var(--docente-ink-soft) !important;
   background: rgba(20, 34, 40, 0.36) !important;
   border-color: var(--docente-edge-soft) !important;
   box-shadow: inset 0 1px 0 rgba(247, 255, 251, 0.1) !important;
+}
+
+/* Conserva los colores semánticos de estado de Materias sobre la regla oscura global. */
+:root[data-theme="dark"] .page--docente .materias-panel .materia-title-group .chip {
+  color: var(--exitoTexto) !important;
+  background: var(--exitoBg) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transition-property: transform, box-shadow, border-color, background;
+}
+
+:root[data-theme="dark"] .page--docente .materias-panel .materia-title-group .chip--por_iniciar {
+  color: var(--chipTexto) !important;
+  background: var(--chipBg) !important;
+}
+
+:root[data-theme="dark"] .page--docente .materias-panel .materia-title-group .chip--por_finalizar {
+  color: var(--avisoTexto) !important;
+  background: var(--avisoBg) !important;
 }
 
 :root[data-theme="dark"] .page--docente :is(input, textarea, select) {
@@ -6015,6 +6113,24 @@ html[data-theme="dark"] body .empty-step__num {
   color: #334155 !important;
 }
 
+/* WCAG AA: el paso vacío de Materias conserva una sola superficie legible en
+   tema claro; evita chips claros anidados sobre el fondo oscuro del stepper. */
+:root:not([data-theme="dark"]) .page--docente .materias-panel .empty-state-steps {
+  background: var(--surface-1) !important;
+  border-color: var(--ui-glass-border) !important;
+  border-radius: 16px !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .materias-panel .empty-step {
+  color: var(--ui-text-primary) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+:root:not([data-theme="dark"]) .page--docente .materias-panel .empty-step__arrow {
+  color: var(--ui-text-secondary) !important;
+}
+
 :root:not([data-theme="dark"]) .plantillas-stepper__button:not(:disabled) {
   color: #ffffff !important;
   background: #0b6fa8 !important;
@@ -6058,6 +6174,8 @@ html[data-theme="dark"] body .empty-step__num {
 
 .banco-reactivos-import {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 0.9rem;
   margin: 1rem 0 1.25rem;
   padding: 1.15rem 1.25rem 1.25rem;
@@ -6065,6 +6183,8 @@ html[data-theme="dark"] body .empty-step__num {
   border-radius: 18px;
   background: var(--bg-surface-glass, var(--ui-card-surface, var(--superficie)));
 }
+
+.banco-reactivos-import__head > div { min-width: 0; }
 
 .banco-reactivos-import__head,
 .banco-reactivos-import__result-head,
@@ -6105,6 +6225,8 @@ html[data-theme="dark"] body .empty-step__num {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
   padding: 0.7rem 0;
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
@@ -6113,7 +6235,7 @@ html[data-theme="dark"] body .empty-step__num {
   font-weight: 800;
 }
 
-.banco-reactivos-import__steps span {
+.banco-reactivos-import__steps li {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -6158,12 +6280,27 @@ html[data-theme="dark"] body .empty-step__num {
   background: color-mix(in srgb, var(--superficie) 82%, transparent);
 }
 
-.banco-reactivos-import__upload label {
+.banco-reactivos-import__upload label,
+.banco-reactivos-import__file-label {
   font-weight: 900;
 }
 
-.banco-reactivos-import__upload input[type="file"] {
+.banco-reactivos-import__file-picker {
+  position: relative;
+  width: fit-content;
   max-width: 100%;
+}
+
+.banco-reactivos-import__file-input {
+  min-width: 0;
+  max-width: 1px;
+}
+
+.banco-reactivos-import__file-trigger {
+  min-height: 44px;
+  max-width: 100%;
+  cursor: pointer;
+  user-select: none;
 }
 
 .banco-reactivos-import__hint,
@@ -6175,6 +6312,7 @@ html[data-theme="dark"] body .empty-step__num {
 
 .banco-reactivos-import__file {
   color: var(--ui-ink, var(--text-primary));
+  overflow-wrap: anywhere;
 }
 
 .banco-reactivos-import__result h3,
@@ -6195,9 +6333,12 @@ html[data-theme="dark"] body .empty-step__num {
   display: flex;
   gap: 0.45rem;
   flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.banco-reactivos-import__summary span {
+.banco-reactivos-import__summary li {
   padding: 0.35rem 0.55rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ui-ink-muted, var(--text-secondary)) 16%, transparent);
@@ -6253,8 +6394,22 @@ html[data-theme="dark"] body .empty-step__num {
 }
 
 .banco-reactivos-import__message {
+  margin: 0;
+  font-weight: 700;
   color: var(--ui-ink-soft, var(--text-secondary));
 }
+
+:root[data-theme] .banco-reactivos-import > .mensaje.error {
+  margin: 0;
+  color: var(--peligroTexto) !important;
+  background: color-mix(in srgb, var(--peligroTexto) 10%, var(--superficieSolida));
+  border-color: var(--peligroTexto);
+  box-shadow: none;
+}
+
+.banco-reactivos-import__message.ok { color: var(--exitoTexto); }
+
+.banco-temas__campo { flex: 1 1 16rem; min-width: min(100%, 16rem); }
 
 .banco-reactivos-import__queue {
   grid-template-columns: minmax(0, 1fr) auto;
@@ -6315,6 +6470,19 @@ html[data-theme="dark"] body .empty-step__num {
   background: var(--bg-surface-glass, var(--ui-card-surface, var(--superficie)));
 }
 
+.banco-history-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.banco-history-error .mensaje {
+  flex: 1 1 18rem;
+  margin: 0;
+}
+
 .banco-versiones-comparador__head,
 .banco-versiones-comparador__selects {
   display: flex;
@@ -6368,10 +6536,10 @@ html[data-theme="dark"] body .empty-step__num {
     width: 100%;
   }
 
-  .banco-reactivos-import__tools .button,
-  .banco-reactivos-import__queue-actions .button,
-  .banco-reactivos-import__upload .button,
-  .banco-reactivos-import__result .button {
+  .banco-reactivos-import__tools .boton,
+  .banco-reactivos-import__queue-actions .boton,
+  .banco-reactivos-import__upload .boton,
+  .banco-reactivos-import__result .boton {
     flex: 1 1 12rem;
   }
 }
@@ -6409,21 +6577,6 @@ html[data-theme="dark"] body .empty-step__num {
   margin: 0;
 }
 
-.calificaciones-consulta__summary {
-  display: flex;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-  color: var(--ui-ink-soft, var(--text-secondary));
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.calificaciones-consulta__summary span {
-  padding: 0.35rem 0.6rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--screen-accent, var(--color-primary-400)) 15%, transparent);
-}
-
 .calificaciones-consulta__subject,
 .calificaciones-consulta__search {
   flex: 1 1 260px;
@@ -6459,6 +6612,24 @@ html[data-theme="dark"] body .empty-step__num {
   border-color: var(--screen-accent, var(--color-primary-400));
   background: var(--screen-accent, var(--color-primary-400));
   color: var(--ui-canvas-deep, var(--texto));
+}
+
+.calificaciones-consulta__filter.is-unavailable {
+  border-color: var(--border-subtle);
+  background: var(--ui-card-surface-strong, var(--superficie));
+  color: var(--ui-ink-soft, var(--text-secondary));
+  cursor: not-allowed;
+}
+
+.calificaciones-consulta__filter.is-active.is-unavailable {
+  border: 2px dashed var(--screen-accent, var(--color-primary-400));
+}
+
+.calificaciones-consulta__filters-hint {
+  flex: 1 0 100%;
+  color: var(--ui-ink-soft, var(--text-secondary));
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .calificaciones-consulta__table-wrap {
@@ -6577,6 +6748,15 @@ html[data-theme="dark"] body .empty-step__num {
   transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
+.calificaciones-workspace-nav__mobile-label,
+.calificaciones-workspace-nav__mobile-select {
+  display: none;
+}
+
+.calificaciones-workspace-nav__desktop {
+  display: contents;
+}
+
 /* WCAG AA: contraste de superficie y foco verificado por guard:wcag. */
 .calificaciones-workspace-nav button:hover,
 .calificaciones-workspace-nav button:focus-visible {
@@ -6609,7 +6789,8 @@ html[data-theme="dark"] body .empty-step__num {
 .calificaciones-workspace-nav strong,
 .calificaciones-workspace-nav small {
   display: block;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .calificaciones-workspace-nav strong {
@@ -6684,6 +6865,11 @@ html[data-theme="dark"] body .empty-step__num {
   text-transform: uppercase;
 }
 
+/* WCAG AA: el rótulo Resultados conserva contraste suficiente en la superficie clara. */
+:root:not([data-theme="dark"]) .calificaciones-view-heading .calificaciones-kicker {
+  color: #075985;
+}
+
 /* WCAG AA: la superficie de resultados mantiene contraste y separación visual verificables. */
 .calificaciones-consulta {
   --screen-accent: #38d6dc;
@@ -6699,30 +6885,6 @@ html[data-theme="dark"] body .empty-step__num {
 
 .calificaciones-consulta__head h3 {
   letter-spacing: -0.025em;
-}
-
-.calificaciones-consulta__summary span {
-  border: 1px solid color-mix(in srgb, var(--ui-card-border, var(--border-subtle)) 72%, transparent);
-  background: color-mix(in srgb, var(--ui-card-surface-strong, var(--superficie)) 60%, transparent);
-}
-
-/* WCAG AA: estados de éxito y pendiente también se expresan con texto. */
-.calificaciones-consulta__summary span.is-success {
-  border-color: rgba(52, 211, 153, 0.4);
-  color: #a7f3d0;
-}
-
-.calificaciones-consulta__summary span.is-warning {
-  border-color: rgba(251, 191, 36, 0.5);
-  color: #fde68a;
-}
-
-:root:not([data-theme="dark"]) .calificaciones-consulta__summary span.is-success { color: #087f5b; }
-:root:not([data-theme="dark"]) .calificaciones-consulta__summary span.is-warning { color: #7a4b00; }
-
-.calificaciones-consulta__summary strong {
-  color: inherit;
-  font-size: 1rem;
 }
 
 .calificaciones-consulta__sort {
@@ -6927,13 +7089,17 @@ html[data-theme="dark"] body .empty-step__num {
 :root[data-theme="dark"] .calificaciones-consulta__physical-grades .calificaciones-consulta__detail-grid div { background: rgba(255, 255, 255, 0.035); }
 
 :root:not([data-theme="dark"]) .calificaciones-consulta .calificaciones-kicker { color: #075985; }
-:root:not([data-theme="dark"]) .calificaciones-consulta__status.is-complete { color: #087f5b; }
+:root:not([data-theme="dark"]) .calificaciones-consulta__status.is-complete { color: var(--exitoTexto); }
 :root:not([data-theme="dark"]) .calificaciones-consulta__status.is-pending { color: #7a4b00; }
 
 .calificaciones-consulta__physical-grades h5 { margin: 0; color: inherit; font-size: 0.95rem; }
-.calificaciones-consulta__manual-editors { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 0.65rem 0.8rem; }
+.calificaciones-consulta__manual-editors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 0.85rem 1rem; }
 .calificaciones-consulta__manual-editors .campo { display: grid; gap: 0.35rem; }
 .calificaciones-consulta__manual-editors .boton { min-width: 9rem; }
+.calificaciones-consulta__manual-field { display: grid; align-content: start; gap: 0.35rem; min-width: 0; }
+.calificaciones-consulta__manual-field.is-wide { grid-column: 1 / -1; }
+.calificaciones-consulta__manual-field > .nota,
+.calificaciones-consulta__manual-field > .ayuda { margin: 0; }
 
 .calificaciones-consulta__detail:focus-visible {
   outline: 3px solid rgba(125, 211, 252, 0.72);
@@ -7028,6 +7194,34 @@ html[data-theme="dark"] body .empty-step__num {
   font-weight: 900;
 }
 
+.calificaciones-consulta__book-missing {
+  margin-top: 0.75rem;
+  padding: 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--ui-card-border, var(--border-subtle)) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ui-card-surface, var(--surface-2)) 78%, transparent);
+}
+
+.calificaciones-consulta__book-missing > summary {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ui-ink, var(--text-primary));
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* WCAG AA: el foco visible conserva un contorno de 3 px con el token de tema. */
+.calificaciones-consulta__book-missing > summary:focus-visible {
+  outline: 3px solid var(--focus, #2563eb);
+  outline-offset: 3px;
+}
+
+.calificaciones-consulta__book-missing[open] > summary {
+  margin-bottom: 0.65rem;
+}
+
 .calificaciones-consulta__detail-note {
   padding: 0.7rem 0.8rem;
   border-left: 3px solid #38d6dc;
@@ -7042,7 +7236,7 @@ html[data-theme="dark"] body .empty-step__num {
 
 @media (max-width: 860px) {
   .calificaciones-workspace-nav {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .calificaciones-consulta__toolbar > * {
@@ -7130,17 +7324,160 @@ html[data-theme="dark"] body .empty-step__num {
 
   .calificaciones-consulta__manual-editors { grid-template-columns: 1fr; }
 }
+
+@media (max-width: 359px) {
+  .calificaciones-consulta__table tbody tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .classroom-evidencias-table tbody tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .classroom-evidencias-table tbody th,
+  .classroom-evidencias-table tbody td {
+    align-items: flex-start;
+    justify-content: flex-start;
+    min-width: 0;
+    max-width: 100%;
+    flex-direction: column;
+    gap: 0.2rem;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .classroom-evidencias-table tbody td .boton {
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
+/* WCAG AA: underlined activity links use an explicit light-theme color with 4.5:1+ contrast. */
+:root:not([data-theme="dark"]) .page--docente .classroom-evidencias-table a.classroom-evidencias-link,
+:root:not([data-theme="dark"]) .page--docente .classroom-evidencias-table a.classroom-evidencias-link:visited {
+  color: #075985;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+/* WCAG AA: underlined activity links remain legible on the dark table surface. */
+:root[data-theme="dark"] .page--docente .classroom-evidencias-table a.classroom-evidencias-link,
+:root[data-theme="dark"] .page--docente .classroom-evidencias-table a.classroom-evidencias-link:visited {
+  color: #7dd3fc;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+/* WCAG AA: hover is a non-color cue and retains contrast in each theme. */
+:root:not([data-theme="dark"]) .page--docente .classroom-evidencias-table a.classroom-evidencias-link:hover {
+  color: #0c4a6e;
+}
+
+:root[data-theme="dark"] .page--docente .classroom-evidencias-table a.classroom-evidencias-link:hover {
+  color: #bae6fd;
+}
+
 .calificaciones-extra__periodo { max-width: 38rem; }
+.calificaciones-extra__file-picker { min-width: 0; }
+.calificaciones-extra__file-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--glass-border-mid);
+  border-radius: 0.65rem;
+  background: var(--glass-surface-2);
+  color: var(--texto);
+  cursor: pointer;
+}
+.calificaciones-extra__file-control:hover { border-color: var(--surface-border-strong); }
+.calificaciones-extra__file-button {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--glass-border-mid);
+  border-radius: 0.45rem;
+  background: var(--surface-1);
+  color: var(--texto);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.calificaciones-extra__file-name { min-width: 0; color: var(--textoSuave); overflow-wrap: anywhere; }
+.calificaciones-extra__file-picker:focus-within .calificaciones-extra__file-control {
+  outline: 3px solid var(--texto);
+  outline-offset: 2px;
+}
+@media (max-width: 360px) {
+  .calificaciones-extra__file-control { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+  .calificaciones-extra__file-name { width: 100%; }
+}
 .calificaciones-extra__section { margin-top: 1.2rem; padding: 1rem; border: 1px solid var(--ui-card-border, var(--border-subtle)); border-radius: 14px; background: var(--ui-card-surface, var(--surface-1)); }
+.calificaciones-extra__disclosure > summary {
+  cursor: pointer;
+  border-radius: 10px;
+}
+.calificaciones-extra__disclosure > summary:focus-visible {
+  outline: 3px solid var(--texto);
+  outline-offset: 3px;
+}
+.calificaciones-extra__disclosure-summary {
+  padding: 0.2rem 0.15rem;
+}
+.calificaciones-extra__disclosure-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 0.9rem;
+  min-height: 2.75rem;
+}
+.calificaciones-extra__disclosure-main { display: grid; gap: 0.2rem; min-width: 0; }
+.calificaciones-extra__disclosure-main strong { color: var(--ui-ink, var(--text-primary)); }
+.calificaciones-extra__disclosure-main small { color: var(--ui-ink-muted, var(--text-secondary)); line-height: 1.4; }
+.calificaciones-extra__disclosure-count {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--ui-card-border, var(--border-subtle));
+  border-radius: 999px;
+  color: var(--ui-ink-soft, var(--text-secondary));
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.calificaciones-extra__disclosure[open] > summary { margin-bottom: 0.8rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--ui-card-border, var(--border-subtle)); }
+.calificaciones-extra__disclosure-content { display: grid; gap: 0.7rem; min-width: 0; }
+.calificaciones-extra__hash-details { min-width: 0; }
+.calificaciones-extra__hash-details > summary { width: fit-content; max-width: 100%; color: var(--ui-ink-muted, var(--text-secondary)); font-size: .82rem; }
+.calificaciones-extra__hash-details > .calificaciones-extra__sha256 { margin-top: .45rem; padding: .55rem; border: 1px solid var(--ui-card-border, var(--border-subtle)); border-radius: 8px; background: var(--ui-card-surface, var(--surface-1)); }
 .calificaciones-extra__section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .8rem; margin-bottom: .8rem; }
 .calificaciones-extra__section-head h4 { margin: 0; }
 .calificaciones-extra__section-head p, .calificaciones-extra__status { margin: .25rem 0 0; }
+.calificaciones-extra__selection-count {
+  flex: 0 0 auto;
+  max-width: 100%;
+  padding: .35rem .55rem;
+  border: 1px solid var(--ui-card-border, var(--border-subtle));
+  border-radius: 999px;
+  color: var(--ui-ink-soft, var(--text-secondary));
+  font-size: .78rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
 .calificaciones-extra__summary { display: flex; flex-wrap: wrap; gap: .5rem; margin: .85rem 0; }
 .calificaciones-extra__summary span { padding: .45rem .65rem; border: 1px solid var(--ui-card-border, var(--border-subtle)); border-radius: 999px; }
 .calificaciones-extra__roster { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }
 .calificaciones-extra__student { min-width: 0; padding: .8rem; border: 1px solid var(--ui-card-border, var(--border-subtle)); border-radius: 12px; }
 .calificaciones-extra__student-main, .calificaciones-extra__actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; }
 .calificaciones-extra__student-main > div { min-width: 0; }
+.calificaciones-extra__batch-select { display: inline-flex; align-items: center; gap: .5rem; min-height: 2.75rem; max-width: 100%; padding: .35rem .6rem; border: 1px solid var(--ui-card-border, var(--border-subtle)); border-radius: 9px; background: var(--ui-glass-surface, var(--surface-1)); color: var(--ui-ink, var(--text-primary)); font-weight: 650; cursor: pointer; }
+.calificaciones-extra__batch-select input { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; margin: 0; accent-color: var(--ui-accent-primary, #0f8b8d); cursor: pointer; }
+/* WCAG AA: el indicador usa el acento de tema; contrasta 4.64:1 en claro y al menos 6.07:1 sobre las superficies oscuras evaluadas. */
+.calificaciones-extra__batch-select:focus-within { outline: 3px solid var(--ui-accent-primary, #0f8b8d); outline-offset: 2px; }
 .calificaciones-extra__student-main small, .calificaciones-extra__history small { display: block; color: var(--ui-ink-muted, var(--text-secondary)); }
 .calificaciones-extra__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; margin: .65rem 0; }
 .calificaciones-extra__metrics div { min-width: 0; }
@@ -7170,6 +7507,8 @@ html[data-theme="dark"] body .empty-step__num {
 
 @media (max-width: 584px) {
   .calificaciones-extra__section { padding: .75rem; }
+  .calificaciones-extra__section-head { flex-direction: column; gap: .4rem; }
+  .calificaciones-extra__selection-count { align-self: flex-start; }
   .calificaciones-extra__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .calificaciones-extra__form { grid-template-columns: minmax(0, 1fr); }
   .calificaciones-extra__form > :first-child, .calificaciones-extra__form > p, .calificaciones-extra__form > code, .calificaciones-extra__form > label:last-child { grid-column: 1; }
@@ -7201,6 +7540,12 @@ html[data-theme="dark"] body .empty-step__num {
 
 .calificaciones-experience .banco-mini-kpi:nth-child(5) {
   border-color: color-mix(in srgb, var(--ui-accent-primary) 42%, var(--ui-glass-border));
+}
+
+.calificaciones-experience .calificaciones-kpi--aclaraciones .banco-mini-kpi__icon,
+.calificaciones-experience .calificaciones-kpi--aclaraciones .banco-mini-kpi__num {
+  color: var(--ui-accent-secondary) !important;
+  text-shadow: none;
 }
 
 /* WCAG AA: estos colores mantienen al menos 4.5:1 frente a la superficie KPI clara #e2e8f0. */
@@ -7271,7 +7616,7 @@ html[data-theme="dark"] body .empty-step__num {
   transform: translateY(-1px);
 }
 
-.calificaciones-experience :is(button, a, input, select, textarea):focus-visible {
+.calificaciones-experience :is(button, a, input, select, textarea, summary):focus-visible {
   outline: 3px solid var(--ui-accent-primary);
   outline-offset: 3px;
 }
@@ -7352,7 +7697,7 @@ html[data-theme="dark"] body .empty-step__num {
 .calificaciones-consulta__status.is-complete {
   border-color: color-mix(in srgb, var(--ui-accent-success) 44%, var(--ui-glass-border));
   background: color-mix(in srgb, var(--ui-accent-success) 12%, var(--surface-1));
-  color: var(--ui-accent-success);
+  color: var(--exitoTexto);
 }
 
 .calificaciones-consulta__status.is-pending {
@@ -7386,10 +7731,23 @@ html[data-theme="dark"] body .empty-step__num {
 .classroom-grade-history__card > h5 svg { color: var(--ui-accent-success); }
 .classroom-grade-history__card > h5 time { margin-inline-start: auto; color: var(--ui-text-secondary); font-size: 0.88em; }
 .classroom-grade-history__card > img { display: block; width: min(100%, 38rem); height: auto; border: 1px solid var(--ui-glass-border); border-radius: var(--radius-sm); }
+.classroom-grade-history__technical > summary {
+  width: fit-content;
+  max-width: 100%;
+  color: var(--ui-text-secondary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.classroom-grade-history__technical > summary:focus-visible {
+  outline: 2px solid var(--ui-accent-primary);
+  outline-offset: 0.2rem;
+}
+.classroom-grade-history__technical > p { margin: 0.45rem 0 0; overflow-wrap: anywhere; }
 
 .classroom-grade-history__image-error {
-  display: flex;
-  align-items: center;
+  display: grid;
+  justify-items: start;
   gap: 0.4rem;
   color: var(--ui-accent-warning);
 }
@@ -7434,6 +7792,138 @@ html[data-theme="dark"] body .empty-step__num {
   .classroom-grade-history__card > h5 time { width: 100%; margin-inline-start: 0; }
 }
 
+@media (max-width: 430px) {
+  .calificaciones-consulta__detail-nav { grid-template-columns: minmax(0, 1fr); }
+  .calificaciones-consulta__detail-nav button:last-child { grid-column: auto; }
+  .calificaciones-consulta__detail-nav button > span { min-width: 0; }
+}
+
+@media (min-width: 861px) and (max-width: 1440px) {
+  .calificaciones-workspace-nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container alumnos (max-width: 920px) {
+  .alumnos-card__body {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .alumnos-card__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .alumnos-card__meta {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    min-width: 0;
+  }
+
+  .alumno-meta-tag--correo {
+    grid-column: 1 / -1;
+    max-width: 100%;
+  }
+}
+
+/* Renovar OAuth es una acción secundaria: mantiene superficies opacas y texto AA
+   legible en ambas paletas, sin heredar el vidrio global de los botones. */
+/* WCAG AA: contraste de etiqueta y superficie verificado por E2E a 320/390 CSS px. */
+:root[data-theme]:not([data-theme="dark"]) .page--docente .cuenta-panel .classroom-conexion__acciones > .boton.classroom-sync__renew-action:not(:disabled) {
+  background: #eaf3f6 !important;
+  background-image: none !important;
+  color: #173042 !important;
+  border-color: #66899b !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12) !important;
+}
+
+/* WCAG AA: mantiene el texto en contraste con la superficie clara de renovación. */
+:root[data-theme]:not([data-theme="dark"]) .page--docente .cuenta-panel .classroom-conexion__acciones > .boton.classroom-sync__renew-action:not(:disabled) .boton__texto {
+  color: #173042 !important;
+}
+
+/* WCAG AA: el hover conserva el mismo par de texto oscuro/superficie clara. */
+:root[data-theme]:not([data-theme="dark"]) .page--docente .cuenta-panel .classroom-conexion__acciones > .boton.classroom-sync__renew-action:not(:disabled):hover {
+  background: #d9e9ef !important;
+  background-image: none !important;
+}
+
+/* WCAG AA: contraste de etiqueta y superficie oscura verificado por E2E. */
+:root[data-theme="dark"] .page--docente .cuenta-panel .classroom-conexion__acciones > .boton.classroom-sync__renew-action:not(:disabled) {
+  background: #19384a !important;
+  background-image: none !important;
+  color: #f4fbff !important;
+  border-color: #80b4c3 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24) !important;
+}
+
+/* WCAG AA: conserva el texto claro sobre el fondo oscuro de renovación. */
+:root[data-theme="dark"] .page--docente .cuenta-panel .classroom-conexion__acciones > .boton.classroom-sync__renew-action:not(:disabled) .boton__texto {
+  color: #f4fbff !important;
+}
+
+/* WCAG AA: hover oscuro con texto claro, comprobado por la aserción de contraste. */
+:root[data-theme="dark"] .page--docente .cuenta-panel .classroom-conexion__acciones > .boton.classroom-sync__renew-action:not(:disabled):hover {
+  background: #224b60 !important;
+  background-image: none !important;
+}
+
+@media (max-width: 480px) {
+  .calificaciones-workspace-nav { grid-template-columns: minmax(0, 1fr); }
+  .calificaciones-consulta__detail-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 360px) {
+  .calificaciones-workspace-nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
+    padding: 0.65rem;
+  }
+
+  .calificaciones-workspace-nav__mobile-label {
+    display: block;
+    color: var(--ui-ink-soft, var(--text-secondary));
+    font-size: 0.82rem;
+    font-weight: 750;
+  }
+
+  .calificaciones-workspace-nav__mobile-select {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--ui-card-border, var(--border-subtle));
+    border-radius: 10px;
+    background: var(--ui-glass-surface-strong, var(--surface-1));
+    color: var(--ui-ink, var(--text-primary));
+    font: inherit;
+  }
+
+  /* WCAG AA: foco visible de 3 px, contraste del control validado en ambos temas. */
+  .calificaciones-workspace-nav__mobile-select:focus-visible {
+    outline: 3px solid var(--ui-accent-primary, #087ea4);
+    outline-offset: 2px;
+  }
+
+  .calificaciones-workspace-nav__desktop {
+    display: none;
+  }
+}
+
+@media (min-width: 361px) and (max-width: 480px) {
+  .calificaciones-workspace-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calificaciones-workspace-nav button:last-child { grid-column: 1 / -1; }
+  .calificaciones-workspace-nav__index { display: none; }
+  .calificaciones-workspace-nav button > span { min-width: 0; flex: 1 1 auto; }
+}
+
+@media (max-width: 700px) {
+  .calificaciones-consulta__manual-editors { grid-template-columns: minmax(0, 1fr); }
+  .calificaciones-consulta__manual-field.is-wide { grid-column: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .calificaciones-experience *,
   .calificaciones-experience *::before,
@@ -7443,5 +7933,168 @@ html[data-theme="dark"] body .empty-step__num {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .alumnos-card__meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.45rem;
+  }
+
+  .alumno-meta-tag,
+  .alumno-meta-tag--correo {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: start;
+    align-content: start;
+    justify-items: start;
+    width: 100%;
+    max-width: 100%;
+    flex: 0 0 auto;
+    gap: 0.3rem;
+  }
+
+  .alumno-meta-tag--matricula,
+  .alumno-meta-tag--correo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .alumno-meta-tag--matricula .alumno-meta-value {
+    white-space: nowrap;
+  }
+
+  .alumno-meta-tag::before {
+    display: none;
+  }
+}
+
+/* WCAG AA: #0f172a sobre blanco con 14% de acento conserva al menos 15.6:1. */
+:root:not([data-theme="dark"]) .alumnos-card__meta .alumno-meta-tag {
+  border-color: color-mix(in srgb, var(--alumno-meta-accent) 42%, white) !important;
+  background: color-mix(in srgb, var(--alumno-meta-accent) 14%, white) !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+}
+
+/* WCAG AA: mantener etiquetas al mismo nivel de contraste sobre el tinte claro. */
+:root:not([data-theme="dark"]) .alumnos-card__meta .alumno-meta-lbl {
+  border-color: color-mix(in srgb, var(--alumno-meta-accent) 42%, white) !important;
+  background: color-mix(in srgb, var(--alumno-meta-accent) 14%, white) !important;
+  color: #0f172a !important;
+}
+
+:root:not([data-theme="dark"]) .alumnos-card__meta .alumno-meta-value,
+:root:not([data-theme="dark"]) .alumnos-card__meta .alumno-meta-tag--grupo .badge.badge-grupo,
+:root:not([data-theme="dark"]) .alumnos-card__meta .alumno-correo {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #172033 !important;
+}
+
+@media (max-width: 480px) {
+  .alumnos-lista__item .alumno-meta-lbl {
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+
+  .alumnos-lista__item .alumno-meta-value,
+  .alumnos-lista__item .alumno-meta-tag--grupo .badge.badge-grupo,
+  .alumnos-lista__item .alumno-correo {
+    font-size: 0.85rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+}
+
+/* WCAG AA: los indicadores de Materias usan fondo estable y valores oscuros en tema claro.
+   Contrastes con #eef4fa: activo #075985 (6.83:1), grupos #065f46 (6.94:1),
+   por cerrar #92400e (6.40:1), etiqueta #475569 (6.84:1). */
+:root:not([data-theme="dark"]) .materias-panel .materia-mini-kpi {
+  background: #eef4fa !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel .materia-mini-kpi__lbl {
+  color: #475569 !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel .materia-mini-kpi--active .materia-mini-kpi__num,
+:root:not([data-theme="dark"]) .materias-panel .materia-mini-kpi--active .materia-mini-kpi__icon {
+  color: #075985 !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel .materia-mini-kpi--groups .materia-mini-kpi__num,
+:root:not([data-theme="dark"]) .materias-panel .materia-mini-kpi--groups .materia-mini-kpi__icon {
+  color: #065f46 !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel .materia-mini-kpi--closing .materia-mini-kpi__num,
+:root:not([data-theme="dark"]) .materias-panel .materia-mini-kpi--closing .materia-mini-kpi__icon {
+  color: #92400e !important;
+  text-shadow: none !important;
+}
+
+/* WCAG AA: #334155 sobre #f1f5f9 conserva 9.45:1 y separa el estado vacío de la tarjeta. */
+:root:not([data-theme="dark"]) .materias-panel .materia-card-alumnos__empty {
+  display: block;
+  padding: 0.4rem 0.6rem;
+  border-left: 2px solid #64748b !important;
+  border-radius: 0 8px 8px 0;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+/* WCAG AA: tarjeta opaca para que las fechas, grupos y matrícula no dependan del fondo externo. */
+:root:not([data-theme="dark"]) .materias-panel .materias-lista__item {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 12px 24px -20px rgba(15, 23, 42, 0.35), 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel .materia-card-meta .materia-meta-lbl,
+:root:not([data-theme="dark"]) .materias-panel .materia-card-alumnos__header .materia-meta-lbl {
+  color: #475569 !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel .materia-card-meta .materia-meta-value {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel .materia-card-alumnos__header strong {
+  color: #075985 !important;
+  background: transparent !important;
+  text-shadow: none !important;
+}
+
+@media (max-width: 360px) {
+  .materias-panel .materia-card-meta .materia-meta-tag {
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: start;
+    justify-items: start;
+    flex: 0 1 auto;
+    column-gap: 0.5rem;
+  }
+
+  .materias-panel .materia-card-meta .materia-meta-value {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  :root[data-theme] .materias-panel .materia-card-meta .materia-meta-tag + .materia-meta-tag {
+    border-left: 0 !important;
+    padding-left: 0;
   }
 }

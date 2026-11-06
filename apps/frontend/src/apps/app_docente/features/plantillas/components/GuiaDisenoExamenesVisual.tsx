@@ -5,14 +5,14 @@
  */
 import { useState } from 'react';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
-import { emitToast } from '../../../../../ui/toast/toastBus';
+import { Lightbulb, X, IconoLucide } from '../../../../../ui/iconosCatalogo';
 
 export function GuiaDisenoExamenesVisual() {
   const [visible, setVisible] = useState(() => {
     try {
-      return localStorage.getItem('ep.guia.diseno.oculta') !== 'true';
+      return localStorage.getItem('ep.guia.diseno.oculta') === 'false';
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -26,7 +26,6 @@ export function GuiaDisenoExamenesVisual() {
       }
       return next;
     });
-    emitToast({ level: 'info', title: 'Guía de diseño', message: visible ? 'Guía oculta' : 'Guía visible', durationMs: 1600 });
   }
 
   if (!visible) {
@@ -38,7 +37,7 @@ export function GuiaDisenoExamenesVisual() {
           onClick={toggleGuia}
           data-tooltip="Ver guía de maquetación y estructura de exámenes"
         >
-          💡 Ver guía rápida de diseño de exámenes
+          <IconoLucide icon={Lightbulb} size={16} /> Ver guía rápida de diseño de exámenes
         </Boton>
       </div>
     );
@@ -58,7 +57,7 @@ export function GuiaDisenoExamenesVisual() {
           title="Ocultar guía"
           aria-label="Ocultar guía rápida"
         >
-          ✕ Ocultar guía
+          <IconoLucide icon={X} size={16} aria-hidden="true" /> Ocultar guía
         </button>
       </div>
 

@@ -5,6 +5,7 @@
  * Limites: Evitar acoplar IO directo; preferir hooks/services del feature.
  */
 import { Spinner } from '../../../../../ui/iconos';
+import { ListTree, IconoLucide } from '../../../../../ui/iconosCatalogo';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
 import { normalizarNombreTema, type TemaBanco } from '../../../SeccionBanco.helpers';
@@ -22,6 +23,8 @@ export function BancoGestionTemas({
   bloqueoEdicion,
   crearTemaBanco,
   cargandoTemas,
+  errorCargaTemas,
+  onReintentarCargaTemas,
   conteoPorTema,
   paginasPorTema,
   paginasEstimadasBackendPorTema,
@@ -36,7 +39,10 @@ export function BancoGestionTemas({
   temaEditando,
   archivandoTemaId,
   archivarTemaBanco,
-  ajusteProps
+  ajusteProps,
+  cargandoPreguntas = false,
+  errorCargaPreguntas = false,
+  hayPreguntasPrevias = false
 }: {
   periodoId: string;
   temasAbierto: boolean;
@@ -48,6 +54,8 @@ export function BancoGestionTemas({
   bloqueoEdicion: boolean;
   crearTemaBanco: () => Promise<void>;
   cargandoTemas: boolean;
+  errorCargaTemas: string;
+  onReintentarCargaTemas: () => void;
   conteoPorTema: Map<string, number>;
   paginasPorTema: Map<string, number>;
   paginasEstimadasBackendPorTema: Map<string, number>;
@@ -62,6 +70,9 @@ export function BancoGestionTemas({
   temaEditando: boolean;
   archivandoTemaId: string | null;
   archivarTemaBanco: (item: TemaBanco) => Promise<void>;
+  cargandoPreguntas?: boolean;
+  errorCargaPreguntas?: boolean;
+  hayPreguntasPrevias?: boolean;
   ajusteProps: {
     ajusteTemaId: string | null;
     ajustePaginasObjetivo: number;
@@ -87,8 +98,21 @@ export function BancoGestionTemas({
     asignarSinTemaATema: () => Promise<void>;
   };
 }) {
+  const etiquetaConteoPreguntas = (tema: string) => {
+    const total = conteoPorTema.get(tema) ?? 0;
+    if (cargandoPreguntas) {
+      return hayPreguntasPrevias ? `Preguntas (última carga): ${total}` : 'Preguntas: Cargando…';
+    }
+    if (errorCargaPreguntas) {
+      return hayPreguntasPrevias ? `Preguntas (última carga): ${total}` : 'Preguntas: No disponible';
+    }
+    return `Preguntas: ${total}`;
+  };
+
   return (
     <details
+      id="banco-temas"
+      tabIndex={-1}
       className="colapsable banco-colapsable banco-colapsable--temas"
       open={temasAbierto}
       onToggle={(event) => setTemasAbierto((event.currentTarget as HTMLDetailsElement).open)}
@@ -96,14 +120,7 @@ export function BancoGestionTemas({
       <summary className="banco-temas-summary">
         <div className="banco-temas-summary__left">
           <span className="banco-temas-summary__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
+            <IconoLucide icon={ListTree} size={16} />
           </span>
           <b>Temas</b>
           {periodoId ? <span className="banco-badge-count">({temasBanco.length})</span> : ''}
@@ -114,14 +131,17 @@ export function BancoGestionTemas({
       </div>
 
       <div className="campo-inline banco-temas__crear">
-        <input
-          value={temaNuevo}
-          onChange={(event) => setTemaNuevo(event.target.value)}
-          placeholder="Nuevo tema (ej. Funciones)"
-          aria-label="Nuevo tema"
-          disabled={bloqueoEdicion}
-          className="banco-tema-input-nuevo"
-        />
+        <label className="campo banco-temas__campo" htmlFor="banco-tema-nuevo">
+          <span className="campo__label-text">Nombre del tema nuevo</span>
+          <input
+            id="banco-tema-nuevo"
+            value={temaNuevo}
+            onChange={(event) => setTemaNuevo(event.target.value)}
+            placeholder="Ejemplo: Funciones"
+            disabled={bloqueoEdicion}
+            className="banco-tema-input-nuevo"
+          />
+        </label>
         <Boton
           type="button"
           variante="secundario"
@@ -129,14 +149,23 @@ export function BancoGestionTemas({
           disabled={!periodoId || !temaNuevo.trim() || bloqueoEdicion}
           onClick={() => void crearTemaBanco()}
         >
-          Agregar
+          Agregar tema
         </Boton>
       </div>
 
       {cargandoTemas && <InlineMensaje tipo="info" leading={<Spinner />}>Cargando temas…</InlineMensaje>}
+      {!cargandoTemas && errorCargaTemas && (
+        <div className="banco-temas__error-recuperable">
+          <InlineMensaje tipo="error">No se pudieron cargar los temas: {errorCargaTemas}</InlineMensaje>
+          {temasBanco.length > 0 && (
+            <p className="nota" role="note">Se conservan los temas de la última consulta de esta materia; no fue posible comprobar si siguen actualizados.</p>
+          )}
+          <Boton type="button" variante="secundario" onClick={onReintentarCargaTemas}>Reintentar carga de temas</Boton>
+        </div>
+      )}
 
       <ul className="lista lista-items banco-temas__lista">
-        {periodoId && !cargandoTemas && temasBanco.length === 0 && (
+        {periodoId && !cargandoTemas && !errorCargaTemas && temasBanco.length === 0 && (
           <li className="banco-empty-state">No hay temas. Crea el primero arriba.</li>
         )}
         {temasBanco.map((t) => (
@@ -146,10 +175,10 @@ export function BancoGestionTemas({
                 <div className="banco-tema-info">
                   <div className="item-title">{t.nombre}</div>
                   <div className="item-meta banco-tema-meta">
-                    <span className="banco-tag-preguntas">Preguntas: {conteoPorTema.get(t.nombre) ?? 0}</span>
+                    <span className="banco-tag-preguntas">{etiquetaConteoPreguntas(t.nombre)}</span>
                     <span className="banco-tag-paginas">
-                      Paginas (estimadas): {paginasPorTema.get(normalizarNombreTema(t.nombre).toLowerCase()) ?? 0}
-                      {paginasEstimadasBackendPorTema.has(normalizarNombreTema(t.nombre).toLowerCase()) ? ' (preview)' : ''}
+                      Páginas estimadas: {paginasPorTema.get(normalizarNombreTema(t.nombre).toLowerCase()) ?? 0}
+                      {paginasEstimadasBackendPorTema.has(normalizarNombreTema(t.nombre).toLowerCase()) ? ' · cálculo del servidor' : ''}
                     </span>
                   </div>
                 </div>
@@ -178,7 +207,7 @@ export function BancoGestionTemas({
                   ) : (
                     <>
                       <Boton type="button" variante="secundario" onClick={() => abrirAjusteTema(t)} disabled={!temaEditando}>
-                        Ajustar paginas
+                        Ajustar páginas
                       </Boton>
                       <Boton type="button" variante="secundario" onClick={() => iniciarEdicionTema(t)} disabled={!temaEditando}>
                         Renombrar

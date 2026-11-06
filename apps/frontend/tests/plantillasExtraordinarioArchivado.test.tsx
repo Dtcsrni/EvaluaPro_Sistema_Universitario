@@ -67,6 +67,7 @@ describe('generación extraordinaria desde periodo archivado', () => {
         puedeGenerarExamenes
         onGenerarExamenesLote={generarLote}
         mensajeGeneracion=""
+        mensajeGeneracionEsError={false}
         lotePdfUrl={null}
         descargarPdfLote={async () => {}}
         progresoLoteGeneracion={null}
@@ -89,7 +90,7 @@ describe('generación extraordinaria desde periodo archivado', () => {
     expect(within(omrDetails as HTMLElement).getByText('P1-17')).toBeInTheDocument();
     expect(within(omrDetails as HTMLElement).getByText(/opciones insuficientes; marcas ambiguas/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo que revisé la vista previa del examen/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Generar extraordinarios \(1 alumnos\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Generar extraordinarios \(1 alumno\)/i }));
 
     await waitFor(() => expect(generarLote).toHaveBeenCalledWith({
       tipoExamen: 'extraordinario',

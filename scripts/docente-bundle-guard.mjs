@@ -49,6 +49,11 @@ export function assertDocenteBundle({ distRoot }) {
   const jsFiles = fs.readdirSync(assetsRoot, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.js'))
     .map((entry) => path.join(assetsRoot, entry.name));
+  const destinosAjenoAlDocente = fs.readdirSync(assetsRoot)
+    .filter((name) => /^App(?:Alumno|AdminNegocio)-.*\.js$/i.test(name));
+  if (destinosAjenoAlDocente.length > 0) {
+    throw new Error(`Bundle docente contiene módulos de otros destinos: ${destinosAjenoAlDocente.join(', ')}`);
+  }
   const js = jsFiles.map((filePath) => fs.readFileSync(filePath, 'utf8')).join('\n');
   if (!js.includes('googleOauthClientId') || !js.includes('capacidades-integraciones')) {
     throw new Error('Bundle docente sin bootstrap OAuth runtime: falta cargar el Client ID público desde capacidades-integraciones.');

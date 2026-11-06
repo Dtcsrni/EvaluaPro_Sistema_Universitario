@@ -381,7 +381,7 @@ test('MSI docente usa un CAB embebido y el build valida su extracción administr
   assert.match(msiBuild, /Extracción administrativa MSI excedió 300 segundos/);
   assert.match(msiBuild, /@\('\/a', \$MsiPath/);
   assert.doesNotMatch(msiBuild, /@\('\/i', \$MsiPath|@\('\/x', \$MsiPath/);
-  assert.match(msiBuild, /evaluapro-native-dist\.zip[\s\S]*?\$nativePayloadArchive\.FullName/);
+  assert.match(msiBuild, /ExpectedNativePayloadArchiveName[\s\S]*?\$nativePayloadArchive = \$packageArtifacts \| Where-Object \{ \$_.Name -eq \$ExpectedNativePayloadArchiveName \}[\s\S]*?\$nativePayloadArchive\.FullName/);
   assert.match(msiBuild, /Remove-Item -LiteralPath \$productOut -Force/);
   assert.match(msiBuild, /"-intermediatefolder", \$wixProductWorkRoot/);
   assert.match(msiBuild, /"-cabcache", \$wixCabCache/);

@@ -60,6 +60,9 @@ export function ShellDocente({
 
   return (
     <section className="card anim-entrada shell-docente superficie-app superficie-app--docente">
+      <a className="shell-docente__skip-link" href="#contenido-principal">
+        Saltar al contenido principal
+      </a>
       <div className="cabecera shell-docente__header">
         <div className="shell-docente__intro">
           <div className="shell-docente__brand-row">
@@ -105,7 +108,7 @@ export function ShellDocente({
             <button
               type="button"
               className="chip chip-version"
-              aria-label={`Versión ${version}`}
+              aria-label={`Versión v${version}. Abrir información de versión`}
               data-tooltip="Abrir información de versión, tecnologías y changelog"
               title="Abrir información de versión, tecnologías y changelog"
               onClick={() => abrirVentanaVersion('docente')}

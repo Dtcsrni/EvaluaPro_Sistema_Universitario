@@ -12,6 +12,7 @@ import {
   etiquetaMateria,
   idCortoMateria,
   normalizarResultadoOmr,
+  obtenerInicialesAvatarAlumno,
   obtenerVersionPregunta,
   obtenerVistaInicial,
   patronNombreMateria,
@@ -42,6 +43,13 @@ const preguntaBase = {
 } as const;
 
 describe('utilidades app docente', () => {
+  it('compacta las iniciales del avatar sin alterar la normalización del nombre', () => {
+    expect(obtenerInicialesAvatarAlumno('María Fernanda González Hernández')).toBe('MH');
+    expect(obtenerInicialesAvatarAlumno('José de la Cruz')).toBe('JC');
+    expect(obtenerInicialesAvatarAlumno('Ana')).toBe('A');
+    expect(obtenerInicialesAvatarAlumno()).toBe('');
+  });
+
   it('obtenerVistaInicial respeta vistas validas y aliases', () => {
     window.history.pushState({}, '', '/?vista=banco');
     expect(obtenerVistaInicial()).toBe('banco');
@@ -258,6 +266,8 @@ describe('utilidades app docente', () => {
   it('patronNombreMateria acepta y rechaza formatos esperados', () => {
     expect(patronNombreMateria.test('Calculo I')).toBe(true);
     expect(patronNombreMateria.test('IA-2026 (grupo A)')).toBe(true);
+    expect(patronNombreMateria.test('Álgebra Lineal — 2A')).toBe(true);
+    expect(patronNombreMateria.test('Cálculo – grupo A')).toBe(true);
     expect(patronNombreMateria.test('')).toBe(false);
     expect(patronNombreMateria.test('  Empieza con espacio')).toBe(false);
   });

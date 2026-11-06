@@ -1,7 +1,7 @@
 ---
 id: SPEC-048
 titulo: Sincronización de Paquetes Offline y Nube Institucional
-version: 3.0.0
+version: 3.0.1
 fecha: 2026-09-01
 autor: Antigravity / EvaluaPro Team
 modulo: modulo_sincronizacion
@@ -23,6 +23,7 @@ Operación local de producción-piloto en dos equipos del mismo docente. La base
 - **REQ-009 (Recuperación)**: Si se pierde la renovación del lease, detener la publicación y pasar a modo lectura; permitir recuperar un lease expirado sin borrar datos remotos.
 - **REQ-010 (Proveedor de transporte)**: Encapsular el almacenamiento en nube mediante un proveedor configurable. OneDrive sincronizado por carpeta es transporte de piloto; un proveedor con escritura condicional debe usarse cuando se requiera garantía distribuida fuerte.
 - **REQ-011 (Carpeta definida por docente)**: Permitir que el docente seleccione desde `Cuenta → Datos y sincronización` la carpeta local que su cliente de OneDrive sincroniza. La preferencia se conserva por instalación y cuenta, no contiene secretos y prevalece sobre la configuración de entorno.
+- **REQ-012 (Claridad del encabezado)**: Usar un título breve y en español que nombre sincronización y respaldos; resumir el envío/recepción con el portal, la transferencia entre equipos y los respaldos completos sin insinuar sincronización en tiempo real.
 
 ## Criterios de Aceptación
 1. El docente puede exportar un único archivo cifrado que contiene la SQLite de producción-piloto y los archivos transferibles asociados.
@@ -34,6 +35,7 @@ Operación local de producción-piloto en dos equipos del mismo docente. La base
 7. Dos equipos para el mismo docente no pueden publicar simultáneamente mientras ambos observan el lease vigente.
 8. El cierre, expiración o pérdida de renovación del lease no elimina la última instantánea válida.
 9. El docente puede seleccionar y cambiar la carpeta de transporte; el sistema valida que sea una carpeta absoluta, persistente y distinta del almacenamiento SQLite local. OneDrive es responsable de sincronizarla entre equipos.
+10. El encabezado de la pantalla describe esas tareas con términos claros y sin cambiar el comportamiento ni sus contratos.
 
 ## Matriz de Trazabilidad
 
@@ -50,3 +52,22 @@ Operación local de producción-piloto en dos equipos del mismo docente. La base
 | REQ-009 | Expiración y recuperación segura | `apps/backend/tests/sincronizacion.lease.test.ts` | Completado |
 | REQ-010 | Proveedor de transporte configurable | `apps/backend/tests/sincronizacion.lease.test.ts` | Parcial: proveedor de carpeta sincronizada para piloto; falta proveedor con escritura condicional |
 | REQ-011 | Carpeta de transporte seleccionada por docente | `apps/backend/tests/sincronizacion.lease.test.ts` | Completado |
+| REQ-012 | Título y resumen claros en la pantalla docente | `apps/frontend/tests/seccionSincronizacion.test.tsx`; `apps/frontend/tests/appDocente.dominiosCobertura.test.tsx` | Implementado; pruebas focales 4/4 y 12/12 PASS |
+
+### Revalidación de claridad y vista móvil (2026-10-29)
+
+- Se acortó el título a «Sincronización y respaldos» y se reemplazó la descripción genérica
+  por las acciones concretas: portal, transferencia entre equipos y respaldo completo. No se
+  insinúa sincronización en tiempo real ni se alteran contratos.
+- `seccionSincronizacion.test.tsx`: 4/4 PASS; `appDocente.dominiosCobertura.test.tsx`: 12/12
+  PASS; typecheck, ESLint focal, SDD y diff check PASS.
+- El recorrido responsive docente con datos sintéticos pasó 3/3 para 320, 360 y 390 px; las
+  aserciones verifican las 13 secciones, cuadrícula de KPI y controles de respaldo. Capturas
+  actuales en `reports/qa/ux-operativas-mobile-20261029-edge-final/`; se inspeccionó la vista
+  móvil de Sincronización y el panel de respaldo a 320 px. Se repitió el recorrido de 320 px
+  con el desplazamiento restaurado al inicio para capturar el título y resumen actualizados;
+  evidencia en `reports/qa/ux-sync-header-20261029-edge/`.
+- Se corrigieron expectativas anticuadas de la cobertura docente que no coincidían con la UI
+  actual (tildes y presentación del código). La suite de cobertura pasó 12/12.
+- El E2E usa API interceptada; zoom de texto al 200 %, lector de pantalla y runtime instalado
+  continúan sin verificarse.

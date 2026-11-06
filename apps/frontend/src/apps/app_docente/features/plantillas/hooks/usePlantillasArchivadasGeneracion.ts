@@ -18,12 +18,14 @@ export function usePlantillasArchivadasGeneracion({
   habilitada,
   puedeLeer,
   periodosArchivados,
-  setMensaje
+  setMensaje,
+  setMensajeError
 }: {
   habilitada: boolean;
   puedeLeer: boolean;
   periodosArchivados: Periodo[];
   setMensaje: Dispatch<SetStateAction<string>>;
+  setMensajeError?: (mensaje: string) => void;
 }) {
   const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
 
@@ -39,10 +41,14 @@ export function usePlantillasArchivadasGeneracion({
         if (vigente) setPlantillas(archivadas);
       })
       .catch((error) => {
-        if (vigente) setMensaje(mensajeDeError(error, 'No se pudieron cargar las plantillas de materias cerradas'));
+        if (vigente) {
+          const mensajeError = mensajeDeError(error, 'No se pudieron cargar las plantillas de materias cerradas');
+          if (setMensajeError) setMensajeError(mensajeError);
+          else setMensaje(mensajeError);
+        }
       });
     return () => { vigente = false; };
-  }, [habilitada, puedeLeer, periodosArchivados, setMensaje]);
+  }, [habilitada, puedeLeer, periodosArchivados, setMensaje, setMensajeError]);
 
   return plantillas;
 }

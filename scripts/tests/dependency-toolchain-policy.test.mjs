@@ -12,9 +12,9 @@ test('Node, npm y .NET tienen versiones estables fijadas y compatibles', () => {
   assert.equal(pkg.packageManager, 'npm@12.2.1');
   assert.equal(pkg.engines.node, '>=24.15.0');
   assert.equal(pkg.engines.npm, '>=12.1.0');
-  assert.equal(pkg.devDependencies['@types/node'], '^26.6.5');
+  assert.equal(pkg.devDependencies['@types/node'], '^26.6.6');
   for (const app of ['apps/backend', 'apps/frontend', 'apps/portal_alumno_cloud']) {
-    assert.equal(readJson(`${app}/package.json`).devDependencies['@types/node'], '^26.6.5');
+    assert.equal(readJson(`${app}/package.json`).devDependencies['@types/node'], '^26.6.6');
   }
   assert.equal(sdk.sdk.version, '10.0.401');
   assert.equal(sdk.sdk.allowPrerelease, false);

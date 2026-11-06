@@ -374,6 +374,45 @@ function crearParametrosBrevesCompactos(cantidadPreguntas: number) {
 }
 
 describe('pdf layout visual guard', () => {
+  it('recupera la trama geométrica de cabecera sin desplazar cajas funcionales', async () => {
+    const parametros = crearParametros(1);
+    const pregunta = parametros.preguntas[0]!;
+    pregunta.enunciado = 'Reactivo de control para comparar geometría de cabecera.';
+    pregunta.opciones = ['Opcion A', 'Opcion B', 'Opcion C', 'Opcion D', 'Opcion E'].map((texto, indice) => ({
+      texto,
+      esCorrecta: indice === 2
+    }));
+    const resultado = await generarPdfExamen({
+      ...parametros,
+      titulo: 'Referencia de patrón de cabecera',
+      folio: 'PATRON-BASE-01',
+      examId: 'PATRON-BASE-01',
+      encabezado: {
+        institucion: 'Centro Universitario Hidalguense',
+        materia: 'Prueba de renderer',
+        docente: 'Docente de prueba'
+      },
+      totalPaginas: 1
+    });
+    const pagina = resultado.mapaOmr.paginas.find((item) => item.tipoPagina !== 'reverso-vacio')!;
+    const header = pagina.layoutDebug?.header as Rect;
+    const qr = pagina.layoutDebug?.qr as Rect;
+    const reactivo = pagina.preguntas[0]!;
+
+    // Baseline tomado del renderer antes de cambiar exclusivamente el fondo.
+    expect(resultado.paginas.filter((item) => item.tipoPagina !== 'reverso-vacio')).toHaveLength(1);
+    expect([header.x, header.y, header.width, header.height].map((valor) => Number(valor.toFixed(5))))
+      .toEqual([32.34646, 590.65354, 547.30709, 173]);
+    expect([qr.x, qr.y, qr.width, qr.height].map((valor) => Number(valor.toFixed(5))))
+      .toEqual([418.64567, 643.93701, 107.71654, 119.71654]);
+    expect([reactivo.bboxPregunta!.x, reactivo.bboxPregunta!.y, reactivo.bboxPregunta!.width, reactivo.bboxPregunta!.height]
+      .map((valor) => Number(valor.toFixed(5))))
+      .toEqual([28.34646, 551.24370, 551.30709, 29.29173]);
+    expect(reactivo.opciones.map(({ x, y, radio }) => [x, y, radio].map((valor) => Number(valor!.toFixed(5)))))
+      .toEqual(Array.from({ length: 5 }, (_, indice) => [454.15354 + indice * 26, 557.03623, 9.07087]));
+    expect(pagina.layoutDebug?.collisionBoxes ?? []).toHaveLength(0);
+  });
+
   it('dibuja y mapea una burbuja por opción en la plantilla experimental sin carril OMR separado', async () => {
     const resultado = await generarPdfExamen({
       ...crearParametros(1),

@@ -2020,19 +2020,21 @@ function Get-InstalledProductVersion {
 
   if ($matchingEntries.Count -eq 1) {
     $entry = $matchingEntries[0]
-  } elseif ($script:upgradingExistingInstall -and $allEntries.Count -eq 1 -and
-      $script:initialUninstallRegistryPaths -contains [string]$allEntries[0].registryPath -and
+  } elseif ($allEntries.Count -eq 1 -and
       [string]::IsNullOrWhiteSpace([string]$allEntries[0].installLocation) -and
-      ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
-       (Test-Path -LiteralPath (Join-Path $target 'evaluapro-native-dist.zip') -PathType Leaf))) {
+      (($script:upgradingExistingInstall -and
+        $script:initialUninstallRegistryPaths -contains [string]$allEntries[0].registryPath -and
+        ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
+         @(Get-ChildItem -LiteralPath $target -File -Filter 'evaluapro-native-dist-*.zip' -ErrorAction SilentlyContinue).Count -gt 0)) -or
+       $script:isolatedBaselineUpgradeRun)) {
     $entry = $allEntries[0]
-    Write-E2ELog "ARP conservó la clave existente sin InstallLocation; se verifica la versión actualizada contra el payload en $target."
+    Write-E2ELog "ARP no publicó InstallLocation; se verifica la única entrada compatible con el modo de upgrade aislado. target=$target baseline=$script:isolatedBaselineUpgradeRun"
   } else {
     $newEntries = @($allEntries | Where-Object { $script:initialUninstallRegistryPaths -notcontains [string]$_.registryPath })
     if ($newEntries.Count -eq 1 -and
       [string]::IsNullOrWhiteSpace([string]$newEntries[0].installLocation) -and
       ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
-       (Test-Path -LiteralPath (Join-Path $target 'evaluapro-native-dist.zip') -PathType Leaf))) {
+       @(Get-ChildItem -LiteralPath $target -File -Filter 'evaluapro-native-dist-*.zip' -ErrorAction SilentlyContinue).Count -gt 0)) {
       # Some MSI packages omit ARPINSTALLLOCATION. In isolated QA, the one new
       # registry entry plus payload at the unique target identifies the product.
       $entry = $newEntries[0]
@@ -2686,7 +2688,7 @@ try {
     (Test-Path -LiteralPath (Join-Path $normalizedTargetRoot '.env') -PathType Leaf)
   $isolatedCandidateRun = $candidateBundleVerified -and -not $baselineBundleProvided -and
     $isolatedTarget -and $stableCandidate -and $existing.Count -eq 0
-  $isolatedBaselineUpgradeRun = $candidateBundleVerified -and $baselineBundleExists -and
+  $script:isolatedBaselineUpgradeRun = $candidateBundleVerified -and $baselineBundleExists -and
     $isolatedTarget -and $stableCandidate -and $existing.Count -eq 0
   $validInstallMode = $isolatedCandidateRun -or $isolatedBaselineUpgradeRun -or $script:upgradingExistingInstall
   $installMode = if ($script:upgradingExistingInstall) {
