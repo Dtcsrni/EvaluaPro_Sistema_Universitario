@@ -2,7 +2,7 @@
 id: SPEC-126
 titulo: Login docente-local con OAuth Desktop y PKCE
 version: 1.0.0
-fecha: 2026-10-26
+fecha: 2026-11-06
 autor: Codex / EvaluaPro
 modulo: modulo_autenticacion
 estado: approved
@@ -15,7 +15,7 @@ La instalación limpia de `docente-local` no incluye el Client ID web de Google 
 ## Requisitos Funcionales
 
 - **REQ-001 (Login nativo distribuido):** `docente-local` puede iniciar sesión y registrar una cuenta docente con el Client ID Desktop versionado, sin depender de `GOOGLE_OAUTH_CLIENT_ID`, `VITE_GOOGLE_CLIENT_ID`, secretos ni redirects fijos.
-- **REQ-002 (Protocolo seguro):** Cada intento genera `state` impredecible de un solo uso, PKCE `S256`, listener loopback en `127.0.0.1` con puerto efímero y expiración acotada. El callback valida método, loopback, ruta, emisor, parámetros duplicados, `state` y código antes del canje.
+- **REQ-002 (Protocolo seguro):** Cada intento genera `state` impredecible de un solo uso, PKCE `S256`, listener loopback en `127.0.0.1` con puerto efímero y expiración acotada. La URI de callback usa la raíz `http://127.0.0.1:<puerto>` del flujo OAuth Desktop; el callback y la política de URL del host WebView2 validan la misma ruta raíz, método, loopback, emisor, parámetros duplicados, `state` y código antes del canje.
 - **REQ-003 (Scopes mínimos):** El login solicita solamente `openid`, `email` y `profile`. Los scopes de Classroom se solicitan aparte al conectar Classroom, con consentimiento propio y alcance de solo lectura.
 - **REQ-004 (Identidad verificada):** El servidor verifica el ID token contra el Client ID Desktop y exige `email_verified=true` y `sub` presente antes de llamar a los flujos existentes de login/registro. Las cuentas preexistentes se enlazan o rechazan según la regla existente de `googleSub`; no se vincula por correo sin una credencial firmada y validada.
 - **REQ-005 (Entrega temporal recuperable):** El credential validado se conserva solo en memoria por tiempo limitado; el frontend puede recuperar el mismo resultado mientras confirma su recepción, para tolerar una respuesta HTTP perdida. Nunca se escribe en logs, URL, almacenamiento persistente o artefactos. Confirmar, cancelar, vencer o fallar libera el listener y su estado.
@@ -38,7 +38,7 @@ La instalación limpia de `docente-local` no incluye el Client ID web de Google 
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001, REQ-002, REQ-003, REQ-005 | OAuth Desktop, PKCE, callback, expiración y entrega temporal | `apps/backend/tests/servicioGoogleDesktop.test.ts` | Implementado; test focal 4/4 |
+| REQ-001, REQ-002, REQ-003, REQ-005 | OAuth Desktop, PKCE, callback loopback raíz según formato Desktop, expiración y entrega temporal | `apps/backend/tests/servicioGoogleDesktop.test.ts`; `scripts/tests/installer-hub-contract.test.mjs` | Prueba backend focal 5/5 y compilación backend PASS; el host abre Google, pero el canje real falla porque Google exige `client_secret`; revisar el tipo del Client ID en Cloud Console |
 | REQ-004 | Verificación de audiencia, email verificado y sujeto antes de login/registro | `apps/backend/tests/servicioGoogleDesktop.test.ts`; `apps/backend/tests/integracion/autenticacion.googleOnly.test.ts` | Implementado; typecheck y prueba de integración focal pasan |
 | REQ-006, REQ-007 | Acción, navegador del sistema en WebView2, cancelación y recuperación de sesión | `apps/frontend/tests/seccionAutenticacion.desktopOAuth.test.tsx`; `scripts/tests/installer-hub-contract.test.mjs` | Implementado; build WPF correcto, falta E2E instalada |
 | REQ-008 | Capacidades y rutas Desktop sin configuración web, con origen permitido | `apps/backend/tests/integracion/autenticacion.googleOnly.test.ts` | Implementado; prueba de integración focal pasa |

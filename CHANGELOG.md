@@ -4,6 +4,17 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [Hub 1.2.19] - 2026-11-06
+
+### Fixed
+- El login Google Desktop usa la URI loopback raíz (`http://127.0.0.1:<puerto>`) tanto en autorización como en canje del código, conforme al contrato de apps de escritorio.
+
+## [1.2.12] - 2026-11-06
+
+### Fixed
+- Corrige el callback OAuth de escritorio para usar la URI loopback raíz y aceptar el callback que Google devuelve en esa URI.
+- Añade diagnóstico local opcional de errores OAuth; registra la respuesta de error del proveedor con campos de credenciales redactados.
+
 ## [Hub 1.2.18] - 2026-11-06
 
 ### Changed

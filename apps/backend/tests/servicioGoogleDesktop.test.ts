@@ -7,6 +7,8 @@ const oauth = vi.hoisted(() => ({
   verifyIdToken: vi.fn()
 }));
 
+const logger = vi.hoisted(() => ({ log: vi.fn() }));
+
 vi.mock('google-auth-library', () => ({
   ClientAuthentication: { None: 'none' },
   CodeChallengeMethod: { S256: 'S256' },
@@ -21,6 +23,7 @@ vi.mock('google-auth-library', () => ({
 vi.mock('../src/configuracion.js', () => ({
   configuracion: { googleDesktopClientId: 'desktop-client-test' }
 }));
+vi.mock('../src/infraestructura/logging/logger.js', () => logger);
 
 import {
   cancelarFlujoOAuthGoogleDesktop,
@@ -48,6 +51,7 @@ async function callback(url: string, state: string, extras: Record<string, strin
 
 describe('OAuth Desktop para login docente', () => {
   beforeEach(() => {
+    logger.log.mockReset();
     oauth.generateAuthUrl.mockReset().mockImplementation((params: Record<string, unknown>) => {
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, Array.isArray(value) ? value.join(' ') : String(value)));
@@ -61,6 +65,7 @@ describe('OAuth Desktop para login docente', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     for (const flowId of flujos.splice(0)) cancelarFlujoOAuthGoogleDesktop(flowId);
   });
 
@@ -73,7 +78,7 @@ describe('OAuth Desktop para login docente', () => {
     expect(authUrl.searchParams.get('code_challenge_method')).toBe('S256');
     expect(authUrl.searchParams.get('code_challenge')).toBe('pkce-challenge');
     expect(authUrl.searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(redirectUri).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/oauth2callback$/);
+    expect(redirectUri).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
 
     const respuesta = await callback(redirectUri!, authUrl.searchParams.get('state')!);
     expect(respuesta.status).toBe(200);
@@ -113,6 +118,45 @@ describe('OAuth Desktop para login docente', () => {
 
     expect(respuesta.status).toBe(400);
     expect(obtenerResultadoOAuthGoogleDesktop(flujo.flowId)).toMatchObject({ estado: 'error', codigo: 'GOOGLE_EMAIL_NO_VERIFICADO' });
+  });
+
+  it('clasifica errores OAuth del proveedor sin exponer su descripción', async () => {
+    const flujo = await iniciar();
+    const authUrl = new URL(flujo.url);
+    const redirectUri = authUrl.searchParams.get('redirect_uri')!;
+    const responseData = {
+      error: 'invalid_request',
+      error_description: 'client_secret is missing.',
+      request_id: 'google-request-123',
+      client_secret: 'sensitive-client-secret',
+      access_token: 'sensitive-access-token',
+      details: { trace_id: 'trace-456', verifier: 'sensitive-code-verifier' }
+    };
+    oauth.getToken.mockRejectedValueOnce({ response: { status: 400, data: responseData } });
+    vi.stubEnv('EVALUAPRO_OAUTH_DEBUG_LOCAL', '1');
+
+    const respuesta = await callback(redirectUri, authUrl.searchParams.get('state')!);
+
+    expect(respuesta.status).toBe(400);
+    expect(await respuesta.text()).not.toContain('client_secret is missing.');
+    expect(obtenerResultadoOAuthGoogleDesktop(flujo.flowId)).toMatchObject({ estado: 'error', codigo: 'GOOGLE_DESKTOP_INVALID_REQUEST' });
+    expect(logger.log).toHaveBeenCalledWith('warn', 'Falló el callback OAuth Desktop de Google.', {
+      etapa: 'canje_codigo', codigo: 'GOOGLE_DESKTOP_INVALID_REQUEST', causa: 'autenticacion_cliente'
+    });
+    expect(logger.log).toHaveBeenCalledWith('warn', 'Respuesta completa de error de Google (campos sensibles redactados).', {
+      etapa: 'canje_codigo',
+      codigo: 'GOOGLE_DESKTOP_INVALID_REQUEST',
+      causa: 'autenticacion_cliente',
+      status: 400,
+      body: {
+        error: 'invalid_request',
+        error_description: 'client_secret is missing.',
+        request_id: 'google-request-123',
+        client_secret: '[REDACTED]',
+        access_token: '[REDACTED]',
+        details: { trace_id: 'trace-456', verifier: '[REDACTED]' }
+      }
+    });
   });
 
   it('no crea un flujo sin Client ID Desktop', async () => {

@@ -3218,6 +3218,7 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /EsAutorizacionGoogleDesktopConfiable\(rawUrl\)/);
   assert.match(cs, /GoogleDesktopClientId/);
   assert.match(cs, /redirectUri\.Host, "127\.0\.0\.1"/);
+  assert.ok(cs.includes('redirectUri.AbsolutePath, "/", StringComparison.Ordinal'));
   assert.match(cs, /code_challenge_method/);
   assert.match(cs, /SetEquals\(\["openid", "email", "profile"\]\)/);
   assert.match(cs, /UseShellExecute\s*=\s*true/);
