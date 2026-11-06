@@ -50,11 +50,17 @@ describe('SeccionPeriodos listas institucionales', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /mostrar acciones/i }));
-    expect(screen.getByRole('button', { name: /lista cuh xlsx/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /lista cuh pdf/i })).toBeInTheDocument();
+    const descargarXlsx = screen.getByRole('button', {
+      name: 'Descargar lista institucional XLSX de Electronica y Aplicaciones Digitales'
+    });
+    const descargarPdf = screen.getByRole('button', {
+      name: 'Descargar lista institucional PDF de Electronica y Aplicaciones Digitales'
+    });
+    expect(descargarXlsx).toBeInTheDocument();
+    expect(descargarPdf).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /lista cuh xlsx/i }));
-    await user.click(screen.getByRole('button', { name: /lista cuh pdf/i }));
+    await user.click(descargarXlsx);
+    await user.click(descargarPdf);
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalled();

@@ -5,6 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
@@ -146,9 +147,8 @@ async function run() {
     process.env.PERF_BUSINESS_REPORT_PATH || 'reports/perf/business.latest.json'
   );
 
-  const dbFile = 'perf_business.db';
-  const dataDir = path.resolve(process.cwd(), 'data');
-  const dbPath = path.resolve(dataDir, dbFile);
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-perf-business-'));
+  const dbPath = path.join(dataDir, 'perf_business.db');
   const dbUrl = `file:${dbPath.replace(/\\/g, '/')}`;
 
   process.env.DATABASE_URL = dbUrl;
@@ -156,12 +156,6 @@ async function run() {
   process.env.NODE_ENV = process.env.NODE_ENV || 'test';
   process.env.JWT_SECRETO = process.env.JWT_SECRETO || 'perf_business_jwt_secret_2026';
   process.env.PORTAL_ALUMNO_API_KEY = process.env.PORTAL_ALUMNO_API_KEY || 'perf_business_portal_key_2026';
-
-  await fs.mkdir(dataDir, { recursive: true });
-
-  try {
-    await fs.unlink(dbPath);
-  } catch {}
 
   const { execSync } = await import('node:child_process');
   const fsSync = await import('node:fs');
@@ -173,46 +167,51 @@ async function run() {
   const prismaConfigPath = path.resolve(process.cwd(), 'apps', 'backend', 'prisma.config.mjs');
   const cmd = `"${prismaBin}" db push --config="${prismaConfigPath}" --schema="${schemaPath}" --accept-data-loss`;
 
+  let desconectarSqlite: (() => Promise<void>) | undefined;
   try {
-    execSync(cmd, {
-      env: { ...process.env, DATABASE_URL: dbUrl },
-      stdio: 'pipe'
-    });
-  } catch (error: any) {
-    process.stderr.write(`Error executing prisma db push during perf business: ${String(error.stderr?.toString() || error.message)}\n`);
-    throw error;
+    try {
+      execSync(cmd, {
+        env: { ...process.env, DATABASE_URL: dbUrl },
+        stdio: 'pipe'
+      });
+    } catch (error: any) {
+      process.stderr.write(`Error executing prisma db push during perf business: ${String(error.stderr?.toString() || error.message)}\n`);
+      throw error;
+    }
+
+    const sqlite = await import('../apps/backend/src/infraestructura/baseDatos/sqlite');
+    const { crearApp: crearAppBackend } = await import('../apps/backend/src/app');
+
+    desconectarSqlite = sqlite.desconectarSqlite;
+    await sqlite.conectarSqlite();
+    const app = crearAppBackend();
+    const token = await registrarDocente(app);
+    const capturaBase64 = await crearCapturaBase64();
+
+    const resultados: Medicion[] = [];
+    for (const ruta of rutasBase) {
+      resultados.push(await medirRuta(app, token, ruta, iterations, warmup, capturaBase64));
+    }
+
+    const payload: Resultado = {
+      generatedAt: new Date().toISOString(),
+      node: process.version,
+      iterations,
+      warmup,
+      profile: 'business-auth',
+      results: resultados
+    };
+
+    await fs.mkdir(path.dirname(output), { recursive: true });
+    await fs.writeFile(output, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+    process.stdout.write(`[perf-collect-business] Reporte generado en ${output}\n`);
+  } finally {
+    try {
+      await desconectarSqlite?.();
+    } finally {
+      await fs.rm(dataDir, { recursive: true, force: true });
+    }
   }
-
-  const { conectarSqlite, desconectarSqlite } = await import('../apps/backend/src/infraestructura/baseDatos/sqlite');
-  const { crearApp: crearAppBackend } = await import('../apps/backend/src/app');
-
-  await conectarSqlite();
-  const app = crearAppBackend();
-  const token = await registrarDocente(app);
-  const capturaBase64 = await crearCapturaBase64();
-
-  const resultados: Medicion[] = [];
-  for (const ruta of rutasBase) {
-    resultados.push(await medirRuta(app, token, ruta, iterations, warmup, capturaBase64));
-  }
-
-  const payload: Resultado = {
-    generatedAt: new Date().toISOString(),
-    node: process.version,
-    iterations,
-    warmup,
-    profile: 'business-auth',
-    results: resultados
-  };
-
-  await fs.mkdir(path.dirname(output), { recursive: true });
-  await fs.writeFile(output, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
-  process.stdout.write(`[perf-collect-business] Reporte generado en ${output}\n`);
-
-  await desconectarSqlite();
-  try {
-    await fs.unlink(dbPath);
-  } catch {}
 }
 
 run().catch((error) => {

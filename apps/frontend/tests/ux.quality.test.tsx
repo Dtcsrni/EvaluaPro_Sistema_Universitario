@@ -140,7 +140,7 @@ describe('UX quality contract', () => {
     const { container } = renderConTema(<AppAlumno />);
 
     expect(screen.getByText(/Portal Alumno/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Código de acceso/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Código de acceso$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Matrícula/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Consulta tus resultados/i })).toBeInTheDocument();
     expect(screen.getByRole('list', { name: /Qué puedes consultar/i })).toBeInTheDocument();
@@ -152,12 +152,15 @@ describe('UX quality contract', () => {
     (globalThis as typeof globalThis & { __TEST_DOCENTE__?: Record<string, unknown> }).__TEST_DOCENTE__ = {
       permisos: ['comercial:metricas:leer', 'comercial:tenants:leer']
     };
+    const user = userEvent.setup();
 
     renderConTema(<AppAdminNegocio />);
 
     expect(await screen.findByText(/Panel de Negocio EvaluaPro/i)).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: /Vistas del panel de negocio/i })).toBeInTheDocument();
+    const navegacion = screen.getByRole('navigation', { name: /Vistas del panel de negocio/i });
+    expect(navegacion).toBeInTheDocument();
+    await user.click(within(navegacion).getByRole('button', { name: /^Auditoría/ }));
     expect(screen.getByLabelText(/Ayuda: Cómo operar/i)).toBeInTheDocument();
-    expect(screen.getByText(/Usa los datos crudos como evidencia operativa/i)).toBeInTheDocument();
+    expect(screen.getByText(/Usa los datos crudos como evidencia/i)).toBeInTheDocument();
   });
 });

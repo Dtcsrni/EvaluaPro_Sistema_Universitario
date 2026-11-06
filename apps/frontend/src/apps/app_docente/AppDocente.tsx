@@ -1,12 +1,13 @@
 /** Shell principal docente: sesion, permisos, carga base y composicion de secciones. */
-import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { guardarTokenDocente, limpiarTokenDocente, obtenerIdEquipoSincronizacion } from '../../servicios_api/clienteApi';
 import { emitToast } from '../../ui/toast/toastBus';
-import { Icono, Spinner } from '../../ui/iconos';
-import { IconoLucide, X } from '../../ui/iconosCatalogo';
+import { Spinner } from '../../ui/iconos';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
 import { ShellDocente } from './ShellDocente';
+import { NavegacionDocente } from './NavegacionDocente';
+import { RecordatorioPaseLista } from './RecordatorioPaseLista';
 import { SeccionAutenticacion } from './SeccionAutenticacion';
 import { SeccionAlumnos } from './SeccionAlumnos';
 import { SeccionPeriodos, SeccionPeriodosArchivados } from './SeccionPeriodos';
@@ -194,7 +195,6 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
     emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
     registrarAccionDocente('logout', true);
   }
-  const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
   useEffect(() => {
     if (itemsVista.length === 0) return;
     const vistaBase = vista === 'periodos_archivados' ? 'periodos' : vista;
@@ -566,89 +566,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
   const contenido = (
     <Suspense fallback={<div className="panel app-loading" role="status" aria-live="polite">Cargando módulo…</div>}>
       <div className="panel">
-      <nav
-        className="tabs tabs--scroll tabs--sticky tabs--docente-responsive"
-        aria-label="Secciones del portal docente"
-      >
-        <label className="tabs__mobile-picker" htmlFor="navegacion-docente-movil">
-          <span>Ir a sección</span>
-          <select
-            id="navegacion-docente-movil"
-            value={vista === 'periodos_archivados' ? 'periodos' : vista}
-            onChange={(event) => setVista(event.currentTarget.value)}
-          >
-            {(['academia', 'evaluacion', 'operacion'] as const).map((grupo) => {
-              const opciones = itemsVista.filter((item) => item.grupo === grupo);
-              if (opciones.length === 0) return null;
-              const etiqueta = grupo === 'academia' ? 'Academia' : grupo === 'evaluacion' ? 'Evaluación' : 'Operación';
-              return (
-                <optgroup key={grupo} label={etiqueta}>
-                  {opciones.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                </optgroup>
-              );
-            })}
-          </select>
-        </label>
-        {itemsVista.map((item, idx) => (
-          (() => {
-            const activa = vista === item.id || (vista === 'periodos_archivados' && item.id === 'periodos');
-            const grupoAnterior = itemsVista[idx - 1]?.grupo;
-            const etiquetaGrupo = item.grupo === 'academia' ? 'Academia' : item.grupo === 'evaluacion' ? 'Evaluación' : 'Operación';
-            const tooltipsMap: Record<string, string> = {
-              periodos: 'Configura materias, fechas lectivas y grupos',
-              periodos_archivados: 'Consulta materias archivadas de ciclos anteriores',
-              alumnos: 'Gestión de alumnos, matrícula y listas',
-              asistencias: 'Pase de lista diario y reportes institucionales',
-              temarios: 'Planeación didáctica y temas de estudio',
-              banco: 'Banco reactivo de preguntas y dificultad',
-              plantillas: 'Diseña exámenes impresos con códigos QR y burbujas OMR',
-              entrega: 'Control de entrega de exámenes impresos',
-              calificaciones: 'Consulta resultados, captura calificaciones y revisa exámenes OMR',
-              evaluaciones: 'Criterios y rúbricas de evaluación continua',
-              classroom: 'Conexión de Google Classroom; consulta de datos en Calificaciones',
-              sincronizacion: 'Sincronización y respaldo local / nube',
-              cuenta: 'Perfil docente, licencia y preferencias'
-            };
-            const tooltipTexto = tooltipsMap[item.id] || `Ir a ${item.label}`;
-            return (
-          <Fragment key={item.id}>
-            {grupoAnterior !== item.grupo ? <span className="tabs__group-label">{etiquetaGrupo}</span> : null}
-            <button
-              ref={(el) => {
-                tabsRef.current[idx] = el;
-              }}
-              type="button"
-              className={activa ? 'tab activa' : 'tab'}
-              aria-current={activa ? 'page' : undefined}
-              data-tooltip={tooltipTexto}
-              title={tooltipTexto}
-              data-icono-tab={item.icono}
-              onKeyDown={(event) => {
-                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') {
-                  return;
-                }
-                event.preventDefault();
-                const ultimo = itemsVista.length - 1;
-                let idxNuevo = idx;
-                if (event.key === 'ArrowLeft') idxNuevo = Math.max(0, idx - 1);
-                if (event.key === 'ArrowRight') idxNuevo = Math.min(ultimo, idx + 1);
-                if (event.key === 'Home') idxNuevo = 0;
-                if (event.key === 'End') idxNuevo = ultimo;
-                const nuevoId = itemsVista[idxNuevo]?.id;
-                if (!nuevoId) return;
-                setVista(nuevoId);
-                requestAnimationFrame(() => tabsRef.current[idxNuevo]?.focus());
-              }}
-              onClick={() => setVista(item.id)}
-            >
-              <Icono nombre={item.icono} />
-              {item.label}
-            </button>
-          </Fragment>
-            );
-          })()
-        ))}
-      </nav>
+      <NavegacionDocente items={itemsVista} vista={vista} onCambiarVista={setVista} />
       <div id="contenido-principal" className="shell-docente__main-col" tabIndex={-1}>
       {cargandoDatos && (
         <div className="panel" aria-live="polite">
@@ -662,34 +580,12 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
           <InlineMensaje tipo="warning">Otro equipo está trabajando con esta cuenta. Esta instalación permanece en solo lectura hasta que el control expire o sea liberado.</InlineMensaje>
         </div>
       )}
-      {/* ── Banner recordatorio pase de lista ── */}
-      {recordatorioPaseLista && (
-        <div
-          className="banner-recordatorio-asistencia anim-fade-in"
-        >
-          <span className="banner-recordatorio-asistencia__icon"><Icono nombre="asistencias" size={20} /></span>
-          <span role="status" className="banner-recordatorio-asistencia__text">
-            {vista === 'asistencias' ? (
-              <><strong>Pase de lista pendiente.</strong> Aún no has pasado lista hoy.</>
-            ) : (
-              <strong>Pase de lista pendiente hoy.</strong>
-            )}
-          </span>
-          <button
-            onClick={() => { cerrarRecordatorioPaseLista(); setVista('asistencias'); }}
-            className="asistencias-btn-primario"
-          >
-            Pasar lista
-          </button>
-          <button
-            onClick={cerrarRecordatorioPaseLista}
-            className="banner-recordatorio-asistencia__close scale-hover"
-          >
-            <IconoLucide icon={X} size={18} />
-            <span className="sr-only">Cerrar recordatorio</span>
-          </button>
-        </div>
-      )}
+      <RecordatorioPaseLista
+        mostrar={Boolean(recordatorioPaseLista)}
+        enAsistencias={vista === 'asistencias'}
+        onPasarLista={() => { cerrarRecordatorioPaseLista(); setVista('asistencias'); }}
+        onCerrar={cerrarRecordatorioPaseLista}
+      />
       {vista === 'banco' && (
         <div className="anim-fade-in">
           <SeccionBanco

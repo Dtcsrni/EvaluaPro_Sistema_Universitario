@@ -170,7 +170,7 @@ describe('reporte HTML de calificaciones', () => {
       modo: 'individual',
       secretoCiclo: 'Secreto-maestro-de-ciclo-2026-seguro'
     });
-    const dom = new JSDOM(html, { runScripts: 'dangerously', url: 'file:///reporte.html' });
+    const dom = new JSDOM(html, { runScripts: 'dangerously', url: 'https://evaluapro.test/reporte.html' });
     const clave = dom.window.document.getElementById('clave') as HTMLInputElement;
     const boton = dom.window.document.getElementById('alternar-visibilidad-clave') as HTMLButtonElement;
     clave.value = credenciales[0].clave;
@@ -199,7 +199,7 @@ describe('reporte HTML de calificaciones', () => {
     const { html, credenciales } = generarHtmlCalificaciones({
       nombrePeriodo: 'Álgebra', cicloLectivo: 'Enero-Junio 2026', filas: [filaBase], modo: 'individual', secretoCiclo: secreto
     });
-    const dom = new JSDOM(html, { runScripts: 'dangerously', url: 'file:///reporte.html' });
+    const dom = new JSDOM(html, { runScripts: 'dangerously', url: 'https://evaluapro.test/reporte.html' });
     Object.defineProperty(dom.window.crypto, 'subtle', { configurable: true, value: webcrypto.subtle });
     Object.defineProperty(dom.window, 'TextEncoder', { configurable: true, value: TextEncoder });
     Object.defineProperty(dom.window, 'TextDecoder', { configurable: true, value: TextDecoder });
