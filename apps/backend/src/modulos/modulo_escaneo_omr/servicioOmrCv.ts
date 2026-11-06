@@ -10,7 +10,11 @@ import {
   evaluarConOffset,
   type EstadoImagenOmr
 } from './omrCore.js';
-import { UMBRALES_OMR_AUTO, evaluarRescateAltaPrecisionOmr } from './politicaAutoCalificacionOmr.js';
+import {
+  UMBRALES_OMR_AUTO,
+  evaluarRescateAltaPrecisionOmr,
+  parcialDetectadaConFormaCircularFuerte
+} from './politicaAutoCalificacionOmr.js';
 import {
   calcularRegionQrFocalizada,
   calcularIntegral,
@@ -75,6 +79,8 @@ export type ScoreOpcionOmr = {
 
 export type RespuestaDetectadaOmr = {
   numeroPregunta: number;
+  /** Página del examen que originó esta lectura; se añade al agregar el análisis multipágina. */
+  numeroPaginaFuente?: number;
   opcion: OpcionRespuestaOmr | null;
   confianza: number;
   scoresPorOpcion: ScoreOpcionOmr[];
@@ -84,9 +90,10 @@ export type RespuestaDetectadaOmr = {
 
 export type ResultadoOmr = {
   respuestasDetectadas: RespuestaDetectadaOmr[];
+  autoCalificableOmr?: boolean;
   advertencias: string[];
   qrTexto?: string;
-  qrFuenteDeteccion?: 'jsqr' | 'zxing' | 'preprocesado' | 'resolucion_fuente' | 'known_geometry_rescue' | 'rotacion_pagina';
+  qrFuenteDeteccion?: 'jsqr' | 'zxing' | 'preprocesado' | 'resolucion_fuente' | 'known_geometry_rescue' | 'rotacion_pagina' | 'pipeline_validated_payload';
   calidadPagina: number;
   estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
   motivosRevision: string[];
@@ -356,7 +363,11 @@ export function debeResolverDobleOmrPorTintaCromatica(args: {
     candidata.score < 0.42 ||
     candidata.markConfidence < 0.65 ||
     (candidata.fillRatioCore < 0.5 && candidata.nucleusFillRatio < 0.5) ||
-    candidata.centroidOffsetRatio > 0.5
+    candidata.centroidOffsetRatio > 0.5 ||
+    // La tinta del fondo y los fiduciales pueden producir contraste de color
+    // alto en un ROI desplazado. No usarla para borrar una doble sin forma
+    // suficientemente circular en la candidata dominante.
+    candidata.shapeCompactness < 0.45
   ) return false;
 
   const umbralCompetidor = Math.max(0.42, candidata.score * 0.72);
@@ -827,7 +838,10 @@ const OMR_BUBBLE_PITCH_Y_MM = 5.5;
 // proxy for a phone capture even though it is above the historical 120 dpi
 // cutoff. Include that common size so the short local correction is active in
 // the same conditions used by the synthetic robustness set.
-const OMR_BAJA_RESOLUCION_MAX_ANCHO = 1300;
+// `decodificarImagen` normaliza el ancho de trabajo a un máximo de 1600 px.
+// Incluir ese límite conserva la ruta de rescate geométrico para originales
+// de alta resolución que se redujeron antes de puntuar las burbujas.
+const OMR_BAJA_RESOLUCION_MAX_ANCHO = 1600;
 const OMR_BUSQUEDA_LOCAL_RESOLUCION_MIN_ANCHO = 1150;
 const OMR_MUY_BAJA_RESOLUCION_MAX_ANCHO = 900;
 
@@ -1426,6 +1440,7 @@ type OpcionesAnalisisInterno = {
   disableLocalGeometry?: boolean;
   forceHomographyGeometry?: boolean;
   qrGeometryOutputSize?: number;
+  qrTextoPrevalidado?: string;
 };
 
 type DebugPregunta = {
@@ -3526,6 +3541,10 @@ export function debeAbstenerseMarcaParcialOmr(
     fillCoreCompetitorScore?: number;
   }
 ) {
+  // Un parche oscuro pequeño y excéntrico no debe rescatarse solo por su
+  // oscuridad central: conserva el intento como parcial para revisión.
+  if (score.shapeCompactness < 0.25 && score.centroidOffsetRatio > 0.3) return true;
+
   if (
     score.centerDarknessDelta >= 0.16 ||
     (score.permitirConfianzaMarcada === true && (
@@ -3820,10 +3839,28 @@ function fusionarResultadosOmr(
     };
   });
 
-  const sumaConf = respuestasDetectadas.reduce((acc, r) => acc + Math.max(0, r.confianza), 0);
-  const total = Math.max(1, respuestasDetectadas.length);
-  const ambiguas = respuestasDetectadas.filter(esRespuestaAmbiguaOmr).length;
-  const respuestasAnalizadas = respuestasDetectadas.length - ambiguas;
+  // Las pasadas pueden coincidir sobre una mancha o texto impreso. La
+  // repetición geométrica no basta para convertir una marca parcial en una
+  // respuesta: solo se conserva si satisface el mismo umbral de señal fuerte
+  // usado por la política de autocalificación.
+  const respuestasFinalesValidadas = respuestasDetectadas.map((respuesta) => {
+    if (
+      respuesta.opcion === null ||
+      !respuesta.flags.includes('parcial_detectada') ||
+      parcialDetectadaConFormaCircularFuerte(respuesta)
+    ) return respuesta;
+    return {
+      ...respuesta,
+      opcion: null,
+      confianza: Math.min(respuesta.confianza, 0.5),
+      estadoRespuesta: 'ambigua' as const
+    };
+  });
+
+  const sumaConf = respuestasFinalesValidadas.reduce((acc, r) => acc + Math.max(0, r.confianza), 0);
+  const total = Math.max(1, respuestasFinalesValidadas.length);
+  const ambiguas = respuestasFinalesValidadas.filter(esRespuestaAmbiguaOmr).length;
+  const respuestasAnalizadas = respuestasFinalesValidadas.length - ambiguas;
   const confianzaPromedioPagina = sumaConf / total;
   const ratioAmbiguas = ambiguas / total;
 
@@ -3849,7 +3886,7 @@ function fusionarResultadosOmr(
   ).slice(0, 24);
 
   return {
-    respuestasDetectadas,
+    respuestasDetectadas: respuestasFinalesValidadas,
     advertencias,
     qrTexto: principal.qrTexto ?? secundario.qrTexto,
     qrFuenteDeteccion: principal.qrFuenteDeteccion ?? secundario.qrFuenteDeteccion,
@@ -3860,7 +3897,7 @@ function fusionarResultadosOmr(
     confianzaPromedioPagina,
     ratioAmbiguas,
     resumenRespuestas: resumirRespuestasOmr(
-      respuestasDetectadas,
+      respuestasFinalesValidadas,
       Math.max(base.calidadPagina, rescate.calidadPagina),
       Math.max(base.geomQuality, rescate.geomQuality)
     ),
@@ -4331,15 +4368,28 @@ export async function analizarOmr(
     if (!texto || qrEsperados.length === 0) return Boolean(texto);
     return coincidePayloadQrExacto(texto, qrEsperados);
   };
-  let qrDetalle = detectarQrMejorado(data, gray, width, height, {
+  const geometriaQrRegistrada = mapaPagina.qr &&
+    Number.isFinite(mapaPagina.qr.x) &&
+    Number.isFinite(mapaPagina.qr.y) &&
+    Number.isFinite(mapaPagina.qr.size) &&
+    mapaPagina.qr.size > 0;
+  // El pipeline pudo decodificar el QR en esta misma captura. Reutilizarlo
+  // solo evita una segunda búsqueda costosa cuando el payload coincide byte
+  // a byte con el esperado y el mapa conserva geometría para la rectificación.
+  const qrPrevalidado = Boolean(
+    opcionesInternas?.qrTextoPrevalidado &&
+    geometriaQrRegistrada &&
+    coincidePayloadQrExacto(opcionesInternas.qrTextoPrevalidado, qrEsperados)
+  );
+  let qrDetalle = qrPrevalidado ? null : detectarQrMejorado(data, gray, width, height, {
     qrSizePtsHint: perfilInicial.qrSizePts,
     qrSizePts: QR_MATRIZ_SIZE_PTS,
     anchoCarta: ANCHO_CARTA,
     payloadsEsperados: qrEsperados
   });
-  let qrTexto = qrDetalle?.data;
-  let qrFuenteDeteccion = qrDetalle?.fuenteDeteccionQr;
-  if (!qrDetalle || !coincideQrEsperado(qrDetalle.data)) {
+  let qrTexto = qrPrevalidado ? opcionesInternas?.qrTextoPrevalidado : qrDetalle?.data;
+  let qrFuenteDeteccion = qrPrevalidado ? 'pipeline_validated_payload' as const : qrDetalle?.fuenteDeteccionQr;
+  if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data))) {
     const qrRealzado = await detectarQrEnImagenRealzada(data, width, height, perfilInicial.qrSizePts);
     if (qrRealzado && coincideQrEsperado(qrRealzado.data)) {
       qrDetalle = qrRealzado;
@@ -4347,7 +4397,7 @@ export async function analizarOmr(
       qrFuenteDeteccion = 'preprocesado';
     }
   }
-  if (!qrDetalle || !coincideQrEsperado(qrDetalle.data)) {
+  if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data))) {
     const qrNativo = await detectarQrEnResolucionFuente(buffer, perfilInicial.qrSizePts, {
       matrixModules: mapaPagina.qr?.matrixModules,
       payloadsEsperados: qrEsperados
@@ -4366,7 +4416,7 @@ export async function analizarOmr(
   const templateQr = extraerTemplateVersionDesdeQr(qrTexto);
   const templateVersionDetectada = templateQr ?? debugInfo?.templateVersionDetectada ?? mapaPagina.templateVersion ?? 4;
   const perfil = ajustarPerfilConMapa(resolverPerfilDeteccion(), mapaPagina);
-  if ((!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && perfil.qrSizePts !== perfilInicial.qrSizePts) {
+  if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && perfil.qrSizePts !== perfilInicial.qrSizePts) {
     qrDetalle = detectarQrMejorado(data, gray, width, height, {
       qrSizePtsHint: perfil.qrSizePts,
       qrSizePts: QR_MATRIZ_SIZE_PTS,
@@ -4382,7 +4432,7 @@ export async function analizarOmr(
   // el QR persistido en el mapa todavía permiten rectificar exactamente la
   // reserva esperada. Se usa solo como rescate y el payload debe coincidir con
   // el esperado; nunca se acepta un QR encontrado fuera de esa geometría.
-  if ((!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && mapaPagina.qr) {
+  if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && mapaPagina.qr) {
     const transformacionQrConocida = obtenerTransformacion(gray, width, height, [], undefined, {
       margenMm,
       qrSizePts: perfil.qrSizePts,
@@ -4410,7 +4460,49 @@ export async function analizarOmr(
       qrFuenteDeteccion = qrRectificado.fuenteDeteccionQr ?? 'known_geometry_rescue';
     }
   }
-  if ((!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && qrEsperados.length > 0) {
+  // El preprocesado geométrico normaliza y redimensiona la imagen; esa
+  // transformación puede borrar módulos débiles de un QR parcialmente tapado.
+  // Si el rescate anterior no lo resolvió, vuelve a la captura fuente, calcula
+  // su propia homografía y compara solo contra los payloads registrados.
+  if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && mapaPagina.qr && qrEsperados.length > 0) {
+    try {
+      const fuente = await sharp(buffer).rotate().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const fuenteWidth = fuente.info.width;
+      const fuenteHeight = fuente.info.height;
+      const fuenteRgba = Uint8ClampedArray.from(fuente.data);
+      const fuenteGray = new Uint8ClampedArray(fuenteWidth * fuenteHeight);
+      for (let byte = 0, pixel = 0; byte < fuente.data.length; byte += 4, pixel += 1) {
+        fuenteGray[pixel] = Math.round(
+          fuente.data[byte]! * 0.299 + fuente.data[byte + 1]! * 0.587 + fuente.data[byte + 2]! * 0.114
+        );
+      }
+      const transformacionFuente = obtenerTransformacion(fuenteGray, fuenteWidth, fuenteHeight, [], undefined, {
+        margenMm,
+        qrSizePts: perfil.qrSizePts,
+        qrGeometry: { ...mapaPagina.qr, textoEsperado: qrEsperado },
+        marcasPagina: mapaPagina.marcasPagina,
+        anchoCarta: ANCHO_CARTA,
+        altoCarta: ALTO_CARTA,
+        mmAPuntos: MM_A_PUNTOS
+      });
+      const qrFuente = detectarQrPorGeometriaConocida(
+        fuenteRgba,
+        fuenteWidth,
+        fuenteHeight,
+        mapaPagina.qr,
+        transformacionFuente.transformar,
+        { altoCarta: ALTO_CARTA, payloadsEsperados: qrEsperados }
+      );
+      if (qrFuente && coincideQrEsperado(qrFuente.data)) {
+        qrDetalle = qrFuente;
+        qrTexto = qrFuente.data;
+        qrFuenteDeteccion = 'known_geometry_rescue';
+      }
+    } catch {
+      // La ruta de rescate fuente es opcional; conserva la abstención normal.
+    }
+  }
+  if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data)) && qrEsperados.length > 0) {
     const qrRotado = await detectarQrConRotacionPagina(
       data,
       width,
@@ -6266,7 +6358,8 @@ export async function analizarOmr(
         highResolutionRescue: usarAltaResolucionRescate && coberturaBase < 0.75,
         noRetry: true,
         rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
-        disableLocalGeometry: usarGeometriaLocal
+        disableLocalGeometry: usarGeometriaLocal,
+        qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado
       }
     );
     const fusion = fusionarResultadosOmr(resultadoBase, resultadoRescate);
@@ -6365,7 +6458,8 @@ export async function analizarOmr(
           highResolutionRescue: true,
           noRetry: true,
           rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
-          disableLocalGeometry: usarGeometriaLocal
+          disableLocalGeometry: usarGeometriaLocal,
+          qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado
         }
       );
     }
@@ -6409,7 +6503,8 @@ export async function analizarOmr(
             noRetry: true,
             rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
             disableLocalGeometry: true,
-            forceHomographyGeometry: true
+            forceHomographyGeometry: true,
+            qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado
           }
         );
         const resultadoConsensoGeometrico = fusionarRescateAditivoOmr(
@@ -6445,7 +6540,8 @@ export async function analizarOmr(
           highResolutionRescue: true,
           noRetry: true,
           rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
-          disableLocalGeometry: false
+          disableLocalGeometry: false,
+          qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado
         }
       );
       const resultadoAditivoLocal = fusionarRescateAditivoOmr(

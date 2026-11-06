@@ -19,7 +19,7 @@ describe('useOmrWorkflowState hook', () => {
     expect(result.current.hayCambiosPendientesOmrActiva).toBe(false);
 
     const resultadoMock: ResultadoOmr = {
-      respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.95 }],
+      respuestasDetectadas: [{ numeroPregunta: 1, opcion: null, confianza: 0.55, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }],
       esValido: true,
       rawOutput: ''
     };
@@ -31,12 +31,12 @@ describe('useOmrWorkflowState hook', () => {
         folio: 'FOLIO-100',
         alumnoId: 'al-1',
         numeroPagina: 1,
-        respuestas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.95 }],
+        respuestas: [{ numeroPregunta: 1, opcion: null, confianza: 0.55, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }],
         paginas: [
           {
             numeroPagina: 1,
             resultado: resultadoMock,
-            respuestas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.95 }]
+            respuestas: [{ numeroPregunta: 1, opcion: null, confianza: 0.55, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }]
           }
         ],
         claveCorrectaPorNumero: { 1: 'A' },
@@ -60,6 +60,7 @@ describe('useOmrWorkflowState hook', () => {
 
     expect(result.current.hayCambiosPendientesOmrActiva).toBe(true);
     expect(result.current.respuestasEditadas[0]?.opcion).toBe('B');
+    expect(result.current.respuestasEditadas[0]?.estadoRespuesta).toBe('respondida');
 
     // Confirmar revisión
     act(() => {

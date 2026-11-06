@@ -56,6 +56,37 @@ describe('etapaScoring reintento tras fallo de preproceso CV', () => {
     expect(resultado.motivosRevision.some((motivo) => motivo.startsWith('CV_PREPROCESO_REINTENTO:'))).toBe(true);
   });
 
+  it('pasa al motor CV el QR leído previamente por el pipeline para evitar una segunda búsqueda', async () => {
+    mockPreprocesar.mockResolvedValue('imagen-preprocesada');
+    mockAnalizarOmrCv.mockResolvedValue({
+      respuestasDetectadas: [],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 1,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.9,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v1'
+    });
+
+    await ejecutarEtapaScoring({
+      imagenBase64: 'imagen-original',
+      mapaPagina: { templateVersion: 4, preguntas: [] },
+      qrEsperado: 'EXAMEN:LOTE:FOLIO',
+      qrTexto: 'EXAMEN:LOTE:FOLIO',
+      margenMm: 10
+    });
+
+    expect(mockAnalizarOmrCv).toHaveBeenCalledOnce();
+    expect(mockAnalizarOmrCv.mock.calls[0]?.[5]).toMatchObject({
+      qrTextoPrevalidado: 'EXAMEN:LOTE:FOLIO'
+    });
+  });
+
   it('rescata una marca tenue desde la imagen original sin sustituir una doble marca', async () => {
     mockPreprocesar.mockResolvedValue('imagen-preprocesada');
     mockAnalizarOmrCv.mockImplementation(async (imagen: string) => ({

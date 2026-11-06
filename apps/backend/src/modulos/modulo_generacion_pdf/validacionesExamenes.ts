@@ -177,6 +177,7 @@ export const esquemaGenerarExamenesLote = z.object({
   confirmarMasivo: z.boolean().optional(),
   loteId: z.string().trim().min(4).max(16).regex(/^[A-Za-z0-9_-]+$/).optional(),
   grupo: z.string().trim().min(1).max(64).optional(),
+  variantPolicy: z.enum(['unique', 'shared']).optional(),
   tipoExamen: z.literal('extraordinario').optional(),
   alumnoIds: z.array(esquemaObjectId).min(1).max(500).refine((ids) => new Set(ids).size === ids.length, 'No se permiten alumnos duplicados').optional()
 }).strict().superRefine((valor, contexto) => {

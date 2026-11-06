@@ -64,6 +64,13 @@ function tieneCapturasPiloto(manifest) {
   return Array.isArray(manifest.capturas) && manifest.capturas.length > 0;
 }
 
+function clasificarDatasetPiloto(manifest) {
+  const captureCount = Array.isArray(manifest?.capturas) ? manifest.capturas.length : 0;
+  return captureCount === 0
+    ? { allowed: false, status: 'not_applicable', reason: 'dataset_vacio', captureCount }
+    : { allowed: true, status: 'ready', reason: null, captureCount };
+}
+
 async function writeReport(reportPath, payload) {
   const absolute = path.resolve(process.cwd(), reportPath);
   await fs.mkdir(path.dirname(absolute), { recursive: true });
@@ -88,7 +95,7 @@ function runCommand(command) {
   });
 }
 
-export { resolveConfig, tieneCapturasPiloto };
+export { clasificarDatasetPiloto, resolveConfig, tieneCapturasPiloto };
 
 async function main() {
   const { dryRun } = parseArgs(process.argv.slice(2));
@@ -108,7 +115,8 @@ async function main() {
     return;
   }
 
-  if (!tieneCapturasPiloto(manifest)) {
+  const datasetGate = clasificarDatasetPiloto(manifest);
+  if (!datasetGate.allowed) {
     const now = new Date().toISOString();
     await writeReport(resolved.wrapperReport, {
       version: '1',
@@ -116,16 +124,18 @@ async function main() {
       datasetManifest: resolved.datasetManifest,
       datasetManifestPath,
       command: resolved.command,
-      ok: true,
-      status: 'not_applicable',
+      ok: false,
+      status: datasetGate.status,
       validated: false,
-      reason: 'dataset_vacio',
-      captureCount: 0,
+      reason: datasetGate.reason,
+      captureCount: datasetGate.captureCount,
+      exitCode: 1,
       startedAt: now,
       finishedAt: now,
       durationMs: 0
     });
-    process.stdout.write(`[omr-canonical-gate] SKIP (dataset vacio; no validacion real) -> ${resolved.wrapperReport}\n`);
+    process.stderr.write(`[omr-canonical-gate] FAIL (dataset vacio; validacion real requerida) -> ${resolved.wrapperReport}\n`);
+    process.exitCode = 1;
     return;
   }
 

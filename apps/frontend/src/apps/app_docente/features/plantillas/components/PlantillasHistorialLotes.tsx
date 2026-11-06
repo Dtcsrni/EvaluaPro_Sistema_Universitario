@@ -53,7 +53,7 @@ export function PlantillasHistorialLotes({
   onRegenerarPaquete,
   onEliminarPaquete,
   lotesArchivados,
-  cantidadLotesOmrArchivados,
+  cantidadLotesOmrDisponibles,
   cargandoLotesArchivados,
   hayMasLotesArchivados,
   onCargarMasLotesArchivados,
@@ -81,7 +81,7 @@ export function PlantillasHistorialLotes({
   onRegenerarPaquete: (loteId: string, items: ExamenGeneradoResumen[]) => Promise<void>;
   onEliminarPaquete: (loteId: string, items: ExamenGeneradoResumen[]) => Promise<void>;
   lotesArchivados: LoteArchivadoResumen[];
-  cantidadLotesOmrArchivados: number;
+  cantidadLotesOmrDisponibles: number;
   cargandoLotesArchivados: boolean;
   hayMasLotesArchivados: boolean;
   onCargarMasLotesArchivados: () => Promise<void>;
@@ -145,7 +145,7 @@ export function PlantillasHistorialLotes({
         <div className="ayuda anim-fade-in">
           <Spinner /> Cargando historial de exámenes generados…
         </div>
-      ) : paquetes.length === 0 && examenesIndividuales.length === 0 && listaLotesArchivados.length === 0 && cantidadLotesOmrArchivados === 0 ? (
+      ) : paquetes.length === 0 && examenesIndividuales.length === 0 && listaLotesArchivados.length === 0 && cantidadLotesOmrDisponibles === 0 ? (
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon anim-icon-pulse">
             📦
@@ -170,7 +170,7 @@ export function PlantillasHistorialLotes({
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon" aria-hidden="true">📦</div>
           <h4>No hay paquetes activos</h4>
-          <p>Hay {cantidadLotesOmrArchivados} lotes archivados disponibles en el panel OMR inferior. Puedes procesar sus capturas sin restaurarlos.</p>
+          <p>Hay {cantidadLotesOmrDisponibles} lotes registrados (activos y archivados) disponibles para el cotejo OMR.</p>
         </div>
       ) : (
         <div className="plantillas-historial-wrap">

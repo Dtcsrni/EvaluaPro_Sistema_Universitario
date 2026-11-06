@@ -10,6 +10,8 @@ export type CandidataRespuestaOmr = {
 export type RespuestaRevisionOmr = {
   numeroPregunta: number;
   opcion: string | null;
+  tipoMarcaManual?: 'valid' | 'blank' | 'double' | 'smudge';
+  selectedOptions?: Array<'A' | 'B' | 'C' | 'D' | 'E'>;
   opcionDetectada: string | null;
   confianza: number;
   estadoRespuesta?: EstadoRespuestaOmr | 'manual_review';
@@ -21,6 +23,7 @@ const OPCIONES = new Set(['A', 'B', 'C', 'D', 'E']);
 const ESTADOS_RESPUESTA = new Set(['respondida', 'sin_marca', 'ambigua', 'doble_marca', 'tachada', 'manual_review']);
 const ESTADOS_MARCA = new Set(['no_marcada', 'parcial', 'marcada', 'tachada']);
 const FLAGS = new Set(['doble_marca', 'bajo_contraste', 'fuera_roi', 'parcial_detectada', 'tachada_detectada']);
+const TIPOS_MARCA_MANUAL = new Set(['valid', 'blank', 'double', 'smudge']);
 
 function numeroFinito(value: unknown, fallback = 0): number {
   const number = Number(value);
@@ -39,6 +42,12 @@ export function proyectarRespuestaParaRevisionOmr(value: unknown): RespuestaRevi
   const flags = Array.isArray(respuesta.flags)
     ? [...new Set(respuesta.flags.map(String).filter((flag) => FLAGS.has(flag)))].sort()
     : [];
+  const tipoMarcaManual = TIPOS_MARCA_MANUAL.has(String(respuesta.tipoMarcaManual))
+    ? String(respuesta.tipoMarcaManual) as NonNullable<RespuestaRevisionOmr['tipoMarcaManual']>
+    : undefined;
+  const selectedOptions = Array.isArray(respuesta.selectedOptions)
+    ? [...new Set(respuesta.selectedOptions.map((option) => String(option).toUpperCase()).filter((option): option is 'A' | 'B' | 'C' | 'D' | 'E' => OPCIONES.has(option)))].sort()
+    : undefined;
   const scores = Array.isArray(respuesta.scoresPorOpcion)
     ? respuesta.scoresPorOpcion
     : Array.isArray(respuesta.candidatas) ? respuesta.candidatas : [];
@@ -64,6 +73,8 @@ export function proyectarRespuestaParaRevisionOmr(value: unknown): RespuestaRevi
       : respuesta.opcionDetectada === null ? null : opcion,
     confianza: Math.max(0, Math.min(1, numeroFinito(respuesta.confianza))),
     ...(estadoRespuesta ? { estadoRespuesta } : {}),
+    ...(tipoMarcaManual ? { tipoMarcaManual } : {}),
+    ...(selectedOptions ? { selectedOptions } : {}),
     flags,
     candidatas
   };

@@ -141,6 +141,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     confirmarMasivo?: unknown;
     loteId?: unknown;
     grupo?: unknown;
+    variantPolicy?: unknown;
     tipoExamen?: unknown;
     alumnoIds?: unknown;
   };
@@ -150,6 +151,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     confirmarMasivo: Boolean(body.confirmarMasivo),
     loteId: String(body.loteId ?? '').trim(),
     grupo: typeof body.grupo === 'string' ? body.grupo.trim() : undefined,
+    variantPolicy: body.variantPolicy === 'shared' ? 'shared' : 'unique',
     tipoExamen: body.tipoExamen === 'extraordinario' ? 'extraordinario' : undefined,
     alumnoIds: Array.isArray(body.alumnoIds) ? body.alumnoIds.map((id) => String(id)) : undefined
   });

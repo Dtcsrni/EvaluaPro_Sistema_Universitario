@@ -6,7 +6,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveConfig, tieneCapturasPiloto } from '../testing/run-omr-canonical-gate.mjs';
+import { clasificarDatasetPiloto, resolveConfig, tieneCapturasPiloto } from '../testing/run-omr-canonical-gate.mjs';
 
 test('runner OMR resuelve la única plantilla canónica', () => {
   const resolved = resolveConfig();
@@ -16,4 +16,22 @@ test('runner OMR resuelve la única plantilla canónica', () => {
 assert.match(resolved.command, /omr:validate:pilot-real/);
 assert.equal(tieneCapturasPiloto({ capturas: [] }), false);
 assert.equal(tieneCapturasPiloto({ capturas: [{ captureId: 'pilot-001' }] }), true);
+
+test('el piloto real vacío bloquea la liberación en lugar de producir un falso pase', () => {
+  assert.deepEqual(clasificarDatasetPiloto({ capturas: [] }), {
+    allowed: false,
+    status: 'not_applicable',
+    reason: 'dataset_vacio',
+    captureCount: 0
+  });
+});
+
+test('el piloto con capturas se valida en el comando canónico', () => {
+  assert.deepEqual(clasificarDatasetPiloto({ capturas: [{ captureId: 'pilot-001' }] }), {
+    allowed: true,
+    status: 'ready',
+    reason: null,
+    captureCount: 1
+  });
+});
 });

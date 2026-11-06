@@ -1,0 +1,61 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "omr-shared-copies-e2e-followup-2026-10-27",
+  "parentSessionId": "omr-source-dedup-2026-10-27",
+  "status": "final",
+  "generatedAt": "2026-10-27T22:43:33Z",
+  "validationProfile": "targeted",
+  "objective": "Cerrar el hueco de integración de SPEC-128 sin habilitar escritura automática general ni registrar calificaciones.",
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Aumenté a tres los campos multipart admitidos para permitir la bandera sharedFormCopies y amplié el E2E sintético para verificar separación, bloqueo sin identidad, exclusividad ante asignaciones concurrentes y readback por submissionId.",
+      "status": "ok"
+    },
+    {
+      "type": "traceability",
+      "summary": "Actualicé la matriz SPEC-128 con la cobertura parcial y los pendientes de validación real.",
+      "status": "ok"
+    }
+  ],
+  "filesChanged": [
+    "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+    "apps/backend/tests/integracion/omrJobsWorkflow.test.ts",
+    "docs/specs/SPEC-128_omr_copias_multiples_mismo_formulario.spec.md",
+    "docs/handoff/sesiones/2026-10-27/omr-shared-copies-e2e-followup-2026-10-27.md",
+    "docs/handoff/sesiones/2026-10-27/omr-shared-copies-e2e-followup-2026-10-27.json"
+  ],
+  "commands": [
+    {
+      "command": "npm -C apps/backend run test -- --run tests/integracion/omrJobsWorkflow.test.ts -t \"separa copias del mismo formulario\"",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "1 prueba aprobada, 14 omitidas por filtro."
+    },
+    {
+      "command": "npm -C apps/backend run test -- --run tests/copiasFormularioOmr.test.ts tests/rasterizadorIngestaPdfOmr.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "2 archivos y 8 pruebas aprobadas."
+    },
+    {
+      "command": "npx eslint apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts apps/backend/tests/integracion/omrJobsWorkflow.test.ts --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "Sin errores ni warnings."
+    },
+    {
+      "command": "npm -C apps/backend run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "Prisma Client generado y TypeScript sin errores."
+    }
+  ],
+  "limitations": [
+    "La prueba usa escaneos sintéticos y no acredita precisión OMR ni concordancia con etiquetas humanas independientes.",
+    "El gate poblacional continúa cerrado por falta de dataset real etiquetado independientemente.",
+    "La API de asignación se probó con estado revisado sembrado por el test; faltan E2E con aceptación OMR real, compatibilidad de variante/clave y resultados separados por intento.",
+    "El generador intenta evitar variantes repetidas; se requiere definir un modo explícito de lote con variante compartida para que haya varios exámenes compatibles con copias del mismo formulario.",
+    "No hubo despliegue, sincronización con la instalación activa ni escritura de calificaciones."
+  ]
+}

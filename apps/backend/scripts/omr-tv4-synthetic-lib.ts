@@ -11,6 +11,7 @@ import sharp from 'sharp';
 import { calcularCalificacionExacta } from '../src/compartido/utilidades/calculoCalificacion.js';
 import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
 import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
+import { evaluarAutoCalificableOmr } from '../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
 import { rasterizarPdfParaPreview } from '../src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
 import type { MapaVariante, PaginaOmr, PreguntaBase } from '../src/modulos/modulo_generacion_pdf/shared/tiposPdf.js';
 
@@ -23,6 +24,7 @@ type EvalThresholds = {
   invalidDetectionMin: number;
   pagePassMin: number;
   autoGradeTrustMin?: number;
+  autoCoverageMin?: number;
 };
 
 type ExamSpec = {
@@ -97,6 +99,64 @@ type PerCaptureEval = {
   detectedScore: number;
   pagePass: boolean;
   estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
+  autoCalificableOmr: boolean;
+  motivosAutoCalificacion: string[];
+  clearlyEligible: boolean;
+  policyDiagnostics: Array<{
+    numeroPregunta: number;
+    opcion: string | null;
+    estadoRespuesta?: string;
+    flags: string[];
+    confianza: number;
+    scoresPorOpcion: Array<{
+      opcion: string;
+      score: number;
+      estadoMarca: string;
+      fillRatioCore: number;
+      fillRatioRing: number;
+      fillDelta: number;
+      radialMassRatio: number;
+      centerDarknessDelta: number;
+      nucleusDarknessDelta: number;
+      largestComponentFillRatio: number;
+      largestComponentOffsetRatio: number;
+      nucleusFillRatio: number;
+      centroidOffsetRatio: number;
+      markConfidence: number;
+      shapeCompactness: number;
+      contraste: number;
+      softCoreContrast: number;
+    }>;
+  }>;
+  issues: Array<{
+    numeroPregunta: number;
+    markType: MarkType;
+    expected: Opcion | null;
+    selectedOptions: Opcion[];
+    detected: Opcion | null;
+    estadoRespuesta?: string;
+    flags: string[];
+    confidence: number;
+    scoresPorOpcion: Array<{
+      opcion: string;
+      score: number;
+      estadoMarca: string;
+      fillRatioCore: number;
+      fillRatioRing: number;
+      fillDelta: number;
+      radialMassRatio: number;
+      centerDarknessDelta: number;
+      nucleusDarknessDelta: number;
+      largestComponentFillRatio: number;
+      largestComponentOffsetRatio: number;
+      nucleusFillRatio: number;
+      centroidOffsetRatio: number;
+      markConfidence: number;
+      shapeCompactness: number;
+      contraste: number;
+      softCoreContrast: number;
+    }>;
+  }>;
 };
 
 type CanonicalReport = {
@@ -117,6 +177,11 @@ type CanonicalReport = {
     falsePositiveRate: number;
     pagePassRate: number;
     gradeConsistency: number;
+    autoGradeTrustRate: number;
+    autoCoverageRate: number;
+    autoEligibleCaptures: number;
+    clearlyEligibleCaptures: number;
+    automaticGradeDiscordances: number;
     totalCapturas: number;
     totalPreguntas: number;
   };
@@ -126,6 +191,9 @@ type CanonicalReport = {
     falsePositiveRate: boolean;
     invalidDetectionRate: boolean;
     pagePassRate: boolean;
+    autoGradeTrust: boolean;
+    autoCoverage: boolean;
+    automaticGradeDiscordances: boolean;
   };
   ok: boolean;
   perCapture: PerCaptureEval[];
@@ -191,7 +259,8 @@ const DEFAULT_THRESHOLDS: EvalThresholds = {
   falsePositiveMax: 0.02,
   invalidDetectionMin: 0.8,
   pagePassMin: 0.8,
-  autoGradeTrustMin: 0.95
+  autoGradeTrustMin: 0.95,
+  autoCoverageMin: 0.8
 };
 
 class Rng {
@@ -426,6 +495,36 @@ function countMatchesForScore(answers: Map<number, Opcion | null>, answerKey: Re
   return score;
 }
 
+export function esRechazoSeguroMarcaInvalida(estadoRespuesta: string | undefined, detected: Opcion | null) {
+  return estadoRespuesta === 'ambigua' || estadoRespuesta === 'doble_marca' || estadoRespuesta === 'tachada' ||
+    (estadoRespuesta === 'sin_marca' && detected === null);
+}
+
+export function debeIncluirIssueSintetico(markType: MarkType, expected: Opcion | null, detected: Opcion | null) {
+  return markType === 'double' || markType === 'smudge' || expected !== detected;
+}
+
+export function resumirConfianzaCoberturaAutoCalificacion(capturas: ReadonlyArray<{
+  claramenteElegible: boolean;
+  autoCalificable: boolean;
+  calificacionCoincide: boolean;
+}>) {
+  const claramenteElegibles = capturas.filter((captura) => captura.claramenteElegible).length;
+  const autocalificables = capturas.filter((captura) => captura.autoCalificable);
+  const cubiertasElegibles = capturas.filter((captura) => captura.claramenteElegible && captura.autoCalificable).length;
+  const discordancias = autocalificables.filter((captura) =>
+    !captura.claramenteElegible || !captura.calificacionCoincide
+  ).length;
+  const calificacionesCorrectas = autocalificables.length - discordancias;
+  return {
+    autoEligibleCaptures: autocalificables.length,
+    clearlyEligibleCaptures: claramenteElegibles,
+    autoCoverageRate: claramenteElegibles > 0 ? cubiertasElegibles / claramenteElegibles : 0,
+    autoGradeTrustRate: autocalificables.length > 0 ? calificacionesCorrectas / autocalificables.length : 1,
+    automaticGradeDiscordances: discordancias
+  };
+}
+
 export async function generateSyntheticTv4Dataset(options: GenerateDatasetOptions) {
   const datasetRoot = path.resolve(process.cwd(), options.datasetRoot);
   await ensureDir(path.join(datasetRoot, 'images'));
@@ -601,7 +700,9 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
     precisionMin: options.thresholds?.precisionMin ?? manifest.thresholds.precisionMin,
     falsePositiveMax: options.thresholds?.falsePositiveMax ?? manifest.thresholds.falsePositiveMax,
     invalidDetectionMin: options.thresholds?.invalidDetectionMin ?? manifest.thresholds.invalidDetectionMin,
-    pagePassMin: options.thresholds?.pagePassMin ?? manifest.thresholds.pagePassMin
+    pagePassMin: options.thresholds?.pagePassMin ?? manifest.thresholds.pagePassMin,
+    autoGradeTrustMin: options.thresholds?.autoGradeTrustMin ?? manifest.thresholds.autoGradeTrustMin ?? DEFAULT_THRESHOLDS.autoGradeTrustMin,
+    autoCoverageMin: options.thresholds?.autoCoverageMin ?? manifest.thresholds.autoCoverageMin ?? DEFAULT_THRESHOLDS.autoCoverageMin
   };
 
   let tp = 0;
@@ -612,6 +713,8 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
   let invalidDetected = 0;
   let pagePasses = 0;
   let gradeConsistency = 0;
+  let gradeConsistencyCaptures = 0;
+  const autoGradeOutcomes: Array<{ claramenteElegible: boolean; autoCalificable: boolean; calificacionCoincide: boolean }> = [];
   const errors: Record<string, number> = {
     mismatch_option: 0,
     missed_mark: 0,
@@ -623,10 +726,14 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
   for (const capture of manifest.capturas) {
     const mapPage = await readJson<PaginaOmr>(path.join(datasetRoot, capture.mapaOmrPath));
     const imageBuffer = await fs.readFile(path.join(datasetRoot, capture.imagePath));
+    const qrEsperado = mapPage.qr?.texto;
+    if (!qrEsperado) {
+      throw new Error(`El mapa OMR de ${capture.captureId} no contiene un QR esperado.`);
+    }
     const detectionResult = await analizarOmr(
       `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
       mapPage,
-      mapPage.qr.texto,
+      qrEsperado,
       10,
       {
         folio: capture.captureId,
@@ -635,29 +742,77 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       },
       capture.captureId
     );
+    const autoDecision = evaluarAutoCalificableOmr({
+      estadoAnalisis: detectionResult.estadoAnalisis,
+      calidadPagina: detectionResult.calidadPagina,
+      confianzaPromedioPagina: detectionResult.confianzaPromedioPagina,
+      ratioAmbiguas: detectionResult.ratioAmbiguas,
+      coberturaDeteccion: mapPage.preguntas.length > 0
+        ? detectionResult.respuestasDetectadas.length / mapPage.preguntas.length
+        : 0,
+      respuestasDetectadas: detectionResult.respuestasDetectadas
+    });
     const detectedByQuestion = new Map<number, Opcion | null>();
+    const gradeAnswersByQuestion = new Map<number, Opcion | null>();
+    const responseByQuestion = new Map<number, typeof detectionResult.respuestasDetectadas[number]>();
     for (const respuesta of detectionResult.respuestasDetectadas) {
       const normalized = String(respuesta.opcion ?? '').trim().toUpperCase();
-      detectedByQuestion.set(
-        respuesta.numeroPregunta,
-        LETTERS.includes(normalized as Opcion) ? (normalized as Opcion) : null
-      );
+      const detected = LETTERS.includes(normalized as Opcion) ? (normalized as Opcion) : null;
+      detectedByQuestion.set(respuesta.numeroPregunta, detected);
+      responseByQuestion.set(respuesta.numeroPregunta, respuesta);
+      // A candidate option in an ambiguous/invalid state must never earn credit.
+      gradeAnswersByQuestion.set(respuesta.numeroPregunta, respuesta.estadoRespuesta === 'respondida' ? detected : null);
     }
     const truthForCapture = truthByCapture.get(capture.captureId);
     if (!truthForCapture) throw new Error(`No ground truth for capture ${capture.captureId}`);
 
     let mismatches = 0;
+    const issues: PerCaptureEval['issues'] = [];
     const expectedByQuestion = new Map<number, Opcion | null>();
     for (const [questionNumber, truth] of truthForCapture.entries()) {
       total += 1;
       const expected = truth.opcionEsperada;
       const detected = detectedByQuestion.get(questionNumber) ?? null;
+      const respuestaDetectada = responseByQuestion.get(questionNumber);
       expectedByQuestion.set(questionNumber, expected);
 
       if (truth.markType === 'double' || truth.markType === 'smudge') {
         invalidTotal += 1;
-        if (detected === null) invalidDetected += 1;
+        const rechazoSeguro = esRechazoSeguroMarcaInvalida(respuestaDetectada?.estadoRespuesta, detected);
+        if (rechazoSeguro) invalidDetected += 1;
         else errors.invalid_not_rejected += 1;
+      }
+
+      if (debeIncluirIssueSintetico(truth.markType, expected, detected)) {
+        issues.push({
+          numeroPregunta: questionNumber,
+          markType: truth.markType,
+          expected,
+          selectedOptions: truth.selectedOptions,
+          detected,
+          estadoRespuesta: respuestaDetectada?.estadoRespuesta,
+          flags: respuestaDetectada?.flags ?? [],
+          confidence: Number(respuestaDetectada?.confianza ?? 0),
+          scoresPorOpcion: (respuestaDetectada?.scoresPorOpcion ?? []).map((score) => ({
+            opcion: score.opcion,
+            score: score.score,
+            estadoMarca: score.estadoMarca,
+            fillRatioCore: score.fillRatioCore,
+            fillRatioRing: score.fillRatioRing,
+            fillDelta: score.fillDelta,
+            radialMassRatio: score.radialMassRatio,
+            centerDarknessDelta: score.centerDarknessDelta,
+            nucleusDarknessDelta: score.nucleusDarknessDelta,
+            largestComponentFillRatio: Number(score.largestComponentFillRatio ?? 0),
+            largestComponentOffsetRatio: Number(score.largestComponentOffsetRatio ?? 0),
+            nucleusFillRatio: Number(score.nucleusFillRatio ?? 0),
+            centroidOffsetRatio: Number(score.centroidOffsetRatio ?? 0),
+            markConfidence: score.markConfidence,
+            shapeCompactness: Number(score.shapeCompactness ?? 0),
+            contraste: score.contraste,
+            softCoreContrast: Number(score.softCoreContrast ?? 0)
+          }))
+        });
       }
 
       if (expected !== null && detected === expected) {
@@ -682,14 +837,23 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
         mismatches += 1;
         errors.mismatch_option += 1;
       }
+
     }
 
     const expectedScore = countMatchesForScore(expectedByQuestion, answerKey);
-    const detectedScore = countMatchesForScore(detectedByQuestion, answerKey);
+    const detectedScore = countMatchesForScore(gradeAnswersByQuestion, answerKey);
     const totalQuestions = truthForCapture.size;
     const expectedGrade = calcularCalificacionExacta(expectedScore, totalQuestions, 0).calificacionFinalTexto;
     const detectedGrade = calcularCalificacionExacta(detectedScore, totalQuestions, 0).calificacionFinalTexto;
-    if (expectedGrade === detectedGrade) gradeConsistency += 1;
+    const clearlyEligible = [...truthForCapture.values()].every((truth) => truth.markType === 'valid' || truth.markType === 'blank');
+    const calificacionCoincide = expectedGrade === detectedGrade;
+    gradeConsistencyCaptures += 1;
+    if (calificacionCoincide) gradeConsistency += 1;
+    autoGradeOutcomes.push({
+      claramenteElegible: clearlyEligible,
+      autoCalificable: autoDecision.autoCalificableOmr,
+      calificacionCoincide
+    });
 
     const pagePass = totalQuestions > 0 ? mismatches / totalQuestions <= 0.05 : true;
     if (pagePass) pagePasses += 1;
@@ -700,7 +864,43 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       expectedScore,
       detectedScore,
       pagePass,
-      estadoAnalisis: detectionResult.estadoAnalisis
+      estadoAnalisis: detectionResult.estadoAnalisis,
+      autoCalificableOmr: autoDecision.autoCalificableOmr,
+      motivosAutoCalificacion: autoDecision.motivos,
+      clearlyEligible,
+      policyDiagnostics: autoDecision.autoCalificableOmr ? [] : detectionResult.respuestasDetectadas
+        .filter((respuesta) =>
+          respuesta.flags?.includes('parcial_detectada') ||
+          !Number.isFinite(respuesta.confianza) ||
+          Number(respuesta.confianza) < 0.9
+        )
+        .map((respuesta) => ({
+          numeroPregunta: respuesta.numeroPregunta,
+          opcion: respuesta.opcion,
+          estadoRespuesta: respuesta.estadoRespuesta,
+          flags: respuesta.flags ?? [],
+          confianza: Number(respuesta.confianza ?? 0),
+          scoresPorOpcion: (respuesta.scoresPorOpcion ?? []).map((score) => ({
+            opcion: score.opcion,
+            score: score.score,
+            estadoMarca: score.estadoMarca,
+            fillRatioCore: score.fillRatioCore,
+            fillRatioRing: score.fillRatioRing,
+            fillDelta: score.fillDelta,
+            radialMassRatio: score.radialMassRatio,
+            centerDarknessDelta: score.centerDarknessDelta,
+            nucleusDarknessDelta: score.nucleusDarknessDelta,
+            largestComponentFillRatio: Number(score.largestComponentFillRatio ?? 0),
+            largestComponentOffsetRatio: Number(score.largestComponentOffsetRatio ?? 0),
+            nucleusFillRatio: Number(score.nucleusFillRatio ?? 0),
+            centroidOffsetRatio: Number(score.centroidOffsetRatio ?? 0),
+            markConfidence: score.markConfidence,
+            shapeCompactness: Number(score.shapeCompactness ?? 0),
+            contraste: score.contraste,
+            softCoreContrast: Number(score.softCoreContrast ?? 0)
+          }))
+        })),
+      issues
     });
   }
 
@@ -710,13 +910,17 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
   const falsePositiveRate = total > 0 ? fp / total : 0;
   const invalidDetectionRate = invalidTotal > 0 ? invalidDetected / invalidTotal : 1;
   const pagePassRate = perCapture.length > 0 ? pagePasses / perCapture.length : 1;
-  const gradeConsistencyRate = perCapture.length > 0 ? gradeConsistency / perCapture.length : 1;
+  const gradeConsistencyRate = gradeConsistencyCaptures > 0 ? gradeConsistency / gradeConsistencyCaptures : 0;
+  const autoMetrics = resumirConfianzaCoberturaAutoCalificacion(autoGradeOutcomes);
 
   const checks = {
     precision: precision >= thresholds.precisionMin,
     falsePositiveRate: falsePositiveRate <= thresholds.falsePositiveMax,
     invalidDetectionRate: invalidDetectionRate >= thresholds.invalidDetectionMin,
-    pagePassRate: pagePassRate >= thresholds.pagePassMin
+    pagePassRate: pagePassRate >= thresholds.pagePassMin,
+    autoGradeTrust: autoMetrics.autoGradeTrustRate >= Number(thresholds.autoGradeTrustMin ?? DEFAULT_THRESHOLDS.autoGradeTrustMin),
+    autoCoverage: autoMetrics.autoCoverageRate >= Number(thresholds.autoCoverageMin ?? DEFAULT_THRESHOLDS.autoCoverageMin),
+    automaticGradeDiscordances: autoMetrics.automaticGradeDiscordances === 0
   };
 
   const report: CanonicalReport = {
@@ -742,6 +946,11 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       falsePositiveRate: round6(falsePositiveRate),
       pagePassRate: round6(pagePassRate),
       gradeConsistency: round6(gradeConsistencyRate),
+      autoGradeTrustRate: round6(autoMetrics.autoGradeTrustRate),
+      autoCoverageRate: round6(autoMetrics.autoCoverageRate),
+      autoEligibleCaptures: autoMetrics.autoEligibleCaptures,
+      clearlyEligibleCaptures: autoMetrics.clearlyEligibleCaptures,
+      automaticGradeDiscordances: autoMetrics.automaticGradeDiscordances,
       totalCapturas: perCapture.length,
       totalPreguntas: total
     },

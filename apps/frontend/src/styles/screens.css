@@ -7114,6 +7114,7 @@
   transition: transform 160ms ease;
 }
 
+.omr-review-card__image--zoom-50 { transform: scale(0.5); }
 .omr-review-card__image--zoom-75 { transform: scale(0.75); }
 .omr-review-card__image--zoom-100 { transform: scale(1); }
 .omr-review-card__image--zoom-125 { transform: scale(1.25); }

@@ -7,6 +7,10 @@
 import type { ContextoPipelineOmr } from '../types.js';
 import { analizarOmr as analizarOmrCv, type ResultadoOmr, type RespuestaDetectadaOmr } from '../../servicioOmrCv.js';
 import { debeIntentarMotorCv, describirErrorCv, preprocesarImagenOmrCv } from '../../infra/omrCvEngine.js';
+import {
+  opcionParcialDominanteRecuperable,
+  parcialDetectadaConFormaCircularFuerte
+} from '../../politicaAutoCalificacionOmr.js';
 
 function necesitaRescateSinPreproceso(resultado: ResultadoOmr) {
   return (
@@ -144,7 +148,7 @@ export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
         contexto.qrEsperado,
         contexto.margenMm,
         contexto.debugInfo,
-        {}
+        { qrTextoPrevalidado: contexto.qrTexto }
       );
       resultado.engineVersion = engineVersion;
 
@@ -166,7 +170,7 @@ export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
           // En el perfil horizontal compacto el rescate debe evaluarse sobre
           // la imagen preprocesada, sin entregar además la imagen original al
           // motor, porque eso puede reactivar una doble marca entre burbujas.
-          { noRetry: true }
+          { noRetry: true, qrTextoPrevalidado: contexto.qrTexto }
         );
         // En el panel horizontal compacto una segunda burbuja puede perderse
         // parcialmente por perspectiva. Nunca se permite que ese rescate
@@ -181,7 +185,7 @@ export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
         contexto.qrEsperado,
         contexto.margenMm,
         contexto.debugInfo,
-        {}
+        { qrTextoPrevalidado: contexto.qrTexto }
       );
       resultado.engineVersion = engineVersion;
       resultado.motivosRevision = Array.from(
@@ -195,11 +199,34 @@ export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
       contexto.qrEsperado,
       contexto.margenMm,
       contexto.debugInfo,
-      {}
+      { qrTextoPrevalidado: contexto.qrTexto }
     );
     resultado.engineVersion = engineVersion;
   }
 
+  resultado = {
+    ...resultado,
+    respuestasDetectadas: resultado.respuestasDetectadas.map((respuesta) => {
+      if (!respuesta.flags.includes('parcial_detectada')) return respuesta;
+      const opcionRecuperada = opcionParcialDominanteRecuperable(respuesta);
+      if (opcionRecuperada) {
+        const seleccionada = respuesta.scoresPorOpcion.find((score) => score.opcion === opcionRecuperada);
+        return {
+          ...respuesta,
+          opcion: opcionRecuperada,
+          confianza: seleccionada?.markConfidence ?? respuesta.confianza,
+          estadoRespuesta: 'respondida' as const
+        };
+      }
+      if (respuesta.opcion === null || parcialDetectadaConFormaCircularFuerte(respuesta)) return respuesta;
+      return {
+        ...respuesta,
+        opcion: null,
+        confianza: Math.min(respuesta.confianza, 0.5),
+        estadoRespuesta: 'ambigua' as const
+      };
+    })
+  };
   contexto.resultado = resultado as ResultadoOmr;
   return contexto;
 }

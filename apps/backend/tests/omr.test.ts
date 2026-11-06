@@ -511,7 +511,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
   }, 300_000);
 
-  it('penaliza trazos lineales y prioriza relleno central real', async () => {
+  it('penaliza trazos lineales y conserva el relleno central para revisión sin orientación verificada', async () => {
     const width = 612;
     const height = 792;
     const buffer = Buffer.alloc(width * height * 3, 255);
@@ -584,9 +584,17 @@ describe('analizarOmr', () => {
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(['C', 'D'], JSON.stringify(resultado.respuestasDetectadas[0].scoresPorOpcion.map(({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness }) => ({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness })))).toContain(resultado.respuestasDetectadas[0].opcion);
-    expect(resultado.respuestasDetectadas[0].opcion).not.toBe('A');
-    expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
+    expect(resultado.pageOrientationDetermined).toBe(false);
+    expect(resultado.estadoAnalisis).toBe('requiere_revision');
+    expect(resultado.respuestasDetectadas[0].opcion).toBeNull();
+    expect(resultado.respuestasDetectadas[0].scoresPorOpcion[0]).toMatchObject({
+      opcion: 'D',
+      estadoMarca: 'marcada',
+      fillRatioCore: 1
+    });
+    expect(resultado.respuestasDetectadas[0].scoresPorOpcion.find(({ opcion }) => opcion === 'A')?.estadoMarca)
+      .toBe('parcial');
+    expect(resultado.respuestasDetectadas[0].flags).toContain('parcial_detectada');
   }, 300_000);
 
   it('retiene evidencia de una X centrada y se abstiene si la orientación no es verificable', async () => {

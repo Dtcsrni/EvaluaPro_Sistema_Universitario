@@ -6,6 +6,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import QRCode from 'qrcode';
+import sharp from 'sharp';
+import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmrCv.js';
 import {
   coincidePayloadQrExacto,
   detectarQrDetalleZxing,
@@ -583,6 +585,73 @@ describe('referencia global de página OMR', () => {
     );
 
     expect(qr).toBeNull();
+  });
+
+  it('recupera un QR parcialmente cubierto solo si una matriz esperada gana con margen claro', () => {
+    const esperado = 'EXAMEN:TEST-RECTIFIED:P1:TV4:OK';
+    const alternativo = 'EXAMEN:TEST-RECTIFIED:P1:TV4:NO';
+    const captura = crearQrRgbaExacto(esperado);
+    const moduleSize = 8;
+    const matrixTop = 100 + 4 * moduleSize;
+    const matrixLeft = 100 + 4 * moduleSize;
+
+    // Simula un sello opaco que tapa diez módulos completos de información.
+    for (let y = matrixTop + 11 * moduleSize; y < matrixTop + 21 * moduleSize; y += 1) {
+      for (let x = matrixLeft; x < matrixLeft + captura.qrGeometry.matrixModules! * moduleSize; x += 1) {
+        captura.gray[y * captura.width + x] = 255;
+      }
+    }
+
+    const qr = detectarQrPorGeometriaConocida(
+      rgbaDesdeGray(captura.gray),
+      captura.width,
+      captura.height,
+      { ...captura.qrGeometry, errorCorrectionLevel: 'H' },
+      (punto) => ({ x: punto.x, y: captura.height - punto.y }),
+      { altoCarta: captura.height, outputSize: 512, payloadsEsperados: [esperado, alternativo] }
+    );
+
+    expect(qr?.data).toBe(esperado);
+    expect(qr?.fuenteDeteccionQr).toBe('known_geometry_rescue');
+    expect(qr?.calidadCoincidenciaMatriz).toBeGreaterThanOrEqual(0.82);
+    expect(qr?.margenCoincidenciaMatriz).toBeGreaterThanOrEqual(0.12);
+  });
+
+  it('recupera QR geométrico desde la captura fuente cuando el pipeline normaliza la imagen', async () => {
+    const esperado = 'EXAMEN:TEST-SOURCE-RECOVERY:P1:TV4:OK';
+    const captura = crearCapturaConQrEsperado(esperado, 0);
+    const qr = captura.qrGeometry;
+    const qrSymbol = QRCode.create(esperado, { errorCorrectionLevel: 'H' }).modules;
+    const scale = 3;
+    const modulePitch = qr.size / (qrSymbol.size + qr.marginModules! * 2) * scale;
+    const matrixLeft = Math.round((qr.x + qr.marginModules! * qr.size / (qrSymbol.size + qr.marginModules! * 2)) * scale);
+    const matrixTop = Math.round((ALTO_CARTA - qr.y - qr.size + qr.marginModules! * qr.size / (qrSymbol.size + qr.marginModules! * 2)) * scale);
+
+    // Cubrir un patrón localizador con una etiqueta obliga al lector a usar la
+    // geometría y el payload esperado, sin dañar significativamente la matriz.
+    for (let y = matrixTop; y < matrixTop + Math.ceil(modulePitch * 9); y += 1) {
+      for (let x = matrixLeft; x < matrixLeft + Math.ceil(modulePitch * 9); x += 1) {
+        captura.gray[y * captura.width + x] = 255;
+      }
+    }
+    const rgba = rgbaDesdeGray(captura.gray);
+    const image = await sharp(Buffer.from(rgba), {
+      raw: { width: captura.width, height: captura.height, channels: 4 }
+    }).png().toBuffer();
+    const result = await analizarOmr(
+      `data:image/png;base64,${image.toString('base64')}`,
+      {
+        numeroPagina: 1,
+        templateVersion: 4,
+        qr,
+        marcasPagina: { tipo: 'cuadrados', size: 5.8 * MM_A_PUNTOS },
+        preguntas: []
+      },
+      [esperado],
+      10
+    );
+
+    expect(result.qrTexto).toBe(esperado);
   });
 
   it('prioriza un recorte focalizado del QR en la cabecera de una página completa', () => {

@@ -56,7 +56,7 @@ export function PlantillasConsolaGeneracion({
   plantillaSeleccionada: Plantilla | null;
   paginasExtraordinarioObjetivo?: number;
   puedeGenerarExamenes: boolean;
-  onGenerarExamenesLote: (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[]; grupo?: string }) => Promise<void>;
+  onGenerarExamenesLote: (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[]; grupo?: string; variantPolicy?: 'unique' | 'shared' }) => Promise<void>;
   mensajeGeneracion: string;
   lotePdfUrl: string | null;
   descargarPdfLote: () => Promise<void>;
@@ -79,6 +79,7 @@ export function PlantillasConsolaGeneracion({
   const [formatoSalidaLote, setFormatoSalidaLote] = useState<'zip' | 'pdf'>('pdf');
   const [descargandoFormato, setDescargandoFormato] = useState<'zip' | 'pdf' | null>(null);
   const [tipoExamen, setTipoExamen] = useState<'ordinario' | 'extraordinario'>('ordinario');
+  const [varianteComunLote, setVarianteComunLote] = useState(false);
   const [grupoLote, setGrupoLote] = useState('');
   const [alumnoIdsExtraordinario, setAlumnoIdsExtraordinario] = useState<string[]>([]);
   const [previsualizandoExtraordinario, setPrevisualizandoExtraordinario] = useState(false);
@@ -133,7 +134,8 @@ export function PlantillasConsolaGeneracion({
     plantillaId,
     esExtraordinario ? 'extraordinario' : undefined,
     alumnosExtraordinariosSeleccionados,
-    esExtraordinario ? undefined : grupoLote
+    esExtraordinario ? undefined : grupoLote,
+    !esExtraordinario && varianteComunLote
   );
   const lotePendienteId = plantillaId ? leerLotePendiente(claveRecuperacionLote) : null;
   const hayLoteReanudable = !generandoLote && Boolean(
@@ -298,6 +300,39 @@ export function PlantillasConsolaGeneracion({
               {gruposMateria.length === 0 && <p role="alert" className="nota">No hay alumnos activos con grupo asignado en la materia de esta plantilla.</p>}
               {gruposMateria.length > 1 && !grupoLote && <p className="nota">Selecciona un grupo para limitar el lote a su padrón activo.</p>}
             </label>
+          )}
+
+          {modoGeneracion === 'lote' && !esExtraordinario && (
+            <fieldset className="plantillas-seleccion-alumnos mt-10" aria-describedby="plantillas-variante-comun-ayuda">
+              <legend>Variantes del examen</legend>
+              <label className="campo-checkbox">
+                <input
+                  type="radio"
+                  name="politica-variante-lote"
+                  value="unique"
+                  checked={!varianteComunLote}
+                  onChange={() => setVarianteComunLote(false)}
+                  disabled={generandoLote}
+                />
+                <span>Una variante distinta por alumno (recomendado para reducir intercambio de respuestas)</span>
+              </label>
+              <label className="campo-checkbox">
+                <input
+                  type="radio"
+                  name="politica-variante-lote"
+                  value="shared"
+                  checked={varianteComunLote}
+                  onChange={() => setVarianteComunLote(true)}
+                  disabled={generandoLote}
+                />
+                <span>Una variante común para todo el grupo</span>
+              </label>
+              <p id="plantillas-variante-comun-ayuda" role={varianteComunLote ? 'alert' : 'note'} className="ayuda">
+                {varianteComunLote
+                  ? 'Advertencia: todos recibirán el mismo orden de preguntas y opciones, lo que facilita compartir copias del formulario y también las respuestas. Cada examen conservará su QR y folio propios. Se pedirá confirmación antes de generar.'
+                  : 'El orden de preguntas y opciones se genera por separado para cada alumno.'}
+              </p>
+            </fieldset>
           )}
 
           {modoGeneracion === 'lote' && !esExtraordinario && (
@@ -505,7 +540,7 @@ export function PlantillasConsolaGeneracion({
                 onClick={() => onGenerarExamenesLote(esExtraordinario ? {
                   tipoExamen: 'extraordinario',
                   alumnoIds: alumnosExtraordinariosSeleccionados
-            } : modoGeneracion === 'lote' ? { grupo: grupoLote } : undefined)}
+            } : modoGeneracion === 'lote' ? { grupo: grupoLote, variantPolicy: varianteComunLote ? 'shared' : 'unique' } : undefined)}
               >
                 {textoBotonGenerar}
               </Boton>
