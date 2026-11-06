@@ -4,13 +4,17 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.2.11] - 2026-11-06
+
 ### Changed
+- Actualizadas `google-auth-library`, `lucide-react`, `eslint`, `@eslint/js` y `@types/node` con sus lockfiles.
 - El versionado de EvaluaPro y del Installer Hub queda independiente: `app-vX.Y.Z` para la aplicación e imágenes Docker; `hub-vX.Y.Z` para el instalador Windows.
 - CI centraliza la validación automática en `CI Checks`, valida detector, plan affected y coherencia entre grupos, gates y jobs, y limita sus reportes a salidas conocidas.
 - Las suites backend de prueba y cobertura ya no reintentan automáticamente fallos; los lotes de cobertura mantienen diagnósticos y un orden de reporte determinista.
 - `sharp` se instala desde el lockfile mediante `npm ci`, sin resolverlo aparte durante el pipeline.
 
 ### Fixed
+- Las consultas periódicas del resultado de Google Desktop ya no consumen el límite global ni el límite de intentos de credenciales; conservan un límite alto independiente.
 - El acceso Google Desktop recupera las capacidades OAuth cuando el backend responde tarde o falla la consulta inicial, y evita diagnosticar falsamente un Client ID ausente.
 - Classroom expone los errores de configuración OAuth en Calificaciones en vez de presentar una lista de cursos vacía sin explicación.
 - App Host confirma el cierre antes de detener API e interfaz, valida la identidad del dashboard y mantiene la ventana abierta si no puede confirmar la detención.

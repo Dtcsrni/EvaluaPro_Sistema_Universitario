@@ -463,7 +463,7 @@ export function SeccionTemarios({ periodos }: Props) {
       {/* ── 4. Tabs Elevados ─── */}
       <div className="temarios-tabs-bar temarios-tab-bar" role="tablist" tabIndex={-1} aria-label="Vistas de temarios" onKeyDown={(event) => {
         const visibles = tabsRef.current.filter((button): button is HTMLButtonElement => Boolean(button));
-        let indice = tabEnFoco;
+        let indice: number;
         if (event.key === 'ArrowRight') indice = (tabEnFoco + 1) % visibles.length;
         else if (event.key === 'ArrowLeft') indice = (tabEnFoco - 1 + visibles.length) % visibles.length;
         else if (event.key === 'Home') indice = 0;
