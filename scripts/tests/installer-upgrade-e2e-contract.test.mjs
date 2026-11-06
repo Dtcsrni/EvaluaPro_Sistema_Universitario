@@ -338,7 +338,7 @@ test('baseline legado valida version ARP sin InstallLocation solo con una entrad
   const getter = e2e.slice(getterStart, getterEnd);
 
   assert.match(getter, /\$matchingEntries\.Count -gt 1/);
-  assert.match(getter, /\$script:upgradingExistingInstall\s+-and\s+\$allEntries\.Count -eq 1/);
+  assert.match(getter, /\(\$script:upgradingExistingInstall\s+-or\s+\$isolatedBaselineUpgradeRun\)\s+-and\s+\$allEntries\.Count -eq 1/);
   assert.match(getter, /\$script:initialUninstallRegistryPaths -contains \[string\]\$allEntries\[0\]\.registryPath/);
   assert.match(getter, /\$newEntries\.Count -eq 1[\s\S]*?installLocation/);
   assert.match(getter, /Join-Path \$target 'EvaluaPro\.exe'/);
