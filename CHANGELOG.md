@@ -4,6 +4,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [Hub 1.2.18] - 2026-11-06
+
+### Changed
+- Avanza el Installer Hub del bundle candidato para permitir la actualización desde instalaciones locales que ya tienen Hub 1.2.17, manteniendo la aplicación en 1.2.11.
+
 ## [1.2.11] - 2026-11-06
 
 ### Changed

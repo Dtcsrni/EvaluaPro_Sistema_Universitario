@@ -338,8 +338,9 @@ test('baseline legado valida version ARP sin InstallLocation solo con una entrad
   const getter = e2e.slice(getterStart, getterEnd);
 
   assert.match(getter, /\$matchingEntries\.Count -gt 1/);
-  assert.match(getter, /\$allEntries\.Count -eq 1[\s\S]{0,220}\(\(\$script:upgradingExistingInstall\s+-and[\s\S]{0,220}\$script:isolatedBaselineUpgradeRun\)\s+-and/);
-  assert.match(getter, /\$script:initialUninstallRegistryPaths -contains \[string\]\$allEntries\[0\]\.registryPath/);
+  assert.match(getter, /\$allEntries\.Count -eq 1[\s\S]{0,220}\[string\]::IsNullOrWhiteSpace\(\[string\]\$allEntries\[0\]\.installLocation\)/);
+  assert.match(getter, /\$script:upgradingExistingInstall\s+-and\s+\$script:initialUninstallRegistryPaths -contains \[string\]\$allEntries\[0\]\.registryPath[\s\S]{0,300}evaluapro-native-dist-\*\.zip/);
+  assert.match(getter, /\$script:isolatedBaselineUpgradeRun/);
   assert.match(getter, /\$newEntries\.Count -eq 1[\s\S]*?installLocation/);
   assert.match(getter, /Join-Path \$target 'EvaluaPro\.exe'/);
   assert.match(getter, /evaluapro-native-dist-\*\.zip/);

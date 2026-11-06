@@ -2021,14 +2021,14 @@ function Get-InstalledProductVersion {
   if ($matchingEntries.Count -eq 1) {
     $entry = $matchingEntries[0]
   } elseif ($allEntries.Count -eq 1 -and
-      (($script:upgradingExistingInstall -and
-        $script:initialUninstallRegistryPaths -contains [string]$allEntries[0].registryPath) -or
-       $script:isolatedBaselineUpgradeRun) -and
       [string]::IsNullOrWhiteSpace([string]$allEntries[0].installLocation) -and
-      ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
-       @(Get-ChildItem -LiteralPath $target -File -Filter 'evaluapro-native-dist-*.zip' -ErrorAction SilentlyContinue).Count -gt 0)) {
+      (($script:upgradingExistingInstall -and
+        $script:initialUninstallRegistryPaths -contains [string]$allEntries[0].registryPath -and
+        ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
+         @(Get-ChildItem -LiteralPath $target -File -Filter 'evaluapro-native-dist-*.zip' -ErrorAction SilentlyContinue).Count -gt 0)) -or
+       $script:isolatedBaselineUpgradeRun)) {
     $entry = $allEntries[0]
-    Write-E2ELog "ARP conservó la clave existente sin InstallLocation; se verifica la versión actualizada contra el payload en $target."
+    Write-E2ELog "ARP no publicó InstallLocation; se verifica la única entrada compatible con el modo de upgrade aislado. target=$target baseline=$script:isolatedBaselineUpgradeRun"
   } else {
     $newEntries = @($allEntries | Where-Object { $script:initialUninstallRegistryPaths -notcontains [string]$_.registryPath })
     if ($newEntries.Count -eq 1 -and
