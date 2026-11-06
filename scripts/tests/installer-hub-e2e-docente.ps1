@@ -2020,7 +2020,7 @@ function Get-InstalledProductVersion {
 
   if ($matchingEntries.Count -eq 1) {
     $entry = $matchingEntries[0]
-  } elseif ($script:upgradingExistingInstall -and $allEntries.Count -eq 1 -and
+  } elseif (($script:upgradingExistingInstall -or $isolatedBaselineUpgradeRun) -and $allEntries.Count -eq 1 -and
       $script:initialUninstallRegistryPaths -contains [string]$allEntries[0].registryPath -and
       [string]::IsNullOrWhiteSpace([string]$allEntries[0].installLocation) -and
       ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
