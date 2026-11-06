@@ -5,10 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const cssPath = path.join(repoRoot, 'apps/frontend/src/styles/cards.css');
-const css = fs.readFileSync(cssPath, 'utf8');
-const appStylesCss = fs.readFileSync(path.join(repoRoot, 'apps/frontend/src/styles.css'), 'utf8');
-const screensCss = fs.readFileSync(path.join(repoRoot, 'apps/frontend/src/styles/screens.css'), 'utf8');
-const foundationsCss = fs.readFileSync(path.join(repoRoot, 'apps/frontend/src/styles/foundations.css'), 'utf8');
+const readCss = (filePath) => fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+const css = readCss(cssPath);
+const appStylesCss = readCss(path.join(repoRoot, 'apps/frontend/src/styles.css'));
+const screensCss = readCss(path.join(repoRoot, 'apps/frontend/src/styles/screens.css'));
+const foundationsCss = readCss(path.join(repoRoot, 'apps/frontend/src/styles/foundations.css'));
 
 function channelToLinear(channel) {
   const value = channel / 255;
