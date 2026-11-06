@@ -10592,6 +10592,7 @@
   gap: 0.85rem;
   padding: 0.85rem 1.1rem;
   border-radius: 14px;
+  /* WCAG AA: fondo oscuro y borde cian son decorativos; el nombre conserva texto de alto contraste. */
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(56, 189, 248, 0.2);
   color: var(--texto);
