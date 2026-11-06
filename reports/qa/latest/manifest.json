@@ -1,7 +1,7 @@
 {
   "version": "1",
-  "generadoEn": "2026-11-06T00:53:44.239Z",
-  "commit": "2acf15a793f0171dcb11ad3cceb2d164e6a9c88f",
+  "generadoEn": "2026-11-06T09:58:55.810Z",
+  "commit": "e5efba7f55ca3b746e18658c9d4df90320ee5934",
   "workingTreeClean": true,
   "dirtyPathCount": 0,
   "artefactos": [
@@ -9,49 +9,49 @@
       "archivo": "reports/qa/latest/dataset-prodlike.json",
       "existe": true,
       "bytes": 259,
-      "actualizadoEn": "2026-11-06T00:52:25.052Z"
+      "actualizadoEn": "2026-11-06T09:57:12.944Z"
     },
     {
       "archivo": "reports/qa/latest/e2e-docente-alumno.json",
       "existe": true,
       "bytes": 341,
-      "actualizadoEn": "2026-11-06T00:52:47.363Z"
+      "actualizadoEn": "2026-11-06T09:57:38.765Z"
     },
     {
       "archivo": "reports/qa/latest/global-grade.json",
       "existe": true,
-      "bytes": 369,
-      "actualizadoEn": "2026-11-06T00:52:57.605Z"
+      "bytes": 370,
+      "actualizadoEn": "2026-11-06T09:57:50.058Z"
     },
     {
       "archivo": "reports/qa/latest/evaluaciones-policy.json",
       "existe": true,
       "bytes": 401,
-      "actualizadoEn": "2026-11-06T00:53:04.215Z"
+      "actualizadoEn": "2026-11-06T09:57:58.057Z"
     },
     {
       "archivo": "reports/qa/latest/evaluaciones-e2e.json",
       "existe": true,
       "bytes": 553,
-      "actualizadoEn": "2026-11-06T00:53:30.043Z"
+      "actualizadoEn": "2026-11-06T09:58:31.963Z"
     },
     {
       "archivo": "reports/qa/latest/pdf-print.json",
       "existe": true,
-      "bytes": 316,
-      "actualizadoEn": "2026-11-06T00:53:39.853Z"
+      "bytes": 317,
+      "actualizadoEn": "2026-11-06T09:58:44.898Z"
     },
     {
       "archivo": "reports/qa/latest/ux-visual.json",
       "existe": true,
       "bytes": 295,
-      "actualizadoEn": "2026-11-06T00:53:43.432Z"
+      "actualizadoEn": "2026-11-06T09:58:48.907Z"
     },
     {
       "archivo": "reports/qa/latest/clean-architecture.json",
       "existe": true,
-      "bytes": 11453,
-      "actualizadoEn": "2026-11-06T00:39:47.533Z"
+      "bytes": 11534,
+      "actualizadoEn": "2026-11-06T09:58:55.018Z"
     },
     {
       "archivo": "reports/qa/latest/gui-screen-matrix.json",
