@@ -76,6 +76,25 @@ const limiterCredenciales: RequestHandler = esProduccion
 	})
 	: sinRateLimit;
 
+// El cliente consulta este endpoint cada segundo mientras Google completa el
+// callback. No debe consumir el presupuesto de intentos de credenciales.
+const limiterResultadoGoogleDesktop: RequestHandler = esProduccion
+	? rateLimit({
+		windowMs: configuracion.rateLimitWindowMs,
+		limit: Math.max(configuracion.rateLimitCredencialesLimit, 1_000),
+		standardHeaders: true,
+		legacyHeaders: false,
+		handler: (_req, res) => {
+			res.status(429).json({
+				error: {
+					codigo: 'RATE_LIMIT',
+					mensaje: 'Demasiadas consultas de estado de Google, intenta mas tarde'
+				}
+			});
+		}
+	})
+	: sinRateLimit;
+
 const limiterRefresco: RequestHandler = esProduccion
 	? rateLimit({
 		windowMs: configuracion.rateLimitWindowMs,
@@ -96,7 +115,7 @@ const limiterRefresco: RequestHandler = esProduccion
 router.post('/registrar', limiterCredenciales, validarCuerpo(esquemaRegistrarDocente, { strict: true }), registrarDocente);
 router.get('/capacidades-integraciones', capacidadesIntegracionesPublicas);
 router.post('/google-desktop/iniciar', requerirOrigenAutorizado, limiterCredenciales, validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), iniciarLoginGoogleDesktop);
-router.post('/google-desktop/resultado', requerirOrigenAutorizado, limiterCredenciales, validarCuerpo(esquemaFlujoGoogleDesktop, { strict: true }), obtenerResultadoLoginGoogleDesktop);
+router.post('/google-desktop/resultado', requerirOrigenAutorizado, limiterResultadoGoogleDesktop, validarCuerpo(esquemaFlujoGoogleDesktop, { strict: true }), obtenerResultadoLoginGoogleDesktop);
 router.post('/google-desktop/confirmar', requerirOrigenAutorizado, limiterCredenciales, validarCuerpo(esquemaFlujoGoogleDesktop, { strict: true }), confirmarLoginGoogleDesktop);
 router.post('/google-desktop/cancelar', requerirOrigenAutorizado, limiterCredenciales, validarCuerpo(esquemaFlujoGoogleDesktop, { strict: true }), cancelarLoginGoogleDesktop);
 router.post('/registrar-google', limiterCredenciales, validarCuerpo(esquemaRegistrarDocenteGoogle, { strict: true }), registrarDocenteGoogle);
