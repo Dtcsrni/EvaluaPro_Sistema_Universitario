@@ -338,7 +338,7 @@ test('baseline legado valida version ARP sin InstallLocation solo con una entrad
   const getter = e2e.slice(getterStart, getterEnd);
 
   assert.match(getter, /\$matchingEntries\.Count -gt 1/);
-  assert.match(getter, /\(\$script:upgradingExistingInstall\s+-or\s+\$isolatedBaselineUpgradeRun\)\s+-and\s+\$allEntries\.Count -eq 1/);
+  assert.match(getter, /\$allEntries\.Count -eq 1[\s\S]{0,220}\(\(\$script:upgradingExistingInstall\s+-and[\s\S]{0,220}\$script:isolatedBaselineUpgradeRun\)\s+-and/);
   assert.match(getter, /\$script:initialUninstallRegistryPaths -contains \[string\]\$allEntries\[0\]\.registryPath/);
   assert.match(getter, /\$newEntries\.Count -eq 1[\s\S]*?installLocation/);
   assert.match(getter, /Join-Path \$target 'EvaluaPro\.exe'/);
@@ -574,7 +574,7 @@ test('la evidencia visual del Installer Hub valida PNG, dimensiones, píxeles y 
 
 test('E2E valida el preflight antes de instalar y reconoce la actualización aislada desde baseline', () => {
   assert.match(e2e, /\$candidateBundleVerified = -not \[string\]::IsNullOrWhiteSpace\(\$bundlePath\)/);
-  assert.match(e2e, /\$isolatedBaselineUpgradeRun = \$candidateBundleVerified -and \$baselineBundleExists/);
+  assert.match(e2e, /\$script:isolatedBaselineUpgradeRun = \$candidateBundleVerified -and \$baselineBundleExists/);
   assert.match(e2e, /\$validInstallMode = \$isolatedCandidateRun -or \$isolatedBaselineUpgradeRun -or \$script:upgradingExistingInstall/);
   const invalidModeGuard = e2e.indexOf('if (-not $validInstallMode)');
   const installInvocation = e2e.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade', invalidModeGuard);

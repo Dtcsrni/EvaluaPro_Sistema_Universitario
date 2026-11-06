@@ -2020,8 +2020,10 @@ function Get-InstalledProductVersion {
 
   if ($matchingEntries.Count -eq 1) {
     $entry = $matchingEntries[0]
-  } elseif (($script:upgradingExistingInstall -or $isolatedBaselineUpgradeRun) -and $allEntries.Count -eq 1 -and
-      $script:initialUninstallRegistryPaths -contains [string]$allEntries[0].registryPath -and
+  } elseif ($allEntries.Count -eq 1 -and
+      (($script:upgradingExistingInstall -and
+        $script:initialUninstallRegistryPaths -contains [string]$allEntries[0].registryPath) -or
+       $script:isolatedBaselineUpgradeRun) -and
       [string]::IsNullOrWhiteSpace([string]$allEntries[0].installLocation) -and
       ((Test-Path -LiteralPath (Join-Path $target 'EvaluaPro.exe') -PathType Leaf) -or
        @(Get-ChildItem -LiteralPath $target -File -Filter 'evaluapro-native-dist-*.zip' -ErrorAction SilentlyContinue).Count -gt 0)) {
@@ -2686,7 +2688,7 @@ try {
     (Test-Path -LiteralPath (Join-Path $normalizedTargetRoot '.env') -PathType Leaf)
   $isolatedCandidateRun = $candidateBundleVerified -and -not $baselineBundleProvided -and
     $isolatedTarget -and $stableCandidate -and $existing.Count -eq 0
-  $isolatedBaselineUpgradeRun = $candidateBundleVerified -and $baselineBundleExists -and
+  $script:isolatedBaselineUpgradeRun = $candidateBundleVerified -and $baselineBundleExists -and
     $isolatedTarget -and $stableCandidate -and $existing.Count -eq 0
   $validInstallMode = $isolatedCandidateRun -or $isolatedBaselineUpgradeRun -or $script:upgradingExistingInstall
   $installMode = if ($script:upgradingExistingInstall) {
