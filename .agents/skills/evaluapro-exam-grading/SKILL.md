@@ -19,7 +19,9 @@ Usa EvaluaPro como sistema de registro. Mantén separadas la lectura OMR, la cal
 ## Interpretación
 
 - Separa respuestas detectadas, respuestas ambiguas, omisiones, errores de lectura y reactivos anulados. No conviertas una detección ausente o ilegible en una respuesta elegida.
-- Si hay doble marca, tachadura, baja confianza, página faltante, asociación conflictiva o diferencia entre clave/variante, deja el reactivo pendiente de revisión humana y explica qué evidencia falta.
+- Antes de enviar un lote a revisión, intenta rescates deterministas soportados por EvaluaPro: fiduciales y geometría de las marcas, OCR contextual de la zona de respuestas y lectura independiente de QR/folio. QR identifica examen/página; no sustituye la lectura OMR. Si las señales no convergen en una sola opción válida, no inventes una respuesta.
+- Regla de puntaje acordada: respuesta ambigua, doble marca, tachada o sin opción se califica incorrecta. La revisión puede conservar una bandera diagnóstica, pero no bloquea la calificación automática ni convierte el reactivo en correcto sin evidencia inequívoca.
+- Una confianza histórica ausente se muestra como “Sin dato”; no equivale a 0% ni se incluye en promedios. Un 0 numérico explícito sí es una lectura medida con confianza 0. La confianza orienta la revisión, pero no cambia la regla de puntaje de una opción ya registrada.
 - Calcula el puntaje solo con la clave y regla de puntuación vigentes para ese examen; declara escala, denominador y redondeo si el resultado depende de ellos. No inventes tolerancias ni ajustes.
 - Distingue una omisión OMR legible de trabajo pendiente o dato faltante en otra fuente. Nunca conviertas una tarea pendiente, una imagen ilegible o un fallo de importación en cero.
 - Mantén el resultado OMR separado de componentes manuales y de calificaciones de Classroom. No copies el resultado a una columna de lista institucional ni sincronices Classroom por inferencia.
@@ -28,6 +30,7 @@ Usa EvaluaPro como sistema de registro. Mantén separadas la lectura OMR, la cal
 ## Persistencia
 
 - Una petición de revisar o calcular permite preparar el resultado; escribirlo requiere una petición explícita para registrar, importar o publicar las calificaciones.
+- Para procesar lotes, consulta primero el estado/job existente y su progreso; reanuda el mismo `jobId`/`clientRequestId` tras interrupciones y no vuelve a subir ni duplica páginas ya aceptadas. Separa automáticamente las hojas identificadas y legibles de las excepciones de identidad/archivo, y calcula el puntaje de todas las hojas con respuestas inequívocas o respuestas ausentes conforme a la regla anterior.
 - Para una escritura autorizada, sigue el contrato de la ruta: permisos, `{ confirmarEscritura: true }`, `clientRequestId` UUID persistido antes del POST y estable para reintentos del mismo payload; envía `X-EvaluaPro-Equipo`/lease cuando esté configurado. Presenta el alcance exacto, resultados finales, pendientes y destino. Si la respuesta queda incierta, consulta por ID/historial antes de repetir; nunca reuses una clave con payload distinto.
 - Usa Classroom solo a través de la UI/API de EvaluaPro. Si la integración no está disponible, detente antes de importar o modificar calificaciones.
 - No cambies la clave, las respuestas ni las puntuaciones almacenadas para hacerlas coincidir con una expectativa. Conserva auditoría y resultado original; una corrección debe pasar por el flujo autorizado y trazable.

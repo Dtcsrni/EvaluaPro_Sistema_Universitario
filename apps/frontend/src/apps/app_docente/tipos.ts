@@ -396,6 +396,8 @@ export type RespuestaDetectadaOmr = {
   numeroPregunta: number;
   opcion: string | null;
   confianza: number;
+  /** False cuando el dato histórico no existe; no equivale a una lectura con 0% de confianza. */
+  confianzaDisponible?: boolean;
   estadoRespuesta?: EstadoRespuestaOmr;
   flags?: FlagRespuestaOmr[];
 };
@@ -412,6 +414,7 @@ export type RespuestaRevisionOmr = {
   opcion: string | null;
   opcionDetectada?: string | null;
   confianza?: number;
+  confianzaDisponible?: boolean;
   estadoRespuesta?: EstadoRespuestaOmr;
   flags?: FlagRespuestaOmr[];
   candidatas?: CandidataRespuestaOmr[];
@@ -426,6 +429,8 @@ export type ResultadoOmr = {
   motivosRevision: string[];
   templateVersionDetectada: 4;
   confianzaPromedioPagina: number;
+  /** Indica que el promedio se calculó con datos persistidos; false representa ausencia histórica. */
+  confianzaPromedioDisponible?: boolean;
   ratioAmbiguas: number;
   resumenRespuestas?: {
     totalReactivos: number;

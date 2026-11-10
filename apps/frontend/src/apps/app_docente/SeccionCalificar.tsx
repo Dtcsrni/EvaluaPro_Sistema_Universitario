@@ -182,6 +182,7 @@ export function SeccionCalificar({
           numeroPregunta: Number(item.numeroPregunta),
           opcion: normalizarOpcion(typeof item?.opcion === 'string' ? item.opcion : null),
           confianza: Number.isFinite(Number(item?.confianza)) ? Number(item?.confianza) : 0,
+          confianzaDisponible: item.confianzaDisponible !== false && typeof item.confianza === 'number' && Number.isFinite(item.confianza),
           ...(item.estadoRespuesta ? { estadoRespuesta: item.estadoRespuesta } : {}),
           ...(Array.isArray(item.flags) ? { flags: item.flags } : {})
         }))
@@ -286,7 +287,9 @@ export function SeccionCalificar({
         : 'En revisión';
   const estadoOmrClase = estadoOmrEtiqueta === 'ok' ? 'ok' : 'warning';
 
-  const requiereRevisionConfirmacion = Boolean(resultadoOmr && !revisionOmrConfirmada);
+  const requiereRevisionConfirmacion = Boolean(
+    resultadoOmr && resultadoOmr.estadoAnalisis !== 'ok' && !revisionOmrConfirmada
+  );
   const reactivosOficiales = useMemo(
     () =>
       (Array.isArray(ordenPreguntasClave) ? ordenPreguntasClave : [])
@@ -377,7 +380,14 @@ export function SeccionCalificar({
         alumnoId,
         aciertos: aciertosParaCalificar,
         totalReactivos: resumenDinamico.total,
-        ...(resultadoOmr ? { respuestasDetectadas: respuestasTrabajo } : {}),
+        ...(resultadoOmr
+          ? {
+              respuestasDetectadas: respuestasTrabajo.map(({ confianzaDisponible, ...respuesta }) => ({
+                ...respuesta,
+                ...(confianzaDisponible ? {} : { confianza: undefined })
+              }))
+            }
+          : {}),
         omrAnalisis: resultadoOmr
           ? {
               estadoAnalisis: resultadoOmr.estadoAnalisis,
@@ -471,7 +481,9 @@ export function SeccionCalificar({
             OMR: {estadoOmrTexto}
           </span>
           <span>Calidad {Math.round(resultadoOmr.calidadPagina * 100)}%</span>
-          <span>Confianza {Math.round(resultadoOmr.confianzaPromedioPagina * 100)}%</span>
+          <span>
+            Confianza {resultadoOmr.confianzaPromedioDisponible === false ? 'sin dato' : `${Math.round(resultadoOmr.confianzaPromedioPagina * 100)}%`}
+          </span>
           <span>Ambiguas {(resultadoOmr.ratioAmbiguas * 100).toFixed(1)}%</span>
         </div>
       )}
@@ -486,7 +498,7 @@ export function SeccionCalificar({
         resultadoOmr.resumenRespuestas.reactivosInvalidos > 0
       ) ? (
         <InlineMensaje tipo="warning">
-          Revisión sugerida: {resultadoOmr.resumenRespuestas.reactivosSinMarca} sin marca, {resultadoOmr.resumenRespuestas.reactivosAmbiguos} ambiguos y {resultadoOmr.resumenRespuestas.reactivosInvalidos} inválidos.
+          Incorrectas automáticamente: {resultadoOmr.resumenRespuestas.reactivosSinMarca} sin marca, {resultadoOmr.resumenRespuestas.reactivosAmbiguos} ambiguas y {resultadoOmr.resumenRespuestas.reactivosInvalidos} con doble marca o tachadas.
         </InlineMensaje>
       ) : null}
       {edicionManualAciertos && (

@@ -760,6 +760,7 @@ export function SeccionCalificaciones({
               numeroPregunta: Number(item?.numeroPregunta),
               opcion: String(item?.opcion ?? '').trim().toUpperCase() || null,
               confianza: Number.isFinite(Number(item?.confianza)) ? Number(item?.confianza) : 0,
+              confianzaDisponible: typeof item?.confianza === 'number' && Number.isFinite(item.confianza),
               ...(item?.estadoRespuesta ? { estadoRespuesta: item.estadoRespuesta } : {}),
               ...(Array.isArray(item?.flags) ? { flags: item.flags } : {})
             }))
@@ -782,6 +783,7 @@ export function SeccionCalificaciones({
           numeroPregunta: Number(numeroPregunta),
           opcion: detectada?.opcion ?? null,
           confianza: Number.isFinite(Number(detectada?.confianza)) ? Number(detectada?.confianza) : 0,
+          confianzaDisponible: detectada?.confianzaDisponible === true,
           ...(detectada?.estadoRespuesta ? { estadoRespuesta: detectada.estadoRespuesta } : {}),
           ...(Array.isArray(detectada?.flags) ? { flags: detectada.flags } : {})
         };
@@ -814,10 +816,12 @@ export function SeccionCalificaciones({
                   return numero >= pagina.preguntasDel && numero <= pagina.preguntasAl;
                 })
               : [];
-            const confianzaPagina =
-              respuestasPagina.length > 0
-                ? respuestasPagina.reduce((acc, item) => acc + Number(item.confianza || 0), 0) / respuestasPagina.length
-                : 0;
+            const confianzasDisponibles = respuestasPagina
+              .filter((item) => item.confianzaDisponible)
+              .map((item) => item.confianza);
+            const confianzaPagina = confianzasDisponibles.length
+              ? confianzasDisponibles.reduce((acc, confianza) => acc + confianza, 0) / confianzasDisponibles.length
+              : 0;
             return {
               numeroPagina: pagina.numeroPagina,
               respuestas: respuestasPagina,
@@ -830,6 +834,7 @@ export function SeccionCalificaciones({
                 motivosRevision: [],
                 templateVersionDetectada,
                 confianzaPromedioPagina: confianzaPagina,
+                confianzaPromedioDisponible: confianzasDisponibles.length > 0,
                 ratioAmbiguas: 0
               },
               imagenBase64: imagenesPorPagina.get(pagina.numeroPagina)
@@ -871,10 +876,12 @@ export function SeccionCalificaciones({
         ordenPreguntas: clave.ordenPreguntas,
         respuestasDetectadas: respuestasCompletas
       });
-      const promedioConfianza =
-        respuestasCompletas.length > 0
-          ? respuestasCompletas.reduce((acc, item) => acc + Number(item.confianza || 0), 0) / respuestasCompletas.length
-          : 0;
+      const confianzasDisponibles = respuestasCompletas
+        .filter((item) => item.confianzaDisponible)
+        .map((item) => item.confianza);
+      const promedioConfianza = confianzasDisponibles.length
+        ? confianzasDisponibles.reduce((acc, confianza) => acc + confianza, 0) / confianzasDisponibles.length
+        : 0;
       const paginaInicial = paginasReconstruidas[0]?.numeroPagina ?? 1;
       const respuestasPaginaInicial =
         paginasReconstruidas.find((pagina) => pagina.numeroPagina === paginaInicial)?.respuestas ?? respuestasCompletas;
@@ -890,6 +897,7 @@ export function SeccionCalificaciones({
           estadoAnalisis: 'ok' as const,
           motivosRevision: [],
           confianzaPromedioPagina: promedioConfianza,
+          confianzaPromedioDisponible: confianzasDisponibles.length > 0,
           ratioAmbiguas: 0
         };
       onCargarRevisionHistoricaCalificada?.({

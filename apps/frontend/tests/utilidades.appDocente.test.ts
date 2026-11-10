@@ -233,10 +233,27 @@ describe('utilidades app docente', () => {
       numeroPregunta: 1,
       opcion: null,
       confianza: 0,
+      confianzaDisponible: false,
       estadoRespuesta: 'sin_marca'
     });
+    expect(normal.confianzaPromedioDisponible).toBe(false);
     expect(normal.estadoAnalisis).toBe('requiere_revision');
     expect(normal.templateVersionDetectada).toBe(4);
+  });
+
+  it('mantiene como desconocida la confianza omitida en una respuesta histórica', () => {
+    const normal = normalizarResultadoOmr({
+      respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'D' }],
+      confianzaPromedioPagina: undefined
+    });
+
+    expect(normal.respuestasDetectadas[0]).toMatchObject({
+      numeroPregunta: 1,
+      opcion: 'D',
+      confianza: 0,
+      confianzaDisponible: false
+    });
+    expect(normal.confianzaPromedioDisponible).toBe(false);
   });
 
   it('conserva el estado OMR y sus flags al consolidar respuestas', () => {
@@ -250,8 +267,8 @@ describe('utilidades app docente', () => {
     });
 
     expect(normal.respuestasDetectadas).toEqual([
-      { numeroPregunta: 1, opcion: null, confianza: 0, estadoRespuesta: 'ambigua', flags: ['parcial_detectada'] },
-      { numeroPregunta: 2, opcion: null, confianza: 0, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }
+      { numeroPregunta: 1, opcion: null, confianza: 0, confianzaDisponible: true, estadoRespuesta: 'ambigua', flags: ['parcial_detectada'] },
+      { numeroPregunta: 2, opcion: null, confianza: 0, confianzaDisponible: true, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }
     ]);
   });
 

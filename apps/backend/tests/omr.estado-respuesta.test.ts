@@ -75,6 +75,18 @@ describe('estado de respuesta OMR', () => {
     expect(resumen.estadoExamen).toBe('requiere_revision');
   });
 
+  it('considera clasificables como incorrectas las marcas inválidas si la página es legible', () => {
+    const resumen = resumirRespuestasOmr(
+      Array.from({ length: 24 }, () => ({ opcion: null, flags: ['bajo_contraste'], estadoRespuesta: 'ambigua' as const })),
+      0.95,
+      0.9
+    );
+
+    expect(resumen.examenVacio).toBe(false);
+    expect(resumen.reactivosAmbiguos).toBe(24);
+    expect(resumen.estadoExamen).toBe('con_respuestas');
+  });
+
   it('marca como vacio probable una hoja dominada por señales debiles', () => {
     const resumen = resumirRespuestasOmr(
       [

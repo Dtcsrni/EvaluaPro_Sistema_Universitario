@@ -104,10 +104,10 @@ export function resumirRespuestasOmr(
       ? 'vacio_confirmado'
       : examenVacioProbable
         ? 'vacio_probable'
-        : reactivosRespondidos > 0 && !tieneRespuestaFuerte
-          ? 'requiere_revision'
-        : reactivosRespondidos > 0
-          ? 'con_respuestas'
-          : 'requiere_revision'
+      : calidadApta && geometriaApta && (
+        reactivosRespondidos > 0 || reactivosAmbiguos > 0 || reactivosInvalidos > 0
+      )
+        ? 'con_respuestas'
+        : 'requiere_revision'
   };
 }

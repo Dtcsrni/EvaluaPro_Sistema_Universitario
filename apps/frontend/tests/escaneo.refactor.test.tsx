@@ -760,6 +760,70 @@ describe('escaneo refactor comportamiento', () => {
     expect(onActualizarPregunta).toHaveBeenCalledWith(1, null);
   });
 
+  it('distingue una confianza histórica ausente de una lectura medida en 0%', () => {
+    const { rerender } = render(
+      <SeccionEscaneo
+        alumnos={[]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ aciertos: 0, totalReactivos: 0 })}
+        resultado={{
+          estadoAnalisis: 'requiere_revision',
+          calidadPagina: 1,
+          confianzaPromedioPagina: 0,
+          confianzaPromedioDisponible: false,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: 4,
+          respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'D', confianza: 0, confianzaDisponible: false }],
+          advertencias: [],
+          motivosRevision: []
+        }}
+        respuestasPaginaEditable={[{ numeroPregunta: 1, opcion: 'D', confianza: 0, confianzaDisponible: false }]}
+        respuestasCombinadas={[{ numeroPregunta: 1, opcion: 'D', confianza: 0, confianzaDisponible: false }]}
+        claveCorrectaPorNumero={{ 1: 'D' }}
+        ordenPreguntasClave={[1]}
+        revisionesOmr={[]}
+        puedeAnalizar
+        puedeCalificar
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Sin dato de confianza')).toBeInTheDocument();
+    expect(screen.getByText('Verificar lectura: confianza no registrada')).toBeInTheDocument();
+    expect(screen.getByText(/Confianza media examen Sin dato/i)).toBeInTheDocument();
+    expect(screen.queryByText('0% confianza')).not.toBeInTheDocument();
+
+    rerender(
+      <SeccionEscaneo
+        alumnos={[]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ aciertos: 0, totalReactivos: 0 })}
+        resultado={{
+          estadoAnalisis: 'requiere_revision',
+          calidadPagina: 1,
+          confianzaPromedioPagina: 0,
+          confianzaPromedioDisponible: true,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: 4,
+          respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'D', confianza: 0 }],
+          advertencias: [],
+          motivosRevision: []
+        }}
+        respuestasPaginaEditable={[{ numeroPregunta: 1, opcion: 'D', confianza: 0 }]}
+        respuestasCombinadas={[{ numeroPregunta: 1, opcion: 'D', confianza: 0 }]}
+        claveCorrectaPorNumero={{ 1: 'D' }}
+        ordenPreguntasClave={[1]}
+        revisionesOmr={[]}
+        puedeAnalizar
+        puedeCalificar
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(screen.getByText('0% confianza')).toBeInTheDocument();
+    expect(screen.getByText(/Confianza media examen 0%/i)).toBeInTheDocument();
+  });
+
   it('alinea alumno y clave, permite enfocar pendientes y controlar el zoom de la imagen', async () => {
     const user = userEvent.setup();
 
@@ -789,7 +853,7 @@ describe('escaneo refactor comportamiento', () => {
           { numeroPregunta: 2, opcion: 'B' as const, confianza: 0.95 }
         ]}
         respuestasCombinadas={[]}
-        claveCorrectaPorNumero={{ 1: 'A' }}
+        claveCorrectaPorNumero={{ 1: 'A', 2: 'A' }}
         ordenPreguntasClave={[1, 2]}
         revisionOmrConfirmada={false}
         onConfirmarRevisionOmr={() => {}}
@@ -805,7 +869,7 @@ describe('escaneo refactor comportamiento', () => {
 
     expect(screen.getByRole('heading', { name: 'Imagen del examen' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Alumno vs. clave' })).toBeInTheDocument();
-    expect(screen.getAllByText('Sin clave')).toHaveLength(2);
+    expect(screen.queryAllByText('Sin clave')).toHaveLength(0);
     expect(screen.getByText('Correcta')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Acercar imagen' }));
@@ -813,7 +877,45 @@ describe('escaneo refactor comportamiento', () => {
 
     await user.click(screen.getByRole('checkbox', { name: 'Mostrar solo pendientes' }));
     expect(screen.queryByLabelText('Respuesta alumno pregunta 1')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Respuesta alumno pregunta 2')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Respuesta alumno pregunta 2')).not.toBeInTheDocument();
+    expect(screen.getByText('No hay pendientes en esta página.')).toBeInTheDocument();
+  });
+
+  it('muestra una marca múltiple como incorrecta automática, no como página pendiente', async () => {
+    const user = userEvent.setup();
+    render(
+      <SeccionEscaneo
+        alumnos={[]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ aciertos: 0, totalReactivos: 0 })}
+        resultado={{
+          estadoAnalisis: 'ok', calidadPagina: 0.95, confianzaPromedioPagina: 0.2,
+          ratioAmbiguas: 1, templateVersionDetectada: 2,
+          respuestasDetectadas: [{ numeroPregunta: 1, opcion: null, confianza: 0.2, estadoRespuesta: 'doble_marca' }],
+          advertencias: [], motivosRevision: []
+        }}
+        respuestasPaginaEditable={[{ numeroPregunta: 1, opcion: null, confianza: 0.2, estadoRespuesta: 'doble_marca' }]}
+        respuestasCombinadas={[]}
+        claveCorrectaPorNumero={{ 1: 'B' }}
+        ordenPreguntasClave={[1]}
+        revisionOmrConfirmada
+        onConfirmarRevisionOmr={() => {}}
+        revisionesOmr={[]}
+        examenIdActivo={null}
+        paginaActiva={1}
+        onSeleccionarRevision={() => {}}
+        onActualizar={() => {}}
+        onActualizarPregunta={() => {}}
+        puedeAnalizar
+        puedeCalificar
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Incorrecta: doble marca')).toBeInTheDocument();
+    expect(screen.getByText('Incorrecta automáticamente')).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'Mostrar solo pendientes' }));
+    expect(screen.getByText('No hay pendientes en esta página.')).toBeInTheDocument();
   });
 
   it('renderiza advertencias del análisis y permite confirmar la revisión', () => {

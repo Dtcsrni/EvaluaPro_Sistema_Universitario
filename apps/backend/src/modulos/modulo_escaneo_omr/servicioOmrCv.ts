@@ -1409,8 +1409,8 @@ function agregarIntentosNoResueltosAlResultadoOmr(
     ...resultado,
     respuestasDetectadas,
     ratioAmbiguas,
-    estadoAnalisis: resultado.estadoAnalisis === 'ok' ? 'requiere_revision' : resultado.estadoAnalisis,
-    advertencias: Array.from(new Set([...resultado.advertencias, 'Se conservaron intentos de marca tonal localizada para revisión'])),
+    estadoAnalisis: resultado.estadoAnalisis,
+    advertencias: Array.from(new Set([...resultado.advertencias, 'La marca tonal no pudo resolverse a una opción y se calificará como incorrecta'])),
     resumenRespuestas: resumirRespuestasOmr(respuestasDetectadas, resultado.calidadPagina, resultado.geomQuality)
   };
 }
@@ -1705,8 +1705,7 @@ function resolverEstadoAnalisis(args: {
     motivos.push(`Calidad baja en muestra reducida (${calidadPagina.toFixed(2)})`);
   } else if (
     calidadPagina < OMR_QUALITY_REVIEW_MIN ||
-    confianzaMedia < OMR_AUTO_CONF_MIN ||
-    ratioAmbiguas > OMR_AUTO_AMBIGUAS_MAX
+    (confianzaMedia < OMR_AUTO_CONF_MIN && ratioAmbiguas <= OMR_AUTO_AMBIGUAS_MAX)
   ) {
     if (rescateAltaPrecision) {
       estado = 'ok';
@@ -1716,12 +1715,10 @@ function resolverEstadoAnalisis(args: {
     } else {
       const calidadMedia = calidadPagina < OMR_QUALITY_REVIEW_MIN;
       const confianzaBaja = confianzaMedia < OMR_AUTO_CONF_MIN;
-      const ambiguedadAlta = ratioAmbiguas > OMR_AUTO_AMBIGUAS_MAX;
       const deteccionBaja = deteccionRatio < OMR_AUTO_DETECCION_MIN;
-      const senalesDebiles = [calidadMedia, confianzaBaja, ambiguedadAlta, deteccionBaja].filter(Boolean).length;
+      const senalesDebiles = [calidadMedia, confianzaBaja, deteccionBaja].filter(Boolean).length;
       const senalSevera =
         confianzaMedia < Math.max(0.38, OMR_AUTO_CONF_MIN - 0.18) ||
-        ratioAmbiguas > Math.max(0.6, OMR_AUTO_AMBIGUAS_MAX + 0.2) ||
         deteccionRatio < Math.max(0.45, OMR_AUTO_DETECCION_MIN - 0.25);
 
       if (senalSevera || senalesDebiles >= 2) {
@@ -1731,9 +1728,6 @@ function resolverEstadoAnalisis(args: {
         }
         if (confianzaBaja) {
           motivos.push(`Confianza promedio baja (${confianzaMedia.toFixed(2)})`);
-        }
-        if (ambiguedadAlta) {
-          motivos.push(`Ambiguedad alta (${(ratioAmbiguas * 100).toFixed(1)}%)`);
         }
         if (deteccionBaja) {
           motivos.push(`Cobertura de detección baja (${(deteccionRatio * 100).toFixed(1)}%)`);
@@ -3878,7 +3872,9 @@ function fusionarResultadosOmr(
   const sumaConf = respuestasDetectadas.reduce((acc, r) => acc + Math.max(0, r.confianza), 0);
   const total = Math.max(1, respuestasDetectadas.length);
   const ambiguas = respuestasDetectadas.filter(esRespuestaAmbiguaOmr).length;
-  const respuestasAnalizadas = respuestasDetectadas.length - ambiguas;
+  // Una clasificación explícita ambigua/doble/tachada también es un resultado
+  // evaluable: se califica como incorrecta, no se convierte en falta de cobertura.
+  const respuestasAnalizadas = respuestasDetectadas.length;
   const confianzaPromedioPagina = sumaConf / total;
   const ratioAmbiguas = ambiguas / total;
 
@@ -4234,7 +4230,7 @@ export function rescatarMarcaTenueConsensuadaEntrePasadasOmr(
     confianzaMedia: confianzaPromedioPagina,
     ratioAmbiguas: respuestasDetectadas.length > 0 ? ambiguas / respuestasDetectadas.length : 1,
     totalRespuestas: respuestasDetectadas.length,
-    respuestasAnalizadas: respuestasDetectadas.length - ambiguas,
+    respuestasAnalizadas: respuestasDetectadas.length,
     geometriaConfiable: resultado.geomQuality >= 0.52
   });
   return {
@@ -4341,7 +4337,7 @@ function fusionarRescateAditivoOmr(
     confianzaMedia: confianzaPromedioPagina,
     ratioAmbiguas,
     totalRespuestas: total,
-    respuestasAnalizadas: total - ambiguas,
+    respuestasAnalizadas: total,
     geometriaConfiable: ![base, rescate].some((resultado) =>
       resultado.motivosRevision.some((motivo) => /referencia global|referencia de página/i.test(motivo))
     )
@@ -6214,7 +6210,7 @@ export async function analizarOmr(
     ? respuestasFinales.reduce((total, respuesta) => total + Math.max(0, respuesta.confianza), 0) / respuestasFinales.length
     : 0;
   const ratioAmbiguas = respuestasFinales.length > 0 ? preguntasAmbiguas / respuestasFinales.length : 1;
-  const respuestasAnalizadas = respuestasFinales.length - preguntasAmbiguas;
+  const respuestasAnalizadas = respuestasFinales.length;
   const reprojectionErrorPromedio =
     reprojectionErrorConteo > 0 ? reprojectionErrorAcumulado / reprojectionErrorConteo : 2.8;
   const metricasImagen = calcularMetricasImagen(gray, width, height);

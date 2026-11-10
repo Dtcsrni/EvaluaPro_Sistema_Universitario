@@ -19,6 +19,7 @@ import {
 } from './ocrTexto';
 import type {
   Alumno,
+  EstadoRespuestaOmr,
   PreviewCalificacion,
   ResultadoAnalisisOmr,
   ResultadoOmr,
@@ -124,10 +125,10 @@ export function SeccionEscaneo({
     respuestasDetectadas?: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
   }) => Promise<{ preview: PreviewCalificacion }>;
   resultado: ResultadoOmr | null;
-  onActualizar: (respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>) => void;
+  onActualizar: (respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number; confianzaDisponible?: boolean; estadoRespuesta?: EstadoRespuestaOmr }>) => void;
   onActualizarPregunta: (numeroPregunta: number, opcion: string | null) => void;
-  respuestasPaginaEditable: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
-  respuestasCombinadas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
+  respuestasPaginaEditable: Array<{ numeroPregunta: number; opcion: string | null; confianza: number; confianzaDisponible?: boolean; estadoRespuesta?: EstadoRespuestaOmr }>;
+  respuestasCombinadas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number; confianzaDisponible?: boolean; estadoRespuesta?: EstadoRespuestaOmr }>;
   claveCorrectaPorNumero: Record<number, string>;
   ordenPreguntasClave: number[];
   revisionOmrConfirmada: boolean;
@@ -294,9 +295,8 @@ export function SeccionEscaneo({
       return {
         estadoEtiqueta,
         calidadPromedio: Number.isFinite(Number(resultado?.calidadPagina)) ? Number(resultado?.calidadPagina) : 0,
-        confianzaPromedio: Number.isFinite(Number(resultado?.confianzaPromedioPagina))
-          ? Number(resultado?.confianzaPromedioPagina)
-          : 0,
+        confianzaPromedio: resultado?.confianzaPromedioDisponible !== false && typeof resultado?.confianzaPromedioPagina === 'number' && Number.isFinite(resultado.confianzaPromedioPagina)
+          ? resultado.confianzaPromedioPagina : null,
         ratioAmbiguasPromedio: Number.isFinite(Number(resultado?.ratioAmbiguas)) ? Number(resultado?.ratioAmbiguas) : 0
       };
     }
@@ -308,15 +308,13 @@ export function SeccionEscaneo({
         (acumulado, pagina) => acumulado + (Number.isFinite(Number(pagina.resultado.calidadPagina)) ? Number(pagina.resultado.calidadPagina) : 0),
         0
       ) / divisor;
-    const confianzaPromedio =
-      paginas.reduce(
-        (acumulado, pagina) =>
-          acumulado +
-          (Number.isFinite(Number(pagina.resultado.confianzaPromedioPagina))
-            ? Number(pagina.resultado.confianzaPromedioPagina)
-            : 0),
-        0
-      ) / divisor;
+    const confianzasDisponibles = paginas
+      .filter((pagina) => pagina.resultado.confianzaPromedioDisponible !== false)
+      .map((pagina) => pagina.resultado.confianzaPromedioPagina)
+      .filter((confianza): confianza is number => typeof confianza === 'number' && Number.isFinite(confianza));
+    const confianzaPromedio = confianzasDisponibles.length
+      ? confianzasDisponibles.reduce((acumulado, confianza) => acumulado + confianza, 0) / confianzasDisponibles.length
+      : null;
     const ratioAmbiguasPromedio =
       paginas.reduce(
         (acumulado, pagina) => acumulado + (Number.isFinite(Number(pagina.resultado.ratioAmbiguas)) ? Number(pagina.resultado.ratioAmbiguas) : 0),
@@ -408,14 +406,19 @@ export function SeccionEscaneo({
     () =>
       ordenRevisionPagina.map((numeroPregunta) => {
         const detectada = respuestasPaginaPorNumero.get(numeroPregunta);
-        const confianza = Number.isFinite(Number(detectada?.confianza)) ? Number(detectada?.confianza) : 0;
+        const confianzaDisponible = detectada?.confianzaDisponible !== false && typeof detectada?.confianza === 'number' && Number.isFinite(detectada.confianza);
+        const confianza = confianzaDisponible ? Number(detectada?.confianza) : 0;
         const opcion = typeof detectada?.opcion === 'string' && detectada.opcion ? detectada.opcion : null;
+        const estadoRespuesta: EstadoRespuestaOmr = detectada?.estadoRespuesta
+          ?? (opcion ? 'respondida' : 'manual_review');
         const correcta = claveCorrectaRevision[numeroPregunta] ?? null;
-        const esDudosa = !opcion || confianza < 0.75;
+        const esRespuestaInvalidada = ['sin_marca', 'ambigua', 'doble_marca', 'tachada'].includes(estadoRespuesta);
+        const esDudosa = estadoRespuesta === 'manual_review'
+          || (estadoRespuesta === 'respondida' && (!confianzaDisponible || confianza < 0.75));
         const tieneClave = Boolean(correcta);
         const esCorrecta = Boolean(tieneClave && opcion && opcion === correcta);
-        const requiereAtencion = !tieneClave || !opcion || confianza < 0.75 || !esCorrecta;
-        return { numeroPregunta, opcion, confianza, correcta, tieneClave, esDudosa, esCorrecta, requiereAtencion };
+        const requiereAtencion = !tieneClave || esDudosa;
+        return { numeroPregunta, opcion, confianza, confianzaDisponible, estadoRespuesta, correcta, tieneClave, esDudosa, esCorrecta, requiereAtencion, esRespuestaInvalidada };
       }),
     [claveCorrectaRevision, ordenRevisionPagina, respuestasPaginaPorNumero]
   );
@@ -981,7 +984,7 @@ export function SeccionEscaneo({
           <div className="item-sub">
             Estado <span className={`badge ${estadoAnalisisClase}`}>{estadoAnalisisTexto}</span> · Calidad{' '}
             promedio {Math.round(resumenEstadoExamen.calidadPromedio * 100)}% · Confianza media examen{' '}
-            {Math.round(resumenEstadoExamen.confianzaPromedio * 100)}% · Ambiguas promedio{' '}
+            {resumenEstadoExamen.confianzaPromedio === null ? 'Sin dato' : `${Math.round(resumenEstadoExamen.confianzaPromedio * 100)}%`} · Ambiguas promedio{' '}
             {(resumenEstadoExamen.ratioAmbiguasPromedio * 100).toFixed(1)}%
           </div>
           {paginaDetectadaQr !== null && (

@@ -10,6 +10,7 @@
  */
 import { useCallback, useMemo, useState } from 'react';
 import type {
+  EstadoRespuestaOmr,
   ResultadoOmr,
   RevisionExamenOmr,
   RevisionPaginaOmr,
@@ -24,6 +25,8 @@ export type RespuestaOmrItem = {
   numeroPregunta: number;
   opcion: string | null;
   confianza: number;
+  confianzaDisponible?: boolean;
+  estadoRespuesta?: EstadoRespuestaOmr;
 };
 
 export function useOmrWorkflowState() {
@@ -267,7 +270,7 @@ export function useOmrWorkflowState() {
   );
 
   const actualizarRespuestasOmrActivas = useCallback(
-    (nuevas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>) => {
+    (nuevas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number; confianzaDisponible?: boolean }>) => {
       setRespuestasEditadas(nuevas);
       if (!examenIdOmr) return;
       const paginaObjetivo = Number(paginaOmrActiva);
@@ -312,9 +315,9 @@ export function useOmrWorkflowState() {
         const siguiente = [...prev];
         const indice = siguiente.findIndex((item) => item.numeroPregunta === numero);
         if (indice >= 0) {
-          siguiente[indice] = { ...siguiente[indice], opcion };
+          siguiente[indice] = { ...siguiente[indice], opcion, estadoRespuesta: opcion ? 'respondida' : 'sin_marca' };
         } else {
-          siguiente.push({ numeroPregunta: numero, opcion, confianza: 0 });
+          siguiente.push({ numeroPregunta: numero, opcion, confianza: 0, confianzaDisponible: false, estadoRespuesta: opcion ? 'respondida' : 'sin_marca' });
         }
         siguiente.sort((a, b) => a.numeroPregunta - b.numeroPregunta);
         if (examenIdOmr && Number.isFinite(Number(paginaOmrActiva))) {

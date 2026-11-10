@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
+import { PSM } from 'tesseract.js';
 import { consensuarReferenciasPieOmr, extraerReferenciasPieOmr, leerReferenciaPieOmr, limitarTiempoOcrPie } from '../src/modulos/modulo_escaneo_omr/infra/ocrPieOmr.js';
 
 describe('OCR de identidad impresa en el pie OMR', () => {
@@ -56,6 +57,28 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     const referencia = await leerReferenciaPieOmr(`data:image/png;base64,${imagen.toString('base64')}`, worker);
     expect(referencia).toEqual({ folio: '24681357', numeroPagina: 2, confianza: 90 });
     expect(llamadas).toBe(4);
+  });
+
+  it('rescata pies que el modo de línea no reconoce con segmentación de bloque y restaura el modo', async () => {
+    const imagen = await sharp({ create: { width: 612, height: 792, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    let modo = PSM.SINGLE_LINE;
+    let llamadasBloque = 0;
+    const worker = {
+      async setParameters(parametros: { tessedit_pageseg_mode: PSM }) {
+        modo = parametros.tessedit_pageseg_mode;
+      },
+      async recognize() {
+        if (modo === PSM.SINGLE_BLOCK) {
+          llamadasBloque += 1;
+          return { data: { text: '24681357 · Pagina 2', confidence: 90 } };
+        }
+        return { data: { text: '', confidence: 0 } };
+      }
+    } as any;
+    const referencia = await leerReferenciaPieOmr(`data:image/png;base64,${imagen.toString('base64')}`, worker);
+    expect(referencia).toEqual({ folio: '24681357', numeroPagina: 2, confianza: 90 });
+    expect(llamadasBloque).toBeGreaterThanOrEqual(2);
+    expect(modo).toBe(PSM.SINGLE_LINE);
   });
 
   it('corta un reconocimiento que no responde con un código de timeout estable', async () => {

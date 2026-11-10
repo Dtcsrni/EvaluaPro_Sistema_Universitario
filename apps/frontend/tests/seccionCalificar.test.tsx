@@ -58,6 +58,34 @@ describe('SeccionCalificar', () => {
     expect(screen.queryByText('Tu perfil no tiene permiso para guardar esta calificación.')).not.toBeInTheDocument();
   });
 
+  it('permite guardar OMR legible sin confirmación manual cuando las marcas ambiguas cuentan como incorrectas', () => {
+    render(
+      <SeccionCalificar
+        examenId="ex-omr-auto"
+        alumnoId="alu-omr-auto"
+        resultadoOmr={{
+          ...omrResultadoMock,
+          resumenRespuestas: {
+            totalReactivos: 1, reactivosRespondidos: 0, reactivosSinMarca: 0,
+            reactivosAmbiguos: 1, reactivosInvalidos: 0, examenVacio: false,
+            examenVacioProbable: false, estadoExamen: 'con_respuestas'
+          }
+        }}
+        revisionOmrConfirmada={false}
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: null, confianza: 0.2, estadoRespuesta: 'ambigua' }]}
+        claveCorrectaPorNumero={{ 1: 'A' }}
+        ordenPreguntasClave={[1]}
+        onCalificar={vi.fn()}
+        puedeCalificar
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Incorrectas automáticamente: 0 sin marca, 1 ambiguas/)).toBeInTheDocument();
+    expect(screen.queryByText('Debes confirmar la revisión OMR para habilitar el cálculo y guardado de la calificación.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Analizar marca y previsualizar|Guardar calificación/i })).toBeEnabled();
+  });
+
   it('no muestra la instrucción OMR cuando la calificación es manual y no hay resultado OMR', () => {
     render(
       <SeccionCalificar

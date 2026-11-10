@@ -103,23 +103,39 @@ export async function leerReferenciaPieOmr(
         .extract({ left, top, width, height })
         .greyscale()
         .normalise();
+      const margenOcr = 32;
       const preparaciones = [
-        () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
-        () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer(),
-        () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) }).png().toBuffer()
+        () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
+          .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer(),
+        () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
+          .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer(),
+        () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
+          .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer()
       ];
       let lecturaValida: ReferenciaPieOmr | undefined;
-      for (const preparar of preparaciones) {
-        const variante = await preparar();
-        const { data } = await worker.recognize(variante);
-        const confianza = Number(data.confidence ?? 0);
-        const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
-          ? extraerReferenciasPieOmr(String(data.text ?? ''))
-          : [];
-        if (referencias.length === 1) {
-          lecturaValida = { ...referencias[0]!, confianza };
-          break;
+      const admiteModoAlternativo = typeof worker.setParameters === 'function';
+      try {
+        for (const preparar of preparaciones) {
+          const variante = await preparar();
+          const modosSegmentacion = admiteModoAlternativo
+            ? [PSM.SINGLE_LINE, PSM.SINGLE_BLOCK]
+            : [PSM.SINGLE_LINE];
+          for (const modoSegmentacion of modosSegmentacion) {
+            if (admiteModoAlternativo) await worker.setParameters({ tessedit_pageseg_mode: modoSegmentacion });
+            const { data } = await worker.recognize(variante);
+            const confianza = Number(data.confidence ?? 0);
+            const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
+              ? extraerReferenciasPieOmr(String(data.text ?? ''))
+              : [];
+            if (referencias.length === 1) {
+              lecturaValida = { ...referencias[0]!, confianza };
+              break;
+            }
+          }
+          if (lecturaValida) break;
         }
+      } finally {
+        if (admiteModoAlternativo) await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
       }
       lecturas.push(lecturaValida ?? null);
     }

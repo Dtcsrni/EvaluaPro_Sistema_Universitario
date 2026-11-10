@@ -222,6 +222,7 @@ export function combinarRespuestasOmrPaginas(
         numeroPregunta: Number(respuesta.numeroPregunta),
         opcion: typeof respuesta?.opcion === 'string' && respuesta.opcion ? respuesta.opcion : null,
         confianza: Number.isFinite(Number(respuesta?.confianza)) ? Number(respuesta.confianza) : 0,
+        confianzaDisponible: respuesta.confianzaDisponible !== false && typeof respuesta.confianza === 'number' && Number.isFinite(respuesta.confianza),
         ...(respuesta.estadoRespuesta ? { estadoRespuesta: respuesta.estadoRespuesta } : {}),
         ...(Array.isArray(respuesta.flags) ? { flags: respuesta.flags } : {})
       });
@@ -256,7 +257,11 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
       : 'ok';
   const promedio = (vals: number[]) => (vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0);
   const calidadPagina = promedio(paginas.map((pagina) => Number(pagina.resultado.calidadPagina || 0)));
-  const confianzaPromedioPagina = promedio(paginas.map((pagina) => Number(pagina.resultado.confianzaPromedioPagina || 0)));
+  const confianzasDisponibles = paginas
+    .filter((pagina) => pagina.resultado.confianzaPromedioDisponible !== false)
+    .map((pagina) => pagina.resultado.confianzaPromedioPagina)
+    .filter((confianza) => typeof confianza === 'number' && Number.isFinite(confianza));
+  const confianzaPromedioPagina = promedio(confianzasDisponibles);
   const ratioAmbiguas = promedio(paginas.map((pagina) => Number(pagina.resultado.ratioAmbiguas || 0)));
   const templateVersionDetectada = 4;
   const qrTextos = paginas.map((pagina) => pagina.resultado.qrTexto).filter((valor): valor is string => typeof valor === 'string' && valor.length > 0);
@@ -281,6 +286,7 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
     motivosRevision,
     templateVersionDetectada,
     confianzaPromedioPagina,
+    confianzaPromedioDisponible: confianzasDisponibles.length > 0,
     ratioAmbiguas,
     resumenRespuestas: {
       totalReactivos: respuestasConEstado.length,
@@ -306,6 +312,10 @@ function numeroSeguro(valor: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function confianzaOmrDisponible(valor: unknown, disponible?: boolean): valor is number {
+  return disponible !== false && typeof valor === 'number' && Number.isFinite(valor) && valor >= 0 && valor <= 1;
+}
+
 function normalizarEstadoAnalisis(estado: unknown): ResultadoOmr['estadoAnalisis'] {
   if (estado === 'ok' || estado === 'rechazado_calidad' || estado === 'requiere_revision') return estado;
   return 'requiere_revision';
@@ -316,6 +326,7 @@ export function normalizarRespuestasDetectadas(
     numeroPregunta: number;
     opcion: string | null;
     confianza?: number;
+    confianzaDisponible?: boolean;
     estadoRespuesta?: EstadoRespuestaOmr;
     flags?: FlagRespuestaOmr[];
   }> | undefined
@@ -337,6 +348,7 @@ export function normalizarRespuestasDetectadas(
       numeroPregunta,
       opcion,
       confianza,
+      confianzaDisponible: confianzaOmrDisponible(item.confianza, item.confianzaDisponible),
       estadoRespuesta,
       ...(flags.length > 0 ? { flags } : {})
     });
@@ -355,6 +367,7 @@ export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | u
     motivosRevision: Array.isArray(entrada?.motivosRevision) ? entrada.motivosRevision : [],
     templateVersionDetectada: normalizarTemplateVersionOmrDetectada(entrada?.templateVersionDetectada),
     confianzaPromedioPagina: numeroSeguro(entrada?.confianzaPromedioPagina),
+    confianzaPromedioDisponible: entrada?.confianzaPromedioDisponible !== false && typeof entrada?.confianzaPromedioPagina === 'number' && Number.isFinite(entrada.confianzaPromedioPagina),
     ratioAmbiguas: numeroSeguro(entrada?.ratioAmbiguas),
     resumenRespuestas: entrada?.resumenRespuestas
   };
