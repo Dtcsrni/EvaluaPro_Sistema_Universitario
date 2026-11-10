@@ -118,7 +118,7 @@ export async function leerReferenciaPieOmr(
         for (const preparar of preparaciones) {
           const variante = await preparar();
           const modosSegmentacion = admiteModoAlternativo
-            ? [PSM.SINGLE_LINE, PSM.SINGLE_BLOCK]
+            ? [PSM.SINGLE_LINE, PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT]
             : [PSM.SINGLE_LINE];
           for (const modoSegmentacion of modosSegmentacion) {
             if (admiteModoAlternativo) await worker.setParameters({ tessedit_pageseg_mode: modoSegmentacion });
