@@ -3742,6 +3742,46 @@ function esRespuestaAmbiguaOmr(respuesta: Pick<RespuestaDetectadaOmr, 'opcion' |
   return respuesta.opcion == null && respuesta.flags.length > 0;
 }
 
+function calcularConfianzaRespuestasCalificablesOmr(respuestas: readonly RespuestaDetectadaOmr[]) {
+  const calificables = respuestas.filter((respuesta) =>
+    respuesta.opcion != null &&
+    !respuesta.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada')
+  );
+  if (calificables.length === 0) return 1;
+  return calificables.reduce((suma, respuesta) => suma + Math.max(0, respuesta.confianza), 0) / calificables.length;
+}
+
+function combinarOrientacionOmr(principal: ResultadoOmr, secundario: ResultadoOmr) {
+  const conflictoExplicito = principal.pageOrientationConflict === true || secundario.pageOrientationConflict === true;
+  const ambasDeterminadas = principal.pageOrientationDetermined === true && secundario.pageOrientationDetermined === true;
+  const conflictoGiro = Boolean(
+    ambasDeterminadas &&
+    principal.pageRotationDegrees !== undefined &&
+    secundario.pageRotationDegrees !== undefined &&
+    principal.pageRotationDegrees !== secundario.pageRotationDegrees
+  );
+  const conflicto = conflictoExplicito || conflictoGiro;
+  const evidenciaOrientacion = conflicto ? undefined : [principal, secundario].find((resultado) =>
+    resultado.pageOrientationDetermined === true && resultado.pageOrientationConflict !== true
+  );
+  return {
+    pageOrientationDetermined: Boolean(evidenciaOrientacion),
+    pageOrientationConflict: conflicto,
+    pageOrientationSource: evidenciaOrientacion?.pageOrientationSource ?? 'indeterminada',
+    pageOrientationConfidence: evidenciaOrientacion?.pageOrientationConfidence,
+    pageOrientationMargin: evidenciaOrientacion?.pageOrientationMargin,
+    pageRotationDegrees: conflicto
+      ? undefined
+      : evidenciaOrientacion?.pageRotationDegrees ?? principal.pageRotationDegrees ?? secundario.pageRotationDegrees,
+    pageSkewDegrees: conflicto
+      ? undefined
+      : evidenciaOrientacion?.pageSkewDegrees ?? principal.pageSkewDegrees ?? secundario.pageSkewDegrees
+  } satisfies Pick<ResultadoOmr,
+    'pageOrientationDetermined' | 'pageOrientationConflict' | 'pageOrientationSource' |
+    'pageOrientationConfidence' | 'pageOrientationMargin' | 'pageRotationDegrees' | 'pageSkewDegrees'
+  >;
+}
+
 function fusionarResultadosOmr(
   base: ResultadoOmr,
   rescate: ResultadoOmr,
@@ -3880,7 +3920,7 @@ function fusionarResultadosOmr(
 
   const decisionEstado = resolverEstadoAnalisis({
     calidadPagina: Math.max(base.calidadPagina, rescate.calidadPagina),
-    confianzaMedia: confianzaPromedioPagina,
+    confianzaMedia: calcularConfianzaRespuestasCalificablesOmr(respuestasDetectadas),
     ratioAmbiguas,
     totalRespuestas: respuestasDetectadas.length,
     respuestasAnalizadas,
@@ -3923,8 +3963,7 @@ function fusionarResultadosOmr(
     geometryMode: principal.geometryMode,
     geometryReferencePoints: Math.max(base.geometryReferencePoints ?? 0, rescate.geometryReferencePoints ?? 0),
     geometryReferenceQuality: Math.max(base.geometryReferenceQuality ?? 0, rescate.geometryReferenceQuality ?? 0),
-    pageRotationDegrees: principal.pageRotationDegrees ?? secundario.pageRotationDegrees,
-    pageSkewDegrees: principal.pageSkewDegrees ?? secundario.pageSkewDegrees,
+    ...combinarOrientacionOmr(principal, secundario),
     geometryLocalEnabled: Boolean(base.geometryLocalEnabled || rescate.geometryLocalEnabled),
     orientationMode: principal.orientationMode ?? secundario.orientationMode
   };
@@ -4334,7 +4373,7 @@ function fusionarRescateAditivoOmr(
   const geomQuality = Math.max(base.geomQuality, rescate.geomQuality);
   const decisionEstado = resolverEstadoAnalisis({
     calidadPagina,
-    confianzaMedia: confianzaPromedioPagina,
+    confianzaMedia: calcularConfianzaRespuestasCalificablesOmr(respuestasDetectadas),
     ratioAmbiguas,
     totalRespuestas: total,
     respuestasAnalizadas: total,
@@ -6247,7 +6286,7 @@ export async function analizarOmr(
   }
   const decisionEstado = resolverEstadoAnalisis({
     calidadPagina,
-    confianzaMedia,
+    confianzaMedia: calcularConfianzaRespuestasCalificablesOmr(respuestasFinales),
     ratioAmbiguas,
     totalRespuestas: respuestasDetectadas.length,
     respuestasAnalizadas,

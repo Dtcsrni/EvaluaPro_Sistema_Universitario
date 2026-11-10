@@ -1338,6 +1338,7 @@ describe('pdf layout visual guard', () => {
               warnings: lecturaVacia.advertencias,
               states: lecturaVacia.respuestasDetectadas.map(({ numeroPregunta, opcion, estadoRespuesta, flags }) => ({ numeroPregunta, opcion, estadoRespuesta, flags }))
             })}`).toBe(true);
+            expect(lecturaVacia.pageOrientationDetermined).toBe(true);
             expect(
               lecturaVacia.resumenRespuestas?.examenVacio === true ||
               lecturaVacia.resumenRespuestas?.examenVacioProbable === true
