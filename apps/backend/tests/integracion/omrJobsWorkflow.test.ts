@@ -14,6 +14,7 @@ import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../src/compartido/errores/errorAplicacion.js';
 import { crearCargadorArchivosPdfOmr } from '../../src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.js';
 import { recuperarIngestasPdfOmrInterrumpidas } from '../../src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.js';
+import { calificarGrupoIngestaOmr } from '../../src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.js';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
@@ -888,6 +889,9 @@ describe('workflow OMR por jobs', () => {
     }
     expect(job.status).toBe('completed');
     expect(job.pages[0].scanStatus).toBe('needs_review');
+    const detalleIngesta = await request(app).get(`/api/omr/ingestas/${jobId}`).set(auth).expect(200);
+    const reactivosPorPagina = detalleIngesta.body.candidateExams.find((exam: { id: string }) => exam.id === escenario.examenId).questionNumbersByPage['1'];
+    expect(reactivosPorPagina).toEqual([1, 2, 3, 4, 5]);
     const preview = await request(app)
       .get(`/api/omr/ingestas/${jobId}/paginas/${job.pages[0].pageIndex}/preview`)
       .set(auth).buffer(true).parse(parsearBinario).expect(200);
@@ -909,25 +913,79 @@ describe('workflow OMR por jobs', () => {
       .send({
         generatedAssessmentId: escenario.examenId,
         examPage: 1,
+        resolutionReason: 'Revisión manual incompleta; no debe guardarse.',
+        finalResponses: []
+      })
+      .expect(422);
+    expect(resuelto.body).toMatchObject({ error: { codigo: 'OMR_RESPUESTAS_MANUALES_INCOMPLETAS' } });
+
+    const opcionFueraDeVersion = await request(app)
+      .post(`/api/omr/ingestas/${jobId}/paginas/${job.pages[0].pageIndex}/resolver`)
+      .set(auth)
+      .send({
+        generatedAssessmentId: escenario.examenId,
+        examPage: 1,
+        resolutionReason: 'La opción debe pertenecer a la versión del examen.',
+        finalResponses: [
+          { numeroPregunta: 1, opcion: 'Z' },
+          { numeroPregunta: 2, opcion: null },
+          { numeroPregunta: 3, opcion: null },
+          { numeroPregunta: 4, opcion: null },
+          { numeroPregunta: 5, opcion: null }
+        ]
+      })
+      .expect(422);
+    expect(opcionFueraDeVersion.body).toMatchObject({ error: { codigo: 'OMR_OPCION_MANUAL_INVALIDA' } });
+
+    const marcaAmbigua = await request(app)
+      .post(`/api/omr/ingestas/${jobId}/paginas/${job.pages[0].pageIndex}/resolver`)
+      .set(auth)
+      .send({
+        generatedAssessmentId: escenario.examenId,
+        examPage: 1,
+        resolutionReason: 'Una marca ambigua no se puede sustituir por una opción.',
+        finalResponses: [
+          { numeroPregunta: 1, opcion: 'A' },
+          { numeroPregunta: 2, opcion: null },
+          { numeroPregunta: 3, opcion: null },
+          { numeroPregunta: 4, opcion: null },
+          { numeroPregunta: 5, opcion: null }
+        ]
+      })
+      .expect(422);
+    expect(marcaAmbigua.body).toMatchObject({ error: { codigo: 'OMR_MARCA_AMBIGUA_INCORRECTA' } });
+
+    const confirmada = await request(app)
+      .post(`/api/omr/ingestas/${jobId}/paginas/${job.pages[0].pageIndex}/resolver`)
+      .set(auth)
+      .send({
+        generatedAssessmentId: escenario.examenId,
+        examPage: 1,
         resolutionReason: 'Asociación confirmada visualmente contra el original.',
-        finalResponses: [{ numeroPregunta: 1, opcion: 'B' }]
+        finalResponses: [
+          { numeroPregunta: 1, opcion: null },
+          { numeroPregunta: 2, opcion: null },
+          { numeroPregunta: 3, opcion: null },
+          { numeroPregunta: 4, opcion: null },
+          { numeroPregunta: 5, opcion: null }
+        ]
       })
       .expect(200);
-    expect(resuelto.body.job.pages[0]).toMatchObject({
+    expect(confirmada.body.job.pages[0]).toMatchObject({
       scanStatus: 'needs_review', autoGradable: false, manualReviewRequired: true,
       examId: escenario.examenId, examPage: 1, identitySource: 'manual'
     });
-    expect(resuelto.body.job.pages[0].responses[0]).toMatchObject({
+    expect(confirmada.body.job.pages[0].responses[0]).toMatchObject({
       numeroPregunta: 1,
-      opcion: 'B',
+      opcion: null,
       estadoRespuesta: 'manual_review',
       candidatas: expect.any(Array)
     });
-    expect(resuelto.body.job.pages[0].responses[0]).toHaveProperty('opcionDetectada', null);
-    expect(resuelto.body.job.packages).toHaveLength(1);
-    expect(resuelto.body.job.packages[0].status).toBe('needs_review');
-    expect(resuelto.body.job.packages[0].fileName).toMatch(new RegExp(`^alumno-sin-registro-${escenario.folio.toLowerCase()}-${escenario.examenId}-[0-9a-f-]{36}\\.pdf$`));
-    expect(String(resuelto.body.job.packages[0].relativePath).replace(/\\/g, '/').split('/').slice(-7, -1))
+    expect(confirmada.body.job.pages[0].responses[0]).toHaveProperty('opcionDetectada', null);
+    expect(confirmada.body.job.packages).toHaveLength(1);
+    expect(confirmada.body.job.packages[0].status).toBe('needs_review');
+    expect(confirmada.body.job.packages[0].fileName).toMatch(new RegExp(`^alumno-sin-registro-${escenario.folio.toLowerCase()}-${escenario.examenId}-[0-9a-f-]{36}\\.pdf$`));
+    expect(String(confirmada.body.job.packages[0].relativePath).replace(/\\/g, '/').split('/').slice(-7, -1))
       .toEqual(['periodo-omr', 'plantilla-om', 'parcial', 'docente-omr', 'alumno-sin-r', 'sin-grupo']);
     const originalDespues = await request(app)
       .get(`/api/omr/ingestas/${jobId}/originales/${job.files[0].id}`)
@@ -1048,5 +1106,83 @@ describe('workflow OMR por jobs', () => {
       .send({ ...payload, aciertos: 4 })
       .expect(409);
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(countAntes + 1);
+  }, 120_000);
+
+  it('guarda por el calificador canónico si el paquete está completo y cuenta una respuesta ambigua nula como incorrecta', async () => {
+    const token = await registrar('omr-auto-grade-canonical@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const escenario = await prepararExamen(auth);
+    const alumno = await request(app)
+      .post('/api/alumnos')
+      .set(auth)
+      .send({ periodoId: escenario.periodoId, matricula: 'CUH512410169', nombreCompleto: 'Alumno autocalificación', grupo: 'A' })
+      .expect(201);
+    await prisma.examenGenerado.update({
+      where: { id: escenario.examenId },
+      data: { alumnoId: alumno.body.alumno._id }
+    });
+    const exam = await prisma.examenGenerado.findUniqueOrThrow({ where: { id: escenario.examenId } });
+    const mapaOmr = JSON.parse(String(exam.mapaOmr));
+    const mapaVariante = JSON.parse(String(exam.mapaVariante)) as { ordenPreguntas: string[]; ordenOpcionesPorPregunta: Record<string, number[]> };
+    const preguntasDb = await prisma.bancoPregunta.findMany({
+      where: { id: { in: mapaVariante.ordenPreguntas } },
+      include: { versiones: { include: { opciones: true } } }
+    });
+    const preguntasPorId = new Map(preguntasDb.map((pregunta) => [pregunta.id, pregunta]));
+    const paginasEsperadas = mapaOmr.paginas.filter((pagina: { tipoPagina?: string }) => pagina.tipoPagina !== 'reverso-vacio');
+    const preguntas = paginasEsperadas[0].preguntas as Array<{ numeroPregunta: number }>;
+    const opcionCorrectaPorNumero = new Map(mapaVariante.ordenPreguntas.map((preguntaId, index) => {
+      const preguntaDb = preguntasPorId.get(preguntaId);
+      const version = preguntaDb?.versiones.find((item) => item.numeroVersion === preguntaDb.versionActual) ?? preguntaDb?.versiones[0];
+      const indiceCorrecto = version?.opciones.findIndex((opcion) => opcion.esCorrecta) ?? -1;
+      const orden = mapaVariante.ordenOpcionesPorPregunta[preguntaId] ?? [0, 1, 2, 3, 4];
+      const posicionCorrecta = orden.indexOf(indiceCorrecto);
+      return [index + 1, posicionCorrecta >= 0 ? String.fromCharCode(65 + posicionCorrecta) : null] as const;
+    }));
+    const respuestas = preguntas.map((pregunta, index) => ({
+      numeroPregunta: pregunta.numeroPregunta,
+      opcion: index === 0 ? null : opcionCorrectaPorNumero.get(pregunta.numeroPregunta) ?? null,
+      opcionDetectada: index === 0 ? null : opcionCorrectaPorNumero.get(pregunta.numeroPregunta) ?? null,
+      confianza: index === 0 ? 0.55 : 0.99,
+      estadoRespuesta: index === 0 ? 'ambigua' as const : 'respondida' as const,
+      flags: [],
+      candidatas: []
+    }));
+    const pages = paginasEsperadas.map((pagina: { numeroPagina: number }, index: number) => ({
+      examPage: pagina.numeroPagina,
+      scanStatus: 'accepted' as const,
+      autoGradable: true,
+      manualReviewRequired: false,
+      responses: index === 0 ? respuestas : [],
+      omrAnalysis: {
+        estadoAnalisis: 'ok' as const,
+        calidadPagina: 0.99,
+        confianzaPromedioPagina: 0.99,
+        ratioAmbiguas: 1 / preguntas.length,
+        templateVersionDetectada: 4 as const,
+        motivosRevision: [],
+        engineVersion: 'fixture-omr-rescue',
+        geomQuality: 0.99,
+        photoQuality: 0.99,
+        decisionPolicy: 'fixture',
+        qrTexto: escenario.qrTexto
+      }
+    }));
+    const before = await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } });
+    const incomplete = await calificarGrupoIngestaOmr({ docenteId: String(exam.docenteId), exam, pages: [] });
+    expect(incomplete.status).toBe('needs_review');
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(before);
+
+    const saved = await calificarGrupoIngestaOmr({ docenteId: String(exam.docenteId), exam, pages });
+    expect(saved.status).toBe('saved');
+    expect(saved.calificacionId).toBeTruthy();
+    expect(saved.totalReactivos).toBe(preguntasPorEscenario);
+    expect(saved.aciertos).toBe(preguntasPorEscenario - 1);
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(before + 1);
+
+    const retried = await calificarGrupoIngestaOmr({ docenteId: String(exam.docenteId), exam, pages });
+    expect(retried.status).toBe('already_recorded');
+    expect(retried.calificacionId).toBe(saved.calificacionId);
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(before + 1);
   }, 120_000);
 });

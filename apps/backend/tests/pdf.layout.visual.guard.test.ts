@@ -1389,6 +1389,31 @@ describe('pdf layout visual guard', () => {
     }
   });
 
+  it('reserva espacio para números OMR de dos dígitos con texto largo en cuatro páginas', async () => {
+    const parametros = crearParametros(40);
+    parametros.totalPaginas = 4;
+    for (const [indice, pregunta] of parametros.preguntas.entries()) {
+      pregunta.enunciado = `Reactivo ${indice + 1}: una empresa analiza las condiciones de un contrato y debe seleccionar la alternativa que corresponde al escenario descrito con todos sus requisitos.`;
+      pregunta.opciones = ['A', 'B', 'C', 'D', 'E'].map((letra, opcion) => ({
+        texto: `${letra}) Una alternativa con suficiente texto para ocupar el ancho disponible y verificar la separación del panel.`,
+        esCorrecta: opcion === indice % 5
+      }));
+    }
+    const resultado = await generarPdfExamen({ ...parametros, bookletConfig: { densityMode: 'compact', fontScale: 1, lineSpacing: 1 } });
+    let numerosVerificados = 0;
+    for (const pagina of resultado.mapaOmr.paginas) {
+      for (const numero of pagina.layoutDebug?.omrQuestionNumberBoxes ?? []) {
+        numerosVerificados += 1;
+        const pregunta = pagina.preguntas.find((item) => item.numeroPregunta === numero.numeroPregunta);
+        expect(pregunta?.textRuns?.length).toBeGreaterThan(0);
+        for (const texto of pregunta?.textRuns ?? []) {
+          expect(interseca(numero, texto.bbox)).toBe(false);
+        }
+      }
+    }
+    expect(numerosVerificados).toBeGreaterThanOrEqual(11);
+  }, 300_000);
+
   it('propaga el perfil compacto de la plantilla y distribuye 25 reactivos en dos paginas', async () => {
     const resultado = await generarPdfExamen({
       ...crearParametros(25),

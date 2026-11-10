@@ -1,7 +1,7 @@
 {
   "name": "evaluapro",
   "description": "Plataforma para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR), operación docente local nativa y dashboard.",
-  "version": "1.2.12",
+  "version": "1.2.14",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
     "email": "armsystechno@gmail.com"
@@ -67,7 +67,7 @@
     "typecheck": "npm run --workspaces --if-present typecheck",
     "test": "npm -C apps/backend run test",
     "test:backend": "npm -C apps/backend run test",
-    "test:backend:ci": "node scripts/testing/run-backend-test-batches.mjs",
+    "test:backend:ci": "node scripts/testing/run-backend-test-batches.mjs && node --test scripts/tests/evaluapro-client.test.mjs scripts/tests/migrate-api-local-credentials-sqlite.test.mjs",
     "benchmark:backend:concurrency": "node scripts/testing/benchmark-backend-concurrency.mjs",
     "test:portal": "npm -C apps/portal_alumno_cloud run test",
     "test:portal:ci": "npm -C apps/portal_alumno_cloud run test",

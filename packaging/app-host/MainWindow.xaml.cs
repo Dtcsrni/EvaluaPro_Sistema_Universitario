@@ -32,7 +32,7 @@ public partial class MainWindow : Window
     private string appRoot = string.Empty;
     private const int DashboardPortFallback = 4519;
     private static readonly TimeSpan ServiceStartupTimeout = TimeSpan.FromSeconds(60);
-    private const string GoogleDesktopClientId = "1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com";
+    private const string GoogleDesktopClientId = "1088901330711-al2jgfs5njms9oq7vgkv9r408vbs8g00.apps.googleusercontent.com";
     public MainWindow()
     {
         InitializeComponent();
@@ -604,7 +604,13 @@ public partial class MainWindow : Window
                 };
                 psi.EnvironmentVariables["NODE_ENV"] = "production";
                 psi.EnvironmentVariables["EVALUAPRO_FLAVOR"] = "docente-local";
+                var googleDesktopClientSecret = Environment.GetEnvironmentVariable(
+                    "GOOGLE_DESKTOP_CLIENT_SECRET",
+                    EnvironmentVariableTarget.User);
+                if (!string.IsNullOrWhiteSpace(googleDesktopClientSecret))
+                    psi.EnvironmentVariables["GOOGLE_DESKTOP_CLIENT_SECRET"] = googleDesktopClientSecret;
                 dashboardProcess = Process.Start(psi);
+                googleDesktopClientSecret = null;
                 dashboardProcessStartTimeUtc = dashboardProcess?.StartTime.ToUniversalTime();
             }
             else

@@ -24,6 +24,8 @@ type PlantillaPreviewPdfState = Record<string, {
   omrSheetPages?: PreviewPdfPage[];
   bookletPagesTotal?: number;
   omrSheetPagesTotal?: number;
+  bookletLayoutConfirmado?: boolean | null;
+  bookletAdvertencias?: string[];
 }>;
 
 export function PlantillasListado({
@@ -75,7 +77,7 @@ export function PlantillasListado({
   puedeArchivarPlantillas: boolean;
   formatearFechaHora: (valor?: string) => string;
 }) {
-  const renderVistaPreviaPdf = (plantilla: Plantilla, pdfUrl: string, pdfPages: PreviewPdfPage[], pdfPagesTotal?: number) => {
+  const renderVistaPreviaPdf = (plantilla: Plantilla, pdfUrl: string, pdfPages: PreviewPdfPage[], pdfPagesTotal?: number, confirmado?: boolean | null, advertencias: string[] = []) => {
     const paginasConfiguradas = Math.max(1, Math.floor(Number(plantilla.numeroPaginas ?? 1) || 1));
     const paginasGeneradas = Math.max(1, Math.floor(Number(pdfPagesTotal ?? pdfPages.length) || pdfPages.length));
     const hayDesborde = paginasGeneradas !== paginasConfiguradas;
@@ -88,12 +90,16 @@ export function PlantillasListado({
           <p className="nota">Revisa el PDF real generado por el motor antes de descargar o imprimir.</p>
           <div className="item-meta plantillas-preview__pdf-meta" aria-live="polite">
             <span className="badge badge-densidad">PDF real: {paginasGeneradas} {paginasGeneradas === 1 ? 'página' : 'páginas'}</span>
+            <span className={confirmado === true ? 'badge badge-densidad' : 'badge warning'} role={confirmado === true ? undefined : 'alert'}>
+              {confirmado === true ? 'Diseño confirmado para generar' : confirmado === false ? 'Diseño no confirmado para generar' : 'Confirmación del diseño no disponible'}
+            </span>
             {hayDesborde && (
               <span className="badge warning" role="alert">
                 Configuradas: {paginasConfiguradas} · el contenido requiere {paginasGeneradas}
               </span>
             )}
           </div>
+          {advertencias.map((advertencia) => <p className="nota" key={advertencia}>{advertencia}</p>)}
         </div>
       </div>
 
@@ -240,7 +246,7 @@ export function PlantillasListado({
                         </div>
                       )}
                     </div>
-                    {pdfUrl && renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages, pdfUrls.bookletPagesTotal)}
+                    {pdfUrl && renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages, pdfUrls.bookletPagesTotal, pdfUrls.bookletLayoutConfirmado, pdfUrls.bookletAdvertencias)}
                     <div className="plantillas-item__actions">
                       <Boton
                         type="button"
@@ -284,7 +290,7 @@ export function PlantillasListado({
               )}
               {editando && pdfUrl && (
                 <li className="plantillas-item-preview-inline anim-fade-in" data-testid="plantillas-preview-inline">
-                  {renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages, pdfUrls.bookletPagesTotal)}
+                  {renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages, pdfUrls.bookletPagesTotal, pdfUrls.bookletLayoutConfirmado, pdfUrls.bookletAdvertencias)}
                 </li>
               )}
               </Fragment>

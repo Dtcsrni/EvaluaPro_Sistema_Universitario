@@ -974,6 +974,9 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
               aciertos?: number;
               totalReactivos?: number;
               bonoSolicitado?: number;
+              soloPreview?: boolean;
+              omitirBonoAcordeon?: boolean;
+              confirmarBonoAcordeonManual?: boolean;
               evaluacionContinua?: number;
               proyecto?: number;
               retroalimentacion?: string;
@@ -1006,6 +1009,9 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             if (Number.isFinite(Number(payload.aciertos))) payloadCalificacion.aciertos = Number(payload.aciertos);
             if (Number.isFinite(Number(payload.totalReactivos))) payloadCalificacion.totalReactivos = Number(payload.totalReactivos);
             if (Number.isFinite(Number(payload.bonoSolicitado))) payloadCalificacion.bonoSolicitado = Number(payload.bonoSolicitado);
+            if (payload.soloPreview) payloadCalificacion.soloPreview = true;
+            if (typeof payload.omitirBonoAcordeon === 'boolean') payloadCalificacion.omitirBonoAcordeon = payload.omitirBonoAcordeon;
+            if (typeof payload.confirmarBonoAcordeonManual === 'boolean') payloadCalificacion.confirmarBonoAcordeonManual = payload.confirmarBonoAcordeonManual;
             if (Number.isFinite(Number(payload.evaluacionContinua))) payloadCalificacion.evaluacionContinua = Number(payload.evaluacionContinua);
             if (Number.isFinite(Number(payload.proyecto))) payloadCalificacion.proyecto = Number(payload.proyecto);
             if (typeof payload.retroalimentacion === 'string') payloadCalificacion.retroalimentacion = payload.retroalimentacion;
@@ -1041,8 +1047,10 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             }
             if (paginasOmr.length > 0) payloadCalificacion.paginasOmr = paginasOmr;
             const respuesta = await clienteApi.enviar('/calificaciones/calificar', payloadCalificacion);
-            setMarcaActualizacionCalificados(Date.now());
-            limpiarColaEscaneosOmr();
+            if (!payload.soloPreview) {
+              setMarcaActualizacionCalificados(Date.now());
+              limpiarColaEscaneosOmr();
+            }
             return respuesta;
           }}
           solicitudesRevision={solicitudesRevision}

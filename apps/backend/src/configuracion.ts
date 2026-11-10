@@ -86,10 +86,12 @@ const passwordResetTokenMinutes = parsearNumeroSeguro(process.env.PASSWORD_RESET
 const passwordResetUrlBase = String(process.env.PASSWORD_RESET_URL_BASE ?? '').trim();
 const googleOauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? '';
 // Cliente OAuth público Desktop para login docente; no requiere origen JavaScript.
-const googleDesktopClientId = '1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com';
+const googleDesktopClientId = '1088901330711-al2jgfs5njms9oq7vgkv9r408vbs8g00.apps.googleusercontent.com';
+const googleDesktopClientSecret = process.env.GOOGLE_DESKTOP_CLIENT_SECRET ?? '';
 // Identificador público del cliente OAuth instalado de EvaluaPro docente-local.
 // No es un secreto y no debe sustituirse por el cliente web ni por el OAuth de login.
 const googleClassroomClientId = '1088901330711-g285eauro5dmickq5p6t6doduch84h0k.apps.googleusercontent.com';
+const googleClassroomClientSecret = process.env.GOOGLE_CLASSROOM_CLIENT_SECRET ?? '';
 const classroomRequestTimeoutMs = Math.floor(parsearNumeroSeguro(
   process.env.CLASSROOM_REQUEST_TIMEOUT_MS,
   15_000,
@@ -242,7 +244,9 @@ export const configuracion = {
   passwordResetEnabled,
   googleOauthClientId,
   googleDesktopClientId,
+  googleDesktopClientSecret,
   googleClassroomClientId,
+  googleClassroomClientSecret,
   classroomRequestTimeoutMs,
   classroomMaxPages,
   classroomTokenCipherKey,

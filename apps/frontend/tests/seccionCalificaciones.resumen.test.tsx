@@ -886,9 +886,13 @@ describe('ConsultaCalificaciones', () => {
   it('previsualiza el bono y solo lo guarda tras confirmación explícita', async () => {
     const preview = {
       alumnoId: 'alumno-1', bonoSolicitado: '0.5', bonoAplicado: '0.5',
-      bonoDistribucion: { continuaGlobal: 0.5, examenGlobal: 0, continuaParcial2: 0, examenParcial2: 0, continuaParcial1: 0, examenParcial1: 0 },
-      parcial1: '8', parcial2: '9.5', parcial3: '9.5', calificacionFinalCurso: '9.4',
-      regla: 'continua-primero; global-c3, p2, p1', requiereConfirmacion: true
+      bonoDistribucion: {
+        solicitado: 0.5, aplicado: 0.5, noAplicado: 0,
+        calificacionGlobalBase: 9.5, calificacionGlobalResultante: 10,
+        omitidoPorGlobalReprobatorio: false, omitidoPorGlobalDiez: false
+      },
+      parcial1: '8', parcial2: '9.5', parcial3: '10', calificacionFinalCurso: '9.5',
+      regla: 'global-tercer-parcial-aprobado; maximo-10', requiereConfirmacion: true
     };
     enviarMock.mockResolvedValue({ preview });
     const user = userEvent.setup();
@@ -903,13 +907,12 @@ describe('ConsultaCalificaciones', () => {
     await waitFor(() => expect(screen.getByText('Pérez López Ana')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /^Ver detalle de Pérez López Ana/ }));
     await user.click(screen.getByRole('button', { name: 'Global y bono' }));
-    await user.type(screen.getByRole('spinbutton', { name: 'Bono solicitado · 0–1' }), '0.5');
+    await user.type(screen.getByRole('spinbutton', { name: 'Bono extracurricular · 0 o 0.5' }), '0.5');
     await user.click(screen.getByRole('button', { name: 'Previsualizar bono' }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/bono/preview', {
       periodoId: 'periodo-1', alumnoId: 'alumno-1', bono: 0.5
     }));
-    expect(screen.getByText(/Vista previa: aplicado 0.5 de 0.5/)).toBeInTheDocument();
-    expect(screen.getByText('Continua · Global (tercer parcial): +0.5')).toBeInTheDocument();
+    expect(screen.getByText(/Global del tercer parcial: 9.5 → 10\. Bono aplicado: 0.5 de 0.5\./)).toBeInTheDocument();
     expect(enviarMock).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button', { name: 'Confirmar y guardar bono' }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({
@@ -921,8 +924,13 @@ describe('ConsultaCalificaciones', () => {
   it('reutiliza clientRequestId al recuperar un guardado de bono con respuesta incierta', async () => {
     const preview = {
       alumnoId: 'alumno-1', bonoSolicitado: '0.5', bonoAplicado: '0.5',
-      parcial1: '8', parcial2: '9.5', parcial3: '9.5', calificacionFinalCurso: '9.4',
-      regla: 'continua-primero; global-c3, p2, p1', requiereConfirmacion: true
+      bonoDistribucion: {
+        solicitado: 0.5, aplicado: 0.5, noAplicado: 0,
+        calificacionGlobalBase: 9.5, calificacionGlobalResultante: 10,
+        omitidoPorGlobalReprobatorio: false, omitidoPorGlobalDiez: false
+      },
+      parcial1: '8', parcial2: '9.5', parcial3: '10', calificacionFinalCurso: '9.5',
+      regla: 'global-tercer-parcial-aprobado; maximo-10', requiereConfirmacion: true
     };
     enviarMock.mockResolvedValueOnce({ preview }).mockRejectedValueOnce(new Error('respuesta perdida')).mockResolvedValue({ ok: true });
     const user = userEvent.setup();
@@ -937,9 +945,9 @@ describe('ConsultaCalificaciones', () => {
     await waitFor(() => expect(screen.getByText('Pérez López Ana')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /^Ver detalle de Pérez López Ana/ }));
     await user.click(screen.getByRole('button', { name: 'Global y bono' }));
-    await user.type(screen.getByRole('spinbutton', { name: 'Bono solicitado · 0–1' }), '0.5');
+    await user.type(screen.getByRole('spinbutton', { name: 'Bono extracurricular · 0 o 0.5' }), '0.5');
     await user.click(screen.getByRole('button', { name: 'Previsualizar bono' }));
-    await screen.findByText(/Vista previa: aplicado 0.5 de 0.5/);
+    await screen.findByText(/Bono aplicado: 0.5 de 0.5\./);
     const confirmar = screen.getByRole('button', { name: 'Confirmar y guardar bono' });
     await user.click(confirmar);
     await screen.findByText('respuesta perdida');

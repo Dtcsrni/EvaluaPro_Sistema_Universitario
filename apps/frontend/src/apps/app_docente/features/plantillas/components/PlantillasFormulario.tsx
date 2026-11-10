@@ -11,6 +11,7 @@ import type { Periodo, Plantilla } from '../../../tipos';
 import { useRef, type Dispatch, type SetStateAction } from 'react';
 import { calcularEstimacionDensidadPlantilla } from '../hooks/estimadorDensidadPlantilla';
 import { BookOpenText, CircleAlert, Lightbulb, IconoLucide } from '../../../../../ui/iconosCatalogo';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
 type TemaDisponible = { tema: string; total: number };
 
@@ -55,8 +56,8 @@ export function PlantillasFormulario({
   plantillaEditando: Plantilla | null;
   tipo: 'parcial' | 'global';
   onTipoChange: (value: 'parcial' | 'global') => void;
-  examTemplateId: 'omr-canonical-v4' | 'omr-inline-exam-v1';
-  setExamTemplateId: (value: 'omr-canonical-v4' | 'omr-inline-exam-v1') => void;
+  examTemplateId: 'omr-canonical-1.0.0' | 'omr-inline-exam-v1';
+  setExamTemplateId: (value: 'omr-canonical-1.0.0' | 'omr-inline-exam-v1') => void;
   titulo: string;
   setTitulo: (value: string) => void;
   periodoId: string;
@@ -332,23 +333,23 @@ export function PlantillasFormulario({
               <span className="ayuda">No son editables manualmente; se ajustan dentro de límites legibles solo cuando hace falta espacio.</span>
             </div>
             <label className="campo plantillas-formato-control plantillas-formato-control--wide">
-              <span className="campo__label-row"><span>Plantilla de respuesta OMR</span><b>{examTemplateId === 'omr-inline-exam-v1' ? 'Experimental' : 'TV4'}</b></span>
+              <span className="campo__label-row"><span>Plantilla de respuesta OMR</span><b>{examTemplateId === 'omr-inline-exam-v1' ? 'Experimental' : OMR_CANONICAL_DISPLAY_LABEL}</b></span>
               <select
                 value={examTemplateId}
                 onChange={(event) => setExamTemplateId(event.target.value as typeof examTemplateId)}
                 disabled={bloqueoEdicion}
                 aria-label="Plantilla OMR del examen"
               >
-                <option value="omr-canonical-v4">Canónica TV4 · panel de respuestas en el examen</option>
+                <option value="omr-canonical-1.0.0">{OMR_CANONICAL_DISPLAY_LABEL} · panel de respuestas en el examen</option>
                 <option value="omr-inline-exam-v1">Experimental · burbuja junto a cada opción</option>
               </select>
               <span className="ayuda">Plantilla seleccionada: {examTemplateId === 'omr-inline-exam-v1'
                 ? 'Experimental · burbuja junto a cada opción'
-                : 'Canónica TV4 · panel de respuestas en el examen'}</span>
+                : `${OMR_CANONICAL_DISPLAY_LABEL} · panel de respuestas en el examen`}</span>
               <span className="ayuda" role={examTemplateId === 'omr-inline-exam-v1' ? 'alert' : undefined}>
                 {examTemplateId === 'omr-inline-exam-v1'
                   ? 'Cada opción A–E lleva su burbuja en el mismo bloque. Agrega un reverso en blanco por página para impedir trasluz; al imprimir a doble cara usa una hoja por página de examen. Al cargar fotos, envía solo las caras impresas. Requiere revisión manual completa; la calificación automática está bloqueada mientras se evalúa.'
-                  : 'Conserva la geometría OMR vigente de TV4.'}
+                  : 'Usa la geometría de respuesta de la plantilla seleccionada.'}
               </span>
             </label>
           </div>

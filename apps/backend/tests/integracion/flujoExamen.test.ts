@@ -658,7 +658,7 @@ describe('flujo de examen', () => {
       alumnoIds: [String(alumnoAjeno.body.alumno._id)]
     }).expect(400);
     const fuenteAntesPreview = await prisma.examenPlantilla.findUniqueOrThrow({ where: { id: plantillaId } });
-    const resumenPreview = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar`).set(auth).expect((response) => {
+    let resumenPreview = await request(app).get(`/api/examenes/plantillas/${plantillaId}/previsualizar`).set(auth).expect((response) => {
       if (response.status !== 200) throw new Error(JSON.stringify(response.body));
     });
     expect(resumenPreview.body.numeroPaginas).toBe(4);
@@ -666,6 +666,10 @@ describe('flujo de examen', () => {
     expect(resumenPreview.body.fuentesExtraordinario).toEqual(['Primer parcial Diseño Web', 'Segundo parcial Diseño Web']);
     expect(resumenPreview.body.totalUsados).toBeGreaterThan(0);
     expect(resumenPreview.body.totalUsados).toBeLessThan(preguntasIds.length);
+    let idsPreview = (resumenPreview.body.paginas as Array<{ preguntas?: Array<{ id?: string }> }>)
+      .flatMap((pagina) => pagina.preguntas?.map((pregunta) => String(pregunta.id ?? '')) ?? [])
+      .filter(Boolean);
+    expect(idsPreview).toHaveLength(resumenPreview.body.totalUsados);
     const pdfPreviewInicial = await request(app)
       .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf`)
       .set(auth)
@@ -684,6 +688,19 @@ describe('flujo de examen', () => {
       .expect(200);
     expect(Buffer.from(pdfRefrescado.body).subarray(0, 5).toString()).toBe('%PDF-');
     expect(Buffer.from(pdfRefrescado.body).equals(Buffer.from(pdfPreviewInicial.body))).toBe(false);
+
+    // El cambio de preferencias fuerza otra composición; valida la generación
+    // contra el resumen correspondiente a esa versión, no contra el preview previo.
+    resumenPreview = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar`)
+      .set(auth)
+      .expect((response) => {
+        if (response.status !== 200) throw new Error(JSON.stringify(response.body));
+      });
+    idsPreview = (resumenPreview.body.paginas as Array<{ preguntas?: Array<{ id?: string }> }>)
+      .flatMap((pagina) => pagina.preguntas?.map((pregunta) => String(pregunta.id ?? '')) ?? [])
+      .filter(Boolean);
+    expect(idsPreview).toHaveLength(resumenPreview.body.totalUsados);
 
     expect(await prisma.examenGenerado.count({ where: { loteId: loteAjenoId } })).toBe(0);
 
@@ -707,9 +724,6 @@ describe('flujo de examen', () => {
     expect(examen.estado).toBe('generado');
     const mapaGenerado = JSON.parse(String(examen.mapaVariante)) as { ordenPreguntas?: string[] };
     expect(mapaGenerado.ordenPreguntas).toHaveLength(resumenPreview.body.totalUsados);
-    const idsPreview = (resumenPreview.body.paginas as Array<{ preguntas?: Array<{ id?: string }> }>)
-      .flatMap((pagina) => pagina.preguntas?.map((pregunta) => String(pregunta.id ?? '')) ?? [])
-      .filter(Boolean);
     const idsGenerados = mapaGenerado.ordenPreguntas ?? [];
     expect(new Set(idsPreview).size).toBe(idsPreview.length);
     expect([...idsGenerados].sort()).toEqual([...idsPreview].sort());

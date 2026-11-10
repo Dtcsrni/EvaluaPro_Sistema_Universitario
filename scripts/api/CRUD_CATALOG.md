@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 257 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 266 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -44,6 +44,7 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Alumnos | `/alumnos/reinscribir-grupo-archivado` | POST | Bearer | alumnos:gestionar | esquemaReinscribirGrupoArchivado |
 | Analíticas | `/analiticas/banderas` | GET, POST | Bearer | analiticas:leer | esquemaCrearBandera |
 | Analíticas | `/analiticas/calificaciones-csv` | GET | Bearer | analiticas:leer | — |
+| Analíticas | `/analiticas/calificaciones-html` | GET, POST | Bearer | analiticas:leer | esquemaExportarHtmlCalificaciones |
 | Analíticas | `/analiticas/calificaciones-xlsx` | GET | Bearer | analiticas:leer | — |
 | Analíticas | `/analiticas/eventos-uso` | POST | Bearer | analiticas:leer | esquemaRegistrarEventosUso |
 | Analíticas | `/analiticas/exportar-csv` | POST | Bearer | analiticas:leer | esquemaExportarCsv |
@@ -71,6 +72,14 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Asistencia | `/asistencias/sesiones/{sesionId}/eliminar` | POST | Bearer | asistencias:gestionar | esquemaBodyVacioOpcional |
 | Asistencia | `/asistencias/sesiones/{sesionId}/registros` | GET, POST | Bearer | asistencias:leer, asistencias:gestionar | esquemaGuardarRegistros |
 | Autenticación | `/autenticacion/accesos-directos/regenerar` | POST | Bearer | cuenta:actualizar | esquemaBodyVacioOpcional |
+| Autenticación | `/autenticacion/api-clientes/credenciales` | GET | Bearer | cuenta:leer | — |
+| Autenticación | `/autenticacion/api-clientes/credenciales/{credencialId}/revocar` | POST | Bearer | cuenta:actualizar | esquemaBodyVacioOpcional |
+| Autenticación | `/autenticacion/api-clientes/mia/revocar` | POST | Bearer | — | esquemaBodyVacioOpcional |
+| Autenticación | `/autenticacion/api-clientes/refrescar` | POST | Público | — | esquemaRefrescarCredencialApi |
+| Autenticación | `/autenticacion/api-clientes/solicitudes` | POST | Público | — | esquemaCrearSolicitudApiLocal |
+| Autenticación | `/autenticacion/api-clientes/solicitudes/inspeccionar` | POST | Bearer | cuenta:actualizar | esquemaInspeccionarSolicitudApiLocal |
+| Autenticación | `/autenticacion/api-clientes/solicitudes/intercambiar` | POST | Público | — | esquemaIntercambiarSolicitudApiLocal |
+| Autenticación | `/autenticacion/api-clientes/solicitudes/resolver` | POST | Bearer | cuenta:actualizar | esquemaResolverSolicitudApiLocal |
 | Autenticación | `/autenticacion/capacidades-integraciones` | GET | Público | — | — |
 | Autenticación | `/autenticacion/definir-contrasena` | POST | Bearer | cuenta:actualizar | esquemaDefinirContrasenaDocente |
 | Autenticación | `/autenticacion/google` | POST | Público | — | esquemaIngresarDocenteGoogle |
@@ -174,7 +183,7 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Listas institucionales | `/listas-institucionales/generar` | GET | Bearer | analiticas:leer | — |
 | Listas institucionales | `/listas-institucionales/plantillas` | GET | Bearer | analiticas:leer | — |
 | OMR | `/omr/analizar` | POST | Bearer | omr:analizar | esquemaAnalizarOmr |
-| OMR | `/omr/ingestas` | POST | Bearer | omr:analizar | — |
+| OMR | `/omr/ingestas` | POST | Bearer | omr:analizar, calificaciones:calificar | — |
 | OMR | `/omr/ingestas/{jobId}` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}/dataset-export` | POST | Bearer | omr:analizar | esquemaExportarDatasetIngestaOmr |
 | OMR | `/omr/ingestas/{jobId}/manifiesto` | GET | Bearer | omr:analizar | — |
@@ -186,7 +195,7 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | OMR | `/omr/ingestas/{jobId}/reintentar` | POST | Bearer | omr:analizar | esquemaReintentarIngestaOmr |
 | OMR | `/omr/ingestas/por-clave/{clientRequestId}` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/prevalidar-referencia` | POST | Bearer | omr:analizar | esquemaPrevalidarReferenciaIngestaOmr |
-| OMR | `/omr/jobs` | POST, GET | Bearer | omr:analizar | esquemaCrearJobOmr |
+| OMR | `/omr/jobs` | POST, GET | Bearer | omr:analizar, calificaciones:calificar | esquemaCrearJobOmr |
 | OMR | `/omr/jobs/{jobId}` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/jobs/{jobId}/exceptions/{sheetSerial}/resolve` | POST | Bearer | omr:analizar | esquemaResolverJobOmr |
 | OMR | `/omr/jobs/{jobId}/finalize` | POST | Bearer | omr:analizar | esquemaBodyVacioOpcional |

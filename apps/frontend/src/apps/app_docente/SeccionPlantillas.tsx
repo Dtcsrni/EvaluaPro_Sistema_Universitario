@@ -17,9 +17,9 @@ import { PlantillasFormulario } from './features/plantillas/components/Plantilla
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
 import { PlantillasOmrWorkflow, type TrabajoOmrResumen } from './features/plantillas/components/PlantillasOmrWorkflow';
 import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabajoOmr';
-import { cargarTodasLasPaginasArchivadas } from './features/plantillas/archivoOmr';
+import { cargarExamenesParaOmr } from './features/plantillas/archivoOmr';
 import { cargarExamenesActivosDeLote, describirLote } from './features/plantillas/historialLotes';
-import { derivarDisponibilidadPlantilla, resumirLotesArchivadosOmr } from './features/plantillas/datosPlantilla';
+import { derivarDisponibilidadPlantilla, resumirLotesOmr } from './features/plantillas/datosPlantilla';
 import { guardarTabPlantillas, leerTabPlantillasInicial, type TabPlantillas } from './features/plantillas/tabPlantillasState';
 import { confirmarLoteEnHistorial, crearClaveLoteGeneracion, guardarLotePendiente, leerLotePendiente, validarLoteListoParaDescarga, type LotePdfArchivadoResumen, type ProgresoLoteGeneracion } from './features/plantillas/loteGeneracionSesion';
 import { confirmarClientRequestIdPlantilla, obtenerClientRequestIdPlantilla } from './features/plantillas/mutacionIdempotente';
@@ -130,7 +130,7 @@ export function SeccionPlantillas({
   const [logoIzquierda, setLogoIzquierda] = useState(preferenciasPdf?.logos?.izquierdaPath ?? '');
   const [logoDerecha, setLogoDerecha] = useState(preferenciasPdf?.logos?.derechaPath ?? '');
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
-  const [examTemplateId, setExamTemplateId] = useState<'omr-canonical-v4' | 'omr-inline-exam-v1'>('omr-canonical-v4');
+  const [examTemplateId, setExamTemplateId] = useState<'omr-canonical-1.0.0' | 'omr-inline-exam-v1'>('omr-canonical-1.0.0');
   const [mensaje, setMensaje] = useState('');
   const [mensajeEsError, setMensajeEsError] = useState(false);
 
@@ -284,7 +284,7 @@ export function SeccionPlantillas({
       !mismoContenido ||
       logoIzquierda !== logoIzquierdaOriginal ||
       logoDerecha !== logoDerechaOriginal ||
-      examTemplateId !== String(plantillaEditando.omrConfig?.examTemplateId ?? 'omr-canonical-v4');
+      examTemplateId !== String(plantillaEditando.omrConfig?.examTemplateId === 'omr-canonical-v4' ? 'omr-canonical-1.0.0' : plantillaEditando.omrConfig?.examTemplateId ?? 'omr-canonical-1.0.0');
   }, [
     examTemplateId,
     logoDerecha,
@@ -319,17 +319,6 @@ export function SeccionPlantillas({
   // Carga el historial de generados de la plantilla seleccionada (máx 50 recientes).
   const cargarExamenesGenerados = useCallback(async () => {
     const versionConsulta = ++versionConsultaHistorialRef.current;
-    if (!plantillaId) {
-      setExamenesGenerados([]);
-      setLotesArchivados([]);
-      setCursorLotesArchivados(null);
-      setErrorExamenesGenerados('');
-      setErrorLotesArchivados('');
-      setCargandoExamenesGenerados(false);
-      setCargandoLotesArchivados(false);
-      plantillaConsultaHistorialRef.current = '';
-      return;
-    }
     if (!puedeLeerExamenes) {
       setExamenesGenerados([]);
       setLotesArchivados([]);
@@ -338,11 +327,12 @@ export function SeccionPlantillas({
       setErrorLotesArchivados('');
       setCargandoExamenesGenerados(false);
       setCargandoLotesArchivados(false);
-      plantillaConsultaHistorialRef.current = plantillaId;
+      plantillaConsultaHistorialRef.current = plantillaId || 'todas';
       return;
     }
-    if (plantillaConsultaHistorialRef.current !== plantillaId) {
-      plantillaConsultaHistorialRef.current = plantillaId;
+    const filtroActual = plantillaId || 'todas';
+    if (plantillaConsultaHistorialRef.current !== filtroActual) {
+      plantillaConsultaHistorialRef.current = filtroActual;
       setExamenesGenerados([]);
       setLotesArchivados([]);
     }
@@ -351,12 +341,19 @@ export function SeccionPlantillas({
     setCargandoExamenesGenerados(true);
     setCargandoLotesArchivados(true);
     setCursorLotesArchivados(null);
+    const queryExamenes = new URLSearchParams();
+    if (plantillaId) queryExamenes.set('plantillaId', plantillaId);
+    queryExamenes.set('limite', '50');
+    const queryLotes = new URLSearchParams();
+    if (plantillaId) queryLotes.set('plantillaId', plantillaId);
+    queryLotes.set('archivado', 'true');
+    queryLotes.set('limite', '100');
     const [examenesResult, lotesResult] = await Promise.allSettled([
         clienteApi.obtener<{ examenes: ExamenGeneradoResumen[] }>(
-          `/examenes/generados?plantillaId=${encodeURIComponent(plantillaId)}&limite=50`
+          `/examenes/generados?${queryExamenes.toString()}`
         ),
         clienteApi.obtener<{ lotes: LotePdfArchivadoResumen[]; nextCursor?: string | null }>(
-          `/examenes/generados/lotes?plantillaId=${encodeURIComponent(plantillaId)}&archivado=true&limite=100`
+          `/examenes/generados/lotes?${queryLotes.toString()}`
         )
     ]);
     if (versionConsulta !== versionConsultaHistorialRef.current) return;
@@ -385,18 +382,18 @@ export function SeccionPlantillas({
     try {
       const periodosArchivados = await clienteApi.obtener<{ periodos: Periodo[] }>('/periodos?activo=false');
       setPeriodosArchivadosOmr(Array.isArray(periodosArchivados.periodos) ? periodosArchivados.periodos : []);
-      const acumulados = await cargarTodasLasPaginasArchivadas<ExamenGeneradoResumen>(async (cursor) => {
-        const query = new URLSearchParams({ archivado: 'true', limite: '200' });
-        if (cursor) query.set('cursor', cursor);
-        return clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(
-          `/examenes/generados?${query.toString()}`
-        );
+      const acumulados = await cargarExamenesParaOmr<ExamenGeneradoResumen>(async (archivado, cursor) => {
+          const query = new URLSearchParams({ archivado: String(archivado), limite: '200' });
+          if (cursor) query.set('cursor', cursor);
+          return clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(
+            `/examenes/generados?${query.toString()}`
+          );
       });
       setExamenesArchivadosOmr(acumulados.filter((examen) => Boolean(examen.loteId) && examen.origenGeneracion === 'lote'));
       setArchivoOmrCargado(true);
     } catch (error) {
       setExamenesArchivadosOmr([]);
-      setErrorArchivoOmr(mensajeDeError(error, 'No se pudieron cargar los lotes archivados para OMR'));
+      setErrorArchivoOmr(mensajeDeError(error, 'No se pudieron cargar los lotes para OMR'));
       setArchivoOmrCargado(true);
     } finally {
       setCargandoLotesArchivadosOmr(false);
@@ -410,7 +407,7 @@ export function SeccionPlantillas({
   }, [cargarArchivoOmr, cargandoLotesArchivadosOmr, puedeLeerExamenes]);
 
   const lotesArchivadosOmr = useMemo(
-    () => resumirLotesArchivadosOmr(examenesArchivadosOmr, periodos, periodosArchivadosOmr),
+    () => resumirLotesOmr(examenesArchivadosOmr, periodos, periodosArchivadosOmr),
     [examenesArchivadosOmr, periodos, periodosArchivadosOmr]
   );
 
@@ -473,15 +470,14 @@ export function SeccionPlantillas({
   }, [puedeAnalizarOmr, setJobOmrYResumen, setMensajeGeneracion, mostrarErrorMensajeGeneracion, notificarRecuperacionSesion]);
 
   const cargarMasLotesArchivados = useCallback(async () => {
-    if (!plantillaId || !cursorLotesArchivados || cargandoLotesArchivados) return;
+    if (!cursorLotesArchivados || cargandoLotesArchivados) return;
     setCargandoLotesArchivados(true);
     try {
-      const query = new URLSearchParams({
-        plantillaId,
-        archivado: 'true',
-        limite: '100',
-        cursor: cursorLotesArchivados
-      });
+      const query = new URLSearchParams();
+      if (plantillaId) query.set('plantillaId', plantillaId);
+      query.set('archivado', 'true');
+      query.set('limite', '100');
+      query.set('cursor', cursorLotesArchivados);
       const payload = await clienteApi.obtener<{ lotes: LotePdfArchivadoResumen[]; nextCursor?: string | null }>(
         `/examenes/generados/lotes?${query.toString()}`
       );
@@ -827,7 +823,7 @@ export function SeccionPlantillas({
     setLogoIzquierda(String(plantilla.bookletConfig?.logos?.izquierdaPath ?? preferenciasPdf?.logos?.izquierdaPath ?? ''));
     setLogoDerecha(String(plantilla.bookletConfig?.logos?.derechaPath ?? preferenciasPdf?.logos?.derechaPath ?? ''));
     setTemasSeleccionados(Array.isArray(plantilla.temas) ? plantilla.temas : []);
-    setExamTemplateId(plantilla.omrConfig?.examTemplateId ?? 'omr-canonical-v4');
+    setExamTemplateId(plantilla.omrConfig?.examTemplateId === 'omr-canonical-v4' ? 'omr-canonical-1.0.0' : plantilla.omrConfig?.examTemplateId ?? 'omr-canonical-1.0.0');
     setMensaje('');
     setMensajeEsError(false);
   }
@@ -843,7 +839,7 @@ export function SeccionPlantillas({
     setLogoIzquierda(preferenciasPdf?.logos?.izquierdaPath ?? '');
     setLogoDerecha(preferenciasPdf?.logos?.derechaPath ?? '');
     setTemasSeleccionados([]);
-    setExamTemplateId('omr-canonical-v4');
+    setExamTemplateId('omr-canonical-1.0.0');
     setMensaje('');
     setMensajeEsError(false);
   }

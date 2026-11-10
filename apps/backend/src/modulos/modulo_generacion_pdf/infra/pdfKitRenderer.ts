@@ -1904,9 +1904,11 @@ export class PdfKitRenderer {
     if (!omrEnLinea && (!Number.isFinite(anchoColRespuesta) || anchoColRespuesta < anchoOmrMinimoSeguro)) {
       throw new Error(`Perfil OMR canónico inválido: ancho de caja ${String(anchoColRespuesta)}pt`);
     }
-    // Reservar solo la separación estrictamente necesaria libera 2 pt de
-    // ancho para el texto sin acercarlo al panel OMR ni cambiar su geometría.
-    const gutterRespuesta = omrEnLinea ? 0 : 6;
+    // Los perfiles con número exterior también deben reservar su anchura
+    // durante la composición del texto, antes de comprobar las colisiones.
+    const anchoDigitoExterior = Math.max(...'0123456789'.split('').map((digito) => fuenteBold.widthOfTextAtSize(digito, 5)));
+    const anchoNumeroExterior = anchoDigitoExterior * String(examen.totalPreguntas).length;
+    const gutterRespuesta = omrEnLinea ? 0 : perfilNumeroOmrExterior ? Math.max(6, anchoNumeroExterior + 9) : 6;
     // El panel y su halo blanco deben quedar dentro del borde imprimible.
     // Alinearlo con la reserva derecha del QR recupera espacio para el texto
     // sin apoyarlo en el borde físico: se conservan 4 pt (~1.4 mm) además

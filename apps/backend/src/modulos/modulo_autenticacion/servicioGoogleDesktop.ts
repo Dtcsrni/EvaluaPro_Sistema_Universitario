@@ -35,10 +35,14 @@ const flujosPorId = new Map<string, FlujoOAuthGoogle>();
 const flujosPorState = new Map<string, FlujoOAuthGoogle>();
 
 function crearClienteOauth(clientId: string, redirectUri: string) {
+  const clientSecret = String(configuracion.googleDesktopClientSecret || '').trim();
   return new OAuth2Client({
     clientId,
+    ...(clientSecret ? { clientSecret } : {}),
     redirectUri,
-    clientAuthentication: ClientAuthentication.None
+    clientAuthentication: clientSecret
+      ? ClientAuthentication.ClientSecretPost
+      : ClientAuthentication.None
   });
 }
 

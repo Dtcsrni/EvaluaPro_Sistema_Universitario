@@ -106,6 +106,9 @@ export function SeccionCalificar({
     aciertos?: number;
     totalReactivos?: number;
     bonoSolicitado?: number;
+    soloPreview?: boolean;
+    omitirBonoAcordeon?: boolean;
+    confirmarBonoAcordeonManual?: boolean;
     retroalimentacion?: string;
     respuestasDetectadas?: RespuestaDetectadaOmr[];
     omrAnalisis?: {
@@ -137,6 +140,8 @@ export function SeccionCalificar({
     return limpio.length > 0 ? limpio : null;
   };
   const [bonusActivo, setBonusActivo] = useState(false);
+  const [previewBono, setPreviewBono] = useState<PreviewCalificacion['bonoGuiaEstudio'] | null>(null);
+  const [previewListo, setPreviewListo] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [confirmacionSinRespuestas, setConfirmacionSinRespuestas] = useState(false);
@@ -315,6 +320,19 @@ export function SeccionCalificar({
     respuestasTrabajo.map((respuesta) => `${respuesta.numeroPregunta}:${respuesta.opcion ?? ''}`).join(','),
     aciertosManualesTexto
   ].join('|');
+  const firmaCalificacionPreview = [
+    examenId ?? '',
+    alumnoId ?? '',
+    resumenDinamico.total,
+    aciertosParaCalificar,
+    respuestasTrabajo.map((respuesta) => `${respuesta.numeroPregunta}:${respuesta.opcion ?? ''}`).join(','),
+    aciertosManualesTexto
+  ].join('|');
+  useEffect(() => {
+    setPreviewBono(null);
+    setPreviewListo(false);
+    setBonusActivo(false);
+  }, [firmaCalificacionPreview]);
   useEffect(() => setConfirmacionSinRespuestas(false), [firmaActualSinRespuestas]);
   const confirmacionSinRespuestasVigente = confirmacionSinRespuestas;
   const requiereConfirmacionSinRespuestas = (calificacionSinRespuestas || calificacionCeroManual) && !confirmacionSinRespuestasVigente;
@@ -354,12 +372,11 @@ export function SeccionCalificar({
       }
       setGuardando(true);
       setMensaje('');
-      await onCalificar({
+      const payloadBase = {
         examenGeneradoId: examenId,
         alumnoId,
         aciertos: aciertosParaCalificar,
         totalReactivos: resumenDinamico.total,
-        bonoSolicitado: bonusActivo ? 0.25 : 0,
         ...(resultadoOmr ? { respuestasDetectadas: respuestasTrabajo } : {}),
         omrAnalisis: resultadoOmr
           ? {
@@ -374,6 +391,22 @@ export function SeccionCalificar({
               resumenRespuestas: resultadoOmr.resumenRespuestas
             }
           : undefined
+      };
+      if (!previewListo) {
+        const respuesta = await onCalificar({ ...payloadBase, soloPreview: true });
+        const preview = (respuesta as { preview?: PreviewCalificacion } | null)?.preview;
+        const bono = preview?.bonoGuiaEstudio ?? null;
+        setPreviewBono(bono);
+        setPreviewListo(true);
+        setBonusActivo(Boolean(bono?.evidencia.estado === 'detectado' && !bonusBloqueadoPorMaximo));
+        setMensaje(bono?.evidencia.motivo ?? 'Vista previa lista. No se guardó la calificación.');
+        registrarAccionDocente('preview_calificacion', true, Date.now() - inicio);
+        return;
+      }
+      await onCalificar({
+        ...payloadBase,
+        omitirBonoAcordeon: !bonusActivo,
+        confirmarBonoAcordeonManual: bonusActivo && previewBono?.evidencia.estado !== 'detectado'
       });
       setMensaje('Calificación guardada');
       registrarAccionDocente('calificar', true, Date.now() - inicio);
@@ -528,17 +561,28 @@ export function SeccionCalificar({
       )}
       <div className="calif-grade-grid">
         <label className="campo calif-grade-card__checkbox-field">
-          <span>Bono por guía de estudio (+0.25)</span>
+          <span>{previewBono?.evidencia.estado === 'detectado' ? 'Marca de guía detectada: aplicar +0.25' : 'Confirmar marca de guía (+0.25)'}</span>
           <input
             type="checkbox"
             checked={bonusActivo}
             onChange={(event) => {
               setBonusActivo(event.target.checked);
             }}
-            disabled={bloqueoCalificar || bloqueoPorSoloLectura || bonusBloqueadoPorMaximo}
+            disabled={bloqueoCalificar || bloqueoPorSoloLectura || bonusBloqueadoPorMaximo || !previewBono?.evidencia.region}
           />
         </label>
       </div>
+      {previewBono ? (
+        <InlineMensaje tipo={previewBono.evidencia.estado === 'detectado' ? 'ok' : 'warning'}>
+          {previewBono.evidencia.motivo} {previewBono.evidencia.confianza !== null ? `Confianza OCR: ${previewBono.evidencia.confianza.toFixed(0)}%.` : ''}
+        </InlineMensaje>
+      ) : null}
+      {previewBono?.evidencia.imagenRegionBase64 ? (
+        <figure className="calif-bono-guia-evidencia">
+          <img src={previewBono.evidencia.imagenRegionBase64} alt="Recorte OCR de la zona de guía de estudio" />
+          <figcaption>Verifica la marca manuscrita antes de confirmar un bono dudoso.</figcaption>
+        </figure>
+      ) : null}
       {bonusBloqueadoPorMaximo ? (
         <InlineMensaje tipo="info">Bonus deshabilitado: la calificación del examen ya es 5.00.</InlineMensaje>
       ) : null}
@@ -555,7 +599,7 @@ export function SeccionCalificar({
         aria-describedby={descripcionBotonGuardar}
         onClick={calificar}
       >
-        {guardando ? 'Guardando…' : bloqueoPorSoloLectura ? 'Calificación registrada (solo lectura)' : 'Guardar calificación'}
+        {guardando ? 'Procesando…' : bloqueoPorSoloLectura ? 'Calificación registrada (solo lectura)' : previewListo ? 'Guardar calificación' : 'Analizar marca y previsualizar'}
       </Boton>
       {mensaje && (
         <InlineMensaje tipo={esMensajeError(mensaje) ? 'error' : 'ok'}>{mensaje}</InlineMensaje>

@@ -32,6 +32,18 @@ Evita abrir una página de acceso que no tiene un servicio detrás. Distingue el
 - Si la GUI muestra al docente autenticado pero no existe un mecanismo aprobado para autenticar el cliente API, reporta ambas evidencias por separado. Deja el paso API pendiente o permite que el docente lo complete en la GUI; no declares que la sesión falló ni intentes una ruta alterna.
 - Si Codex rechaza la URL por política del navegador, es un límite del controlador/plataforma, no un defecto corregible desde EvaluaPro. No cambies host, esquema, superficie ni transporte para evadirlo. Conserva la GUI para uso del docente y detén la automatización visual.
 
+## Diagnóstico de OAuth Google Desktop
+
+Diagnostica cada tramo por separado; no trates todos los fallos como “Google rechazó el login”:
+
+1. **Inicio:** confirma que EvaluaPro abrió el navegador y que Google mostró la selección/consentimiento de cuenta. Si no aparece, inspecciona el lanzamiento del navegador y el listener local; un callback vacío o ausente no comprueba credenciales.
+2. **Callback:** `Autorización completada` solo prueba que Google devolvió el callback esperado. Todavía debe completarse el canje del código, verificarse la identidad en backend y establecerse la sesión en EvaluaPro.
+3. **Sesión:** confirma el resultado en la ventana principal de EvaluaPro (identidad docente y sesión activa). Si el callback tuvo éxito pero la UI conserva un aviso viejo, vuelve a observar el estado de la app antes de atribuirlo a OAuth.
+
+Para errores de canje, coteja el tipo de cliente OAuth con el flujo Desktop/PKCE y el Client ID permitido por la versión instalada; no cambies a un cliente Web como prueba improvisada. La configuración local puede admitir `GOOGLE_DESKTOP_CLIENT_SECRET` cuando el endpoint y cliente configurados lo exijan. Debe provisionarse fuera del repositorio y heredarse por los procesos reiniciados de EvaluaPro; nunca lo imprimas, copies al chat, guardes en `.env` versionado ni incluyas en diagnósticos. Un Client ID de Desktop no basta para demostrar que el canje remoto funciona: confirma el error exacto del proveedor de forma sanitizada.
+
+Los logs útiles identifican etapa, hora, puerto de callback, HTTP status, código estable de error y descripción saneada. No vuelques la respuesta completa del token endpoint: puede contener `access_token`, `refresh_token`, `id_token`, código OAuth, datos de perfil o secretos. Conserva solo campos allowlisted/redactados; quita query strings sensibles, cabeceras de autorización y valores de `state`/`code`. El objetivo de diagnóstico no autoriza revelar credenciales.
+
 ## Diagnóstico mínimo
 
 Reporta el estado por capa, con hora local y evidencia breve:

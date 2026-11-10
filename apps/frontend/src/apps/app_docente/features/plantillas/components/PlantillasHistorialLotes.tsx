@@ -188,13 +188,14 @@ export function PlantillasHistorialLotes({
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon" aria-hidden="true"><IconoLucide icon={Package} size={26} /></div>
           <h4>No hay paquetes activos</h4>
-          <p>Hay {cantidadLotesOmrArchivados} lotes archivados disponibles en el panel OMR inferior. Puedes procesar sus capturas sin restaurarlos.</p>
+          <p>Hay {cantidadLotesOmrArchivados} lotes activos o archivados disponibles para cotejo OMR. La consulta conserva el estado del lote.</p>
         </div>
       ) : (
         <div className="plantillas-historial-wrap">
           {paquetes.length > 0 && (
             <div className="mb-20">
               <h4 className="mb-10">Paquetes visibles ({paquetes.length})</h4>
+              <p className="nota">Los paquetes permanecen activos hasta que termine la materia o todas las calificaciones del lote queden registradas y verificadas.</p>
               <ul className="lista lista-items plantillas-lista">
                 {paquetes.map((p) => {
                   const referenciaPaquete = describirLoteVisible(p.items);
@@ -238,7 +239,7 @@ export function PlantillasHistorialLotes({
                             type="button"
                             variante="secundario"
                             tamano="sm"
-                            aria-label={`Archivar paquete completo, ${referenciaPaquete}`}
+                            aria-label={`Archivar paquete completo tras cierre de materia o verificación de calificaciones, ${referenciaPaquete}`}
                             cargando={eliminandoLoteId === p.loteId}
                             disabled={!puedeArchivarExamenes}
                             onClick={() => void onEliminarPaquete(p.loteId, p.items)}

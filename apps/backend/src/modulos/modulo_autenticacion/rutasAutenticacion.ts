@@ -42,6 +42,22 @@ import {
 	esquemaRegistrarDocenteGoogle
 } from './validacionesAutenticacion.js';
 import { requerirPermiso } from './middlewarePermisos.js';
+import {
+	crearSolicitudApiLocalControlador,
+	inspeccionarSolicitudApiLocalControlador,
+	intercambiarSolicitudApiLocalControlador,
+	listarCredencialesApiDocenteControlador,
+	refrescarTokenApiDelegadoControlador,
+	resolverSolicitudApiLocalControlador,
+	revocarCredencialApiDocenteControlador
+} from './controladorApiDelegado.js';
+import {
+	esquemaCrearSolicitudApiLocal,
+	esquemaInspeccionarSolicitudApiLocal,
+	esquemaIntercambiarSolicitudApiLocal,
+	esquemaRefrescarCredencialApi,
+	esquemaResolverSolicitudApiLocal
+} from './validacionesApiDelegado.js';
 
 const router = Router();
 
@@ -141,6 +157,15 @@ router.post(
 );
 router.post('/refrescar', limiterRefresco, validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), refrescarDocente);
 router.post('/salir', validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), salirDocente);
+// Bootstrap PKCE sin bearer; la aprobación de permisos ocurre en la cuenta docente.
+router.post('/api-clientes/solicitudes', limiterCredenciales, validarCuerpo(esquemaCrearSolicitudApiLocal, { strict: true }), crearSolicitudApiLocalControlador);
+router.post('/api-clientes/solicitudes/intercambiar', limiterRefresco, validarCuerpo(esquemaIntercambiarSolicitudApiLocal, { strict: true }), intercambiarSolicitudApiLocalControlador);
+router.post('/api-clientes/refrescar', limiterRefresco, validarCuerpo(esquemaRefrescarCredencialApi, { strict: true }), refrescarTokenApiDelegadoControlador);
+router.post('/api-clientes/solicitudes/inspeccionar', limiterCredenciales, requerirDocente, requerirPermiso('cuenta:actualizar'), validarCuerpo(esquemaInspeccionarSolicitudApiLocal, { strict: true }), inspeccionarSolicitudApiLocalControlador);
+router.post('/api-clientes/solicitudes/resolver', limiterCredenciales, requerirDocente, requerirPermiso('cuenta:actualizar'), validarCuerpo(esquemaResolverSolicitudApiLocal, { strict: true }), resolverSolicitudApiLocalControlador);
+router.get('/api-clientes/credenciales', requerirDocente, requerirPermiso('cuenta:leer'), listarCredencialesApiDocenteControlador);
+router.post('/api-clientes/mia/revocar', requerirDocente, validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), revocarCredencialApiDocenteControlador);
+router.post('/api-clientes/credenciales/:credencialId/revocar', requerirDocente, requerirPermiso('cuenta:actualizar'), validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), revocarCredencialApiDocenteControlador);
 router.post(
 	'/definir-contrasena',
 	limiterCredenciales,

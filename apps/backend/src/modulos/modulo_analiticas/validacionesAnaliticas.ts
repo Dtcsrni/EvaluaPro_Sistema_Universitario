@@ -51,7 +51,7 @@ export const esquemaGuardarCalificacionLista = z.object({
   clientRequestId: z.string().uuid()
 }).strict().superRefine((valor, contexto) => {
   const maximo = valor.componente === 'Bono extracurricular'
-    ? 1
+    ? 0.5
     : valor.componente === 'Solicitud Extra'
       ? 1
     : valor.componente === 'Exámen Global' || valor.componente === 'Exámen 1er Parcial'
@@ -65,6 +65,9 @@ export const esquemaGuardarCalificacionLista = z.object({
   if (valor.componente === 'Solicitud Extra' && ![0, 1].includes(valor.calificacion)) {
     contexto.addIssue({ code: 'custom', path: ['calificacion'], message: 'La solicitud de Extra solo admite 0 o 1.' });
   }
+  if (valor.componente === 'Bono extracurricular' && ![0, 0.5].includes(valor.calificacion)) {
+    contexto.addIssue({ code: 'custom', path: ['calificacion'], message: 'El bono extracurricular solo admite 0 o 0.5.' });
+  }
   if (valor.componente !== 'Bono extracurricular' && valor.calificacion > 10) {
     contexto.addIssue({ code: 'custom', path: ['calificacion'], message: 'La calificación parcial no puede exceder 10.' });
   }
@@ -73,7 +76,7 @@ export const esquemaGuardarCalificacionLista = z.object({
 export const esquemaPreviewBonoExtracurricular = z.object({
   periodoId: esquemaObjectId,
   alumnoId: esquemaObjectId,
-  bono: z.number().finite().min(0).max(1)
+  bono: z.number().finite().refine((valor) => valor === 0 || valor === 0.5, 'El bono extracurricular solo admite 0 o 0.5.')
 }).strict();
 
 export const esquemaRegistrarResultadoExtraExterno = z.object({

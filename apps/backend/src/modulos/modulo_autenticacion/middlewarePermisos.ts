@@ -11,7 +11,8 @@ export function requerirPermiso(...permisos: Permiso[]) {
   return (req: SolicitudDocente, _res: Response, next: NextFunction) => {
     const roles = req.docenteRoles ?? [];
     const permisosUsuario = permisosParaRoles(roles);
-    const ok = permisos.every((permiso) => permisosUsuario.has(permiso));
+    const permisosDelegados = req.docentePermisosApi ? new Set(req.docentePermisosApi) : undefined;
+    const ok = permisos.every((permiso) => permisosUsuario.has(permiso) && (!permisosDelegados || permisosDelegados.has(permiso)));
     if (!ok) {
       next(new ErrorAplicacion('NO_AUTORIZADO', 'Sin permisos para esta accion', 403));
       return;

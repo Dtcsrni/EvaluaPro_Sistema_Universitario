@@ -1,6 +1,7 @@
 /** Cliente HTTP sin dependencias para automatizar flujos docentes de EvaluaPro. */
 import { Buffer } from 'node:buffer';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { WindowsCredentialStore } from './credential-store.windows.mjs';
 
 export class EvaluaproApiError extends Error {
   constructor(message, { status, code, requestId, retryAfter, details } = {}) {
@@ -45,6 +46,24 @@ function crearHeadersSolicitud({ headers, token, equipoId, body }) {
 function serializarBody(body) {
   if (body === undefined) return undefined;
   return body instanceof FormData || typeof body === 'string' ? body : JSON.stringify(body);
+}
+
+function esperaRetryAfterMs(value) {
+  if (!value) return null;
+  const segundos = Number(value);
+  if (Number.isFinite(segundos) && segundos >= 0) return segundos * 1000;
+  const fecha = Date.parse(value);
+  return Number.isFinite(fecha) ? Math.max(0, fecha - Date.now()) : null;
+}
+
+function esperar(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(resolve, Math.max(100, ms));
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timeout);
+      reject(signal.reason ?? new Error('Autorización cancelada.'));
+    }, { once: true });
+  });
 }
 
 function exigirClientRequestId(value, accion) {
@@ -95,16 +114,19 @@ function aplicarEstadoPreflight(resultado, preflight) {
 }
 
 export class EvaluaproClient {
-  constructor({ baseUrl, token, equipoId, timeoutMs = 30_000, fetchImpl = globalThis.fetch }) {
+  constructor({ baseUrl, token, equipoId, timeoutMs = 30_000, fetchImpl = globalThis.fetch, credentialStore }) {
     if (typeof fetchImpl !== 'function') throw new TypeError('Se requiere una implementación fetch');
     this.baseUrl = normalizarBaseUrl(baseUrl);
     this.token = token || undefined;
     this.equipoId = equipoId || undefined;
     this.timeoutMs = timeoutMs;
     this.fetch = fetchImpl;
+    this.credentialStore = credentialStore ?? new WindowsCredentialStore(this.baseUrl.href);
+    this.apiRefreshCredential = null;
+    this.refreshApiPromise = null;
   }
 
-  async request(path, { method = 'GET', body, headers = {}, signal, responseType = 'json', confirmarEscritura = false } = {}) {
+  async request(path, { method = 'GET', body, headers = {}, signal, responseType = 'json', confirmarEscritura = false, _authRetry = false } = {}) {
     const ruta = normalizarRutaApi(path);
     if (ruta === 'calificaciones/calificar' && !confirmarEscritura) {
       throw new Error('Escritura de calificación requiere confirmarEscritura: true y autorización docente');
@@ -125,8 +147,95 @@ export class EvaluaproClient {
       throw crearErrorRed(cause, method, url);
     }
     const data = await leerRespuesta(response, responseType);
+    if (response.status === 401 && !_authRetry && this.apiRefreshCredential && !ruta.startsWith('autenticacion/api-clientes/refrescar')) {
+      await this.renovarSesionApi();
+      return this.request(path, { method, body, headers, signal, responseType, confirmarEscritura, _authRetry: true });
+    }
     if (!response.ok) throw crearErrorApi(response, data);
     return { data, status: response.status, headers: response.headers };
+  }
+
+  async solicitarAutorizacionApi({ nombreCliente = 'EvaluaPro CLI', permisos, alCrearSolicitud = () => {} } = {}) {
+    if (!Array.isArray(permisos) || !permisos.length) throw new TypeError('Indica al menos un permiso API solicitado.');
+    const codeVerifier = randomBytes(32).toString('base64url');
+    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+    const { data: solicitud } = await this.request('/autenticacion/api-clientes/solicitudes', {
+      method: 'POST', body: { codeChallenge, nombreCliente, permisos }
+    });
+    if (!solicitud?.solicitudId || !solicitud?.codigo) throw new Error('La API no devolvió una solicitud local válida.');
+    alCrearSolicitud({ codigo: solicitud.codigo, expiraEn: solicitud.expiraEn });
+    return { ...solicitud, esperarAprobacion: async ({ intervaloMs = 2000, signal } = {}) => {
+      const expira = Date.parse(solicitud.expiraEn);
+      while (Date.now() < expira) {
+        if (signal?.aborted) throw signal.reason ?? new Error('Autorización cancelada.');
+        let data;
+        try {
+          ({ data } = await this.request('/autenticacion/api-clientes/solicitudes/intercambiar', {
+            method: 'POST', body: { solicitudId: solicitud.solicitudId, codeVerifier }, signal
+          }));
+        } catch (error) {
+          if (error?.name !== 'EvaluaproNetworkError' && error?.status !== 429) throw error;
+          // Respeta el rate limit del endpoint de intercambio sin perder el verifier PKCE.
+          const retryAfterMs = error?.status === 429 ? esperaRetryAfterMs(error.retryAfter) : null;
+          await esperar(retryAfterMs === null ? Math.max(intervaloMs, 5000) : Math.max(intervaloMs, retryAfterMs), signal);
+          continue;
+        }
+        if (data?.estado === 'aprobada') {
+          if (typeof data.refreshToken !== 'string' || !data.refreshToken.startsWith('epr_') || typeof data.credencialId !== 'string') {
+            throw new Error('La API devolvió una credencial inválida.');
+          }
+          this.apiRefreshCredential = { refreshToken: data.refreshToken, credencialId: data.credencialId };
+          await this.credentialStore.set(this.apiRefreshCredential);
+          await this.renovarSesionApi();
+          return { credencialId: data.credencialId };
+        }
+        if (data?.estado !== 'pendiente') throw new Error('La solicitud fue denegada, venció o ya fue utilizada.');
+        await esperar(intervaloMs, signal);
+      }
+      throw new Error('La solicitud de autorización local venció.');
+    } };
+  }
+
+  async recuperarSesionApi() {
+    const credential = await this.credentialStore.get();
+    if (!credential) return false;
+    this.apiRefreshCredential = credential;
+    try {
+      await this.renovarSesionApi();
+      return true;
+    } catch (error) {
+      if (error instanceof EvaluaproApiError && [401, 403].includes(error.status)) {
+        await this.credentialStore.delete();
+        this.apiRefreshCredential = null;
+      }
+      throw error;
+    }
+  }
+
+  async renovarSesionApi() {
+    if (!this.apiRefreshCredential) throw new Error('No hay una credencial API local autorizada.');
+    if (this.refreshApiPromise) return this.refreshApiPromise;
+    this.refreshApiPromise = (async () => {
+      const { data } = await this.request('/autenticacion/api-clientes/refrescar', {
+        method: 'POST', body: { refreshToken: this.apiRefreshCredential.refreshToken }, _authRetry: true
+      });
+      if (typeof data?.token !== 'string') throw new Error('La API no devolvió un token de acceso.');
+      this.token = data.token;
+      this.permissions = Array.isArray(data.permisos) ? data.permisos : [];
+      return this.token;
+    })().finally(() => { this.refreshApiPromise = null; });
+    return this.refreshApiPromise;
+  }
+
+  async revocarSesionApi() {
+    const credential = this.apiRefreshCredential ?? await this.credentialStore.get();
+    if (!credential?.credencialId) return false;
+    await this.request('/autenticacion/api-clientes/mia/revocar', { method: 'POST', body: {} });
+    await this.credentialStore.delete();
+    this.apiRefreshCredential = null;
+    this.token = undefined;
+    this.permissions = [];
+    return true;
   }
 
   async login(correo, contrasena) {

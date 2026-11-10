@@ -318,6 +318,8 @@ export function debeAceptarMarcaCromaticaAisladaOmr(args: {
   existeOpcionActual: boolean;
   contrasteCromaticoLocal: number;
   margenCromatico: number;
+  score: number;
+  scoreCompetidor: number;
   fillRatioCore: number;
   nucleusFillRatio: number;
   centroidOffsetRatio: number;
@@ -330,6 +332,7 @@ export function debeAceptarMarcaCromaticaAisladaOmr(args: {
     !args.existeOpcionActual &&
     args.contrasteCromaticoLocal >= 0.04 &&
     args.margenCromatico >= 0.035 &&
+    args.score >= Math.max(0.4, args.scoreCompetidor * 1.9) &&
     (args.fillRatioCore >= 0.08 || args.nucleusFillRatio >= 0.12) &&
     (args.centroidOffsetRatio <= 0.68 || args.softCentroidOffsetRatio <= 0.45)
   );
@@ -3239,7 +3242,7 @@ function prepararCentrosPregunta(
 
 function extraerTemplateVersionDesdeQr(qrTexto?: string): TemplateVersion | undefined {
   if (!qrTexto) return undefined;
-  if (/:TV4\b/i.test(qrTexto)) return 4;
+  if (/:O1\.0\.0\b|:TV4\b/i.test(qrTexto)) return 4;
   return undefined;
 }
 
@@ -3619,6 +3622,58 @@ export function aplicarAbstencionPorOrientacionOmr(resultado: ResultadoOmr): Res
       resultado.calidadPagina,
       resultado.geomQuality,
       { forzarRevision: conflicto }
+    )
+  };
+}
+
+function anularRespuestasAmbiguasParaCalificacion(resultado: ResultadoOmr): ResultadoOmr {
+  let cambios = 0;
+  const respuestasDetectadas = resultado.respuestasDetectadas.map((respuesta) => {
+    if (respuesta.opcion == null) return respuesta;
+    const flagsInvalidantes = respuesta.flags.some((flag) =>
+      flag === 'doble_marca' || flag === 'tachada_detectada'
+    );
+    const confianzaBajaConAdvertencia =
+      respuesta.confianza < 0.75 &&
+      respuesta.flags.some((flag) => flag === 'bajo_contraste' || flag === 'parcial_detectada' || flag === 'fuera_roi');
+    const scoreSeleccionado = respuesta.scoresPorOpcion.find((score) => score.opcion === respuesta.opcion);
+    const marcaAmbiguaDeBajoContraste = Boolean(
+      scoreSeleccionado &&
+      scoreSeleccionado.score >= 0.44 &&
+      scoreSeleccionado.score < 0.6 &&
+      scoreSeleccionado.fillRatioCore >= 0.65 &&
+      scoreSeleccionado.fillRatioRing <= 0.1 &&
+      scoreSeleccionado.contraste <= 0.25 &&
+      (scoreSeleccionado.margenCromatico ?? 0) < 0.04
+    );
+    if (!flagsInvalidantes && !confianzaBajaConAdvertencia && !marcaAmbiguaDeBajoContraste) return respuesta;
+    cambios += 1;
+    const flags = Array.from(new Set([
+      ...respuesta.flags,
+      ...(flagsInvalidantes ? [] : ['bajo_contraste' as const])
+    ]));
+    return {
+      ...respuesta,
+      opcion: null,
+      confianza: Math.min(0.5, respuesta.confianza),
+      flags,
+      estadoRespuesta: clasificarEstadoRespuestaOmr({ opcion: null, flags })
+    };
+  });
+  if (cambios === 0) return resultado;
+  const preguntasAmbiguas = respuestasDetectadas.filter(esRespuestaAmbiguaOmr).length;
+  const confianzaPromedioPagina = respuestasDetectadas.length
+    ? respuestasDetectadas.reduce((total, respuesta) => total + Math.max(0, respuesta.confianza), 0) / respuestasDetectadas.length
+    : 0;
+  return {
+    ...resultado,
+    respuestasDetectadas,
+    confianzaPromedioPagina,
+    ratioAmbiguas: respuestasDetectadas.length ? preguntasAmbiguas / respuestasDetectadas.length : 1,
+    resumenRespuestas: resumirRespuestasOmr(
+      respuestasDetectadas,
+      resultado.calidadPagina,
+      resultado.geomQuality
     )
   };
 }
@@ -5698,6 +5753,13 @@ export async function analizarOmr(
         existeOpcionActual: opcionDetectada != null,
         contrasteCromaticoLocal: candidataCromatica.contrasteCromaticoLocal ?? 0,
         margenCromatico: candidataCromatica.margenCromatico ?? 0,
+        score: candidataCromatica.score,
+        scoreCompetidor: Math.max(
+          0,
+          ...scoresPorOpcion
+            .filter((item) => item.opcion !== candidataCromatica.opcion)
+            .map((item) => item.score)
+        ),
         fillRatioCore: candidataCromatica.fillRatioCore,
         nucleusFillRatio: candidataCromatica.nucleusFillRatio,
         centroidOffsetRatio: candidataCromatica.centroidOffsetRatio,
@@ -5745,6 +5807,15 @@ export async function analizarOmr(
       (scoresPorOpcion[0]?.fillRatioCore ?? 0) >= 0.65 &&
       (scoresPorOpcion[0]?.shapeCompactness ?? 1) < 0.65 &&
       (scoresPorOpcion[0]?.fillRatioRing ?? 1) <= 0.3;
+    const marcaAmbiguaDeBajoContraste = Boolean(
+      panelHorizontalCompacto &&
+      scoreDominante >= 0.44 &&
+      scoreDominante < 0.6 &&
+      (scoresPorOpcion[0]?.fillRatioCore ?? 0) >= 0.65 &&
+      (scoresPorOpcion[0]?.fillRatioRing ?? 1) <= 0.1 &&
+      (scoresPorOpcion[0]?.contraste ?? 1) <= 0.25 &&
+      (scoresPorOpcion[0]?.margenCromatico ?? 0) < 0.04
+    );
     const rescateMarcaVerticalConNucleo =
       !panelHorizontalCompacto &&
       !dobleMarcadaReal &&
@@ -5796,14 +5867,16 @@ export async function analizarOmr(
         // circular. En ese caso se exige revisión manual en vez de calificarla
         // como respuesta válida.
         formaCircularInsuficiente ||
-        marcaAmbiguaNoCompacta
+        marcaAmbiguaNoCompacta ||
+        marcaAmbiguaDeBajoContraste
       );
     const rescateMarcaAislada = rescatePrimeraPorNucleoFuerte || rescateSegundaPorNucleoFuerte;
     const rechazoPorMarcaInvalida = !rescateMarcaCromatica && !rescatePuntoCompacto && !rescateNucleoTenue && (
       (dobleMarcadaReal && !rescateMarcaAislada) ||
       marcaParcialDominante ||
       formaCircularInsuficiente ||
-      marcaAmbiguaNoCompacta
+      marcaAmbiguaNoCompacta ||
+      marcaAmbiguaDeBajoContraste
     );
     const rescateDominante = rescatePuntoCompacto
       ? {
@@ -5935,6 +6008,12 @@ export async function analizarOmr(
     if (opcionElegidaSinTinta && pareceResiduoDeCompresionOmr(opcionElegidaSinTinta)) {
       opcionDetectada = null;
       confianzaPregunta = 0;
+    }
+    // Las candidatas con confianza subumbral siguen visibles en los scores
+    // para revisión, pero se excluyen de la respuesta que recibe puntaje.
+    if (opcionDetectada && confianzaPregunta < OMR_RESPUESTA_CONF_MIN) {
+      opcionDetectada = null;
+      confianzaPregunta = Math.min(confianzaPregunta, 0.5);
     }
 
     const flags: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi' | 'parcial_detectada' | 'tachada_detectada'> = [];
@@ -6498,7 +6577,7 @@ export async function analizarOmr(
       }
     }
     return agregarIntentosNoResueltosAlResultadoOmr(
-      aplicarAbstencionPorOrientacionOmr(resultadoElegido),
+      aplicarAbstencionPorOrientacionOmr(anularRespuestasAmbiguasParaCalificacion(resultadoElegido)),
       {
         permitirMicrocomponenteRelativo: !opcionesInternas?.noRetry
       }
@@ -6521,7 +6600,7 @@ export async function analizarOmr(
         new Set([...resultadoRasgosAislados.advertencias, 'Rescate OMR conservador completó marcas aisladas con baja confianza; requiere revisión'])
       );
       return agregarIntentosNoResueltosAlResultadoOmr(
-        aplicarAbstencionPorOrientacionOmr(resultadoRasgosAislados),
+        aplicarAbstencionPorOrientacionOmr(anularRespuestasAmbiguasParaCalificacion(resultadoRasgosAislados)),
         {
           permitirMicrocomponenteRelativo: !opcionesInternas?.noRetry
         }
@@ -6529,7 +6608,7 @@ export async function analizarOmr(
     }
   }
   return agregarIntentosNoResueltosAlResultadoOmr(
-    aplicarAbstencionPorOrientacionOmr(resultadoBase),
+    aplicarAbstencionPorOrientacionOmr(anularRespuestasAmbiguasParaCalificacion(resultadoBase)),
     {
       permitirMicrocomponenteRelativo: !opcionesInternas?.noRetry
     }

@@ -103,6 +103,7 @@ describe('consulta API de paquetes de examen por lote', () => {
           periodoId: owner.periodoId,
           alumnoId: alumno.id,
           loteId,
+          origenGeneracion: 'lote',
           folio: `LIFECYCLE-${randomUUID()}`,
           estado: 'generado',
           mapaVariante: JSON.stringify({ ordenPreguntas: [] }),
@@ -163,6 +164,11 @@ describe('consulta API de paquetes de examen por lote', () => {
       });
       const archiveRequestId = randomUUID();
       const restoreRequestId = randomUUID();
+
+      await request(app).post(`/api/examenes/generados/${examen.id}/archivar`).set(owner.auth).expect(409).expect(({ body }) => {
+        expect(body.error?.codigo ?? body.codigo).toBe('EXAMEN_DE_LOTE_ARCHIVADO_EN_CONJUNTO');
+      });
+      expect((await prisma.examenGenerado.findUniqueOrThrow({ where: { id: examen.id } })).archivadoEn).toBeNull();
 
       await request(app).post(`/api/examenes/generados/lote/${loteId}/archivar`).set(owner.auth).send({ clientRequestId: archiveRequestId }).expect(200).expect(({ body }) => {
         expect(body).toMatchObject({ ok: true, loteId, archivado: true, repetida: false });

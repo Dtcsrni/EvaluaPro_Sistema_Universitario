@@ -9,7 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from '../utils/sqliteTestDatabase.js';
 
-describe('calificacion OMR prioriza respuestas detectadas', () => {
+describe('calificación OMR cuenta respuestas sin opción como incorrectas', () => {
   const app = crearApp();
 
   beforeAll(async () => {
@@ -36,8 +36,8 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
     return respuesta.body.token as string;
   }
 
-  it.each(['sin_marca', 'doble_marca'] as const)(
-    'califica una marca vacía legible y bloquea %s hasta revisión humana',
+  it.each(['sin_marca', 'ambigua', 'doble_marca'] as const)(
+    'guarda %s como incorrecta cuando la página supera los controles globales',
     async (estadoRespuesta) => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };
@@ -176,12 +176,7 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
           qrTexto
         }
       })
-      .expect(estadoRespuesta === 'sin_marca' ? 201 : 422);
-
-    if (estadoRespuesta === 'doble_marca') {
-      expect(calificacionResp.body.error.codigo).toBe('OMR_REQUIERE_REVISION_MANUAL');
-      return;
-    }
+      .expect(201);
 
     expect(calificacionResp.body.calificacion.aciertos).toBe(0);
     expect(calificacionResp.body.calificacion.totalReactivos).toBe(1);

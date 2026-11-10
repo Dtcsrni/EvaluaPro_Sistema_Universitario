@@ -25,6 +25,7 @@ type OmrVersionPolicy = {
   active?: {
     templateVersion?: number;
     contractId?: string;
+    layoutVersion?: string;
     displayLabel?: string;
   };
 };
@@ -75,7 +76,8 @@ function leerPoliticaOmr(envDir: string) {
   const version = Number(policy.active?.templateVersion);
   const contractId = String(policy.active?.contractId || '').trim();
   const displayLabel = String(policy.active?.displayLabel || '').trim();
-  if (version !== 4 || contractId !== 'omr-canonical-v4' || displayLabel !== 'OMR canónico · v4') {
+  const layoutVersion = String(policy.active?.layoutVersion || '').trim();
+  if (version !== 4 || contractId !== 'omr-canonical-1.0.0' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(layoutVersion) || displayLabel !== `OMR · ${layoutVersion}`) {
     throw new Error('La política OMR no declara exactamente el contrato canónico activo esperado.');
   }
   return { version, contractId, displayLabel };

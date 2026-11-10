@@ -134,7 +134,7 @@ router.post(
   validarCuerpo(esquemaPrevalidarReferenciaIngestaOmr, { strict: true }),
   prevalidarReferenciaIngestaPdfOmr
 );
-router.post('/ingestas', requerirPermiso('omr:analizar'), cargarArchivosPdf, limpiarCargaSiFalla, validarIngestaPdf, crearIngestaPdfOmr);
+router.post('/ingestas', requerirPermiso('omr:analizar'), requerirPermiso('calificaciones:calificar'), cargarArchivosPdf, limpiarCargaSiFalla, validarIngestaPdf, crearIngestaPdfOmr);
 router.post('/ingestas/:jobId/dataset-export', requerirPermiso('omr:analizar'), validarCuerpo(esquemaExportarDatasetIngestaOmr, { strict: true }), exportarDatasetIngestaPdfOmr);
 router.get('/ingestas/por-clave/:clientRequestId', requerirPermiso('omr:analizar'), recuperarIngestaPdfOmrPorClave);
 router.post('/ingestas/:jobId/reintentar', requerirPermiso('omr:analizar'), validarCuerpo(esquemaReintentarIngestaOmr, { strict: true }), reintentarIngestaPdfOmr);
@@ -151,7 +151,7 @@ router.post(
   validarCuerpo(esquemaPrevalidarLoteOmr, { strict: true }),
   prevalidarLoteCapturas
 );
-router.post('/jobs', requerirPermiso('omr:analizar'), validarCuerpo(esquemaCrearJobOmr, { strict: true }), crearJobOmr);
+router.post('/jobs', requerirPermiso('omr:analizar'), requerirPermiso('calificaciones:calificar'), validarCuerpo(esquemaCrearJobOmr, { strict: true }), crearJobOmr);
 router.get('/jobs', requerirPermiso('omr:analizar'), listarJobsOmr);
 router.get('/jobs/:jobId', requerirPermiso('omr:analizar'), obtenerJobOmr);
 router.post(

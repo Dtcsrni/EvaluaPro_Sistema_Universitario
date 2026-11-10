@@ -4,6 +4,26 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.2.14] - 2026-11-09
+
+### Added
+- Detecta por OCR la marca manuscrita de guía de estudio en la región del examen; muestra evidencia y confianza, aplica +0.25 solo con lecturas concordantes y permite al docente retirar el bono.
+- Registra el bono extracurricular por alumno (0 o +0.5) y lo aplica únicamente al global aprobatorio del tercer parcial, limitado a 10; P1, P2 y sus fórmulas permanecen intactos.
+
+### Fixed
+- Mantiene visibles los lotes activos sin seleccionar una plantilla y protege su archivo hasta el cierre de materia o la verificación de todas las calificaciones.
+- El historial local distingue lotes activos y archivados al consultar referencias OMR.
+
+## [Hub 1.2.20] - 2026-11-06
+
+### Changed
+- Avanza el Installer Hub que empaqueta la aplicación docente 1.2.14.
+
+## [1.2.13] - 2026-11-06
+
+### Fixed
+- El login Google Desktop puede enviar el secreto de su propio cliente cuando está provisionado localmente; conserva PKCE y no incorpora secretos al repositorio.
+
 ## [Hub 1.2.19] - 2026-11-06
 
 ### Fixed

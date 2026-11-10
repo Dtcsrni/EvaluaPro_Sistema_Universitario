@@ -66,7 +66,13 @@ function fusionarRespuestasSinPreproceso(
     );
     const baseInvalida = respuestaBase.flags.includes('doble_marca') || respuestaBase.flags.includes('tachada_detectada');
     const rescateInvalido = Boolean(
-      respuestaRescate?.flags.includes('doble_marca') || respuestaRescate?.flags.includes('tachada_detectada')
+      respuestaRescate?.flags.some((flag) =>
+        flag === 'doble_marca' ||
+        flag === 'tachada_detectada' ||
+        flag === 'bajo_contraste' ||
+        flag === 'parcial_detectada' ||
+        flag === 'fuera_roi'
+      )
     );
     const rescateLimpio = Boolean(respuestaRescate?.opcion != null && !rescateInvalido);
     const baseParcial = respuestaBase.flags.includes('parcial_detectada');
@@ -90,8 +96,7 @@ function fusionarRespuestasSinPreproceso(
       !respuestaRescate ||
       respuestaRescate.opcion == null ||
       respuestaRescate.confianza < 0.75 ||
-      respuestaRescate.flags.includes('doble_marca') ||
-      respuestaRescate.flags.includes('tachada_detectada')
+      rescateInvalido
     ) {
       return respuestaBase;
     }

@@ -23,6 +23,7 @@ Usa EvaluaPro como sistema de registro. Mantén separadas la lectura OMR, la cal
 - Calcula el puntaje solo con la clave y regla de puntuación vigentes para ese examen; declara escala, denominador y redondeo si el resultado depende de ellos. No inventes tolerancias ni ajustes.
 - Distingue una omisión OMR legible de trabajo pendiente o dato faltante en otra fuente. Nunca conviertas una tarea pendiente, una imagen ilegible o un fallo de importación en cero.
 - Mantén el resultado OMR separado de componentes manuales y de calificaciones de Classroom. No copies el resultado a una columna de lista institucional ni sincronices Classroom por inferencia.
+- Bono de guía de estudio («acordeón»): para parciales y globales, usa la vista previa de EvaluaPro. La app alinea la zona impresa con QR/fiduciales y concede automáticamente +0.25 sobre 5 solo si dos lecturas OCR independientes reconocen `+0.25` con confianza >= 80/100. Si la lectura queda dudosa, revisa el recorte y confirma solo si la marca manuscrita está presente; si hay error o no corresponde, deja el bono desactivado. La nota base 5.00 no recibe bono. El backend repite la detección al guardar e incorpora decisión/método a `omrAuditoria`; no sumes `bonoSolicitado` ni uses la marca de entrega como evidencia del examen.
 
 ## Persistencia
 

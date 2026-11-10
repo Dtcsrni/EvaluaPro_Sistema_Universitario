@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorRemoto } from '../src/servicios_api/clienteComun';
+import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import {
   existeTituloPlantillaDuplicadoPorPeriodo,
   SeccionPlantillas
@@ -200,7 +201,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     // Pestaña 1 (Diseño) activa por defecto
     expect(screen.getByRole('heading', { name: /Diseño de plantilla/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Plantillas existentes/i })).toBeInTheDocument();
-    expect(screen.getAllByText('OMR canónico · v4').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('OMR · 1.0.0-dev.1').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/ESTUDIO DE CONSTRUCCIÓN/i)).toBeInTheDocument();
     expect(screen.getByText(/Formato de respuesta: panel OMR reservado/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Seleccionar imagen izquierda' })).toBeVisible();
@@ -214,7 +215,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     // Cambiar a Pestaña 2 (Generación)
     fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
     expect(screen.getByRole('heading', { name: /Generación de exámenes/i })).toBeInTheDocument();
-    expect(screen.getByText('OMR canónico · v4')).toBeInTheDocument();
+    expect(screen.getByText('OMR · 1.0.0-dev.1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ver guía rápida de generación de exámenes/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Ver guía rápida de generación de exámenes/i }));
     expect(screen.getByText(/Producción OMR, Folios Únicos y Códigos QR/i)).toBeInTheDocument();
@@ -227,11 +228,42 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     // Cambiar a Pestaña 3 (Historial)
     fireEvent.click(screen.getByRole('tab', { name: /Historial de Lotes/i }));
     expect(screen.getByRole('heading', { level: 3, name: /^Exámenes generados$/i })).toBeInTheDocument();
-    expect(screen.getAllByText('OMR canónico · v4').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('OMR · 1.0.0-dev.1').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole('button', { name: /Ver guía rápida de historial y custodia/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Ver guía rápida de historial y custodia/i }));
     expect(screen.getByText(/Custodia, Descargas y Trazabilidad OMR/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /OMR canónico · v4/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /OMR · 1.0.0-dev.1/i })).toBeInTheDocument();
+  });
+
+  it('muestra los paquetes activos recientes sin exigir seleccionar una plantilla', async () => {
+    const lote = '7CC16F5D';
+    const examenes = Array.from({ length: 12 }, (_, indice) => ({
+      _id: `exam-${indice + 1}`,
+      loteId: lote,
+      origenGeneracion: 'lote',
+      plantillaId: 'global-template',
+      tipoExamen: 'global',
+      folio: `FOLIO${String(indice + 1).padStart(4, '0')}`,
+      estado: 'generado',
+      generadoEn: '2026-11-06T17:00:00.000Z'
+    }));
+    const obtener = vi.spyOn(clienteApi, 'obtener').mockImplementation(async (ruta) => {
+      if (ruta === '/examenes/generados?limite=50') return { examenes, nextCursor: null } as never;
+      if (ruta === '/examenes/generados/lotes?archivado=true&limite=100') return { lotes: [], nextCursor: null } as never;
+      if (ruta === '/periodos?activo=false') return { periodos: [] } as never;
+      if (ruta === '/examenes/generados?archivado=false&limite=200') return { examenes, nextCursor: null } as never;
+      if (ruta === '/examenes/generados?archivado=true&limite=200') return { examenes: [], nextCursor: null } as never;
+      if (ruta === '/omr/jobs?limite=20') return { jobs: [], nextCursor: null } as never;
+      return {} as never;
+    });
+
+    render(<HarnessPlantillas />);
+    await userEvent.setup().click(screen.getByRole('tab', { name: /Historial de Lotes/i }));
+
+    expect(await screen.findByText('Exámenes visibles: 12')).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Lote ${lote}`))).toBeInTheDocument();
+    expect(obtener).toHaveBeenCalledWith('/examenes/generados?limite=50');
+    obtener.mockRestore();
   });
 
   it('mantiene foco y estado expandido al alternar las guías de Generación e Historial', async () => {
@@ -825,7 +857,9 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
           'pla-1': {
             booklet: 'blob://pdf-preview',
             bookletPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }],
-            bookletPagesTotal: 4
+            bookletPagesTotal: 4,
+            bookletLayoutConfirmado: false,
+            bookletAdvertencias: ['Hay preguntas que no caben en las páginas configuradas.']
           }
         }}
         puedePrevisualizarPlantillas={true}
@@ -848,6 +882,8 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(pagina).toHaveAttribute('src', 'data:image/png;base64,AAAA');
     expect(screen.queryAllByText('Página 1')).toHaveLength(0);
     expect(screen.getByText('PDF real: 4 páginas')).toBeInTheDocument();
+    expect(screen.getByText('Diseño no confirmado para generar')).toBeInTheDocument();
+    expect(screen.getByText('Hay preguntas que no caben en las páginas configuradas.')).toBeInTheDocument();
     expect(screen.getByText('Configuradas: 2 · el contenido requiere 4')).toBeInTheDocument();
     const abrirPdf = screen.getByRole('link', { name: 'Abrir en pestaña' });
     abrirPdf.addEventListener('click', (event) => event.preventDefault());

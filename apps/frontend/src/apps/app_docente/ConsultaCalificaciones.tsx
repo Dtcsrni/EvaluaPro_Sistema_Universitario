@@ -55,7 +55,15 @@ export type FilaConsultaCalificacion = {
   bonoExtracurricular?: string;
   bonoExtracurricularSolicitado?: string;
   bonoExtracurricularVersion?: number | null;
-  bonoDistribucion?: Record<'examenGlobal' | 'continuaGlobal' | 'examenParcial2' | 'continuaParcial2' | 'examenParcial1' | 'continuaParcial1', number>;
+  bonoDistribucion?: {
+    solicitado: number;
+    aplicado: number;
+    noAplicado: number;
+    calificacionGlobalBase: number | null;
+    calificacionGlobalResultante: number | null;
+    omitidoPorGlobalReprobatorio: boolean;
+    omitidoPorGlobalDiez: boolean;
+  };
   calificacionFinalCurso?: string;
   calificacionFinalCursoActa?: string;
   extraDisponible?: boolean;
@@ -139,18 +147,6 @@ export type ResumenConsultaCalificaciones = {
 type FiltroConsulta = 'todos' | 'calificados' | 'pendientes';
 type OrdenConsulta = 'alumno' | 'final-desc' | 'final-asc' | 'estado';
 type SeccionDetalle = 'resumen' | 'primer' | 'segundo' | 'global' | 'libro';
-
-const COMPONENTES_BONO: Array<{
-  clave: NonNullable<FilaConsultaCalificacion['bonoDistribucion']> extends Record<infer K, number> ? K : never;
-  etiqueta: string;
-}> = [
-  { clave: 'continuaGlobal', etiqueta: 'Continua · Global (tercer parcial)' },
-  { clave: 'examenGlobal', etiqueta: 'Examen · Global (tercer parcial)' },
-  { clave: 'continuaParcial2', etiqueta: 'Continua · Segundo parcial' },
-  { clave: 'examenParcial2', etiqueta: 'Examen · Segundo parcial' },
-  { clave: 'continuaParcial1', etiqueta: 'Continua · Primer parcial' },
-  { clave: 'examenParcial1', etiqueta: 'Examen · Primer parcial' }
-];
 
 function texto(valor: unknown): string {
   return String(valor ?? '').trim();
@@ -317,7 +313,7 @@ export function ConsultaCalificaciones({
     const fila = filaSeleccionadaRef.current;
     if (!fila || fila.alumnoId !== alumnoSeleccionadoId) return;
     setBorradores({ examen1: fila.examenPrimerParcialLista ?? '', practica: fila.practica2doParcial ?? '', examen: fila.examen2doParcial ?? '', global: fila.examenGlobalLista ?? '' });
-    setBorradorBono(fila.bonoExtracurricularSolicitado || '');
+    setBorradorBono(fila.bonoExtracurricularSolicitado === '0.5' ? '0.5' : '0');
     setVistaPreviaBono(null);
     setErrorGuardado('');
     detalleRef.current?.focus();
@@ -703,7 +699,7 @@ export function ConsultaCalificaciones({
     ['AY', 'Porcentaje 1er y Segundo Parcial (40%)', filaSeleccionada.ponderacionPrimerSegundoParcialesLista, 'ponderación del libro'],
     ['AZ', 'Calificación Final', filaSeleccionada.calificacionFinalLibroLista, '0–10'],
     ['BA', 'Calificación Final (Base 10)', filaSeleccionada.calificacionFinalBase10Lista, 'escala del libro'],
-    ['BB', 'Bono extracurricular otorgado', filaSeleccionada.bonoExtracurricular ?? '', '0–1']
+    ['BB', 'Bono extracurricular otorgado', filaSeleccionada.bonoExtracurricular ?? '', '0–0.5']
   ] as const : [];
   const camposLibroConDato = camposLibro.filter(([, , valor]) => texto(valor) !== '');
   const camposLibroSinDato = camposLibro.filter(([, , valor]) => texto(valor) === '');
@@ -1066,29 +1062,24 @@ export function ConsultaCalificaciones({
               <label className="campo"><span>Examen 2do Parcial · 0–5.25</span><input type="number" min="0" max="5.25" step="0.01" value={borradores.examen} onChange={(event) => setBorradores((prev) => ({ ...prev, examen: event.target.value }))} /></label>
               <Boton type="button" variante="secundario" disabled={guardando !== null} onClick={() => void guardarComponente('Exámen 2do Parcial')}>{guardando === 'examen' ? 'Guardando…' : 'Guardar examen'}</Boton>
             </div>
-            <p className="nota">El bono extracurricular se registra en una sola columna y se distribuye por fórmula. Prioridad: Global (tercer parcial), segundo parcial y primer parcial; dentro de cada parcial, evaluación continua primero y examen después. Ningún parcial supera 10.</p>
+            <p className="nota">El bono extracurricular solo modifica el global del tercer parcial aprobado; no altera los parciales primero o segundo.</p>
             {errorGuardado && <InlineMensaje tipo="error">{errorGuardado}</InlineMensaje>}
           </section>}
           {seccionDetalle === 'global' && <>
           <section aria-label="Bono extracurricular" className="calificaciones-consulta__physical-grades calificaciones-consulta__accent-panel--warning">
             <h5>Bono extracurricular</h5>
-            <p className="nota">Captura el importe documentado (0–1). Se calcula primero una vista previa; solo se guarda al pulsar “Confirmar y guardar bono”. Si la calificación final base ya es 10, no se aplica.</p>
+            <p className="nota">Confirma 0.5 si el alumno realizó la actividad extracurricular o 0 para retirarlo. Solo se suma al global del tercer parcial si ya es aprobatorio (6 o más), hasta un máximo de 10. La vista previa no guarda cambios.</p>
             <div className="calificaciones-consulta__manual-editors">
-              <label className="campo"><span>Bono solicitado · 0–1</span><input type="number" min="0" max="1" step="0.01" value={borradorBono} onChange={(event) => { setBorradorBono(event.target.value); setVistaPreviaBono(null); }} /></label>
+              <label className="campo"><span>Bono extracurricular · 0 o 0.5</span><input type="number" min="0" max="0.5" step="0.5" value={borradorBono} onChange={(event) => { setBorradorBono(event.target.value); setVistaPreviaBono(null); }} /></label>
               <Boton type="button" variante="secundario" disabled={procesandoBono || guardando !== null} onClick={() => void previsualizarBono()}>{procesandoBono && !vistaPreviaBono ? 'Calculando…' : 'Previsualizar bono'}</Boton>
             </div>
             {vistaPreviaBono && (
               <div className="calificaciones-consulta__bonus-preview" aria-live="polite">
-                <p>Vista previa: aplicado {mostrarNota(vistaPreviaBono.bonoAplicado)} de {mostrarNota(vistaPreviaBono.bonoSolicitado)}. Parciales: P1 {mostrarNota(vistaPreviaBono.parcial1)}, P2 {mostrarNota(vistaPreviaBono.parcial2)}, Global {mostrarNota(vistaPreviaBono.parcial3)}. Final del curso {mostrarNota(vistaPreviaBono.calificacionFinalCurso)}.</p>
-                <p>Distribución por prioridad:</p>
-                {(() => {
-                  const destinos = COMPONENTES_BONO
-                    .map(({ clave, etiqueta }) => ({ etiqueta, puntos: vistaPreviaBono.bonoDistribucion?.[clave] ?? 0 }))
-                    .filter(({ puntos }) => puntos > 0);
-                  return destinos.length > 0
-                    ? <ul>{destinos.map(({ etiqueta, puntos }) => <li key={etiqueta}>{etiqueta}: +{mostrarNota(String(puntos))}</li>)}</ul>
-                    : <p>Sin puntos asignados: los componentes no tienen espacio disponible o faltan calificaciones.</p>;
-                })()}
+                <p>Global del tercer parcial: {mostrarNota(vistaPreviaBono.bonoDistribucion?.calificacionGlobalBase == null ? '' : String(vistaPreviaBono.bonoDistribucion.calificacionGlobalBase))} → {mostrarNota(vistaPreviaBono.bonoDistribucion?.calificacionGlobalResultante == null ? '' : String(vistaPreviaBono.bonoDistribucion.calificacionGlobalResultante))}. Bono aplicado: {mostrarNota(vistaPreviaBono.bonoAplicado)} de {mostrarNota(vistaPreviaBono.bonoSolicitado)}.</p>
+                {vistaPreviaBono.bonoDistribucion?.omitidoPorGlobalReprobatorio && <p role="status">No se aplica: el global del tercer parcial es reprobatorio (menor que 6).</p>}
+                {vistaPreviaBono.bonoDistribucion?.omitidoPorGlobalDiez && <p role="status">No se aplica: el global del tercer parcial ya es 10.</p>}
+                {vistaPreviaBono.bonoDistribucion?.calificacionGlobalBase === null && <p role="status">No se aplica: primero debe existir una calificación global del tercer parcial.</p>}
+                {(vistaPreviaBono.bonoDistribucion?.noAplicado ?? 0) > 0 && vistaPreviaBono.bonoDistribucion?.omitidoPorGlobalDiez === false && vistaPreviaBono.bonoDistribucion?.omitidoPorGlobalReprobatorio === false && <p role="status">Solo se aplicó lo necesario para no superar 10.</p>}
                 <Boton type="button" variante="primario" disabled={procesandoBono || !vistaPreviaBono.requiereConfirmacion} onClick={() => void confirmarBono()}>{procesandoBono ? 'Guardando…' : 'Confirmar y guardar bono'}</Boton>
               </div>
             )}

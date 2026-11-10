@@ -4,7 +4,8 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { evaluateSyntheticTv4Dataset } from './omr-tv4-synthetic-lib.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 type Args = {
   dataset: string;
@@ -58,6 +59,20 @@ function parseArgs(argv: string[]): Args {
 
 async function main() {
   const args = parseArgs(process.argv);
+  const datasetRoot = path.resolve(process.cwd(), args.dataset);
+  const manifest = JSON.parse(await fs.readFile(path.join(datasetRoot, 'manifest.json'), 'utf8')) as {
+    thresholds?: { omrParams?: Record<string, number> };
+  };
+  const omrParams = {
+    OMR_RESPUESTA_CONF_MIN: manifest.thresholds?.omrParams?.OMR_RESPUESTA_CONF_MIN ?? 0.78,
+    OMR_SCORE_MIN: manifest.thresholds?.omrParams?.OMR_SCORE_MIN ?? 0.08,
+    OMR_DELTA_MIN: manifest.thresholds?.omrParams?.OMR_DELTA_MIN ?? 0.02
+  };
+  for (const [name, value] of Object.entries(omrParams)) process.env[name] = String(value);
+
+  // El motor lee sus parámetros al cargarse; importarlo después de fijar la
+  // configuración evita reportar umbrales distintos de los que se evaluaron.
+  const { evaluateSyntheticTv4Dataset } = await import('./omr-tv4-synthetic-lib.js');
   const report = await evaluateSyntheticTv4Dataset({
     datasetRoot: args.dataset,
     reportPath: args.report,

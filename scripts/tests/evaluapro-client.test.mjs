@@ -1,7 +1,68 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
+import { readFileSync } from 'node:fs';
 import { EvaluaproClient, EvaluaproApiError } from '../api/evaluapro-client.mjs';
+import { crearCredentialStoreFake } from '../api/credential-store.windows.mjs';
+
+test('Credential Manager restringe operaciones, nombre de destino y tamaño del secreto', () => {
+  const helper = readFileSync(new URL('../api/credential-manager.ps1', import.meta.url), 'utf8');
+  assert.match(helper, /ValidateSet\('read', 'write', 'delete'\)/);
+  assert.match(helper, /ValidatePattern\('\^\[A-Za-z0-9\/_-\]\{1,200\}\$'\)/);
+  assert.match(helper, /CredReadW/);
+  assert.match(helper, /CredWriteW/);
+  assert.match(helper, /CredDeleteW/);
+});
+
+test('el bootstrap API local crea autorización PKCE sin bearer y guarda solo el refresh token', async () => {
+  const calls = [];
+  const store = crearCredentialStoreFake();
+  const client = new EvaluaproClient({ baseUrl: 'http://localhost', credentialStore: store, fetchImpl: async (url, init = {}) => {
+    const path = new URL(url).pathname;
+    calls.push({ path, init });
+    if (path.endsWith('/api-clientes/solicitudes')) return Response.json({ solicitudId: 'solicitud-1', codigo: 'ABCDEFG2', expiraEn: new Date(Date.now() + 30_000).toISOString() }, { status: 201 });
+    if (path.endsWith('/solicitudes/intercambiar')) return Response.json({ estado: 'aprobada', refreshToken: `epr_${'x'.repeat(43)}`, credencialId: 'cred-1' });
+    if (path.endsWith('/api-clientes/refrescar')) return Response.json({ token: 'access-1', permisos: ['omr:analizar'] });
+    throw new Error(`Ruta inesperada ${path}`);
+  } });
+
+  const solicitud = await client.solicitarAutorizacionApi({ permisos: ['omr:analizar'] });
+  assert.equal(solicitud.codigo, 'ABCDEFG2');
+  await solicitud.esperarAprobacion({ intervaloMs: 1 });
+
+  assert.deepEqual(calls.map(({ path }) => path), [
+    '/api/autenticacion/api-clientes/solicitudes',
+    '/api/autenticacion/api-clientes/solicitudes/intercambiar',
+    '/api/autenticacion/api-clientes/refrescar'
+  ]);
+  assert.equal(calls.every(({ init }) => !init.headers?.get('Authorization')), true);
+  assert.equal(client.token, 'access-1');
+  assert.deepEqual(client.permissions, ['omr:analizar']);
+  assert.deepEqual(await store.get(), { refreshToken: `epr_${'x'.repeat(43)}`, credencialId: 'cred-1' });
+});
+
+test('el bootstrap API local respeta Retry-After y conserva el intercambio PKCE ante HTTP 429', async () => {
+  let intercambios = 0;
+  const store = crearCredentialStoreFake();
+  const client = new EvaluaproClient({ baseUrl: 'http://localhost', credentialStore: store, fetchImpl: async (url) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith('/api-clientes/solicitudes')) return Response.json({ solicitudId: 'solicitud-429', codigo: 'ABCDEFG2', expiraEn: new Date(Date.now() + 30_000).toISOString() }, { status: 201 });
+    if (path.endsWith('/solicitudes/intercambiar')) {
+      intercambios += 1;
+      if (intercambios === 1) return Response.json({ error: 'rate limited' }, { status: 429, headers: { 'Retry-After': '0.001' } });
+      return Response.json({ estado: 'aprobada', refreshToken: `epr_${'y'.repeat(43)}`, credencialId: 'cred-429' });
+    }
+    if (path.endsWith('/api-clientes/refrescar')) return Response.json({ token: 'access-429', permisos: ['examenes:leer'] });
+    throw new Error(`Ruta inesperada ${path}`);
+  } });
+
+  const solicitud = await client.solicitarAutorizacionApi({ permisos: ['examenes:leer'] });
+  await solicitud.esperarAprobacion({ intervaloMs: 1 });
+
+  assert.equal(intercambios, 2);
+  assert.equal(client.token, 'access-429');
+  assert.deepEqual(await store.get(), { refreshToken: `epr_${'y'.repeat(43)}`, credencialId: 'cred-429' });
+});
 
 test('cliente agrega /api, usa bearer y no reintenta una escritura incierta', async () => {
   const calls = [];

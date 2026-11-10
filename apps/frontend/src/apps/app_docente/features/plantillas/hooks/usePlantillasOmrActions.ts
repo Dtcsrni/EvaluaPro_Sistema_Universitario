@@ -238,7 +238,7 @@ export function usePlantillasOmrActions({
         throw new Error('Permiso OMR requerido');
       }
       const ids = [...new Set(args.assessmentIds.map((id) => String(id).trim()).filter(Boolean))];
-      if (ids.length === 0) throw new Error('No hay lotes archivados disponibles para cotejar.');
+      if (ids.length === 0) throw new Error('No hay lotes disponibles para cotejar.');
       if (args.referencePdf.type !== 'application/pdf' && !args.referencePdf.name.toLowerCase().endsWith('.pdf')) {
         throw new Error('Selecciona un PDF generado como referencia.');
       }

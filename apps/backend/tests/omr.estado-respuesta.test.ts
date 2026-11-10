@@ -284,6 +284,8 @@ describe('estado de respuesta OMR', () => {
       existeOpcionActual: false,
       contrasteCromaticoLocal: 0.073,
       margenCromatico: 0.068,
+      score: 0.9,
+      scoreCompetidor: 0.1,
       fillRatioCore: 0.095,
       nucleusFillRatio: 0.3,
       centroidOffsetRatio: 0.54,
@@ -297,6 +299,7 @@ describe('estado de respuesta OMR', () => {
       margenCromatico: 0.009
     })).toBe(false);
     expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, margenCromatico: 0.02 })).toBe(false);
+    expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, scoreCompetidor: 0.5 })).toBe(false);
     expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, dobleMarcada: true })).toBe(false);
     expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, tachada: true })).toBe(false);
     expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, existeOpcionActual: true })).toBe(false);

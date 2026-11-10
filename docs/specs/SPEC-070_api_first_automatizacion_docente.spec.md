@@ -1,7 +1,7 @@
 ---
 id: SPEC-070
 titulo: Operación docente automatizable por API con correspondencia en GUI
-version: 1.23.13
+version: 1.23.14
 fecha: 2026-10-12
 autor: Codex / EvaluaPro Team
 modulo: api_docente_automatizacion
@@ -291,6 +291,15 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   listado. La GUI presenta la misma portada o el fallback genérico conforme a
   `SPEC-073`.
 
+- **REQ-038:** La ingesta PDF OMR con QR cotejado debe completar en EvaluaPro el
+  cálculo y guardado canónico de calificaciones para exámenes con páginas
+  verificables y controles automáticos aprobados. La escritura requiere
+  `omr:analizar` y `calificaciones:calificar`; páginas incompletas, duplicadas,
+  de baja calidad o con identidad/clave/variante no confirmadas quedan para
+  revisión. Omisiones, ambigüedades, marcas múltiples y tachaduras se representan
+  como respuesta nula y cuentan incorrectas solo si pasan los controles globales.
+  La ingesta informa el resultado guardado y no sobrescribe una nota existente.
+
 ## Criterios de Aceptación
 
 - **AC-001:** Un validador de contrato verifica el OpenAPI y detecta divergencias
@@ -505,7 +514,7 @@ implica que ya satisfagan todos los criterios nuevos.
 | --- | --- | --- | --- |
 | REQ-001 / AC-001 | Contratos/versionado de rutas API | `apps/backend/tests/integracion/versionadoApiV2Contratos.test.ts` | Pendiente de ampliar |
 | REQ-002 / AC-002 | Estado autenticado de sesión, permisos efectivos, lease, periodo y Classroom | `apps/backend/tests/preflight.test.ts`; `apps/backend/tests/rutasSalud.test.ts` | Implementado y validado en foco; salud de servicio sigue disponible por `/api/salud/ready`; conectividad Classroom requiere comprobación separada |
-| REQ-003 / AC-007 | Sesión bearer, refresh y rechazo sin sesión | `apps/backend/tests/integracion/autenticacionSesion.test.ts` | Pendiente de ampliar |
+| REQ-003 / AC-007 | Sesión bearer, refresh y bootstrap PKCE de clientes API locales sin bearer previo | `apps/backend/tests/integracion/autenticacionSesion.test.ts`; `apps/backend/tests/integracion/autenticacionApiBootstrap.test.ts`; `apps/backend/tests/autenticacionApiDelegado.test.ts`; `apps/frontend/tests/gestionApiLocal.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-api-local-credentials-sqlite.test.mjs` | Regresión integrada end-to-end: bootstrap sin bearer, consentimiento docente, intercambio/refresh, scopes OMR y migración idempotente validados |
 | REQ-003 / AC-018 | Inicio de sesión Google por cliente API sin persistir secretos | `scripts/tests/evaluapro-client.test.mjs`; `apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts` | Validado en SDK; ruta preexistente |
 | REQ-004 / AC-002 | Resolución por ID en Classroom y protección de selección | `apps/backend/tests/integracion/classroom.v2.test.ts` | Pendiente de ampliar |
 | REQ-005 / AC-003 | Preview y ejecución de importación Classroom | `apps/backend/tests/integracion/classroom.v2.test.ts` | Pendiente de ampliar |

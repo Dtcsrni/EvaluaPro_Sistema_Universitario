@@ -5,35 +5,44 @@ type ExamenArchivadoOmr = {
   _id: string;
   loteId?: string | null;
   periodoId?: string | null;
+  archivadoEn?: string | null;
 };
 
-export function resumirLotesArchivadosOmr(
+export function resumirLotesOmr(
   examenes: ExamenArchivadoOmr[],
   periodos: Periodo[],
   periodosArchivados: Periodo[]
 ): ArchivoOmrLote[] {
-  const agrupados = new Map<string, { assessmentId: string; periodoId: string; cantidad: number }>();
+  const agrupados = new Map<string, { assessmentId: string; periodoId: string; cantidad: number; archivado: boolean }>();
   for (const examen of examenes) {
     const loteId = String(examen.loteId ?? '').trim();
     if (!loteId) continue;
-    const lote = agrupados.get(loteId);
+    const archivado = Boolean(examen.archivadoEn);
+    const key = `${archivado ? 'archivado' : 'activo'}:${loteId}`;
+    const lote = agrupados.get(key);
     if (lote) lote.cantidad += 1;
-    else agrupados.set(loteId, {
+    else agrupados.set(key, {
       assessmentId: examen._id,
       periodoId: String(examen.periodoId ?? ''),
-      cantidad: 1
+      cantidad: 1,
+      archivado
     });
   }
-  return Array.from(agrupados.entries()).map(([loteId, lote]) => {
+  return Array.from(agrupados.entries()).map(([key, lote]) => {
+    const loteId = key.slice(key.indexOf(':') + 1);
     const periodo = [...periodos, ...periodosArchivados].find((item) => item._id === lote.periodoId);
     return {
       assessmentId: lote.assessmentId,
       loteId,
-      etiqueta: `${periodo?.nombre ?? 'Materia archivada'} · Lote ${loteId}`,
-      cantidad: lote.cantidad
+      etiqueta: `${periodo?.nombre ?? 'Materia no disponible'} · Lote ${loteId} · ${lote.archivado ? 'archivado' : 'activo'}`,
+      cantidad: lote.cantidad,
+      archivado: lote.archivado
     };
   }).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
 }
+
+/** Alias de compatibilidad para callers que distinguían lotes archivados OMR. */
+export const resumirLotesArchivadosOmr = resumirLotesOmr;
 
 export type TemaDisponible = { tema: string; total: number };
 

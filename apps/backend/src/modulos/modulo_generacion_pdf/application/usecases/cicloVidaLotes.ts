@@ -13,6 +13,37 @@ type CambiarEstadoLoteParams = {
   archivado: boolean;
 };
 
+type ElegibilidadArchivo = {
+  ahora?: Date;
+  materiaActiva: boolean | null;
+  fechaFinMateria: Date | null;
+  examenes: Array<{ id: string; estado: string; alumnoId: string | null }>;
+  calificaciones: Array<{ examenGeneradoId: string; alumnoId: string }>;
+  totalExamenes: number;
+};
+
+export function evaluarElegibilidadArchivoLote(params: ElegibilidadArchivo) {
+  const ahora = params.ahora ?? new Date();
+  const materiaTerminada = params.materiaActiva === false || Boolean(
+    params.fechaFinMateria && params.fechaFinMateria.getTime() <= ahora.getTime()
+  );
+  if (materiaTerminada) return { permitido: true as const, motivo: 'materia_terminada' as const };
+
+  const calificacionesPorExamen = new Map<string, Set<string>>();
+  for (const calificacion of params.calificaciones) {
+    const alumnos = calificacionesPorExamen.get(calificacion.examenGeneradoId) ?? new Set<string>();
+    alumnos.add(calificacion.alumnoId);
+    calificacionesPorExamen.set(calificacion.examenGeneradoId, alumnos);
+  }
+  const todosCalificadosYVerificados = params.examenes.length === params.totalExamenes && params.examenes.every((examen) =>
+    examen.estado === 'calificado' && Boolean(examen.alumnoId) &&
+    calificacionesPorExamen.get(examen.id)?.has(examen.alumnoId as string)
+  );
+  return todosCalificadosYVerificados
+    ? { permitido: true as const, motivo: 'calificaciones_verificadas' as const }
+    : { permitido: false as const, motivo: 'materia_activa_y_calificaciones_pendientes' as const };
+}
+
 function serializarCursor(evento: { id: string; createdAt: Date }) {
   return Buffer.from(JSON.stringify({ id: evento.id, createdAt: evento.createdAt.toISOString() }), 'utf8').toString('base64url');
 }
@@ -108,13 +139,44 @@ export async function cambiarEstadoLotePdfUseCase(params: CambiarEstadoLoteParam
     if (!artefacto) throw new ErrorAplicacion('LOTE_NO_ENCONTRADO', 'No se encontró el artefacto PDF del lote', 404);
     const examenes = await tx.examenGenerado.findMany({
       where: { docenteId, loteId },
-      select: { id: true }
+      select: { id: true, periodoId: true, alumnoId: true, estado: true }
     });
     if (examenes.length !== artefacto.totalExamenes) {
       throw new ErrorAplicacion('LOTE_HISTORIAL_INCOMPLETO', 'No se cambiará el lote porque sus exámenes ya no coinciden con el manifiesto consolidado.', 409, {
         examenesPersistidos: examenes.length,
         examenesRegistrados: artefacto.totalExamenes
       });
+    }
+
+    if (params.archivado) {
+      const periodoIds = [...new Set(examenes.map((examen) => examen.periodoId).filter((id): id is string => Boolean(id)))];
+      const periodo = periodoIds.length === 1
+        ? await tx.periodo.findFirst({
+          where: { id: periodoIds[0], docenteId },
+          select: { activo: true, fechaFin: true }
+        })
+        : null;
+      const calificaciones = examenes.length
+        ? await tx.calificacion.findMany({
+          where: { docenteId, examenGeneradoId: { in: examenes.map((examen) => examen.id) } },
+          select: { examenGeneradoId: true, alumnoId: true }
+        })
+        : [];
+      const elegibilidad = evaluarElegibilidadArchivoLote({
+        materiaActiva: periodo?.activo ?? null,
+        fechaFinMateria: periodo?.fechaFin ?? null,
+        examenes,
+        calificaciones,
+        totalExamenes: artefacto.totalExamenes
+      });
+      if (!elegibilidad.permitido) {
+        throw new ErrorAplicacion(
+          'LOTE_NO_ARCHIVABLE',
+          'El paquete permanece activo mientras la materia siga vigente y haya exámenes sin calificación verificada.',
+          409,
+          { motivo: elegibilidad.motivo, examenes: examenes.length, totalExamenes: artefacto.totalExamenes }
+        );
+      }
     }
 
     const archivadoEn = params.archivado ? new Date() : null;

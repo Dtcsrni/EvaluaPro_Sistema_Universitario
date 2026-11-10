@@ -45,6 +45,7 @@ model Docente {
   auditoriaPoliticasCalificacion PoliticaCalificacionAuditoria[]
   solicitudesRevision      SolicitudRevisionAlumno[]
   sesiones                 SesionDocente[]
+  apiCredenciales          CredencialApiDocente[]
   recuperacionesContrasena RecuperacionContrasenaDocente[]
   entregas                 Entrega[]
   codigosAcceso            CodigoAcceso[]
@@ -66,6 +67,22 @@ model SesionDocente {
   revocadoEn DateTime?
 
   @@map("sesiones_docente")
+}
+
+model CredencialApiDocente {
+  id               String    @id @default(uuid())
+  docenteId        String
+  docente          Docente   @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  nombre           String
+  permisos         String
+  refreshTokenHash String    @unique
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  @@index([docenteId, revokedAt, expiresAt])
+  @@map("credenciales_api_docente")
 }
 
 model RecuperacionContrasenaDocente {

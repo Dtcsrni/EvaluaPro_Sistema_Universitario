@@ -5,7 +5,7 @@
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
 import type { ListaAcademicaFila } from './tiposListaAcademica.js';
-import { distribuirBonoExtracurricular } from './servicioBonoExtracurricular.js';
+import { calcularBonoExtracurricular } from './servicioBonoExtracurricular.js';
 import { presentarCalificacionExtraordinaria } from '../modulo_calificacion/index.js';
 import {
   calcularColumnasFisicasParcial2,
@@ -243,31 +243,20 @@ export function construirListaAcademica(
     const p1ExamenAutomatico = limitarNumeroLista(parcial1Registro?.calificacionExamenFinalTexto, 5);
     const p1Examen = limitarNumeroLista(examenPrimerParcialManual?.calificacion, 5) ?? p1ExamenAutomatico;
     const p1Continua = limitarNumeroLista(parcial1Registro?.evaluacionContinuaTexto, 5);
-    const calificacionFinalBase = parcial1Base !== null && parcial2Base !== null && parcial3Calculado !== null
-      ? round4((parcial1Base * 0.2) + (parcial2Base * 0.2) + (parcial3Calculado * 0.6))
-      : null;
     const bonoRegistro = (opciones.calificacionesManuales ?? []).find((registro) =>
       limpiarTexto(registro.alumnoId) === alumnoId && limpiarTexto(registro.componente) === 'Bono extracurricular'
     );
-    const bonoSolicitado = opciones.bonoExtracurricularPorAlumno?.has(alumnoId)
-      ? limitarNumeroLista(opciones.bonoExtracurricularPorAlumno.get(alumnoId), 1) ?? 0
-      : limitarNumeroLista(bonoRegistro?.calificacion, 1) ?? 0;
-    const distribucionBono = distribuirBonoExtracurricular({
+    const bonoSolicitadoRaw = opciones.bonoExtracurricularPorAlumno?.has(alumnoId)
+      ? limitarNumeroLista(opciones.bonoExtracurricularPorAlumno.get(alumnoId), 0.5) ?? 0
+      : limitarNumeroLista(bonoRegistro?.calificacion, 0.5) ?? 0;
+    const bonoSolicitado = bonoSolicitadoRaw === 0.5 ? 0.5 : 0;
+    const distribucionBono = calcularBonoExtracurricular({
       bono: bonoSolicitado,
-      componentes: {
-        examenGlobal: examenGlobalLista,
-        continuaGlobal: continuaTercerParcialLista,
-        examenParcial2: numeroLista(columnasFisicasParcial2.examen2doParcial),
-        continuaParcial2: numeroLista(columnasFisicasParcial2.evaluacionContinua2doParcial),
-        examenParcial1: p1Examen,
-        continuaParcial1: p1Continua
-      },
-      calificacionFinalBase,
-      preferencia: 'continua'
+      calificacionGlobalBase: parcial3Calculado
     });
-    const totalP1ConBono = parcial1Base === null ? null : round4(Math.min(10, parcial1Base + distribucionBono.asignacion.examenParcial1 + distribucionBono.asignacion.continuaParcial1));
-    const totalP2ConBono = parcial2Base === null ? null : round4(Math.min(10, parcial2Base + distribucionBono.asignacion.examenParcial2 + distribucionBono.asignacion.continuaParcial2));
-    const totalP3ConBono = parcial3Calculado === null ? null : round4(Math.min(10, parcial3Calculado + distribucionBono.asignacion.examenGlobal + distribucionBono.asignacion.continuaGlobal));
+    const totalP1ConBono = parcial1Base;
+    const totalP2ConBono = parcial2Base;
+    const totalP3ConBono = distribucionBono.calificacionGlobalResultante;
     const calificacionFinalCurso = totalP1ConBono !== null && totalP2ConBono !== null && totalP3ConBono !== null
       ? round4((totalP1ConBono * 0.2) + (totalP2ConBono * 0.2) + (totalP3ConBono * 0.6))
       : null;
@@ -354,7 +343,7 @@ export function construirListaAcademica(
       bonoExtracurricular: String(distribucionBono.aplicado),
       bonoExtracurricularSolicitado: String(bonoSolicitado),
       bonoExtracurricularVersion: numeroLista(bonoRegistro?.version),
-      bonoDistribucion: distribucionBono.asignacion,
+      bonoDistribucion: distribucionBono,
       calificacionFinalCurso: calificacionFinalCurso === null ? '' : String(calificacionFinalCurso),
       calificacionFinalCursoActa: calificacionFinalCurso === null ? '' : String(calificacionFinalCurso < 6 ? Math.floor(calificacionFinalCurso) : Math.round(calificacionFinalCurso)),
       extraDisponible: calificacionFinalCurso !== null && calificacionFinalCurso < 6,

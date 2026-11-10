@@ -23,17 +23,17 @@ describe('derivaciones de datos de plantillas', () => {
 
   it('agrupa lotes archivados, cuenta exámenes y etiqueta con la materia disponible', () => {
     const examenes = [
-      { _id: 'assessment-a', loteId: 'lote-a', periodoId: 'p-1' },
-      { _id: 'assessment-b', loteId: 'lote-a', periodoId: 'p-1' },
-      { _id: 'assessment-c', loteId: 'lote-b', periodoId: 'p-2' },
+      { _id: 'assessment-a', loteId: 'lote-a', periodoId: 'p-1', archivadoEn: '2026-09-01' },
+      { _id: 'assessment-b', loteId: 'lote-a', periodoId: 'p-1', archivadoEn: '2026-09-01' },
+      { _id: 'assessment-c', loteId: 'lote-b', periodoId: 'p-2', archivadoEn: '2026-09-01' },
       { _id: 'assessment-sin-lote', periodoId: 'p-1' }
     ];
     const periodos = [{ _id: 'p-2', nombre: 'Zoología' }] as unknown as Periodo[];
     const archivados = [{ _id: 'p-1', nombre: 'Álgebra' }] as unknown as Periodo[];
 
     expect(resumirLotesArchivadosOmr(examenes, periodos, archivados)).toEqual([
-      { assessmentId: 'assessment-a', loteId: 'lote-a', etiqueta: 'Álgebra · Lote lote-a', cantidad: 2 },
-      { assessmentId: 'assessment-c', loteId: 'lote-b', etiqueta: 'Zoología · Lote lote-b', cantidad: 1 }
+      { assessmentId: 'assessment-a', loteId: 'lote-a', etiqueta: 'Álgebra · Lote lote-a · archivado', cantidad: 2, archivado: true },
+      { assessmentId: 'assessment-c', loteId: 'lote-b', etiqueta: 'Zoología · Lote lote-b · archivado', cantidad: 1, archivado: true }
     ]);
   });
 });

@@ -22,6 +22,8 @@ export type PreviewPdfUrls = {
   omrSheetPages?: PreviewPdfPage[];
   bookletPagesTotal?: number;
   omrSheetPagesTotal?: number;
+  bookletLayoutConfirmado?: boolean | null;
+  bookletAdvertencias?: string[];
 };
 
 type Params = {
@@ -113,16 +115,32 @@ export function usePlantillasPreviewActions({
       }
 
       const intentar = async (t: string) =>
-        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual?refresh=${Date.now()}`, {
+        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual?refresh=1`, {
           credentials: 'include',
-          // La caché válida vive en el backend y está versionada por layout;
-          // el navegador no debe conservar un Blob de una preview anterior.
+          // Regenera también en el backend para validar y confirmar el diseño actual.
           cache: 'no-store',
           headers: { Authorization: `Bearer ${t}` }
         });
 
       try {
         setCargandoPreviewPdfPlantillaId(id);
+        setPreviewPdfUrlPorPlantillaId((prev) => {
+          const actual = prev[id];
+          if (!actual) return prev;
+          if (typeof actual[kind] === 'string') URL.revokeObjectURL(actual[kind] as string);
+          const siguiente = { ...actual };
+          delete siguiente[kind];
+          delete siguiente[kind === 'booklet' ? 'bookletPages' : 'omrSheetPages'];
+          delete siguiente[kind === 'booklet' ? 'bookletPagesTotal' : 'omrSheetPagesTotal'];
+          if (kind === 'booklet') {
+            delete siguiente.bookletLayoutConfirmado;
+            delete siguiente.bookletAdvertencias;
+          }
+          const copia = { ...prev };
+          if (!siguiente.booklet && !siguiente.omrSheet) delete copia[id];
+          else copia[id] = siguiente;
+          return copia;
+        });
         let resp = await intentar(token);
         if (resp.status === 401) {
           const nuevo = await clienteApi.intentarRefrescarToken();
@@ -139,18 +157,21 @@ export function usePlantillasPreviewActions({
           throw new Error('La previsualización visual no contiene páginas renderizadas.');
         }
         const paginas = payload.paginas;
+        const resumen = kind === 'booklet' ? await cargarPreviewPlantilla(id) : null;
         const bytes = Uint8Array.from(atob(payload.pdfBase64), (caracter) => caracter.charCodeAt(0));
         const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
         const pagesKey = kind === 'booklet' ? 'bookletPages' : 'omrSheetPages';
         const pagesTotalKey = kind === 'booklet' ? 'bookletPagesTotal' : 'omrSheetPagesTotal';
         setPreviewPdfUrlPorPlantillaId((prev) => {
-          const anterior = prev[id]?.[kind];
-          if (typeof anterior === 'string') URL.revokeObjectURL(anterior);
           return {
             ...prev,
             [id]: {
               ...prev[id],
               [kind]: url,
+              ...(kind === 'booklet' ? {
+                bookletLayoutConfirmado: resumen ? resumen.layoutConfirmado === true : null,
+                bookletAdvertencias: resumen?.advertencias ?? []
+              } : {}),
               [pagesKey]: paginas,
               [pagesTotalKey]: Number.isFinite(Number(payload.paginasTotales))
                 ? Number(payload.paginasTotales)
@@ -175,6 +196,7 @@ export function usePlantillasPreviewActions({
     },
     [
       avisarSinPermiso,
+      cargarPreviewPlantilla,
       cargandoPreviewPdfPlantillaId,
       puedePrevisualizarPlantillas,
       setCargandoPreviewPdfPlantillaId,
@@ -198,6 +220,11 @@ export function usePlantillasPreviewActions({
         const siguiente = { ...actual };
         delete siguiente[kind];
         delete siguiente[kind === 'booklet' ? 'bookletPages' : 'omrSheetPages'];
+        delete siguiente[kind === 'booklet' ? 'bookletPagesTotal' : 'omrSheetPagesTotal'];
+        if (kind === 'booklet') {
+          delete siguiente.bookletLayoutConfirmado;
+          delete siguiente.bookletAdvertencias;
+        }
         if (!siguiente.booklet && !siguiente.omrSheet) delete copia[id];
         else copia[id] = siguiente;
         return copia;

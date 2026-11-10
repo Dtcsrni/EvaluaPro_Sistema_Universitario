@@ -513,10 +513,10 @@ async function ensureTemplate(params: {
       answerKeyMode: 'digital',
       temas: JSON.stringify([]),
       bookletConfig: JSON.stringify({
-        sheetFamilyCode: `TV${params.manifest.templateVersion}`
+        sheetFamilyCode: params.manifest.traceability.contractId
       }),
       omrConfig: JSON.stringify({
-        sheetFamilyCode: `TV${params.manifest.templateVersion}`
+        sheetFamilyCode: params.manifest.traceability.contractId
       }),
       configuracionPdf: JSON.stringify({})
     }

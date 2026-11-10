@@ -458,12 +458,12 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
       periodoId: escenario.periodoId, alumnoId: escenario.alumnoId, bono: 0.5
     }).expect(200);
     expect(previa.body.preview).toMatchObject({
-      alumnoId: escenario.alumnoId, bonoSolicitado: '0.5', regla: 'continua-primero; global-c3, p2, p1',
+      alumnoId: escenario.alumnoId, bonoSolicitado: '0.5', regla: 'global-tercer-parcial-aprobado; maximo-10',
       escalaMaxima: 10, requiereConfirmacion: true,
       bonoDistribucion: {
-        continuaGlobal: 0, examenGlobal: 0,
-        continuaParcial2: 0, examenParcial2: 0,
-        continuaParcial1: 0, examenParcial1: 0
+        solicitado: 0.5, aplicado: 0, noAplicado: 0.5,
+        calificacionGlobalBase: 10, calificacionGlobalResultante: 10,
+        omitidoPorGlobalReprobatorio: false, omitidoPorGlobalDiez: true
       }
     });
 
@@ -485,8 +485,13 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
     expect(repetida.body).toMatchObject({ repetida: true, calificacion: { calificacion: 0.5, version: 1 } });
     await request(app).post(rutaGuardar).set(escenario.auth).send({
       periodoId: escenario.periodoId, alumnoId: escenario.alumnoId, componente: 'Bono extracurricular',
-      calificacion: 0.75, clientRequestId
+      calificacion: 0, clientRequestId
     }).expect(409);
+
+    await request(app).post(rutaGuardar).set(escenario.auth).send({
+      periodoId: escenario.periodoId, alumnoId: escenario.alumnoId, componente: 'Bono extracurricular',
+      calificacion: 0.25, clientRequestId: 'cbe44529-0bec-4086-ae4f-915683bba8d7'
+    }).expect(400);
 
     const consulta = await request(app).get(`/api/analiticas/lista-academica?periodoId=${encodeURIComponent(escenario.periodoId)}`)
       .set(escenario.auth).expect(200);

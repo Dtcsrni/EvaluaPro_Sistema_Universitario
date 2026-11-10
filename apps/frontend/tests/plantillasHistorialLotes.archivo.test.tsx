@@ -165,7 +165,7 @@ describe('historial de paquetes archivados', () => {
     expect(examenIndividual).not.toHaveTextContent('ID:');
     expect(screen.getByText('Folio: FOLIO-SIN-ALUMNO').closest('li')).toHaveTextContent('Alumno: Alumno no disponible');
     expect(screen.getByRole('button', { name: /Regenerar todos los exámenes, lote con folios visibles FOLIO-1/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Archivar paquete completo, lote con folios visibles FOLIO-1/i })).toHaveTextContent('Archivar');
+    expect(screen.getByRole('button', { name: /Archivar paquete completo tras cierre de materia o verificación de calificaciones, lote con folios visibles FOLIO-1/i })).toHaveTextContent('Archivar');
     expect(screen.queryByText(/LOTE-1/)).not.toBeInTheDocument();
     expect(screen.getByText(/Se muestran hasta 50 exámenes recientes/)).toBeInTheDocument();
   });
@@ -253,7 +253,7 @@ describe('historial de paquetes archivados', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'No hay paquetes activos' })).toBeInTheDocument();
-    expect(screen.getByText(/Hay 12 lotes archivados disponibles en el panel OMR inferior/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hay 12 lotes activos o archivados disponibles para cotejo OMR/i)).toBeInTheDocument();
   });
 
   it('anuncia fallos separados del historial, permite reintentar y no presenta un vacío falso', () => {

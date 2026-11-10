@@ -12,7 +12,7 @@ import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionIn
 import { useConfirmDialog } from '../../../../../ui/feedback/ConfirmDialogProvider';
 import type { GeneratedAssessmentDetalle, OmrJobDetalle } from '../../../tipos';
 
-export type ArchivoOmrLote = { assessmentId: string; loteId: string; etiqueta: string; cantidad: number };
+export type ArchivoOmrLote = { assessmentId: string; loteId: string; etiqueta: string; cantidad: number; archivado: boolean };
 export type TrabajoOmrResumen = {
   jobId: string;
   workflow: 'scan' | 'pdf_ingesta';
@@ -72,7 +72,7 @@ type Props = {
 type DraftHoja = {
   studentId: string;
   versionCode: string;
-  responses: Array<{ numeroPregunta: number; opcion: string | null }>;
+  responses: Array<{ numeroPregunta: number; opcion: string | null | undefined }>;
 };
 
 function construirDraftHoja(pagina: OmrJobDetalle['pages'][number] | null): DraftHoja {
@@ -90,6 +90,15 @@ function construirDraftHoja(pagina: OmrJobDetalle['pages'][number] | null): Draf
         }))
       : []
   };
+}
+
+function construirRespuestasEditor(draft: DraftHoja, numerosEsperados: number[]) {
+  if (numerosEsperados.length === 0) return draft.responses;
+  const respuestasExistentes = new Map(draft.responses.map((response) => [response.numeroPregunta, response]));
+  return [...new Set(numerosEsperados)]
+    .filter((numero) => Number.isSafeInteger(numero) && numero > 0)
+    .sort((left, right) => left - right)
+    .map((numeroPregunta) => respuestasExistentes.get(numeroPregunta) ?? { numeroPregunta, opcion: undefined });
 }
 
 function etiquetaEstadoRespuesta(estado?: string) {
@@ -305,11 +314,11 @@ export function PlantillasOmrWorkflow({
       return;
     }
     if (lotesArchivadosOmr.length === 0) {
-      setMensajePrevalidacion({ tipo: 'warning', texto: 'No hay lotes archivados disponibles para cotejar.' });
+      setMensajePrevalidacion({ tipo: 'warning', texto: 'No hay lotes disponibles para cotejar.' });
       return;
     }
     setPrevalidandoReferencia(true);
-    setMensajePrevalidacion({ tipo: 'info', texto: 'Validando los QR firmados del PDF contra los lotes archivados…' });
+    setMensajePrevalidacion({ tipo: 'info', texto: 'Validando los QR firmados del PDF contra los lotes disponibles…' });
     try {
       if (!prevalidarReferenciaOmr) throw new Error('La prevalidación de referencias no está disponible en este momento.');
       const resultado = await prevalidarReferenciaOmr({
@@ -329,7 +338,7 @@ export function PlantillasOmrWorkflow({
       } else {
         setMensajePrevalidacion({
           tipo: 'error',
-          texto: `Ninguno de los ${resultado.candidatesEvaluated} lotes tuvo coincidencia completa: ${resultado.reference.pagesWithSignedQr}/${resultado.reference.pages} páginas tienen QR firmado válido. No se creó un job.`
+          texto: `Ninguno de los ${resultado.candidatesEvaluated} lotes tuvo coincidencia completa: ${resultado.reference.pagesWithSignedQr}/${resultado.reference.pages} páginas coincidieron con QR firmados de los lotes consultados. No se creó un job.`
         });
       }
     } catch (error) {
@@ -358,6 +367,12 @@ export function PlantillasOmrWorkflow({
   const paquetesOmr = jobOmrIngesta?.packages ?? [];
   const originalesOmr = jobOmrIngesta?.files ?? [];
   const esIngestaOmr = Boolean(jobOmrIngesta && Array.isArray(jobOmrIngesta.packages) && Array.isArray(jobOmrIngesta.files));
+  const examenActivo = (jobOmrIngesta?.candidateExams ?? []).find((exam) => exam.id === (paginaActiva?.examId ?? ingestaExamId));
+  const paginaExamenActiva = paginaActiva?.examPage ?? ingestaExamPage;
+  const numerosEsperadosPagina = esIngestaOmr && paginaExamenActiva !== ''
+    ? examenActivo?.questionNumbersByPage?.[String(paginaExamenActiva)] ?? []
+    : [];
+  const respuestasEditor = construirRespuestasEditor(draftActivo, numerosEsperadosPagina);
   const estadoJobOmr = String(jobOmr?.status ?? '').trim().toLowerCase();
   const ingestaEnCurso = esIngestaOmr && ['queued', 'processing'].includes(estadoJobOmr);
   const paginasOmrTotales = jobOmr && Number.isFinite(jobOmr.pagesTotal)
@@ -465,19 +480,19 @@ export function PlantillasOmrWorkflow({
     return (
       <div className="resultado plantillas-omr">
         <h4>{OMR_CANONICAL_DISPLAY_LABEL}</h4>
-        <p className="nota">Selecciona un lote generado para vincular capturas con su referencia OMR. Los lotes archivados siguen protegidos; esta selección no los restaura.</p>
+        <p className="nota">Selecciona un lote generado, activo o archivado, para cotejar su referencia OMR. La consulta no cambia el estado del lote.</p>
         {panelHistorialOmr}
-        {cargandoLotesArchivadosOmr ? <InlineMensaje tipo="info">Cargando lotes archivados…</InlineMensaje> : (
+        {cargandoLotesArchivadosOmr ? <InlineMensaje tipo="info">Cargando lotes…</InlineMensaje> : (
           <>
-          {!puedeLeerLotesArchivadosOmr && <InlineMensaje tipo="error">Tu perfil no tiene permiso para consultar los exámenes archivados.</InlineMensaje>}
+          {!puedeLeerLotesArchivadosOmr && <InlineMensaje tipo="error">Tu perfil no tiene permiso para consultar los exámenes.</InlineMensaje>}
           {errorCargaLotesArchivadosOmr && (
             <div className="acciones">
-              <InlineMensaje tipo="error">No se pudo cargar el archivo de lotes: {errorCargaLotesArchivadosOmr}</InlineMensaje>
+              <InlineMensaje tipo="error">No se pudo cargar la lista de lotes: {errorCargaLotesArchivadosOmr}</InlineMensaje>
               {puedeLeerLotesArchivadosOmr && <Boton type="button" variante="secundario" onClick={onReintentarCargaLotesArchivadosOmr}>Reintentar carga</Boton>}
             </div>
           )}
           {puedeLeerLotesArchivadosOmr && !errorCargaLotesArchivadosOmr && lotesArchivadosOmr.length === 0 && (
-            <InlineMensaje tipo="info">No se encontraron lotes archivados con exámenes disponibles para OMR.</InlineMensaje>
+            <InlineMensaje tipo="info">No se encontraron lotes con exámenes disponibles para OMR.</InlineMensaje>
           )}
           <section className="resultado plantillas-omr__prevalidacion" aria-labelledby="omr-prevalidar-referencia-titulo">
             <h4 id="omr-prevalidar-referencia-titulo">Primero, coteja el PDF generado</h4>
@@ -529,7 +544,7 @@ export function PlantillasOmrWorkflow({
           </section>
           {lotesArchivadosOmr.length > 0 && (
             <div className="campo-formulario">
-              <label htmlFor="omr-lote-archivado">Lote de examen</label>
+              <label htmlFor="omr-lote-archivado">Lote de referencia</label>
               <select
                 id="omr-lote-archivado"
                 value={loteArchivadoSeleccionado}
@@ -565,7 +580,7 @@ export function PlantillasOmrWorkflow({
       {cargandoAssessmentId && <InlineMensaje tipo="info">Cargando detalle de assessment…</InlineMensaje>}
       {loteArchivadoActivo && (
         <p className="nota" role="status">
-          Lote archivado seleccionado: {loteArchivadoActivo.etiqueta} · {loteArchivadoActivo.cantidad} exámenes. El archivo permanece sin restaurar.
+          Lote seleccionado: {loteArchivadoActivo.etiqueta} · {loteArchivadoActivo.cantidad} exámenes. {loteArchivadoActivo.archivado ? 'El lote continúa archivado; la consulta no lo restaura.' : 'El lote permanece activo.'}
         </p>
       )}
       <div className="item-meta">
@@ -742,7 +757,7 @@ export function PlantillasOmrWorkflow({
         </Boton>
       </div>
       {selectionError && <InlineMensaje tipo="error">{selectionError}</InlineMensaje>}
-      {files.some(esArchivoPdf) && !selectionError && <InlineMensaje tipo="info">EvaluaPro conservará el original, procesará páginas por bloques, validará cada QR contra el lote y preparará paquetes descargables. Las hojas ambiguas quedarán para revisión; este flujo no guarda calificaciones.</InlineMensaje>}
+      {files.some(esArchivoPdf) && !selectionError && <InlineMensaje tipo="info">EvaluaPro conservará el original, procesará páginas por bloques, cotejará cada QR con el lote y preparará paquetes. Al terminar, guardará automáticamente las notas de exámenes completos que pasen los controles de identidad, mapa, calidad y confianza; los casos no verificables quedarán para revisión.</InlineMensaje>}
       {referencePdf && !selectionError && <InlineMensaje tipo="info">El PDF de referencia se conserva solo con este job. La ingesta falla si no coinciden todas las páginas y los QR firmados del lote.</InlineMensaje>}
 
       {panelHistorialOmr}
@@ -759,6 +774,11 @@ export function PlantillasOmrWorkflow({
               <span>Revisión: {jobOmr.summary?.needsReview ?? 'No disponible'}</span>
               <span>Rechazadas: {jobOmr.summary?.rejected ?? 'No disponible'}</span>
               <span>Calificables automáticamente: {jobOmr.summary?.autoGradable ?? 'No disponible'}</span>
+              {jobOmr.summary?.automaticGrades && (
+                <span>
+                  Guardando: {jobOmr.summary.automaticGrades.processing} · guardadas: {jobOmr.summary.automaticGrades.saved} · ya existentes: {jobOmr.summary.automaticGrades.alreadyRecorded} · revisión: {jobOmr.summary.automaticGrades.needsReview} · errores: {jobOmr.summary.automaticGrades.failed}
+                </span>
+              )}
               <span>
                 Promedio: {jobOmr.summary?.averageScore == null ? 'No disponible' : `${jobOmr.summary.averageScore}%`}
               </span>
@@ -780,7 +800,21 @@ export function PlantillasOmrWorkflow({
                 />
               </div>
             )}
-            <p className="ayuda">Este proceso OMR no guarda ni modifica calificaciones.</p>
+            <p className="ayuda">Al terminar el análisis, EvaluaPro guarda automáticamente las calificaciones que pasan todos los controles. Una nota existente no se sobrescribe; los casos no verificables quedan pendientes de revisión.</p>
+            {jobOmr.automaticGrade && (
+              <div className="item-meta" role="status">
+                <span>
+                  {jobOmr.automaticGrade.status === 'saved'
+                    ? `Calificación guardada: ${jobOmr.automaticGrade.aciertos ?? 0}/${jobOmr.automaticGrade.totalReactivos ?? 0} · ${jobOmr.automaticGrade.calificacionExamen ?? ''}`
+                    : jobOmr.automaticGrade.status === 'already_recorded'
+                      ? `Ya tenía calificación: ${jobOmr.automaticGrade.aciertos ?? 0}/${jobOmr.automaticGrade.totalReactivos ?? 0} · ${jobOmr.automaticGrade.calificacionExamen ?? ''}`
+                      : jobOmr.automaticGrade.status === 'failed'
+                        ? 'Falló el guardado automático'
+                        : 'Calificación pendiente de revisión'}
+                </span>
+                {jobOmr.automaticGrade.reasonCodes?.length ? <span>Códigos: {jobOmr.automaticGrade.reasonCodes.join(', ')}</span> : null}
+              </div>
+            )}
             {jobOmr.status === 'failed' && (
               <>
                 <InlineMensaje tipo="error">
@@ -826,7 +860,7 @@ export function PlantillasOmrWorkflow({
                       message: 'EvaluaPro verificará los originales, continuará las páginas pendientes y reconstruirá los paquetes.',
                       confirmLabel: 'Reprocesar',
                       tone: 'warning',
-                      details: ['Se validarán nuevamente los hashes de cada original y de la referencia.', 'No se guardan ni modifican calificaciones.']
+                      details: ['Se validarán nuevamente los hashes de cada original y de la referencia.', 'Las notas automáticas usan una clave estable por examen; una nota existente no se sobrescribe.']
                     });
                     if (aceptado) await onReintentarIngestaPdf(jobOmr.jobId);
                   }}
@@ -909,6 +943,22 @@ export function PlantillasOmrWorkflow({
                 {paquetesOmr.map((paquete) => (
                   <li key={paquete.id}>
                     <b>{paquete.folio}</b> · {paquete.course} · {paquete.subject} · {paquete.partial} · {paquete.teacher} · {paquete.student} · {paquete.group || 'Sin grupo'} · {paquete.pageCount} páginas · {paquete.status === 'complete' ? 'Completo' : 'Revisión requerida'}
+                    {paquete.grading && (
+                      <div className="item-meta" role="status">
+                        <span>
+                          {paquete.grading.status === 'saved'
+                            ? `Calificación guardada: ${paquete.grading.aciertos ?? 0}/${paquete.grading.totalReactivos ?? 0} · ${paquete.grading.calificacionExamen ?? ''}`
+                            : paquete.grading.status === 'processing'
+                              ? 'Guardando calificación automática…'
+                              : paquete.grading.status === 'already_recorded'
+                              ? `Ya tenía calificación: ${paquete.grading.aciertos ?? 0}/${paquete.grading.totalReactivos ?? 0} · ${paquete.grading.calificacionExamen ?? ''}`
+                              : paquete.grading.status === 'failed'
+                                ? 'No se pudo completar el guardado automático'
+                                : 'Calificación pendiente de revisión'}
+                        </span>
+                        {paquete.grading.reasonCodes?.length ? <span>Códigos: {paquete.grading.reasonCodes.join(', ')}</span> : null}
+                      </div>
+                    )}
                     <div className="acciones acciones--mt">
                       <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(`/omr/ingestas/${encodeURIComponent(jobOmr.jobId)}/paquetes/${encodeURIComponent(paquete.id)}`, paquete.fileName)}>
                         Descargar PDF
@@ -1083,20 +1133,27 @@ export function PlantillasOmrWorkflow({
                 </label>
               </div>
               <div className="plantillas-omr__responses">
-                {draftActivo.responses.map((response, index) => (
+                {esIngestaOmr && numerosEsperadosPagina.length === 0 && respuestasEditor.length === 0 && (
+                  <InlineMensaje tipo="error">No hay un mapa verificable de reactivos para esta página. No se puede guardar una resolución completa.</InlineMensaje>
+                )}
+                {respuestasEditor.map((response, index) => (
                   (() => {
                     const evidencia = paginaActiva.responses.find((item) => item.numeroPregunta === response.numeroPregunta);
+                    const marcaAmbigua = ['ambigua', 'doble_marca'].includes(String(evidencia?.estadoRespuesta ?? ''));
                     return (
                       <div key={`${paginaActiva.sheetSerial}-${response.numeroPregunta}`} className="resultado">
                         <label className="campo">
                           Reactivo {response.numeroPregunta}
                           <select
-                            value={response.opcion ?? ''}
+                            value={marcaAmbigua ? '' : response.opcion === undefined ? '__PENDIENTE__' : response.opcion ?? ''}
+                            disabled={marcaAmbigua}
                             onChange={(event) => {
                               const serial = String(paginaActiva.sheetSerial || '').trim();
                               if (!serial) return;
-                              const siguiente = draftActivo.responses.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, opcion: event.target.value || null } : item
+                              const siguiente = respuestasEditor.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, opcion: event.target.value === '__PENDIENTE__' ? undefined : event.target.value || null }
+                                  : item
                               );
                               setDraftsPorHoja((prev) => ({
                                 ...prev,
@@ -1104,16 +1161,17 @@ export function PlantillasOmrWorkflow({
                               }));
                             }}
                           >
+                            <option value="__PENDIENTE__">Confirma respuesta</option>
                             <option value="">Sin marca</option>
                             {['A', 'B', 'C', 'D', 'E'].map((option) => (
                               <option key={option} value={option}>{option}</option>
                             ))}
                           </select>
                         </label>
-                        <p>Estado: {etiquetaEstadoRespuesta(evidencia?.estadoRespuesta)}</p>
+                        <p>Estado: {marcaAmbigua ? 'Varias marcas / ambigua: se calificará incorrecta' : etiquetaEstadoRespuesta(evidencia?.estadoRespuesta)}</p>
                         <p>Opción detectada: {evidencia?.opcionDetectada ?? 'Ninguna'}</p>
                         <p>
-                          Marcas candidatas del análisis:{' '}
+                          {evidencia ? 'Marcas candidatas del análisis:' : 'Sin detección OMR; captura la respuesta tras cotejar la imagen:'}{' '}
                           {evidencia?.candidatas?.length
                             ? evidencia.candidatas.map((candidata) => `${candidata.opcion} (${Math.round(candidata.score * 100)}%, ${etiquetaEstadoMarca(candidata.estadoMarca)})`).join(' · ')
                             : 'No hay marcas candidatas disponibles'}
@@ -1136,11 +1194,14 @@ export function PlantillasOmrWorkflow({
                           resolutionReason,
                           ...(esIngestaOmr ? { ingestionResolution: { pageIndex: paginaActiva.pageIndex, ...(!paginaActiva.examId ? { generatedAssessmentId: ingestaExamId, examPage: Number(ingestaExamPage) } : {}) } } : {}),
                           finalIdentity: { studentId: draftActivo.studentId },
-                          finalResponses: draftActivo.responses,
+                          finalResponses: respuestasEditor.map((answer) => ({ numeroPregunta: answer.numeroPregunta, opcion: answer.opcion ?? null })),
                           overrides: { versionCode: draftActivo.versionCode }
                         })
                       }
-                      disabled={!resolutionReason.trim() || (esIngestaOmr && !paginaActiva.examId && (!ingestaExamId || !ingestaExamPage))}
+                      disabled={!resolutionReason.trim()
+                        || (esIngestaOmr && !paginaActiva.examId && (!ingestaExamId || !ingestaExamPage))
+                        || (esIngestaOmr && paginaActiva.pageType !== 'reverso-vacio' && respuestasEditor.length === 0)
+                        || respuestasEditor.some((answer) => answer.opcion === undefined)}
                     >
                       Guardar resolución
                     </Boton>

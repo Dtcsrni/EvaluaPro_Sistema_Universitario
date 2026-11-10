@@ -268,6 +268,7 @@ describe('hooks de plantillas', () => {
     const toastSpy = vi.spyOn(toastBus, 'emitToast');
     const fetchMock = vi.mocked(global.fetch);
     const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview-actualizado');
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     const pdfBase64 = btoa('%PDF-1.4 preview');
     vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
@@ -299,9 +300,12 @@ describe('hooks de plantillas', () => {
 
     const llamada = fetchMock.mock.calls.find(([input]) => String(input).includes('/examenes/plantillas/pla-1/previsualizar/pdf'));
     expect(llamada).toBeTruthy();
-    expect(String(llamada?.[0])).toMatch(/\/previsualizar\/pdf\/visual[?&]refresh=\d+/);
+    expect(String(llamada?.[0])).toMatch(/\/previsualizar\/pdf\/visual[?&]refresh=1$/);
     expect(createObjectUrl).toHaveBeenCalled();
-    const actualizador = setPreviewPdfUrlPorPlantillaId.mock.calls[0]?.[0] as (prev: Record<string, unknown>) => Record<string, unknown>;
+    const invalidar = setPreviewPdfUrlPorPlantillaId.mock.calls[0]?.[0] as (prev: Record<string, unknown>) => Record<string, unknown>;
+    expect(invalidar({ 'pla-1': { omrSheet: 'blob:anterior' } })).toEqual({});
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:anterior');
+    const actualizador = setPreviewPdfUrlPorPlantillaId.mock.calls.at(-1)?.[0] as (prev: Record<string, unknown>) => Record<string, unknown>;
     expect(actualizador({})).toEqual({
       'pla-1': {
         omrSheet: 'blob:preview-actualizado',
@@ -338,6 +342,7 @@ describe('hooks de plantillas', () => {
       })
     } as Response);
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview-extra');
+    const setPdf = vi.fn();
     const { result } = renderHook(() => usePlantillasPreviewActions({
       paginasExtraordinarioObjetivo: 6,
       puedePrevisualizarPlantillas: true,
@@ -348,7 +353,7 @@ describe('hooks de plantillas', () => {
       setPreviewPorPlantillaId: vi.fn(),
       setCargandoPreviewPlantillaId: vi.fn(),
       setPlantillaPreviewId: vi.fn(),
-      setPreviewPdfUrlPorPlantillaId: vi.fn(),
+      setPreviewPdfUrlPorPlantillaId: setPdf,
       setCargandoPreviewPdfPlantillaId: vi.fn()
     }));
 
@@ -359,6 +364,8 @@ describe('hooks de plantillas', () => {
 
     expect(preview?.layoutConfirmado).toBe(true);
     expect(preview?.paginas).toHaveLength(6);
+    const guardar = setPdf.mock.calls.at(-1)?.[0] as (prev: Record<string, unknown>) => Record<string, { bookletLayoutConfirmado?: boolean }>;
+    expect(guardar({})['pla-extra']?.bookletLayoutConfirmado).toBe(true);
   });
 
   it('usePlantillasOmrActions avisa cuando no hay permiso para analizar OMR', async () => {

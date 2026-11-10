@@ -1,7 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
-import { cargarTodasLasPaginasArchivadas } from '../src/apps/app_docente/features/plantillas/archivoOmr';
+import { cargarExamenesParaOmr, cargarTodasLasPaginasArchivadas } from '../src/apps/app_docente/features/plantillas/archivoOmr';
+import { resumirLotesOmr } from '../src/apps/app_docente/features/plantillas/datosPlantilla';
 
 describe('paginación del archivo OMR', () => {
+  it('mantiene separados lotes activos y archivados y muestra el estado correcto', () => {
+    const lotes = resumirLotesOmr([
+      { _id: 'activo', loteId: 'L1', periodoId: 'P1', archivadoEn: null },
+      { _id: 'activo-2', loteId: 'L1', periodoId: 'P1', archivadoEn: null },
+      { _id: 'archivado', loteId: 'L1', periodoId: 'P1', archivadoEn: '2026-11-01T00:00:00Z' }
+    ], [], []);
+
+    expect(lotes).toEqual([
+      { assessmentId: 'activo', loteId: 'L1', etiqueta: 'Materia no disponible · Lote L1 · activo', cantidad: 2, archivado: false },
+      { assessmentId: 'archivado', loteId: 'L1', etiqueta: 'Materia no disponible · Lote L1 · archivado', cantidad: 1, archivado: true }
+    ]);
+  });
+
+  it('incluye lotes activos y archivados sin duplicar exámenes', async () => {
+    const obtenerPagina = vi.fn(async (archivado: boolean) => ({
+      examenes: archivado ? [{ _id: 'archivado' }, { _id: 'compartido' }] : [{ _id: 'activo' }, { _id: 'compartido' }],
+      nextCursor: null
+    }));
+    const examenes = await cargarExamenesParaOmr(obtenerPagina);
+    expect(obtenerPagina).toHaveBeenCalledWith(false, null);
+    expect(obtenerPagina).toHaveBeenCalledWith(true, null);
+    expect(examenes.map((examen) => examen._id)).toEqual(['activo', 'compartido', 'archivado']);
+  });
   it('carga más de 20 páginas sin truncar lotes archivados', async () => {
     const obtenerPagina = vi.fn(async (cursor: string | null) => {
       const indice = cursor === null ? 0 : Number(cursor);

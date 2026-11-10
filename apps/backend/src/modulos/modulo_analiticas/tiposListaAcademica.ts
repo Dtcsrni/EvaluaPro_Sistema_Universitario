@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import type { AsignacionBonoExtracurricular } from './servicioBonoExtracurricular.js';
+import type { ResultadoBonoExtracurricular } from './servicioBonoExtracurricular.js';
 
 export type ListaAcademicaFila = {
   alumnoId?: string;
@@ -41,7 +41,7 @@ export type ListaAcademicaFila = {
   bonoExtracurricular: string;
   bonoExtracurricularSolicitado: string;
   bonoExtracurricularVersion: number | null;
-  bonoDistribucion?: AsignacionBonoExtracurricular;
+  bonoDistribucion?: ResultadoBonoExtracurricular;
   calificacionFinalCurso: string;
   calificacionFinalCursoActa: string;
   extraDisponible: boolean;

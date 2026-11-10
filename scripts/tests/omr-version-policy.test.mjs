@@ -27,10 +27,13 @@ const syntheticManifest = leerJson('omr_samples_tv4/manifest.json');
 
 test('la política declara una única identidad OMR canónica', () => {
   assert.equal(policy.active.templateVersion, 4);
-  assert.equal(policy.active.contractId, 'omr-canonical-v4');
-  assert.equal(policy.active.displayLabel, 'OMR canónico · v4');
-  assert.equal(policy.active.wireMarker, 'TV4');
+  assert.equal(policy.active.contractId, 'omr-canonical-1.0.0');
+  assert.equal(policy.active.layoutVersion, '1.0.0-dev.1');
+  assert.equal(policy.active.displayLabel, `OMR · ${policy.active.layoutVersion}`);
+  assert.equal(policy.active.displayLabel, 'OMR · 1.0.0-dev.1');
+  assert.equal(policy.active.wireMarker, 'O1.0.0');
   assert.equal(policy.oldVersionsOperational, false);
+  assert.equal(policy.legacyQrReadable, true);
   assert.equal(policy.selectionRule, 'explicit-canonical-only');
   assert.equal(policy.rejectionRule, 'fail-closed');
 });
@@ -48,20 +51,19 @@ test('el motor OMR/QR tiene release SemVer independiente de app y plantilla', ()
 
 test('backend y frontend usan la misma versión y etiqueta declaradas', () => {
   assert.match(backendTemplate, /TEMPLATE_VERSION_CANONICA:\s*TemplateVersion\s*=\s*4/);
-  assert.match(backendTemplate, /OMR_CANONICAL_CONTRACT_ID\s*=\s*'omr-canonical-v4'/);
-  assert.match(backendTemplate, /OMR_CANONICAL_DISPLAY_LABEL\s*=\s*'OMR canónico · v4'/);
+  assert.match(backendTemplate, /OMR_CANONICAL_CONTRACT_ID\s*=\s*'omr-canonical-1\.0\.0'/);
+  assert.match(backendTemplate, /OMR_LAYOUT_RELEASE_VERSION\s*=\s*'1\.0\.0-dev\.1'/);
+  assert.match(backendTemplate, /OMR_CANONICAL_DISPLAY_LABEL\s*=\s*`OMR · \$\{OMR_LAYOUT_RELEASE_VERSION\}`/);
   assert.match(backendTypes, /export type TemplateVersion\s*=\s*4/);
   assert.match(frontendVersion, /VITE_OMR_CANONICAL_VERSION/);
-  assert.match(frontendVersion, /omr-canonical-v4/);
-  assert.match(frontendVersion, /OMR canónico · v4/);
+  assert.match(frontendVersion, /omr-canonical-1\.0\.0/);
+  assert.match(frontendVersion, /OMR · 1.0.0-dev.1/);
   assert.match(versionPage, /(?:Contrato|Motor) OMR:?/);
   assert.match(versionPage, /vm\.omrDisplayLabel/);
   assert.doesNotMatch(versionPage, /Versiones antiguas:/);
 });
 
 test('la GUI marca el contrato activo y no presenta OMR V1', () => {
-  assert.match(shellDocente, /OMR_CANONICAL_DISPLAY_LABEL/);
-  assert.match(shellDocente, /chip-omr-contract/);
   assert.match(omrWorkflow, /OMR_CANONICAL_DISPLAY_LABEL/);
   assert.match(omrActions, /OMR_CANONICAL_DISPLAY_LABEL/);
   assert.doesNotMatch(`${shellDocente}\n${omrWorkflow}\n${omrActions}`, /OMR V1|assessment V1/i);

@@ -366,7 +366,7 @@ describe('PlantillasOmrWorkflow', () => {
 
   it('permite elegir un lote archivado sin restaurarlo cuando no hay assessment cargado', async () => {
     const onSeleccionarLoteArchivado = vi.fn().mockResolvedValue(undefined);
-    const lotesArchivadosOmr = [{ assessmentId: 'exam-1', loteId: 'batch-1', etiqueta: 'Inteligencia de Negocios · Lote batch-1', cantidad: 12 }];
+    const lotesArchivadosOmr = [{ assessmentId: 'exam-1', loteId: 'batch-1', etiqueta: 'Inteligencia de Negocios · Lote batch-1 · archivado', cantidad: 12, archivado: true }];
     const assessmentDetalle: GeneratedAssessmentDetalle = {
       assessment: {
         _id: 'exam-1', folio: 'FOLIO-1', generationSeed: 'seed', title: 'Global', templateId: 'template-1', templateVersion: 4,
@@ -391,8 +391,8 @@ describe('PlantillasOmrWorkflow', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: /OMR canónico · v4/i })).toBeInTheDocument();
-    const selector = screen.getByLabelText('Lote de examen');
+    expect(screen.getByRole('heading', { name: /OMR · 1.0.0-dev.1/i })).toBeInTheDocument();
+    const selector = screen.getByLabelText('Lote de referencia');
     fireEvent.change(selector, { target: { value: 'exam-1' } });
     await waitFor(() => expect(onSeleccionarLoteArchivado).toHaveBeenCalledWith('exam-1'));
 
@@ -413,7 +413,7 @@ describe('PlantillasOmrWorkflow', () => {
         finalizarJobOmr={vi.fn().mockResolvedValue(undefined)}
       />
     );
-    expect(screen.getByText(/Lote archivado seleccionado: Inteligencia de Negocios · Lote batch-1 · 12 exámenes/)).toBeInTheDocument();
+    expect(screen.getByText(/Lote seleccionado: Inteligencia de Negocios · Lote batch-1 · archivado · 12 exámenes\. El lote continúa archivado; la consulta no lo restaura\./)).toBeInTheDocument();
   });
 
   it('coteja el PDF por QR contra los lotes disponibles antes de seleccionar el coincidente', async () => {
@@ -467,7 +467,7 @@ describe('PlantillasOmrWorkflow', () => {
     render(
       <PlantillasOmrWorkflow
         assessmentDetalle={null}
-        lotesArchivadosOmr={[{ assessmentId: 'exam-1', loteId: 'batch-1', etiqueta: 'BI · Lote batch-1', cantidad: 12 }]}
+        lotesArchivadosOmr={[{ assessmentId: 'exam-1', loteId: 'batch-1', etiqueta: 'BI · Lote batch-1 · activo', cantidad: 12, archivado: false }]}
         cargandoLotesArchivadosOmr={false}
         onSeleccionarLoteArchivado={onSeleccionarLoteArchivado}
         prevalidarReferenciaOmr={vi.fn().mockResolvedValue({ reference: { pages: 48, pagesWithSignedQr: 47 }, candidatesEvaluated: 1, matches: [] })}
@@ -508,7 +508,7 @@ describe('PlantillasOmrWorkflow', () => {
     };
 
     const view = render(<PlantillasOmrWorkflow {...props} />);
-    expect(screen.getByText(/No se encontraron lotes archivados/i)).toBeInTheDocument();
+    expect(screen.getByText(/No se encontraron lotes con exámenes disponibles/i)).toBeInTheDocument();
     expect(screen.queryByLabelText('Lote de examen')).not.toBeInTheDocument();
 
     view.rerender(
@@ -658,6 +658,7 @@ describe('PlantillasOmrWorkflow', () => {
       packages: [{ id: 'pkg-1', fileName: 'alumno.pdf', status: 'complete', pageCount: 1, course: 'Curso', subject: 'Materia', partial: 'Global', teacher: 'Docente', student: 'Alumno', group: '23A', folio: 'FOLIO-1' }],
       files: [{ id: 'src-1', nombre: 'scan.pdf', bytes: 1024, pages: 1, sha256: 'a'.repeat(64) }],
       status: 'review_pending',
+      automaticGrade: { status: 'needs_review', reasonCodes: ['OMR_ANALISIS_NO_VERIFICADO'] },
       summary: {
         total: 1,
         accepted: 0,
@@ -731,7 +732,8 @@ describe('PlantillasOmrWorkflow', () => {
     expect(estadoJob).not.toHaveTextContent('Calificables automáticamente');
     expect(screen.getByText('Calificables automáticamente: 0')).toBeInTheDocument();
     expect(screen.getByText('Calificables automáticamente: 0').closest('[role="status"]')).toBeNull();
-    expect(screen.getByText('Este proceso OMR no guarda ni modifica calificaciones.')).toBeInTheDocument();
+    expect(screen.getByText('Calificación pendiente de revisión')).toBeInTheDocument();
+    expect(screen.getByText('Al terminar el análisis, EvaluaPro guarda automáticamente las calificaciones que pasan todos los controles. Una nota existente no se sobrescribe; los casos no verificables quedan pendientes de revisión.')).toBeInTheDocument();
 
     // Seleccionar hoja para revisión
     const botonHoja = screen.getByRole('button', { name: /SH-001 · P1 · Requiere revisión/i });
@@ -743,8 +745,9 @@ describe('PlantillasOmrWorkflow', () => {
     expect(screen.getByRole('note')).toHaveTextContent(/verifica las respuestas contra la captura/);
     expect(screen.getByLabelText('Identificador del alumno')).toBeInTheDocument();
     expect(screen.getByLabelText('Reactivo 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reactivo 1')).toBeDisabled();
     expect(screen.getByDisplayValue('CUH111')).toBeInTheDocument();
-    expect(screen.getByText('Estado: Varias marcas')).toBeInTheDocument();
+    expect(screen.getByText('Estado: Varias marcas / ambigua: se calificará incorrecta')).toBeInTheDocument();
     expect(screen.getByText('Estado: Requiere revisión')).toBeInTheDocument();
     expect(screen.getByText('Revisión requerida')).toBeInTheDocument();
     const codigoTecnico = screen.getByText('Ver código técnico para soporte');
@@ -803,7 +806,10 @@ describe('PlantillasOmrWorkflow', () => {
     const job: OmrJobDetalle = {
       jobId: 'ingesta-1', sourceType: 'pdf', status: 'completed', pagesTotal: 1, pagesProcessed: 1,
       packages: [], files: [{ id: 'file-1', nombre: 'scan.pdf', bytes: 1024, pages: 1, sha256: 'a'.repeat(64) }],
-      candidateExams: [{ id: 'exam-2', folio: 'EX-002', studentName: 'Ana Pérez', group: '2A', pages: [1, 2] }],
+      candidateExams: [{
+        id: 'exam-2', folio: 'EX-002', studentName: 'Ana Pérez', group: '2A', pages: [1, 2],
+        questionNumbersByPage: { '1': [1, 2], '2': [3] }
+      }],
       pages: [{
         sheetSerial: 'PENDIENTE-1', pageIndex: 1, sourceFileId: 'file-1', sourceFileName: 'scan.pdf', sourcePage: 1,
         scanStatus: 'needs_review', confidence: 0, autoGradable: false, manualReviewRequired: true, responses: [],
@@ -831,15 +837,22 @@ describe('PlantillasOmrWorkflow', () => {
     expect(screen.getByLabelText('Página del examen')).toHaveValue('2');
     expect(screen.getByText(/OCR coincide en 2 posiciones/i)).toBeInTheDocument();
     expect(screen.getByText(/compara visualmente las páginas antes de confirmar/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sin detección OMR; captura la respuesta tras cotejar la imagen/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Reactivo 3')).toHaveValue('__PENDIENTE__');
+    const guardar = screen.getByRole('button', { name: /Guardar resolución/i });
+    expect(guardar).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: /Mostrar página 2 del PDF generado/i }));
     await waitFor(() => expect(screen.getByAltText('Página 2 del examen generado exam-2')).toHaveAttribute('src', 'blob:manual-reference'));
     expect(obtenerPreviewReferenciaOmr).toHaveBeenCalledWith('ingesta-1', 1, 'exam-2', 2);
-    fireEvent.click(screen.getByRole('button', { name: /Guardar resolución/i }));
+    fireEvent.change(screen.getByLabelText('Reactivo 3'), { target: { value: 'A' } });
+    expect(guardar).toBeEnabled();
+    fireEvent.click(guardar);
 
     expect(resolver).toHaveBeenCalledWith(expect.objectContaining({
       jobId: 'ingesta-1',
       sheetSerial: 'PENDIENTE-1',
-      ingestionResolution: { pageIndex: 1, generatedAssessmentId: 'exam-2', examPage: 2 }
+      ingestionResolution: { pageIndex: 1, generatedAssessmentId: 'exam-2', examPage: 2 },
+      finalResponses: [{ numeroPregunta: 3, opcion: 'A' }]
     }));
     if (originalCreateObjectUrl) Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: originalCreateObjectUrl });
     else delete (URL as unknown as { createObjectURL?: unknown }).createObjectURL;

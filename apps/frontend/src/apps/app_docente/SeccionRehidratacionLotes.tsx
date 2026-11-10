@@ -10,6 +10,7 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { Icono } from '../../ui/iconos';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../ui/version/versionInfo';
 import { clienteApi } from './clienteApiDocente';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Docente } from './tipos';
@@ -339,7 +340,7 @@ export function SeccionRehidratacionLotes({
           </div>
           <div className="calificaciones-kpi__item">
             <span>Plantilla OMR</span>
-            <b>{bundleActivo?.templateVersion ? `TV${bundleActivo.templateVersion}` : 'N/D'}</b>
+            <b>{bundleActivo?.templateVersion ? OMR_CANONICAL_DISPLAY_LABEL : 'N/D'}</b>
           </div>
           <div className="calificaciones-kpi__item">
             <span>Exámenes</span>
@@ -412,7 +413,7 @@ export function SeccionRehidratacionLotes({
               <span className={verificacionActual.recoverable ? 'badge ok' : 'badge warning'}>
                 {verificacionActual.recoverable ? 'Recuperable' : 'No recuperable'}
               </span>
-              <span>Template {verificacionActual.templateVersion ? `TV${verificacionActual.templateVersion}` : 'N/D'}</span>
+              <span>{verificacionActual.templateVersion ? OMR_CANONICAL_DISPLAY_LABEL : 'Plantilla OMR: N/D'}</span>
                 <span>{verificacionActual.examCount} exámenes</span>
               <span>{verificacionActual.questionBankCount} reactivos</span>
             </div>

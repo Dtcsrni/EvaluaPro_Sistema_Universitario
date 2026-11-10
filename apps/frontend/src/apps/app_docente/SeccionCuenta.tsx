@@ -19,6 +19,7 @@ import {
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaCuentaVisual } from './GuiaCuentaVisual';
+import { GestionApiLocal } from './GestionApiLocal';
 import { SeccionConfiguracionSincronizacion } from './SeccionConfiguracionSincronizacion';
 import type { EstadoLeaseUI } from './SeccionLeaseSincronizacion';
 import { compararVersiones, obtenerVersionTecnicaApp } from '../../ui/version/versionInfo';
@@ -824,6 +825,8 @@ export function SeccionCuenta({
         )}
         {mensajeEnContexto('seguridad')}
       </div>
+
+      <GestionApiLocal />
 
       {/* 4. PDF Institucional */}
       <div className="cuenta-subpanel cuenta-pdf anim-fade-in">

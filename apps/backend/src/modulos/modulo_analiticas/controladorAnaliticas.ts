@@ -372,7 +372,7 @@ export async function previsualizarBonoExtracurricular(req: SolicitudDocente, re
       parcial3: fila.calificacionTercerParcial,
       calificacionFinalCurso: fila.calificacionFinalCurso,
       escalaMaxima: 10,
-      regla: 'continua-primero; global-c3, p2, p1',
+      regla: 'global-tercer-parcial-aprobado; maximo-10',
       requiereConfirmacion: true
     }
   });
@@ -423,7 +423,7 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
   };
   const maximoPorComponente: Record<string, number> = {
     'Practica 2do Parcial': 10, 'Exámen 1er Parcial': 5, 'Exámen 2do Parcial': 5.25,
-    'Exámen Global': 5, 'Bono extracurricular': 1, 'Solicitud Extra': 1
+    'Exámen Global': 5, 'Bono extracurricular': 0.5, 'Solicitud Extra': 1
   };
   const payloadCanonico = { periodoId, alumnoId, componente, calificacion, version: version ?? null, canalCaptura, referenciaOrigen: referenciaOrigen ?? null };
   const payloadHash = createHash('sha256')

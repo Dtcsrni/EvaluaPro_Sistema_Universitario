@@ -77,6 +77,7 @@ describe('SeccionRehidratacionLotes', () => {
     );
 
     await screen.findByText(/Paquete activo: hash-bundle-12345/i);
+    expect(screen.getByText('OMR · 1.0.0-dev.1')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Verificar paquete/i }));
 
     expect(await screen.findByText('No se pudo verificar el paquete.')).toBeVisible();

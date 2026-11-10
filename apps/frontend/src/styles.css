@@ -3078,6 +3078,26 @@ p {
   gap: 0.6rem;
 }
 
+.calif-bono-guia-evidencia {
+  margin: 0.75rem 0;
+}
+
+.calif-bono-guia-evidencia img {
+  display: block;
+  max-width: min(100%, 36rem);
+  max-height: 12rem;
+  object-fit: contain;
+  border: 1px solid var(--borde, rgba(255, 255, 255, 0.2));
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.calif-bono-guia-evidencia figcaption {
+  margin-top: 0.35rem;
+  color: var(--texto-secundario, inherit);
+  font-size: 0.875rem;
+}
+
 .calif-grade-card__checkbox-field {
   display: flex;
   align-items: center;

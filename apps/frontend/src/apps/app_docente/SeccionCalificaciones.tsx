@@ -141,6 +141,9 @@ export function SeccionCalificaciones({
     aciertos?: number;
     totalReactivos?: number;
     bonoSolicitado?: number;
+    soloPreview?: boolean;
+    omitirBonoAcordeon?: boolean;
+    confirmarBonoAcordeonManual?: boolean;
     evaluacionContinua?: number;
     proyecto?: number;
     retroalimentacion?: string;
