@@ -40,6 +40,7 @@ import {
   normalizarTemplateVersionOmrDetectada,
   obtenerVistaInicial,
   normalizarRespuestasDetectadas,
+  serializarRespuestasDetectadasOmr,
   mensajeDeError
 } from './utilidades';
 
@@ -919,7 +920,9 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             );
             return clienteApi.enviar<{ preview: PreviewCalificacion }>('/calificaciones/calificar', {
               ...payload,
-              ...(respuestasDetectadas.length > 0 ? { respuestasDetectadas } : {}),
+              ...(respuestasDetectadas.length > 0
+                ? { respuestasDetectadas: serializarRespuestasDetectadasOmr(respuestasDetectadas) }
+                : {}),
               soloPreview: true
             });
           }}
@@ -1017,7 +1020,7 @@ export function AppDocente({ googleClientId, onReintentarGoogle }: { googleClien
             if (typeof payload.retroalimentacion === 'string') payloadCalificacion.retroalimentacion = payload.retroalimentacion;
             const respuestasDetectadasNormalizadas = normalizarRespuestasDetectadas(payload.respuestasDetectadas);
             if (respuestasDetectadasNormalizadas.length > 0) {
-              payloadCalificacion.respuestasDetectadas = respuestasDetectadasNormalizadas;
+              payloadCalificacion.respuestasDetectadas = serializarRespuestasDetectadasOmr(respuestasDetectadasNormalizadas);
             }
             if (payload.omrAnalisis) {
               const estado = payload.omrAnalisis.estadoAnalisis;

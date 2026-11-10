@@ -12,6 +12,7 @@ import {
   etiquetaMateria,
   idCortoMateria,
   normalizarResultadoOmr,
+  serializarRespuestasDetectadasOmr,
   obtenerInicialesAvatarAlumno,
   obtenerVersionPregunta,
   obtenerVistaInicial,
@@ -254,6 +255,21 @@ describe('utilidades app docente', () => {
       confianzaDisponible: false
     });
     expect(normal.confianzaPromedioDisponible).toBe(false);
+  });
+
+  it('serializa respuestas OMR sin metadatos de UI y conserva la confianza cero medida', () => {
+    const respuestas = normalizarResultadoOmr({
+      respuestasDetectadas: [
+        { numeroPregunta: 1, opcion: 'A' },
+        { numeroPregunta: 2, opcion: 'B', confianza: 0 }
+      ]
+    }).respuestasDetectadas;
+    const payload = serializarRespuestasDetectadasOmr(respuestas);
+
+    expect(payload[0]).not.toHaveProperty('confianzaDisponible');
+    expect(payload[0]).not.toHaveProperty('confianza');
+    expect(payload[1]).not.toHaveProperty('confianzaDisponible');
+    expect(payload[1]).toMatchObject({ numeroPregunta: 2, opcion: 'B', confianza: 0 });
   });
 
   it('conserva el estado OMR y sus flags al consolidar respuestas', () => {

@@ -356,6 +356,19 @@ export function normalizarRespuestasDetectadas(
   return [...normalizadas.values()].sort((a, b) => a.numeroPregunta - b.numeroPregunta);
 }
 
+/** Quita metadatos de UI al preparar respuestas para el contrato API. */
+export function serializarRespuestasDetectadasOmr(
+  respuestas: RespuestaDetectadaOmr[]
+): Array<Omit<RespuestaDetectadaOmr, 'confianzaDisponible' | 'confianza'> & { confianza?: number }> {
+  return respuestas.map(({ confianzaDisponible, numeroPregunta, opcion, confianza, estadoRespuesta, flags }) => ({
+    numeroPregunta,
+    opcion,
+    ...(confianzaDisponible === false ? {} : { confianza }),
+    ...(estadoRespuesta ? { estadoRespuesta } : {}),
+    ...(flags && flags.length > 0 ? { flags } : {})
+  }));
+}
+
 export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | undefined): ResultadoOmr {
   const respuestasDetectadas = normalizarRespuestasDetectadas(entrada?.respuestasDetectadas);
   return {
