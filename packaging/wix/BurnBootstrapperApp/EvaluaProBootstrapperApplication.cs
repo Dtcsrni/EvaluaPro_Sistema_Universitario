@@ -196,16 +196,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     {
         base.OnPlanRelatedBundle(args);
 
-        if ((string.Equals(currentOperation, "install", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(currentOperation, "repair", StringComparison.OrdinalIgnoreCase))
-            && !string.IsNullOrWhiteSpace(args.BundleCode)
-            && args.State is RequestState.Absent or RequestState.ForceAbsent)
-        {
-            var requestedState = args.State;
-            args.State = RequestState.Present;
-            Log("info", $"La operación conserva el bundle relacionado durante instalar/reparar para evitar que su helper de desinstalación limpie el directorio compartido antes de consumir el payload candidato. bundle={args.BundleCode} requestedState={requestedState} effectiveState={args.State}");
-        }
-
         if (string.Equals(currentOperation, "repair", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(args.BundleCode)
             && sameVersionRelatedBundleCodes.Contains(args.BundleCode)

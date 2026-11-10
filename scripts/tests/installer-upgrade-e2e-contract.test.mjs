@@ -209,19 +209,19 @@ test('Burn permite reparar y conserva el bundle relacionado de la misma versión
   assert.match(bootstrapper, /sameVersionRelatedBundleCodes\s*=\s*new\(StringComparer\.OrdinalIgnoreCase\)/);
 });
 
-test('Burn conserva bundles relacionados durante instalar y reparar antes de ejecutar helpers de limpieza', () => {
+test('Burn permite retirar bundles anteriores durante actualizar y conserva la reparación de la misma versión', () => {
   const planStart = bootstrapper.indexOf('protected override void OnPlanRelatedBundle(');
   const planEnd = bootstrapper.indexOf('\n    protected override void ', planStart + 1);
   const planHandler = bootstrapper.slice(planStart, planEnd);
-  const preserveGuard = planHandler.indexOf('string.Equals(currentOperation, "install"');
-  const repairGuard = planHandler.indexOf('if (string.Equals(currentOperation, "repair"', preserveGuard);
+  const installPreserveGuard = planHandler.indexOf('string.Equals(currentOperation, "install"');
+  const repairGuard = planHandler.indexOf('if (string.Equals(currentOperation, "repair"');
   const duplicateHandling = planHandler.indexOf('observedPlannedRelatedBundleCodes.Add(args.BundleCode)');
 
-  assert.ok(preserveGuard >= 0 && repairGuard > preserveGuard && duplicateHandling > repairGuard,
-    'la preservación general de bundles relacionados ocurre antes de la deduplicación');
-  assert.match(planHandler.slice(preserveGuard, repairGuard), /args\.State is RequestState\.Absent or RequestState\.ForceAbsent/);
-  assert.match(planHandler.slice(preserveGuard, repairGuard), /args\.State = RequestState\.Present/);
-  assert.match(planHandler.slice(preserveGuard, repairGuard), /helper de desinstalación limpie el directorio compartido/);
+  assert.equal(installPreserveGuard, -1, 'una instalación de versión superior debe poder retirar el bundle previo');
+  assert.ok(repairGuard >= 0 && duplicateHandling > repairGuard,
+    'la reparación conserva solo el bundle de la misma versión antes de registrar limpiezas');
+  assert.match(planHandler.slice(repairGuard, duplicateHandling), /sameVersionRelatedBundleCodes\.Contains\(args\.BundleCode\)/);
+  assert.match(planHandler.slice(repairGuard, duplicateHandling), /args\.State = RequestState\.Present/);
 });
 
 test('Burn no lanza el helper post-install si falla la limpieza de un bundle relacionado', () => {
