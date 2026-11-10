@@ -5,6 +5,14 @@ import { createWorker, PSM } from 'tesseract.js';
 
 export type ReferenciaPieOmr = { folio: string; numeroPagina: number; confianza: number };
 export type LectorPieOmr = Awaited<ReturnType<typeof createWorker>>;
+export type TrazaLecturaPieOmr = {
+  rotacion: number;
+  region: number;
+  preparacion: number;
+  segmentacion: string;
+  confianza: number;
+  texto: string;
+};
 
 export function limitarTiempoOcrPie<T>(operacion: Promise<T>, timeoutMs = 15_000): Promise<T> {
   let temporizador: NodeJS.Timeout | undefined;
@@ -64,7 +72,8 @@ export function consensuarReferenciasPieOmr(
 /** Devuelve identidad solo si dos posiciones distintas del pie coinciden tras orientar la página. */
 export async function leerReferenciaPieOmr(
   dataUrl: string,
-  worker: LectorPieOmr
+  worker: LectorPieOmr,
+  registrarTraza?: (lectura: TrazaLecturaPieOmr) => void
 ): Promise<ReferenciaPieOmr | null> {
   const separador = dataUrl.indexOf(',');
   if (!dataUrl.startsWith('data:image/') || separador < 0) return null;
@@ -90,7 +99,7 @@ export async function leerReferenciaPieOmr(
       { left: 0.52, width: 0.38 }
     ] as const;
     const lecturas: Array<ReferenciaPieOmr | null> = [];
-    for (const posicion of posiciones) {
+    for (const [indiceRegion, posicion] of posiciones.entries()) {
       const left = Math.floor(paginaAncho * posicion.left);
       const top = Math.floor(paginaAlto * 0.94);
       const width = Math.floor(paginaAncho * posicion.width);
@@ -115,7 +124,7 @@ export async function leerReferenciaPieOmr(
       let lecturaValida: ReferenciaPieOmr | undefined;
       const admiteModoAlternativo = typeof worker.setParameters === 'function';
       try {
-        for (const preparar of preparaciones) {
+        for (const [indicePreparacion, preparar] of preparaciones.entries()) {
           const variante = await preparar();
           const modosSegmentacion = admiteModoAlternativo
             ? [PSM.SINGLE_LINE, PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT]
@@ -124,6 +133,14 @@ export async function leerReferenciaPieOmr(
             if (admiteModoAlternativo) await worker.setParameters({ tessedit_pageseg_mode: modoSegmentacion });
             const { data } = await worker.recognize(variante);
             const confianza = Number(data.confidence ?? 0);
+            registrarTraza?.({
+              rotacion: grados,
+              region: indiceRegion,
+              preparacion: indicePreparacion,
+              segmentacion: modoSegmentacion,
+              confianza,
+              texto: String(data.text ?? '').slice(0, 240)
+            });
             const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
               ? extraerReferenciasPieOmr(String(data.text ?? ''))
               : [];
