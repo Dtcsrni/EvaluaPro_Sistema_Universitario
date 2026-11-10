@@ -3225,7 +3225,7 @@ test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y
   assert.match(cs, /process\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
 });
 
-test('OAuth Desktop del host solo admite el mismo Client ID que el backend', () => {
+test('OAuth Desktop del host conserva el Client ID de login y separa el de Classroom', () => {
   const cs = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
   const backendConfig = fs.readFileSync(path.join(root, 'apps', 'backend', 'src', 'configuracion.ts'), 'utf8');
   const hostClientId = cs.match(/GoogleDesktopClientId\s*=\s*"([^"]+)"/)?.[1];
@@ -3234,7 +3234,8 @@ test('OAuth Desktop del host solo admite el mismo Client ID que el backend', () 
 
   assert.ok(hostClientId, 'el host debe fijar el Client ID Desktop autorizado');
   assert.equal(hostClientId, backendClientId, 'host y backend deben aceptar el mismo Client ID');
-  assert.equal(classroomClientId, backendClientId, 'Classroom y el login docente deben usar el mismo Client ID Desktop');
+  assert.ok(classroomClientId, 'Classroom debe configurar su Client ID Desktop');
+  assert.notEqual(classroomClientId, backendClientId, 'Classroom conserva su cliente OAuth aislado del login docente');
 });
 
 test('SPEC-050: create-shortcuts usa el manifiesto y falla cerrado sin host nativo', () => {
