@@ -135,7 +135,9 @@ describe('ConsultaCalificaciones', () => {
 
     expect(await screen.findByText('No hay alumnos registrados en esta materia.')).toBeInTheDocument();
     expect(document.querySelector('.calificaciones-consulta__summary')).not.toBeInTheDocument();
-    expect(onResumenChange).toHaveBeenLastCalledWith({ periodoId: 'periodo-vacio', total: 0, calificados: 0, pendientes: 0 });
+    await waitFor(() => {
+      expect(onResumenChange).toHaveBeenLastCalledWith({ periodoId: 'periodo-vacio', total: 0, calificados: 0, pendientes: 0 });
+    });
   });
 
   it('oculta los conteos cuando falla la carga y permite reintentarla', async () => {
