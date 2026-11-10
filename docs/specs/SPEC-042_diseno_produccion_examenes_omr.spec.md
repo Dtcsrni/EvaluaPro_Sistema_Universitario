@@ -1,8 +1,8 @@
 ---
 id: SPEC-042
 titulo: Estudio de Diseño de Exámenes y Producción Masiva con Folios Únicos
-version: 1.29.6
-fecha: 2026-09-30
+version: 1.29.7
+fecha: 2026-11-10
 autor: Antigravity / EvaluaPro Team
 modulo: modulo_diseno_examenes
 estado: implemented
@@ -13,7 +13,7 @@ Maquetación de la estructura del examen por temas y producción masiva de paque
 
 ## Norma de alcance y precedencia
 
-Esta especificación define la primera plantilla operativa canónica del sistema. Su identidad es `OMR canónico · v4` / `omr-canonical-v4`; la versión de la aplicación es un dato independiente. La plantilla canónica sustituye las generaciones anteriores: no se permite seleccionar, detectar, calificar, reconstruir ni importar una versión histórica mediante `latest`, nombres de archivo, heurísticas o fallback silencioso.
+Esta especificación define la plantilla OMR operativa vigente. Su identidad es `omr-canonical-1.0.0` y su etiqueta visible es `OMR · 1.0.0-dev.1`; la versión de la aplicación es independiente. Los QR nuevos y los artefactos activos usan esa identidad SemVer. El lector conserva `TV4` únicamente como alias de entrada para hojas y mapas ya emitidos; nunca se muestra como versión activa ni se genera en material nuevo. No se permite seleccionar una versión por `latest`, nombre de archivo, heurística o fallback silencioso.
 
 Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visuales antiguos, PDFs temporales, capturas de pantalla y documentos de versiones previas. Un artefacto visual solo se considera aceptado cuando coincide con el mapa geométrico persistido y supera los gates automatizados, de rasterización y, cuando corresponda, de captura física.
 
@@ -122,8 +122,8 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 - **REQ-010 (Ritmo vertical)**: Cuando una página tenga sobrante vertical después de colocar sus reactivos, el motor debe distribuirlo entre los separadores de los bloques para aprovechar el área imprimible, sin superar una separación máxima editorial ni afectar el área segura inferior.
 - **REQ-011 (Escala tipográfica de cabecera)**: Al aumentar la escala tipográfica configurada, la cabecera canónica debe conservar separación visual entre identidad institucional, título funcional, campos del alumno e indicaciones integradas; el ajuste no debe generar colisiones ni recortes.
 - **REQ-012 (Campos de captura de cabecera)**: Las líneas de nombre y grupo, el campo de conteo de reactivos y la calificación deben permanecer en una banda funcional propia, debajo del título y sin atravesar texto, indicaciones ni decoración; no deben confundirse con una caja de sección ni con líneas ornamentales. El conteo debe admitir valores parciales de `0.5` y mostrar el total dinámico `/ N reactivos`. La calificación debe tener una línea independiente, identificarse como `Calificación (0-5)` y corresponder a `(reactivos contestados / total de reactivos) x 5`; los 5 puntos restantes son de evaluación continua. La banda usa únicamente puntos vectoriales tenues y excluye las franjas de escritura.
-- **REQ-013 (Versión OMR única)**: La generación, previsualización, escaneo, calificación y recuperación deben usar exclusivamente el contrato OMR moderno canónico. Deben eliminarse ramas, tipos, rutas, scripts, fixtures y datasets de versiones anteriores; los valores de versión distintos del contrato canónico deben rechazarse explícitamente.
-- **REQ-014 (Política de identidad de versiones)**: El contrato OMR canónico debe tener una identidad única, estable y visible (`OMR canónico · v4` / `omr-canonical-v4`) distinta de la versión de la aplicación. Todo artefacto, payload, reporte, endpoint de versión y superficie de la GUI que determine o muestre el flujo OMR debe declarar esa identidad; ningún componente puede seleccionar una versión por nombre de archivo, valor `latest` o fallback silencioso. Las versiones antiguas o desconocidas deben rechazarse en los límites de generación, escaneo, calificación, recuperación y carga de datasets.
+- **REQ-013 (Contrato OMR activo único)**: La generación, previsualización, escaneo, calificación y recuperación deben usar exclusivamente `omr-canonical-1.0.0`. Los datos históricos solo pueden entrar por adaptadores de lectura explícitos y probados; no pueden habilitar selección, generación, calificación ni fallback por `latest`.
+- **REQ-014 (Política de identidad de versiones)**: La identidad OMR activa es `omr-canonical-1.0.0`, con etiqueta `OMR · 1.0.0-dev.1`, independiente de la versión de la aplicación. Los artefactos nuevos, payloads, reportes, endpoint de versión y GUI deben declararla. Los marcadores SemVer ausentes, desconocidos o incompatibles se rechazan; el marcador histórico `TV4` solo se admite en lectura de material previamente emitido.
 - **REQ-015 (Composición geométrica cerrada)**: En la primera página, la reserva exterior completa del QR y los slots de logotipos deben quedar contenidos dentro de la cabecera; ninguna regla decorativa puede intersectar los bloques tipográficos. El QR debe quedar alineado al borde interior derecho de la cabecera y conservar una separación positiva, horizontal o vertical, respecto del fiducial superior derecho y su quiet zone; las marcas de registro, reservas OMR y elementos de identidad deben permanecer dentro del área imprimible.
 - **REQ-016 (Contenido completo de cabecera)**: La identidad institucional, el título funcional, los campos de captura y las indicaciones canónicas no deben truncarse silenciosamente. Si el ancho disponible no basta, el renderer debe envolver las líneas y ampliar la cabecera de forma controlada, manteniendo el área imprimible y la densidad del examen sin solapes.
 - **REQ-017 (QR canónico resiliente)**: El QR debe generarse con corrección de errores alta, quiet zone completa y escala raster entera; el detector debe buscar únicamente la reserva física del QR canónico y rechazar firmas que no sean HMAC del contrato activo.
@@ -163,12 +163,12 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 11. Una página con pocos reactivos no concentra todo el contenido en la parte superior: el sobrante vertical se reparte de forma uniforme y verificable entre los reactivos, manteniendo legibilidad y márgenes seguros.
 12. La cabecera conserva separación entre sus líneas cuando `fontScale` aumenta y el PDF completo sigue generándose sin colisiones.
 13. Las líneas de “Nombre del alumno”, “Grupo”, “Reactivos” y “Calificación (0-5)” tienen reservas propias y no intersectan el título, las indicaciones, la decoración ni los límites del encabezado; el conteo admite medios reactivos, muestra `/ N reactivos`, la calificación conserva su línea continua y no existe un campo de puntos extra.
-14. El código activo no contiene ramas operativas ni datasets de TV1/TV3; la plantilla canónica es la única aceptada por generación, escaneo, calificación y recuperación.
-15. Las pruebas sintéticas y de layout usan únicamente el dataset y contrato canónicos, y las referencias históricas eliminadas no aparecen en código activo, scripts ni documentación operativa.
+14. El código activo no contiene ramas operativas ni datasets de TV1/TV3; `omr-canonical-1.0.0` es el único contrato de generación, escaneo, calificación y recuperación.
+15. Las pruebas sintéticas y de layout validan el contrato canónico. Los alias históricos solo se ejercitan en pruebas de compatibilidad de lectura y nunca seleccionan la implementación activa.
 16. El fixture de 35 reactivos breves cabe en dos páginas con OMR y QR validados; al añadir el reactivo 36 se genera una tercera página segura, sin omisiones ni colisiones.
-17. La política de versiones declara una única versión OMR canónica y la comprobación automática falla si el contrato del backend, la GUI, los metadatos o los datasets activos divergen.
-17. La GUI docente muestra de forma persistente el contrato activo `OMR canónico · v4` y, por separado, la versión de la aplicación; el centro de versión explica que las versiones antiguas no son operativas y no las ofrece como opción.
-18. Una entrada OMR con versión distinta de 4, ausente o no reconocida no puede continuar por una ruta de compatibilidad o degradación silenciosa.
+16. La política de versiones declara una única versión OMR canónica y la comprobación automática falla si el contrato del backend, la GUI, los metadatos o los datasets activos divergen.
+17. La GUI docente muestra `OMR · 1.0.0-dev.1` y la versión de la aplicación por separado; no ofrece alias históricos como opción.
+18. Los marcadores SemVer ausentes, desconocidos o incompatibles se rechazan; `TV4` solo puede ser leído por el adaptador histórico explícito, sin degradación silenciosa.
 19. La reserva completa del QR de primera página queda dentro del rectángulo de cabecera y alineada a su borde interior derecho, ambos slots de logos quedan contenidos y ninguno invade el QR; el símbolo de 28 mm conserva padding de 3 mm por lado y huella de 34 mm.
 20. La decoración de cabecera no atraviesa el título funcional, las indicaciones ni los campos de captura; las pruebas geométricas fallan ante un solape.
 21. Las marcas de registro y sus quiet zones no salen del área de página ni se recortan por el borde nominal.
@@ -215,8 +215,8 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 | REQ-010 | Distribución vertical del sobrante sin superar el ritmo editorial | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Completado |
 | REQ-011 | Adaptación de cabecera a escala tipográfica sin colisiones | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Completado |
 | REQ-012 | Separación geométrica de campos de nombre y grupo | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Completado |
-| REQ-013 | Contrato OMR canónico único sin compatibilidad histórica | `apps/backend/tests/pdf.paridad.test.ts` | Completado |
-| REQ-014 | Identidad única, marcado visible, rechazo de versiones antiguas y geometría del fixture activo | `scripts/tests/omr-version-policy.test.mjs` | Completado |
+| REQ-013 | Contrato activo SemVer único con lectura histórica explícita y acotada | `apps/backend/tests/pdf.paridad.test.ts` | Completado |
+| REQ-014 | Identidad SemVer única, etiqueta visible y rechazo de formatos no reconocidos | `scripts/tests/omr-version-policy.test.mjs` | Completado |
 | REQ-015 | Contención QR/logos, decoración sin solapes y margen de registro | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Completado |
 | REQ-016 | Envolvimiento de título e indicaciones sin truncamiento silencioso | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Completado |
 | REQ-017 | QR canónico resiliente y sin rutas históricas | `apps/backend/tests/qr.examen.test.ts` | Completado |
