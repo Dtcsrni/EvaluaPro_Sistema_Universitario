@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { PDFParse } from 'pdf-parse';
 import { crearLectorPieOmr, leerReferenciaPieOmr, type LectorPieOmr } from '../src/modulos/modulo_escaneo_omr/infra/ocrPieOmr.js';
 import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
+import { rasterizarPdfParaPreview } from '../src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
 
 describe('E2E PDF generado a identidad OMR por OCR real', () => {
   let lector: LectorPieOmr | undefined;
@@ -41,25 +41,17 @@ describe('E2E PDF generado a identidad OMR por OCR real', () => {
     expect(paginasExamen.length).toBeGreaterThan(1);
     expect(examen.layoutEngine).toBe('pdf-lib-canonical');
 
-    const parser = new PDFParse({ data: examen.pdfBytes });
-    try {
-      const lectorOcr = lector ??= await crearLectorPieOmr();
-      for (const pagina of paginasExamen) {
-        const captura = (await parser.getScreenshot({
-          partial: [pagina.numeroPagina],
-          desiredWidth: 1836,
-          imageBuffer: true,
-          imageDataUrl: true
-        })).pages[0];
-        expect(captura, `debe rasterizar la página ${pagina.numeroPagina}`).toBeDefined();
-        const trazas: Array<{ rotacion: number; region: number; preparacion: number; segmentacion: string; confianza: number; texto: string }> = [];
-        const referencia = await leerReferenciaPieOmr(captura!.dataUrl, lectorOcr, (lectura) => trazas.push(lectura));
-        expect(referencia, `Tesseract debe consensuar ambas regiones en la página ${pagina.numeroPagina}; lecturas=${JSON.stringify(trazas)}`)
-          .toMatchObject({ folio: 'FEEDFACE', numeroPagina: paginasExamen.indexOf(pagina) + 1 });
-        expect(referencia!.confianza).toBeGreaterThanOrEqual(65);
-      }
-    } finally {
-      await parser.destroy();
+    const raster = await rasterizarPdfParaPreview(examen.pdfBytes, { dpi: 144 });
+    expect(raster.paginas).toHaveLength(examen.mapaOmr.paginas.length);
+    const lectorOcr = lector ??= await crearLectorPieOmr();
+    for (const pagina of paginasExamen) {
+      const captura = raster.paginas.find((item) => item.numero === pagina.numeroPagina);
+      expect(captura, `debe rasterizar la página ${pagina.numeroPagina}`).toBeDefined();
+      const trazas: Array<{ rotacion: number; region: number; preparacion: number; segmentacion: string; confianza: number; texto: string }> = [];
+      const referencia = await leerReferenciaPieOmr(captura!.dataUrl, lectorOcr, (lectura) => trazas.push(lectura));
+      expect(referencia, `Tesseract debe consensuar ambas regiones en la página ${pagina.numeroPagina}; lecturas=${JSON.stringify(trazas)}`)
+        .toMatchObject({ folio: 'FEEDFACE', numeroPagina: paginasExamen.indexOf(pagina) + 1 });
+      expect(referencia!.confianza).toBeGreaterThanOrEqual(65);
     }
   }, 120_000);
 });
