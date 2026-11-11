@@ -22,8 +22,6 @@ import { localizarQrsEsperadosEnRaster, prepararQrsEsperados, type GeometriaQrPd
 import { MAX_JOB_BYTES, MAX_JOB_PAGES, MAX_PDF_BYTES, MAX_PDF_PAGES } from './limitesIngestaPdfOmr.js';
 import { esPaginaDatasetOmrConfirmada, generarZipDatasetOmr } from './exportadorDatasetOmr.js';
 import { recuperarQrIngestaPorGeometria } from './recuperarQrIngesta.js';
-import { calificarExamen } from '../modulo_calificacion/controladorCalificacion.js';
-import { esquemaCalificarExamen } from '../modulo_calificacion/validacionesCalificacion.js';
 import { evaluarAutoCalificableOmr } from './politicaAutoCalificacionOmr.js';
 const PAGE_BLOCK_SIZE = 8;
 const RASTER_DPI = 144;
@@ -97,6 +95,13 @@ type PaqueteClasificado = {
   };
 };
 export type ResultadoAutoCalificacionOmr = NonNullable<PaqueteClasificado['grading']>;
+type CalificadorAutomaticoOmr = (args: { docenteId: string; body: unknown }) => Promise<{ statusCode: number; body: unknown }>;
+let calificadorAutomaticoOmr: CalificadorAutomaticoOmr | null = null;
+
+export function configurarCalificadorAutomaticoOmr(calificador: CalificadorAutomaticoOmr) {
+  calificadorAutomaticoOmr = calificador;
+}
+
 type MetadataIngesta = {
   version: 1;
   retryCount?: number;
@@ -575,7 +580,7 @@ export async function calificarGrupoIngestaOmr(args: {
   const engineVersions = [...new Set(analyses.map((analysis) => analysis.engineVersion))];
   const decisionPolicies = [...new Set(analyses.map((analysis) => analysis.decisionPolicy))];
   const motivosRevision = [...new Set(analyses.flatMap((analysis) => analysis.motivosRevision))].slice(0, 50);
-  const requestBody = esquemaCalificarExamen.parse({
+  const requestBody = {
     examenGeneradoId: exam.id,
     folio: exam.folio,
     alumnoId: exam.alumnoId,
@@ -601,28 +606,26 @@ export async function calificarGrupoIngestaOmr(args: {
       motivosRevision,
       qrTexto
     }
-  });
-  let respuesta: { statusCode: number; body: any };
+  };
+  let respuesta: { statusCode: number; body: unknown };
   try {
-    respuesta = await new Promise<{ statusCode: number; body: any }>((resolve, reject) => {
-      let statusCode = 201;
-      const res = {
-        status(nextStatusCode: number) { statusCode = nextStatusCode; return this; },
-        json(body: unknown) { resolve({ statusCode, body }); return this; }
-      } as unknown as Response;
-      void calificarExamen({ body: requestBody, docenteId } as unknown as SolicitudDocente, res).catch(reject);
-    });
+    if (!calificadorAutomaticoOmr) return { status: 'failed', reasonCodes: ['CALIFICADOR_OMR_NO_CONFIGURADO'] };
+    respuesta = await calificadorAutomaticoOmr({ docenteId, body: requestBody });
   } catch (error) {
     const info = errorCalificacionAutomatica(error);
     respuesta = { statusCode: info.status, body: { error: { codigo: info.code } } };
   }
+  const responseBody = respuesta.body && typeof respuesta.body === 'object' ? respuesta.body as Record<string, unknown> : {};
   if (respuesta.statusCode >= 400) {
+    const error = responseBody.error && typeof responseBody.error === 'object' ? responseBody.error as Record<string, unknown> : {};
     return {
       status: respuesta.statusCode >= 500 ? 'failed' : 'needs_review',
-      reasonCodes: [String(respuesta.body?.error?.codigo ?? 'CALIFICACION_AUTOMATICA_ERROR')]
+      reasonCodes: [String(error.codigo ?? 'CALIFICACION_AUTOMATICA_ERROR')]
     };
   }
-  const grade = respuesta.body?.calificacion;
+  const grade = responseBody.calificacion && typeof responseBody.calificacion === 'object'
+    ? responseBody.calificacion as Record<string, unknown>
+    : null;
   if (!grade?.id) return { status: 'failed', reasonCodes: ['CALIFICACION_NO_CONFIRMADA'] };
   return {
     status: 'saved',

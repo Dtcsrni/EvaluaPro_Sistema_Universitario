@@ -8,6 +8,7 @@ export { ExamenPlantilla, normalizarTituloPlantilla } from './modeloExamenPlanti
 export { generarPdfExamen } from './servicioGeneracionPdf.js';
 export { type MapaVariante, type PreguntaBase } from './servicioVariantes.js';
 export { type OmrTemplateId, type TemplateVersion } from './shared/tiposPdf.js';
+export { ALTO_CARTA, ANCHO_CARTA, MM_A_PUNTOS } from './shared/tiposPdf.js';
 export { esquemaBodyVacioOpcional } from './validacionesExamenes.js';
 export {
   OMR_CANONICAL_CONTRACT_ID,

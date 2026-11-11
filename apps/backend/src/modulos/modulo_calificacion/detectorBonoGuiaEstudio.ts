@@ -2,8 +2,8 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import sharp, { type OutputInfo } from 'sharp';
 import { createWorker, PSM } from 'tesseract.js';
-import { ALTO_CARTA, ANCHO_CARTA, MM_A_PUNTOS } from '../modulo_generacion_pdf/shared/tiposPdf.js';
-import { obtenerTransformacion } from '../modulo_escaneo_omr/infra/imagenProcesamientoCanonico.js';
+import { ALTO_CARTA, ANCHO_CARTA, MM_A_PUNTOS } from '../modulo_generacion_pdf/index.js';
+import { obtenerTransformacion } from '../modulo_escaneo_omr/index.js';
 
 export const VERSION_DETECTOR_BONO_GUIA = 'score-zone-ocr-1.0.0';
 export const UMBRAL_CONFIANZA_BONO_GUIA = 80;
