@@ -446,7 +446,6 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
       setEstadoRegistros('ready');
       setSesionParaReintento(null);
       setAvisoPresenciaInicial(false);
-      setTab('pase_lista');
     } catch {
       if (solicitudRef.current.registros !== solicitud || contextoRef.current !== contextoApertura) return;
       setRegistros({});

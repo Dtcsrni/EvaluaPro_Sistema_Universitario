@@ -12463,6 +12463,42 @@ li.empty-state-card {
 }
 
 @media (max-width: 340px) {
+  .materias-form--panoramico .materias-form__row--top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .materias-form--panoramico .campo--materia,
+  .materias-form--panoramico .campo--materia .auth-input-box {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .materias-form--panoramico .campo--materia .auth-input-box input {
+    min-width: 0;
+    padding-left: 2.5rem !important;
+    padding-right: 0.5rem !important;
+    width: 100%;
+  }
+
+  .cuenta-panel .cuenta-sincronizacion__form input {
+    font-size: 0.9rem;
+  }
+
+  .asistencias-field-col--tema .asistencias-input {
+    font-size: 0.75rem;
+    padding-left: 2.6rem !important;
+  }
+
+  .paquete-sincronizacion-panel .campo select {
+    padding-inline: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .materias-panel__title {
+    font-size: 1.45rem;
+  }
+
   .cuenta-panel .banco-header-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.4rem;
@@ -12479,6 +12515,26 @@ li.empty-state-card {
 
   .cuenta-panel .banco-mini-kpi {
     padding-block: 0.4rem;
+    padding-inline: 0.3rem;
+  }
+
+  .cuenta-panel .banco-mini-kpi__lbl {
+    font-size: 0.58rem;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+  }
+
+  .cuenta-panel .banco-mini-kpi__num {
+    font-size: 0.95rem;
+  }
+
+  .cuenta-panel .classroom-conexion__acciones {
+    width: 100%;
+  }
+
+  .cuenta-panel .classroom-conexion__acciones > .boton {
+    flex: 1 1 100%;
+    width: 100%;
   }
 }
 
@@ -12828,6 +12884,51 @@ li.empty-state-card {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.65rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.classroom-conexion__acciones > .boton {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 400px) and (max-height: 900px) {
+  .auth-card-clean:has(.auth-google-control > .mensaje) {
+    gap: 0.4rem;
+    padding: 0.8rem;
+  }
+
+  .auth-card-clean:has(.auth-google-control > .mensaje) .auth-card-desc {
+    display: none;
+  }
+
+  .auth-card-clean:has(.auth-google-control > .mensaje) .auth-card-header {
+    gap: 0.3rem;
+  }
+
+  .auth-card-clean:has(.auth-google-control > .mensaje) .auth-google-wrapper {
+    gap: 0.4rem;
+    padding: 0.5rem;
+  }
+
+  .auth-card-clean:has(.auth-google-control > .mensaje) .auth-form-fields {
+    gap: 0.35rem;
+  }
+
+  .auth-card-clean:has(.auth-google-control > .mensaje) .auth-remember-row {
+    margin: 0;
+  }
+
+  .auth-card-clean:has(.auth-google-control > .mensaje) .auth-submit-row {
+    margin-top: 0.15rem;
+  }
+
+  .auth-card-clean:has(.auth-google-control > .mensaje) .auth-card-footer {
+    display: none;
+  }
 }
 
 .classroom-auth-link {

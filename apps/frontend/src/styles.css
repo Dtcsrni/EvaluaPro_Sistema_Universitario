@@ -2784,13 +2784,15 @@ p {
   }
 
   .rehidratacion-kpi-grid > .calificaciones-kpi__item {
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     padding: 0.5rem 0.55rem;
   }
 
   .rehidratacion-kpi-grid .calificaciones-kpi__item b {
+    min-width: 0;
     font-size: 0.98rem;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
   }
 }
 

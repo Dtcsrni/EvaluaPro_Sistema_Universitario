@@ -3597,11 +3597,15 @@ test.describe('GUI responsive e2e · docente', () => {
           return {
             value: input.placeholder,
             width: context.measureText(input.placeholder).width,
-            usableWidth: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+            usableWidth: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+            inputWidth: input.getBoundingClientRect().width,
+            wrapperWidth: input.closest('.auth-input-box')?.getBoundingClientRect().width,
+            fieldWidth: input.closest('.campo')?.getBoundingClientRect().width,
+            gridColumns: input.closest('.materias-form__row') ? getComputedStyle(input.closest('.materias-form__row')!).gridTemplateColumns : null
           };
         });
         expect(placeholderNombreMateria.value).toBe('Ej. Álgebra');
-        expect(placeholderNombreMateria.width, `Placeholder de nombre de Materias debe caber a ${width}px / ${theme}`).toBeLessThanOrEqual(placeholderNombreMateria.usableWidth);
+        expect(placeholderNombreMateria.width, `Placeholder de nombre de Materias debe caber a ${width}px / ${theme}: ${JSON.stringify(placeholderNombreMateria)}`).toBeLessThanOrEqual(placeholderNombreMateria.usableWidth);
         await assertNoHorizontalOverflow(page, `Alta de Materias ${width}px / ${theme}`);
         await assertVisibleHeadersFit(page, `Alta de Materias ${width}px / ${theme}`);
         await assertDisabledButtonContrast(botonCrearMateria, `CTA de Materias deshabilitado ${width}px / ${theme}`);
@@ -4490,8 +4494,34 @@ test.describe('GUI responsive e2e · docente', () => {
     const escriturasCalificacion = [] as string[];
     page.on('request', (request) => {
       if (request.url().includes('/api/calificaciones/calificar')) {
-        escriturasCalificacion.push(request.method());
+        const payload = request.postDataJSON() as { soloPreview?: boolean } | null;
+        if (payload?.soloPreview !== true) escriturasCalificacion.push(request.method());
       }
+    });
+    await page.route('**/api/calificaciones/calificar', async (route) => {
+      const payload = route.request().postDataJSON() as { aciertos?: number; soloPreview?: boolean; totalReactivos?: number };
+      if (!payload.soloPreview) {
+        await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ mensaje: 'La prueba bloquea cualquier escritura de calificación.' }) });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ preview: {
+          aciertos: payload.aciertos ?? 0,
+          totalReactivos: payload.totalReactivos ?? 2,
+          calificacionExamenFinalTexto: '0.00',
+          bonoGuiaEstudio: {
+            bonoAplicado: '0',
+            excluidoPorDocente: false,
+            evidencia: {
+              estado: 'no_detectado', bonoSugerido: 0.25, confianza: 12, lecturas: [],
+              numeroPagina: 1, region: { x: 0.1, y: 0.1, width: 0.2, height: 0.1 },
+              versionDetector: 'fixture-1', motivo: 'La marca no se detectó en el ejemplo.'
+            }
+          }
+        } })
+      });
     });
     await page.route('**/api/omr/analizar', async (route) => {
       analisisOcrDummy += 1;
@@ -4847,7 +4877,7 @@ test.describe('GUI responsive e2e · docente', () => {
     await expect(libro).toBeVisible();
     await expect(libro.getByText(/Sin dato.*no equivale a cero/)).toBeVisible();
     const bonoLibro = libro.locator('dl div').filter({ hasText: 'BB · Bono extracurricular otorgado' });
-    await expect(bonoLibro.locator('dd')).toHaveText('0 0–1');
+    await expect(bonoLibro.locator('dd')).toHaveText('0 0–0.5');
     const columnasSinDato = libro.locator('.calificaciones-consulta__book-missing');
     const disclosureSinDato = columnasSinDato.locator('summary');
     const primerDatoVacio = columnasSinDato.locator('dd').first();
@@ -4887,23 +4917,23 @@ test.describe('GUI responsive e2e · docente', () => {
     await expect(tarjetaCalificacion.getByText('La nota usa los aciertos que registres sobre el total de reactivos.')).toBeVisible();
     await expect(tarjetaCalificacion.getByText('La calificación se calcula automáticamente a partir de resultados OMR confirmados.')).toHaveCount(0);
     const campoAciertos = tarjetaCalificacion.getByRole('spinbutton', { name: 'Aciertos obtenidos' });
-    const guardarSinRespuestas = tarjetaCalificacion.getByRole('button', { name: 'Guardar calificación' });
+    const accionCalificacionManual = tarjetaCalificacion.getByRole('button', { name: /Analizar marca y previsualizar|Guardar calificación/ });
     await expect(campoAciertos).toHaveValue('');
     await expect(campoAciertos).toHaveAttribute('min', '0');
     await expect(campoAciertos).toHaveAttribute('max', '2');
     await expect(tarjetaCalificacion.getByText('Reactivos del examen: 2')).toBeVisible();
     await expect(tarjetaCalificacion.getByText('Aciertos: pendiente/2')).toBeVisible();
     await expect(tarjetaCalificacion.getByText('Calificación final: pendiente / 5.00')).toBeVisible();
-    await expect(guardarSinRespuestas).toBeDisabled();
-    await expect(guardarSinRespuestas).toHaveAccessibleDescription(/Cuenta los reactivos correctos/);
-    await assertDisabledButtonContrast(guardarSinRespuestas, 'Guardar calificación bloqueado hasta capturar aciertos');
+    await expect(accionCalificacionManual).toBeDisabled();
+    await expect(accionCalificacionManual).toHaveAccessibleDescription(/Cuenta los reactivos correctos/);
+    await assertDisabledButtonContrast(accionCalificacionManual, 'Vista previa bloqueada hasta capturar aciertos');
     await campoAciertos.fill('3');
     await expect(tarjetaCalificacion.getByRole('alert')).toHaveText('Captura un número entero entre 0 y 2.');
-    await expect(guardarSinRespuestas).toBeDisabled();
+    await expect(accionCalificacionManual).toBeDisabled();
     await campoAciertos.fill('1');
     await expect(tarjetaCalificacion.getByText('Aciertos: 1/2')).toBeVisible();
     await expect(tarjetaCalificacion.getByText('Calificación final: 2.50 / 5.00')).toBeVisible();
-    await expect(guardarSinRespuestas).toBeEnabled();
+    await expect(accionCalificacionManual).toBeEnabled();
     await campoAciertos.fill('0');
     const confirmarSinRespuestas = tarjetaCalificacion.getByRole('checkbox', { name: 'Confirmo guardar 0 aciertos' });
     const cajaConfirmacion = await confirmarSinRespuestas.boundingBox();
@@ -4911,7 +4941,7 @@ test.describe('GUI responsive e2e · docente', () => {
     expect(cajaConfirmacion?.height).toBeLessThanOrEqual(24);
     await expect(tarjetaCalificacion.getByText(/Registraste 0 aciertos\. Se guardará 0\.00 \/ 5\.00\./)).toBeVisible();
     await expect(confirmarSinRespuestas).not.toBeChecked();
-    await expect(guardarSinRespuestas).toBeDisabled();
+    await expect(accionCalificacionManual).toBeDisabled();
     await page.setViewportSize({ width: 320, height: 800 });
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
     await tarjetaCalificacion.screenshot({
@@ -4920,25 +4950,31 @@ test.describe('GUI responsive e2e · docente', () => {
     });
     await confirmarSinRespuestas.focus();
     await page.keyboard.press('Space');
-    await expect(guardarSinRespuestas).toBeEnabled();
-    const bonoSinRespuestas = tarjetaCalificacion.getByRole('checkbox', { name: /Bono por guía de estudio/i });
+    await expect(accionCalificacionManual).toBeEnabled();
+    const bonoSinRespuestas = tarjetaCalificacion.getByRole('checkbox', { name: /marca de guía/i });
     const cajaBono = await bonoSinRespuestas.boundingBox();
     expect(cajaBono?.width).toBeLessThanOrEqual(24);
     expect(cajaBono?.height).toBeLessThanOrEqual(24);
+    await expect(bonoSinRespuestas).toBeDisabled();
+    await expect(accionCalificacionManual).toBeEnabled();
+    await expect(accionCalificacionManual).toHaveAccessibleName('Analizar marca y previsualizar');
+    await accionCalificacionManual.click();
+    await expect(accionCalificacionManual).toHaveAccessibleName('Guardar calificación');
+    await expect(bonoSinRespuestas).toBeEnabled();
+    await expect(bonoSinRespuestas).not.toBeChecked();
+    await expect(accionCalificacionManual).toBeEnabled();
+    expect(escriturasCalificacion, 'la vista previa no debe guardar la calificación').toEqual([]);
     await bonoSinRespuestas.check();
-    await expect(guardarSinRespuestas).toBeDisabled();
-    await expect(confirmarSinRespuestas).not.toBeChecked();
     await expect(tarjetaCalificacion.getByText(/Se guardará 0\.25 \/ 5\.00/)).toBeVisible();
     await bonoSinRespuestas.uncheck();
-    await expect(confirmarSinRespuestas).not.toBeChecked();
-    await expect(guardarSinRespuestas).toBeDisabled();
+    await expect(accionCalificacionManual).toBeDisabled();
     await confirmarSinRespuestas.focus();
     await page.keyboard.press('Space');
-    await expect(guardarSinRespuestas).toBeEnabled();
+    await expect(accionCalificacionManual).toBeEnabled();
     await page.keyboard.press('Space');
-    await expect(guardarSinRespuestas).toBeDisabled();
+    await expect(accionCalificacionManual).toBeDisabled();
     await campoAciertos.fill('1');
-    await expect(guardarSinRespuestas).toBeEnabled();
+    await expect(accionCalificacionManual).toBeEnabled();
     const ayudaCalificacion = tarjetaCalificacion.locator('details.colapsable');
     const resumenAyuda = ayudaCalificacion.locator('summary');
     await expect(resumenAyuda).toHaveText('Ayuda para calificar');
@@ -6556,7 +6592,7 @@ test.describe('GUI responsive e2e · docente', () => {
     });
     await page.route(`**/api/evaluaciones/v2/classroom/cursos/${cursoId}/actividades**`, async (route) => {
       if (estadoConsultaActividades === 'error') {
-        await route.abort('failed');
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ mensaje: 'Fallo temporal ficticio de Classroom.' }) });
         return;
       }
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -6792,7 +6828,7 @@ test.describe('GUI responsive e2e · docente', () => {
     await pantallaActividades.getByLabel('Curso de Classroom').selectOption(cursoId);
     const reintentarActividades = pantallaActividades.getByRole('button', { name: 'Reintentar consulta de actividades' });
     await expect(reintentarActividades).toBeVisible({ timeout: 15_000 });
-    await expect(pantallaActividades.getByRole('alert')).toHaveText('No se pudieron consultar las actividades Classroom. Verifica la conexión con EvaluaPro e inténtalo de nuevo.');
+    await expect(pantallaActividades.getByRole('alert')).toHaveText('Fallo temporal ficticio de Classroom. Tip: intenta mas tarde.');
     await expect(pantallaActividades.getByText('No hay actividades publicadas para mapear en este curso.')).toHaveCount(0);
     for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width: 320, height: 844 });
@@ -7335,6 +7371,7 @@ test.describe('GUI responsive e2e · docente', () => {
         return;
       }
       if (pathname.endsWith('/registros')) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -7458,7 +7495,8 @@ test.describe('GUI responsive e2e · docente', () => {
       for (const theme of themes) {
         await page.evaluate((selectedTheme) => document.documentElement.setAttribute('data-theme', selectedTheme), theme);
         const resumenTab = page.getByRole('tab', { name: /Resumen General/i });
-        await resumenTab.click();
+        await resumenTab.focus();
+        await page.keyboard.press('Enter');
         await expect(resumenTab).toHaveAttribute('aria-selected', 'true');
         if (width === 320) {
           const resumenPanel = page.locator('#asistencias-panel-resumen');
@@ -7513,6 +7551,10 @@ test.describe('GUI responsive e2e · docente', () => {
         }
 
         await page.locator('.asistencias-sesion-card').click();
+        const resumenDuranteCarga = page.getByRole('tab', { name: /Resumen General/i });
+        await resumenDuranteCarga.click();
+        await expect(page.getByText('Cargando los registros guardados de la sesión…')).toBeHidden();
+        await expect(resumenDuranteCarga).toHaveAttribute('aria-selected', 'true');
         await page.locator('#asistencias-tab-pase_lista').click();
         await expect(page.getByText('Ana María Gómez Ruiz')).toBeVisible();
         await expect(page.getByText('La nueva sesión inicia con todos los alumnos como Presentes')).toHaveCount(0);
