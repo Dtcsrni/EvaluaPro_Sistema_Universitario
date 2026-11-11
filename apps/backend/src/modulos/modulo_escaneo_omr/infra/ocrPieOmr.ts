@@ -109,7 +109,11 @@ export async function leerReferenciaPieOmr(
       const margenOcr = 32;
       const ventanas = [
         { top: 0.94, height: 0.055 },
-        { top: 0.92, height: 0.055 }
+        { top: 0.92, height: 0.055 },
+        // Algunos rasterizadores desplazan el texto del pie varios puntos
+        // hacia arriba. El tercer recorte conserva el pie y suficiente margen
+        // blanco para que Tesseract recupere el folio completo.
+        { top: 0.90, height: 0.09 }
       ] as const;
       let lecturaValida: ReferenciaPieOmr | undefined;
       const admiteModoAlternativo = typeof worker.setParameters === 'function';
