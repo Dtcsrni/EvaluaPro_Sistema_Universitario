@@ -227,7 +227,8 @@ describe('ToastProvider', () => {
     const host = document.querySelector<HTMLElement>('.toast-host');
     expect(host?.dataset.placement).toBe('flow');
     expect(host?.parentElement).toBe(textos[4]?.parentElement);
-    expect(host?.nextElementSibling).toBe(textos[4]);
+    expect(host?.previousElementSibling).toBe(textos[4]);
+    expect(host?.nextElementSibling).toBe(textos[5]);
   });
 
   it('devuelve a body el host de flujo vacío al cerrar la última notificación', () => {
