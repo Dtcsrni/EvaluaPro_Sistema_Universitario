@@ -109,7 +109,8 @@ export async function leerReferenciaPieOmr(
       const margenOcr = 32;
       const ventanas = [
         { top: 0.94, height: 0.055 },
-        { top: 0.92, height: 0.055 }
+        { top: 0.92, height: 0.055 },
+        { top: 0.96, height: 0.035 }
       ] as const;
       let lecturaValida: ReferenciaPieOmr | undefined;
       const admiteModoAlternativo = typeof worker.setParameters === 'function';

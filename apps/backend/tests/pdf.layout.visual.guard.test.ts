@@ -540,7 +540,7 @@ describe('pdf layout visual guard', () => {
           folio: 'D7E8B86B',
           numeroPagina: pagina
         });
-        expect(texto.match(new RegExp(`FOLIO\\s+D7E8B86B\\s*[·•]\\s*Pagina\\s*${pagina}\\s+de\\s+${totalPaginas}`, 'gi')))
+        expect(texto.match(new RegExp(`FOLIO\\s+D7E8B86B\\s*[·•]\\s*P\\s*${pagina}`, 'gi')))
           .toHaveLength(2);
       }
       expect(texto).not.toContain('LOTE-COMPOUND-QA');
