@@ -6440,7 +6440,6 @@ test.describe('GUI responsive e2e · docente', () => {
     await expect(reportes.getByText(/Reporte HTML descargado\. Para publicarlo en OneDrive, guarda este archivo allí y, si ya existe uno, reemplázalo; espera a que termine la sincronización antes de compartirlo\./)).toBeVisible();
     const claveAna = reportes.getByText('Clave_dummy-001_abc123456789', { exact: true });
     await expect(claveAna).toHaveCSS('user-select', 'all');
-    let textoPortapapelesDummy = '';
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', {
         configurable: true,
@@ -6455,7 +6454,7 @@ test.describe('GUI responsive e2e · docente', () => {
     await copiarAna.focus();
     await page.keyboard.press('Enter');
     await expect(reportes.getByRole('status').filter({ hasText: 'Clave de DUMMY-001 copiada. Envíala solo a ese alumno.' })).toBeVisible();
-    textoPortapapelesDummy = await page.evaluate(() => (window as Window & { __textoPortapapelesDummy?: string }).__textoPortapapelesDummy ?? '');
+    const textoPortapapelesDummy = await page.evaluate(() => (window as Window & { __textoPortapapelesDummy?: string }).__textoPortapapelesDummy ?? '');
     expect(textoPortapapelesDummy).toBe('Clave_dummy-001_abc123456789');
     const copiarBenito = reportes.getByRole('button', { name: 'Copiar clave de Benito Pruebas Extensas, matrícula DUMMY-002' });
     await copiarBenito.focus();
@@ -6517,6 +6516,9 @@ test.describe('GUI responsive e2e · docente', () => {
   });
 
   test('audita Classroom dentro de Calificaciones con datos sintéticos', async ({ page }) => {
+    // Incluye varios ciclos de carga, recuperación y capturas responsive; el límite global
+    // de 45 s provocaba fallos por timeout en runners lentos aunque la interfaz respondiera.
+    test.setTimeout(90_000);
     const periodoId = 'periodo-classroom-dummy-2a';
     const cursoId = 'curso-classroom-dummy-2a';
     let fallarConsultaEvidencias = false;

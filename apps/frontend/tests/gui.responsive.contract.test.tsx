@@ -236,6 +236,8 @@ describe('GUI responsive contract', () => {
 
     expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-header-kpis\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
     expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi:last-child\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/);
+    expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi__lbl\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/);
+    expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi__num\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/);
     expect(compactAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi:nth-child\(5\)\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/);
   });
 

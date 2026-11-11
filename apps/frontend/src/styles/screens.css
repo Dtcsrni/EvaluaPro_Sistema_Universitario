@@ -12496,7 +12496,7 @@ li.empty-state-card {
   }
 
   .materias-panel__title {
-    font-size: 1.45rem;
+    font-size: 1.35rem;
   }
 
   .cuenta-panel .banco-header-kpis {
@@ -12519,13 +12519,23 @@ li.empty-state-card {
   }
 
   .cuenta-panel .banco-mini-kpi__lbl {
+    box-sizing: border-box;
     font-size: 0.58rem;
     letter-spacing: 0.01em;
     line-height: 1.15;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .cuenta-panel .banco-mini-kpi__num {
+    box-sizing: border-box;
     font-size: 0.95rem;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .cuenta-panel .classroom-conexion__acciones {
