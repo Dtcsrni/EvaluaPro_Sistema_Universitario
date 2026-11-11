@@ -16,7 +16,7 @@ calificación automática debe ocurrir dentro de EvaluaPro al concluir una inges
 con los mismos controles, clave, variante, persistencia y auditoría de la ruta
 docente de calificación.
 
-## Requisitos funcionales
+## Requisitos Funcionales
 
 - **REQ-001:** Una ingesta solo calificará automáticamente cuando cada página
   evaluable del examen aparezca exactamente una vez, el QR firmado coincida con
@@ -45,7 +45,7 @@ docente de calificación.
   el conjunto completo de reactivos y los umbrales OMR; el rescate por sí solo
   no obliga a revisión ni rebaja los controles de identidad/calidad.
 
-## Criterios de aceptación
+## Criterios de Aceptación
 
 - **AC-001:** Un lote sintético completo, con QR válido y páginas OMR dentro de
   los umbrales, produce una sola fila canónica de `Calificacion`, calculada con
@@ -62,7 +62,7 @@ docente de calificación.
 - **AC-005:** La autorización de ruta exige ambos permisos; los contratos API,
   pruebas y GUI describen la persistencia automática y los casos pendientes.
 
-## Matriz de trazabilidad
+## Matriz de Trazabilidad
 
 | Requisito | Prueba | Estado |
 | --- | --- | --- |

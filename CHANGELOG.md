@@ -13,6 +13,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ### Fixed
 - Mantiene visibles los lotes activos sin seleccionar una plantilla y protege su archivo hasta el cierre de materia o la verificación de todas las calificaciones.
 - El historial local distingue lotes activos y archivados al consultar referencias OMR.
+- Reduce la redundancia del pie OCR al retirar el identificador de lote impreso; el QR firmado de cada página conserva el vínculo al lote.
+- Añade un recorte OCR vertical de rescate para capturar el folio cuando la lectura inferior no lo reconoce.
 
 ## [Hub 1.2.20] - 2026-11-06
 

@@ -5011,12 +5011,10 @@ export class PdfKitRenderer {
         throw new Error(`Layout invalido: el pie invade contenido OMR en la pagina ${paginaMeta.numero}: ${diagnostico.join('; ')}`);
       }
       const numeroPaginaExamen = indicePagina + 1;
-      const loteReferencia = String(examen.loteId ?? '').trim();
-      const prefijoLote = loteReferencia ? `LOTE ${loteReferencia} · ` : '';
-      const pieTexto = `${prefijoLote}FOLIO ${examen.folioNormalizado} · Pagina ${numeroPaginaExamen} de ${totalPaginasExamen}`;
+      const pieTexto = `FOLIO ${examen.folioNormalizado} · Pagina ${numeroPaginaExamen} de ${totalPaginasExamen}`;
       let pieSize = pieSizePreferido;
       let pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
-      if (loteReferencia && pieWidth > anchoZonaPie) {
+      if (pieWidth > anchoZonaPie) {
         pieSize = pieSizeReducido;
         pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
       }

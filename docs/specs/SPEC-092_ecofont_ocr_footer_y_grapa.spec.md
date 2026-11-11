@@ -72,8 +72,8 @@ primera pagina y no explicita la cobertura de todos los fiduciales en el frente 
 
 | ID Requisito | Descripcion del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001, REQ-002 | Recursos de fuente usados por cada página; Ecofont para texto humano y exactamente dos usos Helvetica para OCR | `apps/backend/tests/pdf.ecofont.test.ts` | Completado; todas las páginas de examen verificadas |
-| REQ-002, REQ-003 | Dos referencias independientes, total real de páginas y OCR sin serial compuesto; PDF generado rasterizado y leído con Tesseract español local | `apps/backend/tests/pdf.layout.visual.guard.test.ts`; `apps/backend/tests/omr.ocrPie.test.ts`; `apps/backend/tests/pdf.omr.ocr.e2e.test.ts` | Implementado; el lector prueba segmentación de línea, bloque y texto disperso junto con binarización, escala de grises y nitidez. El umbral de consenso sigue en 75 y CI Linux debe confirmar la mejora |
+| REQ-001, REQ-002 | Recursos de fuente usados por cada página; Ecofont para texto humano y Helvetica solo para las referencias OCR | `apps/backend/tests/pdf.ecofont.test.ts` | Completado; todas las páginas de examen verificadas |
+| REQ-002, REQ-003 | Dos referencias independientes, total real de páginas y OCR sin serial compuesto; PDF generado rasterizado y leído con Tesseract español local | `apps/backend/tests/pdf.layout.visual.guard.test.ts`; `apps/backend/tests/omr.ocrPie.test.ts`; `apps/backend/tests/pdf.omr.ocr.e2e.test.ts`; `apps/backend/tests/integracion/omrJobsWorkflow.test.ts` | OCR local validado con dos lecturas y umbral 75; falta CI Linux |
 | REQ-004 | Bounds, no-solapes y render visual del pie en página Carta | `apps/backend/tests/pdf.layout.visual.guard.test.ts` | Completado; renderizado de anverso y reverso revisado |
 | REQ-005 | Grapa separada de cada fiducial y quiet zone en anverso y reverso | `apps/backend/tests/pdf.ink-sparing-staple.test.ts` | Completado; 4 esquinas por página con márgenes de seguridad |
 

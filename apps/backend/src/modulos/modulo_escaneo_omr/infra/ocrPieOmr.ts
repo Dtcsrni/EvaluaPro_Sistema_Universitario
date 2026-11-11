@@ -29,7 +29,7 @@ export function limitarTiempoOcrPie<T>(operacion: Promise<T>, timeoutMs = 15_000
 const require = createRequire(import.meta.url);
 const UMBRAL_CONFIANZA_OCR_PIE = 75;
 const ESCALA_OCR_PIE = 4;
-const PATRON_REFERENCIA_PIE = /\b(?:FOLIO\s+)?([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:PAGINA|P)\.?\s*(\d{1,2}|[IL|Z])(?:\s+DE\s+\d{1,2})?(?=$|[\s.,;])/g;
+const PATRON_REFERENCIA_PIE = /\b(?:FOLIO\s+)?([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:PAGINA|P)\.?\s*(\d{1,2}|[IL|Z])(?:\s+DE\s+(?:\d{1,2}|[IL|Z]))?(?=$|[\s.,;])/g;
 
 /** Construye el worker desde los assets locales para que el OCR no requiera red. */
 export async function crearLectorPieOmr(): Promise<LectorPieOmr> {
@@ -101,53 +101,61 @@ export async function leerReferenciaPieOmr(
     const lecturas: Array<ReferenciaPieOmr | null> = [];
     for (const [indiceRegion, posicion] of posiciones.entries()) {
       const left = Math.floor(paginaAncho * posicion.left);
-      const top = Math.floor(paginaAlto * 0.94);
       const width = Math.floor(paginaAncho * posicion.width);
-      const height = Math.floor(paginaAlto * 0.055);
-      if (width < 3 || height < 3 || left + width > paginaAncho || top + height > paginaAlto) {
+      if (width < 3 || left + width > paginaAncho) {
         lecturas.push(null);
         continue;
       }
-      const recorte = sharp(pagina)
-        .extract({ left, top, width, height })
-        .greyscale()
-        .normalise();
       const margenOcr = 32;
-      const preparaciones = [
-        () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
-          .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer(),
-        () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
-          .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer(),
-        () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
-          .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer()
-      ];
+      const ventanas = [
+        { top: 0.94, height: 0.055 },
+        { top: 0.92, height: 0.055 }
+      ] as const;
       let lecturaValida: ReferenciaPieOmr | undefined;
       const admiteModoAlternativo = typeof worker.setParameters === 'function';
       try {
-        for (const [indicePreparacion, preparar] of preparaciones.entries()) {
-          const variante = await preparar();
-          const modosSegmentacion = admiteModoAlternativo
-            ? [PSM.SINGLE_LINE, PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT]
-            : [PSM.SINGLE_LINE];
-          for (const modoSegmentacion of modosSegmentacion) {
-            if (admiteModoAlternativo) await worker.setParameters({ tessedit_pageseg_mode: modoSegmentacion });
-            const { data } = await worker.recognize(variante);
-            const confianza = Number(data.confidence ?? 0);
-            registrarTraza?.({
-              rotacion: grados,
-              region: indiceRegion,
-              preparacion: indicePreparacion,
-              segmentacion: modoSegmentacion,
-              confianza,
-              texto: String(data.text ?? '').slice(0, 240)
-            });
-            const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
-              ? extraerReferenciasPieOmr(String(data.text ?? ''))
-              : [];
-            if (referencias.length === 1) {
-              lecturaValida = { ...referencias[0]!, confianza };
-              break;
+        for (const [indiceVentana, ventana] of ventanas.entries()) {
+          const top = Math.floor(paginaAlto * ventana.top);
+          const height = Math.floor(paginaAlto * ventana.height);
+          if (height < 3 || top + height > paginaAlto) continue;
+          const recorte = sharp(pagina)
+            .extract({ left, top, width, height })
+            .greyscale()
+            .normalise();
+          const preparaciones = [
+            () => recorte.clone().threshold(165).resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
+              .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer(),
+            () => recorte.clone().resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
+              .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer(),
+            () => recorte.clone().sharpen({ sigma: 1 }).resize({ width: Math.floor(width * ESCALA_OCR_PIE) })
+              .extend({ top: margenOcr, bottom: margenOcr, left: margenOcr, right: margenOcr, background: '#ffffff' }).png().toBuffer()
+          ];
+          for (const [indicePreparacion, preparar] of preparaciones.entries()) {
+            const variante = await preparar();
+            const modosSegmentacion = admiteModoAlternativo
+              ? [PSM.SINGLE_LINE, PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT]
+              : [PSM.SINGLE_LINE];
+            for (const modoSegmentacion of modosSegmentacion) {
+              if (admiteModoAlternativo) await worker.setParameters({ tessedit_pageseg_mode: modoSegmentacion });
+              const { data } = await worker.recognize(variante);
+              const confianza = Number(data.confidence ?? 0);
+              registrarTraza?.({
+                rotacion: grados,
+                region: indiceRegion,
+                preparacion: indiceVentana * preparaciones.length + indicePreparacion,
+                segmentacion: modoSegmentacion,
+                confianza,
+                texto: String(data.text ?? '').slice(0, 240)
+              });
+              const referencias = Number.isFinite(confianza) && confianza >= UMBRAL_CONFIANZA_OCR_PIE
+                ? extraerReferenciasPieOmr(String(data.text ?? ''))
+                : [];
+              if (referencias.length === 1) {
+                lecturaValida = { ...referencias[0]!, confianza };
+                break;
+              }
             }
+            if (lecturaValida) break;
           }
           if (lecturaValida) break;
         }

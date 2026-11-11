@@ -46,9 +46,9 @@ arbitrario enviado por cliente. El docente debe poder revisar y retirar el bono.
 
 | Requisito | Implementación | Validación |
 | --- | --- | --- |
-| REQ-001/002 | `detectorBonoGuiaEstudio.ts` | `calificacion.bonoGuiaEstudio.test.ts` |
-| REQ-003/006 | `SeccionCalificar.tsx`, `AppDocente.tsx` | `seccionCalificar.test.tsx` |
-| REQ-004/005 | `controladorCalificacion.ts`, `validacionesCalificacion.ts` | `calificacion.bonoGuiaEstudio.test.ts` |
+| REQ-001/002 | `apps/backend/src/modulos/modulo_calificacion/detectorBonoGuiaEstudio.ts` | `apps/backend/tests/calificacion.bonoGuiaEstudio.test.ts` |
+| REQ-003/006 | `apps/frontend/src/apps/app_docente/SeccionCalificar.tsx`, `apps/frontend/src/apps/app_docente/AppDocente.tsx` | `apps/frontend/tests/seccionCalificar.test.tsx` |
+| REQ-004/005 | `apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts`, `apps/backend/src/modulos/modulo_calificacion/validacionesCalificacion.ts` | `apps/backend/tests/calificacion.bonoGuiaEstudio.test.ts` |
 
 ## Verificación
 
