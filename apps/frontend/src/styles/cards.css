@@ -7917,6 +7917,7 @@ html[data-theme="dark"] body .empty-step__num {
   .calificaciones-workspace-nav button:last-child { grid-column: 1 / -1; }
   .calificaciones-workspace-nav__index { display: none; }
   .calificaciones-workspace-nav button > span { min-width: 0; flex: 1 1 auto; }
+  .calificaciones-workspace-nav strong { font-size: 0.82rem; }
 }
 
 @media (max-width: 700px) {

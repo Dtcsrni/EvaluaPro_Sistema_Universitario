@@ -1772,7 +1772,7 @@ test('audita estados de Rehidratación con paquete sintético a 320 y 390 px', a
 
   const nav = page.getByRole('navigation', { name: /Secciones del portal docente/i });
   await expect(nav).toBeVisible({ timeout: 15_000 });
-  await nav.locator('#navegacion-docente-movil').selectOption({ label: 'Rehidratacion' });
+  await nav.locator('#navegacion-docente-movil').selectOption({ label: 'Rehidratación' });
   const panel = page.locator('.rehidratacion-panel');
   const evidenceDir = process.env.E2E_SCREENSHOT_DIR || 'test-results';
   const capture = async (name: string) => page.screenshot({ path: `${evidenceDir}/rehidratacion-${name}.png`, fullPage: true, animations: 'disabled' });
@@ -7941,11 +7941,10 @@ test.describe('GUI responsive e2e · docente', () => {
         for (const theme of ['light', 'dark']) {
           const themeButton = page.getByRole('button', { name: /^Tema:/ });
           const selectedLabel = theme === 'light' ? 'Tema: Claro' : 'Tema: Oscuro';
-          let appliedTheme = await page.locator('html').getAttribute('data-theme');
           for (let attempt = 0; attempt < 3 && await themeButton.getAttribute('aria-label') !== selectedLabel; attempt += 1) {
+            const previousLabel = await themeButton.getAttribute('aria-label');
             await themeButton.click();
-            await expect.poll(() => page.locator('html').getAttribute('data-theme')).not.toBe(appliedTheme);
-            appliedTheme = await page.locator('html').getAttribute('data-theme');
+            await expect.poll(() => themeButton.getAttribute('aria-label')).not.toBe(previousLabel);
           }
           await expect(themeButton).toHaveAttribute('aria-label', selectedLabel);
           await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
@@ -8047,7 +8046,7 @@ test.describe('GUI responsive e2e · docente', () => {
         { label: 'Diseño de Exámenes', slug: 'plantillas' },
         { label: 'Entrega', slug: 'entrega' },
         { label: 'Calificaciones', slug: 'calificaciones' },
-        { label: 'Rehidratacion', slug: 'rehidratacion' },
+        { label: 'Rehidratación', slug: 'rehidratacion' },
         { label: 'Evaluaciones', slug: 'evaluaciones' },
         { label: 'Classroom', slug: 'classroom' },
         { label: 'Sincronización', slug: 'sincronizacion' },

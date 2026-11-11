@@ -91,7 +91,9 @@ function ubicarHostFlujo(host: HTMLDivElement) {
   const punto = obtenerPuntoAnclaje(regionPrincipal);
   const ancla = encontrarElementoAncla(regionPrincipal, punto.x, punto.y);
   const insercion = buscarContenedorInsercion(ancla);
-  if (insercion) insercion.padre.insertBefore(host, insercion.referencia);
+  // Insertar antes del ancla visible activa el scroll anchoring del navegador:
+  // el aviso puede terminar fuera del viewport aunque el ancla siga visible.
+  if (insercion) insercion.padre.insertBefore(host, insercion.referencia.nextSibling);
   else {
     const root = document.querySelector<HTMLElement>('#root');
     if (root?.parentElement) root.parentElement.insertBefore(host, root);
