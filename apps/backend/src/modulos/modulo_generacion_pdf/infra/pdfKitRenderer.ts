@@ -1714,13 +1714,13 @@ export class PdfKitRenderer {
   async generarPdf(examen: ExamenPdf): Promise<ResultadoGeneracionPdf> {
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
-    // El texto legible por personas conserva Ecofont. Helvetica se reserva
+    // El texto legible por personas conserva Ecofont. Helvetica Bold se reserva
     // para las dos referencias mecánicas que lee el OCR del pie.
     const fuente = await embedFuenteEcofont(pdfDoc);
     const fuenteBold = fuente;
     const fuenteItalica = fuente;
     const fuenteMono = fuente;
-    const fuenteOcr = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fuenteOcr = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     void examen.tipoExamen;
 
@@ -4966,11 +4966,10 @@ export class PdfKitRenderer {
     }
 
     const paginasExamen = paginasMeta.filter((pagina) => pagina.tipoPagina === 'examen');
-    const totalPaginasExamen = paginasExamen.length;
     const posicionesPie = [ANCHO_CARTA * 0.1, ANCHO_CARTA * 0.52];
     const anchoZonaPie = ANCHO_CARTA * 0.38;
-    const pieSizePreferido = 8.5;
-    const pieSizeReducido = 7.5;
+    const pieSizePreferido = 9.5;
+    const pieSizeReducido = 8.5;
     const pieY = margen + 2.5;
     const piePanel: RectBox = {
       x: posicionesPie[0]!,
@@ -5011,7 +5010,7 @@ export class PdfKitRenderer {
         throw new Error(`Layout invalido: el pie invade contenido OMR en la pagina ${paginaMeta.numero}: ${diagnostico.join('; ')}`);
       }
       const numeroPaginaExamen = indicePagina + 1;
-      const pieTexto = `FOLIO ${examen.folioNormalizado} · Pagina ${numeroPaginaExamen} de ${totalPaginasExamen}`;
+      const pieTexto = `FOLIO ${examen.folioNormalizado} · P${numeroPaginaExamen}`;
       let pieSize = pieSizePreferido;
       let pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
       if (pieWidth > anchoZonaPie) {
@@ -5049,7 +5048,7 @@ export class PdfKitRenderer {
       if (paginaOmr?.layoutDebug) {
         paginaOmr.layoutDebug.footerReferences = posicionesTexto.map((bbox) => ({
           text: pieTexto,
-          fontFamily: StandardFonts.Helvetica,
+          fontFamily: StandardFonts.HelveticaBold,
           size: pieSize,
           bbox
         }));

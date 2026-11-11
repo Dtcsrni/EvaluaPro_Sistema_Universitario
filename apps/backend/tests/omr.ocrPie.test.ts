@@ -39,7 +39,9 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     expect(consensuarReferenciasPieOmr([lectura, null])).toBeNull();
     expect(consensuarReferenciasPieOmr([lectura, { ...lectura, folio: '589010BO' }])).toBeNull();
     expect(consensuarReferenciasPieOmr([lectura, { ...lectura, numeroPagina: 3 }])).toBeNull();
-    expect(consensuarReferenciasPieOmr([lectura, { ...lectura, confianza: 74 }])).toBeNull();
+    expect(consensuarReferenciasPieOmr([lectura, { ...lectura, confianza: 64 }])).toBeNull();
+    expect(consensuarReferenciasPieOmr([lectura, { ...lectura, confianza: 65 }]))
+      .toEqual({ ...lectura, confianza: 65 });
   });
 
   it.each([
@@ -81,14 +83,14 @@ describe('OCR de identidad impresa en el pie OMR', () => {
     expect(modo).toBe(PSM.SINGLE_LINE);
   });
 
-  it('rescata el folio con una tercera ventana vertical amplia cuando fallan los recortes inferiores', async () => {
+  it('rescata el folio con una ventana vertical desplazada cuando falla el recorte inferior', async () => {
     const imagen = await sharp({ create: { width: 612, height: 792, channels: 3, background: '#ffffff' } }).png().toBuffer();
     const trazas: Array<{ preparacion: number; texto: string }> = [];
     let llamadas = 0;
     const worker = {
       async recognize() {
         llamadas += 1;
-        return llamadas <= 6
+        return llamadas <= 3
           ? { data: { text: '', confidence: 0 } }
           : { data: { text: '24681357 · Pagina 2', confidence: 90 } };
       }
@@ -99,7 +101,7 @@ describe('OCR de identidad impresa en el pie OMR', () => {
       (lectura) => trazas.push({ preparacion: lectura.preparacion, texto: lectura.texto })
     );
     expect(referencia).toEqual({ folio: '24681357', numeroPagina: 2, confianza: 90 });
-    expect(trazas.some((lectura) => lectura.preparacion >= 6)).toBe(true);
+    expect(trazas.some((lectura) => lectura.preparacion >= 3)).toBe(true);
   });
 
   it('rescata pies con texto disperso cuando línea y bloque no encuentran identidad', async () => {

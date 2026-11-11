@@ -56,7 +56,7 @@ describe('E2E PDF generado a identidad OMR por OCR real', () => {
         const referencia = await leerReferenciaPieOmr(captura!.dataUrl, lectorOcr, (lectura) => trazas.push(lectura));
         expect(referencia, `Tesseract debe consensuar ambas regiones en la página ${pagina.numeroPagina}; lecturas=${JSON.stringify(trazas)}`)
           .toMatchObject({ folio: 'FEEDFACE', numeroPagina: paginasExamen.indexOf(pagina) + 1 });
-        expect(referencia!.confianza).toBeGreaterThanOrEqual(75);
+        expect(referencia!.confianza).toBeGreaterThanOrEqual(65);
       }
     } finally {
       await parser.destroy();

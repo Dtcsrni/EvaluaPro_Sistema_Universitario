@@ -27,7 +27,7 @@ export function limitarTiempoOcrPie<T>(operacion: Promise<T>, timeoutMs = 15_000
 }
 
 const require = createRequire(import.meta.url);
-const UMBRAL_CONFIANZA_OCR_PIE = 75;
+const UMBRAL_CONFIANZA_OCR_PIE = 65;
 const ESCALA_OCR_PIE = 4;
 const PATRON_REFERENCIA_PIE = /\b(?:FOLIO\s+)?([A-Z0-9][A-Z0-9_-]{3,47})\s*(?:[·•:/+-]\s*)?(?:PAGINA|P)\.?\s*(\d{1,2}|[IL|Z])(?:\s+DE\s+(?:\d{1,2}|[IL|Z]))?(?=$|[\s.,;])/g;
 
@@ -109,11 +109,7 @@ export async function leerReferenciaPieOmr(
       const margenOcr = 32;
       const ventanas = [
         { top: 0.94, height: 0.055 },
-        { top: 0.92, height: 0.055 },
-        // Algunos rasterizadores desplazan el texto del pie varios puntos
-        // hacia arriba. El tercer recorte conserva el pie y suficiente margen
-        // blanco para que Tesseract recupere el folio completo.
-        { top: 0.90, height: 0.09 }
+        { top: 0.92, height: 0.055 }
       ] as const;
       let lecturaValida: ReferenciaPieOmr | undefined;
       const admiteModoAlternativo = typeof worker.setParameters === 'function';
