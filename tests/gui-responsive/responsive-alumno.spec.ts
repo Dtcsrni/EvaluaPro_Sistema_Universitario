@@ -433,10 +433,17 @@ test.describe('GUI responsive e2e · alumno', () => {
       if (viewport.width >= 360 && viewport.width <= 720) {
         expect(mobileSummaryLayout.metricsColumns, 'El resumen de folios debe conservar una sola columna legible').toBe(1);
         expect(mobileSummaryLayout.contextColumns, 'El contexto académico debe organizarse en dos columnas').toBe(2);
-        const titlesFit = await page.locator('.portal-alumno-context-grid .portal-card-title').evaluateAll((titles) =>
-          titles.every((title) => title.scrollWidth <= title.clientWidth + 1)
+        const titleMetrics = await page.locator('.portal-alumno-context-grid .portal-card-title').evaluateAll((titles) =>
+          titles.map((title) => ({
+            texto: title.textContent?.trim(),
+            clientWidth: title.clientWidth,
+            scrollWidth: title.scrollWidth,
+            fontSize: getComputedStyle(title).fontSize,
+            gap: getComputedStyle(title).gap
+          }))
         );
-        expect(titlesFit, 'Los títulos de las tarjetas de contexto deben caber sin partir palabras').toBe(true);
+        const overflowingTitles = titleMetrics.filter((title) => title.scrollWidth > title.clientWidth + 1);
+        expect(overflowingTitles, `Los títulos de las tarjetas de contexto deben caber sin partir palabras: ${JSON.stringify(titleMetrics)}`).toEqual([]);
       } else if (viewport.width < 360) {
         expect(mobileSummaryLayout.metricsColumns, 'Las métricas deben conservar una columna legible en pantallas muy estrechas').toBe(1);
         expect(mobileSummaryLayout.contextColumns, 'El contexto debe conservar una columna legible en pantallas muy estrechas').toBe(1);
