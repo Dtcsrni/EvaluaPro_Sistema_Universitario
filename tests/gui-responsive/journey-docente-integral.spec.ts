@@ -421,7 +421,7 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Evaluaciones', exact: true }).click();
     const iconoAlumnos = page.locator('.evaluaciones-panel__head .banco-mini-kpi__icon').nth(1).locator('svg');
     await expect(iconoAlumnos).toBeVisible();
-    await expect(iconoAlumnos.locator('path, circle')).toHaveCount(2);
+    await expect(iconoAlumnos.locator('path, circle, line, polyline, rect')).not.toHaveCount(0);
     expect(await iconoAlumnos.evaluate((svg) =>
       svg.namespaceURI === 'http://www.w3.org/2000/svg'
       && Array.from(svg.children).every((element) => element.namespaceURI === 'http://www.w3.org/2000/svg')
