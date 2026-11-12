@@ -5517,6 +5517,12 @@ button.chip-docente-sesion:active {
   }
 }
 
+@media (max-width: 340px) {
+  :root[data-theme="dark"] .materias-panel__title {
+    font-size: 1.2rem;
+  }
+}
+
 /* SPEC-064: Sistema Frosted Editorial global para el portal docente.
    Todas las pantallas comparten materiales, jerarquía y controles; los
    colores semánticos de estados se conservan en sus componentes concretos. */

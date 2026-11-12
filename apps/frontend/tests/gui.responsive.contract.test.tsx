@@ -231,7 +231,9 @@ describe('GUI responsive contract', () => {
   it('conserva indicadores legibles a 320 px y equilibra el resumen en móviles mayores', async () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
     const css = await fs.readFile(cssPath, 'utf8');
+    const cardsCss = await fs.readFile(path.resolve(process.cwd(), 'src/styles/cards.css'), 'utf8');
     const narrowAccountCss = css.slice(css.lastIndexOf('@media (max-width: 340px)'));
+    const narrowDarkMateriasCss = cardsCss.slice(cardsCss.lastIndexOf('@media (max-width: 340px)'));
     const compactAccountCss = css.slice(css.lastIndexOf('@media (min-width: 341px) and (max-width: 720px)'));
 
     expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-header-kpis\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
@@ -239,7 +241,7 @@ describe('GUI responsive contract', () => {
     expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi__lbl\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/);
     expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi__num\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*width:\s*100%;[^}]*overflow-wrap:\s*normal;/);
     expect(narrowAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi__num--sm\s*\{[^}]*font-size:\s*0\.72rem !important;[^}]*overflow-wrap:\s*normal;/);
-    expect(narrowAccountCss).toMatch(/:root\[data-theme="dark"\] \.materias-panel__title\s*\{[^}]*font-size:\s*1\.35rem;/);
+    expect(narrowDarkMateriasCss).toMatch(/:root\[data-theme="dark"\] \.materias-panel__title\s*\{[^}]*font-size:\s*1\.2rem;/);
     expect(compactAccountCss).toMatch(/\.cuenta-panel \.banco-mini-kpi:nth-child\(5\)\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/);
   });
 

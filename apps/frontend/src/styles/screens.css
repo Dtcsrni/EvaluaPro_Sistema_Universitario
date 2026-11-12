@@ -12499,10 +12499,6 @@ li.empty-state-card {
     font-size: 1.35rem;
   }
 
-  :root[data-theme="dark"] .materias-panel__title {
-    font-size: 1.35rem;
-  }
-
   .cuenta-panel .banco-header-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.4rem;
