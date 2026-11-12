@@ -351,9 +351,10 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '28_examen_generado_pdf.png'), fullPage: true });
 
     // Paso 6: OMR
-    await expect(page.getByRole('button', { name: 'Descargar hoja OMR', exact: true })).toBeVisible({ timeout: 30_000 });
+    const descargarHojaOmr = page.getByRole('button', { name: /^Descargar hoja OMR del folio / });
+    await expect(descargarHojaOmr).toBeVisible({ timeout: 30_000 });
     const descargaOmr = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Descargar hoja OMR', exact: true }).click();
+    await descargarHojaOmr.click();
     const omrDownload = await descargaOmr;
     const omrPath = await omrDownload.path();
     if (!omrPath) throw new Error('La descarga de la hoja OMR no produjo ruta temporal');
