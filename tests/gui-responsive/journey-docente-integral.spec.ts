@@ -129,6 +129,8 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Asistencias', exact: true }).click();
     await page.getByLabel('Materia o Periodo Académico').selectOption(periodo._id);
     await page.getByLabel('Filtrar por Grupo').selectOption('Grupo A');
+    await page.getByLabel('Grupo académico').selectOption('Grupo A');
+    await expect(page.getByLabel('Grupo académico')).toHaveValue('Grupo A');
     await page.getByPlaceholder('Ej. Unidad 2').fill(temaAsistencia);
 
     const crearSesionResponse = page.waitForResponse((response) =>
@@ -144,7 +146,10 @@ test.describe('Journey docente integral visual', () => {
 
     const marcarFalta = page.getByRole('button', { name: 'Marcar a ' + nombreCompletoAlumno + ' como Falta', exact: true });
     await expect(marcarFalta).toBeVisible();
+    await marcarFalta.scrollIntoViewIfNeeded();
+    await expect(marcarFalta).toBeInViewport();
     await marcarFalta.click();
+    await expect(marcarFalta).toHaveAttribute('aria-pressed', 'true');
 
     const guardarAsistenciaResponse = page.waitForResponse((response) =>
       response.url().includes('/asistencias/sesiones/' + sesion._id + '/registros') && response.request().method() === 'POST'
@@ -152,6 +157,7 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Guardar lista', exact: true }).click();
     const guardado = await guardarAsistenciaResponse;
     expect(guardado.status()).toBeLessThan(300);
+    expect((await guardado.json()).total).toBe(1);
     await expect(page.getByRole('tab', { name: 'Resumen General', exact: true })).toHaveClass(/activo/);
 
     const resumenAlumno = page.getByRole('row').filter({ hasText: nombreCompletoAlumno });
