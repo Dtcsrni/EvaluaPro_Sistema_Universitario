@@ -104,7 +104,7 @@ test.describe('Journey docente integral visual', () => {
     await page.getByLabel('Matrícula').fill(matricula);
     await page.locator('label:has-text("Nombres") >> input').fill(nombreAlumno);
     await page.locator('label:has-text("Apellidos") >> input').fill('E2E');
-    await page.getByRole('combobox', { name: 'Materia', exact: true }).selectOption({ index: 1 });
+    await page.getByRole('combobox', { name: 'Materia del alumno', exact: true }).selectOption({ index: 1 });
     await page.locator('label:has-text("Grupo") >> input').fill('Grupo A');
     await page.getByRole('button', { name: /Crear alumno/i }).click();
     await expect(page.getByText(nombreAlumno, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
@@ -256,7 +256,7 @@ test.describe('Journey docente integral visual', () => {
     await page.getByLabel('Matrícula').fill(matricula);
     await page.locator('label:has-text("Nombres") >> input').fill('Alumno');
     await page.locator('label:has-text("Apellidos") >> input').fill('Integral');
-    await page.getByRole('combobox', { name: 'Materia', exact: true }).selectOption({ index: 1 });
+    await page.getByRole('combobox', { name: 'Materia del alumno', exact: true }).selectOption({ index: 1 });
     await page.locator('label:has-text("Grupo") >> input').fill('Grupo A');
     await page.screenshot({ path: path.join(outputDir, '16_alumno_datos_llenados.png'), fullPage: true });
 

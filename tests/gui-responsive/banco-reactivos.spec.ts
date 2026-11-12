@@ -129,7 +129,7 @@ test.describe('Banco de reactivos', () => {
 
     const enunciado = page.getByPlaceholder('Redacta una pregunta clara y directa.');
     await enunciado.fill('¿Qué caracteriza mejor a una organización con cultura del dato?');
-    const opciones = page.getByPlaceholder(/Texto opcion [A-E]/);
+    const opciones = page.getByPlaceholder(/Texto de la opción [A-E]/);
     for (const [index, value] of ['Usa evidencia para decidir', 'Ignora las métricas', 'Decide solo por intuición', 'Evita medir resultados', 'Oculta sus datos'].entries()) {
       await opciones.nth(index).fill(value);
     }
