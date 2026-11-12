@@ -3049,23 +3049,35 @@ test.describe('GUI responsive e2e · docente', () => {
         expect(ultimoKpi, `El último indicador ocupa el ancho en ${width}px`).toBe('1 / -1');
       }
       if (width <= 340) {
-        const textoIndicadoresCabe = await page.locator('.cuenta-panel .banco-mini-kpi').evaluateAll((elementos) =>
-          elementos.every((elemento) => {
+        const textoIndicadoresFuera = await page.locator('.cuenta-panel .banco-mini-kpi').evaluateAll((elementos) =>
+          elementos.flatMap((elemento) => {
             const tarjeta = elemento.getBoundingClientRect();
             return [...elemento.querySelectorAll<HTMLElement>('.banco-mini-kpi__num, .banco-mini-kpi__lbl')]
-              .every((texto) => {
+              .flatMap((texto) => {
                 const caja = texto.getBoundingClientRect();
                 const rango = document.createRange();
                 rango.selectNodeContents(texto);
                 const lineas = rango.getClientRects().length;
                 const lineasMaximas = (texto.textContent?.trim().match(/\s+/g)?.length ?? 0) + 1;
-                return caja.left >= tarjeta.left && caja.right <= tarjeta.right
+                const cabe = caja.left >= tarjeta.left && caja.right <= tarjeta.right
                   && texto.scrollWidth <= texto.clientWidth + 1
                   && lineas <= lineasMaximas;
+                return cabe ? [] : [{
+                  texto: texto.textContent?.trim(),
+                  clase: texto.className,
+                  anchoTarjeta: tarjeta.width,
+                  anchoTexto: caja.width,
+                  anchoCliente: texto.clientWidth,
+                  anchoScroll: texto.scrollWidth,
+                  lineas,
+                  lineasMaximas,
+                  fuente: getComputedStyle(texto).font,
+                  overflowWrap: getComputedStyle(texto).overflowWrap
+                }];
               });
           })
         );
-        expect(textoIndicadoresCabe, `Valores y etiquetas del resumen caben en sus tarjetas a ${width}px`).toBe(true);
+        expect(textoIndicadoresFuera, `Indicadores fuera de sus tarjetas a ${width}px`).toEqual([]);
         const altoResumen = await page.locator('.cuenta-panel .banco-header-kpis').evaluate((elemento) =>
           elemento.getBoundingClientRect().height
         );
@@ -6454,14 +6466,14 @@ test.describe('GUI responsive e2e · docente', () => {
     await copiarAna.focus();
     await page.keyboard.press('Enter');
     await expect(reportes.getByRole('status').filter({ hasText: 'Clave de DUMMY-001 copiada. Envíala solo a ese alumno.' })).toBeVisible();
-    const textoPortapapelesDummy = await page.evaluate(() => (window as Window & { __textoPortapapelesDummy?: string }).__textoPortapapelesDummy ?? '');
-    expect(textoPortapapelesDummy).toBe('Clave_dummy-001_abc123456789');
+    const textoPortapapelesAna = await page.evaluate(() => (window as Window & { __textoPortapapelesDummy?: string }).__textoPortapapelesDummy ?? '');
+    expect(textoPortapapelesAna).toBe('Clave_dummy-001_abc123456789');
     const copiarBenito = reportes.getByRole('button', { name: 'Copiar clave de Benito Pruebas Extensas, matrícula DUMMY-002' });
     await copiarBenito.focus();
     await page.keyboard.press('Space');
     await expect(reportes.getByRole('status').filter({ hasText: 'Clave de DUMMY-002 copiada. Envíala solo a ese alumno.' })).toBeVisible();
-    textoPortapapelesDummy = await page.evaluate(() => (window as Window & { __textoPortapapelesDummy?: string }).__textoPortapapelesDummy ?? '');
-    expect(textoPortapapelesDummy).toBe('Clave_dummy-002_xyz987654321');
+    const textoPortapapelesBenito = await page.evaluate(() => (window as Window & { __textoPortapapelesDummy?: string }).__textoPortapapelesDummy ?? '');
+    expect(textoPortapapelesBenito).toBe('Clave_dummy-002_xyz987654321');
     await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: async () => { throw new Error('portapapeles no disponible'); } }
@@ -8278,6 +8290,8 @@ test.describe('GUI responsive e2e · docente', () => {
   });
 
   test('audita Banco de reactivos con contenido ficticio a 320/390 px y ambos temas', async ({ page }) => {
+    // Este escenario recarga la app varias veces y verifica permisos, temas y estados de error.
+    test.setTimeout(90_000);
     const periodoId = 'periodo-banco-ux-dummy';
     let perfilBanco: 'completo' | 'sin-gestion' | 'sin-archivo' = 'completo';
     let incluirPreguntaHeredada = false;
