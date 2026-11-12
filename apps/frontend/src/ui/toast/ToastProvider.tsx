@@ -88,6 +88,11 @@ function configurarHostFlujo(host: HTMLDivElement) {
 
 function ubicarHostFlujo(host: HTMLDivElement) {
   const regionPrincipal = document.querySelector<HTMLElement>('.shell-docente__content, main.page, main, [role="main"]');
+  if (regionPrincipal?.matches('.shell-docente__content')) {
+    regionPrincipal.insertBefore(host, regionPrincipal.firstChild);
+    configurarHostFlujo(host);
+    return;
+  }
   const punto = obtenerPuntoAnclaje(regionPrincipal);
   const ancla = encontrarElementoAncla(regionPrincipal, punto.x, punto.y);
   const insercion = buscarContenedorInsercion(ancla);

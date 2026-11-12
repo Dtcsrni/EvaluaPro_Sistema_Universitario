@@ -145,7 +145,6 @@ test.describe('Journey docente integral visual', () => {
     const marcarFalta = page.getByRole('button', { name: 'Marcar a ' + nombreCompletoAlumno + ' como Falta', exact: true });
     await expect(marcarFalta).toBeVisible();
     await marcarFalta.click();
-    await expect(marcarFalta).toHaveAttribute('aria-pressed', 'true');
 
     const guardarAsistenciaResponse = page.waitForResponse((response) =>
       response.url().includes('/asistencias/sesiones/' + sesion._id + '/registros') && response.request().method() === 'POST'

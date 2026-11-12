@@ -253,7 +253,9 @@ describe('SeccionAsistencias (Resiliencia)', () => {
     expect(avisoPaseRapido.closest('[role="status"]')).toBeInTheDocument();
     expect(emitToast).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: /Marcar a Alumno 1 como Falta/i }));
+    const marcarFalta = screen.getByRole('button', { name: /Marcar a Alumno 1 como Falta/i });
+    fireEvent.click(marcarFalta);
+    expect(marcarFalta).toHaveAttribute('aria-pressed', 'true');
 
     const btnGuardarLista = screen.getByRole('button', { name: /Guardar lista/i });
     fireEvent.click(btnGuardarLista);

@@ -231,6 +231,49 @@ describe('ToastProvider', () => {
     expect(host?.nextElementSibling).toBe(textos[5]);
   });
 
+  it('inserta el fallback al inicio del contenido docente, debajo de la cabecera', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    const { container } = render(
+      <ToastProvider>
+        <section className="shell-docente">
+          <header className="shell-docente__header"><button type="button">Cuenta</button></header>
+          <div className="shell-docente__content">
+            {Array.from({ length: 9 }, (_, index) => <span key={index}>Texto visible {index + 1}.</span>)}
+          </div>
+        </section>
+      </ToastProvider>
+    );
+    const contenido = container.querySelector<HTMLElement>('.shell-docente__content')!;
+    const textos = Array.from(contenido.querySelectorAll('span'));
+    const rectangulos = [
+      new DOMRect(590, 504, 420, 250), new DOMRect(14, 504, 420, 250),
+      new DOMRect(590, 14, 420, 250), new DOMRect(14, 14, 420, 250),
+      new DOMRect(302, 14, 420, 250), new DOMRect(302, 504, 420, 250),
+      new DOMRect(14, 259, 420, 250), new DOMRect(590, 259, 420, 250),
+      new DOMRect(302, 259, 420, 250)
+    ];
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: () => textos[4]!
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      const index = textos.indexOf(this as HTMLSpanElement);
+      if (index >= 0) return rectangulos[index]!;
+      if (this.classList?.contains('toast-viewport')) return rectangulos[0]!;
+      return new DOMRect();
+    });
+
+    act(() => emitToast({ level: 'info', title: 'Cuenta creada', message: 'Sesión iniciada.' }));
+
+    const host = document.querySelector<HTMLElement>('.toast-host');
+    expect(screen.getByRole('region', { name: 'Notificaciones' })).toHaveAttribute('data-placement', 'flow');
+    expect(host?.parentElement).toBe(contenido);
+    expect(contenido.firstElementChild).toBe(host);
+    expect(host?.nextElementSibling).toHaveTextContent('Texto visible 1.');
+    expect(container.querySelector('.shell-docente__header')).toHaveTextContent('Cuenta');
+  });
+
   it('devuelve a body el host de flujo vacío al cerrar la última notificación', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
