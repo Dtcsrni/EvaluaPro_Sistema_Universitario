@@ -76,7 +76,7 @@ exports[`UX visual regression > admin negocio mantiene layout principal 1`] = `
         >
           <svg
             aria-hidden="true"
-            class="lucide lucide-triangle-alert lucide-alert-triangle icono"
+            class="lucide lucide-triangle-exclamation-point lucide-alert-triangle lucide-triangle-alert icono"
             data-icono="alerta"
             fill="none"
             focusable="false"
@@ -561,7 +561,7 @@ exports[`UX visual regression > alumnos muestra recuperacion explícita cuando f
     >
       <svg
         aria-hidden="true"
-        class="lucide lucide-triangle-alert lucide-alert-triangle icono"
+        class="lucide lucide-triangle-exclamation-point lucide-alert-triangle lucide-triangle-alert icono"
         data-icono="alerta"
         fill="none"
         focusable="false"
