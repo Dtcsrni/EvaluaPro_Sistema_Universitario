@@ -43,6 +43,10 @@ async function auditVisualState(
     // La auditoría de abajo reporta las imágenes que siguen sin cargar.
   }
 
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+
   const audit = await page.evaluate(() => {
     const root = document.documentElement;
     const body = document.body;

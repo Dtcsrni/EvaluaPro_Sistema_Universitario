@@ -104,7 +104,7 @@
     "test:compliance:pii": "node scripts/compliance/pii-leak-check.mjs",
     "test:compliance:retention": "node scripts/compliance/retention-policy-check.mjs",
     "test:compliance:dsr-flow": "npm -C apps/backend run test -- tests/integracion/compliance.arco.test.ts",
-    "test:compliance:policy": "npm-run-all -s test:compliance:legal-docs test:compliance:pii test:compliance:retention",
+    "test:compliance:policy": "node --test scripts/tests/pii-leak-check.test.mjs && npm-run-all -s test:compliance:legal-docs test:compliance:pii test:compliance:retention",
     "compliance:hooks:install": "node scripts/compliance/install-git-hooks.mjs",
     "compliance:evidence:generate": "node scripts/compliance/generate-evidence.mjs",
     "compliance:full:ci": "npm-run-all -s test:compliance:policy test:compliance:dsr-flow compliance:evidence:generate",

@@ -460,23 +460,36 @@ test.describe('Journey docente integral visual', () => {
     const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5' });
     await expect(examenPrimerParcial).toHaveAttribute('max', '5');
     await examenPrimerParcial.fill('5');
-    const examenPrimerParcialResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Guardar examen' }).click();
-    expect((await examenPrimerParcialResponse).status()).toBe(201);
+    const [examenPrimerParcialResponse] = await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Guardar examen' }).click()
+    ]);
+    expect(examenPrimerParcialResponse.status()).toBe(201);
     await expect(examenPrimerParcial).toHaveValue('5');
+    await expect(page.getByRole('button', { name: 'Guardar examen' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Segundo Parcial', exact: true }).click();
     await expect(page.getByText('Examen 2do Parcial automático · referencia')).toBeVisible();
     await page.getByRole('spinbutton', { name: 'Práctica 2do Parcial · 0–10' }).fill('7.5');
-    const practicaListaResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Guardar práctica' }).click();
-    expect((await practicaListaResponse).status()).toBe(201);
+    const [practicaListaResponse] = await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Guardar práctica' }).click()
+    ]);
+    expect(practicaListaResponse.status()).toBe(201);
     await expect(page.getByRole('spinbutton', { name: 'Práctica 2do Parcial · 0–10' })).toHaveValue('7.5');
+    await expect(page.getByRole('button', { name: 'Guardar práctica' })).toBeEnabled();
+    await expect(page.locator('.toast')).toHaveCount(0, { timeout: 20_000 });
     const examenSegundoParcial = page.getByRole('spinbutton', { name: 'Examen 2do Parcial · 0–5.25' });
     await examenSegundoParcial.fill('5.25');
-    const examenSegundoParcialResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Guardar examen' }).click();
-    expect((await examenSegundoParcialResponse).status()).toBe(201);
+    const editorSegundoParcial = page.getByRole('region', { name: 'Columnas físicas del Segundo Parcial' });
+    const guardarExamenSegundoParcial = editorSegundoParcial.getByRole('button', { name: 'Guardar examen', exact: true });
+    await expect(guardarExamenSegundoParcial).toBeVisible();
+    await expect(guardarExamenSegundoParcial).toBeEnabled();
+    const [respuestaExamenSegundoParcial] = await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST'),
+      guardarExamenSegundoParcial.click()
+    ]);
+    expect(respuestaExamenSegundoParcial.status()).toBe(201);
     await expect(examenSegundoParcial).toHaveValue('5.25');
     const themeButton = page.locator('button.boton--tema');
     for (let attempt = 0; attempt < 3 && await themeButton.getAttribute('aria-label') !== 'Tema: Claro'; attempt += 1) {
@@ -525,9 +538,20 @@ test.describe('Journey docente integral visual', () => {
     await panelManual.getByLabel('Examen entregado').selectOption(examen.examenId);
     await panelManual.getByRole('button', { name: 'Usar examen para calificación manual', exact: true }).click();
     await expect(page.getByText('Modo manual activado para el examen seleccionado.', { exact: true })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('checkbox', { name: 'Bono por guía de estudio (+0.25)', exact: true }).check();
-    await expect(page.getByText(/Calificación final: 0\.25 \/ 5\.00/i)).toBeVisible();
+    await page.getByRole('spinbutton', { name: 'Aciertos obtenidos' }).fill('1');
+    await expect(page.getByRole('checkbox', { name: /Confirmar marca de guía/i })).toBeDisabled();
+    await expect(page.getByText(/Calificación final: 1\.00 \/ 5\.00/i)).toBeVisible();
     await page.screenshot({ path: path.join(outputDir, '40_calificaciones_modo_manual.png'), fullPage: true });
+
+    const previsualizarCalificacion = page.getByRole('button', { name: 'Analizar marca y previsualizar', exact: true });
+    const previewCalificacionResponse = page.waitForResponse((response) => response.url().includes('/calificaciones/calificar') && response.request().method() === 'POST');
+    await previsualizarCalificacion.click();
+    const previewCalificacionReal = await previewCalificacionResponse;
+    expect(previewCalificacionReal.status()).toBe(200);
+    const previewCalificacion = await previewCalificacionReal.json();
+    expect(Number(previewCalificacion.preview.calificacionExamenFinalTexto)).toBe(1);
+    expect(Number(previewCalificacion.preview.bonoTexto)).toBe(0);
+    await expect(page.getByRole('button', { name: 'Guardar calificación', exact: true })).toBeEnabled();
 
     const guardarCalificacion = page.getByRole('button', { name: 'Guardar calificación', exact: true });
     const calificarResponse = page.waitForResponse((response) => response.url().includes('/calificaciones/calificar') && response.request().method() === 'POST');
@@ -535,15 +559,15 @@ test.describe('Journey docente integral visual', () => {
     const calificarResponseReal = await calificarResponse;
     expect(calificarResponseReal.status()).toBeLessThan(400);
     const calificacionGuardada = await calificarResponseReal.json();
-    expect(calificacionGuardada.calificacion.bonoTexto).toBe('0.25');
-    expect(calificacionGuardada.calificacion.calificacionExamenFinalTexto).toBe('0.25');
-    await expect(page.getByLabel('Panel de calificación').getByText('Calificacion guardada', { exact: true })).toBeVisible({ timeout: 30_000 });
+    expect(Number(calificacionGuardada.calificacion.bonoTexto)).toBe(0);
+    expect(Number(calificacionGuardada.calificacion.calificacionExamenFinalTexto)).toBe(1);
+    await expect(page.getByLabel('Panel de calificación').getByText('Calificación guardada', { exact: true })).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '41_calificaciones_guardada_exito.png'), fullPage: true });
 
     // Paso 10: Reportes
-    await page.getByRole('button', { name: /Actas y exportación/i }).click();
-    const reportes = page.locator('.calif-deck-card--reports');
-    await reportes.getByRole('combobox', { name: 'Materia del reporte', exact: true }).selectOption(fixture.periodoId);
+    await page.getByRole('button', { name: /Reportes y exportación/i }).click();
+    const reportes = page.getByRole('form', { name: 'Reportes de calificaciones', exact: true });
+    await reportes.getByRole('combobox', { name: 'Periodo de calificaciones', exact: true }).selectOption(fixture.periodoId);
     await page.screenshot({ path: path.join(outputDir, '42_reportes_seccion.png'), fullPage: true });
 
     const descargaCsv = page.waitForEvent('download');
@@ -562,49 +586,55 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Sincronización', exact: true }).click();
     await page.screenshot({ path: path.join(outputDir, '45_sincronizacion_seccion.png'), fullPage: true });
 
-    const backupPanel = page.getByRole('heading', { name: 'Backups y exportaciones', exact: true }).locator('..');
+    const backupPanel = page.getByRole('heading', { name: 'Respaldo completo del equipo', exact: true }).locator('..');
+    await backupPanel.getByLabel('Contraseña actual', { exact: true }).fill('P@ssword123');
     const descargaBackup = page.waitForEvent('download');
-    await backupPanel.getByRole('button', { name: 'Exportar backup', exact: true }).click();
+    await backupPanel.getByRole('button', { name: 'Exportar respaldo completo', exact: true }).click();
     const backupDownload = await descargaBackup;
     const backupPath = await backupDownload.path();
     if (!backupPath) throw new Error('La exportación de backup no produjo ruta temporal');
-    await expect(backupPanel).toContainText('Cifrado autenticado', { timeout: 20_000 });
+    expect(backupDownload.suggestedFilename()).toMatch(/\.ep-snapshot$/);
+    await expect(backupPanel).toContainText('Instantánea exportada', { timeout: 20_000 });
+    await expect(backupPanel).toContainText('checksum', { timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '46_backup_exportar_cifrado.png'), fullPage: true });
 
-    await backupPanel.locator('input[type="file"]').setInputFiles(backupPath);
-    await expect(page.getByRole('button', { name: 'Sí, importar paquete', exact: true })).toBeVisible({ timeout: 20_000 });
+    await backupPanel.getByLabel('Contraseña actual', { exact: true }).fill('P@ssword123');
+    await backupPanel.getByLabel(/Importar respaldo completo \(\.ep-snapshot\)/i).setInputFiles(backupPath);
+    await expect(page.getByRole('button', { name: 'Sí, reemplazar e importar', exact: true })).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '47_backup_importar_paquete.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Sí, importar paquete', exact: true }).click();
-    await expect(backupPanel).toContainText('Paquete importado', { timeout: 30_000 });
+    const paginaTrasImportar = page.waitForEvent('framenavigated', (frame) => frame === page.mainFrame());
+    await page.getByRole('button', { name: 'Sí, reemplazar e importar', exact: true }).click();
+    await paginaTrasImportar;
 
     // Paso 12: Publicación
-    const publicar = page.getByRole('heading', { name: 'Publicar en portal', exact: true }).locator('..');
-    await publicar.getByRole('combobox', { name: 'Materia', exact: true }).selectOption(fixture.periodoId);
+    await page.getByRole('button', { name: 'Sincronización', exact: true }).click();
+    await page.getByRole('link', { name: 'Publicar en Portal Alumno', exact: true }).click();
+    const publicar = page.getByRole('heading', { name: 'Publicación y acceso al Portal Alumno', exact: true }).locator('..');
+    await publicar.getByRole('combobox', { name: 'Materia para publicar', exact: true }).selectOption(fixture.periodoId);
     await page.screenshot({ path: path.join(outputDir, '48_publicacion_publicar.png'), fullPage: true });
 
     const codigoResponse = page.waitForResponse((response) => response.url().includes('/sincronizaciones/codigo-acceso') && response.request().method() === 'POST');
-    await publicar.getByRole('button', { name: 'Generar codigo', exact: true }).click();
+    await publicar.getByRole('button', { name: 'Generar código de acceso', exact: true }).click();
     expect((await codigoResponse).status()).toBeLessThan(400);
-    await expect(publicar).toContainText('Código generado:', { timeout: 30_000 });
+    const codigoGenerado = page.getByRole('region', { name: 'Código de acceso generado' });
+    await expect(codigoGenerado.getByText('Listo para compartir', { exact: true })).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '49_publicacion_codigo_generado.png'), fullPage: true });
 
-    // El código de acceso se incluye en la sincronización; publicar después de generarlo.
     const publicarResponse = page.waitForResponse((response) => response.url().includes('/sincronizaciones/publicar') && response.request().method() === 'POST');
-    await publicar.getByRole('button', { name: 'Publicar', exact: true }).click();
+    await publicar.getByRole('button', { name: 'Publicar resultados', exact: true }).click();
     const respuestaPublicacion = await publicarResponse;
     expect(respuestaPublicacion.status(), `Respuesta de publicación: ${await respuestaPublicacion.text()}`).toBeLessThan(400);
 
-    const codigoTexto = await publicar.getByText(/Código generado:/i).textContent();
-    const codigoAcceso = codigoTexto?.split('Código generado:')[1]?.trim()?.split(' ')[0];
-    if (!codigoAcceso) throw new Error(`No se pudo extraer el código de acceso visible: ${codigoTexto ?? ''}`);
+    const codigoAcceso = (await codigoGenerado.locator('code').textContent())?.trim();
+    if (!codigoAcceso) throw new Error('No se pudo extraer el código de acceso visible.');
 
     // Paso 13: Portal Alumno
     await page.goto(`http://127.0.0.1:${alumnoWebPort}/acceso`);
-    await expect(page.getByLabel('Codigo de acceso', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByLabel('Código de acceso', { exact: true })).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '50_portal_alumno_acceso.png'), fullPage: true });
 
-    await page.getByLabel('Codigo de acceso').fill(codigoAcceso);
-    await page.getByLabel('Matricula').fill(fixture.alumnoMatricula);
+    await page.getByRole('textbox', { name: 'Código de acceso', exact: true }).fill(codigoAcceso);
+    await page.getByLabel('Matrícula').fill(fixture.alumnoMatricula);
     await page.screenshot({ path: path.join(outputDir, '51_portal_alumno_credenciales.png'), fullPage: true });
 
     await page.getByRole('button', { name: /Consultar/i }).click();
