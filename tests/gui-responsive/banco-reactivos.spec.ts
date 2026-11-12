@@ -173,7 +173,7 @@ test.describe('Banco de reactivos', () => {
     expect(historialManualJson.versiones).toHaveLength(2);
     expect(historialManualJson.versiones[0].enunciado).toBe('¿Cómo decide una organización con cultura del dato?');
     const tarjetaEditada = page.locator('.banco-listado__item').filter({ hasText: '¿Cómo decide una organización con cultura del dato?' });
-    await tarjetaEditada.getByRole('button', { name: 'Versiones', exact: true }).click();
+    await tarjetaEditada.getByRole('button', { name: /^Versiones del reactivo:/ }).click();
     const comparador = page.getByRole('region', { name: 'Comparar versiones' });
     await expect(comparador).toBeVisible();
     await expect(comparador).toContainText('¿Qué caracteriza mejor a una organización con cultura del dato?');

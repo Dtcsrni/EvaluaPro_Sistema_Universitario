@@ -153,7 +153,7 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Guardar lista', exact: true }).click();
     const guardado = await guardarAsistenciaResponse;
     expect(guardado.status()).toBeLessThan(300);
-    await expect(page.getByRole('button', { name: 'Resumen General', exact: true })).toHaveClass(/activo/);
+    await expect(page.getByRole('tab', { name: 'Resumen General', exact: true })).toHaveClass(/activo/);
 
     const resumenAlumno = page.getByRole('row').filter({ hasText: nombreCompletoAlumno });
     await expect(resumenAlumno.locator('td').nth(2)).toHaveText('Grupo A');
@@ -180,7 +180,7 @@ test.describe('Journey docente integral visual', () => {
       expect.objectContaining({ alumnoId: alumno._id, estado: 'F', periodoId: periodo._id, grupo: 'Grupo A' })
     ]));
 
-    await page.getByRole('button', { name: 'Resumen General', exact: true }).click();
+    await page.getByRole('tab', { name: 'Resumen General', exact: true }).click();
     const resumenTrasReapertura = page.getByRole('row').filter({ hasText: nombreCompletoAlumno });
     await expect(resumenTrasReapertura.locator('td').nth(2)).toHaveText('Grupo A');
     await expect(resumenTrasReapertura.locator('td').nth(4)).toHaveText('1');
@@ -294,7 +294,7 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '24_plantilla_seccion.png'), fullPage: true, animations: 'disabled' });
 
     const formularioPlantilla = page.getByRole('region', { name: 'Formulario de plantilla' });
-    await formularioPlantilla.getByLabel('Titulo', { exact: false }).fill(`Plantilla E2E Integral ${sufijo}`);
+    await formularioPlantilla.getByLabel('Título', { exact: false }).fill(`Plantilla E2E Integral ${sufijo}`);
     await formularioPlantilla.getByLabel('Materia', { exact: false }).selectOption(fixture.periodoId);
     const temaIntegral = page.getByRole('button', { name: /Tema E2E Integral/i });
     await expect(temaIntegral).toBeVisible({ timeout: 20_000 });
