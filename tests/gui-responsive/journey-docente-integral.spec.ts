@@ -129,7 +129,7 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Asistencias', exact: true }).click();
     await page.getByLabel('Materia o Periodo Académico').selectOption(periodo._id);
     await page.getByLabel('Filtrar por Grupo').selectOption('Grupo A');
-    await page.getByPlaceholder(/Unidad 2: Modelado dimensional/).fill(temaAsistencia);
+    await page.getByPlaceholder('Ej. Unidad 2').fill(temaAsistencia);
 
     const crearSesionResponse = page.waitForResponse((response) =>
       response.url().includes('/asistencias/sesiones') && response.request().method() === 'POST'

@@ -150,10 +150,10 @@ test.describe('Banco de reactivos', () => {
     )).toBe(true);
 
     const tarjetaManual = page.locator('.banco-listado__item').filter({ hasText: '¿Qué caracteriza mejor a una organización con cultura del dato?' });
-    await tarjetaManual.getByRole('button', { name: 'Editar', exact: true }).click();
+    await tarjetaManual.getByRole('button', { name: /^Editar pregunta:/ }).click();
     const formularioEdicion = page.locator('.banco-form__surface--edit');
     await formularioEdicion.getByRole('textbox', { name: 'Enunciado de la pregunta en edición' }).fill('¿Cómo decide una organización con cultura del dato?');
-    await formularioEdicion.getByRole('textbox', { name: 'Texto opcion A' }).fill('Con evidencia verificable');
+    await formularioEdicion.getByRole('textbox', { name: 'Texto de la opción A' }).fill('Con evidencia verificable');
     await formularioEdicion.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
     await expect(page.getByText('Nueva versión guardada como borrador; requiere revisión antes de publicarse.', { exact: true })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Enviar a revisión (1)', exact: true }).click();

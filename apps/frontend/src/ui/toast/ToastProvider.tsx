@@ -313,6 +313,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [cantidadEnEspera, setCantidadEnEspera] = useState(0);
   const [anuncioCortes, setAnuncioCortes] = useState({ revision: 0, texto: '' });
+  const hayNotificaciones = toasts.length > 0 || cantidadEnEspera > 0;
   const [ubicacionToast, setUbicacionToast] = useState<ToastPlacement>('bottom-right');
   const [toastHost, setToastHost] = useState<HTMLDivElement | null>(null);
   const toastsRef = useRef<ToastItem[]>([]);
@@ -392,6 +393,25 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   useLayoutEffect(() => {
     recalcularUbicacionToast();
   }, [cantidadEnEspera, recalcularUbicacionToast, toasts]);
+
+  useEffect(() => {
+    if (!hayNotificaciones) return;
+    const raiz = document.getElementById('root');
+    if (!raiz) return;
+    let frame = 0;
+    const observer = new MutationObserver(() => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        recalcularUbicacionToast();
+      });
+    });
+    observer.observe(raiz, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [hayNotificaciones, recalcularUbicacionToast]);
 
   useEffect(() => {
     let timer: number | null = null;
@@ -781,8 +801,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       })}
     </div>
   ) : null;
-  const hayNotificaciones = toasts.length > 0 || cantidadEnEspera > 0;
-
   useLayoutEffect(() => {
     if (!toastHost) return;
     if (hayNotificaciones && ubicacionToast === 'flow') {
