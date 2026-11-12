@@ -439,7 +439,7 @@ test.describe('Journey docente integral visual', () => {
 
     await evaluaciones.getByRole('tab', { name: 'Evidencias', exact: true }).click();
     await expect(evaluaciones.getByRole('tabpanel', { name: 'Evidencias' })).toBeVisible();
-    await evaluaciones.getByLabel('Evidencia título').fill('Evidencia visual integral');
+    await evaluaciones.getByLabel('Título de la evidencia', { exact: true }).fill('Evidencia visual integral');
     await evaluaciones.getByLabel('Calificación').fill('4.5');
     await evaluaciones.getByLabel('Ponderación').fill('2');
     const evidenciaResponse = page.waitForResponse((response) => response.url().includes('/evaluaciones/v2/evidencias') && response.request().method() === 'POST');
