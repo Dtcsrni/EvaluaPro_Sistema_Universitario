@@ -211,7 +211,7 @@ test.describe('Banco de reactivos', () => {
     });
     await importacion.getByRole('button', { name: 'Validar archivo', exact: true }).click();
     await expect(importacion.locator('.banco-reactivos-import__message')).toContainText('Validación lista', { timeout: 20_000 });
-    await expect(page.getByText('1 nuevas', { exact: true })).toBeVisible();
+    await expect(page.getByText('1 reactivo nuevo', { exact: true })).toBeVisible();
     await importacion.getByRole('button', { name: 'Confirmar importación', exact: true }).click();
     const resultadoImportacion = importacion.locator('.banco-reactivos-import__message');
     await expect(resultadoImportacion).toContainText('Importación confirmada: 1 reactivo(s) esperan revisión.', { timeout: 20_000 });

@@ -372,7 +372,7 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '31_omr_job_procesando.png'), fullPage: true });
 
     const finalizarOmr = page.getByRole('button', { name: 'Finalizar job', exact: true });
-    await expect(historial.getByText('Estado: completed', { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(historial.getByText('Estado: Completado', { exact: true })).toBeVisible({ timeout: 60_000 });
     await expect(finalizarOmr).toBeDisabled();
     await page.screenshot({ path: path.join(outputDir, '32_omr_ingesta_completada.png'), fullPage: true });
 
