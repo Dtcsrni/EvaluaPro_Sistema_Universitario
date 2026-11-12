@@ -437,7 +437,8 @@ test.describe('Journey docente integral visual', () => {
     await expect(evaluaciones).toContainText(/guardada|política/i, { timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '37_evaluaciones_politica_guardada.png'), fullPage: true });
 
-    await page.getByRole('button', { name: 'Evidencias', exact: true }).click();
+    await evaluaciones.getByRole('tab', { name: 'Evidencias', exact: true }).click();
+    await expect(evaluaciones.getByRole('tabpanel', { name: 'Evidencias' })).toBeVisible();
     await evaluaciones.getByLabel('Evidencia título').fill('Evidencia visual integral');
     await evaluaciones.getByLabel('Calificación').fill('4.5');
     await evaluaciones.getByLabel('Ponderación').fill('2');
