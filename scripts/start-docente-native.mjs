@@ -217,7 +217,9 @@ function buildE2EFrontend() {
       cwd: root,
       env: {
         ...process.env,
+        NODE_ENV: 'production',
         VITE_APP_DESTINO: destino,
+        VITE_EVALUAPRO_MODE: 'test',
         VITE_DISABLE_PWA: '1',
         VITE_API_BASE_URL: `http://127.0.0.1:${env.PUERTO_API}/api`
       },
