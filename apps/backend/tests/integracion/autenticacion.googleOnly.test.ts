@@ -107,6 +107,82 @@ describe('autenticacion google-only', () => {
       .expect(200);
   });
 
+  it('permite sondear OAuth Desktop sin agotar los límites globales o de credenciales', async () => {
+    const keys = [
+      'NODE_ENV',
+      'JWT_SECRETO',
+      'CORS_ORIGENES',
+      'RATE_LIMIT_LIMIT',
+      'RATE_LIMIT_WINDOW_MS',
+      'RATE_LIMIT_CREDENCIALES_LIMIT',
+      'CLASSROOM_ENABLED',
+      'EVALUAPRO_FLAVOR',
+      'REQUIRE_GOOGLE_OAUTH',
+      'GOOGLE_OAUTH_CLIENT_ID'
+    ] as const;
+    const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    try {
+      process.env.NODE_ENV = 'production';
+      process.env.JWT_SECRETO = 'test-only-oauth-rate-limit-secret';
+      process.env.CORS_ORIGENES = 'http://localhost:5173';
+      process.env.RATE_LIMIT_LIMIT = '5';
+      process.env.RATE_LIMIT_WINDOW_MS = '900000';
+      process.env.RATE_LIMIT_CREDENCIALES_LIMIT = '2';
+      process.env.CLASSROOM_ENABLED = '0';
+      process.env.EVALUAPRO_FLAVOR = 'docente-local';
+      process.env.REQUIRE_GOOGLE_OAUTH = '1';
+      process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client-id-test';
+
+      const app = await crearAppGoogleOnly();
+      const origen = 'http://localhost:5173';
+      const flujo = await request(app)
+        .post('/api/autenticacion/google-desktop/iniciar')
+        .set('Origin', origen)
+        .send({})
+        .expect(201);
+
+      for (let intento = 0; intento < 45; intento += 1) {
+        const resultado = await request(app)
+          .post('/api/autenticacion/google-desktop/resultado')
+          .set('Origin', origen)
+          .send({ flowId: flujo.body.flowId })
+          .expect(200);
+        expect(resultado.body).toEqual({ estado: 'pendiente' });
+      }
+
+      await request(app)
+        .get('/api/autenticacion/capacidades-integraciones')
+        .expect(200);
+
+      for (let intento = 45; intento < 1_000; intento += 1) {
+        await request(app)
+          .post('/api/autenticacion/google-desktop/resultado')
+          .set('Origin', origen)
+          .send({ flowId: flujo.body.flowId })
+          .expect(200);
+      }
+
+      await request(app)
+        .post('/api/autenticacion/google-desktop/resultado')
+        .set('Origin', origen)
+        .send({ flowId: flujo.body.flowId })
+        .expect(429);
+
+      await request(app)
+        .post('/api/autenticacion/google-desktop/cancelar')
+        .set('Origin', origen)
+        .send({ flowId: flujo.body.flowId })
+        .expect(200);
+    } finally {
+      for (const key of keys) {
+        const value = previous[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      vi.resetModules();
+    }
+  });
+
   it('autovincula por correo verificado en el primer login Google', async () => {
     const app = await crearAppGoogleOnly();
     const docente = await Docente.create({

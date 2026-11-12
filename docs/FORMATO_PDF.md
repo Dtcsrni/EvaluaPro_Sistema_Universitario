@@ -5,8 +5,8 @@ Especificacion operativa del formato de examen y su lectura OMR.
 ## Formato de pagina
 - Carta US (`612x792 pt`).
 - Margen configurable (default 8 mm, minimo operativo 4.5 mm).
-- QR por pagina con texto obligatorio: `EXAMEN:<FOLIO>:P<n>:TV4`.
-- Marcas de registro/fiduciales incluidas en layout canonico TV4 con paridad visual A050929D.
+- QR por página con identidad versionada: `EXAMEN:<FOLIO>:P<n>:O1.0.0`.
+- Marcas de registro y fiduciales incluidas en el layout OMR 1.0.0, con paridad visual A050929D.
 - Encabezado compacto con acentos de color y alta legibilidad para maximizar area util de preguntas por cara.
 - La identidad visual del examen es canónica y compartida entre renderers:
   - paleta compacta A050929D
@@ -14,8 +14,9 @@ Especificacion operativa del formato de examen y su lectura OMR.
   - numeradores, panel OMR, footer y cajas de captura con la misma semántica visual en preview, individual y lote
 
 ## Plantilla OMR soportada
-- Plantilla operativa canonica: `TV4`.
-- Auto-calificacion operativa sobre examenes generados en `TV4`.
+- Plantilla operativa: contrato OMR `1.0.0`.
+- La geometría interna `templateVersion: 4` es un dato de implementación y no la identidad pública del formato.
+- La lectura conserva compatibilidad con códigos `TV4` impresos previamente; los nuevos exámenes usan el marcador SemVer `O1.0.0`.
 
 ## Mapa OMR persistido
 Cada examen generado guarda `mapaOmr` con:
@@ -30,7 +31,7 @@ Esto permite que el escaneo no dependa de OCR libre, sino de geometria conocida.
 
 ## Pipeline OMR actual
 1. Decodifica imagen y normaliza colorimetria.
-2. Detecta QR TV4 y valida consistencia con `mapaOmr`.
+2. Detecta el QR versionado y valida consistencia con `mapaOmr`.
 3. Elige transformacion geometrica (QR/homografia/escala) con heuristica de coherencia.
 4. Ajusta centros por fiduciales y caja OMR.
 5. Evalua burbujas por rasgos fotometricos e hibridos.

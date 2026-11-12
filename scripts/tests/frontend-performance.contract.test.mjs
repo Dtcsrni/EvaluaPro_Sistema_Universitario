@@ -13,9 +13,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 test('los destinos principales se cargan bajo demanda', async () => {
   const source = await readFile(resolve(root, 'apps/frontend/src/App.tsx'), 'utf8');
 
-  assert.match(source, /const AppAlumno = lazy\(\(\) => import\(/);
-  assert.match(source, /const AppAdminNegocio = lazy\(\(\) => import\(/);
-  assert.match(source, /const AppDocente = lazy\(\(\) => import\(/);
+  assert.match(source, /const AppAlumno = import\.meta\.env\.DEV \|\| destinoCompilado === 'alumno'[\s\S]*?lazy\(\(\) => import\(/);
+  assert.match(source, /const AppAdminNegocio = import\.meta\.env\.DEV \|\| destinoCompilado === 'admin_negocio'[\s\S]*?lazy\(\(\) => import\(/);
+  assert.match(source, /const AppDocente = import\.meta\.env\.DEV \|\| destinoCompilado === 'docente'[\s\S]*?lazy\(\(\) => import\(/);
   assert.doesNotMatch(source, /import\s+\{\s*App(?:Alumno|AdminNegocio|Docente)\s*\}\s+from/);
 });
 
@@ -51,13 +51,13 @@ test('los comandos frontend evitan el temporal de configuración de Vite en Wind
   ];
 
   for (const scriptName of scriptsQueCarganVite) {
-    assert.match(String(scripts[scriptName]), /--configLoader(?:=|\s+|['\"],['\"]?)runner/);
+    assert.match(String(scripts[scriptName]), /--configLoader(?:=|\s+|['"],['"]?)runner/);
   }
 });
 
-test('el build frontend no intenta borrar una salida servida en Windows', async () => {
+test('el build limpia assets ajenos y usa staging para proteger salidas servidas en Windows', async () => {
   const source = await readFile(resolve(root, 'apps/frontend/vite.config.ts'), 'utf8');
-  assert.match(source, /emptyOutDir:\s*process\.platform\s*!==\s*['"]win32['"]/);
+  assert.match(source, /emptyOutDir:\s*true/);
   assert.match(source, /copyPublicDir:\s*process\.platform\s*!==\s*['"]win32['"]/);
   assert.match(source, /pluginPublicoWindowsSeguro/);
 });

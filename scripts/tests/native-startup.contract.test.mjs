@@ -8,7 +8,6 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const nativeLauncher = fs.readFileSync(path.join(root, 'scripts', 'start-docente-native.mjs'), 'utf8');
 const sqliteRuntime = fs.readFileSync(path.join(root, 'apps', 'backend', 'src', 'infraestructura', 'baseDatos', 'sqlite.ts'), 'utf8');
 const msiBuilder = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
-const installerHelper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
 const installerPayload = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubPayload.psm1'), 'utf8');
 const runtimeEnv = fs.readFileSync(path.join(root, 'scripts', 'runtime-env.mjs'), 'utf8');
 const staticServer = fs.readFileSync(path.join(root, 'scripts', 'serve-docente-static.mjs'), 'utf8');
@@ -60,6 +59,13 @@ test('el journey docente-alumno inicia el portal y apunta al puerto correcto', (
   assert.match(cicloPlaywright, /VITE_PORTAL_BASE_URL: `http:\/\/127\.0\.0\.1:\$\{portalApiPort\}\/api\/portal`/);
   assert.match(nativeLauncher, /const portalApiPort = String\(process\.env\.E2E_PORTAL_API_PORT \|\| '8080'\)/);
   assert.match(nativeLauncher, /env\.PORTAL_ALUMNO_URL = `http:\/\/127\.0\.0\.1:\$\{portalApiPort\}`/);
+});
+
+test('el build E2E docente elimina destinos ajenos y conserva el modo de fixture', () => {
+  const buildFrontend = nativeLauncher.match(/function buildE2EFrontend\(\) \{([\s\S]*?)\n\}/)?.[1] ?? '';
+  assert.match(buildFrontend, /NODE_ENV:\s*'production'/);
+  assert.match(buildFrontend, /VITE_APP_DESTINO:\s*destino/);
+  assert.match(buildFrontend, /VITE_EVALUAPRO_MODE:\s*'test'/);
 });
 
 test('servidor docente bloquea bundles viejos o incompletos antes de escuchar', () => {

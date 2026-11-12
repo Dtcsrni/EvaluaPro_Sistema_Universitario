@@ -9,6 +9,7 @@ import rootPackage from '../../../../../package.json';
 import frontendPackage from '../../../package.json';
 import backendPackage from '../../../../backend/package.json';
 import {
+  Atom,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -19,12 +20,19 @@ import {
   Database,
   FileText,
   GitBranch,
+  Hexagon,
   IconoLucide,
+  Layers,
+  LockKeyhole,
   Monitor,
   PackageCheck,
   Search,
+  ScanLine,
   ShieldCheck,
   Sparkles,
+  Triangle,
+  type LucideIcon,
+  Zap,
   Wrench
 } from '../iconosCatalogo';
 import lucideLicenseText from './legal/lucide-react.LICENSE.txt?raw';
@@ -162,81 +170,19 @@ const LICENCIAS_PLATAFORMA = [
   { elemento: 'AES-256-GCM', version: 'algoritmo criptográfico', licencia: 'Sin licencia de componente' }
 ];
 
+const ICONOS_TECNOLOGIA: Record<string, LucideIcon> = {
+  react: Atom,
+  typescript: Code2,
+  vite: Zap,
+  nodejs: Hexagon,
+  sqlite: Database,
+  prisma: Triangle,
+  omr: ScanLine,
+  crypto: LockKeyhole
+};
+
 function renderIconoTecnologia(id: string) {
-  switch (id.toLowerCase()) {
-    case 'react':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" className="version-tech-svg">
-          <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(30 12 12)" />
-          <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(90 12 12)" />
-          <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(150 12 12)" />
-          <circle cx="12" cy="12" r="2" fill="#38bdf8" />
-        </svg>
-      );
-    case 'typescript':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.2" strokeLinecap="round" className="version-tech-svg">
-          <rect width="18" height="18" x="3" y="3" rx="3" stroke="#60a5fa" />
-          <path d="M8 8h6M11 8v8" />
-          <path d="M15 15c1 1 3 0 3-1.5s-2-1.5-2-2.5 1.5-1.5 2.5-.5" />
-        </svg>
-      );
-    case 'vite':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="version-tech-svg">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="rgba(167, 139, 250, 0.2)" stroke="#a78bfa" />
-        </svg>
-      );
-    case 'nodejs':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" className="version-tech-svg">
-          <path d="M12 2l9 5.2v10.4L12 22.8l-9-5.2V7.2L12 2z" fill="rgba(74, 222, 128, 0.15)" stroke="#4ade80" />
-          <circle cx="12" cy="12" r="3" fill="#4ade80" />
-        </svg>
-      );
-    case 'sqlite':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" className="version-tech-svg">
-          <ellipse cx="12" cy="5" rx="9" ry="3" />
-          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-        </svg>
-      );
-    case 'prisma':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="version-tech-svg">
-          <polygon points="12 2 2 20 22 20 12 2" fill="rgba(45, 212, 191, 0.2)" stroke="#2dd4bf" />
-          <line x1="12" y1="2" x2="12" y2="20" />
-        </svg>
-      );
-    case 'omr':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" className="version-tech-svg">
-          <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-          <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-          <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-          <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-          <line x1="4" y1="12" x2="20" y2="12" stroke="#f43f5e" strokeWidth="2.5" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
-      );
-    case 'crypto':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="version-tech-svg">
-          <rect width="18" height="11" x="3" y="11" rx="2" fill="rgba(251, 191, 36, 0.15)" stroke="#fbbf24" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#fbbf24" />
-          <circle cx="12" cy="16" r="1.5" fill="#fbbf24" />
-        </svg>
-      );
-    default:
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="version-tech-svg">
-          <polygon points="12 2 2 7 12 12 22 7 12 2" />
-          <polyline points="2 17 12 22 22 17" />
-          <polyline points="2 12 12 17 22 12" />
-        </svg>
-      );
-  }
+  return <IconoLucide icon={ICONOS_TECNOLOGIA[id.toLowerCase()] ?? Layers} size={20} className="version-tech-svg" />;
 }
 
 function comoTexto(valor: unknown, fallback: string) {

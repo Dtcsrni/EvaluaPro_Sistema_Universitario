@@ -66,7 +66,7 @@ const esquemaBookletConfig = z
   .strict();
 const esquemaOmrConfig = z
   .object({
-    examTemplateId: z.enum(['omr-canonical-v4', 'omr-inline-exam-v1']).optional(),
+    examTemplateId: z.enum(['omr-canonical-1.0.0', 'omr-canonical-v4', 'omr-inline-exam-v1']).optional(),
     sheetFamilyCode: z.enum(['S20_5A_BASIC', 'S50_5A_ID5_VR6', 'S100_5A_ID9_VR6_2P', 'CUSTOM_SCHEMA_V1']).optional(),
     sheetRevisionId: z.string().trim().max(120).optional(),
     prefillMode: z.enum(['none', 'roster', 'per-student']).optional(),

@@ -16,6 +16,7 @@ import { esquemaListarJobsOmr } from './validacionesOmr.js';
 import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './omr/decision/respuestaRevision.js';
 import { resolverPaginaCapturableOmr } from './paginasCapturablesOmr.js';
 import { evaluarAutoCalificableOmr } from './politicaAutoCalificacionOmr.js';
+import { calificarGrupoIngestaOmr, type ResultadoAutoCalificacionOmr } from './controladorIngestaPdfOmr.js';
 
 type CapturaOmr = { nombreArchivo?: string; imagenBase64: string };
 type TipoFuenteOmr = 'image_batch' | 'camera_capture' | 'pdf';
@@ -39,6 +40,14 @@ export type PaginaJob = {
     estadoAnalisis: string;
     calidadPagina: number;
     ratioAmbiguas: number;
+    confianzaPromedioPagina?: number;
+    templateVersionDetectada?: 4;
+    motivosRevision?: string[];
+    engineVersion?: string;
+    geomQuality?: number;
+    photoQuality?: number;
+    decisionPolicy?: string;
+    qrTexto?: string;
   };
 };
 
@@ -52,6 +61,7 @@ type JobMetadata = {
   pages: PaginaJob[];
   errors: ErrorJob[];
   reviewResolutions: Array<{ sheetSerial: string; resolvedAt: string; resolutionReason: string }>;
+  automaticGrade?: ResultadoAutoCalificacionOmr;
   finalizedAt?: string;
 };
 
@@ -144,7 +154,10 @@ export function convertirResultadoAPagina(
   payload: any,
   sourceFileName?: string,
   forzarRevisionManual = false,
-  totalPreguntasEsperadas = 0
+  totalPreguntasEsperadas = 0,
+  expectedQuestionNumbers: number[] = [],
+  identityVerified = false,
+  expectedQrText?: string
 ): PaginaJob {
   const resultado = payload?.resultado ?? {};
   const estado = String(resultado.estadoAnalisis ?? 'requiere_revision');
@@ -166,7 +179,17 @@ export function convertirResultadoAPagina(
     coberturaDeteccion,
     respuestasDetectadas
   });
-  const autoGradable = !forzarRevisionManual && estadoBase === 'accepted' && decision.autoCalificableOmr;
+  const questionNumbers = respuestas.map((respuesta: RespuestaRevisionOmr) => Number(respuesta.numeroPregunta)).sort((left: number, right: number) => left - right);
+  const questionSetIsComplete = expectedQuestionNumbers.length > 0
+    && questionNumbers.length === expectedQuestionNumbers.length
+    && questionNumbers.every((number: number, index: number) => number === [...expectedQuestionNumbers].sort((left, right) => left - right)[index]);
+  const qrText = String(resultado.qrTexto ?? '').trim();
+  const autoGradable = !forzarRevisionManual
+    && estadoBase === 'accepted'
+    && decision.autoCalificableOmr
+    && questionSetIsComplete
+    && identityVerified
+    && Boolean(expectedQrText && qrText === expectedQrText);
   const scanStatus: PaginaJob['scanStatus'] = estadoBase === 'accepted' && !autoGradable ? 'needs_review' : estadoBase;
   const pagina: PaginaJob = {
     sheetSerial: `${folio}-P${pageIndex}`,
@@ -188,7 +211,15 @@ export function convertirResultadoAPagina(
     resultado: {
       estadoAnalisis: estado,
       calidadPagina,
-      ratioAmbiguas
+      ratioAmbiguas,
+      confianzaPromedioPagina: Number.isFinite(confidence) ? confidence : 0,
+      ...(resultado.templateVersionDetectada === 4 ? { templateVersionDetectada: 4 as const } : {}),
+      motivosRevision: motivos,
+      engineVersion: String(resultado.engineVersion ?? 'omr-cv'),
+      geomQuality: Number(resultado.geomQuality ?? 0),
+      photoQuality: Number(resultado.photoQuality ?? 0),
+      decisionPolicy: String(resultado.decisionPolicy ?? 'unknown'),
+      qrTexto: qrText
     }
   };
   if (estadoBase === 'accepted' && !autoGradable && !forzarRevisionManual) {
@@ -222,6 +253,7 @@ function toPublicJob(job: { id: string; estado: string; totalHojas: number; proc
   });
   const pages = Array.isArray(metadata.pages) ? metadata.pages.map((page) => ({
     ...page,
+    resultado: page.resultado ? { ...page.resultado, qrTexto: undefined } : undefined,
     responses: Array.isArray(page.responses) ? page.responses.map(proyectarRespuestaParaRevisionOmr) : []
   })) : [];
   const accepted = pages.filter((page) => page.scanStatus === 'accepted').length;
@@ -246,6 +278,7 @@ function toPublicJob(job: { id: string; estado: string; totalHojas: number; proc
       rejected,
       ignored,
       autoGradable,
+      automaticGrade: metadata.automaticGrade,
       sheets: pages.length,
       averageScore: Number(averageScore.toFixed(2)),
     finalizedAt: metadata.finalizedAt,
@@ -433,13 +466,29 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
     }
     try {
       const payload = await ejecutarAnalisisInterno({ docenteId, folio: examen.folio, numeroPagina: numeroPaginaOmr, imagenBase64: entrada.imagenBase64 ?? '' });
+      const paginasExamen = parseJsonSafe<Array<{ numero?: unknown; qrTexto?: unknown }>>(examen.paginas, []);
+      const expectedQrText = String(
+        paginasExamen.find((page) => Number(page.numero) === numeroPaginaOmr)?.qrTexto
+          ?? (paginaMapa as any)?.qr?.texto
+          ?? ''
+      ).trim();
+      const expectedQuestionNumbers = Array.isArray((paginaMapa as any)?.preguntas)
+        ? (paginaMapa as any).preguntas.map((question: any) => Number(question.numeroPregunta)).filter((number: number) => Number.isSafeInteger(number) && number > 0)
+        : [];
+      const identityVerified = payload?.examenId === examen.id
+        && Number(payload?.numeroPagina) === numeroPaginaOmr
+        && String(payload?.folio ?? '').trim().toUpperCase() === examen.folio.trim().toUpperCase()
+        && String(payload?.alumnoId ?? '') === String(examen.alumnoId ?? '');
       paginas.push(convertirResultadoAPagina(
         examen.folio,
         numeroPaginaOmr,
         payload,
         entrada.nombreArchivo,
         mapaOmr?.templateId === 'omr-inline-exam-v1',
-        Array.isArray(mapaVariante?.ordenPreguntas) ? mapaVariante.ordenPreguntas.length : 0
+        Array.isArray(mapaVariante?.ordenPreguntas) ? mapaVariante.ordenPreguntas.length : 0,
+        expectedQuestionNumbers,
+        Boolean(examen.alumnoId && identityVerified),
+        expectedQrText
       ));
     } catch (error) {
       errors.push({
@@ -462,7 +511,37 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
     await prisma.omrScanJob.update({ where: { id: job.id }, data: { procesadas: paginas.length } });
   }
 
-  const metadata: JobMetadata = { version: 1, clientRequestId: clientRequestId || undefined, requestHash: clientRequestId ? requestHash : undefined, assessmentId: examen.id, folio: examen.folio, sourceType: body.sourceType, pages: paginas, errors, reviewResolutions: [] };
+  const automaticPages = paginas.filter((page) => page.pageType !== 'reverso-vacio' && page.scanStatus !== 'ignored');
+  let automaticGrade: ResultadoAutoCalificacionOmr;
+  try {
+    automaticGrade = await calificarGrupoIngestaOmr({
+      docenteId,
+      exam: examen,
+      pages: automaticPages.map((page) => ({
+        examPage: page.pageIndex,
+        scanStatus: page.scanStatus === 'ignored' ? 'needs_review' : page.scanStatus,
+        autoGradable: page.autoGradable,
+        manualReviewRequired: page.manualReviewRequired,
+        responses: page.responses,
+        omrAnalysis: page.resultado ? {
+          estadoAnalisis: page.resultado.estadoAnalisis === 'ok' || page.resultado.estadoAnalisis === 'rechazado_calidad' ? page.resultado.estadoAnalisis : 'requiere_revision',
+          calidadPagina: page.resultado.calidadPagina,
+          confianzaPromedioPagina: page.resultado.confianzaPromedioPagina ?? 0,
+          ratioAmbiguas: page.resultado.ratioAmbiguas,
+          ...(page.resultado.templateVersionDetectada === 4 ? { templateVersionDetectada: 4 as const } : {}),
+          motivosRevision: page.resultado.motivosRevision ?? [],
+          engineVersion: page.resultado.engineVersion ?? 'omr-cv',
+          geomQuality: page.resultado.geomQuality ?? 0,
+          photoQuality: page.resultado.photoQuality ?? 0,
+          decisionPolicy: page.resultado.decisionPolicy ?? 'unknown',
+          qrTexto: page.resultado.qrTexto ?? ''
+        } : undefined
+      }))
+    });
+  } catch (error) {
+    automaticGrade = { status: 'failed', reasonCodes: [error instanceof ErrorAplicacion ? error.codigo : 'CALIFICACION_AUTOMATICA_ERROR'] };
+  }
+  const metadata: JobMetadata = { version: 1, clientRequestId: clientRequestId || undefined, requestHash: clientRequestId ? requestHash : undefined, assessmentId: examen.id, folio: examen.folio, sourceType: body.sourceType, pages: paginas, errors, reviewResolutions: [], automaticGrade };
   const actualizado = await prisma.omrScanJob.update({
     where: { id: job.id },
     data: { estado: errors.length === paginas.length ? 'failed' : 'completed', procesadas: paginas.length, completadoEn: new Date(), metadata: JSON.stringify(metadata) }

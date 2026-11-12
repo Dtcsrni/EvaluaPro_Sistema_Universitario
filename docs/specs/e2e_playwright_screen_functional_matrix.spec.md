@@ -1,8 +1,8 @@
 ---
 id: SPEC-E2E-PLAYWRIGHT-MATRIX
 titulo: Matriz Exhaustiva de Pruebas Funcionales y de Calidad UX/UI con Playwright
-version: 1.1.3
-fecha: 2026-09-24
+version: 1.1.7
+fecha: 2026-11-12
 autor: Codex / Antigravity AI
 modulo: modulo_qa_e2e
 estado: approved
@@ -28,6 +28,10 @@ EvaluaPro requiere una validación exhaustiva automatizada de extremo a extremo 
 - REQ-012 (Calidad UX/UI): Cero desbordamiento horizontal en resoluciones Desktop (1366x900), Tablet (1024x768, 768x1024) y Móvil (390x844), controles con targets táctiles mínimos y soporte para `prefers-reduced-motion`.
 - REQ-013 (Aislamiento E2E): Cuando el portal está deshabilitado, el arranque no crea ni migra su base; cuando un journey integrado lo necesita, debe arrancar el portal sobre una base aislada, y el cliente alumno debe apuntar al puerto de ese servicio.
 - REQ-014 (Fixture vigente): El journey de exámenes prepara reactivos mediante el contrato de importación actual, comprueba cada respuesta HTTP y no usa rutas de escritura legadas retiradas.
+- REQ-015 (Etiquetas visibles): Las aserciones E2E de importación de reactivos y estado OMR usan las etiquetas localizadas visibles en GUI (`1 reactivo nuevo` y `Estado: Completado`), no etiquetas técnicas internas.
+- REQ-016 (Acción terminal OMR): La ingesta PDF completada valida que no se ofrezca `Finalizar trabajo`, una acción reservada a jobs OMR que no son de ingesta.
+- REQ-017 (Contenido desplegable): Antes de validar QR y fallback de conexión móvil, el journey expande su disclosure y comprueba que el contenido sea visible.
+- REQ-018 (Iconos SVG): La auditoría GUI valida que los iconos tengan geometría SVG visible y namespace correcto sin fijarse al número interno de trazos de la biblioteca.
 
 ## Criterios de Aceptación
 - Todas las suites de Playwright (docente, alumno, admin, ciclo y journey) ejecutan y pasan al 100% en verde.
@@ -53,3 +57,7 @@ EvaluaPro requiere una validación exhaustiva automatizada de extremo a extremo 
 | REQ-012 | Calidad UX/UI y auditoría responsive | `apps/frontend/tests/gui.responsive.audit.test.ts` | Implementado |
 | REQ-013 | Arranque con o sin portal según el journey y URL del portal alumno | `tests/gui-responsive/playwright.ciclo.config.mjs` | Validado en Edge local; CI pendiente |
 | REQ-014 | Fixture de reactivos mediante preview y confirmación | `tests/gui-responsive/journey-docente-integral.spec.ts` | Validado en Edge local; CI pendiente |
+| REQ-015 | Etiquetas visibles del resumen de importación y resultado OMR | `tests/gui-responsive/banco-reactivos.spec.ts`; `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado; CI pendiente |
+| REQ-016 | La ingesta PDF completada no ofrece la acción de finalizar jobs OMR ordinarios | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado; CI pendiente |
+| REQ-017 | QR móvil y fallback se validan con la sección opcional expandida | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado; CI pendiente |
+| REQ-018 | Geometría SVG presente con namespace correcto, sin contar trazos de implementación | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado; CI pendiente |

@@ -252,7 +252,7 @@ describe('calificación OMR payload estricto', () => {
     expect(respuesta.body.error.codigo).toBe('OMR_PAYLOAD_INCOMPLETO');
   });
 
-  it('exige revisión si una respuesta individual es ambigua aunque el promedio de página pase', async () => {
+  it('califica como incorrecta una respuesta ambigua si el análisis de página es confiable', async () => {
     const base = await crearEscenarioBase(app);
 
     const respuesta = await request(app)
@@ -277,9 +277,11 @@ describe('calificación OMR payload estricto', () => {
           qrTexto: base.qrTexto
         }
       })
-      .expect(422);
+      .expect(201);
 
-    expect(respuesta.body.error.codigo).toBe('OMR_REQUIERE_REVISION_MANUAL');
+    expect(respuesta.body.calificacion.aciertos).toBe(0);
+    expect(respuesta.body.calificacion.calificacionExamenTexto).toBe('0');
+    expect(respuesta.body.calificacion.omrAuditoria.autoCalificableOmr).toBe(true);
   }, 60_000);
 
   it('rechaza folio de payload que no coincide', async () => {

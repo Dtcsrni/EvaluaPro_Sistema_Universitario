@@ -63,14 +63,17 @@ export function evaluarAutoCalificableOmr(args: EntradaAutoCalificacionOmr) {
     confianzaPromedioPagina,
     ratioAmbiguas
   });
+  const estadosIncorrectosPorDefinicion = new Set(['sin_marca', 'ambigua', 'doble_marca', 'tachada']);
   const hardStop =
     (args.respuestasDetectadas?.some((respuesta) =>
       !respuesta.estadoRespuesta ||
-      (respuesta.estadoRespuesta !== 'respondida' && respuesta.estadoRespuesta !== 'sin_marca') ||
+      (!estadosIncorrectosPorDefinicion.has(respuesta.estadoRespuesta) && respuesta.estadoRespuesta !== 'respondida') ||
       (respuesta.estadoRespuesta === 'respondida' && respuesta.opcion === null) ||
-      (respuesta.estadoRespuesta === 'sin_marca' && respuesta.opcion !== null) ||
-      !Number.isFinite(respuesta.confianza) ||
-      clamp01(Number(respuesta.confianza)) < UMBRALES_OMR_AUTO.autoConfMin
+      (estadosIncorrectosPorDefinicion.has(respuesta.estadoRespuesta) && respuesta.opcion !== null) ||
+      (!estadosIncorrectosPorDefinicion.has(respuesta.estadoRespuesta) && (
+        !Number.isFinite(respuesta.confianza) ||
+        clamp01(Number(respuesta.confianza)) < UMBRALES_OMR_AUTO.autoConfMin
+      ))
     ) ?? false) ||
     clamp01(confianzaPromedioPagina) <= UMBRALES_OMR_AUTO.autoHardStopConfMax ||
     clamp01(ratioAmbiguas) >= UMBRALES_OMR_AUTO.autoHardStopAmbiguasMin ||

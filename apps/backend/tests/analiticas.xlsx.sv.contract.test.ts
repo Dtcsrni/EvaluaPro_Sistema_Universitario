@@ -191,7 +191,7 @@ describe('exportacion XLSX SV contractual', () => {
     expect(hoja.getCell('AV11').value).toBe(10);
   });
 
-  it('exporta una sola columna de bono con fórmulas de exención por final 10 y cascada Global→P2→P1', async () => {
+  it('exporta el bono extracurricular como valor visible y lo aplica únicamente al global', async () => {
     const buffer = await generarXlsxCalificacionesProduccion({
       docenteNombre: 'Docente', nombrePeriodo: 'Materia', cicloLectivo: '',
       alumnos: [{ _id: 'alumno-1', matricula: 'A001', nombreCompleto: 'Alumno Uno' }],
@@ -200,16 +200,16 @@ describe('exportacion XLSX SV contractual', () => {
       ],
       listaAcademica: [{
         alumnoId: 'alumno-1', tareasYEjercicios2doParcial: '10', practica2doParcial: '10', examen2doParcial: '4',
-        examenGlobalLista: '4', continuaTercerParcialLista: '4', bonoExtracurricularSolicitado: '0.5'
+        examenGlobalLista: '4', continuaTercerParcialLista: '4', calificacionTercerParcial: '8.5',
+        bonoExtracurricular: '0.5', bonoExtracurricularSolicitado: '0.5'
       }]
     });
     const hoja = await cargarHojaLibro(buffer);
     expect(hoja.getCell('BB10').value).toBe('Bono extracurricular');
-    expect(formulaDeCelda(hoja.getCell('BB11').value)).toContain('SUM(MIN(IF(AND(AND(COUNT(AL11,AM11)=2,');
-    expect(formulaDeCelda(hoja.getCell('BB11').value)).toContain('>=10),0,0.5)');
-    expect(formulaDeCelda(hoja.getCell('AV11').value)).toContain('IF(ISNUMBER(AT11),MAX(0,5-AT11),0)+IF(ISNUMBER(AU11),MAX(0,5-AU11),0)');
-    expect(formulaDeCelda(hoja.getCell('AS11').value)).toContain('5.25-AR11');
-    expect(formulaDeCelda(hoja.getCell('AN11').value)).toContain('>=10),0,0.5)-MIN(IF(AND(AND(COUNT(AL11,AM11)=2,');
+    expect(hoja.getCell('BB11').value).toBe(0.5);
+    expect(hoja.getCell('AV11').value).toBe(8.5);
+    expect(formulaDeCelda(hoja.getCell('AS11').value)).toBe('IF(COUNT(AQ11,AR11)<2,"",MIN(10,MAX(0,SUM(AQ11,AR11))))');
+    expect(formulaDeCelda(hoja.getCell('AN11').value)).toBe('IF(COUNT(AL11,AM11)<2,"",MIN(10,MAX(0,SUM(AL11,AM11))))');
   });
 
   it('exporta el bono ya guardado desde las notas base y evita aplicarlo dos veces', async () => {
@@ -224,14 +224,13 @@ describe('exportacion XLSX SV contractual', () => {
       listaAcademica: [{
         alumnoId: 'alumno-1', tareasYEjercicios2doParcial: '10', practica2doParcial: '10', examen2doParcial: '4.5',
         calificacionSegundoParcial: '10', examenGlobalLista: '4.5', continuaTercerParcialLista: '5',
-        calificacionTercerParcial: '10', bonoExtracurricularSolicitado: '0.5'
+        calificacionTercerParcial: '10', bonoExtracurricular: '0.5', bonoExtracurricularSolicitado: '0.5'
       }]
     });
 
     const hoja = await cargarHojaLibro(buffer);
-    const bono = formulaDeCelda(hoja.getCell('BB11').value) ?? '';
-    expect(bono).toContain('0.6*9.5');
-    expect(bono).toContain('MAX(0,10-9.5)');
+    expect(hoja.getCell('BB11').value).toBe(0.5);
+    expect(hoja.getCell('AV11').value).toBe(10);
     expect(formulaDeCelda(hoja.getCell('AS11').value)).toContain('SUM(AQ11,AR11)');
   });
 

@@ -22,6 +22,7 @@ import { localizarQrsEsperadosEnRaster, prepararQrsEsperados, type GeometriaQrPd
 import { MAX_JOB_BYTES, MAX_JOB_PAGES, MAX_PDF_BYTES, MAX_PDF_PAGES } from './limitesIngestaPdfOmr.js';
 import { esPaginaDatasetOmrConfirmada, generarZipDatasetOmr } from './exportadorDatasetOmr.js';
 import { recuperarQrIngestaPorGeometria } from './recuperarQrIngesta.js';
+import { evaluarAutoCalificableOmr } from './politicaAutoCalificacionOmr.js';
 const PAGE_BLOCK_SIZE = 8;
 const RASTER_DPI = 144;
 
@@ -35,7 +36,20 @@ type PaginaProcesada = {
   sourcePage: number;
   scanStatus: 'accepted' | 'needs_review' | 'rejected';
   confidence: number;
-  autoGradable: false;
+  autoGradable: boolean;
+  omrAnalysis?: {
+    estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
+    calidadPagina: number;
+    confianzaPromedioPagina: number;
+    ratioAmbiguas: number;
+    templateVersionDetectada?: 4;
+    motivosRevision: string[];
+    engineVersion: string;
+    geomQuality: number;
+    photoQuality: number;
+    decisionPolicy: string;
+    qrTexto: string;
+  };
   manualReviewRequired: boolean;
   examId?: string;
   folio?: string;
@@ -71,7 +85,23 @@ type PaqueteClasificado = {
   student: string;
   group: string;
   folio: string;
+  grading?: {
+    status: 'processing' | 'saved' | 'already_recorded' | 'needs_review' | 'failed';
+    calificacionId?: string;
+    aciertos?: number;
+    totalReactivos?: number;
+    calificacionExamen?: string;
+    reasonCodes?: string[];
+  };
 };
+export type ResultadoAutoCalificacionOmr = NonNullable<PaqueteClasificado['grading']>;
+type CalificadorAutomaticoOmr = (args: { docenteId: string; body: unknown }) => Promise<{ statusCode: number; body: unknown }>;
+let calificadorAutomaticoOmr: CalificadorAutomaticoOmr | null = null;
+
+export function configurarCalificadorAutomaticoOmr(calificador: CalificadorAutomaticoOmr) {
+  calificadorAutomaticoOmr = calificador;
+}
+
 type MetadataIngesta = {
   version: 1;
   retryCount?: number;
@@ -392,18 +422,28 @@ async function leerQrEnOrientacionExacta(
 function serializarEstado(job: { id: string; estado: string; totalHojas: number; procesadas: number; metadata: string | null }) {
   const meta = json<MetadataIngesta>(job.metadata, { version: 1, assessmentId: '', loteId: null, status: 'failed', reference: { nombre: '', relativePath: '', sha256: '', pages: 0, pagesWithQr: 0 }, files: [], pages: [], packages: [], errors: [], startedAt: '' });
   const accepted = meta.pages.filter((page) => page.scanStatus === 'accepted').length;
+  const autoGradable = meta.pages.filter((page) => page.autoGradable).length;
   const needsReview = meta.pages.filter((page) => page.scanStatus === 'needs_review').length;
   const rejected = meta.pages.filter((page) => page.scanStatus === 'rejected').length;
+  const automaticGrades = meta.packages.reduce((summary, item) => {
+    if (item.grading?.status === 'processing') summary.processing += 1;
+    else if (item.grading?.status === 'saved') summary.saved += 1;
+    else if (item.grading?.status === 'already_recorded') summary.alreadyRecorded += 1;
+    else if (item.grading?.status === 'failed') summary.failed += 1;
+    else if (item.grading?.status === 'needs_review') summary.needsReview += 1;
+    return summary;
+  }, { processing: 0, saved: 0, alreadyRecorded: 0, failed: 0, needsReview: 0 });
   return {
     jobId: job.id,
     sourceType: 'pdf' as const,
     status: job.estado,
     pagesTotal: job.totalHojas,
     pagesProcessed: job.procesadas,
-    summary: { accepted, needsReview, rejected, packages: meta.packages.length },
+    summary: { accepted, needsReview, rejected, autoGradable, packages: meta.packages.length, automaticGrades },
     reference: { sha256: meta.reference.sha256, pages: meta.reference.pages, pagesWithQr: meta.reference.pagesWithQr, origen: meta.reference.origen ?? 'generada' },
     pages: meta.pages.map((page) => ({
       ...page,
+      omrAnalysis: page.omrAnalysis ? { ...page.omrAnalysis, qrTexto: undefined } : undefined,
       responses: Array.isArray(page.responses) ? page.responses.map(proyectarRespuestaParaRevisionOmr) : []
     })),
     packages: meta.packages,
@@ -425,6 +465,175 @@ function iniciarProcesamientoIngesta(jobId: string, docenteId: string, examenes:
       await prisma.omrScanJob.update({ where: { id: jobId }, data: { estado: 'failed', completadoEn: new Date(), metadata: JSON.stringify(metadata) } }).catch(() => undefined);
     })
     .finally(() => { ingestasPdfActivas.delete(jobId); });
+}
+
+function uuidCalificacionAutomatica(docenteId: string, examId: string) {
+  const hex = sha256(Buffer.from(`evaluapro:auto-omr:v1\r\n${docenteId}\r\n${examId}`, 'utf8')).slice(0, 32).split('');
+  hex[12] = '5';
+  hex[16] = ((Number.parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`;
+}
+
+function errorCalificacionAutomatica(error: unknown) {
+  const code = error && typeof error === 'object' && 'codigo' in error ? String((error as { codigo: unknown }).codigo) : 'CALIFICACION_AUTOMATICA_ERROR';
+  const status = error && typeof error === 'object' && 'estadoHttp' in error ? Number((error as { estadoHttp: unknown }).estadoHttp) : 500;
+  return { code, status };
+}
+
+export async function calificarGrupoIngestaOmr(args: {
+  docenteId: string;
+  exam: Pick<ExamenConRelaciones, 'id' | 'folio' | 'alumnoId' | 'mapaOmr' | 'mapaVariante'>;
+  pages: Array<Pick<PaginaProcesada, 'examPage' | 'scanStatus' | 'autoGradable' | 'manualReviewRequired' | 'responses' | 'omrAnalysis'>>;
+}): Promise<ResultadoAutoCalificacionOmr> {
+  const { docenteId, exam, pages } = args;
+  const map = json<any>(exam.mapaOmr, null);
+  const variant = json<any>(exam.mapaVariante, null);
+  const expectedPageMaps = (Array.isArray(map?.paginas) ? map.paginas : [])
+    .filter((page: any) => page.tipoPagina !== 'reverso-vacio')
+    .sort((left: any, right: any) => Number(left.numeroPagina) - Number(right.numeroPagina));
+  const expectedQuestionCount = Array.isArray(variant?.ordenPreguntas) ? variant.ordenPreguntas.length : 0;
+  const pagesByNumber = new Map<number, typeof pages>();
+  for (const page of pages) {
+    const number = Number(page.examPage);
+    if (!Number.isSafeInteger(number)) continue;
+    const matching = pagesByNumber.get(number) ?? [];
+    matching.push(page);
+    pagesByNumber.set(number, matching);
+  }
+  const blockCodes = new Set<string>();
+  if (!exam.alumnoId) blockCodes.add('OMR_ALUMNO_NO_ASOCIADO');
+  if (Number(map?.templateVersion) !== 4 || String(map?.templateId ?? '') === 'omr-inline-exam-v1') blockCodes.add('OMR_TEMPLATE_NO_AUTOMATICO');
+  if (expectedQuestionCount <= 0) blockCodes.add('OMR_MAPA_VARIANTE_INVALIDO');
+  const expectedPageNumbers = expectedPageMaps.map((page: any) => Number(page.numeroPagina));
+  if (!expectedPageNumbers.length || new Set(expectedPageNumbers).size !== expectedPageNumbers.length) blockCodes.add('OMR_MAPA_PAGINAS_INVALIDO');
+  for (const expectedPage of expectedPageMaps) {
+    const pageNumber = Number(expectedPage.numeroPagina);
+    const matches = pagesByNumber.get(pageNumber) ?? [];
+    if (matches.length !== 1) {
+      blockCodes.add(matches.length ? 'OMR_QR_DUPLICADO' : 'OMR_PAGINA_FALTANTE');
+      continue;
+    }
+    const page = matches[0]!;
+    if (page.scanStatus !== 'accepted' || !page.autoGradable || page.manualReviewRequired) blockCodes.add('OMR_PAGINA_REQUIERE_REVISION');
+    if (!page.omrAnalysis || page.omrAnalysis.estadoAnalisis !== 'ok') blockCodes.add('OMR_ANALISIS_NO_VERIFICADO');
+    const expectedNumbers = Array.isArray(expectedPage.preguntas)
+      ? expectedPage.preguntas.map((question: any) => Number(question.numeroPregunta)).sort((left: number, right: number) => left - right)
+      : [];
+    const actualNumbers = page.responses.map((response) => Number(response.numeroPregunta)).sort((left, right) => left - right);
+    if (!expectedNumbers.length || new Set(expectedNumbers).size !== expectedNumbers.length
+      || actualNumbers.length !== expectedNumbers.length
+      || actualNumbers.some((number, index) => number !== expectedNumbers[index])) {
+      blockCodes.add('OMR_RESPUESTAS_INCOMPLETAS');
+    }
+  }
+  if (pagesByNumber.size !== expectedPageNumbers.length) blockCodes.add('OMR_PAGINAS_FUERA_DE_MAPA');
+  if (blockCodes.size) return { status: 'needs_review', reasonCodes: [...blockCodes].sort() };
+
+  const responses: RespuestaRevisionOmr[] = [];
+  for (const expectedPage of expectedPageMaps) {
+    responses.push(...pagesByNumber.get(Number(expectedPage.numeroPagina))![0]!.responses);
+  }
+  responses.sort((left: RespuestaRevisionOmr, right: RespuestaRevisionOmr) => left.numeroPregunta - right.numeroPregunta);
+  const expectedGlobalNumbers: number[] = Array.from({ length: expectedQuestionCount }, (_, index) => index + 1);
+  if (responses.length !== expectedQuestionCount
+    || responses.some((response, index) => response.numeroPregunta !== expectedGlobalNumbers[index])
+    || responses.some((response) => {
+      const validState = ['respondida', 'sin_marca', 'ambigua', 'doble_marca', 'tachada'].includes(String(response.estadoRespuesta));
+      return !validState || (response.estadoRespuesta === 'respondida' ? response.opcion === null : response.opcion !== null);
+    })) {
+    return { status: 'needs_review', reasonCodes: ['OMR_RESPUESTAS_NO_VERIFICABLES'] };
+  }
+
+  const analyses: NonNullable<PaginaProcesada['omrAnalysis']>[] = expectedPageMaps.map((page: any) => pagesByNumber.get(Number(page.numeroPagina))![0]!.omrAnalysis!);
+  const quality = Math.min(...analyses.map((analysis) => analysis.calidadPagina));
+  const confidence = Math.min(...analyses.map((analysis) => analysis.confianzaPromedioPagina));
+  const ambiguousRatio = responses.filter((response) => response.estadoRespuesta === 'ambigua').length / Math.max(1, responses.length);
+  const policy = evaluarAutoCalificableOmr({
+    estadoAnalisis: 'ok',
+    calidadPagina: quality,
+    confianzaPromedioPagina: confidence,
+    ratioAmbiguas: ambiguousRatio,
+    coberturaDeteccion: responses.length / expectedQuestionCount,
+    respuestasDetectadas: responses.map((response) => ({
+      opcion: response.opcion,
+      confianza: response.confianza,
+      ...(response.estadoRespuesta && response.estadoRespuesta !== 'manual_review' ? { estadoRespuesta: response.estadoRespuesta } : {})
+    }))
+  });
+  if (!policy.autoCalificableOmr) return { status: 'needs_review', reasonCodes: ['OMR_POLITICA_AUTO_NO_CUMPLIDA'] };
+
+  const existing = await prisma.calificacion.findFirst({
+    where: { docenteId, examenGeneradoId: exam.id },
+    orderBy: { createdAt: 'desc' }
+  });
+  if (existing) {
+    return {
+      status: 'already_recorded',
+      calificacionId: existing.id,
+      aciertos: existing.aciertos,
+      totalReactivos: existing.totalReactivos,
+      calificacionExamen: existing.calificacionExamenFinalTexto
+    };
+  }
+
+  const qrTexto = analyses[0]?.qrTexto;
+  const engineVersions = [...new Set(analyses.map((analysis) => analysis.engineVersion))];
+  const decisionPolicies = [...new Set(analyses.map((analysis) => analysis.decisionPolicy))];
+  const motivosRevision = [...new Set(analyses.flatMap((analysis) => analysis.motivosRevision))].slice(0, 50);
+  const requestBody = {
+    examenGeneradoId: exam.id,
+    folio: exam.folio,
+    alumnoId: exam.alumnoId,
+    totalReactivos: expectedQuestionCount,
+    clientRequestId: uuidCalificacionAutomatica(docenteId, exam.id),
+    respuestasDetectadas: responses.map((response) => ({
+      numeroPregunta: response.numeroPregunta,
+      opcion: response.opcion,
+      confianza: response.confianza,
+      estadoRespuesta: response.estadoRespuesta,
+      flags: response.flags.filter((flag) => ['doble_marca', 'bajo_contraste', 'fuera_roi', 'parcial_detectada', 'tachada_detectada'].includes(flag))
+    })),
+    omrAnalisis: {
+      estadoAnalisis: 'ok',
+      calidadPagina: quality,
+      confianzaPromedioPagina: confidence,
+      ratioAmbiguas: ambiguousRatio,
+      templateVersionDetectada: 4,
+      engineVersion: engineVersions.length === 1 ? engineVersions[0] : 'omr-cv-mixed-pages',
+      geomQuality: Math.min(...analyses.map((analysis) => analysis.geomQuality)),
+      photoQuality: Math.min(...analyses.map((analysis) => analysis.photoQuality)),
+      decisionPolicy: decisionPolicies.length === 1 ? decisionPolicies[0] : 'mixed-page-policies',
+      motivosRevision,
+      qrTexto
+    }
+  };
+  let respuesta: { statusCode: number; body: unknown };
+  try {
+    if (!calificadorAutomaticoOmr) return { status: 'failed', reasonCodes: ['CALIFICADOR_OMR_NO_CONFIGURADO'] };
+    respuesta = await calificadorAutomaticoOmr({ docenteId, body: requestBody });
+  } catch (error) {
+    const info = errorCalificacionAutomatica(error);
+    respuesta = { statusCode: info.status, body: { error: { codigo: info.code } } };
+  }
+  const responseBody = respuesta.body && typeof respuesta.body === 'object' ? respuesta.body as Record<string, unknown> : {};
+  if (respuesta.statusCode >= 400) {
+    const error = responseBody.error && typeof responseBody.error === 'object' ? responseBody.error as Record<string, unknown> : {};
+    return {
+      status: respuesta.statusCode >= 500 ? 'failed' : 'needs_review',
+      reasonCodes: [String(error.codigo ?? 'CALIFICACION_AUTOMATICA_ERROR')]
+    };
+  }
+  const grade = responseBody.calificacion && typeof responseBody.calificacion === 'object'
+    ? responseBody.calificacion as Record<string, unknown>
+    : null;
+  if (!grade?.id) return { status: 'failed', reasonCodes: ['CALIFICACION_NO_CONFIRMADA'] };
+  return {
+    status: 'saved',
+    calificacionId: String(grade.id),
+    aciertos: Number(grade.aciertos),
+    totalReactivos: Number(grade.totalReactivos),
+    calificacionExamen: String(grade.calificacionExamenFinalTexto ?? '')
+  };
 }
 
 export async function crearIngestaPdfOmr(req: SolicitudDocente, res: Response) {
@@ -839,23 +1048,69 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
             metadata.pages.push(errorPage(globalIndex, file.id, file.nombre, image.numero, 'OMR_QR_NO_COINCIDE_REFERENCIA', 'El QR no coincide exactamente con el examen y página generados para el lote.'));
           } else {
             try {
-              const payload = await analizarImagenPromesa({ docenteId, folio: qr.folio, numeroPagina: qr.numeroPagina, imagenBase64: image.dataUrl });
+              const originalImage = Buffer.from(image.dataUrl.slice(image.dataUrl.indexOf(',') + 1), 'base64');
+              const imageForAnalysis = gradosQr === 0
+                ? image.dataUrl
+                : `data:image/png;base64,${(await sharp(originalImage).rotate(gradosQr).png().toBuffer()).toString('base64')}`;
+              const payload = await analizarImagenPromesa({ docenteId, folio: qr.folio, numeroPagina: qr.numeroPagina, imagenBase64: imageForAnalysis });
               const result = payload?.resultado ?? {};
-              const accepted = result.estadoAnalisis === 'ok' && payload?.examenId === exam.id && Number(payload?.numeroPagina) === qr.numeroPagina;
+              const pageMap = map?.paginas?.find((page: any) => Number(page.numeroPagina) === qr.numeroPagina && page.tipoPagina !== 'reverso-vacio');
+              const expectedQuestionNumbers = Array.isArray(pageMap?.preguntas)
+                ? pageMap.preguntas.map((question: any) => Number(question.numeroPregunta)).filter((number: number) => Number.isSafeInteger(number) && number > 0)
+                : [];
               const confidence = Number(result.confianzaPromedioPagina ?? 0);
-              const responses = Array.isArray(result.respuestasDetectadas) ? result.respuestasDetectadas.map(proyectarRespuestaParaRevisionOmr) : [];
+              const responses: RespuestaRevisionOmr[] = Array.isArray(result.respuestasDetectadas) ? result.respuestasDetectadas.map(proyectarRespuestaParaRevisionOmr) : [];
               const motivos = Array.isArray(result.motivosRevision) ? result.motivosRevision.map(String) : [];
+              const quality = Number(result.calidadPagina ?? 0);
+              const ambiguousRatio = Number(result.ratioAmbiguas ?? 1);
+              const coverage = expectedQuestionNumbers.length > 0 ? responses.length / expectedQuestionNumbers.length : 0;
+              const pageAutoGradable = evaluarAutoCalificableOmr({
+                estadoAnalisis: result.estadoAnalisis,
+                calidadPagina: quality,
+                confianzaPromedioPagina: confidence,
+                ratioAmbiguas: ambiguousRatio,
+                coberturaDeteccion: coverage,
+                respuestasDetectadas: responses.map((response) => ({
+                  opcion: response.opcion,
+                  confianza: response.confianza,
+                  ...(response.estadoRespuesta && response.estadoRespuesta !== 'manual_review' ? { estadoRespuesta: response.estadoRespuesta } : {})
+                }))
+              }).autoCalificableOmr;
+              const responseNumbers = responses.map((response) => response.numeroPregunta).sort((left, right) => left - right);
+              const questionSetIsComplete = expectedQuestionNumbers.length > 0
+                && new Set(expectedQuestionNumbers).size === expectedQuestionNumbers.length
+                && responseNumbers.length === expectedQuestionNumbers.length
+                && responseNumbers.every((number, index) => number === [...expectedQuestionNumbers].sort((left: number, right: number) => left - right)[index]);
+              const accepted = result.estadoAnalisis === 'ok'
+                && payload?.examenId === exam.id
+                && Number(payload?.numeroPagina) === qr.numeroPagina
+                && pageAutoGradable
+                && questionSetIsComplete;
               const duplicate = metadata.pages.some((page) => page.examId === exam.id && page.examPage === qr.numeroPagina);
+              const automaticEligible = accepted && !duplicate && Boolean(exam.alumnoId);
               metadata.pages.push({
                 sheetSerial: `${qr.folio}-P${qr.numeroPagina}-${globalIndex}`,
                 pageIndex: globalIndex,
                 sourceFileId: file.id,
                 sourceFileName: file.nombre,
                 sourcePage: image.numero,
-                scanStatus: accepted && !duplicate && gradosQr === 0 ? 'accepted' : 'needs_review',
+                scanStatus: automaticEligible ? 'accepted' : 'needs_review',
                 confidence: Number.isFinite(confidence) ? confidence : 0,
-                autoGradable: false,
-                manualReviewRequired: !accepted || duplicate || gradosQr !== 0,
+                autoGradable: automaticEligible,
+                manualReviewRequired: !automaticEligible,
+                omrAnalysis: {
+                  estadoAnalisis: result.estadoAnalisis === 'ok' || result.estadoAnalisis === 'rechazado_calidad' ? result.estadoAnalisis : 'requiere_revision',
+                  calidadPagina: Number.isFinite(quality) ? Math.max(0, Math.min(1, quality)) : 0,
+                  confianzaPromedioPagina: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0,
+                  ratioAmbiguas: Number.isFinite(ambiguousRatio) ? Math.max(0, Math.min(1, ambiguousRatio)) : 1,
+                  ...(result.templateVersionDetectada === 4 ? { templateVersionDetectada: 4 as const } : {}),
+                  motivosRevision: motivos,
+                  engineVersion: String(result.engineVersion ?? 'omr-cv'),
+                  geomQuality: Math.max(0, Math.min(1, Number(result.geomQuality ?? 0))),
+                  photoQuality: Math.max(0, Math.min(1, Number(result.photoQuality ?? 0))),
+                  decisionPolicy: String(result.decisionPolicy ?? 'unknown'),
+                  qrTexto: qr.raw
+                },
                 examId: exam.id,
                 folio: exam.folio,
                 examPage: qr.numeroPagina,
@@ -864,7 +1119,9 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
                 exceptions: [
                   ...(qrRescatadoGeometria ? [{ code: 'OMR_QR_GEOMETRIA_RESCATADA', severity: 'warning' as const, message: 'La identidad se recuperó en una geometría QR registrada y coincide exactamente con el payload firmado y el PDF de referencia del lote; el OCR no intervino en la selección.' }] : []),
                   ...(duplicate ? [{ code: 'OMR_QR_DUPLICADO', severity: 'blocking' as const, message: 'La misma página del examen aparece más de una vez en el ingreso.' }] : []),
-                  ...(gradosQr !== 0 ? [{ code: 'OMR_QR_ORIENTACION_REVISAR', severity: 'blocking' as const, message: `El QR solo coincide con el PDF de referencia al girar ${gradosQr} grados; el análisis OMR se ejecutó sobre el original y la hoja requiere revisión.` }] : []),
+                  ...(gradosQr !== 0 ? [{ code: 'OMR_QR_ORIENTACION_RESCATADA', severity: 'info' as const, message: `La página se rotó ${gradosQr} grados antes de ejecutar OMR; QR, reactivos y calidad se validaron sobre la imagen normalizada.` }] : []),
+                  ...(!questionSetIsComplete ? [{ code: 'OMR_RESPUESTAS_INCOMPLETAS', severity: 'blocking' as const, message: 'La lectura no cubrió exactamente los reactivos registrados para esta página.' }] : []),
+                  ...(accepted && !automaticEligible ? [{ code: exam.alumnoId ? 'OMR_POLITICA_AUTO_NO_CUMPLIDA' : 'OMR_ALUMNO_NO_ASOCIADO', severity: 'blocking' as const, message: exam.alumnoId ? 'La página no cumple todos los controles para calificación automática.' : 'El examen generado no tiene un alumno asociado.' }] : []),
                   ...motivos.map((message: string) => ({ code: 'OMR_REVIEW', severity: 'warning' as const, message }))
                 ]
               });
@@ -910,7 +1167,9 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
     const map = json<any>(exam.mapaOmr, null);
     const expectedPages: number[] = (Array.isArray(map?.paginas) ? map.paginas : []).filter((page: any) => page.tipoPagina !== 'reverso-vacio').map((page: any) => Number(page.numeroPagina)).filter((numero: number) => Number.isFinite(numero));
     const ordered = [...pages].sort((a, b) => Number(a.examPage) - Number(b.examPage));
-    const hasAllPages = expectedPages.length > 0 && expectedPages.every((number) => ordered.some((page) => page.examPage === number && page.scanStatus === 'accepted'));
+    const hasAllPages = expectedPages.length > 0
+      && ordered.length === expectedPages.length
+      && expectedPages.every((number) => ordered.filter((page) => page.examPage === number && page.scanStatus === 'accepted' && page.autoGradable).length === 1);
     const pdf = await PDFDocument.create();
     let lastFileId = '';
     let sourceDocument: PDFDocument | null = null;
@@ -932,11 +1191,25 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
     await fs.mkdir(path.dirname(rutaPaquete), { recursive: true });
     const bytes = Buffer.from(await pdf.save());
     await fs.writeFile(rutaPaquete, bytes, { flag: 'wx' });
-    metadata.packages.push({
+    const packageRecord: PaqueteClasificado = {
       id: randomUUID(), examId: exam.id, fileName, relativePath, sha256: sha256(bytes), pageCount: pdf.getPageCount(),
       status: hasAllPages ? 'complete' : 'needs_review', course: exam.periodo?.nombre ?? '', subject: exam.plantilla.titulo,
       partial: exam.plantilla.tipo, teacher: exam.docente.nombreCompleto, student, group, folio: exam.folio
-    });
+    };
+    if (hasAllPages) {
+      packageRecord.grading = { status: 'processing' };
+      metadata.packages.push(packageRecord);
+      await prisma.omrScanJob.update({ where: { id: jobId }, data: { metadata: JSON.stringify(metadata) } });
+      try {
+        packageRecord.grading = await calificarGrupoIngestaOmr({ docenteId, exam, pages: ordered });
+      } catch (error) {
+        packageRecord.grading = { status: 'failed', reasonCodes: [errorCalificacionAutomatica(error).code] };
+      }
+    } else {
+      packageRecord.grading = { status: 'needs_review', reasonCodes: ['OMR_PAGINAS_NO_VERIFICABLES'] };
+    }
+    if (!metadata.packages.some((item) => item.id === packageRecord.id)) metadata.packages.push(packageRecord);
+    await prisma.omrScanJob.update({ where: { id: jobId }, data: { metadata: JSON.stringify(metadata) } });
   }
   const manifest = {
     format: 'evaluapro.omr.ingesta-manifest',
@@ -1050,10 +1323,23 @@ export async function obtenerIngestaPdfOmr(req: SolicitudDocente, res: Response)
   const examenes = await buscarExamenesLote(metadata.assessmentId, docenteId);
   res.json({
     job: serializarEstado(job),
-    candidateExams: examenes.map((exam) => ({
-      id: exam.id, folio: exam.folio, studentName: exam.alumno?.nombreCompleto ?? '', group: exam.alumno?.grupo ?? '',
-      pages: json<any>(exam.mapaOmr, null)?.paginas?.filter((page: any) => page.tipoPagina !== 'reverso-vacio').map((page: any) => Number(page.numeroPagina)) ?? []
-    }))
+    candidateExams: examenes.map((exam) => {
+      const paginasOmr = json<any>(exam.mapaOmr, null)?.paginas ?? [];
+      const paginasExamen = paginasOmr.filter((page: any) => page.tipoPagina !== 'reverso-vacio');
+      return {
+        id: exam.id,
+        folio: exam.folio,
+        studentName: exam.alumno?.nombreCompleto ?? '',
+        group: exam.alumno?.grupo ?? '',
+        pages: paginasExamen.map((page: any) => Number(page.numeroPagina)),
+        questionNumbersByPage: Object.fromEntries(paginasExamen.map((page: any) => [
+          Number(page.numeroPagina),
+          Array.isArray(page.preguntas)
+            ? page.preguntas.map((question: any) => Number(question.numeroPregunta)).filter((number: number) => Number.isSafeInteger(number) && number > 0)
+            : []
+        ]))
+      };
+    })
   });
 }
 
@@ -1110,6 +1396,29 @@ export async function resolverPaginaIngestaPdfOmr(req: SolicitudDocente, res: Re
   page.identityResult = { studentId: exam.alumnoId ?? null, studentName: exam.alumno?.nombreCompleto ?? null };
   const respuestasDetectadas = Array.isArray(result.respuestasDetectadas) ? result.respuestasDetectadas.map(proyectarRespuestaParaRevisionOmr) : [];
   const respuestasManuales = Array.isArray(req.body?.finalResponses) ? req.body.finalResponses as Array<{ numeroPregunta: number; opcion: string | null }> : null;
+  if (respuestasManuales) {
+    const preguntasEsperadas = Array.isArray(expectedPage.preguntas)
+      ? expectedPage.preguntas.map((question: any) => Number(question.numeroPregunta)).filter((number: number) => Number.isSafeInteger(number) && number > 0).sort((left: number, right: number) => left - right)
+      : [];
+    const preguntasRecibidas = respuestasManuales.map((answer) => Number(answer.numeroPregunta)).sort((left, right) => left - right);
+    if (new Set(preguntasRecibidas).size !== preguntasRecibidas.length) {
+      throw new ErrorAplicacion('OMR_RESPUESTAS_MANUALES_DUPLICADAS', 'La resolución manual contiene reactivos duplicados', 422);
+    }
+    if (preguntasEsperadas.length === 0 || preguntasRecibidas.length !== preguntasEsperadas.length || preguntasRecibidas.some((number, index) => number !== preguntasEsperadas[index])) {
+      throw new ErrorAplicacion('OMR_RESPUESTAS_MANUALES_INCOMPLETAS', 'La resolución manual debe incluir todos los reactivos de la página generada', 422);
+    }
+    const detectadasPorNumero = new Map([...page.responses, ...respuestasDetectadas].map((answer) => [answer.numeroPregunta, answer]));
+    for (const answer of respuestasManuales) {
+      const opcionesEsperadas = expectedPage.preguntas?.find((question: any) => Number(question.numeroPregunta) === answer.numeroPregunta)?.opciones;
+      if (answer.opcion !== null && Array.isArray(opcionesEsperadas) && !opcionesEsperadas.some((option: any) => String(option.letra) === answer.opcion)) {
+        throw new ErrorAplicacion('OMR_OPCION_MANUAL_INVALIDA', 'La opción no pertenece a ese reactivo en la versión del examen', 422);
+      }
+      const detected = detectadasPorNumero.get(answer.numeroPregunta);
+      if (['ambigua', 'doble_marca'].includes(String(detected?.estadoRespuesta ?? '')) && answer.opcion !== null) {
+        throw new ErrorAplicacion('OMR_MARCA_AMBIGUA_INCORRECTA', 'Una respuesta ambigua o con varias marcas debe conservarse como incorrecta', 422);
+      }
+    }
+  }
   page.responses = respuestasManuales
     ? respuestasManuales.map((answer) => {
         const detectada = page.responses.find((respuesta) => respuesta.numeroPregunta === answer.numeroPregunta);

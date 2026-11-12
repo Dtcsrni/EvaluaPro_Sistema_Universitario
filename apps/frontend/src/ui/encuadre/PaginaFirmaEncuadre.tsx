@@ -5,6 +5,8 @@
  * Limites: Preservar accesibilidad y contratos de props existentes.
  */
 import { useEffect, useState } from 'react';
+import { ExternalLink, Hourglass, IconoLucide, X } from '../iconosCatalogo';
+import { Icono } from '../iconos';
 
 type PaginaFirmaEncuadreProps = {
   token: string;
@@ -106,7 +108,7 @@ export function PaginaFirmaEncuadre({ token }: PaginaFirmaEncuadreProps) {
     return (
       <div className="encuadre-error-container">
         <div className="encuadre-card">
-          <div className="encuadre-error-icon">✕</div>
+          <div className="encuadre-error-icon" aria-hidden="true"><IconoLucide icon={X} size={20} /></div>
           <h2>Error de Acceso</h2>
           <p className="encuadre-error-msg">{error}</p>
           <p className="encuadre-error-sub">Por favor, verifique que el enlace recibido en su correo sea correcto.</p>
@@ -128,9 +130,9 @@ export function PaginaFirmaEncuadre({ token }: PaginaFirmaEncuadreProps) {
           </div>
         </div>
         {firma.firmado ? (
-          <span className="status-badge status-badge--success">✓ Firmado Digitalmente</span>
+          <span className="status-badge status-badge--success"><Icono nombre="ok" /> Firmado Digitalmente</span>
         ) : (
-          <span className="status-badge status-badge--pending">⌛ Pendiente de Firma</span>
+          <span className="status-badge status-badge--pending"><IconoLucide icon={Hourglass} /> Pendiente de Firma</span>
         )}
       </header>
 
@@ -191,7 +193,7 @@ export function PaginaFirmaEncuadre({ token }: PaginaFirmaEncuadreProps) {
 
             {success ? (
               <div className="success-panel">
-                <div className="success-icon">✓</div>
+                <div className="success-icon"><Icono nombre="ok" /></div>
                 <h3>¡Firma Registrada Exitosamente!</h3>
                 <p>Su conformidad con el encuadre académico ha sido estampada digitalmente.</p>
                 <a href={pdfUrl} download={`Encuadre_${encuadre.asignatura}.pdf`} className="btn btn--secondary w-full">
@@ -235,7 +237,7 @@ export function PaginaFirmaEncuadre({ token }: PaginaFirmaEncuadreProps) {
           <div className="pdf-viewer-header">
             <h3>Vista Previa del Documento Oficial</h3>
             <a href={pdfUrl} target="_blank" rel="noreferrer" className="pdf-external-link">
-              Abrir en nueva pestaña ↗
+              Abrir en nueva pestaña <IconoLucide icon={ExternalLink} />
             </a>
           </div>
           <div className="pdf-iframe-wrapper">

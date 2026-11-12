@@ -76,28 +76,37 @@ export function BancoAjustePreguntas({
 
   return (
     <div className="ajuste-tema">
-      <div className="ayuda">Ajusta el tamano del tema segun <b>paginas estimadas</b>. Puedes <b>mover</b> preguntas o <b>dejarlas sin tema</b>.</div>
+      <div className="ayuda">Ajusta el tamaño del tema según las <b>páginas estimadas</b>. Puedes <b>mover</b> preguntas o <b>dejarlas sin tema</b>.</div>
+      <p className="ayuda">La paginación es una estimación para el formato Carta con plantilla OMR; confirma el resultado en la vista previa del examen.</p>
       <div className="ajuste-controles">
-        <label className="campo ajuste-campo ajuste-campo--paginas">Paginas objetivo
+        <label className="campo ajuste-campo ajuste-campo--paginas">Páginas objetivo
           <input type="number" min={1} value={String(ajustePaginasObjetivo)} onChange={(event) => setAjustePaginasObjetivo(Math.max(1, Number(event.target.value || 1)))} />
         </label>
-        <label className="campo ajuste-campo ajuste-campo--tema">Accion
+        <label className="campo ajuste-campo ajuste-campo--tema">Acción
           <select value={ajusteAccion} onChange={(event) => { const next = event.target.value === 'quitar' ? 'quitar' : 'mover'; setAjusteAccion(next); if (next === 'quitar') setAjusteTemaDestinoId(''); }}>
             <option value="mover">Mover a otro tema</option>
             <option value="quitar">Dejar sin tema</option>
           </select>
         </label>
-        <label className="campo ajuste-campo ajuste-campo--tema">Tema destino
-          <select value={ajusteTemaDestinoId} onChange={(event) => setAjusteTemaDestinoId(event.target.value)}>
-            <option value="">Selecciona</option>
-            {temasBanco.filter((x) => x._id !== tema._id).map((x) => (<option key={x._id} value={x._id}>{x.nombre}</option>))}
-          </select>
-        </label>
-        <Boton type="button" variante="secundario" onClick={() => setAjusteSeleccion(new Set(sugerirPreguntasARecortar(preguntasTema, ajustePaginasObjetivo)))}>Sugerir</Boton>
+        {ajusteAccion === 'mover' && (
+          <label className="campo ajuste-campo ajuste-campo--tema">Tema destino
+            <select value={ajusteTemaDestinoId} onChange={(event) => setAjusteTemaDestinoId(event.target.value)}>
+              <option value="">Selecciona</option>
+              {temasBanco.filter((x) => x._id !== tema._id).map((x) => (<option key={x._id} value={x._id}>{x.nombre}</option>))}
+            </select>
+          </label>
+        )}
+        <Boton type="button" variante="secundario" onClick={() => setAjusteSeleccion(new Set(sugerirPreguntasARecortar(preguntasTema, ajustePaginasObjetivo)))}>
+          Sugerir cuáles {ajusteAccion === 'mover' ? 'mover' : 'dejar sin tema'}
+        </Boton>
         <Boton type="button" variante="secundario" onClick={() => setAjusteSeleccion(new Set())}>Limpiar</Boton>
         <Boton type="button" variante="secundario" onClick={cerrarAjusteTema}>Cerrar</Boton>
       </div>
-      <div className="item-meta ajuste-meta"><span>Actual: {actuales} pag. | Objetivo: {objetivo} pag. | Quedaria: {paginasRestantes} pag.</span><span>Seleccionadas: {seleccionadas.length} (peso aprox: {paginasSeleccion} pag, {Math.round(altoSeleccion)}pt)</span></div>
+      <div className="item-meta ajuste-meta">
+        <span>Actual: {actuales} páginas · objetivo: {objetivo} páginas · quedarían: {paginasRestantes} páginas</span>
+        <span>Seleccionadas: {seleccionadas.length} preguntas · estimación: {paginasSeleccion} páginas · altura aproximada: {Math.round(altoSeleccion)} pt</span>
+      </div>
+      <p className="ayuda ajuste-ayuda">La altura en puntos tipográficos (pt) aproxima el espacio que ocuparían los reactivos impresos; 72 pt equivalen a 1 pulgada. Es una referencia y no sustituye la paginación de la vista previa.</p>
       <div className="ajuste-scroll">
         <ul className="lista">
           {preguntasTema.length === 0 && <li>No hay preguntas en este tema.</li>}
@@ -105,7 +114,7 @@ export function BancoAjustePreguntas({
             const version = obtenerVersionPregunta(p);
             const marcado = ajusteSeleccion.has(p._id);
             return (
-              <li key={p._id}><label className="ajuste-check"><input type="checkbox" checked={marcado} onChange={() => setAjusteSeleccion((prev) => { const next = new Set(prev); if (next.has(p._id)) next.delete(p._id); else next.add(p._id); return next; })} /><span>{textoPlanoRico(String(version?.enunciado ?? 'Pregunta')).slice(0, 120)}</span></label></li>
+              <li key={p._id}><label className="ajuste-check"><input type="checkbox" aria-label={`Seleccionar reactivo: ${textoPlanoRico(String(version?.enunciado ?? 'Pregunta'))}`} checked={marcado} onChange={() => setAjusteSeleccion((prev) => { const next = new Set(prev); if (next.has(p._id)) next.delete(p._id); else next.add(p._id); return next; })} /><span>{textoPlanoRico(String(version?.enunciado ?? 'Pregunta')).slice(0, 120)}</span></label></li>
             );
           })}
         </ul>
@@ -139,7 +148,7 @@ export function BancoAjustePreguntas({
                   const v = obtenerVersionPregunta(p);
                   const marcado = sinTemaSeleccion.has(p._id);
                   return (
-                    <li key={p._id}><label className="ajuste-check"><input type="checkbox" checked={marcado} onChange={() => setSinTemaSeleccion((prev) => { const next = new Set(prev); if (next.has(p._id)) next.delete(p._id); else next.add(p._id); return next; })} /><span>{textoPlanoRico(String(v?.enunciado ?? 'Pregunta')).slice(0, 120)}</span></label></li>
+                    <li key={p._id}><label className="ajuste-check"><input type="checkbox" aria-label={`Seleccionar reactivo: ${textoPlanoRico(String(v?.enunciado ?? 'Pregunta'))}`} checked={marcado} onChange={() => setSinTemaSeleccion((prev) => { const next = new Set(prev); if (next.has(p._id)) next.delete(p._id); else next.add(p._id); return next; })} /><span>{textoPlanoRico(String(v?.enunciado ?? 'Pregunta')).slice(0, 120)}</span></label></li>
                   );
                 })}
               </ul>

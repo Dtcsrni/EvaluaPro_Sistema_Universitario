@@ -162,6 +162,84 @@ describe('hooks de plantillas', () => {
     expect(avisarSinPermiso).toHaveBeenCalled();
   });
 
+  it('mantiene junto al historial el error de regeneración sin emitir un toast duplicado', async () => {
+    const setMensajeGeneracion = vi.fn();
+    const toastSpy = vi.spyOn(toastBus, 'emitToast');
+    const { result } = renderHook(() => usePlantillasGeneradosActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeRegenerarExamenes: true,
+      puedeArchivarExamenes: false,
+      descargandoExamenId: null,
+      regenerandoExamenId: null,
+      archivandoExamenId: null,
+      setDescargandoExamenId: vi.fn(),
+      setRegenerandoExamenId: vi.fn(),
+      setArchivandoExamenId: vi.fn(),
+      setMensajeGeneracion,
+      cargarExamenesGenerados: vi.fn().mockResolvedValue(undefined),
+      enviarConPermiso: vi.fn().mockRejectedValue(new Error('Error remoto')),
+      lotePdfUrl: null
+    }));
+
+    await act(async () => result.current.regenerarPdfExamen({
+      _id: 'examen-1', folio: 'F-1', plantillaId: 'pla-1'
+    }));
+
+    expect(setMensajeGeneracion).toHaveBeenCalledWith('Error remoto');
+    expect(toastSpy).not.toHaveBeenCalledWith(expect.objectContaining({ level: 'error' }));
+  });
+
+  it('mantiene el fallo de descarga del lote en contexto sin un segundo toast', async () => {
+    localStorage.setItem('tokenDocente', 'token-test');
+    vi.spyOn(global, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response);
+    const setMensajeGeneracion = vi.fn();
+    const toastSpy = vi.spyOn(toastBus, 'emitToast');
+    const { result } = renderHook(() => usePlantillasGeneradosActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeRegenerarExamenes: false,
+      puedeArchivarExamenes: false,
+      descargandoExamenId: null,
+      regenerandoExamenId: null,
+      archivandoExamenId: null,
+      setDescargandoExamenId: vi.fn(),
+      setRegenerandoExamenId: vi.fn(),
+      setArchivandoExamenId: vi.fn(),
+      setMensajeGeneracion,
+      cargarExamenesGenerados: vi.fn().mockResolvedValue(undefined),
+      enviarConPermiso: vi.fn(),
+      lotePdfUrl: '/examenes/generados/lote/LOT-1/pdf'
+    }));
+
+    await act(async () => result.current.descargarPdfLote());
+
+    expect(setMensajeGeneracion).toHaveBeenCalledWith('HTTP 500');
+    expect(toastSpy).not.toHaveBeenCalledWith(expect.objectContaining({ level: 'error' }));
+  });
+
+  it('mantiene el error de carga OMR en contexto y evita repetirlo en un toast', async () => {
+    vi.spyOn(clienteApi, 'obtener').mockRejectedValue(new Error('Error remoto'));
+    const setMensajeGeneracionError = vi.fn();
+    const toastSpy = vi.spyOn(toastBus, 'emitToast');
+    const { result } = renderHook(() => usePlantillasOmrActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeAnalizarOmr: true,
+      setCargandoAssessmentId: vi.fn(),
+      setAssessmentDetalle: vi.fn(),
+      setProcesandoOmr: vi.fn(),
+      setJobOmr: vi.fn(),
+      setMensajeGeneracion: vi.fn(),
+      setMensajeGeneracionError
+    }));
+
+    await act(async () => result.current.cargarAssessmentDetalle('assessment-1'));
+
+    expect(setMensajeGeneracionError).toHaveBeenCalledWith('Error remoto');
+    expect(toastSpy).not.toHaveBeenCalledWith(expect.objectContaining({ level: 'error' }));
+  });
+
   it('usePlantillasPreviewActions avisa cuando no hay permiso de previsualizacion', async () => {
     const avisarSinPermiso = vi.fn();
     const setPreviewPorPlantillaId = vi.fn();
@@ -187,8 +265,10 @@ describe('hooks de plantillas', () => {
 
   it('fuerza la regeneracion del PDF y conserva el tipo de preview solicitado', async () => {
     localStorage.setItem('tokenDocente', 'token-test');
+    const toastSpy = vi.spyOn(toastBus, 'emitToast');
     const fetchMock = vi.mocked(global.fetch);
     const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview-actualizado');
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     const pdfBase64 = btoa('%PDF-1.4 preview');
     vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
@@ -220,9 +300,12 @@ describe('hooks de plantillas', () => {
 
     const llamada = fetchMock.mock.calls.find(([input]) => String(input).includes('/examenes/plantillas/pla-1/previsualizar/pdf'));
     expect(llamada).toBeTruthy();
-    expect(String(llamada?.[0])).toMatch(/\/previsualizar\/pdf\/visual[?&]refresh=\d+/);
+    expect(String(llamada?.[0])).toMatch(/\/previsualizar\/pdf\/visual[?&]refresh=1$/);
     expect(createObjectUrl).toHaveBeenCalled();
-    const actualizador = setPreviewPdfUrlPorPlantillaId.mock.calls[0]?.[0] as (prev: Record<string, unknown>) => Record<string, unknown>;
+    const invalidar = setPreviewPdfUrlPorPlantillaId.mock.calls[0]?.[0] as (prev: Record<string, unknown>) => Record<string, unknown>;
+    expect(invalidar({ 'pla-1': { omrSheet: 'blob:anterior' } })).toEqual({});
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:anterior');
+    const actualizador = setPreviewPdfUrlPorPlantillaId.mock.calls.at(-1)?.[0] as (prev: Record<string, unknown>) => Record<string, unknown>;
     expect(actualizador({})).toEqual({
       'pla-1': {
         omrSheet: 'blob:preview-actualizado',
@@ -230,6 +313,9 @@ describe('hooks de plantillas', () => {
         omrSheetPagesTotal: 1
       }
     });
+    expect(toastSpy).not.toHaveBeenCalled();
+    act(() => result.current.cerrarPreviewPdfPlantilla('pla-1', 'omrSheet'));
+    expect(toastSpy).not.toHaveBeenCalled();
   });
 
   it('valida la vista previa extraordinaria contra la preferencia global de páginas', async () => {
@@ -256,6 +342,7 @@ describe('hooks de plantillas', () => {
       })
     } as Response);
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview-extra');
+    const setPdf = vi.fn();
     const { result } = renderHook(() => usePlantillasPreviewActions({
       paginasExtraordinarioObjetivo: 6,
       puedePrevisualizarPlantillas: true,
@@ -266,7 +353,7 @@ describe('hooks de plantillas', () => {
       setPreviewPorPlantillaId: vi.fn(),
       setCargandoPreviewPlantillaId: vi.fn(),
       setPlantillaPreviewId: vi.fn(),
-      setPreviewPdfUrlPorPlantillaId: vi.fn(),
+      setPreviewPdfUrlPorPlantillaId: setPdf,
       setCargandoPreviewPdfPlantillaId: vi.fn()
     }));
 
@@ -277,6 +364,8 @@ describe('hooks de plantillas', () => {
 
     expect(preview?.layoutConfirmado).toBe(true);
     expect(preview?.paginas).toHaveLength(6);
+    const guardar = setPdf.mock.calls.at(-1)?.[0] as (prev: Record<string, unknown>) => Record<string, { bookletLayoutConfirmado?: boolean }>;
+    expect(guardar({})['pla-extra']?.bookletLayoutConfirmado).toBe(true);
   });
 
   it('usePlantillasOmrActions avisa cuando no hay permiso para analizar OMR', async () => {
@@ -331,5 +420,33 @@ describe('hooks de plantillas', () => {
     expect(setCargandoAssessmentId).toHaveBeenLastCalledWith(null);
     expect(setMensajeGeneracion).not.toHaveBeenCalled();
     obtener.mockRestore();
+  });
+
+  it('deja que el estado visible del job confirme revisión y finalización sin toast repetido', async () => {
+    const job = { jobId: 'job-1', status: 'finalized', pages: [] };
+    const enviar = vi.spyOn(clienteApi, 'enviar').mockResolvedValue({ job } as never);
+    const setJobOmr = vi.fn();
+    const toastSpy = vi.spyOn(toastBus, 'emitToast');
+    const { result } = renderHook(() => usePlantillasOmrActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeAnalizarOmr: true,
+      setCargandoAssessmentId: vi.fn(),
+      setAssessmentDetalle: vi.fn(),
+      setProcesandoOmr: vi.fn(),
+      setJobOmr,
+      setMensajeGeneracion: vi.fn()
+    }));
+
+    await act(async () => result.current.resolverHojaOmr({
+      jobId: 'job-1',
+      sheetSerial: 'SYNTHETIC-1',
+      resolutionReason: 'Revisión sintética de prueba'
+    }));
+    await act(async () => result.current.finalizarJobOmr('job-1'));
+
+    expect(enviar).toHaveBeenCalledTimes(2);
+    expect(setJobOmr).toHaveBeenCalledWith(job);
+    expect(toastSpy).not.toHaveBeenCalled();
   });
 });

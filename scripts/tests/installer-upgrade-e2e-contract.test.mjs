@@ -13,6 +13,10 @@ const installerHubContractsPath = path.join(root, 'scripts', 'installer-burn', '
 const installerHubContracts = fs.readFileSync(installerHubContractsPath, 'utf8');
 const bootstrapperPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs');
 const bootstrapper = fs.readFileSync(bootstrapperPath, 'utf8');
+const nativeInstallerHelperPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs');
+const nativeInstallerHelper = fs.readFileSync(nativeInstallerHelperPath, 'utf8');
+const appFilesWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'AppFiles.wxs'), 'utf8');
+const msiBuild = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
 const mainWindowXamlPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml');
 const mainWindowXaml = fs.readFileSync(mainWindowXamlPath, 'utf8');
 const mainWindowCodePath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs');
@@ -156,15 +160,68 @@ test('Burn detiene antes de Apply si otro bundle relacionado tiene la misma vers
   assert.match(detectHandler, /Version\.TryParse\(args\.Version/);
   assert.match(detectHandler, /candidateVersion\.Equals\(relatedVersion\)/);
   assert.match(detectHandler, /hasSameVersionRelatedBundle\s*=\s*true/);
+  assert.match(detectHandler, /sameVersionRelatedBundleCodes\.Add\(args\.ProductCode\)/);
   assert.ok(planStart >= 0 && planEnd > planStart, 'el guard ocurre durante la planificación');
   const conflictGuard = planHandler.indexOf('if (hasSameVersionRelatedBundle');
   const apply = planHandler.indexOf('engineHandle?.Apply(');
   assert.ok(conflictGuard >= 0 && conflictGuard < apply, 'un bundle duplicado de igual versión se rechaza antes de Apply');
   assert.match(planHandler.slice(conflictGuard, apply), /currentOperation,\s*"uninstall"/);
+  assert.match(planHandler.slice(conflictGuard, apply), /currentOperation,\s*"repair"/);
   assert.match(planHandler.slice(conflictGuard, apply), /FinalizeFailure/);
   assert.match(planHandler.slice(conflictGuard, apply), /no se aplicaron cambios/);
   assert.match(planHandler.slice(conflictGuard, apply), /failureDisplay\s*=\s*BuildFailureDisplay\("Actualización detenida por conflicto de versión"/,
     'el resumen de error visible debe mostrar el título semántico del conflicto');
+});
+
+test('Burn bloquea antes de Apply un Installer Hub anterior al relacionado instalado', () => {
+  const detectStart = bootstrapper.indexOf('protected override void OnDetectRelatedBundle(');
+  const detectEnd = bootstrapper.indexOf('\n    protected override void OnDetectPackageComplete(', detectStart);
+  const detectHandler = bootstrapper.slice(detectStart, detectEnd);
+  const planStart = bootstrapper.indexOf('protected override void OnPlanComplete(');
+  const planEnd = bootstrapper.indexOf('\n    protected override void OnProgress(', planStart);
+  const planHandler = bootstrapper.slice(planStart, planEnd);
+  const modelStart = bootstrapper.indexOf('private void UpdateWindowFromDetection(');
+  const modelEnd = bootstrapper.indexOf('\n    private IReadOnlyList<FlavorItem> LoadFlavorItems()', modelStart);
+  const modelHandler = bootstrapper.slice(modelStart, modelEnd);
+
+  assert.match(detectHandler, /relatedVersion\s*>\s*candidateVersion/);
+  assert.match(detectHandler, /newerRelatedBundleVersion\s*=\s*relatedVersion/);
+  const downgradeGuard = planHandler.indexOf('if (newerRelatedBundleVersion is not null');
+  const apply = planHandler.indexOf('engineHandle?.Apply(');
+  assert.ok(downgradeGuard >= 0 && downgradeGuard < apply, 'el downgrade se rechaza antes de Apply');
+  assert.match(planHandler.slice(downgradeGuard, apply), /currentOperation,\s*"uninstall"/);
+  assert.match(planHandler.slice(downgradeGuard, apply), /No se ejecutó el MSI/);
+  assert.match(modelHandler, /blockedByOlderBundle/);
+  assert.match(modelHandler, /Ready\s*=\s*payload\.Ready\s*&&\s*!blockedByOlderBundle/);
+  assert.match(modelHandler, /"Paquete anterior detectado\."/);
+});
+
+test('Burn permite reparar y conserva el bundle relacionado de la misma versión', () => {
+  const planStart = bootstrapper.indexOf('protected override void OnPlanRelatedBundle(');
+  const planEnd = bootstrapper.indexOf('\n    protected override void ', planStart + 1);
+  const planHandler = bootstrapper.slice(planStart, planEnd);
+  const repairGuard = planHandler.indexOf('string.Equals(currentOperation, "repair"');
+  const duplicateHandling = planHandler.indexOf('observedPlannedRelatedBundleCodes.Add(args.BundleCode)');
+
+  assert.ok(repairGuard >= 0 && repairGuard < duplicateHandling, 'la reparación preserva el bundle antes de registrar limpiezas');
+  assert.match(planHandler.slice(repairGuard, duplicateHandling), /sameVersionRelatedBundleCodes\.Contains\(args\.BundleCode\)/);
+  assert.match(planHandler.slice(repairGuard, duplicateHandling), /args\.State = RequestState\.Present/);
+  assert.match(bootstrapper, /sameVersionRelatedBundleCodes\s*=\s*new\(StringComparer\.OrdinalIgnoreCase\)/);
+});
+
+test('Burn permite retirar bundles anteriores durante actualizar y conserva la reparación de la misma versión', () => {
+  const planStart = bootstrapper.indexOf('protected override void OnPlanRelatedBundle(');
+  const planEnd = bootstrapper.indexOf('\n    protected override void ', planStart + 1);
+  const planHandler = bootstrapper.slice(planStart, planEnd);
+  const installPreserveGuard = planHandler.indexOf('string.Equals(currentOperation, "install"');
+  const repairGuard = planHandler.indexOf('if (string.Equals(currentOperation, "repair"');
+  const duplicateHandling = planHandler.indexOf('observedPlannedRelatedBundleCodes.Add(args.BundleCode)');
+
+  assert.equal(installPreserveGuard, -1, 'una instalación de versión superior debe poder retirar el bundle previo');
+  assert.ok(repairGuard >= 0 && duplicateHandling > repairGuard,
+    'la reparación conserva solo el bundle de la misma versión antes de registrar limpiezas');
+  assert.match(planHandler.slice(repairGuard, duplicateHandling), /sameVersionRelatedBundleCodes\.Contains\(args\.BundleCode\)/);
+  assert.match(planHandler.slice(repairGuard, duplicateHandling), /args\.State = RequestState\.Present/);
 });
 
 test('Burn no lanza el helper post-install si falla la limpieza de un bundle relacionado', () => {
@@ -281,13 +338,23 @@ test('baseline legado valida version ARP sin InstallLocation solo con una entrad
   const getter = e2e.slice(getterStart, getterEnd);
 
   assert.match(getter, /\$matchingEntries\.Count -gt 1/);
-  assert.match(getter, /\$script:upgradingExistingInstall\s+-and\s+\$allEntries\.Count -eq 1/);
-  assert.match(getter, /\$script:initialUninstallRegistryPaths -contains \[string\]\$allEntries\[0\]\.registryPath/);
+  assert.match(getter, /\$allEntries\.Count -eq 1[\s\S]{0,220}\[string\]::IsNullOrWhiteSpace\(\[string\]\$allEntries\[0\]\.installLocation\)/);
+  assert.match(getter, /\$script:upgradingExistingInstall\s+-and\s+\$script:initialUninstallRegistryPaths -contains \[string\]\$allEntries\[0\]\.registryPath[\s\S]{0,300}evaluapro-native-dist-\*\.zip/);
+  assert.match(getter, /\$script:isolatedBaselineUpgradeRun/);
   assert.match(getter, /\$newEntries\.Count -eq 1[\s\S]*?installLocation/);
   assert.match(getter, /Join-Path \$target 'EvaluaPro\.exe'/);
-  assert.match(getter, /Join-Path \$target 'evaluapro-native-dist\.zip'/);
+  assert.match(getter, /evaluapro-native-dist-\*\.zip/);
   assert.match(getter, /No existe una entrada MSI inequívoca/);
   assert.doesNotMatch(getter, /\)\[0\]/);
+});
+
+test('el upgrade aísla el archivo temporal de payload por versión de producto', () => {
+  assert.match(appFilesWxs, /Name="\$\(var\.PayloadArchiveFileName\)"/);
+  assert.match(msiBuild, /evaluapro-native-dist-\{0\}-\{1\}\.zip"\s*-f\s*\$payloadVersion,\s*\$effectiveVersionTag/);
+  assert.match(msiBuild, /ExpectedNativePayloadArchiveName\s+\$docentePayloadArchiveFileName/);
+  assert.match(nativeInstallerHelper, /GetVersionedPayloadArchiveName\(\)/);
+  assert.match(nativeInstallerHelper, /AssemblyMetadataAttribute[\s\S]*?EvaluaProAppVersion[\s\S]*?AssemblyInformationalVersionAttribute[\s\S]*?evaluapro-native-dist-\{appVersion\}-\{hubVersion\}\.zip/);
+  assert.match(e2e, /evaluapro-native-dist-\*\.zip/);
 });
 
 test('E2E conserva el log MSI verbose para diagnosticar propiedades de instalación del baseline', () => {
@@ -508,7 +575,7 @@ test('la evidencia visual del Installer Hub valida PNG, dimensiones, píxeles y 
 
 test('E2E valida el preflight antes de instalar y reconoce la actualización aislada desde baseline', () => {
   assert.match(e2e, /\$candidateBundleVerified = -not \[string\]::IsNullOrWhiteSpace\(\$bundlePath\)/);
-  assert.match(e2e, /\$isolatedBaselineUpgradeRun = \$candidateBundleVerified -and \$baselineBundleExists/);
+  assert.match(e2e, /\$script:isolatedBaselineUpgradeRun = \$candidateBundleVerified -and \$baselineBundleExists/);
   assert.match(e2e, /\$validInstallMode = \$isolatedCandidateRun -or \$isolatedBaselineUpgradeRun -or \$script:upgradingExistingInstall/);
   const invalidModeGuard = e2e.indexOf('if (-not $validInstallMode)');
   const installInvocation = e2e.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade', invalidModeGuard);

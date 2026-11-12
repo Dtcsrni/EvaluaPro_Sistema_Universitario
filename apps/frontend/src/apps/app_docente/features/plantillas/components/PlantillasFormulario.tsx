@@ -4,12 +4,14 @@
  * Responsabilidad: Formulario panorámico Bento para diseño y edición de plantillas de examen OMR.
  */
 import { Icono } from '../../../../../ui/iconos';
+import { IconoCampo } from '../../../../../ui/IconoLucide';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
-import { emitToast } from '../../../../../ui/toast/toastBus';
-import { esMensajeError, etiquetaMateria, idCortoMateria } from '../../../utilidades';
+import { etiquetaMateriaParaSelector } from '../../../utilidades';
 import type { Periodo, Plantilla } from '../../../tipos';
-import type { Dispatch, SetStateAction } from 'react';
+import { useRef, type Dispatch, type SetStateAction } from 'react';
 import { calcularEstimacionDensidadPlantilla } from '../hooks/estimadorDensidadPlantilla';
+import { BookOpenText, CircleAlert, Lightbulb, IconoLucide } from '../../../../../ui/iconosCatalogo';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
 type TemaDisponible = { tema: string; total: number };
 
@@ -47,14 +49,15 @@ export function PlantillasFormulario({
   actualizarPdf,
   edicionPlantillaModificada,
   cancelarEdicion,
-  mensaje
+  mensaje,
+  mensajeEsError
 }: {
   modoEdicion: boolean;
   plantillaEditando: Plantilla | null;
   tipo: 'parcial' | 'global';
   onTipoChange: (value: 'parcial' | 'global') => void;
-  examTemplateId: 'omr-canonical-v4' | 'omr-inline-exam-v1';
-  setExamTemplateId: (value: 'omr-canonical-v4' | 'omr-inline-exam-v1') => void;
+  examTemplateId: 'omr-canonical-1.0.0' | 'omr-inline-exam-v1';
+  setExamTemplateId: (value: 'omr-canonical-1.0.0' | 'omr-inline-exam-v1') => void;
   titulo: string;
   setTitulo: (value: string) => void;
   periodoId: string;
@@ -83,7 +86,10 @@ export function PlantillasFormulario({
   edicionPlantillaModificada: boolean;
   cancelarEdicion: () => void;
   mensaje: string;
+  mensajeEsError: boolean;
 }) {
+  const logoIzquierdaInputRef = useRef<HTMLInputElement>(null);
+  const logoDerechaInputRef = useRef<HTMLInputElement>(null);
   const totalReactivosEstimados = totalDisponiblePorTemas > 0
     ? Math.min(Math.max(1, Math.floor(reactivosObjetivo || 0)), totalDisponiblePorTemas)
     : 0;
@@ -105,12 +111,6 @@ export function PlantillasFormulario({
     if (bloqueoEdicion || totalDisponiblePorTemas <= 0) return;
     const siguiente = Math.min(maxReactivos, Math.max(1, reactivosConfigurados + delta));
     setReactivosObjetivo(siguiente);
-    emitToast({
-      level: 'info',
-      title: 'Preguntas',
-      message: `Cantidad ajustada a ${siguiente} reactivos`,
-      durationMs: 1400
-    });
   };
 
   return (
@@ -136,7 +136,7 @@ export function PlantillasFormulario({
       <div className="ayuda plantillas-panel__hint">
         {modoEdicion && plantillaEditando ? (
           <>
-            Editando: <b>{plantillaEditando.titulo}</b> (ID: {idCortoMateria(plantillaEditando._id)})
+            Editando: <b>{plantillaEditando.titulo}</b>
           </>
         ) : (
           'Crea plantillas por temas, o edita una existente.'
@@ -148,9 +148,10 @@ export function PlantillasFormulario({
         <div className="alumnos-form__row alumnos-form__row--top">
           <label className="campo campo--titulo">
             <span className="campo__label-row">
-              <span>Titulo</span>
+              <span>Título</span>
             </span>
             <div className="auth-input-box auth-input-box--id auth-input-box--animated">
+              <IconoCampo nombre="id" />
               <input
                 value={titulo}
                 onChange={(event) => setTitulo(event.target.value)}
@@ -165,6 +166,7 @@ export function PlantillasFormulario({
         <label className="campo campo--tipo">
           <span className="campo__label-row"><span>Tipo de examen</span></span>
           <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+            <IconoCampo nombre="select" />
             <select
               value={tipo}
               onChange={(event) => onTipoChange(event.target.value === 'global' ? 'global' : 'parcial')}
@@ -183,7 +185,9 @@ export function PlantillasFormulario({
               <span>Materia</span>
             </span>
             <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+              <IconoCampo nombre="select" />
               <select
+                aria-label="Materia"
                 value={periodoId}
                 onChange={(event) => {
                   setPeriodoId(event.target.value);
@@ -195,7 +199,7 @@ export function PlantillasFormulario({
                 <option value="">Selecciona</option>
                 {periodos.map((periodo) => (
                   <option key={periodo._id} value={periodo._id} title={periodo._id}>
-                    {etiquetaMateria(periodo)}
+                    {etiquetaMateriaParaSelector(periodo)}
                   </option>
                 ))}
               </select>
@@ -219,7 +223,7 @@ export function PlantillasFormulario({
 
           {periodoId && temasDisponibles.length === 0 && (
             <div className="ayuda ayuda--warn mt-10">
-              ⚠️ Esta materia no tiene temas con preguntas en el banco. Agrega preguntas en la sección “Banco”.
+              <IconoLucide icon={CircleAlert} size={16} /> Esta materia no tiene temas con preguntas en el banco. Agrega preguntas en la sección “Banco”.
             </div>
           )}
 
@@ -231,18 +235,12 @@ export function PlantillasFormulario({
                   key={td.tema}
                   type="button"
                   className={`plantillas-tema-chip ${seleccionado ? 'plantillas-tema-chip--selected' : ''}`}
+                  aria-pressed={seleccionado}
                   onClick={() => {
                     if (bloqueoEdicion) return;
-                    const estabaSeleccionado = temasSeleccionados.includes(td.tema);
                     setTemasSeleccionados((prev) =>
                       prev.includes(td.tema) ? prev.filter((t) => t !== td.tema) : [...prev, td.tema]
                     );
-                    emitToast({
-                      level: 'info',
-                      title: 'Temas',
-                      message: estabaSeleccionado ? `Tema retirado: ${td.tema}` : `Tema agregado: ${td.tema}`,
-                      durationMs: 1600
-                    });
                   }}
                   disabled={bloqueoEdicion}
                 >
@@ -256,7 +254,9 @@ export function PlantillasFormulario({
 
           {temasDisponibles.length === 0 && (
             <div className="plantillas-temas-empty" role="status">
-              <span className="plantillas-temas-empty__icon" aria-hidden="true">{periodoId ? '!' : '2'}</span>
+              <span className="plantillas-temas-empty__icon" aria-hidden="true">
+                <IconoLucide icon={periodoId ? CircleAlert : BookOpenText} size={20} />
+              </span>
               <div>
                 <b>{periodoId ? 'Aún no hay temas disponibles' : 'Selecciona una materia para comenzar'}</b>
                 <p>{periodoId
@@ -323,7 +323,7 @@ export function PlantillasFormulario({
               </div>
               <span className="ayuda">{totalDisponiblePorTemas > 0 ? `Agrega o quita reactivos. Disponibles: ${totalDisponiblePorTemas}. Sugerido: ${reactivosSugeridos}.` : 'Selecciona al menos un tema para habilitar este control.'}</span>
             </div>
-            <div className="campo plantillas-formato-control plantillas-formato-control--wide" role="status" aria-label="Ajuste automático activo">
+            <div className="campo plantillas-formato-control plantillas-formato-control--wide" role="note">
               <span className="campo__label-row"><span>Ajuste de lectura</span><b>Automático</b></span>
               <span className="plantillas-auto-status">El motor selecciona automáticamente la combinación más legible para completar el objetivo.</span>
               <span className="ayuda">La cabecera, el QR, los logos y la geometría OMR permanecen fijos. Si no cabe, no elimina preguntas: muestra la advertencia real.</span>
@@ -333,42 +333,55 @@ export function PlantillasFormulario({
               <span className="ayuda">No son editables manualmente; se ajustan dentro de límites legibles solo cuando hace falta espacio.</span>
             </div>
             <label className="campo plantillas-formato-control plantillas-formato-control--wide">
-              <span className="campo__label-row"><span>Plantilla de respuesta OMR</span><b>{examTemplateId === 'omr-inline-exam-v1' ? 'Experimental' : 'TV4'}</b></span>
+              <span className="campo__label-row"><span>Plantilla de respuesta OMR</span><b>{examTemplateId === 'omr-inline-exam-v1' ? 'Experimental' : OMR_CANONICAL_DISPLAY_LABEL}</b></span>
               <select
                 value={examTemplateId}
                 onChange={(event) => setExamTemplateId(event.target.value as typeof examTemplateId)}
                 disabled={bloqueoEdicion}
                 aria-label="Plantilla OMR del examen"
               >
-                <option value="omr-canonical-v4">Canónica TV4 · panel de respuestas en el examen</option>
+                <option value="omr-canonical-1.0.0">{OMR_CANONICAL_DISPLAY_LABEL} · panel de respuestas en el examen</option>
                 <option value="omr-inline-exam-v1">Experimental · burbuja junto a cada opción</option>
               </select>
+              <span className="ayuda">Plantilla seleccionada: {examTemplateId === 'omr-inline-exam-v1'
+                ? 'Experimental · burbuja junto a cada opción'
+                : `${OMR_CANONICAL_DISPLAY_LABEL} · panel de respuestas en el examen`}</span>
               <span className="ayuda" role={examTemplateId === 'omr-inline-exam-v1' ? 'alert' : undefined}>
                 {examTemplateId === 'omr-inline-exam-v1'
                   ? 'Cada opción A–E lleva su burbuja en el mismo bloque. Agrega un reverso en blanco por página para impedir trasluz; al imprimir a doble cara usa una hoja por página de examen. Al cargar fotos, envía solo las caras impresas. Requiere revisión manual completa; la calificación automática está bloqueada mientras se evalúa.'
-                  : 'Conserva la geometría OMR vigente de TV4.'}
+                  : 'Usa la geometría de respuesta de la plantilla seleccionada.'}
               </span>
             </label>
           </div>
           <div className="plantillas-formato-box__footer">
             <span>Estimación orientativa según reactivos, temas, páginas y densidad; el PDF se vuelve a validar al renderizar.</span>
-            <span className="plantillas-formato-box__omr">✓ {examTemplateId === 'omr-inline-exam-v1' ? 'Burbujas junto a cada opción' : 'Panel OMR reservado'}</span>
+            <span className="plantillas-formato-box__omr">Formato de respuesta: {examTemplateId === 'omr-inline-exam-v1' ? 'burbujas junto a cada opción' : 'panel OMR reservado'}</span>
           </div>
           <div className="plantillas-formato-box__logos" aria-label="Imágenes del encabezado">
             <div>
               <span className="plantillas-formato-box__eyebrow">Identidad visual</span>
               <p className="nota">Carga dos logos o imágenes ilustrativas. Se conservarán en los espacios laterales del encabezado.</p>
             </div>
-            <label className="campo plantillas-formato-control">
-              <span className="campo__label-row"><span>Imagen izquierda</span><b>{logoIzquierda ? 'Cargada' : 'Ilustrativa'}</b></span>
-              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => seleccionarLogo('izquierda', event.target.files?.[0])} disabled={bloqueoEdicion} aria-label="Cargar imagen izquierda" />
-              <span className="ayuda">PNG, JPG o WebP · máximo 2 MB.</span>
-            </label>
-            <label className="campo plantillas-formato-control">
-              <span className="campo__label-row"><span>Imagen derecha</span><b>{logoDerecha ? 'Cargada' : 'Ilustrativa'}</b></span>
-              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => seleccionarLogo('derecha', event.target.files?.[0])} disabled={bloqueoEdicion} aria-label="Cargar imagen derecha" />
-              <span className="ayuda">PNG, JPG o WebP · máximo 2 MB.</span>
-            </label>
+            <div className="campo plantillas-formato-control">
+              <span className="campo__label-row"><span>Imagen izquierda</span><b id="plantillas-imagen-izquierda-estado" role="status">{logoIzquierda ? 'Cargada' : 'Ilustrativa'}</b></span>
+              <div className="plantillas-archivo-selector">
+                <input ref={logoIzquierdaInputRef} id="plantillas-imagen-izquierda" className="input-file-oculto" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => seleccionarLogo('izquierda', event.target.files?.[0])} disabled={bloqueoEdicion} aria-hidden="true" tabIndex={-1} />
+                <Boton type="button" variante="secundario" aria-label="Seleccionar imagen izquierda" aria-describedby="plantillas-imagen-izquierda-estado plantillas-imagen-izquierda-ayuda" disabled={bloqueoEdicion} onClick={() => logoIzquierdaInputRef.current?.click()}>
+                  Seleccionar imagen
+                </Boton>
+              </div>
+              <span className="ayuda" id="plantillas-imagen-izquierda-ayuda">PNG, JPG o WebP · máximo 2 MB.</span>
+            </div>
+            <div className="campo plantillas-formato-control">
+              <span className="campo__label-row"><span>Imagen derecha</span><b id="plantillas-imagen-derecha-estado" role="status">{logoDerecha ? 'Cargada' : 'Ilustrativa'}</b></span>
+              <div className="plantillas-archivo-selector">
+                <input ref={logoDerechaInputRef} id="plantillas-imagen-derecha" className="input-file-oculto" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => seleccionarLogo('derecha', event.target.files?.[0])} disabled={bloqueoEdicion} aria-hidden="true" tabIndex={-1} />
+                <Boton type="button" variante="secundario" aria-label="Seleccionar imagen derecha" aria-describedby="plantillas-imagen-derecha-estado plantillas-imagen-derecha-ayuda" disabled={bloqueoEdicion} onClick={() => logoDerechaInputRef.current?.click()}>
+                  Seleccionar imagen
+                </Boton>
+              </div>
+              <span className="ayuda" id="plantillas-imagen-derecha-ayuda">PNG, JPG o WebP · máximo 2 MB.</span>
+            </div>
           </div>
         </div>
 
@@ -417,12 +430,12 @@ export function PlantillasFormulario({
             )}
           </div>
           <div className="alumnos-form__hint">
-            <span>💡 Las plantillas definen la composición y el formato óptico para la generación y calificación OMR.</span>
+            <span><IconoLucide icon={Lightbulb} size={16} /> Las plantillas definen la composición y el formato óptico para la generación y calificación OMR.</span>
           </div>
         </div>
 
         {mensaje && (
-          <p className={esMensajeError(mensaje) ? 'mensaje error anim-fade-in' : 'mensaje ok anim-fade-in'} role="status">
+          <p className={mensajeEsError ? 'mensaje error anim-fade-in' : 'mensaje ok anim-fade-in'} role={mensajeEsError ? 'alert' : 'status'}>
             {mensaje}
           </p>
         )}

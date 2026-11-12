@@ -9,6 +9,8 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { Icono } from '../../ui/iconos';
+import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../ui/version/versionInfo';
 import { clienteApi } from './clienteApiDocente';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Docente } from './tipos';
@@ -46,11 +48,46 @@ type ResultadoReconstruccion = {
   manifestHashes: string[];
 };
 
+type OperacionRecuperacion = { bundleHash: string; tipo: 'verificar' | 'reconstruir' } | null;
+type EstadoCargaInventario = 'cargando' | 'cargado' | 'error';
+
 function resumirConflicto(conflicto: Record<string, unknown>, index: number) {
   const examId = String(conflicto.examId ?? conflicto.id ?? '').trim();
   const folio = String(conflicto.folio ?? '').trim();
   const causa = String(conflicto.cause ?? conflicto.motivo ?? conflicto.reason ?? '').trim();
   return [examId || `conflicto-${index + 1}`, folio || undefined, causa || undefined].filter(Boolean).join(' | ');
+}
+
+function notificarRenovacionSesionSiAplica(error: unknown) {
+  const action = accionToastSesionParaError(error, 'docente');
+  if (!action) return;
+  emitToast({
+    level: 'error',
+    title: 'Renueva tu sesión docente',
+    message: 'Cierra sesión y vuelve a entrar para renovar el acceso; después reintenta la operación.',
+    action,
+    persistent: true
+  });
+}
+
+function etiquetaEstadoReconstruccion(estado: ResultadoReconstruccion['status']) {
+  const etiquetas: Record<ResultadoReconstruccion['status'], string> = {
+    verificada: 'Verificada',
+    reconstruida: 'Reconstruida',
+    conflicto: 'Con conflictos',
+    fallida: 'Fallida'
+  };
+  return etiquetas[estado];
+}
+
+function mensajeEstadoReconstruccion(estado: ResultadoReconstruccion['status']) {
+  const mensajes: Record<ResultadoReconstruccion['status'], string> = {
+    verificada: 'El paquete se verificó; no se informaron cambios de registros.',
+    reconstruida: 'La reconstrucción quedó guardada sin conflictos estructurales.',
+    conflicto: 'La reconstrucción detectó conflictos y no debe tratarse como completa.',
+    fallida: 'La reconstrucción no se completó. Revisa el inventario y verifica de nuevo el paquete.'
+  };
+  return mensajes[estado];
 }
 
 export function SeccionRehidratacionLotes({
@@ -64,44 +101,75 @@ export function SeccionRehidratacionLotes({
 }) {
   const [mostrarModuloEmbebido, setMostrarModuloEmbebido] = useState(false);
   const [bundles, setBundles] = useState<BundleRecuperable[]>([]);
-  const [cargandoBundles, setCargandoBundles] = useState(false);
+  const [cargandoBundles, setCargandoBundles] = useState(puedeUsar);
+  const [estadoCargaInventario, setEstadoCargaInventario] = useState<EstadoCargaInventario>(puedeUsar ? 'cargando' : 'cargado');
   const [bundleActivoHash, setBundleActivoHash] = useState<string>('');
   const [verificacionActual, setVerificacionActual] = useState<VerificacionRecuperacion | null>(null);
   const [reconstruccionActual, setReconstruccionActual] = useState<ResultadoReconstruccion | null>(null);
-  const [procesandoHash, setProcesandoHash] = useState<string>('');
+  const [operacionActual, setOperacionActual] = useState<OperacionRecuperacion>(null);
   const [errorOperacion, setErrorOperacion] = useState<string>('');
 
   const urlRevisionHumana = useMemo(() => {
     const valor = String(import.meta.env.VITE_OMR_HUMAN_REVIEW_URL || DEFAULT_OMR_HUMAN_REVIEW_URL).trim();
     return valor.replace(/\/+$/, '');
   }, []);
-  const tipoAcceso = esAdmin ? 'Administrador' : 'Docente con plan de recuperacion habilitado';
+  const tipoAcceso = esAdmin ? 'Permiso de recuperación de lotes' : 'Plan de recuperación habilitado';
   const bundleActivo = useMemo(
     () => bundles.find((bundle) => bundle.bundleHash === bundleActivoHash) ?? null,
     [bundleActivoHash, bundles]
   );
+  const puedeReconstruir = Boolean(bundleActivo?.signatureValid && bundleActivo.recoverable);
+  const motivoBloqueoReconstruccion = bundleActivo && !puedeReconstruir
+    ? !bundleActivo.signatureValid
+      ? 'No se puede reconstruir este paquete porque su firma no es válida.'
+      : 'Este paquete tiene observaciones que impiden reconstruirlo.'
+    : '';
+  const resumenInventario = estadoCargaInventario === 'cargando'
+    ? 'Cargando…'
+    : estadoCargaInventario === 'error'
+      ? 'No se pudo cargar'
+      : String(bundles.length);
+  const resumenResultado = operacionActual?.tipo === 'verificar'
+    ? 'Verificando paquete…'
+    : operacionActual?.tipo === 'reconstruir'
+      ? 'Reconstruyendo lote…'
+      : reconstruccionActual
+        ? reconstruccionActual.status === 'reconstruida'
+          ? reconstruccionActual.conflicts.length
+            ? 'Reconstrucción completada con conflictos'
+            : 'Reconstrucción completada'
+          : reconstruccionActual.status === 'conflicto'
+            ? 'Conflictos detectados'
+            : reconstruccionActual.status === 'fallida'
+              ? 'Reconstrucción fallida'
+              : 'Verificado; sin reconstrucción'
+        : verificacionActual
+          ? 'Verificado; sin reconstrucción'
+          : errorOperacion
+            ? estadoCargaInventario === 'error'
+              ? 'No disponible'
+              : 'Operación no completada'
+            : 'Sin operación ejecutada';
 
   const cargarBundles = useCallback(async () => {
     setCargandoBundles(true);
+    setEstadoCargaInventario('cargando');
     setErrorOperacion('');
     try {
       const respuesta = await clienteApi.obtener<{ items: BundleRecuperable[] }>('/recuperacion/bundles');
       const items = Array.isArray(respuesta.items) ? respuesta.items : [];
       setBundles(items);
+      setEstadoCargaInventario('cargado');
       setBundleActivoHash((actual) => {
         if (actual && items.some((item) => item.bundleHash === actual)) return actual;
         return items[0]?.bundleHash ?? '';
       });
       registrarAccionDocente('rehidratacion_lotes_listar', true);
     } catch (error) {
-      const mensaje = error instanceof Error ? error.message : 'No fue posible obtener los bundles de recuperacion.';
+      setEstadoCargaInventario('error');
+      const mensaje = error instanceof Error ? error.message : 'No fue posible obtener los paquetes de recuperación.';
       setErrorOperacion(mensaje);
-      emitToast({
-        level: 'error',
-        title: 'Rehidratacion del lote',
-        message: mensaje,
-        durationMs: 4200
-      });
+      notificarRenovacionSesionSiAplica(error);
       registrarAccionDocente('rehidratacion_lotes_listar', false);
     } finally {
       setCargandoBundles(false);
@@ -117,8 +185,8 @@ export function SeccionRehidratacionLotes({
     if (!urlRevisionHumana) {
       emitToast({
         level: 'warn',
-        title: 'Rehidratacion del lote',
-        message: 'No se encontro una URL configurada para la herramienta visual de apoyo.',
+        title: 'Recuperación del lote',
+        message: 'No se encontró una dirección configurada para la herramienta visual de apoyo.',
         durationMs: 3600
       });
       return;
@@ -127,8 +195,8 @@ export function SeccionRehidratacionLotes({
     if (!nuevaVentana) {
       emitToast({
         level: 'warn',
-        title: 'Rehidratacion del lote',
-        message: 'El navegador bloqueo la nueva pestana. Permite popups e intenta de nuevo.',
+        title: 'Recuperación del lote',
+        message: 'El navegador bloqueó la nueva pestaña. Permite ventanas emergentes e inténtalo de nuevo.',
         durationMs: 4200
       });
       return;
@@ -138,72 +206,46 @@ export function SeccionRehidratacionLotes({
 
   const verificarBundle = useCallback(async () => {
     if (!bundleActivo) return;
-    setProcesandoHash(bundleActivo.bundleHash);
+    setOperacionActual({ bundleHash: bundleActivo.bundleHash, tipo: 'verificar' });
     setErrorOperacion('');
-    setRecontruccionNull();
+    setVerificacionActual(null);
+    setReconstruccionActual(null);
     try {
       const respuesta = await clienteApi.enviar<VerificacionRecuperacion>('/recuperacion/verificar', {
         bundleHash: bundleActivo.bundleHash
       });
       setVerificacionActual(respuesta);
-      emitToast({
-        level: respuesta.recoverable ? 'ok' : 'warn',
-        title: 'Verificacion de bundle',
-        message: respuesta.recoverable
-          ? 'El bundle es recuperable y paso las validaciones.'
-          : 'El bundle presenta observaciones y no es recuperable en su estado actual.',
-        durationMs: 3600
-      });
       registrarAccionDocente('rehidratacion_bundle_verificar', true);
     } catch (error) {
-      const mensaje = error instanceof Error ? error.message : 'No fue posible verificar el bundle seleccionado.';
+      const mensaje = error instanceof Error ? error.message : 'No fue posible verificar el paquete seleccionado.';
       setErrorOperacion(mensaje);
-      emitToast({
-        level: 'error',
-        title: 'Verificacion de bundle',
-        message: mensaje,
-        durationMs: 4200
-      });
+      notificarRenovacionSesionSiAplica(error);
       registrarAccionDocente('rehidratacion_bundle_verificar', false);
     } finally {
-      setProcesandoHash('');
+      setOperacionActual(null);
     }
   }, [bundleActivo]);
 
   const reconstruirBundle = useCallback(async () => {
-    if (!bundleActivo) return;
-    setProcesandoHash(bundleActivo.bundleHash);
+    if (!bundleActivo || !bundleActivo.signatureValid || !bundleActivo.recoverable) return;
+    setOperacionActual({ bundleHash: bundleActivo.bundleHash, tipo: 'reconstruir' });
     setErrorOperacion('');
+    setVerificacionActual(null);
+    setReconstruccionActual(null);
     try {
       const respuesta = await clienteApi.enviar<ResultadoReconstruccion>('/recuperacion/bundle/reconstruir', {
         bundleHash: bundleActivo.bundleHash
       });
       setReconstruccionActual(respuesta);
-      emitToast({
-        level: respuesta.status === 'reconstruida' ? 'ok' : respuesta.status === 'conflicto' ? 'warn' : 'error',
-        title: 'Reconstruccion de lote',
-        message:
-          respuesta.status === 'reconstruida'
-            ? 'El lote fue reconstruido y persistido correctamente.'
-            : respuesta.status === 'conflicto'
-              ? 'La reconstruccion detecto conflictos y no sobreescribio material inconsistente.'
-              : 'La reconstruccion del lote fallo.',
-        durationMs: 4200
-      });
       registrarAccionDocente('rehidratacion_bundle_reconstruir', true);
       await cargarBundles();
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No fue posible reconstruir el lote seleccionado.';
       setErrorOperacion(mensaje);
-      emitToast({
-        level: 'error',
-        title: 'Reconstruccion de lote',
-        message: mensaje,
-        durationMs: 4200
-      });
+      notificarRenovacionSesionSiAplica(error);
       registrarAccionDocente('rehidratacion_bundle_reconstruir', false);
     } finally {
-      setProcesandoHash('');
+      setOperacionActual(null);
     }
   }, [bundleActivo, cargarBundles]);
 
@@ -211,14 +253,10 @@ export function SeccionRehidratacionLotes({
     return (
       <section className="panel rehidratacion-panel">
         <InlineMensaje tipo="error">
-          Esta capacidad de rehidratacion solo esta disponible para administradores o docentes con recuperacion de lotes habilitada.
+          Esta capacidad de recuperación solo está disponible para cuentas con permiso de recuperación de lotes.
         </InlineMensaje>
       </section>
     );
-  }
-
-  function setRecontruccionNull() {
-    setReconstruccionActual(null);
   }
 
   return (
@@ -226,21 +264,21 @@ export function SeccionRehidratacionLotes({
       <section className="panel rehidratacion-panel calificaciones-hero">
         <div className="calificaciones-hero__head">
           <h2>
-            <Icono nombre="pdf" /> Rehidratacion canonica del lote
+            <Icono nombre="pdf" /> Recuperación de paquetes firmados
           </h2>
           <p className="nota">
-            Recupera banco de reactivos, respuestas correctas, permutaciones y examenes sinteticos a partir de lotes de fotos
-            generados por versiones recientes y compatibles del sistema.
+            Recupera el banco de reactivos, las respuestas correctas, las variantes y los exámenes a partir de paquetes de
+            recuperación firmados por versiones compatibles del sistema.
           </p>
         </div>
-        <div className="calificaciones-kpi" aria-live="polite">
+        <div className="calificaciones-kpi rehidratacion-kpi-grid" role="group" aria-label="Resumen de recuperación">
           <div className="calificaciones-kpi__item"><span>Tipo de acceso</span><b>{tipoAcceso}</b></div>
-          <div className="calificaciones-kpi__item"><span>Uso esperado</span><b>Recuperacion forense</b></div>
-          <div className="calificaciones-kpi__item"><span>Bundles detectados</span><b>{bundles.length}</b></div>
-          <div className="calificaciones-kpi__item"><span>Salida objetivo</span><b>Banco y examenes rehidratados</b></div>
+          <div className="calificaciones-kpi__item"><span>Uso esperado</span><b>Recuperación de contingencia</b></div>
+          <div className="calificaciones-kpi__item"><span>Paquetes detectados</span><b>{resumenInventario}</b></div>
+          <div className="calificaciones-kpi__item"><span>Estado de operación</span><b aria-live="polite">{resumenResultado}</b></div>
         </div>
         <div className="item-meta calificaciones-hero__meta">
-          <span className="badge warning">No es un flujo de calificacion diaria</span>
+          <span className="badge warning">No es un flujo de calificación diaria</span>
           <span className="badge ok">Usuario actual: {docente?.correo ?? 'sin sesion'}</span>
         </div>
       </section>
@@ -249,38 +287,38 @@ export function SeccionRehidratacionLotes({
         <div className="calificaciones-human-review-panel__head">
           <div className="calificaciones-human-review-panel__title">
             <h3>
-              <Icono nombre="escaneo" /> Recuperacion operativa desde bundles firmados
+              <Icono nombre="escaneo" /> Verificar y recuperar un paquete
             </h3>
             <p className="nota">
-              Este flujo usa los `recoveryBundle` y `recoveryManifest` ya firmados por el sistema. Primero verifica
-              integridad y recuperabilidad. Despues reconstruye banco, variantes y examenes dentro del sistema.
+              Selecciona un paquete firmado del inventario. Pulsa «Verificar paquete» para comprobar su firma y compatibilidad.
+              Si aparece como recuperable, usa «Reconstruir lote» para restaurar el banco de reactivos, las variantes y los exámenes.
             </p>
           </div>
           <span className={bundleActivo?.recoverable ? 'badge ok' : 'badge warning'}>
-            {bundleActivo ? `Bundle activo: ${bundleActivo.bundleHash}` : 'Sin bundle seleccionado'}
+            {bundleActivo ? `Paquete activo: ${bundleActivo.bundleHash}` : 'Sin paquete seleccionado'}
           </span>
         </div>
 
         <div className="item-actions rehidratacion-lotes__actions">
-          <Boton type="button" variante="secundario" onClick={() => void cargarBundles()} cargando={cargandoBundles}>
+          <Boton type="button" variante="secundario" onClick={() => { setVerificacionActual(null); setReconstruccionActual(null); void cargarBundles(); }} cargando={cargandoBundles} disabled={Boolean(operacionActual)}>
             <Icono nombre="recargar" />
-            Actualizar inventario
+            {errorOperacion && !bundleActivo ? 'Reintentar carga' : 'Actualizar inventario'}
           </Boton>
           <Boton
             type="button"
             onClick={() => void verificarBundle()}
-            cargando={procesandoHash === bundleActivoHash}
-            disabled={!bundleActivo}
+            cargando={operacionActual?.tipo === 'verificar' && operacionActual.bundleHash === bundleActivoHash}
+            disabled={!bundleActivo || Boolean(operacionActual)}
           >
             <Icono nombre="info" />
-            Verificar bundle
+            Verificar paquete
           </Boton>
           <Boton
             type="button"
             variante="secundario"
             onClick={() => void reconstruirBundle()}
-            cargando={procesandoHash === bundleActivoHash}
-            disabled={!bundleActivo}
+            cargando={operacionActual?.tipo === 'reconstruir' && operacionActual.bundleHash === bundleActivoHash}
+            disabled={!bundleActivo || !puedeReconstruir || Boolean(operacionActual)}
           >
             <Icono nombre="calificar" />
             Reconstruir lote
@@ -288,18 +326,24 @@ export function SeccionRehidratacionLotes({
         </div>
 
         {errorOperacion ? <InlineMensaje tipo="error">{errorOperacion}</InlineMensaje> : null}
+        {motivoBloqueoReconstruccion && <InlineMensaje tipo="warning">{motivoBloqueoReconstruccion}</InlineMensaje>}
+        {operacionActual && (
+          <p role="status" aria-live="polite">
+            {operacionActual.tipo === 'verificar' ? 'Verificando el paquete seleccionado…' : 'Reconstruyendo el lote del paquete seleccionado…'}
+          </p>
+        )}
 
-        <div className="calificaciones-kpi" aria-live="polite">
+        <div className="calificaciones-kpi rehidratacion-kpi-grid" role="group" aria-label="Datos del paquete seleccionado">
           <div className="calificaciones-kpi__item">
-            <span>Bundle activo</span>
+            <span>Paquete activo</span>
             <b>{bundleActivo?.loteId ?? 'Sin seleccionar'}</b>
           </div>
           <div className="calificaciones-kpi__item">
-            <span>Template</span>
-            <b>{bundleActivo?.templateVersion ? `TV${bundleActivo.templateVersion}` : 'N/D'}</b>
+            <span>Plantilla OMR</span>
+            <b>{bundleActivo?.templateVersion ? OMR_CANONICAL_DISPLAY_LABEL : 'N/D'}</b>
           </div>
           <div className="calificaciones-kpi__item">
-            <span>Examenes</span>
+            <span>Exámenes</span>
             <b>{bundleActivo?.examCount ?? 0}</b>
           </div>
           <div className="calificaciones-kpi__item">
@@ -308,130 +352,137 @@ export function SeccionRehidratacionLotes({
           </div>
         </div>
 
-        {bundles.length ? (
-          <div className="rehidratacion-lotes__grid">
+        {cargandoBundles && <p role="status" aria-live="polite">Cargando inventario de paquetes de recuperación…</p>}
+        {!cargandoBundles && !errorOperacion && bundles.length === 0 && (
+          <InlineMensaje tipo="info">
+            No se encontraron paquetes de recuperación para esta cuenta. Si esperabas alguno, revisa los permisos y vuelve a actualizar el inventario.
+          </InlineMensaje>
+        )}
+        {!cargandoBundles && bundles.length > 0 && (
+          <div className="rehidratacion-lotes__grid" role="group" aria-label="Paquetes de recuperación disponibles">
             {bundles.map((bundle) => {
               const activo = bundle.bundleHash === bundleActivoHash;
               return (
-                <button
-                  key={bundle.bundleHash}
-                  type="button"
-                  onClick={() => {
-                    setBundleActivoHash(bundle.bundleHash);
-                    setVerificacionActual(null);
-                    setReconstruccionActual(null);
-                    setErrorOperacion('');
-                  }}
-                  className={`item-glass rehidratacion-lotes__bundle${activo ? ' activo' : ''}`}
-                >
-                  <div className="item-meta">
-                    <span className={bundle.signatureValid ? 'badge ok' : 'badge warning'}>
-                      {bundle.signatureValid ? 'Firma valida' : 'Firma invalida'}
+                <div key={bundle.bundleHash} className="rehidratacion-lotes__bundle-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBundleActivoHash(bundle.bundleHash);
+                      setVerificacionActual(null);
+                      setReconstruccionActual(null);
+                      setErrorOperacion('');
+                    }}
+                    className={`item-glass rehidratacion-lotes__bundle${activo ? ' activo' : ''}`}
+                    aria-pressed={activo}
+                    disabled={Boolean(operacionActual)}
+                  >
+                    <span className="item-meta">
+                      <span className={bundle.signatureValid ? 'badge ok' : 'badge warning'}>
+                        {bundle.signatureValid ? 'Firma válida' : 'Firma no válida'}
+                      </span>
+                      <span className={bundle.recoverable ? 'badge ok' : 'badge warning'}>
+                        {bundle.recoverable ? 'Recuperable' : 'No recuperable'}
+                      </span>
+                      <span className="badge">Plantilla OMR {bundle.templateVersion ? `v${bundle.templateVersion}` : 'sin dato'}</span>
                     </span>
-                    <span className={bundle.recoverable ? 'badge ok' : 'badge warning'}>
-                      {bundle.recoverable ? 'Recuperable' : 'Con observaciones'}
+                    <span className="rehidratacion-lotes__bundle-title">Lote {bundle.loteId}</span>
+                    <span className="item-meta rehidratacion-lotes__bundle-meta">
+                      <span>Huella del paquete: {bundle.bundleHash}</span>
+                      <span>{bundle.examCount} exámenes</span>
+                      <span>{bundle.questionBankCount} reactivos</span>
                     </span>
-                    <span className="badge">Template {bundle.templateVersion ? `TV${bundle.templateVersion}` : 'N/D'}</span>
-                  </div>
-                  <div className="rehidratacion-lotes__bundle-title">{bundle.loteId}</div>
-                  <div className="item-meta rehidratacion-lotes__bundle-meta">
-                    <span>Bundle hash: {bundle.bundleHash}</span>
-                    <span>{bundle.examCount} examenes</span>
-                    <span>{bundle.questionBankCount} reactivos</span>
-                  </div>
+                  </button>
                   {bundle.causes.length ? (
                     <div className="rehidratacion-lotes__bundle-warnings">
                       <InlineMensaje tipo="warning">{bundle.causes.join(' | ')}</InlineMensaje>
                     </div>
                   ) : null}
-                </button>
+                </div>
               );
             })}
           </div>
-        ) : (
-          <InlineMensaje tipo="info">
-            No hay bundles recuperables visibles para esta cuenta. Si esperabas alguno, verifica permisos, tenant y plan activo.
-          </InlineMensaje>
         )}
 
         {verificacionActual ? (
           <div className="subpanel rehidratacion-lotes__subpanel">
-            <h4>Resultado de verificacion</h4>
+            <h4>Resultado de verificación</h4>
             <div className="item-meta">
               <span className={verificacionActual.signatureValid ? 'badge ok' : 'badge warning'}>
-                {verificacionActual.signatureValid ? 'Firma valida' : 'Firma invalida'}
+                {verificacionActual.signatureValid ? 'Firma válida' : 'Firma no válida'}
               </span>
               <span className={verificacionActual.recoverable ? 'badge ok' : 'badge warning'}>
                 {verificacionActual.recoverable ? 'Recuperable' : 'No recuperable'}
               </span>
-              <span>Template {verificacionActual.templateVersion ? `TV${verificacionActual.templateVersion}` : 'N/D'}</span>
-              <span>{verificacionActual.examCount} examenes</span>
+              <span>{verificacionActual.templateVersion ? OMR_CANONICAL_DISPLAY_LABEL : 'Plantilla OMR: N/D'}</span>
+                <span>{verificacionActual.examCount} exámenes</span>
               <span>{verificacionActual.questionBankCount} reactivos</span>
             </div>
             {verificacionActual.causes.length ? (
               <InlineMensaje tipo="warning">{verificacionActual.causes.join(' | ')}</InlineMensaje>
             ) : (
-              <InlineMensaje tipo="ok">La firma y la estructura del bundle son consistentes para reconstruccion.</InlineMensaje>
+              <InlineMensaje tipo="ok">La firma y la estructura del paquete son consistentes para su reconstrucción.</InlineMensaje>
             )}
           </div>
         ) : null}
 
         {reconstruccionActual ? (
           <div className="subpanel rehidratacion-lotes__subpanel">
-            <h4>Resultado de reconstruccion</h4>
+            <h4>Resultado de reconstrucción</h4>
             <div className="item-meta">
               <span className={reconstruccionActual.status === 'reconstruida' ? 'badge ok' : 'badge warning'}>
-                Estado: {reconstruccionActual.status}
+                Estado: {etiquetaEstadoReconstruccion(reconstruccionActual.status)}
               </span>
-              <span>{reconstruccionActual.reconstructedExamIds.length} examenes reconstruidos</span>
+              <span>{reconstruccionActual.reconstructedExamIds.length} exámenes reconstruidos</span>
               <span>{reconstruccionActual.reconstructedQuestionBankIds.length} reactivos reconstruidos</span>
-              <span>{reconstruccionActual.manifestHashes.length} manifests procesados</span>
+              <span>{reconstruccionActual.manifestHashes.length} manifiestos procesados</span>
             </div>
-            {reconstruccionActual.conflicts.length ? (
+            {reconstruccionActual.status === 'fallida' ? (
+              <InlineMensaje tipo="error">{mensajeEstadoReconstruccion(reconstruccionActual.status)}</InlineMensaje>
+            ) : reconstruccionActual.conflicts.length || reconstruccionActual.status === 'conflicto' ? (
               <InlineMensaje tipo="warning">
-                Se detectaron conflictos: {reconstruccionActual.conflicts.slice(0, 3).map(resumirConflicto).join(' | ')}
+                {reconstruccionActual.conflicts.length
+                  ? `Se detectaron conflictos: ${reconstruccionActual.conflicts.slice(0, 3).map(resumirConflicto).join(' | ')}`
+                  : mensajeEstadoReconstruccion(reconstruccionActual.status)}
               </InlineMensaje>
+            ) : reconstruccionActual.status === 'verificada' ? (
+              <InlineMensaje tipo="info">{mensajeEstadoReconstruccion(reconstruccionActual.status)}</InlineMensaje>
             ) : (
-              <InlineMensaje tipo="ok">La reconstruccion fue persistida sin conflictos estructurales.</InlineMensaje>
+              <InlineMensaje tipo="ok">{mensajeEstadoReconstruccion(reconstruccionActual.status)}</InlineMensaje>
             )}
           </div>
         ) : null}
       </section>
 
-      <section className="panel rehidratacion-panel calificaciones-human-review-panel">
-        <div className="calificaciones-human-review-panel__head">
-          <div className="calificaciones-human-review-panel__title">
-            <h3>
-              <Icono nombre="escaneo" /> Apoyo visual para lotes historicos
-            </h3>
-            <p className="nota">
-              Usa esta herramienta solo cuando el lote necesite evidencia visual complementaria. El flujo principal de esta
-              seccion ya no depende de revision manual para reconstruir bundles firmados consistentes.
-            </p>
-          </div>
+      <details className="panel rehidratacion-panel calificaciones-human-review-panel rehidratacion-ayuda">
+        <summary className="rehidratacion-ayuda__summary">
+          <span className="rehidratacion-ayuda__title"><Icono nombre="escaneo" /> Apoyo visual (opcional)</span>
           <span className={mostrarModuloEmbebido ? 'badge ok' : 'badge warning'}>
-            {mostrarModuloEmbebido ? 'Modulo embebido activo' : 'Modulo visual disponible'}
+            {mostrarModuloEmbebido ? 'Integrado activo' : 'Disponible'}
           </span>
-        </div>
+        </summary>
+        <p className="nota">
+          Úsala cuando un lote necesite evidencia visual complementaria. La recuperación principal de paquetes firmados
+          se realiza con las acciones de verificación y reconstrucción de esta sección.
+        </p>
 
         <div className="calificaciones-human-review-panel__summary">
           <div className="calificaciones-human-review-panel__summary-card">
             <span>Uso recomendado</span>
-            <strong>Comparar foto real contra contenido visible cuando el bundle tenga observaciones o conflicto</strong>
+            <strong>Comparar la foto con el contenido visible cuando el paquete tenga observaciones o conflictos</strong>
           </div>
           <div className="calificaciones-human-review-panel__summary-card">
             <span>Entrada</span>
-            <strong>Fotos del examen, evidencia por pagina y, cuando exista, PDF fuente compatible</strong>
+            <strong>Fotos del examen, evidencia por página y, cuando exista, el PDF fuente compatible</strong>
           </div>
           <div className="calificaciones-human-review-panel__summary-card">
             <span>Salida</span>
-            <strong>Correcciones visuales y evidencia complementaria para lotes historicos atipicos</strong>
+            <strong>Correcciones visuales y evidencia complementaria para lotes históricos atípicos</strong>
           </div>
         </div>
 
         <div className="item-meta calificaciones-human-review-panel__meta">
           <span>URL configurada: <code>{urlRevisionHumana}</code></span>
-          <span>Utilizala solo como apoyo; la recuperacion primaria ya vive en el backend.</span>
+          <span>Úsala solo como apoyo; la recuperación principal se realiza en el servidor.</span>
         </div>
 
         <div className="item-actions calificaciones-human-review-panel__actions">
@@ -446,11 +497,11 @@ export function SeccionRehidratacionLotes({
             }}
           >
             <Icono nombre="calificar" />
-            {mostrarModuloEmbebido ? 'Ocultar modulo embebido' : 'Mostrar modulo embebido'}
+            {mostrarModuloEmbebido ? 'Ocultar módulo integrado' : 'Mostrar módulo integrado'}
           </Boton>
           <Boton type="button" variante="secundario" onClick={abrirHerramienta}>
             <Icono nombre="entrar" />
-            Abrir herramienta en pestana nueva
+            Abrir herramienta en una pestaña nueva
           </Boton>
         </div>
 
@@ -458,7 +509,7 @@ export function SeccionRehidratacionLotes({
           <div className="calificaciones-human-review-panel__frame-wrap">
             <iframe
               className="calificaciones-human-review-panel__frame"
-              title="Rehidratacion visual de apoyo"
+              title="Recuperación visual de apoyo"
               src={urlRevisionHumana}
               loading="lazy"
               referrerPolicy="no-referrer"
@@ -466,11 +517,10 @@ export function SeccionRehidratacionLotes({
           </div>
         ) : null}
 
-        <InlineMensaje tipo="info">
-          Si la herramienta visual no abre o no carga dentro del portal, inicia el servidor local con{' '}
-          <code>npm run test:omr:canonical:gate:ci</code>.
-        </InlineMensaje>
-      </section>
+        <p className="nota">
+          Si la herramienta visual no abre o no carga, comprueba que el servicio de apoyo esté en ejecución y que la URL configurada sea correcta.
+        </p>
+      </details>
     </>
   );
 }

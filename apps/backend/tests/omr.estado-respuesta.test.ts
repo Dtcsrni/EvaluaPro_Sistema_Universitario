@@ -75,6 +75,18 @@ describe('estado de respuesta OMR', () => {
     expect(resumen.estadoExamen).toBe('requiere_revision');
   });
 
+  it('considera clasificables como incorrectas las marcas inválidas si la página es legible', () => {
+    const resumen = resumirRespuestasOmr(
+      Array.from({ length: 24 }, () => ({ opcion: null, flags: ['bajo_contraste'], estadoRespuesta: 'ambigua' as const })),
+      0.95,
+      0.9
+    );
+
+    expect(resumen.examenVacio).toBe(false);
+    expect(resumen.reactivosAmbiguos).toBe(24);
+    expect(resumen.estadoExamen).toBe('con_respuestas');
+  });
+
   it('marca como vacio probable una hoja dominada por señales debiles', () => {
     const resumen = resumirRespuestasOmr(
       [
@@ -284,6 +296,8 @@ describe('estado de respuesta OMR', () => {
       existeOpcionActual: false,
       contrasteCromaticoLocal: 0.073,
       margenCromatico: 0.068,
+      score: 0.9,
+      scoreCompetidor: 0.1,
       fillRatioCore: 0.095,
       nucleusFillRatio: 0.3,
       centroidOffsetRatio: 0.54,
@@ -297,6 +311,7 @@ describe('estado de respuesta OMR', () => {
       margenCromatico: 0.009
     })).toBe(false);
     expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, margenCromatico: 0.02 })).toBe(false);
+    expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, scoreCompetidor: 0.5 })).toBe(false);
     expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, dobleMarcada: true })).toBe(false);
     expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, tachada: true })).toBe(false);
     expect(debeAceptarMarcaCromaticaAisladaOmr({ ...candidata, existeOpcionActual: true })).toBe(false);

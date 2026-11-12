@@ -94,6 +94,7 @@ type Params = {
   setRegenerandoExamenId: (value: string | null) => void;
   setArchivandoExamenId: (value: string | null) => void;
   setMensajeGeneracion: (value: string) => void;
+  setMensajeGeneracionError?: (value: string) => void;
   cargarExamenesGenerados: () => Promise<void>;
   enviarConPermiso: EnviarConPermiso;
   lotePdfUrl: string | null;
@@ -111,11 +112,25 @@ export function usePlantillasGeneradosActions({
   setRegenerandoExamenId,
   setArchivandoExamenId,
   setMensajeGeneracion,
+  setMensajeGeneracionError,
   cargarExamenesGenerados,
   enviarConPermiso,
   lotePdfUrl
 }: Params) {
   const confirm = useConfirmDialog();
+  const notificarRecuperacionSesion = useCallback((error: unknown) => {
+    const action = accionToastSesionParaError(error, 'docente');
+    if (!action) return;
+    emitToast({
+      level: 'warn',
+      title: 'Recupera tu sesión',
+      message: 'Recupera el acceso y vuelve a intentar la operación.',
+      action
+    });
+  }, []);
+  const informarErrorGeneracion = useCallback((mensaje: string) => {
+    (setMensajeGeneracionError ?? setMensajeGeneracion)(mensaje);
+  }, [setMensajeGeneracion, setMensajeGeneracionError]);
   const descargarPdfExamen = useCallback(
     async (examen: ExamenGeneradoResumen) => {
       if (descargandoExamenId === examen._id) return;
@@ -125,7 +140,7 @@ export function usePlantillasGeneradosActions({
       }
       const token = obtenerTokenDocente();
       if (!token) {
-        setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+        informarErrorGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
         return;
       }
 
@@ -166,14 +181,8 @@ export function usePlantillasGeneradosActions({
         await cargarExamenesGenerados();
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo descargar el PDF');
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: 'No se pudo descargar',
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        informarErrorGeneracion(msg);
+        notificarRecuperacionSesion(error);
       } finally {
         setDescargandoExamenId(null);
       }
@@ -184,7 +193,9 @@ export function usePlantillasGeneradosActions({
       descargandoExamenId,
       puedeDescargarExamenes,
       setDescargandoExamenId,
-      setMensajeGeneracion
+      setMensajeGeneracion,
+      informarErrorGeneracion,
+      notificarRecuperacionSesion
     ]
   );
 
@@ -225,14 +236,8 @@ export function usePlantillasGeneradosActions({
         await cargarExamenesGenerados();
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo regenerar el PDF');
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: 'No se pudo regenerar',
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        informarErrorGeneracion(msg);
+        notificarRecuperacionSesion(error);
       } finally {
         setRegenerandoExamenId(null);
       }
@@ -245,7 +250,9 @@ export function usePlantillasGeneradosActions({
       puedeRegenerarExamenes,
       regenerandoExamenId,
       setMensajeGeneracion,
-      setRegenerandoExamenId
+      setRegenerandoExamenId,
+      informarErrorGeneracion,
+      notificarRecuperacionSesion
     ]
   );
 
@@ -257,7 +264,7 @@ export function usePlantillasGeneradosActions({
     }
     const token = obtenerTokenDocente();
     if (!token) {
-      setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+      informarErrorGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
       return;
     }
     try {
@@ -274,16 +281,10 @@ export function usePlantillasGeneradosActions({
       await cargarExamenesGenerados();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo descargar el PDF de lote');
-      setMensajeGeneracion(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo descargar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      informarErrorGeneracion(msg);
+      notificarRecuperacionSesion(error);
     }
-  }, [avisarSinPermiso, cargarExamenesGenerados, lotePdfUrl, puedeDescargarExamenes, setMensajeGeneracion]);
+  }, [avisarSinPermiso, cargarExamenesGenerados, lotePdfUrl, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]);
 
   const descargarPdfLotePorId = useCallback(
     async (loteId: string) => {
@@ -295,7 +296,7 @@ export function usePlantillasGeneradosActions({
       }
       const token = obtenerTokenDocente();
       if (!token) {
-        setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+        informarErrorGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
         return;
       }
       try {
@@ -312,24 +313,18 @@ export function usePlantillasGeneradosActions({
         await cargarExamenesGenerados();
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo descargar el PDF del paquete');
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: 'No se pudo descargar',
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        informarErrorGeneracion(msg);
+        notificarRecuperacionSesion(error);
       }
     },
-    [avisarSinPermiso, cargarExamenesGenerados, puedeDescargarExamenes, setMensajeGeneracion]
+    [avisarSinPermiso, cargarExamenesGenerados, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]
   );
 
   const descargarZipLote = useCallback(async () => {
     if (!lotePdfUrl) return;
     const url = lotePdfUrl.replace(/\/pdf(?:\?.*)?$/i, '/zip');
     if (url === lotePdfUrl) {
-      setMensajeGeneracion('No se pudo identificar el lote para descargar sus exámenes individuales.');
+      informarErrorGeneracion('No se pudo identificar el lote para descargar sus exámenes individuales.');
       return;
     }
     if (!puedeDescargarExamenes) {
@@ -338,7 +333,7 @@ export function usePlantillasGeneradosActions({
     }
     const token = obtenerTokenDocente();
     if (!token) {
-      setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+      informarErrorGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
       return;
     }
     try {
@@ -353,10 +348,10 @@ export function usePlantillasGeneradosActions({
       await cargarExamenesGenerados();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo descargar el ZIP de exámenes individuales');
-      setMensajeGeneracion(msg);
-      emitToast({ level: 'error', title: 'No se pudo descargar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      informarErrorGeneracion(msg);
+      notificarRecuperacionSesion(error);
     }
-  }, [avisarSinPermiso, cargarExamenesGenerados, lotePdfUrl, puedeDescargarExamenes, setMensajeGeneracion]);
+  }, [avisarSinPermiso, cargarExamenesGenerados, lotePdfUrl, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]);
 
   const descargarZipLotePorId = useCallback(async (loteId: string) => {
     const lote = String(loteId || '').trim();
@@ -367,7 +362,7 @@ export function usePlantillasGeneradosActions({
     }
     const token = obtenerTokenDocente();
     if (!token) {
-      setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+      informarErrorGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
       return;
     }
     try {
@@ -382,16 +377,16 @@ export function usePlantillasGeneradosActions({
       await cargarExamenesGenerados();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo descargar el ZIP de exámenes individuales');
-      setMensajeGeneracion(msg);
-      emitToast({ level: 'error', title: 'No se pudo descargar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      informarErrorGeneracion(msg);
+      notificarRecuperacionSesion(error);
     }
-  }, [avisarSinPermiso, cargarExamenesGenerados, puedeDescargarExamenes, setMensajeGeneracion]);
+  }, [avisarSinPermiso, cargarExamenesGenerados, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]);
 
   const eliminarExamenGenerado = useCallback(
     async (examen: ExamenGeneradoResumen) => {
       if (archivandoExamenId === examen._id) return;
       if (!puedeArchivarExamenes) {
-        avisarSinPermiso('No tienes permiso para eliminar examenes.');
+        avisarSinPermiso('No tienes permiso para archivar este examen.');
         return;
       }
       try {
@@ -411,21 +406,15 @@ export function usePlantillasGeneradosActions({
           'examenes:archivar',
           `/examenes/generados/${encodeURIComponent(examen._id)}/archivar`,
           {},
-          'No tienes permiso para eliminar examenes.'
+          'No tienes permiso para archivar este examen.'
         );
 
-        emitToast({ level: 'ok', title: 'Examen', message: 'Examen eliminado', durationMs: 2000 });
+        emitToast({ level: 'ok', title: 'Examen archivado', message: `El folio ${examen.folio || 'sin folio'} se ocultó del listado activo y se conservó para trazabilidad.`, durationMs: 3200 });
         await cargarExamenesGenerados();
       } catch (error) {
-        const msg = mensajeDeError(error, 'No se pudo eliminar el examen');
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: 'No se pudo eliminar',
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        const msg = mensajeDeError(error, `No se pudo archivar el folio ${examen.folio || 'sin folio'}`);
+        informarErrorGeneracion(msg);
+        notificarRecuperacionSesion(error);
       } finally {
         setArchivandoExamenId(null);
       }
@@ -438,7 +427,9 @@ export function usePlantillasGeneradosActions({
       puedeArchivarExamenes,
       archivandoExamenId,
       setArchivandoExamenId,
-      setMensajeGeneracion
+      setMensajeGeneracion,
+      informarErrorGeneracion,
+      notificarRecuperacionSesion
     ]
   );
 

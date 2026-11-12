@@ -32,8 +32,10 @@ const CLASSROOM_MAX_PAGES = configuracion.classroomMaxPages ?? 100;
 const CLASSROOM_MAX_RETRY_AFTER_MS = 30_000;
 const MAX_OAUTH_PENDIENTE = 8;
 const renovacionesEnCurso = new Map<string, Promise<string>>();
+const correlacionOauthPorServidor = new WeakMap<Server, string>();
 const oauthPendiente = new Map<string, {
   docenteId: string;
+  correlationId: string;
   expectedGoogleSub: string;
   loginHint: string;
   frontendOrigin?: string;
@@ -60,6 +62,53 @@ function normalizarRutaClassroom(path: string): string {
 function valorSeguro(value: string | null | undefined, maxLength = 128): string | undefined {
   const cleaned = String(value || '').trim();
   return cleaned && cleaned.length <= maxLength && /^[A-Za-z0-9._:-]+$/.test(cleaned) ? cleaned : undefined;
+}
+
+const ERRORES_OAUTH_PROVEEDOR = new Set([
+  'access_denied', 'invalid_client', 'invalid_grant', 'invalid_request', 'invalid_scope',
+  'unauthorized_client', 'server_error', 'temporarily_unavailable'
+]);
+
+function errorOauthSeguro(error: unknown) {
+  if (error instanceof ErrorAplicacion) {
+    return { codigo: error.codigo, status: error.estadoHttp };
+  }
+  const valor = error && typeof error === 'object' ? error as {
+    code?: unknown;
+    response?: { status?: unknown; data?: { error?: unknown; error_description?: unknown } };
+  } : {};
+  const status = Number(valor.response?.status);
+  const codigoCrudo = typeof valor.response?.data?.error === 'string'
+    ? valor.response.data.error
+    : typeof valor.code === 'string' ? valor.code : '';
+  const codigo = ERRORES_OAUTH_PROVEEDOR.has(codigoCrudo) ? codigoCrudo : 'OAUTH_PROVIDER_ERROR';
+  const descripcion = typeof valor.response?.data?.error_description === 'string'
+    ? valor.response.data.error_description.toLowerCase()
+    : '';
+  const pista = /client_secret.{0,40}(missing|required)|missing.{0,40}client_secret/.test(descripcion)
+    ? 'client_secret_missing'
+    : /redirect_uri/.test(descripcion)
+      ? 'redirect_uri_problem'
+      : /code_verifier|code_challenge|pkce/.test(descripcion)
+        ? 'pkce_problem'
+        : /client_id/.test(descripcion)
+          ? 'client_id_problem'
+          : /authorization code|auth code/.test(descripcion)
+            ? 'authorization_code_problem'
+            : descripcion ? 'provider_description_other' : undefined;
+  return {
+    codigo,
+    ...(pista ? { pista } : {}),
+    ...(Number.isInteger(status) && status >= 400 && status <= 599 ? { statusProveedor: status } : {})
+  };
+}
+
+function registrarFalloOauth(correlationId: string, etapa: string, error: unknown) {
+  log('warn', 'Falló una etapa OAuth de Google Classroom', {
+    correlationId,
+    etapa,
+    ...errorOauthSeguro(error)
+  });
 }
 
 function esEstadoTransitorio(status: number): boolean {
@@ -100,11 +149,14 @@ function obtenerConfigClassroom() {
 }
 
 function crearClienteOauth(clientId: string, redirectUri?: string) {
-  // Desktop es cliente público: PKCE protege el código y no se envía client_secret.
+  const clientSecret = String(configuracion.googleClassroomClientSecret || '').trim();
   return new OAuth2Client({
     clientId,
+    ...(clientSecret ? { clientSecret } : {}),
     redirectUri,
-    clientAuthentication: ClientAuthentication.None
+    clientAuthentication: clientSecret
+      ? ClientAuthentication.ClientSecretPost
+      : ClientAuthentication.None
   });
 }
 
@@ -149,12 +201,42 @@ function esLoopback(address: string | undefined) {
 
 async function completarOAuthDesktop(pendiente: NonNullable<ReturnType<typeof oauthPendiente.get>>, code: string) {
   const cliente = crearClienteOauth(pendiente.clientId, pendiente.redirectUri);
-  const tokenRespuesta = await cliente.getToken({ code, codeVerifier: pendiente.codeVerifier, redirect_uri: pendiente.redirectUri });
+  const inicioCanje = Date.now();
+  let tokenRespuesta;
+  try {
+    tokenRespuesta = await cliente.getToken({ code, codeVerifier: pendiente.codeVerifier, redirect_uri: pendiente.redirectUri });
+  } catch (error) {
+    registrarFalloOauth(pendiente.correlationId, 'canje_codigo', error);
+    throw error;
+  }
   const tokens = tokenRespuesta.tokens || {};
+  log('info', 'Canje OAuth de Classroom completado', {
+    correlationId: pendiente.correlationId,
+    etapa: 'canje_codigo',
+    statusProveedor: tokenRespuesta.res?.status ?? null,
+    latenciaMs: Date.now() - inicioCanje,
+    tieneIdToken: typeof tokens.id_token === 'string' && Boolean(tokens.id_token),
+    tieneRefreshToken: typeof tokens.refresh_token === 'string' && Boolean(tokens.refresh_token),
+    cantidadScopes: typeof tokens.scope === 'string' ? tokens.scope.split(/\s+/).filter(Boolean).length : 0
+  });
   const idToken = typeof tokens.id_token === 'string' ? tokens.id_token : '';
   if (!idToken) throw new ErrorAplicacion('CLASSROOM_OAUTH_IDENTIDAD_AUSENTE', 'Google no devolvió una identidad verificable. Intenta conectar de nuevo.', 401);
-  const ticket = await cliente.verifyIdToken({ idToken, audience: pendiente.clientId });
+  let ticket;
+  try {
+    ticket = await cliente.verifyIdToken({ idToken, audience: pendiente.clientId });
+  } catch (error) {
+    registrarFalloOauth(pendiente.correlationId, 'validacion_id_token', error);
+    throw error;
+  }
   const payload = ticket.getPayload();
+  const emailVerificado = Boolean(payload?.email_verified);
+  const sujetoCoincide = Boolean(payload?.sub && payload.sub === pendiente.expectedGoogleSub);
+  log(emailVerificado && sujetoCoincide ? 'info' : 'warn', 'Validación de identidad OAuth Classroom', {
+    correlationId: pendiente.correlationId,
+    etapa: 'validacion_identidad',
+    emailVerificado,
+    sujetoCoincide
+  });
   if (!payload?.email_verified || !payload.sub || payload.sub !== pendiente.expectedGoogleSub) {
     throw new ErrorAplicacion('CLASSROOM_GOOGLE_SUB_MISMATCH', 'La cuenta Google autorizada no coincide con la cuenta usada para iniciar sesión en EvaluaPro. La conexión anterior se conservó.', 403);
   }
@@ -185,7 +267,17 @@ async function completarOAuthDesktop(pendiente: NonNullable<ReturnType<typeof oa
   if (typeof tokens.expiry_date === 'number' && Number.isFinite(tokens.expiry_date)) {
     update.accessTokenExpiraEn = new Date(tokens.expiry_date);
   }
-  await IntegracionClassroom.updateOne({ docenteId: pendiente.docenteId }, { $set: update }, { upsert: true });
+  try {
+    await IntegracionClassroom.updateOne({ docenteId: pendiente.docenteId }, { $set: update }, { upsert: true });
+  } catch (error) {
+    registrarFalloOauth(pendiente.correlationId, 'persistencia_vinculo', error);
+    throw error;
+  }
+  log('info', 'Vínculo OAuth Classroom persistido', {
+    correlationId: pendiente.correlationId,
+    etapa: 'persistencia_vinculo',
+    conectado: true
+  });
   return {
     docenteId: pendiente.docenteId,
     correoGoogle: typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : existente?.correoGoogle || null,
@@ -195,7 +287,12 @@ async function completarOAuthDesktop(pendiente: NonNullable<ReturnType<typeof oa
 }
 
 async function procesarCallbackLoopback(server: Server, req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) {
+  const correlationId = correlacionOauthPorServidor.get(server);
+  const logCallback = (nivel: 'info' | 'warn', etapa: string, meta: Record<string, unknown> = {}) => {
+    log(nivel, 'Traza OAuth Classroom', { ...(correlationId ? { correlationId } : {}), etapa, ...meta });
+  };
   if (req.method !== 'GET' || !esLoopback(req.socket.remoteAddress)) {
+    logCallback('warn', 'callback_rechazado', { motivo: req.method !== 'GET' ? 'metodo_no_permitido' : 'origen_no_loopback' });
     responderCallbackLoopback(res, false, 'Solicitud de callback no permitida.');
     return;
   }
@@ -203,10 +300,17 @@ async function procesarCallbackLoopback(server: Server, req: import('node:http')
   try {
     url = new URL(req.url || '/', 'http://127.0.0.1');
   } catch {
+    logCallback('warn', 'callback_rechazado', { motivo: 'url_invalida' });
     responderCallbackLoopback(res, false, 'Callback OAuth inválido.');
     return;
   }
+  if (url.pathname === '/favicon.ico') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
   if (url.pathname !== '/oauth2callback') {
+    logCallback('warn', 'callback_rechazado', { motivo: 'ruta_invalida' });
     responderCallbackLoopback(res, false, 'Ruta de callback inválida.');
     return;
   }
@@ -216,26 +320,42 @@ async function procesarCallbackLoopback(server: Server, req: import('node:http')
   const emisores = url.searchParams.getAll('iss');
   const respuestaCancelada = erroresOauth.length === 1 && codigos.length === 0;
   const respuestaConCodigo = erroresOauth.length === 0 && codigos.length === 1;
+  const emisorValido = emisores.length === 1 && emisores[0] === 'https://accounts.google.com';
   if (estados.length !== 1 || emisores.length !== 1 || emisores[0] !== 'https://accounts.google.com' ||
       !(respuestaCancelada || respuestaConCodigo)) {
+    logCallback('warn', 'callback_rechazado', {
+      motivo: 'parametros_invalidos',
+      cantidadState: estados.length,
+      cantidadCode: codigos.length,
+      cantidadError: erroresOauth.length,
+      emisorValido
+    });
     responderCallbackLoopback(res, false, 'La respuesta de Google no contiene un state, código o emisor válido.');
     return;
   }
   const state = estados[0] || '';
   const pendiente = oauthPendiente.get(state);
   if (!pendiente || pendiente.server !== server) {
+    logCallback('warn', 'callback_rechazado', { motivo: 'state_ausente_vencido_o_usado' });
     responderCallbackLoopback(res, false, 'La solicitud OAuth venció, ya fue usada o no pertenece a esta instalación.');
     return;
   }
   cerrarOAuthPendiente(state);
   if (erroresOauth.length === 1) {
+    const errorGoogle = erroresOauth[0] || '';
+    logCallback('warn', 'autorizacion_rechazada', {
+      codigoProveedor: ERRORES_OAUTH_PROVEEDOR.has(errorGoogle) ? errorGoogle : 'OAUTH_PROVIDER_ERROR'
+    });
     responderCallbackLoopback(res, false, 'Google canceló la autorización. Puedes volver a intentarlo desde EvaluaPro.');
     return;
   }
   try {
+    logCallback('info', 'callback_aceptado', { issuerValid: true, codePresent: true });
     const resultado = await completarOAuthDesktop(pendiente, codigos[0] || '');
+    logCallback('info', 'flujo_completado', { conectado: true });
     responderCallbackLoopback(res, true, `Cuenta Classroom conectada: ${resultado.correoGoogle || 'cuenta Google verificada'}. Regresa a EvaluaPro.`);
   } catch (error) {
+    registrarFalloOauth(pendiente.correlationId, 'callback_final', error);
     const mensaje = error instanceof ErrorAplicacion ? error.message : 'No se pudo completar la conexión OAuth. Vuelve a intentarlo desde EvaluaPro.';
     responderCallbackLoopback(res, false, mensaje);
   }
@@ -254,10 +374,16 @@ export async function construirUrlOauthClassroom(
     throw new ErrorAplicacion('CLASSROOM_OAUTH_LIMITE', 'Ya hay varias solicitudes OAuth pendientes. Cierra sus ventanas y vuelve a intentar.', 429);
   }
   const { clientId } = obtenerConfigClassroom();
+  const correlationId = randomUUID();
   const server = createServer((req, res) => { void procesarCallbackLoopback(server, req, res); });
+  correlacionOauthPorServidor.set(server, correlationId);
   await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => { server.removeListener('error', reject); resolve(); });
+    const onListenError = (error: Error) => {
+      registrarFalloOauth(correlationId, 'listener_loopback', error);
+      reject(error);
+    };
+    server.once('error', onListenError);
+    server.listen(0, '127.0.0.1', () => { server.removeListener('error', onListenError); resolve(); });
   });
   const address = server.address();
   if (!address || typeof address === 'string') {
@@ -265,6 +391,13 @@ export async function construirUrlOauthClassroom(
     throw new ErrorAplicacion('CLASSROOM_OAUTH_LOOPBACK_ERROR', 'No se pudo abrir el callback local seguro de Google Classroom.', 503);
   }
   const redirectUri = `http://127.0.0.1:${address.port}/oauth2callback`;
+  log('info', 'Listener OAuth Classroom preparado', {
+    correlationId,
+    etapa: 'inicio',
+    loopback: true,
+    redirectPort: address.port,
+    cantidadScopesSolicitados: CLASSROOM_SCOPES.length
+  });
   const state = randomBytes(32).toString('base64url');
   const cliente = crearClienteOauth(clientId, redirectUri);
   const { codeVerifier, codeChallenge } = await cliente.generateCodeVerifierAsync();
@@ -272,10 +405,14 @@ export async function construirUrlOauthClassroom(
     server.close();
     throw new ErrorAplicacion('CLASSROOM_OAUTH_PKCE_ERROR', 'No se pudo preparar PKCE para Google Classroom.', 503);
   }
-  const expiracion = setTimeout(() => { cerrarOAuthPendiente(state); }, STATE_EXPIRA_SEGUNDOS * 1000);
+  const expiracion = setTimeout(() => {
+    log('warn', 'Traza OAuth Classroom', { correlationId, etapa: 'expiracion', vencido: true });
+    cerrarOAuthPendiente(state);
+  }, STATE_EXPIRA_SEGUNDOS * 1000);
   expiracion.unref?.();
   oauthPendiente.set(state, {
     docenteId,
+    correlationId,
     expectedGoogleSub,
     loginHint,
     ...(validarOriginFrontend(opciones.frontendOrigin) ? { frontendOrigin: validarOriginFrontend(opciones.frontendOrigin) } : {}),

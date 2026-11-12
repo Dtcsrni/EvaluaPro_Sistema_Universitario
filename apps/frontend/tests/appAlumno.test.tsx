@@ -18,8 +18,12 @@ describe('AppAlumno', () => {
       </TemaProvider>
     );
 
-    expect(screen.getByText('Codigo de acceso')).toBeInTheDocument();
-    expect(screen.getByText('Matricula')).toBeInTheDocument();
+    const formulario = screen.getByRole('form', { name: /Ingresa al portal/i });
+    expect(formulario).toBeInTheDocument();
+    expect(formulario.querySelector('h2')).toHaveTextContent('Ingresa al portal');
+    expect(document.querySelector('.auth-grid--alumno')?.firstElementChild).toBe(formulario);
+    expect(screen.getByLabelText(/Código de acceso/)).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Matrícula/ })).toBeInTheDocument();
   });
 
   it('muestra boton salir con token', () => {

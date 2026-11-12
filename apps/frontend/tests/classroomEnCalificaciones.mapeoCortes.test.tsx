@@ -51,7 +51,7 @@ describe('ClassroomEnCalificaciones: asignación de actividades a cortes', () =>
     /></ConfirmDialogProvider>);
 
     await user.selectOptions(await screen.findByRole('combobox', { name: 'Curso de Classroom' }), 'course-1');
-    const parcialDestino = await screen.findByRole('combobox', { name: 'Parcial destino' });
+    const parcialDestino = await screen.findByRole('combobox', { name: 'Parcial destino · Proyecto' });
     await within(parcialDestino).findByRole('option', { name: 'Tercer parcial' });
     await user.selectOptions(parcialDestino, '3');
     await user.click(screen.getByRole('button', { name: 'Previsualizar evaluación continua' }));

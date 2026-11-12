@@ -85,6 +85,8 @@ export const esquemaCalificarExamen = z
     aciertos: z.number().int().min(0).optional(),
     totalReactivos: z.number().int().positive().optional(),
     bonoSolicitado: z.number().min(0).optional(),
+    omitirBonoAcordeon: z.boolean().optional(),
+    confirmarBonoAcordeonManual: z.boolean().optional(),
     origen: z.literal('inferida manualmente').optional(),
     origenEvidencia: esquemaOrigenInferido.optional(),
     evaluacionContinua: z.number().min(0).optional(),

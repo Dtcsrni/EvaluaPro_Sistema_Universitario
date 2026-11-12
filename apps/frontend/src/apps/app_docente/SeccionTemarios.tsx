@@ -11,9 +11,28 @@
  * - Métricas de avance porcentual en tiempo real
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { IconoCampo } from '../../ui/IconoLucide';
 import { clienteApi } from './clienteApiDocente';
 import { emitToast } from '../../ui/toast/toastBus';
+import { accionToastSesionParaError, ErrorRemoto, mensajeUsuarioDeErrorConSugerencia } from '../../servicios_api/clienteComun';
 import { Icono } from '../../ui/iconos';
+import {
+  ArrowRight,
+  BookOpenText,
+  CalendarDays,
+  Check,
+  Circle,
+  CircleCheck,
+  Clock3,
+  FileText,
+  ListTree,
+  LoaderCircle,
+  Plus,
+  TreeDeciduous,
+  Upload,
+  type LucideIcon,
+  IconoLucide
+} from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { GuiaTemariosVisual } from './GuiaTemariosVisual';
 import type { Periodo } from './tipos';
@@ -42,7 +61,11 @@ type TemaNode = {
 type TabLocal = 'lista' | 'cargar' | 'arbol';
 
 // ─── Estado iconos ───────────────────────────────────────────────────────────
-const ESTADO_ICON: Record<string, string> = { cubierto: '✅', en_progreso: '🔄', pendiente: '○' };
+const ESTADO_ICON: Record<TemaNode['estado'], LucideIcon> = {
+  cubierto: CircleCheck,
+  en_progreso: Clock3,
+  pendiente: Circle
+};
 const ESTADO_CICLO: Array<TemaNode['estado']> = ['pendiente', 'en_progreso', 'cubierto'];
 
 function obtenerIniciales(nombre?: string): string {
@@ -55,6 +78,11 @@ function obtenerIniciales(nombre?: string): string {
   return (primera + segunda).toUpperCase() || 'TM';
 }
 
+function formatearTamanoArchivo(bytes: number): string {
+  const kilobytes = bytes / 1024;
+  return kilobytes >= 1 ? `${kilobytes.toFixed(1)} KB` : 'menos de 1 KB';
+}
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 type Props = { periodos: Periodo[] };
 
@@ -65,7 +93,18 @@ export function SeccionTemarios({ periodos }: Props) {
   const [temarioActual, setTemarioActual] = useState<Temario | null>(null);
   const [nodos, setNodos] = useState<TemaNode[]>([]);
   const [cargando, setCargando] = useState(false);
+  const [cargandoLista, setCargandoLista] = useState(false);
+  const [errorLista, setErrorLista] = useState('');
+  const [errorArbol, setErrorArbol] = useState('');
+  const [errorPdf, setErrorPdf] = useState('');
+  const [errorManual, setErrorManual] = useState('');
+  const [errorNodo, setErrorNodo] = useState('');
+  const [periodoListaId, setPeriodoListaId] = useState('');
+  const [tabEnFoco, setTabEnFoco] = useState(0);
   const [guardandoNodo, setGuardandoNodo] = useState('');
+  const secuenciaLista = useRef(0);
+  const secuenciaArbol = useRef(0);
+  const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
   // Formulario carga manual
   const [nombreNuevo, setNombreNuevo] = useState('');
@@ -103,53 +142,95 @@ export function SeccionTemarios({ periodos }: Props) {
     };
   }, [temarios, nodos]);
 
+  const estadoPeriodo = !periodoId
+    ? 'Elige una materia'
+    : cargandoLista
+      ? 'Cargando temarios'
+      : errorLista
+        ? 'No se pudo consultar'
+        : periodoListaId === periodoId
+          ? 'Periodo actualizado'
+          : 'Cargando temarios';
+
   const cargarTemarios = useCallback(async () => {
-    if (!periodoId) return;
+    const secuencia = ++secuenciaLista.current;
+    if (!periodoId) {
+      setTemarios([]);
+      setPeriodoListaId('');
+      setErrorLista('');
+      setCargandoLista(false);
+      return;
+    }
+    setTemarios([]);
+    setPeriodoListaId('');
+    setErrorLista('');
+    setCargandoLista(true);
     try {
       const data = await clienteApi.obtener<{ temarios: Temario[] }>(
-        `/temarios?periodoId=${periodoId}`
+        `/temarios?periodoId=${encodeURIComponent(periodoId)}`
       );
+      if (secuencia !== secuenciaLista.current) return;
       setTemarios(data.temarios ?? []);
+      setPeriodoListaId(periodoId);
     } catch {
-      /* silencioso */
+      if (secuencia !== secuenciaLista.current) return;
+      setTemarios([]);
+      setErrorLista('No se pudieron cargar los temarios de este periodo. Reintenta la consulta.');
+    } finally {
+      if (secuencia === secuenciaLista.current) setCargandoLista(false);
     }
   }, [periodoId]);
 
   useEffect(() => { void cargarTemarios(); }, [cargarTemarios]);
 
   async function abrirTemario(t: Temario) {
+    const secuencia = ++secuenciaArbol.current;
     setTemarioActual(t);
+    setNodos([]);
+    setErrorArbol('');
+    setErrorNodo('');
     setCargando(true);
     try {
       const data = await clienteApi.obtener<{ temario?: Temario; nodos: TemaNode[] }>(
-        `/temarios/${t._id}/nodos`
+        `/temarios/${encodeURIComponent(t._id)}/nodos`
       );
+      if (secuencia !== secuenciaArbol.current) return;
       if (data.temario) setTemarioActual({ ...t, ...data.temario });
       setNodos(data.nodos ?? []);
       setTab('arbol');
+      setTabEnFoco(2);
     } catch {
-      emitToast({ level: 'error', title: 'Error', message: 'No se pudo cargar el temario.' });
+      if (secuencia !== secuenciaArbol.current) return;
+      setErrorArbol('No se pudo cargar este temario. Reintenta para consultar sus temas.');
     } finally {
-      setCargando(false);
+      if (secuencia === secuenciaArbol.current) setCargando(false);
     }
   }
 
   // ─── Cargar PDF ─────────────────────────────────────────────────────────────
   function manejarArchivo(file: File) {
-    if (file.type !== 'application/pdf') {
-      emitToast({ level: 'warn', title: 'Archivo inválido', message: 'Selecciona un PDF válido.' });
+    const tipoPdf = file.type.trim().toLowerCase() === 'application/pdf';
+    const extensionPdf = /\.pdf$/i.test(file.name);
+    if (!tipoPdf && !extensionPdf) {
+      setArchivoPdf(null);
+      setArchivoNombre('');
+      setErrorPdf('El archivo seleccionado no es un PDF. Elige un archivo .pdf.');
       return;
     }
-    setArchivoPdf(file);
+    setErrorPdf('');
+    setArchivoPdf(tipoPdf
+      ? file
+      : new File([file], file.name, { type: 'application/pdf', lastModified: file.lastModified }));
     setArchivoNombre(file.name);
     if (!nombreNuevo) setNombreNuevo(file.name.replace(/\.pdf$/i, ''));
   }
 
   async function subirPdf() {
     if (!archivoPdf || !periodoId || !nombreNuevo) {
-      emitToast({ level: 'warn', title: 'Datos incompletos', message: 'Selecciona periodo y PDF.' });
+      setErrorPdf('Selecciona un periodo, un archivo PDF y escribe el nombre del temario para continuar.');
       return;
     }
+    setErrorPdf('');
     setCargando(true);
     try {
       const formData = new FormData();
@@ -160,15 +241,14 @@ export function SeccionTemarios({ periodos }: Props) {
         '/temarios/desde-pdf',
         formData
       );
-      emitToast({ level: 'ok', title: 'Temario procesado', message: `${data.totalNodos} temas extraídos.` });
       setArchivoPdf(null);
       setArchivoNombre('');
       setNombreNuevo('');
       void cargarTemarios();
       void abrirTemario(data.temario);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Error al procesar el PDF.';
-      emitToast({ level: 'error', title: 'Error', message: msg });
+      const msg = mensajeUsuarioDeErrorConSugerencia(e, 'Revisa el archivo e intenta cargarlo de nuevo.');
+      setErrorPdf(`No se pudo procesar el PDF: ${msg} Verifica el archivo e inténtalo de nuevo.`);
     } finally {
       setCargando(false);
     }
@@ -177,9 +257,10 @@ export function SeccionTemarios({ periodos }: Props) {
   // ─── Carga manual ────────────────────────────────────────────────────────────
   async function cargarManual() {
     if (!textoManual.trim() || !nombreNuevo || (!editandoTemario && !periodoId)) {
-      emitToast({ level: 'warn', title: 'Datos incompletos', message: 'Completa nombre y texto.' });
+      setErrorManual('Selecciona un periodo y completa el nombre y contenido del temario.');
       return;
     }
+    setErrorManual('');
     setCargando(true);
     try {
       if (editandoTemario && temarioActual) {
@@ -192,7 +273,6 @@ export function SeccionTemarios({ periodos }: Props) {
             motivoCambio
           }
         );
-        emitToast({ level: 'ok', title: 'Temario actualizado', message: `${data.nodos.length} temas; se conservó el avance coincidente.` });
         setEditandoTemario(false);
         setMotivoCambio('');
         await cargarTemarios();
@@ -203,14 +283,13 @@ export function SeccionTemarios({ periodos }: Props) {
         '/temarios/manual',
         { periodoId, nombre: nombreNuevo, texto: textoManual }
       );
-      emitToast({ level: 'ok', title: 'Temario cargado', message: `${data.totalNodos} temas.` });
       setTextoManual('');
       setNombreNuevo('');
       void cargarTemarios();
       void abrirTemario(data.temario);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Error al cargar el temario.';
-      emitToast({ level: 'error', title: 'Error', message: msg });
+      const msg = mensajeUsuarioDeErrorConSugerencia(e, 'Revisa el nombre y el contenido e intenta guardar de nuevo.');
+      setErrorManual(`No se pudo guardar el temario: ${msg} Revisa los datos e inténtalo de nuevo.`);
     } finally {
       setCargando(false);
     }
@@ -222,7 +301,9 @@ export function SeccionTemarios({ periodos }: Props) {
     setNombreNuevo(temarioActual.nombre);
     setTextoManual(String(temarioActual.textoOriginal ?? nodos.map((nodo) => `${nodo.numero} ${nodo.titulo}`).join('\n')));
     setMotivoCambio('');
+    setErrorManual('');
     setTab('cargar');
+    setTabEnFoco(1);
   }
 
   async function eliminarTemarioActual() {
@@ -247,9 +328,16 @@ export function SeccionTemarios({ periodos }: Props) {
       setTemarioActual(null);
       setNodos([]);
       setTab('lista');
+      setTabEnFoco(0);
       emitToast({ level: 'ok', title: 'Temario eliminado', message: 'La acción quedó registrada en la auditoría.' });
     } catch (e: unknown) {
-      emitToast({ level: 'error', title: 'No se pudo eliminar', message: e instanceof Error ? e.message : 'Error al eliminar el temario.' });
+      const message = e instanceof ErrorRemoto
+        ? e.detalle.status === 401
+          ? 'Tu sesión venció. Cierra sesión y vuelve a ingresar.'
+          : mensajeUsuarioDeErrorConSugerencia(e, 'Revisa el estado del temario e inténtalo de nuevo.')
+        : 'No se pudo eliminar el temario. Revisa la conexión e inténtalo de nuevo.';
+      const action = accionToastSesionParaError(e, 'docente');
+      emitToast({ level: 'error', title: 'No se pudo eliminar', message, ...(action ? { action } : {}) });
     } finally {
       setCargando(false);
     }
@@ -259,6 +347,7 @@ export function SeccionTemarios({ periodos }: Props) {
   async function ciclarEstadoNodo(nodo: TemaNode) {
     const siguiente = ESTADO_CICLO[(ESTADO_CICLO.indexOf(nodo.estado) + 1) % ESTADO_CICLO.length]!;
     setGuardandoNodo(nodo._id);
+    setErrorNodo('');
     try {
       const data = await clienteApi.enviar<{ nodo: TemaNode; porcentajeAvance: number }>(
         `/temarios/nodos/${nodo._id}/estado`,
@@ -270,7 +359,7 @@ export function SeccionTemarios({ periodos }: Props) {
         setTemarios((ts) => ts.map((t) => t._id === temarioActual._id ? { ...t, porcentajeAvance: data.porcentajeAvance } : t));
       }
     } catch {
-      emitToast({ level: 'error', title: 'Error', message: 'No se pudo actualizar.' });
+      setErrorNodo(`No se pudo actualizar el estado de «${nodo.titulo}». Reintenta la acción.`);
     } finally {
       setGuardandoNodo('');
     }
@@ -281,145 +370,142 @@ export function SeccionTemarios({ periodos }: Props) {
       {/* ── 1. Cabecera Ejecutiva Bento con Mini-KPIs ─── */}
       <div className="temarios-panel__head">
         <div className="temarios-panel__lead">
-          <div className="temarios-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M6 6h10M6 10h10" />
-            </svg>
+          <div className="icono-seccion-orb temarios-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <IconoLucide icon={BookOpenText} size={24} />
           </div>
           <div className="temarios-panel__text-block">
             <div className="temarios-panel__meta-row">
-              <span className="temarios-status-pill">
+              <span className="temarios-status-pill" role="status">
                 <span className="temarios-pulse-dot" aria-hidden="true" />
-                <span>Estructura Curricular Activa</span>
+                <span>{estadoPeriodo}</span>
               </span>
               <span className="temarios-counter-tag">
                 {periodoSeleccionado ? periodoSeleccionado.nombre : 'Sin materia seleccionada'}
               </span>
             </div>
-            <h2 className="temarios-panel__title eyebrow"><Icono nombre="temarios" /> Temarios</h2>
+            <h2 className="temarios-panel__title eyebrow">Temarios</h2>
             <p className="nota">Organización de unidades temáticas, seguimiento de avance lectivo y alineación curricular.</p>
           </div>
         </div>
 
-        <div className="temarios-header-kpis" aria-live="polite">
+        <div className="temarios-filtros-bar anim-form-card">
+          <label className="asistencias-label-field">
+            <span className="asistencias-field-lbl">
+              <IconoLucide icon={BookOpenText} size={14} />
+              Periodo o materia
+            </span>
+            <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+              <IconoCampo nombre="book" />
+              <select
+                value={periodoId}
+                onChange={(e) => {
+                  const siguientePeriodo = e.target.value;
+                  secuenciaArbol.current += 1;
+                  setCargando(false);
+                  setErrorArbol('');
+                  setTemarioActual(null);
+                  setNodos([]);
+                  setTab('lista');
+                  setTabEnFoco(0);
+                  setPeriodoId(siguientePeriodo);
+                }}
+                className="asistencias-select-field asistencias-select"
+              >
+                <option value="">Elige materia</option>
+                {periodos.filter((p) => p.activo !== false).map((p) => (
+                  <option key={p._id} value={p._id}>{p.nombre}</option>
+                ))}
+              </select>
+            </div>
+          </label>
+        </div>
+
+        <div className="temarios-header-kpis">
           <div className="temario-mini-kpi temario-mini-kpi--temarios anim-kpi-hover" data-tooltip="Total de planes de estudio registrados">
             <span className="temario-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-                <path d="M6 6h10" />
-              </svg>
+              <IconoLucide icon={BookOpenText} size={16} />
             </span>
-            <span className="temario-mini-kpi__num">{kpis.totalTemarios}</span>
+            <span className="temario-mini-kpi__num">{periodoId && periodoListaId === periodoId && !cargandoLista ? kpis.totalTemarios : '—'}</span>
             <span className="temario-mini-kpi__lbl">Temarios</span>
           </div>
 
           <div className="temario-mini-kpi temario-mini-kpi--temas anim-kpi-hover" data-tooltip="Total de temas y subtemas estructurados">
             <span className="temario-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <line x1="8" y1="6" x2="21" y2="6" />
-                <line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" />
-                <line x1="3" y1="12" x2="3.01" y2="12" />
-                <line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
+              <IconoLucide icon={ListTree} size={16} />
             </span>
-            <span className="temario-mini-kpi__num">{kpis.totalTemas}</span>
+            <span className="temario-mini-kpi__num">{periodoId && periodoListaId === periodoId && !cargandoLista ? kpis.totalTemas : '—'}</span>
             <span className="temario-mini-kpi__lbl">Temas</span>
           </div>
 
           <div className="temario-mini-kpi temario-mini-kpi--avance anim-kpi-hover" data-tooltip="Porcentaje promedio de cobertura del curso">
             <span className="temario-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
+              <IconoLucide icon={Clock3} size={16} />
             </span>
             <span className="temario-mini-kpi__num">
-              {kpis.promedioAvance}<small className="temario-mini-kpi__pct">%</small>
+              {periodoId && periodoListaId === periodoId && !cargandoLista ? <>{kpis.promedioAvance}<small className="temario-mini-kpi__pct">%</small></> : '—'}
             </span>
-            <span className="temario-mini-kpi__lbl">Avance Global</span>
+            <span className="temario-mini-kpi__lbl">Avance promedio</span>
           </div>
 
           <div className="temario-mini-kpi temario-mini-kpi--cubiertos anim-kpi-hover" data-tooltip="Temas completados en clase">
             <span className="temario-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
+              <IconoLucide icon={CircleCheck} size={16} />
             </span>
-            <span className="temario-mini-kpi__num">{kpis.temasCubiertos}</span>
-            <span className="temario-mini-kpi__lbl">Cubiertos</span>
+            <span className="temario-mini-kpi__num">{temarioActual ? kpis.temasCubiertos : '—'}</span>
+            <span className="temario-mini-kpi__lbl">Cubiertos en temario abierto</span>
           </div>
         </div>
       </div>
 
-      {/* ── 2. Guía Visual Bento ─── */}
+      {/* ── 3. Guía Visual Bento ─── */}
       <GuiaTemariosVisual />
 
-      {/* ── 3. Barra Panorámica de Selección ─── */}
-      <div className="temarios-filtros-bar anim-form-card temarios-spacing-bottom">
-        <label className="asistencias-label-field">
-          <span className="asistencias-field-lbl">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M6 6h10" />
-            </svg>
-            Materia o Asignatura
-          </span>
-          <div className="auth-input-box auth-input-box--book auth-input-box--animated">
-            <select
-              value={periodoId}
-              onChange={(e) => setPeriodoId(e.target.value)}
-              className="asistencias-select-field asistencias-select"
-            >
-              <option value="">— Selecciona periodo —</option>
-              {periodos.filter((p) => p.activo !== false).map((p) => (
-                <option key={p._id} value={p._id}>{p.nombre}</option>
-              ))}
-            </select>
-          </div>
-        </label>
-      </div>
-
       {/* ── 4. Tabs Elevados ─── */}
-      <div className="temarios-tabs-bar temarios-tab-bar">
-        {(['lista', 'cargar', ...(temarioActual ? ['arbol'] : [])] as const).map((t) => (
+      <div className="temarios-tabs-bar temarios-tab-bar" role="tablist" tabIndex={-1} aria-label="Vistas de temarios" onKeyDown={(event) => {
+        const visibles = tabsRef.current.filter((button): button is HTMLButtonElement => Boolean(button));
+        let indice: number;
+        if (event.key === 'ArrowRight') indice = (tabEnFoco + 1) % visibles.length;
+        else if (event.key === 'ArrowLeft') indice = (tabEnFoco - 1 + visibles.length) % visibles.length;
+        else if (event.key === 'Home') indice = 0;
+        else if (event.key === 'End') indice = visibles.length - 1;
+        else return;
+        event.preventDefault();
+        setTabEnFoco(indice);
+        visibles[indice]?.focus();
+        const siguiente = visibles[indice]?.dataset.tab as TabLocal | undefined;
+        if (siguiente) setTab(siguiente);
+      }}>
+        {(['lista', 'cargar', ...(temarioActual ? ['arbol'] : [])] as const).map((t, indice) => (
           <button
             key={t}
-            onClick={() => setTab(t as TabLocal)}
+            ref={(elemento) => { tabsRef.current[indice] = elemento; }}
+            type="button"
+            role="tab"
+            id={`temarios-tab-${t}`}
+            aria-controls={`temarios-panel-${t}`}
+            aria-selected={tab === t}
+            tabIndex={tabEnFoco === indice ? 0 : -1}
+            data-tab={t}
+            onFocus={() => setTabEnFoco(indice)}
+            onClick={() => { setTab(t as TabLocal); setTabEnFoco(indice); }}
             className={`temarios-tab-btn nav-docente-tab ${tab === t ? 'activo' : ''}`}
           >
             {t === 'lista' && (
               <>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                  <polyline points="10 9 9 9 8 9" />
-                </svg>
+                <IconoLucide icon={FileText} size={16} />
                 <span>Mis temarios ({temarios.length})</span>
               </>
             )}
             {t === 'cargar' && (
               <>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
+                <IconoLucide icon={Plus} size={16} />
                 <span>Cargar temario</span>
               </>
             )}
             {t === 'arbol' && (
               <>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17 18a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2" />
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <circle cx="12" cy="10" r="2" />
-                </svg>
-                <span>🌳 {temarioActual?.nombre ?? 'Árbol'} ({temarioActual?.porcentajeAvance ?? 0}%)</span>
+                <IconoLucide icon={TreeDeciduous} size={16} />
+                <span>{temarioActual?.nombre ?? 'Árbol'} ({temarioActual?.porcentajeAvance ?? 0}%)</span>
               </>
             )}
           </button>
@@ -427,6 +513,7 @@ export function SeccionTemarios({ periodos }: Props) {
       </div>
 
       {/* ── 5. Estado Vacío Interactivo cuando No Hay Periodo Seleccionado ─── */}
+      <div role="tabpanel" id={`temarios-panel-${tab}`} aria-labelledby={`temarios-tab-${tab}`} tabIndex={0}>
       {!periodoId ? (
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon anim-icon-pulse">
@@ -434,12 +521,12 @@ export function SeccionTemarios({ periodos }: Props) {
           </div>
           <h4>Comienza seleccionando una materia</h4>
           <p className="nota">
-            Selecciona un curso activo para visualizar sus temarios cargados, registrar nuevas unidades temáticas o seguir el progreso del syllabus.
+            Selecciona una materia activa para consultar sus temarios, registrar unidades temáticas o seguir el avance del programa.
           </p>
 
-          {periodos.length > 0 && (
+          {periodos.filter((p) => p.activo !== false).length > 0 && (
             <div className="asistencias-quick-periodos-grid">
-              {periodos.filter(p => p.activo !== false).map((p) => (
+          {periodos.filter(p => p.activo !== false).map((p) => (
                 <button
                   key={p._id}
                   type="button"
@@ -453,7 +540,7 @@ export function SeccionTemarios({ periodos }: Props) {
                     <strong>{p.nombre}</strong>
                     <span>Grupos: {Array.isArray(p.grupos) && p.grupos.length > 0 ? p.grupos.join(', ') : 'General'}</span>
                   </div>
-                  <div className="asistencia-materia-pick-arrow">➔</div>
+                  <div className="asistencia-materia-pick-arrow" aria-hidden="true"><IconoLucide icon={ArrowRight} size={18} /></div>
                 </button>
               ))}
             </div>
@@ -464,12 +551,12 @@ export function SeccionTemarios({ periodos }: Props) {
               <span className="empty-step__num">1</span>
               <span>Selecciona materia</span>
             </div>
-            <div className="empty-step__arrow">➔</div>
+            <div className="empty-step__arrow"><IconoLucide icon={ArrowRight} size={16} /></div>
             <div className="empty-step">
               <span className="empty-step__num">2</span>
               <span>Carga PDF o texto</span>
             </div>
-            <div className="empty-step__arrow">➔</div>
+            <div className="empty-step__arrow"><IconoLucide icon={ArrowRight} size={16} /></div>
             <div className="empty-step">
               <span className="empty-step__num">3</span>
               <span>Monitorea avance</span>
@@ -481,10 +568,20 @@ export function SeccionTemarios({ periodos }: Props) {
           {/* ── TAB LISTA ── */}
           {tab === 'lista' && (
             <div className="anim-fade-in">
-              {temarios.length === 0 ? (
+              {errorArbol && temarioActual && (
+                <div role="alert">
+                  <p>{errorArbol}</p>
+                  <Boton type="button" variante="secundario" onClick={() => void abrirTemario(temarioActual)}>
+                    Reintentar carga del temario
+                  </Boton>
+                </div>
+              )}
+              {cargandoLista ? <p role="status" aria-live="polite">Cargando temarios del periodo…</p> : errorLista ? (
+                <div role="alert"><p>{errorLista}</p><Boton type="button" variante="secundario" onClick={() => void cargarTemarios()} disabled={cargandoLista}>Reintentar</Boton></div>
+              ) : periodoListaId !== periodoId ? <p role="status">Espera a que se actualice la lista del periodo seleccionado.</p> : temarios.length === 0 ? (
                 <div className="empty-state-card anim-fade-in">
                   <div className="empty-state-card__icon anim-icon-pulse">
-                    <span aria-hidden="true">📑</span>
+                    <IconoLucide icon={FileText} size={26} />
                   </div>
                   <h4>Sin temarios registrados</h4>
                   <p className="nota">
@@ -493,12 +590,9 @@ export function SeccionTemarios({ periodos }: Props) {
                   <Boton
                     variante="primario"
                     type="button"
-                    onClick={() => setTab('cargar')}
+                    onClick={() => { setTab('cargar'); setTabEnFoco(1); }}
                     icono={
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
+                      <IconoLucide icon={Plus} size={14} />
                     }
                   >
                     Importar temario ahora
@@ -509,14 +603,12 @@ export function SeccionTemarios({ periodos }: Props) {
                   {temarios.map((t) => {
                     const iniciales = obtenerIniciales(t.nombre);
                     return (
-                      <div
+                      <button
                         key={t._id}
+                        type="button"
                         className="temarios-card item-glass scale-hover anim-card-hover"
-                        role="button"
-                        tabIndex={0}
                         onClick={() => void abrirTemario(t)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') void abrirTemario(t); }}
-                        title="Abrir temario y ver árbol de contenidos"
+                        aria-label={`Abrir temario ${t.nombre}, ${t.totalNodos} temas, avance ${t.porcentajeAvance}%`}
                       >
                         <div className="temarios-card-header">
                           <div className="temario-card-title-group">
@@ -530,7 +622,7 @@ export function SeccionTemarios({ periodos }: Props) {
                               </span>
                             </div>
                           </div>
-                          <span className="temario-open-arrow" aria-hidden="true">➔</span>
+                          <span className="temario-open-arrow" aria-hidden="true"><IconoLucide icon={ArrowRight} size={16} /></span>
                         </div>
 
                         {/* Barra de progreso interactiva */}
@@ -541,7 +633,7 @@ export function SeccionTemarios({ periodos }: Props) {
                               {t.porcentajeAvance}%
                             </span>
                           </div>
-                          <div className="temarios-progress-track">
+                          <div className="temarios-progress-track" role="progressbar" aria-label={`Avance de ${t.nombre}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, t.porcentajeAvance))}>
                             <div
                               className="temarios-progress-bar"
                               ref={(el) => {
@@ -554,9 +646,9 @@ export function SeccionTemarios({ periodos }: Props) {
                         </div>
 
                         <div className="temarios-card-footer">
-                          <span className="temarios-footer-cta">Ver árbol curricular ➔</span>
+                          <span className="temarios-footer-cta">Ver árbol curricular <IconoLucide icon={ArrowRight} size={14} /></span>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -569,109 +661,154 @@ export function SeccionTemarios({ periodos }: Props) {
             <div className="temarios-cargar-grid anim-fade-in">
               {/* Drag & drop PDF */}
               {!editandoTemario && (
-              <div className="panel temarios-panel-card anim-card-hover">
+              <form
+                className="panel temarios-panel-card anim-card-hover"
+                aria-label="Carga de temario desde PDF"
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (cargando) return;
+                  void subirPdf();
+                }}
+              >
                 <div className="asistencias-card-head">
                   <h3 className="asistencias-sub-title"><Icono nombre="pdf" /> Extracción Automática desde PDF</h3>
                   <p className="asistencias-sub-desc">Sube tu programa de estudios oficial y el sistema extraerá las unidades temáticas de forma estructurada.</p>
                 </div>
+                {errorPdf && <div role="alert"><p>{errorPdf}</p></div>}
 
                 <div
-                  role="button"
-                  tabIndex={0}
                   onDragEnter={() => setDrag(true)}
                   onDragLeave={() => setDrag(false)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) manejarArchivo(f); }}
-                  onClick={() => inputRef.current?.click()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      inputRef.current?.click();
-                    }
-                  }}
-                  className={`temarios-upload-box ${drag ? 'drag-active' : ''} anim-card-hover`}
+                  className={`temarios-upload-box ${drag ? 'drag-active' : ''}`}
                 >
                   <div className="temarios-upload-icon-orb" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
+                    <IconoLucide icon={Upload} size={32} />
                   </div>
                   {archivoPdf ? (
                     <div className="temarios-file-pill anim-badge-in">
-                      <span>📄 <strong>{archivoNombre}</strong></span>
-                      <span className="nota">({(archivoPdf.size / 1024).toFixed(1)} KB)</span>
+                      <span><IconoLucide icon={FileText} size={16} /> <strong>{archivoNombre}</strong></span>
+                      <span className="nota">({formatearTamanoArchivo(archivoPdf.size)})</span>
                     </div>
                   ) : (
                     <div className="temarios-upload-prompt">
-                      <p className="temarios-upload-title">Arrastra tu PDF aquí o haz click para seleccionar</p>
+                      <p className="temarios-upload-title">Arrastra tu PDF aquí o selecciónalo</p>
                       <p className="nota">Documento PDF oficial de la materia o syllabus académico</p>
                     </div>
                   )}
                 </div>
-                <input ref={inputRef} type="file" accept="application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) manejarArchivo(f); }} />
+                <div className="campo temarios-input-full temarios-file-field">
+                  <span className="campo__label-text">Archivo PDF</span>
+                  <div className="temarios-file-picker">
+                    <input
+                      id="temarios-archivo-pdf"
+                      ref={inputRef}
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) manejarArchivo(f); }}
+                      className="temarios-file-native-input"
+                      aria-hidden="true"
+                      tabIndex={-1}
+                    />
+                    <Boton
+                      type="button"
+                      variante="secundario"
+                      className="temarios-file-trigger"
+                      aria-label={archivoPdf ? 'Cambiar archivo PDF' : 'Seleccionar archivo PDF'}
+                      aria-controls="temarios-archivo-pdf"
+                      aria-describedby="temarios-archivo-pdf-hint temarios-archivo-pdf-status"
+                      icono={<IconoLucide icon={Upload} size={16} />}
+                      onClick={() => inputRef.current?.click()}
+                    >
+                      {archivoPdf ? 'Cambiar archivo PDF' : 'Elegir archivo PDF'}
+                    </Boton>
+                  </div>
+                  <span className="ayuda" id="temarios-archivo-pdf-hint">Selecciona un PDF o arrástralo al área superior.</span>
+                  <p
+                    id="temarios-archivo-pdf-status"
+                    role="status"
+                    aria-label={archivoNombre ? `Archivo seleccionado: ${archivoNombre}` : 'Archivo PDF'}
+                    className="temarios-file-status"
+                  >
+                    {archivoNombre
+                      ? `Archivo seleccionado: ${archivoNombre} (${formatearTamanoArchivo(archivoPdf?.size ?? 0)}).`
+                      : 'Ningún archivo seleccionado.'}
+                  </p>
+                </div>
 
                 <div className="temarios-form-actions temarios-btn-margin-top">
-                  <div className="auth-input-box auth-input-box--book auth-input-box--animated temarios-input-flex">
+                  <label className="asistencias-label-field temarios-input-flex temarios-input-full" htmlFor="temarios-nombre-pdf">
+                    <span>Nombre del temario</span>
                     <input
                       type="text"
-                      placeholder="Nombre del temario"
+                      id="temarios-nombre-pdf"
                       value={nombreNuevo}
                       onChange={(e) => setNombreNuevo(e.target.value)}
                       className="asistencias-input"
                     />
-                  </div>
+                  </label>
                   <Boton
-                    type="button"
-                    onClick={() => void subirPdf()}
+                    type="submit"
                     disabled={!archivoPdf || cargando}
                     cargando={cargando}
                     className="asistencias-btn-primario pulse-glow"
-                    icono={
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <polyline points="17 8 12 3 7 8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                    }
+                    icono={<IconoLucide icon={Upload} size={14} />}
                   >
                     {cargando ? 'Procesando…' : 'Cargar PDF'}
                   </Boton>
                 </div>
-              </div>
+              </form>
               )}
 
               {/* Manual */}
-              <div className="panel temarios-panel-card anim-card-hover">
+              <form
+                className="panel temarios-panel-card anim-card-hover"
+                aria-label={editandoTemario ? 'Edición manual de temario' : 'Carga manual de temario'}
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (cargando) return;
+                  void cargarManual();
+                }}
+              >
                 <div className="asistencias-card-head">
-                  <h3 className="asistencias-sub-title">✍️ {editandoTemario ? 'Editar temario' : 'Carga Manual Jerárquica'}</h3>
+                  <h3 className="asistencias-sub-title"><IconoLucide icon={ListTree} size={18} /> {editandoTemario ? 'Editar temario' : 'Carga manual por niveles'}</h3>
                   <p className="asistencias-sub-desc">
                     {editandoTemario ? 'Los nodos coincidentes conservan su estado y notas. No se pueden quitar nodos con avance, notas o asistencia vinculada.' : <>Escribe tu temario usando numeración estándar: <code>1 Tema principal</code>, <code>1.1 Subtema</code>, <code>1.1.1 Detalle</code>.</>}
                   </p>
                 </div>
 
-                <div className="auth-input-box auth-input-box--book auth-input-box--animated temarios-input-full">
+                {errorManual && <div role="alert"><p>{errorManual}</p></div>}
+                <label className="asistencias-label-field temarios-input-full" htmlFor="temarios-nombre-manual">
+                  <span>Nombre del temario</span>
                   <input
                     type="text"
-                    placeholder="Nombre del temario"
+                    id="temarios-nombre-manual"
                     value={nombreNuevo}
                     onChange={(e) => setNombreNuevo(e.target.value)}
                     className="asistencias-input"
                   />
-                </div>
+                </label>
 
+                <label className="asistencias-label-field temarios-input-full" htmlFor="temarios-contenido-manual">Contenido del temario</label>
                 <textarea
-                  placeholder={'1 Introducción\n1.1 Conceptos básicos\n1.1.1 Definiciones\n2 Desarrollo…'}
+                  id="temarios-contenido-manual"
+                  aria-label="Contenido del temario"
+                  aria-describedby="temarios-ayuda-contenido"
                   value={textoManual}
                   onChange={(e) => setTextoManual(e.target.value)}
                   rows={10}
                   className="asistencias-input font-code temarios-textarea"
                 />
+                <small id="temarios-ayuda-contenido">Escribe un tema por línea y usa numeración jerárquica, por ejemplo 1, 1.1 y 1.1.1.</small>
 
                 {editandoTemario && (
                   <label className="asistencias-label-field temarios-input-full">
                     <span className="asistencias-field-lbl">Motivo del cambio</span>
                     <input
+                      id="temarios-motivo-cambio"
                       type="text"
                       value={motivoCambio}
                       onChange={(e) => setMotivoCambio(e.target.value)}
@@ -683,20 +820,15 @@ export function SeccionTemarios({ periodos }: Props) {
                 )}
 
                 <Boton
-                  type="button"
-                  onClick={() => void cargarManual()}
+                  type="submit"
                   disabled={cargando || (editandoTemario && !motivoCambio.trim())}
                   cargando={cargando}
                   className="asistencias-btn-primario temarios-btn-margin-top pulse-glow"
-                  icono={
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  }
+                  icono={<IconoLucide icon={Check} size={14} />}
                 >
                   {cargando ? 'Guardando…' : editandoTemario ? 'Guardar cambios' : 'Crear temario'}
                 </Boton>
-              </div>
+              </form>
             </div>
           )}
 
@@ -724,7 +856,7 @@ export function SeccionTemarios({ periodos }: Props) {
                   </span>
                 </div>
 
-                <div className="temarios-progress-track">
+                <div className="temarios-progress-track" role="progressbar" aria-label={`Avance de ${temarioActual.nombre}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, temarioActual.porcentajeAvance))}>
                   <div
                     className="temarios-progress-bar"
                     ref={(el) => {
@@ -739,39 +871,36 @@ export function SeccionTemarios({ periodos }: Props) {
                 <div className="temarios-tree-legend">
                   {(['pendiente', 'en_progreso', 'cubierto'] as const).map((e) => (
                     <span key={e} className="temarios-legend-node-chip">
-                      <span>{ESTADO_ICON[e]}</span>
+                      <IconoLucide icon={ESTADO_ICON[e]} size={15} />
                       <strong>{e === 'pendiente' ? 'Pendiente' : e === 'en_progreso' ? 'En progreso' : 'Cubierto'}</strong>
                     </span>
                   ))}
-                  <span className="nota temarios-legend-hint">💡 Haz clic en cualquier nodo para ciclar su estado (○ ➔ 🔄 ➔ ✅)</span>
+                  <span className="nota temarios-legend-hint">Activa un tema con Enter o Espacio para cambiar su estado: Pendiente → En progreso → Cubierto.</span>
                 </div>
               </div>
 
-              {cargando ? (
+              {errorArbol ? <div role="alert"><p>{errorArbol}</p><Boton type="button" variante="secundario" onClick={() => temarioActual && void abrirTemario(temarioActual)}>Reintentar</Boton></div> : cargando ? (
                 <div className="asistencias-loading-box anim-fade-in">
-                  <div className="asistencias-panel__icon-orb anim-icon-pulse" aria-hidden="true">⏳</div>
+                  <div className="asistencias-panel__icon-orb anim-icon-pulse" aria-hidden="true"><IconoLucide icon={LoaderCircle} size={24} /></div>
                   <p>Cargando árbol curricular…</p>
                 </div>
               ) : (
                 <div className="temarios-tree-stack anim-fade-in">
+                  {errorNodo && <div role="alert"><p>{errorNodo}</p></div>}
+                  {nodos.length === 0 ? <p>Este temario no tiene temas registrados.</p> : null}
                   {nodos.map((nodo) => (
-                    <div
+                    <button
                       key={nodo._id}
-                      role="button"
-                      tabIndex={0}
+                      type="button"
+                      aria-label={`${nodo.numero} ${nodo.titulo}. Estado: ${nodo.estado === 'pendiente' ? 'Pendiente' : nodo.estado === 'en_progreso' ? 'En progreso' : 'Cubierto'}. Activar para cambiar al siguiente estado.`}
+                      aria-busy={guardandoNodo === nodo._id}
                       onClick={() => { if (!guardandoNodo) void ciclarEstadoNodo(nodo); }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          if (!guardandoNodo) void ciclarEstadoNodo(nodo);
-                        }
-                      }}
                       className={`temarios-node-item anim-slide-up ${
                         nodo.estado === 'cubierto' ? 'temarios-node-cubierto' : nodo.estado === 'en_progreso' ? 'temarios-node-en-progreso' : ''
                       } temarios-node-level-${nodo.nivel}`}
                     >
                       <span className="temarios-node-icon" aria-hidden="true">
-                        {ESTADO_ICON[nodo.estado]}
+                        <IconoLucide icon={ESTADO_ICON[nodo.estado]} size={16} />
                       </span>
                       <div className={`temarios-node-title ${nodo.nivel === 1 ? 'temarios-node-nivel-1' : nodo.nivel === 2 ? 'temarios-node-nivel-2' : 'temarios-node-nivel-3'}`}>
                         <span className="font-code temarios-node-num">
@@ -779,12 +908,13 @@ export function SeccionTemarios({ periodos }: Props) {
                         </span>
                         <span className="temarios-node-text">{nodo.titulo}</span>
                       </div>
+                      <span className="temarios-node-state">{nodo.estado === 'pendiente' ? 'Pendiente' : nodo.estado === 'en_progreso' ? 'En progreso' : 'Cubierto'}</span>
                       {nodo.cubiertaEn && (
                         <span className="temarios-node-date anim-badge-in">
-                          🗓️ {new Date(nodo.cubiertaEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                          <IconoLucide icon={CalendarDays} size={14} /> {new Date(nodo.cubiertaEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
                         </span>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -792,6 +922,18 @@ export function SeccionTemarios({ periodos }: Props) {
           )}
         </>
       )}
+      </div>
+      {(['lista', 'cargar', ...(temarioActual ? ['arbol'] : [])] as const)
+        .filter((panelTab) => panelTab !== tab)
+        .map((panelTab) => (
+          <div
+            key={panelTab}
+            role="tabpanel"
+            id={`temarios-panel-${panelTab}`}
+            aria-labelledby={`temarios-tab-${panelTab}`}
+            hidden
+          />
+        ))}
     </div>
   );
 }

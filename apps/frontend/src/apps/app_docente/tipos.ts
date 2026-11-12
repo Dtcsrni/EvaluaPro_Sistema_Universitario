@@ -86,7 +86,7 @@ export type Plantilla = {
     separateCoverPage?: boolean;
   };
   omrConfig?: {
-    examTemplateId?: 'omr-canonical-v4' | 'omr-inline-exam-v1';
+    examTemplateId?: 'omr-canonical-1.0.0' | 'omr-canonical-v4' | 'omr-inline-exam-v1';
     sheetFamilyCode?: string;
     sheetRevisionId?: string;
     prefillMode?: 'none' | 'roster' | 'per-student';
@@ -216,6 +216,14 @@ export type OmrJobDetalle = {
   jobId: string;
   sourceType: 'pdf' | 'image_batch' | 'camera_capture';
   status: 'queued' | 'processing' | 'completed' | 'failed' | 'finalized';
+  automaticGrade?: {
+    status: 'processing' | 'saved' | 'already_recorded' | 'needs_review' | 'failed';
+    calificacionId?: string;
+    aciertos?: number;
+    totalReactivos?: number;
+    calificacionExamen?: string;
+    reasonCodes?: string[];
+  };
   pagesTotal: number;
   pagesProcessed: number;
   summary?: {
@@ -226,6 +234,13 @@ export type OmrJobDetalle = {
     sheets?: number;
     averageScore?: number;
     finalizedAt?: string;
+    automaticGrades?: {
+      saved: number;
+      processing: number;
+      alreadyRecorded: number;
+      failed: number;
+      needsReview: number;
+    };
     results?: Array<{
       sheetSerial: string;
       studentId?: string | null;
@@ -244,7 +259,8 @@ export type OmrJobDetalle = {
   pages: Array<{
     sheetSerial: string;
     pageIndex: number;
-    scanStatus: 'accepted' | 'needs_review' | 'rejected';
+    pageType?: 'examen' | 'reverso-vacio';
+    scanStatus: 'accepted' | 'needs_review' | 'rejected' | 'ignored';
     confidence: number;
     autoGradable?: boolean;
     manualReviewRequired?: boolean;
@@ -298,9 +314,24 @@ export type OmrJobDetalle = {
     student: string;
     group: string;
     folio: string;
+    grading?: {
+      status: 'processing' | 'saved' | 'already_recorded' | 'needs_review' | 'failed';
+      calificacionId?: string;
+      aciertos?: number;
+      totalReactivos?: number;
+      calificacionExamen?: string;
+      reasonCodes?: string[];
+    };
   }>;
   files?: Array<{ id: string; nombre: string; bytes: number; pages: number; sha256: string }>;
-  candidateExams?: Array<{ id: string; folio: string; studentName: string; group: string; pages: number[] }>;
+  candidateExams?: Array<{
+    id: string;
+    folio: string;
+    studentName: string;
+    group: string;
+    pages: number[];
+    questionNumbersByPage?: Record<string, number[]>;
+  }>;
   errors?: Array<{ fileName?: string; code: string }>;
   reviewResolutions?: Array<{
     sheetSerial: string;
@@ -365,6 +396,8 @@ export type RespuestaDetectadaOmr = {
   numeroPregunta: number;
   opcion: string | null;
   confianza: number;
+  /** False cuando el dato histórico no existe; no equivale a una lectura con 0% de confianza. */
+  confianzaDisponible?: boolean;
   estadoRespuesta?: EstadoRespuestaOmr;
   flags?: FlagRespuestaOmr[];
 };
@@ -381,6 +414,7 @@ export type RespuestaRevisionOmr = {
   opcion: string | null;
   opcionDetectada?: string | null;
   confianza?: number;
+  confianzaDisponible?: boolean;
   estadoRespuesta?: EstadoRespuestaOmr;
   flags?: FlagRespuestaOmr[];
   candidatas?: CandidataRespuestaOmr[];
@@ -395,6 +429,8 @@ export type ResultadoOmr = {
   motivosRevision: string[];
   templateVersionDetectada: 4;
   confianzaPromedioPagina: number;
+  /** Indica que el promedio se calculó con datos persistidos; false representa ausencia histórica. */
+  confianzaPromedioDisponible?: boolean;
   ratioAmbiguas: number;
   resumenRespuestas?: {
     totalReactivos: number;
@@ -440,6 +476,21 @@ export type PreviewCalificacion = {
   calificacionExamenTexto?: string;
   calificacionParcialTexto?: string;
   calificacionGlobalTexto?: string;
+  bonoGuiaEstudio?: {
+    bonoAplicado: string;
+    excluidoPorDocente: boolean;
+    evidencia: {
+      estado: 'detectado' | 'no_detectado' | 'requiere_revision';
+      bonoSugerido: number;
+      confianza: number | null;
+      lecturas: Array<{ texto: string; confianza: number; coincide: boolean }>;
+      numeroPagina: number | null;
+      region: { x: number; y: number; width: number; height: number } | null;
+      imagenRegionBase64?: string;
+      versionDetector: string;
+      motivo: string;
+    };
+  };
 };
 
 export type ResultadoAnalisisOmr = {

@@ -5,14 +5,12 @@
  * encuadre institucional y firmas digitales de alumnos.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
-import { obtenerTokenDocente } from '../../servicios_api/clienteApi';
 import { emitToast } from '../../ui/toast/toastBus';
-import { Icono } from '../../ui/iconos';
+import { Icono, Spinner } from '../../ui/iconos';
+import { ArrowUpRight, Check, Clock3, TriangleAlert, IconoLucide } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
-import { registrarAccionDocente } from './telemetriaDocente';
 import { SeccionEscaneo } from './SeccionEscaneo';
 import { SeccionCalificar } from './SeccionCalificar';
 import { GuiaCalificacionesVisual } from './GuiaCalificacionesVisual';
@@ -20,6 +18,12 @@ import { ConsultaCalificaciones, type ResumenConsultaCalificaciones } from './Co
 import { SolicitudesRevisionPanel } from './SolicitudesRevisionPanel';
 import { ClassroomEnCalificaciones } from './ClassroomEnCalificaciones';
 import { ExtraordinariosCalificaciones } from './ExtraordinariosCalificaciones';
+import { CalificacionesWorkspaceNavigation, type VistaCalificaciones } from './CalificacionesWorkspaceNavigation';
+import { NavegacionRevisionCaptura } from './NavegacionRevisionCaptura';
+import { PanelExportacionCalificaciones } from './PanelExportacionCalificaciones';
+import { EncuadreLogoFileField } from './EncuadreLogoFileField';
+import { CalificacionesHeaderKpis } from './CalificacionesHeaderKpis';
+import { useExamenesEntregadosManual, type ExamenEntregadoManual } from './hooks/useExamenesEntregadosManual';
 import type {
   Alumno,
   ExamenGeneradoClave,
@@ -43,13 +47,13 @@ import {
   normalizarTemplateVersionOmrDetectada
 } from './utilidades';
 
-type VistaCalificaciones = 'resultados' | 'extraordinarios' | 'actas' | 'operacion' | 'classroom';
-const RETRASO_LIBERACION_URL_DESCARGA_MS = 1000;
-
 export function SeccionCalificaciones({
   periodos = [],
   periodosArchivados = [],
   alumnos = [],
+  cargandoMaterias = false,
+  errorMaterias = false,
+  onReintentarMaterias,
   onAnalizar,
   onPrevisualizar,
   resultado,
@@ -75,7 +79,11 @@ export function SeccionCalificaciones({
   respuestasCombinadasRevision = [],
   onCalificar,
   solicitudesRevision = [],
-  onSincronizarSolicitudesRevision = async () => ({}),
+  estadoCargaSolicitudesRevision = 'listo',
+  solicitudesRevisionCargadas = true,
+  errorCargaSolicitudesRevision = '',
+  onReintentarCargaSolicitudesRevision,
+  onSincronizarSolicitudesRevision = async () => 'actualizada',
   onResolverSolicitudRevision = async () => ({}),
   onLimpiarColaEscaneos = () => {},
   onCargarRevisionHistoricaCalificada,
@@ -86,6 +94,9 @@ export function SeccionCalificaciones({
   periodos?: Periodo[];
   periodosArchivados?: Periodo[];
   alumnos: Alumno[];
+  cargandoMaterias?: boolean;
+  errorMaterias?: boolean;
+  onReintentarMaterias?: () => void;
   onAnalizar: (
     folio: string,
     numeroPagina: number,
@@ -130,6 +141,9 @@ export function SeccionCalificaciones({
     aciertos?: number;
     totalReactivos?: number;
     bonoSolicitado?: number;
+    soloPreview?: boolean;
+    omitirBonoAcordeon?: boolean;
+    confirmarBonoAcordeonManual?: boolean;
     evaluacionContinua?: number;
     proyecto?: number;
     retroalimentacion?: string;
@@ -156,7 +170,11 @@ export function SeccionCalificaciones({
     };
   }) => Promise<unknown>;
   solicitudesRevision?: SolicitudRevisionAlumno[];
-  onSincronizarSolicitudesRevision?: () => Promise<unknown>;
+  estadoCargaSolicitudesRevision?: 'inactivo' | 'cargando' | 'error' | 'listo';
+  solicitudesRevisionCargadas?: boolean;
+  errorCargaSolicitudesRevision?: string;
+  onReintentarCargaSolicitudesRevision?: () => void;
+  onSincronizarSolicitudesRevision?: () => Promise<'actualizada' | 'lista_no_actualizada' | void>;
   onResolverSolicitudRevision?: (id: string, estado: 'atendida' | 'rechazada', respuestaDocente?: string) => Promise<unknown>;
   onLimpiarColaEscaneos?: () => void;
   onCargarRevisionHistoricaCalificada?: (payload: {
@@ -179,19 +197,6 @@ export function SeccionCalificaciones({
   permisos: PermisosUI;
   avisarSinPermiso: (mensaje: string) => void;
 }) {
-  type ExamenEntregado = {
-    _id: string;
-    folio: string;
-    alumnoId?: string | null;
-    plantillaId?: string;
-    tipoExamen?: string;
-    plantillaTitulo?: string;
-    estado?: string;
-    periodoId?: string;
-    generadoEn?: string;
-    entregadoEn?: string;
-  };
-
   const puedeAnalizar = permisos.omr.analizar;
   const puedeCalificar = permisos.calificaciones.calificar;
   const revisionesSeguras = useMemo(() => (Array.isArray(revisionesOmr) ? revisionesOmr : []), [revisionesOmr]);
@@ -205,22 +210,25 @@ export function SeccionCalificaciones({
     () => revisionesSeguras.filter((examen) => examen.revisionConfirmada && Array.isArray(examen.paginas) && examen.paginas.length > 0),
     [revisionesSeguras]
   );
-  const [examenesCalificadosPersistidos, setExamenesCalificadosPersistidos] = useState<ExamenEntregado[]>([]);
-  const [examenesPorId, setExamenesPorId] = useState<Map<string, ExamenEntregado>>(new Map());
+  const [examenesCalificadosPersistidos, setExamenesCalificadosPersistidos] = useState<ExamenEntregadoManual[]>([]);
+  const [examenesPorId, setExamenesPorId] = useState<Map<string, ExamenEntregadoManual>>(new Map());
   const [periodoReporteId, setPeriodoReporteId] = useState('');
   const [vistaCalificaciones, setVistaCalificaciones] = useState<VistaCalificaciones>('resultados');
-  const [resumenConsulta, setResumenConsulta] = useState<ResumenConsultaCalificaciones>({ total: 0, calificados: 0, pendientes: 0 });
-  const [reporteDescargando, setReporteDescargando] = useState<'csv' | 'xlsx' | null>(null);
-  const [mensajeReporte, setMensajeReporte] = useState('');
+  const [resumenConsulta, setResumenConsulta] = useState<ResumenConsultaCalificaciones>({ periodoId: '', total: 0, calificados: 0, pendientes: 0 });
+  const [resumenExtraordinarios, setResumenExtraordinarios] = useState<{ periodoId: string; total: number | null }>({ periodoId: '', total: null });
+  const actualizarResumenExtraordinarios = useCallback((resumen: { periodoId: string; total: number | null }) => {
+    setResumenExtraordinarios(resumen);
+  }, []);
   const periodosConsulta = useMemo(() => {
     const idsActivos = new Set(periodos.map((periodo) => String(periodo._id ?? '').trim()));
     return [...periodos, ...periodosArchivados.filter((periodo) => !idsActivos.has(String(periodo._id ?? '').trim()))];
   }, [periodos, periodosArchivados]);
+  const resumenConsultaVigente = Boolean(periodoReporteId) && resumenConsulta.periodoId === periodoReporteId;
+  const resumenExtraordinariosVigente = resumenExtraordinarios.periodoId === periodoReporteId && resumenExtraordinarios.total !== null;
   const alumnosParaSelectorManual = useMemo(
     () => etiquetarAlumnosParaSelectorManual(alumnos, periodosConsulta),
     [alumnos, periodosConsulta]
   );
-
   useEffect(() => {
     if (!periodoReporteId && periodosConsulta.length > 0) {
       setPeriodoReporteId(String(periodosConsulta[0]?._id ?? '').trim());
@@ -231,74 +239,31 @@ export function SeccionCalificaciones({
     }
   }, [periodoReporteId, periodosConsulta]);
 
-  const descargarReporteCalificaciones = useCallback(
-    async (formato: 'csv' | 'xlsx') => {
-      const periodoId = String(periodoReporteId || '').trim();
-      if (!periodoId) {
-        setMensajeReporte('Selecciona una materia antes de descargar el reporte.');
-        return;
-      }
-      const token = obtenerTokenDocente();
-      if (!token) {
-        setMensajeReporte('Sesión no válida. Vuelve a iniciar sesión.');
-        return;
-      }
-
-      try {
-        setReporteDescargando(formato);
-        setMensajeReporte('');
-        const respuesta = await fetch(
-          `${clienteApi.baseApi}/analiticas/calificaciones-${formato}?periodoId=${encodeURIComponent(periodoId)}`,
-          { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
-        const archivo = await respuesta.blob();
-        const tipo = formato === 'csv' ? 'csv' : 'xlsx';
-        const url = URL.createObjectURL(archivo);
-        const enlace = document.createElement('a');
-        enlace.href = url;
-        enlace.download = `calificaciones-${periodoId}.${tipo}`;
-        try {
-          document.body.appendChild(enlace);
-          enlace.click();
-        } catch (error) {
-          URL.revokeObjectURL(url);
-          throw error;
-        } finally {
-          enlace.remove();
-        }
-        window.setTimeout(() => URL.revokeObjectURL(url), RETRASO_LIBERACION_URL_DESCARGA_MS);
-        setMensajeReporte(`Descarga ${formato.toUpperCase()} solicitada en el navegador.`);
-        registrarAccionDocente(`descargar_reporte_calificaciones_${formato}`, true);
-      } catch (error) {
-        const mensaje = mensajeDeError(error, `No se pudo descargar el reporte ${formato.toUpperCase()}`);
-        setMensajeReporte(mensaje);
-        emitToast({
-          level: 'error',
-          title: 'Reporte no disponible',
-          message: mensaje,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
-        registrarAccionDocente(`descargar_reporte_calificaciones_${formato}`, false);
-      } finally {
-        setReporteDescargando(null);
-      }
-    },
-    [periodoReporteId]
-  );
   const solicitudesSeguras = useMemo(
     () => (Array.isArray(solicitudesRevision) ? solicitudesRevision : []),
     [solicitudesRevision]
   );
+  const {
+    alumnoManualId,
+    seleccionarAlumnoManual: cambiarAlumnoManual,
+    examenesManual,
+    cargandoExamenesManual,
+    errorCargaExamenesManual,
+    reintentarCargaExamenesManual,
+    hayMasExamenesManual,
+    cargandoMasExamenesManual,
+    errorCargaMasExamenesManual,
+    mensajeCargaMasExamenesManual,
+    cargarMasExamenesManual
+  } = useExamenesEntregadosManual();
+  const alumnoManualSeleccionado = alumnosParaSelectorManual.find(
+    ({ alumno }) => String(alumno._id) === alumnoManualId
+  );
   const [examenRevisadoSeleccionadoId, setExamenRevisadoSeleccionadoId] = useState('');
   const [respuestaPorSolicitudId, setRespuestaPorSolicitudId] = useState<Record<string, string>>({});
-  const [alumnoManualId, setAlumnoManualId] = useState('');
-  const [examenesManual, setExamenesManual] = useState<ExamenEntregado[]>([]);
   const [plantillasPorId, setPlantillasPorId] = useState<Map<string, Plantilla>>(new Map());
   const [filtroFolioManual, setFiltroFolioManual] = useState('');
   const [examenManualId, setExamenManualId] = useState('');
-  const [cargandoExamenesManual, setCargandoExamenesManual] = useState(false);
   const [activandoManual, setActivandoManual] = useState(false);
   const [manualMensaje, setManualMensaje] = useState('');
   const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false);
@@ -307,6 +272,8 @@ export function SeccionCalificaciones({
   const [encuadreEstado, setEncuadreEstado] = useState<any>(null);
   const [loadingEncuadre, setLoadingEncuadre] = useState(false);
   const [errorEncuadre, setErrorEncuadre] = useState<string | null>(null);
+  const [errorConsultaEncuadre, setErrorConsultaEncuadre] = useState(false);
+  const versionConsultaEncuadreRef = useRef(0);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [guardandoEncuadre, setGuardandoEncuadre] = useState(false);
 
@@ -335,24 +302,37 @@ export function SeccionCalificaciones({
   const [pondPractica, setPondPractica] = useState(40);
 
   const cargarEstadoEncuadre = useCallback((periodoId: string) => {
+    const versionConsulta = ++versionConsultaEncuadreRef.current;
     if (!periodoId) {
       setEncuadreEstado(null);
+      setLoadingEncuadre(false);
+      setErrorEncuadre(null);
+      setErrorConsultaEncuadre(false);
       return;
     }
     setLoadingEncuadre(true);
+    setEncuadreEstado(null);
     setErrorEncuadre(null);
+    setErrorConsultaEncuadre(false);
     clienteApi.obtener(`/evaluaciones/encuadre/estado/${periodoId}`)
       .then((res: any) => {
+        if (versionConsulta !== versionConsultaEncuadreRef.current) return;
         setEncuadreEstado(res?.inicializado === false ? null : res);
         setLoadingEncuadre(false);
       })
       .catch((err: any) => {
+        if (versionConsulta !== versionConsultaEncuadreRef.current) return;
         setEncuadreEstado(null);
         setLoadingEncuadre(false);
         if (err.status !== 404) {
           setErrorEncuadre(err.message || 'Error al obtener estado de firmas');
+          setErrorConsultaEncuadre(true);
         }
       });
+  }, []);
+
+  useEffect(() => () => {
+    versionConsultaEncuadreRef.current += 1;
   }, []);
 
   useEffect(() => {
@@ -361,24 +341,14 @@ export function SeccionCalificaciones({
     } else if (periodos.length > 0) {
       const firstId = String(periodos[0]._id || '');
       setSelectedPeriodoId(firstId);
-      cargarEstadoEncuadre(firstId);
     }
   }, [selectedPeriodoId, periodos, cargarEstadoEncuadre]);
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setter(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
 
   const handleInicializarEncuadre = async () => {
     if (!selectedPeriodoId) return;
     setGuardandoEncuadre(true);
     setErrorEncuadre(null);
+    setErrorConsultaEncuadre(false);
     try {
       await clienteApi.enviar('/evaluaciones/encuadre/inicializar', {
         periodoId: selectedPeriodoId,
@@ -408,6 +378,7 @@ export function SeccionCalificaciones({
       cargarEstadoEncuadre(selectedPeriodoId);
     } catch (err: any) {
       setErrorEncuadre(err.message || 'Error al inicializar el encuadre');
+      setErrorConsultaEncuadre(false);
     } finally {
       setGuardandoEncuadre(false);
     }
@@ -444,9 +415,7 @@ export function SeccionCalificaciones({
   );
   function seleccionarAlumnoManual(valor: string) {
     if (valor === alumnoManualId) return;
-    setAlumnoManualId(valor);
-    setCargandoExamenesManual(Boolean(valor));
-    setExamenesManual([]);
+    cambiarAlumnoManual(valor);
     setFiltroFolioManual('');
     setExamenManualId('');
     setManualMensaje('');
@@ -599,11 +568,11 @@ export function SeccionCalificaciones({
     examenesSinCalificacionRef.current.clear();
     ultimoIntentoCalificacionRef.current.clear();
     void clienteApi
-      .obtener<{ examenes?: ExamenEntregado[] }>('/examenes/generados?limite=200')
+      .obtener<{ examenes?: ExamenEntregadoManual[] }>('/examenes/generados?limite=200')
       .then((payload) => {
         if (cancelado) return;
         const lista = Array.isArray(payload?.examenes) ? payload.examenes : [];
-        const mapa = new Map<string, ExamenEntregado>();
+        const mapa = new Map<string, ExamenEntregadoManual>();
         for (const examen of lista) {
           const id = String(examen?._id ?? '').trim();
           if (!id) continue;
@@ -648,46 +617,6 @@ export function SeccionCalificaciones({
     if (examenesManualFiltrados.some((item) => item._id === examenManualId)) return;
     setExamenManualId('');
   }, [examenManualId, examenesManualFiltrados]);
-
-  useEffect(() => {
-    if (!alumnoManualId) {
-      setCargandoExamenesManual(false);
-      return;
-    }
-    let cancelado = false;
-    void clienteApi
-      .obtener<{ examenes?: ExamenEntregado[] }>(
-        `/examenes/generados?alumnoId=${encodeURIComponent(alumnoManualId)}&limite=200`
-      )
-      .then((payload) => {
-        if (cancelado) return;
-        const lista = Array.isArray(payload?.examenes) ? payload.examenes : [];
-        const entregados = lista.filter((item) => {
-          const estado = String(item?.estado ?? '').toLowerCase();
-          return estado === 'entregado' || estado === 'calificado';
-        });
-        entregados.sort((a, b) => {
-          const aTime = a.entregadoEn ? new Date(a.entregadoEn).getTime() : 0;
-          const bTime = b.entregadoEn ? new Date(b.entregadoEn).getTime() : 0;
-          return bTime - aTime;
-        });
-        setExamenesManual(entregados);
-        setExamenManualId((prev) => (entregados.some((item) => item._id === prev) ? prev : ''));
-        setManualMensaje(entregados.length === 0 ? 'No hay exámenes entregados para el alumno seleccionado.' : '');
-      })
-      .catch((error) => {
-        if (cancelado) return;
-        setExamenesManual([]);
-        setExamenManualId('');
-        setManualMensaje(mensajeDeError(error, 'No se pudo cargar la lista de exámenes entregados'));
-      })
-      .finally(() => {
-        if (!cancelado) setCargandoExamenesManual(false);
-      });
-    return () => {
-      cancelado = true;
-    };
-  }, [alumnoManualId]);
 
   const obtenerBancoPreguntas = useCallback(async (periodoId: string) => {
     const llave = String(periodoId ?? '').trim();
@@ -831,6 +760,7 @@ export function SeccionCalificaciones({
               numeroPregunta: Number(item?.numeroPregunta),
               opcion: String(item?.opcion ?? '').trim().toUpperCase() || null,
               confianza: Number.isFinite(Number(item?.confianza)) ? Number(item?.confianza) : 0,
+              confianzaDisponible: typeof item?.confianza === 'number' && Number.isFinite(item.confianza),
               ...(item?.estadoRespuesta ? { estadoRespuesta: item.estadoRespuesta } : {}),
               ...(Array.isArray(item?.flags) ? { flags: item.flags } : {})
             }))
@@ -853,6 +783,7 @@ export function SeccionCalificaciones({
           numeroPregunta: Number(numeroPregunta),
           opcion: detectada?.opcion ?? null,
           confianza: Number.isFinite(Number(detectada?.confianza)) ? Number(detectada?.confianza) : 0,
+          confianzaDisponible: detectada?.confianzaDisponible === true,
           ...(detectada?.estadoRespuesta ? { estadoRespuesta: detectada.estadoRespuesta } : {}),
           ...(Array.isArray(detectada?.flags) ? { flags: detectada.flags } : {})
         };
@@ -885,10 +816,12 @@ export function SeccionCalificaciones({
                   return numero >= pagina.preguntasDel && numero <= pagina.preguntasAl;
                 })
               : [];
-            const confianzaPagina =
-              respuestasPagina.length > 0
-                ? respuestasPagina.reduce((acc, item) => acc + Number(item.confianza || 0), 0) / respuestasPagina.length
-                : 0;
+            const confianzasDisponibles = respuestasPagina
+              .filter((item) => item.confianzaDisponible)
+              .map((item) => item.confianza);
+            const confianzaPagina = confianzasDisponibles.length
+              ? confianzasDisponibles.reduce((acc, confianza) => acc + confianza, 0) / confianzasDisponibles.length
+              : 0;
             return {
               numeroPagina: pagina.numeroPagina,
               respuestas: respuestasPagina,
@@ -901,6 +834,7 @@ export function SeccionCalificaciones({
                 motivosRevision: [],
                 templateVersionDetectada,
                 confianzaPromedioPagina: confianzaPagina,
+                confianzaPromedioDisponible: confianzasDisponibles.length > 0,
                 ratioAmbiguas: 0
               },
               imagenBase64: imagenesPorPagina.get(pagina.numeroPagina)
@@ -942,10 +876,12 @@ export function SeccionCalificaciones({
         ordenPreguntas: clave.ordenPreguntas,
         respuestasDetectadas: respuestasCompletas
       });
-      const promedioConfianza =
-        respuestasCompletas.length > 0
-          ? respuestasCompletas.reduce((acc, item) => acc + Number(item.confianza || 0), 0) / respuestasCompletas.length
-          : 0;
+      const confianzasDisponibles = respuestasCompletas
+        .filter((item) => item.confianzaDisponible)
+        .map((item) => item.confianza);
+      const promedioConfianza = confianzasDisponibles.length
+        ? confianzasDisponibles.reduce((acc, confianza) => acc + confianza, 0) / confianzasDisponibles.length
+        : 0;
       const paginaInicial = paginasReconstruidas[0]?.numeroPagina ?? 1;
       const respuestasPaginaInicial =
         paginasReconstruidas.find((pagina) => pagina.numeroPagina === paginaInicial)?.respuestas ?? respuestasCompletas;
@@ -961,6 +897,7 @@ export function SeccionCalificaciones({
           estadoAnalisis: 'ok' as const,
           motivosRevision: [],
           confianzaPromedioPagina: promedioConfianza,
+          confianzaPromedioDisponible: confianzasDisponibles.length > 0,
           ratioAmbiguas: 0
         };
       onCargarRevisionHistoricaCalificada?.({
@@ -1003,7 +940,8 @@ export function SeccionCalificaciones({
     try {
       setCargandoSolicitudes(true);
       setMensajeRevision('');
-      await onSincronizarSolicitudesRevision();
+      const resultado = await onSincronizarSolicitudesRevision();
+      if (resultado === 'lista_no_actualizada') return;
       setMensajeRevision('Solicitudes sincronizadas correctamente.');
     } catch (error) {
       setMensajeRevision(mensajeDeError(error, 'No se pudieron sincronizar las solicitudes'));
@@ -1022,7 +960,6 @@ export function SeccionCalificaciones({
       await onResolverSolicitudRevision(solicitud._id, estado, respuesta);
       setRespuestaPorSolicitudId((prev) => ({ ...prev, [solicitud.externoId]: '' }));
       setMensajeRevision(`Solicitud ${estado === 'atendida' ? 'atendida' : 'rechazada'} correctamente.`);
-      await onSincronizarSolicitudesRevision();
     } catch (error) {
       setMensajeRevision(mensajeDeError(error, 'No se pudo resolver la solicitud'));
     } finally {
@@ -1035,78 +972,45 @@ export function SeccionCalificaciones({
       {/* Encabezado: resultados primero; la operación queda separada. */}
       <div className="banco-panel__head calif-panel__head anim-fade-in">
         <div className="banco-panel__lead">
-          <div className="banco-panel__icon-orb calif-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <Icono nombre="calificar" />
-          </div>
           <div className="banco-panel__text-block">
             <div className="banco-panel__meta-row">
               <span className="banco-status-pill calif-status-pill">
                 <span className="banco-pulse-dot" aria-hidden="true" />
                 <span>Resultados académicos</span>
               </span>
-              <span className="banco-counter-tag">{vistaCalificaciones === 'resultados' ? resumenConsulta.total : alumnos.length} {vistaCalificaciones === 'resultados' ? 'alumnos en la materia' : 'alumnos'}</span>
+              {vistaCalificaciones === 'resultados' && !resumenConsultaVigente && (
+                <span className="banco-counter-tag" role="status">
+                  {periodoReporteId ? 'Consultando resultados…' : 'Selecciona una materia'}
+                </span>
+              )}
+              {vistaCalificaciones === 'extraordinarios' && (
+                <span className="banco-counter-tag" role="status">
+                  {resumenExtraordinariosVigente
+                    ? `${resumenExtraordinarios.total} ${resumenExtraordinarios.total === 1 ? 'alumno' : 'alumnos'}`
+                    : periodoReporteId ? 'Cargando lista académica…' : 'Selecciona una materia'}
+                </span>
+              )}
             </div>
-            <h2 className="banco-panel__title eyebrow"><Icono nombre="calificar" /> Calificaciones</h2>
+            <h2 className="banco-panel__title eyebrow">Calificaciones</h2>
             <p className="nota">Consulta, revisa y publica el resultado de cada alumno desde un solo lugar.</p>
           </div>
         </div>
 
-        {/* Mini-KPIs */}
-        <div className="banco-header-kpis" aria-live="polite">
-          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Alumnos registrados en las materias disponibles">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="pdf" /></span>
-            <span className="banco-mini-kpi__num">{vistaCalificaciones === 'resultados' ? resumenConsulta.total : alumnos.length}</span>
-            <span className="banco-mini-kpi__lbl">{vistaCalificaciones === 'resultados' ? 'En la materia' : 'Alumnos'}</span>
-          </div>
-
-          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip={vistaCalificaciones === 'resultados' ? 'Alumnos con una calificación registrada en la materia seleccionada' : 'Exámenes con calificación OMR confirmada'}>
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre={vistaCalificaciones === 'resultados' ? 'ok' : 'escaneo'} /></span>
-            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{vistaCalificaciones === 'resultados' ? resumenConsulta.calificados : examenesListos}</span>
-            <span className="banco-mini-kpi__lbl">{vistaCalificaciones === 'resultados' ? 'Calificados' : 'Confirmados'}</span>
-          </div>
-
-          <div className="banco-mini-kpi banco-mini-kpi--sintema anim-kpi-hover" data-tooltip={vistaCalificaciones === 'resultados' ? 'Alumnos sin calificación registrada en la materia seleccionada' : 'Páginas que necesitan revisión OMR'}>
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="alerta" /></span>
-            <span className="banco-mini-kpi__num banco-mini-kpi__num--amber">{vistaCalificaciones === 'resultados' ? resumenConsulta.pendientes : paginasPendientes}</span>
-            <span className="banco-mini-kpi__lbl">{vistaCalificaciones === 'resultados' ? 'Pendientes' : 'Revisión OMR'}</span>
-          </div>
-
-          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Solicitudes de aclaración de alumnos">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="ok" /></span>
-            <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{resumenSolicitudes.total}</span>
-            <span className="banco-mini-kpi__lbl">Aclaraciones</span>
-          </div>
-
-          <div className="banco-mini-kpi banco-mini-kpi--reactivos anim-kpi-hover" data-tooltip="Páginas procesadas por el motor OMR">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="info" /></span>
-            <span className="banco-mini-kpi__num">{totalPaginas}</span>
-            <span className="banco-mini-kpi__lbl">Páginas procesadas</span>
-          </div>
-        </div>
+        <CalificacionesHeaderKpis
+          vistaCalificaciones={vistaCalificaciones}
+          resumenConsultaVigente={resumenConsultaVigente}
+          resumenConsulta={resumenConsulta}
+          resumenExtraordinariosVigente={resumenExtraordinariosVigente}
+          resumenExtraordinarios={resumenExtraordinarios}
+          alumnosTotal={alumnos.length}
+          examenesListos={examenesListos}
+          paginasPendientes={paginasPendientes}
+          solicitudesTotal={resumenSolicitudes.total}
+          totalPaginas={totalPaginas}
+        />
       </div>
 
-      <nav className="calificaciones-workspace-nav" aria-label="Espacios de calificaciones">
-        <button type="button" className={vistaCalificaciones === 'resultados' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'resultados' ? 'page' : undefined} onClick={() => setVistaCalificaciones('resultados')}>
-          <span className="calificaciones-workspace-nav__index">01</span>
-          <Icono nombre="calificar" ariaHidden size={19} /><span><strong>Resultados</strong><small>Consulta por alumno</small></span>
-        </button>
-        <button type="button" className={vistaCalificaciones === 'extraordinarios' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'extraordinarios' ? 'page' : undefined} onClick={() => setVistaCalificaciones('extraordinarios')}>
-          <span className="calificaciones-workspace-nav__index">02</span>
-          <Icono nombre="evaluaciones" ariaHidden size={19} /><span><strong>Extraordinarios</strong><small>Solicitud · examen · resultado</small></span>
-        </button>
-        <button type="button" className={vistaCalificaciones === 'actas' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'actas' ? 'page' : undefined} onClick={() => setVistaCalificaciones('actas')}>
-          <span className="calificaciones-workspace-nav__index">03</span>
-          <Icono nombre="publicar" ariaHidden size={19} /><span><strong>Actas y exportación</strong><small>Prepara el resultado oficial</small></span>
-        </button>
-        <button type="button" className={vistaCalificaciones === 'operacion' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'operacion' ? 'page' : undefined} onClick={() => setVistaCalificaciones('operacion')}>
-          <span className="calificaciones-workspace-nav__index">04</span>
-          <Icono nombre="escaneo" ariaHidden size={19} /><span><strong>Revisión y captura</strong><small>OMR, manual y aclaraciones</small></span>
-        </button>
-        <button type="button" className={vistaCalificaciones === 'classroom' ? 'is-active' : ''} aria-current={vistaCalificaciones === 'classroom' ? 'page' : undefined} onClick={() => setVistaCalificaciones('classroom')}>
-          <span className="calificaciones-workspace-nav__index">05</span>
-          <Icono nombre="classroom" ariaHidden size={19} /><span><strong>Classroom</strong><small>Vínculos · cortes · consulta</small></span>
-        </button>
-      </nav>
+      <CalificacionesWorkspaceNavigation vista={vistaCalificaciones} onChange={setVistaCalificaciones} />
 
       {vistaCalificaciones === 'extraordinarios' && (
         <ExtraordinariosCalificaciones
@@ -1115,6 +1019,7 @@ export function SeccionCalificaciones({
           onPeriodoChange={setPeriodoReporteId}
           puedeCalificar={puedeCalificar}
           puedeGenerar={permisos.examenes.generar && permisos.plantillas.previsualizar}
+          onResumenChange={actualizarResumenExtraordinarios}
           onAbrirRevision={(alumnoSeleccionadoId) => {
             seleccionarAlumnoManual(alumnoSeleccionadoId);
             setVistaCalificaciones('operacion');
@@ -1149,61 +1054,16 @@ export function SeccionCalificaciones({
         />
       )}
 
-      {vistaCalificaciones === 'actas' && <div className="calificaciones-workspace-view anim-fade-in">
-        <div className="calificaciones-view-heading">
-          <span className="calificaciones-kicker">Resultado oficial</span>
-          <h3>Actas y exportación</h3>
-          <p className="nota">Descarga o prepara el resultado cuando la revisión académica esté completa.</p>
-        </div>
-        <div className="calif-action-deck anim-fade-in">
-        <div className="calif-deck-card calif-deck-card--reports">
-          <div className="calif-deck-card__header">
-            <span className="banco-section-pill">
-              <span className="banco-section-pill__dot" aria-hidden="true" />
-              <span>Actas & Exportación</span>
-            </span>
-            <span className="banco-counter-tag">Formatos: CSV · XLSX</span>
-          </div>
-          <div className="calif-deck-card__body">
-            <label className="campo calif-deck-card__field">
-              <span>Materia del reporte</span>
-              <select value={periodoReporteId} onChange={(event) => setPeriodoReporteId(event.target.value)}>
-                <option value="">Selecciona materia...</option>
-                {periodosConsulta.map((periodo) => (
-                  <option key={periodo._id} value={periodo._id}>
-                    {etiquetaMateriaParaSelector(periodo)}{periodo.activo === false ? ' · Archivada' : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="calif-deck-card__btn-group">
-              <Boton
-                type="button"
-                variante="secundario"
-                icono={<Icono nombre="descargar" />}
-                cargando={reporteDescargando === 'csv'}
-                disabled={!periodoReporteId || reporteDescargando !== null || !puedeCalificar}
-                onClick={() => void descargarReporteCalificaciones('csv')}
-              >
-                Descargar CSV
-              </Boton>
-              <Boton
-                type="button"
-                variante="secundario"
-                icono={<Icono nombre="descargar" />}
-                cargando={reporteDescargando === 'xlsx'}
-                disabled={!periodoReporteId || reporteDescargando !== null || !puedeCalificar}
-                onClick={() => void descargarReporteCalificaciones('xlsx')}
-              >
-                Descargar XLSX
-              </Boton>
-            </div>
-          </div>
-          {mensajeReporte && <InlineMensaje tipo={esMensajeError(mensajeReporte) ? 'error' : 'info'}>{mensajeReporte}</InlineMensaje>}
-        </div>
-
-        </div>
-      </div>}
+      <PanelExportacionCalificaciones
+        periodos={periodosConsulta}
+        periodoId={periodoReporteId}
+        onPeriodoChange={setPeriodoReporteId}
+        puedeCalificar={puedeCalificar}
+        cargandoPeriodos={cargandoMaterias}
+        errorPeriodos={errorMaterias}
+        onReintentarPeriodos={onReintentarMaterias}
+        oculto={vistaCalificaciones !== 'actas'}
+      />
 
       {vistaCalificaciones === 'operacion' && <div className="calificaciones-workspace-view anim-fade-in">
         <div className="calificaciones-view-heading">
@@ -1216,6 +1076,7 @@ export function SeccionCalificaciones({
             </Boton>
           )}
         </div>
+        <NavegacionRevisionCaptura />
         <GuiaCalificacionesVisual />
         <div className="calif-action-deck anim-fade-in">
         <div className="calif-deck-card calif-deck-card--history">
@@ -1225,7 +1086,13 @@ export function SeccionCalificaciones({
               <span>Escrutinio & Custodia</span>
             </span>
             <span className="banco-counter-tag">
-              {examenIdActivo ? (hayCambiosPendientesOmrActiva ? '⚠️ Cambios pendientes' : '✓ Examen activo') : 'Sin examen activo'}
+              {examenIdActivo ? (
+                hayCambiosPendientesOmrActiva ? (
+                  <><IconoLucide icon={TriangleAlert} size={14} /> Cambios pendientes</>
+                ) : (
+                  <><IconoLucide icon={Check} size={14} /> Examen activo</>
+                )
+              ) : 'Sin examen activo'}
             </span>
           </div>
           <div className="calif-deck-card__body">
@@ -1258,7 +1125,7 @@ export function SeccionCalificaciones({
                 disabled={opcionesExamenesRevisados.length === 0}
               >
                 <option value="">
-                  {opcionesExamenesRevisados.length === 0 ? 'Sin exámenes revisados/calificados' : 'Selecciona examen revisado/calificado...'}
+                  {opcionesExamenesRevisados.length === 0 ? 'No hay exámenes' : 'Selecciona examen revisado/calificado...'}
                 </option>
                 {opcionesExamenesRevisados.map((examen) => (
                   <option key={examen.id} value={examen.id}>
@@ -1314,7 +1181,7 @@ export function SeccionCalificaciones({
                   <span className="banco-section-pill__dot" aria-hidden="true" />
                   <span>Instrumentación Académica</span>
                 </span>
-                <h3 className="entregas-title-heading">
+                <h3 id="calificaciones-encuadre-heading" tabIndex={-1} className="entregas-title-heading">
                   <Icono nombre="pdf" /> Encuadre Académico y Firmas
                 </h3>
                 <p className="nota">Configura el formato de encuadre digital y notifica a los alumnos para su firma desde su correo institucional.</p>
@@ -1323,8 +1190,16 @@ export function SeccionCalificaciones({
             
             <label className="campo">
               Materia / Periodo
-              <select value={selectedPeriodoId} onChange={(e) => setSelectedPeriodoId(e.target.value)}>
-                <option value="">Selecciona materia</option>
+              <select value={selectedPeriodoId} disabled={periodos.length === 0} onChange={(e) => setSelectedPeriodoId(e.target.value)}>
+                <option value="">
+                  {cargandoMaterias
+                    ? 'Cargando materias…'
+                    : errorMaterias
+                      ? 'No se pudieron cargar las materias'
+                      : periodos.length === 0
+                        ? 'No hay materias disponibles'
+                        : 'Selecciona materia'}
+                </option>
                 {periodos.map((p) => (
                   <option key={p._id} value={p._id}>
                     {etiquetaMateriaParaSelector(p)}
@@ -1333,8 +1208,39 @@ export function SeccionCalificaciones({
               </select>
             </label>
 
-            {loadingEncuadre && <p className="nota">Cargando estado del encuadre...</p>}
-            {errorEncuadre && <div className="alert alert--danger">{errorEncuadre}</div>}
+            {periodos.length === 0 && cargandoMaterias && (
+              <InlineMensaje tipo="info" leading={<Spinner />}>Cargando materias disponibles…</InlineMensaje>
+            )}
+            {periodos.length === 0 && errorMaterias && (
+              <>
+                <InlineMensaje tipo="error">No se pudieron cargar las materias. Reintenta para consultar el encuadre y las firmas.</InlineMensaje>
+                {onReintentarMaterias && (
+                  <Boton type="button" variante="secundario" disabled={cargandoMaterias} onClick={onReintentarMaterias}>
+                    Reintentar carga de materias
+                  </Boton>
+                )}
+              </>
+            )}
+            {periodos.length === 0 && !cargandoMaterias && !errorMaterias && (
+              <InlineMensaje tipo="info">No hay materias disponibles para configurar el encuadre.</InlineMensaje>
+            )}
+
+            {loadingEncuadre && <InlineMensaje tipo="info" leading={<Spinner />}>Consultando estado del encuadre y sus firmas…</InlineMensaje>}
+            {errorEncuadre && (
+              <>
+                <InlineMensaje tipo="error">{errorEncuadre}</InlineMensaje>
+                {errorConsultaEncuadre && (
+                  <Boton
+                    type="button"
+                    variante="secundario"
+                    disabled={loadingEncuadre}
+                    onClick={() => cargarEstadoEncuadre(selectedPeriodoId)}
+                  >
+                    Reintentar consulta de firmas
+                  </Boton>
+                )}
+              </>
+            )}
 
             {encuadreEstado ? (
               <div className="encuadre-status-box">
@@ -1352,7 +1258,9 @@ export function SeccionCalificaciones({
                         <span>{f.nombreFirmante}</span>
                       </div>
                       <span className={`badge ${f.firmado ? 'ok' : 'warning'} encuadre-firma-badge-status`}>
-                        {f.firmado ? '✓ Firmado' : '⌛ Pendiente'}
+                        {f.firmado
+                          ? <><IconoLucide icon={Check} size={14} /> Firmado</>
+                          : <><IconoLucide icon={Clock3} size={14} /> Pendiente</>}
                       </span>
                     </div>
                   ))}
@@ -1360,7 +1268,7 @@ export function SeccionCalificaciones({
 
                 <div className="encuadre-actions-container">
                   <a href={`/api/evaluaciones-publicas/encuadre/pdf/${encuadreEstado.firmas?.[0]?.tokenFirma}`} target="_blank" rel="noreferrer" className="btn btn--secondary btn-sm encuadre-btn-sm">
-                    Ver PDF Oficial ↗
+                    Ver PDF oficial <IconoLucide icon={ArrowUpRight} size={14} />
                   </a>
                   <button type="button" className="btn btn--primary btn-sm encuadre-btn-sm" onClick={() => setMostrarFormulario(true)}>
                     Reconfigurar Encuadre
@@ -1392,14 +1300,8 @@ export function SeccionCalificaciones({
                 </label>
                 
                 <div className="encuadre-grid-2col-layout">
-                  <label className="campo">
-                    Logo Principal (Izquierdo)
-                    <input type="file" accept="image/png, image/jpeg" onChange={(e) => handleLogoChange(e, setLogoBase64)} className="encuadre-file-input-field" />
-                  </label>
-                  <label className="campo">
-                    Logo Carrera (Derecho)
-                    <input type="file" accept="image/png, image/jpeg" onChange={(e) => handleLogoChange(e, setLogoCarreraBase64)} className="encuadre-file-input-field" />
-                  </label>
+                  <EncuadreLogoFileField id="encuadre-logo-principal" label="Logo Principal (Izquierdo)" onRead={setLogoBase64} />
+                  <EncuadreLogoFileField id="encuadre-logo-carrera" label="Logo Carrera (Derecho)" onRead={setLogoCarreraBase64} />
                 </div>
 
                 <label className="campo">
@@ -1505,23 +1407,34 @@ export function SeccionCalificaciones({
                   <span className="banco-section-pill__dot" aria-hidden="true" />
                   <span>Calificación Directa</span>
                 </span>
-                <h3 className="entregas-title-heading">
-                  <Icono nombre="alumno" /> Selección manual por entregado
+                <h3 id="calificaciones-manual-selection-heading" tabIndex={-1} className="entregas-title-heading">
+                  <Icono nombre="alumno" /> Selección manual de examen
                 </h3>
-                <p className="nota">Selecciona alumno y examen entregado para calificar manualmente cada pregunta.</p>
+                <p className="nota">Selecciona un alumno y un examen entregado o calificado para revisar sus respuestas.</p>
               </div>
               <div className="banco-section-side-meta">
-                <span className="banco-counter-tag">Entregados: {examenesManual.length}</span>
-                <span className="banco-counter-tag banco-counter-tag--cyan">Filtrados: {examenesManualFiltrados.length}</span>
+                {!alumnoManualId ? (
+                  <span className="banco-counter-tag">Selecciona un alumno</span>
+                ) : cargandoExamenesManual ? (
+                  <span className="banco-counter-tag" role="status">Cargando exámenes entregados o calificados…</span>
+                ) : errorCargaExamenesManual ? (
+                  <span className="banco-counter-tag">Lista no disponible</span>
+                ) : (
+                  <>
+                    <span className="banco-counter-tag">Exámenes cargados: {examenesManual.length}</span>
+                    <span className="banco-counter-tag banco-counter-tag--cyan">Coincidencias de folio: {examenesManualFiltrados.length}</span>
+                  </>
+                )}
               </div>
             </div>
-            <div className="item-meta">
-              <span>Exámenes entregados del alumno: {examenesManual.length}</span>
-              <span>Filtrados: {examenesManualFiltrados.length}</span>
-            </div>
-            <label className="campo">
-              Alumno
-              <select value={alumnoManualId} onChange={(event) => seleccionarAlumnoManual(event.target.value)}>
+            <div className="campo">
+              <label htmlFor="calificacion-manual-alumno">Alumno</label>
+              <select
+                id="calificacion-manual-alumno"
+                value={alumnoManualId}
+                onChange={(event) => seleccionarAlumnoManual(event.target.value)}
+                aria-describedby={alumnoManualSeleccionado ? 'calificacion-manual-alumno-seleccionado' : undefined}
+              >
                 <option value="">Selecciona</option>
                 {alumnosParaSelectorManual.map(({ alumno, etiqueta }) => (
                   <option key={alumno._id} value={alumno._id}>
@@ -1529,22 +1442,32 @@ export function SeccionCalificaciones({
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="campo">
-              Buscar folio
+              {alumnoManualSeleccionado && (
+                <span className="ayuda" id="calificacion-manual-alumno-seleccionado">
+                  Alumno seleccionado: {alumnoManualSeleccionado.etiqueta}
+                </span>
+              )}
+            </div>
+            <div className="campo">
+              <label htmlFor="calificacion-manual-folio">Buscar folio</label>
               <input
+                id="calificacion-manual-folio"
+                type="search"
+                autoComplete="off"
                 value={filtroFolioManual}
                 onChange={(event) => setFiltroFolioManual(event.target.value)}
                 placeholder="Ej. FOLIO-000123"
-                disabled={!alumnoManualId || cargandoExamenesManual || examenesManual.length === 0}
+                disabled={!alumnoManualId || cargandoExamenesManual || errorCargaExamenesManual || examenesManual.length === 0}
+                aria-describedby="calificacion-manual-folio-ayuda"
               />
-            </label>
+              <span className="ayuda" id="calificacion-manual-folio-ayuda">Busca en los exámenes cargados de este alumno. Si no encuentras el folio y hay más páginas, cárgalas para ampliar la búsqueda.</span>
+            </div>
             <label className="campo">
-              Examen entregado
+              Examen entregado o calificado
               <select
                 value={examenManualId}
                 onChange={(event) => setExamenManualId(event.target.value)}
-                disabled={!alumnoManualId || cargandoExamenesManual}
+                disabled={!alumnoManualId || cargandoExamenesManual || errorCargaExamenesManual}
               >
                 <option value="">Selecciona</option>
                 {examenesManualFiltrados.map((examen) => (
@@ -1576,13 +1499,55 @@ export function SeccionCalificaciones({
               </div>
             )}
             {filtroFolioManual && examenesManualFiltrados.length === 0 && (
-              <InlineMensaje tipo="info">No hay exámenes que coincidan con el folio buscado.</InlineMensaje>
+              <div className="calificaciones-consulta__no-results">
+                <InlineMensaje tipo="info">
+                  {hayMasExamenesManual
+                    ? `No hay coincidencias entre los exámenes cargados (${examenesManual.length}). Puede haber más en la siguiente página.`
+                    : 'No hay exámenes que coincidan con el folio buscado.'}
+                </InlineMensaje>
+                <Boton type="button" variante="secundario" onClick={() => setFiltroFolioManual('')}>
+                  Limpiar búsqueda
+                </Boton>
+              </div>
+            )}
+            {alumnoManualId && (hayMasExamenesManual || cargandoMasExamenesManual || errorCargaMasExamenesManual || mensajeCargaMasExamenesManual) && (
+              <div>
+                {cargandoMasExamenesManual ? (
+                  <InlineMensaje tipo="info">Cargando más exámenes del alumno…</InlineMensaje>
+                ) : errorCargaMasExamenesManual ? (
+                  <InlineMensaje tipo="error">No se pudo cargar la página siguiente. Se conserva la lista ya cargada; puedes reintentar.</InlineMensaje>
+                ) : hayMasExamenesManual ? (
+                  <InlineMensaje tipo="info">Hay más exámenes por cargar para este alumno.</InlineMensaje>
+                ) : null}
+                {mensajeCargaMasExamenesManual && !cargandoMasExamenesManual && (
+                  <p className="nota" role="status">{mensajeCargaMasExamenesManual}</p>
+                )}
+                {hayMasExamenesManual && (
+                  <div className="item-actions calificaciones-manual-panel__actions">
+                    <Boton
+                      type="button"
+                      variante="secundario"
+                      disabled={cargandoMasExamenesManual}
+                      cargando={cargandoMasExamenesManual}
+                      onClick={() => void cargarMasExamenesManual()}
+                    >
+                      {errorCargaMasExamenesManual ? 'Reintentar carga' : 'Cargar más exámenes'}
+                    </Boton>
+                  </div>
+                )}
+              </div>
+            )}
+            {alumnoManualId && examenManualId && !puedeCalificar && (
+              <div id="calificar-manual-permiso-ayuda">
+                <InlineMensaje tipo="warning">Tu perfil no tiene permiso para calificar manualmente.</InlineMensaje>
+              </div>
             )}
             <div className="item-actions calificaciones-manual-panel__actions">
               <Boton
                 type="button"
                 variante="secundario"
                 disabled={!alumnoManualId || !examenManualId || cargandoExamenesManual || activandoManual || !puedeCalificar}
+                aria-describedby={alumnoManualId && examenManualId && !puedeCalificar ? 'calificar-manual-permiso-ayuda' : undefined}
                 onClick={() => {
                   if (!puedeCalificar) {
                     avisarSinPermiso('No tienes permiso para calificar manualmente.');
@@ -1606,8 +1571,25 @@ export function SeccionCalificaciones({
                 </Boton>
               )}
             </div>
-            {manualMensaje && (
+            {errorCargaExamenesManual ? (
+              <InlineMensaje tipo="error">No se pudieron cargar los exámenes de este alumno. Selecciona «Reintentar carga de exámenes» para volver a consultar.</InlineMensaje>
+            ) : alumnoManualId && !cargandoExamenesManual && examenesManual.length === 0 ? (
+              <InlineMensaje tipo="info">No hay exámenes entregados o calificados para el alumno seleccionado.</InlineMensaje>
+            ) : manualMensaje ? (
               <InlineMensaje tipo={esMensajeError(manualMensaje) ? 'error' : 'info'}>{manualMensaje}</InlineMensaje>
+            ) : null}
+            {errorCargaExamenesManual && (
+              <Boton
+                type="button"
+                variante="secundario"
+                disabled={cargandoExamenesManual}
+                onClick={() => {
+                  setManualMensaje('');
+                  reintentarCargaExamenesManual();
+                }}
+              >
+                Reintentar carga de exámenes
+              </Boton>
             )}
           </section>
           {mostrarSeccionCalificar ? (
@@ -1621,10 +1603,11 @@ export function SeccionCalificaciones({
               respuestasDetectadas={manualContexto?.respuestasDetectadas ?? respuestasParaCalificar}
               claveCorrectaPorNumero={manualContexto?.claveCorrectaPorNumero ?? claveCorrectaParaCalificar ?? claveCorrectaPorNumero}
               ordenPreguntasClave={manualContexto?.ordenPreguntas ?? ordenPreguntasParaCalificar ?? ordenPreguntasClave}
+              capturaManualAciertos={Boolean(manualContexto && !manualContexto.soloLectura)}
               etiquetaTipoExamen={manualContexto?.tipoExamenEtiqueta ?? tipoExamenActivoEtiqueta}
               contextoManual={manualContexto
                 ? [
-                    manualContexto.soloLectura ? 'Modo solo lectura (calificado)' : 'Modo manual activo',
+                    manualContexto.soloLectura ? 'Modo solo lectura (calificado)' : 'Captura manual de aciertos',
                     `Folio ${manualContexto.folio}`,
                     manualContexto.tipoExamenEtiqueta ? `Tipo ${manualContexto.tipoExamenEtiqueta}` : '',
                     manualContexto.plantillaTitulo ? `Plantilla ${manualContexto.plantillaTitulo}` : ''
@@ -1647,6 +1630,10 @@ export function SeccionCalificaciones({
             solicitudesFiltradas={solicitudesFiltradas}
             resumen={resumenSolicitudes}
             cargando={cargandoSolicitudes}
+            estadoCarga={estadoCargaSolicitudesRevision}
+            solicitudesCargadas={solicitudesRevisionCargadas}
+            errorCarga={errorCargaSolicitudesRevision}
+            onReintentarCarga={onReintentarCargaSolicitudesRevision}
             resolviendoSolicitudId={resolviendoSolicitudId}
             mensaje={mensajeRevision}
             filtro={filtroSolicitudes}

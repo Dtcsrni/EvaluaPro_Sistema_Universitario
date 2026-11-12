@@ -46,7 +46,7 @@ export function crearClientePortal() {
     })
   });
 
-  type RequestOptions = { timeoutMs?: number };
+  type RequestOptions = { timeoutMs?: number; silenciarErrores?: boolean };
   const clienteBase = crearClienteJsonBase({
     baseUrl: basePortal,
     mensajeServicio: 'Portal no disponible',

@@ -15,13 +15,16 @@ import type {
 
 export const TEMPLATE_VERSION_CANONICA: TemplateVersion = 4;
 export const TEMPLATE_VERSION_DEFAULT: TemplateVersion = TEMPLATE_VERSION_CANONICA;
-export const OMR_CANONICAL_CONTRACT_ID = 'omr-canonical-v4';
-export const OMR_CANONICAL_DISPLAY_LABEL = 'OMR canónico · v4';
+export const OMR_CANONICAL_CONTRACT_ID = 'omr-canonical-1.0.0';
+export const OMR_CANONICAL_LEGACY_CONTRACT_ID = 'omr-canonical-v4';
+export const OMR_CANONICAL_WIRE_MARKER = 'O1.0.0';
+export const OMR_LAYOUT_RELEASE_VERSION = '1.0.0-dev.1';
+export const OMR_CANONICAL_DISPLAY_LABEL = `OMR · ${OMR_LAYOUT_RELEASE_VERSION}`;
 export const TEMPLATE_ID_OMR_INLINE_EXAM = 'omr-inline-exam-v1' as const;
 
 export function resolverOmrTemplateId(templateId?: OmrTemplateId): OmrTemplateId {
-  if (templateId === undefined || templateId === null) return 'omr-canonical-v4';
-  if (templateId === 'omr-canonical-v4' || templateId === TEMPLATE_ID_OMR_INLINE_EXAM) return templateId;
+  if (templateId === undefined || templateId === null || templateId === OMR_CANONICAL_LEGACY_CONTRACT_ID) return OMR_CANONICAL_CONTRACT_ID;
+  if (templateId === OMR_CANONICAL_CONTRACT_ID || templateId === TEMPLATE_ID_OMR_INLINE_EXAM) return templateId;
   throw new ErrorAplicacion('OMR_TEMPLATE_ID_INVALIDO', `Template ID ${String(templateId)} no compatible`, 422);
 }
 

@@ -392,7 +392,8 @@ jobs:
 
   ext_funcionales:
     name: Extended Funcionales
-    runs-on: ubuntu-latest
+    # Fijar el LTS mantiene reproducibles Poppler y las dependencias de Chromium.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     needs:
       - detectar_cambios

@@ -25,6 +25,12 @@ export function tipoMensajeInline(texto: string): TipoMensaje {
   if (textoEnMinusculas.includes('google listo')) return 'info';
 
   // Errores comunes.
+  if (
+    textoEnMinusculas.includes('sesion expiro') ||
+    textoEnMinusculas.includes('sesión expiró') ||
+    textoEnMinusculas.includes('sesion expirada') ||
+    textoEnMinusculas.includes('sesión expirada')
+  ) return 'error';
   if (textoEnMinusculas.includes('incorrect')) return 'error';
   if (textoEnMinusculas.includes('no se pudo')) return 'error';
   if (textoEnMinusculas.includes('no se recibio') || textoEnMinusculas.includes('no se recibió')) return 'error';

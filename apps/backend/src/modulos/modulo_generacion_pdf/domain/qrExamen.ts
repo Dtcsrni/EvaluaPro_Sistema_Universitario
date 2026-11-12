@@ -7,6 +7,7 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { configuracion } from '../../../configuracion.js';
 import type { MapaVariante, OmrTemplateId, PreguntaBase, TemplateVersion } from '../shared/tiposPdf.js';
+import { OMR_CANONICAL_CONTRACT_ID, OMR_CANONICAL_WIRE_MARKER, resolverOmrTemplateId } from './templateCanonico.js';
 
 type QrPayloadPagina = {
   folio: string;
@@ -220,9 +221,12 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
   const loteId = normalizarToken(payload.loteId);
   const numeroPagina = Math.max(1, Number(payload.numeroPagina) || 1);
   const templateVersion = payload.templateVersion;
-  const templateId = payload.templateId ?? 'omr-canonical-v4';
-  const identidad = `EXAMEN:${folio}:P${numeroPagina}:TV${templateVersion}`;
-  if (payload.compacto && !loteId && templateVersion === 4 && templateId === 'omr-canonical-v4') {
+  const templateId = resolverOmrTemplateId(payload.templateId);
+  const marcador = templateId === OMR_CANONICAL_CONTRACT_ID && templateVersion === 4
+    ? OMR_CANONICAL_WIRE_MARKER
+    : `TV${templateVersion}`;
+  const identidad = `EXAMEN:${folio}:P${numeroPagina}:${marcador}`;
+  if (payload.compacto && !loteId && templateVersion === 4 && templateId === OMR_CANONICAL_CONTRACT_ID) {
     return `${identidad}:S:${hmacQrCorto(identidad)}`;
   }
   const examId = normalizarToken(payload.examId);
@@ -230,7 +234,7 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
   const answerKeyHash = construirFirmaClave(payload.preguntas, payload.mapaVariante);
   const pageAnswerKey = construirClaveVisiblePagina(payload.preguntas, payload.mapaVariante, payload.questionIdsPagina);
   const keyId = normalizarToken(configuracion.omrQrHmacKeyId).slice(0, 20);
-  if (payload.compacto && loteId && templateVersion === 4 && templateId === 'omr-canonical-v4') {
+  if (payload.compacto && loteId && templateVersion === 4 && templateId === OMR_CANONICAL_CONTRACT_ID) {
     const segmentosLigadosAManifiesto = [identidad, `LI:${loteId}`, keyId ? `KI:${keyId}` : ''].filter(Boolean);
     return `${segmentosLigadosAManifiesto.join(':')}:SG:H1${hmacCorto(segmentosLigadosAManifiesto.join(':'), 24, keyId)}`;
   }
@@ -240,7 +244,7 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
   const esPlantillaInline = templateId === 'omr-inline-exam-v1';
 
   const segmentos = [
-    `EXAMEN:${folio}:P${numeroPagina}:TV${templateVersion}`,
+    identidad,
     esPlantillaInline ? `TI:${templateId}` : '',
     loteId ? `LI:${loteId}` : '',
     (payload.compacto && !esPlantillaInline) ? '' : examId ? `ID:${examId}` : '',
@@ -260,7 +264,7 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
   // dentro del HMAC y el parser mantiene los mismos campos semánticos.
   if (
     payload.compacto &&
-    templateId === 'omr-canonical-v4' &&
+    templateId === OMR_CANONICAL_CONTRACT_ID &&
     textoLegacy.length > LONGITUD_MAXIMA_QR_LEGACY_COMPACTO &&
     keyId &&
     variantHash &&
@@ -269,7 +273,7 @@ export function construirTextoQrExamenPagina(payload: QrPayloadPagina): string {
   ) {
     const compacto = codificarPayloadQrCompacto({ keyId, variantHash, answerKeyHash, pageAnswerKey });
     const segmentosCompactos = [
-      `EXAMEN:${folio}:P${numeroPagina}:TV${templateVersion}`,
+      identidad,
       loteId ? `LI:${loteId}` : '',
       `C:${compacto}`
     ].filter(Boolean);
@@ -368,13 +372,15 @@ function resolverFirmaQrCorto(firma: string | undefined, identidadFirmada: strin
 
 export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null {
   const limpio = String(textoQr ?? '').trim();
-  const match = /^EXAMEN:([A-Z0-9_-]+):P(\d+):TV(\d+)(?::(.*))?$/i.exec(limpio);
+  const match = /^EXAMEN:([A-Z0-9_-]+):P(\d+):(O\d+\.\d+\.\d+|TV\d+)(?::(.*))?$/i.exec(limpio);
   if (!match) return null;
   const folio = String(match[1] ?? '').toUpperCase();
   const numeroPagina = Number(match[2] ?? 0);
-  const templateVersionRaw = Number(match[3] ?? 0);
+  const marcador = String(match[3] ?? '').toUpperCase();
+  const templateVersionRaw = marcador === OMR_CANONICAL_WIRE_MARKER || marcador === 'TV4' ? 4 : 0;
   if (templateVersionRaw !== 4) return null;
   const templateVersion: TemplateVersion = 4;
+  const identidad = `EXAMEN:${folio}:P${numeroPagina}:${marcador}`;
   const resto = String(match[4] ?? '').trim();
   const campos = new Map<string, string>();
   if (resto) {
@@ -390,7 +396,7 @@ export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null
   if (templateIdRaw && templateIdRaw !== 'omr-inline-exam-v1') return null;
   const templateId: OmrTemplateId = templateIdRaw === 'omr-inline-exam-v1'
     ? 'omr-inline-exam-v1'
-    : 'omr-canonical-v4';
+    : OMR_CANONICAL_CONTRACT_ID;
   const loteId = campos.get('LI') ? normalizarToken(campos.get('LI')) : undefined;
   const totalPreguntas = Number(campos.get('TQ') ?? 0);
   const preguntaDesde = Number(campos.get('QD') ?? 0);
@@ -408,7 +414,7 @@ export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null
     campos.set('K', camposCompactos.pageAnswerKey);
   }
   const segmentosFirmados = [
-    `EXAMEN:${folio}:P${numeroPagina}:TV${templateVersionRaw || 0}`,
+    identidad,
     templateIdRaw ? `TI:${templateIdRaw}` : '',
     loteId ? `LI:${loteId}` : '',
     compacto ? `C:${compacto}` : campos.get('ID') ? `ID:${campos.get('ID')}` : '',
@@ -423,7 +429,7 @@ export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null
     compacto ? '' : campos.get('OV') ? `OV:${campos.get('OV')}` : ''
   ].filter(Boolean).join(':');
   const firmaPayload = firmaCorta
-    ? resolverFirmaQrCorto(firmaCorta, `EXAMEN:${folio}:P${numeroPagina}:TV${templateVersionRaw || 0}`)
+    ? resolverFirmaQrCorto(firmaCorta, identidad)
     : resolverFirmaPayload(campos.get('SG'), segmentosFirmados, campos.get('KI'));
   return {
     folio,

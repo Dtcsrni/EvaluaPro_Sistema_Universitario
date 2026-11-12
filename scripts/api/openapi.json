@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EvaluaPro API docente",
-    "version": "1.2.10",
+    "version": "1.2.14",
     "description": "Contrato de las operaciones clave para automatizar autoría de reactivos, generación de exámenes, procesamiento OMR, calificación y consulta académica. Las operaciones usan los mismos servicios y persistencia que la GUI."
   },
   "servers": [
@@ -1037,7 +1037,7 @@
         },
         "responses": {
           "200": {
-            "description": "Job OMR con evidencia por reactivo para revisión y corrección manual.",
+            "description": "Job OMR con progreso y resultado de calificación automática canónica. Las respuestas nulas verificadas cuentan como incorrectas; identidad, páginas incompletas o calidad insuficiente quedan en revisión.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1052,6 +1052,73 @@
                         "pages"
                       ],
                       "properties": {
+                        "summary": {
+                          "type": "object",
+                          "properties": {
+                            "automaticGrades": {
+                              "type": "object",
+                              "properties": {
+                                "processing": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "saved": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "alreadyRecorded": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "failed": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "needsReview": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        "automaticGrade": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "processing",
+                                "saved",
+                                "already_recorded",
+                                "needs_review",
+                                "failed"
+                              ]
+                            },
+                            "calificacionId": {
+                              "type": "string"
+                            },
+                            "aciertos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalReactivos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "calificacionExamen": {
+                              "type": "string"
+                            },
+                            "reasonCodes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "pages": {
                           "type": "array",
                           "items": {
@@ -1077,7 +1144,7 @@
             }
           },
           "201": {
-            "description": "Job OMR con evidencia por reactivo para revisión y corrección manual.",
+            "description": "Job OMR con progreso y resultado de calificación automática canónica. Las respuestas nulas verificadas cuentan como incorrectas; identidad, páginas incompletas o calidad insuficiente quedan en revisión.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1092,6 +1159,73 @@
                         "pages"
                       ],
                       "properties": {
+                        "summary": {
+                          "type": "object",
+                          "properties": {
+                            "automaticGrades": {
+                              "type": "object",
+                              "properties": {
+                                "processing": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "saved": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "alreadyRecorded": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "failed": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "needsReview": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        "automaticGrade": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "processing",
+                                "saved",
+                                "already_recorded",
+                                "needs_review",
+                                "failed"
+                              ]
+                            },
+                            "calificacionId": {
+                              "type": "string"
+                            },
+                            "aciertos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalReactivos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "calificacionExamen": {
+                              "type": "string"
+                            },
+                            "reasonCodes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "pages": {
                           "type": "array",
                           "items": {
@@ -1131,7 +1265,8 @@
         },
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
-          "omr:analizar"
+          "omr:analizar",
+          "calificaciones:calificar"
         ],
         "x-evaluapro-validators": [
           "esquemaCrearJobOmr"
@@ -1222,7 +1357,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Job OMR con evidencia por reactivo para revisión y corrección manual.",
+            "description": "Job OMR con progreso y resultado de calificación automática canónica. Las respuestas nulas verificadas cuentan como incorrectas; identidad, páginas incompletas o calidad insuficiente quedan en revisión.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1237,6 +1372,73 @@
                         "pages"
                       ],
                       "properties": {
+                        "summary": {
+                          "type": "object",
+                          "properties": {
+                            "automaticGrades": {
+                              "type": "object",
+                              "properties": {
+                                "processing": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "saved": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "alreadyRecorded": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "failed": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "needsReview": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        "automaticGrade": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "processing",
+                                "saved",
+                                "already_recorded",
+                                "needs_review",
+                                "failed"
+                              ]
+                            },
+                            "calificacionId": {
+                              "type": "string"
+                            },
+                            "aciertos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalReactivos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "calificacionExamen": {
+                              "type": "string"
+                            },
+                            "reasonCodes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "pages": {
                           "type": "array",
                           "items": {
@@ -1306,7 +1508,7 @@
         },
         "responses": {
           "200": {
-            "description": "Job OMR con evidencia por reactivo para revisión y corrección manual.",
+            "description": "Job OMR con progreso y resultado de calificación automática canónica. Las respuestas nulas verificadas cuentan como incorrectas; identidad, páginas incompletas o calidad insuficiente quedan en revisión.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1321,6 +1523,73 @@
                         "pages"
                       ],
                       "properties": {
+                        "summary": {
+                          "type": "object",
+                          "properties": {
+                            "automaticGrades": {
+                              "type": "object",
+                              "properties": {
+                                "processing": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "saved": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "alreadyRecorded": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "failed": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "needsReview": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        "automaticGrade": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "processing",
+                                "saved",
+                                "already_recorded",
+                                "needs_review",
+                                "failed"
+                              ]
+                            },
+                            "calificacionId": {
+                              "type": "string"
+                            },
+                            "aciertos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalReactivos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "calificacionExamen": {
+                              "type": "string"
+                            },
+                            "reasonCodes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "pages": {
                           "type": "array",
                           "items": {
@@ -17734,7 +18003,8 @@
         },
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
-          "omr:analizar"
+          "omr:analizar",
+          "calificaciones:calificar"
         ]
       }
     },
@@ -17763,7 +18033,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Job OMR con evidencia por reactivo para revisión y corrección manual.",
+            "description": "Job OMR con progreso y resultado de calificación automática canónica. Las respuestas nulas verificadas cuentan como incorrectas; identidad, páginas incompletas o calidad insuficiente quedan en revisión.",
             "content": {
               "application/json": {
                 "schema": {
@@ -17778,6 +18048,73 @@
                         "pages"
                       ],
                       "properties": {
+                        "summary": {
+                          "type": "object",
+                          "properties": {
+                            "automaticGrades": {
+                              "type": "object",
+                              "properties": {
+                                "processing": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "saved": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "alreadyRecorded": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "failed": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "needsReview": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        "automaticGrade": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "processing",
+                                "saved",
+                                "already_recorded",
+                                "needs_review",
+                                "failed"
+                              ]
+                            },
+                            "calificacionId": {
+                              "type": "string"
+                            },
+                            "aciertos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalReactivos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "calificacionExamen": {
+                              "type": "string"
+                            },
+                            "reasonCodes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "pages": {
                           "type": "array",
                           "items": {
@@ -18035,7 +18372,7 @@
         },
         "responses": {
           "200": {
-            "description": "Job OMR con evidencia por reactivo para revisión y corrección manual.",
+            "description": "Job OMR con progreso y resultado de calificación automática canónica. Las respuestas nulas verificadas cuentan como incorrectas; identidad, páginas incompletas o calidad insuficiente quedan en revisión.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18050,6 +18387,73 @@
                         "pages"
                       ],
                       "properties": {
+                        "summary": {
+                          "type": "object",
+                          "properties": {
+                            "automaticGrades": {
+                              "type": "object",
+                              "properties": {
+                                "processing": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "saved": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "alreadyRecorded": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "failed": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "needsReview": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        "automaticGrade": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "processing",
+                                "saved",
+                                "already_recorded",
+                                "needs_review",
+                                "failed"
+                              ]
+                            },
+                            "calificacionId": {
+                              "type": "string"
+                            },
+                            "aciertos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalReactivos": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "calificacionExamen": {
+                              "type": "string"
+                            },
+                            "reasonCodes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "pages": {
                           "type": "array",
                           "items": {
@@ -22649,6 +23053,659 @@
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
         "x-evaluapro-validators": [
           "esquemaFlujoGoogleDesktop"
+        ]
+      }
+    },
+    "/analiticas/calificaciones-html": {
+      "get": {
+        "tags": [
+          "Analíticas"
+        ],
+        "operationId": "get_analiticas_calificaciones_html",
+        "summary": "GET /analiticas/calificaciones-html",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts",
+        "x-evaluapro-permissions": [
+          "analiticas:leer"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Analíticas"
+        ],
+        "operationId": "post_analiticas_calificaciones_html",
+        "summary": "POST /analiticas/calificaciones-html",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts",
+        "x-evaluapro-permissions": [
+          "analiticas:leer"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaExportarHtmlCalificaciones"
+        ]
+      }
+    },
+    "/autenticacion/api-clientes/solicitudes": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_api_clientes_solicitudes",
+        "summary": "POST /autenticacion/api-clientes/solicitudes",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-validators": [
+          "esquemaCrearSolicitudApiLocal"
+        ]
+      }
+    },
+    "/autenticacion/api-clientes/solicitudes/intercambiar": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_api_clientes_solicitudes_intercambiar",
+        "summary": "POST /autenticacion/api-clientes/solicitudes/intercambiar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-validators": [
+          "esquemaIntercambiarSolicitudApiLocal"
+        ]
+      }
+    },
+    "/autenticacion/api-clientes/refrescar": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_api_clientes_refrescar",
+        "summary": "POST /autenticacion/api-clientes/refrescar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-validators": [
+          "esquemaRefrescarCredencialApi"
+        ]
+      }
+    },
+    "/autenticacion/api-clientes/solicitudes/inspeccionar": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_api_clientes_solicitudes_inspeccionar",
+        "summary": "POST /autenticacion/api-clientes/solicitudes/inspeccionar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-permissions": [
+          "cuenta:actualizar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaInspeccionarSolicitudApiLocal"
+        ]
+      }
+    },
+    "/autenticacion/api-clientes/solicitudes/resolver": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_api_clientes_solicitudes_resolver",
+        "summary": "POST /autenticacion/api-clientes/solicitudes/resolver",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-permissions": [
+          "cuenta:actualizar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaResolverSolicitudApiLocal"
+        ]
+      }
+    },
+    "/autenticacion/api-clientes/credenciales": {
+      "get": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "get_autenticacion_api_clientes_credenciales",
+        "summary": "GET /autenticacion/api-clientes/credenciales",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-permissions": [
+          "cuenta:leer"
+        ]
+      }
+    },
+    "/autenticacion/api-clientes/mia/revocar": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_api_clientes_mia_revocar",
+        "summary": "POST /autenticacion/api-clientes/mia/revocar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-validators": [
+          "esquemaBodyVacioOpcional"
+        ]
+      }
+    },
+    "/autenticacion/api-clientes/credenciales/{credencialId}/revocar": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "operationId": "post_autenticacion_api_clientes_credenciales_credencialId_revocar",
+        "summary": "POST /autenticacion/api-clientes/credenciales/{credencialId}/revocar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "credencialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts",
+        "x-evaluapro-permissions": [
+          "cuenta:actualizar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaBodyVacioOpcional"
         ]
       }
     }

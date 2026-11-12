@@ -15,6 +15,7 @@ import { accionToastSesionParaError, mensajeUsuarioDeErrorConSugerencia, onSesio
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
+import { Check, Clock3, FileText, PackageCheck, CircleCheck, IconoLucide } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { TemaBoton } from '../../tema/TemaBoton';
@@ -122,6 +123,13 @@ export function SeccionEntrega({
     return mapa;
   }, [alumnos]);
 
+  const textoAlumnoEntrega = (alumnoId?: string | null) => {
+    const id = String(alumnoId ?? '').trim();
+    if (!id) return 'Sin alumno asignado';
+    const alumno = alumnosPorId.get(id);
+    return alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Alumno no disponible';
+  };
+
   const plantillasPorId = useMemo(() => {
     const mapa = new Map<string, Plantilla>();
     for (const plantilla of Array.isArray(plantillas) ? plantillas : []) {
@@ -148,6 +156,17 @@ export function SeccionEntrega({
     if (!Number.isFinite(d.getTime())) return v;
     return d.toLocaleString();
   }, []);
+
+  const cambiarPeriodo = (nuevoPeriodoId: string) => {
+    versionConsultaExamenesRef.current += 1;
+    cargandoPaginaSiguienteRef.current = false;
+    setPeriodoId(nuevoPeriodoId);
+    setFiltro('');
+    setExamenes([]);
+    setSiguienteCursorExamenes(null);
+    setMensaje('');
+    setCargando(Boolean(nuevoPeriodoId));
+  };
 
   const cargarExamenes = useCallback(async () => {
     const versionConsulta = ++versionConsultaExamenesRef.current;
@@ -306,12 +325,8 @@ export function SeccionEntrega({
       {/* 1. Bento Hero Header */}
       <div className="banco-panel__head entrega-panel__head anim-fade-in">
         <div className="banco-panel__lead">
-          <div className="banco-panel__icon-orb entrega-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-              <line x1="12" y1="22.08" x2="12" y2="12" />
-            </svg>
+          <div className="icono-seccion-orb banco-panel__icon-orb entrega-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <IconoLucide icon={PackageCheck} size={24} />
           </div>
           <div className="banco-panel__text-block">
             <div className="banco-panel__meta-row">
@@ -319,47 +334,65 @@ export function SeccionEntrega({
                 <span className="banco-pulse-dot" aria-hidden="true" />
                 <span>Recepción y Custodia de Folios</span>
               </span>
-              <span className="banco-counter-tag">{resumenEntrega.total} exámenes</span>
             </div>
-            <h2 className="banco-panel__title eyebrow"><Icono nombre="recepcion" /> Entrega de examenes</h2>
+            <h2 className="banco-panel__title eyebrow">Entrega de exámenes</h2>
             <p className="nota">Registra folios físicos recibidos y da seguimiento a la custodia antes del escaneo OMR.</p>
           </div>
         </div>
 
         {/* Mini-KPIs */}
-        <div className="banco-header-kpis" aria-live="polite">
-          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Total de exámenes generados en el lote">
+        <div className="banco-header-kpis entrega-header-kpis" role="group" aria-label="Resumen de entregas">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Exámenes cargados que coinciden con la búsqueda; puede haber más registros en esta materia. Usa Cargar más exámenes para consultarlos.">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              </svg>
+              <IconoLucide icon={FileText} size={16} />
             </span>
             <span className="banco-mini-kpi__num">{resumenEntrega.total}</span>
-            <span className="banco-mini-kpi__lbl">Generados</span>
+            <span className="banco-mini-kpi__lbl">En lista</span>
           </div>
 
           <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Exámenes con entrega física confirmada">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg></span>
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><IconoLucide icon={Check} size={16} /></span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{resumenEntrega.entregadosCount}</span>
             <span className="banco-mini-kpi__lbl">Entregados</span>
           </div>
 
           <div className="banco-mini-kpi banco-mini-kpi--sintema anim-kpi-hover" data-tooltip="Folios pendientes de entrega física">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-              </svg>
+              <IconoLucide icon={Clock3} size={16} />
             </span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--amber">{resumenEntrega.pendientesCount}</span>
             <span className="banco-mini-kpi__lbl">Pendientes</span>
           </div>
 
           <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Porcentaje de recepción completado">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /></svg></span>
-            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{resumenEntrega.avance}%</span>
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><IconoLucide icon={CircleCheck} size={16} /></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">
+              {resumenEntrega.total > 0 ? `${resumenEntrega.avance}%` : '—'}
+            </span>
             <span className="banco-mini-kpi__lbl">Recepción</span>
           </div>
+        </div>
+      </div>
+
+      <div className="entregas-contexto-periodo">
+        <div className="campo">
+          <label htmlFor="entregas-materia-activa">Materia activa</label>
+          <select
+            id="entregas-materia-activa"
+            value={periodoId}
+            onChange={(event) => cambiarPeriodo(event.target.value)}
+            aria-describedby="entregas-materia-ayuda"
+          >
+            <option value="">Selecciona materia...</option>
+            {periodos.map((periodo) => (
+              <option key={periodo._id} value={periodo._id}>
+                {periodo.nombre}
+              </option>
+            ))}
+          </select>
+          <span id="entregas-materia-ayuda" className="nota">
+            Define los folios y alumnos que se consultan y vinculan en esta vista.
+          </span>
         </div>
       </div>
 
@@ -382,59 +415,78 @@ export function SeccionEntrega({
               <span>Bitácora de Recepción</span>
             </span>
             <h3>Estado de entregas</h3>
-            <p className="nota">Historial en tiempo real de exámenes impresos entregados y folios pendientes por materia.</p>
+            <p className="nota">Consulta los exámenes cargados de la materia y actualiza el estado con «Refrescar».</p>
           </div>
           <div className="item-actions">
-            <span className="banco-counter-tag">Total: {examenesFiltrados.length}</span>
-            <span className="banco-counter-tag banco-counter-tag--emerald">Entregados: {entregados.length}</span>
-            <span className="banco-counter-tag banco-counter-tag--amber">Pendientes: {pendientes.length}</span>
-            <Boton type="button" variante="secundario" onClick={() => void cargarExamenes()}>
-              <Icono nombre="recargar" /> Refrescar
+            <Boton
+              type="button"
+              variante="secundario"
+              cargando={cargando}
+              icono={cargando ? undefined : <Icono nombre="recargar" />}
+              onClick={() => void cargarExamenes()}
+            >
+              {cargando ? 'Consultando…' : 'Refrescar'}
             </Boton>
           </div>
         </div>
 
         <div className="entregas-filtros">
           <label className="campo">
-            Materia activa
-            <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
-              <option value="">Selecciona materia...</option>
-              {periodos.map((periodo) => (
-                <option key={periodo._id} value={periodo._id}>
-                  {periodo.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="campo">
-            Buscar (folio o alumno)
-            <input value={filtro} onChange={(event) => setFiltro(event.target.value)} placeholder="FOLIO-000123 o 2024-001" />
+            Buscar folio, matrícula o alumno
+            <input type="search" value={filtro} onChange={(event) => setFiltro(event.target.value)} placeholder="Folio, matrícula o nombre" />
           </label>
         </div>
 
-        {mensaje && <InlineMensaje tipo="error">{mensaje}</InlineMensaje>}
+        {mensaje && (
+          <InlineMensaje tipo="error">
+            {mensaje}
+            {examenes.length > 0 && (
+              <span> Los datos visibles corresponden a la última consulta exitosa; vuelve a consultar antes de tomar decisiones sobre su estado actual.</span>
+            )}
+          </InlineMensaje>
+        )}
         {cargando && (
           <p className="mensaje" role="status">
-            <Spinner /> Cargando entregas…
+            <Spinner /> {examenes.length > 0 ? 'Actualizando la lista; los resultados cargados siguen visibles.' : 'Cargando entregas…'}
           </p>
         )}
 
-        <div className="entregas-tables-grid">
+        {periodoId && !puedeLeer && !puedeGestionar && !mensaje && (
+          <p className="nota" role="status">No tienes permiso para consultar las entregas de esta materia.</p>
+        )}
+        {!periodoId && <p className="nota" role="status">Selecciona una materia para consultar sus entregas.</p>}
+        {periodoId && (puedeLeer || puedeGestionar) && !cargando && !mensaje && examenesFiltrados.length === 0 && (
+          filtroNormalizado ? (
+            <p className="nota" role="status">
+              No se encontraron exámenes para «{filtro.trim()}».{' '}
+              <Boton type="button" variante="secundario" onClick={() => setFiltro('')}>Limpiar búsqueda</Boton>
+            </p>
+          ) : (
+            <p className="nota" role="status">No hay exámenes generados para esta materia.</p>
+          )
+        )}
+        {periodoId && (puedeLeer || puedeGestionar) && !cargando && !mensaje && examenes.length > 0 && (
+          <p className="nota" role="status">
+            Conteos calculados sobre {examenesFiltrados.length} {examenesFiltrados.length === 1 ? 'resultado visible' : 'resultados visibles'},
+            {' '}de {examenes.length} {examenes.length === 1 ? 'examen cargado' : 'exámenes cargados'}
+            {siguienteCursorExamenes ? '; la materia puede tener más registros.' : '.'}
+          </p>
+        )}
+
+        {examenesFiltrados.length > 0 && <div className="entregas-tables-grid">
           {/* Columna 1: Entregados */}
           <div className="item-glass entregas-subpanel entregas-subpanel--entregados">
             <div className="entregas-subpanel__head">
               <span className="chip chip-static chip--emerald">
-                ✓ Entregados ({entregados.length})
+                Entregados ({entregados.length})
               </span>
             </div>
-            {entregados.length === 0 && !cargando && (
-              <p className="nota">Aún no hay entregas confirmadas para esta materia.</p>
+            {entregados.length === 0 && (
+              <p className="nota">No hay entregas confirmadas entre los resultados actuales.</p>
             )}
             <ul className="lista lista-items entregas-lista-scroll">
               {entregados.map((examen) => {
-                const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
-                const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno';
+                const alumnoTexto = textoAlumnoEntrega(examen.alumnoId);
                 const plantilla = examen.plantillaId ? plantillasPorId.get(examen.plantillaId) : null;
                 const parcialTexto = plantilla
                   ? (plantilla.tipo === 'parcial'
@@ -486,16 +538,15 @@ export function SeccionEntrega({
           <div className="item-glass entregas-subpanel entregas-subpanel--pendientes">
             <div className="entregas-subpanel__head">
               <span className="chip chip-static chip--amber">
-                ⏳ Pendientes ({pendientes.length})
+                Pendientes ({pendientes.length})
               </span>
             </div>
-            {pendientes.length === 0 && !cargando && (
-              <p className="nota">Todos los exámenes del lote han sido entregados con éxito.</p>
+            {pendientes.length === 0 && (
+              <p className="nota">No hay folios pendientes entre los resultados actuales.</p>
             )}
             <ul className="lista lista-items entregas-lista-scroll">
               {pendientes.map((examen) => {
-                const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
-                const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno asignado';
+                const alumnoTexto = textoAlumnoEntrega(examen.alumnoId);
                 const plantilla = examen.plantillaId ? plantillasPorId.get(examen.plantillaId) : null;
                 const parcialTexto = plantilla
                   ? (plantilla.tipo === 'parcial'
@@ -524,7 +575,7 @@ export function SeccionEntrega({
               })}
             </ul>
           </div>
-        </div>
+        </div>}
         {siguienteCursorExamenes && (
           <div className="entregas-listado__paginacion">
             <Boton type="button" variante="secundario" disabled={cargando} onClick={() => void cargarMasExamenes()}>

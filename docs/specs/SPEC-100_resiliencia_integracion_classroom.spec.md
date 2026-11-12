@@ -110,6 +110,19 @@ petición HTTP permanezca abierta.
   historial; la plantilla o una prueba con fixtures/mock no satisface este gate. La
   evidencia se valida con `release:check:classroom-e2e` y el resultado forma parte de la
   decisión `Go/No-Go` del gate estable. Ausencia o evidencia incompleta produce `No-Go`.
+- **REQ-013 (Trazabilidad de OAuth Classroom):** Cada intento de vinculación genera un
+  correlation ID y logs estructurados por etapa (listener, callback, canje de código,
+  validación de identidad y persistencia). Los fallos incluyen códigos internos estables
+  o códigos Google de una lista permitida y status HTTP cuando exista. Los logs excluyen
+  correo, `sub`, `state`, authorization code, tokens, URI completa y cuerpo/descripción
+  arbitraria del proveedor. La traza distingue callback no recibido, parámetros inválidos,
+  cancelación, error de canje, identidad no coincidente, refresh token ausente y error de
+  persistencia.
+- **REQ-014 (Autenticación del cliente OAuth Classroom):** El cliente Desktop de Classroom
+  podrá usar `GOOGLE_CLASSROOM_CLIENT_SECRET` cuando Google lo requiera durante el canje.
+  El valor se leerá solo desde la configuración local del proceso y se enviará al endpoint
+  OAuth mediante `client_secret_post`; no se incluirá en el repositorio, respuestas API o
+  logs. Si falta, el doctor local lo informa como prerequisito sin imprimir su valor.
 
 ## Diagnóstico Verificado
 
@@ -180,6 +193,8 @@ snapshots deduplicados; tras reinicio se vuelven a consultar actividades ya comp
 | REQ-010 | OAuth y uso del token exigen el `sub` de login; refresh legado solo si se verificó el mismo sujeto | `apps/backend/tests/servicioClassroomGoogle.test.ts`; `apps/backend/tests/integracion/classroom.v2.test.ts` | Implementado; servicio Classroom 21/21, typecheck y lint backend pasan |
 | REQ-011 | UI de identidad y reconexión | `apps/frontend/tests/seccionClassroom.test.tsx`; `apps/backend/tests/integracion/classroom.v2.test.ts`; `tests/gui-responsive/classroom-importacion.spec.ts` | Implementación local verificada: frontend 18/18 y E2E simulado 1/1; OAuth Google real pendiente |
 | REQ-012 | La promoción estable exige evidencia real de Classroom correspondiente a la versión candidata | `scripts/tests/release-stable-promotion.test.mjs`; `scripts/tests/classroom-e2e-evidence.test.mjs` | Aprobado; pendiente de implementación y validación |
+| REQ-013 | Correlacionar callback OAuth Classroom por etapa con códigos/status sanitizados | `apps/backend/tests/servicioClassroomGoogle.test.ts` | Implementado; prueba omitida por instrucción del usuario |
+| REQ-014 | Enviar secret de cliente Classroom solo desde entorno local y diagnosticar su ausencia sin revelarlo | `apps/backend/tests/servicioClassroomGoogle.test.ts`; `scripts/tests/classroom-doctor.test.mjs` | Implementado; pruebas omitidas por instrucción del usuario |
 
 La cobertura global se intentó con concurrencia 1 y timeout de 20 min por lote; el
 lote OMR `backend-integracion-n-z-04` excedió ese límite en el caso pesado

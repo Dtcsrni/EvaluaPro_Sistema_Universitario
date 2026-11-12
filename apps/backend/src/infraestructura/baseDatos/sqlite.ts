@@ -43,6 +43,7 @@ export async function conectarSqlite(): Promise<void> {
   ejecutarMigracionSqliteAdicional('migrate-calificacion-origen-inferida-sqlite.mjs');
   ejecutarMigracionSqliteAdicional('migrate-preferencias-retencion-parcial-sqlite.mjs');
   ejecutarMigracionSqliteAdicional('migrate-resultados-extra-externos-sqlite.mjs');
+  ejecutarMigracionSqliteAdicional('migrate-api-local-credentials-sqlite.mjs');
   ejecutarMigracionCalificacionesListaManual();
   ejecutarMigracionCalificacionesListaIdempotencia();
   await asegurarColumnasTrazabilidadCalificaciones();

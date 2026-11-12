@@ -7,8 +7,8 @@
 /** La plataforma genera y procesa una única plantilla OMR canónica. */
 export type TemplateVersion = 4;
 /** Identidad semántica de plantilla, versionada aparte de la app y del motor OMR. */
-export type OmrTemplateId = 'omr-canonical-v4' | 'omr-inline-exam-v1';
-export const OMR_TEMPLATE_ID_CANONICAL: OmrTemplateId = 'omr-canonical-v4';
+export type OmrTemplateId = 'omr-canonical-1.0.0' | 'omr-canonical-v4' | 'omr-inline-exam-v1';
+export const OMR_TEMPLATE_ID_CANONICAL: OmrTemplateId = 'omr-canonical-1.0.0';
 export const OMR_TEMPLATE_ID_INLINE_EXAM: OmrTemplateId = 'omr-inline-exam-v1';
 export type TipoExamen = 'parcial' | 'global' | 'extraordinario';
 
@@ -36,7 +36,7 @@ export interface ParametrosGeneracionPdf {
   totalPaginas: number;
   margenMm?: number;
   templateVersion?: TemplateVersion;
-  /** Selección explícita de geometría OMR; por omisión conserva TV4. */
+  /** Selección explícita de geometría OMR; por omisión usa la versión activa. */
   omrTemplateId?: OmrTemplateId;
   bookletConfig?: {
     densityMode?: 'balanced' | 'compact' | 'relaxed';

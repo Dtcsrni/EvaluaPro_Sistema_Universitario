@@ -12,6 +12,7 @@ import { exportarMetricasPrometheus } from '../observabilidad/metrics.js';
 import {
   OMR_CANONICAL_CONTRACT_ID,
   OMR_CANONICAL_DISPLAY_LABEL,
+  OMR_LAYOUT_RELEASE_VERSION,
   TEMPLATE_VERSION_CANONICA
 } from '../../modulos/modulo_generacion_pdf/index.js';
 
@@ -138,6 +139,7 @@ export function obtenerVersionInfo() {
     omr: {
       contractId: OMR_CANONICAL_CONTRACT_ID,
       templateVersion: TEMPLATE_VERSION_CANONICA,
+      layoutVersion: OMR_LAYOUT_RELEASE_VERSION,
       displayLabel: OMR_CANONICAL_DISPLAY_LABEL,
       oldVersionsOperational: false
     },

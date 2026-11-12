@@ -9,7 +9,7 @@ import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
 import { useState } from 'react';
 import type { Alumno, Plantilla } from '../../../tipos';
-import { esMensajeError, idCortoMateria } from '../../../utilidades';
+import { esMensajeError } from '../../../utilidades';
 import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
 type ExamenGeneradoResumen = {
@@ -122,11 +122,11 @@ export function PlantillasGenerados({
         : 'Generar examen individual'
       : generandoLote
         ? 'Generando paquete…'
-        : 'Generar paquete de examenes';
+        : 'Generar paquete de exámenes';
   const tooltipGeneracion =
     modoGeneracion === 'individual'
-      ? 'Genera un unico examen para la plantilla seleccionada.'
-      : 'Genera un paquete de examenes para los alumnos de la materia.';
+      ? 'Genera un único examen para la plantilla seleccionada.'
+      : 'Genera un paquete de exámenes para los alumnos de la materia.';
 
   const examenesPorLote = new Map<string, ExamenGeneradoResumen[]>();
   const examenesIndividuales: ExamenGeneradoResumen[] = [];
@@ -209,7 +209,7 @@ export function PlantillasGenerados({
             variante={modoGeneracion === 'paquete' ? 'primario' : 'secundario'}
             onClick={() => setModoGeneracion('paquete')}
             disabled={generando || generandoLote}
-            data-tooltip="Modo paquete: genera examenes para todos los alumnos activos."
+            data-tooltip="Modo paquete: genera exámenes para todos los alumnos activos."
           >
             Paquete
           </Boton>
@@ -277,7 +277,7 @@ export function PlantillasGenerados({
               variante="secundario"
               icono={<Icono nombre="pdf" />}
               onClick={() => void descargarPdfLote()}
-              data-tooltip="Descarga el PDF con todos los examenes del lote."
+            data-tooltip="Descarga el PDF con todos los exámenes del lote."
             >
               Descargar PDF completo
             </Boton>
@@ -305,7 +305,7 @@ export function PlantillasGenerados({
         </div>
 
         {!plantillaSeleccionada && (
-          <InlineMensaje tipo="info">Selecciona una plantilla para ver los examenes generados y su historial.</InlineMensaje>
+          <InlineMensaje tipo="info">Selecciona una plantilla para ver los exámenes generados y su historial.</InlineMensaje>
         )}
 
         {lotePdfUrl && (
@@ -326,11 +326,10 @@ export function PlantillasGenerados({
         )}
 
         {ultimoGenerado && (
-          <div className="resultado plantillas-ultimo-card" aria-label="Detalle del ultimo examen generado">
-            <h4>Ultimo examen generado</h4>
+          <div className="resultado plantillas-ultimo-card" aria-label="Detalle del último examen generado">
+            <h4>Último examen generado</h4>
             <div className="item-meta">
               <span>Folio: <b>{ultimoGenerado.folio}</b></span>
-              <span>ID: {idCortoMateria(ultimoGenerado._id)}</span>
               <span>Generado: {formatearFechaHora(ultimoGenerado.generadoEn)}</span>
             </div>
             {(() => {

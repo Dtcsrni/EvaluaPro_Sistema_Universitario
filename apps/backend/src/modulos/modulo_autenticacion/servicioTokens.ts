@@ -11,6 +11,7 @@ import { configuracion } from '../../configuracion.js';
 export type TokenDocentePayload = {
   docenteId: string;
   roles?: string[];
+  apiCredentialId?: string;
 };
 
 /**
@@ -20,6 +21,11 @@ export function crearTokenDocente(payload: TokenDocentePayload) {
   return jwt.sign(payload, configuracion.jwtSecreto, {
     expiresIn: `${configuracion.jwtExpiraHoras}h`
   });
+}
+
+/** Token de acceso delegado, limitado por una credencial revocable y una vida de 15 minutos. */
+export function crearTokenApiDelegado(payload: TokenDocentePayload & { apiCredentialId: string }) {
+  return jwt.sign(payload, configuracion.jwtSecreto, { expiresIn: '15m' });
 }
 
 /**

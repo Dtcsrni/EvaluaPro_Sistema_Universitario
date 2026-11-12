@@ -79,9 +79,9 @@ describe('salud', () => {
         version: expect.any(String),
         displayVersion: expect.any(String),
         omr: expect.objectContaining({
-          contractId: 'omr-canonical-v4',
+          contractId: 'omr-canonical-1.0.0',
           templateVersion: 4,
-          displayLabel: 'OMR canónico · v4',
+          displayLabel: 'OMR · 1.0.0-dev.1',
           oldVersionsOperational: false
         }),
         build: expect.objectContaining({
@@ -105,9 +105,9 @@ describe('salud', () => {
         repositoryUrl: expect.any(String),
         technologies: expect.any(Array),
         omr: expect.objectContaining({
-          contractId: 'omr-canonical-v4',
+          contractId: 'omr-canonical-1.0.0',
           templateVersion: 4,
-          displayLabel: 'OMR canónico · v4',
+          displayLabel: 'OMR · 1.0.0-dev.1',
           oldVersionsOperational: false
         })
       })

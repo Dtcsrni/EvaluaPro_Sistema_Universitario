@@ -8,7 +8,8 @@ Cerrar brechas entre beta operativa y estable auditable, manteniendo trazabilida
 
 ## Fase 1 - Consolidacion de contrato unico
 - API canonica `/api/*` sin rutas versionadas.
-- OMR/PDF TV4 como contrato unico, con paridad estructural respecto a A050929D.
+- OMR/PDF con el contrato activo SemVer `omr-canonical-1.0.0`; `TV4` queda
+  únicamente como marcador histórico de lectura para hojas ya impresas.
 - Sync schema v2 en backend/frontend/portal/scripts.
 
 Salida:

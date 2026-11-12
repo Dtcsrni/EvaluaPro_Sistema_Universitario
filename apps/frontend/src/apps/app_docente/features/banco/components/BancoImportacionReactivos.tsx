@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clienteApi } from '../../../clienteApiDocente';
 import type { TemaBanco } from '../../../SeccionBanco.helpers';
+import { mensajeDeError } from '../../../utilidades';
+import { ErrorRemoto } from '../../../../../servicios_api/clienteApi';
+import { Boton } from '../../../../../ui/ux/componentes/Boton';
+import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
 
 type PreviewRow = {
   line: number;
@@ -36,20 +40,64 @@ type ImportHistoryEntry = {
   rows: PreviewRow[];
 };
 
+type TipoMensajeImportacion = 'info' | 'ok' | 'error';
+
 function ImportSummary({ summary }: { summary: PreviewResponse['summary'] }) {
   return (
-    <div className="banco-reactivos-import__summary" aria-label="Resumen de la validación">
-      <span className="is-positive">{summary.create} nuevas</span>
-      <span>{summary.newVersion} nuevas versiones</span>
-      <span>{summary.noOp} sin cambios</span>
-      {summary.conflict > 0 && <span className="is-warning">{summary.conflict} conflictos</span>}
-      {summary.error > 0 && <span className="is-danger">{summary.error} errores</span>}
-    </div>
+    <ul className="banco-reactivos-import__summary" aria-label="Resumen de la validación">
+      <li className="is-positive">{summary.create} {summary.create === 1 ? 'reactivo nuevo' : 'reactivos nuevos'}</li>
+      <li>{summary.newVersion} {summary.newVersion === 1 ? 'nueva versión' : 'nuevas versiones'}</li>
+      <li>{summary.noOp} {summary.noOp === 1 ? 'reactivo sin cambios' : 'reactivos sin cambios'}</li>
+      {summary.conflict > 0 && <li className="is-warning">{summary.conflict} {summary.conflict === 1 ? 'conflicto' : 'conflictos'}</li>}
+      {summary.error > 0 && <li className="is-danger">{summary.error} {summary.error === 1 ? 'error' : 'errores'}</li>}
+    </ul>
   );
+}
+
+function textoResumenImportacion(summary: PreviewResponse['summary']) {
+  const nuevas = `${summary.create} ${summary.create === 1 ? 'reactivo nuevo' : 'reactivos nuevos'}`;
+  const versiones = `${summary.newVersion} ${summary.newVersion === 1 ? 'versión nueva' : 'versiones nuevas'}`;
+  const sinCambios = `${summary.noOp} ${summary.noOp === 1 ? 'reactivo sin cambios' : 'reactivos sin cambios'}`;
+  const conflictos = `${summary.conflict} ${summary.conflict === 1 ? 'conflicto' : 'conflictos'}`;
+  const cuarentena = Number(summary.quarantined ?? 0);
+  return `${nuevas} · ${versiones} · ${sinCambios} · ${conflictos} · ${cuarentena} ${cuarentena === 1 ? 'reactivo en cuarentena' : 'reactivos en cuarentena'}`;
+}
+
+function etiquetaOperacionFila(operation: string) {
+  switch (operation) {
+    case 'create': return 'Crear reactivo';
+    case 'noOp': return 'Sin cambios';
+    case 'newVersion': return 'Crear nueva versión';
+    case 'conflict': return 'Conflicto';
+    case 'quarantine': return 'Enviar a cuarentena';
+    default: return `Operación no reconocida (${operation || 'vacía'})`;
+  }
+}
+
+function etiquetaEstadoFila(status: string) {
+  switch (status) {
+    case 'valid': return 'Lista para importar';
+    case 'conflict': return 'Conflicto';
+    case 'applied': return 'Aplicada';
+    case 'quarantined': return 'En cuarentena';
+    default: return `Estado no reconocido (${status || 'vacío'})`;
+  }
+}
+
+function etiquetaEstadoImportacion(status: string) {
+  switch (status) {
+    case 'preview': return 'Vista previa';
+    case 'confirmed': return 'Importación confirmada';
+    case 'quarantined': return 'En cuarentena';
+    default: return `Estado no reconocido (${status || 'vacío'})`;
+  }
 }
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toLocaleString('es-MX', { maximumFractionDigits: 2 })} MB`;
+  }
   return `${(bytes / 1024).toFixed(bytes < 1024 * 1024 ? 1 : 2)} KB`;
 }
 
@@ -68,19 +116,25 @@ export function BancoImportacionReactivos({
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [procesando, setProcesando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState<TipoMensajeImportacion>('info');
   const [reactivosPendientes, setReactivosPendientes] = useState<string[]>([]);
   const [reactivosEnRevision, setReactivosEnRevision] = useState<string[]>([]);
   const [historialImportaciones, setHistorialImportaciones] = useState<ImportHistoryEntry[]>([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(true);
+  const [errorHistorial, setErrorHistorial] = useState('');
   const [recargaHistorial, setRecargaHistorial] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const temaIds = useMemo(() => temas.map((tema) => tema._id).filter(Boolean), [temas]);
   const tieneConflictos = Boolean(preview && (preview.summary.conflict > 0 || preview.summary.error > 0));
-  const pasoActual = preview ? 2 : reactivosPendientes.length > 0 || reactivosEnRevision.length > 0 ? 3 : 1;
+  const historialDeMateria = historialImportaciones.filter((item) => item.periodoId === periodoId);
+  const pasoActual = reactivosPendientes.length > 0 || reactivosEnRevision.length > 0
+    ? 3
+    : preview || archivo || procesando ? 2 : 1;
 
   useEffect(() => {
     let vigente = true;
     setCargandoHistorial(true);
+    setErrorHistorial('');
     void clienteApi.obtener<{ importaciones?: ImportHistoryEntry[] }>('/banco-preguntas/importaciones?limite=50')
       .then((resultado) => {
         if (vigente) {
@@ -89,10 +143,13 @@ export function BancoImportacionReactivos({
             ...item,
             rows: Array.isArray(item.rows) ? item.rows : []
           })));
+          setErrorHistorial('');
         }
       })
-      .catch(() => {
-        if (vigente) setHistorialImportaciones([]);
+      .catch((error: unknown) => {
+        if (vigente) {
+          setErrorHistorial(mensajeDeError(error, 'No se pudo cargar el historial de importaciones.'));
+        }
       })
       .finally(() => {
         if (vigente) setCargandoHistorial(false);
@@ -100,20 +157,38 @@ export function BancoImportacionReactivos({
     return () => { vigente = false; };
   }, [periodoId, recargaHistorial]);
 
+  function mostrarMensaje(texto: string, tipo: TipoMensajeImportacion = 'info') {
+    setMensaje(texto);
+    setTipoMensaje(tipo);
+  }
+
   function mostrarError(error: unknown, fallback: string) {
-    setMensaje(error instanceof Error ? error.message : fallback);
+    mostrarMensaje(mensajeDeError(error, fallback), 'error');
+  }
+
+  function mostrarErrorPreview(error: unknown) {
+    const codigo = error instanceof ErrorRemoto ? error.detalle.codigo : undefined;
+    const mensajeOriginal = error instanceof Error ? error.message : '';
+    if (codigo === 'REACTIVOS_PAYLOAD_INVALIDO' || /no cumple el contrato v1/i.test(mensajeOriginal)) {
+      mostrarMensaje(
+        'Formato no compatible. Corrige el archivo con la plantilla o el esquema y valida de nuevo.',
+        'error'
+      );
+      return;
+    }
+    mostrarError(error, 'No se pudo validar el archivo.');
   }
 
   function seleccionarArchivo(file: File | null) {
     setArchivo(file);
     setPreview(null);
-    if (file) setMensaje('Archivo listo para validar. El servidor aún no ha escrito nada.');
+    mostrarMensaje(file ? 'Archivo listo para validar. El servidor aún no ha escrito nada.' : 'Se quitó el archivo. Selecciona uno para validar.');
   }
 
   async function copiarPlantilla() {
     const temaId = temaIds[0];
     if (!periodoId || !temaId) {
-      setMensaje('Crea al menos un tema activo antes de copiar la plantilla.');
+      mostrarMensaje('Crea al menos un tema activo antes de copiar la plantilla.', 'error');
       return;
     }
     const ejemplo = {
@@ -142,7 +217,7 @@ export function BancoImportacionReactivos({
     };
     try {
       await navigator.clipboard.writeText(JSON.stringify(ejemplo, null, 2));
-      setMensaje('Plantilla JSON copiada. Conserva los IDs canónicos y cambia solo el contenido.');
+      mostrarMensaje('Plantilla JSON copiada. Conserva los IDs canónicos y cambia solo el contenido.', 'ok');
     } catch (error) {
       mostrarError(error, 'No se pudo copiar la plantilla JSON.');
     }
@@ -158,7 +233,7 @@ export function BancoImportacionReactivos({
       enlace.download = 'reactivos-batch.v1.schema.json';
       enlace.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      setMensaje('JSON Schema descargado.');
+      mostrarMensaje('JSON Schema descargado.', 'ok');
     } catch (error) {
       mostrarError(error, 'No se pudo descargar el schema.');
     }
@@ -174,7 +249,7 @@ export function BancoImportacionReactivos({
       enlace.download = 'plantilla-reactivos-v1.xlsx';
       enlace.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      setMensaje('Plantilla XLSX descargada. Conserva los IDs canónicos y no alteres los encabezados.');
+      mostrarMensaje('Plantilla XLSX descargada. Conserva los IDs canónicos y no alteres los encabezados.', 'ok');
     } catch (error) {
       mostrarError(error, 'No se pudo descargar la plantilla XLSX.');
     }
@@ -184,18 +259,19 @@ export function BancoImportacionReactivos({
     if (!archivo) return;
     try {
       setProcesando(true);
-      setMensaje('Validando estructura, IDs, duplicados y versiones…');
+      mostrarMensaje('Validando estructura, IDs, duplicados y versiones…');
       const form = new FormData();
       form.append('archivo', archivo);
       const resultado = await clienteApi.enviarFormData<PreviewResponse>('/banco-preguntas/importaciones/preview', form);
       setPreview(resultado);
-      setMensaje(
+      mostrarMensaje(
         resultado.summary.conflict > 0 || resultado.summary.error > 0
           ? 'La validación terminó con incidencias. Corrige el archivo antes de confirmar.'
-          : 'Validación lista. Confirma solo después de revisar el resumen.'
+          : 'Validación lista. Confirma solo después de revisar el resumen.',
+        resultado.summary.conflict > 0 || resultado.summary.error > 0 ? 'error' : 'ok'
       );
     } catch (error) {
-      mostrarError(error, 'No se pudo validar el archivo.');
+      mostrarErrorPreview(error);
     } finally {
       setProcesando(false);
     }
@@ -210,10 +286,11 @@ export function BancoImportacionReactivos({
         { planHash: preview.planHash, payload: preview.payload }
       );
       const borradores = resultado.draftReactivoIds ?? [];
-      setMensaje(
+      mostrarMensaje(
         borradores.length > 0
           ? `Importación confirmada: ${borradores.length} reactivo(s) esperan revisión.`
-          : 'Importación confirmada sin cambios nuevos.'
+          : 'Importación confirmada sin cambios nuevos.',
+        'ok'
       );
       setPreview(null);
       setArchivo(null);
@@ -244,7 +321,7 @@ export function BancoImportacionReactivos({
       const exitosos = ids.filter((id) => !fallidos.includes(id));
       setReactivosPendientes(fallidos);
       setReactivosEnRevision((actuales) => [...actuales, ...exitosos]);
-      setMensaje(fallidos.length > 0 ? `${fallidos.length} reactivo(s) requieren reintento.` : 'Reactivos enviados a revisión.');
+      mostrarMensaje(fallidos.length > 0 ? `${fallidos.length} reactivo(s) requieren reintento.` : 'Reactivos enviados a revisión.', fallidos.length > 0 ? 'error' : 'ok');
       onRefrescar();
     } catch (error) {
       mostrarError(error, 'No se pudieron enviar los reactivos a revisión.');
@@ -260,7 +337,7 @@ export function BancoImportacionReactivos({
       const ids = reactivosEnRevision;
       const fallidos = await cambiarEstado(ids, 'publicar');
       setReactivosEnRevision(fallidos);
-      setMensaje(fallidos.length > 0 ? `${fallidos.length} reactivo(s) requieren reintento.` : 'Reactivos publicados y disponibles para el banco OMR.');
+      mostrarMensaje(fallidos.length > 0 ? `${fallidos.length} reactivo(s) requieren reintento.` : 'Reactivos publicados y disponibles para el banco OMR.', fallidos.length > 0 ? 'error' : 'ok');
       onRefrescar();
     } catch (error) {
       mostrarError(error, 'No se pudieron publicar los reactivos.');
@@ -272,44 +349,73 @@ export function BancoImportacionReactivos({
   if (!puedeGestionar) return null;
 
   return (
-    <section className="banco-reactivos-import" aria-labelledby="banco-reactivos-import-title">
+    <section id="banco-importacion" tabIndex={-1} className="banco-reactivos-import" aria-labelledby="banco-reactivos-import-title">
       <div className="banco-reactivos-import__head">
         <div>
           <p className="banco-reactivos-import__eyebrow">Carga segura</p>
           <h2 id="banco-reactivos-import-title">Importar reactivos</h2>
           <p>Importa JSON, JSONL o XLSX. El servidor valida primero; nada se publica automáticamente.</p>
         </div>
-        <div className="banco-reactivos-import__tools" aria-label="Herramientas de importación">
-          <button type="button" className="button button-secondary" onClick={() => void copiarPlantilla()}>Copiar plantilla</button>
-          <button type="button" className="button button-secondary" onClick={() => void descargarSchema()}>Descargar schema</button>
-          <button type="button" className="button button-secondary" onClick={() => void descargarPlantillaXlsx()}>Descargar formato XLSX</button>
+        <div className="banco-reactivos-import__tools" role="group" aria-label="Herramientas de importación">
+          <Boton variante="secundario" onClick={() => void copiarPlantilla()}>Copiar plantilla</Boton>
+          <Boton variante="secundario" onClick={() => void descargarSchema()}>Descargar schema</Boton>
+          <Boton variante="secundario" onClick={() => void descargarPlantillaXlsx()}>Descargar formato XLSX</Boton>
         </div>
       </div>
 
-      <div className="banco-reactivos-import__steps" aria-label="Pasos de importación">
-        <span className={pasoActual === 1 ? 'is-active' : 'is-complete'}><b>1</b> Selecciona archivo</span>
-        <span className={pasoActual === 2 ? 'is-active' : pasoActual > 2 ? 'is-complete' : ''}><b>2</b> Valida el preview</span>
-        <span className={pasoActual === 3 ? 'is-active' : ''}><b>3</b> Revisa y publica</span>
-      </div>
+      <ol className="banco-reactivos-import__steps" aria-label="Pasos de importación">
+        {(['Selecciona archivo', 'Valida la vista previa', 'Revisa y publica'] as const).map((titulo, index) => {
+          const numeroPaso = index + 1;
+          const estado = numeroPaso === pasoActual ? 'is-active' : numeroPaso < pasoActual ? 'is-complete' : '';
+          return (
+            <li key={titulo} className={estado} aria-current={numeroPaso === pasoActual ? 'step' : undefined}>
+              <b aria-hidden="true">{numeroPaso}</b>
+              <span>{titulo}</span>
+              {numeroPaso === pasoActual && <span className="sr-only">Paso actual</span>}
+            </li>
+          );
+        })}
+      </ol>
 
       <div className="banco-reactivos-import__upload">
-        <label htmlFor="reactivos-json-file">Archivo de reactivos</label>
-        <input
-          ref={inputRef}
-          id="reactivos-json-file"
-          type="file"
-          accept=".json,.jsonl,.xlsx,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          onChange={(event) => seleccionarArchivo(event.target.files?.[0] ?? null)}
-        />
-        <p className="banco-reactivos-import__hint">Contrato v1 · cinco opciones A–E · IDs canónicos · asigna un tema por reactivo al mezclar temas · JSON, JSONL o XLSX</p>
-        {archivo && <p className="banco-reactivos-import__file"><strong>{archivo.name}</strong> · {formatFileSize(archivo.size)}</p>}
-        <button type="button" className="button button-primary" disabled={!archivo || procesando} onClick={() => void previsualizar()}>
+        <span id="banco-reactivos-import-file-label" className="banco-reactivos-import__file-label">Archivo de reactivos</span>
+        <div className="banco-reactivos-import__file-picker">
+          <input
+            ref={inputRef}
+            id="reactivos-json-file"
+            className="sr-only banco-reactivos-import__file-input"
+            type="file"
+            aria-hidden="true"
+            tabIndex={-1}
+            accept=".json,.jsonl,.xlsx,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={(event) => seleccionarArchivo(event.target.files?.[0] ?? null)}
+          />
+          <Boton
+            type="button"
+            variante="secundario"
+            className="banco-reactivos-import__file-trigger"
+            aria-label="Seleccionar archivo de reactivos"
+            aria-describedby="banco-reactivos-import-hint banco-reactivos-import-file"
+            onClick={() => inputRef.current?.click()}
+          >
+            Elegir archivo
+          </Boton>
+        </div>
+        <p className="banco-reactivos-import__hint" id="banco-reactivos-import-hint">Formatos JSON, JSONL o XLSX · contrato v1 · opciones A–E · IDs canónicos · asigna un tema por reactivo al mezclar temas</p>
+        <p id="banco-reactivos-import-file" className="banco-reactivos-import__file" role="status" aria-atomic="true">
+          {archivo ? <>Archivo seleccionado: <strong>{archivo.name}</strong> · {formatFileSize(archivo.size)}</> : 'Sin archivo seleccionado.'}
+        </p>
+        <Boton cargando={procesando} variante="primario" disabled={!archivo} onClick={() => void previsualizar()}>
           {procesando ? 'Validando…' : 'Validar archivo'}
-        </button>
+        </Boton>
       </div>
 
+      {mensaje && (tipoMensaje === 'error'
+        ? <InlineMensaje tipo="error">{mensaje}</InlineMensaje>
+        : <p className={`banco-reactivos-import__message${tipoMensaje === 'ok' ? ' ok' : ''}`} role="status">{mensaje}</p>)}
+
       {preview && (
-        <div className="banco-reactivos-import__result" aria-live="polite">
+        <div className="banco-reactivos-import__result">
           <div className="banco-reactivos-import__result-head">
             <div>
               <p className="banco-reactivos-import__eyebrow">Preview sin escritura</p>
@@ -323,29 +429,29 @@ export function BancoImportacionReactivos({
             <ul>
               {preview.rows.map((row) => (
                 <li key={`${row.line}-${row.externalKey}`}>
-                  <span>Línea {row.line}</span> <code>{row.externalKey}</code> — {row.operation}
+                  <span>Línea {row.line}</span> <code>{row.externalKey}</code> — {etiquetaOperacionFila(row.operation)} · {etiquetaEstadoFila(row.status)}
                   {typeof row.detail?.temaId === 'string' && <small> · Tema: {temas.find((tema) => tema._id === row.detail?.temaId)?.nombre ?? row.detail.temaId}</small>}
                   {row.detail?.codigo && <small> · {row.detail.codigo}{row.detail.mensaje ? `: ${row.detail.mensaje}` : ''}</small>}
                 </li>
               ))}
             </ul>
           </details>
-          <button type="button" className="button button-primary" disabled={procesando || tieneConflictos} onClick={() => void confirmar()}>
+          <Boton cargando={procesando} variante="primario" disabled={tieneConflictos} onClick={() => void confirmar()}>
             {tieneConflictos ? 'Corrige las incidencias para continuar' : 'Confirmar importación'}
-          </button>
+          </Boton>
         </div>
       )}
 
       {(reactivosPendientes.length > 0 || reactivosEnRevision.length > 0) && (
-        <div className="banco-reactivos-import__queue" aria-live="polite">
+        <div className="banco-reactivos-import__queue">
           <div>
             <p className="banco-reactivos-import__eyebrow">Siguiente paso</p>
             <h3>Revisión de publicación</h3>
             <p>{reactivosPendientes.length + reactivosEnRevision.length} reactivo(s) están fuera de producción.</p>
           </div>
           <div className="banco-reactivos-import__queue-actions">
-            {reactivosPendientes.length > 0 && <button type="button" className="button button-primary" disabled={procesando} onClick={() => void enviarARevision()}>Enviar a revisión ({reactivosPendientes.length})</button>}
-            {reactivosEnRevision.length > 0 && <button type="button" className="button button-primary" disabled={procesando} onClick={() => void publicarPendientes()}>Publicar revisados ({reactivosEnRevision.length})</button>}
+            {reactivosPendientes.length > 0 && <Boton variante="primario" cargando={procesando} onClick={() => void enviarARevision()}>Enviar a revisión ({reactivosPendientes.length})</Boton>}
+            {reactivosEnRevision.length > 0 && <Boton variante="primario" cargando={procesando} onClick={() => void publicarPendientes()}>Publicar revisados ({reactivosEnRevision.length})</Boton>}
           </div>
         </div>
       )}
@@ -355,26 +461,41 @@ export function BancoImportacionReactivos({
           <p className="banco-reactivos-import__eyebrow">Trazabilidad</p>
           <h3 id="banco-reactivos-import-history-title">Historial de importaciones</h3>
         </div>
-        {cargandoHistorial ? <p role="status">Cargando historial…</p> : historialImportaciones.filter((item) => item.periodoId === periodoId).length === 0 ? (
+        {cargandoHistorial && <p role="status">Cargando historial…</p>}
+        {!cargandoHistorial && errorHistorial ? (
+          <>
+            <p role="alert">No se pudo {historialDeMateria.length > 0 ? 'actualizar' : 'cargar'} el historial: {errorHistorial}</p>
+            <Boton variante="secundario" onClick={() => setRecargaHistorial((actual) => actual + 1)}>Reintentar carga del historial</Boton>
+          </>
+        ) : null}
+        {(cargandoHistorial || errorHistorial) && historialDeMateria.length > 0 && (
+          <p className="nota" role="note">
+            {cargandoHistorial
+              ? 'Se muestran los últimos resultados cargados para esta materia mientras se actualiza el historial.'
+              : 'La consulta falló; se conservan los últimos resultados cargados para esta materia.'}
+          </p>
+        )}
+        {!cargandoHistorial && !errorHistorial && historialDeMateria.length === 0 && (
           <p>No hay importaciones registradas para esta materia.</p>
-        ) : (
+        )}
+        {historialDeMateria.length > 0 && (
           <ul aria-label="Importaciones recientes">
-            {historialImportaciones.filter((item) => item.periodoId === periodoId).map((item) => (
+            {historialDeMateria.map((item) => (
               <li key={item.importId}>
                 <div>
                   <strong>{item.batchId}</strong>
                   <span>{new Date(item.createdAt).toLocaleString()}</span>
                 </div>
                 <div>
-                  <span>Estado: {item.estado}</span>
-                  <span>{item.summary.create} nuevas · {item.summary.newVersion} versiones · {item.summary.noOp} sin cambios · {item.summary.conflict} conflictos · {item.summary.quarantined ?? 0} en cuarentena</span>
+                  <span>Estado: {etiquetaEstadoImportacion(item.estado)}</span>
+                  <span>{textoResumenImportacion(item.summary)}</span>
                 </div>
                 <details>
                   <summary>Ver filas ({item.rows.length})</summary>
                   <ul>
                     {item.rows.map((row) => (
                       <li key={`${item.importId}-${row.line}`}>
-                        Línea {row.line}: {row.externalKey} — {row.operation} ({row.status})
+                        Línea {row.line}: {row.externalKey} — {etiquetaOperacionFila(row.operation)} ({etiquetaEstadoFila(row.status)})
                         {row.detail?.reasons?.length ? <small> — Revisión requerida: {row.detail.reasons.join(', ')}</small> : null}
                       </li>
                     ))}
@@ -385,8 +506,6 @@ export function BancoImportacionReactivos({
           </ul>
         )}
       </section>
-
-      {mensaje && <p className="banco-reactivos-import__message" role="status">{mensaje}</p>}
     </section>
   );
 }

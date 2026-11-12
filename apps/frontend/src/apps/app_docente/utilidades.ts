@@ -61,7 +61,7 @@ const VISTAS_VALIDAS = new Set([
   'cuenta'
 ]);
 
-export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\-_.()#&/]*$/u;
+export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\p{Pd}_.()#&/]*$/u;
 
 /** Iniciales consistentes con las que se imprimen en los exámenes masivos. */
 export function obtenerInicialesAlumno(nombreCompleto?: string): string {
@@ -78,6 +78,13 @@ export function obtenerInicialesAlumno(nombreCompleto?: string): string {
     .toUpperCase();
   if (iniciales.length <= 6) return iniciales;
   return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
+}
+
+/** Iniciales compactas para el avatar de una tarjeta de alumno. */
+export function obtenerInicialesAvatarAlumno(nombreCompleto?: string): string {
+  const iniciales = obtenerInicialesAlumno(nombreCompleto);
+  if (iniciales.length <= 2) return iniciales;
+  return `${iniciales[0]}${iniciales[iniciales.length - 1]}`;
 }
 
 export function obtenerVistaInicial(): string {
@@ -215,6 +222,7 @@ export function combinarRespuestasOmrPaginas(
         numeroPregunta: Number(respuesta.numeroPregunta),
         opcion: typeof respuesta?.opcion === 'string' && respuesta.opcion ? respuesta.opcion : null,
         confianza: Number.isFinite(Number(respuesta?.confianza)) ? Number(respuesta.confianza) : 0,
+        confianzaDisponible: respuesta.confianzaDisponible !== false && typeof respuesta.confianza === 'number' && Number.isFinite(respuesta.confianza),
         ...(respuesta.estadoRespuesta ? { estadoRespuesta: respuesta.estadoRespuesta } : {}),
         ...(Array.isArray(respuesta.flags) ? { flags: respuesta.flags } : {})
       });
@@ -249,7 +257,11 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
       : 'ok';
   const promedio = (vals: number[]) => (vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0);
   const calidadPagina = promedio(paginas.map((pagina) => Number(pagina.resultado.calidadPagina || 0)));
-  const confianzaPromedioPagina = promedio(paginas.map((pagina) => Number(pagina.resultado.confianzaPromedioPagina || 0)));
+  const confianzasDisponibles = paginas
+    .filter((pagina) => pagina.resultado.confianzaPromedioDisponible !== false)
+    .map((pagina) => pagina.resultado.confianzaPromedioPagina)
+    .filter((confianza) => typeof confianza === 'number' && Number.isFinite(confianza));
+  const confianzaPromedioPagina = promedio(confianzasDisponibles);
   const ratioAmbiguas = promedio(paginas.map((pagina) => Number(pagina.resultado.ratioAmbiguas || 0)));
   const templateVersionDetectada = 4;
   const qrTextos = paginas.map((pagina) => pagina.resultado.qrTexto).filter((valor): valor is string => typeof valor === 'string' && valor.length > 0);
@@ -274,6 +286,7 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
     motivosRevision,
     templateVersionDetectada,
     confianzaPromedioPagina,
+    confianzaPromedioDisponible: confianzasDisponibles.length > 0,
     ratioAmbiguas,
     resumenRespuestas: {
       totalReactivos: respuestasConEstado.length,
@@ -299,6 +312,10 @@ function numeroSeguro(valor: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function confianzaOmrDisponible(valor: unknown, disponible?: boolean): valor is number {
+  return disponible !== false && typeof valor === 'number' && Number.isFinite(valor) && valor >= 0 && valor <= 1;
+}
+
 function normalizarEstadoAnalisis(estado: unknown): ResultadoOmr['estadoAnalisis'] {
   if (estado === 'ok' || estado === 'rechazado_calidad' || estado === 'requiere_revision') return estado;
   return 'requiere_revision';
@@ -309,6 +326,7 @@ export function normalizarRespuestasDetectadas(
     numeroPregunta: number;
     opcion: string | null;
     confianza?: number;
+    confianzaDisponible?: boolean;
     estadoRespuesta?: EstadoRespuestaOmr;
     flags?: FlagRespuestaOmr[];
   }> | undefined
@@ -330,11 +348,25 @@ export function normalizarRespuestasDetectadas(
       numeroPregunta,
       opcion,
       confianza,
+      confianzaDisponible: confianzaOmrDisponible(item.confianza, item.confianzaDisponible),
       estadoRespuesta,
       ...(flags.length > 0 ? { flags } : {})
     });
   }
   return [...normalizadas.values()].sort((a, b) => a.numeroPregunta - b.numeroPregunta);
+}
+
+/** Quita metadatos de UI al preparar respuestas para el contrato API. */
+export function serializarRespuestasDetectadasOmr(
+  respuestas: RespuestaDetectadaOmr[]
+): Array<Omit<RespuestaDetectadaOmr, 'confianzaDisponible' | 'confianza'> & { confianza?: number }> {
+  return respuestas.map(({ confianzaDisponible, numeroPregunta, opcion, confianza, estadoRespuesta, flags }) => ({
+    numeroPregunta,
+    opcion,
+    ...(confianzaDisponible === false ? {} : { confianza }),
+    ...(estadoRespuesta ? { estadoRespuesta } : {}),
+    ...(flags && flags.length > 0 ? { flags } : {})
+  }));
 }
 
 export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | undefined): ResultadoOmr {
@@ -348,6 +380,7 @@ export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | u
     motivosRevision: Array.isArray(entrada?.motivosRevision) ? entrada.motivosRevision : [],
     templateVersionDetectada: normalizarTemplateVersionOmrDetectada(entrada?.templateVersionDetectada),
     confianzaPromedioPagina: numeroSeguro(entrada?.confianzaPromedioPagina),
+    confianzaPromedioDisponible: entrada?.confianzaPromedioDisponible !== false && typeof entrada?.confianzaPromedioPagina === 'number' && Number.isFinite(entrada.confianzaPromedioPagina),
     ratioAmbiguas: numeroSeguro(entrada?.ratioAmbiguas),
     resumenRespuestas: entrada?.resumenRespuestas
   };
@@ -413,7 +446,7 @@ export function etiquetarAlumnosParaSelectorManual(
     const etiquetaBase = `${alumno.matricula} - ${alumno.nombreCompleto}`;
     if ((frecuencias.get(clave(alumno)) ?? 0) < 2) return { alumno, etiqueta: etiquetaBase };
     const periodo = periodos.find((item) => item._id === alumno.periodoId);
-    const contexto = [periodo ? etiquetaMateria(periodo) : '', alumno.grupo ? `Grupo ${alumno.grupo}` : ''].filter(Boolean).join(' · ');
+    const contexto = [periodo ? etiquetaMateriaParaSelector(periodo) : '', alumno.grupo ? `Grupo ${alumno.grupo}` : ''].filter(Boolean).join(' · ');
     return { alumno, etiqueta: `${etiquetaBase} · ${contexto || 'Materia o grupo sin identificar'}` };
   });
 }

@@ -55,7 +55,7 @@ describe('PDF: Ecofont y fuente OCR del pie', () => {
     const fuentesStandard = pdf.context.enumerateIndirectObjects()
       .flatMap(([, objeto]) => objeto instanceof PDFDict ? [objeto.get(PDFName.of('BaseFont'))?.toString()] : [])
       .filter((fuente): fuente is string => Boolean(fuente));
-    expect(fuentesStandard).toContain('/Helvetica');
+    expect(fuentesStandard).toContain('/Helvetica-Bold');
     const paginasExamen = resultado.mapaOmr.paginas.filter((pagina) => pagina.tipoPagina === 'examen');
     expect(paginasExamen.length).toBeGreaterThan(1);
     for (const paginaOmr of paginasExamen) {
@@ -69,11 +69,11 @@ describe('PDF: Ecofont y fuente OCR del pie', () => {
       const usosFuente = Array.from(contenidoPagina.matchAll(/\/([^\s/]+)\s+[\d.]+\s+Tf\b/g))
         .map((coincidencia) => coincidencia[1]!);
       const familiasUsadas = new Set(usosFuente.map((alias) => baseFontPorAlias.get(alias) ?? ''));
-      expect(familiasUsadas).toContain('/Helvetica');
-      expect([...familiasUsadas].filter((familia) => familia && familia !== '/Helvetica' && !familia.includes('Vera_Sans')))
+      expect(familiasUsadas).toContain('/Helvetica-Bold');
+      expect([...familiasUsadas].filter((familia) => familia && familia !== '/Helvetica-Bold' && !familia.includes('Vera_Sans')))
         .toEqual([]);
       const aliasesHelvetica = new Set([...baseFontPorAlias]
-        .filter(([, nombre]) => nombre === '/Helvetica')
+        .filter(([, nombre]) => nombre === '/Helvetica-Bold')
         .map(([alias]) => alias));
       expect(aliasesHelvetica.size).toBeGreaterThan(0);
       expect(usosFuente.filter((alias) => aliasesHelvetica.has(alias))).toHaveLength(2);
@@ -89,7 +89,7 @@ describe('PDF: Ecofont y fuente OCR del pie', () => {
       .filter((pagina) => pagina.tipoPagina === 'examen')
       .flatMap((pagina) => pagina.layoutDebug?.footerReferences ?? []);
     expect(referenciasPie).toHaveLength(paginasExamen.length * 2);
-    expect(referenciasPie.every((referencia) => referencia.fontFamily === 'Helvetica' && referencia.size >= 8.5)).toBe(true);
+    expect(referenciasPie.every((referencia) => referencia.fontFamily === 'Helvetica-Bold' && referencia.size >= 8.5)).toBe(true);
     const copiasPorReferencia = new Map<string, number>();
     for (const referencia of referenciasPie) {
       copiasPorReferencia.set(referencia.text, (copiasPorReferencia.get(referencia.text) ?? 0) + 1);

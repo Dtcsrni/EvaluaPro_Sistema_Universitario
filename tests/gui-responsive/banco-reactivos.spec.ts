@@ -129,7 +129,7 @@ test.describe('Banco de reactivos', () => {
 
     const enunciado = page.getByPlaceholder('Redacta una pregunta clara y directa.');
     await enunciado.fill('¿Qué caracteriza mejor a una organización con cultura del dato?');
-    const opciones = page.getByPlaceholder(/Texto opcion [A-E]/);
+    const opciones = page.getByRole('textbox', { name: /^Texto de la opción [A-E]$/ });
     for (const [index, value] of ['Usa evidencia para decidir', 'Ignora las métricas', 'Decide solo por intuición', 'Evita medir resultados', 'Oculta sus datos'].entries()) {
       await opciones.nth(index).fill(value);
     }
@@ -150,10 +150,10 @@ test.describe('Banco de reactivos', () => {
     )).toBe(true);
 
     const tarjetaManual = page.locator('.banco-listado__item').filter({ hasText: '¿Qué caracteriza mejor a una organización con cultura del dato?' });
-    await tarjetaManual.getByRole('button', { name: 'Editar', exact: true }).click();
+    await tarjetaManual.getByRole('button', { name: /^Editar pregunta:/ }).click();
     const formularioEdicion = page.locator('.banco-form__surface--edit');
     await formularioEdicion.getByRole('textbox', { name: 'Enunciado de la pregunta en edición' }).fill('¿Cómo decide una organización con cultura del dato?');
-    await formularioEdicion.getByRole('textbox', { name: 'Texto opcion A' }).fill('Con evidencia verificable');
+    await formularioEdicion.getByRole('textbox', { name: 'Texto de la opción A' }).fill('Con evidencia verificable');
     await formularioEdicion.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
     await expect(page.getByText('Nueva versión guardada como borrador; requiere revisión antes de publicarse.', { exact: true })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Enviar a revisión (1)', exact: true }).click();
@@ -173,7 +173,7 @@ test.describe('Banco de reactivos', () => {
     expect(historialManualJson.versiones).toHaveLength(2);
     expect(historialManualJson.versiones[0].enunciado).toBe('¿Cómo decide una organización con cultura del dato?');
     const tarjetaEditada = page.locator('.banco-listado__item').filter({ hasText: '¿Cómo decide una organización con cultura del dato?' });
-    await tarjetaEditada.getByRole('button', { name: 'Versiones', exact: true }).click();
+    await tarjetaEditada.getByRole('button', { name: /^Versiones del reactivo:/ }).click();
     const comparador = page.getByRole('region', { name: 'Comparar versiones' });
     await expect(comparador).toBeVisible();
     await expect(comparador).toContainText('¿Qué caracteriza mejor a una organización con cultura del dato?');
@@ -188,7 +188,7 @@ test.describe('Banco de reactivos', () => {
       buffer: Buffer.from(JSON.stringify(invalidBatch))
     });
     await importacion.getByRole('button', { name: 'Validar archivo', exact: true }).click();
-    await expect(importacion.getByRole('status')).toContainText(/No se pudo validar|incidencias|no cumple el contrato/i, { timeout: 20_000 });
+    await expect(importacion.getByRole('alert')).toContainText(/No se pudo validar|incidencias|no cumple el contrato|formato no compatible/i, { timeout: 20_000 });
     const listadoTrasError = await request.get(`${base}/banco-preguntas?periodoId=${encodeURIComponent(periodoId)}`, { headers });
     expect((await listadoTrasError.json()).preguntas ?? []).toHaveLength(preguntasManuales.length);
 
@@ -210,8 +210,8 @@ test.describe('Banco de reactivos', () => {
       buffer: validXlsx
     });
     await importacion.getByRole('button', { name: 'Validar archivo', exact: true }).click();
-    await expect(importacion.getByRole('status')).toContainText('Validación lista', { timeout: 20_000 });
-    await expect(page.getByText('1 nuevas', { exact: true })).toBeVisible();
+    await expect(importacion.locator('.banco-reactivos-import__message')).toContainText('Validación lista', { timeout: 20_000 });
+    await expect(page.getByText('1 reactivo nuevo', { exact: true })).toBeVisible();
     await importacion.getByRole('button', { name: 'Confirmar importación', exact: true }).click();
     const resultadoImportacion = importacion.locator('.banco-reactivos-import__message');
     await expect(resultadoImportacion).toContainText('Importación confirmada: 1 reactivo(s) esperan revisión.', { timeout: 20_000 });

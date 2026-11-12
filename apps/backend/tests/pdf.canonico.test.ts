@@ -214,7 +214,9 @@ describe('pdf OMR canónico', () => {
             .raw()
             .toBuffer({ resolveWithObject: true });
           expect(detectarQrRgba(rasterQr.data, rasterQr.info.width, rasterQr.info.height)).toBe(qrTexto);
-          expect(textoPdf).toContain(`LOTE ${loteId} · FOLIO ${folio} · Pagina ${numeroPagina} de 2`);
+          expect(textoPdf.match(new RegExp(`FOLIO\\s+${folio}\\s*[·•]\\s*P\\s*${numeroPagina}`, 'gi')))
+            .toHaveLength(2);
+          expect(textoPdf).not.toContain(`LOTE ${loteId} · FOLIO`);
           const directorioQa = process.env.OMR_QA_RENDER_OUTPUT_DIR;
           if (directorioQa && folio === 'D7E8B86B' && numeroPagina === 1) {
             await mkdir(directorioQa, { recursive: true });

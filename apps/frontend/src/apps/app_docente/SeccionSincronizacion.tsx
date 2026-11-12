@@ -5,6 +5,7 @@
  */
 import { useMemo } from 'react';
 import { Icono } from '../../ui/iconos';
+import { BookOpenText, CircleCheck, UsersRound, IconoLucide } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { HelperPanel } from '../../ui/ux/componentes/HelperPanel';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
@@ -20,6 +21,10 @@ import { formatearFechaSincronizacion, normalizarEstadoSincronizacion } from './
 
 export function SeccionSincronizacion({
   periodos,
+  cargandoMaterias,
+  errorMaterias,
+  puedeLeerMaterias,
+  onReintentarMaterias,
   periodosArchivados,
   alumnos,
   plantillas,
@@ -36,6 +41,7 @@ export function SeccionSincronizacion({
   onImportarLocal,
   estadoLease,
   onAdquirirLease,
+  onActualizarEstadoLease,
   onLiberarLease,
   onPublicarNube,
   onImportarNube,
@@ -45,6 +51,10 @@ export function SeccionSincronizacion({
   onPullServidor
 }: {
   periodos: Periodo[];
+  cargandoMaterias?: boolean;
+  errorMaterias?: boolean;
+  puedeLeerMaterias?: boolean;
+  onReintentarMaterias?: () => Promise<void> | void;
   periodosArchivados: Periodo[];
   alumnos: Alumno[];
   plantillas: Plantilla[];
@@ -82,6 +92,7 @@ export function SeccionSincronizacion({
   onImportarLocal: (payload: { cuerpo: Uint8Array }) => Promise<{ mensaje?: string; checksumSha256?: string; conteos?: { baseDatosBytes: number; archivos: number; archivosBytes: number }; requiereReinicioSesion?: boolean }>;
   estadoLease: EstadoLeaseUI | null;
   onAdquirirLease: () => Promise<EstadoLeaseUI>;
+  onActualizarEstadoLease?: () => Promise<boolean>;
   onLiberarLease: () => Promise<unknown>;
   onPublicarNube: (payload: { metodo: MetodoInstantaneaLocal; credencial?: string }) => Promise<{ checksumSha256?: string; conteos?: { baseDatosBytes: number; archivos: number; archivosBytes: number }; mensaje?: string }>;
   onImportarNube: (payload: { metodo: MetodoInstantaneaLocal; credencial?: string; dryRun: boolean }) => Promise<{ checksumSha256?: string; conteos?: { baseDatosBytes: number; archivos: number; archivosBytes: number }; mensaje?: string; requiereReinicioSesion?: boolean }>;
@@ -127,62 +138,75 @@ export function SeccionSincronizacion({
       preguntasSeguras.length
     ]
   );
+  const estadoResumen = cargandoEstado && ordenadas.length === 0
+    ? 'Consultando historial'
+    : errorEstado && ordenadas.length === 0
+      ? 'No se pudo consultar'
+      : errorEstado
+        ? 'Historial desactualizado'
+        : ordenadas.length === 0
+      ? 'Sin operaciones recientes'
+      : estadoReciente.texto;
 
   return (
     <div className="panel sincronizacion-shell">
       {/* 1. Bento Hero Header */}
       <div className="banco-panel__head sincronizacion-panel__head anim-fade-in">
         <div className="banco-panel__lead">
-          <div className="banco-panel__icon-orb sincronizacion-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-            </svg>
+          <div className="icono-seccion-orb banco-panel__icon-orb sincronizacion-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+              <Icono nombre="sincronizacion" />
           </div>
           <div className="banco-panel__text-block">
             <div className="banco-panel__meta-row">
-              <span className="banco-status-pill sincronizacion-status-pill">
+              <span className="banco-status-pill sincronizacion-status-pill" role="status">
                 <span className="banco-pulse-dot" aria-hidden="true" />
-                <span>{estadoReciente.texto}</span>
+                <span>{estadoResumen}</span>
               </span>
-              <span className="banco-counter-tag">Actualizado: {fechaActualizacion}</span>
+              <span className="banco-counter-tag">Datos locales cargados: {fechaActualizacion}</span>
             </div>
-            <h2 className="banco-panel__title eyebrow"><Icono nombre="publicar" /> Sincronización, backups y estado de datos</h2>
-            <p className="nota">Consolida sincronización con portal, paquetes entre computadoras y trazabilidad del estado operativo.</p>
+            <h2 className="banco-panel__title eyebrow">Sincronización y respaldos</h2>
+            <p className="nota">Envía y recibe cambios del portal, transfiere paquetes entre equipos y administra respaldos completos.</p>
           </div>
         </div>
 
         {/* Mini-KPIs */}
-        <div className="banco-header-kpis" aria-live="polite">
-          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Materias activas y archivadas">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" /></svg></span>
+        <div className="banco-header-kpis sincronizacion-header-kpis" role="group" aria-label="Resumen de datos y operaciones recientes">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Materias activas del ciclo actual">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><IconoLucide icon={BookOpenText} size={16} /></span>
             <span className="banco-mini-kpi__num">{resumenDatos.materiasActivas}</span>
-            <span className="banco-mini-kpi__lbl">Materias</span>
+            <span className="banco-mini-kpi__lbl">Materias activas</span>
           </div>
 
-          <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Total de alumnos matriculados">
+          <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Alumnos registrados en los datos locales">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-              </svg>
+              <IconoLucide icon={UsersRound} size={16} />
             </span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{resumenDatos.alumnos}</span>
-            <span className="banco-mini-kpi__lbl">Alumnos</span>
+            <span className="banco-mini-kpi__lbl">Alumnos registrados</span>
           </div>
 
-          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Plantillas y reactivos del banco">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg></span>
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Plantillas de examen incluidas en los datos locales.">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><IconoLucide icon={CircleCheck} size={16} /></span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{resumenDatos.plantillas}</span>
             <span className="banco-mini-kpi__lbl">Plantillas</span>
           </div>
 
-          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Operaciones exitosas registradas">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="22 4 12 14.01 9 11.01" /></svg></span>
+          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip={`Operaciones exitosas entre los últimos ${ordenadas.length} eventos consultados`}>
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><IconoLucide icon={CircleCheck} size={16} /></span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{totalesEstado.exitosas}</span>
-            <span className="banco-mini-kpi__lbl">Exitosas</span>
+            <span className="banco-mini-kpi__lbl">Éxitos recientes</span>
           </div>
         </div>
       </div>
+
+      <nav className="banco-task-nav sincronizacion-task-nav" aria-label="Tareas de sincronización">
+        <span className="banco-task-nav__label">Ir a:</span>
+        <a className="boton secundario boton--sm" href="#sync-publicacion-heading">Publicar en Portal Alumno</a>
+        <a className="boton secundario boton--sm" href="#sync-paquetes-heading">Exportar o importar paquete</a>
+        <a className="boton secundario boton--sm" href="#sync-respaldo-heading">Respaldo completo</a>
+        {estadoLease?.configurado && <a className="boton secundario boton--sm" href="#sync-coordinado-heading">Trabajo coordinado entre equipos</a>}
+        <a className="boton secundario boton--sm" href="#sync-equipos-heading">Sincronización entre equipos</a>
+      </nav>
 
       {/* 2. Bento Visual Guide */}
       <GuiaSincronizacionVisual />
@@ -192,9 +216,9 @@ export function SeccionSincronizacion({
           <div className="estado-datos-header">
             <div>
               <div className="estado-datos-titulo">Estado de sincronización</div>
-              <div className="nota">Monitorea las últimas operaciones de push, pull, publicar y backups.</div>
+              <div className="nota">Revisa los últimos envíos, recepciones, publicaciones y respaldos.</div>
             </div>
-            <span className={'estado-chip ' + estadoReciente.clase}>{estadoReciente.texto}</span>
+            <span className={'estado-chip ' + estadoReciente.clase} aria-hidden="true">{estadoReciente.texto}</span>
           </div>
 
           <div className="estado-datos-cifras">
@@ -242,11 +266,20 @@ export function SeccionSincronizacion({
           <div className="sincronizacion-historial-wrap">
             <div className="sincronizacion-historial-head">
               <div className="sincronizacion-historial-titulo">Historial reciente</div>
-              <div className="nota">Mostrando {historialFiltrado.length} de {ordenadas.length} eventos</div>
+              <div className="nota">Mostrando {historialFiltrado.length} de {ordenadas.length} eventos recientes consultados</div>
             </div>
 
             {historialFiltrado.length === 0 ? (
-              <p className="nota">No hay registros de sincronización que coincidan con el filtro.</p>
+              errorEstado ? null : cargandoEstado ? (
+                <p className="nota" aria-hidden="true">Cargando eventos de sincronización…</p>
+              ) : ordenadas.length === 0 ? (
+                <p className="nota" role="status">Aún no hay operaciones de sincronización registradas.</p>
+              ) : (
+                <div className="sincronizacion-historial-vacio">
+                  <p className="nota" role="status">No hay eventos recientes que coincidan con «{filtroHistorial.trim()}».</p>
+                  <Boton type="button" variante="secundario" tamano="sm" onClick={() => setFiltroHistorial('')}>Limpiar filtro</Boton>
+                </div>
+              )
             ) : (
               <ul className="lista lista-items sincronizacion-historial-lista">
                 {historialFiltrado.map((item: RegistroSincronizacion, idx: number) => {
@@ -274,14 +307,15 @@ export function SeccionSincronizacion({
           </div>
         </div>
 
-        <div className="item-glass sincronizacion-side-card">
+        <div className="sincronizacion-side-card">
           <HelperPanel
-            titulo="Centro de backups y publicación"
-            descripcion="Sincroniza directamente con el portal del alumno o exporta/importa paquetes cifrados entre computadoras sin conexión a internet."
+            titulo="Opciones de publicación y transferencia"
+            descripcion="Cada opción mueve datos distintos: .ep-sync.json contiene registros exportables; .ep-snapshot transfiere la SQLite y los archivos locales transferibles."
             pasos={[
-              'Publica calificaciones al portal web con un solo clic.',
-              'Exporta paquetes .epbak para respaldar toda tu base de datos.',
-              'Conecta dos laptops en la misma red local mediante PIN.'
+              'Publica calificaciones para que el alumnado las consulte en el portal.',
+              'Exporta un paquete cifrado .ep-sync.json; puedes filtrar por materia y fecha e incluir PDFs.',
+              'Transfiere la SQLite local y los archivos mediante la instantánea 1:1 .ep-snapshot.',
+              'Sincroniza cambios entre equipos por nube o red local, según la modalidad configurada.'
             ]}
           />
         </div>
@@ -289,6 +323,10 @@ export function SeccionSincronizacion({
 
       <SeccionPublicar
         periodos={periodosSeguros}
+        cargandoMaterias={cargandoMaterias}
+        errorMaterias={errorMaterias}
+        puedeLeerMaterias={puedeLeerMaterias}
+        onReintentarMaterias={onReintentarMaterias}
         onPublicar={onPublicar}
         onCodigo={onCodigo}
         onListarCodigos={onListarCodigos}
@@ -314,6 +352,7 @@ export function SeccionSincronizacion({
         puedeUsarContrasena={puedeUsarContrasena}
         puedeUsarGoogle={puedeUsarGoogle}
         onAdquirir={onAdquirirLease}
+        onActualizarEstado={onActualizarEstadoLease ?? (async () => false)}
         onLiberar={onLiberarLease}
         onPublicar={onPublicarNube}
         onImportar={onImportarNube}

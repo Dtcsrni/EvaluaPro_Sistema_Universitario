@@ -26,7 +26,7 @@ export function useEstadoSincronizacion({
   autoRefreshMs?: number;
 }) {
   const [sincronizaciones, setSincronizaciones] = useState<RegistroSincronizacion[]>([]);
-  const [cargandoEstado, setCargandoEstado] = useState(false);
+  const [cargandoEstado, setCargandoEstado] = useState(true);
   const [errorEstado, setErrorEstado] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [filtroHistorial, setFiltroHistorial] = useState('');
@@ -59,7 +59,6 @@ export function useEstadoSincronizacion({
       })
       .catch((error) => {
         if (!montadoRef.current) return;
-        setSincronizaciones([]);
         setErrorEstado(mensajeDeError(error, 'No se pudo obtener el estado de sincronización'));
       })
       .finally(() => {

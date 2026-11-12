@@ -108,7 +108,7 @@ type BlueprintReactivo = {
 
 type BlueprintPlantilla = {
   version: 1 | 2;
-  engine: 'omr-canonical-v4';
+  engine: 'omr-canonical-1.0.0';
   items: BlueprintReactivo[];
   setHash: string;
 };
@@ -185,7 +185,7 @@ export async function construirBlueprintPlantilla(
   });
   return {
     version: 2,
-    engine: 'omr-canonical-v4',
+    engine: 'omr-canonical-1.0.0',
     items,
     setHash: hashSha256Local(JSON.stringify(items))
   };
@@ -195,7 +195,7 @@ function leerBlueprint(plantilla: { blueprintJson?: unknown; blueprintStatus?: u
   if (plantilla.blueprintStatus !== 'ready' || typeof plantilla.blueprintJson !== 'string') return null;
   try {
     const parsed = JSON.parse(plantilla.blueprintJson) as BlueprintPlantilla;
-    if (![1, 2].includes(parsed?.version) || parsed.engine !== 'omr-canonical-v4' || !Array.isArray(parsed.items) || parsed.items.length === 0) return null;
+    if (![1, 2].includes(parsed?.version) || !['omr-canonical-1.0.0', 'omr-canonical-v4'].includes(parsed.engine) || !Array.isArray(parsed.items) || parsed.items.length === 0) return null;
     return parsed;
   } catch {
     return null;

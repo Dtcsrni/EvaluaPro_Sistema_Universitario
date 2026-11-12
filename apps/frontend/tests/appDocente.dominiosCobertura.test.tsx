@@ -124,7 +124,7 @@ describe('cobertura dominios docente', () => {
         enviarConPermiso={enviarConPermiso}
       />
     );
-    expect(screen.getByRole('heading', { name: /Entrega de examenes/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Entrega de exámenes/i })).toBeInTheDocument();
   });
 
   it('renderiza SeccionCalificar', () => {
@@ -202,7 +202,7 @@ describe('cobertura dominios docente', () => {
     render(
       <SeccionPublicar periodos={[periodo]} onPublicar={async () => ({})} onCodigo={async () => ({ codigo: 'ABC123' })} />
     );
-    expect(screen.getByRole('heading', { name: /Publicar en portal/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Publicación y acceso al Portal Alumno/i })).toBeInTheDocument();
   });
 
   it('genera codigo y sincroniza resultados antes de mostrarlo', async () => {
@@ -211,9 +211,10 @@ describe('cobertura dominios docente', () => {
     render(<SeccionPublicar periodos={[periodo]} onPublicar={onPublicar} onCodigo={onCodigo} />);
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'per-1' } });
-    fireEvent.click(screen.getByRole('button', { name: /Generar codigo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Generar código/i }));
 
-    await waitFor(() => expect(screen.getByText(/Código generado: ABC123/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('ABC123')).toBeInTheDocument());
+    expect(screen.getByText('Listo para compartir')).toBeInTheDocument();
     expect(onCodigo).toHaveBeenCalledWith('per-1');
     expect(onPublicar).toHaveBeenCalledWith('per-1');
   });
@@ -232,7 +233,7 @@ describe('cobertura dominios docente', () => {
         onImportar={async () => ({ mensaje: 'ok' })}
       />
     );
-    expect(screen.getByRole('heading', { name: /Backups y exportaciones/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Paquetes entre equipos/i })).toBeInTheDocument();
   });
 
   it('renderiza SeccionSincronizacionEquipos', () => {
@@ -242,7 +243,7 @@ describe('cobertura dominios docente', () => {
         onPullServidor={async () => ({ mensaje: 'ok' } as unknown as RespuestaSyncPull)}
       />
     );
-    expect(screen.getByRole('heading', { name: /Sincronizacion entre equipos/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Sincronización entre equipos/i })).toBeInTheDocument();
   });
 
   it('renderiza SeccionSincronizacion', () => {
@@ -268,6 +269,6 @@ describe('cobertura dominios docente', () => {
         onPullServidor={async () => ({ mensaje: 'ok' } as unknown as RespuestaSyncPull)}
       />
     );
-    expect(screen.getByRole('heading', { name: /Sincronizaci.n.*estado de datos/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sincronización y respaldos' })).toBeInTheDocument();
   });
 });

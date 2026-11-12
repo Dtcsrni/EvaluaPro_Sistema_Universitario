@@ -13,11 +13,12 @@ import { evaluateClassroomConfig, isDpapiCurrentUserSupported, loadEnvForDoctor 
 
 function validEnv() {
   return {
-    CLASSROOM_ENABLED: '1'
+    CLASSROOM_ENABLED: '1',
+    GOOGLE_CLASSROOM_CLIENT_SECRET: 'test-only-client-secret'
   };
 }
 
-test('classroom doctor pasa con OAuth Desktop y DPAPI sin secretos por instalación', () => {
+test('classroom doctor pasa con OAuth Desktop, secreto central y DPAPI sin secretos por instalación', () => {
   const result = evaluateClassroomConfig(validEnv());
   assert.equal(result.ok, true);
   assert.equal(result.checks.every((check) => check.ok), true);

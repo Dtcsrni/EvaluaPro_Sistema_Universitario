@@ -233,7 +233,7 @@ export function detectarColisionesDuplexOmr(mapa: MapaOmr): ColisionDuplexOmr[] 
       }
     }
 
-    const validarDorso = frente.templateId !== 'omr-canonical-v4' && reverso.templateId !== 'omr-canonical-v4';
+    const validarDorso = !['omr-canonical-1.0.0', 'omr-canonical-v4'].includes(String(frente.templateId ?? '')) && !['omr-canonical-1.0.0', 'omr-canonical-v4'].includes(String(reverso.templateId ?? ''));
     if (validarDorso) {
       for (const zona of zonasFrente) {
         for (const tinta of tintaReverso) {

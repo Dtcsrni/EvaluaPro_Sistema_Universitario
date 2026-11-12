@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import QRCode from 'qrcode';
+import { construirTextoQrExamenPagina, extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
 import { calcularRegionQrFocalizada, coincidePayloadQrExacto, detectarQrEnRecorteNativo, detectarQrEnRecorteRealzado, detectarQrZxingPaginaFuente } from '../src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCv.js';
 import { cajaQrDesdeManifiesto, combinarMapasQrEsperados, crearMapaQrEsperado, crearMapaQrManifiesto, detectarQrRgba, identidadDesdeTextoPdf, resumirReferenciaQr } from '../scripts/omr-qr-preprint-check.js';
 
@@ -7,6 +8,29 @@ const qrP1 = 'EXAMEN:E2FAFF07:P1:TV4:ID:ABCDEF12';
 const qrP2 = 'EXAMEN:E2FAFF07:P2:TV4:ID:ABCDEF12';
 
 describe('auditoria QR de referencia preimpresion', () => {
+  it('genera QR con identidad SemVer activa y conserva lectura de hojas antiguas', () => {
+    const nuevo = construirTextoQrExamenPagina({
+      folio: 'SEMVER100',
+      numeroPagina: 1,
+      templateVersion: 4,
+      compacto: true
+    });
+    expect(nuevo).toMatch(/^EXAMEN:SEMVER100:P1:O1\.0\.0:/);
+    expect(extraerResumenQrExamen(nuevo)).toMatchObject({
+      folio: 'SEMVER100',
+      numeroPagina: 1,
+      templateVersion: 4,
+      templateId: 'omr-canonical-1.0.0'
+    });
+
+    expect(extraerResumenQrExamen('EXAMEN:IMPRESO01:P1:TV4:ID:ABCDEF12')).toMatchObject({
+      folio: 'IMPRESO01',
+      numeroPagina: 1,
+      templateVersion: 4,
+      templateId: 'omr-canonical-1.0.0'
+    });
+  });
+
   it('construye el mapa esperado por folio y pagina, deduplicando capturas repetidas', () => {
     const mapa = crearMapaQrEsperado([
       { file: 'captura-a.jpg', qrTextoEsperado: qrP1 },

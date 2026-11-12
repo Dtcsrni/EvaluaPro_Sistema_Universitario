@@ -7,6 +7,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'react';
 import { BancoAjustePreguntas } from '../src/apps/app_docente/features/banco/components/BancoAjustePreguntas';
 import { estimarAltoPregunta, sugerirPreguntasARecortar } from '../src/apps/app_docente/features/banco/hooks/estimadoresBanco';
 
@@ -41,38 +42,42 @@ describe('BancoAjustePreguntas', () => {
     const tema = { _id: 'tema-1', nombre: 'Tema 1' } as unknown as { _id: string; nombre: string };
     const preguntasTema = [pregunta('p-1', 'Enunciado largo para testear ajuste'), pregunta('p-2', 'Enunciado dos')];
 
-    render(
-      <BancoAjustePreguntas
-        tema={tema}
-        temasBanco={[tema, { _id: 'tema-2', nombre: 'Tema 2' } as unknown as { _id: string; nombre: string }]}
-        ajusteTemaId="tema-1"
-        ajustePaginasObjetivo={1}
-        setAjustePaginasObjetivo={() => {}}
-        ajusteAccion="mover"
-        setAjusteAccion={() => {}}
-        ajusteTemaDestinoId=""
-        setAjusteTemaDestinoId={() => {}}
-        ajusteSeleccion={seleccion}
-        setAjusteSeleccion={setSeleccion}
-        preguntasPorTemaId={new Map([['tema-1', preguntasTema]])}
-        paginasPorTema={new Map([['tema 1', 2]])}
-        sugerirPreguntasARecortar={sugerirPreguntasARecortar}
-        estimarAltoPregunta={estimarAltoPregunta}
-        cerrarAjusteTema={() => {}}
-        aplicarAjusteTema={async () => {}}
-        moviendoTema={false}
-        sinTemaDestinoId=""
-        setSinTemaDestinoId={() => {}}
-        preguntasSinTema={[]}
-        sinTemaSeleccion={new Set()}
-        setSinTemaSeleccion={() => {}}
-        moviendoSinTema={false}
-        asignarSinTemaATema={async () => {}}
-      />
-    );
+    const props: ComponentProps<typeof BancoAjustePreguntas> = {
+        tema,
+        temasBanco: [tema, { _id: 'tema-2', nombre: 'Tema 2' } as unknown as { _id: string; nombre: string }],
+        ajusteTemaId: 'tema-1',
+        ajustePaginasObjetivo: 1,
+        setAjustePaginasObjetivo: () => {},
+        ajusteAccion: 'mover',
+        setAjusteAccion: () => {},
+        ajusteTemaDestinoId: '',
+        setAjusteTemaDestinoId: () => {},
+        ajusteSeleccion: seleccion,
+        setAjusteSeleccion: setSeleccion,
+        preguntasPorTemaId: new Map([['tema-1', preguntasTema]]),
+        paginasPorTema: new Map([['tema 1', 2]]),
+        sugerirPreguntasARecortar,
+        estimarAltoPregunta,
+        cerrarAjusteTema: () => {},
+        aplicarAjusteTema: async () => {},
+        moviendoTema: false,
+        sinTemaDestinoId: '',
+        setSinTemaDestinoId: () => {},
+        preguntasSinTema: [],
+        sinTemaSeleccion: new Set(),
+        setSinTemaSeleccion: () => {},
+        moviendoSinTema: false,
+        asignarSinTemaATema: async () => {}
+    };
+    const { rerender } = render(<BancoAjustePreguntas {...props} />);
 
-    expect(screen.getByText(/Paginas objetivo/i)).toBeInTheDocument();
+    expect(screen.getByText(/Páginas objetivo/i)).toBeInTheDocument();
+    expect(screen.getByText(/altura aproximada: .* pt/i)).toBeInTheDocument();
+    expect(screen.getByText(/72 pt equivalen a 1 pulgada/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Tema destino/i)).toBeInTheDocument();
     await user.click(screen.getAllByRole('checkbox')[0]);
     expect(setSeleccion).toHaveBeenCalled();
+    rerender(<BancoAjustePreguntas {...props} ajusteAccion="quitar" />);
+    expect(screen.queryByLabelText(/Tema destino/i)).not.toBeInTheDocument();
   });
 });

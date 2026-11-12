@@ -28,3 +28,13 @@ export async function cargarTodasLasPaginasArchivadas<T>(
     cursor = siguiente;
   }
 }
+
+/** Incluye ambos estados y evita repetir un examen si cambia durante la consulta. */
+export async function cargarExamenesParaOmr<T extends { _id: string }>(
+  obtenerPagina: (archivado: boolean, cursor: string | null) => Promise<PaginaExamenesArchivados<T>>
+): Promise<T[]> {
+  const estados = await Promise.all([false, true].map((archivado) =>
+    cargarTodasLasPaginasArchivadas((cursor) => obtenerPagina(archivado, cursor))
+  ));
+  return Array.from(new Map(estados.flat().map((examen) => [examen._id, examen])).values());
+}

@@ -25,6 +25,7 @@ type OmrVersionPolicy = {
   active?: {
     templateVersion?: number;
     contractId?: string;
+    layoutVersion?: string;
     displayLabel?: string;
   };
 };
@@ -75,7 +76,8 @@ function leerPoliticaOmr(envDir: string) {
   const version = Number(policy.active?.templateVersion);
   const contractId = String(policy.active?.contractId || '').trim();
   const displayLabel = String(policy.active?.displayLabel || '').trim();
-  if (version !== 4 || contractId !== 'omr-canonical-v4' || displayLabel !== 'OMR canónico · v4') {
+  const layoutVersion = String(policy.active?.layoutVersion || '').trim();
+  if (version !== 4 || contractId !== 'omr-canonical-1.0.0' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(layoutVersion) || displayLabel !== `OMR · ${layoutVersion}`) {
     throw new Error('La política OMR no declara exactamente el contrato canónico activo esperado.');
   }
   return { version, contractId, displayLabel };
@@ -119,6 +121,9 @@ export function validarGoogleBuild(env: Record<string, string>) {
 export default defineConfig(({ mode }) => {
   const envDir = path.resolve(__dirname, '..', '..');
   const env = loadEnv(mode, envDir, '');
+  const modoRuntime = String(env.VITE_EVALUAPRO_MODE || env.EVALUAPRO_MODE || (mode === 'development' ? 'dev' : mode === 'test' ? 'test' : 'prod')).trim().toLowerCase();
+  const esDesarrollo = modoRuntime === 'dev';
+  const esPruebas = modoRuntime === 'test';
   validarGoogleBuild(env);
   const { appVersion, displayVersion, appName, developerName } = leerMetaApp(envDir);
   const omrPolicy = leerPoliticaOmr(envDir);
@@ -136,6 +141,7 @@ export default defineConfig(({ mode }) => {
     define: {
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
       'import.meta.env.VITE_APP_DISPLAY_VERSION': JSON.stringify(displayVersion),
+      'import.meta.env.VITE_EVALUAPRO_MODE': JSON.stringify(esPruebas ? 'test' : esDesarrollo ? 'dev' : 'prod'),
       'import.meta.env.VITE_APP_NAME': JSON.stringify(appName),
       'import.meta.env.VITE_DEVELOPER_NAME': JSON.stringify(developerNameResolved),
       'import.meta.env.VITE_DEVELOPER_ROLE': JSON.stringify(developerRoleResolved),
@@ -145,12 +151,12 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: true,
-      port: 5173,
+      port: esPruebas ? 4175 : esDesarrollo ? 4174 : 4173,
       strictPort: true,
       https: httpsConfig,
       proxy: {
         '/api': {
-          target: String(env.VITE_API_PROXY_TARGET || 'http://localhost:4000'),
+          target: String(env.VITE_API_PROXY_TARGET || `http://localhost:${esPruebas ? 4100 : esDesarrollo ? 4001 : 4000}`),
           changeOrigin: true
         }
       },
@@ -160,14 +166,13 @@ export default defineConfig(({ mode }) => {
     },
     preview: {
       host: true,
-      port: 4173,
+      port: esPruebas ? 4175 : esDesarrollo ? 4174 : 4173,
       strictPort: true,
       https: httpsConfig
     },
     build: {
-      // En Windows un host estático puede mantener abierto el directorio de salida.
-      // Los assets tienen hash y el index nuevo deja sin referencia los anteriores.
-      emptyOutDir: process.platform !== 'win32',
+      // vite-build-safe compila en staging cuando detecta un host activo o un bloqueo Windows.
+      emptyOutDir: true,
       copyPublicDir: process.platform !== 'win32',
       chunkSizeWarningLimit: 600,
       rollupOptions: {

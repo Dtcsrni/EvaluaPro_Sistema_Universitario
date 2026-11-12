@@ -9,15 +9,46 @@
  * - Semáforo de porcentaje de asistencia y derecho a examen
  * - Gestión de reglas y autorización de excepciones
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { IconoCampo } from '../../ui/IconoLucide';
 import { clienteApi } from './clienteApiDocente';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
-import { Check, CircleCheck, CircleX, Clock3, FileCheck2, type LucideIcon, IconoLucide } from '../../ui/iconosCatalogo';
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpenText,
+  CalendarDays,
+  ChartNoAxesColumnIncreasing,
+  Check,
+  CheckCheck,
+  CircleCheck,
+  CircleX,
+  ClipboardCheck,
+  Clock3,
+  FileCheck2,
+  Info,
+  LoaderCircle,
+  Plus,
+  Save,
+  Settings2,
+  ShieldCheck,
+  Tags,
+  UsersRound,
+  X,
+  type LucideIcon,
+  IconoLucide
+} from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { GuiaAsistenciasVisual } from './GuiaAsistenciasVisual';
 import type { Alumno, Periodo } from './tipos';
 import { fechaLocalISO } from './fechaLocal';
+import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
+import {
+  accionToastSesionParaError,
+  ErrorRemoto,
+  mensajeUsuarioDeErrorConSugerencia
+} from '../../servicios_api/clienteComun';
 
 // ─── Tipos locales ────────────────────────────────────────────────────────────
 type SesionAsistencia = {
@@ -34,6 +65,21 @@ type RegistroLocal = {
   estado: 'P' | 'F' | 'R' | 'J';
   justificacion?: string;
 };
+
+function notificarErrorAsistencias(titulo: string, error: unknown, fallback: string) {
+  const mensajeNormalizado = error instanceof ErrorRemoto
+    ? mensajeUsuarioDeErrorConSugerencia(error, fallback)
+    : fallback;
+  const mensaje = /^(?:Error:|Network Error$)/i.test(mensajeNormalizado) ? fallback : mensajeNormalizado;
+  const accionSesion = accionToastSesionParaError(error, 'docente');
+
+  emitToast({
+    level: 'error',
+    title: titulo,
+    message: mensaje,
+    ...(accionSesion ? { action: accionSesion, persistent: true } : {})
+  });
+}
 
 type ResumenAlumno = {
   alumnoId: string;
@@ -94,6 +140,7 @@ type Props = {
 };
 
 export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }: Props) {
+  const ayudaAccionReglaId = useId();
   const [tab, setTab] = useState<TabActivo>('resumen');
   const [periodoId, setPeriodoId] = useState('');
   const [grupo, setGrupo] = useState('');
@@ -105,7 +152,18 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'con_derecho' | 'en_riesgo' | 'sin_derecho'>('todos');
   const [reglas, setReglas] = useState<ReglaAsistencia[]>([]);
   const [cargando, setCargando] = useState(false);
+  const [estadoResumen, setEstadoResumen] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [estadoSesiones, setEstadoSesiones] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [estadoReglas, setEstadoReglas] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [estadoRegistros, setEstadoRegistros] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [sesionParaReintento, setSesionParaReintento] = useState<SesionAsistencia | null>(null);
+  const [avisoPresenciaInicial, setAvisoPresenciaInicial] = useState(false);
+  const [avisoPaseRapido, setAvisoPaseRapido] = useState('');
+  const solicitudRef = useRef({ resumen: 0, sesiones: 0, reglas: 0, registros: 0 });
+  const contextoRef = useRef('');
   const [guardando, setGuardando] = useState(false);
+  const guardandoReglaRef = useRef(false);
+  const [guardandoRegla, setGuardandoRegla] = useState(false);
 
   // Formulario nueva sesión
   const [nuevaSesionFecha, setNuevaSesionFecha] = useState(() => fechaLocalISO());
@@ -149,6 +207,27 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
     return periodoSeleccionado?.grupos ?? [];
   }, [periodoSeleccionado]);
 
+  const etiquetaKpiAlumnos = !periodoId
+    ? 'Alumnos'
+    : grupo
+      ? `Alumnos · grupo ${grupo}`
+      : 'Alumnos · todos los grupos';
+  const ayudaKpiAlumnos = !periodoId
+    ? 'Selecciona un periodo para consultar el total de alumnos activos.'
+    : grupo
+      ? `Total de alumnos activos del grupo ${grupo} en el periodo seleccionado.`
+      : 'Total de alumnos activos del periodo seleccionado en todos los grupos.';
+  const ayudaKpiPromedio = !periodoId
+    ? 'Selecciona un periodo para consultar el promedio de asistencia.'
+    : grupo
+      ? `Promedio de asistencia del grupo ${grupo} en el periodo seleccionado.`
+      : 'Promedio de asistencia del periodo seleccionado en todos los grupos.';
+  const ayudaKpiBloqueados = !periodoId
+    ? 'Selecciona un periodo para consultar los alumnos con examen bloqueado.'
+    : grupo
+      ? `Alumnos con examen bloqueado del grupo ${grupo} en el periodo seleccionado.`
+      : 'Alumnos con examen bloqueado en todos los grupos del periodo seleccionado.';
+
   // El periodo es parte de la identidad de la lista aunque dos materias compartan grupo.
   const alumnosPeriodo = useMemo(
     () => alumnos.filter((a) => a.periodoId === periodoId && a.activo !== false),
@@ -158,6 +237,8 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
     if (!grupo) return alumnosPeriodo;
     return alumnosPeriodo.filter((a) => a.grupo === grupo);
   }, [alumnosPeriodo, grupo]);
+  const contexto = `${periodoId}|${grupo}`;
+  contextoRef.current = contexto;
   const alumnosSesion = useMemo(() => {
     if (!sesionActual) return [];
     return alumnosPeriodo.filter((a) => a.grupo === sesionActual.grupo);
@@ -184,52 +265,92 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
     };
   }, [sesiones, alumnosGrupo, resumen]);
 
+  const anuncioResumen = estadoResumen === 'loading' || estadoSesiones === 'loading'
+    ? 'Actualizando el resumen de asistencia.'
+    : estadoResumen === 'ready'
+      ? `Resumen actualizado para ${periodoSeleccionado?.nombre ?? 'la materia seleccionada'}${grupo ? `, grupo ${grupo}` : ', todos los grupos'}${estadoSesiones === 'ready' ? `, ${kpis.totalSesiones} ${kpis.totalSesiones === 1 ? 'sesión' : 'sesiones'}` : ''} y ${kpis.totalAlumnos} ${kpis.totalAlumnos === 1 ? 'alumno' : 'alumnos'}.`
+      : '';
+
   const cargarSesiones = useCallback(async () => {
-    if (!periodoId) return;
+    const solicitud = ++solicitudRef.current.sesiones;
+    const contextoSolicitud = `${periodoId}|${grupo}`;
+    if (!periodoId) { setSesiones([]); setEstadoSesiones('idle'); return; }
+    setSesiones([]);
+    setEstadoSesiones('loading');
     try {
       const data = await clienteApi.obtener<{ sesiones: SesionAsistencia[] }>(
         `/asistencias/sesiones?periodoId=${periodoId}${grupo ? `&grupo=${encodeURIComponent(grupo)}` : ''}`
       );
+      if (solicitudRef.current.sesiones !== solicitud || contextoRef.current !== contextoSolicitud) return;
       setSesiones(data.sesiones ?? []);
+      setEstadoSesiones('ready');
     } catch {
-      /* silencioso */
+      if (solicitudRef.current.sesiones !== solicitud || contextoRef.current !== contextoSolicitud) return;
+      setSesiones([]);
+      setEstadoSesiones('error');
     }
   }, [periodoId, grupo]);
 
   const cargarResumen = useCallback(async () => {
-    if (!periodoId) return;
+    const solicitud = ++solicitudRef.current.resumen;
+    const contextoSolicitud = `${periodoId}|${grupo}`;
+    if (!periodoId) { setResumen([]); setEstadoResumen('idle'); return; }
+    setResumen([]);
     setCargando(true);
+    setEstadoResumen('loading');
     try {
       const data = await clienteApi.obtener<{ resumen: ResumenAlumno[] }>(
         `/asistencias/resumen?periodoId=${periodoId}${grupo ? `&grupo=${encodeURIComponent(grupo)}` : ''}`
       );
+      if (solicitudRef.current.resumen !== solicitud || contextoRef.current !== contextoSolicitud) return;
       setResumen(data.resumen ?? []);
+      setEstadoResumen('ready');
     } catch {
-      emitToast({ level: 'error', title: 'Error', message: 'No se pudo cargar el resumen.' });
+      if (solicitudRef.current.resumen !== solicitud || contextoRef.current !== contextoSolicitud) return;
+      setResumen([]);
+      setEstadoResumen('error');
     } finally {
-      setCargando(false);
+      if (solicitudRef.current.resumen === solicitud) setCargando(false);
     }
   }, [periodoId, grupo]);
 
   const cargarReglas = useCallback(async () => {
-    if (!periodoId) return;
+    const solicitud = ++solicitudRef.current.reglas;
+    const contextoSolicitud = periodoId;
+    if (!periodoId) { setReglas([]); setEstadoReglas('idle'); return; }
+    setReglas([]);
+    setEstadoReglas('loading');
     try {
       const data = await clienteApi.obtener<{ reglas: ReglaAsistencia[] }>(
         `/asistencias/reglas?periodoId=${periodoId}`
       );
+      if (solicitudRef.current.reglas !== solicitud || contextoRef.current.split('|')[0] !== contextoSolicitud) return;
       setReglas(data.reglas ?? []);
+      setEstadoReglas('ready');
     } catch {
-      /* silencioso */
+      if (solicitudRef.current.reglas !== solicitud || contextoRef.current.split('|')[0] !== contextoSolicitud) return;
+      setReglas([]);
+      setEstadoReglas('error');
     }
   }, [periodoId]);
 
   useEffect(() => {
+    contextoRef.current = contexto;
+    solicitudRef.current.registros += 1;
+    setSesionActual(null);
+    setRegistros({});
+    setEstadoRegistros('idle');
+    setSesionParaReintento(null);
+    setAvisoPresenciaInicial(false);
     if (periodoId) {
       void cargarSesiones();
       void cargarResumen();
       void cargarReglas();
+    } else {
+      setSesiones([]); setResumen([]); setReglas([]);
+      setEstadoSesiones('idle'); setEstadoResumen('idle'); setEstadoReglas('idle');
     }
-  }, [periodoId, grupo, cargarSesiones, cargarResumen, cargarReglas]);
+  }, [periodoId, grupo, contexto, cargarSesiones, cargarResumen, cargarReglas]);
 
   // ─── Crear sesión ────────────────────────────────────────────────────────────
   async function crearSesion() {
@@ -239,6 +360,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
       emitToast({ level: 'warn', title: 'Datos incompletos', message: 'Selecciona periodo y grupo.' });
       return;
     }
+    const contextoCreacion = contexto;
     try {
       const data = await clienteApi.enviar<{ sesion: SesionAsistencia }>('/asistencias/sesiones', {
         periodoId,
@@ -246,6 +368,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
         grupo: g,
         temaNombre: nuevaSesionTema || undefined
       });
+      if (contextoRef.current !== contextoCreacion) return;
       emitToast({ level: 'ok', title: 'Sesión creada', message: formatFecha(data.sesion.fecha) });
       setSesionActual(data.sesion);
       // Inicializar registros con todos presentes
@@ -254,10 +377,17 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
         init[al._id] = { alumnoId: al._id, estado: 'P' };
       });
       setRegistros(init);
+      setEstadoRegistros('ready');
+      setSesionParaReintento(null);
+      setAvisoPresenciaInicial(true);
       setTab('pase_lista');
       void cargarSesiones();
-    } catch {
-      emitToast({ level: 'error', title: 'Error', message: 'No se pudo crear la sesión.' });
+    } catch (error) {
+      notificarErrorAsistencias(
+        'No se pudo crear la sesión',
+        error,
+        'No se confirmó la creación. Revisa la lista de sesiones antes de volver a crearla.'
+      );
     }
   }
 
@@ -272,7 +402,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
 
   // ─── Guardar pase de lista ───────────────────────────────────────────────────
   async function guardarPaseLista() {
-    if (!puedeGestionar || !sesionActual) return;
+    if (!puedeGestionar || !sesionActual || estadoRegistros !== 'ready') return;
     setGuardando(true);
     try {
       await clienteApi.enviar(`/asistencias/sesiones/${sesionActual._id}/registros`, {
@@ -281,8 +411,12 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
       emitToast({ level: 'ok', title: 'Lista guardada', message: `${alumnosSesion.length} registros guardados.` });
       void cargarResumen();
       setTab('resumen');
-    } catch {
-      emitToast({ level: 'error', title: 'Error', message: 'No se pudo guardar el pase de lista.' });
+    } catch (error) {
+      notificarErrorAsistencias(
+        'No se pudo guardar el pase de lista',
+        error,
+        'No se confirmó el guardado. Revisa los registros de la sesión antes de volver a enviarlos.'
+      );
     } finally {
       setGuardando(false);
     }
@@ -290,25 +424,40 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
 
   // ─── Cargar registros de sesión existente ───────────────────────────────────
   async function abrirSesion(sesion: SesionAsistencia) {
+    const contextoApertura = contexto;
+    const solicitud = ++solicitudRef.current.registros;
     setSesionActual(sesion);
+    setSesionParaReintento(sesion);
+    setRegistros({});
+    setEstadoRegistros('loading');
+    setAvisoPresenciaInicial(false);
+    setAvisoPaseRapido('');
+    setTab('pase_lista');
     try {
       const data = await clienteApi.obtener<{ registros: Array<{ alumnoId: string; estado: 'P' | 'F' | 'R' | 'J'; justificacion?: string }> }>(
         `/asistencias/sesiones/${sesion._id}/registros`
       );
+      if (solicitudRef.current.registros !== solicitud || contextoRef.current !== contextoApertura) return;
       const roster = alumnos.filter((al) => al.periodoId === periodoId && al.grupo === sesion.grupo && al.activo !== false);
       const init: Record<string, RegistroLocal> = {};
       roster.forEach((al) => { init[al._id] = { alumnoId: al._id, estado: 'P' }; });
       data.registros.forEach((r) => { if (init[r.alumnoId]) init[r.alumnoId] = r; });
       setRegistros(init);
-      setTab('pase_lista');
+      setEstadoRegistros('ready');
+      setSesionParaReintento(null);
+      setAvisoPresenciaInicial(false);
     } catch {
-      emitToast({ level: 'error', title: 'Error', message: 'No se pudo cargar la sesión.' });
+      if (solicitudRef.current.registros !== solicitud || contextoRef.current !== contextoApertura) return;
+      setRegistros({});
+      setEstadoRegistros('error');
     }
   }
 
   // ─── Crear/actualizar regla ─────────────────────────────────────────────────
   async function guardarRegla() {
-    if (!puedeGestionar || !periodoId) return;
+    if (!puedeGestionar || !periodoId || guardandoReglaRef.current) return;
+    guardandoReglaRef.current = true;
+    setGuardandoRegla(true);
     try {
       await clienteApi.enviar('/asistencias/reglas', {
         periodoId,
@@ -319,10 +468,17 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
         contarRetardos: nuevaReglaContarRetardos,
         retardosEquivalenFalta: nuevaReglaRetardosEquivalen
       });
-      emitToast({ level: 'ok', title: 'Regla guardada', message: `Máx. ${nuevaReglaMax} faltas → ${nuevaReglaAccion === 'bloquear_examen' ? 'bloquear examen' : 'advertencia'}.` });
+      emitToast({ level: 'ok', title: 'Regla guardada', message: `Máximo ${nuevaReglaMax} faltas. Acción: ${nuevaReglaAccion === 'bloquear_examen' ? 'bloquear examen' : 'advertir al docente'}.` });
       void cargarReglas();
-    } catch {
-      emitToast({ level: 'error', title: 'Error', message: 'No se pudo guardar la regla.' });
+    } catch (error) {
+      notificarErrorAsistencias(
+        'No se pudo guardar la regla',
+        error,
+        'No se confirmó el guardado. Revisa las reglas vigentes antes de volver a guardar.'
+      );
+    } finally {
+      guardandoReglaRef.current = false;
+      setGuardandoRegla(false);
     }
   }
 
@@ -335,8 +491,12 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
       await clienteApi.enviar('/asistencias/excepciones', { alumnoId, periodoId, motivo });
       emitToast({ level: 'ok', title: 'Excepción autorizada', message: nombreCompleto });
       void cargarResumen();
-    } catch {
-      emitToast({ level: 'error', title: 'Error', message: 'No se pudo autorizar la excepción.' });
+    } catch (error) {
+      notificarErrorAsistencias(
+        'No se pudo autorizar la excepción',
+        error,
+        'No se confirmó la autorización. Revisa el resumen antes de volver a autorizarla.'
+      );
     }
   }
 
@@ -345,74 +505,58 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
       {/* ── 1. Cabecera Ejecutiva Bento con Mini-KPIs ─── */}
       <div className="asistencias-panel__head">
         <div className="asistencias-panel__lead">
-          <div className="asistencias-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
+          <div className="icono-seccion-orb asistencias-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <IconoLucide icon={ClipboardCheck} size={26} />
           </div>
           <div className="asistencias-panel__text-block">
             <div className="asistencias-panel__meta-row">
               <span className="asistencias-status-pill">
                 <span className="asistencias-pulse-dot" aria-hidden="true" />
-                <span>Control de Asistencia Activo</span>
+                <span>Seguimiento de asistencia</span>
               </span>
               <span className="asistencias-counter-tag">
                 {periodoSeleccionado ? periodoSeleccionado.nombre : 'Sin materia seleccionada'}
               </span>
             </div>
-            <h2 className="asistencias-panel__title asistencias-titulo"><Icono nombre="asistencias" /> Asistencias</h2>
-            <p className="nota">Pase de lista en 1 clic, semáforo de inasistencias y control automático de derecho a examen.</p>
+            <h2 className="asistencias-panel__title asistencias-titulo">Asistencias</h2>
+            <p className="nota">Registra sesiones, revisa asistencias y consulta la elegibilidad para examen.</p>
           </div>
         </div>
 
-        <div className="asistencias-header-kpis" aria-live="polite">
+        <div className="asistencias-header-kpis">
           <div className="asistencia-mini-kpi asistencia-mini-kpi--sesiones anim-kpi-hover" data-tooltip="Total de sesiones de clase registradas">
             <span className="asistencia-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <rect width="18" height="18" x="3" y="4" rx="2" />
-                <line x1="16" x2="16" y1="2" y2="6" />
-                <line x1="8" x2="8" y1="2" y2="6" />
-                <line x1="3" x2="21" y1="10" y2="10" />
-              </svg>
+              <IconoLucide icon={CalendarDays} size={16} />
             </span>
-            <span className="asistencia-mini-kpi__num">{kpis.totalSesiones}</span>
+            <span className="asistencia-mini-kpi__num">{estadoSesiones === 'ready' ? kpis.totalSesiones : '—'}</span>
             <span className="asistencia-mini-kpi__lbl">Sesiones</span>
           </div>
 
-          <div className="asistencia-mini-kpi asistencia-mini-kpi--alumnos anim-kpi-hover" data-tooltip="Total de alumnos en el grupo">
+          <div className="asistencia-mini-kpi asistencia-mini-kpi--alumnos anim-kpi-hover" data-tooltip={ayudaKpiAlumnos}>
             <span className="asistencia-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-              </svg>
+              <IconoLucide icon={UsersRound} size={16} />
             </span>
-            <span className="asistencia-mini-kpi__num">{kpis.totalAlumnos}</span>
-            <span className="asistencia-mini-kpi__lbl">Alumnos</span>
+            <span className="asistencia-mini-kpi__num">{periodoId ? kpis.totalAlumnos : '—'}</span>
+            <span className="asistencia-mini-kpi__lbl">{etiquetaKpiAlumnos}</span>
           </div>
 
-          <div className="asistencia-mini-kpi asistencia-mini-kpi--promedio anim-kpi-hover" data-tooltip="Porcentaje promedio de asistencia global">
+          <div className="asistencia-mini-kpi asistencia-mini-kpi--promedio anim-kpi-hover" data-tooltip={ayudaKpiPromedio}>
             <span className="asistencia-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
+              <IconoLucide icon={Clock3} size={16} />
             </span>
-            <span className="asistencia-mini-kpi__num">{kpis.promedioPct}%</span>
-            <span className="asistencia-mini-kpi__lbl">% Promedio</span>
+            <span className="asistencia-mini-kpi__num">{estadoResumen === 'ready' && resumen.length ? `${kpis.promedioPct}%` : '—'}</span>
+            <span className="asistencia-mini-kpi__lbl">Asistencia promedio</span>
           </div>
 
-          <div className="asistencia-mini-kpi asistencia-mini-kpi--sin-derecho anim-kpi-hover" data-tooltip="Alumnos con riesgo o bloqueo por inasistencias">
+          <div className="asistencia-mini-kpi asistencia-mini-kpi--sin-derecho anim-kpi-hover" data-tooltip={ayudaKpiBloqueados}>
             <span className="asistencia-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
+              <IconoLucide icon={CircleX} size={16} />
             </span>
-            <span className="asistencia-mini-kpi__num">{kpis.sinDerechoCount}</span>
-            <span className="asistencia-mini-kpi__lbl">Sin Derecho</span>
+            <span className="asistencia-mini-kpi__num">{estadoResumen === 'ready' ? kpis.sinDerechoCount : '—'}</span>
+            <span className="asistencia-mini-kpi__lbl">Examen bloqueado</span>
           </div>
         </div>
+        <p className="sr-only" role="status" aria-label="Estado del resumen de asistencia">{anuncioResumen}</p>
       </div>
 
       {/* ── 2. Guía Visual Bento ─── */}
@@ -424,13 +568,11 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
           <div className="asistencias-filtros-col">
             <label className="asistencias-label-field">
               <span className="asistencias-field-lbl">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-                  <path d="M6 6h10" />
-                </svg>
-                Materia o Periodo Académico
+                <IconoLucide icon={BookOpenText} size={14} />
+                <span className="asistencias-field-lbl__text">Materia o Periodo Académico</span>
               </span>
               <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+                <IconoCampo nombre="book" />
                 <select
                   value={periodoId}
                   onChange={(e) => { setPeriodoId(e.target.value); setGrupo(''); }}
@@ -449,12 +591,11 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
             <div className="asistencias-filtros-col">
               <label className="asistencias-label-field">
                 <span className="asistencias-field-lbl">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-                  </svg>
+                  <IconoLucide icon={Tags} size={14} />
                   Filtrar por Grupo
                 </span>
                 <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
+                  <IconoCampo nombre="tags" />
                   <select
                     value={grupo}
                     onChange={(e) => setGrupo(e.target.value)}
@@ -476,17 +617,19 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
             <button
               type="button"
               className={`alumnos-group-chip ${grupo === '' ? 'alumnos-group-chip--active' : ''}`}
+              aria-pressed={grupo === ''}
               onClick={() => setGrupo('')}
             >
-              Todos ({alumnos.filter(a => a.activo !== false).length})
+              Todos ({alumnosPeriodo.length})
             </button>
             {gruposDisponibles.map((g) => {
-              const count = alumnos.filter(a => a.grupo === g && a.activo !== false).length;
+              const count = alumnosPeriodo.filter((a) => a.grupo === g).length;
               return (
                 <button
                   key={g}
                   type="button"
                   className={`alumnos-group-chip ${grupo === g ? 'alumnos-group-chip--active' : ''}`}
+                  aria-pressed={grupo === g}
                   onClick={() => setGrupo(g)}
                 >
                   {g} ({count})
@@ -498,38 +641,46 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
       </div>
 
       {/* ── 4. Navegación por Tabs Modernizada ─── */}
-      <div className="asistencias-tabs-bar">
+      <div className="asistencias-tabs-bar" role="tablist" aria-label="Secciones de asistencias">
         {(['resumen', 'pase_lista', 'reglas'] as const).map((t) => (
           <button
             key={t}
+            id={`asistencias-tab-${t}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            aria-controls={`asistencias-panel-${t}`}
+            tabIndex={tab === t ? 0 : -1}
             onClick={() => setTab(t)}
+            onKeyDown={(event) => {
+              const tabs: TabActivo[] = ['resumen', 'pase_lista', 'reglas'];
+              const index = tabs.indexOf(t);
+              const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length
+                : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length
+                  : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
+              if (next >= 0) {
+                event.preventDefault();
+                setTab(tabs[next]);
+                document.getElementById(`asistencias-tab-${tabs[next]}`)?.focus();
+              }
+            }}
             className={`asistencias-tab-btn ${tab === t ? 'activo' : ''}`}
           >
             {t === 'resumen' && (
               <>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="20" x2="18" y2="10" />
-                  <line x1="12" y1="20" x2="12" y2="4" />
-                  <line x1="6" y1="20" x2="6" y2="14" />
-                </svg>
+                <IconoLucide icon={ChartNoAxesColumnIncreasing} size={16} />
                 <span>Resumen General</span>
               </>
             )}
             {t === 'pase_lista' && (
               <>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
+                <IconoLucide icon={ClipboardCheck} size={16} />
                 <span>Pase de Lista</span>
               </>
             )}
             {t === 'reglas' && (
               <>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
+                <IconoLucide icon={Settings2} size={16} />
                 <span>Reglas y Tolerancias</span>
               </>
             )}
@@ -539,7 +690,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
 
       {/* ── 5. Estado Vacío Interactivo cuando No Hay Periodo Seleccionado ─── */}
       {!periodoId ? (
-        <div className="empty-state-card anim-fade-in">
+        <div id={`asistencias-panel-${tab}`} role="tabpanel" aria-labelledby={`asistencias-tab-${tab}`} tabIndex={0} className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon anim-icon-pulse">
             <Icono nombre="asistencias" size={28} />
           </div>
@@ -562,7 +713,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                     <strong>{p.nombre}</strong>
                     <span>Grupos: {Array.isArray(p.grupos) && p.grupos.length > 0 ? p.grupos.join(', ') : 'General'}</span>
                   </div>
-                  <div className="asistencia-materia-pick-arrow">➔</div>
+                  <div className="asistencia-materia-pick-arrow" aria-hidden="true"><IconoLucide icon={ArrowRight} size={18} /></div>
                 </button>
               ))}
             </div>
@@ -573,15 +724,15 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
               <span className="empty-step__num">1</span>
               <span>Selecciona tu materia</span>
             </div>
-            <div className="empty-step__arrow">➔</div>
+            <div className="empty-step__arrow"><IconoLucide icon={ArrowRight} size={14} /></div>
             <div className="empty-step">
               <span className="empty-step__num">2</span>
-              <span>Pasa lista con 1 clic</span>
+              <span>Marca y revisa la asistencia</span>
             </div>
-            <div className="empty-step__arrow">➔</div>
+            <div className="empty-step__arrow"><IconoLucide icon={ArrowRight} size={14} /></div>
             <div className="empty-step">
               <span className="empty-step__num">3</span>
-              <span>Semáforo de examen</span>
+              <span>Consulta elegibilidad de examen</span>
             </div>
           </div>
         </div>
@@ -589,13 +740,13 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
         <>
           {/* ── TAB RESUMEN ─── */}
           {tab === 'resumen' && (
-            <div className="anim-fade-in">
+            <div id="asistencias-panel-resumen" role="tabpanel" aria-labelledby="asistencias-tab-resumen" tabIndex={0} className="anim-fade-in">
               {/* Nueva sesión rápida Bento Hero Form */}
               <div className="panel asistencias-panel-card asistencias-hero-card anim-card-hover">
                 <div className="asistencias-card-head">
                   <div className="asistencias-card-head__text">
-                    <h3 className="asistencias-sub-title">✨ Registrar Nueva Sesión de Clase</h3>
-                    <p className="asistencias-sub-desc">Habilita una sesión para pase de lista en 1 clic o lectura de folios QR.</p>
+                    <h3 className="asistencias-sub-title"><Icono nombre="nuevo" /> Registrar nueva sesión de clase</h3>
+                    <p className="asistencias-sub-desc">Crea una sesión para pasar lista manualmente o mediante lectura de folios QR.</p>
                   </div>
                   <div className="asistencias-card-head__badge">
                     <span className="asistencias-pulse-dot" aria-hidden="true" />
@@ -606,7 +757,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                   <div className="asistencias-form-crear__grid">
                     <label className="asistencias-field-col asistencias-field-col--fecha">
                       <span>Fecha de clase</span>
-                      <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
+                      <div className="auth-input-box auth-input-box--animated">
                         <input
                           type="date"
                           value={nuevaSesionFecha}
@@ -619,7 +770,8 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                     {gruposDisponibles.length > 0 && (
                       <label className="asistencias-field-col asistencias-field-col--grupo">
                         <span>Grupo académico</span>
-                        <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
+                        <div className="auth-input-box asistencias-input-box auth-input-box--animated">
+                          <IconoLucide icon={Tags} size={16} />
                           <select
                             value={nuevaSesionGrupo}
                             onChange={(e) => setNuevasSesionGrupo(e.target.value)}
@@ -634,10 +786,11 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
 
                     <label className="asistencias-field-col asistencias-field-col--tema">
                       <span>Tema o contenido temático cubierto</span>
-                      <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+                      <div className="auth-input-box asistencias-input-box auth-input-box--animated">
+                        <IconoLucide icon={BookOpenText} size={16} />
                         <input
                           type="text"
-                          placeholder="Ej. Unidad 2: Modelado dimensional, ETL y dashboards ejecutivos…"
+                          placeholder="Ej. Unidad 2"
                           value={nuevaSesionTema}
                           onChange={(e) => setNuevaSesionTema(e.target.value)}
                           className="asistencias-input"
@@ -652,12 +805,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                         disabled={!puedeGestionar}
                         aria-describedby={!puedeGestionar ? 'asistencias-solo-lectura' : undefined}
                         className="asistencias-btn-primario boton--crear-sesion"
-                        icono={
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                          </svg>
-                        }
+                        icono={<IconoLucide icon={Plus} size={16} />}
                       >
                         Crear e Iniciar Pase de Lista
                       </Boton>
@@ -686,7 +834,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                         className="asistencias-search-clear"
                         title="Limpiar búsqueda"
                       >
-                        ✕
+                        <IconoLucide icon={X} size={16} />
                       </button>
                     )}
                   </div>
@@ -703,14 +851,14 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                       className={`asistencias-chip ${filtroEstado === 'con_derecho' ? 'asistencias-chip--active' : ''}`}
                       onClick={() => setFiltroEstado('con_derecho')}
                     >
-                      ✓ Con Derecho ({resumen.filter((r) => !r.bloqueadoExamen).length})
+                      <IconoLucide icon={CircleCheck} size={15} /> Sin bloqueo ({resumen.filter((r) => !r.bloqueadoExamen).length})
                     </button>
                     <button
                       type="button"
                       className={`asistencias-chip asistencias-chip--danger ${filtroEstado === 'sin_derecho' ? 'asistencias-chip--active' : ''}`}
                       onClick={() => setFiltroEstado('sin_derecho')}
                     >
-                      🚫 Sin Derecho ({resumen.filter((r) => r.bloqueadoExamen).length})
+                      <IconoLucide icon={CircleX} size={15} /> Examen bloqueado ({resumen.filter((r) => r.bloqueadoExamen).length})
                     </button>
                   </div>
                 </div>
@@ -719,10 +867,15 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
               {/* Tabla resumen de alumnos */}
               {cargando ? (
                 <div className="asistencias-loading-box anim-fade-in">
-                  <div className="asistencias-panel__icon-orb anim-icon-pulse" aria-hidden="true">⏳</div>
+                  <div className="asistencias-panel__icon-orb anim-icon-pulse" aria-hidden="true"><IconoLucide icon={LoaderCircle} size={24} /></div>
                   <p>Cargando resumen de asistencias…</p>
                 </div>
-              ) : resumen.length === 0 ? (
+              ) : estadoResumen === 'error' ? (
+                <div>
+                  <InlineMensaje tipo="error">No se pudo cargar el resumen. La información de elegibilidad no está disponible.</InlineMensaje>
+                  <Boton type="button" variante="secundario" onClick={() => void cargarResumen()}>Reintentar resumen</Boton>
+                </div>
+              ) : estadoResumen === 'ready' && resumen.length === 0 ? (
                 <div className="empty-state-card anim-fade-in">
                   <div className="empty-state-card__icon anim-icon-pulse">
                     <Icono nombre="asistencias" size={28} />
@@ -732,21 +885,28 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                     Crea tu primera sesión de clase arriba para comenzar a tomar asistencia y calcular el semáforo académico.
                   </p>
                 </div>
-              ) : (
-                <div className="table-scroll-container anim-fade-in">
+              ) : estadoResumen === 'ready' ? (
+                <>
+                  <p id="asistencias-tabla-ayuda" className="nota asistencias-table-scroll-hint">
+                    Con el teclado, enfoca la tabla y pulsa las flechas para desplazar sus columnas; también puedes deslizarla. Abreviaturas: P, presentes; F, faltas; R, retardos; J, justificadas.
+                  </p>
+                  {/* Habilita el desplazamiento horizontal de la tabla con teclado. */}
+                  {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- El foco permite desplazar esta región de tabla con teclado. */}
+                  <div className="table-scroll-container anim-fade-in asistencias-table-scroll" role="region" aria-label="Resumen de asistencia por alumno" aria-describedby="asistencias-tabla-ayuda" tabIndex={0}>
                   <table className="asistencias-tabla">
+                    <caption className="sr-only">Resumen de asistencia del periodo seleccionado por alumno</caption>
                     <thead>
                       <tr>
-                        <th className="asistencias-th">Alumno</th>
-                        <th className="asistencias-th">Matrícula</th>
-                        <th className="asistencias-th">Grupo</th>
-                        <th className="asistencias-th" title="Presentes">P</th>
-                        <th className="asistencias-th" title="Faltas">F</th>
-                        <th className="asistencias-th" title="Retardos">R</th>
-                        <th className="asistencias-th" title="Justificadas">J</th>
-                        <th className="asistencias-th">% Asist.</th>
-                        <th className="asistencias-th">Derecho a Examen</th>
-                        <th className="asistencias-th">Acciones</th>
+                        <th scope="col" className="asistencias-th">Alumno</th>
+                        <th scope="col" className="asistencias-th">Matrícula</th>
+                        <th scope="col" className="asistencias-th">Grupo</th>
+                        <th scope="col" className="asistencias-th" title="Presentes"><span aria-hidden="true">P</span><span className="sr-only">Presentes</span></th>
+                        <th scope="col" className="asistencias-th" title="Faltas"><span aria-hidden="true">F</span><span className="sr-only">Faltas</span></th>
+                        <th scope="col" className="asistencias-th" title="Retardos"><span aria-hidden="true">R</span><span className="sr-only">Retardos</span></th>
+                        <th scope="col" className="asistencias-th" title="Justificadas"><span aria-hidden="true">J</span><span className="sr-only">Justificadas</span></th>
+                        <th scope="col" className="asistencias-th"><span aria-hidden="true">% Asist.</span><span className="sr-only">Porcentaje de asistencia</span></th>
+                        <th scope="col" className="asistencias-th">Derecho a Examen</th>
+                        <th scope="col" className="asistencias-th">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -786,16 +946,16 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                             </td>
                             <td className="asistencias-td">
                               {al.bloqueadoExamen ? (
-                                <span title="Sin derecho a examen" className="asistencias-badge-pill sin-derecho anim-badge-in">
-                                  🚫 Sin Derecho
+                                <span title="Examen bloqueado por inasistencias" className="asistencias-badge-pill sin-derecho anim-badge-in">
+                                  <IconoLucide icon={CircleX} size={14} /> Examen bloqueado
                                 </span>
                               ) : al.tieneExcepcion ? (
                                 <span title="Excepción autorizada" className="asistencias-badge-pill autorizado anim-badge-in">
-                                  ⚠️ Autorizado
+                                  <IconoLucide icon={FileCheck2} size={14} /> Autorizado
                                 </span>
                               ) : (
-                                <span title="Con derecho a examen" className="asistencias-badge-pill con-derecho anim-badge-in">
-                                  ✅ Con Derecho
+                                <span title="Sin bloqueo de examen" className="asistencias-badge-pill con-derecho anim-badge-in">
+                                  <IconoLucide icon={CircleCheck} size={14} /> Sin bloqueo
                                 </span>
                               )}
                             </td>
@@ -807,7 +967,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                                   onClick={() => void autorizarExcepcion(al.alumnoId, al.nombreCompleto)}
                                   disabled={!puedeGestionar}
                                   className="asistencias-btn-autorizar anim-fade-in"
-                                  icono={<span aria-hidden="true">🛡️</span>}
+                                  icono={<IconoLucide icon={ShieldCheck} size={16} />}
                                 >
                                   Autorizar Excepción
                                 </Boton>
@@ -817,7 +977,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                                   type="button"
                                   onClick={() => setTab('pase_lista')}
                                   className="asistencias-btn-fila-pase"
-                                  icono={<span aria-hidden="true">📝</span>}
+                                  icono={<IconoLucide icon={ClipboardCheck} size={16} />}
                                 >
                                   Pase de Lista
                                 </Boton>
@@ -828,11 +988,13 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                       })}
                     </tbody>
                   </table>
-                </div>
-              )}
+                  </div>
+                </>
+              ) : null}
 
               {/* Sesiones anteriores */}
-              {sesiones.length > 0 && (
+              {estadoSesiones === 'error' && <div><InlineMensaje tipo="error">No se pudieron cargar las sesiones registradas.</InlineMensaje><Boton type="button" variante="secundario" onClick={() => void cargarSesiones()}>Reintentar sesiones</Boton></div>}
+              {estadoSesiones === 'ready' && sesiones.length > 0 && (
                 <div className="asistencias-panel-card anim-card-hover">
                   <div className="asistencias-card-head">
                     <h3 className="asistencias-sub-title"><Icono nombre="periodos" /> Sesiones Registradas ({sesiones.length})</h3>
@@ -855,7 +1017,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                           <p className="asistencias-sesion-card__topic">{s.temaNombre}</p>
                         )}
                         <div className="asistencias-sesion-card__footer">
-                          <span>Editar lista ➔</span>
+                          <span>Editar lista <IconoLucide icon={ArrowRight} size={14} /></span>
                         </div>
                       </button>
                     ))}
@@ -867,18 +1029,18 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
 
           {/* ── TAB PASE DE LISTA ─── */}
           {tab === 'pase_lista' && (
-            <div className="anim-fade-in">
+            <div id="asistencias-panel-pase_lista" role="tabpanel" aria-labelledby="asistencias-tab-pase_lista" tabIndex={0} className="anim-fade-in">
               {!sesionActual ? (
                 <div className="empty-state-card anim-fade-in">
                   <div className="empty-state-card__icon anim-icon-pulse">
-                    <span aria-hidden="true">✍️</span>
+                    <IconoLucide icon={ClipboardCheck} size={28} />
                   </div>
                   <h4>No hay sesión seleccionada</h4>
                   <p className="nota">
                     Crea una nueva sesión o selecciona una existente desde la pestaña <strong>Resumen</strong> para iniciar el pase de lista.
                   </p>
                   <Boton variante="secundario" type="button" onClick={() => setTab('resumen')}>
-                    ⬅ Volver al Resumen
+                    <IconoLucide icon={ArrowLeft} size={16} /> Volver al resumen
                   </Boton>
                 </div>
               ) : (
@@ -900,17 +1062,14 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                       <Boton
                         variante="secundario"
                         type="button"
+                        disabled={estadoRegistros !== 'ready'}
                         onClick={() => {
                           const all: Record<string, RegistroLocal> = {};
                           alumnosSesion.forEach((a) => { all[a._id] = { alumnoId: a._id, estado: 'P' }; });
                           setRegistros(all);
-                          emitToast({ level: 'info', title: 'Pase rápido', message: 'Todos marcados como Presentes' });
+                          setAvisoPaseRapido('Se marcó a todo el grupo como Presente. Revisa cada registro antes de guardar.');
                         }}
-                        icono={
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
-                            <path d="M20 6L9 17l-5-5" />
-                          </svg>
-                        }
+                        icono={<IconoLucide icon={CheckCheck} size={14} />}
                       >
                         Todos Presentes
                       </Boton>
@@ -919,20 +1078,18 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                         type="button"
                         onClick={() => void guardarPaseLista()}
                         cargando={guardando}
-                        disabled={!puedeGestionar || guardando}
+                        disabled={!puedeGestionar || guardando || estadoRegistros !== 'ready'}
                         className="asistencias-btn-primario boton--guardar-lista pulse-glow"
-                        icono={
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                            <polyline points="17 21 17 13 7 13 7 21" />
-                            <polyline points="7 3 7 8 15 8" />
-                          </svg>
-                        }
+                        icono={<IconoLucide icon={Save} size={14} />}
                       >
                         {guardando ? 'Guardando…' : 'Guardar lista'}
                       </Boton>
                     </div>
                   </div>
+
+                  {avisoPaseRapido && <InlineMensaje tipo="ok">{avisoPaseRapido}</InlineMensaje>}
+                  {estadoRegistros === 'loading' && <InlineMensaje tipo="info">Cargando los registros guardados de la sesión…</InlineMensaje>}
+                  {estadoRegistros === 'error' && <div><InlineMensaje tipo="error">No se pudieron cargar los registros. No edites ni guardes esta lista hasta reintentar.</InlineMensaje>{sesionParaReintento && <Boton type="button" variante="secundario" onClick={() => void abrirSesion(sesionParaReintento)}>Reintentar carga de lista</Boton>}</div>}
 
                   {/* Barra de Leyenda Interactiva */}
                   <div className="asistencias-legend-bar anim-fade-in">
@@ -946,6 +1103,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                     </div>
                     <span className="nota asistencias-legend-hint">Selecciona cada estado por su nombre; la letra es solo una referencia breve.</span>
                   </div>
+                  {avisoPresenciaInicial && <InlineMensaje tipo="info">La nueva sesión inicia con todos los alumnos como Presentes. Revisa y ajusta cada registro antes de guardar.</InlineMensaje>}
 
                   {/* Lista interactiva Fast-Check */}
                   <div className="asistencias-fastcheck-grid">
@@ -976,7 +1134,7 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                                 className="asistencias-estado-control"
                                 aria-label={`Marcar a ${al.nombreCompleto} como ${ESTADO_LABEL[estado]}`}
                                 aria-pressed={reg.estado === estado}
-                                disabled={!puedeGestionar}
+                                disabled={!puedeGestionar || estadoRegistros !== 'ready'}
                                 onClick={() => establecerEstado(al._id, estado)}
                               >
                                 <IconoLucide icon={ESTADO_ICONO[estado]} size={16} />
@@ -1013,14 +1171,17 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
 
           {/* ── TAB REGLAS ─── */}
           {tab === 'reglas' && (
-            <div className="anim-fade-in">
+            <div id="asistencias-panel-reglas" role="tabpanel" aria-labelledby="asistencias-tab-reglas" tabIndex={0} className="anim-fade-in">
               <div className="panel asistencias-panel-card anim-card-hover">
                 <div className="asistencias-card-head">
-                  <h3 className="asistencias-sub-title">⚙️ Configurar Regla de Asistencia y Derecho a Examen</h3>
+                  <h3 className="asistencias-sub-title"><IconoLucide icon={Settings2} size={18} /> Configurar regla de asistencia y derecho a examen</h3>
                   <p className="asistencias-sub-desc">Establece el número máximo de faltas permitidas antes de bloquear el derecho a examen.</p>
                 </div>
 
                 {!puedeGestionar && <p className="nota" role="status">La configuración está disponible en modo de solo lectura.</p>}
+              {estadoReglas === 'loading' && <InlineMensaje tipo="info">Cargando reglas de asistencia…</InlineMensaje>}
+              {estadoReglas === 'error' && <div><InlineMensaje tipo="error">No se pudieron cargar las reglas vigentes.</InlineMensaje><Boton type="button" variante="secundario" onClick={() => void cargarReglas()}>Reintentar reglas</Boton></div>}
+              {estadoReglas === 'ready' && reglas.length === 0 && <InlineMensaje tipo="info">No hay reglas configuradas para este periodo todavía.</InlineMensaje>}
                 <div className="asistencias-config-grid">
                   <label className="asistencias-form-col">
                     <span className="asistencias-field-lbl">Máximo de faltas permitidas</span>
@@ -1044,31 +1205,20 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                         value={nuevaReglaAccion}
                         onChange={(e) => setNuevaReglaAccion(e.target.value as 'bloquear_examen' | 'advertir')}
                         disabled={!puedeGestionar}
+                        aria-describedby={ayudaAccionReglaId}
                         className="asistencias-select"
                       >
-                        <option value="bloquear_examen">🚫 Bloquear examen (requiere autorización docente)</option>
-                        <option value="advertir">⚠️ Solo advertir al docente</option>
+                        <option value="bloquear_examen">Bloquear examen</option>
+                        <option value="advertir">Solo advertir</option>
                       </select>
                     </div>
+                    <span id={ayudaAccionReglaId} className="nota">
+                      {nuevaReglaAccion === 'bloquear_examen'
+                        ? 'Al superar el máximo, bloquea el examen; las excepciones se autorizan desde Resumen.'
+                        : 'Al superar el máximo, muestra una advertencia sin bloquear el examen.'}
+                    </span>
                   </label>
 
-                  <div className="asistencias-form-col asistencias-form-col--btn">
-                    <Boton
-                      type="button"
-                      onClick={() => void guardarRegla()}
-                      disabled={!puedeGestionar}
-                      className="asistencias-btn-primario boton--guardar-regla"
-                      icono={
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
-                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                          <polyline points="17 21 17 13 7 13 7 21" />
-                          <polyline points="7 3 7 8 15 8" />
-                        </svg>
-                      }
-                    >
-                      Guardar regla
-                    </Boton>
-                  </div>
                 </div>
 
                 {/* Sección retardos */}
@@ -1105,13 +1255,26 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                   )}
                 </div>
 
+                <div className="asistencias-form-col asistencias-form-col--btn">
+                  <Boton
+                    type="button"
+                    onClick={() => void guardarRegla()}
+                    disabled={!puedeGestionar || guardandoRegla}
+                    cargando={guardandoRegla}
+                    className="asistencias-btn-primario boton--guardar-regla"
+                    icono={<IconoLucide icon={Save} size={14} />}
+                  >
+                    {guardandoRegla ? 'Guardando regla…' : 'Guardar regla'}
+                  </Boton>
+                </div>
+
                 <p className="nota asistencias-regla-footer-hint">
-                  ℹ️ La regla aplica a la materia actual {grupo ? `y al grupo "${grupo}"` : '(todos los grupos)'}. Puedes autorizar excepciones individuales en cualquier momento desde la pestaña Resumen.
+                  <IconoLucide icon={Info} size={15} /> La regla aplica a la materia actual {grupo ? `y al grupo "${grupo}"` : '(todos los grupos)'}. Puedes autorizar excepciones individuales en cualquier momento desde la pestaña Resumen.
                 </p>
               </div>
 
               {/* Reglas existentes */}
-              {reglas.length > 0 && (
+              {estadoReglas === 'ready' && reglas.length > 0 && (
                 <div className="asistencias-panel-card anim-card-hover">
                   <div className="asistencias-card-head">
                     <h3 className="asistencias-sub-title">Reglas Activas ({reglas.length})</h3>
@@ -1120,19 +1283,17 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
                     {reglas.map((r) => (
                       <div key={r._id} className="asistencias-regla-card anim-slide-up">
                         <div className="asistencias-regla-card__icon" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                          </svg>
+                          <IconoLucide icon={ShieldCheck} size={18} />
                         </div>
                         <div className="asistencias-regla-card__body">
                           <strong>Máximo {r.maxFaltas} faltas</strong>
                           <span className="nota">
-                            → {r.accion === 'bloquear_examen' ? '🚫 Bloquear examen' : '⚠️ Advertencia'}
+                            Acción: {r.accion === 'bloquear_examen' ? 'Bloquear examen' : 'Advertir'}
                             {r.grupo ? ` · Grupo: ${r.grupo}` : ' · Todos los grupos'}
                           </span>
                           {r.contarRetardos && (
                             <span className="asistencias-r-stat">
-                              · ⏱ {r.retardosEquivalenFalta} retardos equivalen a 1 falta
+                              · Equivalencia: {r.retardosEquivalenFalta} retardos por cada falta
                             </span>
                           )}
                         </div>
@@ -1145,6 +1306,9 @@ export function SeccionAsistencias({ periodos, alumnos, puedeGestionar = false }
           )}
         </>
       )}
+      {(['resumen', 'pase_lista', 'reglas'] as const).filter((panel) => panel !== tab).map((panel) => (
+        <div key={panel} id={`asistencias-panel-${panel}`} role="tabpanel" aria-labelledby={`asistencias-tab-${panel}`} hidden />
+      ))}
     </div>
   );
 }

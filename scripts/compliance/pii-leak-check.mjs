@@ -26,6 +26,13 @@ const tracked = execSync('git ls-files', { cwd: root, stdio: ['ignore', 'pipe', 
   .toString('utf8')
   .split(/\r?\n/)
   .filter(Boolean);
+const skipWorktree = new Set(
+  execSync('git ls-files -v', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] })
+    .toString('utf8')
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('S '))
+    .map((line) => line.slice(2))
+);
 
 const textExt = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json', '.md', '.yml', '.yaml', '.env', '.txt']);
 const allowEmailSuffix = ['@example.invalid', '@local.test', '@example.com'];
@@ -35,12 +42,21 @@ const jwtRegex = /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,
 const matriculaRegex = /\bCUH\d{6,}\b/g;
 
 const findings = [];
+let sparseOmitted = 0;
 for (const rel of tracked) {
   if (!scopedPathRegex.some((rx) => rx.test(rel))) continue;
   const ext = path.extname(rel).toLowerCase();
   if (!textExt.has(ext) && !rel.endsWith('.env.example')) continue;
 
   const abs = path.join(root, rel);
+  if (!fs.existsSync(abs)) {
+    if (skipWorktree.has(rel)) {
+      sparseOmitted += 1;
+      continue;
+    }
+    findings.push({ tipo: 'archivo_ausente', archivo: rel, valor: '[ausente]' });
+    continue;
+  }
   const content = fs.readFileSync(abs, 'utf8');
 
   const emails = content.match(emailRegex) ?? [];
@@ -69,4 +85,4 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-process.stdout.write('[pii-leak-check] OK\n');
+process.stdout.write(`[pii-leak-check] OK; archivos sparse omitidos: ${sparseOmitted}\n`);

@@ -5,18 +5,22 @@ import { accionToastSesionParaError, ErrorRemoto } from '../../servicios_api/cli
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
+import { CircleCheck, FileText, ListTree, Search, IconoLucide } from '../../ui/iconosCatalogo';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { clienteApi } from './clienteApiDocente';
 import { GuiaGeneracionExamenesVisual } from './features/plantillas/components/GuiaGeneracionExamenesVisual';
 import { GuiaHistorialLotesVisual } from './features/plantillas/components/GuiaHistorialLotesVisual';
+import { PlantillasTabNavigation } from './features/plantillas/components/PlantillasTabNavigation';
 import { PlantillasConsolaGeneracion } from './features/plantillas/components/PlantillasConsolaGeneracion';
 import { PlantillasHistorialLotes } from './features/plantillas/components/PlantillasHistorialLotes';
 import { PlantillasFormulario } from './features/plantillas/components/PlantillasFormulario';
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
-import { PlantillasOmrWorkflow, type ArchivoOmrLote, type TrabajoOmrResumen } from './features/plantillas/components/PlantillasOmrWorkflow';
+import { PlantillasOmrWorkflow, type TrabajoOmrResumen } from './features/plantillas/components/PlantillasOmrWorkflow';
 import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabajoOmr';
-import { cargarTodasLasPaginasArchivadas } from './features/plantillas/archivoOmr';
-import { guardarTabPlantillas, PLANTILLAS_TAB_STORAGE_KEY, type TabPlantillas } from './features/plantillas/tabPlantillasState';
+import { cargarExamenesParaOmr } from './features/plantillas/archivoOmr';
+import { cargarExamenesActivosDeLote, describirLote } from './features/plantillas/historialLotes';
+import { derivarDisponibilidadPlantilla, resumirLotesOmr } from './features/plantillas/datosPlantilla';
+import { guardarTabPlantillas, leerTabPlantillasInicial, type TabPlantillas } from './features/plantillas/tabPlantillasState';
 import { confirmarLoteEnHistorial, crearClaveLoteGeneracion, guardarLotePendiente, leerLotePendiente, validarLoteListoParaDescarga, type LotePdfArchivadoResumen, type ProgresoLoteGeneracion } from './features/plantillas/loteGeneracionSesion';
 import { confirmarClientRequestIdPlantilla, obtenerClientRequestIdPlantilla } from './features/plantillas/mutacionIdempotente';
 import {
@@ -43,7 +47,7 @@ import type {
   PreviewPlantilla,
   Docente
 } from './tipos';
-import { idCortoMateria, mensajeDeError } from './utilidades';
+import { mensajeDeError } from './utilidades';
 
 export function existeTituloPlantillaDuplicadoPorPeriodo(
   plantillas: Plantilla[],
@@ -59,16 +63,6 @@ export function existeTituloPlantillaDuplicadoPorPeriodo(
     if (String(plantilla.periodoId || '').trim() !== periodoCandidato) return false;
     return String(plantilla.titulo || '').trim().replace(/\s+/g, ' ').toLowerCase() === candidato;
   });
-}
-
-function leerTabPlantillasInicial(): TabPlantillas {
-  if (typeof window === 'undefined') return 'diseno';
-  try {
-    const tab = window.sessionStorage.getItem(PLANTILLAS_TAB_STORAGE_KEY);
-    return tab === 'generacion' || tab === 'historial' || tab === 'diseno' ? tab : 'diseno';
-  } catch {
-    return 'diseno';
-  }
 }
 
 export function SeccionPlantillas({
@@ -136,11 +130,31 @@ export function SeccionPlantillas({
   const [logoIzquierda, setLogoIzquierda] = useState(preferenciasPdf?.logos?.izquierdaPath ?? '');
   const [logoDerecha, setLogoDerecha] = useState(preferenciasPdf?.logos?.derechaPath ?? '');
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
-  const [examTemplateId, setExamTemplateId] = useState<'omr-canonical-v4' | 'omr-inline-exam-v1'>('omr-canonical-v4');
+  const [examTemplateId, setExamTemplateId] = useState<'omr-canonical-1.0.0' | 'omr-inline-exam-v1'>('omr-canonical-1.0.0');
   const [mensaje, setMensaje] = useState('');
+  const [mensajeEsError, setMensajeEsError] = useState(false);
 
   const [plantillaId, setPlantillaId] = useState('');
-  const [mensajeGeneracion, setMensajeGeneracion] = useState('');
+  const [mensajeGeneracion, setTextoMensajeGeneracion] = useState('');
+  const [mensajeGeneracionEsError, setMensajeGeneracionEsError] = useState(false);
+  const setMensajeGeneracion = useCallback<Dispatch<SetStateAction<string>>>((siguiente) => {
+    setTextoMensajeGeneracion(siguiente);
+    setMensajeGeneracionEsError(false);
+  }, []);
+  const mostrarErrorMensajeGeneracion = useCallback((texto: string) => {
+    setTextoMensajeGeneracion(texto);
+    setMensajeGeneracionEsError(true);
+  }, []);
+  const notificarRecuperacionSesion = useCallback((error: unknown) => {
+    const action = accionToastSesionParaError(error, 'docente');
+    if (!action) return;
+    emitToast({
+      level: 'warn',
+      title: 'Recupera tu sesión',
+      message: 'Recupera el acceso y vuelve a intentar la operación.',
+      action
+    });
+  }, []);
   const [lotePdfUrl, setLotePdfUrl] = useState<string | null>(null);
   // ultimoGenerado
   const [, setUltimoGenerado] = useState<ExamenGeneradoResumen | null>(null);
@@ -164,6 +178,10 @@ export function SeccionPlantillas({
   }, []);
   const [examenesGenerados, setExamenesGenerados] = useState<ExamenGeneradoResumen[]>([]);
   const [lotesArchivados, setLotesArchivados] = useState<LotePdfArchivadoResumen[]>([]);
+  const [errorExamenesGenerados, setErrorExamenesGenerados] = useState('');
+  const [errorLotesArchivados, setErrorLotesArchivados] = useState('');
+  const versionConsultaHistorialRef = useRef(0);
+  const plantillaConsultaHistorialRef = useRef('');
   const [cursorLotesArchivados, setCursorLotesArchivados] = useState<string | null>(null);
   const [cargandoLotesArchivados, setCargandoLotesArchivados] = useState(false);
   const [restaurandoLoteId, setRestaurandoLoteId] = useState<string | null>(null);
@@ -203,7 +221,8 @@ export function SeccionPlantillas({
     habilitada: tabActiva === 'generacion',
     puedeLeer: permisos.plantillas.leer,
     periodosArchivados,
-    setMensaje: setMensajeGeneracion
+    setMensaje: setMensajeGeneracion,
+    setMensajeError: mostrarErrorMensajeGeneracion
   });
   const puedePrevisualizarPlantillas = permisos.plantillas.previsualizar;
   const bloqueoEdicion = !puedeGestionarPlantillas;
@@ -218,6 +237,7 @@ export function SeccionPlantillas({
 
   useEffect(() => {
     setMensaje('');
+    setMensajeEsError(false);
   }, [periodoId]);
 
   // Estado solo de presentación para vista ampliada del preview PDF.
@@ -264,7 +284,7 @@ export function SeccionPlantillas({
       !mismoContenido ||
       logoIzquierda !== logoIzquierdaOriginal ||
       logoDerecha !== logoDerechaOriginal ||
-      examTemplateId !== String(plantillaEditando.omrConfig?.examTemplateId ?? 'omr-canonical-v4');
+      examTemplateId !== String(plantillaEditando.omrConfig?.examTemplateId === 'omr-canonical-v4' ? 'omr-canonical-1.0.0' : plantillaEditando.omrConfig?.examTemplateId ?? 'omr-canonical-1.0.0');
   }, [
     examTemplateId,
     logoDerecha,
@@ -298,40 +318,58 @@ export function SeccionPlantillas({
 
   // Carga el historial de generados de la plantilla seleccionada (máx 50 recientes).
   const cargarExamenesGenerados = useCallback(async () => {
-    if (!plantillaId) {
-      setExamenesGenerados([]);
-      setLotesArchivados([]);
-      setCursorLotesArchivados(null);
-      return;
-    }
+    const versionConsulta = ++versionConsultaHistorialRef.current;
     if (!puedeLeerExamenes) {
       setExamenesGenerados([]);
       setLotesArchivados([]);
       setCursorLotesArchivados(null);
+      setErrorExamenesGenerados('');
+      setErrorLotesArchivados('');
+      setCargandoExamenesGenerados(false);
+      setCargandoLotesArchivados(false);
+      plantillaConsultaHistorialRef.current = plantillaId || 'todas';
       return;
     }
+    const filtroActual = plantillaId || 'todas';
+    if (plantillaConsultaHistorialRef.current !== filtroActual) {
+      plantillaConsultaHistorialRef.current = filtroActual;
+      setExamenesGenerados([]);
+      setLotesArchivados([]);
+    }
+    setErrorExamenesGenerados('');
+    setErrorLotesArchivados('');
     setCargandoExamenesGenerados(true);
     setCargandoLotesArchivados(true);
     setCursorLotesArchivados(null);
+    const queryExamenes = new URLSearchParams();
+    if (plantillaId) queryExamenes.set('plantillaId', plantillaId);
+    queryExamenes.set('limite', '50');
+    const queryLotes = new URLSearchParams();
+    if (plantillaId) queryLotes.set('plantillaId', plantillaId);
+    queryLotes.set('archivado', 'true');
+    queryLotes.set('limite', '100');
     const [examenesResult, lotesResult] = await Promise.allSettled([
         clienteApi.obtener<{ examenes: ExamenGeneradoResumen[] }>(
-          `/examenes/generados?plantillaId=${encodeURIComponent(plantillaId)}&limite=50`
+          `/examenes/generados?${queryExamenes.toString()}`
         ),
         clienteApi.obtener<{ lotes: LotePdfArchivadoResumen[]; nextCursor?: string | null }>(
-          `/examenes/generados/lotes?plantillaId=${encodeURIComponent(plantillaId)}&archivado=true&limite=100`
+          `/examenes/generados/lotes?${queryLotes.toString()}`
         )
     ]);
+    if (versionConsulta !== versionConsultaHistorialRef.current) return;
     if (examenesResult.status === 'fulfilled') {
       setExamenesGenerados(Array.isArray(examenesResult.value.examenes) ? examenesResult.value.examenes : []);
+      setErrorExamenesGenerados('');
     } else {
-      setMensajeGeneracion(mensajeDeError(examenesResult.reason, 'No se pudo cargar el historial de exámenes'));
+      setErrorExamenesGenerados(mensajeDeError(examenesResult.reason, 'No se pudo cargar el historial de exámenes'));
     }
     if (lotesResult.status === 'fulfilled') {
       setLotesArchivados(Array.isArray(lotesResult.value.lotes) ? lotesResult.value.lotes : []);
       setCursorLotesArchivados(lotesResult.value.nextCursor ?? null);
+      setErrorLotesArchivados('');
     } else {
       setLotesArchivados([]);
-      setMensajeGeneracion(mensajeDeError(lotesResult.reason, 'No se pudo cargar el archivo de paquetes'));
+      setErrorLotesArchivados(mensajeDeError(lotesResult.reason, 'No se pudo cargar el archivo de paquetes'));
     }
     setCargandoExamenesGenerados(false);
     setCargandoLotesArchivados(false);
@@ -344,18 +382,18 @@ export function SeccionPlantillas({
     try {
       const periodosArchivados = await clienteApi.obtener<{ periodos: Periodo[] }>('/periodos?activo=false');
       setPeriodosArchivadosOmr(Array.isArray(periodosArchivados.periodos) ? periodosArchivados.periodos : []);
-      const acumulados = await cargarTodasLasPaginasArchivadas<ExamenGeneradoResumen>(async (cursor) => {
-        const query = new URLSearchParams({ archivado: 'true', limite: '200' });
-        if (cursor) query.set('cursor', cursor);
-        return clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(
-          `/examenes/generados?${query.toString()}`
-        );
+      const acumulados = await cargarExamenesParaOmr<ExamenGeneradoResumen>(async (archivado, cursor) => {
+          const query = new URLSearchParams({ archivado: String(archivado), limite: '200' });
+          if (cursor) query.set('cursor', cursor);
+          return clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(
+            `/examenes/generados?${query.toString()}`
+          );
       });
       setExamenesArchivadosOmr(acumulados.filter((examen) => Boolean(examen.loteId) && examen.origenGeneracion === 'lote'));
       setArchivoOmrCargado(true);
     } catch (error) {
       setExamenesArchivadosOmr([]);
-      setErrorArchivoOmr(mensajeDeError(error, 'No se pudieron cargar los lotes archivados para OMR'));
+      setErrorArchivoOmr(mensajeDeError(error, 'No se pudieron cargar los lotes para OMR'));
       setArchivoOmrCargado(true);
     } finally {
       setCargandoLotesArchivadosOmr(false);
@@ -368,29 +406,10 @@ export function SeccionPlantillas({
     void cargarArchivoOmr();
   }, [cargarArchivoOmr, cargandoLotesArchivadosOmr, puedeLeerExamenes]);
 
-  const lotesArchivadosOmr = useMemo<ArchivoOmrLote[]>(() => {
-    const agrupados = new Map<string, { assessmentId: string; periodoId: string; cantidad: number }>();
-    for (const examen of examenesArchivadosOmr) {
-      const loteId = String(examen.loteId ?? '').trim();
-      if (!loteId) continue;
-      const lote = agrupados.get(loteId);
-      if (lote) lote.cantidad += 1;
-      else agrupados.set(loteId, {
-        assessmentId: examen._id,
-        periodoId: String(examen.periodoId ?? ''),
-        cantidad: 1
-      });
-    }
-    return Array.from(agrupados.entries()).map(([loteId, lote]) => {
-      const periodo = [...periodos, ...periodosArchivadosOmr].find((item) => item._id === lote.periodoId);
-      return {
-        assessmentId: lote.assessmentId,
-        loteId,
-        etiqueta: `${periodo?.nombre ?? 'Materia archivada'} · Lote ${loteId}`,
-        cantidad: lote.cantidad
-      };
-    }).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
-  }, [examenesArchivadosOmr, periodos, periodosArchivadosOmr]);
+  const lotesArchivadosOmr = useMemo(
+    () => resumirLotesOmr(examenesArchivadosOmr, periodos, periodosArchivadosOmr),
+    [examenesArchivadosOmr, periodos, periodosArchivadosOmr]
+  );
 
   useEffect(() => {
     if (tabActiva === 'historial' && !assessmentDetalle && !archivoOmrCargado && !cargandoLotesArchivadosOmr) {
@@ -443,23 +462,22 @@ export function SeccionPlantillas({
       setJobOmrYResumen(trabajoDetalle);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo reabrir el trabajo OMR.');
-      setMensajeGeneracion(msg);
-      emitToast({ level: 'error', title: 'Historial OMR', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+      mostrarErrorMensajeGeneracion(msg);
+      notificarRecuperacionSesion(error);
     } finally {
       setCargandoAssessmentId(null);
     }
-  }, [puedeAnalizarOmr, setJobOmrYResumen]);
+  }, [puedeAnalizarOmr, setJobOmrYResumen, setMensajeGeneracion, mostrarErrorMensajeGeneracion, notificarRecuperacionSesion]);
 
   const cargarMasLotesArchivados = useCallback(async () => {
-    if (!plantillaId || !cursorLotesArchivados || cargandoLotesArchivados) return;
+    if (!cursorLotesArchivados || cargandoLotesArchivados) return;
     setCargandoLotesArchivados(true);
     try {
-      const query = new URLSearchParams({
-        plantillaId,
-        archivado: 'true',
-        limite: '100',
-        cursor: cursorLotesArchivados
-      });
+      const query = new URLSearchParams();
+      if (plantillaId) query.set('plantillaId', plantillaId);
+      query.set('archivado', 'true');
+      query.set('limite', '100');
+      query.set('cursor', cursorLotesArchivados);
       const payload = await clienteApi.obtener<{ lotes: LotePdfArchivadoResumen[]; nextCursor?: string | null }>(
         `/examenes/generados/lotes?${query.toString()}`
       );
@@ -470,7 +488,7 @@ export function SeccionPlantillas({
       });
       setCursorLotesArchivados(payload.nextCursor ?? null);
     } catch (error) {
-      setMensajeGeneracion(mensajeDeError(error, 'No se pudo cargar más paquetes archivados'));
+      setErrorLotesArchivados(mensajeDeError(error, 'No se pudo cargar más paquetes archivados'));
     } finally {
       setCargandoLotesArchivados(false);
     }
@@ -483,6 +501,7 @@ export function SeccionPlantillas({
     setJobOmr(null);
     setProgresoLoteGeneracion(null);
     void cargarExamenesGenerados();
+    return () => { versionConsultaHistorialRef.current += 1; };
   }, [plantillaId, cargarExamenesGenerados]);
   const { descargarPdfExamen, descargarPdfLote, descargarPdfLotePorId, descargarZipLote, descargarZipLotePorId, regenerarPdfExamen, eliminarExamenGenerado } = usePlantillasGeneradosActions({
     avisarSinPermiso,
@@ -496,6 +515,7 @@ export function SeccionPlantillas({
     setRegenerandoExamenId,
     setArchivandoExamenId,
     setMensajeGeneracion,
+    setMensajeGeneracionError: mostrarErrorMensajeGeneracion,
     cargarExamenesGenerados,
     enviarConPermiso,
     lotePdfUrl
@@ -512,45 +532,39 @@ export function SeccionPlantillas({
     try { await descargarZipLotePorId(lote); } finally { setDescargandoLoteId(null); }
   }, [descargandoLoteId, descargarZipLotePorId]);
   const regenerarPaquete = useCallback(
-    async (loteId: string, examenesLote: ExamenGeneradoResumen[]) => {
+    async (loteId: string) => {
       const lote = String(loteId || '').trim();
-      const lista = Array.isArray(examenesLote) ? examenesLote : [];
-      if (!lote || regenerandoLoteId === lote || lista.length === 0) return;
+      if (!lote || regenerandoLoteId === lote) return;
       if (!puedeRegenerarExamenes) {
         avisarSinPermiso('No tienes permiso para regenerar examenes.');
         return;
       }
-      const ok = await confirm({
-        title: 'Regenerar paquete',
-        message: `Se regenerarán todos los exámenes del paquete ${lote}.`,
-        details: ['Úsalo solo si necesitas una nueva versión completa del paquete.'],
-        confirmLabel: 'Sí, regenerar paquete',
-        tone: 'warning'
-      });
-      if (!ok) return;
       try {
         setRegenerandoLoteId(lote);
-        setMensajeGeneracion('');
-        for (const examen of lista) {
-          await enviarConPermiso(
-            'examenes:regenerar',
-            `/examenes/generados/${encodeURIComponent(examen._id)}/regenerar`,
-            { forzar: true },
-            'No tienes permiso para regenerar examenes.'
-          );
-        }
-        emitToast({ level: 'ok', title: 'Paquete', message: `Paquete ${lote} regenerado`, durationMs: 2200 });
+        setMensajeGeneracion('Consultando todos los exámenes del paquete…');
+        const examenesCompletos = await cargarExamenesActivosDeLote<ExamenGeneradoResumen>(
+          lote, plantillaId, (ruta) => clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(ruta)
+        );
+        const descripcion = describirLote(examenesCompletos);
+        const ok = await confirm({
+          title: 'Regenerar paquete',
+          message: `Se regenerará el paquete completo: ${descripcion}.`,
+          details: ['Se consultó el historial completo del paquete. Úsalo solo si necesitas una nueva versión de todos sus exámenes.'],
+          confirmLabel: 'Sí, regenerar paquete',
+          tone: 'warning'
+        });
+        if (!ok) return;
+        setMensajeGeneracion(`Regenerando el paquete completo: ${descripcion}…`);
+        for (const examen of examenesCompletos) await enviarConPermiso(
+          'examenes:regenerar', `/examenes/generados/${encodeURIComponent(examen._id)}/regenerar`,
+          { forzar: true }, 'No tienes permiso para regenerar examenes.'
+        );
+        emitToast({ level: 'ok', title: 'Paquete regenerado', message: `Se regeneró el paquete completo: ${descripcion}.`, durationMs: 3200 });
         await cargarExamenesGenerados();
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo regenerar el paquete');
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: 'No se pudo regenerar',
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        mostrarErrorMensajeGeneracion(msg);
+        notificarRecuperacionSesion(error);
       } finally {
         setRegenerandoLoteId(null);
       }
@@ -560,9 +574,12 @@ export function SeccionPlantillas({
       cargarExamenesGenerados,
       confirm,
       enviarConPermiso,
+      plantillaId,
       puedeRegenerarExamenes,
       regenerandoLoteId,
-      setMensajeGeneracion
+      setMensajeGeneracion,
+      mostrarErrorMensajeGeneracion,
+      notificarRecuperacionSesion
     ]
   );
 
@@ -572,14 +589,14 @@ export function SeccionPlantillas({
       const lista = Array.isArray(examenesLote) ? examenesLote : [];
       if (!lote || eliminandoLoteId === lote || lista.length === 0) return;
       if (!puedeArchivarExamenes) {
-        avisarSinPermiso('No tienes permiso para eliminar examenes.');
+        avisarSinPermiso('No tienes permiso para archivar este lote.');
         return;
       }
       const ok = await confirm({
-        title: 'Eliminar paquete',
-        message: `El paquete ${lote} se ocultará del listado activo.`,
+        title: 'Archivar lote',
+        message: 'El paquete seleccionado dejará de mostrarse en el historial activo.',
         details: ['Los datos se conservarán para auditoría y trazabilidad.'],
-        confirmLabel: 'Sí, ocultar paquete',
+        confirmLabel: 'Sí, archivar lote',
         tone: 'warning'
       });
       if (!ok) return;
@@ -597,18 +614,12 @@ export function SeccionPlantillas({
           'No tienes permiso para archivar este lote.'
         );
         requestIdsCicloLote.current.delete(`archivar:${lote}`);
-        emitToast({ level: 'ok', title: 'Paquete', message: `Paquete ${lote} eliminado`, durationMs: 2200 });
+        emitToast({ level: 'ok', title: 'Paquete archivado', message: 'Se ocultó del historial activo y se conservó para auditoría.', durationMs: 3200 });
         await cargarExamenesGenerados();
       } catch (error) {
-        const msg = mensajeDeError(error, 'No se pudo eliminar el paquete');
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: 'No se pudo eliminar',
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        const msg = mensajeDeError(error, 'No se pudo archivar el paquete');
+        mostrarErrorMensajeGeneracion(msg);
+        notificarRecuperacionSesion(error);
       } finally {
         setEliminandoLoteId(null);
       }
@@ -620,11 +631,13 @@ export function SeccionPlantillas({
       eliminandoLoteId,
       enviarConPermiso,
       puedeArchivarExamenes,
-      setMensajeGeneracion
+      setMensajeGeneracion,
+      mostrarErrorMensajeGeneracion,
+      notificarRecuperacionSesion
     ]
   );
   const restaurarPaquete = useCallback(
-    async (loteId: string) => {
+    async (loteId: string, descripcion = 'paquete archivado') => {
       const lote = String(loteId || '').trim();
       if (!lote || restaurandoLoteId === lote) return;
       if (!puedeArchivarExamenes) {
@@ -633,7 +646,7 @@ export function SeccionPlantillas({
       }
       const ok = await confirm({
         title: 'Restaurar paquete',
-        message: `El paquete ${lote} volverá al historial activo.`,
+        message: `El ${descripcion} volverá al historial activo.`,
         details: ['Se comprobará el hash y la integridad del PDF antes de restaurarlo.'],
         confirmLabel: 'Sí, restaurar paquete',
         tone: 'warning'
@@ -652,23 +665,17 @@ export function SeccionPlantillas({
           'No tienes permiso para restaurar lotes archivados.'
         );
         requestIdsCicloLote.current.delete(`restaurar:${lote}`);
-        emitToast({ level: 'ok', title: 'Paquete', message: `Paquete ${lote} restaurado`, durationMs: 2200 });
+        emitToast({ level: 'ok', title: 'Paquete restaurado', message: 'Volvió al historial activo.', durationMs: 2200 });
         await cargarExamenesGenerados();
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo restaurar el paquete');
-        setMensajeGeneracion(msg);
-        emitToast({
-          level: 'error',
-          title: 'No se pudo restaurar',
-          message: msg,
-          durationMs: 5200,
-          action: accionToastSesionParaError(error, 'docente')
-        });
+        mostrarErrorMensajeGeneracion(msg);
+        notificarRecuperacionSesion(error);
       } finally {
         setRestaurandoLoteId(null);
       }
     },
-    [avisarSinPermiso, cargarExamenesGenerados, confirm, enviarConPermiso, puedeArchivarExamenes, restaurandoLoteId, setMensajeGeneracion]
+    [avisarSinPermiso, cargarExamenesGenerados, confirm, enviarConPermiso, puedeArchivarExamenes, restaurandoLoteId, mostrarErrorMensajeGeneracion, notificarRecuperacionSesion]
   );
   const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla, previsualizarPdfConfirmado } =
     usePlantillasPreviewActions({
@@ -696,44 +703,19 @@ export function SeccionPlantillas({
     setAssessmentDetalle,
     setProcesandoOmr,
     setJobOmr: setJobOmrYResumen,
-    setMensajeGeneracion
+    setMensajeGeneracion,
+    setMensajeGeneracionError: mostrarErrorMensajeGeneracion
   });
 
   const seleccionarLoteArchivadoOmr = useCallback(async (assessmentId: string) => {
     await cargarAssessmentDetalle(assessmentId);
   }, [cargarAssessmentDetalle]);
 
-  // Catálogo de preguntas filtrado por materia/periodo activo en el formulario.
-  const preguntasDisponibles = useMemo(() => {
-    if (!periodoId) return [];
-    const lista = Array.isArray(preguntas) ? preguntas : [];
-    return lista.filter((p) => p.periodoId === periodoId);
-  }, [preguntas, periodoId]);
-
-  // Resumen de temas con conteo, para selección multi-tema y validación de cobertura.
-  const temasDisponibles = useMemo(() => {
-    const mapa = new Map<string, { tema: string; total: number }>();
-    for (const pregunta of preguntasDisponibles) {
-      const tema = String(pregunta.tema ?? '').trim().replace(/\s+/g, ' ');
-      if (!tema) continue;
-      const key = tema.toLowerCase();
-      const actual = mapa.get(key);
-      if (actual) {
-        actual.total += 1;
-      } else {
-        mapa.set(key, { tema, total: 1 });
-      }
-    }
-    return Array.from(mapa.values()).sort((a, b) => a.tema.localeCompare(b.tema));
-  }, [preguntasDisponibles]);
-
-  const totalDisponiblePorTemas = useMemo(() => {
-    if (temasSeleccionados.length === 0) return 0;
-    const seleccion = new Set(temasSeleccionados.map((t) => t.toLowerCase()));
-    return temasDisponibles
-      .filter((t) => seleccion.has(t.tema.toLowerCase()))
-      .reduce((acc, item) => acc + item.total, 0);
-  }, [temasDisponibles, temasSeleccionados]);
+  // Derivaciones puras para catálogo, cobertura y lotes OMR viven en el feature.
+  const { temasDisponibles, totalDisponiblePorTemas } = useMemo(
+    () => derivarDisponibilidadPlantilla(preguntas, periodoId, temasSeleccionados),
+    [preguntas, periodoId, temasSeleccionados]
+  );
 
   useEffect(() => {
     if (totalDisponiblePorTemas <= 0) return;
@@ -744,10 +726,12 @@ export function SeccionPlantillas({
     if (!archivo) return;
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(archivo.type)) {
       setMensaje('La imagen debe ser PNG, JPG o WebP.');
+      setMensajeEsError(true);
       return;
     }
     if (archivo.size > 2 * 1024 * 1024) {
       setMensaje('La imagen no puede superar 2 MB.');
+      setMensajeEsError(true);
       return;
     }
     const lector = new FileReader();
@@ -755,13 +739,18 @@ export function SeccionPlantillas({
       const dataUrl = String(lector.result ?? '');
       if (!dataUrl.startsWith('data:image/')) {
         setMensaje('No se pudo leer la imagen seleccionada.');
+        setMensajeEsError(true);
         return;
       }
       if (lado === 'izquierda') setLogoIzquierda(dataUrl);
       else setLogoDerecha(dataUrl);
       setMensaje('');
+      setMensajeEsError(false);
     };
-    lector.onerror = () => setMensaje('No se pudo leer la imagen seleccionada.');
+    lector.onerror = () => {
+      setMensaje('No se pudo leer la imagen seleccionada.');
+      setMensajeEsError(true);
+    };
     lector.readAsDataURL(archivo);
   }
 
@@ -809,7 +798,6 @@ export function SeccionPlantillas({
     if (refrescandoPlantillas) return;
     try {
       setRefrescandoPlantillas(true);
-      emitToast({ level: 'info', title: 'Plantillas', message: 'Actualizando el catálogo…', durationMs: 1800 });
       await Promise.resolve(onRefrescar());
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Catálogo actualizado', durationMs: 2200 });
     } catch (error) {
@@ -822,7 +810,6 @@ export function SeccionPlantillas({
 
   function limpiarFiltroPlantillas() {
     setFiltroPlantillas('');
-    emitToast({ level: 'info', title: 'Filtro', message: 'Filtro de plantillas eliminado', durationMs: 1800 });
   }
 
   function iniciarEdicion(plantilla: Plantilla) {
@@ -836,9 +823,9 @@ export function SeccionPlantillas({
     setLogoIzquierda(String(plantilla.bookletConfig?.logos?.izquierdaPath ?? preferenciasPdf?.logos?.izquierdaPath ?? ''));
     setLogoDerecha(String(plantilla.bookletConfig?.logos?.derechaPath ?? preferenciasPdf?.logos?.derechaPath ?? ''));
     setTemasSeleccionados(Array.isArray(plantilla.temas) ? plantilla.temas : []);
-    setExamTemplateId(plantilla.omrConfig?.examTemplateId ?? 'omr-canonical-v4');
+    setExamTemplateId(plantilla.omrConfig?.examTemplateId === 'omr-canonical-v4' ? 'omr-canonical-1.0.0' : plantilla.omrConfig?.examTemplateId ?? 'omr-canonical-1.0.0');
     setMensaje('');
-    emitToast({ level: 'info', title: 'Plantillas', message: `Editando “${String(plantilla.titulo || '').trim()}”`, durationMs: 2200 });
+    setMensajeEsError(false);
   }
 
   function cancelarEdicion() {
@@ -852,20 +839,14 @@ export function SeccionPlantillas({
     setLogoIzquierda(preferenciasPdf?.logos?.izquierdaPath ?? '');
     setLogoDerecha(preferenciasPdf?.logos?.derechaPath ?? '');
     setTemasSeleccionados([]);
-    setExamTemplateId('omr-canonical-v4');
+    setExamTemplateId('omr-canonical-1.0.0');
     setMensaje('');
-    emitToast({ level: 'info', title: 'Plantillas', message: 'Edición cancelada', durationMs: 1800 });
+    setMensajeEsError(false);
   }
 
   function cambiarTab(tab: TabPlantillas) {
     if (tab === tabActiva) return;
-    const etiquetas: Record<TabPlantillas, string> = {
-      diseno: 'Diseño de exámenes',
-      generacion: 'Generación de paquete PDF/OMR',
-      historial: 'Historial de lotes'
-    };
     setTabActiva(tab);
-    emitToast({ level: 'info', title: 'Sección', message: `Mostrando ${etiquetas[tab]}`, durationMs: 1800 });
   }
 
   async function guardarEdicion(): Promise<boolean> {
@@ -878,11 +859,12 @@ export function SeccionPlantillas({
       }
       setGuardandoPlantilla(true);
       setMensaje('');
+      setMensajeEsError(false);
 
       if (existeTituloPlantillaDuplicado(titulo, plantillaEditandoId)) {
         const msgDup = 'Ya existe una plantilla activa con ese nombre.';
         setMensaje(msgDup);
-        emitToast({ level: 'warn', title: 'Plantillas', message: msgDup, durationMs: 4200 });
+        setMensajeEsError(true);
         return false;
       }
 
@@ -948,13 +930,8 @@ export function SeccionPlantillas({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar la plantilla');
       setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo actualizar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setMensajeEsError(true);
+      notificarRecuperacionSesion(error);
       registrarAccionDocente('actualizar_plantilla', false);
       return false;
     } finally {
@@ -987,6 +964,7 @@ export function SeccionPlantillas({
       const inicio = Date.now();
       setArchivandoPlantillaId(plantilla._id);
       setMensaje('');
+      setMensajeEsError(false);
       const clientRequestId = obtenerClientRequestIdPlantilla('eliminar', plantilla._id, {});
       await enviarConPermiso(
         'plantillas:archivar',
@@ -1004,14 +982,8 @@ export function SeccionPlantillas({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo eliminar la plantilla');
       setMensaje(msg);
-
-      emitToast({
-        level: 'error',
-        title: 'No se pudo eliminar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setMensajeEsError(true);
+      notificarRecuperacionSesion(error);
       registrarAccionDocente('eliminar_plantilla', false);
     } finally {
       setArchivandoPlantillaId(null);
@@ -1028,11 +1000,12 @@ export function SeccionPlantillas({
       }
       setCreando(true);
       setMensaje('');
+      setMensajeEsError(false);
 
       if (existeTituloPlantillaDuplicado(titulo)) {
         const msgDup = 'Ya existe una plantilla activa con ese nombre.';
         setMensaje(msgDup);
-        emitToast({ level: 'warn', title: 'Plantillas', message: msgDup, durationMs: 4200 });
+        setMensajeEsError(true);
         return;
       }
 
@@ -1085,19 +1058,14 @@ export function SeccionPlantillas({
       confirmarClientRequestIdPlantilla('crear', null, clientRequestId);
       if (respuesta?.plantilla?._id) setPlantillaId(String(respuesta.plantilla._id));
       setMensaje('Plantilla creada');
-      emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla creada', durationMs: 2200 });
+      setMensajeEsError(false);
       registrarAccionDocente('crear_plantilla', true, Date.now() - inicio);
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear');
       setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo crear',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      setMensajeEsError(true);
+      notificarRecuperacionSesion(error);
       registrarAccionDocente('crear_plantilla', false);
     } finally {
       setCreando(false);
@@ -1130,13 +1098,15 @@ export function SeccionPlantillas({
           : null);
       const adv = Array.isArray(payload?.advertencias) ? payload.advertencias : [];
       setUltimoGenerado(ex);
-      setMensajeGeneracion(ex ? `Examen generado. Folio: ${ex.folio} (ID: ${idCortoMateria(ex._id)})` : 'Examen generado');
-      emitToast({
-        level: adv.length > 0 ? 'warn' : 'ok',
-        title: 'Examen',
-        message: adv.length > 0 ? `Examen generado. ${adv.join(' ')}` : 'Examen generado',
-        durationMs: adv.length > 0 ? 6000 : 2200
-      });
+      setMensajeGeneracion(ex ? `Examen generado. Folio: ${ex.folio}` : 'Examen generado');
+      if (adv.length > 0) {
+        emitToast({
+          level: 'warn',
+          title: 'Advertencias de generación',
+          message: adv.join(' '),
+          durationMs: 6000
+        });
+      }
       registrarAccionDocente('generar_examen', true, Date.now() - inicio);
       const generatedAssessmentId = String(payload?.generatedAssessment?._id ?? ex?._id ?? '').trim();
       if (generatedAssessmentId) {
@@ -1145,14 +1115,8 @@ export function SeccionPlantillas({
       await cargarExamenesGenerados();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo generar');
-      setMensajeGeneracion(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo generar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      mostrarErrorMensajeGeneracion(msg);
+      notificarRecuperacionSesion(error);
       registrarAccionDocente('generar_examen', false);
     } finally {
       setGenerando(false);
@@ -1163,7 +1127,10 @@ export function SeccionPlantillas({
     cargarExamenesGenerados,
     enviarConPermiso,
     plantillaId,
-    puedeGenerarExamenes
+    puedeGenerarExamenes,
+    setMensajeGeneracion,
+    mostrarErrorMensajeGeneracion,
+    notificarRecuperacionSesion
   ]);
 
   const generarExamenesLote = useCallback(async (opciones?: { tipoExamen?: 'extraordinario'; alumnoIds?: string[]; grupo?: string }) => {
@@ -1172,7 +1139,7 @@ export function SeccionPlantillas({
     const grupoSolicitado = String(opciones?.grupo ?? '').trim();
     const alumnoIds = tipoExamen === 'extraordinario' ? [...new Set(alumnosSolicitados)].sort() : undefined;
     if (tipoExamen === 'extraordinario' && (!alumnoIds?.length || alumnoIds.length !== alumnosSolicitados.length)) {
-      setMensajeGeneracion('Selecciona uno o más alumnos distintos para generar el extraordinario.');
+      mostrarErrorMensajeGeneracion('Selecciona uno o más alumnos distintos para generar el extraordinario.');
       return;
     }
     const alumnosActivosPeriodo = Array.isArray(alumnos)
@@ -1183,7 +1150,7 @@ export function SeccionPlantillas({
       ? undefined
       : grupoSolicitado || (gruposPeriodo.length === 1 ? gruposPeriodo[0] : '');
     if (tipoExamen !== 'extraordinario' && (!grupoEfectivo || !gruposPeriodo.includes(grupoEfectivo))) {
-      setMensajeGeneracion(gruposPeriodo.length > 1
+      mostrarErrorMensajeGeneracion(gruposPeriodo.length > 1
         ? 'Selecciona un grupo válido antes de generar el lote.'
         : 'No hay un grupo con alumnos activos para la plantilla seleccionada.');
       return;
@@ -1338,7 +1305,6 @@ export function SeccionPlantillas({
       setMensajeGeneracion(
         `Generación de paquete lista. Alumnos: ${totalAlumnos}. Exámenes generados: ${Number(progresoPersistido.generados)}.`
       );
-      emitToast({ level: 'ok', title: 'Examenes', message: 'Generación masiva completada', durationMs: 2200 });
       registrarAccionDocente('generar_examenes_lote', true, Date.now() - inicio);
       await cargarExamenesGenerados();
     } catch (error) {
@@ -1346,9 +1312,8 @@ export function SeccionPlantillas({
       if (errorEnPrevalidacion) guardarLotePendiente(claveRecuperacion, null);
       setProgresoLoteGeneracion(errorEnPrevalidacion ? null : (anterior) => anterior ? { ...anterior, completado: false, estado: 'fallido' } : null);
       const msg = mensajeDeError(error, 'No se pudo generar en lote');
-      setMensajeGeneracion(`${msg}${errorEnPrevalidacion ? ' No se guardó ningún examen y puedes corregir la plantilla antes de iniciar otro lote.' : ''}`);
-      emitToast({ level: 'error', title: 'No se pudo generar en lote', message: msg, durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente') });
+      mostrarErrorMensajeGeneracion(`${msg}${errorEnPrevalidacion ? ' No se guardó ningún examen y puedes corregir la plantilla antes de iniciar otro lote.' : ''}`);
+      notificarRecuperacionSesion(error);
       registrarAccionDocente('generar_examenes_lote', false);
     } finally {
       sondeoActivo = false;
@@ -1356,7 +1321,7 @@ export function SeccionPlantillas({
       setGenerandoLote(false);
     }
   }, [alumnos, avisarSinPermiso, cargarExamenesGenerados, confirm, enviarConPermiso, plantillaSeleccionada, plantillaId,
-    puedeGenerarExamenes, progresoLoteGeneracion, setMensajeGeneracion]);
+    puedeGenerarExamenes, progresoLoteGeneracion, setMensajeGeneracion, mostrarErrorMensajeGeneracion, notificarRecuperacionSesion]);
 
   const formularioPlantilla = (
     <PlantillasFormulario
@@ -1397,6 +1362,7 @@ export function SeccionPlantillas({
       edicionPlantillaModificada={edicionPlantillaModificada}
       cancelarEdicion={cancelarEdicion}
       mensaje={mensaje}
+      mensajeEsError={mensajeEsError}
     />
   );
 
@@ -1405,13 +1371,8 @@ export function SeccionPlantillas({
       {/* 1. Bento Hero Header */}
       <div className="banco-panel__head plantillas-panel__head anim-fade-in">
         <div className="banco-panel__lead">
-          <div className="banco-panel__icon-orb plantillas-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
+          <div className="icono-seccion-orb banco-panel__icon-orb plantillas-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <IconoLucide icon={FileText} size={24} />
           </div>
           <div className="banco-panel__text-block">
             <div className="banco-panel__meta-row">
@@ -1440,7 +1401,7 @@ export function SeccionPlantillas({
               onClick={() => void refrescarPlantillas()}
               data-tooltip="Recarga la lista de plantillas desde el servidor."
             >
-              {refrescandoPlantillas ? 'Actualizando…' : 'Actualizar'}
+              {refrescandoPlantillas ? 'Recargando catálogo…' : 'Recargar catálogo'}
             </Boton>
             {filtroPlantillas.trim() && (
               <Boton
@@ -1456,30 +1417,21 @@ export function SeccionPlantillas({
           <div className="banco-header-kpis" aria-live="polite">
             <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Total de plantillas configuradas">
               <span className="banco-mini-kpi__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
+                <IconoLucide icon={FileText} size={16} />
               </span>
               <span className="banco-mini-kpi__num">{resumenPlantillas.total}</span>
               <span className="banco-mini-kpi__lbl">Plantillas</span>
             </div>
             <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Plantillas con unidades temáticas asignadas">
               <span className="banco-mini-kpi__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <line x1="8" y1="6" x2="21" y2="6" />
-                  <line x1="8" y1="12" x2="21" y2="12" />
-                  <line x1="8" y1="18" x2="21" y2="18" />
-                </svg>
+                <IconoLucide icon={ListTree} size={16} />
               </span>
               <span className="banco-mini-kpi__num">{resumenPlantillas.conTemas}</span>
               <span className="banco-mini-kpi__lbl">Con temas</span>
             </div>
             <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Total de temas vinculados en plantillas">
               <span className="banco-mini-kpi__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                <IconoLucide icon={CircleCheck} size={16} />
               </span>
               <span className="banco-mini-kpi__num">{resumenPlantillas.totalTemasSeleccionados}</span>
               <span className="banco-mini-kpi__lbl">Temas vinc.</span>
@@ -1487,10 +1439,7 @@ export function SeccionPlantillas({
 
             <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Estado del filtro de búsqueda">
               <span className="banco-mini-kpi__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
+                <IconoLucide icon={Search} size={16} />
               </span>
               <span className="banco-mini-kpi__num banco-mini-kpi__num--sm">
                 {filtroPlantillas.trim() ? 'Activo' : 'Todos'}
@@ -1502,47 +1451,18 @@ export function SeccionPlantillas({
       </div>
 
       {/* 2. Glass Tab Navigation Bar */}
-      <div className="plantillas-tabs-bar anim-fade-in" role="tablist" aria-label="Etapas de diseño y generación de exámenes">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tabActiva === 'diseno'}
-          className={`plantillas-tab-btn ${tabActiva === 'diseno' ? 'plantillas-tab-btn--active' : ''}`}
-          onClick={() => cambiarTab('diseno')}
-        >
-          <span className="plantillas-tab-btn__icon">📐</span>
-          <span className="plantillas-tab-btn__label">Diseñar Exámenes</span>
-          <span className="plantillas-tab-btn__count">{totalPlantillasTodas}</span>
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tabActiva === 'generacion'}
-          className={`plantillas-tab-btn ${tabActiva === 'generacion' ? 'plantillas-tab-btn--active' : ''}`}
-          onClick={() => cambiarTab('generacion')}
-        >
-          <span className="plantillas-tab-btn__icon"><Icono nombre="publicar" size={18} /></span>
-          <span className="plantillas-tab-btn__label">Generar Paquete PDF/OMR</span>
-          {generandoLote && <span className="plantillas-tab-btn__badge pulse">En progreso</span>}
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tabActiva === 'historial'}
-          className={`plantillas-tab-btn ${tabActiva === 'historial' ? 'plantillas-tab-btn--active' : ''}`}
-          onClick={() => cambiarTab('historial')}
-        >
-          <span className="plantillas-tab-btn__icon"><Icono nombre="recargar" size={18} /></span>
-          <span className="plantillas-tab-btn__label">Historial de Lotes</span>
-          <span className="plantillas-tab-btn__count">{examenesGenerados.length}</span>
-        </button>
-      </div>
+      <PlantillasTabNavigation
+        tabActiva={tabActiva}
+        totalPlantillas={totalPlantillasTodas}
+        generandoLote={generandoLote}
+        totalExamenes={examenesGenerados.length}
+        onChange={cambiarTab}
+      />
 
       {/* ── PESTAÑA 1: DISEÑAR EXÁMENES ── */}
-      {tabActiva === 'diseno' && (
-        <div className="plantillas-diseno-tab anim-fade-in" role="tabpanel" aria-label="Diseñar Exámenes">
+      <div id="plantillas-panel-diseno" role="tabpanel" aria-labelledby="plantillas-tab-diseno" tabIndex={0} hidden={tabActiva !== 'diseno'}>
+        {tabActiva === 'diseno' && (
+        <div className="plantillas-diseno-tab anim-fade-in">
           <section className="plantillas-studio-intro" aria-labelledby="plantillas-studio-title">
             <div>
               <span className="plantillas-studio-kicker">ESTUDIO DE CONSTRUCCIÓN</span>
@@ -1585,11 +1505,13 @@ export function SeccionPlantillas({
             formatearFechaHora={formatearFechaHora}
           />
         </div>
-      )}
+        )}
+      </div>
 
       {/* ── PESTAÑA 2: GENERAR PAQUETE PDF/OMR ── */}
-      {tabActiva === 'generacion' && (
-        <div className="anim-fade-in" role="tabpanel" aria-label="Generar Paquete PDF/OMR">
+      <div id="plantillas-panel-generacion" role="tabpanel" aria-labelledby="plantillas-tab-generacion" tabIndex={0} hidden={tabActiva !== 'generacion'}>
+        {tabActiva === 'generacion' && (
+        <div className="anim-fade-in">
           <GuiaGeneracionExamenesVisual />
           <PlantillasConsolaGeneracion
             plantillaId={plantillaId}
@@ -1606,6 +1528,7 @@ export function SeccionPlantillas({
             puedeGenerarExamenes={puedeGenerarExamenes}
             onGenerarExamenesLote={generarExamenesLote}
             mensajeGeneracion={mensajeGeneracion}
+            mensajeGeneracionEsError={mensajeGeneracionEsError}
             lotePdfUrl={lotePdfUrl}
             descargarPdfLote={descargarPdfLote}
             descargarZipLote={descargarZipLote}
@@ -1614,14 +1537,19 @@ export function SeccionPlantillas({
             onIrAHistorial={() => cambiarTab('historial')}
           />
         </div>
-      )}
+        )}
+      </div>
 
       {/* ── PESTAÑA 3: HISTORIAL DE LOTES ── */}
-      {tabActiva === 'historial' && (
-        <div className="anim-fade-in" role="tabpanel" aria-label="Historial de Lotes">
+      <div id="plantillas-panel-historial" role="tabpanel" aria-labelledby="plantillas-tab-historial" tabIndex={0} hidden={tabActiva !== 'historial'}>
+        {tabActiva === 'historial' && (
+        <div className="anim-fade-in">
           <GuiaHistorialLotesVisual />
           <PlantillasHistorialLotes
             cargandoExamenesGenerados={cargandoExamenesGenerados}
+            errorExamenesGenerados={errorExamenesGenerados}
+            errorLotesArchivados={errorLotesArchivados}
+            onReintentarCarga={() => void cargarExamenesGenerados()}
             examenesGenerados={examenesGenerados}
             alumnosPorId={alumnosPorId}
             formatearFechaHora={formatearFechaHora}
@@ -1679,7 +1607,8 @@ export function SeccionPlantillas({
             finalizarJobOmr={finalizarJobOmr}
           />
         </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

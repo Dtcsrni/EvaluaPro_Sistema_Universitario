@@ -24,7 +24,17 @@ describe('AppDocente secciones (refactor)', () => {
     );
 
     const nav = await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
+    const skipLink = screen.getByRole('link', { name: 'Saltar al contenido principal' });
+    const contenidoPrincipal = document.querySelector('#contenido-principal');
+    expect(skipLink).toHaveAttribute('href', '#contenido-principal');
+    expect(contenidoPrincipal).toBeInTheDocument();
+    expect(contenidoPrincipal).toHaveAttribute('tabindex', '-1');
+    expect(skipLink.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const selector = within(nav).getByLabelText('Ir a sección');
+    expect(within(nav).getByRole('button', { name: 'Calificaciones' })).toHaveAttribute(
+      'title',
+      'Consulta resultados, captura calificaciones y revisa exámenes OMR'
+    );
     const opciones = Array.from(selector.querySelectorAll('option')).map((opcion) => opcion.textContent);
     expect(opciones).toEqual(expect.arrayContaining(['Materias', 'Calificaciones', 'Cuenta']));
     expect(selector).toHaveValue('periodos');

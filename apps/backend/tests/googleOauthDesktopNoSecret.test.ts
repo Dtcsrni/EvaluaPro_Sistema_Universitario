@@ -51,4 +51,40 @@ describe('OAuth Desktop público', () => {
     expect(requests[1]?.get('refresh_token')).toBe('refresh-test');
     expect(requests[1]?.has('client_secret')).toBe(false);
   });
+
+  it('incluye client_secret solo cuando el runtime local lo configura', async () => {
+    let received: URLSearchParams | undefined;
+    server = createServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on('data', (chunk: Buffer) => chunks.push(chunk));
+      request.on('end', () => {
+        received = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ access_token: 'access-test', token_type: 'Bearer', expires_in: 3600 }));
+      });
+    });
+    await new Promise<void>((resolve, reject) => {
+      server!.once('error', reject);
+      server!.listen(0, '127.0.0.1', resolve);
+    });
+
+    const address = server.address() as AddressInfo;
+    const client = new OAuth2Client({
+      clientId: 'desktop-client-id',
+      clientSecret: 'desktop-client-secret-test-only',
+      redirectUri: 'http://127.0.0.1:48921',
+      clientAuthentication: ClientAuthentication.ClientSecretPost,
+      endpoints: { oauth2TokenUrl: `http://127.0.0.1:${address.port}/token` }
+    });
+
+    await client.getToken({
+      code: 'authorization-code',
+      codeVerifier: 'pkce-verifier',
+      redirect_uri: 'http://127.0.0.1:48921'
+    });
+
+    expect(received?.get('client_id')).toBe('desktop-client-id');
+    expect(received?.get('client_secret')).toBe('desktop-client-secret-test-only');
+    expect(received?.get('code_verifier')).toBe('pkce-verifier');
+  });
 });

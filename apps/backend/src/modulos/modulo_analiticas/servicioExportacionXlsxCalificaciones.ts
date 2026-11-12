@@ -41,6 +41,7 @@ type ListaAcademicaExportacion = {
   examenGlobalLista?: string;
   continuaTercerParcialLista?: string;
   calificacionTercerParcial?: string;
+  bonoExtracurricular?: string;
   bonoExtracurricularSolicitado?: string;
 };
 
@@ -161,10 +162,18 @@ export async function generarXlsxCalificacionesProduccion(opts: OpcionesLibro): 
     const continuaTercerParcialLista = fisica?.continuaTercerParcialLista?.trim()
       ? numeroSeguro(fisica.continuaTercerParcialLista)
       : gProyecto;
-    const totalTercerParcial = fisica?.calificacionTercerParcial?.trim()
+    const bonoAplicado = Math.min(0.5, Math.max(0, numeroSeguro(fisica?.bonoExtracurricular) ?? 0));
+    const totalTercerParcialRegistrado = fisica?.calificacionTercerParcial?.trim()
       ? numeroSeguro(fisica.calificacionTercerParcial)
-      : gTotal;
-    const bonoSolicitado = numeroSeguro(fisica?.bonoExtracurricularSolicitado) ?? 0;
+      : undefined;
+    const globalBaseExportado = bonoAplicado > 0
+      ? gTotal ?? (examenGlobalLista !== undefined && continuaTercerParcialLista !== undefined
+        ? Math.min(10, examenGlobalLista + continuaTercerParcialLista)
+        : undefined)
+      : undefined;
+    const totalTercerParcial = totalTercerParcialRegistrado
+      ?? (globalBaseExportado !== undefined ? Math.min(10, globalBaseExportado + bonoAplicado) : undefined)
+      ?? gTotal;
 
     ws.getCell(`B${fila}`).value = i + 1;
     ws.getCell(`C${fila}`).value = toUpperOrEmpty(alumno.nombreCompleto);
@@ -174,40 +183,12 @@ export async function generarXlsxCalificacionesProduccion(opts: OpcionesLibro): 
     // Columna de insumos continuos/parciales: se conserva blanca si no existe ese dato historico.
     setNumeroOBlanco(ws, `AL${fila}`, p1Eval);
     setNumeroOBlanco(ws, `AM${fila}`, p1Exam);
-    const tieneBono = bonoSolicitado > 0;
-    const parcial1BaseFormula = typeof p1Total === 'number'
-      ? String(Math.max(0, Math.min(10, p1Total)))
-      : `MIN(10,MAX(0,SUM(AL${fila},AM${fila})))`;
-    // La consulta expone P2/P3 con el bono ya aplicado. Las fórmulas del libro
-    // deben partir de notas previas al bono para no volver a sumarlo al exportar.
-    const parcial2Persistido = numeroSeguro(grupo.parcial2?.calificacionParcialTexto);
-    const parcial2BaseFormula = `MIN(10,MAX(0,IF(COUNT(AQ${fila},AR${fila})=2,SUM(AQ${fila},AR${fila}),${typeof parcial2Persistido === 'number' ? String(Math.max(0, Math.min(10, parcial2Persistido))) : `SUM(AQ${fila},AR${fila})`})))`;
-    const parcial3Persistido = numeroSeguro(gTotal);
-    const parcial3BaseFormula = typeof parcial3Persistido === 'number'
-      ? String(Math.max(0, Math.min(10, parcial3Persistido)))
-      : `MIN(10,MAX(0,SUM(AT${fila},AU${fila})))`;
-    const finalBaseCompleta = `AND(${typeof p1Total === 'number' ? 'TRUE' : `COUNT(AL${fila},AM${fila})=2`},${typeof parcial2Persistido === 'number' ? 'TRUE' : `COUNT(AQ${fila},AR${fila})=2`},${typeof parcial3Persistido === 'number' ? 'TRUE' : `COUNT(AT${fila},AU${fila})=2`})`;
-    const finalBaseFormula = `(0.2*${parcial1BaseFormula}+0.2*${parcial2BaseFormula}+0.6*${parcial3BaseFormula})`;
-    const espacioComponente = (celda: string, maximo: number) => `IF(ISNUMBER(${celda}),MAX(0,${maximo}-${celda}),0)`;
-    const espacioParcial3 = `MIN(MAX(0,10-${parcial3BaseFormula}),${espacioComponente(`AT${fila}`, 5)}+${espacioComponente(`AU${fila}`, 5)})`;
-    const espacioParcial2 = `MIN(MAX(0,10-${parcial2BaseFormula}),${espacioComponente(`AQ${fila}`, 5)}+${espacioComponente(`AR${fila}`, 5.25)})`;
-    const espacioParcial1 = `MIN(MAX(0,10-${parcial1BaseFormula}),${espacioComponente(`AL${fila}`, 5)}+${espacioComponente(`AM${fila}`, 5)})`;
-    const bonoElegible = `IF(AND(${finalBaseCompleta},${finalBaseFormula}>=10),0,${bonoSolicitado})`;
-    const bonoParcial3 = `MIN(${bonoElegible},${espacioParcial3})`;
-    const bonoParcial2 = `MIN(MAX(0,${bonoElegible}-${bonoParcial3}),${espacioParcial2})`;
-    const bonoParcial1 = `MIN(MAX(0,${bonoElegible}-${bonoParcial3}-${bonoParcial2}),${espacioParcial1})`;
-    if (tieneBono) {
-      setFormula(ws, `BB${fila}`, `SUM(${bonoParcial3},${bonoParcial2},${bonoParcial1})`);
-      setFormula(ws, `AN${fila}`, typeof p1Total === 'number'
-        ? `MIN(10,MAX(0,${parcial1BaseFormula}+${bonoParcial1}))`
-        : `IF(COUNT(AL${fila},AM${fila})<2,"",MIN(10,MAX(0,${parcial1BaseFormula}+${bonoParcial1})))`);
-    } else if (typeof p1Total === 'number') {
+    if (typeof p1Total === 'number') {
       setNumeroOBlanco(ws, `AN${fila}`, Math.max(0, Math.min(10, p1Total)));
-      setNumeroOBlanco(ws, `BB${fila}`);
     } else {
       setFormula(ws, `AN${fila}`, `IF(COUNT(AL${fila},AM${fila})<2,"",MIN(10,MAX(0,SUM(AL${fila},AM${fila}))))`);
-      setNumeroOBlanco(ws, `BB${fila}`);
     }
+    setNumeroOBlanco(ws, `BB${fila}`, bonoAplicado > 0 ? bonoAplicado : undefined);
 
     // Columnas físicas autorizadas: tareas Classroom ponderadas por puntos,
     // práctica y examen manuales; OMR permanece como referencia separada en la consulta.
@@ -215,19 +196,11 @@ export async function generarXlsxCalificacionesProduccion(opts: OpcionesLibro): 
     setNumeroOBlanco(ws, `AP${fila}`, numeroSeguro(fisica?.practica2doParcial));
     setFormula(ws, `AQ${fila}`, `IF(COUNT(AO${fila},AP${fila})<2,"",((AO${fila}*0.6+AP${fila}*0.4)/2))`);
     setNumeroOBlanco(ws, `AR${fila}`, numeroSeguro(fisica?.examen2doParcial));
-    setFormula(ws, `AS${fila}`, tieneBono
-      ? typeof parcial2Persistido === 'number'
-        ? `MIN(10,MAX(0,${parcial2BaseFormula}+${bonoParcial2}))`
-        : `IF(COUNT(AQ${fila},AR${fila})<2,"",MIN(10,MAX(0,${parcial2BaseFormula}+${bonoParcial2})))`
-      : `IF(COUNT(AQ${fila},AR${fila})<2,"",MIN(10,MAX(0,SUM(AQ${fila},AR${fila}))))`);
+    setFormula(ws, `AS${fila}`, `IF(COUNT(AQ${fila},AR${fila})<2,"",MIN(10,MAX(0,SUM(AQ${fila},AR${fila}))))`);
 
     setNumeroOBlanco(ws, `AT${fila}`, examenGlobalLista);
     setNumeroOBlanco(ws, `AU${fila}`, continuaTercerParcialLista);
-    if (tieneBono) {
-      setFormula(ws, `AV${fila}`, typeof parcial3Persistido === 'number'
-        ? `MIN(10,MAX(0,${parcial3BaseFormula}+${bonoParcial3}))`
-        : `IF(COUNT(AT${fila},AU${fila})<2,"",MIN(10,MAX(0,${parcial3BaseFormula}+${bonoParcial3})))`);
-    } else if (typeof totalTercerParcial === 'number') {
+    if (typeof totalTercerParcial === 'number') {
       setNumeroOBlanco(ws, `AV${fila}`, Math.max(0, Math.min(10, totalTercerParcial)));
     } else {
       setFormula(ws, `AV${fila}`, `IF(COUNT(AT${fila},AU${fila})<2,"",MIN(10,MAX(0,SUM(AT${fila},AU${fila}))))`);

@@ -4,7 +4,7 @@
  * Responsabilidad: Seccion funcional del shell docente.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState, type FocusEvent } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
@@ -19,11 +19,11 @@ import {
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaCuentaVisual } from './GuiaCuentaVisual';
+import { GestionApiLocal } from './GestionApiLocal';
 import { SeccionConfiguracionSincronizacion } from './SeccionConfiguracionSincronizacion';
 import type { EstadoLeaseUI } from './SeccionLeaseSincronizacion';
 import { compararVersiones, obtenerVersionTecnicaApp } from '../../ui/version/versionInfo';
 import { clienteApi } from './clienteApiDocente';
-import { tipoMensajeInline } from './mensajeInline';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Docente } from './tipos';
 import { idCortoMateria, mensajeDeError } from './utilidades';
@@ -32,10 +32,17 @@ function esDataUrlImagen(valor: string) {
   return /^data:image\//i.test(String(valor || '').trim());
 }
 
+function esNumeroParEntre2y50(valor: string) {
+  const paginas = Number(valor);
+  return valor.trim() !== '' && Number.isInteger(paginas) && paginas >= 2 && paginas <= 50 && paginas % 2 === 0;
+}
+
 function anchoBotonGoogleCuenta() {
   if (typeof document === 'undefined') return 228;
   return Math.max(120, Math.min(228, document.documentElement.clientWidth - 128));
 }
+
+type ContextoMensajeCuenta = 'general' | 'foto' | 'seguridad' | 'pdf' | 'retencion' | 'accesos' | 'papelera';
 
 export function SeccionCuenta({
   docente,
@@ -63,12 +70,59 @@ export function SeccionCuenta({
   onReintentarConsultaLease?: () => Promise<boolean>;
   onConfigurarCarpeta: (directorio: string) => Promise<EstadoLeaseUI>;
 }) {
+  const id = useId();
+  const prefijoAnclas = `cuenta-${id.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const anclas = {
+    foto: `${prefijoAnclas}-foto`,
+    sincronizacion: `${prefijoAnclas}-sincronizacion`,
+    seguridad: `${prefijoAnclas}-seguridad`,
+    pdf: `${prefijoAnclas}-pdf`,
+    retencion: `${prefijoAnclas}-retencion`,
+    actualizaciones: `${prefijoAnclas}-actualizaciones`,
+    accesos: `${prefijoAnclas}-accesos`,
+    papelera: `${prefijoAnclas}-papelera`
+  };
+  const formularioContrasenaId = `cuenta-form-contrasena-${id}`;
+  const ayudaContrasenaActualId = `cuenta-contrasena-actual-ayuda-${id}`;
+  const ayudaConfirmacionContrasenaId = `cuenta-contrasena-confirmacion-ayuda-${id}`;
+  const errorConfirmacionId = `cuenta-contrasena-confirmacion-${id}`;
+  const ayudaFotoPerfilId = `cuenta-foto-perfil-ayuda-${id}`;
+  const errorFotoPerfilId = `${ayudaFotoPerfilId}-error`;
+  const ayudaLogosPdfId = `cuenta-logos-pdf-ayuda-${id}`;
+  const ayudaPaginasPdfId = `cuenta-paginas-ayuda-${id}`;
+  const logoIzqPdfId = `cuenta-logo-izquierdo-${id}`;
+  const logoDerPdfId = `cuenta-logo-derecho-${id}`;
+  const errorLogoIzqPdfId = `${logoIzqPdfId}-error`;
+  const errorLogoDerPdfId = `${logoDerPdfId}-error`;
+  const logoIzqPdfLabelId = `${logoIzqPdfId}-label`;
+  const logoDerPdfLabelId = `${logoDerPdfId}-label`;
+  const logoIzqPdfStatusId = `${logoIzqPdfId}-status`;
+  const logoDerPdfStatusId = `${logoDerPdfId}-status`;
+  const retencionPdfEtiquetaId = `cuenta-retencion-pdf-etiqueta-${id}`;
+  const retencionPdfAyudaId = `cuenta-retencion-pdf-ayuda-${id}`;
   const [contrasenaNueva, setContrasenaNueva] = useState('');
   const [contrasenaNueva2, setContrasenaNueva2] = useState('');
   const [contrasenaActual, setContrasenaActual] = useState('');
+  const [contrasenasVisibles, setContrasenasVisibles] = useState({ actual: false, nueva: false, confirmacion: false });
+  const ocultarContrasenaAlSalir = (event: FocusEvent<HTMLDivElement>, campo: keyof typeof contrasenasVisibles) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setContrasenasVisibles((actuales) => actuales[campo]
+      ? { ...actuales, [campo]: false }
+      : actuales);
+  };
   const [credentialReauth, setCredentialReauth] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState('');
-  const [fotoPerfilLocal, setFotoPerfilLocal] = useState(() => obtenerFotoPerfilLocal(docente.id));
+  const [tipoMensaje, setTipoMensaje] = useState<'info' | 'ok' | 'warning' | 'error'>('info');
+  const [contextoMensaje, setContextoMensaje] = useState<ContextoMensajeCuenta>('general');
+  const [fotoPerfilLocalEstado, setFotoPerfilLocalEstado] = useState(() => ({
+    docenteId: docente.id,
+    valor: obtenerFotoPerfilLocal(docente.id)
+  }));
+  const [errorFotoPerfil, setErrorFotoPerfil] = useState('');
+  const [erroresLogosPdf, setErroresLogosPdf] = useState<Record<'izquierda' | 'derecha', string>>({
+    izquierda: '',
+    derecha: ''
+  });
   const [fotoCuentaFallida, setFotoCuentaFallida] = useState(false);
   const [fotoLocalFallida, setFotoLocalFallida] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -84,15 +138,15 @@ export function SeccionCuenta({
   const [institucionPdf, setInstitucionPdf] = useState(docente.preferenciasPdf?.institucion ?? '');
   const [lemaPdf, setLemaPdf] = useState(docente.preferenciasPdf?.lema ?? '');
   const [paginasPorTipo, setPaginasPorTipo] = useState({
-    parcial: docente.preferenciasPdf?.paginasPorTipo?.parcial ?? 2,
-    global: docente.preferenciasPdf?.paginasPorTipo?.global ?? 4,
-    extraordinario: docente.preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4
+    parcial: String(docente.preferenciasPdf?.paginasPorTipo?.parcial ?? 2),
+    global: String(docente.preferenciasPdf?.paginasPorTipo?.global ?? 4),
+    extraordinario: String(docente.preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4)
   });
   useEffect(() => {
     setPaginasPorTipo({
-      parcial: docente.preferenciasPdf?.paginasPorTipo?.parcial ?? 2,
-      global: docente.preferenciasPdf?.paginasPorTipo?.global ?? 4,
-      extraordinario: docente.preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4
+      parcial: String(docente.preferenciasPdf?.paginasPorTipo?.parcial ?? 2),
+      global: String(docente.preferenciasPdf?.paginasPorTipo?.global ?? 4),
+      extraordinario: String(docente.preferenciasPdf?.paginasPorTipo?.extraordinario ?? 4)
     });
   }, [docente.id, docente.preferenciasPdf?.paginasPorTipo]);
   const logoIzqInicial = docente.preferenciasPdf?.logos?.izquierdaPath ?? '';
@@ -101,8 +155,12 @@ export function SeccionCuenta({
   const [logoDerPdf, setLogoDerPdf] = useState(esDataUrlImagen(logoDerInicial) ? logoDerInicial : '');
   const [logoIzqPdfPath, setLogoIzqPdfPath] = useState(esDataUrlImagen(logoIzqInicial) ? '' : logoIzqInicial);
   const [logoDerPdfPath, setLogoDerPdfPath] = useState(esDataUrlImagen(logoDerInicial) ? '' : logoDerInicial);
+  const [logoIzqPdfNombre, setLogoIzqPdfNombre] = useState('');
+  const [logoDerPdfNombre, setLogoDerPdfNombre] = useState('');
   const [papelera, setPapelera] = useState<Array<Record<string, unknown>>>([]);
-  const [cargandoPapelera, setCargandoPapelera] = useState(false);
+  const [papeleraCargada, setPapeleraCargada] = useState(false);
+  const [errorCargaPapelera, setErrorCargaPapelera] = useState(false);
+  const [cargandoPapelera, setCargandoPapelera] = useState(esAdmin && esDev);
   const [restaurandoId, setRestaurandoId] = useState<string | null>(null);
   const [retencionParcialesMeses, setRetencionParcialesMeses] = useState<3 | 6 | 12 | null>(docente.retencionParcialesArchivadosMeses ?? null);
 
@@ -112,24 +170,67 @@ export function SeccionCuenta({
     estado: 'al_dia' | 'disponible' | 'error';
     versionDisponible?: string;
     urlDescarga?: string;
+    urlChecksum?: string;
     urlNotas?: string;
     mensaje: string;
-    sha256?: string;
   } | null>(null);
 
   const versionActual = obtenerVersionTecnicaApp();
   const fotoPerfilCuenta = String(docente.imagenPerfil || '').trim();
   const tieneFotoPerfilCuenta = /^(https:\/\/|data:image\/(?:png|jpeg|webp);base64,)/i.test(fotoPerfilCuenta);
   const mostrarFotoCuenta = tieneFotoPerfilCuenta && !fotoCuentaFallida;
+  const fotoPerfilLocal = fotoPerfilLocalEstado.docenteId === docente.id ? fotoPerfilLocalEstado.valor : null;
+
+  useEffect(() => {
+    setFotoCuentaFallida(false);
+    setFotoLocalFallida(false);
+    setFotoPerfilLocalEstado({ docenteId: docente.id, valor: obtenerFotoPerfilLocal(docente.id) });
+  }, [docente.id, fotoPerfilCuenta]);
+
+  const mensajeEstadoFotoPerfil = fotoCuentaFallida
+    ? fotoPerfilLocal && !fotoLocalFallida
+      ? 'La imagen vinculada no se pudo cargar; se muestra la foto local de respaldo, guardada solo en este equipo.'
+      : 'La imagen vinculada no se pudo cargar. Puedes elegir una foto local de respaldo; solo se guardará en este equipo.'
+    : tieneFotoPerfilCuenta
+      ? 'Se usa la imagen vinculada a tu cuenta.'
+      : 'La imagen se guarda en este equipo y no se envía al servidor.';
+
+  function mostrarMensaje(
+    texto: string,
+    tipo: 'info' | 'ok' | 'warning' | 'error' = 'info',
+    contexto: ContextoMensajeCuenta = 'general'
+  ) {
+    setMensaje(texto);
+    setTipoMensaje(texto ? tipo : 'info');
+    setContextoMensaje(contexto);
+  }
+
+  function mensajeEnContexto(contexto: ContextoMensajeCuenta) {
+    if (!mensaje || contextoMensaje !== contexto) return null;
+    return <InlineMensaje tipo={tipoMensaje}>{mensaje}</InlineMensaje>;
+  }
+
+  function emitirRecuperacionSesion(error: unknown) {
+    const accion = accionToastSesionParaError(error, 'docente');
+    if (!accion) return;
+    emitToast({
+      level: 'warn',
+      title: 'Renueva tu sesión docente',
+      message: 'El detalle está en Cuenta. Cierra sesión y vuelve a entrar para renovar el acceso.',
+      action: accion
+    });
+  }
 
   function seleccionarFotoPerfil(archivo?: File) {
     if (!archivo) return;
+    setErrorFotoPerfil('');
+    mostrarMensaje('');
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(archivo.type)) {
-      setMensaje('La imagen debe ser PNG, JPG o WebP.');
+      setErrorFotoPerfil('La imagen debe ser PNG, JPG o WebP.');
       return;
     }
     if (archivo.size > MAX_FOTO_PERFIL_BYTES) {
-      setMensaje('La imagen no puede superar 1 MB.');
+      setErrorFotoPerfil('La imagen no puede superar 1 MB.');
       return;
     }
     const lector = new FileReader();
@@ -137,58 +238,70 @@ export function SeccionCuenta({
       const dataUrl = String(lector.result ?? '');
       try {
         guardarFotoPerfilLocal(docente.id, dataUrl);
-        setFotoPerfilLocal(dataUrl);
+        setFotoPerfilLocalEstado({ docenteId: docente.id, valor: dataUrl });
         setFotoLocalFallida(false);
-        setMensaje('La foto de perfil se guardó en este equipo.');
+        mostrarMensaje('La foto de perfil se guardó en este equipo.', 'ok', 'foto');
         window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
           detail: { docenteId: docente.id, foto: dataUrl }
         }));
       } catch (error) {
-        setMensaje(error instanceof Error ? error.message : 'No se pudo guardar la foto en este equipo.');
+        setErrorFotoPerfil(error instanceof Error ? error.message : 'No se pudo guardar la foto en este equipo.');
       }
     };
-    lector.onerror = () => setMensaje('No se pudo leer la imagen seleccionada.');
+    lector.onerror = () => setErrorFotoPerfil('No se pudo leer la imagen seleccionada.');
     lector.readAsDataURL(archivo);
   }
 
   function retirarFotoPerfil() {
     try {
       eliminarFotoPerfilLocal(docente.id);
-      setFotoPerfilLocal(null);
+      setFotoPerfilLocalEstado({ docenteId: docente.id, valor: null });
       setFotoLocalFallida(false);
-      setMensaje('La foto local se retiró; se mostrará el avatar docente predeterminado.');
+      mostrarMensaje('La foto local se retiró; se mostrará el avatar docente predeterminado.', 'ok', 'foto');
       window.dispatchEvent(new CustomEvent(EVENTO_FOTO_PERFIL_DOCENTE, {
         detail: { docenteId: docente.id, foto: null }
       }));
     } catch {
-      setMensaje('No se pudo retirar la foto de este equipo.');
+      mostrarMensaje('No se pudo retirar la foto de este equipo.', 'error', 'foto');
     }
   }
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
+  const contrasenaNuevaCorta = Boolean(contrasenaNueva && contrasenaNueva.trim().length < 8);
+  const contrasenasNoCoinciden = Boolean(contrasenaNueva2 && !coincide);
+  const ayudaContrasenaNuevaId = `cuenta-contrasena-nueva-ayuda-${id}`;
+  const errorContrasenaNuevaId = `cuenta-contrasena-nueva-error-${id}`;
   const requiereContrasenaActual = Boolean(docente.tieneContrasena);
   const requiereGoogle = Boolean(docente.tieneGoogle && !docente.tieneContrasena);
   const googleOnly = Boolean(requireGoogleOAuth);
+  const paginasPorTipoValidas = Object.values(paginasPorTipo).every(esNumeroParEntre2y50);
 
   const reautenticacionValida = requiereContrasenaActual ? Boolean(contrasenaActual.trim()) : requiereGoogle ? Boolean(credentialReauth) : Boolean(contrasenaActual.trim() || credentialReauth);
   const puedeGuardar = Boolean(contrasenaNueva.trim().length >= 8 && coincide && reautenticacionValida);
   const googleDisponible = typeof oauthGoogleDisponible === 'boolean'
     ? oauthGoogleDisponible
     : Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  const puedeCambiarContrasena = Boolean(!googleOnly && (
+    docente.tieneContrasena || (docente.tieneGoogle && googleDisponible)
+  ));
+  const mensajeReautenticacionNoDisponible = !googleOnly && !puedeCambiarContrasena
+    ? docente.tieneGoogle
+      ? 'Google está vinculado, pero no está disponible para confirmar este cambio ahora. Pide a la persona administradora de EvaluaPro que revise la configuración de acceso.'
+      : 'Falta un método para confirmar el cambio: contraseña local o Google vinculado. Pide a quien administra EvaluaPro que revise tu acceso.'
+    : '';
 
   async function guardar() {
     try {
       const inicio = Date.now();
       setGuardando(true);
-      setMensaje('');
+      mostrarMensaje('');
 
       const cuerpo: Record<string, unknown> = { contrasenaNueva };
       if (contrasenaActual.trim()) cuerpo.contrasenaActual = contrasenaActual;
       if (credentialReauth) cuerpo.credential = credentialReauth;
 
       await clienteApi.enviar('/autenticacion/definir-contrasena', cuerpo);
-      setMensaje('Contraseña actualizada.');
-      emitToast({ level: 'ok', title: 'Cuenta', message: 'Contraseña actualizada.', durationMs: 2400 });
+      mostrarMensaje('Contraseña actualizada.', 'ok', 'seguridad');
       registrarAccionDocente('definir_contrasena', true, Date.now() - inicio);
       setContrasenaNueva('');
       setContrasenaNueva2('');
@@ -196,14 +309,8 @@ export function SeccionCuenta({
       setCredentialReauth(null);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar la contraseña.');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'Cuenta',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      mostrarMensaje(msg, 'error', 'seguridad');
+      emitirRecuperacionSesion(error);
       registrarAccionDocente('definir_contrasena', false);
     } finally {
       setGuardando(false);
@@ -211,15 +318,20 @@ export function SeccionCuenta({
   }
 
   async function guardarPreferenciasPdf() {
+    if (!paginasPorTipoValidas) return;
     try {
       const inicio = Date.now();
       setGuardando(true);
-      setMensaje('');
+      mostrarMensaje('');
 
       const cuerpo: Record<string, unknown> = {};
       if (institucionPdf.trim()) cuerpo.institucion = institucionPdf.trim();
       if (lemaPdf.trim()) cuerpo.lema = lemaPdf.trim();
-      cuerpo.paginasPorTipo = paginasPorTipo;
+      cuerpo.paginasPorTipo = {
+        parcial: Number(paginasPorTipo.parcial),
+        global: Number(paginasPorTipo.global),
+        extraordinario: Number(paginasPorTipo.extraordinario)
+      };
       const logoIzquierda = logoIzqPdf.trim() || logoIzqPdfPath.trim();
       const logoDerecha = logoDerPdf.trim() || logoDerPdfPath.trim();
       if (logoIzquierda || logoDerecha) {
@@ -235,19 +347,12 @@ export function SeccionCuenta({
         preferenciasPdf: respuesta.preferenciasPdf
       });
 
-      setMensaje('Preferencias de PDF guardadas');
-      emitToast({ level: 'ok', title: 'PDF', message: 'Preferencias guardadas', durationMs: 2400 });
+      mostrarMensaje('Preferencias de PDF guardadas', 'ok', 'pdf');
       registrarAccionDocente('preferencias_pdf', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudieron guardar las preferencias de PDF');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'PDF',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      mostrarMensaje(msg, 'error', 'pdf');
+      emitirRecuperacionSesion(error);
       registrarAccionDocente('preferencias_pdf', false);
     } finally {
       setGuardando(false);
@@ -257,7 +362,7 @@ export function SeccionCuenta({
   async function guardarRetencionParciales() {
     try {
       setGuardando(true);
-      setMensaje('');
+      mostrarMensaje('');
       const respuesta = await clienteApi.enviar<{ retencionParcialesArchivadosMeses: 3 | 6 | 12 | null }>(
         '/autenticacion/preferencias/retencion-parciales',
         { meses: retencionParcialesMeses }
@@ -267,46 +372,55 @@ export function SeccionCuenta({
         ...docente,
         retencionParcialesArchivadosMeses: respuesta.retencionParcialesArchivadosMeses
       });
-      setMensaje('Preferencia de retención guardada');
-      emitToast({ level: 'ok', title: 'Historial', message: 'Preferencia de retención guardada', durationMs: 2400 });
+      mostrarMensaje('Preferencia de retención guardada', 'ok', 'retencion');
       registrarAccionDocente('preferencia_retencion_parciales', true);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo guardar la preferencia de retención');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'Historial', message: msg, durationMs: 5200 });
+      mostrarMensaje(msg, 'error', 'retencion');
+      emitirRecuperacionSesion(error);
       registrarAccionDocente('preferencia_retencion_parciales', false);
     } finally {
       setGuardando(false);
     }
   }
 
-  function seleccionarLogoPdf(lado: 'izquierda' | 'derecha', archivo?: File) {
+  function seleccionarLogoPdf(lado: 'izquierda' | 'derecha', archivo?: File): void {
     if (!archivo) return;
+    setErroresLogosPdf((actuales) => ({ ...actuales, [lado]: '' }));
+    mostrarMensaje('');
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(archivo.type)) {
-      setMensaje('La imagen debe ser PNG, JPG o WebP.');
+      setErroresLogosPdf((actuales) => ({ ...actuales, [lado]: 'La imagen debe ser PNG, JPG o WebP.' }));
       return;
     }
     if (archivo.size > 2 * 1024 * 1024) {
-      setMensaje('La imagen no puede superar 2 MB.');
+      setErroresLogosPdf((actuales) => ({ ...actuales, [lado]: 'La imagen no puede superar 2 MB.' }));
       return;
     }
     const lector = new FileReader();
     lector.onload = () => {
       const dataUrl = String(lector.result ?? '');
       if (!esDataUrlImagen(dataUrl)) {
-        setMensaje('No se pudo leer la imagen seleccionada.');
+        if (lado === 'izquierda') setLogoIzqPdfNombre('');
+        else setLogoDerPdfNombre('');
+        setErroresLogosPdf((actuales) => ({ ...actuales, [lado]: 'No se pudo leer la imagen seleccionada.' }));
         return;
       }
       if (lado === 'izquierda') {
         setLogoIzqPdf(dataUrl);
         setLogoIzqPdfPath('');
+        setLogoIzqPdfNombre(archivo.name);
       } else {
         setLogoDerPdf(dataUrl);
         setLogoDerPdfPath('');
+        setLogoDerPdfNombre(archivo.name);
       }
-      setMensaje('');
+      mostrarMensaje('');
     };
-    lector.onerror = () => setMensaje('No se pudo leer la imagen seleccionada.');
+    lector.onerror = () => {
+      if (lado === 'izquierda') setLogoIzqPdfNombre('');
+      else setLogoDerPdfNombre('');
+      setErroresLogosPdf((actuales) => ({ ...actuales, [lado]: 'No se pudo leer la imagen seleccionada.' }));
+    };
     lector.readAsDataURL(archivo);
   }
 
@@ -314,26 +428,14 @@ export function SeccionCuenta({
     try {
       const inicio = Date.now();
       setRegenerandoAccesos(true);
-      setMensaje('');
+      mostrarMensaje('');
       await clienteApi.enviar('/autenticacion/accesos-directos/regenerar', {});
-      setMensaje('Accesos directos de EvaluaPro y Hub actualizados en Escritorio y Menú Inicio.');
-      emitToast({
-        level: 'ok',
-        title: 'Accesos directos',
-        message: 'Iconos y accesos regenerados correctamente.',
-        durationMs: 3000
-      });
+      mostrarMensaje('Accesos directos de EvaluaPro y Hub actualizados en Escritorio y Menú Inicio.', 'ok', 'accesos');
       registrarAccionDocente('regenerar_accesos_directos', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudieron regenerar los accesos directos');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'Accesos directos',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
+      mostrarMensaje(msg, 'error', 'accesos');
+      emitirRecuperacionSesion(error);
       registrarAccionDocente('regenerar_accesos_directos', false);
     } finally {
       setRegenerandoAccesos(false);
@@ -345,7 +447,7 @@ export function SeccionCuenta({
       const inicio = Date.now();
       setBuscandoActualizaciones(true);
       setResultadoActualizacion(null);
-      setMensaje('');
+      mostrarMensaje('');
 
       const res = await fetch('https://api.github.com/repos/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest');
       if (!res.ok) {
@@ -362,15 +464,9 @@ export function SeccionCuenta({
           estado: 'disponible',
           versionDisponible: `v${tagRemoto}`,
           urlDescarga: String(exeAsset?.browser_download_url || data.html_url || ''),
+          urlChecksum: typeof shaAsset?.browser_download_url === 'string' ? shaAsset.browser_download_url : undefined,
           urlNotas: String(data.html_url || ''),
-          mensaje: `¡Nueva versión estable v${tagRemoto} disponible!`,
-          sha256: shaAsset ? 'Verificación criptográfica SHA-256 oficial vinculada' : undefined
-        });
-        emitToast({
-          level: 'info',
-          title: 'Actualización disponible',
-          message: `La versión v${tagRemoto} está lista para descargar con instalador seguro.`,
-          durationMs: 5000
+          mensaje: `¡Nueva versión estable v${tagRemoto} disponible!`
         });
         registrarAccionDocente('buscar_actualizaciones_disponible', true, Date.now() - inicio);
       } else {
@@ -379,25 +475,14 @@ export function SeccionCuenta({
           versionDisponible: `v${versionActual}`,
           mensaje: `El sistema se encuentra en la versión oficial estable más reciente (v${versionActual}).`
         });
-        emitToast({
-          level: 'ok',
-          title: 'Sistema al día',
-          message: `EvaluaPro v${versionActual} es la versión oficial más reciente.`,
-          durationMs: 3000
-        });
         registrarAccionDocente('buscar_actualizaciones_al_dia', true, Date.now() - inicio);
       }
     } catch {
+      const mensajeError = `No se pudo comprobar si hay actualizaciones. La versión instalada v${versionActual} sigue activa; vuelve a intentarlo.`;
       setResultadoActualizacion({
-        estado: 'al_dia',
+        estado: 'error',
         versionDisponible: `v${versionActual}`,
-        mensaje: `Versión oficial local v${versionActual} activa (Canal Estable Oficial).`
-      });
-      emitToast({
-        level: 'ok',
-        title: 'Versión verificada',
-        message: `EvaluaPro v${versionActual} activa en canal oficial.`,
-        durationMs: 3000
+        mensaje: mensajeError
       });
     } finally {
       setBuscandoActualizaciones(false);
@@ -407,12 +492,15 @@ export function SeccionCuenta({
   const cargarPapelera = useCallback(async () => {
     if (!esAdmin || !esDev) return;
     setCargandoPapelera(true);
+    setErrorCargaPapelera(false);
     try {
       const respuesta = await clienteApi.obtener<{ items: Array<Record<string, unknown>> }>('/papelera?limite=60');
       setPapelera(respuesta.items ?? []);
+      setPapeleraCargada(true);
     } catch (error) {
+      setErrorCargaPapelera(true);
       const msg = mensajeDeError(error, 'No se pudo cargar la papelera');
-      setMensaje(msg);
+      mostrarMensaje(msg, 'error', 'papelera');
     } finally {
       setCargandoPapelera(false);
     }
@@ -426,8 +514,8 @@ export function SeccionCuenta({
       await cargarPapelera();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo restaurar');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'Papelera', message: msg, durationMs: 4200 });
+      mostrarMensaje(msg, 'error', 'papelera');
+      emitirRecuperacionSesion(error);
     } finally {
       setRestaurandoId(null);
     }
@@ -457,11 +545,8 @@ export function SeccionCuenta({
       {/* 1. Bento Hero Header */}
       <div className="banco-panel__head cuenta-panel__head anim-fade-in">
         <div className="banco-panel__lead">
-          <div className="banco-panel__icon-orb cuenta-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+          <div className="icono-seccion-orb banco-panel__icon-orb cuenta-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <Icono nombre="cuenta" size={28} />
           </div>
           <div className="banco-panel__text-block">
             <div className="banco-panel__meta-row">
@@ -477,19 +562,17 @@ export function SeccionCuenta({
         </div>
 
         {/* Mini-KPIs */}
-        <div className="banco-header-kpis" aria-live="polite">
+        <div className="banco-header-kpis" role="group" aria-label="Resumen de la cuenta docente">
           <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Rol institucional activo">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
+              <Icono nombre="docente" size={16} />
             </span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--sm">{esAdmin ? 'Admin' : 'Docente'}</span>
             <span className="banco-mini-kpi__lbl">Rol</span>
           </div>
 
           <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Estado de vinculación con Google">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10" /></svg></span>
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="classroom" size={16} /></span>
             <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${docente.tieneGoogle ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--slate"}`}>
               {docente.tieneGoogle ? 'Vinculado' : 'Sin vínculo'}
             </span>
@@ -497,7 +580,7 @@ export function SeccionCuenta({
           </div>
 
           <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Seguridad de contraseña local">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /></svg></span>
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="candado" size={16} /></span>
             <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${docente.tieneContrasena ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--amber"}`}>
               {docente.tieneContrasena ? 'Definida' : 'No definida'}
             </span>
@@ -505,7 +588,7 @@ export function SeccionCuenta({
           </div>
 
           <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Encabezado institucional configurado">
-            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /></svg></span>
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="pdf" size={16} /></span>
             <span className="banco-mini-kpi__num banco-mini-kpi__num--sm banco-mini-kpi__num--sky">
               {institucionPdf.trim() ? 'Personalizado' : 'Predeterminado'}
             </span>
@@ -514,20 +597,31 @@ export function SeccionCuenta({
 
           <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Servicio de correo saliente para notificaciones (SMTP)">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                <polyline points="22,6 12,13 2,6" />
-              </svg>
+              <Icono nombre="correo" size={16} />
             </span>
             <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${smtpDisponible ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--slate"}`}>
               {smtpDisponible ? 'Disponible' : 'No configurado'}
             </span>
-            <span className="banco-mini-kpi__lbl">Correo</span>
+            <span className="banco-mini-kpi__lbl">Avisos por correo</span>
           </div>
         </div>
       </div>
 
-      <section className="cuenta-foto-perfil" aria-labelledby="cuenta-foto-perfil-titulo">
+      <nav className="cuenta-subpanel cuenta-seccion-nav" aria-label="Secciones de Cuenta">
+        <p className="nota cuenta-seccion-nav__titulo">Ir directamente a</p>
+        <div className="cuenta-seccion-nav__links">
+          <a className="btn btn-secundario" href={`#${anclas.foto}`}>Foto de perfil</a>
+          <a className="btn btn-secundario" href={`#${anclas.sincronizacion}`}>Sincronización</a>
+          <a className="btn btn-secundario" href={`#${anclas.seguridad}`}>Seguridad</a>
+          <a className="btn btn-secundario" href={`#${anclas.pdf}`}>PDF institucional</a>
+          <a className="btn btn-secundario" href={`#${anclas.retencion}`}>Retención</a>
+          <a className="btn btn-secundario" href={`#${anclas.actualizaciones}`}>Actualizaciones</a>
+          <a className="btn btn-secundario" href={`#${anclas.accesos}`}>Accesos del escritorio</a>
+          {esAdmin && esDev && <a className="btn btn-secundario" href={`#${anclas.papelera}`}>Papelera</a>}
+        </div>
+      </nav>
+
+      <section className="cuenta-foto-perfil" aria-labelledby={anclas.foto}>
         <div className="cuenta-foto-perfil__avatar" aria-hidden="true">
           {mostrarFotoCuenta
             ? <img src={fotoPerfilCuenta} alt="" onError={() => setFotoCuentaFallida(true)} />
@@ -536,13 +630,9 @@ export function SeccionCuenta({
               : <Icono nombre="cuenta" size={30} />}
         </div>
         <div className="cuenta-foto-perfil__contenido">
-          <h3 id="cuenta-foto-perfil-titulo">Foto de perfil</h3>
-          <p className="nota">
-            {tieneFotoPerfilCuenta
-              ? 'Se usa la imagen vinculada a tu cuenta.'
-              : 'La imagen se guarda en este equipo y no se envía al servidor.'}
-          </p>
-          {!tieneFotoPerfilCuenta && (
+          <h3 id={anclas.foto} tabIndex={-1}>Foto de perfil</h3>
+          <p className="nota">{mensajeEstadoFotoPerfil}</p>
+          {(!tieneFotoPerfilCuenta || fotoCuentaFallida) && (
             <div className="cuenta-foto-perfil__acciones">
               <label className="chip cuenta-foto-perfil__cargar">
                 <Icono nombre="publicar" size={16} />
@@ -550,19 +640,22 @@ export function SeccionCuenta({
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  aria-label="Seleccionar foto de perfil"
+                  aria-invalid={errorFotoPerfil ? 'true' : undefined}
+                  aria-describedby={`${ayudaFotoPerfilId}${errorFotoPerfil ? ` ${errorFotoPerfilId}` : ''}`}
                   onChange={(event) => {
                     seleccionarFotoPerfil(event.target.files?.[0]);
                     event.currentTarget.value = '';
                   }}
                 />
               </label>
+              {errorFotoPerfil && <span className="ayuda error" id={errorFotoPerfilId} role="alert">{errorFotoPerfil}</span>}
               {fotoPerfilLocal && (
                 <button type="button" className="chip" onClick={retirarFotoPerfil}>Quitar foto</button>
               )}
-              <span className="nota">PNG, JPG o WebP · máximo 1 MB</span>
+              <span className="nota" id={ayudaFotoPerfilId}>PNG, JPG o WebP · máximo 1 MB</span>
             </div>
           )}
+          {mensajeEnContexto('foto')}
         </div>
       </section>
 
@@ -571,6 +664,7 @@ export function SeccionCuenta({
 
       {/* 3. Configuracion de sincronizacion */}
       <SeccionConfiguracionSincronizacion
+        headingId={anclas.sincronizacion}
         estado={estadoLease}
         errorConsulta={errorConsultaLease}
         onReintentarConsulta={onReintentarConsultaLease}
@@ -585,7 +679,7 @@ export function SeccionCuenta({
               <span className="banco-section-pill__dot" aria-hidden="true" />
               <span>Seguridad y credenciales</span>
             </span>
-            <h3 className="entregas-title-heading">
+            <h3 id={anclas.seguridad} tabIndex={-1} className="entregas-title-heading">
               <Icono nombre="ok" /> Seguridad de acceso
             </h3>
             <p className="nota">Gestiona tu contraseña local y las cuentas vinculadas para acceder a EvaluaPro.</p>
@@ -606,6 +700,10 @@ export function SeccionCuenta({
           </InlineMensaje>
         )}
 
+        {mensajeReautenticacionNoDisponible && (
+          <InlineMensaje tipo="info">{mensajeReautenticacionNoDisponible}</InlineMensaje>
+        )}
+
         {Boolean(!googleOnly && docente.tieneGoogle && googleDisponible) && (
           <div className="auth-google auth-google--mb">
             <p className="nota">Vuelve a autenticarte con Google para confirmar el cambio de contraseña.</p>
@@ -614,13 +712,13 @@ export function SeccionCuenta({
               onSuccess={(cred) => {
                 const credencialGoogle = cred.credential;
                 if (!credencialGoogle) {
-                  setMensaje('No se recibió la credencial de Google.');
+                  mostrarMensaje('No se recibió la credencial de Google.', 'error', 'seguridad');
                   return;
                 }
                 setCredentialReauth(credencialGoogle);
-                setMensaje('Reautenticación con Google lista.');
+                mostrarMensaje('Reautenticación con Google lista.', 'info', 'seguridad');
               }}
-              onError={() => setMensaje('No se pudo reautenticar con Google.')}
+              onError={() => mostrarMensaje('No se pudo reautenticar con Google.', 'error', 'seguridad')}
             />
             <div className="acciones acciones--mt">
               <button type="button" className="chip" disabled={!credentialReauth} onClick={() => setCredentialReauth(null)}>
@@ -630,62 +728,105 @@ export function SeccionCuenta({
           </div>
         )}
 
-        {!googleOnly && (
-          <div className="cuenta-seguridad__form">
+        {puedeCambiarContrasena && (
+          <form
+            id={formularioContrasenaId}
+            className="cuenta-seguridad__form"
+            aria-label="Cambiar contraseña"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (puedeGuardar && !guardando) void guardar();
+            }}
+          >
             {docente.tieneContrasena && (
-              <label className="campo">
-                <span>Contraseña actual</span>
-                <input
-                  type="password"
-                  value={contrasenaActual}
-                  onChange={(event) => setContrasenaActual(event.target.value)}
-                  autoComplete="current-password"
-                />
-              </label>
+              <div className="campo">
+                <label htmlFor={`cuenta-contrasena-actual-${id}`}>Contraseña actual (obligatoria)</label>
+                <div className="cuenta-seguridad__password-control" onBlur={(event) => ocultarContrasenaAlSalir(event, 'actual')}>
+                  <input
+                    id={`cuenta-contrasena-actual-${id}`}
+                    type={contrasenasVisibles.actual ? 'text' : 'password'}
+                    required
+                    value={contrasenaActual}
+                    onChange={(event) => setContrasenaActual(event.target.value)}
+                    autoComplete="current-password"
+                    aria-describedby={ayudaContrasenaActualId}
+                  />
+                  <button
+                    type="button"
+                    className="cuenta-seguridad__password-toggle"
+                    aria-label={`${contrasenasVisibles.actual ? 'Ocultar' : 'Mostrar'} contraseña actual`}
+                    aria-controls={`cuenta-contrasena-actual-${id}`}
+                    aria-pressed={contrasenasVisibles.actual}
+                    onClick={() => setContrasenasVisibles((actual) => ({ ...actual, actual: !actual.actual }))}
+                  ><Icono nombre={contrasenasVisibles.actual ? 'ojoCerrado' : 'ojo'} size={18} /></button>
+                </div>
+                <span className="ayuda" id={ayudaContrasenaActualId}>Se necesita para confirmar el cambio.</span>
+              </div>
             )}
 
-            <label className="campo">
-              <span>Nueva contraseña</span>
-              <input
-                type="password"
-                value={contrasenaNueva}
-                onChange={(event) => setContrasenaNueva(event.target.value)}
-                autoComplete="new-password"
-              />
-              <span className="ayuda">Usa al menos 8 caracteres.</span>
-            </label>
-
-            <label className="campo">
-              <span>Confirmar contraseña</span>
-              {contrasenaNueva2 && !coincide ? (
+            <div className="campo">
+              <label htmlFor={`cuenta-contrasena-nueva-${id}`}>Nueva contraseña</label>
+              <div className="cuenta-seguridad__password-control" onBlur={(event) => ocultarContrasenaAlSalir(event, 'nueva')}>
                 <input
-                  type="password"
+                  id={`cuenta-contrasena-nueva-${id}`}
+                  type={contrasenasVisibles.nueva ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  value={contrasenaNueva}
+                  onChange={(event) => setContrasenaNueva(event.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={contrasenaNuevaCorta || undefined}
+                  aria-describedby={`${ayudaContrasenaNuevaId}${contrasenaNuevaCorta ? ` ${errorContrasenaNuevaId}` : ''}`}
+                />
+                <button
+                  type="button"
+                  className="cuenta-seguridad__password-toggle"
+                  aria-label={`${contrasenasVisibles.nueva ? 'Ocultar' : 'Mostrar'} nueva contraseña`}
+                  aria-controls={`cuenta-contrasena-nueva-${id}`}
+                  aria-pressed={contrasenasVisibles.nueva}
+                  onClick={() => setContrasenasVisibles((actual) => ({ ...actual, nueva: !actual.nueva }))}
+                ><Icono nombre={contrasenasVisibles.nueva ? 'ojoCerrado' : 'ojo'} size={18} /></button>
+              </div>
+              <span className="ayuda" id={ayudaContrasenaNuevaId}>Mínimo 8 caracteres.</span>
+              {contrasenaNuevaCorta && <span className="ayuda error" id={errorContrasenaNuevaId}>La contraseña nueva es demasiado corta. Agrega caracteres hasta cumplir el mínimo.</span>}
+            </div>
+
+            <div className="campo">
+              <label htmlFor={`cuenta-contrasena-confirmacion-input-${id}`}>Confirmar contraseña</label>
+              <div className="cuenta-seguridad__password-control" onBlur={(event) => ocultarContrasenaAlSalir(event, 'confirmacion')}>
+                <input
+                  id={`cuenta-contrasena-confirmacion-input-${id}`}
+                  type={contrasenasVisibles.confirmacion ? 'text' : 'password'}
+                  required
                   value={contrasenaNueva2}
                   onChange={(event) => setContrasenaNueva2(event.target.value)}
                   autoComplete="new-password"
-                  aria-invalid="true"
+                  aria-invalid={contrasenasNoCoinciden || undefined}
+                  aria-describedby={`${ayudaConfirmacionContrasenaId}${contrasenasNoCoinciden ? ` ${errorConfirmacionId}` : ''}`}
                 />
-              ) : (
-                <input
-                  type="password"
-                  value={contrasenaNueva2}
-                  onChange={(event) => setContrasenaNueva2(event.target.value)}
-                  autoComplete="new-password"
-                />
-              )}
-              {contrasenaNueva2 && !coincide && <span className="ayuda error">Las contraseñas no coinciden. Revísalas.</span>}
-            </label>
-          </div>
+                <button
+                  type="button"
+                  className="cuenta-seguridad__password-toggle"
+                  aria-label={`${contrasenasVisibles.confirmacion ? 'Ocultar' : 'Mostrar'} confirmación de contraseña`}
+                  aria-controls={`cuenta-contrasena-confirmacion-input-${id}`}
+                  aria-pressed={contrasenasVisibles.confirmacion}
+                  onClick={() => setContrasenasVisibles((actual) => ({ ...actual, confirmacion: !actual.confirmacion }))}
+                ><Icono nombre={contrasenasVisibles.confirmacion ? 'ojoCerrado' : 'ojo'} size={18} /></button>
+              </div>
+              <span className="ayuda" id={ayudaConfirmacionContrasenaId}>Repite la nueva contraseña para confirmar el cambio.</span>
+              {contrasenasNoCoinciden && <span className="ayuda error" id={errorConfirmacionId}>Las contraseñas no coinciden. Revísalas.</span>}
+            </div>
+            <div className="acciones acciones--mt">
+              <Boton type="submit" icono={<Icono nombre="ok" />} cargando={guardando} disabled={!puedeGuardar}>
+                {guardando ? 'Guardando…' : 'Guardar contraseña'}
+              </Boton>
+            </div>
+          </form>
         )}
-
-        {!googleOnly && (
-          <div className="acciones acciones--mt">
-            <Boton type="button" icono={<Icono nombre="ok" />} cargando={guardando} disabled={!puedeGuardar} onClick={guardar}>
-              {guardando ? 'Guardando…' : 'Guardar contraseña'}
-            </Boton>
-          </div>
-        )}
+        {mensajeEnContexto('seguridad')}
       </div>
+
+      <GestionApiLocal />
 
       {/* 4. PDF Institucional */}
       <div className="cuenta-subpanel cuenta-pdf anim-fade-in">
@@ -693,9 +834,9 @@ export function SeccionCuenta({
           <div className="banco-section-title__wrap">
             <span className="banco-section-pill">
               <span className="banco-section-pill__dot" aria-hidden="true" />
-              <span>Identidad Gráfica & PDF</span>
+              <span>Identidad gráfica y PDF</span>
             </span>
-            <h3 className="entregas-title-heading">
+            <h3 id={anclas.pdf} tabIndex={-1} className="entregas-title-heading">
               <Icono nombre="pdf" /> PDF institucional
             </h3>
             <p className="nota">Personaliza el membrete oficial, logotipo institucional y lema en exámenes impresos y actas.</p>
@@ -707,74 +848,128 @@ export function SeccionCuenta({
 
         <div className="grid grid--2">
           <label className="campo">
-            <span>Institucion</span>
-            <input value={institucionPdf} onChange={(e) => setInstitucionPdf(e.target.value)} placeholder="Centro Universitario Hidalguense" />
+            <span>Institución</span>
+            <input value={institucionPdf} onChange={(e) => setInstitucionPdf(e.target.value)} placeholder="Nombre de la institución" />
           </label>
           <label className="campo">
             <span>Lema</span>
-            <input value={lemaPdf} onChange={(e) => setLemaPdf(e.target.value)} placeholder="La sabiduria es nuestra fuerza" />
+            <input value={lemaPdf} onChange={(e) => setLemaPdf(e.target.value)} placeholder="Lema del PDF" />
           </label>
         </div>
 
+        <p className="nota cuenta-pdf__pages-help" id={ayudaPaginasPdfId}>
+          Número par entre 2 y 50. Cada hoja impresa cuenta con dos páginas.
+        </p>
         <div className="grid grid--3">
           {([
             ['parcial', 'Parcial'],
             ['global', 'Global'],
             ['extraordinario', 'Extraordinario']
-          ] as const).map(([tipo, etiqueta]) => (
-            <label className="campo" key={tipo}>
-              <span>Páginas predeterminadas · {etiqueta}</span>
-              <input
-                type="number"
-                min={2}
-                max={50}
-                step={2}
-                value={paginasPorTipo[tipo]}
-                onChange={(event) => {
-                  const valor = Number(event.target.value);
-                  if (Number.isInteger(valor) && valor >= 2 && valor <= 50 && valor % 2 === 0) {
-                    setPaginasPorTipo((actual) => ({ ...actual, [tipo]: valor }));
-                  }
-                }}
-                aria-label={`Páginas predeterminadas para ${etiqueta.toLocaleLowerCase()}`}
-              />
-              <span className="ayuda">{paginasPorTipo[tipo]} páginas · {paginasPorTipo[tipo] / 2} hojas dúplex. Solo números pares.</span>
-            </label>
-          ))}
+          ] as const).map(([tipo, etiqueta]) => {
+            const campoId = `cuenta-paginas-${tipo}-${id}`;
+            const etiquetaCampoId = `${campoId}-etiqueta`;
+            const resumenId = `${campoId}-resumen`;
+            const errorId = `${campoId}-error`;
+            const paginas = paginasPorTipo[tipo];
+            const valido = esNumeroParEntre2y50(paginas);
+            const hojas = Number(paginas) / 2;
+            return (
+              <label className="campo" key={tipo}>
+                <span id={etiquetaCampoId}>Páginas predeterminadas · {etiqueta}</span>
+                <input
+                  id={campoId}
+                  type="number"
+                  min={2}
+                  max={50}
+                  step={2}
+                  value={paginas}
+                  onChange={(event) => setPaginasPorTipo((actual) => ({ ...actual, [tipo]: event.target.value }))}
+                  aria-labelledby={etiquetaCampoId}
+                  aria-invalid={!valido || undefined}
+                  aria-describedby={`${ayudaPaginasPdfId}${valido ? ` ${resumenId}` : ` ${errorId}`}`}
+                />
+                {!valido && <span className="ayuda error" id={errorId}>Escribe un número par entre 2 y 50.</span>}
+                {valido && <span className="nota" id={resumenId}>{paginas} páginas = {hojas} {hojas === 1 ? 'hoja impresa' : 'hojas impresas'} (ambas caras).</span>}
+              </label>
+            );
+          })}
         </div>
 
         <div className="grid grid--2 cuenta-pdf__logos">
           <div className="cuenta-pdf__logo-field">
+            <div className="campo cuenta-file-picker">
+              <span id={logoIzqPdfLabelId}>Imagen institucional izquierda</span>
+              <input
+                id={logoIzqPdfId}
+                className="sr-only"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                aria-labelledby={logoIzqPdfLabelId}
+                aria-invalid={erroresLogosPdf.izquierda ? 'true' : undefined}
+                aria-describedby={`${ayudaLogosPdfId} ${logoIzqPdfStatusId}${erroresLogosPdf.izquierda ? ` ${errorLogoIzqPdfId}` : ''}`}
+                onChange={(event) => {
+                  const archivo = event.currentTarget.files?.[0];
+                  if (!archivo) return;
+                  seleccionarLogoPdf('izquierda', archivo);
+                  event.currentTarget.value = '';
+                }}
+              />
+              <label className="cuenta-file-picker__control" htmlFor={logoIzqPdfId}>
+                <span className="cuenta-file-picker__button">Elegir imagen</span>
+                <span id={logoIzqPdfStatusId} className="cuenta-file-picker__name" role="status" aria-live="polite">
+                  {logoIzqPdfNombre ? `Archivo: ${logoIzqPdfNombre}` : logoIzqPdf ? 'Imagen cargada en preferencias' : logoIzqPdfPath ? 'Se usará la ruta alternativa' : 'Sin archivo seleccionado (opcional)'}
+                </span>
+              </label>
+            </div>
+            {erroresLogosPdf.izquierda && <small className="ayuda error" id={errorLogoIzqPdfId} role="alert">{erroresLogosPdf.izquierda}</small>}
             <label className="campo">
-              <span>Imagen institucional izquierda</span>
-              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => seleccionarLogoPdf('izquierda', e.target.files?.[0])} aria-label="Seleccionar archivo institucional izquierdo" />
-            </label>
-            <label className="campo">
-              <span>Ruta alternativa (opcional)</span>
-              <input value={logoIzqPdfPath} onChange={(e) => { setLogoIzqPdfPath(e.target.value); setLogoIzqPdf(''); }} placeholder="logos/logo_cuh.png" aria-label="Logo izquierda" />
+              <span>Ruta alternativa del logo izquierdo (opcional)</span>
+              <input value={logoIzqPdfPath} onChange={(e) => { setLogoIzqPdfPath(e.target.value); setLogoIzqPdf(''); setLogoIzqPdfNombre(''); }} placeholder="logos/logo_cuh.png" />
             </label>
             {logoIzqPdf && <img className="cuenta-pdf__logo-preview" src={logoIzqPdf} alt="Vista previa del logo izquierdo" />}
           </div>
           <div className="cuenta-pdf__logo-field">
+            <div className="campo cuenta-file-picker">
+              <span id={logoDerPdfLabelId}>Imagen institucional derecha</span>
+              <input
+                id={logoDerPdfId}
+                className="sr-only"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                aria-labelledby={logoDerPdfLabelId}
+                aria-invalid={erroresLogosPdf.derecha ? 'true' : undefined}
+                aria-describedby={`${ayudaLogosPdfId} ${logoDerPdfStatusId}${erroresLogosPdf.derecha ? ` ${errorLogoDerPdfId}` : ''}`}
+                onChange={(event) => {
+                  const archivo = event.currentTarget.files?.[0];
+                  if (!archivo) return;
+                  seleccionarLogoPdf('derecha', archivo);
+                  event.currentTarget.value = '';
+                }}
+              />
+              <label className="cuenta-file-picker__control" htmlFor={logoDerPdfId}>
+                <span className="cuenta-file-picker__button">Elegir imagen</span>
+                <span id={logoDerPdfStatusId} className="cuenta-file-picker__name" role="status" aria-live="polite">
+                  {logoDerPdfNombre ? `Archivo: ${logoDerPdfNombre}` : logoDerPdf ? 'Imagen cargada en preferencias' : logoDerPdfPath ? 'Se usará la ruta alternativa' : 'Sin archivo seleccionado (opcional)'}
+                </span>
+              </label>
+            </div>
+            {erroresLogosPdf.derecha && <small className="ayuda error" id={errorLogoDerPdfId} role="alert">{erroresLogosPdf.derecha}</small>}
             <label className="campo">
-              <span>Imagen institucional derecha</span>
-              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => seleccionarLogoPdf('derecha', e.target.files?.[0])} aria-label="Seleccionar archivo institucional derecho" />
-            </label>
-            <label className="campo">
-              <span>Ruta alternativa (opcional)</span>
-              <input value={logoDerPdfPath} onChange={(e) => { setLogoDerPdfPath(e.target.value); setLogoDerPdf(''); }} placeholder="logos/logo_sys.png" aria-label="Logo derecha" />
+              <span>Ruta alternativa del logo derecho (opcional)</span>
+              <input value={logoDerPdfPath} onChange={(e) => { setLogoDerPdfPath(e.target.value); setLogoDerPdf(''); setLogoDerPdfNombre(''); }} placeholder="logos/logo_sys.png" />
             </label>
             {logoDerPdf && <img className="cuenta-pdf__logo-preview" src={logoDerPdf} alt="Vista previa del logo derecho" />}
           </div>
         </div>
 
-        <p className="nota cuenta-pdf__logo-help">PNG, JPG o WebP · máximo 2 MB por imagen. Estas imágenes se usarán automáticamente como logos predeterminados en nuevos exámenes.</p>
+        <p className="nota cuenta-pdf__logo-help" id={ayudaLogosPdfId}>PNG, JPG o WebP · máximo 2 MB por imagen. Estas imágenes se usarán automáticamente como logos predeterminados en nuevos exámenes.</p>
 
         <div className="acciones acciones--mt">
-          <Boton onClick={guardarPreferenciasPdf} disabled={guardando}>
+          <Boton onClick={guardarPreferenciasPdf} disabled={guardando || !paginasPorTipoValidas}>
             Guardar PDF
           </Boton>
         </div>
+        {mensajeEnContexto('pdf')}
       </div>
 
       <div className="cuenta-subpanel cuenta-retencion anim-fade-in">
@@ -784,24 +979,25 @@ export function SeccionCuenta({
               <span className="banco-section-pill__dot" aria-hidden="true" />
               <span>Historial de materias</span>
             </span>
-            <h3 className="entregas-title-heading">
+            <h3 id={anclas.retencion} tabIndex={-1} className="entregas-title-heading">
               <Icono nombre="pdf" /> Retención de parciales archivados
             </h3>
-            <p className="nota">Por defecto, los parciales y sus archivos se conservan siempre. Si eliges un plazo, se purgarán automáticamente los archivos de exámenes parciales archivados al cumplirlo; el historial, las calificaciones y los demás exámenes se conservan.</p>
+            <p className="nota" id={retencionPdfAyudaId}>Por defecto, los PDF de parciales archivados se conservan siempre. Si eliges 3, 6 o 12 meses, se eliminan solo esos PDF al vencer el plazo; el historial académico, las calificaciones y los demás exámenes permanecen.</p>
           </div>
         </div>
         <div className="grid grid--2">
           <label className="campo">
-            <span>Eliminar automáticamente los PDF archivados después de</span>
+            <span id={retencionPdfEtiquetaId}>Tiempo de conservación de los PDF de parciales archivados</span>
             <select
               value={retencionParcialesMeses ?? ''}
               onChange={(event) => {
                 const value = event.target.value;
                 setRetencionParcialesMeses(value === '' ? null : Number(value) as 3 | 6 | 12);
               }}
-              aria-label="Plazo para conservar PDF de parciales archivados"
+              aria-labelledby={retencionPdfEtiquetaId}
+              aria-describedby={retencionPdfAyudaId}
             >
-              <option value="">Conservar siempre (predeterminado)</option>
+              <option value="">Conservar siempre</option>
               <option value="3">3 meses</option>
               <option value="6">6 meses</option>
               <option value="12">1 año</option>
@@ -813,6 +1009,7 @@ export function SeccionCuenta({
             Guardar retención
           </Boton>
         </div>
+        {mensajeEnContexto('retencion')}
       </div>
 
       {/* 5. Actualizaciones de EvaluaPro e Installer Hub */}
@@ -823,11 +1020,11 @@ export function SeccionCuenta({
               <span className="banco-section-pill__dot" aria-hidden="true" />
               <span>Mantenimiento y actualizaciones</span>
             </span>
-            <h3 className="entregas-title-heading">
-              <Icono nombre="recargar" /> Actualizaciones de EvaluaPro e Installer Hub
+            <h3 id={anclas.actualizaciones} tabIndex={-1} className="entregas-title-heading">
+              <Icono nombre="recargar" /> Buscar actualizaciones de EvaluaPro
             </h3>
             <p className="nota">
-              Consulta versiones disponibles, descarga el paquete oficial y actualiza con validación criptográfica SHA-256 y respaldo automático de tu base de datos.
+              Consulta la release pública y abre sus descargas y notas. Esta pantalla no instala la actualización, verifica el archivo ni crea un respaldo.
             </p>
           </div>
           <div className="banco-section-side-meta">
@@ -838,7 +1035,7 @@ export function SeccionCuenta({
         <div className="grid grid--2">
           <div className="item-glass">
             <div className="texto-base">
-              <strong>Versión Instalada</strong>
+                <strong>Versión instalada</strong>
             </div>
             <div className="nota">
               EvaluaPro <strong>v{versionActual} Estable</strong> · Canal Oficial GitHub Releases
@@ -846,10 +1043,10 @@ export function SeccionCuenta({
           </div>
           <div className="item-glass">
             <div className="texto-base">
-              <strong>Seguridad de Actualización</strong>
+                <strong>Alcance de esta pantalla</strong>
             </div>
             <div className="nota">
-              Respaldo SQLite previo · Verificación SHA-256 · Transición limpia sin pérdida de datos
+                Consulta GitHub Releases y enlaza al instalador; la instalación se realiza por separado con Installer Hub.
             </div>
           </div>
         </div>
@@ -864,18 +1061,22 @@ export function SeccionCuenta({
                       {resultadoActualizacion.mensaje}
                     </strong>
                     <div className="nota">
-                      Instalador firmado con verificación criptográfica SHA-256 e integración directa con el Installer Hub.
+                      {resultadoActualizacion.urlChecksum
+                        ? 'La release publica un archivo de checksum SHA-256. Ábrelo para verificar el instalador antes de ejecutarlo.'
+                        : 'La release no publica un archivo .sha256 para este instalador. Revisa las instrucciones de instalación antes de ejecutarlo.'}
                     </div>
                   </div>
+                  <p className="nota">Los enlaces externos abren en una pestaña o ventana nueva.</p>
                   <div className="acciones">
                     {resultadoActualizacion.urlDescarga && (
                       <a
                         href={resultadoActualizacion.urlDescarga}
                         target="_blank"
                         rel="noopener noreferrer"
+                        aria-label="Descargar actualización oficial (se abre en una pestaña o ventana nueva)"
                         className="btn btn-primary"
                       >
-                        <Icono nombre="descargar" /> Descargar Actualización Oficial
+                        <Icono nombre="descargar" /> Descargar actualización oficial
                       </a>
                     )}
                     {resultadoActualizacion.urlNotas && (
@@ -883,16 +1084,28 @@ export function SeccionCuenta({
                         href={resultadoActualizacion.urlNotas}
                         target="_blank"
                         rel="noopener noreferrer"
+                        aria-label="Ver novedades (se abre en una pestaña o ventana nueva)"
                         className="btn btn-secundario"
                       >
-                        Ver Novedades
+                        Ver novedades
+                      </a>
+                    )}
+                    {resultadoActualizacion.urlChecksum && (
+                      <a
+                        href={resultadoActualizacion.urlChecksum}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Ver checksum SHA-256 (se abre en una pestaña o ventana nueva)"
+                        className="btn btn-secundario"
+                      >
+                        Ver checksum SHA-256
                       </a>
                     )}
                   </div>
                 </div>
               </div>
             ) : (
-              <InlineMensaje tipo="ok">
+              <InlineMensaje tipo={resultadoActualizacion.estado === 'error' ? 'error' : 'ok'}>
                 {resultadoActualizacion.mensaje}
               </InlineMensaje>
             )}
@@ -900,6 +1113,14 @@ export function SeccionCuenta({
         )}
 
         <div className="acciones acciones--mt">
+          <span
+            className="sr-only"
+            role="status"
+            aria-label="Estado de búsqueda de actualizaciones"
+            aria-atomic="true"
+          >
+            {buscandoActualizaciones ? 'Consultando actualizaciones en GitHub Releases.' : ''}
+          </span>
           <Boton
             type="button"
             variante="primario"
@@ -908,7 +1129,9 @@ export function SeccionCuenta({
             disabled={buscandoActualizaciones}
             onClick={verificarActualizaciones}
           >
-            {buscandoActualizaciones ? 'Consultando releases...' : 'Buscar actualizaciones ahora'}
+            {buscandoActualizaciones
+              ? 'Consultando releases...'
+              : resultadoActualizacion?.estado === 'error' ? 'Reintentar búsqueda' : 'Buscar actualizaciones ahora'}
           </Boton>
         </div>
       </div>
@@ -921,8 +1144,8 @@ export function SeccionCuenta({
               <span className="banco-section-pill__dot" aria-hidden="true" />
               <span>Sistema Operativo</span>
             </span>
-            <h3 className="entregas-title-heading">
-              <Icono nombre="recargar" /> Accesos directos
+            <h3 id={anclas.accesos} tabIndex={-1} className="entregas-title-heading">
+              <Icono nombre="recargar" /> Accesos del escritorio
             </h3>
             <p className="nota">Reconstruye los accesos directos de EvaluaPro y Hub en Escritorio y Menú Inicio, y solicita a Windows actualizar sus iconos.</p>
           </div>
@@ -940,6 +1163,7 @@ export function SeccionCuenta({
             {regenerandoAccesos ? 'Regenerando...' : 'Regenerar accesos e iconos'}
           </Boton>
         </div>
+        {mensajeEnContexto('accesos')}
       </div>
 
       {/* 7. Papelera de Reciclaje (Admin/Dev) */}
@@ -951,13 +1175,19 @@ export function SeccionCuenta({
                 <span className="banco-section-pill__dot" aria-hidden="true" />
                 <span>Mantenimiento & Recuperación</span>
               </span>
-              <h3 className="entregas-title-heading">
+              <h3 id={anclas.papelera} tabIndex={-1} className="entregas-title-heading">
                 <Icono nombre="info" /> Papelera (dev)
               </h3>
               <p className="nota">Los elementos eliminados se conservan 45 días antes de purgarse permanentemente.</p>
             </div>
             <div className="banco-section-side-meta">
-              <span className="banco-counter-tag">{papelera.length} elementos</span>
+              <span className="banco-counter-tag">
+                {!papeleraCargada && cargandoPapelera
+                  ? 'Consultando papelera…'
+                  : !papeleraCargada
+                    ? 'No disponible'
+                    : `${papelera.length} elementos${cargandoPapelera || errorCargaPapelera ? ' · última carga' : ''}`}
+              </span>
             </div>
           </div>
 
@@ -967,7 +1197,13 @@ export function SeccionCuenta({
             </Boton>
           </div>
 
-          {!cargandoPapelera && papelera.length === 0 && <InlineMensaje tipo="info">No hay elementos en papelera.</InlineMensaje>}
+          {mensajeEnContexto('papelera')}
+          {errorCargaPapelera && papeleraCargada && (
+            <InlineMensaje tipo="info">No se pudo actualizar; se conservan los elementos de la última consulta correcta.</InlineMensaje>
+          )}
+          {!cargandoPapelera && papeleraCargada && !errorCargaPapelera && papelera.length === 0 && (
+            <InlineMensaje tipo="info">No hay elementos en papelera.</InlineMensaje>
+          )}
           {papelera.length > 0 && (
             <div className="lista lista--compacta cuenta-papelera__lista">
               {papelera.map((item) => {
@@ -1003,7 +1239,7 @@ export function SeccionCuenta({
         </div>
       )}
 
-      {mensaje && <InlineMensaje tipo={tipoMensajeInline(mensaje)}>{mensaje}</InlineMensaje>}
+      {mensajeEnContexto('general')}
     </div>
   );
 }

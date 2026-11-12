@@ -68,7 +68,7 @@ spec.components.schemas.OmrReviewResponse = {
   additionalProperties: false
 };
 const responseOmrJob = {
-  description: 'Job OMR con evidencia por reactivo para revisión y corrección manual.',
+  description: 'Job OMR con progreso y resultado de calificación automática canónica. Las respuestas nulas verificadas cuentan como incorrectas; identidad, páginas incompletas o calidad insuficiente quedan en revisión.',
   content: {
     'application/json': {
       schema: {
@@ -79,6 +79,28 @@ const responseOmrJob = {
             type: 'object',
             required: ['pages'],
             properties: {
+              summary: {
+                type: 'object',
+                properties: {
+                  automaticGrades: {
+                    type: 'object',
+                    properties: Object.fromEntries(['processing', 'saved', 'alreadyRecorded', 'failed', 'needsReview'].map((key) => [key, { type: 'integer', minimum: 0 }]))
+                  }
+                },
+                additionalProperties: true
+              },
+              automaticGrade: {
+                type: 'object',
+                properties: {
+                  status: { type: 'string', enum: ['processing', 'saved', 'already_recorded', 'needs_review', 'failed'] },
+                  calificacionId: { type: 'string' },
+                  aciertos: { type: 'integer', minimum: 0 },
+                  totalReactivos: { type: 'integer', minimum: 0 },
+                  calificacionExamen: { type: 'string' },
+                  reasonCodes: { type: 'array', items: { type: 'string' } }
+                },
+                additionalProperties: false
+              },
               pages: {
                 type: 'array',
                 items: {

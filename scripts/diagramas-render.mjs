@@ -38,6 +38,21 @@ function normalizarSaltosLinea(texto) {
   return texto.replace(/\r\n/g, '\n');
 }
 
+function normalizarSvg(texto) {
+  const fuentes = [];
+  const conMarcadores = normalizarSaltosLinea(texto).replace(/@font-face\s*\{[^{}]*\}/g, (regla) => {
+    fuentes.push(regla.trim().replace(/\s+/g, ' '));
+    return `\u0000EVAL_FONT_FACE_${fuentes.length - 1}\u0000`;
+  });
+  const claveFuente = (regla) => ['font-family', 'font-style', 'font-weight']
+    .map((propiedad) => regla.match(new RegExp(`${propiedad}:\\s*([^;]+)`))?.[1]?.trim() ?? '')
+    .join('|');
+  const fuentesOrdenadas = [...fuentes].sort((a, b) =>
+    claveFuente(a).localeCompare(claveFuente(b)) || a.localeCompare(b)
+  );
+  return conMarcadores.replace(/\u0000EVAL_FONT_FACE_(\d+)\u0000/g, (_marcador, indice) => fuentesOrdenadas[Number(indice)]);
+}
+
 function rutaRel(filePath) {
   return path.relative(rootDir, filePath).replace(/\\/g, '/');
 }
@@ -156,6 +171,8 @@ async function renderAll({ mode }) {
       await runMmdc({ inputPath: srcPath, outputPath: actualOutPath });
 
       if (mode === 'write') {
+        const rendered = normalizarSvg(await fs.readFile(actualOutPath, 'utf8'));
+        await fs.writeFile(actualOutPath, rendered, 'utf8');
         console.log(`[diagramas:render] escrito: ${rutaRel(expectedOutPath)}`);
         continue;
       }
@@ -163,11 +180,11 @@ async function renderAll({ mode }) {
       // mode === 'check'
       let existing = null;
       try {
-        existing = normalizarSaltosLinea(await fs.readFile(expectedOutPath, 'utf8'));
+        existing = normalizarSvg(await fs.readFile(expectedOutPath, 'utf8'));
       } catch {
         existing = null;
       }
-      const rendered = normalizarSaltosLinea(await fs.readFile(actualOutPath, 'utf8'));
+      const rendered = normalizarSvg(await fs.readFile(actualOutPath, 'utf8'));
 
       if (existing !== rendered) {
         console.error(`[diagramas:render] desactualizado: ${rutaRel(expectedOutPath)}`);

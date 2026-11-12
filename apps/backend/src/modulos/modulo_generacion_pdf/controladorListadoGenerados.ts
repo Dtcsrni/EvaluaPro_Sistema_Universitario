@@ -658,6 +658,14 @@ export async function archivarExamenGenerado(req: SolicitudDocente, res: Respons
     return res.json({ ok: true, examen: formatearExamenGeneradoPrisma(examen) });
   }
 
+  if (examen.loteId && examen.origenGeneracion === 'lote') {
+    throw new ErrorAplicacion(
+      'EXAMEN_DE_LOTE_ARCHIVADO_EN_CONJUNTO',
+      'Los exámenes de un lote se archivan juntos desde su paquete, sujeto a las reglas de cierre de materia y verificación de calificaciones.',
+      409
+    );
+  }
+
   const rawUpdated = await prisma.examenGenerado.update({
     where: { id: examenId },
     data: { archivadoEn: new Date() }

@@ -13,10 +13,11 @@ import { promisify } from 'node:util';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../configuracion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/index.js';
-import { extraerResumenQrExamen, type ResumenQrExamen } from '../modulo_generacion_pdf/index.js';
+import { extraerResumenQrExamen, resolverOmrTemplateId, type OmrTemplateId, type ResumenQrExamen } from '../modulo_generacion_pdf/index.js';
 import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/index.js';
 import { leerCapturasOmrParaPortal } from '../modulo_escaneo_omr/index.js';
 import { calcularCalificacion, presentarCalificacionExtraordinaria } from './servicioCalificacion.js';
+import { detectarBonoGuiaEstudio, type ResultadoBonoGuia } from './detectorBonoGuiaEstudio.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 const comprimirGzip = promisify(gzip);
@@ -308,7 +309,7 @@ function validarResumenQrContraExamen(params: {
       }
     );
   }
-  const templateIdEsperado = templateIdOmr ?? 'omr-canonical-v4';
+  const templateIdEsperado = resolverOmrTemplateId(templateIdOmr as OmrTemplateId | undefined);
   if (resumenQr.templateId !== templateIdEsperado) {
     throw new ErrorAplicacion('OMR_QR_TEMPLATE_NO_COINCIDE', 'El ID de plantilla del QR no coincide con el mapa OMR del examen', 409, {
       templateIdQr: resumenQr.templateId,
@@ -554,6 +555,8 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     aciertos,
     totalReactivos,
     bonoSolicitado,
+    omitirBonoAcordeon,
+    confirmarBonoAcordeonManual,
     origen,
     origenEvidencia,
     evaluacionContinua,
@@ -788,29 +791,53 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
   }
   const aciertosAjustados = Math.min(aciertosFinal, totalFinal);
 
-  const entrega = await prisma.entrega.findFirst({
-    where: {
-      examenGeneradoId,
-      docenteId,
-      estado: 'entregado'
-    },
-    orderBy: { createdAt: 'desc' }
-  });
-  const bonoAcordeon = entrega?.acordeonEntregado
-    ? Number.isFinite(Number(entrega.bonoAcordeon))
-      ? Math.max(0, Math.min(0.5, Number(entrega.bonoAcordeon)))
-      : 0.25
-    : 0;
-  const bonoSolicitadoTotal = (Number(bonoSolicitado) || 0) + bonoAcordeon;
-
-  const resultado = calcularCalificacion(
+  // `bonoSolicitado` se conserva en el contrato por compatibilidad, pero el bono
+  // de guía solo se otorga desde evidencia OCR o confirmación docente con recorte.
+  void bonoSolicitado;
+  const resultadoBase = calcularCalificacion(
     aciertosAjustados,
     totalFinal,
-    bonoSolicitadoTotal,
+    0,
     evaluacionContinua ?? 0,
     proyecto ?? 0,
     tipoExamenCalificado as 'parcial' | 'global' | 'extraordinario'
   );
+  const mapaOmr = parseJsonSafe<{ paginas?: any[]; margenMm?: number; qrSizePts?: number }>(examen.mapaOmr);
+  let evidenciaBono: ResultadoBonoGuia = {
+    estado: 'no_detectado', bonoSugerido: 0, confianza: null, lecturas: [], numeroPagina: null,
+    region: null, versionDetector: 'score-zone-ocr-1.0.0', motivo: 'No aplica a este tipo de examen.'
+  };
+  if (['parcial', 'global'].includes(tipoExamenCalificado) && Number(resultadoBase.calificacionTexto) < 5) {
+    try {
+      evidenciaBono = await detectarBonoGuiaEstudio({
+        capturas: paginasOmrEntrada,
+        paginasPlantilla: Array.isArray(mapaOmr?.paginas) ? mapaOmr.paginas : [],
+        margenMm: Number(mapaOmr?.margenMm ?? 10),
+        qrSizePts: Number(mapaOmr?.qrSizePts ?? mapaOmr?.paginas?.find((pagina) => pagina?.qr)?.qr?.size ?? 54)
+      });
+    } catch {
+      evidenciaBono = { estado: 'requiere_revision', bonoSugerido: 0, confianza: null, lecturas: [], numeroPagina: null, region: null, versionDetector: 'score-zone-ocr-1.0.0', motivo: 'Falló el detector OCR; el bono no se aplicó.' };
+    }
+  } else if (['parcial', 'global'].includes(tipoExamenCalificado)) {
+    evidenciaBono = { ...evidenciaBono, motivo: 'Calificación base máxima; no se ejecutó OCR ni se puede agregar el bono.' };
+  }
+  const notaBase = Number(resultadoBase.calificacionTexto);
+  const bonoAutomatico = evidenciaBono.estado === 'detectado' && !omitirBonoAcordeon && notaBase < 5 ? 0.25 : 0;
+  const bonoManual = Boolean(confirmarBonoAcordeonManual) && evidenciaBono.estado !== 'detectado' &&
+    Boolean(evidenciaBono.region && evidenciaBono.imagenRegionBase64) && !omitirBonoAcordeon && notaBase < 5 ? 0.25 : 0;
+  const bonoAplicado = bonoAutomatico || bonoManual;
+  const resultado = bonoAplicado > 0
+    ? calcularCalificacion(aciertosAjustados, totalFinal, bonoAplicado, evaluacionContinua ?? 0, proyecto ?? 0, tipoExamenCalificado as 'parcial' | 'global' | 'extraordinario')
+    : resultadoBase;
+  const auditoriaBono = {
+    notaBase: resultadoBase.calificacionTexto,
+    bonoDetectado: evidenciaBono.estado === 'detectado',
+    bonoAplicado: resultado.bonoTexto,
+    metodo: bonoAutomatico ? 'ocr-consenso' : bonoManual ? 'confirmacion-docente' : 'ninguno',
+    excluidoPorDocente: Boolean(omitirBonoAcordeon),
+    actorDocenteId: docenteId,
+    evidencia: { ...evidenciaBono, imagenRegionBase64: undefined }
+  };
 
   if (soloPreview) {
     res.status(200).json({
@@ -824,6 +851,7 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
         calificacionExamenTexto: resultado.calificacionTexto,
         bonoTexto: resultado.bonoTexto,
         calificacionExamenFinalTexto: resultado.calificacionFinalTexto,
+        bonoGuiaEstudio: { ...auditoriaBono, evidencia: evidenciaBono },
         ...(esExtraordinario ? presentarCalificacionExtraordinaria(resultado.calificacionFinalTexto) : {}),
         evaluacionContinuaTexto: resultado.evaluacionContinuaTexto,
         proyectoTexto: resultado.proyectoTexto,
@@ -869,7 +897,7 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
           })
         : null,
       respuestasDetectadas: JSON.stringify(respuestasDetectadas || []),
-      omrAuditoria: analisisOmr || (clientRequestId && requestHash)
+      omrAuditoria: analisisOmr || (clientRequestId && requestHash) || auditoriaBono
         ? JSON.stringify({
             ...(analisisOmr ? {
             estadoAnalisis: analisisOmr.estadoAnalisis,
@@ -896,7 +924,8 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
             contestadasCorrectas,
             precisionSobreContestadas: contestadasTotal > 0 ? contestadasCorrectas / contestadasTotal : null
             } : {}),
-            ...(clientRequestId && requestHash ? { apiIdempotency: { clientRequestId, requestHash } } : {})
+            ...(clientRequestId && requestHash ? { apiIdempotency: { clientRequestId, requestHash } } : {}),
+            bonoGuiaEstudio: auditoriaBono
           })
         : null,
       politicaId: !esExtraordinario && politicaId ? String(politicaId) : null,

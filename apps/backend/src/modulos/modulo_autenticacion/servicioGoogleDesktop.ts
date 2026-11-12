@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../configuracion.js';
+import { log } from '../../infraestructura/logging/logger.js';
 
 const SCOPES_LOGIN = ['openid', 'email', 'profile'];
 const FLOW_TTL_MS = 10 * 60_000;
@@ -34,10 +35,14 @@ const flujosPorId = new Map<string, FlujoOAuthGoogle>();
 const flujosPorState = new Map<string, FlujoOAuthGoogle>();
 
 function crearClienteOauth(clientId: string, redirectUri: string) {
+  const clientSecret = String(configuracion.googleDesktopClientSecret || '').trim();
   return new OAuth2Client({
     clientId,
+    ...(clientSecret ? { clientSecret } : {}),
     redirectUri,
-    clientAuthentication: ClientAuthentication.None
+    clientAuthentication: clientSecret
+      ? ClientAuthentication.ClientSecretPost
+      : ClientAuthentication.None
   });
 }
 
@@ -75,9 +80,61 @@ function terminarFlujo(flujo: FlujoOAuthGoogle, resultado: ResultadoFlujo) {
 }
 
 function respuestaError(error: unknown): string {
-  return error instanceof ErrorAplicacion && /^[A-Z0-9_]{1,64}$/.test(error.codigo)
-    ? error.codigo
+  if (error instanceof ErrorAplicacion && /^[A-Z0-9_]{1,64}$/.test(error.codigo)) return error.codigo;
+  if (!error || typeof error !== 'object') return 'GOOGLE_DESKTOP_OAUTH_FAILED';
+
+  const detalle = error as {
+    code?: unknown;
+    response?: { status?: unknown; data?: { error?: unknown } };
+  };
+  const erroresProveedor = new Set(['invalid_grant', 'invalid_client', 'invalid_request', 'unauthorized_client', 'invalid_scope', 'deleted_client']);
+  const codigoProveedor = detalle.response?.data?.error;
+  if (typeof codigoProveedor === 'string' && erroresProveedor.has(codigoProveedor)) {
+    return `GOOGLE_DESKTOP_${codigoProveedor.toUpperCase()}`;
+  }
+
+  const erroresRed = new Set(['ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ERR_TLS_CERT_ALTNAME_INVALID', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE']);
+  if (typeof detalle.code === 'string' && erroresRed.has(detalle.code)) return 'GOOGLE_DESKTOP_NETWORK_ERROR';
+
+  return Number.isInteger(detalle.response?.status)
+    ? 'GOOGLE_DESKTOP_PROVIDER_HTTP_ERROR'
     : 'GOOGLE_DESKTOP_OAUTH_FAILED';
+}
+
+function causaErrorProveedor(error: unknown): string {
+  if (!error || typeof error !== 'object') return 'sin_detalle';
+  const respuesta = (error as { response?: { data?: { error_description?: unknown } } }).response;
+  const descripcion = typeof respuesta?.data?.error_description === 'string'
+    ? respuesta.data.error_description.toLowerCase()
+    : '';
+  if (/redirect_uri|redirect uri/.test(descripcion)) return 'redirect_uri';
+  if (/code_verifier|code verifier|code_challenge|code challenge|pkce/.test(descripcion)) return 'pkce';
+  if (/client_secret|client secret|client authentication/.test(descripcion)) return 'autenticacion_cliente';
+  if (/client_id|client id/.test(descripcion)) return 'client_id';
+  if (/grant_type|grant type/.test(descripcion)) return 'grant_type';
+  if (/required|missing|not provided/.test(descripcion)) return 'parametro_requerido';
+  if (/unsupported|not supported/.test(descripcion)) return 'metodo_no_soportado';
+  return 'sin_detalle';
+}
+
+function respuestaProveedorSegura(valor: unknown, clave = ''): unknown {
+  if (/(?:access|refresh|id)?_?token|secret|credential|authorization|code|state|verifier|cookie|password/i.test(clave)) {
+    return '[REDACTED]';
+  }
+  if (typeof valor === 'string') {
+    return valor
+      .replace(/\b(code|state|token|secret|credential|verifier)=([^&\s]+)/gi, '$1=[REDACTED]')
+      .replace(/(https?:\/\/[^?\s"'<>]+)\?[^\s"'<>]*/gi, '$1?[REDACTED]')
+      .replace(/\bBearer\s+[^\s"'<>]+/gi, 'Bearer [REDACTED]');
+  }
+  if (Array.isArray(valor)) return valor.map((elemento) => respuestaProveedorSegura(elemento));
+  if (valor && typeof valor === 'object') {
+    return Object.fromEntries(Object.entries(valor).map(([nombre, contenido]) => [
+      nombre,
+      respuestaProveedorSegura(contenido, nombre)
+    ]));
+  }
+  return valor;
 }
 
 async function completarCallback(flujo: FlujoOAuthGoogle, req: IncomingMessage, res: ServerResponse) {
@@ -87,13 +144,14 @@ async function completarCallback(flujo: FlujoOAuthGoogle, req: IncomingMessage, 
   }
 
   let url: URL;
+  let etapa = 'canje_codigo';
   try {
     url = new URL(req.url || '/', 'http://127.0.0.1');
   } catch {
     responderCallback(res, 400, false, 'Callback OAuth inválido.');
     return;
   }
-  if (url.pathname !== '/oauth2callback') {
+  if (url.pathname !== '/') {
     responderCallback(res, 404, false, 'Ruta de callback inválida.');
     return;
   }
@@ -131,6 +189,7 @@ async function completarCallback(flujo: FlujoOAuthGoogle, req: IncomingMessage, 
     if (!credential) {
       throw new ErrorAplicacion('GOOGLE_CREDENCIAL_AUSENTE', 'Google no devolvió una identidad verificable.', 401);
     }
+    etapa = 'verificar_id_token';
     const ticket = await cliente.verifyIdToken({ idToken: credential, audience: flujo.clientId });
     const payload = ticket.getPayload();
     if (!payload?.email || !payload.sub) {
@@ -142,7 +201,20 @@ async function completarCallback(flujo: FlujoOAuthGoogle, req: IncomingMessage, 
     terminarFlujo(flujo, { estado: 'listo', credential });
     responderCallback(res, 200, true, 'Google verificó tu identidad. Regresa a EvaluaPro para continuar.');
   } catch (error) {
-    terminarFlujo(flujo, { estado: 'error', codigo: respuestaError(error) });
+    const codigo = respuestaError(error);
+    const respuesta = error && typeof error === 'object'
+      ? (error as { response?: { status?: unknown; data?: unknown } }).response
+      : undefined;
+    const meta = { etapa, codigo, causa: causaErrorProveedor(error) };
+    log('warn', 'Falló el callback OAuth Desktop de Google.', meta);
+    if (process.env.EVALUAPRO_OAUTH_DEBUG_LOCAL === '1' && respuesta) {
+      log('warn', 'Respuesta completa de error de Google (campos sensibles redactados).', {
+        ...meta,
+        status: respuesta.status,
+        body: respuestaProveedorSegura(respuesta.data)
+      });
+    }
+    terminarFlujo(flujo, { estado: 'error', codigo });
     responderCallback(res, 400, false, 'No se pudo verificar la identidad con Google. Intenta de nuevo desde EvaluaPro.');
   }
 }
@@ -171,7 +243,7 @@ export async function iniciarOAuthGoogleDesktop(): Promise<{ flowId: string; url
     throw new ErrorAplicacion('GOOGLE_DESKTOP_LOOPBACK_ERROR', 'No se pudo abrir el callback local de Google.', 503);
   }
 
-  const redirectUri = `http://127.0.0.1:${address.port}/oauth2callback`;
+  const redirectUri = `http://127.0.0.1:${address.port}`;
   const cliente = crearClienteOauth(clientId, redirectUri);
   const { codeVerifier, codeChallenge } = await cliente.generateCodeVerifierAsync();
   if (!codeChallenge) {

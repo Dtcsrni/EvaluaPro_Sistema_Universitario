@@ -7,6 +7,8 @@ type PreguntaRevisionVisual = {
   numeroPregunta: number;
   opcion: string | null;
   confianza: number;
+  confianzaDisponible: boolean;
+  estadoRespuesta: 'respondida' | 'sin_marca' | 'ambigua' | 'doble_marca' | 'tachada' | 'manual_review';
   correcta: string | null;
   tieneClave: boolean;
   esDudosa: boolean;
@@ -107,13 +109,22 @@ export function PanelRevisionVisualOmr({
                       {preguntas.map((fila) => {
                         const confianzaPct = Math.round(fila.confianza * 100);
                         const claseConfianza = fila.confianza >= 0.75 ? 'ok' : fila.confianza >= 0.5 ? 'warning' : 'error';
-                        const estado = !fila.tieneClave ? 'sin-clave' : fila.esCorrecta ? 'ok' : fila.opcion ? 'error' : 'warning';
-                        const estadoTexto = !fila.tieneClave ? 'Sin clave' : fila.esCorrecta ? 'Correcta' : fila.opcion ? 'Incorrecta' : 'Sin respuesta';
+                        const respuestaIncorrectaAutomatica = ['sin_marca', 'ambigua', 'doble_marca', 'tachada'].includes(fila.estadoRespuesta);
+                        const estado = !fila.tieneClave ? 'sin-clave' : fila.esCorrecta ? 'ok' : respuestaIncorrectaAutomatica || fila.opcion ? 'error' : 'warning';
+                        const descripcionEstado = fila.estadoRespuesta === 'ambigua' ? 'marca ambigua'
+                          : fila.estadoRespuesta === 'doble_marca' ? 'doble marca'
+                            : fila.estadoRespuesta === 'tachada' ? 'marca tachada'
+                              : fila.estadoRespuesta === 'sin_marca' ? 'en blanco'
+                                : null;
+                        const estadoTexto = !fila.tieneClave ? 'Sin clave' : fila.esCorrecta ? 'Correcta'
+                          : descripcionEstado ? `Incorrecta: ${descripcionEstado}` : fila.opcion ? 'Incorrecta' : 'Revisar lectura';
                         return (
                           <li key={`det-${fila.numeroPregunta}`} className={`omr-answer-row omr-answer-row--${estado}${fila.esDudosa ? ' es-dudosa' : ''}`} role="row">
                             <div className="omr-answer-row__question" role="cell">
                               <strong>Pregunta {fila.numeroPregunta}</strong>
-                              <span className={`badge ${claseConfianza}`}>{confianzaPct}% confianza</span>
+                              <span className={`badge ${fila.confianzaDisponible ? claseConfianza : 'warning'}`}>
+                                {fila.confianzaDisponible ? `${confianzaPct}% confianza` : 'Sin dato de confianza'}
+                              </span>
                             </div>
                             <div className="omr-answer-row__choice" role="cell">
                               <span className="omr-answer-row__label">Detectada</span>
@@ -152,7 +163,13 @@ export function PanelRevisionVisualOmr({
                             <div className="omr-answer-row__status" role="cell">
                               <span className={`badge ${estado}`}>{estadoTexto}</span>
                               <span className="omr-answer-row__auto">
-                                {fila.opcion ? (fila.confianza >= UMBRAL_AUTO_CONFIABLE_UI ? 'Lectura alta' : 'Revisar lectura') : 'Captura vacía'}
+                                {respuestaIncorrectaAutomatica
+                                  ? 'Incorrecta automáticamente'
+                                  : fila.opcion
+                                  ? fila.confianzaDisponible
+                                    ? fila.confianza >= UMBRAL_AUTO_CONFIABLE_UI ? 'Lectura alta' : 'Revisar lectura'
+                                    : 'Verificar lectura: confianza no registrada'
+                                  : 'Lectura sin confirmar'}
                               </span>
                             </div>
                           </li>

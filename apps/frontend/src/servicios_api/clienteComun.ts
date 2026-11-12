@@ -21,7 +21,7 @@ export function emitirSesionInvalidada(tipo: TipoSesion) {
 
 export function accionCerrarSesion(tipo: TipoSesion): ToastAction {
   return {
-    label: 'Cerrar sesion',
+    label: 'Cerrar sesión',
     onClick: () => emitirSesionInvalidada(tipo)
   };
 }
@@ -553,6 +553,7 @@ type RetryDescriptor = {
 type ClienteRequestOptions = {
   timeoutMs?: number;
   headers?: Record<string, string>;
+  silenciarErrores?: boolean;
 };
 
 type CrearClienteJsonBaseOptions = {
@@ -607,7 +608,8 @@ export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
       method = 'GET',
       payload,
       timeoutMs = 12_000,
-      headers: requestHeaders
+      headers: requestHeaders,
+      silenciarErrores = false
     }: ClienteRequestOptions & { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; payload?: unknown } = {}
   ): Promise<T> => {
     const token = opts.obtenerToken?.() ?? null;
@@ -639,9 +641,9 @@ export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
         toastTimeout: opts.toastTimeout,
         toastServerError: opts.toastServerError,
         retry: method === 'GET' ? opts.retry : { intentos: 0 },
-        silenciarUnreachable: silenciar,
-        silenciarTimeout: silenciar,
-        silenciarServerError: silenciar
+        silenciarUnreachable: silenciar || silenciarErrores,
+        silenciarTimeout: silenciar || silenciarErrores,
+        silenciarServerError: silenciar || silenciarErrores
       });
     } catch (error) {
       if (method !== 'GET' && error instanceof ErrorRemoto) {
@@ -663,12 +665,12 @@ export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
   };
 
   return {
-    obtener: <T>(ruta: string, opciones?: ClienteRequestOptions) => solicitar<T>(ruta, { method: 'GET', timeoutMs: opciones?.timeoutMs, headers: opciones?.headers }),
+    obtener: <T>(ruta: string, opciones?: ClienteRequestOptions) => solicitar<T>(ruta, { method: 'GET', timeoutMs: opciones?.timeoutMs, headers: opciones?.headers, silenciarErrores: opciones?.silenciarErrores }),
     enviar: <T>(ruta: string, payload: unknown, opciones?: ClienteRequestOptions) =>
-      solicitar<T>(ruta, { method: 'POST', payload, timeoutMs: opciones?.timeoutMs ?? 15_000, headers: opciones?.headers }),
+      solicitar<T>(ruta, { method: 'POST', payload, timeoutMs: opciones?.timeoutMs ?? 15_000, headers: opciones?.headers, silenciarErrores: opciones?.silenciarErrores }),
     actualizar: <T>(ruta: string, payload: unknown, opciones?: ClienteRequestOptions) =>
-      solicitar<T>(ruta, { method: 'PUT', payload, timeoutMs: opciones?.timeoutMs ?? 15_000, headers: opciones?.headers }),
+      solicitar<T>(ruta, { method: 'PUT', payload, timeoutMs: opciones?.timeoutMs ?? 15_000, headers: opciones?.headers, silenciarErrores: opciones?.silenciarErrores }),
     eliminar: <T>(ruta: string, opciones?: ClienteRequestOptions) =>
-      solicitar<T>(ruta, { method: 'DELETE', timeoutMs: opciones?.timeoutMs, headers: opciones?.headers })
+      solicitar<T>(ruta, { method: 'DELETE', timeoutMs: opciones?.timeoutMs, headers: opciones?.headers, silenciarErrores: opciones?.silenciarErrores })
   };
 }

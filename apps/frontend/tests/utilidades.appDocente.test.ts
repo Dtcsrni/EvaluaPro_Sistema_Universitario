@@ -12,6 +12,8 @@ import {
   etiquetaMateria,
   idCortoMateria,
   normalizarResultadoOmr,
+  serializarRespuestasDetectadasOmr,
+  obtenerInicialesAvatarAlumno,
   obtenerVersionPregunta,
   obtenerVistaInicial,
   patronNombreMateria,
@@ -42,6 +44,13 @@ const preguntaBase = {
 } as const;
 
 describe('utilidades app docente', () => {
+  it('compacta las iniciales del avatar sin alterar la normalización del nombre', () => {
+    expect(obtenerInicialesAvatarAlumno('María Fernanda González Hernández')).toBe('MH');
+    expect(obtenerInicialesAvatarAlumno('José de la Cruz')).toBe('JC');
+    expect(obtenerInicialesAvatarAlumno('Ana')).toBe('A');
+    expect(obtenerInicialesAvatarAlumno()).toBe('');
+  });
+
   it('obtenerVistaInicial respeta vistas validas y aliases', () => {
     window.history.pushState({}, '', '/?vista=banco');
     expect(obtenerVistaInicial()).toBe('banco');
@@ -225,10 +234,42 @@ describe('utilidades app docente', () => {
       numeroPregunta: 1,
       opcion: null,
       confianza: 0,
+      confianzaDisponible: false,
       estadoRespuesta: 'sin_marca'
     });
+    expect(normal.confianzaPromedioDisponible).toBe(false);
     expect(normal.estadoAnalisis).toBe('requiere_revision');
     expect(normal.templateVersionDetectada).toBe(4);
+  });
+
+  it('mantiene como desconocida la confianza omitida en una respuesta histórica', () => {
+    const normal = normalizarResultadoOmr({
+      respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'D' }],
+      confianzaPromedioPagina: undefined
+    });
+
+    expect(normal.respuestasDetectadas[0]).toMatchObject({
+      numeroPregunta: 1,
+      opcion: 'D',
+      confianza: 0,
+      confianzaDisponible: false
+    });
+    expect(normal.confianzaPromedioDisponible).toBe(false);
+  });
+
+  it('serializa respuestas OMR sin metadatos de UI y conserva la confianza cero medida', () => {
+    const respuestas = normalizarResultadoOmr({
+      respuestasDetectadas: [
+        { numeroPregunta: 1, opcion: 'A' },
+        { numeroPregunta: 2, opcion: 'B', confianza: 0 }
+      ]
+    }).respuestasDetectadas;
+    const payload = serializarRespuestasDetectadasOmr(respuestas);
+
+    expect(payload[0]).not.toHaveProperty('confianzaDisponible');
+    expect(payload[0]).not.toHaveProperty('confianza');
+    expect(payload[1]).not.toHaveProperty('confianzaDisponible');
+    expect(payload[1]).toMatchObject({ numeroPregunta: 2, opcion: 'B', confianza: 0 });
   });
 
   it('conserva el estado OMR y sus flags al consolidar respuestas', () => {
@@ -242,8 +283,8 @@ describe('utilidades app docente', () => {
     });
 
     expect(normal.respuestasDetectadas).toEqual([
-      { numeroPregunta: 1, opcion: null, confianza: 0, estadoRespuesta: 'ambigua', flags: ['parcial_detectada'] },
-      { numeroPregunta: 2, opcion: null, confianza: 0, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }
+      { numeroPregunta: 1, opcion: null, confianza: 0, confianzaDisponible: true, estadoRespuesta: 'ambigua', flags: ['parcial_detectada'] },
+      { numeroPregunta: 2, opcion: null, confianza: 0, confianzaDisponible: true, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }
     ]);
   });
 
@@ -258,6 +299,8 @@ describe('utilidades app docente', () => {
   it('patronNombreMateria acepta y rechaza formatos esperados', () => {
     expect(patronNombreMateria.test('Calculo I')).toBe(true);
     expect(patronNombreMateria.test('IA-2026 (grupo A)')).toBe(true);
+    expect(patronNombreMateria.test('Álgebra Lineal — 2A')).toBe(true);
+    expect(patronNombreMateria.test('Cálculo – grupo A')).toBe(true);
     expect(patronNombreMateria.test('')).toBe(false);
     expect(patronNombreMateria.test('  Empieza con espacio')).toBe(false);
   });

@@ -97,9 +97,10 @@ describe('rutasSalud', () => {
     expect(info.app.displayVersion).toBeTruthy();
     expect(info.repositoryUrl).toBeTruthy();
     expect(info.omr).toEqual({
-      contractId: 'omr-canonical-v4',
+      contractId: 'omr-canonical-1.0.0',
       templateVersion: 4,
-      displayLabel: 'OMR canónico · v4',
+      layoutVersion: '1.0.0-dev.1',
+      displayLabel: 'OMR · 1.0.0-dev.1',
       oldVersionsOperational: false
     });
     expect(Array.isArray(info.technologies)).toBe(true);

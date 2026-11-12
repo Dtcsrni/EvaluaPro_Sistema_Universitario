@@ -374,6 +374,45 @@ function crearParametrosBrevesCompactos(cantidadPreguntas: number) {
 }
 
 describe('pdf layout visual guard', () => {
+  it('recupera la trama geométrica de cabecera sin desplazar cajas funcionales', async () => {
+    const parametros = crearParametros(1);
+    const pregunta = parametros.preguntas[0]!;
+    pregunta.enunciado = 'Reactivo de control para comparar geometría de cabecera.';
+    pregunta.opciones = ['Opcion A', 'Opcion B', 'Opcion C', 'Opcion D', 'Opcion E'].map((texto, indice) => ({
+      texto,
+      esCorrecta: indice === 2
+    }));
+    const resultado = await generarPdfExamen({
+      ...parametros,
+      titulo: 'Referencia de patrón de cabecera',
+      folio: 'PATRON-BASE-01',
+      examId: 'PATRON-BASE-01',
+      encabezado: {
+        institucion: 'Centro Universitario Hidalguense',
+        materia: 'Prueba de renderer',
+        docente: 'Docente de prueba'
+      },
+      totalPaginas: 1
+    });
+    const pagina = resultado.mapaOmr.paginas.find((item) => item.tipoPagina !== 'reverso-vacio')!;
+    const header = pagina.layoutDebug?.header as Rect;
+    const qr = pagina.layoutDebug?.qr as Rect;
+    const reactivo = pagina.preguntas[0]!;
+
+    // Baseline tomado del renderer antes de cambiar exclusivamente el fondo.
+    expect(resultado.paginas.filter((item) => item.tipoPagina !== 'reverso-vacio')).toHaveLength(1);
+    expect([header.x, header.y, header.width, header.height].map((valor) => Number(valor.toFixed(5))))
+      .toEqual([32.34646, 590.65354, 547.30709, 173]);
+    expect([qr.x, qr.y, qr.width, qr.height].map((valor) => Number(valor.toFixed(5))))
+      .toEqual([418.64567, 643.93701, 107.71654, 119.71654]);
+    expect([reactivo.bboxPregunta!.x, reactivo.bboxPregunta!.y, reactivo.bboxPregunta!.width, reactivo.bboxPregunta!.height]
+      .map((valor) => Number(valor.toFixed(5))))
+      .toEqual([28.34646, 551.24370, 551.30709, 29.29173]);
+    expect(reactivo.opciones.map(({ x, y, radio }) => [x, y, radio].map((valor) => Number(valor!.toFixed(5)))))
+      .toEqual(Array.from({ length: 5 }, (_, indice) => [454.15354 + indice * 26, 557.03623, 9.07087]));
+    expect(pagina.layoutDebug?.collisionBoxes ?? []).toHaveLength(0);
+  });
+
   it('dibuja y mapea una burbuja por opción en la plantilla experimental sin carril OMR separado', async () => {
     const resultado = await generarPdfExamen({
       ...crearParametros(1),
@@ -482,7 +521,7 @@ describe('pdf layout visual guard', () => {
     expect(detectarColisionesDuplexOmr(resultado.mapaOmr)).toHaveLength(0);
   });
 
-  it('imprime lote, folio y total real en dos referencias OCR separadas', async () => {
+  it('conserva el lote en el QR e imprime solo dos referencias OCR con folio y total real', async () => {
     const resultado = await generarPdfExamen({
       ...crearParametros(24),
       folio: 'D7E8B86B',
@@ -492,13 +531,19 @@ describe('pdf layout visual guard', () => {
     const parser = new PDFParse({ data: resultado.pdfBytes });
     try {
       const texto = (await parser.getText()).text;
-      const totalPaginas = resultado.paginas.filter((pagina) => pagina.tipoPagina === 'examen').length;
+      const paginasExamen = resultado.mapaOmr.paginas.filter((pagina) => pagina.tipoPagina === 'examen');
+      const totalPaginas = paginasExamen.length;
       expect(totalPaginas).toBeGreaterThan(1);
       for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
-        expect(texto.match(new RegExp(`LOTE\\s+LOTE-COMPOUND-QA\\s*[·•]\\s*FOLIO\\s+D7E8B86B\\s*[·•]\\s*Pagina\\s*${pagina}\\s+de\\s+${totalPaginas}`, 'gi')))
+        expect(extraerResumenQrExamen(paginasExamen[pagina - 1]!.qr?.texto)).toMatchObject({
+          loteId: 'LOTE-COMPOUND-QA',
+          folio: 'D7E8B86B',
+          numeroPagina: pagina
+        });
+        expect(texto.match(new RegExp(`FOLIO\\s+D7E8B86B\\s*[·•]\\s*P\\s*${pagina}`, 'gi')))
           .toHaveLength(2);
       }
-      expect(texto).not.toContain('LOTE-COMPOUND-QA-D7E8B86B');
+      expect(texto).not.toContain('LOTE-COMPOUND-QA');
     } finally {
       await parser.destroy();
     }
@@ -1299,6 +1344,7 @@ describe('pdf layout visual guard', () => {
               warnings: lecturaVacia.advertencias,
               states: lecturaVacia.respuestasDetectadas.map(({ numeroPregunta, opcion, estadoRespuesta, flags }) => ({ numeroPregunta, opcion, estadoRespuesta, flags }))
             })}`).toBe(true);
+            expect(lecturaVacia.pageOrientationDetermined).toBe(true);
             expect(
               lecturaVacia.resumenRespuestas?.examenVacio === true ||
               lecturaVacia.resumenRespuestas?.examenVacioProbable === true
@@ -1349,6 +1395,31 @@ describe('pdf layout visual guard', () => {
       expect(pagina.layoutDebug?.collisionBoxes ?? []).toHaveLength(0);
     }
   });
+
+  it('reserva espacio para números OMR de dos dígitos con texto largo en cuatro páginas', async () => {
+    const parametros = crearParametros(40);
+    parametros.totalPaginas = 4;
+    for (const [indice, pregunta] of parametros.preguntas.entries()) {
+      pregunta.enunciado = `Reactivo ${indice + 1}: una empresa analiza las condiciones de un contrato y debe seleccionar la alternativa que corresponde al escenario descrito con todos sus requisitos.`;
+      pregunta.opciones = ['A', 'B', 'C', 'D', 'E'].map((letra, opcion) => ({
+        texto: `${letra}) Una alternativa con suficiente texto para ocupar el ancho disponible y verificar la separación del panel.`,
+        esCorrecta: opcion === indice % 5
+      }));
+    }
+    const resultado = await generarPdfExamen({ ...parametros, bookletConfig: { densityMode: 'compact', fontScale: 1, lineSpacing: 1 } });
+    let numerosVerificados = 0;
+    for (const pagina of resultado.mapaOmr.paginas) {
+      for (const numero of pagina.layoutDebug?.omrQuestionNumberBoxes ?? []) {
+        numerosVerificados += 1;
+        const pregunta = pagina.preguntas.find((item) => item.numeroPregunta === numero.numeroPregunta);
+        expect(pregunta?.textRuns?.length).toBeGreaterThan(0);
+        for (const texto of pregunta?.textRuns ?? []) {
+          expect(interseca(numero, texto.bbox)).toBe(false);
+        }
+      }
+    }
+    expect(numerosVerificados).toBeGreaterThanOrEqual(11);
+  }, 300_000);
 
   it('propaga el perfil compacto de la plantilla y distribuye 25 reactivos en dos paginas', async () => {
     const resultado = await generarPdfExamen({

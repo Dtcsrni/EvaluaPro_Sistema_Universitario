@@ -213,7 +213,7 @@ export async function crearPlantillaUseCase(params: {
   };
 
   const omrConfig = {
-    examTemplateId: String((params.body.omrConfig as any)?.examTemplateId ?? 'omr-canonical-v4'),
+    examTemplateId: String((params.body.omrConfig as any)?.examTemplateId ?? 'omr-canonical-1.0.0'),
     sheetFamilyCode: String((params.body.omrConfig as any)?.sheetFamilyCode ?? 'S50_5A_ID5_VR6'),
     sheetRevisionId: (params.body.omrConfig as any)?.sheetRevisionId,
     prefillMode: String((params.body.omrConfig as any)?.prefillMode ?? 'none'),

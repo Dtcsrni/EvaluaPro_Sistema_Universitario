@@ -5,6 +5,7 @@
  */
 import { useState } from 'react';
 import { Boton } from '../../ui/ux/componentes/Boton';
+import { Icono } from '../../ui/iconos';
 
 export function GuiaSincronizacionVisual() {
   const [visible, setVisible] = useState(() => {
@@ -35,8 +36,9 @@ export function GuiaSincronizacionVisual() {
           type="button"
           onClick={toggleGuia}
           data-tooltip="Ver explicación visual de sincronización y paquetes de respaldo"
+          icono={<Icono nombre="info" />}
         >
-          💡 Ver guía rápida de sincronización
+          Ver guía rápida de sincronización
         </Boton>
       </div>
     );
@@ -47,16 +49,15 @@ export function GuiaSincronizacionVisual() {
       <div className="guia-materia-header">
         <div className="guia-materia-badge">
           <span className="guia-pulse-dot" aria-hidden="true" />
-          <span>GUÍA RÁPIDA · Sincronización Local, P2P y Nube</span>
+          <span>GUÍA RÁPIDA · Sincronización local, entre equipos y nube</span>
         </div>
         <button
           type="button"
           className="guia-materia-close-btn"
           onClick={toggleGuia}
-          title="Ocultar guía"
           aria-label="Ocultar guía rápida"
         >
-          ✕ Ocultar guía
+          Ocultar guía rápida
         </button>
       </div>
 
@@ -64,20 +65,15 @@ export function GuiaSincronizacionVisual() {
         {/* Paso 01: Detección P2P */}
         <div className="guia-step-card guia-step-card--emerald anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-              <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-              <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-              <line x1="12" y1="20" x2="12.01" y2="20" />
-            </svg>
+            <Icono nombre="sincronizacion" size={22} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 01</span>
-            <h4>Emparejamiento de Equipos</h4>
-            <p>Conecta laptops en la misma red local mediante PIN seguro sin necesidad de internet.</p>
+            <h4>Conexión entre equipos</h4>
+            <p>Conecta dos computadoras en la misma red local mediante un PIN. No requiere internet.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">Red Local WiFi</span>
-              <span className="guia-chip-sample">PIN Cifrado</span>
+              <span className="guia-chip-sample">Red local</span>
+              <span className="guia-chip-sample">PIN de conexión</span>
             </div>
           </div>
         </div>
@@ -85,19 +81,15 @@ export function GuiaSincronizacionVisual() {
         {/* Paso 02: Paquetes de Respaldo */}
         <div className="guia-step-card guia-step-card--blue anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
+            <Icono nombre="descargar" size={22} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 02</span>
-            <h4>Paquetes de Respaldo</h4>
-            <p>Genera archivos zip cifrados con preguntas, exámenes y calificaciones para portar en USB.</p>
+            <h4>Paquete de datos cifrado</h4>
+            <p>Exporta registros a un archivo .ep-sync.json; puedes filtrar por materia y fecha e incluir PDFs.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample guia-chip-sample--date">Respaldo .epbak</span>
-              <span className="guia-chip-sample">Cifrado AES-256</span>
+              <span className="guia-chip-sample guia-chip-sample--date">Archivo .ep-sync.json</span>
+              <span className="guia-chip-sample">Cifrado autenticado</span>
             </div>
           </div>
         </div>
@@ -105,18 +97,15 @@ export function GuiaSincronizacionVisual() {
         {/* Paso 03: Fusión Sin Conflictos */}
         <div className="guia-step-card guia-step-card--purple anim-card-hover">
           <div className="guia-step-card__icon-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <polyline points="23 4 23 10 17 10" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-            </svg>
+            <Icono nombre="sincronizacion" size={22} />
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 03</span>
-            <h4>Cloud coordinado por cambios</h4>
-            <p>El modo cloud conserva LWW por registro; la importación local 1:1 reemplaza la instantánea completa después de validarla.</p>
+            <h4>Sincronización en nube e instantánea completa</h4>
+            <p>La nube aplica la última escritura por registro. La instantánea local 1:1 valida el archivo y crea un respaldo antes de reemplazar los datos del equipo.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">LWW solo en cloud</span>
-              <span className="guia-chip-sample">Cero Pérdida</span>
+              <span className="guia-chip-sample">Última escritura: solo nube</span>
+              <span className="guia-chip-sample">Instantánea .ep-snapshot</span>
             </div>
           </div>
         </div>

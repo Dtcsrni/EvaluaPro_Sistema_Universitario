@@ -82,7 +82,7 @@ export function crearApp() {
       limit: configuracion.rateLimitLimit,
       standardHeaders: true,
       legacyHeaders: false,
-      skip: (req) => req.path.startsWith('/api/salud')
+      skip: (req) => req.path.startsWith('/api/salud') || req.path === '/api/autenticacion/google-desktop/resultado'
     })
   );
 

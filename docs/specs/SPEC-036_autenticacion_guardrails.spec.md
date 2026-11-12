@@ -1,8 +1,8 @@
 ---
 id: SPEC-036
 titulo: Autenticación Híbrida, Google OAuth y Guardrails de Seguridad
-version: 1.0.0
-fecha: 2026-08-26
+version: 1.0.1
+fecha: 2026-11-12
 autor: Antigravity / EvaluaPro Team
 modulo: modulo_autenticacion
 estado: implemented
@@ -16,6 +16,7 @@ El acceso seguro a la plataforma requiere soportar tanto credenciales institucio
 - **REQ-002 (Correo sin restricción institucional)**: El sistema no debe imponer una allowlist de dominios en autenticación por contraseña, Google ni registro; solo debe validar que el correo tenga formato válido.
 - **REQ-003 (Alerta Proactiva de Orígenes OAuth)**: Cuando Google OAuth falle por discrepancia de origen (`origin_mismatch`), el sistema debe renderizar una tarjeta de ayuda detallada con el origen exacto detectado en el navegador (`window.location.origin`), enlace directo a la consola de Google Cloud y botón para iniciar con credenciales locales.
 - **REQ-004 (Primer Uso y Registro de Licencia)**: En instalaciones nuevas, el sistema debe exigir el registro del docente administrador y la validación de la clave de licencia institucional.
+- **REQ-005 (Almacenamiento de sesión resiliente)**: La lectura del token docente tolera almacenamiento persistente o de sesión no disponible; usa el token de sesión si el almacenamiento persistente falla y devuelve sesión ausente sin lanzar una excepción si ambos no están disponibles.
 
 ## Criterios de Aceptación
 1. Login exitoso con correo y contraseña almacena el token JWT de forma persistente.
@@ -23,6 +24,7 @@ El acceso seguro a la plataforma requiere soportar tanto credenciales institucio
 3. Ante error 400 origin_mismatch, se muestra la tarjeta de diagnóstico con los pasos de solución.
 4. El modo Google-only se activa cuando el backend así lo requiere.
 5. Si el Client ID compilado y el del runtime no están disponibles, el login conserva un control visible para reintentar Google sin bloquear el acceso por contraseña.
+6. La lectura y limpieza del token no producen errores no controlados cuando el almacenamiento web no está disponible.
 
 ## Matriz de Trazabilidad
 
@@ -35,3 +37,4 @@ El acceso seguro a la plataforma requiere soportar tanto credenciales institucio
 | REQ-002B | Login Google sin allowlist de dominio en frontend | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |
 | REQ-003 | Diagnóstico de Google OAuth y modo Google-only | `apps/frontend/tests/seccionAutenticacion.googleOnly.test.tsx` | Completado |
 | REQ-004 | Registro inicial y edición de clave de licencia | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |
+| REQ-005 | Token de sesión con almacenamiento bloqueado/ausente | `apps/frontend/tests/clienteApi.test.tsx` | Implementado; prueba focalizada aprobada |

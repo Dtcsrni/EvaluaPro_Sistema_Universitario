@@ -124,6 +124,7 @@ test('ext_funcionales ejecuta PDF print y visual juntos', () => {
   const block = extractJobBlock(workflow, 'ext_funcionales');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
+  assert.match(block, /runs-on: ubuntu-24\.04/, 'PDF/Chromium debe usar un runner LTS fijado');
   assert.match(block, /Preparar runtime PDF \(poppler\)/);
   const pdfRuntime = extractStepBlock(block, 'Preparar runtime PDF (poppler)');
   assert.match(pdfRuntime, /apt-get install -y --no-install-recommends poppler-utils/);

@@ -479,13 +479,13 @@ export function SeccionClassroomLegacy({
       const vincularConfirmado = await confirm({
         title: 'Materia Existente Detectada',
         message: `Ya existe la materia "${materiaExistente.nombre}" en EvaluaPro. ¿Deseas vincular este curso de Classroom a tu materia existente para evitar duplicaciones?`,
-        confirmLabel: '✓ Vincular a Materia Existente',
+        confirmLabel: 'Vincular a Materia Existente',
         cancelLabel: 'Cancelar',
         tone: 'default',
         details: [
-          `📚 Materia existente en EvaluaPro: "${materiaExistente.nombre}"`,
-          '🛡️ Protección de datos: Se conservan intactos todos los alumnos, temarios y calificaciones previas.',
-          '🚫 No se crearán materias duplicadas.'
+          `Materia existente en EvaluaPro: "${materiaExistente.nombre}"`,
+          'Protección de datos: se conservan intactos todos los alumnos, temarios y calificaciones previas.',
+          'No se crearán materias duplicadas.'
         ]
       });
 
@@ -504,14 +504,14 @@ export function SeccionClassroomLegacy({
     const confirmado = await confirm({
       title: 'Confirmar Creación de Materia',
       message: `¿Deseas crear la materia "${curso.name}" en EvaluaPro vinculada a este curso de Google Classroom?`,
-      confirmLabel: '✓ Confirmar y Crear Materia',
+      confirmLabel: 'Confirmar y Crear Materia',
       cancelLabel: 'Cancelar',
       tone: 'default',
       details: [
-        `📚 Nombre oficial: "${curso.name}"`,
-        '📅 Periodo cuatrimestral automático de 4 meses.',
-        '🛡️ Verificación de seguridad: No se sobreescribirá ni eliminará ninguna otra materia.',
-        '👥 Podrás cargar e importar la lista de alumnos inmediatamente.'
+        `Nombre oficial: "${curso.name}"`,
+        'Periodo cuatrimestral automático de 4 meses.',
+        'Verificación de seguridad: no se sobrescribirá ni eliminará ninguna otra materia.',
+        'Podrás cargar e importar la lista de alumnos inmediatamente.'
       ]
     });
 
@@ -585,8 +585,8 @@ export function SeccionClassroomLegacy({
       cancelLabel: 'Cancelar',
       tone: 'warning',
       details: [
-        '🔒 Se cerrará la sesión y el acceso a los cursos de Google Classroom.',
-        '🛡️ Todos los alumnos, materias y calificaciones importados en EvaluaPro se conservan 100% intactos.'
+        'Se cerrará la sesión y el acceso a los cursos de Google Classroom.',
+        'Todos los alumnos, materias y calificaciones importados en EvaluaPro se conservan intactos.'
       ]
     });
 
@@ -704,12 +704,12 @@ export function SeccionClassroomLegacy({
     const confirmado = await confirm({
       title: 'Confirmar Mapeo Manual de Alumnos',
       message: `¿Deseas guardar las asignaciones y vinculaciones de alumnos entre "${cursoNombre}" y "${materiaNombre}"?`,
-      confirmLabel: '✓ Confirmar Mapeo',
+      confirmLabel: 'Confirmar Mapeo',
       cancelLabel: 'Cancelar',
       tone: 'default',
       details: [
-        '🔗 Se actualizarán los enlaces entre cuentas de Classroom y los registros de alumnos en EvaluaPro.',
-        '🛡️ No se alteran ni eliminan alumnos ni calificaciones existentes.'
+        'Se actualizarán los enlaces entre cuentas de Classroom y los registros de alumnos en EvaluaPro.',
+        'No se alteran ni eliminan alumnos ni calificaciones existentes.'
       ]
     });
 
@@ -883,17 +883,17 @@ export function SeccionClassroomLegacy({
             <div className="cuenta-toggle-card anim-fade-in" role="alert">
               <div className="cuenta-toggle-info">
                 <div className="cuenta-toggle-title">
-                  ⚠️ Google Classroom API pendiente de habilitación en Google Cloud
+                  <><Icono nombre="alerta" /> Google Classroom API pendiente de habilitación en Google Cloud</>
                 </div>
                 <div className="cuenta-toggle-desc">
                   Tu proyecto de Google Cloud necesita tener activada la biblioteca <b>Google Classroom API</b> para consultar tus materias y estudiantes.
                 </div>
                 <div className="acciones acciones--mt">
                   <a href={urlHabilitar} target="_blank" rel="noreferrer noopener" className="boton">
-                    🔗 Habilitar Google Classroom API en Google Cloud
+                    <Icono nombre="classroom" /> Habilitar Google Classroom API en Google Cloud
                   </a>
-                  <Boton type="button" variante="secundario" onClick={() => void cargarCursos(false)}>
-                    🔄 Ya la habilité, reintentar
+                  <Boton type="button" variante="secundario" icono={<Icono nombre="recargar" />} onClick={() => void cargarCursos(false)}>
+                    Ya la habilité, reintentar
                   </Boton>
                 </div>
               </div>
@@ -922,7 +922,7 @@ export function SeccionClassroomLegacy({
           </div>
           {estado?.conectado && (
             <div className="banco-section-side-meta">
-              <span className="badge badge--success">● Vinculado</span>
+              <span className="badge badge--success"><Icono nombre="ok" size={14} /> Vinculado</span>
             </div>
           )}
         </div>
@@ -1033,7 +1033,7 @@ export function SeccionClassroomLegacy({
                 disabled={creandoMateria}
                 onClick={() => void crearMateriaDesdeCurso()}
               >
-                {creandoMateria ? 'Creando materia...' : '✨ Crear materia en EvaluaPro desde este curso'}
+                {creandoMateria ? 'Creando materia...' : 'Crear materia en EvaluaPro desde este curso'}
               </Boton>
             )}
           </div>
@@ -1136,7 +1136,7 @@ export function SeccionClassroomLegacy({
                   <div className="classroom-select-col">
                     <label className="campo">
                       <span className="classroom-matricula-label">
-                        {estaEnEvaluaPro ? '✓ Vinculado en EvaluaPro' : 'Estado en EvaluaPro'}
+                        {estaEnEvaluaPro ? 'Vinculado en EvaluaPro' : 'Estado en EvaluaPro'}
                       </span>
                       <select
                         value={mapeoEditable[fila.classroomUserId] || ''}
@@ -1171,7 +1171,7 @@ export function SeccionClassroomLegacy({
             >
               {importandoAlumnos
                 ? 'Importando alumnos a EvaluaPro...'
-                : `📥 Importar ${alumnosSeleccionadosImportar.length} Alumnos a EvaluaPro`}
+                : `Importar ${alumnosSeleccionadosImportar.length} alumnos a EvaluaPro`}
             </Boton>
             <Boton
               type="button"
@@ -1349,7 +1349,9 @@ export function SeccionClassroomLegacy({
             <div className="cuenta-toggle-card classroom-sync-results anim-fade-in cuenta-subpanel--mt">
               <div className="cuenta-toggle-info">
                 <div className="cuenta-toggle-title">
-                  {preview.tipo === 'preview' ? '📊 Previsualización de Importación' : '✅ Sincronización Completada'}
+                  {preview.tipo === 'preview'
+                    ? <><Icono nombre="evaluaciones" /> Previsualización de importación</>
+                    : <><Icono nombre="ok" /> Sincronización completada</>}
                 </div>
                 <div className="cuenta-toggle-desc">
                   Tareas procesadas: <b>{preview.totalActividades}</b> · Calificaciones detectadas: <b>{preview.submissionsProcesadas}</b> · Importadas:{' '}

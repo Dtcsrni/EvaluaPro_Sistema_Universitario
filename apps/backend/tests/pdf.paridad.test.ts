@@ -147,14 +147,14 @@ describe('pdf OMR canónico', () => {
     expect(height).toBeCloseTo(792, 0);
   });
 
-  it('mantiene consistencia de QR TV4 por página', async () => {
+  it('mantiene consistencia del QR SemVer activo por página', async () => {
     const resultado = await generarPdfExamen(crearParametros(8));
 
     for (const pagina of resultado.paginas) {
-      expect(pagina.qrTexto).toContain(':TV4');
+      expect(pagina.qrTexto).toContain(':O1.0.0');
     }
     for (const paginaOmr of resultado.mapaOmr.paginas) {
-      expect(paginaOmr.qr?.texto).toContain(':TV4');
+      expect(paginaOmr.qr?.texto).toContain(':O1.0.0');
     }
   });
 

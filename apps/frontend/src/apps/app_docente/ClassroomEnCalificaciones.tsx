@@ -9,6 +9,7 @@ import type { Alumno, Periodo, PermisosUI } from './tipos';
 
 type CursoClassroom = { id: string; name: string; section?: string; courseState?: string };
 type TemaClassroom = { id: string; name: string };
+type ErrorConsultaClassroom = { recurso: string; codigo: string };
 type MetadatosCursoClassroom = { id: string; name: string | null; section: string | null; courseState: string | null; updateTime: string | null; alternateLink: string | null };
 type MaterialClassroom = { tipo: string; nombre: string | null; enlace: string | null };
 type ActividadClassroom = {
@@ -20,6 +21,34 @@ type ActividadClassroom = {
   gradingPeriodId?: string | null; gradeCategory?: { id?: string | null; name?: string | null; weight?: number | null } | null;
   materials?: MaterialClassroom[]; alternateLink?: string | null; mapeo?: { corte?: number } | null;
 };
+
+const etiquetasRecursosClassroom: Record<string, string> = {
+  curso: 'el curso',
+  actividades: 'las actividades',
+  temas: 'los temas'
+};
+
+const mensajesErrorClassroom: Record<string, string> = {
+  CLASSROOM_TOKEN_INVALIDO: 'La conexión con Google Classroom necesita autorización. Vuelve a conectar la cuenta y carga de nuevo.',
+  CLASSROOM_PERMISOS_INSUFICIENTES: 'La cuenta conectada no tiene permiso para consultar este contenido. Confirma que tenga acceso al curso en Classroom.',
+  CLASSROOM_RECURSO_NO_ENCONTRADO: 'Este contenido ya no está disponible para la cuenta conectada. Confirma en Classroom que el curso siga activo.',
+  CLASSROOM_CUOTA_EXCEDIDA: 'Classroom limitó temporalmente las consultas. Espera unos minutos y vuelve a cargar.',
+  CLASSROOM_PROVEEDOR_ERROR: 'Classroom no respondió correctamente. Intenta de nuevo más tarde.',
+  CLASSROOM_PAGINACION_PARCIAL: 'Classroom devolvió solo parte de los resultados. Vuelve a cargar para consultar el resto.'
+};
+
+function mensajeErrorConsultaClassroom(error: unknown, fallback: string) {
+  const mensaje = mensajeDeError(error, fallback);
+  return /^sin conexi[oó]n\.?$/i.test(mensaje.trim())
+    ? `${fallback} Verifica la conexión con EvaluaPro e inténtalo de nuevo.`
+    : mensaje;
+}
+
+function describirErrorConsultaClassroom(error: ErrorConsultaClassroom) {
+  const recurso = etiquetasRecursosClassroom[error.recurso] || 'este contenido de Classroom';
+  const mensaje = mensajesErrorClassroom[error.codigo] || 'No se pudo completar la consulta. Revisa la conexión con Classroom y vuelve a cargar.';
+  return { recurso, mensaje };
+}
 type ResultadoImportacionClassroom = {
   planHash?: string;
   totalActividades?: number;
@@ -139,18 +168,23 @@ export function ClassroomEnCalificaciones({
 }) {
   const [evidencias, setEvidencias] = useState<EvidenciaClassroom[]>([]);
   const [busquedaEvidencias, setBusquedaEvidencias] = useState('');
+  const [errorCargaEvidencias, setErrorCargaEvidencias] = useState('');
+  const [reintentosEvidencias, setReintentosEvidencias] = useState(0);
   const [cursos, setCursos] = useState<CursoClassroom[]>([]);
   const [cargandoCursos, setCargandoCursos] = useState(false);
   const [errorCursos, setErrorCursos] = useState('');
+  const [reintentosCursos, setReintentosCursos] = useState(0);
   const [courseId, setCourseId] = useState('');
   const [actividades, setActividades] = useState<ActividadClassroom[]>([]);
   const [cursoConsultado, setCursoConsultado] = useState<MetadatosCursoClassroom | null>(null);
   const [temas, setTemas] = useState<TemaClassroom[]>([]);
   const [temaSeleccionado, setTemaSeleccionado] = useState('');
   const [consultaActividadesCompleta, setConsultaActividadesCompleta] = useState(true);
-  const [erroresConsultaActividades, setErroresConsultaActividades] = useState<Array<{ recurso: string; codigo: string }>>([]);
+  const [erroresConsultaActividades, setErroresConsultaActividades] = useState<ErrorConsultaClassroom[]>([]);
   const [busquedaActividades, setBusquedaActividades] = useState('');
   const [cargandoActividades, setCargandoActividades] = useState(false);
+  const [errorActividades, setErrorActividades] = useState('');
+  const [reintentosActividades, setReintentosActividades] = useState(0);
   const [cortes, setCortes] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ResultadoImportacionClassroom | null>(null);
   const [faltantesConfirmados, setFaltantesConfirmados] = useState<Record<string, string[]>>({});
@@ -159,6 +193,8 @@ export function ClassroomEnCalificaciones({
   const [mapeoEjecutado, setMapeoEjecutado] = useState(false);
   const [alumnosCurso, setAlumnosCurso] = useState<AlumnoClassroom[]>([]);
   const [cargandoAlumnosCurso, setCargandoAlumnosCurso] = useState(false);
+  const [errorAlumnosCurso, setErrorAlumnosCurso] = useState('');
+  const [reintentosAlumnosCurso, setReintentosAlumnosCurso] = useState(0);
   const [busquedaAlumnos, setBusquedaAlumnos] = useState('');
   const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(false);
@@ -167,8 +203,12 @@ export function ClassroomEnCalificaciones({
   const [mensajeEsError, setMensajeEsError] = useState(false);
   const [alumnoHistorialId, setAlumnoHistorialId] = useState('');
   const [corteHistorial, setCorteHistorial] = useState('1');
+  const [historialPromedioConsultado, setHistorialPromedioConsultado] = useState(false);
+  const [errorHistorialPromedio, setErrorHistorialPromedio] = useState('');
   const [snapshotsPromedio, setSnapshotsPromedio] = useState<SnapshotPromedioClassroom[]>([]);
   const [capturasPromedio, setCapturasPromedio] = useState<Record<string, string>>({});
+  const [cargandoCapturaPromedio, setCargandoCapturaPromedio] = useState<Record<string, boolean>>({});
+  const [erroresCapturaPromedio, setErroresCapturaPromedio] = useState<Record<string, string>>({});
   const [cursorHistorialPromedio, setCursorHistorialPromedio] = useState<string | null>(null);
   const [cargandoHistorialPromedio, setCargandoHistorialPromedio] = useState(false);
   const [historialEntregaAbierto, setHistorialEntregaAbierto] = useState<string | null>(null);
@@ -177,6 +217,7 @@ export function ClassroomEnCalificaciones({
   const [cursorHistorialEntrega, setCursorHistorialEntrega] = useState<string | null>(null);
   const [cargandoHistorialEntrega, setCargandoHistorialEntrega] = useState(false);
   const [errorHistorialEntrega, setErrorHistorialEntrega] = useState('');
+  const solicitudEvidenciasRef = useRef(0);
   const capturasPromedioRef = useRef<Record<string, string>>({});
   const solicitudHistorialIdRef = useRef(0);
   const solicitudHistorialEntregaRef = useRef(0);
@@ -190,8 +231,12 @@ export function ClassroomEnCalificaciones({
     if (!periodoId || !alumnoHistorialId) return;
     const solicitudId = ++solicitudHistorialIdRef.current;
     setCargandoHistorialPromedio(true);
-    setMensaje('');
-    setMensajeEsError(false);
+    setCargandoCapturaPromedio({});
+    if (!cursor) {
+      setErroresCapturaPromedio({});
+      setHistorialPromedioConsultado(false);
+      setErrorHistorialPromedio('');
+    }
     try {
       const query = new URLSearchParams({ periodoId, limite: '12' });
       if (cursor) query.set('cursor', cursor);
@@ -215,6 +260,13 @@ export function ClassroomEnCalificaciones({
       capturasPromedioRef.current = capturasNuevas;
       setSnapshotsPromedio((actuales) => cursor ? [...actuales, ...eventos] : eventos);
       setCapturasPromedio(capturasNuevas);
+      if (!cursor) setHistorialPromedioConsultado(true);
+      setErrorHistorialPromedio('');
+      setErroresCapturaPromedio((actuales) => {
+        const siguientes = cursor ? { ...actuales } : {};
+        capturas.filter(({ url }) => url).forEach(({ id }) => { delete siguientes[id]; });
+        return siguientes;
+      });
       setCursorHistorialPromedio(respuesta.nextCursor ?? null);
     } catch (error) {
       if (solicitudId !== solicitudHistorialIdRef.current) return;
@@ -223,12 +275,47 @@ export function ClassroomEnCalificaciones({
         capturasPromedioRef.current = {};
         setSnapshotsPromedio([]);
         setCapturasPromedio({});
+        setErroresCapturaPromedio({});
         setCursorHistorialPromedio(null);
+        setHistorialPromedioConsultado(false);
       }
-      setMensaje(error instanceof Error ? error.message : 'No se pudo consultar el historial del promedio.');
-      setMensajeEsError(true);
+      setErrorHistorialPromedio(error instanceof Error ? error.message : 'No se pudo consultar el historial del promedio.');
     } finally {
       if (solicitudId === solicitudHistorialIdRef.current) setCargandoHistorialPromedio(false);
+    }
+  }
+
+  async function reintentarCapturaPromedio(snapshotId: string) {
+    if (cargandoCapturaPromedio[snapshotId]) return;
+    const solicitudId = solicitudHistorialIdRef.current;
+    setCargandoCapturaPromedio((actuales) => ({ ...actuales, [snapshotId]: true }));
+    setErroresCapturaPromedio((actuales) => {
+      const siguientes = { ...actuales };
+      delete siguientes[snapshotId];
+      return siguientes;
+    });
+    try {
+      const imagen = await clienteApi.obtenerBinario(`/evaluaciones/v2/classroom/historial-cortes/${encodeURIComponent(snapshotId)}/captura`);
+      const blob = await imagen.blob();
+      if (solicitudId !== solicitudHistorialIdRef.current) return;
+      const url = URL.createObjectURL(blob);
+      const capturasActuales = capturasPromedioRef.current;
+      const urlAnterior = capturasActuales[snapshotId];
+      if (urlAnterior) URL.revokeObjectURL(urlAnterior);
+      const capturasNuevas = { ...capturasActuales, [snapshotId]: url };
+      capturasPromedioRef.current = capturasNuevas;
+      setCapturasPromedio(capturasNuevas);
+    } catch {
+      if (solicitudId !== solicitudHistorialIdRef.current) return;
+      setErroresCapturaPromedio((actuales) => ({ ...actuales, [snapshotId]: 'No se pudo volver a cargar esta ficha. Inténtalo de nuevo.' }));
+    } finally {
+      if (solicitudId === solicitudHistorialIdRef.current) {
+        setCargandoCapturaPromedio((actuales) => {
+          const siguientes = { ...actuales };
+          delete siguientes[snapshotId];
+          return siguientes;
+        });
+      }
     }
   }
 
@@ -265,6 +352,19 @@ export function ClassroomEnCalificaciones({
     setCursorHistorialEntrega(null);
     setCargandoHistorialEntrega(false);
     setErrorHistorialEntrega('');
+    solicitudHistorialIdRef.current += 1;
+    Object.values(capturasPromedioRef.current).forEach((url) => URL.revokeObjectURL(url));
+    capturasPromedioRef.current = {};
+    setAlumnoHistorialId('');
+    setCorteHistorial('1');
+    setHistorialPromedioConsultado(false);
+    setErrorHistorialPromedio('');
+    setSnapshotsPromedio([]);
+    setCapturasPromedio({});
+    setCargandoCapturaPromedio({});
+    setErroresCapturaPromedio({});
+    setCursorHistorialPromedio(null);
+    setCargandoHistorialPromedio(false);
   }, [periodoId]);
   function limpiarHistorialPromedio() {
     solicitudHistorialIdRef.current += 1;
@@ -272,10 +372,26 @@ export function ClassroomEnCalificaciones({
     capturasPromedioRef.current = {};
     setSnapshotsPromedio([]);
     setCapturasPromedio({});
+    setCargandoCapturaPromedio({});
+    setErroresCapturaPromedio({});
     setCursorHistorialPromedio(null);
+    setHistorialPromedioConsultado(false);
+    setErrorHistorialPromedio('');
   }
   const periodoExiste = periodos.some((periodo) => periodo._id === periodoId);
   const alumnosPorId = useMemo(() => new Map(alumnos.map((alumno) => [alumno._id, alumno])), [alumnos]);
+  const cursoSeleccionado = cursos.find((curso) => curso.id === courseId);
+  const descripcionCurso = !courseId
+    ? 'Selecciona el curso Classroom cuyas actividades quieres consultar.'
+    : cursoSeleccionado
+      ? `Curso seleccionado: ${cursoSeleccionado.name}${cursoSeleccionado.section ? ` · ${cursoSeleccionado.section}` : ''}`
+      : 'El curso seleccionado ya no está disponible. Vuelve a elegirlo.';
+  const alumnoHistorial = alumnosPorId.get(alumnoHistorialId);
+  const descripcionAlumnoHistorial = !alumnoHistorialId
+    ? 'Selecciona al alumno cuyo historial quieres consultar.'
+    : alumnoHistorial
+      ? `Alumno del historial: ${alumnoHistorial.nombreCompleto}${alumnoHistorial.matricula ? ` · matrícula ${alumnoHistorial.matricula}` : ''}`
+      : 'El alumno seleccionado ya no está en la materia actual.';
   const alumnosCursoFiltrados = useMemo(() => {
     const busqueda = normalizarBusquedaClassroom(busquedaAlumnos);
     if (!busqueda) return alumnosCurso;
@@ -325,13 +441,15 @@ export function ClassroomEnCalificaciones({
   ), [preview]);
 
   const cargarEvidencias = useCallback(async (): Promise<boolean> => {
+    const solicitudId = ++solicitudEvidenciasRef.current;
     if (!periodoId || !periodoExiste || !permisos.evaluaciones.leer) {
       setEvidencias([]);
+      setErrorCargaEvidencias('');
+      setCargando(false);
       return false;
     }
     setCargando(true);
-    setMensaje('');
-    setMensajeEsError(false);
+    setErrorCargaEvidencias('');
     try {
       const filas: EvidenciaClassroom[] = [];
       const cursores = new Set<string>();
@@ -342,6 +460,7 @@ export function ClassroomEnCalificaciones({
         const pagina = await clienteApi.obtener<{ evidencias?: EvidenciaClassroom[]; nextCursor?: string | null }>(
           `/evaluaciones/evidencias?${query}`
         );
+        if (solicitudId !== solicitudEvidenciasRef.current) return false;
         filas.push(...(pagina.evidencias ?? []));
         cursor = pagina.nextCursor || undefined;
         if (cursor && cursores.has(cursor)) throw new Error('La paginación de evidencias repitió un cursor.');
@@ -350,16 +469,22 @@ export function ClassroomEnCalificaciones({
       setEvidencias(filas.filter((fila) => fila.fuente === 'classroom' && !fila.archivadaEn));
       return true;
     } catch (error) {
+      if (solicitudId !== solicitudEvidenciasRef.current) return false;
       setEvidencias([]);
-      setMensaje(error instanceof Error ? error.message : 'No se pudieron consultar las evidencias Classroom.');
-      setMensajeEsError(true);
+      const mensaje = mensajeDeError(error, 'No se pudieron consultar las evidencias Classroom.');
+      setErrorCargaEvidencias(/^sin conexi[oó]n\.?$/i.test(mensaje.trim())
+        ? 'No se pudo consultar la lista de evidencias de esta materia. Verifica la conexión con EvaluaPro y vuelve a intentarlo.'
+        : mensaje);
       return false;
     } finally {
-      setCargando(false);
+      if (solicitudId === solicitudEvidenciasRef.current) setCargando(false);
     }
   }, [periodoExiste, periodoId, permisos.evaluaciones.leer]);
 
-  useEffect(() => { void cargarEvidencias(); }, [cargarEvidencias]);
+  useEffect(() => {
+    void cargarEvidencias();
+    return () => { solicitudEvidenciasRef.current += 1; };
+  }, [cargarEvidencias, reintentosEvidencias]);
 
   useEffect(() => {
     let cancelado = false;
@@ -385,22 +510,24 @@ export function ClassroomEnCalificaciones({
         if (cancelado) return;
         setCursos([]);
         setCourseId('');
-        setErrorCursos(mensajeDeError(error, 'No se pudieron consultar los cursos de Google Classroom.'));
+        setErrorCursos(mensajeErrorConsultaClassroom(error, 'No se pudieron consultar los cursos de Google Classroom.'));
       })
       .finally(() => {
         if (!cancelado) setCargandoCursos(false);
       });
     return () => { cancelado = true; };
-  }, [permisos.classroom.pull]);
+  }, [permisos.classroom.pull, reintentosCursos]);
 
   useEffect(() => {
     let cancelado = false;
     if (!periodoId || !courseId || !permisos.classroom.pull) {
       setAlumnosCurso([]);
       setAsignaciones({});
+      setErrorAlumnosCurso('');
       setCargandoAlumnosCurso(false);
       return () => { cancelado = true; };
     }
+    setErrorAlumnosCurso('');
     setCargandoAlumnosCurso(true);
     const query = new URLSearchParams({ periodoId });
     void clienteApi.obtener<{ alumnosClassroom?: AlumnoClassroom[] }>(
@@ -414,28 +541,29 @@ export function ClassroomEnCalificaciones({
       if (cancelado) return;
       setAlumnosCurso([]);
       setAsignaciones({});
-      setMensaje(error instanceof Error ? error.message : 'No se pudo consultar la vinculación de estudiantes.');
-      setMensajeEsError(true);
+      setErrorAlumnosCurso(mensajeErrorConsultaClassroom(error, 'No se pudo consultar la vinculación de estudiantes.'));
     }).finally(() => {
       if (!cancelado) setCargandoAlumnosCurso(false);
     });
     return () => { cancelado = true; };
-  }, [courseId, periodoId, permisos.classroom.pull]);
+  }, [courseId, periodoId, permisos.classroom.pull, reintentosAlumnosCurso]);
 
   useEffect(() => {
     let cancelado = false;
     setPreview(null);
     setMapeoEjecutado(false);
+    setErrorActividades('');
     if (!periodoId || !courseId || !permisos.classroom.pull) {
       setActividades([]);
       setCursoConsultado(null);
       setCortes({});
+      setErrorActividades('');
       setCargandoActividades(false);
       return () => { cancelado = true; };
     }
     setCargandoActividades(true);
     const query = new URLSearchParams({ periodoId });
-    void clienteApi.obtener<{ curso?: MetadatosCursoClassroom; actividades?: ActividadClassroom[]; temas?: TemaClassroom[]; completa?: boolean; errores?: Array<{ recurso: string; codigo: string }> }>(
+    void clienteApi.obtener<{ curso?: MetadatosCursoClassroom; actividades?: ActividadClassroom[]; temas?: TemaClassroom[]; completa?: boolean; errores?: ErrorConsultaClassroom[] }>(
       `/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/actividades?${query}`
     ).then((respuesta) => {
       if (cancelado) return;
@@ -455,13 +583,12 @@ export function ClassroomEnCalificaciones({
       setConsultaActividadesCompleta(false);
       setErroresConsultaActividades([]);
       setCortes({});
-      setMensaje(error instanceof Error ? error.message : 'No se pudieron consultar las actividades Classroom.');
-      setMensajeEsError(true);
+      setErrorActividades(mensajeErrorConsultaClassroom(error, 'No se pudieron consultar las actividades Classroom.'));
     }).finally(() => {
       if (!cancelado) setCargandoActividades(false);
     });
     return () => { cancelado = true; };
-  }, [courseId, periodoId, permisos.classroom.pull]);
+  }, [courseId, periodoId, permisos.classroom.pull, reintentosActividades]);
 
   async function guardarVinculaciones() {
     if (!periodoId || !courseId || !permisos.classroom.pull) return;
@@ -601,9 +728,10 @@ export function ClassroomEnCalificaciones({
       {mensaje && <InlineMensaje tipo={mensajeEsError ? 'error' : 'info'}>{mensaje}</InlineMensaje>}
       {!periodoId && <InlineMensaje tipo="info">Selecciona una materia para consultar sus calificaciones Classroom.</InlineMensaje>}
       {!permisos.evaluaciones.leer && <InlineMensaje tipo="warning">No tienes permiso para consultar evidencias de evaluación.</InlineMensaje>}
+      {permisos.evaluaciones.leer && periodoId && !periodoExiste && <InlineMensaje tipo="warning">La materia seleccionada ya no está disponible. Selecciona una materia vigente para consultar sus evidencias.</InlineMensaje>}
 
       {permisos.classroom.pull && periodoId && (
-        <div className="cuenta-subpanel">
+        <div className="cuenta-subpanel classroom-sync-shell">
           <h4>Vincular estudiantes para la sincronización</h4>
           <p className="nota">Relaciona cuentas del curso con alumnos existentes en la materia. Esta vinculación no crea alumnos ni cambia calificaciones.</p>
           <label className="campo"><span>Materia local destino</span><select value={periodoId} onChange={(event) => onPeriodoChange(event.target.value)}>
@@ -611,43 +739,86 @@ export function ClassroomEnCalificaciones({
               {etiquetaMateriaParaSelector(periodo)}{periodo.activo === false ? ' · Archivada' : ''}
             </option>)}
           </select></label>
-          <label className="campo"><span>Curso de Classroom</span><select value={courseId} disabled={cargandoCursos} onChange={(event) => setCourseId(event.target.value)}>
+          <div className="campo"><label htmlFor="classroom-course-select">Curso de Classroom</label><select id="classroom-course-select" aria-describedby="classroom-course-description" value={courseId} disabled={cargandoCursos} onChange={(event) => setCourseId(event.target.value)}>
             <option value="">Selecciona un curso…</option>{cursos.map((curso) => <option key={curso.id} value={curso.id}>{curso.name}{curso.section ? ` · ${curso.section}` : ''}</option>)}
-          </select></label>
+          </select><small id="classroom-course-description" className="ayuda">{descripcionCurso}</small></div>
           {cargandoCursos && <InlineMensaje tipo="info">Cargando cursos de Google Classroom…</InlineMensaje>}
-          {errorCursos && <InlineMensaje tipo="error">{errorCursos}</InlineMensaje>}
+          {errorCursos && <>
+            <InlineMensaje tipo="error">{errorCursos}</InlineMensaje>
+            <Boton type="button" variante="secundario" disabled={cargandoCursos} cargando={cargandoCursos} onClick={() => setReintentosCursos((actual) => actual + 1)}>
+              Reintentar consulta de cursos
+            </Boton>
+          </>}
           {!cargandoCursos && !errorCursos && cursos.length === 0 && <InlineMensaje tipo="info">No hay cursos activos disponibles. Revisa la conexión en Classroom o vuelve a cargar la sección.</InlineMensaje>}
           {courseId && <label className="campo">
             <span>Buscar actividad para asignar parcial</span>
             <input type="search" value={busquedaActividades} onChange={(event) => setBusquedaActividades(event.target.value)} placeholder="Nombre de actividad" />
           </label>}
-          {courseId && <label className="campo">
-            <span>Buscar estudiante vinculado</span>
-            <input type="search" value={busquedaAlumnos} onChange={(event) => setBusquedaAlumnos(event.target.value)} placeholder="Nombre, correo o matrícula" />
-          </label>}
+          {courseId && <div className="campo">
+            <label className="campo__label" htmlFor="classroom-student-search">Buscar estudiante vinculado</label>
+            <input
+              id="classroom-student-search"
+              type="search"
+              value={busquedaAlumnos}
+              onChange={(event) => setBusquedaAlumnos(event.target.value)}
+              placeholder="Nombre o matrícula"
+              aria-describedby="classroom-student-search-hint"
+            />
+            <small id="classroom-student-search-hint" className="ayuda">Busca por nombre, correo o matrícula.</small>
+          </div>}
           {cargandoAlumnosCurso && <InlineMensaje tipo="info">Cargando estudiantes del curso…</InlineMensaje>}
+          {errorAlumnosCurso && <>
+            <InlineMensaje tipo="error">{errorAlumnosCurso}</InlineMensaje>
+            <Boton type="button" variante="secundario" disabled={cargandoAlumnosCurso} cargando={cargandoAlumnosCurso} onClick={() => setReintentosAlumnosCurso((actual) => actual + 1)}>
+              Reintentar consulta de estudiantes
+            </Boton>
+          </>}
           {alumnosCurso.length > 0 && <>
             <p className="nota" aria-live="polite">Mostrando {alumnosCursoFiltrados.length} de {alumnosCurso.length} estudiantes</p>
-            <div className="lista lista--compacta">{alumnosCursoFiltrados.map((fila) => <div className="item-row item-glass" key={fila.classroomUserId}>
+            <div className="lista lista--compacta">{alumnosCursoFiltrados.map((fila) => {
+              const alumnoDestinoId = asignaciones[fila.classroomUserId] ?? '';
+              const alumnoDestino = alumnos.find((alumno) => alumno.periodoId === periodoId && alumno._id === alumnoDestinoId);
+              const descripcionDestinoId = `classroom-destino-${fila.classroomUserId}`;
+              const selectorDestinoId = `${descripcionDestinoId}-select`;
+              const descripcionDestino = alumnoDestino
+                ? `Destino actual: ${alumnoDestino.nombreCompleto}${alumnoDestino.matricula ? ` · matrícula ${alumnoDestino.matricula}` : ''}`
+                : alumnoDestinoId
+                  ? 'El alumno vinculado no aparece en la materia seleccionada.'
+                  : 'Aún sin vincular. Elige el expediente local correspondiente.';
+              return <div className="item-row item-glass" key={fila.classroomUserId}>
               <div><b>{fila.fullName || fila.classroomUserId}</b><div className="nota">{fila.emailAddress || 'Correo no disponible'}</div></div>
-              <label className="campo"><span>Alumno en esta materia</span><select value={asignaciones[fila.classroomUserId] ?? ''} onChange={(event) => setAsignaciones((actual) => ({ ...actual, [fila.classroomUserId]: event.target.value }))}>
+              <div className="campo"><label htmlFor={selectorDestinoId}>Alumno de EvaluaPro para {fila.fullName || 'cuenta Classroom'}</label><select id={selectorDestinoId} aria-describedby={descripcionDestinoId} value={alumnoDestinoId} onChange={(event) => setAsignaciones((actual) => ({ ...actual, [fila.classroomUserId]: event.target.value }))}>
                 <option value="">Sin vincular</option>{alumnos.filter((alumno) => alumno.periodoId === periodoId).map((alumno) => <option key={alumno._id} value={alumno._id}>{alumno.matricula ? `${alumno.matricula} · ` : ''}{alumno.nombreCompleto}</option>)}
-              </select></label>
-            </div>)}</div>
+              </select><small id={descripcionDestinoId} className="ayuda">{descripcionDestino}</small></div>
+            </div>;
+            })}</div>
             {alumnosCursoFiltrados.length === 0 && <p className="nota">Ningún estudiante coincide con la búsqueda.</p>}
             <Boton type="button" variante="secundario" disabled={guardando} cargando={guardando} onClick={() => void guardarVinculaciones()}>Guardar vinculaciones</Boton>
           </>}
-          {courseId && !cargandoAlumnosCurso && alumnosCurso.length === 0 && <p className="nota">No hay estudiantes disponibles en el curso seleccionado.</p>}
-          <div className="cuenta-subpanel" aria-labelledby="classroom-cortes-heading">
+          {courseId && !cargandoAlumnosCurso && !errorAlumnosCurso && alumnosCurso.length === 0 && <p className="nota">No hay estudiantes disponibles en el curso seleccionado.</p>}
+          <div className="cuenta-subpanel classroom-sync-mapping" aria-labelledby="classroom-cortes-heading">
             <h4 id="classroom-cortes-heading">Vincular actividades a evaluación continua</h4>
             <p className="nota">Selecciona el parcial de cada actividad ya existente. EvaluaPro conservará la nota asignada y la evidencia de origen; no crea actividades ni permite editarlas aquí. La previsualización no cambia notas ni evidencias, pero queda registrada en el historial de sincronización.</p>
             {cargandoActividades && <InlineMensaje tipo="info">Cargando actividades de Classroom…</InlineMensaje>}
-            {courseId && !cargandoActividades && <section aria-labelledby="classroom-revision-heading" className="cuenta-subpanel">
+            {errorActividades && <>
+              <InlineMensaje tipo="error">{errorActividades}</InlineMensaje>
+              <Boton type="button" variante="secundario" disabled={cargandoActividades} cargando={cargandoActividades} onClick={() => setReintentosActividades((actual) => actual + 1)}>
+                Reintentar consulta de actividades
+              </Boton>
+            </>}
+            {courseId && !cargandoActividades && !errorActividades && <section aria-labelledby="classroom-revision-heading" className="cuenta-subpanel classroom-sync-topics">
               <h4 id="classroom-revision-heading">Revisar actividades por tema</h4>
               <p className="nota">Consulta descripciones, materiales y fechas del curso. Las horas de entrega se muestran en UTC porque Classroom entrega esos campos en UTC.</p>
               <p><b>Curso:</b> {cursoConsultado?.name || cursos.find((curso) => curso.id === courseId)?.name || 'Nombre no proporcionado'}{cursoConsultado?.section ? ` · ${cursoConsultado.section}` : ''}</p>
-              {!consultaActividadesCompleta && <InlineMensaje tipo="warning">La consulta de actividades está incompleta. Se conservan los datos recibidos; revisa los recursos con error y vuelve a cargar.</InlineMensaje>}
-              {erroresConsultaActividades.map((error, indice) => <InlineMensaje key={`${error.recurso}-${indice}`} tipo="warning">{error.recurso}: {error.codigo}</InlineMensaje>)}
+              {!consultaActividadesCompleta && <InlineMensaje tipo="warning">La consulta de actividades está incompleta. Se conservan los datos recibidos; revisa los avisos y vuelve a cargar para obtener el resto.</InlineMensaje>}
+              {erroresConsultaActividades.map((error, indice) => {
+                const descripcion = describirErrorConsultaClassroom(error);
+                return <InlineMensaje key={`${error.recurso}-${indice}`} tipo="warning"><strong>No se pudieron consultar {descripcion.recurso}.</strong> {descripcion.mensaje}</InlineMensaje>;
+              })}
+              {erroresConsultaActividades.length > 0 && <details>
+                <summary>Ver detalles técnicos para soporte</summary>
+                <ul>{erroresConsultaActividades.map((error, indice) => <li key={`${error.recurso}-${indice}`}>{etiquetasRecursosClassroom[error.recurso] || 'Recurso de Classroom'}: {error.codigo}</li>)}</ul>
+              </details>}
               <label className="campo"><span>Filtrar por tema de Classroom</span><select value={temaSeleccionado} onChange={(event) => setTemaSeleccionado(event.target.value)}>
                 <option value="">Todos los temas</option><option value="__sin_tema__">Sin tema</option>
                 {temas.map((tema) => <option key={tema.id} value={tema.id}>{tema.name}</option>)}
@@ -670,10 +841,10 @@ export function ClassroomEnCalificaciones({
                 </details>)}
               </div>}
             </section>}
-            {actividades.length === 0 && consultaActividadesCompleta && !cargandoActividades ? <p className="nota">No hay actividades publicadas para mapear en este curso.</p> : <div className="lista lista--compacta">
+            {!errorActividades && (actividades.length === 0 && consultaActividadesCompleta && !cargandoActividades ? <p className="nota">No hay actividades publicadas para mapear en este curso.</p> : <div className="lista lista--compacta">
               {actividadesFiltradas.map((actividad) => <div className="item-row item-glass" key={actividad.id}>
                 <div><b>{actividad.title}</b><div className="nota">{typeof actividad.maxPoints === 'number' ? `${actividad.maxPoints} puntos posibles` : 'Puntos posibles no especificados'}</div></div>
-                <label className="campo"><span>Parcial destino</span><select disabled={previsualizando || aplicandoMapeo} value={cortes[actividad.id] ?? ''} onChange={(event) => {
+                <label className="campo"><span>Parcial destino · {actividad.title || 'Actividad sin título'}</span><select disabled={previsualizando || aplicandoMapeo} value={cortes[actividad.id] ?? ''} onChange={(event) => {
                   setCortes((actual) => ({ ...actual, [actividad.id]: event.target.value }));
                   setPreview(null);
                   setFaltantesConfirmados({});
@@ -682,15 +853,20 @@ export function ClassroomEnCalificaciones({
                   <option value="">Sin asignar</option><option value="1">Primer parcial</option><option value="2">Segundo parcial</option><option value="3">Tercer parcial</option>
                 </select></label>
               </div>)}
-            </div>}
+            </div>)}
             {actividades.length > 0 && <p className="nota" aria-live="polite">Mostrando {actividadesFiltradas.length} de {actividades.length} actividades</p>}
             {actividades.length > 0 && actividadesFiltradas.length === 0 && <p className="nota">Ninguna actividad coincide con la búsqueda.</p>}
-            <Boton type="button" variante="secundario" disabled={!actividadesMapeadas().length || previsualizando || aplicandoMapeo} cargando={previsualizando} onClick={() => void previsualizarMapeo()}>
+            {!errorActividades && <Boton type="button" variante="secundario" disabled={!actividadesMapeadas().length || previsualizando || aplicandoMapeo} cargando={previsualizando} onClick={() => void previsualizarMapeo()}>
               Previsualizar evaluación continua
-            </Boton>
-            {preview && <div className="cuenta-subpanel" role="status" aria-live="polite">
-              <p>{preview.totalActividades ?? actividadesMapeadas().length} actividades · {preview.graded ?? 0} calificadas · {preview.pending ?? 0} pendientes · {preview.unmatched ?? 0} sin alumno vinculado · {mapeoEjecutado ? preview.importadas ?? 0 : preview.wouldCreate ?? preview.importadas ?? 0} nuevas · {mapeoEjecutado ? preview.actualizadas ?? 0 : preview.wouldUpdate ?? preview.actualizadas ?? 0} {mapeoEjecutado ? 'actualizadas' : 'por actualizar'}</p>
-              {(preview.errores ?? []).map((error, index) => <InlineMensaje key={`${index}:${error.mensaje}`} tipo="warning">{error.mensaje || 'Elemento pendiente de revisión.'}</InlineMensaje>)}
+            </Boton>}
+            {preview && <div className="cuenta-subpanel">
+              <p role="status" aria-live="polite">Vista previa lista. {preview.totalActividades ?? actividadesMapeadas().length} actividades · {preview.graded ?? 0} calificadas · {preview.pending ?? 0} pendientes · {preview.unmatched ?? 0} sin alumno vinculado · {mapeoEjecutado ? preview.importadas ?? 0 : preview.wouldCreate ?? preview.importadas ?? 0} nuevas · {mapeoEjecutado ? preview.actualizadas ?? 0 : preview.wouldUpdate ?? preview.actualizadas ?? 0} {mapeoEjecutado ? 'actualizadas' : 'por actualizar'}</p>
+              {(preview.errores ?? []).length > 0 && <div className="mensaje warning">
+                <span className="mensaje__contenido">
+                  <strong>Avisos de la vista previa</strong>
+                  <ul>{(preview.errores ?? []).map((error, index) => <li key={`${index}:${error.mensaje}`}>{error.mensaje || 'Elemento pendiente de revisión.'}</li>)}</ul>
+                </span>
+              </div>}
               {(preview.promediosEvaluacionContinuaTercerParcial ?? []).length > 0 && <div>
                 <h5>Proyección de evaluación continua · tercer parcial</h5>
                 <p className="nota">Por alumno: puntos obtenidos ÷ puntos posibles × 10; esa nota se divide entre 2 para aportar hasta 5 puntos al tercer parcial. Las actividades pendientes no suman hasta que Classroom las califique; una entrega faltante solo cuenta como cero si fue confirmada y está vencida. Esta vista previa no escribe calificaciones.</p>
@@ -771,36 +947,70 @@ export function ClassroomEnCalificaciones({
       </div>
       <section className="cuenta-subpanel classroom-grade-history" aria-label="Historial del promedio Classroom por parcial">
         <h4><Icono nombre="evaluaciones" size={19} /> Historial del promedio por alumno y parcial</h4>
-        <p className="nota">Consulta la ficha comprimida que corresponde a cada snapshot aceptado. Las reentregas pendientes no cambian este historial hasta que el docente las confirme.</p>
+        <p className="nota">Cada registro muestra la calificación guardada en ese momento. Las reentregas pendientes no cambian este historial hasta que las confirmes.</p>
         <div className="calificaciones-consulta__filters">
-          <label className="campo"><span>Alumno</span><select value={alumnoHistorialId} onChange={(event) => { limpiarHistorialPromedio(); setAlumnoHistorialId(event.target.value); }}>
+          <div className="campo"><label htmlFor="classroom-grade-history-student">Alumno</label><select id="classroom-grade-history-student" aria-describedby="classroom-grade-history-student-description" value={alumnoHistorialId} onChange={(event) => { limpiarHistorialPromedio(); setAlumnoHistorialId(event.target.value); }}>
             <option value="">Selecciona alumno</option>{alumnos.filter((alumno) => alumno.periodoId === periodoId).map((alumno) => <option key={alumno._id} value={alumno._id}>{alumno.matricula ? `${alumno.matricula} · ` : ''}{alumno.nombreCompleto}</option>)}
-          </select></label>
+          </select><small id="classroom-grade-history-student-description" className="ayuda">{descripcionAlumnoHistorial}</small></div>
           <label className="campo"><span>Parcial</span><select value={corteHistorial} onChange={(event) => { limpiarHistorialPromedio(); setCorteHistorial(event.target.value); }}>
             <option value="1">Primer parcial</option><option value="2">Segundo parcial</option><option value="3">Tercer parcial</option>
           </select></label>
           <Boton type="button" variante="secundario" disabled={!alumnoHistorialId || cargandoHistorialPromedio} cargando={cargandoHistorialPromedio} onClick={() => void cargarHistorialPromedio()}>Consultar historial</Boton>
         </div>
-        {snapshotsPromedio.length > 0 && <p className="nota" aria-live="polite">Mostrando {snapshotsPromedio.length} capturas del historial.</p>}
+        {errorHistorialPromedio && <InlineMensaje tipo="error">{errorHistorialPromedio}</InlineMensaje>}
+        {snapshotsPromedio.length > 0 && <p className="nota" aria-live="polite">Mostrando {snapshotsPromedio.length} {snapshotsPromedio.length === 1 ? 'registro' : 'registros'} del promedio.</p>}
         {snapshotsPromedio.map((snapshot) => <article className="cuenta-subpanel classroom-grade-history__card" key={snapshot.id}>
           <h5><Icono nombre={snapshot.estado === 'calculado' ? 'ok' : 'alerta'} size={18} />
             {snapshot.estado === 'calculado' ? `${snapshot.promedioSobre10?.toLocaleString('es-MX', { maximumFractionDigits: 2 })} / 10` : 'Promedio pendiente'}
             <time dateTime={snapshot.createdAt}>{new Date(snapshot.createdAt).toLocaleString('es-MX')}</time>
           </h5>
-          <p className="nota">{snapshot.puntosObtenidos} / {snapshot.puntosPosibles} puntos · WebP {Math.ceil(snapshot.capturaBytes / 1024)} KiB · hash {snapshot.capturaHash.slice(0, 12)}</p>
-          {capturasPromedio[snapshot.id] && <img src={capturasPromedio[snapshot.id]} alt={`Ficha del promedio del ${snapshot.corte}° parcial para ${alumnosPorId.get(alumnoHistorialId)?.nombreCompleto ?? 'alumno'}`} loading="lazy" />}
-          {!capturasPromedio[snapshot.id] && <p role="status" aria-label="No se pudo cargar la imagen de la ficha" className="classroom-grade-history__image-error"><Icono nombre="alerta" size={16} /> La ficha está en el historial, pero no se pudo cargar su imagen. Vuelve a consultar para reintentar.</p>}
+          <p className="nota">Puntos: {snapshot.puntosObtenidos} de {snapshot.puntosPosibles}</p>
+          <details className="classroom-grade-history__technical">
+            <summary>Detalles técnicos de la captura</summary>
+            <p className="nota">
+              Formato de imagen: WebP · Tamaño aproximado: {Math.ceil(snapshot.capturaBytes / 1024)} KiB ·
+              {' '}Código de verificación SHA-256 (fragmento): {snapshot.capturaHash.slice(0, 12)}
+            </p>
+          </details>
+          {capturasPromedio[snapshot.id] && <img src={capturasPromedio[snapshot.id]} alt={`Captura de ficha: ${snapshot.estado === 'calculado' ? `${snapshot.promedioSobre10?.toLocaleString('es-MX', { maximumFractionDigits: 2 })} de 10` : 'promedio pendiente'}, ${snapshot.corte}° parcial, ${alumnosPorId.get(alumnoHistorialId)?.nombreCompleto ?? 'alumno'}, ${new Date(snapshot.createdAt).toLocaleString('es-MX')}`} loading="lazy" />}
+          {!capturasPromedio[snapshot.id] && <div className="classroom-grade-history__image-error">
+            <InlineMensaje tipo={cargandoCapturaPromedio[snapshot.id] ? 'info' : 'warning'}>
+              {cargandoCapturaPromedio[snapshot.id]
+                ? 'Volviendo a cargar la ficha del historial…'
+                : erroresCapturaPromedio[snapshot.id] ?? 'La ficha está en el historial, pero no se pudo cargar su imagen.'}
+            </InlineMensaje>
+            <Boton type="button" variante="secundario" cargando={Boolean(cargandoCapturaPromedio[snapshot.id])} onClick={() => void reintentarCapturaPromedio(snapshot.id)}>
+              {cargandoCapturaPromedio[snapshot.id] ? 'Cargando ficha' : 'Reintentar carga de ficha'}
+            </Boton>
+          </div>}
         </article>)}
         {cursorHistorialPromedio && <Boton type="button" variante="secundario" disabled={cargandoHistorialPromedio} cargando={cargandoHistorialPromedio} onClick={() => void cargarHistorialPromedio(cursorHistorialPromedio)}>Cargar más capturas</Boton>}
-        {!cargandoHistorialPromedio && alumnoHistorialId && snapshotsPromedio.length === 0 && <p role="status">No hay snapshots de promedio registrados para este alumno y parcial.</p>}
+        {historialPromedioConsultado && !cargandoHistorialPromedio && !errorHistorialPromedio && alumnoHistorialId && snapshotsPromedio.length === 0 && <p role="status">No hay registros del promedio para este alumno y parcial.</p>}
       </section>
-      <label className="campo">
-        <span>Buscar evidencias</span>
-        <input type="search" value={busquedaEvidencias} onChange={(event) => setBusquedaEvidencias(event.target.value)} placeholder="Alumno, matrícula, actividad, nota o estado" />
-      </label>
-      <p className="nota" aria-live="polite">Mostrando {evidenciasFiltradas.length} de {evidencias.length} evidencias</p>
-      <div className="calificaciones-consulta__table-wrap">
-        <table className="calificaciones-consulta__table">
+      {permisos.evaluaciones.leer && periodoId && periodoExiste && <>
+        <div className="campo">
+          <label htmlFor="classroom-evidencias-busqueda">Buscar evidencias</label>
+          <input
+            id="classroom-evidencias-busqueda"
+            type="search"
+            value={busquedaEvidencias}
+            onChange={(event) => setBusquedaEvidencias(event.target.value)}
+            placeholder="Alumno o actividad"
+            aria-describedby="classroom-evidencias-busqueda-ayuda"
+          />
+          <small id="classroom-evidencias-busqueda-ayuda" className="ayuda">También puedes buscar por matrícula, nota o estado.</small>
+        </div>
+        {cargando && <InlineMensaje tipo="info">Cargando calificaciones Classroom…</InlineMensaje>}
+        {errorCargaEvidencias && <>
+          <InlineMensaje tipo="error">{errorCargaEvidencias}</InlineMensaje>
+          <Boton type="button" variante="secundario" disabled={cargando} cargando={cargando} onClick={() => setReintentosEvidencias((actual) => actual + 1)}>
+            Reintentar consulta de evidencias
+          </Boton>
+        </>}
+        {!cargando && !errorCargaEvidencias && <>
+          <p className="nota" aria-live={evidencias.length > 0 && evidenciasFiltradas.length === 0 ? undefined : 'polite'}>Mostrando {evidenciasFiltradas.length} de {evidencias.length} evidencias</p>
+          <div className="calificaciones-consulta__table-wrap">
+        <table className="calificaciones-consulta__table classroom-evidencias-table">
           <caption className="sr-only">Evidencias y calificaciones Classroom de la materia seleccionada</caption>
           <thead><tr><th scope="col">Alumno</th><th scope="col">Actividad</th><th scope="col">Calificación Classroom</th><th scope="col">Estado</th><th scope="col">Actualizada</th><th scope="col">Revisar en Classroom</th><th scope="col">Historial de entrega</th></tr></thead>
           <tbody>
@@ -816,7 +1026,7 @@ export function ClassroomEnCalificaciones({
                 <td data-label="Calificación Classroom">{typeof fila.classroom?.assignedGrade === 'number' ? `${fila.classroom.assignedGrade}${typeof fila.classroom.maxPoints === 'number' ? ` / ${fila.classroom.maxPoints}` : ''}` : 'Sin calificación asignada'}</td>
                 <td data-label="Estado">{fila.estadoCaptura === 'calificada' ? 'Calificada' : fila.classroom?.submissionState || 'Pendiente'}</td>
                 <td data-label="Actualizada">{new Date(fila.fechaEvidencia).toLocaleDateString('es-MX')}</td>
-                <td data-label="Revisar en Classroom">{urlActividad ? <a href={urlActividad} target="_blank" rel="noopener noreferrer" aria-label={`Abrir en Google Classroom: ${fila.classroom?.courseWorkTitle || fila.titulo}`}>Abrir actividad</a> : '—'}</td>
+                <td data-label="Revisar en Classroom">{urlActividad ? <a className="classroom-evidencias-link" href={urlActividad} target="_blank" rel="noopener noreferrer" aria-label={`Abrir en Google Classroom: ${fila.classroom?.courseWorkTitle || fila.titulo}`}>Abrir actividad</a> : '—'}</td>
                 <td data-label="Historial de entrega">{tieneIdentidadEntrega ? <Boton type="button" variante="secundario" onClick={() => {
                   if (historialEntregaAbierto === historialKey) {
                     solicitudHistorialEntregaRef.current += 1;
@@ -845,11 +1055,17 @@ export function ClassroomEnCalificaciones({
               </section>
             </td></tr>}
             {!cargando && periodoId && evidencias.length === 0 && <tr><td colSpan={7}>No hay calificaciones Classroom sincronizadas para esta materia.</td></tr>}
-            {!cargando && evidencias.length > 0 && evidenciasFiltradas.length === 0 && <tr><td colSpan={7}>Ninguna evidencia coincide con la búsqueda.</td></tr>}
+            {!cargando && evidencias.length > 0 && evidenciasFiltradas.length === 0 && <tr><td colSpan={7}>
+              <div className="calificaciones-consulta__no-results">
+                <InlineMensaje tipo="info">Ninguna evidencia coincide con la búsqueda.</InlineMensaje>
+                <Boton type="button" variante="secundario" onClick={() => setBusquedaEvidencias('')}>Limpiar búsqueda</Boton>
+              </div>
+            </td></tr>}
           </tbody>
         </table>
       </div>
-      {cargando && <InlineMensaje tipo="info">Cargando calificaciones Classroom…</InlineMensaje>}
+        </>}
+      </>}
     </section>
   );
 }

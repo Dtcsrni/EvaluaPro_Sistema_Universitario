@@ -22,7 +22,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const LEGACY_KEYS = ['GOOGLE_CLASSROOM_CLIENT_SECRET', 'GOOGLE_CLASSROOM_REDIRECT_URI'];
+const LEGACY_KEYS = ['GOOGLE_CLASSROOM_REDIRECT_URI'];
 
 function getArg(name, fallback = '') {
   const prefix = `--${name}=`;
@@ -62,6 +62,12 @@ export function evaluateClassroomConfig(env, { dpapiSupported = true } = {}) {
   const enabled = enabledRaw ? ['1', 'true', 'yes', 'on'].includes(enabledRaw) : true;
   checks.push({ id: 'CLASSROOM_DESKTOP_OAUTH', ok: true, detail: enabled ? 'habilitado-en-el-producto' : 'deshabilitado-por-configuracion' });
   if (enabled) checks.push({ id: 'DPAPI_CURRENT_USER', ok: dpapiSupported, detail: dpapiSupported ? 'disponible' : 'no-disponible' });
+  const clientSecretConfigured = Boolean(String(env.GOOGLE_CLASSROOM_CLIENT_SECRET || '').trim());
+  checks.push({
+    id: 'GOOGLE_CLASSROOM_CLIENT_SECRET',
+    ok: !enabled || clientSecretConfigured,
+    detail: !enabled ? 'no-requerido-classroom-deshabilitado' : clientSecretConfigured ? 'configurado' : 'faltante'
+  });
 
   for (const key of LEGACY_KEYS) {
     if (String(env[key] || '').trim()) {

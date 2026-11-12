@@ -14,8 +14,8 @@ import { rutasAlumnos, rutasPeriodos } from './modulos/modulo_alumnos/compositio
 import { rutasBancoPreguntas } from './modulos/modulo_banco_preguntas/composition.js';
 import { rutasGeneracionPdf } from './modulos/modulo_generacion_pdf/composition.js';
 import { rutasVinculacionEntrega } from './modulos/modulo_vinculacion_entrega/composition.js';
-import { rutasEscaneoOmr } from './modulos/modulo_escaneo_omr/composition.js';
-import { rutasCalificaciones } from './modulos/modulo_calificacion/composition.js';
+import { configurarCalificadorAutomaticoOmr, rutasEscaneoOmr } from './modulos/modulo_escaneo_omr/composition.js';
+import { calificarExamenAutomatico, rutasCalificaciones } from './modulos/modulo_calificacion/composition.js';
 import { rutasAnaliticas } from './modulos/modulo_analiticas/composition.js';
 import { rutasSincronizacionNube, requerirLeaseEscritura } from './modulos/modulo_sincronizacion_nube/composition.js';
 import { rutasAdminDocentes } from './modulos/modulo_admin_docentes/composition.js';
@@ -32,6 +32,8 @@ import { rutasHidratacionCursos } from './modulos/modulo_hidratacion_cursos/comp
 import { rutasListasInstitucionales } from './modulos/modulo_listas_institucionales/composition.js';
 import { exportarMetricasPrometheus } from './compartido/observabilidad/metrics.js';
 import { obtenerPreflight } from './compartido/preflight/controladorPreflight.js';
+
+configurarCalificadorAutomaticoOmr(calificarExamenAutomatico);
 
 export function crearRouterApi() {
   const router = Router();

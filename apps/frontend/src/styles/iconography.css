@@ -1,0 +1,21 @@
+/* Emblema primario compartido para encabezados de sección. El color sigue siendo de dominio. */
+.icono-seccion-orb {
+  box-sizing: border-box !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 52px !important;
+  inline-size: 52px !important;
+  min-inline-size: 52px !important;
+  block-size: 52px !important;
+  padding: 0 !important;
+  border: 1px solid color-mix(in srgb, currentColor 38%, var(--glass-border-mid)) !important;
+  border-radius: 50% !important;
+  background: color-mix(in srgb, currentColor 11%, var(--surface-1)) !important;
+  box-shadow: inset 0 1px 0 var(--glass-inner-light) !important;
+}
+
+.icono-seccion-orb > svg.icono {
+  display: block !important;
+  inline-size: 24px !important;
+  block-size: 24px !important;
+}

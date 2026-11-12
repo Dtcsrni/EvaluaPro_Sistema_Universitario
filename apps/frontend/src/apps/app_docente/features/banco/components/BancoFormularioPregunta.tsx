@@ -5,11 +5,13 @@
  * Limites: Evitar acoplar IO directo; preferir hooks/services del feature.
  */
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
-import { Icono } from '../../../../../ui/iconos';
+import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
+import { BookOpenText, Calculator, Check, CircleAlert, FileText, Image, ListTree, Package, Save, Upload, IconoLucide } from '../../../../../ui/iconosCatalogo';
 import { GuiaBancoVisual } from '../../../GuiaBancoVisual';
 import { RichTextEditor, textoPlanoRico } from './RichTextEditor';
 import type { Periodo, TemaBancoFormState } from './types';
-import type { Dispatch, SetStateAction } from 'react';
+import { useRef } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 
 type Opcion = { texto: string; esCorrecta: boolean };
 
@@ -23,10 +25,12 @@ const COLORES_OPCIONES = [
 ];
 
 export function BancoFormularioPregunta({
+  navegacionTareas,
   periodoId,
   setPeriodoId,
   periodos,
   bloqueoEdicion,
+  mostrarAvisoPermisoGestion,
   enunciado,
   setEnunciado,
   imagenUrl,
@@ -38,6 +42,7 @@ export function BancoFormularioPregunta({
   setTemaId,
   temasBanco,
   cargandoTemas,
+  errorCargaTemas,
   preguntasTemaActualCantidad,
   paginasTemaActual,
   preguntasMateriaCantidad,
@@ -49,7 +54,7 @@ export function BancoFormularioPregunta({
   guardando,
   guardar,
   mensaje,
-  esMensajeError,
+  mensajeEsError,
   editandoId,
   editEnunciado,
   setEditEnunciado,
@@ -64,10 +69,12 @@ export function BancoFormularioPregunta({
   guardarEdicion,
   cancelarEdicion
 }: {
+  navegacionTareas?: ReactNode;
   periodoId: string;
   setPeriodoId: (value: string) => void;
   periodos: Periodo[];
   bloqueoEdicion: boolean;
+  mostrarAvisoPermisoGestion: boolean;
   enunciado: string;
   setEnunciado: (value: string) => void;
   imagenUrl: string;
@@ -79,6 +86,7 @@ export function BancoFormularioPregunta({
   setTemaId: (value: string) => void;
   temasBanco: TemaBancoFormState[];
   cargandoTemas: boolean;
+  errorCargaTemas: string;
   preguntasTemaActualCantidad: number;
   paginasTemaActual: number;
   preguntasMateriaCantidad: number;
@@ -90,7 +98,7 @@ export function BancoFormularioPregunta({
   guardando: boolean;
   guardar: () => Promise<void>;
   mensaje: string;
-  esMensajeError: (mensaje: string) => boolean;
+  mensajeEsError: boolean;
   editandoId: string | null;
   editEnunciado: string;
   setEditEnunciado: (value: string) => void;
@@ -105,6 +113,8 @@ export function BancoFormularioPregunta({
   guardarEdicion: () => Promise<void>;
   cancelarEdicion: () => void;
 }) {
+  const inputImagenCrearRef = useRef<HTMLInputElement>(null);
+  const inputImagenEditarRef = useRef<HTMLInputElement>(null);
   const nombrePeriodoActivo = periodos.find((p) => p._id === periodoId)?.nombre ?? '';
 
   const renderOpcionesEditor = ({
@@ -116,11 +126,9 @@ export function BancoFormularioPregunta({
     setOpcionesActuales: Dispatch<SetStateAction<Opcion[]>>;
     radioName: string;
   }) => (
-    <div className="campo banco-opciones-container">
-      <div className="campo__heading">
-        <div className="campo__title">Opciones de respuesta (5 reactivos)</div>
-        <div className="ayuda">Marca exactamente una opción como respuesta correcta.</div>
-      </div>
+    <fieldset className="campo banco-opciones-container">
+      <legend className="campo__title">Opciones de respuesta (A–E)</legend>
+      <p className="ayuda">Escribe cinco opciones y marca exactamente una como correcta.</p>
       <div className="banco-opciones-grid" role="group" aria-label="Opciones de respuesta">
         {opcionesActuales.map((opcion, idx) => {
           const letra = LETRAS_OPCIONES[idx] || String.fromCharCode(65 + idx);
@@ -145,9 +153,9 @@ export function BancoFormularioPregunta({
                     copia[idx] = { ...copia[idx], texto: value };
                     setOpcionesActuales(copia);
                   }}
-                  ariaLabel={`Texto opcion ${letra}`}
+                  ariaLabel={`Texto de la opción ${letra}`}
                   disabled={bloqueoEdicion}
-                  placeholder={`Texto opcion ${letra}`}
+                  placeholder={`Texto de la opción ${letra}`}
                   minHeight={54}
                 />
               </div>
@@ -164,11 +172,7 @@ export function BancoFormularioPregunta({
                   className="banco-opcion-radio-sr"
                 />
                 <span className="banco-opcion-pill__indicator" aria-hidden="true">
-                  {esCorrecta ? (
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  ) : null}
+                  {esCorrecta ? <IconoLucide icon={Check} size={12} /> : null}
                 </span>
                 <span>{esCorrecta ? 'Correcta' : 'Opción'}</span>
               </label>
@@ -176,7 +180,7 @@ export function BancoFormularioPregunta({
           );
         })}
       </div>
-    </div>
+    </fieldset>
   );
 
   return (
@@ -184,12 +188,8 @@ export function BancoFormularioPregunta({
       {/* 1. Bento Hero Header */}
       <div className="banco-panel__head">
         <div className="banco-panel__lead">
-          <div className="banco-panel__icon-orb anim-icon-pulse" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-              <line x1="12" y1="22.08" x2="12" y2="12" />
-            </svg>
+          <div className="icono-seccion-orb banco-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <IconoLucide icon={Package} size={28} />
           </div>
           <div className="banco-panel__text-block">
             <div className="banco-panel__meta-row">
@@ -199,21 +199,16 @@ export function BancoFormularioPregunta({
               </span>
               {nombrePeriodoActivo && <span className="banco-counter-tag">{nombrePeriodoActivo}</span>}
             </div>
-            <h2 className="banco-panel__title eyebrow"><Icono nombre="banco" /> Banco de preguntas</h2>
+            <h2 className="banco-panel__title eyebrow">Banco de preguntas</h2>
             <p className="nota">Construye, organiza y depura reactivos con una vista de trabajo más editorial y menos fragmentada.</p>
           </div>
         </div>
 
         {/* Header Mini-KPIs */}
-        <div className="banco-header-kpis" aria-live="polite">
+        <div className="banco-header-kpis">
           <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Total de preguntas activas en la materia">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
+              <IconoLucide icon={FileText} size={16} />
             </span>
             <span className="banco-mini-kpi__num">{preguntasMateriaCantidad}</span>
             <span className="banco-mini-kpi__lbl">Preguntas</span>
@@ -221,14 +216,7 @@ export function BancoFormularioPregunta({
 
           <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Cantidad de temas activos en la materia">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <line x1="8" y1="6" x2="21" y2="6" />
-                <line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" />
-                <line x1="3" y1="12" x2="3.01" y2="12" />
-                <line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
+              <IconoLucide icon={ListTree} size={16} />
             </span>
             <span className="banco-mini-kpi__num">{temasBancoCantidad}</span>
             <span className="banco-mini-kpi__lbl">Temas</span>
@@ -236,11 +224,7 @@ export function BancoFormularioPregunta({
 
           <div className="banco-mini-kpi banco-mini-kpi--sintema anim-kpi-hover" data-tooltip="Preguntas sin tema asignado">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
+              <IconoLucide icon={CircleAlert} size={16} />
             </span>
             <span className="banco-mini-kpi__num">{preguntasSinTemaCantidad}</span>
             <span className="banco-mini-kpi__lbl">Sin tema</span>
@@ -248,9 +232,7 @@ export function BancoFormularioPregunta({
 
           <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Preguntas del tema seleccionado">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+              <IconoLucide icon={Check} size={16} />
             </span>
             <span className="banco-mini-kpi__num">{tema.trim() ? preguntasTemaActualCantidad : '-'}</span>
             <span className="banco-mini-kpi__lbl">Tema actual</span>
@@ -258,32 +240,35 @@ export function BancoFormularioPregunta({
 
           <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Estimación de páginas en el examen impreso">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
-                <line x1="8" y1="6" x2="16" y2="6" />
-                <line x1="8" y1="10" x2="16" y2="10" />
-              </svg>
+              <IconoLucide icon={Calculator} size={16} />
             </span>
             <span className="banco-mini-kpi__num">
-              {tema.trim() ? `${paginasTemaActual}p` : '-'}
+              {tema.trim() ? paginasTemaActual : '-'}
             </span>
-            <span className="banco-mini-kpi__lbl">Páginas est.</span>
+            <span className="banco-mini-kpi__lbl">Páginas estimadas</span>
           </div>
         </div>
       </div>
+
+      {navegacionTareas}
+      {mostrarAvisoPermisoGestion && (
+        <InlineMensaje tipo="warning">
+          Tu perfil no tiene permiso de gestión para crear o editar preguntas o temas. Solicita ese acceso a quien administra EvaluaPro.
+        </InlineMensaje>
+      )}
 
       {/* 2. Bento Visual Guide */}
       <GuiaBancoVisual />
 
       {/* 3. Superficie del Formulario de Creación */}
-      <section className="banco-form__surface banco-form__surface--main">
+      <section id="banco-captura" tabIndex={-1} className="banco-form__surface banco-form__surface--main" aria-labelledby="banco-captura-title">
         <div className="banco-section-title">
           <div className="banco-section-title__wrap">
             <span className="banco-section-pill">
               <span className="banco-section-pill__dot" aria-hidden="true" />
               <span>Captura canónica</span>
             </span>
-            <h3>Nueva pregunta</h3>
+            <h3 id="banco-captura-title">Nueva pregunta</h3>
             <p className="nota">Captura un reactivo OMR. Se valida, versiona y publica por el mismo flujo seguro que una importación IA.</p>
           </div>
         </div>
@@ -292,9 +277,7 @@ export function BancoFormularioPregunta({
         <div className="banco-form__grid banco-form__grid--2">
           <div className="campo">
             <label className="campo__label-text" htmlFor="banco-select-materia">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              </svg>
+              <IconoLucide icon={BookOpenText} size={14} />
               Materia
             </label>
             <div className="auth-input-box auth-input-box--animated">
@@ -318,17 +301,13 @@ export function BancoFormularioPregunta({
 
           <div className="campo">
             <label className="campo__label-text" htmlFor="banco-select-tema">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <line x1="8" y1="6" x2="21" y2="6" />
-                <line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" />
-              </svg>
-              Tema
+              <IconoLucide icon={ListTree} size={14} />
+              Asignar tema al reactivo
             </label>
             <div className="auth-input-box auth-input-box--animated">
               <select
                 id="banco-select-tema"
-                aria-label="Tema"
+                aria-label="Asignar tema al reactivo"
                 value={temaId}
                 onChange={(event) => {
                   const nuevoTema = temasBanco.find((item) => item._id === event.target.value);
@@ -345,7 +324,13 @@ export function BancoFormularioPregunta({
                 ))}
               </select>
             </div>
-            {periodoId && !cargandoTemas && temasBanco.length === 0 && (
+            {periodoId && !cargandoTemas && errorCargaTemas && (
+              <div>
+                <p className="ayuda ayuda--info">No se pudo comprobar la lista de temas.</p>
+                <a className="boton secundario" href="#banco-temas">Ir a Temas para reintentar</a>
+              </div>
+            )}
+            {periodoId && !cargandoTemas && !errorCargaTemas && temasBanco.length === 0 && (
               <span className="ayuda ayuda--info">Primero crea un tema (sección “Temas”) para poder asignarlo a preguntas.</span>
             )}
             {tema.trim() && (
@@ -360,10 +345,7 @@ export function BancoFormularioPregunta({
         <div className="campo">
           <div className="campo__heading">
             <label className="campo__label-text" htmlFor="banco-textarea-enunciado">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
+              <IconoLucide icon={FileText} size={14} />
               Enunciado
             </label>
             <span className="banco-char-counter">{textoPlanoRico(enunciado).length} caracteres · formato enriquecido</span>
@@ -382,41 +364,43 @@ export function BancoFormularioPregunta({
         {/* Imagen de Apoyo Opcional */}
         <div className="campo banco-imagen-box">
           <div className="campo__heading">
-            <label className="campo__label-text" htmlFor="banco-file-input-crear">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
+            <span className="campo__label-text">
+              <IconoLucide icon={Image} size={14} />
               Imagen de apoyo (opcional)
-            </label>
+            </span>
             <span className="ayuda">Recomendado máx. 1.5MB (PNG/JPG/WEBP)</span>
           </div>
 
           <div className="banco-file-upload-card">
             <input
+              ref={inputImagenCrearRef}
               type="file"
               accept="image/*"
               id="banco-file-input-crear"
               onChange={(event) => cargarImagenArchivo(event.currentTarget.files?.[0] ?? null, setImagenUrl)}
               disabled={bloqueoEdicion}
               className="banco-file-native-input"
+              aria-hidden="true"
+              tabIndex={-1}
             />
-            <label htmlFor="banco-file-input-crear" className="banco-file-custom-btn">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <span>{imagenUrl ? 'Cambiar imagen' : 'Seleccionar imagen del equipo'}</span>
-            </label>
+            <Boton
+              type="button"
+              variante="secundario"
+              className="banco-file-custom-btn"
+              icono={<IconoLucide icon={Upload} size={16} />}
+              aria-label={imagenUrl ? 'Cambiar imagen de apoyo' : 'Seleccionar imagen de apoyo'}
+              disabled={bloqueoEdicion}
+              onClick={() => inputImagenCrearRef.current?.click()}
+            >
+              {imagenUrl ? 'Cambiar imagen' : 'Seleccionar imagen del equipo'}
+            </Boton>
           </div>
 
           {imagenUrl && (
             <div className="banco-imagen-preview-card anim-scale-in">
               <img className="banco-preview-thumb" src={imagenUrl} alt="Imagen de la pregunta" />
               <div className="banco-preview-info">
-                <span className="banco-preview-badge">✓ Imagen adjunta</span>
+                <span className="banco-preview-badge"><IconoLucide icon={Check} size={14} /> Imagen adjunta</span>
                 <Boton type="button" variante="secundario" onClick={() => setImagenUrl('')}>
                   Quitar imagen
                 </Boton>
@@ -434,11 +418,7 @@ export function BancoFormularioPregunta({
             type="button"
             variante="primario"
             icono={
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" />
-                <polyline points="7 3 7 8 15 8" />
-              </svg>
+              <IconoLucide icon={Save} size={16} />
             }
             cargando={guardando}
             disabled={!puedeGuardar || bloqueoEdicion}
@@ -448,8 +428,8 @@ export function BancoFormularioPregunta({
           </Boton>
         </div>
 
-        {mensaje && (
-          <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
+        {mensaje && !editandoId && (
+          <p className={mensajeEsError ? 'mensaje error' : 'mensaje ok'} role={mensajeEsError ? 'alert' : 'status'}>
             {mensaje}
           </p>
         )}
@@ -483,30 +463,36 @@ export function BancoFormularioPregunta({
           </div>
 
           <div className="campo banco-imagen-box">
-            <label className="campo__label-text" htmlFor="banco-file-input-editar">Imagen (opcional)</label>
+            <span className="campo__label-text">Imagen (opcional)</span>
             <div className="banco-file-upload-card">
               <input
+                ref={inputImagenEditarRef}
                 type="file"
                 accept="image/*"
                 id="banco-file-input-editar"
                 onChange={(event) => cargarImagenArchivo(event.currentTarget.files?.[0] ?? null, setEditImagenUrl)}
                 disabled={bloqueoEdicion}
                 className="banco-file-native-input"
+                aria-hidden="true"
+                tabIndex={-1}
               />
-              <label htmlFor="banco-file-input-editar" className="banco-file-custom-btn">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span>{editImagenUrl ? 'Cambiar imagen' : 'Seleccionar imagen'}</span>
-              </label>
+              <Boton
+                type="button"
+                variante="secundario"
+                className="banco-file-custom-btn"
+                icono={<IconoLucide icon={Upload} size={16} />}
+                aria-label={editImagenUrl ? 'Cambiar imagen de la pregunta' : 'Seleccionar imagen de la pregunta'}
+                disabled={bloqueoEdicion}
+                onClick={() => inputImagenEditarRef.current?.click()}
+              >
+                {editImagenUrl ? 'Cambiar imagen' : 'Seleccionar imagen'}
+              </Boton>
             </div>
             {editImagenUrl && (
               <div className="banco-imagen-preview-card anim-scale-in">
                 <img className="banco-preview-thumb" src={editImagenUrl} alt="Imagen de la pregunta" />
                 <div className="banco-preview-info">
-                  <span className="banco-preview-badge">✓ Imagen adjunta</span>
+                  <span className="banco-preview-badge"><IconoLucide icon={Check} size={14} /> Imagen adjunta</span>
                   <Boton type="button" variante="secundario" onClick={() => setEditImagenUrl('')}>
                     Quitar imagen
                   </Boton>
@@ -516,11 +502,11 @@ export function BancoFormularioPregunta({
           </div>
 
           <div className="campo">
-            <label className="campo__label-text" htmlFor="banco-select-edit-tema">Tema</label>
+            <label className="campo__label-text" htmlFor="banco-select-edit-tema">Tema asignado</label>
             <div className="auth-input-box auth-input-box--animated">
               <select
                 id="banco-select-edit-tema"
-                aria-label="Tema"
+                aria-label="Tema asignado"
                 value={editTema}
                 onChange={(event) => setEditTema(event.target.value)}
                 disabled={bloqueoEdicion}
@@ -549,11 +535,7 @@ export function BancoFormularioPregunta({
               type="button"
               variante="primario"
               icono={
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                  <polyline points="17 21 17 13 7 13 7 21" />
-                  <polyline points="7 3 7 8 15 8" />
-                </svg>
+                <IconoLucide icon={Save} size={16} />
               }
               cargando={editando}
               disabled={!puedeGuardarEdicion || bloqueoEdicion}
@@ -565,6 +547,11 @@ export function BancoFormularioPregunta({
               Cancelar
             </Boton>
           </div>
+          {mensaje && editandoId && (
+            <p className={mensajeEsError ? 'mensaje error' : 'mensaje ok'} role={mensajeEsError ? 'alert' : 'status'}>
+              {mensaje}
+            </p>
+          )}
         </section>
       )}
     </div>

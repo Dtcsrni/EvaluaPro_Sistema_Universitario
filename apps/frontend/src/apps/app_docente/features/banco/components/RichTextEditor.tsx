@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 const TAGS_PERMITIDAS = new Set(['STRONG', 'B', 'EM', 'I', 'U', 'SUB', 'SUP', 'BR', 'SPAN']);
 const COMANDOS_LATEX_VISIBLES: Record<string, string> = {
@@ -116,8 +116,37 @@ export function RichTextEditor({
   minHeight?: number;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const toolbarButtonsRef = useRef<Array<HTMLButtonElement | null>>([]);
+  const [activeToolbarIndex, setActiveToolbarIndex] = useState(0);
   const [mostrarLatex, setMostrarLatex] = useState(false);
   const [latex, setLatex] = useState('');
+  const latexPanelId = `${id}-latex`;
+
+  const focusToolbarButton = (index: number) => {
+    const button = toolbarButtonsRef.current[index];
+    if (!button || button.disabled) return;
+    setActiveToolbarIndex(index);
+    button.focus();
+  };
+
+  const handleToolbarKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+
+    const enabledButtons = toolbarButtonsRef.current
+      .map((button, index) => ({ button, index }))
+      .filter((entry): entry is { button: HTMLButtonElement; index: number } => entry.button !== null && !entry.button.disabled);
+    const currentIndex = enabledButtons.findIndex(({ button }) => button === event.target);
+    if (currentIndex < 0 || enabledButtons.length < 2) return;
+
+    let nextIndex = currentIndex;
+    if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = enabledButtons.length - 1;
+    else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + enabledButtons.length) % enabledButtons.length;
+    else if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % enabledButtons.length;
+
+    event.preventDefault();
+    focusToolbarButton(enabledButtons[nextIndex]!.index);
+  };
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -143,21 +172,19 @@ export function RichTextEditor({
         tabIndex={-1}
         onChange={(event) => onChange(event.target.value)}
       />
-      <div className="rich-editor__toolbar" role="toolbar" aria-label="Formato de texto">
-        <button type="button" title="Negrita" aria-label="Negrita" onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('bold')} disabled={disabled}><strong>B</strong></button>
-        <button type="button" title="Cursiva" aria-label="Cursiva" onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('italic')} disabled={disabled}><em>I</em></button>
-        <button type="button" title="Subrayado" aria-label="Subrayado" onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('underline')} disabled={disabled}><u>U</u></button>
+      <div className="rich-editor__toolbar" role="toolbar" aria-label="Formato de texto" aria-orientation="horizontal" onKeyDown={handleToolbarKeyDown}>
+        <button ref={(button) => { toolbarButtonsRef.current[0] = button; }} type="button" tabIndex={activeToolbarIndex === 0 ? 0 : -1} title="Negrita" aria-label="Negrita" onFocus={() => setActiveToolbarIndex(0)} onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('bold')} disabled={disabled}><strong>B</strong></button>
+        <button ref={(button) => { toolbarButtonsRef.current[1] = button; }} type="button" tabIndex={activeToolbarIndex === 1 ? 0 : -1} title="Cursiva" aria-label="Cursiva" onFocus={() => setActiveToolbarIndex(1)} onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('italic')} disabled={disabled}><em>I</em></button>
+        <button ref={(button) => { toolbarButtonsRef.current[2] = button; }} type="button" tabIndex={activeToolbarIndex === 2 ? 0 : -1} title="Subrayado" aria-label="Subrayado" onFocus={() => setActiveToolbarIndex(2)} onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('underline')} disabled={disabled}><u>U</u></button>
         <span className="rich-editor__separator" aria-hidden="true" />
-        <button type="button" title="Subíndice" aria-label="Subíndice" onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('subscript')} disabled={disabled}>x<sub>2</sub></button>
-        <button type="button" title="Superíndice" aria-label="Superíndice" onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('superscript')} disabled={disabled}>x<sup>2</sup></button>
-        <button type="button" className="rich-editor__latex-button" title="Insertar fórmula LaTeX" onClick={() => setMostrarLatex((actual) => !actual)} disabled={disabled}>∑ LaTeX</button>
+        <button ref={(button) => { toolbarButtonsRef.current[3] = button; }} type="button" tabIndex={activeToolbarIndex === 3 ? 0 : -1} title="Subíndice" aria-label="Subíndice" onFocus={() => setActiveToolbarIndex(3)} onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('subscript')} disabled={disabled}>x<sub>2</sub></button>
+        <button ref={(button) => { toolbarButtonsRef.current[4] = button; }} type="button" tabIndex={activeToolbarIndex === 4 ? 0 : -1} title="Superíndice" aria-label="Superíndice" onFocus={() => setActiveToolbarIndex(4)} onMouseDown={(e) => e.preventDefault()} onClick={() => ejecutarFormato('superscript')} disabled={disabled}>x<sup>2</sup></button>
+        <button ref={(button) => { toolbarButtonsRef.current[5] = button; }} type="button" tabIndex={activeToolbarIndex === 5 ? 0 : -1} className="rich-editor__latex-button" title="Insertar fórmula LaTeX" aria-label="Insertar fórmula LaTeX" aria-expanded={mostrarLatex} aria-controls={latexPanelId} onFocus={() => setActiveToolbarIndex(5)} onClick={() => setMostrarLatex((actual) => !actual)} disabled={disabled}>∑ LaTeX</button>
       </div>
-      {mostrarLatex && (
-        <div className="rich-editor__latex" role="group" aria-label="Insertar fórmula LaTeX">
-          <input value={latex} onChange={(e) => setLatex(e.target.value)} placeholder="Ej. \\(x^2 + y^2 = z^2\\)" aria-label="Fórmula LaTeX" disabled={disabled} />
-          <button type="button" onClick={() => { if (latex.trim()) insertarHtmlSeguro(`<span data-latex="${latex.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${textoVisibleLatex(latex)}</span>`); setLatex(''); setMostrarLatex(false); emitir(); }} disabled={disabled || !latex.trim()}>Insertar</button>
-        </div>
-      )}
+      <div id={latexPanelId} className="rich-editor__latex" role="group" aria-label="Insertar fórmula LaTeX" hidden={!mostrarLatex}>
+        <input value={latex} onChange={(e) => setLatex(e.target.value)} placeholder="Ej. \\(x^2 + y^2 = z^2\\)" aria-label="Fórmula LaTeX" disabled={disabled} />
+        <button type="button" onClick={() => { if (latex.trim()) insertarHtmlSeguro(`<span data-latex="${latex.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${textoVisibleLatex(latex)}</span>`); setLatex(''); setMostrarLatex(false); emitir(); }} disabled={disabled || !latex.trim()}>Insertar</button>
+      </div>
       <div
         id={id}
         ref={editorRef}

@@ -14,7 +14,7 @@ const MM_A_PUNTOS = 72 / 25.4;
  * Perfil OMR canónico: hoja de respuestas robusta para fotografía móvil.
  */
 export const PERFIL_OMR_CANONICO: PerfilPlantillaOmr = {
-  templateId: 'omr-canonical-v4',
+  templateId: 'omr-canonical-1.0.0',
   ubicacion: 'panel-separado',
   // El payload se mantiene firmado y el símbolo conserva corrección H/Q. El
   // tamaño físico de 32 mm deja módulos de al menos 0.56 mm incluso con 49
