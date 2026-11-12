@@ -524,7 +524,7 @@ test.describe('Journey docente integral visual', () => {
     await expect(panelManual.getByLabel('Examen entregado').locator('option')).toHaveCount(2, { timeout: 20_000 });
     await panelManual.getByLabel('Examen entregado').selectOption(examen.examenId);
     await panelManual.getByRole('button', { name: 'Usar examen para calificación manual', exact: true }).click();
-    await expect(page.getByText(/Modo manual activo/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Modo manual activado para el examen seleccionado.', { exact: true })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('checkbox', { name: 'Bono por guía de estudio (+0.25)', exact: true }).check();
     await expect(page.getByText(/Calificación final: 0\.25 \/ 5\.00/i)).toBeVisible();
     await page.screenshot({ path: path.join(outputDir, '40_calificaciones_modo_manual.png'), fullPage: true });
