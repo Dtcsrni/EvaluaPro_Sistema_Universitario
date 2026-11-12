@@ -51,12 +51,31 @@ export function guardarTokenDocente(token: string, persistente: boolean = true):
 }
 
 export function obtenerTokenDocente() {
-  return localStorage.getItem(claveToken) || sessionStorage.getItem(claveToken);
+  try {
+    const tokenPersistente = globalThis.localStorage?.getItem(claveToken);
+    if (tokenPersistente) return tokenPersistente;
+  } catch {
+    // El almacenamiento puede no estar disponible fuera de un contexto de navegador.
+  }
+
+  try {
+    return globalThis.sessionStorage?.getItem(claveToken) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function limpiarTokenDocente() {
-  localStorage.removeItem(claveToken);
-  sessionStorage.removeItem(claveToken);
+  try {
+    globalThis.localStorage?.removeItem(claveToken);
+  } catch {
+    // Continuar con el almacenamiento de sesión aunque el persistente no esté disponible.
+  }
+  try {
+    globalThis.sessionStorage?.removeItem(claveToken);
+  } catch {
+    // La limpieza no debe romper el cierre de sesión si el almacenamiento está bloqueado.
+  }
 }
 
 function tokenDocenteEsPersistente() {

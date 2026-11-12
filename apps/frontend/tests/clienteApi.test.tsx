@@ -26,6 +26,27 @@ describe('clienteApi', () => {
     expect(obtenerTokenDocente()).toBeNull();
   });
 
+  it('lee la sesión temporal y tolera el almacenamiento persistente no disponible', () => {
+    sessionStorage.setItem('tokenDocente', 'token-temporal');
+    const descriptorLocal = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    const descriptorSesion = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
+
+    try {
+      Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: undefined });
+      expect(obtenerTokenDocente()).toBe('token-temporal');
+
+      sessionStorage.clear();
+      Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: undefined });
+      expect(obtenerTokenDocente()).toBeNull();
+      expect(() => limpiarTokenDocente()).not.toThrow();
+    } finally {
+      if (descriptorLocal) Object.defineProperty(globalThis, 'localStorage', descriptorLocal);
+      else delete (globalThis as Partial<typeof globalThis>).localStorage;
+      if (descriptorSesion) Object.defineProperty(globalThis, 'sessionStorage', descriptorSesion);
+      else delete (globalThis as Partial<typeof globalThis>).sessionStorage;
+    }
+  });
+
   it('mantiene una sesión de pestaña como temporal al refrescar el token', async () => {
     expect(guardarTokenDocente('token-temporal', false)).toBe(true);
     vi.mocked(fetch).mockResolvedValueOnce({
