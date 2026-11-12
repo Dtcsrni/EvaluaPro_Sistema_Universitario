@@ -393,6 +393,8 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Entrega', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Entrega', exact: true })).toHaveAttribute('aria-current', 'page', { timeout: 20_000 });
     await expect(page.getByRole('heading', { name: 'Vinculación manual por folio', exact: true })).toBeVisible({ timeout: 20_000 });
+    await page.locator('.entregas-qr-companion > summary').click();
+    await expect(page.locator('details.entregas-qr-companion')).toHaveJSProperty('open', true);
     await expect.poll(async () => {
       const imagen = page.getByRole('img', { name: 'QR para abrir en movil', exact: true });
       if (await page.getByText(/QR no disponible\. Abre este enlace manualmente/i).isVisible().catch(() => false)) return true;

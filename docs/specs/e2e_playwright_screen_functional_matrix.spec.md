@@ -1,7 +1,7 @@
 ---
 id: SPEC-E2E-PLAYWRIGHT-MATRIX
 titulo: Matriz Exhaustiva de Pruebas Funcionales y de Calidad UX/UI con Playwright
-version: 1.1.5
+version: 1.1.6
 fecha: 2026-11-12
 autor: Codex / Antigravity AI
 modulo: modulo_qa_e2e
@@ -30,6 +30,7 @@ EvaluaPro requiere una validación exhaustiva automatizada de extremo a extremo 
 - REQ-014 (Fixture vigente): El journey de exámenes prepara reactivos mediante el contrato de importación actual, comprueba cada respuesta HTTP y no usa rutas de escritura legadas retiradas.
 - REQ-015 (Etiquetas visibles): Las aserciones E2E de importación de reactivos y estado OMR usan las etiquetas localizadas visibles en GUI (`1 reactivo nuevo` y `Estado: Completado`), no etiquetas técnicas internas.
 - REQ-016 (Acción terminal OMR): La ingesta PDF completada valida que no se ofrezca `Finalizar trabajo`, una acción reservada a jobs OMR que no son de ingesta.
+- REQ-017 (Contenido desplegable): Antes de validar QR y fallback de conexión móvil, el journey expande su disclosure y comprueba que el contenido sea visible.
 
 ## Criterios de Aceptación
 - Todas las suites de Playwright (docente, alumno, admin, ciclo y journey) ejecutan y pasan al 100% en verde.
@@ -57,3 +58,4 @@ EvaluaPro requiere una validación exhaustiva automatizada de extremo a extremo 
 | REQ-014 | Fixture de reactivos mediante preview y confirmación | `tests/gui-responsive/journey-docente-integral.spec.ts` | Validado en Edge local; CI pendiente |
 | REQ-015 | Etiquetas visibles del resumen de importación y resultado OMR | `tests/gui-responsive/banco-reactivos.spec.ts`; `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado; CI pendiente |
 | REQ-016 | La ingesta PDF completada no ofrece la acción de finalizar jobs OMR ordinarios | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado; CI pendiente |
+| REQ-017 | QR móvil y fallback se validan con la sección opcional expandida | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado; CI pendiente |
