@@ -456,8 +456,8 @@ test.describe('Journey docente integral visual', () => {
     const filaListaFisica = listaFisica.locator('tbody tr').filter({ hasText: fixture.alumnoMatricula });
     await expect(filaListaFisica).toBeVisible({ timeout: 20_000 });
     await filaListaFisica.getByRole('button', { name: /Ver detalle de/ }).click();
-    await expect(page.getByText('Exámen 1er Parcial automático · referencia')).toBeVisible();
-    const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Exámen 1er Parcial · 0–5' });
+    await expect(page.getByText('Examen 1er Parcial automático · referencia')).toBeVisible();
+    const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5' });
     await expect(examenPrimerParcial).toHaveAttribute('max', '5');
     await examenPrimerParcial.fill('5');
     const examenPrimerParcialResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
@@ -466,13 +466,13 @@ test.describe('Journey docente integral visual', () => {
     await expect(examenPrimerParcial).toHaveValue('5');
 
     await page.getByRole('button', { name: 'Segundo Parcial', exact: true }).click();
-    await expect(page.getByText('Exámen 2do Parcial automático · referencia')).toBeVisible();
-    await page.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' }).fill('7.5');
+    await expect(page.getByText('Examen 2do Parcial automático · referencia')).toBeVisible();
+    await page.getByRole('spinbutton', { name: 'Práctica 2do Parcial · 0–10' }).fill('7.5');
     const practicaListaResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
     await page.getByRole('button', { name: 'Guardar práctica' }).click();
     expect((await practicaListaResponse).status()).toBe(201);
-    await expect(page.getByRole('spinbutton', { name: 'Practica 2do Parcial · 0–10' })).toHaveValue('7.5');
-    const examenSegundoParcial = page.getByRole('spinbutton', { name: 'Exámen 2do Parcial · 0–5.25' });
+    await expect(page.getByRole('spinbutton', { name: 'Práctica 2do Parcial · 0–10' })).toHaveValue('7.5');
+    const examenSegundoParcial = page.getByRole('spinbutton', { name: 'Examen 2do Parcial · 0–5.25' });
     await examenSegundoParcial.fill('5.25');
     const examenSegundoParcialResponse = page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST');
     await page.getByRole('button', { name: 'Guardar examen' }).click();
