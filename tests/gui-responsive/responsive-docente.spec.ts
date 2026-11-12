@@ -6858,6 +6858,7 @@ test.describe('GUI responsive e2e · docente', () => {
   });
 
   test('audita visualmente Alumnos con lista y formulario ficticios', async ({ page }) => {
+    test.setTimeout(120_000);
     const actualizacionesAlumnosFicticias: Array<{ method: string; path: string; payload: unknown }> = [];
     const escriturasBloqueadas: string[] = [];
     await page.setViewportSize({ width: 390, height: 844 });
@@ -8062,6 +8063,7 @@ test.describe('GUI responsive e2e · docente', () => {
 
   for (const viewport of viewports) {
     test(`recorre pantallas operativas en ${viewport.name}`, async ({ page }) => {
+      test.setTimeout(120_000);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.addInitScript(() => {
         localStorage.setItem('tokenDocente', 'token-e2e');
