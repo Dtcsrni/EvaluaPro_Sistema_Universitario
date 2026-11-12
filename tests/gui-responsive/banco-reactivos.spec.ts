@@ -188,7 +188,7 @@ test.describe('Banco de reactivos', () => {
       buffer: Buffer.from(JSON.stringify(invalidBatch))
     });
     await importacion.getByRole('button', { name: 'Validar archivo', exact: true }).click();
-    await expect(importacion.getByRole('alert')).toContainText(/No se pudo validar|incidencias|no cumple el contrato/i, { timeout: 20_000 });
+    await expect(importacion.getByRole('alert')).toContainText(/No se pudo validar|incidencias|no cumple el contrato|formato no compatible/i, { timeout: 20_000 });
     const listadoTrasError = await request.get(`${base}/banco-preguntas?periodoId=${encodeURIComponent(periodoId)}`, { headers });
     expect((await listadoTrasError.json()).preguntas ?? []).toHaveLength(preguntasManuales.length);
 

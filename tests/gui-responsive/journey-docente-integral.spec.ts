@@ -369,7 +369,7 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '30_omr_panel_carga.png'), fullPage: true });
 
     await page.getByRole('button', { name: 'Procesar capturas', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Job OMR', exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: 'Trabajo OMR', exact: true })).toBeVisible({ timeout: 60_000 });
     await page.screenshot({ path: path.join(outputDir, '31_omr_job_procesando.png'), fullPage: true });
 
     const finalizarOmr = page.getByRole('button', { name: 'Finalizar job', exact: true });
