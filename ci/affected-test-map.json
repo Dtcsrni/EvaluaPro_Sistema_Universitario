@@ -81,6 +81,7 @@
     "frontend": {
       "paths": [
         "apps/frontend/**",
+        "tests/gui-responsive/**",
         "client/**",
         "scripts/wcag-guard.mjs",
         "scripts/tests/ui-contrast-audit.mjs",
