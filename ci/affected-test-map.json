@@ -81,6 +81,7 @@
     "frontend": {
       "paths": [
         "apps/frontend/**",
+        "tests/gui-responsive/**",
         "client/**",
         "scripts/wcag-guard.mjs",
         "scripts/tests/ui-contrast-audit.mjs",
@@ -96,6 +97,15 @@
         "npm run test:frontend:coverage:min",
         "npm -C apps/frontend run build"
       ]
+    },
+    "gui_e2e": {
+      "paths": [
+        "tests/gui-responsive/**"
+      ],
+      "commands": [
+        "npm run test:e2e:journeys:ci"
+      ],
+      "escalate": "full-extended"
     },
     "portal": {
       "paths": [
@@ -185,14 +195,14 @@
         "scripts/tests/ci-workflow-contract.test.mjs",
         "scripts/tests/candidate-clean-guard.test.mjs",
         "scripts/tests/affected-ci-resolver.test.mjs",
-        "scripts/tests/windows-release-smoke.test.mjs",
         ".github/workflows/ci*.yml",
         "ci/**"
       ],
       "commands": [
         "npm run pipeline:contract:check",
         "npm run test:security:policy"
-      ]
+      ],
+      "escalate": "full-extended"
     },
     "performance": {
       "paths": [

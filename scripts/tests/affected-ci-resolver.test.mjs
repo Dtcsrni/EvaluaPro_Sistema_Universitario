@@ -30,6 +30,21 @@ test('frontend-only activa frontend y ux, pero no backend ni perf/compliance', (
   assert.equal(result.matchedJobs.ext_compliance_evidencia, false);
 });
 
+test('los cambios en los E2E de GUI ejecutan el gate visual y funcional', () => {
+  const result = evaluateAffectedChangeSet(config, [
+    'tests/gui-responsive/journey-docente-integral.spec.ts',
+    'tests/gui-responsive/responsive-docente.spec.ts'
+  ]);
+
+  assert.equal(result.matchedGroups.frontend, true);
+  assert.equal(result.matchedGroups.gui_e2e, true);
+  assert.equal(result.escalation, 'full-extended');
+  assert.equal(result.matchedJobs.core_frontend, true);
+  assert.equal(result.matchedGates['ux-visual-check'], true);
+  assert.equal(result.matchedJobs.ext_funcionales, true);
+  assert.ok(result.selectedJobs.includes('ext_funcionales'));
+});
+
 test('guardas WCAG activan frontend antes de integrar cambios en PR', () => {
   const guards = [
     'scripts/wcag-guard.mjs',
@@ -57,11 +72,11 @@ test('docs-only activa docs y evita gates extended no relacionados', () => {
   assert.equal(result.matchedJobs.ext_compliance_evidencia, false);
 });
 
-test('cambios CI y release ejecutan contratos específicos sin correr todos los gates extendidos', () => {
+test('cambios CI escalan el workflow a gates extendidos sin seleccionar jobs funcionales directamente', () => {
   const fromCi = evaluateAffectedChangeSet(config, ['ci/pipeline.matrix.json']);
   const fromRelease = evaluateAffectedChangeSet(config, ['scripts/release/promote-stable.mjs']);
 
-  assert.equal(fromCi.escalation, 'affected');
+  assert.equal(fromCi.escalation, 'full-extended');
   assert.equal(fromCi.matchedGroups.ci_tooling, true);
   assert.equal(fromCi.matchedJobs.core_contract_docs_gov, true);
   assert.equal(fromCi.matchedJobs.ext_funcionales, false);
@@ -84,11 +99,11 @@ test('workflow Package Images y contratos de workflows activan las suites que va
   assert.equal(packageWorkflow.matchedGates['perf-check'], false);
   assert.equal(workflowContract.matchedGroups.ci_tooling, true);
   assert.equal(workflowContract.matchedGroups.shared, false);
-  assert.equal(workflowContract.escalation, 'affected');
+  assert.equal(workflowContract.escalation, 'full-extended');
   assert.equal(workflowContract.matchedJobs.core_contract_docs_gov, true);
   assert.equal(rootScriptPolicy.matchedGroups.ci_tooling, true);
   assert.equal(rootScriptPolicy.matchedGroups.shared, false);
-  assert.equal(rootScriptPolicy.escalation, 'affected');
+  assert.equal(rootScriptPolicy.escalation, 'full-extended');
   assert.equal(rootScriptPolicy.matchedJobs.ext_funcionales, false);
 });
 
