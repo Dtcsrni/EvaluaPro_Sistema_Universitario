@@ -202,7 +202,8 @@
       "commands": [
         "npm run pipeline:contract:check",
         "npm run test:security:policy"
-      ]
+      ],
+      "escalate": "full-extended"
     },
     "performance": {
       "paths": [
