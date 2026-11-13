@@ -72,15 +72,15 @@ test('docs-only activa docs y evita gates extended no relacionados', () => {
   assert.equal(result.matchedJobs.ext_compliance_evidencia, false);
 });
 
-test('cambios CI y release ejecutan contratos específicos sin correr todos los gates extendidos', () => {
+test('cambios en CI escalan a suites extendidas para producir los checks requeridos', () => {
   const fromCi = evaluateAffectedChangeSet(config, ['ci/pipeline.matrix.json']);
   const fromRelease = evaluateAffectedChangeSet(config, ['scripts/release/promote-stable.mjs']);
 
-  assert.equal(fromCi.escalation, 'affected');
+  assert.equal(fromCi.escalation, 'full-extended');
   assert.equal(fromCi.matchedGroups.ci_tooling, true);
   assert.equal(fromCi.matchedJobs.core_contract_docs_gov, true);
-  assert.equal(fromCi.matchedJobs.ext_funcionales, false);
-  assert.equal(fromCi.matchedJobs.ext_perf_arquitectura, false);
+  assert.equal(fromCi.matchedJobs.ext_funcionales, true);
+  assert.equal(fromCi.matchedJobs.ext_perf_arquitectura, true);
   assert.equal(fromRelease.escalation, 'affected');
   assert.equal(fromRelease.matchedGroups.release, true);
   assert.equal(fromRelease.matchedJobs.core_contract_docs_gov, true);
@@ -99,12 +99,12 @@ test('workflow Package Images y contratos de workflows activan las suites que va
   assert.equal(packageWorkflow.matchedGates['perf-check'], false);
   assert.equal(workflowContract.matchedGroups.ci_tooling, true);
   assert.equal(workflowContract.matchedGroups.shared, false);
-  assert.equal(workflowContract.escalation, 'affected');
+  assert.equal(workflowContract.escalation, 'full-extended');
   assert.equal(workflowContract.matchedJobs.core_contract_docs_gov, true);
   assert.equal(rootScriptPolicy.matchedGroups.ci_tooling, true);
   assert.equal(rootScriptPolicy.matchedGroups.shared, false);
-  assert.equal(rootScriptPolicy.escalation, 'affected');
-  assert.equal(rootScriptPolicy.matchedJobs.ext_funcionales, false);
+  assert.equal(rootScriptPolicy.escalation, 'full-extended');
+  assert.equal(rootScriptPolicy.matchedJobs.ext_funcionales, true);
 });
 
 test('cambios del actualizador activan su suite enfocada en Core', () => {
