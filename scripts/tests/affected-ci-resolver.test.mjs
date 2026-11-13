@@ -72,15 +72,15 @@ test('docs-only activa docs y evita gates extended no relacionados', () => {
   assert.equal(result.matchedJobs.ext_compliance_evidencia, false);
 });
 
-test('cambios en CI escalan a suites extendidas para producir los checks requeridos', () => {
+test('cambios CI escalan el workflow a gates extendidos sin seleccionar jobs funcionales directamente', () => {
   const fromCi = evaluateAffectedChangeSet(config, ['ci/pipeline.matrix.json']);
   const fromRelease = evaluateAffectedChangeSet(config, ['scripts/release/promote-stable.mjs']);
 
   assert.equal(fromCi.escalation, 'full-extended');
   assert.equal(fromCi.matchedGroups.ci_tooling, true);
   assert.equal(fromCi.matchedJobs.core_contract_docs_gov, true);
-  assert.equal(fromCi.matchedJobs.ext_funcionales, true);
-  assert.equal(fromCi.matchedJobs.ext_perf_arquitectura, true);
+  assert.equal(fromCi.matchedJobs.ext_funcionales, false);
+  assert.equal(fromCi.matchedJobs.ext_perf_arquitectura, false);
   assert.equal(fromRelease.escalation, 'affected');
   assert.equal(fromRelease.matchedGroups.release, true);
   assert.equal(fromRelease.matchedJobs.core_contract_docs_gov, true);
@@ -104,7 +104,7 @@ test('workflow Package Images y contratos de workflows activan las suites que va
   assert.equal(rootScriptPolicy.matchedGroups.ci_tooling, true);
   assert.equal(rootScriptPolicy.matchedGroups.shared, false);
   assert.equal(rootScriptPolicy.escalation, 'full-extended');
-  assert.equal(rootScriptPolicy.matchedJobs.ext_funcionales, true);
+  assert.equal(rootScriptPolicy.matchedJobs.ext_funcionales, false);
 });
 
 test('cambios del actualizador activan su suite enfocada en Core', () => {
