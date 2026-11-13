@@ -97,7 +97,7 @@ test('el detector de CI publica el plan affected y preserva su código de error'
   const step = extractStepBlock(detector, 'Resolver impacto canónico de CI');
 
   assert.match(step, /set -o pipefail/);
-  assert.match(step, /resolve-affected-ci\\.mjs[^\\n]*\\| tee reports\\.affected-ci\\.json/);
+  assert.match(step, /resolve-affected-ci\.mjs[^\n]*\| tee reports\.affected-ci\.json/);
 });
 
 test('la suite OMR canónica tiene un único dueño automático', () => {
