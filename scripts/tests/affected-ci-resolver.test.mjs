@@ -37,6 +37,8 @@ test('los cambios en los E2E de GUI ejecutan el gate visual y funcional', () => 
   ]);
 
   assert.equal(result.matchedGroups.frontend, true);
+  assert.equal(result.matchedGroups.gui_e2e, true);
+  assert.equal(result.escalation, 'full-extended');
   assert.equal(result.matchedJobs.core_frontend, true);
   assert.equal(result.matchedGates['ux-visual-check'], true);
   assert.equal(result.matchedJobs.ext_funcionales, true);
