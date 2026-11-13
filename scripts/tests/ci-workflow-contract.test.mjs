@@ -91,6 +91,15 @@ test('CI centraliza Node y no oculta fallos de suites con reintentos generales',
   }
 });
 
+test('el detector de CI publica el plan affected y preserva su código de error', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const detector = extractJobBlock(workflow, 'detectar_cambios');
+  const step = extractStepBlock(detector, 'Resolver impacto canónico de CI');
+
+  assert.match(step, /set -o pipefail/);
+  assert.match(step, /resolve-affected-ci\\.mjs[^\\n]*\\| tee reports\\.affected-ci\\.json/);
+});
+
 test('la suite OMR canónica tiene un único dueño automático', () => {
   const central = fs.readFileSync(workflowPath, 'utf8');
   const backendModule = fs.readFileSync(path.join(workflowDir, 'ci-backend.yml'), 'utf8');
