@@ -30,6 +30,19 @@ test('frontend-only activa frontend y ux, pero no backend ni perf/compliance', (
   assert.equal(result.matchedJobs.ext_compliance_evidencia, false);
 });
 
+test('los cambios en los E2E de GUI ejecutan el gate visual y funcional', () => {
+  const result = evaluateAffectedChangeSet(config, [
+    'tests/gui-responsive/journey-docente-integral.spec.ts',
+    'tests/gui-responsive/responsive-docente.spec.ts'
+  ]);
+
+  assert.equal(result.matchedGroups.frontend, true);
+  assert.equal(result.matchedJobs.core_frontend, true);
+  assert.equal(result.matchedGates['ux-visual-check'], true);
+  assert.equal(result.matchedJobs.ext_funcionales, true);
+  assert.ok(result.selectedJobs.includes('ext_funcionales'));
+});
+
 test('guardas WCAG activan frontend antes de integrar cambios en PR', () => {
   const guards = [
     'scripts/wcag-guard.mjs',
