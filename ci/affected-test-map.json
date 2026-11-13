@@ -98,6 +98,15 @@
         "npm -C apps/frontend run build"
       ]
     },
+    "gui_e2e": {
+      "paths": [
+        "tests/gui-responsive/**"
+      ],
+      "commands": [
+        "npm run test:e2e:journeys:ci"
+      ],
+      "escalate": "full-extended"
+    },
     "portal": {
       "paths": [
         "apps/portal_alumno_cloud/**"
