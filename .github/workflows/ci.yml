@@ -74,7 +74,9 @@ jobs:
 
       - name: Resolver impacto canónico de CI
         id: affected
-        run: node scripts/testing/resolve-affected-ci.mjs --github-output="$GITHUB_OUTPUT" > reports.affected-ci.json
+        run: |
+          set -o pipefail
+          node scripts/testing/resolve-affected-ci.mjs --github-output="$GITHUB_OUTPUT" | tee reports.affected-ci.json
 
   core_contract_docs_gov:
     name: Core Contract/Docs/Gov
