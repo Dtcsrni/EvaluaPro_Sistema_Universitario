@@ -404,7 +404,7 @@ describe('pdf layout visual guard', () => {
     expect([header.x, header.y, header.width, header.height].map((valor) => Number(valor.toFixed(5))))
       .toEqual([32.34646, 590.65354, 547.30709, 173]);
     expect([qr.x, qr.y, qr.width, qr.height].map((valor) => Number(valor.toFixed(5))))
-      .toEqual([418.64567, 643.93701, 107.71654, 119.71654]);
+      .toEqual([418.64567, 645.93701, 107.71654, 117.71654]);
     expect([reactivo.bboxPregunta!.x, reactivo.bboxPregunta!.y, reactivo.bboxPregunta!.width, reactivo.bboxPregunta!.height]
       .map((valor) => Number(valor.toFixed(5))))
       .toEqual([28.34646, 551.24370, 551.30709, 29.29173]);

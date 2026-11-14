@@ -1107,7 +1107,7 @@ async function agregarQr(
   const padding = perfil.qrPadding;
   // La clave compuesta tiene una franja propia debajo del QR; el cálculo de `y`
   // conserva la posición física del símbolo aunque la tarjeta crezca hacia abajo.
-  const captionHeight = 12;
+  const captionHeight = 10;
   const cardW = qrSize + padding * 2;
   const cardH = qrSize + padding * 2 + captionHeight;
 
@@ -2107,7 +2107,7 @@ export class PdfKitRenderer {
     // alturas tipográficas de las dos etiquetas.
     const sizeCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera);
     const altoZonaCalificacionEstimado = sizeCalificacionEstimado
-      + (perfilCompactoAltaDensidad ? 10 : 16);
+      + (perfilCompactoAltaDensidad ? 10 : 15);
     // Reducir la reserva base recupera espacio para el primer reactivo sin
     // tocar logos, QR ni la geometría OMR. La rama larga conserva holgura
     // adicional y ambas quedan protegidas por las aserciones de colisión.
@@ -2404,7 +2404,10 @@ export class PdfKitRenderer {
       // reducido conserva ese bloque aun cuando la cabecera se comprime.
       const filaUnicaZonaCalificacion = perfilCompactoAltaDensidad;
       const altoCajaCalificacionCompacta = sizeCalificacionEstimado + (filaUnicaZonaCalificacion ? 6 : 12);
-      if (esPrimera && cardY - yCaja - 2 >= (filaUnicaZonaCalificacion ? altoCajaCalificacionCompacta + 1 : 23)) {
+      const alturaMinimaZonaCalificacion = filaUnicaZonaCalificacion
+        ? altoCajaCalificacionCompacta + 1
+        : altoZonaCalificacionEstimado;
+      if (esPrimera && cardY - yCaja - 2 >= alturaMinimaZonaCalificacion) {
         // El espacio libre bajo la tarjeta QR se convierte en zona de
         // calificación. Cubrir el patrón complejo anterior evita que el
         // mandala se confunda con texto; encima solo se dibuja una retícula
@@ -2932,7 +2935,7 @@ export class PdfKitRenderer {
         // de su borde superior.
         const yCalificacionZona = filaUnicaZonaCalificacion
           ? cardY - sizeCampoAux - 3
-          : yCaja + 5.5;
+          : yCaja + 3.3;
         const yReactivosZonaCalificacion = yCalificacionZona + 11.5;
         const etiquetaReactivos = 'Reactivos:';
         const textoConteoReactivos = `/ ${examen.totalPreguntas}`;
@@ -3019,16 +3022,17 @@ export class PdfKitRenderer {
           width: anchoEtiquetaCalificacion,
           height: sizeCampoAux + 1
         });
+        const yLineaCalificacion = yCalificacionZona - (filaUnicaZonaCalificacion ? 3.2 : 1.5);
         page.drawLine({
-          start: { x: xLineaCalificacion, y: yCalificacionZona - 3.2 },
-          end: { x: xLineaCalificacionFin, y: yCalificacionZona - 3.2 },
+          start: { x: xLineaCalificacion, y: yLineaCalificacion },
+          end: { x: xLineaCalificacionFin, y: yLineaCalificacion },
           color: colorLinea,
           thickness: 0.8
         });
         headerFieldBoxes.push({
           id: 'calificacion-linea',
           x: xLineaCalificacion,
-          y: yCalificacionZona - 3.2,
+          y: yLineaCalificacion,
           width: Math.max(0, xLineaCalificacionFin - xLineaCalificacion),
           height: 0.8
         });
@@ -3747,6 +3751,7 @@ export class PdfKitRenderer {
         : 0;
       const rellenoPanelOmr = Math.max(0, perfilOmr.omrPanelPadding);
       const pasoPanelOmrMin = altoPanelOmrMin + separacionPanelOmr + rellenoPanelOmr * 2;
+      const reservaInferiorOmrEnPlan = omrEsquemaHorizontal ? Math.max(0, omrMargenInferior - 1.1) : 0;
       const separacionQrPanelOmrContinuacion = perfilCompacto35 || perfilCompactoCapacidadAlta ? 1 : 8;
       const fondoPrimerPanelContinuacion = rectQr.y - separacionQrPanelOmrContinuacion - omrRadio * 2 - omrMargenSuperior - omrMargenInferior;
       const capacidadPanelContinuacion = omrEsquemaHorizontal
@@ -3790,7 +3795,7 @@ export class PdfKitRenderer {
           preguntaPlan,
           limiteDerechoPlan
         );
-        if (yPlanPagina - alturaPlan < alturaDisponibleMin) break;
+        if (yPlanPagina - alturaPlan < alturaDisponibleMin + reservaInferiorOmrEnPlan) break;
         planPagina.push({ indice: indicePregunta + planPagina.length, altura: alturaPlan });
         // El renderer vuelve a ajustar cada cursor a la retícula de impresión;
         // simularlo durante la planificación evita acumular fracciones que
@@ -3799,7 +3804,7 @@ export class PdfKitRenderer {
       }
       while (planPagina.length > 0) {
         const simulacion = recalcularPlanPagina();
-        if (simulacion.yRender >= alturaDisponibleMin) {
+        if (simulacion.yRender >= alturaDisponibleMin + reservaInferiorOmrEnPlan) {
           break;
         }
         planPagina.pop();
@@ -4387,7 +4392,10 @@ export class PdfKitRenderer {
         // puntos por debajo del margen seguro porque su etiqueta inferior
         // tiene una reserva propia. Subir únicamente el panel conserva el
         // texto y evita que la impresora recorte la fila OMR.
-        const bottomCalculado = yPrimeraBurbuja - omrRadio - omrMargenInferior;
+        const bottomCalculado = yPrimeraBurbuja
+          - (omrEsquemaHorizontal ? 0 : (letras.length - 1) * pasoBurbujaVertical)
+          - omrRadio
+          - omrMargenInferior;
         if (bottomCalculado < alturaDisponibleMin) {
           yPrimeraBurbuja += alturaDisponibleMin - bottomCalculado;
         }
@@ -4436,7 +4444,7 @@ export class PdfKitRenderer {
           panelRect,
           `omr-pregunta-${numero}`
         );
-        if (panelRect.y < alturaDisponibleMin) {
+        if (panelRect.y < alturaDisponibleMin - 0.01) {
           throw new Error(
             `Layout invalido: el panel OMR ${numero} invade la zona segura inferior de la pagina ${numeroPagina}`
           );
@@ -4831,7 +4839,7 @@ export class PdfKitRenderer {
       // página densa el QR se regenera con sus preguntas reales; hacerlo antes
       // dejaría la leyenda cubierta por la segunda tarjeta blanca.
       {
-        const altoFranjaLeyendaQr = 12;
+        const altoFranjaLeyendaQr = 10;
         const anchoReservaQr = cardW;
         const leyendaQr = `${folioQr} · P${numeroPaginaPdf}`;
         const anchoLeyendaDisponible = Math.max(24, anchoReservaQr - 4);

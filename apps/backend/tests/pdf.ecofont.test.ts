@@ -66,6 +66,11 @@ describe('PDF: Ecofont y fuente OCR del pie', () => {
         return [alias.toString().slice(1), fuentePdf.get(PDFName.of('BaseFont'))?.toString() ?? ''];
       }));
       const contenidoPagina = extraerContenidoPagina(pdf, paginaPdf);
+      expect(contenidoPagina).toContain('0.72 0.7 0.67 0.02 k');
+      expect(contenidoPagina).toContain('0.75 0.73 0.7 0.02 k');
+      expect(contenidoPagina).toContain('0.9 0.2 0 0 k');
+      expect(contenidoPagina).toContain('0 0.9 0.15 0 k');
+      expect(contenidoPagina).toContain('0 0 0 1 k');
       const usosFuente = Array.from(contenidoPagina.matchAll(/\/([^\s/]+)\s+[\d.]+\s+Tf\b/g))
         .map((coincidencia) => coincidencia[1]!);
       const familiasUsadas = new Set(usosFuente.map((alias) => baseFontPorAlias.get(alias) ?? ''));
