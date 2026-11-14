@@ -12,6 +12,7 @@ import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionIn
 import { useConfirmDialog } from '../../../../../ui/feedback/ConfirmDialogProvider';
 import type { GeneratedAssessmentDetalle, OmrJobDetalle } from '../../../tipos';
 import { asociarPaginasIngestaParaManual, type CalificacionManualDesdeIngesta } from '../../../capturasRevisionManual';
+import { etiquetaEstadoPaginaOmr, etiquetaFlagOmr } from '../etiquetasOmr';
 
 export type ArchivoOmrLote = { assessmentId: string; loteId: string; etiqueta: string; cantidad: number; archivado?: boolean | null };
 export type TrabajoOmrResumen = {
@@ -222,23 +223,6 @@ function etiquetaEstadoJobOmr(estado: string) {
     finalized: 'Finalizado', review_pending: 'Revisión pendiente', pending: 'Pendiente', pendiente: 'Pendiente'
   };
   return etiquetas[estado.trim().toLowerCase()] ?? estado;
-}
-
-function etiquetaEstadoPaginaOmr(estado: string) {
-  const etiquetas: Record<string, string> = {
-    accepted: 'Aceptada', needs_review: 'Requiere revisión', rejected: 'Rechazada', ignored: 'Omitida'
-  };
-  return etiquetas[estado.trim().toLowerCase()] ?? estado;
-}
-
-function etiquetaFlagOmr(flag: string) {
-  const etiquetas: Record<string, string> = {
-    bajo_contraste: 'Bajo contraste',
-    doble_marca: 'Varias marcas',
-    LOW_CONFIDENCE: 'Confianza baja'
-  };
-  const normalizado = flag.trim();
-  return etiquetas[normalizado] ?? normalizado.replace(/[_-]+/g, ' ').replace(/^\w/, (letra) => letra.toUpperCase());
 }
 
 function mensajeErrorTrabajoOmr(job: OmrJobDetalle, esIngestaOmr: boolean, folio?: string) {
