@@ -107,4 +107,12 @@ const report = {
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 process.stdout.write(`[clean-architecture] ${ok ? 'OK' : 'FAIL'} -> ${path.relative(root, outPath)}\n`);
+if (!ok) {
+  for (const check of checks.filter((item) => !item.ok)) {
+    process.stdout.write(`[clean-architecture] FAIL ${check.id}: ${check.detail}\n`);
+  }
+  for (const error of moduleContracts.errors) {
+    process.stdout.write(`[clean-architecture] MODULE CONTRACT: ${error}\n`);
+  }
+}
 if (strict && !ok) process.exit(1);
