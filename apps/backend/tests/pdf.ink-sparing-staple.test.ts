@@ -252,6 +252,27 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
     expect(zona!.x + zona!.width).toBeLessThanOrEqual(Number(pagina.layoutDebug?.qr?.x ?? 0));
     const interseca = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
       a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+    // Regresión de OMR-STAPLE-001: la regla de calificación no debe
+    // atravesar la de grupo aunque las etiquetas no se intersecten.
+    const campos = pagina.layoutDebug?.headerFieldBoxes ?? [];
+    const iconos = pagina.layoutDebug?.headerIconBoxes ?? [];
+    const qrHeader = pagina.layoutDebug?.qr;
+    expect(qrHeader).toBeDefined();
+    expect(campos).toHaveLength(4);
+    for (const [indice, campo] of campos.entries()) {
+      expect(campo.width, campo.id).toBeGreaterThanOrEqual(10);
+      for (const otro of campos.slice(indice + 1)) {
+        expect(interseca(campo, otro), `${campo.id} invade ${otro.id}`).toBe(false);
+      }
+      for (const icono of iconos) {
+        expect(interseca(campo, icono), `${campo.id} invade ${icono.id}`).toBe(false);
+      }
+      if (campo.id === 'reactivos-linea' || campo.id === 'calificacion-linea') {
+        expect(campo.x).toBeGreaterThanOrEqual(qrHeader!.x - 6);
+        expect(campo.y + campo.height).toBeLessThan(qrHeader!.y);
+      }
+    }
+    expect(resultado.mapaOmr.paginas.flatMap((item) => item.preguntas)).toHaveLength(25);
     const cajasNoGrapables = [
       ...(pagina.layoutDebug?.headerTextBlocks ?? []),
       ...(pagina.layoutDebug?.headerIconBoxes ?? []),
