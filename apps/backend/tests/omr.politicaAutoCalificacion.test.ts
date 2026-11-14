@@ -689,26 +689,29 @@ describe('politicaAutoCalificacionOmr', () => {
     expect(competidor.motivos).not.toContain('marca_parcial_no_competitiva');
   });
 
-  it('conserva B en la pregunta 14 cuando A es residuo y C solo tiene señal débil', () => {
+  it('conserva B en la pregunta 14 cuando A solo tiene una marca mínima', () => {
+    const respuesta = {
+      opcion: 'B',
+      confianza: 1,
+      estadoRespuesta: 'respondida' as const,
+      flags: ['parcial_detectada'],
+      scoresPorOpcion: [
+        { opcion: 'A', score: 0.018, fillRatioCore: 0.04, nucleusFillRatio: 0, centroidOffsetRatio: 0.48, markConfidence: 0.06, shapeCompactness: 0.035, contraste: 0.02, estadoMarca: 'parcial' },
+        { opcion: 'B', score: 0.8983598782276364, fillRatioCore: 1, nucleusFillRatio: 1, centroidOffsetRatio: 0.034944171512788676, markConfidence: 1, shapeCompactness: 0.8736656348428794, contraste: 0.4411673294026235, estadoMarca: 'marcada' },
+        { opcion: 'C', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 1, markConfidence: 0, shapeCompactness: 0, contraste: 0, estadoMarca: 'no_marcada' },
+        { opcion: 'D', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 1, markConfidence: 0, shapeCompactness: 0, contraste: 0, estadoMarca: 'no_marcada' },
+        { opcion: 'E', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 1, markConfidence: 0, shapeCompactness: 0, contraste: 0, estadoMarca: 'no_marcada' }
+      ]
+    };
+    expect(opcionParcialDominanteRecuperable(respuesta)).toBe('B');
+
     const resultado = evaluarAutoCalificableOmr({
       estadoAnalisis: 'ok',
       calidadPagina: 0.99,
       confianzaPromedioPagina: 0.99,
       ratioAmbiguas: 0,
       coberturaDeteccion: 1,
-      respuestasDetectadas: [{
-        opcion: 'B',
-        confianza: 1,
-        estadoRespuesta: 'respondida',
-        flags: ['parcial_detectada'],
-        scoresPorOpcion: [
-          { opcion: 'B', score: 0.8983598782276364, fillRatioCore: 1, nucleusFillRatio: 1, centroidOffsetRatio: 0.034944171512788676, markConfidence: 1, shapeCompactness: 0.8736656348428794, contraste: 0.4411673294026235, estadoMarca: 'marcada' },
-          { opcion: 'C', score: 0.11102795753782672, fillRatioCore: 0.09090909090909091, nucleusFillRatio: 0, centroidOffsetRatio: 0.341096700753, markConfidence: 0.16812999724686647, shapeCompactness: 0.04505290743295098, contraste: 0.09726221490927366, estadoMarca: 'parcial' },
-          { opcion: 'A', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 0.48352483280138325, markConfidence: 0, shapeCompactness: 0.035103341920948154, contraste: 0, estadoMarca: 'no_marcada' },
-          { opcion: 'D', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 1, markConfidence: 0, shapeCompactness: 0, contraste: 0, estadoMarca: 'no_marcada' },
-          { opcion: 'E', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 1, markConfidence: 0, shapeCompactness: 0, contraste: 0, estadoMarca: 'no_marcada' }
-        ]
-      }]
+      respuestasDetectadas: [respuesta]
     });
 
     expect(resultado.hardStop).toBe(false);
