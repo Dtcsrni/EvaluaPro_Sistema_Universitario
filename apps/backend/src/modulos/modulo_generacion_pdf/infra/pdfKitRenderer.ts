@@ -2154,6 +2154,10 @@ export class PdfKitRenderer {
 
     const headerHeightFirst = this.perfilLayout.headerHeightFirst;
     const headerHeightOther = this.perfilLayout.headerHeightOther;
+    // Reserva compartida por el planificador, panel OMR y pie OCR.
+    const pieOffsetY = 0.5;
+    const pieAltura = 13;
+    const pieDespeje = 0.5;
 
     let indicePregunta = 0;
     let numeroPagina = 1;
@@ -3167,7 +3171,10 @@ export class PdfKitRenderer {
       }
       let cursorY = cursorYInicio;
 
-      const alturaDisponibleMin = margen + this.perfilLayout.bottomSafePt;
+      const alturaDisponibleMin = margen + Math.max(
+        this.perfilLayout.bottomSafePt,
+        pieOffsetY + pieAltura + pieDespeje + perfilOmr.omrPanelPadding
+      );
       const maxImagenPreguntaAncho = Math.min(anchoTextoPregunta * 0.42, 130);
       const maxImagenPreguntaAlto = 34;
       // Las cajas de texto usan baseline + lineHeight; reservar una línea
@@ -4956,9 +4963,9 @@ export class PdfKitRenderer {
     const pieY = margen + 2.5;
     const piePanel: RectBox = {
       x: posicionesPie[0]!,
-      y: margen + 0.5,
+      y: margen + pieOffsetY,
       width: ANCHO_CARTA * 0.8,
-      height: 13
+      height: pieAltura
     };
     for (const [indicePagina, paginaMeta] of paginasExamen.entries()) {
       const page = pdfDoc.getPages()[paginaMeta.numero - 1];
