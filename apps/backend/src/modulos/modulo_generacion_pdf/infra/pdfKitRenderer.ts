@@ -2039,8 +2039,11 @@ export class PdfKitRenderer {
     // Incluye el descenso de la regla inferior y su grosor, no solo las
     // alturas tipográficas de las dos etiquetas.
     const sizeCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera);
-    const altoZonaCalificacionEstimado = sizeCalificacionEstimado
-      + (perfilCompactoAltaDensidad ? 10 : 16);
+    // Debe cubrir el umbral real de activación de la zona (23 + 2 pt)
+    // y el ascendente de la primera fila; 22.4 pt activaba el fallback.
+    const altoZonaCalificacionEstimado = perfilCompactoAltaDensidad
+      ? sizeCalificacionEstimado + 10
+      : Math.max(26, sizeCalificacionEstimado + 16);
     // Reducir la reserva base recupera espacio para el primer reactivo sin
     // tocar logos, QR ni la geometría OMR. La rama larga conserva holgura
     // adicional y ambas quedan protegidas por las aserciones de colisión.
@@ -2359,6 +2362,9 @@ export class PdfKitRenderer {
         });
         dibujarPatronBloqueCaptura(page, zonaCalificacion, colorAcento, []);
       }
+      if (esPrimera && !usarZonaCalificacion) {
+        throw new Error('Layout invalido: reserva insuficiente para los campos bajo el QR');
+      }
       const rectHeader: RectBox = { x: xCaja, y: yCaja, width: wCaja, height: altoEncabezado };
       const rectQr: RectBox = {
         x: cardX,
@@ -2602,13 +2608,9 @@ export class PdfKitRenderer {
          const xLineaGrupo = xLineaGrupoFin - anchoCampoGrupo;
          const xEtiquetasGrupo = xLineaGrupo - anchoEtiquetaGrupo - 8;
          const xIconoGrupo = xEtiquetasGrupo - 14;
-         const xAuxiliarFallback = xLineaNombre + 48;
-         // En la variante sin espacio bajo el QR, la información auxiliar
-         // comparte la fila como respaldo; se acorta solo la línea manuscrita
-         // del nombre para que todos los campos permanezcan dentro del marco.
-         const xLineaNombreFin = usarZonaCalificacion
-           ? xIconoGrupo - 8
-           : Math.min(xIconoGrupo - 8, xAuxiliarFallback - 8);
+         // Nombre y grupo tienen una fila exclusiva; la calificación y los
+         // reactivos siempre ocupan la reserva independiente bajo el QR.
+         const xLineaNombreFin = xIconoGrupo - 8;
          if (xLineaNombreFin <= xLineaNombre + 30) {
            throw new Error('Layout invalido: no queda espacio suficiente para el nombre y el grupo en una sola linea');
          }
@@ -2920,35 +2922,6 @@ export class PdfKitRenderer {
           width: Math.max(0, xLineaCalificacionFin - xLineaCalificacion),
           height: 0.8
         });
-        } else {
-          // Cabeceras compactas sin espacio bajo el QR conservan los campos
-          // en la fila izquierda; así el contenido sigue disponible en todos
-          // los perfiles sin forzar texto fuera del encabezado.
-           const sizeCampoAux = perfilCompactoAltaDensidad ? 6.4 : Math.max(4, 4.2 * fontScaleCabecera);
-           const etiquetaReactivos = 'Reactivos:';
-           const xEtiquetaReactivos = xAuxiliarFallback;
-          const anchoEtiquetaReactivos = fuenteBold.widthOfTextAtSize(etiquetaReactivos, sizeCampoAux);
-          const xLineaReactivos = xEtiquetaReactivos + anchoEtiquetaReactivos + 4;
-           const xLineaReactivosFin = Math.min(xDatosRight, xLineaReactivos + 12);
-          const textoConteoReactivos = `/ ${examen.totalPreguntas} reactivos`;
-          const anchoTextoConteoReactivos = fuente.widthOfTextAtSize(textoConteoReactivos, sizeCampoAux);
-          const xConteoReactivos = xLineaReactivosFin + 4;
-          const xEtiquetaCalificacion = xConteoReactivos + anchoTextoConteoReactivos + 5;
-          const yCalificacionFallback = yGrupo;
-          const etiquetaCalificacion = 'Calif.:';
-          const anchoEtiquetaCalificacion = fuenteBold.widthOfTextAtSize(etiquetaCalificacion, sizeCampoAux);
-          const xLineaCalificacion = xEtiquetaCalificacion + anchoEtiquetaCalificacion + 3;
-          const xLineaCalificacionFin = xDatosRight;
-          page.drawText(etiquetaReactivos, { x: xEtiquetaReactivos, y: yGrupo, size: sizeCampoAux, font: fuenteBold, color: colorPrimario });
-          headerTextBlocks.push({ id: 'reactivos-etiqueta', x: xEtiquetaReactivos, y: yGrupo, width: anchoEtiquetaReactivos, height: sizeCampoAux + 1 });
-          page.drawLine({ start: { x: xLineaReactivos, y: yGrupo + PLANTILLA_PX.campoLineOffsetY }, end: { x: xLineaReactivosFin, y: yGrupo + PLANTILLA_PX.campoLineOffsetY }, color: colorLinea, thickness: 0.8 });
-          headerFieldBoxes.push({ id: 'reactivos-linea', x: xLineaReactivos, y: yGrupo + PLANTILLA_PX.campoLineOffsetY - 0.4, width: Math.max(0, xLineaReactivosFin - xLineaReactivos), height: 0.8 });
-          page.drawText(textoConteoReactivos, { x: xConteoReactivos, y: yGrupo, size: sizeCampoAux, font: fuente, color: colorGris });
-          headerTextBlocks.push({ id: 'conteo-reactivos', x: xConteoReactivos, y: yGrupo, width: anchoTextoConteoReactivos, height: sizeCampoAux + 1 });
-          page.drawText(etiquetaCalificacion, { x: xEtiquetaCalificacion, y: yCalificacionFallback, size: sizeCampoAux, font: fuenteBold, color: colorPrimario });
-          headerTextBlocks.push({ id: 'calificacion-etiqueta', x: xEtiquetaCalificacion, y: yCalificacionFallback, width: anchoEtiquetaCalificacion, height: sizeCampoAux + 1 });
-          page.drawLine({ start: { x: xLineaCalificacion, y: yCalificacionFallback + PLANTILLA_PX.campoLineOffsetY }, end: { x: xLineaCalificacionFin, y: yCalificacionFallback + PLANTILLA_PX.campoLineOffsetY }, color: colorLinea, thickness: 0.8 });
-          headerFieldBoxes.push({ id: 'calificacion-linea', x: xLineaCalificacion, y: yCalificacionFallback + PLANTILLA_PX.campoLineOffsetY - 0.4, width: Math.max(0, xLineaCalificacionFin - xLineaCalificacion), height: 0.8 });
         }
         if (mostrarInstrucciones && instrucciones.length > 0) {
           // La etiqueta y el texto comparten una banda horizontal. El texto
@@ -3125,7 +3098,7 @@ export class PdfKitRenderer {
           }
         }
       }
-      for (const field of headerFieldBoxes) {
+      for (const [indiceCampo, field] of headerFieldBoxes.entries()) {
         assertRectContenida(field, rectHeader, `campo ${field.id} de la cabecera de la pagina ${numeroPagina}`);
         if (rectInterseca(field, rectQr)) {
           collisionBoxes.push({ pagina: numeroPagina, a: field.id, b: 'qr' });
@@ -3133,6 +3106,16 @@ export class PdfKitRenderer {
         for (const textBlock of headerTextBlocks) {
           if (rectInterseca(field, textBlock)) {
             collisionBoxes.push({ pagina: numeroPagina, a: field.id, b: textBlock.id });
+          }
+        }
+        for (const otro of headerFieldBoxes.slice(indiceCampo + 1)) {
+          if (rectInterseca(field, otro)) {
+            collisionBoxes.push({ pagina: numeroPagina, a: field.id, b: otro.id });
+          }
+        }
+        for (const icon of headerIconBoxes) {
+          if (rectInterseca(field, icon)) {
+            collisionBoxes.push({ pagina: numeroPagina, a: field.id, b: icon.id });
           }
         }
       }
